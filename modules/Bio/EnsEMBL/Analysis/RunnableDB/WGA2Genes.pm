@@ -50,8 +50,13 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Analysis::Runnable::AlignmentNets;
 use Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;
 
+use IO::String;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+
+
+my $GENE_SCAFFOLD_INTER_PIECE_PADDING = 100;
+my $MAX_EXON_READTHROUGH_DIST = 15;
 
 ############################################################
 sub new {
@@ -196,18 +201,10 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-  my @blocks_used;
+  my (@blocks_used, @results);
   my @alignment_chains = @{$self->genomic_align_block_chains};
 
   my @cds_feats = @{$self->get_all_transcript_cds_features(@{$self->get_all_Transcripts($self->gene)})};
-
-
-  printf("%s \#SUMMARY (%s/%d-%d %d)\n",
-         $self->gene->stable_id,
-         $self->gene->seq_region_name,
-         $self->gene->start,
-         $self->gene->end, 
-         $self->gene->strand);
 
   for(my $iteration=0; ;$iteration++) {
     my $net_blocks = $self->make_alignment_net(\@alignment_chains, \@blocks_used);
@@ -231,51 +228,78 @@ sub run {
 
     my ($gene_scaffold, 
         $query_to_genescaf_map,
-        $target_to_genescaf_map) = 
+        $target_to_genescaf_map,
+        $warnings) = 
             $self->gene_scaffold_from_projection($self->gene->stable_id . "-" . $iteration, 
                                                  \@projected_cds_feats);
 
-    if (not defined $gene_scaffold) {
-      # inconsistent assembly; be conservative and dont process further down for now
-      last;
-    }
-    
-    my @realigned_trans;
+    my $result = {
+      gene_scaffold         => $gene_scaffold,
+      mapper                => $target_to_genescaf_map,
+      warnings              => $warnings,
+      transcripts           => [],
+    };
+
+    $self->write_agp(\*STDOUT, $gene_scaffold, $target_to_genescaf_map, $warnings);
+
+    my @transcripts;
     foreach my $tran (@{$self->get_all_Transcripts($self->gene)}) {
-      my @trans_frags;
-      #@trans_frags = $self->align_protein($gene_scaffold,
-      #                                    $self->get_translation($tran),
-      #                                    $tran->strand);  
+
       my $proj_trans = $self->make_projected_transcript($tran,
                                                         $gene_scaffold,
-                                                        $query_to_genescaf_map);
-                                                        
-
+                                                        $query_to_genescaf_map,
+                                                        $target_to_genescaf_map);
       if (defined $proj_trans) {
-        push @realigned_trans,  {
-          original => $tran,
-          #projected => $self->process_transcripts($gene_scaffold, [$proj_trans]),
-          projected => $proj_trans,
-          realigned => $self->process_transcripts($gene_scaffold, \@trans_frags),
-        };
+        # for the first, top level net, we split the transcript across stops. 
+        # For subsequent Nets, we reject if the transcript contains stops
+        $proj_trans = $self->process_transcript($gene_scaffold, 
+                                                $proj_trans, 
+                                                0);
+        if (defined $proj_trans) {
+          push @transcripts, $proj_trans;
+        }
       }
     }
     
-    $self->write_report($iteration,
-                        $self->gene,
-                        $gene_scaffold,
-                        $target_to_genescaf_map,
-                        \@projected_cds_feats,
-                        \@realigned_trans);
-
-    # record which alignment blocks were used in this iteration for the next
-    # for now though, just do one iteration
-    #last;
+    if (@transcripts) {
+      push @{$result->{transcripts}}, @{$self->make_nr_transcript_set(\@transcripts, 
+                                                                      $gene_scaffold,
+                                                                      $target_to_genescaf_map)};
+    }
+    
+    push @results, $result;
   }
+
+  $self->output(\@results);
 }
+
 
 sub write_output {
   my ($self) = @_;
+
+  my $gene = $self->gene;
+  print  "#\n";
+  printf("# WGA2Genes output for gene %s (%s/%d-%d %s)\n", 
+         $gene->stable_id, 
+         $gene->slice->seq_region_name,
+         $gene->start,
+         $gene->end,
+         $gene->strand);
+  print "#\n";
+
+  foreach my $obj (@{$self->output}) {
+    my $gs = $obj->{gene_scaffold};
+    my $map = $obj->{mapper};
+    my $warns = $obj->{warnings};
+    my @transcripts = @{$obj->{transcripts}};
+
+    # determine whether there is any output for this gene scaffold
+    if (@transcripts > 0) {
+
+      $self->write_agp(\*STDOUT, $gs, $map, $warns);
+      $self->write_gene(\*STDOUT, $gs, @transcripts);
+    }
+  }
 
   # do nothing
 
@@ -286,23 +310,6 @@ sub write_output {
 ######################################
 # internal methods
 #####################################
-
-sub make_alignment_net_old {
-  my ($self, $raw_chains, $excluded_regions) = @_;
-
-  my @blocks;
-  foreach my $chain (@{$raw_chains}) {
-    foreach my $block (@{$chain}) {
-      push @blocks, $block;
-    }
-  }
-
-  @blocks = sort { 
-    $a->reference_genomic_align->dnafrag_start <=> $b->reference_genomic_align->dnafrag_start;
-  } @blocks;
-
-  return \@blocks;
-}
 
 
 
@@ -430,7 +437,18 @@ sub align_protein {
   }    
   
   $runnable->run;
-  return @{$runnable->output};
+
+  my @ret_trans;
+  foreach my $t (@{$runnable->output}) {
+    foreach my $e (@{$t->get_all_Exons}) {
+      $e->slice($genomic);
+    }
+    push @ret_trans, $t;
+  }
+
+  @ret_trans = @{$self->make_consistent_transcript_set(\@ret_trans)};
+
+  return \@ret_trans;
 }
 
 
@@ -607,87 +625,69 @@ sub map_feature_to_target {
 =cut
 
 sub gene_scaffold_from_projection {
-  my ($self, $header, $projected_exon_elements) = @_;
+  my ($self, $gene_scaffold_id, $projected_cds_elements) = @_;
 
-  my @projected_exon_elements = @$projected_exon_elements;
+  my @projected_cds_elements = @$projected_cds_elements;
 
-  my (@target_coords, @new_targets);
+  my (@targets, @new_targets);
 
   # step 0: flatten list
-  my $ex_num = $self->gene->strand > 0 ? 1 : scalar(@projected_exon_elements);
-  foreach my $ex (@projected_exon_elements) {
-    foreach my $coord_pair (@$ex) {
+  my $cds_num = $self->gene->strand > 0 ? 1 : scalar(@projected_cds_elements);
+  foreach my $cds (@projected_cds_elements) {
+    foreach my $coord_pair (@$cds) {
       my $coord = $coord_pair->{target};
 
-      push @target_coords, {
-        exon  => $ex_num,
-        exons => { $ex_num => 1 },
-        coord => $coord,
+      push @targets, {
+        cds_id  => $cds_num,
+        coord   => $coord,
       };
     }
-    $ex_num += $self->gene->strand;
+    $cds_num += $self->gene->strand;
   }
 
-  ############ DEBUG
-  #if (0) {
-    foreach my $fragp (@target_coords) {
-      my $frag = $fragp->{coord};
-      if ($frag->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        printf "$header BEFORE SEG: %s %d %d %s ", $frag->id, $frag->start, $frag->end, $frag->strand;
-      } else {
-        printf "$header BEFORE GAP: %d %d (%d) ", $frag->start, $frag->end, $frag->end - $frag->start + 1; 
-      }
-      print "[";
-      foreach my $k (sort {$a <=> $b} keys %{$fragp->{exons}}) {
-        print " $k ";
-      }
-      print "]\n";
-    }
-  #}
-  
 
   # step 1 remove gaps which cannot be filled
   @new_targets = ();
-  for(my $i=0; $i < @target_coords; $i++) {
-    my $this_coord = $target_coords[$i];
+  for(my $i=0; $i < @targets; $i++) {
+    my $this_target = $targets[$i];
 
-    if ($this_coord->{coord}->isa("Bio::EnsEMBL::Mapper::Gap")) {
+    if ($this_target->{coord}->isa("Bio::EnsEMBL::Mapper::Gap")) {
       # if it's gap that can be filled, leave it. Otherwise, remove it
-      my ($left_coord, $right_coord);
-      for(my $j=$i-1; $j >=0; $j--) {
-        if ($target_coords[$j]->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-          $left_coord = $target_coords[$j];
+      my ($left_target, $right_target);
+      for(my $j=$i-1; $j>=0; $j--) {
+        if ($targets[$j]->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+          $left_target = $targets[$j];
           last;
         }
       }
-      for(my $j=$i+1; $j < @target_coords; $j++) {
-        if ($target_coords[$j]->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-          $right_coord = $target_coords[$j];
+      for(my $j=$i+1; $j < @targets; $j++) {
+        if ($targets[$j]->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+          $right_target = $targets[$j];
           last;
         }
       }
 
       # under what circumstances can this gap NOT be filled?
-      # 1. If one of the flanking coords is on the same exon
+      # 1. If one of the flanking coords is on the same CDS region
       #    as the gap, and the end of the aligned region does
       #    not align to a gap
       # 2. If the 2 flanking coords are consistent and not
       #    separated by a sequence-level gap
       my $keep_gap = 1;
 
-      if (defined $left_coord and 
-          defined $right_coord and
-          $self->check_consistent_coords($left_coord->{coord}, 
-                                         $right_coord->{coord})) {
+      if (defined $left_target and 
+          defined $right_target and
+          $self->check_consistent_coords($left_target->{coord}, 
+                                         $right_target->{coord})) {
         
-        my ($left, $right) = ($left_coord->{coord}, 
-                              $right_coord->{coord});
-        if ($left->strand < 0) {
-          ($left, $right) = ($right, $left);
+        my ($left_coord, $right_coord) = ($left_target->{coord}, 
+                                          $right_target->{coord});
+        if ($left_coord->strand < 0) {
+          ($left_coord, $right_coord) = ($right_coord, $left_coord);
         }
         my ($new_left, $new_right) = 
-            $self->separate_coords($left, $right,
-                                   $self->target_slices->{$left_coord->{coord}->id});
+            $self->separate_coords($left_coord, $right_coord,
+                                   $self->target_slices->{$left_coord->id});
         
         if (not defined $new_left and not defined $new_right) {
           $keep_gap = 0;
@@ -696,27 +696,27 @@ sub gene_scaffold_from_projection {
 
 
       if ($keep_gap and 
-          defined $left_coord and 
-          $left_coord->{exon} == $this_coord->{exon}) {
+          defined $left_target and 
+          $left_target->{cds_id} == $this_target->{cds_id}) {
         
         my ($new_left, $dummy);
-        if ($left_coord->{coord}->strand < 0) {
+        if ($left_target->{coord}->strand < 0) {
           ($dummy, $new_left) = 
               $self->separate_coords(undef,
-                                     $left_coord->{coord}, 
-                                     $self->target_slices->{$left_coord->{coord}->id});
+                                     $left_target->{coord}, 
+                                     $self->target_slices->{$left_target->{coord}->id});
 
-          if (abs($new_left->start - $left_coord->{coord}->start) > 10) {
+          if (abs($new_left->start - $left_target->{coord}->start) > 10) {
             # we're not near the end of a contig. This gap cannot be filled;
             $keep_gap = 0;
           }
         } else {
           ($new_left, $dummy) = 
-              $self->separate_coords($left_coord->{coord}, 
+              $self->separate_coords($left_target->{coord}, 
                                      undef,
-                                     $self->target_slices->{$left_coord->{coord}->id});
+                                     $self->target_slices->{$left_target->{coord}->id});
 
-          if (abs($new_left->end - $left_coord->{coord}->end) > 10) {
+          if (abs($new_left->end - $left_target->{coord}->end) > 10) {
             # we're not near the end of a contig. This gap cannot be filled;
             $keep_gap = 0;
           }
@@ -724,27 +724,27 @@ sub gene_scaffold_from_projection {
       }
 
       if ($keep_gap and 
-          defined $right_coord and
-          $right_coord->{exon} == $this_coord->{exon}) {
+          defined $right_target and
+          $right_target->{cds_id} == $this_target->{cds_id}) {
 
         my ($dummy, $new_right);
-        if ($right_coord->{coord}->{strand} < 0) {
+        if ($right_target->{coord}->{strand} < 0) {
           ($new_right, $dummy) = 
-              $self->separate_coords($right_coord->{coord}, 
+              $self->separate_coords($right_target->{coord}, 
                                      undef,
-                                     $self->target_slices->{$right_coord->{coord}->id});
+                                     $self->target_slices->{$right_target->{coord}->id});
 
-          if (abs($right_coord->{coord}->end - $new_right->end) > 10) {
+          if (abs($right_target->{coord}->end - $new_right->end) > 10) {
             # we're not near the end of a contig. This gap cannot be filled;
             $keep_gap = 0;
           }
         } else {
           ($dummy, $new_right) = 
               $self->separate_coords(undef,
-                                     $right_coord->{coord}, 
-                                     $self->target_slices->{$right_coord->{coord}->id});
+                                     $right_target->{coord}, 
+                                     $self->target_slices->{$right_target->{coord}->id});
 
-          if (abs($right_coord->{coord}->start - $new_right->start) > 10) {
+          if (abs($right_target->{coord}->start - $new_right->start) > 10) {
             # we're not near the end of a contig. This gap cannot be filled;
             $keep_gap = 0;
           }
@@ -752,297 +752,201 @@ sub gene_scaffold_from_projection {
       }
       
       if ($keep_gap) {
-        push @new_targets, $target_coords[$i];
+        push @new_targets, $targets[$i];
       }
 
     } else {
-      push @new_targets, $target_coords[$i];
+      push @new_targets, $targets[$i];
     }
   }
-  @target_coords = @new_targets;
+  @targets = @new_targets;
 
+  # step 2: prune away gaps at the start and end; we won't "fill" these
+  while(@targets and $targets[0]->{coord}->isa("Bio::EnsEMBL::Mapper::Gap")) {
+    shift @targets;
+  }
+  while(@targets and $targets[-1]->{coord}->isa("Bio::EnsEMBL::Mapper::Gap")) {
+    pop @targets;
+  }
 
-  ############ DEBUG
-  if (0) {
-    print "\nAFTER REMOVING UNPLUGGABE GAPS\n";
-    foreach my $fragp (@target_coords) {
-      my $frag = $fragp->{coord};
-      if ($frag->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        printf "SEG: %s %d %d %s ", $frag->id, $frag->start, $frag->end, $frag->strand;
-      } else {
-        printf "GAP: %d %d (%d) ", $frag->start, $frag->end, $frag->end - $frag->start + 1; 
-      }
-      print "[";
-      foreach my $k (sort {$a <=> $b} keys %{$fragp->{exons}}) {
-        print " $k";
-      }
-      print "]\n";
-    }
-  }    
-  ##########################
-
-  # step 2: merge adjacent targets   
+  # step 3: merge adjacent targets   
+  #  we want to be able to account for small, frame-preserving insertions
+  #  in the target sequence with respect to the query. To give the later,
+  #  gene-projection code the opportunity to "read through" these insertions,
+  #  we have to merge togther adjacent, consistent targets that are within
+  #  this "maximum read-through" distance
   @new_targets = ();
-  foreach my $target_coord (@target_coords) {
+  for(my $i=0; $i<@targets; $i++) {
+    my $target = $targets[$i];
 
-    if ($target_coord->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate") and
+    if ($target->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate") and
         @new_targets and
-        $new_targets[-1]->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate") and
+        $new_targets[-1]->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate") and 
         $self->check_consistent_coords($new_targets[-1]->{coord}, 
-                                       $target_coord->{coord})) {
+                                       $target->{coord})) {
       
-      my $last_coord = pop @new_targets;
-      my $new_coord = $self->merge_coords($last_coord->{coord},
-                                          $target_coord->{coord});
-      push @new_targets,  {
-        coord => $new_coord,
-        exons => {},
-      };
-      map { $new_targets[-1]->{exons}->{$_} = 1 } (keys %{$last_coord->{exons}}, 
-                                                   keys %{$target_coord->{exons}});
+      my $dist = $self->distance_between_coords($new_targets[-1]->{coord}, 
+                                                $target->{coord});
       
-    } else {
-      push @new_targets, $target_coord;
-    }
-  }    
-  @target_coords = @new_targets;
-
-
-  ############ DEBUG
-  if (0) {
-    print "\nAFTER MERGING ADJACENT THINGS\n";
-    foreach my $fragp (@target_coords) {
-      my $frag = $fragp->{coord};
-      if ($frag->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        printf "SEG: %s %d %d %s ", $frag->id, $frag->start, $frag->end, $frag->strand;
+      if ($dist <= $MAX_EXON_READTHROUGH_DIST) {
+        
+        my $last_target = pop @new_targets;
+        my $new_coord = $self->merge_coords($last_target->{coord},
+                                            $target->{coord});
+        
+        # check that the new merged coord will not result in an overlap
+        my $overlap = 0;
+        foreach my $tg (@new_targets) {
+          my $tg_c = $tg->{coord};
+          if ($tg_c->isa("Bio::EnsEMBL::Mapper::Coordinate") and
+              $tg_c->id eq $new_coord->id and
+              $tg_c->start < $new_coord->end and
+              $tg_c->end   > $new_coord->start) {
+            $overlap = 1;
+            last;
+          }
+        }
+        if (not $overlap) {
+          for (my $j=$i+1; $j < @targets; $j++) {
+            my $tg_c = $targets[$j]->{coord};
+            if ($tg_c->isa("Bio::EnsEMBL::Mapper::Coordinate") and
+                $tg_c->id eq $new_coord->id and$tg_c->start < $new_coord->end and
+                $tg_c->end   > $new_coord->start) {
+              $overlap = 1;
+              last;
+            }
+          }
+        }
+        
+        if ($overlap) {
+          push @new_targets, $last_target, $target;
+        } else {
+          push @new_targets,  {
+            coord => $new_coord,
+          };
+        }
       } else {
-        printf "GAP: %d %d (%d) ", $frag->start, $frag->end, $frag->end - $frag->start + 1; 
+        push @new_targets, $target;
       }
-      print "[";
-      foreach my $k (sort {$a <=> $b} keys %{$fragp->{exons}}) {
-        print " $k";
-      }
-      print "]\n";
-    }
-  }
-  ##########################
-
-  
-  
-  # step 3: extend the pieces as far as possible
-  @new_targets = ();
-  for(my $i=0; $i < @target_coords; $i++) {
-    my $this_coord = $target_coords[$i];
-
-    if ($this_coord->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-      # scan left
-      my $left_consistent;
-      for(my $j = $i-1; $j >= 0; $j--) {
-        my $that_coord = $target_coords[$j];
-        if ($that_coord->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate") and
-            $self->check_consistent_coords($that_coord->{coord}, 
-                                           $this_coord->{coord})) {
-          $left_consistent = $that_coord;
-          last;
-        }
-      }
-      # scan right
-      my $right_consistent;
-      for(my $j = $i+1; $j < @target_coords; $j++) {
-        my $that_coord = $target_coords[$j];
-        if ($that_coord->{coord}->isa("Bio::EnsEMBL::Mapper::Coordinate") and
-            $self->check_consistent_coords($this_coord->{coord}, 
-                                           $that_coord->{coord})) {
-          $right_consistent = $that_coord;
-          last;
-        }
-      }
-      
-      my $extended_left = 1;
-      my $extended_right = $self->target_slices->{$this_coord->{coord}->{id}}->length;
-      if (defined $left_consistent) {
-        if ($this_coord->{coord}->strand < 0) {
-          # left_coord will be downtream of this_coord in target
-          my ($new_right, $new_left) = 
-              $self->separate_coords($this_coord->{coord},
-                                     $left_consistent->{coord},
-                                     $self->target_slices->{$this_coord->{coord}->id});
-        
-          if (defined $new_right) {
-            $extended_right = $new_right->end;
-          }
-        } else {
-          # left_coord will be uptream of this_coord in target
-          my ($new_left, $new_right) = 
-              $self->separate_coords($left_consistent->{coord},
-                                     $this_coord->{coord},
-                                     $self->target_slices->{$this_coord->{coord}->id});
-        
-          if (defined $new_right) {
-            $extended_left = $new_right->start;
-          }
-        }
-      }
-      if (defined $right_consistent) {
-        if ($this_coord->{coord}->strand < 0) {
-          # right_coord will be uptream of this_coord in target
-          my ($new_right, $new_left) = 
-              $self->separate_coords($right_consistent->{coord},
-                                     $this_coord->{coord},
-                                     $self->target_slices->{$this_coord->{coord}->id});
-          if (defined $new_left) {
-            $extended_left = $new_left->start;
-          }
-        } else {
-          # right_coord will be downtream of this_coord in target
-          my ($new_left, $new_right) = 
-              $self->separate_coords($this_coord->{coord},
-                                     $right_consistent->{coord},
-                                     $self->target_slices->{$this_coord->{coord}->id});
-          if (defined $new_left) {
-            $extended_right = $new_left->end;
-          }          
-        }      
-      }
-
-      push @new_targets, {
-        coord => Bio::EnsEMBL::Mapper::Coordinate->new($this_coord->{coord}->id,
-                                                       $extended_left, 
-                                                       $extended_right,
-                                                       $this_coord->{coord}->strand),
-        exons => $this_coord->{exons},
-      };
     }
     else {
-      push @new_targets, $this_coord;
+      push @new_targets, $target;
     }
   }
-  @target_coords = @new_targets;
+    
+  @targets = @new_targets;
 
-  ############ DEBUG
-  #if (0) {
-    foreach my $fragp (@target_coords) {
-      my $frag = $fragp->{coord};
-      if ($frag->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        printf "$header AFTER SEG: %s %d %d %s ", $frag->id, $frag->start, $frag->end, $frag->strand;
-      } else {
-        printf "$header AFTER GAP: %d %d (%d) ", $frag->start, $frag->end, $frag->end - $frag->start + 1; 
-      }
-      print "[";
-      foreach my $k (sort {$a <=> $b} keys %{$fragp->{exons}}) {
-        print " $k";
-      }
-      print "]\n";
-    }
-  #}
-  ##########################
 
-  # check for inconsistencies; if the overlapping scaffold fragments remain, 
-  # we have an inconsistent mini-assembly (usually caused by a scaffold that 
-  # could not be sensibly split
-  FRAGS: for(my $i=0; $i<@target_coords; $i++) {
-    my $coord_i = $target_coords[$i]->{coord}; 
-    next if not $coord_i->isa("Bio::EnsEMBL::Mapper::Coordinate");
+
+  my $warn_strings = {
+    1 => "inconsistent strand",
+    2 => "inconsistent coordinate order",
+    3 => "split across single sequence-level contig",
+  };
+  my (%warnings, @warnings);
+
+  for(my $i=0; $i < @targets; $i++) {
+    my $this_coord = $targets[$i]->{coord};
+    
+    next if not $this_coord->isa("Bio::EnsEMBL::Mapper::Coordinate");
+    # scan left
+    my $seen_something_else = 0;
     for(my $j=$i-1; $j>=0; $j--) {
-      my $coord_j = $target_coords[$j]->{coord}; 
-      next if not $coord_j->isa("Bio::EnsEMBL::Mapper::Coordinate");
-      if ($coord_i->id eq $coord_j->id and
-          ($coord_i->strand ne $coord_j->strand or            
-           ($coord_i->end >= $coord_j->start and
-            $coord_i->start <= $coord_j->end))) {
-        print "$header AFTER\tINCONSISTENT\n";
-        #last FRAGS;
-        return ();
-      }           
-    }
-  }
-  print "\n";
-  #############
+      my $left_coord = $targets[$j]->{coord};
 
-
-  # Reseparate according to exons. This will not result in one element 
-  # per exon because some assembly frgaments (hopefully many) will have more
-  # than one exon
-  my (@fragments, %exons_seen);
-  foreach my $coord (@target_coords) {
-    my $common = 0;
-    foreach my $enum (keys %{$coord->{exons}}) {
-      if (exists($exons_seen{$enum})) {
-        $common = 1;
+      if ($left_coord->isa("Bio::EnsEMBL::Mapper::Gap") or
+          $left_coord->id ne $this_coord->id) {
+        $seen_something_else = 1;
+        next;
       }
-      $exons_seen{$enum} = 1;
-    }
-    if ($common) {
-      push @{$fragments[-1]}, $coord;
-    } else {
-      push @fragments, [$coord];
+          
+      # assert: both coords, with same id
+      if ($left_coord->strand != $this_coord->strand) {
+        $warnings{$left_coord->id}->{'1'} = 1;
+      } elsif (not $self->check_consistent_coords($left_coord, $this_coord)) {
+        $warnings{$left_coord->id}->{'2'} = 1;
+      } elsif ($seen_something_else) {
+        if ($left_coord->strand < 0) {
+          # $left_coord will be downstream of $this_coord in target
+          ($left_coord, $this_coord) = ($this_coord, $left_coord);
+        }
+        my ($new_left, $new_this) = 
+            $self->separate_coords($left_coord, $this_coord,
+                                   $self->target_slices->{$left_coord->id});
+        if (not defined $new_left and not defined $new_this) {
+          $warnings{$left_coord->id}->{'3'} = 1;
+        }
+      }
+      
+      last;
     }
   }
-
+  foreach my $id (keys %warnings) {
+    foreach my $code (keys %{$warnings{$id}}) {
+          
+      push @warnings, sprintf("%s : %s", $id, $warn_strings->{$code}); 
+    }
+  }
 
   ###################################
   # build the gene scaffold, and mappings between the new gene
   # scaffold and each of query and target coords
 
   my $target_map = Bio::EnsEMBL::Mapper->new('target',
-                                             'genescaffold'); 
+                                             $gene_scaffold_id); 
   my $query_map = Bio::EnsEMBL::Mapper->new('query',
-                                            'genescaffold');
-  my $gene_scaffold_id = "the_gene_scaffold";
+                                            $gene_scaffold_id);
   
   my ($seq, $last_end_pos) = ("", 0);
-  for(my $i=0; $i < @fragments; $i++) {
-    my $frag = $fragments[$i];
+  for(my $i=0; $i < @targets; $i++) {
+    my $target = $targets[$i];
+    my $coord = $target->{coord};
 
-    foreach my $coord_exons (@$frag) {
-      my $coord = $coord_exons->{coord};
-
-      if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {            
-        # the sequence itself        
-        my $slice = $self->target_slices->{$coord->id};
-        my $this_seq = $slice->get_repeatmasked_seq(['RepeatMask'],1)->seq;        
-        $this_seq = substr($this_seq,
-                           $coord->start  - 1,
-                           $coord->length);        
-        if ($coord->strand < 0) {
-          reverse_comp(\$this_seq);
-        }      
-        $seq .= $this_seq;
-        
-        # and the map
-        $target_map->add_map_coordinates($coord->id,
-                                         $coord->start,
-                                         $coord->end,
-                                         $coord->strand,
-                                         $gene_scaffold_id,
-                                         $last_end_pos + 1,
-                                         $last_end_pos + $coord->length);
-      } else {
-        # seq sequence itself
-        $seq .= ('n' x $coord->length);
-
-        # and the map. This is a target gap we have "filled", so no position 
-        # in target, but a position in query
-        $query_map->add_map_coordinates($self->gene->slice->seq_region_name,
-                                        $coord->start,
-                                        $coord->end,
-                                        1,
-                                        $gene_scaffold_id,
-                                        $last_end_pos + 1,
-                                        $last_end_pos + $coord->length);
-      }
+    if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {            
+      # the sequence itself        
+      my $slice = $self->target_slices->{$coord->id};
+      my $this_seq = $slice->get_repeatmasked_seq(['RepeatMask'],1)->seq;        
+      $this_seq = substr($this_seq,
+                         $coord->start  - 1,
+                         $coord->length);        
+      if ($coord->strand < 0) {
+        reverse_comp(\$this_seq);
+      }      
+      $seq .= $this_seq;
       
-      $last_end_pos += $coord->length;
+      # and the map
+      $target_map->add_map_coordinates($coord->id,
+                                       $coord->start,
+                                       $coord->end,
+                                       $coord->strand,
+                                       $gene_scaffold_id,
+                                       $last_end_pos + 1,
+                                       $last_end_pos + $coord->length);
+    } else {
+      $seq .= ('n' x $coord->length);
+      
+      # and the map. This is a target gap we have "filled", so no position 
+      # in target, but a position in query
+      
+      $query_map->add_map_coordinates($self->gene->slice->seq_region_name,
+                                      $coord->start,
+                                      $coord->end,
+                                      1,
+                                      $gene_scaffold_id,
+                                      $last_end_pos + 1,
+                                      $last_end_pos + $coord->length);
     }
 
-    if ($i < @fragments - 1) {
-      $seq .= ('n' x $self->GENE_SCAFFOLD_COMPONENT_PADDING);
-      $last_end_pos += $self->GENE_SCAFFOLD_COMPONENT_PADDING;
+    # add padding between the pieces
+    if ($i < @targets - 1) {
+      $last_end_pos += $coord->length + $GENE_SCAFFOLD_INTER_PIECE_PADDING;
+      $seq .= ('n' x $GENE_SCAFFOLD_INTER_PIECE_PADDING);
     }
   }
+  
 
   # now add of the original exon pieces to the query map
-  foreach my $el (@projected_exon_elements) {
+  foreach my $el (@projected_cds_elements) {
     foreach my $pair (@$el) {
       my ($q, $t) = ($pair->{query}, $pair->{target});
 
@@ -1053,7 +957,7 @@ sub gene_scaffold_from_projection {
                                                    $t->end,
                                                    $t->strand,
                                                    'target');
-        
+
         $query_map->add_map_coordinates($self->gene->slice->seq_region_name,
                                         $q->start,
                                         $q->end,
@@ -1074,7 +978,7 @@ sub gene_scaffold_from_projection {
             -start => 1,
             -end   => length($seq));
 
-  return ($gene_scaffold, $query_map, $target_map);
+  return ($gene_scaffold, $query_map, $target_map, \@warnings);
 }
 
 
@@ -1090,7 +994,7 @@ sub gene_scaffold_from_projection {
 =cut
 
 sub make_projected_transcript {
-  my ($self, $transcript, $gene_scaf, $mapper) = @_;
+  my ($self, $transcript, $gene_scaf, $qmapper, $tmapper) = @_;
 
   my (@all_coords, @new_exons);
 
@@ -1100,14 +1004,45 @@ sub make_projected_transcript {
   }
 
   foreach my $orig_exon (@orig_exons) {    
-    my @these_coords = $mapper->map_coordinates($orig_exon->slice->seq_region_name,
-                                                $orig_exon->start,
-                                                $orig_exon->end,
-                                                1,
-                                                "query");
+    my @these_coords = $qmapper->map_coordinates($orig_exon->slice->seq_region_name,
+                                                 $orig_exon->start,
+                                                 $orig_exon->end,
+                                                 1,
+                                                 "query");
     push @all_coords, @these_coords;
   }
 
+  #
+  # replace coords at start and end that map down to gaps with gaps
+  # 
+  for(my $i=0; $i < @all_coords; $i++) {
+    if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+      my ($tcoord) = $tmapper->map_coordinates($gene_scaf->seq_region_name,
+                                               $all_coords[$i]->start,
+                                               $all_coords[$i]->end,
+                                               1,
+                                               $gene_scaf->seq_region_name);
+      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        last;
+      } else {
+        $all_coords[$i] = Bio::EnsEMBL::Mapper::Gap->new(1, $tcoord->length);
+      }
+    }
+  }
+  for(my $i=scalar(@all_coords)-1; $i >= 0; $i--) {
+    if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+      my ($tcoord) = $tmapper->map_coordinates($gene_scaf->seq_region_name,
+                                               $all_coords[$i]->start,
+                                               $all_coords[$i]->end,
+                                               1,
+                                               $gene_scaf->seq_region_name);
+      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        last;
+      } else {
+        $all_coords[$i] = Bio::EnsEMBL::Mapper::Gap->new(1, $tcoord->length);
+      }
+    }
+  }
 
   my $need_another_pass;
   do {
@@ -1136,7 +1071,7 @@ sub make_projected_transcript {
       if ($frameshift) {
         my $bases_to_remove = 3 - $frameshift;      
 
-        # calculate "surplus" bases on incomplete codes to left and right
+        # calculate "surplus" bases on incomplete codons to left and right
         my ($left_surplus, $right_surplus) = (0,0);
         for(my $j=$idx-1; $j >= 0; $j--) {
           $left_surplus += $processed_coords[$j]->length;
@@ -1181,13 +1116,23 @@ sub make_projected_transcript {
     @all_coords = @processed_coords;    
   } while ($need_another_pass);
 
-
+  my ($total_transcript_bps, $real_seq_bps);
   foreach my $coord (@all_coords) {
     if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
       push @new_exons, Bio::EnsEMBL::Exon->new(-start     => $coord->start,
                                                -end       => $coord->end,
                                                -strand    => $transcript->strand,
                                                -slice     => $gene_scaf);
+
+      $total_transcript_bps += $coord->length;
+      my ($tcoord) = $tmapper->map_coordinates($gene_scaf->seq_region_name,
+                                               $coord->start,
+                                               $coord->end,
+                                               1,
+                                               $gene_scaf->seq_region_name);
+      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        $real_seq_bps += $coord->length;
+      } 
     }
   }
 
@@ -1195,14 +1140,18 @@ sub make_projected_transcript {
     return undef;
   }
 
+  #
   # sort exons into rank order 
+  #
   if ($transcript->strand < 0) {
     @new_exons = sort { $b->start <=> $a->start } @new_exons;
   } else {
     @new_exons = sort { $a->start <=> $b->start } @new_exons;
   }
 
-  # calculate phases and set translation
+  #
+  # calculate phases, and add supporting features
+  #
   my ($previous_exon);
   foreach my $exon (@new_exons) {
 
@@ -1213,8 +1162,6 @@ sub make_projected_transcript {
     }
 
     $exon->end_phase( (($exon->end - $exon->start + 1) + $exon->phase) % 3 );
-
-
 
     # need to map back to the genomic coords to get the supporting feature
     # for this exon;
@@ -1231,11 +1178,11 @@ sub make_projected_transcript {
     if ($extent_end > $extent_start) {
       # if not, we've eaten away the whole exon, so there is no support
 
-      my @gen_coords = $mapper->map_coordinates($gene_scaf->seq_region_name,
-                                                $extent_start,
-                                                $extent_end,
-                                                1,
-                                                "genescaffold");       
+      my @gen_coords = $qmapper->map_coordinates($gene_scaf->seq_region_name,
+                                                 $extent_start,
+                                                 $extent_end,
+                                                 1,
+                                                 $gene_scaf->seq_region_name);
 
       my @fps;
       my $cur_gs_start = $extent_start;
@@ -1252,7 +1199,7 @@ sub make_projected_transcript {
                                                   -start    => $cur_gs_start,
                                                   -end      => $cur_gs_end,
                                                   -strand   => $exon->strand,
-                                                  -hseqname => $transcript->stable_id,
+                                                  -hseqname => $transcript->translation->stable_id,
                                                   -hstart   => $p_coord->start,
                                                   -hend     => $p_coord->end,
                                                   -hstrand => $p_coord->strand);
@@ -1270,9 +1217,10 @@ sub make_projected_transcript {
     $previous_exon = $exon;
   }
 
-
+  #
   # merge abutting exons; deals with exon fusion events, and 
   # small, frame-preserving insertions in the target
+  #
   my @merged_exons;
   foreach my $exon (@new_exons) {
     if (@merged_exons) {
@@ -1283,13 +1231,13 @@ sub make_projected_transcript {
 
       if ($transcript->strand < 0) {
         my $intron_len = $prev_exon->start - $exon->end - 1;
-        if ($intron_len % 3 == 0 and $intron_len <= 15) { 
+        if ($intron_len % 3 == 0 and $intron_len <= $MAX_EXON_READTHROUGH_DIST) { 
           $new_start = $exon->start;
           $new_end   = $prev_exon->end;
         }
       } else {
         my $intron_len = $exon->start - $prev_exon->end - 1;
-        if ($intron_len % 3 == 0 and $intron_len <= 15) {
+        if ($intron_len % 3 == 0 and $intron_len <= $MAX_EXON_READTHROUGH_DIST) {
           $new_start = $prev_exon->start;
           $new_end   = $exon->end;
         }
@@ -1342,10 +1290,18 @@ sub make_projected_transcript {
     }
   }
   
+  #
+  # do transcript-level supporting features/attributes
+  #
   my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@trans_fps);
-  $t_sf->hcoverage(sprintf("%.1f", 100 * ($hcoverage / $transcript->translate->length)));
+  $t_sf->hcoverage(100 * ($hcoverage / $transcript->translate->length));
+  # misuse score field as the proportion of the transcript that maps to non-gap sequence
+  $t_sf->score( 100 * ($real_seq_bps / $total_transcript_bps) ); 
   $proj_tran->add_supporting_features($t_sf);
 
+  #
+  # set translation
+  #
   my $translation = Bio::EnsEMBL::Translation->new();
   $translation->start_Exon($merged_exons[0]);
   $translation->start(1);
@@ -1361,232 +1317,233 @@ sub make_projected_transcript {
 
 
 
-=head2 process_transcripts
+=head2 process_transcript
 
- Title   : process_transcripts
+ Title   : process_transcript
  Description:
-    Filters the transcripts into a self-consistent set and modifies them 
-    to skip over any in-frame stops
+
 =cut
 
-sub process_transcripts{
-  my ($self,$gene_scaffold, $trans) = @_;
-
-  foreach my $t (@$trans) {
-    foreach my $e (@{$t->get_all_Exons}) {
-      $e->slice($gene_scaffold);
-    }
-  }
+sub process_transcript {
+  my ($self,$gene_scaffold, $tran, $splice_out_stops) = @_;
   
-  my @filtered_trans = @{$self->filter_transcripts($trans)};
-
   my @processed_transcripts;
 
-  foreach my $tran (@filtered_trans) {
-    my @exons = @{$tran->get_all_Exons};
+  my @exons = @{$tran->get_all_Exons};
+  my ($tsf) = @{$tran->get_all_supporting_features};
 
-    my $pep = $tran->translate->seq;
+  ##################
+  # reject transcripts that have:
+  #   less than minimum coverage of parent peptide
+  #   higher that maximum proportion of gap residues
+  ##################
+  return undef if $tsf->hcoverage < $self->MIN_COVERAGE;
+  return undef if $tsf->score < $self->MIN_NON_GAP;
 
-    my $had_stops = 0;
-    while($pep =~ /\*/g) {
-      my $position = pos($pep);
-      my @coords = $tran->pep2genomic($position, $position);
+  my $pep = $tran->translate->seq;
 
-      if (@coords > 1) {
-        # the codon is split by an intron. Messy. Leave these for now
-        next;
-      } 
+  if ($pep !~ /\*/) {
+    return $tran;
+  } elsif (not $splice_out_stops) {
+    return undef;
+  }
 
-      my ($stop) = @coords;
- 
-      # locate the exon that this stop lies in
-      my @new_exons;
-      foreach my $exon (@exons) {
+  ##################
+  # surgery; split transcript across stops
+  ##################
 
-        if ($stop->start > $exon->start and $stop->end < $exon->end) {
-          # this stop lies completely within an exon. We split the exon
-          # into two
-          my $exon_left = Bio::EnsEMBL::Exon->new(-slice     => $exon->slice,
-                                                  -start     => $exon->start,
-                                                  -end       => $stop->start - 1,
-                                                  -strand    => $exon->strand,
-                                                  -phase     => $exon->phase,
-                                                  -end_phase => 0);
-          my $exon_right = Bio::EnsEMBL::Exon->new(-slice     => $exon->slice,
-                                                   -start     => $stop->end + 1,
-                                                   -end       => $exon->end,
-                                                   -strand    => $exon->strand,
-                                                   -phase     => 0,
-                                                   -end_phase => $exon->end_phase);
-          
-          # need to split the supporting features between the two
-          my @sfs = @{$exon->get_all_supporting_features};
-          my (@ug_left, @ug_right);
-          foreach my $f (@sfs) {
-            foreach my $ug ($f->ungapped_features) {
-
-              if ($ug->start >= $exon_left->start and $ug->end <= $exon_left->end) {
-                #completely within the left-side of the split
-                push @ug_left, $ug;
-              } elsif ($ug->start >= $exon_right->start and $ug->end <= $exon_right->end) {
-                #completely within the right-side of the split
-                push @ug_right, $ug;
+  my $had_stops = 0;
+  while($pep =~ /\*/g) {
+    my $position = pos($pep);
+    my @coords = $tran->pep2genomic($position, $position);
+    
+    if (@coords > 1) {
+      # the codon is split by an intron. Messy. Leave these for now
+      next;
+    } 
+    
+    my ($stop) = @coords;
+    
+    # locate the exon that this stop lies in
+    my @new_exons;
+    foreach my $exon (@exons) {
+      
+      if ($stop->start > $exon->start and $stop->end < $exon->end) {
+        # this stop lies completely within an exon. We split the exon
+        # into two
+        my $exon_left = Bio::EnsEMBL::Exon->new(-slice     => $exon->slice,
+                                                -start     => $exon->start,
+                                                -end       => $stop->start - 1,
+                                                -strand    => $exon->strand,
+                                                -phase     => $exon->phase,
+                                                -end_phase => 0);
+        my $exon_right = Bio::EnsEMBL::Exon->new(-slice     => $exon->slice,
+                                                 -start     => $stop->end + 1,
+                                                 -end       => $exon->end,
+                                                 -strand    => $exon->strand,
+                                                 -phase     => 0,
+                                                 -end_phase => $exon->end_phase);
+        
+        # need to split the supporting features between the two
+        my @sfs = @{$exon->get_all_supporting_features};
+        my (@ug_left, @ug_right);
+        foreach my $f (@sfs) {
+          foreach my $ug ($f->ungapped_features) {
+            
+            if ($ug->start >= $exon_left->start and $ug->end <= $exon_left->end) {
+              #completely within the left-side of the split
+              push @ug_left, $ug;
+            } elsif ($ug->start >= $exon_right->start and $ug->end <= $exon_right->end) {
+              #completely within the right-side of the split
+              push @ug_right, $ug;
+            } else {
+              # this ug must span the split
+              my $fp_left = Bio::EnsEMBL::FeaturePair->new();
+              $fp_left->seqname   ($ug->seqname);
+              $fp_left->strand    ($ug->strand);
+              $fp_left->hseqname  ($ug->hseqname);
+              $fp_left->score     ($ug->score);
+              $fp_left->percent_id($ug->percent_id);
+              $fp_left->start     ($ug->start);
+              $fp_left->end       ($stop->start - 1);
+              
+              my $fp_right = Bio::EnsEMBL::FeaturePair->new();
+              $fp_right->seqname   ($ug->seqname);
+              $fp_right->strand    ($ug->strand);
+              $fp_right->hseqname  ($ug->hseqname);
+              $fp_right->score     ($ug->score);
+              $fp_right->percent_id($ug->percent_id);
+              $fp_right->start     ($stop->end + 1);
+              $fp_right->end       ($ug->end);
+              
+              if ($exon->strand > 1) {
+                $fp_left->hstart  ($ug->hstart);
+                $fp_left->hend    ($fp_left->hstart + (($fp_left->end - $fp_left->start + 1)/3) - 1);
+                
+                $fp_right->hend   ($ug->hend);
+                $fp_right->hstart ($ug->hend - (($fp_right->end - $fp_right->start + 1)/3) + 1);
               } else {
-                # this ug must span the split
-                my $fp_left = Bio::EnsEMBL::FeaturePair->new();
-                $fp_left->seqname   ($ug->seqname);
-                $fp_left->strand    ($ug->strand);
-                $fp_left->hseqname  ($ug->hseqname);
-                $fp_left->score     ($ug->score);
-                $fp_left->percent_id($ug->percent_id);
-                $fp_left->start     ($ug->start);
-                $fp_left->end       ($stop->start - 1);
+                $fp_left->hend    ($ug->hend);
+                $fp_left->hstart  ($ug->hend - (($fp_left->end - $fp_left->start + 1)/3) + 1);
                 
-                my $fp_right = Bio::EnsEMBL::FeaturePair->new();
-                $fp_right->seqname   ($ug->seqname);
-                $fp_right->strand    ($ug->strand);
-                $fp_right->hseqname  ($ug->hseqname);
-                $fp_right->score     ($ug->score);
-                $fp_right->percent_id($ug->percent_id);
-                $fp_right->start     ($stop->end + 1);
-                $fp_right->end       ($ug->end);
-                
-                if ($exon->strand > 1) {
-                  $fp_left->hstart  ($ug->hstart);
-                  $fp_left->hend    ($fp_left->hstart + (($fp_left->end - $fp_left->start + 1)/3) - 1);
-
-                  $fp_right->hend   ($ug->hend);
-                  $fp_right->hstart ($ug->hend - (($fp_right->end - $fp_right->start + 1)/3) + 1);
-                } else {
-                  $fp_left->hend    ($ug->hend);
-                  $fp_left->hstart  ($ug->hend - (($fp_left->end - $fp_left->start + 1)/3) + 1);
-
-                  $fp_right->hstart ($ug->hstart);
-                  $fp_right->hend    ($fp_right->hstart + (($fp_right->end - $fp_right->start + 1)/3) - 1);
-                }
-
-                if ($fp_left->end >= $fp_left->start) { 
-                  push @ug_left, $fp_left;
-                }
-                if ($fp_right->end >= $fp_right->start) {
-                  push @ug_right, $fp_right;
-                }
+                $fp_right->hstart ($ug->hstart);
+                $fp_right->hend    ($fp_right->hstart + (($fp_right->end - $fp_right->start + 1)/3) - 1);
+              }
+              
+              if ($fp_left->end >= $fp_left->start) { 
+                push @ug_left, $fp_left;
+              }
+              if ($fp_right->end >= $fp_right->start) {
+                push @ug_right, $fp_right;
               }
             }
           }
-          
-          $exon_left->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_left));
-          $exon_right->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_right));
-
-          if ($exon->strand < 0) {
-            if ($exon_right->end >= $exon_right->start) {
-              push @new_exons, $exon_right;
-            }
-            if ($exon_left->end >= $exon_left->start) {
-              push @new_exons, $exon_left;
-            }
-          } else {
-            if ($exon_left->end >= $exon_left->start) {
-              push @new_exons, $exon_left;
-            }
-            if ($exon_right->end >= $exon_right->start) {
-              push @new_exons, $exon_right;
-            } 
+        }
+        
+        $exon_left->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_left));
+        $exon_right->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_right));
+        
+        if ($exon->strand < 0) {
+          if ($exon_right->end >= $exon_right->start) {
+            push @new_exons, $exon_right;
+          }
+          if ($exon_left->end >= $exon_left->start) {
+            push @new_exons, $exon_left;
           }
         } else {
-          # this exon is unaffected by this stop
-          push @new_exons, $exon;
+          if ($exon_left->end >= $exon_left->start) {
+            push @new_exons, $exon_left;
+          }
+          if ($exon_right->end >= $exon_right->start) {
+            push @new_exons, $exon_right;
+          } 
         }
+      } else {
+        # this exon is unaffected by this stop
+        push @new_exons, $exon;
       }
-
-      @exons = @new_exons;
-      $had_stops = 1;
     }
-
-    if ($had_stops) {
-      $tran->flush_Exons;
-      foreach my $exon (@exons) {
-        $tran->add_Exon($exon);
-      }
-      my $translation = Bio::EnsEMBL::Translation->new();
-      $translation->start_Exon($exons[0]);
-      $translation->end_Exon($exons[-1]);
-      $translation->start(1);
-      $translation->end($exons[-1]->end - $exons[-1]->start + 1);
-      $tran->translation($translation);
-    }
-
-    push @processed_transcripts, $tran;
+    
+    @exons = @new_exons;
+    $had_stops = 1;
   }
-
-  return \@processed_transcripts;
+  
+  if ($had_stops) {
+    $tran->flush_Exons;
+    foreach my $exon (@exons) {
+      $tran->add_Exon($exon);
+    }
+    my $translation = Bio::EnsEMBL::Translation->new();
+    $translation->start_Exon($exons[0]);
+    $translation->end_Exon($exons[-1]);
+    $translation->start(1);
+    $translation->end($exons[-1]->end - $exons[-1]->start + 1);
+    $tran->translation($translation);
+  }
+  
+  return $tran;
 }
 
 
 
 
-=head2 filter_transcripts
+=head2 make_nr_transcript_set
 
- Title   : filter_transcripts
-    Takes an initial "raw" set of transcript fragments and filters them to form a
-    mutually consistent set (i.e. where all members could feasibly be part
-    part of the same transcript).    
-    NOTE: not necessary for Genewise, which places each a.a. of the target
-    protein only once
+ Title   : make_nr_transcript_set
+    Takes an initial "raw", ordered set of transcripts and proceeds through
+    the list, rejecting transcripts that have no "unique" introns with
+    respect to the previous one. For this, "gap" exons are ignored.
+
 =cut
 
-sub filter_transcripts {
-  my ($self, $transcripts) = @_;
+sub make_nr_transcript_set {
+  my ($self, $transcripts, $gene_scaf, $map) = @_;
 
-  my @sorted_trans;
+  my (@all_introns, @kept_transcripts);
 
   foreach my $tran (@$transcripts) {
-    # transcript will only have one supporting feature for use cases of this filter
-    my ($sf) = @{$tran->get_all_supporting_features};
+    my (@exons, @introns);
+    foreach my $exon (sort {$a->start <=> $b->start} @{$tran->get_all_Exons}) {
+      my ($coord) = $map->map_coordinates($gene_scaf->seq_region_name,
+                                          $exon->start,
+                                          $exon->end,
+                                          1,
+                                          $gene_scaf->seq_region_name);
 
-    push @sorted_trans, [$tran, $sf];
-  }
-
-  @sorted_trans = sort { $b->[1]->score <=> $a->[1]->score } @sorted_trans;
-    
-  my (@filtered_trans);
-
-  TRANSCRIPT:
-  foreach my $tran_arr (@sorted_trans) {
-    my ($tran, $sf) = @$tran_arr;
-    my $keep_tran = 1;
-
-    foreach my $ftran_arr (@filtered_trans) {
-      my ($ftran, $fsf) = @$ftran_arr;
-
-      # must be same strand
-      $keep_tran = 0 if $sf->strand != $fsf->strand;
-
-      
-      # must not overlap in query or target
-
-      $keep_tran = 0 if $sf->hstart <= $fsf->hend and $sf->hend >= $fsf->hstart;
-      $keep_tran = 0 if $sf->start <= $fsf->end and $sf->end >= $fsf->start;
-
-      if ($sf->strand < 0) {
-        if ($sf->start > $fsf->end) {
-          $keep_tran = 0 if $fsf->hstart < $sf->hend;
-        } else {
-          $keep_tran = 0 if $sf->hstart < $fsf->hend;
-        }
-      } else {
-        if ($sf->start > $fsf->end) {
-          $keep_tran = 0 if $sf->hstart < $fsf->hend;
-        } else {
-          $keep_tran = 0 if $fsf->hstart < $sf->hend;
-        }
+      if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        push @exons, $exon;
       }
     }
+    
+    # get introns
+    for(my$i=1; $i < @exons; $i++) {
+      push @introns, Bio::EnsEMBL::Feature->new(-start => $exons[$i-1]->end + 1,
+                                                -end   => $exons[$i]->start - 1);
+    }
 
-    push @filtered_trans, $tran_arr if $keep_tran;
+    # if none of the introns are unique, reject. 
+    my $at_least_one_unique = 0;
+    foreach my $this_intron (@introns) {
+      my $unique_intron = 1;
+      foreach my $other_intron (@all_introns) {
+        if ($this_intron->start == $other_intron->start and
+            $this_intron->end   == $other_intron->end) {
+          $unique_intron = 0;
+          last;
+        }
+      }
+      if ($unique_intron) {
+        $at_least_one_unique = 1;
+        last;
+      }
+    }
+    if ($at_least_one_unique) {
+      push @all_introns, @introns;
+      push @kept_transcripts, $tran;
+    }
   }
 
-  return [map { $_->[0] } @filtered_trans];
+  return \@kept_transcripts;
 }
 
 
@@ -1598,28 +1555,39 @@ sub filter_transcripts {
 sub check_consistent_coords {
   my ($self, $cj, $ci) = @_; 
 
-  my $consistent = 1;
-
   if ($ci->id ne $cj->id or
       $ci->strand != $cj->strand) {
-    $consistent = 0;
+    return 0;
   } 
   else {
     if ($ci->strand == 1) {
       # j should come before i in genomic coords
       if (not $cj->end < $ci->start) {
-        $consistent = 0;
-      }
+        return 0;
+      } 
     } else {
       # j should come after i
       if (not $ci->end < $cj->start) {
-        $consistent = 0;
+        return 0;
       }
     }
   }
 
-  return $consistent;
+  return 1;
 }
+
+
+sub distance_between_coords {
+  my ($self, $cj, $ci) = @_; 
+
+  if ($ci->strand == 1) {
+    # j should come before i in genomic coords
+    return $ci->start - $cj->end - 1;
+  } else {
+    return $cj->start - $ci->end - 1;
+  }
+}
+
 
 
 sub separate_coords {
@@ -1774,247 +1742,128 @@ sub merge_coords {
 
 
 ###########################################################
-# write report; for development purposes
+# write methods
 ###########################################################
 
-sub write_report {
-  my ($self,
-      $iteration, 
-      $gene,
-      $gene_scaffold,
-      $gs_mapper,
-      $projected_cds_regs,
-      $new_trans) = @_;
+sub write_agp {
+  my ($self, 
+      $fh, 
+      $gene_scaf, 
+      $map,
+      $warns) = @_;
 
-  my $header = $gene->stable_id . "-" . $iteration;
-
-  ####################################################
-  #
-  # first, summarise some properties of the input data
-  # 
-  #####################################################
-   
-  ###############
-  # Initial candidate min-assembly
-  ###############
-  my @regions = $gs_mapper->map_coordinates($gene_scaffold->seq_region_name,
-                                            1,
-                                            $gene_scaffold->length,
-                                            1,
-                                            "genescaffold");
-
-  if (0) {
-    print "\n$header \#DETAILED_PRIOR_ASSEMBLY\n";
-    my $last_pos = 0;
-    foreach my $coord (@regions) {
-      if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        printf("$header   %s %s : %s %d %d %s\n", 
-               $last_pos + 1,
-               $last_pos + $coord->length,
-               $coord->id, 
-               $coord->start, 
-               $coord->end, 
-               $coord->strand);
-      } else {
-        printf "$header   GAP/%d-%d\n", $coord->start, $coord->end;
-      }
-      $last_pos += $coord->length;
-    }
-    print "\n";
+  my $prefix = "##-AGP";
+  
+  print $fh "$prefix \#\n";
+  printf $fh "$prefix \# AGP for gene scaffold %s\n", $gene_scaf->seq_region_name;
+  foreach my $warning (@$warns) {
+    print $fh "$prefix \# WARNING : $warning\n";
   }
-    
+  print $fh "$prefix \#\n";
 
-  ##############
-  # summarise where the CDS regions in the query lie on the target(s)
-  ##############
-  my ($total_cds_len, $total_coverage) = (0,0);
+  my @pieces = $map->map_coordinates($gene_scaf->seq_region_name,
+                                     1,
+                                     $gene_scaf->length,
+                                     1,
+                                     $gene_scaf->seq_region_name);
+  my $last_end = 0;
+  for(my $i=0; $i < @pieces; $i++) {
+    my $piece = $pieces[$i];
 
-  if (0) {
-    print "$header \#PROJECTED CDS regions\n";
-    
-
-    foreach my $ex_els (@$projected_cds_regs) {
-      $total_cds_len += $ex_els->[-1]->{query}->end - $ex_els->[0]->{query}->start + 1;
-      
-      printf("$header  %s/%d-%d\t",
-             $gene->seq_region_name,
-             $ex_els->[0]->{query}->start,
-             $ex_els->[-1]->{query}->end);
-      
-      foreach my $pair (@$ex_els) {
-        if ($pair->{target}->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-          printf(" : %s\t%d\t%d\t%d",
-                 $pair->{target}->id,
-                 $pair->{target}->start,
-                 $pair->{target}->end,
-                 $pair->{target}->strand);
-          $total_coverage += $pair->{query}->end - $pair->{query}->start + 1;
-        } else {
-          printf(" : %s\t%d\t%d", "GAP : ", $pair->{query}->start, $pair->{query}->end);
-        }
-      }
-      print "\n";
-    }
-    printf("$header  Total coverage of source CDS regs by alignment = %.2f\n", ($total_coverage / $total_cds_len) * 100);
-  }
-
-  printf("$header \#PER-TRANSCRIPT RESULTS\n");
-  foreach my $tran_obj (@$new_trans) {
-    my $original_t = $tran_obj->{original};
-    my $projected = $tran_obj->{projected};
-    my @realigned = @{$tran_obj->{realigned}};
-
-    my ($t_sf) = @{$projected->get_all_supporting_features};
-
-    ####################################################
-    # Summarise the result of projected the transcript
-    #####################################################
-   
-    print "$header  PROJECTION:\n";
-    printf("$header  Transcript (%s %d-%d) : %s/%d-%d %d\n",
-          $t_sf->hseqname,
-          $t_sf->hstart, 
-          $t_sf->hend,
-          $gene_scaffold->seq_region_name,
-          $projected->start,
-          $projected->end,
-          $projected->strand);
-
-
-    my @exons = sort {$a->start <=> $b->start} @{$projected->get_all_Exons};
-
-    for(my $j=0; $j < @exons; $j++) {
-      my $exon = $exons[$j];
-
-      my $ex_num = $projected->strand < 0 ? @exons - $j : $j+1;
-
-      my ($e_sf) = @{$exon->get_all_supporting_features};
-
-      my @map_segs = $gs_mapper->map_coordinates($exon->slice->seq_region_name,
-                                                 $exon->start,
-                                                 $exon->end,
-                                                 1,
-                                                 "genescaffold");
+    printf($fh "$prefix %s\t%d\t%d\t",
+           $gene_scaf->seq_region_name,
+           $last_end + 1,
+           $last_end + $piece->length,
+           $i + 1);
         
-      foreach my $map_seg (@map_segs) {
-        if ($map_seg->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-          printf("$header  EXON $ex_num (pep %d-%d, gs %d %d) : %s\t%d\t%d\t%d\n",
-                 defined $e_sf ? $e_sf->hstart : 0,
-                 defined $e_sf ? $e_sf->hend   : 0,
-                 $exon->start,
-                 $exon->end,
-                 $map_seg->id, 
-                 $map_seg->start,
-                 $map_seg->end,
-                 $map_seg->strand);
-
-        } else {
-          printf("$header  EXON $ex_num (pep %d-%d, gs %d %d) : GAP/%s\n",
-                 defined $e_sf ? $e_sf->hstart : 0,
-                 defined $e_sf ? $e_sf->hend   : 0,
-                 $exon->start,
-                 $exon->end,
-                 $map_seg->length);
-        }
-      }  
-    }
-
-    my $translation = $projected->translate;
-    my $gaps = $translation->seq =~ tr/X/X/;
-    my $stops = $translation->seq =~ tr/\*/\*/;
-
-    printf "$header Total coverage of parent peptide = %.2f\n", $t_sf->hcoverage;
-    printf "$header Total number of stops = %d\n", $stops;
-    if ($gaps < $translation->length) {
-      printf "$header Total proportion of non-gap      = %.2f\n", 100 - 100 * ($gaps / $translation->length);
-
-      my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                  -fh => \*STDOUT);
-      my $seq = Bio::PrimarySeq->new();
-      $seq->seq($translation->seq);
-      $seq->id($original_t->stable_id);
-      $seq->desc($gene->stable_id);
-
-      $seqio->write_seq($seq);
-      $seqio->close;
+    if ($piece->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+      printf($fh "%s\t%s\t%d\t%d\t%s\n", 
+             "W",
+             $piece->id,
+             $piece->start,
+             $piece->end,
+             $piece->strand < 0 ? "-" : "+");
     } else {
-      print "Total proportion of non-gap = 0.00\n";
+      printf($fh "%s\t%d\n", 
+             "N",
+             $piece->length);
     }
 
-
-    ###################################################
-    #
-    # Now summarise the result of realigning the peptide
-    #
-    #####################################################
-
-    if (0) {
-      printf "$header Realignment:\n";
-      printf("$header  Total aligned transcripts = %d\n",  scalar(@realigned));
-      
-      my @sorted_ts = sort {$a->start <=> $b->start} @realigned;
-      
-      $total_coverage = 0;
-      for (my $i=0; $i < @sorted_ts; $i++) {
-        my $tran = $sorted_ts[$i];
-        
-        ($t_sf) = @{$tran->get_all_supporting_features};
-        
-        $total_coverage += $t_sf->hcoverage;
-        
-        printf("$header  Trancript $i (%s %d-%d) : %s/%d-%d %d\n",
-               $t_sf->hseqname,
-               $t_sf->hstart, 
-               $t_sf->hend,
-               $gene_scaffold->seq_region_name,
-               $tran->start,
-               $tran->end,
-               $tran->strand);
-        
-        @exons = sort {$a->start <=> $b->start} @{$tran->get_all_Exons};
-        
-        my @implicated_scaffolds;
-      
-        for (my $j = 0; $j < @exons; $j++) {
-          my $exon = $exons[$j];
-          
-          my ($e_sf) = @{$exon->get_all_supporting_features};
-          
-          my @map_segs = $gs_mapper->map_coordinates($gene_scaffold->seq_region_name,
-                                                     $exon->start,
-                                                     $exon->end,
-                                                     1,
-                                                     "genescaffold");
-          
-          foreach my $map_seg (@map_segs) {
-            if ($map_seg->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-              printf("$header  EXON $j (pep %d-%d, gs %d %d) : %s\t%d\t%d\t%d\n",
-                     defined $e_sf ? $e_sf->hstart : 0,
-                     defined $e_sf ? $e_sf->hend   : 0,
-                     $exon->start,
-                     $exon->end,
-                     $map_seg->id, 
-                     $map_seg->start,
-                     $map_seg->end,
-                     $map_seg->strand);
-              
-            } else {
-              printf("$header  EXON $j (pep %d-%d) : GAP/%s\n",
-                     defined $e_sf ? $e_sf->hstart : 0,
-                     defined $e_sf ? $e_sf->hend   : 0,
-                     $map_seg->length);
-            }
-          }      
-        }
-      }    
-      
-      printf("$header Total coverage of parent peptide of %s by all transcripts: %.2f\n", 
-             $original_t->stable_id,
-             $total_coverage);
-    }
+    $last_end += $piece->length;
   }
 }
 
+
+sub write_gene {
+  my ($self, 
+      $fh,
+      $gene_scaf,
+      @trans) = @_;
+
+
+  my $prefix = "##-GENES ";
+  
+  my $seq_id = $gene_scaf->seq_region_name;
+  my $gene_id = $seq_id;
+  
+  my $fasta_string;
+  my $stringio = IO::String->new($fasta_string);
+  my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                              -fh => $stringio);
+
+  printf $fh "$prefix \# Gene report for $seq_id\n";
+  
+  foreach my $tran (@trans) {
+    my ($sf) = @{$tran->get_all_supporting_features};
+    my $tran_id = $gene_id . "_" . $sf->hseqname; 
+ 
+    print $fh "$prefix \# Transcript $tran_id:\n";
+    printf($fh "$prefix \# Coverage = %.2f\n", $sf->hcoverage);
+    printf($fh "$prefix \# Proportion non-gap = %.2f\n", $sf->score);
+   
+    my $pep = Bio::PrimarySeq->new(-id => $tran_id,
+                                   -seq => $tran->translate->seq);
+    $seqio->write_seq($pep);
+            
+    my @exons = @{$tran->get_all_Exons};
+    
+    for (my $i=0; $i < @exons; $i++) {
+      my $exon = $exons[$i];
+      my $exon_id = $tran_id . "_" . $i;
+      
+      printf($fh "$prefix %s\t%s\t%d\t%d\t%d\t%d\t%d\texon=%s; transcript=%s; gene=%s\n", 
+             $seq_id,
+             "Exon",
+             $exon->start,
+             $exon->end,
+             $exon->strand,
+             $exon->phase,
+             $exon->end_phase,
+             $exon_id,
+             $tran_id,
+             $gene_id);
+      foreach my $sup_feat (@{$exon->get_all_supporting_features}) {
+        foreach my $ug ($sup_feat->ungapped_features) {
+          printf($fh "$prefix %s\t%s\t%d\t%d\t%d\texon=%s; hname=%s; hstart=%s; hend=%s\n", 
+                 $seq_id,
+                 "Supporting",
+                 $ug->start,
+                 $ug->end,
+                 $ug->strand,
+                 $exon_id,
+                 $ug->hseqname,
+                 $ug->hstart,
+                 $ug->hend);
+        }
+      }      
+    }
+  }
+
+  $seqio->close;
+  foreach my $line (split /\s+/, $fasta_string) {
+    print $fh "##-FASTA $line\n";
+  }
+}
 
 
 ###########################
@@ -2058,7 +1907,7 @@ sub get_all_transcript_cds_features {
 sub get_all_Transcripts {
   my ($self, $gene, $single) = @_;
 
-  # if the singel flag is given returns the longest
+  # if the single flag is given returns the longest
   # coding transcript. Otherwise returns all coding
   # transcripts. 
 
@@ -2068,31 +1917,29 @@ sub get_all_Transcripts {
   
   if (not exists $self->{_transcripts}->{$gene}) {
 
-    my ($longest, $longest_len, @transcripts);
+    my (@transcripts);
     
     foreach my $t (@{$gene->get_all_Transcripts}) {
       my $translation = $t->translate;
       
       if (defined $translation) {
-        if (not defined $longest or
-            $translation->length > $longest_len) {
-          
-          $longest = $t;
-          $longest_len = $translation->length;
-        }
-
-        push @transcripts, $t;
+        push @transcripts, { 
+          tran   => $t,
+          length => $translation->length,
+        };
       }
     }
     
-    if ($single) {
-      @transcripts = ($longest);
-    }
-    $self->{_transcripts}->{$gene} = \@transcripts;
+    @transcripts = sort { $b->{length} <=> $a->{length} } @transcripts;
+
+    $self->{_transcripts}->{$gene} = [map {$_->{tran}} @transcripts];
   } 
-
-  return $self->{_transcripts}->{$gene};
-
+  
+  if ($single) {
+    [$self->{_transcripts}->{$gene}->[0]];
+  } else {
+    return $self->{_transcripts}->{$gene};
+  }
 }
 
 
@@ -2130,6 +1977,7 @@ sub projected_cds {
   
   return $self->{_projected_cds};
 }
+
 
 sub gene {
   my ($self, $val) = @_;
@@ -2225,18 +2073,6 @@ sub USE_GENEWISE {
 }
 
 
-sub GENE_SCAFFOLD_COMPONENT_PADDING {
-  my ($self, $val) = @_;
-  
-  if (defined $val) {
-    $self->{_inter_scaffold_padding} = $val;
-  }
-
-  return $self->{_inter_scaffold_padding};
-}
-
-
-
 sub INPUT_METHOD_LINK_TYPE {
   my ($self, $type) = @_;
 
@@ -2280,6 +2116,29 @@ sub TARGET_CORE_DB {
 
   return $self->{_target_core_db};
 }
+
+
+sub MIN_COVERAGE {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_min_coverage} = $val;
+  }
+
+  return $self->{_min_coverage};
+}
+
+
+sub MIN_NON_GAP {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_min_non_gap} = $val;
+  }
+
+  return $self->{_min_non_gap};
+}
+
 
 
 1;
