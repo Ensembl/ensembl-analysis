@@ -30,6 +30,7 @@ with any other lines marked by a #
     -dbpass    For RDBs, what password to use (pass= in locator)
 
     -help      prints out the perl docs
+
 =head1 EXAMPLES
 
 perl load_marker_map_locations.pl -dbhost myhost -dbuser myuser -dbpass 
@@ -37,7 +38,6 @@ perl load_marker_map_locations.pl -dbhost myhost -dbuser myuser -dbpass
 -map_name MAPNAME
 
 =cut
-
 
 use strict;
 use Getopt::Long;
@@ -67,10 +67,10 @@ my $help;
 
 
 if ($help) {
-    exec('perldoc', $0);
+  exec('perldoc', $0);
 }
 
-if(!$host || !$dbname || !$user){
+if (!$host || !$dbname || !$user) {
   throw("Need -dbhost $host -dbuser $user and -dbname $dbname to run ".
         " use -help for docs");
 }
@@ -85,8 +85,6 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 					    '-pass'   => $pass,
 					    '-port'   => $port,
 					   );
-
-
 
 my $map_id = &get_map_id($map_name);
 throw("could not get id for $map_name") if not $map_id;
@@ -104,10 +102,10 @@ while (<FH>) {
   }
   
   my $en =  {
-             id => $l[0],
+             id   => $l[0],
              name => $l[1],
-             chr => $l[2],
-             pos => $l[3],
+             chr  => $l[2],
+             pos  => $l[3],
             };
   
   push @{$data{$l[0]}}, $en;
@@ -117,15 +115,19 @@ close(FH) or throw("Couldn't close ".$map_file);
 
 my $marker_id_sql = "select marker_id from marker_synonym where name = ?";
 my $marker_id_sth = $db->dbc->prepare($marker_id_sql);
-my $syn_check_sql = "select marker_synonym_id from marker_synonym where ".
-  "marker_id = ? and name = ?";
+
+my $syn_check_sql = "select marker_synonym_id from marker_synonym where marker_id = ? and name = ?";
 my $syn_check_sth = $db->dbc->prepare($syn_check_sql);
+
 my $syn_insert_sql = "insert into marker_synonym(marker_id, source, name) values(?,?,?)";
 my $syn_insert_sth = $db->dbc->prepare($syn_insert_sql);
+
 my $map_loc_sql = "insert into marker_map_location(marker_id, map_id, chromosome_name, marker_synonym_id, position ) values (?,?,?,?,?)";
 my $map_loc_sth = $db->dbc->prepare($map_loc_sql);
+
 my $synonym_sql = "select marker_synonym_id from marker_synonym where marker_id = ?";
-my $syn_sth = $db->dbc->prepare($synonym_sql);
+my $syn_sth     = $db->dbc->prepare($synonym_sql);
+
 foreach my $id (keys %data) {
   my $en = $data{$id};
 
@@ -146,13 +148,17 @@ foreach my $id (keys %data) {
   }
   $map_loc_sth->execute($marker_id, $map_id, $chr, $marker_synonym_id, $pos);
 }
+
 sub get_map_id {
   my $mname = shift;
 
   my $map_query = "select map_id from map where map_name = '$mname'";
   my $map_sth = $db->dbc->prepare($map_query);
+
   $map_sth->execute;
+
   my $map_ref = $map_sth->fetchrow_hashref;
+
   if ($map_ref) {
     return $map_ref->{map_id};
   } else {
