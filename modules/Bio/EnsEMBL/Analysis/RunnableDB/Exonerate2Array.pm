@@ -112,6 +112,7 @@ sub fetch_input {
 								      '-program'      => $program,
 								      '-options'      => $options,
 								      '-verbose'      => $verbose,
+                      '-analysis'     => $self->analysis,
 								     );
   $self->runnable($runnable);
 }

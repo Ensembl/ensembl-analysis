@@ -69,6 +69,7 @@ sub fetch_input{
     (
      -query => $slice,
      -program => $self->analysis->program_file,
+     -analysis => $self->analysis,
      %parameters
     );
   $self->runnable($runnable);
