@@ -341,10 +341,10 @@ sub find_duplicate_exons {
   }
 
   my $q = qq( SELECT e1.exon_id, e2.exon_id 
-              FROM exon as e1, exon as e2 
+              FROM exon e1, exon e2 
               WHERE e1.exon_id<e2.exon_id AND e1.seq_region_start=e2.seq_region_start AND 
                     e1.seq_region_end=e2.seq_region_end AND e1.seq_region_id=e2.seq_region_id AND 
-                    e1.strand=e2.strand AND e1.phase=e2.phase AND
+                    e1.seq_region_strand=e2.seq_region_strand AND e1.phase=e2.phase AND
                     e1.end_phase=e2.end_phase
               ORDER BY e1.exon_id 
             ); 
