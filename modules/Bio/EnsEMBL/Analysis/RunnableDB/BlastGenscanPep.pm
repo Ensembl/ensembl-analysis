@@ -62,7 +62,7 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($self->input_id, $self->db);
   $self->query($slice);
   my %blast = %{$self->blast_hash};
-  my $logic_name = $AB_INITIO_LOGICNAME;
+  my $logic_name = $BLAST_AB_INITIO_LOGICNAME;
   $logic_name = 'Genscan' if(!$logic_name);
   my $pta = $self->db->get_PredictionTranscriptAdaptor;
   my $pts = $pta->fetch_all_by_Slice($self->query, $logic_name);

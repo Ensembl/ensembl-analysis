@@ -285,7 +285,7 @@ sub analysis{
 
 
 
-sub parse_file{
+sub parse_files{
   my ($self, $files) = @_;
   $self->clean_output;
   $self->clean_filenames;
