@@ -32,7 +32,7 @@ database, infers chains from the group identifiers, and then forms
 an alignment net from the chains and writes the result
 back to the database. 
 
-This module (at least for now) relies heavily on Jim Kent's Axt tools.
+This module (at least for now) relies heavily on Jim Kent\'s Axt tools.
 
 
 =cut
@@ -95,6 +95,7 @@ sub fetch_input {
     throw("Input id could not be parsed: ", $self->input_id);
   }
 
+  $self->GROUP_TYPE("chain") unless (defined $self->GROUP_TYPE);
   my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(%{$self->COMPARA_DB});
 
   my $query_species = $self->QUERY_SPECIES;

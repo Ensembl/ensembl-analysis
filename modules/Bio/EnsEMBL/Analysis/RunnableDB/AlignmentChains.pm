@@ -31,7 +31,7 @@ slice identifer, fetches the GenomicAlignBlocks from the given compara
 database, forms them into sets of alignment chains, and writes the result
 back to the database. 
 
-This module (at least for now) relies heavily on Jim Kent's Axt tools.
+This module (at least for now) relies heavily on Jim Kent\'s Axt tools.
 
 
 =cut
@@ -92,6 +92,7 @@ sub fetch_input {
     throw("Input id could not be parsed: ", $self->input_id);
   }
   
+  $self->GROUP_TYPE("chain") unless (defined $self->GROUP_TYPE);
   my $q_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->QUERY_CORE_DB});
   my $t_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->TARGET_CORE_DB});
 
