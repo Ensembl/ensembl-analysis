@@ -432,6 +432,7 @@ sub create_marker_feature{
 
 sub validate{
   my ($self, $feature) = @_;
+  # print STDERR "validating: ".$feature->start."-".$feature->end.":".$feature->hseqname."::".$feature->hstart."-".$feature->hend."\n";
   my @error_messages;
   if(!$feature){
     throw("Can't validate a feature without a feature ".
@@ -441,23 +442,23 @@ sub validate{
     throw("Wrong type ".$feature." must be a Bio::EnsEMBL::Feature ".
           "object FeatureFactory::validate");
   }
-  if(!$feature->slice){
+  if(not defined $feature->slice){
     my $string = "No slice defined";
     push(@error_messages, $string);
   }
-  if(!$feature->analysis){
+  if(not defined $feature->analysis){
     my $string = "No analysis defined";
     push(@error_messages, $string);
   }
-  if(!$feature->start){
+  if(not defined $feature->start){
     my $string = "No start defined";
     push(@error_messages, $string); 
   }
-  if(!$feature->end){
+  if(not defined $feature->end){
     my $string = "No end defined";
     push(@error_messages, $string); 
   }
-  if(!defined $feature->strand){
+  if(not defined $feature->strand){
     my $string = "No strand defined";
     push(@error_messages, $string); 
   }
