@@ -82,6 +82,7 @@ use warnings;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Root;
+use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 
 use vars qw (@ISA);
 
@@ -291,6 +292,33 @@ sub output{
   return $self->{'output'};
 }
 
+
+=head2 feature_factory
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Function  : container for a feature factory object. If none is defined
+  when one is requested a new one is created. 
+  Returntype: Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+
+sub feature_factory{
+  my ($self, $feature_factory) = @_;
+  if($feature_factory){
+    $self->{'feature_factory'} = $feature_factory;
+  }
+  if(!$self->{'feature_factory'}){
+    $self->{'feature_factory'} = Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+      ->new();
+  }
+  return $self->{'feature_factory'};
+}
+
 #utility methods
 
 =head2 fetch_sequence
@@ -419,7 +447,7 @@ sub write_output{
   foreach my $feature(@{$self->output}){
     $feature->analysis($self->analysis);
     $feature->slice($self->query) if(!$feature->slice);
-    $self->validate($feature);
+    $self->feature_factory->validate($feature);
     eval{
       $adaptor->store($feature);
     };
@@ -433,63 +461,6 @@ sub write_output{
 
 
 
-=head2 validate
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Arg [2]   : Bio::EnsEMBL::Feature
-  Function  : validates feature
-  Returntype: Bio::EnsEMBL::Feature
-  Exceptions: throws if no slice or analysis is defined
-  if the start, end or strand arent defined, if start or end are
-  less than one or if start is greater than end
-  Example   : 
-
-=cut
-
-
-sub validate{
-  my ($self, $feature) = @_;
-  my @error_messages;
-  if(!$feature){
-    throw("Can't validate a feature without a feature ".
-          "RunnableDB::validate");
-  }else{
-    if(!$feature->slice){
-      my $string = "No slice defined";
-      push(@error_messages, $string);
-    }
-    if(!$feature->analysis){
-      my $string = "No analysis defined";
-      push(@error_messages, $string);
-    }
-    if(!$feature->start){
-      my $string = "No start defined";
-      push(@error_messages, $string); 
-    }
-    if(!$feature->end){
-      my $string = "No end defined";
-      push(@error_messages, $string); 
-    }
-    if(!defined $feature->strand){
-      my $string = "No strand defined";
-      push(@error_messages, $string); 
-    }
-    if($feature->start > $feature->end){
-      my $string = "Start is greater than end ".$feature->start." ".
-        $feature->end;
-      push(@error_messages, $string); 
-    }
-    if($feature->start < 1 || $feature->end < 1){
-      my $string = "Feature has start or end coordinates less than 1 ".
-        $feature->start." ".$feature->end;
-      push(@error_messages, $string); 
-    }
-  }
-  if(@error_messages > 0){
-    print STDERR join("\n", @error_messages);
-    throw("Invalid feature RunnableDB:validate");
-  }
-}
 
 
 
@@ -510,3 +481,9 @@ sub fetch_input{
   throw("Must implement fetch input in ".$self." RunnableDB will ".
         "not provide this");
 }
+
+
+
+
+
+1;

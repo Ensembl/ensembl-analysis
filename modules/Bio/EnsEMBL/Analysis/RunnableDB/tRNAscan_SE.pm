@@ -72,7 +72,7 @@ sub fetch_input{
     (
      -query => $self->query,
      -program => $self->analysis->program_file,
-     %{$self->parameters_hash},
+     %parameters,
     );
   $self->runnable($runnable);
   return 1;

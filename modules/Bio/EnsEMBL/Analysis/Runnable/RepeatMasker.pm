@@ -104,6 +104,7 @@ sub parse_results{
   if(!$results){
     $results = $self->resultsfile;
   }
+  my $feature_factory = $self->feature_factory;
   open(OUT, "<".$results) or throw("FAILED to open ".$results.
                                    "RepeatMasker:parse_results");
   REPEAT:while(<OUT>){
@@ -121,7 +122,7 @@ sub parse_results{
                 "of columns in the output ".@columns." in ".$_." ".
                 "RepeatMasker:parse_results");
         }
-        my ($score, $query_name, $query_start, $query_end, $strand,
+        my ($score, $name, $start, $end, $strand,
             $repeat_name, $repeat_class) 
           =  @columns[0, 4, 5, 6, 8, 9, 10];
         my $start_column;
@@ -141,16 +142,13 @@ sub parse_results{
           $repeat_start = $repeat_end;
           $repeat_end = $temp_end;
         }
-        my $rc = $self->_get_consensus($repeat_name, $repeat_class);
-        my $rf = Bio::EnsEMBL::RepeatFeature->new;
-        $rf->score            ($score);
-        $rf->start            ($query_start);
-        $rf->end              ($query_end);
-        $rf->strand           ($strand);
-        $rf->hstart           ($repeat_start);
-        $rf->hend             ($repeat_end);
-        $rf->repeat_consensus ($rc);
-        $rf->slice($self->query);
+        my $rc = $feature_factory->create_repeat_consensus($repeat_name, 
+                                                           $repeat_class);
+        my $rf = $feature_factory->create_repeat_feature
+          ($start, $end, $strand, $score, 
+           $repeat_start, $repeat_end, 
+           $rc, $self->query);
+        
         $self->output([$rf]);
       }
     }

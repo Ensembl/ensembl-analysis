@@ -74,8 +74,8 @@ sub new {
   $self->threshold(50);
   ##################
 
-  $self->epojar($epojar);
-  $self->threshold($threshold);
+  $self->epojar($epojar) if($epojar);
+  $self->threshold($threshold) if($threshold);
   
   return $self;
 }
@@ -176,6 +176,7 @@ sub parse_results{
   if(!$results){
     $results = $self->resultsfile;
   }
+  my $ff = $self->feature_factory;
   if(!-e $results){
     throw("Can't parse an no existance results file ".$results.
           " EponineTSS:parse_results");
@@ -194,6 +195,8 @@ sub parse_results{
         $strand = -1;
       }
       $score = $self->trunc_float_3($score);
+      my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
+                                          '', $name, $self->query); 
       my $sf = Bio::EnsEMBL::SimpleFeature->new();
       $sf->start($start);
       $sf->end($end);

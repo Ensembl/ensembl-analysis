@@ -274,6 +274,34 @@ sub output{
 }
 
 
+=head2 feature_factory
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Function  : container for a feature factory object. If none is defined
+  when one is requested a new one is created. 
+  Returntype: Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+
+sub feature_factory{
+  my ($self, $feature_factory) = @_;
+  if($feature_factory){
+    $self->{'feature_factory'} = $feature_factory;
+  }
+  if(!$self->{'feature_factory'}){
+    $self->{'feature_factory'} = Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+      ->new();
+  }
+  return $self->{'feature_factory'};
+}
+
+
+
 =head2 files_to_delete/protect
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
@@ -682,52 +710,6 @@ sub run_analysis{
 }
 
 
-=head2 create_FeaturePair
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
-  Arg [2]   : int, start
-  Arg [3]   : int, end
-  Arg [4]   : int, strand must be 1 or -1
-  Arg [5]   : int, hstart
-  Arg [6]   : int, hend
-  Arg [7]   : int, hstrand
-  Arg [8]   : string, hseqname
-  Arg [9]   : int, score
-  Arg [10]  : int, percent id
-  Arg [11]  : int, p value
-  Arg [12]  : string, seqname
-  Arg [13]  : Bio::EnsEMBL::Analysis
-  Function  : creates a Bio::EnsEMBL::FeaturePair
-  Returntype: Bio::EnsEMBL::FeaturePair
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-sub create_FeaturePair {
-    my ($self, $start, $end, $strand, $hstart, $hend, 
-        $hstrand, $hseqname, $score, $percent_id, $p_value, $seqname,
-        $analysis) = @_;
-    
-    my $fp = Bio::EnsEMBL::FeaturePair->new(
-                                            -start    => $start,
-                                            -end      => $end,
-                                            -strand   => $strand,
-                                            -hstart   => $hstart,
-                                            -hend     => $hend,
-                                            -hstrand  => $hstrand,
-                                            -percent_id => $percent_id,
-                                            -score    => $score,
-                                            -p_value  => $p_value,
-                                            -hseqname => $hseqname,
-                                            -analysis => $analysis,
-                                           );
-
-    $fp->seqname($seqname);
-    
-    return $fp;
-}
 
 
 
@@ -750,3 +732,6 @@ sub parse_results{
   throw("Need to implement parse results in ".$self.
         "Runnable won't provide this functionality for you");
 }
+
+
+1;

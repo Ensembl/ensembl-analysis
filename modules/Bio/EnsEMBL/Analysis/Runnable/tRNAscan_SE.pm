@@ -96,6 +96,7 @@ sub parse_results{
     throw("Can't parse an no existance results file ".$results.
           " tRNAscan_SE:parse_results");
   }
+  my $ff = $self->feature_factory;
   my @output;
   open(CPG, $results) or throw("FAILED to open ".$results.
                                " tRNAscan_SE:parse_results");
@@ -112,13 +113,9 @@ sub parse_results{
       $start = $end;
       $end = $temp_end;
     }
-    my $sf = Bio::EnsEMBL::SimpleFeature->new();
-    $sf->start($start);
-    $sf->end($end);
-    $sf->strand($strand);
-    $sf->score($score);
-    $sf->seqname($name);
-    $sf->display_label($display_label);
+    my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
+                                        $display_label, 
+                                        $name, $self->query);
     push(@output, $sf)
   }
   $self->output(\@output);

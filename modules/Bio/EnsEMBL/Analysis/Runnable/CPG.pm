@@ -74,9 +74,9 @@ sub new {
   $self->min_oe(0.6);
   #################
 
-  $self->min_length($min_length);
-  $self->min_gc_content($min_gc);
-  $self->min_oe($min_oe);
+  $self->min_length($min_length) if($min_length);
+  $self->min_gc_content($min_gc) if($min_gc);
+  $self->min_oe($min_oe) if($min_oe);
   return $self;
 }
 
@@ -86,7 +86,7 @@ sub new {
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::CPG
   Arg [2]   : int, minimun value
-  Function  : ontainer for specified variable. This pod refers to the
+  Function  : container for specified variable. This pod refers to the
   three methods below min_length, min_gc_content, min_oe. These are simple 
   containers which dont do more than hold and return an given value
   nothing is defined
@@ -137,6 +137,7 @@ sub parse_results{
   if(!$results){
     $results = $self->resultsfile;
   }
+  my $ff = $self->feature_factory;
   if(!-e $results){
     throw("Can't parse an no existance results file ".$results.
           " CPG:parse_results");
@@ -157,13 +158,9 @@ sub parse_results{
       next LINE unless($length >= $self->min_length && 
                        $gc_content >= $self->min_gc_content &&
                        $oe >= $self->min_oe);
-      my $sf = Bio::EnsEMBL::SimpleFeature->new();
-      $sf->start($start);
-      $sf->end($end);
-      $sf->strand(0);
-      $sf->score($score);
-      $sf->display_label("oe = ".$oe);
-      $sf->seqname($name);
+      my $sf = $ff->create_simple_feature($start, $end, 0, $score,
+                                          "oe = $oe", $name, 
+                                          $self->query); 
       push(@output, $sf);
     }
   }
