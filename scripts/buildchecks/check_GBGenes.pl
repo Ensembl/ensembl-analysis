@@ -43,21 +43,36 @@ my $port = $GB_FINALDBPORT || '';
 # default path comes out of database
 my $path = undef; 
 
-my $maxshortintronlen  =  $GB_MAXSHORTINTRONLEN || 50;
-my $minshortintronlen  =  $GB_MINSHORTINTRONLEN || 3;
-my $minlongintronlen   =  $GB_MINLONGINTRONLEN  || 100000;
+my $maxshortintronlen  =  50;
+if (defined($GB_MAXSHORTINTRONLEN)) { $maxshortintronlen  = $GB_MAXSHORTINTRONLEN; }
 
-my $maxexonstranscript =  $GB_MAX_EXONSTRANSCRIPT || 150;
+my $minshortintronlen  =  3;
+if (defined($GB_MINSHORTINTRONLEN)) { $minshortintronlen  = $GB_MINSHORTINTRONLEN; }
 
-my $maxshortexonlen    =  $GB_MAXSHORTEXONLEN || 10;
-my $minshortexonlen    =  $GB_MINSHORTEXONLEN || 3;
-my $minlongexonlen     =  $GB_MINLONGEXONLEN  || 50000;
+my $minlongintronlen   =  100000;
+if (defined($GB_MINLONGINTRONLEN )) { $minlongintronlen   = $GB_MINLONGINTRONLEN; }
 
-my $maxtranscripts     =  $GB_MAXTRANSCRIPTS || 10; 
+my $maxexonstranscript =  150;
+if (defined($GB_MAX_EXONSTRANSCRIPT)) { $maxexonstranscript = $GB_MAX_EXONSTRANSCRIPT; }
 
-my $mintranslationlen  =  $GB_MINTRANSLATIONLEN || 10; 
+my $maxshortexonlen    =  10;
+if (defined($GB_MAXSHORTEXONLEN)) { $maxshortexonlen    = $GB_MAXSHORTEXONLEN; }
 
-my $ignorewarnings     =  $GB_IGNOREWARNINGS || 0; 
+my $minshortexonlen    =  3;
+if (defined($GB_MINSHORTEXONLEN)) { $minshortexonlen    = $GB_MINSHORTEXONLEN; }
+
+my $minlongexonlen     =  50000;
+if (defined($GB_MINLONGEXONLEN )) { $minlongexonlen     = $GB_MINLONGEXONLEN; }
+
+my $maxtranscripts     =  10; 
+if (defined($GB_MAXTRANSCRIPTS)) { $maxtranscripts     = $GB_MAXTRANSCRIPTS; }
+
+my $mintranslationlen  =  10; 
+if (defined($GB_MINTRANSLATIONLEN)) { $mintranslationlen  = $GB_MINTRANSLATIONLEN; }
+
+my $ignorewarnings     =  0; 
+if (defined($GB_IGNOREWARNINGS)) { $ignorewarnings     = $GB_IGNOREWARNINGS; }
+
 my @chromosomes;
 
 my $specstart = 1;
