@@ -155,11 +155,11 @@ sub get_db_version{
 
 __END__
 
-=head1 NAME - Bio::EnsEMBL::Pipeline::Runnable::Finished::Blast
+=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Blast
 
 =head1 DESCRIPTION
 
-Unlike Bio::EnsEMBL::Pipeline::Runnable::Blast,
+Unlike Bio::EnsEMBL::Analysis::Runnable::Blast,
 this module creates FeaturePairs from HSPs after
 doing any depth filtering to save time and memory
 when searching genomic sequences that generate
@@ -179,7 +179,6 @@ BLAST_CONFIG =>
                                -database_type => 'pep',
                                -threshold_type => 'PVALUE',
                                -threshold => 0.01,
-#added new, not sure if these are filter or blast params
 			       -coverage => 10,
 			       -discard_overlaps => 1,
 
