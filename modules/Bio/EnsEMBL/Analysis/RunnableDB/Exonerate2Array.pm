@@ -73,12 +73,16 @@ sub fetch_input {
   my $input_id = $self->input_id;
   my $analysis = $self->analysis;
   my $program = $analysis->program_file;
-  my $options;
+  my $query_type = 'dna';
+  my $target_type = 'dna';
   my $query_file = $ANALYSIS_INPUT_DIR.$input_id;
   my $target_dir =$ANALYSIS_TARGET_DIR;
   my $verbose = "all";
+  
+  my $options = "--showalignment no --bestn 100 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 25 --dnawordthreshold 11 --querytype $query_type --targettype $target_type  --target $target_dir --query " ;
 
-  $target_dir .= "22.fa"; ##only for testing
+  verbose($verbose);
+  #$target_dir .= "22.fa"; ##only for testing
 
   ###Runnable::ExonerateArray take a array of query_seq_obj, so it's need to be generated here###
 
@@ -96,18 +100,15 @@ sub fetch_input {
 
   # prepare runnable
   
-  $self->throw("Can't run Exonerate without both query and target sequences") 
+  throw("Can't run Exonerate without both query and target sequences") 
     unless (defined($query_file) && defined($target_dir));
   
-  print "exonerate is '$program', target_dir is $target_dir, query_file is $ query_file\n";
+  info("exonerate is '$program', target_dir is $target_dir, query_file is $ query_file\n");
 
   #my $target_file = $target_dir . "*";###exonerate-0.8.2 can use both file and dir
   my $runnable = new Bio::EnsEMBL::Analysis::Runnable::ExonerateArray(
 								      '-db'           => $self->db,
-								      '-database'     => $target_dir,
 								      '-query_seqs'   => \@query_seqs,
-								      '-query_type'   => 'dna',
-								      '-target_type'  => 'dna',
 								      '-program'      => $program,
 								      '-options'      => $options,
 								      '-verbose'      => $verbose,

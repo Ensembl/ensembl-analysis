@@ -20,19 +20,17 @@ $exonerate = a location for the binary,
 $options   = a string with options ,
 
   my $runnable = Bio::EnsEMBL::Pipeline::Runnable::ExonerateArray->new(
-								 -database      => $database,
-								 -query_seqs    => \@sequences,
-								 -query_type    => 'dna',
-			                                         -target_type   => 'dna',
-                                                                 #-exonerate     => $exonerate,
-								 #-options       => $options,
+								       -db            =>$db,
+								       -query_seqs    => \@sequences,
+								       -program       => $exonerate,
+								       -options       => $options,
+								       -verbose       => "all",
 								);
 
  $runnable->run; #create and fill Bio::Seq object
- my @results = $runnable->output;
+ my $results = $runnable->output;
  
- where @results is an array of DnaDnaAlignFeatures, each one representing an aligment which are
- in fact feature pairs.
+ where $results is an arrayref of MiscFeatures.
  
 =head1 DESCRIPTION
 
@@ -64,7 +62,7 @@ use Bio::EnsEMBL::MiscFeature;
 use Bio::EnsEMBL::Attribute;
 use Bio::EnsEMBL::MiscSet;
 use Bio::EnsEMBL::Analysis;
-
+use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
@@ -73,34 +71,30 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   
-  my ($db,$database, $query_seqs, $query_type, $target_type, $program, $options, $verbose) =
+  my ($db,$query_seqs,$verbose) =
     rearrange([qw(
 		  DB
-		  DATABASE
 		  QUERY_SEQS
-		  QUERY_TYPE
-		  TARGET_TYPE
-		  PROGRAM
-		  OPTIONS
 		  VERBOSE
 		 )
 	      ], @args);
   
-  
+  verbose($verbose);
+
   ###$db is needed to create $slice which is needed to create DnaDnaAlignFeatures
   $self->db($db) if $db;
   # must have a target and a query sequences
   unless( $query_seqs ){
-    $self->throw("Exonerate needs a query_seqs: $query_seqs");
+    throw("Exonerate needs a query_seqs: $query_seqs");
   }
 
-  verbose($verbose);
   our (%length);
   
   my $queryfile = $self->queryfile();
   
   foreach my $query_seq (@{$query_seqs}) {
     $length{$query_seq->display_id} = $query_seq->length;
+
     $self->write_seq_file ($query_seq);
   }
 
@@ -110,18 +104,6 @@ sub new {
 
   $self->length(\%length);
 
-  # you can pass a sequence object for the target or a database (multiple fasta file);
-  
-  $self->locate_executable($program);
-  
-  my $basic_options = "--showalignment no --bestn 100 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 25 --dnawordthreshold 11 --querytype $query_type --targettype $target_type --query $queryfile --target $database ";
-
-  if ($options){
-    $self->options($options);
-  }
-  else {
-    $self->options($basic_options);
-  }
   return $self;
 }
 
@@ -176,8 +158,6 @@ sub run{
   if(!$dir){
     $dir = $self->workdir;
   }
-  warning("Can't run ".$self." without a query sequence") ###changed to warning from throw
-    unless($self->query);
   $self->checkdir($dir);
   my $filename = $self->write_seq_file();
   $self->files_to_delete($filename);
@@ -188,43 +168,6 @@ sub run{
   return 1;
 }
 
-
-=head2 run_analysis
-
-Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::ExonerateArray
-Arg [2]   : string, program name
-Function  : constructs a commandline and runs the program passed
-  in, the generic method in Runnable isnt used as ExonerateArray doesnt
-  fit this module
-  Returntype: none
-  Exceptions: throws if run failed because sysetm doesnt
-  return 0 or the output file doesnt exist
-  Example   :
-
-=cut
-
-sub run_analysis {
-  my ($self, $program) = @_;
-
-  if(!$program){
-    $program = $self->program;
-  }
-  throw($program." is not executable ExonerateArray::run_analysis ")
-    unless($program && -x $program);
-  my $cmd = $self->program." ";
-  $cmd .= $self->options." " if($self->options);
-  $cmd .= ">".$self->resultsfile;
-  print "Running analysis ".$cmd."\n";
-
-  system($cmd) == 0 or throw("FAILED to run ".$cmd." ExonerateArray::run_analysis ");
-
-  if(! -e $self->resultsfile){
-    throw("FAILED to run ExonerateArray on ".$self->queryfile." ".
-          $self->resultsfile." has not been produced ".
-          "ExonerateArray:run_analysis");
-  }
-}
- 
 =head2 parse_results
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::ExonerateArray
@@ -259,7 +202,7 @@ sub parse_results{
   
   while (<EXO>){
     
-    info ($_) ;
+    #info ($_) ;
     
     ############################################################
     # the output is of the format:
@@ -307,7 +250,6 @@ sub parse_results{
       $h->{'probe_length'} = $length{$h->{'q_id'}};
       $h->{'matching_length'} = $matching_length;
         
-      #print "q_id is $q_id, q_start is $q_start, q_en is $q_end, strand is $strand,t_id is $t_id,t_start is $t_start,t_end is $t_end,score is $score\n";
       ###for affymetrix probe sequence, they are 25 bs long, we require at least 24 bs exact match###
       
       if ($h->{'matching_length'} == $h->{'probe_length'}-1) {
@@ -345,6 +287,8 @@ sub _make_affy_features {
 
   my @misc_feats;
 
+  my $feature_factory = $self->feature_factory;
+
   ###to make MiscFeature, we need to make slice_obj###
   ###need to watch out for target fasta sequence title for seq_region_name ###
   foreach my $h (@h) {
@@ -368,84 +312,50 @@ sub _make_affy_features {
     
     $slice = $self->db->get_SliceAdaptor->fetch_by_region($coord_system_name,$seq_region_name);
     if (!$slice) {
-      print STDERR "Could not obtain slice for seq_region: $coord_system_name : $seq_region_name\n";
-      next;
+      warning("In ExonerateArray::make_affy_features: Could not obtain slice for seq_region: $coord_system_name : $seq_region_name---try with coord_system_name = undef\n");
+      $coord_system_name = undef;
+      $slice = $self->db->get_SliceAdaptor->fetch_by_region($coord_system_name,$seq_region_name);
+      if (!$slice) {
+	warning("In ExonerateArray::make_affy_features: Could not obtain slice for seq_region: $coord_system_name : $seq_region_name");
+	next;
+      }
     }
     my $probe_name = $h->{'q_id'};
     $probe_name =~ s/^probe\://;
-    my ($probeset_name,$composite_name) = split /\:/, $probe_name;
+    my ($array_name,$composite_name) = split /\:/, $probe_name;
     $composite_name =~ s/\;$//;
-    my $xref_name = $probeset_name;
+    my $xref_name = $array_name;
     $xref_name =~ s/-/_/g;  ###this to keep name same as in code corresponds to external_db.db_name
     
-    my $misc_feature = Bio::EnsEMBL::MiscFeature->new (
-						       -START  => $h->{'t_start'}, ###it's been added 1 already
-						       -END    => $h->{'t_end'},
-						       -STRAND => $h->{'t_strand'},
-						       -SLICE  => $slice,
-						      );
-    
-    $misc_feature->add_Attribute ( Bio::EnsEMBL::Attribute->new (-CODE   => "probeName",
-								 -NAME   => "Probe name",
-								 -DESCRIPTION => "the name of the probe",
-								 -VALUE  => $probe_name,
-								)
-				 );
+    my $misc_feature = $feature_factory->create_misc_feature 
+      ($h->{'t_start'},$h->{'t_end'},$h->{'t_strand'},$slice);
     
     
-    $misc_feature->add_Attribute ( Bio::EnsEMBL::Attribute->new (-CODE   => "compositeName",
-      								 -NAME   => "Composite name",
-      								 -DESCRIPTION => "the name of the composite",
-      								 -VALUE  => $composite_name,
-      								)
-      				 );
-    
-    
-    $misc_feature->add_Attribute( Bio::EnsEMBL::Attribute->new (
-								-CODE   => "probeLength",
-								-NAME   => "Probe length",
-								-DESCRIPTION => "the length of the probe",
-								-VALUE  => $h->{'probe_length'},
-							       )
-				);
-    
-    $misc_feature->add_Attribute( Bio::EnsEMBL::Attribute->new (
-								-CODE   => "matchLength",
-								-NAME   => "Match length",
-								-DESCRIPTION => "number of base in matched alignment",
-								-VALUE  => $h->{'matching_length'},
-							       )
-				);
-    
-    
-    $misc_feature->add_Attribute( Bio::EnsEMBL::Attribute->new (
-								-CODE   => "matchStatus",
-								-NAME   => "Match status",
-								-DESCRIPTION => "full_match or with_mismatch",
-								-VALUE  => $h->{'match_status'}
-							       )
-				);
+    $feature_factory->add_misc_feature_attribute 
+      ( $misc_feature, "probeName","Probe name","the name of the probe",$probe_name);
+	    
+    $feature_factory->add_misc_feature_attribute
+      ($misc_feature, "compositeName","Composite name", "the name of the composite", $composite_name);
+
+    $feature_factory->add_misc_feature_attribute
+      ($misc_feature,"probeLength", "Probe length", "the length of the probe", $h->{'probe_length'});
+
+    $feature_factory->add_misc_feature_attribute
+      ($misc_feature, "matchLength", "Match length", "number of bases in matched alignment", $h->{'matching_length'});
+
+    $feature_factory->add_misc_feature_attribute
+      ($misc_feature,"matchStatus", "Match status", "full_match or with_mismatch", $h->{'match_status'});
     
     #
     #  Add as many Attributes as you like
     #
     
-    $misc_feature->add_MiscSet( Bio::EnsEMBL::MiscSet->new (
-							    -CODE  => "AFFY\_$xref_name",
-							    -NAME  => $probeset_name,
-							    -DESCRIPTION => "$probeset_name probe set",
-							    -LONGEST_FEATURE => $self->max_length,
-							   )
-			      );
-    
-    $misc_feature->add_MiscSet( Bio::EnsEMBL::MiscSet->new (
-							    -CODE  => "All_Affy",
-							    -NAME  => "All-Probe-Sets",
-							    -DESCRIPTION => "all probe sets",
-							    -LONGEST_FEATURE => $self->max_length,
-							   )
-			      );
-    
+    $feature_factory->add_misc_set
+      ($misc_feature, "AFFY\_$xref_name", $array_name, "array set name", $self->max_length);
+
+    $feature_factory->add_misc_set
+      ($misc_feature, "All_Affy", "All-Array-Sets", "all array sets", $self->max_length);
+
     push (@misc_feats, $misc_feature);
   }
   
