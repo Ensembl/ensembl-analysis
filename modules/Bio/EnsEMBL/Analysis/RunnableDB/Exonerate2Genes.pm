@@ -107,7 +107,7 @@ sub fetch_input {
   my ($query_file, $chunk_number, $chunk_total);
 
   my $query = $self->QUERYSEQS;
-    
+
   if (-e $query and -d $query) {
     # query seqs is a directory; input id will be a file in that directory
     $query_file = "$query/" . $self->input_id;
@@ -119,6 +119,11 @@ sub fetch_input {
     # query seqs is a single file; input id will correspond to a chunk number
     $query_file = $query;
     my $iid_regexp = $self->IIDREGEXP;
+    
+    throw("When your input ids are not filenames, you must define ".
+          "IIDREGEXP in config to enable inference of chunk number and total")
+        if not defined $iid_regexp;
+
     ($chunk_number, $chunk_total) = $self->input_id =~ /$iid_regexp/;
   } else {
     throw("'$query' refers to something that could not be made sense of\n");
@@ -132,6 +137,13 @@ sub fetch_input {
   # setup the runnables
   ##########################################
 
+  my %parameters = %{$self->parameters_hash};
+  if (not exists($parameters{-options}) and
+      defined $self->OPTIONS) {
+
+    $parameters{-options} = $self->OPTIONS
+  }
+
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
         ->new(
@@ -142,7 +154,7 @@ sub fetch_input {
               -query_file     => $query_file,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
-              %{$self->parameters_hash},
+              %parameters,
               );
     $self->runnable($runnable);
   }
@@ -345,7 +357,7 @@ sub read_and_check_config {
                              GENOMICSEQS)) {
 
     throw("You must define $config_var in config for logic '$logic'")
-        if not $self->$config_var;
+        if not defined $self->$config_var;
   }
 
   # output db does not have to be defined, but if it is, it should be a hash
@@ -384,7 +396,12 @@ sub QUERYSEQS {
   if (defined $value) {
     $self->{'_CONFIG_QUERYSEQS'} = $value;
   }
-  return $self->{'_CONFIG_QUERYSEQS'};
+
+  if (exists($self->{'_CONFIG_QUERYSEQS'})) {
+    return $self->{'_CONFIG_QUERYSEQS'};
+  } else {
+    return undef;
+  }
 }
 
 sub QUERYTYPE {
@@ -393,7 +410,12 @@ sub QUERYTYPE {
   if (defined $value) {
     $self->{'_CONFIG_QUERYTYPE'} = $value;
   }
-  return $self->{'_CONFIG_QUERYTYPE'};
+
+  if (exists($self->{'_CONFIG_QUERYTYPE'})) {
+    return $self->{'_CONFIG_QUERYTYPE'};
+  } else {
+    return undef;
+  }
 }
 
 sub GENOMICSEQS {
@@ -402,7 +424,12 @@ sub GENOMICSEQS {
   if (defined $value) {
     $self->{'_CONFIG_GENOMICSEQS'} = $value;
   }
-  return $self->{'_CONFIG_GENOMICSEQS'};
+  
+  if (exists($self->{'_CONFIG_GENOMICSEQS'})) {
+    return $self->{'_CONFIG_GENOMICSEQS'};
+  } else {
+    return undef;
+  }
 }
 
 sub IIDREGEXP {
@@ -411,7 +438,12 @@ sub IIDREGEXP {
   if (defined $value) {
     $self->{'_CONFIG_IIDREGEXP'} = $value;
   }
-  return $self->{'_CONFIG_IIDREGEXP'};
+
+  if (exists($self->{'_CONFIG_IIDREGEXP'})) {
+    return $self->{'_CONFIG_IIDREGEXP'};
+  } else {
+    return undef;
+  }
 }
 
 sub OUTDB {
@@ -420,7 +452,12 @@ sub OUTDB {
   if (defined $value) {
     $self->{'_CONFIG_OUTDB'} = $value;
   }
-  return $self->{'_CONFIG_OUTDB'};
+
+  if (exists($self->{'_CONFIG_OUTDB'})) {
+    return $self->{'_CONFIG_OUTDB'};
+  } else {
+    return undef;
+  }
 }
 
 sub FILTER {
@@ -429,10 +466,27 @@ sub FILTER {
   if (defined $value) {
     $self->{'_CONFIG_FILTER'} = $value;
   }
-  return $self->{'_CONFIG_FILTER'};
+  
+  if (exists($self->{'_CONFIG_FILTER'})) {
+    return $self->{'_CONFIG_FILTER'};
+  } else {
+    return undef;
+  }
 }
 
+sub OPTIONS {
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{'_CONFIG_OPTIONS'} = $value;
+  }
 
+  if (exists($self->{'_CONFIG_OPTIONS'})) {
+    return $self->{'_CONFIG_OPTIONS'};
+  } else {
+    return undef;
+  }
+}
 
 ###############################################
 ###     end of config

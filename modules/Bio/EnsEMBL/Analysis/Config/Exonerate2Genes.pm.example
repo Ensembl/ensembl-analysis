@@ -58,6 +58,7 @@ use vars qw( %Config );
                IIDREGEXP   => undef,
                OUTDB       => undef,
                FILTER      => undef,
+               OPTIONS     => undef,
              },
 
              EST_logicname => {
@@ -79,6 +80,7 @@ use vars qw( %Config );
                              -reject_processed_pseudos => 1,
                            },              
                          },
+               OPTIONS => "--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14",
              },
 
              CDNA_logic_name => {
@@ -100,6 +102,7 @@ use vars qw( %Config );
                              -reject_processed_pseudos => 1,
                            },              
                          },
+               OPTIONS => "--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14",
              },            
 
              Protein_logicname => {
@@ -115,6 +118,7 @@ use vars qw( %Config );
                           -pass => '',
                         },
                # FILTER not set, so no filtering done
+               OPTIONS => "--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --bestn 1",
              },
 
            }
