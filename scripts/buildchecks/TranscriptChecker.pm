@@ -288,13 +288,22 @@ sub output {
            $exon->strand, ($exon->end-$exon->start+1), $exon->phase, $exon->end_phase;
     if (defined($translation)) {
       if ($exon == $translation->start_Exon) {
-        print " S (" . $translation->start . ")";
+        print " S (" . $translation->start . " (" . 
+                 (($exon->strand == 1 ? $exon->start+$translation->start-1 : $exon->end-$translation->start+1) + $vcoffset) ."))";
       }
       if ($exon == $translation->end_Exon) {
-        print " E (" . $translation->end . ")";
+        print " E (" . $translation->end . " (" .
+                 (($exon->strand == 1 ? $exon->start+$translation->end-1 : $exon->end-$translation->end+1) + $vcoffset) ."))";
       }
     }
     print "\n";
+  }
+
+  if ($translation) {
+    my $pepstr = $transcript->translate->seq;
+    $pepstr =~ s/(.{0,80})/  $1\n/g;
+    print "\nTranslation:\n";
+    print $pepstr;
   }
 
   $self->SUPER::output;
@@ -471,7 +480,7 @@ sub check_Translation {
     my $peplen = length($pepseqstr);
     # print "Pep seq = $pepseqstr\n";
     if ($pepseqstr =~ /\*/) {
-      $self->add_Error("Translation failed - Translation contains stop codons\n",'transstop');
+      $self->add_Error("Translation failed - Translation contains stop codons\n$pepseqstr\n",'transstop');
       return 1; 
     } elsif ($peplen == 0) {
       $self->add_Error("Translation failed - Translation has zero length\n",'transzerolen');
@@ -570,7 +579,7 @@ sub check_UTRs {
         if ($end_phase == -1) { $end_phase = 0; }
 
         if (($len - $translation->start + 1 + ((3-$end_phase)%3)) % 3) {
-          $self->add_Warning("Translation start not on codon boundary\n");
+          $self->add_Warning("Translation start not on codon boundary (or end_phase error on first coding exon)\n");
           if ($start_is_atg) {
             $self->add_Error("ATG as first three bases in case where first codon supposedly incomplete\n");
           }
@@ -618,7 +627,7 @@ sub check_Supporting_Evidence {
 
   EXON: foreach my $exon (@$exons) {
     if (!scalar(@{$exon->get_all_supporting_features})) {
-      $self->add_Warning("No supporting evidence for exon ".$exon->dbID ."\n");
+      # $self->add_Error("No supporting evidence for exon ".$exon->dbID ."\n",'nosupport');
     }
   }
 }
@@ -627,6 +636,12 @@ sub check_Intron {
   my $self = shift;
   my $prev_exon = shift || $self->throw("Prev_exon must be passed");
   my $exon = shift || $self->throw("Exon must be passed");
+
+  if ($prev_exon->overlaps($exon)) {
+    $self->add_Error("Overlapping exons in transcript for exons " . $prev_exon->dbID .
+                     " and " . $exon->dbID . "\n", 'overlapexon');
+    return;
+  }
 
   my $intron;
   if (Bio::EnsEMBL::Intron->can('upstream_Exon')) {
