@@ -112,12 +112,11 @@ if ($path) {
 
 if ($dnadbname ne "") {
 
-  my $host = $dnahost;
-  if ($host eq "") {
-    $host = $host;
+  if ($dnahost eq "") {
+    $dnahost = $host;
   }
 
-  my $dnadbase = new Bio::EnsEMBL::DBSQL::DBAdaptor(-host   => $host,
+  my $dnadbase = new Bio::EnsEMBL::DBSQL::DBAdaptor(-host   => $dnahost,
                                                     -user   => $user,
                                                     -port   => $dnaport,
                                                     -dbname => $dnadbname,

@@ -475,6 +475,9 @@ sub check_Translation {
     } elsif ($peplen == 0) {
       $self->add_Error("Translation failed - Translation has zero length\n",'transzerolen');
       return 1; 
+    } elsif ($pepseqstr =~ /^X*$/) {
+      $self->add_Error("Translation failed - Translation is all X (probably on sequence gap)\n",'transallx');
+      return 1; 
     } elsif ($peplen < $self->mintranslationlen) {
       $self->add_Error("Short (" . $peplen . " residue) translation\n",'transminlen');
     }
