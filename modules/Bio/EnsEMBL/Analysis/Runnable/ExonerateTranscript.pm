@@ -183,6 +183,7 @@ sub parse_results {
                                                           -score      => $coverage,
                                                           -percent_id => $perc_id);
 
+
 	push @exon_feature_pairs, $feature_pair;
         push @tran_feature_pairs, $feature_pair;
       }
@@ -190,7 +191,7 @@ sub parse_results {
       # Use our feature pairs for this exon to create a single 
       # supporting feature (with cigar line).
       my $supp_feature;
-
+      
       eval{
         if ($self->query_type eq 'protein') {
           $supp_feature =
@@ -220,8 +221,11 @@ sub parse_results {
             Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@tran_feature_pairs);
       }
     };
-
-    $transcript->add_supporting_features($t_supp_feat);
+    if ($@) {
+      warning("Could not create Transcript supporting feature");
+    } else {
+      $transcript->add_supporting_features($t_supp_feat);
+    }
 
     my @exons = @{$transcript->get_all_Exons};
     if (scalar(@exons)) {
