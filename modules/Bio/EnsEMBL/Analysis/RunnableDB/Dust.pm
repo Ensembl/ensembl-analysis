@@ -42,6 +42,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::Dust;
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 
 use vars qw(@ISA);
 
@@ -94,6 +95,108 @@ sub fetch_input{
 sub get_adaptor{
   my ($self) = @_;
   return $self->db->get_RepeatFeatureAdaptor;
+}
+
+=head2 write_output
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Function  : calculate which hits are mostly gap, and set analysis and 
+  slice on each wanted feature and store it
+  Returntype: 1
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+#NOTE: convert features is an important method see its docs for more info
+
+sub write_output{
+  my ($self) = @_;
+  my $adaptor = $self->get_adaptor;
+  my @transformed;
+  foreach my $feature (@{$self->output}) {
+    if ( $feature->length > 50000 ) {
+      my $transformed_features = $self->convert_feature($feature);
+      push(@transformed, @$transformed_features) if($transformed_features);
+    }else{
+      push(@transformed, $feature);
+    }
+  }
+  foreach my $feature (@transformed) {
+    #print "Have feature ".$feature."\n";
+    $feature->analysis($self->analysis);
+    $feature->slice($self->query) if(!$feature->slice);
+    $self->feature_factory->validate($feature);
+    eval{
+      $adaptor->store($feature);
+    };
+    if ($@){
+      throw("RunnableDB:store failed, failed to write ".$feature." to ".
+            "the database $@");
+    }
+  }
+}
+
+
+=head2 convert_feature
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Dust
+  Arg [2]   : Bio::EnsEMBL::RepeatFeature
+  Function  : This method takes a repeat feature projects it onto the 
+  sequence level coord_system calculates what percentage of gaps make up
+  the low complexity sequence. If the sequence is more than 25% low 
+  complexity it is throw away. Only features which are more than 50k are
+  checked for speed reasons. Once this has been calculated the features
+  are converted by to the coordinate system they came from but they may now
+  be in more pieces. The main reason for doing this was because features 
+  which lied across long gaps were causing problems for the core api but
+  it also means we dont store a lot of features which simply mask out Ns
+  Returntype: Bio::EnsEMBL::RepeatFeature
+  Exceptions: throws if it cant transform the feature
+  Example   : 
+
+=cut
+
+
+
+sub convert_feature{
+  my ($self, $rf) = @_;
+  
+  my $ff = $self->feature_factory;
+  my $projections = $rf->project('seqlevel');
+  my @converted;
+  my $feature_length = $rf->length;
+  my $projected_length = 0;
+ PROJECT:foreach my $projection(@$projections){
+    $projected_length += ($projection->from_end - 
+                          $projection->from_start) +1;
+  }
+  my $percentage = 100;
+  if($projected_length != 0){
+    $percentage = ($projected_length / $feature_length)*100;
+  }
+  if($percentage <= 75){
+    return;
+  }
+ REPEAT:foreach my $projection(@$projections){
+    my $start = $projection->from_start;
+    my $end = $projection->from_end;
+    my $slice = $projection->to_Slice;
+    my $rc = $ff->create_repeat_consensus('dust', 'dust', 'simple', 'N');
+    my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
+                                        $end, $rc, $slice->name,
+                                        $slice);
+    my $transformed = $rf->transform($self->query->coord_system->name,
+                                     $self->query->coord_system->version);
+    if(!$transformed){
+      throw("Failed to transform ".$rf." ".$rf->start." ".
+            $rf->end."  ".$rf->seq_region_name." skipping \n");
+      
+    }
+    push(@converted, $transformed);
+  }
+  return \@converted;
 }
 
 
