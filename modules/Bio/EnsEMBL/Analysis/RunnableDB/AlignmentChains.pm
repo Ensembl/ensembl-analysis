@@ -248,7 +248,7 @@ sub fetch_input {
   ######################################################################
   # each runnable comprises blocks from a subset of the target sequences
   ######################################################################
-  my $target_batches = $self->form_target_batches_based_on_length(\%target_slices);
+  my $target_batches = $self->form_target_batches(\%target_slices);
   foreach my $targets (@$target_batches) {
 
     my (%these_target_slices, @features);
@@ -262,8 +262,10 @@ sub fetch_input {
     my %parameters = (-analysis             => $self->analysis, 
                       -query_slice          => $ref_slice,
                       -target_slices        => \%these_target_slices,
+                      -query_nib_dir        => $self->QUERY_NIB_DIR,
+                      -target_nib_dir       => $self->TARGET_NIB_DIR,
                       -features             => \@features);
-    
+
     foreach my $program (qw(faToNib lavToAxt axtChain)) {
       $parameters{'-' . $program} = $BIN_DIR . "/" . $program;
     }
@@ -277,24 +279,19 @@ sub fetch_input {
 
 ###########################################
 
-sub form_target_batches_based_on_length {
+sub form_target_batches {
   my ($self, $t_slices) = @_;
 
   my @batches;
   my $batch_index = 0;
   my ($total_len, $total_count) = (0,0);
 
-  foreach my $hname (sort {$t_slices->{$a}->length <=> $t_slices->{$b}->length } keys %{$t_slices}) {
+  foreach my $hname (keys %{$t_slices}) {
     push @{$batches[$batch_index]}, $hname;
-
-    $total_len += $t_slices->{$hname}->length;
     $total_count++;
     
-    if ($total_len > 50000000 or
-        $total_count >= 1000) {
-      $total_len = 0;
-      $total_count = 0;
-      
+    if ($total_count >= 1000) {
+      $total_count = 0;      
       $batch_index++;
     }
   }
@@ -347,6 +344,29 @@ sub TARGET_CORE_DB {
 
   return $self->{_target_core_db};
 }
+
+
+sub QUERY_NIB_DIR {
+  my ($self, $dir) = @_;
+
+  if (defined $dir) {
+    $self->{_query_nib_dir} = $dir;
+  }
+
+  return $self->{_query_nib_dir};
+}
+
+
+sub TARGET_NIB_DIR {
+  my ($self, $dir) = @_;
+
+  if (defined $dir) {
+    $self->{_target_nib_dir} = $dir;
+  }
+
+  return $self->{_target_nib_dir};
+}
+
 
 
 1;
