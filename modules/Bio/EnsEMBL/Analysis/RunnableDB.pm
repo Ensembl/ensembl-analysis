@@ -482,7 +482,50 @@ sub fetch_input{
 }
 
 
+=head2 read_and_check_config
 
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : hashref, should be the hashref from which ever config file
+  you are reading
+  Function  : to on the basis of the entries of the hash in your specific
+  config file set up instance variables first for the default values then for
+  any values specific to you logic name
+  Returntype: none
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+sub read_and_check_config{
+  my ($self, $var_hash) = @_;
+
+  if(!$var_hash || ref($var_hash) ne 'HASH'){
+    throw("Must pass read_and_check_config a hashref with the config in ".
+          " RunnableDB::read_and_and_check_config");
+  }
+  #########################################################
+  # read values of config variables for this logic name into
+  # instance variable, set by method
+  #########################################################
+  my $logic = $self->analysis->logic_name;
+  my $default_entry = $var_hash->{DEFAULT};
+
+  # the following will fail if there are config variables that 
+  # do not have a corresponding method here
+  foreach my $config_var (keys %{$default_entry}) {
+    $self->$config_var($default_entry->{$config_var});
+  }
+
+  if (exists $var_hash->{$logic}) {
+    # entry contains more specific values for the variables
+    my $entry = $var_hash->{$logic};
+
+    foreach my $config_var (keys %{$entry}) {
+      $self->$config_var($entry->{$config_var});
+    }
+  }
+}
 
 
 1;

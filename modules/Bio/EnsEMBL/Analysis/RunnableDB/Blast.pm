@@ -263,7 +263,6 @@ sub read_and_check_config{
   #now for type checking and other sanity checks
 
   #must have a parser object and to pass to blast
-  print "Have blast parser ".$self->BLAST_PARSER."\n";
   throw("BLAST_PARSER must be defined either in the DEFAULT entry or in ".
         "the hash keyed on ".$self->analysis->logic_name.
         " Blast::read_and_check_config") if(!$self->BLAST_PARSER);
@@ -306,8 +305,6 @@ sub BLAST_PARSER{
   my ($self, $value) = @_;
 
   if(defined $value){
-    my ($p, $f, $l) = caller;
-    print "Setting blast parser to ".$value." $f:$l\n";
     $self->{'_CONFIG_BLAST_PARSER'} = $value;
   }
 
