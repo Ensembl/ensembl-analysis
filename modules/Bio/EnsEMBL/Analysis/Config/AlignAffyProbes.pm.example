@@ -64,7 +64,7 @@ use vars qw( %Config );
         -host => 'ecs2',
         -port => '3362',
         -user => 'ensadmin',
-        -pass => 'ensembl',
+        -pass => 'xxxxx',
         },
       OPTIONS             => ' --bestn 100 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 25 --dnawordthreshold 11 ',
     },
