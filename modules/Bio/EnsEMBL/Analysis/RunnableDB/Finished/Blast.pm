@@ -53,7 +53,7 @@ sub fetch_input{
 
   my ($self) = @_;
   my $slice = $self->fetch_sequence($self->input_id, $self->db, 
-                                    $ANALYSIS_REPEAT_MASKING);
+                                    $ANALYSIS_REPEAT_MASKING,$SOFT_MASKING);
   $self->query($slice);
   my %blast = %{$self->BLAST_PARAMS};
   my $parser = $self->make_parser;
