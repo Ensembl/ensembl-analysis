@@ -23,10 +23,18 @@
 
 =head1 DESCRIPTION
 
+Modified blast runnable for specific use with RFAMSEQ.
+Use for running BLASTN of genomic vs RFAMSEQ prior to 
+ncRNA analysis using Infernal.
+Keeps the coverage in the dna_align_feature score field.
+Also clusters overlapping hits and picks the one with the lowest 
+evalue to represent that cluster.
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+sw4@sanger.ac.uk
+
 
 =cut
 
