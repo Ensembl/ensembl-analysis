@@ -234,7 +234,10 @@ sub runnable{
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
   Arg [2]   : string/int
-  Function  : container for specified variable
+  Function  : container for specified variable. This pod refers to the
+  three methods below, input_id, input_is_void, failing_job_status. This
+  are simple containers which dont do more than hold and return an given
+  value
   Returntype: string/int
   Exceptions: none
   Example   : 
@@ -362,7 +365,7 @@ sub parameters_hash{
          print "key ".$key." value ".$value."\n";
          $parameters_hash{$key} = $value;
        } else {
-         $parameters_hash{$key} = "__NONE__";
+         $parameters_hash{$key} = 1;
        }
      }
   }else{

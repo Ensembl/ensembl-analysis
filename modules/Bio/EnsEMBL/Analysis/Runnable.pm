@@ -131,7 +131,9 @@ sub new{
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : string
-  Function  : container for the specified string
+  Function  : container for specified variable. This pod refers to the
+  four methods below options, bindir, libdir and datadir. These are simple 
+  containers which dont do more than hold and return an given value
   Returntype: string
   Exceptions: none
   Example   : my $options = $self->options;
@@ -645,7 +647,7 @@ sub run{
   $self->files_to_delete($self->resultsfile);
   $self->run_analysis();
   $self->parse_results;
-  $self->delete_files;
+  #$self->delete_files;
   return 1;
 }
 
@@ -669,7 +671,7 @@ sub run_analysis{
   if(!$program){
     $program = $self->program;
   }
-  throw($program." must be executable Runnable::run_analysis ") 
+  throw($program." is not executable Runnable::run_analysis ") 
     unless($program && -x $program);
   
   my $command = $program." ";
