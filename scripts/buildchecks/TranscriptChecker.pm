@@ -302,7 +302,7 @@ sub output {
   if ($translation) {
     my $pepstr = $transcript->translate->seq;
     $pepstr =~ s/(.{0,80})/  $1\n/g;
-    print "\nTranslation:\n";
+    print "\nTranslation (" . $translation->dbID . "):\n";
     print $pepstr;
   }
 
@@ -436,14 +436,23 @@ sub check_Phases {
       $start_phase = 0;
     }
 
+    my $zero_phase_count = 0;
+    if ($start_phase == 0) {
+      $zero_phase_count++;
+    }
+    
     my @calc_phases;
     my $phase = $start_phase;
     for (my $i=0; $i<scalar(@exons);$i++) {
       push @calc_phases, $phase;
       $phase = (($exons[$i]->length + $phase) % 3);
     }
+
     for (my $i=1; $i<scalar(@exons);$i++) {
       my $exon=$exons[$i];
+      if ($exon->phase == 0) {
+        $zero_phase_count++;
+      }
       if ($exon->phase != $prev_exon->end_phase) {
         $self->add_Error("EndPhase/Phase mismatch (" . $prev_exon->end_phase . " and " . $exon->phase . 
                          ") between exons " .  $prev_exon->dbID . " and " . $exon->dbID . 
@@ -463,6 +472,9 @@ sub check_Phases {
       }
       $prev_exon = $exon;
     }
+    if ($zero_phase_count/scalar(@exons) < 0.20 && scalar(@exons) > 8) {
+      $self->add_Warning("Suspiciously high number of non phase zero exon (num phase zero = $zero_phase_count nexon = " . scalar(@exons).")\n");
+    }
   }
 }
 
@@ -480,7 +492,7 @@ sub check_Translation {
     my $peplen = length($pepseqstr);
     # print "Pep seq = $pepseqstr\n";
     if ($pepseqstr =~ /\*/) {
-      $self->add_Error("Translation failed - Translation contains stop codons\n$pepseqstr\n",'transstop');
+      $self->add_Error("Translation failed - Translation contains stop codons\n",'transstop');
       return 1; 
     } elsif ($peplen == 0) {
       $self->add_Error("Translation failed - Translation has zero length\n",'transzerolen');

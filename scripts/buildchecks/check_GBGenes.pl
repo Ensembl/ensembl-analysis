@@ -345,7 +345,7 @@ sub get_chrlengths_19 {
   my $hashref;
   while (($hashref = $sth->fetchrow_hashref) && defined($hashref)) {
     $chrhash{$hashref->{'name'}} = $hashref->{mce};
-    print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
+    # print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
   }
   return \%chrhash;
 }
