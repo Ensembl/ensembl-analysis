@@ -210,12 +210,18 @@ sub filter_results{
   my %hitarray;
   my %totalscore;
   my $maxend = 0;
+  #print "Min score ".$self->min_score." max pvalue ".$self->max_pvalue.
+  #"\n";
+  #print "Coverage ".$self->coverage." prune ".$self->prune." hard prune "
+  #.$self->hard_prune."\n";
   #filtering by score
   #sorting by score so we use the highest scoring feature first
   #The score filter basically takes all features belonging to
   #one hit id provided that at least one of its features has a score
   #greater than the min score and a pvalue less than the max pvalue
+  #print "Passed ".@$features." results\n";
   @$features = sort { $b->score <=> $a->score } @$features;
+  #print "Have ".@$features." features to filter\n";
   foreach my $f(@$features){
     if($f->score > $self->min_score){ 
       if(!exists $validhit{$f->hseqname}){
@@ -243,11 +249,13 @@ sub filter_results{
       push(@{$hitarray{$f->hseqname}}, $f);
     }
   }
+  
   my $total_count = 0;
   foreach my $id(keys(%hitarray)){
     $total_count += @{$hitarray{$id}};
   }
- 
+  #print "After filtering on score have ".$total_count.
+  #  " features  on ".keys(%hitarray)." hit ids\n";
   my @hit_ids = sort {$validhit{$b} <=> $validhit{$a}
                          or $totalscore{$b} <=> $totalscore{$a}
                            or $a cmp $b
@@ -268,6 +276,7 @@ sub filter_results{
   #in that feature and checks if the coverage is too high. Provided one
   #basepair has less coverage than required the feature is kept
   #otherwise that hit id is marked to be thrown away. 
+  #print STDERR "Coverage is ".$self->coverage."\n";
   if($self->filter_on_coverage){
     my @strands = (1, -1);
     foreach my $strand(@strands){
@@ -311,19 +320,17 @@ sub filter_results{
     }
   }
   my @features;
-  if($self->prune){ #this pruning is done on a hit id basis 
-    foreach my $name(keys(%accepted_hit_ids)){
-      my @tmp = @{$self->prune_features(\@{$hitarray{$name}})};
-      push(@features, @tmp);
+  foreach my $name(keys(%accepted_hit_ids)){
+    my @tmp = @{$hitarray{$name}};
+    my $remaining;
+    if($self->prune){
+      $remaining = $self->prune_features(\@tmp);
+    }else{
+      $remaining = \@tmp;
     }
-  }else{
-    foreach my $name(keys(%hitarray)){
-     push(@features, @{$hitarray{$name}});
-    }
+    push(@features, @$remaining);
   }
-  if($self->hard_prune){ #this pruning is done across all features
-    @features = @{$self->prune_features(\@features)};
-  }
+  #print "Returning ".@features."\n";
   return \@features;
 }
 
@@ -426,14 +433,17 @@ sub prune_features_by_strand {
    }
 
    # put the worst features first, so they get removed with priority
-   @sorted_fs = sort { $a->score <=> $b->score } @input_for_strand;
-
+   @sorted_fs = sort { $a->score <=> $b->score || 
+                         $a->start <=> $b->start } @input_for_strand;
+ 
+   
    @input_for_strand = ();	# free some memory?
 
    # over_covered_bases: list of base numbers where coverage must be
    # reduced, listed worst-case-first
    my $max_coverage = $self->coverage;
    my @over_covered_bases;
+   #print "Order of features in prune\n";
    foreach my $base ($first_base..$last_base) {
      my $excess_fs = $fs_per_base[$base] - $max_coverage;
      if ($excess_fs > 0) {

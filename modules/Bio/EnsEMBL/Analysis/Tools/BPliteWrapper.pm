@@ -71,15 +71,14 @@ sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
-  my ($filename, $regex, $query, $target, $analysis) = 
-    rearrange(['FILENAME', 'REGEX', 'QUERY_TYPE', 'DATABASE_TYPE',
+  my ($regex, $query, $target, $analysis) = 
+    rearrange(['REGEX', 'QUERY_TYPE', 'DATABASE_TYPE',
                'ANALYSIS'], @args);
   ######################
   #SETTING THE DEFAULTS#
   ######################
   $self->regex('(\w+)\s+');
   ######################
-  $self->filename($filename) if($filename);
   $self->regex($regex) if(defined $regex);
   $self->query_type($query) if($query);
   $self->database_type($target) if($target);
@@ -88,24 +87,6 @@ sub new{
 }
 
 
-
-=head2 filename
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
-  Arg [2]   : string, filename
-  Function  : container
-  Returntype: string, filename
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-sub filename{
-  my $self = shift;
-  $self->{'filename'} = shift if(@_);
-  return $self->{'filename'};
-}
 
 
 =head2 regex
@@ -124,6 +105,20 @@ sub regex{
   my $self = shift;
   $self->{'regex'} = shift if(@_);
   return $self->{'regex'};
+}
+
+
+sub filenames{
+  my ($self, $files) = @_;
+  if(!$self->{'filenames'}){
+    $self->{'filenames'} = [];
+  }
+  if($files){
+    throw($files." must be an arrayref BPliteWrapper:filenames ") 
+      unless(ref($files) eq 'ARRAY');
+    push(@{$self->{'filenames'}}, @{$files});
+  }
+  return $self->{'filenames'};
 }
 
 
@@ -286,16 +281,11 @@ sub analysis{
 
 
 sub parse_file{
-  my ($self, $file) = @_;
-  if(!$file){
-    $file = $self->filename;
-  }
-  $self->filename($file);
-  throw("File ".$file." must exist to be parsed BPliteWrapper:parse_file ")
-    unless(-e $file);
+  my ($self, $files) = @_;
+  $self->filenames($files);
   $self->clean_output;
-  my $bplite = $self->get_parser($file);
-  $self->get_hsps($bplite);
+  my $bplites = $self->get_parsers($files);
+  $self->get_hsps($bplites);
   return $self->output;
 }
 
@@ -314,15 +304,24 @@ sub parse_file{
 
 
 
-sub get_parser{
-  my ($self, $file) = @_;
-  my $fh = new FileHandle;
-  $fh->open("<". $file);
-  my $bplite = Bio::EnsEMBL::Analysis::Tools::BPlite->new
-    (
-     -fh => $fh,
-    );
-  return $bplite;
+sub get_parsers {
+  my ($self, $files)  = @_;
+
+  if(!$files){
+    $files = $self->filenames;
+  }
+  my @parsers;
+  foreach my $file (@$files) {
+
+    my $fh = new FileHandle;
+    $fh->open("<".$file);
+    
+    my $parser = Bio::EnsEMBL::Analysis::Tools::BPlite->new('-fh' => $fh);
+    
+    push(@parsers,$parser);
+  } 
+
+  return \@parsers;
 }
 
 
@@ -340,17 +339,20 @@ sub get_parser{
 
 
 sub get_hsps{
-  my ($self, $parser) = @_;
+  my ($self, $parsers) = @_;
   my $regex = $self->regex;
   my @output;
- NAME: while(my $sbjct = $parser->nextSbjct){
-    my ($name) = $sbjct->name =~ /$regex/;
-    throw("Error parsing name from ".$sbjct->name." check your ".
-          "blast setup and blast headers") unless($name);
-  HSP: while (my $hsp = $sbjct->nextHSP) {
-      push(@output, $self->split_hsp($hsp, $name));
+ PARSER:foreach my $parser(@$parsers){
+  NAME: while(my $sbjct = $parser->nextSbjct){
+      my ($name) = $sbjct->name =~ /$regex/;
+      throw("Error parsing name from ".$sbjct->name." check your ".
+            "blast setup and blast headers") unless($name);
+    HSP: while (my $hsp = $sbjct->nextHSP) {
+        push(@output, $self->split_hsp($hsp, $name));
+      }
     }
   }
+  $parsers = [];
   $self->output(\@output);
 }
 

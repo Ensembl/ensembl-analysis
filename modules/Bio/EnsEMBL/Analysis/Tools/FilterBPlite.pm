@@ -136,27 +136,30 @@ sub filter{
 
 
 sub get_hsps{
-  my ($self, $parser) = @_;
+  my ($self, $parsers) = @_;
   my $regex = $self->regex;
   my @output;
   my $ids;
   if($self->filter){
-    $ids = $self->filter_hits($parser);
+    $ids = $self->filter_hits($parsers);
   }
-  my $second = $self->get_parser($self->filename);
- NAME: while(my $sbjct = $second->nextSbjct){
-    if($self->filter && !($ids->{$sbjct->name})){
-      next NAME;
-    }
-    my ($name) = $sbjct->name =~ /$regex/;
-    throw("Error parsing name from ".$sbjct->name." check your ".
-          "blast setup and blast headers") unless($name);
-  HSP: while (my $hsp = $sbjct->nextHSP) {
-      if($self->is_hsp_valid($hsp)){     
-        push(@output, $self->split_hsp($hsp, $name));
+  my $seconds = $self->get_parsers($self->filenames);
+ PARSER:foreach my $second(@$seconds){
+  NAME: while(my $sbjct = $second->nextSbjct){
+      if($self->filter && !($ids->{$sbjct->name})){
+        next NAME;
+      }
+      my ($name) = $sbjct->name =~ /$regex/;
+      throw("Error parsing name from ".$sbjct->name." check your ".
+            "blast setup and blast headers") unless($name);
+    HSP: while (my $hsp = $sbjct->nextHSP) {
+        if($self->is_hsp_valid($hsp)){     
+          push(@output, $self->split_hsp($hsp, $name));
+        }
       }
     }
   }
+  $parsers = [];
   $self->output(\@output);
 }
 
@@ -177,37 +180,50 @@ sub get_hsps{
 
 
 sub filter_hits{
-  my ($self, $parser) = @_;
+  my ($self, $parsers) = @_;
   my %ids;
   my @features;
- SUB:while(my $sbjct = $parser->nextSbjct){
-    my $name = $sbjct->name;
-  HSP:while (my $hsp = $sbjct->nextHSP) {
-      if($self->is_hsp_valid($hsp)){
-        my $qstart = $hsp->query->start();
-        my $hstart = $hsp->subject->start();
-        my $qend   = $hsp->query->end();
-        my $hend   = $hsp->subject->end();
-        my $qstrand = $hsp->query->strand();
-        my $hstrand = $hsp->subject->strand();
-        my $score  = $hsp->score;
-        my $p_value = $hsp->P;
-        my $percent = $hsp->percent;
-
-        my $fp = $self->feature_factory->create_feature_pair
-          ($qstart, $qend, $qstrand, $score, $hstart,
-           $hend, $hstrand, $name, $percent, $p_value);
-
-        push(@features,$fp);
+  my $sc = 0;
+  my $hspc = 0;
+  my $skipped = 0;
+ PARSER:foreach my $parser(@$parsers){
+  SUB:while(my $sbjct = $parser->nextSbjct){
+      $sc++;
+      my $name = $sbjct->name;
+    HSP:while (my $hsp = $sbjct->nextHSP) {
+        $hspc++;
+        if($self->is_hsp_valid($hsp)){
+          my $qstart = $hsp->query->start();
+          my $hstart = $hsp->subject->start();
+          my $qend   = $hsp->query->end();
+          my $hend   = $hsp->subject->end();
+          my $qstrand = $hsp->query->strand();
+          my $hstrand = $hsp->subject->strand();
+          my $score  = $hsp->score;
+          my $p_value = $hsp->P;
+          my $percent = $hsp->percent;
+          
+          my $fp = $self->feature_factory->create_feature_pair
+            ($qstart, $qend, $qstrand, $score, $hstart,
+             $hend, $hstrand, $name, $percent, $p_value);
+          
+          push(@features,$fp);
+        }else{
+          $skipped++;
+        }
       }
     }
   }
+  print "There were ".$sc." subjects\n";
+  print "There were ".$hspc." hsps\n";
+  print $skipped." hsps were skipped\n";
+  print "There are ".@features."before feature filter\n";
   my $search = Bio::EnsEMBL::Analysis::Tools::FeatureFilter->new
     (
      -coverage => $self->coverage,
-     -prune => 1,
     );
   my @newfeatures = @{$search->filter_results(\@features)};
+  print "There were ".@newfeatures." after feature filter\n";
   foreach my $f (@newfeatures) {
     my $id = $f->hseqname;
     $ids{$id} = 1;
