@@ -159,8 +159,8 @@ sub unknown_error_string{
   Arg [2]   : string, filename
   Function  : holds a list of all the output files from the blast runs
   Returntype: arrayref
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 

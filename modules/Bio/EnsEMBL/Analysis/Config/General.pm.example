@@ -46,7 +46,7 @@ use vars qw(%Config);
     DATA_DIR => '/usr/local/ensembl/data',
     LIB_DIR  => '/usr/local/ensembl/lib',
 
-    ANALYSIS_WORK_DIR => '/tmp',
+    ANALYSIS_WORK_DIR => '/acari/scratch1/ensembl/sw4/Pseudo_test/output',
     ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
 
 );
