@@ -179,7 +179,8 @@ sub create_repeat_feature{
   Arg [10]  : int, percent id
   Arg [11]  : int, p value
   Arg [12]  : string, seqname
-  Arg [13]  : Bio::EnsEMBL::Analysis
+  Arg [13]   : Bio::EnsEMBL::Slice
+  Arg [14]  : Bio::EnsEMBL::Analysis
   Function  : creates a Bio::EnsEMBL::FeaturePair
   Returntype: Bio::EnsEMBL::FeaturePair
   Exceptions: 
@@ -213,6 +214,26 @@ sub create_feature_pair {
 }
 
 
+=head2 create_prediction_exons
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [2]   : int, start,
+  Arg [3]   : int, end
+  Arg [4]   : int, strand
+  Arg [5]   : int, score
+  Arg [6]   : float, p value
+  Arg [7]   : int, phase
+  Arg [8]   : string, seqname
+  Arg [9]   : Bio::EnsEMBL::Slice
+  Arg [10]  : Bio::EnsEMBL::Analysis
+  Function  : create a Bio::EnsEMBL::PredictionExon
+  Returntype: Bio::EnsEMBL::PredictionExon
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
 
 sub create_prediction_exon{
   my ($self, $start, $end, $strand, $score, $pvalue, $phase, $seqname,
@@ -231,6 +252,22 @@ sub create_prediction_exon{
      );
   return $exon;
 }
+
+
+
+=head2 create_prediction_transcript
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [2]   : arrayref, array of Bio::EnsEMBL::PredictionExons
+  Arg [3]   : Bio::EnsEMBL::Slice
+  Arg [4]   : Bio::EnsEMBL::Analysis
+  Function  : 
+  Returntype: 
+  Exceptions: 
+  Example   : 
+
+=cut
+
 
 
 sub create_prediction_transcript{
@@ -324,8 +361,10 @@ sub validate_prediction_transcript{
     throw("problem ".$pt." has no exons");
   }
   foreach my $e(@exons){
-    $e->slice($pt->slice) if(!$e->slice);
-    $e->analysis($pt->analysis) if(!$e->analysis);
+    if($attach_to_exons){
+      $e->slice($pt->slice) if(!$e->slice);
+      $e->analysis($pt->analysis) if(!$e->analysis);
+    }
     $self->validate($e);
   }
   $self->validate($pt);

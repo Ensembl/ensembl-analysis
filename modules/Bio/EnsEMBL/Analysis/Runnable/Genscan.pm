@@ -310,11 +310,7 @@ sub create_transcripts{
   my %exon_groups = %{$self->exon_groups};
   #print "Exons groups ".%exon_groups."\n";
   foreach my $group(keys(%exon_groups)){
-    my @exons = sort { $a->start <=> $b->start} @{$exon_groups{$group}};
-    if ($exons[0]->strand == -1) {
-      @exons = reverse @exons;
-    }
-
+    my @exons = @{$exon_groups{$group}};
     my $transcript = $ff->create_prediction_transcript(\@exons, $self->query);
     $transcript->seqname($group);
     push(@transcripts, $transcript);
@@ -344,12 +340,9 @@ sub calculate_phases{
   my @output;
   my $ff = $self->feature_factory;
   my $peptides = $self->peptides;
-  print "Have peptides ".$peptides." with ".keys(%$peptides)." keys\n";
  TRANS:foreach my $trans(@{$self->output}){
-    print "Translation seqname ".$trans->seqname."\n";
     my @exons = @{$trans->get_all_Exons};
     foreach my $phase(@phases){
-      print "Checking phase ".$phase."\n";
       my @temp_exons = @{$self->set_phases($phase, \@exons)};
       my $new = $ff->create_prediction_transcript(\@temp_exons, 
                                                   $self->query);
@@ -361,24 +354,10 @@ sub calculate_phases{
       $ensembl =~ s/x$//i;
       $genscan =~ s/^x//i;
       $genscan =~ s/x$//i;
-      print "Peptide in phase $phase is ".$ensembl."\n\n";
-      print "Genscan peptide ".$genscan."\n";
       if ($ensembl eq $genscan){
-        #print "Found out phase\n";
         push(@output, $new);
         next TRANS;
       }
-      #     foreach my $peptide(@{$self->peptides}){
-      #        $peptide =~ s/^x//i;
-      #        $peptide =~ s/x$//i;
-      #        my ($ensembl, $genscan) = $self->subsitute_x_codes($pep, 
-      #                                                           $peptide); 
-#        if ($ensembl eq $genscan){
-      #          #print "Found out phase\n";
-      #          push(@output, $new);
-      #          next TRANS;
-      #        }
-      #      }
     }
     throw("Failed to find translation for ".$trans." ".$exons[0]->seqname)
   }
@@ -408,19 +387,32 @@ sub set_phases{
   if(@$exons == 0){
     throw("Can't set phases if have no exons ".$exons." ".@$exons);
   }
-  my @exons = @$exons;
-  if ($exons[0]->strand == 1) {
-    @exons = sort {$a->start <=> $b->start} @exons;
+  if ($exons->[0]->strand == 1) {
+    @$exons = sort {$a->start <=> $b->start} @$exons;
   } else {
-    @exons = sort {$b->start <=> $a->start} @exons;
+    @$exons = sort {$b->start <=> $a->start} @$exons;
   }
-  foreach my $e(@exons){
+  foreach my $e(@$exons){
     $e->phase($start_phase);
     $start_phase = ($e->phase + $e->length)%3;
   }
   return $exons;
 }
 
+
+
+=head2 subsitute_x_codes
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genscan
+  Arg [2]   : string, ensembl produced peptides
+  Arg [3]   : string, genscan predicted peptide
+  Function  : makes sure x's and length's of peps are the same
+  to allow fair comparison
+  Returntype: string, string
+  Exceptions: 
+  Example   : 
+
+=cut
 
 
 
@@ -438,6 +430,14 @@ sub subsitute_x_codes{
 		substr($ensembl_pep, $x, 1) = 'X'
       if length($ensembl_pep) >= length($genscan_pep);
 		$x++;
+  }
+  my $ens_len = length($ensembl_pep);
+  my $gen_len = length($genscan_pep);
+  if($ens_len == ($gen_len+1)){
+    chop($ensembl_pep);
+  }
+  if($gen_len == ($ens_len+1)){
+    chop($genscan_pep);
   }
   return $ensembl_pep, $genscan_pep;
 }
