@@ -42,12 +42,12 @@ use vars qw(@ISA);
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable::Genscan;
+use Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Genscan);
+@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio);
 
 =head2 new
 
@@ -69,12 +69,8 @@ sub new {
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->program('fgenesh') if($self->program eq 'genscan'
-                              || !$self->program);
-  $self->matrix('hum.dat') if($self->matrix eq 'HumanIso.smat'
-                              || $self->matrix eq
-                              '/usr/local/ensembl/data/HumanIso.smat'
-                              || !$self->matrix);
+  $self->program('fgenesh') if(!$self->program);
+  $self->matrix('hum.dat') if(!$self->matrix);
   ######################
 
   return $self;
