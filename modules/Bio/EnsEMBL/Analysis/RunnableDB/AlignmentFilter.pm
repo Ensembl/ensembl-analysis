@@ -109,7 +109,70 @@ sub write_output {
   }
 }
 
+###########################################
+# feature splitting
+###########################################
+sub split_feature {
+  my ($self, $f, $max_gap) = @_;
 
+  my @split_dafs;
+  
+  my $need_to_split = 0;
+
+  my @pieces = split(/(\d*[MDI])/, $f->cigar_string);
+  foreach my $piece ( @pieces ) {
+    next if ($piece !~ /^(\d*)([MDI])$/);
+    my $num = ($1 or 1);
+    my $type = $2;
+
+    if (($type eq "I" or $type eq "D") and $num >= $max_gap) {
+      $need_to_split = 1;
+      last;
+    }
+  }
+  
+  if ($need_to_split) {
+    my (@new_feats);
+    foreach my $ug (sort {$a->start <=> $b->start} $f->ungapped_features) {
+      if (@new_feats) {
+        my ($dist, $hdist);
+
+        my $last_ug = $new_feats[-1]->[-1];
+
+        if ($ug->end < $last_ug->start) {
+          # blocks in reverse orienation
+          $dist = $last_ug->start - $ug->end - 1;
+        } else {
+          # blocks in forward orienatation
+          $dist = $ug->start - $last_ug->end - 1;
+        }
+        if ($ug->hend < $last_ug->hstart) {
+          # blocks in reverse orienation
+          $hdist = $last_ug->hstart - $ug->hend - 1;
+        } else {
+          # blocks in forward orienatation
+          $hdist = $ug->hstart - $last_ug->hend - 1;
+        }
+
+        if ($dist >= $max_gap) {
+          push @new_feats, [];
+        }
+      } else {
+        push @new_feats, [];
+      }
+      push @{$new_feats[-1]}, $ug;
+    }
+    
+    foreach my $mini_list (@new_feats) {
+      push @split_dafs, Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => $mini_list);
+    }
+
+  } else {
+    @split_dafs = ($f)
+  }  
+
+  return @split_dafs;
+}
 
 ############################################
 # cigar conversion
@@ -286,40 +349,49 @@ sub convert_output {
   foreach my $chain_of_dafs (@$chains_of_dafs) {
     my @chain_of_blocks;
 
-    foreach my $daf (@$chain_of_dafs) {
-      my ($q_cigar, $t_cigar, $al_len) = 
-          $self->compara_cigars_from_daf_cigar($daf->cigar_string);
+    foreach my $raw_daf (sort {$a->start <=> $b->start} @$chain_of_dafs) {
+      my @split_dafs;
+      if ($self->MAX_GAP) {
+        @split_dafs = $self->split_feature($raw_daf, $self->MAX_GAP);
+      } else {
+        @split_dafs = ($raw_daf);
+      }
 
-      my $q_dnafrag = $self->query_DnaFrag_hash->{$daf->seqname};
-      my $t_dnafrag = $self->target_DnaFrag_hash->{$daf->hseqname};
-
-      my $out_mlss = $self->output_MethodLinkSpeciesSet;
-
-      my $q_genomic_align = Bio::EnsEMBL::Compara::GenomicAlign->new
-          (-dnafrag        => $q_dnafrag,
-           -dnafrag_start  => $daf->start,
-           -dnafrag_end    => $daf->end,
-           -dnafrag_strand => $daf->strand,
-           -cigar_line     => $q_cigar,
-           -level_id       => $daf->level_id,
-           -method_link_species_set => $out_mlss);
-
-      my $t_genomic_align = Bio::EnsEMBL::Compara::GenomicAlign->new
-          (-dnafrag        => $t_dnafrag,
-           -dnafrag_start  => $daf->hstart,
-           -dnafrag_end    => $daf->hend,
-           -dnafrag_strand => $daf->hstrand,
-           -cigar_line     => $t_cigar,
-           -level_id       => $daf->level_id,
-           -method_link_species_set => $out_mlss);
-
-      my $gen_al_block = Bio::EnsEMBL::Compara::GenomicAlignBlock->new
-          (-genomic_align_array => [$q_genomic_align, $t_genomic_align],
-           -score               => $daf->score,
-           -length              => $al_len,
-           -method_link_species_set => $out_mlss);
-
-      push @chain_of_blocks, $gen_al_block;
+      foreach my $daf (@split_dafs) {
+        my ($q_cigar, $t_cigar, $al_len) = 
+            $self->compara_cigars_from_daf_cigar($daf->cigar_string);
+        
+        my $q_dnafrag = $self->query_DnaFrag_hash->{$daf->seqname};
+        my $t_dnafrag = $self->target_DnaFrag_hash->{$daf->hseqname};
+        
+        my $out_mlss = $self->output_MethodLinkSpeciesSet;
+        
+        my $q_genomic_align = Bio::EnsEMBL::Compara::GenomicAlign->new
+            (-dnafrag        => $q_dnafrag,
+             -dnafrag_start  => $daf->start,
+             -dnafrag_end    => $daf->end,
+             -dnafrag_strand => $daf->strand,
+             -cigar_line     => $q_cigar,
+             -level_id       => $daf->level_id,
+             -method_link_species_set => $out_mlss);
+        
+        my $t_genomic_align = Bio::EnsEMBL::Compara::GenomicAlign->new
+            (-dnafrag        => $t_dnafrag,
+             -dnafrag_start  => $daf->hstart,
+             -dnafrag_end    => $daf->hend,
+             -dnafrag_strand => $daf->hstrand,
+             -cigar_line     => $t_cigar,
+             -level_id       => $daf->level_id,
+             -method_link_species_set => $out_mlss);
+        
+        my $gen_al_block = Bio::EnsEMBL::Compara::GenomicAlignBlock->new
+            (-genomic_align_array => [$q_genomic_align, $t_genomic_align],
+             -score               => $daf->score,
+             -length              => $al_len,
+             -method_link_species_set => $out_mlss);
+        
+        push @chain_of_blocks, $gen_al_block;
+      }
     }
 
     push @chains_of_blocks, \@chain_of_blocks;
@@ -378,7 +450,6 @@ sub INPUT_METHOD_LINK_TYPE {
   return $self->{_in_method_link_type};
 }
 
-
 sub OUTPUT_METHOD_LINK_TYPE {
   my ($self, $type) = @_;
 
@@ -388,7 +459,6 @@ sub OUTPUT_METHOD_LINK_TYPE {
   
   return $self->{_out_method_link_type};
 }
-
 
 sub COMPARA_DB {
   my ($self, $db) = @_;
@@ -400,6 +470,17 @@ sub COMPARA_DB {
   return $self->{_compara_db};
 
 }
+
+sub MAX_GAP {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    $self->{_max_gap} = $val;
+  }
+
+  return $self->{_max_gap};
+}
+
 
 
 1;
