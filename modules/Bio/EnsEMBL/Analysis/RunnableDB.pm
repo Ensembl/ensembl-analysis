@@ -508,14 +508,19 @@ sub read_and_check_config{
   # read values of config variables for this logic name into
   # instance variable, set by method
   #########################################################
-  my $logic = $self->analysis->logic_name;
-  my $default_entry = $var_hash->{DEFAULT};
 
+  if (not exists($var_hash->{DEFAULT})) {
+    throw("You must define a DEFAULT entry in your config");
+  }
+
+  my $default_entry = $var_hash->{DEFAULT};
   # the following will fail if there are config variables that 
   # do not have a corresponding method here
   foreach my $config_var (keys %{$default_entry}) {
     $self->$config_var($default_entry->{$config_var});
   }
+
+  my $logic = $self->analysis->logic_name;
 
   if (exists $var_hash->{$logic}) {
     # entry contains more specific values for the variables
