@@ -85,6 +85,7 @@ my $dnaport   = "";
 my $exon_dup_check = 0;
 
 my $check_transcripts = 1;
+my $schema = 20;
 
 &GetOptions(
             'host:s'           => \$host,
@@ -100,6 +101,7 @@ my $check_transcripts = 1;
             'chromosomes:s'    => \@chromosomes,
             'chrstart:n'       => \$specstart,
             'chrend:n'         => \$specend,
+            'schema:n'         => \$schema,
             'duplicates!'      => \$exon_dup_check,
             'transcripts!'     => \$check_transcripts,
            );
@@ -149,7 +151,13 @@ if ($exon_dup_check) {
   print "Done duplicate check\n";
 }
 
-my $chrhash = get_chrlengths($db, $path);
+my $chrhash;
+
+if ($schema == 20) {
+  $chrhash = get_chrlengths($db, $path);
+} else {
+  $chrhash = get_chrlengths_19($db, $path);
+}
 
 #filter to specified chromosome names only 
 if (scalar(@chromosomes)) {
@@ -194,9 +202,17 @@ foreach my $chr (sort bychrnum keys %$chrhash) {
   my $chrend = (defined ($specend) && $specend < $chrhash->{$chr}) ? $specend :
                $chrhash->{$chr};
 
-  my $slicename = "chromosome:$path:$chr:$chrstart:$chrend:1";
-  print "Slice = $slicename\n";
-  my $slice = $sa->fetch_by_name($slicename);
+  my $slice;
+  my $slicename;
+  if ($schema == 20) {
+    $slicename = "chromosome:$path:$chr:$chrstart:$chrend:1";
+    print "Slice = $slicename\n";
+    $slice = $sa->fetch_by_name($slicename);
+  } else {
+    $slicename = "$chr:$chrstart-$chrend";
+    print "Slice = $slicename\n";
+    $slice = $sa->fetch_by_chr_start_end($chr,$chrstart,$chrend);
+  }
   
   my $genes = $slice->get_all_Genes;
 
@@ -307,6 +323,34 @@ sub get_chrlengths {
   }
   return \%chrhash;
 }
+
+sub get_chrlengths_19 {
+  my $db   = shift;
+  my $type = shift;
+
+  if (!$db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
+    die "get_chrlengths should be passed a Bio::EnsEMBL::DBSQL::DBAdaptor\n";
+  }
+
+  my $query = "select chromosome.name,max(chr_end) as mce from assembly,chromosome where" .
+              " assembly.chromosome_id=chromosome.chromosome_id and" .
+              " assembly.type = '" . $type . "' group by assembly.chromosome_id";
+
+  my $sth = $db->prepare($query);
+
+  $sth->execute;
+
+  my %chrhash;
+
+  my $hashref;
+  while (($hashref = $sth->fetchrow_hashref) && defined($hashref)) {
+    $chrhash{$hashref->{'name'}} = $hashref->{mce};
+    print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
+  }
+  return \%chrhash;
+}
+
+
 
 sub bychrnum {
 

@@ -475,7 +475,8 @@ sub exon_Density{
 
 sub _get_start_end {
   my ($self,$t) = @_;
-  return ($t->start, $t->end, $t->strand);
+#  return ($t->start, $t->end, $t->strand);
+  return ($t->start, $t->end);
 }
 
 

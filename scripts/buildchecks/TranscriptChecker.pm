@@ -277,7 +277,7 @@ sub output {
  
   my $vcoffset = 0;
   if ($self->slice) {
-    $vcoffset = $self->slice->start - 1;
+    $vcoffset = $self->slice->chr_start - 1;
   }
 
   my $translation = $transcript->translation;
@@ -377,7 +377,7 @@ sub check {
   my $transend;
   my $vcoffset = 0;
   if ($self->slice) {
-    $vcoffset = $self->slice->start - 1;
+    $vcoffset = $self->slice->chr_start - 1;
   }
 
   if ($exons[0]->strand == 1) {
@@ -628,7 +628,14 @@ sub check_Intron {
   my $prev_exon = shift || $self->throw("Prev_exon must be passed");
   my $exon = shift || $self->throw("Exon must be passed");
 
-  my $intron = new Bio::EnsEMBL::Intron($prev_exon, $exon);
+  my $intron;
+  if (Bio::EnsEMBL::Intron->can('upstream_Exon')) {
+    $intron = new Bio::EnsEMBL::Intron;
+    $intron->upstream_Exon($prev_exon);
+    $intron->downstream_Exon($exon);
+  } else {
+    $intron = new Bio::EnsEMBL::Intron($prev_exon, $exon);
+  }
 
   my $intlen = $intron->length;
 
@@ -646,6 +653,9 @@ sub check_Intron {
   # if ($intlen >= $self->minshortintronlen) {
   if ($intlen >= 2) {
     my $intseq = $intron->seq;
+    if (ref($intseq)) {
+      $intseq = $intseq->seq;
+    }
     #print "Checking intron\n";
     if (substr($intseq,0,2) ne "GT") {
       $self->add_Warning("Non consensus 5' intron splice site sequence (".
