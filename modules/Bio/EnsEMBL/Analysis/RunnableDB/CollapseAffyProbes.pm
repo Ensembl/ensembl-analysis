@@ -113,7 +113,6 @@ sub run {
   
 
   while(<PROBES>){
-    $count++;
 
     chomp;
     if(/^>probe:(\S+):(\S+):(\S+:\S+;).*$/){
@@ -252,7 +251,6 @@ sub write_output {
   }
 
   foreach my $probeset_sequence_key (keys %{$self->affy_probes}){
-    $count++;
     my $affy_probe = $self->affy_probes->{$probeset_sequence_key};
     if(!$affy_probe->dbID){
       eval{ $affy_probe_adaptor->store($affy_probe) };
