@@ -344,20 +344,16 @@ sub fetch_databases {
 sub parse_results{
   my ($self) = @_;
   my $results = $self->results_files;
-  my @output;
-  foreach my $results_file(@$results){
-    my $results = $self->parser->parse_file($results_file);
-    push(@output, @$results);
-  }
-
+  my $output = $self->parser->parse_file($results);
   my $filtered_output;
+  #print "Have ".@$output." features to filter\n";
   if($self->filter){
-    $filtered_output = $self->filter->filter_results(\@output);
+    $filtered_output = $self->filter->filter_results($output);
   }else{
-    $filtered_output = \@output;
+    $filtered_output = $output;
   }
   $self->output($filtered_output);
-  
+  #print "Have ".@$filtered_output." results to output\n";
 }
 
 
