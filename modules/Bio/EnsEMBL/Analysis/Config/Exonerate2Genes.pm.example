@@ -82,7 +82,7 @@ use vars qw( %Config );
                            },              
                          },
                COVERAGE_BY_ALIGNED => 1,
-               OPTIONS => "--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14",
+               OPTIONS => "--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14",
              },
 
              CDNA_logic_name => {
@@ -105,7 +105,7 @@ use vars qw( %Config );
                              -reject_processed_pseudos => 1,
                            },              
                          },
-               OPTIONS => "--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14",
+               OPTIONS => "--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14",
              },            
 
              Protein_logicname => {
@@ -122,7 +122,7 @@ use vars qw( %Config );
                         },
                # FILTER not set, so no filtering done
                COVERAGE_BY_ALIGNED => 0,
-               OPTIONS => "--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --bestn 1",
+               OPTIONS => "--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE  --bestn 1",
              },
 
            }
