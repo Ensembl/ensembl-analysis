@@ -60,7 +60,7 @@ sub new {
   my 
     (
       $query_type, $query_seqs, $query_file, $q_chunk_num, $q_chunk_total,
-      $target_file, $verbose
+      $target_seqs, $target_file, $verbose
     ) =
     rearrange(
       [
@@ -70,6 +70,7 @@ sub new {
           QUERY_FILE
           QUERY_CHUNK_NUMBER
           QUERY_CHUNK_TOTAL
+          TARGET_SEQS
           TARGET_FILE
           VERBOSE
         )
@@ -81,7 +82,7 @@ sub new {
 
   if (defined($query_seqs)) {
     if(ref($query_seqs) ne "ARRAY"){
-      throw("You must supply an array reference with -query_seqs")
+      throw("You must supply an array reference with -query_seqs");
     }
     $self->query_seqs($query_seqs);
   } elsif (defined $query_file) {
@@ -96,8 +97,13 @@ sub new {
     # default to DNA for backwards compatibilty
     $self->query_type('dna');
   }
-
-  if (defined $target_file) {
+  
+  if (defined $target_seqs) {
+    if (ref($target_seqs) ne "ARRAY") {
+      throw("You must supply an array reference with -target_seqs");
+    }
+    $self->target_seqs($target_seqs);
+  } elsif (defined $target_file) {
     throw("The given database does not exist") if ! -e $target_file;
     $self->target_file($target_file);
   }
@@ -157,6 +163,24 @@ sub run {
     # register the file for deletion
     $self->files_to_delete($query_file);
     $self->query_file($query_file);
+  }
+
+  if ($self->target_seqs) {
+    # Write query sequences to file if necessary
+    my $target_file = $self->workdir . "/exonerate_t.$$";
+    my $seqout = 
+      Bio::SeqIO->new(
+        '-format' => 'fasta',
+        '-file'     => ">$target_file"
+      );
+      
+    foreach my $seq ( @{$self->target_seqs} ) {
+      $seqout->write_seq($seq);
+    }
+    
+    # register the file for deletion
+    $self->files_to_delete($target_file);
+    $self->target_file($target_file);
   }
 
   # Build exonerate command
@@ -265,6 +289,20 @@ sub target_type {
 
   return 'dna';
 }
+
+############################################################
+
+sub target_seqs {
+  my ($self, $seqs) = @_;
+  if ($seqs){
+    unless ($seqs->[0]->isa("Bio::PrimarySeqI") || $seqs->[0]->isa("Bio::SeqI")){
+      throw("query seq must be a Bio::SeqI or Bio::PrimarySeqI");
+    }
+    $self->{_target_seqs} = $seqs;
+  }
+  return $self->{_target_seqs};
+}
+
 
 ############################################################
 
