@@ -58,6 +58,8 @@ Simon White
 
 sw4@sanger.ac.uk
 
+=cut
+
 package Bio::EnsEMBL::Analysis::RunnableDB::PSILC;
 
 use strict;
