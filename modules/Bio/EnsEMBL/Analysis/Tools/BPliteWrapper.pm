@@ -377,11 +377,9 @@ sub split_hsp {
     my $qstrand = $hsp->query->strand;
     my $hstrand = $hsp->subject->strand;
     my ($qinc,   $hinc)    = $self->find_increments($qstrand,$hstrand);
-    
     my @qchars = split(//,$hsp->querySeq);  # split alignment into array of
                                             # chars
     my @hchars = split(//,$hsp->sbjctSeq);  # ditto for hit sequence
-    
     my $qstart = $hsp->query->start(); # Start off the feature pair start
     my $hstart = $hsp->subject->start(); # ditto
     my $qend   = $hsp->query->start(); # Set the feature pair end also
@@ -394,41 +392,42 @@ sub split_hsp {
       $hstart = $hsp->subject->end;
       $hend   = $hsp->subject->end;
     }
-    
+
     my $count = 0; # counter for the bases in the alignment
     my $found = 0; # flag saying whether we have a feature pair
-    
+
 
     my @tmpf;
 
     while ($count <= $#qchars) {
       # We have hit an ungapped region.  Increase the query and hit 
       #counters and flag that we have a feature pair.
-      
+
       if ($qchars[$count] ne '-' &&
           $hchars[$count] ne '-') {
-        
+
         $qend += $qinc;
         $hend += $hinc;
-        
+
         $found = 1;
       } else {
-        
+
         # We have hit a gapped region.  If the feature pair flag is set 
         # ($found) then make a feature pair, store it and reset the start 
         # and end variables.
-        
+
         if ($found == 1) {
           my $fp = $self->convert_to_featurepair($qstart, $qend, $qstrand, 
                                                  $qinc, $hstart, $hend, 
                                                  $hstrand, $hinc, $name,
+						 $hsp->query->seqname,
                                                  $hsp->score, 
                                                  $hsp->percent, $hsp->P,
                                                  $hsp->positive, 
                                                  $hsp->match);
           push(@tmpf,$fp);
         }
-        
+
         # We're in a gapped region.  We need to increment the sequence that
         # doesn't have the gap in it to keep the coordinates correct.
         # We also need to reset the current end coordinates.
@@ -456,6 +455,7 @@ sub split_hsp {
       my $fp = $self->convert_to_featurepair($qstart, $qend, $qstrand, 
                                              $qinc, $hstart, $hend, 
                                              $hstrand, $hinc, $name,
+					     $hsp->query->seqname,
                                              $hsp->score, 
                                              $hsp->percent, $hsp->P,
                                              $hsp->positive, 
@@ -540,11 +540,12 @@ sub find_increments{
   Arg [8]   : int, hit strand
   Arg [9]   : int, hit increment
   Arg [10]  : string, name
-  Arg [11]  : int, bit score
-  Arg [12]  : int, percent identity
-  Arg [13]  : int, p value
-  Arg [14]  : int, positive matches
-  Arg [15]  : int, matches
+  Arg [11]  : string, query name
+  Arg [12]  : int, bit score
+  Arg [13]  : int, percent identity
+  Arg [14]  : int, p value
+  Arg [15]  : int, positive matches
+  Arg [16]  : int, matches
   Function  : take values and taking account for inc values make feature
   pair 
   Returntype:  Bio::EnsEMBL::FeaturePair
@@ -556,7 +557,7 @@ sub find_increments{
 
 sub convert_to_featurepair{
   my ($self, $qstart, $qend, $qstrand, $qinc, $hstart, $hend, $hstrand, 
-      $hinc, $name, $score, $percent, $pvalue, $positive, $matches) = @_;
+      $hinc, $name, $seqname,$score, $percent, $pvalue, $positive, $matches) = @_;
   my $tmpqend = $qend; $tmpqend -= $qinc;
   my $tmphend = $hend; $tmphend -= $hinc;
     
@@ -587,10 +588,15 @@ sub convert_to_featurepair{
                                                        $score, $tmphstart,
                                                        $tmphend, $hstrand,
                                                        $name, $percent, 
-                                                       $pvalue, undef, 
+                                                       $pvalue, $seqname, 
                                                        undef, 
                                                        $self->analysis, 
                                                        $positive, 
                                                        $matches);
+
   return $fp;
+
 }
+
+
+1;
