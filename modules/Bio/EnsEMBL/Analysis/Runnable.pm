@@ -14,6 +14,7 @@ Bio::EnsEMBL::Analysis::Runnable
       -query => 'slice',
       -program => 'repeatmasker',
       -options => '-low'
+      -analysis => $analysis,
      );
   $repeat_masker->run;
   my @repeats = @{$repeat_masker->output};
@@ -91,7 +92,7 @@ use vars qw (@ISA);
   Arg [8]   : string, path to data dir
   Function  : create a new Bio::EnsEMBL::Analysis::Runnable
   Returntype: Bio::EnsEMBL::Analysis::Runnable
-  Exceptions: none
+  Exceptions: throws if not passed an analysis object
   Example   : $runnable = Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
   ->new
   (
@@ -110,9 +111,12 @@ sub new{
   &verbose('WARNING');
   my ($query, $program, $options,
       $workdir, $bindir, $libdir,
-      $datadir) = rearrange(['QUERY', 'PROGRAM', 'OPTIONS',
-                             'WORKDIR', 'BINDIR', 'LIBDIR',
-                             'DATADIR'], @args);
+      $datadir, $analysis) = rearrange(['QUERY', 'PROGRAM', 'OPTIONS',
+                                        'WORKDIR', 'BINDIR', 'LIBDIR',
+                                        'DATADIR', 'ANALYSIS'], @args);
+  if(!$analysis){
+    throw("Can't create a Runnable without an analysis object");
+  }
   $self->query($query);
   $self->program($program);
   $self->options($options);
@@ -120,6 +124,7 @@ sub new{
   $self->bindir($bindir);
   $self->libdir($libdir);
   $self->datadir($datadir);
+  $self->analysis($analysis);
   return $self;
 }
 
@@ -212,8 +217,8 @@ sub query{
   my $self = shift;
   my $slice = shift;
   if($slice){
-    throw("Must pass Runnable::query a Bio::EnsEMBL::Slice not a ".
-          $slice) unless($slice->isa('Bio::EnsEMBL::Slice'));
+    throw("Must pass Runnable::query a Bio::PrimarySeqI not a ".
+          $slice) unless($slice->isa('Bio::PrimarySeqI'));
     $self->{'query'} = $slice;
   }
   return $self->{'query'};
@@ -300,6 +305,32 @@ sub feature_factory{
   return $self->{'feature_factory'};
 }
 
+
+
+=head2 analysis
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : Bio::EnsEMBL::Analysis
+  Function  : container for analysis object
+  Returntype: Bio::EnsEMBL::Analysis
+  Exceptions: throws passed incorrect object type
+  Example   : 
+
+=cut
+
+
+
+sub analysis{
+  my $self = shift;
+  my $analysis = shift;
+  if($analysis){
+    throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis".
+          "not a ".$analysis) unless($analysis->isa
+                                     ('Bio::EnsEMBL::Analysis'));
+    $self->{'analysis'} = $analysis;
+  }
+  return $self->{'analysis'};
+}
 
 
 =head2 files_to_delete/protect
