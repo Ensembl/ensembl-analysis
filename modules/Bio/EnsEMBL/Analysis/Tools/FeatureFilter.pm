@@ -12,16 +12,33 @@ use vars qw (@ISA);
 @ISA = qw(Bio::EnsEMBL::Root);
 
 
+
+=head2 new
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+  Arg [2]   : int, minimum score
+  Arg [3]   : int, maximum p value
+  Arg [4]   : int, maximun coverage
+  Arg [5]   : int, toggle whether to prune features
+  Arg [6]   : int, toggle whether to use hard prune
+  Arg [7]   : int, toggle whether to filter on coverage or not
+  Function  : create a new FeatureFilter object
+  Returntype: Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+
 sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
   my ($features, $min_score, $max_pvalue, $coverage,
       $prune, $hard_prune, $filter_on_coverage) = 
-        rearrange(['FEATURES', 'MIN_SCORE', 
-                   'MAX_PVALUE', 'COVERAGE',
-                   'PRUNE', 'HARD_PRUNE', 
-                   'FILTER_ON_COVERAGE'], @args);
+        rearrange(['MIN_SCORE', 'MAX_PVALUE', 'COVERAGE',
+                   'PRUNE', 'HARD_PRUNE', 'FILTER_ON_COVERAGE'], @args);
   ######################
   #SETTING THE DEFAULTS#
   ######################
@@ -32,7 +49,6 @@ sub new{
   $self->hard_prune(0);
   $self->filter_on_coverage(1);
   ######################
-  $self->features($features);
   $self->min_score($min_score) if(defined $min_score);
   $self->max_pvalue($max_pvalue) if(defined $max_pvalue);
   $self->coverage($coverage) if(defined $coverage);
@@ -40,12 +56,26 @@ sub new{
   $self->hard_prune($hard_prune) if(defined $hard_prune);
   $self->filter_on_coverage($filter_on_coverage) 
     if(defined($filter_on_coverage));
-  #print "Have min score of ".$self->min_score."\n";
   return $self;
 }
 
 
 #containers
+
+=head2 container methods
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+  Arg [2]   : variable, generally int or string
+  Function  : This describes the 6 container methods below
+  min_score, max_pvalue, coverage, prune, hard_prune and 
+  filter on coverage. The all take, store and return their give
+  variable
+  Returntype: int/string 
+  Exceptions: none
+  Example   : none
+
+=cut
+
 
 sub min_score{
   my $self = shift;
@@ -82,35 +112,33 @@ sub filter_on_coverage{
   $self->{'filter_on_coverage'} = shift if(@_);
   return $self->{'filter_on_coverage'};
 }
-sub features{
-  my ($self, $features) = @_;
-  if(!$self->{'features'}){
-    $self->{'features'} = [];
-  }
-  if($features){
-    throw("Must pass features an arrayref not ".$features.
-          "FeatureFilter:features") unless(ref($features) eq 'ARRAY');
-    if(@{$self->{'features'}} == 0){
-      $self->{'features'} = $features;
-    }else{
-      push(@{$self->{'features'}}, $features);
-    }
-  }
-  return $self->{'features'};
-}
 
-sub clear_features{
-  my ($self) = @_;
-  $self->{'features'} = [];
-}
+
 
 #filter methods
 
 
+
+=head2 filter_results
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+  Arg [2]   : arrayref of features, there is not type checking but
+  it is expected that the features have start, end, score and hseqname
+  methods (Bio::EnsEMBL::FeaturePairs is what it was written against)
+  Function  : filter the given features by score, pvalue coverage
+  Returntype: arrayref
+  Exceptions: throws if passed nothing or not an arrayref
+  Example   : 
+
+=cut
+
+
+
 sub filter_results{
   my ($self, $features) = @_;
-  if(!$features){
-    $features = $self->features;
+  if(!$features || ref($features) ne 'ARRAY'){
+    throw("Must pass filter_results an arrayref not ".$feature.
+          " FeatureFilter::filter_results");
   }
   my %validhit;
   my %hitarray;
@@ -122,9 +150,7 @@ sub filter_results{
   #one hit id provided that at least one of its features has a score
   #greater than the min score and a pvalue less than the max pvalue
   @$features = sort { $b->score <=> $a->score } @$features;
-  #print "Have ".@$features. " features to filter\n";
   foreach my $f(@$features){
-    #print "Score ".$f->score." compared to min ".$self->min_score."\n";
     if($f->score > $self->min_score){ 
       if(!exists $validhit{$f->hseqname}){
         $validhit{$f->hseqname} = 0;
@@ -151,12 +177,6 @@ sub filter_results{
       push(@{$hitarray{$f->hseqname}}, $f);
     }
   }
-  my $total_count = 0;
-  foreach my $id(keys(%hitarray)){
-    $total_count += @{$hitarray{$id}};
-  }
-  #print STDERR "After filtering on score have ".$total_count." features ".
-  #  " on ".keys(%hitarray)." hit ids\n";
   my @hit_ids = sort {$validhit{$b} <=> $validhit{$a}
                          or $totalscore{$b} <=> $totalscore{$a}
                            or $a cmp $b
@@ -192,11 +212,8 @@ sub filter_results{
               unless( $list[$i] ){
                 $list[$i] = 0;
               }
-              #print "bases covered ".$list[$i]." max coverage ".
-              #  $self->coverage."\n" if($verbose);
               if( $list[$i] < $self->coverage ) {
                 # accept!
-                #print "Accepting ".$name."\n" if($verbose);
                 $hole = 1;
                 last;
               }
@@ -216,17 +233,13 @@ sub filter_results{
         }
       }
     }
-    $total_count = 0;
-    foreach my $id(keys(%accepted_hit_ids)){
-      $total_count += @{$hitarray{$id}};
-    }
   }else{
     foreach my $name(keys(%hitarray)){
       $accepted_hit_ids{$name} = 1;
     }
   }
   my @features;
-  if($self->prune){
+  if($self->prune){ #this pruning is done on a hit id basis 
     foreach my $name(keys(%accepted_hit_ids)){
       my @tmp = @{$self->prune_features(\@{$hitarray{$name}})};
       push(@features, @tmp);
@@ -236,11 +249,25 @@ sub filter_results{
      push(@features, @{$hitarray{$name}});
     }
   }
-  if($self->hard_prune){
+  if($self->hard_prune){ #this pruning is done across all features
     @features = @{$self->prune_features(\@features)};
   }
   return \@features;
 }
+
+
+
+=head2 prune_features
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+  Arg [2]   : arrayref of features
+  Function  : calls to prune_features_by_strand with each strand
+  Returntype: arrayref of features
+  Exceptions: none
+  Example   : 
+
+=cut
+
 
 
 sub prune_features{
@@ -252,6 +279,52 @@ sub prune_features{
   push(@output, @$reverse) if($reverse);
   return \@output;
 }
+
+
+
+
+=head2 prune_features_by_strand
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+  Arg [2]   : int, strand (must be 1 or -1)
+  Arg [3]   : arrayref of features
+  Function  : works out coverage of each base pair and throws out
+  features of a base pair is covered by to many hits. The lowest scoring
+  features are thrown out first
+  Returntype: arrayref of features
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+#How prune_features_by_strand  works
+
+#1. first create an array of all features of the appropriate strand
+
+#2. Then create a separate array whose last index is the last base pair
+#covered by any features
+
+#3. go through that array and increment each index for each feature which
+#covers that base pair
+
+#4.Then it cycles through the bases covered array collecting a list of
+#base pairs whose coverage is above the limit
+
+#5. the over covered list is sorted so the bases which have the greatest
+#excess coverage are considered first
+
+#6. for each over covered base pair all all of the features are looked at
+#each time a feature covers this base pair it is thrown away and the
+#coverage of each base the rejected feature covers is decremented.
+
+#7. Each over covered base is considered untill the coverage is decreased 
+#to acceptable limits 
+
+#8. the remaining feature set is returned
+
+
+
 
 
 sub prune_features_by_strand {
