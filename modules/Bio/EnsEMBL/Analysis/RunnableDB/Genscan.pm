@@ -20,6 +20,8 @@
 
 =head1 DESCRIPTION
 
+fetches sequence data from database an instantiates and runs the
+genscan runnable
 
 
 =head1 CONTACT
@@ -62,7 +64,7 @@ sub fetch_input{
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new
+  my $runnable = $self->runnable_path->new
     (
      -query => $self->query,
      -program => $self->analysis->program_file,
@@ -101,3 +103,12 @@ sub write_output{
     $adaptor->store($pt);
   }
 }
+
+
+sub runnable_path{
+  my ($self);
+  return "Bio::EnsEMBL::Analysis::Runnable::Genscan";
+}
+
+
+1;
