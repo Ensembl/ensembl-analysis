@@ -31,7 +31,8 @@ Performs various checks on a Bio::EnsEMBL::Transcript object. These include:
   8. Introns with non GT .. AG splice sites (warnings)
   9. Short or long exons
  10. ATG immediately after 5' UTR (warning)
- 11. There are supporting features for every exon 
+ 11. There are supporting features for every exon (warning)
+ 12. The translation is not all X
 
 This class does not use stable_ids but instead dbIDs because stable_ids are
 not set until after the gene build.
@@ -281,10 +282,10 @@ sub output {
 
   my $translation = $transcript->translation;
 
-  printf "       %9s %9s %9s %9s %9s %9s\n", "dbID","Start","End","Strand","Phase","EndPhase";
+  printf "       %9s %9s %9s %9s %9s %9s %9s\n", "dbID","Start","End","Strand","Length","Phase","EndPhase";
   foreach my $exon (@{$transcript->get_all_Exons()}) {
-    printf "  Exon %9d %9d %9d %9d %9d %9d", $exon->dbID, $exon->start + $vcoffset, $exon->end + $vcoffset,
-           $exon->strand, $exon->phase, $exon->end_phase;
+    printf "  Exon %9d %9d %9d %9d %9d %9d %9d", $exon->dbID, $exon->start + $vcoffset, $exon->end + $vcoffset,
+           $exon->strand, ($exon->end-$exon->start+1), $exon->phase, $exon->end_phase;
     if (defined($translation)) {
       if ($exon == $translation->start_Exon) {
         print " S (" . $translation->start . ")";
@@ -556,6 +557,18 @@ sub check_UTRs {
         if ($startcodon ne "ATG") {
           $self->add_Warning("No ATG at five prime of transcript CDS with UTR (has $startcodon)\n");
         } 
+
+        my $len = $exon->length;
+        my $end_phase = $exon->end_phase;
+        if ($exon == $trans_end_exon) { $len = $translation->end; }
+        if ($end_phase == -1) { $end_phase = 0; }
+
+        if (($len - $translation->start + 1 + ((3-$end_phase)%3)) % 3) {
+          $self->add_Warning("Translation start not on codon boundary\n");
+          if ($startcodon eq "ATG") {
+            $self->add_Error("ATG as first three bases in case where first codon supposedly incomplete\n");
+          }
+        }
       }
     }
     if ($exon == $trans_end_exon) {
