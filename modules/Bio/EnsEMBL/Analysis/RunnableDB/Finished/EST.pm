@@ -385,7 +385,7 @@ sub make_filter{
 
 1;
 
-=head1 NAME - Bio::EnsEMBL::Pipeline::RunnableDB::Finished::EST
+=head1 NAME - Bio::EnsEMBL::Analysis::RunnableDB::Finished::EST
 
 =head1 AUTHOR
 

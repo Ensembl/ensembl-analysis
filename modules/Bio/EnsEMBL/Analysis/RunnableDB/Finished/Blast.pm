@@ -6,12 +6,12 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Pipeline::RunnableDB::Finished::Blast
+Bio::EnsEMBL::Analysis::RunnableDB::Finished::Blast
 
 =head1 SYNOPSIS
 
 my $db      = Bio::EnsEMBL::DBLoader->new($locator);
-my $blast   = Bio::EnsEMBL::Pipeline::RunnableDB::Blast->new ( 
+my $blast   = Bio::EnsEMBL::Analysis::RunnableDB::Blast->new ( 
                                                     -db         => $db,
                                                     -input_id   => $input_id
                                                     -analysis   => $analysis );
