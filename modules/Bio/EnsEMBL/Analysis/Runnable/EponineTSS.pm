@@ -35,7 +35,6 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::SimpleFeature;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
@@ -197,13 +196,6 @@ sub parse_results{
       $score = $self->trunc_float_3($score);
       my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
                                           '', $name, $self->query); 
-      my $sf = Bio::EnsEMBL::SimpleFeature->new();
-      $sf->start($start);
-      $sf->end($end);
-      $sf->strand($strand);
-      $sf->score($score);
-      $sf->seqname($name);
-      $sf->display_label('');
       push(@output, $sf);
     }
   }

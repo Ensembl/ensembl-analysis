@@ -1,3 +1,35 @@
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable
+#
+# Copyright (c) 2004 Ensembl
+#
+
+=head1 NAME
+
+  Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+
+=head1 SYNOPSIS
+
+  my $featurefactory = new Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
+
+  my $feature_pair = $featurefactory->create_feature_pair(1, 13, -1, 300, 
+                                                          45, 56, 1 Q12732,
+                                                          95, 2.3e-35, '',
+                                                          $slice,
+                                                          $analysis); 
+  $featurefactory->validate($feature_pair);
+
+=head1 DESCRIPTION
+
+This is a utilities module which provides methods for feature creation
+and feature validation for various feature types
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
+
 package Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 
 
@@ -133,7 +165,7 @@ sub create_repeat_feature{
 }
 
 
-=head2 create_FeaturePair
+=head2 create_feature_pair
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : int, start
@@ -156,10 +188,10 @@ sub create_repeat_feature{
 =cut
 
 
-sub create_FeaturePair {
+sub create_feature_pair {
     my ($self, $start, $end, $strand, $score, $hstart, $hend, 
         $hstrand, $hseqname, $percent_id, $p_value, $seqname,
-        $analysis, $slice) = @_;
+        $slice, $analysis) = @_;
     
     my $fp = Bio::EnsEMBL::FeaturePair->new(
                                             -start    => $start,
@@ -176,7 +208,7 @@ sub create_FeaturePair {
                                            );
 
     $fp->seqname($seqname);
-    
+    $fp->slice($slice);
     return $fp;
 }
 
@@ -240,6 +272,6 @@ sub validate{
   }
   if(@error_messages > 0){
     print STDERR join("\n", @error_messages);
-    throw("Invalid feature FeatureFactory:validate");
+    throw("Invalid feature ".$feature." FeatureFactory:validate");
   }
 }

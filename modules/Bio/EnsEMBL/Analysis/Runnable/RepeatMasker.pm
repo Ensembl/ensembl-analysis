@@ -38,8 +38,6 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::RepeatFeature;
-use Bio::EnsEMBL::RepeatConsensus;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use vars qw(@ISA);
 
@@ -49,6 +47,7 @@ use vars qw(@ISA);
 =head2 run_analysis
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
+  Arg [2]   : string, program name
   Function  : constructs a commandline and runs the program passed
   in, the generic method in Runnable isnt used as RepeatMasker doesnt
   fit this module
@@ -154,35 +153,6 @@ sub parse_results{
     }
   close(OUT) or throw("FAILED to close ".$results.
                       "RepeatMasker:parse_results");
-}
-
-
-=head2 _get_consensus
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
-  Arg [2]   : string, name of repeat
-  Arg [3]   : string, name of class
-  Function  : create a new Bio::EnsEMBL::RepeatConsensus object
-  Returntype: Bio::EnsEMBL::RepeatConsensus
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-sub _get_consensus {
-    my ($self, $name, $class) = @_;
-    my $cons;
-
-    unless ($cons = $self->{'_consensi'}{$name}) {
-      $cons = new Bio::EnsEMBL::RepeatConsensus;
-      $cons->name($name);
-      $cons->repeat_class($class);
-      $self->{'_consensi'}{$name} = $cons;
-    }
-
-    return $cons;
-
 }
 
 

@@ -35,7 +35,6 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::SimpleFeature;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
