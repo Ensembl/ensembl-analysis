@@ -466,11 +466,6 @@ sub validate{
       $feature->end;
     push(@error_messages, $string); 
   }
-  if($feature->start < 1 || $feature->end < 1){
-    my $string = "Feature has start or end coordinates less than 1 ".
-      $feature->start." ".$feature->end;
-    push(@error_messages, $string); 
-  }
   if(@error_messages > 0){
     print STDERR join("\n", @error_messages);
     throw("Invalid feature ".$feature." FeatureFactory:validate");
