@@ -159,7 +159,7 @@ sub fetch_input {
       $repeat_blocks{$transferred_gene} = $blocks;
     }
   }
-  # Make and run the runnable
+  # Make  the runnable
     my $runnable = $runname->new
       ( 
        '-analysis' => $self->analysis,
