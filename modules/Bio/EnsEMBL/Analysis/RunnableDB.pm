@@ -344,7 +344,6 @@ sub fetch_sequence{
     $name = $self->input_id;
   }
   my $sa = $db->get_SliceAdaptor;
-  print "Fetching ".$name." from ".$db->dbname."\n";
   my $slice = $sa->fetch_by_name($name);
   $repeat_masking = [] unless($repeat_masking);
   if(@$repeat_masking){

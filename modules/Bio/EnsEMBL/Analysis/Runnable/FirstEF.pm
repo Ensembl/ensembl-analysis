@@ -45,10 +45,8 @@ use vars qw(@ISA);
 =head2 new
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::FirstEF
-  Arg [2]   : int, boolean toggle to indicate whether repeatmasked sequence
-  is needed or not
-  Arg [3]   : string, path to parameters directory
-  Arg [4]   : string, path to parse script
+  Arg [2]   : string, path to parameters directory
+  Arg [3]   : string, path to parse script
   Function  : create a Bio::EnsEMBL::Analysis::Runnable::FirstEF
   Returntype: Bio::EnsEMBL::Analysis::Runnable::FirstEF
   Exceptions: 
@@ -62,24 +60,18 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);    
 
-  my($repeatmasked, $param_dir, $parse_script) = rearrange
-    (['REPEATMASKED', 'PARAMETERS_DIR', 'PARSE_SCRIPT'], @args);
+  my($param_dir, $parse_script) = rearrange
+    (['PARAMETERS_DIR', 'PARSE_SCRIPT'], @args);
 
   ##################
   #SETTING DEFAULTS#
   ##################
   $self->program('firstef') if(!$self->program);
-  $self->repeatmasked(1);
   ##################
 
-  $self->repeatmasked($repeatmasked) if(defined $repeatmasked);
   $self->param_dir($param_dir) if($param_dir);
   $self->parse_script($parse_script) if($parse_script);
 
-  if($self->repeatmasked){
-    my $masked_slice = $self->query->get_repeatmasked_seq();
-    $self->query($masked_slice);
-  }
   return $self;
 }
 
@@ -87,24 +79,6 @@ sub new {
 ##container methods
 
 
-=head2 repeatmasked
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::FirstEF
-  Arg [2]   : int, boolean toggle
-  Function  : indicates whether to use repeat masked sequence
-  Returntype: int
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-
-sub repeatmasked{
-  my $self = shift;
-  $self->{'repeatmasked'} = shift if(@_);
-  return $self->{'repeatmasked'};
-}
 
 
 =head2 parsed_output

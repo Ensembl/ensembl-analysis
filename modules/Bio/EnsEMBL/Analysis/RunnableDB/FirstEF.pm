@@ -57,7 +57,8 @@ use vars qw(@ISA);
 
 sub fetch_input{
   my ($self) = @_;
-  my $slice = $self->fetch_sequence;
+  my $slice = $self->fetch_sequence($self->input_id, $self->db, 
+                                    $ANALYSIS_REPEAT_MASKING);
   $self->query($slice);
   my %parameters;
   if($self->parameters_hash){
