@@ -122,17 +122,37 @@ sub fetch_input {
   # fetch the gene; need to work in the coordinate space of the top-level slice to 
   # be consistent with compara
   #####
-  
-  my ($gene);
-  eval {
-    $gene = $q_dbh->get_GeneAdaptor->fetch_by_stable_id($input_id);
-  };
-  if ($@ or not defined $gene) {
-    throw("Could not find gene '$input_id' in query database");
+  my (@genes, $reg_start, $reg_end);
+
+  if ($input_id =~ /:/) {
+    # assume slice name
+    my $slice = $q_dbh->get_SliceAdaptor->fetch_by_name($input_id);
+    $self->query_slice($q_dbh->get_SliceAdaptor->fetch_by_region('toplevel',
+                                                                 $slice->seq_region_name));
+    foreach my $g (@{$slice->get_all_Genes}) {
+      next if $g->type ne 'ensembl';
+      $g = $g->transfer($self->query_slice);
+      $reg_start = $g->start if not defined $reg_start or $g->start < $reg_start;
+      $reg_end   = $g->end   if not defined $reg_end   or $g->end   > $reg_end;
+
+      push @genes, $g;
+    }
+
+  } else {
+    # assume iid is a gene stable id
+    my ($gene);
+    eval {
+      $gene = $q_dbh->get_GeneAdaptor->fetch_by_stable_id($input_id);
+    };
+    if ($@ or not defined $gene) {
+      throw("Could not find gene '$input_id' in query database");
+    }
+    $self->query_slice($q_dbh->get_SliceAdaptor->fetch_by_region('toplevel', 
+                                                                 $gene->seq_region_name));
+    $gene = $gene->transfer($self->query_slice);
+    ($reg_start, $reg_end) = ($gene->start, $gene->end);
+    @genes = ($gene);
   }
-  my $tl_q_slice = $q_dbh->get_SliceAdaptor->fetch_by_region('toplevel', 
-                                                                    $gene->seq_region_name);
-  $gene = $gene->transfer($tl_q_slice);
 
   ################################################################
   # get the compara data: MethodLinkSpeciesSet, reference DnaFrag, 
@@ -148,13 +168,14 @@ sub fetch_input {
       if not $mlss;
 
   my $dnafrag = $compara_dbh->
-      get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,$tl_q_slice->seq_region_name);
+      get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,
+                                                     $self->query_slice->seq_region_name);
 
   my @gen_al_blocks = @{$compara_dbh->get_GenomicAlignBlockAdaptor->
                             fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,
                                                                       $dnafrag,
-                                                                      $gene->start,
-                                                                      $gene->end)};
+                                                                      $reg_start,
+                                                                      $reg_end)};
 
   my (%chains, @chains);
   foreach my $block (@gen_al_blocks) {
@@ -182,8 +203,7 @@ sub fetch_input {
                    ];
   }
 
-  $self->query_top_level_slice($tl_q_slice);
-  $self->gene($gene);      
+  $self->genes(\@genes);      
   $self->genomic_align_block_chains(\@chains);
 }
 
@@ -202,9 +222,10 @@ sub run {
   my ($self) = @_;
 
   my (@blocks_used, @results);
-  my @alignment_chains = @{$self->genomic_align_block_chains};
 
-  my @cds_feats = @{$self->get_all_transcript_cds_features(@{$self->get_all_Transcripts($self->gene)})};
+  my @alignment_chains = @{$self->genomic_align_block_chains};
+  my @all_trans = map { @{$self->get_all_Transcripts($_)} } @{$self->genes}; 
+  my @cds_feats = @{$self->get_all_transcript_cds_features(@all_trans)};
 
   for(my $iteration=0; ;$iteration++) {
     my $net_blocks = $self->make_alignment_net(\@alignment_chains, \@blocks_used);
@@ -230,43 +251,48 @@ sub run {
         $query_to_genescaf_map,
         $target_to_genescaf_map,
         $warnings) = 
-            $self->gene_scaffold_from_projection($self->gene->stable_id . "-" . $iteration, 
+            $self->gene_scaffold_from_projection($self->genes->[0]->stable_id . "-" . $iteration, 
                                                  \@projected_cds_feats);
 
     my $result = {
-      gene_scaffold         => $gene_scaffold,
-      mapper                => $target_to_genescaf_map,
-      warnings              => $warnings,
-      transcripts           => [],
+      gene_scaffold   => $gene_scaffold,
+      mapper          => $target_to_genescaf_map,
+      warnings        => $warnings,
+      genes           => [],
     };
 
-    $self->write_agp(\*STDOUT, $gene_scaffold, $target_to_genescaf_map, $warnings);
 
-    my @transcripts;
-    foreach my $tran (@{$self->get_all_Transcripts($self->gene)}) {
+    foreach my $gene (@{$self->genes}) {
+      my @transcripts;
+      foreach my $tran (@{$self->get_all_Transcripts($gene)}) {
 
-      my $proj_trans = $self->make_projected_transcript($tran,
-                                                        $gene_scaffold,
-                                                        $query_to_genescaf_map,
-                                                        $target_to_genescaf_map);
-      if (defined $proj_trans) {
-        # for the first, top level net, we split the transcript across stops. 
-        # For subsequent Nets, we reject if the transcript contains stops
-        $proj_trans = $self->process_transcript($gene_scaffold, 
-                                                $proj_trans, 
-                                                0);
+        my $proj_trans = $self->make_projected_transcript($tran,
+                                                          $gene_scaffold,
+                                                          $query_to_genescaf_map,
+                                                          $target_to_genescaf_map);
         if (defined $proj_trans) {
-          push @transcripts, $proj_trans;
+          # for the first, top level net, we split the transcript across stops. 
+          # For subsequent Nets, we reject if the transcript contains stops
+          $proj_trans = $self->process_transcript($gene_scaffold, 
+                                                  $proj_trans, 
+                                                  0);
+          if (defined $proj_trans) {
+            push @transcripts, $proj_trans;
+          }
         }
       }
-    }
-    
-    if (@transcripts) {
-      push @{$result->{transcripts}}, @{$self->make_nr_transcript_set(\@transcripts, 
-                                                                      $gene_scaffold,
-                                                                      $target_to_genescaf_map)};
-    }
-    
+      
+      if (@transcripts) {
+        @transcripts =  @{$self->make_nr_transcript_set(\@transcripts, 
+                                                        $gene_scaffold,
+                                                        $target_to_genescaf_map)};
+        push @{$result->{genes}}, { 
+          name        => $gene->stable_id,
+          transcripts => \@transcripts,
+        };
+      }
+    }    
+
     push @results, $result;
   }
 
@@ -277,31 +303,24 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
-  my $gene = $self->gene;
   print  "#\n";
-  printf("# WGA2Genes output for gene %s (%s/%d-%d %s)\n", 
-         $gene->stable_id, 
-         $gene->slice->seq_region_name,
-         $gene->start,
-         $gene->end,
-         $gene->strand);
+  printf("# WGA2Genes output for %s\n", $self->input_id);
   print "#\n";
 
   foreach my $obj (@{$self->output}) {
     my $gs = $obj->{gene_scaffold};
     my $map = $obj->{mapper};
     my $warns = $obj->{warnings};
-    my @transcripts = @{$obj->{transcripts}};
+    my @genes = @{$obj->{genes}};
 
     # determine whether there is any output for this gene scaffold
-    if (@transcripts > 0) {
-
+    if (@genes > 0) {
       $self->write_agp(\*STDOUT, $gs, $map, $warns);
-      $self->write_gene(\*STDOUT, $gs, @transcripts);
+      foreach my $g (@genes) {
+        $self->write_gene(\*STDOUT, $gs, $g->{name}, @{$g->{transcripts}});
+      }
     }
   }
-
-  # do nothing
 
   return;
 }
@@ -354,8 +373,8 @@ sub make_alignment_net {
 
   # make hashes for lengths of query and target
   my (%q_len, %t_lens);
-  $q_len{$self->query_top_level_slice->seq_region_name} = 
-      $self->query_top_level_slice->length;
+  $q_len{$self->query_slice->seq_region_name} = 
+      $self->query_slice->length;
 
   foreach my $k (keys %{$self->target_slices}) {
     my $ts = $self->target_slices->{$k};
@@ -546,7 +565,7 @@ sub map_feature_to_target {
       query  => Bio::EnsEMBL::Mapper::Coordinate->new($feat->slice->seq_region_name,
                                                       $feat->start,
                                                       $feat->end,
-                                                      $feat->slice->strand),
+                                                      1),
       target => Bio::EnsEMBL::Mapper::Gap->new($feat->start, $feat->end),
     };
   } 
@@ -560,7 +579,7 @@ sub map_feature_to_target {
         query  => Bio::EnsEMBL::Mapper::Coordinate->new($feat->slice->seq_region_name,
                                                         $st,
                                                         $en,
-                                                        $feat->slice->strand),
+                                                        1),
         target => Bio::EnsEMBL::Mapper::Gap->new($st, $en),
       };
     }
@@ -574,7 +593,7 @@ sub map_feature_to_target {
         query  => Bio::EnsEMBL::Mapper::Coordinate->new($feat->slice->seq_region_name,
                                                         $st,
                                                         $en,
-                                                        $feat->slice->strand),
+                                                        1),
         target => Bio::EnsEMBL::Mapper::Gap->new($st, $en),
       };
     }
@@ -591,7 +610,7 @@ sub map_feature_to_target {
           query  => Bio::EnsEMBL::Mapper::Coordinate->new($feat->slice->seq_region_name,
                                                           $st,
                                                           $en,
-                                                          $feat->slice->strand),
+                                                          1),
           target => Bio::EnsEMBL::Mapper::Gap->new($st, $en),
         };
       }
@@ -632,17 +651,17 @@ sub gene_scaffold_from_projection {
   my (@targets, @new_targets);
 
   # step 0: flatten list
-  my $cds_num = $self->gene->strand > 0 ? 1 : scalar(@projected_cds_elements);
+  my $cds_id = 0;
   foreach my $cds (@projected_cds_elements) {
     foreach my $coord_pair (@$cds) {
       my $coord = $coord_pair->{target};
 
       push @targets, {
-        cds_id  => $cds_num,
+        cds_id  => $cds_id,
         coord   => $coord,
       };
     }
-    $cds_num += $self->gene->strand;
+    $cds_id++;
   }
 
 
@@ -928,7 +947,7 @@ sub gene_scaffold_from_projection {
       # and the map. This is a target gap we have "filled", so no position 
       # in target, but a position in query
       
-      $query_map->add_map_coordinates($self->gene->slice->seq_region_name,
+      $query_map->add_map_coordinates($self->query_slice->seq_region_name,
                                       $coord->start,
                                       $coord->end,
                                       1,
@@ -958,7 +977,7 @@ sub gene_scaffold_from_projection {
                                                    $t->strand,
                                                    'target');
 
-        $query_map->add_map_coordinates($self->gene->slice->seq_region_name,
+        $query_map->add_map_coordinates($self->query_slice->seq_region_name,
                                         $q->start,
                                         $q->end,
                                         1,
@@ -1798,13 +1817,14 @@ sub write_gene {
   my ($self, 
       $fh,
       $gene_scaf,
+      $gene_name,
       @trans) = @_;
 
 
   my $prefix = "##-GENES ";
   
   my $seq_id = $gene_scaf->seq_region_name;
-  my $gene_id = $seq_id;
+  my $gene_id = $gene_name;
   
   my $fasta_string;
   my $stringio = IO::String->new($fasta_string);
@@ -1968,25 +1988,14 @@ sub get_translation {
 }
 
 
-sub projected_cds {
+sub genes {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_projected_cds} = $val;
-  }
-  
-  return $self->{_projected_cds};
-}
-
-
-sub gene {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_gene} = $val;
+    $self->{_genes} = $val;
   }
 
-  return $self->{_gene};
+  return $self->{_genes};
 }
 
 
@@ -2001,7 +2010,7 @@ sub genomic_align_block_chains {
 }
 
 
-sub query_top_level_slice {
+sub query_slice {
   my ($self, $val) = @_;
 
   if (defined $val) {
@@ -2024,18 +2033,6 @@ sub target_slices {
   }
 
   return $self->{_target_slices};
-}
-
-
-sub mapper {
-  my ($self, $val) = @_;
-
-    if (defined $val) {
-    $self->{_mapper} = $val;
-  }
-
-  return $self->{_mapper};
-
 }
 
 
