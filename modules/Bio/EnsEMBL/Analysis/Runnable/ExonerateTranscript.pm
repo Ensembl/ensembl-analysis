@@ -102,7 +102,7 @@ sub new {
   ############################################################
   # We default exonerate-0.6.7
   if (not $self->program) {
-    $self->program('/usr/local/ensembl/bin/exonerate-0.6.7');
+    $self->program('/usr/local/ensembl/bin/exonerate-0.8.3');
   }
 
   ############################################################

@@ -147,7 +147,7 @@ sub fetch_input {
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
         ->new(
-              -program  => $self->analysis->program,
+              -program  => $self->analysis->program_file,
               -analysis => $self->analysis,
               -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
