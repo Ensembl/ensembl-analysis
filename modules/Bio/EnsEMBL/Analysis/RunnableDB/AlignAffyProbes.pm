@@ -45,7 +45,6 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy;
 
 use Bio::EnsEMBL::Analysis::Config::AlignAffyProbes;
-use Bio::EnsEMBL::Hive::Extensions;
 
 use vars qw(@ISA);
 
