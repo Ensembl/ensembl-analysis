@@ -148,22 +148,17 @@ sub run{
 
 
 sub align_hits_to_query {
-  my ($self, $features)  = @_;
-
-  my $ff = $self->feature_factory();
-  my @output;
+  my ( $self, $features )  = @_;
+  
   # for each feature
-  for my $feature ( @$features ) {
-    
+  my @features = sort{ $a->start <=> $b->start} @$features;
+  for my $feature ( @features ) {
     my %exon_hash = ();
     # for each ungapped piece in it
     my @ungapped = $feature->ungapped_features;
-   
-    my $fc=0;
     for my $ugFeature ( @ungapped ) {
-      my @split = $self->transcript->pep2genomic
-        ($ugFeature->start(),
-         $ugFeature->end());
+      my @split = $self->transcript->pep2genomic($ugFeature->start(),
+                                              $ugFeature->end());
       
       my $cdna_total = 1;
       foreach my $gcoord ( @split ) {
@@ -187,8 +182,8 @@ sub align_hits_to_query {
             last;
           }
         }
-        
-        
+
+
         # first, eat away non complete codons from start
         while(( $cdna_start - 1 ) % 3 != 0 ) {
           $cdna_start++;
@@ -212,46 +207,31 @@ sub align_hits_to_query {
         if( $cdna_end <= $cdna_start ) {
           next;
         }
-        
         #recalculate the hit coordinates.  They may be split up into
         # seperate features by introns
         my ($hstrand, $hstart, $hend);
         $hstrand = $feature->hstrand();
         if($hstrand == 1) {
-          $hstart =
-            $cdna_start - 1 + $ugFeature->hstart();
-          $hend =
-            $cdna_end - 1 + $ugFeature->hstart();
+          $hstart = $cdna_start - 1 + $ugFeature->hstart();
+          $hend = $cdna_end - 1 + $ugFeature->hstart();
         } else {
-          $hend = 
-            $ugFeature->hend() - $cdna_start + 1;
-          $hstart =
-            $ugFeature->hend() - $cdna_end + 1;
+          $hend = $ugFeature->hend() - $cdna_start + 1;
+          $hstart = $ugFeature->hend() - $cdna_end + 1;
         }
-       
-        my $fp = $ff->create_feature_pair($gstart, $gend, $gstrand, 
-                                          $feature->score, $hstart, 
-                                          $hend, $hstrand, 
-                                          $feature->hseqname, 
-                                          $feature->percent_id, 
-                                          $feature->p_value,
-                                          undef,
-                                          $self->query,
-                                          $feature->analysis);
+        my $fp = $self->feature_factory->create_feature_pair
+          ($gstart, $gend, $gstrand, $feature->score, $hstart,
+           $hend, $hstrand, $feature->hseqname, $feature->percent_id, 
+           $feature->p_value);
         #store generated feature pairs, hashed on exons
         push( @{$exon_hash{$exon}}, $fp );
-  
       }
     }
-   
     # Take the pieces for each exon and make gapped feature
     foreach my $ex ( keys %exon_hash ) {
       my $dna_align_feature = Bio::EnsEMBL::DnaDnaAlignFeature->new
         (-features => $exon_hash{$ex});
-      push(@output, $dna_align_feature);
+      $self->output([$dna_align_feature]);
     }
   }
-  
-  $self->output(\@output);
 
 }

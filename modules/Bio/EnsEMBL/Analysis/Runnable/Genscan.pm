@@ -212,7 +212,6 @@ sub parse_results{
                                    "Genscan:parse_results");
   my $ff = $self->feature_factory;
  LINE:while(<OUT>){
-    #print;
     chomp;
     if(m|NO EXONS/GENES PREDICTED IN SEQUENCE|i){
       print "No genes predicted\n";
@@ -248,7 +247,8 @@ sub parse_results{
       
       my $exon = $ff->create_prediction_exon($start, $end, $strand, 
                                              $score, $pvalue, 0, 
-                                             $name, $self->query);
+                                             $name, $self->query, 
+                                             $self->analysis);
       
       $self->exon_groups($group, $exon);
     }elsif(/predicted peptide/i){
@@ -261,14 +261,12 @@ sub parse_results{
   my $group;
   my $hash = {};
  PEP:while(<OUT>){
-    #print;
     chomp;
     if(/predicted peptide/i){
       next;
     }
     if(/^>/){
       if($peptide){
-        #print "group ".$group." peptide ".$peptide."\n";
         $peptide =~ s/\s+//;
         $hash->{$group} = $peptide;
       }
@@ -276,7 +274,6 @@ sub parse_results{
       my @values = split(/\|/, $_);
       $values[1] =~ /GENSCAN_predicted_peptide_(\d+)/;
       $group = $1;
-      #print "Group ".$group."\n";
     }else{
       $peptide .= $_;
     }
@@ -308,7 +305,6 @@ sub create_transcripts{
   my @transcripts;
   my $ff = $self->feature_factory;
   my %exon_groups = %{$self->exon_groups};
-  #print "Exons groups ".%exon_groups."\n";
   foreach my $group(keys(%exon_groups)){
     my @exons = @{$exon_groups{$group}};
     my $transcript = $ff->create_prediction_transcript(\@exons, $self->query);

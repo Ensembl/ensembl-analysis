@@ -111,6 +111,10 @@ sub parse_results{
         print "RepeatMasker didn't find any repetitive sequences";
         last REPEAT; #no repeats found no point carrying on
       }
+      if(/only contains ambiguous bases/){
+        print "Sequence contains too many N's \n";
+        last REPEAT;
+      }
       my @columns;
       if(/\d+/){ #ignoring introductory lines
         chomp;
