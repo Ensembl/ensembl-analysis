@@ -121,7 +121,7 @@ sub fetch_input {
 
     Title   :   write_output
     Usage   :   $self->write_output()
-    Function:   Writes contents of $self->{_output} into $self->dbobj
+    Function:   Writes contents of $self->output into $self->dbobj
     Returns :   1
     Args    :   None
 

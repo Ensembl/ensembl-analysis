@@ -98,29 +98,37 @@ sub fetch_input{
   return 1;
 }
 
+
+=head2 run
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
+  Function  : go through the runnables, run each one and check for errors
+  and push the output on to the output array
+  Returntype: 1;
+  Exceptions: throws if blast run fails
+  Example   : 
+
+=cut
+
+
+
 sub run {
-    my ($self) = @_;
-    
-    my @runnables = $self->runnable;
-    #print STDERR "Have ".$runnable."\n";
-    #$runnable || $self->throw("Can't run - no runnable object");
-    if(!@runnables){
-      $self->throw("can't run no runnable objects\n");
+  my ($self) = @_;
+  my @runnables = @{$self->runnable};
+  foreach my $runnable(@runnables){
+    eval{
+      $runnable->run;
+    };
+    if(my $err = $@){
+      chomp $err;
+      $self->failing_job_status($1) 
+        if $err =~ /^\"([A-Z_]{1,40})\"$/i; 
+      # only match '"ABC_DEFGH"' and not all possible throws
+      throw("Blast::run failed $@");
     }
-    foreach my $runnable(@runnables){
-      eval{
-        $runnable->run;
-      };
-      if(my $err = $@){
-        chomp $err;
-        $self->failing_job_status($1) 
-          if $err =~ /^\"([A-Z_]{1,40})\"$/i; # only match '"ABC_DEFGH"' and not all possible throws
-        $self->throw("$@");
-      }
-      push (@{$self->{'_output'}}, $runnable->output);
-    }
-    
-    1;
+    $self->output($runnable->output);
+  }
+  1;
 }
 
 
@@ -188,40 +196,6 @@ sub write_output{
     }
   }
   return ;
-}
-
-
-=head2 run
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Function  : go through the runnables, run each one and check for errors
-  and push the output on to the output array
-  Returntype: 1;
-  Exceptions: throws if blast run fails
-  Example   : 
-
-=cut
-
-
-
-sub run {
-  my ($self) = @_;
-  my @runnables = @{$self->runnable};
-  foreach my $runnable(@runnables){
-    eval{
-      $runnable->run;
-    };
-    if(my $err = $@){
-      chomp $err;
-      $self->failing_job_status($1) 
-        if $err =~ /^\"([A-Z_]{1,40})\"$/i; 
-      # only match '"ABC_DEFGH"' and not all possible throws
-      throw("Blast::run failed $@");
-    }
-    my @output = @{$runnable->output};
-    $self->output(\@output);
-  }
-  1;
 }
 
 

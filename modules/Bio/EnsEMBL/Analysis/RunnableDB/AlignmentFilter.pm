@@ -79,7 +79,7 @@ sub run{
 
     Title   :   write_output
     Usage   :   $self->write_output()
-    Function:   Writes contents of $self->{_output} into $self->db
+    Function:   Writes contents of $self->output into $self->db
     Returns :   1
     Args    :   None
 
