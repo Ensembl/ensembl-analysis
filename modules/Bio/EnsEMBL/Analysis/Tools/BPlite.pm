@@ -1,4 +1,4 @@
-# $Id: BPlite.pm,v 1.2 2004-09-03 11:07:08 lec Exp $
+# $Id: BPlite.pm,v 1.3 2004-09-20 11:55:44 lec Exp $
 ##############################################################################
 # Bioperl module Bio::Tools::BPlite
 ##############################################################################
@@ -211,8 +211,6 @@ sub new {
 
   $self->{'LASTLINE'} = "";
   $self->{'QPATLOCATION'} = [];  # Anonymous array of query pattern locations for PHIBLAST
-  my ($p, $f, $l) = caller;
-  print "Caller = $f:$l\n";
   if ($self->_parseHeader) {$self->{'REPORT_DONE'} = 0} # there are alignments
   else                     {$self->{'REPORT_DONE'} = 1} # empty report
   
@@ -364,8 +362,6 @@ sub nextSbjct {
 sub _parseHeader {
   my ($self) = @_;
   my $FH = $self->_fh();
-  my ($p, $f, $l) = caller;
-  print "Caller = $f:$l\n";
   # normally, _parseHeader will break out of the parse as soon as it reaches a new Subject (i.e. the first one after the header)
   # if you call _parseHeader twice in a row, with nothing in between, all you accomplish is a ->nextSubject call..
   # so we need a flag to indicate that we have *entered* a header, before we are allowed to leave it!
