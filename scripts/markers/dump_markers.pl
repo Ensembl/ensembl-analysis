@@ -3,32 +3,78 @@
 # Dumps markers from the marker table into a file, in the format expected by
 # the EPCR Runnable
 
+=head1 NAME
+
+ensembl-analysis/scripts/markers/dump_markers.pl
+
+=head1 SYNOPSIS
+
+a script to dump the marker table out into a format for epcr
+
+=head1 DESCRIPTION
+
+This script takes the entries from the marker table and dumps them out
+in the format expected by the runnable Bio::EnsEMBL::Analysis::Runnable::EPCR
+The file should be be pointed at by the dbfile column of the analysis table
+for the analysis which is to run the EPCR
+
+=head1 OPTIONS
+    -dbhost    host name for database (gets put as host= in locator)
+
+    -dbport    For RDBs, what port to connect to (port= in locator)
+
+    -dbname    For RDBs, what name to connect to (dbname= in locator)
+
+    -dbuser    For RDBs, what username to connect as (user= in locator)
+
+    -dbpass    For RDBs, what password to use (pass= in locator)
+
+    -outfile   the path to the file to dump the data into
+
+    -help      prints out the perl docs
+
+=head1 EXAMPLES
+
+perl dump_markers -dbhost myhost -dbuser myuser -dbpass mypass -dbname
+  mydatabase -dbport 3306 -outfile /path/to/epcr.marker.file
+
+=cut
 
 use strict;
 use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
 
-my $host   = 'ecs4';
+my $host   = '';
 my $user   = 'ensro';
 my $pass   = undef;
-my $dbname = 'steve_mouse_nt_fix';
-my $port   = 3350;
-my $outfile  = 'markers.dat';
+my $dbname = '';
+my $port;
+my $outfile;
+my $help;
 
-my $path = 'NCBIM33';
 
 $| = 1;
 
 &GetOptions(
-  'host:s'   => \$host,
-  'user:s'   => \$user,
-  'dbname:s' => \$dbname,
-  'port:n'   => \$port,
-  'pass:s'   => \$pass,
-  'path:s'   => \$path,
-  'outfile:s' => \$outfile,
-);
+            'dbhost:s'   => \$host,
+            'dbuser:s'   => \$user,
+            'dbname:s' => \$dbname,
+            'dbport:n'   => \$port,
+            'dbpass:s'   => \$pass,
+            'outfile:s' => \$outfile,
+            'help!' => \$help,
+           ) or($help = 1);
+
+if ($help) {
+    exec('perldoc', $0);
+}
+
+if(!$host || !$dbname || !$dbuser){
+  throw("Need -dbhost $host -dbuser $dbuser and -dbname $dbname to run ".
+        " use -help for docs");
+}
+
 
 
 # Open database
@@ -38,7 +84,6 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -pass   => $pass,
   -port   => $port,
   -dbname => $dbname,
-  -path   => $path,
 );
 
 

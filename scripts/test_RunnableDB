@@ -1,5 +1,71 @@
 #!/usr/local/ensembl/bin/perl -w 
 
+=head1 NAME
+
+ensembl-analysis/scripts/test_RunnableDB
+
+=head1 SYNOPSIS
+
+this script will test a standard runnabledb
+
+=head1 DESCRIPTION
+
+The script requires the module the analysis specified or that is specified on
+the commandline with the perl path given the instantiates a copy with the 
+standard arguments and calls the two standard methods fetch_input and run
+if the -write option is specified the results will be written back to the
+database with the method write_output. As standard it expects the modules
+to live in Bio/EnsEMBL/Analysis/RunnableDB but you can change this on the commandline
+
+=head1 OPTIONS
+
+    -dbhost    host name for database (gets put as host= in locator)
+
+    -dbport    For RDBs, what port to connect to (port= in locator)
+
+    -dbname    For RDBs, what name to connect to (dbname= in locator)
+
+    -dbuser    For RDBs, what username to connect as (user= in locator)
+
+    -dbpass    For RDBs, what password to use (pass= in locator)
+
+    -help      prints out the perl docs
+
+    -input_id  the input_id needed to fetch appropriate input for the 
+               analysis
+
+    -logic_name the name of the analysis to be run
+
+    -check     a flag to just run the script as a pre exec check
+
+    -write     a flag to indicate to write the results to the database
+
+    -verbose   switches on print statements
+
+    -input_id_type which input_id type your analysis is (only needed if
+                   the analysis isnt already in the database)
+
+    -module    which runnabledb you want run (again this is only needed if
+               the analysis isnt already in the database)
+
+    -runnabledb_path the path to the runnabledb you want required so perl
+                     can find it in its perl5lib
+
+    -utils_verbosity the amount of chat you want from the 
+                     Bio::EnsEMBL::Utils::Exception module
+
+=head1 EXAMPLES
+
+
+perl test_RunnableDB -dbhost myhost -dbuser myuser -dbpass  mypass -dbname 
+  mydatabase -dbport 3306 -input_id contig::RNOR03330165:1:22287:1
+  -logic_name RepeatMask
+
+this commandline would run repeatmasker on contig::RNOR03330165:1:22287:1
+in the specified database
+
+=cut
+
 use strict;
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Pipeline::Analysis;
@@ -25,7 +91,7 @@ my $update = 0;
 my $input_type;
 my $module;
 my $analysis;
-my $perl_path = 'Bio/EnsEMBL/Pipeline/RunnableDB';
+my $perl_path = 'Bio/EnsEMBL/Analysis/RunnableDB';
 my $utils_verbosity = 'WARNING'; #how verbose do you want the 
 #Bio::EnsEMBL::Utils::Exceptions module to be by default it is set to
 #WARNING as this gives warning and throws but not deprecates or infos
@@ -47,7 +113,7 @@ my @command_args = @ARGV;
             'module:s'    => \$module,
             'runnabledb_path:s' => \$perl_path,
             'utils_verbosity=s' => \$utils_verbosity,
-           );
+           ) or ($help = 1);
 
 $| = 1;
 verbose($utils_verbosity);
@@ -141,7 +207,9 @@ if($write){
   }
 }
 
-print "There is ".@{$runobj->output}." features output\n\n";
+my $output = $runobj->output;
+
+print "There is ".@$output." features output\n\n";
 
 #$verbose = 1;
 if($verbose){
