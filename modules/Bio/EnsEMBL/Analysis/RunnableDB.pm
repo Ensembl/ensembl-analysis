@@ -378,25 +378,25 @@ sub parameters_hash{
     $string = $self->analysis->parameters;
   }
   my %parameters_hash;
-  if(!$string){
-    return;
-  }
-  if($string =~  /,/ || $string =~ /=>/){
-     my @pairs = split (/,/, $string);
-     foreach my $pair(@pairs){
-       my ($key, $value) = split (/=>/, $pair);
-       if ($key && ($value || $value == 0)) {
-         $key   =~ s/^\s+//g;
-         $key   =~ s/\s+$//g;
-         $value =~ s/^\s+//g;
-         $value =~ s/\s+$//g;
-         $parameters_hash{$key} = $value;
-       } else {
-         $parameters_hash{$key} = 1;
-       }
-     }
-  }else{
-    $parameters_hash{'-options'} = $string;
+
+  if ($string) {
+    if($string =~  /,/ || $string =~ /=>/){
+      my @pairs = split (/,/, $string);
+      foreach my $pair(@pairs){
+        my ($key, $value) = split (/=>/, $pair);
+        if ($key && ($value || $value == 0)) {
+          $key   =~ s/^\s+//g;
+          $key   =~ s/\s+$//g;
+          $value =~ s/^\s+//g;
+          $value =~ s/\s+$//g;
+          $parameters_hash{$key} = $value;
+        } else {
+          $parameters_hash{$key} = 1;
+        }
+      }
+    }else{
+      $parameters_hash{'-options'} = $string;
+    }
   }
   return \%parameters_hash;
 }
@@ -520,7 +520,11 @@ sub read_and_check_config{
   # the following will fail if there are config variables that 
   # do not have a corresponding method here
   foreach my $config_var (keys %{$default_entry}) {
-    $self->$config_var($default_entry->{$config_var});
+    if ($self->can($config_var)) {
+      $self->$config_var($default_entry->{$config_var});
+    } else {
+      throw("no method defined in RunnableDB for config variable '$config_var'");
+    }
   }
 
   my $logic = $self->analysis->logic_name;
@@ -530,7 +534,11 @@ sub read_and_check_config{
     my $entry = $var_hash->{$logic};
 
     foreach my $config_var (keys %{$entry}) {
-      $self->$config_var($entry->{$config_var});
+      if ($self->can($config_var)) {
+        $self->$config_var($entry->{$config_var});
+      } else {
+        throw("no method defined in RunnableDB for config variable '$config_var'");
+      }
     }
   }
 }
