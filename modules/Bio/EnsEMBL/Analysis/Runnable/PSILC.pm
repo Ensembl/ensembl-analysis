@@ -44,7 +44,6 @@ use warnings;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Analysis::Config::Databases;
-use Bio::EnsEMBL::Analysis::Config::PSILC;
 use Bio::Tools::Run::Alignment::Clustalw;
 use Bio::Align::Utilities qw(aa_to_dna_aln);
 use Bio::AlignIO;

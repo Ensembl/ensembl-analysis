@@ -159,9 +159,15 @@ sub fetch_input{
   }
   # get ids
   foreach my $flag (@{$ids}) {
+    my $gene;
     if ($flag->dbID >= $start && $flag->dbID <= $end) {
       $count++;
-      my $gene = $ga->fetch_by_dbID($flag->ensembl_id);
+      if ($flag->ensembl_id =~ /\w+/){
+	$gene = $ga->fetch_by_stable_id($flag->ensembl_id);
+      }
+      else {
+	$gene = $ga->fetch_by_dbID($flag->ensembl_id);
+      }
       push @genes, $self->lazy_load($gene);
     }
   }

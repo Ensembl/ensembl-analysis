@@ -45,7 +45,6 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 use Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
-use Bio::EnsEMBL::Analysis::Config::PSILC;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
