@@ -5,14 +5,14 @@
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::Tools::DefaultExonerateFilter
+  Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter
 
 =head1 SYNOPSIS
 
   my $filter = new Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter
   new->(
         -best_in_genome => 1,
-        -reject_processed_pseudos => 0.01,
+        -reject_processed_pseudos => 1,
         -coverage => 80,
         -percent_id => 90,
        );
@@ -56,12 +56,11 @@ sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
-  my ($min_score, 
-      $min_coverage,
+  my ($min_coverage,
       $min_percent,
       $best_in_genome,
       $rpp) = 
-        rearrange(['SCORE',
+        rearrange([
                    'COVERAGE',
                    'PERCENT_ID', 
                    'BEST_IN_GENOME',
@@ -71,67 +70,12 @@ sub new{
   #SETTING THE DEFAULTS#
   ######################
 
-  $self->min_score($min_score) if defined $min_score;
   $self->min_coverage($min_coverage) if defined $min_coverage;
   $self->min_percent($min_percent) if defined $min_percent;
   $self->best_in_genome($best_in_genome) if defined $best_in_genome;
   $self->reject_processed_pseudos($rpp) if defined $rpp;
 
   return $self;
-}
-
-
-#containers
-
-=head2 container methods
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
-  Arg [2]   : variable, generally int or string
-  Function  : This describes the 6 container methods below
-  min_score, max_pvalue, coverage, prune, hard_prune and 
-  filter on coverage. The all take, store and return their give
-  variable
-  Returntype: int/string 
-  Exceptions: none
-  Example   : none
-
-=cut
-
-
-sub min_score{
-  my $self = shift;
-  $self->{'_min_score'} = shift if(@_);
-
-  return exists($self->{'_min_score'}) ? $self->{'_min_score'} : undef;
-}
-
-sub min_coverage{
-  my $self = shift;
-  $self->{'_min_coverage'} = shift if(@_);
-
-  return exists($self->{'_min_coverage'}) ? $self->{'_min_coverage'} : undef;
-}
-
-sub min_percent{
-  my $self = shift;
-  $self->{'_min_percent'} = shift if(@_);
-
-  return exists($self->{'_min_percent'}) ? $self->{'_min_percent'} : undef;
-}
-
-
-sub best_in_genome{
-  my $self = shift;
-  $self->{'_best_in_genome'} = shift if(@_);
-
-  return exists($self->{'_best_in_genome'}) ? $self->{'_best_in_genome'} : 0;
-}
-
-sub reject_processed_pseudos {
-  my $self = shift;
-  $self->{'_reject_processed_pseudos'} = shift if(@_);
-
-  return exists($self->{'_reject_processed_pseudos'}) ? $self->{'_reject_processed_pseudos'} : 0;
 }
 
 
@@ -163,109 +107,100 @@ sub filter_results{
 
 TRAN:
   foreach my $transcript (@$transcripts ){
-    my $score    = $self->_coverage($transcript);
-    my $perc_id  = $self->_percent_id($transcript);
+    my $coverage  = $self->_get_transcript_coverage($transcript);
+    my $percent_id  = $self->_get_transcript_percent_id($transcript);
 
     ##########################################
     # lower bound: 40% identity, 40% coverage
     # to avoid unnecessary processing
     ##########################################
-    next TRAN unless ( $score >= 40 && $perc_id >= 40 );
+    next TRAN unless $coverage >= 40 and $percent_id  >= 40;
 
-    my $id = $self->_evidence_id($transcript);
-    push ( @{$matches{$id}}, $transcript );
+    my $id = $self->_get_transcript_evidence_id($transcript);
+    push @{$matches{$id}}, {
+      transcript  => $transcript,
+      coverage    => $coverage,
+      percent_id  => $percent_id,
+      num_exons   => scalar(@{$transcript->get_all_Exons}),
+      is_spliced  => $self->_transcript_is_spliced($transcript),
+      extent      => $self->_get_transcript_extent($transcript),
+    };
   }
   
   my %matches_sorted_by_coverage;
   my %selected_matches;
  
- RNA:
-  foreach my $rna_id ( keys( %matches ) ){
+ QUERY:
+  foreach my $query_id ( keys( %matches ) ){
     
-    @{$matches_sorted_by_coverage{$rna_id}} = 
-        sort { my $result = ( $self->_coverage($b) <=> $self->_coverage($a) );
-               if ( $result){
-                 return $result;
-               } else{
-                 my $result2 = ( scalar(@{$b->get_all_Exons}) <=> scalar(@{$a->get_all_Exons}) );
-                 if ( $result2 ){
-                   return $result2;
-                 }
-                 else{
-                   return ( $self->_percent_id($b) <=> $self->_percent_id($a) );
-                 }
-               }
-             } @{$matches{$rna_id}} ;
-    
-    my $count = 0;
-    my $is_spliced = 0;
-    my $max_score;
+    @{$matches_sorted_by_coverage{$query_id}} = 
+        sort { $b->{coverage}   <=> $a->{coverage} or
+               $b->{num_exons}  <=> $a->{num_exons} or
+               $b->{percent_id} <=> $a->{percent_id} } @{$matches{$query_id}};
+
+    my $max_coverage;
     my $perc_id_of_best;
+    my $count = 0;
+    my $splices_elsewhere = 0;
     my $best_has_been_seen = 0;
     
     #print STDERR "####################\n";
-    #print STDERR "Matches for $rna_id:\n";
+    #print STDERR "Matches for $query_id:\n";
     
   TRANSCRIPT:
-    foreach my $transcript ( @{$matches_sorted_by_coverage{$rna_id}} ){
+    foreach my $hit ( @{$matches_sorted_by_coverage{$query_id}} ){
       $count++;
-      unless ($max_score){
-	$max_score = $self->_coverage($transcript);
+
+      my ($accept, $label);      
+      my $transcript = $hit->{transcript};
+      my $strand = $transcript->strand;
+      my $extent = $hit->{extent};
+      my $coverage = $hit->{coverage};
+      my $percent_id = $hit->{percent_id};
+      my $is_spliced = $hit->{is_spliced};
+     
+      unless ($max_coverage){
+	$max_coverage = $coverage;
       }
       unless ( $perc_id_of_best ){
-	$perc_id_of_best = $self->_percent_id($transcript);
+	$perc_id_of_best = $percent_id;
       }
 
-      my $score   = $self->_coverage($transcript);
-      my $perc_id = $self->_percent_id($transcript);
-      
-      my @exons  = sort { $a->start <=> $b->start } @{$transcript->get_all_Exons};
-      my $start  = $exons[0]->start;
-      my $end    = $exons[$#exons]->end;
-      my $strand = $exons[0]->strand;
-      my $seqname= $exons[0]->seqname;
-      $seqname   =~ s/\.\d+-\d+$//;
-      my $extent = $seqname.".".$start."-".$end;
-      
-      my $label;
       if ( $count == 1 ){
 	$label = 'best_match';
-      }
-      elsif ( $count > 1 
-	      && $is_spliced 
-	      && ! $self->_is_spliced( $transcript )
-	    ){
+      } elsif ( $count > 1 && 
+                $splices_elsewhere && 
+                ! $is_spliced) {
 	$label = 'potential_processed_pseudogene';
-      }
-      else{
+      } else{
 	$label = $count;
       }
       
-      if ( $count == 1 && $self->_is_spliced( $transcript ) ){
-	$is_spliced = 1;
+      if ( $count == 1 && $is_spliced ){
+	$splices_elsewhere = 1;
       }
       
-      my $accept;
-      
       if ( $self->best_in_genome ){
-	if ( ( $score  == $max_score && 
-	       $score >= $self->min_coverage && 
-	       $perc_id >= $self->min_percent
-               )
-	     ||
-	     ( $score == $max_score &&
-	       $score >= (1 + 5/100) * $self->min_coverage &&
-	       $perc_id >= ( 1 - 3/100) * $self->min_percent
-	     )
-	   ){
+        # we keep the hit with the best coverage...
+	if ($coverage == $max_coverage &&
+            # as long as it has coverage/percent_id above limits or...
+            (($coverage >= $self->min_coverage && 
+              $percent_id >= $self->min_percent)
+             ||
+             # ...if coverage is significanly greater than the
+             # specified minimum, then we are willing to accept
+             # hits that have a percent_id just below the specified
+             # minimum
+             ($coverage   >= (1 + 5/100) * $self->min_coverage &&
+              $percent_id >= (1 - 3/100) * $self->min_percent))) { 
+          
 	  if ( $self->reject_processed_pseudos
 	       && $count > 1 
-	       && $is_spliced 
-	       && ! $self->_is_spliced( $transcript )
-	     ){
+	       && $splices_elsewhere 
+	       && ! $is_spliced) {
 	    $accept = 'NO';
 	  }
-	  else{
+	  else {
 	    $accept = 'YES';
 	    push( @good_matches, $transcript);
 	  }
@@ -273,34 +208,33 @@ TRAN:
 	else{
 	  $accept = 'NO';
 	}
-	#print STDERR "match:$rna_id coverage:$score perc_id:$perc_id extent:$extent strand:$strand comment:$label accept:$accept\n";
-	
+
+	#print STDERR "match:$query_id coverage:$coverage perc_id:$percent_id extent:$extent strand:$strand comment:$label accept:$accept\n";	
 	#print STDERR "--------------------\n";
 	
       }
       else{
-	############################################################
-	# we keep anything which is 
-	# within the 2% of the best score
-	# with score >= $EST_MIN_COVERAGE and percent_id >= $EST_MIN_PERCENT_ID
-	if ( ( $score >= (0.98 * $max_score) && 
-	       $score >= $self->min_coverage && 
-	       $perc_id >= $self->min_percent )
-	     ||
-	     ( $score >= (0.98 * $max_score) &&
-	       $score >= (1 + 5/100) * $self->min_coverage &&
-	       $perc_id >= (1 - 3/100) * $self->min_percent
-	     )
-	   ){
-	  
+        # we keep anything which is within the 2% of the best score...
+	if ($coverage >= (0.98 * $max_coverage) && 
+            # as long as it has coverage/percent_id above limits or...
+            (($coverage >= $self->min_coverage && 
+              $percent_id >= $self->min_percent)
+             ||              
+             # ...if coverage is significanly greater than the
+             # specified minimum, then we are willing to accept
+             # hits that have a percent_id just below the specified
+             # minimum
+             ($coverage   >= (1 + 5/100) * $self->min_coverage &&
+              $percent_id >= (1 - 3/100) * $self->min_percent))) {
+          
+          
 	  ############################################################
 	  # non-best matches are kept only if they are not unspliced with the
 	  # best match being spliced - otherwise they could be processed pseudogenes
-	  if ( $self->reject_processed_pseudos
-	       && $count > 1 
-	       && $is_spliced 
-	       && ! $self->_is_spliced( $transcript )
-	     ){
+	  if ( $self->reject_processed_pseudos &&
+	       $count > 1 &&
+	       $splices_elsewhere &&
+	       ! $is_spliced) {
 	    $accept = 'NO';
 	  }
 	  else{
@@ -311,9 +245,8 @@ TRAN:
 	else{
 	  $accept = 'NO';
 	}
-	#print STDERR "match:$rna_id coverage:$score perc_id:$perc_id extent:$extent strand:$strand comment:$label accept:$accept\n";
-	
-	#print STDERR "--------------------\n";
+	#print STDERR "match:$query_id coverage:$coverage perc_id:$percent_id extent:$extent strand:$strand comment:$label accept:$accept\n";
+        #print STDERR "--------------------\n";
       }
     }
   }
@@ -324,7 +257,7 @@ TRAN:
 
 ############################################################
 
-sub _coverage{
+sub _get_transcript_coverage{
   my ($self,$tran) = @_;
   my @exons = @{$tran->get_all_Exons};
   my @evi = @{$exons[0]->get_all_supporting_features};
@@ -333,7 +266,7 @@ sub _coverage{
 
 ############################################################
 
-sub _percent_id{
+sub _get_transcript_percent_id{
   my ($self,$tran) = @_;
   my @exons = @{$tran->get_all_Exons};
   my @evi = @{$exons[0]->get_all_supporting_features};
@@ -342,7 +275,7 @@ sub _percent_id{
 
 ############################################################
 
-sub _evidence_id{
+sub _get_transcript_evidence_id{
   my ($self,$tran) = @_;
   my @exons = @{$tran->get_all_Exons};
   my @evi = @{$exons[0]->get_all_supporting_features};
@@ -351,7 +284,22 @@ sub _evidence_id{
 
 ############################################################
 
-sub _is_spliced {
+sub _get_transcript_extent {
+  my ($self, $transcript) = @_;
+
+  my @exons  = sort { $a->start <=> $b->start } @{$transcript->get_all_Exons};
+  my $start  = $exons[0]->start;
+  my $end    = $exons[$#exons]->end;
+  my $seqname= $exons[0]->seqname;
+  $seqname   =~ s/\.\d+-\d+$//;
+  my $extent = $seqname.".".$start."-".$end;
+
+  return $extent;
+}
+
+############################################################
+
+sub _transcript_is_spliced {
   my ($self, $tran) = @_;
 
   my @exons = sort { $a->start <=> $b->start } @{$tran->get_all_Exons};
@@ -367,6 +315,38 @@ sub _is_spliced {
   }
 
   return 0;
+}
+
+
+# containers
+
+sub min_coverage{
+  my $self = shift;
+  $self->{'_min_coverage'} = shift if(@_);
+
+  return exists($self->{'_min_coverage'}) ? $self->{'_min_coverage'} : undef;
+}
+
+sub min_percent{
+  my $self = shift;
+  $self->{'_min_percent'} = shift if(@_);
+
+  return exists($self->{'_min_percent'}) ? $self->{'_min_percent'} : undef;
+}
+
+
+sub best_in_genome{
+  my $self = shift;
+  $self->{'_best_in_genome'} = shift if(@_);
+
+  return exists($self->{'_best_in_genome'}) ? $self->{'_best_in_genome'} : 0;
+}
+
+sub reject_processed_pseudos {
+  my $self = shift;
+  $self->{'_reject_processed_pseudos'} = shift if(@_);
+
+  return exists($self->{'_reject_processed_pseudos'}) ? $self->{'_reject_processed_pseudos'} : 0;
 }
 
 
