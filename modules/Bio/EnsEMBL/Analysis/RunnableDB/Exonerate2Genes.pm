@@ -258,11 +258,18 @@ sub make_genes{
 sub get_chr_names{
   my ($self) = @_;
   my @chr_names;
-  
+  my @chromosomes;
+
   my $chr_adaptor = $self->db->get_SliceAdaptor;
-  #note: we're also fetching non-reference regions like DR52 for human
-  my @chromosomes = @{$chr_adaptor->fetch_all('toplevel', undef, 1)};
-  
+  #also fetching non-reference regions like DR52 for human by default.
+  #specify in Exonerate2Genes config-file.
+  if(defined($self->NONREF_REGIONS)){
+    @chromosomes = @{$chr_adaptor->fetch_all('toplevel', undef, 1)};
+  }
+  else{
+    @chromosomes = @{$chr_adaptor->fetch_all('toplevel')};
+  }
+
   foreach my $chromosome ( @chromosomes ){
     push( @chr_names, $chromosome->seq_region_name );
   }
@@ -503,6 +510,20 @@ sub OPTIONS {
 
   if (exists($self->{'_CONFIG_OPTIONS'})) {
     return $self->{'_CONFIG_OPTIONS'};
+  } else {
+    return undef;
+  }
+}
+
+sub NONREF_REGIONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_NONREF_REGIONS'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_NONREF_REGIONS'})) {
+    return $self->{'_CONFIG_NONREF_REGIONS'};
   } else {
     return undef;
   }

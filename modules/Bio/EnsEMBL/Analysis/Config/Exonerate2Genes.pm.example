@@ -60,6 +60,8 @@ use vars qw( %Config );
                FILTER              => undef,
                COVERAGE_BY_ALIGNED => undef,
                OPTIONS             => undef,
+	       #set to undef if non-reference regions should NOT be fetched
+               NONREF_REGIONS      => 1,
              },
 
              EST_logicname => {
