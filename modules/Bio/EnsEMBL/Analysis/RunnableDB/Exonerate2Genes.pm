@@ -260,7 +260,8 @@ sub get_chr_names{
   my @chr_names;
   
   my $chr_adaptor = $self->db->get_SliceAdaptor;
-  my @chromosomes = @{$chr_adaptor->fetch_all('toplevel')};
+  #note: we're also fetching non-reference regions like DR52 for human
+  my @chromosomes = @{$chr_adaptor->fetch_all('toplevel', undef, 1)};
   
   foreach my $chromosome ( @chromosomes ){
     push( @chr_names, $chromosome->seq_region_name );
