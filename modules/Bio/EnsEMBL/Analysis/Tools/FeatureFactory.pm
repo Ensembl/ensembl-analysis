@@ -43,6 +43,9 @@ use Bio::EnsEMBL::RepeatFeature;
 use Bio::EnsEMBL::RepeatConsensus;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::DnaPepAlignFeature;
+use Bio::EnsEMBL::MiscFeature;
+use Bio::EnsEMBL::Attribute;
+use Bio::EnsEMBL::MiscSet;
 use Bio::EnsEMBL::PredictionTranscript;
 use Bio::EnsEMBL::PredictionExon;
 use Bio::EnsEMBL::SimpleFeature;
@@ -215,7 +218,78 @@ sub create_feature_pair {
     return $fp;
 }
 
+=head2 create_misc_feature
 
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [2]   : int, start,
+  Arg [3]   : int, end
+  Arg [4]   : int, strand
+  Arg [5]   : Bio::EnsEMBL::Slice
+
+=cut
+
+sub create_misc_feature {
+
+  my ($self, $start, $end, $strand, $slice) = @_;
+  
+  my $mf = Bio::EnsEMBL::MiscFeature->new
+    (
+     -start => $start,
+     -end => $end,
+     -strand => $strand,
+     -slice => $slice,
+    );
+  return $mf;
+}
+
+
+=head2 add_misc_feature_attribute
+  
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [2]   : Bio::EnsEMBL::MiscFeature
+  Arg [3]   : string, code
+  Arg [4]   : string, name
+  Arg [5]   : string, description
+  Arg [6]   : string, value
+
+=cut
+
+sub add_misc_feature_attribute {
+
+  my ($self, $mf, $code, $name, $description, $value) = @_;
+
+  $mf->add_Attribute ( Bio::EnsEMBL::Attribute->new
+    (-CODE   => $code,
+     -NAME   => $name,
+     -DESCRIPTION => $description,
+     -VALUE  => $value,
+    )
+                     ); 
+}
+=head2 add_misc_set
+  
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [2]   : Bio::EnsEMBL::MiscFeature
+  Arg [3]   : string, code
+  Arg [4]   : string, name
+  Arg [5]   : string, description
+  Arg [6]   : string, value
+
+=cut
+
+sub add_misc_set {
+
+  my ($self, $mf, $code, $name, $description, $longest_feature) = @_;
+
+  $mf->add_MiscSet ( Bio::EnsEMBL::MiscSet->new
+    (-CODE   => $code,
+     -NAME   => $name,
+     -DESCRIPTION => $description,
+     -VALUE  => $longest_feature,
+    )
+                     ); 
+}
+  
 =head2 create_prediction_exons
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
