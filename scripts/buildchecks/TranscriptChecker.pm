@@ -57,6 +57,7 @@ use strict;
 
 use Checker;
 use Bio::EnsEMBL::Intron;
+use Bio::Seq;
 
 
 @ISA = qw( Checker );
@@ -493,6 +494,7 @@ sub check_Translation {
     # print "Pep seq = $pepseqstr\n";
     if ($pepseqstr =~ /\*/) {
       $self->add_Error("Translation failed - Translation contains stop codons\n",'transstop');
+      $self->get_initial_frame;
       return 1; 
     } elsif ($peplen == 0) {
       $self->add_Error("Translation failed - Translation has zero length\n",'transzerolen');
@@ -698,3 +700,31 @@ sub check_Intron {
     }
   } 
 }
+
+sub get_initial_frame {
+  my ($self) = @_;
+
+  my $trans = $self->transcript;
+
+  $trans->sort;
+
+  # print " Trying to find translating frame\n";
+  my $cdna = new Bio::Seq(-seq => $trans->translateable_seq);
+
+  foreach my $frame (0 .. 2) {
+    my $pepseq = $cdna->translate(undef, undef, $frame)->seq;
+    chop $pepseq;
+    if ($pepseq !~ /\*/) {
+      $self->add_Error("Frame $frame does translate\n",'wrongframe');
+      return $frame;
+    }
+  }
+#  print "Failed to translate transcript in any phase\n";
+#  foreach my $frame (0 .. 2) {
+#    my $pepseq = $cdna->translate(undef, undef, $frame)->seq;
+#    chop $pepseq;
+#    print "Pepseq frame $frame = " . $pepseq . "\n";
+#  }
+  return 0;
+}
+
