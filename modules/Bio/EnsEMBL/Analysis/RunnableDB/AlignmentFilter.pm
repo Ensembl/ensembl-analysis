@@ -69,6 +69,7 @@ sub run{
     $runnable->run;
     my $converted_output = $self->convert_output($runnable->output);
     $self->output($converted_output);
+    rmdir($runnable->workdir) if (defined $runnable->workdir);
   }
 }
 
@@ -88,7 +89,12 @@ sub run{
 sub write_output {
   my($self) = @_;
 
-  my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(%{$self->COMPARA_DB});
+  my $compara_dbh;
+  if (defined $self->COMPARA_DB) {
+    $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(%{$self->COMPARA_DB});
+  } else {
+    $compara_dbh = $self->{'comparaDBA'};
+  }
 
   my @gen_al_groups;
   foreach my $chain (@{$self->output}) {
@@ -102,7 +108,7 @@ sub write_output {
     # we can only create the group after storing all GenomicAligns
     # in all of the blocks in the chain
     my $group = Bio::EnsEMBL::Compara::GenomicAlignGroup->new
-        (-type                => "chain",
+        (-type                => $self->GROUP_TYPE,
          -genomic_align_array => \@chain_aligns);
 
     $compara_dbh->get_GenomicAlignGroupAdaptor->store($group);
@@ -481,6 +487,15 @@ sub MAX_GAP {
   return $self->{_max_gap};
 }
 
+sub GROUP_TYPE {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    $self->{_group_type} = $val;
+  }
+
+  return $self->{_group_type};
+}
 
 
 1;
