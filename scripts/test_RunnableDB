@@ -42,9 +42,6 @@ to live in Bio/EnsEMBL/Analysis/RunnableDB but you can change this on the comman
 
     -verbose   switches on print statements
 
-    -input_id_type which input_id type your analysis is (only needed if
-                   the analysis isnt already in the database)
-
     -module    which runnabledb you want run (again this is only needed if
                the analysis isnt already in the database)
 
@@ -67,8 +64,8 @@ in the specified database
 =cut
 
 use strict;
-use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Pipeline::Analysis;
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis;
 use Getopt::Long;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 
@@ -87,8 +84,6 @@ my $output_dir;
 my $write = 0;
 my $help = 0; 
 my $verbose = 0;
-my $update = 0;
-my $input_type;
 my $module;
 my $analysis;
 my $perl_path = 'Bio/EnsEMBL/Analysis/RunnableDB';
@@ -108,8 +103,6 @@ my @command_args = @ARGV;
             'write!' => \$write,
             'help!' => \$help,
             'verbose!' => \$verbose,
-            'update_input_id_analysis!' => \$update,
-            'input_id_type:s'=> \$input_type,
             'module:s'    => \$module,
             'runnabledb_path:s' => \$perl_path,
             'utils_verbosity=s' => \$utils_verbosity,
@@ -128,13 +121,10 @@ if(!$dbhost || !$dbuser || !$dbname || !$input_id || !$logic_name){
 
 &useage(\@command_args) if($help);
 
-if(!$write){
-  $update = 0;
-}
 
-print "args: $dbhost : $dbuser : $dbpass : $dbname : $input_id : $logic_name\n" if($verbose);
+print STDERR "args: $dbhost : $dbuser : $dbpass : $dbname : $input_id : $logic_name\n" if($verbose);
 
-my $db = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor
+my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor
   (
    -host   => $dbhost,
    -user   => $dbuser,
@@ -150,16 +140,13 @@ $analysis = $aa->fetch_by_logic_name($logic_name);
 
 
 if(!$analysis){
-  die("Can't create an analysis without a module and input type") 
-    unless($module && $input_type);
-  print "creating analysis object ".$logic_name." ".$module.
-    " ".$input_type."\n" if($verbose);
+  print "creating analysis object ".$logic_name." ".$module. "\n" if $verbose;
+
   print "This object will be stored in the database when the ".
     "features are written\n" if($verbose && $write);
-  $analysis = new Bio::EnsEMBL::Pipeline::Analysis
+  $analysis = new Bio::EnsEMBL::Analysis
     (-logic_name => $logic_name,
      -module     => $module,
-     -input_type => $input_type
     );
   
 }
@@ -180,89 +167,99 @@ eval{
 if($@){
   throw("Couldn't require $file $@");
 }
-print "creating runnable ".$file."\n" if($verbose);
+print STDERR "creating runnable ".$file."\n" if($verbose);
 
 $runnable =~ s/\//::/g;
 my $runobj = "$runnable"->new(-db    => $db,
 			      -input_id => $input_id,
 			      -analysis => $analysis,
 			     );
-print "Instantiated ".$runnable." runnabledb\n" if($verbose);
+print STDERR "Instantiated ".$runnable." runnabledb\n" if($verbose);
 $runobj->fetch_input;
-print "Fetched input\n" if($verbose);
+print STDERR "Fetched input\n" if($verbose);
 $runobj->run;
-print "Run ".$runobj."\n" if($verbose);
+print STDERR "Run ".$runobj."\n" if($verbose);
 
 if($write){
   $runobj->write_output;
-  print "written output\n" if($verbose);
+  print STDERR "written output\n" if($verbose);
 }
 
-my $sql = "insert into input_id_analysis(input_id, input_id_type, analysis_id, created) values( ?, ?, ?, now())";
 
-if($write){
-  if($update){
-    my $sth = $db->prepare($sql);
-    $sth->execute($input_id, $analysis->input_id_type, $analysis->dbID);
-  }
-}
-
-my $output = $runobj->output;
-
-print "There is ".@$output." features output\n\n";
+my @output = @{$runobj->output};
 
 #$verbose = 1;
 if($verbose){
-  my @output = @{$runobj->output};
-  if(!@output){
-    print STDERR "either ".$runobj." doesn't put its output in ".
-      $runobj->output." or your analysis hasn't produced any output\n";
-  }
-  print "have ".@output." results\n";
-  my $exon_count = 0;
-  my $transcript_count = 0;
   foreach my $out (@output) { 
     if ($out->isa("Bio::EnsEMBL::Gene")) {
-      #print "\n";
-      my $type = $out->type;
-      foreach my $tran (@{$out->get_all_Transcripts}) {
-        foreach my $exon (@{$tran->get_all_Exons}) {
-          print("exon\t".$exon->start."\t".
-                $exon->end."\t300\t".$exon->strand."\n");
-          foreach my $ev (@{$exon->get_all_supporting_features}) {
-            print print_gff($ev) . "\n";
-          }
-          $exon_count++;
-        }
-        $transcript_count++;
-      }
+      print_gene($out);
+      print "\n";
     } else {
-      print $out->slice;
+      #print $out->slice;
       my @values = split /\:/, $out->slice;
       my $name = $values[2];
-      print_gff($out, $name);
+      print_feature($out, $name, $logic_name);
     }
   }
-  print "have ".$exon_count." exons\n";
+}
+print "There were ".@output." features found\n\n";
+
+
+sub print_gene {
+  my $out = shift;
+
+  printf("%s\t$logic_name\tGene\t%d\t%d\t%s\n",
+         $out->slice->seq_region_name,
+         $out->start,
+         $out->end,
+         $out->strand);
+  
+  foreach my $tran (@{$out->get_all_Transcripts}) {
+    printf("%s\t$logic_name\tTranscript\t%d\t%d\t%s\n",
+           $out->slice->seq_region_name,
+           $tran->start,
+           $tran->end,
+           $tran->strand);
+    
+    foreach my $exon (@{$tran->get_all_Exons}) {
+      printf("%s\t$logic_name\tExon\t%d\t%d\t%s\t%d\t%d\n",
+             $out->slice->seq_region_name,
+             $exon->start,
+             $exon->end,
+             $exon->strand,
+             $exon->phase, 
+             $exon->end_phase);
+
+      foreach my $ev (@{$exon->get_all_supporting_features}) {
+        print_feature($ev, $out->slice->seq_region_name, $logic_name, "Supp_Feat");
+      }
+    }
+  }
 }
 
 
+sub print_feature{
+  my ($feature, $name, $source, $type) = @_;
 
-sub print_gff{
-  my ($feature, $name) = @_;
-
-  my $str .= ($name) ?  $name."\t":"\t";
-  $str .=  "\t"; #source tag
-  $str .=  "\t"; #primary tag
-  $str .= ($feature->start)    ?  $feature->start."\t":"\t";
-  $str .= ($feature->end)      ?  $feature->end."\t":"\t";
-  $str .= ($feature->score)    ?  $feature->score."\t" :"\t";
-  $str .= ($feature->strand)   ?  $feature->strand."\t":  ".\t";
-  $str .= ($feature->hseqname) ?  $feature->hseqname()."\t": "\t" 
-    if($feature->can('hseqname'));
-  $str .=  ".\t"; #phase
-  $str .=  ".\t"; #end phase
-  print $str."\n";
+  printf("%s\t%s\t%s\t%d\t%d\t%s\t%s\t%s",
+         $name     ? $name     : "",
+         $source   ? $source   : "", 
+         $type     ? $type     : "", 
+         $feature->start,
+         $feature->end, 
+         $feature->score ? $feature->score : 0,
+         $feature->strand ? $feature->strand : ".", 
+         ".");
+  if ($feature->can("hseqname")) {
+    printf("\t%s\t%d\t%d\t%s\t%.2f", 
+           $feature->hseqname,
+           $feature->hstart,
+           $feature->hend,
+           $feature->hstrand ? $feature->hstrand : ".",
+           $feature->percent_id);
+  }
+  print "\n";
+           
 }
 
 sub useage{
