@@ -549,6 +549,10 @@ sub check_UTRs {
   my $trans_end_exon = $translation->end_Exon;
   my $foundstart = 0;
   my $foundend = 0;
+
+  my $start_is_atg = 0;
+  my $stop_is_term = 0;
+
   EXON: foreach my $exon (@$exons) {
     if ($exon == $trans_start_exon) {
       $foundstart = 1;
@@ -556,7 +560,9 @@ sub check_UTRs {
         my $startcodon = substr($exon->seq->seq,$translation->start-1,3); 
         if ($startcodon ne "ATG") {
           $self->add_Warning("No ATG at five prime of transcript CDS with UTR (has $startcodon)\n");
-        } 
+        } else {
+          $start_is_atg = 0;
+        }
 
         my $len = $exon->length;
         my $end_phase = $exon->end_phase;
@@ -565,7 +571,7 @@ sub check_UTRs {
 
         if (($len - $translation->start + 1 + ((3-$end_phase)%3)) % 3) {
           $self->add_Warning("Translation start not on codon boundary\n");
-          if ($startcodon eq "ATG") {
+          if ($start_is_atg) {
             $self->add_Error("ATG as first three bases in case where first codon supposedly incomplete\n");
           }
         }
@@ -577,7 +583,9 @@ sub check_UTRs {
         my $stopcodon = substr($exon->seq->seq,$translation->end-3,3); 
         if ($stopcodon !~ /TAA|TAG|TGA/) {
           $self->add_Warning("No TAA, TAG or TGA at three prime end of transcript CDS with UTR (has $stopcodon)\n");
-        } 
+        } else {
+          $stop_is_term = 1;
+        }
       }
     }
     $rank++;
@@ -589,6 +597,18 @@ sub check_UTRs {
   if (!$foundend) {
     $self->add_Error("Didn't find translation->end_exon (" . 
                      $trans_end_exon->dbID .  ")\n");
+  }
+
+  my $cdslen = 0;
+  foreach my $exon (@{$self->transcript->get_all_translateable_Exons}) {
+    $cdslen += $exon->length;
+  }
+  if ($cdslen%3) {
+    if ($start_is_atg && $stop_is_term) {
+      $self->add_Error("CDS length not multiple of 3 in transcript with ATG->Stop\n");
+    } else {
+      $self->add_Warning("CDS length not multiple of 3\n");
+    }
   }
 }
 
