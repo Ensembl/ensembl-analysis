@@ -1,3 +1,69 @@
+# Ensembl module for Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+#
+# Copyright (c) 2004 Ensembl
+#
+
+=head1 NAME
+
+  Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+
+=head1 SYNOPSIS
+
+  my $featurefilter = new Bio::EnsEMBL::Analysis::Tools::FeatureFilter
+  new->(
+        -min_score => 200,
+        -max_pvalue => 0.01,
+        -coverage => 5,
+        -prune => 1,
+       );
+
+  my @filtered_results = @{$featurefilter->filter_results(\@results)};
+
+=head1 DESCRIPTION
+
+This is the standard module used for filtering blast results
+It filters on 4 separate things, It will throw out features whose score
+is below a certain value or whose pvalue is above a certain value. Coverage
+keeps all hit ids where at least of its features base pairs is covered by 
+less than its value in features (10 as standard). Prune and hard prune 
+function in the same manner but prune only considers sets of features with
+the same hit id but hard prune considers all of them. The feature set
+which is passed to prune_features is first split on the basis of strand
+then each set of features on one strand are considered and the number of
+features which cover each base pair in the range of basepairs covered is
+counted. Then starting with the lowest scoring features and the highest
+covered base pairs first a single feature is thrown out if at least one
+of its base pairs covered the query sequence too much (this level is
+also set by coverage)
+
+here is an asci drawing which should hopefully explain. In this system
+there are no min scores and coverage is set to 5 but nothing is thrown
+away by the initial coverage filter as every feature has every feature has
+at least on base pair whose coverage is below 5. The features with bits 
+scores of 50 and 100 though would be thrown away by prune as base 21 is
+covered by 7 features and these are the lowest scoring of those 7 features
+if normal prune was used these features would all need to share the same 
+hit id but if hard prune was used that would not be true
+
+                                 bit score
+                ---------------- 50
+ ---------------------           100
+               ---------         250
+           ---------------       500
+    -------------------          750
+                    -----------  1000
+ --------------------------      1250
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+1   5    1    1    2    2    3
+         0    5    0    5    0
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
+
 package Bio::EnsEMBL::Analysis::Tools::FeatureFilter;
 
 use strict;
@@ -35,7 +101,7 @@ sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
-  my ($features, $min_score, $max_pvalue, $coverage,
+  my ($min_score, $max_pvalue, $coverage,
       $prune, $hard_prune, $filter_on_coverage) = 
         rearrange(['MIN_SCORE', 'MAX_PVALUE', 'COVERAGE',
                    'PRUNE', 'HARD_PRUNE', 'FILTER_ON_COVERAGE'], @args);
@@ -177,10 +243,16 @@ sub filter_results{
       push(@{$hitarray{$f->hseqname}}, $f);
     }
   }
+  my $total_count = 0;
+  foreach my $id(keys(%hitarray)){
+    $total_count += @{$hitarray{$id}};
+  }
+ 
   my @hit_ids = sort {$validhit{$b} <=> $validhit{$a}
                          or $totalscore{$b} <=> $totalscore{$a}
                            or $a cmp $b
                          } keys %validhit;
+  
   #this sorts the hseqnames of the valid hits first by the max score
   #then by the highest total score
   #then on alphabetical order before feeding the names to the

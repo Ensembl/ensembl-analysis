@@ -1,3 +1,37 @@
+# Ensembl module for Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+#
+# Copyright (c) 2004 Ensembl
+#
+
+=head1 NAME
+
+  Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+
+=head1 SYNOPSIS
+
+  my $parser = Bio::EnsEMBL::Analysis::Tools::BPliteWrapper->
+  new(
+      -regex => '^\w+\s+(\w+)'
+      -query_type => 'dna',
+      -database_type => 'pep',
+     );
+ my @results = @{$parser->parse_results('blast.out')};
+
+=head1 DESCRIPTION
+
+This module is a wrapper for BPlite to provide an interface between
+Bio::EnsEMBL::Analysis::Runnable::Blast and BPlite. This method fits model
+for standard blast parsers as it provides the parse_file method which
+returns an array of results. This method just uses BPlite to parse the
+file it does no pre or post filtering and as such will not mimic the 
+behaviour or the current blast runnable in the pipeline code
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
 package Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
 
 use strict;
@@ -8,33 +42,63 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::BPlite;
+use Bio::EnsEMBL::DnaDnaAlignFeature;
+use Bio::EnsEMBL::DnaPepAlignFeature;
+use Bio::EnsEMBL::PepDnaAlignFeature;
 
 use vars qw (@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Root);
 
 
+=head2 new
+
+  Arg [1]             : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [FILENAME]      : string, filename
+  Arg [REGEX]         : string, regex
+  Arg [QUERY_TYPE]    : string, query sequence type, should be pep or dna
+  Arg [DATABASE_TYPE] : string, database sequence type as above
+  Arg [ANALYSIS]      : Bio::EnsEMBL::Analysis object
+  Function  : 
+  Returntype: 
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
 sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
-  my ($filename, $regex, $query, $target) = rearrange(['FILENAME', 'REGEX',
-                                                       'QUERY_TYPE',
-                                                       'DATABASE_TYPE',
-                                                       ], @args);
-  
+  my ($filename, $regex, $query, $target, $analysis) = 
+    rearrange(['FILENAME', 'REGEX', 'QUERY_TYPE', 'DATABASE_TYPE',
+               'ANALYSIS'], @args);
   ######################
   #SETTING THE DEFAULTS#
   ######################
   $self->regex('(\w+)\s+');
   ######################
-
   $self->filename($filename) if($filename);
   $self->regex($regex) if(defined $regex);
   $self->query_type($query) if($query);
   $self->database_type($target) if($target);
+  $self->analysis($analysis);
   return $self;
 }
+
+
+
+=head2 filename
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : string, filename
+  Function  : container
+  Returntype: string, filename
+  Exceptions: 
+  Example   : 
+
+=cut
 
 
 sub filename{
@@ -44,6 +108,18 @@ sub filename{
 }
 
 
+=head2 regex
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : string, regex
+  Function  : container
+  Returntype: string, regex
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
 sub regex{
   my $self = shift;
   $self->{'regex'} = shift if(@_);
@@ -51,25 +127,64 @@ sub regex{
 }
 
 
+=head2 query_type
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : string, query sequence type
+  Function  : container
+  Returntype: string
+  Exceptions: throws if string is not either dna or pep
+  Example   : 
+
+=cut
+
+
+
 sub query_type{
-  my ($self, $qtype) = @_; 
-  if($qtype){
-    throw("Query type must be either dna or pep not ".$qtype)
-      unless(($qtype =~ /dna/i) || ($qtype = /pep/i));
-    $self->{'query_type'} = $qtype;
+  my ($self, $dtype) = @_; 
+  if($dtype){
+    $dtype = lc($dtype);
+    throw("Query type must be either dna or pep not ".$dtype)
+      unless($dtype eq 'pep' || $dtype eq 'dna');
+    $self->{'query_type'} = $dtype;
   }
   return $self->{'query_type'};
 }
 
+=head2 database_type
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : string, database sequence type
+  Function  : container
+  Returntype: string
+  Exceptions: throws if string is not either dna or pep
+  Example   : 
+
+=cut
+
 sub database_type{
   my ($self, $dtype) = @_; 
   if($dtype){
+    $dtype = lc($dtype);
     throw("Database type must be either dna or pep not ".$dtype)
-      unless(($dtype =~ /dna/i) || ($dtype = /pep/i));
-    $self->{'database_typxe'} = $dtype;
+      unless($dtype eq 'pep' || $dtype eq 'dna');
+    $self->{'database_type'} = $dtype;
   }
   return $self->{'database_type'};
 }
+
+
+=head2 output
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : arrayref of output features
+  Function  : store the output features in an array
+  Returntype: arrayref
+  Exceptions: throws if not passed an arrayref
+  Example   : 
+
+=cut
+
 
 
 sub output{
@@ -85,17 +200,90 @@ sub output{
   return $self->{'output'};
 }
 
+
+=head2 clean_output
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Function  : empties the internal output array
+  Returntype: none
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+
+sub clean_output{
+  my ($self) = @_;
+  $self->{'output'} = [];
+}
+
+
+=head2 feature_factory
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Function  : container for feature factory creates one if one is requested
+  but one does not currently exist
+  Returntype: Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
 sub feature_factory{
   my ($self, $feature_factory) = @_;
   if($feature_factory){
     $self->{'feature_factory'} = $feature_factory;
   }
   if(!$self->{'feature_factory'}){
-    $self->{'feature_factory'} = Bio::EnsEMBL::Analysis::Tools::FeatureFactory
-      ->new();
+    $self->{'feature_factory'} = 
+      Bio::EnsEMBL::Analysis::Tools::FeatureFactory->new();
   }
   return $self->{'feature_factory'};
 }
+
+=head2 analysis
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : Bio::EnsEMBL::Analysis
+  Function  : container for analysis object
+  Returntype: Bio::EnsEMBL::Analysis
+  Exceptions: throws passed incorrect object type
+  Example   : 
+
+=cut
+
+
+
+sub analysis{
+  my $self = shift;
+  my $analysis = shift;
+  if($analysis){
+    throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis".
+          "not a ".$analysis) unless($analysis->isa
+                                     ('Bio::EnsEMBL::Analysis'));
+    $self->{'analysis'} = $analysis;
+  }
+  return $self->{'analysis'};
+}
+
+
+
+=head2 parse_file
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : string filename
+  Function  : using BPlite to parse the blast output
+  Returntype: arrayref
+  Exceptions: throws if file does not exist
+  Example   : 
+
+=cut
+
+
 
 sub parse_file{
   my ($self, $file) = @_;
@@ -105,11 +293,25 @@ sub parse_file{
   $self->filename($file);
   throw("File ".$file." must exist to be parsed BPliteWrapper:parse_file ")
     unless(-e $file);
- 
+  $self->clean_output;
   my $bplite = $self->get_parser($file);
   $self->get_hsps($bplite);
   return $self->output;
 }
+
+
+
+=head2 get_parser
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : string, filename
+  Function  : opens file using Filehandle and passes filehandle to BPlite
+  Returntype: Bio::EnsEMBL::Analysis::Tools::BPlite
+  Exceptions: none
+  Example   : 
+
+=cut
+
 
 
 sub get_parser{
@@ -122,6 +324,20 @@ sub get_parser{
     );
   return $bplite;
 }
+
+
+=head2 get_hsps
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : Bio::EnsEMBL::Analysis::Tools::BPlite
+  Function  : get the hsps from bplite and turn then into features
+  Returntype: none
+  Exceptions: throws if regex does not produce a result
+  Example   : 
+
+=cut
+
+
 
 sub get_hsps{
   my ($self, $parser) = @_;
@@ -140,6 +356,18 @@ sub get_hsps{
 
 
 
+=head2 split_hsp
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : Bio::EnsEMBL::Analysis::Tools::BPlite::HSP
+  Function  : turn hsp into alignfeature
+  Returntype: Bio::EnsEMBL::BaseAlignFeature
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
 sub split_hsp {
     my ($self,$hsp,$name) = @_;
     my $qstrand = $hsp->query->strand;
@@ -154,7 +382,7 @@ sub split_hsp {
     my $hstart = $hsp->subject->start(); # ditto
     my $qend   = $hsp->query->start(); # Set the feature pair end also
     my $hend   = $hsp->subject->start(); # ditto
-   if ($qstrand == -1) {
+    if ($qstrand == -1) {
       $qstart = $hsp->query->end;
       $qend   = $hsp->query->end;
     }
@@ -255,104 +483,22 @@ sub split_hsp {
     $fp->identical_matches($hsp->match);
     return $fp;
   }
-#sub split_hsp{
-#  my ($self, $hsp, $name) = @_;
-#  print "\nSpliting hsp ".$name."\n";
-#  my @qchars = split(//,$hsp->querySeq);  # split alignment into array of 
-#                                          #characters
-#  my @hchars = split(//,$hsp->sbjctSeq);  # ditto for hit sequence
-#  my $qstart = $hsp->query->start();
-#  my $qend = $hsp->query->start;
-#  my $qstrand = $hsp->query->strand;
-#  my $hstart = $hsp->subject->start;
-#  my $hend = $hsp->subject->start;
-#  my $hstrand = $hsp->subject->strand;
-#  if($qstrand == -1){
-#    $qstart = $hsp->query->end;
-#    $qend = $hsp->query->start();
-#  }
-#  if($hstrand == -1){
-#    $hstart = $hsp->subject->end;
-#    $hend = $hsp->subject->start;
-#  }
-#  my ($qinc, $hinc) = $self->find_increments($qstrand, $hstrand);
-#  my $count = 0; #counter for how may basepairs though the hit you are
-#  my $found = 0; #marker to indicate a feature pair has been found
-#  my @tmpfs;
-#  print "There are ".@qchars." query characters and ".@hchars.
-#    " hit characters\n";
-#  print "query start = ".$qstart." query end ".$qend." length ".
-#    ($qend - $qstart + 1)."\n";
-#  print "hit start = ".$hstart." hit end ".$hend."length ".
-#    ($hend - $hstart + 1)."\n";
-#  while($count <= $#qchars){
-#    if ($qchars[$count] ne '-' && $hchars[$count] ne '-') {
-#      $qend += $qinc;
-#      $hend += $hinc;
-#      $found = 1;
-#    }else{
-#      if($found){
-#        my $fp = $self->convert_to_featurepair($qstart, $qend, $qstrand,
-#                                               $qinc, $hstart, $hend, 
-#                                               $hstrand, $hinc, $name,
-#                                               $hsp->score, $hsp->percent,
-#                                               $hsp->P, $hsp->positive,
-#                                               $hsp->match);
-#        push(@tmpfs, $fp);
-#      }
-#      if ($qchars[$count] ne '-') {
-#        $qstart = $qend   + $qinc;
-#      } else {
-#        $qstart = $qend;
-#      }
-#      if ($hchars[$count] ne '-') {
-#        $hstart = $hend   + $hinc;
-#      } else {
-#        $hstart = $hend;
-#      }
-      
-#      $qend = $qstart;
-#      $hend = $hstart;
-      
-#      $found = 0;
-#    }
-#    $count++;
-#  }
-#  if($found){
-#    my $fp = $self->convert_to_featurepair($qstart, $qend, $qstrand,
-#                                           $qinc, $hstart, $hend, 
-#                                           $hstrand, $hinc, $name,
-#                                           $hsp->score, $hsp->percent,
-#                                           $hsp->P, $hsp->positive,
-#                                           $hsp->match);
-#    push(@tmpfs, $fp);
-#  }
-#  foreach my $f(@tmpfs){
-#    print "query ".$f->start." ".$f->end." ".$f->strand." length ".
-#      ($f->end - $f->start + 1)." hit ".$f->hstart." ".
-#      $f->hend." ".$f->strand." length ". ($f->hend - $f->hstart + 1)."\n";
-#  }
-#  $qinc = abs( $qinc );
-#  $hinc = abs( $hinc );
-#  my $fp;
-#  if( $qinc == 3 && $hinc == 1 ) {
-#    $fp = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@tmpfs);
-#  } elsif( $qinc == 1 && $hinc == 3 ) {
-#    $fp = Bio::EnsEMBL::PepDnaAlignFeature->new(-features => \@tmpfs);
-#  } elsif( $qinc == 1 && $hinc == 1 ) {
-#    $fp = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@tmpfs);
-#  } else {
-#    throw( "Hardcoded values wrong?? " );
-#  }
-  
-#  # helps debugging subsequent steps
-#  $fp->{'qseq'} = $hsp->querySeq();
-#  $fp->{'sseq'} = $hsp->sbjctSeq();
-#  #for compara
-#  $fp->positive_matches($hsp->positive);
-#  $fp->identical_matches($hsp->match); 	 
-#  return $fp;
-#}
+
+
+
+=head2 find_increments
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : int, query strand
+  Arg [3]   : int, hit strand
+  Function  : work out the query and hit increments 
+  Returntype: int, int query inc, hit inc
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
 
 sub find_increments{
   my ($self, $qstrand, $hstrand) = @_;
@@ -372,6 +518,32 @@ sub find_increments{
   return ($qinc,$hinc);
 }
 
+
+
+=head2 convert_to_featurepair
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : int, query start
+  Arg [3]   : int, query end
+  Arg [4]   : int, query strand
+  Arg [5]   : int, query increment
+  Arg [6]   : int, hit start
+  Arg [7]   : int, hit end
+  Arg [8]   : int, hit strand
+  Arg [9]   : int, hit increment
+  Arg [10]  : string, name
+  Arg [11]  : int, bit score
+  Arg [12]  : int, percent identity
+  Arg [13]  : int, p value
+  Arg [14]  : int, positive matches
+  Arg [15]  : int, matches
+  Function  : take values and taking account for inc values make feature
+  pair 
+  Returntype:  Bio::EnsEMBL::FeaturePair
+  Exceptions: 
+  Example   : 
+
+=cut
 
 
 sub convert_to_featurepair{
@@ -408,8 +580,10 @@ sub convert_to_featurepair{
                                                        $score, $tmphstart,
                                                        $tmphend, $hstrand,
                                                        $name, $percent, 
-                                                       $pvalue, undef, undef,
-                                                       undef, $positive,
+                                                       $pvalue, undef, 
+                                                       undef, 
+                                                       $self->analysis, 
+                                                       $positive, 
                                                        $matches);
   return $fp;
 }

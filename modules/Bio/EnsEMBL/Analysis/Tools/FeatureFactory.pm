@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable
+# Ensembl module for Bio::EnsEMBL::Analysis::Tools::FeatureFactory
 #
 # Copyright (c) 2004 Ensembl
 #
