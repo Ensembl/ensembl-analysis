@@ -475,7 +475,7 @@ sub split_hsp {
     } elsif( $qinc == 1 && $hinc == 1 ) {
       $fp = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@tmpf);
     } else {
-      $self->throw( "Hardcoded values wrong?? " );
+      throw( "Hardcoded values wrong?? " );
     }
     
     # helps debugging subsequent steps
@@ -485,6 +485,10 @@ sub split_hsp {
     # for compara
     $fp->positive_matches($hsp->positive);
     $fp->identical_matches($hsp->match);
+    if($fp->hstart > $fp->hend){
+      throw("Failed start ".$fp->hstart." is greater than end ".$fp->hend." ".
+            "for ".$fp->hseqname."\n");
+    }
     return $fp;
   }
 
@@ -567,7 +571,6 @@ sub convert_to_featurepair{
   if (abs($hinc) > 1) {
     $tmphend += $hstrand * 2;
   }
-  
   # Make sure start is always < end
   if ($tmpqstart > $tmpqend) {
     my $tmp    = $tmpqstart;

@@ -501,8 +501,11 @@ sub read_and_check_config{
   my ($self, $var_hash) = @_;
 
   if(!$var_hash || ref($var_hash) ne 'HASH'){
-    throw("Must pass read_and_check_config a hashref with the config in ".
-          " RunnableDB::read_and_and_check_config");
+    my $err = "Must pass read_and_check_config a hashref with the config ".
+      "in ";
+    $err .= " not a ".$var_hash if($var_hash);
+    $err .= " RunnableDB::read_and_and_check_config";
+    throw($err);
   }
   #########################################################
   # read values of config variables for this logic name into
