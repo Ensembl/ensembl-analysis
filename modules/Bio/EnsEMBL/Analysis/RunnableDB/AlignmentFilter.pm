@@ -154,7 +154,7 @@ sub split_feature {
           $hdist = $ug->hstart - $last_ug->hend - 1;
         }
 
-        if ($dist >= $max_gap) {
+        if ($dist >= $max_gap or $hdist >= $max_gap) {
           push @new_feats, [];
         }
       } else {
