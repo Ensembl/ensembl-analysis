@@ -43,7 +43,7 @@ perl dump_markers -dbhost myhost -dbuser myuser -dbpass mypass -dbname
 use strict;
 use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 my $host   = '';
 my $user   = 'ensro';

@@ -62,6 +62,8 @@ my $pass;
 my $file;
 my $source;
 my $help;
+my $write = 1;
+
 &GetOptions( 
             'dbhost:s'      => \$host,
             'dbport:n'      => \$port,
@@ -71,6 +73,7 @@ my $help;
             'file:s'        => \$file,
             'source:s'      => \$source,
             'help!' => \$help,
+            'write!' => \$write,
 	     ) or ($help = 1);
 
 if ($help) {
@@ -98,27 +101,60 @@ my $syn_sql = "insert into marker_synonym (marker_id, source, name) ".
 my $syn_sth = $db->dbc->prepare($syn_sql);
 my $disp_query = "update marker set display_marker_synonym_id=? where marker_id=?";
 my $disp_sth = $db->dbc->prepare($disp_query);
-
+my $display_id_sql = "select marker_synonym_id from marker_synonym ".
+  "where name = ? and source = ?";
+my $disp_id_sth = $db->dbc->prepare($display_id_sql);
+  
 open FP, $file or throw("Failed opening".$file);
 
 MARKER:
 
 while (<FP>) {
   my ($display_id, $lprim, $rprim, $dist, $name, 
-      $junk, $acc, $species) = split;
-  
-  $sth->execute($lprim, $rprim, $dist, $dist);
+      $junk, $acc, $species) = split /\t/, $_;
+  my %names;
+  $sth->execute($lprim, $rprim, $dist, $dist) if($write);
   my $mid = $sth->{mysql_insertid};
   my $dis_source = $source."_NUM";
-  $syn_sth->execute($mid, $dis_source, $display_id);
-  my $dis_syn_id = $sth->{mysql_insertid};
-  if ($name && $name ne '-') {
-    $syn_sth->execute($mid, $source, $name);
+  $syn_sth->execute($mid, $dis_source, $display_id) if($write);
+  my @names = split /\;/, $name if($name);
+  my $display_name;
+  foreach my $id(@names){
+    if($id && $id ne '-'){
+      $display_name = $id if(!$display_name);
+      #print "Display name is ".$display_name."\n";
+      $names{$id} = 1;
+    }
+  } 
+  my $check_source = $source;
+  my @accs = split  /\;/, $acc if($acc);
+  foreach my $id(@accs){
+    if($id && $id ne '-'){
+      $display_name = $id if(!$display_name);
+      #print "Display name is ".$display_name."\n";
+      $names{$id} = 1;
+    }
+  } 
+  foreach my $id(keys(%names)){
+    $syn_sth->execute($mid, $source, $id) if($write);
   }
-  if ($acc && $acc ne $name && $acc ne '-') {
-    $syn_sth->execute($mid, $source, $acc); 
+  if(!$display_name){
+    $display_name = $display_id;
+    $check_source =  $source."_NUM";
   }
-  $disp_sth->execute($dis_syn_id, $mid);
+  $disp_id_sth->execute($display_name, $check_source) if($write);
+  my ($dis_syn_id) = $disp_id_sth->fetchrow;
+  if(!$dis_syn_id && $write){
+    print "SQL = ".$display_id_sql." ".$display_name." ".$source." didnt ".
+      "get an id\n";
+    exit;
+  }
+  if($dis_syn_id == $mid && $write){
+    print "Dis syn id and mid seem be both be $dis_syn_id:$mid\n";
+    exit;
+  }
+  $disp_sth->execute($dis_syn_id, $mid) if($write);
+  
 }
 
 
