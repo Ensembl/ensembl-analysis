@@ -11,7 +11,7 @@ Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
 
   my $repeat_masker = Bio::EnsEMBL::Analysis::Runnable::RepeatMasker->
   new(
-      -query => 'slice',
+      -query => $slice,
       -program => 'repeatmasker',
       -options => '-low'
      );
@@ -61,7 +61,12 @@ use vars qw(@ISA);
 
 
 sub run_analysis{
-  my ($self) = @_;
+  my ($self, $program) = @_;
+  if(!$program){
+    $program = $self->program;
+  }
+  throw($program." is not executable RepeatMasker::run_analysis ") 
+    unless($program && -x $program);
   my $cmd = $self->program." ";
   $cmd .= $self->options." " if($self->options);
   $cmd .= $self->queryfile;

@@ -61,12 +61,15 @@ sub fetch_input{
   my( $self) = @_;
   my $slice = $self->fetch_sequence;
   $self->query($slice);
-  print "For input id ".$self->input_id." have query ".$self->query."\n";
+  my %parameters;
+  if($self->parameters_hash){
+    %parameters = %{$self->parameters_hash};
+  }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::EponineTSS->new
     (
      -query => $self->query,
      -program => $self->analysis->program_file,
-     %{$self->parameters_hash},
+     %parameters,
     );
   $self->runnable($runnable);
   return 1;

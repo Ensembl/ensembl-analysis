@@ -61,12 +61,16 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
+  ######################
+  #SETTING THE DEFAULTS#
+  ######################
   if(!$self->options){
     $self->options('-q');
   }
   if(!$self->program){
     $self->program('tRNAscan-SE');
   }
+  ######################
   return $self;
 }
 

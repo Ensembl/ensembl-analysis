@@ -66,6 +66,10 @@ sub fetch_input{
   if(!$self->analysis->program_file){
     $self->analysis->program_file('cpg');
   }
+  my %parameters;
+  if($self->parameters_hash){
+    %parameters = %{$self->parameters_hash};
+  }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::CPG->new
     (
      -query => $self->query,

@@ -11,7 +11,7 @@ Bio::EnsEMBL::Analysis::Runnable::CPG
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::CPG->new
   (
-   -query => 'slice',
+   -query => $slice,
    -program => 'cpg',
   );
   $runnable->run;
@@ -66,7 +66,13 @@ sub new {
                                                   'MIN_GC_CONTENT',
                                                   'MIN_OE',
                                                  ], @args);
-
+  ##################
+  #SETTING DEFAULTS#
+  ##################
+  $self->min_length(1000);
+  $self->min_gc_content(50);
+  $self->min_oe(0.6);
+  #################
 
   $self->min_length($min_length);
   $self->min_gc_content($min_gc);
@@ -80,8 +86,9 @@ sub new {
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::CPG
   Arg [2]   : int, minimun value
-  Function  : a set of containers for some minimun values,
-  each method has a default value which will be returned if
+  Function  : ontainer for specified variable. This pod refers to the
+  three methods below min_length, min_gc_content, min_oe. These are simple 
+  containers which dont do more than hold and return an given value
   nothing is defined
   Returntype: int
   Exceptions: 
@@ -93,19 +100,19 @@ sub new {
 sub min_length{
   my $self = shift;
   $self->{'min_length'} = shift if(@_);
-  return $self->{'min_length'} || 1000;
+  return $self->{'min_length'};
 }
 
 sub min_gc_content{
   my $self = shift;
   $self->{'min_gc_content'} = shift if(@_);
-  return $self->{'min_gc_content'} || 50;
+  return $self->{'min_gc_content'};
 }
 
 sub min_oe{
   my $self = shift;
   $self->{'min_oe'} = shift if(@_);
-  return $self->{'min_oe'} || 0.6;
+  return $self->{'min_oe'};
 }
 
 

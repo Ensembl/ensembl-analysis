@@ -64,10 +64,16 @@ sub new {
 
   my ($epojar, $threshold) = rearrange(['EPOJAR', 'THRESHOLD'], @args);
 
+  ##################
+  #SETTING DEFAULTS#
+  ##################
   if(!$self->program){
     $self->program('java');
   }
-  $epojar = 'eponine-scan.jar' unless $epojar;
+  $self->epojar('eponine-scan.jar');
+  $self->threshold(50);
+  ##################
+
   $self->epojar($epojar);
   $self->threshold($threshold);
   
@@ -118,7 +124,7 @@ sub  epojar{
 sub  threshold{
   my $self = shift;
   $self->{'threshold'} = shift if(@_);
-  return $self->{'threshold'} || 50;
+  return $self->{'threshold'};
 }
 
 
@@ -142,6 +148,8 @@ sub run_analysis{
   if(!$program){
     $program = $self->program;
   }
+  throw($program." is not executable EponineTSS::run_analysis ") 
+    unless($program && -x $program);
   my $command = $program." -jar ".$self->epojar." -seq ".$self->queryfile.
     " -threshold ".$self->threshold." > ".$self->resultsfile;
   print "Running analysis ".$command."\n";

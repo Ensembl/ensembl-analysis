@@ -64,11 +64,15 @@ sub fetch_input{
   my ($self) = @_;
   my $slice = $self->fetch_sequence;
   $self->query($slice);
+  my %parameters;
+  if($self->parameters_hash){
+    %parameters = %{$self->parameters_hash};
+  }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::RepeatMasker->new
     (
      -query => $self->query,
      -program => $self->analysis->program_file,
-     $self->parameters_hash,
+     %parameters,
     );
   $self->runnable($runnable);
   return 1;
