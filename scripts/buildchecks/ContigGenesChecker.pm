@@ -63,12 +63,11 @@ sub new {
   my $self = bless {},$class;
 
   my ( $genes, $ignorewarnings, $adaptor, 
-       $slice, $genomestats  ) = $self->_rearrange
+       $slice  ) = $self->_rearrange
 	 ( [ qw { GENES
                   IGNOREWARNINGS
                   ADAPTOR
                   SLICE
-		  GENOMESTATS
 	      }], @args );
 
   
@@ -79,7 +78,6 @@ sub new {
 
   if( defined $ignorewarnings) { $self->ignorewarnings($ignorewarnings); } 
   if( defined $slice) { $self->slice($slice); } 
-  if( defined $genomestats ) { $self->genomestats( $genomestats )} 
   if( defined $adaptor ) { $self->adaptor( $adaptor )}
 
   $self->{_errors} = [];
@@ -89,13 +87,6 @@ sub new {
 }
 
 
-sub genomestats {
-  my ( $self, $arg ) = @_;
-  if (defined $arg) {
-    $self->{_genomestats} = $arg;
-  }
-  return $self->{_genomestats};
-}
 
 
 

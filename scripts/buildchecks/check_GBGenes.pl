@@ -11,6 +11,7 @@ use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use TranscriptChecker;
 use ContigGenesChecker;
+use GeneChecker;
 
 use Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder qw (
 					 GB_MAXSHORTINTRONLEN
@@ -23,6 +24,7 @@ use Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder qw (
 					 GB_MAXTRANSCRIPTS
 					 GB_MINTRANSLATIONLEN
 					 GB_IGNOREWARNINGS
+					 GB_MAXGENELEN
 					 );
 
 use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases qw (
@@ -73,6 +75,9 @@ if (defined($GB_MINTRANSLATIONLEN)) { $mintranslationlen  = $GB_MINTRANSLATIONLE
 my $ignorewarnings     =  0; 
 if (defined($GB_IGNOREWARNINGS)) { $ignorewarnings     = $GB_IGNOREWARNINGS; }
 
+my $maxgenelen     =  2_000_000; 
+if (defined($GB_MAXGENELEN)) { $maxgenelen     = $GB_MAXGENELEN; }
+
 my @chromosomes;
 
 my $specstart = 1;
@@ -86,6 +91,7 @@ my $exon_dup_check = 0;
 
 my $check_transcripts = 1;
 my $schema = 20;
+my $coordsystem = 'chromosome';
 
 &GetOptions(
             'host:s'           => \$host,
@@ -99,6 +105,7 @@ my $schema = 20;
             'path:s'           => \$path,
             'ignorewarnings!'  => \$ignorewarnings,
             'chromosomes:s'    => \@chromosomes,
+            'coordsystem:s'    => \$coordsystem,
             'chrstart:n'       => \$specstart,
             'chrend:n'         => \$specend,
             'schema:n'         => \$schema,
@@ -108,7 +115,7 @@ my $schema = 20;
 
 if (!defined($host) || !defined($dbname)) {
   die "ERROR: Must at least set host (-host), dbname (-dbname)\n" .
-      "       (options can also be set in GeneConf.pm)\n";
+      "       (options can also be set in GeneBuilder.pm)\n";
 }
 
 if (scalar(@chromosomes)) {
@@ -154,7 +161,7 @@ if ($exon_dup_check) {
 my $chrhash;
 
 if ($schema == 20) {
-  $chrhash = get_chrlengths($db, $path);
+  $chrhash = get_chrlengths($db, $path,$coordsystem);
 } else {
   $chrhash = get_chrlengths_19($db, $path);
 }
@@ -205,7 +212,7 @@ foreach my $chr (sort bychrnum keys %$chrhash) {
   my $slice;
   my $slicename;
   if ($schema == 20) {
-    $slicename = "chromosome:$path:$chr:$chrstart:$chrend:1";
+    $slicename = "$coordsystem:$path:$chr:$chrstart:$chrend:1";
     print "Slice = $slicename\n";
     $slice = $sa->fetch_by_name($slicename);
   } else {
@@ -231,25 +238,29 @@ foreach my $chr (sort bychrnum keys %$chrhash) {
   }
 
   GENE: foreach my $gene (@$genes) {
-  
-    my @trans = @{$gene->get_all_Transcripts()};
     $total_genes++;
   
+    my $gc = new GeneChecker(-gene          => $gene,
+                             -maxtransgene  => $maxtranscripts,
+                             -maxgenelen    => $maxgenelen,
+                             -ignorewarnings=> $ignorewarnings,
+                             -adaptor       => $db, 
+                             -slice         => $slice,
+                            );
+    $gc->check;
     my $nwitherror = 0;
-    if (scalar(@trans) == 0) {
-      print_geneheader($gene);
-      print "ERROR: Gene " . $gene->dbID . " has no transcripts\n";
-      $total_genes_with_errors++;
-      $nwitherror=1; 
-    } elsif (scalar(@trans) > $maxtranscripts) {
-      print_geneheader($gene);
-      print "ERROR: Gene " . $gene->dbID .  
-            " has an unexpected large number of transcripts (" .  scalar(@trans) . ")\n";
+
+    if ($gc->has_Errors()) {
+      $gc->output;
+
       $total_genes_with_errors++;
       $nwitherror=1; 
     }
   
+
     if ($check_transcripts) {
+      my @trans = @{$gene->get_all_Transcripts()};
+
       TRANSCRIPT: foreach my $transcript (@trans) {
         $total_transcripts++;
         my $tc = new TranscriptChecker(
@@ -271,7 +282,7 @@ foreach my $chr (sort bychrnum keys %$chrhash) {
         if ($tc->has_Errors()) {
           $total_transcripts_with_errors++;
           if (!$nwitherror) {
-            print_geneheader($gene);
+            $gc->output;
             $total_genes_with_errors++;
           }
           $tc->output;
@@ -291,16 +302,10 @@ print "Number of genes with errors       = $total_genes_with_errors\n\n";
 
 #End of main
 
-sub print_geneheader {
-  my $gene = shift;
-
-  print "\n++++++++++++++++++++++++++++\n";
-  print "Gene " . $gene->dbID . " type " . $gene->type . "\n";
-}
-
 sub get_chrlengths {
   my $db   = shift;
   my $type = shift;
+  my $coordsystem = shift;
 
   if (!$db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
     die "get_chrlengths should be passed a Bio::EnsEMBL::DBSQL::DBAdaptor\n";
@@ -308,7 +313,7 @@ sub get_chrlengths {
 
   my $query = "select seq_region.name, seq_region.length as mce from seq_region,coord_system where" .
               " seq_region.coord_system_id=coord_system.coord_system_id and" .
-              " coord_system.version = '" . $type . "' and coord_system.name='chromosome'";
+              " coord_system.version = '" . $type . "' and coord_system.name='" . $coordsystem ."'";
 
   my $sth = $db->prepare($query);
 

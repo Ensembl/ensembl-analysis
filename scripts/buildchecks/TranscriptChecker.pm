@@ -70,8 +70,7 @@ sub new {
 
   my ( $transcript, $minshortintronlen, $maxshortintronlen, $minlongintronlen,
        $minshortexonlen, $maxshortexonlen, $minlongexonlen, $maxexonstranscript,
-       $mintranslationlen, $ignorewarnings, $slice, $adaptor, 
-       $genomestats  ) = $self->_rearrange
+       $mintranslationlen, $ignorewarnings, $slice, $adaptor ) = $self->_rearrange
 	 ( [ qw { TRANSCRIPT  
 		  MINSHORTINTRONLEN
 		  MAXSHORTINTRONLEN
@@ -84,7 +83,6 @@ sub new {
                   IGNOREWARNINGS
                   SLICE
                   ADAPTOR
-		  GENOMESTATS
 	      }], @args );
 
   
@@ -138,7 +136,6 @@ sub new {
   }
   if( defined $ignorewarnings) { $self->ignorewarnings($ignorewarnings); } 
   if( defined $slice) { $self->slice($slice); } 
-  if( defined $genomestats ) { $self->genomestats( $genomestats )} 
   if( defined $adaptor ) { $self->adaptor( $adaptor )}
 
   $self->{_errors} = [];
@@ -212,14 +209,6 @@ sub minlongexonlen {
   return $self->{_minlongexonlen};
 }
 
-
-sub genomestats {
-  my ( $self, $arg ) = @_;
-  if (defined $arg) {
-    $self->{_genomestats} = $arg;
-  }
-  return $self->{_genomestats};
-}
 
 
 =head2 transcript
