@@ -132,9 +132,11 @@ sub fetch_input {
     foreach my $g (@{$slice->get_all_Genes}) {
       next if $g->type ne 'ensembl';
       $g = $g->transfer($self->query_slice);
-      $reg_start = $g->start if not defined $reg_start or $g->start < $reg_start;
-      $reg_end   = $g->end   if not defined $reg_end   or $g->end   > $reg_end;
 
+      foreach my $t (@{$self->get_all_Transcripts($g)}) {
+        $reg_start = $t->start if not defined $reg_start or $t->start < $reg_start;
+        $reg_end   = $t->end   if not defined $reg_end   or $t->end   > $reg_end;
+      }
       push @genes, $g;
     }
 
@@ -150,7 +152,11 @@ sub fetch_input {
     $self->query_slice($q_dbh->get_SliceAdaptor->fetch_by_region('toplevel', 
                                                                  $gene->seq_region_name));
     $gene = $gene->transfer($self->query_slice);
-    ($reg_start, $reg_end) = ($gene->start, $gene->end);
+    foreach my $t (@{$self->get_all_Transcripts($gene)}) {
+      $reg_start = $t->start if not defined $reg_start or $t->start < $reg_start;
+      $reg_end   = $t->end   if not defined $reg_end   or $t->end   > $reg_end;
+    }
+
     @genes = ($gene);
   }
 
@@ -265,7 +271,6 @@ sub run {
     foreach my $gene (@{$self->genes}) {
       my @transcripts;
       foreach my $tran (@{$self->get_all_Transcripts($gene)}) {
-
         my $proj_trans = $self->make_projected_transcript($tran,
                                                           $gene_scaffold,
                                                           $query_to_genescaf_map,
@@ -273,9 +278,8 @@ sub run {
         if (defined $proj_trans) {
           # for the first, top level net, we split the transcript across stops. 
           # For subsequent Nets, we reject if the transcript contains stops
-          $proj_trans = $self->process_transcript($gene_scaffold, 
-                                                  $proj_trans, 
-                                                  0);
+          $proj_trans = $self->process_transcript($proj_trans, 
+                                                  ! $iteration);
           if (defined $proj_trans) {
             push @transcripts, $proj_trans;
           }
@@ -286,8 +290,9 @@ sub run {
         @transcripts =  @{$self->make_nr_transcript_set(\@transcripts, 
                                                         $gene_scaffold,
                                                         $target_to_genescaf_map)};
+
         push @{$result->{genes}}, { 
-          name        => $gene->stable_id,
+          name        => $gene_scaffold->seq_region_name . "." . $gene->stable_id,
           transcripts => \@transcripts,
         };
       }
@@ -646,24 +651,33 @@ sub map_feature_to_target {
 sub gene_scaffold_from_projection {
   my ($self, $gene_scaffold_id, $projected_cds_elements) = @_;
 
-  my @projected_cds_elements = @$projected_cds_elements;
-
-  my (@targets, @new_targets);
+  my (@projected_cds_elements, @targets, @new_targets);
 
   # step 0: flatten list
   my $cds_id = 0;
-  foreach my $cds (@projected_cds_elements) {
+  foreach my $cds (@$projected_cds_elements) {
+    push @projected_cds_elements, [];
     foreach my $coord_pair (@$cds) {
-      my $coord = $coord_pair->{target};
-
-      push @targets, {
-        cds_id  => $cds_id,
-        coord   => $coord,
-      };
+      my $tcoord = $coord_pair->{target};
+      my $qcoord = $coord_pair->{query};
+      # replace v. small scaffold pieces with gaps. 
+      # We won't use these to infer scaffold ordering
+      if ($tcoord->length > 10) {
+        push @targets, {
+          cds_id  => $cds_id,
+          coord   => $tcoord,
+        };
+        push @{$projected_cds_elements[-1]}, $coord_pair;
+      } else {
+        push @{$projected_cds_elements[-1]}, {
+          query => $qcoord,
+          target => Bio::EnsEMBL::Mapper::Gap->new($qcoord->start, 
+                                                   $qcoord->end),
+        };
+      }
     }
     $cds_id++;
   }
-
 
   # step 1 remove gaps which cannot be filled
   @new_targets = ();
@@ -1340,11 +1354,14 @@ sub make_projected_transcript {
 
  Title   : process_transcript
  Description:
-
+    Subjects the given transcript to a few tests, returning 
+    the transcript if they succeed, undef if not. If the
+    splice_out_stops flag is given, the transcript is modified
+    to "intron-over" the stops. 
 =cut
 
 sub process_transcript {
-  my ($self,$gene_scaffold, $tran, $splice_out_stops) = @_;
+  my ($self, $tran, $splice_out_stops) = @_;
   
   my @processed_transcripts;
 
@@ -1375,18 +1392,17 @@ sub process_transcript {
   while($pep =~ /\*/g) {
     my $position = pos($pep);
     my @coords = $tran->pep2genomic($position, $position);
-    
+
     if (@coords > 1) {
       # the codon is split by an intron. Messy. Leave these for now
       next;
     } 
     
     my ($stop) = @coords;
-    
+
     # locate the exon that this stop lies in
     my @new_exons;
     foreach my $exon (@exons) {
-      
       if ($stop->start > $exon->start and $stop->end < $exon->end) {
         # this stop lies completely within an exon. We split the exon
         # into two
@@ -1402,13 +1418,11 @@ sub process_transcript {
                                                  -strand    => $exon->strand,
                                                  -phase     => 0,
                                                  -end_phase => $exon->end_phase);
-        
         # need to split the supporting features between the two
         my @sfs = @{$exon->get_all_supporting_features};
         my (@ug_left, @ug_right);
         foreach my $f (@sfs) {
           foreach my $ug ($f->ungapped_features) {
-            
             if ($ug->start >= $exon_left->start and $ug->end <= $exon_left->end) {
               #completely within the left-side of the split
               push @ug_left, $ug;
@@ -1458,9 +1472,13 @@ sub process_transcript {
             }
           }
         }
-        
-        $exon_left->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_left));
-        $exon_right->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_right));
+
+        if (@ug_left) {
+          $exon_left->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_left));
+        }
+        if (@ug_right) {
+          $exon_right->add_supporting_features(Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@ug_right));
+        }
         
         if ($exon->strand < 0) {
           if ($exon_right->end >= $exon_right->start) {
@@ -1509,10 +1527,10 @@ sub process_transcript {
 =head2 make_nr_transcript_set
 
  Title   : make_nr_transcript_set
+ Description : 
     Takes an initial "raw", ordered set of transcripts and proceeds through
     the list, rejecting transcripts that have no "unique" introns with
     respect to the previous one. For this, "gap" exons are ignored.
-
 =cut
 
 sub make_nr_transcript_set {
@@ -1520,9 +1538,33 @@ sub make_nr_transcript_set {
 
   my (@all_introns, @kept_transcripts);
 
-  foreach my $tran (@$transcripts) {
-    my (@exons, @introns);
-    foreach my $exon (sort {$a->start <=> $b->start} @{$tran->get_all_Exons}) {
+
+  TRAN:foreach my $tran (@$transcripts) {
+    # reject if transcript has an identical structure to one already seen
+    my @exons = sort { $a->start <=> $b->start } @{$tran->get_all_Exons};
+
+    OT:foreach my $ot (@kept_transcripts) {
+      my @ot_exons = sort {$a->start <=> $b->start} @{$ot->get_all_Exons};
+      
+      if (scalar(@exons) != scalar(@ot_exons)) {
+        next OT;
+      }
+      for(my$i=0; $i<@exons; $i++) {
+        my ($e, $oe) = ($exons[$i], $ot_exons[$i]);
+        if ($e->start != $oe->start or
+            $e->end   != $oe->end   or
+            $e->strand != $oe->strand) {
+          next OT;
+        }
+      }
+
+      # we get get here, we have an exact match; skip
+      next TRAN;
+    }
+
+    # remove "gap" exons
+    my (@non_gap_exons, @non_gap_introns);
+    foreach my $exon (@exons) {
       my ($coord) = $map->map_coordinates($gene_scaf->seq_region_name,
                                           $exon->start,
                                           $exon->end,
@@ -1530,19 +1572,20 @@ sub make_nr_transcript_set {
                                           $gene_scaf->seq_region_name);
 
       if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        push @exons, $exon;
+        push @non_gap_exons, $exon;
       }
     }
     
     # get introns
-    for(my$i=1; $i < @exons; $i++) {
-      push @introns, Bio::EnsEMBL::Feature->new(-start => $exons[$i-1]->end + 1,
-                                                -end   => $exons[$i]->start - 1);
+    for(my$i=1; $i < @non_gap_exons; $i++) {
+      push @non_gap_introns, Bio::EnsEMBL::Feature->new(-start => $non_gap_exons[$i-1]->end + 1,
+                                                        -end   => $non_gap_exons[$i]->start - 1);
     }
 
     # if none of the introns are unique, reject. 
+    # this will keep all single-exon transcripts. 
     my $at_least_one_unique = 0;
-    foreach my $this_intron (@introns) {
+    foreach my $this_intron (@non_gap_introns) {
       my $unique_intron = 1;
       foreach my $other_intron (@all_introns) {
         if ($this_intron->start == $other_intron->start and
@@ -1556,9 +1599,9 @@ sub make_nr_transcript_set {
         last;
       }
     }
-    if ($at_least_one_unique) {
-      push @all_introns, @introns;
+    if (not @non_gap_introns or $at_least_one_unique) {
       push @kept_transcripts, $tran;
+      push @all_introns, @non_gap_introns;
     }
   }
 
@@ -1566,9 +1609,106 @@ sub make_nr_transcript_set {
 }
 
 
-#################
-# checks
-#################
+=head2 get_all_transcript_cds_features
+
+ Title   : get_all_transcript_cds_features
+ Description : 
+    Returns a list of Bio::EnsEMBL::Features representing the projection
+    of the coding regions of the given transcripts onto the query 
+=cut
+
+sub get_all_transcript_cds_features {
+  my ($self, @transcripts) = @_;
+
+  my (@orig_cds_feats, @merged_cds_feats);
+
+  foreach my $tran (@transcripts) {
+    foreach my $exon (@{$tran->get_all_translateable_Exons}) {
+      push @orig_cds_feats, Bio::EnsEMBL::Feature->
+          new(-start  => $exon->start,
+              -end    => $exon->end,
+              -slice  => $exon->slice);
+    }
+  }
+
+  foreach my $feat (sort {$a->start <=> $b->start} @orig_cds_feats) {
+    if (not @merged_cds_feats or $feat->start > $merged_cds_feats[-1]->end) {
+      push @merged_cds_feats, $feat;
+    } else {
+      if ($feat->end > $merged_cds_feats[-1]->end) {
+        $merged_cds_feats[-1]->end($feat->end);
+      }
+    }
+  }
+
+  return \@merged_cds_feats;  
+}
+
+
+
+sub get_all_Transcripts {
+  my ($self, $gene) = @_;
+
+  # coding transcript. Otherwise returns all coding
+  # transcripts, pruning "strange" transcripts (that
+  # is, ones which have a "large" intron (>100kb)
+  # that does not exist in at least one other 
+  # transcript
+
+  if (not exists $self->{_transcripts}) {
+    $self->{_transcripts} = {};
+  }
+  
+  if (not exists $self->{_transcripts}->{$gene}) {
+
+    my (@transcripts);
+    
+    foreach my $t (@{$gene->get_all_Transcripts}) {
+      my $translation = $t->translate;
+      
+      if (defined $translation) {
+        my @exons = sort {$a->start <=> $b->start} @{$t->get_all_Exons};
+        my $max_intron = 0;
+        for(my $i=1; $i<@exons; $i++) {
+          my $intron_len = $exons[$i]->start - $exons[$i-1]->end - 1;
+          if ($intron_len > $max_intron) {              
+            $max_intron = $intron_len;
+          }
+        }
+
+        push @transcripts, { 
+          tran   => $t,
+          length => $translation->length,
+          max_intron => $max_intron,
+        };
+      }
+    }
+    
+    my (@kept_transcripts);
+    my $seen_small = 0;
+    foreach my $t (sort { $a->{max_intron} <=> $b->{max_intron} } @transcripts) {
+      if ($t->{max_intron} <= 100000) {
+        push @kept_transcripts, $t;
+        $seen_small = 1;
+      } elsif (not $seen_small) {
+        push @kept_transcripts, $t;
+      }
+    }
+
+    @kept_transcripts = sort { $b->{length} <=> $a->{length} } @kept_transcripts;
+
+    $self->{_transcripts}->{$gene} = [map {$_->{tran}} @kept_transcripts];
+  } 
+    
+  return $self->{_transcripts}->{$gene};
+}
+
+
+
+
+#############################
+# coordinate utility methods
+#############################
 
 
 sub check_consistent_coords {
@@ -1887,106 +2027,8 @@ sub write_gene {
 
 
 ###########################
-# utility methods
+# gets/sets
 ###########################
-
-sub get_all_transcript_cds_features {
-  my ($self, @transcripts) = @_;
-
-  my (@orig_cds_feats, @merged_cds_feats);
-
-  foreach my $tran (@transcripts) {
-    foreach my $exon (@{$tran->get_all_translateable_Exons}) {
-      push @orig_cds_feats, Bio::EnsEMBL::Feature->
-          new(-start  => $exon->start,
-              -end    => $exon->end,
-              -slice  => $exon->slice);
-    }
-  }
-
-  foreach my $feat (sort {$a->start <=> $b->start} @orig_cds_feats) {
-    if (not @merged_cds_feats or $feat->start > $merged_cds_feats[-1]->end) {
-      push @merged_cds_feats, $feat;
-    } else {
-      if ($feat->end > $merged_cds_feats[-1]->end) {
-        $merged_cds_feats[-1]->end($feat->end);
-      }
-    }
-  }
-
-  return \@merged_cds_feats;  
-}
-
-
-
-#####################################
-# get/sets
-#####################################
-
-
-sub get_all_Transcripts {
-  my ($self, $gene, $single) = @_;
-
-  # if the single flag is given returns the longest
-  # coding transcript. Otherwise returns all coding
-  # transcripts. 
-
-  if (not exists $self->{_transcripts}) {
-    $self->{_transcripts} = {};
-  }
-  
-  if (not exists $self->{_transcripts}->{$gene}) {
-
-    my (@transcripts);
-    
-    foreach my $t (@{$gene->get_all_Transcripts}) {
-      my $translation = $t->translate;
-      
-      if (defined $translation) {
-        push @transcripts, { 
-          tran   => $t,
-          length => $translation->length,
-        };
-      }
-    }
-    
-    @transcripts = sort { $b->{length} <=> $a->{length} } @transcripts;
-
-    $self->{_transcripts}->{$gene} = [map {$_->{tran}} @transcripts];
-  } 
-  
-  if ($single) {
-    [$self->{_transcripts}->{$gene}->[0]];
-  } else {
-    return $self->{_transcripts}->{$gene};
-  }
-}
-
-
-sub get_translation {
-  my ($self, $trans) = @_;
-
-  if (not exists $self->{_translations}) {
-    $self->{_translations} = {};
-  }
-
-  if (not exists $self->{_translations}->{$trans}) {
-
-    my $pep_seq = $trans->translation->seq;
-    # convert selenosysteine gene to a aa that 
-    # can be gracefully handled by alignment programs!
-    $pep_seq =~ s/U/C/g;
-    
-    my $pep = Bio::PrimarySeq->new(-id => $trans->stable_id,
-                                   -seq => $pep_seq);
-    
-    $self->{_translations}->{$trans} = $pep;
-  }
-
-  return $self->{_translations}->{$trans};
-
-}
-
 
 sub genes {
   my ($self, $val) = @_;
