@@ -183,15 +183,10 @@ sub filter_hits{
   my ($self, $parsers) = @_;
   my %ids;
   my @features;
-  my $sc = 0;
-  my $hspc = 0;
-  my $skipped = 0;
  PARSER:foreach my $parser(@$parsers){
   SUB:while(my $sbjct = $parser->nextSbjct){
-      $sc++;
       my $name = $sbjct->name;
     HSP:while (my $hsp = $sbjct->nextHSP) {
-        $hspc++;
         if($self->is_hsp_valid($hsp)){
           my $qstart = $hsp->query->start();
           my $hstart = $hsp->subject->start();
@@ -208,22 +203,18 @@ sub filter_hits{
              $hend, $hstrand, $name, $percent, $p_value);
           
           push(@features,$fp);
-        }else{
-          $skipped++;
         }
       }
     }
   }
-  print "There were ".$sc." subjects\n";
-  print "There were ".$hspc." hsps\n";
-  print $skipped." hsps were skipped\n";
-  print "There are ".@features."before feature filter\n";
+ 
   my $search = Bio::EnsEMBL::Analysis::Tools::FeatureFilter->new
     (
      -coverage => $self->coverage,
     );
+
   my @newfeatures = @{$search->filter_results(\@features)};
-  print "There were ".@newfeatures." after feature filter\n";
+
   foreach my $f (@newfeatures) {
     my $id = $f->hseqname;
     $ids{$id} = 1;

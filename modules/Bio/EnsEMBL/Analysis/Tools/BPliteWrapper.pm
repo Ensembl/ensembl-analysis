@@ -108,6 +108,8 @@ sub regex{
 }
 
 
+
+
 sub filenames{
   my ($self, $files) = @_;
   if(!$self->{'filenames'}){
@@ -212,7 +214,10 @@ sub clean_output{
   my ($self) = @_;
   $self->{'output'} = [];
 }
-
+sub clean_filenames{
+  my ($self) = @_;
+  $self->{'filenames'} = [];
+}
 
 =head2 feature_factory
 
@@ -282,8 +287,9 @@ sub analysis{
 
 sub parse_file{
   my ($self, $files) = @_;
-  $self->filenames($files);
   $self->clean_output;
+  $self->clean_filenames;
+  $self->filenames($files);
   my $bplites = $self->get_parsers($files);
   $self->get_hsps($bplites);
   return $self->output;
@@ -306,18 +312,14 @@ sub parse_file{
 
 sub get_parsers {
   my ($self, $files)  = @_;
-
   if(!$files){
     $files = $self->filenames;
   }
   my @parsers;
   foreach my $file (@$files) {
-
     my $fh = new FileHandle;
     $fh->open("<".$file);
-    
     my $parser = Bio::EnsEMBL::Analysis::Tools::BPlite->new('-fh' => $fh);
-    
     push(@parsers,$parser);
   } 
 

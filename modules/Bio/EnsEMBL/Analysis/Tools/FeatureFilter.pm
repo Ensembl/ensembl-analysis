@@ -210,10 +210,7 @@ sub filter_results{
   my %hitarray;
   my %totalscore;
   my $maxend = 0;
-  #print "Min score ".$self->min_score." max pvalue ".$self->max_pvalue.
-  #"\n";
-  #print "Coverage ".$self->coverage." prune ".$self->prune." hard prune "
-  #.$self->hard_prune."\n";
+ 
   #filtering by score
   #sorting by score so we use the highest scoring feature first
   #The score filter basically takes all features belonging to
@@ -221,7 +218,7 @@ sub filter_results{
   #greater than the min score and a pvalue less than the max pvalue
   #print "Passed ".@$features." results\n";
   @$features = sort { $b->score <=> $a->score } @$features;
-  #print "Have ".@$features." features to filter\n";
+  
   foreach my $f(@$features){
     if($f->score > $self->min_score){ 
       if(!exists $validhit{$f->hseqname}){
@@ -254,8 +251,7 @@ sub filter_results{
   foreach my $id(keys(%hitarray)){
     $total_count += @{$hitarray{$id}};
   }
-  #print "After filtering on score have ".$total_count.
-  #  " features  on ".keys(%hitarray)." hit ids\n";
+
   my @hit_ids = sort {$validhit{$b} <=> $validhit{$a}
                          or $totalscore{$b} <=> $totalscore{$a}
                            or $a cmp $b
@@ -276,7 +272,7 @@ sub filter_results{
   #in that feature and checks if the coverage is too high. Provided one
   #basepair has less coverage than required the feature is kept
   #otherwise that hit id is marked to be thrown away. 
-  #print STDERR "Coverage is ".$self->coverage."\n";
+  
   if($self->filter_on_coverage){
     my @strands = (1, -1);
     foreach my $strand(@strands){
@@ -319,18 +315,30 @@ sub filter_results{
       $accepted_hit_ids{$name} = 1;
     }
   }
+  $total_count=0;
+  foreach my $id(keys(%accepted_hit_ids)){
+    $total_count += @{$hitarray{$id}};
+  }
+ 
   my @features;
+ 
   foreach my $name(keys(%accepted_hit_ids)){
     my @tmp = @{$hitarray{$name}};
+   
     my $remaining;
     if($self->prune){
       $remaining = $self->prune_features(\@tmp);
     }else{
       $remaining = \@tmp;
     }
+    
     push(@features, @$remaining);
   }
-  #print "Returning ".@features."\n";
+  
+  if($self->hard_prune){ #this pruning is done across all features
+    @features = @{$self->prune_features(\@features)};
+  }
+  
   return \@features;
 }
 
@@ -408,14 +416,14 @@ sub prune_features{
 
 sub prune_features_by_strand {
    my ($self, $strand, $in) = @_;
-
+   
    my @input_for_strand;
    foreach my $f (@$in) {
      push @input_for_strand, $f if $f->strand eq $strand;
    }
-
+   
    return () if !@input_for_strand;
-
+  
    my @sorted_fs = sort{ $a->start <=> $b->start } @input_for_strand;
    my $first_base = $sorted_fs[0]->start;
    @sorted_fs = sort{ $a->end <=> $b->end } @input_for_strand;
@@ -433,8 +441,12 @@ sub prune_features_by_strand {
    }
 
    # put the worst features first, so they get removed with priority
-   @sorted_fs = sort { $a->score <=> $b->score || 
-                         $a->start <=> $b->start } @input_for_strand;
+   @sorted_fs = sort { $a->score <=> $b->score } @input_for_strand;
+   #note if you have two features with the same score you may not always
+   #throw away the same one the code below eliminates this problem but it
+   #isn't used as standard
+   #@sorted_fs = sort { $a->score <=> $b->score || 
+   #                      $a->start <=> $b->start } @input_for_strand;
  
    
    @input_for_strand = ();	# free some memory?
