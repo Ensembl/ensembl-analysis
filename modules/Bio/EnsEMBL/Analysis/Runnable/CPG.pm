@@ -19,7 +19,7 @@ Bio::EnsEMBL::Analysis::Runnable::CPG
 
 =head1 DESCRIPTION
 
-CPG expects to run the program CPG and produces SimpleFeature which can be
+CPG expects to run the program cpg and produces SimpleFeature which can be
 stored in the simple_feature table in the core database
 
 
@@ -68,6 +68,7 @@ sub new {
   ##################
   #SETTING DEFAULTS#
   ##################
+  $self->program('cpg') if(!$self->program);
   $self->min_length(1000);
   $self->min_gc_content(50);
   $self->min_oe(0.6);

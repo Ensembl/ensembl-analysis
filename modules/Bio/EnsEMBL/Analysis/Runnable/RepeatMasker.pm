@@ -132,17 +132,35 @@ sub parse_results{
       }
       my @columns;
       if(/\d+/){ #ignoring introductory lines
+        print;
         chomp;
         @columns = split;
         pop @columns if $columns[-1] eq '*';
-        if (@columns != 15) {
+        #if (@columns != 15 || @columns != 14) {
+        #  throw("Can't parse repeatmasker output unexpected number ".
+        #        "of columns in the output ".@columns." in ".$_." ".
+        #        "RepeatMasker:parse_results");
+        #}
+
+        my ($score, $name, $start, $end, $strand,
+            $repeat_name, $repeat_class, $repeatmunge); 
+        if(@columns == 15){
+          ($score, $name, $start, $end, $strand,
+           $repeat_name, $repeat_class) =  @columns[0, 4, 5, 6, 8, 9, 10];
+        }elsif(@columns == 14){
+          ($score, $name, $start, $end, $strand,
+           $repeatmunge) =  @columns[0, 4, 5, 6, 8, 9];
+          $repeatmunge =~ /(\S+)(LINE\S+)/;
+          $repeat_name = $1;
+          $repeat_class = $2;
+          if(!$repeat_class){
+            $repeat_class = 'UNK';
+          }
+        }else{
           throw("Can't parse repeatmasker output unexpected number ".
                 "of columns in the output ".@columns." in ".$_." ".
                 "RepeatMasker:parse_results");
         }
-        my ($score, $name, $start, $end, $strand,
-            $repeat_name, $repeat_class) 
-          =  @columns[0, 4, 5, 6, 8, 9, 10];
         my $start_column;
         if($strand eq '+'){ 
           $start_column = 11;

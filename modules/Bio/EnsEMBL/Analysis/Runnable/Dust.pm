@@ -178,7 +178,6 @@ sub parse_results{
       my ($start, $end) = ($1, $2);
       $start++;
       $end++;
-      my $length = $end - $start + 1; 
       my $rc = $ff->create_repeat_consensus('dust', 'dust', 'simple', 'N');
       my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
                                           $end, $rc, $self->query->name,

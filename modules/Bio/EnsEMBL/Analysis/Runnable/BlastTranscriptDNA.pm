@@ -115,6 +115,10 @@ sub run{
   my ($self, $dir) = @_;
 
   $self->workdir($dir) if($dir);
+  if($self->transcript->translate->length <= 3){
+    #transcripts this length cause problems for blast
+    return;
+  }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
     (
      -query => $self->transcript->translate,

@@ -230,8 +230,8 @@ sub run_analysis {
     while(<$fh>){
       if(/FATAL:(.+)/){
         my $match = $1;
-        if($match =~ /There are no valid contexts in 
-           the requested search/){
+        print $match;
+        if($match =~ /no valid contexts/){
           die qq{"VOID"\n}; # hack instead
         }elsif($match =~ /Bus Error signal received/){
           die qq{"BUS_ERROR"\n}; # can we work out which host?
@@ -242,6 +242,10 @@ sub run_analysis {
           #requested."
           die qq{"OUT_OF_MEMORY"\n}; 
           # resenD to big mem machine by rulemanager
+        }elsif($match =~ /the query sequence is shorter 
+               than the word length/){
+          #no valid context 
+          die qq{"VOID"\n}; # hack instead
         }else{
           warning("Something FATAL happened to BLAST we've not ".
                   "seen before, please add it to Package: " 
@@ -272,6 +276,7 @@ sub run_analysis {
     }
   }
 }
+
 
 
 
