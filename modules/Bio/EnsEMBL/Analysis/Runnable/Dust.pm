@@ -41,6 +41,23 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
+
+
+=head2 new
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
+  Arg [2]   : int, masking threshold
+  Arg [3]   : int, word size
+  Arg [4]   : int, window size
+  Function  : create a new  Bio::EnsEMBL::Analysis::Runnable::Dust
+  Returntype: Bio::EnsEMBL::Analysis::Runnable::Dust
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
@@ -58,7 +75,6 @@ sub new {
   $self->level($level) if($level);
   $self->word_size($word_size) if($word_size);
   $self->window_size($window_size) if($window_size);
-
   return $self;
 }
 

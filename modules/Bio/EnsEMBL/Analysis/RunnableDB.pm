@@ -390,7 +390,6 @@ sub parameters_hash{
          $key   =~ s/\s+$//g;
          $value =~ s/^\s+//g;
          $value =~ s/\s+$//g;
-         print "key ".$key." value ".$value."\n";
          $parameters_hash{$key} = $value;
        } else {
          $parameters_hash{$key} = 1;

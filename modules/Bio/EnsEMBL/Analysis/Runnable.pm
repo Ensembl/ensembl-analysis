@@ -105,7 +105,7 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  #print join("\t", @args)."\n";
+  
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
   my ($query, $program, $options,
@@ -415,6 +415,8 @@ sub create_filename{
   if(!$dir){
     $dir = $self->workdir;
   }
+  $stem = '' if(!$stem);
+  $ext = '' if(!$ext);
   throw($dir." doesn't exist Runnable:create_filename") unless(-d $dir);
   my $num = int(rand(100000));
   my $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
@@ -668,14 +670,13 @@ sub run{
   }
   throw("Can't run ".$self." without a query sequence") 
     unless($self->query);
-
   $self->checkdir($dir);
   my $filename = $self->write_seq_file();
   $self->files_to_delete($filename);
   $self->files_to_delete($self->resultsfile);
   $self->run_analysis();
   $self->parse_results;
-  #$self->delete_files;
+  $self->delete_files;
   return 1;
 }
 
