@@ -86,6 +86,15 @@ sub fetch_input {
   
   $self->throw("No input id") unless defined($self->input_id);
   
+  my ($seq_name, $seq_start, $seq_end);
+  if ($self->input_id =~ /^([^:]+):(\d+):(\d+)$/) {
+    ($seq_name, $seq_start, $seq_end) = ($1, $2, $3);
+  } elsif ($self->input_id =~ /(\S+)/) {
+    $seq_name = $1;
+  } else {
+    throw("Input id could not be parsed: ", $self->input_id);
+  }
+
   my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(%{$self->COMPARA_DB});
 
   my $query_species = $self->QUERY_SPECIES;
@@ -124,10 +133,10 @@ sub fetch_input {
   $self->output_MethodLinkSpeciesSet($out_mlss);
   
   my $ref_dnafrag = $compara_dbh->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,
-                                                                                 $self->input_id);
+                                                                                 $seq_name);
 
   my $gen_al_blocks = $compara_dbh->get_GenomicAlignBlockAdaptor
-      ->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss, $ref_dnafrag);
+      ->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss, $ref_dnafrag, $seq_start, $seq_end);
 
   ###################################################################
   # get the target slices and bin the GenomicAlignBlocks by group id
