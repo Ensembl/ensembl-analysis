@@ -111,8 +111,9 @@ sub new {
   if (defined $q_chunk_num and defined $q_chunk_total) {
     $basic_options .= "--querychunkid $q_chunk_num --querychunktotal $q_chunk_total ";
   }
+
   if ($self->options){
-    $basic_options .= " ".$self->options;
+    $basic_options .= $self->options;
   }
   $self->options($basic_options);
 
@@ -197,23 +198,20 @@ sub parse_results {
     my ($tag, $q_id, $q_start, $q_end, $q_strand, $t_id, $t_start, $t_end,
 	$t_strand, $score, $perc_id, $q_length, $t_length, $gene_orientation,
 	@align_components) = split;
-    
-    # Increment all our start coordinates.  Exonerate has a 
-    # coordinate scheme that counts _between_ nucleotides.
-    
-    $q_start++; $t_start++;
-
+   
     $t_strand = $strand_lookup{$t_strand};
     $q_strand = $strand_lookup{$q_strand};
     $gene_orientation = $strand_lookup{$gene_orientation};
-
-    my $coverage = sprintf("%.2f", 100 * ($q_end - $q_start + 1) / $q_length);
+        
+    my $coverage = sprintf("%.2f", 100 * (abs($q_end - $q_start) / $q_length));
 
     # Read vulgar information and extract exon regions.
     my $exons = $self->_parse_vulgar_block($t_start,
+                                           $t_end,
                                            $t_strand,
                                            $t_length,
                                            $q_start, 
+                                           $q_end,
                                            $q_strand,
                                            $q_length,
                                            \@align_components);
@@ -320,8 +318,8 @@ sub parse_results {
 
 sub _parse_vulgar_block {
   my ($self, 
-      $target_coord, $target_strand, $target_length,
-      $query_coord,  $query_strand, $query_length,
+      $target_start, $target_end, $target_strand, $target_length,
+      $query_start, $query_end,  $query_strand, $query_length,
       $vulgar_components) = @_;
 
   # This method works along the length of a vulgar line 
@@ -332,8 +330,34 @@ sub _parse_vulgar_block {
 
   my @exons;
   my $exon_number = 0;
-  my $cumulative_query_coord  = $query_coord;
-  my $cumulative_target_coord = $target_coord;
+
+
+  # We sometimes need to increment all our start coordinates. Exonerate 
+  # has a coordinate scheme that counts _between_ nucleotides at the start.
+  # However, for reverse strand matches 
+  
+  my ($query_in_forward_coords, $target_in_forward_coords);
+  my ($cumulative_query_coord, $cumulative_target_coord);
+
+  if ($target_start > $target_end) {
+    warn("For target, start and end are in thew wrong order for a reverse strand match")
+        if $target_strand != -1;
+    $cumulative_target_coord = $target_start;
+    $target_in_forward_coords = 1;
+  } else {
+    $cumulative_target_coord = $target_start + 1;
+    $target_in_forward_coords = 0;
+  }
+  if ($query_start > $query_end) {
+    warn("For query, start and end are in thew wrong order for a reverse strand match")
+        if $query_strand != -1;
+    $cumulative_query_coord = $query_start;
+    $query_in_forward_coords = 1;
+  } else {
+    $cumulative_query_coord = $query_start + 1;
+    $query_in_forward_coords = 0;
+  }
+
 
   while (@$vulgar_components){
     throw("Something funny has happened to the input vulgar string." .
@@ -352,20 +376,30 @@ sub _parse_vulgar_block {
     if ($type eq 'M'){
       my %hash;
 
-      if ($target_strand != -1) {
-        $hash{target_start} = $cumulative_target_coord;
-        $hash{target_end}   = $cumulative_target_coord + $target_match_length - 1;
+      if ($target_strand == -1) {
+        if ($target_in_forward_coords) {
+          $hash{target_start} = $cumulative_target_coord - ($target_match_length - 1);
+          $hash{target_end}   = $cumulative_target_coord;
+        } else {
+          $hash{target_end}   = $target_length - ($cumulative_target_coord - 1);
+          $hash{target_start} = $hash{target_end} - ($target_match_length - 1);
+        }
       } else {
-        $hash{target_end} = $target_length - $cumulative_target_coord + 1;
-        $hash{target_start} = $hash{target_end} - $target_match_length + 1;
+        $hash{target_start} = $cumulative_target_coord;
+        $hash{target_end}   = $cumulative_target_coord + ($target_match_length - 1);
       }
 
-      if ($query_strand != -1) {
-        $hash{query_start}  = $cumulative_query_coord;
-        $hash{query_end}    = $cumulative_query_coord + $query_match_length - 1;
+      if ($query_strand == -1) {
+        if ($query_in_forward_coords) {
+          $hash{query_start} = $cumulative_query_coord - ($query_match_length - 1);
+          $hash{query_end}   = $cumulative_query_coord;
+        } else {
+          $hash{query_end}   = $query_length - ($cumulative_query_coord - 1);
+          $hash{query_start} = $hash{query_end} - ($query_match_length - 1);
+        }
       } else {
-        $hash{query_end}    = $query_length - $cumulative_query_coord + 1;
-        $hash{query_start}  = $hash{query_end} - $query_match_length + 1;
+        $hash{query_start} = $cumulative_query_coord;
+        $hash{query_end}   = $cumulative_query_coord + ($query_match_length - 1);
       }
 
       # there is nothing to add if this is the last state of the exon
@@ -405,8 +439,17 @@ sub _parse_vulgar_block {
       }
     }
 
-    $cumulative_target_coord += $target_match_length;
-    $cumulative_query_coord += $query_match_length;
+    if ($target_in_forward_coords and $target_strand == -1) {
+      $cumulative_target_coord -= $target_match_length;
+    } else {
+      $cumulative_target_coord += $target_match_length;
+    }
+    if ($query_in_forward_coords and $query_strand == -1) {
+      $cumulative_query_coord  -= $query_match_length;
+    }
+    else {
+      $cumulative_query_coord  += $query_match_length;
+    }
 
   }
 
@@ -417,25 +460,7 @@ sub _parse_vulgar_block {
     $ex->{phase} = 0;
     $ex->{end_phase} = 0;
     
-    if ($target_strand != -1) {
-      $ex->{exon_start} = $ex_sf->[0]->{target_start};
-      $ex->{exon_end}   = $ex_sf->[-1]->{target_end};
-
-      if (exists $ex->{split_start}) {
-        $ex->{exon_start} -= $ex->{split_start};
-        $ex->{phase} = 3 - $ex->{split_start};
-      }
-      if (exists $ex->{split_end}) {
-        $ex->{exon_end} += $ex->{split_end};
-        $ex->{end_phase} = $ex->{split_end};
-      }
-      if (exists $ex->{gap_start}) {
-        $ex->{exon_start} -= $ex->{gap_start};
-      }
-      if (exists $ex->{gap_end}) {
-        $ex->{exon_end} += $ex->{gap_end};
-      }
-    } else {
+    if ($target_strand == -1) {
       $ex->{exon_start} = $ex_sf->[-1]->{target_start};
       $ex->{exon_end}   = $ex_sf->[0]->{target_end};
 
@@ -452,6 +477,25 @@ sub _parse_vulgar_block {
       }
       if (exists $ex->{gap_end}) {
         $ex->{exon_start} -= $ex->{gap_end};
+      }
+
+    } else {
+      $ex->{exon_start} = $ex_sf->[0]->{target_start};
+      $ex->{exon_end}   = $ex_sf->[-1]->{target_end};
+
+      if (exists $ex->{split_start}) {
+        $ex->{exon_start} -= $ex->{split_start};
+        $ex->{phase} = 3 - $ex->{split_start};
+      }
+      if (exists $ex->{split_end}) {
+        $ex->{exon_end} += $ex->{split_end};
+        $ex->{end_phase} = $ex->{split_end};
+      }
+      if (exists $ex->{gap_start}) {
+        $ex->{exon_start} -= $ex->{gap_start};
+      }
+      if (exists $ex->{gap_end}) {
+        $ex->{exon_end} += $ex->{gap_end};
       }
     }
   }
@@ -526,7 +570,6 @@ sub target_file {
   }
   return $self->{_target_file};
 }
-
 
 ############################################################
 
