@@ -386,11 +386,46 @@ sub check_for_interlock {
                          $cluster1->start . "-" . $cluster1->end . " and ". 
                          $cluster2->start . "-" . $cluster2->end . ")\n");
       } else {
-        $self->add_Warning("Enclosed gene on the $strand_name strand (bounds ".
+        my $warnstr= "Enclosed gene on the $strand_name strand (bounds ".
                          $cluster1->start . "-" . $cluster1->end . " and ". 
-                         $cluster2->start . "-" . $cluster2->end . ")\n");
+                         $cluster2->start . "-" . $cluster2->end . ")\n";
+        $warnstr .= "   first cluster contains :";
+        foreach my $trans (@{$cluster1->get_Transcripts}) {
+          $warnstr .= " " . get_transcript_id($trans);
+        }
+        $warnstr .= "\n";
+        $warnstr .= "   second cluster contains:";
+        foreach my $trans (@{$cluster2->get_Transcripts}) {
+          $warnstr .= " " . get_transcript_id($trans);
+        }
+        $warnstr .= "\n";
+        $self->add_Warning($warnstr);
       }
     }
+  }
+}
+
+sub get_transcript_id {
+  my ($trans) = @_;
+
+  if (defined($trans->stable_id)) {
+    return $trans->stable_id;
+  } elsif (defined($trans->dbID)) {
+    return $trans->dbID;
+  } else {
+    return "no id";
+  }
+}
+
+sub get_gene_id {
+  my ($gene) = @_;
+
+  if (defined($gene->stable_id)) {
+    return $gene->stable_id;
+  } elsif (defined($gene->dbID)) {
+    return $gene->dbID;
+  } else {
+    return "no id";
   }
 }
 
@@ -456,6 +491,7 @@ sub find_StrandOverlaps {
   my @forward_exons; 
   my @reverse_exons; 
   my $genes = $self->{'_genes'};
+  my %exon_gene_map;
   foreach my $gene (@$genes) {
     my @gene_exons = @{$gene->get_all_Exons};
     if (scalar(@gene_exons)) {
@@ -473,6 +509,12 @@ sub find_StrandOverlaps {
           $self->add_Error("Gene ". $gene->dbID . 
                            " has an unstranded exon (" . $exon->dbID . ")\n");
         }
+        if (exists($exon_gene_map{$exon->dbID})) {
+          $self->add_Error("Seen exon " . $exon->dbID . 
+                           " more than once (in gene " . $gene->dbID . " and gene " . 
+                           $exon_gene_map{$exon->dbID}->dbID . ")\n");
+        }
+        $exon_gene_map{$exon->dbID} = $gene;
       }
     } else {
       $self->add_Error("Gene ". $gene->dbID . " has no exons\n");
@@ -499,7 +541,8 @@ sub find_StrandOverlaps {
 
       if ($r_exon->overlaps($f_exon)) {
         $self->add_Error("Overlapping exons on two strands for exons ". 
-                          $f_exon->dbID . " and " . $r_exon->dbID ."\n");
+                          $f_exon->dbID . " (gene = " . get_gene_id($exon_gene_map{$f_exon->dbID}) .
+                         ") and " . $r_exon->dbID . " (gene = " . get_gene_id($exon_gene_map{$r_exon->dbID}) . ")\n");
         $has_overlaps = 1;
       }
       if ($r_exon->start > $f_exon->end) {
@@ -543,13 +586,13 @@ sub find_StrandOverlap_Transcripts {
             if ($self->_all_exons_overlap(\@f_exons,\@r_exons,"forward")) {
               $self->add_Error("Transcript with all (". scalar(@f_exons) . 
                                ") overlapping exons on other strand for " . 
-                               $f_trans->dbID . " and " . $r_trans->dbID . 
+                               get_transcript_id($f_trans) . " and " . get_transcript_id($r_trans) . 
                                " (forward)\n");
             }
             if ($self->_all_exons_overlap(\@r_exons,\@f_exons,"reverse")) { 
               $self->add_Error("Transcript with all (". scalar(@r_exons) . 
                                ") overlapping exons on other strand for " . 
-                               $f_trans->dbID . " and " . $r_trans->dbID . 
+                               get_transcript_id($f_trans) . " and " . get_transcript_id($r_trans) . 
                                " (reverse)\n");
             } 
           }
