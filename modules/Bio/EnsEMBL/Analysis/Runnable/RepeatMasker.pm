@@ -66,7 +66,8 @@ sub run_analysis{
   $cmd .= $self->options." " if($self->options);
   $cmd .= $self->queryfile;
   print "Running analysis ".$cmd."\n";
-  system($cmd) == 0 or throw("FAILED to run ".$cmd);
+  system($cmd) == 0 or throw("FAILED to run ".$cmd.
+                             " RepeatMasker:run_analysis");
   foreach my $file(glob $self->queryfile."*"){
     $self->files_to_delete($file);
   }
@@ -112,7 +113,8 @@ sub parse_results{
         pop @columns if $columns[-1] eq '*';
         if (@columns != 15) {
           throw("Can't parse repeatmasker output unexpected number ".
-                "of columns in the output ".@columns." in ".$_);
+                "of columns in the output ".@columns." in ".$_." ".
+                "RepeatMasker:parse_results");
         }
         my ($score, $query_name, $query_start, $query_end, $strand,
             $repeat_name, $repeat_class) 
