@@ -18,7 +18,7 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
 								);
 
  $runnable->run; #create and fill Bio::Seq object
- my @results = $runnable->output;
+ my @transcripts = @{$runnable->output};
  
 =head1 DESCRIPTION
 
