@@ -181,3 +181,6 @@ sub _get_consensus {
     return $cons;
 
 }
+
+
+1;

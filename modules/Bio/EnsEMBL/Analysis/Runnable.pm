@@ -105,6 +105,7 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
+  print join("\t", @args)."\n";
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
   my ($query, $program, $options,
@@ -112,6 +113,7 @@ sub new{
       $datadir) = rearrange(['QUERY', 'PROGRAM', 'OPTIONS',
                              'WORKDIR', 'BINDIR', 'LIBDIR',
                              'DATADIR'], @args);
+  print "query = ".$query."\n";
   $self->query($query);
   $self->program($program);
   $self->options($options);

@@ -19,9 +19,8 @@ Bio::EnsEMBL::Analysis::Runnable::CPG
 
 =head1 DESCRIPTION
 
-CPG expects to run the program CPG
-and produce SimpleFeature which can be stored in the simple_feature table
-in the core database
+CPG expects to run the program CPG and produces SimpleFeature which can be
+stored in the simple_feature table in the core database
 
 
 =head1 CONTACT
@@ -142,8 +141,8 @@ sub parse_results{
     if (/\d+/){ #ignore introductory lines
       chomp;
       my @elements = split;
-      my ($start, $end, $score, $gc_content, $oe) 
-        = @elements[1, 2, 3, 6, 7];
+      my ($name, $start, $end, $score, $gc_content, $oe) 
+        = @elements[0, 1, 2, 3, 6, 7];
       if($oe eq "-"){ 
         $oe = 0; 
       }
@@ -157,6 +156,7 @@ sub parse_results{
       $sf->strand(0);
       $sf->score($score);
       $sf->display_label("oe = ".$oe);
+      $sf->seqname($name);
       push(@output, $sf);
     }
   }
@@ -164,3 +164,6 @@ sub parse_results{
   close(CPG) or throw("FAILED to close ".$results.
                       " CPG:parse_results");
 }
+
+
+1;

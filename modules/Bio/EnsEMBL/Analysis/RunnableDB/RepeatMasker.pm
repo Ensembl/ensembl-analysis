@@ -90,3 +90,6 @@ sub get_adaptor{
   my ($self) = @_;
   return $self->db->get_RepeatFeatureAdaptor;
 }
+
+
+1;
