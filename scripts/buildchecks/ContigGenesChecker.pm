@@ -479,13 +479,24 @@ sub find_StrandOverlaps {
     }
   }
 
-  my @sorted_forward_exons = sort { $a->start <=> $b->start } @forward_exons;
-  my @sorted_reverse_exons = sort { $a->start <=> $b->start } @reverse_exons;
+  my @sorted_forward_exons = map { $_->[1] } sort { $a->[0] <=> $b->[0] } map { [$_->start, $_] } @forward_exons;
+  my @sorted_reverse_exons = map { $_->[1] } sort { $a->[0] <=> $b->[0] } map { [$_->start, $_] } @reverse_exons;
+
 
 #This can be optimised further
   my $has_overlaps = 0;
+
+  my $n_r_exon = scalar(@sorted_reverse_exons);
+
   FEXON: foreach my $f_exon (@sorted_forward_exons) {
-    foreach my $r_exon (@sorted_reverse_exons) {
+    
+    for (my $i=0; $i<$n_r_exon; $i++) {
+      my $r_exon = $sorted_reverse_exons[$i];
+      next if (!defined($r_exon));
+      if ($r_exon->end < $f_exon->start) {
+        $sorted_reverse_exons[$i] = undef;
+      }
+
       if ($r_exon->overlaps($f_exon)) {
         $self->add_Error("Overlapping exons on two strands for exons ". 
                           $f_exon->dbID . " and " . $r_exon->dbID ."\n");
@@ -500,6 +511,7 @@ sub find_StrandOverlaps {
 #Only do the detailed check if there are some overlapping exons 
   if ($has_overlaps) {
     #This contig has overlaps - lets see if there are any really bad ones
+    print "  doing detail check\n";
     $self->find_StrandOverlap_Transcripts($clusters);
   }
 }
