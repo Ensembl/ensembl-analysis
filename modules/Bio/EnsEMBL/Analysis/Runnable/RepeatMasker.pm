@@ -44,6 +44,21 @@ use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
+
+sub new {
+  my ($class,@args) = @_;
+  
+  my $self = $class->SUPER::new(@args);
+
+  ######################
+  #SETTING THE DEFAULTS#
+  ######################
+  $self->program('RepeatMasker') if(!$self->program);
+  ######################
+
+  return $self;
+}
+
 =head2 run_analysis
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::RepeatMasker

@@ -177,7 +177,7 @@ sub run_analysis{
   if(!$program){
     $program = $self->program;
   }
-  throw($program." is not executable Runnable::run_analysis ") 
+  throw($program." is not executable Genscan::run_analysis ") 
     unless($program && -x $program);
   
   my $command = $program." ".$self->matrix." ".$self->queryfile." > ".
