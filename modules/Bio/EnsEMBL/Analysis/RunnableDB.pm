@@ -346,12 +346,12 @@ sub fetch_sequence{
   my $sa = $db->get_SliceAdaptor;
   my $slice = $sa->fetch_by_name($name);
   $repeat_masking = [] unless($repeat_masking);
+  if(!$slice){
+    throw("Failed to fetch slice ".$name);
+  }
   if(@$repeat_masking){
     my $sequence = $slice->get_repeatmasked_seq($repeat_masking);
     $slice = $sequence
-  }
-  if(!$slice){
-    throw("Failed to fetch slice ".$name);
   }
   return $slice;
 }
@@ -383,7 +383,7 @@ sub parameters_hash{
   if($string =~  /,/ || $string =~ /=>/){
      my @pairs = split (/,/, $string);
      foreach my $pair(@pairs){
-       my ($key, $value) = split (/=>/, $pair); 
+       my ($key, $value) = split (/=>/, $pair);
        if ($key && ($value || $value == 0)) {
          $key   =~ s/^\s+//g;
          $key   =~ s/\s+$//g;
@@ -395,7 +395,7 @@ sub parameters_hash{
        }
      }
   }else{
-    $parameters_hash{'options'} = $string;
+    $parameters_hash{'-options'} = $string;
   }
   return \%parameters_hash;
 }
@@ -421,7 +421,7 @@ sub run{
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
     my $output =  $runnable->output;
-    push(@{$self->{'output'}}, @{$runnable->output});
+    $self->output($runnable->output);
   }
   return $self->{'output'};
 }
