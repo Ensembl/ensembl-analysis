@@ -84,9 +84,13 @@ sub new {
 			(-start=>$se, -end=>$sb, -strand=>-1, 
 			 -source=>"BLAST" ) ) }
     # name the sequences
-    $self->query->seqname($qname); # query
-    $self->subject->seqname($sname); # subject
-
+    if($self->query->can('seq_id')){
+      $self->query->seq_id($qname); # query
+      $self->subject->seq_id($sname); # subject
+    }else{
+      $self->query->seqname($qname); # query
+      $self->subject->seqname($sname); # subject
+    }
     # set lengths
     $self->query->seqlength($qlength); # query
     $self->subject->seqlength($slength); # subject

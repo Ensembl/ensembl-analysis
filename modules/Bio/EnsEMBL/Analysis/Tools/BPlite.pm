@@ -1,4 +1,4 @@
-# $Id: BPlite.pm,v 1.3 2004-09-20 11:55:44 lec Exp $
+# $Id: BPlite.pm,v 1.4 2004-10-14 09:12:38 lec Exp $
 ##############################################################################
 # Bioperl module Bio::Tools::BPlite
 ##############################################################################
@@ -182,13 +182,13 @@ package Bio::EnsEMBL::Analysis::Tools::BPlite;
 use strict;
 use vars qw(@ISA);
 
-use Bio::EnsEMBL::Root;
+
 use Bio::Root::IO;
 use Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct; # we want to use Sbjct
 use Bio::SeqAnalysisParserI;
 use Symbol;
 
-@ISA = qw(Bio::EnsEMBL::Root Bio::SeqAnalysisParserI Bio::Root::IO);
+@ISA = qw(Bio::EnsEMBL::Root Bio::Root::IO Bio::SeqAnalysisParserI);
 
 # new comes from a RootI now
 
@@ -415,6 +415,9 @@ sub _fastForward {
 
     $self->warn("Possible error while parsing BLAST report!");
 }
+
+
+
 
 1;
 __END__
