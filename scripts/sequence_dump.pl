@@ -31,7 +31,7 @@ normal uppercase Ns or with softmasking
 
     -output_dir the directory to dump the files too
 
-    -top_level to indicate you want to dump the top level seq regions
+    -toplevel to indicate you want to dump the top level seq regions
 
     -sequence_level to indicate you want to dump the sequence level seq
                    regions
