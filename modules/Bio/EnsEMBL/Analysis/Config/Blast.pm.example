@@ -76,73 +76,50 @@ use vars qw(%Config);
 # tblastx    dna          dna
 
 %Config = (
-           BLAST_CONFIG =>
-           {
-            #below is an example
-            #Uniprot => 
-            #{
-            #blast_parser => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
-            #parser_params => {
-            #                   -regex => '^\w+\s+(\w+)',
-            #                   -query_type => 'pep',
-            #                   -database_type => 'pep',
-            #                   -threshold_type => 'PVALUE',
-            #                   -threshold => 0.01,
-            #                  },
-            #blast_filter =>'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
-            #filter_params => {
-            #                  -min_score => 200,
-            #                  -prune => 1,
-            #                 },
-            #blast_params => {
-            #                 -unknown_error_string => 'FAILED',
-            #                 -type => 'wu',
-            #                },
-            #},
-            DEFAULTS => 
-            {
-             blast_parser => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
-             parser_params => {
-                               -regex => '^(\w+)',
-                               -query_type => undef,
-                               -database_type => undef,
-                              },
-             blast_filter => undef,
-             filter_params => {},
-             blast_params => {
-                              -unknown_error_string => 'FAILED',
-                              -type => 'wu',
-                             }
-            },
-
-           BLAST_AB_INITIO_LOGICNAME => 'Genscan',
-          );
+  BLAST_CONFIG => {
+    DEFAULT => {
+      BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
+      PARSER_PARAMS => {
+        -regex => '^(\w+)',
+        -query_type => undef,
+        -database_type => undef,
+      },
+      BLAST_FILTER => undef,
+      FILTER_PARAMS => {},
+      BLAST_PARAMS => {
+        -unknown_error_string => 'FAILED',
+        -type => 'wu',
+      }
+    }
+  },
+  BLAST_AB_INITIO_LOGICNAME => 'Genscan',
+);
 
 sub import {
-    my ($callpack) = caller(0); # Name of the calling package
-    my $pack = shift; # Need to move package off @_
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
 
     # Get list of variables supplied, or else all
-    my @vars = @_ ? @_ : keys(%Config);
-    return unless @vars;
+  my @vars = @_ ? @_ : keys(%Config);
+  return unless @vars;
 
     # Predeclare global variables in calling package
-    eval "package $callpack; use vars qw("
-         . join(' ', map { '$'.$_ } @vars) . ")";
-    die $@ if $@;
+  eval "package $callpack; use vars qw("
+       . join(' ', map { '$'.$_ } @vars) . ")";
+  die $@ if $@;
 
 
     foreach (@vars) {
-	if (defined $Config{ $_ }) {
-            no strict 'refs';
-	    # Exporter does a similar job to the following
-	    # statement, but for function names, not
-	    # scalar variables:
-	    *{"${callpack}::$_"} = \$Config{ $_ };
-	} else {
-	    die "Error: Config: $_ not known\n";
-	}
+    if (defined $Config{ $_ }) {
+              no strict 'refs';
+        # Exporter does a similar job to the following
+        # statement, but for function names, not
+        # scalar variables:
+        *{"${callpack}::$_"} = \$Config{ $_ };
+    } else {
+        die "Error: Config: $_ not known\n";
     }
+  }
 }
 
 1;
