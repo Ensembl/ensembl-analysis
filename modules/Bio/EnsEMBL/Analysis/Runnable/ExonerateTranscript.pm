@@ -163,9 +163,9 @@ sub run {
   print STDERR "Exonerate command : $command\n" if $self->_verbose;
 
   my $exo_fh;
-  open( $exo_fh, "$command |" ) || throw("Error running exonerate $!");
+  open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? $!");
   $self->parse_results( $exo_fh );
-  close( $exo_fh );
+  close( $exo_fh ) or throw ("Error closing exonerate command: $? $!");
   $self->delete_files;
 
   return 1;
@@ -188,7 +188,6 @@ sub parse_results {
 
  TRANSCRIPT:
   while (<$fh>){
-
     print STDERR $_ if $self->_verbose;
 
     next unless /^RESULT:/;
@@ -366,7 +365,7 @@ sub _parse_vulgar_block {
         $hash{query_end}    = $cumulative_query_coord + $query_match_length - 1;
       } else {
         $hash{query_end}    = $query_length - $cumulative_query_coord + 1;
-        $hash{query_start}  = $hash{sup_query_end} - $query_match_length + 1;
+        $hash{query_start}  = $hash{query_end} - $query_match_length + 1;
       }
 
       # there is nothing to add if this is the last state of the exon
