@@ -1,4 +1,3 @@
-
 # Spangle version of the ensembl Transcript object
 
 # POD documentation - main docs before the code
@@ -18,7 +17,7 @@ Contains details of coordinates of all exons that make
 up a gene transcript.
 
 Creation:
-   
+
      my $mini = new Bio::EnsEMBL::Analysis::MiniSeq(-id      => $id,
 						    -pairaln => $pairaln);
 
@@ -66,6 +65,7 @@ use Bio::PrimarySeq;
 @ISA = qw(Bio::EnsEMBL::Root);
 
 sub new {
+
   my($class,@args) = @_;
 
   my $self = $class->SUPER::new(@args);
@@ -197,7 +197,7 @@ sub convert_FeaturePair {
     my @tmp = $self->pairAlign->convert_FeaturePair($feature);
     push(@newfeatures,@tmp);
 
-    return @newfeatures;
+    return \@newfeatures;
 }
 
 =head2 convert_SeqFeature
@@ -221,7 +221,7 @@ sub convert_SeqFeature {
     my @tmp = $self->pairAlign->convert_cDNA_feature($feature);
     push(@newfeatures,@tmp);
 
-    return @newfeatures;
+    return \@newfeatures;
 }
 
 =head2 convert_PepFeaturePair
@@ -250,7 +250,7 @@ sub convert_PepFeaturePair {
     $tmp[0]->hend($feature->hend);
     push(@newfeatures,@tmp);
 
-    return @newfeatures;
+    return \@newfeatures;
 }
 
 1;

@@ -95,6 +95,7 @@ sub new {
 =cut
 
 sub addFeature {
+
     my( $self, $value ) = @_;
 
     if(!defined($self->{'_features'})) {
@@ -443,7 +444,7 @@ sub run_blaste2g {
 
     foreach my $fp ( @{$eg->output} ) {
 
-      my @converted = $miniseq->convert_FeaturePair($fp);
+      my @converted = @{$miniseq->convert_FeaturePair($fp)};
 
       if ( @converted > 1 ) {
 	warn "feature converts into '" . scalar(@converted) . "' > 1 features - ignoring\n";
@@ -558,7 +559,7 @@ sub find_extras {
       push(@new,$f);
     }
   }
-  return @new;
+  return \@new;
 }
 
 =head2 output
@@ -576,7 +577,7 @@ sub output {
     if (!defined($self->{'_output'})) {
 	$self->{'_output'} = [];
     }
-    return @{$self->{'_output'}};
+    return \@{$self->{'_output'}};
 }
 
 

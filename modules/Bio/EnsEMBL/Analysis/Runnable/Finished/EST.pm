@@ -209,7 +209,7 @@ sub do_mini_est_genome {
 
     $e2g->run;
 
-    foreach my $fp ( $e2g->output ) {
+    foreach my $fp ( @{$e2g->output} ) {
         print STDERR "after:  " . $fp->gffstring . "\n" if $verbose;
         # source_tag and primary_tag have to be set to
         # something, or validate method in FeaturePair
@@ -234,7 +234,7 @@ sub output {
     my ($self) = @_;
     if ( my $out = $self->{'_output'} ) {
       return @$out;
-      #  return $out;
+      #return $out;
     }
     else {
         return;
