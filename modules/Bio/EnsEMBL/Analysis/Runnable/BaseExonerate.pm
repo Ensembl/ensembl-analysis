@@ -197,18 +197,16 @@ sub run {
               to code the parser accordingly.
   Returntype: Listref of <things>
   Example   : 
+    my ( $self, $fh ) = @_;
     while (<$fh>){
       next unless /^RESULT:/;
-  
       chomp;
-     
       my (
         $tag, $q_id, $q_start, $q_end, $q_strand, 
         $t_id, $t_start, $t_end, $t_strand, $score, 
         $perc_id, $q_length, $t_length, $gene_orientation,
         @vulgar_blocks
       ) = split;
-  
       ...now do something with the match information and / or vulgar blocks
     }
 =cut
