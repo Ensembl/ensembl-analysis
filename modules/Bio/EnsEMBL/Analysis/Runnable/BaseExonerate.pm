@@ -15,7 +15,7 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
 This is an abstract superclass to handle the common functionality for 
 Exonerate runnables: namely it provides
 - a consistent external interface to drive exonerate regardless of
-  what features you're finally producing, and
+  what features youre finally producing, and
 - a common process to stop people duplicating function (eg how to
   arrange command-line arguments, what ryo-string to use etc).
 
@@ -194,7 +194,7 @@ sub run {
   
   # Execute command and parse results
 
-  print STDERR "Exonerate command : $command\n" if $self->_verbose;
+  print STDERR "Exonerate command : $command\n";
 
   my $exo_fh;
   open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? $!");
