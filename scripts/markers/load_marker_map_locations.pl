@@ -33,7 +33,8 @@ with any other lines marked by a #
 =head1 EXAMPLES
 
 perl load_marker_map_locations.pl -dbhost myhost -dbuser myuser -dbpass 
- mypass -dbname mydatabase -dbport 3306
+ mypass -dbname mydatabase -dbport 3306 -map_file marker_map_location_file.txt
+-map_name MAPNAME
 
 =cut
 
@@ -49,6 +50,8 @@ my $port;
 my $dbname;
 my $user;
 my $pass;
+my $map_name;
+my $map_file;
 my $help;
 
 &GetOptions( 
@@ -57,6 +60,8 @@ my $help;
             'dbname:s'      => \$dbname,
             'dbuser:s'      => \$user,
             'dbpass:s'      => \$pass,
+            'map_name:s'    => \$map_name,
+            'map_file:s'    => \$map_file,
             'help!' => \$help,
 	     ) or ($help = 1);
 
@@ -81,14 +86,14 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 					    '-port'   => $port,
 					   );
 
-my $map_name = shift;
 
 
 my $map_id = &get_map_id($map_name);
-die "could not get id for $map_name" if not $map_id;
+throw("could not get id for $map_name") if not $map_id;
 
+open(FH, $map_file) or throw("Couldn't open ".$map_file);
 
-while (<>) {
+while (<FH>) {
   /\#/ and next;
 
   my @l = split /\t/;
@@ -108,6 +113,7 @@ while (<>) {
   push @{$data{$l[0]}}, $en;
 }
 
+close(FH) or throw("Couldn't close ".$map_file);
 
 my $marker_id_sql = "select marker_id from marker_synonym where name = ?";
 my $marker_id_sth = $db->dbc->prepare($marker_id_sql);
