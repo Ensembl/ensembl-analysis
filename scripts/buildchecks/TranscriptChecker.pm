@@ -442,7 +442,7 @@ sub check_Phases {
 
       if ($exon->phase != $calc_phases[$i]) {
         $self->add_Error("Phase wrong for " . $exon->dbID .  " is " . $exon->phase . " should be " .
-                         $start_phase . "\n", 'startphase');
+                         $calc_phases[$i] . "\n", 'startphase');
       }
 
       my $calc_endphase = (($exon->length + $calc_phases[$i]) % 3);
