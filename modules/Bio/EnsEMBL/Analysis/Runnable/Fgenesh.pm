@@ -1,3 +1,7 @@
+
+package Bio::EnsEMBL::Analysis::Runnable::Fgenesh;
+
+
 # Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Fgenes
 #
 # Copyright (c) 2004 Ensembl
@@ -9,13 +13,15 @@ Bio::EnsEMBL::Analysis::Runnable::Fgenes
 
 =head1 SYNOPSIS
 
-my $runnable = Bio::EnsEMBL::Analysis::Runnable::Fgenes->new(
-      -query => $slice,
-      -program => 'genscan',
-      -matrix => 'HumanIso.smat',
-     );
-  $runnable->run;
-  my @predictions = @{$runnable->output};
+my $runnable = Bio::EnsEMBL::Analysis::Runnable::Fgenes->new
+  (
+   -query => $slice,
+   -program => 'genscan',
+   -matrix => 'HumanIso.smat',
+   -analysis => $analysis,
+  );
+$runnable->run;
+my @predictions = @{$runnable->output};
 
 
 =head1 DESCRIPTION
@@ -32,18 +38,16 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Runnable::Fgenesh;
-
+use vars qw(@ISA);
 use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable::Genscan;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use vars qw(@ISA);
+
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Genscan);
-
 
 =head2 new
 
@@ -55,7 +59,6 @@ use vars qw(@ISA);
   Example   : 
 
 =cut
-
 
 
 sub new {
@@ -76,6 +79,8 @@ sub new {
 
   return $self;
 }
+
+
 
 
 #FGENESH-1.0 Prediction of potential genes in genomic DNA
@@ -113,56 +118,73 @@ sub new {
 
 =cut
 
-
-
 sub parse_results{
   my ($self, $results) = @_;
   if(!$results){
     $results = $self->resultsfile;
   }
-  open(FH, $results) or throw("FAILED to open ".$results.
-                              "Fgenesh:parse_results");
-  my $ff = $self->feature_factory;
-  my $exon_count = 1;
-  my $gene_num = 1;
- LINE:while(<FH>){
+  open(OUT, "<".$results) or throw("FAILED to open ".$results.
+                                   "Genscan:parse_results");
+
+  if (<OUT> =~ m|no reliable predictions|i ){
+    print STDERR "No genes predicted\n";
+    return;
+  }
+  while (<OUT>) {
     chomp;
-    if(m|no reliable predictions|i){
-      print "No Genes prediction\n";
-      last LINE;
-    }
-    if (/CDSl|CDSi|CDSf|CDSo/i){
-      my @line = split;
-      if($line[0] != $gene_num){
-        $gene_num = $line[0];
-        $exon_count = 1;
+    my $flag = 0;
+    if (/^\s*-[-\s]+$/) {
+      GENES : while (<OUT>) {
+        my @lines;
+        until (/^$/) {
+          if (/CDSl|CDSi|CDSf|CDSo/i) {
+            my @element = split;
+            push @lines, \@element; 
+            throw("Unable to parse fgenesh ouput (".@element.
+                  ") Line: $_\n") unless (scalar(@element) == 11);
+          }elsif (/Predicted protein/i) {
+            $flag = 1;
+            last GENES ;
+          }
+          #print "Getting next line\n";
+          $_ = <OUT>; 
+        }
+        if ($lines[0]->[1] eq '+') {
+          @lines = sort {$a->[3] <=> $b->[3]} @lines;
+        } elsif ($lines[0]->[1] eq '-') {
+          @lines = reverse sort {$a->[3] <=> $b->[3]} @lines;
+        }
+        my $exon_num=1;
+         foreach my $line (@lines) {
+           my ($start, $end, $strand, $score, $pvalue, $phase, $seqname);
+           $seqname = $line->[0]+($exon_num/100);
+           if ($line->[1] eq '+') {
+             $start = $line->[3];
+             $end = $line->[5];
+             $strand = 1;
+             $phase = (3-($line->[7]-$line->[3]))% 3;
+           } elsif ($line->[1] eq '-') {
+             $start = $line->[3];
+             $end = $line->[5];
+             $strand = -1;
+             $phase = (3-($line->[5]-$line->[9]))% 3;
+           }
+           $score = $line->[6];
+           my $exon = $self->feature_factory->create_prediction_exon
+             ($start, $end, $strand, $score, '0', $phase, $seqname, 
+              $self->query, $self->analysis);
+           $self->exon_groups($line->[0], $exon);
+           $exon_num++;
+         }
+        if ( $flag==1 ) {
+          last;
+        }
       }
-      my $exon_name = $gene_num.".".$exon_count;
-      my ($start, $end, $strand, $phase);
-      if($line[1] eq '+'){
-        $start = $line[3];
-        $end = $line[5];
-        $strand = 1;
-        $phase = (3-($line[7]-$line[3]))%3;
-      }elsif($line[1] eq '-'){
-        $start = $line[3];
-        $end = $line[5];
-        $strand = -1;
-        $phase = (3-($line[5]-$line[9]))%3;
-      }
-      my $score = $line[6];
-      my $exon = $ff->create_prediction_exon($start, $end, $strand, 
-                                             $score, 0, $phase, 
-                                             $exon_name, $self->query,
-                                             $self->analysis);
-      $self->exon_groups($gene_num, $exon);
-    }elsif(/Predicted protein/i){
-      last LINE;
     }
   }
-  close(FH) or throw("FAILED to close ".$results.
-                     "Fgenesh:parse_results");
-  $self->create_transcripts;
+  $self->create_transcripts();
+  close(OUT) or throw("FAILED to close ".$results.
+                      "Fgenesh:parse_results");
 }
 
 1;

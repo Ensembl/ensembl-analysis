@@ -246,7 +246,7 @@ sub program{
     $self->{'program'} = $path;
   }
   throw($self->{'program'}." is not executable") 
-    unless(-x $self->{'program'});
+    if($self->{'program'} && !(-x $self->{'program'}));
   return $self->{'program'};
 }
 

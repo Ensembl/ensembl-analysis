@@ -141,9 +141,9 @@ sub db{
   my $self = shift;
   my $db = shift;
   if($db){
-    throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBConnection ".
+    throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor ".
           "not a ".$db) 
-      unless($db->isa('Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor'));
+      unless($db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
     $self->{'db'} = $db;
   }
   return $self->{'db'};

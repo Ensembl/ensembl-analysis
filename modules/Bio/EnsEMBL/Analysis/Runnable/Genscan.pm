@@ -307,7 +307,8 @@ sub create_transcripts{
   my %exon_groups = %{$self->exon_groups};
   foreach my $group(keys(%exon_groups)){
     my @exons = @{$exon_groups{$group}};
-    my $transcript = $ff->create_prediction_transcript(\@exons, $self->query);
+    my $transcript = $ff->create_prediction_transcript(\@exons, $self->query,
+                                                       $self->analysis);
     $transcript->seqname($group);
     push(@transcripts, $transcript);
   }
@@ -341,7 +342,8 @@ sub calculate_phases{
     foreach my $phase(@phases){
       my @temp_exons = @{$self->set_phases($phase, \@exons)};
       my $new = $ff->create_prediction_transcript(\@temp_exons, 
-                                                  $self->query);
+                                                  $self->query,
+                                                  $self->analysis);
       my $pep = $new->translate->seq;
       my $peptide = $peptides->{$trans->seqname};
       my ($ensembl, $genscan) = $self->subsitute_x_codes($pep, 
@@ -350,7 +352,7 @@ sub calculate_phases{
       $ensembl =~ s/x$//i;
       $genscan =~ s/^x//i;
       $genscan =~ s/x$//i;
-      if ($ensembl eq $genscan){
+      if ($ensembl =~ /$genscan/){
         push(@output, $new);
         next TRANS;
       }
@@ -415,6 +417,16 @@ sub set_phases{
 sub subsitute_x_codes{
   my ($self, $ensembl_pep, $genscan_pep) = @_;
   my $x = 0;
+  my $ens_len = length($ensembl_pep);
+  my $gen_len = length($genscan_pep);
+  if($ens_len == ($gen_len+1)){
+    chop($ensembl_pep);
+  }
+  if($gen_len == ($ens_len+1)){
+    chop($genscan_pep);
+  }
+  $ens_len = length($ensembl_pep);
+  $gen_len = length($genscan_pep);
   while (($x = index($ensembl_pep, 'X', $x)) != -1) {
 		substr($genscan_pep, $x, 1) = 'X'
       if length($genscan_pep) >= length($ensembl_pep);
@@ -427,13 +439,7 @@ sub subsitute_x_codes{
       if length($ensembl_pep) >= length($genscan_pep);
 		$x++;
   }
-  my $ens_len = length($ensembl_pep);
-  my $gen_len = length($genscan_pep);
-  if($ens_len == ($gen_len+1)){
-    chop($ensembl_pep);
-  }
-  if($gen_len == ($ens_len+1)){
-    chop($genscan_pep);
-  }
   return $ensembl_pep, $genscan_pep;
 }
+
+1;
