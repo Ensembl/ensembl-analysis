@@ -70,8 +70,8 @@ if ($help) {
     exec('perldoc', $0);
 }
 
-if(!$host || !$dbname || !$dbuser){
-  throw("Need -dbhost $host -dbuser $dbuser and -dbname $dbname to run ".
+if(!$host || !$dbname || !$user){
+  throw("Need -dbhost $host -dbuser $user and -dbname $dbname to run ".
         " use -help for docs");
 }
 
