@@ -213,6 +213,37 @@ sub create_feature_pair {
 }
 
 
+
+sub create_prediction_exon{
+  my ($self, $start, $end, $strand, $score, $pvalue, $phase, $seqname,
+      $slice, $analysis) = @_;
+  my $exon = Bio::EnsEMBL::PredictionExon->new
+    (
+     -start => $start,
+     -end => $end,
+     -strand => $strand,
+     -score => $score,
+     -p_value => $pvalue,
+     -phase => $phase,
+     -slice => $slice,
+     -seqname => $seqname,
+     -analysis => $analysis,
+     );
+  return $exon;
+}
+
+
+sub create_prediction_transcript{
+   my ($self, $exons, $slice, $analysis) = @_;
+   my $transcript = Bio::EnsEMBL::PredictionTranscript->new
+     (
+      -exons => $exons,
+      -slice => $slice,
+      -analysis => $analysis,
+     );
+   return $transcript;
+}
+
 #validation methods#
 
 =head2 validate
@@ -274,4 +305,41 @@ sub validate{
     print STDERR join("\n", @error_messages);
     throw("Invalid feature ".$feature." FeatureFactory:validate");
   }
+}
+
+
+sub validate_prediction_transcript{
+  my ($self, $pt, $attach_to_exons) = @_;
+  if(!$pt){
+    throw("Can't validate a prediction transcript without a ".
+          "prediction transcript ".
+          "FeatureFactory:validate_prediction_transcript");
+  }
+  if(!($pt->isa('Bio::EnsEMBL::PredictionTranscript'))){
+    throw("Wrong type ".$pt." must be a Bio::EnsEMBL::PredictionTranscript".
+          "FeatureFactory:validate_prediction_transcript");
+  }
+  my @exons = @{$pt->get_all_Exons};
+  if(@exons == 0){
+    throw("problem ".$pt." has no exons");
+  }
+  foreach my $e(@exons){
+    $e->slice($pt->slice) if(!$e->slice);
+    $e->analysis($pt->analysis) if(!$e->analysis);
+    $self->validate($e);
+  }
+  $self->validate($pt);
+  my $tseq;
+  eval{
+    $tseq = $pt->translate;
+  };
+  if(!$tseq){
+    throw($pt." translate didn't return a sequence $@");
+  }
+  if ($tseq->seq =~ /\*/) {
+    my $msg = $pt." doesn't have a valid translation ".$tseq->seq;
+    $msg .= "\n$@" if($@);
+    throw($msg);
+  }
+  return 1;
 }

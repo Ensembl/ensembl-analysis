@@ -566,7 +566,7 @@ sub delete_files{
   Function  : empties output array as some runnabledbs use output
   array as a place holder do offers a simple manner to empty it for
   reuse
-  Returntype: emptied array 
+  Returntype: arrayref that used to be contained by $self->{'output'}; 
   Exceptions: none
   Example   : 
 
@@ -576,8 +576,9 @@ sub delete_files{
 
 sub clean_output{
   my ($self) = @_;
+  my $array = $self->{'output'};
   $self->{'output'} = [];
-  return $self->{'output'};
+  return $array;
 }
 
 
