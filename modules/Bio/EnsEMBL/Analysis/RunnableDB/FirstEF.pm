@@ -63,7 +63,11 @@ use vars qw(@ISA);
 sub fetch_input{
   my ($self) = @_;
   my $slice = $self->fetch_sequence($self->input_id, $self->db, 
-                                    $ANALYSIS_REPEAT_MASKING);
+                                    ['']); 
+  #hard coded array is used here as it always wants all repeats in 
+  #the table masked at somepoint the general variables will be replaced by
+  #analysis specific variables nd this will move back into config
+
   $self->query($slice);
   my %parameters;
   if($self->parameters_hash){

@@ -46,6 +46,8 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::PredictionTranscript;
 use Bio::EnsEMBL::PredictionExon;
 use Bio::EnsEMBL::SimpleFeature;
+use Bio::EnsEMBL::Map::Marker;
+use Bio::EnsEMBL::Map::MarkerFeature;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Programs;
@@ -279,6 +281,60 @@ sub create_prediction_transcript{
       -analysis => $analysis,
      );
    return $transcript;
+}
+
+
+
+=head2 create_marker
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [2]   : int, database id
+  Function  : create a marker with a specific database id
+  Returntype: Bio::EnsEMBL::Map::Marker
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub create_marker{
+  my ($self, $dbID) = @_;
+  my $m = Bio::EnsEMBL::Map::Marker->new();
+  $m->dbID($dbID);
+  return $m;
+}
+
+
+=head2 create_marker_feature
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [2]   : int, start
+  Arg [3]   : int, end
+  Arg [4]   : int, strand
+  Arg [5]   : Bio::EnsEMBL::Map::Marker
+  Arg [6]   : string, seqname
+  Arg [7]   : Bio::EnsEMBL::Slice
+  Arg [8]  : Bio::EnsEMBL::Analysis
+  Function  : 
+  Returntype: Bio::EnsEMBL::Map::MarkerFeature
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub create_marker_feature{
+  my ($self, $start, $end, $strand, $marker,
+     $seqname, $slice, $analysis) = @_;
+  my $mf = Bio::EnsEMBL::Map::MarkerFeature->new();
+  $mf->start($start);
+  $mf->end($end);
+  $mf->strand($strand);
+  $mf->marker($marker);
+  $mf->seqname($seqname);
+  $mf->slice($slice);
+  $mf->analysis($analysis);
+  return $mf;
 }
 
 #validation methods#

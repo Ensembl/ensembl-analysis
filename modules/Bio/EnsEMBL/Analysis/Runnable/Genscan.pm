@@ -9,13 +9,13 @@ Bio::EnsEMBL::Analysis::Runnable::Genscan
 
 =head1 SYNOPSIS
 
-my $runnable = Bio::EnsEMBL::Analysis::Runnable::TRF->new(
+my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new(
       -query => $slice,
       -program => 'genscan',
       -matrix => 'HumanIso.smat',
      );
   $runnable->run;
-  my @repeats = @{$runnable->output};
+  my @predictions = @{$runnable->output};
 
 
 =head1 DESCRIPTION
