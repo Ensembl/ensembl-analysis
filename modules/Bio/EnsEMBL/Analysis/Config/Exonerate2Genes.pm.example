@@ -52,13 +52,14 @@ use vars qw( %Config );
 %Config = (
            EXONERATE_CONFIG_BY_LOGIC => {
              DEFAULT => {
-               GENOMICSEQS => '/your/soft/masked/genome.fa',
-               QUERYTYPE   => undef,
-               QUERYSEQS   => undef,
-               IIDREGEXP   => undef,
-               OUTDB       => undef,
-               FILTER      => undef,
-               OPTIONS     => undef,
+               GENOMICSEQS         => '/your/soft/masked/genome.fa',
+               QUERYTYPE           => undef,
+               QUERYSEQS           => undef,
+               IIDREGEXP           => undef,
+               OUTDB               => undef,
+               FILTER              => undef,
+               COVERAGE_BY_ALIGNED => undef,
+               OPTIONS             => undef,
              },
 
              EST_logicname => {
@@ -80,6 +81,7 @@ use vars qw( %Config );
                              -reject_processed_pseudos => 1,
                            },              
                          },
+               COVERAGE_BY_ALIGNED => 1,
                OPTIONS => "--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14",
              },
 
@@ -93,7 +95,8 @@ use vars qw( %Config );
                           -port => '',
                           -user => '',
                           -pass => '',
-                        },               
+                        },
+               COVERAGE_BY_ALIGNED => 1,               
                FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                            PARAMETERS => {
                              -coverage => 90,
@@ -118,6 +121,7 @@ use vars qw( %Config );
                           -pass => '',
                         },
                # FILTER not set, so no filtering done
+               COVERAGE_BY_ALIGNED => 0,
                OPTIONS => "--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --showalignment FALSE --showvulgar FALSE --bestn 1",
              },
 

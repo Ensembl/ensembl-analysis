@@ -24,7 +24,7 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
 
 This module handles a specific use of the Exonerate (G. Slater) program, namely 
 the prediction of the transcript structure in a piece of genomic DNA by the alignment 
-of a 'transcribed' sequence (ESt, cDNA or protein). The results is a set of 
+of a 'transcribed' sequence (EST, cDNA or protein). The results is a set of 
 Bio::EnsEMBL::Transcript objects
 
 
@@ -64,6 +64,7 @@ sub new {
   
   my ($query_type, $query_seqs, $query_file, $q_chunk_num, $q_chunk_total,
       $target_file, 
+      $coverage_aligned,
       $verbose) = 
           rearrange([qw(
                         QUERY_TYPE
@@ -72,10 +73,12 @@ sub new {
                         QUERY_CHUNK_NUMBER
                         QUERY_CHUNK_TOTAL
                         TARGET_FILE
+                        COVERAGE_BY_ALIGNED
                         VERBOSE
                         )
                      ], @args);
   $self->_verbose($verbose) if $verbose;
+  $self->_verbose(1);
 
   if (defined($query_seqs)) {     
     throw("You must supply an array reference with -query_seqs") 
@@ -99,14 +102,16 @@ sub new {
     $self->target_file($target_file);
   }
 
-  ############################################################
-  # We default exonerate-0.6.7
+  if (defined($coverage_aligned)) {
+    $self->coverage_as_proportion_of_aligned_residues($coverage_aligned);
+  } else {
+    $self->coverage_as_proportion_of_aligned_residues(1);
+  }  
+
   if (not $self->program) {
     $self->program('/usr/local/ensembl/bin/exonerate-0.8.3');
   }
 
-  ############################################################
-  # options
   my $basic_options = "--ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" "; 
   if (defined $q_chunk_num and defined $q_chunk_total) {
     $basic_options .= "--querychunkid $q_chunk_num --querychunktotal $q_chunk_total ";
@@ -202,8 +207,6 @@ sub parse_results {
     $t_strand = $strand_lookup{$t_strand};
     $q_strand = $strand_lookup{$q_strand};
     $gene_orientation = $strand_lookup{$gene_orientation};
-        
-    my $coverage = sprintf("%.2f", 100 * (abs($q_end - $q_start) / $q_length));
 
     # Read vulgar information and extract exon regions.
     my $exons = $self->_parse_vulgar_block($t_start,
@@ -223,12 +226,25 @@ sub parse_results {
       $t_strand *= -1;
       $q_strand *= -1;
     }
+        
+    my $covered_count = 0;
+    if ($self->coverage_as_proportion_of_aligned_residues) {
+      foreach my $exon (@$exons) {
+        foreach my $sf (@{$exon->{sf}}) {
+          $covered_count += $sf->{query_end} - $sf->{query_start} + 1;
+        }
+      }
+    } else {
+      $covered_count = abs($q_end - $q_start);
+    }
 
-    my $transcript = Bio::EnsEMBL::Transcript->new();
+    my $coverage = sprintf("%.2f", 100 * $covered_count / $q_length);
+
 
     # Build FeaturePairs for each region of query aligned to a single
     # Exon.  Create a DnaDnaAlignFeature from these FeaturePairs and then
     # attach this to our Exon.
+    my $transcript = Bio::EnsEMBL::Transcript->new();
 
     foreach my $proto_exon (@$exons){
       
@@ -509,6 +525,15 @@ sub _parse_vulgar_block {
 # get/set methods
 #
 ############################################################
+
+sub coverage_as_proportion_of_aligned_residues {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{'_coverage_aligned'} = $val;
+  }
+  return $self->{'_coverage_aligned'};
+}
 
 
 ############################################################

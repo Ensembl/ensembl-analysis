@@ -140,9 +140,13 @@ sub fetch_input {
   my %parameters = %{$self->parameters_hash};
   if (not exists($parameters{-options}) and
       defined $self->OPTIONS) {
-
     $parameters{-options} = $self->OPTIONS
   }
+  if (not exists($parameters{-coverage_by_aligned}) and
+      defined $self->COVERAGE_BY_ALIGNED) {
+    $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
+  }
+
 
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
@@ -459,6 +463,21 @@ sub OUTDB {
     return undef;
   }
 }
+
+sub COVERAGE_BY_ALIGNED {
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{'_CONFIG_COVERAGE'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_COVERAGE'})) {
+    return $self->{'_CONFIG_COVERAGE'};
+  } else {
+    return undef;
+  }
+}
+
 
 sub FILTER {
   my ($self,$value) = @_;
