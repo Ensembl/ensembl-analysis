@@ -327,6 +327,7 @@ sub feature_factory{
   Arg [2]   : string, name
   Arg [3]   : Bio::EnsEMBL::DBAdaptor
   Arg [4]   : arrayref of logic_name if sequence is to be masked
+  Arg [5]   : Boolean for softmasking if sequence is to be softmasked
   Function  : gets sequence from specifed database
   Returntype: Bio::EnsEMBL::Slice
   Exceptions: none
@@ -336,7 +337,7 @@ sub feature_factory{
 
 
 sub fetch_sequence{
-  my ($self, $name, $db, $repeat_masking) = @_;
+  my ($self, $name, $db, $repeat_masking, $soft_masking) = @_;
   if(!$db){
     $db = $self->db;
   }
@@ -350,7 +351,7 @@ sub fetch_sequence{
     throw("Failed to fetch slice ".$name);
   }
   if(@$repeat_masking){
-    my $sequence = $slice->get_repeatmasked_seq($repeat_masking);
+    my $sequence = $slice->get_repeatmasked_seq($repeat_masking, $soft_masking);
     $slice = $sequence
   }
   return $slice;
