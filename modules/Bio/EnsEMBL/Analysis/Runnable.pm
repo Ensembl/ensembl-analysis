@@ -666,12 +666,10 @@ sub diskspace {
 sub run{
   my ($self, $dir) = @_;
 
-  if(!$dir){
-    $dir = $self->workdir;
-  }
+  $self->workdir($dir) if($dir);
   throw("Can't run ".$self." without a query sequence") 
     unless($self->query);
-  $self->checkdir($dir);
+  $self->checkdir();
   my $filename = $self->write_seq_file();
   $self->files_to_delete($filename);
   $self->files_to_delete($self->resultsfile);

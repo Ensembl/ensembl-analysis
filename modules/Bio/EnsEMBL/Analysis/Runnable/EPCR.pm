@@ -226,9 +226,7 @@ sub hit_list{
 
 sub run{
   my ($self, $dir) = @_;
-  if(!$dir){
-    $dir = $self->workdir;
-  }
+  $self->workdir($dir) if($dir);
   throw("Can't run ".$self." without a query sequence") 
     unless($self->query);
   $self->checkdir($dir);
