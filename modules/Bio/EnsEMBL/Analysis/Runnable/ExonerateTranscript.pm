@@ -155,6 +155,8 @@ sub parse_results {
     # attach this to our Exon.
     my $transcript = Bio::EnsEMBL::Transcript->new();
 
+    my (@tran_feature_pairs);
+
     foreach my $proto_exon (@$exons){
       
       # Build our exon and set its key values.
@@ -167,7 +169,7 @@ sub parse_results {
       $exon->end_phase($proto_exon->{end_phase});
       $exon->strand($t_strand);
             
-      my @feature_pairs;
+      my @exon_feature_pairs;
       foreach my $sf (@{$proto_exon->{sf}}){
         my $feature_pair = Bio::EnsEMBL::FeaturePair->new(-seqname    => $t_id,
                                                           -start      => $sf->{target_start},
@@ -177,11 +179,12 @@ sub parse_results {
                                                           -hstart     => $sf->{query_start},
                                                           -hend       => $sf->{query_end},
                                                           -hstrand    => $q_strand,
+                                                          -hcoverage  => $coverage,
                                                           -score      => $coverage,
                                                           -percent_id => $perc_id);
 
-	push @feature_pairs, $feature_pair;
-
+	push @exon_feature_pairs, $feature_pair;
+        push @tran_feature_pairs, $feature_pair;
       }
 
       # Use our feature pairs for this exon to create a single 
@@ -191,21 +194,34 @@ sub parse_results {
       eval{
         if ($self->query_type eq 'protein') {
           $supp_feature =
-              Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@feature_pairs);
+              Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@exon_feature_pairs);
         } else {
           $supp_feature = 
-              Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@feature_pairs);
+              Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@exon_feature_pairs);
         }
       };
       if ($@){
         warning($@);
         next TRANSCRIPT;
-      }
-      
+      }      
       $exon->add_supporting_features($supp_feature);
       
       $transcript->add_Exon($exon);
     }
+
+    # Create a single supporting feature for the whole transcript
+    my $t_supp_feat;
+    eval{
+      if ($self->query_type eq 'protein') {
+        $t_supp_feat =
+            Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@tran_feature_pairs);
+      } else {
+        $t_supp_feat = 
+            Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@tran_feature_pairs);
+      }
+    };
+
+    $transcript->add_supporting_features($t_supp_feat);
 
     my @exons = @{$transcript->get_all_Exons};
     if (scalar(@exons)) {
