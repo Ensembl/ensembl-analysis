@@ -78,7 +78,6 @@ sub new {
     );
 
   $self->_verbose($verbose) if $verbose;
-  $self->_verbose(1);
 
   if (defined($query_seqs)) {
     if(ref($query_seqs) ne "ARRAY"){
@@ -184,7 +183,7 @@ sub run {
   return 1;
 }
 
-=head2 new
+=head2 parse_results
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BaseExonerate
   Arg [2]   : pointer to file-handle
