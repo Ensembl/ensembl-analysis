@@ -68,12 +68,40 @@ package Bio::EnsEMBL::Analysis::Config::Blast;
 use strict;
 use vars qw(%Config);
 
-# Analysis  Query type  Database type
-#  blastp    pep          pep
-#  blastn    dna          dna
-#  blastx    dna          pep
-# tblastn    pep          dna
-# tblastx    dna          dna
+
+# PARSER_PARAMS-table for Blast-Configuration (below):
+#
+# Analysis  query_type    database_type
+#-------------------------------------
+#  blastp     pep            pep
+#  blastn     dna            dna
+#  blastx     dna            pep         (i.e.Uniprot-wublastx)
+# tblastn     pep            dna
+# tblastx     dna            dna
+#
+#
+# For running an unfiltered blastx against Uniprot with the logic_name "Uniprot" in the 
+# analysis-table, use query_type='dna' and database-type 'pep'.
+#
+#    ########  Example-configuration for blastx against UNIPROT  #########
+#    Uniprot =>
+#            {
+#             BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+#             PARSER_PARAMS => {
+#                               -regex => '^\w+\s+(\w+)',
+#                               -query_type => 'dna',       # see PARSER_PARAMS-table
+#                               -database_type => 'pep',    # see PARSER_PARAMS-table
+#                               -threshold_type => 'PVALUE',
+#                               -threshold => 0.01,
+#                              },
+#             BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+#             FILTER_PARAMS => { },
+#             BLAST_PARAMS => {
+#                              -unknown_error_string => 'FAILED',
+#                              -type => 'wu',
+#                             },
+
+
 
 %Config = (
   BLAST_CONFIG => {
@@ -94,6 +122,9 @@ use vars qw(%Config);
   },
   BLAST_AB_INITIO_LOGICNAME => 'Genscan',
 );
+
+
+
 
 sub import {
   my ($callpack) = caller(0); # Name of the calling package
