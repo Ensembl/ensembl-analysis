@@ -61,17 +61,16 @@ use vars qw(@ISA);
 
 sub fetch_input{
   my ($self) = @_;
-  $self->setup_hashes;
   my $slice = $self->fetch_sequence($self->input_id, $self->db);
   $self->query($slice);
-  my %blast = %{$self->blast_hash};
+  my %blast = %{$self->BLAST_PARAMS};
   my $logic_name = $BLAST_AB_INITIO_LOGICNAME;
   $logic_name = 'Genscan' if(!$logic_name);
   my $pta = $self->db->get_PredictionTranscriptAdaptor;
   my $pts = $pta->fetch_all_by_Slice($self->query, $logic_name);
   my $parser = $self->make_parser;
   my $filter;
-  if($self->filter_object){
+  if($self->BLAST_FILTER){
     $filter = $self->make_filter;
   }
   foreach my $t(@$pts){

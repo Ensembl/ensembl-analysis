@@ -21,19 +21,10 @@
 
 =head1 DESCRIPTION
 
-  This module is a wrapper for running blast. It knows how to construct
-  the commandline and can call to other modules to run the parsing and 
-  filtering. By default is constructs wublast commandlines but it can be
-  told to construct ncbi command lines. It needs to be passed a Bio::Seq
-  and a database name (this database should either have its full path 
-  given or it should live in the location specified by the $BLASTDB 
-  environment variable). It should also be given a parser object which has
-  the method parse_file which takes a filename and returns an arrayref of
-  results and optionally it can be given a filter object which has the 
-  method filter_results which takes an arrayref of results and returns the
-  filtered set of results as an arrayref. For examples of both parser
-  objects and a filter object look in Bio::EnsEMBL::Analysis::Tools for
-  BPliteWrapper, FilterBPlite and FeatureFilter
+  This module acts as an intermediate between the blast runnable and the
+  core database. It reads configuration and uses information from the analysis
+  object to setup the blast runnable and then write the results back to the 
+  database
 
 =head1 CONTACT
 
@@ -56,12 +47,22 @@ use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
 
 
+sub new {
+  my ($class,@args) = @_;
+  my $self = $class->SUPER::new(@args);
+
+  $self->read_and_check_config($BLAST_CONFIG);
+
+  return $self;
+}
+
+
 
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Function  : fetch sequence out of database, read config files
-  instantiate the filter, parser and finally the blast runnable
+  Function  : fetch sequence out of database, instantiate the filter, 
+  parser and finally the blast runnable
   Returntype: 1
   Exceptions: none
   Example   : 
@@ -73,15 +74,14 @@ use vars qw(@ISA);
 sub fetch_input{
   my ($self) = @_;
 
-  $self->setup_hashes;
   my $slice = $self->fetch_sequence($self->input_id, $self->db, 
                                     $ANALYSIS_REPEAT_MASKING);
   $self->query($slice);
-  my %blast = %{$self->blast_hash};
+  my %blast = %{$self->BLAST_PARAMS};
 
   my $parser = $self->make_parser;
   my $filter;
-  if($self->filter_object){
+  if($self->BLAST_FILTER){
     $filter = $self->make_filter;
   }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
@@ -98,113 +98,6 @@ sub fetch_input{
   return 1;
 }
 
-
-
-=head2 containers
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Arg [2]   : hashref/object
-  Function  : container for hashrefs or object, this docs are for the
-  5 methods, blast_hash, parser_hash, filter_hash, parser_object and
-  filter object
-  Returntype: hashref/object
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-sub blast_hash{
-  my $self = shift;
-  $self->{'blast_hash'} = shift if(@_);
-  return $self->{'blast_hash'};
-}
-
-sub parser_hash{
-  my $self = shift;
-  $self->{'parser_hash'} = shift if(@_);
-  return $self->{'parser_hash'};
-}
-
-sub filter_hash{
-  my $self = shift;
-  $self->{'filter_hash'} = shift if(@_);
-  return $self->{'filter_hash'};
-}
-
-sub parser_object{
-  my $self = shift;
-  $self->{'parser_object'} = shift if(@_);
-  return $self->{'parser_object'};
-}
-
-
-sub filter_object{
-  my $self = shift;
-  $self->{'filter_object'} = shift if(@_);
-  return $self->{'filter_object'};
-}
-
-
-=head2 setup_hashes
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Function  : parser the array of hashes from the config file to
-  produce a parameter has for the blast, parser and filter object
-  Returntype: none
-  Exceptions: throws if do not find the analysis logic_name in the hash
-  Example   : 
-
-=cut
-
-
-
-sub setup_hashes{
-  my ($self) = @_;
-  my %blast;
-  my %parser;
-  my %filter;
-  my $found = 0;
-  LOGIC_NAME:foreach my $hash(@$BLAST_CONFIG){
-      if($hash->{logic_name} ne $self->analysis->logic_name){
-        next LOGIC_NAME;
-      }
-      $found = 1;
-      while(my ($k,$v) = each(%$hash)){
-        if($k eq 'blast_parser'){
-          $self->parser_object($v);
-          $self->require_module($v);
-        }elsif($k eq 'blast_filter'){
-          $self->filter_object($v);
-          $self->require_module($v);
-        }elsif($k eq 'parser_params'){
-          %parser = %$v;
-        }elsif($k eq 'filter_params'){
-          %filter = %$v;
-        }elsif($k eq 'blast_params'){
-          %blast = %$v;
-        }else{
-          throw("Don't recognise $k from ".
-                "Bio::EnsEMBL::Analysis::Config::Blast::BLAST_CONFIG ")
-            unless($k eq 'logic_name');
-        }
-      }
-    }
-  if($found == 0){
-    throw("Failed to find info for ".$self->analysis->logic_name." in ".
-          "Bio::EnsEMBL::Analysis::Config::Blast::BLAST_CONFIG ");
-  }
-  my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
-  }
-  foreach my $key(keys(%parameters)){
-    $blast{$key} = $parameters{$key};
-  }
-  $self->blast_hash(\%blast);
-  $self->parser_hash(\%parser);
-  $self->filter_hash(\%filter);
-}
 
 
 =head2 require_module
@@ -323,12 +216,12 @@ sub run {
 sub make_parser{
   my ($self, $hash) = @_;
   if(!$hash){
-    $hash = $self->parser_hash;
+    $hash = $self->PARSER_PARAMS;
   }
   my %parser = %$hash;
-  my $parser = $self->parser_object->new(
-                                         %parser
-                                        );
+  my $parser = $self->BLAST_PARSER->new(
+                                        %parser
+                                       );
   return $parser;
 }
 
@@ -346,12 +239,129 @@ sub make_parser{
 sub make_filter{
   my ($self, $hash) = @_;
   if(!$hash){
-    $hash = $self->filter_hash;
+    $hash = $self->FILTER_PARAMS;
   }
   my %filter = %$hash;
-  my $filter = $self->filter_object->new(
+  my $filter = $self->BLAST_FILTER->new(
                                          %filter
                                         );
   return $filter;
 }
+
+
+
+
+#config methods
+
+
+sub read_and_check_config{
+  my ($self, $var_hash) = @_;
+
+  #call RunnableDBs method to fill in values first
+  $self->SUPER::read_and_check_config($var_hash);
+
+  #now for type checking and other sanity checks
+
+  #must have a parser object and to pass to blast
+  print "Have blast parser ".$self->BLAST_PARSER."\n";
+  throw("BLAST_PARSER must be defined either in the DEFAULT entry or in ".
+        "the hash keyed on ".$self->analysis->logic_name.
+        " Blast::read_and_check_config") if(!$self->BLAST_PARSER);
+  $self->require_module($self->BLAST_PARSER);
+
+  #load the filter module if defined
+  if($self->BLAST_FILTER){
+    $self->require_module($self->BLAST_FILTER);
+  }
+  #if any of the object params exist, all are optional they must be hash 
+  #refs
+  throw("PARSER_PARAMS must be a hash ref not ".$self->PARSER_PARAMS.
+        " Blast::read_and_check_config") 
+    if($self->PARSER_PARAMS && ref($self->PARSER_PARAMS) ne 'HASH');
+  throw("FILTER_PARAMS must be a hash ref not ".$self->FILTER_PARAMS.
+        " Blast::read_and_check_config")
+    if($self->FILTER_PARAMS && ref($self->FILTER_PARAMS) ne 'HASH');
+  throw("BLAST_PARAMS must be a hash ref not ".$self->BLAST_PARAMS.
+        " Blast::read_and_check_config")
+    if($self->BLAST_PARAMS && ref($self->BLAST_PARAMS) ne 'HASH');
+
+  my $blast_params;
+  if($self->BLAST_PARAMS){
+    $blast_params = $self->BLAST_PARAMS;
+  }else{
+    $blast_params = {};
+  }
+  my %parameters;
+  if($self->parameters_hash){
+    %parameters = %{$self->parameters_hash};
+  }
+  foreach my $key(%parameters){
+    $blast_params->{$key} = $parameters{$key};
+  }
+  $self->BLAST_PARAMS($blast_params);
+}
+
+
+sub BLAST_PARSER{
+  my ($self, $value) = @_;
+
+  if(defined $value){
+    my ($p, $f, $l) = caller;
+    print "Setting blast parser to ".$value." $f:$l\n";
+    $self->{'_CONFIG_BLAST_PARSER'} = $value;
+  }
+
+  return $self->{'_CONFIG_BLAST_PARSER'};
+}
+
+
+sub PARSER_PARAMS{
+  my ($self, $value) = @_;
+
+  if(defined $value){
+    $self->{'_CONFIG_PARSER_PARAMS'} = $value;
+  }
+
+  return $self->{'_CONFIG_PARSER_PARAMS'};
+}
+
+
+
+sub BLAST_FILTER{
+  my ($self, $value) = @_;
+
+  if(defined $value){
+    $self->{'_CONFIG_BLAST_FILTER'} = $value;
+  }
+
+  return $self->{'_CONFIG_BLAST_FILTER'};
+}
+
+
+
+sub FILTER_PARAMS{
+  my ($self, $value) = @_;
+
+  if(defined $value){
+    $self->{'_CONFIG_FILTER_PARAMS'} = $value;
+  }
+
+  return $self->{'_CONFIG_FILTER_PARAMS'};
+}
+
+
+sub BLAST_PARAMS{
+  my ($self, $value) = @_;
+
+  if(defined $value){
+    $self->{'_CONFIG_BLAST_PARAMS'} = $value;
+  }
+
+  return $self->{'_CONFIG_BLAST_PARAMS'};
+}
+
+
+
+
+
 1;
