@@ -137,7 +137,7 @@ sub filter_on_coverage{
 sub filter_results{
   my ($self, $features) = @_;
   if(!$features || ref($features) ne 'ARRAY'){
-    throw("Must pass filter_results an arrayref not ".$feature.
+    throw("Must pass filter_results an arrayref not ".$features.
           " FeatureFilter::filter_results");
   }
   my %validhit;

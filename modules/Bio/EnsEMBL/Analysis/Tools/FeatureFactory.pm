@@ -197,7 +197,7 @@ sub create_repeat_feature{
 sub create_feature_pair {
     my ($self, $start, $end, $strand, $score, $hstart, $hend, 
         $hstrand, $hseqname, $percent_id, $p_value, $seqname,
-        $slice, $analysis) = @_;
+        $slice, $analysis, $positive_matches, $identical_matches) = @_;
     
     my $fp = Bio::EnsEMBL::FeaturePair->new(
                                             -start    => $start,
@@ -215,6 +215,8 @@ sub create_feature_pair {
 
     $fp->seqname($seqname);
     $fp->slice($slice);
+    $fp->positive_matches($positive_matches);
+    $fp->identical_matches($identical_matches);
     return $fp;
 }
 
@@ -410,6 +412,7 @@ sub create_marker_feature{
   $mf->analysis($analysis);
   return $mf;
 }
+
 
 #validation methods#
 
