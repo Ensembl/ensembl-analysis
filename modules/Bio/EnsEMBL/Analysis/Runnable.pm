@@ -27,12 +27,13 @@ results into core api objects
 
 This module provides some base functionatily
 
-The constructor can take 8 different arguments. The first 3,
-query, program and options are the most important as it is with
-these the Runnable knows what to run and on what sequences with what
-command line options. The next 4 are directory paths which can be
-determined from the config file Bio::EnsEMBL::Analysis::Config::General
-but arguments are placed here so they can be overidden if desired
+The constructor can take 9 different arguments. The analysis object is 
+obligatory and must be passed in. The next 3 arguments, query, program and 
+options are the most important as it is with these the Runnable knows what 
+to run and on what sequences with what command line options. The next 4 
+are directory paths which can be determined from the config file 
+Bio::EnsEMBL::Analysis::Config::General but arguments are placed here so 
+they can be overidden if desired
 
 The other base functionality includes some container methods
 an output method aswell as methods for finding files and executables
@@ -90,6 +91,7 @@ use vars qw (@ISA);
   Arg [6]   : string, path to bin dir
   Arg [7]   : string, path to libary dir
   Arg [8]   : string, path to data dir
+  Arg [9]   : Bio::EnsEMBL::Analysis;
   Function  : create a new Bio::EnsEMBL::Analysis::Runnable
   Returntype: Bio::EnsEMBL::Analysis::Runnable
   Exceptions: throws if not passed an analysis object
