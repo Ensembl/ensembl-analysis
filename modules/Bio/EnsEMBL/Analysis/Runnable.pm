@@ -105,7 +105,7 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  print join("\t", @args)."\n";
+  #print join("\t", @args)."\n";
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
   my ($query, $program, $options,
@@ -113,7 +113,6 @@ sub new{
       $datadir) = rearrange(['QUERY', 'PROGRAM', 'OPTIONS',
                              'WORKDIR', 'BINDIR', 'LIBDIR',
                              'DATADIR'], @args);
-  print "query = ".$query."\n";
   $self->query($query);
   $self->program($program);
   $self->options($options);
@@ -225,7 +224,7 @@ sub query{
   Arg [2]   : string, path to program
   Function  : uses locate_executable to find the path of the executable
   Returntype: string, path to program
-  Exceptions: none
+  Exceptions: throws if program path isnt executable
   Example   : 
 
 =cut
@@ -239,6 +238,8 @@ sub program{
     my $path = $self->locate_executable($program);
     $self->{'program'} = $path;
   }
+  throw($self->{'program'}." is not executable") 
+    unless(-x $self->{'program'});
   return $self->{'program'};
 }
 

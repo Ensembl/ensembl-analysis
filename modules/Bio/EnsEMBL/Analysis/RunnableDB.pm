@@ -313,11 +313,15 @@ sub fetch_sequence{
     $name = $self->input_id;
   }
   my $sa = $db->get_SliceAdaptor;
+  print "Fetching ".$name." from ".$db->dbname."\n";
   my $slice = $sa->fetch_by_name($name);
   $repeat_masking = [] unless($repeat_masking);
   if(@$repeat_masking){
     my $sequence = $slice->get_repeatmasked_seq($repeat_masking);
     $slice = $sequence
+  }
+  if(!$slice){
+    throw("Failed to fetch slice ".$name);
   }
   return $slice;
 }
@@ -346,9 +350,7 @@ sub parameters_hash{
   if(!$string){
     return;
   }
-  if($string != /,/ && $string != /=>/){
-    $parameters_hash{'options'} = $string;
-  }else{
+  if($string =~  /,/ || $string =~ /=>/){
      my @pairs = split (/,/, $string);
      foreach my $pair(@pairs){
        my ($key, $value) = split (/=>/, $pair); 
@@ -357,11 +359,14 @@ sub parameters_hash{
          $key   =~ s/\s+$//g;
          $value =~ s/^\s+//g;
          $value =~ s/\s+$//g;
+         print "key ".$key." value ".$value."\n";
          $parameters_hash{$key} = $value;
        } else {
          $parameters_hash{$key} = "__NONE__";
        }
      }
+  }else{
+    $parameters_hash{'options'} = $string;
   }
   return \%parameters_hash;
 }
