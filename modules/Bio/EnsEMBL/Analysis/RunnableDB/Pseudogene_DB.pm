@@ -2,12 +2,11 @@
 #
 # POD documentation - main docs before the code
 
-=pod 
+=pod
 
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
-
 
 =head1 SYNOPSIS
 
