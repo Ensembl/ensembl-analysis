@@ -233,6 +233,7 @@ sub run {
   my @all_trans = map { @{$self->get_all_Transcripts($_)} } @{$self->genes}; 
   my @cds_feats = @{$self->get_all_transcript_cds_features(@all_trans)};
 
+
   for(my $iteration=0; ;$iteration++) {
     my $net_blocks = $self->make_alignment_net(\@alignment_chains, \@blocks_used);
     my (@projected_cds_feats);
@@ -241,7 +242,7 @@ sub run {
 
     foreach my $exon (@cds_feats) {
       my ($proj_ex_els, $blocks_used) = $self->map_feature_to_target($exon, $net_blocks);
-      
+
       push @projected_cds_feats, $proj_ex_els;
       push @blocks_used, @$blocks_used;
     }  
@@ -259,6 +260,8 @@ sub run {
         $warnings) = 
             $self->gene_scaffold_from_projection($self->genes->[0]->stable_id . "-" . $iteration, 
                                                  \@projected_cds_feats);
+
+    next if not defined $gene_scaffold;
 
     my $result = {
       gene_scaffold   => $gene_scaffold,
@@ -298,7 +301,9 @@ sub run {
       }
     }    
 
-    push @results, $result;
+    if (@{$result->{genes}}) {
+      push @results, $result;
+    }
   }
 
   $self->output(\@results);
@@ -318,12 +323,9 @@ sub write_output {
     my $warns = $obj->{warnings};
     my @genes = @{$obj->{genes}};
 
-    # determine whether there is any output for this gene scaffold
-    if (@genes > 0) {
-      $self->write_agp(\*STDOUT, $gs, $map, $warns);
-      foreach my $g (@genes) {
-        $self->write_gene(\*STDOUT, $gs, $g->{name}, @{$g->{transcripts}});
-      }
+    $self->write_agp(\*STDOUT, $gs, $map, $warns);
+    foreach my $g (@genes) {
+      $self->write_gene(\*STDOUT, $gs, $g->{name}, @{$g->{transcripts}});      
     }
   }
 
@@ -645,7 +647,8 @@ sub map_feature_to_target {
     2. Query mapper: a map between the coords of the gene scaffold and the
        original query sequence
     3. Target mapper: a map between the coords of the gene scaffold and the
-       comprised target sequences.                                                        
+       comprised target sequences.
+                                                        
 =cut
 
 sub gene_scaffold_from_projection {
@@ -802,6 +805,8 @@ sub gene_scaffold_from_projection {
     pop @targets;
   }
 
+  return () if not @targets;
+
   # step 3: merge adjacent targets   
   #  we want to be able to account for small, frame-preserving insertions
   #  in the target sequence with respect to the query. To give the later,
@@ -956,6 +961,7 @@ sub gene_scaffold_from_projection {
                                        $last_end_pos + 1,
                                        $last_end_pos + $coord->length);
     } else {
+      # the sequence itself
       $seq .= ('n' x $coord->length);
       
       # and the map. This is a target gap we have "filled", so no position 
@@ -1991,8 +1997,9 @@ sub write_gene {
       my $exon = $exons[$i];
       my $exon_id = $tran_id . "_" . $i;
       
-      printf($fh "$prefix %s\t%s\t%d\t%d\t%d\t%d\t%d\texon=%s; transcript=%s; gene=%s\n", 
+      printf($fh "$prefix %s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\texon=%s; transcript=%s; gene=%s\n", 
              $seq_id,
+             "WGA2Genes",
              "Exon",
              $exon->start,
              $exon->end,
@@ -2004,8 +2011,9 @@ sub write_gene {
              $gene_id);
       foreach my $sup_feat (@{$exon->get_all_supporting_features}) {
         foreach my $ug ($sup_feat->ungapped_features) {
-          printf($fh "$prefix %s\t%s\t%d\t%d\t%d\texon=%s; hname=%s; hstart=%s; hend=%s\n", 
+          printf($fh "$prefix %s\t%s\t%s\t%d\t%d\t%d\texon=%s; hname=%s; hstart=%s; hend=%s\n", 
                  $seq_id,
+                 "WGA2Genes",
                  "Supporting",
                  $ug->start,
                  $ug->end,
