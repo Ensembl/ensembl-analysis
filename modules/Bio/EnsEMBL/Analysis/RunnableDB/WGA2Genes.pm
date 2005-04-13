@@ -279,10 +279,8 @@ sub run {
                                                           $query_to_genescaf_map,
                                                           $target_to_genescaf_map);
         if (defined $proj_trans) {
-          # for the first, top level net, we split the transcript across stops. 
-          # For subsequent Nets, we reject if the transcript contains stops
-          $proj_trans = $self->process_transcript($proj_trans, 
-                                                  ! $iteration);
+          $proj_trans = $self->process_transcript($proj_trans, 1);
+                                                  
           if (defined $proj_trans) {
             push @transcripts, $proj_trans;
           }
@@ -406,77 +404,9 @@ sub make_alignment_net {
   @blocks = sort { 
     $a->reference_genomic_align->dnafrag_start <=> $b->reference_genomic_align->dnafrag_start;
   } @blocks;
-  
+
   return \@blocks;
 }
-
-
-
-=head2 align_protein
-
- Title   : align_protein
- Description:
-    Aligns the given protein to the given genomic slice 
-    (using either Exonerate or Genewise depending on option)
-                                                        
-=cut
-
-sub align_protein {
-  my ($self, $genomic, $protein, $strand) = @_;
-
-  my $runnable;
-
-  my $analysis = Bio::EnsEMBL::Analysis->new();
-
-  if ($self->USE_GENEWISE) {
-    $runnable = Bio::EnsEMBL::Pipeline::Runnable::Genewise->
-      new(
-          -analysis  => $analysis,
-          -query     => $genomic,
-          -protein   => $protein,
-          -gap       => 12,
-          -extension => 2,
-          -memory    => 100000,
-          -subs      => 0.0000001,
-          -matrix    => 'BLOSUM62.bla',
-          -program   => 'genewise-2.2.3-optlin623',
-          -options   => '-quiet ',
-          -reverse   => $strand < 0 ? 1 : 0,
-          -verbose   => 1,
-          );
-
-  } else {
-    my $EXONERATE = "/usr/local/ensembl/bin/exonerate-0.9.0";
-    my $EXONERATE_OPTIONS = "--model protein2genome --softmasktarget TRUE ";
-    #my $EXONERATE_OPTIONS = "--model protein2genome --exhaustive TRUE --softmasktarget TRUE ";
-    
-    $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->
-        new(-analysis     => $analysis,
-            -target_seqs    => [$genomic],
-            -query_seqs     => [$protein],
-            -query_type     => 'protein',
-            -coverage_by_aligned => 0,
-            -exonerate      => $EXONERATE,
-            -options        => $EXONERATE_OPTIONS,
-            -verbose        => 1,
-            );
-  }    
-  
-  $runnable->run;
-
-  my @ret_trans;
-  foreach my $t (@{$runnable->output}) {
-    foreach my $e (@{$t->get_all_Exons}) {
-      $e->slice($genomic);
-    }
-    push @ret_trans, $t;
-  }
-
-  @ret_trans = @{$self->make_consistent_transcript_set(\@ret_trans)};
-
-  return \@ret_trans;
-}
-
 
 
 
@@ -663,24 +593,15 @@ sub gene_scaffold_from_projection {
     foreach my $coord_pair (@$cds) {
       my $tcoord = $coord_pair->{target};
       my $qcoord = $coord_pair->{query};
-      # replace v. small scaffold pieces with gaps. 
-      # We won't use these to infer scaffold ordering
-      if ($tcoord->length > 10) {
-        push @targets, {
-          cds_id  => $cds_id,
-          coord   => $tcoord,
-        };
-        push @{$projected_cds_elements[-1]}, $coord_pair;
-      } else {
-        push @{$projected_cds_elements[-1]}, {
-          query => $qcoord,
-          target => Bio::EnsEMBL::Mapper::Gap->new($qcoord->start, 
-                                                   $qcoord->end),
-        };
-      }
+      push @targets, {
+        cds_id  => $cds_id,
+        coord   => $tcoord,
+      };
+      push @{$projected_cds_elements[-1]}, $coord_pair;
     }
     $cds_id++;
   }
+
 
   # step 1 remove gaps which cannot be filled
   @new_targets = ();
@@ -873,8 +794,6 @@ sub gene_scaffold_from_projection {
   }
     
   @targets = @new_targets;
-
-
 
   my $warn_strings = {
     1 => "inconsistent strand",
@@ -1106,7 +1025,6 @@ sub make_projected_transcript {
       my $gap = $processed_coords[$idx];
       my $frameshift = $gap->length % 3;
 
-      # if gap is at the start, look right, otherwise look left
       if ($frameshift) {
         my $bases_to_remove = 3 - $frameshift;      
 
@@ -1362,12 +1280,12 @@ sub make_projected_transcript {
  Description:
     Subjects the given transcript to a few tests, returning 
     the transcript if they succeed, undef if not. If the
-    splice_out_stops flag is given, the transcript is modified
-    to "intron-over" the stops. 
+    transcript contains less than $max_stops stops, these
+    are "spliced out"; otherwise the transcripts is rejected
 =cut
 
 sub process_transcript {
-  my ($self, $tran, $splice_out_stops) = @_;
+  my ($self, $tran, $max_stops) = @_;
   
   my @processed_transcripts;
 
@@ -1384,9 +1302,11 @@ sub process_transcript {
 
   my $pep = $tran->translate->seq;
 
-  if ($pep !~ /\*/) {
+  my $num_stops = $pep =~ tr/\*/\*/;
+
+  if ($num_stops == 0) {
     return $tran;
-  } elsif (not $splice_out_stops) {
+  } elsif ($num_stops > $max_stops) {
     return undef;
   }
 
@@ -1397,19 +1317,19 @@ sub process_transcript {
   my $had_stops = 0;
   while($pep =~ /\*/g) {
     my $position = pos($pep);
+
     my @coords = $tran->pep2genomic($position, $position);
 
     if (@coords > 1) {
       # the codon is split by an intron. Messy. Leave these for now
-      next;
+      return undef;
     } 
-    
     my ($stop) = @coords;
 
     # locate the exon that this stop lies in
     my @new_exons;
     foreach my $exon (@exons) {
-      if ($stop->start > $exon->start and $stop->end < $exon->end) {
+      if ($stop->start >= $exon->start and $stop->end <= $exon->end) {
         # this stop lies completely within an exon. We split the exon
         # into two
         my $exon_left = Bio::EnsEMBL::Exon->new(-slice     => $exon->slice,
@@ -2107,16 +2027,6 @@ sub read_and_check_config {
           " or in the DEFAULT entry")
         if not $self->$var;
   }
-}
-
-sub USE_GENEWISE {
-  my ($self, $val) = @_;
- 
-  if (defined $val) {
-    $self->{_use_genewise} = $val;
-  }
-
-  return $self->{_use_genewise};
 }
 
 
