@@ -162,7 +162,8 @@ sub write_output{
 
 sub convert_feature{
   my ($self, $rf) = @_;
-  
+  print "Converting ".$rf->start." ".$rf->end." ".
+    $rf->slice->seq_region_name."\n";
   my $ff = $self->feature_factory;
   my $projections = $rf->project('seqlevel');
   my @converted;
@@ -180,8 +181,8 @@ sub convert_feature{
     return;
   }
  REPEAT:foreach my $projection(@$projections){
-    my $start = $projection->from_start;
-    my $end = $projection->from_end;
+    my $start = 1;
+    my $end = $projection->to_Slice->length;
     my $slice = $projection->to_Slice;
     my $rc = $ff->create_repeat_consensus('dust', 'dust', 'simple', 'N');
     my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
