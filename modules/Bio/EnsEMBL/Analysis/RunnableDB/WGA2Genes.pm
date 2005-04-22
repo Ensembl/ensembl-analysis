@@ -223,7 +223,6 @@ sub fetch_input {
 
 =cut
 
-
 sub run {
   my ($self) = @_;
 
@@ -602,7 +601,6 @@ sub gene_scaffold_from_projection {
     $cds_id++;
   }
 
-
   # step 1 remove gaps which cannot be filled
   @new_targets = ();
   for(my $i=0; $i < @targets; $i++) {
@@ -954,12 +952,13 @@ sub gene_scaffold_from_projection {
 sub make_projected_transcript {
   my ($self, $transcript, $gene_scaf, $qmapper, $tmapper) = @_;
 
-  my (@all_coords, @new_exons);
+  my ($transcript_length, @all_coords, @new_exons);
 
   my @orig_exons = @{$transcript->get_all_translateable_Exons};
   if ($transcript->strand < 0) {
     @orig_exons = reverse @orig_exons;
   }
+  map { $transcript_length += $_->length } @orig_exons; 
 
   foreach my $orig_exon (@orig_exons) {    
     my @these_coords = $qmapper->map_coordinates($orig_exon->slice->seq_region_name,
@@ -1234,24 +1233,21 @@ sub make_projected_transcript {
 
   my $proj_tran = Bio::EnsEMBL::Transcript->new();
 
-  my ($hcoverage, @trans_fps);
+  my (@trans_fps);
   foreach my $exon (@merged_exons) {
     $proj_tran->add_Exon($exon);
     
     if (@{$exon->get_all_supporting_features}) {
       my @e_fps = $exon->get_all_supporting_features->[0]->ungapped_features;
-      foreach my $fp (@e_fps) {
-        $hcoverage += $fp->hend - $fp->hstart + 1;
-        push @trans_fps, $fp;
-      }
+      push @trans_fps, @e_fps;
     }
   }
-  
+
   #
   # do transcript-level supporting features/attributes
   #
   my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@trans_fps);
-  $t_sf->hcoverage(100 * ($hcoverage / $transcript->translate->length));
+  $t_sf->hcoverage( 100 * ($total_transcript_bps / $transcript_length) );
   # misuse score field as the proportion of the transcript that maps to non-gap sequence
   $t_sf->score( 100 * ($real_seq_bps / $total_transcript_bps) ); 
   $proj_tran->add_supporting_features($t_sf);
@@ -1291,16 +1287,19 @@ sub process_transcript {
 
   my @exons = @{$tran->get_all_Exons};
   my ($tsf) = @{$tran->get_all_supporting_features};
+  my $pep = $tran->translate->seq;
 
   ##################
   # reject transcripts that have:
+  #   zero length
   #   less than minimum coverage of parent peptide
   #   higher that maximum proportion of gap residues
   ##################
+  
+  return undef if length($pep) == 0;
+
   return undef if $tsf->hcoverage < $self->MIN_COVERAGE;
   return undef if $tsf->score < $self->MIN_NON_GAP;
-
-  my $pep = $tran->translate->seq;
 
   my $num_stops = $pep =~ tr/\*/\*/;
 
@@ -1891,26 +1890,19 @@ sub write_gene {
   
   my $seq_id = $gene_scaf->seq_region_name;
   my $gene_id = $gene_name;
-  
-  my $fasta_string;
-  my $stringio = IO::String->new($fasta_string);
-  my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                              -fh => $stringio);
 
   printf $fh "$prefix \# Gene report for $seq_id\n";
   
   foreach my $tran (@trans) {
     my ($sf) = @{$tran->get_all_supporting_features};
     my $tran_id = $gene_id . "_" . $sf->hseqname; 
- 
-    print $fh "$prefix \# Transcript $tran_id:\n";
-    printf($fh "$prefix \# Coverage = %.2f\n", $sf->hcoverage);
-    printf($fh "$prefix \# Proportion non-gap = %.2f\n", $sf->score);
    
-    my $pep = Bio::PrimarySeq->new(-id => $tran_id,
-                                   -seq => $tran->translate->seq);
-    $seqio->write_seq($pep);
-            
+    my $num_stops = $tran->translate->seq =~ tr/*/*/;
+
+    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\thit_coverage\t%.2f\n", $sf->hcoverage);
+    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tproportion_non_gap\t%.2f\n", $sf->score);
+    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tnumber_of_stops\t%d\n", $num_stops);
+
     my @exons = @{$tran->get_all_Exons};
     
     for (my $i=0; $i < @exons; $i++) {
@@ -1945,11 +1937,6 @@ sub write_gene {
         }
       }      
     }
-  }
-
-  $seqio->close;
-  foreach my $line (split /\s+/, $fasta_string) {
-    print $fh "##-FASTA $line\n";
   }
 }
 
