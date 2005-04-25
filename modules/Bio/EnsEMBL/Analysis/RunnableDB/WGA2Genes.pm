@@ -122,23 +122,20 @@ sub fetch_input {
   # fetch the gene; need to work in the coordinate space of the top-level slice to 
   # be consistent with compara
   #####
-  my (@genes, $reg_start, $reg_end);
 
   if ($input_id =~ /:/) {
     # assume slice name
     my $slice = $q_dbh->get_SliceAdaptor->fetch_by_name($input_id);
     $self->query_slice($q_dbh->get_SliceAdaptor->fetch_by_region('toplevel',
                                                                  $slice->seq_region_name));
+
+    my @genes;
     foreach my $g (@{$slice->get_all_Genes}) {
       next if $g->type ne 'ensembl';
       $g = $g->transfer($self->query_slice);
-
-      foreach my $t (@{$self->get_all_Transcripts($g)}) {
-        $reg_start = $t->start if not defined $reg_start or $t->start < $reg_start;
-        $reg_end   = $t->end   if not defined $reg_end   or $t->end   > $reg_end;
-      }
       push @genes, $g;
     }
+    $self->genes(\@genes);
 
   } else {
     # assume iid is a gene stable id
@@ -152,12 +149,15 @@ sub fetch_input {
     $self->query_slice($q_dbh->get_SliceAdaptor->fetch_by_region('toplevel', 
                                                                  $gene->seq_region_name));
     $gene = $gene->transfer($self->query_slice);
-    foreach my $t (@{$self->get_all_Transcripts($gene)}) {
+    $self->genes([$gene]);
+  }
+
+  my ($reg_start, $reg_end);
+  foreach my $g (@{$self->genes}) {
+    foreach my $t (@{$self->get_all_Transcripts($g)}) {
       $reg_start = $t->start if not defined $reg_start or $t->start < $reg_start;
       $reg_end   = $t->end   if not defined $reg_end   or $t->end   > $reg_end;
     }
-
-    @genes = ($gene);
   }
 
   ################################################################
@@ -209,7 +209,6 @@ sub fetch_input {
                    ];
   }
 
-  $self->genes(\@genes);      
   $self->genomic_align_block_chains(\@chains);
 }
 
@@ -255,8 +254,7 @@ sub run {
 
     my ($gene_scaffold, 
         $query_to_genescaf_map,
-        $target_to_genescaf_map,
-        $warnings) = 
+        $target_to_genescaf_map) = 
             $self->gene_scaffold_from_projection($self->genes->[0]->stable_id . "-" . $iteration, 
                                                  \@projected_cds_feats);
 
@@ -265,7 +263,6 @@ sub run {
     my $result = {
       gene_scaffold   => $gene_scaffold,
       mapper          => $target_to_genescaf_map,
-      warnings        => $warnings,
       genes           => [],
     };
 
@@ -317,10 +314,9 @@ sub write_output {
   foreach my $obj (@{$self->output}) {
     my $gs = $obj->{gene_scaffold};
     my $map = $obj->{mapper};
-    my $warns = $obj->{warnings};
     my @genes = @{$obj->{genes}};
 
-    $self->write_agp(\*STDOUT, $gs, $map, $warns);
+    $self->write_agp(\*STDOUT, $gs, $map);
     foreach my $g (@genes) {
       $self->write_gene(\*STDOUT, $gs, $g->{name}, @{$g->{transcripts}});      
     }
@@ -585,23 +581,61 @@ sub gene_scaffold_from_projection {
 
   my (@projected_cds_elements, @targets, @new_targets);
 
-  # step 0: flatten list
+  # find max length for each component scaffolds used in the projection
+  #
+  my %max_lengths;
+  foreach my $cds (@$projected_cds_elements) {
+    foreach my $coord_pair (@$cds) {
+      my $tcoord = $coord_pair->{target};
+      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        if (not exists $max_lengths{$tcoord->id} or
+            $max_lengths{$tcoord->id} < $tcoord->length) {
+          $max_lengths{$tcoord->id} = $tcoord->length;
+        }
+      }
+    }
+  }
+
+  # flatten list and replace scaffolds that only occur in small 
+  # components with gaps
   my $cds_id = 0;
   foreach my $cds (@$projected_cds_elements) {
     push @projected_cds_elements, [];
     foreach my $coord_pair (@$cds) {
       my $tcoord = $coord_pair->{target};
       my $qcoord = $coord_pair->{query};
+
+      if ($coord_pair->{target}->isa("Bio::EnsEMBL::Mapper::Coordinate") and
+          $max_lengths{$coord_pair->{target}->id} < $self->MIN_COMPONENT_SIZE) {
+        $coord_pair->{target} = Bio::EnsEMBL::Mapper::Gap->new($coord_pair->{target}->start,
+                                                               $coord_pair->{target}->end);
+      }
       push @targets, {
         cds_id  => $cds_id,
-        coord   => $tcoord,
+        coord   => $coord_pair->{target},
       };
       push @{$projected_cds_elements[-1]}, $coord_pair;
     }
     $cds_id++;
   }
 
-  # step 1 remove gaps which cannot be filled
+  if (0) {
+    foreach my $tp (@targets) {
+      my $c = $tp->{coord};
+      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
+        printf "GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
+      } else {
+        printf "COORD: %s %d %d (%d)\n", $c->id, $c->start, $c->end, $c->length;
+      }    
+    }
+  }
+
+  # remove gaps which cannot be filled. Non-fillable gaps:
+  # 1. If one of the flanking coords is on the same CDS region
+  #    as the gap, and the end of the aligned region does
+  #    not align to a gap
+  # 2. If the 2 flanking coords are consistent and not
+  #    separated by a sequence-level gap
   @new_targets = ();
   for(my $i=0; $i < @targets; $i++) {
     my $this_target = $targets[$i];
@@ -622,12 +656,6 @@ sub gene_scaffold_from_projection {
         }
       }
 
-      # under what circumstances can this gap NOT be filled?
-      # 1. If one of the flanking coords is on the same CDS region
-      #    as the gap, and the end of the aligned region does
-      #    not align to a gap
-      # 2. If the 2 flanking coords are consistent and not
-      #    separated by a sequence-level gap
       my $keep_gap = 1;
 
       if (defined $left_target and 
@@ -716,7 +744,7 @@ sub gene_scaffold_from_projection {
   }
   @targets = @new_targets;
 
-  # step 2: prune away gaps at the start and end; we won't "fill" these
+  # prune away gaps at the start and end; we won't "fill" these
   while(@targets and $targets[0]->{coord}->isa("Bio::EnsEMBL::Mapper::Gap")) {
     shift @targets;
   }
@@ -724,9 +752,21 @@ sub gene_scaffold_from_projection {
     pop @targets;
   }
 
+  if (0) {
+    print "AFTER GAP REMOVAL\n";
+    foreach my $tp (@targets) {
+      my $c = $tp->{coord};
+      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
+        printf "GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
+      } else {
+        printf "COORD: %s %d %d (%d)\n", $c->id, $c->start, $c->end, $c->length;
+      }    
+    }
+  }
+
   return () if not @targets;
 
-  # step 3: merge adjacent targets   
+  # merge adjacent targets   
   #  we want to be able to account for small, frame-preserving insertions
   #  in the target sequence with respect to the query. To give the later,
   #  gene-projection code the opportunity to "read through" these insertions,
@@ -793,53 +833,15 @@ sub gene_scaffold_from_projection {
     
   @targets = @new_targets;
 
-  my $warn_strings = {
-    1 => "inconsistent strand",
-    2 => "inconsistent coordinate order",
-    3 => "split across single sequence-level contig",
-  };
-  my (%warnings, @warnings);
-
-  for(my $i=0; $i < @targets; $i++) {
-    my $this_coord = $targets[$i]->{coord};
-    
-    next if not $this_coord->isa("Bio::EnsEMBL::Mapper::Coordinate");
-    # scan left
-    my $seen_something_else = 0;
-    for(my $j=$i-1; $j>=0; $j--) {
-      my $left_coord = $targets[$j]->{coord};
-
-      if ($left_coord->isa("Bio::EnsEMBL::Mapper::Gap") or
-          $left_coord->id ne $this_coord->id) {
-        $seen_something_else = 1;
-        next;
-      }
-          
-      # assert: both coords, with same id
-      if ($left_coord->strand != $this_coord->strand) {
-        $warnings{$left_coord->id}->{'1'} = 1;
-      } elsif (not $self->check_consistent_coords($left_coord, $this_coord)) {
-        $warnings{$left_coord->id}->{'2'} = 1;
-      } elsif ($seen_something_else) {
-        if ($left_coord->strand < 0) {
-          # $left_coord will be downstream of $this_coord in target
-          ($left_coord, $this_coord) = ($this_coord, $left_coord);
-        }
-        my ($new_left, $new_this) = 
-            $self->separate_coords($left_coord, $this_coord,
-                                   $self->target_slices->{$left_coord->id});
-        if (not defined $new_left and not defined $new_this) {
-          $warnings{$left_coord->id}->{'3'} = 1;
-        }
-      }
-      
-      last;
-    }
-  }
-  foreach my $id (keys %warnings) {
-    foreach my $code (keys %{$warnings{$id}}) {
-          
-      push @warnings, sprintf("%s : %s", $id, $warn_strings->{$code}); 
+  if (0) {
+    print "AFTER MERGINGL\n";
+    foreach my $tp (@targets) {
+      my $c = $tp->{coord};
+      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
+        printf "GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
+      } else {
+        printf "COORD: %s %d %d (%d)\n", $c->id, $c->start, $c->end, $c->length;
+      }    
     }
   }
 
@@ -934,7 +936,7 @@ sub gene_scaffold_from_projection {
             -start => 1,
             -end   => length($seq));
 
-  return ($gene_scaffold, $query_map, $target_map, \@warnings);
+  return ($gene_scaffold, $query_map, $target_map);
 }
 
 
@@ -967,6 +969,18 @@ sub make_projected_transcript {
                                                  1,
                                                  "query");
     push @all_coords, @these_coords;
+  }
+
+
+  if (0) {
+    foreach my $c (@all_coords) {
+      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
+        printf "ALL GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
+      } else {
+        printf "ALL COORD: %s %d %d (%d)\n", $c->id,  $c->start, $c->end, $c->length;
+      }
+    }
+    print "\n";
   }
 
   #
@@ -1018,6 +1032,17 @@ sub make_projected_transcript {
       } else {
         push @processed_coords, $c;
       }
+    }
+
+    if (0) {
+      foreach my $c (@processed_coords) {
+        if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
+          printf "PROCESSED GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
+        } else {
+          printf "PROCESSED COORD: %s %d %d (%d)\n", $c->id,  $c->start, $c->end, $c->length;
+        }
+      }
+      print "\n";
     }
 
     GAP: foreach my $idx (@gap_indices) {
@@ -1574,11 +1599,13 @@ sub get_all_transcript_cds_features {
 sub get_all_Transcripts {
   my ($self, $gene) = @_;
 
-  # coding transcript. Otherwise returns all coding
+  # Return all coding transcripts for the gene
   # transcripts, pruning "strange" transcripts (that
   # is, ones which have a "large" intron (>100kb)
   # that does not exist in at least one other 
-  # transcript
+  # transcript and overlaps with another gene
+
+  my $large_intron_threshold = 100000;
 
   if (not exists $self->{_transcripts}) {
     $self->{_transcripts} = {};
@@ -1593,34 +1620,58 @@ sub get_all_Transcripts {
       
       if (defined $translation) {
         my @exons = sort {$a->start <=> $b->start} @{$t->get_all_Exons};
-        my $max_intron = 0;
+        my @large_introns;
+
         for(my $i=1; $i<@exons; $i++) {
-          my $intron_len = $exons[$i]->start - $exons[$i-1]->end - 1;
-          if ($intron_len > $max_intron) {              
-            $max_intron = $intron_len;
+          my $intron_start = $exons[$i-1]->end + 1;
+          my $intron_end   = $exons[$i]->start - 1;
+          my $intron_len = $intron_end - $intron_start + 1;
+          if ($intron_len > $large_intron_threshold) {              
+            push @large_introns, { start => $intron_start,
+                                   end   => $intron_end,
+                                 };
           }
         }
 
         push @transcripts, { 
           tran   => $t,
           length => $translation->length,
-          max_intron => $max_intron,
+          large_introns => \@large_introns,
         };
       }
     }
     
-    my (@kept_transcripts);
-    my $seen_small = 0;
-    foreach my $t (sort { $a->{max_intron} <=> $b->{max_intron} } @transcripts) {
-      if ($t->{max_intron} <= 100000) {
+    my (@kept_transcripts, @maybe_keep_transcripts);
+    foreach my $t (@transcripts) {
+      if (not @{$t->{large_introns}}) {
         push @kept_transcripts, $t;
-        $seen_small = 1;
-      } elsif (not $seen_small) {
-        push @kept_transcripts, $t;
+      } else {
+        # also keep if the large introns do not overlap other genes
+        my $gene_overlap = 0;
+        OTHERGENE: foreach my $og (@{$self->genes}) {
+          next if $og->stable_id eq $gene->stable_id;
+
+          foreach my $li (@{$t->{large_introns}}) {
+            if ($og->start <= $li->{end} and 
+                $og->end   >=  $li->{start}) {
+              $gene_overlap = 1;
+              last OTHERGENE;
+            }
+          }
+        }
+        if (not $gene_overlap) {
+          push @kept_transcripts, $t;
+        } else {
+          # this transcript has large introns, at least one of which overlaps
+          # another gene
+          push @maybe_keep_transcripts, $t;
+        }
       }
     }
 
-    @kept_transcripts = sort { $b->{length} <=> $a->{length} } @kept_transcripts;
+    if (not @kept_transcripts) {
+      @kept_transcripts = @maybe_keep_transcripts;
+    }
 
     $self->{_transcripts}->{$gene} = [map {$_->{tran}} @kept_transcripts];
   } 
@@ -1833,16 +1884,12 @@ sub write_agp {
   my ($self, 
       $fh, 
       $gene_scaf, 
-      $map,
-      $warns) = @_;
+      $map) = @_;
 
   my $prefix = "##-AGP";
   
   print $fh "$prefix \#\n";
   printf $fh "$prefix \# AGP for gene scaffold %s\n", $gene_scaf->seq_region_name;
-  foreach my $warning (@$warns) {
-    print $fh "$prefix \# WARNING : $warning\n";
-  }
   print $fh "$prefix \#\n";
 
   my @pieces = $map->map_coordinates($gene_scaf->seq_region_name,
@@ -2059,6 +2106,17 @@ sub TARGET_CORE_DB {
   }
 
   return $self->{_target_core_db};
+}
+
+
+sub MIN_COMPONENT_SIZE {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_min_component_size} = $val;
+  }
+
+  return $self->{_min_component_size};
 }
 
 
