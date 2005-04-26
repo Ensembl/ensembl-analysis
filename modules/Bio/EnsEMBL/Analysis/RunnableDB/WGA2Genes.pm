@@ -136,7 +136,6 @@ sub fetch_input {
       push @genes, $g;
     }
     $self->genes(\@genes);
-
   } else {
     # assume iid is a gene stable id
     my ($gene);
@@ -155,6 +154,8 @@ sub fetch_input {
   my ($reg_start, $reg_end);
   foreach my $g (@{$self->genes}) {
     foreach my $t (@{$self->get_all_Transcripts($g)}) {
+      my @e = @{$t->get_all_Exons};
+
       $reg_start = $t->start if not defined $reg_start or $t->start < $reg_start;
       $reg_end   = $t->end   if not defined $reg_end   or $t->end   > $reg_end;
     }
@@ -1613,8 +1614,13 @@ sub get_all_Transcripts {
   
   if (not exists $self->{_transcripts}->{$gene}) {
 
-    my (@transcripts);
+    if (not $self->REJECT_BAD_QUERY_TRANSCRIPTS) {
+      $self->{_transcripts}->{$gene} = $gene->get_all_Transcripts;
+      return $self->{_transcripts}->{$gene};
+    }
     
+    my (@transcripts);
+
     foreach my $t (@{$gene->get_all_Transcripts}) {
       my $translation = $t->translate;
       
@@ -2140,6 +2146,18 @@ sub MIN_NON_GAP {
 
   return $self->{_min_non_gap};
 }
+
+
+sub REJECT_BAD_QUERY_TRANSCRIPTS {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_reject_bad_query_transcripts} = $val;
+  }
+
+  return $self->{_reject_bad_query_transcripts};
+}
+
 
 
 
