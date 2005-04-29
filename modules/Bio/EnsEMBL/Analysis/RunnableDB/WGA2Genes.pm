@@ -228,10 +228,10 @@ sub run {
 
   my (@blocks_used, @results);
 
-  my @alignment_chains = @{$self->genomic_align_block_chains};
   my @all_trans = map { @{$self->get_all_Transcripts($_)} } @{$self->genes}; 
+  return if not @all_trans;
   my @cds_feats = @{$self->get_all_transcript_cds_features(@all_trans)};
-
+  my @alignment_chains = @{$self->genomic_align_block_chains};
 
   for(my $iteration=0; ;$iteration++) {
     my $net_blocks = $self->make_alignment_net(\@alignment_chains, \@blocks_used);
@@ -247,6 +247,7 @@ sub run {
     }  
 
     my $additional_blocks_used = scalar(@blocks_used) - $blocks_used_before;
+
 
     if ($additional_blocks_used == 0) {
       # no alignment coverage, so stop;
@@ -620,17 +621,6 @@ sub gene_scaffold_from_projection {
     $cds_id++;
   }
 
-  if (0) {
-    foreach my $tp (@targets) {
-      my $c = $tp->{coord};
-      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
-        printf "GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
-      } else {
-        printf "COORD: %s %d %d (%d)\n", $c->id, $c->start, $c->end, $c->length;
-      }    
-    }
-  }
-
   # remove gaps which cannot be filled. Non-fillable gaps:
   # 1. If one of the flanking coords is on the same CDS region
   #    as the gap, and the end of the aligned region does
@@ -753,17 +743,6 @@ sub gene_scaffold_from_projection {
     pop @targets;
   }
 
-  if (0) {
-    print "AFTER GAP REMOVAL\n";
-    foreach my $tp (@targets) {
-      my $c = $tp->{coord};
-      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
-        printf "GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
-      } else {
-        printf "COORD: %s %d %d (%d)\n", $c->id, $c->start, $c->end, $c->length;
-      }    
-    }
-  }
 
   return () if not @targets;
 
@@ -833,18 +812,6 @@ sub gene_scaffold_from_projection {
   }
     
   @targets = @new_targets;
-
-  if (0) {
-    print "AFTER MERGINGL\n";
-    foreach my $tp (@targets) {
-      my $c = $tp->{coord};
-      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
-        printf "GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
-      } else {
-        printf "COORD: %s %d %d (%d)\n", $c->id, $c->start, $c->end, $c->length;
-      }    
-    }
-  }
 
   ###################################
   # build the gene scaffold, and mappings between the new gene
@@ -973,20 +940,14 @@ sub make_projected_transcript {
   }
 
 
-  if (0) {
-    foreach my $c (@all_coords) {
-      if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
-        printf "ALL GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
-      } else {
-        printf "ALL COORD: %s %d %d (%d)\n", $c->id,  $c->start, $c->end, $c->length;
-      }
-    }
-    print "\n";
-  }
+  my $start_not_found = 0;
+  my $end_not_found   = 0;
+  my $contains_gap_exons= 0;
 
-  #
   # replace coords at start and end that map down to gaps with gaps
-  # 
+  # although we have already trimmed back the gene scaffold for gap 
+  # exons at the ends, individual transripts could begin/end anywhere
+  # in the gene scaffold. 
   for(my $i=0; $i < @all_coords; $i++) {
     if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
       my ($tcoord) = $tmapper->map_coordinates($gene_scaf->seq_region_name,
@@ -998,7 +959,10 @@ sub make_projected_transcript {
         last;
       } else {
         $all_coords[$i] = Bio::EnsEMBL::Mapper::Gap->new(1, $tcoord->length);
+        $start_not_found = 1;
       }
+    } else {
+      $start_not_found = 1;
     }
   }
   for(my $i=scalar(@all_coords)-1; $i >= 0; $i--) {
@@ -1012,6 +976,24 @@ sub make_projected_transcript {
         last;
       } else {
         $all_coords[$i] = Bio::EnsEMBL::Mapper::Gap->new(1, $tcoord->length);
+        $end_not_found = 1;
+      }
+    } else {
+      $end_not_found = 1;
+    }
+  }
+
+  # indentify remaining gap exons
+  for(my $i=0; $i < @all_coords; $i++) {
+    if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+      my ($tcoord) = $tmapper->map_coordinates($gene_scaf->seq_region_name,
+                                               $all_coords[$i]->start,
+                                               $all_coords[$i]->end,
+                                               1,
+                                               $gene_scaf->seq_region_name);
+      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Gap")) {
+        $contains_gap_exons = 1;
+        last;
       }
     }
   }
@@ -1033,17 +1015,6 @@ sub make_projected_transcript {
       } else {
         push @processed_coords, $c;
       }
-    }
-
-    if (0) {
-      foreach my $c (@processed_coords) {
-        if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
-          printf "PROCESSED GAP: %d %d (%d)\n", $c->start, $c->end, $c->length;
-        } else {
-          printf "PROCESSED COORD: %s %d %d (%d)\n", $c->id,  $c->start, $c->end, $c->length;
-        }
-      }
-      print "\n";
     }
 
     GAP: foreach my $idx (@gap_indices) {
@@ -1077,10 +1048,10 @@ sub make_projected_transcript {
             # we need to eat away the whole of this coord
             $processed_coords[$idx-1] = Bio::EnsEMBL::Mapper::Gap->new(1,$left_coord->length);
           }
-          $need_another_pass = 1;
-          last GAP;
-        } else {
-          # eat right; $bases_to_remove must all be in $right_surplus
+        }
+        if ($right_surplus) {
+          $bases_to_remove = $right_surplus;
+
           my $right_coord = $processed_coords[$idx + 1];
           if ($right_coord->length > $bases_to_remove) {
             $gap->end($gap->end + $bases_to_remove);
@@ -1090,7 +1061,7 @@ sub make_projected_transcript {
             $processed_coords[$idx+1] = Bio::EnsEMBL::Mapper::Gap->new(1,$right_coord->length);
           }
         }
-
+        
         $need_another_pass = 1;
         last GAP;
       }      
@@ -1274,9 +1245,39 @@ sub make_projected_transcript {
   #
   my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@trans_fps);
   $t_sf->hcoverage( 100 * ($total_transcript_bps / $transcript_length) );
-  # misuse score field as the proportion of the transcript that maps to non-gap sequence
-  $t_sf->score( 100 * ($real_seq_bps / $total_transcript_bps) ); 
   $proj_tran->add_supporting_features($t_sf);
+
+  my $gap_attr = Bio::EnsEMBL::Attribute->new(-code => 'ProportionNonGap',
+                                              -name => 'proportion non gap',
+                                              -description => 'proportion non gap',
+                                              -value => sprintf("%.1f", 
+                                                                100 * ($real_seq_bps / $total_transcript_bps)));
+  $proj_tran->add_Attributes($gap_attr);
+  
+  if ($start_not_found and $transcript->strand > 0 or
+      $end_not_found and $transcript->strand < 0) {
+    my $attr = Bio::EnsEMBL::Attribute->new(-code => 'StartNotFound',
+                                            -name => 'start not found',
+                                            -description => 'start not found',
+                                            -value => 1);
+    $proj_tran->add_Attributes($attr);
+  }
+  if ($end_not_found and $transcript->strand > 0 or
+      $start_not_found and $transcript->strand < 0) {
+    my $attr = Bio::EnsEMBL::Attribute->new(-code => 'EndNotFound',
+                                            -name => 'end not found',
+                                            -description => 'end not found',
+                                            -value => 1);
+    $proj_tran->add_Attributes($attr);
+  }
+  if ($contains_gap_exons) {
+    my $attr = Bio::EnsEMBL::Attribute->new(-code => 'ContainsGapExon',
+                                            -name => 'contains gap exons',
+                                            -description => 'contains gap exons',
+                                            -value => 1);
+    $proj_tran->add_Attributes($attr);
+  }
+
 
   #
   # set translation
@@ -1321,11 +1322,15 @@ sub process_transcript {
   #   less than minimum coverage of parent peptide
   #   higher that maximum proportion of gap residues
   ##################
-  
-  return undef if length($pep) == 0;
 
+  return undef if length($pep) == 0;
   return undef if $tsf->hcoverage < $self->MIN_COVERAGE;
-  return undef if $tsf->score < $self->MIN_NON_GAP;
+
+  foreach my $attr (@{$tran->get_all_Attributes}) {
+    if ($attr->code eq "ProportionNonGap") {
+      return undef if $attr->value < $self->MIN_NON_GAP;
+    }
+  }
 
   my $num_stops = $pep =~ tr/\*/\*/;
 
@@ -1614,19 +1619,40 @@ sub get_all_Transcripts {
   
   if (not exists $self->{_transcripts}->{$gene}) {
 
+    my @trans = @{$gene->get_all_Transcripts};
+    
     if (not $self->REJECT_BAD_QUERY_TRANSCRIPTS) {
-      $self->{_transcripts}->{$gene} = $gene->get_all_Transcripts;
+      # even if we dont want to reject potentiall dodgy transcripts,
+      # we have to remove the ones that are not mod-3 in length because
+      # thy screw up downstream code
+      my @kept_trans;
+      $self->{_transcripts}->{$gene} = [];
+
+      foreach my $t (@trans) {
+        my @exons = 
+            sort {$a->start <=> $b->start} @{$t->get_all_translateable_Exons};
+
+        my $total_cds_len = 0;
+        map { $total_cds_len += $_->length } @exons;
+
+        if ($total_cds_len % 3 == 0) {
+          push @{$self->{_transcripts}->{$gene}}, $t;
+        }
+      }      
       return $self->{_transcripts}->{$gene};
     }
     
     my (@transcripts);
 
-    foreach my $t (@{$gene->get_all_Transcripts}) {
+    foreach my $t (@trans) {
       my $translation = $t->translate;
       
       if (defined $translation) {
-        my @exons = sort {$a->start <=> $b->start} @{$t->get_all_Exons};
+        # record large introns in the transcript
         my @large_introns;
+
+        my @exons = 
+            sort {$a->start <=> $b->start} @{$t->get_all_translateable_Exons};
 
         for(my $i=1; $i<@exons; $i++) {
           my $intron_start = $exons[$i-1]->end + 1;
@@ -1949,12 +1975,23 @@ sub write_gene {
   foreach my $tran (@trans) {
     my ($sf) = @{$tran->get_all_supporting_features};
     my $tran_id = $gene_id . "_" . $sf->hseqname; 
-   
+
+    my $pep = $tran->translate->seq;
+    if ($pep =~ /^X/) {
+      printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tXAtPepStart\t%d\n", 1);
+    }
+    if ($pep =~ /X$/) {
+      printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tXAtPepEnd\t%d\n", 1);
+    }
+
     my $num_stops = $tran->translate->seq =~ tr/*/*/;
 
-    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\thit_coverage\t%.2f\n", $sf->hcoverage);
-    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tproportion_non_gap\t%.2f\n", $sf->score);
-    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tnumber_of_stops\t%d\n", $num_stops);
+    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tNumStops\t%d\n", $num_stops);
+    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tHitCoverage\t%.2f\n", $sf->hcoverage);
+    
+    foreach my $attr (@{$tran->get_all_Attributes}) {
+      printf($fh "$prefix \##\-ATTRIBUTE $tran_id\t%s\t%s\n", $attr->code, $attr->value);
+    }
 
     my @exons = @{$tran->get_all_Exons};
     
