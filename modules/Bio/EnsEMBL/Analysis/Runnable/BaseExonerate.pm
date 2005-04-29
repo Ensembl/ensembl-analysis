@@ -86,7 +86,8 @@ sub new {
     }
     $self->query_seqs($query_seqs);
   } elsif (defined $query_file) {
-    throw("The given query file does not exist") if ! -e $query_file;
+    throw("The given query file ".$query_file." does not exist") 
+      if ! -e $query_file;
     $self->query_file($query_file);
     
   }
