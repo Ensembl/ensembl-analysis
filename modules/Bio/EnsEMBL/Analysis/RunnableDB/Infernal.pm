@@ -97,7 +97,7 @@ sub fetch_input{
   $self->db->dnadb($dna_db);
 
   my ($start,$end);
-  my (@dafs,@queries,@perfect_matches);
+  my (@dafs,@queries);
   my $padding = 200;
   my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
   my $dafa = $self->db->get_DnaAlignFeatureAdaptor;
@@ -163,8 +163,10 @@ sub write_output{
   my ($self) = @_;
   my $adaptor = $self->gene_db->get_GeneAdaptor;
   my $aa = $self->gene_db->get_AttributeAdaptor;
-  my @str_attribute;
-  foreach my $gene(@{$self->output}){
+  my @attributes;
+  foreach my $gene_hash (@{$self->output}){    
+    my $gene = $gene_hash->{'gene'};
+    @attributes = @{$gene_hash->{'attrib'}};
     $gene->analysis($self->analysis);
     $gene->slice($self->query) if(!$gene->slice);
     $self->feature_factory->validate($gene);
@@ -172,17 +174,16 @@ sub write_output{
       $adaptor->store($gene);
     };
     if($@){
-	$self->throw("Infernal:store failed, failed to write ".$gene." to ".
-            "the database $@");
+      $self->throw("Infernal:store failed, failed to write ".$gene." to ".
+		   "the database $@");
     }
     foreach my $trans (@{$gene->get_all_Transcripts}){
-      $str_attribute[0] =  $trans->{'_structure'};
       eval{
-	$aa->store_on_Transcript($trans,\@str_attribute);
+	$aa->store_on_Transcript($trans,\@attributes);
       };
       if($@){
-	$self->throw("Infernal:store failed, failed to write ".@str_attribute." on transcript ".
-	      $trans." in the database $@");
+	$self->throw("Infernal:store failed, failed to write ".@attributes." on transcript ".
+		     $trans." in the database $@");
       }
     }
   }

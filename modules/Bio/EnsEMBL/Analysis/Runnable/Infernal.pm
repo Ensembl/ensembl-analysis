@@ -51,6 +51,8 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
+my $verbose = "yes";
+
 =head2 new
 
   Title      : new
@@ -101,6 +103,7 @@ sub run{
   return 1;
 }
 
+
 =head2 run_analysis
 
   Title      : run_analysis
@@ -127,7 +130,7 @@ sub run_analysis{
 	$command .= " --local";
     }
   $command .= " $db  $filename > $results_file";
-  print "Running infernal ".$command."\n";
+  print STDOUT "Running infernal ".$command."\n" if $verbose;
   open(my $fh, "$command |") || 
     $self->throw("Error opening Infernal cmd <$command>." .
 	  " Returned error $? Infernal EXIT: '" .
@@ -160,7 +163,8 @@ sub parse_results{
   my $domain = substr($daf->hseqname,0,7);
   my %thresholds = %{$self->thresholds};
   my $threshold = $thresholds{$domain}{'thr'};
-  print STDERR "Domain $domain has threshold $threshold\n";
+#  $threshold = 0.6;
+  print STDERR "Domain $domain has threshold $threshold\n" if $verbose;
   my $results = $self->resultsfile;
   my $ff = $self->feature_factory;
   if(!-e $results){
@@ -174,7 +178,7 @@ sub parse_results{
  LINE: while(<INFERNAL>){
     chomp;
     if ($_ =~ /^hit/){
-      if ($score > $threshold && $align->{'name'}){
+      if ($score &&  $threshold && $score > $threshold && $align->{'name'}){
 	$str = $self->parse_structure($align);
 	push @output, $self->make_gene($start,$end,$strand,$daf,$str);
       }	
@@ -185,8 +189,7 @@ sub parse_results{
     if ($_ =~ /^CPU/){
       $line = -1;
     }
-    print STDERR "$line\t$_\n";
-#    print "$_\n";
+    print STDERR "$line\t$_\n"if $verbose;
     if ($score && $score >= $threshold && $line >= 0){
       # parsing goes in 5 lines
       # split the lines and store each element in a anonymous hash array
@@ -206,7 +209,7 @@ sub parse_results{
       $start = $2;
       $end = $3;
       $score = $4+$5/100;
-      print "hit - $hit\nscore - $score\n";
+      print STDERR "hit - $hit\nscore - $score\n" if $verbose;;
       if ($score >= $threshold){ 
 	if ($end < $start){
 	  $strand = -1;
@@ -225,11 +228,11 @@ sub parse_results{
     }
   }
   if ($align->{'name'} && $score > $threshold){
+    print STDERR "positve result at ".$daf->seq_region_name.":".$daf->seq_region_start."-".$daf->seq_region_end." strand ".
+      $daf->strand."\n" if $verbose;
     $str = $self->parse_structure($align);
-    print "$str\n";
-    push @output, $self->make_gene($start,$end,$strand,$daf,$str);
+    $self->make_gene($start,$end,$strand,$daf,$str);
   }
-  $self->output(\@output);
   close(INFERNAL) or $self->throw("FAILED to close ".$results.
 			   " INFERNAL:parse_results");
 }
@@ -248,35 +251,52 @@ sub parse_results{
 
 sub parse_structure{
   my ($self,$align)=@_;
-  my @fwd_matches;
+  my @all_matches;
   my @stack;
   my @big_gaps;
   my $matchstring;
   my @matches;
   my $big_gap=0;
-  print $align->{'name'}."\n";  
-  print $align->{'str'}."\n";
-  #Brace matching
-  # sequence postions start at 1 not 0 so you dont get false booleans for real sequence locations, if you see what I mean
+  my @attributes;
+  # Brace matching
+  # push open braces on to the stack    
   for (my $i=0 ; $i< scalar(@{$align->{'str'}}); $i++){
     if ($align->{'str'}[$i] eq '(' or
 	$align->{'str'}[$i] eq '<' or
 	$align->{'str'}[$i] eq '[' or
 	$align->{'str'}[$i] eq '{'){
-      push @stack,$i+1;
+      push @stack,$i;
     }
+    # pop the positions of the open brace off the stack as you find close braces
     if ($align->{'str'}[$i] eq ')' or
 	$align->{'str'}[$i] eq '}' or
 	$align->{'str'}[$i] eq ']' or
 	$align->{'str'}[$i] eq '>'){
-      $fwd_matches[$i+1] = pop @stack;
+      $all_matches[$i] = pop @stack;
     }
   }
-  for (my $i=0 ; $i< scalar(@{$align->{'str'}}); $i++){
+  @stack = [];
+# Need to do the reverse proces to get all matches
+  for (my $i = scalar(@{$align->{'str'}}-1); $i >=0 ; $i--){
+    if ($align->{'str'}[$i] eq ')' or
+	$align->{'str'}[$i] eq '}' or
+	$align->{'str'}[$i] eq ']' or
+	$align->{'str'}[$i] eq '>'){
+      push @stack,$i;
+    }
+    # pop the positions of the close brace off the stack as you find open braces
+    if ($align->{'str'}[$i] eq '(' or
+	$align->{'str'}[$i] eq '<' or
+	$align->{'str'}[$i] eq '[' or
+	$align->{'str'}[$i] eq '{'){
+      $all_matches[$i] = pop @stack;
+    }
+  }
+ for (my $i=0 ; $i< scalar(@{$align->{'str'}}); $i++){
     # Parse out large gaps by looking for ~ on the str line;
     if ($align->{'query'}[$i] eq '*'){
       my $string;
-      for (my $j=$i+1 ; $j <= $i+10 ; $j++){	
+      for (my $j=$i+1 ; $j < scalar(@{$align->{'str'}}) ; $j++){	
 	last if ($align->{'query'}[$j] eq '*');
 	$string .= $align->{'query'}[$j];
       }
@@ -292,20 +312,21 @@ sub parse_structure{
     }
     # skip over if you have a missmatch
     if ($align->{'match'}[$i] eq ' '){
-      $matches[$i+1] = '.';
+      $matches[$i] = '.';
       next;
     }
-    if ($fwd_matches[$i+1]){
+    # Found a match
+    if (defined $all_matches[$i]){
       # check there isnt a gap at the other end
-      if ($align->{'query'}[$fwd_matches[$i+1]-1] eq '-'){
-	$matches[$i+1] = $align->{'str'}[$i];
+      if ($align->{'query'}[$all_matches[$i]] eq '-'){
+	$matches[$i] = '.';
 	next;
       }
-      $matches[$i+1] = $align->{'str'}[$i];
-      $matches[$fwd_matches[$i+1]] = $align->{'str'}[$fwd_matches[$i+1]-1];
+      $matches[$i] = $align->{'str'}[$i];
+      $matches[$all_matches[$i]] = $align->{'str'}[$all_matches[$i]];
     }
     else {
-      $matches[$i+1] = $align->{'str'}[$i];
+      $matches[$i] = $align->{'str'}[$i];
     }
   }
   for (my $i=0 ; $i< scalar(@{$align->{'str'}}); $i++){
@@ -316,61 +337,78 @@ sub parse_structure{
       $i=$i+5;
       next;
     }
-    if ($matches[$i+1]){
-      $matchstring.= $matches[$i+1];
+    if ($matches[$i]){
+      $matchstring.= $matches[$i];
     }
   }
-  my $attribute = Bio::EnsEMBL::Attribute->new
-    (-CODE => 'ncRNA',
-     -NAME => 'Structure',
-     -DESCRIPTION => 'RNA secondary structure line',
-     -VALUE => $self->encode_string($matchstring)
-    );
-  print "$matchstring\n";
-
-  return $attribute;
+  my @codes = @{$self->encode_str($matchstring)};
+  foreach my $code(@codes){
+    my $attribute = Bio::EnsEMBL::Attribute->new
+      (-CODE => 'ncRNA',
+       -NAME => 'Structure',
+       -DESCRIPTION => 'RNA secondary structure line',
+       -VALUE => $code
+      );
+    push @attributes,$attribute;
+  }
+  return \@attributes;
 }
 
-=head2 encode_string
+=head2 encode_str
 
-  Title      : encode_string
-  Usage      : my $encoded_string = $runnable->encode_string($string)
-  Function   : Does simple string length encoding to reduce size of structure sting
+  Title      : encode_str
+  Usage      : my $encoded_str = $runnable->encode_string($string)
+  Function   : Does string length encoding to reduce size of structure string
+             : splits strings if they are longer then 200 charchters so they 
+             : will fit in the transcript attribute table, gives a range value
+             : at the start of the string indicating the start and stop positions of the 
+             : structure on the transcript
   Returns    : String
   Exceptions : None
   Args       : String
 
 =cut
 
-sub encode_string{
+sub encode_str{
   my ($self,$string)= @_;
+  my @codes;
+  my $start = 1;
+  my $count=0;
   my $code;
   my @elements = split //,$string;
-  my $last_chr;
+  my $last_chr = "";
   my @array =[];
   foreach my $chr (@elements){
+    $count++;
     if ($chr eq $last_chr){
 	push @array,$chr;
       }
     else {
+      if ($code && length($code) > 200 && scalar(@array) == 1){
+	push @codes,"$start:$count\t$code";
+	$code = undef;
+	$start = $count+1;
+      }
+      # Character has changed print it and the associated array length
       if (scalar(@array) > 1){
 	$code .= scalar(@array);
 	@array = [];
       }
       $code .= "$chr";
+      $last_chr = $chr;
     }
-    $last_chr = $chr;
   }
 # last element
   if (scalar(@array) > 1){
     $code .= scalar(@array);
   }
-  return $code;
+  push @codes,"$start:$count\t$code";
+  return \@codes;
 }
 
-=head2 decode_string
+=head2 decode_str
 
-  Title      : decode_string
+  Title      : decode_str
   Usage      : my $decoded_string = $runnable->decode_string($string)
   Function   : Does simple string length decoding.
   Returns    : String
@@ -379,39 +417,59 @@ sub encode_string{
 
 =cut
 
-sub decode_string{
-  my ($self,$string)= @_;
+sub decode_str{
+  my ($self,$attributes)= @_;
   my $code;
   my $offset = 0;
   my $chr;
+  my $string;
+  my $start;
+  my $end;
   my $num = 0;
   my $str = "";
-  for (my $pos =0; $pos <= length($string) ; $pos++){
-    $chr =  substr($string,$pos,1);
-    if ($chr =~ /\D/){
-      print $str unless($num);
-      if ($num){
-	for (my$i =1 ; $i <= $num ; $i++){
-	  print $str;
-	}
-      }
-      $str = $chr;
-      $num = "";
-      next;
-    }
-    if ($chr =~ /\d/){
-      $num .= $chr;
+  my %str_hash;
+  foreach my $attribute (@$attributes){
+    my $value = $attribute->value;
+    # remove string header;
+    if ($value =~ /(\d+):\d+\t(.+)/){
+      $str_hash{$1} = $2;
+    } else {
+      $self->throw("Cannot parse encoded string $attribute\n");
     }
   }
-  # empty array 
-  if ($num){
+  my @sorted_attributes = sort { $str_hash{$a} cmp $str_hash{$b} } keys %str_hash;
+  foreach my $order (@sorted_attributes){
+    $string = $str_hash{$order};
+    $num =0;
+    $str = "";
+    for (my $pos =0; $pos <= length($string) ; $pos++){
+      $chr =  substr($string,$pos,1);
+      if ($chr =~ /\D/){
+	print $str unless($num);
+	if ($num){
+	  for (my$i =1 ; $i <= $num ; $i++){
+	    print $str;
+	  }
+	}
+	$str = $chr;
+	$num = "";
+	next;
+      }
+      if ($chr =~ /\d/){
+	$num .= $chr;
+      }
+    }
+    # empty array 
+    if ($num){
     for (my$i =1 ; $i <= $num ; $i++){
       print $str;
     }
   }
-  else{
-    print $str;
+    else{
+      print $str;
+    }
   }
+
 }
 
 =head2 make_gene
@@ -429,7 +487,9 @@ sub decode_string{
 sub make_gene{
   my ($self,$start,$end,$strand,$daf,$str) = @_;
   my $domain = substr($daf->hseqname,0,7);
-  my %descriptions = %{$self->descriptions};
+  my %descriptions = %{$self->descriptions}; 
+  my %gene_hash;  
+  my @attributes;
   # exons
   my $slice = $daf->feature_Slice;
   my $exon = Bio::EnsEMBL::Exon->new
@@ -448,16 +508,27 @@ sub make_gene{
   $transcript->add_Exon($exon);
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
-  # dodgy
-  $transcript->{'_structure'} = $str;
-  # gene
+  if ($str){
+    my @codes = @{$self->encode_str($str)};
+    foreach my $code(@codes){
+      my $str_attrib = Bio::EnsEMBL::Attribute->new
+	(-CODE => 'ncRNA',
+	 -NAME => 'Structure',
+	 -DESCRIPTION => 'RNA secondary structure line',
+	 -VALUE => $code
+	);
+      push @attributes,$str_attrib;
+    }
+  }
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->type('ncRNA');
   $gene->description($descriptions{$domain});
-  print "Rfam_id $domain ".$descriptions{$domain}."\n";
+  print STDERR "Rfam_id $domain ".$descriptions{$domain}."\n"if $verbose;;
   $gene->analysis($self->analysis);
-  $gene->add_Transcript($transcript);
-  return $gene;
+  $gene->add_Transcript($transcript);  
+  $gene_hash{'gene'} = $gene;
+  $gene_hash{'attrib'} = \@attributes;
+  $self->output(\%gene_hash)
 }
 
 =head2 get_sequence
@@ -479,15 +550,15 @@ sub get_sequence{
   my $domain = substr($daf->hseqname,0,7);
   my %thresholds = %{$self->thresholds};
   my $padding = $thresholds{$domain}{'win'};
-  print STDERR "Using padding of $padding\t";
+  print STDERR "Using padding of $padding\t"if $verbose;;
   $daf->start($daf->start - $padding);
   $daf->end($daf->end + $padding);
   my $seq = Bio::Seq->new(
 			    -seq => $daf->seq,
 			    -display_id => $domain,
 			   );
-  print STDERR " total seq length = ";
-  print $seq->length."\n";
+  print STDERR " total seq length = "if $verbose;;
+  print $seq->length."\n"if $verbose;;
   return $seq;
 }
 
@@ -507,7 +578,10 @@ sub get_thresholds{
   my($self)= @_;
   # read threshold file
   my %thr;
-  open( T, "/data/blastdb/Rfam/Rfam.thr" ) or $self->throw("can't file the Rfam.thr file");
+  # full thresholds
+  open( T, "/ecs2/work2/sw4/RFAM/Rfam.thr" ) or $self->throw("can't file the Rfam.thr file");
+# low thresholds
+# open( T, "/ecs2/work2/sw4/RFAM/Rfam_modified.thr" ) or $self->throw("can't file the Rfam.thr file");
   while(<T>) {
     if( /^(RF\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\S+)\s*$/ ) {
       $thr{ $1 } = { 'id' => $2, 'thr' => $3, 'win' => $4, 'mode' => $5 };
@@ -610,4 +684,27 @@ sub  descriptions {
   return $self->{'_descriptions'};
 }
 
+=head2 output
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Arg [2]   : hashref of output
+  Function  : overrides runnable output method to allow storing of hash refs
+  Exceptions: throws if not passed an hashref
+  Example   : 
+
+=cut
+
+
+sub output{
+  my ($self, $output) = @_;
+  if(!$self->{'output'}){
+    $self->{'output'} = [];
+  }
+  if($output){
+    throw("Must pass Runnable:output an hashref not a ".$output)
+      unless(ref($output) eq 'HASH');
+    push(@{$self->{'output'}}, $output);
+  }
+  return $self->{'output'};
+}
 1;

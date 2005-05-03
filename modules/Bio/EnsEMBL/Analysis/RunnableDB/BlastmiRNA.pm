@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Blast
+# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA
 #
 # Copyright (c) 2004 Ensembl
 #
@@ -9,10 +9,10 @@
 
 =head1 SYNOPSIS
 
-  my $blast = Bio::EnsEMBL::Analysis::RunnableDB::BlastRfam->
-  new(
+  my $blast = Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA->new
+     (
       -analysis => $analysis,
-      -db => $db,
+      -db       => $db,
       -input_id => 'contig::AL1347153.1.3517:1:3571:1'
      );
   $blast->fetch_input;
@@ -21,9 +21,9 @@
 
 =head1 DESCRIPTION
 
-Modified blast runnable for specific use with RFAMSEQ.
-Use for running BLASTN of genomic vs RFAMSEQ prior to 
-ncRNA analysis using Infernal.
+Modified blast runnable for specific use with miRNA
+Use for running BLASTN of genomic sequence vs miRNAs prior to 
+miRNA anaysis
 Slice size seems best around 200k
 
 =head1 CONTACT
@@ -34,13 +34,13 @@ sw4@sanger.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::RunnableDB::BlastRfam;
+package Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA;
 
 use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::Blast;
-use Bio::EnsEMBL::Analysis::Runnable::BlastRfam;
+use Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
@@ -52,16 +52,14 @@ use vars qw(@ISA);
 
 =head2 fetch_input
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Function  : fetch sequence out of database, instantiate the filter, 
-  parser and finally the blast runnable
-  Returntype: 1
+  Arg [1]   : None
+  Function  : fetch sequence out of database, instantiate the filter,
+            : parser and finally the blast runnable
+  Returntype: None
   Exceptions: none
-  Example   : 
+  Example   : $blast->fetch_input;
 
 =cut
-
-
 
 sub fetch_input{
   my ($self) = @_;
@@ -89,7 +87,7 @@ sub fetch_input{
     $filter = $self->make_filter;
   }
   my $seq = $self->query;
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastRfam->new
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA->new
     (
      -query    => $seq,
      -program  => $self->analysis->program_file,
