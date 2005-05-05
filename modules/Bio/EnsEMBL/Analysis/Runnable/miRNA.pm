@@ -1,3 +1,4 @@
+
 # Ensembl module for Bio::EnsEMBL::Analysis::Runnable::miRNA
 #
 # Copyright (c) 2004 Ensembl
@@ -47,6 +48,8 @@ use warnings;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Exon;
+use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Gene;
 
 use vars qw(@ISA);
@@ -54,15 +57,6 @@ use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 my $verbose = "yes";
-
-# need to open the MI files and store them all in temp and load them as bio::seq 
-# into memory and store them as a hash keyed on the id of the mirna as it
-# appears in the blast.fasta files....
-
-# need to look at the blast result and the cigar line and make the alignment
-# that corresponds to the miRNA
-
-# need to make gene objects if it is deemed neccessary
 
 =head2 new
 
@@ -106,7 +100,7 @@ sub run{
   $self->get_miRNAs;
   my %queries = %{$self->queries};
   $self->throw("Cannot find query sequences $@\n") unless %queries;
-  print STDERR "Run analysis" if $verbose;
+  print STDERR "Run analysis\n" if $verbose;
  FAM:  foreach my $family (keys %queries){
   DAF:foreach my $daf (@{$queries{$family}}){
       # Does the alignment contain the mature sequence?
@@ -172,41 +166,46 @@ sub get_miRNAs{
 sub run_analysis{
   my ($self,$daf)=@_;
   my %miRNAs = %{$self->miRNAs};
-  my @mature;
+  my @all_mature;
+  my @mature_aligns;
   if ($self->get_mature($daf)){
-    @mature = @{$self->get_mature($daf)}
+    @all_mature = @{$self->get_mature($daf)}
   } else {
     # ignore if you dont have a mature form identified.
     $self->warn("No mature sequence identified for sequence ".$daf->hseqname." $@\n");
     return 0;
   }
-  my $miRNA = $miRNAs{$daf->hseqname};
-  my $miRNA_length = $mature[1] - $mature[0];
-  # change the U to T so as not to confuse the BioPerl
-  my $seq = $miRNA->seq;
-  $seq =~ s/[uU]/T/g;
-  # make a fake slice to use as the hit sequence
-  my $slice = Bio::EnsEMBL::Slice->new
-    (
-     -seq_region_name => $daf->hseqname,
-     -start           => 1,
-     -end             => $miRNA->length,
-     -seq             => $seq,
-     -strand          => 1,
-     -coord_system    => $daf->slice->coord_system,
-    );
-  $daf->hslice($slice);
-  # make an alignment of just the mature sequence
-  my $temp_align = $daf->restrict_between_positions($mature[0],$mature[1],"HSEQ");
-  return 0 unless $temp_align;
-  $slice = $daf->feature_Slice;
-  my $align = $temp_align->transfer($slice);
-  my $align_length = $align->hend - $align->hstart;
-  # is the enitre mature sequence present in the alignment?
-  return 0 unless ( $align_length >= $miRNA_length );
-  # is the mature alignment of high enough percent identity?
-  return 0 unless ( $align->percent_id >= 90 );
-  return $align;
+  # can have more than 1 mature sequence per hairpin
+  foreach my $mature(@all_mature){
+    my $miRNA = $miRNAs{$daf->hseqname};
+    my $miRNA_length = $mature->{'end'} - $mature->{'start'};
+    # change the U to T so as not to confuse the BioPerl
+    my $seq = $miRNA->seq;
+    $seq =~ s/[uU]/T/g;
+    # make a fake slice to use as the hit sequence
+    my $slice = Bio::EnsEMBL::Slice->new
+      (
+       -seq_region_name => $daf->hseqname,
+       -start           => 1,
+       -end             => $miRNA->length,
+       -seq             => $seq,
+       -strand          => 1,
+       -coord_system    => $daf->slice->coord_system,
+      );
+    $daf->hslice($slice);
+    # make an alignment of just the mature sequence
+    my $temp_align = $daf->restrict_between_positions($mature->{'start'},$mature->{'end'},"HSEQ");
+    next unless $temp_align;
+    $slice = $daf->feature_Slice;
+    my $align = $temp_align->transfer($slice);
+    my $align_length = $align->hend - $align->hstart;
+    # is the enitre mature sequence present in the alignment?
+    next unless ( $align_length >= $miRNA_length );
+    # is the mature alignment of high enough percent identity?
+    next unless ( $align->percent_id >= 90 );
+    push @mature_aligns,$align;
+  }
+  return \@mature_aligns;
 }
 
 =head2 RNAfold
@@ -226,6 +225,8 @@ sub RNAfold{
   my $options ="";
   my $results_file = $self->create_filename("RNAfold","txt");
   $self->files_to_delete($results_file);
+  # delete the postcript file that RNAfold generates
+  $self->files_to_delete("/tmp/".substr($daf->hseqname,0,7)."_ss.ps");
   $self->resultsfile($results_file);
   $command .= " $filename ";
   $command .= "$options 2>&1 > ".$results_file;
@@ -307,6 +308,7 @@ sub get_mature{
   my ($self,$query)=@_;
   my %miRNAs = %{$self->miRNAs};
   my $miRNA = $miRNAs{$query->hseqname};
+  my @mature;
   $self->throw("Unable to locate miRNA fom embl file that corresponds to ".
 	       $query->hseqname."$@ \n") unless $miRNA;
   my @feats = $miRNA->can('top_SeqFeatures') ? $miRNA->top_SeqFeatures : ();
@@ -318,15 +320,15 @@ sub get_mature{
       }
       my $location =  $fth->loc;
       if ($location =~ /(\d+)\.+(\d+)/){
-	my @mature=($1,$2);
-	return \@mature;
+	push @mature,{ 'start' => $1,
+		       'end'   => $2
+		     };
       } else {
 	$self->throw("Cannot parse mature coordinates\n");
       }
     }
   }
-# There are sequences for which no mature miRNA can be found, ignore them.
-  return 0;
+  return \@mature;
 }
 
 
@@ -342,11 +344,9 @@ sub get_mature{
 =cut
 
 sub make_gene{
-  my ($self,$daf,$structure,$align) = @_;
+  my ($self,$daf,$structure,$aligns) = @_;
   my %miRNAs = %{$self->miRNAs};
   my @mature;
-  @mature = @{$self->get_mature($daf)};
-  return 0 unless @mature;
   my %gene_hash;
   my $description = $miRNAs{$daf->hseqname}->display_id;
   my @attributes;
@@ -380,13 +380,15 @@ sub make_gene{
       );
     push @attributes,$str_attrib;
   }
-  my $miRNA_attrib = Bio::EnsEMBL::Attribute->new
+  foreach my $align(@$aligns){
+    my $miRNA_attrib = Bio::EnsEMBL::Attribute->new
       (-CODE => 'miRNA',
        -NAME => 'Micro RNA',
        -DESCRIPTION => 'Coordinates of the mature miRNA',
        -VALUE => $align->start."-".$align->end,
       );
     push @attributes,$miRNA_attrib;
+  }
   # gene
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->type('miRNA');
@@ -484,35 +486,40 @@ sub encode_str{
 }
 
 sub display_stuff{
-  my ($self,$daf,$structure,$align)=@_;
-  my @mature;
-  @mature = @{$self->get_mature($daf)};
-  print STDERR $daf->hseqname." miRNA at ".$mature[0]." ".$mature[1]." ";
+  my ($self,$daf,$structure,$aligns)=@_;
+  my @all_mature;
+  @all_mature = @{$self->get_mature($daf)};
+  foreach my $mature (@all_mature){
+    print STDERR $daf->hseqname." miRNA at ".$mature->{'start'}." ".$mature->{'end'}."\n ";
+  }
   print STDERR "target strand ".$daf->strand."\n";
   print STDERR "Query start end ".$daf->hstart.":".$daf->hend.
     " strand ".$daf->hstrand."\n";
   print STDERR "Start ".$daf->start." end ".$daf->end.
     " Hit end ".$daf->hstart." hit end ".$daf->hend."\n";
-  my $simple = $align->get_SimpleAlign;
-  foreach my $seq ( $simple->each_seq() ) {
-    print STDERR $seq->seq."\n";
-  }
-  print STDERR $simple->match_line."\n";
-  print STDERR "\n";
-  $simple = $daf->get_SimpleAlign;
-  foreach my $seq ( $simple->each_seq() ) {
-    print STDERR $seq->seq."\n";
-  }
-  print STDERR $simple->match_line."\n";
-  print STDERR "\n";
-  print STDERR "$structure\n";
+  foreach my $align(@{$aligns}){
+    my $simple = $align->get_SimpleAlign;
+    foreach my $seq ( $simple->each_seq() ) {
+      print STDERR $seq->seq."\n";
+    }
+    print STDERR $simple->match_line."\n";
+    print STDERR "\n";
+    $simple = $daf->get_SimpleAlign;
+    foreach my $seq ( $simple->each_seq() ) {
+      print STDERR $seq->seq."\n";
+    }
+    print STDERR $simple->match_line."\n";
+    print STDERR "\n";
+    print STDERR "$structure\n";
 
-  for (my $i=1 ; $i<= $align->start;$i++) {
-    print STDERR ".";
+    for (my $i=1 ; $i<= $align->start;$i++) {
+      print STDERR ".";
+    }
+    print STDERR substr($daf->seq,$align->start-1,$align->end-$align->start+1);
+    print STDERR "\nMirna position = ".$align->start." ". $align->end."\n";
   }
-  print STDERR substr($daf->seq,$align->start-1,$align->end-$align->start+1);
-  print STDERR "\nMirna position = ".$align->start." ". $align->end."\n";
 }
+
 
 ##################################################################################
 # Containers
