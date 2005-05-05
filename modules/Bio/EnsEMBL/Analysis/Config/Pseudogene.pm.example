@@ -45,15 +45,16 @@ use vars qw( %Pseudogene );
 	       # this cutoff are ignored (80%) is suggested
 	       PS_PERCENT_ID_CUTOFF   => 80,
 	       # analysis logic names to run over genes falling into these categories
-	       SINGLE_EXON      => 'spliced_elsewhere',
-	       INDETERMINATE    => 'psilc',
+	       SINGLE_EXON      => '',
+	       INDETERMINATE    => '',
 	       RETROTRANSPOSED  => '',
 	       # if you dont wish to run further tests on retro transposed genes
 	       # What type would you like to give them?
-	       RETRO_TYPE       => 'pseudogene',
-	       SPLICED_ELSEWHERE_LOGIC_NAME => 'spliced_elsewhere',
-	       PSILC_LOGIC_NAME => 'psilc',
+	       RETRO_TYPE       => '',
+	       SPLICED_ELSEWHERE_LOGIC_NAME => '',
+	       PSILC_LOGIC_NAME => '',
 
+               # Ignore the following config unless also running PSILC and/or Spliced_elsewhere
 
 	       # SPLICED ELSEWHERE SPECIFIC CONFIG
 	       # ratio of the spans of the retrotransposed gene vs its spliced homologue
