@@ -105,7 +105,7 @@ sub run{
   DAF:foreach my $daf (@{$queries{$family}}){
       # Does the alignment contain the mature sequence?
       my $align = $self->run_analysis($daf);
-      next DAF unless ($align);
+      next DAF unless (scalar @$align);
       my $filename = $self->write_seq($daf);
       # does the sequence fold ino a hairpin ?
       next DAF unless $self->RNAfold($daf,$filename);
@@ -512,7 +512,7 @@ sub display_stuff{
     print STDERR "\n";
     print STDERR "$structure\n";
 
-    for (my $i=1 ; $i<= $align->start;$i++) {
+    for (my $i=1 ; $i< $align->start;$i++) {
       print STDERR ".";
     }
     print STDERR substr($daf->seq,$align->start-1,$align->end-$align->start+1);
