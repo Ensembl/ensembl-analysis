@@ -30,9 +30,7 @@ Creates and runs the miRNA runnable.
 
 =head1 CONTACT
 
-
-sw4@sanger.ac.uk
-
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
@@ -133,7 +131,7 @@ sub family{
 #    } else { 
 #      print "Familly $key rejected had  ".scalar(@{$families{$key}})." members\n";
 #    }
-  } 
+  }
   return \%filtered_fam;
 }
 

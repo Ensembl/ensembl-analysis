@@ -32,8 +32,7 @@ evalue to represent that cluster.
 
 =head1 CONTACT
 
-
-sw4@sanger.ac.uk
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 
 =cut
@@ -170,12 +169,9 @@ sub cluster{
     }
     foreach my $domain (keys %family_cluster){
       my @temp_array = @{$family_cluster{$domain}};
-      foreach my $fink (@temp_array){
-      }
       # get highest scoring alignment for each family to be representative
       @temp_array = sort{$a->p_value <=> $b->p_value} @temp_array;
       push @representative_sequences,shift @temp_array;
-      my $fink = pop @representative_sequences;
     }
   }
   return \@representative_sequences;

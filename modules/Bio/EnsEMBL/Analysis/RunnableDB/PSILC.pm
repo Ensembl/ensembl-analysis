@@ -54,9 +54,8 @@ Bio::EnsEMBL::Analysis::Config::Pseudogene.pm
 
 =head1 CONTACT
 
-Simon White
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
-sw4@sanger.ac.uk
 
 =cut
 

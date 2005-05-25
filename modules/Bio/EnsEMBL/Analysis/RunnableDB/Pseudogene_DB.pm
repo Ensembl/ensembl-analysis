@@ -10,7 +10,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
 
 =head1 SYNOPSIS
 
-my $runnabledb = Bio::EnsEMBL::Pipeline::RunnableDB::Pseudogene_DB->new(
+my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB->new(
 						-db => $db_adaptor,
 						-input_id => $slice_id,		
 					        -analysis => $analysis,
@@ -49,7 +49,7 @@ Bio::EnsEMBL::Analysis::Config::Pseudogene
 
 =head1 CONTACT
 
-Simon White sw4@sanger.ac.uk
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =head1 APPENDIX
 

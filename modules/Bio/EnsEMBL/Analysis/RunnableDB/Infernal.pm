@@ -40,7 +40,7 @@ in a length encoded string form to take up less room in the db.
 
 Simon White
 
-sw4@sanger.ac.uk
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 

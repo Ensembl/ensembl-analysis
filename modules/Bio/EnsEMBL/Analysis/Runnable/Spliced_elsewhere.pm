@@ -27,9 +27,7 @@ Uses Bio::EnsEMBL::Analysis::Config::Pseudogene for config
 
 =head1 CONTACT
 
-Simon White
-
-sw4@sanger.ac.uk
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 

@@ -28,9 +28,7 @@ Slice size seems best around 200k
 
 =head1 CONTACT
 
-
-sw4@sanger.ac.uk
-
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
