@@ -152,17 +152,19 @@ sub cluster{
     my @cluster;
     $start ++;
     next DAFS unless($daf);	
-    my $RFAM = substr($daf->hseqname,0,7);
     push @cluster,$daf;
   MATCHES:  for (my $index = $start; $index <= $#dafs ; $index ++){
       next MATCHES unless ($dafs[$index]);
       if ($daf->overlaps($dafs[$index])){
-	push @cluster,$daf;;
+	  $dafs[$index]->hseqname."\t".
+	    $dafs[$index]->p_value."\n";
+	push @cluster,$dafs[$index];
 	$dafs[$index] = undef;
       }
     }
     @cluster = sort{$a->p_value <=> $b->p_value} @cluster;
-    push @representative_sequences,shift @cluster;
+    my $daf = shift @cluster;
+    push @representative_sequences, $daf;
   }
   return \@representative_sequences;
 }
