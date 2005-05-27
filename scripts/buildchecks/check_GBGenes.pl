@@ -3,7 +3,86 @@
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 
 
-# Maintained by:  Steve Searle (searle@sanger.ac.uk)
+# any questions please send to ensembl-dev@ebi.ac.uk
+
+=head1 NAME
+
+check_GBGenes.pl
+
+=head1 SYNOPSIS
+
+perl check_GBGenes.pl -chromosome 1 -coordsystem chromosome -transcripts
+
+This will run the transcript checks on chromosome 1 on the final database and
+reference database specified in Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases
+
+=head1 DESCRIPTION
+
+This script runs a series of tests on genes in the database it is pointed
+too. These tests are described in more detail in the various perl
+modules in this directory
+
+=head1 OPTIONS
+
+  -host database host
+  -user database user
+  -pass database password
+  -port database port
+  -dbname database name
+  -dnahost host for dna database
+  -dnaport port for dna database
+  -dnadbname name for dna database
+
+  These settings by default are taken from:
+  Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases
+
+  -ignorewarnings flag to specify whether to ignore the warnings in the 
+                  code
+
+  This is take by default from:
+  Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder
+
+
+  -chromosome name of seq region to get genes from
+  -coordsystem name of the coordinate system the seq region belongs to
+
+  these are both obligatory options
+
+  -chrstart the start coordinate of the piece of seq region to fetch
+  -chrend the end coordinate of the piece of seq region to fetch
+
+  without these the whole seq region if fetched
+
+  -duplicates check for duplicate exons (off by default)
+  -transcripts check the transcripts (on by default)
+
+  -help print the perl docs
+
+=head1 EXAMPLES
+
+perl check_GBGenes.pl -chromosome 1 -coordsystem chromosome -transcripts
+
+runs the standard checks on chromosomes using the databases defined in
+configuration
+
+
+perl check_GBGenes.pl -chromosome 3 -coordsystem chromosome -duplicates
+-host yourhost -user youruser -port 3306 -dbname yourdb -dnahost yourhost
+-dnaport 3306 -dnadbname yourdnadb
+
+runs the standard checks and checks for duplicate exons on the database
+specified on the commandline
+
+=head1 NOTES
+
+Note this script uses several settings from the 
+Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder
+
+Also this scripts uses several modules which can be found in this directory
+so you need to make sure you run the script in this directory or 
+alternatively put this directory in your PERL5LIB
+
+=cut
 
 use strict;
 use Getopt::Long;
@@ -92,7 +171,7 @@ my $exon_dup_check = 0;
 my $check_transcripts = 1;
 my $schema = 20;
 my $coordsystem = 'chromosome';
-
+my $help;
 &GetOptions(
             'host:s'           => \$host,
             'user:s'           => \$user,
@@ -111,11 +190,17 @@ my $coordsystem = 'chromosome';
             'schema:n'         => \$schema,
             'duplicates!'      => \$exon_dup_check,
             'transcripts!'     => \$check_transcripts,
-           );
+            'help!' => \$help,
+           ) or perldocs("Failed to get options");
 
 if (!defined($host) || !defined($dbname)) {
   die "ERROR: Must at least set host (-host), dbname (-dbname)\n" .
-      "       (options can also be set in GeneBuilder.pm)\n";
+      "       (options can also be set ".
+        "Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases)\n";
+}
+
+if($help){
+  perldocs();
 }
 
 if (scalar(@chromosomes)) {
@@ -420,4 +505,11 @@ sub find_duplicate_exons {
     $ndup++;
   }
   print "Total number of duplicate pairs = $ndup\n";
+}
+
+sub perldocs{
+  my ($msg) = @_;
+  print $msg."\n" if($msg);
+  exec('perldoc', $0);
+  exit(0);
 }
