@@ -98,7 +98,7 @@ my $help;
 
 perldocs() if($help);
 
-if(!$dbhost || !$dbname || $dbuser){
+if(!$dbhost || !$dbname || !$dbuser){
   throw("Must pass in host, user and dbname with -host $dbhost -user $dbuser".
         " -dbname $dbname ");
 

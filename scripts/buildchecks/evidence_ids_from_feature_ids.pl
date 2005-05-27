@@ -23,7 +23,7 @@ a the gene  with the given dbID
   -pass database password
   -port database port
   -dbname database name
-  -feature_id dbID of feature to get ids for
+  -feature_id dbID or stable id of feature to get ids for
   -evidence_type protein_align_feature or dna_align_feature, protein by
   default
   -id_type gene or transcript gene by default
@@ -102,7 +102,7 @@ my $help;
 
 perldocs() if($help);
 
-if(!$dbhost || !$dbname || $dbuser){
+if(!$dbhost || !$dbname || !$dbuser){
   throw("Must pass in host, user and dbname with -host $dbhost -user $dbuser".
         " -dbname $dbname ");
 
@@ -135,6 +135,10 @@ if($protein_file){
 }
 
 foreach my $id(@$ids){
+  if($id =~ /^\w+/){
+    my $temp = $id;
+    $id = $evidence_info->dbID_from_stable_id($temp);
+  }
   $evidence_info->evidence_ids_from_feature_id($id);
 }
 

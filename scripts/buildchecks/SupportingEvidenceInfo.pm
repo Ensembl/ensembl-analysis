@@ -216,6 +216,20 @@ sub feature_ids_from_evidence_id{
 
 
 
+sub dbID_from_stable_id{
+  my ($self, $stable_id, $id_type, $db) = @_;
+  $db = $self->db if(!$db);
+  $id_type = $self->id_type if(!$id_type);
+  my $sql = "select ".$id_type."_id ".
+    "from ".$id_type."_stable_id ".
+      "where stable_id = ?";
+  print "SQL: $sql \n" if($self->verbose);
+  my $sth = $db->dbc->prepare($sql);
+  $sth->execute($stable_id);
+  my ($dbID) = $sth->fetchrow;
+  return $dbID;
+}
+
 =head2 fetch_descriptions
 
   Arg [1]   : SupportingEvidenceInfo
