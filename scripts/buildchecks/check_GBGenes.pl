@@ -24,10 +24,10 @@ modules in this directory
 
 =head1 OPTIONS
 
-  -host database host
-  -user database user
-  -pass database password
-  -port database port
+  -dbhost database host
+  -dbuser database user
+  -dbpass database password
+  -dbport database port
   -dbname database name
   -dnahost host for dna database
   -dnaport port for dna database
@@ -173,10 +173,10 @@ my $schema = 20;
 my $coordsystem = 'chromosome';
 my $help;
 &GetOptions(
-            'host:s'           => \$host,
-            'user:s'           => \$user,
-            'pass:s'           => \$pass,
-            'port:n'           => \$port,
+            'dbhost|host:s'           => \$host,
+            'dbuser|user:s'           => \$user,
+            'dbpass|pass:s'           => \$pass,
+            'dbport|port:n'           => \$port,
             'dbname:s'         => \$dbname,
             'dnahost:s'        => \$dnahost,
             'dnaport:n'        => \$dnaport,

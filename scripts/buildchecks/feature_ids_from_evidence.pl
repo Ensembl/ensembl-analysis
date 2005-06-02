@@ -18,10 +18,10 @@ evidence identified
 
 =head1 OPTIONS
 
-  -host database host
-  -user database user
-  -pass database password
-  -port database port
+  -dbhost database host
+  -dbuser database user
+  -dbpass database password
+  -dbport database port
   -dbname database name
   -evidence_id dbID of feature to get ids for
   -evidence_type protein_align_feature or dna_align_feature, protein by
@@ -81,11 +81,11 @@ my $id_type = 'gene';
 my $verbose;
 my $help;
 &GetOptions( 
-            'host=s'      => \$dbhost,
+            'dbhost|host=s'      => \$dbhost,
             'dbname=s'      => \$dbname,
-            'user=s'      => \$dbuser,
-            'pass=s'      => \$dbpass,
-            'port=s'      => \$dbport,
+            'dbuser|user=s'      => \$dbuser,
+            'dbpass|pass=s'      => \$dbpass,
+            'dbport|port=s'      => \$dbport,
             'evidence_id=s' => \$protein_id,
             'evidence_type=s' => \$table_name,
             'id_type=s' => \$id_type,

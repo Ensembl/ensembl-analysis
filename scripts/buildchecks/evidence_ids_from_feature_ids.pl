@@ -18,10 +18,10 @@ a the gene  with the given dbID
 
 =head1 OPTIONS
 
-  -host database host
-  -user database user
-  -pass database password
-  -port database port
+  -dbhost database host
+  -dbuser database user
+  -dbpass database password
+  -dbport database port
   -dbname database name
   -feature_id dbID or stable id of feature to get ids for
   -evidence_type protein_align_feature or dna_align_feature, protein by
@@ -84,11 +84,11 @@ my $verbose;
 my $pfetch = 1;
 my $help;
 &GetOptions( 
-            'host=s'      => \$dbhost,
+            'dbhost|host=s'      => \$dbhost,
             'dbname=s'      => \$dbname,
-            'user=s'      => \$dbuser,
-            'pass=s'      => \$dbpass,
-            'port=s'      => \$dbport,
+            'dbuser|user=s'      => \$dbuser,
+            'dbpass|pass=s'      => \$dbpass,
+            'dbport|port=s'      => \$dbport,
             'feature_id=s' => \$protein_id,
             'evidence_type=s' => \$table_name,
             'id_type=s' => \$id_type,
