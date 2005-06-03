@@ -42,7 +42,7 @@ use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Gene;
-
+use Bio::EnsEMBL::DBEntry;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -114,7 +114,7 @@ sub run{
 sub run_analysis{
   my ($self) = @_;
   my $db =  $self->analysis->db_file.$self->query->display_id.".cm";
-  my $command  =  '/nfs/acari/sw4/local/bin/cmsearch';
+  my $command  =  $self->program;
   my %thresholds = %{$self->thresholds};
   my $domain = $self->query->display_id;
   my $filename = $self->queryfile;
@@ -159,7 +159,7 @@ sub parse_results{
   my $domain = substr($daf->hseqname,0,7);
   my %thresholds = %{$self->thresholds};
   my $threshold = $thresholds{$domain}{'thr'};
-#  $threshold = 0.6;
+#  $threshold = 0.1;
   print STDERR "Domain $domain has threshold $threshold\n" if $verbose;
   my $results = $self->resultsfile;
   my $ff = $self->feature_factory;
@@ -206,7 +206,8 @@ sub parse_results{
       $end = $3;
       $score = $4+$5/100;
       print STDERR "hit - $hit\nscore - $score\n" if $verbose;;
-      if ($score >= $threshold){ 
+      if ($score >= $threshold){
+	$daf->score($score);
 	if ($end < $start){
 	  $strand = -1;
 	  my $temp = $end;
@@ -483,47 +484,49 @@ sub decode_str{
 sub make_gene{
   my ($self,$start,$end,$strand,$daf,$str) = @_;
   my $domain = substr($daf->hseqname,0,7);
-  my %descriptions = %{$self->descriptions}; 
+  my %descriptions = %{$self->descriptions};
+  my %thresholds = %{$self->thresholds};
+  my $padding = $thresholds{$domain}{'win'};
   my %gene_hash;  
   my @attributes;
   # exons
   my $slice = $daf->feature_Slice;
+  # need to remove padding from exon coordinates to put them in the correct place
   my $exon = Bio::EnsEMBL::Exon->new
     (
-     -start => $start,
-     -end   => $end,
+     -start => $start-$padding,
+     -end   => $end-$padding,
      -strand => $strand,
      -slice => $slice,
      -phase => 0,
      -end_phase => (($end - $start + 1)%3)
     );
-
+   # Only allow exons that overlap the origional dna_align_feature
+  return unless $exon->overlaps($daf->transfer($slice));
   $exon->add_supporting_features($daf->transfer($slice));
   # transcripts
   my $transcript = Bio::EnsEMBL::Transcript->new;
   $transcript->add_Exon($exon);
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
-  if ($str){
-    my @codes = @{$self->encode_str($str)};
-    foreach my $code(@codes){
-      my $str_attrib = Bio::EnsEMBL::Attribute->new
-	(-CODE => 'ncRNA',
-	 -NAME => 'Structure',
-	 -DESCRIPTION => 'RNA secondary structure line',
-	 -VALUE => $code
-	);
-      push @attributes,$str_attrib;
-    }
-  }
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->type('ncRNA');
-  $gene->description($descriptions{$domain});
+  $gene->description($descriptions{$domain}." [Source: RFAM 7.0]");
   print STDERR "Rfam_id $domain ".$descriptions{$domain}."\n"if $verbose;;
   $gene->analysis($self->analysis);
-  $gene->add_Transcript($transcript);  
+  $gene->add_Transcript($transcript);
+  # XREFS
+  my $xref = Bio::EnsEMBL::DBEntry->new
+    (
+     -primary_id => substr($daf->hseqname,0,7),
+     -display_id => substr($daf->hseqname,0,7),
+     -dbname => 'RFAM',
+     -release => 1,
+    );
+
   $gene_hash{'gene'} = $gene;
-  $gene_hash{'attrib'} = \@attributes;
+  $gene_hash{'attrib'} = $str;
+  $gene_hash{'xref'} = $xref;
   $self->output(\%gene_hash)
 }
 
@@ -546,13 +549,17 @@ sub get_sequence{
   my $domain = substr($daf->hseqname,0,7);
   my %thresholds = %{$self->thresholds};
   my $padding = $thresholds{$domain}{'win'};
-  print STDERR "Using padding of $padding\t"if $verbose;;
-  $daf->start($daf->start - $padding);
-  $daf->end($daf->end + $padding);
+  print STDERR "Using padding of $padding\t"if $verbose;
+  # add padding
+  $daf->start($daf->start-$padding);
+  $daf->end($daf->end+$padding);
   my $seq = Bio::Seq->new(
 			    -seq => $daf->seq,
 			    -display_id => $domain,
 			   );
+  # remove padding
+  $daf->start($daf->start+$padding);
+  $daf->end($daf->end-$padding);
   print STDERR " total seq length = "if $verbose;;
   print $seq->length."\n"if $verbose;;
   return $seq;

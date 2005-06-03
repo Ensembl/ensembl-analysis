@@ -221,7 +221,7 @@ sub run_analysis{
 
 sub RNAfold{
   my ($self,$daf,$filename)=@_;
-  my $command  = "/usr/local/ensembl/bin/RNAfold < ";
+  my $command  = $self->analysis->program_file." > ";
   my $options ="";
   my $results_file = $self->create_filename("RNAfold","txt");
   $self->files_to_delete($results_file);
@@ -348,7 +348,8 @@ sub make_gene{
   my %miRNAs = %{$self->miRNAs};
   my @mature;
   my %gene_hash;
-  my $description = $miRNAs{$daf->hseqname}->display_id;
+  my $description = $miRNAs{$daf->hseqname}->display_id.
+    " [Source: miRNA Registry 6.0]";
   my @attributes;
   # exons
   my $slice = $daf->slice;
@@ -395,8 +396,17 @@ sub make_gene{
   $gene->description($description);
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
+  # XREFS
+  my $xref = Bio::EnsEMBL::DBEntry->new
+    (
+     -primary_id => $daf->hseqname,
+     -display_id => $daf->hseqname,
+     -dbname => 'miRNA_Registry',
+     -release => 1,
+    );  
   $gene_hash{'gene'} = $gene;
   $gene_hash{'attrib'} = \@attributes;
+  $gene_hash{'xref'} = $xref;
   $self->output(\%gene_hash);
 }
 

@@ -149,10 +149,13 @@ sub write_output{
   my ($self) = @_;
   my $adaptor = $self->gene_db->get_GeneAdaptor;
   my $aa = $self->gene_db->get_AttributeAdaptor;
-  my @attributes;
+  my $dbea = $self->gene_db->get_DBEntryAdaptor;
+  my @attributes; 
+  my $xref;
   foreach my $gene_hash (@{$self->output}){
     my $gene = $gene_hash->{'gene'};
     @attributes = @{$gene_hash->{'attrib'}};
+    $xref = $gene_hash->{'xref'};
     $gene->analysis($self->analysis);
     $gene->slice($self->query) if(!$gene->slice);
     $self->feature_factory->validate($gene);
@@ -166,6 +169,8 @@ sub write_output{
     foreach my $trans (@{$gene->get_all_Transcripts}){
       eval{
 	$aa->store_on_Transcript($trans,\@attributes);
+	$dbea->store($xref, $trans->dbID, 'Transcript') if $xref;
+	$self->gene_db->get_TranscriptAdaptor->update($trans);
       };
       if($@){
 	$self->throw("miRNA:store failed, failed to write ".@attributes." on transcript ".
