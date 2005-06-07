@@ -261,7 +261,15 @@ sub run {
                                         \@cds_feats);
 
     #my $alignment_chains = $self->genomic_align_block_chains;
-    #$alignment_chains = $self->remove_pseudogene_chains($alignment_chains);
+    if (defined $self->PSEUDOGENE_CHAIN_FILTER) {
+      my $hash = $self->PSEUDOGENE_CHAIN_FILTER;
+
+      $alignment_chains = 
+          $self->remove_pseudogene_chains($alignment_chains,
+                                          $hash->{MIN_NON_FUSION_SEPARATION},
+                                          $hash->{MAX_PROPORTION_FUSIONS}
+                                          );
+    }
 
     for(my $iteration=0; ;$iteration++) {
       
@@ -270,6 +278,7 @@ sub run {
       #$self->print_chains($filtered_chains, "CHAINS LEFT");
       
       $filtered_chains = $self->remove_interfering_chains($filtered_chains);
+                                                         
       #$self->print_chains($filtered_chains, "CONSISTENT CHAINS");
       
       if ($self->NO_CONTIG_SPLITS) { 
@@ -1880,40 +1889,6 @@ sub get_all_Transcripts {
 
 
 ###################################################################
-# FUNCTION: make_alignment_net
-#
-# Description:
-#    Takes a list of chains of GenomicAlignBlocks and computes 
-#    a query-oriented "Net" so that no bp on the query sequence 
-#    is covered by more than one target sequence. 
-####################################################################
-
-sub make_alignment_net {
-  my ($self, $chains) = @_;
-
-  # make hashes for lengths of query and target
-  my (%q_len, %t_lens);
-  $q_len{$self->query_slice->seq_region_name} = 
-      $self->query_slice->length;
-
-  foreach my $k (keys %{$self->target_slices}) {
-    my $ts = $self->target_slices->{$k};
-    $t_lens{$ts->seq_region_name} = $ts->length;
-  }
-
-  my $run = Bio::EnsEMBL::Analysis::Runnable::AlignmentNets->
-      new(-analysis       => Bio::EnsEMBL::Analysis->new(),
-          -chains         => $chains,
-          -query_lengths  => \%q_len,
-          -target_lengths => \%t_lens,
-          -chainnet       => $self->CHAIN_NET);
-  $run->run;
-  
-  return $run->output;
-}
-
-
-###################################################################
 # FUNCTION: make_alignment_net_simple
 #
 # Description:
@@ -2084,51 +2059,82 @@ sub remove_interfering_chains {
     $b->{score} <=> $a->{score};
   } @sorted_chains;
   
-  #foreach my $c (@sorted_chains) {
   for(my $i=0; $i < @sorted_chains; $i++) {
     next if $rejected_chains[$i];
 
     my $c = $sorted_chains[$i];
 
-    my @conflict_overlaps;
+    my @these_blocks = @{$c->{blocks}};
+    my (@ov_blocks, @non_ov_blocks, @ov_chains);
+
+
     foreach my $kc (@kept_chains) {
       if ($c->{qstart} <= $kc->{qend} and 
           $c->{qend} >= $kc->{qstart}) {
-        # overlap. Need to check whether the contigs of the
-        # repective scaffolds can be teased apart to explain
-        # the overlap
-        my $block_overlap = 0;
-        BLOCK: foreach my $b (@{$c->{blocks}}) {
-          my $qga = $b->reference_genomic_align;
-          foreach my $kb (@{$kc->{blocks}}) {
-            my $k_qga = $kb->reference_genomic_align;
 
-            if ($qga->dnafrag_start <= $k_qga->dnafrag_end and
-                $qga->dnafrag_end >= $k_qga->dnafrag_start) {
-              $block_overlap = 1;
-              last;
-            }
-          }
-        }
-        if ($block_overlap) {
-          push @conflict_overlaps, $kc;
-        }
+        push @ov_chains, $kc;
       }
     }
 
-    if (@conflict_overlaps) {
-      # also reject all lower scoring chains of the same target
-      for(my $j=$i+1; $j < @sorted_chains; $j++) {
-        if ($sorted_chains[$j]->{tid} eq $c->{tid}) {
-          $rejected_chains[$j] = 1;
+    foreach my $b (@these_blocks) {
+      my $qga = $b->reference_genomic_align;
+
+      my $block_overlap = 0;
+
+      KCHAIN: foreach my $kc (@ov_chains) {
+        foreach my $kb (@{$kc->{blocks}}) {
+          
+          my $k_qga = $kb->reference_genomic_align;
+          
+          if ($qga->dnafrag_start <= $k_qga->dnafrag_end and
+              $qga->dnafrag_end >= $k_qga->dnafrag_start) {
+            $block_overlap = 1;
+            last KCHAIN;
+          }
         }
       }
-    } else {
+
+      if ($block_overlap) {
+        push @ov_blocks, $b;
+      } else {
+        push @non_ov_blocks, $b;
+      }
+    }
+
+    if (not @ov_blocks) {
+      # no overlapping blocks, so keep chain as is
       push @kept_chains, $c;
-    } 
+    } else {
+      # if the amount of overlap only constitutes a small proportion
+      # of the chain, keep the chain (with the overlapping blocks
+      # removed)
+
+      my ($overlap_cov, $total_cov) = (0,0);
+
+      foreach my $b (@non_ov_blocks) {
+        my $ga = $b->reference_genomic_align;
+        $total_cov       += $ga->dnafrag_end - $ga->dnafrag_start + 1;
+      }
+      foreach my $b (@ov_blocks) {
+        my $ga = $b->reference_genomic_align;
+        $overlap_cov += $ga->dnafrag_end - $ga->dnafrag_start + 1;
+        $total_cov   += $ga->dnafrag_end - $ga->dnafrag_start + 1;
+      }
+
+      if ($overlap_cov / $total_cov < $self->OVERLAP_CHAIN_FILTER) {
+        $c->{blocks} = \@non_ov_blocks;
+        push @kept_chains, $c;
+      } else {
+        # also reject all lower scoring chains of the same target
+        for(my $j=$i+1; $j < @sorted_chains; $j++) {
+          if ($sorted_chains[$j]->{tid} eq $c->{tid}) {
+            $rejected_chains[$j] = 1;
+          }
+        }
+      }
+    }
   }
   
-
   return [map { $_->{blocks} } @kept_chains];
 }
 
@@ -2268,10 +2274,10 @@ sub remove_contig_split_chains {
 #  This function removes chains that look like processed pseudogenes
 #  in the target. These can be spotted by having a large extent in
 #  the query sequence but a relatively small extent in the target
-#  sequence (which gaps between target blocks < 5bp in all cases)
+#  sequence (which gaps between target blocks < 10bp in all cases)
 ###################################################################
 sub remove_pseudogene_chains {
-  my ($self, $chains) = @_;
+  my ($self, $chains, $min_sep, $max_prop_sep) = @_;
 
   my @kept_chains;
 
@@ -2289,10 +2295,10 @@ sub remove_pseudogene_chains {
         my ($this_t) = @{$b->get_all_non_reference_genomic_aligns};
 
         if ((($last_t->dnafrag_strand < 0 and
-            $last_t->dnafrag_start - $this_t->dnafrag_end + 1 < 5) or
+            $last_t->dnafrag_start - $this_t->dnafrag_end + 1 <= $min_sep) or
             ($last_t->dnafrag_strand > 0 and
-             $this_t->dnafrag_start - $last_t->dnafrag_end + 1 < 5)) and
-            $this_q->dnafrag_start - $last_q->dnafrag_end + 1 >= 5) {
+             $this_t->dnafrag_start - $last_t->dnafrag_end + 1 <= $min_sep)) and
+            $this_q->dnafrag_start - $last_q->dnafrag_end + 1 > $min_sep) {
           $fusion_events++;
         }
 
@@ -2301,7 +2307,7 @@ sub remove_pseudogene_chains {
       $last_b = $b;
     }
 
-    if ($fusion_events / $total_events < 0.75) {
+    if ($total_events == 0 or $fusion_events / $total_events <= $max_prop_sep) {
       push @kept_chains, $c;
     }
   }
@@ -2768,22 +2774,33 @@ sub TARGET_CORE_DB {
   return $self->{_target_core_db};
 }
 
+# chain filtering
 
-sub CHAIN_NET {
+sub PSEUDOGENE_CHAIN_FILTER {
   my ($self, $val) = @_;
-
+  
   if (defined $val) {
-    $self->{_chain_net} = $val;
+    $self->{_pseudogene_chain_filter} = $val;
   }
 
-  if (exists $self->{_chain_net}) {
-    return $self->{_chain_net};
-  } else {
-    return '/usr/local/ensembl/bin/chainNet';
+  return $self->{_pseudogene_chain_filter};
+}
+
+sub OVERLAP_CHAIN_FILTER {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    $self->{_overlap_chain_filter} = $val;
   }
+  if (not exists($self->{_overlap_chain_filter})) {
+    $self->{_overlap_chain_filter} = 0;
+  }
+
+  return $self->{_overlap_chain_filter};
 }
 
 
+# transcript filtering
 
 sub MIN_COVERAGE {
   my ($self, $val) = @_;
