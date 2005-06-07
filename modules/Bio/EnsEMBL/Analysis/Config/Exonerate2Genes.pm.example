@@ -52,6 +52,14 @@ use vars qw( %Config );
 %Config = (
            EXONERATE_CONFIG_BY_LOGIC => {
              DEFAULT => {
+	       # The GENOMICSEQS can be a file (string, A.), a directory with files (string, B.)
+	       # or an anonymous array containing the names of multiple directories (array of strings, C.).
+               # In the latter case the order of appearance will determine the usage of directories and files;
+               # new versions should therefore be listed in the first directory.
+               # format: A. '/your/soft/masked/genome.fa'
+                      or B. '/your/soft/masked/genomeDIR'
+                      or C. ['/your/soft/masked/genomeDIR_1', '/your/soft/masked/genomeDIR_2']
+
                GENOMICSEQS         => '/your/soft/masked/genome.fa',
                QUERYTYPE           => undef,
                QUERYSEQS           => undef,
@@ -60,7 +68,7 @@ use vars qw( %Config );
                FILTER              => undef,
                COVERAGE_BY_ALIGNED => undef,
                OPTIONS             => undef,
-	       #set to undef if non-reference regions should NOT be fetched
+	       #set to undef if non-reference regions should NOT be fetched (e.g. DR52 in human)
                NONREF_REGIONS      => 1,
              },
 

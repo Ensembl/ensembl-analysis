@@ -17,7 +17,6 @@ my $exonerate2genes = Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes->new(
 			      -query_seqs => \@sequences,
 			      -query_type => 'dna',
 			     );
-    
 
 $exonerate2genes->fetch_input();
 $exonerate2genes->run();
@@ -40,7 +39,7 @@ Post general queries to B<ensembl-dev@ebi.ac.uk>
 =head1 APPENDIX
 
 The rest of the documentation details each of the object methods.
-Internal methods are usually preceded with a _
+Internal methods are usually preceded with a '_'
 
 =cut
 
@@ -82,22 +81,44 @@ sub fetch_input {
   my @db_files;
   my $target = $self->GENOMICSEQS;
 
-  if (-e $target and -d $target) {
-    # genome is in a directory; the directory must contain the complete
-    # genome else we cannot fo best-in-genome filtering. 
+  if(ref $target eq 'ARRAY'){
+    # genome is in multiple directories;  the order of directories determines
+    # which file is used in case of duplicates. New versions should therefore
+    # be in the directory listed first.
     foreach my $chr_name ($self->get_chr_names) {
-      if (-s "$target/$chr_name.fa") {
-        push @db_files, "$target/$chr_name.fa";
-      } else {
-        warning( "Could not find fasta file for '$chr_name in '$target'\n");
+      my $found = 0;
+      DIRCHECK:
+        foreach my $alt_target (@$target){
+	  if (-s "$alt_target/$chr_name.fa") {
+	    push @db_files, "$alt_target/$chr_name.fa";
+	    $found = 1;
+	    last DIRCHECK;
+	  }
+	}
+      if(!$found){
+	warning( "Could not find fasta file for '$chr_name' in directories:\n".
+		 join("\n\t", @$target)."\n");
       }
     }
   }
-  elsif (-e $target and -s $target) {
-    # genome sequence is in a single file
-    @db_files = ($target);
-  } else {
-    throw("'$target' refers to something that could not be made sense of");
+  else{
+    if (-e $target and -d $target) {
+      # genome is in a directory; the directory must contain the complete
+      # genome else we cannot do best-in-genome filtering. 
+      foreach my $chr_name ($self->get_chr_names) {
+	if (-s "$target/$chr_name.fa") {
+	  push @db_files, "$target/$chr_name.fa";
+	} else {
+	  warning( "Could not find fasta file for '$chr_name' in '$target'\n");
+	}
+      }
+    }
+    elsif (-e $target and -s $target) {
+      # genome sequence is in a single file
+      @db_files = ($target);
+    } else {
+      throw("'$target' refers to something that could not be made sense of");
+    }
   }
 
   ##########################################
