@@ -188,11 +188,16 @@ sub fetch_input {
   }
   
   my %parameters = (-analysis             => $self->analysis, 
+                    -chains               => [values %features_by_group],
                     -query_lengths        => \%query_lengths,
                     -target_lengths       => \%target_lengths,
-                    -chains               => [values %features_by_group],
-                    -chainNet             =>  $BIN_DIR . "/" . "chainNet");
-  
+                    -min_chain_score      => $self->MIN_CHAIN_SCORE);
+  if ($self->SIMPLE_NET) {
+    $parameters{-simple_net} = $self->SIMPLE_NET;
+  } else {
+    $parameters{-chainNet} = $BIN_DIR . "/" . "chainNet";
+  }  
+
   my $run = Bio::EnsEMBL::Analysis::Runnable::AlignmentNets->new(%parameters);
   $self->runnable($run);
 
@@ -244,5 +249,15 @@ sub TARGET_SPECIES {
   return $self->{_target_species};
 }
 
+
+sub SIMPLE_NET {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_simple_net} = $val;
+  }
+
+  return $self->{_simple_net};
+}
 
 1;

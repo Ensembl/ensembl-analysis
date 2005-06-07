@@ -378,7 +378,7 @@ sub convert_output {
              -dnafrag_end    => $daf->end,
              -dnafrag_strand => $daf->strand,
              -cigar_line     => $q_cigar,
-             -level_id       => $daf->level_id,
+             -level_id       => $daf->level_id ? $daf->level_id : 1,
              -method_link_species_set => $out_mlss);
         
         my $t_genomic_align = Bio::EnsEMBL::Compara::GenomicAlign->new
@@ -387,7 +387,7 @@ sub convert_output {
              -dnafrag_end    => $daf->hend,
              -dnafrag_strand => $daf->hstrand,
              -cigar_line     => $t_cigar,
-             -level_id       => $daf->level_id,
+             -level_id       => $daf->level_id ? $daf->level_id : 1,
              -method_link_species_set => $out_mlss);
         
         my $gen_al_block = Bio::EnsEMBL::Compara::GenomicAlignBlock->new
@@ -486,6 +486,22 @@ sub MAX_GAP {
 
   return $self->{_max_gap};
 }
+
+
+sub MIN_CHAIN_SCORE {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_min_chain_score} = $val ;
+  }
+  if (not exists $self->{_min_chain_score}) {
+    return undef;
+  } else {
+    return $self->{_min_chain_score};
+  }
+}
+
+
 
 sub GROUP_TYPE {
   my ($self, $val) = @_;
