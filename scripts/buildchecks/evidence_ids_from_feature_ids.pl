@@ -135,7 +135,7 @@ if($protein_file){
 }
 
 foreach my $id(@$ids){
-  if($id =~ /^\w+/){
+  if(!($id =~ /^\d+/)){
     my $temp = $id;
     $id = $evidence_info->dbID_from_stable_id($temp);
   }
