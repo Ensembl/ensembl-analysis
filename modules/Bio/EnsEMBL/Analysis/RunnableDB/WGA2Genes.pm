@@ -143,6 +143,7 @@ sub fetch_input {
     }
 
     $self->genes(\@genes);
+
   } else {
     # assume iid is a gene stable id
     my ($gene);
@@ -169,6 +170,23 @@ sub fetch_input {
       $reg_end   = $t->end   
           if not defined $reg_end   or $t->end   > $reg_end;
     }
+  }
+
+  if ($self->PSEUDOGENE_CHAIN_FILTER) {
+    my @repeat_features;
+    my $res_slice = $sa->fetch_by_region('toplevel',
+                                         $self->query_slice->seq_region_name,
+                                         $reg_start,
+                                         $reg_end);
+    foreach my $rf (@{$res_slice->get_all_RepeatFeatures('RepeatMask')}) {
+      $rf = $rf->transfer($self->query_slice);
+      
+      next if $rf->start < $self->query_slice->start;
+      next if $rf->end > $self->query_slice->end;
+      
+      push @repeat_features, $rf;
+    }  
+    $self->query_repeats(\@repeat_features);
   }
 
   ################################################################
@@ -260,15 +278,16 @@ sub run {
         $self->remove_irrelevant_chains($self->genomic_align_block_chains,
                                         \@cds_feats);
 
-    #my $alignment_chains = $self->genomic_align_block_chains;
-    if (defined $self->PSEUDOGENE_CHAIN_FILTER) {
-      my $hash = $self->PSEUDOGENE_CHAIN_FILTER;
+    #$self->print_chains($alignment_chains, "RELEVANT CHAINS");
 
+    if ($self->PSEUDOGENE_CHAIN_FILTER) {
       $alignment_chains = 
           $self->remove_pseudogene_chains($alignment_chains,
-                                          $hash->{MIN_NON_FUSION_SEPARATION},
-                                          $hash->{MAX_PROPORTION_FUSIONS}
+                                          $self->PCF_MAX_FUSION_INTERVAL,
+                                          $self->PCF_MAX_REPEAT_IN_INTERVAL
                                           );
+
+      #$self->print_chains($alignment_chains, "AFTER PG REMOVAL");
     }
 
     for(my $iteration=0; ;$iteration++) {
@@ -2274,19 +2293,26 @@ sub remove_contig_split_chains {
 #  This function removes chains that look like processed pseudogenes
 #  in the target. These can be spotted by having a large extent in
 #  the query sequence but a relatively small extent in the target
-#  sequence (which gaps between target blocks < 10bp in all cases)
+#  sequence (which gaps between target blocks < 10bp in all cases).
+#  A conservative strategy is adopted whereby every block interval
+#  in the query has to be small or repeat-filled, and separations
+#  in the target are not considered if they are repeat filled
 ###################################################################
 sub remove_pseudogene_chains {
-  my ($self, $chains, $min_sep, $max_prop_sep) = @_;
+  my ($self, $chains, $min_sep, $max_repeat) = @_;
 
   my @kept_chains;
+
 
   foreach my $c (@$chains) {
     my ($last_b);
 
-    my $total_events = 0;
-    my $fusion_events = 0;
+    my $real_separations = 0;
+    my $total_fusions = 0;
+    my $t_name;
+
     foreach my $b (@$c) {
+
       if (defined $last_b) {
         my $last_q = $last_b->reference_genomic_align;
         my ($last_t) = @{$last_b->get_all_non_reference_genomic_aligns};
@@ -2294,22 +2320,67 @@ sub remove_pseudogene_chains {
         my $this_q = $b->reference_genomic_align;
         my ($this_t) = @{$b->get_all_non_reference_genomic_aligns};
 
-        if ((($last_t->dnafrag_strand < 0 and
-            $last_t->dnafrag_start - $this_t->dnafrag_end + 1 <= $min_sep) or
-            ($last_t->dnafrag_strand > 0 and
-             $this_t->dnafrag_start - $last_t->dnafrag_end + 1 <= $min_sep)) and
-            $this_q->dnafrag_start - $last_q->dnafrag_end + 1 > $min_sep) {
-          $fusion_events++;
-        }
+        $t_name = $this_t->dnafrag->name;
 
-        $total_events++;
+        my $q_interval_start =  $last_q->dnafrag_end + 1;
+        my $q_interval_end   =  $this_q->dnafrag_start - 1;
+        my $q_interval_length = $q_interval_end - $q_interval_start + 1;
+
+        my ($t_interval_start, $t_interval_end);
+        if ($last_t->dnafrag_strand < 0) {
+          $t_interval_start = $this_t->dnafrag_end   + 1;
+          $t_interval_end   = $last_t->dnafrag_start - 1;
+        } else {
+          $t_interval_start = $last_t->dnafrag_end   + 1;
+          $t_interval_end   = $this_t->dnafrag_start - 1;
+        }
+        my $t_interval_length = $t_interval_end - $t_interval_start + 1;
+
+        # is this a "real" block separation? We define a real separation
+        # as one in which the gap on both sides is large, or if the gap
+        # on one side is large and that gap is not occupied completely
+        # by repeat
+
+        if ($q_interval_length >= $min_sep and
+            $t_interval_length >= $min_sep) {
+          $real_separations++;
+        } elsif ($q_interval_length >= $min_sep and 
+            $t_interval_length < $min_sep) {
+
+          # calculate how much of the interval contains repeats
+          my $overlap = 0;
+          foreach my $rf (@{$self->query_repeats}) {
+            if ($rf->end >= $q_interval_start and 
+                $rf->start <= $q_interval_end) {
+              # overlap
+              my $ov_start = $rf->start; 
+              $ov_start = $q_interval_start if $q_interval_start > $ov_start;
+
+              my $ov_end = $rf->end; 
+              $ov_end = $q_interval_end if $q_interval_end < $ov_end;
+ 
+              $overlap += $ov_end - $ov_start + 1;
+            }
+          }
+
+          if ($overlap / $q_interval_length < $max_repeat) {
+            $real_separations++;
+            $total_fusions++;
+          } else {
+            # seems to be an artefactual separation caused by repeat
+            # insertion since divergence. Ignore this block pair
+          }
+        }
       }
       $last_b = $b;
     }
 
-    if ($total_events == 0 or $fusion_events / $total_events <= $max_prop_sep) {
+    # if there are real separations, and they are ALL fusions in the 
+    # target, then we assert that this is a pseudogene chain
+    if ($real_separations == 0 or $total_fusions < $real_separations) {
       push @kept_chains, $c;
     }
+
   }
 
   return \@kept_chains;
@@ -2589,21 +2660,27 @@ sub write_gene {
 
     my $pep = $tran->translate->seq;
     if ($pep =~ /^X/) {
-      printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tXAtPepStart\t%d\n", 1);
+      printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%d\n",
+             "XAtPepStart", 
+             1);
     }
     if ($pep =~ /X$/) {
-      printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tXAtPepEnd\t%d\n", 1);
+      printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%d\n",
+             "XAtPepEnd", 
+             1);
     }
 
     my $num_stops = $tran->translate->seq =~ tr/*/*/;
 
-    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tNumStops\t%d\n", 
+    printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%d\n", 
+           "NumStops", 
            $num_stops);
-    printf($fh "$prefix \##\-ATTRIBUTE $tran_id\tHitCoverage\t%.2f\n", 
+    printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%.2f\n", 
+           "HitCoverage",
            $sf->hcoverage);
     
     foreach my $attr (@{$tran->get_all_Attributes}) {
-      printf($fh "$prefix \##\-ATTRIBUTE $tran_id\t%s\t%s\n", 
+      printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%s\n",
              $attr->code, 
              $attr->value);
     }
@@ -2659,17 +2736,6 @@ sub write_gene {
 # gets/sets
 ###########################
 
-sub genes {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_genes} = $val;
-  }
-
-  return $self->{_genes};
-}
-
-
 sub genomic_align_block_chains {
   my ($self, $val) = @_;
 
@@ -2680,6 +2746,37 @@ sub genomic_align_block_chains {
   return $self->{_gen_al_chains};
 }
 
+sub genes {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_genes} = $val;
+  }
+
+  return $self->{_genes};
+}
+
+sub query_repeats {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    # make sure given list is non-overlapping
+    my @nr;
+    foreach my $rf (sort {$a->start <=> $b->start} @$val) {
+      if (not @nr or $nr[-1]->end < $rf->start) {
+        push @nr, $rf;
+      } else {
+        if ($rf->end > $nr[-1]->end) {
+          $nr[-1]->end($rf->end);
+        }
+      }
+    }
+
+    $self->{_query_repeat_feats} = \@nr;
+  }
+  
+  return $self->{_query_repeat_feats};
+}
 
 sub query_slice {
   my ($self, $val) = @_;
@@ -2782,9 +2879,27 @@ sub PSEUDOGENE_CHAIN_FILTER {
   if (defined $val) {
     $self->{_pseudogene_chain_filter} = $val;
   }
-
-  return $self->{_pseudogene_chain_filter};
 }
+
+sub PCF_MAX_FUSION_INTERVAL {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    $self->{_pcf_max_fusion_interval} = $val;
+  }
+  return $self->{_pcf_max_fusion_interval};
+}
+
+sub PCF_MAX_REPEAT_IN_INTERVAL {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    $self->{_pcf_max_repeat_in_interval} = $val;
+  }
+  return $self->{_pcf_max_repeat_in_interval};
+}
+
+
 
 sub OVERLAP_CHAIN_FILTER {
   my ($self, $val) = @_;
