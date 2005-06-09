@@ -51,6 +51,11 @@ dbID 1 and print out the descriptions from pfetch
 
 =head1 NOTES
 
+By default this script gets the evidence associated with all exons which
+are part of the gene or transcript id passed in. If the -primary_evidence
+tag is used only the transcript_supporting_evidence table is queryed so
+only primary evidence is returned
+
 Note this uses a module which is found in this directory so you must
 either run this script in your directory or put this directory in your
 PERL5LIB

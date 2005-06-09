@@ -49,6 +49,12 @@ This will find the transcript ids associated with dna evidence NM_082790.1
 
 =head1 NOTES
 
+By default this script joins to the transcript table from the align_feature
+tables via the exon and supporting_feature tables but if the primary
+evidence tag is used it will only look to the transcript_supporting_feature
+table so only find features which have the evidence supplied as primary
+evidence
+
 Note this uses a module which is found in this directory so you must
 either run this script in your directory or put this directory in your
 PERL5LIB
