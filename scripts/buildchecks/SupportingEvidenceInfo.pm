@@ -42,9 +42,9 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
   Arg [1]   : SupportingEvidenceInfo
   Arg [2]   : value of variable
   Function  : container for specified variable. This pod refers to the
-  six methods below, db, verbose, info, evidence_type, id_type and 
-  have_pfetch. These are simple containers which dont do more than hold and 
-  return an given value
+  seven methods below, db, verbose, info, evidence_type, id_type 
+  have_pfetch and primary_evidence. These are simple containers which do no
+  more than hold and return an given value
   Returntype: value of variable
   Exceptions: some throw if type is incorrect
   Example   : my $db = SupportingEvidenceInfo->db;
@@ -104,6 +104,13 @@ sub have_pfetch{
   return $self->{'have_pfetch'};
 }
 
+sub primary_evidence{
+  my ($self, $value) = @_;
+  if(defined($value)){
+    $self->{'primary_evidence'} = $value;
+  }
+  return $self->{'primary_evidence'};
+}
 
 
 
@@ -125,7 +132,7 @@ sub have_pfetch{
 
 
 sub evidence_ids_from_feature_id{
-  my ($self, $transcript_id, $id_type, $evidence_type, $db) = @_;
+  my ($self, $transcript_id, $id_type, $evidence_type, $primary, $db) = @_;
   if(!$db){
     $db = $self->db;
   }
@@ -135,16 +142,20 @@ sub evidence_ids_from_feature_id{
   if(!$id_type){
     $id_type = $self->id_type;
   }
+  if(!$primary){
+    $primary = $self->primary_evidence;
+  }
   my @protein_ids;
-  my $sql = ("select distinct(hit_name) ".
-             "from $evidence_type, supporting_feature, ".
-             "exon_transcript, exon, transcript ".
-             "where ".$evidence_type."_id = feature_id ".
-             "and feature_type = '$evidence_type'". 
-             "and supporting_feature.exon_id = exon_transcript.exon_id ". 
-             "and exon_transcript.transcript_id = ".
-             "transcript.transcript_id ".
-             "and transcript.".$id_type."_id = $transcript_id");
+  my $sql;
+  if($primary){
+    $sql = $self->primary_evidence_from_feature_id_sql($transcript_id,
+                                                       $evidence_type,
+                                                       $id_type);
+  }else{
+    $sql = $self->evidence_from_feature_id_sql($transcript_id,
+                                               $evidence_type,
+                                               $id_type);
+  }
   print "SQL: ".$sql."\n" if($self->verbose);
   my $sth = $db->dbc->prepare($sql);
   $sth->execute();
@@ -178,7 +189,8 @@ sub evidence_ids_from_feature_id{
 
 
 sub feature_ids_from_evidence_id{
-  my ($self, $evidence_id, $gene_type, $evidence_type, $id_type, $db) = @_;
+  my ($self, $evidence_id, $gene_type, $evidence_type, $id_type, 
+      $primary, $db) = @_;
   if(!$db){
     $db = $self->db;
   }
@@ -188,17 +200,21 @@ sub feature_ids_from_evidence_id{
   if(!$id_type){
     $id_type = $self->id_type;
   }
-  my $sql = ("SELECT distinct(transcript.".$id_type."_id) ".
-             "FROM transcript, exon_transcript, supporting_feature, ".
-             "protein_align_feature, gene ".
-             "WHERE hit_name = '$evidence_id' ".
-             "AND ".$evidence_type."_id = feature_id ".
-             "AND feature_type = '$evidence_type' ".
-             "AND supporting_feature.exon_id = exon_transcript.exon_id ".
-             "AND exon_transcript.transcript_id = ".
-             "transcript.transcript_id ".
-             "AND transcript.gene_id = gene.gene_id");
-  $sql .= " AND type = '".$gene_type."'" if($gene_type);
+  if(!$primary){
+    $primary = $self->primary_evidence;
+  }
+  my $sql;
+  if($primary){
+    $sql = $self->feature_id_from_primary_evidence_sql($evidence_id,
+                                                       $evidence_type,
+                                                       $id_type,
+                                                       $gene_type);
+  }else{
+    $sql = $self->feature_id_from_evidence_sql($evidence_id,
+                                               $evidence_type,
+                                               $id_type,
+                                               $gene_type);
+  }
   print "SQL:".$sql."\n" if($self->verbose);
   my $sth = $db->dbc->prepare($sql);
   $sth->execute();
@@ -348,3 +364,83 @@ sub read_id_file{
   close(FH) or throw("Failed to close ".$file);
   return \@ids;
 }
+
+
+#Methods to return the SQL
+
+
+=head2 sql methods
+
+  Arg [1]   : SupportingEvidenceInfo
+  Function  : These methods all take arguments to be used to produce
+  an sql string to be used in order to fetch either evidence or feature
+  ids. What is different is if they fetch on the basis of primary evidence
+  associated with whole transcripts or all the evidence associated with each
+  exon
+  Returntype: string
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+
+sub primary_evidence_from_feature_id_sql{
+  my ($self, $feature_id, $evidence_type, $id_type) = @_;
+  my $sql = ("SELECT distinct(hit_name) ".
+             "FROM transcript, ".
+             "transcript_supporting_feature, ".
+             "$evidence_type ".
+             "WHERE transcript.".$id_type."_id = ".$feature_id." ".
+             "and transcript.transcript_id = ".
+             "transcript_supporting_feature.transcript_id ".
+             "and feature_type = '".$evidence_type."' ".
+             "and feature_id = ".$evidence_type."_id ");
+  return $sql;
+}
+
+sub evidence_from_feature_id_sql{
+  my ($self, $feature_id, $evidence_type, $id_type) = @_;
+  my $sql = ("select distinct(hit_name) ".
+             "from $evidence_type, supporting_feature, ".
+             "exon_transcript, exon, transcript ".
+             "where ".$evidence_type."_id = feature_id ".
+             "and feature_type = '$evidence_type'". 
+             "and supporting_feature.exon_id = exon_transcript.exon_id ". 
+             "and exon_transcript.transcript_id = ".
+             "transcript.transcript_id ".
+             "and transcript.".$id_type."_id = $feature_id");
+  return $sql;
+}
+
+sub feature_id_from_primary_evidence_sql{
+  my ($self, $evidence_id, $evidence_type, $id_type, $gene_type) = @_;
+  my $sql = ("SELECT distinct(transcript.".$id_type."_id) ".
+             "FROM transcript, transcript_supporting_feature, ".
+             "gene, $evidence_type ".
+             "WHERE transcript.gene_id = gene.gene_id ".
+             "and transcript.transcript_id = ".
+             "transcript_supporting_feature.transcript_id ".
+             "and feature_type  = '$evidence_type' ".
+             "and feature_id = ".$evidence_type."_id ".
+             "and hit_name = '$evidence_id' ");
+  $sql .= "and biotype = '".$gene_type."' " if($gene_type);
+  return $sql;
+}
+
+sub feature_id_from_evidence_sql{
+  my ($self, $evidence_id, $evidence_type, $id_type, $gene_type) = @_;
+  my $sql = ("SELECT distinct(transcript.".$id_type."_id) ".
+             "FROM transcript, exon_transcript, supporting_feature, ".
+             "$evidence_type, gene ".
+             "WHERE hit_name = '$evidence_id' ".
+             "AND ".$evidence_type."_id = feature_id ".
+             "AND feature_type = '$evidence_type' ".
+             "AND supporting_feature.exon_id = exon_transcript.exon_id ".
+             "AND exon_transcript.transcript_id = ".
+             "transcript.transcript_id ".
+             "AND transcript.gene_id = gene.gene_id");
+  $sql .= " AND biotype = '".$gene_type."'" if($gene_type);
+  return $sql;
+}
+

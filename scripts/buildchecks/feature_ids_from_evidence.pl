@@ -28,6 +28,7 @@ evidence identified
   default
   -id_type gene or transcript gene by default
   -gene_type type from gene table
+  -primary_evidence, only consider primary evidence
   -id_list_file file containing a list of dbIDs
   -info print out descriptions of the ids
   -verbose print out information about the run
@@ -80,6 +81,7 @@ my $info;
 my $id_type = 'gene';
 my $verbose;
 my $help;
+my $only_primary;
 &GetOptions( 
             'dbhost|host=s'      => \$dbhost,
             'dbname=s'      => \$dbname,
@@ -89,6 +91,7 @@ my $help;
             'evidence_id=s' => \$protein_id,
             'evidence_type=s' => \$table_name,
             'id_type=s' => \$id_type,
+            'primary_evidence!' => \$only_primary, 
             'gene_type=s' => \$gene_type,
             'id_list_file=s' => \$protein_file,
             'info!' => \$info,
@@ -122,7 +125,7 @@ $evidence_info->verbose($verbose);
 $evidence_info->evidence_type($table_name);
 $evidence_info->id_type($id_type);
 $evidence_info->info($info);
-
+$evidence_info->primary_evidence($only_primary);
 my $ids = [];
 if($protein_file){
   $ids = $evidence_info->read_id_file($protein_file);
