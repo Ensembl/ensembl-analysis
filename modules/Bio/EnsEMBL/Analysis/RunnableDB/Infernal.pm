@@ -38,8 +38,6 @@ in a length encoded string form to take up less room in the db.
 
 =head1 CONTACT
 
-Simon White
-
 Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
