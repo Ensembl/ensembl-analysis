@@ -23,7 +23,7 @@ Runnable for Infernal (Runs ncRNA analysis on blast hits).
 Wraps cmsearch, part of the Infernal suite of programs by Sean Eddy.
 Parses results to build non-coding gene objects and a representation
 of secondary structure which is string length encoded and stored as a 
-transcript attribute (currently)
+transcript attribute
 
 =head1 CONTACT
 
@@ -43,6 +43,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::DBEntry;
+use Bio::EnsEMBL::Analysis::Runnable::RNAFold;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -54,9 +55,9 @@ my $verbose = "yes";
   Title      : new
   Usage      : my $runnable = Bio::EnsEMBL::Analysis::Runnable::Infernal->new
   Function   : Instantiates new Infernal runnable
-  Returns    : Infernal object
+  Returns    : Bio::EnsEMBL::Analysis::Runnable::Infernal object
   Exceptions : none
-  Args       : Array ref of dna align features
+  Args       : Array ref of Bio::EnsEMBL::DnaDnaAlignFeature objects
 
 =cut
 
@@ -76,7 +77,7 @@ sub new {
   Usage      : my $runnable->run;
   Function   : Runs the runnable
   Returns    : None
-  Exceptions : none
+  Exceptions : Throws if no query sequence is provided
   Args       : None
 
 =cut
@@ -84,16 +85,26 @@ sub new {
 sub run{
   my ($self) = @_;
   my $queries = $self->queries;
+  my @attributes;
   foreach my $query (@$queries){
     $self->query($self->get_sequence($query));
-    throw("Can't run ".$self." without a query sequence") 
+    $self->throw("Can't run ".$self." without a query sequence") 
       unless($self->query);
     $self->checkdir();
+    # write the seq file
     my $filename = $self->write_seq_file();
     $self->files_to_delete($filename);
     $self->files_to_delete($self->resultsfile);
+    # run cmsearch
     $self->run_analysis();
-    $self->parse_results($query);
+    # parse the cmsearch results file - make a hash containing all 
+    # the results ordered by score;
+    my $results = $self->parse_results($query);
+    next unless($results);
+    # make the gene object out of the highest scoring result that
+    # overlaps the blast hit
+    my $gene = $self->make_gene($results,$query);
+    $self->output($gene) if $gene;
   }
   $self->delete_files;
   return 1;
@@ -122,35 +133,43 @@ sub run_analysis{
   $self->files_to_delete($results_file);
   $self->resultsfile($results_file);
   $command .= " -W ".$thresholds{$domain}{'win'};
-  if($thresholds{$domain}{'mode'} =~ /local/) {
-	$command .= " --local";
-    }
+  if ($thresholds{$domain}{'mode'} =~ /local/) {
+    $command .= " --local";
+  }
   $command .= " $db  $filename > $results_file";
   print STDOUT "Running infernal ".$command."\n" if $verbose;
   open(my $fh, "$command |") || 
     $self->throw("Error opening Infernal cmd <$command>." .
-	  " Returned error $? Infernal EXIT: '" .
-	  ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
-	  "', There was " . ($? & 128 ? 'a' : 'no') .
-	  " core dump");
+		 " Returned error $? Infernal EXIT: '" .
+		 ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
+		 "', There was " . ($? & 128 ? 'a' : 'no') .
+		 " core dump");
+  # this loop reads the STDERR from the blast command
+  while (<$fh>) {
+    if (/FATAL:(.+)/) {
+      my $match = $1;
+      $self->throw("Infernal failed to run - $match \n");
+    }
+  }
 }
 
 =head2 parse_results
 
   Title      : parse_results
   Usage      : $runnable->parse_results(\@dna_align_features)
-  Function   : Parses cmsearch output: rejects alignments where score is below 
-             : the threshold defined for the RFAM familly in question.
+  Function   : Parses all cmsearch output: rejects alignments where score is below 
+             : the threshold defined for the RFAM family in question.
              : The thresholds are defined in the file /data/blastdb/Rfam/Rfam.thr.
              : A dna_align_feature representing the initial RFAM blast hit is used to determine 
-             : the familly and position on the genome.
+             : the family and position on the genome.
+             : Parses all the results (there can be more than one) and stores them in
+             : an array of hashes which is then sorted by the cmsearch score
   Returns    : None
   Exceptions : Throws if it cannot find, open or close the cmsearch output
-  Args       : Bio::EnsEMBL::DnaDnaAlignFeature
+  Args       : ref to array of hashes
 
 =cut
 
-  # hit 1   :    201    266    40.08 bits
 sub parse_results{
   my ($self, $daf) = @_;
   my @dafs;
@@ -159,7 +178,6 @@ sub parse_results{
   my $domain = substr($daf->hseqname,0,7);
   my %thresholds = %{$self->thresholds};
   my $threshold = $thresholds{$domain}{'thr'};
-#  $threshold = 0.1;
   print STDERR "Domain $domain has threshold $threshold\n" if $verbose;
   my $results = $self->resultsfile;
   my $ff = $self->feature_factory;
@@ -167,7 +185,7 @@ sub parse_results{
     $self->throw("Can't parse an no existance results file ".$results.
           " Infernal:parse_results");
   }
-  my @output;
+  my @results;
   my ($hit,$start,$end,$score,$strand,$str) =0;
   open(INFERNAL, $results) or $self->throw("FAILED to open ".$results.
 				    " INFERNAL:parse_results");
@@ -176,7 +194,11 @@ sub parse_results{
     if ($_ =~ /^hit/){
       if ($score &&  $threshold && $score > $threshold && $align->{'name'}){
 	$str = $self->parse_structure($align);
-	push @output, $self->make_gene($start,$end,$strand,$daf,$str);
+	push @results, {str => $str,
+			score => $score,
+			start => $start,
+			end   => $end,
+			strand=> $strand};		
       }	
       $align = {};
       $align->{'name'} = $domain ;
@@ -207,7 +229,6 @@ sub parse_results{
       $score = $4+$5/100;
       print STDERR "hit - $hit\nscore - $score\n" if $verbose;;
       if ($score >= $threshold){
-	$daf->score($score);
 	if ($end < $start){
 	  $strand = -1;
 	  my $temp = $end;
@@ -228,10 +249,22 @@ sub parse_results{
     print STDERR "positve result at ".$daf->seq_region_name.":".$daf->seq_region_start."-".$daf->seq_region_end." strand ".
       $daf->strand."\n" if $verbose;
     $str = $self->parse_structure($align);
-    $self->make_gene($start,$end,$strand,$daf,$str);
+    push @results, {str => $str,
+		    score => $score,
+		    start => $start,
+		    end   => $end,
+		    strand=> $strand};
   }
   close(INFERNAL) or $self->throw("FAILED to close ".$results.
 			   " INFERNAL:parse_results");
+  # sort the results to get the highest scoring infernal alignment
+  @results = sort {$b->{'score'} <=> $a->{'score'}} @results;
+  if (@results){
+    return \@results;
+  }
+  else {
+    return;
+  }
 }
 
 =head2  parse_structure
@@ -240,9 +273,9 @@ sub parse_results{
   Usage      : my $structure = $runnable->parse_structure(\%hash_ref_containing_parsed_cmsearch_results)
   Function   : Parses cmsearch alignment to create a structure line which represents the
              : predicted secondary structure of the ungaped sequence
-  Returns    : Bio::EnsEMBL::Attribute object representing a string length encoded form of the structure line
+  Returns    : String representing a run length encoded form of the structure line
   Exceptions : Throws if it cannot find, open or close  the cmsearch output
-  Args       : None
+  Args       : ref to an array of hashes wrapping the cmsearch output alignment
 
 =cut
 
@@ -308,7 +341,8 @@ sub parse_structure{
       next;
     }
     # skip over if you have a missmatch
-    if ($align->{'match'}[$i] eq ' '){
+    if ($align->{'match'}[$i] eq ' ' or
+	$align->{'match'}[$i] eq ':'){
       $matches[$i] = '.';
       next;
     }
@@ -338,171 +372,69 @@ sub parse_structure{
       $matchstring.= $matches[$i];
     }
   }
-  my @codes = @{$self->encode_str($matchstring)};
-  foreach my $code(@codes){
-    my $attribute = Bio::EnsEMBL::Attribute->new
-      (-CODE => 'ncRNA',
-       -NAME => 'Structure',
-       -DESCRIPTION => 'RNA secondary structure line',
-       -VALUE => $code
-      );
-    push @attributes,$attribute;
-  }
-  return \@attributes;
+  # make all characters into either (,),or .
+  $matchstring =~  s/[\<\[\{]/(/g;
+  $matchstring =~  s/[\>\]\}]/)/g;
+  $matchstring =~  s/[,:_-]/./g;
+  return $matchstring;
 }
 
-=head2 encode_str
-
-  Title      : encode_str
-  Usage      : my $encoded_str = $runnable->encode_string($string)
-  Function   : Does string length encoding to reduce size of structure string
-             : splits strings if they are longer then 200 charchters so they 
-             : will fit in the transcript attribute table, gives a range value
-             : at the start of the string indicating the start and stop positions of the 
-             : structure on the transcript
-  Returns    : String
-  Exceptions : None
-  Args       : String
-
-=cut
-
-sub encode_str{
-  my ($self,$string)= @_;
-  my @codes;
-  my $start = 1;
-  my $count=0;
-  my $code;
-  my @elements = split //,$string;
-  my $last_chr = "";
-  my @array =[];
-  foreach my $chr (@elements){
-    $count++;
-    if ($chr eq $last_chr){
-	push @array,$chr;
-      }
-    else {
-      if ($code && length($code) > 200 && scalar(@array) == 1){
-	push @codes,"$start:$count\t$code";
-	$code = undef;
-	$start = $count+1;
-      }
-      # Character has changed print it and the associated array length
-      if (scalar(@array) > 1){
-	$code .= scalar(@array);
-	@array = [];
-      }
-      $code .= "$chr";
-      $last_chr = $chr;
-    }
-  }
-# last element
-  if (scalar(@array) > 1){
-    $code .= scalar(@array);
-  }
-  push @codes,"$start:$count\t$code";
-  return \@codes;
-}
-
-=head2 decode_str
-
-  Title      : decode_str
-  Usage      : my $decoded_string = $runnable->decode_string($string)
-  Function   : Does simple string length decoding.
-  Returns    : String
-  Exceptions : None
-  Args       : String
-
-=cut
-
-sub decode_str{
-  my ($self,$attributes)= @_;
-  my $code;
-  my $offset = 0;
-  my $chr;
-  my $string;
-  my $start;
-  my $end;
-  my $num = 0;
-  my $str = "";
-  my %str_hash;
-  foreach my $attribute (@$attributes){
-    my $value = $attribute->value;
-    # remove string header;
-    if ($value =~ /(\d+):\d+\t(.+)/){
-      $str_hash{$1} = $2;
-    } else {
-      $self->throw("Cannot parse encoded string $attribute\n");
-    }
-  }
-  my @sorted_attributes = sort { $str_hash{$a} cmp $str_hash{$b} } keys %str_hash;
-  foreach my $order (@sorted_attributes){
-    $string = $str_hash{$order};
-    $num =0;
-    $str = "";
-    for (my $pos =0; $pos <= length($string) ; $pos++){
-      $chr =  substr($string,$pos,1);
-      if ($chr =~ /\D/){
-	print $str unless($num);
-	if ($num){
-	  for (my$i =1 ; $i <= $num ; $i++){
-	    print $str;
-	  }
-	}
-	$str = $chr;
-	$num = "";
-	next;
-      }
-      if ($chr =~ /\d/){
-	$num .= $chr;
-      }
-    }
-    # empty array 
-    if ($num){
-    for (my$i =1 ; $i <= $num ; $i++){
-      print $str;
-    }
-  }
-    else{
-      print $str;
-    }
-  }
-
-}
 
 =head2 make_gene
 
   Title      : make_gene
-  Usage      : my $gene = $runnable->make_gene($start,$end,$strand,$dna_align_feature,$structure_line)
+  Usage      : my $gene = $runnable->make_gene($result_hash,$dna_align_feature)
   Function   : Creates the non coding gene object from the parsed result file.
+             : Takes all the results from the result file sorted by score and 
+             : selects the highest scoring result that also overlaps the original BLAST hit
+             : Uses Bio::EnsEMBL::Analysis::Runnable::RNAfold to create a structure
+             : line for the gene. The structure obtained from the cmsearch alignment
+             : is used to constrain the folding prediction made by RNAfold.
+             : Adds the encoded structure as a transript attribute and xrefs are 
+             : made based on the original BLAST hit
   Returns    : Bio::EnsEMBL::Gene
   Exceptions : None
-  Args       : scalar ($start,$end,$strand,$structure_line) and
+  Args       : ref to array of hashes containing parsed cmsearch results
              : Bio::EnsEMBL::DnaDnaAlignFeature ($dna_align_feature)
 
 =cut
 
 sub make_gene{
-  my ($self,$start,$end,$strand,$daf,$str) = @_;
+  my ($self,$results,$daf) = @_;
   my $domain = substr($daf->hseqname,0,7);
   my %descriptions = %{$self->descriptions};
   my %thresholds = %{$self->thresholds};
   my $padding = $thresholds{$domain}{'win'};
-  my %gene_hash;  
-  my @attributes;
-  # exons
+  my %gene_hash;
   my $slice = $daf->feature_Slice;
-  # need to remove padding from exon coordinates to put them in the correct place
-  my $exon = Bio::EnsEMBL::Exon->new
-    (
-     -start => $start-$padding,
-     -end   => $end-$padding,
-     -strand => $strand,
-     -slice => $slice,
-     -phase => 0,
-     -end_phase => (($end - $start + 1)%3)
-    );
-   # Only allow exons that overlap the origional dna_align_feature
-  return unless $exon->overlaps($daf->transfer($slice));
+  my @attributes;
+  my ($start,$end,$strand,$str,$score,$exon);
+  # step through all the results in order of score, highest first until
+  # you find a model that overlapping the blast hit
+  foreach my $result (@$results){
+    $start = $result->{'start'};
+    $end = $result->{'end'};
+    $strand = $result->{'strand'};
+    $str = $result->{'str'};
+    $score = $result->{'score'};
+    # exons
+    # need to remove padding from exon coordinates to put them in the correct place
+    $exon = Bio::EnsEMBL::Exon->new
+      (
+       -start => $start-$padding,
+       -end   => $end-$padding,
+       -strand => $strand,
+       -slice => $slice,
+       -phase => 0,
+       -end_phase => (($end - $start + 1)%3)
+      );
+    # Only allow exons that overlap the origional dna_align_feature and 
+    # have a secondary structure that is possible to parse
+    last if ($exon->overlaps($daf->transfer($slice)));
+  }
+  # return undef if no suitable candidates are found
+  return unless ($exon->overlaps($daf->transfer($slice)));
+  $daf->score($score);
   $exon->add_supporting_features($daf->transfer($slice));
   # transcripts
   my $transcript = Bio::EnsEMBL::Transcript->new;
@@ -523,11 +455,38 @@ sub make_gene{
      -dbname => 'RFAM',
      -release => 1,
     );
-
+  # Use RNA fold to tidy up the structure parsed from cmsearch results
+  my $seq = Bio::PrimarySeq->new(
+				 -display_id => $domain,
+				 -seq => $gene->seq,
+				);
+  my $RNAfold = Bio::EnsEMBL::Analysis::Runnable::RNAFold->new
+    (
+     -analysis  => $self->analysis,
+     -sequence  => $seq,
+     -structure => $str,
+    );
+  $RNAfold->run;
+  # return if there is no structure to display
+  return unless $RNAfold->structure;
+  # get the final structure encoded by run length
+  my @final_str = @{$RNAfold->encoded_str};
+  foreach my $str (@final_str){
+    # add the transcript attribute to the gene hash
+    my $attribute = Bio::EnsEMBL::Attribute->new
+      (-CODE => 'ncRNA',
+       -NAME => 'Structure',
+       -DESCRIPTION => 'RNA secondary structure line',
+       -VALUE => $str
+      );  
+    push @attributes,$attribute;
+  }    
+  # add the final structure to the gene as a transcript attribute
+  $gene_hash{'attrib'} = \@attributes;
   $gene_hash{'gene'} = $gene;
-  $gene_hash{'attrib'} = $str;
   $gene_hash{'xref'} = $xref;
-  $self->output(\%gene_hash)
+  print "Chosen hit and structure constraint : $start $end $strand \n$str\n";
+  return \%gene_hash;
 }
 
 =head2 get_sequence
@@ -582,7 +541,7 @@ sub get_thresholds{
   # read threshold file
   my %thr;
   # full thresholds
-  open( T, "/ecs2/work2/sw4/RFAM/Rfam.thr" ) or $self->throw("can't file the Rfam.thr file");
+  open( T, "/data/blastdb/Rfam/Rfam.thr" ) or $self->throw("can't file the Rfam.thr file");
 # low thresholds
 # open( T, "/ecs2/work2/sw4/RFAM/Rfam_modified.thr" ) or $self->throw("can't file the Rfam.thr file");
   while(<T>) {
@@ -593,12 +552,6 @@ sub get_thresholds{
   close T;
   $self->thresholds(\%thr);
 }
-
-
-# LOOK AT THIS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# I should get the descriptions file pushed out across the farm along with
-# the other files, In fact maybe sam should do it as he periodically updates
-# these files anyway
 
 =head2 get_descriptions
 
