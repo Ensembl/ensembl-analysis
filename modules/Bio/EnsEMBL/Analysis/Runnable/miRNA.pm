@@ -6,7 +6,7 @@
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::Runnable::miRNA
+  Bio::EnsEMBL::Analysis::Runnable:miRNA
 
 =head1 SYNOPSIS
 
@@ -19,7 +19,6 @@
 
 =head1 DESCRIPTION
 
-Runnable to wrap RNAfold, part of the Vienna RNA package.
 Takes blast alignments in the form of a  hash ref of Bio::EnsEMBL::DnaDnaAlignFeatures
  grouped by miRNA family.
 Opens an EMBL format file of miRNA sequences used to create the blast database and
@@ -51,6 +50,8 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Gene;
+use Bio::EnsEMBL::DBEntry;
+use Bio::EnsEMBL::Analysis::Runnable::RNAFold;
 
 use vars qw(@ISA);
 
@@ -94,7 +95,6 @@ sub new {
 
 sub run{
   my ($self) = @_;
-  my $loop = 0;
   print STDERR "get miRNAs\n"  if $verbose;
   # fetch the coordinates of the mature miRNAs
   $self->get_miRNAs;
@@ -106,17 +106,25 @@ sub run{
       # Does the alignment contain the mature sequence?
       my $align = $self->run_analysis($daf);
       next DAF unless (scalar @$align);
-      my $filename = $self->write_seq($daf);
       # does the sequence fold ino a hairpin ?
-      next DAF unless $self->RNAfold($daf,$filename);
-      # Parse the structure
-      my $structure = $self->parse_miRNA;
-      next DAF unless ($structure);
-      $self->display_stuff($daf,$structure,$align) if $verbose;
+      my $seq = Bio::PrimarySeq->new
+	(
+	 -display_id => $daf->hseqname,
+	 -seq => $daf->seq,
+	);
+      my $RNAfold = Bio::EnsEMBL::Analysis::Runnable::RNAFold->new
+	(
+	 -analysis  => $self->analysis,
+	 -sequence  => $seq
+	);
+      $RNAfold->run;
+      # get the final structure encoded by run length
+      my $structure = $RNAfold->encoded_str;
+      next DAF unless ($RNAfold->score < -20);
+      next DAF unless ($RNAfold->structure);
+      $self->display_stuff($daf,$RNAfold->structure,$align,$RNAfold->score) if $verbose;
       # create the gene
       $self->make_gene($daf,$structure,$align);
-#      last FAM if $loop == 2;
-      $loop++;
     }
   }
   print STDERR "delete temp files\n"  if $verbose;
@@ -153,7 +161,7 @@ sub get_miRNAs{
 =head2 run_analysis
 
   Title      : run_analysis
-  Usage      : my $align = $self->run_analysis($daf);
+  Usage      : my $align = $self->run_analysis($dna_align_feature);
   Function   : makes an alignment that represents the mature sequence of the miRNA
              : tests to check that it contains the entire mature sequence and  is of 
              : high enough percent identity
@@ -208,90 +216,6 @@ sub run_analysis{
   return \@mature_aligns;
 }
 
-=head2 RNAfold
-
-  Title      : RNAfold
-  Usage      : $self->RNAfold($dna_align_feature,$filename);
-  Function   : Wrapper for RNAfold
-  Returns    : none
-  Exceptions : Throws if RNAfold fails to run
-  Args       : Bio::EnsEMBL::DnaDnaAlignFeature, Scalar (filename)
-
-=cut
-
-sub RNAfold{
-  my ($self,$daf,$filename)=@_;
-  my $command  = $self->analysis->program_file." > ";
-  my $options ="";
-  my $results_file = $self->create_filename("RNAfold","txt");
-  $self->files_to_delete($results_file);
-  # delete the postcript file that RNAfold generates
-  $self->files_to_delete("/tmp/".substr($daf->hseqname,0,7)."_ss.ps");
-  $self->resultsfile($results_file);
-  $command .= " $filename ";
-  $command .= "$options 2>&1 > ".$results_file;
-  print STDERR "Running RNAfold ".$command."\n";
-  open(my $fh, "$command |") || 
-    throw("Error opening RNAfold cmd <$command>." .
-	  " Returned error $? RNAfold EXIT: '" . 
-	  ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) . 
-	  "', There was " . ($? & 128 ? 'a' : 'no') . 
-	  " core dump");
-  # this loop reads the STDERR from the blast command
-  # checking for FATAL: messages (wublast) [what does ncbi blast say?]
-    # N.B. using simple die() to make it easier for RunnableDB to parse.
-  while(<$fh>){
-    if(/FATAL:(.+)/){
-      my $match = $1;
-      $self->throw("miRNA: RNAfold failed to run: $match$@\n");
-    }
-  }
-  unless(close $fh){
-    # checking for failures when closing.
-    # we should't get here but if we do then $? is translated 
-    #below see man perlvar
-    warning("Error running RNAfold cmd <$command>. Returned ".
-	    "error $? BLAST EXIT: '" . ($? >> 8) . 
-	    "', SIGNAL '" . ($? & 127) . "', There was " . 
-	    ($? & 128 ? 'a' : 'no') . " core dump");
-    die ($self->unknown_error_string."\n"); 
-  }
-  return 1;
-}
-
-=head2 parse_miRNA
-
-  Title      : parse_miRNA
-  Usage      : my $structure = $self->parse_miRNA;
-  Function   : Parses the results of RNAfold
-  Returns    : Scalar (string)
-  Exceptions : Throws if results file cannot be opened or closed
-  Args       : None
-
-=cut
-
-sub parse_miRNA{
-  my ($self)=@_;  
-  my $results = $self->resultsfile;
-  my $structure;
-  my $score;
-  open(RNAFOLD, $results) or $self->throw("FAILED to open ".$results.
-					  " miRNA:parse_results\n$@\n");
- LINE: while(<RNAFOLD>){
-    chomp;
-    if ($_ =~ /([().]+)\s\((-\d+.\d+)\)$/){
-      $structure = $1;
-      $score = $2;
-    }
-  }
-  close(RNAFOLD) or $self->throw("FAILED to close ".$results.
-				 " miRNA:parse_results\n$@\n");
-  if ($score && $score < -20){
-    return $structure;
-  } else {
-    return 0;
-  }
-}
 
 =head2 get_mature
 
@@ -335,11 +259,13 @@ sub get_mature{
 =head2 make_gene
 
   Title      : make_gene
-  Usage      : my $gene = $runnable->make_gene($start,$end,$strand,$dna_align_feature,$structure_line,$simple_alignment)
+  Usage      : my $gene = $runnable->make_gene($dna_align_feature,$structure,$simple_alignment)
   Function   : Creates the non coding gene object from the parsed result file.
   Returns    : Hashref of Bio::EnsEMBL::Gene and Bio::EnsEMBL::Attribute
   Exceptions : None
-  Args       : Scalar,Scalar,Scalar,Bio::EnsEMBL::DnaDnaAlignFeature,Scalar,Bio::SimpleAlign
+  Args       : dna_align_feature (Bio::EnsEMBL::DnaDnaAlignFeature)
+             : structure (String)
+             : alignment (Bio::SimpleAlign)
 
 =cut
 
@@ -371,8 +297,7 @@ sub make_gene{
   $transcript->end_Exon($exon);
   # add the transcript attributes for the position of the mature miRNA as well as
   # the predicted structure
-  my @codes = @{$self->encode_str($structure)};
-  foreach my $code(@codes){
+  foreach my $code(@$structure){
     my $str_attrib = Bio::EnsEMBL::Attribute->new
       (-CODE => 'ncRNA',
        -NAME => 'Structure',
@@ -410,93 +335,8 @@ sub make_gene{
   $self->output(\%gene_hash);
 }
 
-=head2 write_seq
-
-  Title      : write_seq
-  Usage      : my $filename = $self->write_seq($daf);
-  Function   : Writes the dna sequence file of the region covered by the DnaDnaAlignFeature
-  Returns    : Bio::EnsEMBL::Gene
-  Exceptions : Throws if it cannot write to the file
-  Args       : Bio::EnsEMBL::DnaDnaAlignFeature 
-
-=cut
-
-sub write_seq{
-  my ($self,$daf)=@_;
-  my $filename = $self->create_filename("miRNA","seq");
-  # have to write file so the sequence is all on a single line 
-  # cos thats the way RNAfold likes it
-  my $seq = Bio::Seq->new(
-			  -display_id => "/tmp/".$daf->hseqname,
-			  -seq        => $daf->seq,
-			 );
-  $self->files_to_delete("/tmp/".$daf->hseqname);
-  my $seqIO = Bio::SeqIO->new(
-			     -file => ">$filename",
-			     -format   => 'fasta',
-			     -width    => length($daf->seq),
-			     );
-  $seqIO->write_seq($seq)or $self->throw
-    ("FAILED to write to  $filename miRNA:run:write_seq $@\n");
-  $self->files_to_delete($filename);
-  return $filename;
-}
-
-
-=head2 encode_str
-
-  Title      : encode_str
-  Usage      : my $encoded_str = $runnable->encode_string($string)
-  Function   : Does string length encoding to reduce size of structure string
-             : splits strings if they are longer then 200 characters so they 
-             : will fit in the transcript attribute table, gives a range value
-             : at the start of the string indicating the start and stop positions of the 
-             : structure on the transcript
-  Returns    : String
-  Exceptions : None
-  Args       : String
-
-=cut
-
-sub encode_str{
-  my ($self,$string)= @_;
-  my @codes;
-  my $start = 1;
-  my $count=0;
-  my $code;
-  my @elements = split //,$string;
-  my $last_chr = "";
-  my @array =[];
-  foreach my $chr (@elements){
-    $count++;
-    if ($chr eq $last_chr){
-	push @array,$chr;
-      }
-    else {
-      if ($code && length($code) > 200 && scalar(@array) == 1){
-	push @codes,"$start:$count\t$code";
-	$code = undef;
-	$start = $count+1;
-      }
-      # Character has changed print STDERR it and the associated array length
-      if (scalar(@array) > 1){
-	$code .= scalar(@array);
-	@array = [];
-      }
-      $code .= "$chr";
-      $last_chr = $chr;
-    }
-  }
-# last element
-  if (scalar(@array) > 1){
-    $code .= scalar(@array);
-  }
-  push @codes,"$start:$count\t$code";
-  return \@codes;
-}
-
 sub display_stuff{
-  my ($self,$daf,$structure,$aligns)=@_;
+  my ($self,$daf,$structure,$aligns,$score)=@_;
   my @all_mature;
   @all_mature = @{$self->get_mature($daf)};
   foreach my $mature (@all_mature){
@@ -507,6 +347,7 @@ sub display_stuff{
     " strand ".$daf->hstrand."\n";
   print STDERR "Start ".$daf->start." end ".$daf->end.
     " Hit end ".$daf->hstart." hit end ".$daf->hend."\n";
+  print STDERR "Score $score\n";
   foreach my $align(@{$aligns}){
     my $simple = $align->get_SimpleAlign;
     foreach my $seq ( $simple->each_seq() ) {
@@ -529,7 +370,6 @@ sub display_stuff{
     print STDERR "\nMirna position = ".$align->start." ". $align->end."\n";
   }
 }
-
 
 ##################################################################################
 # Containers
