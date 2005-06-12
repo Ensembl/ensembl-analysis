@@ -236,7 +236,7 @@ sub fetch_input {
                    } @{$chains{$chain_id}}
                    ];
   }
-
+  @chains = sort { $b->[0]->score <=> $a->[0]->score } @chains;  
   $self->genomic_align_block_chains(\@chains);
 }
 
@@ -2118,19 +2118,14 @@ sub remove_interfering_chains {
     };      
 
   }
-
-  @sorted_chains = sort {
-    $b->{score} <=> $a->{score};
-  } @sorted_chains;
   
   for(my $i=0; $i < @sorted_chains; $i++) {
     next if $rejected_chains[$i];
 
+    my (@ov_chains, @block_ov_regs);
+
     my $c = $sorted_chains[$i];
-
     my @these_blocks = @{$c->{blocks}};
-    my (@ov_chains, @block_ov_idx);
-
 
     foreach my $kc (@kept_chains) {
       if ($c->{qstart} <= $kc->{qend} and 
@@ -2144,7 +2139,7 @@ sub remove_interfering_chains {
       my $b = $these_blocks[$i];
       my $qga = $b->reference_genomic_align;
 
-      my $block_overlap = 0;
+      $block_ov_regs[$i] = []; 
 
       KCHAIN: foreach my $kc (@ov_chains) {
         foreach my $kb (@{$kc->{blocks}}) {
@@ -2153,16 +2148,24 @@ sub remove_interfering_chains {
           
           if ($qga->dnafrag_start <= $k_qga->dnafrag_end and
               $qga->dnafrag_end >= $k_qga->dnafrag_start) {
-            $block_overlap = 1;
-            last KCHAIN;
+
+            my $ov_start = $k_qga->dnafrag_start;
+            $ov_start = $qga->dnafrag_start 
+                if $qga->dnafrag_start > $ov_start;
+            my $ov_end = $k_qga->dnafrag_end;
+            $ov_end = $qga->dnafrag_end 
+                if $qga->dnafrag_end < $ov_end;
+
+            push @{$block_ov_regs[$i]}, {
+              start => $ov_start,
+              end   => $ov_end,
+            };
           }
         }
       }
-
-      $block_ov_idx[$i] = $block_overlap;
     }
 
-    if (not grep { $_ == 1 } @block_ov_idx) {
+    if (not grep { scalar(@{$_}) > 0 } @block_ov_regs) {
       # no overlapping blocks, so keep chain as is
       push @kept_chains, $c;
     } else {
@@ -2170,64 +2173,148 @@ sub remove_interfering_chains {
       # of the chain, keep the chain (with the overlapping blocks
       # removed)
 
-      my ($overlap_cov, $total_cov) = (0,0);
+      my $total_chain_cov = 0;
 
       for(my $i=0; $i < @these_blocks; $i++) {
         my $b = $these_blocks[$i];
         my $ga = $b->reference_genomic_align;
 
-        $total_cov += $ga->dnafrag_end - $ga->dnafrag_start + 1;
-        if ($block_ov_idx[$i]) {
-          $overlap_cov += $ga->dnafrag_end - $ga->dnafrag_start + 1;
-        }
+        $total_chain_cov += $ga->dnafrag_end - $ga->dnafrag_start + 1;
       }
 
-      my $reject = 0;
-      if ($overlap_cov / $total_cov < $self->OVERLAP_CHAIN_FILTER) {
-        # all of the overlap must be in blocks at the extremities
-        # of the chain
-        my $last_block_was_non_ov = 0;
-        my @partition;
-        for(my $i=0; $i < @these_blocks; $i++) {
-          if (not $block_ov_idx[$i]) {
-            if ($last_block_was_non_ov) {
-              push @{$partition[-1]}, $these_blocks[$i];
-            } else {
-              push @partition, [$these_blocks[$i]];
-            }
-            $last_block_was_non_ov = 1;
+      # flatten the overlapping regions
+      for (my $i=0; $i < @block_ov_regs; $i++) {
+        my @regs = @{$block_ov_regs[$i]};
+
+        my @new_regs;
+        foreach my $reg (sort { $a->{start} <=> $b->{start} } @regs) {
+          if (not @new_regs or $reg->{start} > $new_regs[-1]->{end}) {
+            push @new_regs, $reg;
           } else {
-            $last_block_was_non_ov = 0;
+            if ($reg->{end} > $new_regs[-1]->{end}) {
+              $new_regs[-1]->{end} = $reg->{end};
+            }
           }
         }
 
-        if (scalar(@partition) == 1) {
-          my $bs = $partition[0];
-
-          my $qga_l = $bs->[0]->reference_genomic_align;
-          my $qga_r = $bs->[-1]->reference_genomic_align;
-          my ($tga_l) = @{$bs->[0]->get_all_non_reference_genomic_aligns};
-          my ($tga_r) = @{$bs->[-1]->get_all_non_reference_genomic_aligns};
-
-          $c->{blocks} = $bs;
-          $c->{qstart} = $qga_l->dnafrag_start;
-          $c->{qend} = $qga_r->dnafrag_end;
-          $c->{tstart} = ($tga_l->dnafrag_strand > 0) 
-              ? $tga_l->dnafrag_start 
-              : $tga_r->dnafrag_start,
-          $c->{tend} = ($tga_l->dnafrag_strand > 0) 
-          ? $tga_r->dnafrag_end 
-          : $tga_l->dnafrag_end,
-
-          push @kept_chains, $c;
-        } else {
-          $reject = 1;
-        }
-      } else {
-        $reject = 1;
+        $block_ov_regs[$i] = \@new_regs;
       }
 
-      if ($reject) {
+      # we're only going to allow simple truncation of the chain
+      # to resolve the overlap, at one end, or both. If by
+      # truncating the chain in this way we lose too much of
+      # it, again we reject the whole thing. 
+      
+      # find the longest, contigous, non-overlapping stretch of chain
+      my @contig_chain_parts;
+      my $last_was_non_ov = 0;
+      for(my $i=0; $i < @these_blocks; $i++) {
+        
+        my $block = $these_blocks[$i];
+        my $qga = $block->reference_genomic_align;
+        my $ovs = $block_ov_regs[$i];
+        
+        if (@$ovs) {
+          if ($ovs->[0]->{start} > $qga->dnafrag_start) {
+            if ($last_was_non_ov) {
+              push @{$contig_chain_parts[-1]}, {
+                index => $i,
+                start => $qga->dnafrag_start,
+                end   => $ovs->[0]->{start} - 1,
+              };
+            } else {
+              push @contig_chain_parts, [{
+                index => $i,
+                start => $qga->dnafrag_start,
+                end   => $ovs->[0]->{start} - 1,
+              }];
+            }
+          }
+          
+          for(my $j=1; $j < @$ovs; $j++) {
+            push @contig_chain_parts, [{
+              index => $i,
+              start => $ovs->[$j-1]->{end} + 1,
+              end   => $ovs->[$j]->{start} - 1,
+            }];
+          }
+          if ($ovs->[-1]->{end} < $qga->dnafrag_end) {
+            push @contig_chain_parts, [{
+              index => $i,
+              start => $ovs->[-1]->{end} + 1,
+              end   => $qga->dnafrag_end,
+            }];
+            $last_was_non_ov = 1;
+          } else {
+            $last_was_non_ov = 0;
+          }
+        } else {
+          if ($last_was_non_ov) {
+            push @{$contig_chain_parts[-1]}, {
+              index => $i,
+              start => $qga->dnafrag_start,
+              end   => $qga->dnafrag_end,
+            };
+          } else {
+            push @contig_chain_parts, [{
+              index => $i,
+              start => $qga->dnafrag_start,
+              end   => $qga->dnafrag_end,
+            }];
+          }
+          $last_was_non_ov = 1;
+        }
+      }
+      
+      # find longest 
+      my ($longest, $longest_len);
+      foreach my $reg_list (@contig_chain_parts) {
+        my $len = 0;
+        foreach my $reg (@$reg_list) {
+          $len += $reg->{end} - $reg->{start} + 1;
+        }
+        if (not defined $longest or $len > $longest_len) {
+          $longest = $reg_list;
+          $longest_len = $len;
+        }
+      }
+
+      # we've identifed a sun-region of the chain to keep.
+      # But is it worth keeping?
+      if ($longest_len / $total_chain_cov > $self->OVERLAP_CHAIN_FILTER) {
+        my @bs;
+        foreach my $el (@$longest) {
+          my $block = $these_blocks[$el->{index}];
+          my $st = $el->{start};
+          my $en = $el->{end};
+          my $qga = $block->reference_genomic_align;
+
+          if ($st != $qga->dnafrag_start or
+              $en != $qga->dnafrag_end) {
+            push @bs, $block->restrict_between_reference_positions($st, $en);
+          } else {
+            push @bs, $block;
+          }
+        };
+
+        my $qga_l = $bs[0]->reference_genomic_align;
+        my $qga_r = $bs[-1]->reference_genomic_align;
+        my ($tga_l) = @{$bs[0]->get_all_non_reference_genomic_aligns};
+        my ($tga_r) = @{$bs[-1]->get_all_non_reference_genomic_aligns};
+
+        $c->{blocks} = \@bs;
+        $c->{qstart} = $qga_l->dnafrag_start;
+        $c->{qend} = $qga_r->dnafrag_end;
+        $c->{tstart} = ($tga_l->dnafrag_strand > 0) 
+            ? $tga_l->dnafrag_start 
+            : $tga_r->dnafrag_start;
+        $c->{tend} = ($tga_l->dnafrag_strand > 0) 
+            ? $tga_r->dnafrag_end 
+            : $tga_l->dnafrag_end;
+
+        push @kept_chains, $c;
+
+      } else {
         # also reject all lower scoring chains of the same target
         for(my $j=$i+1; $j < @sorted_chains; $j++) {
           if ($sorted_chains[$j]->{tid} eq $c->{tid}) {
@@ -2253,7 +2340,6 @@ sub remove_contig_split_chains {
   my ($self, $input_chains) = @_;
 
   # plan:
-  # sort chains by score
   # for each chain
   #  add to list of chains retained so far
   #  sort chains by target id
@@ -2262,13 +2348,9 @@ sub remove_contig_split_chains {
   #  check that all separated chains of the same target id can be 
   #   split at the contig level
 
-  my @sorted_chains = sort {
-    $b->[0]->score <=> $a->[0]->score;
-  } @$input_chains;
-
   my @kept_chains;
 
-  foreach my $c (@sorted_chains) {
+  foreach my $c (@$input_chains) {
     my (%coords_by_tid, @all_coords, @merged_coords);
 
     my $consistent = 1;
