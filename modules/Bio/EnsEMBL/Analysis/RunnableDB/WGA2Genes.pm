@@ -275,7 +275,7 @@ sub run {
         $self->remove_irrelevant_chains($self->genomic_align_block_chains,
                                         \@cds_feats);
 
-    #$self->print_chains($alignment_chains, "RELEVANT CHAINS");
+    # $self->print_chains($alignment_chains, "RELEVANT CHAINS");
 
     if ($self->PSEUDOGENE_CHAIN_FILTER) {
       $alignment_chains = 
@@ -291,15 +291,15 @@ sub run {
       
       my $filtered_chains = $self->remove_used_chains($alignment_chains,
                                                       \%blocks_used_so_far);
-      #$self->print_chains($filtered_chains, "CHAINS LEFT");
+      # $self->print_chains($filtered_chains, "CHAINS LEFT");
       
       $filtered_chains = $self->remove_interfering_chains($filtered_chains);
                                                          
-      #$self->print_chains($filtered_chains, "CONSISTENT CHAINS");
+      # $self->print_chains($filtered_chains, "CONSISTENT CHAINS");
       
       if ($self->NO_CONTIG_SPLITS) { 
         $filtered_chains = $self->remove_contig_split_chains($filtered_chains);
-        #$self->print_chains($filtered_chains, "NO CONTIG SPLIT CHAINS");
+        # $self->print_chains($filtered_chains, "NO CONTIG SPLIT CHAINS");
       }
       
       my $net_blocks = $self->make_alignment_net_simple($filtered_chains, 1);
@@ -2097,7 +2097,7 @@ sub remove_used_chains {
 sub remove_interfering_chains {
   my ($self, $input_chains) = @_;
 
-  my (@sorted_chains, @rejected_chains, @kept_chains);
+  my (@sorted_chains, @to_ignore_chains, @kept_chains);
 
   foreach my $bl_list (@$input_chains) {
     my $qga_l = $bl_list->[0]->reference_genomic_align;
@@ -2120,11 +2120,13 @@ sub remove_interfering_chains {
   }
   
   for(my $i=0; $i < @sorted_chains; $i++) {
-    next if $rejected_chains[$i];
+
+    next if $to_ignore_chains[$i];
 
     my (@ov_chains, @block_ov_regs);
 
     my $c = $sorted_chains[$i];
+
     my @these_blocks = @{$c->{blocks}};
 
     foreach my $kc (@kept_chains) {
@@ -2164,6 +2166,8 @@ sub remove_interfering_chains {
         }
       }
     }
+
+    my $rejected = 0;
 
     if (not grep { scalar(@{$_}) > 0 } @block_ov_regs) {
       # no overlapping blocks, so keep chain as is
@@ -2268,18 +2272,23 @@ sub remove_interfering_chains {
       
       # find longest 
       my ($longest, $longest_len);
-      foreach my $reg_list (@contig_chain_parts) {
-        my $len = 0;
-        foreach my $reg (@$reg_list) {
-          $len += $reg->{end} - $reg->{start} + 1;
-        }
-        if (not defined $longest or $len > $longest_len) {
-          $longest = $reg_list;
-          $longest_len = $len;
+
+      if (not @contig_chain_parts) {
+        $longest_len = 0;
+      } else {
+        foreach my $reg_list (@contig_chain_parts) {
+          my $len = 0;
+          foreach my $reg (@$reg_list) {
+            $len += $reg->{end} - $reg->{start} + 1;
+          }
+          if (not defined $longest or $len > $longest_len) {
+            $longest = $reg_list;
+            $longest_len = $len;
+          }
         }
       }
 
-      # we've identifed a sun-region of the chain to keep.
+      # we've identifed a sub-region of the chain to keep.
       # But is it worth keeping?
       if ($longest_len / $total_chain_cov > $self->OVERLAP_CHAIN_FILTER) {
         my @bs;
@@ -2291,7 +2300,9 @@ sub remove_interfering_chains {
 
           if ($st != $qga->dnafrag_start or
               $en != $qga->dnafrag_end) {
-            push @bs, $block->restrict_between_reference_positions($st, $en);
+            my $new_block = $block->restrict_between_reference_positions($st, $en);
+            $new_block->score($block->score);
+            push @bs, $new_block;
           } else {
             push @bs, $block;
           }
@@ -2313,14 +2324,53 @@ sub remove_interfering_chains {
             : $tga_l->dnafrag_end;
 
         push @kept_chains, $c;
-
       } else {
-        # also reject all lower scoring chains of the same target
-        for(my $j=$i+1; $j < @sorted_chains; $j++) {
-          if ($sorted_chains[$j]->{tid} eq $c->{tid}) {
-            $rejected_chains[$j] = 1;
+        $rejected = 1;
+      }
+    }
+    if ($rejected) {
+      # also reject all lower scoring chains of the same target
+      for(my $j=$i+1; $j < @sorted_chains; $j++) {
+        if ($sorted_chains[$j]->{tid} eq $c->{tid}) {
+          $to_ignore_chains[$j] = 1;
+        }
+      }
+    } else {
+      # also keep all lower scoring chains of the same target that 
+      # are (a) consistent with this one in terms of coords and
+      # (b) do not interfere with any kept chains so far
+      for(my $j=$i+1; $j < @sorted_chains; $j++) {
+        my $oc = $sorted_chains[$j];
+
+        my $consistent = 0;
+        if ($oc->{tid} eq $c->{tid} and
+            $oc->{tstrand} eq $c->{tstrand}) {
+          if ($oc->{qstart} > $c->{qend}) {
+            if ($oc->{tstrand} > 0 and $oc->{tstart} > $c->{tend} or
+                $oc->{tstrand} < 0 and $oc->{tend} < $c->{tstart}) {
+              $consistent = 1;
+            }
+          } elsif ($oc->{qend} < $c->{qstart}) {
+            if ($oc->{tstrand} > 0 and $c->{tstart} > $oc->{tend} or
+                $oc->{tstrand} < 0 and $c->{tend} < $oc->{tstart}) {
+              $consistent = 1;
+            }
           }
         }
+        if ($consistent) {
+          # any query overlap with other retained chains?
+          for(my $k=0; $k < @kept_chains; $k++) {
+            if ($oc->{qstart} <= $kept_chains[$k]->{qend} and
+                $oc->{qend} >= $kept_chains[$k]->{qstart}) {
+              $consistent = 0;
+              last;
+            }
+          }
+          if ($consistent) {
+            push @kept_chains, $oc;
+            $to_ignore_chains[$j] = 1;
+          }
+        }          
       }
     }
   }
