@@ -1397,7 +1397,7 @@ sub make_projected_transcript {
   my @attributes;
 
   my $gap_attr = Bio::EnsEMBL::Attribute->
-      new(-code => 'ProportionNonGap',
+      new(-code => 'PropNonGap',
           -name => 'proportion non gap',
           -description => 'proportion non gap',
           -value => sprintf("%.1f", 
@@ -1459,7 +1459,7 @@ sub make_projected_transcript {
           -description => 'human source gene',
           -value => $gene->stable_id);
   my $attr2 = Bio::EnsEMBL::Attribute->
-      new(-code => 'SourceTranscript',
+      new(-code => 'SourceTran',
           -name => 'source transcript',
           -description => 'source transcript',
           -value => $tran->stable_id);
@@ -1502,7 +1502,7 @@ sub process_transcript {
   return undef if $tsf->hcoverage < $self->MIN_COVERAGE;
 
   foreach my $attr (@{$tran->get_all_Attributes}) {
-    if ($attr->code eq "ProportionNonGap") {
+    if ($attr->code eq "PropNonGap") {
       return undef if $attr->value < $self->MIN_NON_GAP;
     } elsif ($attr->code eq "NumStops") {
       $num_stops = $attr->value;
