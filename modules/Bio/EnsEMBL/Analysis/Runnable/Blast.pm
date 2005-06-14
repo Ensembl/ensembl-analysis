@@ -212,9 +212,9 @@ sub run_analysis {
     if ($self->type eq 'ncbi') {
       $command .= " -d $database -i $filename ";
     } else {
-      $command .= " $database $filename ";
+      $command .= " $database $filename -gi ";
     }
-    $command .= ' -gi '.$self->options. ' 2>&1 > '.$results_file;
+    $command .= $self->options. ' 2>&1 > '.$results_file;
     
     print "Running blast ".$command."\n";
     
