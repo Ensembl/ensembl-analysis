@@ -2874,18 +2874,6 @@ sub write_gene {
     my ($sf) = @{$tran->get_all_supporting_features};
     my $tran_id = $gene_id . "_" . $sf->hseqname; 
 
-    my $pep = $tran->translate->seq;
-    if ($pep =~ /^X/) {
-      printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%d\n",
-             "XAtPepStart", 
-             1);
-    }
-    if ($pep =~ /X$/) {
-      printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%d\n",
-             "XAtPepEnd", 
-             1);
-    }
-
     printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%.2f\n", 
            "HitCoverage",
            $sf->hcoverage);
