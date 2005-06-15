@@ -1268,8 +1268,8 @@ sub make_projected_transcript {
         if ($g_coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
 
           my ($p_coord) = $tran->genomic2pep($g_coord->start, 
-                                                   $g_coord->end,
-                                                   $exon->strand);
+                                             $g_coord->end,
+                                             $exon->strand);
           
           my $fp = Bio::EnsEMBL::FeaturePair->
               new(-seqname  => $gene_scaf->seq_region_name,
@@ -1583,7 +1583,7 @@ sub process_transcript {
               $fp_right->start     ($stop->end + 1);
               $fp_right->end       ($ug->end);
               
-              if ($exon->strand > 1) {
+              if ($exon->strand > 0) {
                 $fp_left->hstart($ug->hstart);
                 $fp_left->hend($fp_left->hstart +
                                ($fp_left->length / 3) - 
@@ -1604,7 +1604,7 @@ sub process_transcript {
                                 ($fp_right->length / 3) - 
                                 1);
               }
-              
+
               if ($fp_left->end >= $fp_left->start) { 
                 push @ug_left, $fp_left;
               }
