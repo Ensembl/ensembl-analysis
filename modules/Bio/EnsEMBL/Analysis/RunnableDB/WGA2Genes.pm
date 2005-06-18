@@ -1541,15 +1541,15 @@ sub process_transcript {
                 -start     => $exon->start,
                 -end       => $stop->start - 1,
                 -strand    => $exon->strand,
-                -phase     => $exon->phase,
-                -end_phase => 0);
+                -phase     => $exon->strand < 0 ? 0 : $exon->phase,
+                -end_phase => $exon->strand < 0 ? $exon->end_phase  :0);
         my $exon_right = Bio::EnsEMBL::Exon->
             new(-slice     => $exon->slice,
                 -start     => $stop->end + 1,
                 -end       => $exon->end,
                 -strand    => $exon->strand,
-                -phase     => 0,
-                -end_phase => $exon->end_phase);
+                -phase     => $exon->strand < 0 ? $exon->phase : 0,
+                -end_phase => $exon->strand < 0 ? 0 : $exon->end_phase);
         # need to split the supporting features between the two
         my @sfs = @{$exon->get_all_supporting_features};
         my (@ug_left, @ug_right);
@@ -1660,7 +1660,7 @@ sub process_transcript {
   $translation->start(1);
   $translation->end($exons[-1]->end - $exons[-1]->start + 1);
   $tran->translation($translation);
-                        
+
   return $tran;
 }
 
