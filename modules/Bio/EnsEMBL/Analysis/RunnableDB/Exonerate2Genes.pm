@@ -267,6 +267,11 @@ sub make_genes{
         $evi->analysis($self->analysis);
       }
     }
+    foreach my $evi (@{$tran->get_all_supporting_features}) {
+      $evi->slice($slice);
+      $evi->analysis($self->analysis);
+    }
+
     $tran->slice($slice);
     $gene->add_Transcript($tran);
     push( @genes, $gene);
