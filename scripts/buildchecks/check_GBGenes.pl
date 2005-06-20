@@ -172,11 +172,13 @@ my $check_transcripts = 1;
 my $schema = 20;
 my $coordsystem = 'chromosome';
 my $help;
+my @genetypes;
+
 &GetOptions(
-            'dbhost|host:s'           => \$host,
-            'dbuser|user:s'           => \$user,
-            'dbpass|pass:s'           => \$pass,
-            'dbport|port:n'           => \$port,
+            'dbhost|host:s'    => \$host,
+            'dbuser|user:s'    => \$user,
+            'dbpass|pass:s'    => \$pass,
+            'dbport|port:n'    => \$port,
             'dbname:s'         => \$dbname,
             'dnahost:s'        => \$dnahost,
             'dnaport:n'        => \$dnaport,
@@ -188,9 +190,10 @@ my $help;
             'chrstart:n'       => \$specstart,
             'chrend:n'         => \$specend,
             'schema:n'         => \$schema,
+            'genetypes:s'      => \@genetypes,
             'duplicates!'      => \$exon_dup_check,
             'transcripts!'     => \$check_transcripts,
-            'help!' => \$help,
+            'help!'            => \$help,
            ) or perldocs("Failed to get options");
 
 if (!defined($host) || !defined($dbname)) {
@@ -207,6 +210,9 @@ if (scalar(@chromosomes)) {
   @chromosomes = split(/,/,join(',',@chromosomes));
 }
 
+if (scalar(@genetypes)) {
+  @genetypes = split(/,/,join(',',@genetypes));
+}
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-host => $host,
                                             -user => $user,
@@ -306,7 +312,16 @@ foreach my $chr (sort bychrnum keys %$chrhash) {
     $slice = $sa->fetch_by_chr_start_end($chr,$chrstart,$chrend);
   }
   
-  my $genes = $slice->get_all_Genes;
+  my $genes;
+
+  if (!scalar(@genetypes)) {
+    $genes = $slice->get_all_Genes;
+  } else {
+
+    foreach my $type (@genetypes) {
+      push @$genes, @{$slice->get_all_Genes_by_type($type)};
+    }
+  }
 
   my $cgc = new ContigGenesChecker(
                                      -slice          => $slice,
