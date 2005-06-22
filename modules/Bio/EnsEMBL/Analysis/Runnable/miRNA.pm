@@ -79,6 +79,8 @@ sub new {
   my $self = $class->SUPER::new(@args);
   my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
   $self->queries($queries);
+  $self->throw("miRNA: dying because cannot find /ecs2/work2/sw4/miRNA/all_mirnas.embl\n")
+    unless (-e "/ecs2/work2/sw4/miRNA/all_mirnas.embl");
   return $self;
 }
 
@@ -261,7 +263,7 @@ sub get_mature{
   Title      : make_gene
   Usage      : my $gene = $runnable->make_gene($dna_align_feature,$structure,$simple_alignment)
   Function   : Creates the non coding gene object from the parsed result file.
-  Returns    : Hashref of Bio::EnsEMBL::Gene and Bio::EnsEMBL::Attribute
+  Returns    : Hashref of Bio::EnsEMBL::Gene, Bio::EnsEMBL::Attribute and Bio::EnsEMBL::DBEntry
   Exceptions : None
   Args       : dna_align_feature (Bio::EnsEMBL::DnaDnaAlignFeature)
              : structure (String)
@@ -274,8 +276,7 @@ sub make_gene{
   my %miRNAs = %{$self->miRNAs};
   my @mature;
   my %gene_hash;
-  my $description = $miRNAs{$daf->hseqname}->display_id.
-    " [Source: miRNA Registry 6.0]";
+  my $description = $miRNAs{$daf->hseqname}->display_id;
   my @attributes;
   # exons
   my $slice = $daf->slice;
@@ -318,16 +319,17 @@ sub make_gene{
   # gene
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->type('miRNA');
-  $gene->description($description);
+  $gene->description($description." [Source: miRNA Registry 6.0]");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (
      -primary_id => $daf->hseqname,
-     -display_id => $daf->hseqname,
+     -display_id => $description,
      -dbname => 'miRNA_Registry',
      -release => 1,
+     -description => $description." [Source: miRNA Registry 6.0]",
     );  
   $gene_hash{'gene'} = $gene;
   $gene_hash{'attrib'} = \@attributes;
