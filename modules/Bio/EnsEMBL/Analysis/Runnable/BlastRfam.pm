@@ -78,10 +78,8 @@ sub run{
   $self->files_to_delete($self->resultsfile);
   $self->run_ncbi_analysis("-W7 -F F -b 1000000 -v 1000000","/ecs2/work2/sw4/RFAM/Partition/low_copy.fasta");  
   $self->parse_results(20);
-  # evil way of emptying the result array!
   $self->{'results_files'} = ();
   $self->database("/ecs2/work2/sw4/RFAM/Partition/high_copy.fasta");
-  # NOTE TO SELF need to set the analysis to use wublastn or it will have a benny unless you want to hard code it?
   $self->run_analysis;
   $self->parse_results($coverage);
   $self->delete_files;
@@ -125,20 +123,19 @@ sub parse_results{
 	   # add coverage into daf score?
 	   foreach my $daf(@daf_results){
 	     # swaps strands over if blast aligns +strand genomic to -ve strand in 
-	     # RFAM file, Thing is RFAM file sequences are the correct orientation
+	     # RFAM file,  RFAM file sequences are the correct orientation
 	     # Whereas the genomic can be either, with unspliced DNA it becomes
 	     # impossibe to tell automatically
 	     if ($daf->hstrand == -1 && $daf->strand == 1){
 	       $daf->strand(-1);
 	       $daf->hstrand(1);
 	     }
-	     $daf->score($coverage);
+#	     $daf->score($coverage);
 	     push  @daf_coverage_results, $daf;
 	   }
 	 }
       }
     }
-#  print "Before clustering ".scalar( @daf_coverage_results)."\n";
   return undef unless  ( @daf_coverage_results);
   my $output = $self->cluster(\@daf_coverage_results);
   $self->output($output);
@@ -146,16 +143,16 @@ sub parse_results{
 
 # foreach hit, look at all the other hits and push into an array anything that overlaps with it
 # then sort the array and take the top scoring hits for heach familly that lives in it.
-# you have 3 instances of a variable called RFAM in the same method all of which hold different values
 
 sub cluster{
   my ($self,$dafs_ref)=@_;
   my @dafs = @$dafs_ref;
+  @dafs = sort{$a->p_value <=> $b->p_value} @dafs;
   my $start =0;
-  my @representative_sequences;
+  my @representative_sequences;    
  DAFS: foreach my $daf (@dafs){
-    my %family_cluster;
     $start ++;
+    my %family_cluster;
     next DAFS unless($daf);	
     my $RFAM = substr($daf->hseqname,0,7);
     push @{$family_cluster{$RFAM}},$daf;
