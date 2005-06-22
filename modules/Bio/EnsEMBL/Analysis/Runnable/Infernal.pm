@@ -67,8 +67,12 @@ sub new {
   my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
   $self->queries($queries);
   $self->get_thresholds;
-  $self->get_descriptions;
-  return $self;
+  # check module can see files it needs to run
+  $self->throw("Infernal: dying because cannot find /pfam/db/Rfam directory\n")
+    unless (-e "/pfam/db/Rfam");
+  $self->throw("Infernal: dying because cannot find /data/blastdb/Rfam directory\n")
+    unless (-e "/data/blastdb/Rfam");
+ return $self;
 }
 
 =head2 run
@@ -402,7 +406,7 @@ sub parse_structure{
 sub make_gene{
   my ($self,$results,$daf) = @_;
   my $domain = substr($daf->hseqname,0,7);
-  my %descriptions = %{$self->descriptions};
+  my ($description,$name) = $self->get_description($domain);
   my %thresholds = %{$self->thresholds};
   my $padding = $thresholds{$domain}{'win'};
   my %gene_hash;
@@ -434,7 +438,7 @@ sub make_gene{
   }
   # return undef if no suitable candidates are found
   return unless ($exon->overlaps($daf->transfer($slice)));
-  $daf->score($score);
+#  $daf->score($score);
   $exon->add_supporting_features($daf->transfer($slice));
   # transcripts
   my $transcript = Bio::EnsEMBL::Transcript->new;
@@ -443,17 +447,18 @@ sub make_gene{
   $transcript->end_Exon($exon);
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->type('ncRNA');
-  $gene->description($descriptions{$domain}." [Source: RFAM 7.0]");
-  print STDERR "Rfam_id $domain ".$descriptions{$domain}."\n"if $verbose;;
+  $gene->description($description." [Source: RFAM 7.0]");
+  print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (
      -primary_id => substr($daf->hseqname,0,7),
-     -display_id => substr($daf->hseqname,0,7),
+     -display_id => $name,
      -dbname => 'RFAM',
      -release => 1,
+     -description => $description
     );
   # Use RNA fold to tidy up the structure parsed from cmsearch results
   my $seq = Bio::PrimarySeq->new(
@@ -485,7 +490,7 @@ sub make_gene{
   $gene_hash{'attrib'} = \@attributes;
   $gene_hash{'gene'} = $gene;
   $gene_hash{'xref'} = $xref;
-  print "Chosen hit and structure constraint : $start $end $strand \n$str\n";
+  print "Chosen hit and structure constraint : $start $end $strand $description $name\n$str\n";
   return \%gene_hash;
 }
 
@@ -565,19 +570,27 @@ sub get_thresholds{
 
 =cut
 
-sub get_descriptions{
-  my($self)= @_;
+sub get_description{
+  my($self,$domain)= @_;
+  my $description;
+  my $name;
   # read descriptions file
-  my %desc;
-  open( T, "/ecs2/work2/sw4/RFAM/Rfam.descriptions" ) or 
-    $self->throw("can't file the Rfam.descriptions file");
+  return undef unless -e "/pfam/db/Rfam/CURRENT/$domain/DESC";
+  open( T,"/pfam/db/Rfam/CURRENT/$domain/DESC") or
+    $self->throw("can't file the /pfam/db/Rfam/CURRENT/$domain/DESC file");
   while(<T>) {
-    if( /^(RF\d+)\s+\S+\s+(.+)$/ ) {
-      $desc{ $1 } = $2;
+    chomp;
+    if ($_ =~ /^DE   (.+)/){
+      $description = $1;
+    }
+    if ($_ =~ /^ID   (.+)/){
+      $name = $1;
     }
   }
   close T;
-  $self->descriptions(\%desc);
+  return ($description,$name) if ($description && $name);
+  $self->warn("Unable to find descriptions for $domain\n");
+  return undef;
 }
 
 #################################################################
@@ -621,24 +634,6 @@ sub  thresholds {
   return $self->{'_thresholds'};
 }
 
-=head2 descriptions
-
-  Title      : descriptions
-  Usage      : my %descriptions = %$runnable->descriptions
-  Function   : Get/ set descriptions for each RFAM familly
-  Returns    : Hash reference
-  Exceptions : None
-  Args       : Hash Reference
-
-=cut
-
-sub  descriptions {
-  my ($self, $descriptions) = @_;
-  if ($descriptions){
-    $self->{'_descriptions'} = $descriptions;
-  }
-  return $self->{'_descriptions'};
-}
 
 =head2 output
 
