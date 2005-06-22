@@ -170,7 +170,10 @@ sub write_output{
       eval{
 	$aa->store_on_Transcript($trans,\@attributes);
 	$dbea->store($xref, $trans->dbID, 'Transcript') if $xref;
+	$trans->display_xref($xref);
+	$gene->display_xref($xref);
 	$self->gene_db->get_TranscriptAdaptor->update($trans);
+	$self->gene_db->get_GeneAdaptor->update($gene);	
       };
       if($@){
 	$self->throw("miRNA:store failed, failed to write ".@attributes." on transcript ".
