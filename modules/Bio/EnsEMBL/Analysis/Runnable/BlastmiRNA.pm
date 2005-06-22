@@ -121,7 +121,7 @@ sub parse_results{
 	       $daf->strand(-1);
 	       $daf->hstrand(1);
 	     }
-	     $daf->score($coverage);
+#	     $daf->score($coverage);
 	     push  @daf_coverage_results, $daf;
 	   }
 	 }
@@ -145,7 +145,8 @@ sub parse_results{
 
 sub cluster{
   my ($self,$dafs_ref)=@_;
-  my @dafs = @$dafs_ref;
+  my @dafs = @$dafs_ref; 
+  @dafs = sort{$a->p_value <=> $b->p_value} @dafs;
   my $start =0;
   my @representative_sequences;
  DAFS: foreach my $daf (@dafs){
