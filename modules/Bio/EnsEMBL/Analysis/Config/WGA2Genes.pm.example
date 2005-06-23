@@ -1,0 +1,161 @@
+#
+# package Bio::EnsEMBL::Pipeline::Config::WGA2Genes
+# 
+# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+#
+# Copyright GRL & EBI
+#
+# You may distribute this module under the same terms as perl itself
+
+# POD documentation - main docs before the code
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::WGA2Genes;
+
+=head1 SYNOPSIS
+
+use Bio::EnsEMBL::Analysis::Config::WGA2Genes
+
+=head1 DESCRIPTION
+
+It imports and sets a number of standard global variables into the
+calling package, which are used in many scripts in the human sequence
+analysis system.  The variables are first declared using "use vars",
+so that it can be used when "use strict" is in use in the calling
+script.  Without arguments all the standard variables are set, and
+with a list, only those variables whose names are provided are set.
+
+=head1 CONTACT
+
+=cut
+
+
+package Bio::EnsEMBL::Analysis::Config::WGA2Genes;
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+           WGA2GENES_CONFIG_BY_LOGIC => {
+             DEFAULT => {
+
+               TARGET_CORE_DB => {
+                 -dbname => 'klh_cow_31_1',
+                 -user   => 'ensro',
+                 -host   => 'ecs2',
+                 -port   => '3366',
+               },
+               QUERY_CORE_DB => {
+                 -dbname => 'homo_sapiens_core_31_35d',
+                 -user   => 'ensro',
+                 -host   => 'ecs2',
+                 -port   => '3365',
+               },
+               COMPARA_DB => {
+                 -dbname => 'klh_compara_human_cow_blastz_27',
+                 -host   => 'ia64f',
+                 -user   => 'ensro',
+                 -port   => '3306',
+               },
+
+               INPUT_METHOD_LINK_TYPE => 'BLASTZ_NET_COW',
+
+               # if the following is set, attempt is made to filter out
+               # weird source transcripts before the process begins 
+               REJECT_BAD_QUERY_TRANSCRIPTS => 1,
+               
+               ##################
+               # Chain filtering
+               ##################
+               
+               # When forming a Net and rejecting "interfering" chains, this
+               # value is the maximum allowable proportion of a candidate 
+               # chain's block coverage that is allowed to overlap with 
+               # retained blocks so far
+               OVERLAP_CHAIN_FILTER => 0.9,
+
+               # Chains with members that are mostly separated in the target 
+               # genome but not in the query genome are likely processed
+               # pseudogenes. If this is set, attempt is made to reject them
+               PSEUDOGENE_CHAIN_FILTER => 0,
+
+               # If adjacent blocks in the chain are separated in the 
+               # target by at most the below distance, then they are
+               # candidates for being called fused
+               PCF_MAX_FUSION_INTERVAL => 10,
+
+               # If a pair of blocks appears to be fused in the target
+               # but the query gap is filled with more than the below
+               # proportion of query sequence, it is not counted as a
+               # fusion
+               PCF_MAX_REPEAT_IN_INTERVAL => 0.80,
+
+               #############################
+               # Transcript construction and filtering
+               #############################
+               
+               # The maximum modulo-3 distance that will be "read-through"
+               # when a single query exon aligns in two pieces to the 
+               # target
+               MAX_EXON_READTHROUGH_DIST => 15,
+
+               # The maximum number of in-frame stops that will be "edited
+               # out" (by introning over them) of the transcript for
+               # "primary" (first level) gene scaffold
+               MAX_EDITABLE_STOPS_PRIMARY => 100,
+
+               # Same again, but for non-primary (2nd, 3rd etc. level)
+               # gene scaffolds
+               MAX_EDITABLE_STOPS_NON_PRIMARY => 0,
+
+               # Minimum coverage of source transcript
+               MIN_COVERAGE => 50.0,
+
+               # Minimum proportion of result transcript that is not gap
+               MIN_NON_GAP  => 50.0,
+
+               #################
+               # Gene scaffold options
+               #################
+
+               # If the following is set, it is ensured that the resulting
+               # GeneScaffolds necessitate no contig-level splitting
+               NO_CONTIG_SPLITS => 1,
+
+               # Gap between gene scaffold component elements
+               GENE_SCAFFOLD_INTER_PIECE_PADDING => 100,
+             },
+           },
+
+           );
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
