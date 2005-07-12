@@ -89,6 +89,15 @@ use vars qw( %Config );
                },
 
                MAX_GAP => 50,
+               MIN_CHAIN_SCORE => 2000,
+
+               # If you want simple nets (not using Jim Kent's code), 
+               # set the below to one of "LOW", "MEDIUM" or "HIGH". If
+               # not, leave it empty
+               SIMPLE_NET => 'MEDIUM',
+
+               # the other parameters only apply if using Kent's tools
+               FILTER_NON_SYNTENIC => 1,               
              },
            );
 

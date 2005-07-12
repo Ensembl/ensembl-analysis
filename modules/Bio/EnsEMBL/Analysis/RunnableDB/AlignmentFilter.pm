@@ -61,8 +61,6 @@ sub new {
 
 =cut
 
-
-
 sub run{
   my ($self) = @_;
   foreach my $runnable(@{$self->runnable}){
@@ -114,6 +112,31 @@ sub write_output {
     $compara_dbh->get_GenomicAlignGroupAdaptor->store($group);
   }
 }
+
+###########################################
+# chain sorting
+###########################################
+sub sort_chains_by_max_block_score {
+  my ($self, $chains) = @_;
+
+  # sort the chains by maximum score
+  my @chain_hashes;
+  foreach my $chain (@$chains) {
+    my $chain_hash = { chain => $chain };
+    foreach my $block (@$chain) {
+      if (not exists $chain_hash->{score} or
+          $block->score > $chain_hash->{score}) {
+        $chain_hash->{score} = $block->score;
+      }
+    }
+    push @chain_hashes, $chain_hash;
+  }
+  
+  my @sorted = map { $_->{chain}} sort {$b->{score} <=> $a->{score}} @chain_hashes;
+
+  return \@sorted;
+}
+
 
 ###########################################
 # feature splitting

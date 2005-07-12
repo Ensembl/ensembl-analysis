@@ -142,7 +142,7 @@ sub fetch_input {
   ###################################################################
   # get the target slices and bin the GenomicAlignBlocks by group id
   ###################################################################
-  my (%features_by_group, %query_lengths, %target_lengths);
+  my (%features_by_group);
   
   foreach my $block (@$gen_al_blocks) {
     my ($qy_al) = $block->reference_genomic_align;
@@ -179,29 +179,157 @@ sub fetch_input {
     
     push @{$features_by_group{$group_id}}, $daf;
   }
-  
-  foreach my $nm (keys %{$self->query_DnaFrag_hash}) {
-    $query_lengths{$nm} = $self->query_DnaFrag_hash->{$nm}->length;
-  }
-  foreach my $nm (keys %{$self->target_DnaFrag_hash}) {
-    $target_lengths{$nm} = $self->target_DnaFrag_hash->{$nm}->length;
-  }
-  
-  my %parameters = (-analysis             => $self->analysis, 
-                    -chains               => [values %features_by_group],
-                    -query_lengths        => \%query_lengths,
-                    -target_lengths       => \%target_lengths,
-                    -min_chain_score      => $self->MIN_CHAIN_SCORE);
-  if ($self->SIMPLE_NET) {
-    $parameters{-simple_net} = $self->SIMPLE_NET;
-  } else {
-    $parameters{-chainNet} = $BIN_DIR . "/" . "chainNet";
-  }  
 
-  my $run = Bio::EnsEMBL::Analysis::Runnable::AlignmentNets->new(%parameters);
-  $self->runnable($run);
+  $self->chains($self->sort_chains_by_max_block_score([values %features_by_group]));
 
+  if (not $self->SIMPLE_NET) {
+    my (%query_lengths, %target_lengths);
+
+    foreach my $nm (keys %{$self->query_DnaFrag_hash}) {
+      $query_lengths{$nm} = $self->query_DnaFrag_hash->{$nm}->length;
+    }
+    foreach my $nm (keys %{$self->target_DnaFrag_hash}) {
+      $target_lengths{$nm} = $self->target_DnaFrag_hash->{$nm}->length;
+    }
+    
+    my %parameters = (-analysis             => $self->analysis, 
+                      -chains               => $self->chains,
+                      -query_lengths        => \%query_lengths,
+                      -target_lengths       => \%target_lengths,
+                      -min_chain_score      => $self->MIN_CHAIN_SCORE,
+                      -filter_non_syntenic  => $self->FILTER_NON_SYNTENIC);
+    
+    $parameters{-chainNet} = $self->CHAIN_NET 
+        ? $self->CHAIN_NET
+        : $BIN_DIR . "/" . "chainNet";
+    $parameters{-netSyntenic} = $self->NET_SYNTENIC 
+        ? $self->NET_SYNTENIC 
+        : $BIN_DIR . "/" . "netSyntenic";
+    $parameters{-netFilter} = $self->NET_FILTER
+        ? $self->NET_FILTER
+            : $BIN_DIR . "/" . "netFilter";
+    
+
+    my $run = Bio::EnsEMBL::Analysis::Runnable::AlignmentNets->new(%parameters);
+    $self->runnable($run);
+  } 
 }
+
+
+
+sub calculate_simple_net {
+  my ($self, $mode, $chains) = @_;
+
+  my @net_chains;
+
+  if ($mode =~ /HIGH/) {
+    # VERY simple: just keep the best chain
+
+    if (@$chains) {
+      @net_chains = ($chains->[0]);
+    }
+
+  } elsif ($mode =~ /MEDIUM/) {
+    # Slightly less simple. Junk chains that have extent overlap
+    # with retained chains so far
+    foreach my $c (@$chains) {
+      my @b = sort { $a->start <=> $b->start } @$c; 
+      my $c_st = $b[0]->start;
+      my $c_en = $b[-1]->end;
+
+      my $keep_chain = 1;
+      foreach my $oc (@net_chains) {
+        my @ob = sort { $a->start <=> $b->start } @$oc; 
+
+        my $oc_st = $ob[0]->start;
+        my $oc_en = $ob[-1]->end;
+
+        if ($oc_st <= $c_en and $oc_en >= $c_st) {
+          # overlap; junk
+          $keep_chain = 0;
+          last;
+        }
+      }
+
+      if ($keep_chain) {
+        push @net_chains, $c;
+      }
+    }
+
+  } elsif ($mode =~ /LOW/) {
+    # not quite so simple. Junk chains that have BLOCK overlap
+    # with retained chains so far
+    my @retained_blocks;
+
+    foreach my $c (@$chains) {
+      my @b = sort { $a->start <=> $b->start } @$c; 
+
+      my $keep_chain = 1;
+      BLOCK: foreach my $b (@b) {
+        OTHER_BLOCK: foreach my $ob (@retained_blocks) {
+          if ($ob->start <= $b->end and $ob->end >= $b->start) {
+            $keep_chain = 0;
+            last BLOCK;
+          } elsif ($ob->start > $b->end) {
+            last OTHER_BLOCK;
+          }
+        }
+      }
+
+      if ($keep_chain) {
+        push @net_chains, $c;
+        push @retained_blocks, @$c;
+        @retained_blocks = sort { $a->start <=> $b->start } @retained_blocks;
+      }
+    }
+  }
+
+  return \@net_chains;
+}
+
+=head2 run
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Function  : cycles through all the runnables, calls run and pushes
+  their output into the RunnableDBs output array
+  Returntype: array ref
+  Exceptions: none
+  Example   : 
+
+=cut
+
+sub run{
+  my ($self) = @_;
+  if (not $self->SIMPLE_NET) {
+    $self->SUPER::run();
+  } else {
+    my $filtered_chains = $self->calculate_simple_net($self->SIMPLE_NET,
+                                                      $self->chains);
+    my $converted_output = $self->convert_output($filtered_chains);
+    $self->output($converted_output);
+  }
+}
+
+
+=head2 chains
+
+ Title   : chains
+ Usage   :
+ Function:
+ Returns : 
+ Args    :
+
+=cut
+
+sub chains {
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_chains} = $value;
+  }
+  return $self->{_chains};
+}
+
 
 
 ####################################
@@ -238,7 +366,6 @@ sub QUERY_SPECIES {
   return $self->{_query_species};
 }
 
-
 sub TARGET_SPECIES {
   my ($self, $val) = @_;
 
@@ -249,7 +376,6 @@ sub TARGET_SPECIES {
   return $self->{_target_species};
 }
 
-
 sub SIMPLE_NET {
   my ($self, $val) = @_;
 
@@ -259,5 +385,48 @@ sub SIMPLE_NET {
 
   return $self->{_simple_net};
 }
+
+sub FILTER_NON_SYNTENIC {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_filter_non_syntenic} = $val;
+  }
+  
+  return $self->{_filter_non_syntenic};
+}
+
+sub CHAIN_NET {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_chain_net_prog} = $val;
+  }
+  
+  return $self->{_chain_net_prog};
+}
+
+
+sub NET_SYNTENIC {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_net_syntenic_prog} = $val;
+  }
+  
+  return $self->{_net_syntenic_prog};
+}
+
+sub NET_FILTER {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_net_filter_prog} = $val;
+  }
+  
+  return $self->{_net_filter_prog};
+}
+
+
 
 1;
