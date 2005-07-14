@@ -98,7 +98,7 @@ sub parse_results{
   open(OUT, "<".$results) or throw("FAILED to open ".$results.
                                    "Genscan:parse_results");
   my $ff = $self->feature_factory;
- LINE:while(<OUT>){
+  LINE:while(<OUT>){
     chomp;
     if(m|NO EXONS/GENES PREDICTED IN SEQUENCE|i){
       print "No genes predicted\n";
@@ -144,28 +144,22 @@ sub parse_results{
       next LINE;
     }
   }
-  my $peptide;
+
   my $group;
   my $hash = {};
- PEP:while(<OUT>){
+  PEP:while(<OUT>){
     chomp;
     if(/predicted peptide/i){
       next;
     }
     if(/^>/){
-      if($peptide){
-        $peptide =~ s/\s+//;
-        $hash->{$group} = $peptide;
-      }
-      $peptide = undef;
       my @values = split(/\|/, $_);
-      $values[1] =~ /GENSCAN_predicted_peptide_(\d+)/;
-      $group = $1;
-    }else{
-      $peptide .= $_;
+      ($group) = ($values[1] =~ /GENSCAN_predicted_peptide_(\d+)/); 
+    }elsif(/(\S+)/ and defined $group) {
+      $hash->{$group} .= $1;
     }
   }
-  $hash->{$group} = $peptide;
+
   $self->peptides($hash);
   close(OUT) or throw("FAILED to close ".$results.
                       "Genscan:parse_results");
