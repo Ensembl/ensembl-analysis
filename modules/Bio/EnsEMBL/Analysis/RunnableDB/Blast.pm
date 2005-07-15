@@ -121,10 +121,18 @@ sub run {
     };
     if(my $err = $@){
       chomp $err;
-      $self->failing_job_status($1) 
-        if $err =~ /^\"([A-Z_]{1,40})\"$/i; 
+
       # only match '"ABC_DEFGH"' and not all possible throws
-      throw("Blast::run failed $@");
+      if ($err =~ /^\"([A-Z_]{1,40})\"$/i) {
+        my $code = $1;
+        # treat VOID errors in a special way; they are really just
+        # BLASTs way of saying "won't bother searching because
+        # won't find anything"        
+        if ($code ne 'VOID') {
+          $self->failing_job_status($1);          
+          throw("Blast::run failed $@");
+        }
+      }
     }
     $self->output($runnable->output);
   }
