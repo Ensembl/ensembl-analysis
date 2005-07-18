@@ -1276,6 +1276,7 @@ sub make_projected_transcript {
                   -start    => $cur_gs_start,
                   -end      => $cur_gs_end,
                   -strand   => $exon->strand,
+                  -score    => 100.0,
                   -hseqname => $tran->translation->stable_id,
                   -hstart   => $p_coord->start,
                   -hend     => $p_coord->end,
