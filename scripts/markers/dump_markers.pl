@@ -89,28 +89,50 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 
 my $sts = $db->get_MarkerAdaptor->fetch_all;
 die "No markers in database" unless @{$sts};
+#die scalar(@{$sts}) . " markers in database";
 
 
 dump_sts_file($outfile, $sts);
 
 sub dump_sts_file {
-    my ($dest, $sts) = @_;
-
-    open DEST, "> $dest";
-    foreach my $m (@{$sts}) {
-        unless (ref $m && $m->isa("Bio::EnsEMBL::Map::Marker")) {
-            die "Object not a Bio::EnsEMBL::Map::Marker: [$m]";
-        }
-        next if $m->max_primer_dist == 0;
-        next unless length($m->left_primer) > 0;
-        next unless length($m->right_primer) > 0;
-        print DEST join("\t",
-            $m->dbID,
-            $m->left_primer,
-            $m->right_primer,
-            join("-", $m->min_primer_dist, $m->max_primer_dist),
-        ), "\n";
+  my ($dest, $sts) = @_;
+  
+  open DEST, "> $dest";
+  foreach my $m (@{$sts}) {
+    unless (ref $m && $m->isa("Bio::EnsEMBL::Map::Marker")) {
+      die "Object not a Bio::EnsEMBL::Map::Marker: [$m]";
     }
-    close DEST;
+    
+    next unless length($m->left_primer) > 0;
+    next unless length($m->right_primer) > 0;
+    
+    my ($min_dist, $max_dist);
+    if ($m->min_primer_dist == 0) {
+      $min_dist = 80;
+    } else {
+      $min_dist = $m->min_primer_dist;
+    }
+    
+    if ($m->max_primer_dist == 0) {
+      $max_dist = 600;
+    } else {
+      $max_dist = $m->max_primer_dist;
+    }
+    
+    my $dist; 
+    if ($min_dist == $max_dist) {
+      $dist = $min_dist;
+    } else {
+      $dist = join("-", $min_dist, $max_dist);
+    }
+    
+    print DEST join("\t",
+                    $m->dbID,
+                    $m->left_primer,
+                    $m->right_primer,
+                    $dist,
+                    ), "\n";
+  }
+  close DEST;
 }
 
