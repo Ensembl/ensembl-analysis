@@ -223,13 +223,21 @@ sub write_output{
     @output = @{$self->output};
   }
   
+  my $fails = 0;
+  my $total = 0;
   foreach my $gene (@output){
     eval {
       $gene_adaptor->store($gene);
     };    
     if ($@){
-      $self->warn("Unable to store gene!!\n$@");
+      warning("Unable to store gene!!\n$@");
+      $fails++;
     }
+    $total++;
+  }
+  if ($fails > 0) {
+    throw("Not all genes could be written successfully " .
+          "($fails fails out of $total)");
   }
 }
 
