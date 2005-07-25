@@ -123,7 +123,6 @@ TRAN:
       percent_id  => $percent_id,
       num_exons   => scalar(@{$transcript->get_all_Exons}),
       is_spliced  => $self->_transcript_is_spliced($transcript),
-      extent      => $self->_get_transcript_extent($transcript),
     };
   }
   
@@ -132,7 +131,6 @@ TRAN:
  
  QUERY:
   foreach my $query_id ( keys( %matches ) ){
-    
     @{$matches_sorted_by_coverage{$query_id}} = 
         sort { $b->{coverage}   <=> $a->{coverage} or
                $b->{num_exons}  <=> $a->{num_exons} or
@@ -154,7 +152,6 @@ TRAN:
       my ($accept, $label);      
       my $transcript = $hit->{transcript};
       my $strand = $transcript->strand;
-      my $extent = $hit->{extent};
       my $coverage = $hit->{coverage};
       my $percent_id = $hit->{percent_id};
       my $is_spliced = $hit->{is_spliced};
@@ -208,9 +205,6 @@ TRAN:
 	else{
 	  $accept = 'NO';
 	}
-
-	#print STDERR "match:$query_id coverage:$coverage perc_id:$percent_id extent:$extent strand:$strand comment:$label accept:$accept\n";	
-	#print STDERR "--------------------\n";
 	
       }
       else{
@@ -245,8 +239,6 @@ TRAN:
 	else{
 	  $accept = 'NO';
 	}
-	#print STDERR "match:$query_id coverage:$coverage perc_id:$percent_id extent:$extent strand:$strand comment:$label accept:$accept\n";
-        #print STDERR "--------------------\n";
       }
     }
   }
@@ -259,42 +251,50 @@ TRAN:
 
 sub _get_transcript_coverage{
   my ($self,$tran) = @_;
-  my @exons = @{$tran->get_all_Exons};
-  my @evi = @{$exons[0]->get_all_supporting_features};
-  return $evi[0]->score;
+
+  if (@{$tran->get_all_supporting_features} and
+      defined $tran->get_all_supporting_features->[0]->hcoverage) {
+    my ($evi) = @{$tran->get_all_supporting_features};
+    return $evi->hcoverage;
+  } else {
+    my @exons = @{$tran->get_all_Exons};
+    my ($evi) = @{$exons[0]->get_all_supporting_features};
+    return $evi->score;
+  }
 }
 
 ############################################################
 
 sub _get_transcript_percent_id{
   my ($self,$tran) = @_;
-  my @exons = @{$tran->get_all_Exons};
-  my @evi = @{$exons[0]->get_all_supporting_features};
-  return $evi[0]->percent_id;
+
+  my ($sf);
+
+  if (@{$tran->get_all_supporting_features}) {
+    ($sf) = @{$tran->get_all_supporting_features};
+  } else {
+    my @exons = @{$tran->get_all_Exons};
+    ($sf) = @{$exons[0]->get_all_supporting_features};    
+  }
+
+  return $sf->percent_id;
 }
 
 ############################################################
 
 sub _get_transcript_evidence_id{
   my ($self,$tran) = @_;
-  my @exons = @{$tran->get_all_Exons};
-  my @evi = @{$exons[0]->get_all_supporting_features};
-  return $evi[0]->hseqname;
-}
 
-############################################################
+  my ($sf);
 
-sub _get_transcript_extent {
-  my ($self, $transcript) = @_;
-
-  my @exons  = sort { $a->start <=> $b->start } @{$transcript->get_all_Exons};
-  my $start  = $exons[0]->start;
-  my $end    = $exons[$#exons]->end;
-  my $seqname= $exons[0]->seqname;
-  $seqname   =~ s/\.\d+-\d+$//;
-  my $extent = $seqname.".".$start."-".$end;
-
-  return $extent;
+  if (@{$tran->get_all_supporting_features}) {
+    ($sf) = @{$tran->get_all_supporting_features};
+  } else {
+    my @exons = @{$tran->get_all_Exons};
+    ($sf) = @{$exons[0]->get_all_supporting_features};    
+  }
+  
+  return $sf->hseqname;
 }
 
 ############################################################
