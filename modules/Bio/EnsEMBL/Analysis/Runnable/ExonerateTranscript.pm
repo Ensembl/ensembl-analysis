@@ -107,6 +107,8 @@ sub parse_results {
 
     next unless /^RESULT:/;
 
+    print STDERR $_;
+
     chomp;
 
     my ($tag, $q_id, $q_start, $q_end, $q_strand, $t_id, $t_start, $t_end,
@@ -149,7 +151,6 @@ sub parse_results {
 
     my $coverage = sprintf("%.2f", 100 * $covered_count / $q_length);
 
-
     # Build FeaturePairs for each region of query aligned to a single
     # Exon.  Create a DnaDnaAlignFeature from these FeaturePairs and then
     # attach this to our Exon.
@@ -188,25 +189,27 @@ sub parse_results {
         push @tran_feature_pairs, $feature_pair;
       }
 
-      # Use our feature pairs for this exon to create a single 
-      # supporting feature (with cigar line).
-      my $supp_feature;
-      
-      eval{
-        if ($self->query_type eq 'protein') {
-          $supp_feature =
-              Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@exon_feature_pairs);
-        } else {
-          $supp_feature = 
-              Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@exon_feature_pairs);
-        }
-      };
-      if ($@){
-        warning($@);
-        next TRANSCRIPT;
+      if (@exon_feature_pairs) {
+        # Use our feature pairs for this exon to create a single 
+        # supporting feature (with cigar line).
+        my $supp_feature;
+        
+        eval{
+          if ($self->query_type eq 'protein') {
+            $supp_feature =
+                Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@exon_feature_pairs);
+          } else {
+            $supp_feature = 
+                Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@exon_feature_pairs);
+          }
+        };
+        if ($@){
+          warning($@);
+          next TRANSCRIPT;
+        }      
+        $exon->add_supporting_features($supp_feature);
       }      
-      $exon->add_supporting_features($supp_feature);
-      
+
       $transcript->add_Exon($exon);
     }
 
@@ -237,16 +240,18 @@ sub parse_results {
 
         $translation->start_Exon($exons[0]);
         $translation->end_Exon  ($exons[-1]);
-        
-        # phase is relative to the 5' end of the transcript (start translation)
-        if ($exons[0]->phase == 0) {
-          $translation->start(1);
-        } elsif ($exons[0]->phase == 1) {
-          $translation->start(3);
-        } elsif ($exons[0]->phase == 2) {
-          $translation->start(2);
-        }
+        $translation->start(1);
         $translation->end($exons[-1]->end - $exons[-1]->start + 1);
+        
+        # since we assume that exonerate alignments always start 
+        # and end with a match state, the start phase of the first
+        # exon will always be 0
+        $exons[0]->phase(0);
+        for(my $i=1; $i < @exons; $i++) {
+          $exons[$i-1]->end_phase( ($exons[$i-1]->phase + $exons[$i-1]->length) % 3 );
+          $exons[$i]->phase( $exons[$i-1]->end_phase );
+        }
+        $exons[-1]->end_phase( ($exons[-1]->phase + $exons[-1]->length) % 3 );
 
         $transcript->translation($translation);
       }
@@ -273,7 +278,6 @@ sub _parse_vulgar_block {
 
   my @exons;
   my $exon_number = 0;
-
 
   # We sometimes need to increment all our start coordinates. Exonerate 
   # has a coordinate scheme that counts _between_ nucleotides at the start.
@@ -314,9 +318,9 @@ sub _parse_vulgar_block {
 
     throw("Vulgar string does not start with a match.  Was not " . 
 		 "expecting this.")
-      if ((scalar @exons == 0) && ($type ne 'M'));
+      if (scalar @exons == 0) && $type ne 'M' && $type ne 'S';
 
-    if ($type eq 'M'){
+    if ($type eq 'M' or $type eq 'S'){
       my %hash;
 
       if ($target_strand == -1) {
@@ -345,17 +349,13 @@ sub _parse_vulgar_block {
         $hash{query_end}   = $cumulative_query_coord + ($query_match_length - 1);
       }
 
+      if ($type eq 'S') {
+        $hash{incomplete_codon} = $target_match_length;
+      }
+
       # there is nothing to add if this is the last state of the exon
       $exons[$exon_number]->{gap_end}   = 0;
       push @{$exons[$exon_number]->{sf}}, \%hash;
-    }
-    elsif ($type eq "S") {
-      if ($exons[$exon_number]) {
-        # this is a split codon at the end of an exon
-        $exons[$exon_number]->{split_end} = $target_match_length;
-      } else {
-        $exons[$exon_number]->{split_start} = $target_match_length;
-      }
     }
     elsif ($type eq "G") {
       if (exists($exons[$exon_number]->{sf})) {
@@ -400,21 +400,10 @@ sub _parse_vulgar_block {
     my $ex = $exons[$i];
     my $ex_sf = $ex->{sf};
 
-    $ex->{phase} = 0;
-    $ex->{end_phase} = 0;
-    
     if ($target_strand == -1) {
       $ex->{exon_start} = $ex_sf->[-1]->{target_start};
       $ex->{exon_end}   = $ex_sf->[0]->{target_end};
 
-      if (exists $ex->{split_start}) {
-        $ex->{exon_end} += $ex->{split_start};
-        $ex->{phase} = 3 - $ex->{split_start};
-      }
-      if (exists $ex->{split_end}) {
-        $ex->{exon_start} -= $ex->{split_end};
-        $ex->{end_phase} = $ex->{split_end};
-      }
       if (exists $ex->{gap_start}) {
         $ex->{exon_end} += $ex->{gap_start};
       }
@@ -426,14 +415,6 @@ sub _parse_vulgar_block {
       $ex->{exon_start} = $ex_sf->[0]->{target_start};
       $ex->{exon_end}   = $ex_sf->[-1]->{target_end};
 
-      if (exists $ex->{split_start}) {
-        $ex->{exon_start} -= $ex->{split_start};
-        $ex->{phase} = 3 - $ex->{split_start};
-      }
-      if (exists $ex->{split_end}) {
-        $ex->{exon_end} += $ex->{split_end};
-        $ex->{end_phase} = $ex->{split_end};
-      }
       if (exists $ex->{gap_start}) {
         $ex->{exon_start} -= $ex->{gap_start};
       }
@@ -441,6 +422,15 @@ sub _parse_vulgar_block {
         $ex->{exon_end} += $ex->{gap_end};
       }
     }
+
+    # filter out the incomplete supporting features
+    my @sfs;
+    foreach my $f (@$ex_sf) {
+      if (not exists ($f->{incomplete_codon})) {
+        push @sfs, $f;
+      }
+    }
+    $ex->{sf} = \@sfs;
   }
 
   return \@exons;
