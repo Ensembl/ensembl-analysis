@@ -143,16 +143,23 @@ sub parse_results{
         #}
 
         my ($score, $name, $start, $end, $strand,
-            $repeat_name, $repeat_class, $repeatmunge); 
+            $repeat_name, $repeat_class, $repeatmunge, $repeatmunge2); 
         if(@columns == 15){
           ($score, $name, $start, $end, $strand,
            $repeat_name, $repeat_class) =  @columns[0, 4, 5, 6, 8, 9, 10];
         }elsif(@columns == 14){
           ($score, $name, $start, $end, $strand,
-           $repeatmunge) =  @columns[0, 4, 5, 6, 8, 9];
-          $repeatmunge =~ /(\S+)(LINE\S+)/;
-          $repeat_name = $1;
-          $repeat_class = $2;
+           $repeatmunge,$repeatmunge2) =  @columns[0, 4, 5, 6, 8, 9, 10];
+          if ($repeatmunge =~ /(\S+)(LINE\S+)/) {
+            $repeatmunge =~ /(\S+)(LINE\S+)/;
+            $repeat_name = $1;
+            $repeat_class = $2;
+          } elsif ($repeatmunge2 eq 'Unknown') {
+            print "Unknown repeat name\n";
+            $repeat_name = 'Unknown';
+          } else {
+            throw("Can't parse repeatmasker output for line = $_\n");
+          }
           if(!$repeat_class){
             $repeat_class = 'UNK';
           }
