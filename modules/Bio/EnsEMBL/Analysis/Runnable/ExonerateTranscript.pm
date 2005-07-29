@@ -107,8 +107,6 @@ sub parse_results {
 
     next unless /^RESULT:/;
 
-    print STDERR $_;
-
     chomp;
 
     my ($tag, $q_id, $q_start, $q_end, $q_strand, $t_id, $t_start, $t_end,
