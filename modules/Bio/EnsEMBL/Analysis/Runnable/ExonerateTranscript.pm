@@ -252,6 +252,11 @@ sub parse_results {
         $exons[-1]->end_phase( ($exons[-1]->phase + $exons[-1]->length) % 3 );
 
         $transcript->translation($translation);
+      } else {
+        foreach my $e (@exons) {
+          $e->phase(-1);
+          $e->end_phase(-1);
+        }
       }
 
       push @transcripts, $transcript;
