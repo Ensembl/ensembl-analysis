@@ -226,6 +226,10 @@ sub fetch_input {
 
     my $chain_id =  $qga->genomic_align_group_id_by_type("chain");
 
+    if ($block->reference_genomic_align->dnafrag_strand < 0) {
+      $block->reverse_complement;
+    }
+
     push @{$chains{$chain_id}}, $block;
   }
   foreach my $chain_id (keys %chains) {
@@ -302,7 +306,7 @@ sub run {
         # $self->print_chains($filtered_chains, "NO CONTIG SPLIT CHAINS");
       }
       
-      my $net_blocks = $self->make_alignment_net_simple($filtered_chains, 1);
+      my $net_blocks = $self->flatten_chains($filtered_chains, 1);
       
       my ($projected_cds_feats, $blocks_used) = 
           $self->map_features_to_target(\@cds_feats, $net_blocks);
@@ -505,7 +509,7 @@ sub map_features_to_target {
     #}
     my $j=0;
     
-    my ($highest_level, @overlapping_blocks);
+    my (@overlapping_blocks);
 
     for(my $i=$j; $i < @$gen_al_blocks; $i++) {
       my $block = $gen_al_blocks->[$i];
@@ -516,16 +520,7 @@ sub map_features_to_target {
       next if $qga->dnafrag_end < $feat->start;
       last if $qga->dnafrag_start > $feat->end;
       
-      #if (not defined $highest_level) {
-      #  $highest_level = $qga->level_id;
-        push @overlapping_blocks, $block;
-      #} elsif ($qga->level_id == $highest_level) {
-      #  push @overlapping_blocks, $block;
-      #} elsif ($qga->level_id < $highest_level) {
-      #  @overlapping_blocks = ($block);
-      #  $highest_level = $qga->level_id;
-      #} 
-      # else $qga->level_id > $highest_level -> ignore it
+      push @overlapping_blocks, $block;
     }
 
     foreach my $block (@overlapping_blocks) {
@@ -574,13 +569,13 @@ sub map_features_to_target {
                         $current_pos2,
                         $current_pos2 + ($coord2->end - $coord2->start),
                         1),
-                    target => Bio::EnsEMBL::Mapper::Coordinate->
+                target => Bio::EnsEMBL::Mapper::Coordinate->
                     new($tga->dnafrag->name,
                         $coord2->start,
                         $coord2->end,
-                      $qga->dnafrag_strand * $tga->dnafrag_strand),
-                    level  => $tga->level_id,
-                  };
+                        $qga->dnafrag_strand * $tga->dnafrag_strand),
+                level  => $tga->level_id,
+              };
             }
             
             $current_pos2 += ($coord2->end - $coord2->start + 1);
@@ -742,7 +737,7 @@ sub gene_scaffold_from_projection {
   # remove gaps which cannot be filled. Non-fillable gaps:
   # 1. If one of the flanking coords is on the same CDS region
   #    as the gap, and the end of the aligned region does
-  #    not align to a gap
+  #    not align to a sequence-level gap
   # 2. If the 2 flanking coords are consistent and not
   #    separated by a sequence-level gap
   @new_targets = ();
@@ -1954,18 +1949,18 @@ sub get_all_Transcripts {
 
 
 ###################################################################
-# FUNCTION: make_alignment_net_simple
+# FUNCTION: flatten_chains
 #
 # Description:
 #    Takes a list of chains of GenomicAlignBlocks and computes 
-#    a query-oriented "Net" so that no bp on the query sequence 
-#    is covered by more than one target sequence. 
-#    NOTE: The process is greatly simplified if the blocks of the 
-#    given chains have no overlap either at the query or target 
-#    When this is the case, this is the method to use
+#    and flattens it into a list of GenomicAlignBlocks
+#    NOTE: The method assumes that the input chains are non-
+#    overlapping in the reference sequence at the block level. If
+#    the '$check' flag is supplied, this is checked and an exception
+#    thrown if this is not the case
 ####################################################################
 
-sub make_alignment_net_simple {
+sub flatten_chains {
   my ($self, $chains, $check) = @_;
 
   my @blocks;
@@ -2011,13 +2006,8 @@ sub remove_irrelevant_chains {
   foreach my $c (@$chains) {
     my $chain_overlaps_feat = 0;
 
-    my @blocks = sort {
-      $a->reference_genomic_align->dnafrag_start <=>
-      $b->reference_genomic_align->dnafrag_start;
-    } @$c;
-
     my $j=0;
-    BLOCK: foreach my $b (@blocks) {
+    BLOCK: foreach my $b (@$c) {
       my $b_st = $b->reference_genomic_align->dnafrag_start;
       my $b_en = $b->reference_genomic_align->dnafrag_end;
 
@@ -2408,9 +2398,9 @@ sub remove_contig_split_chains {
 
     my @these_chains = (@kept_chains, $c);
 
-    my $net_blocks = $self->make_alignment_net_simple(\@these_chains, 1);
+    my $blocks = $self->flatten_chains(\@these_chains, 1);
 
-    foreach my $b (@$net_blocks) {
+    foreach my $b (@$blocks) {
       my ($tga) = @{$b->get_all_non_reference_genomic_aligns};
       my $tgac = Bio::EnsEMBL::Mapper::Coordinate->new
           ($tga->dnafrag->name,
