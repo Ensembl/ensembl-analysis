@@ -47,9 +47,13 @@ use vars qw( %Config );
     DEFAULT => {
       GENOMICSEQS         => '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted/', #allowed to be a dir.
       QUERYTYPE           => 'dna',
-      # must be a single file containing all probes indexed by affy_probe_id
+
+      # must be a single file containing all (non-redundant) probes indexed by affy_probe_id
+      # QUERYSEQS refers to the value of the parameter NON_REDUNDANT_PROBE_SEQS
+      # in the config-file ensembl-analysis/Config/CollapseAffyProbes.pm
+
       QUERYSEQS           => '/ecs2/work3/vvi/osgb/affy/data/all_nr_probes.fa',
-      # QUERYSEQS           => '/ecs2/work3/vvi/osgb/affy/data/single.fa',
+
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP           => '(\d+):(\d+)',
       DNADB => {
