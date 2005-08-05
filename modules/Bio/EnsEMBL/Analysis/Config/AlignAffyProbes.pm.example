@@ -45,6 +45,10 @@ use vars qw( %Config );
 %Config = (
   AFFY_CONFIG => {
     DEFAULT => {
+
+      # path to softmasked, dusted sequence on the farm 
+      # 
+      
       GENOMICSEQS         => '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted/', #allowed to be a dir.
       QUERYTYPE           => 'dna',
 
