@@ -59,7 +59,6 @@ use vars qw(@ISA);
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($matrix) = rearrange(['MATRIX'], @args);
 
   ######################
   #SETTING THE DEFAULTS#

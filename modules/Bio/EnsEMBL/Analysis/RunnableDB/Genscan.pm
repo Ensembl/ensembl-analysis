@@ -60,17 +60,10 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($self->input_id, $self->db, 
                                     $ANALYSIS_REPEAT_MASKING);
   $self->query($slice);
-  my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
-  }
+  my %args = %{$self->standard_args};
   my $runnable = $self->runnable_path->new
     (
-     -query => $self->query,
-     -program => $self->analysis->program_file,
-     -analysis => $self->analysis,
-     -matrix => $self->analysis->db_file,
-     %parameters,
+     %args,
     );
   $self->runnable($runnable);
   return 1;
@@ -112,4 +105,19 @@ sub runnable_path{
 }
 
 
+
+sub standard_args{
+  my ($self) = @_;
+  my %parameters;
+  if($self->parameters_hash){
+    %parameters = %{$self->parameters_hash};
+  }
+  return {
+          -query => $self->query,
+          -program => $self->analysis->program_file,
+          -analysis => $self->analysis,
+          %parameters,
+          -matrix => $self->analysis->db_file,
+         };
+}
 1;

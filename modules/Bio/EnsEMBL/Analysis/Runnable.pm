@@ -75,6 +75,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Programs;
 use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 
 use vars qw (@ISA);
 
@@ -526,7 +527,7 @@ sub write_seq_file{
     $seqout->write_seq($seq);
   };
   if($@){
-    throw("FAILED to write $seq to $filename Runnable:write_seq_file");
+    throw("FAILED to write $seq to $filename Runnable:write_seq_file $@");
   }
   return $filename;
 }
