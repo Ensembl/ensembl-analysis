@@ -16,7 +16,9 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   my ($tablenamefile, $intronpenalty, $exonpenalty) = 
-    rearrange(['MATRIX'], @args);
+    rearrange(['TABLENAMEFILE', 
+               'INTRONPENALTY', 
+               'EXONPENALTY'], @args);
 
   
   ######################
