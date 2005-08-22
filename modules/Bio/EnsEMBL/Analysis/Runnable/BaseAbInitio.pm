@@ -164,3 +164,116 @@ sub create_transcripts{
   $self->output(\@transcripts);
 }
 
+
+sub calculate_phases{
+  my ($self) = @_;
+  my @phases = (0, 1, 2);
+  my @output;
+  my $ff = $self->feature_factory;
+  my $peptides = $self->peptides;
+ TRANS:foreach my $trans(@{$self->output}){
+    my @exons = @{$trans->get_all_Exons};
+    foreach my $phase(@phases){
+      my @temp_exons = @{$self->set_phases($phase, \@exons)};
+      my $new = $ff->create_prediction_transcript(\@temp_exons, 
+                                                  $self->query,
+                                                  $self->analysis);
+      my $pep = $new->translate->seq;
+      my $peptide = $peptides->{$trans->seqname};
+      my ($ensembl, $genscan) = $self->subsitute_x_codes($pep, 
+                                                         $peptide); 
+      $ensembl =~ s/^x//i;
+      $ensembl =~ s/x$//i;
+      $genscan =~ s/^x//i;
+      $genscan =~ s/x$//i;
+      if ($ensembl =~ /$genscan/){
+        push(@output, $new);
+        next TRANS;
+      }
+    }
+    throw("Failed to find translation for ".$trans." ".$exons[0]->seqname)
+  }
+  $self->clean_output;
+  $self->output(\@output);
+}
+
+
+
+=head2 set_phases
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genscan
+  Arg [2]   : number, start phase,
+  Arg [3]   : arrayref of Bio::EnsEMBL::PredictionExons
+  Function  : starting with the given phase sets of the phase of
+  each exon on the basis of the end phase of the last. This is done
+  after ordering them on the basis of there strand
+  Returntype: arrayref of
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub set_phases{
+  my ($self, $start_phase, $exons) = @_;
+  if(@$exons == 0){
+    throw("Can't set phases if have no exons ".$exons." ".@$exons);
+  }
+  if ($exons->[0]->strand == 1) {
+    @$exons = sort {$a->start <=> $b->start} @$exons;
+  } else {
+    @$exons = sort {$b->start <=> $a->start} @$exons;
+  }
+  foreach my $e(@$exons){
+    $e->phase($start_phase);
+    $start_phase = ($e->phase + $e->length)%3;
+  }
+  return $exons;
+}
+
+
+
+=head2 subsitute_x_codes
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genscan
+  Arg [2]   : string, ensembl produced peptides
+  Arg [3]   : string, genscan predicted peptide
+  Function  : makes sure x's and length's of peps are the same
+  to allow fair comparison
+  Returntype: string, string
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
+sub subsitute_x_codes{
+  my ($self, $ensembl_pep, $genscan_pep) = @_;
+  my $x = 0;
+  my $ens_len = length($ensembl_pep);
+  my $gen_len = length($genscan_pep);
+  if($ens_len == ($gen_len+1)){
+    chop($ensembl_pep);
+  }
+  if($gen_len == ($ens_len+1)){
+    chop($genscan_pep);
+  }
+  $ens_len = length($ensembl_pep);
+  $gen_len = length($genscan_pep);
+  while (($x = index($ensembl_pep, 'X', $x)) != -1) {
+		substr($genscan_pep, $x, 1) = 'X'
+      if length($genscan_pep) >= length($ensembl_pep);
+		$x++;
+  }
+  
+  $x = 0;
+  while (($x = index($genscan_pep, 'X', $x)) != -1) {
+		substr($ensembl_pep, $x, 1) = 'X'
+      if length($ensembl_pep) >= length($genscan_pep);
+		$x++;
+  }
+  return $ensembl_pep, $genscan_pep;
+}
+
+1;

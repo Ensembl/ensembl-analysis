@@ -115,6 +115,9 @@ sub parse_results{
   $gene_count = $self->parse_lines(\@reverse_lines, $prefix, $ff, 
                                    $gene_count, -1);
  
+  close(OUT) or throw("FAILED to close ".$results.
+                      "Genefinder:parse_results");
+
   $self->create_transcripts;
 }
 

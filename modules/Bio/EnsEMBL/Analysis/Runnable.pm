@@ -699,7 +699,6 @@ sub diskspace {
 
 sub run{
   my ($self, $dir) = @_;
-
   $self->workdir($dir) if($dir);
   throw("Can't run ".$self." without a query sequence") 
     unless($self->query);
