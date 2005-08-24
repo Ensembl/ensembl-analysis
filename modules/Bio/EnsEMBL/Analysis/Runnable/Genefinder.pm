@@ -71,7 +71,6 @@ sub filecheck{
     if(!-e $self->intronpenalty){
        $err_string .= "IntronPenalty ".$self->intronpenalty." does not".
          " exists\n";
-       print
     }
     if(!-e $self->exonpenalty){
       $err_string .= "ExonPenalty ".$self->exonpenalty." does not ".
@@ -129,7 +128,6 @@ sub parse_lines{
   my ($self, $lines, $prefix, $ff, $gene_count, $strand) = @_;
 
   my $phase = 0;
-  print "Making new exons on ".$strand."\n";
   foreach my $line(@$lines){
     $line =~ s/\[TSL: \S+\s+\S+\]//;
     $line =~ s/start//;
@@ -148,31 +146,21 @@ sub parse_lines{
         $line .= $v." ";
       } 
     }
-    #print STDERR $line."\n";
     my @values = split /\s+/, $line;
-    #print STDERR "@values\n";
     if(!$values[0]){
       my $first = shift @values;  
     }
     if($values[0] =~ /U(\d)/){
-     # print "value is ".$values[0]."\n";
       $phase = $1;
       my $phase_variable = shift @values; 
-     # print STDERR "phase has been set to ".$phase."\n";
     }
-    #print STDERR "@values\n";
     my $count = 0;
     my $exonname = $prefix.".".$gene_count;
-    #print "phase = ".$phase."\n";
     foreach my $coord(@values){
-      #print STDERR "start phase of this gene is ".$phase."\n";
       if($coord =~ /U\d/){
-	next;
+        next;
       }
-     # print STDERR "phase is ".$phase."\n";
-#      print STDERR "have coord ".$coord."\n";
       my ($start, $end) = split /\.\./, $coord;
-#      print STDERR "have start ".$start," end ".$end."\n";
       my $end_phase = ($phase + ($end-$start) + 1)%3;
       my $exon = $ff->create_prediction_exon($start, $end, $strand, 
                                              $score, 0, $phase, 
