@@ -85,7 +85,7 @@ sub parse_results{
   if(!$results){
     $results = $self->resultsfile;
   }
-
+  
   open(OUT, "<".$results) or throw("FAILED to open ".$results.
                                    "Genefinder:parse_results");
   my $ff = $self->feature_factory;
@@ -93,7 +93,7 @@ sub parse_results{
   my @forward_lines;
   my @reverse_lines;
   while(<OUT>){ # this loop sorts the lines in to foward 
-                # and reverse genes
+    # and reverse genes
     chomp;
     if (/Sequence: (\S+)/) {
       $prefix = $1; 
@@ -106,7 +106,7 @@ sub parse_results{
       }
     }
   }
- 
+  
   my $gene_count = $self->parse_lines(\@forward_lines, $prefix, $ff, 
                                    0, 1);
 
@@ -118,17 +118,48 @@ sub parse_results{
                       "Genefinder:parse_results");
 
   $self->create_transcripts;
+  $self->calculate_phases;
 }
 
 #accessor methods
 
 
+sub calculate_phases{
+  my ($self) = @_;
+
+  my @phases = (0, 1, 2);
+  my @transcripts = @{$self->output};
+  my @checked_transcripts;
+  my $ff = $self->feature_factory;
+  $self->clean_output;
+ TRANS:foreach my $transcript(@transcripts){
+  PHASE:foreach my $phase(@phases){
+      my $temp_exons = $self->set_phases($phase,
+                                         $transcript->get_all_Exons,
+                                        );
+      my $new = $ff->create_prediction_transcript($temp_exons, 
+                                                  $self->query,
+                                                  $self->analysis);
+      if($new->translate->seq !~ /\*/){
+        push(@checked_transcripts, $new);
+        next TRANS;
+      }
+    }
+  }
+  if(scalar(@checked_transcripts) != scalar(@transcripts)){
+    throw("One of the transcripts doesn't translate as there are ".
+          @transcripts." from genefinder but only ".
+          @checked_transcripts." transcripts which translate");
+  }
+  $self->output(\@checked_transcripts);
+}
 
 sub parse_lines{
   my ($self, $lines, $prefix, $ff, $gene_count, $strand) = @_;
 
   my $phase = 0;
   foreach my $line(@$lines){
+    print $line."\n";
     $line =~ s/\[TSL: \S+\s+\S+\]//;
     $line =~ s/start//;
     $line =~ s/end//; #end is stripped off
@@ -147,36 +178,42 @@ sub parse_lines{
       } 
     }
     my @values = split /\s+/, $line;
+ 
     if(!$values[0]){
       my $first = shift @values;  
     }
     if($values[0] =~ /U(\d)/){
+
       $phase = $1;
       my $phase_variable = shift @values; 
+
     }
+
     my $count = 0;
     my $exonname = $prefix.".".$gene_count;
+
     foreach my $coord(@values){
+
       if($coord =~ /U\d/){
         next;
       }
+
       my ($start, $end) = split /\.\./, $coord;
+
       my $end_phase = ($phase + ($end-$start) + 1)%3;
       my $exon = $ff->create_prediction_exon($start, $end, $strand, 
                                              $score, 0, $phase, 
                                              $exonname, $self->query,
                                              $self->analysis);
-      print "have exon ".$exon." on strand ".$exon->strand."\n";
       $self->exon_groups($exonname, $exon);
       $phase =  $end_phase;
       my $count++;
       if($values[$count] && $values[$count] =~ /U(\d)/){
         if($phase != $1){
-          $self->warn(" phase ".$phase." and continuation phase ".$1." aren't the same may be issues with translation\n");
+          warning(" phase ".$phase." and continuation phase ".$1." aren't the same may be issues with translation\n");
         }
       }
     }
-    $phase = 0;
     $gene_count++;
   }
   return $gene_count;
