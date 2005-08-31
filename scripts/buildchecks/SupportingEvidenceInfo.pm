@@ -32,8 +32,14 @@ use vars qw(@ISA $AUTOLOAD);
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-@ISA = qw( Bio::EnsEMBL::Root );
+@ISA = qw( );
 
+
+sub new{
+  my ($class, @args) = @_;
+  my $self = bless {},$class;
+  return $self;
+}
 
 
 
@@ -444,3 +450,5 @@ sub feature_id_from_evidence_sql{
   return $sql;
 }
 
+
+1;

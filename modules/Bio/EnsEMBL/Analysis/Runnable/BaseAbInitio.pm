@@ -114,7 +114,8 @@ sub exon_groups{
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio
   Arg [2]   : string, program name
-  Function  : create and open a commandline for the program trf
+  Function  : create and open a commandline for one
+  of the ab initio gene finding programs
   Returntype: none
   Exceptions: throws if the program in not executable or the system
   command fails to execute
@@ -163,6 +164,18 @@ sub create_transcripts{
   }
   $self->output(\@transcripts);
 }
+
+=head2 calculate_phases
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio
+  Function  : works out which phase to make the exons to get 
+  a complete cds
+  Returntype: none
+  Exceptions: throws if it cant find a translation 
+  for a transcript
+  Example   : 
+
+=cut
 
 
 sub calculate_phases{

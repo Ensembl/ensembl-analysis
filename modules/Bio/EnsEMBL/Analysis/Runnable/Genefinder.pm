@@ -1,3 +1,33 @@
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Genefinder
+#
+# Copyright (c) 2005 Ensembl
+#
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Runnable::Genefinder
+
+=head1 SYNOPSIS
+
+my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genefinder->new(
+      -query => $slice,
+      -program => 'genefinder',
+     );
+  $runnable->run;
+  my @predictions = @{$runnable->output};
+
+
+=head1 DESCRIPTION
+
+Wrapper to run the genefinder gene predictor and then parse the results
+into prediction transcripts
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
 package Bio::EnsEMBL::Analysis::Runnable::Genefinder;
 
 use strict;
@@ -9,6 +39,22 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio);
+
+
+
+=head2 new
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Arg [2]   : string, tablename file
+  Arg [3]   : string, intron penalties file
+  Arg [4]   : string, exon penalties file
+  Function  : create a Genefinder runnable
+  Returntype: Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Exceptions: 
+  Example   : 
+
+=cut
+
 
 
 sub new {
@@ -38,6 +84,19 @@ sub new {
 }
 
 
+
+=head2 run_analysis
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Arg [2]   : string, program name
+  Function  : create and open a commandline for the program genefinder
+  Returntype: none
+  Exceptions: throws if the program in not executable or the system
+  command fails to execute or the appropriate files are not found
+  Example   : 
+
+=cut
+
 sub run_analysis{
   my ($self, $program) = @_;
 
@@ -61,6 +120,18 @@ sub run_analysis{
 
 
 
+=head2 filecheck
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Function  : make sure the config files exist
+  Returntype: string, any errors found
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
 sub filecheck{
     my ($self) = @_;
     my $err_string;
@@ -79,6 +150,23 @@ sub filecheck{
 
     return $err_string;
 }
+
+
+=head2 parse_results
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Arg [2]   : string, resultsfile name
+  Function  : parse the results file into prediction exons then
+  collate them into prediction transcripts and calculate their
+  phases
+  Returntype: none 
+  Exceptions: throws if cant open or close results file or the parsing
+  doesnt work
+  Example   : 
+
+=cut
+
+
 
 sub parse_results{
   my ($self, $results) = @_;
@@ -124,6 +212,20 @@ sub parse_results{
 #accessor methods
 
 
+
+=head2 calculate_phases
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Function  : works out which phase to make the exons to get 
+  a complete cds
+  Returntype: none
+  Exceptions: throws if the number of transcripts on the way out isnt
+  the same as the number on the way in
+  Example   : 
+
+=cut
+
+
 sub calculate_phases{
   my ($self) = @_;
 
@@ -153,6 +255,25 @@ sub calculate_phases{
   }
   $self->output(\@checked_transcripts);
 }
+
+
+
+=head2 parse_lines
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Arg [2]   : array, of lines from file
+  Arg [3]   : string
+  Arg [4]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
+  Arg [5]   : int, starting count of genes
+  Arg [6]   : int, 1 or -1 for strand
+  Function  : parse lines into PredictionExon objects
+  Returntype: int, new gene count (incremented for each line parsed)
+  Exceptions: throws if * is found and strand isnt -1 and gives a
+  warning about phase inconsistencies
+  Example   : 
+
+=cut
+
 
 sub parse_lines{
   my ($self, $lines, $prefix, $ff, $gene_count, $strand) = @_;
@@ -218,6 +339,21 @@ sub parse_lines{
   }
   return $gene_count;
 }
+
+
+
+
+=head2 accessor methods
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Arg [2]   : string
+  Function  : these are all acessor methods for config filenames
+  Returntype: string
+  Exceptions: 
+  Example   : 
+
+=cut
+
 
 
 sub tablenamefile{

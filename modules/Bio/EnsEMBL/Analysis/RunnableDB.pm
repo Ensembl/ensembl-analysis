@@ -86,7 +86,7 @@ use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 
 use vars qw (@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Root);
+@ISA = qw();
 
 
 =head2 new
@@ -108,7 +108,7 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
+  my $self = bless {},$class;
   &verbose('WARNING');
   my ($db, $input_id, $analysis) = rearrange(['DB', 'INPUT_ID', 
                                               'ANALYSIS'], @args);

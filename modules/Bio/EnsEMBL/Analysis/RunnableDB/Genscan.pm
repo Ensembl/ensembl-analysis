@@ -106,6 +106,20 @@ sub runnable_path{
 
 
 
+=head2 standard_args
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Genscan
+  Function  : to return a hash which contains the 
+  standard constructor args for the genscan runnable
+  Returntype: hashref
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+
+
 sub standard_args{
   my ($self) = @_;
   my %parameters;

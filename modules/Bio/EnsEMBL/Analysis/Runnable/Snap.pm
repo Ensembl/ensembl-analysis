@@ -1,3 +1,32 @@
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Snap
+#
+# Copyright (c) 2005 Ensembl
+#
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Runnable::Snap
+
+=head1 SYNOPSIS
+
+my $runnable = Bio::EnsEMBL::Analysis::Runnable::Snap->new(
+      -query => $slice,
+      -program => 'snap',
+     );
+  $runnable->run;
+  my @predictions = @{$runnable->output};
+
+
+=head1 DESCRIPTION
+
+Wrapper to run the genefinder gene predictor and then parse the results
+into prediction transcripts
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
 package Bio::EnsEMBL::Analysis::Runnable::Snap;
 
 use strict;
@@ -35,13 +64,26 @@ sub new {
 
 
 
+
+=head2 run_analysis
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Snap
+  Arg [2]   : string, program name
+  Function  : create and open a commandline for the program genefinder
+  Returntype: none
+  Exceptions: throws if the program in not executable or the system
+  command fails to execute 
+  Example   : 
+
+=cut
+
 sub run_analysis{
   my ($self, $program) = @_;
 
   if(!$program){
     $program = $self->program;
   }
-  throw($program." is not executable BaseAbInitio::run_analysis ") 
+  throw($program." is not executable Snap::run_analysis ") 
     unless($program && -x $program);
 
   my $command = $self->program." ".$self->matrix." ".$self->queryfile.
@@ -50,6 +92,21 @@ sub run_analysis{
   system($command) == 0 or throw("FAILED to run ".$command);
 }
 
+
+
+=head2 parse_results
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Snap
+  Arg [2]   : string, resultsfile name
+  Function  : parse the results file into prediction exons then
+  collate them into prediction transcripts and calculate their
+  phases
+  Returntype: none 
+  Exceptions: throws if cant open or close results file or the parsing
+  doesnt work
+  Example   : 
+
+=cut
 
 
 
@@ -107,6 +164,21 @@ sub parse_results{
 
 }
 
+
+=head2 protfile
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Snap
+  Arg [2]   : string, filename
+  Function  : accessor method for prot file name, will create
+  one if one is requested but not defined
+  Returntype: string, filename
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
 sub protfile{
   my ($self, $filename) = @_;
 
@@ -119,6 +191,22 @@ sub protfile{
   $self->files_to_delete($self->{'protfile'});
   return $self->{'protfile'};
 }
+
+
+
+=head2 unaltered_slice
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Snap
+  Arg [2]   : Bio::EnsEMBL::Slice
+  Function  : holder for the given slice as the one passed
+  to Snap has to have desc removed otherwise parser doesnt
+  work properly
+  Returntype: Bio::EnsEMBL::Slice
+  Exceptions: 
+  Example   : 
+
+=cut
+
 
 
 sub unaltered_slice{
