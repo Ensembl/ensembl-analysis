@@ -48,6 +48,8 @@ sub run {
 sub depth_filter {
 	my ($self, $orig_features, $max_coverage) = (@_, 10);
 
+	print STDERR "DepthFilter: ".scalar(@$orig_features)." features before filtering\n";
+
     my %grouped_byname = ();
 
     for my $af (@$orig_features) {
@@ -64,6 +66,8 @@ sub depth_filter {
         }
         push @{$node->{features}}, $af;
     }
+
+	print STDERR "DepthFilter: ".scalar(keys %grouped_byname)." unique hitnames\n";
 
     my @bisorted =
         sort { ($b->{max_score} <=> $a->{max_score})
@@ -91,6 +95,8 @@ sub depth_filter {
             }
         }
     }
+
+	print STDERR "DepthFilter: ".scalar(@filtered_features)." features after filtering\n";
 
     return \@filtered_features;
 }
