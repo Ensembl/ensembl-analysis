@@ -45,7 +45,7 @@ Internal methods are usually preceded with a _
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::HalfwiseHMM;
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Analysis::RunnableDB::Finished;
 use Bio::EnsEMBL::Root;
 
 use vars qw(@ISA);
@@ -58,6 +58,7 @@ use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBConnection;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Similarity qw (
@@ -66,7 +67,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Similarity qw (
 
 use Data::Dumper;
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Finished);
 
 =head2  new
 
@@ -87,7 +88,7 @@ sub new {
     my $self = $new->SUPER::new(@args);
     # db, input_id, seqfetcher, and analysis objects are all set in
     # in superclass constructor (RunnableDB.pm)
-    my ($type, $threshold) = $self->_rearrange([qw(TYPE THRESHOLD)], @args);
+    my ($type, $threshold) = rearrange([qw(TYPE THRESHOLD)], @args);
     $self->{'_fplist'} = []; #create key to an array of feature pairs
     return $self;
 

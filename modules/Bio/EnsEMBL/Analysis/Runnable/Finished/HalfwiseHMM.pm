@@ -51,6 +51,7 @@ use Bio::EnsEMBL::Root;
 use Bio::Tools::BPlite;
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use BlastableVersion;
 #use DB_File;
 use Fcntl;
@@ -81,7 +82,7 @@ sub new {
     $self->{'_errorfile'} = undef; #file to store any errors hmmfetch throw
     $self->{'_dbm_file'} = undef;
     #print STDERR "args = @args\n";
-    my ($genomic, $features, $hmmfetch, $hmmdb, $pfamdb, $memory, $options, $analysis,$program) = $self->_rearrange([qw(QUERY
+    my ($genomic, $features, $hmmfetch, $hmmdb, $pfamdb, $memory, $options, $analysis,$program) = rearrange([qw(QUERY
 											   FEATURES
 											   HMMFETCH
 											   HMMDB

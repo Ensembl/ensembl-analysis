@@ -46,12 +46,12 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Finished::TRF;
 
 use strict;
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Analysis::RunnableDB::Finished;
 use Bio::EnsEMBL::Analysis::Runnable::TRF;
 use Bio::EnsEMBL::Analysis::Config::General;
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Finished);
 
 =head2 fetch_input
 

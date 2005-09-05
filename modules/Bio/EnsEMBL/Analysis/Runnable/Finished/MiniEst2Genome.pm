@@ -40,6 +40,7 @@ use Bio::EnsEMBL::Analysis::MiniSeq;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::Analysis;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::DB::RandomAccessI;
 use Bio::PrimarySeqI;
 use Bio::SeqIO;
@@ -53,7 +54,7 @@ sub new {
 
   $self->{'_fplist'} = []; #create key to an array of feature pairs
 
-  my( $genomic, $features, $seqfetcher, $analysis ) = $self->_rearrange([qw(GENOMIC
+  my( $genomic, $features, $seqfetcher, $analysis ) = rearrange([qw(GENOMIC
 								 FEATURES
 								 SEQFETCHER
 								 ANALYSIS)], @args);

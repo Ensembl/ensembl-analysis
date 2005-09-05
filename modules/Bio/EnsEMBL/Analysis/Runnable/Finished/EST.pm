@@ -13,6 +13,7 @@ use Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
+use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use base 'Bio::EnsEMBL::Analysis::Runnable';
 
 
@@ -25,7 +26,7 @@ $verbose = 0;
 sub new {
     my ( $class, @args ) = @_;
     my $self = bless {}, $class;
-    my ( $query, $unmasked, $analysis, $seqfetcher ) = $self->_rearrange(
+    my ( $query, $unmasked, $analysis, $seqfetcher ) = rearrange(
         [
         qw{
             QUERY
@@ -225,20 +226,9 @@ sub add_output {
     my ( $self, $f ) = @_;
     my $ana = $self->analysis;
     $f->analysis($ana);
-    $self->{'_output'} ||= [];
-    push ( @{ $self->{'_output'} }, $f );
+    $self->{'output'} ||= [];
+    push ( @{ $self->{'output'} }, $f );
 
-}
-
-sub output {
-    my ($self) = @_;
-    if ( my $out = $self->{'_output'} ) {
-      return @$out;
-      #return $out;
-    }
-    else {
-        return;
-    }
 }
 
 sub _make_seqfetcher {

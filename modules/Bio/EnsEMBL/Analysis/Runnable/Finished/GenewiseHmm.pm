@@ -41,6 +41,7 @@ use Bio::EnsEMBL::Analysis::Programs qw(/usr/local/ensembl/bin/genewisedb);
 use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::SeqIO;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -84,7 +85,7 @@ sub new {
     $self->{'_output'} = [];
     $self->{'_reverse'} = undef;
     my ($query, $memory,$reverse,$endbias,$genewise,$hmmfile, $options) = 
-        $self->_rearrange([qw(QUERY MEMORY REVERSE ENDBIAS GENEWISE HMMFILE OPTIONS)], @args);
+        rearrange([qw(QUERY MEMORY REVERSE ENDBIAS GENEWISE HMMFILE OPTIONS)], @args);
     #  print $query . "\n";
     $genewise ||= 'genewise';
     $options ||= '-ext 2 -genes';

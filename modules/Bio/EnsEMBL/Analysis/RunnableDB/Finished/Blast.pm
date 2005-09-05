@@ -46,57 +46,61 @@ use Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::Config::General;
-use base 'Bio::EnsEMBL::Analysis::RunnableDB::Blast';
+use base (
+	'Bio::EnsEMBL::Analysis::RunnableDB::Blast',
+	'Bio::EnsEMBL::Analysis::RunnableDB::Finished'
+);
 
+sub fetch_input {
 
-sub fetch_input{
-
-  my ($self) = @_;
-  my $slice = $self->fetch_sequence($self->input_id, $self->db, 
-                                    $ANALYSIS_REPEAT_MASKING,$SOFT_MASKING);
-  $self->query($slice);
-  my %blast = %{$self->BLAST_PARAMS};
-  my $parser = $self->make_parser;
-  my $filter;
-  if($self->BLAST_FILTER){
-    $filter = $self->make_filter;
-  }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new
-    (
-     -query => $self->query,
-     -program => $self->analysis->program,
-     -parser => $parser,
-     -filter => $filter,
-     -database => $self->analysis->db_file,
-     -analysis => $self->analysis,
-     %blast,
-    );
-  my $s=$self->runnable($runnable);
-  return 1;
+	my ($self) = @_;
+	my $slice =
+	  $self->fetch_sequence( $self->input_id, $self->db,
+		$ANALYSIS_REPEAT_MASKING, $SOFT_MASKING );
+	$self->query($slice);
+	my %blast  = %{ $self->BLAST_PARAMS };
+	my $parser = $self->make_parser;
+	my $filter;
+	if ( $self->BLAST_FILTER ) {
+		$filter = $self->make_filter;
+	}
+	my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new(
+		-query    => $self->query,
+		-program  => $self->analysis->program,
+		-parser   => $parser,
+		-filter   => $filter,
+		-database => $self->analysis->db_file,
+		-analysis => $self->analysis,
+		%blast,
+	);
+	my $s = $self->runnable($runnable);
+	return 1;
 
 }
 
-
 sub _createfiles {
 
-    my ($self, $dirname, $filenames) = @_;
-    my $unique = {};
-    $unique    = { map { $_, $unique->{$_}++ } @$filenames };
-    my @files  = ();
-    $dirname ||= '/tmp';
-    $dirname   =~ s!(\S+)/$!$1!;
-    foreach my $file(@$filenames){
-        if($unique->{$file}){
-            #name not unique add random
-            $file .= ".$$.".int(rand(200));
-            push(@files, "$dirname/$file");
-        }else{
-            #name was unique just add it
-            push(@files, "$dirname/$file.$$");
-        }
-    }
+	my ( $self, $dirname, $filenames ) = @_;
+	my $unique = {};
+	$unique = { map { $_, $unique->{$_}++ } @$filenames };
+	my @files = ();
+	$dirname ||= '/tmp';
+	$dirname =~ s!(\S+)/$!$1!;
+	foreach my $file (@$filenames) {
+		if ( $unique->{$file} ) {
 
-    return @files;
+			#name not unique add random
+			$file .= ".$$." . int( rand(200) );
+			push( @files, "$dirname/$file" );
+		}
+		else {
+
+			#name was unique just add it
+			push( @files, "$dirname/$file.$$" );
+		}
+	}
+
+	return @files;
 }
 
 =head2 run
@@ -109,26 +113,11 @@ sub _createfiles {
 
 =cut
 
-sub write_output{
-
-    my ($self) = @_;
-    $self->SUPER::write_output();
-    foreach my $runnable (@{$self->runnable}) {
-      my $db_version = $runnable->get_db_version if $runnable->can('get_db_version');
-      $self->db_version_searched($db_version); # make sure we set this here
-      if ( my @output = @{$runnable->output} ) {
-	my $dbobj      = $self->db;
-        my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch->new;
-        my %ids        = map { $_->hseqname, 1 } @output;
-        $seqfetcher->write_descriptions( $dbobj, keys(%ids) );
-      }
-
-   }
-   return 1;
-
+sub write_output {
+	my ($self) = @_;
+	$self->Bio::EnsEMBL::Analysis::RunnableDB::Finished::write_output();
+	return 1;
 }
-
-
 
 =head2 db_version_searched
 
@@ -147,11 +136,11 @@ sub write_output{
 
 =cut
 
-sub db_version_searched{
+sub db_version_searched {
 
-    my ($self, $arg) = @_;
-    $self->{'_db_version_searched'} = $arg if $arg;
-    return $self->{'_db_version_searched'};
+	my ( $self, $arg ) = @_;
+	$self->{'_db_version_searched'} = $arg if $arg;
+	return $self->{'_db_version_searched'};
 
 }
 

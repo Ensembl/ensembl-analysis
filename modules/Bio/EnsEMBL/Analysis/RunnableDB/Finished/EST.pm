@@ -14,298 +14,266 @@ use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::PrimarySeq;
-use base 'Bio::EnsEMBL::Analysis::RunnableDB';
+use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished';
 
 sub new {
-    my ( $new, @args ) = @_;
-    my $self = $new->SUPER::new(@args);
-    # dbobj, input_id, seqfetcher, and analysis objects are all set in
-    # in superclass constructor (RunnableDB.pm)
-    # Also set the BLAST PARAMETERS from the Blast Config file
-    $self->read_and_check_config($BLAST_CONFIG);
-    return $self;
+	my ( $new, @args ) = @_;
+	my $self = $new->SUPER::new(@args);
+
+	# dbobj, input_id, seqfetcher, and analysis objects are all set in
+	# in superclass constructor (RunnableDB.pm)
+	# Also set the BLAST PARAMETERS from the Blast Config file
+	$self->read_and_check_config($BLAST_CONFIG);
+	return $self;
 }
 
-sub require_module{
-  my ($self, $module) = @_;
-  my $class;
-  ($class = $module) =~ s/::/\//g;
-  eval{
-    require "$class.pm";
-  };
-  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
-  return $module;
+sub require_module {
+	my ( $self, $module ) = @_;
+	my $class;
+	( $class = $module ) =~ s/::/\//g;
+	eval { require "$class.pm"; };
+	throw( "Couldn't require " . $class . " Blast:require_module $@" ) if ($@);
+	return $module;
 }
 
+sub read_and_check_config {
+	my ( $self, $var_hash ) = @_;
 
+	#call RunnableDBs method to fill in values first
+	$self->SUPER::read_and_check_config($var_hash);
 
-sub read_and_check_config{
-  my ($self, $var_hash) = @_;
+	#now for type checking and other sanity checks
 
-  #call RunnableDBs method to fill in values first
-  $self->SUPER::read_and_check_config($var_hash);
+	#must have a parser object and to pass to blast
+	throw(  "BLAST_PARSER must be defined either in the DEFAULT entry or in "
+		  . "the hash keyed on "
+		  . $self->analysis->logic_name
+		  . " Blast::read_and_check_config" )
+	  if ( !$self->BLAST_PARSER );
+	$self->require_module( $self->BLAST_PARSER );
 
-  #now for type checking and other sanity checks
+	#load the filter module if defined
+	if ( $self->BLAST_FILTER ) {
+		$self->require_module( $self->BLAST_FILTER );
+	}
 
-  #must have a parser object and to pass to blast
-  throw("BLAST_PARSER must be defined either in the DEFAULT entry or in ".
-        "the hash keyed on ".$self->analysis->logic_name.
-        " Blast::read_and_check_config") if(!$self->BLAST_PARSER);
-  $self->require_module($self->BLAST_PARSER);
+	#if any of the object params exist, all are optional they must be hash
+	#refs
+	throw(  "PARSER_PARAMS must be a hash ref not "
+		  . $self->PARSER_PARAMS
+		  . " Blast::read_and_check_config" )
+	  if ( $self->PARSER_PARAMS && ref( $self->PARSER_PARAMS ) ne 'HASH' );
+	throw(  "FILTER_PARAMS must be a hash ref not "
+		  . $self->FILTER_PARAMS
+		  . " Blast::read_and_check_config" )
+	  if ( $self->FILTER_PARAMS && ref( $self->FILTER_PARAMS ) ne 'HASH' );
+	throw(  "BLAST_PARAMS must be a hash ref not "
+		  . $self->BLAST_PARAMS
+		  . " Blast::read_and_check_config" )
+	  if ( $self->BLAST_PARAMS && ref( $self->BLAST_PARAMS ) ne 'HASH' );
 
-  #load the filter module if defined
-  if($self->BLAST_FILTER){
-    $self->require_module($self->BLAST_FILTER);
-  }
-  #if any of the object params exist, all are optional they must be hash 
-  #refs
-  throw("PARSER_PARAMS must be a hash ref not ".$self->PARSER_PARAMS.
-        " Blast::read_and_check_config") 
-    if($self->PARSER_PARAMS && ref($self->PARSER_PARAMS) ne 'HASH');
-  throw("FILTER_PARAMS must be a hash ref not ".$self->FILTER_PARAMS.
-        " Blast::read_and_check_config")
-    if($self->FILTER_PARAMS && ref($self->FILTER_PARAMS) ne 'HASH');
-  throw("BLAST_PARAMS must be a hash ref not ".$self->BLAST_PARAMS.
-        " Blast::read_and_check_config")
-    if($self->BLAST_PARAMS && ref($self->BLAST_PARAMS) ne 'HASH');
-
-  my $blast_params;
-  if($self->BLAST_PARAMS){
-    $blast_params = $self->BLAST_PARAMS;
-  }else{
-    $blast_params = {};
-  }
-  my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
-  }
-  foreach my $key(%parameters){
-    $blast_params->{$key} = $parameters{$key};
-  }
-  $self->BLAST_PARAMS($blast_params);
+	my $blast_params;
+	if ( $self->BLAST_PARAMS ) {
+		$blast_params = $self->BLAST_PARAMS;
+	}
+	else {
+		$blast_params = {};
+	}
+	my %parameters;
+	if ( $self->parameters_hash ) {
+		%parameters = %{ $self->parameters_hash };
+	}
+	foreach my $key (%parameters) {
+		$blast_params->{$key} = $parameters{$key};
+	}
+	$self->BLAST_PARAMS($blast_params);
 }
 
+sub BLAST_PARSER {
+	my ( $self, $value ) = @_;
 
+	if ( defined $value ) {
+		$self->{'_CONFIG_BLAST_PARSER'} = $value;
+	}
 
-
-
-sub BLAST_PARSER{
-  my ($self, $value) = @_;
-
-  if(defined $value){
-    $self->{'_CONFIG_BLAST_PARSER'} = $value;
-  }
-
-  return $self->{'_CONFIG_BLAST_PARSER'};
+	return $self->{'_CONFIG_BLAST_PARSER'};
 }
 
+sub PARSER_PARAMS {
+	my ( $self, $value ) = @_;
 
-sub PARSER_PARAMS{
-  my ($self, $value) = @_;
+	if ( defined $value ) {
+		$self->{'_CONFIG_PARSER_PARAMS'} = $value;
+	}
 
-  if(defined $value){
-    $self->{'_CONFIG_PARSER_PARAMS'} = $value;
-  }
-
-  return $self->{'_CONFIG_PARSER_PARAMS'};
+	return $self->{'_CONFIG_PARSER_PARAMS'};
 }
 
+sub BLAST_FILTER {
+	my ( $self, $value ) = @_;
 
+	if ( defined $value ) {
+		$self->{'_CONFIG_BLAST_FILTER'} = $value;
+	}
 
-sub BLAST_FILTER{
-  my ($self, $value) = @_;
-
-  if(defined $value){
-    $self->{'_CONFIG_BLAST_FILTER'} = $value;
-  }
-
-  return $self->{'_CONFIG_BLAST_FILTER'};
+	return $self->{'_CONFIG_BLAST_FILTER'};
 }
 
+sub FILTER_PARAMS {
+	my ( $self, $value ) = @_;
 
+	if ( defined $value ) {
+		$self->{'_CONFIG_FILTER_PARAMS'} = $value;
+	}
 
-sub FILTER_PARAMS{
-  my ($self, $value) = @_;
-
-  if(defined $value){
-    $self->{'_CONFIG_FILTER_PARAMS'} = $value;
-  }
-
-  return $self->{'_CONFIG_FILTER_PARAMS'};
+	return $self->{'_CONFIG_FILTER_PARAMS'};
 }
 
+sub BLAST_PARAMS {
+	my ( $self, $value ) = @_;
 
-sub BLAST_PARAMS{
-  my ($self, $value) = @_;
+	if ( defined $value ) {
+		$self->{'_CONFIG_BLAST_PARAMS'} = $value;
+	}
 
-  if(defined $value){
-    $self->{'_CONFIG_BLAST_PARAMS'} = $value;
-  }
-
-  return $self->{'_CONFIG_BLAST_PARAMS'};
+	return $self->{'_CONFIG_BLAST_PARAMS'};
 }
-
-
-
 
 sub fetch_input {
-    my ($self) = @_;
-    my @fps;
-    $self->throw("No input id") unless defined( $self->input_id );
-    my $sliceid = $self->input_id;
-    my $sa = $self->db->get_SliceAdaptor();
-    my $slice   = $sa->fetch_by_name($sliceid);
-    $slice->{'seq'}=$slice->seq();
-    $self->query($slice);
-    my $maskedslice   = $slice->get_repeatmasked_seq($ANALYSIS_REPEAT_MASKING,$SOFT_MASKING) or $self->throw("Unable to fetch contig");
-    my $maskedseq     = $maskedslice->seq();
+	my ($self) = @_;
+	my @fps;
+	$self->throw("No input id") unless defined( $self->input_id );
+	my $sliceid = $self->input_id;
+	my $sa      = $self->db->get_SliceAdaptor();
+	my $slice   = $sa->fetch_by_name($sliceid);
+	$slice->{'seq'} = $slice->seq();
+	$self->query($slice);
+	my $maskedslice =
+	     $slice->get_repeatmasked_seq( $ANALYSIS_REPEAT_MASKING, $SOFT_MASKING )
+	  or $self->throw("Unable to fetch contig");
+	my $maskedseq = $maskedslice->seq();
 
-    # a Bio::PrimarySeq obj to remove some db intensive queries later on
-    my $unmasked = Bio::PrimarySeq->new(-display_id => $slice->display_id(),
-					-id         => $slice->id(),
-					-seq        => $slice->seq()
-					);
-    my $seq = $slice->seq;
-    if( scalar($seq =~ s/([CATG])/$1/g) > 3 ){
-        $self->input_is_void(0);
-        #$self->check_with_seg($maskedslice);
-    }else{
-        $self->input_is_void(1);
-        $self->warn("Need at least 3 nucleotides");
-    }
+	# a Bio::PrimarySeq obj to remove some db intensive queries later on
+	my $unmasked = Bio::PrimarySeq->new(
+		-display_id => $slice->display_id(),
+		-id         => $slice->id(),
+		-seq        => $slice->seq()
+	);
+	my $seq = $slice->seq;
+	if ( scalar( $seq =~ s/([CATG])/$1/g ) > 3 ) {
+		$self->input_is_void(0);
 
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::EST->new(
-        '-query'      => $maskedslice,
-        '-unmasked'   => $unmasked,
-        '-analysis'   => $self->analysis,
-    );
-    $self->runnable($runnable);
+		#$self->check_with_seg($maskedslice);
+	}
+	else {
+		$self->input_is_void(1);
+		$self->warn("Need at least 3 nucleotides");
+	}
+
+	my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::EST->new(
+		'-query'    => $maskedslice,
+		'-unmasked' => $unmasked,
+		'-analysis' => $self->analysis,
+	);
+	$self->runnable($runnable);
+	return 1;
 }
 
-sub check_with_seg{
-    my ($self, $seqObj_to_test) = @_;
+sub check_with_seg {
+	my ( $self, $seqObj_to_test ) = @_;
 
-    warn "need a Bio::Seq Obj" unless $seqObj_to_test;
+	warn "need a Bio::Seq Obj" unless $seqObj_to_test;
 
-    my ($filename) = $self->_createfiles('/tmp',[qw(seg_checking)]);
-    my $file = Bio::SeqIO->new(-file   => ">$filename", 
-                               -format => 'Fasta') 
-        or $self->throw("Can't create Bio::SeqIO $filename $!");
-    $file->write_seq($seqObj_to_test);
+	my ($filename) = $self->_createfiles( '/tmp', [qw(seg_checking)] );
+	my $file = Bio::SeqIO->new(
+		-file   => ">$filename",
+		-format => 'Fasta'
+	  )
+	  or $self->throw("Can't create Bio::SeqIO $filename $!");
+	$file->write_seq($seqObj_to_test);
 
-    my $seg_cmd = "nseg $filename -x";
-    my $seg = Bio::SeqIO->new(-file   => "$seg_cmd |",
-                              -format => 'Fasta')
-        or $self->throw("Can't create Bio::SeqIO $seg_cmd $!");
-    my $seq;
-    eval{
-        $seq = $seg->next_seq->seq;
-    };
-    unlink($filename);
-    if($@){
-        $self->throw("There was a problem with SEG masking.\nI tried to '$seg_cmd'");
-    }
-    if($seq =~ /[CATG]{3}/i){
-        $self->input_is_void(0);
-    }else{
-        $self->input_is_void(1);
-        $self->warn("Need at least 3 nucleotides after SEG filtering");
-    }
+	my $seg_cmd = "nseg $filename -x";
+	my $seg     = Bio::SeqIO->new(
+		-file   => "$seg_cmd |",
+		-format => 'Fasta'
+	  )
+	  or $self->throw("Can't create Bio::SeqIO $seg_cmd $!");
+	my $seq;
+	eval { $seq = $seg->next_seq->seq; };
+	unlink($filename);
+
+	if ($@) {
+		$self->throw(
+			"There was a problem with SEG masking.\nI tried to '$seg_cmd'");
+	}
+	if ( $seq =~ /[CATG]{3}/i ) {
+		$self->input_is_void(0);
+	}
+	else {
+		$self->input_is_void(1);
+		$self->warn("Need at least 3 nucleotides after SEG filtering");
+	}
 }
 
 sub _createfiles {
-    my ($self, $dirname, $filenames) = @_;
-    my $unique = {};
-    $unique    = { map { $_, $unique->{$_}++ } @$filenames };
-    my @files  = ();
+	my ( $self, $dirname, $filenames ) = @_;
+	my $unique = {};
+	$unique = { map { $_, $unique->{$_}++ } @$filenames };
+	my @files = ();
 
-    $dirname ||= '/tmp';
-    $dirname   =~ s!(\S+)/$!$1!;
+	$dirname ||= '/tmp';
+	$dirname =~ s!(\S+)/$!$1!;
 
-    foreach my $file(@$filenames){
-        if($unique->{$file}){
-            #name not unique add random
-            $file .= ".$$.".int(rand(200));
-            push(@files, "$dirname/$file");
-        }else{
-            #name was unique just add it
-            push(@files, "$dirname/$file.$$");
-        }
-    }
+	foreach my $file (@$filenames) {
+		if ( $unique->{$file} ) {
 
-    return @files;
+			#name not unique add random
+			$file .= ".$$." . int( rand(200) );
+			push( @files, "$dirname/$file" );
+		}
+		else {
+
+			#name was unique just add it
+			push( @files, "$dirname/$file.$$" );
+		}
+	}
+
+	return @files;
 }
 
-sub runnable {
-    my ( $self, $arg ) = @_;
-    if ( defined($arg) ) {
-        $self->throw("[$arg] is not a Bio::EnsEMBL::Analysis::Runnable")
-        unless $arg->isa("Bio::EnsEMBL::Analysis::Runnable");
-        $self->{_runnable} = $arg;
-    }
-    return $self->{_runnable};
-}
 
 sub run {
-    my ($self) = @_;
-    my $runnable = $self->runnable;
-    $runnable || $self->throw("Can't run - no runnable object");
-    my $blast = $self->BLAST_PARAMS;
-    my $parser = $self->make_parser;
-    my $filter;
-    if($self->BLAST_FILTER){
-	$filter = $self->make_filter;
-    }
-
-    eval{
-        $runnable->run($parser,$filter,$blast);
-    };
-    if(my $err = $@){
-        chomp $err;
-        $self->failing_job_status($1) 
-            if $err =~ /^\"([A-Z_]{1,40})\"$/i; # only match '"ABC_DEFGH"' and not all possible throws
-        $self->throw("$@");
-    }
-    return 1;
+	my ($self) = @_;
+	my $runnables = $self->runnable;
+	print scalar(@$runnables)," runnables in EST module\n";
+	foreach my $runnable(@$runnables){
+		$runnable || $self->throw("Can't run - no runnable object");
+		my $blast  = $self->BLAST_PARAMS;
+		my $parser = $self->make_parser;
+		my $filter;
+		if ( $self->BLAST_FILTER ) {
+			$filter = $self->make_filter;
+		}
+		print "parser $parser\n";
+		print "filter $filter\n";
+		print "blast $blast\n";
+		eval { $runnable->run( $parser, $filter, $blast ); };
+		if ( my $err = $@ ) {
+			chomp $err;
+			$self->failing_job_status($1)
+			  if $err =~ /^\"([A-Z_]{1,40})\"$/i
+			  ;    # only match '"ABC_DEFGH"' and not all possible throws
+			$self->throw("$@");
+		}
+		$self->output($runnable->output);
+	}
+	1;
 }
 
-
-sub write_output{
-
-    my ($self) = @_;
-    my $dna_a = $self->db->get_DnaAlignFeatureAdaptor;
-    my $protein_a = $self->db->get_ProteinAlignFeatureAdaptor;
-    my $ff = $self->feature_factory;
-    my $runnable = $self->runnable;
-      my $db_version = $runnable->get_db_version if $runnable->can('get_db_version');
-      $self->db_version_searched($db_version); # make sure we set this here
-      if ( my @output = $runnable->output ) {
-	my $dbobj      = $self->db;
-        my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch->new;
-        my %ids        = map { $_->hseqname, 1 } @output;
-        $seqfetcher->write_descriptions( $dbobj, keys(%ids) );
-        foreach my $f(@output){
-           $f->analysis($self->analysis);
-           $f->slice($self->query) if(!$f->slice);
-           $ff->validate($f);
-           if($f->isa('Bio::EnsEMBL::DnaDnaAlignFeature')){
-           eval{
-              $dna_a->store($f);
-           };
-           $self->throw("Blast:store failed failed to write ".$f." to the database ".
-            "$@") if($@);
-           }elsif($f->isa('Bio::EnsEMBL::DnaPepAlignFeature')){
-           eval{
-               $protein_a->store($f);
-           };
-           $self->throw("Blast:store failed failed to write ".$f." to the database ".
-            "$@") if($@);
-           }
-        }
-
-
-      }
-   return 1;
+sub write_output {
+	my ($self)     = @_;
+	$self->SUPER::write_output();
+	return 1;
 }
 
 =head2 db_version_searched
@@ -325,37 +293,21 @@ sub write_output{
 
 =cut
 
-sub db_version_searched{
-    my ($self, $arg) = @_;
-    $self->{'_db_version_searched'} = $arg if $arg;
-    return $self->{'_db_version_searched'};
+sub db_version_searched {
+	my ( $self, $arg ) = @_;
+	$self->{'_db_version_searched'} = $arg if $arg;
+	return $self->{'_db_version_searched'};
 }
 
 
-sub output {
-    my ($self) = @_;
-    my @runnable = $self->runnable;
-    my @results;
-    foreach my $runnable (@runnable) {
-        print STDERR "runnable = " . $runnable[0] . "\n";
-        push ( @results, $runnable->output );
-    }
-    return \@results;
-}
-
-
-
-
-sub make_parser{
-  my ($self, $hash) = @_;
-  if(!$hash){
-    $hash = $self->PARSER_PARAMS;
-  }
-  my %parser = %$hash;
-  my $parser = $self->BLAST_PARSER->new(
-                                        %parser
-                                       );
-  return $parser;
+sub make_parser {
+	my ( $self, $hash ) = @_;
+	if ( !$hash ) {
+		$hash = $self->PARSER_PARAMS;
+	}
+	my %parser = %$hash;
+	my $parser = $self->BLAST_PARSER->new(%parser);
+	return $parser;
 }
 
 =head2 make_filter
@@ -369,19 +321,15 @@ sub make_parser{
 
 =cut
 
-sub make_filter{
-  my ($self, $hash) = @_;
-  if(!$hash){
-    $hash = $self->FILTER_PARAMS;
-  }
-  my %filter = %$hash;
-  my $filter = $self->BLAST_FILTER->new(
-                                         %filter
-                                        );
-  return $filter;
+sub make_filter {
+	my ( $self, $hash ) = @_;
+	if ( !$hash ) {
+		$hash = $self->FILTER_PARAMS;
+	}
+	my %filter = %$hash;
+	my $filter = $self->BLAST_FILTER->new(%filter);
+	return $filter;
 }
-
-
 
 1;
 

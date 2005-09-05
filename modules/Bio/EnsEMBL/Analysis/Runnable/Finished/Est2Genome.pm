@@ -55,6 +55,7 @@ use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 #compile time check for executable
 use Bio::EnsEMBL::Analysis::Programs qw(est2genome);
 use base 'Bio::EnsEMBL::Analysis::Runnable';
@@ -91,7 +92,7 @@ sub new {
     $self->{'_protected'}  = [];    # a list of files protected from deletion
     $self->{'_arguments'}  = undef; # arguments for est2genome
 
-    my( $genomic, $est, $est_genome, $arguments ) =   $self->_rearrange([qw(GENOMIC EST E2G ARGS)], @args);
+    my( $genomic, $est, $est_genome, $arguments ) =   rearrange([qw(GENOMIC EST E2G ARGS)], @args);
 
 	 $self->genomic_sequence($genomic) if $genomic;
 	 $self->est_sequence    ($est)     if $est;
@@ -227,7 +228,7 @@ sub run{
     my $estseq     = $self->est_sequence     || $self->throw("EST sequence not provided");
 
     #extract filenames from args and check/create files and directory
-    my ($genname, $estname) = $self->_rearrange(['genomic', 'est'], @args);
+    my ($genname, $estname) = rearrange(['genomic', 'est'], @args);
     my ($genfile, $estfile) = $self->_createfiles($genname, $estname, $dirname);
     #use appropriate Bio::Seq method to write fasta format files
     {
@@ -675,7 +676,7 @@ sub _diskspace {
     my ($self, $dir, $limit) =@_;
     my $block_size; #could be used where block size != 512 ?
     my $Gb = 1024 ** 3;
-    open DF, "df $dir |" or $self->throw ("Can't open 'du' pipe");
+    open DF, "df $dir |" or $self->throw ("Can't open 'du' pipe [$@]");
     while (<DF>) 
     {
         if ($block_size) 
