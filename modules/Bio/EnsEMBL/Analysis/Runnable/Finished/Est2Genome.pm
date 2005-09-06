@@ -56,6 +56,7 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 #compile time check for executable
 use Bio::EnsEMBL::Analysis::Programs qw(est2genome);
 use base 'Bio::EnsEMBL::Analysis::Runnable';
@@ -102,7 +103,7 @@ sub new {
 	 } else  {
 	   eval
 	     { $self->est_genome($self->locate_executable('est2genome')); };
-	   $self->throw("Can't find executable") if $@;
+	   throw("Can't find executable") if $@;
 	 }
     if ($arguments) {
 	   $self->arguments($arguments);
@@ -131,7 +132,7 @@ sub genomic_sequence {
     my( $self, $value ) = @_;    
     if ($value) {
         #need to check if passed sequence is Bio::Seq object
-        $value->isa("Bio::PrimarySeqI") || $self->throw("Input isn't a Bio::PrimarySeqI");
+        $value->isa("Bio::PrimarySeqI") || throw("Input isn't a Bio::PrimarySeqI");
         $self->{'_genomic_sequence'} = $value;
         $self->filename($value->id.".$$.seq");
         $self->results($self->filename.".est_genome.out");
@@ -154,7 +155,7 @@ sub est_sequence {
 
     if ($value) {
         #need to check if passed sequence is Bio::Seq object
-        $value->isa("Bio::PrimarySeqI") || $self->throw("Input isn't a Bio::PrimarySeqI");
+        $value->isa("Bio::PrimarySeqI") || throw("Input isn't a Bio::PrimarySeqI");
         $self->{'_est_sequence'} = $value;
         $self->estfilename($value->id.".$$.est.seq");
     }
@@ -224,8 +225,8 @@ sub run{
     my $dirname     = "/tmp/";
 
     #check inputs
-    my $genomicseq = $self->genomic_sequence || $self->throw("Genomic sequence not provided");
-    my $estseq     = $self->est_sequence     || $self->throw("EST sequence not provided");
+    my $genomicseq = $self->genomic_sequence || throw("Genomic sequence not provided");
+    my $estseq     = $self->est_sequence     || throw("EST sequence not provided");
 
     #extract filenames from args and check/create files and directory
     my ($genname, $estname) = rearrange(['genomic', 'est'], @args);
@@ -233,9 +234,9 @@ sub run{
     #use appropriate Bio::Seq method to write fasta format files
     {
         my $genOutput = Bio::SeqIO->new(-file => ">$genfile" , '-format' => 'Fasta')
-                    or $self->throw("Can't create new Bio::SeqIO from $genfile '$' : $!");
+                    or throw("Can't create new Bio::SeqIO from $genfile '$' : $!");
         my $estOutput = Bio::SeqIO->new(-file => ">$estfile" , '-format' => 'Fasta')
-                    or $self->throw("Can't create new Bio::SeqIO from $estfile '$' : $!");
+                    or throw("Can't create new Bio::SeqIO from $estfile '$' : $!");
 
         #fill inputs
         $genOutput->write_seq($self->{'_genomic_sequence'}); 
@@ -248,7 +249,7 @@ sub run{
 
     eval{
 
-	open (ESTGENOME, $est_genome_command) || $self->throw("Can't open pipe from '$est_genome_command' : $!");
+	open (ESTGENOME, $est_genome_command) || throw("Can't open pipe from '$est_genome_command' : $!");
 	my $firstline = <ESTGENOME>;
 	print STDERR "firstline: \t$firstline" if $verbose;
 	if ( $firstline =~ m/Align EST and genomic DNA sequences/ ){ 
@@ -292,12 +293,12 @@ sub run{
 			     );
 
 	    }elsif ($_ =~ /Segmentation fault/) {
-	      $self->warn("Segmentation fault from est_genome\n");
-	      close (ESTGENOME) or $self->warn("problem closing est_genome: $!\n");
+	      warning("Segmentation fault from est_genome\n");
+	      close (ESTGENOME) or warning("problem closing est_genome: $!\n");
 	      return(0);
 	    }elsif ($_ =~ /(ERROR:.+)/) {
-	      $self->warn("Error from est_genome: \n<$1>\n");
-	      close (ESTGENOME) or $self->warn("problem closing est_genome: $!\n");
+	      warning("Error from est_genome: \n<$1>\n");
+	      close (ESTGENOME) or warning("problem closing est_genome: $!\n");
 	      return(0);
 	    }
 	}
@@ -307,7 +308,7 @@ sub run{
 	}
 
 	if(!close(ESTGENOME)){
-	  $self->warn("Problems running est_genome when closing pipe: $!\n");
+	  warning("Problems running est_genome when closing pipe: $!\n");
 	  return (0);
 	}
 
@@ -316,7 +317,7 @@ sub run{
     $self->_deletefiles($genfile, $estfile);
 
     if ($@) {
-      $self->throw("Error running est_genome:\n$@");
+      throw("Error running est_genome:\n$@");
     } else {
       return 1;
     }
@@ -534,7 +535,7 @@ sub convert_output {
 	$added = 1;
       }
     }
-    $self->warn("Exon $ex could not be added to a gene ...\n") unless $added;     
+    warning("Exon $ex could not be added to a gene ...\n") unless $added;     
   }
 
   # add supporting features to exons
@@ -549,7 +550,7 @@ sub convert_output {
 	$added = 1;
       }
     }
-    $self->warn("Feature $sf could not be added to an exon ...\n") unless $added;     
+    warning("Feature $sf could not be added to an exon ...\n") unless $added;     
   }
   push(@{$self->{'_output'}},@genes);
 
@@ -653,7 +654,7 @@ sub _createfiles {
     my $dir =$dirname;
     unless ($self->_diskspace($dir, $spacelimit)) 
     {
-        $self->throw("Not enough disk space ($spacelimit Gb required)");
+        throw("Not enough disk space ($spacelimit Gb required)");
     }
     #if names not provided create unique names based on process ID    
     $genfile = $self->_getname("genfile") unless ($genfile);
@@ -661,9 +662,9 @@ sub _createfiles {
     $genfile = $dirname . $genfile; 
     $estfile = $dirname . $estfile; 
     # Should check we can write to this directory 
-    $self->throw("No directory $dirname") unless -e $dirname;
+    throw("No directory $dirname") unless -e $dirname;
 
-    #chdir ($dirname) or $self->throw ("Cannot change to directory '$dirname' ($?)");
+    #chdir ($dirname) or throw ("Cannot change to directory '$dirname' ($?)");
     return ($genfile, $estfile);
 }
 
@@ -676,7 +677,7 @@ sub _diskspace {
     my ($self, $dir, $limit) =@_;
     my $block_size; #could be used where block size != 512 ?
     my $Gb = 1024 ** 3;
-    open DF, "df $dir |" or $self->throw ("Can't open 'du' pipe [$@]");
+    open DF, "df $dir |" or throw ("Can't open 'du' pipe [$@]");
     while (<DF>) 
     {
         if ($block_size) 
@@ -689,10 +690,10 @@ sub _diskspace {
         else 
         {
             ($block_size) = /(\d+).+blocks/i
-                || $self->throw ("Can't determine block size from:\n$_");
+                || throw ("Can't determine block size from:\n$_");
         }
     }
-    close DF || $self->throw("Error from 'df' : $!");
+    close DF || throw("Error from 'df' : $!");
 }
 
 sub _deletefiles {
@@ -703,7 +704,7 @@ sub _deletefiles {
         return 1;
     } else {
         my @fails = grep -e, @files;
-        $self->warn("Failed to remove @fails : $!\n");
+        warning("Failed to remove @fails : $!\n");
     }
 }
 

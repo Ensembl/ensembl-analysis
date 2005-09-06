@@ -14,6 +14,7 @@ use Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use base 'Bio::EnsEMBL::Analysis::Runnable';
 
 
@@ -54,7 +55,7 @@ sub query {
     my ( $self, $seq ) = @_;
     if ($seq) {
         unless ( $seq->isa("Bio::PrimarySeqI") || $seq->isa("Bio::Seq") ) {
-            $self->throw("Input isn't a Bio::Seq or Bio::PrimarySeq");
+            throw("Input isn't a Bio::Seq or Bio::PrimarySeq");
         }
         $self->{'_query'} = $seq;
     }
@@ -66,7 +67,7 @@ sub unmasked {
     if ($seq) {
         unless ( $seq->isa("Bio::PrimarySeqI") || $seq->isa("Bio::Seq") ) {
             die Dumper($seq);
-            $self->throw("Input isn't a Bio::Seq or Bio::PrimarySeq");
+            throw("Input isn't a Bio::Seq or Bio::PrimarySeq");
         }
         $self->{'_unmasked'} = $seq;
     }
@@ -128,7 +129,7 @@ sub run_est_genome_on_strand {
     for ( my $i = 0 ; $i < @$feat ; $i++ ) {
 
       my $f   = $feat->[$i];
-      my $hid = $f->hseqname or $self->throw("Missing hid");
+      my $hid = $f->hseqname or throw("Missing hid");
       next unless $f->strand == $strand;
       $hit_features->{$hid} ||= [];
       push ( @{ $hit_features->{$hid} }, $f );

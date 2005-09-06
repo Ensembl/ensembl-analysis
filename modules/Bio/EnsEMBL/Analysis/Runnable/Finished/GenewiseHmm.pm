@@ -30,7 +30,7 @@ The rest of the documentation details each of the object methods. Internal metho
 =cut
 
 package Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm;
-
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use strict;
 use vars qw(@ISA);
 
@@ -90,8 +90,8 @@ sub new {
     $genewise ||= 'genewise';
     $options ||= '-ext 2 -genes';
     $self->genewise($self->program($genewise));
-    $self->query($query) || $self->throw("No query sequence entered for blastwise");
-    $self->hmmfile($hmmfile) || $self->throw("No Hmm file entered for Hmmgenewise");
+    $self->query($query) || throw("No query sequence entered for blastwise");
+    $self->hmmfile($hmmfile) || throw("No Hmm file entered for Hmmgenewise");
     $self->is_reverse($reverse)   if (defined($reverse));
     $self->endbias($endbias)   if (defined($endbias));
     $self->memory ($memory)    if (defined($memory));
@@ -147,7 +147,7 @@ sub query {
     my ($self,$arg) = @_;
 
     if (defined($arg)) {
-	$self->throw("Genomic sequence input is not a Bio::SeqI or Bio::Seq or Bio::PrimarySeqI") unless
+	throw("Genomic sequence input is not a Bio::SeqI or Bio::Seq or Bio::PrimarySeqI") unless
 	    ($arg->isa("Bio::SeqI") || 
 	     $arg->isa("Bio::Seq")  || 
 	     $arg->isa("Bio::PrimarySeqI"));
@@ -194,7 +194,7 @@ sub hmmfile{
 sub set_environment {
   my ($self) = @_;
   if (! -d $ENV{WISECONFIGDIR}) {
-    $self->throw("No WISECONFIGDIR ["  . $ENV{WISECONFIGDIR} . "]");
+    throw("No WISECONFIGDIR ["  . $ENV{WISECONFIGDIR} . "]");
   }
 }
 
@@ -271,7 +271,7 @@ END
 =cut
 
     }else{
-	warn("couldn't read firstline <$firstline>");
+	warning("couldn't read firstline <$firstline>");
     }
     my $score = $self->get_score($pdomain, "[$gff_strand]");
     my @genes;
@@ -289,7 +289,7 @@ END
 		$gene->id     ($clone);
 		$gene->seqname($pdomain);
 		push(@genes, $gene);
-	    }else{ warn "strands don't match" }
+	    }else{ warning "strands don't match" }
 	}elsif($F[0] eq 'Exon'){
 	    # swap reverse coords (make note this was done)
 	    ($F[1], $F[2], $check) = ($F[2], $F[1], -1) if $F[2] < $F[1];
@@ -303,7 +303,7 @@ END
 		$exon->strand ($strand);
 		$genes[-1]->add_sub_SeqFeature($exon,'EXPAND');
 		    #[@F, $pdomain, $clone, $strand, $phase, $score]);
-	    }else{ warn "strands don't match" }
+	    }else{ warning "strands don't match" }
 	}elsif($F[0] eq 'Supporting'){
 	    # swap reverse coords (make note this was done)
 	    ($F[1], $F[2], $check) = ($F[2], $F[1], -1) if $F[2] < $F[1];
@@ -344,9 +344,9 @@ sub _align_protein {
     my $testing_output = "genewisedb.output";
     local $/ = "//\n";
     # use one of these
-    # open(my $fh, "$command | tee $outputfile |") or $self->throw("error piping to genewise: $!\n"); # test genewise keep output
-    # open(my $fh, "$testing_output") or $self->throw('couldnt find the file'); # test a single file
-     open(my $fh, "$command |") or $self->throw("error piping to genewise: $!\n"); # production
+    # open(my $fh, "$command | tee $outputfile |") or throw("error piping to genewise: $!\n"); # test genewise keep output
+    # open(my $fh, "$testing_output") or throw('couldnt find the file'); # test a single file
+     open(my $fh, "$command |") or throw("error piping to genewise: $!\n"); # production
     #print "parseing output\n"; # making assumption of only 1 gene prediction ... this will change once we start using hmms
 
     while(<$fh>){
@@ -357,7 +357,7 @@ sub _align_protein {
         $self->addGenes($genes);
     #    print STDERR "*" x 60 . "\n";
     }
-    close($fh) or $self->throw("Error running genewise:$!\n");
+    close($fh) or throw("Error running genewise:$!\n");
     print "there are ",scalar($self->output)." genes predicted using hmms in file ".$hmm."\n";
   #  unlink $genfile;
     #unlink $gwfile;
@@ -389,7 +389,7 @@ sub addGene {
     if($arg->isa("Bio::EnsEMBL::SeqFeature")){
       push(@{$self->{'_output'}},$arg);
     }else{
-      $self->throw("this, $arg, should be a seqfeature\n");
+      throw("this, $arg, should be a seqfeature\n");
     }
     #foreach my $result(@{$self->{'_output'}}){
     #  print STDERR $result->seqname."\n";
@@ -414,7 +414,7 @@ sub addGenes {
         if($arg->isa("Bio::EnsEMBL::SeqFeature")){
             push(@{$self->{'_output'}},$arg);
         }else{
-            $self->throw("this, $arg, should be a seqfeature\n");
+            throw("this, $arg, should be a seqfeature\n");
         }
     }
 }

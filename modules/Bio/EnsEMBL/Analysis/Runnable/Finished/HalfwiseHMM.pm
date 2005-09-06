@@ -52,6 +52,7 @@ use Bio::Tools::BPlite;
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use BlastableVersion;
 #use DB_File;
 use Fcntl;
@@ -91,15 +92,15 @@ sub new {
 											   OPTIONS
 											   ANALYSIS	
 											   PROGRAM)], @args);
-    $self->throw("No genomic sequence input") unless defined($genomic);
+    throw("No genomic sequence input") unless defined($genomic);
     $self->query($genomic);
-    $self->throw("No features input") unless defined($features);
+    throw("No features input") unless defined($features);
     $self->add_input_features($features);
-    $self->throw("No pfam database") unless $pfamdb;
+    throw("No pfam database") unless $pfamdb;
     $self->pfamDB($pfamdb);
     $self->options($options);
     $self->program($program);
-    $self->throw("No genomic sequence input") unless defined($analysis);
+    throw("No genomic sequence input") unless defined($analysis);
     $self->analysis($analysis);
     if ($hmmfetch){
 	$self->hmmfetch($hmmfetch);
@@ -135,7 +136,7 @@ sub analysis {
 sub pfamDB{
     my ($self, $dbobj) = @_;
     $self->{'_pfamDB'} = $dbobj if $dbobj;
-    $self->throw("Not a Bio::EnsEMBL::DBSQL::DBAdaptor")
+    throw("Not a Bio::EnsEMBL::DBSQL::DBAdaptor")
         unless $self->{'_pfamDB'}->isa("Bio::EnsEMBL::DBSQL::DBConnection");
     return $self->{'_pfamDB'};
 }
@@ -178,7 +179,7 @@ sub query {
     my( $self, $value ) = @_;
     if ($value) {
         #need to check if passed sequence is Bio::Seq object
-        $value->isa("Bio::PrimarySeqI") || $self->throw("Input isn't a Bio::PrimarySeqI");
+        $value->isa("Bio::PrimarySeqI") || throw("Input isn't a Bio::PrimarySeqI");
         $self->{'_query'} = $value;
     }
     return $self->{'_query'};
@@ -198,7 +199,7 @@ sub add_input_features{
     if (ref($features) eq "ARRAY") {
       push(@{$self->{'_input_features'}},@$features);
     } else {
-      $self->throw("[$features] is not an array ref.");
+      throw("[$features] is not an array ref.");
     }
 }
 
@@ -343,12 +344,12 @@ sub run {
     #}
 
     my $pfam_ids = $self->get_pfam_ids($swissprot_ids);
-    #$self->throw(Dumper($pfam_ids));
+    #throw(Dumper($pfam_ids));
     #print "got pfam ids \n";
     #$self->create_genewisehmm($pfam_ids, $dir);
     #$self->create_genewisehmm_individually($pfam_ids, $dir);
     $self->create_genewisehmm_complete($pfam_ids, $dir);
-    #$self->throw(Dumper($pfam_ids));
+    #throw(Dumper($pfam_ids));
 }
 
 =head2 get_swissprot_ids
@@ -489,7 +490,7 @@ sub create_genewisehmm_individually{
         print STDERR "doing the hmm for id: $pfam_id\n"; ##########
         $self->get_hmm($pfam_id);
         if (-z $self->hmmfilename){
-            $self->warn("hmm file not created :$!");
+            warning("hmm file not created :$!");
             next;
         }
         my @strands = ();
@@ -501,7 +502,7 @@ sub create_genewisehmm_individually{
             push(@strands, -1);
             push(@strands, 1);
         }else{
-            $self->throw("strand = ".$strand." something funnies going on : $!\n");
+            throw("strand = ".$strand." something funnies going on : $!\n");
         }
         foreach my $s (@strands){
             $self->run_genewisehmm($s);
@@ -516,7 +517,7 @@ sub create_genewisehmm_individually{
         print STDERR "removing hmmfile: ".$self->hmmfilename()."\n"; ##########
         unlink $self->hmmfilename();
     }
-    $self->throw("finished this bit");
+    throw("finished this bit");
     return undef;
 }
 
@@ -540,13 +541,13 @@ sub create_genewisehmm_complete{
     print STDERR "doing the hmm for ids: ". join(" ", keys(%$pfam_ids)) . "\n"; ##########
     $self->get_hmmdb($pfam_ids);
     if (-z $self->hmmfilename){
-        $self->warn("hmm file not created :$!");
-        $self->throw("hmm file not created :$!");
+        warning("hmm file not created :$!");
+        throw("hmm file not created :$!");
     }
     $self->run_genewisehmm(0);
     print STDERR "removing hmmfile: ".$self->hmmfilename()."\n"; ##########
     unlink $self->hmmfilename();
-    #$self->throw("finished this bit");
+    #throw("finished this bit");
     return undef;
 }
 
@@ -623,10 +624,10 @@ sub get_hmm{
     system($command);
   };
   if($@){
-    $self->warn("hmmfetch threw error : $@\n");
+    warning("hmmfetch threw error : $@\n");
   }
   if (-z $self->hmmfilename){
-    $self->warn("hmm file not created :$!");
+    warning("hmm file not created :$!");
   }elsif(-e $self->hmmfilename){
     open(ERROR, $self->hmmfilename) or die "couldn't open error file : $!";
     while(<ERROR>){
@@ -653,10 +654,10 @@ sub get_hmmdb{
           system($command);
         };
         if($@){
-          $self->warn("hmmfetch threw error : $@\n");
+          warning("hmmfetch threw error : $@\n");
         }
         if (-z $self->hmmfilename){
-          $self->warn("hmm file not created :$!");
+          warning("hmm file not created :$!");
         }elsif(-e $self->hmmfilename){
           open(ERROR, $self->hmmfilename) or die "couldn't open error file : $!";
           while(<ERROR>){
@@ -683,7 +684,7 @@ sub add_output_features{
     if (ref($features) eq "ARRAY") {
       push(@{$self->{'_output_features'}},@$features);
     } else {
-      $self->throw("[$features] is not an array ref.");
+      throw("[$features] is not an array ref.");
     }
     #print "total feature no = ".scalar(@{$self->{'_output_features'}})."\n";
 

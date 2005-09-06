@@ -41,6 +41,7 @@ use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::DB::RandomAccessI;
 use Bio::PrimarySeqI;
 use Bio::SeqIO;
@@ -127,7 +128,7 @@ sub get_all_FeaturesById {
 
     FEAT: foreach my $f ($self->get_all_Features) {
     if (!(defined($f->hseqname))) {
-	$self->warn("No hit name for " . $f->seqname . "\n");
+	warning("No hit name for " . $f->seqname . "\n");
 	    next FEAT;
 	} 
 	if (defined($idhash{$f->hseqname})) {
@@ -179,7 +180,7 @@ sub get_all_FeatureIds {
 	if (defined($f->hseqname)) {
 	    $idhash{$f->hseqname} = 1;
 	} else {
-	    $self->warn("No sequence name defined for feature. " . $f->seqname . "\n");
+	    warning("No sequence name defined for feature. " . $f->seqname . "\n");
 	}
     }
 
@@ -387,7 +388,7 @@ sub get_Sequence {
     }
 
     if ((!defined($seq)) && $@) {
-      $self->warn("Couldn't find sequence for [$id]:\n $@");
+      warning("Couldn't find sequence for [$id]:\n $@");
     }
 
     return $seq;
@@ -431,7 +432,7 @@ sub run_blaste2g {
     my ( $self, $est, $features,$analysis ) = @_;
     my $count = @$features;
     my $miniseq = $self->make_miniseq(@$features);
-    my $hseq    = $self->get_Sequence($est) or $self->throw("Can't fetch sequence for id '$est'");
+    my $hseq    = $self->get_Sequence($est) or throw("Can't fetch sequence for id '$est'");
 
     my $eg = new Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome(
         -genomic => $miniseq->get_cDNA_sequence,
@@ -448,7 +449,7 @@ sub run_blaste2g {
       my @converted = @{$miniseq->convert_FeaturePair($fp)};
 
       if ( @converted > 1 ) {
-	warn "feature converts into '" . scalar(@converted) . "' > 1 features - ignoring\n";
+	warning "feature converts into '" . scalar(@converted) . "' > 1 features - ignoring\n";
       } else {
 	# convert_FeaturePair zaps strand and hseqname,0
 	# so we put them back here.
@@ -491,7 +492,7 @@ sub genomic_sequence {
     my( $self, $value ) = @_;
     if ($value) {
         #need to check if passed sequence is Bio::Seq object
-        $value->isa("Bio::PrimarySeqI") || $self->throw("Input isn't a Bio::PrimarySeqI");
+        $value->isa("Bio::PrimarySeqI") || throw("Input isn't a Bio::PrimarySeqI");
         $self->{'_genomic_sequence'} = $value;
     }
     return $self->{'_genomic_sequence'};
@@ -511,7 +512,7 @@ sub seqfetcher {
     my( $self, $value ) = @_;
     if ($value) {
         #need to check if passed sequence is Bio::DB::RandomAccessI object
-        $value->isa("Bio::DB::RandomAccessI") || $self->throw("Input isn't a Bio::DB::RandomAccessI");
+        $value->isa("Bio::DB::RandomAccessI") || throw("Input isn't a Bio::DB::RandomAccessI");
         $self->{'_seqfetcher'} = $value;
     }
     return $self->{'_seqfetcher'};
@@ -530,7 +531,7 @@ sub seqfetcher {
 sub analysis {
     my( $self, $value ) = @_;
     if ($value) {
-        $value->isa("Bio::EnsEMBL::Analysis") || $self->throw("[$value] isn't a Bio::EnsEMBL::Analysis");
+        $value->isa("Bio::EnsEMBL::Analysis") || throw("[$value] isn't a Bio::EnsEMBL::Analysis");
         $self->{'analysis'} = $value;
     }
     return $self->{'_analysis'};
@@ -618,7 +619,7 @@ sub run {
     }
     # Thought it might be useful to throw at this point if there have been errors.
     # There might have only been a problem with one of the ests.  
-    $self->throw("See previous errors...") if $number_of_errors;
+    throw("See previous errors...") if $number_of_errors;
     return 1;
 }
 

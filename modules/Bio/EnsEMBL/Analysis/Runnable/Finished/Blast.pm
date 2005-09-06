@@ -5,6 +5,7 @@ use warnings;
 use BlastableVersion;
 use Symbol;
 use Bio::EnsEMBL::Analysis::Config::Blast;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 
 
@@ -22,7 +23,7 @@ sub get_analysis {
     my ($ana);
     unless ( $ana = $self->{'_analysis'} ) {
         my ($source) = $self->program =~ m{([^/]+)$}
-          or $self->throw( "Can't parse last element from path: '" . $self->program . "'" );
+          or throw( "Can't parse last element from path: '" . $self->program . "'" );
         $ana = $self->{'_analysis'} = Bio::EnsEMBL::Analysis->new(
             -db              => $self->database,
             -db_version      => 1,                 # ARUUGA!!!
@@ -47,7 +48,7 @@ sub parse_results{
   my $discard_overlaps = $self->parser->discard_overlaps;
   my $coverage = $self->parser->coverage;
   my $hits    = $self->parser->get_best_hits($bplites,$threshold_type,$threshold);
-  my $query_length = $self->query->length or $self->throw("Couldn't get query length");
+  my $query_length = $self->query->length or throw("Couldn't get query length");
   my $output = $self->parser->_apply_coverage_filter( $query_length, $hits,$threshold_type,$threshold,$coverage,$discard_overlaps );
   $self->output($output);
   return $output;
@@ -87,7 +88,7 @@ sub fetch_databases {
 	}
     }
     if (scalar(@databases) == 0) {
-	$self->throw("No databases exist for " . $db_names);
+	throw("No databases exist for " . $db_names);
     }
 
     return \@databases;
@@ -117,7 +118,7 @@ sub get_db_version{
     unless($self->{'_db_version_searched'}){
         if($db){
             $BlastableVersion::debug = $debug_this;            
-            warn "BlastableVersion is cvs revision $BlastableVersion::revision \n" if $debug_this;
+            warning "BlastableVersion is cvs revision $BlastableVersion::revision \n" if $debug_this;
             
             my $ver = eval { 
                 my $blast_ver = BlastableVersion->new();
@@ -125,14 +126,14 @@ sub get_db_version{
                 $blast_ver->get_version($db);
                 $blast_ver;
             };
-            $self->throw("I failed to get a BlastableVersion for $db") if $@;
+            throw("I failed to get a BlastableVersion for $db") if $@;
             
             my $dbv = $ver->version();
             my $sgv = $ver->sanger_version();
             my $name = $ver->name();
             my $date = $ver->date();
             unless ($dbv){
-                $self->throw(
+                throw(
                     "I know nothing about $db I tried to find out:\n" .
                     " - name <" . $name . ">\n" .
                     " - date <" . $date . ">\n" .
@@ -141,7 +142,7 @@ sub get_db_version{
             }
             $self->{'_db_version_searched'} = $dbv;
         }else{
-            $self->throw("You've asked about what I searched, but I don't know." . 
+            throw("You've asked about what I searched, but I don't know." . 
                          " It's not set. I need to be called with a database filename first");
             # The code probably got here because of a problem with the MLDBM
             # cache file on the machine this was running on.  
