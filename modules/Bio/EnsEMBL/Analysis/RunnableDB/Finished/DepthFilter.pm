@@ -28,6 +28,11 @@ sub run {
 	my $orig_analysis = $self->analysis->logic_name;
 	$orig_analysis =~ s/df_//;
 
+    my %params = %{ $self->parameters_hash() };
+
+    my $max_coverage     = $params{max_coverage} || 10;
+    my $percentid_cutoff = $params{percentid_cutoff} || 0.0;
+
 	my $dna_feat_a  = $self->db->get_DnaAlignFeatureAdaptor;
     my $prot_feat_a = $self->db->get_ProteinAlignFeatureAdaptor;
 
@@ -41,21 +46,26 @@ sub run {
 		$orig_features =
 		  $prot_feat_a->fetch_all_by_Slice( $self->query, $orig_analysis );
 	}
-	$self->output( $self->depth_filter($orig_features) );
+	$self->output( $self->depth_filter($orig_features, $max_coverage, $percentid_cutoff) );
 
 }
 
 sub depth_filter {
-	my ($self, $orig_features, $max_coverage) = (@_, 10);
+	my ($self, $orig_features, $max_coverage, $percentid_cutoff) = @_;
 
+	print STDERR "DepthFilter: MaxCoverage=$max_coverage\n";
+	print STDERR "DepthFilter: PercentIdCutoff=$percentid_cutoff\n";
 	print STDERR "DepthFilter: ".scalar(@$orig_features)." features before filtering\n";
 
     my %grouped_byname = ();
 
     for my $af (@$orig_features) {
-        my $node = $grouped_byname{$af->hseqname()} ||= {};
-
         my ($score, $percentid) = ($af->score(), $af->percent_id());
+        if($percentid < $percentid_cutoff) {
+            next;
+        }
+
+        my $node = $grouped_byname{$af->hseqname()} ||= {};
         if(%$node) { # nonempty
             $node->{max_score} = $score if $score>$node->{max_score};
 
