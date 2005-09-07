@@ -11,6 +11,7 @@ use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Getseqs;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::EST;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::PrimarySeq;
@@ -142,7 +143,7 @@ sub BLAST_PARAMS {
 sub fetch_input {
 	my ($self) = @_;
 	my @fps;
-	$self->throw("No input id") unless defined( $self->input_id );
+	throw("No input id") unless defined( $self->input_id );
 	my $sliceid = $self->input_id;
 	my $sa      = $self->db->get_SliceAdaptor();
 	my $slice   = $sa->fetch_by_name($sliceid);
@@ -150,7 +151,7 @@ sub fetch_input {
 	$self->query($slice);
 	my $maskedslice =
 	     $slice->get_repeatmasked_seq( $ANALYSIS_REPEAT_MASKING, $SOFT_MASKING )
-	  or $self->throw("Unable to fetch contig");
+	  or throw("Unable to fetch contig");
 	my $maskedseq = $maskedslice->seq();
 
 	# a Bio::PrimarySeq obj to remove some db intensive queries later on
@@ -167,7 +168,7 @@ sub fetch_input {
 	}
 	else {
 		$self->input_is_void(1);
-		$self->warn("Need at least 3 nucleotides");
+		warning("Need at least 3 nucleotides");
 	}
 
 	my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::EST->new(
@@ -189,7 +190,7 @@ sub check_with_seg {
 		-file   => ">$filename",
 		-format => 'Fasta'
 	  )
-	  or $self->throw("Can't create Bio::SeqIO $filename $!");
+	  or throw("Can't create Bio::SeqIO $filename $!");
 	$file->write_seq($seqObj_to_test);
 
 	my $seg_cmd = "nseg $filename -x";
@@ -197,13 +198,13 @@ sub check_with_seg {
 		-file   => "$seg_cmd |",
 		-format => 'Fasta'
 	  )
-	  or $self->throw("Can't create Bio::SeqIO $seg_cmd $!");
+	  or throw("Can't create Bio::SeqIO $seg_cmd $!");
 	my $seq;
 	eval { $seq = $seg->next_seq->seq; };
 	unlink($filename);
 
 	if ($@) {
-		$self->throw(
+		throw(
 			"There was a problem with SEG masking.\nI tried to '$seg_cmd'");
 	}
 	if ( $seq =~ /[CATG]{3}/i ) {
@@ -211,7 +212,7 @@ sub check_with_seg {
 	}
 	else {
 		$self->input_is_void(1);
-		$self->warn("Need at least 3 nucleotides after SEG filtering");
+		warning("Need at least 3 nucleotides after SEG filtering");
 	}
 }
 
@@ -247,7 +248,7 @@ sub run {
 	my $runnables = $self->runnable;
 	print scalar(@$runnables)," runnables in EST module\n";
 	foreach my $runnable(@$runnables){
-		$runnable || $self->throw("Can't run - no runnable object");
+		$runnable || throw("Can't run - no runnable object");
 		my $blast  = $self->BLAST_PARAMS;
 		my $parser = $self->make_parser;
 		my $filter;
@@ -263,7 +264,7 @@ sub run {
 			$self->failing_job_status($1)
 			  if $err =~ /^\"([A-Z_]{1,40})\"$/i
 			  ;    # only match '"ABC_DEFGH"' and not all possible throws
-			$self->throw("$@");
+			throw("$@");
 		}
 		$self->output($runnable->output);
 	}

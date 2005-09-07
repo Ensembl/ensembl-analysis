@@ -45,7 +45,7 @@ Internal methods are usually preceded with a _
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::TRF;
 
 use strict;
-
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB::Finished;
 use Bio::EnsEMBL::Analysis::Runnable::TRF;
 use Bio::EnsEMBL::Analysis::Config::General;
@@ -60,14 +60,14 @@ use vars qw(@ISA);
 sub fetch_input {
 
     my( $self) = @_;
-    $self->throw("No input id") unless defined($self->input_id);
+    throw("No input id") unless defined($self->input_id);
     my $sliceid  = $self->input_id;
     my $sa = $self->db->get_SliceAdaptor();
     my $slice   = $sa->fetch_by_name($sliceid);
     $slice->{'seq'}=$slice->seq();
     my %parameters      = %{$self->parameters_hash};
     $parameters{-trf}   = $self->analysis->program_file || undef;
-    $parameters{-query} = $slice->get_repeatmasked_seq(['RepeatMask'],$SOFT_MASKING) or $self->throw("Unable to fetch slice");
+    $parameters{-query} = $slice->get_repeatmasked_seq(['RepeatMask'],$SOFT_MASKING) or throw("Unable to fetch slice");
     $parameters{-analysis} = $self->analysis;
     my $runnable = new Bio::EnsEMBL::Analysis::Runnable::TRF(%parameters);
     $self->runnable($runnable);

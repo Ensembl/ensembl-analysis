@@ -46,7 +46,6 @@ Internal methods are usually preceded with a _
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::HalfwiseHMM;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::Finished;
-use Bio::EnsEMBL::Root;
 
 use vars qw(@ISA);
 use strict;
@@ -59,6 +58,7 @@ use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Similarity qw (
@@ -130,13 +130,13 @@ sub fetch_input {
   my( $self) = @_;
   my %ests;
   my @estseqs;
-  $self->throw("No input id") unless defined($self->input_id);
+  throw("No input id") unless defined($self->input_id);
   my $sliceid = $self->input_id;
   my $sa = $self->db->get_SliceAdaptor();
   my $slice   = $sa->fetch_by_name($sliceid);
   $slice->{'seq'}=$slice->seq();
   $self->query($slice);
-  my $maskedslice   = $slice->get_repeatmasked_seq($ANALYSIS_REPEAT_MASKING,$SOFT_MASKING) or $self->throw("Unable to fetch contig");
+  my $maskedslice   = $slice->get_repeatmasked_seq($ANALYSIS_REPEAT_MASKING,$SOFT_MASKING) or throw("Unable to fetch contig");
   my $alignAdaptor = $self->db->get_ProteinAlignFeatureAdaptor();
   foreach my $database(@{$GB_SIMILARITY_DATABASES}){
     my $fps = [];
@@ -180,7 +180,7 @@ sub getPfamDB{
     my ($self) = @_;
     unless($self->{'_pfam_db'}){
         my $pfam_meta = $self->db->get_MetaContainer();
-	my $value = $pfam_meta->list_value_by_key('pfam_db') || $self->throw("please enter pfam_db key - value into meta table\n");
+	my $value = $pfam_meta->list_value_by_key('pfam_db') || throw("please enter pfam_db key - value into meta table\n");
 	my $pfam_db_conn = $self->make_hash_from_meta_value($value->[0]);
         $self->{'_pfam_db'} = Bio::EnsEMBL::DBSQL::DBConnection->new(%$pfam_db_conn);
     }
@@ -219,7 +219,7 @@ sub runnable {
       $self->{'_seqfetchers'} = [];
     }
     if (defined($arg)) {
-      $self->throw("[$arg] is not a Bio::EnsEMBL::Analysis::Runnable") unless $arg->isa("Bio::EnsEMBL::Analysis::Runnable");
+      throw("[$arg] is not a Bio::EnsEMBL::Analysis::Runnable") unless $arg->isa("Bio::EnsEMBL::Analysis::Runnable");
 	
       push(@{$self->{_runnable}}, $arg);
     }
@@ -230,7 +230,7 @@ sub runnable {
 sub run {
     my ($self) = @_;
     foreach my $runnable ($self->runnable) {
-      $runnable || $self->throw("Can't run - no runnable object");
+      $runnable || throw("Can't run - no runnable object");
       print STDERR "using ".$runnable."\n";
       $runnable->run;
     }
@@ -312,7 +312,7 @@ sub _convert_output {
   my @analyses = $anaAdaptor->fetch_by_logic_name($genetype);
   my $analysis;
   if(scalar(@analyses) > 1){
-    $self->throw("panic! > 1 analysis for $genetype\n");
+    throw("panic! > 1 analysis for $genetype\n");
   }
   elsif(scalar(@analyses) == 1){
     $analysis = $analyses[0];
@@ -442,7 +442,7 @@ sub _check_that_external_db_table_populated{
   $sth = $db->prepare($max_db_id_sql);
   $sth->execute();
   my $row = $sth->fetchrow_hashref || {};
-  my $max_db_id = $row->{'next_db_id'} || warn "Error";
+  my $max_db_id = $row->{'next_db_id'} || warning "Error";
   # insert the row
   my $insert_sql = q`INSERT INTO external_db (external_db_id, db_name, release, status) VALUES(?, ?, ?, ?)`;
   $sth = $db->prepare($insert_sql);
