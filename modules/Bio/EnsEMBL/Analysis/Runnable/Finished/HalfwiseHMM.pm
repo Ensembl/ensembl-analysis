@@ -418,7 +418,7 @@ sub get_pfam_ids{
     }
     if(scalar(@values)){
 	$sql .= join(", ", @values);
-	warn $sql;
+	warning $sql;
 	$sth = $db->prepare($sql);
 	$sth->execute(@binds);
 	$sth->finish();
