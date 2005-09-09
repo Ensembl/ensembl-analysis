@@ -4,6 +4,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter;
 
 use strict;
 use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::SimpleFeature;
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished';
 
@@ -25,8 +26,8 @@ sub fetch_input {
 
 sub run {
 	my ($self) = @_;
-	my $orig_analysis = $self->analysis->logic_name;
-	$orig_analysis =~ s/df_//;
+	my $orig_analysis_name = $self->analysis->logic_name;
+	$orig_analysis_name =~ s/df_//;
 
     my %params = %{ $self->parameters_hash() };
 
@@ -36,22 +37,29 @@ sub run {
 	my $dna_feat_a  = $self->db->get_DnaAlignFeatureAdaptor;
     my $prot_feat_a = $self->db->get_ProteinAlignFeatureAdaptor;
 
+    my $slice = $self->query();
+
         # Try the DNA features first:
 	my $orig_features =
-	  $dna_feat_a->fetch_all_by_Slice( $self->query, $orig_analysis );
+	  $dna_feat_a->fetch_all_by_Slice( $slice, $orig_analysis_name );
 
         # If we haven't found anything, try Protein features:
 	if (!(@$orig_features))
 	{
 		$orig_features =
-		  $prot_feat_a->fetch_all_by_Slice( $self->query, $orig_analysis );
+		  $prot_feat_a->fetch_all_by_Slice( $slice, $orig_analysis_name );
 	}
-	$self->output( $self->depth_filter($orig_features, $max_coverage, $percentid_cutoff) );
 
+	my ( $filtered_features, $saturated_zones) =
+        $self->depth_filter($orig_features, $slice, $max_coverage, $percentid_cutoff); 
+
+	$self->output($filtered_features);
+
+    # TODO:  and store the @$saturated_zones as simple features
 }
 
 sub depth_filter {
-	my ($self, $orig_features, $max_coverage, $percentid_cutoff) = @_;
+	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff) = @_;
 
 	print STDERR "DepthFilter: MaxCoverage=$max_coverage\n";
 	print STDERR "DepthFilter: PercentIdCutoff=$percentid_cutoff\n";
@@ -108,7 +116,48 @@ sub depth_filter {
 
 	print STDERR "DepthFilter: ".scalar(@filtered_features)." features after filtering\n";
 
-    return \@filtered_features;
+    my @saturated_zones = ();
+    my $zone_start = undef;
+    my $zone_score = 0;
+    my $slice_length = $slice->length();
+    for(my $i=1; $i<=$slice_length; $i++) {
+        my $n = $coverage_map[$i] || 0;
+        if ($zone_start) {
+            $zone_score += $n;
+            if ($n < $max_coverage) {
+                my $new_zone = Bio::EnsEMBL::SimpleFeature->new(
+                    -start  => $zone_start,
+                    -end    => $i - 1,
+                    -strand => $slice->strand(),
+                    -score  => $zone_score,
+                    -display_label => sprintf("avg depth = %.2f", $zone_score/($i-$zone_start)),
+                    -analysis => $self->analysis(),
+                );
+                push(@saturated_zones, $new_zone);
+                $zone_start = undef;
+                $zone_score = 0;
+            }
+        }
+        elsif ($n >= $max_coverage) {
+            $zone_start = $i;
+            $zone_score = $n;
+        }
+    }
+    if ($zone_start) { # Are saturated up to end of contig:
+        my $new_zone = Bio::EnsEMBL::SimpleFeature->new(
+            -start  => $zone_start,
+            -end    => $slice_length,
+            -strand => $slice->strand(),
+            -score  => $zone_score,
+            -display_label => sprintf("avg depth = %.2f", $zone_score/($slice_length-$zone_start+1)),
+            -analysis => $self->analysis(),
+        );
+        push(@saturated_zones, $new_zone);
+    }
+
+	print STDERR "DepthFilter: ".scalar(@saturated_zones)." saturated zones found\n";
+
+    return (\@filtered_features, \@saturated_zones);
 }
 
 1;
