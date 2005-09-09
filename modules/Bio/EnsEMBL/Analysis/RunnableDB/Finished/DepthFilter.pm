@@ -53,7 +53,7 @@ sub run {
 	my ( $filtered_features, $saturated_zones) =
         $self->depth_filter($orig_features, $slice, $max_coverage, $percentid_cutoff); 
 
-	$self->output($filtered_features, $saturated_zones);
+	$self->multi_output($filtered_features, $saturated_zones);
 
     # TODO:  and store the @$saturated_zones as simple features
 }
