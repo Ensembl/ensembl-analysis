@@ -87,9 +87,13 @@ sub get_adaptor {
 	elsif ( $feat->isa('Bio::EnsEMBL::DnaDnaAlignFeature') ) {
 		return $self->db->get_DnaAlignFeatureAdaptor;
 	}
+	elsif ( $feat->isa('Bio::EnsEMBL::SimpleFeatures') ) {
+		return $self->db->get_SimpleFeatureAdaptor;
+	}
 	else {
 		throw(
-'feature must be a Bio::EnsEMBL::DnaPepAlignFeature or a Bio::EnsEMBL::DnaDnaAlignFeature.'
+'	feature must be either a Bio::EnsEMBL::DnaPepAlignFeature or a Bio::EnsEMBL::DnaDnaAlignFeature 
+	or a Bio::EnsEMBL::SimpleFeatures.'
 		);
 	}
 }
