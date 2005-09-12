@@ -79,7 +79,7 @@ sub fetch_input {
 sub write_output{
 
   my ($self) = @_;
-  my @features   = @{$self->output()};
+  my @features   = @{$self->output()->[0]};
   my $repeat_f_a = $self->db->get_RepeatFeatureAdaptor();
   my $slice;
   eval {
