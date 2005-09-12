@@ -8,13 +8,6 @@ use Bio::EnsEMBL::SimpleFeature;
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished';
 
-sub new {
-	my ( $new, @args ) = @_;
-	my $self = $new->SUPER::new(@args);
-
-	return $self;
-}
-
 sub fetch_input {
 	my ($self) = @_;
 	my $slice =
@@ -53,29 +46,11 @@ sub run {
 	my ( $filtered_features, $saturated_zones) =
         $self->depth_filter($orig_features, $slice, $max_coverage, $percentid_cutoff); 
 
-	$self->multi_output($filtered_features, $saturated_zones);
+	$self->output($filtered_features, $saturated_zones);
 
     # TODO:  and store the @$saturated_zones as simple features
 }
 
-sub write_output {
-	my ($self) = @_;
-	foreach my $output 	($self->multi_output){
-		$self->{'output'} = $output;
-		$self->SUPER::write_output();
-	}
-}
-
-sub multi_output {
-  my ($self, @output) = @_;
-  if(!$self->{'m_output'}){
-    $self->{'m_output'} = [];
-  }
-  if(scalar(@output)){
-    push(@{$self->{'m_output'}}, @output);
-  }
-  return $self->{'m_output'};	
-}
 
 sub depth_filter {
 	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff) = @_;
