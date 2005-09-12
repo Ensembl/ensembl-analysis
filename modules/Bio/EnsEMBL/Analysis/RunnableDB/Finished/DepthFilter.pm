@@ -20,7 +20,7 @@ sub fetch_input {
 sub run {
 	my ($self) = @_;
 	my $orig_analysis_name = $self->analysis->logic_name;
-	$orig_analysis_name =~ s/df_//;
+	$orig_analysis_name .= '_raw';
 
     my %params = %{ $self->parameters_hash() };
 
