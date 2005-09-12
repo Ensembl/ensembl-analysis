@@ -120,7 +120,7 @@ sub depth_filter {
                 my $new_zone = Bio::EnsEMBL::SimpleFeature->new(
                     -start  => $zone_start,
                     -end    => $i - 1,
-                    -strand => $slice->strand(),
+                    -strand => 0,       # we mix both strands here
                     -score  => $zone_score,
                     -display_label => sprintf("avg depth = %.2f", $zone_score/($i-$zone_start)),
                     -analysis => $self->analysis(),
@@ -139,7 +139,7 @@ sub depth_filter {
         my $new_zone = Bio::EnsEMBL::SimpleFeature->new(
             -start  => $zone_start,
             -end    => $slice_length,
-            -strand => $slice->strand(),
+            -strand => 0,       # we mix both strands here
             -score  => $zone_score,
             -display_label => sprintf("avg depth = %.2f", $zone_score/($slice_length-$zone_start+1)),
             -analysis => $self->analysis(),
