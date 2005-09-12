@@ -271,11 +271,6 @@ sub run {
 	1;
 }
 
-sub write_output {
-	my ($self)     = @_;
-	$self->SUPER::write_output();
-	return 1;
-}
 
 =head2 db_version_searched
 
