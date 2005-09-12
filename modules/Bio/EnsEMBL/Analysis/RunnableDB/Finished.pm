@@ -7,47 +7,37 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;
 use base 'Bio::EnsEMBL::Analysis::RunnableDB';
 
-sub new {
-	my ( $new, @args ) = @_;
-	my $self = $new->SUPER::new(@args);
-
-	return $self;
-}
-
 sub write_output {
 	my ($self) = @_;
-    
+    ### code db_version_searched method may be duplicated in several modules
+    ### How does it get written into the input_id_analysis table?
+    foreach my $runnable ( @{ $self->runnable } ) {
+	    my $db_version = $runnable->get_db_version
+	      if $runnable->can('get_db_version');
+	    $self->db_version_searched($db_version);    # make sure we set this here
+    }
     # We expect an array of arrays from output()
-    foreach my $output ($self->output) {
-        ### code db_version_searched method may be duplicated in several modules
-        ### How does it get written into the input_id_analysis table?
-	    foreach my $runnable ( @{ $self->runnable } ) {
-		    my $db_version = $runnable->get_db_version
-		      if $runnable->can('get_db_version');
-		    $self->db_version_searched($db_version);    # make sure we set this here
-	    }
-
-        next unless @$output;   # No feature output
+    foreach my $output (@{$self->Bio::EnsEMBL::Analysis::RunnableDB::Finished::output}) {
+        next unless @$output;   # No feature output        
+        my $feat = $output->[0];
         
         # The type of adaptor used to store the data depends
         # upon the type of the first element of @$output
-        my $adaptor = $self->get_adaptor($output);
+        my $adaptor = $self->get_adaptor($feat);
         
 	    # Remove AlignFeatures already in db from each output
-        if (ref($output->[0]) =~ /AlignFeature$/) {
-            $self->remove_stored_AlignFeatures($adaptor, $output);
-            
+        if (ref($feat) =~ /AlignFeature$/) {
+            $self->remove_stored_AlignFeatures($adaptor, $output);       
             $self->write_descriptions($output);
         }
-
+	    my $analysis = $self->analysis;
+    	my $slice    = $self->query;
+	    my $ff       = $self->feature_factory;
         # Store features in the database
-        my $analysis = $self->analysis;
-        my $slice    = $self->query;
-        my $ff       = $self->feature_factory;
         foreach my $feature (@$output) {
-            $feature->analysis($analysis);
-            $feature->slice($slice) if (!$feature->slice);
-            $ff->validate($feature);
+        	$feature->analysis($analysis);
+        	$feature->slice($slice) if (!$feature->slice);
+        	$ff->validate($feature);
             eval { $adaptor->store($feature); };
             if ($@) {
                 throw("RunnableDB:store failed, failed to write " . $feature
@@ -57,9 +47,23 @@ sub write_output {
     }
 }
 
+sub output{
+  my ($self, @output) = @_;
+  if(!$self->{'output'}){
+    $self->{'output'} = [];
+  }
+  if(scalar(@output)){
+    push(@{$self->{'output'}}, @output);
+  }
+  if(ref($self->{'output'}->[0]) ne 'ARRAY')
+  {
+  	return [ $self->{'output'} ] ;
+  }
+  return $self->{'output'};
+}
+
 sub remove_stored_AlignFeatures {
     my ($self, $adaptor, $output) = @_;
-
     ## create a hashtable of key='feature signature' and value=1
     my $db_features =
       $adaptor->fetch_all_by_Slice($self->query, $self->analysis->logic_name);
@@ -67,7 +71,8 @@ sub remove_stored_AlignFeatures {
     my %db_feat = map { $self->get_feature_key($_), 1 } @$db_features;
     ## remove duplicated features
     for (my $i = 0 ; $i < @$output ;) {
-        my $feature = $output->[$i];
+    	my $feature = $output->[$i];
+        $feature->slice($self->query) if (!$feature->slice);
         my $f_key = $self->get_feature_key($feature);
         if ($db_feat{$f_key}) {
             print "Feature ", $f_key, " already in table\n";
@@ -81,7 +86,6 @@ sub remove_stored_AlignFeatures {
 
 sub write_descriptions {
     my( $self, $output ) = @_;
-    
     my $dbobj = $self->db;
     my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch->new;
     my %ids = map { $_->hseqname, 1 } @$output;
@@ -101,10 +105,8 @@ sub get_feature_key {
 }
 
 sub get_adaptor {
-	my ($self, $output) = @_;
+	my ($self, $feat) = @_;
 
-	my $feat = $output->[0];
-	
 	if ( $feat->isa('Bio::EnsEMBL::DnaPepAlignFeature') ) {
 		return $self->db->get_ProteinAlignFeatureAdaptor;
 	}
