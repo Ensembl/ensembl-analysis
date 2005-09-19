@@ -32,9 +32,9 @@ source_NUM to differentiate from the symbols
 
     -dbpass    For RDBs, what password to use (pass= in locator)
 
-    -file   name of file to parse
+    -file      name of file to parse
 
-    -source name of database markers have come from
+    -source    name of database markers have come from
 
     -help      prints out the perl docs
 
@@ -45,8 +45,6 @@ perl load_markers.pl -dbhost myhost -dbuser myuser -dbpass
 
 
 =cut
-
-
 
 use strict;
 use Getopt::Long;
@@ -64,7 +62,7 @@ my $source;
 my $help;
 my $write = 1;
 
-&GetOptions( 
+&GetOptions(
             'dbhost:s'      => \$host,
             'dbport:n'      => \$port,
             'dbname:s'      => \$name,
@@ -72,9 +70,9 @@ my $write = 1;
             'dbpass:s'      => \$pass,
             'file:s'        => \$file,
             'source:s'      => \$source,
-            'help!' => \$help,
-            'write!' => \$write,
-	     ) or ($help = 1);
+            'help!'         => \$help,
+            'write!'        => \$write,
+	   ) or ($help = 1);
 
 if ($help) {
     exec('perldoc', $0);
@@ -94,18 +92,52 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 					    '-port'   => $port,
 					   );
 
-my $query = "insert into marker(left_primer, right_primer, min_primer_dist, max_primer_dist, priority, type) values (?,?,?,?,1,'est')";
-my $sth = $db->dbc->prepare($query);
-my $syn_sql = "insert into marker_synonym (marker_id, source, name) ".
-  "values(?, ?, ?)";
-my $syn_sth = $db->dbc->prepare($syn_sql);
-my $disp_query = "update marker set display_marker_synonym_id=? where marker_id=?";
-my $disp_sth = $db->dbc->prepare($disp_query);
+my $query          = "insert into marker(left_primer, right_primer, min_primer_dist, ".
+                     "max_primer_dist, priority, type) values (?,?,?,?,1,'est')";
+my $sth            = $db->dbc->prepare($query);
+my $syn_sql        = "insert into marker_synonym (marker_id, source, name) values(?, ?, ?)";
+my $syn_sth        = $db->dbc->prepare($syn_sql);
+my $disp_query     = "update marker set display_marker_synonym_id=? where marker_id=?";
+my $disp_sth       = $db->dbc->prepare($disp_query);
 my $display_id_sql = "select marker_synonym_id from marker_synonym ".
-  "where name = ? and source = ?";
-my $disp_id_sth = $db->dbc->prepare($display_id_sql);
-  
+                     "where name = ? and source = ?";
+my $disp_id_sth    = $db->dbc->prepare($display_id_sql);
+
 open FP, $file or throw("Failed opening".$file);
+
+#check length of names to avoid problems
+my $maxlen      = 0;
+my $fieldlength = 0;
+my $lenght_sth  = $db->dbc->prepare("describe marker_synonym name;");
+$lenght_sth->execute();
+my @row = $lenght_sth->fetchrow_array();
+$fieldlength = $row[1];
+$fieldlength =~ /\w+x\(([\d]+)\)/;
+$fieldlength = $1 or warn "\nCould not verify sufiecient lenght of name field in table marker_synonym".
+                          "\nplease check manually!\n\n";
+if($fieldlength){
+  while (<FP>) {
+    my ($display_id, $lprim, $rprim, $dist, $name,
+	$junk, $acc, $species) = split /\t/, $_;
+    if($name){
+      my @names = split /\;/, $name;
+      foreach my $name(@names){
+	if(length($name) > $maxlen){
+	  $maxlen = length($name);
+	}
+      }
+    }
+  }
+  if($maxlen > $fieldlength){
+    print STDERR "\nERROR: Length of name field in table marker_synonym has length ".
+          $fieldlength.", longest entry in file has length ".$maxlen."\n".
+	  "Suggested correction:\n".
+	  "mysql -u$user -p$pass -h$host -P$port -D$name -e".
+	  "'alter table marker_synonym modify name varchar(".($maxlen+1).");'\n\n";
+    exit 0;
+  }
+}
+
 
 MARKER:
 
@@ -113,9 +145,11 @@ while (<FP>) {
   my ($display_id, $lprim, $rprim, $dist, $name, 
       $junk, $acc, $species) = split /\t/, $_;
   my %names;
+  #insert marker
   $sth->execute($lprim, $rprim, $dist, $dist) if($write);
   my $mid = $sth->{mysql_insertid};
   my $dis_source = $source."_NUM";
+  #insert marker_synonym
   $syn_sth->execute($mid, $dis_source, $display_id) if($write);
   my @names = split /\;/, $name if($name);
   my $display_name;
@@ -125,7 +159,7 @@ while (<FP>) {
       #print "Display name is ".$display_name."\n";
       $names{$id} = 1;
     }
-  } 
+  }
   my $check_source = $source;
   my @accs = split  /\;/, $acc if($acc);
   foreach my $id(@accs){
@@ -134,7 +168,7 @@ while (<FP>) {
       #print "Display name is ".$display_name."\n";
       $names{$id} = 1;
     }
-  } 
+  }
   foreach my $id(keys(%names)){
     $syn_sth->execute($mid, $source, $id) if($write);
   }
@@ -146,7 +180,7 @@ while (<FP>) {
   my ($dis_syn_id) = $disp_id_sth->fetchrow;
   if(!$dis_syn_id && $write){
     print "SQL = ".$display_id_sql." ".$display_name." ".$source." didnt ".
-      "get an id\n";
+          "get an id\n";
     exit;
   }
   if($dis_syn_id == $mid && $write){
@@ -154,8 +188,8 @@ while (<FP>) {
     exit;
   }
   $disp_sth->execute($dis_syn_id, $mid) if($write);
-  
+
 }
 
-
 close(FP) or throw("Failed to close ".$file);
+
