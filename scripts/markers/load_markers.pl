@@ -112,8 +112,8 @@ my $lenght_sth  = $db->dbc->prepare("describe marker_synonym name;");
 $lenght_sth->execute();
 my @row = $lenght_sth->fetchrow_array();
 $fieldlength = $row[1];
-$fieldlength =~ /\w+x\(([\d]+)\)/;
-$fieldlength = $1 or warn "\nCould not verify sufiecient lenght of name field in table marker_synonym".
+$fieldlength =~ /\w+\(([\d]+)\)/;
+$fieldlength = $1 or warn "\nCould not verify lenght of name field in table marker_synonym".
                           "\nplease check manually!\n\n";
 if($fieldlength){
   while (<FP>) {
