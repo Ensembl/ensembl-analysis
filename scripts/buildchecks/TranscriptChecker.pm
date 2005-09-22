@@ -573,7 +573,7 @@ sub check_UTRs {
         if ($startcodon ne "ATG") {
           $self->add_Warning("No ATG at five prime of transcript CDS with UTR (has $startcodon)\n");
         } else {
-          $start_is_atg = 0;
+          $start_is_atg = 1;
         }
 
         my $len = $exon->length;
@@ -591,7 +591,7 @@ sub check_UTRs {
     }
     if ($exon == $trans_end_exon) {
       $foundend = 1;
-      if ($translation->end < ($exon->length-2)) {
+      if ($translation->end < ($exon->length-2) || $rank < scalar($exons) - 1) {
         my $stopcodon = substr($exon->seq->seq,$translation->end-3,3); 
         if ($stopcodon !~ /TAA|TAG|TGA/) {
           $self->add_Warning("No TAA, TAG or TGA at three prime end of transcript CDS with UTR (has $stopcodon)\n");
