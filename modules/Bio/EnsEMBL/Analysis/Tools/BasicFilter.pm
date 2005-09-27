@@ -134,6 +134,9 @@ sub filter_results{
         throw("String ".$value." from ".$method." key isn't ".
               "in the expected format\n");
       }
+      throw("Cut off ".$cutoff." must be a numeric value from".
+            " ".$method." ")
+        unless($cutoff =~ /\d+/);
       next FEATURE unless($self->$checkmethod($feature, 
                                               $method, 
                                               $cutoff));
