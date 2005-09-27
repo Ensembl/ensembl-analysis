@@ -110,11 +110,6 @@ TRAN:
     my $coverage  = $self->_get_transcript_coverage($transcript);
     my $percent_id  = $self->_get_transcript_percent_id($transcript);
 
-    ##########################################
-    # lower bound: 40% identity, 40% coverage
-    # to avoid unnecessary processing
-    ##########################################
-    next TRAN unless $coverage >= 40 and $percent_id  >= 40;
 
     my $id = $self->_get_transcript_evidence_id($transcript);
     push @{$matches{$id}}, {
