@@ -45,6 +45,19 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 
 
+=head2 new
+
+  Arg [1]   : hashref, containing list of method names and
+  cut off values
+  Function  : create a Bio::EnsEMBL::Analysis::Tools::
+  BasicFilter object
+ Returntype: Bio::EnsEMBL::Analysis::Tools::BasicFilter
+  Exceptions: none
+  Example   : see docs above
+
+=cut
+
+
 sub new {
   my ($class, @args) = @_;
   my $self = bless {},$class;
@@ -54,6 +67,19 @@ sub new {
   return $self;
 }
 
+
+
+=head2 methods
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BasicFilter
+  Arg [2]   : hashref containing a list of method names and cut
+  off values
+  Function  : container method
+  Returntype: hashref
+  Exceptions: throw if not passed a hashref
+  Example   : 
+
+=cut
 
 
 sub methods{
@@ -67,6 +93,19 @@ sub methods{
   return $self->{'methods'};
 }
 
+
+
+=head2 filter_results
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BasicFilter
+  Arg [2]   : arryref of objects
+  Function  : to filter objects on specific criteria
+  Returntype: arrayref of objects
+  Exceptions: throws if not passed an arrayref or if objects
+  cant do the specified methods
+  Example   : 
+
+=cut
 
 
 sub filter_results{
@@ -103,6 +142,24 @@ sub filter_results{
   }
   return \@filtered_features;
 }
+
+
+
+
+=head2 lessthan/greaterthan
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BasicFilter
+  Arg [2]   : object
+  Arg [3]   : string which is method to call on object
+  Arg [4]   : cutoff object needs to have value greater or
+  lesser than
+  Function  : returns object if method returns value greater
+  or lesser than specific cutoff
+  Returntype: object
+  Exceptions: none
+  Example   : 
+
+=cut
 
 
 
