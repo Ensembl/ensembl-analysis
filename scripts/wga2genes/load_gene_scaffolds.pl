@@ -23,8 +23,7 @@ my (
     $cmp_coord_sys_name,
     $test,
     %agps,
-    %slices,
-    %all_slices,
+    %comp_slices,
 );
 
 &GetOptions(
@@ -90,22 +89,23 @@ foreach my $gs_id (keys %agps) {
   if ($test) {
     $seq_region_id = $test_seq_reg_id_count++;
   } else {
-    $seq_region_id = $db->get_SliceAdaptor->store($slice);
-    if (not defined $seq_region_id) {
-      die "Serious error when trying to store slice $gs_id; aborting\n";
+    eval {
+      $seq_region_id = $db->get_SliceAdaptor->get_seq_region_id($slice);
+    };
+    if ($@) {
+      # slice does not exist; store it
+      $seq_region_id = $db->get_SliceAdaptor->store($slice);
+
+      if (not defined $seq_region_id) {
+        die "Serious error when trying to store slice $gs_id; aborting\n";
+      }
+      $aa->store_on_Slice($slice, [$tl_attr]);
     }
   }
 
-  if ($test) {
-    # do nothing
-  } else {
-    # Assign toplevel attribute to slice
-    $aa->store_on_Slice($slice, [$tl_attr]);
-  }
-
   foreach my $comp (@{$agp->{components}}) {
-    if (not exists $slices{$comp->to->id}) {
-      $slices{$comp->to->id} = $db->get_SliceAdaptor->fetch_by_region($cmp_coord_sys_name,
+    if (not exists $comp_slices{$comp->to->id}) {
+      $comp_slices{$comp->to->id} = $db->get_SliceAdaptor->fetch_by_region($cmp_coord_sys_name,
                                                                      $comp->to->id);
     }
 
@@ -122,14 +122,14 @@ foreach my $gs_id (keys %agps) {
         my $gs_start = $bit->from_start + $comp->from->start - 1;
         my $gs_end   = $bit->from_end   + $comp->from->start - 1;
         if ($test) {
-          printf ("ASSEMBLY: %s %d %d %s %d %d %d\n", 
-                  $slice->seq_region_name,
-                  $gs_start,
-                  $gs_end,
-                  $bit->to_Slice->seq_region_name,
-                  $bit->to_Slice->start,
-                  $bit->to_Slice->end,
-                  $bit->to_Slice->strand);
+          printf("ASSEMBLY: %s %d %d %s %d %d %d\n", 
+                 $slice->seq_region_name,
+                 $gs_start,
+                 $gs_end,
+                 $bit->to_Slice->seq_region_name,
+                 $bit->to_Slice->start,
+                 $bit->to_Slice->end,
+                 $bit->to_Slice->strand);
         } else {
           $ass_sth->execute($seq_region_id,
                             $db->get_SliceAdaptor->get_seq_region_id($bit->to_Slice),
@@ -143,16 +143,16 @@ foreach my $gs_id (keys %agps) {
 
     } else {
       if ($test) {
-        printf ("ASSEMBLY: %s %d %d %s %d %d %d\n", 
-                $slice->seq_region_name,
-                $comp->from->start,
-                $comp->from->end,
-                $comp->to->start,
-                $comp->to->end,
-                $comp->to->strand);
+        printf("ASSEMBLY: %s %d %d %s %d %d %d\n", 
+               $slice->seq_region_name,
+               $comp->from->start,
+               $comp->from->end,
+               $comp->to->start,
+               $comp->to->end,
+               $comp->to->strand);
       } else {
         $ass_sth->execute($seq_region_id,
-                          $db->get_SliceAdaptor->get_seq_region_id($slices{$comp->to->id}),
+                          $db->get_SliceAdaptor->get_seq_region_id($comp_slices{$comp->to->id}),
                           $comp->from->start,
                           $comp->from->end,
                           $comp->to->start,
@@ -165,14 +165,13 @@ foreach my $gs_id (keys %agps) {
 
 $ass_sth->finish;
 
-# finally, for all of the cmp_coord_sys_name elements that 
-# were not used in assembled components, update their
-# coord system so that everything sits at the same level
+# finally, remove toplevel attribute from all components
+# of gene scaffolds
 
 $verbose and print STDERR "Removing toplevel from used...\n";
 
-foreach my $sl_id (keys %slices) {
-  my $sl = $slices{$sl_id};
+foreach my $sl_id (keys %comp_slices) {
+  my $sl = $comp_slices{$sl_id};
   if ($test) {
     printf "Removed toplevel from slice %s\n", $sl->seq_region_name;
   } else {
