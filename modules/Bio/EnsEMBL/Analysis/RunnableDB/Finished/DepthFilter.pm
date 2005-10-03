@@ -88,19 +88,21 @@ sub depth_filter {
     my @filtered_features = ();
 
     for my $node (@bisorted) {
+        my $keep_node = 0;
         for my $af (sort {$a->start() <=> $b->start()} @{$node->{features}}) {
-            my $keep_hit = 0;
             for my $position ($af->start()..$af->end()) {
                 my $depth = $coverage_map[$position] ||= 0;
                 if($depth < $max_coverage) {
-                    $keep_hit = 1;
+                    $keep_node = 1;
                 }
                 $coverage_map[$position]++;
             }
-            if($keep_hit) {
+        }
+        if($keep_node) {
+            for my $af (@{$node->{features}}) {
                 $af->analysis( $self->analysis );
                 $af->dbID(0);
-		$af->{adaptor} = undef;
+                $af->{adaptor} = undef;
                 push @filtered_features, $af;
             }
         }
