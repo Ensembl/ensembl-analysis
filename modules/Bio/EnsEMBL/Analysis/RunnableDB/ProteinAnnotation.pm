@@ -44,11 +44,12 @@ sub new {
 sub fetch_input {
   my ($self) = @_;  
   my $input_id;
- 
-  if($self->INPUT_ID_TYPE eq 'FILE'){
+
+  if ($self->BASE_DIR) {
     $input_id = $self->BASE_DIR . "/" . $self->input_id;
     throw($input_id." doesn't exist\n") unless(-e $input_id);
-  } elsif($self->INPUT_ID_TYPE eq 'TRANSLATIONID'){
+  } else {
+    
     my $prot;
     eval {
       $prot = $self->db->get_TranslationAdaptor->fetch_by_dbID($self->input_id);
@@ -63,8 +64,6 @@ sub fetch_input {
 				       -id          => $self->input_id,
 				       -accession   => $self->input_id,
 				       -moltype     => 'protein');
-  } else {
-    throw("Input id type '" . $self->INPUT_ID_TYPE . "' not recognised");
   }
   
   $self->query($input_id);
@@ -163,33 +162,19 @@ sub read_and_check_config {
   my $logic = $self->analysis->logic_name;
 
   # check that compulsory options have values
-  foreach my $config_var (qw(INPUT_ID_TYPE)) {
-    throw("You must define $config_var in config for logic '$logic'")
-        if not defined $self->$config_var;
+
+  if ($self->BASE_DIR and not -d $self->BASE_DIR) {
+    throw("BASE_DIR " . $self->BASE_DIR . " could not be found")
   }
-
-  if ($self->INPUT_ID_TYPE eq 'FILE' and 
-      not defined $self->BASE_DIR) {
-    throw("You must define BASE_DIR in config for logic '$logic' ". 
-          "(input_id_type=FILE)")
-  }
-
-}
-
-
-sub INPUT_ID_TYPE {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_input_id_type} = $val;
-  }
-
-  return $self->{_input_id_type};
 }
 
 
 sub BASE_DIR {
   my ($self, $val) = @_;
+
+  if (not exists $self->{_base_dir}) {
+    $self->{_base_dir} = "";
+  }
 
   if (defined $val) {
     $self->{_base_dir} = $val;
