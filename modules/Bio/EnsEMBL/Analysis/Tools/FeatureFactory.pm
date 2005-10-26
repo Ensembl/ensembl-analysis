@@ -36,7 +36,7 @@ package Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Root;
+
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Feature;
 use Bio::EnsEMBL::RepeatFeature;
@@ -58,7 +58,14 @@ use Bio::EnsEMBL::Analysis::Programs;
 
 use vars qw (@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Root);
+@ISA = qw();
+
+
+sub new{
+  my ($class,@args) = @_;
+  my $self = bless {},$class;
+  return $self;
+}
 
 #feature creation methods#
 
