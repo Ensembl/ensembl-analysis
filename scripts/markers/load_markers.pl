@@ -139,6 +139,8 @@ if($fieldlength){
 }
 
 
+seek(FP, 0, 0);
+
 MARKER:
 
 while (<FP>) {
