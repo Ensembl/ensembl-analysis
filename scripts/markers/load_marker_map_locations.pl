@@ -28,6 +28,10 @@ with any other lines marked by a #
     -dbuser    For RDBs, what username to connect as (user= in locator)
 
     -dbpass    For RDBs, what password to use (pass= in locator)
+ 
+    -map_file  File containing map locations
+
+    -map_name  Name of map
 
     -help      prints out the perl docs
 
