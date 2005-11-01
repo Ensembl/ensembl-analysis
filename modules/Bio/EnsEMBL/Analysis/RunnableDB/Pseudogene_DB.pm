@@ -44,7 +44,7 @@ that look  dodgy but have no overt evidence of being pseudogenes.
 Spliced_elsewhere tests for retrotransposition and tends to be run over single
 exon genes.
 Configuration for all three of these modules is here:
-Bio::EnsEMBL::Analysis::Config::Pseudogene
+zBio::EnsEMBL::Analysis::Config::Pseudogene
 
 
 =head1 CONTACT
@@ -68,8 +68,10 @@ use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Pipeline::Flag;
 use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-use Bio::EnsEMBL::Utils::Exception qw(stack_trace);
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning 
+                                      stack_trace);
 use Data::Dumper;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw(@ISA);
 
@@ -89,14 +91,14 @@ use vars qw(@ISA);
 
 sub fetch_input {
   my( $self) = @_;
-  $self->throw("No input id") unless defined($self->input_id);
+  throw("No input id") unless defined($self->input_id);
 
   my $results = [];		# array ref to store the output
   my %repeat_blocks;
   my %homolog_hash;
   my @transferred_genes;
   my $runname = "Bio::EnsEMBL::Analysis::Runnable::Pseudogene";
-
+  print "Loading database ".$GB_DBNAME.":".$GB_DBHOST."\n";
   my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
      '-host'   => $GB_DBHOST,
@@ -236,7 +238,7 @@ sub write_output {
   # sort out analysis
   my $analysis = $self->analysis;
   unless ($analysis){
-    $self->throw("an analysis logic name must be defined in the command line");
+    throw("an analysis logic name must be defined in the command line");
   }
   my $gene_adaptor = $db->get_GeneAdaptor;
   my $pfa = $db->get_ProteinFeatureAdaptor;
@@ -258,7 +260,7 @@ sub write_output {
 	$gene_adaptor->db->dbname."\n";
     };
     if ( $@ ) {
-      $self->warn("UNABLE TO WRITE GENE:\n$@");
+      warning("UNABLE TO WRITE GENE:\n$@");
     }
   }
 
@@ -273,7 +275,7 @@ sub write_output {
       print "for new translation ".$new_id->dbID."\n";
     };
     if ( $@ ) {
-      $self->warn("UNABLE TO WRITE PROTEIN FEATURES:\n$@");
+      warning("UNABLE TO WRITE PROTEIN FEATURES:\n$@");
     }
   }
   return 1;
@@ -291,7 +293,7 @@ before runnning the runnable
 sub run  {
   my ($self) = @_;
   foreach my $runnable (@{$self->runnable}) {
-    $self->throw("Runnable module not set") unless ($runnable->isa("Bio::EnsEMBL::Analysis::Runnable"));
+    throw("Runnable module not set") unless ($runnable->isa("Bio::EnsEMBL::Analysis::Runnable"));
     $runnable->run();
     $self->output($runnable->output);
     if ($SINGLE_EXON){
@@ -347,7 +349,7 @@ sub lazy_load {
   my ($self, $gene) = @_;
   if ($gene){
     unless ($gene->isa("Bio::EnsEMBL::Gene")){
-      $self->throw("gene is not a Bio::EnsEMBL::Gene, it is a $gene");
+      throw("gene is not a Bio::EnsEMBL::Gene, it is a $gene");
     }
     foreach my $trans(@{$gene->get_all_Transcripts}){
       my $transl = $trans->translation;
@@ -404,7 +406,7 @@ sub gene_db {
   my ($self, $gene_db) = @_;
   if ($gene_db){
     unless ($gene_db->isa("Bio::EnsEMBL::DBSQL::DBAdaptor")){
-      $self->throw("gene db is not a Bio::EnsEMBL::DBSQL::DBAdaptor, it is a $gene_db");
+      throw("gene db is not a Bio::EnsEMBL::DBSQL::DBAdaptor, it is a $gene_db");
     }
     $self->{'_gene_db'} = $gene_db;
   }
@@ -425,7 +427,7 @@ sub rep_db {
   my ($self, $rep_db) = @_;
   if ($rep_db){
     unless ($rep_db->isa("Bio::EnsEMBL::DBSQL::DBAdaptor")){
-      $self->throw("gene db is not a Bio::EnsEMBL::DBSQL::DBAdaptor, it is a $rep_db");
+      throw("gene db is not a Bio::EnsEMBL::DBSQL::DBAdaptor, it is a $rep_db");
     }
     $self->{'_rep_db'} = $rep_db;
   }
@@ -447,7 +449,7 @@ sub genes {
   if ($genes) {
     foreach my $gene (@{$genes}) {
       unless  ($gene->isa("Bio::EnsEMBL::Gene")){
-	$self->throw("Input isn't a Bio::EnsEMBL::Gene, it is a $gene\n$@");
+	throw("Input isn't a Bio::EnsEMBL::Gene, it is a $gene\n$@");
       }
     }
     $self->{'_genes'} = $genes;
@@ -469,7 +471,7 @@ sub pseudo_genes {
   my ($self, $pseudo_gene) = @_;
   if ($pseudo_gene) {
     unless ($pseudo_gene->isa("Bio::EnsEMBL::Gene")){
-      $self->throw("pseudo gene is not a Bio::EnsEMBL::Gene, it is a $pseudo_gene");
+      throw("pseudo gene is not a Bio::EnsEMBL::Gene, it is a $pseudo_gene");
     }
     $pseudo_gene->type('pseudogene');
     my @pseudo_trans = @{$pseudo_gene->get_all_Transcripts};
@@ -499,7 +501,7 @@ sub real_genes {
   my ($self, $real_gene) = @_;
   if ($real_gene) {
     unless ($real_gene->isa("Bio::EnsEMBL::Gene")){
-      $self->throw("real gene is not a Bio::EnsEMBL::Gene, it is a $real_gene");
+      throw("real gene is not a Bio::EnsEMBL::Gene, it is a $real_gene");
     }
     push @{$self->{'_real_gene'}},$self->lazy_load($real_gene);
   }

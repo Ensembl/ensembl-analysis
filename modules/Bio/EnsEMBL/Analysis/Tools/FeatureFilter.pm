@@ -69,13 +69,12 @@ package Bio::EnsEMBL::Analysis::Tools::FeatureFilter;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw (@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Root);
+@ISA = qw();
 
 
 

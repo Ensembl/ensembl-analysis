@@ -51,7 +51,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Analysis::Runnable;
-
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -84,10 +84,10 @@ sub new {
   $self->{'_indeterminate_genes'} = [];	#array of indeterminategenes dbIDs identified
   $self->{'_single_exon_genes'} = [];	#array of single exon  gene dbIDs identified
  
-  my( $genes,$repeats) = $self->_rearrange([qw(
-					       GENES
-					       REPEAT_FEATURES
-					      )], @args);
+  my( $genes,$repeats) = rearrange([qw(
+                                       GENES
+                                       REPEAT_FEATURES
+                                      )], @args);
   if ($genes) {
     $self->genes($genes);
   }
