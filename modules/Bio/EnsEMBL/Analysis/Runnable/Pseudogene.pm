@@ -201,7 +201,7 @@ sub test_genes{
 	  $evidence->{'frameshift_introns'} >= $PS_NUM_FRAMESHIFT_INTRONS &&
 	  $evidence->{'real_introns'} >= $PS_NUM_REAL_INTRONS &&
 	  $evidence->{'covered_introns'} >= $PS_MAX_INTRON_COVERAGE  ) {
-	push @{$trans_type{'pseudo}'}}, $transcript;
+	push @{$trans_type{'pseudo'}}, $transcript;
 	print STDERR $gene->dbID." - repeats in introns in transcript ".$transcript->dbID."\n" if $DEBUG;;
 	print STDERR join (', ',%{$evidence}),"\n" if $DEBUG;
 	next TRANS;
