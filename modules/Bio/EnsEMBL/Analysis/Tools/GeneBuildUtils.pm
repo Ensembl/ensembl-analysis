@@ -100,7 +100,7 @@ sub id{
     $id = 'no-id';
   }
   if($feature->can('biotype') && $feature->biotype){
-    $id .= $feature->biotype
+    $id .= "_".$feature->biotype
   }
   return $id;
 }

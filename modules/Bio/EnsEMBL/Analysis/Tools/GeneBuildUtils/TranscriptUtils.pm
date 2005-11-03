@@ -53,7 +53,8 @@ use vars qw (@ISA @EXPORT);
 @ISA = qw(Exporter);
 @EXPORT = qw(print_Transcript clone_Transcript 
              print_Transcript_evidence print_just_Transcript
-             is_strand_consistent);
+             is_strand_consistent lies_inside_of_slice
+             exons_shorter_than);
 
 
 
@@ -100,6 +101,7 @@ sub print_Transcript{
 
 sub print_just_Transcript{
   my ($transcript, $indent) = @_;
+  $indent = '' if(!$indent);
   my $coord_string = coord_string($transcript);
   my $id = id($transcript);
   print $indent."TRANSCRIPT: ".$id." ".$coord_string."\n";
@@ -189,7 +191,6 @@ sub is_strand_consistent{
     logger_warning("Strands are inconsistent between the ".
                    "first exon and the transcript for ".
                    id($transcript));
-    logger_info("Test to see if verbosity works");
     return undef;
   }
   if(@$exons >= 2){
@@ -198,7 +199,6 @@ sub is_strand_consistent{
         logger_warning("Strands are inconsistent between ".
                        "exon $i exon and exon ".($i-1)." for ".
                        id($transcript));
-        logger_info("Test to see if verbosity works");
         return undef;
       }
     }
@@ -223,21 +223,53 @@ sub is_strand_consistent{
 
 sub lies_inside_of_slice{
   my ($transcript, $slice) = @_;
-  return undef if($transcript->start > $slice->length || $transcript->end < 1);
-  return undef if($transcript->start < 1 && 
-                  $transcript->end > 1);
+  if($transcript->start > $slice->length || 
+     $transcript->end < 1){
+    logger_warning(id($transcript)." lies off edge if slice ".
+                   $slice->name);
+    return undef;
+  }
+  if($transcript->start < 1 && $transcript->end > 1){
+    logger_warning(id($transcript)." lies over lower boundary".
+                   " of slice ".$slice->name);
+  }
   return 1;
 }
 
+
+
+=head2 exons_shorter_than
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : int, max length
+  Function  : checks if any of the exons of given transcript
+  are longer than specified length
+  Returntype: boolean, 1 for true, undef for false
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
+sub exons_shorter_than{
+  my ($transcript, $max_length) = @_;
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    if($exon->length > $max_length){
+      logger_warning(id($exon)." from ".id($transcript).
+                     " is longer than max length ".
+                     $max_length);
+      return undef;
+    }
+  }
+  return 1;
+}
 
 
 ##METHODS NEEDED
 
 #checks
 
-#if transcript lies outside of current slice?
-#if transcript lies across 5' slice boundary
-#max exon length
 #phase consistency (account of -1/[012] exception)
 #folded transcript, exon starting before previous ends!
 #suspect evidence (is this still needed to avoid NGs)

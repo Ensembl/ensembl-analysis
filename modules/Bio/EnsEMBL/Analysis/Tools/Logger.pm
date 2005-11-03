@@ -44,6 +44,7 @@ sub logger_verbosity{
       }
     }
   }
+  return $VERBOSITY;
 }
 
 sub logger_info{
