@@ -1,4 +1,39 @@
 
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils - utilities for gene objects
+
+=head1 SYNOPSIS
+
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(clone_Gene);
+
+  or 
+
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils 
+
+  to get all methods
+
+=head1 DESCRIPTION
+
+All methods in this class should take a Bio::EnsEMBL::Gene
+object as their first argument.
+
+The methods provided should carry out some standard 
+functionality for said objects such as printing info, and 
+cloning
+
+=head1 CONTACT
+
+please send any questions to ensembl-dev@ebi.ac.uk
+
+=head1 METHODS
+
+the rest of the documention details the exported static
+class methods
+
+=cut
+
+
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 
 use strict;
@@ -18,6 +53,22 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string);
 use Bio::EnsEMBL::Gene;
 
 
+
+=head2 print_Gene
+
+  Arg [1]   : Bio::EnsEMBL::Gene
+  Function  : prints out information about the gene object 
+  passed in, it will also iterate down the gene structure 
+  printing information about transcripts, exons etc
+  Returntype: n/a
+  Exceptions: n/a
+  Example   : print_Gene($gene);
+
+=cut
+
+
+
+
 sub print_Gene{
   my $gene = shift;
   print_just_Gene($gene);
@@ -26,6 +77,21 @@ sub print_Gene{
     print_Transcript($transcript, $indent);
   }
 }
+
+
+
+=head2 clone_Gene
+
+  Arg [1]   : Bio::EnsEMBL::Gene
+  Function  : to produce a copy of the given gene object
+  which can be altered without changing the original object or 
+  its children to the original object
+  Returntype: Bio::EnsEMBL::Gene
+  Exceptions: none
+  Example   : my $newgene = clone_Gene($gene);
+
+=cut
+
 
 
 sub clone_Gene{
@@ -42,11 +108,35 @@ sub clone_Gene{
   return $newgene;
 }
 
+
+
+=head2 print_just_Gene
+
+  Arg [1]   : Bio::EnsEMBL::Gene
+  Function  : print information about just the gene, not any of
+  its children objects
+  Returntype: n/a
+  Exceptions: none
+  Example   : print_just_Gene($gene);
+
+=cut
+
+
+
+
 sub print_just_Gene{
   my ($gene) = @_;
   my $coord_string = coord_string($gene);
   my $id = id($gene);
   print "GENE: ".$id." ".$coord_string." ".$gene->analysis->logic_name."\n";
 }
+
+
+
+
+##METHODS NEEDED
+
+#prune_exons, remove duplicate exons from different transcripts from a gene
+#list_evidence, a list of ids that support the gene
 
 1;

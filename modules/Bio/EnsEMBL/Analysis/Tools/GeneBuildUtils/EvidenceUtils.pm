@@ -67,6 +67,7 @@ sub clone_Evidence{
                                   $feature->cigar_string,
                                   $feature->analysis,
                                   $feature->slice);
+  $newfeature->dbID($feature->dbID);
   return $newfeature;
 
 }

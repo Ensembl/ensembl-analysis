@@ -54,3 +54,11 @@ sub clone_Exon{
   }
   return $newexon;
 }
+
+
+#METHODS
+
+#transfer supporting evidence, a method to transfer the 
+#supporting evidence between 2 exons
+
+1;

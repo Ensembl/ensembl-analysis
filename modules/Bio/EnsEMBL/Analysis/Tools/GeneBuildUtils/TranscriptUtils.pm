@@ -1,3 +1,37 @@
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils - utilities for gene objects
+
+=head1 SYNOPSIS
+
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Gene);
+
+  or 
+
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
+
+  to get all methods
+
+=head1 DESCRIPTION
+
+All methods in this class should take a Bio::EnsEMBL::Transcript
+object as their first argument.
+
+The methods provided should carry out some standard 
+functionality for said objects such as printing info, and 
+cloning and checking phase consistency or splice sites etc
+
+=head1 CONTACT
+
+please send any questions to ensembl-dev@ebi.ac.uk
+
+=head1 METHODS
+
+the rest of the documention details the exported static
+class methods
+
+=cut
+
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -11,22 +45,37 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Transcript;
-
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity
+                                             logger_info
+                                             logger_warning);
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(print_Transcript clone_Transcript 
-             print_Transcript_evidence);
+             print_Transcript_evidence print_just_Transcript
+             is_strand_consistent);
 
 
+
+
+=head2 print_Transcript
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : string, this should be a string or spaces or tabs
+  to indent the printed string
+  Function  : print information about the transcript and its
+  children objects, using indent to make the format readable
+  Returntype: n/a
+  Exceptions: none
+  Example   : print_Transcript($transcript);
+
+=cut
 
 
 sub print_Transcript{
   my ($transcript, $indent) = @_;
-  my $coord_string = coord_string($transcript);
-  my $id = id($transcript);
   $indent = '' if(!$indent);
-  print $indent."TRANSCRIPT: ".$id." ".$coord_string."\n";
+  print_just_Transcript($transcript, $indent);
   my $translation_indent = $indent."\t";
   print_Translation($transcript, $translation_indent);
   foreach my $exon(@{$transcript->get_all_Exons}){
@@ -34,6 +83,39 @@ sub print_Transcript{
     print_Exon($exon, $exon_indent);
   }
 }
+
+
+=head2 print_just_Transcript
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : string, indent
+  Function  : print info about just the transcript
+  Returntype: n/a
+  Exceptions: none
+  Example   : print_just_Transcript($transcript);
+
+=cut
+
+
+
+sub print_just_Transcript{
+  my ($transcript, $indent) = @_;
+  my $coord_string = coord_string($transcript);
+  my $id = id($transcript);
+  print $indent."TRANSCRIPT: ".$id." ".$coord_string."\n";
+}
+
+=head2 print_Transcript_evidence
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : string, an indent
+  Function  : print the transcripts supporting evidence
+  Returntype: n/a
+  Exceptions: none
+  Example   : print_Transcript_evidence($transcript);
+
+=cut
+
 
 
 sub print_Transcript_evidence{
@@ -44,6 +126,23 @@ sub print_Transcript_evidence{
     print_Evidence($evidence, $evidence_indent);
   }
 }
+
+
+
+=head2 clone_Transcript
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : produce a new copy of the transcript object passed
+  in so it can be altered without impact on the original objects
+  the only bit it doesnt keep is the adaptor so the cloned 
+  object can be stored
+  Returntype: Bio::EnsEMBL::Transcript
+  Exceptions: none 
+  Example   : my $newtranscript = clone_Transcript($transcript);
+
+=cut
+
+
 
 sub clone_Transcript{
   my ($transcript) = @_;
@@ -68,6 +167,89 @@ sub clone_Transcript{
 
 
 
+=head2 is_strand_consistent
 
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : checks if strand is consistent between 
+  transcript and first exon and in multiexon genes between 
+  all exons
+  Returntype: boolean, 1 if true undef if not
+  Exceptions: none
+  Example   : throw("Strands not consistent") 
+  if(!is_strand_consistent($transcript));
+
+=cut
+
+
+
+sub is_strand_consistent{
+  my ($transcript) = @_;
+  my $exons = $transcript->get_all_Exons;
+  if($exons->[0]->strand != $transcript->strand){
+    logger_warning("Strands are inconsistent between the ".
+                   "first exon and the transcript for ".
+                   id($transcript));
+    logger_info("Test to see if verbosity works");
+    return undef;
+  }
+  if(@$exons >= 2){
+    for(my $i = 1;$i < @$exons;$i++){
+      if($exons->[$i]->strand != $exons->[$i-1]->strand){
+        logger_warning("Strands are inconsistent between ".
+                       "exon $i exon and exon ".($i-1)." for ".
+                       id($transcript));
+        logger_info("Test to see if verbosity works");
+        return undef;
+      }
+    }
+  }
+  return 1;
+}
+
+
+
+=head2 lies_inside_of_slice
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : Bio::EnsEMBL::Slice
+  Function  : ensures the transcript within the slice, 
+  completely on the lower end, it can overhang the upper end
+  Returntype: boolean, 1 for true undef for false
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+sub lies_inside_of_slice{
+  my ($transcript, $slice) = @_;
+  return undef if($transcript->start > $slice->length || $transcript->end < 1);
+  return undef if($transcript->start < 1 && 
+                  $transcript->end > 1);
+  return 1;
+}
+
+
+
+##METHODS NEEDED
+
+#checks
+
+#if transcript lies outside of current slice?
+#if transcript lies across 5' slice boundary
+#max exon length
+#phase consistency (account of -1/[012] exception)
+#folded transcript, exon starting before previous ends!
+#suspect evidence (is this still needed to avoid NGs)
+#low complexity
+#is_spliced, does contain at least one exon longer than 9bps and how many?
+#canonical splice sites, does it have all canoical splice sites?
+#perhaps also what percentage is useful?
+#orf coverage, how does the spliced length compare to the genomic extent?
+
+#utilitys
+#split trancripts, split transcripts on long introns
+#replace stops with introns, frameshift around stop codons!
+#list_evidence, a list of ids that support the gene
 
 1;
