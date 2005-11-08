@@ -68,7 +68,7 @@ use vars qw( %Config );
                FILTER              => undef,
                COVERAGE_BY_ALIGNED => undef,
                OPTIONS             => undef,
-	       #set to undef if non-reference regions should NOT be fetched (e.g. DR52 in human)
+	       #comment out or set to undef if non-reference regions (eg DR52 in human) should NOT be fetched, ie should be ignored:
                NONREF_REGIONS      => 1,
              },
 
