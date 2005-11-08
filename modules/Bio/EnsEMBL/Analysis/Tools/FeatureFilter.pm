@@ -98,7 +98,7 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
+  my $self = bless {},$class;
   &verbose('WARNING');
   my ($min_score, $max_pvalue, $coverage,
       $prune, $hard_prune, $filter_on_coverage) = 
