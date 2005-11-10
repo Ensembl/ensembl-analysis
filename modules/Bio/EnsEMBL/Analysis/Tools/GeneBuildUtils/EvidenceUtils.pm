@@ -12,11 +12,18 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw (print_Evidence clone_Evidence);
+@EXPORT = qw (print_Evidence clone_Evidence Evidence_info);
 
 
 sub print_Evidence{
   my ($feature, $indent) = @_;
+  print Evidence_info($feature, $indent)."\n";
+}
+
+
+
+sub Evidence_info{
+ my ($feature, $indent) = @_;
   my $coord_string = coord_string($feature);
   my $id = id($feature);
   my $tag;
@@ -32,13 +39,12 @@ sub print_Evidence{
   my $percent_id = $feature->percent_id || ".";
   my $p_value = $feature->p_value || ".";
   $indent = '' if(!$indent);
-  print $indent.$tag.": ".$coord_string." ".$score." ".
+  return $indent.$tag.": ".$coord_string." ".$score." ".
     $feature->hseqname." ".$feature->hstart." ".
       $feature->hend." ".$feature->hstrand." ".
         $percent_id." ".$p_value." ".
-          $feature->cigar_string."\n";
+          $feature->cigar_string;
 }
-
 
 
 sub clone_Evidence{

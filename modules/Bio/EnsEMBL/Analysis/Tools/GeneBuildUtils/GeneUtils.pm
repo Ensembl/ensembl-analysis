@@ -43,7 +43,7 @@ use Exporter;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(print_Gene clone_Gene print_just_Gene);
+@EXPORT = qw(print_Gene clone_Gene Gene_info);
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
@@ -71,7 +71,7 @@ use Bio::EnsEMBL::Gene;
 
 sub print_Gene{
   my $gene = shift;
-  print_just_Gene($gene);
+  print Gene_info($gene)."\n";
   foreach my $transcript(@{$gene->get_all_Transcripts}){
     my $indent = "\t";
     print_Transcript($transcript, $indent);
@@ -110,25 +110,24 @@ sub clone_Gene{
 
 
 
-=head2 print_just_Gene
+=head2 Gene_info
 
   Arg [1]   : Bio::EnsEMBL::Gene
-  Function  : print information about just the gene, not any of
-  its children objects
+  Function  : returns a string of information about the gene
   Returntype: n/a
   Exceptions: none
-  Example   : print_just_Gene($gene);
+  Example   : print Gene_info($gene)."\n";
 
 =cut
 
 
 
 
-sub print_just_Gene{
+sub Gene_info{
   my ($gene) = @_;
   my $coord_string = coord_string($gene);
   my $id = id($gene);
-  print "GENE: ".$id." ".$coord_string." ".$gene->analysis->logic_name."\n";
+  return "GENE: ".$id." ".$coord_string." ".$gene->analysis->logic_name;
 }
 
 

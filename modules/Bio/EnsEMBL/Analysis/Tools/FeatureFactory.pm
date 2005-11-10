@@ -519,5 +519,4 @@ sub validate_prediction_transcript{
   return 1;
 }
 
-
-1; 
+1;

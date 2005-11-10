@@ -13,7 +13,7 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(print_Translation clone_Translation 
-             print_peptide print_just_Translation 
+             print_peptide Translation_info 
              starts_with_met ends_with_stop 
              contains_internal_stops);
 
@@ -35,7 +35,7 @@ use vars qw (@ISA  @EXPORT);
 sub print_Translation{
   my ($transcript,$indent) = @_;
   $indent = '' if(!$indent);
-  print_just_Translation($transcript, $indent);
+  print Translation_info($transcript, $indent)."\n";
   print_Translation_genomic_coords($transcript, $indent);
   my $met = starts_with_met($transcript);
   print $indent."peptide starts with a methionine\n" if($met);
@@ -65,19 +65,19 @@ sub print_Translation{
 sub print_peptide{
   my ($transcript) = @_;
   print ">";
-  print_just_Translation($transcript, '');
+  print Translation_info($transcript, '')."\n";
   print $transcript->translate->seq."\n";
 }
 
 
 
-=head2 print_just_Translation
+=head2 Translation_info
 
   Arg [1]   : Bio::EnsEMBL::Transcript
   Arg [2]   : string, indent
-  Function  : prints just the exon and translation start
-  and end info
-  Returntype: n/a
+  Function  : 
+  Returntype: returns a string of translation start exon,
+  start, end exon, end, cdna length
   Exceptions: none
   Example   : 
 
@@ -85,16 +85,16 @@ sub print_peptide{
 
 
 
-sub print_just_Translation{
+sub Translation_info{
   my ($transcript, $indent) = @_;
   my $translation = $transcript->translation;
   my $id = id($translation);
   my $start_id = id($translation->start_Exon);
   my $end_id = id($translation->end_Exon);
   my $cdna_length = length($transcript->translateable_seq);
-  print $indent."TRANSLATION: ".$id." ".$start_id." ".
+  return $indent."TRANSLATION: ".$id." ".$start_id." ".
     $translation->start." ".$end_id." ".$translation->end." ".
-      $cdna_length."\n";
+      $cdna_length." ";
 }
 
 
