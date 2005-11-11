@@ -47,11 +47,13 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Transcript;
+use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity
                                              logger_info
                                              logger_warning);
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
+
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
@@ -71,6 +73,11 @@ use vars qw (@ISA @EXPORT);
              is_spliced 
              are_splice_sites_canonical
              count_non_canonical_splice_sites
+             exonic_proportion
+             coding_coverage
+             list_evidence
+             split_Transcript
+             replace_stops_with_introns
             );
 
 
@@ -313,7 +320,7 @@ sub intron_lengths_all_less_than_maximum{
     }
   }
   if(@{$transcript->get_all_Introns} == 0){
-    my $warn = "intron_lengths_less_than_maximum is an ".
+    my $warn = "intron_lengths_all_less_than_maximum is an ".
       "inappropriate test for a single exon gene";
     logger_info($warn);
   }
@@ -420,7 +427,7 @@ sub is_not_folded{
 
 
 
-=head2 low_complexity_below_maximum
+=head2 low_complexity_less_than_maximum
 
   Arg [1]   : Bio::EnsEMBL::Transcript
   Arg [2]   : int, maximum low complexity
@@ -435,7 +442,7 @@ sub is_not_folded{
 
 
 
-sub low_complexity_below_maximum{
+sub low_complexity_less_than_maximum{
   my ($transcript, $complexity_threshold) = @_;
   my $peptide = $transcript->translate;
   my $seg = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg->new
@@ -462,6 +469,22 @@ sub low_complexity_below_maximum{
 }
 
 
+
+=head2 has_no_unwanted_evidence
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : hashref, a hash of ids which are unwanted
+  Function  : To ensure the given transcript is not supported
+  by any of the unwanted evidence
+  Returntype: boolean, 1 for no unwanted evidence, 0 for
+  unwanted evidence
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
 sub has_no_unwanted_evidence{
   my ($transcript, $ids) = @_;
   $ids = {} if(!$ids);
@@ -485,13 +508,25 @@ sub has_no_unwanted_evidence{
 =head2 _get_evidence_ids
 
   Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : gets a hashref of all the evidence supporting
+  the given transcript
+  Returntype: hashref
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+=head2 _get_evidence_ids
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
   Function  : get a unique hash of evidence ids from the given
   transcript. Note this is curretnly an internal method and is
   not exported from the module
   Returntype: hashref of unique ids 
   Exceptions: none
   Example   : 
-
+  Note      :This is a private method which is not exported
 =cut
 
 
@@ -511,6 +546,20 @@ sub _get_evidence_ids{
 
 
 
+=head2 is_spliced
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : int, intron size
+  Function  : calculates is the transcript contains at least 
+  one "real" intron
+  Returntype: boolean 1 if it does, 0 if not
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
 sub is_spliced{
   my ($transcript, $intron_size) = @_;
   my $count = count_real_introns($transcript, $intron_size);
@@ -519,6 +568,21 @@ sub is_spliced{
   return 0 if(!$count);
   return 1;
 }
+
+
+
+=head2 count_real_introns
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : int, intron size
+  Function  : counts the number of introns longer than
+  the specified size, by default this is 9bp
+  Returntype: int, the number of real introns
+  Exceptions: 
+  Example   : 
+
+=cut
+
 
 sub count_real_introns{
   my ($transcript, $intron_size) = @_;
@@ -536,6 +600,20 @@ sub count_real_introns{
               @introns." introns");
   return $real_count;
 }
+
+
+
+=head2 are_splice_sites_canonical
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : check if all splice sites are canonical GT/AG,
+  GC/AG or AT/AC pairings
+  Returntype: boolean, 1 for yes 0 for no
+  Exceptions: 
+  Example   : 
+
+=cut
+
 
 
 sub are_splice_sites_canonical{
@@ -559,6 +637,19 @@ sub are_splice_sites_canonical{
 }
 
 
+
+=head2 count_non_canonical_splice_site
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : count the number of non canonical splice sites
+  Returntype: int, the number of non canonical splice sites
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
 sub count_non_canonical_splice_sites{
   my ($transcript) = @_;
   my $slice = $transcript->slice;
@@ -578,18 +669,370 @@ sub count_non_canonical_splice_sites{
 
 
 
-##METHODS NEEDED
+=head2 exonic_proportion
 
-#checks
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : calculates what proportion of the transcript
+  extent is made up of exonic sequence
+  Returntype: int
+  Exceptions: 
+  Example   : 
+
+=cut
 
 
 
-#perhaps also what percentage is useful?
-#orf coverage, how does the spliced length compare to the genomic extent?
+sub exonic_proportion{
+  my ($transcript) = @_;
+  my $genomic_extent = ($transcript->end -
+                        $transcript->start) + 1;
+  my $cdna_length = $transcript->length;
+  my $value = ($cdna_length/$genomic_extent) * 100;
+  return $value;
+}
 
-#utilitys
-#split trancripts, split transcripts on long introns
-#replace stops with introns, frameshift around stop codons!
-#list_evidence, a list of ids that support the gene
+
+
+=head2 coding_coverage
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : calculate the ratio of the translateable seq
+  of the transcript to the full length sequence
+  Returntype: int
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
+sub coding_coverage{
+  my ($transcript) = @_;
+  my $cdna_length = $transcript->length;
+  my $coding_seq_length = 
+    length($transcript->translateable_seq);
+  my $value = ($coding_seq_length/$cdna_length) * 100;
+  return $value;
+}
+
+
+
+=head2 list_evidence
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : produce a unique list of evidence to support
+  a gene
+  Returntype: listref 
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub list_evidence{
+  my ($transcript) = @_;
+  my $hash = _get_evidence_ids($transcript);
+  my @ids =  keys(%$hash);
+  return \@ids;
+}
+
+
+
+=head2 split_Transcript
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : int, max intron length
+  Function  : to split transcripts on introns which are
+  too long, discard any single exon transcripts left behind 
+  and return the remaining
+  Returntype: arrayref of Bio::EnsEMBL::Transcript objects
+  Exceptions: throws if not passed a Bio::EnsEMBL::Transcript
+  object
+  Example   : 
+
+=cut
+
+
+
+sub split_Transcript{
+  my ($transcript, $max_intron) = @_;
+  my @split_transcripts;
+  if(!$transcript || 
+     !($transcript->isa('Bio::EnsEMBL::Transcipt'))){
+    throw("Can't split ".$transcript.
+          " must be passed a ".
+          "Bio::EnsEMBL::Transcript object not a ".
+          $transcript);
+    #return undef;
+  }
+  my $curr_transcript = new Bio::EnsEMBL::Transcript;
+  my $curr_translation = new Bio::EnsEMBL::Translation;
+  $curr_transcript->translation($curr_translation);
+  $curr_transcript->add_Exon($transcript->start_Exon);
+  $curr_translation->start_Exon($transcript->start_Exon);
+  $curr_translation->start($transcript->translation->start);
+  push(@split_transcripts, $curr_transcript);
+  foreach my $intron($transcript->get_all_Introns){
+    my $exon_added = 0;
+    my $prev_exon = $intron->prev_Exon;
+    my $next_exon = $intron->next_Exon;
+    if($prev_exon->strand != $next_exon->strand){
+      logger_warning(id($transcript)." contains a strand ".
+                     "missmatch returning original ".
+                     "transcript");
+      return [$transcript];
+    }
+    my $result = intron_length_less_than_maximum($intron,
+                                                 $max_intron);
+    if(!$result){
+      $curr_translation->end_Exon($prev_exon);
+      $curr_translation->end($prev_exon->end -
+                             $prev_exon->start + 1
+                             - $prev_exon->end_phase);
+      my $t  = new Bio::EnsEMBL::Transcript;
+      my $tr = new Bio::EnsEMBL::Translation;
+      
+      $t->translation($tr);
+      $t->add_Exon($next_exon);
+      $exon_added = 1;
+      $tr->start_Exon($next_exon);
+      if ($next_exon->phase == 0) {
+        $t->translation->start(1);
+      } elsif ($next_exon->phase == 1) {
+        $t->translation->start(3);
+      } elsif ($next_exon->phase == 2) {
+        $t->translation->start(2);
+      }
+      $next_exon->phase(0);
+      $curr_transcript = $t;
+      push(@split_transcripts, $curr_transcript);
+    }
+    if ($next_exon == $transcript->end_Exon){
+      $curr_transcript->add_Exon($next_exon) 
+        unless($exon_added);
+      $curr_transcript->translation->end_Exon($next_exon);
+      $curr_transcript->translation->end($transcript->translation->end);
+    } else {
+      $curr_transcript->add_Exon($next_exon) 
+        unless $exon_added;
+    }
+  }
+  my @tidied_split_transcripts;
+  foreach my $trans(@split_transcripts){
+    my @exons = @{$trans->get_all_Exons};
+    if($trans->translation->start_Exons->length < 3){
+    ELOOP:
+      while (scalar(@exons)) {
+        my $exon = shift @exons;
+        
+        if ($exon->length > 3) {
+          $trans->translation->start_Exon($exon);
+          if ($exon->phase == 0) {
+            $trans->translation->start(1);
+          } elsif ($exon->phase == 1) {
+            $trans->translation->start(3);
+          } elsif ($exon->phase == 2) {
+            $trans->translation->start(2);
+          }
+          
+          $trans->flush_Exons;
+          $trans->add_Exon($exon);
+          foreach my $e (@exons) {
+            $trans->add_Exon($e);
+          }
+          
+          push @tidied_split_transcripts,$trans;
+          last ELOOP;
+        }
+      }
+    }else{
+      push(@tidied_split_transcripts, $trans);
+    }
+  }
+  my @final;
+  foreach my $st(@tidied_split_transcripts){
+    if(scalar(@{$st->get_all_Exons}) >= 2){
+      $st->add_supporting_features
+        (@{$transcript->get_all_supporting_features});
+      push(@final, $st);
+    }
+  }
+  return \@final;
+}
+
+
+
+=head2 replace_stops_with_introns
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : replace any inframe stops with
+  introns
+  Returntype: Bio::EnsEMBL::Transcript 
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
+sub replace_stops_with_introns{
+  my ($transcript) = @_;
+  my $newtranscript = clone_Transcript($transcript);
+  my @exons = @{$newtranscript->get_all_Exons};
+  my $pep = $newtranscript->translate->seq;
+  while($pep =~ /\*/g) {
+    my $position = pos($pep);
+
+    my @coords = $newtranscript->pep2genomic($position, $position);
+
+    if (@coords > 1) {
+      # the codon is split by an intron. Messy. Leave these for now
+      print STDERR "Stop is interruped by intron. Returning undef;\n";
+      return undef;
+    } 
+    my ($stop) = @coords;
+
+    # locate the exon that this stop lies in
+    my @new_exons;
+    foreach my $exon (@exons) {
+      if ($stop->start >= $exon->start and $stop->end <= $exon->end) {
+        # this stop lies completely within an exon. We split the exon
+        # into two
+        my $exon_left = Bio::EnsEMBL::Exon->
+            new(-slice     => $exon->slice,
+                -start     => $exon->start,
+                -end       => $stop->start - 1,
+                -strand    => $exon->strand,
+                -phase     => $exon->strand < 0 ? 0 : $exon->phase,
+                -end_phase => $exon->strand < 0 ? $exon->end_phase  :0);
+        my $exon_right = Bio::EnsEMBL::Exon->
+            new(-slice     => $exon->slice,
+                -start     => $stop->end + 1,
+                -end       => $exon->end,
+                -strand    => $exon->strand,
+                -phase     => $exon->strand < 0 ? $exon->phase : 0,
+                -end_phase => $exon->strand < 0 ? 0 : $exon->end_phase);
+        # need to split the supporting features between the two
+        my @sfs = @{$exon->get_all_supporting_features};
+        my (@ug_left, @ug_right);
+        foreach my $f (@sfs) {
+          foreach my $ug ($f->ungapped_features) {
+            if ($ug->start >= $exon_left->start and 
+                $ug->end <= $exon_left->end) {
+              #completely within the left-side of the split
+              push @ug_left, $ug;
+            } elsif ($ug->start >= $exon_right->start and 
+                     $ug->end <= $exon_right->end) {
+              #completely within the right-side of the split
+              push @ug_right, $ug;
+            } else {
+              # this ug must span the split
+              my $fp_left = Bio::EnsEMBL::FeaturePair->new();
+              if ($ug->slice) {
+                $fp_left->slice($ug->slice);
+              }
+              $fp_left->seqname   ($ug->seqname);
+              $fp_left->strand    ($ug->strand);
+              $fp_left->hseqname  ($ug->hseqname);
+              $fp_left->score     ($ug->score);
+              $fp_left->percent_id($ug->percent_id);
+              $fp_left->start     ($ug->start);
+              $fp_left->end       ($stop->start - 1);
+
+              my $fp_right = Bio::EnsEMBL::FeaturePair->new();
+              if ($ug->slice) {
+                $fp_right->slice($ug->slice);
+              }
+              $fp_right->seqname   ($ug->seqname);
+              $fp_right->strand    ($ug->strand);
+              $fp_right->hseqname  ($ug->hseqname);
+              $fp_right->score     ($ug->score);
+              $fp_right->percent_id($ug->percent_id);
+              $fp_right->start     ($stop->end + 1);
+              $fp_right->end       ($ug->end);
+              
+              if ($exon->strand > 0) {
+                $fp_left->hstart($ug->hstart);
+                $fp_left->hend($fp_left->hstart +
+                               ($fp_left->length / 3) - 
+                               1);
+                
+                $fp_right->hend ($ug->hend);
+                $fp_right->hstart($ug->hend - 
+                                  ($fp_right->length / 3) + 
+                                  1);
+              } else {
+                $fp_left->hend ($ug->hend);
+                $fp_left->hstart($ug->hend - 
+                                 ($fp_left->length / 3) + 
+                                 1);
+                
+                $fp_right->hstart($ug->hstart);
+                $fp_right->hend($fp_right->hstart +
+                                ($fp_right->length / 3) - 
+                                1);
+              }
+
+              if ($fp_left->end >= $fp_left->start) { 
+                push @ug_left, $fp_left;
+              }
+              if ($fp_right->end >= $fp_right->start) {
+                push @ug_right, $fp_right;
+              }
+            }
+          }
+        }
+
+        if (@ug_left) {
+          my $f = Bio::EnsEMBL::DnaPepAlignFeature->
+              new(-features => \@ug_left);
+          $exon_left->add_supporting_features($f);
+        }
+        if (@ug_right) {
+          my $f = Bio::EnsEMBL::DnaPepAlignFeature->
+              new(-features => \@ug_right);
+          $exon_right->add_supporting_features($f);
+        }
+        
+        if ($exon->strand < 0) {
+          if ($exon_right->end >= $exon_right->start) {
+            push @new_exons, $exon_right;
+          }
+          if ($exon_left->end >= $exon_left->start) {
+            push @new_exons, $exon_left;
+          }
+        } else {
+          if ($exon_left->end >= $exon_left->start) {
+            push @new_exons, $exon_left;
+          }
+          if ($exon_right->end >= $exon_right->start) {
+            push @new_exons, $exon_right;
+          } 
+        }
+      } else {
+        # this exon is unaffected by this stop
+        push @new_exons, $exon;
+      }
+    }
+    
+    @exons = @new_exons;
+  }
+  
+  $newtranscript->flush_Exons;
+  foreach my $exon (@exons) {
+    $newtranscript->add_Exon($exon);
+  }
+  my $translation = Bio::EnsEMBL::Translation->new();
+  $translation->start_Exon($exons[0]);
+  $translation->end_Exon($exons[-1]);
+  $translation->start(1);
+  $translation->end($exons[-1]->end - $exons[-1]->start + 1);
+  $newtranscript->translation($translation);
+
+  return $newtranscript;
+}
+
+
+
 
 1;

@@ -44,7 +44,9 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw(print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Exon;
-
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity
+                                             logger_info
+                                             logger_warning);
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
