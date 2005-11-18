@@ -415,7 +415,7 @@ sub get_chrlengths {
               " seq_region.coord_system_id=coord_system.coord_system_id and" .
               " coord_system.version = '" . $type . "' and coord_system.name='" . $coordsystem ."'";
 
-  my $sth = $db->prepare($query);
+  my $sth = $db->dbc->prepare($query);
 
   $sth->execute;
 
@@ -441,7 +441,7 @@ sub get_chrlengths_19 {
               " assembly.chromosome_id=chromosome.chromosome_id and" .
               " assembly.type = '" . $type . "' group by assembly.chromosome_id";
 
-  my $sth = $db->prepare($query);
+  my $sth = $db->dbc->prepare($query);
 
   $sth->execute;
 
@@ -511,7 +511,7 @@ sub find_duplicate_exons {
                     e1.end_phase=e2.end_phase
               ORDER BY e1.exon_id 
             ); 
-  my $sth = $db->prepare($q) || $db->throw("can't prepare: $q");
+  my $sth = $db->dbc->prepare($q) || $db->throw("can't prepare: $q");
   my $res = $sth->execute || $db->throw("can't execute: $q");
  
   my $ndup = 0;
