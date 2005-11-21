@@ -129,7 +129,6 @@ sub filter_main {
 
   my @pass_hits;
 
-
   foreach my $hit (@$hits) {
     my $this_dat = $dat->{$hit->hseqname};
 
@@ -147,7 +146,7 @@ sub filter_main {
   }
 
   if (@pass_hits) {
-    @pass_hits = sort { $a->pvalue <=> $b->pvalue} @pass_hits;
+    @pass_hits = sort { $a->p_value <=> $b->p_value} @pass_hits;
     return $pass_hits[0];
   } else {
     return undef;

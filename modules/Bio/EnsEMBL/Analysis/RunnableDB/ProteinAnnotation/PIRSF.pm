@@ -48,15 +48,17 @@ sub fetch_input {
   # for each input sequence, giving a Bio::PrimarySeq as input
 
   my @query_seqs;
-  if ($self->INPUT_ID_TYPE eq 'TRANSLATIONID') {
+  if (ref($self->query) and $self->query->isa("Bio::PrimarySeq")) {
     push @query_seqs, $self->query;
-  } else {
+  } elsif (-e $self->query) {
     my $seqio = Bio::SeqIO->new(-format => 'fasta',
                                 -file   => $self->query);
     while(my $seq = $seqio->next_seq) {
       push @query_seqs, $seq;
     }
     $seqio->close;
+  } else {
+    throw($self->query . " is neither an object ref nor a file name\n");
   }
 
   foreach my $seq (@query_seqs) {

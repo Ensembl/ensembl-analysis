@@ -48,11 +48,23 @@ sub multiprotein{
 sub run_analysis {
   my ($self) = @_;
   
-  my $cmd = $self->program .' --acc ';
+  my $options = "";
   if (defined($self->options)) {
-    $cmd .= $self->options . ' ';
+    $options .= $self->options;
   }
-  $cmd .= $self->database . ' ' . $self->queryfile.' > '. $self->resultsfile;
+  if ($options !~ /\-\-acc/) {
+    $options .= ' --acc';
+  }
+  if ($options !~ /\-\-cpu/) {
+    $options .= ' --cpu 1';
+  }
+
+  my $cmd = $self->program 
+      . ' ' . $options
+      . ' ' . $self->database 
+      . ' ' . $self->queryfile 
+      .' > '. $self->resultsfile;
+
   print STDERR "Running:$cmd\n";
   
   throw ("Error running ".$self->program." on ".
@@ -86,10 +98,11 @@ sub parse_results {
     
     while (<$fh>) {
       chomp;
-      last if /^Alignments of top-scoring domains/;
-      next if (/^Model/ || /^\-/ || /^$/);
+      #last if /^Alignments of top-scoring domains/;
+      #next if (/^Model/ || /^\-/ || /^$/);
       if (/^Query sequence:\s+(\S+)/) {
         $id = $1;
+        next;
       }
       
       if (my ($hid, 
@@ -98,7 +111,7 @@ sub parse_results {
               $hstart, 
               $hend, 
               $score, 
-              $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
+              $evalue) = /^(\S+)\s+\d+\/\d+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
         
         $evalue = sprintf ("%.3e", $evalue);
         

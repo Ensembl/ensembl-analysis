@@ -45,25 +45,33 @@ sub fetch_input {
   my ($self) = @_;  
   my $input_id;
 
-  if ($self->BASE_DIR) {
-    $input_id = $self->BASE_DIR . "/" . $self->input_id;
-    throw($input_id." doesn't exist\n") unless(-e $input_id);
-  } else {
-    
+  my $error = "For logic " . $self->analysis->logic_name . ", Input id must be:\n";
+  $error .= "(a) a valid translation dbID; or\n";
+  $error .= "(b) the fully qualified directory/name of a fasta peptide file; or\n";
+  $error .= "(c) the name only of a peptide fasta file (with BASE_DIR defined)\n";
+  $error .= $self->input_id . " is none of these\n";
+
+  if ($self->input_id =~ /^(\d+)$/)  {
     my $prot;
     eval {
       $prot = $self->db->get_TranslationAdaptor->fetch_by_dbID($self->input_id);
     };
     if($@ or not defined $prot) {
-      throw($self->input_id.
-            " either isn't a transcript dbID ".
-            " or doesn't exist in the database : $@\n");
+      throw($error);
     }
     
     $input_id  =  Bio::PrimarySeq->new(-seq         => $prot->seq,
 				       -id          => $self->input_id,
 				       -accession   => $self->input_id,
 				       -moltype     => 'protein');
+  } elsif (-e $self->input_id) {
+    $input_id = $self->input_id;
+  } elsif (defined $self->BASE_DIR and 
+           $self->BASE_DIR and
+           -e $self->BASE_DIR . "/" . $self->input_id) {    
+    $input_id = $self->BASE_DIR . "/" . $self->input_id;
+  } else {
+    throw($error);
   }
   
   $self->query($input_id);
@@ -90,18 +98,13 @@ sub write_output {
 ##################################
 sub run {
   my ($self,$dir) = @_;
+
   throw("Runnable module not set") unless ($self->runnable());
-  throw("Input not fetched") unless ($self->query());
 
-  my @res;
-  foreach my $r (@{$self->runnable}) {
-    $r->run($dir);
-    push @res, @{$r->output};
-  }
+  my ($run) = @{$self->runnable};
+  $run->run($dir);
 
-  @res = @{$self->filter_results(\@res)};
-
-  $self->output(\@res);
+  $self->output($run->output);
 }
 
 
@@ -138,13 +141,6 @@ sub output {
   return $self->{'output'};
 }
 
-##################################
-sub filter_results {
-  my ($self, $list) = @_;
-
-  # default implementation; no filtering
-  return $list;
-}
 
 ####################################
 #############################################################
@@ -163,7 +159,9 @@ sub read_and_check_config {
 
   # check that compulsory options have values
 
-  if ($self->BASE_DIR and not -d $self->BASE_DIR) {
+  if (defined $self->BASE_DIR and 
+      $self->BASE_DIR and
+      not -d $self->BASE_DIR) {
     throw("BASE_DIR " . $self->BASE_DIR . " could not be found")
   }
 }
@@ -172,15 +170,16 @@ sub read_and_check_config {
 sub BASE_DIR {
   my ($self, $val) = @_;
 
-  if (not exists $self->{_base_dir}) {
-    $self->{_base_dir} = "";
-  }
-
   if (defined $val) {
     $self->{_base_dir} = $val;
   }
 
-  return $self->{_base_dir};
+  if (not exists $self->{_base_dir}) {
+    return undef;
+  } else {
+    return $self->{_base_dir};
+  }
+
 }
 
 

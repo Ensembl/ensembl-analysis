@@ -49,16 +49,12 @@ use vars qw( %ProteinAnnotation );
    PROTEINANNOTATION_CONFIG_BY_LOGIC => {
 
      DEFAULT => {
-       # all analyses default to chunks except where overridden
+       # most analyses are chunks, so default to chunk dir
        BASE_DIR      => '/directory/containing/chunks',
      },
 
      Seg => {
        BASE_DIR      => '/directory/containing/proteme/file',
-     }
-
-     Pfam => {
-       BASE_DIR      => '',
      }
      
    }                      
