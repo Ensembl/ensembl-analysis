@@ -85,7 +85,7 @@ sub fetch_input {
   }
 
   ##########################################
-  # set up the query (est/cDNA/protein)
+  # set up the query (dna clone seq)
   ##########################################
 
   my ($query_file, $chunk_number, $chunk_total);
@@ -182,6 +182,7 @@ sub write_output {
   $self->clean_clone_features(@{$self->clone_features});
   
   foreach my $clone_feature (@{$self->clone_features}){
+  
     eval{ $clone_feature_adaptor->store($clone_feature) };
     if ($@) {
       $self->throw("Unable to store clone feature!\n $@");
@@ -213,9 +214,10 @@ sub clean_clone_features {
       $genome_slices{$slice_id} = $slice_adaptor->fetch_by_name($slice_id);
     }
     my $slice = $genome_slices{$slice_id};
-    $clone_feature->slice($slice); 
-  }
 
+    $clone_feature->slice($slice); 
+ 
+  }return @clone_features;
 }
 
 sub create_output_db {

@@ -71,7 +71,7 @@ use vars qw( %Config );
         -user => 'ensadmin',
         -pass => 'ensro',
         },
-      OPTIONS             => ' --bestn 10 --dnahspthreshold 75 --fsmmemory 256 --dnawordlen 14 --dnawordthreshold 5 --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 300 --saturatethreshold 10 ',
+      OPTIONS             => ' --bestn 10 --dnahspthreshold 75 --fsmmemory 256 --dnawordlen 12 --dnawordthreshold 5 --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 100 --saturatethreshold 10 ',
     },
   }
 );
