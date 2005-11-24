@@ -48,7 +48,7 @@ use vars qw( %Config );
       # path to softmasked, dusted sequence on the farm 
       # 
       
-      GENOMICSEQS         => '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted', #allowed to be a dir.
+      GENOMICSEQS         =>   '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted', #allowed to be a dir.
       QUERYTYPE           => 'dna',
 
       # must be a single file containing all clone fasta sequences
@@ -65,13 +65,14 @@ use vars qw( %Config );
         -pass => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_human',
+        -dbname => 'jb16_sheep_human_clones', 
         -host => 'ia64g',
         -port => '3306',
         -user => 'ensadmin',
-        -pass => 'ensro',
+        -pass => 'ensembl',
         },
-      OPTIONS             => ' --bestn 10 --dnahspthreshold 75 --fsmmemory 256 --dnawordlen 12 --dnawordthreshold 5 --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 100 --saturatethreshold 10 ',
+      OPTIONS             => ' --model est2genome --maxintron 1000 --bestn 1  --dnawordlen 12 --dnawordthreshold 5 --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 100 --percent 70  --saturatethreshold 10 ',
+#--dnahspthreshold 75 --fsmmemory 256 this are used for ungapped alignments
     },
   }
 );
