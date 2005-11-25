@@ -75,10 +75,6 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($self->input_id, $self->db,'');
   $self->query($slice);
   my %blast = %{$self->BLAST_PARAMS};
-  unless ($self->query->seq =~ /[ATCGatcg]/){
-    $self->warn("Ignoring this slice because its all Ns\n");
-    return 1;
-  }
   my $parser = $self->make_parser;
   my $filter;
   if($self->BLAST_FILTER){
