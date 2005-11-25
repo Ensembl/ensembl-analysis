@@ -65,14 +65,14 @@ use vars qw( %Config );
         -pass => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_human_clones', 
+        -dbname => 'jb16_sheep_human_clones',  
         -host => 'ia64g',
         -port => '3306',
         -user => 'ensadmin',
         -pass => 'ensembl',
         },
-      OPTIONS             => ' --model est2genome --maxintron 1000 --bestn 1  --dnawordlen 12 --dnawordthreshold 5 --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 100 --percent 70  --saturatethreshold 10 ',
-#--dnahspthreshold 75 --fsmmemory 256 this are used for ungapped alignments
+      OPTIONS             => ' --model affine:local --gapopen -8 --gapextend -2 --bestn 5  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
+
     },
   }
 );
