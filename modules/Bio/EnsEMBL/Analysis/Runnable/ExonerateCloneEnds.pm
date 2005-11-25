@@ -59,7 +59,6 @@ sub parse_results {
   my @features;
   
   while (<$fh>){
-    #print STDERR $_ if $self->_verbose;
 
     next unless /^RESULT:/;
 
@@ -69,7 +68,6 @@ sub parse_results {
       $tag, $q_id, $q_start, $q_end, $q_strand, 
       $t_id, $t_start, $t_end, $t_strand, $score, 
       $perc_id, $q_length, $t_length, $gene_orientation,
- #     $cigar_string, $analysis,
       @vulgar_blocks
     ) = split;
 
@@ -80,39 +78,31 @@ sub parse_results {
 		 scalar @vulgar_blocks . "] items left to process.")
       unless scalar @vulgar_blocks >= 3;
 
-      my $match_type                = shift @vulgar_blocks;
+      my $match_type          = shift @vulgar_blocks;
       my $query_match_length  = shift @vulgar_blocks;
       my $target_match_length = shift @vulgar_blocks;
 
-      throw("Vulgar string does not start with a match.  Was not " . 
-	    "expecting this.") if ($match_type ne 'M');
+
+      if ($match_type eq "G"){
+	if ($query_match_length == 0){
+	    $match_type="D";
+            $query_match_length = $target_match_length;
+        }elsif ($target_match_length == 0){
+            $match_type="I";
+	}
+
+      }
     
       $cigar_string .= $query_match_length.$match_type;
-
-
+     
     }
-  
- #   my($match_type, $query_match_length, $target_match_length,@rest_of_vulgar) = @vulgar_blocks;
-    
-  #  if(@rest_of_vulgar){
-  #    throw (
-  #      "There is more than a simple match ('M') vulgar output: @vulgar_blocks for tag $q_id mapped to region $t_id \n"
-  #    );
-  #  }
-  #  
-  #  if(!($match_type eq 'M')){
-  #    throw "I have received a starting Vulgar symbol $match_type which is not a match!"; 
-  #  }
+  print $cigar_string,"\n";
 
-  #  my $cigar_string = $query_match_length.$match_type;
-  #  print $cigar_string,"\n";
     my $feature = 
       $self->make_feature(
         $q_id, $q_start, $q_end, $q_strand, 
         $t_id, $t_start, $t_end, $t_strand, $score, 
-        $perc_id, $q_length,# $query_match_length,
-        $cigar_string #, $analysis
-
+        $perc_id, $q_length, $cigar_string
       );
 
     if($feature){
@@ -134,8 +124,7 @@ sub make_feature{
   my (
     $tag, $q_id, $q_start, $q_end, $q_strand, 
     $t_id, $t_start, $t_end, $t_strand, $score, 
-    $perc_id, $q_length,# $query_match_length,
-    $cigar_string #, $analysis
+    $perc_id, $q_length, $cigar_string 
   ) = @_;
 
   #because of the 'in-between' coordinates.
@@ -179,13 +168,9 @@ sub make_feature{
       -hstrand      => $q_strand,
       -score        => $score,
       -percent_id   => $perc_id,
-  #    -analysis     => $analysis
       -cigar_string => $cigar_string,
     );
- # print $t_id,"\n";
-  # attach the slice name onto the feature: let the runnabledb
-  # sort out whether it's valid.
- # $feature->seqname($q_id);
+#  print $t_id," Percent_id: ",$perc_id," Score: ", $score,"\n";
   
   return $feature;
 }
