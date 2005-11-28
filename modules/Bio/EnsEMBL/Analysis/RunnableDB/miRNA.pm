@@ -74,19 +74,26 @@ sub fetch_input{
      '-pass'   => $GB_DBPASS,
      '-port'   => $GB_DBPORT,
     );
-
-  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_FINALDBHOST,
-     '-user'   => $GB_FINALDBUSER,
-     '-dbname' => $GB_FINALDBNAME,
-     '-pass'   => $GB_FINALDBPASS,
-     '-port'   => $GB_FINALDBPORT,
-    );
-  $self->gene_db($genes_db);
-  # add dna_db 
+  # if you want to write the final genes into the pipeline database need 
+  # to catch it first and store the $self->db as the genes->db otherwise the
+  # registry will cause problems
+  if ($GB_FINALDBNAME eq $self->db->dbc->dbname &&
+      $GB_FINALDBPORT == $self->db->dbc->port &&
+      $GB_FINALDBHOST eq $self->db->dbc->host){
+         $self->gene_db($self->db);
+  } else { 
+    my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
+      (
+       '-host'   => $GB_FINALDBHOST,
+       '-user'   => $GB_FINALDBUSER,
+       '-dbname' => $GB_FINALDBNAME,
+       '-pass'   => $GB_FINALDBPASS,
+       '-port'   => $GB_FINALDBPORT,
+      );
+    $self->gene_db($genes_db);
+  }
+# add dna_db 
   $self->db->dnadb($dna_db);
-
   my $aa = $self->db->get_AnalysisAdaptor;
   my $analysis = $aa->fetch_by_logic_name($self->input_id);
   $self->throw("Analysis ".$self->input_id." not found $@\n") unless $analysis;
@@ -161,6 +168,7 @@ sub write_output{
     $self->feature_factory->validate($gene);
     eval{
       $adaptor->store($gene);
+ 	print STDERR "Attemting to store in ".$adaptor->db->dbname."\n";
     };
     if($@){
       $self->throw("miRNA:store failed, failed to write ".$gene." to ".

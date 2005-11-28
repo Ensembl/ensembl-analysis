@@ -72,17 +72,26 @@ my $runnable;
 =cut
 
 sub fetch_input{
-  my ($self)=@_;
+  my ($self)=@_;  
   # open connection to genes database
-  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_FINALDBHOST,
-     '-user'   => $GB_FINALDBUSER,
-     '-dbname' => $GB_FINALDBNAME,
-     '-pass'   => $GB_FINALDBPASS,
-     '-port'   => $GB_FINALDBPORT,
-    );
-  $self->gene_db($genes_db);
+  # if you want to write the final genes into the pipeline database need 
+  # to catch it first and store the $self->db as the genes->db otherwise the
+  # registry will cause problems
+  if ($GB_FINALDBNAME eq $self->db->dbc->dbname &&
+      $GB_FINALDBPORT == $self->db->dbc->port &&
+      $GB_FINALDBHOST eq $self->db->dbc->host){
+         $self->gene_db($self->db);
+  } else { 
+    my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
+      (
+       '-host'   => $GB_FINALDBHOST,
+       '-user'   => $GB_FINALDBUSER,
+       '-dbname' => $GB_FINALDBNAME,
+       '-pass'   => $GB_FINALDBPASS,
+       '-port'   => $GB_FINALDBPORT,
+      );
+    $self->gene_db($genes_db);
+  }
   my $dna_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
      '-host'   => $GB_DBHOST,
