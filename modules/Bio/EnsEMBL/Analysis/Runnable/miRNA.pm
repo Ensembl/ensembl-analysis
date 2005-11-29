@@ -286,8 +286,8 @@ sub make_gene{
      -end   => $daf->end,
      -strand => $daf->strand,
      -slice => $slice,
-     -phase => 0,
-     -end_phase => (($daf->end - $daf->start + 1)%3)
+     -phase => -1,
+     -end_phase => -1
     );
 
   $exon->add_supporting_features($daf);
@@ -296,6 +296,7 @@ sub make_gene{
   $transcript->add_Exon($exon);
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
+  $transcript->type("miRNA");
   # add the transcript attributes for the position of the mature miRNA as well as
   # the predicted structure
   foreach my $code(@$structure){
@@ -319,7 +320,7 @@ sub make_gene{
   # gene
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->type('miRNA');
-  $gene->description($description." [Source: miRNA Registry 6.0]");
+  $gene->description($description." [Source: miRBase ".$self->analysis->db_version."]");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
   # XREFS
@@ -329,7 +330,7 @@ sub make_gene{
      -display_id => $description,
      -dbname => 'miRNA_Registry',
      -release => 1,
-     -description => $description." [Source: miRNA Registry 6.0]",
+     -description => $description." [Source: miRBase ".$self->analysis->db_version."]",
     );  
   $gene_hash{'gene'} = $gene;
   $gene_hash{'attrib'} = \@attributes;

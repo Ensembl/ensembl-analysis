@@ -186,7 +186,7 @@ sub parse_results{
   my $results = $self->resultsfile;
   my $ff = $self->feature_factory;
   if(!-e $results){
-    $self->throw("Can't parse an no existance results file ".$results.
+    $self->throw("Can't parse a  results file that dosen't exist ".$results.
           " Infernal:parse_results");
   }
   my @results;
@@ -429,8 +429,8 @@ sub make_gene{
        -end   => $end-$padding,
        -strand => $strand,
        -slice => $slice,
-       -phase => 0,
-       -end_phase => (($end - $start + 1)%3)
+       -phase => -1,
+       -end_phase => -1
       );
     # Only allow exons that overlap the origional dna_align_feature and 
     # have a secondary structure that is possible to parse
@@ -446,11 +446,18 @@ sub make_gene{
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
   my $gene = Bio::EnsEMBL::Gene->new;
-  $gene->type('ncRNA');
-  $gene->description($description." [Source: RFAM 7.0]");
+  #Biotypes
+  $gene->type("misc_RNA");
+  $gene->type("snRNA")  if($description =~ /uclear/ or 
+			   $description =~ /pliceosomal/ );
+  $gene->type("snoRNA") if($description =~ /ucleolar/);
+  $gene->type("rRNA")   if($description =~ /ibosomal/);
+  $gene->confidence("NOVEL");
+  $gene->description($description." [Source: RFAM ".$self->analysis->db_version."]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
+  $transcript->type($gene->type);
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (
@@ -458,7 +465,7 @@ sub make_gene{
      -display_id => $name,
      -dbname => 'RFAM',
      -release => 1,
-     -description => $description
+     -description => $description." [Source: RFAM ".$self->analysis->db_version."]",
     );
   # Use RNA fold to tidy up the structure parsed from cmsearch results
   my $seq = Bio::PrimarySeq->new(

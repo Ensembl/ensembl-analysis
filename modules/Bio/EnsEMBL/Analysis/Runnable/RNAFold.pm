@@ -44,7 +44,7 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-my $verbose = "yes";
+my $verbose = "";
 
 =head2 new
 
@@ -93,7 +93,7 @@ sub run{
   my $structure = $self->parse;
   $self->structure($structure);
   $self->encoded_str($self->encode_str($structure));
-  print STDERR "delete temp files\n"  if $verbose;
+#  print STDERR "delete temp files\n"  if $verbose;
   $self->delete_files;
 }
 
