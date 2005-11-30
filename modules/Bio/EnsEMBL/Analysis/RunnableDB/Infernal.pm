@@ -113,10 +113,15 @@ sub fetch_input{
   if ($self->input_id =~ /(\d+):(\d+)/) {
     $start = $1;
     $end = $2;
-  } else {
+  }
+  if ($self->input_id =~ /^(\d+)/) {
+    $start = $1;
+    $end = $1;
+  }
+  if ($start == undef){
     $self->throw("Input id not recognised\n");
   }
- # get ids
+  # get ids
   for (my $i = $start ; $i <= $end ; $i++){
     my $flag;
     # try and fetch it
@@ -128,7 +133,7 @@ sub fetch_input{
       push @dafs, $daf;
     }
   }
-
+  
     # Make  the runnable
     my $runnable = $runname->new
       (
