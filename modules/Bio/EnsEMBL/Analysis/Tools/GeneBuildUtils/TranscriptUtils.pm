@@ -40,9 +40,8 @@ use Exporter;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info 
-                                                                exon_length_less_than_maximum);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
@@ -78,6 +77,7 @@ use vars qw (@ISA @EXPORT);
              list_evidence
              split_Transcript
              replace_stops_with_introns
+             remove_initial_or_terminal_short_exons
             );
 
 
@@ -314,8 +314,8 @@ sub intron_lengths_all_less_than_maximum{
   foreach my $intron(@{$transcript->get_all_Introns}){
     if(!intron_length_less_than_maximum($intron, 
                                         $max_length)){
-      logger_info("Transcript ".id($transcript)." has ".
-                  "intron longer than ".$max_length);
+      logger_warning("Transcript ".id($transcript)." has ".
+                     "intron longer than ".$max_length);
       return 0;
     }
   }
@@ -754,112 +754,183 @@ sub list_evidence{
 
 
 
+#This method is designed to split transcripts on
+#long introns and hopefully maintain clean and sensible
+#transcripts
+
 sub split_Transcript{
-  my ($transcript, $max_intron) = @_;
-  my @split_transcripts;
-  if(!$transcript || 
-     !($transcript->isa('Bio::EnsEMBL::Transcipt'))){
-    throw("Can't split ".$transcript.
-          " must be passed a ".
-          "Bio::EnsEMBL::Transcript object not a ".
-          $transcript);
-    #return undef;
-  }
+  my ($transcript, $max_intron_length) = @_;
+  logger_info("Spliting ".id($transcript)." on any intron longer $max_intron_length");
+
+  print "Starting with ";
+  print_peptide($transcript);
+  #cloning the transcript to ensure if all else fails
+  #the original is fine
+  my $cloned_transcript = clone_Transcript($transcript);
+
+  #record of translateable exons
+  my %translateable = %{_identify_translateable_exons
+                          ($cloned_transcript)};
+
+  my $start_exon = 
+    $cloned_transcript->translation->start_Exon;
+  my $end_exon = 
+    $cloned_transcript->translation->end_Exon;
+
+  #creating first new transcript
   my $curr_transcript = new Bio::EnsEMBL::Transcript;
   my $curr_translation = new Bio::EnsEMBL::Translation;
   $curr_transcript->translation($curr_translation);
-  $curr_transcript->add_Exon($transcript->start_Exon);
-  $curr_translation->start_Exon($transcript->start_Exon);
-  $curr_translation->start($transcript->translation->start);
-  push(@split_transcripts, $curr_transcript);
-  foreach my $intron($transcript->get_all_Introns){
-    my $exon_added = 0;
-    my $prev_exon = $intron->prev_Exon;
-    my $next_exon = $intron->next_Exon;
-    if($prev_exon->strand != $next_exon->strand){
-      logger_warning(id($transcript)." contains a strand ".
-                     "missmatch returning original ".
-                     "transcript");
-      return [$transcript];
-    }
-    my $result = intron_length_less_than_maximum($intron,
-                                                 $max_intron);
-    if(!$result){
-      $curr_translation->end_Exon($prev_exon);
-      $curr_translation->end($prev_exon->end -
-                             $prev_exon->start + 1
-                             - $prev_exon->end_phase);
-      my $t  = new Bio::EnsEMBL::Transcript;
-      my $tr = new Bio::EnsEMBL::Translation;
-      
-      $t->translation($tr);
-      $t->add_Exon($next_exon);
-      $exon_added = 1;
-      $tr->start_Exon($next_exon);
-      if ($next_exon->phase == 0) {
-        $t->translation->start(1);
-      } elsif ($next_exon->phase == 1) {
-        $t->translation->start(3);
-      } elsif ($next_exon->phase == 2) {
-        $t->translation->start(2);
-      }
-      $next_exon->phase(0);
-      $curr_transcript = $t;
-      push(@split_transcripts, $curr_transcript);
-    }
-    if ($next_exon == $transcript->end_Exon){
-      $curr_transcript->add_Exon($next_exon) 
-        unless($exon_added);
-      $curr_transcript->translation->end_Exon($next_exon);
-      $curr_transcript->translation->end($transcript->translation->end);
-    } else {
-      $curr_transcript->add_Exon($next_exon) 
-        unless $exon_added;
-    }
-  }
-  my @tidied_split_transcripts;
-  foreach my $trans(@split_transcripts){
-    my @exons = @{$trans->get_all_Exons};
-    if($trans->translation->start_Exons->length < 3){
-    ELOOP:
-      while (scalar(@exons)) {
-        my $exon = shift @exons;
-        
-        if ($exon->length > 3) {
-          $trans->translation->start_Exon($exon);
-          if ($exon->phase == 0) {
-            $trans->translation->start(1);
-          } elsif ($exon->phase == 1) {
-            $trans->translation->start(3);
-          } elsif ($exon->phase == 2) {
-            $trans->translation->start(2);
-          }
-          
-          $trans->flush_Exons;
-          $trans->add_Exon($exon);
-          foreach my $e (@exons) {
-            $trans->add_Exon($e);
-          }
-          
-          push @tidied_split_transcripts,$trans;
-          last ELOOP;
-        }
-      }
-    }else{
-      push(@tidied_split_transcripts, $trans);
-    }
-  }
-  my @final;
-  foreach my $st(@tidied_split_transcripts){
-    if(scalar(@{$st->get_all_Exons}) >= 2){
-      $st->add_supporting_features
-        (@{$transcript->get_all_supporting_features});
-      push(@final, $st);
-    }
-  }
-  return \@final;
-}
 
+  my @split_transcripts;
+
+  my $first_transcript = 1;
+  my $first_exon = 1;
+  my $intron_count = 1;
+  my $transcript_count = 1;
+
+  #adding first new transcript to list
+  push(@split_transcripts, $curr_transcript);
+
+  #checking each intron
+ INTRON:foreach my $intron
+    (@{$cloned_transcript->get_all_Introns}){
+      $intron_count++;
+      my $prev_exon = $intron->prev_Exon;
+      my $next_exon = $intron->next_Exon;
+
+      #If considering first intron and prev exon
+      #is the first exon then need to add it to the 
+      #transcript and check if it is the start of translation
+      if($first_exon){
+        $curr_transcript->add_Exon($prev_exon);
+        if($prev_exon eq $start_exon){
+          #print "Setting translation start = ".
+          #  id($prev_exon)." ".
+          #    $cloned_transcript->translation->start."\n";
+          $curr_transcript->translation->start_Exon
+            ($prev_exon);
+          $curr_transcript->translation->start
+            ($cloned_transcript->translation->start);
+        }
+        $first_exon = 0;
+      }
+
+      #If the intron length is less than the specified max
+      #then you can add it to the current transcript and
+      #check if it is the start of translation or end of
+      #translation
+      if(intron_length_less_than_maximum
+         ($intron, $max_intron_length)){
+        $curr_transcript->add_Exon($next_exon);
+        if($next_exon eq $start_exon){
+          #print "Setting translation start = ".
+          #  id($next_exon)." ".
+          #    $cloned_transcript->translation->start."\n";
+          $curr_transcript->translation->start_Exon
+            ($next_exon);
+          $curr_transcript->translation->start
+            ($cloned_transcript->translation->start);
+        }
+        if($next_exon eq $end_exon){
+          #print "Setting translation end = ".id($next_exon).
+          #  " ".$cloned_transcript->translation->end."\n";
+          $curr_translation->end_Exon($next_exon);
+          $curr_translation->end
+            ($cloned_transcript->translation->end);
+        }
+        next INTRON;
+      }else{
+
+        #If the intron is longer than maximum
+        $prev_exon = _trim_translation_end($prev_exon);
+        my $translation_end = $prev_exon->end - 
+          $prev_exon->start + 1;
+        my $unique_string = $prev_exon->start.":".
+          $prev_exon->end.":".$prev_exon->strand.":".
+            $prev_exon->phase;
+        $translateable{$unique_string} = 1;
+        #print "Found intron longer than ".$max_intron_length.
+        #  "\n";
+        #print "Setting translation end = ".id($prev_exon).
+        #  " ".$translation_end."\n";
+        $curr_translation->end_Exon($prev_exon);
+        $curr_translation->end($translation_end);
+        $first_transcript = 0;
+        my $t = Bio::EnsEMBL::Transcript->new;
+        my $tr = Bio::EnsEMBL::Translation->new;
+        $transcript_count++;
+        $t->translation($tr);
+        $next_exon = _trim_translation_start($next_exon);
+        $t->add_Exon($next_exon);
+        $tr->start_Exon($next_exon);
+        $tr->start(1);
+        #print "Setting translation start = ".
+        #    id($next_exon)." ".
+        #      $curr_translation->start."\n";
+        $unique_string = $next_exon->start.":".
+          $next_exon->end.":".$next_exon->strand.":".
+            $next_exon->phase;
+        $translateable{$unique_string} = 1;
+        $curr_transcript = $t;
+        $curr_translation = $tr;
+        push(@split_transcripts, $curr_transcript);
+      }
+    }
+  #print "Split transcripts\n";
+  #foreach my $st(@split_transcripts){
+  #  print_peptide($st);
+  #}
+  my @tided_split_transcripts;
+#  my $initial_peptide = $transcript->translate->seq;
+#  my $split_count = 0;
+# TRANS:foreach my $split_transcript(@split_transcripts){
+#    $split_count++;
+#    print "Checking single exon transcripts\n";
+#    if(@{$split_transcript->get_all_Exons} == 1){
+#      my ($exon) = @{$split_transcript->get_all_Exons};
+#      print_Exon($exon);
+#        logger_info("Ignoring split ".$split_count." as ".
+#                    "only has on exon");
+#      next TRANS;
+#    }
+#    print "Checking for coding\n";
+#    my $coding = 0;
+#    foreach my $ex(@{$split_transcript->get_all_Exons}){
+#      my $unique_string = $ex->start.":".$ex->end.":".
+#        $ex->strand.":".$ex->phase;
+#      $coding = 1 if($translateable{$unique_string});
+#    }
+#    logger_info("Ignorning split".$split_count." as ".
+#                "contains no coding exons") if(!$coding);
+#    next TRANS if(!$coding);
+#    if(!$initial_peptide =~ 
+#       /$split_transcript->translate->seq/){
+#      logger_info("Ignoring ".$split_count." as ".
+#                  "its translation is not a subset of the".
+#                  " initial translation");
+#      next TRANS;
+#    }
+#    #my $trimed_transcript = 
+#    #  remove_initial_or_terminal_short_exons
+#    #    ($split_transcript);
+#    my $trimed_transcript = $split_transcript;
+#    print "Checking translation\n";
+#    if(!$initial_peptide =~ 
+#       /$trimed_transcript->translate->seq/){
+#      logger_info("Ignoring ".$split_count." as ".
+#                  "its translation is not a subset of the".
+#                  " initial translation");
+#      next TRANS;
+#    }
+#    if($trimed_transcript->translate->seq =~ /\*/){
+#      print_peptide($trimed_transcript);
+#      logger_warning("new transcript contains stop codons");
+#    }
+#    push(@tided_split_transcripts, $trimed_transcript);
+#  }
+  return \@split_transcripts;
+}
 
 
 =head2 replace_stops_with_introns
@@ -1034,5 +1105,188 @@ sub replace_stops_with_introns{
 
 
 
+=head2 remove_initial_or_terminal_short_exons
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : int, minimum length
+  Function  : to trim transcripts of initial or terminal exons
+  which are consider too short, by default less than 3bp
+  Returntype: Bio::EnsEMBL::Transcript
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub remove_initial_or_terminal_short_exons{
+  my ($transcript, $min_length) = @_;
+
+  $min_length = 3 unless($min_length);
+  my %translateable = %{_identify_translateable_exons
+                          ($transcript)};
+
+  my $cloned_transcript = clone_Transcript($transcript);
+  my $start_exon = $cloned_transcript->translation->
+    start_Exon;
+  my $start_exon_id = $start_exon->start.":".
+    $start_exon->end.":".$start_exon->strand.":".
+      $start_exon->phase;
+  my $end_exon = $cloned_transcript->translation->end_Exon;
+  if($cloned_transcript->start_Exon->length < 0){
+    my @exons = @{$cloned_transcript->get_all_Exons};
+    FIVE_PRIME_END: while(scalar(@exons)){
+      my $exon = shift(@exons);
+      print Exon_info($exon)."\n";
+      if($exon->length > $min_length){
+        my $unique_string = $exon->start.":".$exon->end.":".
+          $exon->strand.":".$exon->phase;
+        print "Starting to add back exons \n";
+        if($translateable{$unique_string} && $exon ne 
+           $start_exon){
+          print "***Exon ".$exon." ".$unique_string.
+            " is translateable but does not equal ".
+              $start_exon." ".$start_exon_id."***\n";
+          $cloned_transcript->translation->start_Exon
+            ($exon);
+          $cloned_transcript->translation->start(1);
+          print "changing exon start and translation ".
+            "start\n";
+          #if($exon->phase == 1){
+            #my $tmp_start = $exon->start +2;
+            #$exon->start($tmp_start);
+            #print "Altering exon start by 2\n";
+          #}elsif($exon->phase == 2){
+          #  my $tmp_start = $exon->start +1;
+          #  $exon->start($tmp_start);
+          #  print "Altering exon start by 1\n";
+          #}else{
+          #  throw(id($exon).
+          #        " has a phase ".$exon->phase.
+          #        " which isn't [012]") 
+          #    if($exon->phase != 0);
+          #}
+          if($exon->phase == 0){
+            $cloned_transcript->translation->start(1);
+          }elsif($exon->phase == 1){
+            $cloned_transcript->translation->start(3);
+          }elsif($exon->phase == 2){
+            $cloned_transcript->translation->start(2);
+          }
+          $cloned_transcript->flush_Exons;
+          print "***Adding ".Exon_info($exon)."\n";
+          $cloned_transcript->add_Exon($exon);
+          foreach my $e(@exons){
+            print "***Adding ".Exon_info($e)."\n";
+            $cloned_transcript->add_Exon($e);
+          }
+          last FIVE_PRIME_END;
+        }
+      }else{
+          my $warn = "\n***".id($exon)." is being trimmed ".
+            "it is too short\n".Exon_info($exon)."\n\n";
+          logger_info($warn); 
+        }
+    }
+  }
+  if($cloned_transcript->end_Exon->length < $min_length){
+    my @exons = @{$cloned_transcript->get_all_Exons};
+    THREE_PRIME_END: while(@exons){
+      my $exon = pop @exons;
+      if($exon->length > $min_length){
+        my $unique_string = $exon->start.":".$exon->end.":".
+          $exon->strand.":".$exon->phase;
+        if($translateable{$unique_string} && $exon !=
+           $cloned_transcript->translation->end_Exon){
+          $cloned_transcript->translation->end_Exon($exon);
+          my $translation_end = $exon->end - 
+            $exon->start + 1 - $exon->end_phase;
+          my $tmp_end = $exon->end - $exon->end_phase;
+          $exon->end($tmp_end);
+          $cloned_transcript->translation->
+            ($translation_end);
+        }
+      }
+      $cloned_transcript->flush_Exons;
+      $cloned_transcript->add_Exon($exon);
+      foreach my $e(@exons){
+        $cloned_transcript->add_Exon($e);
+      }
+      last THREE_PRIME_END;
+    }
+  }
+  print "TRIMMED:";
+  print_peptide($cloned_transcript);
+  return $cloned_transcript;
+}
+
+
+
+=head2 _identify_translateable_exons
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : get a list of exons in the translation
+  Returntype: hashref
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub _identify_translateable_exons{
+  my ($transcript) = @_;
+  my $start_exon = 
+    $transcript->translation->start_Exon;
+  my $end_exon = 
+    $transcript->translation->end_Exon;
+  my %translateable;
+ EXON:foreach my $ex(@{$transcript->get_all_Exons}){
+    #print Exon_info($ex)."\n";
+    my $unique_string = $ex->start.":".$ex->end.":".
+      $ex->strand.":".$ex->phase;
+    if($ex ne $start_exon && !%translateable){
+      next EXON;
+    }
+    if($ex eq $end_exon){
+      $translateable{$unique_string} = $ex;
+      last EXON;
+    }
+    $translateable{$unique_string} = $ex;
+  }
+  return \%translateable;
+}
+
+
+
+
+
+
+sub _trim_translation_start{
+  my ($exon) = @_;
+  my $addition = 3 - $exon->phase;
+  $addition = 0 if ($exon->phase == 0);
+  my $tmp_start;
+  if($exon->strand == 1){
+    $tmp_start = $exon->start + $addition;
+    $exon->start($tmp_start);
+  }else{
+    $tmp_start = $exon->end - $addition;
+    $exon->end($tmp_start);
+  }
+  $exon->phase(0);
+  return $exon;
+}
+
+sub _trim_translation_end{
+  my ($exon) = @_;
+  my $tmp_end;
+  if($exon->strand == 1){
+    $tmp_end = $exon->end - $exon->end_phase;
+    $exon->end($tmp_end);
+  }else{
+    $tmp_end = $exon->start + $exon->end_phase;
+    $exon->start($tmp_end);
+  }
+  return $exon;
+}
 
 1;
