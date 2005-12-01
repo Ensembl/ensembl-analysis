@@ -6,15 +6,29 @@ Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds;
 
 =head1 SYNOPSIS
 
+my $clonemap = 
+  Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds->new(
+    -db         => $refdb,
+    -analysis   => $analysis_obj,
+    -database   => $EST_GENOMIC,
+  );
+
+$clonemap->fetch_input();
+$clonemap->run();
+$clonemap->write_output(); #writes to DB
 
 =head1 DESCRIPTION
 
-This object maps clone sequences to a genome,
-and writing the results as Dna Align Features. 
+This object maps clone sequences to a genome by using
+exonerate alignment program,and write the results as 
+Dna Align Features.
+It needs to have installed the following modules:
+Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds;
+Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds;
 
 =head1 CONTACT
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
+Post general queries to <ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 
@@ -36,7 +50,7 @@ use vars qw(@ISA);
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-
+  $self->{_refined_results}=[] ; 
   return $self;
 }
 
@@ -68,11 +82,14 @@ sub run {
   ## Run exonerat and get the output.
   my $clone_alignments = $exonerate->output();
 
-  my @selected_alignments = @{$self->filter_alignments($clone_alignments)};
-
+  my ($pointer, @selected_alignments) = @{$self->filter_alignments($clone_alignments)};
+ 
   my @refine_output;
+  
   foreach my $selected_alignment(@selected_alignments){
   
+ # print "Selected Alignment: ",$selected_alignment,"\n";
+
     my $clone_id=$selected_alignment->hseqname;
     my $chr_id = $selected_alignment->seqname;
     my $start = ($selected_alignment->start)-1000;
@@ -81,19 +98,20 @@ sub run {
     my @chr_name = split (/:/, $chr_id);
   
     my $input_id = $chr_name[0].":".$chr_name[1].":".$chr_name[2].":".$start.":".$end.":".$chr_name[5].":".$clone_id;
-
+  #print $input_id,"\n";
     my $refine = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
       -DB          => $self->db,
       -INPUT_ID    => $input_id,
-      -ANALYSIS    => $self->fecth_analysis("REFINE_CLONE_ENDS"),
+      -ANALYSIS    => $self->fetch_analysis("REFINE_CLONE_ENDS"),
     );
     
-    $self->refine_object($refine);
+   # $self->refined_result($refine);
     $refine ->fetch_input();
     $refine ->run();
-    push (@refine_output, $refine->output());
+    $self->refined_results($refine);
+   # push (@refine_output, $refine->output());
   }
-  return @refine_output;
+#  return @refine_output;
 }
 
 ##########################################################################
@@ -101,9 +119,10 @@ sub run {
 sub write_output {
 
   my ( $self, @output ) = @_;
- 
-  foreach my $runnable_output(@output){
-    $self->refine->write_output($runnable_output);
+   
+  foreach my $refine_object( @{ $self->refined_results }) {
+      print "xxx $refine_object\n" ; 
+      $refine_object->write_output();
   }
 }
 
@@ -122,15 +141,19 @@ sub fetch_analysis{
   return $analysis;
 }
 
-sub refine_object{
-  my ($self, $refine_object) = @_;
+sub refined_results{
+  my ($self, $refine_result) = @_;
+ 
+  if ($refine_result) { 
+   push @{$self->{_refined_results}}, $refine_result ; 
+  }  
+ 
+ # if(!$self->{'refined_results'}){
+ #   $self->{'refined_results'}=[];
+ # }
   
-  if(!$self->{'refine'}){
-    $self->{'refine'}='';
-  }
-  
-  $self->{'refine'}= $refine_object;
-  return $self->{'refine'};
+ # push(@{$self->{_refined_results}}, $refine_result);
+  return $self->{_refined_results};
 
 }
 
@@ -149,7 +172,7 @@ sub filter_alignments{
    
     my $clone_name = $clone_alignment->hseqname();
 
-    print $clone_name,"\n";
+  #  print $clone_name,"\n";
 
     if(!$clone_cluster{$clone_name}){
       $clone_cluster{$clone_name} = [];
@@ -259,8 +282,10 @@ sub filter_alignments{
         $selected_alignment = $chr_cluster{$chr_cluster_key}[0];
       }
     }
+   # print $selected_alignment->seqname,"\t",$selected_alignment->hseqname,"\t",$selected_alignment->start,"\n";
     push (@selected_alignments, $selected_alignment); 
   }
+ # print @selected_alignments,"\n";
   return \@selected_alignments;
 }
 
