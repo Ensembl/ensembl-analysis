@@ -15,7 +15,6 @@ my $clone =
     -db         => $refdb,
     -analysis   => $analysis_obj,
     -database   => $EST_GENOMIC,
-    -query_seqs => \@sequences,
   );
 
 $clone->fetch_input();
@@ -25,11 +24,11 @@ $clone->write_output(); #writes to DB
 =head1 DESCRIPTION
 
 This object maps clone sequences to a genome,
-and writing the results as Features. 
+and writing the results as DNA align Features. 
 
 =head1 CONTACT
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
+Post general queries to <ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 
@@ -42,7 +41,10 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds;
 use Bio::EnsEMBL::Analysis::Config::ExonerateCloneEnds;
-
+use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::SeqIO;
+use Bio::DB::Flat::OBDAIndex;
+use Bio::Seq;
 
 use vars qw(@ISA);
 
@@ -73,28 +75,36 @@ sub fetch_input {
     my $target_start = $2;
     my $target_end = $3;
     my $clone_id = $4;
+    
+    my $db =  new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->DNADB });
 
-    my $slice_adaptor = $self->DNADB->get_SliceAdaptor();
+    my $slice_adaptor = $db->get_SliceAdaptor();
 
     my $target_seq = $slice_adaptor->fetch_by_region('toplevel',$target_id, $target_start, $target_end);
 
     my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
-                               -db => [('/ecs2/scratch2/jb16/sheep/sheep_clones_idx')],
-                               -format    => 'fasta', );
-
+                               -db      => [('/ecs2/scratch2/jb16/sheep/sheep_clones_idx')],
+                               -format  => 'fasta', );
+    
     my $query_seq = $seqfetcher->get_Seq_by_acc($clone_id);
-
+    
     ##########################################
     # set up the target (genome)
     ##########################################
 
-    my $target = $target_seq;
+    my @target = ();
+    push (@target,$target_seq);
+
+   # my $target = $self->write_sequence_to_file($target_seq);
 
     ##########################################
     # set up the query (dna clone seq)
     ##########################################
 
-    my $query = $query_seq;
+    my @query = ();
+    push (@query,$query_seq);
+
+   # my $query = $self->write_sequence_to_file($query_seq);
  
     ##########################################
     # setup the runnable
@@ -116,14 +126,19 @@ sub fetch_input {
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
       -program            => $self->analysis->program_file,
       -analysis           => $self->analysis,
-      -target_file        => $target,
+      #-target_file        => $target,
+      -target_seqs        => \@target,
       -query_type         => $self->QUERYTYPE,
-      -query_file         => $query,
+     # -query_file         => $query,
+      -query_seqs         => \@query,
+
       %parameters,
     );
   
     $self->runnable($runnable);
-  
+
+   # unlink($target);
+   # unlink($query);
   }else{
   
     ##########################################
