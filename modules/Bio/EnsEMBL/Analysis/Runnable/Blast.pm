@@ -65,7 +65,7 @@ use vars qw(@ISA);
   Arg [Database]: string, database name/path
   Arg [Type]    : string, wu or ncbi to specify which type of input
   Arg [Unknown_error_string] : the string to throw if the blast runs fails
-  with an unexpected error 
+  with an unexpected error 4
   Function  : create a Blast runnable 
   Returntype: Bio::EnsEMBL::Analysis::Runnable::Blast
   Exceptions: throws if not given a database name or if not given
@@ -231,6 +231,8 @@ sub run_analysis {
       if(/FATAL:(.+)/){
         my $match = $1;
         print $match;
+	# clean up before dying
+	$self->delete_files;
         if($match =~ /no valid contexts/){
           die qq{"VOID"\n}; # hack instead
         }elsif($match =~ /Bus Error signal received/){
