@@ -3,12 +3,12 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
+Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds
 
 =head1 SYNOPSIS
 
   my $runnable = 
-    Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
+    Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
      -query_seqs     => \@q_seqs,
      -query_type     => 'dna',
      -target_seqs    => \@t_seqs,
@@ -20,7 +20,8 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
  
 =head1 DESCRIPTION
 
-This module handles a specific use of the Exonerate (G. Slater) program, to
+This module handles a specific use of the Exonerate (G. Slater) program, 
+to align clone sequences with genomic sequences.
 
 =head1 CONTACT
 
@@ -96,7 +97,7 @@ sub parse_results {
       $cigar_string .= $query_match_length.$match_type;
      
     }
-  print $cigar_string,"\n";
+#  print $cigar_string,"\n";
 
     my $feature = 
       $self->make_feature(

@@ -69,7 +69,7 @@ sub fetch_input {
 
   my $logic = $self->analysis->logic_name;
 
-  if ($self->input_id =~ /\w+:\w+:(\w+):(\w+):(\w+):\w+:(\w+)/){ 
+  if ($self->input_id =~ /\w+:[\w\.]+:([\w\.]+):(\w+):(\w+):\w+:(\w+)/){ 
    
     my $target_id= $1;
     my $target_start = $2;

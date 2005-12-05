@@ -83,35 +83,37 @@ sub run {
   my $clone_alignments = $exonerate->output();
 
   my ($pointer, @selected_alignments) = @{$self->filter_alignments($clone_alignments)};
- 
+
+ # foreach my $test( @selected_alignments){
+ #   print "This is : ",$test,"\n";
+ # }
+
   my @refine_output;
   
   foreach my $selected_alignment(@selected_alignments){
-  
- # print "Selected Alignment: ",$selected_alignment,"\n";
-
+    if ($selected_alignment ne ''){
+    print "Test here: ", $selected_alignment,"\n"; 
     my $clone_id=$selected_alignment->hseqname;
     my $chr_id = $selected_alignment->seqname;
     my $start = ($selected_alignment->start)-1000;
     my $end = ($selected_alignment->end)+1000;
 
+ my $clone_id=$selected_alignment->hseqname;
     my @chr_name = split (/:/, $chr_id);
   
     my $input_id = $chr_name[0].":".$chr_name[1].":".$chr_name[2].":".$start.":".$end.":".$chr_name[5].":".$clone_id;
-  #print $input_id,"\n";
+    print $input_id,"\n";
     my $refine = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
       -DB          => $self->db,
       -INPUT_ID    => $input_id,
       -ANALYSIS    => $self->fetch_analysis("REFINE_CLONE_ENDS"),
     );
     
-   # $self->refined_result($refine);
     $refine ->fetch_input();
     $refine ->run();
     $self->refined_results($refine);
-   # push (@refine_output, $refine->output());
+    }
   }
-#  return @refine_output;
 }
 
 ##########################################################################
@@ -121,7 +123,7 @@ sub write_output {
   my ( $self, @output ) = @_;
    
   foreach my $refine_object( @{ $self->refined_results }) {
-      print "xxx $refine_object\n" ; 
+      
       $refine_object->write_output();
   }
 }
@@ -143,16 +145,15 @@ sub fetch_analysis{
 
 sub refined_results{
   my ($self, $refine_result) = @_;
+
+ # if(!$self->{'refined_results'}){
+ #   $self->{'refined_results'}=[];
+ # }
  
   if ($refine_result) { 
    push @{$self->{_refined_results}}, $refine_result ; 
   }  
- 
- # if(!$self->{'refined_results'}){
- #   $self->{'refined_results'}=[];
- # }
   
- # push(@{$self->{_refined_results}}, $refine_result);
   return $self->{_refined_results};
 
 }
@@ -218,6 +219,7 @@ sub filter_alignments{
       # If the cluster contains more than one sequence, order the sequences and check if they are
       # separated by less than 1000 bases. If the separation is bigger don't count them as part of the cluster
       if (scalar(@{$chr_cluster{$chr_cluster_key}})>1){
+
         # counter to get the real number of alignment within the cluster.
         my $size_counter = 0;
 
