@@ -55,6 +55,7 @@ use vars qw (@ISA @EXPORT);
              clone_Exon
              Exon_info
              exon_length_less_than_maximum
+             transfer_supporting_evidence
             );
 
 
@@ -77,12 +78,13 @@ use vars qw (@ISA @EXPORT);
 
 sub print_Exon{
   my ($exon, $indent) = @_;
+  $indent = "" if(!$indent);
   throw("Must be passed an exon") if(!$exon);
   print Exon_info($exon, $indent)."\n";
-  foreach my $evidence(@{$exon->get_all_supporting_features}){
-    my $evidence_indent = $indent."\t";
-    print_Evidence($evidence, $evidence_indent);
-  }
+ # foreach my $evidence(@{$exon->get_all_supporting_features}){
+ #   my $evidence_indent = $indent."\t";
+ #   print_Evidence($evidence, $evidence_indent);
+ # }
 }
 
 
@@ -106,8 +108,9 @@ sub Exon_info{
   $indent = '' if(!$indent);
   my $coord_string = coord_string($exon);
   my $id = id($exon);
-  return $indent."EXON: ".$id." ".$coord_string." ".
-    $exon->phase." ".$exon->end_phase;
+  return $indent."EXON: ".$id." ".$coord_string." phase ".
+    $exon->phase." end_phase ".$exon->end_phase." length ".
+      $exon->length;
 }
 
 
@@ -168,9 +171,47 @@ sub exon_length_less_than_maximum{
 }
 
 
-#METHODS
 
-#transfer supporting evidence, a method to transfer the 
-#supporting evidence between 2 exons
+=head2 transfer_supporting_evidence
+
+  Arg [1]   : Bio::EnsEMBL::Exon
+  Arg [2]   : Bio::EnsEMBL::Exon
+  Function  : transfer evidence from the first exon to the 
+  second exon
+  Returntype: Bio::EnsEMBL::Exon
+  Exceptions: 
+  Example   : 
+
+=cut
+
+#Note this method modified the target exon which is 
+#passed in
+
+sub transfer_supporting_evidence{
+  my ($source_exon, $target_exon) = @_;
+  my %target_evidence;
+  my %source_evidence;
+  foreach my $sf
+    (@{$target_exon->get_all_supporting_features}){
+      my $unique_id = $sf->start."-".$sf->end."-".
+        $sf->strand."-".$sf->hseqname."-".$sf->cigar_string;
+      $target_evidence{$unique_id} = $sf;
+    }
+  foreach my $sf
+    (@{$source_exon->get_all_supporting_features}){
+      my $unique_id = $sf->start."-".$sf->end."-".
+        $sf->strand."-".$sf->hseqname."-".$sf->cigar_string;
+      if(!$target_evidence{$unique_id}){
+        $source_evidence{$unique_id} = $sf;
+      }
+    }
+
+  foreach my $sf(values(%source_evidence)){
+    logger_info("Adding ".$sf->hseqname." to the target exon");
+    $target_exon->add_supporting_feature($sf);
+  }
+  return $target_exon;
+}
+
 
 1;

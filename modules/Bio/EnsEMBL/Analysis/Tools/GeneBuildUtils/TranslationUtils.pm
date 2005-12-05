@@ -6,16 +6,21 @@ use Exporter;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
+use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
 use Bio::EnsEMBL::Translation;
 use vars qw (@ISA  @EXPORT);
 
 
 @ISA = qw(Exporter);
-@EXPORT = qw(print_Translation clone_Translation 
-             print_peptide Translation_info 
-             starts_with_met ends_with_stop 
-             contains_internal_stops);
+@EXPORT = qw(print_Translation 
+             clone_Translation 
+             print_peptide 
+             Translation_info 
+             starts_with_met 
+             ends_with_stop 
+             contains_internal_stops
+             print_Translation_genomic_coords);
 
 
 =head2 print_Translation
@@ -37,6 +42,9 @@ sub print_Translation{
   $indent = '' if(!$indent);
   print Translation_info($transcript, $indent)."\n";
   print_Translation_genomic_coords($transcript, $indent);
+  logger_warning("Transcript is less than 3bp can't print ".
+                 "any more info") if($transcript->length < 3);
+  return if($transcript->length < 3);
   my $met = starts_with_met($transcript);
   print $indent."peptide starts with a methionine\n" if($met);
   my $stop = ends_with_stop($transcript);
@@ -64,6 +72,9 @@ sub print_Translation{
 
 sub print_peptide{
   my ($transcript) = @_;
+  logger_warning("Transcript is less than 3bp can't print ".
+                 "Its peptide") if($transcript->length < 3);
+  return if($transcript->length < 3);
   print ">";
   print Translation_info($transcript, '')."\n";
   print $transcript->translate->seq."\n";
