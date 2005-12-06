@@ -84,6 +84,7 @@ sub fetch_input{
   if($self->BLAST_FILTER){
     $filter = $self->make_filter;
   }
+
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
     (
      -query => $self->query,
@@ -127,11 +128,14 @@ sub run {
         my $code = $1;
         # treat VOID errors in a special way; they are really just
         # BLASTs way of saying "won't bother searching because
-        # won't find anything"        
+        # won't find anything"
+
         if ($code ne 'VOID') {
           $self->failing_job_status($1);          
           throw("Blast::run failed $@");
         }
+      } elsif ($err) {
+        throw("Blast Runnable returned unrecognised error string: $err");
       }
     }
     $self->output($runnable->output);

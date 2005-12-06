@@ -92,15 +92,18 @@ sub new {
   $self->unknown_error_string('FAILED');
   $self->options('-cpus=1') if(!$self->options);
   ######################
-  $self->database($database);
+  $self->databases($database);
   $self->parser($parser);
   $self->filter($filter);
   $self->type($type) if($type);
   $self->unknown_error_string($unknown_error) if($unknown_error);
+
+  throw("No valid databases to search")
+      unless(@{$self->databases});
+
   throw("Must pass Bio::EnsEMBL::Analysis::Runnable::Blast ".
-        "a database name ") unless($self->database);
-  throw("Must pass Bio::EnsEMBL::Analysis::Runnable::Blast ".
-        "a parser object ") unless($self->parser);
+        "a parser object ") 
+      unless($self->parser);
 
   return $self;
 }
@@ -120,10 +123,51 @@ sub new {
 =cut
 
 
-sub database{
-  my $self = shift;
-  $self->{'database'} = shift if(@_);
-  return $self->{'database'};
+sub databases{
+  my ($self, @vals) = @_;
+
+  if (not exists $self->{databases}) {
+    $self->{databases} = [];
+  }
+
+  foreach my $val (@vals) {
+    my $dbname = $val;
+
+    my @dbs;
+
+    $dbname =~ s/\s//g;
+
+    # prepend the environment variable $BLASTDB if
+    # database name is not an absoloute path
+  
+    unless ($dbname =~ m!^/!) {
+      $dbname = $ENV{BLASTDB} . "/" . $dbname;
+    }
+  
+    # If the expanded database name exists put this in
+    # the database array.
+    #
+    # If it doesn't exist then see if $database-1,$database-2 exist
+    # and put them in the database array
+    
+    if (-f $dbname) {
+      push(@dbs,$dbname);
+    } else {
+      my $count = 1;
+      while (-f $dbname . "-$count") {
+        push(@dbs,$dbname . "-$count"); 	 
+        $count++; 	 
+      }
+    }
+
+    if (not @dbs) {
+      warning("Valid BLAST database could not be inferred from '$val'");
+    } else {
+      push @{$self->{databases}}, @dbs;
+    }
+  }
+
+  return $self->{databases};
 }
 
 
@@ -194,11 +238,8 @@ sub results_files{
 sub run_analysis {
   my ($self) = @_;
   
-  # This routine expands the database name into $db-1 etc for
-  # split databases
-  
-  my @databases = @{$self->fetch_databases};
-  foreach my $database (@databases) {
+  foreach my $database (@{$self->databases}) {
+
     my $db = $database;
     $db =~ s/.*\///;
     #allow system call to adapt to using ncbi blastall. 
@@ -277,62 +318,6 @@ sub run_analysis {
       die ($self->unknown_error_string."\n"); 
     }
   }
-}
-
-
-
-
-=head2 fetch_databases
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
-  Function  : from the database path given find all databases
-  and return an array. It first checks if the database name is a path
-  if not it adds the environment variable $BLASTDB to the database name
-  and checks if it exists. If the database does not exist is checks for
-  database_name-1 etc, if it finds one it will continue up the numbers 
-  untill it finds not more, this is to allow searching against all of one
-  very large database like swall or dbest with a single analysis
-  Returntype: arrayref
-  Exceptions: throws if it finds no databases
-  Example   : 
-
-=cut
-
-
-sub fetch_databases {
-  my ($self) = @_;
-  my @databases;
-
-  my $dbname = $self->database; 
-  $dbname =~ s/\s//g;
-  
-  # prepend the environment variable $BLASTDB if
-  # database name is not an absoloute path
-  
-  unless ($dbname =~ m!^/!) {
-    $dbname = $ENV{BLASTDB} . "/" . $dbname;
-  }
-  
-  # If the expanded database name exists put this in
-  # the database array.
-  #
-  # If it doesn't exist then see if $database-1,$database-2 exist
-  # and put them in the database array
-  
-  if (-f $dbname) {
-    push(@databases,$dbname);
-  } else {
-    my $count = 1;
-    while (-f $dbname . "-$count") {
-      push(@databases,$dbname . "-$count"); 	 
-      $count++; 	 
-    }
-  }
-
-  if (scalar(@databases) == 0) {
-    throw("No databases exist for " . $dbname);
-  }
-  return \@databases;
 }
 
 
