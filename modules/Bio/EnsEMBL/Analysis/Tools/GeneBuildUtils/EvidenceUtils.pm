@@ -101,3 +101,10 @@ sub create_feature{
   $feature->slice($slice);
   return $feature;
 }
+
+#Decided against wrapping the get gene/transcript by evidence 
+#methods as don't really need to the scripts themselves can do that
+#themselves!
+
+
+1;

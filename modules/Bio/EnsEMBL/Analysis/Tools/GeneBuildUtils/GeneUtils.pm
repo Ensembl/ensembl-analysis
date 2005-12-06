@@ -10,7 +10,7 @@ Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils - utilities for gene ob
   or 
 
   use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils 
-
+  
   to get all methods
 
 =head1 DESCRIPTION
@@ -43,11 +43,14 @@ use Exporter;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(print_Gene clone_Gene Gene_info);
+@EXPORT = qw(print_Gene 
+             clone_Gene 
+             Gene_info
+             prune_Exons);
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string);
 use Bio::EnsEMBL::Gene;
@@ -127,15 +130,68 @@ sub Gene_info{
   my ($gene) = @_;
   my $coord_string = coord_string($gene);
   my $id = id($gene);
-  return "GENE: ".$id." ".$coord_string." ".$gene->analysis->logic_name;
+  return "GENE: id ".$id." ".$coord_string." logic_name ".$gene->analysis->logic_name;
 }
 
 
 
 
-##METHODS NEEDED
+=head2 prune_Exons
 
-#prune_exons, remove duplicate exons from different transcripts from a gene
-#list_evidence, a list of ids that support the gene
+  Arg [1]   : Bio::EnsEMBL::Gene
+  Function  : remove duplicate exons between Transcripts but
+  ensure translation and other exons are maintained
+  Returntype: 
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
+sub prune_Exons{
+  my ($gene) = @_;
+  my @unique_exons;
+  # keep track of all unique exons found so far to avoid making 
+  # duplicates need to be very careful about 
+  # translation->start_Exon and translation->end_Exon
+  my $cloned_gene = clone_Gene($gene);
+  foreach my $tran (@{$cloned_gene->get_all_Transcripts}) {
+    my @newexons;
+    foreach my $exon (@{$tran->get_all_Exons}) {
+      my $found;
+      #always empty
+    UNI:foreach my $uni (@unique_exons) {
+        if ($uni->start  == $exon->start  &&
+            $uni->end    == $exon->end    &&
+            $uni->strand == $exon->strand &&
+            $uni->phase  == $exon->phase  &&
+            $uni->end_phase == $exon->end_phase
+           ) {
+          $found = $uni;
+          last UNI;
+        }
+      }
+      if (defined($found)) {
+        push(@newexons,$found);
+        if ($exon == $tran->translation->start_Exon){
+          $tran->translation->start_Exon($found);
+        }
+        if ($exon == $tran->translation->end_Exon){
+          $tran->translation->end_Exon($found);
+        }
+      } else {
+        push(@newexons,$exon);
+        push(@unique_exons, $exon);
+      }
+    }          
+    $tran->flush_Exons;
+    foreach my $exon (@newexons) {
+      $tran->add_Exon($exon);
+    }
+  }
+  return $cloned_gene;
+}
+
 
 1;

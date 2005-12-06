@@ -78,6 +78,7 @@ use vars qw (@ISA @EXPORT);
              split_Transcript
              replace_stops_with_introns
              remove_initial_or_terminal_short_exons
+             get_evidence_ids
             );
 
 
@@ -490,7 +491,7 @@ sub has_no_unwanted_evidence{
   $ids = {} if(!$ids);
   $ids->{'NG_'} = 1;
   my $return = 1;
-  my $evidence = _get_evidence_ids($transcript);
+  my $evidence = get_evidence_ids($transcript);
   foreach my $evidence(keys(%$evidence)){
     foreach my $unwanted(keys(%$ids)){
       if($evidence =~ /$unwanted/){
@@ -505,7 +506,7 @@ sub has_no_unwanted_evidence{
 
 
 
-=head2 _get_evidence_ids
+=head2 get_evidence_ids
 
   Arg [1]   : Bio::EnsEMBL::Transcript
   Function  : gets a hashref of all the evidence supporting
@@ -517,7 +518,7 @@ sub has_no_unwanted_evidence{
 =cut
 
 
-=head2 _get_evidence_ids
+=head2 get_evidence_ids
 
   Arg [1]   : Bio::EnsEMBL::Transcript
   Function  : get a unique hash of evidence ids from the given
@@ -530,7 +531,7 @@ sub has_no_unwanted_evidence{
 =cut
 
 
-sub _get_evidence_ids{
+sub get_evidence_ids{
   my ($transcript) = @_;
   my %hash;
   foreach my $sf(@{$transcript->get_all_supporting_features}){
@@ -731,7 +732,7 @@ sub coding_coverage{
 
 sub list_evidence{
   my ($transcript) = @_;
-  my $hash = _get_evidence_ids($transcript);
+  my $hash = get_evidence_ids($transcript);
   my @ids =  keys(%$hash);
   return \@ids;
 }
@@ -1014,7 +1015,7 @@ sub replace_stops_with_introns{
 
     if (@coords > 1) {
       # the codon is split by an intron. Messy. Leave these for now
-      print STDERR "Stop is interruped by intron. Returning undef;\n";
+      logger_warning("TranscriptUtils:replace_stops_with_introns Stop is interruped by intron. Returning undef");
       return undef;
     } 
     my ($stop) = @coords;
@@ -1276,7 +1277,6 @@ sub _identify_translateable_exons{
     $transcript->translation->end_Exon;
   my %translateable;
  EXON:foreach my $ex(@{$transcript->get_all_Exons}){
-    #print Exon_info($ex)."\n";
     my $unique_string = $ex->start.":".$ex->end.":".
       $ex->strand.":".$ex->phase;
     if($ex ne $start_exon && !%translateable){

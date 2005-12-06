@@ -81,10 +81,10 @@ sub print_Exon{
   $indent = "" if(!$indent);
   throw("Must be passed an exon") if(!$exon);
   print Exon_info($exon, $indent)."\n";
- # foreach my $evidence(@{$exon->get_all_supporting_features}){
- #   my $evidence_indent = $indent."\t";
- #   print_Evidence($evidence, $evidence_indent);
- # }
+  foreach my $evidence(@{$exon->get_all_supporting_features}){
+    my $evidence_indent = $indent."\t";
+    print_Evidence($evidence, $evidence_indent);
+  }
 }
 
 
@@ -137,6 +137,7 @@ sub clone_Exon{
   $newexon->strand     ($exon->strand);
   $newexon->dbID       ($exon->dbID);
   $newexon->slice      ($exon->slice);
+  $newexon->stable_id  ($exon->stable_id);
   $newexon->analysis   ($exon->analysis);
   foreach my $sf(@{$exon->get_all_supporting_features}){
     my $newsf = clone_Evidence($sf);

@@ -220,6 +220,8 @@ sub clone_Translation{
   my $old_start_id_string = $start_exon->start."-".
     $start_exon->end."-".$start_exon->strand;
   my $new_start_Exon = $new_exons{$old_start_id_string};
+  throw("Failed to find exon ".$old_start_id_string." for ".
+        id($transcript)) if(!$new_start_Exon);
   $newtranslation->start_Exon($new_start_Exon);
   $newtranslation->start($translation->start);
   my $end_exon = $translation->end_Exon;
