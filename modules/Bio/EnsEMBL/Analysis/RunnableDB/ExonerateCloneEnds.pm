@@ -65,11 +65,15 @@ sub new {
 }
 
 sub fetch_input {
-  my ($self) = @_;
+  my ($self, $chunkLine) = @_;
 
   my $logic = $self->analysis->logic_name;
 
-  if ($self->input_id =~ /\w+:[\w\.]+:([\w\.]+):(\w+):(\w+):\w+:(\w+)/){ 
+  my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
+                               -db      => [('/ecs2/scratch2/jb16/sheep/sheep_clones_idx')],
+                               -format  => 'fasta', );
+
+  if ($self->input_id =~ /\w+:[\w\_\.]+:([\w\.]+):(\w+):(\w+):\w+:(\w+)/){ 
    
     my $target_id= $1;
     my $target_start = $2;
@@ -81,10 +85,6 @@ sub fetch_input {
     my $slice_adaptor = $db->get_SliceAdaptor();
 
     my $target_seq = $slice_adaptor->fetch_by_region('toplevel',$target_id, $target_start, $target_end);
-
-    my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
-                               -db      => [('/ecs2/scratch2/jb16/sheep/sheep_clones_idx')],
-                               -format  => 'fasta', );
     
     my $query_seq = $seqfetcher->get_Seq_by_acc($clone_id);
     
@@ -95,8 +95,6 @@ sub fetch_input {
     my @target = ();
     push (@target,$target_seq);
 
-   # my $target = $self->write_sequence_to_file($target_seq);
-
     ##########################################
     # set up the query (dna clone seq)
     ##########################################
@@ -104,8 +102,6 @@ sub fetch_input {
     my @query = ();
     push (@query,$query_seq);
 
-   # my $query = $self->write_sequence_to_file($query_seq);
- 
     ##########################################
     # setup the runnable
     ##########################################
@@ -126,10 +122,8 @@ sub fetch_input {
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
       -program            => $self->analysis->program_file,
       -analysis           => $self->analysis,
-      #-target_file        => $target,
       -target_seqs        => \@target,
       -query_type         => $self->QUERYTYPE,
-     # -query_file         => $query,
       -query_seqs         => \@query,
 
       %parameters,
@@ -137,8 +131,6 @@ sub fetch_input {
   
     $self->runnable($runnable);
 
-   # unlink($target);
-   # unlink($query);
   }else{
   
     ##########################################
@@ -163,33 +155,69 @@ sub fetch_input {
     # set up the query (dna clone seq)
     ##########################################
 
-    my ($query_file, $chunk_number, $chunk_total);
+    my @queryseqs = ();
+#
+#    # Get the list of query sequence ids that belong to a chunk
+#    my @seq_ids = @{$self->input_id};
+#
+#    foreach my $seq_id(@seq_ids){
+#
+#    # Get the sequence object for each of the query sequences
+#    my $query_seq = $seqfetcher->get_Seq_by_acc($seq_id);
+#
+#    # Add each query sequence object to the array of sequences that will be passed to exonerate
+#    push (@queryseqs, $query_seq);
+#
+#    }
 
-    my $query = $self->QUERYSEQS;
+#    my $query = $self->QUERYSEQS;
+#
+#    if ( -e $query and -s $query ) {
+#
+#      # query seqs is a single file; input id will correspond to a chunk number
+#      $query_file = $query;
+    my $iid_regexp = $self->IIDREGEXP;
+#   
+    print  $iid_regexp,"\n";
 
-    if ( -e $query and -s $query ) {
+     if (not defined $iid_regexp){
+      throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your single fasta file" )
+    }
+#
+    print $self->input_id,"\n";
 
-      # query seqs is a single file; input id will correspond to a chunk number
-      $query_file = $query;
-      my $iid_regexp = $self->IIDREGEXP;
+    my ( $chunk_number, $chunk_total ) = $self->input_id =~ /$iid_regexp/;
+    
+    print $chunk_number,"\n";
+    print $chunk_total,"\n";
 
-      if (not defined $iid_regexp){
-        throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your single fasta file" )
-      }
+   # if(!$chunk_number || !$chunk_total){
+   #   throw "I can't make sense of your input id  using the IIDREGEXP in the config!\n";
+   # }
 
-      ( $chunk_number, $chunk_total ) = $self->input_id =~ /$iid_regexp/;
-      if(!$chunk_number || !$chunk_total){
-        throw "I can't make sense of your input id  using the IIDREGEXP in the config!\n";
-      }
+    my $seq_ids = @{$chunkLine}[$chunk_number];
+    chomp($seq_ids);
+    print $seq_ids,"\n";
+    my @ids_list = split (/:/,$seq_ids);
 
-      #store this for reference later
-      $self->query_file($query_file);
+    foreach my $id(@ids_list){
 
-    } else {
+      # Get the sequence object for each of the query sequences
+      my $query_seq = $seqfetcher->get_Seq_by_acc($id);
 
-      throw("'$query'  must refer to a single fasta file with all probe sequences referenced by clone_probe_id\n");
+      # Add each query sequence object to the array of sequences that will be passed to exonerate
+      push (@queryseqs, $query_seq);
 
     }
+
+#      #store this for reference later
+#      $self->query_file($query_file);
+#
+#    } else {
+#
+#      throw("'$query'  must refer to a single fasta file with all probe sequences referenced by clone_probe_id\n");
+#
+#    }
 
     ##########################################
     # setup the runnable
@@ -214,9 +242,10 @@ sub fetch_input {
       -analysis           => $self->analysis,
       -target_file        => $target,
       -query_type         => $self->QUERYTYPE,
-      -query_file         => $query_file,
-      -query_chunk_number => $chunk_number,
-      -query_chunk_total  => $chunk_total,
+     # -query_file         => $query_file,
+     # -query_chunk_number => $chunk_number,
+     # -query_chunk_total  => $chunk_total,
+      -query_seqs         => \@queryseqs,
       %parameters,
     );
   

@@ -83,7 +83,7 @@ use vars qw( %Config );
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_cow_clones',#'jb16_sheep_human_clones',  
+        -dbname => 'jb16_sheep_cow',#'jb16_sheep_human_clones',  
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
@@ -102,7 +102,7 @@ use vars qw( %Config );
       QUERYSEQS    => '/ecs2/scratch2/jb16/sheep/sheep_clones.fa',
 
       # must supply one, since the queryseqs MUST be a single file 
-      IIDREGEXP    => '(\w+):(\w+):(\w+):(\w+):(\w+):(\w+):(\w+)',
+      IIDREGEXP    => '(\w+):([\w_\.]+):([\w\.]+):([-\w]+):([-\w]+):([-\w]+):(\w+)',
       DNADB => {
         -dbname => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
         -host   => 'ecs2',
@@ -111,13 +111,13 @@ use vars qw( %Config );
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_cow_clones',#'jb16_sheep_human_clones',  
+        -dbname => 'jb16_sheep_cow',#'jb16_sheep_human_clones',  
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
         -pass   => 'ensembl',
         },
-      OPTIONS   => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
+      OPTIONS   => '--model affine:local --refine full --gapopen -12 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
     },
   }
 );
