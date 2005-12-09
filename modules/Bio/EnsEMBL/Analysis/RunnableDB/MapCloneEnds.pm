@@ -123,21 +123,13 @@ sub run {
     }
   
     if (($line =~ /^\s+<\/trace>/) && $single_entry == 1) {
-      # Empty the array where data is going to be stored
-#      @cloneEnd = ();
 
-      # Add cloneEnd, clone length and clone standard deviation to the array
-#      push (@cloneEnd, $trace_name);
-#      push (@cloneEnd, $insert_size);  
-#      push (@cloneEnd, $insert_stdev);
-   
       # Create the clone object that will store information of corresponding cloneEnds
       if (!$clones{$clone_id}){
         $clones{$clone_id}=[];
       }
       
       # Add the information of a cloneEnd to the corresponding clone
- #     push (@{$clones{$clone_id}}, @cloneEnd);
       push (@{$clones{$clone_id}}, $trace_name);
       push (@{$clones{$clone_id}}, $insert_size);  
       push (@{$clones{$clone_id}}, $insert_stdev);
@@ -153,15 +145,13 @@ sub run {
   close IN;
  
   print "I'm in step 2\n";
+
+  # Open the file with the list of seq_ids per chunks and load it into an array to be used by fetch_input
   open (INFILE,"<$chunks_list");
+
   my @chunks_list = <INFILE>;
+
   close INFILE;
-#  $self->chunks_list(\@chunks_list);
-
-#  my %chunks = %{$self->create_chunks(\%clones)};
-
-  #foreach chunk run the more generic exonerate analysis. 
-  #foreach my $chunk_id (keys %chunks){
 
   # Run ExonerateClones to get a first idea on the aligned/location of the clone Ends 
     my $exonerate = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
@@ -174,45 +164,38 @@ sub run {
 
     $exonerate->run();
   
-  ## Run exonerate and get the output.
+  # Run exonerate and get the output.
   my $clone_alignments = $exonerate->output();
-#  }
-  print "I'm in step 3\n";
-  my ($pointer, @selected_alignments) = @{$self->filter_alignments($clone_alignments, \%clones, \%cloneEnd_ids)};
 
- # foreach my $test( @selected_alignments){
- #   print "This is : ",$test,"\n";
- # }
+  print "I'm going to filter the alignments\n";
+  my @selected_alignments = @{$self->filter_alignments($clone_alignments, \%clones, \%cloneEnd_ids)};
 
- # my @refine_output;
+  foreach my $selected_alignment(@selected_alignments){
+    
+    if ($selected_alignment ne ''){
+    
+      #print "Test here: ", $selected_alignment,"\n"; 
+      my $clone_id=$selected_alignment->hseqname;
+      my $chr_id = $selected_alignment->seqname;
+      my $start = ($selected_alignment->start)-1000;
+      my $end = ($selected_alignment->end)+1000;
+      print "Clone id: ",$clone_id,"\n";
+      my @chr_name = split (/:/, $chr_id);
   
-    foreach my $selected_alignment(@selected_alignments){
-    
-      if ($selected_alignment ne ''){
-    
-        #print "Test here: ", $selected_alignment,"\n"; 
-        my $clone_id=$selected_alignment->hseqname;
-        my $chr_id = $selected_alignment->seqname;
-        my $start = ($selected_alignment->start)-1000;
-        my $end = ($selected_alignment->end)+1000;
+      my $input_id = $chr_name[0].":".$chr_name[1].":".$chr_name[2].":".$start.":".$end.":".$chr_name[5].":".$clone_id;
+      #print $input_id,"\n";
 
-        my @chr_name = split (/:/, $chr_id);
-  
-        my $input_id = $chr_name[0].":".$chr_name[1].":".$chr_name[2].":".$start.":".$end.":".$chr_name[5].":".$clone_id;
-        #print $input_id,"\n";
-
-        my $refine = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
-                     -DB          => $self->db,
-                     -INPUT_ID    => $input_id,
-                     -ANALYSIS    => $self->fetch_analysis("REFINE_CLONE_ENDS"),
-                     );
+      my $refine = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
+                   -DB          => $self->db,
+                   -INPUT_ID    => $input_id,
+                   -ANALYSIS    => $self->fetch_analysis("REFINE_CLONE_ENDS"),
+                   );
     
-        $refine ->fetch_input();
-        $refine ->run();
-        $self->refined_results($refine);
-      }
+      $refine ->fetch_input();
+      $refine ->run();
+      $self->refined_results($refine);
     }
-#  }
+  }
 }
 
 ##########################################################################
@@ -257,107 +240,6 @@ sub refined_results{
 
 }
 
-#sub chunks_list{
-#  my ($self, $chunks_list) = @_;
-#
-#  if ($chunks_list) { 
-#   push @{$self->{_chunks_list}}, $chunks_list; 
-#  }  
-#
-#  return $self->{_chunks_list};
-#
-#}
-
-sub create_chunks{
-  my ($self, $clones2chunk)= @_;
- 
-  my %clones = %{$clones2chunk};
-  my %chunks; # hash where the arrays of seuqence chunks will be stored
-  my @clone_pairs = ();
-  my @single_clones = ();
-
-  #Counter of files added to a chunk, once reacher a certain number of files, let's say 30,
-  # the chunk is send to the pipeline to run exonerate.
-  my $files_in_chunk = 0;
-  my $single_files_chunk = 0;
-
-  my $chunk_number = 0;   
-
-  foreach my $clone (keys %clones){
-    
-    # Check if the clone has two clone ends or it's lacking one of the ends
-    if ($clones{$clone}[3]){
-
-      # check the number of files in the chunk
-      if ($files_in_chunk < 30){
-
-        # Add the two cloneEnd ids to the list of files in the same chunk
-	push (@clone_pairs, $clones{$clone}[0]);
-	push (@clone_pairs, $clones{$clone}[3]);
-
-        # Plus 2 becuase two files are added each time in the case of cloneEnd pairs
-        $files_in_chunk += 2;
- 
-      # If files in chunk is 30 the load the chunk to the hash and start a new chunk     
-      }elsif ($files_in_chunk == 30){
-        
-        # Load the chunk to the hash
-	$chunks{$chunk_number}= @clone_pairs;
-     
-        # Empty the existing hash
-        @clone_pairs = ();
-
-        # Add the first two elements to the hash
-      	push (@clone_pairs, $clones{$clone}[0]);
-	push (@clone_pairs, $clones{$clone}[3]);
-
-        # Files in chunk is set to 2 becuase two files were already added when starting new chunk
-        $files_in_chunk = 2;
- 
-        # Add one to change the chunk number in the hash.
-        $chunk_number++;    
-      }
-    }else{
-      # Hash where you add the sequences where there are no CloneEnd pairs
-      if ($single_files_chunk < 30){
-        push (@single_clones, $clones{$clone}[0]);
-        $single_files_chunk++;
-      }else{
-        # Load the chunk to the hash
-        $chunks{$chunk_number}= @single_clones;
-
-        # Empty the existing hash
-        @single_clones = ();
-
-        # Add the first element to the hash
-        push (@single_clones, $clones{$clone}[0]);
-
-        $single_files_chunk = 0;
-        # Add one to change the chunk number in the hash.
-        $chunk_number++;         
-
-      }
-    }
-  }
-
-  # Add the last chunk of pairs to the hash (this is needed in case the number of sequences is not
-  # a multiple of 30)
-  if ($files_in_chunk > 2 && $files_in_chunk < 30){
-    $chunks{$chunk_number}= @clone_pairs;
-
-    # add one to chunk number becuase single_cloneEnds array was not added yet.
-    $chunk_number++;
-  }
-
-  # Add the last chunk of single_cloneEnds to the hash
-  if ($single_files_chunk < 30){
-
-  # Add single cloneEnd array.
-  $chunks{$chunk_number} = @single_clones;
-  }
-
-  return \%chunks;
-}
 
 sub filter_alignments{
 
@@ -372,15 +254,19 @@ sub filter_alignments{
   # Group alignments by clone name
   foreach my $clone_alignment(@{$clone_alignments}){
    
+    # Get the cloneEnds name
     my $clone_name = $clone_alignment->hseqname();
 
     # Get the clone to which the cloneEnds belongs
     my $complete_clone_name = $cloneEnd_ids{$clone_name};
 
     # Store the clone name in a hash, so only selected clones will be checked in the next step
+    # the object stored in the hash is not important, what we really want to get is a list of 
+    # unique clones(complete_clone_name) with no duplicate entries
     $aligned_clones{$complete_clone_name} = $clone_name;
 
   #  print $clone_name,"\n";
+
 
     if(!$clone_cluster{$clone_name}){
       $clone_cluster{$clone_name} = [];
@@ -388,47 +274,68 @@ sub filter_alignments{
     push (@{$clone_cluster{$clone_name}}, $clone_alignment);
   }
 
+
   foreach my $pair (keys %aligned_clones){
     
     # Check if the clone has two cloneEnds
     if ($clones{$pair}[3]){
-      
+
+      # Chenk if at least one of the cluster pair alignments is selected.
+      # in case none is selected it will send cloneEnds to the single_filter
+      my $cluster_selected = 0;
       # Get the length of the clone and the name of the two cloneEnds
-      my $clone_length = $clones{$pair}[1]+$clones{$pair}[2];
+      my $clone_length = $clones{$pair}[1]+$clones{$pair}[2]+200000;
       my $first_cloneEnd =$clones{$pair}[0];
       my $second_cloneEnd =$clones{$pair}[3];
 
+     # print "This is the first: ",$clone_cluster{$first_cloneEnd},"\n";
+      my @first_cloneEnd_clean  = @{$self->clean_clusters($clone_cluster{$first_cloneEnd})};
+      my @second_cloneEnd_clean = @{$self->clean_clusters($clone_cluster{$second_cloneEnd})};
+
       # Compare all the alignments in both cloneEnds to find those which pair according to the
       # position where they align  and the length of the clone (distance between both cloneEnds
-      foreach my $fa (@{$clone_cluster{$first_cloneEnd}}){
-        foreach my $sa (@{$clone_cluster{$second_cloneEnd}}){
+      foreach my $fa (@first_cloneEnd_clean){
+	
+        foreach my $sa (@second_cloneEnd_clean){
+	
           my $chr_first = $fa->seqname();
           my $chr_second = $sa->seqname();
-                         
+   #       print  "First name: ",$chr_first,"  Second name: ",$chr_second,"\n";          
           if ($chr_first eq $chr_second){
                            
-            my $diff = $fa->start()-$sa->end();
+            my $diff = ($fa->start())-($sa->end());
             my $abs_diff = abs($diff);
+           # print "Absolute difference: ",$abs_diff,"\n";
             if ($abs_diff <= $clone_length){
               # In case two alignments are selected store them for the next exonerate step
               push (@selected_alignments, $fa);
               push (@selected_alignments, $sa); 
+              $cluster_selected = 1;
 	    }
           }
         }
       }
+      if ($cluster_selected == 0){
+        # send all the alignments for that cloneEnd stored in clone_cluster to the single_filter_alignment 
+        my $first_selected_align = $self->single_filter_alignments($clone_cluster{$first_cloneEnd});
+        my $second_selected_align = $self->single_filter_alignments($clone_cluster{$second_cloneEnd});
+       # add the result of filtering to the selected alignments array.
+        push (@selected_alignments, ${$first_selected_align});
+        push (@selected_alignments, ${$second_selected_align});
+      }
     }else{
-      # if the clone has only one cloneEnds do:
+	"I enter to the single_cloneEnd\n";
+      # if the clone has only one cloneEnd do:
       # get the name of the cloneEnds,
       my $first_cloneEnd =$clones{$pair}[0];
       # send all the alignments for that cloneEnd stored in clone_cluster to the single_filter_alignment 
-      my $selected_align = single_filter_alignment(\$clone_cluster{$first_cloneEnd});
+      my $selected_align = $self->single_filter_alignments($clone_cluster{$first_cloneEnd});
       # add the result of filtering to the selected alignments array.
       push (@selected_alignments, $selected_align);
       
     }
   }
-
+  print "selected in filter alignments: ",@selected_alignments,"\n";
   return \@selected_alignments;
 
 }
@@ -440,6 +347,7 @@ sub single_filter_alignments{
   # Cluster alignments obtained for each clone
   my %chr_cluster = ();
   
+#  print "Selected single filtering\n";
   foreach my $alignment(@{$single_clone_alignments}){
    
     my $hit_name= $alignment->hseqname;
@@ -497,9 +405,9 @@ sub single_filter_alignments{
         
         # if the two condiditions are acomplished check if the alignments form a cluster
         if ($first_alignment!=0 && $end_of_cluster == 0){
-        
+	  my $cloneEnd_distance = abs($ordered_align->start)-($previous_end);
           # if the distance is sorter that the threshold the alignments cluster
-          if((($ordered_align->start)-($previous_end))<1000 && (($ordered_align->start)-($previous_end))>0){
+          if($cloneEnd_distance<4000){
           
             if(!$cluster_alignments{$ordered_align->hseqname}){
               $cluster_alignments{$ordered_align->hseqname} = [];
@@ -537,6 +445,96 @@ sub single_filter_alignments{
     }
   }
   # print $selected_alignment->seqname,"\t",$selected_alignment->hseqname,"\t",$selected_alignment->start,"\n";
-  return $selected_alignment; 
+  print "Selected in single filtering: ",$selected_alignment,"\n";
+  return \$selected_alignment; 
 }
 
+sub clean_clusters{
+
+  my ($self, $clone_cluster_alignments) = @_;
+ 
+  # Cluster alignments obtained for each clone
+  my %chr_cluster = ();
+  
+  print "I'm in here:", $clone_cluster_alignments,"\n";
+  foreach my $alignment(@{$clone_cluster_alignments}){
+ #    print "Alignment: ",$alignment,"\n";
+    my $hit_name= $alignment->hseqname;
+    my $chr_name= $alignment->seqname;
+  
+    # print $seqname,"\n";
+   
+    # Generate a unique key that will be found only when only clone aligns more than
+    # once against the same chromosomal sequence
+    my $cluster_key = $chr_name."-".$hit_name;
+
+    # check if there is any sequence aligned from the same clone against the chromosome
+    # In case there isn't, start the count of alignments for that clone.
+    if(!$chr_cluster{$cluster_key}){
+      $chr_cluster{$cluster_key} = [];
+    }
+    push (@{$chr_cluster{$cluster_key}}, $alignment);
+  }
+
+  my @selection = ();
+
+  # For each clone check how many clusters were obtained.
+  # Check the clusters and selected the best alignment cluster
+  # to be used as template for the more exhaustive exonerate alignment.
+
+  foreach my $chr_cluster_key (keys %chr_cluster){
+    # If the cluster contains more than one sequence, order the sequences and check if they are
+    # separated by less than 1000 bases. If the separation is bigger don't count them as part of the cluster
+    if (scalar(@{$chr_cluster{$chr_cluster_key}})>1){
+	print "In the same chromosome\n";
+      # get the first aligment of the cluster to be used in the exonerate step
+      my $first_selected_alignment;
+
+      # order the alignments in the cluster to be able to check the real distance among them
+      my  @ordered_aligns = sort{$a->hstart() <=> $b->hstart()} @{$chr_cluster{$chr_cluster_key}};    
+
+      my $initial_end = 0;
+      my $initial_alignment;
+    
+      my %cluster_alignments = ();
+
+      # Use this value to avoid the comparison of the first alignment against null, that in case the start
+      # point of the alignment is lower than the cutoff which lead to the clustering of the first alignment
+      # with a NULL alignment
+      my $first_alignment = 0;
+      
+      foreach my $ordered_align(@ordered_aligns){
+        
+        # if the two condiditions are acomplished check if the alignments form a cluster
+        if ($first_alignment!=0){
+     
+	my $cloneEnd_distance = abs(($ordered_align->start)-($initial_end));
+	print "Clean distance: ",$cloneEnd_distance,"\n";
+          # if the distance is sorter that the threshold the alignments cluster
+          if($cloneEnd_distance < 4000){
+ 
+            $initial_alignment = $ordered_align;
+            $initial_end = $ordered_align->end;
+  
+          }else{
+            push (@selection, $initial_alignment);
+            $initial_alignment = $ordered_align;
+            $initial_end = $ordered_align->end;         
+          }
+        }
+        # Change this value after the first alignment is checked.
+        if ($first_alignment == 0){
+          $first_alignment = 1;
+          $initial_alignment = $ordered_align;
+          $initial_end = $ordered_align->end;
+        }
+      }
+
+    }else{
+      push (@selection, $chr_cluster{$chr_cluster_key}[0]);
+    }
+  }
+  # print $selected_alignment->seqname,"\t",$selected_alignment->hseqname,"\t",$selected_alignment->start,"\n";
+  print"Selected in clean Clusters: ", scalar(@selection),"\n";
+  return \@selection; 
+}

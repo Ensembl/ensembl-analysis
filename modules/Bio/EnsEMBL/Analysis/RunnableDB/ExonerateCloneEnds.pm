@@ -156,34 +156,15 @@ sub fetch_input {
     ##########################################
 
     my @queryseqs = ();
-#
-#    # Get the list of query sequence ids that belong to a chunk
-#    my @seq_ids = @{$self->input_id};
-#
-#    foreach my $seq_id(@seq_ids){
-#
-#    # Get the sequence object for each of the query sequences
-#    my $query_seq = $seqfetcher->get_Seq_by_acc($seq_id);
-#
-#    # Add each query sequence object to the array of sequences that will be passed to exonerate
-#    push (@queryseqs, $query_seq);
-#
-#    }
 
-#    my $query = $self->QUERYSEQS;
-#
-#    if ( -e $query and -s $query ) {
-#
-#      # query seqs is a single file; input id will correspond to a chunk number
-#      $query_file = $query;
     my $iid_regexp = $self->IIDREGEXP;
-#   
+   
     print  $iid_regexp,"\n";
 
      if (not defined $iid_regexp){
       throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your single fasta file" )
     }
-#
+
     print $self->input_id,"\n";
 
     my ( $chunk_number, $chunk_total ) = $self->input_id =~ /$iid_regexp/;
@@ -191,10 +172,7 @@ sub fetch_input {
     print $chunk_number,"\n";
     print $chunk_total,"\n";
 
-   # if(!$chunk_number || !$chunk_total){
-   #   throw "I can't make sense of your input id  using the IIDREGEXP in the config!\n";
-   # }
-
+    # Read the line corresponding to chunk_number and parse the input ids from there
     my $seq_ids = @{$chunkLine}[$chunk_number];
     chomp($seq_ids);
     print $seq_ids,"\n";
