@@ -44,18 +44,8 @@ use Bio::EnsEMBL::Compara::GenomicAlignBlock;
 use Bio::EnsEMBL::Analysis::Runnable;
 our @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-#$ENV{'LAGAN_DIR'} = "/nfs/acari/abel/ftp/lagan12_i386";
-#my $BIN_DIR = "/nfs/acari/abel/ftp/lagan12_i386";
-$ENV{'LAGAN_DIR'} = "/nfs/acari/abel/ftp/lagan12_turing";
-my $BIN_DIR = "/nfs/acari/abel/ftp/lagan12_turing";
-
-#if (! -e "/proc/version") {
-#  $ENV{'LAGAN_DIR'} = "/nfs/acari/abel/ftp/lagan12_alpha";
-#  $BIN_DIR = "/nfs/acari/abel/ftp/lagan12_alpha";
-#}
-
-print "BIN_DIR $BIN_DIR\n";
-print $ENV{'MACHTYPE'},"\n";
+$ENV{'LAGAN_DIR'} = "/usr/local/ensembl/lagan-1.21/";
+my $BIN_DIR = "/usr/local/ensembl/lagan-1.21/";
 
 =head2 new
 
@@ -126,8 +116,6 @@ sub run_analysis {
   $self->run_mlagan;
 
   $self->parse_results;
-#  unlink(<$dir/*>);
-#  rmdir($dir);
 
   return 1;
 }
@@ -173,12 +161,6 @@ sub parse_results{
 
   my $alignment_file = $self->workdir . "/mlagan.mfa";
   my $gab = new Bio::EnsEMBL::Compara::GenomicAlignBlock;
-#  $gab->method_link_species_set($self->{'method_link_species_set'});
-#  $gab->genomic_align_array([$genomic_align1, $genomic_align2]);
-#  $gab->score($fp->score);
-#  $gab->perc_id($fp->percent_id);
-#  $gab->length($fp->alignment_length);
-
 
   open F, $alignment_file || throw("Could not open $alignment_file");
   my $id;
@@ -191,11 +173,7 @@ sub parse_results{
       $new_id =~ s/_aligned//;
       if (defined $id && defined $seq) {
         my $ga = new Bio::EnsEMBL::Compara::GenomicAlign;
-#        $ga->method_link_species_set($self->{'method_link_species_set'});
         $ga->dnafrag_id($id);
-#        $ga->dnafrag_start($qyChunk->seq_start + $fp->start -1);
-#        $ga->dnafrag_end($qyChunk->seq_start + $fp->end -1);
-#        $ga->dnafrag_strand($fp->strand);
         $ga->aligned_sequence($seq);
         $gab->add_GenomicAlign($ga);
         $id = undef;
@@ -208,11 +186,7 @@ sub parse_results{
   }
   close F;
   my $ga = new Bio::EnsEMBL::Compara::GenomicAlign;
-  #        $ga->method_link_species_set($self->{'method_link_species_set'});
   $ga->dnafrag_id($id);
-  #        $ga->dnafrag_start($qyChunk->seq_start + $fp->start -1);
-  #        $ga->dnafrag_end($qyChunk->seq_start + $fp->end -1);
-  #        $ga->dnafrag_strand($fp->strand);
   $ga->aligned_sequence($seq);
   $gab->add_GenomicAlign($ga);
   
