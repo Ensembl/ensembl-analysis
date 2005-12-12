@@ -41,24 +41,48 @@ use vars qw( %Config );
 %Config = (
   CLONE_CONFIG => {
     DEFAULT => {
-  
-      GENOMICSEQS  =>   undef, #allowed to be a dir.
-      QUERYTYPE    => 'dna',
+      
+      GENOMICSEQS =>   undef, #allowed to be a dir.
+      QUERYTYPE   => 'dna',
 
       # must be a single file containing all clone fasta sequences
 
-      QUERYSEQS    => undef,
+      QUERYSEQS   => undef,
 
       # must supply one, since the queryseqs MUST be a single file 
-      IIDREGEXP    => undef,
+      IIDREGEXP   => undef,
       DNADB => {
-        -dbname => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
-        -host   => 'ecs2',
-        -port   => '3364',
-        -user   => 'ensro',
-        -pass   => '',
+        -dbname   => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
+        -host     => 'ecs2',
+        -port     => '3364',
+        -user     => 'ensro',
+        -pass     => '',
         },
-      OPTIONS   => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
+      XMLFILE     => '/ecs2/scratch2/jb16/sheep/traceinfo/sheep_trace_info.xml',
+      CHUNKSLIST  => '/ecs2/scratch2/jb16/sheep/listOfChunks.txt',
+      OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
+    },
+    Map_Clone_Ends => {
+      
+      GENOMICSEQS =>   undef, #allowed to be a dir.
+      QUERYTYPE   => 'dna',
+
+      # must be a single file containing all clone fasta sequences
+
+      QUERYSEQS   => undef,
+
+      # must supply one, since the queryseqs MUST be a single file 
+      IIDREGEXP   => undef,
+      DNADB => {
+        -dbname   => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
+        -host     => 'ecs2',
+        -port     => '3364',
+        -user     => 'ensro',
+        -pass     => '',
+        },
+      XMLFILE     => '/ecs2/scratch2/jb16/sheep/traceinfo/sheep_trace_info.xml',
+      CHUNKSLIST  => '/ecs2/scratch2/jb16/sheep/listOfChunks.txt',
+      OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
     },
      EXONERATE_CLONE_ENDS => {
 
@@ -89,7 +113,8 @@ use vars qw( %Config );
         -user   => 'ensadmin',
         -pass   => 'ensembl',
         },
-      OPTIONS   => '--model affine:local --gapopen -8 --gapextend -2 --bestn 10  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
+      SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_idx',
+      OPTIONS   => '--model affine:local --gapopen -8 --gapextend -2 --bestn 10  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
     },
     REFINE_CLONE_ENDS => {
   
@@ -117,6 +142,7 @@ use vars qw( %Config );
         -user   => 'ensadmin',
         -pass   => 'ensembl',
         },
+      SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_idx',
       OPTIONS   => '--model affine:local --refine full --gapopen -12 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
     },
   }

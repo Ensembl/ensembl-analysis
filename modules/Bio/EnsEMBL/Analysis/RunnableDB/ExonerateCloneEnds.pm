@@ -10,6 +10,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
 
 =head1 SYNOPSIS
 
+Should not be used directly. Might be called from MapCloneEnds.pm
+
 my $clone = 
   Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
     -db         => $refdb,
@@ -23,12 +25,12 @@ $clone->write_output(); #writes to DB
 
 =head1 DESCRIPTION
 
-This object maps clone sequences to a genome,
-and writing the results as DNA align Features. 
+This object maps clone sequences to a genome,and 
+write the resulting alignments as DNA align Features. 
 
 =head1 CONTACT
 
-Post general queries to <ensembl-dev@ebi.ac.uk>
+Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 
@@ -69,11 +71,15 @@ sub fetch_input {
 
   my $logic = $self->analysis->logic_name;
 
+  my $seqFetchDB = $self->SEQFETCHDB;
+
+  print "seqFetchDB: ",$seqFetchDB,"\n";
+
   my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
-                               -db      => [('/ecs2/scratch2/jb16/sheep/sheep_clones_idx')],
+                               -db      => [($seqFetchDB)],
                                -format  => 'fasta', );
 
-  if ($self->input_id =~ /\w+:[\w\_\.]+:([\w\.]+):(\w+):(\w+):\w+:(\w+)/){ 
+  if ($self->input_id =~ /\w+:[\w\_\.]+:([\w\.]+):([-\w]+):([-\w]+):[-\w]+:(\w+)/){ 
    
     my $target_id= $1;
     my $target_start = $2;
@@ -220,9 +226,6 @@ sub fetch_input {
       -analysis           => $self->analysis,
       -target_file        => $target,
       -query_type         => $self->QUERYTYPE,
-     # -query_file         => $query_file,
-     # -query_chunk_number => $chunk_number,
-     # -query_chunk_total  => $chunk_total,
       -query_seqs         => \@queryseqs,
       %parameters,
     );
@@ -382,6 +385,9 @@ sub read_and_check_config {
       QUERYSEQS
       QUERYTYPE
       GENOMICSEQS
+      XMLFILE
+      CHUNKSLIST
+      SEQFETCHDB
     )
   ){
     if ( not defined $self->$config_var ){
@@ -496,6 +502,49 @@ sub OPTIONS {
     return undef;
   }
 }
+
+sub XMLFILE {
+  my ( $self, $value ) = @_;
+
+  if ( defined $value ) {
+    $self->{'_CONFIG_XMLFILE'} = $value;
+  }
+
+  if ( exists( $self->{'_CONFIG_XMLFILE'} ) ) {
+    return $self->{'_CONFIG_XMLFILE'};
+  } else {
+    return undef;
+  }
+}
+
+sub CHUNKSLIST {
+  my ( $self, $value ) = @_;
+
+  if ( defined $value ) {
+    $self->{'_CONFIG_CHUNKSLIST'} = $value;
+  }
+
+  if ( exists( $self->{'_CONFIG_CHUNKSLIST'} ) ) {
+    return $self->{'_CONFIG_CHUNKSLIST'};
+  } else {
+    return undef;
+  }
+}
+
+sub SEQFETCHDB {
+  my ( $self, $value ) = @_;
+
+  if ( defined $value ) {
+    $self->{'_CONFIG_SEQFETCHDB'} = $value;
+  }
+
+  if ( exists( $self->{'_CONFIG_SEQFETCHDB'} ) ) {
+    return $self->{'_CONFIG_SEQFETCHDB'};
+  } else {
+    return undef;
+  }
+}
+
 
 ###############################################
 ###     end of config
