@@ -143,14 +143,16 @@ sub run{
 
   my $pep = $self->transcript->translate;
   $pep->id($self->transcript->dbID);
-  $self->query($pep);
 
   if($pep->length <= 3){
     #transcripts this length cause problems for blast
     return;
   }
 
+  my $query = $self->query;
+  $self->query($pep);  
   $self->SUPER::run($dir);
+  $self->query($query);
 
   my $out = $self->output;
   $self->output([], 1);
