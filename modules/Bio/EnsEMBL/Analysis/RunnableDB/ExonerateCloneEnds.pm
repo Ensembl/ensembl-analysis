@@ -165,23 +165,23 @@ sub fetch_input {
 
     my $iid_regexp = $self->IIDREGEXP;
    
-    print  $iid_regexp,"\n";
+    #print  $iid_regexp,"\n";
 
      if (not defined $iid_regexp){
       throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your single fasta file" )
     }
 
-    print $self->input_id,"\n";
+    #print $self->input_id,"\n";
 
     my ( $chunk_number, $chunk_total ) = $self->input_id =~ /$iid_regexp/;
     
-    print $chunk_number,"\n";
-    print $chunk_total,"\n";
+    #print $chunk_number,"\n";
+    #print $chunk_total,"\n";
 
     # Read the line corresponding to chunk_number and parse the input ids from there
     my $seq_ids = @{$chunkLine}[$chunk_number];
-    chomp($seq_ids);
-    print $seq_ids,"\n";
+    
+    #print $seq_ids,"\n";
     my @ids_list = split (/:/,$seq_ids);
 
     foreach my $id(@ids_list){
@@ -218,7 +218,7 @@ sub fetch_input {
     
     $parameters{-options} = $self->OPTIONS;
     
-    print $self->OPTIONS,"\n";
+    #print $self->OPTIONS,"\n";
     print STDERR "PROGRAM FILE: ".$self->analysis->program_file."\n";
 
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
@@ -385,7 +385,6 @@ sub read_and_check_config {
       QUERYSEQS
       QUERYTYPE
       GENOMICSEQS
-      XMLFILE
       CHUNKSLIST
       SEQFETCHDB
     )
@@ -498,20 +497,6 @@ sub OPTIONS {
 
   if ( exists( $self->{'_CONFIG_OPTIONS'} ) ) {
     return $self->{'_CONFIG_OPTIONS'};
-  } else {
-    return undef;
-  }
-}
-
-sub XMLFILE {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_XMLFILE'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_XMLFILE'} ) ) {
-    return $self->{'_CONFIG_XMLFILE'};
   } else {
     return undef;
   }
