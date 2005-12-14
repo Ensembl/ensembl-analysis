@@ -79,7 +79,7 @@ sub run{
   $self->run_ncbi_analysis("-W7 -F F -b 1000000 -v 1000000","/ecs2/work2/sw4/RFAM/Partition/low_copy.fasta");  
   $self->parse_results(20);
   $self->{'results_files'} = ();
-  $self->database("/ecs2/work2/sw4/RFAM/Partition/high_copy.fasta");
+  $self->databases("/ecs2/work2/sw4/RFAM/Partition/high_copy.fasta");
   $self->run_analysis;
   $self->parse_results($coverage);
   $self->delete_files;

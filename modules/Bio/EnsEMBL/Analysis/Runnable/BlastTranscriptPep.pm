@@ -93,6 +93,34 @@ sub transcript{
   return $self->{'prediction_transcript'};
 }
 
+
+=head2 output
+
+  Function  : override the output method to allow its
+   resetting to empty
+
+=cut
+
+sub output {
+  my ($self, $arr_ref, $reset) = @_;
+
+  if(!$self->{'output'}){
+    $self->{'output'} = [];
+  }
+  if($arr_ref){
+    throw("Must pass Runnable:output an arrayref not a ".$arr_ref)
+      unless(ref($arr_ref) eq 'ARRAY');
+    if ($reset) {
+      $self->{'output'} = $arr_ref;
+    } else {
+      push(@{$self->{'output'}}, @$arr_ref);
+    }
+  }
+  return $self->{'output'};
+
+}
+
+
 =head2 run
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
@@ -108,27 +136,23 @@ sub transcript{
 sub run{
   my ($self, $dir) = @_;
 
-  $self->workdir($dir) if($dir);
-  if($self->transcript->translate->length <= 3){
+  my $pep = $self->transcript->translate;
+  $pep->id($self->transcript->dbID);
+  $self->query($pep);
+
+  if($pep->length <= 3){
     #transcripts this length cause problems for blast
     return;
   }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
-    (
-     -query => $self->transcript->translate,
-     -parser => $self->parser,
-     -filter => $self->filter,
-     -type => $self->type,
-     -unknown_error_string => $self->unknown_error_string,
-     -program => $self->program,
-     -options => $self->options,
-     -database => $self->database,
-     -analysis => $self->analysis,
-    );
 
-  $runnable->run($dir);
-  $self->align_hits_to_query($runnable->output);
+  $self->SUPER::run($dir);
+
+  my $out = $self->output;
+  $self->output([], 1);
+  $self->align_hits_to_query($out);
 }
+
+
 
 =head2 align_hits_to_query
 
@@ -141,7 +165,6 @@ sub run{
   Example   : 
 
 =cut
-
 
 sub align_hits_to_query {
   my ($self, $features)  = @_;
