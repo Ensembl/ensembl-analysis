@@ -1,4 +1,4 @@
-# $Id: BPlite.pm,v 1.4 2004-10-14 09:12:38 lec Exp $
+# $Id: BPlite.pm,v 1.5 2005-12-16 11:52:32 ba1 Exp $
 ##############################################################################
 # Bioperl module Bio::Tools::BPlite
 ##############################################################################
@@ -184,11 +184,14 @@ use vars qw(@ISA);
 
 
 use Bio::Root::IO;
+use Bio::EnsEMBL::Utils::Exception qw(warning);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+
 use Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct; # we want to use Sbjct
 use Bio::SeqAnalysisParserI;
 use Symbol;
 
-@ISA = qw(Bio::EnsEMBL::Root Bio::Root::IO Bio::SeqAnalysisParserI);
+@ISA = qw(Bio::Root::IO Bio::SeqAnalysisParserI);
 
 # new comes from a RootI now
 
@@ -203,8 +206,11 @@ use Symbol;
 =cut
 
 sub new {
-  my ($class, @args) = @_; 
-  my $self = $class->SUPER::new(@args);
+  my ($caller, @args) = @_;
+
+  my $class = ref($caller) || $caller;
+  my $self = bless({}, $class);
+
 
   # initialize IO
   $self->_initialize_io(@args);
@@ -413,7 +419,7 @@ sub _fastForward {
 	}
     }
 
-    $self->warn("Possible error while parsing BLAST report!");
+    warning("Possible error while parsing BLAST report!");
 }
 
 
