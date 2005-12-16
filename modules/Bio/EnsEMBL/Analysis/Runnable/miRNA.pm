@@ -78,9 +78,9 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
-  $self->queries($queries);
-  $self->throw("miRNA: dying because cannot find /ecs2/work2/sw4/miRNA/all_mirnas.embl\n")
-    unless (-e "/ecs2/work2/sw4/miRNA/all_mirnas.embl");
+  $self->queries($queries); 
+  $self->throw("miRNA: dying because cannot find database".$self->analysis->db_file."\n")
+    unless (-e $self->analysis->db_file);
   return $self;
 }
 
@@ -100,15 +100,16 @@ sub run{
   print STDERR "get miRNAs\n"  if $verbose;
   # fetch the coordinates of the mature miRNAs
   $self->get_miRNAs;
+  my $status;
   my %queries = %{$self->queries};
   $self->throw("Cannot find query sequences $@\n") unless %queries;
   print STDERR "Run analysis\n" if $verbose;
  FAM:  foreach my $family (keys %queries){
   DAF:foreach my $daf (@{$queries{$family}}){
       # Does the alignment contain the mature sequence?
-      my $align = $self->run_analysis($daf);
+      my ($align,$status) = $self->run_analysis($daf);
       next DAF unless (scalar @$align);
-      # does the sequence fold ino a hairpin ?
+      # does the sequence fold into a hairpin ?
       my $seq = Bio::PrimarySeq->new
 	(
 	 -display_id => $daf->hseqname,
@@ -122,11 +123,13 @@ sub run{
       $RNAfold->run;
       # get the final structure encoded by run length
       my $structure = $RNAfold->encoded_str;
-      next DAF unless ($RNAfold->score < -20);
+      next DAF unless ($RNAfold->score < -15);
       next DAF unless ($RNAfold->structure);
       $self->display_stuff($daf,$RNAfold->structure,$align,$RNAfold->score) if $verbose;
       # create the gene
-      $self->make_gene($daf,$structure,$align);
+      # Dont call it known unless the gene it derives from is identical and experimentally verified
+      $status = "NOVEL" unless $daf->percent_id == 100 && $daf->score == 100;
+      $self->make_gene($daf,$structure,$align,$status);
     }
   }
   print STDERR "delete temp files\n"  if $verbose;
@@ -149,10 +152,10 @@ sub get_miRNAs{
   my ($self)=@_;
   my %miRNA;
   my $seqIO = Bio::SeqIO->new(
-			      -file => "/ecs2/work2/sw4/miRNA/all_mirnas.embl",
+			      -file   => $self->analysis->db_file,
 			      -format => "embl"
 			     );
-  $self->throw("unable to open file /ecs2/work2/sw4/miRNA/all_mirnas.embl\n") 
+  $self->throw("unable to open file ".$self->analysis->db_file."\n")
     unless $seqIO;
   while (my $seq = $seqIO->next_seq){
     $miRNA{$seq->accession} = $seq;
@@ -176,17 +179,17 @@ sub get_miRNAs{
 sub run_analysis{
   my ($self,$daf)=@_;
   my %miRNAs = %{$self->miRNAs};
-  my @all_mature;
+  my ($all_mature, $status);
   my @mature_aligns;
   if ($self->get_mature($daf)){
-    @all_mature = @{$self->get_mature($daf)}
+    ($all_mature,$status) = $self->get_mature($daf)
   } else {
     # ignore if you dont have a mature form identified.
     $self->warn("No mature sequence identified for sequence ".$daf->hseqname." $@\n");
     return 0;
   }
   # can have more than 1 mature sequence per hairpin
-  foreach my $mature(@all_mature){
+  foreach my $mature(@$all_mature){
     my $miRNA = $miRNAs{$daf->hseqname};
     my $miRNA_length = $mature->{'end'} - $mature->{'start'};
     # change the U to T so as not to confuse the BioPerl
@@ -215,7 +218,7 @@ sub run_analysis{
     next unless ( $align->percent_id >= 90 );
     push @mature_aligns,$align;
   }
-  return \@mature_aligns;
+  return \@mature_aligns,$status;
 }
 
 
@@ -235,26 +238,32 @@ sub get_mature{
   my %miRNAs = %{$self->miRNAs};
   my $miRNA = $miRNAs{$query->hseqname};
   my @mature;
-  $self->throw("Unable to locate miRNA fom embl file that corresponds to ".
-	       $query->hseqname."$@ \n") unless $miRNA;
+  my $status = "PUTATIVE";
+  unless ($miRNA){
+  print STDERR "Unable to locate miRNA fom embl file that corresponds to ".
+	       $query->hseqname."$@ \n";
+    return 0;
+    }       
   my @feats = $miRNA->can('top_SeqFeatures') ? $miRNA->top_SeqFeatures : ();
   foreach my $sf ( @feats ) {
-    my @fth = Bio::SeqIO::FTHelper::from_SeqFeature($sf,$miRNA);
+    my @fth = Bio::SeqIO::FTHelper::from_SeqFeature($sf);
     foreach my $fth ( @fth ) {
       if( ! $fth->isa('Bio::SeqIO::FTHelper') ) {
 	$self->throw("Cannot process FTHelper... $fth $@\n");
       }
       my $location =  $fth->loc;
+      $status = "KNOWN" 
+	if ($fth->field->{"evidence"}[0] && $fth->field->{"evidence"}[0] eq "experimental");
       if ($location =~ /(\d+)\.+(\d+)/){
 	push @mature,{ 'start' => $1,
 		       'end'   => $2
 		     };
       } else {
-	$self->throw("Cannot parse mature coordinates\n");
+	return 0;
       }
     }
   }
-  return \@mature;
+  return \@mature,$status;
 }
 
 
@@ -272,7 +281,7 @@ sub get_mature{
 =cut
 
 sub make_gene{
-  my ($self,$daf,$structure,$aligns) = @_;
+  my ($self,$daf,$structure,$aligns,$status) = @_;
   my %miRNAs = %{$self->miRNAs};
   my @mature;
   my %gene_hash;
@@ -323,6 +332,7 @@ sub make_gene{
   $gene->description($description." [Source: miRBase ".$self->analysis->db_version."]");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
+  $gene->status($status);
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (
@@ -340,10 +350,14 @@ sub make_gene{
 
 sub display_stuff{
   my ($self,$daf,$structure,$aligns,$score)=@_;
-  my @all_mature;
-  @all_mature = @{$self->get_mature($daf)};
-  foreach my $mature (@all_mature){
-    print STDERR $daf->hseqname." miRNA at ".$mature->{'start'}." ".$mature->{'end'}."\n ";
+  my $all_mature;
+  my $status;
+  my %miRNAs = %{$self->miRNAs};
+  my $description = $miRNAs{$daf->hseqname}->display_id;
+  ($all_mature,$status) = $self->get_mature($daf);
+  print STDERR "DAF ".$daf->dbID." chr ".$daf->seq_region_name." ".$daf->seq_region_start." ".$daf->seq_region_end."\n";
+  foreach my $mature (@$all_mature){
+    print STDERR $daf->hseqname." $description miRNA at ".$mature->{'start'}." ".$mature->{'end'}."\n ";
   }
   print STDERR "target strand ".$daf->strand."\n";
   print STDERR "Query start end ".$daf->hstart.":".$daf->hend.

@@ -554,8 +554,6 @@ sub get_thresholds{
   my %thr;
   # full thresholds
   open( T, "/data/blastdb/Rfam/Rfam.thr" ) or $self->throw("can't file the Rfam.thr file");
-# low thresholds
-# open( T, "/ecs2/work2/sw4/RFAM/Rfam_modified.thr" ) or $self->throw("can't file the Rfam.thr file");
   while(<T>) {
     if( /^(RF\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\S+)\s*$/ ) {
       $thr{ $1 } = { 'id' => $2, 'thr' => $3, 'win' => $4, 'mode' => $5 };
@@ -570,7 +568,7 @@ sub get_thresholds{
   Title      : get_descriptions
   Usage      : $runnable->get_descriptions
   Function   : Fetches and stores predefined descriptions for each RFAM familly
-             : in the /ecs2/work2/sw4/RFAM/Rfam.descriptions file
+             : in the Rfam.descriptions file
   Returns    : none
   Exceptions : Throws if it cannot open the thresholds file
   Args       : Bio::EnsEMBL::DnaDnaAlignFeature

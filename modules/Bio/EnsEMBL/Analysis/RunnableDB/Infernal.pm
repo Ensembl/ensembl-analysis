@@ -113,12 +113,11 @@ sub fetch_input{
   if ($self->input_id =~ /(\d+):(\d+)/) {
     $start = $1;
     $end = $2;
-  }
-  if ($self->input_id =~ /^(\d+)/) {
+  } elsif ($self->input_id =~ /^(\d+)/) {
     $start = $1;
     $end = $1;
   }
-  if ($start == undef){
+  unless ($start){
     $self->throw("Input id not recognised\n");
   }
   # get ids

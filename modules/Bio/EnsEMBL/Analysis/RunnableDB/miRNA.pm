@@ -100,6 +100,7 @@ sub fetch_input{
   my $dafa = $self->db->get_DnaAlignFeatureAdaptor;
   my @dafs = @{$dafa->generic_fetch(" analysis_id = ".$analysis->dbID)};
   $self->throw("No dna align features found ") unless (scalar(@dafs) >=1);
+  print scalar(@dafs)." dafs found\n";
   my %families = %{$self->family(\@dafs)};
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::miRNA->new
     (
@@ -129,16 +130,15 @@ sub family{
   }
   my %filtered_fam;
   foreach my $key (keys %families){
-    $filtered_fam{$key} = $families{$key} if (scalar @{$families{$key}} <= 50);
-
-# This bit would take top 50 instaed of ignoring the familly ....
-#    my @array = sort {$a->p_value <=> $b->p_value} @{$families{$key}};
-#    if ($filtered_fam{$key}){
-#      print "Familly $key has ".scalar(@{$filtered_fam{$key}})." members\n";
-#    } else { 
-#      print "Familly $key rejected had  ".scalar(@{$families{$key}})." members\n";
-#    }
-  }
+  if (scalar @{$families{$key}} <= 50){
+    $filtered_fam{$key} = $families{$key};
+    } else {
+      # take top scoring 50 hits
+      my @array = sort {$a->p_value <=> $b->p_value} @{$families{$key}};
+      my @filtered_array =  splice(@array,0,50);
+      $filtered_fam{$key} = \@filtered_array;
+    }
+ }
   return \%filtered_fam;
 }
 

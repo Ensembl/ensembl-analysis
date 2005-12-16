@@ -121,7 +121,7 @@ sub parse_results{
 	       $daf->strand(-1);
 	       $daf->hstrand(1);
 	     }
-#	     $daf->score($coverage);
+	     $daf->score($coverage);
 	     push  @daf_coverage_results, $daf;
 	   }
 	 }

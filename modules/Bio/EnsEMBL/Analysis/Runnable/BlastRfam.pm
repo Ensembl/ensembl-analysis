@@ -51,6 +51,35 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Blast);
 
+=head2 new
+
+  Arg [1]       : Bio::EnsEMBL::Analysis::Runnable::Blast
+  Arg [Parser]  : A blast parser object must meet specified interface
+  Arg [Filter]  : A Filter object must meet specified interface
+  Arg [Database]: string, database name/path
+  Arg [Type]    : string, wu or ncbi to specify which type of input
+  Arg [Unknown_error_string] : the string to throw if the blast runs fails
+  with an unexpected error 4
+  Function  : create a Blast runnable 
+  Returntype: Bio::EnsEMBL::Analysis::Runnable::Blast
+  Exceptions: throws if not given a database name or if not given
+  a parser object
+  Example   : 
+
+=cut
+
+
+
+sub new {
+  my ($class,@args) = @_;
+  my $self = $class->SUPER::new(@args);
+  my ($params ) = rearrange(['PARAMS'], @args);
+  $self->params($params) if $params;
+  return $self;
+}
+
+
+
 =head2 run
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
@@ -73,16 +102,19 @@ sub run{
   throw("Can't run ".$self." without a query sequence") 
     unless($self->query);
   $self->checkdir();
+  eval {
+  my $low_copy_db = $self->params->{'lowcopy'};
+  $self->throw("DATABASE NOT FOUND $low_copy_db") unless -e $low_copy_db;
   my $filename = $self->write_seq_file();
   $self->files_to_delete($filename);
   $self->files_to_delete($self->resultsfile);
-  $self->run_ncbi_analysis("-W7 -F F -b 1000000 -v 1000000","/ecs2/work2/sw4/RFAM/Partition/low_copy.fasta");  
+  $self->run_ncbi_analysis;
   $self->parse_results(20);
   $self->{'results_files'} = ();
-  $self->databases("/ecs2/work2/sw4/RFAM/Partition/high_copy.fasta");
   $self->run_analysis;
   $self->parse_results($coverage);
   $self->delete_files;
+}; if ($@){ print "$@\n";}
   return 1;
 }
 
@@ -130,7 +162,7 @@ sub parse_results{
 	       $daf->strand(-1);
 	       $daf->hstrand(1);
 	     }
-#	     $daf->score($coverage);
+	     $daf->score($coverage);
 	     push  @daf_coverage_results, $daf;
 	   }
 	 }
@@ -191,16 +223,11 @@ sub cluster{
 
 =cut
 
-
-
 sub run_ncbi_analysis {
-  my ($self,$options,$database) = @_;
-
-  # This routine expands the database name into $db-1 etc for
-  # split databases
-  
-  #allow system call to adapt to using ncbi blastall. 
-  #defaults to WU blast
+  my ($self) = @_;
+  # had coded options used in SGJs Rfam scan
+  my $database = $self->params->{'lowcopy'};
+  my $options  = "-W7 -F F -b 1000000 -v 1000000 ";
   my $command  = "/usr/local/ensembl/bin/blastall";
   my $filename = $self->queryfile;
   my $results_file = $self->create_filename("Infernal", 'blast.out');
@@ -222,6 +249,8 @@ sub run_ncbi_analysis {
     if(/FATAL:(.+)/){
       my $match = $1;
       print $match;
+      # clean up before dying
+      $self->delete_files;	
       if($match =~ /no valid contexts/){
 	die qq{"VOID"\n}; # hack instead
       }elsif($match =~ /Bus Error signal received/){
@@ -267,7 +296,11 @@ sub run_ncbi_analysis {
     }
 }
 
-
+sub params{
+  my $self = shift;
+  $self->{'params'} = shift if(@_);
+  return $self->{'params'};
+}
 
 
 1;

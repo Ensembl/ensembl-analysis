@@ -77,7 +77,7 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($self->input_id, $self->db,'');
   $self->query($slice);
   my %blast = %{$self->BLAST_PARAMS};
-  my $parser = $self->make_parser;
+   my $parser = $self->make_parser;
   my $filter;
   if($self->BLAST_FILTER){
     $filter = $self->make_filter;
