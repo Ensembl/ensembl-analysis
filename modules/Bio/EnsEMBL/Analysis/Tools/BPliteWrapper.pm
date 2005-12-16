@@ -37,7 +37,6 @@ package Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
 use strict;
 use warnings;
 use FileHandle;
-use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
@@ -48,7 +47,7 @@ use Bio::EnsEMBL::PepDnaAlignFeature;
 
 use vars qw (@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Root);
+@ISA = qw();
 
 
 =head2 new
@@ -68,8 +67,11 @@ use vars qw (@ISA);
 
 
 sub new{
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
+  my ($caller,@args) = @_;
+  
+  my $class = ref($caller) || $caller;
+  my $self = bless({}, $class);
+
   &verbose('WARNING');
   my ($regex, $query, $target, $analysis) = 
     rearrange(['REGEX', 'QUERY_TYPE', 'DATABASE_TYPE',
@@ -416,11 +418,18 @@ sub split_hsp {
         # ($found) then make a feature pair, store it and reset the start 
         # and end variables.
 
+        my $query_seqname;
+        if ($hsp->query->can('seq_id')) {
+          $query_seqname = $hsp->query->seq_id;
+        } else {
+          $query_seqname = $hsp->query->seqname;
+        }
+
         if ($found == 1) {
           my $fp = $self->convert_to_featurepair($qstart, $qend, $qstrand, 
                                                  $qinc, $hstart, $hend, 
                                                  $hstrand, $hinc, $name,
-						 $hsp->query->seqname,
+						 $query_seqname,
                                                  $hsp->score, 
                                                  $hsp->percent, $hsp->P,
                                                  $hsp->positive, 
@@ -452,10 +461,17 @@ sub split_hsp {
     }
     # Remember the last feature
     if ($found == 1) {
+      my $query_seqname;
+      if ($hsp->query->can('seq_id')) {
+        $query_seqname = $hsp->query->seq_id;
+      } else {
+        $query_seqname = $hsp->query->seqname;
+      }
+
       my $fp = $self->convert_to_featurepair($qstart, $qend, $qstrand, 
                                              $qinc, $hstart, $hend, 
                                              $hstrand, $hinc, $name,
-					     $hsp->query->seqname,
+					     $query_seqname,
                                              $hsp->score, 
                                              $hsp->percent, $hsp->P,
                                              $hsp->positive, 
