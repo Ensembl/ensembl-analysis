@@ -69,7 +69,7 @@ sub new {
                   ADAPTOR
 	      }], @args );
 
-  
+ 
   if( !defined $gene ) { 
     $self->throw("Gene must be set in new for GeneChecker")
   }
@@ -167,7 +167,7 @@ sub output {
   print "\n++++++++++++++++++\n";
 
   print "Gene " . $self->gene->dbID . " " . 
-        (defined($self->gene->stable_id) ? $self->gene->stable_id : "") . " type " . $self->gene->type . "\n";
+        (defined($self->gene->stable_id) ? $self->gene->stable_id : "") . " type " . $self->gene->biotype . "\n";
 
  
   my $vcoffset = 0;
