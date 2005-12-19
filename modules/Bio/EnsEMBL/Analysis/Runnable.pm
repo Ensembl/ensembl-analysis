@@ -69,7 +69,7 @@ use warnings;
 
 use Bio::SeqIO;
 
-use Bio::EnsEMBL::Root;
+#use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
