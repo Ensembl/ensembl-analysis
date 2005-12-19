@@ -1,4 +1,4 @@
-# $Id: Sbjct.pm,v 1.1 2004-08-03 15:01:56 lec Exp $
+# $Id: Sbjct.pm,v 1.2 2005-12-19 09:50:07 ba1 Exp $
 ###############################################################################
 # Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct
 ###############################################################################
@@ -12,20 +12,24 @@ package Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct;
 
 use strict;
 
-use Bio::EnsEMBL::Root;        # root object to inherit from
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::BPlite::HSP; # we want to use HSP
 #use overload '""' => 'name';
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Root);
+@ISA = qw();
 
 sub new {
-    my ($class, @args) = @_;
-    my $self = $class->SUPER::new(@args);
+    my ($caller, @args) = @_;
+    
+    my $class = ref($caller) || $caller;
+    my $self = bless({}, $class);
+
     
     ($self->{'NAME'},$self->{'LENGTH'},$self->{'FH'},
      $self->{'LASTLINE'},$self->{'PARENT'}) =
-	 $self->_rearrange([qw(NAME
+	 rearrange([qw(NAME
 			       LENGTH
 			       FH
 			       LASTLINE
@@ -103,7 +107,7 @@ sub nextHSP {
   $positive = $match if not defined $positive;
   my ($p)        = $scoreline =~ /[Sum ]*P[\(\d+\)]* = ([^\,\s]+)/;
   if (not defined $p) {(undef, $p) = $scoreline =~ /Expect(\(\d+\))? =\s+([^\,\s]+)/}
-  $self->throw("Unable to parse '$scoreline'") if not defined $score;
+  throw("Unable to parse '$scoreline'") if not defined $score;
   
   #######################
   # get alignment lines #

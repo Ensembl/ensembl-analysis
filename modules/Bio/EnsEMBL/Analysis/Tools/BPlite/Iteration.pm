@@ -1,4 +1,4 @@
-# $Id: Iteration.pm,v 1.1 2004-08-03 15:01:56 lec Exp $
+# $Id: Iteration.pm,v 1.2 2005-12-19 09:51:30 ba1 Exp $
 # Bioperl module Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration
 #	based closely on the Bio::EnsEMBL::Analysis::Tools::BPlite modules
 #	Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
@@ -65,18 +65,23 @@ package Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration;
 
 use strict;
 use vars qw(@ISA);
-use Bio::EnsEMBL::Root; # root object to inherit from
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::BPlite; #
 use Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct;
 
-@ISA = qw(Bio::EnsEMBL::Root);
+@ISA = qw();
 
 sub new {
-    my ($class, @args) = @_;
-    my $self = $class->SUPER::new(@args);
+    my ($caller, @args) = @_;
+    # my $self = $class->SUPER::new(@args);
+
+    my $class = ref($caller) || $caller;
+    my $self = bless({}, $class);
+
 
     ($self->{'FH'},$self->{'PARENT'},$self->{'ROUND'}) =
-	$self->_rearrange([qw(FH
+           rearrange([qw(FH
 			      PARENT
 			      ROUND
 			      )],@args);
@@ -84,7 +89,7 @@ sub new {
     if((! ref($self->{'FH'})) ||
        ((ref($self->{'FH'}) ne 'GLOB') &&
 	(! $self->{'FH'}->isa('IO::Handle')))) {
-	$self->throw("Expecting a GLOB reference, not $self->{'FH'} !");
+	throw("Expecting a GLOB reference, not $self->{'FH'} !");
     }
     
     $self->{'LASTLINE'} = "";
@@ -234,7 +239,7 @@ sub _fastForward {
       return 1;
     }
   }
-  $self->warn("Possible error while parsing BLAST report!");
+  warning("Possible error while parsing BLAST report!");
 }
 
 1;
