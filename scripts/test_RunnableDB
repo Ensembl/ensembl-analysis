@@ -111,7 +111,7 @@ my @command_args = @ARGV;
 $| = 1;
 verbose($utils_verbosity);
 if($check ) {
-  print STDERR "args: $dbhost : $dbuser : $dbpass : $dbname : $input_id : $logic_name\n";
+  print STDERR "args: $dbhost : $dbuser : " . ($dbpass or '') . " : $dbname : $input_id : $logic_name\n";
   exit 0;
 }
 
@@ -122,7 +122,7 @@ if(!$dbhost || !$dbuser || !$dbname || !$input_id || !$logic_name){
 &useage(\@command_args) if($help);
 
 
-print STDERR "args: $dbhost : $dbuser : $dbpass : $dbname : $input_id : $logic_name\n" if($verbose);
+print STDERR "args: $dbhost : $dbuser : " . ($dbpass or '') . " : $dbname : $input_id : $logic_name\n" if($verbose);
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor
   (
@@ -196,8 +196,13 @@ if($verbose){
       print "\n";
     } else {
       #print $out->slice;
-      my @values = split /\:/, $out->slice;
-      my $name = $values[2];
+      my $name;
+      if ($out->slice) {
+        my @values = split /\:/, $out->slice;
+        $name = $values[2];
+      } else {
+        $name = 'no_slice_name';
+      }
       print_feature($out, $name, $logic_name);
     }
   }
