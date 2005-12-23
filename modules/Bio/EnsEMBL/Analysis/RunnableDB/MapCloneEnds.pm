@@ -103,21 +103,25 @@ sub run {
   while (my $line = <INFILE>){
 
     chomp($line);
-    
+ 
+    # Split by ":" to get information of each clone as an independent element in an array. 
     my @clone = split (/:/,$line);
     my $listOfClones = '';
 
     foreach my $clone (@clone){
 
+      # Split all the information of one cloneEnd and load each element into an array
       my @clone_data = split (/,/,$clone);
 
       if (!$clones{$clone_data[0]}){
         $clones{$clone_data[0]}=[];
       }
-      
-      push (@{$clones{$clone_data[0]}}, $clone_data[3]);
-      push (@{$clones{$clone_data[0]}}, $clone_data[1]);
-      push (@{$clones{$clone_data[0]}}, $clone_data[2]);
+    
+      # Group information of each cloneEnd using clone_id as reference (will be used in the filter step)  
+      push (@{$clones{$clone_data[0]}}, $clone_data[3]); # Add cloneEnd_name
+      push (@{$clones{$clone_data[0]}}, $clone_data[1]); # Add insert length
+      push (@{$clones{$clone_data[0]}}, $clone_data[2]); # Add insert length standard deviation
+      push (@{$clones{$clone_data[0]}}, $clone_data[4]); # Add cloneEnd direction (R or F)
       $cloneEnd_ids{$clone_data[3]} = $clone_data[0];
 
       if ($listOfClones eq ''){
@@ -127,10 +131,10 @@ sub run {
       }
     }
     #print "List of Clones: ",$listOfClones,"\n";
+
+    # Creates the array that contains the list of cloneEnd_ids that will go in each chunks
     push (@listOfIDs,$listOfClones);
   }
-
-# my @chunks_list = <INFILE>;
 
   close INFILE;
 
@@ -148,7 +152,7 @@ sub run {
   # Run exonerate and get the output.
   my $clone_alignments = $exonerate->output();
 
-  print "I'm going to filter the alignments\n";
+  #print "I'm going to filter the alignments\n";
   my @selected_alignments = @{$self->filter_alignments($clone_alignments, \%clones, \%cloneEnd_ids)};
 
   foreach my $selected_alignment(@selected_alignments){
@@ -163,6 +167,7 @@ sub run {
       #print "Clone id: ",$clone_id,"\n";
       my @chr_name = split (/:/, $chr_id);
   
+      # Rebuild the input_id to send the coordinates for the target slice and the query sequence.
       my $input_id = $chr_name[0].":".$chr_name[1].":".$chr_name[2].":".$start.":".$end.":".$chr_name[5].":".$clone_id;
       #print $input_id,"\n";
 
@@ -391,7 +396,7 @@ sub filter_alignments{
   foreach my $pair (keys %aligned_clones){
     
     # Check if the clone has two cloneEnds
-    if ((scalar @{$clones{$pair}})/3 > 1){
+    if ((scalar @{$clones{$pair}})/4 > 1){
 
       # Chenk if at least one of the cluster pair alignments is selected.
       # in case none is selected it will send cloneEnds to the single_filter
@@ -401,11 +406,19 @@ sub filter_alignments{
      
       my %status = ();
 
+      my %clone_dir = ();
+
       # Get the length of the clone and the name of the two cloneEnds
       my $clone_length = $clones{$pair}[1]+$clones{$pair}[2]+200000;
-      for (my $numberOfEnd=0;$numberOfEnd < scalar @{$clones{$pair}};$numberOfEnd+=3){
+      for (my $numberOfEnd=0;$numberOfEnd < scalar @{$clones{$pair}};$numberOfEnd+=4){
        
         my $cloneEnd =$clones{$pair}[$numberOfEnd];
+
+        # Clone_dir used to avoid pairing of two cloneEnds in the same end as for some clones
+        # there are more than two cloneEnds where more than one correspond to the same end that
+        # was sequenced more than once.
+        $clone_dir{$numberOfEnd} = $clones{$pair}[$numberOfEnd+3];
+        print "Clone dir: ",$clone_dir{$numberOfEnd},"\n";
 	
         my @cloneEnd_clean  = @{$self->clean_clusters($clone_cluster{$cloneEnd})};
 	if (!$clean_cloneEnds{$numberOfEnd}){
@@ -422,36 +435,58 @@ sub filter_alignments{
       foreach my $clean_cloneEnd1 (keys %clean_cloneEnds){
 
         foreach my $clean_cloneEnd2 (keys %clean_cloneEnds){
-
-      	  if ($clean_cloneEnd1 != $clean_cloneEnd2 && $clean_cloneEnd1 < $clean_cloneEnd2){
-
+          # first check that one cloneEnd is not compared with itself. Then check that if we have pair
+          # A->B don't use again B->A and finally get only pairs of F + R cloneEnds
+      	  if ($clean_cloneEnd1 != $clean_cloneEnd2 && $clean_cloneEnd1 < $clean_cloneEnd2 
+              && $clone_dir{$clean_cloneEnd1} ne $clone_dir{$clean_cloneEnd2}){
+print "Clone dir second : ",$clone_dir{$clean_cloneEnd1},"\n";
 	    #print "Comparing: ", $clean_cloneEnd1," with ", $clean_cloneEnd2,"\n";
-            #  print "First array: ", @{$clean_cloneEnds{$clean_cloneEnd1}},"\n";
-            #  print "Second array: ", @{$clean_cloneEnds{$clean_cloneEnd2}},"\n";
+            #print "First array: ", @{$clean_cloneEnds{$clean_cloneEnd1}},"\n";
+            #print "Second array: ", @{$clean_cloneEnds{$clean_cloneEnd2}},"\n";
+
+            # Use this variable to check where an alignment occur and avoid duplicate alignments because of
+            # short consecutive sequences that align near by and are both selected for the next exonerate step
+	    my $first_prev_chr_start = 0;
+            my $first_chr_hit = 'Null';
 
             foreach my $fa (@{$clean_cloneEnds{$clean_cloneEnd1}}){
-	
-              foreach my $sa (@{$clean_cloneEnds{$clean_cloneEnd2}}){
-	
-                my $chr_first = $fa->seqname();
-                my $chr_second = $sa->seqname();
-                  
-                if ($chr_first eq $chr_second){
-                  #print  "First name: ",$chr_first,"  Second name: ",$chr_second,"\n";                 
-                  my $diff = ($fa->start())-($sa->end());
-                  my $abs_diff = abs($diff);
-                  #print "Absolute difference: ",$abs_diff,"\n";
 
-                  if ($abs_diff <= $clone_length){
-                    # In case two alignments are selected store them for the next exonerate step
-                    push (@selected_alignments, $fa);
-                    push (@selected_alignments, $sa); 
+              # Check if two alignments don't belong to a cluster or they align in different chromosomes.
+              # This is made to avoid getting duplicate alignments in the next exonerate step whe very close
+              # coordinates are selected for the target sequence
+	      if (($fa->seqname() eq $first_chr_hit && ($fa->start()-$first_prev_chr_start) > 4000)
+                   || $fa->seqname() ne $first_chr_hit){
+
+	        my $second_prev_chr_start = 0;
+
+                foreach my $sa (@{$clean_cloneEnds{$clean_cloneEnd2}}){
+	
+                  if ($fa->seqname() eq $sa->seqname()){
+
+                    #print  "First name: ",$chr_first,"  Second name: ",$chr_second,"\n";                 
+                    my $diff = ($fa->start())-($sa->end());
+                    my $abs_diff = abs($diff);
+                    #print "Absolute difference: ",$abs_diff,"\n";
+
+                    # Check that the two cloneEnds are close enough as to be considered as paired and that
+                    # the second cloneEnd don't belong to a cluster that was previously selected
+                    # This is made to avoid the same cloneEnds to be paired more than once when there is more 
+                    # than one alignment in a short region.
+                    if ($abs_diff <= $clone_length  && (($sa->start()-$second_prev_chr_start)>4000)){
+
+                      # In case two alignments are selected store them for the next exonerate step
+                      push (@selected_alignments, $fa);
+                      push (@selected_alignments, $sa); 
                     
-                    $status{$clean_cloneEnd1} = 1;
-                    $status{$clean_cloneEnd2} = 1;
-                    $cluster_selected = 1;
-     	          }
-                }
+                      $status{$clean_cloneEnd1} = 1;
+                      $status{$clean_cloneEnd2} = 1;
+                      $cluster_selected = 1;
+                      $first_prev_chr_start = $fa->start();
+                      $second_prev_chr_start = $sa->start();
+                      $first_chr_hit= $fa->seqname();
+     	            }
+	          }
+	        }
               }
             }
           }
@@ -467,7 +502,7 @@ sub filter_alignments{
         }
       }
     }else{
-      print "I enter to the single_cloneEnd\n";
+      #print "I enter to the single_cloneEnd\n";
       # if the clone has only one cloneEnd do:
       # get the name of the cloneEnds,
       my $first_cloneEnd =$clones{$pair}[0];
