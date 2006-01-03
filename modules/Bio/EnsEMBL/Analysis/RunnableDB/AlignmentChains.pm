@@ -138,6 +138,8 @@ sub fetch_input {
                                                             undef,
                                                             $q_assembly_version);
 
+  throw("Could not fetch top level query slice for '$seq_name'") if not defined $ref_slice;    
+
   ################################################################
   # get the compara data: MethodLinkSpeciesSet, reference DnaFrag, 
   # and all GenomicAlignBlocks
@@ -265,6 +267,7 @@ sub fetch_input {
                       -target_slices        => \%these_target_slices,
                       -query_nib_dir        => $self->QUERY_NIB_DIR,
                       -target_nib_dir       => $self->TARGET_NIB_DIR,
+                      -min_chain_score      => $self->MIN_CHAIN_SCORE,
                       -features             => \@features);
 
     foreach my $program (qw(faToNib lavToAxt axtChain)) {
