@@ -44,7 +44,7 @@ use vars qw( %Config );
                QUERY_NIB_DIR  => '/dir/with/query/seq/nib-files',
 
                INPUT_METHOD_LINK_TYPE => 'BLASTZ_RAW',
-               OUTPUT_METHOD_LINK_TYPE => 'BLASTZ_CHAIN',
+               OUTPUT_METHOD_LINK_TYPE => 'BLASTZ_CHAINS',
 
                COMPARA_DB => {
                  -dbname => '',
@@ -67,6 +67,8 @@ use vars qw( %Config );
                },
 
                MAX_GAP => 50,
+               MIN_CHAIN_SCORE => 1000,
+
              },
 
            },            
@@ -77,15 +79,15 @@ use vars qw( %Config );
                QUERY_SPECIES  => 'Homo sapiens',
                TARGET_SPECIES => 'Bos taurus',
 
-               INPUT_METHOD_LINK_TYPE => 'BLASTZ_CHAIN',
+               INPUT_METHOD_LINK_TYPE => 'BLASTZ_CHAINS',
                OUTPUT_METHOD_LINK_TYPE => 'BLASTZ_NET',
 
                COMPARA_DB => {
-                 -dbname => 'klh_compara_human_cow_blastz_27',
-                 -host   => 'ia64f',
-                 -user   => 'ensadmin',
-                 -pass   => 'ensembl',
-                 -port   => '3306',                 
+                 -dbname => '',
+                 -host   => '',
+                 -user   => '',
+                 -pass   => '',
+                 -port   => '',                 
                },
 
                MAX_GAP => 50,
@@ -96,7 +98,9 @@ use vars qw( %Config );
                # not, leave it empty
                SIMPLE_NET => 'MEDIUM',
 
-               # the other parameters only apply if using Kent's tools
+               # if not using simple nets, JK's tools will be used. Set
+               # this to 1 if you want to use netSyntenic (attempted 
+               # (filtering of pseudogenes) after using chainNet.
                FILTER_NON_SYNTENIC => 1,               
              },
            );
