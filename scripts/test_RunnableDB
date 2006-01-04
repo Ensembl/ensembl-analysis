@@ -111,7 +111,11 @@ my @command_args = @ARGV;
 $| = 1;
 verbose($utils_verbosity);
 if($check ) {
+<<<<<<< test_RunnableDB
+  print STDERR "args: $dbhost : $dbuser : $dbname : $input_id : $logic_name\n";
+=======
   print STDERR "args: $dbhost : $dbuser : " . ($dbpass or '') . " : $dbname : $input_id : $logic_name\n";
+>>>>>>> 1.6
   exit 0;
 }
 
@@ -271,7 +275,7 @@ sub print_feature{
            $feature->hstart,
            $feature->hend,
            $feature->hstrand ? $feature->hstrand : ".",
-           $feature->percent_id);
+           $feature->percent_id ? $feature->percent_id : 0);
   }
   print "\n";
            
