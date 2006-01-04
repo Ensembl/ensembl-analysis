@@ -140,6 +140,16 @@ $analysis = $aa->fetch_by_logic_name($logic_name);
 
 
 if(!$analysis){
+
+  unless ($module) { 
+     throw("The analysis with logic_name \"$logic_name\" is not stored in the database and the -module option wasn't used.\n     " 
+           . "Either add the analysis to the db or use the -module flag to specify a module to use.\n     "
+           . "( the analysis will be stored in the db if the features are written)\n" ) ; 
+            
+   }
+
+
+
   print "creating analysis object ".$logic_name." ".$module. "\n" if $verbose;
 
   print "This object will be stored in the database when the ".
