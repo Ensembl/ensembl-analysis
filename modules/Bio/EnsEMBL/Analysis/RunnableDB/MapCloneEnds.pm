@@ -90,7 +90,7 @@ sub run {
  
   my $chunks_list = $self->CHUNKSLIST;
 
-  my $single_entry = 0;
+  #my $single_entry = 0;
 
   my %clones  = (); # hash where each clone object will be stored
 
@@ -130,7 +130,6 @@ sub run {
         $listOfClones.= ":".$clone_data[3];
       }
     }
-    #print "List of Clones: ",$listOfClones,"\n";
 
     # Creates the array that contains the list of cloneEnd_ids that will go in each chunks
     push (@listOfIDs,$listOfClones);
@@ -152,24 +151,21 @@ sub run {
   # Run exonerate and get the output.
   my $clone_alignments = $exonerate->output();
 
-  #print "I'm going to filter the alignments\n";
   my @selected_alignments = @{$self->filter_alignments($clone_alignments, \%clones, \%cloneEnd_ids)};
 
   foreach my $selected_alignment(@selected_alignments){
     
     if ($selected_alignment ne ''){
     
-      #print "Test here: ", $selected_alignment,"\n"; 
-      my $clone_id=$selected_alignment->hseqname;
-      my $chr_id = $selected_alignment->seqname;
-      my $start = ($selected_alignment->start)-1000;
-      my $end = ($selected_alignment->end)+1000;
-      #print "Clone id: ",$clone_id,"\n";
+      my $clone_id = $selected_alignment->hseqname;
+      my $chr_id   = $selected_alignment->seqname;
+      my $start    = ($selected_alignment->start)-2000;
+      my $end      = ($selected_alignment->end)+2000;
+
       my @chr_name = split (/:/, $chr_id);
   
       # Rebuild the input_id to send the coordinates for the target slice and the query sequence.
       my $input_id = $chr_name[0].":".$chr_name[1].":".$chr_name[2].":".$start.":".$end.":".$chr_name[5].":".$clone_id;
-      #print $input_id,"\n";
 
       my $refine = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
                    -DB          => $self->db,
@@ -384,7 +380,6 @@ sub filter_alignments{
     # unique clones(complete_clone_name) with no duplicate entries
     $aligned_clones{$complete_clone_name} = $clone_name;
 
-  #  print $clone_name,"\n";
 
     if(!$clone_cluster{$clone_name}){
       $clone_cluster{$clone_name} = [];
@@ -418,7 +413,7 @@ sub filter_alignments{
         # there are more than two cloneEnds where more than one correspond to the same end that
         # was sequenced more than once.
         $clone_dir{$numberOfEnd} = $clones{$pair}[$numberOfEnd+3];
-        print "Clone dir: ",$clone_dir{$numberOfEnd},"\n";
+        #print "Clone dir: ",$clone_dir{$numberOfEnd},"\n";
 	
         my @cloneEnd_clean  = @{$self->clean_clusters($clone_cluster{$cloneEnd})};
 	if (!$clean_cloneEnds{$numberOfEnd}){
@@ -439,10 +434,6 @@ sub filter_alignments{
           # A->B don't use again B->A and finally get only pairs of F + R cloneEnds
       	  if ($clean_cloneEnd1 != $clean_cloneEnd2 && $clean_cloneEnd1 < $clean_cloneEnd2 
               && $clone_dir{$clean_cloneEnd1} ne $clone_dir{$clean_cloneEnd2}){
-print "Clone dir second : ",$clone_dir{$clean_cloneEnd1},"\n";
-	    #print "Comparing: ", $clean_cloneEnd1," with ", $clean_cloneEnd2,"\n";
-            #print "First array: ", @{$clean_cloneEnds{$clean_cloneEnd1}},"\n";
-            #print "Second array: ", @{$clean_cloneEnds{$clean_cloneEnd2}},"\n";
 
             # Use this variable to check where an alignment occur and avoid duplicate alignments because of
             # short consecutive sequences that align near by and are both selected for the next exonerate step
@@ -452,7 +443,7 @@ print "Clone dir second : ",$clone_dir{$clean_cloneEnd1},"\n";
             foreach my $fa (@{$clean_cloneEnds{$clean_cloneEnd1}}){
 
               # Check if two alignments don't belong to a cluster or they align in different chromosomes.
-              # This is made to avoid getting duplicate alignments in the next exonerate step whe very close
+              # This is made to avoid getting duplicate alignments in the next exonerate step when very close
               # coordinates are selected for the target sequence
 	      if (($fa->seqname() eq $first_chr_hit && ($fa->start()-$first_prev_chr_start) > 4000)
                    || $fa->seqname() ne $first_chr_hit){
@@ -463,10 +454,8 @@ print "Clone dir second : ",$clone_dir{$clean_cloneEnd1},"\n";
 	
                   if ($fa->seqname() eq $sa->seqname()){
 
-                    #print  "First name: ",$chr_first,"  Second name: ",$chr_second,"\n";                 
                     my $diff = ($fa->start())-($sa->end());
                     my $abs_diff = abs($diff);
-                    #print "Absolute difference: ",$abs_diff,"\n";
 
                     # Check that the two cloneEnds are close enough as to be considered as paired and that
                     # the second cloneEnd don't belong to a cluster that was previously selected
@@ -502,7 +491,6 @@ print "Clone dir second : ",$clone_dir{$clean_cloneEnd1},"\n";
         }
       }
     }else{
-      #print "I enter to the single_cloneEnd\n";
       # if the clone has only one cloneEnd do:
       # get the name of the cloneEnds,
       my $first_cloneEnd =$clones{$pair}[0];
@@ -513,7 +501,6 @@ print "Clone dir second : ",$clone_dir{$clean_cloneEnd1},"\n";
       
     }
   }
-  #print "selected in filter alignments: ",@selected_alignments,"\n";
   return \@selected_alignments;
 
 }
@@ -525,14 +512,11 @@ sub single_filter_alignments{
   # Cluster alignments obtained for each clone
   my %chr_cluster = ();
   
-#  print "Selected single filtering\n";
   foreach my $alignment(@{$single_clone_alignments}){
    
     my $hit_name= $alignment->hseqname;
     my $chr_name= $alignment->seqname;
-  
-    # print $seqname,"\n";
-   
+    
     # Generate a unique key that will be found only when only clone aligns more than
     # once against the same chromosomal sequence
     my $cluster_key = $chr_name."-".$hit_name;
@@ -622,8 +606,6 @@ sub single_filter_alignments{
       $selected_alignment = $chr_cluster{$chr_cluster_key}[0];
     }
   }
-  # print $selected_alignment->seqname,"\t",$selected_alignment->hseqname,"\t",$selected_alignment->start,"\n";
-  #print "Selected in single filtering: ",$selected_alignment,"\n";
   return \$selected_alignment; 
 }
 
@@ -634,7 +616,6 @@ sub clean_clusters{
   # Cluster alignments obtained for each clone
   my %chr_cluster = ();
   
-  #print "I'm in here:", $clone_cluster_alignments,"\n";
   foreach my $alignment(@{$clone_cluster_alignments}){
      
     my $hit_name= $alignment->hseqname;
@@ -661,10 +642,8 @@ sub clean_clusters{
   foreach my $chr_cluster_key (keys %chr_cluster){
     # If the cluster contains more than one sequence, order the sequences and check if they are
     # separated by less than 4000 bases. If the separation is bigger don't count them as part of the cluster
-    #print "Secuences in cluster: ",scalar(@{$chr_cluster{$chr_cluster_key}}),"\n";
 
     if (scalar(@{$chr_cluster{$chr_cluster_key}})>1){
-      #	print "In the same chromosome\n";
       # get the first aligment of the cluster to be used in the exonerate step
       my $first_selected_alignment;
 
@@ -688,7 +667,6 @@ sub clean_clusters{
         if ($first_alignment!=0){
      
 	  my $cloneEnd_distance = abs(($ordered_align->start)-($initial_end));
-	  # print "Clean distance: ",$cloneEnd_distance,"\n";
           # if the distance is sorter that the threshold the alignments cluster
           if($cloneEnd_distance < 4000){
  
@@ -697,11 +675,9 @@ sub clean_clusters{
             if ($alignment_added==0){
               push (@selection, $initial_alignment);
 	      $alignment_added = 1;
-             # print "alignment added\n";
 	    }
           }else{
             push (@selection, $ordered_align);
-            #print "This alignment is also added\n";
             $initial_alignment = $ordered_align;
             $initial_end = $ordered_align->end;         
           }
@@ -716,10 +692,7 @@ sub clean_clusters{
 
     }else{
       push (@selection, $chr_cluster{$chr_cluster_key}[0]);
-      #print "And finally this one is also added\n";
     }
   }
-  # print $selected_alignment->seqname,"\t",$selected_alignment->hseqname,"\t",$selected_alignment->start,"\n";
-  #print"Selected in clean Clusters: ", scalar(@selection),"\n";
   return \@selection; 
 }
