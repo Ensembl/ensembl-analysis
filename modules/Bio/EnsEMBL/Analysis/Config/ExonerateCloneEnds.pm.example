@@ -1,4 +1,4 @@
-#
+1;
 # package Bio::EnsEMBL::Pipeline::Config::ExonerateTranscript
 # 
 # Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
@@ -52,13 +52,12 @@ use vars qw( %Config );
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP   => undef,
       DNADB => {
-        -dbname   => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
+        -dbname   => 'bos_taurus_core_36_2',
         -host     => 'ecs2',
         -port     => '3364',
         -user     => 'ensro',
         -pass     => '',
         },
-      XMLFILE     => '/ecs2/scratch2/jb16/sheep/traceinfo/sheep_trace_info.xml',
       CHUNKSLIST  => '/ecs2/scratch2/jb16/sheep/listOfChunks.txt',
       OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
     },
@@ -74,75 +73,72 @@ use vars qw( %Config );
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP   => undef,
       DNADB => {
-        -dbname   => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
+        -dbname   => 'bos_taurus_core_36_2',
         -host     => 'ecs2',
         -port     => '3364',
         -user     => 'ensro',
         -pass     => '',
         },
-      XMLFILE     => '/ecs2/scratch2/jb16/sheep/traceinfo/sheep_trace_info.xml',
       CHUNKSLIST  => '/ecs2/scratch2/jb16/sheep/listOfChunks.txt',
       OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
     },
      EXONERATE_CLONE_ENDS => {
 
       # path to softmasked, dusted sequence on the farm 
-      # 
-      
+      #
+ 
       GENOMICSEQS  => '/data/blastdb/Ensembl/Cow/v2/genome/Bos_taurus.mask.dust.soft.fa',  
-      #GENOMICSEQS  => '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted', #allowed to be a dir.
       QUERYTYPE    => 'dna',
 
       # must be a single file containing all clone fasta sequences
 
-      QUERYSEQS    => '/ecs2/scratch2/jb16/sheep/sheep_clones.fa',
+      QUERYSEQS    => '/ecs2/scratch2/jb16/sheep/sheep_clones_clean.fa',
 
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP    => '(\d+):(\d+)',
       DNADB => {
-        -dbname => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
+        -dbname => 'bos_taurus_core_36_2',
         -host   => 'ecs2',
         -port   => '3364',
         -user   => 'ensro',
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_cow',#'jb16_sheep_human_clones',  
+        -dbname => 'jb16_sheep_cow',  
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
         -pass   => 'ensembl',
         },
-      SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_idx',
-      OPTIONS   => '--model affine:local --gapopen -8 --gapextend -2 --bestn 10  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
+      SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_clean_idx',
+      OPTIONS   => '--bestn 10  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',#--model affine:local --gapopen -8 --gapextend -2
     },
     REFINE_CLONE_ENDS => {
   
-      #GENOMICSEQS  =>   '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted', #allowed to be a dir.
       GENOMICSEQS  => '/data/blastdb/Ensembl/Cow/v2/genome/Bos_taurus.mask.dust.soft.fa',
       QUERYTYPE    => 'dna',
 
       # must be a single file containing all clone fasta sequences
 
-      QUERYSEQS    => '/ecs2/scratch2/jb16/sheep/sheep_clones.fa',
+      QUERYSEQS    => '/ecs2/scratch2/jb16/sheep/sheep_clones_clean.fa',
 
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP    => '(\w+):([\w_\.]+):([\w\.]+):([-\w]+):([-\w]+):([-\w]+):(\w+)',
       DNADB => {
-        -dbname => 'bos_taurus_core_36_2',#'homo_sapiens_core_36_35i',#'bos_taurus_core_36_2',
+        -dbname => 'bos_taurus_core_36_2',
         -host   => 'ecs2',
         -port   => '3364',
         -user   => 'ensro',
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_cow',#'jb16_sheep_human_clones',  
+        -dbname => 'jb16_sheep_cow',  
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
         -pass   => 'ensembl',
         },
-      SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_idx',
+      SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_clean_idx',
       OPTIONS   => '--model affine:local --refine full --gapopen -12 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
     },
   }
