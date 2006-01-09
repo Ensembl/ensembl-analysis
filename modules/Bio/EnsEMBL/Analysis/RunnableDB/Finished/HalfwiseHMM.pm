@@ -66,6 +66,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Similarity qw (
 							    );
 
 use Data::Dumper;
+use BlastableVersion;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Finished);
 
@@ -169,10 +170,10 @@ sub make_hash_from_meta_value  {
     my ($self,$string) = @_;
     if($string){
         my $hash = { eval $string };
-        $@ ? die "error evaluating $string" : return $hash || {};
+        $@ ? die "error evaluating $string [$@]" : return $hash || {};
     }
+    
     return {};
-
 }
 
 sub getPfamDB{
@@ -180,27 +181,76 @@ sub getPfamDB{
     my ($self) = @_;
     unless($self->{'_pfam_db'}){
         my $pfam_meta = $self->db->get_MetaContainer();
-	my $value = $pfam_meta->list_value_by_key('pfam_db') || throw("please enter pfam_db key - value into meta table\n");
-	my $pfam_db_conn = $self->make_hash_from_meta_value($value->[0]);
+		my $value = $pfam_meta->list_value_by_key('pfam_db') || throw("please enter pfam_db key - value into meta table\n");
+		my $pfam_db_conn = $self->make_hash_from_meta_value($value->[0]);
+		# Use the Blast tracking system to set the correct Pfam DB name
+		my $db_file_path = $self->analysis->db_file;
+		my $db_file_version = $self->get_db_version($db_file_path);
+		if($db_file_version =~ /^(\d+).(\d+)$/) {
+			$pfam_db_conn->{'-dbname'} = "pfam_$1_$2";
+		}elsif ($db_file_version =~ /^(\d+)$/) {
+			$pfam_db_conn->{'-dbname'} = "pfam_$1_0";
+		}		
         $self->{'_pfam_db'} = Bio::EnsEMBL::DBSQL::DBConnection->new(%$pfam_db_conn);
     }
     return $self->{'_pfam_db'};
 }
 
-sub db_version_searched{
-    my ($self) = @_;
-    unless($self->{'_pfam_db_version'}){
-      my $dbc=$self->getPfamDB();
-      my $sth=$dbc->prepare("SELECT pfam_release from VERSION");
-      $sth->execute();
-      my $pfam_rel;
-      $sth->bind_columns(\($pfam_rel));
-      my $row=$sth->fetchrow_arrayref();
-      $self->{'_pfam_db_version'} = $pfam_rel;
-      $sth->finish();
+=head2 get_db_version
 
+    Title   :  get_db_version 
+               [ distinguished from RunnableDB::*::db_version_searched() ]
+    Useage  :  $self->get_db_version('/data/base/path')
+               $obj->get_db_version()
+    Function:  Set a blast database version from the supplied path
+               Get a blast database version from previously supplied path
+               Uses tjrc''s BlastableVersion module.
+    Returns :  String
+    Args    :  String (should be a full database path)
+    Caller  :  $self::fetch_databases()
+               RunnableDB::Finished_EST::db_version_searched()
+
+=cut
+
+sub get_db_version{
+    my ($self, $db) = @_;
+    my $debug_this = 1; # this just shows debug info.
+    my $force_dbi  = 0; # this will force a dbi call SLOW!!!!!!
+    unless($self->{'_pfam_db_version'}){
+        if($db){
+            $BlastableVersion::debug = $debug_this;            
+            warning "BlastableVersion is cvs revision $BlastableVersion::revision \n" if $debug_this;     
+            my $ver = eval { 
+                my $blast_ver = BlastableVersion->new();
+                $blast_ver->force_dbi($force_dbi); # if set will be SLOW.
+                $blast_ver->get_version($db);
+                $blast_ver;
+            };
+            throw("I failed to get a BlastableVersion for $db [$@]") if $@;    
+            my $dbv = $ver->version();
+            my $sgv = $ver->sanger_version();
+            my $name = $ver->name();
+            my $date = $ver->date();
+            unless ($dbv){
+                throw(
+                    "I know nothing about $db I tried to find out:\n" .
+                    " - name <" . $name . ">\n" .
+                    " - date <" . $date . ">\n" .
+                    " - version <" . $dbv . ">\n" .
+                    " - sanger_version <" . $sgv . ">\n");
+            }
+            $self->{'_pfam_db_version'} = $dbv;
+        }else{
+            throw("Must provide a db file name as argument");
+        }
     }
-    return $self->{'_pfam_db_version'} || 10;
+    return $self->{'_pfam_db_version'};
+}
+
+sub db_version_searched{
+    my ($self,$arg) = @_;
+    $self->{'_pfam_db_version'} = $arg if $arg;
+    return $self->{'_pfam_db_version'};
 }
 
 =head2  runnable
@@ -307,27 +357,8 @@ sub _convert_output {
 
   my ($self) = @_;
   my @genes;
+  my $analysis = $self->analysis();
   my $genetype = 'Halfwise';
-  my $anaAdaptor = $self->db->get_AnalysisAdaptor;
-  my @analyses = $anaAdaptor->fetch_by_logic_name($genetype);
-  my $analysis;
-  if(scalar(@analyses) > 1){
-    throw("panic! > 1 analysis for $genetype\n");
-  }
-  elsif(scalar(@analyses) == 1){
-    $analysis = $analyses[0];
-  }else{
-    # make a new analysis object
-    $analysis = new Bio::EnsEMBL::Analysis
-      (
-       -program         => 'genewise',
-       -program_version => 1,
-       -gff_source      => 'HalfwiseHMM',
-       -gff_feature     => 'gene',
-       -logic_name      => 'Halfwise',
-       -module          => 'HalfwiseHMM',
-      );
-  }
    # make an array of genes for each runnable
   my @out;
   foreach my $runnable($self->runnable){
