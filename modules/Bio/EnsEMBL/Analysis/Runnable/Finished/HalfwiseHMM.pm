@@ -430,7 +430,7 @@ sub get_pfam_ids{
 #                         && a.auto_pfamA = f.auto_pfamA
 #                         && p.pfamseq_id = t.pfamseq_id
 #                         && f.in_full = 1};
-    my $select = qq{SELECT CONCAT(a.pfamA_acc,".",a.version), t.strand, t.pfamseq_id, a.pfamA_id, p.description
+    my $select = qq{SELECT CONCAT(a.pfamA_acc,".",a.version), t.strand, t.pfamseq_id, a.pfamA_id, a.description
 			FROM pfamA_reg_full f, pfamseq p, $tbl_name t,  pfamA a
 			WHERE f.auto_pfamseq = p.auto_pfamseq
 			&& p.pfamseq_acc     = t.pfamseq_id
