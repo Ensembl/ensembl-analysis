@@ -69,18 +69,7 @@ sub new {
 }
 
 
-
-
-=head2 fetch_input
-
-    Title   :   fetch_input
-    Usage   :   $self->fetch_input
-    Function:   
-    Returns :   nothing
-    Args    :   none
-
-=cut
-
+############################################################
 sub fetch_input {
   my( $self) = @_; 
   
@@ -182,145 +171,199 @@ sub fetch_input {
 
   $self->chains($self->sort_chains_by_max_block_score([values %features_by_group]));
 
-  if (not $self->SIMPLE_NET) {
-    my (%query_lengths, %target_lengths);
+  if ($self->PRIMARY_METHOD eq 'STANDARD' or 
+      $self->SECONDARY_METHOD eq 'STANDARD') {
+    my $run = $self->make_runnable(0);
+    $self->standard_runnable($run);
+  }
+  if ($self->PRIMARY_METHOD eq 'SYNTENIC' or 
+      $self->SECONDARY_METHOD eq 'SYNTENIC') {
+    my $run = $self->make_runnable(1);
+    $self->syntenic_runnable($run);
+  }
+}
 
-    foreach my $nm (keys %{$self->query_DnaFrag_hash}) {
-      $query_lengths{$nm} = $self->query_DnaFrag_hash->{$nm}->length;
-    }
-    foreach my $nm (keys %{$self->target_DnaFrag_hash}) {
-      $target_lengths{$nm} = $self->target_DnaFrag_hash->{$nm}->length;
-    }
-    
-    my %parameters = (-analysis             => $self->analysis, 
-                      -chains               => $self->chains,
-                      -query_lengths        => \%query_lengths,
-                      -target_lengths       => \%target_lengths,
-                      -min_chain_score      => $self->MIN_CHAIN_SCORE,
-                      -filter_non_syntenic  => $self->FILTER_NON_SYNTENIC);
-    
-    $parameters{-chainNet} = $self->CHAIN_NET 
-        ? $self->CHAIN_NET
-        : $BIN_DIR . "/" . "chainNet";
-    $parameters{-netSyntenic} = $self->NET_SYNTENIC 
-        ? $self->NET_SYNTENIC 
-        : $BIN_DIR . "/" . "netSyntenic";
-    $parameters{-netFilter} = $self->NET_FILTER
-        ? $self->NET_FILTER
-            : $BIN_DIR . "/" . "netFilter";
-    
+############################################################
+sub run{
+  my ($self) = @_;
+  
+  $self->run_method($self->PRIMARY_METHOD);
+  if (not @{$self->output} and $self->SECONDARY_METHOD) {
+    $self->run_method($self->SECONDARY_METHOD);
+  }
 
-    my $run = Bio::EnsEMBL::Analysis::Runnable::AlignmentNets->new(%parameters);
-    $self->runnable($run);
-  } 
+}
+
+#############################################################
+sub run_method {
+  my ($self, $meth) = @_;
+
+  if ($meth eq 'STANDARD' or $meth eq 'SYENTENIC') {
+    $self->runnable( $meth eq 'STANDARD' 
+                     ? $self->standard_runnable 
+                     : $self->syntenic_runnable ); 
+
+    $self->SUPER::run;
+  } else {
+    my $filtered_chains;
+
+    if ($meth eq 'SIMPLE_HIGH') {
+      $filtered_chains = [$self->chains->[0]];
+    } elsif ($meth eq 'SIMPLE_MEDIUM') {
+      $filtered_chains = $self->calculate_simple_medium_net($self->chains);
+    } elsif ($meth eq 'SIMPLE_LOW') {
+      $filtered_chains = $self->calculate_simple_low_net($self->chains);
+    } 
+
+    if (defined $filtered_chains) {
+      my $converted_out = $self->convert_output($filtered_chains);
+      $self->output($converted_out);
+    }
+  }
 }
 
 
+###############################################################
+sub calculate_simple_medium_net {
+  my ($self, $chains) = @_;
 
-sub calculate_simple_net {
-  my ($self, $mode, $chains) = @_;
-
-  my @net_chains;
-
-  if ($mode =~ /HIGH/) {
-    # VERY simple: just keep the best chain
-
-    if (@$chains) {
-      @net_chains = ($chains->[0]);
-    }
-
-  } elsif ($mode =~ /MEDIUM/) {
+  my (@net_chains);
     # Slightly less simple. Junk chains that have extent overlap
     # with retained chains so far
-    foreach my $c (@$chains) {
-      my @b = sort { $a->start <=> $b->start } @$c; 
-      my $c_st = $b[0]->start;
-      my $c_en = $b[-1]->end;
-
-      my $keep_chain = 1;
-      foreach my $oc (@net_chains) {
-        my @ob = sort { $a->start <=> $b->start } @$oc; 
-
-        my $oc_st = $ob[0]->start;
-        my $oc_en = $ob[-1]->end;
-
-        if ($oc_st <= $c_en and $oc_en >= $c_st) {
-          # overlap; junk
-          $keep_chain = 0;
-          last;
-        }
-      }
-
-      if ($keep_chain) {
-        push @net_chains, $c;
+  foreach my $c (@$chains) {
+    my @b = sort { $a->start <=> $b->start } @$c; 
+    my $c_st = $b[0]->start;
+    my $c_en = $b[-1]->end;
+    
+    my $keep_chain = 1;
+    foreach my $oc (@net_chains) {
+      my @ob = sort { $a->start <=> $b->start } @$oc; 
+      
+      my $oc_st = $ob[0]->start;
+      my $oc_en = $ob[-1]->end;
+      
+      if ($oc_st <= $c_en and $oc_en >= $c_st) {
+        # overlap; junk
+        $keep_chain = 0;
+        last;
       }
     }
+    
+    if ($keep_chain) {
+      push @net_chains, $c;
+    }
+  }
+  
+  return \@net_chains;
+}
 
-  } elsif ($mode =~ /LOW/) {
-    # not quite so simple. Junk chains that have BLOCK overlap
-    # with retained chains so far
-    my @retained_blocks;
 
-    foreach my $c (@$chains) {
-      my @b = sort { $a->start <=> $b->start } @$c; 
+################################################################
+sub calculate_simple_low_net {
+  my ($self, $chains) = @_;
 
-      my $keep_chain = 1;
-      BLOCK: foreach my $b (@b) {
-        OTHER_BLOCK: foreach my $ob (@retained_blocks) {
-          if ($ob->start <= $b->end and $ob->end >= $b->start) {
-            $keep_chain = 0;
-            last BLOCK;
-          } elsif ($ob->start > $b->end) {
-            last OTHER_BLOCK;
-          }
+  my (@net_chains, @retained_blocks);
+  
+  foreach my $c (@$chains) {
+    my @b = sort { $a->start <=> $b->start } @$c; 
+    
+    my $keep_chain = 1;
+    BLOCK: foreach my $b (@b) {
+      OTHER_BLOCK: foreach my $ob (@retained_blocks) {
+        if ($ob->start <= $b->end and $ob->end >= $b->start) {
+          $keep_chain = 0;
+          last BLOCK;
+        } elsif ($ob->start > $b->end) {
+          last OTHER_BLOCK;
         }
       }
-
-      if ($keep_chain) {
-        push @net_chains, $c;
-        push @retained_blocks, @$c;
-        @retained_blocks = sort { $a->start <=> $b->start } @retained_blocks;
-      }
+    }
+    
+    if ($keep_chain) {
+      push @net_chains, $c;
+      push @retained_blocks, @$c;
+      @retained_blocks = sort { $a->start <=> $b->start } @retained_blocks;
     }
   }
 
   return \@net_chains;
 }
 
-=head2 run
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Function  : cycles through all the runnables, calls run and pushes
-  their output into the RunnableDBs output array
-  Returntype: array ref
-  Exceptions: none
-  Example   : 
+############################################################
+sub make_runnable {
+  my ($self, $syntenic) = @_;
 
-=cut
+  my (%query_lengths, %target_lengths);
 
-sub run{
-  my ($self) = @_;
-  if (not $self->SIMPLE_NET) {
-    $self->SUPER::run();
-  } else {
-    my $filtered_chains = $self->calculate_simple_net($self->SIMPLE_NET,
-                                                      $self->chains);
-    my $converted_output = $self->convert_output($filtered_chains);
-    $self->output($converted_output);
+  foreach my $nm (keys %{$self->query_DnaFrag_hash}) {
+    $query_lengths{$nm} = $self->query_DnaFrag_hash->{$nm}->length;
   }
+  foreach my $nm (keys %{$self->target_DnaFrag_hash}) {
+    $target_lengths{$nm} = $self->target_DnaFrag_hash->{$nm}->length;
+  }
+    
+  my %parameters = (-analysis             => $self->analysis, 
+                    -chains               => $self->chains,
+                    -query_lengths        => \%query_lengths,
+                    -target_lengths       => \%target_lengths,
+                    -min_chain_score      => $self->MIN_CHAIN_SCORE,
+                    -filter_non_syntenic  => $syntenic);
+  
+  $parameters{-chainNet} = $self->CHAIN_NET 
+      ? $self->CHAIN_NET
+      : $BIN_DIR . "/" . "chainNet";
+  $parameters{-netSyntenic} = $self->NET_SYNTENIC 
+      ? $self->NET_SYNTENIC 
+      : $BIN_DIR . "/" . "netSyntenic";
+  $parameters{-netFilter} = $self->NET_FILTER
+      ? $self->NET_FILTER
+      : $BIN_DIR . "/" . "netFilter";
+    
+  my $run = Bio::EnsEMBL::Analysis::Runnable::AlignmentNets->new(%parameters);
+  return $run;
+
 }
 
+##############################################################
+sub runnable {
+  my ($self, $runnable) = @_;
 
-=head2 chains
+  my @runnables;
 
- Title   : chains
- Usage   :
- Function:
- Returns : 
- Args    :
+  if (defined $runnable) {
+    $self->{_single_runnable} = $runnable;
+  }
+  if (exists $self->{_single_runnable}) {
+    push @runnables, $self->{_single_runnable};
+  }
 
-=cut
+  return \@runnables;
+}
 
+##############################################################
+sub standard_runnable {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    $self->{_standard_runnable} = $val;
+  }
+
+  return $self->{_standard_runnable};
+}
+
+##############################################################
+sub syntenic_runnable {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_syntenic_runnable} = $val;
+  }
+
+  return $self->{_syntenic_runnable};
+}
+
+##############################################################
 sub chains {
   my ($self,$value) = @_;
   
@@ -347,12 +390,35 @@ sub read_and_check_config {
                       OUTPUT_METHOD_LINK_TYPE
                       QUERY_SPECIES
                       TARGET_SPECIES
-                      COMPARA_DB)) {
+                      COMPARA_DB
+                      PRIMARY_METHOD)) {
 
     throw("You must define $var in config for logic '$logic'" . 
           " or in the DEFAULT entry")
         if not $self->$var;
   }
+
+  # check for sanity
+  my %allowable_methods = 
+      (
+       STANDARD      => 1,
+       SYNTENIC      => 1,
+       SIMPLE_HIGH   => 1,
+       SIMPLE_MEDIUM => 1,
+       SIMPLE_LOW    => 1,
+       );
+
+  if ($self->PRIMARY_METHOD and 
+      not $allowable_methods{$self->PRIMARY_METHOD}) {
+    throw("You must set PRIMARY_METHOD to one of the reserved names\n" .
+          "See the .example file for these names");
+  }
+  if ($self->SECONDARY_METHOD and 
+      not $allowable_methods{$self->PRIMARY_METHOD}) {
+    throw("You must set SECONDARY_METHOD to one of the reserved names\n" .
+          "See the .example file for these names");
+  }
+
 }
 
 
@@ -376,24 +442,25 @@ sub TARGET_SPECIES {
   return $self->{_target_species};
 }
 
-sub SIMPLE_NET {
+
+sub PRIMARY_METHOD {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_simple_net} = $val;
-  }
-
-  return $self->{_simple_net};
-}
-
-sub FILTER_NON_SYNTENIC {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_filter_non_syntenic} = $val;
+    $self->{_primary_method} = $val;
   }
   
-  return $self->{_filter_non_syntenic};
+  return $self->{_primary_method};
+}
+
+sub SECONDARY_METHOD {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_secondary_method} = $val;
+  }
+  
+  return $self->{_secondary_method};
 }
 
 sub CHAIN_NET {

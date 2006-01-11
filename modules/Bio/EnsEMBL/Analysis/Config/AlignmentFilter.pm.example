@@ -40,12 +40,22 @@ use vars qw( %Config );
 %Config = (
            CHAIN_CONFIG_BY_LOGIC => {
              DEFAULT => {
+               # the locations of the query and target genomes dumped
+               # in Jim Kent's NIB format. If not supplied, the code
+               # will dump on the fly. However, for genomes with large
+               # top level pieces (e.g. human), it is advisable to pre-dump
+               # to a directory, the name of which should be supplied here
                TARGET_NIB_DIR => '/dir/with/target/seq/nib-files',
                QUERY_NIB_DIR  => '/dir/with/query/seq/nib-files',
 
-               INPUT_METHOD_LINK_TYPE => 'BLASTZ_RAW',
-               OUTPUT_METHOD_LINK_TYPE => 'BLASTZ_CHAINS',
+               # compara type of the raw alignments. Usually 'BLASTZ_RAW'
+               INPUT_METHOD_LINK_TYPE => '',
+               # compara type of the output chains. Usually 'ALIGNMENT_CHAINS'
+               OUTPUT_METHOD_LINK_TYPE => '',
 
+               # compara database details. This database should contain 
+               # the raw alignments. The processed alignments will also
+               # be written here
                COMPARA_DB => {
                  -dbname => '',
                  -host   => '',
@@ -53,12 +63,16 @@ use vars qw( %Config );
                  -pass   => '',
                  -port   => '',
                },
+
+               # query core database details
                QUERY_CORE_DB => {
                  -dbname => '',
                  -user   => '',
                  -host   => '',
                  -port   => '',
                },
+
+               # target core database details
                TARGET_CORE_DB => {
                  -dbname => '',
                  -user   => '',
@@ -66,6 +80,7 @@ use vars qw( %Config );
                  -port   => '',
                },
 
+               # leave these alone
                MAX_GAP => 50,
                MIN_CHAIN_SCORE => 1000,
 
@@ -76,12 +91,24 @@ use vars qw( %Config );
            NET_CONFIG_BY_LOGIC => {
              DEFAULT => {
 
-               QUERY_SPECIES  => 'Homo sapiens',
-               TARGET_SPECIES => 'Bos taurus',
+               # proper species names (e.g. Homo sapiens) of query 
+               # and target. If running in preparation for the WGA2Genes
+               # procedure, the query should be the genome you wish to 
+               # annotate and the target should be the genome you will
+               # be drawing annotation from
+               QUERY_SPECIES  => '',
+               TARGET_SPECIES => '',
 
-               INPUT_METHOD_LINK_TYPE => 'BLASTZ_CHAINS',
+               # this will match the OUTPUT_METHOD_LINK_TYPE for chains
+               # above (usually 'ALIGNMENT_CHAINS')
+               INPUT_METHOD_LINK_TYPE => '',
+
+               # compara type for the result net alignments
                OUTPUT_METHOD_LINK_TYPE => 'BLASTZ_NET',
 
+               # compara database details. This database should contain 
+               # the alignment chains. The processed alignments will also
+               # be written here
                COMPARA_DB => {
                  -dbname => '',
                  -host   => '',
@@ -90,18 +117,31 @@ use vars qw( %Config );
                  -port   => '',                 
                },
 
+               # ignore these
                MAX_GAP => 50,
                MIN_CHAIN_SCORE => 2000,
 
-               # If you want simple nets (not using Jim Kent's code), 
-               # set the below to one of "LOW", "MEDIUM" or "HIGH". If
-               # not, leave it empty
-               SIMPLE_NET => 'MEDIUM',
-
-               # if not using simple nets, JK's tools will be used. Set
-               # this to 1 if you want to use netSyntenic (attempted 
-               # (filtering of pseudogenes) after using chainNet.
-               FILTER_NON_SYNTENIC => 1,               
+               # Five basic ways of calculating the Net are supported:
+               # STANDARD : uses Jim Kent's chainNet
+               # SYNTENIC : uses Jim Kent's netSynteny/netFilter (attempted
+               #   pseudogene filtering)
+               # SIMPLE_LOW : in-built perl implementation which rejects 
+               #   lower-scoring chains if they have block overlap in the
+               #   query with a higher scoring chain
+               # SIMPLE_MEDIUM: in-built perl implementation which rejects
+               #   lower-scoring chains if their extent overlaps with the
+               #   extent of a higher scoring chain
+               # SIMPLE_HIGH : in-built perl implementation that simply
+               #   retains the highest scoring chain
+               #
+               # In addition, if one of these methods resulted in no alignments
+               # being retained (which in theory can happen in either of the 
+               # non-simple methods sue to score cutoffs, but in practice happens
+               # most often with the SYNTENIC methos), then the secondary method
+               # will be run (if set).
+               
+               PRIMARY_METHOD => '',
+               SECONDARY_METHOD => '',
              },
            );
 
