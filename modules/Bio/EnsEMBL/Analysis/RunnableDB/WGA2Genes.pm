@@ -123,9 +123,11 @@ sub fetch_input {
 
   if ($input_id =~ /:/) {
     # assume slice name
+
     my $slice = $sa->fetch_by_name($input_id);
     $self->query_slice($sa->fetch_by_region('toplevel',
                                             $slice->seq_region_name));
+
 
     my @genes;
     foreach my $g (@{$slice->get_all_Genes}) {
@@ -158,6 +160,12 @@ sub fetch_input {
     $gene = $gene->transfer($self->query_slice);
 
     $self->genes([$gene]);
+  }
+
+  if ($self->REJECT_BAD_QUERY_TRANSCRIPTS) {
+    foreach my $g (@{$self->genes}) {
+      $self->filter_bad_Transcripts($g);
+    }
   }
 
   my ($reg_start, $reg_end);
@@ -1831,9 +1839,9 @@ sub get_all_transcript_cds_features {
 # FUNCTION   : get_all_Transcripts
 #
 # Description : 
-#   Returns the set of transcripts for the given gene, filtered
-#   according to a few basic rules (see implementation for 
-#   details)
+#   Returns the set of transcripts for the given gene. We store 
+#   these explicitly here for each gene so that individual ones
+#   can be removed if necessary
 #################################################################
 
 sub get_all_Transcripts {
@@ -1874,110 +1882,91 @@ sub get_all_Transcripts {
         push @kept_trans, $t;
       }
     }      
-    
-    if ($self->REJECT_BAD_QUERY_TRANSCRIPTS) {
-      my (@transcripts);
-      
-      foreach my $t (@kept_trans) {
 
-        # record large introns in the transcript
-        my @introns;
-        
-        my @exons = sort {
-          $a->start <=> $b->start;
-        } @{$t->get_all_translateable_Exons};
-        
-        for(my $i=1; $i<@exons; $i++) {
-          my $intron_start = $exons[$i-1]->end + 1;
-          my $intron_end   = $exons[$i]->start - 1;
+    $self->{_transcripts}->{$gene} = \@kept_trans;
+  }
 
-          push @introns, { 
-            start => $intron_start,
-            end   => $intron_end,
-          };
-        }
-        
-        push @transcripts, { 
-          tran   => $t,
-          introns => \@introns,
-        };
-      }
-      
-      my (@kept_transcripts, @maybe_keep_transcripts);
-      foreach my $t (@transcripts) {
-        if (not @{$t->{introns}}) {
-          push @kept_transcripts, $t;
-        } else {
-          # also keep if the large introns do not overlap other genes
-          my $intron_contains_gene = 0;
-          OTHERGENE: foreach my $og (@{$self->genes}) {
-            next if $og->stable_id eq $gene->stable_id;
-            
-            foreach my $li (@{$t->{introns}}) {
-              if ($og->start <= $li->{end} and 
-                  $og->end   >=  $li->{start}) {
-                $intron_contains_gene = 1;
-                last OTHERGENE;
-              }
-            }
-          }
-          if (not $intron_contains_gene) {
-            push @kept_transcripts, $t;
-          } else {
-            # this transcript has intron-containing genes, but we might
-            # have to keep it if all such transcripts have this property
-            push @maybe_keep_transcripts, $t;
-          }
-        }
-      }
-      
-      if (not @kept_transcripts) {
-        @kept_transcripts = @maybe_keep_transcripts;
-      }
-      
-      $self->{_transcripts}->{$gene} = [map {$_->{tran}} @kept_transcripts];
-    } else {
-      $self->{_transcripts}->{$gene} = \@kept_trans;
-    }
-  } 
-
-    
   return $self->{_transcripts}->{$gene};
 }
 
+
 #################################################################
-# FUNCTION   : remove_Transcript
+# FUNCTION   : get_all_Transcripts
 #
 # Description : 
-#   Removes the given transcript from the given gene
-#   Returns 1 for success, 0 for failure
+#   Attempts to remove "dodgy" source transcripts from the input gene
+#   (i.e. those can cause overlap with another gene, where the
+#   other transcripts do not). 
 #################################################################
-sub remove_Transcript {
-  my ($self, $g, $t) = @_;
 
-  if (exists($self->{transcripts})) {
-    # good. We have populated the gene/transcript list
-    if (exists $self->{_transcripts}->{$g}) {
-      my @tlist = @{$self->{_transcripts}->{$g}};
-      my @kept;
-      foreach my $ot (@tlist) {
-        if ($t != $ot) {
-          push @kept, $ot;
+
+sub filter_bad_Transcripts {
+  my ($self, $gene) = @_;
+    
+  my (@transcripts);
+      
+  my @orig_trans = @{$self->get_all_Transcripts($gene)};
+
+  foreach my $t (@orig_trans) {
+    # record large introns in the transcript
+    my @introns;
+    
+    my @exons = sort {
+      $a->start <=> $b->start;
+    } @{$t->get_all_translateable_Exons};
+    
+    for(my $i=1; $i<@exons; $i++) {
+      my $intron_start = $exons[$i-1]->end + 1;
+      my $intron_end   = $exons[$i]->start - 1;
+      
+      push @introns, { 
+        start => $intron_start,
+        end   => $intron_end,
+      };
+    }
+    
+    push @transcripts, { 
+      tran   => $t,
+      introns => \@introns,
+    };
+  }
+  
+  my (@kept_transcripts, @maybe_keep_transcripts);
+  foreach my $t (@transcripts) {
+    if (not @{$t->{introns}}) {
+      push @kept_transcripts, $t;
+    } else {
+      # also keep if the large introns do not overlap other genes
+      my $intron_contains_gene = 0;
+      OTHERGENE: foreach my $og (@{$self->genes}) {
+        next if $og->stable_id eq $gene->stable_id;
+        
+        foreach my $li (@{$t->{introns}}) {
+          if ($og->start <= $li->{end} and 
+              $og->end   >=  $li->{start}) {
+            $intron_contains_gene = 1;
+            last OTHERGENE;
+          }
         }
       }
-      if (scalar(@kept) == scalar(@tlist)-1) {
-        $self->{_transcripts}->{$g} = \@kept;
-        return 1;
+      if (not $intron_contains_gene) {
+        push @kept_transcripts, $t;
       } else {
-        return 0;
+        # this transcript has intron-containing genes, but we might
+        # have to keep it if all such transcripts have this property
+        push @maybe_keep_transcripts, $t;
       }
-    } else {
-      return 0;
     }
-  } else {
-    return 0;
   }
+  
+  if (not @kept_transcripts) {
+    @kept_transcripts = @maybe_keep_transcripts;
+  }
+  
+  $self->{_transcripts}->{$gene} = [map {$_->{tran}} @kept_transcripts];
+
 }
+
 
 
 ###################################################################
