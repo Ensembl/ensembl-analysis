@@ -131,6 +131,13 @@ sub filter_main {
 
   foreach my $hit (@$hits) {
     my $this_dat = $dat->{$hit->hseqname};
+    
+    if (not defined $this_dat->{mean_score}) {
+      # this must be a sub-family hit; filter it out, hoping 
+      # that the superfamily will be hit, and hence this sub-family 
+      # hit in the refined search
+      next;
+    }
 
     my $len_prop = $hit->length / $self->query->length;
     my $len_diff = abs($self->query->length - $this_dat->{mean_length});
