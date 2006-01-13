@@ -71,7 +71,7 @@ sub run_analysis {
 sub parse_results {
   my ($self) = @_;
 
-  my ($fh, @pfs);
+  my ($fh);
 
   my $resfile = $self->resultsfile;
   
