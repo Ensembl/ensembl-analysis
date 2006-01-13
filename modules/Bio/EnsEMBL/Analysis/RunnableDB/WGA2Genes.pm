@@ -135,7 +135,11 @@ sub fetch_input {
       next if $g->start < $slice->start;
       next if $g->end   > $slice->end;
 
-      push @genes, $g;
+      my @t = @{$self->get_all_Transcripts($g)};
+
+      if (@t) {
+        push @genes, $g;
+      }
     }
 
     $self->genes(\@genes);
@@ -1939,6 +1943,40 @@ sub get_all_Transcripts {
 
     
   return $self->{_transcripts}->{$gene};
+}
+
+#################################################################
+# FUNCTION   : remove_Transcript
+#
+# Description : 
+#   Removes the given transcript from the given gene
+#   Returns 1 for success, 0 for failure
+#################################################################
+sub remove_Transcript {
+  my ($self, $g, $t) = @_;
+
+  if (exists($self->{transcripts})) {
+    # good. We have populated the gene/transcript list
+    if (exists $self->{_transcripts}->{$g}) {
+      my @tlist = @{$self->{_transcripts}->{$g}};
+      my @kept;
+      foreach my $ot (@tlist) {
+        if ($t != $ot) {
+          push @kept, $ot;
+        }
+      }
+      if (scalar(@kept) == scalar(@tlist)-1) {
+        $self->{_transcripts}->{$g} = \@kept;
+        return 1;
+      } else {
+        return 0;
+      }
+    } else {
+      return 0;
+    }
+  } else {
+    return 0;
+  }
 }
 
 
