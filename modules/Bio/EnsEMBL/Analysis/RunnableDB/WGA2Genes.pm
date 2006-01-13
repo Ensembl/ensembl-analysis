@@ -303,7 +303,6 @@ sub run {
     }
 
     for(my $iteration=0; ;$iteration++) {
-      
       my $filtered_chains = $self->remove_used_chains($alignment_chains,
                                                       \%blocks_used_so_far);
       # $self->print_chains($filtered_chains, "CHAINS LEFT");
@@ -1398,6 +1397,11 @@ sub make_projected_transcript {
 
   $proj_tran->translation($translation);
 
+  if (not defined $proj_tran->translate) {
+    # this can happen if the transcript comprises a single stop codon only
+    return undef;
+  }
+
   #
   # finally, attributes
   #
@@ -1891,7 +1895,7 @@ sub get_all_Transcripts {
 
 
 #################################################################
-# FUNCTION   : get_all_Transcripts
+# FUNCTION   : filter_bad_Transcripts
 #
 # Description : 
 #   Attempts to remove "dodgy" source transcripts from the input gene
