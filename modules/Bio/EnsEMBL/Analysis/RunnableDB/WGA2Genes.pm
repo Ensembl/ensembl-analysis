@@ -134,14 +134,12 @@ sub fetch_input {
       next if $g->biotype ne 'protein_coding';
       $g = $g->transfer($self->query_slice);
 
-      next if $g->start < $slice->start;
-      next if $g->end   > $slice->end;
-
-      my @t = @{$self->get_all_Transcripts($g)};
-
-      if (@t) {
-        push @genes, $g;
+      foreach my $t (@{$self->get_all_Transcripts($g)}) {
+        next if $t->coding_region_start < $slice->start;
+        next if $t->coding_region_end   > $slice->end;
       }
+
+      push @genes, $g;
     }
 
     $self->genes(\@genes);
@@ -290,7 +288,7 @@ sub run {
         $self->remove_irrelevant_chains($self->genomic_align_block_chains,
                                         \@cds_feats);
 
-    # $self->print_chains($alignment_chains, "RELEVANT CHAINS");
+    #$self->print_chains($alignment_chains, "RELEVANT CHAINS");
 
     if ($self->PSEUDOGENE_CHAIN_FILTER) {
       $alignment_chains = 
@@ -305,7 +303,7 @@ sub run {
     for(my $iteration=0; ;$iteration++) {
       my $filtered_chains = $self->remove_used_chains($alignment_chains,
                                                       \%blocks_used_so_far);
-      # $self->print_chains($filtered_chains, "CHAINS LEFT");
+      #$self->print_chains($filtered_chains, "CHAINS LEFT");
       
       $filtered_chains = $self->remove_interfering_chains($filtered_chains);
                                                          
