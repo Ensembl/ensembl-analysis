@@ -97,7 +97,6 @@ sub parse_results {
       $cigar_string .= $query_match_length.$match_type;
      
     }
-#  print $cigar_string,"\n";
 
     my $feature = 
       $self->make_feature(
@@ -128,13 +127,10 @@ sub make_feature{
     $perc_id, $q_length, $cigar_string 
   ) = @_;
 
-  #because of the 'in-between' coordinates.
-  $t_start += 1;
-  
-
-  # Everything is 'flipped' into the forward strand of the probe -
-  # so a hit on the reverse strand of the probe (q_strand = '-1')
-  # is altered:  q_strand = '+1' and t_strand => -1 x t_strand. 
+  # Everything is 'flipped' for the reverse CloneEnd (if not 
+  # reverse complemented) so a hit on the reverse strand of 
+  # the probe (q_strand = '-1') is altered:  q_strand = '+1' 
+  # and t_strand => -1 x t_strand. 
   if($q_strand eq '+'){
     $q_strand = 1;
     if($t_strand eq '+'){
@@ -171,7 +167,6 @@ sub make_feature{
       -percent_id   => $perc_id,
       -cigar_string => $cigar_string,
     );
-#  print $t_id," Percent_id: ",$perc_id," Score: ", $score,"\n";
   
   return $feature;
 }
