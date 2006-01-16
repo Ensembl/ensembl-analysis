@@ -281,7 +281,7 @@ sub get_best_hits{
 		}
 	      }
 	      else {
-		  $self->throw("Unknown threshold type '$thresh_type'");
+		  throw("Unknown threshold type '$thresh_type'");
 	      }
 
 	      #get top_score
@@ -316,7 +316,7 @@ sub _apply_coverage_filter {
     my @output;
     my $max_coverage = defined($coverage) ? $coverage : 0;
     $discard_overlaps = $discard_overlaps || 0;
-    $self->throw("Max coverage '$max_coverage' is beyond limit of method '255'") if $max_coverage > 255;
+    throw("Max coverage '$max_coverage' is beyond limit of method '255'") if $max_coverage > 255;
 
     # Make a string of nulls (zeroes) the length of the query
     my $coverage_map = "\0" x ( $query_length + 1 );
@@ -334,7 +334,7 @@ sub _apply_coverage_filter {
 	@bin_numbers = sort { $a <=> $b } keys %$best_hits;
     }
     else {
-	$self->throw("Unknown threshold type '$threshold_type'");
+	throw("Unknown threshold type '$threshold_type'");
     }
 
     foreach my $bin_n (@bin_numbers) {
