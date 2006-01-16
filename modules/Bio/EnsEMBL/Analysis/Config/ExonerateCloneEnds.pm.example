@@ -52,7 +52,7 @@ use vars qw( %Config );
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP   => undef,
       DNADB => {
-        -dbname   => 'bos_taurus_core_36_2',
+        -dbname   => 'homo_sapiens_core_37_35j',
         -host     => 'ecs2',
         -port     => '3364',
         -user     => 'ensro',
@@ -73,7 +73,7 @@ use vars qw( %Config );
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP   => undef,
       DNADB => {
-        -dbname   => 'bos_taurus_core_36_2',
+        -dbname   => 'homo_sapiens_core_37_35j',
         -host     => 'ecs2',
         -port     => '3364',
         -user     => 'ensro',
@@ -87,7 +87,7 @@ use vars qw( %Config );
       # path to softmasked, dusted sequence on the farm 
       #
  
-      GENOMICSEQS  => '/data/blastdb/Ensembl/Cow/v2/genome/Bos_taurus.mask.dust.soft.fa',  
+      GENOMICSEQS  => '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted', #allowed to be a dir.    
       QUERYTYPE    => 'dna',
 
       # must be a single file containing all clone fasta sequences
@@ -97,25 +97,25 @@ use vars qw( %Config );
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP    => '(\d+):(\d+)',
       DNADB => {
-        -dbname => 'bos_taurus_core_36_2',
+        -dbname => 'homo_sapiens_core_37_35j',
         -host   => 'ecs2',
         -port   => '3364',
         -user   => 'ensro',
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_cow',  
+        -dbname => 'jb16_sheep_human_clones',
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
         -pass   => 'ensembl',
         },
       SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_clean_idx',
-      OPTIONS   => '--bestn 10  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',#--model affine:local --gapopen -8 --gapextend -2
+      OPTIONS   => '--bestn 10  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
     },
     REFINE_CLONE_ENDS => {
   
-      GENOMICSEQS  => '/data/blastdb/Ensembl/Cow/v2/genome/Bos_taurus.mask.dust.soft.fa',
+      GENOMICSEQS  =>   '/data/blastdb/Ensembl/Human/NCBI35/softmasked_dusted', #allowed to be a dir.
       QUERYTYPE    => 'dna',
 
       # must be a single file containing all clone fasta sequences
@@ -125,14 +125,14 @@ use vars qw( %Config );
       # must supply one, since the queryseqs MUST be a single file 
       IIDREGEXP    => '(\w+):([\w_\.]+):([\w\.]+):([-\w]+):([-\w]+):([-\w]+):(\w+)',
       DNADB => {
-        -dbname => 'bos_taurus_core_36_2',
+        -dbname => 'homo_sapiens_core_37_35j',
         -host   => 'ecs2',
         -port   => '3364',
         -user   => 'ensro',
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_cow',  
+        -dbname => 'jb16_sheep_human_clones',
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
