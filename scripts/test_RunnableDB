@@ -329,10 +329,6 @@ sub useage{
     input id type won't be stored by the core api so it will cause
     RuleManagers db sanity checks to fail 
 
-    -update_input_id_analysis update the input_id_analysis, this can be
-               switched off with the -noupdate_input_id_analysis flag
-               but if you pass the -nowrite option this will be switched
-               off automatically 
     -check     a pre exec option if you want to use it on the farm
     -write     whether to write the results to the database, by default
                this is true but i can be switched off with -nowrite
