@@ -38,6 +38,21 @@ use vars qw( %Config );
 
 # Hash containing config info
 %Config = (
+        # For both chains and nets, input ids are assumed to relate to
+        # the QUERY genome, so consider this when filling in this 
+        # configuration and also when creating your input ids
+
+        # If filtering alignments in preparation for the WGA2Genes
+        # procedure, it is important that the Net is constructed with
+        # the low-coverage genome to annotate as the QUERY (and the 
+        # reference genome as the TARGET). The chaining procedure is
+        # symettrical, so the assignment of genomes to QUERY and TARGET
+        # should not matter. However, it is most practical for the low-
+        # coverage genome to act as QUERY for chaining as well, because
+        # (i) the same set of input ids can be used for chaining and netting
+        # (ii) the sequence regions will rarely be big enough to make
+        # memory/speed considerations an issue. 
+
            CHAIN_CONFIG_BY_LOGIC => {
              DEFAULT => {
                # the locations of the query and target genomes dumped
@@ -45,8 +60,8 @@ use vars qw( %Config );
                # will dump on the fly. However, for genomes with large
                # top level pieces (e.g. human), it is advisable to pre-dump
                # to a directory, the name of which should be supplied here
-               TARGET_NIB_DIR => '/dir/with/target/seq/nib-files',
                QUERY_NIB_DIR  => '/dir/with/query/seq/nib-files',
+               TARGET_NIB_DIR => '/dir/with/target/seq/nib-files',
 
                # compara type of the raw alignments. Usually 'BLASTZ_RAW'
                INPUT_METHOD_LINK_TYPE => '',
