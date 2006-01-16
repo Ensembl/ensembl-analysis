@@ -64,7 +64,8 @@ sub fetch_input {
 				       -id          => $self->input_id,
 				       -accession   => $self->input_id,
 				       -moltype     => 'protein');
-  } elsif (-e $self->input_id) {
+  } elsif ($self->input_id =~ /^\// and -e $self->input_id) {
+    # assume fully-qualified file name
     $input_id = $self->input_id;
   } elsif (defined $self->BASE_DIR and 
            $self->BASE_DIR and
