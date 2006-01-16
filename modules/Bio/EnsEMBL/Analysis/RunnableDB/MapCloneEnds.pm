@@ -32,9 +32,17 @@ MapCloneEnds (module -> MapCloneEnds),
 EXONERATE_CLONE_ENDS (module -> MapCloneEnds),
 REFINE_CLONE_ENDS(module -> MapCloneEnds)
 
+For MapCloneEnds read the input_id_chunks from a file where each line 
+contains a number of ID separated by ":". In order to be able to correclty
+parse the input ids, they should be given in a very specific format. The file 
+can be automaticaly generated from an XML using chunker.pl or manually generated 
+where each id should be in the format:
+Clone_ID,length_of_clone,standard_deviation_of_length,Clone_end_ID,Direction_of_Clone
+(i.e. CH243-307D10,184000.0,36800.0,1098421033278,F).
+
 =head1 CONTACT
 
-Post general queries to <ensembl-dev@ebi.ac.uk>
+Post general queries, or on how to get chunker.pl, to <ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 
@@ -77,7 +85,6 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-#  my @cloneEnd = ();
   my $trace_name = '';  # ClonEnd id as in database
   my $clone_id = '';# Clone id
   my $insert_size = '';# Length of the inserted sequence in clone
@@ -89,8 +96,6 @@ sub run {
   # the chunker script
  
   my $chunks_list = $self->CHUNKSLIST;
-
-  #my $single_entry = 0;
 
   my %clones  = (); # hash where each clone object will be stored
 
@@ -413,11 +418,9 @@ sub filter_alignments{
         # there are more than two cloneEnds where more than one correspond to the same end that
         # was sequenced more than once.
         $clone_dir{$numberOfEnd} = $clones{$pair}[$numberOfEnd+3];
-        #print "Clone dir: ",$clone_dir{$numberOfEnd},"\n";
 	
         my @cloneEnd_clean  = @{$self->clean_clusters($clone_cluster{$cloneEnd})};
 	if (!$clean_cloneEnds{$numberOfEnd}){
-	  #  print "numberOfEnd= ", $numberOfEnd,"\n";
           $clean_cloneEnds{$numberOfEnd} = \@cloneEnd_clean;
         }
        
@@ -462,7 +465,7 @@ sub filter_alignments{
                     # This is made to avoid the same cloneEnds to be paired more than once when there is more 
                     # than one alignment in a short region.
                     if ($abs_diff <= $clone_length  && (($sa->start()-$second_prev_chr_start)>4000)){
-
+             
                       # In case two alignments are selected store them for the next exonerate step
                       push (@selected_alignments, $fa);
                       push (@selected_alignments, $sa); 
@@ -481,6 +484,7 @@ sub filter_alignments{
           }
         }
       }
+
       foreach my $clone_status (keys %status){
 	if ($status{$clone_status} == 0){
 

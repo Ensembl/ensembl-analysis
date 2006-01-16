@@ -57,11 +57,6 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
   
-  #Because we dont know whether the sort of adapter (compara, hive, core)
-  #we'll be passed, it's better to just remake the core dbadaptor and
-  #keep it on ourselves as the dna db - this has to be the intent of the
-  #dataadaptor input through the rulemanager / beekeeper / whatever
-
   $self->read_and_check_config($CLONE_CONFIG);
   return $self;
 }
@@ -72,8 +67,6 @@ sub fetch_input {
   my $logic = $self->analysis->logic_name;
 
   my $seqFetchDB = $self->SEQFETCHDB;
-
-  print "seqFetchDB: ",$seqFetchDB,"\n";
 
   my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
                                -db      => [($seqFetchDB)],
@@ -168,20 +161,14 @@ sub fetch_input {
     #print  $iid_regexp,"\n";
 
      if (not defined $iid_regexp){
-      throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your single fasta file" )
+      throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your chunklist file" )
     }
 
-    #print $self->input_id,"\n";
-
     my ( $chunk_number, $chunk_total ) = $self->input_id =~ /$iid_regexp/;
-    
-    #print $chunk_number,"\n";
-    #print $chunk_total,"\n";
 
     # Read the line corresponding to chunk_number and parse the input ids from there
     my $seq_ids = @{$chunkLine}[$chunk_number];
     
-    #print $seq_ids,"\n";
     my @ids_list = split (/:/,$seq_ids);
 
     foreach my $id(@ids_list){
@@ -194,14 +181,6 @@ sub fetch_input {
 
     }
 
-#      #store this for reference later
-#      $self->query_file($query_file);
-#
-#    } else {
-#
-#      throw("'$query'  must refer to a single fasta file with all probe sequences referenced by clone_probe_id\n");
-#
-#    }
 
     ##########################################
     # setup the runnable
@@ -218,7 +197,6 @@ sub fetch_input {
     
     $parameters{-options} = $self->OPTIONS;
     
-    #print $self->OPTIONS,"\n";
     print STDERR "PROGRAM FILE: ".$self->analysis->program_file."\n";
 
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
