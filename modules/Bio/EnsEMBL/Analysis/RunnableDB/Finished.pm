@@ -9,6 +9,7 @@ use base 'Bio::EnsEMBL::Analysis::RunnableDB';
 
 sub write_output {
 	my ($self) = @_;
+	my $outputs = $self->Bio::EnsEMBL::Analysis::RunnableDB::Finished::output;
     ### code db_version_searched method may be duplicated in several modules
     ### How does it get written into the input_id_analysis table?
     foreach my $runnable ( @{ $self->runnable } ) {
@@ -17,7 +18,7 @@ sub write_output {
 	    $self->db_version_searched($db_version);    # make sure we set this here
     }
     # We expect an array of arrays from output()
-    foreach my $output (@{$self->Bio::EnsEMBL::Analysis::RunnableDB::Finished::output}) {
+    foreach my $output (@$outputs) {
         next unless @$output;   # No feature output        
         my $feat = $output->[0];
         
@@ -62,6 +63,15 @@ sub output{
   return $self->{'output'};
 }
 
+sub replace_output {
+  my ($self, @output) = @_;
+  if(scalar(@output)){
+  	$self->{'output'} = [];
+    push(@{$self->{'output'}}, @output);
+  }
+  return $self->{'output'};
+}
+
 sub remove_stored_AlignFeatures {
     my ($self, $adaptor, $output) = @_;
     ## create a hashtable of key='feature signature' and value=1
@@ -88,8 +98,9 @@ sub write_descriptions {
     my( $self, $output ) = @_;
     my $dbobj = $self->db;
     my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch->new;
-    my %ids = map { $_->hseqname, 1 } @$output;
-    $seqfetcher->write_descriptions( $dbobj, [keys %ids] );
+    my $ids = [map $_->hseqname, @$output];
+    $seqfetcher->write_descriptions( $dbobj, $ids );
+
 }
 
 sub get_feature_key {
