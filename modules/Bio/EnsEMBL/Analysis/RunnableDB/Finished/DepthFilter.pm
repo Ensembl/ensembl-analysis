@@ -21,7 +21,9 @@ sub run {
 	my ($self) = @_;
 	my $orig_analysis_name = $self->analysis->logic_name;
 	$orig_analysis_name .= '_raw';
-
+	my $analysis_adaptor = $self->db->get_AnalysisAdaptor();
+	my $ana = $analysis_adaptor->fetch_by_logic_name($orig_analysis_name);
+	$self->db_version_searched($ana->db_version);
     my %params = %{ $self->parameters_hash() };
 
     my $max_coverage     = $params{max_coverage} || 10;
@@ -152,6 +154,31 @@ sub depth_filter {
 	print STDERR "DepthFilter: ".scalar(@saturated_zones)." saturated zones found\n";
 
     return (\@filtered_features, \@saturated_zones);
+}
+
+=head2 db_version_searched
+
+    Title   :  db_version_searched
+               [ distinguished from Runnable::*::get_db_version() ]
+    Useage  :  $self->db_version_searched('version string')
+               $obj->db_version_searched()
+    Function:  Get/Set a blast database version that was searched
+               The actual look up is done in Runnable::Finished::Blast
+               This is just a holding place for the string in this
+               module
+    Returns :  String or undef
+    Args    :  String
+    Caller  :  $self::run()
+               Job::run_module()
+
+=cut
+
+sub db_version_searched {
+
+	my ( $self, $arg ) = @_;
+	$self->{'_db_version_searched'} = $arg if $arg;
+	return $self->{'_db_version_searched'};
+
 }
 
 1;
