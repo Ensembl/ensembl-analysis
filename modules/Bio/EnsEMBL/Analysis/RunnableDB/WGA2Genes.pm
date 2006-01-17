@@ -266,127 +266,152 @@ sub run {
 
   my (@results);
 
+  my $alignment_chains = $self->genomic_align_block_chains;
+
+  #$self->print_chains($alignment_chains, "ORIGINAL CHAINS");
+
+  if ($self->PSEUDOGENE_CHAIN_FILTER) {
+    $alignment_chains = 
+        $self->remove_pseudogene_chains($alignment_chains,
+                                        $self->PCF_MAX_FUSION_INTERVAL,
+                                        $self->PCF_MAX_REPEAT_IN_INTERVAL
+                                        );
+    
+    #$self->print_chains($alignment_chains, "AFTER PG REMOVAL");
+  }
+
   # segment the genes into overlapping groups
   my @gene_sets = @{$self->get_non_overlapping_gene_sets};
 
-  foreach my $set (@gene_sets) {
-    my @genes = @$set;
-
-    my (@all_trans, %blocks_used_so_far);
+  foreach my $geneset (@gene_sets) {
+    my (%blocks_used_so_far);
     
-    foreach my $g (@genes) {
-      foreach my $t (@{$self->get_all_Transcripts($g)}) {
-        push @all_trans, $t;
-      }
-    }
+    ITER:for(my $iteration=0; ;$iteration++) {
 
-    my @cds_feats = @{$self->get_all_transcript_cds_features(@all_trans)};
+      my $max_editable_stops = ($iteration == 0)
+          ? $self->MAX_EDITABLE_STOPS_PRIMARY
+          : $self->MAX_EDITABLE_STOPS_NON_PRIMARY;
 
-    #$self->print_chains($self->genomic_align_block_chains, "ORIGINAL CHAINS");
-
-    my $alignment_chains = 
-        $self->remove_irrelevant_chains($self->genomic_align_block_chains,
-                                        \@cds_feats);
-
-    #$self->print_chains($alignment_chains, "RELEVANT CHAINS");
-
-    if ($self->PSEUDOGENE_CHAIN_FILTER) {
-      $alignment_chains = 
-          $self->remove_pseudogene_chains($alignment_chains,
-                                          $self->PCF_MAX_FUSION_INTERVAL,
-                                          $self->PCF_MAX_REPEAT_IN_INTERVAL
-                                          );
-
-      #$self->print_chains($alignment_chains, "AFTER PG REMOVAL");
-    }
-
-    for(my $iteration=0; ;$iteration++) {
       my $filtered_chains = $self->remove_used_chains($alignment_chains,
                                                       \%blocks_used_so_far);
-      #$self->print_chains($filtered_chains, "CHAINS LEFT");
+      #$self->print_chains($filtered_chains, "CHAINS LEFT AFTER USED REMOVED");
       
-      $filtered_chains = $self->remove_interfering_chains($filtered_chains);
-                                                         
-      # $self->print_chains($filtered_chains, "CONSISTENT CHAINS");
-      
-      if ($self->NO_CONTIG_SPLITS) { 
-        $filtered_chains = $self->remove_contig_split_chains($filtered_chains);
-        # $self->print_chains($filtered_chains, "NO CONTIG SPLIT CHAINS");
-      }
-      
-      my $net_blocks = $self->flatten_chains($filtered_chains, 1);
-      
-      my ($projected_cds_feats, $blocks_used) = 
-          $self->map_features_to_target(\@cds_feats, $net_blocks);
+      my $gs_name = $geneset->[0]->{stable_id} . "-" . $iteration;
 
-      
-      if (not keys %$blocks_used) {
-        # no alignment coverage, so stop
-        last;
-      } else {
-        foreach my $block_id (keys %$blocks_used) {
-          $blocks_used_so_far{$block_id} = $blocks_used->{$block_id};
+      my @these_genes;
+      foreach my $g (@$geneset) {
+        push @these_genes, {
+          stable_id => $g->stable_id, 
+          transcripts => $self->get_all_Transcripts($g),
+          proj_transcripts => [],
+          good_sources => [],
         }
       }
-      
-      my $gs_name = $genes[0]->stable_id . "-" . $iteration;
-      
-      my ($gene_scaffold, 
-          $qy_to_gs_map,
-          $tg_to_gs_map) = 
-              $self->gene_scaffold_from_projection($gs_name,
-                                                   $projected_cds_feats);
-      
-      next if not defined $gene_scaffold;
-            
-      my $result = {
-        gene_scaffold   => $gene_scaffold,
-        mapper          => $tg_to_gs_map,
-        genes           => [],
-      };
-      
-      foreach my $gene (@genes) {
-        my @transcripts;
-        foreach my $tran (@{$self->get_all_Transcripts($gene)}) {
-          my $proj_trans = 
-              $self->make_projected_transcript($gene,
-                                               $tran,
-                                               $gene_scaffold,
-                                               $qy_to_gs_map,
-                                               $tg_to_gs_map);
 
-          if (defined $proj_trans) {
-            my $max_editable_stops = ($iteration == 0)
-                ? $self->MAX_EDITABLE_STOPS_PRIMARY
-                : $self->MAX_EDITABLE_STOPS_NON_PRIMARY;
+      # Repeat transcript contruction until we had no rejected transcripts
+      # This is because if a transcript is rejected, the underlying 
+      # GeneScaffold components are possible no longer all necessary
+      for(;;) {
+        my @these_trans = map { @{$_->{transcripts}} } @these_genes;
 
+        my @cds_feats = @{$self->get_all_transcript_cds_features(@these_trans)};
+
+        $filtered_chains = 
+            $self->remove_irrelevant_chains($filtered_chains,
+                                            \@cds_feats);
+        
+        #$self->print_chains($alignment_chains, "RELEVANT CHAINS");
+        
+        $filtered_chains = $self->remove_interfering_chains($filtered_chains);
+        
+        # $self->print_chains($filtered_chains, "CONSISTENT CHAINS");
+        
+        if ($self->NO_CONTIG_SPLITS) { 
+          $filtered_chains = $self->remove_contig_split_chains($filtered_chains);
+          # $self->print_chains($filtered_chains, "NO CONTIG SPLIT CHAINS");
+        }
+
+        my $net_blocks = $self->flatten_chains($filtered_chains, 1);
+
+        my ($projected_cds_feats, $blocks_used_this_iter) = 
+            $self->map_features_to_target(\@cds_feats, $net_blocks);
+
+        # if there is no coverage of the CDS regions, finish
+        last ITER if not keys %$blocks_used_this_iter;
+        
+        my ($gene_scaffold, 
+            $qy_to_gs_map,
+            $tg_to_gs_map) = 
+                $self->gene_scaffold_from_projection($gs_name,
+                                                     $projected_cds_feats);
+      
+        last ITER if not defined $gene_scaffold;
+        
+        my $result = {
+          gene_scaffold   => $gene_scaffold,
+          mapper          => $tg_to_gs_map,
+          genes           => [],
+        };
+        
+        my $had_to_reject_one = 0;
+        foreach my $gene (@these_genes) {
+          my (@proj_trans, @good_sources);
+          
+          foreach my $tran (@{$gene->{transcripts}}) {
+            my $proj_trans = 
+                $self->make_projected_transcript($tran,
+                                                 $gene_scaffold,
+                                                 $qy_to_gs_map,
+                                                 $tg_to_gs_map,
+                                                 $gene->{stable_id});
             $proj_trans = 
                 $self->process_transcript($proj_trans, $max_editable_stops);
-                                          
-            if (defined $proj_trans) {
-              push @transcripts, $proj_trans;
+            
+            if ($proj_trans) {
+              push @{$gene->{good_sources}}, $tran;
+              push @{$gene->{proj_transcripts}}, $proj_trans;
+            } else {
+              $had_to_reject_one = 1;
             }
           }
         }
-        
-        if (@transcripts) {
-          @transcripts =  @{$self->make_nr_transcript_set(\@transcripts, 
-                                                          $gene_scaffold,
-                                                          $tg_to_gs_map)};
-          
+
+        # check that no source projections were rejected; if so, go again
+        if ($had_to_reject_one) {
+          my @kept_genes;
+          foreach my $gene (@these_genes) {
+            $gene->{transcripts} = $gene->{good_sources};
+            $gene->{good_sources} = [];
+            $gene->{proj_transcripts} = [];
+            if (@{$gene->{transcripts}}) {
+              push @kept_genes, $gene;
+            }
+          }
+          @these_genes = @kept_genes;
+          next;
+        }
+
+        foreach my $gene (@these_genes) {
+          my @transcripts =  @{$self->make_nr_transcript_set($gene->{proj_transcripts},
+                                                            $gene_scaffold,
+                                                            $tg_to_gs_map)};
+            
           my $new_gene_name = 
               $gene_scaffold->seq_region_name . "." . 
-              $gene->stable_id;
+              $gene->{stable_id};
           
           push @{$result->{genes}}, { 
             name        => $new_gene_name,
             transcripts => \@transcripts,
           };
         }
-      }    
-      
-      if (@{$result->{genes}}) {
+        
         push @results, $result;
+
+        foreach my $block_id (keys %$blocks_used_this_iter) {
+          $blocks_used_so_far{$block_id} = $blocks_used_this_iter->{$block_id};
+        }
+        last;
       }
     }
   }
@@ -487,7 +512,7 @@ sub get_non_overlapping_gene_sets {
 # Decription:
 #    Takes a feature list and a GenomicAlignBlock list and returns 
 #    a list of elements (one for each feature) comprising 
-#    {query => [], target = []}, segemtns, representing the gapped 
+#    {query => [], target = []}, segments, representing the gapped 
 #    alignment of the query (in the region of the feature) to the 
 #    target. The alignment is represented a list of 
 #    Bio::EnsEMBL::Mapper::Coordinates and Bio::EnsEMBL::Mapper::Gap
@@ -1056,7 +1081,7 @@ sub gene_scaffold_from_projection {
 ###################################################################
 
 sub make_projected_transcript {
-  my ($self, $gene, $tran, $gene_scaf, $qmap, $tmap) = @_;
+  my ($self, $tran, $gene_scaf, $qmap, $tmap, $gene_id) = @_;
 
   my ($tran_length, @all_coords, @new_exons);
 
@@ -1216,7 +1241,7 @@ sub make_projected_transcript {
   }
 
   if (not @new_exons) {
-    return undef;
+    return 0;
   }
 
   #
@@ -1397,7 +1422,7 @@ sub make_projected_transcript {
 
   if (not defined $proj_tran->translate) {
     # this can happen if the transcript comprises a single stop codon only
-    return undef;
+    return 0;
   }
 
   #
@@ -1461,18 +1486,20 @@ sub make_projected_transcript {
           -value => $gap_exons);
   push @attributes, $gap_exon_attr;
 
-
-  my $attr1 = Bio::EnsEMBL::Attribute->
-      new(-code => 'SourceGene',
-          -name => 'source gene',
-          -description => 'human source gene',
-          -value => $gene->stable_id);
-  my $attr2 = Bio::EnsEMBL::Attribute->
+  if (defined $gene_id) {
+    my $geneid_attr = Bio::EnsEMBL::Attribute->
+        new(-code => 'SourceGene',
+            -name => 'source gene',
+            -description => 'human source gene',
+            -value => $gene_id);
+    push @attributes, $geneid_attr;
+  }
+  my $tranid_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'SourceTran',
           -name => 'source transcript',
           -description => 'source transcript',
           -value => $tran->stable_id);
-  push @attributes, ($attr1, $attr2);
+  push @attributes, $tranid_attr;
 
   $proj_tran->add_Attributes(@attributes);
 
@@ -1494,6 +1521,8 @@ sub make_projected_transcript {
 sub process_transcript {
   my ($self, $tran, $max_stops) = @_;
   
+  return 0 if not $tran;
+
   my (@processed_transcripts, $num_stops);
 
   my @exons = @{$tran->get_all_Exons};
@@ -1507,12 +1536,12 @@ sub process_transcript {
   #   higher that maximum proportion of gap residues
   ##################
 
-  return undef if length($pep) == 0;
-  return undef if $tsf->hcoverage < $self->MIN_COVERAGE;
+  return 0 if length($pep) == 0;
+  return 0 if $tsf->hcoverage < $self->MIN_COVERAGE;
 
   foreach my $attr (@{$tran->get_all_Attributes}) {
     if ($attr->code eq "PropNonGap") {
-      return undef if $attr->value < $self->MIN_NON_GAP;
+      return 0 if $attr->value < $self->MIN_NON_GAP;
     } elsif ($attr->code eq "NumStops") {
       $num_stops = $attr->value;
     }
@@ -1521,7 +1550,7 @@ sub process_transcript {
   if ($num_stops == 0) {
     return $tran;
   } elsif ($num_stops > $max_stops) {
-    return undef;
+    return 0;
   }
 
   ##################
@@ -1535,7 +1564,7 @@ sub process_transcript {
 
     if (@coords > 1) {
       # the codon is split by an intron. Messy. Leave these for now
-      return undef;
+      return 0;
     } 
     my ($stop) = @coords;
 
