@@ -160,7 +160,7 @@ sub create_transcripts{
     my $transcript = $ff->create_prediction_transcript(\@exons, $self->query,
                                                        $self->analysis);
     $transcript->seqname($group);
-    push(@transcripts, $transcript);
+    push(@transcripts, $transcript);    
   }
   $self->output(\@transcripts);
 }
@@ -191,17 +191,18 @@ sub calculate_phases{
       my $new = $ff->create_prediction_transcript(\@temp_exons, 
                                                   $self->query,
                                                   $self->analysis);
-      my $pep = $new->translate->seq;
-      my $peptide = $peptides->{$trans->seqname};
+      my $pep = $new->translate->seq;   
+      my $peptide = $peptides->{$trans->seqname}; 
       my ($ensembl, $genscan) = $self->subsitute_x_codes($pep, 
-                                                         $peptide); 
-      $ensembl =~ s/^x//i;
-      $ensembl =~ s/x$//i;
+                                                         $peptide);       
+      $ensembl =~ s/^x//i;      
+      $ensembl =~ s/x$//i;      
       $genscan =~ s/^x//i;
-      $genscan =~ s/x$//i;
+      $genscan =~ s/x$//i;      
+      
       if ($ensembl =~ /$genscan/){
         push(@output, $new);
-        next TRANS;
+        next TRANS;      
       }
     }
     throw("Failed to find translation for ".$trans." ".$exons[0]->seqname)
@@ -238,8 +239,8 @@ sub set_phases{
     @$exons = sort {$b->start <=> $a->start} @$exons;
   }
   foreach my $e(@$exons){
-    $e->phase($start_phase);
-    $start_phase = ($e->phase + $e->length)%3;
+    $e->phase($start_phase);    
+    $start_phase = ($e->phase + $e->length)%3;    
   }
   return $exons;
 }
@@ -266,27 +267,43 @@ sub subsitute_x_codes{
   my $x = 0;
   my $ens_len = length($ensembl_pep);
   my $gen_len = length($genscan_pep);
-  if($ens_len == ($gen_len+1)){
-    chop($ensembl_pep);
-  }
+#  if($ens_len == ($gen_len+1)){  
+#    chop($ensembl_pep);
+#  }
+
   if($gen_len == ($ens_len+1)){
     chop($genscan_pep);
   }
-  $ens_len = length($ensembl_pep);
-  $gen_len = length($genscan_pep);
-  while (($x = index($ensembl_pep, 'X', $x)) != -1) {
-		substr($genscan_pep, $x, 1) = 'X'
-      if length($genscan_pep) >= length($ensembl_pep);
-		$x++;
+ 
+  if (($gen_len == $ens_len) && $genscan_pep =~ /\*$/){
+    $genscan_pep =~ s/\*$//;
   }
   
+  $ens_len = length($ensembl_pep); 
+  $gen_len = length($genscan_pep); 
+
+  $ensembl_pep =~ m/^..(.....)/; #ensembl may have up to 2 extra amino acids at beginning
+  my $offset = index($genscan_pep, $1) -2; 
+  if ( $offset > 2 || $offset < 0 ){
+    $offset = 0;
+  }
+  while (($x = index($ensembl_pep, 'X', $x)) != -1) {
+    substr($genscan_pep, $x+$offset, 1) = 'X'
+      if length($genscan_pep) >= length($ensembl_pep);
+    $x++;
+  }
+ 
   $x = 0;
+  $genscan_pep =~ m/^..(.....)/;  #genscan may have up to 2 extra amino acids at beginning
+  $offset =  index($ensembl_pep, $1) -2; 
+  if ( $offset > 2 || $offset < 0 ){
+    $offset = 0;
+  }
   while (($x = index($genscan_pep, 'X', $x)) != -1) {
-		substr($ensembl_pep, $x, 1) = 'X'
+    substr($ensembl_pep, $x+$offset, 1) = 'X'
       if length($ensembl_pep) >= length($genscan_pep);
-		$x++;
+    $x++;
   }
   return $ensembl_pep, $genscan_pep;
 }
-
 1;
