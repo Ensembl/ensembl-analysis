@@ -198,7 +198,7 @@ sub run{
 sub run_method {
   my ($self, $meth) = @_;
 
-  if ($meth eq 'STANDARD' or $meth eq 'SYENTENIC') {
+  if ($meth eq 'STANDARD' or $meth eq 'SYNTENIC') {
     $self->runnable( $meth eq 'STANDARD' 
                      ? $self->standard_runnable 
                      : $self->syntenic_runnable ); 
