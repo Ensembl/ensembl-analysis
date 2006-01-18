@@ -1,15 +1,15 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter
+# Ensembl module for Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter
 #
 # Copyright (c) 2004 Ensembl
 #
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter
+  Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter
 
 =head1 SYNOPSIS
 
-  my $filter = new Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter
+  my $filter = new Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter
   new->(
         -best_in_genome => 1,
         -reject_processed_pseudos => 1,
@@ -22,12 +22,12 @@
 
 =head1 DESCRIPTION
 
-This is the standard module used for filtering Exonerate transcripts
+This is a module used for filtering Exonerate transcripts
 
 =cut
 
 
-package Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter;
+package Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter;
 
 use strict;
 use warnings;
@@ -45,7 +45,7 @@ use vars qw (@ISA);
 
 =head2 new
 
-  Returntype: Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter
+  Returntype: Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter
   Exceptions: none
   Example   : 
 
