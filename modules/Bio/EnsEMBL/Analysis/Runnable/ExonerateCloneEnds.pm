@@ -126,11 +126,7 @@ sub make_feature{
     $t_id, $t_start, $t_end, $t_strand, $score, 
     $perc_id, $q_length, $cigar_string 
   ) = @_;
-
-  # Everything is 'flipped' for the reverse CloneEnd (if not 
-  # reverse complemented) so a hit on the reverse strand of 
-  # the probe (q_strand = '-1') is altered:  q_strand = '+1' 
-  # and t_strand => -1 x t_strand. 
+ 
   if($q_strand eq '+'){
     $q_strand = 1;
     if($t_strand eq '+'){
@@ -143,9 +139,9 @@ sub make_feature{
   }elsif($q_strand eq '-'){
     $q_strand = -1;
     if($t_strand eq '-'){
-      $t_strand = 1;
-    }elsif($t_strand eq '+'){
       $t_strand = -1;
+    }elsif($t_strand eq '+'){
+      $t_strand = 1;
     }else{
       throw "unrecognised target strand symbol: $t_strand\n";
     }
