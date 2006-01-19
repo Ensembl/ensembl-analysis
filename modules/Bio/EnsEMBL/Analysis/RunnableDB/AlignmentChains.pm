@@ -92,7 +92,7 @@ sub fetch_input {
     throw("Input id could not be parsed: ", $self->input_id);
   }
   
-  $self->GROUP_TYPE("chain") unless (defined $self->GROUP_TYPE);
+  $self->OUTPUT_GROUP_TYPE("chain") unless (defined $self->OUTPUT_GROUP_TYPE);
   my $q_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->QUERY_CORE_DB});
   my $t_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->TARGET_CORE_DB});
 
