@@ -68,8 +68,13 @@ my ($gs_index, $s_index) = &index_gene_scaffold_files(@agp_files);
 $verbose and print STDERR "Indexing Annotation files...\n";
 &index_gene_annotation_files(@gff_files);
 
-$verbose and print STDERR "Clustering gene scaffolds...\n";
-my @clusters = &single_linkage_cluster($gs_index, $s_index);
+my @clusters;
+if (@ARGV) {
+  @clusters = ([@ARGV]);
+} else {
+  $verbose and print STDERR "Clustering gene scaffolds...\n";
+  @clusters = &single_linkage_cluster($gs_index, $s_index);
+}
 
 my $out_gene_scaffold_count = 1;
 
@@ -117,7 +122,7 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
     # cluster the members into sub-clusters based on a single,
     # shared scaffold
     my $chains = &make_gene_scaffold_chains($gene_scaffolds);
-    
+
     # extend components so that the whole of each scaffold is used 
     # somewhere
     $extended_chains = 
@@ -790,6 +795,12 @@ sub make_gene_scaffold_chains {
       }
     }
   }
+
+  #foreach my $p (@conflicting_pairs) {
+  #  printf($log_outfh "CHAIN : conflicting_pair %s : %s\n", 
+  #        join(" ", @{$chains[$p->[0]]}), 
+  #        join(" ", @{$chains[$p->[1]]}));  
+  #}
 
   # need to resolve all conflicts by removing chains
   my %indices_to_remove;
