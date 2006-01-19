@@ -84,7 +84,7 @@ sub fetch_input {
     throw("Input id could not be parsed: ", $self->input_id);
   }
 
-  $self->GROUP_TYPE("chain") unless (defined $self->GROUP_TYPE);
+  $self->OUTPUT_GROUP_TYPE("chain") unless (defined $self->OUTPUT_GROUP_TYPE);
   my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(%{$self->COMPARA_DB});
 
   my $query_species = $self->QUERY_SPECIES;
@@ -165,7 +165,7 @@ sub fetch_input {
     if ($group_id != $tg_al->genomic_align_group_id_by_type("chain")) {
       throw("GenomicAligns in a GenomicAlignBlock belong to different group");
     }
-    
+    $daf->group_id($group_id);
     push @{$features_by_group{$group_id}}, $daf;
   }
 
