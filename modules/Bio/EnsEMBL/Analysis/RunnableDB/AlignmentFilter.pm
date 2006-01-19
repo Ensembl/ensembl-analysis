@@ -106,9 +106,13 @@ sub write_output {
     # we can only create the group after storing all GenomicAligns
     # in all of the blocks in the chain
     my $group = Bio::EnsEMBL::Compara::GenomicAlignGroup->new
-        (-type                => $self->GROUP_TYPE,
+        (-type                => $self->OUTPUT_GROUP_TYPE,
          -genomic_align_array => \@chain_aligns);
 
+    if (defined $chain_aligns[0]->genomic_align_group_by_type($self->INPUT_GROUP_TYPE) &&
+        defined $chain_aligns[0]->genomic_align_group_by_type($self->INPUT_GROUP_TYPE)->dbID) {
+      $group->dbID($chain_aligns[0]->genomic_align_group_by_type($self->INPUT_GROUP_TYPE)->dbID);
+    }
     $compara_dbh->get_GenomicAlignGroupAdaptor->store($group);
   }
 }
@@ -386,6 +390,12 @@ sub convert_output {
         @split_dafs = ($raw_daf);
       }
 
+      my ($group, @gas);
+      if (defined $self->INPUT_GROUP_TYPE) {
+        $group = Bio::EnsEMBL::Compara::GenomicAlignGroup->new
+          (-type                => $self->INPUT_GROUP_TYPE);
+      }
+
       foreach my $daf (@split_dafs) {
         my ($q_cigar, $t_cigar, $al_len) = 
             $self->compara_cigars_from_daf_cigar($daf->cigar_string);
@@ -412,6 +422,13 @@ sub convert_output {
              -cigar_line     => $t_cigar,
              -level_id       => $daf->level_id ? $daf->level_id : 1,
              -method_link_species_set => $out_mlss);
+
+        if (defined $group) {
+          unless (defined $group->dbID) {
+            $group->dbID($daf->group_id);
+          }
+          push @gas, ($q_genomic_align, $t_genomic_align);
+        }
         
         my $gen_al_block = Bio::EnsEMBL::Compara::GenomicAlignBlock->new
             (-genomic_align_array => [$q_genomic_align, $t_genomic_align],
@@ -420,6 +437,9 @@ sub convert_output {
              -method_link_species_set => $out_mlss);
         
         push @chain_of_blocks, $gen_al_block;
+      }
+      if (defined $group) {
+        $group->genomic_align_array(\@gas);
       }
     }
 
@@ -526,14 +546,24 @@ sub MIN_CHAIN_SCORE {
 
 
 
-sub GROUP_TYPE {
+sub OUTPUT_GROUP_TYPE {
   my ($self, $val) = @_;
   
   if (defined $val) {
-    $self->{_group_type} = $val;
+    $self->{_output_group_type} = $val;
   }
 
-  return $self->{_group_type};
+  return $self->{_output_group_type};
+}
+
+sub INPUT_GROUP_TYPE {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    $self->{_input_group_type} = $val;
+  }
+
+  return $self->{_input_group_type};
 }
 
 
