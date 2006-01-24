@@ -70,10 +70,10 @@ use vars qw( %Config );
                # Chain filtering
                ##################
                
-               # When forming a Net and rejecting "interfering" chains, this
-               # value is the maximum allowable proportion of a candidate 
-               # chain's block coverage that is allowed to overlap with 
-               # retained blocks so far
+               # When forming a Net and rejecting "inconsistent" chains,
+               # if less that this proportion of the candidate chain is not
+               # unique (unique -> does not overlap in the query with retained 
+               # blocks so far), then we reject it. 
                OVERLAP_CHAIN_FILTER => 0.9,
 
                # Chains with members that are mostly separated in the target 

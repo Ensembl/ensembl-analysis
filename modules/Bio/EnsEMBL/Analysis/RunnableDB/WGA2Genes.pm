@@ -322,7 +322,8 @@ sub run {
         
         #$self->print_chains($alignment_chains, "RELEVANT CHAINS");
         
-        $filtered_chains = $self->remove_interfering_chains($filtered_chains);
+        $filtered_chains = $self->remove_inconsistent_chains($filtered_chains, 
+                                                             \@cds_feats);
         
         # $self->print_chains($filtered_chains, "CONSISTENT CHAINS");
         
@@ -349,7 +350,8 @@ sub run {
         
         my $result = {
           gene_scaffold   => $gene_scaffold,
-          mapper          => $tg_to_gs_map,
+          tmapper          => $tg_to_gs_map,
+          qmapper         => $qy_to_gs_map,
           genes           => [],
         };
         
@@ -436,10 +438,12 @@ sub write_output {
 
   foreach my $obj (@{$self->output}) {
     my $gs = $obj->{gene_scaffold};
-    my $map = $obj->{mapper};
+    my $tmap = $obj->{tmapper};
+    my $qmap = $obj->{qmapper};
+
     my @genes = @{$obj->{genes}};
 
-    $self->write_agp(\*STDOUT, $gs, $map);
+    $self->write_agp(\*STDOUT, $gs, $tmap, $qmap);
     foreach my $g (@genes) {
       $self->write_gene(\*STDOUT, 
                         $gs, 
@@ -738,26 +742,11 @@ sub gene_scaffold_from_projection {
     }
   }
 
-  # flatten list and replace scaffolds that only occur in small 
-  # components with gaps
+  # flatten list and add exon number to each projected component
   my $cds_id = 0;
   foreach my $cds (@$projected_cds_elements) {
     push @projected_cds_elements, [];
     foreach my $coord_pair (@$cds) {
-      #my $tcoord = $coord_pair->{target};
-      #my $qcoord = $coord_pair->{query};
-
-      #if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate") and
-      #    $max_lengths{$tcoord->id} < $self->MIN_COMPONENT_SIZE) {
-      #  $coord_pair->{target} = 
-      #      Bio::EnsEMBL::Mapper::Gap->new($coord_pair->{target}->start,
-      #                                     $coord_pair->{target}->end);
-      #}
-      #push @targets, {
-      #  cds_id  => $cds_id,
-      #  coord   => $coord_pair->{target},
-      #};
-
       push @targets, {
         cds_id  => $cds_id,
         coord   => $coord_pair->{target},
@@ -2133,7 +2122,7 @@ sub remove_used_chains {
 
 
 ###################################################################
-# FUNCTION: remove_interfering_chains
+# FUNCTION: remove_inconsistent_chains
 #
 # Decription:
 #
@@ -2142,7 +2131,7 @@ sub remove_used_chains {
 # chains retained so far. Interference is defined as an overlap
 # in the query at the block level
 ###################################################################
-sub remove_interfering_chains {
+sub remove_inconsistent_chains {
   my ($self, $input_chains) = @_;
 
   my (@sorted_chains, @to_ignore_chains, @kept_chains);
@@ -2225,13 +2214,13 @@ sub remove_interfering_chains {
       # of the chain, keep the chain (with the overlapping blocks
       # removed)
 
-      my $total_chain_cov = 0;
+      my $total_chain_len = 0;
 
       for(my $i=0; $i < @these_blocks; $i++) {
         my $b = $these_blocks[$i];
         my $ga = $b->reference_genomic_align;
 
-        $total_chain_cov += $ga->dnafrag_end - $ga->dnafrag_start + 1;
+        $total_chain_len += $ga->dnafrag_end - $ga->dnafrag_start + 1;
       }
 
       # flatten the overlapping regions
@@ -2338,7 +2327,7 @@ sub remove_interfering_chains {
 
       # we've identifed a sub-region of the chain to keep.
       # But is it worth keeping?
-      if ($longest_len / $total_chain_cov > $self->OVERLAP_CHAIN_FILTER) {
+      if ($longest_len / $total_chain_len > $self->OVERLAP_CHAIN_FILTER) {
         my @bs;
         foreach my $el (@$longest) {
           my $block = $these_blocks[$el->{index}];
@@ -2861,20 +2850,33 @@ sub write_agp {
   my ($self, 
       $fh, 
       $gene_scaf, 
-      $map) = @_;
+      $tmap,
+      $qmap) = @_;
 
   my $prefix = "##-AGP";
-  
-  print $fh "$prefix \#\n";
-  printf($fh "$prefix \# AGP for gene scaffold %s\n", 
-         $gene_scaf->seq_region_name);
-  print $fh "$prefix \#\n";
 
-  my @pieces = $map->map_coordinates($gene_scaf->seq_region_name,
+  my @pieces = $tmap->map_coordinates($gene_scaf->seq_region_name,
                                      1,
                                      $gene_scaf->length,
                                      1,
                                      $gene_scaf->seq_region_name);
+
+  my @q = $qmap->map_coordinates($gene_scaf->seq_region_name,
+                                 1,
+                                 $gene_scaf->length,
+                                 1,
+                                 $gene_scaf->seq_region_name);
+
+  
+  print $fh "$prefix \#\n";
+  printf($fh "$prefix \#\# AGP for gene scaffold %s source-region=%s/%d-%d\n", 
+         $gene_scaf->seq_region_name,
+         $q[0]->id, 
+         $q[0]->start <= $q[-1]->start ? $q[0]->start : $q[-1]->start,
+         $q[-1]->end >= $q[0]->end ? $q[-1]->end : $q[0]->end);
+
+  print $fh "$prefix \#\n";
+
   my $last_end = 0;
   for(my $i=0; $i < @pieces; $i++) {
     my $piece = $pieces[$i];
