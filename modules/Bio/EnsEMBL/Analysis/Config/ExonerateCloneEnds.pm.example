@@ -104,7 +104,7 @@ use vars qw( %Config );
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_human_clones',
+        -dbname => 'user_sheep_human_clones',
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
@@ -132,7 +132,7 @@ use vars qw( %Config );
         -pass   => '',
         },
       OUTDB => {
-        -dbname => 'jb16_sheep_human_clones',
+        -dbname => 'user_sheep_human_clones',
         -host   => 'ia64g',
         -port   => '3306',
         -user   => 'ensadmin',
