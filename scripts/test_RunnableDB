@@ -255,14 +255,14 @@ sub print_gene {
 
 sub print_feature{
   my ($feature, $name, $source, $type) = @_;
-
+  
   printf("%s\t%s\t%s\t%d\t%d\t%s\t%s\t%s",
          $name     ? $name     : "",
          $source   ? $source   : "", 
          $type     ? $type     : "", 
          $feature->start,
          $feature->end, 
-         $feature->score ? $feature->score : 0,
+         ($feature->can("score") ? ($feature->score ? $feature->score : 0) : 0) ,
          $feature->strand ? $feature->strand : ".", 
          ".");
   if ($feature->can("hseqname")) {
