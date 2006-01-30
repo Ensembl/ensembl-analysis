@@ -29,7 +29,9 @@ sub write_output {
 	    # Remove AlignFeatures already in db from each output
         if (ref($feat) =~ /AlignFeature$/) {
             $self->remove_stored_AlignFeatures($adaptor, $output);       
-            $self->write_descriptions($output);
+            if($self->analysis->module ne 'DepthFilter' ) {
+            	$self->write_descriptions($output);
+            }
         }
 	    my $analysis = $self->analysis;
     	my $slice    = $self->query;
@@ -98,8 +100,9 @@ sub write_descriptions {
     my( $self, $output ) = @_;
     my $dbobj = $self->db;
     my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch->new;
-    my $ids = [map $_->hseqname, @$output];
-    $seqfetcher->write_descriptions( $dbobj, $ids );
+    my %single_ids = map { $_->hseqname => 1} @$output;
+    my @ids = keys(%single_ids);
+    $seqfetcher->write_descriptions( $dbobj, \@ids );
 
 }
 
