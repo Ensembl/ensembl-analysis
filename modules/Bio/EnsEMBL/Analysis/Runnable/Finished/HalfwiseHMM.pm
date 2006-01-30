@@ -418,7 +418,7 @@ sub get_pfam_ids{
     }
     if(scalar(@values)){
 	$sql .= join(", ", @values);
-	warning $sql;
+	#warning $sql;
 	$sth = $db->prepare($sql);
 	$sth->execute(@binds);
 	$sth->finish();
@@ -536,12 +536,11 @@ sub create_genewisehmm_complete{
     $self->workdir('/tmp') unless ($self->workdir($dir)); 
     $self->checkdir();
 
-    print STDERR "there are ".scalar(keys(%$pfam_ids))." pfam ids in database\n"; ##########
+    print STDERR "\nthere are ".scalar(keys(%$pfam_ids))." pfam ids in database\n"; ##########
     return unless scalar(keys(%$pfam_ids));
     print STDERR "doing the hmm for ids: ". join(" ", keys(%$pfam_ids)) . "\n"; ##########
     $self->get_hmmdb($pfam_ids);
     if (-z $self->hmmfilename){
-        warning("hmm file not created :$!");
         throw("hmm file not created :$!");
     }
     $self->run_genewisehmm(0);
