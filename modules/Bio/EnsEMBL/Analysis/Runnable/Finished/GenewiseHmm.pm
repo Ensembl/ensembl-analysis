@@ -331,7 +331,7 @@ sub _align_protein {
     my $memory   = $self->memory;
     $self->workdir('/tmp') unless ($self->workdir($dir));
     $self->checkdir();
-    my $gwfile   = "gw." . $$ . ".out";
+    #my $gwfile   = "gw." . $$ . ".out";
     my $genfile  = "gw." . $$ . ".gen.fa";
     $self->write_fasta($genfile);
     my $hmm = $self->hmmfile;
@@ -340,13 +340,13 @@ sub _align_protein {
     $command .= " -init endbias -splice flat " if ($self->endbias && $self->endbias == 1);
     $command .= " -trev "                      if ($self->is_reverse && $self->is_reverse == 1);
     print STDERR "Command is $command\n"; ##########
-    my $outputfile = $self->hmmfile.".output";
-    my $testing_output = "genewisedb.output";
+    #my $outputfile = $self->hmmfile.".output";
+    #my $testing_output = "genewisedb.output";
     local $/ = "//\n";
     # use one of these
-    # open(my $fh, "$command | tee $outputfile |") or throw("error piping to genewise: $!\n"); # test genewise keep output
-    # open(my $fh, "$testing_output") or throw('couldnt find the file'); # test a single file
-     open(my $fh, "$command |") or throw("error piping to genewise: $!\n"); # production
+    #open(my $fh, "$command | tee $outputfile |") or throw("error piping to genewise: $!\n"); # test genewise keep output
+    #open(my $fh, "$testing_output") or throw('couldnt find the file'); # test a single file
+    open(my $fh, "$command |") or throw("error piping to genewise: $!\n"); # production
     #print "parseing output\n"; # making assumption of only 1 gene prediction ... this will change once we start using hmms
 
     while(<$fh>){
@@ -359,7 +359,7 @@ sub _align_protein {
     }
     close($fh) or throw("Error running genewise:$!\n");
     print "there are ",scalar($self->output)." genes predicted using hmms in file ".$hmm."\n";
-  #  unlink $genfile;
+    unlink $genfile;
     #unlink $gwfile;
     #unlink $outputfile;
 }
