@@ -124,7 +124,7 @@ use vars qw(%Config);
                  # GENEBUILD_DB (formerly GB_FINALDB) is the Database where 
                  # GeneBuilder.pm writes it's results to 
 
-                 GENEBUILD_DB  
+                 GENEBUILD_DB =>
                                  { 
                                    -dbname => '',
                                    -host => '',
@@ -136,7 +136,7 @@ use vars qw(%Config);
                         
                  # PSEUDO_DB holds the pseudo-genes
            
-                 PSEUDO_DB 
+                 PSEUDO_DB => 
                                  { 
                                    -dbname => '',
                                    -host => '',
@@ -146,9 +146,9 @@ use vars qw(%Config);
                                   },
                                  
                    
-                 # COALESCER_DB is the DB where TranscriptCoalescer writes it's results
-                 # to 
-                 COALESCER_DB 
+                 # COALESCER_DB is the DB where TranscriptCoalescer writes it's results to
+                   
+                 COALESCER_DB =>
                                  { 
                                    -dbname => '',
                                    -host => '',
