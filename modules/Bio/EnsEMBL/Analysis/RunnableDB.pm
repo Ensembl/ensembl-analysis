@@ -79,7 +79,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
@@ -109,9 +109,8 @@ use vars qw (@ISA);
 sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;
-  &verbose('WARNING');
-  my ($db, $input_id, $analysis) = rearrange(['DB', 'INPUT_ID', 
-                                              'ANALYSIS'], @args);
+  my ($db, $input_id, $analysis,$utils_verbosity) = rearrange(['DB', 'INPUT_ID', 
+                                              'ANALYSIS','UTILS_VERBOSITY'], @args);
   if(!$db || !$analysis || !$input_id){
     throw("Can't create a RunnableDB without a dbadaptor ".$db." an ".
           "analysis object ".$analysis." or an input_id ".$input_id);
@@ -119,6 +118,9 @@ sub new{
   $self->db($db);
   $self->analysis($analysis);
   $self->input_id($input_id);
+  &verbose($utils_verbosity) ; 
+
+  &verbose('WARNING') unless ($utils_verbosity) ; 
   return $self;
 }
 
