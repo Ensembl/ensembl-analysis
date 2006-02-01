@@ -121,7 +121,8 @@ use vars qw(%Config);
                                   },
                                  
                    
-                 # GENEBUILD_DB (formerly GB_FINALDB) 
+                 # GENEBUILD_DB (formerly GB_FINALDB) is the Database where 
+                 # GeneBuilder.pm writes it's results to 
 
                  GENEBUILD_DB  
                                  { 
@@ -145,7 +146,8 @@ use vars qw(%Config);
                                   },
                                  
                    
-
+                 # COALESCER_DB is the DB where TranscriptCoalescer writes it's results
+                 # to 
                  COALESCER_DB 
                                  { 
                                    -dbname => '',
@@ -155,95 +157,8 @@ use vars qw(%Config);
                                    -pass => '',
                                   },
                                  
+                 }
                    
- 
-                 DB_bla  => {
-
-
-
- 
-                                   DBHOST                => 'ecs4',  #was ia64g 
-                                   DBNAME                => 'jhv_ciona_seq_32_JGI2_uniprot',
-                                   DBUSER                => 'ensadmin',
-                                   DBPASS                => 'ensembl',
-                                   DBPORT                => '3350', # was 3306
-                             }, 
-
-                 DB_1 => { 
-                                  #DBHOST                => 'ia64f',  
-                                  DBHOST                => 'ecs4',  # was ia64f 
-                                  DBNAME                => 'jhv_cint_33_est_exonerate',
-                                  DBUSER                => 'ensadmin',
-                                  DBPASS                => 'ensembl',
-                                  DBPORT                => '3351', # was 3306
-                                  #DBPORT                => '3306', # was 3306
-                                  # get genes out of db: 
-                                  # Bio::EnsEMBL::Gene objects must be fetched by their biotype  
-                                  # Bio::EnsEMBL::PredictionTranscripts must be fetched by their logicname
-                                  BIOTYPES              => ['est_all'],   
-                                  AB_INITIO_LOGICNAMES            => [],  
-                                 }, 
-                  DB_bla  => { 
-                                   DBHOST                => 'ecs4',  #was ia64g 
-                                   DBNAME                => 'jhv_ciona_seq_32_JGI2_uniprot',
-                                   DBUSER                => 'ensadmin',
-                                   DBPASS                => 'ensembl',
-                                   DBPORT                => '3350', # was 3306
-                                   BIOTYPES              => [],  
-                                   AB_INITIO_LOGICNAMES  => ['GeneFinder','Genscan',
-                                                             'snap_ciona' , 'fgenesh'],  
-                                   }, 
-#                  DB_xfwx  => { 
-#                                   DBHOST                => 'ia64f',
-#                                   DBNAME                => 'jhv_cint_gwdb_test_uniprot',
-#                                   DBUSER                => 'ensadmin',
-#                                   DBPASS                => 'ensembl',
-#                                   DBPORT                => '3306',
-#                                   BIOTYPES              => ['simgw_uniprot_wublastx_110_80_90_'],  
-#                                   AB_INITIO_LOGICNAMES  => [],  
-#                                   }, 
-
-                  DB_simgw  => { 
-                                   DBHOST                => 'ecs4', # was ia64f
-                                   DBNAME                => 'jhv_cint_simgw_no_miniseq',
-                                   DBUSER                => 'ensadmin',
-                                  DBPASS                => 'ensembl',
-                                   DBPORT                => '3352', # was 3306
-                                   BIOTYPES              => ['simgw_no_miniseq_80'],  
-                                   AB_INITIO_LOGICNAMES  => [],  
-                                   }, 
-
-
-
-                   
-                  },
-  OUT_DATABASE => {
-                   DBHOST                => 'ia64f',
-                   #  DBNAME                => 'jhv_cint_combineEST_34a',  # @ia64f -> complete pipeline run but gene-types seem screwed 
-                   DBNAME                => 'jhv_cint_combineEST_34y',  # @ia64f -> experimental  db for testing results  
-                   DBUSER                => 'ensadmin',
-                   DBPASS                => 'ensembl',
-                   DBPORT                => '3306',
-                   },
-                  MORE_ARRAYS => ['value_1','value_2'] , 
- 
-                  #
-                  # ASSIGNING THE DIFFERENT BIOTYPES AND LOGIC-NAMES TO EVIDENCE-SETS 
-                  # 
-                  # There are currently 3 different evidence-sets supported : EST_SETS, 
-                  # SIMGW_SETS and ABINITIO-Sets. 
-                  # Put the biotypes for Bio::EnsEMBL::Gene objects in the set or for 
-                  # Bio::EnsEMBL::PredictionTranscripts use the logic_name
-                  #
-                  EST_SETS =>['est_all'], 
-                  #
-                  # put the biotype of SimilarityGenewise genes in here
-                 # SIMGW_SETS =>['simgw_uniprot_wublastx_110_80_90_','simgw_no_miniseq_80'],   
-                  SIMGW_SETS =>['simgw_no_miniseq_80'],   
-                 
-                  # logic-names of abinitio-analysis  
-                  ABINITIO_SETS =>['GeneFinder','Genscan','snap_ciona','fgenesh'] , 
- 
              );
 
 
