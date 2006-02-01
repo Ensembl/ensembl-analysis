@@ -49,7 +49,8 @@ to live in Bio/EnsEMBL/Analysis/RunnableDB but you can change this on the comman
                      can find it in its perl5lib
 
     -utils_verbosity the amount of chat you want from the 
-                     Bio::EnsEMBL::Utils::Exception module
+                     Bio::EnsEMBL::Utils::Exception module. Allowed parameters
+                     are ALL INFO DEPRECATE WARNING EXCEPTION and OFF
 
 =head1 EXAMPLES
 
@@ -183,6 +184,7 @@ $runnable =~ s/\//::/g;
 my $runobj = "$runnable"->new(-db    => $db,
 			      -input_id => $input_id,
 			      -analysis => $analysis,
+                              -utils_verbosity => $utils_verbosity,
 			     );
 print STDERR "Instantiated ".$runnable." runnabledb\n" if($verbose);
 $runobj->fetch_input;
