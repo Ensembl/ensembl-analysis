@@ -118,9 +118,14 @@ sub new{
   $self->db($db);
   $self->analysis($analysis);
   $self->input_id($input_id);
-  &verbose($utils_verbosity) ; 
+  
+  if ($utils_verbosity) { 
+    &verbose($utils_verbosity) ; 
+    $self->utils_verbosity($utils_verbosity) ; 
+  } else {
+    &verbose('WARNING') ;
+  }
 
-  &verbose('WARNING') unless ($utils_verbosity) ; 
   return $self;
 }
 
@@ -462,6 +467,25 @@ sub write_output{
 
 
 
+
+
+
+=head2 utils_verbosity 
+
+  Arg [1]   : String describing verbosity-level (see Bio::EnsEMBL::Utils::Exception) 
+  Function  : sets verbosity level and hands it over to RunnableDB
+  Returntype: none
+  Example   : 
+
+=cut
+
+
+
+sub utils_verbosity {
+  my ($self,$v) = @_; 
+  $self->{utils_verbosity} = $v if $v ; 
+  return $self->{utils_verbosity} ; 
+}
 
 
 
