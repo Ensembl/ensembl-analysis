@@ -1,5 +1,5 @@
 #
-# package Bio::EnsEMBL::Pipeline::Config::ExonerateTranscript
+# package Bio::EnsEMBL::Analysis::Config::Exonerate2Genes
 # 
 # Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
 #
@@ -11,11 +11,11 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Pipeline::Config::Exonerate2Genes
+Bio::EnsEMBL::Analysis::Config::Exonerate2Genes
 
 =head1 SYNOPSIS
 
-    use Bio::EnsEMBL::Pipeline::Config::Exonerate2Genes;
+    use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;
 
 =head1 DESCRIPTION
 
@@ -57,8 +57,8 @@ use vars qw( %Config );
                # In the latter case the order of appearance will determine the usage of directories and files;
                # new versions should therefore be listed in the first directory.
                # format: A. '/your/soft/masked/genome.fa'
-                      or B. '/your/soft/masked/genomeDIR'
-                      or C. ['/your/soft/masked/genomeDIR_1', '/your/soft/masked/genomeDIR_2']
+               #       or B. '/your/soft/masked/genomeDIR'
+               #       or C. ['/your/soft/masked/genomeDIR_1', '/your/soft/masked/genomeDIR_2']
 
                GENOMICSEQS         => '/your/soft/masked/genome.fa',
                QUERYTYPE           => undef,
