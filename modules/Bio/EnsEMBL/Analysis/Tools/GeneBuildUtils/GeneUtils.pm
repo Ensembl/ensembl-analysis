@@ -53,6 +53,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
 use Bio::EnsEMBL::Gene;
 
 
@@ -103,6 +104,7 @@ sub clone_Gene{
   $newgene->dbID($gene->dbID);
   $newgene->biotype($gene->biotype);
   $newgene->analysis($gene->analysis);
+  $newgene->stable_id($gene->stable_id);
   foreach my $transcript(@{$gene->get_all_Transcripts}){
     my $newtranscript = clone_Transcript($transcript);
     $newgene->add_Transcript($newtranscript);
@@ -155,6 +157,7 @@ sub prune_Exons{
   # keep track of all unique exons found so far to avoid making 
   # duplicates need to be very careful about 
   # translation->start_Exon and translation->end_Exon
+  
   my $cloned_gene = clone_Gene($gene);
   foreach my $tran (@{$cloned_gene->get_all_Transcripts}) {
     my @newexons;
@@ -190,6 +193,7 @@ sub prune_Exons{
       $tran->add_Exon($exon);
     }
   }
+
   return $cloned_gene;
 }
 

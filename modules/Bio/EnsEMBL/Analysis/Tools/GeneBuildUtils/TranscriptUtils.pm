@@ -189,6 +189,7 @@ sub clone_Transcript{
   $newtranscript->add_Attributes(@$attribs);
   $newtranscript->slice($transcript->slice);
   $newtranscript->dbID($transcript->dbID);
+  $newtranscript->stable_id($transcript->stable_id);
   return $newtranscript;
 }
 
