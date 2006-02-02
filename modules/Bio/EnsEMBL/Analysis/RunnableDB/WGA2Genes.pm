@@ -281,7 +281,7 @@ sub run {
   }
 
   # segment the genes into overlapping groups
-  my @gene_sets = @{$self->get_non_overlapping_gene_sets};
+  my @gene_sets = @{$self->get_individual_gene_sets};
 
   foreach my $geneset (@gene_sets) {
     my (%blocks_used_so_far);
@@ -325,11 +325,11 @@ sub run {
         $filtered_chains = $self->remove_inconsistent_chains($filtered_chains, 
                                                              \@cds_feats);
         
-        # $self->print_chains($filtered_chains, "CONSISTENT CHAINS");
+        #$self->print_chains($filtered_chains, "CONSISTENT CHAINS");
         
         if ($self->NO_CONTIG_SPLITS) { 
           $filtered_chains = $self->remove_contig_split_chains($filtered_chains);
-          # $self->print_chains($filtered_chains, "NO CONTIG SPLIT CHAINS");
+          #$self->print_chains($filtered_chains, "NO CONTIG SPLIT CHAINS");
         }
 
         my $net_blocks = $self->flatten_chains($filtered_chains, 1);
@@ -461,18 +461,20 @@ sub write_output {
 #####################################
 
 ###################################################################
-# FUNCTION: get_non_overlapping_get_sets
+# FUNCTION: get_individual_gene_sets
 #
 # Decription:
 #  segments the reference gene set into sets that are 
+#  treated independently by the method. This is only done
+#  if the SEGMENT_BY_GENE_OVERLAP is set
 #  non-overlapping on the query sequence (using our own internal 
 #  get_all_Transcripts method that removes transcripts with 
 #  outlier introns
 ###################################################################
-sub get_non_overlapping_gene_sets {
+sub get_individual_gene_sets {
   my ($self) = @_;
 
-  my (@gene_objs, @gene_lists, $max_end);
+  my (@gene_objs, $max_end);
   foreach my $g (@{$self->genes}) {
     my ($g_start, $g_end);
     foreach my $t (@{$self->get_all_Transcripts($g)}) {
@@ -495,18 +497,26 @@ sub get_non_overlapping_gene_sets {
     }
   }
   @gene_objs = sort { $a->{start} <=> $b->{start} } @gene_objs;
-  foreach my $g_obj (@gene_objs) {
 
-    if (defined $max_end and $g_obj->{start} < $max_end) {
-      push @{$gene_lists[-1]}, $g_obj->{gene};
-      $max_end = $g_obj->{end} if $g_obj->{end} > $max_end;
-    } else {
-      push @gene_lists, [$g_obj->{gene}];
-      $max_end = $g_obj->{end};
+  if ($self->SEGMENT_SLICE_BY_GENE_OVERLAP) {
+    my @gene_lists;
+
+    foreach my $g_obj (@gene_objs) {      
+      if (defined $max_end and $g_obj->{start} < $max_end) {
+        push @{$gene_lists[-1]}, $g_obj->{gene};
+        $max_end = $g_obj->{end} if $g_obj->{end} > $max_end;
+      } else {
+        push @gene_lists, [$g_obj->{gene}];
+        $max_end = $g_obj->{end};
+      }
     }
-  }
 
-  return \@gene_lists;
+    return \@gene_lists;
+  } else {
+    my @genes = map { $_->{gene} } @gene_objs;
+
+    return [\@genes];
+  }
 }
 
 
@@ -3122,6 +3132,21 @@ sub TARGET_CORE_DB {
 
   return $self->{_target_core_db};
 }
+
+
+#
+# Dictates whether we process slice as a whole, 
+#
+sub SEGMENT_SLICE_BY_GENE_OVERLAP {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_segment_slice_by_gene_overlap} = $val;
+  }
+
+  return $self->{_segment_slice_by_gene_overlap};
+}
+
 
 #
 # Initial query gene-set filtering

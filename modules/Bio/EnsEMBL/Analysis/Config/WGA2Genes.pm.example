@@ -65,6 +65,15 @@ use vars qw( %Config );
                # if the following is set, attempt is made to filter out
                # weird source transcripts before the process begins 
                REJECT_BAD_QUERY_TRANSCRIPTS => 1,
+
+               # if the following is set, the slice is partitioned into 
+               # regions that contain one more more overlapping genes, and
+               # and each sub-slice is processed independently. NOT setting
+               # this flag leads to longer gene scaffolds that require less
+               # merging at the end, but requires care in slice id construction
+               # (i.e. that the slices boundaries no not intersect an 
+               # alignment chain). 
+               SEGMENT_SLICE_BY_GENE_OVERLAP => 0,
                
                ##################
                # Chain filtering
