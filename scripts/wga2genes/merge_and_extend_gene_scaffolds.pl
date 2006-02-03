@@ -16,6 +16,7 @@ my ($dbname,
     $gff_outfile, $gff_outfh,
     $log_outfile, $log_outfh,
     $reject_contig_splits,
+    $filter_low_level,
     @agp_files,
     @gff_files);
 
@@ -25,7 +26,8 @@ my ($dbname,
             'outgff=s' => \$gff_outfile,
             'outlog=s' => \$log_outfile,
             'verbose' => \$verbose,
-            'reject_contig_splits' => \$reject_contig_splits,
+            'contig_split_reject' => \$reject_contig_splits,
+            'low_level_reject'     => \$filter_low_level,
             'dbname=s' => \$dbname,
             'dbhost=s' => \$dbhost,
             'dbuser=s' => \$dbuser,
@@ -110,23 +112,35 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
   # if low-level gene scaffolds conflict with a higher one, it
   # is rejected
   &filter_low_level_gene_scaffolds($gene_scaffolds) 
-      if scalar(@$cluster) > 1;
+      if $filter_low_level and scalar(@$cluster) > 1;
 
   # we need the slices and their seq-level component structure for 
   # assessing scaffold splits
   my ($target_slices, $target_slice_maps) = 
       &fetch_slices_and_component_maps($DB, $gene_scaffolds);
 
+  # make list of "non trivial" gene scaffolds, which are those
+  # that involve more than one component
+
+  my (%simple_gene_scaffolds, %complex_gene_scaffolds);
+  foreach my $gs_id (keys %$gene_scaffolds) {
+    if (&is_simple_gene_scaffold($gene_scaffolds->{$gs_id})) {
+      $simple_gene_scaffolds{$gs_id} = $gene_scaffolds->{$gs_id};
+    } else {
+      $complex_gene_scaffolds{$gs_id} = $gene_scaffolds->{$gs_id};
+    }
+  }
+
   my $extended_chains;
   while (not defined $extended_chains) {
     # cluster the members into sub-clusters based on a single,
     # shared scaffold
-    my $chains = &make_gene_scaffold_chains($gene_scaffolds);
+    my $chains = &make_gene_scaffold_chains(\%complex_gene_scaffolds);
 
     # extend components so that the whole of each scaffold is used 
     # somewhere
     $extended_chains = 
-        &extend_gene_scaffold_components($gene_scaffolds,
+        &extend_gene_scaffold_components(\%complex_gene_scaffolds,
                                          $chains,
                                          $target_slices,
                                          $target_slice_maps,
@@ -152,105 +166,116 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
   }
 
   foreach my $chain (@$extended_chains) {
+    my $new_map     = Bio::EnsEMBL::Mapper->new('scaffold',
+                                                'genescaffold');
+    
+    my $new_gs_name = $GENE_SCAFFOLD_PREFIX . $out_gene_scaffold_count++;
+    print $agp_outfh "##-AGP for $new_gs_name [@{$chain->{members}}]\n";
 
     my @unit_objs   = @{$chain->{unit_objs}};
-
-    if (scalar(@unit_objs) == 1 and
-        $unit_objs[0]->{unit}->start eq $target_slices->{$unit_objs[0]->{unit}->id}->start and 
-        $unit_objs[0]->{unit}->end eq $target_slices->{$unit_objs[0]->{unit}->id}->end) {
+    
+    my $last_end = 0;
+    for(my $i=0; $i < @unit_objs; $i++) {
+      my $unit_obj = $unit_objs[$i];
+      my $unit_len = $unit_obj->{unit}->end - $unit_obj->{unit}->start + 1;
       
-      # special case; this is s single scaffold, so no need to create a 
-      # new gene scaffold for it. Therefore, just write annotation in 
-      # the scaffold coords
+      my $gs_start = $last_end + 1;
+      $last_end    = $gs_start + $unit_len - 1;
       
-      printf $gff_outfh "# GFF for %s [@{$chain->{members}}]\n", $unit_objs[0]->{unit}->id;
+      $new_map->add_map_coordinates($unit_obj->{unit}->id,
+                                    $unit_obj->{unit}->start,
+                                    $unit_obj->{unit}->end,
+                                    $unit_obj->{ori},
+                                    $new_gs_name,
+                                    $gs_start,
+                                    $last_end,
+                                    );
       
-      foreach my $member (@{$chain->{members}}) {
-        my @annotation_lines = @{$gene_scaffolds->{$member}->{annotation}};
-        
-        foreach my $line (@annotation_lines) {
-          if (ref($line) ne "ARRAY") {
-            print $gff_outfh $line;
-            next;
-          } 
-          
-          my ($mapped_reg) = $orig_map->map_coordinates($line->[0],
-                                                        $line->[3],
-                                                        $line->[4],
-                                                        1,
-                                                        'genescaffold');
-          $line->[0] = $mapped_reg->id;
-          $line->[3] = $mapped_reg->start;
-          $line->[4] = $mapped_reg->end; 
-          
-          if ($unit_objs[0]->{ori} < 0) {
-            $line->[5] *= -1;
-          }
-          print $gff_outfh join("\t", @$line);
-        }
-      }        
-
-    } else {
-      # normal case@ multi-scaffold gene scaffold
-
-      my $new_map     = Bio::EnsEMBL::Mapper->new('scaffold',
-                                                  'genescaffold');
-      
-      my $new_gs_name = $GENE_SCAFFOLD_PREFIX . $out_gene_scaffold_count++;
-      print $agp_outfh "##-AGP for $new_gs_name [@{$chain->{members}}]\n";
-      
-      my $last_end = 0;
-      for(my $i=0; $i < @unit_objs; $i++) {
-        my $unit_obj = $unit_objs[$i];
-        my $unit_len = $unit_obj->{unit}->end - $unit_obj->{unit}->start + 1;
-        
-        my $gs_start = $last_end + 1;
-        $last_end    = $gs_start + $unit_len - 1;
-        
-        $new_map->add_map_coordinates($unit_obj->{unit}->id,
-                                      $unit_obj->{unit}->start,
-                                      $unit_obj->{unit}->end,
-                                      $unit_obj->{ori},
-                                      $new_gs_name,
-                                      $gs_start,
-                                      $last_end,
-                                      );
-        
-        if ($unit_obj->{unit}->id =~ /^$FAKE_SCAFFOLD_PREFIX/) {
-          printf($agp_outfh "%s\t%d\t%d\tN\t%d\n", 
-                 $new_gs_name, 
-                 $gs_start,
-                 $last_end,
-                 $last_end - $gs_start + 1);       
-        } else {
-          printf($agp_outfh "%s\t%d\t%d\tW\t%s\t%d\t%d\t%s\n", 
-                 $new_gs_name, 
-                 $gs_start, 
-                 $last_end,
-                 $unit_obj->{unit}->id,
-                 $unit_obj->{unit}->start,
-                 $unit_obj->{unit}->end,
-                 $unit_obj->{ori} > 0 ? "+" : "-");        
-        }
-        
-        if ($i < @unit_objs - 1) {
-          $gs_start = $last_end + 1;
-          $last_end = $gs_start + $GENE_SCAFFOLD_PADDING - 1;
-          
-          printf($agp_outfh "%s\t%d\t%d\tN\t%d\n", 
-                 $new_gs_name, 
-                 $gs_start,
-                 $last_end,
-                 $last_end - $gs_start + 1);
-          
-        }
+      if ($unit_obj->{unit}->id =~ /^$FAKE_SCAFFOLD_PREFIX/) {
+        printf($agp_outfh "%s\t%d\t%d\tN\t%d\n", 
+               $new_gs_name, 
+               $gs_start,
+               $last_end,
+               $last_end - $gs_start + 1);       
+      } else {
+        printf($agp_outfh "%s\t%d\t%d\tW\t%s\t%d\t%d\t%s\n", 
+               $new_gs_name, 
+               $gs_start, 
+               $last_end,
+               $unit_obj->{unit}->id,
+               $unit_obj->{unit}->start,
+               $unit_obj->{unit}->end,
+               $unit_obj->{ori} > 0 ? "+" : "-");        
       }
       
-      printf $gff_outfh "# GFF for $new_gs_name [@{$chain->{members}}]\n";
+      if ($i < @unit_objs - 1) {
+        $gs_start = $last_end + 1;
+        $last_end = $gs_start + $GENE_SCAFFOLD_PADDING - 1;
+        
+        printf($agp_outfh "%s\t%d\t%d\tN\t%d\n", 
+               $new_gs_name, 
+               $gs_start,
+               $last_end,
+               $last_end - $gs_start + 1);
+        
+      }
+    }
+    
+    printf $gff_outfh "# GFF for $new_gs_name [@{$chain->{members}}]\n";
+    
+    foreach my $member (@{$chain->{members}}) {
       
-      foreach my $member (@{$chain->{members}}) {
-        my @annotation_lines = @{$gene_scaffolds->{$member}->{annotation}};
-        foreach my $line (@annotation_lines) {
+      foreach my $line (@{$gene_scaffolds->{$member}->{annotation}}) {
+        if (ref($line) ne "ARRAY") {
+          print $gff_outfh $line;
+          next;
+        } 
+        
+        my ($loc_in_orig) = $orig_map->map_coordinates($line->[0],
+                                                       $line->[3],
+                                                       $line->[4],
+                                                       1,
+                                                       'genescaffold');
+        
+        my ($loc_in_new) = $new_map->map_coordinates($loc_in_orig->id,
+                                                     $loc_in_orig->start,
+                                                     $loc_in_orig->end,
+                                                     1,
+                                                     'scaffold');
+        
+        $line->[0] = $new_gs_name;
+        $line->[3] = $loc_in_new->start;
+        $line->[4] = $loc_in_new->end;
+        print $gff_outfh join("\t", @$line);
+      }
+    }
+    
+    # we need to deal with the simple gene scaffolds which refer
+    # to a component that has ended up in this gene scaffold
+    foreach my $gs_id (keys %simple_gene_scaffolds) {
+      my @cmps = @{$simple_gene_scaffolds{$gs_id}->{components}};
+      my $num_found = 0;
+      
+      foreach my $cmp (@cmps) {
+        my ($loc_in_orig) = $orig_map->map_coordinates($gs_id,
+                                                       $cmp->from->start,
+                                                       $cmp->from->end,
+                                                       1,
+                                                       'genescaffold');
+        
+        my ($loc_in_new) = $new_map->map_coordinates($loc_in_orig->id,
+                                                     $loc_in_orig->start,
+                                                     $loc_in_orig->end,
+                                                     1,
+                                                     'scaffold');
+        
+        if ($loc_in_new->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+          $num_found++;
+        }          
+      }
+      
+      if ($num_found == scalar(@cmps)) {
+        foreach my $line (@{$simple_gene_scaffolds{$gs_id}->{annotation}}) {
           if (ref($line) ne "ARRAY") {
             print $gff_outfh $line;
             next;
@@ -260,23 +285,56 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
                                                          $line->[3],
                                                          $line->[4],
                                                          1,
-                                                        'genescaffold');
+                                                         'genescaffold');
           
-          my ($loc_in_new) = 
-              $new_map->map_coordinates($loc_in_orig->id,
-                                        $loc_in_orig->start,
-                                        $loc_in_orig->end,
-                                        1,
-                                        'scaffold');
-              
+          my ($loc_in_new) = $new_map->map_coordinates($loc_in_orig->id,
+                                                       $loc_in_orig->start,
+                                                       $loc_in_orig->end,
+                                                       1,
+                                                       'scaffold');
+          
           $line->[0] = $new_gs_name;
           $line->[3] = $loc_in_new->start;
           $line->[4] = $loc_in_new->end;
           print $gff_outfh join("\t", @$line);
         }
+        
+        delete $simple_gene_scaffolds{$gs_id};
+
+      } elsif ($num_found) {
+        print $log_outfh "WRITE: Simple gs $gs_id is split between >1 complex ones\n";
       }
     }
   }
+
+  # for all of the remaining simple gene scaffolds, the annotation 
+  # can be written directly without need for agp
+
+  foreach my $gs_id (keys %simple_gene_scaffolds) {
+    printf $gff_outfh "# GFF for %s\n", $gs_id; 
+      
+    foreach my $line (@{$simple_gene_scaffolds{$gs_id}->{annotation}}) {
+      if (ref($line) ne "ARRAY") {
+        print $gff_outfh $line;
+        next;
+      } 
+      
+      my ($mapped_reg) = $orig_map->map_coordinates($line->[0],
+                                                    $line->[3],
+                                                    $line->[4],
+                                                    1,
+                                                    'genescaffold');
+      $line->[0] = $mapped_reg->id;
+      $line->[3] = $mapped_reg->start;
+      $line->[4] = $mapped_reg->end; 
+      
+      if ($simple_gene_scaffolds{$gs_id}->{components}->[0]->ori < 0) {
+        $line->[5] *= -1;
+      }
+      print $gff_outfh join("\t", @$line);
+    }
+  }
+
 }
 
 
@@ -714,6 +772,10 @@ sub make_gene_scaffold_chains {
     return [[$gs_id]];
   }
 
+
+  # form chains based on component composition
+  my (@chains, @new_chains);
+
   my %sub_clusters;
   foreach my $gs_id (keys %{$gene_scaffolds}) {
     foreach my $comp (@{$gene_scaffolds->{$gs_id}->{components}}) {
@@ -721,7 +783,7 @@ sub make_gene_scaffold_chains {
     }
   }
 
-  my (@chains, @new_chains);
+
   foreach my $s_id (keys %sub_clusters) {
     my $linked_gs_ids = [keys %{$sub_clusters{$s_id}}];
     
@@ -899,7 +961,7 @@ sub make_gene_scaffold_chains {
   }
   @chains = @new_chains;
 
-  # finally, add back in all of the singletons
+  # add back in all of the singletons
   my %in_list;
   foreach my $chain (@chains) {
     map { $in_list{$_} = 1 } @$chain;
@@ -909,6 +971,7 @@ sub make_gene_scaffold_chains {
       push @chains, [$gs_id];
     }
   }
+
 
   return \@chains;
 }
@@ -1235,43 +1298,6 @@ sub extend_gene_scaffold_components {
       # the following will force chains to be recalculated
       return undef;
     }
-
-
-    if (0) {
-      my @implicated;
-      foreach my $gs_id (keys %$gene_scaffolds) {
-        my $implicated = 0;
-        my $coverage = 0;
-        
-        foreach my $comp (@{$gene_scaffolds->{$gs_id}->{components}}) {
-          if (exists($contig_split_scaffolds{$comp->to->id})) {
-            $implicated = 1;
-          }
-          if ($comp->to->id !~ /$FAKE_SCAFFOLD_PREFIX/) {
-            $coverage += $comp->to->end - $comp->to->start + 1;
-          }
-        }
-        
-        if ($implicated) {
-          push @implicated, {
-            name => $gs_id,
-            coverage => $coverage,
-            level => $gene_scaffolds->{$gs_id}->{level},
-          };
-        }
-      }
-      
-      if (@implicated) {
-        @implicated = sort {
-          $b->{level} <=> $a->{level} or
-              $a->{coverage} <=> $b->{coverage};
-        } @implicated;
-        
-        printf $log_outfh "EXTEND: Rejecting due to contig split: %s\n", $implicated[0]->{name};
-        delete $gene_scaffolds->{$implicated[0]->{name}};
-        return undef;
-      }
-    }
   }
 
   return \@merged_chains;
@@ -1589,27 +1615,58 @@ sub fetch_slices_and_component_maps {
 #
 #################################################################
 sub get_gene_scaffold_component_extents {
-  my ($gs) = @_;
+  my (@gs_list) = @_;
 
   my %extents;
-  foreach my $comp (@{$gs->{components}}) {
-    if (not exists $extents{$comp->to->id}) {
-      $extents{$comp->to->id} = {
-        start => $comp->to->start,
-        end   => $comp->to->end,
-      };
-    } else {
-      if ($comp->to->start < $extents{$comp->to->id}->{start}) {
-        $extents{$comp->to->id}->{start} = $comp->to->start;
+
+  foreach my $gs (@gs_list) {
+    foreach my $comp (@{$gs->{components}}) {
+      if (not exists $extents{$comp->to->id}) {
+        $extents{$comp->to->id} = {
+          start => $comp->to->start,
+          end   => $comp->to->end,
+        };
+      } else {
+        if ($comp->to->start < $extents{$comp->to->id}->{start}) {
+          $extents{$comp->to->id}->{start} = $comp->to->start;
+        }
+        if ($comp->to->end > $extents{$comp->to->id}->{end}) {
+          $extents{$comp->to->id}->{end} = $comp->to->end;
+        }
       }
-      if ($comp->to->end > $extents{$comp->to->id}->{end}) {
-        $extents{$comp->to->id}->{end} = $comp->to->end;
-      }
+      $extents{$comp->to->id}->{ori}->{$comp->ori} = 1;
     }
-    $extents{$comp->to->id}->{ori}->{$comp->ori} = 1;
   }
   
   return \%extents;
+}
+
+
+#################################################################
+# is_simple_gene_scaffold
+#
+#################################################################
+sub is_simple_gene_scaffold {
+  my $gene_scaf = shift;
+  
+  # a simple gene scaffold is one in which 
+  # (a) all components come from the same scaffold
+  # (b) all are in the same orientation
+  # (c) the order is consistent
+   
+  for(my $i=1; $i < @{$gene_scaf->{components}}; $i++) {
+    my $this = $gene_scaf->{components}->[$i];
+    my $prev = $gene_scaf->{components}->[$i-1];
+
+    if ($this->to->id ne $prev->to->id or
+        $this->ori != $prev->ori or
+        ($this->ori > 0 and $this->to->start <= $prev->to->end) or
+        ($this->ori < 0 and $this->to->end >= $prev->to->start)) {
+      return 0;
+    }
+  }
+
+  return 1;
 }
 
 #################################################################
@@ -1647,25 +1704,35 @@ sub index_gene_scaffold_files {
     $gs_fhs[$i] = $fh;
 
     for(my $curpos = tell $fh; $_ = <$fh>; $curpos = tell $fh) {
-      /^\#/ and next;
-      my @l = split(/\t/, $_);
+      my ($gs_id, $s_id);
       
-      next if $l[3] ne 'W';
+      if (/^\#.+AGP.+scaffold\s+(\S+)\s+/) {
+        $gs_id = $1;
+      } elsif ($_ !~ /^\#/) {
+        my @l = split(/\t/, $_);
+        
+        if ($l[3] eq 'W') {
+          $gs_id = $l[0];
+          $s_id  = $l[4];        
+        }
+      }
 
-      my $gs_id = $l[0];
-      my $s_id  = $l[4];
+      if (defined $gs_id) {
+        if (not exists $gs_file_index{$gs_id}) {
+          $gs_file_index{$gs_id} = {
+            fh_index => $i,
+            from     => $curpos,
+          };
+        } 
+        $gs_file_index{$gs_id}->{to} = $curpos;
 
-      if (not exists $gs_file_index{$gs_id}) {
-        $gs_file_index{$gs_id} = {
-          fh_index => $i,
-          from     => $curpos,
-        };
-      } 
-      $gs_file_index{$gs_id}->{to} = $curpos;
+        if (defined $s_id) {
+          # maintain 2 other indices for the single-linkage clustering
 
-      # maintain 2 other indices for the single-linkage clustering
-      $s_index{$s_id}->{$gs_id} = 1;
-      $gs_index{$gs_id}->{$s_id} = 1;     
+          $s_index{$s_id}->{$gs_id} = 1;
+          $gs_index{$gs_id}->{$s_id} = 1;
+        }
+      }     
     }
   }
 
@@ -1723,6 +1790,20 @@ sub fetch_gene_scaffold_entries {
 
       last if $curpos > $index->{to};
 
+      /^\#.+AGP.+scaffold\s+(\S+)\s+.+region\=(\S+)\/(\d+)\-(\d+)/ and do {
+        if ($1 ne $gs_id) {
+          die "Index lookup error: Looking for $gs_id, found $1\n";
+        }
+
+        $gene_scaffolds->{$gs_id}->{id}        = $gs_id;
+        $gene_scaffolds->{$gs_id}->{ref_name}  = $2;
+        $gene_scaffolds->{$gs_id}->{ref_start} = $3;
+        $gene_scaffolds->{$gs_id}->{ref_end}   = $4;
+
+        next;
+      };
+
+
       /^(\S+)\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)/ and do {
         my ($this_gs_id, 
             $gs_start, 
@@ -1740,15 +1821,8 @@ sub fetch_gene_scaffold_entries {
 
         $scaf_ori = ($scaf_ori eq '+') ? 1 : -1;
         
-        if (not exists $gene_scaffolds->{$gs_id}) {
-          my ($level) = ($gs_id =~ /\-(\d+)$/); 
-          my $agp_obj = {
-            id         => $gs_id,
-            level      => $level,
-            components => [],
-          };
-          $gene_scaffolds->{$gs_id} = $agp_obj;
-        }
+        my ($level) = ($gs_id =~ /\-(\d+)$/); 
+        $gene_scaffolds->{$gs_id}->{level}      = $level;
         
         ###
         # finally, record the AGP line itself
