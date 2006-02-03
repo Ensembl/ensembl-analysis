@@ -366,8 +366,11 @@ sub compute_translation{
     }else{
       $end_phase = (($exon->length + $exon->phase) %3)
     }
-    $exon->end_phase($end_phase) if($found_start and not
-                                    $found_end);
+    $exon->end_phase($end_phase) 
+      if(($exon == $translation->end_Exon
+         && $exon->length == $translation->end) ||
+         ($found_start and not $found_end));
+
     $found_end = 1 if($exon == $translation->end_Exon);
     $last_end_phase = $exon->end_phase;
   }
