@@ -88,6 +88,7 @@ sub parse_results {
   }
   
   # parse
+  my @pfs;
   while (<$fh>) {
     chomp;
     next if /^$/;

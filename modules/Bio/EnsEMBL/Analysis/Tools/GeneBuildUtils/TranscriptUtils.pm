@@ -52,6 +52,7 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity
                                              logger_warning);
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
+use Bio::SeqIO;
 
 use vars qw (@ISA @EXPORT);
 
@@ -79,6 +80,7 @@ use vars qw (@ISA @EXPORT);
              replace_stops_with_introns
              remove_initial_or_terminal_short_exons
              get_evidence_ids
+             dump_cDNA_file
             );
 
 
@@ -1341,6 +1343,38 @@ sub _trim_translation_end{
     $exon->start($tmp_end);
   }
   return $exon;
+}
+
+
+
+
+=head2 dump_cDNA_file
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : string, filename
+  Arg [3]   : string, format (optional)
+  Function  : dump file using Bio::SeqIO
+  Returntype: filename
+  Exceptions: throws if fails to write or close file
+  Example   : 
+
+=cut
+
+
+sub dump_cDNA_file{
+  my ($transcript, $filename, $format) = @_;
+  $format = 'fasta' if(!$format);
+  logger_info("You are going to dump the cdna of ".
+              id($transcript)." into ".$filename." format ".
+              $format);
+  my $seqout = Bio::SeqIO(
+                          '-format' => $format,
+                          '-filename' => $filename,
+                         );
+  my $seq = $transcript->seq;
+  $seq->display_id(id($transcript));
+  $seqout->writefile($seq);
+  return $filename;
 }
 
 1;

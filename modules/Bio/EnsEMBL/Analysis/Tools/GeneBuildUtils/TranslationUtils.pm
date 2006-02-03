@@ -8,19 +8,25 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
+#use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
 use Bio::EnsEMBL::Translation;
 use vars qw (@ISA  @EXPORT);
 
 
 @ISA = qw(Exporter);
-@EXPORT = qw(print_Translation 
-             clone_Translation 
-             print_peptide 
-             Translation_info 
-             starts_with_met 
-             ends_with_stop 
+@EXPORT = qw(print_Translation
+             clone_Translation
+             print_peptide
+             Translation_info
+             starts_with_met
+             ends_with_stop
              contains_internal_stops
-             print_Translation_genomic_coords);
+             print_Translation_genomic_coords
+             dump_peptide_file
+             run_translate
+             compute_translation
+             return_translation
+            );
 
 
 =head2 print_Translation
@@ -230,7 +236,7 @@ sub clone_Translation{
   my $new_end_Exon = $new_exons{$old_end_id_string};
   throw($old_end_id_string." failed to get exon") 
    if(!$new_end_Exon);
-  $newtranslation->end_Exon($new_end_Exon);
+ $newtranslation->end_Exon($new_end_Exon);
   $newtranslation->end($translation->end);
   my $attribs = $translation->get_all_Attributes();
   $newtranslation->add_Attributes(@$attribs);
@@ -239,15 +245,217 @@ sub clone_Translation{
 }
 
 
+=head2 return_translation
 
-#METHODS NEEDED
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : calculates translation for transcript
+  Returntype: Bio::EnsEMBL::Translation
+  Exceptions: 
+  Example   : 
 
-#run_translate, a method to run the orf finder program 
+=cut
 
-#compute translation, a method which finds a new translation for
-#a transcript using run_translate
 
-#return translation, a method if you just want the translation
-#object returned and not a whole new transcript
+
+sub return_translation{
+  my ($trans) = @_;
+  $trans = compute_translation($trans);
+  return $trans->translation;
+}
+
+
+=head2 compute_translation
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : run run_translate and give transcript new
+  translation based on those results
+  Returntype: Bio::EnsEMBL::Transcript
+  Exceptions: Warns in unable to create translation
+  Example   : 
+
+=cut
+
+
+
+sub compute_translation{
+  my ($transcript) = @_;
+
+  my @met_predictions = @{run_translate 
+                            ($transcript, 1)};
+  my @nomet_predictions = @{run_translate 
+                              ($transcript)};
+
+  my $orf;
+  if(@met_predictions && @nomet_predictions){
+    my $met_best = $met_predictions[0];
+    my $no_met_best = $nomet_predictions[0];
+    if($no_met_best->[0] > (2*$met_best->[0])){
+      $orf = $no_met_best;
+    }else{
+      $orf = $met_best;
+    }
+  }elsif(@met_predictions){
+    $orf = $met_predictions[0];
+  }elsif(@nomet_predictions){
+    $orf = $nomet_predictions[0];
+  }else{
+    logger_warning(id($transcript)." has no translations ");
+    return $transcript;
+  }
+  #Here we take the best prediction with a methionine unless 
+  #there aren't any of the best prediction without a 
+  #methoinine is more than twice the length
+
+  my $orf_start = $orf->[1];
+  my $orf_end = $orf->[2];
+  my $translation = Bio::EnsEMBL::Translation->new();
+  logger_info("Best orf for ".id($transcript)." ".$orf->[0].
+              " long ".$orf_start." to ".$orf_end);
+  my ($translation_start, $translation_end, 
+      $translation_start_Exon, $translation_end_Exon);
+  my $exon_count = 0;
+  my $pos = 1;
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    $exon_count++;
+    logger_info("exon:$exon_count exon_length:".$exon->length." pos:$pos orf_start:$orf_start orf_end:$orf_end pos+:".($pos + $exon->length - 1));
+    if ( $orf_start >= $pos && $orf_start <= $pos 
+         + $exon->length - 1 ){
+      $translation_start = $orf_start - $pos+1;
+      $translation_start_Exon = $exon;
+    }
+    if($orf_end >= $pos && $orf_end <= $pos 
+       + $exon->length - 1){
+      $translation_end = $orf_end - $pos + 1;
+      $translation_end_Exon = $exon;
+    }
+    $pos += $exon->length;
+  }
+  if(!$translation_start || !$translation_end 
+     || !$translation_start_Exon
+     || !$translation_end_Exon){
+    logger_warning("problems making the translation ".
+                   "for ".id($transcript));
+    return $transcript;
+  }else{
+    $translation->start($translation_start);
+    $translation->end($translation_end);
+    $translation->start_Exon($translation_start_Exon);
+    $translation->end_Exon($translation_end_Exon);
+    $transcript->translation($translation);
+  }
+
+  my $found_start = 0;
+  my $found_end = 0;
+  my $last_end_phase;
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    $exon->phase(-1);
+    $exon->end_phase(-1);
+    if($translation->start_Exon == $exon){
+      if($translation->start == 1){
+        $exon->phase(0);
+      }
+      $found_start = 1;
+    }elsif($found_start and not $found_end){
+      $exon->phase($last_end_phase);
+    }
+    my $end_phase;
+    if($exon == $translation->start_Exon){
+      $end_phase = ($exon->end - ($exon->start + 
+                                  $translation->start 
+                                  - 1) +1 ) %3;
+    }else{
+      $end_phase = (($exon->length + $exon->phase) %3)
+    }
+    $exon->end_phase($end_phase) if($found_start and not
+                                    $found_end);
+    $found_end = 1 if($exon == $translation->end_Exon);
+    $last_end_phase = $exon->end_phase;
+  }
+  return $transcript;
+}
+
+=head2 run_translate
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : boolean, do want predictions with met or 
+  not
+  Function  : run the program translate and find coordinates
+  of translations in transcripts cdna
+  Returntype: arrayref of an array or arrays, each element 
+  containing an array of length, start and end
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+
+sub run_translate{
+  my ($transcript, $predictions_with_met) = @_;
+  my $filename = create_filename('cdna', 'fa', '/tmp');
+  $filename = dump_cDNA_file($transcript, $filename);
+  logger_info("Attempting to find translation of ".
+              id($transcript));
+  my $command = "/usr/local/ensembl/bin/translate ";
+  $command .= " -m " if($predictions_with_met);
+  $command .= " ".$filename;
+  logger_info("Running ".$command);
+  open(ORF, $command) || throw("Failed to run ".$command);
+  my @predictions;
+  LINE:while(<ORF>){
+    chomp;
+    next ORF unless /\>/;
+    my @values = split;
+    next LINE unless($values[3] && $values[5]);
+    my $id = $values[1];
+    my $orf_length = $values[3];
+    $values[5] =~ /(\d+)\.\.(\d+)/;
+    my $orf_start = $1;
+    my $orf_end   = $2;
+    next LINE if $orf_start>=$orf_end;
+    info("ORF details ".id($transcript)."\torf_length:".
+         "$orf_length\tstart:$orf_start\tend:$orf_end");
+    my $prediction = [$orf_length,$orf_start,$orf_end];
+    push( @predictions, $prediction );
+  }
+  my @sorted_predictions = map { $_->[1] } 
+    sort { $b->[0] <=> $a->[0] } map { [$_->[0], $_] } 
+      @predictions;
+  return \@sorted_predictions;
+}
+
+
+
+
+
+
+=head2 dump_peptide_file
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : string, filename
+  Arg [3]   : string, format (optional)
+  Function  : dump file using Bio::SeqIO
+  Returntype: filename
+  Exceptions: throws if fails to write or close file
+  Example   : 
+
+=cut
+
+
+sub dump_peptide_file{
+  my ($transcript, $filename, $format) = @_;
+  $format = 'fasta' if(!$format);
+  logger_info("You are going to dump the peptide of ".
+              id($transcript)." into ".$filename." format ".
+              $format);
+  my $seqout = Bio::SeqIO(
+                          '-format' => $format,
+                          '-filename' => $filename,
+                         );
+  my $seq = $transcript->translate->seq;
+  $seq->display_id(id($transcript->translation));
+  $seqout->writefile($seq);
+  return $filename;
+}
 
 1;
