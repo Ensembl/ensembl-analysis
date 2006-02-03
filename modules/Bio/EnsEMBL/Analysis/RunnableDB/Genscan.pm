@@ -38,6 +38,7 @@ use warnings;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::Genscan;
 use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
@@ -65,6 +66,15 @@ sub fetch_input{
     (
      %args,
     );
+  
+  my $seq = $self->query->seq;
+  if ($seq =~ /[CATG]{3}/) {
+     $self->input_is_void(0);
+  } else {
+     $self->input_is_void(1);
+     warn("Need at least 3 nucleotides");
+  }
+  
   $self->runnable($runnable);
   return 1;
 }
