@@ -83,6 +83,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
+use Bio::EnsEMBL::Analysis::Tools::Logger;
 
 use vars qw (@ISA);
 
@@ -109,22 +110,23 @@ use vars qw (@ISA);
 sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;
-  my ($db, $input_id, $analysis,$utils_verbosity) = rearrange(['DB', 'INPUT_ID', 
-                                              'ANALYSIS','UTILS_VERBOSITY'], @args);
+  my ($db, $input_id, $analysis, $utils_verbosity) = rearrange
+    (['DB', 'INPUT_ID', 'ANALYSIS', 'UTILS_VERBOSITY'], @args);
   if(!$db || !$analysis || !$input_id){
-    throw("Can't create a RunnableDB without a dbadaptor ".$db." an ".
-          "analysis object ".$analysis." or an input_id ".$input_id);
+    throw("Can't create a RunnableDB without a dbadaptor ".
+          $db." an analysis object ".$analysis.
+          " or an input_id ".$input_id);
   }
+
+  #####DEFAULTS#####
+  $utils_verbosity = 'WARNING' if(!$utils_verbosity);
+  ##################
+
   $self->db($db);
   $self->analysis($analysis);
   $self->input_id($input_id);
+  $self->utils_verbosity($utils_verbosity) ; 
   
-  if ($utils_verbosity) { 
-    &verbose($utils_verbosity) ; 
-    $self->utils_verbosity($utils_verbosity) ; 
-  } else {
-    &verbose('WARNING') ;
-  }
 
   return $self;
 }
@@ -483,7 +485,11 @@ sub write_output{
 
 sub utils_verbosity {
   my ($self,$v) = @_; 
-  $self->{utils_verbosity} = $v if $v ; 
+  if($v){
+    $self->{utils_verbosity} = $v;
+    verbose($v);
+    logger_verbosity($v);
+  }
   return $self->{utils_verbosity} ; 
 }
 

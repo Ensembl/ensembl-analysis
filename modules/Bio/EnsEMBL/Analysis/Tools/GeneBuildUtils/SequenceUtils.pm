@@ -68,8 +68,8 @@ sub create_file_name{
 
 sub write_seqfile{
   my ($seq, $filename) = @_;
-  throw("Need a Bio::Seq object not a ".$seq)
-    if(!$seq || !$seq->isa('Bio::Seq'));
+  throw("Need a Bio::PrimarySeqI object not a ".$seq)
+    if(!$seq || !$seq->isa('Bio::PrimarySeqI'));
   $filename = create_file_name('seq', 'fa', '/tmp') 
     if(!$filename);
   my $seqout = Bio::SeqIO->new(
@@ -80,7 +80,7 @@ sub write_seqfile{
     $seqout->write_seq($seq);
   };
   if($@){
-    throw("FAILED to write $seq to $filename Runnable:write_seq_file $@");
+    throw("FAILED to write $seq to $filename SequenceUtils:write_seq_file $@");
   }
   return $filename;
 }
