@@ -7,7 +7,7 @@ use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id create_filename);
 use Bio::EnsEMBL::Translation;
 use vars qw (@ISA  @EXPORT);
 
