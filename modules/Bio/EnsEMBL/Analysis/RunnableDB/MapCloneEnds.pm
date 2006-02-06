@@ -19,10 +19,9 @@ $clonemap->write_output(); #writes to DB
 
 =head1 DESCRIPTION
 
-This object maps clone sequences to a genome by using
-exonerate alignment program,and write the results as 
-Dna Align Features.
-It needs to have installed the following modules:
+This object maps clone sequences to a genome by using the
+exonerate alignment program,and write the results as Dna Align Features.
+It relies on the following modules:
 Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds;
 Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds;
 
@@ -32,8 +31,8 @@ MapCloneEnds (module -> MapCloneEnds),
 EXONERATE_CLONE_ENDS (module -> MapCloneEnds),
 REFINE_CLONE_ENDS(module -> MapCloneEnds)
 
-For MapCloneEnds read the input_id_chunks from a file where each line 
-contains a number of ID separated by ":". In order to be able to correclty
+MapCloneEnds reads the input_id_chunks from a file where each line 
+contains a number of IDs separated by ":". In order to be able to correctly
 parse the input ids, they should be given in a very specific format. The file 
 can be automaticaly generated from an XML using chunker.pl or manually generated 
 where each id should be in the format:
@@ -85,13 +84,13 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-  my $trace_name = '';  # ClonEnd id as in database
+  my $trace_name = '';  # CloneEnd id as in database
   my $clone_id = '';# Clone id
   my $insert_size = '';# Length of the inserted sequence in clone
   my $insert_stdev = '';# Standard deviation of the clone insert. 
   # The two insert values will be used in the filter process to check quality of alignments
 
-  # You need to run  perl ~/cvs_checkout/ensembl-personal/jb16/scripts/general/chunker.pl in order to create the 
+  # You need to run  perl ensembl-personal/jb16/scripts/general/chunker.pl in order to create the 
   # input_analysis_ids and create this file. To change the path to the list of chunks, you should also do it in
   # the chunker script
  
@@ -101,7 +100,7 @@ sub run {
 
   my %cloneEnd_ids = ();
 
-  # Open the file with the list of seq_ids per chunks and load it into an array to be used by fetch_input
+  # Open the file with the list of seq_ids per chunk and load it into an array to be used by fetch_input
   open (INFILE,"<$chunks_list");
   my @listOfIDs = ();
 
@@ -380,7 +379,7 @@ sub filter_alignments{
     # Get the clone id to which the cloneEnds belongs
     my $complete_clone_name = $cloneEnd_ids{$clone_name};
 
-    # Store the clone name in a hash, so only selected clones will be checked in the next step
+    # Store the clone name in a hash, so only selected clones will be checked in the next step.
     # the object stored in the hash is not important, what we really want to get is a list of 
     # unique clones(complete_clone_name) with no duplicate entries
     $aligned_clones{$complete_clone_name} = $clone_name;
@@ -398,7 +397,7 @@ sub filter_alignments{
     # Check if the clone has two cloneEnds
     if ((scalar @{$clones{$pair}})/4 > 1){
 
-      # Chenk if at least one of the cluster pair alignments is selected.
+      # Check if at least one of the cluster pair alignments is selected.
       # in case none is selected it will send cloneEnds to the single_filter
       my $cluster_selected = 0;
 
@@ -424,7 +423,7 @@ sub filter_alignments{
           $clean_cloneEnds{$numberOfEnd} = \@cloneEnd_clean;
         }
        
-        # Set initial status of cloneEnd to 0 which mean that none of its alignments pair with the other cloneEnd
+        # Set initial status of cloneEnd to 0 which means that none of its alignments pair with the other cloneEnd
         if (!$status{$numberOfEnd}){
 	  $status{$numberOfEnd} = 0;
         }
