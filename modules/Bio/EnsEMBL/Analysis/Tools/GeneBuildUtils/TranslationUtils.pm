@@ -9,8 +9,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
 use Bio::EnsEMBL::Translation;
-use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::SequenceUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::SequenceUtils qw(write_seqfile);
 
 use vars qw (@ISA  @EXPORT);
 
@@ -402,7 +401,7 @@ sub run_translate{
   my $seq = $trans->seq;
   $seq->display_id($trans_id);
 
-  my $file = write_seq_file($seq);
+  my $file = write_seqfile($seq);
   my $command = "/usr/local/ensembl/bin/translate";
   $command .= " -m " if($met);
   $command .= " ".$file." | ";

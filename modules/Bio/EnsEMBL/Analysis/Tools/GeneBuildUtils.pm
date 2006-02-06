@@ -50,7 +50,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(coord_string id create_filename);
+@EXPORT = qw(coord_string id);
 
 
 =head2 coord_string
@@ -104,41 +104,6 @@ sub id {
     $id .= "_".$feature->biotype
   }
   return $id;
-}
-
-
-
-=head2 create_filename
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
-  Arg [2]   : string, stem of filename
-  Arg [3]   : string, extension of filename
-  Arg [4]   : directory file should live in
-  Function  : create a filename containing the PID and a random number
-  with the specified directory, stem and extension
-  Returntype: string, filename
-  Exceptions: throw if directory specifed doesnt exist
-  Example   : my $queryfile = $self->create_filename('seq', 'fa');
-
-=cut
-
-
-
-sub create_filename{
-  my ($stem, $ext, $dir) = @_;
-  if(!$dir){
-    $dir = '/tmp/';
-  }
-  $stem = '' if(!$stem);
-  $ext = '' if(!$ext);
-  throw($dir." doesn't exist Runnable:create_filename") unless(-d $dir);
-  my $num = int(rand(100000));
-  my $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
-  while(-e $file){
-    $num = int(rand(100000));
-    $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
-  }
-  return $file;
 }
 
 1;

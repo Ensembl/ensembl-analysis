@@ -76,7 +76,8 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Programs;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
-
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::SequenceUtils qw(create_file_name write_seqfile);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_warning logger_info);
 use vars qw (@ISA);
 
 @ISA = qw();
@@ -112,6 +113,7 @@ sub new{
   
   my $self = bless {},$class;
   &verbose('WARNING');
+  &logger_verbosity('WARNING');
   my ($query, $program, $options,
       $workdir, $bindir, $libdir,
       $datadir, $analysis) = rearrange(['QUERY', 'PROGRAM', 'OPTIONS',
@@ -513,22 +515,14 @@ sub locate_executable{
 
 sub write_seq_file{
   my ($self, $seq, $filename) = @_;
+ 
   if(!$seq){
     $seq = $self->query;
   }
   if(!$filename){
     $filename = $self->queryfile;
   }
-  my $seqout = Bio::SeqIO->new(
-                               -file => ">".$filename,
-                               -format => 'Fasta',
-                              );
-  eval{
-    $seqout->write_seq($seq);
-  };
-  if($@){
-    throw("FAILED to write $seq to $filename Runnable:write_seq_file $@");
-  }
+  $filename = write_seqfile($seq, $filename);
   return $filename;
 }
 

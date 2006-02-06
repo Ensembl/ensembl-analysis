@@ -13,13 +13,13 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
-             create_filename
-             write_seq_file
+             create_file_name
+             write_seqfile
             );
 
 
 
-=head2 create_filename
+=head2 create_file_name
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : string, stem of filename
@@ -35,7 +35,7 @@ use vars qw (@ISA  @EXPORT);
 
 
 
-sub create_filename{
+sub create_file_name{
   my ($stem, $ext, $dir) = @_;
   if(!$dir){
     $dir = '/tmp';
@@ -54,11 +54,23 @@ sub create_filename{
 }
 
 
-sub write_seq_file{
+
+=head2 write_seq_file
+
+  Arg [1]   : Bio::Seq
+  Arg [2]   : string, filename
+  Function  : This uses Bio::SeqIO to dump a sequence to a fasta file
+  Returntype: string, filename
+  Exceptions: throw if failed to write sequence
+  Example   : 
+
+=cut
+
+sub write_seqfile{
   my ($seq, $filename) = @_;
   throw("Need a Bio::Seq object not a ".$seq)
     if(!$seq || !$seq->isa('Bio::Seq'));
-  $filename = create_filename('seq', 'fa', '/tmp') 
+  $filename = create_file_name('seq', 'fa', '/tmp') 
     if(!$filename);
   my $seqout = Bio::SeqIO->new(
                                -file => ">".$filename,
