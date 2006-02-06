@@ -89,14 +89,15 @@ sub coord_string{
 
 
 
-sub id{
+sub id {
   my $feature = shift;
   my $id;
+
   if($feature->can('stable_id') && $feature->stable_id){
     $id = $feature->stable_id;
-  }elsif($feature->dbID){
+  }elsif($feature->can('dbID')) {
     $id = $feature->dbID;
-  }else{
+  }else{ 
     $id = 'no-id';
   }
   if($feature->can('biotype') && $feature->biotype){
