@@ -7,8 +7,11 @@ use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id create_filename);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
 use Bio::EnsEMBL::Translation;
+use Bio::EnsEMBL::Analysis::Runnable;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::SequenceUtils;
+
 use vars qw (@ISA  @EXPORT);
 
 
@@ -21,7 +24,6 @@ use vars qw (@ISA  @EXPORT);
              ends_with_stop
              contains_internal_stops
              print_Translation_genomic_coords
-             dump_peptide_file
              run_translate
              compute_translation
              return_translation
@@ -393,101 +395,45 @@ sub compute_translation{
 
 
 sub run_translate{
-  my ($transcript, $predictions_with_met) = @_;
-  my $filename = create_filename('cdna', 'fa', '/tmp');
-  $filename = dump_cDNA_file($transcript, $filename);
-  logger_info("Attempting to find translation of ".
-              id($transcript));
-  my $command = "/usr/local/ensembl/bin/translate ";
-  $command .= " -m " if($predictions_with_met);
-  $command .= " ".$filename;
-  logger_info("Running ".$command);
-  open(ORF, $command) || throw("Failed to run ".$command);
-  my @predictions;
-  LINE:while(<ORF>){
+  my ($trans,$met) = @_;
+
+  my $trans_id = id($trans);
+
+  my $seq = $trans->seq;
+  $seq->display_id($trans_id);
+
+  my $file = write_seq_file($seq);
+  my $command = "/usr/local/ensembl/bin/translate";
+  $command .= " -m " if($met);
+  $command .= " ".$file." | ";
+  print $command."\n";
+  logger_info($command);
+  open ( ORF, $command ) || throw( "Error running translate" );
+ 
+  my @orf_predictions;
+ ORF:
+  while ( <ORF> ){
     chomp;
     next ORF unless /\>/;
-    my @values = split;
-    next LINE unless($values[3] && $values[5]);
-    my $id = $values[1];
-    my $orf_length = $values[3];
-    $values[5] =~ /(\d+)\.\.(\d+)/;
+    my @entries = split;
+    next ORF unless ( $entries[3] && $entries[5] );
+    my $id = $entries[1];
+    my $orf_length = $entries[3];
+    $orf_length =~s/\,//;
+    $entries[5] =~/(\d+)\.\.(\d+)/;
     my $orf_start = $1;
     my $orf_end   = $2;
-    next LINE if $orf_start>=$orf_end;
-    info("ORF details ".id($transcript)."\torf_length:".
-         "$orf_length\tstart:$orf_start\tend:$orf_end");
-    my $prediction = [$orf_length,$orf_start,$orf_end];
-    push( @predictions, $prediction );
+    next ORF if $orf_start>=$orf_end;
+    my @prediction = ($orf_length,$orf_start,$orf_end);
+    push( @orf_predictions, \@prediction );
   }
-  my @sorted_predictions = map { $_->[1] } 
-    sort { $b->[0] <=> $a->[0] } map { [$_->[0], $_] } 
-      @predictions;
+  my @sorted_predictions = 
+    map { $_->[1] } sort { $b->[0] <=> $a->[0] } map { [$_->[0], $_] } @orf_predictions;
+  unlink $file;
   return \@sorted_predictions;
 }
 
 
 
-
-
-
-=head2 dump_peptide_file
-
-  Arg [1]   : Bio::EnsEMBL::Transcript
-  Arg [2]   : string, filename
-  Arg [3]   : string, format (optional)
-  Function  : dump file using Bio::SeqIO
-  Returntype: filename
-  Exceptions: throws if fails to write or close file
-  Example   : 
-
-=cut
-
-
-sub dump_peptide_file{
-  my ($transcript, $filename, $format) = @_;
-  $format = 'fasta' if(!$format);
-  logger_info("You are going to dump the peptide of ".
-              id($transcript)." into ".$filename." format ".
-              $format);
-  my $seqout = Bio::SeqIO(
-                          '-format' => $format,
-                          '-filename' => $filename,
-                         );
-  my $seq = $transcript->translate->seq;
-  $seq->display_id(id($transcript->translation));
-  $seqout->writefile($seq);
-  return $filename;
-}
-
-
-=head2 dump_cDNA_file
-
-  Arg [1]   : Bio::EnsEMBL::Transcript
-  Arg [2]   : string, filename
-  Arg [3]   : string, format (optional)
-  Function  : dump file using Bio::SeqIO
-  Returntype: filename
-  Exceptions: throws if fails to write or close file
-  Example   : 
-
-=cut
-
-
-sub dump_cDNA_file{
-  my ($transcript, $filename, $format) = @_;
-  $format = 'fasta' if(!$format);
-  logger_info("You are going to dump the cdna of ".
-              id($transcript)." into ".$filename." format ".
-              $format);
-  my $seqout = Bio::SeqIO(
-                          '-format' => $format,
-                          '-filename' => $filename,
-                         );
-  my $seq = $transcript->seq;
-  $seq->display_id(id($transcript));
-  $seqout->writefile($seq);
-  return $filename;
-}
 
 1;
