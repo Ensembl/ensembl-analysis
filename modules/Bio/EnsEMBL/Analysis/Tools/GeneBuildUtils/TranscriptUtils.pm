@@ -1347,7 +1347,6 @@ sub _trim_translation_end{
 
 
 
-
 =head2 dump_cDNA_file
 
   Arg [1]   : Bio::EnsEMBL::Transcript
@@ -1376,5 +1375,6 @@ sub dump_cDNA_file{
   $seqout->writefile($seq);
   return $filename;
 }
+
 
 1;

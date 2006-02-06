@@ -8,7 +8,6 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
-#use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
 use Bio::EnsEMBL::Translation;
 use vars qw (@ISA  @EXPORT);
 
@@ -457,6 +456,36 @@ sub dump_peptide_file{
                          );
   my $seq = $transcript->translate->seq;
   $seq->display_id(id($transcript->translation));
+  $seqout->writefile($seq);
+  return $filename;
+}
+
+
+=head2 dump_cDNA_file
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : string, filename
+  Arg [3]   : string, format (optional)
+  Function  : dump file using Bio::SeqIO
+  Returntype: filename
+  Exceptions: throws if fails to write or close file
+  Example   : 
+
+=cut
+
+
+sub dump_cDNA_file{
+  my ($transcript, $filename, $format) = @_;
+  $format = 'fasta' if(!$format);
+  logger_info("You are going to dump the cdna of ".
+              id($transcript)." into ".$filename." format ".
+              $format);
+  my $seqout = Bio::SeqIO(
+                          '-format' => $format,
+                          '-filename' => $filename,
+                         );
+  my $seq = $transcript->seq;
+  $seq->display_id(id($transcript));
   $seqout->writefile($seq);
   return $filename;
 }
