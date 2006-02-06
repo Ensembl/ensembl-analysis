@@ -124,7 +124,7 @@ sub id{
 
 
 sub create_filename{
-  my ($self, $stem, $ext, $dir) = @_;
+  my ($stem, $ext, $dir) = @_;
   if(!$dir){
     $dir = '/tmp/';
   }
