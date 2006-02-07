@@ -159,7 +159,6 @@ sub fetch_input{
               $e->biotype($g->biotype) ;
               $e->ev_set($set) ;
               $e->transcript($t) ; 
-              $e->number_exons($#all_exons) ; 
 
               $e->analysis($g->analysis) ; 
 
