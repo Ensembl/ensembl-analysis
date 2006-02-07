@@ -397,7 +397,6 @@ sub run_translate{
   my ($trans,$met) = @_;
 
   my $trans_id = id($trans);
-
   my $seq = $trans->seq;
   $seq->display_id($trans_id);
 
@@ -405,7 +404,7 @@ sub run_translate{
   my $command = "/usr/local/ensembl/bin/translate";
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
-  print $command."\n";
+  # print $command."\n";
   logger_info($command);
   open ( ORF, $command ) || throw( "Error running translate" );
  
