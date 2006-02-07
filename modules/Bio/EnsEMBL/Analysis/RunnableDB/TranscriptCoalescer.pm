@@ -162,7 +162,6 @@ sub fetch_input{
 
               $e->analysis($g->analysis) ; 
 
-              $e->source_transcript ($t) ; # this refers to original transcript the exon is from  
               # setting pointer to previous exon
               $e->next_exon($all_exons[$int+1]); 
               
