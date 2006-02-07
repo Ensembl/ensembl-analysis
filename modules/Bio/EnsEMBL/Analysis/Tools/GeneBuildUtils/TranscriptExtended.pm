@@ -1,0 +1,191 @@
+
+package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended; 
+
+use strict;
+use vars qw(@ISA);
+
+use Bio::EnsEMBL::Root;
+use Bio::EnsEMBL::Feature ; 
+use Bio::EnsEMBL::Transcript ; 
+use Bio::EnsEMBL::Utils::Exception qw(throw warning );
+
+@ISA = qw(Bio::EnsEMBL::Transcript Bio::EnsEMBL::Feature);
+
+sub new  {
+  my($class) = shift;
+  if( ref $class ) { 
+      $class = ref $class;
+  }
+  my $self = $class->SUPER::new(@_);
+  return $self ;
+   
+  $self->{different_est_support} = {} ;
+} 
+
+=head
+
+   Name : ev_set
+   Arg  : String
+   Func : getter/setter for the evidence-set 
+   Return : String describing ev_set (defined in GeneBuild/TrancriptCoalescer.pm)
+
+=cut
+
+sub ev_set {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'set'} = $value;
+  }
+  return $self->{'set'};
+}
+#
+#sub remove_Exon { 
+#  my ($self,$ex_to_remove ) = @_;
+#  unless ($ex_to_remove){ 
+#    throw ("you have to supply an Bio::EnsEMBL::Exon object ".
+#           "which will be removed from the transcript\n");
+#  }
+#  my $clone=[] ; 
+#  my $ea = $self->{'_trans_exon_array'}; 
+#  my $nr_before = scalar(@$ea); 
+#  for my $e (@$ea) {
+#    if  ($e ne $ex_to_remove ) { 
+#       push @$clone, $e; 
+#    }
+#  } 
+#  $self->{'_trans_exon_array'} = $clone;
+#  if ($nr_before == scalar(@$clone) ) { 
+#    warning( "No matching exon found, exon could not be removed\n" );
+#  }
+#  return $ex_to_remove ; 
+#}
+#
+#sub score {
+#   return 0 ; 
+#}
+
+
+
+sub has_3prim_support {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'has_3prim_sup'} = $value;
+  }
+  return $self->{'has_3prim_sup'};
+}
+
+
+sub has_5prim_support {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'has_5prim_sup'} = $value;
+  }
+  return $self->{'has_5prim_sup'};
+}
+
+
+
+
+sub extend_3prim_end {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'extend_3prim_end'} = $value;
+  }
+  return $self->{'extend_3prim_end'};
+}
+
+
+
+sub extend_5prim_end {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'extend_5prim_end'} = $value;
+  }
+  return $self->{'extend_5prim_end'};
+}
+
+
+
+sub nr_exons_overlapped_by_est {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'nr_exons_overlapped_est'}+= $value;
+  }
+  return $self->{'nr_exons_overlapped_est'};
+} 
+
+=head  
+
+Name : different_est_support($transcript) 
+Arg  : Bio::EnsEMBL::Transcript 
+Func : checks if $transcript is not overlapping the other transcripts,
+       if there is no overlap between already stored transcripts this transcript is added 
+
+=cut
+
+ 
+sub different_est_support {
+  my ($self,$new_tr) = @_;
+
+  my $overlap ;  
+  if ($new_tr) {  
+    for my $key  ( keys %{ $self->{different_est_support} } ) {  
+      my $stored_tr = $self->{different_est_support}{$key} ;  
+  
+       if ($stored_tr->seq_region_start <= $new_tr->seq_region_end  && 
+           $new_tr->seq_region_start <= $stored_tr->seq_region_end  ) { 
+           # new_tr overlaps stored_tr 
+  
+         # check which transcript has more exons 
+         my $new_tr_exons = scalar ( @{  $new_tr->get_all_Exons } )  ; 
+         my $stored_tr_exons = scalar(@{$self->{different_est_support}{$stored_tr}->get_all_Exons }); 
+         if ($new_tr_exons > $stored_tr_exons ) {  
+            delete $self->{different_est_support}{$stored_tr} ;
+            if (exists $self->{different_est_support}{$stored_tr}) { 
+              throw(" key wasn't delted\n" ) ;  
+            }else { 
+              warn(" key is deleted\n" ) ;
+            } 
+            $self->{different_est_support}{$new_tr} = $new_tr ;
+         }  
+       }else {
+         ${$self->{different_est_support}}{$new_tr}=$new_tr ; 
+       }
+    }
+  } 
+  return $self->{different_est_support} ;   
+} 
+
+
+
+
+
+=head  
+
+Name   : exchange_exon
+Arg[1] : Bio::EnsEMBL::Exon
+Arg[2] : Bio::EnsEMBL::Exon
+Func   : splices a new exon in a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended-object 
+         and cut's ond the old Bio::EnsEMBL::Exon object 
+Returnval : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended()
+
+=cut
+
+
+
+sub exchange_exon {
+  my ($self, $old_exon, $new_exon  ) = @_ ; 
+
+  my $biotype = $self->biotype ;  
+  my @exons = @{ $self->get_all_Exons } ;  
+  my $new_tr = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended->new(); 
+
+  for my $e  (@exons) {
+    if ($e eq $old_exon) {
+     $e = $new_exon ;
+    }
+    $new_tr->add_Exon($e) ; 
+  }
+  $new_tr->biotype($biotype) ; 
+  return $new_tr ; 
+}
