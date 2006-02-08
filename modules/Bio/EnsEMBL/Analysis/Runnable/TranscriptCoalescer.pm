@@ -11,7 +11,7 @@ use Bio::Tools::CodonTable;
 #check the cluster-modules 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneCluster;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonCluster;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::UtilFuncs; 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ClusterUtils; 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
@@ -389,7 +389,7 @@ sub compare_simgw_and_est_merged {
           
           if ($ee->overlaps($se)) { 
             # ExonExtended
-            $se->exon_is_overlapped($ee) ;
+            # $se->exon_is_overlapped($ee) ;
            
             # TranscriptExtended
             $simgw->nr_exons_overlapped_by_est(1) ; 
@@ -898,17 +898,6 @@ sub get_percentage_exon_conversation_in_exon_cluster {
   return $percentage_exon_conservation ;  
 }
 
-
-
-sub print_transcript_info_quest {
-  my ( $all_tr_ref ) = @_ ;  
-  my $cnt_all=1 ; 
-  for my $t (@$all_tr_ref) { 
-    my $cnt_region = 1 ; 
-    $cnt_region++ ; 
-    $cnt_all++ ; 
-  } 
-}
 
 
 
@@ -1632,7 +1621,8 @@ sub exon_recursion {
     $$href{$exon}=() ; # mark exon as visited
     print "Exon has next exon\n" if $self->{v} ;  
       
-    unless ( exon_coordinates_match ($exon, $last_exon) ) {
+    # unless ( exon_coordinates_match ($exon, $last_exon) ) {
+    unless ( compare ($exon, $last_exon) ) {
       #$$trans_href{$exon} = $transcript ; 
       my $tr_tmp ; 
 
@@ -1758,7 +1748,6 @@ sub exon_recursion {
           }
           $new_tr_2 = new_tr($transcript) ; 
           $$href{$te}=1 ;                   # mark exon as visited
-          ## $$href{$te}=() ;                   # mark exon as visited
 
           # start new recursion 
           if ($self->{v})  {  
@@ -2257,18 +2246,6 @@ sub convert_to_genes {
 
 
 
-#
-#sub all_exons_unvisited {
-#  my ( $exon_cluster_aref) = @_ ;
-#  for my $ec (@$exon_cluster_aref) {
-#    for my $e ( @{ $ec->get_all_Exons_in_ExonCluster } ) {
-#      return 0 if ( $e->visited ) ;
-#    }
-#  }
-#  return 1 ;
-#}
-#
-
 
 sub all_exons_visited {
   my ( $exon_cluster_aref) = @_ ;
@@ -2297,12 +2274,29 @@ sub get_unvisited_exons_in_next_ec {
 
 
 
+sub compare { 
+  my ($ft1 , $ft2) = @_ ;
+  return 0 unless ($ft1 && $ft2) ; # || changed to && 
+
+  if (    ($ft1->seq_region_start == $ft2->seq_region_start)
+       && ($ft1->seq_region_end == $ft2->seq_region_end)
+       && ($ft1->seq_region_strand== $ft2->seq_region_strand) ) {
+    return 1 ;
+  }
+  return 0 ;
+
+}
 
 
-
-
-
-
+sub print_transcript_info_quest {
+  my ( $all_tr_ref ) = @_ ;  
+  my $cnt_all=1 ; 
+  for my $t (@$all_tr_ref) { 
+    my $cnt_region = 1 ; 
+    $cnt_region++ ; 
+    $cnt_all++ ; 
+  } 
+}
 
 
 
