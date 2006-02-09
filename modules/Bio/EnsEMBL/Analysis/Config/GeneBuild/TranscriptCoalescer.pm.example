@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Config::TranscriptCoalescer
+# Ensembl module for Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer
 #
 # Copyright (c) 2004 Ensembl
 #
@@ -16,13 +16,29 @@ Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer
 =head1 DESCRIPTION
 
 
-General pipeline configuration.
+TranscriptCoalescer-Configuration 
 
-It imports and sets a number of standard global variables into the
-calling package. Without arguments all the standard variables are set,
-and with a list, only those variables whose names are provided are set.
-The module will die if a variable which doesn\'t appear in its
-C<%Config> hash is asked to be set.
+This is the main configuration file for TranscriptCoalescer, a perl 
+module which coalesces genes of different sources (EST-genes are 
+combined with other EST-genes and Similarity-Genewise-genes or 
+ab-initio-predictions (i.e. fgenesh, Genscan, GeneFinder ...) . 
+
+TranscriptCoalescer fetches genes and prediction_transcripts by it's 
+biotype (for Bio::EnsEMBL::Gene-objects) and by it's logic_name 
+(for Bio::EnsEMBL::PredictionTranscript-objects). These biotypes/
+logic_names are defiend in this configuration-file. Each biotype/
+logic_name has to belong to a different evidence_set. (see below).
+
+The parameters to connect to various databases are defiend in 
+
+  - modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm 
+  - modules/Bio/EnsEMBL/Analysis/Config/Exonerate2Genes.pm  
+
+The general function of this config file is to import  a number of 
+standard global variables into the calling package. Without arguments 
+all the standard variables are set, and with a list, only those variables 
+whose names are provided are set.  The module will die if a variable 
+which doesn\'t appear in its C<%Config> hash is asked to be set.
 
 The variables can also be references to arrays or hashes.
 
@@ -45,11 +61,10 @@ use vars qw(%Config);
 %Config= 
  (
 
-  NEW_LOGIC_NAME => 'CondenseEST',  # logic_name for new analysis of merged genes 
-  NEW_BIO => 'zEST_w15',  # logic_name for new analysis of merged genes 
+  NEW_BIO => 'Coalescer',  # Biotype of genes which will be written to COALESCER_DB
 
 
-  # the runnable includes a filtering proceudure which removes partial transcripts 
+  # The runnable includes a filtering proceudure which removes partial transcripts 
   # if they are overlapped by a longer transcript. These transcripts have a different 
   # biotype than the ones which passed the filter. Their biotype begins with "del_". 
   # If you want to write these filtered genes as well you ave to set 
@@ -79,8 +94,7 @@ use vars qw(%Config);
                  
                  REFERENCE_DB => { 
                                   BIOTYPES              => [],   
-                                  AB_INITIO_LOGICNAMES  => ['GeneFinder','Genscan', 
-                                                            'snap_ciona','fgenesh'] ,
+                                  AB_INITIO_LOGICNAMES  => ['GeneFinder','Genscan','fgenesh'] ,
                                  }, 
 
 
@@ -88,7 +102,7 @@ use vars qw(%Config);
                  # These genes are fetched out of GENEWISE_DB specified in Databases.pm 
 
                  GENEWISE_DB => { 
-                                  BIOTYPES              => ['simgw_no_miniseq_80'],   
+                                  BIOTYPES              => ['simimarity_genewise_biotype'],   
                                   AB_INITIO_LOGICNAMES  => [],  
                                  }, 
 
@@ -98,10 +112,9 @@ use vars qw(%Config);
 
 
                  EXONERATE_DB => { 
-                                  BIOTYPES              => ['est_all'],   
+                                  BIOTYPES              => ['est_all','dbest'],   
                                   AB_INITIO_LOGICNAMES            => [],  
                                  }, 
-
 
                    
                   },
