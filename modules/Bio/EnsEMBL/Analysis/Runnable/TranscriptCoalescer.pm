@@ -9,9 +9,9 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::Tools::CodonTable;
 
 #check the cluster-modules 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneCluster;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonCluster;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ClusterUtils; 
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
@@ -28,8 +28,6 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
-
-
 
 
 sub new {
@@ -188,6 +186,7 @@ sub run {
       my @tr_merged = 
        map {@{$_->get_all_Transcripts}} $gene_cluster->get_Genes_by_Set ( 'est_merged' ); 
       my $exon_clusters = get_exon_clustering_from_gene_cluster($gene_cluster) ;    
+      print "exon_clustering finished\n" ;
 
       # recursive approach (merge already merged genes by abinitio or simgw)
       if ($gene_cluster->strand == 1 ) { 
@@ -1323,9 +1322,9 @@ sub get_longest_3prim_term_exon_in_exon_cluster_of_this_exon {
 =head
 
 Name: $self->get_exon_clustering_from_gene_cluster( $gene_cluster ) 
-Arg :  Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneCluster;
+Arg :  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 Function  : gets a set of clustered genes and clusters the Transcripts of these genes as well as the Exons
-Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonCluster objects
+Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
 
 =cut  
 
@@ -1335,11 +1334,12 @@ sub get_exon_clustering_from_gene_cluster {
   my @clg  = sort {$a->start <=> $b->start} $gene_cluster->get_Genes ; 
 
   # building Transcript-Cluster 
-  my $tc = genes_to_Transcript_Cluster(\@clg); # UtilsFunc.pm
-#   print "genes_to_transcript_cluster done\n" ; 
+  my $tc = genes_to_Transcript_Cluster(\@clg); # ClusterUtils.pm 
+  
+  print "genes_to_transcript_cluster done\n" ; 
  
-  my @exon_clusters = cluster_exons_in_transcript_cluster($tc); #UtilsFunc.pm
-#   print "genes_to_transcript_cluster done\n" ; 
+  my @exon_clusters = cluster_exons_in_transcript_cluster($tc); # ClusterUtils.pm 
+   print "cluster_exons_in_transcript_cluster done \n" ; 
   
   if ($tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ; 
@@ -1908,7 +1908,7 @@ sub cluster_Genes {
     # 
     
     if (scalar(@matching_clusters) == 0) {
-      my $newcluster = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneCluster->new();
+      my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
       foreach my $set_name (keys %$types_hash) {
         $newcluster->gene_Types($set_name,$types_hash->{$set_name});
       }
@@ -1924,7 +1924,7 @@ sub cluster_Genes {
     } else {
       # Merge the matching clusters into a single cluster
       my @new_clusters;
-      my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneCluster->new();
+      my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
   
       foreach my $set_name (keys %$types_hash) {
         $merged_cluster->gene_Types($set_name,$types_hash->{$set_name});
