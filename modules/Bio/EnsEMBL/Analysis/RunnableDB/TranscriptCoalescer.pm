@@ -111,19 +111,23 @@ sub fetch_input{
   #
   # we merge the configs such that we have all in one hash $database 
   #
-  my %databases = merge_database_hashes( $DATABASES, $EXONERATE_CONFIG_BY_LOGIC, $DATA ) ;   
- 
-  #my %databases = %{merge_database_hashes ( $DATABASES, $DATA, undef ) }  ;
-  #%databases = %{merge_database_hashes ( $EXONERATE_CONFIG_BY_LOGIC, $DATA, \%databases ) }  ; 
- 
+  
+  my %databases = %{$self->merge_config_details( $DATABASES, $EXONERATE_CONFIG_BY_LOGIC, $TRANSCRIPT_COLAESCER_DB_CONFIG)} ;   
+
   # check if every biotype/logic_name belongs to an EVIDENCE set
-  check_config(\%databases, $DATA, $self->{evidence_sets} ) ; 
+  check_config(\%databases, $TRANSCRIPT_COLAESCER_DB_CONFIG, $self->{evidence_sets} ) ; 
  
   # now looping through all keys of %databases definend in the (merged) configs 
 
   my %biotypes_to_genes ; 
   
   for my $database_class (keys %databases ) { 
+  
+    # skip all databases out of Exonerate2Genes.pm & Databases.pm which
+    # have no configuration in TranscriptCoalescer.pm
+   
+    next unless (exists $$TRANSCRIPT_COLAESCER_DB_CONFIG{$database_class}) ;  
+
 
     my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
     my $slice = $self->fetch_sequence($self->input_id, $dba );
@@ -322,7 +326,7 @@ sub remove_redundant_genes {
 
 =head2  check_config
 
-   Arg[0] : Hash-reference to $DATA-Hash out of TranscriptCoalescer.pm 
+   Arg[0] : Hash-reference to $TRANSCRIPT_COLAESCER_DB_CONFIG-Hash out of TranscriptCoalescer.pm 
    Arg[1] : href with evidence sets 
    Func   : Checks if every logic_name / biotype of gene belongs to an
          Evidence set 
@@ -331,13 +335,13 @@ sub remove_redundant_genes {
 =cut  
 
 sub check_config{ 
-  my ( $databases, $DATA , $ev_sets) = @_ ; 
+  my ( $databases, $TRANSCRIPT_COLAESCER_DB_CONFIG, $ev_sets) = @_ ; 
 
   # check TranscriptCoalescer.pm:  
-  for my $db_class (keys %{$DATA}) { 
+  for my $db_class (keys %{$TRANSCRIPT_COLAESCER_DB_CONFIG}) { 
     # check that each db_class (like REFERENCE_DB ...) in TranscriptCoalescer.pm has 
     # also a database in Databases.pm / Exonerate2Genes.pm 
-    throw ( "\n\tConfig-Error: There is configuration for \"$db_class\" in GeneBuild/TranscriptCoalescer.pm " .
+    throw ( "\n\tConfig-Error: There is configuration for \"$db_class\" in Analysis/Config/GeneBuild/TranscriptCoalescer.pm " .
      "but no Database defined in Exonerate2Genes.pm or Databases.pm") 
      unless exists $$databases{$db_class} ; 
   }
@@ -347,10 +351,9 @@ sub check_config{
   # belongs to an ev-set 
   
   my %database_definition ; 
-  for my $db_class (keys %{$DATA}) {
-    for my $key ( keys %{ $$DATA{$db_class} } ) { 
-       map $database_definition{$_}=(),@{ ${$$DATA{$db_class}}{$key}};  
-       #push @database_definition, @{ ${$$DATA{$db_class}}{$key}}; 
+  for my $db_class (keys %{$TRANSCRIPT_COLAESCER_DB_CONFIG}) {
+    for my $key ( keys %{ $$TRANSCRIPT_COLAESCER_DB_CONFIG{$db_class} } ) { 
+       map $database_definition{$_}=(),@{ ${$$TRANSCRIPT_COLAESCER_DB_CONFIG{$db_class}}{$key}};  
     }
   }
    
