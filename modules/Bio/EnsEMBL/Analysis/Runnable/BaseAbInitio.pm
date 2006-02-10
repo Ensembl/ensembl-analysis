@@ -191,21 +191,21 @@ sub calculate_phases{
       my $new = $ff->create_prediction_transcript(\@temp_exons, 
                                                   $self->query,
                                                   $self->analysis);
-      my $pep = $new->translate->seq;   
+      my $pep = $new->translate->seq;  
       my $peptide = $peptides->{$trans->seqname}; 
       my ($ensembl, $genscan) = $self->subsitute_x_codes($pep, 
                                                          $peptide);       
       $ensembl =~ s/^x//i;      
       $ensembl =~ s/x$//i;      
       $genscan =~ s/^x//i;
-      $genscan =~ s/x$//i;      
-      
+      $genscan =~ s/x$//i;  
+    
       if ($ensembl =~ /$genscan/){
         push(@output, $new);
         next TRANS;      
       }
     }
-    throw("Failed to find translation for ".$trans." ".$exons[0]->seqname)
+    throw("Failed to find translation for ".$trans." ".$exons[0]->seqname." Check subsitute_x_codes function")
   }
   $self->clean_output;
   $self->output(\@output);
@@ -281,9 +281,11 @@ sub subsitute_x_codes{
   
   $ens_len = length($ensembl_pep); 
   $gen_len = length($genscan_pep); 
-
-  $ensembl_pep =~ m/^..(.....)/; #ensembl may have up to 2 extra amino acids at beginning
-  my $offset = index($genscan_pep, $1) -2; 
+  
+  $ensembl_pep =~ m/^...(.....)/; #ensembl may have up to 3 extra amino acids at beginning
+  # The number of amino acids at the begining could vary. If you get an error here it would
+  # worthy increase the number and see if it solve the error
+  my $offset = index($genscan_pep, $1) -3; 
   if ( $offset > 2 || $offset < 0 ){
     $offset = 0;
   }
@@ -294,8 +296,10 @@ sub subsitute_x_codes{
   }
  
   $x = 0;
-  $genscan_pep =~ m/^..(.....)/;  #genscan may have up to 2 extra amino acids at beginning
-  $offset =  index($ensembl_pep, $1) -2; 
+  $genscan_pep =~ m/^...(.....)/;  #genscan may have up to 3 extra amino acids at beginning
+  # The number of amino acids at the begining could vary. If you get an error here it would
+  # worthy increase the number and see if it solve the error
+  $offset =  index($ensembl_pep, $1) -3; 
   if ( $offset > 2 || $offset < 0 ){
     $offset = 0;
   }
