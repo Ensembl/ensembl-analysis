@@ -1,4 +1,67 @@
 
+#
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable
+#
+# Copyright (c) 2006 Ensembl
+#
+# written by Jan-Hinnerk Vogel 
+#
+#
+
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended; 
+
+=head1 SYNOPSIS 
+
+
+  Creation by re-blessing:
+
+  for my $t ( @transcripts ) { 
+    bless $t,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended";
+
+    $t->ev_set('est') ; 
+  }  
+
+  Creation without re-blessing : 
+
+  my $tran = new Bio::EnsEMBL::Transcript(-EXONS => \@exons);
+
+
+=head1 SYNOPSIS 
+
+  Creation by re-blessing:
+
+  for my $t ( @transcripts ) { 
+    bless $t,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended";
+    $t->ev_set('est') ; 
+  }  
+
+  Creation without re-blessing : 
+
+  my $exon= new Bio::EnsEMBL::Exon(
+                                  -START  =>   100 , 
+                                  -END    =>   300,
+                                  -STRAND => '-1', 
+                                  -SLICE  => $slice,
+                                  -ANALYSIS => $analysis, 
+                                  ); 
+
+=head1 DESCRIPTION
+
+This module extends a Bio::EnsEMBL::Transcript with smoe other
+methods. You have to re-bless your Bio::EnsEMBL::Transcript objects 
+to use it. 
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
+
+
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
 
 use strict;
@@ -13,8 +76,17 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 
 
+sub new  {
+  my($class) = shift;
+  if( ref $class ) {
+      $class = ref $class;
+  }
+  my $self = $class->SUPER::new(@_);
+  return $self ;
+}
 
-=head
+
+=head2  biotype 
 
    Name : biotype 
    Arg  : String
@@ -33,7 +105,7 @@ sub biotype {
 }
 
 
-=head
+=head2 ev_set
 
    Name : ev_set
    Arg  : String
@@ -51,26 +123,8 @@ sub ev_set {
   return $self->{'set'};
 }
 
-#=head
-#
-#   Name : source_transcript
-#   Func : returns the orignial transcript to which this exon belongs to 
-#   Return : Bio::EnsEMBL::Transcript object 
-#
-#=cut 
-#
-#
-#sub source_transcript {
-#  my ($self,$value) = @_;
-#  if (defined($value)) {
-#    $self->{'source_transcript'} = $value;
-#  }
-#  return $self->{'source_transcript'};
-#  
-#}
 
-
-=head
+=head2 transcript
 
    Name : transcript 
    Arg  : Bio::EnsEMBL::Transcript
@@ -89,7 +143,7 @@ sub transcript {
 }
 
 
-#=head
+#=head2
 #
 #   Name : exon_is_overlapped 
 #   Arg  : Bio::EnsEMBL::Transcript
@@ -107,7 +161,7 @@ sub transcript {
 #  return $self->{'exon_is_overlapped'};
 #}
 #
-#=head
+#=head1
 #
 #   Name : number_exons 
 #   Arg  : int
@@ -125,7 +179,7 @@ sub transcript {
 #  return $self->{'number'};
 #}
 
-=head
+=head2 prev_exon
 
    Name : prev_exon 
    Arg  : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
@@ -143,7 +197,7 @@ sub prev_exon {
 }
 
 
-=head
+=head2 next_exon
 
    Name : next_exon  
    Arg  : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
@@ -161,7 +215,7 @@ sub next_exon {
   return $self->{'next_exon'};
 }
 
-=head
+=head2 is_terminal_exon
 
    Name : is_terminal_exon 
    Arg  : none 
@@ -178,7 +232,7 @@ sub is_terminal_exon {
   return  1 ; 
 }
 
-=head
+=head2 is_3prim_exon
 
    Name : is_3prim_exon 
    Arg  : none
@@ -193,7 +247,7 @@ sub is_3prim_exon {
   return 0 ;   
 }
 
-=head
+=head2 is_5prim_exon
 
    Name : is_5prim_exon 
    Arg  : none 
@@ -208,7 +262,7 @@ sub is_5prim_exon {
   return 0 ;   
 }
 
-=head
+=head2 cluster
 
    Name : cluster
    Arg  : Bio::EnsEMBL::Transcript
@@ -226,7 +280,7 @@ sub cluster {
 }
 
 
-=head visited ( $val ) 
+=head2 visited ( $val ) 
 
   Function : marks if exon has been visited in recursion procedure or not 
   Arg : integer (true / false ) 
