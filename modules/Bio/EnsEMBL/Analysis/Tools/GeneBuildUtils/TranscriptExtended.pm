@@ -28,12 +28,6 @@ Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::TranscriptExtended;
   my $tran = new Bio::EnsEMBL::Transcript(-EXONS => \@exons);
 
 
- 
-=head1 SYNOPSIS FOR RE-BLESSING Bio::EnsEMBL::Transcripts
-
- my $new_tr = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended->new();
- $new_tr->ev_set('est') ; 
-
 =head1 DESCRIPTION
 
 This module extends a Bio::EnsEMBL::Transcript with smoe other
