@@ -155,6 +155,7 @@ sub fetch_input{
         for my $g (@$genes){ 
 
           for my $t (@{$g->get_all_Transcripts}){
+
             bless $t, "Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended" ; 
 
             my @all_exons = @{ $t->get_all_Exons } ; 
@@ -232,53 +233,6 @@ sub fetch_input{
 
 
 
-
-#
-#sub merge_database_hashes {
-#  my ($databases, $data, $new_data  ) = @_ ; 
-#
-#  my %db = %{$databases  } ; 
-#  my %tc = %{ $data } ; 
-#
-#  my %result ;   
-#  
-#  %result = %$new_data if $new_data ; ; 
-#
-#  # COALESCER_DB is NOT merged !
-#  
-#  for my $db_class ( keys %db ) {  
-#    #print "DB_CLASS $db_class\n" ; 
-#    if ( exists $tc{$db_class} ) {   
-#      # there is the same logic name in TranscriptCoalescer.pm and a config-file 
-#      # (Exonerate2Genes.pm or Databases.pm)
-#      
-#      # get database-config out of Exonerate2Genes.pm 
-#      if ( exists  ${$db{$db_class}}{OUTDB} ) { 
-#        # TranscriptCoaleser.pm and Exonerate2Genes share same db_class key 
-#
-#         unless ($db_class=~/DEFAULT/){
-#         # we are not processing any entry in the DEFAULT section of Exonerate2Genes.pm
-#        
-#          # get OUTDB anonymous hash and hand it over to new config   
-#          $result{$db_class}{db} = ${$db{$db_class}}{OUTDB} ;
-#                   
-#        } 
-#      }
-#     $result{$db_class}{db}=$db{$db_class} unless $result{$db_class}{db}; 
-#     # there is some configuration (biotype/logic_name) for this db_class
-#     # in Databases.pm as well as in TrancriptCoalescer.pm 
-#     
-#     my %tc_conf = %{ $tc{$db_class }} ; 
-#
-#     for my $tc_name ( keys %tc_conf ) { 
-#       # tc_name is either AB_INITIO_LOGICNAME or BIOTYPE
-#       $result{$db_class}{$tc_name}=$tc_conf{$tc_name} ;  
-#     }
-#    }
-#  } 
-#  return \%result ; 
-#} 
-#
 
 sub remove_redundant_genes {
   my ($biotype2genes ) = @_ ; 
