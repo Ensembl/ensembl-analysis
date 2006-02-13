@@ -72,7 +72,6 @@ sub new {
                             } ; 
   # verbosity-level can be controlled by test_RunnableDB -utils_verbosity INFO 
   # see Bio::EnsEMBL::Utils::Exception
- 
   &verbose($self->{utils_verbosity})  ; 
   return $self;
 }
@@ -83,7 +82,8 @@ sub new {
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
   Function  : fetch input (gene-objects) out of different databases specified 
-              in the TranscriptCoalescer config 
+              in the TranscriptCoalescer config. TranscriptCoalescer is not 
+              processing single-exon genes.
   Returntype: 1
   Exceptions: none
   Example   : 
@@ -130,6 +130,9 @@ sub fetch_input{
 
 
     my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
+    # attache refdb as dnadb  
+    $dba->dnadb($self->db) ; 
+    
     my $slice = $self->fetch_sequence($self->input_id, $dba );
     # 
     # organise genes into "EVIDENCE_SETS" depending on their underlying source 
@@ -148,17 +151,25 @@ sub fetch_input{
       info(scalar (@{$genes}) . "\t$biotype-genes fetched \n") ; 
 
 
+
       if (scalar( @{$genes} ) > 0 ) { 
         # store genes of specific biotype in hash which holds them in an array 
         # add specific information to exons / re-bless them 
-        
+       
+        my @multi_exon_genes ;  
         for my $g (@$genes){ 
-
+          my $single_exon_gene ; 
+          
           for my $t (@{$g->get_all_Transcripts}){
+            throw ("gene has more than one transcript - only processing 1-gene-1-transcript-genes") 
+            if (@{$g->get_all_Transcripts}>1) ; 
 
             bless $t, "Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended" ; 
-
+            
             my @all_exons = @{ $t->get_all_Exons } ; 
+
+            $single_exon_gene = 1 if (@all_exons == 1 ) ; 
+
             map { bless $_,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended" } @all_exons ; 
 
             for (my $int=0; $int < @all_exons ; $int++) {
@@ -181,8 +192,13 @@ sub fetch_input{
               }
             }
           }
+          unless ($single_exon_gene) { 
+           push @multi_exon_genes, $g ; 
+          }else { 
+            info("gene " . $g->dbID ."  ( " . $g->biotype  . " ) is single_exon_gene - SKIPPING \n") ; 
+          }
         }  
-        push @{$biotypes_to_genes{$biotype} } , @{$genes} ;
+        push @{$biotypes_to_genes{$biotype} } , @multi_exon_genes ; 
       }
     }
     # 
@@ -476,9 +492,9 @@ sub write_output{
   my $out_dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{$$DATABASES{COALESCER_DB}} ) ; 
 
   my $gene_a = $out_dba->get_GeneAdaptor() ; 
-  print "trying to write output\n" ;  
+  info ("trying to write output") ;  
   foreach my $gene (@{$self->output}){
-     print "storing $gene\n" ; 
+     info("storing $gene" ); 
     $gene_a->store($gene) ; 
   }  
   return ;
