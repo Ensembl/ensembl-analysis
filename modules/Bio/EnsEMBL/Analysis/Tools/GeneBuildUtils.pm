@@ -69,7 +69,7 @@ use vars qw (@ISA  @EXPORT);
 sub coord_string{
   my $feature = shift;
   throw("Must be passed a feature") if(!$feature);
-  my $string = "start ".$feature->start." end ".$feature->end." strand ".$feature->strand." seq region name ".$feature->slice->seq_region_name;
+  my $string = $feature->start."\t".$feature->end."\t".$feature->strand."\t".$feature->slice->seq_region_name;
   return $string;
 }
 

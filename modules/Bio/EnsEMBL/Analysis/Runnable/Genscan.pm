@@ -37,6 +37,7 @@ use warnings;
 use Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_warning logger_info);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio);
@@ -120,7 +121,6 @@ sub parse_results{
       }
       my ($name, $strand, $start, $end, $pvalue, $score)
         = @elements[0, 2, 3, 4, 11, 12];
-      
       if($strand eq '+'){
         $strand = 1;
       }else{
@@ -128,6 +128,11 @@ sub parse_results{
         my $temp_start = $end;
         $end = $start;
         $start = $temp_start;
+      }
+      if($pvalue !~ /\d+/){
+        logger_info("Genscan has reported ".$pvalue." rather ".
+                    "than a number setting p value to 0");
+        $pvalue = 0;
       }
       my ($group, $exon_name) = split(/\./, $name);
       
