@@ -1,3 +1,52 @@
+#
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable
+#
+# Copyright (c) 2006 Ensembl
+#
+# written by Jan-Hinnerk Vogel 
+#
+#
+
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::TranscriptExtended; 
+
+=head1 SYNOPSIS 
+
+
+  Creation by re-blessing:
+
+  for my $t ( @transcripts ) { 
+    bless $t,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended";
+
+    $t->ev_set('est') ; 
+  }  
+
+  Creation without re-blessing : 
+
+  my $tran = new Bio::EnsEMBL::Transcript(-EXONS => \@exons);
+
+
+ 
+=head1 SYNOPSIS FOR RE-BLESSING Bio::EnsEMBL::Transcripts
+
+ my $new_tr = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended->new();
+ $new_tr->ev_set('est') ; 
+
+=head1 DESCRIPTION
+
+This module extends a Bio::EnsEMBL::Transcript with smoe other
+methods. You have to re-bless your Bio::EnsEMBL::Transcript objects 
+to use it. 
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
+
 
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended; 
 
@@ -10,6 +59,7 @@ use Bio::EnsEMBL::Transcript ;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 @ISA = qw(Bio::EnsEMBL::Transcript Bio::EnsEMBL::Feature);
+
 
 sub new  {
   my($class) = shift;
@@ -38,31 +88,40 @@ sub ev_set {
   }
   return $self->{'set'};
 }
-#
-#sub remove_Exon { 
-#  my ($self,$ex_to_remove ) = @_;
-#  unless ($ex_to_remove){ 
-#    throw ("you have to supply an Bio::EnsEMBL::Exon object ".
-#           "which will be removed from the transcript\n");
-#  }
-#  my $clone=[] ; 
-#  my $ea = $self->{'_trans_exon_array'}; 
-#  my $nr_before = scalar(@$ea); 
-#  for my $e (@$ea) {
-#    if  ($e ne $ex_to_remove ) { 
-#       push @$clone, $e; 
-#    }
-#  } 
-#  $self->{'_trans_exon_array'} = $clone;
-#  if ($nr_before == scalar(@$clone) ) { 
-#    warning( "No matching exon found, exon could not be removed\n" );
-#  }
-#  return $ex_to_remove ; 
-#}
-#
-#sub score {
-#   return 0 ; 
-#}
+
+
+=head
+
+   Name : remove_Exon 
+   Arg  : Bio::EnsEMBL::Exon 
+   Func : removes exon from Bio::EnsEMBL::Transcript 
+   Return : none 
+   Example : $transcript->remove_Exon($exon) ; 
+=cut
+
+
+
+sub remove_Exon { 
+  my ($self,$ex_to_remove ) = @_;
+  unless ($ex_to_remove){ 
+    throw ("you have to supply an Bio::EnsEMBL::Exon object ".
+           "which will be removed from the transcript\n");
+  }
+  my $clone=[] ; 
+  my $ea = $self->{'_trans_exon_array'}; 
+  my $nr_before = scalar(@$ea); 
+  for my $e (@$ea) {
+    if  ($e ne $ex_to_remove ) { 
+       push @$clone, $e; 
+    }
+   } 
+  $self->{'_trans_exon_array'} = $clone;
+  if ($nr_before == scalar(@$clone) ) { 
+    warning( "No matching exon found, exon could not be removed\n" );
+   }
+  return ; 
+}
+
 
 
 
