@@ -88,10 +88,10 @@ sub new  {
 
 =head2  biotype 
 
-   Name : biotype 
-   Arg  : String
-   Func : getter/setter for the biotype to which this Exon belongs to 
-   Return : String describing biotype 
+   Name       : biotype 
+   Arg        : String
+   Func       : getter/setter for the biotype to which this Exon belongs to 
+   Returntype : String describing biotype 
 
 =cut 
 
@@ -107,10 +107,10 @@ sub biotype {
 
 =head2 ev_set
 
-   Name : ev_set
-   Arg  : String
-   Func : getter/setter for the evidence-set 
-   Return : String describing ev_set (defined in GeneBuild/TrancriptCoalescer.pm)
+   Name       : ev_set
+   Arg        : String
+   Func       : getter/setter for the evidence-set 
+   Returntype : String describing ev_set (defined in GeneBuild/TrancriptCoalescer.pm)
 
 =cut 
 
@@ -126,10 +126,10 @@ sub ev_set {
 
 =head2 transcript
 
-   Name : transcript 
-   Arg  : Bio::EnsEMBL::Transcript
-   Func : getter/setter for the Bio::EnsEMBL::Transcript the Exon belongs to 
-   Return : Bio::EnsEMBL::Transcript
+   Name       : transcript 
+   Arg        : Bio::EnsEMBL::Transcript
+   Func       : getter/setter for the Bio::EnsEMBL::Transcript the Exon belongs to 
+   Returntype : Bio::EnsEMBL::Transcript
 
 =cut 
 
@@ -142,49 +142,32 @@ sub transcript {
   return $self->{'transcript'};
 }
 
+=head1
 
-#=head2
-#
-#   Name : exon_is_overlapped 
-#   Arg  : Bio::EnsEMBL::Transcript
-#   Func : getter/setter for the Bio::EnsEMBL::Transcript the Exon belongs to 
-#   Return : Bio::EnsEMBL::Transcript
-#
-#=cut 
-#
-#
-#sub exon_is_overlapped {
-#  my ($self,$value) = @_;
-#  if (defined($value)) {
-#    $self->{'exon_is_overlapped'} = $value;
-#  }
-#  return $self->{'exon_is_overlapped'};
-#}
-#
-#=head1
-#
-#   Name : number_exons 
-#   Arg  : int
-#   Func : getter/setter number of exons in Transcript
-#   Return : int
-#
-#=cut 
-#
-#
-#sub number_exons {
-#  my ($self,$value) = @_;
-#  if (defined($value)) {
-#    $self->{'number'} = $value;
-#  }
-#  return $self->{'number'};
-#}
+   Name       : number_exons 
+   Arg        : int
+   Func       : getter/setter number of exons in Transcript
+   Returntype : int
+
+=cut 
+
+
+sub number_exons {
+ my ($self) = @_ ; 
+  if (defined($self->transcript)){ 
+    return scalar( @{ $self->transcript->get_all_Exons} ) ; 
+  }else { 
+    warning("Exon has no Bio::EnsEMBL::Transript-object attached - can't get number of exons\n" ) ; 
+  }
+  return undef ; 
+}
 
 =head2 prev_exon
 
-   Name : prev_exon 
-   Arg  : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
-   Func : points to previous exon (5'prim) 
-   Return : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
+   Name       : prev_exon 
+   Arg        : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
+   Func       : points to previous exon (5'prim) 
+   Returntype : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
 
 =cut 
 
@@ -199,10 +182,10 @@ sub prev_exon {
 
 =head2 next_exon
 
-   Name : next_exon  
-   Arg  : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
-   Func : points to next exon (3'prim) 
-   Return : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
+   Name       : next_exon  
+   Arg        : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
+   Func       : points to next exon (3'prim) 
+   Returntype : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
 
 =cut 
 
@@ -217,10 +200,10 @@ sub next_exon {
 
 =head2 is_terminal_exon
 
-   Name : is_terminal_exon 
-   Arg  : none 
-   Func : returns 1 if exon is terminal and 0 othewise 
-   Return : int (0 || 1) 
+   Name       : is_terminal_exon 
+   Arg        : none 
+   Func       : returns 1 if exon is terminal and 0 othewise 
+   Returntype : int (0 || 1) 
 
 =cut 
 
@@ -234,10 +217,10 @@ sub is_terminal_exon {
 
 =head2 is_3prim_exon
 
-   Name : is_3prim_exon 
-   Arg  : none
-   Func : returns 1 if exon is at 3prim end of transcript 
-   Return : int (0 || 1) 
+   Name       : is_3prim_exon 
+   Arg        : none
+   Func       : returns 1 if exon is at 3prim end of transcript 
+   Returntype : int (0 || 1) 
 
 =cut 
 
@@ -249,10 +232,10 @@ sub is_3prim_exon {
 
 =head2 is_5prim_exon
 
-   Name : is_5prim_exon 
-   Arg  : none 
-   Func : returns 1 if exon is at 5prim end of transcript 
-   Return : int (0 || 1) 
+   Name       : is_5prim_exon 
+   Arg        : none 
+   Func       : returns 1 if exon is at 5prim end of transcript 
+   Returntype : int (0 || 1) 
 
 =cut 
 
@@ -264,10 +247,10 @@ sub is_5prim_exon {
 
 =head2 cluster
 
-   Name : cluster
-   Arg  : Bio::EnsEMBL::Transcript
-   Func : getter/setter for the Bio::EnsEMBL::Transcript the Exon belongs to 
-   Return : Bio::EnsEMBL::Transcript
+   Name       : cluster
+   Arg        : Bio::EnsEMBL::Transcript
+   Func       : getter/setter for the Bio::EnsEMBL::Transcript the Exon belongs to 
+   Returntype : Bio::EnsEMBL::Transcript
 
 =cut 
 
@@ -282,10 +265,10 @@ sub cluster {
 
 =head2 visited ( $val ) 
 
-  Function : marks if exon has been visited in recursion procedure or not 
-  Arg : integer (true / false ) 
-  Returnval : integer (true || false ) 
-  Caller : recursion procedure in Condense_EST.pm
+  Function   : marks if exon has been visited in recursion procedure or not 
+  Arg        : integer (true / false ) 
+  Returntype : integer (true || false ) 
+  Caller     : recursion procedure in Condense_EST.pm
 
 =cut
  
@@ -297,7 +280,14 @@ sub visited  {
   return $self->{'visited'};
 }
 
-
   
+=head2 get_percentage_exon_conversation_in_exon_cluster() 
+
+  Arg        : $self 
+  Function   : $self->get_percentage_exon_conversation_in_exon_cluster
+  Returntype : integer (true || false ) 
+
+=cut
+ 
 
 
