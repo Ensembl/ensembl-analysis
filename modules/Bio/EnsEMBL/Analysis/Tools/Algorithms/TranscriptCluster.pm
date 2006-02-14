@@ -25,13 +25,14 @@ is included into another cluster, etc...
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 
 use Bio::EnsEMBL::Transcript;
-use vars qw(@ISA);
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 use strict;
 
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Root;
 use Bio::RangeI;
 use Bio::EnsEMBL::Utils::Exception qw (throw warning ) ; 
+use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Root Bio::RangeI);
 
 =head1 METHODS
@@ -498,5 +499,87 @@ sub get_biotypes_included {
   my @bt = keys %{$self->{_biotypes} } ; 
   return \@bt ; 
 }
+
+
+sub get_ExonCluster {
+  my ( $self ) = @_;
+  my @clusters;
+
+  foreach my $trans (@{$self->get_Transcripts}) {
+    my $tr_biotype = $trans->biotype;
+
+    foreach my $exon (@{$trans->get_all_Exons}) {
+
+      my @matching_clusters;
+        #print "\nExon " . $exon->dbID . " limits: " . $exon->start . 
+       # " and " .  $exon->end . "\n";
+
+      CLUSTER: foreach my $cluster (@clusters) {
+         #print "Testing against cluster with limits " . 
+         #$cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\t";
+        if (!($exon->start >= $cluster->end ||
+              $exon->end <= $cluster->start)) {
+           if ($cluster->strand eq $exon->strand ){
+              push (@matching_clusters, $cluster);
+              #print "cl. matches " .$cluster->strand ."\t" .$exon->strand . "\t" .$trans->strand ."\n" ;
+           }
+        }
+        #print "\n";
+      }
+      if (scalar(@matching_clusters) == 0) {
+        # print STDERR "Created new cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
+        # print "\ncreating new cluster for Exon " . $exon->dbID . 
+        # " limits: " . $exon->start . " and " .  $exon->end . "\n";
+
+        my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
+
+        $newcluster->add_exon($exon,$trans);
+        push(@clusters,$newcluster);
+
+      } elsif (scalar(@matching_clusters) == 1) {
+         #print STDERR "Adding to cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
+        $matching_clusters[0]->add_exon($exon,$trans);
+      } else {
+         # Merge the matching clusters into a single cluster
+        print STDERR "Merging clusters for " . $exon->dbID ."\n";
+        my @new_clusters;
+        my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
+
+        foreach my $clust (@matching_clusters) {
+          $merged_cluster->merge($clust);
+        }
+        $merged_cluster->add_exon($exon,$trans);
+        push @new_clusters,$merged_cluster;
+
+        # Add back non matching clusters
+        foreach my $clust (@clusters) {
+          my $found = 0;
+          MATCHING: foreach my $m_clust (@matching_clusters) {
+            if ($clust == $m_clust) {
+              $found = 1;
+              last MATCHING;
+            }
+          }
+          if (!$found) {
+            push @new_clusters,$clust;
+          }
+        }
+        @clusters = @new_clusters;
+      }
+    }
+  }
+
+  # setting exon/cluster relationship 
+  for my $c (@clusters) {
+    for my $e(@{ $c->get_all_Exons_in_ExonCluster} ) {
+      # exon has to be Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object 
+      $e->cluster($c) ;
+    }
+  }
+  return @clusters;
+}
+
+                
+
 
 1;
