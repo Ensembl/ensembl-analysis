@@ -65,7 +65,7 @@ use vars qw (@ISA @EXPORT);
 
   Arg [1]   : Bio::EnsEMBL::Exon
   Arg [2]   : string, indent (\t) to tag infront of printed
-  string
+  Arg [3]   : boolean (1 if evidence attached to exon should be printend) 
   Function  : print information about given exon and
   associated evidence
   Returntype: none
@@ -77,13 +77,16 @@ use vars qw (@ISA @EXPORT);
 
 
 sub print_Exon{
-  my ($exon, $indent) = @_;
+  my ($exon, $indent, $print_ev) = @_;
   $indent = "" if(!$indent);
   throw("Must be passed an exon") if(!$exon);
+  $print_ev = 1 unless defined $print_ev ;  
   print Exon_info($exon, $indent)."\n";
-  foreach my $evidence(@{$exon->get_all_supporting_features}){
-    my $evidence_indent = $indent."\t";
-    print_Evidence($evidence, $evidence_indent);
+  if ($print_ev) { 
+    foreach my $evidence(@{$exon->get_all_supporting_features}){
+      my $evidence_indent = $indent."\t";
+      print_Evidence($evidence, $evidence_indent);
+    }
   }
 }
 
