@@ -1,14 +1,39 @@
 package Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
 
+
+
+=head1 NAME 
+
+Bio::EnsEMBL::Analysis::Runnable::TranscriptCoealescer
+
+=head1 SYNOPSIS
+
+my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer->new(
+      -query => $slice,
+      -program => 'snap',
+     );
+  $runnable->run;
+  my @predictions = @{$runnable->output};
+
+
+=head1 DESCRIPTION
+
+TranscriptCoalescer combines gene-structures from different evidence-sets 
+to longer predictions and adds translations to these predictions. 
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
 use strict;
 use warnings; 
 
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
-use Bio::Tools::CodonTable;
-
-#check the cluster-modules 
+#use Bio::Tools::CodonTable;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
@@ -16,18 +41,29 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
+#use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (return_translation) ;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended; 
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+
+
+
+=head2 new
+
+  Function  : creates TranscriptCoalescer-object 
+  Returnval : returns TranscripotCoalescer-object 
+
+=cut  
+
+
 
 
 sub new {
@@ -38,14 +74,16 @@ sub new {
   $self->{'_discarded_transcripts'} = []; # array ref to discarded transcripts
   $self->{'_genes'} = [];                 #array of genes to test;  
     
-  my( $all_genes, $new_biotype, $evidence_sets ) = 
+  my( $all_genes, $evidence_sets,$dnadb  ) = 
       rearrange([qw(
                      ALL_GENES
-                     NEW_BIOTYPE
                      EVIDENCE_SETS
+                     DNADB
                     )], @args);
 
-  $self->{merged_tr}=[] ; 
+  $self->{merged_tr}=[] ;
+  $self->{min_translation_length}=$MIN_TRANSLATION_LENGTH ;  
+  $self->{dnadb}=$dnadb ; 
   #
   # we add one more evidence set called 'est_merged' to be able 
   # to re-cluster the newly constructed genes with the input-genes
@@ -54,7 +92,7 @@ sub new {
   # my %types_hash{'name_of_the_set'} = [gene_bt_100, simgw_200, simgw300, ...] 
   # types_set{'genes_with_est_source'} = [est_100, est_200, est_300....] 
   #
-  $self->{new_biotype} = $new_biotype ;  
+  $self->{new_biotype} = $NEW_BIOTYPE ; 
   ${$evidence_sets}{'est_merged'}=[$self->{new_biotype}] ; 
 
   # href to $hash{'evi_set'} = \@{biotype1,obiotype2}  
@@ -66,8 +104,20 @@ sub new {
   
   $self->{all_genes_href} = $all_genes ;      # hashref $hash{'biotype'} = \@genes 
   $self->{v} = $VERBOSE ; # verbose or not 
+  $self->{v} = 0; 
   return $self ; 
 }
+
+
+=head2 run
+
+   Arg : none
+   Function  : Runs the TranscriptCoalescer
+               - clusters genes of EvidenceSet 'est' acc. to their genomic extent
+               -  
+   Returnval : none 
+
+=cut  
 
 
 sub run { 
@@ -313,10 +363,12 @@ sub run {
 
   print "Having " . scalar( @all_merged_est_transcripts ) . " genes so far for this slice \n\n" ; 
   print_transcripts_and_exons(\@all_merged_est_transcripts) if $self->{v}; 
-  
+
+  # 
   # adding translations to transcripts 
-  my @trans_with_tl = @{add_translation_and_trans_supp_features_to_transcripts(
-       \@all_merged_est_transcripts) } ; 
+  #
+  my @trans_with_tl = @{$self->add_translation_and_trans_supp_features_to_transcripts(
+       \@all_merged_est_transcripts,$self->{min_translation_length}) } ; 
  
   $self->output ( $self->convert_to_genes ( \@trans_with_tl  )) ;   
   return ; 
@@ -325,7 +377,8 @@ sub run {
 
 
 sub add_translation_and_trans_supp_features_to_transcripts  { 
-   my ($trans) = @_ ; 
+   my ($self, $trans,$min_translation_length) = @_ ; 
+
    my @trans_with_tl ; 
    # try to add translation  TRANSLATION
      for my $tr (@$trans) {   
@@ -341,17 +394,27 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
               throw( "Exon has no transcript assigned :\n")  ; 
            }
         }
-        $tr->translation(return_translation($tr)) ; 
         
+        $tr->translation(return_translation($tr)) ; 
+        my $tr_length = $tr->length . "\n" ; 
+        my $tl_length = $tr->translate->length ; 
+        my $ratio = ( (3*$tl_length) / $tr_length)*100 ;  
+
 #        print "=========================\n" ;  
 #        print_transcripts_and_exons($tr) ;  
 #        print "start_ex_TL: " ; 
 #        print_object (  $tl->start_Exon) ;
 #        print "  end_ex_TL: " ; 
 #        print_object (  $tl->end_Exon) ;
-#        print "\n" ;
-       
-        push @trans_with_tl , $tr; 
+#        print "\n" ; i     
+
+         if ( $ratio > $MIN_TRANSLATION_LENGTH ){ 
+           push @trans_with_tl , $tr ;
+         }else { 
+           print "Translation is shorter than $MIN_TRANSLATION_LENGTH % of transcript length ($ratio) - transcript will not be used\n"  ; #if $self->{v} ;
+           if ($WRITE_FILTERED_TRANSCRIPTS) {  
+             $tr->biotype() ; 
+         }
      }
    return \@trans_with_tl ;  
 }
@@ -1363,9 +1426,6 @@ sub main_clustering_and_recursion {
   
   # use all possible exons with EST-evidence in first ExonCluster 
 
-  # this is wrong - it hand's over wrong exons !!!
-  #
-
   my @est_start_exons = @{ $ex_cluster_est_evidence[0]->get_all_Exons_of_EvidenceSet('est') } ; 
 
   # make sure we don't have 3prim exons in the start-exon-set ! (only use exons with have next exon)
@@ -1389,6 +1449,7 @@ sub main_clustering_and_recursion {
   #
  
   # returns array of arrays of transcripts  [ [ tra tra tra ] [ tra ] 
+  
   my $trans_aref   = $self->transcript_recursion(
                                                        \@ex_cluster_est_evidence,
                                                        \@est_start_exons, 
@@ -1499,6 +1560,7 @@ sub transcript_recursion {
     #
     my @tmp ; 
     if ( ( @start_exons) > 0 ) { 
+      print "start_exons :" . scalar(@start_exons) . " \n\n" ;  #ww
       for my $se (@start_exons) { 
        if ($se->next_exon) { 
           if ($self->{v}) { 
@@ -1508,6 +1570,9 @@ sub transcript_recursion {
             print_object($se->next_exon) ; 
           } 
           push @tmp, $se if $se->next_exon() ; 
+       }else {
+            print "this exon isn't used 'cause it has no next-exon\n" ; 
+            print_object($se) ; 
        }
       } 
     }
@@ -1537,6 +1602,10 @@ sub transcript_recursion {
     } 
   
   }
+
+  # only start transcript_recursion if there are start_exons 
+  # do we need this ???   
+  
   $self->transcript_recursion ($ex_clusters_real_ev, \@start_exons , $all_tr ) ; 
 
   if ($self->{v}){
@@ -2072,7 +2141,7 @@ sub print_exon {
 
 sub print_intron {
   my ($self, $ex, $string ) = @_ ; 
-   if ($self->{_verbose}) { 
+   if ($self->{v}) { 
      $string = "" unless $string ; 
      print "INTRON  " .  
        "\t". $ex->seq_region_start . 
