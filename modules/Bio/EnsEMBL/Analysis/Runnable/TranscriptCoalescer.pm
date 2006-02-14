@@ -1,7 +1,13 @@
-package Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
-
-
-
+#
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer
+#
+# Copyright (c) 2006 Ensembl
+#
+# written by Jan-Hinnerk Vogel 
+#
+#
+#
+#
 =head1 NAME 
 
 Bio::EnsEMBL::Analysis::Runnable::TranscriptCoealescer
@@ -26,6 +32,10 @@ to longer predictions and adds translations to these predictions.
 Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
+
+
+
+package Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
 
 use strict;
 use warnings; 
@@ -236,7 +246,7 @@ sub run {
       # try to do recursive merge with simgw / abinitio, begin with clustering (Transcripts & Exons) 
       my @tr_merged = 
        map {@{$_->get_all_Transcripts}} $gene_cluster->get_Genes_by_Set ( 'est_merged' ); 
-      my $exon_clusters = get_exon_clustering_from_gene_cluster($gene_cluster) ;    
+      my $exon_clusters = $gene_cluster->get_exon_clustering_from_gene_cluster(); 
       print "exon_clustering finished\n" ;
 
       # recursive approach (merge already merged genes by abinitio or simgw)
@@ -308,7 +318,7 @@ sub run {
    ($clusters, $non_clusters)  = cluster_Genes(\@est_simgw, $self->get_all_evidence_sets ) ; 
    GENE_CLUSTER: foreach my $gene_cluster (@$clusters) {
      # cluster exons and re-set the exon-cluster relation
-     my @exon_clusters  = @{ get_exon_clustering_from_gene_cluster( $gene_cluster ) };  
+     my @exon_clusters  = @{ $gene_cluster->get_exon_clustering_from_gene_cluster() };  
      for my $ec (@exon_clusters) { 
        for my $e ( @{$ec->get_all_Exons_in_ExonCluster} ) {
          $e->cluster($ec) ; 
@@ -350,12 +360,12 @@ sub run {
 #       
 #      my @simgw_trans  =  
 #       map { @{ $_->get_all_Transcripts } } $gene_cluster->get_Genes_by_Set('simgw') ;
-##      #my $exon_clusters = get_exon_clustering_from_gene_cluster($gene_cluster) ;    
+#      #my $exon_clusters = $gene_cluster->get_exon_clustering_from_gene_cluster() ;    
 # 
-##      for ( @tr_simgw ) { 
-##        $_->biotype($self->{new_biotype} . "_" . $_->biotype) ; 
-##      } 
-##      push @all_merged_est_transcripts, @tr_simgw ; 
+#      for ( @tr_simgw ) { 
+#        $_->biotype($self->{new_biotype} . "_" . $_->biotype) ; 
+#      } 
+#      push @all_merged_est_transcripts, @tr_simgw ; 
     } 
   }  
 } 
@@ -631,7 +641,7 @@ sub sort_transcripts_by_length {
   my ($t) = @_ ; 
   my @result = @$t ; 
 
-  if ($result[0]->seq_region_start eq '1' ) { 
+  if ($result[0]->seq_region_strand eq '1' ) { 
 
   @result = sort { ($b->seq_region_end - $b->seq_region_start) 
                    <=> ( $a->seq_region_end - $a->seq_region_start ) } @result ;  
@@ -662,17 +672,7 @@ sub check_if_lg_spans_st {
   && $lg ne $st  ) {   
      return 1 ;  
   }
- 
- 
-
-#
-#   print "main_comparision_rules failed for a vs b :" ;  
-#   print " SAME OBJECTS " if $lg eq $st ; 
-#   print "\n" ; 
-#   print "(a) (".scalar(@{$lg->get_all_Exons}) ." exons) "   ; print_object($lg) ; 
-#   print "(b) (".scalar(@{$st->get_all_Exons}) ." exons) "   ; print_object($st) ; 
-#   print "\n\n" ; 
-   return 0 ; 
+  return 0 ; 
 } 
 
 
@@ -724,19 +724,8 @@ sub remove_overlapping_transcripts {
 
       my $st = $ltr[$j] ; 
       if  ($lg ne $st) { 
-        # check genomic extend , nr_exons and if  $lg eq st 
+        # check genomic extent , nr_of_exons and if $lg eq st 
         if ( check_if_lg_spans_st ($lg,$st) ) {  
-#          print "\n\nLG spans ST\n" ; 
-#          print "comparing transcript lg (". scalar( @{ $lg->get_all_Exons } ) . " exons) " ;
-#          print_object($lg) ;  
-#          print "comparing transcript st (". scalar( @{ $st->get_all_Exons } ) . " exons) " ; 
-#          print_object($st) ;  
-#          print "#"x80; print "\n\n" ; 
-#
-#          print "\n lg\n" ; print_Transcript($lg) ;      
-#          print "\n st\n" ; print_Transcript($st) ;      
-#          print "\n\n" ; 
-#
           if ( check_if_all_exons_are_overlapped ($lg,$st) ) { 
             # transcript is incorprated in other transcript all exons have been checked 
             #print "\nTranscript_will be removed : " ; print_object($st) ;  print "\n\n" ; 
@@ -745,9 +734,7 @@ sub remove_overlapping_transcripts {
         } else { 
 #         print "lg does not span st\n" ;   
         }
-      } else{ 
-#        print "same transcript\n" ; 
-      }
+      } 
     }
   }
 
@@ -775,6 +762,7 @@ sub remove_overlapping_transcripts {
     # $e->biotype($bt) ;  
     }
   }
+
 #  print "xxx  these tr will be removed\n===========================================\n" ; 
 #  for (@remove_tr) { 
 #   print_Transcript($_) ; 
@@ -1385,43 +1373,10 @@ sub get_longest_3prim_term_exon_in_exon_cluster_of_this_exon {
 }
 
 
-=head
-
-Name: $self->get_exon_clustering_from_gene_cluster( $gene_cluster ) 
-Arg :  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
-Function  : gets a set of clustered genes and clusters the Transcripts of these genes as well as the Exons
-Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
-
-=cut  
-
-sub get_exon_clustering_from_gene_cluster {
-  my ($gene_cluster) = @_ ;
-
-  my @clg  = sort {$a->start <=> $b->start} $gene_cluster->get_Genes ; 
-
-  # building Transcript-Cluster 
-  my $tc = genes_to_Transcript_Cluster(\@clg); # ClusterUtils.pm 
-  
-  print "genes_to_transcript_cluster done\n" ; 
- 
-  my @exon_clusters = cluster_exons_in_transcript_cluster($tc); # ClusterUtils.pm 
-   print "cluster_exons_in_transcript_cluster done \n" ; 
-  
-  if ($tc->strand eq '1') {
-    @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ; 
-  } else {  
-    @exon_clusters = sort { $b->start <=> $a->start } @exon_clusters ; 
-  }
-  return \@exon_clusters ;  
-}
-
-
-
-
 sub main_clustering_and_recursion {
   my ($self, $gene_cluster) = @_ ;
 
-  my @exon_clusters = @{ get_exon_clustering_from_gene_cluster ( $gene_cluster ) } ; 
+  my @exon_clusters = @{ $gene_cluster->get_exon_clustering_from_gene_cluster() } ; 
 
   my @ex_cluster_est_evidence = @exon_clusters ; 
   $self->{start_terminal_ec} = $ex_cluster_est_evidence[0];
@@ -1460,31 +1415,22 @@ sub main_clustering_and_recursion {
                                                        ) ; 
  
   #
-  # prune transcript (change biotype and re-adjust start/end of transcript) 
+  # prune transcript (change biotype and re-adjust start/end of transcript and biotype ) 
   #
 
-  my @pruned_transcripts = @{ re_adjust_transcripts( $trans_aref , $self->{new_biotype}) } ; 
-
-  return \@pruned_transcripts ; 
-}
-
-
-
-sub re_adjust_transcripts{ 
-  my ($tref, $biotype) = @_ ; 
-
-   my @pruned_transcripts ;   
-   for my $transcript ( @$tref ) { 
-    my $ntr = new Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended( -BIOTYPE => $biotype ) ; 
+  my @pruned_transcripts ;   
+  for my $transcript ( @$trans_aref ) { 
+    my $ntr = new Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended( -BIOTYPE => $self->{new_biotype} ) ; 
 
     for my $exon ( @{ $transcript->get_all_Exons } ) { 
-      $exon->biotype( $biotype ) ; 
+      $exon->biotype( $self->{new_biotype} ) ; 
       $ntr->add_Exon( $exon ) ; 
     }
     push @pruned_transcripts , $ntr ; 
   } 
   return \@pruned_transcripts ; 
-} 
+}
+
 
 
 # does recursion in region with clustered transcripts and selects 
