@@ -112,13 +112,12 @@ sub new{
   my ($class,@args) = @_;
   
   my $self = bless {},$class;
-  &verbose('WARNING');
-  &logger_verbosity('WARNING');
   my ($query, $program, $options,
       $workdir, $bindir, $libdir,
-      $datadir, $analysis) = rearrange(['QUERY', 'PROGRAM', 'OPTIONS',
-                                        'WORKDIR', 'BINDIR', 'LIBDIR',
-                                        'DATADIR', 'ANALYSIS'], @args);
+      $datadir, $analysis, $verbose) = rearrange
+        (['QUERY', 'PROGRAM', 'OPTIONS',
+          'WORKDIR', 'BINDIR', 'LIBDIR',
+          'DATADIR', 'ANALYSIS', 'VERBOSITY'], @args);
   if(!$analysis){
     throw("Can't create a Runnable without an analysis object");
   }
@@ -130,6 +129,7 @@ sub new{
   $self->libdir($libdir);
   $self->datadir($datadir);
   $self->analysis($analysis);
+  $self->verbosity($verbose);
   return $self;
 }
 
@@ -178,6 +178,14 @@ sub datadir{
   return $self->{'datadir'} || $DATA_DIR;
 }
 
+
+sub verbosity{
+  my ($self, $verbosity) = @_;
+  $verbosity = $VERBOSITY if(!$verbosity);
+  verbose($verbosity);
+  logger_verbosity($verbosity);
+  return $verbosity;
+}
 
 =head2 workdir
 

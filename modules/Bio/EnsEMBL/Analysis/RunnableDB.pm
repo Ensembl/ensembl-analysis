@@ -84,6 +84,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::Logger;
+use Bio::EnsEMBL::Analysis::Config::General qw(VERBOSITY);
 
 use vars qw (@ISA);
 
@@ -110,22 +111,18 @@ use vars qw (@ISA);
 sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;
-  my ($db, $input_id, $analysis, $utils_verbosity) = rearrange
-    (['DB', 'INPUT_ID', 'ANALYSIS', 'UTILS_VERBOSITY'], @args);
+  my ($db, $input_id, $analysis, $verbosity) = rearrange
+    (['DB', 'INPUT_ID', 'ANALYSIS', 'VERBOSITY'], @args);
   if(!$db || !$analysis || !$input_id){
     throw("Can't create a RunnableDB without a dbadaptor ".
           $db." an analysis object ".$analysis.
           " or an input_id ".$input_id);
   }
 
-  #####DEFAULTS#####
-  $utils_verbosity = 'WARNING' if(!$utils_verbosity);
-  ##################
-
   $self->db($db);
   $self->analysis($analysis);
   $self->input_id($input_id);
-  $self->utils_verbosity($utils_verbosity) ; 
+  $self->verbosity($verbosity) ; 
   
 
   return $self;
@@ -472,7 +469,7 @@ sub write_output{
 
 
 
-=head2 utils_verbosity 
+=head2 verbosity 
 
   Arg [1]   : String describing verbosity-level (see Bio::EnsEMBL::Utils::Exception) 
   Function  : sets verbosity level and hands it over to RunnableDB
@@ -483,17 +480,13 @@ sub write_output{
 
 
 
-sub utils_verbosity {
-  my ($self,$v) = @_; 
-  if($v){
-    $self->{utils_verbosity} = $v;
-    verbose($v);
-    logger_verbosity($v);
-  }
-  return $self->{utils_verbosity} ; 
+sub verbosity{
+  my ($self, $verbosity) = @_;
+  $verbosity = $VERBOSITY if(!$verbosity);
+  verbose($verbosity);
+  logger_verbosity($verbosity);
+  return $verbosity;
 }
-
-
 
 =head2 fetch_input
 
