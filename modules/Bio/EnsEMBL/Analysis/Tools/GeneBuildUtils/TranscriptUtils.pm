@@ -84,12 +84,12 @@ use vars qw (@ISA @EXPORT);
             );
 
 
-
-
 =head2 print_Transcript
 
-  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [1]   : Bio::EnsEMBL::Transcript or Aref of Bio::EnsEMBL::Transcript-objects
   Arg [2]   : string, this should be a string or spaces or tabs
+  Arg [3]   : boolean describing if Translation should be printed 
+  Arg [4]   : boolean describing if evidence of Exon should be printed 
   to indent the printed string
   Function  : print information about the transcript and its
   children objects, using indent to make the format readable
@@ -101,14 +101,26 @@ use vars qw (@ISA @EXPORT);
 
 
 sub print_Transcript{
-  my ($transcript, $indent) = @_;
+  my ($tref, $indent,$print_tl,$print_exon_ev) = @_;
+  
   $indent = '' if(!$indent);
-  print Transcript_info($transcript, $indent)."\n";
-  my $translation_indent = $indent."\t";
-  print_Translation($transcript, $translation_indent);
-  foreach my $exon(@{$transcript->get_all_Exons}){
-    my $exon_indent = $translation_indent."\t";
-    print_Exon($exon, $exon_indent);
+  $print_tl = 1 unless defined $print_tl;  
+  $print_exon_ev = 1 unless defined $print_exon_ev; 
+
+  my @transcripts ; 
+  if (ref($tref)=~m/ARRAY/){
+    @transcripts = @$tref; 
+  }else{
+    push @transcripts, $tref; 
+  }
+  for my $transcript ( @transcripts ) { 
+    print Transcript_info($transcript, $indent)."\n";
+    my $translation_indent = $indent."\t";
+    print_Translation($transcript, $translation_indent) if $print_tl ;
+    foreach my $exon(@{$transcript->get_all_Exons}){
+      my $exon_indent = $translation_indent."\t";
+      print_Exon($exon, $exon_indent,$print_exon_ev);
+    }
   }
 }
 
