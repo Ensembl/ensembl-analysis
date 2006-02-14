@@ -303,55 +303,55 @@ sub run {
  #######################################################################
 
  if ($self->{adjudicate_simgw_est}) { 
-   print "deciding weather to use simgw or est-combined gene in final set\n" ;  
-
-   #
-   # 3rd re-clustering of simgw against est genes        
-   #  
-   my @est_simgw = @all_merged_est_transcripts ;
-
-   push @est_simgw , @{ $self->get_genes_by_evidence_set('est_merged') }  ;
-   push @est_simgw , @{ $self->get_genes_by_evidence_set('simgw') }  ;
-   
-   print "3rd reclustering to choose if we want to have simgw or est or both\n" ;  
-   
-   ($clusters, $non_clusters)  = cluster_Genes(\@est_simgw, $self->get_all_evidence_sets ) ; 
-   GENE_CLUSTER: foreach my $gene_cluster (@$clusters) {
-     # cluster exons and re-set the exon-cluster relation
-     my @exon_clusters  = @{ $gene_cluster->get_exon_clustering_from_gene_cluster() };  
-     for my $ec (@exon_clusters) { 
-       for my $e ( @{$ec->get_all_Exons_in_ExonCluster} ) {
-         $e->cluster($ec) ; 
-       }
-     } 
-     
-     # get simgw genes and remove overlapping ones  
-     my @tr_simgw = map {@{$_->get_all_Transcripts}} $gene_cluster->get_Genes_by_Set('simgw'); 
-     my ($non_ov, $ov) = remove_overlapping_transcripts(\@tr_simgw) ; 
-     push @tr_to_delete , @$ov if $self->{write_filtered_transcripts}; 
-     @tr_simgw = @$non_ov ; 
-
-     my @tr_est = $gene_cluster->get_Genes_by_Set('est_merged') ;  
-     my %sets_in_gene_cluster ;
-     @sets_in_gene_cluster{@{ $gene_cluster->get_sets_included }}=() ;   
-
-     # FALL UNTERSCHEIDUNGEN 
-
-     if (exists $sets_in_gene_cluster{simgw} && exists $sets_in_gene_cluster{est_merged} ) { 
-
-       # 
-       # filter genes and decide if we want simgw , est_merged or whatever / UTR addtion   
-       #  
-      print "\n"x4; 
-      print "We have SIMGW and EST_MERGED genes in cluster :\n" ; 
-      my ($keep, $removed) = compare_simgw_and_est_merged(\@tr_simgw, \@tr_est,$self->{write_alternative_transcripts}) ; 
-
-
-
-    }elsif ( exists $sets_in_gene_cluster{est_merged} && !exists $sets_in_gene_cluster{simgw} ) { 
-
-      print "have no simgw and but est_merged genes \n" ; 
-      
+#   print "deciding weather to use simgw or est-combined gene in final set\n" ;  
+#
+#   #
+#   # 3rd re-clustering of simgw against est genes        
+#   #  
+#   my @est_simgw = @all_merged_est_transcripts ;
+#
+#   push @est_simgw , @{ $self->get_genes_by_evidence_set('est_merged') }  ;
+#   push @est_simgw , @{ $self->get_genes_by_evidence_set('simgw') }  ;
+#   
+#   print "3rd reclustering to choose if we want to have simgw or est or both\n" ;  
+#   
+#   ($clusters, $non_clusters)  = cluster_Genes(\@est_simgw, $self->get_all_evidence_sets ) ; 
+#   GENE_CLUSTER: foreach my $gene_cluster (@$clusters) {
+#     # cluster exons and re-set the exon-cluster relation
+#     my @exon_clusters  = @{ $gene_cluster->get_exon_clustering_from_gene_cluster() };  
+#     for my $ec (@exon_clusters) { 
+#       for my $e ( @{$ec->get_all_Exons_in_ExonCluster} ) {
+#         $e->cluster($ec) ; 
+#       }
+#     } 
+#     
+#     # get simgw genes and remove overlapping ones  
+#     my @tr_simgw = map {@{$_->get_all_Transcripts}} $gene_cluster->get_Genes_by_Set('simgw'); 
+#     my ($non_ov, $ov) = remove_overlapping_transcripts(\@tr_simgw) ; 
+#     push @tr_to_delete , @$ov if $self->{write_filtered_transcripts}; 
+#     @tr_simgw = @$non_ov ; 
+#
+#     my @tr_est = $gene_cluster->get_Genes_by_Set('est_merged') ;  
+#     my %sets_in_gene_cluster ;
+#     @sets_in_gene_cluster{@{ $gene_cluster->get_sets_included }}=() ;   
+#
+#     # FALL UNTERSCHEIDUNGEN 
+#
+#     if (exists $sets_in_gene_cluster{simgw} && exists $sets_in_gene_cluster{est_merged} ) { 
+#
+#       # 
+#       # filter genes and decide if we want simgw , est_merged or whatever / UTR addtion   
+#       #  
+#      print "\n"x4; 
+#      print "We have SIMGW and EST_MERGED genes in cluster :\n" ; 
+#      my ($keep, $removed) = compare_simgw_and_est_merged(\@tr_simgw, \@tr_est,$self->{write_alternative_transcripts}) ; 
+#
+#
+#
+#    }elsif ( exists $sets_in_gene_cluster{est_merged} && !exists $sets_in_gene_cluster{simgw} ) { 
+#
+#      print "have no simgw and but est_merged genes \n" ; 
+#      
 #        
 #    }elsif ( exists $sets_in_gene_cluster{simgw} && !exists $sets_in_gene_cluster{est_merged} ) { 
 #      print "have simgw but no est_merged\n" ; 
@@ -366,8 +366,8 @@ sub run {
 #        $_->biotype($self->{new_biotype} . "_" . $_->biotype) ; 
 #      } 
 #      push @all_merged_est_transcripts, @tr_simgw ; 
-    } 
-  }  
+#    } 
+#  }  
 } 
 
 
@@ -422,10 +422,11 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
          if ( $ratio > $MIN_TRANSLATION_LENGTH ){ 
            push @trans_with_tl , $tr ;
          }else { 
-           print "Translation is shorter than $MIN_TRANSLATION_LENGTH % of transcript length ($ratio) - transcript will not be used\n"  ; #if $self->{v} ;
+           print "Translation is shorter than $MIN_TRANSLATION_LENGTH % of transcript length ($ratio) ." . 
+               " Transcript will not be used\n"  ; #if $self->{v} ;
            if ($WRITE_FILTERED_TRANSCRIPTS) {  
-             #work 
-             $tr->biotype() ; 
+             $tr->biotype("translation_<_$MIN_TRANSLATION_LENGTH") ; 
+             push @trans_with_tl, $tr ; 
            }
          }
      }
@@ -433,173 +434,173 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
 }
 
 
-
-sub compare_simgw_and_est_merged {
-  my ($simgw_tr, $est_tr , $write_alt_trans  ) = @_ ; 
-  my (@keep, @removed, @all) ; 
-  print scalar(@$simgw_tr) . " simgw genes\n" ; 
-  print scalar(@$est_tr) . " EST genes\n" ; 
-  print "\n\nEST-transcripts:\n--------------------------------\n" ; 
-  print_Transcript($est_tr,"",0,0) ; 
-  print "\n\nSIMGW-transcripts:\n--------------------------------\n" ; 
-  print_Transcript($simgw_tr,"",0,0) ; 
-  print "\n\n\n\n" ;  
-
-
-  push @all, @$simgw_tr , @$est_tr ; 
-  @all = @{ sort_transcripts_by_length ( \@all) } ; # sort tr descending their genomic extent length
-  # 
-  # check how supported the simgw transcripts are by the est transcripts
-  #
-  for my $simgw (@$simgw_tr) { 
-    print "simgw $simgw\n" ; 
-    my @sim_exons = @{ $simgw->get_all_Exons } ; 
-    for my $est (@$est_tr) { 
-      print "est $est\n" ; 
-      my @est_exons = @{ $est->get_all_Exons } ; 
-      for my $se (@sim_exons){ 
-         print "simgw-exon  $se\n" ; 
-        for my $ee (@est_exons) {
-         print "ee-exon  $ee\n" ; 
-          
-          if ($ee->overlaps($se)) { 
-            # ExonExtended
-            # $se->exon_is_overlapped($ee) ;
-           
-            # TranscriptExtended
-            $simgw->nr_exons_overlapped_by_est(1) ; 
-            print "\n\noverlaps... " ; 
-            $simgw->different_est_support($est) ; 
-            print "........ok\n" ;
-            # info of 5prim end of transcript            
-            if ( $se->is_5prim_exon ) { 
-              $simgw->has_5prim_support($est) ;
-
-              if ($simgw->seq_region_strand eq '1') { 
-                if ($simgw->seq_region_start > $est->seq_region_start) { 
-                  # est can be used for utr addtion 5prim end 
-                  if ($simgw->extend_5prim_end) { 
-                    # there was already another est which could be used -> take the longer one
-                    if ($simgw->extend_5prim_end->seq_region_start > $est->seq_region_start) { 
-                      $simgw->extend_5prim_end($est) ; 
-                    }
-                  }else { 
-                      #no other est known so init with this one 
-                      $simgw->extend_5prim_end($est) ; 
-                 }     
-                }
-              } else { # minus strand 
-              print "\n\nminus\n\n" ; 
-                if ($simgw->seq_region_start > $est->seq_region_start ) {  
-                  print "\n\ncheck1\n\n" ; 
-                  # est can be used to add UTR
-                  if ($simgw->extend_5prim_end) { 
-                    if ($simgw->extend_5prim_end->seq_region_start < $est->seq_region_start) { 
-                      $simgw->extend_5prim_end($est) ; 
-                    }
-                  }else { 
-                    print "\n\ncheck2\n\n" ; 
-                    $simgw->extend_5prim_end($est) ; 
-                    print "\n\ncheck2\n\n" ; 
-                  }
-                }
-              } 
-            } # end is 5prim exon
-                    print "\n\ncheck3\n\n" ; 
-
-            # info of 3prim end of Transcript
-            # set the est which can be used to extend transcript 3prim end UTR
-            if ( $se->is_3prim_exon ) { 
-             print "have 3prim exon : " ;
-             print_object($se) ; 
-             print_Transcript($simgw,"",0,0) ; 
-             print "\n\n\n" ; 
-              $simgw->has_3prim_support($est) ; 
-              if ($simgw->seq_region_strand eq '1') { 
-                if ($simgw->seq_region_end < $est->seq_region_end) { 
-                  if ($simgw->extend_3prim_end) { 
-                    my $before_est = $simgw->extend_3prim_end; 
-                    if ($before_est->seq_region_end < $est->seq_region_end ) { 
-                      $simgw->extend_3prim_end($est) ; 
-                    }                      
-                  } else{ 
-                  $simgw->extend_3prim_end($est) ; 
-                  }
-                }
-              }else { # minus strand
-                if( $est->seq_region_start <= $simgw->seq_region_start) {
-                  #  |estestest start |------|estestest|
-                  #               |simgw start |------|simgw|
-                  if ( $simgw->extend_3prim_end) {
-                    if ( $simgw->extend_3prim_end->seq_region_start > $est->seq_region_start) { 
-                      # re-set the extend_3prim_end if this one goes further  
-                      $simgw->extend_3prim_end($est) ; 
-                    }
-                  }else { 
-                   # no extend_3prim_end defiend till now, let's set it ! 
-                   $simgw->extend_3prim_end($est) ; 
-                  }
-                }else{
-                  # est can't be used to extend simgw  
-                }
-              # DEBUG 
-              }
-            } # end 3prim exon
-             print "\n\ncheck4\n\n" ; 
-          }
-        }       
-      }
-    } 
-  } 
-  print "processing simgws again\n" ; 
-
-  SIMGW: for my $simgw (@$simgw_tr) {  
-    print "processing simgw-gene :\n-------------------------------------------------\n" ;  
-    print_Transcript($simgw,"",0,0) ; 
-    print "\n\nSUMMARY:\n--------------------------\n" ; 
-    print "simgw_test nr exons overlapped ny est : " . $simgw->nr_exons_overlapped_by_est ."\n" ; 
-    print "nr of all simgw exons                 : " . scalar(@{$simgw->get_all_Exons}) ."\n" ;
-
-   # support from EST at 5prim end 
-    print "simgw_test has 5prim support          : " ; 
-    if ($simgw->has_5prim_support) { 
-       print "OK\n" ;   
-       print "simgw_test can extended to 5prim end  : ". $simgw->extend_5prim_end . "\n"  ;
-    } else {
-      print "---\n" ;
-    } 
-
-    print "simgw_test has 3prim support          : " ;
-    if ($simgw->has_3prim_support) {
-      print "OK\n" ; 
-      print "simgw_test can extended to 3prim end  : " . $simgw->extend_3prim_end . "\n" ; 
-    }else { 
-      print "---\n" ;
-    }    
-    # support by different est's 
-    my %tmp = %{ $simgw->different_est_support} ;
-    my $nr_of_ests_which_support_simgw = scalar( keys %{$simgw->different_est_support }) ; 
-    print "simgw_test \#nr ests supporting simgw  : $nr_of_ests_which_support_simgw \n" ; 
-    if ($nr_of_ests_which_support_simgw == 1) { 
-      print "nr of all est exons                   : " . scalar(@{$simgw->get_all_Exons}) ."\n" ;
-    }
-    print "\n\n\n\n" ; 
-
-    
-    # WORK 
-    if ( $write_alt_trans ) {  
-       print "Constructing alternative transcripts out of simgw-genes and UTR from EST\n\n" ; 
-   
-       if ($nr_of_ests_which_support_simgw == 1 ) {  
-         
-       }      
-
-  
-       # push @keep, $transcript ;   
-       
-    }
-  }
-  
+#
+#sub compare_simgw_and_est_merged {
+#  my ($simgw_tr, $est_tr , $write_alt_trans  ) = @_ ; 
+#  my (@keep, @removed, @all) ; 
+#  print scalar(@$simgw_tr) . " simgw genes\n" ; 
+#  print scalar(@$est_tr) . " EST genes\n" ; 
+#  print "\n\nEST-transcripts:\n--------------------------------\n" ; 
+#  print_Transcript($est_tr,"",0,0) ; 
+#  print "\n\nSIMGW-transcripts:\n--------------------------------\n" ; 
+#  print_Transcript($simgw_tr,"",0,0) ; 
+#  print "\n\n\n\n" ;  
+#
+#
+#  push @all, @$simgw_tr , @$est_tr ; 
+#  @all = @{ sort_transcripts_by_length ( \@all) } ; # sort tr descending their genomic extent length
+#  # 
+#  # check how supported the simgw transcripts are by the est transcripts
+#  #
+#  for my $simgw (@$simgw_tr) { 
+#    print "simgw $simgw\n" ; 
+#    my @sim_exons = @{ $simgw->get_all_Exons } ; 
+#    for my $est (@$est_tr) { 
+#      print "est $est\n" ; 
+#      my @est_exons = @{ $est->get_all_Exons } ; 
+#      for my $se (@sim_exons){ 
+#         print "simgw-exon  $se\n" ; 
+#        for my $ee (@est_exons) {
+#         print "ee-exon  $ee\n" ; 
+#          
+#          if ($ee->overlaps($se)) { 
+#            # ExonExtended
+#            # $se->exon_is_overlapped($ee) ;
+#           
+#            # TranscriptExtended
+#            $simgw->nr_exons_overlapped_by_est(1) ; 
+#            print "\n\noverlaps... " ; 
+#            $simgw->different_est_support($est) ; 
+#            print "........ok\n" ;
+#            # info of 5prim end of transcript            
+#            if ( $se->is_5prim_exon ) { 
+#              $simgw->has_5prim_support($est) ;
+#
+#              if ($simgw->seq_region_strand eq '1') { 
+#                if ($simgw->seq_region_start > $est->seq_region_start) { 
+#                  # est can be used for utr addtion 5prim end 
+#                  if ($simgw->extend_5prim_end) { 
+#                    # there was already another est which could be used -> take the longer one
+#                    if ($simgw->extend_5prim_end->seq_region_start > $est->seq_region_start) { 
+#                      $simgw->extend_5prim_end($est) ; 
+#                    }
+#                  }else { 
+#                      #no other est known so init with this one 
+#                      $simgw->extend_5prim_end($est) ; 
+#                 }     
+#                }
+#              } else { # minus strand 
+#              print "\n\nminus\n\n" ; 
+#                if ($simgw->seq_region_start > $est->seq_region_start ) {  
+#                  print "\n\ncheck1\n\n" ; 
+#                  # est can be used to add UTR
+#                  if ($simgw->extend_5prim_end) { 
+#                    if ($simgw->extend_5prim_end->seq_region_start < $est->seq_region_start) { 
+#                      $simgw->extend_5prim_end($est) ; 
+#                    }
+#                  }else { 
+#                    print "\n\ncheck2\n\n" ; 
+#                    $simgw->extend_5prim_end($est) ; 
+#                    print "\n\ncheck2\n\n" ; 
+#                  }
+#                }
+#              } 
+#            } # end is 5prim exon
+#                    print "\n\ncheck3\n\n" ; 
+#
+#            # info of 3prim end of Transcript
+#            # set the est which can be used to extend transcript 3prim end UTR
+#            if ( $se->is_3prim_exon ) { 
+#             print "have 3prim exon : " ;
+#             print_object($se) ; 
+#             print_Transcript($simgw,"",0,0) ; 
+#             print "\n\n\n" ; 
+#              $simgw->has_3prim_support($est) ; 
+#              if ($simgw->seq_region_strand eq '1') { 
+#                if ($simgw->seq_region_end < $est->seq_region_end) { 
+#                  if ($simgw->extend_3prim_end) { 
+#                    my $before_est = $simgw->extend_3prim_end; 
+#                    if ($before_est->seq_region_end < $est->seq_region_end ) { 
+#                      $simgw->extend_3prim_end($est) ; 
+#                    }                      
+#                  } else{ 
+#                  $simgw->extend_3prim_end($est) ; 
+#                  }
+#                }
+#              }else { # minus strand
+#                if( $est->seq_region_start <= $simgw->seq_region_start) {
+#                  #  |estestest start |------|estestest|
+#                  #               |simgw start |------|simgw|
+#                  if ( $simgw->extend_3prim_end) {
+#                    if ( $simgw->extend_3prim_end->seq_region_start > $est->seq_region_start) { 
+#                      # re-set the extend_3prim_end if this one goes further  
+#                      $simgw->extend_3prim_end($est) ; 
+#                    }
+#                  }else { 
+#                   # no extend_3prim_end defiend till now, let's set it ! 
+#                   $simgw->extend_3prim_end($est) ; 
+#                  }
+#                }else{
+#                  # est can't be used to extend simgw  
+#                }
+#              # DEBUG 
+#              }
+#            } # end 3prim exon
+#             print "\n\ncheck4\n\n" ; 
+#          }
+#        }       
+#      }
+#    } 
+#  } 
+#  print "processing simgws again\n" ; 
+#
+#  SIMGW: for my $simgw (@$simgw_tr) {  
+#    print "processing simgw-gene :\n-------------------------------------------------\n" ;  
+#    print_Transcript($simgw,"",0,0) ; 
+#    print "\n\nSUMMARY:\n--------------------------\n" ; 
+#    print "simgw_test nr exons overlapped ny est : " . $simgw->nr_exons_overlapped_by_est ."\n" ; 
+#    print "nr of all simgw exons                 : " . scalar(@{$simgw->get_all_Exons}) ."\n" ;
+#
+#   # support from EST at 5prim end 
+#    print "simgw_test has 5prim support          : " ; 
+#    if ($simgw->has_5prim_support) { 
+#       print "OK\n" ;   
+#       print "simgw_test can extended to 5prim end  : ". $simgw->extend_5prim_end . "\n"  ;
+#    } else {
+#      print "---\n" ;
+#    } 
+#
+#    print "simgw_test has 3prim support          : " ;
+#    if ($simgw->has_3prim_support) {
+#      print "OK\n" ; 
+#      print "simgw_test can extended to 3prim end  : " . $simgw->extend_3prim_end . "\n" ; 
+#    }else { 
+#      print "---\n" ;
+#    }    
+#    # support by different est's 
+#    my %tmp = %{ $simgw->different_est_support} ;
+#    my $nr_of_ests_which_support_simgw = scalar( keys %{$simgw->different_est_support }) ; 
+#    print "simgw_test \#nr ests supporting simgw  : $nr_of_ests_which_support_simgw \n" ; 
+#    if ($nr_of_ests_which_support_simgw == 1) { 
+#      print "nr of all est exons                   : " . scalar(@{$simgw->get_all_Exons}) ."\n" ;
+#    }
+#    print "\n\n\n\n" ; 
+#
+#    
+#    # WORK 
+#    if ( $write_alt_trans ) {  
+#       print "Constructing alternative transcripts out of simgw-genes and UTR from EST\n\n" ; 
+#   
+#       if ($nr_of_ests_which_support_simgw == 1 ) {  
+#         
+#       }      
+#
+#  
+#       # push @keep, $transcript ;   
+#       
+#    }
+#  }
+#  
 
 
 
@@ -612,7 +613,7 @@ sub compare_simgw_and_est_merged {
   
   # testing if there is more than one est overlapping the SimGW 
   
-  my %simgw_transcripts ;
+#  my %simgw_transcripts ;
 
  
 #  # testing simgw-transcripts against est-transcripts
@@ -631,50 +632,27 @@ sub compare_simgw_and_est_merged {
 #    }
 #  }
 #
-  return [\@keep, \@removed ] ;  
-}
+#  return [\@keep, \@removed ] ;  
+#}
 
 
 
-
-sub sort_transcripts_by_length { 
-  my ($t) = @_ ; 
-  my @result = @$t ; 
-
-  if ($result[0]->seq_region_strand eq '1' ) { 
-
-  @result = sort { ($b->seq_region_end - $b->seq_region_start) 
-                   <=> ( $a->seq_region_end - $a->seq_region_start ) } @result ;  
-  } else { 
-  @result = sort { ($a->seq_region_start - $a->seq_region_end) 
-                   <=> ( $b->seq_region_start- $b->seq_region_end ) } @result ;  
-  }
- return \@result ; 
-}
-
-sub check_if_lg_spans_st { 
-  my ($lg, $st ) = @_ ; 
-  #
-  # check if long transcripts overlaps short transcript 
-  # by looking at it's genomic extend
-  # 
-  if ($lg->seq_region_start <= $st->seq_region_start 
-  && $lg->seq_region_end >= $st->seq_region_end
-  && $lg->seq_region_strand == $st->seq_region_strand 
-  && (@{$lg->get_all_Exons} >= @{$st->get_all_Exons } )
-  && $lg ne $st  ) {   
-     return 1 ;  
-  }
-  if ($st->seq_region_start <= $lg->seq_region_start 
-  && $st->seq_region_end >= $lg->seq_region_end
-  && $st->seq_region_strand == $lg->seq_region_strand 
-  && (@{$st->get_all_Exons} >= @{$lg->get_all_Exons } )
-  && $lg ne $st  ) {   
-     return 1 ;  
-  }
-  return 0 ; 
-} 
-
+#
+#sub sort_transcripts_by_length { 
+#  my ($t) = @_ ; 
+#  my @result = @$t ; 
+#
+#  if ($result[0]->seq_region_strand eq '1' ) { 
+#
+#  @result = sort { ($b->seq_region_end - $b->seq_region_start) 
+#                   <=> ( $a->seq_region_end - $a->seq_region_start ) } @result ;  
+#  } else { 
+#  @result = sort { ($a->seq_region_start - $a->seq_region_end) 
+#                   <=> ( $b->seq_region_start- $b->seq_region_end ) } @result ;  
+#  }
+# return \@result ; 
+#}
+#
 
 
 
@@ -725,15 +703,13 @@ sub remove_overlapping_transcripts {
       my $st = $ltr[$j] ; 
       if  ($lg ne $st) { 
         # check genomic extent , nr_of_exons and if $lg eq st 
-        if ( check_if_lg_spans_st ($lg,$st) ) {  
+        if ( _check_if_lg_spans_st ($lg,$st) ) {  
           if ( check_if_all_exons_are_overlapped ($lg,$st) ) { 
-            # transcript is incorprated in other transcript all exons have been checked 
-            #print "\nTranscript_will be removed : " ; print_object($st) ;  print "\n\n" ; 
-            push @remove_tr, $st ; 
-          }
-        } else { 
-#         print "lg does not span st\n" ;   
-        }
+             # transcript is incorprated in other transcript all exons have been checked 
+             # print "\nTranscript_will be removed : " ; print_object($st) ;  print "\n\n" ; 
+             push @remove_tr, $st ; 
+           }
+        } # else : lg does not span st
       } 
     }
   }
@@ -767,7 +743,7 @@ sub remove_overlapping_transcripts {
 #  for (@remove_tr) { 
 #   print_Transcript($_) ; 
 #  }
-#
+
 #  print "xxx  these tr will be NOT removed\n===========================================\n" ; 
 #  for (@diff) { 
 #   print_Transcript($_) ; 
@@ -775,148 +751,6 @@ sub remove_overlapping_transcripts {
 #
   return (\@diff, \@remove_tr) ;
 }
-
-
-
-# work 
-sub check_if_all_exons_are_overlapped {
-  my ($lg,$st) = @_ ; 
-
-  # check if each exon of $lg has a counterpart in $st  
-  my $test_ex_ok = 0 ;
-  my %mark_exon ; 
-  my %overlapped_test_exons  ;  
-  my $nr_same_exons_conserved = 0 ; 
-  my $exon_3prim_mismatch = 0 ; 
-  my $exon_5prim_mismatch = 0   ; 
-
-  for my $lge (@{$lg->get_all_Exons }) { 
-    for my $ste (@{$st->get_all_Exons }) { 
-       #print "testing (1)" ; print_object($lge) ;
-       #print "   vs.  (2)" ; print_object($ste) ;
-     
-      if ( $lge->seq_region_start <= $ste->seq_region_start
-      && $lge->seq_region_end >= $ste->seq_region_end
-      && $lge->seq_region_strand eq $ste->seq_region_strand )
-      {
-        #
-        # THIS EXON $ste is completely overlapped 
-        # |xxxxx|   OR |xxxxxxxx| OR |xxxxxxxxx| OR |xxxxxx|
-        # |xxxxx|      |xxxxx|         |xxxx|         |xxxx|
-        #
-         #print "long_exon (1)--> overlaps test_exon(2)\n" ;
-         #print "(1)" ; print_object($lge) ;
-         #print "(2)" ; print_object($ste) ;
-        $nr_same_exons_conserved++ ; 
-        $test_ex_ok++ ;
-        $mark_exon{$lge->hashkey} = $lge ; 
-        $overlapped_test_exons{$ste->hashkey} = $ste ;  
-
-      } else {
-        # no exact match 
-        ##print "no exact match between exons\n" ; 
-        # exon is a termial exon of ST 
-        
-        # watch out - here we compare each time the terimal exon of ste against all exons of $lge 
-        # so we have to make sure that we have somehow an overlap or a distance between the 
-        # exons compared !!!!!!! 
-        #
-        # perhaps we should just check if ste and lge overlap in their genomic extend than 
-        # using an offset of 50 bp for this ! 
-        #
-        #
-        my $start_diff = abs( $ste->seq_region_start - $lge->seq_region_start ) ; 
-        my $end_diff = abs( $ste->seq_region_end - $lge->seq_region_end ) ; 
-       
-        # this is an extra rule for terminal exons  
-        if ($ste->is_terminal_exon) {
-           #print "exon is terminal : " ;  
-          if ($start_diff < 25 && $end_diff < 25 ) { 
-           #   print "start_end_diff smaller 50\n" ; 
-            #
-            # exon is 'in range 'of 50 bp to lge 
-            # check how conserved the exon is   
-            #
-            my $exon_conservation = $ste->get_percentage_exon_conversation_in_exon_cluster() ;
-           # print "checking percentage conservation exon_conservation: $exon_conservation \n\n" ; 
-
-            # if ( $exon_conservation <  0.1 && $exon_conservation != 0  )    
-            if ( $exon_conservation <  0.1 ) { 
-              $mark_exon{$lge->hashkey} = $lge ; 
-              $overlapped_test_exons{$ste}=$ste ; 
-              $test_ex_ok++ ; 
-           #    print "test_ex_ok $test_ex_ok\n" ; 
-            }else{
-           #    print " percentage consersation too high or zero$exon_conservation\n" ; 
-            }
-          }
-        } else {
-          #
-          # Exon is not terminal / if there is a boundary mismatch in 
-          # an internal exon 
-          #
-          my $conservation = $ste->get_percentage_exon_conversation_in_exon_cluster() ;
-          if ($conservation < 0.1) { 
-          #  print "not really conserved boundary\n" ; 
-          }    
-        }
-  
-        # new rule to remove transcripts which match all exons except the terminal one's 
-        $start_diff = abs( $ste->seq_region_start - $lge->seq_region_start ) ; 
-        $end_diff = abs( $ste->seq_region_end - $lge->seq_region_end ) ; 
-        
-        if ($ste->is_5prim_exon  ) { 
-          # print "exon_is_5prim_exon\n" ; 
-          # print_object($ste) ; 
-           $exon_5prim_mismatch = 1 ; #if ( $start_diff < 50 || $end_diff < 50 ) ; 
-        } 
-        if ($ste->is_3prim_exon) { 
-           $exon_3prim_mismatch = 1 ; #if ( $start_diff < 50 || $end_diff < 50 ) ; 
-        } 
-      } 
-    }
-  }
-#  print "\n\n" ; 
-#  print "all_exons_tested : test_ex_ok $test_ex_ok \n" ; 
-#  print "all_exons_tested : exon_3prim_mismatch  $exon_3prim_mismatch  \n" ; 
-#  print "all_exons_tested : exon_5prim_mismatch  $exon_5prim_mismatch  \n" ; 
-#  print "all_exons_tested : nr_same_exons_conserved $nr_same_exons_conserved  \n" ; 
-#
-if ($test_ex_ok == scalar(@{ $st->get_all_Exons } ) ) {   
-    # print "all exons of test-gene are overlapped by anotherone \n" ; 
-    #
-    # all exons of $st are overlapped by $lg 
-    # now check for exon-skipping 
-    # xxxxxxxxxxxxx-------------xxxxxxxxxxxxxxxx------------xxxxxxxxxxxxxxx
-    # xxxxxxxxxxxxx-----------------------------------------xxxxxxxxxxxxxxx
-    #
-    for my $lge (@{$lg->get_all_Exons }) { 
-      unless (exists $mark_exon{$lge->hashkey}) {  
-        # if there are exons which are on the long one but not in the short one 
-        
-        # now check if mark-exon is outside of boundaries of st-transcript
-        if  ($st->seq_region_start <= $lge->seq_region_end 
-        && $st->seq_region_end >=$lge->seq_region_end ) { 
-          # overlap of skipped exon and transcript 
-          # print "checkxxx not removed  " ; print_object($st) ; 
-          return 0  ;
-        }else {
-         # the skipped exon is outside of the short transcript 
-        }   
-      }
-    }  
-    return 1 ; # remove tr 
-  } elsif (  (scalar(@{ $st->get_all_Exons } )  - $nr_same_exons_conserved) < 2 ) { 
-    if ($exon_3prim_mismatch || $exon_5prim_mismatch) {
-      #print "removing_tr\n" ; 
-      #print_Transcript($st) ; 
-      return 1 ;  # remove tr 
-    }
-  }
-  # print "not all exons are ok\n" ; 
-  return 0 ;   #  dont remove transcript / not all exons are overlapped 
-} 
-
 
 
 
@@ -1247,12 +1081,12 @@ sub edit_terminal_exons {
     # process 5prim terminal exon 
     my $ex_5prim = $exons[0];
 
-    my $longest_exon_5 = $self->get_longest_5prim_term_exon_in_exon_cluster_of_this_exon($ex_5prim) ; 
+    my $longest_exon_5 = get_longest_5prim_term_exon_in_exon_cluster_of_this_exon($ex_5prim) ; 
     
     $t = $t->exchange_exon($ex_5prim, $longest_exon_5) ; 
      
     my $ex_3prim = $exons[$#exons]; 
-    my $longest_exon_3 = $self->get_longest_3prim_term_exon_in_exon_cluster_of_this_exon($ex_3prim) ; 
+    my $longest_exon_3 = get_longest_3prim_term_exon_in_exon_cluster_of_this_exon($ex_3prim) ; 
     $t = $t->exchange_exon($ex_3prim, $longest_exon_3) ; 
 
   }
@@ -1262,82 +1096,6 @@ sub edit_terminal_exons {
 }
 
 
-sub get_longest_5prim_term_exon_in_exon_cluster_of_this_exon { 
-  my ($self, $small_exon ) = @_ ; 
-  my $ec = $small_exon->cluster; 
-
-  my @all_exons_in_clust = @{ $ec->get_all_Exons_in_ExonCluster } ; 
-  my $longest_term_exon_in_clust = $small_exon  ; 
-
-  for my $exon (@all_exons_in_clust) {
-
-    if (!$exon->prev_exon && !$exon->next_exon) {
-      warning("Skipping this exon because this is a single exon\n") ; 
-      next ; 
-    }
-
-    if (!$exon->prev_exon && ($exon->length>$longest_term_exon_in_clust->length) ) { 
-
-      if ($exon->seq_region_strand eq "1" ) { 
-        if ($exon->seq_region_end == $small_exon->seq_region_end) {
-
-          # we only want to include the most 5prim exon, no overlapping exons 
-          # (extending b with a is ok but not with c) 
-          #      aaaaaaaaa---aaa-------xxxxxxxx
-          #           bbbb---bbb-------xxxxxxxx
-          # cccccccccccccccccccc--------xxxxxxx
-
-          $longest_term_exon_in_clust = $exon ;
-        } 
-
-      }elsif ($exon->seq_region_strand eq "-1") {
-        if ($exon->seq_region_start == $small_exon->seq_region_start ) {
-          $longest_term_exon_in_clust = $exon ;
-        }
-      }else {
-#        $self->print_exon($exon) ; 
-        throw("exon has no seq_region_strand assigned. exiting\n" ) ; 
-      }
-    }
-  }
-  return $longest_term_exon_in_clust ; 
-}
-
-
-
-sub get_longest_3prim_term_exon_in_exon_cluster_of_this_exon { 
-  my ($self, $small_exon ) = @_ ; 
-  my $ec = $small_exon->cluster; 
-
-  my @all_exons_in_clust = @{ $ec->get_all_Exons_in_ExonCluster } ; 
- 
-  my $longest_term_exon_in_clust = $small_exon  ; 
-
-  for my $exon (@all_exons_in_clust) {
-
-    if (!$exon->prev_exon && !$exon->next_exon) {
-      warning("Skipping this exon because this is a single exon\n") ; 
-      next ; 
-    }
-
-    if (!$exon->next_exon && ($exon->length>$longest_term_exon_in_clust->length) ) { 
-
-      if ($exon->seq_region_strand eq "1" ) { 
-        if ($exon->seq_region_start == $small_exon->seq_region_start) {
-          $longest_term_exon_in_clust = $exon ;
-        } 
-      }elsif ($exon->seq_region_strand eq "-1") {
-        if ($exon->seq_region_end == $small_exon->seq_region_end ) {
-          $longest_term_exon_in_clust = $exon ;
-        }
-      }else {
-#        $self->print_exon($exon) ; 
-        throw("exon has no seq_region_strand assigned. exiting\n" ) ; 
-      }
-    }
-  }
-  return $longest_term_exon_in_clust ; 
-}
 
 
 sub main_clustering_and_recursion {
@@ -1497,7 +1255,7 @@ sub transcript_recursion {
     @start_exons = @tmp ; 
   }
  
-  if ( all_exons_visited ( $ex_clusters_real_ev) ) { 
+  if ( _all_exons_visited ( $ex_clusters_real_ev) ) { 
     print "\nall_exons_visited_returning_from_transcript_recursion\n" if $self->{v};  
     return ; 
   } 
@@ -1745,8 +1503,6 @@ sub exon_recursion {
 
 
 
-
-
 sub new_tr {
   my ($old_tr) = @_ ;
   my $new_tr = new Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended(
@@ -1842,8 +1598,176 @@ sub get_biotypes_of_evidence_set {
 
 
 
+sub _check_if_lg_spans_st { 
+  my ($lg, $st ) = @_ ; 
+  
+  # check if long transcripts overlaps short transcript 
+  # by looking at it's genomic extend
  
-sub all_exons_visited {
+  if ($lg->seq_region_start <= $st->seq_region_start 
+     && $lg->seq_region_end >= $st->seq_region_end
+     && $lg->seq_region_strand == $st->seq_region_strand 
+     && (@{$lg->get_all_Exons} >= @{$st->get_all_Exons } )
+     && $lg ne $st  ) {   
+     return 1 ;  
+  }
+  if ($st->seq_region_start <= $lg->seq_region_start 
+    && $st->seq_region_end >= $lg->seq_region_end
+    && $st->seq_region_strand == $lg->seq_region_strand 
+    && (@{$st->get_all_Exons} >= @{$lg->get_all_Exons } )
+    && $lg ne $st  ) {   
+    return 1 ;  
+  }
+  return 0 ; 
+} 
+
+
+
+# work 
+sub check_if_all_exons_are_overlapped {
+  my ($lg,$st) = @_ ; 
+
+  # check if each exon of $lg has a counterpart in $st  
+  my $test_ex_ok = 0 ;
+  my %mark_exon ; 
+  my %overlapped_test_exons  ;  
+  my $nr_same_exons_conserved = 0 ; 
+  my $exon_3prim_mismatch = 0 ; 
+  my $exon_5prim_mismatch = 0   ; 
+
+  for my $lge (@{$lg->get_all_Exons }) { 
+    for my $ste (@{$st->get_all_Exons }) { 
+       #print "testing (1)" ; print_object($lge) ;
+       #print "   vs.  (2)" ; print_object($ste) ;
+     
+      if ( $lge->seq_region_start <= $ste->seq_region_start
+      && $lge->seq_region_end >= $ste->seq_region_end
+      && $lge->seq_region_strand eq $ste->seq_region_strand )
+      {
+        #
+        # THIS EXON $ste is completely overlapped 
+        # |xxxxx|   OR |xxxxxxxx| OR |xxxxxxxxx| OR |xxxxxx|
+        # |xxxxx|      |xxxxx|         |xxxx|         |xxxx|
+        #
+         #print "long_exon (1)--> overlaps test_exon(2)\n" ;
+         #print "(1)" ; print_object($lge) ;
+         #print "(2)" ; print_object($ste) ;
+        $nr_same_exons_conserved++ ; 
+        $test_ex_ok++ ;
+        $mark_exon{$lge->hashkey} = $lge ; 
+        $overlapped_test_exons{$ste->hashkey} = $ste ;  
+
+      } else {
+        # no exact match 
+        ##print "no exact match between exons\n" ; 
+        # exon is a termial exon of ST 
+        
+        # watch out - here we compare each time the terimal exon of ste against all exons of $lge 
+        # so we have to make sure that we have somehow an overlap or a distance between the 
+        # exons compared !!!!!!! 
+        #
+        # perhaps we should just check if ste and lge overlap in their genomic extend than 
+        # using an offset of 50 bp for this ! 
+        #
+        #
+        my $start_diff = abs( $ste->seq_region_start - $lge->seq_region_start ) ; 
+        my $end_diff = abs( $ste->seq_region_end - $lge->seq_region_end ) ; 
+       
+        # this is an extra rule for terminal exons  
+        if ($ste->is_terminal_exon) {
+           #print "exon is terminal : " ;  
+          if ($start_diff < 25 && $end_diff < 25 ) { 
+           #   print "start_end_diff smaller 50\n" ; 
+            #
+            # exon is 'in range 'of 50 bp to lge 
+            # check how conserved the exon is   
+            #
+            my $exon_conservation = $ste->get_percentage_exon_conversation_in_exon_cluster() ;
+           # print "checking percentage conservation exon_conservation: $exon_conservation \n\n" ; 
+
+            # if ( $exon_conservation <  0.1 && $exon_conservation != 0  )    
+            if ( $exon_conservation <  0.1 ) { 
+              $mark_exon{$lge->hashkey} = $lge ; 
+              $overlapped_test_exons{$ste}=$ste ; 
+              $test_ex_ok++ ; 
+           #    print "test_ex_ok $test_ex_ok\n" ; 
+            }else{
+           #    print " percentage consersation too high or zero$exon_conservation\n" ; 
+            }
+          }
+        } else {
+          #
+          # Exon is not terminal / if there is a boundary mismatch in 
+          # an internal exon 
+          #
+          my $conservation = $ste->get_percentage_exon_conversation_in_exon_cluster() ;
+          if ($conservation < 0.1) { 
+          #  print "not really conserved boundary\n" ; 
+          }    
+        }
+  
+        # new rule to remove transcripts which match all exons except the terminal one's 
+        $start_diff = abs( $ste->seq_region_start - $lge->seq_region_start ) ; 
+        $end_diff = abs( $ste->seq_region_end - $lge->seq_region_end ) ; 
+        
+        if ($ste->is_5prim_exon  ) { 
+          # print "exon_is_5prim_exon\n" ; 
+          # print_object($ste) ; 
+           $exon_5prim_mismatch = 1 ; #if ( $start_diff < 50 || $end_diff < 50 ) ; 
+        } 
+        if ($ste->is_3prim_exon) { 
+           $exon_3prim_mismatch = 1 ; #if ( $start_diff < 50 || $end_diff < 50 ) ; 
+        } 
+      } 
+    }
+  }
+#  print "\n\n" ; 
+#  print "all_exons_tested : test_ex_ok $test_ex_ok \n" ; 
+#  print "all_exons_tested : exon_3prim_mismatch  $exon_3prim_mismatch  \n" ; 
+#  print "all_exons_tested : exon_5prim_mismatch  $exon_5prim_mismatch  \n" ; 
+#  print "all_exons_tested : nr_same_exons_conserved $nr_same_exons_conserved  \n" ; 
+#
+if ($test_ex_ok == scalar(@{ $st->get_all_Exons } ) ) {   
+    # print "all exons of test-gene are overlapped by anotherone \n" ; 
+    #
+    # all exons of $st are overlapped by $lg 
+    # now check for exon-skipping 
+    # xxxxxxxxxxxxx-------------xxxxxxxxxxxxxxxx------------xxxxxxxxxxxxxxx
+    # xxxxxxxxxxxxx-----------------------------------------xxxxxxxxxxxxxxx
+    #
+    for my $lge (@{$lg->get_all_Exons }) { 
+      unless (exists $mark_exon{$lge->hashkey}) {  
+        # if there are exons which are on the long one but not in the short one 
+        
+        # now check if mark-exon is outside of boundaries of st-transcript
+        if  ($st->seq_region_start <= $lge->seq_region_end 
+        && $st->seq_region_end >=$lge->seq_region_end ) { 
+          # overlap of skipped exon and transcript 
+          # print "checkxxx not removed  " ; print_object($st) ; 
+          return 0  ;
+        }else {
+         # the skipped exon is outside of the short transcript 
+        }   
+      }
+    }  
+    return 1 ; # remove tr 
+  } elsif (  (scalar(@{ $st->get_all_Exons } )  - $nr_same_exons_conserved) < 2 ) { 
+    if ($exon_3prim_mismatch || $exon_5prim_mismatch) {
+      #print "removing_tr\n" ; 
+      #print_Transcript($st) ; 
+      return 1 ;  # remove tr 
+    }
+  }
+  # print "not all exons are ok\n" ; 
+  return 0 ;   #  dont remove transcript / not all exons are overlapped 
+} 
+
+
+
+
+
+ 
+sub _all_exons_visited {
   my ( $exon_cluster_aref) = @_ ;
 
   for my $ec (@$exon_cluster_aref) {
@@ -2020,6 +1944,77 @@ sub print_exon {
     }
 }
 
+
+
+sub get_longest_5prim_term_exon_in_exon_cluster_of_this_exon { 
+  my ($small_exon ) = @_ ; 
+  my $ec = $small_exon->cluster; 
+
+  my @all_exons_in_clust = @{ $ec->get_all_Exons_in_ExonCluster } ; 
+  my $longest_term_exon_in_clust = $small_exon  ; 
+
+  for my $exon (@all_exons_in_clust) {
+    if (!$exon->prev_exon && !$exon->next_exon) {
+      warning("Skipping this exon because this is a single exon\n") ; 
+      next ; 
+    }
+    if (!$exon->prev_exon && ($exon->length>$longest_term_exon_in_clust->length) ) { 
+      if ($exon->seq_region_strand eq "1" ) { 
+        if ($exon->seq_region_end == $small_exon->seq_region_end) {
+
+          # we only want to include the most 5prim exon, no overlapping exons 
+          # (extending b with a is ok but not with c) 
+          #      aaaaaaaaa---aaa-------xxxxxxxx
+          #           bbbb---bbb-------xxxxxxxx
+          # cccccccccccccccccccc--------xxxxxxx
+
+          $longest_term_exon_in_clust = $exon ;
+        } 
+
+      }elsif ($exon->seq_region_strand eq "-1") {
+        if ($exon->seq_region_start == $small_exon->seq_region_start ) {
+          $longest_term_exon_in_clust = $exon ;
+        }
+      }else {
+        throw("exon has no seq_region_strand assigned. exiting\n" ) ; 
+      }
+    }
+  }
+  return $longest_term_exon_in_clust ; 
+}
+
+
+
+sub get_longest_3prim_term_exon_in_exon_cluster_of_this_exon { 
+  my ($small_exon ) = @_ ; 
+  my $ec = $small_exon->cluster; 
+
+  my @all_exons_in_clust = @{ $ec->get_all_Exons_in_ExonCluster } ; 
+ 
+  my $longest_term_exon_in_clust = $small_exon  ; 
+
+  for my $exon (@all_exons_in_clust) {
+
+    if (!$exon->prev_exon && !$exon->next_exon) {
+      warning("Skipping this exon because this is a single exon\n") ; 
+      next ; 
+    }
+    if (!$exon->next_exon && ($exon->length>$longest_term_exon_in_clust->length) ) { 
+      if ($exon->seq_region_strand eq "1" ) { 
+        if ($exon->seq_region_start == $small_exon->seq_region_start) {
+          $longest_term_exon_in_clust = $exon ;
+        } 
+      }elsif ($exon->seq_region_strand eq "-1") {
+        if ($exon->seq_region_end == $small_exon->seq_region_end ) {
+          $longest_term_exon_in_clust = $exon ;
+        }
+      }else {
+        throw("exon has no seq_region_strand assigned. exiting\n" ) ; 
+      }
+    }
+  }
+  return $longest_term_exon_in_clust ; 
+}
 
 
 
