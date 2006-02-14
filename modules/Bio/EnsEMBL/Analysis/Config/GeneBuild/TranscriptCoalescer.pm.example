@@ -61,7 +61,7 @@ use vars qw(%Config);
 %Config= 
  (
 
-  NEW_BIO => 'Coalescer',  # Biotype of genes which will be written to COALESCER_DB
+  NEW_BIOTYPE => 'Coalescer',  # Biotype of genes which will be written to COALESCER_DB
 
 
   # The runnable includes a filtering proceudure which removes partial transcripts 
@@ -78,6 +78,7 @@ use vars qw(%Config);
   # THIS IS CURRENTLY NOT IMPLEMENTD 
   ADJUDICATE_SIMGW_EST => '0',  
   
+  MIN_TRANSLATION_LENGTH => 50,   
 
   VERBOSE => 0 , 
 
