@@ -41,8 +41,9 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
 
-#use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(convert_to_genes) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (return_translation) ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (print_Transcript) ; 
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended; 
@@ -104,7 +105,7 @@ sub new {
   
   $self->{all_genes_href} = $all_genes ;      # hashref $hash{'biotype'} = \@genes 
   $self->{v} = $VERBOSE ; # verbose or not 
-  $self->{v} = 0; 
+  $self->{v} = 1; 
   return $self ; 
 }
 
@@ -158,7 +159,7 @@ sub run {
     if ( $tr ) {
       if ($self->{v}){  
         print "Stage 1: Number Genes resulting out of pure est-merging           : ".scalar(@$tr)."\n"; 
-        print_transcripts_and_exons ($tr) ; 
+        print_Transcript ($tr,"",0,0) ; 
       }
       # remove red. trans, edit terminal exons and remove redundant trans again 
       my @non_red_trans = 
@@ -185,7 +186,7 @@ sub run {
       push @all_merged_est_transcripts ,   @$non_overlapping_trans  ;
       
       #print "non-overlapping transcripts which have been made by est-merging :\n" ; 
-      #print_transcripts_and_exons($non_overlapping_trans) ; 
+      #print_Transcript($non_overlapping_trans) ; 
     }
   } # GENE_CLUSTER 
 
@@ -200,7 +201,7 @@ sub run {
   if ($VERBOSE) { 
     print "after the first round\n" ; 
     print "="x80 ; print "\n" ; 
-    print_transcripts_and_exons(\@all_merged_est_transcripts) ; 
+    print_Transcript(\@all_merged_est_transcripts,"",0,0) ; 
   }
   
   # 
@@ -209,7 +210,7 @@ sub run {
   #
 
   my @new_gene_set ; 
-  push @new_gene_set , @{$self->convert_to_genes( \@all_merged_est_transcripts ) } ; 
+  push @new_gene_set , @{convert_to_genes( \@all_merged_est_transcripts, $self->analysis ) } ; 
   push @new_gene_set , @{ $self->get_genes_by_evidence_set('abinitio') }  ;
   push @new_gene_set , @{ $self->get_genes_by_evidence_set('simgw') }  ; 
   
@@ -253,7 +254,7 @@ sub run {
 
         $self->{merged_tr}=[] ;   # reset counter
         #print "gene_comes_from_merging\n" ;   
-        #print_transcripts_and_exons(\@cloned_tr) ; 
+        #print_Transcript(\@cloned_tr) ; 
 
         # remove redundant genes which result out of abintio/simgw merged transcripts 
         @cloned_tr = @{ remove_redundant_transcripts( \@cloned_tr ) }  ; 
@@ -362,7 +363,7 @@ sub run {
 
 
   print "Having " . scalar( @all_merged_est_transcripts ) . " genes so far for this slice \n\n" ; 
-  print_transcripts_and_exons(\@all_merged_est_transcripts) if $self->{v}; 
+  print_Transcript(\@all_merged_est_transcripts,"",0,0) if $self->{v}; 
 
   # 
   # adding translations to transcripts 
@@ -370,7 +371,7 @@ sub run {
   my @trans_with_tl = @{$self->add_translation_and_trans_supp_features_to_transcripts(
        \@all_merged_est_transcripts,$self->{min_translation_length}) } ; 
  
-  $self->output ( $self->convert_to_genes ( \@trans_with_tl  )) ;   
+  $self->output ( convert_to_genes ( \@trans_with_tl, $self->analysis)  ) ;   
   return ; 
 }
 
@@ -401,7 +402,7 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
         my $ratio = ( (3*$tl_length) / $tr_length)*100 ;  
 
 #        print "=========================\n" ;  
-#        print_transcripts_and_exons($tr) ;  
+#        print_Transcript($tr) ;  
 #        print "start_ex_TL: " ; 
 #        print_object (  $tl->start_Exon) ;
 #        print "  end_ex_TL: " ; 
@@ -413,7 +414,9 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
          }else { 
            print "Translation is shorter than $MIN_TRANSLATION_LENGTH % of transcript length ($ratio) - transcript will not be used\n"  ; #if $self->{v} ;
            if ($WRITE_FILTERED_TRANSCRIPTS) {  
+             #work 
              $tr->biotype() ; 
+           }
          }
      }
    return \@trans_with_tl ;  
@@ -427,9 +430,9 @@ sub compare_simgw_and_est_merged {
   print scalar(@$simgw_tr) . " simgw genes\n" ; 
   print scalar(@$est_tr) . " EST genes\n" ; 
   print "\n\nEST-transcripts:\n--------------------------------\n" ; 
-  print_transcripts_and_exons($est_tr) ; 
+  print_Transcript($est_tr,"",0,0) ; 
   print "\n\nSIMGW-transcripts:\n--------------------------------\n" ; 
-  print_transcripts_and_exons($simgw_tr) ; 
+  print_Transcript($simgw_tr,"",0,0) ; 
   print "\n\n\n\n" ;  
 
 
@@ -499,7 +502,7 @@ sub compare_simgw_and_est_merged {
             if ( $se->is_3prim_exon ) { 
              print "have 3prim exon : " ;
              print_object($se) ; 
-             print_transcripts_and_exons($simgw) ; 
+             print_Transcript($simgw,"",0,0) ; 
              print "\n\n\n" ; 
               $simgw->has_3prim_support($est) ; 
               if ($simgw->seq_region_strand eq '1') { 
@@ -542,7 +545,7 @@ sub compare_simgw_and_est_merged {
 
   SIMGW: for my $simgw (@$simgw_tr) {  
     print "processing simgw-gene :\n-------------------------------------------------\n" ;  
-    print_transcripts_and_exons($simgw) ; 
+    print_Transcript($simgw,"",0,0) ; 
     print "\n\nSUMMARY:\n--------------------------\n" ; 
     print "simgw_test nr exons overlapped ny est : " . $simgw->nr_exons_overlapped_by_est ."\n" ; 
     print "nr of all simgw exons                 : " . scalar(@{$simgw->get_all_Exons}) ."\n" ;
@@ -730,8 +733,8 @@ sub remove_overlapping_transcripts {
 #          print_object($st) ;  
 #          print "#"x80; print "\n\n" ; 
 #
-#          print "\n lg\n" ; print_transcripts_and_exons($lg) ;      
-#          print "\n st\n" ; print_transcripts_and_exons($st) ;      
+#          print "\n lg\n" ; print_Transcript($lg) ;      
+#          print "\n st\n" ; print_Transcript($st) ;      
 #          print "\n\n" ; 
 #
           if ( check_if_all_exons_are_overlapped ($lg,$st) ) { 
@@ -774,12 +777,12 @@ sub remove_overlapping_transcripts {
   }
 #  print "xxx  these tr will be removed\n===========================================\n" ; 
 #  for (@remove_tr) { 
-#   print_transcripts_and_exons($_) ; 
+#   print_Transcript($_) ; 
 #  }
 #
 #  print "xxx  these tr will be NOT removed\n===========================================\n" ; 
 #  for (@diff) { 
-#   print_transcripts_and_exons($_) ; 
+#   print_Transcript($_) ; 
 #  }
 #
   return (\@diff, \@remove_tr) ;
@@ -918,7 +921,7 @@ if ($test_ex_ok == scalar(@{ $st->get_all_Exons } ) ) {
   } elsif (  (scalar(@{ $st->get_all_Exons } )  - $nr_same_exons_conserved) < 2 ) { 
     if ($exon_3prim_mismatch || $exon_5prim_mismatch) {
       #print "removing_tr\n" ; 
-      #print_transcripts_and_exons($st) ; 
+      #print_Transcript($st) ; 
       return 1 ;  # remove tr 
     }
   }
@@ -1272,7 +1275,7 @@ sub merge_transcripts {
   }
   
   #print "\n\nThis_is_merged_trans :\n" ; 
-  #print_transcripts_and_exons([$tr_merged],"tr_merged") ; 
+  #print_Transcript([$tr_merged],"tr_merged") ; 
 
   return $tr_merged ; 
 }
@@ -1299,7 +1302,7 @@ sub edit_terminal_exons {
 
   }
 
-  print_transcripts_and_exons($aref) if $self->{v} ; 
+  print_Transcript($aref,"",0,0) if $self->{v} ; 
   return $aref ; 
 }
 
@@ -1527,8 +1530,10 @@ sub start_est_linking {
     push @all_assembled_tr, $t if $t;  
     print "exon_recursion finished" if $self->{v} ; 
   }
-
-  print_transcripts_and_exons(\@all_assembled_tr,"After exon_recursion") if $self->{v}; 
+  if ($self->{v}){ 
+    print "After exon_recursion:\n" ; 
+    print_Transcript(\@all_assembled_tr,"",0,0 ) ; 
+  }
   return \@all_assembled_tr ;  
 }
 
@@ -1589,7 +1594,7 @@ sub transcript_recursion {
 
     my $trans_aref = $self->start_est_linking(\@start_exons , $ex_clusters_real_ev  )  ;  
 
-    print_transcripts_and_exons($trans_aref , "trans_aref_smart" ) if $self->{v}; 
+    print_Transcript($trans_aref , "trans_aref_smart" ,0,0) if $self->{v}; 
 
     push @$all_tr, @$trans_aref ;  
 
@@ -1609,8 +1614,8 @@ sub transcript_recursion {
   $self->transcript_recursion ($ex_clusters_real_ev, \@start_exons , $all_tr ) ; 
 
   if ($self->{v}){
-    print "END_OF_TRANSCRIPT_RECURSION\ntrying print_transcripts_and_exons\n"  ; 
-    print_transcripts_and_exons($all_tr,"debug_trans_rec") ; 
+    print "END_OF_TRANSCRIPT_RECURSION\ntrying print_Transcript\n"  ; 
+    print_Transcript($all_tr,"debug_trans_rec",0,0) ; 
   }
   return $all_tr ; 
 } 
@@ -1618,32 +1623,6 @@ sub transcript_recursion {
 
 
 
-
-
-
-
-sub print_transcripts_and_exons  {
-  my ($aref,$string ) = @_ ;
-  my @tr_array ; 
-
-  # check if array or only trnascript has been handed over 
-  if ( ref($aref) =~m/ARRAY/) { 
-   @tr_array = @$aref ;  
-  } else {
-   push @tr_array, $aref ;  
-  }
-
-  $string = "" unless $string ; 
-  for my $t ( @tr_array ) { 
-    print "$string (Tran): " ;
-    print_object($t) ;
-    print "\n" ; 
-    for my $e ( @{ $t->get_all_Exons} ) { 
-      print "$string (Exon): " ; print_object($e);  
-    }
-    print "\n\n" ;
-  }
-}
 
 
 
@@ -2039,172 +2018,8 @@ sub cluster_Genes {
 Title: _compare_Genes
 Usage: this internal function compares the exons of two genes on overlap
 Source : Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison; 
+
 =cut
-
-sub _compare_Genes {         
-  my ($gene1,$gene2,$translate) = @_;
-  # quit if genes do not have genomic overlap 
-  #
-  # start-------gene1------end   start--------gene2----------end
-  #  
-  
-  if ($gene1->end < $gene2->start || $gene1->start > $gene2->end) {
-    print "Gene 1  " . $gene1->start . " " . $gene1->end . " \n";
-    print "Gene 2  " . $gene1->start . " " . $gene1->end . " \n";
-    print "Failed extents check - returning 0\n";
-    return 0;
-  }
-  
-  
-  # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
-  
-  if ($translate) {
-    # exon-overlap only on coding exons !
-    my $exons1 = get_coding_exons_for_gene($gene1);
-    my $exons2 = get_coding_exons_for_gene($gene2);
-    foreach my $exon1 (@$exons1) {
-      foreach my $exon2 (@$exons2) {
-        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
-          #print "Passed CDS overlap check - returning 1\n";
-          return 1;
-        }
-      }
-    }
-  } else {
-    #
-    # overlap check based on all (noncoding + coding) Exons 
-    #
-    foreach my $exon1 (@{$gene1->get_all_Exons}){
-      foreach my $exon2 (@{$gene2->get_all_Exons}){
-        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
-          #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
-          return 1;
-        }
-      }
-    }
-  } 
-   #print "Failed overlap check (translate = $translate) - returning 0\n";
-  return 0;
-}      
-#########################################################################
-
-
-
-sub print_cluster_info{
-  my ($slice,$cluster) = @_; 
-  my $name = "GENE-CLUSTER : ";
-  $name = "EXON-CLUSTER" if ref($cluster)=~m/Exon/ ; 
-  
-  my $offset = $slice->start -1 ;  #correction for apollo
-  my $cl_start = $offset + $cluster->start ; 
-  my $cl_end= $offset + $cluster->end ; 
-  print "$name  start: $cl_start\tend: $cl_end\t" . $cluster->strand ." \n"  ; 
-  return ;
-}
-
-
-
-sub newAnalysis{
-  my ($self,$logic_name ) = @_ ; 
-  if ($logic_name) { 
-    my $obj = Bio::EnsEMBL::Analysis->new ( -logic_name => $logic_name );  
-    $self->{_new_logicname} = $obj ; 
-  } 
-  return $self->{_new_logicname} ; 
-}
-
-
-
-
-
-sub print_exon {
-  my ($self, $ex,$string,$nr_tab) = @_ ; 
-    if ($self->{v}) { 
-      $string ="" unless $string ;
-      my $tr_dbID = "" ;  
-      my $hseq_name = "" ; 
-      $nr_tab = 0  unless $nr_tab;
-      my $tr = $ex->transcript() ;
-      print $ex->biotype if $ex->biotype ; 
-  
-      my @sup_feat = @{ $ex->transcript->get_all_supporting_features} ; 
-      $tr_dbID = "\ttr-db-id " . $ex->transcript->dbID ; 
-      $hseq_name = $sup_feat[0]->hseqname ; 
-      print  " " . $hseq_name . 
-             "\t". $ex->seq_region_start .  "---". $ex->seq_region_end . 
-             "\t". $ex->seq_region_end.  "---". $ex->seq_region_start . 
-             "\t". $ex->seq_region_strand . 
-             "\t". $ex->biotype ."$string" . 
-             "\n" ; 
-    }
-}
-
-sub print_intron {
-  my ($self, $ex, $string ) = @_ ; 
-   if ($self->{v}) { 
-     $string = "" unless $string ; 
-     print "INTRON  " .  
-       "\t". $ex->seq_region_start . 
-       "---". $ex->seq_region_end . 
-       "\t". $ex->seq_region_strand . 
-       "\t". "$string" . 
-       "\n" ; 
-   } 
-}
-
-sub print_object {
-  my ( $ex, $string  ) = @_ ; 
-   print "$string :\n"  if $string ; 
-   print "srs -- sre:" .  
-       "\t". $ex->seq_region_start . 
-       "---". $ex->seq_region_end . 
-       "\t". $ex->seq_region_strand . 
-       "\t". $ex->biotype  . 
-#       "\t" . $ex .  
-       "\n" ; 
-}
-
-
-
-=head2 
-
-Arg : Arrayref to array of array of transcripts 
-Function : removes redundant transcripts by comparing their exon-hashkeys 
-Returns : Arrayref to Array of Transcripts 
-
-=cut 
-
-sub remove_redundant_transcripts {
-  my ($tr_ref) = @_ ;
-
-  my @non_red_trans ; 
-  my %tmp ; 
-
-  # make hashkey out of exon-start-end-strand for each transcripts to see if 
-  # they are the same 
-
-  for my $t (@$tr_ref){ 
-    my @ex= @{ $t->get_all_Exons } ; 
-    my $string ; 
-    for my $e (@ex) { 
-      my $exon_hk = $e->hashkey ; 
-      $string.=$exon_hk ; 
-    }
-    
-    push @{$tmp{$string}},  $t ; 
-  }
-
-  # since hashkeys are unique, get only one transcript for each hashkey
-    
-  for my $k (keys %tmp){
-    my @t = @{$tmp{$k}} ; 
-    push @non_red_trans, $t[0]; 
-  }
-  return \@non_red_trans ; 
-}
-
-
-
 =head2
 
 Name : get_all_evidence_sets
@@ -2283,39 +2098,11 @@ sub get_biotypes_of_evidence_set {
 
 
 
-=head2 convert_to_genes( $tref ) 
-
-Arg : Arrayref to Bio::EnsEMBL::Transcript objects
-Name : convert_to_genes 
-Function : converts all transcripts to Genes and set's new biotype as specified in the 
-           Config 
-Return : returns arrayref of Bio::EnsEMBL::Gene objects  
-
-=cut 
-
-sub convert_to_genes { 
-  my ($self, $tref) = @_; 
-  my @genes ; 
-
-  for my $t (@$tref) {
-    my $g = Bio::EnsEMBL::Gene->new() ;
-    $g->biotype( $t->biotype ) ;
-    $g->add_Transcript($t);
-    $g->analysis($self->analysis) ; 
-    push @genes, $g ; 
-  }
-  for my $g(@genes) { 
-    throw("there are no transcripts for this gene\n") if scalar(@{$g->get_all_Transcripts}) == 0 ;  
-    for my $tr ( @{$g->get_all_Transcripts} ) { 
-      throw("there are no exons  for this transcript \n") if scalar(@{$tr->get_all_Exons}) == 0 ;  
-    }
-  } 
-  return \@genes ;  
-}
+ #### non object-methods below ### 
 
 
 
-
+ 
 sub all_exons_visited {
   my ( $exon_cluster_aref) = @_ ;
 
@@ -2326,6 +2113,7 @@ sub all_exons_visited {
   }
   return 1 ;
 }
+
 
 sub get_unvisited_exons_in_next_ec {
   my ( $exon_cluster_aref) = @_ ;
@@ -2338,8 +2126,6 @@ sub get_unvisited_exons_in_next_ec {
   }
   return [] ;
 }
-
-
 
 
 
@@ -2357,24 +2143,142 @@ sub compare {
 }
 
 
-sub print_transcript_info_quest {
-  my ( $all_tr_ref ) = @_ ;  
-  my $cnt_all=1 ; 
-  for my $t (@$all_tr_ref) { 
-    my $cnt_region = 1 ; 
-    $cnt_region++ ; 
-    $cnt_all++ ; 
-  } 
+=head2 
+
+Arg : Arrayref to array of array of transcripts 
+Function : removes redundant transcripts by comparing their exon-hashkeys 
+Returns : Arrayref to Array of Transcripts 
+
+=cut 
+
+sub remove_redundant_transcripts {
+  my ($tr_ref) = @_ ;
+
+  my @non_red_trans ; 
+  my %tmp ; 
+
+  # make hashkey out of exon-start-end-strand for each transcripts to see if 
+  # they are the same 
+
+  for my $t (@$tr_ref){ 
+    my @ex= @{ $t->get_all_Exons } ; 
+    my $string ; 
+    for my $e (@ex) { 
+      my $exon_hk = $e->hashkey ; 
+      $string.=$exon_hk ; 
+    }
+    
+    push @{$tmp{$string}},  $t ; 
+  }
+
+  # since hashkeys are unique, get only one transcript for each hashkey
+    
+  for my $k (keys %tmp){
+    my @t = @{$tmp{$k}} ; 
+    push @non_red_trans, $t[0]; 
+  }
+  return \@non_red_trans ; 
+}
+
+
+sub print_object {
+  my ( $ex, $string  ) = @_ ; 
+   print "$string :\n"  if $string ; 
+   print "srs -- sre:" .  
+       "\t". $ex->seq_region_start . 
+       "---". $ex->seq_region_end . 
+       "\t". $ex->seq_region_strand . 
+       "\t". $ex->biotype  . 
+       "\n" ; 
 }
 
 
 
 
+sub _compare_Genes {         
+  my ($gene1,$gene2,$translate) = @_;
+  # quit if genes do not have genomic overlap 
+  #
+  # start-------gene1------end   start--------gene2----------end
+  #  
+  
+  if ($gene1->end < $gene2->start || $gene1->start > $gene2->end) {
+    print "Gene 1  " . $gene1->start . " " . $gene1->end . " \n";
+    print "Gene 2  " . $gene1->start . " " . $gene1->end . " \n";
+    print "Failed extents check - returning 0\n";
+    return 0;
+  }
+  
+  
+  # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
+  
+  if ($translate) {
+    # exon-overlap only on coding exons !
+    my $exons1 = get_coding_exons_for_gene($gene1);
+    my $exons2 = get_coding_exons_for_gene($gene2);
+    foreach my $exon1 (@$exons1) {
+      foreach my $exon2 (@$exons2) {
+        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+          #print "Passed CDS overlap check - returning 1\n";
+          return 1;
+        }
+      }
+    }
+  } else {
+    #
+    # overlap check based on all (noncoding + coding) Exons 
+    #
+    foreach my $exon1 (@{$gene1->get_all_Exons}){
+      foreach my $exon2 (@{$gene2->get_all_Exons}){
+        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+          #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
+          return 1;
+        }
+      }
+    }
+  } 
+   #print "Failed overlap check (translate = $translate) - returning 0\n";
+  return 0;
+}      
+#########################################################################
 
 
 
+sub print_cluster_info{
+  my ($slice,$cluster) = @_; 
+  my $name = "GENE-CLUSTER : ";
+  $name = "EXON-CLUSTER" if ref($cluster)=~m/Exon/ ; 
+  
+  my $offset = $slice->start -1 ;  #correction for apollo
+  my $cl_start = $offset + $cluster->start ; 
+  my $cl_end= $offset + $cluster->end ; 
+  print "$name  start: $cl_start\tend: $cl_end\t" . $cluster->strand ." \n"  ; 
+  return ;
+}
 
 
+
+sub print_exon {
+  my ($self, $ex,$string,$nr_tab) = @_ ; 
+    if ($self->{v}) { 
+      $string ="" unless $string ;
+      my $tr_dbID = "" ;  
+      my $hseq_name = "" ; 
+      $nr_tab = 0  unless $nr_tab;
+      my $tr = $ex->transcript() ;
+      print $ex->biotype if $ex->biotype ; 
+  
+      my @sup_feat = @{ $ex->transcript->get_all_supporting_features} ; 
+      $tr_dbID = "\ttr-db-id " . $ex->transcript->dbID ; 
+      $hseq_name = $sup_feat[0]->hseqname ; 
+      print  " " . $hseq_name . 
+             "\t". $ex->seq_region_start .  "---". $ex->seq_region_end . 
+             "\t". $ex->seq_region_end.  "---". $ex->seq_region_start . 
+             "\t". $ex->seq_region_strand . 
+             "\t". $ex->biotype ."$string" . 
+             "\n" ; 
+    }
+}
 
 
 
