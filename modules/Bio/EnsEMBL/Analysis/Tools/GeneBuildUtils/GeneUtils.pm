@@ -46,10 +46,11 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw(print_Gene 
              clone_Gene 
              Gene_info
-             prune_Exons);
+             prune_Exons
+             convert_to_genes
+            );
 
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
-                                      stack_trace_dump);
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string);
@@ -196,6 +197,42 @@ sub prune_Exons{
 
   return $cloned_gene;
 }
+
+
+=head2 convert_to_genes( $tref, $analysis ) 
+
+Arg[0]: Arrayref of Bio::EnsEMBL::Transcript objects
+Arg[1]: Bio::EnsEMBL::Analysis object 
+Name : convert_to_genes 
+Function : converts all transcripts to Genes (biotype of transcript becomes biotype of gene) 
+Return : Arrayref of Bio::EnsEMBL::Gene objects  
+
+=cut
+
+sub convert_to_genes {
+  my ($tref, $analysis ) = @_;
+  my @genes ;
+
+  for my $t (@$tref) {
+    $analysis = $t->analysis unless $analysis ;
+    my $g = Bio::EnsEMBL::Gene->new() ;
+    $g->biotype( $t->biotype ) ;
+    $g->add_Transcript($t);
+    $g->analysis($analysis) ;
+    push @genes, $g ;
+  }
+  for my $g(@genes) {
+    throw("there are no transcripts for this gene\n") if scalar(@{$g->get_all_Transcripts}) == 0 ;
+    for my $tr ( @{$g->get_all_Transcripts} ) {
+      throw("there are no exons  for this transcript \n") if scalar(@{$tr->get_all_Exons}) == 0 ;
+    }
+  }
+  return \@genes ;
+}
+
+
+
+
 
 
 1;
