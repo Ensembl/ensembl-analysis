@@ -49,9 +49,6 @@ use vars qw(%Config);
            ANALYSIS_WORK_DIR => '/tmp',
            ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
            
-           #level of verbosity
-
-           VERBOSITY => 'WARNING',
 );
 
 

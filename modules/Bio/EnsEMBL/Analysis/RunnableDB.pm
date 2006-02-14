@@ -482,7 +482,7 @@ sub write_output{
 
 sub verbosity{
   my ($self, $verbosity) = @_;
-  $verbosity = $VERBOSITY if(!$verbosity);
+  $verbosity = "WARNING" if(!$verbosity);
   verbose($verbosity);
   logger_verbosity($verbosity);
   return $verbosity;
