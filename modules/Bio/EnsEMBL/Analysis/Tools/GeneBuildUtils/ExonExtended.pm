@@ -283,11 +283,47 @@ sub visited  {
   
 =head2 get_percentage_exon_conversation_in_exon_cluster() 
 
-  Arg        : $self 
-  Function   : $self->get_percentage_exon_conversation_in_exon_cluster
-  Returntype : integer (true || false ) 
+  Example    : $self->get_percentage_exon_conversation_in_exon_cluster
+  Arg        : none
+  Function   : returns the precentage of other Exons in the same cluster which 
+               share the same Exon-boundaries. 
+  Returntype : float 
 
 =cut
  
+
+
+sub get_percentage_exon_conversation_in_exon_cluster {
+  my ( $self ) = @_ ;
+
+  my @ex_clust = @{ $self->cluster->get_all_Exons_in_ExonCluster } ;
+
+  # uniquify exon acc. to their hashkey 
+  my %uniq_exons ;
+  for (@ex_clust) {
+    unless ($_->is_terminal_exon) {
+      $uniq_exons { $_->hashkey }++ ;
+    }
+  }
+
+  # get maximum value (most consered boundaries) out of hash
+  my @tmp = reverse sort (values %uniq_exons ) ;
+
+  my $max_cons = -1;
+  if (scalar(@tmp) > 0) {
+    $max_cons = shift @tmp ;
+  }
+
+  my $percentage_exon_conservation = 0 ;
+  if  ($max_cons > 0  ) {
+    if ($uniq_exons{$self->hashkey} ){
+     $percentage_exon_conservation = $uniq_exons{$self->hashkey} / $max_cons ;
+    }
+  } else {
+   $percentage_exon_conservation = 0 ;
+  }
+  return $percentage_exon_conservation ;
+}
+
 
 
