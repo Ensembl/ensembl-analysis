@@ -33,7 +33,7 @@
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+  Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
@@ -219,7 +219,7 @@ sub fetch_input{
      my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype ) ;  
      
      # get ev-set 
-     my $result_set_name  = $self->get_evidence_set( $logic_name_becomes_biotype ) ; 
+     my $result_set_name  = $self->_get_evidence_set( $logic_name_becomes_biotype ) ; 
 
      my $ab_initio_genes = convert_prediction_transcripts_to_genes(
                             $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
@@ -251,6 +251,172 @@ sub fetch_input{
 }
 
 
+
+=head2 run
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
+  Function  : go through the runnables, run each one and check for errors
+  and push the output on to the output array
+  Returntype: 1;
+  Exceptions: throws if blast run fails
+  Example   : 
+
+=cut
+
+
+
+sub run {
+  my ($self) = @_;
+
+  my @runnables = @{$self->runnable};
+  foreach my $runnable(@runnables){
+    eval{
+      $runnable->run;
+    };
+    #
+    # checking errors from Runnable 
+    #
+    if(my $err = $@){
+      chomp $err;
+      print $err ;  
+      # only match '"ABC_DEFGH"' and not all possible throws
+      if ($err =~ /^\"([A-Z_]{1,40})\"$/i) {
+        my $code = $1;
+        if ($code ne 'VOID') {
+          $self->failing_job_status($1);          
+          throw("TranscriptCoalescer::run failed $@");
+        }
+      }
+    } else { 
+      print $@; 
+    }  
+    $self->output($runnable->output);
+  }
+  1;
+}
+
+
+
+
+
+=head2 write_output
+
+  Arg [1]   : $self
+  Function  : get appropriate adaptors and write output to database
+       after validating and attaching sequence and analysis objects
+  Returntype: undef
+  Exceptions: throws if the store fails
+  Example   : 
+
+=cut
+
+
+sub write_output{
+  my ($self) = @_;
+
+  my $out_dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{$$DATABASES{COALESCER_DB}} ) ; 
+
+  my $gene_a = $out_dba->get_GeneAdaptor() ; 
+  info ("trying to write output") ;  
+  foreach my $gene (@{$self->output}){
+     info("storing $gene" ); 
+    $gene_a->store($gene) ; 
+  }  
+  return ;
+}
+
+
+
+=head2 convert_prediction_transcripts_to_genes 
+
+  Arg [0]   : reference to an array of Bio::EnsEMBL::PredictionTranscript-objects
+  Arg [1]   : String describing the logic_name  
+  Arg [2]   : String describing name of the evidence-set 
+  Function  : Creates Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended-Objects from a 
+              set of Bio::EnsEMBL::PredictionTranscript-Objects and adds further information to these Transcripts.
+              The PredictionExons are re-blessed to Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended-objects
+  Returntype: Ref. to arrray of  Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended-objects
+  Example   : 
+
+=cut
+
+
+sub  convert_prediction_transcripts_to_genes {
+  my ($pt,$logic_name_becomes_biotype,$ev_set_name ) = @_ ; 
+  my @new_genes ;  
+  for my $pt (@$pt) { 
+    # conversion 
+    my $gene_from_pt = Bio::EnsEMBL::Gene->new( 
+                       -start => $pt->start , 
+                       -end => $pt->end , 
+                       -strand => $pt->strand ,  
+                       -slice =>$pt->slice ,  
+                       -biotype => $logic_name_becomes_biotype,
+                       -analysis=>$pt->analysis, 
+                       ) ;  
+
+    my $new_tr = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended->new(
+                    -BIOTYPE => $logic_name_becomes_biotype ,  
+                    -ANALYSIS => $pt->analysis , 
+                 ) ; 
+ 
+    my @pt_exons  = @{$pt->get_all_Exons} ; 
+
+    for (my $i=0 ; $i<scalar(@pt_exons) ; $i++) { 
+      
+      # converting Bio::EnsEMBL::PredictionExon into ExonExtened (ISA Bio::EnsEMBL::Exon)  
+      my $pte =$pt_exons[$i] ;  
+      bless $pte,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended" ; 
+      $pte->biotype($logic_name_becomes_biotype) ;  
+      $pte->ev_set($ev_set_name) ;  
+      $pte->end_phase(0); 
+      $pte->phase(0); 
+      $pte->next_exon($pt_exons[$i+1]) ; 
+      $pte->prev_exon($pt_exons[$i-1]) ; 
+      $pte->transcript($new_tr) ; 
+      $pte->analysis($pt->analysis) ; 
+    } ;
+     
+    #
+    # Extending the Bio::EnsEMBL::Transcript object by ev_set methods 
+    #
+    for (@pt_exons) { 
+      $new_tr->add_Exon($_); 
+    }   
+
+    $gene_from_pt->add_Transcript($new_tr) ; 
+
+    push @new_genes , $gene_from_pt ; 
+  }
+  return \@new_genes ;  
+}
+
+
+
+=head2 _get_evidence_set ($logic_name_or_biotype)
+
+  Name     : get_evidence_set( $logic_name_or_biotype )
+  Arg      : String 
+  Func     : returns the name of the evidence_set of a genee / PredictionTranscript 
+  Returnval: String describing evidence_set_name
+
+=cut 
+
+sub _get_evidence_set {
+  my ($self, $logic_name_or_biotype) = @_ ; 
+
+  my %ev_sets = %{ $self->{evidence_sets} } ;
+  my $result_set_name ; 
+  for my $set_name (keys %ev_sets){
+    my @logic_names = @{$ev_sets{$set_name}} ; 
+    for my $ln (@logic_names ) { 
+       if ($ln eq $logic_name_or_biotype) { 
+         $result_set_name = $set_name ;
+      }
+    }
+  }
+  return $result_set_name ; 
+}     
 
 
 
@@ -360,172 +526,6 @@ sub _check_config{
   } 
   return 1 ;  
 }
-
-
-
-=head2 convert_prediction_transcripts_to_genes 
-
-  Arg [0]   : reference to an array of Bio::EnsEMBL::PredictionTranscript-objects
-  Arg [1]   : String describing the logic_name  
-  Arg [2]   : String describing name of the evidence-set 
-  Function  : Creates Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended-Objects from a 
-              set of Bio::EnsEMBL::PredictionTranscript-Objects and adds further information to these Transcripts.
-              The PredictionExons are re-blessed to Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended-objects
-  Returntype: Ref. to arrray of  Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended-objects
-  Example   : 
-
-=cut
-
-
-sub  convert_prediction_transcripts_to_genes {
-  my ($pt,$logic_name_becomes_biotype,$ev_set_name ) = @_ ; 
-  my @new_genes ;  
-  for my $pt (@$pt) { 
-    # conversion 
-    my $gene_from_pt = Bio::EnsEMBL::Gene->new( 
-                       -start => $pt->start , 
-                       -end => $pt->end , 
-                       -strand => $pt->strand ,  
-                       -slice =>$pt->slice ,  
-                       -biotype => $logic_name_becomes_biotype,
-                       -analysis=>$pt->analysis, 
-                       ) ;  
-
-    my $new_tr = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended->new(
-                    -BIOTYPE => $logic_name_becomes_biotype ,  
-                    -ANALYSIS => $pt->analysis , 
-                 ) ; 
- 
-    my @pt_exons  = @{$pt->get_all_Exons} ; 
-
-    for (my $i=0 ; $i<scalar(@pt_exons) ; $i++) { 
-      
-      # converting Bio::EnsEMBL::PredictionExon into ExonExtened (ISA Bio::EnsEMBL::Exon)  
-      my $pte =$pt_exons[$i] ;  
-      bless $pte,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended" ; 
-      $pte->biotype($logic_name_becomes_biotype) ;  
-      $pte->ev_set($ev_set_name) ;  
-      $pte->end_phase(0); 
-      $pte->phase(0); 
-      $pte->next_exon($pt_exons[$i+1]) ; 
-      $pte->prev_exon($pt_exons[$i-1]) ; 
-      $pte->transcript($new_tr) ; 
-      $pte->analysis($pt->analysis) ; 
-    } ;
-     
-    #
-    # Extending the Bio::EnsEMBL::Transcript object by ev_set methods 
-    #
-    for (@pt_exons) { 
-      $new_tr->add_Exon($_); 
-    }   
-
-    $gene_from_pt->add_Transcript($new_tr) ; 
-
-    push @new_genes , $gene_from_pt ; 
-  }
-  return \@new_genes ;  
-}
-
-
-=head2 run
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
-  Function  : go through the runnables, run each one and check for errors
-  and push the output on to the output array
-  Returntype: 1;
-  Exceptions: throws if blast run fails
-  Example   : 
-
-=cut
-
-
-
-sub run {
-  my ($self) = @_;
-
-  my @runnables = @{$self->runnable};
-  foreach my $runnable(@runnables){
-    eval{
-      $runnable->run;
-    };
-    #
-    # checking errors from Runnable 
-    #
-    if(my $err = $@){
-      chomp $err;
-      print $err ;  
-      # only match '"ABC_DEFGH"' and not all possible throws
-      if ($err =~ /^\"([A-Z_]{1,40})\"$/i) {
-        my $code = $1;
-        if ($code ne 'VOID') {
-          $self->failing_job_status($1);          
-          throw("TranscriptCoalescer::run failed $@");
-        }
-      }
-    } else { 
-      print $@; 
-    }  
-    $self->output($runnable->output);
-  }
-  1;
-}
-
-
-
-
-
-=head2 write_output
-
-  Arg [1]   : $self
-  Function  : get appropriate adaptors and write output to database
-       after validating and attaching sequence and analysis objects
-  Returntype: undef
-  Exceptions: throws if the store fails
-  Example   : 
-
-=cut
-
-
-sub write_output{
-  my ($self) = @_;
-
-  my $out_dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{$$DATABASES{COALESCER_DB}} ) ; 
-
-  my $gene_a = $out_dba->get_GeneAdaptor() ; 
-  info ("trying to write output") ;  
-  foreach my $gene (@{$self->output}){
-     info("storing $gene" ); 
-    $gene_a->store($gene) ; 
-  }  
-  return ;
-}
-
-
-=head2 _get_evidence_set ($logic_name_or_biotype)
-
-  Name     : get_evidence_set( $logic_name_or_biotype )
-  Arg      : String 
-  Func     : returns the name of the evidence_set of a genee / PredictionTranscript 
-  Returnval: String describing evidence_set_name
-
-=cut 
-
-sub _get_evidence_set {
-  my ($self, $logic_name_or_biotype) = @_ ; 
-
-  my %ev_sets = %{ $self->{evidence_sets} } ;
-  my $result_set_name ; 
-  for my $set_name (keys %ev_sets){
-    my @logic_names = @{$ev_sets{$set_name}} ; 
-    for my $ln (@logic_names ) { 
-       if ($ln eq $logic_name_or_biotype) { 
-         $result_set_name = $set_name ;
-      }
-    }
-  }
-  return $result_set_name ; 
-}     
 
 
 1;
