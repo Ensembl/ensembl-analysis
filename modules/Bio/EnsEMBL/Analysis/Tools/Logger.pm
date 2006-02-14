@@ -39,7 +39,14 @@ sub logger_verbosity{
         $VERBOSITY = $DEFAULT_INFO;
       }elsif($verbosity eq 'ALL' || 'ON'){
         $VERBOSITY = 1e6;
+      }elsif($verbosity eq 'EXCEPTION' 
+             || $verbosity eq 'THROW'){
+        $VERBOSITY = $DEFAULT_WARNING;
+      }elsif($verbosity eq 'DEPRECATE' 
+             || $verbosity eq 'DEPRECATED'){
+        $VERBOSITY = $DEFAULT_INFO;
       }else{
+        $VERBOSITY = $DEFAULT_WARNING;
         warning("Unknown level or verbosity :".$verbosity);
       }
     }

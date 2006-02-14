@@ -740,7 +740,7 @@ sub run_analysis{
   my $command = $program." ";
   $command .= $self->options." " if($self->options);
   $command .= $self->queryfile." > ".$self->resultsfile;
-  print "Running analysis ".$command."\n";
+  logger_info("Running analysis ".$command);
   system($command) == 0 or throw("FAILED to run ".$command);
 }
 
