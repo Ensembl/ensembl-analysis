@@ -182,7 +182,6 @@ print STDERR "creating runnable ".$file."\n" if($verbose);
 
 $runnable =~ s/\//::/g;
 my $runobj = "$runnable"->new(-db    => $db,
-<<<<<<< test_RunnableDB
                               -input_id => $input_id,
                               -analysis => $analysis,
                               -verbosity => $utils_verbosity,
