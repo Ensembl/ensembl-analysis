@@ -1,7 +1,12 @@
+#
 # Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
 #
-# Copyright (c) 2005 Ensembl
+# Copyright (c) 2006 Ensembl
 #
+# written by Jan-Hinnerk Vogel 
+#
+#
+
 
 =head1 NAME
 
@@ -115,7 +120,7 @@ sub fetch_input{
   my %databases = %{$self->merge_config_details( $DATABASES, $EXONERATE_CONFIG_BY_LOGIC, $TRANSCRIPT_COLAESCER_DB_CONFIG)} ;   
 
   # check if every biotype/logic_name belongs to an EVIDENCE set
-  check_config(\%databases, $TRANSCRIPT_COLAESCER_DB_CONFIG, $self->{evidence_sets} ) ; 
+  _check_config(\%databases, $TRANSCRIPT_COLAESCER_DB_CONFIG, $self->{evidence_sets} ) ; 
  
   # now looping through all keys of %databases definend in the (merged) configs 
 
@@ -142,7 +147,7 @@ sub fetch_input{
     for my $biotype ( @{$databases{$database_class}{BIOTYPES} }) { 
       my $genes = $slice->get_all_Genes_by_type($biotype) ; 
 
-      my ( $set ) = $self->get_evidence_set ( $biotype ) ; 
+      my ( $set ) = $self->_get_evidence_set ( $biotype ) ; 
 
       my $db_used = "${$databases{$database_class}}{db}{-dbname}\@".
         "${$databases{$database_class}}{db}{-host}::".
@@ -230,7 +235,7 @@ sub fetch_input{
   #
   # remove redundant transcripts which have all same exons to speed computation up 
   # 
-  my $non_redundant_genes = remove_redundant_genes(\%biotypes_to_genes) ;  
+  my $non_redundant_genes = _remove_redundant_genes(\%biotypes_to_genes) ;  
   
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer->new
     (
@@ -249,7 +254,7 @@ sub fetch_input{
 
 
 
-sub remove_redundant_genes {
+sub _remove_redundant_genes {
   my ($biotype2genes ) = @_ ; 
   info ("removing redundant Transcripts........\n\n" ); 
   
@@ -293,7 +298,7 @@ sub remove_redundant_genes {
 
 
 
-=head2  check_config
+=head2  _check_config
 
    Arg[0] : Hash-reference to $TRANSCRIPT_COLAESCER_DB_CONFIG-Hash out of TranscriptCoalescer.pm 
    Arg[1] : href with evidence sets 
@@ -303,7 +308,7 @@ sub remove_redundant_genes {
  
 =cut  
 
-sub check_config{ 
+sub _check_config{ 
   my ( $databases, $TRANSCRIPT_COLAESCER_DB_CONFIG, $ev_sets) = @_ ; 
 
   # check TranscriptCoalescer.pm:  
@@ -497,7 +502,7 @@ sub write_output{
 }
 
 
-=head2 get_evidence_set ($logic_name_or_biotype)
+=head2 _get_evidence_set ($logic_name_or_biotype)
 
   Name     : get_evidence_set( $logic_name_or_biotype )
   Arg      : String 
@@ -506,7 +511,7 @@ sub write_output{
 
 =cut 
 
-sub get_evidence_set {
+sub _get_evidence_set {
   my ($self, $logic_name_or_biotype) = @_ ; 
 
   my %ev_sets = %{ $self->{evidence_sets} } ;
