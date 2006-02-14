@@ -30,6 +30,8 @@ use strict;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning );
+#use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw( genes_to_Transcript_Cluster ) ;
+
 @ISA = qw(Bio::EnsEMBL::Root);
 
 =head1 METHODS
@@ -435,6 +437,92 @@ sub end{
     $self->{_cached_end} = $end;
   }
   return $self->{_cached_end};
+}
+
+
+
+=head2 get_exon_clustering_from_gene_cluster 
+
+   Name      : $self->get_exon_clustering_from_gene_cluster()
+   Arg[0]    : Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
+   Function  : gets a GeneCluster and converts it by building a TranscriptCluster, than 
+               clusters the exons of all Transcripts and returns an array-ref to 
+               Bio::EnsEMBL::ExonCluster-objects 
+   Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
+
+=cut
+
+sub get_exon_clustering_from_gene_cluster {
+  my ($self) = @_ ;
+
+  my @clg  = sort {$a->start <=> $b->start} $self->get_Genes ;
+
+  # building Transcript-Cluster 
+  #my $tc = genes_to_Transcript_Cluster(\@clg);
+  my $tc = $self->get_TranscriptCluster ; 
+
+  my @exon_clusters = $tc->get_ExonCluster() ; 
+
+  if ($tc->strand eq '1') {
+    @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
+  } else {
+    @exon_clusters = sort { $b->start <=> $a->start } @exon_clusters ;
+  }
+  return \@exon_clusters ;
+}
+
+
+
+=head2 get_TranscriptCluster 
+
+   Name      : $self->get_TranscriptCluster() 
+   Arg[0]    : Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster 
+   Function  : gets a GeneCluster and converts it by building a TranscriptCluster, than 
+               clusters the exons of all Transcripts and returns an array-ref to 
+               Bio::EnsEMBL::ExonCluster-objects 
+   Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster objects
+
+=cut
+
+sub get_TranscriptCluster {
+  my ($self) = @_;
+  #my ($genes_or_predTrans) = @_;
+
+  my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
+  print "building new TranscriptCluster\n" ;
+    
+  foreach my $gene ( $self->get_Genes ) { 
+  #foreach my $gene (@$genes_or_predTrans) {
+
+    if( ref($gene)=~m/Gene/){
+      # is a Bio::EnsEMBL::Gene 
+      foreach my $trans (@{$gene->get_all_Transcripts}) {
+        if ($gene->strand ne $trans->strand ) {
+          throw("Weird - gene is on other strand than transcript\n") ;
+        }
+        for (@{ $trans->get_all_Exons} ) {
+           if ($_->strand ne $trans->strand ) {
+             print $trans->biotype . " " . $trans->seq_region_start . " "
+              . $trans->seq_region_end . " " . $trans->seq_region_strand ."\n" ;
+             print $_->biotype . " " . $_->seq_region_start . " "  . $_->seq_region_end . " " .$_->seq_region_strand . "\n";
+             throw("Weird - exon is on other strand than transcript\n") ;
+           }
+        }
+        # assure that transcript has same biotype as gene 
+        $trans->biotype($gene->biotype) ;
+        $trans->sort;
+        #print "Adding transcript " . $trans->stable_id . "\n";
+        $tc->put_Transcripts($trans);
+        $tc->register_biotype($gene->biotype) ;
+      }
+    } else {
+      # is not a Bio::EnsEMBL::Gene  
+      warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
+      $gene->sort ;
+      $tc->put_Transcripts($gene) ;
+    }
+  }
+  return $tc;
 }
 
 
