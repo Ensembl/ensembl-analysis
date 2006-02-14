@@ -231,15 +231,14 @@ sub fetch_input{
   # remove redundant transcripts which have all same exons to speed computation up 
   # 
   my $non_redundant_genes = remove_redundant_genes(\%biotypes_to_genes) ;  
-
-
+  
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer->new
     (
      -query    => $self->query,
      -analysis => $self->analysis,
      -all_genes   => $non_redundant_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
-     -new_biotype     =>  $NEW_BIOTYPE,
      -evidence_sets   => $self->{evidence_sets} , 
+     -dnadb => $self->db , 
     );
   $self->runnable($runnable);
 
@@ -461,10 +460,8 @@ sub run {
       }
     } else { 
       print $@; 
-      print STDERR "RunnableDB $self run was OK !\n\n " ;
     }  
-   $self->output($runnable->output);
-   #print $runnable->output."\n" ; 
+    $self->output($runnable->output);
   }
   1;
 }
@@ -473,10 +470,9 @@ sub run {
 
 
 
-
 =head2 write_output
 
-  Arg [1]   : $sself
+  Arg [1]   : $self
   Function  : get appropriate adaptors and write output to database
        after validating and attaching sequence and analysis objects
   Returntype: undef
