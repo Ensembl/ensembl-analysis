@@ -48,13 +48,26 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 
 my $analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($logic_name);
 
-die "Analysis for logic name '$logic_name' does not exist in the database\n"
-    if not defined $analysis;
+if (not defined $analysis) {
+  $verbose and print STDERR "Storing new entry in analysis for WGA2Genes\n";
+
+  $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name,
+                                          -module => 'WGA2Genes',
+                                          -gff_source => 'WGA2Genes',
+                                          -gff_feature => 'gene');
+  $db->get_AnalysisAdaptor->store($analysis);
+}
+
+my ($gs_cs, $prev_tl_cs) = 
+    sort {$a->rank <=> $b->rank} @{$db->get_CoordSystemAdaptor->fetch_all};
+
+$verbose and print STDERR "Gene scaffold coord-system = '" . $gs_cs->name . "'\n";
+$verbose and print STDERR "Previous top level coord-system = '" . $prev_tl_cs->name . "'\n";
 
 $verbose and print STDERR "Reading GFF file...\n";
 
 while(<>) {
-    #
+  #
   # Pseudo GFF. Fields:
   #
   # seq_name
@@ -157,15 +170,21 @@ while(<>) {
   }
 }
 
-$verbose and print STDERR "Constructing transcripts...\n";
+
+
+$verbose and printf(STDERR "Constructing transcripts for %d seq_regions...\n", 
+                    scalar(keys %transcripts));
+
+my $sr_count = 0;
 
 foreach my $target_id (keys %transcripts) {
   my $slice;
-  if ($target_id =~ /^SCAFFOLD/) {
-    $slice = $db->get_SliceAdaptor->fetch_by_region('scaffold',
+
+  if ($target_id =~ /^GeneScaffold/) {
+    $slice = $db->get_SliceAdaptor->fetch_by_region($gs_cs->name,
                                                     $target_id);
   } else {
-    $slice = $db->get_SliceAdaptor->fetch_by_region('genescaffold',
+    $slice = $db->get_SliceAdaptor->fetch_by_region($prev_tl_cs->name,
                                                     $target_id);
   }
 
@@ -228,38 +247,75 @@ foreach my $target_id (keys %transcripts) {
     }
 
     my $gene = Bio::EnsEMBL::Gene->new;
-    $gene->type($logic_name);
+    $gene->biotype($logic_name);
     $gene->analysis($analysis);
 
     $gene->add_Transcript($tran);
 
     push @out_genes, $gene;
   }
+
+  $sr_count++;
+  if ($verbose and $sr_count % 1000 == 0) {
+    print STDERR "Made transcripts for $sr_count seq_regions...\n";
+  }
 }
 
 if ($test) {
   foreach my $g (@out_genes) {
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      print "TRANSCRIPT\n";
-      foreach my $e (@{$t->get_all_Exons}) {
-        printf "%s %d %d %d %d %d\n", $e->slice->seq_region_name, $e->start, $e->end, $e->strand, $e->phase, $e->end_phase;
-        foreach my $sf (@{$e->get_all_supporting_features}) {
-          printf " SUPPORT: %d %d %s %d %d\n", $sf->start, $sf->end, $sf->hseqname, $sf->hstart, $sf->hend;
-        }
-      }
-    }
+    print &gene_string($g);
   }
 } else {
   $verbose and print STDERR "Writing genes...\n";
 
+  my $current_gene;
+
   eval {
+    my $gene_count = 0;
+
     foreach my $g (@out_genes) {
+      $current_gene = $g;
       $db->get_GeneAdaptor->store($g);
+
+      $gene_count++;
+      if ($verbose and $gene_count % 1000 == 0) {
+        print STDERR "Written $gene_count genes...\n";
+      }
     }
   };
   if ($@) {
-    die "Something went wrong while writing genes: $@\n";
+    die "Failure during writing of gene:\n" . &gene_string($current_gene) . "\n";
   } else {
     print "Successfully wrote ", scalar(@out_genes), " transcripts\n";
   }
+}
+
+
+sub gene_string {
+  my $g = shift;
+
+  my $str = "";
+
+  foreach my $t (@{$g->get_all_Transcripts}) {
+    $str .= "TRANSCRIPT\n";
+    foreach my $e (@{$t->get_all_Exons}) {
+      $str .= sprintf("%s %d %d %d %d %d\n", 
+                      $e->slice->seq_region_name, 
+                      $e->start, 
+                      $e->end, 
+                      $e->strand, 
+                      $e->phase, 
+                      $e->end_phase);
+      foreach my $sf (@{$e->get_all_supporting_features}) {
+        $str .=  sprintf(" SUPPORT: %d %d %s %d %d\n", 
+                         $sf->start, 
+                         $sf->end, 
+                         $sf->hseqname, 
+                         $sf->hstart, 
+                         $sf->hend);
+      }
+    }
+  }
+
+  return $str;
 }
