@@ -10,6 +10,8 @@ use Bio::EnsEMBL::Attribute;
 use Bio::EnsEMBL::Mapper::Unit;
 use Bio::EnsEMBL::Mapper::Pair;
 
+my $TOPLEVEL_ATTR_CODE = 'toplevel';
+
 my (
     $dbname,
     $dbhost,
@@ -18,6 +20,7 @@ my (
     $dbpass,
     $verbose,
     $seq_level,
+    $direct_level,
     $asm_coord_sys_name,
     $asm_coord_sys_version,    
     $cmp_coord_sys_name,
@@ -34,8 +37,9 @@ my (
             'dbpass=s' => \$dbpass,
             'asm_coord_sys_name=s' => \$asm_coord_sys_name,
             'asm_coord_sys_version=s' => \$asm_coord_sys_version,
-            'cmp_coord_sys=s' => \$cmp_coord_sys_name, 
+            'cmp_coord_sys_name=s' => \$cmp_coord_sys_name, 
             'seqlevel' => \$seq_level,
+            'directlevel' => \$direct_level,
             'test' => \$test,
             'verbose' => \$verbose,
             );
@@ -53,9 +57,18 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 	'-pass' => $dbpass
 );
 
+my $cmp_coord_sys_version;
+eval {
+  my $cs = $db->get_CoordSystemAdaptor->fetch_by_name($cmp_coord_sys_name);
+  if (defined $cs) {
+    $cmp_coord_sys_version = $cs->version;
+  }
+};
+die "Could not find entry for component coord system\n"
+    if not defined $cmp_coord_sys_version;
 
 my $tl_type_id = &get_toplevel_attribute_type_id;
-my $tl_attr = Bio::EnsEMBL::Attribute->new(-code => 'toplevel',
+my $tl_attr = Bio::EnsEMBL::Attribute->new(-code => $TOPLEVEL_ATTR_CODE,
                                            -name => 'Top Level',
                                            -desc => 'Top Level Non-Redundant Sequence Region',
                                            -value => 1
@@ -67,6 +80,7 @@ $verbose and print STDERR "Reading AGP files...\n";
 &read_agp_files(\%agps);
 
 my $coord_sys = &write_coord_system($asm_coord_sys_name, $asm_coord_sys_version);
+
 
 my $ass_sth = $db->dbc->prepare("INSERT into assembly VALUES(?,?,?,?,?,?,?)");
 
@@ -141,7 +155,8 @@ foreach my $gs_id (keys %agps) {
         }
       }
 
-    } else {
+    }
+    if ($direct_level) {
       if ($test) {
         printf("ASSEMBLY: %s %d %d %s %d %d %d\n", 
                $slice->seq_region_name,
@@ -165,7 +180,7 @@ foreach my $gs_id (keys %agps) {
 
 $ass_sth->finish;
 
-# finally, remove toplevel attribute from all components
+# remove toplevel attribute from all components
 # of gene scaffolds
 
 $verbose and print STDERR "Removing toplevel from used...\n";
@@ -176,6 +191,37 @@ foreach my $sl_id (keys %comp_slices) {
     printf "Removed toplevel from slice %s\n", $sl->seq_region_name;
   } else {
     $aa->remove_from_Slice($sl, $tl_type_id);
+  }
+}
+
+# finally, update meta table
+
+$verbose and print STDERR "Updating meta with assembly.mapping ...\n";
+
+my $mca = $db->get_MetaContainer;
+if ($seq_level) {
+  # need to get name and version of seq level coord system
+  my $cs = $db->get_CoordSystemAdaptor->fetch_by_name('seqlevel');
+  my $mapstring = sprintf("%s:%s|%s", 
+                          $asm_coord_sys_name,
+                          $asm_coord_sys_version,
+                          $cs->name);
+  if ($test) {
+    printf("META: %s %s\n", "assembly.mapping", $mapstring);
+  } else {
+    $mca->store_key_value('assembly.mapping', $mapstring);
+  }
+}
+if ($direct_level) {
+  my $mapstring = sprintf("%s:%s#%s:%s", 
+                          $asm_coord_sys_name,
+                          $asm_coord_sys_version,
+                          $cmp_coord_sys_name,
+                          $cmp_coord_sys_version);
+  if ($test) {
+    printf("META: %s %s\n", "assembly.mapping", $mapstring);
+  } else {
+    $mca->store_key_value('assembly.mapping', $mapstring);
   }
 }
 
@@ -222,7 +268,25 @@ sub write_coord_system {
                                          -version => $new_version,
                                          -rank => 1,
                                          -default => 1);
-    $csa->store($cs);
+
+    if (not $test) {
+      # if coord sys with rank 1 already exists, we need to shift
+      # the others down
+      my @coord_sys = @{$db->get_CoordSystemAdaptor->fetch_all};
+      @coord_sys = sort { $a->rank <=> $b->rank } @coord_sys;
+      
+      if ($coord_sys[0]->rank == 1) {
+        my $st = $db->dbc->prepare("update coord_system set rank = ? where coord_system_id = ?");
+        
+        foreach my $cs (reverse @coord_sys) {
+          $st->execute($new_rank, $cs->rank + 1);
+        }
+        
+        $st->finish;
+      }
+
+      $csa->store($cs);
+    }
   } else {
     warn "Warning: CoordSystem '$new_name' already exists in the database, so not writing\n";
   }
@@ -234,7 +298,7 @@ sub write_coord_system {
 # get_toplevel_attrbute_code
 ##########################################################
 sub get_toplevel_attribute_type_id {
-  my $st = $db->dbc->prepare("SELECT attrib_type_id from attrib_type where code = 'toplevel'");
+  my $st = $db->dbc->prepare("SELECT attrib_type_id from attrib_type where code = '$TOPLEVEL_ATTR_CODE'");
   $st->execute;
   my ($res) = @{$st->fetchrow_arrayref};
   $st->finish;
