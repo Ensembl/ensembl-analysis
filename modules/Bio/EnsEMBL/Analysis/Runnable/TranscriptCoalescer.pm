@@ -115,7 +115,7 @@ sub new {
   
   $self->{all_genes_href} = $all_genes ;      # hashref $hash{'biotype'} = \@genes 
   $self->{v} = $VERBOSE ; # verbose or not 
-  $self->{v} = 1; 
+  #$self->{v} = 1; 
   return $self ; 
 }
 
@@ -380,7 +380,12 @@ sub run {
   #
   my @trans_with_tl = @{$self->add_translation_and_trans_supp_features_to_transcripts(
        \@all_merged_est_transcripts,$self->{min_translation_length}) } ; 
- 
+
+
+  if ($WRITE_FILTERED_TRANSCRIPTS) {  
+     push @trans_with_tl , @tr_to_delete ; 
+  }
+  
   $self->output ( convert_to_genes ( \@trans_with_tl, $self->analysis)  ) ;   
   return ; 
 }
@@ -423,7 +428,7 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
            push @trans_with_tl , $tr ;
          }else { 
            print "Translation is shorter than $MIN_TRANSLATION_LENGTH % of transcript length ($ratio) ." . 
-               " Transcript will not be used\n"  ; #if $self->{v} ;
+               " Transcript will not be used\n"  if $self->{v} ;
            if ($WRITE_FILTERED_TRANSCRIPTS) {  
              $ratio = int($ratio) ; 
              $tr->biotype("translation_len_$ratio"."_perc") ; 
