@@ -82,6 +82,7 @@ use vars qw (@ISA @EXPORT);
              remove_initial_or_terminal_short_exons
              get_evidence_ids
              dump_cDNA_file
+             convert_to_genes
             );
 
 
@@ -144,14 +145,9 @@ sub print_Transcript_and_Exons{
   
   $indent = '' if(!$indent);
 
-  my @transcripts ; 
-  if (ref($tref)=~m/ARRAY/){
-    @transcripts = @$tref; 
-  }else{
-    push @transcripts, $tref; 
-  }
+  my @tr = (ref($tref)=~m/ARRAY/) ? @$tref : $tref ; 
 
-  for my $transcript ( @transcripts ) { 
+  for my $transcript ( @tr )  { 
     print "\n" .  Transcript_info($transcript, $indent)."\n"; 
     map { print Exon_info($_, $indent."\t")."\n"  } @{$transcript->get_all_Exons} ; 
   }
@@ -1420,6 +1416,43 @@ sub dump_cDNA_file{
   $seqout->writefile($seq);
   return $filename;
 }
+
+=head2 convert_to_genes( $tref, $analysis )
+
+Arg[0]     : Arrayref of Bio::EnsEMBL::Transcript objects
+Arg[1]     : Bio::EnsEMBL::Analysis object (opt)
+Name       : convert_to_genes
+Function   : converts all transcripts to Genes (biotype of transcript becomes biotype of gene)
+Returntype : Arrayref of Bio::EnsEMBL::Gene objects
+
+=cut
+
+sub convert_to_genes {
+  my ($tref, $analysis ) = @_;
+  my @genes ;
+
+  my @tr = (ref($tref)=~m/ARRAY/) ? @$tref : ($tref) ; 
+
+  for my $t (@tr) {
+    $analysis = $t->analysis unless $analysis ;
+    my $g = Bio::EnsEMBL::Gene->new() ;
+    $g->biotype( $t->biotype ) ;
+    $g->add_Transcript($t);
+    $g->analysis($analysis) ;
+    push @genes, $g ;
+  }
+  for my $g(@genes) {
+    throw("there are no transcripts for this gene\n") if scalar(@{$g->get_all_Transcripts}) == 0 ;
+    for my $tr ( @{$g->get_all_Transcripts} ) {
+      throw("there are no exons  for this transcript \n") if scalar(@{$tr->get_all_Exons}) == 0 ;
+    }
+  }
+  return \@genes ;
+}
+
+
+
+
 
 
 1;
