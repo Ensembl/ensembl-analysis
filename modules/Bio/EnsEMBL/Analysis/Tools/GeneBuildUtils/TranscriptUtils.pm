@@ -41,7 +41,7 @@ use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info );
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
@@ -59,6 +59,7 @@ use vars qw (@ISA @EXPORT);
 @ISA = qw(Exporter);
 @EXPORT = qw(
              print_Transcript
+             print_Transcript_and_Exons
              clone_Transcript
              print_Transcript_evidence
              Transcript_info
@@ -87,10 +88,9 @@ use vars qw (@ISA @EXPORT);
 =head2 print_Transcript
 
   Arg [1]   : Bio::EnsEMBL::Transcript or Aref of Bio::EnsEMBL::Transcript-objects
-  Arg [2]   : string, this should be a string or spaces or tabs
-  Arg [3]   : boolean describing if Translation should be printed 
-  Arg [4]   : boolean describing if evidence of Exon should be printed 
-  to indent the printed string
+  Arg [2]   : string, this should be a string or spaces or tabs to indent the 
+              printed string
+
   Function  : print information about the transcript and its
   children objects, using indent to make the format readable
   Returntype: n/a
@@ -101,11 +101,9 @@ use vars qw (@ISA @EXPORT);
 
 
 sub print_Transcript{
-  my ($tref, $indent,$print_tl,$print_exon_ev) = @_;
+  my ($tref, $indent) = @_;
   
   $indent = '' if(!$indent);
-  $print_tl = 1 unless defined $print_tl;  
-  $print_exon_ev = 1 unless defined $print_exon_ev; 
 
   my @transcripts ; 
   if (ref($tref)=~m/ARRAY/){
@@ -116,11 +114,46 @@ sub print_Transcript{
   for my $transcript ( @transcripts ) { 
     print Transcript_info($transcript, $indent)."\n";
     my $translation_indent = $indent."\t";
-    print_Translation($transcript, $translation_indent) if $print_tl ;
+    print_Translation($transcript, $translation_indent) ; 
     foreach my $exon(@{$transcript->get_all_Exons}){
       my $exon_indent = $translation_indent."\t";
-      print_Exon($exon, $exon_indent,$print_exon_ev);
+      print_Exon($exon, $exon_indent);
     }
+  }
+}
+
+
+=head2 print_Transcript_and_Exons
+
+  Arg [1]   : Bio::EnsEMBL::Transcript or Aref of Bio::EnsEMBL::Transcript-objects
+  Arg [2]   : string, this should be a string or spaces or tabs to indent the 
+              printed string
+
+  Function  : print information about the transcript and it's Exons
+              using indent to make the format readable
+  Returntype: n/a
+  Exceptions: none
+  Examples  : print_Transcript_and_Exons(\@transcript) 
+              print_Transcript_and_Exons($transcript) 
+
+=cut
+
+
+sub print_Transcript_and_Exons{
+  my ($tref, $indent) = @_;
+  
+  $indent = '' if(!$indent);
+
+  my @transcripts ; 
+  if (ref($tref)=~m/ARRAY/){
+    @transcripts = @$tref; 
+  }else{
+    push @transcripts, $tref; 
+  }
+
+  for my $transcript ( @transcripts ) { 
+    print "\n" .  Transcript_info($transcript, $indent)."\n"; 
+    map { print Exon_info($_, $indent."\t")."\n"  } @{$transcript->get_all_Exons} ; 
   }
 }
 
@@ -141,7 +174,7 @@ sub print_Transcript{
 sub Transcript_info{
   my ($transcript, $indent) = @_;
   $indent = '' if(!$indent);
-  my $coord_string = coord_string($transcript);
+  my $coord_string = coord_string($transcript); 
   my $id = id($transcript);
   return $indent."TRANSCRIPT: ".$id." ".$coord_string."\n";
 }
