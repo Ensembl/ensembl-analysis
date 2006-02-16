@@ -90,7 +90,8 @@ use vars qw (@ISA @EXPORT);
   Arg [2]   : string, this should be a string or spaces or tabs
   Arg [3]   : boolean describing if Translation should be printed 
   Arg [4]   : boolean describing if evidence of Exon should be printed 
-  to indent the printed string
+  Arg [5]   : boolean if abs. position should be printed 
+
   Function  : print information about the transcript and its
   children objects, using indent to make the format readable
   Returntype: n/a
@@ -101,12 +102,11 @@ use vars qw (@ISA @EXPORT);
 
 
 sub print_Transcript{
-  my ($tref, $indent,$print_tl,$print_exon_ev) = @_;
-  
+  my ($tref, $indent, $print_tl, $print_exon_ev, $abs) = @_; 
+  print "print_Transcript $abs\n" ;  
   $indent = '' if(!$indent);
   $print_tl = 1 unless defined $print_tl;  
   $print_exon_ev = 1 unless defined $print_exon_ev; 
-
   my @transcripts ; 
   if (ref($tref)=~m/ARRAY/){
     @transcripts = @$tref; 
@@ -114,12 +114,13 @@ sub print_Transcript{
     push @transcripts, $tref; 
   }
   for my $transcript ( @transcripts ) { 
-    print Transcript_info($transcript, $indent)."\n";
+    print "\n" ; 
+    print Transcript_info($transcript, $indent,$abs)."\n";
     my $translation_indent = $indent."\t";
     print_Translation($transcript, $translation_indent) if $print_tl ;
     foreach my $exon(@{$transcript->get_all_Exons}){
       my $exon_indent = $translation_indent."\t";
-      print_Exon($exon, $exon_indent,$print_exon_ev);
+      print_Exon($exon, $exon_indent,$print_exon_ev,$abs);
     }
   }
 }
@@ -129,6 +130,7 @@ sub print_Transcript{
 
   Arg [1]   : Bio::EnsEMBL::Transcript
   Arg [2]   : string, indent
+  Arg [3]   : boolean if abs. position should be printed 
   Function  : return string of info about the transcript
   Returntype: 
   Exceptions: none
@@ -139,9 +141,9 @@ sub print_Transcript{
 
 
 sub Transcript_info{
-  my ($transcript, $indent) = @_;
-  $indent = '' if(!$indent);
-  my $coord_string = coord_string($transcript);
+  my ($transcript, $indent,$abs) = @_; 
+  $indent = '' if(!$indent); 
+  my $coord_string = coord_string($transcript, $abs );
   my $id = id($transcript);
   return $indent."TRANSCRIPT: ".$id." ".$coord_string."\n";
 }
