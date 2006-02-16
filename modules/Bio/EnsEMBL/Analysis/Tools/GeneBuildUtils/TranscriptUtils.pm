@@ -102,11 +102,12 @@ use vars qw (@ISA @EXPORT);
 
 
 sub print_Transcript{
-  my ($tref, $indent, $print_tl, $print_exon_ev, $abs) = @_; 
-  print "print_Transcript $abs\n" ;  
+  my ($tref, $indent, $print_tl, $print_exon_ev, $abs) = @_;  
+
   $indent = '' if(!$indent);
   $print_tl = 1 unless defined $print_tl;  
   $print_exon_ev = 1 unless defined $print_exon_ev; 
+
   my @transcripts ; 
   if (ref($tref)=~m/ARRAY/){
     @transcripts = @$tref; 
