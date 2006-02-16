@@ -68,6 +68,7 @@ sub new {
   $self->{_cached_start}  = undef;
   $self->{_cached_end}    = undef;
   $self->{_cached_strand} = undef;
+  $self->{v} = 0 ; # verbosity 
   return $self;
 }
 
@@ -268,9 +269,11 @@ sub get_Genes_by_Set() {
   }
 
   my @selected_genes;
-  #for (keys %{ $self->{_gene_sets} } ) { 
-  #  print " i know the following sets : $_\n" ;  
-  #}
+  if ($self->{v}){ 
+    for (keys %{ $self->{_gene_sets} } ) { 
+      print " i know the following sets : $_\n" ; 
+    }
+  } 
   if (!defined($self->{'_gene_sets'}{$set})) {
     # throw("No genes of set name $set");
     warning("No genes of set name $set in cluster");
@@ -489,7 +492,7 @@ sub get_TranscriptCluster {
   #my ($genes_or_predTrans) = @_;
 
   my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
-  print "building new TranscriptCluster\n" ;
+  print "building new TranscriptCluster\n"  if $self->{v};
     
   foreach my $gene ( $self->get_Genes ) { 
   #foreach my $gene (@$genes_or_predTrans) {
@@ -511,7 +514,7 @@ sub get_TranscriptCluster {
         # assure that transcript has same biotype as gene 
         $trans->biotype($gene->biotype) ;
         $trans->sort;
-        #print "Adding transcript " . $trans->stable_id . "\n";
+        print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
         $tc->put_Transcripts($trans);
         $tc->register_biotype($gene->biotype) ;
       }
