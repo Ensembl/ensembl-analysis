@@ -66,8 +66,8 @@ use vars qw (@ISA @EXPORT);
   Arg [1]   : Bio::EnsEMBL::Exon
   Arg [2]   : string, indent (\t) to tag infront of printed
   Arg [3]   : boolean (1 if evidence attached to exon should be printend) 
-  Arg [4]   : boolean (1 if absolute start/end on slice should be printend ) 
-  Function  : print information about given exon and associated evidence
+  Function  : print information about given exon and
+  associated evidence
   Returntype: none
   Exceptions: throws if not passed a first argument
   Example   : 
@@ -77,11 +77,11 @@ use vars qw (@ISA @EXPORT);
 
 
 sub print_Exon{
-  my ($exon, $indent, $print_ev,$abs) = @_;
+  my ($exon, $indent, $print_ev) = @_;
   $indent = "" if(!$indent);
   throw("Must be passed an exon") if(!$exon);
   $print_ev = 1 unless defined $print_ev ;  
-  print Exon_info($exon, $indent,$ abs)."\n";
+  print Exon_info($exon, $indent)."\n";
   if ($print_ev) { 
     foreach my $evidence(@{$exon->get_all_supporting_features}){
       my $evidence_indent = $indent."\t";
@@ -96,7 +96,6 @@ sub print_Exon{
 
   Arg [1]   : Bio::EnsEMBL::Exon
   Arg [2]   : indent, string
-  Arg [2]   : boolean if abs. position on slice should be printed  
   Function  : returns a string with info about exon in it
   Returntype: string
   Exceptions: throws if not passed a first argument
@@ -107,10 +106,10 @@ sub print_Exon{
 
 
 sub Exon_info{
-  my ($exon, $indent,$abs) = @_;
+  my ($exon, $indent) = @_;
   throw("Must be passed an exon") if(!$exon);
   $indent = '' if(!$indent);
-  my $coord_string = coord_string($exon,$abs );
+  my $coord_string = coord_string($exon);
   my $id = id($exon);
   return $indent."EXON: ".$id." ".$coord_string." phase ".
     $exon->phase." end_phase ".$exon->end_phase." length ".
