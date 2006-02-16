@@ -247,7 +247,7 @@ sub run {
       my @tr_merged = 
        map {@{$_->get_all_Transcripts}} $gene_cluster->get_Genes_by_Set ( 'est_merged' ); 
       my $exon_clusters = $gene_cluster->get_exon_clustering_from_gene_cluster(); 
-      print "exon_clustering finished\n" ;
+      print "exon_clustering finished\n" if $self->{v};
 
       # recursive approach (merge already merged genes by abinitio or simgw)
       if ($gene_cluster->strand == 1 ) { 
@@ -378,14 +378,14 @@ sub run {
   # 
   # adding translations to transcripts 
   #
+  if ($WRITE_FILTERED_TRANSCRIPTS) {  
+     push @all_merged_est_transcripts, @tr_to_delete ; 
+  }
+  
   my @trans_with_tl = @{$self->add_translation_and_trans_supp_features_to_transcripts(
        \@all_merged_est_transcripts,$self->{min_translation_length}) } ; 
 
 
-  if ($WRITE_FILTERED_TRANSCRIPTS) {  
-     push @trans_with_tl , @tr_to_delete ; 
-  }
-  
   $self->output ( convert_to_genes ( \@trans_with_tl, $self->analysis)  ) ;   
   return ; 
 }
@@ -1022,7 +1022,7 @@ sub transcript_recursion {
     #
     my @tmp ; 
     if ( ( @start_exons) > 0 ) { 
-      print "start_exons :" . scalar(@start_exons) . " \n\n" ;  #ww
+      print "start_exons :" . scalar(@start_exons) . "\n\n"  if $self->{v} ; 
       for my $se (@start_exons) { 
        if ($se->next_exon) { 
           if ($self->{v}) { 
@@ -1032,9 +1032,6 @@ sub transcript_recursion {
             print_object($se->next_exon) ; 
           } 
           push @tmp, $se if $se->next_exon() ; 
-       }else {
-            print "this exon isn't used 'cause it has no next-exon\n" ; 
-            print_object($se) ; 
        }
       } 
     }
