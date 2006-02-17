@@ -988,11 +988,9 @@ sub gene_scaffold_from_projection {
     if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {            
       # the sequence itself        
       my $slice = $self->target_slices->{$coord->id};
-      my $this_seq = $slice->get_repeatmasked_seq(['RepeatMask'],1)->seq;
 
-      $this_seq = substr($this_seq,
-                         $coord->start  - 1,
-                         $coord->length);        
+      my $this_seq = $slice->subseq($coord->start, $coord->end);
+
       if ($coord->strand < 0) {
         reverse_comp(\$this_seq);
       }      
