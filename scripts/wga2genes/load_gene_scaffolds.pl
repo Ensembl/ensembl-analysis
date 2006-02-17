@@ -279,7 +279,7 @@ sub write_coord_system {
         my $st = $db->dbc->prepare("update coord_system set rank = ? where coord_system_id = ?");
         
         foreach my $cs (reverse @coord_sys) {
-          $st->execute($new_rank, $cs->rank + 1);
+          $st->execute($cs->rank + 1, $cs->dbID);
         }
         
         $st->finish;
