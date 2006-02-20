@@ -108,8 +108,8 @@ sub Exon_info{
   $indent = '' if(!$indent);
   my $coord_string = coord_string($exon);
   my $id = id($exon);
-  return $indent."EXON: ".$id." ".$coord_string." phase ".
-    $exon->phase." end_phase ".$exon->end_phase." length ".
+  return $indent."EXON: ".$id." ".$coord_string."  ".
+    $exon->phase." ".$exon->end_phase." ".
       $exon->length;
 }
 

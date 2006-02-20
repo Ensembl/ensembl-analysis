@@ -84,7 +84,6 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-use Bio::EnsEMBL::Analysis::Config::General qw(VERBOSITY);
 
 use vars qw (@ISA);
 
