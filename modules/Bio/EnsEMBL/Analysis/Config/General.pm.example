@@ -45,9 +45,16 @@ use vars qw(%Config);
            BIN_DIR  => '/usr/local/ensembl/bin',
            DATA_DIR => '/usr/local/ensembl/data',
            LIB_DIR  => '/usr/local/ensembl/lib',
-           
+
            ANALYSIS_WORK_DIR => '/tmp',
            ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
+
+           # set VERBOSITY-level of RunnableDB 
+           # (See Bio::EnsEMBL::Utils::Execption) 
+           # default is WARNING 
+           
+           VERBOSITY => '' ,  # INFO WARNING ... 
+                             
            
 );
 
