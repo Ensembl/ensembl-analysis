@@ -3,12 +3,12 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
+Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy
 
 =head1 SYNOPSIS
 
   my $runnable = 
-    Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
+    Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy->new(
      -query_seqs     => \@q_seqs,
      -query_type     => 'dna',
      -target_seqs    => \@t_seqs,
