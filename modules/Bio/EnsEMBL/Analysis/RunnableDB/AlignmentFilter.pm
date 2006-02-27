@@ -128,6 +128,10 @@ sub sort_chains_by_max_block_score {
   foreach my $chain (@$chains) {
     my $chain_hash = { chain => $chain };
     foreach my $block (@$chain) {
+      if (not exists $chain_hash->{qname}) {
+        $chain_hash->{qname} = $block->seqname;
+        $chain_hash->{tname} = $block->hseqname;
+      }
       if (not exists $chain_hash->{score} or
           $block->score > $chain_hash->{score}) {
         $chain_hash->{score} = $block->score;
@@ -136,7 +140,11 @@ sub sort_chains_by_max_block_score {
     push @chain_hashes, $chain_hash;
   }
   
-  my @sorted = map { $_->{chain}} sort {$b->{score} <=> $a->{score}} @chain_hashes;
+  my @sorted = map { $_->{chain}} sort {
+    $b->{score} <=> $a->{score} 
+    or $a->{qname} cmp $b->{qname}
+    or $a->{tname} cmp $b->{tname}
+  } @chain_hashes;
 
   return \@sorted;
 }
