@@ -68,6 +68,7 @@ use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Analysis::Tools::Blastz;
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
+use Bio::EnsEMBL::Utils::Exception;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
@@ -114,17 +115,13 @@ sub new {
     if ($query) {
       $self->query($query);
     } else {
-      $self->throw("No query sequence input.");
+      throw("No query sequence input.");
     }
-
-    #kfb 11.1.2006 changed to Analysis/Runnable method
-#    $self->program($self->find_executable($program)) if ($program);
-    $self->program($self->locate_executable($program)) if ($program);
 
     if ($database) {
       $self->database($database);
     } else {
-      $self->throw("No database input");
+      throw("No database input");
     }
     
     if ($options) {
@@ -173,12 +170,12 @@ sub run_analysis {
   if($self->{'_results_to_tmp_file'}) {
     $cmd .=  " > ". $self->results;
     print STDERR "Running blastz...\n$cmd\n" if($self->{'_verbose_debug'});
-    $self->throw("Error runing blastz cmd\n$cmd\n." .
+    throw("Error runing blastz cmd\n$cmd\n." .
                  " Returned error $? BLAST EXIT: '" .
                  ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
                  "', There was " . ($? & 128 ? 'a' : 'no') .
                  " core dump") unless(system($cmd) == 0);
-    #$self->throw("Failed during blastz run, $!\n") unless (system ($cmd));
+    #throw("Failed during blastz run, $!\n") unless (system ($cmd));
     if($self->{'_delete_results'}) {
       $self->file($self->results);
     }
@@ -186,7 +183,7 @@ sub run_analysis {
   } else {
     print STDERR "Running blastz to pipe...\n$cmd\n" if($self->{'_verbose_debug'});
     open($blastz_output_pipe, "$cmd |") ||
-      $self->throw("Error opening Blasts cmd <$cmd>." .
+      throw("Error opening Blasts cmd <$cmd>." .
                    " Returned error $? BLAST EXIT: '" .
                    ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
                    "', There was " . ($? & 128 ? 'a' : 'no') .
@@ -226,20 +223,20 @@ sub query {
 
      if (! ref($value)) {
       # assume it's a filename - check the file exists
-      $self->throw("[$value] : file does not exist\n") unless -e $value;
+      throw("[$value] : file does not exist\n") unless -e $value;
       $self->{'_query'} = $value;
     }
     elsif ($value->isa("Bio::PrimarySeqI") || $value->isa("Bio::Seq")) {
       my $filename = "/tmp/genfile_$$.".rand(time()).".fn";
       my $genOutput = Bio::SeqIO->new(-file => ">$filename" , '-format' => "Fasta")
-	or $self->throw("Can't create new Bio::SeqIO from $filename '$' : $!");
+	or throw("Can't create new Bio::SeqIO from $filename '$' : $!");
 
-      $self->throw ("problem writing genomic sequence to $filename\n" ) unless $genOutput->write_seq($value);
+      throw("problem writing genomic sequence to $filename\n" ) unless $genOutput->write_seq($value);
       $self->{'_query'} = $filename;
       $self->file($filename);
     }
     else {
-      $self->throw("$value is neither a Bio::Seq  nor a filename\n");
+      throw("$value is neither a Bio::Seq  nor a filename\n");
     }
   }
 
@@ -264,20 +261,20 @@ sub database {
 
      if (! ref($value)) {
       # assume it's a filename - check the file exists
-      $self->throw("[$value] : file does not exist\n") unless -e $value;
+      throw("[$value] : file does not exist\n") unless -e $value;
       $self->{'_database'} = $value;
     }
     elsif ($value->isa("Bio::PrimarySeqI")) {
       my $filename = "/tmp/genfile_$$.".rand(time()).".fn";
       my $genOutput = Bio::SeqIO->new(-file => ">$filename" , '-format' => "Fasta")
-	or $self->throw("Can't create new Bio::SeqIO from $filename '$' : $!");
+	or throw("Can't create new Bio::SeqIO from $filename '$' : $!");
     
-      $self->throw ("problem writing genomic sequence to $filename\n" ) unless $genOutput->write_seq($value);
+      throw("problem writing genomic sequence to $filename\n" ) unless $genOutput->write_seq($value);
       $self->{'_database'} = $filename;
       $self->file($filename);
     }
     else {
-      $self->throw("$value is neither a Bio::Seq  nor a filename\n");
+      throw("$value is neither a Bio::Seq  nor a filename\n");
     }
   }
   
@@ -324,7 +321,7 @@ sub _add_fp {
   if (@args) {
     push(@{$self->{'_fplist'}},@args);
   } else {
-    warn "WARN: Bio::EnsEMBL::Analysis::Runnable::Blastz->_add_fp should have an argument\n";
+    warning("Bio::EnsEMBL::Analysis::Runnable::Blastz->_add_fp should have an argument\n");
   }
 }
 
@@ -346,25 +343,5 @@ sub workdir{
        $self->{'_workdir'} = $value;
    }
    return $self->{'_workdir'};
-}
-
-=head2 program
-
-    Title   :   program
-    Usage   :   $obj->program('/usr/local/ensembl/bin/bl2seq');
-    Function:   Get/set method for the location of the bl2seq executable
-    Returns :   string
-    Args    :   string
-
-=cut
-
-sub program {
-  my ($self, $location) = @_;
-
-  if ($location) {
-    $self->throw("executable not found at $location: $!\n") unless (-e $location && -x $location);
-    $self->{'_program'} = $location ;
-  }
-  return $self->{'_program'};
 }
 
