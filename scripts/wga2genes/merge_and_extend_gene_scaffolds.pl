@@ -124,7 +124,7 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
 
   my (%simple_gene_scaffolds, %complex_gene_scaffolds);
   foreach my $gs_id (keys %$gene_scaffolds) {
-    if (&is_simple_gene_scaffold($gene_scaffolds->{$gs_id})) {
+    if (&is_simple_gene_scaffold($gs_id, $gene_scaffolds)) {
       $simple_gene_scaffolds{$gs_id} = $gene_scaffolds->{$gs_id};
     } else {
       $complex_gene_scaffolds{$gs_id} = $gene_scaffolds->{$gs_id};
@@ -1404,7 +1404,7 @@ sub prune_gap_ends_from_gene_scaffold {
       my ($tid) = ($l =~ /transcript=(\S+)/);
       my ($code) = ($l =~ /code=(\S+)/);
       my ($val) = ($l =~ /value=(\S+)/);
-      
+
       if ($code eq 'HitCoverage') {
         $trans{$tid}->{hit_coverage} = $val;
       }
@@ -1647,13 +1647,18 @@ sub get_gene_scaffold_component_extents {
 #
 #################################################################
 sub is_simple_gene_scaffold {
-  my $gene_scaf = shift;
+  my ($gene_scaf_id, $all_gene_scaffs) = @_;
   
   # a simple gene scaffold is one in which 
   # (a) all components come from the same scaffold
   # (b) all are in the same orientation
   # (c) the order is consistent
-   
+  # (d) the single, contigous scaffold segment implied by
+  #     the components does not interfere with any other gene scaffold
+  #     with any other gene scaffolds
+
+  my $gene_scaf = $all_gene_scaffs->{$gene_scaf_id};
+
   for(my $i=1; $i < @{$gene_scaf->{components}}; $i++) {
     my $this = $gene_scaf->{components}->[$i];
     my $prev = $gene_scaf->{components}->[$i-1];
@@ -1663,6 +1668,33 @@ sub is_simple_gene_scaffold {
         ($this->ori > 0 and $this->to->start <= $prev->to->end) or
         ($this->ori < 0 and $this->to->end >= $prev->to->start)) {
       return 0;
+    }
+  }
+
+  my $comp_id = $gene_scaf->{components}->[0]->to->id;
+  
+  my ($merged_start, $merged_end);
+
+  foreach my $comp (@{$gene_scaf->{components}}) {
+    if (not defined $merged_start or $merged_start > $comp->to->start) {
+      $merged_start = $comp->to->start;
+    }
+    if (not defined $merged_end or $merged_end < $comp->to->end) {
+      $merged_end = $comp->to->end;
+    }
+  }
+                    
+  foreach my $ogsid (keys %$all_gene_scaffs) {
+    next if $ogsid eq $gene_scaf_id;
+    
+    foreach my $ocomp (@{$all_gene_scaffs->{$ogsid}->{components}}) {
+      if ($ocomp->to->id eq $comp_id and
+          $ocomp->to->start <= $merged_end and
+          $ocomp->to->end   >= $merged_start) {
+        # this gene scaffold is not simple, because it interferes
+        # with another one
+        return 0;
+      }
     }
   }
 
@@ -1866,7 +1898,7 @@ sub fetch_gene_annotation_entries {
         push @{$gene_scaffolds->{$gs_id}->{annotation}}, $_;
       } elsif ($_ !~ /^\#/) {
         my @l = split(/\t/, $_);
-        
+
         push @{$gene_scaffolds->{$gs_id}->{annotation}}, \@l;
       }
     }
