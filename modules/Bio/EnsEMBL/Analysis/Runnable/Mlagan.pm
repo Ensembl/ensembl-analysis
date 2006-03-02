@@ -168,13 +168,11 @@ sub parse_results{
   while (<F>) {
     next if (/^\s*$/);
     chomp;
-    if (/^>(\S+)\s*.*$/) {
+    ## MLAGAN adds "_aligned" to the id in the mfa file. The "DnaFrag" and "."
+    ## are used to avoid having two sequence names where one of them is a
+    ## substring of the other (this confuses MLAGAN)
+    if (/^>DnaFrag(\d+)\._aligned/) {
       my $new_id = $1;
-      ## MLAGAN adds "_aligned" to the id in the mfa file. The # are used to avoid
-      ## having two sequence names where one of them is a substring of the other
-      ## (this can cause some troubles to MLAGAN)
-      $new_id =~ s/#//g;
-      $new_id =~ s/_aligned//;
       if (defined $id && defined $seq) {
         my $ga = new Bio::EnsEMBL::Compara::GenomicAlign;
         $ga->dnafrag_id($id);
