@@ -458,7 +458,7 @@ sub _check_that_external_db_table_populated {
 	my $find_tuple_sql = qq(SELECT count(*) AS tuple_exists
 			  FROM external_db
 			  WHERE db_name = ?
-			  && release = ?);
+			  && db_release = ?);
 	my $sth = $db->prepare($find_tuple_sql);
 	$sth->execute( $name, $release );
 	my $tuple = $sth->fetchrow_hashref() || {};
