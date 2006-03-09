@@ -138,8 +138,8 @@ sub run_mlagan {
   if ($self->parameters) {
     $command .= " " . $self->parameters;
   }
-  $command .= " -out mlagan.mfa";
-  print "Running mlagan " . $command . "\n";
+  $command .= " -out mlagan.mfa 1>/dev/null 2>&1";
+#   print "Running mlagan " . $command . "\n";
   unless (system($command) == 0) {
     throw("mlagan execution failed\n");
   }
