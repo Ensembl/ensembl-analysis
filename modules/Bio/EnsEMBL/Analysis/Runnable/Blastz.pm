@@ -72,64 +72,20 @@ use Bio::EnsEMBL::Utils::Exception;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-=head2 new
-
-    Title   :   new
-    Usage   :   my obj =  Bio::EnsEMBL::Analysis::Runnable::Blast->new 
-    (-query    => $seq,
-     -database => $database,
-     -options   => 'C=2 K=3000 H=2200');
-
-    Function:   Initialises Blastz object
-    Returns :   a Blastz Object
-    Args    :   A Bio::Seq object (-query)
-                A database file (-database)
-                The blastz executable (-program)
-                Options (-options)
-
-=cut
 
 sub new {
-    my ($class,@args) = @_;
+  my ($class,@args) = @_;
+  my $self = $class->SUPER::new(@args);
 
-    my $self = $class->SUPER::new(@args);    
+  my ($database) = rearrange(['DATABASE'], @args);
+  $self->database($database) if defined $database;
 
-    $self->{'_query'}     = undef;     # file location of query sequence
-    $self->{'_program'}   = "blastz";  # location of Blast
-    $self->{'_database'}  = undef;     # name of database filename
-    $self->{'_options'}   = "";        # options for blastz
-    $self->{'_fplist'}    = [];        # an array of feature pairs (the output)
-    $self->{'_workdir'}   = "/tmp";    # location of temp directory
-    $self->{'_results'}   = $self->{'_workdir'}."/results.".$$; # location of result file
-    $self->{'_results_to_tmp_file'} = 0;  # switch on whether to use pipe or /tmp file
-    $self->{'_delete_results'} = 1;       # switch on whether to delete /tmp/results file or not
-    $self->{'_verbose_debug'} = 0;
-    
-    # Now parse the input options and store them in the object
-    my($program,$query,$database,$options) = rearrange([qw(PROGRAM
-                                                           QUERY 
-                                                           DATABASE 
-                                                           OPTIONS)], 
-                                                       @args);
+  throw("You must supply a database") if not $self->database; 
+  throw("You must supply a query") if not $self->query;
 
-    if ($query) {
-      $self->query($query);
-    } else {
-      throw("No query sequence input.");
-    }
+  $self->program("blastz") if not $self->program;
 
-    if ($database) {
-      $self->database($database);
-    } else {
-      throw("No database input");
-    }
-    
-    if ($options) {
-       $self->options($options);
-    } 
-    # $options ||= ' C=2 ';
-    
-    return $self; # success - we hope!
+  return $self;
 }
 
 =head2 run
@@ -142,18 +98,21 @@ sub new {
 
 =cut
 
-sub run {
-  my ($self) = @_;
-  
-  $self->checkdir();
-  
+sub run{
+  my ($self, $dir) = @_;
+
+  $self->workdir($dir) if($dir);
+
+  throw("Can't run ".$self." without a query sequence")
+    unless($self->query);
+
+  $self->write_seq_files();
   $self->run_analysis();
-  
-  #parse output and create features
-   #kfb 11.01.2006 changed to Analysis/Runnable method 
-#  $self->deletefiles();
-  $self->delete_files();
+
+  $self->delete_files;
+  return 1;
 }
+
 
 
 sub run_analysis {
@@ -167,37 +126,45 @@ sub run_analysis {
   my $BlastzParser;
   my $blastz_output_pipe = undef;
               
-  if($self->{'_results_to_tmp_file'}) {
-    $cmd .=  " > ". $self->results;
-    print STDERR "Running blastz...\n$cmd\n" if($self->{'_verbose_debug'});
+  if($self->results_to_file) {
+    if (not $self->resultsfile) {
+      my $resfile = $self->create_filename("blastz", "results");
+      $self->resultsfile($resfile);
+      $self->files_to_delete($resfile);
+    }
+
+    $cmd .=  " > ". $self->resultsfile;
+    print STDERR "Running blastz...\n$cmd\n" if($self->verbose);
+
     throw("Error runing blastz cmd\n$cmd\n." .
                  " Returned error $? BLAST EXIT: '" .
                  ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
                  "', There was " . ($? & 128 ? 'a' : 'no') .
                  " core dump") unless(system($cmd) == 0);
-    #throw("Failed during blastz run, $!\n") unless (system ($cmd));
-    if($self->{'_delete_results'}) {
-      $self->file($self->results);
-    }
-    $BlastzParser = Bio::EnsEMBL::Analysis::Tools::Blastz->new('-file' => $self->results);
+
+    $BlastzParser = Bio::EnsEMBL::Analysis::Tools::Blastz->
+        new('-file' => $self->resultsfile);
   } else {
-    print STDERR "Running blastz to pipe...\n$cmd\n" if($self->{'_verbose_debug'});
+    print STDERR "Running blastz to pipe...\n$cmd\n" if $self->verbose;
+
     open($blastz_output_pipe, "$cmd |") ||
       throw("Error opening Blasts cmd <$cmd>." .
                    " Returned error $? BLAST EXIT: '" .
                    ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
                    "', There was " . ($? & 128 ? 'a' : 'no') .
                    " core dump");
-    $BlastzParser = Bio::EnsEMBL::Analysis::Tools::Blastz->new('-fh' => $blastz_output_pipe);
+    $BlastzParser = Bio::EnsEMBL::Analysis::Tools::Blastz->
+        new('-fh' => $blastz_output_pipe);
   }
 
-  my $count=0;
+  my @results;
+
   while (defined (my $alignment = $BlastzParser->nextAlignment)) { # nextHSP-like
-    $self->_add_fp($alignment);
-    $count++;
+    push @results, $alignment;
   }
-
   close($blastz_output_pipe) if(defined($blastz_output_pipe));
+
+  $self->output(\@results);
 }
 
 
@@ -217,30 +184,18 @@ sub run_analysis {
 =cut
 
 sub query {
-  my ($self, $value) = @_;
+  my ($self, $val) = @_;
 
-  if (defined $value) {
-
-     if (! ref($value)) {
-      # assume it's a filename - check the file exists
-      throw("[$value] : file does not exist\n") unless -e $value;
-      $self->{'_query'} = $value;
+  if (defined $val) {
+    if (not ref($val)) {   
+      throw("[$val] : file does not exist\n") unless -e $val;
+    } elsif (not $val->isa("Bio::PrimarySeqI")) {
+      throw("[$val] is neither a Bio::Seq not a file");
     }
-    elsif ($value->isa("Bio::PrimarySeqI") || $value->isa("Bio::Seq")) {
-      my $filename = "/tmp/genfile_$$.".rand(time()).".fn";
-      my $genOutput = Bio::SeqIO->new(-file => ">$filename" , '-format' => "Fasta")
-	or throw("Can't create new Bio::SeqIO from $filename '$' : $!");
-
-      throw("problem writing genomic sequence to $filename\n" ) unless $genOutput->write_seq($value);
-      $self->{'_query'} = $filename;
-      $self->file($filename);
-    }
-    else {
-      throw("$value is neither a Bio::Seq  nor a filename\n");
-    }
+    $self->{_query} = $val;
   }
 
-  return $self->{'_query'};
+  return $self->{_query}
 }
 
 =head2 database
@@ -255,93 +210,67 @@ sub query {
 =cut
 
 sub database {
-  my($self, $value) = @_;    
-  
-  if (defined $value) {
+  my ($self, $val) = @_;
 
-     if (! ref($value)) {
-      # assume it's a filename - check the file exists
-      throw("[$value] : file does not exist\n") unless -e $value;
-      $self->{'_database'} = $value;
+  if (defined $val) {
+    if (not ref($val)) {   
+      throw("[$val] : file does not exist\n") unless -e $val;
+    } else {
+      if (ref($val) eq 'ARRAY') {
+        foreach my $el (@$val) {
+          throw("All elements of given database array should be Bio::PrimarySeqs")
+              if not ref($el) or not $el->isa("Bio::PrimarySeq");
+        }
+      } elsif (not $val->isa("Bio::PrimarySeq")) {
+        throw("[$val] is neither a file nor array of Bio::Seq");
+      } else {
+        $val = [$val];
+      }
     }
-    elsif ($value->isa("Bio::PrimarySeqI")) {
-      my $filename = "/tmp/genfile_$$.".rand(time()).".fn";
-      my $genOutput = Bio::SeqIO->new(-file => ">$filename" , '-format' => "Fasta")
-	or throw("Can't create new Bio::SeqIO from $filename '$' : $!");
-    
-      throw("problem writing genomic sequence to $filename\n" ) unless $genOutput->write_seq($value);
-      $self->{'_database'} = $filename;
-      $self->file($filename);
-    }
-    else {
-      throw("$value is neither a Bio::Seq  nor a filename\n");
-    }
+    $self->{_database} = $val;
   }
-  
-  return $self->{'_database'};
+
+  return $self->{_database};
 }
-
-=head2 options
-
-    Title   :   options
-    Usage   :   $obj->options(' -I ');
-    Function:   Get/set method for blast arguments
-    Args    :   File path (optional)
-
-=cut
-
-sub options {
-  my ($self, $args) = @_;
   
-  if (defined($args)) {
-    $self->{'_options'} = $args ;
-  }
-  return $self->{'_options'};
-}
 
-=head2 output
-
-    Title   :   output
-    Usage   :   $self->output()
-    Function:   Returns all output feature pairs
-    Returns :   Array of Bio::EnsEMBL::FeaturePairs
-    Args    :   None
-
-=cut
-
-sub output {
+sub write_seq_files {
   my ($self) = @_;
-   #kfb 11.01.2006 changed to Analysis/Runnable method 
-#  return @{$self->{'_fplist'}};
-  return $self->{'_fplist'};
-}
 
-sub _add_fp {
-  my ($self,@args) = @_;
-  if (@args) {
-    push(@{$self->{'_fplist'}},@args);
-  } else {
-    warning("Bio::EnsEMBL::Analysis::Runnable::Blastz->_add_fp should have an argument\n");
+  if (ref($self->query)) {
+    # write the query
+    my $query_file = $self->create_filename("blastz", "query");
+    my $seqio = Bio::SeqIO->new(-format => "fasta",
+                                -file   => ">$query_file");
+    $seqio->write_seq($self->query);
+    $seqio->close;
+
+    $self->query($query_file);
+    $self->files_to_delete($query_file);
+  }
+  if (ref($self->database)) {
+    my $db_file = $self->create_filename("blastz", "database");    
+    my $seqio = Bio::SeqIO->new(-format => "fasta",
+                                -file   => ">$db_file");
+    foreach my $seq (@{$self->database}) {
+      $seqio->write_seq($seq);
+    }
+    $seqio->close;
+
+    $self->database($db_file);
+    $self->files_to_delete($db_file);
   }
 }
 
-=head2 workdir
 
- Title   : workdir
- Usage   : $obj->workdir($newval)
- Function: 
- Example : 
- Returns : value of workdir
- Args    : newvalue (optional)
+sub results_to_file {
+  my ($self, $val) = @_;
 
+  if (defined $val) {
+    $self->{_results_to_file} = $val;
+  }
 
-=cut
-
-sub workdir{
-   my ($self,$value) = @_;
-   if( defined $value) {
-       $self->{'_workdir'} = $value;
-   }
-   return $self->{'_workdir'};
+  return $self->{_results_to_file};
 }
 
+1;
