@@ -60,7 +60,7 @@ sub new {
   my 
     (
       $query_type, $query_seqs, $query_file, $q_chunk_num, $q_chunk_total,
-      $target_seqs, $target_file, $verbose
+      $target_seqs, $target_file, $t_chunk_num, $t_chunk_total, $verbose
     ) =
     rearrange(
       [
@@ -69,9 +69,11 @@ sub new {
           QUERY_SEQS
           QUERY_FILE
           QUERY_CHUNK_NUMBER
-          QUERY_CHUNK_TOTAL
+          QUERY_CHUNK_TOTAL          
           TARGET_SEQS
           TARGET_FILE
+          TARGET_CHUNK_NUMBER
+          TARGET_CHUNK_TOTAL
           VERBOSE
         )
       ], 
@@ -119,6 +121,10 @@ sub new {
   
   if (defined $q_chunk_num and defined $q_chunk_total) {
     $basic_options .= "--querychunkid $q_chunk_num --querychunktotal $q_chunk_total ";
+  }
+
+  if (defined $t_chunk_num and defined $t_chunk_total) {
+    $basic_options .= "--targetchunkid $t_chunk_num --targetchunktotal $t_chunk_total ";
   }
 
   if ($self->options){
