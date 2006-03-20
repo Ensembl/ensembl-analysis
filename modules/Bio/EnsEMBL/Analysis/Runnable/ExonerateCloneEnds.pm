@@ -153,7 +153,15 @@ sub make_feature{
   # we add 1 to avoid this situation.
   $q_start+=1;
   $t_start+=1;
-    
+
+  # for reverse strand matches, Exonerate reports end => start 
+  if ($q_start > $q_end) {
+    ($q_start, $q_end) = ($q_end, $q_start);
+  }
+  if ($t_start > $t_end) {
+    ($t_start, $t_end) = ($t_end, $t_start);
+  }
+
   my $feature =
     new Bio::EnsEMBL::DnaDnaAlignFeature(
       -seqname      => $t_id,
