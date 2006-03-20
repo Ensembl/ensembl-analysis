@@ -59,7 +59,7 @@ use vars qw( %Config );
         -pass     => '',
         },
       CHUNKSLIST  => '/ecs2/scratch2/jb16/sheep/listOfChunks.txt',
-      OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
+      OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --softmasktarget TRUE --score 300',
     },
     Map_Clone_Ends => {
       
@@ -80,7 +80,7 @@ use vars qw( %Config );
         -pass     => '',
         },
       CHUNKSLIST  => '/ecs2/scratch2/jb16/sheep/listOfChunks.txt',
-      OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 300',
+      OPTIONS     => '--model affine:local --refine full --gapopen -8 --gapextend -2 --bestn 1  --dnawordlen 12  --softmasktarget TRUE --score 300',
     },
      EXONERATE_CLONE_ENDS => {
 
@@ -111,7 +111,7 @@ use vars qw( %Config );
         -pass   => 'ensembl',
         },
       SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_clean_idx',
-      OPTIONS   => '--bestn 10  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
+      OPTIONS   => '--bestn 10  --dnawordlen 12 --softmasktarget TRUE --score 100',
     },
     REFINE_CLONE_ENDS => {
   
@@ -139,7 +139,7 @@ use vars qw( %Config );
         -pass   => 'ensembl',
         },
       SEQFETCHDB  => '/ecs2/scratch2/jb16/sheep/sheep_clones_clean_idx',
-      OPTIONS   => '--model affine:local --refine full --gapopen -12 --gapextend -2 --bestn 1  --dnawordlen 12 --forwardcoordinates FALSE --softmasktarget TRUE --score 100',
+      OPTIONS   => '--model affine:local --refine full --gapopen -12 --gapextend -2 --bestn 1  --dnawordlen 12 --softmasktarget TRUE --score 100',
     },
   }
 );

@@ -149,6 +149,11 @@ sub make_feature{
       throw "unrecognised query strand symbol: $q_strand\n";
   }
   
+  # Exonerate reports query start -1 so in some cases we get alignments with hit start 0
+  # we add 1 to avoid this situation.
+  $q_start+=1;
+  $t_start+=1;
+    
   my $feature =
     new Bio::EnsEMBL::DnaDnaAlignFeature(
       -seqname      => $t_id,
