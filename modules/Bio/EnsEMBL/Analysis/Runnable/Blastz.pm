@@ -134,7 +134,7 @@ sub run_analysis {
     }
 
     $cmd .=  " > ". $self->resultsfile;
-    print STDERR "Running blastz...\n$cmd\n" if($self->verbose);
+    info("Running blastz...\n$cmd\n");
 
     throw("Error runing blastz cmd\n$cmd\n." .
                  " Returned error $? BLAST EXIT: '" .
@@ -145,7 +145,7 @@ sub run_analysis {
     $BlastzParser = Bio::EnsEMBL::Analysis::Tools::Blastz->
         new('-file' => $self->resultsfile);
   } else {
-    print STDERR "Running blastz to pipe...\n$cmd\n" if $self->verbose;
+    info("Running blastz to pipe...\n$cmd\n");
 
     open($blastz_output_pipe, "$cmd |") ||
       throw("Error opening Blasts cmd <$cmd>." .
