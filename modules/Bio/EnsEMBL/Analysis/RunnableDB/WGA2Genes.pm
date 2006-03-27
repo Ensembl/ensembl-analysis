@@ -41,7 +41,6 @@ use Bio::EnsEMBL::Analysis::Config::WGA2Genes;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
-use Bio::EnsEMBL::Utils::Sequence qw(reverse_comp);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
@@ -736,18 +735,18 @@ sub gene_scaffold_from_projection {
 
   # find max length for each component scaffolds used in the projection
   #
-  my %max_lengths;
-  foreach my $cds (@$projected_cds_elements) {
-    foreach my $coord_pair (@$cds) {
-      my $tcoord = $coord_pair->{target};
-      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        if (not exists $max_lengths{$tcoord->id} or
-            $max_lengths{$tcoord->id} < $tcoord->length) {
-          $max_lengths{$tcoord->id} = $tcoord->length;
-        }
-      }
-    }
-  }
+  #my %max_lengths;
+  #foreach my $cds (@$projected_cds_elements) {
+  #  foreach my $coord_pair (@$cds) {
+  #    my $tcoord = $coord_pair->{target};
+  #    if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+  #      if (not exists $max_lengths{$tcoord->id} or
+  #          $max_lengths{$tcoord->id} < $tcoord->length) {
+  #        $max_lengths{$tcoord->id} = $tcoord->length;
+  #      }
+  #    }
+  #  }
+  #}
 
   # flatten list and add exon number to each projected component
   my $cds_id = 0;
@@ -968,98 +967,19 @@ sub gene_scaffold_from_projection {
     
   @targets = @new_targets;
 
-  ###################################
-  # build the gene scaffold, and mappings between the new gene
-  # scaffold and each of query and target coords
-
-  my $t_map = Bio::EnsEMBL::Mapper->new('target',
-                                        $gene_scaffold_id); 
-  my $q_map = Bio::EnsEMBL::Mapper->new('query',
-                                        $gene_scaffold_id);
-  
-  my ($seq, $last_end_pos) = ("", 0);
-  for(my $i=0; $i < @targets; $i++) {
-    my $target = $targets[$i];
-    my $coord = $target->{coord};
-
-    if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {            
-      # the sequence itself        
-      my $slice = $self->target_slices->{$coord->id};
-
-      my $this_seq = $slice->subseq($coord->start, $coord->end);
-
-      if ($coord->strand < 0) {
-        reverse_comp(\$this_seq);
-      }      
-      $seq .= $this_seq;
-      
-      # and the map
-      $t_map->add_map_coordinates($coord->id,
-                                  $coord->start,
-                                  $coord->end,
-                                  $coord->strand,
-                                  $gene_scaffold_id,
-                                  $last_end_pos + 1,
-                                  $last_end_pos + $coord->length);
-    } else {
-      # the sequence itself
-      $seq .= ('n' x $coord->length);
-      
-      # and the map. This is a target gap we have "filled", so no position 
-      # in target, but a position in query
-      
-      $q_map->add_map_coordinates($self->query_slice->seq_region_name,
-                                  $coord->start,
-                                  $coord->end,
-                                  1,
-                                  $gene_scaffold_id,
-                                  $last_end_pos + 1,
-                                  $last_end_pos + $coord->length);
-    }
-
-    # add padding between the pieces
-    if ($i < @targets - 1) {
-      $last_end_pos += 
-          $coord->length + $self->GENE_SCAFFOLD_INTER_PIECE_PADDING;
-      $seq .= ('n' x $self->GENE_SCAFFOLD_INTER_PIECE_PADDING);
-    }
-  }
-  
-
-  # now add of the original exon pieces to the query map
-  foreach my $el (@projected_cds_elements) {
-    foreach my $pair (@$el) {
-      my ($q, $t) = ($pair->{query}, $pair->{target});
-
-      if ($t->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        # get the gene_scaffold position from the target map
-        my ($coord) = $t_map->map_coordinates($t->id,
-                                              $t->start,
-                                              $t->end,
-                                              $t->strand,
-                                              'target');
-
-        $q_map->add_map_coordinates($self->query_slice->seq_region_name,
-                                    $q->start,
-                                    $q->end,
-                                    1,
-                                    $gene_scaffold_id,
-                                    $coord->start,
-                                    $coord->end);
-      }
-    }
+  my @components = map { $_->{coord} } @targets;
+  my @ref_comp_coord_pairs;
+  foreach my $cds_el (@projected_cds_elements) {
+    push @ref_comp_coord_pairs, map { [$_->{query}, $_->{target}] } @$cds_el;
   }
 
-  # finally, make the gene scaffold itself
   my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold
-      ->new(
-            -seq_region_name => $gene_scaffold_id,
-            -seq  => $seq,
-            -start => 1,
-            -end   => length($seq),
-            -query_mapper => $q_map,
-            -target_mapper => $t_map);
-
+      ->new(-name => $gene_scaffold_id,
+            -component_slices => $self->target_slices,
+            -component_coords => \@components,
+            -reference_slice => $self->query_slice,
+            -alignment_coords => \@ref_comp_coord_pairs);
+            
   return $gene_scaffold;
 }
 
@@ -1310,11 +1230,11 @@ sub make_nr_transcript_set {
 
     my $last_exon;
     foreach my $e (sort {$a->start <=> $b->start} @{$tran->get_all_Exons}) {      
-      my ($coord) = $gene_scaf->target_mapper->map_coordinates($gene_scaf->seq_region_name,
-                                                               $e->start,
-                                                               $e->end,
-                                                               1,
-                                                               $gene_scaf->seq_region_name);
+      my ($coord) = $gene_scaf->component_mapper->map_coordinates($gene_scaf->seq_region_name,
+                                                                  $e->start,
+                                                                  $e->end,
+                                                                  1,
+                                                                  $gene_scaf->seq_region_name);
 
       if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
         push @non_gap_exons, $e;
@@ -1715,8 +1635,8 @@ sub write_agp {
 
   my $prefix = "##-AGP";
 
-  my @tpieces = $gscaf->target_components;
-  my @qpieces = $gscaf->query_components;
+  my @tpieces = $gscaf->component_coords;
+  my @qpieces = $gscaf->reference_coords;
   
   print $fh "$prefix \#\n";
   printf($fh "$prefix \#\# AGP for gene scaffold %s source-region=%s/%d-%d\n", 

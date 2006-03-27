@@ -19,33 +19,122 @@ use strict;
 use vars qw(@ISA);
 
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
+use Bio::EnsEMBL::Utils::Sequence qw(reverse_comp);
 
 use Bio::EnsEMBL::Slice;
 
 @ISA = qw(Bio::EnsEMBL::Slice);
 
+my $INTERPIECE_PADDING = 100;
+my $REFERENCE_MAP_NAME = 'query';
+my $COMPONENT_MAP_NAME = 'target';
+
 
 sub new {
   my $caller = shift;
+
   my %given_args = @_;
 
   my $class = ref($caller) || $caller;
 
-  $given_args{-coord_system} =  
-      Bio::EnsEMBL::CoordSystem->new(-name => 'genescaffold',
-                                     -rank => 1);
+  my ($gene_scaffold_id,
+      $reference_slice,
+      $component_slices,
+      $component_pieces,
+      $alignment_pieces,
+      ) = rearrange([qw(NAME
+                        REFERENCE_SLICE
+                        COMPONENT_SLICES
+                        COMPONENT_COORDS
+                        ALIGNMENT_COORDS)], @_);
 
-  my $self = $class->SUPER::new(%given_args);
+  my $t_map = Bio::EnsEMBL::Mapper->new($COMPONENT_MAP_NAME,
+                                        $gene_scaffold_id); 
+  my $q_map = Bio::EnsEMBL::Mapper->new($REFERENCE_MAP_NAME,
+                                        $gene_scaffold_id);
+  
+  my ($seq, $last_end_pos) = ("", 0);
+  for(my $i=0; $i < @$component_pieces; $i++) {
+    my $coord = $component_pieces->[$i];
 
-  my ($qmapper,$tmapper) = rearrange([qw(QUERY_MAPPER
-                                         TARGET_MAPPER)], @_);
-  if (defined $qmapper) {
-    $self->query_mapper($qmapper);
-  }
-  if (defined $tmapper) {
-    $self->target_mapper($tmapper);
+    if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {            
+      # the sequence itself        
+      my $slice = $component_slices->{$coord->id};
+
+      my $this_seq = $slice->subseq($coord->start, $coord->end);
+
+      if ($coord->strand < 0) {
+        reverse_comp(\$this_seq);
+      }      
+      $seq .= $this_seq;
+      
+      # and the map
+      $t_map->add_map_coordinates($coord->id,
+                                  $coord->start,
+                                  $coord->end,
+                                  $coord->strand,
+                                  $gene_scaffold_id,
+                                  $last_end_pos + 1,
+                                  $last_end_pos + $coord->length);
+    } else {
+      # the sequence itself
+      $seq .= ('n' x $coord->length);
+      
+      # and the map. This is a target gap we have "filled", so no position 
+      # in target, but a position in query
+      
+      $q_map->add_map_coordinates($reference_slice->seq_region_name,
+                                  $coord->start,
+                                  $coord->end,
+                                  1,
+                                  $gene_scaffold_id,
+                                  $last_end_pos + 1,
+                                  $last_end_pos + $coord->length);
+    }
+
+    # add padding between the pieces
+    if ($i < @$component_pieces - 1) {
+      $last_end_pos += 
+          $coord->length + $INTERPIECE_PADDING;
+      $seq .= ('n' x $INTERPIECE_PADDING);
+    }
   }
   
+
+  # now add of the original alignment pieces to the query map
+  foreach my $aln_piece (@$alignment_pieces) {
+    my ($q, $t) = @$aln_piece;
+
+    if ($t->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+      # get the gene_scaffold position from the target map
+      my ($coord) = $t_map->map_coordinates($t->id,
+                                            $t->start,
+                                            $t->end,
+                                            $t->strand,
+                                            $COMPONENT_MAP_NAME);
+
+      $q_map->add_map_coordinates($reference_slice->seq_region_name,
+                                  $q->start,
+                                  $q->end,
+                                  1,
+                                  $gene_scaffold_id,
+                                  $coord->start,
+                                  $coord->end);
+    }
+  }
+
+  my $self = $class->SUPER::new(-coord_system => 
+                                  Bio::EnsEMBL::CoordSystem->new(-name => 'genescaffold',
+                                                                 -rank => 1),
+                                -seq_region_name => $gene_scaffold_id,
+                                -seq => $seq,
+                                -start => 1,
+                                -end   => length($seq),
+                                );
+
+  $self->component_mapper($t_map);
+  $self->reference_mapper($q_map);
+
   return $self;
 }
 
@@ -75,11 +164,11 @@ sub project_transcript {
   map { $tran_length += $_->length } @orig_exons; 
 
   foreach my $orig_exon (@orig_exons) {    
-    my @crds = $self->query_mapper->map_coordinates($orig_exon->slice->seq_region_name,
-                                                    $orig_exon->start,
-                                                    $orig_exon->end,
-                                                    1,
-                                                    "query");
+    my @crds = $self->reference_mapper->map_coordinates($orig_exon->slice->seq_region_name,
+                                                        $orig_exon->start,
+                                                        $orig_exon->end,
+                                                        1,
+                                                        $REFERENCE_MAP_NAME);
     push @all_coords, @crds;
   }
 
@@ -94,11 +183,11 @@ sub project_transcript {
 
   for(my $i=0; $i < @all_coords; $i++) {
     if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-      my ($tcoord) = $self->target_mapper->map_coordinates($self->seq_region_name,
-                                                           $all_coords[$i]->start,
-                                                           $all_coords[$i]->end,
-                                                           1,
-                                                           $self->seq_region_name);
+      my ($tcoord) = $self->component_mapper->map_coordinates($self->seq_region_name,
+                                                              $all_coords[$i]->start,
+                                                              $all_coords[$i]->end,
+                                                              1,
+                                                              $self->seq_region_name);
       if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
         last;
       } else {
@@ -112,11 +201,11 @@ sub project_transcript {
   }
   for(my $i=scalar(@all_coords)-1; $i >= 0; $i--) {
     if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-      my ($tcoord) = $self->target_mapper->map_coordinates($self->seq_region_name,
-                                                           $all_coords[$i]->start,
-                                                           $all_coords[$i]->end,
-                                                           1,
-                                                           $self->seq_region_name);
+      my ($tcoord) = $self->component_mapper->map_coordinates($self->seq_region_name,
+                                                              $all_coords[$i]->start,
+                                                              $all_coords[$i]->end,
+                                                              1,
+                                                              $self->seq_region_name);
       if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
         last;
       } else {
@@ -213,11 +302,11 @@ sub project_transcript {
                                                -slice => $self);
 
       $total_tran_bps += $coord->length;
-      my ($tcoord) = $self->target_mapper->map_coordinates($self->seq_region_name,
-                                                           $coord->start,
-                                                           $coord->end,
-                                                           1,
-                                                           $self->seq_region_name);
+      my ($tcoord) = $self->component_mapper->map_coordinates($self->seq_region_name,
+                                                              $coord->start,
+                                                              $coord->end,
+                                                              1,
+                                                              $self->seq_region_name);
       if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
         $real_seq_bps += $coord->length;
       } 
@@ -267,11 +356,11 @@ sub project_transcript {
     if ($extent_end > $extent_start) {
       # if not, we've eaten away the whole exon, so there is no support
 
-      my @gen_coords = $self->query_mapper->map_coordinates($self->seq_region_name,
-                                                            $extent_start,
-                                                            $extent_end,
-                                                            1,
-                                                            $self->seq_region_name);
+      my @gen_coords = $self->reference_mapper->map_coordinates($self->seq_region_name,
+                                                                $extent_start,
+                                                                $extent_end,
+                                                                1,
+                                                                $self->seq_region_name);
 
       my @fps;
       my $cur_gs_start = $extent_start;
@@ -455,11 +544,11 @@ sub project_transcript {
   # indentify gap exons
   my $gap_exons = 0;
   foreach my $e (@{$proj_tran->get_all_Exons}) {
-    my ($coord) = $self->target_mapper->map_coordinates($self->seq_region_name,
-                                                        $e->start,
-                                                        $e->end,
-                                                        1,
-                                                        $self->seq_region_name);
+    my ($coord) = $self->component_mapper->map_coordinates($self->seq_region_name,
+                                                           $e->start,
+                                                           $e->end,
+                                                           1,
+                                                           $self->seq_region_name);
     if ($coord->isa("Bio::EnsEMBL::Mapper::Gap")) {
       $gap_exons++;
     }
@@ -492,45 +581,45 @@ sub project_transcript {
 }
 
 
-sub query_components {
+sub reference_coords {
   my ($self) = @_;
 
-  return $self->query_mapper->map_coordinates($self->seq_region_name,
-                                              1,
-                                              $self->length,
-                                              1,
-                                              $self->seq_region_name);
+  return $self->reference_mapper->map_coordinates($self->seq_region_name,
+                                                  1,
+                                                  $self->length,
+                                                  1,
+                                                  $self->seq_region_name);
 }
 
-sub target_components {
+sub component_coords {
   my ($self) = @_;
 
-  return $self->target_mapper->map_coordinates($self->seq_region_name,
-                                               1,
-                                               $self->length,
-                                               1,
-                                               $self->seq_region_name);
+  return $self->component_mapper->map_coordinates($self->seq_region_name,
+                                                  1,
+                                                  $self->length,
+                                                  1,
+                                                  $self->seq_region_name);
 }
 
 
-sub query_mapper {
+sub reference_mapper {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_query_mapper} = $val;
+    $self->{_reference_mapper} = $val;
   }
 
-  return $self->{_query_mapper};
+  return $self->{_reference_mapper};
 }
 
 
-sub target_mapper {
+sub component_mapper {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_target_mapper} = $val;
+    $self->{_component_mapper} = $val;
   }
-  return $self->{_target_mapper};
+  return $self->{_component_mapper};
 
 }
 
