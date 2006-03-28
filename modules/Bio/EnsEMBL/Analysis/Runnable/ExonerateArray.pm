@@ -24,7 +24,6 @@ $options   = a string with options ,
 								       -query_seqs    => \@sequences,
 								       -program       => $exonerate,
 								       -options       => $options,
-								       -verbose       => "all",
 								);
 
  $runnable->run; #create and fill Bio::Seq object
@@ -71,15 +70,13 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   
-  my ($db,$query_seqs,$verbose) =
+  my ($db,$query_seqs) =
     rearrange([qw(
 		  DB
 		  QUERY_SEQS
-		  VERBOSE
 		 )
 	      ], @args);
   
-  verbose($verbose);
 
   ###$db is needed to create $slice which is needed to create DnaDnaAlignFeatures
   $self->db($db) if $db;

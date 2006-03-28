@@ -52,7 +52,6 @@ use warnings;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_warning logger_info);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -258,7 +257,7 @@ sub run_analysis {
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
     
-    logger_info("Running blast ".$command);
+    info("Running blast ".$command);
     
     open(my $fh, "$command |") || 
       throw("Error opening Blast cmd <$command>." .

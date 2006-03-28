@@ -77,7 +77,7 @@ use Bio::EnsEMBL::Analysis::Programs;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::SequenceUtils qw(create_file_name write_seqfile);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_warning logger_info);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use vars qw (@ISA);
 
 @ISA = qw();
@@ -114,10 +114,10 @@ sub new{
   my $self = bless {},$class;
   my ($query, $program, $options,
       $workdir, $bindir, $libdir,
-      $datadir, $analysis, $verbose) = rearrange
+      $datadir, $analysis) = rearrange
         (['QUERY', 'PROGRAM', 'OPTIONS',
           'WORKDIR', 'BINDIR', 'LIBDIR',
-          'DATADIR', 'ANALYSIS', 'VERBOSITY'], @args);
+          'DATADIR', 'ANALYSIS'], @args);
   if(!$analysis){
     throw("Can't create a Runnable without an analysis object");
   }
@@ -129,7 +129,7 @@ sub new{
   $self->libdir($libdir);
   $self->datadir($datadir);
   $self->analysis($analysis);
-  $self->verbosity($verbose);
+
   return $self;
 }
 
@@ -178,14 +178,6 @@ sub datadir{
   return $self->{'datadir'} || $DATA_DIR;
 }
 
-
-sub verbosity{
-  my ($self, $verbosity) = @_;
-  $verbosity = "WARNING" if(!$verbosity);
-  verbose($verbosity);
-  logger_verbosity($verbosity);
-  return $verbosity;
-}
 
 =head2 workdir
 

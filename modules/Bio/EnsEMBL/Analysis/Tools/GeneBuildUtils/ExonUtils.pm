@@ -44,9 +44,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw(print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Exon;
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity
-                                             logger_info
-                                             logger_warning);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
@@ -164,8 +162,8 @@ sub clone_Exon{
 sub exon_length_less_than_maximum{
   my ($exon, $max_length) = @_;
   if($exon->length >= $max_length){
-    logger_warning(id($exon)." is longer than max length ".
-                   $max_length);
+    warning(id($exon)." is longer than max length ".
+            $max_length);
     return 0;
   }
   return 1;

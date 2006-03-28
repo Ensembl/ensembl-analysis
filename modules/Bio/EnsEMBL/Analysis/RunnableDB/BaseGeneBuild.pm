@@ -7,9 +7,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info 
-                                             logger_warning
-                                             logger_verbosity);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES);
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;

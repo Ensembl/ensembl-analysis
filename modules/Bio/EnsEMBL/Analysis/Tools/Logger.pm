@@ -9,14 +9,14 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 
 
 @ISA = qw(Exporter);
-@EXPORT = qw(logger_verbosity logger_info 
-             logger_warning);
+@EXPORT = qw(logger_verbosity logger_info);
 
 
-my $VERBOSITY = 3000;
-my $DEFAULT_INFO = 4000;
-my $DEFAULT_WARNING = 2000;
+my $DEFAULT_OFF             = 0;
+my $DEFAULT_INFO            = 4000;
+my $DEFAULT_INFO_WITH_TRACE = 5000;
 
+my $VERBOSITY = $DEFAULT_OFF;
 
 sub logger_verbosity{
   if(@_) {
@@ -30,23 +30,18 @@ sub logger_verbosity{
     } else {
       if($verbosity eq 'OFF' || $verbosity eq 'NOTHING' ||
          $verbosity eq 'NONE'){
-        $VERBOSITY = 0;
-      }elsif($verbosity eq 'WARN' || $verbosity eq 'WARNING' ||
-             $verbosity eq 'LOGGER_WARNING'){
-        $VERBOSITY = $DEFAULT_WARNING;
+        $VERBOSITY = $DEFAULT_OFF;
       }elsif($verbosity eq 'INFO' || 
              $verbosity eq 'LOGGER_INFO'){
         $VERBOSITY = $DEFAULT_INFO;
-      }elsif($verbosity eq 'ALL' || 'ON'){
+      } elsif ($verbosity eq 'INFO_STACK_TRACE' ||
+               $verbosity eq 'LOGGER_INFO_STACK_TRACE') {
+        $VERBOSITY = $DEFAULT_INFO_WITH_TRACE;
+      }
+      elsif($verbosity eq 'ALL' || 'ON'){
         $VERBOSITY = 1e6;
-      }elsif($verbosity eq 'EXCEPTION' 
-             || $verbosity eq 'THROW'){
-        $VERBOSITY = $DEFAULT_WARNING;
-      }elsif($verbosity eq 'DEPRECATE' 
-             || $verbosity eq 'DEPRECATED'){
-        $VERBOSITY = $DEFAULT_INFO;
-      }else{
-        $VERBOSITY = $DEFAULT_WARNING;
+      } else {
+        $VERBOSITY = $DEFAULT_OFF;
         warning("Unknown level or verbosity :".$verbosity);
       }
     }
@@ -54,19 +49,16 @@ sub logger_verbosity{
   return $VERBOSITY;
 }
 
-sub logger_info{
+sub logger_info {
   my $string = shift;
-  my $level = shift;
-  $level = $DEFAULT_INFO if(!defined($level));
-  return if($VERBOSITY < $level);
-  print STDERR "INFO: $string\n";
-}
 
-sub logger_warning{
-  my $string = shift;
-  my $level = shift;
-  $level = $DEFAULT_WARNING if(!defined($level));
-  return if($VERBOSITY < $level);
+  if ($VERBOSITY < $DEFAULT_INFO) {
+    return;
+  } elsif ($VERBOSITY < $DEFAULT_INFO_WITH_TRACE) {
+    print STDERR "INFO: $string\n";
+    return;
+  }
+
   my @caller = caller;
   my $line = $caller[2] || '';
 
@@ -95,10 +87,12 @@ sub logger_warning{
   }
 
   
-  my $out = "\n-------------------- WARNING ----------------------\n".
+  my $out = "\n-------------------- LOG INFO ---------------------\n".
               "MSG: $string\n".
               "FILE: $file LINE: $line\n";
   $out .=     "CALLED BY: $caller_file  LINE: $caller_line\n" if($caller_file);
   $out .=     "---------------------------------------------------\n";
   print STDERR $out;
 }
+
+1;

@@ -62,7 +62,6 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   
-  $self->verbose(0) ;  
   my @est_biotypes = @{ $EST_SETS } ; 
   my @simgw_biotypes = @{ $SIMGW_SETS } ; 
   my @abinitio_logicnames = @{ $ABINITIO_SETS } ; 
@@ -75,9 +74,7 @@ sub new {
                              'simgw' => \@simgw_biotypes , 
                              'abinitio' => \@abinitio_logicnames , 
                             } ; 
-  # verbosity-level can be controlled by test_RunnableDB -utils_verbosity INFO 
-  # see Bio::EnsEMBL::Utils::Exception
-  &verbose($self->{utils_verbosity})  ; 
+
   return $self;
 }
 

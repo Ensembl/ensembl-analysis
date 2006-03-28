@@ -47,9 +47,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity
-                                             logger_info
-                                             logger_warning);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
 use Bio::SeqIO;
@@ -258,17 +257,17 @@ sub are_strands_consistent{
   my ($transcript) = @_;
   my $exons = $transcript->get_all_Exons;
   if($exons->[0]->strand != $transcript->strand){
-    logger_warning("Strands are inconsistent between the ".
-                   "first exon and the transcript for ".
-                   id($transcript));
+    warning("Strands are inconsistent between the ".
+            "first exon and the transcript for ".
+            id($transcript));
     return 0;
   }
   if(@$exons >= 2){
     for(my $i = 1;$i < @$exons;$i++){
       if($exons->[$i]->strand != $exons->[$i-1]->strand){
-        logger_warning("Strands are inconsistent between ".
-                       "exon $i exon and exon ".($i-1)." for ".
-                       id($transcript));
+        warning("Strands are inconsistent between ".
+                "exon $i exon and exon ".($i-1)." for ".
+                id($transcript));
         return 0;
       }
     }
@@ -298,13 +297,13 @@ sub lies_inside_of_slice{
   my ($transcript, $slice) = @_;
   if($transcript->start > $slice->length || 
      $transcript->end < 1){
-    logger_warning(id($transcript)." lies off edge if slice ".
-                   $slice->name);
+    warning(id($transcript)." lies off edge if slice ".
+            $slice->name);
     return 0;
   }
   if($transcript->start < 1 && $transcript->end > 1){
-    logger_warning(id($transcript)." lies over lower boundary".
-                   " of slice ".$slice->name);
+    warning(id($transcript)." lies over lower boundary".
+            " of slice ".$slice->name);
     return 0;
   }
   return 1;
@@ -359,8 +358,8 @@ sub intron_lengths_all_less_than_maximum{
   foreach my $intron(@{$transcript->get_all_Introns}){
     if(!intron_length_less_than_maximum($intron, 
                                         $max_length)){
-      logger_warning("Transcript ".id($transcript)." has ".
-                     "intron longer than ".$max_length);
+      warning("Transcript ".id($transcript)." has ".
+              "intron longer than ".$max_length);
       return 0;
     }
   }
@@ -407,7 +406,7 @@ sub are_phases_consistent{
       my $warn = (id($transcript)." has inconsistent ".
         "phases between exon ".id($exons->[$i])."-".
           $i." and ".id($exons->[$i-1])."-".($i-1));
-      logger_warning($warn)
+      warning($warn)
         unless($end_phase == -1 &&
                $exons->[-1]->phase != -1 || 
                $end_phase != -1 &&
@@ -451,7 +450,7 @@ sub is_not_folded{
     $exons->[$i]->stable_id('');
     if($exons->[$i]->strand == 1){
       if($exons->[$i]->start < $exons->[$i-1]->end){
-        logger_warning(id($transcript)." is folded");
+        warning(id($transcript)." is folded");
         logger_info($i." ".id($exons->[$i])." has a start which ".
                     "is less than ".($i-1)." ".id($exons->[$i-1]).
                     " end");
@@ -459,7 +458,7 @@ sub is_not_folded{
       }
     }else{
       if($exons->[$i]->end > $exons->[$i-1]->start){
-        logger_warning(id($transcript)." is folded");
+        warning(id($transcript)." is folded");
         logger_info($i." ".id($exons->[$i])." has a end which ".
                     "is greater than ".($i-1)." ".id($exons->[$i-1]).
                     " start");
@@ -504,10 +503,10 @@ sub low_complexity_less_than_maximum{
   logger_info(id($transcript)." has ".$low_complexity.
               " low complexity sequence");
   if($low_complexity > $complexity_threshold){
-    logger_warning(id($transcript)."'s low ".
-                   "complexity is above ".
-                   "the threshold ".$complexity_threshold.
-                   "\n");
+    warning(id($transcript)."'s low ".
+            "complexity is above ".
+            "the threshold ".$complexity_threshold.
+            "\n");
     return 0;
   }
   return 1;
@@ -539,8 +538,8 @@ sub has_no_unwanted_evidence{
   foreach my $evidence(keys(%$evidence)){
     foreach my $unwanted(keys(%$ids)){
       if($evidence =~ /$unwanted/){
-        logger_warning(id($transcript)." has ".$evidence.
-                       " unwanted evidence");
+        warning(id($transcript)." has ".$evidence.
+                " unwanted evidence");
         return 0;
       }
     }
@@ -608,8 +607,8 @@ sub get_evidence_ids{
 sub is_spliced{
   my ($transcript, $intron_size) = @_;
   my $count = count_real_introns($transcript, $intron_size);
-  logger_warning(id($transcript)." has no introns ".
-                 "longer than $intron_size bps") if(!$count);
+  warning(id($transcript)." has no introns ".
+          "longer than $intron_size bps") if(!$count);
   return 0 if(!$count);
   return 1;
 }
@@ -667,10 +666,10 @@ sub are_splice_sites_canonical{
   my $non_canonical_count = 
     count_non_canonical_splice_sites($transcript);
   if($non_canonical_count){
-    logger_warning(id($transcript)." contains ".
-                   $non_canonical_count." non canonical ".
-                   "splice sites out of ".@$introns.
-                   " introns");
+    warning(id($transcript)." contains ".
+            $non_canonical_count." non canonical ".
+            "splice sites out of ".@$introns.
+            " introns");
     return 0;
   }
   if(@$introns == 0){
@@ -999,14 +998,14 @@ sub _tidy_split_transcripts{
         my ($exon) = @{$transcript->get_all_Exons};
         $warn = id($transcript)." only has one exon\n".
           Exon_info($exon);
-        logger_warning($warn);
+        warning($warn);
         next TRANSCRIPT;
       }
       #as are split transcripts which don't translate
       if($transcript->translate->seq =~ /\*/){
         $warn = Transcript_info($transcript).
           " does not translate\n";
-        logger_warning($warn);
+        warning($warn);
         next TRANSCRIPT;
       }
       #It will complain in the initial translation is not 
@@ -1015,20 +1014,20 @@ sub _tidy_split_transcripts{
         $warn = Transcript_info($transcript)." translation ".
           "does not appear to be a subset of the original ".
             "translation";
-        logger_warning($warn);
+        warning($warn);
         next TRANSCRIPT;
       }
       #and if the strands or phases are not consistent
       if(!are_strands_consistent($transcript)){
         $warn = Transcript_info($transcript)." has ".
           "inconsistent strands";
-        logger_warning($warn);
+        warning($warn);
         next TRANSCRIPT;
       }
       if(!are_phases_consistent($transcript)){
          $warn = Transcript_info($transcript)." has ".
           "inconsistent phases";
-        logger_warning($warn);
+        warning($warn);
         next TRANSCRIPT;
       }
       push(@transcripts, $transcript);
@@ -1062,7 +1061,7 @@ sub replace_stops_with_introns{
 
     if (@coords > 1) {
       # the codon is split by an intron. Messy. Leave these for now
-      logger_warning("TranscriptUtils:replace_stops_with_introns Stop is interruped by intron. Returning undef");
+      warning("TranscriptUtils:replace_stops_with_introns Stop is interruped by intron. Returning undef");
       return undef;
     } 
     my ($stop) = @coords;

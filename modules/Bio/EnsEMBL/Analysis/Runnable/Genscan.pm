@@ -37,7 +37,6 @@ use warnings;
 use Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_warning logger_info);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio);
@@ -130,8 +129,8 @@ sub parse_results{
         $start = $temp_start;
       }
       if($pvalue !~ /\d+/){
-        logger_info("Genscan has reported ".$pvalue." rather ".
-                    "than a number setting p value to 0");
+        warning("Genscan has reported ".$pvalue." rather ".
+                "than a number setting p value to 0");
         $pvalue = 0;
       }
       my ($group, $exon_name) = split(/\./, $name);
@@ -170,23 +169,6 @@ sub parse_results{
   $self->create_transcripts;
   $self->calculate_phases;
 }
-
-
-
-=head2 calculate_phases
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genscan
-  Function  : starting with phase 0 create a transcript whose start
-  phase is either 0, 1, 2 and keep the one whose translation matches the
-  translation from genscan
-  Returntype: none
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-
 
 
 1;

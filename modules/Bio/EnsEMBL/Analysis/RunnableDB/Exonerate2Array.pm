@@ -77,11 +77,9 @@ sub fetch_input {
   my $target_type = 'dna';
   my $query_file = $ANALYSIS_INPUT_DIR.$input_id;
   my $target_dir =$ANALYSIS_TARGET_DIR;
-  my $verbose = "all";
   
   my $options = "--showalignment no --bestn 100 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 25 --dnawordthreshold 11 --querytype $query_type --targettype $target_type  --target $target_dir --query " ;
 
-  verbose($verbose);
   #$target_dir .= "22.fa"; ##only for testing
 
   ###Runnable::ExonerateArray take a array of query_seq_obj, so it's need to be generated here###
@@ -111,7 +109,6 @@ sub fetch_input {
 								      '-query_seqs'   => \@query_seqs,
 								      '-program'      => $program,
 								      '-options'      => $options,
-								      '-verbose'      => $verbose,
                       '-analysis'     => $self->analysis,
 								     );
   $self->runnable($runnable);

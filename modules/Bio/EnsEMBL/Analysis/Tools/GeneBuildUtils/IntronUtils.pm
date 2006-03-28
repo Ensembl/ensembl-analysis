@@ -41,9 +41,8 @@ use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity
-                                             logger_info
-                                             logger_warning);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
@@ -137,7 +136,7 @@ sub get_splice_sites{
 sub intron_length_less_than_maximum{
   my ($intron, $max_length) = @_;
   if($intron->length >= $max_length){
-    logger_warning("This intron is longer than ".$max_length);
+    warning("This intron is longer than ".$max_length);
     return 0;
   }
   return 1;

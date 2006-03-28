@@ -29,7 +29,7 @@ package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily;
 use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam;

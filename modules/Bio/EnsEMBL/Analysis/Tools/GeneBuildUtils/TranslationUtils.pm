@@ -10,6 +10,7 @@ use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::SequenceUtils qw(write_seqfile);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(looger_info);
 
 use vars qw (@ISA  @EXPORT);
 
@@ -48,8 +49,8 @@ sub print_Translation{
   $indent = '' if(!$indent);
   print Translation_info($transcript, $indent)."\n";
   print_Translation_genomic_coords($transcript, $indent);
-  logger_warning("Transcript is less than 3bp can't print ".
-                 "any more info") if($transcript->length < 3);
+  warning("Transcript is less than 3bp can't print ".
+          "any more info") if($transcript->length < 3);
   return if($transcript->length < 3);
   my $met = starts_with_met($transcript);
   print $indent."peptide starts with a methionine\n" if($met);
@@ -78,8 +79,8 @@ sub print_Translation{
 
 sub print_peptide{
   my ($transcript) = @_;
-  logger_warning("Transcript is less than 3bp can't print ".
-                 "Its peptide") if($transcript->length < 3);
+  warning("Transcript is less than 3bp can't print ".
+          "Its peptide") if($transcript->length < 3);
   return if($transcript->length < 3);
   print ">";
   print Translation_info($transcript, '')."\n";
@@ -299,7 +300,7 @@ sub compute_translation{
   }elsif(@nomet_predictions){
     $orf = $nomet_predictions[0];
   }else{
-    logger_warning(id($transcript)." has no translations ");
+    warning(id($transcript)." has no translations ");
     return $transcript;
   }
   #Here we take the best prediction with a methionine unless 
@@ -333,8 +334,8 @@ sub compute_translation{
   if(!$translation_start || !$translation_end 
      || !$translation_start_Exon
      || !$translation_end_Exon){
-    logger_warning("problems making the translation ".
-                   "for ".id($transcript));
+    warning("problems making the translation ".
+            "for ".id($transcript));
     return $transcript;
   }else{
     $translation->start($translation_start);
