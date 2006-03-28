@@ -52,6 +52,10 @@ to live in Bio/EnsEMBL/Analysis/RunnableDB but you can change this on the comman
                      Bio::EnsEMBL::Utils::Exception module. Allowed parameters
                      are ALL INFO DEPRECATE WARNING EXCEPTION and OFF
 
+    -logger_verbosity the amount of chat you want from the 
+                      Bio::EnsEMBL::Analysis::Tools::Logger module. Allowed parameters
+                      are ALL INFO_STACK_TRACE INFO and OFF
+
 =head1 EXAMPLES
 
 
@@ -69,6 +73,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis;
 use Getopt::Long;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 
 
 $! = 1;
@@ -89,6 +94,8 @@ my $module;
 my $analysis;
 my $perl_path = 'Bio/EnsEMBL/Analysis/RunnableDB';
 my $utils_verbosity = 'WARNING'; #how verbose do you want the 
+my $logger_verbosity = 'OFF'; #how verbose do you want the 
+
 #Bio::EnsEMBL::Utils::Exceptions module to be by default it is set to
 #WARNING as this gives warning and throws but not deprecates or infos
 my @command_args = @ARGV;
@@ -107,10 +114,14 @@ my @command_args = @ARGV;
             'module:s'    => \$module,
             'runnabledb_path:s' => \$perl_path,
             'utils_verbosity=s' => \$utils_verbosity,
+            'logger_verbosity=s' => \$logger_verbosity,
            ) or ($help = 1);
 
 $| = 1;
+
 verbose($utils_verbosity);
+logger_verbosity($logger_verbosity);
+
 if($check ) {
   print STDERR "args: $dbhost : $dbuser : " . ($dbpass or '') . " : $dbname : $input_id : $logic_name\n";
   exit 0;
@@ -184,7 +195,6 @@ $runnable =~ s/\//::/g;
 my $runobj = "$runnable"->new(-db    => $db,
                               -input_id => $input_id,
                               -analysis => $analysis,
-                              -verbosity => $utils_verbosity,
                              );
 print STDERR "Instantiated ".$runnable." runnabledb\n" if($verbose);
 $runobj->fetch_input;
