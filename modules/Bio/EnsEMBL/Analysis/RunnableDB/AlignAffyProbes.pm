@@ -127,11 +127,14 @@ sub fetch_input {
 
   my %parameters = %{ $self->parameters_hash };
   
-  if ( 
-    not exists( $parameters{-options} )
-    and defined $self->OPTIONS
-  ){
-    $parameters{-options} = $self->OPTIONS;
+  my $options = "";
+
+  if (not exists $parameters{-options}) {
+    if ($self->OPTIONS) {
+      $parameters{-options} = $self->OPTIONS;
+    } else {
+      $parameters{-options} = "";
+    }
   }
   
   print STDERR "PROGRAM FILE: ".$self->analysis->program_file."\n";
@@ -155,7 +158,6 @@ sub fetch_input {
 
 sub run {
   my ($self) = @_;
-  my @affy_features;
 
   throw("Can't run - no runnable objects") unless ( $self->runnable );
 
@@ -163,14 +165,10 @@ sub run {
   
   $runnable->run;
 
-  @affy_features = @{ $runnable->output };
+  my $features = $self->filter_affy_features($runnable->output);
 
-  #
-  #Replace the 'dummy' affy array and probe objects in the
-  #AffyFeature objects with the 'real' instances found in
-  #the populate... method
-  $self->output(\@affy_features);
-  $self->affy_features(\@affy_features);
+  $self->output($features);
+  $self->affy_features($features);
 }
 
 ############################################################
@@ -194,6 +192,39 @@ sub write_output {
     }
   }
 
+}
+
+############################################################
+
+sub filter_affy_features {
+  my ($self, $features) = @_;
+
+  my %hits_by_probe;
+
+  foreach my $hit (@$features) {
+    push @{$hits_by_probe{$hit->probe->dbID}}, $hit;
+  }
+
+  my @kept_hits;
+
+  foreach my $probe_id (keys %hits_by_probe) {
+    my @hits = @{$hits_by_probe{$probe_id}};
+   
+    if (scalar(@hits) >= $self->HIT_SATURATION_LEVEL) {
+      @hits = grep { $_->mismatchcount == 0 } @hits;
+
+      if (scalar(@hits) < $self->HIT_SATURATION_LEVEL) {
+        warning("Keeping only perfect matches to $probe_id");
+        push @kept_hits, @hits;
+      } else {
+        warning("Too many hits to $probe_id so rejecting all hits");
+      }
+    } else {
+      push @kept_hits, @hits;
+    }
+  }
+
+  return \@kept_hits;
 }
 
 ############################################################
@@ -460,6 +491,22 @@ sub OPTIONS {
     return $self->{'_CONFIG_OPTIONS'};
   } else {
     return undef;
+  }
+}
+
+
+sub HIT_SATURATION_LEVEL {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{'_CONFIG_MAXHITS'} = $val;
+  }
+
+  if (exists $self->{'_CONFIG_MAXHITS'}) {
+    return $self->{'_CONFIG_MAXHITS'};
+  } else {
+    # default to 100
+    return 100;
   }
 }
 

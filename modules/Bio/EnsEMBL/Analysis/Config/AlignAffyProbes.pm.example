@@ -75,6 +75,10 @@ use vars qw( %Config );
         -pass => 'xxxxx',
         },
       OPTIONS             => ' --bestn 100 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 25 --dnawordthreshold 11 ',
+
+      # if the number of hits reaches or exceeds the figure below, we reject 
+      # all hits to that probe
+      HIT_SATURATION_LEVEL => 100,
     },
   }
 );
