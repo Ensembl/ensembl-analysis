@@ -140,11 +140,17 @@ sub make_affy_feature{
   if($query_match_length == $q_length){
     if($score == 125){
       $mismatch_count = 0;
-    }else{
+    }elsif ($score == 116) {
       $mismatch_count = 1;
+    } else {
+      return undef;
     }
   }elsif($query_match_length == $q_length -1){
-    $mismatch_count = 1;
+    if ($score == 120) {
+      $mismatch_count = 1;
+    } else {
+      return undef;
+    }
   }else{
     return undef;
   }
