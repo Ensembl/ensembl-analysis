@@ -91,6 +91,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use TranscriptChecker;
 use ContigGenesChecker;
 use GeneChecker;
+use ScriptUtils;
 
 use Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder qw (
 					 GB_MAXSHORTINTRONLEN
@@ -252,32 +253,12 @@ if ($exon_dup_check) {
 my $chrhash;
 
 if ($schema == 20) {
-  $chrhash = get_chrlengths($db, $path,$coordsystem);
+  $chrhash = get_chrlengths_v20($db, $path,$coordsystem);
 } else {
-  $chrhash = get_chrlengths_19($db, $path);
+  $chrhash = get_chrlengths_v19($db, $path);
 }
 
-#filter to specified chromosome names only 
-if (scalar(@chromosomes)) {
-  foreach my $chr (@chromosomes) {
-    my $found = 0;
-    foreach my $chr_from_hash (keys %$chrhash) {
-      if ($chr_from_hash =~ /^${chr}$/) {
-        $found = 1;
-        last;
-      }
-    }
-    if (!$found) {
-      die "Didn't find chromosome named $chr in database $dbname\n";
-    }
-  }
-  HASH: foreach my $chr_from_hash (keys %$chrhash) {
-    foreach my $chr (@chromosomes) {
-      if ($chr_from_hash =~ /^${chr}$/) {next HASH;}
-    }
-    delete($chrhash->{$chr_from_hash});
-  }
-}
+filter_to_chr_list(\@chromosomes,$chrhash,$db->dbc->dbname);
 
 #print "Start $specstart End $specend\n";
 
@@ -294,7 +275,7 @@ if (!defined($path)) {
 }
 
 # Begin testing genes
-foreach my $chr (sort bychrnum keys %$chrhash) {
+foreach my $chr (@{sort_chr_names($chrhash)}) {
 
   my $chrstart = $specstart;
   my $chrend = (defined ($specend) && $specend < $chrhash->{$chr}) ? $specend :
@@ -401,100 +382,6 @@ print "Number of transcripts with errors = $total_transcripts_with_errors\n";
 print "Number of genes with errors       = $total_genes_with_errors\n\n";
 
 #End of main
-
-sub get_chrlengths {
-  my $db   = shift;
-  my $type = shift;
-  my $coordsystem = shift;
-
-  if (!$db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-    die "get_chrlengths should be passed a Bio::EnsEMBL::DBSQL::DBAdaptor\n";
-  }
-
-  my $query = "select seq_region.name, seq_region.length as mce from seq_region,coord_system where" .
-              " seq_region.coord_system_id=coord_system.coord_system_id and" .
-              " coord_system.version = '" . $type . "' and coord_system.name='" . $coordsystem ."'";
-
-  my $sth = $db->dbc->prepare($query);
-
-  $sth->execute;
-
-  my %chrhash;
-
-  my $hashref;
-  while (($hashref = $sth->fetchrow_hashref) && defined($hashref)) {
-    $chrhash{$hashref->{'name'}} = $hashref->{mce};
-#    print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
-  }
-  return \%chrhash;
-}
-
-sub get_chrlengths_19 {
-  my $db   = shift;
-  my $type = shift;
-
-  if (!$db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-    die "get_chrlengths should be passed a Bio::EnsEMBL::DBSQL::DBAdaptor\n";
-  }
-
-  my $query = "select chromosome.name,max(chr_end) as mce from assembly,chromosome where" .
-              " assembly.chromosome_id=chromosome.chromosome_id and" .
-              " assembly.type = '" . $type . "' group by assembly.chromosome_id";
-
-  my $sth = $db->dbc->prepare($query);
-
-  $sth->execute;
-
-  my %chrhash;
-
-  my $hashref;
-  while (($hashref = $sth->fetchrow_hashref) && defined($hashref)) {
-    $chrhash{$hashref->{'name'}} = $hashref->{mce};
-    # print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
-  }
-  return \%chrhash;
-}
-
-
-
-sub bychrnum {
-
-  my @awords = split /_/,$a;
-  my @bwords = split /_/,$b;
-
-  my $anum = $awords[0];
-  my $bnum = $bwords[0];
-
-#  if ($anum !~ /^chr/ || $bnum !~ /^chr/) {
-#    die "Chr name doesn't begin with chr for $a or $b";
-#  }
-   
-  $anum =~ s/chr//;
-  $bnum =~ s/chr//;
-
-  if ($anum !~ /^[0-9]*$/) {
-    if ($bnum !~ /^[0-9]*$/) {
-      return $anum cmp $bnum;
-    } else {
-      return 1;
-    }
-  }
-  if ($bnum !~ /^[0-9]*$/) {
-    return -1;
-  }
-
-  if ($anum <=> $bnum) {
-    return $anum <=> $bnum;
-  } else {
-    if ($#awords == 0) {
-      return -1;
-    } elsif ($#bwords == 0) {
-      return 1;
-    } else {
-      return $awords[1] cmp $bwords[1];
-    }
-  }
-}
 
 sub find_duplicate_exons {
   my $db = shift;
