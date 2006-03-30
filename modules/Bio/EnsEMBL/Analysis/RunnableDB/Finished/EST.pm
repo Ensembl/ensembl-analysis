@@ -161,7 +161,7 @@ sub fetch_input {
 		-seq        => $slice->seq()
 	);
 	my $seq = $slice->seq;
-	if ( scalar( $seq =~ s/([CATG])/$1/g ) > 3 ) {
+	if ( scalar( $maskedseq =~ s/([CATG])/$1/g ) > 3 ) {
 		$self->input_is_void(0);
 
 		#$self->check_with_seg($maskedslice);
