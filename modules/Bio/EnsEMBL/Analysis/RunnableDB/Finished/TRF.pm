@@ -67,7 +67,7 @@ sub fetch_input {
     $slice->{'seq'}=$slice->seq();
     my %parameters      = %{$self->parameters_hash};
     $parameters{-trf}   = $self->analysis->program_file || undef;
-    $parameters{-query} = $slice->get_repeatmasked_seq(['RepeatMask'],$SOFT_MASKING) or throw("Unable to fetch slice");
+    $parameters{-query} = $slice->get_repeatmasked_seq($ANALYSIS_RM_TRF,$SOFT_MASKING) or throw("Unable to fetch slice");
     $parameters{-analysis} = $self->analysis;
     my $runnable = new Bio::EnsEMBL::Analysis::Runnable::TRF(%parameters);
     $self->runnable($runnable);
