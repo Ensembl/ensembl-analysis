@@ -53,6 +53,12 @@ use vars qw( %Config );
       # the transcript-based models (est2genome, protein2genome); use
       # Exonerate2Genes for that
       OPTIONS     => '--model affine:local --bestn 1 --softmasktarget TRUE ',
+
+      FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::SomeFilter',
+                  PARAMETERS => {},              
+                },
+
+      }
     },
   }
 );

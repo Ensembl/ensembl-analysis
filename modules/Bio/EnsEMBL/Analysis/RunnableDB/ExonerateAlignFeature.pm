@@ -145,10 +145,13 @@ sub run {
   my ($runnable) = @{$self->runnable};
   
   $runnable->run;
-
   my $features = $runnable->output;
-  $self->process_features($runnable->output);
 
+  if ($self->filter) {
+    $features = $self->filter->filter_results($features);
+  }
+
+  $self->process_features($features);
   $self->output($features);
 }
 
@@ -215,6 +218,16 @@ sub create_output_db {
 }
 
 
+sub filter {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_feature_filter} = $val;
+  }
+  return $self->{_feature_filter};
+}
+
+
 #############################################################
 # Declare and set up config variables
 #############################################################
@@ -246,6 +259,29 @@ sub read_and_check_config {
   if ($self->OUTDB && ref( $self->OUTDB ) ne "HASH") {
     throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.");
   }
+
+  if ($self->FILTER) {
+    if (not ref($self->FILTER) eq "HASH" or
+        not exists($self->FILTER->{OBJECT}) or
+        not exists($self->FILTER->{PARAMETERS})) {
+          
+      throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" . 
+            "  OBJECT : qualified name of the filter module;\n" .
+            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
+    } else {
+      my $module = $self->FILTER->{OBJECT};
+      my $pars   = $self->FILTER->{PARAMETERS};
+      
+      (my $class = $module) =~ s/::/\//g;
+      eval{
+        require "$class.pm";
+      };
+      throw("Couldn't require ".$class." ExonerateAlignFeature:require_module $@") if($@);
+    
+      $self->filter($module->new(%{$pars}));
+    }
+  }
+
 }
 
 
@@ -302,6 +338,20 @@ sub IIDREGEXP {
 
   if ( exists( $self->{'_CONFIG_IIDREGEXP'} ) ) {
     return $self->{'_CONFIG_IIDREGEXP'};
+  } else {
+    return undef;
+  }
+}
+
+sub FILTER {
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{'_CONFIG_FILTER'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_FILTER'})) {
+    return $self->{'_CONFIG_FILTER'};
   } else {
     return undef;
   }
