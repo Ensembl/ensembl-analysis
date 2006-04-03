@@ -352,7 +352,8 @@ sub lazy_load {
       throw("gene is not a Bio::EnsEMBL::Gene, it is a $gene");
     }
     foreach my $trans(@{$gene->get_all_Transcripts}){
-      my $transl = $trans->translation;
+      my $transl = $trans->translation; 
+       $trans->get_all_supporting_features() ; 
       if ($transl){
 	$transl->get_all_ProteinFeatures;
       }
