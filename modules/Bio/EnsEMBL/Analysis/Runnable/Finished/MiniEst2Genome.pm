@@ -614,7 +614,7 @@ sub run {
         };
         if ($@) {
             $number_of_errors++;
-            print STDERR "Error running blaste2g on" . $features->[0]->hseqname . " [$@]\n";
+            print STDERR "Error running blaste2g on " . $features->[0]->hseqname . " [$@]\n";
         }
     }
     # Thought it might be useful to throw at this point if there have been errors.
