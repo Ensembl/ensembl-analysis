@@ -170,6 +170,32 @@ sub fetch_input {
 		$self->input_is_void(1);
 		warning("Need at least 3 nucleotides");
 	}
+	
+	# Vertrna specific incremental updating
+	# vertrna is made up of emnew_vertrna (patch) 
+	# and embl_vertrna (release) index files.
+	# This block of code makes sure that the blast search 
+	# is only run on updated index files
+	if($self->analysis->logic_name eq 'vertrna_raw'){
+		my $sic = $self->db->get_StateInfoContainer;
+		my $db_version_saved = $sic->fetch_db_version($self->input_id, $self->analysis);
+		my $db_version_current = $self->analysis->db_version;
+		if($db_version_saved) {
+			# split db version like 12-Mar-06 (85) to obtain 
+			# patch version: 12-Mar-06 and release version: 85
+			my ($patch_sv,$release_sv) = $db_version_saved =~ /^(\S+)\s+\((\d+)\)$/;
+			my ($patch_cv,$release_cv) = $db_version_current =~ /^(\S+)\s+\((\d+)\)$/;	
+			# We delete the release db from the analysis db list if 
+			# it has already been searched (i.e. same release db version)
+			if($release_sv eq $release_cv){ 
+				print STDOUT "vertrna db file embl_vertrna version $release_sv already searched\n";
+				$self->analysis->db_file('emnew_vertrna');
+				# Just to make sure that nothing is going wrong with the incremental updating...
+				throw("Problem with the vertrna incremental updating, saved and current version identical !\n
+					   saved [$db_version_saved] = current [$db_version_current]\n") unless($patch_sv ne $patch_cv)
+			}
+		}
+	}
 
 	my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::EST->new(
 		'-query'    => $maskedslice,
