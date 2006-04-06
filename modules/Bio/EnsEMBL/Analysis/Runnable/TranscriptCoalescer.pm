@@ -51,9 +51,9 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(convert_to_genes) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (return_translation) ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (print_Transcript) ; 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (convert_to_genes print_Transcript print_Transcript_and_Exons Transcript_info ) ; 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw (Exon_info) ; 
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended; 
@@ -85,13 +85,13 @@ sub new {
   $self->{'_discarded_transcripts'} = []; # array ref to discarded transcripts
   $self->{'_genes'} = [];                 #array of genes to test;  
     
-  my( $all_genes, $evidence_sets,$dnadb  ) = 
+  my( $all_genes, $evidence_sets,$dnadb , $utils_verbosity  ) = 
       rearrange([qw(
                      ALL_GENES
                      EVIDENCE_SETS
                      DNADB
+                     UTILS_VERBOSITY
                     )], @args);
-
   $self->{merged_tr}=[] ;
   $self->{min_translation_length}=$MIN_TRANSLATION_LENGTH ;  
   $self->{dnadb}=$dnadb ; 
@@ -115,6 +115,7 @@ sub new {
   
   $self->{all_genes_href} = $all_genes ;      # hashref $hash{'biotype'} = \@genes 
   $self->{v} = $VERBOSE ; # verbose or not 
+  $self->{v} = 1 if ($utils_verbosity=~m/INFO/) ; 
   #$self->{v} = 1; 
   return $self ; 
 }
@@ -148,7 +149,7 @@ sub run {
   # STAGE_1 : 
   # begin the process of merging est-gene and est-gene by using the conserved introns as evidence 
   #
-  print "non_clusters : " . scalar(@$non_clusters) . "\n" ; 
+  print "non_clusters : " . scalar(@$non_clusters) . "\n" if $self->{v};  
 
   GENE_CLUSTER: foreach my $gene_cluster (@$clusters) {
     if ($self->{v}) { 
@@ -169,7 +170,7 @@ sub run {
     if ( $tr ) {
       if ($self->{v}){  
         print "Stage 1: Number Genes resulting out of pure est-merging           : ".scalar(@$tr)."\n"; 
-        print_Transcript ($tr,"",0,0) ; 
+        print_Transcript_and_Exons ($tr) ; 
       }
       # remove red. trans, edit terminal exons and remove redundant trans again 
       my @non_red_trans = 
@@ -196,7 +197,7 @@ sub run {
       push @all_merged_est_transcripts ,   @$non_overlapping_trans  ;
       
       #print "non-overlapping transcripts which have been made by est-merging :\n" ; 
-      #print_Transcript($non_overlapping_trans) ; 
+      #print_Transcript_and_Exons($non_overlapping_trans) ; 
     }
   } # GENE_CLUSTER 
 
@@ -211,7 +212,7 @@ sub run {
   if ($VERBOSE) { 
     print "after the first round\n" ; 
     print "="x80 ; print "\n" ; 
-    print_Transcript(\@all_merged_est_transcripts,"",0,0) ; 
+    print_Transcript_and_Exons(\@all_merged_est_transcripts) ; 
   }
   
   # 
@@ -264,7 +265,7 @@ sub run {
 
         $self->{merged_tr}=[] ;   # reset counter
         #print "gene_comes_from_merging\n" ;   
-        #print_Transcript(\@cloned_tr) ; 
+        print_Transcript_and_Exons(\@cloned_tr) ; 
 
         # remove redundant genes which result out of abintio/simgw merged transcripts 
         @cloned_tr = @{ remove_redundant_transcripts( \@cloned_tr ) }  ; 
@@ -373,7 +374,6 @@ sub run {
 
 
   print "Having " . scalar( @all_merged_est_transcripts ) . " genes so far for this slice \n\n" ; 
-  print_Transcript(\@all_merged_est_transcripts,"",0,0) if $self->{v}; 
 
   # 
   # adding translations to transcripts 
@@ -385,6 +385,9 @@ sub run {
   my @trans_with_tl = @{$self->add_translation_and_trans_supp_features_to_transcripts(
        \@all_merged_est_transcripts,$self->{min_translation_length}) } ; 
 
+  @all_merged_est_transcripts = sort {$a->seq_region_start <=> $b->seq_region_start} @all_merged_est_transcripts ;  
+  
+  print_Transcript_and_Exons(\@all_merged_est_transcripts) if $self->{v};  
 
   $self->output ( convert_to_genes ( \@trans_with_tl, $self->analysis)  ) ;   
   return ; 
@@ -417,7 +420,7 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
         my $ratio = ( (3*$tl_length) / $tr_length)*100 ;  
 
 #        print "=========================\n" ;  
-#        print_Transcript($tr) ;  
+#        Transcript_info($tr) ;  
 #        print "start_ex_TL: " ; 
 #        print_object (  $tl->start_Exon) ;
 #        print "  end_ex_TL: " ; 
@@ -526,14 +529,10 @@ sub remove_overlapping_transcripts {
   }
 
 #  print "xxx  these tr will be removed\n===========================================\n" ; 
-#  for (@remove_tr) { 
-#   print_Transcript($_) ; 
-#  }
+#  print_Transcript_and_Exons(\@remove_tr) ; 
 
 #  print "xxx  these tr will be NOT removed\n===========================================\n" ; 
-#  for (@diff) { 
-#   print_Transcript($_) ; 
-#  }
+#  print_Transcript_and_Exons(\@diff) ; 
 #
   return (\@diff, \@remove_tr) ;
 }
@@ -850,7 +849,7 @@ sub merge_transcripts {
   }
   
   #print "\n\nThis_is_merged_trans :\n" ; 
-  #print_Transcript([$tr_merged],"tr_merged") ; 
+  #print_Transcript_and_Exons([$tr_merged],"tr_merged") ; 
 
   return $tr_merged ; 
 }
@@ -877,7 +876,7 @@ sub edit_terminal_exons {
 
   }
 
-  print_Transcript($aref,"",0,0) if $self->{v} ; 
+  print_Transcript_and_Exons($aref) if $self->{v} ; 
   return $aref ; 
 }
 
@@ -988,8 +987,8 @@ sub start_est_linking {
     print "exon_recursion finished" if $self->{v} ; 
   }
   if ($self->{v}){ 
-    print "After exon_recursion:\n" ; 
-    print_Transcript(\@all_assembled_tr,"",0,0 ) ; 
+    print "\nAfter exon_recursion:\n" ; 
+    print_Transcript_and_Exons(\@all_assembled_tr) ; 
   }
   return \@all_assembled_tr ;  
 }
@@ -1048,7 +1047,7 @@ sub transcript_recursion {
 
     my $trans_aref = $self->start_est_linking(\@start_exons , $ex_clusters_real_ev  )  ;  
 
-    print_Transcript($trans_aref , "trans_aref_smart" ,0,0) if $self->{v}; 
+    print_Transcript_and_Exons($trans_aref , "trans_aref_smart" ) if $self->{v}; 
 
     push @$all_tr, @$trans_aref ;  
 
@@ -1069,7 +1068,7 @@ sub transcript_recursion {
 
   if ($self->{v}){
     print "END_OF_TRANSCRIPT_RECURSION\ntrying print_Transcript\n"  ; 
-    print_Transcript($all_tr,"debug_trans_rec",0,0) ; 
+    print_Transcript_and_Exons($all_tr,"debug_trans_rec") ; 
   }
   return $all_tr ; 
 } 
