@@ -133,8 +133,6 @@ use vars qw( %Config );
                # GeneScaffolds necessitate no contig-level splitting
                NO_CONTIG_SPLITS => 1,
 
-               # Gap between gene scaffold component elements
-               GENE_SCAFFOLD_INTER_PIECE_PADDING => 100,
              },
            },
 

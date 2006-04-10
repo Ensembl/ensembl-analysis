@@ -314,8 +314,8 @@ sub run {
       }
 
       # Repeat transcript contruction until we had no rejected transcripts
-      # This is because if a transcript is rejected, the underlying 
-      # GeneScaffold components are possible no longer all necessary
+      # This is because if a transcript is rejected, some of the underlying 
+      # GeneScaffold components may be unnecessary
       for(;;) {
         my @these_trans = map { @{$_->{transcripts}} } @these_genes;
 
@@ -2032,16 +2032,6 @@ sub NO_CONTIG_SPLITS {
   }
 
   return $self->{_no_contig_splits};
-}
-
-sub GENE_SCAFFOLD_INTER_PIECE_PADDING {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_interpiece_padding} = $val;
-  }
-
-  return $self->{_interpiece_padding};
 }
 
 
