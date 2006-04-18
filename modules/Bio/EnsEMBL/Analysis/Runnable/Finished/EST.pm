@@ -115,10 +115,10 @@ sub run {
     my $dbv = $blast->get_db_version();
     print "using $dbv\n";
     $self->get_db_version($dbv);
-    print "\nPlus strand est_genome\n" if $verbose;
+    print STDERR "\nPlus strand est_genome\n" if $verbose;
     $self->run_est_genome_on_strand( 1, $features );
 
-    print  "\nMinus strand est_genome\n" if $verbose;
+    print STDERR "\nMinus strand est_genome\n" if $verbose;
     $self->run_est_genome_on_strand( -1, $features)
 }
 
