@@ -433,14 +433,13 @@ sub run_blaste2g {
     my $count = @$features;
     my $miniseq = $self->make_miniseq(@$features);
     my $hseq    = $self->get_Sequence($est) or throw("Can't fetch sequence for id '$est'");
-
+	my $g = $miniseq->get_cDNA_sequence;
+	
     my $eg = new Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome(
-        -genomic => $miniseq->get_cDNA_sequence,
+        -genomic => $g,
         -est     => $hseq,
-	-analysis => $analysis,
+		-analysis => $analysis,
     );
-
-    my $g = $miniseq->get_cDNA_sequence;
 
     $eg->run;
 
@@ -614,12 +613,12 @@ sub run {
         };
         if ($@) {
             $number_of_errors++;
-            print STDERR "Error running blaste2g on " . $features->[0]->hseqname . " [$@]\n";
+            throw("Error running blaste2g on " . $features->[0]->hseqname . " [$@]\n");
         }
     }
     # Thought it might be useful to throw at this point if there have been errors.
     # There might have only been a problem with one of the ests.  
-    throw("See previous errors...") if $number_of_errors;
+    #throw("See previous errors...") if $number_of_errors;
     return 1;
 }
 
