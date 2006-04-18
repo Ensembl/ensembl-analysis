@@ -248,8 +248,8 @@ sub run {
 		  or throw("Can't create new Bio::SeqIO from $estfile '$' : $!");
 
 		#fill inputs
-		$genOutput->write_seq( $self->{'_genomic_sequence'} );
-		$estOutput->write_seq( $self->{'_est_sequence'} );
+		$genOutput->write_seq( $genomicseq );
+		$estOutput->write_seq( $estseq );
 	}
 
 	my $est_genome_command = $BIN_DIR
@@ -269,6 +269,11 @@ sub run {
 # Catch 'Align EST and genomic DNA sequences'. This comes from STDERR!! [ 2>&1 ]
 		$firstline = <ESTGENOME>;
 		print STDERR "\$firstline (secondline!): \t$firstline" if $verbose;
+		if ( $firstline =~ /insufficient memory available/ ) {
+			close(ESTGENOME) or warning("problem closing est_genome: $!\n");
+			$self->_deletefiles( $genfile, $estfile );
+			throw("Insufficient memory available:\n<$firstline>");
+		}
 	}
 
 	if ( $firstline =~ m/reversed\sest/ ) {
