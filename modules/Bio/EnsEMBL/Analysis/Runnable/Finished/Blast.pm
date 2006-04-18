@@ -126,7 +126,7 @@ sub databases {
 
 sub get_db_version {
 	my ( $self, $db ) = @_;
-	my $debug_this = 1;    # this just shows debug info.
+	my $debug_this = 0;    # this just shows debug info.
 	my $force_dbi  = 0;    # this will force a dbi call SLOW!!!!!!
 	unless ( $self->{'_db_version_searched'} ) {
 		if ($db) {
