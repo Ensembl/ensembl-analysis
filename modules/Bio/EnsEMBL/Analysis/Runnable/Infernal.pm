@@ -444,17 +444,17 @@ sub make_gene{
   $transcript->end_Exon($exon);
   my $gene = Bio::EnsEMBL::Gene->new;
   #Biotypes
-  $gene->type("misc_RNA");
-  $gene->type("snRNA")  if($description =~ /uclear/ or 
+  $gene->biotype("misc_RNA");
+  $gene->biotype("snRNA")  if($description =~ /uclear/ or 
 			   $description =~ /pliceosomal/ );
-  $gene->type("snoRNA") if($description =~ /ucleolar/);
-  $gene->type("rRNA")   if($description =~ /ibosomal/);
+  $gene->biotype("snoRNA") if($description =~ /ucleolar/);
+  $gene->biotype("rRNA")   if($description =~ /ibosomal/);
   $gene->confidence("NOVEL");
   $gene->description($description." [Source: RFAM ".$self->analysis->db_version."]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
-  $transcript->type($gene->type);
+  $transcript->biotype($gene->biotype);
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (
