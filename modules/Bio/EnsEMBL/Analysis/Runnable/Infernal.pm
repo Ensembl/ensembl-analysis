@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Blast
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Infernal
 #
 # Copyright (c) 2004 Ensembl
 #
@@ -48,7 +48,7 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-my $verbose = "yes";
+my $verbose;
 
 =head2 new
 
@@ -67,11 +67,6 @@ sub new {
   my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
   $self->queries($queries);
   $self->get_thresholds;
-  # check module can see files it needs to run
-  $self->throw("Infernal: dying because cannot find /pfam/db/Rfam directory\n")
-    unless (-e "/pfam/db/Rfam");
-  $self->throw("Infernal: dying because cannot find /data/blastdb/Rfam directory\n")
-    unless (-e "/data/blastdb/Rfam");
  return $self;
 }
 
@@ -90,6 +85,7 @@ sub run{
   my ($self) = @_;
   my $queries = $self->queries;
   my @attributes;
+  my $descriptions = $self->get_descriptions;
   foreach my $query (@$queries){
     $self->query($self->get_sequence($query));
     $self->throw("Can't run ".$self." without a query sequence") 
@@ -107,7 +103,7 @@ sub run{
     next unless($results);
     # make the gene object out of the highest scoring result that
     # overlaps the blast hit
-    my $gene = $self->make_gene($results,$query);
+    my $gene = $self->make_gene($results,$query,$descriptions);
     $self->output($gene) if $gene;
   }
   $self->delete_files;
@@ -128,7 +124,7 @@ sub run{
 
 sub run_analysis{
   my ($self) = @_;
-  my $db =  $self->analysis->db_file.$self->query->display_id.".cm";
+  my $db =  $self->analysis->db_file."/".$self->query->display_id.".cm";
   my $command  =  $self->program;
   my %thresholds = %{$self->thresholds};
   my $domain = $self->query->display_id;
@@ -404,9 +400,10 @@ sub parse_structure{
 =cut
 
 sub make_gene{
-  my ($self,$results,$daf) = @_;
+  my ($self,$results,$daf,$descriptions) = @_;
   my $domain = substr($daf->hseqname,0,7);
-  my ($description,$name) = $self->get_description($domain);
+  my $description = $descriptions->{$domain}->{'description'};
+  my $name = $descriptions->{$domain}->{'name'};
   my %thresholds = %{$self->thresholds};
   my $padding = $thresholds{$domain}{'win'};
   my %gene_hash;
@@ -553,7 +550,7 @@ sub get_thresholds{
   # read threshold file
   my %thr;
   # full thresholds
-  open( T, "/data/blastdb/Rfam/Rfam.thr" ) or $self->throw("can't file the Rfam.thr file");
+  open( T,$self->analysis->db_file."/Rfam.thr"  ) or $self->throw("can't file the Rfam.thr file");
   while(<T>) {
     if( /^(RF\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\S+)\s*$/ ) {
       $thr{ $1 } = { 'id' => $2, 'thr' => $3, 'win' => $4, 'mode' => $5 };
@@ -570,31 +567,35 @@ sub get_thresholds{
   Function   : Fetches and stores predefined descriptions for each RFAM familly
              : in the Rfam.descriptions file
   Returns    : none
-  Exceptions : Throws if it cannot open the thresholds file
+  Exceptions : Throws if it cannot open the descriptions file
   Args       : Bio::EnsEMBL::DnaDnaAlignFeature
 
 =cut
 
-sub get_description{
-  my($self,$domain)= @_;
-  my $description;
+sub get_descriptions{
+  my($self)= @_;
+  my %descriptions;
+  my $domain;
   my $name;
   # read descriptions file
-  return undef unless -e "/pfam/db/Rfam/CURRENT/$domain/DESC";
-  open( T,"/pfam/db/Rfam/CURRENT/$domain/DESC") or
-    $self->throw("can't file the /pfam/db/Rfam/CURRENT/$domain/DESC file");
+  return undef unless -e $self->analysis->db_file."/Rfam.seed";
+  open( T,$self->analysis->db_file."/Rfam.seed") or
+    $self->throw("can't file the ".$self->analysis->db_file."/Rfam.seed file");
   while(<T>) {
     chomp;
-    if ($_ =~ /^DE   (.+)/){
-      $description = $1;
+    if ($_ =~ /^\#=GF AC   (.+)/){
+      $domain = $1;
+     }
+    if ($_ =~ /^\#=GF DE   (.+)/){
+      $descriptions{$domain}{'description'} = $1;
     }
-    if ($_ =~ /^ID   (.+)/){
-      $name = $1;
+    if ($_ =~ /^\#=GF ID   (.+)/){
+      $descriptions{$domain}{'name'} = $1;      
     }
   }
   close T;
-  return ($description,$name) if ($description && $name);
-  $self->warn("Unable to find descriptions for $domain\n");
+  return \%descriptions if scalar(keys %descriptions > 0);
+  $self->throw("Unable to find descriptions");
   return undef;
 }
 

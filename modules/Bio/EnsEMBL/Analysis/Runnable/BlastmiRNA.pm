@@ -156,9 +156,7 @@ sub cluster{
     push @cluster,$daf;
   MATCHES:  for (my $index = $start; $index <= $#dafs ; $index ++){
       next MATCHES unless ($dafs[$index]);
-      if ($daf->overlaps($dafs[$index])){
-	  $dafs[$index]->hseqname."\t".
-	    $dafs[$index]->p_value."\n";
+      if ($daf->end >= $dafs[$index]->start() && $daf->start() <= $dafs[$index]->end){
 	push @cluster,$dafs[$index];
 	$dafs[$index] = undef;
       }

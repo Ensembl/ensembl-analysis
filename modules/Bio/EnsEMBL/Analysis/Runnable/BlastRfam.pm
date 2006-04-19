@@ -190,7 +190,7 @@ sub cluster{
     push @{$family_cluster{$RFAM}},$daf;
   MATCHES:  for (my $index = $start; $index <= $#dafs ; $index ++){
       next MATCHES unless ($dafs[$index]);
-      if ($daf->overlaps($dafs[$index])){
+      if ($daf->end >= $dafs[$index]->start() && $daf->start() <= $dafs[$index]->end){
 	my $familly = substr($dafs[$index]->hseqname,0,7);
 	push @{$family_cluster{$familly}},$dafs[$index];
 	$dafs[$index] = undef;

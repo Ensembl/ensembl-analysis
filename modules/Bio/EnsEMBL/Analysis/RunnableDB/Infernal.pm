@@ -1,4 +1,4 @@
-# You may distribute this module under the same terms as perl itself
+  my $description = $descriptions->{$domain}->{'description'};# You may distribute this module under the same terms as perl itself
 #
 # POD documentation - main docs before the code
 
