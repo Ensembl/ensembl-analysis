@@ -10,7 +10,7 @@ use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::SequenceUtils qw(write_seqfile);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(looger_info);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use vars qw (@ISA  @EXPORT);
 
