@@ -272,7 +272,7 @@ sub run {
 		if ( $firstline =~ /insufficient memory available/ ) {
 			close(ESTGENOME) or warning("problem closing est_genome: $!\n");
 			$self->_deletefiles( $genfile, $estfile );
-			throw("Insufficient memory available:\n<$firstline>");
+			die qq{"OUT_OF_MEMORY"\n}; 
 		}
 	}
 
