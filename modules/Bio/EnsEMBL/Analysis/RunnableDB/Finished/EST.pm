@@ -287,8 +287,9 @@ sub run {
 		eval { $runnable->run( $parser, $filter, $blast ); };
 		if ( my $err = $@ ) {
 			chomp $err;
-			$self->failing_job_status('MEMORY')
-			  if $err =~ /Insufficient memory available/i;    
+			$self->failing_job_status($1)
+			  if $err =~ /^\"([A-Z_]{1,40})\"$/i
+			  ;    # only match '"ABC_DEFGH"' and not all possible throws
 			throw("$@");
 		}
 		$self->output($runnable->output);
