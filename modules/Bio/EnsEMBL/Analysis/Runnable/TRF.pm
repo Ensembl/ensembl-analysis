@@ -107,7 +107,7 @@ sub new {
 #   [options] = one or more of the following :
 #                -m    masked sequence file
 #                -f    flanking sequence
-
+#                -h    avoid html output 
 
 
 
