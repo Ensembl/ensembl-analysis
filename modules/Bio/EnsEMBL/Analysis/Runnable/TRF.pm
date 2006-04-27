@@ -74,11 +74,11 @@ sub new {
   #SETTING THE DEFAULTS#
   ######################
   $match = 2 unless(defined $match);
-  $mismatch = 7 unless(defined $mismatch);
+  $mismatch = 5 unless(defined $mismatch);
   $delta = 7 unless(defined $delta);
   $pm = 80 unless(defined $pm);
   $pi = 10 unless(defined $pi);
-  $minscore = 50 unless(defined $minscore);
+  $minscore = 40 unless(defined $minscore);
   $maxperiod = 500 unless(defined $maxperiod);
   ######################
   $self->program('trf') if(!$self->program);
@@ -206,7 +206,12 @@ sub run_analysis{
 	$self->options(join(' ', @arg_list));
   throw($program." is not executable TRF::run_analysis ") 
     unless($program && -x $program);
-  my $command = $program." ".$self->queryfile." ".$self->options." -d ";
+  # Use this command if you are using TRF version 4.0.0
+  my $command = $program." ".$self->queryfile." ".$self->options." -d -h";
+
+  # Use this command if your TRF program is previous to the 4.0.0 version
+  # my $command = $program." ".$self->queryfile." ".$self->options." -d";
+
   print "Running analysis ".$command."\n";
   my $exit = system($command);
   foreach my $file(glob $self->queryfile."*"){
@@ -251,10 +256,12 @@ sub parse_results{
     my ($start, $end, $period_size,$copy_number, $consensus_size, 
         $percent_matches, $percent_indels, $score, $A, $C, $G, $T,
         $entropy, $mer) = split;
-    my $rc = $ff->create_repeat_consensus('trf', 'trf', '', $mer);
-    my $rf = $ff->create_repeat_feature($start, $end, 0, $score, 1,
-                                        ($end - $start +1), $rc);
-    push(@output, $rf);
+    if (($score < 50 && $percent_matches >= 80 && $copy_number > 2 && $period_size < 10) || ($copy_number >= 2 && $percent_matches >= 70 && $score >= 50)){
+      my $rc = $ff->create_repeat_consensus('trf', 'trf', '', $mer);
+      my $rf = $ff->create_repeat_feature($start, $end, 0, $score, 1,
+                                         ($end - $start +1), $rc);
+      push(@output, $rf);
+    }
   }
   print "No tandem repeats found" if(@output == 0);
   $self->output(\@output);
