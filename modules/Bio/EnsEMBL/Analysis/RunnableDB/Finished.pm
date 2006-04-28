@@ -17,37 +17,49 @@ sub write_output {
 	      if $runnable->can('get_db_version');
 	    $self->db_version_searched($db_version);    # make sure we set this here
     }
-    # We expect an array of arrays from output()
-    foreach my $output (@$outputs) {
-        next unless @$output;   # No feature output        
-        my $feat = $output->[0];
-        
-        # The type of adaptor used to store the data depends
-        # upon the type of the first element of @$output
-        my $adaptor = $self->get_adaptor($feat);
-        
-	    # Remove AlignFeatures already in db from each output
-        if (ref($feat) =~ /AlignFeature$/) {
-            $self->remove_stored_AlignFeatures($adaptor, $output);       
-            if($self->analysis->module ne 'DepthFilter' ) {
-            	$self->write_descriptions($output);
-            }
-        }
-	    my $analysis = $self->analysis;
-    	my $slice    = $self->query;
-	    my $ff       = $self->feature_factory;
-        # Store features in the database
-        foreach my $feature (@$output) {
-        	$feature->analysis($analysis);
-        	$feature->slice($slice) if (!$feature->slice);
-        	$ff->validate($feature);
-            eval { $adaptor->store($feature); };
-            if ($@) {
-                throw("RunnableDB:store failed, failed to write " . $feature
-                      . " to the database: $@");
-            }
-        }
-    }
+    my $dbh = $self->db->dbc->db_handle;
+	$dbh->begin_work;
+	eval {
+	    # We expect an array of arrays from output()
+	    foreach my $output (@$outputs) {
+	        next unless @$output;   # No feature output        
+	        my $feat = $output->[0];
+	        
+	        # The type of adaptor used to store the data depends
+	        # upon the type of the first element of @$output
+	        my $adaptor = $self->get_adaptor($feat);
+		    # Remove the AlignFeatures already in db from the output and 
+		    # get rid of the old ones in the db (for dephtfilter features only)
+		    # Remove all SimpleFeatures
+	        if (ref($feat) =~ /AlignFeature$/) {
+	            if($self->analysis->module ne 'DepthFilter' ) {
+	            	$self->write_descriptions($output);
+	            	$self->remove_stored_AlignFeatures($adaptor, $output, 0);
+	            } else {
+	            	$self->remove_stored_AlignFeatures($adaptor, $output, 1);
+	            }
+	        } else {
+	        	$self->remove_all_features($adaptor);
+	        }        
+	        
+		    my $analysis = $self->analysis;
+	    	my $slice    = $self->query;
+		    my $ff       = $self->feature_factory;
+	        # Store features in the database
+	        print STDOUT "Finished: Writting ".scalar(@$output)." ".ref($feat)." in database\n";
+	        foreach my $feature (@$output) {
+	        	$feature->analysis($analysis);
+	        	$feature->slice($slice) if (!$feature->slice);
+	        	$ff->validate($feature);
+	            $adaptor->store($feature);
+	        }
+	    }
+	    $dbh->commit;
+    };
+	if ($@) {
+		$dbh->rollback;
+		throw("UNABLE TO WRITE FEATURES IN DATABASE\n[$@]\n");
+	}
 }
 
 sub output{
@@ -75,25 +87,39 @@ sub replace_output {
 }
 
 sub remove_stored_AlignFeatures {
-    my ($self, $adaptor, $output) = @_;
-    ## create a hashtable of key='feature signature' and value=1
+    my ($self, $adaptor, $output, $clean) = @_;
+	## create a hashtable of key='feature signature' and value=1
     my $db_features =
       $adaptor->fetch_all_by_Slice($self->query, $self->analysis->logic_name);
-    print STDERR "Found ", scalar(@$db_features), " features already in db\n";
-    my %db_feat = map { $self->get_feature_key($_), 1 } @$db_features;
-    ## remove duplicated features
+    print STDOUT "Finished: Found ", scalar(@$db_features), " features already in db\n";
+    my %db_feat = map { $self->get_feature_key($_), $_ } @$db_features;
+    my %db_feat_to_del = %db_feat;
+    ## remove duplicated features from output
     for (my $i = 0 ; $i < @$output ;) {
     	my $feature = $output->[$i];
         $feature->slice($self->query) if (!$feature->slice);
         my $f_key = $self->get_feature_key($feature);
         if ($db_feat{$f_key}) {
-            print "Feature ", $f_key, " already in table\n";
             splice(@$output, $i, 1);
+			delete $db_feat_to_del{$f_key} unless(!$db_feat_to_del{$f_key}); 
         }
         else {
             $i++;
         }
     }
+    ## remove the old features present in the db and not in the output 
+    if($clean) {
+    	foreach my $f (values(%db_feat_to_del)) { $adaptor->remove($f);}
+    	print STDOUT "Finished: Removed ", scalar(keys(%db_feat_to_del)), " old features from db\n";
+    } 
+}
+
+sub remove_all_features {
+	my ($self, $adaptor) = @_;
+	my $db_features =
+      $adaptor->fetch_all_by_Slice($self->query, $self->analysis->logic_name);
+    foreach my $f (@$db_features) { $adaptor->remove($f);}
+    print STDOUT "Finished: Removed ", scalar(@$db_features), " features through ".ref($adaptor)." \n";
 }
 
 sub write_descriptions {
