@@ -21,9 +21,12 @@ sub run {
 	my ($self) = @_;
 	my $orig_analysis_name = $self->analysis->logic_name;
 	$orig_analysis_name .= '_raw';
+	# Get the blast db version from the raw analysis and save it
 	my $analysis_adaptor = $self->db->get_AnalysisAdaptor();
 	my $ana = $analysis_adaptor->fetch_by_logic_name($orig_analysis_name);
-	$self->db_version_searched($ana->db_version);
+	my $stateinfocontainer = $self->db->get_StateInfoContainer;
+	my $db_version = $stateinfocontainer->fetch_db_version($self->input_id,$ana);
+	$self->db_version_searched($db_version);	
     my %params = %{ $self->parameters_hash() };
 
     my $max_coverage     = $params{max_coverage} || 10;
