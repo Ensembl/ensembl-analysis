@@ -8,7 +8,7 @@ use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 
-$ENV{BLASTDB} = '/data/blastdb/Ensembl';
+$ENV{BLASTDB} = '/data/blastdb/Finished';
 
 BEGIN {
 	print "\nUSING " . __PACKAGE__ . "\n\n";
