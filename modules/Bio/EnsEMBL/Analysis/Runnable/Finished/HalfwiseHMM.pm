@@ -413,6 +413,8 @@ sub get_pfam_ids{
     my $sql = qq{INSERT IGNORE INTO $tbl_name (pfamseq_id, strand) VALUES };
     while (my ($swiss_id, $strand) = each(%$swissprot_ids)){
         #print STDERR "$swiss_id : $strand\n";
+    # strip off sequence version from uniprot ID (introduced in Uniprot release 7.0) 
+    $swiss_id =~ s/\.\d+//;
 	push(@binds, $swiss_id, $strand);
 	push(@values, qq{ (?, ?)});
     }
