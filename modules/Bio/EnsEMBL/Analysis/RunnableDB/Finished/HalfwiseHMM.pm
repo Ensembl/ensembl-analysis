@@ -140,13 +140,17 @@ sub fetch_input {
 	  $slice->get_repeatmasked_seq( $ANALYSIS_REPEAT_MASKING, $SOFT_MASKING )
 	  or throw("Unable to fetch contig");
 	my $alignAdaptor = $self->db->get_ProteinAlignFeatureAdaptor();
+	my $stateinfocontainer = $self->db->get_StateInfoContainer;
+	my $analysis_adaptor = $self->db->get_AnalysisAdaptor();
 
 	foreach my $database ( @{$GB_SIMILARITY_DATABASES} ) {
+		my $analysis_ln = $database->{'type'};
+		my $threshold   = $database->{'threshold'};
 		my $fps      = [];
 		my $features =
 		  $alignAdaptor->fetch_all_by_Slice_and_pid( $slice,
-			$database->{'threshold'},
-			$database->{'type'} );
+			$threshold,
+			$analysis_ln );
 		print STDERR
 		  "Number of features matching threshold $database->{'threshold'} = "
 		  . scalar(@$features) . "\n";
@@ -168,6 +172,12 @@ sub fetch_input {
 			'-analysis' => $self->analysis
 		  );
 		$self->runnable($runnable);
+
+		# set the db version searched which is a concatenation of Uniprot and Pfam db versions
+		my $ana = $analysis_adaptor->fetch_by_logic_name($analysis_ln);
+		my $uniprot_db_version = $stateinfocontainer->fetch_db_version($self->input_id,$ana);
+		my $pfam_db_version    = $self->get_db_version();
+		$self->db_version_searched(join('_',$uniprot_db_version,$pfam_db_version));
 	}
 
 }
@@ -267,8 +277,8 @@ sub get_db_version {
 
 sub db_version_searched {
 	my ( $self, $arg ) = @_;
-	$self->{'_pfam_db_version'} = $arg if $arg;
-	return $self->{'_pfam_db_version'};
+	$self->{'_db_version_searched'} = $arg if $arg;
+	return $self->{'_db_version_searched'};
 }
 
 =head2  runnable
