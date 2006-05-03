@@ -142,21 +142,17 @@ use vars qw( %Config );
                #   pseudogene filtering)
                # SIMPLE_LOW : in-built perl implementation which rejects 
                #   lower-scoring chains if they have block overlap in the
-               #   query with a higher scoring chain
-               # SIMPLE_MEDIUM: in-built perl implementation which rejects
+               #   query with a higher scoring chain, and furthermore
+               #   if the lower-scoring chain cannot be "separated" from
+               #   the higher-scoring chains without splitting contigs
+               # SIMPLE_HIGH: in-built perl implementation which rejects
                #   lower-scoring chains if their extent overlaps with the
-               #   extent of a higher scoring chain
-               # SIMPLE_HIGH : in-built perl implementation that simply
-               #   retains the highest scoring chain
-               #
-               # In addition, if one of these methods resulted in no alignments
-               # being retained (which in theory can happen in either of the 
-               # non-simple methods sue to score cutoffs, but in practice happens
-               # most often with the SYNTENIC methos), then the secondary method
-               # will be run (if set).
-               
-               PRIMARY_METHOD => '',
-               SECONDARY_METHOD => '',
+               #   extent of a higher scoring chain, and furthermore if
+               #   the lower-scoring chain cannot be "separated" from
+               #   the higher-scoring chains without splitting contigs
+
+               METHOD => '',
+
              },
            );
 

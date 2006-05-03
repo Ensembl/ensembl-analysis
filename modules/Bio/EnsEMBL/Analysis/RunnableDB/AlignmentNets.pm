@@ -84,6 +84,21 @@ sub fetch_input {
     throw("Input id could not be parsed: ", $self->input_id);
   }
 
+  if ($self->QUERY_CORE_DB) {
+    my $q_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->QUERY_CORE_DB});
+    my $sl = $q_dbh->get_SliceAdaptor->fetch_by_region('toplevel',
+                                                       $seq_name);
+    my @segs = @{$sl->project('seqlevel')};
+    $self->query_seq_level_projection(\@segs);
+
+    #foreach my $seg (@segs) {
+    #  printf("FROM_START %d FROM_END %d TO_SLICE %s TO_START %d TO_END %d\n", 
+    #         $seg->from_start, $seg->from_end, $seg->to_Slice->seq_region_name,
+    #         $seg->to_Slice->start, $seg->to_Slice->end);
+    #}
+  }
+
+
   $self->OUTPUT_GROUP_TYPE("chain") unless (defined $self->OUTPUT_GROUP_TYPE);
   my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(%{$self->COMPARA_DB});
 
@@ -171,65 +186,43 @@ sub fetch_input {
 
   $self->chains($self->sort_chains_by_max_block_score([values %features_by_group]));
 
-  if ($self->PRIMARY_METHOD eq 'STANDARD' or 
-      $self->SECONDARY_METHOD eq 'STANDARD') {
-    my $run = $self->make_runnable(0);
-    $self->standard_runnable($run);
-  }
-  if ($self->PRIMARY_METHOD eq 'SYNTENIC' or 
-      $self->SECONDARY_METHOD eq 'SYNTENIC') {
-    my $run = $self->make_runnable(1);
-    $self->syntenic_runnable($run);
+  if ($self->METHOD eq 'STANDARD' or $self->METHOD eq 'SYNTENIC') {
+    my $run = $self->make_runnable($self->METHOD eq 'SYNTENIC');
+    $self->runnable($run);
   }
 }
 
 ############################################################
 sub run{
   my ($self) = @_;
-  
-  $self->run_method($self->PRIMARY_METHOD);
-  if (not @{$self->output} and $self->SECONDARY_METHOD) {
-    $self->run_method($self->SECONDARY_METHOD);
-  }
 
-}
-
-#############################################################
-sub run_method {
-  my ($self, $meth) = @_;
-
-  if ($meth eq 'STANDARD' or $meth eq 'SYNTENIC') {
-    $self->runnable( $meth eq 'STANDARD' 
-                     ? $self->standard_runnable 
-                     : $self->syntenic_runnable ); 
-
+  if (@{$self->runnable}) {
     $self->SUPER::run;
   } else {
     my $filtered_chains;
-
-    if ($meth eq 'SIMPLE_HIGH') {
-      $filtered_chains = [$self->chains->[0]];
-    } elsif ($meth eq 'SIMPLE_MEDIUM') {
-      $filtered_chains = $self->calculate_simple_medium_net($self->chains);
-    } elsif ($meth eq 'SIMPLE_LOW') {
+    
+    if ($self->METHOD eq 'SIMPLE_HIGH') {
+      $filtered_chains = $self->calculate_simple_high_net($self->chains);
+    } elsif ($self->METHOD eq 'SIMPLE_LOW') {
       $filtered_chains = $self->calculate_simple_low_net($self->chains);
     } 
-
+    
     if (defined $filtered_chains) {
       my $converted_out = $self->convert_output($filtered_chains);
       $self->output($converted_out);
     }
   }
 }
-
+    
 
 ###############################################################
-sub calculate_simple_medium_net {
+sub calculate_simple_high_net {
   my ($self, $chains) = @_;
 
-  my (@net_chains);
-    # Slightly less simple. Junk chains that have extent overlap
-    # with retained chains so far
+  my (@net_chains, @retained_blocks, %contigs_of_kept_blocks);
+
+  # Junk chains that have extent overlap
+  # with retained chains so far
   foreach my $c (@$chains) {
     my @b = sort { $a->start <=> $b->start } @$c; 
     my $c_st = $b[0]->start;
@@ -250,7 +243,96 @@ sub calculate_simple_medium_net {
     }
     
     if ($keep_chain) {
-      push @net_chains, $c;
+      my (%contigs_of_blocks, @split_blocks);
+
+      foreach my $bl (@b) {
+        my ($inside_seg, @overlap_segs);
+
+        foreach my $seg (@{$self->query_seq_level_projection}) {
+          if ($bl->start >= $seg->from_start and
+              $bl->end    <= $seg->from_end) {
+            $inside_seg = $seg;
+            last;
+          } elsif ($seg->from_start <= $bl->end and 
+              $seg->from_end   >= $bl->start) {
+            push @overlap_segs, $seg;
+          } elsif ($seg->from_start > $bl->end) {
+            last;
+          }          
+        }
+        if (defined $inside_seg) {
+          push @split_blocks, $bl;
+          $contigs_of_blocks{$bl} = $inside_seg;
+        } else {
+          my @cut_blocks;
+          foreach my $seg (@overlap_segs) {
+            my ($reg_start, $reg_end) = ($bl->start, $bl->end);
+            $reg_start = $seg->from_start if $seg->from_start > $reg_start;
+            $reg_end   = $seg->from_end   if $seg->from_end   < $reg_end;
+
+            my $cut_block = $bl->restrict_between_positions($reg_start, 
+                                                            $reg_end, 
+                                                            "SEQ");
+            if (defined $cut_block) {
+              push @cut_blocks, $cut_block;
+              $contigs_of_blocks{$cut_block} = $seg;
+            }
+          }
+          push @split_blocks, @cut_blocks;
+        }
+      }
+      @b  = @split_blocks;
+
+      my %new_block;
+      map { $new_block{$_} = 1 } @b;
+      
+      my @new_list = (@retained_blocks, @b);
+      @new_list = sort { $a->start <=> $b->start } @new_list;
+      
+    NEWBLOCK:
+      for(my $i = 0; $i < @new_list; $i++) {
+        my $bl = $new_list[$i];
+
+        if (exists($new_block{$bl})) {
+
+          my ($flank_left, $flank_right);
+
+          if ($i > 0 and 
+              not exists($new_block{$new_list[$i-1]})) {
+            $flank_left = $new_list[$i-1];
+          }
+          if ($i < scalar(@new_list) - 1 and 
+              not exists($new_block{$new_list[$i+1]})) {
+            $flank_right = $new_list[$i+1];
+          }
+          
+          if (defined $flank_left and
+              $contigs_of_blocks{$bl}->to_Slice->seq_region_name eq
+              $contigs_of_kept_blocks{$flank_left}->to_Slice->seq_region_name
+              ) {
+            $keep_chain = 0;
+            last NEWBLOCK;
+          }
+          
+          if (defined $flank_right and
+              $contigs_of_blocks{$bl}->to_Slice->seq_region_name eq
+              $contigs_of_kept_blocks{$flank_right}->to_Slice->seq_region_name
+              ) {
+            $keep_chain = 0;
+            last NEWBLOCK;
+          }
+        }
+      }
+
+      if ($keep_chain) {
+        foreach my $bid (keys %contigs_of_blocks) {
+          $contigs_of_kept_blocks{$bid} = $contigs_of_blocks{$bid};
+        }
+
+        push @net_chains, \@b;
+        push @retained_blocks, @b;
+        @retained_blocks = sort { $a->start <=> $b->start } @retained_blocks;
+      }
     }
   }
   
@@ -262,9 +344,11 @@ sub calculate_simple_medium_net {
 sub calculate_simple_low_net {
   my ($self, $chains) = @_;
 
-  my (@net_chains, @retained_blocks);
+
+  my (@net_chains, @retained_blocks, %contigs_of_kept_blocks);
   
   foreach my $c (@$chains) {
+
     my @b = sort { $a->start <=> $b->start } @$c; 
     
     my $keep_chain = 1;
@@ -280,9 +364,103 @@ sub calculate_simple_low_net {
     }
     
     if ($keep_chain) {
-      push @net_chains, $c;
-      push @retained_blocks, @$c;
-      @retained_blocks = sort { $a->start <=> $b->start } @retained_blocks;
+      my (%contigs_of_blocks, @split_blocks);
+      
+      foreach my $bl (@b) {
+        my ($inside_seg, @overlap_segs);
+
+        foreach my $seg (@{$self->query_seq_level_projection}) {
+          if ($bl->start >= $seg->from_start and
+              $bl->end    <= $seg->from_end) {
+            $inside_seg = $seg;
+            last;
+          } elsif ($seg->from_start <= $bl->end and 
+              $seg->from_end   >= $bl->start) {
+            push @overlap_segs, $seg;
+          } elsif ($seg->from_start > $bl->end) {
+            last;
+          }          
+        }
+        if (defined $inside_seg) {
+          push @split_blocks, $bl;
+          $contigs_of_blocks{$bl} = $inside_seg;
+        } else {
+          my @cut_blocks;
+          foreach my $seg (@overlap_segs) {
+            my ($reg_start, $reg_end) = ($bl->start, $bl->end);
+            $reg_start = $seg->from_start if $seg->from_start > $reg_start;
+            $reg_end   = $seg->from_end   if $seg->from_end   < $reg_end;
+
+            my $cut_block = $bl->restrict_between_positions($reg_start, 
+                                                            $reg_end, 
+                                                            "SEQ");
+            if (defined $cut_block) {
+              push @cut_blocks, $cut_block;
+              $contigs_of_blocks{$cut_block} = $seg;
+            }
+          }
+          push @split_blocks, @cut_blocks;
+        }
+      }
+      @b = @split_blocks;
+
+      my %new_block;
+      map { $new_block{$_} = 1 } @b;
+
+      my @new_list = (@retained_blocks, @b);
+      @new_list = sort { $a->start <=> $b->start } @new_list;
+
+    NEWBLOCK:
+      for(my $i = 0; $i < @new_list; $i++) {
+        my $bl = $new_list[$i];
+
+        if (exists($new_block{$bl})) {
+
+          my ($flank_left, $flank_right);
+
+          if ($i > 0 and 
+              not exists($new_block{$new_list[$i-1]})) {
+            $flank_left = $new_list[$i-1];
+          }
+          if ($i < scalar(@new_list) - 1 and 
+              not exists($new_block{$new_list[$i+1]})) {
+            $flank_right = $new_list[$i+1];
+          }
+          
+          if (defined $flank_left and
+              #($flank_left->hseqname ne $bl->hseqname or
+              # $flank_left->hstrand != $bl->hstrand or
+              # ($bl->hstrand > 0 and $flank_left->hend >= $bl->hstart) or
+              # ($bl->hstrand < 0 and $flank_left->hstart <= $bl->hend)) and
+              $contigs_of_blocks{$bl}->to_Slice->seq_region_name eq
+              $contigs_of_kept_blocks{$flank_left}->to_Slice->seq_region_name
+              ) {
+            $keep_chain = 0;
+            last NEWBLOCK;
+          }
+          
+          if (defined $flank_right and
+              #($flank_right->hseqname ne $bl->hseqname or
+              # $flank_right->hstrand != $bl->hstrand or
+              # ($bl->hstrand > 0 and $flank_right->hstart <= $bl->hend) or
+              # ($bl->hstrand < 0 and $flank_right->hend >= $bl->hstart)) and
+              $contigs_of_blocks{$bl}->to_Slice->seq_region_name eq
+              $contigs_of_kept_blocks{$flank_right}->to_Slice->seq_region_name
+              ) {
+            $keep_chain = 0;
+            last NEWBLOCK;
+          }
+        }
+      }
+  
+      if ($keep_chain) {  
+        foreach my $bid (keys %contigs_of_blocks) {
+          $contigs_of_kept_blocks{$bid} = $contigs_of_blocks{$bid};
+        }
+        push @net_chains, \@b;
+        push @retained_blocks, @b;
+        @retained_blocks = sort { $a->start <=> $b->start } @retained_blocks;
+      }
     }
   }
 
@@ -325,43 +503,6 @@ sub make_runnable {
 
 }
 
-##############################################################
-sub runnable {
-  my ($self, $runnable) = @_;
-
-  my @runnables;
-
-  if (defined $runnable) {
-    $self->{_single_runnable} = $runnable;
-  }
-  if (exists $self->{_single_runnable}) {
-    push @runnables, $self->{_single_runnable};
-  }
-
-  return \@runnables;
-}
-
-##############################################################
-sub standard_runnable {
-  my ($self, $val) = @_;
-  
-  if (defined $val) {
-    $self->{_standard_runnable} = $val;
-  }
-
-  return $self->{_standard_runnable};
-}
-
-##############################################################
-sub syntenic_runnable {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_syntenic_runnable} = $val;
-  }
-
-  return $self->{_syntenic_runnable};
-}
 
 ##############################################################
 sub chains {
@@ -373,6 +514,15 @@ sub chains {
   return $self->{_chains};
 }
 
+
+sub query_seq_level_projection {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_query_proj_segs} = $val;
+  }
+  return $self->{_query_proj_segs};
+}
 
 
 ####################################
@@ -391,7 +541,7 @@ sub read_and_check_config {
                       QUERY_SPECIES
                       TARGET_SPECIES
                       COMPARA_DB
-                      PRIMARY_METHOD)) {
+                      METHOD)) {
 
     throw("You must define $var in config for logic '$logic'" . 
           " or in the DEFAULT entry")
@@ -408,17 +558,22 @@ sub read_and_check_config {
        SIMPLE_LOW    => 1,
        );
 
-  if ($self->PRIMARY_METHOD and 
-      not $allowable_methods{$self->PRIMARY_METHOD}) {
-    throw("You must set PRIMARY_METHOD to one of the reserved names\n" .
-          "See the .example file for these names");
-  }
-  if ($self->SECONDARY_METHOD and 
-      not $allowable_methods{$self->PRIMARY_METHOD}) {
-    throw("You must set SECONDARY_METHOD to one of the reserved names\n" .
+  if ($self->METHOD and 
+      not $allowable_methods{$self->METHOD}) {
+    throw("You must set METHOD to one of the reserved names\n" .
           "See the .example file for these names");
   }
 
+}
+
+sub QUERY_CORE_DB {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_query_core_db} = $val;
+  }
+  
+  return $self->{_query_core_db};
 }
 
 
@@ -443,7 +598,7 @@ sub TARGET_SPECIES {
 }
 
 
-sub PRIMARY_METHOD {
+sub METHOD {
   my ($self, $val) = @_;
 
   if (defined $val) {
@@ -453,15 +608,6 @@ sub PRIMARY_METHOD {
   return $self->{_primary_method};
 }
 
-sub SECONDARY_METHOD {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_secondary_method} = $val;
-  }
-  
-  return $self->{_secondary_method};
-}
 
 sub CHAIN_NET {
   my ($self, $val) = @_;
