@@ -39,7 +39,6 @@ package Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
 
 use strict;
 use warnings; 
-
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -50,8 +49,9 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
+use Bio::EnsEMBL::Pipeline::Tools::TranslationUtils ; 
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (return_translation) ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (compute_translation return_translation) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (convert_to_genes print_Transcript print_Transcript_and_Exons Transcript_info ) ; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw (Exon_info) ; 
 
@@ -115,8 +115,10 @@ sub new {
   
   $self->{all_genes_href} = $all_genes ;      # hashref $hash{'biotype'} = \@genes 
   $self->{v} = $VERBOSE ; # verbose or not 
-  $self->{v} = 1 if ($utils_verbosity=~m/INFO/) ; 
-  #$self->{v} = 1; 
+  $self->{v} = 1 if ($utils_verbosity=~m/INFO/) ;   
+
+  $VERBOSE = 0 ; 
+  $self->{v} = 0; 
   return $self ; 
 }
 
@@ -372,76 +374,153 @@ sub run {
 } 
 
 
-
-  print "Having " . scalar( @all_merged_est_transcripts ) . " genes so far for this slice \n\n" ; 
-
-  # 
-  # adding translations to transcripts 
-  #
   if ($WRITE_FILTERED_TRANSCRIPTS) {  
      push @all_merged_est_transcripts, @tr_to_delete ; 
-  }
-  
+  } 
+
+  print "Having " . scalar( @all_merged_est_transcripts ) . " genes so far for this slice \n\n" ;  
+
+  # convert Bio::EnsEMBL::TranscriptExtended objects back  
+  # and Bio::EnsEMBL::Exon object to avoid any shared exons    
+ print "conversion\n" ;  
+ my @converted_transcripts ;   
+
+  OLD_TR: for my $old_tr (@all_merged_est_transcripts) {    
+    print "transcript \n" ; 
+    my @new_exons ; 
+    OLD_EX: for my $oe ( @{$old_tr->get_all_Exons} ) {   
+      print "getting exons \n" ; 
+       
+      my $ne = new Bio::EnsEMBL::Exon( 
+                                     -START =>$oe->start, 
+                                     -END =>$oe->end, 
+                                     -STRAND =>$oe->strand, 
+                                     -SLICE =>$oe->slice, 
+                                     -ANALYSIS =>$oe->analysis,
+                                     ); 
+     $ne->add_supporting_features(@{$oe->get_all_supporting_features} ) ;   
+     push @new_exons, $ne ; 
+    }
+    my $ntr = new Bio::EnsEMBL::Transcript (-EXONS => \@new_exons) ;   
+    $ntr->biotype($old_tr->biotype) ; 
+    push @converted_transcripts, $ntr; 
+  }  
+  # replace Bio::EnsEMBL::TranscriptExtended objects with normal ones  
+  #
+  @all_merged_est_transcripts = @converted_transcripts ;  
+
+  ## 
+  @all_merged_est_transcripts = 
+   sort {$a->seq_region_start <=> $b->seq_region_start} @all_merged_est_transcripts ;   
+
+  print_Transcript_and_Exons(\@all_merged_est_transcripts) if $self->{v};   
+
+  print STDERR " computing translations\n" ;     
   my @trans_with_tl = @{$self->add_translation_and_trans_supp_features_to_transcripts(
        \@all_merged_est_transcripts,$self->{min_translation_length}) } ; 
 
-  @all_merged_est_transcripts = sort {$a->seq_region_start <=> $b->seq_region_start} @all_merged_est_transcripts ;  
-  
-  print_Transcript_and_Exons(\@all_merged_est_transcripts) if $self->{v};  
+     for my $t ( @trans_with_tl) { 
+       print "$t\n" ; 
+       print "Transcript_BEFORE\n" ;  
+       print "Transcript : " .$t->seq_region_start . ":" . $t->seq_region_end . "\n" ; ;   
+       for my $e ( @{ $t->get_all_Exons } )  {  
+         print "Exon : " . $e->phase . "\t" . $e->end_phase . " " . $e->seq_region_start . " " . 
+          $e->seq_region_end . "\n" ; 
+       } 
+       print "\n" ; 
+     }
 
+  my $genes_b =   convert_to_genes ( \@trans_with_tl, $self->analysis)  ;    
+   
   $self->output ( convert_to_genes ( \@trans_with_tl, $self->analysis)  ) ;   
   return ; 
 }
 
 
 
+#sub add_translation_and_trans_supp_features_to_transcripts  { 
+#   my ($self, $trans,$min_translation_length) = @_ ; 
+#   my @trans_with_tl ; 
+   # try to add translation  TRANSLATION 
+#    
+#     for my $tr (@$trans) {         
+#       $tr->sort(); 
+#       EXON: for my $ex (@{$tr->get_all_Exons} ) {   
+#
+#           $ex->phase(-1); 
+#           $ex->end_phase(-1); 
+#
+#           # print join ("\n", @{ $ex->transcript->get_all_supporting_features}  )  ;  
+#           if ($ex->transcript) {  
+#             if ($ex->transcript->get_all_supporting_features) { 
+#               $tr->add_supporting_features ( @{ $ex->transcript->get_all_supporting_features } ) ;  
+#             }else {  
+#              throw( "transcript misses transcript_supporting_features\n")  ; 
+#             }
+#           } else { 
+#              throw( "Exon has no transcript assigned :\n")  ; 
+#           }
+#        } 
+#     } 
+        #$tr->translation(Bio::EnsEMBL::Pipeline::Tools::TranslationUtils->compute_translation($tr)) ;   
+        #$tr = Bio::EnsEMBL::Pipeline::Tools::TranslationUtils->compute_translation($tr) ;   
+        #$tr->translation(return_translation($tr)) ;     
+      
 sub add_translation_and_trans_supp_features_to_transcripts  { 
    my ($self, $trans,$min_translation_length) = @_ ; 
-
    my @trans_with_tl ; 
-   # try to add translation  TRANSLATION
-     for my $tr (@$trans) {   
-       for my $ex (@{$tr->get_all_Exons} ) { 
-           # print join ("\n", @{ $ex->transcript->get_all_supporting_features}  )  ;  
-           if ($ex->transcript) { 
-             if ($ex->transcript->get_all_supporting_features) { 
-               $tr->add_supporting_features ( @{ $ex->transcript->get_all_supporting_features } ) ;  
-             }else {  
-              throw( "transcript misses transcript_supporting_features\n")  ; 
-             }
-           } else { 
-              throw( "Exon has no transcript assigned :\n")  ; 
-           }
-        }
+       
         
-        $tr->translation(return_translation($tr)) ; 
-        my $tr_length = $tr->length . "\n" ; 
-        my $tl_length = $tr->translate->length ; 
-        my $ratio = ( (3*$tl_length) / $tr_length)*100 ;  
+     TRANSCRIPT :for my $tr (@$trans) {         
+         my $new_tr = compute_translation($tr)  ; 
+        
+          print "\n\nTranscript after it's returned from translation " ;  
+          print "Transcript " . $new_tr->seq_region_start . ":" . $new_tr->seq_region_end . "\n" ;  
 
-#        print "=========================\n" ;  
-#        Transcript_info($tr) ;  
-#        print "start_ex_TL: " ; 
-#        print_object (  $tl->start_Exon) ;
-#        print "  end_ex_TL: " ; 
-#        print_object (  $tl->end_Exon) ;
-#        print "\n" ; i     
-
-         if ( $ratio > $MIN_TRANSLATION_LENGTH ){ 
-           push @trans_with_tl , $tr ;
-         }else { 
-           print "Translation is shorter than $MIN_TRANSLATION_LENGTH % of transcript length ($ratio) ." . 
-               " Transcript will not be used\n"  if $self->{v} ;
-           if ($WRITE_FILTERED_TRANSCRIPTS) {  
-             $ratio = int($ratio) ; 
-             $tr->biotype("translation_len_$ratio"."_perc") ; 
-
-             push @trans_with_tl, $tr ; 
-           }
-         }
+          for my $e(@{$new_tr->get_all_Exons }) { 
+            print "return_translation : " .  $e->seq_region_start." " .  $e->seq_region_end." " . 
+             $e->phase." " . $e->end_phase ."($e)\n" ;  
+          } 
+          push @trans_with_tl , $new_tr ;
      }
+
+     # print out whole array 
+     for my $tra(@trans_with_tl) {    
+        print "\n\nTranscript before returning to main " ;
+        print "Transcript " . $tra->seq_region_start . ":" . $tra->seq_region_end . "\n" ; 
+        for my $e ( @{$tra->get_all_Exons})  {  
+           print $e->seq_region_start." " . 
+           $e->seq_region_end." " . 
+           $e->phase." " . $e->end_phase."  " ; 
+           #print "S: " . $tra->translation->start if ($tra->translation->start_Exon == $e) ; 
+           #print "E: " . $tra->translation->end   if ($tra->translation->end_Exon== $e) ; 
+           print "($e)\n" ;  
+      } 
+    }  
    return \@trans_with_tl ;  
 }
+
+
+
+#        my $tr_length = $tr->length . "\n" ; 
+#        my $tl_length = $tr->translate->length ; 
+#        my $ratio = ( (3*$tl_length) / $tr_length)*100 ;  
+#
+#         if ( $ratio > $MIN_TRANSLATION_LENGTH ){ 
+#           push @trans_with_tl , $tr ;
+#         }else { 
+#           print "Translation is shorter than $MIN_TRANSLATION_LENGTH % of transcript length ".
+#            "($ratio) -  Transcript will not be used\n"  if $self->{v} ;
+#
+#           if ($WRITE_FILTERED_TRANSCRIPTS) {  
+#             $ratio = int($ratio) ; 
+#             $tr->biotype("translation_len_$ratio"."_perc") ; 
+#             push @trans_with_tl, $tr ; 
+#           }
+#         }
+#     } 
+#   return \@trans_with_tl ;  
+#}
 
 
 
@@ -1715,8 +1794,10 @@ sub print_exon {
       print $ex->biotype if $ex->biotype ; 
   
       my @sup_feat = @{ $ex->transcript->get_all_supporting_features} ; 
-      $tr_dbID = "\ttr-db-id " . $ex->transcript->dbID ; 
-      $hseq_name = $sup_feat[0]->hseqname ; 
+      $tr_dbID = "\ttr-db-id " . $ex->transcript->dbID ;  
+      if ( $sup_feat[0]) { 
+        $hseq_name = $sup_feat[0]->hseqname ; 
+      } 
       print  " " . $hseq_name . 
              "\t". $ex->seq_region_start .  "---". $ex->seq_region_end . 
              "\t". $ex->seq_region_end.  "---". $ex->seq_region_start . 
