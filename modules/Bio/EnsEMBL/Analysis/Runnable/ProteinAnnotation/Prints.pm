@@ -103,6 +103,14 @@ sub parse_results {
             $matchPosition,
             $highestMotifPosition) = @elements;
         
+        # If protein is 10,000+ residues (i.e. titin), then last two elements are merged, e.g.:
+        # VEGFRECEPTOR    5  of  6  39.20   406     1.05e-05  LIVRNARKENAGKYTLVL                                      18   374  13564392
+        if (!defined $highestMotifPosition) {
+          # First five characters of $matchPosition is actual $matchPosition
+          $highestMotifPosition = $matchPosition;
+          $matchPosition = substr($highestMotifPosition, 0, 5, '');
+        }
+        
         my $start = $matchPosition;
         my $end = $matchPosition + $motifLength - 1;
 
