@@ -93,7 +93,7 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
 
   # transcript filtering could have left gene scaffold fragments
   # that have no exons; remove these
-  &remove_unused_components_from_gene_scaffolds($gene_scaffolds);
+  #&remove_unused_components_from_gene_scaffolds($gene_scaffolds);
 
   # add in the gaps we have "plugged" as fake components
   &identify_plugged_gaps($gene_scaffolds);
@@ -175,6 +175,7 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
     my @unit_objs   = @{$chain->{unit_objs}};
     
     my $last_end = 0;
+    my $line_count = 1;
     for(my $i=0; $i < @unit_objs; $i++) {
       my $unit_obj = $unit_objs[$i];
       my $unit_len = $unit_obj->{unit}->end - $unit_obj->{unit}->start + 1;
@@ -192,16 +193,18 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
                                     );
       
       if ($unit_obj->{unit}->id =~ /^$FAKE_SCAFFOLD_PREFIX/) {
-        printf($agp_outfh "%s\t%d\t%d\tN\t%d\n", 
+        printf($agp_outfh "%s\t%d\t%d\t%d\tN\t%d\n", 
                $new_gs_name, 
                $gs_start,
                $last_end,
+               $line_count++,
                $last_end - $gs_start + 1);       
       } else {
-        printf($agp_outfh "%s\t%d\t%d\tW\t%s\t%d\t%d\t%s\n", 
+        printf($agp_outfh "%s\t%d\t%d\t%d\tW\t%s\t%d\t%d\t%s\n", 
                $new_gs_name, 
                $gs_start, 
                $last_end,
+               $line_count++,
                $unit_obj->{unit}->id,
                $unit_obj->{unit}->start,
                $unit_obj->{unit}->end,
@@ -212,10 +215,11 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
         $gs_start = $last_end + 1;
         $last_end = $gs_start + $GENE_SCAFFOLD_PADDING - 1;
         
-        printf($agp_outfh "%s\t%d\t%d\tN\t%d\n", 
+        printf($agp_outfh "%s\t%d\t%d\t%d\tN\t%d\n", 
                $new_gs_name, 
                $gs_start,
                $last_end,
+               $line_count++,
                $last_end - $gs_start + 1);
         
       }
@@ -356,7 +360,7 @@ sub single_linkage_cluster {
     # form a cluster, and make all gene scaf ids, and their cluster 
     # members, 
     #  point to the same cluster
-    
+
     my @other_gs_ids;
     
     foreach my $s_id (keys %{$gs_index->{$gs_id}}) {
@@ -1743,9 +1747,9 @@ sub index_gene_scaffold_files {
       } elsif ($_ !~ /^\#/) {
         my @l = split(/\t/, $_);
         
-        if ($l[3] eq 'W') {
+        if ($l[4] ne 'N') {
           $gs_id = $l[0];
-          $s_id  = $l[4];        
+          $s_id  = $l[5];        
         }
       }
 
@@ -1836,7 +1840,7 @@ sub fetch_gene_scaffold_entries {
       };
 
 
-      /^(\S+)\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)/ and do {
+      /^(\S+)\s+(\d+)\s+(\d+)\s+\S+\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)/ and do {
         my ($this_gs_id, 
             $gs_start, 
             $gs_end, 

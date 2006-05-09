@@ -240,12 +240,12 @@ sub read_agp_files {
     
     $agp_hash->{$l[0]}->{length} += $l[2] - $l[1] + 1;
     
-    if ($l[3] ne 'N') {
+    if ($l[4] ne 'N') {
       my $from = Bio::EnsEMBL::Mapper::Unit->new($l[0], $l[1], $l[2]);
-      my $to  = Bio::EnsEMBL::Mapper::Unit->new($l[4], $l[5], $l[6]);
+      my $to  = Bio::EnsEMBL::Mapper::Unit->new($l[5], $l[6], $l[7]);
       my $pair = Bio::EnsEMBL::Mapper::Pair->new($from,
                                                  $to,
-                                                 $l[7] eq '-' ? -1 : 1);
+                                                 $l[8] eq '-' ? -1 : 1);
 
       push @{$agp_hash->{$l[0]}->{components}}, $pair;
     }
