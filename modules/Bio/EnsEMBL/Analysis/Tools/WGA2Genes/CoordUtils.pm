@@ -28,6 +28,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose
              distance_between_coords
              separate_coords
              merge_coords
+             extend_coord
             );
 
 
@@ -228,6 +229,65 @@ sub separate_coords {
   return (undef, undef);
 }
 
+
+sub extend_coord {
+  my ($coord, $target_slice) = @_;
+
+  # this method pushes $coord out to the left and right 
+  # to the point of the next sequence-level gap
+  
+  throw("Cannot extend coord; wrong slice given")
+      if $coord->id ne $target_slice->seq_region_name;
+
+  my @proj = @{$target_slice->project('seqlevel')};
+
+  my ($new_start, $new_end, $up_seg, $down_seg);
+  foreach my $seg (@proj) {
+    if ($seg->from_start <= $coord->start and
+        $seg->from_end   >= $coord->start) {
+      $new_start = $seg->from_start;
+    } elsif ($seg->from_start <= $coord->start) {
+      $up_seg = $seg;
+    }
+    if ($seg->from_start <= $coord->end and
+        $seg->from_end   >= $coord->end) {
+      $new_end = $seg->from_end;
+    } elsif ($seg->from_end >= $coord->end) {
+      $down_seg = $seg if not defined $down_seg;
+    }
+  }
+
+  throw("Could not find sequence-level pieces for " .
+        $coord->id . "/" .
+        $coord->start . "-" . 
+        $coord->end)
+      if not defined $new_start or not defined $new_end;
+
+
+  my $ex_coord = Bio::EnsEMBL::Mapper::Coordinate->new($coord->id,
+                                                       $new_start,
+                                                       $new_end,
+                                                       $coord->strand);
+
+  my ($up_coord, $down_coord);
+  if (defined $up_seg) {
+    $up_coord = Bio::EnsEMBL::Mapper::Coordinate
+        ->new($coord->id,
+              $up_seg->from_start,
+              $up_seg->from_end,
+              $coord->strand);
+  }
+  if (defined $down_seg) {
+    $down_coord = Bio::EnsEMBL::Mapper::Coordinate
+        ->new($coord->id,
+              $down_seg->from_start,
+              $down_seg->from_end,
+              $coord->strand);
+  }
+
+
+  return ($ex_coord, $up_coord, $down_coord);
+}
 
 
 1;

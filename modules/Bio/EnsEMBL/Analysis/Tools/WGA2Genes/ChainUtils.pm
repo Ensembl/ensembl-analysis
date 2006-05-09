@@ -24,7 +24,6 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose
 @EXPORT = qw(filter_irrelevant_chains
              filter_inconsistent_chains
              filter_block_overlap_chains             
-             filter_pseudogene_chains
              flatten_chains
              stringify_chains
             );
@@ -44,6 +43,8 @@ sub filter_irrelevant_chains {
 
   my @kept_chains;
 
+  my @feats = sort { $a->start <=> $b->start } @$feats;
+
   foreach my $c (@$chains) {
     my $chain_overlaps_feat = 0;
 
@@ -52,8 +53,7 @@ sub filter_irrelevant_chains {
       my $b_st = $b->reference_genomic_align->dnafrag_start;
       my $b_en = $b->reference_genomic_align->dnafrag_end;
 
-      for(; $j < @$feats; $j++) {
-        my $this_f = $feats->[$j];
+      foreach my $this_f (@feats) {
 
         if ($this_f->end < $b_st) {
           next;
@@ -411,108 +411,6 @@ sub filter_inconsistent_chains {
   
   return [map { $_->{blocks} } @kept_chains];
 }
-
-
-###################################################################
-# FUNCTION: filter_pseudogene_chains
-#
-# Decription:
-#  This function removes chains that look like processed pseudogenes
-#  in the target. These can be spotted by having a large extent in
-#  the query sequence but a relatively small extent in the target
-#  sequence (which gaps between target blocks < 10bp in all cases).
-#  A conservative strategy is adopted whereby every block interval
-#  in the query has to be small or repeat-filled, and separations
-#  in the target are not considered if they are repeat filled
-###################################################################
-sub filter_pseudogene_chains {
-  my ($chains, $query_repeats, $min_sep, $max_repeat) = @_;
-
-  my @kept_chains;
-
-
-  foreach my $c (@$chains) {
-    my ($last_b);
-
-    my $real_separations = 0;
-    my $total_fusions = 0;
-    my $t_name;
-
-    foreach my $b (@$c) {
-
-      if (defined $last_b) {
-        my $last_q = $last_b->reference_genomic_align;
-        my ($last_t) = @{$last_b->get_all_non_reference_genomic_aligns};
-
-        my $this_q = $b->reference_genomic_align;
-        my ($this_t) = @{$b->get_all_non_reference_genomic_aligns};
-
-        $t_name = $this_t->dnafrag->name;
-
-        my $q_interval_start =  $last_q->dnafrag_end + 1;
-        my $q_interval_end   =  $this_q->dnafrag_start - 1;
-        my $q_interval_length = $q_interval_end - $q_interval_start + 1;
-
-        my ($t_interval_start, $t_interval_end);
-        if ($last_t->dnafrag_strand < 0) {
-          $t_interval_start = $this_t->dnafrag_end   + 1;
-          $t_interval_end   = $last_t->dnafrag_start - 1;
-        } else {
-          $t_interval_start = $last_t->dnafrag_end   + 1;
-          $t_interval_end   = $this_t->dnafrag_start - 1;
-        }
-        my $t_interval_length = $t_interval_end - $t_interval_start + 1;
-
-        # is this a "real" block separation? We define a real separation
-        # as one in which the gap on both sides is large, or if the gap
-        # on one side is large and that gap is not occupied completely
-        # by repeat
-
-        if ($q_interval_length >= $min_sep and
-            $t_interval_length >= $min_sep) {
-          $real_separations++;
-        } elsif ($q_interval_length >= $min_sep and 
-            $t_interval_length < $min_sep) {
-
-          # calculate how much of the interval contains repeats
-          my $overlap = 0;
-          foreach my $rf (@$query_repeats) {
-            if ($rf->end >= $q_interval_start and 
-                $rf->start <= $q_interval_end) {
-              # overlap
-              my $ov_start = $rf->start; 
-              $ov_start = $q_interval_start if $q_interval_start > $ov_start;
-
-              my $ov_end = $rf->end; 
-              $ov_end = $q_interval_end if $q_interval_end < $ov_end;
- 
-              $overlap += $ov_end - $ov_start + 1;
-            }
-          }
-
-          if ($overlap / $q_interval_length < $max_repeat) {
-            $real_separations++;
-            $total_fusions++;
-          } else {
-            # seems to be an artefactual separation caused by repeat
-            # insertion since divergence. Ignore this block pair
-          }
-        }
-      }
-      $last_b = $b;
-    }
-
-    # if there are real separations, and they are ALL fusions in the 
-    # target, then we assert that this is a pseudogene chain
-    if ($real_separations == 0 or $total_fusions < $real_separations) {
-      push @kept_chains, $c;
-    }
-
-  }
-
-  return \@kept_chains;
-}
-
 
 
 ###################################################################

@@ -61,20 +61,19 @@ use vars qw( %Config );
                },
 
                INPUT_METHOD_LINK_TYPE => 'BLASTZ_NET_COW',
-
-               # if the following is set, attempt is made to filter out
-               # weird source transcripts before the process begins 
-               REJECT_BAD_QUERY_TRANSCRIPTS => 1,
-
-               # if the following is set, the slice is partitioned into 
-               # regions that contain one more more overlapping genes, and
-               # and each sub-slice is processed independently. NOT setting
-               # this flag leads to longer gene scaffolds that require less
-               # merging at the end, but requires care in slice id construction
-               # (i.e. that the slices boundaries no not intersect an 
-               # alignment chain). 
-               SEGMENT_SLICE_BY_GENE_OVERLAP => 0,
                
+               ########################
+               # Source gene filtering
+               ########################
+
+               # file of genes/transcripts to ignore during the process
+               KILL_LIST => '',
+
+               # if the following is set, only the longest
+               # non-killed transcripts is projected for each gene
+               LONGEST_SOURCE_TRANSCRIPT => 1,
+
+
                ##################
                # Chain filtering
                ##################
@@ -84,22 +83,6 @@ use vars qw( %Config );
                # unique (unique -> does not overlap in the query with retained 
                # blocks so far), then we reject it. 
                OVERLAP_CHAIN_FILTER => 0.9,
-
-               # Chains with members that are mostly separated in the target 
-               # genome but not in the query genome are likely processed
-               # pseudogenes. If this is set, attempt is made to reject them
-               PSEUDOGENE_CHAIN_FILTER => 0,
-
-               # If adjacent blocks in the chain are separated in the 
-               # target by at most the below distance, then they are
-               # candidates for being called fused
-               PCF_MAX_FUSION_INTERVAL => 10,
-
-               # If a pair of blocks appears to be fused in the target
-               # but the query gap is filled with more than the below
-               # proportion of query sequence, it is not counted as a
-               # fusion
-               PCF_MAX_REPEAT_IN_INTERVAL => 0.80,
 
                #############################
                # Transcript construction and filtering
@@ -115,8 +98,9 @@ use vars qw( %Config );
                # "primary" (first level) gene scaffold
                MAX_EDITABLE_STOPS_PRIMARY => 100,
 
-               # Same again, but for non-primary (2nd, 3rd etc. level)
-               # gene scaffolds
+               # The maximum number of in-frame stops that will be "edited
+               # out" (by introning over them) of the transcript for
+               # "non-primary" (second, third etc. level) gene scaffolds
                MAX_EDITABLE_STOPS_NON_PRIMARY => 0,
 
                # Minimum coverage of source transcript
@@ -124,14 +108,6 @@ use vars qw( %Config );
 
                # Minimum proportion of result transcript that is not gap
                MIN_NON_GAP  => 50.0,
-
-               #################
-               # Gene scaffold options
-               #################
-
-               # If the following is set, it is ensured that the resulting
-               # GeneScaffolds necessitate no contig-level splitting
-               NO_CONTIG_SPLITS => 1,
 
              },
            },
