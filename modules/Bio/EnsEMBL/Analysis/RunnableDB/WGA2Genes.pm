@@ -468,6 +468,7 @@ sub make_gene_scaffold_and_project_genes {
           -to_slices  => $self->target_slices,
           -transcripts   => [map {@{$_->source_transcripts}} @$res_genes],
           -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
+          -add_gaps => 1,
           );
   
   foreach my $res_gene (@$res_genes) {

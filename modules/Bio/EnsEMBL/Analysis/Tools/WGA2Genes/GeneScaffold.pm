@@ -54,13 +54,16 @@ sub new {
       $transcripts,
       $from_slice,
       $to_slices,
+      $add_gaps,
       ) = rearrange([qw(NAME
                         GENOMIC_ALIGN_BLOCKS
                         TRANSCRIPTS
                         FROM_SLICE
-                        TO_SLICES)], %given_args);
+                        TO_SLICES
+                        ADD_GAPS)], %given_args);
 
   $name = "GeneScaffold" if not defined $name;
+  $add_gaps = 1 if not defined $add_gaps;
 
   my $aln_map = _make_alignment_mapper($genomic_align_blocks);
 
@@ -69,7 +72,8 @@ sub new {
                           $aln_map,
                           $transcripts,
                           $from_slice,
-                          $to_slices);
+                          $to_slices,
+                          $add_gaps);
 
   return undef if not defined $from_mapper;
 
@@ -641,7 +645,8 @@ sub _construct_sequence {
       $map,
       $transcripts,
       $from_slice,
-      $to_slices) = @_;
+      $to_slices,
+      $add_gaps) = @_;
 
   # Basic gene-scaffold structure is taken directly from the given block list
   my @block_coord_pairs;
@@ -949,6 +954,10 @@ sub _construct_sequence {
       $pair->to($rep);      
       push @coord_positions, $pair;
     }
+  }
+
+  if (not $add_gaps) {
+    @all_coord_pairs = grep { not $_->to->isa("Bio::EnsEMBL::Mapper::Gap") } @all_coord_pairs;
   }
 
   ############################################
