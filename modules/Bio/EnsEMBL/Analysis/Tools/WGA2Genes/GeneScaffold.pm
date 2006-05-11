@@ -54,16 +54,19 @@ sub new {
       $transcripts,
       $from_slice,
       $to_slices,
+      $exnted_into_gaps,
       $add_gaps,
       ) = rearrange([qw(NAME
                         GENOMIC_ALIGN_BLOCKS
                         TRANSCRIPTS
                         FROM_SLICE
                         TO_SLICES
+                        EXTEND_INTO_GAPS
                         ADD_GAPS)], %given_args);
 
   $name = "GeneScaffold" if not defined $name;
   $add_gaps = 1 if not defined $add_gaps;
+  $extend_into_gaps = 1 if not defined $extend_into_gaps;
 
   my $aln_map = _make_alignment_mapper($genomic_align_blocks);
 
@@ -73,6 +76,7 @@ sub new {
                           $transcripts,
                           $from_slice,
                           $to_slices,
+                          $extend_into_gaps,
                           $add_gaps);
 
   return undef if not defined $from_mapper;
@@ -110,13 +114,15 @@ sub place_transcript {
   my ($self, 
       $tran) = @_;
 
-  my ($tran_length, @all_coords, @new_exons);
+  my (@all_coords, @new_exons);
 
   my @orig_exons = @{$tran->get_all_translateable_Exons};
   if ($tran->strand < 0) {
     @orig_exons = reverse @orig_exons;
   }
-  map { $tran_length += $_->length } @orig_exons; 
+
+  my $source_tran_length = 0;
+  map { $source_tran_length += $_->length } @orig_exons; 
 
   foreach my $orig_exon (@orig_exons) {
     my @crds = $self->from_mapper->map_coordinates($orig_exon->slice->seq_region_name,
@@ -248,25 +254,18 @@ sub place_transcript {
     @all_coords = @proc_coords;    
   } while ($need_another_pass);
 
-  my ($total_tran_bps, $real_seq_bps);
+
   foreach my $coord (@all_coords) {
     if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
       push @new_exons, Bio::EnsEMBL::Exon->new(-start => $coord->start,
                                                -end   => $coord->end,
                                                -strand => $tran->strand,
                                                -slice => $self);
-
-      $total_tran_bps += $coord->length;
-      my ($tcoord) = $self->to_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
-                                                       $coord->start,
-                                                       $coord->end,
-                                                       1,
-                                                       $GENE_SCAFFOLD_CS_NAME);
-      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        $real_seq_bps += $coord->length;
-      } 
     }
   }
+
+  my $total_tran_bps = 0;
+  map { $total_tran_bps += $_->length } @new_exons; 
 
   if (not @new_exons) {
     # the whole transcript mapped to gaps
@@ -435,7 +434,7 @@ sub place_transcript {
   #
   my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->
       new(-features => \@trans_fps);
-  $t_sf->hcoverage( 100 * ($total_tran_bps / $tran_length) );
+  $t_sf->hcoverage( 100 * ($total_tran_bps / $source_tran_length) );
   $proj_tran->add_supporting_features($t_sf);
 
   #
@@ -449,22 +448,36 @@ sub place_transcript {
 
   $proj_tran->translation($translation);
 
-  if (not defined $proj_tran->translate) {
+  my $pep = $proj_tran->translate;
+
+  if (not defined $pep) {
     # this can happen if the transcript comprises a single stop codon only
     return 0;
   }
-
+  
+  my $prop_non_gap = 100 - (100 * (($pep->seq =~ tr/X/X/) / $pep->length));
+  my $num_stops = $pep->seq =~ tr/\*/\*/;
+  
   #
   # finally, attributes
   #
   my @attributes;
 
+
+  my $cov_attr = Bio::EnsEMBL::Attribute->
+      new(-code => 'HitCoverage',
+          -name => 'hit coverage',
+          -description => 'coverage of parent transcripts',
+          -value => sprintf("%.1f",
+                            100 * ($total_tran_bps / $source_tran_length)));
+  push @attributes, $cov_attr;
+  
   my $gap_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'PropNonGap',
           -name => 'proportion non gap',
           -description => 'proportion non gap',
           -value => sprintf("%.1f", 
-                            100 * ($real_seq_bps / $total_tran_bps)));
+                            $prop_non_gap));
   push @attributes, $gap_attr;
   
   if ($start_not_found and $tran->strand > 0 or
@@ -486,8 +499,6 @@ sub place_transcript {
     push @attributes, $attr;
   }
 
-  my $pep = $proj_tran->translate->seq;
-  my $num_stops = $pep =~ tr/\*/\*/;
 
   my $stop_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'NumStops',
@@ -515,14 +526,6 @@ sub place_transcript {
           -value => $gap_exons);
   push @attributes, $gap_exon_attr;
 
-  #if (defined $gene_id) {
-  #  my $geneid_attr = Bio::EnsEMBL::Attribute->
-  #      new(-code => 'SourceGene',
-  #          -name => 'source gene',
-  #          -description => 'human source gene',
-  #          -value => $gene_id);
-  #  push @attributes, $geneid_attr;
-  #}
   my $tranid_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'SourceTran',
           -name => 'source transcript',
@@ -646,6 +649,7 @@ sub _construct_sequence {
       $transcripts,
       $from_slice,
       $to_slices,
+      $extend_into_gaps,
       $add_gaps) = @_;
 
   # Basic gene-scaffold structure is taken directly from the given block list
@@ -740,219 +744,226 @@ sub _construct_sequence {
     pop @all_coord_pairs;
   }
 
-  my (%pairs_to_remove, @replacements);
-
-  for(my $i=0; $i < @all_coord_pairs; $i++) {
-    my $this_pair = $all_coord_pairs[$i];
-
-    if ($this_pair->to->isa("Bio::EnsEMBL::Mapper::Gap")) {
-      # if it's gap that can be filled, leave it. Otherwise, remove it
-      my ($left_non_gap, $right_non_gap);
-      for(my $j=$i-1; $j>=0; $j--) {
-        if ($all_coord_pairs[$j]->to->
-            isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-          $left_non_gap = $all_coord_pairs[$j];
-          last;
-        }
-      }
-      for(my $j=$i+1; $j < @all_coord_pairs; $j++) {
-        if ($all_coord_pairs[$j]->to->
-            isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-          $right_non_gap = $all_coord_pairs[$j];
-          last;
-        }
-      }
-
-      
-      my ($ex_left, $ex_left_up, $ex_left_down) = 
-          extend_coord($left_non_gap->to,
-                       $to_slices->{$left_non_gap->to->id});
-      my ($ex_right, $ex_right_up, $ex_right_down) = 
-          extend_coord($right_non_gap->to,
-                       $to_slices->{$right_non_gap->to->id});
-
-      
-      # flanking coords are inconsistent,
-      # which means that they come from different chains.
-      # By chain filtering then, they must either come
-      # from different target sequences, or be separable in the
-      # same target sequence by a sequence-level gap. Either
-      # way, we can nominally "fill" the gap. 
-      #
-      # However, if the gap coincides with the end of a block,
-      # and furthermore if the block end conincides with the
-      # end of a sequence-level piece in the target, it is
-      # more appropriate to extend the exon into the existing
-      # gap; in that case, we replace the gap with a fake
-      # piece of alignment
-
-      if (not check_consistent_coords($left_non_gap->to,
-                                      $right_non_gap->to) or
-          $ex_left->start > $ex_right->end or
-          $ex_left->end   < $ex_right->start) {
-        
-        if ($left_non_gap->from->end == $this_pair->from->start - 1 and
-            $right_non_gap->from->start == $this_pair->from->end + 1) {
-
-          my $remove_coord = 1;
-          my (@replace_coord);
-
-          if ($left_non_gap->to->strand > 0 and 
-              $ex_left->end - $left_non_gap->to->end <= $NEAR_CONTIG_END) {
-            $remove_coord = 0;
-            
-            if (defined $ex_left_down and
-                $this_pair->to->length <= $ex_left_down->start - $ex_left->end - 1) {            
-              push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
-                  ->new($ex_left->id,
-                        $ex_left->end + 1,
-                        $ex_left->end + $this_pair->to->length,
-                        $ex_left->strand);                  
-            }
-          } elsif ($left_non_gap->to->strand < 0 and 
-                   $ex_left->start - $left_non_gap->to->start <= $NEAR_CONTIG_END) {
-            $remove_coord = 0;
-            
-            if (defined $ex_left_up and 
-                $this_pair->to->length <= $ex_left_up->end - $ex_left->start - 1) {                
-              push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
-                  ->new($ex_left->id,
-                        $ex_left->start - $this_pair->to->length,
-                        $ex_left->start - 1,
-                        $ex_left->strand);
-            }            
-          } 
-          
-          if ($right_non_gap->to->strand > 0 and
-              $right_non_gap->to->start - $ex_right->start <= $NEAR_CONTIG_END) {
-            $remove_coord = 0;
-
-            if (defined $ex_right_up and
-                $this_pair->to->length <= $ex_right->start - $ex_right_up->end - 1) {
-              push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
-                  ->new($ex_right->id,
-                        $ex_right->start - $this_pair->to->length,
-                        $ex_right->start - 1,
-                        $ex_right->strand);
-            }
-          } elsif ($right_non_gap->to->strand < 0 and
-                   $ex_right->end - $right_non_gap->to->end <= $NEAR_CONTIG_END) {
-            $remove_coord = 0;
-
-            if (defined $ex_right_down and
-                $this_pair->to->length <= $ex_right_down->start - $ex_right->end - 1) {
-              push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
-                  ->new($ex_right->id,
-                        $ex_right->end + 1,
-                        $ex_right->end + $this_pair->to->length,
-                        $ex_right->strand);
-            }
-          } 
-
-          if ($remove_coord) {
-            # gap does not align with the end of a contig; junk it
-            $pairs_to_remove{$this_pair} = 1;
-          } elsif (@replace_coord) {
-            # arbitrarily chose the first one
-            push @replacements, [$this_pair,
-                                 $replace_coord[0]];
-          }
-
-        } elsif ($left_non_gap->from->end == $this_pair->from->start - 1) {
-          if ($left_non_gap->to->strand > 0 and 
-              $ex_left->end - $left_non_gap->to->end <= $NEAR_CONTIG_END) {
-
-            if (defined $ex_left_down and
-                $this_pair->to->length <= $ex_left_down->start - $ex_left->end - 1) {
-              push @replacements, [$this_pair,
-                                   Bio::EnsEMBL::Mapper::Coordinate
-                                   ->new($ex_left->id,
-                                         $ex_left->end + 1,
-                                         $ex_left->end + $this_pair->to->length,
-                                         $ex_left->strand)];
-            }
-          } elsif ($left_non_gap->to->strand < 0 and 
-                   $ex_left->start - $left_non_gap->to->start <= $NEAR_CONTIG_END) {
-            
-            if (defined $ex_left_up and 
-                $this_pair->to->length <= $ex_left_up->end - $ex_left->start - 1) {
-              push @replacements, [$this_pair,
-                                   Bio::EnsEMBL::Mapper::Coordinate
-                                   ->new($ex_left->id,
-                                         $ex_left->start - $this_pair->to->length,
-                                         $ex_left->start - 1,
-                                         $ex_left->strand)];
-            }
-          } else {
-            # gap does not align with the end of a contig; junk it
-            $pairs_to_remove{$this_pair} = 1;
-          }
-        } elsif ($right_non_gap->from->start == $this_pair->from->end + 1) {
-          if ($right_non_gap->to->strand > 0 and 
-              $right_non_gap->to->start - $ex_right->start <= $NEAR_CONTIG_END) {
-
-            if (defined $ex_right_up and
-                $this_pair->to->length <= $ex_right->start - $ex_right_up->end - 1) {
-              push @replacements, [$this_pair,
-                                   Bio::EnsEMBL::Mapper::Coordinate
-                                   ->new($ex_right->id,
-                                         $ex_right->start - $this_pair->to->length,
-                                         $ex_right->start - 1,
-                                         $ex_right->strand)];
-            }
-          } elsif ($right_non_gap->to->strand < 0 and 
-                   $ex_right->end - $right_non_gap->to->end <= $NEAR_CONTIG_END) {
-
-            if (defined $ex_right_down and 
-                $this_pair->to->length <= $ex_right_down->start - $ex_right->end - 1) {
-              push @replacements, [$this_pair, 
-                                   Bio::EnsEMBL::Mapper::Coordinate
-                                   ->new($ex_right->id,
-                                         $ex_right->end + 1,
-                                         $ex_right->end + $this_pair->to->length,
-                                         $ex_right->strand)];
-            }
-          } else {
-            # gap does not align with the end of a contig; junk it
-            $pairs_to_remove{$this_pair} = 1;
-          }
-        }
-        # else this gap is an isolate. It can be kept iff the coords are
-        # on different chains, or on the same chain but on different
-        # contigs; we've already determined that the components can
-        # be separated, so fine          
-
-      }
-      else {
-        $pairs_to_remove{$this_pair} = 1;
-      }
-    }
-  }
-
-  @all_coord_pairs = grep { not exists $pairs_to_remove{$_} } @all_coord_pairs;
-
-  while(@replacements) {
-    my $el = shift @replacements;
-    my ($pair, $rep) = @$el;
+  if ($extend_into_gaps) {
+    my (%pairs_to_remove, @replacements);
     
-    my $fill = 1;
-
-    if (@replacements) {
-      my $nel = shift @replacements;
-      my ($npair, $nrep) = @$nel;
-
-      if ($rep->id eq $nrep->id and
-        $rep->start <= $nrep->end and
-        $rep->end   >= $nrep->start) {
-        # we have over-filled a gap. Remove these fills
-        $fill = 0;
-      } else {
-        unshift @replacements, $nel;
+    for(my $i=0; $i < @all_coord_pairs; $i++) {
+      my $this_pair = $all_coord_pairs[$i];
+      
+      if ($this_pair->to->isa("Bio::EnsEMBL::Mapper::Gap")) {
+        # if it's gap that can be filled, leave it. Otherwise, remove it
+        my ($left_non_gap, $right_non_gap);
+        for(my $j=$i-1; $j>=0; $j--) {
+          if ($all_coord_pairs[$j]->to->
+              isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+            $left_non_gap = $all_coord_pairs[$j];
+            last;
+          }
+        }
+        for(my $j=$i+1; $j < @all_coord_pairs; $j++) {
+          if ($all_coord_pairs[$j]->to->
+              isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+            $right_non_gap = $all_coord_pairs[$j];
+            last;
+          }
+        }
+        
+        
+        my ($ex_left, $ex_left_up, $ex_left_down) = 
+            extend_coord($left_non_gap->to,
+                         $to_slices->{$left_non_gap->to->id});
+        my ($ex_right, $ex_right_up, $ex_right_down) = 
+            extend_coord($right_non_gap->to,
+                         $to_slices->{$right_non_gap->to->id});
+        
+        
+        # flanking coords are inconsistent,
+        # which means that they come from different chains.
+        # By chain filtering then, they must either come
+        # from different target sequences, or be separable in the
+        # same target sequence by a sequence-level gap. Either
+        # way, we can nominally "fill" the gap. 
+        #
+        # However, if the gap coincides with the end of a block,
+        # and furthermore if the block end conincides with the
+        # end of a sequence-level piece in the target, it is
+        # more appropriate to extend the exon into the existing
+        # gap; in that case, we replace the gap with a fake
+        # piece of alignment
+        
+        if (not check_consistent_coords($left_non_gap->to,
+                                        $right_non_gap->to) or
+            $ex_left->start > $ex_right->end or
+            $ex_left->end   < $ex_right->start) {
+          
+          if ($left_non_gap->from->end == $this_pair->from->start - 1 and
+              $right_non_gap->from->start == $this_pair->from->end + 1) {
+            
+            my $remove_coord = 1;
+            my (@replace_coord);
+            
+            if ($left_non_gap->to->strand > 0 and 
+                $ex_left->end - $left_non_gap->to->end <= $NEAR_CONTIG_END) {
+              $remove_coord = 0;
+              
+              if (defined $ex_left_down and
+                  $this_pair->to->length <= $ex_left_down->start - $ex_left->end - 1) {            
+                push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
+                    ->new($ex_left->id,
+                          $ex_left->end + 1,
+                          $ex_left->end + $this_pair->to->length,
+                          $ex_left->strand);                  
+              }
+            } elsif ($left_non_gap->to->strand < 0 and 
+                     $ex_left->start - $left_non_gap->to->start <= $NEAR_CONTIG_END) {
+              $remove_coord = 0;
+              
+              if (defined $ex_left_up and 
+                  $this_pair->to->length <= $ex_left_up->end - $ex_left->start - 1) {                
+                push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
+                    ->new($ex_left->id,
+                          $ex_left->start - $this_pair->to->length,
+                          $ex_left->start - 1,
+                          $ex_left->strand);
+              }            
+            } 
+            
+            if ($right_non_gap->to->strand > 0 and
+                $right_non_gap->to->start - $ex_right->start <= $NEAR_CONTIG_END) {
+              $remove_coord = 0;
+              
+              if (defined $ex_right_up and
+                  $this_pair->to->length <= $ex_right->start - $ex_right_up->end - 1) {
+                push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
+                    ->new($ex_right->id,
+                          $ex_right->start - $this_pair->to->length,
+                          $ex_right->start - 1,
+                          $ex_right->strand);
+              }
+            } elsif ($right_non_gap->to->strand < 0 and
+                     $ex_right->end - $right_non_gap->to->end <= $NEAR_CONTIG_END) {
+              $remove_coord = 0;
+              
+              if (defined $ex_right_down and
+                  $this_pair->to->length <= $ex_right_down->start - $ex_right->end - 1) {
+                push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
+                    ->new($ex_right->id,
+                          $ex_right->end + 1,
+                          $ex_right->end + $this_pair->to->length,
+                          $ex_right->strand);
+              }
+            } 
+            
+            if ($remove_coord) {
+              # gap does not align with the end of a contig; junk it
+              $pairs_to_remove{$this_pair} = 1;
+            } elsif (@replace_coord) {
+              # arbitrarily chose the first one
+              push @replacements, [$this_pair,
+                                   $replace_coord[0]];
+            }
+            
+          } elsif ($left_non_gap->from->end == $this_pair->from->start - 1) {
+            if ($left_non_gap->to->strand > 0 and 
+                $ex_left->end - $left_non_gap->to->end <= $NEAR_CONTIG_END) {
+              
+              if (defined $ex_left_down and
+                  $this_pair->to->length <= $ex_left_down->start - $ex_left->end - 1) {
+                push @replacements, [$this_pair,
+                                     Bio::EnsEMBL::Mapper::Coordinate
+                                     ->new($ex_left->id,
+                                           $ex_left->end + 1,
+                                           $ex_left->end + $this_pair->to->length,
+                                           $ex_left->strand)];
+              }
+            } elsif ($left_non_gap->to->strand < 0 and 
+                     $ex_left->start - $left_non_gap->to->start <= $NEAR_CONTIG_END) {
+              
+              if (defined $ex_left_up and 
+                  $this_pair->to->length <= $ex_left_up->end - $ex_left->start - 1) {
+                push @replacements, [$this_pair,
+                                     Bio::EnsEMBL::Mapper::Coordinate
+                                     ->new($ex_left->id,
+                                           $ex_left->start - $this_pair->to->length,
+                                           $ex_left->start - 1,
+                                           $ex_left->strand)];
+              }
+            } else {
+              # gap does not align with the end of a contig; junk it
+              $pairs_to_remove{$this_pair} = 1;
+            }
+          } elsif ($right_non_gap->from->start == $this_pair->from->end + 1) {
+            if ($right_non_gap->to->strand > 0 and 
+                $right_non_gap->to->start - $ex_right->start <= $NEAR_CONTIG_END) {
+              
+              if (defined $ex_right_up and
+                  $this_pair->to->length <= $ex_right->start - $ex_right_up->end - 1) {
+                push @replacements, [$this_pair,
+                                     Bio::EnsEMBL::Mapper::Coordinate
+                                     ->new($ex_right->id,
+                                           $ex_right->start - $this_pair->to->length,
+                                           $ex_right->start - 1,
+                                           $ex_right->strand)];
+              }
+            } elsif ($right_non_gap->to->strand < 0 and 
+                     $ex_right->end - $right_non_gap->to->end <= $NEAR_CONTIG_END) {
+              
+              if (defined $ex_right_down and 
+                  $this_pair->to->length <= $ex_right_down->start - $ex_right->end - 1) {
+                push @replacements, [$this_pair, 
+                                     Bio::EnsEMBL::Mapper::Coordinate
+                                     ->new($ex_right->id,
+                                           $ex_right->end + 1,
+                                           $ex_right->end + $this_pair->to->length,
+                                           $ex_right->strand)];
+              }
+            } else {
+              # gap does not align with the end of a contig; junk it
+              $pairs_to_remove{$this_pair} = 1;
+            }
+          }
+          # else this gap is an isolate. It can be kept iff the coords are
+          # on different chains, or on the same chain but on different
+          # contigs; we've already determined that the components can
+          # be separated, so fine          
+          
+        }
+        else {
+          $pairs_to_remove{$this_pair} = 1;
+        }
       }
     }
-    if ($fill) {
-      $pair->to($rep);      
-      push @coord_positions, $pair;
+    
+    @all_coord_pairs = grep { not exists $pairs_to_remove{$_} } @all_coord_pairs;
+    
+    @replacements = sort { 
+      $a->[1]->id cmp $b->[1]->id or
+          $a->[1]->start <=> $b->[1]->start;    
+    } @replacements;
+    
+    while(@replacements) {
+      my $el = shift @replacements;
+      my ($pair, $rep) = @$el;
+      
+      my $fill = 1;
+      
+      if (@replacements) {
+        my $nel = shift @replacements;
+        my ($npair, $nrep) = @$nel;
+        
+        if ($rep->id eq $nrep->id and
+            $rep->start <= $nrep->end and
+            $rep->end   >= $nrep->start) {
+          # we have over-filled a gap. Remove these fills
+          $fill = 0;
+        } else {
+          unshift @replacements, $nel;
+        }
+      }
+      if ($fill) {
+        $pair->to($rep);      
+        push @coord_positions, $pair;
+      }
     }
   }
 
@@ -983,7 +994,7 @@ sub _construct_sequence {
         $merged_pairs[-1]->to->isa("Bio::EnsEMBL::Mapper::Coordinate") and 
         check_consistent_coords($merged_pairs[-1]->to,
                                 $this_pair->to)) {
-      
+
       my $dist = distance_between_coords($merged_pairs[-1]->to,
                                          $this_pair->to);
       
@@ -1056,7 +1067,7 @@ sub _construct_sequence {
         reverse_comp(\$this_seq);
       }      
       $seq .= $this_seq;
-      
+
       # and the map
       $t_map->add_map_coordinates($pair->to->id,
                                   $pair->to->start,
@@ -1099,7 +1110,7 @@ sub _construct_sequence {
                                             $pair->to->end,
                                             $pair->to->strand,
                                             $TO_CS_NAME);
-      
+
       $q_map->add_map_coordinates($from_slice->seq_region_name,
                                   $pair->from->start,
                                   $pair->from->end,
@@ -1134,16 +1145,18 @@ sub _projectable_features_from_transcripts {
                                     $e->end,
                                     1,
                                     $FROM_CS_NAME);
-      if (scalar(@c) == 1 and 
-          $c[0]->isa("Bio::EnsEMBL::Mapper::Gap")) {
+
+      if ((scalar(@c) == 1 and 
+          $c[0]->isa("Bio::EnsEMBL::Mapper::Gap")) or
+          $e->length <= 3) {
 
         push @gap_exons, $e;
-
       } else {
         if ($seen_good) {
           push @all_good_exons, @gap_exons;
-          @gap_exons = ();
         }
+        @gap_exons = ();
+
         push @all_good_exons, $e;
         $seen_good = 1;
       }
