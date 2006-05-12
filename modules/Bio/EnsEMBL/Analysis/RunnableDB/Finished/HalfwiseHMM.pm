@@ -311,7 +311,13 @@ sub run {
 	foreach my $runnable ( $self->runnable ) {
 		$runnable || throw("Can't run - no runnable object");
 		print STDERR "using " . $runnable . "\n";
-		$runnable->run;
+		eval { $runnable->run; };
+		if ( my $err = $@ ) {
+			chomp $err;
+			$self->failing_job_status($1)
+			  if $err =~ /^\"([A-Z_]{1,40})\"$/i; # only match '"ABC_DEFGH"'
+			throw("$@");
+		}
 	}
 	$self->_convert_output();
 }
