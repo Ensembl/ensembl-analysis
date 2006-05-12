@@ -1,3 +1,4 @@
+
 =pod
 
 =head1 NAME
@@ -47,27 +48,30 @@ use Bio::SeqIO;
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 {
-    my $options = {'Algorithm type:        ' => undef,
-                    'Search algorithm used: ' => undef,
-                    'Implementation:        ' => undef,
-                    'Search mode:           ' => undef,
-                    'Protein info from:     ' => undef,
-                    'Dna info from:         ' => undef,
-                    'Start/End (protein)    ' => undef,
-                    'Gene Paras:            ' => undef,
-                    'Codon Table:           ' => undef,
-                    'Subs error:            ' => undef,
-                    'Indel error:           ' => undef,
-                    'Model splice?          ' => undef,
-                    'Model codon bias?      ' => undef,
-                    'Model intron bias?     ' => undef,
-                    'Null model             ' => undef,
-                    'Alignment Alg          ' => undef
-                    };
-    sub valid_options{
-        return $options;
-    }
+	my $options = {
+		'Algorithm type:        ' => undef,
+		'Search algorithm used: ' => undef,
+		'Implementation:        ' => undef,
+		'Search mode:           ' => undef,
+		'Protein info from:     ' => undef,
+		'Dna info from:         ' => undef,
+		'Start/End (protein)    ' => undef,
+		'Gene Paras:            ' => undef,
+		'Codon Table:           ' => undef,
+		'Subs error:            ' => undef,
+		'Indel error:           ' => undef,
+		'Model splice?          ' => undef,
+		'Model codon bias?      ' => undef,
+		'Model intron bias?     ' => undef,
+		'Null model             ' => undef,
+		'Alignment Alg          ' => undef
+	};
+
+	sub valid_options {
+		return $options;
+	}
 }
+
 =head2 new
 
   Args      : Bio::Seq, int, boolean, boolean, path, filename
@@ -80,30 +84,30 @@ use Bio::SeqIO;
 =cut
 
 sub new {
-    my($class,@args) = @_;
-    my $self = $class->SUPER::new(@args);
-    $self->{'_output'} = [];
-    $self->{'_reverse'} = undef;
-    my ($query, $memory,$reverse,$endbias,$genewise,$hmmfile, $options) = 
-        rearrange([qw(QUERY MEMORY REVERSE ENDBIAS GENEWISE HMMFILE OPTIONS)], @args);
-    #  print $query . "\n";
-    $genewise ||= 'genewise';
-    $options ||= '-ext 2 -genes';
-    $self->genewise($self->program($genewise));
-    $self->query($query) || throw("No query sequence entered for blastwise");
-    $self->hmmfile($hmmfile) || throw("No Hmm file entered for Hmmgenewise");
-    $self->is_reverse($reverse)   if (defined($reverse));
-    $self->endbias($endbias)   if (defined($endbias));
-    $self->memory ($memory)    if (defined($memory));
-    $self->options($options);
-    return $self;
-}
+	my ( $class, @args ) = @_;
+	my $self = $class->SUPER::new(@args);
+	$self->{'_output'}  = [];
+	$self->{'_reverse'} = undef;
+	my ( $query, $memory, $reverse, $endbias, $genewise, $hmmfile, $options ) =
+	  rearrange( [qw(QUERY MEMORY REVERSE ENDBIAS GENEWISE HMMFILE OPTIONS)],
+		@args );
 
+	#  print $query . "\n";
+	$genewise ||= 'genewise';
+	$options  ||= '-ext 2 -genes';
+	$self->genewise( $self->program($genewise) );
+	$self->query($query) || throw("No query sequence entered for blastwise");
+	$self->hmmfile($hmmfile) || throw("No Hmm file entered for Hmmgenewise");
+	$self->is_reverse($reverse) if ( defined($reverse) );
+	$self->endbias($endbias)    if ( defined($endbias) );
+	$self->memory($memory)      if ( defined($memory) );
+	$self->options($options);
+	return $self;
+}
 
 ##################
 #accessor methods#
 ##################
-
 
 =head2 accessor_methods
 
@@ -116,44 +120,45 @@ sub new {
 
 =cut
 
-
 sub genewise {
-    my ($self,$arg) = @_;
-    $self->{_genewise} = $arg if $arg;
-    return $self->{_genewise};
+	my ( $self, $arg ) = @_;
+	$self->{_genewise} = $arg if $arg;
+	return $self->{_genewise};
 }
 
 # These all set/get or initializing methods
 
 sub is_reverse {
-    my ($self,$boolean) = @_;
-    $self->{'_reverse'} = ($boolean == 1 ? $boolean : 0) if $boolean;
-    return $self->{'_reverse'};
+	my ( $self, $boolean ) = @_;
+	$self->{'_reverse'} = ( $boolean == 1 ? $boolean : 0 ) if $boolean;
+	return $self->{'_reverse'};
 }
 
 sub endbias {
-    my ($self,$boolean) = @_;
-    $self->{'_endbias'} = ($boolean == 1 ? $boolean : 0) if $boolean;
-    return $self->{'_endbias'};
+	my ( $self, $boolean ) = @_;
+	$self->{'_endbias'} = ( $boolean == 1 ? $boolean : 0 ) if $boolean;
+	return $self->{'_endbias'};
 }
 
 sub memory {
-    my ($self,$arg) = @_;
-    $self->{'_memory'} = ' -kbyte ' . $arg if $arg;
-    return $self->{'_memory'} || ' -kbyte 100000';
+	my ( $self, $arg ) = @_;
+	$self->{'_memory'} = ' -kbyte ' . $arg if $arg;
+	return $self->{'_memory'} || ' -kbyte 100000';
 }
 
 sub query {
-    my ($self,$arg) = @_;
+	my ( $self, $arg ) = @_;
 
-    if (defined($arg)) {
-	throw("Genomic sequence input is not a Bio::SeqI or Bio::Seq or Bio::PrimarySeqI") unless
-	    ($arg->isa("Bio::SeqI") || 
-	     $arg->isa("Bio::Seq")  || 
-	     $arg->isa("Bio::PrimarySeqI"));
-	$self->{'_query'} = $arg;
-    }
-    return $self->{'_query'};
+	if ( defined($arg) ) {
+		throw(
+"Genomic sequence input is not a Bio::SeqI or Bio::Seq or Bio::PrimarySeqI"
+		  )
+		  unless ( $arg->isa("Bio::SeqI")
+			|| $arg->isa("Bio::Seq")
+			|| $arg->isa("Bio::PrimarySeqI") );
+		$self->{'_query'} = $arg;
+	}
+	return $self->{'_query'};
 }
 
 =head2 hmmfile
@@ -167,17 +172,15 @@ sub query {
 
 =cut
 
-sub hmmfile{
-    my ($self, $file) = @_;
-    $self->{'hmmfile'} = $file if $file;
-    return $self->{'hmmfile'};
+sub hmmfile {
+	my ( $self, $file ) = @_;
+	$self->{'hmmfile'} = $file if $file;
+	return $self->{'hmmfile'};
 }
 
 ######################
 #running the analysis#
 ######################
-
-
 
 =head2 set_environment
 
@@ -190,14 +193,12 @@ sub hmmfile{
 
 =cut
 
-
 sub set_environment {
-  my ($self) = @_;
-  if (! -d $ENV{WISECONFIGDIR}) {
-    throw("No WISECONFIGDIR ["  . $ENV{WISECONFIGDIR} . "]");
-  }
+	my ($self) = @_;
+	if ( !-d $ENV{WISECONFIGDIR} ) {
+		throw( "No WISECONFIGDIR [" . $ENV{WISECONFIGDIR} . "]" );
+	}
 }
-
 
 =head2 run
 
@@ -210,111 +211,117 @@ sub set_environment {
 
 =cut
 
-
-
 sub run {
-    my ($self, $dir) = @_;
-    $self->set_environment;
-    $self->_align_protein($dir);
+	my ( $self, $dir ) = @_;
+	$self->set_environment;
+	$self->_align_protein($dir);
 }
 
-sub parse_headers{
-    my $self = shift;
-    my @header = split("\n", +shift);
-    local $" = "\n";
-#    print STDERR "HEADER: @header";
-    my $information = $self->valid_options();
-    foreach my $line(@header){
-	if($line =~ m!([a-zA-Z0-9 :?\(\)/]{23})(.+)!){
-	    if(exists($information->{$1})){
-		$self->gw_options($1, $2);
-	    }
-	    else{
-#		print STDERR "NOT OPTION: $line\n";
-	    }
-	}elsif($line =~ m!^Protein !){
-	    my @high_scores = split(/\s+/, $line);
-#	    print join(" *** ", @high_scores) . "\n";
-	    $self->set_score(@high_scores);
-	}else{
-#	    print STDERR "BLANK LINE: $line\n";
+sub parse_headers {
+	my $self = shift;
+	my @header = split( "\n", +shift );
+	local $" = "\n";
+	#print STDERR "HEADER: @header";
+	my $information = $self->valid_options();
+	foreach my $line (@header) {
+		if ( $line =~ m!([a-zA-Z0-9 :?\(\)/]{23})(.+)! ) {
+			if ( exists( $information->{$1} ) ) {
+				$self->gw_options( $1, $2 );
+			}
+			else {
+
+				#		print STDERR "NOT OPTION: $line\n";
+			}
+		}
+		elsif ( $line =~ m!^Protein ! ) {
+			my @high_scores = split( /\s+/, $line );
+
+			#	    print join(" *** ", @high_scores) . "\n";
+			$self->set_score(@high_scores);
+		}
+		else {
+
+			#	    print STDERR "BLANK LINE: $line\n";
+		}
 	}
-    }
 }
-sub parse_alignments{
-    my $self = shift;
-    my @results = split("\n", +shift);
-#    local $" = "\n";
-#    print STDERR "RESULTS: @results";
-#    local $" = " ";
-    my $firstline = shift(@results);
-    pop(@results) if $results[-1] eq '//';
-    my ($pdomain, $clone, $strand, $count, $gff_strand);
 
-    if($firstline =~ m!Results for (.+) vs (.+) \((forward|reverse)\) \[(\d)\]!){
-	$pdomain = $1;
-	$clone   = $2;
-	$strand  = ($3 eq 'forward' ? 1 : -1);
-	$gff_strand = ($3 eq 'forward' ? '+' : '-');
-	$count   = $4;
+sub parse_alignments {
+	my $self    = shift;
+	my @results = split( "\n", +shift );
 
-=head2
+	#    local $" = "\n";
+	#print STDERR "RESULTS: @results";
 
-	print STDERR <<END;
+	#    local $" = " ";
+	my $firstline = shift(@results);
+	pop(@results) if $results[-1] eq '//';
+	my ( $pdomain, $clone, $strand, $count, $gff_strand );
 
-Protein Domain: $1
-Clone         : $2
-for/rev       : $3 [$strand] ($gff_strand)
-count?        : $4
-END
-
-=cut
-
-    }else{
-	warning("couldn't read firstline <$firstline>");
-    }
-    my $score = $self->get_score($pdomain, "[$gff_strand]");
-    my @genes;
-    my $allowed = {'Gene' => 1, 'Exon' => 1, 'Supporting' => 1};
-    foreach (@results){
-	my @F = split;
-	next unless (defined $F[0] && $allowed->{$F[0]});
-	my $check = 1; # positive strand
-	if($F[0] eq 'Gene' && $F[1] && $F[2] && !($F[1] eq 'Paras:')){
-	    # swap reverse coords (make note this was done)
-	    ($F[1], $F[2], $check) = ($F[2], $F[1], -1) if $F[2] < $F[1];
-	    # sanity check strands and add gene
-	    if($check == $strand){
-		my $gene = Bio::EnsEMBL::SeqFeature->new();
-		$gene->id     ($clone);
-		$gene->seqname($pdomain);
-		push(@genes, $gene);
-	    }else{ warning "strands don't match" }
-	}elsif($F[0] eq 'Exon'){
-	    # swap reverse coords (make note this was done)
-	    ($F[1], $F[2], $check) = ($F[2], $F[1], -1) if $F[2] < $F[1];
-	    if($check == $strand){
-		my $exon = Bio::EnsEMBL::SeqFeature->new();
-		$exon->seqname($clone);
-		$exon->id     ($pdomain);
-		#$exon->phase  (0);
-		$exon->start  ($F[1]);
-		$exon->end    ($F[2]);
-		$exon->strand ($strand);
-		$genes[-1]->add_sub_SeqFeature($exon,'EXPAND');
-		    #[@F, $pdomain, $clone, $strand, $phase, $score]);
-	    }else{ warning "strands don't match" }
-	}elsif($F[0] eq 'Supporting'){
-	    # swap reverse coords (make note this was done)
-	    ($F[1], $F[2], $check) = ($F[2], $F[1], -1) if $F[2] < $F[1];
-	    if($check == $strand){
-		
-	    }
-	}else{
+	if ( $firstline =~
+		m!Results for (.+) vs (.+) \((forward|reverse)\) \[(\d)\]! )
+	{
+		$pdomain    = $1;
+		$clone      = $2;
+		$strand     = ( $3 eq 'forward' ? 1 : -1 );
+		$gff_strand = ( $3 eq 'forward' ? '+' : '-' );
+		$count      = $4;
 	}
-    }
-    return \@genes;
+	else {
+		warning("couldn't read firstline <$firstline>");
+	}
+	my $score = $self->get_score( $pdomain, "[$gff_strand]" );
+	my @genes;
+	my $allowed = { 'Gene' => 1, 'Exon' => 1, 'Supporting' => 1 };
+	foreach (@results) {
+		my @F = split;
+		next unless ( defined $F[0] && $allowed->{ $F[0] } );
+		my $check = 1;    # positive strand
+		if ( $F[0] eq 'Gene' && $F[1] && $F[2] && !( $F[1] eq 'Paras:' ) ) {
+
+			# swap reverse coords (make note this was done)
+			( $F[1], $F[2], $check ) = ( $F[2], $F[1], -1 ) if $F[2] < $F[1];
+
+			# sanity check strands and add gene
+			if ( $check == $strand ) {
+				my $gene = Bio::EnsEMBL::SeqFeature->new();
+				$gene->id($clone);
+				$gene->seqname($pdomain);
+				push( @genes, $gene );
+			}
+			else { warning "strands don't match" }
+		}
+		elsif ( $F[0] eq 'Exon' ) {
+
+			# swap reverse coords (make note this was done)
+			( $F[1], $F[2], $check ) = ( $F[2], $F[1], -1 ) if $F[2] < $F[1];
+			if ( $check == $strand ) {
+				my $exon = Bio::EnsEMBL::SeqFeature->new();
+				$exon->seqname($clone);
+				$exon->id($pdomain);
+
+				#$exon->phase  (0);
+				$exon->start( $F[1] );
+				$exon->end( $F[2] );
+				$exon->strand($strand);
+				$genes[-1]->add_sub_SeqFeature( $exon, 'EXPAND' );
+
+				#[@F, $pdomain, $clone, $strand, $phase, $score]);
+			}
+			else { warning "strands don't match" }
+		}
+		elsif ( $F[0] eq 'Supporting' ) {
+
+			# swap reverse coords (make note this was done)
+			( $F[1], $F[2], $check ) = ( $F[2], $F[1], -1 ) if $F[2] < $F[1];
+			if ( $check == $strand ) { }
+		}
+		else { }
+	}
+
+	return \@genes;
 }
+
 =head2 _align_protein
 
   Arg [1]   : path to directory output files are to be written too  
@@ -326,50 +333,67 @@ END
 
 =cut
 
-sub _align_protein { 
-    my ($self, $dir) = @_;
-    my $memory   = $self->memory;
-    $self->workdir('/tmp') unless ($self->workdir($dir));
-    $self->checkdir();
-    #my $gwfile   = "gw." . $$ . ".out";
-    my $genfile  = "gw." . $$ . ".gen.fa";
-    $self->write_fasta($genfile);
-    my $hmm = $self->hmmfile;
-    my $genewise = $self->genewise;
-    my $command = "$genewise $hmm $genfile " . $self->options() . $self->memory();
-    $command .= " -init endbias -splice flat " if ($self->endbias && $self->endbias == 1);
-    $command .= " -trev "                      if ($self->is_reverse && $self->is_reverse == 1);
-    print STDERR "Command is $command\n"; ##########
-    #my $outputfile = $self->hmmfile.".output";
-    #my $testing_output = "genewisedb.output";
-    local $/ = "//\n";
-    # use one of these
-    #open(my $fh, "$command | tee $outputfile |") or throw("error piping to genewise: $!\n"); # test genewise keep output
-    #open(my $fh, "$testing_output") or throw('couldnt find the file'); # test a single file
-    open(my $fh, "$command |") or throw("error piping to genewise: $!\n"); # production
-    #print "parseing output\n"; # making assumption of only 1 gene prediction ... this will change once we start using hmms
+sub _align_protein {
+	my ( $self, $dir ) = @_;
+	my $memory = $self->memory;
+	$self->workdir('/tmp') unless ( $self->workdir($dir) );
+	$self->checkdir();
 
-    while(<$fh>){
-    #    print STDERR "*" x 60 . "\n";
-        my ($header, $results) = split("\n>", $_);
-        $self->parse_headers($header) if $header;
-        my $genes = $self->parse_alignments($results);
-        $self->addGenes($genes);
-    #    print STDERR "*" x 60 . "\n";
-    }
-    close($fh) or throw("Error running genewise:$!\n");
-    print "there are ",scalar($self->output)." genes predicted using hmms in file ".$hmm."\n";
-    unlink $genfile;
-    #unlink $gwfile;
-    #unlink $outputfile;
+	#my $gwfile   = "gw." . $$ . ".out";
+	my $genfile = "gw." . $$ . ".gen.fa";
+	$self->write_fasta($genfile);
+	my $hmm      = $self->hmmfile;
+	my $genewise = $self->genewise;
+	$self->files_to_delete($genfile);
+	$self->files_to_delete($hmm);
+	my $command  =
+	  "$genewise $hmm $genfile " . $self->options() . $self->memory();
+	$command .= " -init endbias -splice flat "
+	  if ( $self->endbias && $self->endbias == 1 );
+	$command .= " -trev " if ( $self->is_reverse && $self->is_reverse == 1 );
+	print STDERR "Command is $command\n";    ##########
+	    #my $outputfile = $self->hmmfile.".output";
+	    #my $testing_output = "genewisedb.output";
+	local $/ = "//\n";
+
+# use one of these
+#open(my $fh, "$command | tee $outputfile |") or throw("error piping to genewise: $!\n"); # test genewise keep output
+#open(my $fh, "$testing_output") or throw('couldnt find the file'); # test a single file
+	open( my $fh, "$command 2>&1 |" )
+	  or throw("error piping to genewise: $!\n");    # production
+	 #print "parseing output\n"; # making assumption of only 1 gene prediction ... this will change once we start using hmms
+
+	while (<$fh>) {
+		#    print STDERR "*" x 60 . "\n";
+		if(/Out of memory/) {
+			$self->delete_files;	
+			die qq{"OUT_OF_MEMORY"\n};
+		}
+		my ( $header, $results ) = split( "\n>", $_ );
+		$self->parse_headers($header) if $header;
+		my $genes = $self->parse_alignments($results);
+		$self->addGenes($genes);
+
+		#    print STDERR "*" x 60 . "\n";
+	}
+	close($fh) or throw("Error running genewise:$!\n");
+	print "there are ",
+	  scalar( $self->output )
+	  . " genes predicted using hmms in file "
+	  . $hmm . "\n";
+	$self->delete_files;
+	#unlink $gwfile;
+	#unlink $outputfile;
 }
 
-sub write_fasta{
-    my ($self, $genfile) = @_;
-    my $genio = Bio::SeqIO->new('-file'   => ">$genfile",
-                                '-format' => 'fasta');
-    $genio->write_seq($self->query);
-    $genio = undef;
+sub write_fasta {
+	my ( $self, $genfile ) = @_;
+	my $genio = Bio::SeqIO->new(
+		'-file'   => ">$genfile",
+		'-format' => 'fasta'
+	);
+	$genio->write_seq( $self->query );
+	$genio = undef;
 }
 
 =head2 addGene
@@ -384,17 +408,20 @@ sub write_fasta{
 =cut
 
 sub addGene {
-    my ($self,$arg) = @_;
-    #print STDERR "adding ".$arg->seqname." to ouput\n";
-    if($arg->isa("Bio::EnsEMBL::SeqFeature")){
-      push(@{$self->{'_output'}},$arg);
-    }else{
-      throw("this, $arg, should be a seqfeature\n");
-    }
-    #foreach my $result(@{$self->{'_output'}}){
-    #  print STDERR $result->seqname."\n";
-    #}
-    #print STDERR "there are ".scalar(@{$self->{'_output'}})." genes\n";
+	my ( $self, $arg ) = @_;
+
+	#print STDERR "adding ".$arg->seqname." to ouput\n";
+	if ( $arg->isa("Bio::EnsEMBL::SeqFeature") ) {
+		push( @{ $self->{'_output'} }, $arg );
+	}
+	else {
+		throw("this, $arg, should be a seqfeature\n");
+	}
+
+	#foreach my $result(@{$self->{'_output'}}){
+	#  print STDERR $result->seqname."\n";
+	#}
+	#print STDERR "there are ".scalar(@{$self->{'_output'}})." genes\n";
 }
 
 =head2 addGenes
@@ -409,21 +436,20 @@ sub addGene {
 =cut
 
 sub addGenes {
-    my ($self,$args) = @_;
-    foreach my $arg (@$args){
-        if($arg->isa("Bio::EnsEMBL::SeqFeature")){
-            push(@{$self->{'_output'}},$arg);
-        }else{
-            throw("this, $arg, should be a seqfeature\n");
-        }
-    }
+	my ( $self, $args ) = @_;
+	foreach my $arg (@$args) {
+		if ( $arg->isa("Bio::EnsEMBL::SeqFeature") ) {
+			push( @{ $self->{'_output'} }, $arg );
+		}
+		else {
+			throw("this, $arg, should be a seqfeature\n");
+		}
+	}
 }
-
 
 ################
 #output methods#
 ################
-
 
 =head2 output
 
@@ -436,30 +462,28 @@ sub addGenes {
 
 =cut
 
-
 sub output {
-    my ($self) = @_;
-    return @{$self->{'_output'}};
+	my ($self) = @_;
+	return @{ $self->{'_output'} };
 }
 
-sub gw_options{
-    my ($self, $option_name, $option_value) = @_;
-    unless($self->{'_gw_options'}){
-        $self->{'_gw_options'} = $self->valid_options;
-    }
-    $self->{'_gw_options'}->{$option_name} = $option_value if $option_value;
-    return $self->{'_gw_options'}->{$option_name};
-}
-sub set_score{
-    my ($self, @line) = @_;
-    $self->{'_scores'}->{$line[1]}->{$line[3]} = $line[5];
-}
-sub get_score{
-    my ($self, $p, $s) = @_;
-    return $self->{'_scores'}->{$p}->{$s};
+sub gw_options {
+	my ( $self, $option_name, $option_value ) = @_;
+	unless ( $self->{'_gw_options'} ) {
+		$self->{'_gw_options'} = $self->valid_options;
+	}
+	$self->{'_gw_options'}->{$option_name} = $option_value if $option_value;
+	return $self->{'_gw_options'}->{$option_name};
 }
 
+sub set_score {
+	my ( $self, @line ) = @_;
+	$self->{'_scores'}->{ $line[1] }->{ $line[3] } = $line[5];
+}
 
-
+sub get_score {
+	my ( $self, $p, $s ) = @_;
+	return $self->{'_scores'}->{$p}->{$s};
+}
 
 1;
