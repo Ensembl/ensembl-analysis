@@ -54,7 +54,7 @@ sub new {
       $transcripts,
       $from_slice,
       $to_slices,
-      $exnted_into_gaps,
+      $extend_into_gaps,
       $add_gaps,
       ) = rearrange([qw(NAME
                         GENOMIC_ALIGN_BLOCKS
