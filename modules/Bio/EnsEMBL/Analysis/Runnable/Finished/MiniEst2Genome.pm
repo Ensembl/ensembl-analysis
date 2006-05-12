@@ -608,17 +608,9 @@ sub run {
         my @exons;
         next unless (ref($features) eq "ARRAY");
         next unless (scalar(@$features) >= 1);
-        eval {
-            $self->run_blaste2g($est, $features,$self->{analysis});
-        };
-        if ($@) {
-            $number_of_errors++;
-            throw("Error running blaste2g on " . $features->[0]->hseqname . " [$@]\n");
-        }
+        $self->run_blaste2g($est, $features,$self->{analysis});
     }
-    # Thought it might be useful to throw at this point if there have been errors.
-    # There might have only been a problem with one of the ests.  
-    #throw("See previous errors...") if $number_of_errors;
+
     return 1;
 }
 
