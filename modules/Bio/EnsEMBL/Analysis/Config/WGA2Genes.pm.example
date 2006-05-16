@@ -77,12 +77,16 @@ use vars qw( %Config );
                ##################
                # Chain filtering
                ##################
-               
+
+               # do not consider chains that have a block overlap with
+               # the annotation of less then this amount
+               MIN_CHAIN_ANNOTATION_OVERLAP  => 10,
+
                # When forming a Net and rejecting "inconsistent" chains,
                # if less that this proportion of the candidate chain is not
                # unique (unique -> does not overlap in the query with retained 
                # blocks so far), then we reject it. 
-               OVERLAP_CHAIN_FILTER => 0.9,
+               OVERLAP_CHAIN_FILTER => 0.7,
 
                #############################
                # Transcript construction and filtering

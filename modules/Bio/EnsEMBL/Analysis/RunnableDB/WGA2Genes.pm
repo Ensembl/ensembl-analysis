@@ -202,10 +202,12 @@ sub fetch_input {
     }
 
     if (@good_trans) {
-      @good_trans = sort { 
-        length($b->translateable_seq) <=> length($a->translateable_seq);
-      } @good_trans;
-      @good_trans = ($good_trans[0]);
+      if ($self->LONGEST_SOURCE_TRANSCRIPT) {
+        @good_trans = sort { 
+          length($b->translateable_seq) <=> length($a->translateable_seq);
+        } @good_trans;
+        @good_trans = ($good_trans[0]);
+      }
 
       push @gene_records, Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes::GeneRecord
           ->new(-gene => $gene,
@@ -293,7 +295,8 @@ sub run {
 
   @chains_generecs_pairs = 
       $self->segregate_chains_and_generecords($self->genomic_align_block_chains,
-                                              $self->gene_records);
+                                              $self->gene_records,
+                                              $self->MIN_CHAIN_ANNOTATION_OVERLAP);
       
   foreach my $chains_generecs (@chains_generecs_pairs) {
     my ($alignment_chains, $generecs) = @$chains_generecs;
@@ -306,107 +309,141 @@ sub run {
     
     my %blocks_from_used_chains;
     
-    ITER:for(my $iteration=0; $iteration < 1 ;$iteration++) {
-
-      logger_info("** Iteration $iteration $pair_id\n");
+    my @these_generecs = map { $_->clone } @$generecs;
     
-      my $filtered_chains = filter_block_overlap_chains($alignment_chains,
-                                                        [values %blocks_from_used_chains]);
-
-      logger_info("NON_USED_CHAINS\n" . stringify_chains($filtered_chains));
+    # Repeat transcript contruction until we had no rejected transcripts.
+    # This is because if a transcript is rejected, some of the underlying 
+    # GeneScaffold components may be unnecessary
+    for(;;) {
+      logger_info("Working with genes " . join(" ", map { $_->gene->stable_id} @these_generecs));
       
-      my @these_generecs = map { $_->clone } @$generecs;
-
-      # Repeat transcript contruction until we had no rejected transcripts.
-      # This is because if a transcript is rejected, some of the underlying 
-      # GeneScaffold components may be unnecessary
-      for(;;) {
-        logger_info("Working with genes " . join(" ", map { $_->gene->stable_id} @these_generecs));
-
-        my @cds_feats = map { @{$_->transcript_cds_feats} } @these_generecs;
-
-        $filtered_chains =             
-            filter_irrelevant_chains($filtered_chains,
-                                     \@cds_feats);
-
-        logger_info("RELEVANT_CHAINS\n" . stringify_chains($filtered_chains));
-        
-        $filtered_chains = filter_inconsistent_chains($filtered_chains, 
-                                                      $self->OVERLAP_CHAIN_FILTER);
-        logger_info("CONSISTENT_CHAINS\n" . stringify_chains($filtered_chains));
-        
-        $filtered_chains = $self->remove_contig_split_chains($filtered_chains);
-        logger_info("NON_CONTIG_SPLIT_CHAINS\n" . stringify_chains($filtered_chains));
-        
-        my @these_pairs = $self->segregate_chains_and_generecords($filtered_chains,
-                                                                  \@these_generecs);
+      my @cds_feats = map { @{$_->transcript_cds_feats} } @these_generecs;
       
-        my @these_results;
+      my $filtered_chains =             
+          filter_irrelevant_chains($alignment_chains,
+                                   \@cds_feats);
+      
+      logger_info("RELEVANT_CHAINS\n" . stringify_chains($filtered_chains));
+      
+      $filtered_chains = filter_inconsistent_chains($filtered_chains, 
+                                                    $self->OVERLAP_CHAIN_FILTER);
+      logger_info("CONSISTENT_CHAINS\n" . stringify_chains($filtered_chains));
+      
+      $filtered_chains = $self->remove_contig_split_chains($filtered_chains);
+      logger_info("NON_CONTIG_SPLIT_CHAINS\n" . stringify_chains($filtered_chains));
+      
+      my @these_pairs = $self->segregate_chains_and_generecords($filtered_chains,
+                                                                \@these_generecs,
+                                                                $self->MIN_CHAIN_ANNOTATION_OVERLAP);
+      
+      my @these_results;
+      
+      foreach my $pair (@these_pairs) {
+        my ($subset_chains, $subset_generecs) = @$pair;
         
-        foreach my $pair (@these_pairs) {
-          my ($subset_chains, $subset_generecs) = @$pair;
-          
-          my $net_blocks = flatten_chains($subset_chains, 1);
-          
-          my $gs_name = $subset_generecs->[0]->gene->stable_id . "-" . $iteration;
-          
-          my $gene_scaffold = $self->make_gene_scaffold_and_project_genes($net_blocks,
-                                                                          $subset_generecs,
-                                                                          $gs_name);
-          
-          push @these_results, [$gene_scaffold, @$subset_generecs];
-        }
+        my $net_blocks = flatten_chains($subset_chains, 1);
         
-        # check that all transcripts were successfully projected. If not,
-        # the gene scaffolds may contain unnecessary pieces, in which case
-        # we remove the unsuccesful transcript and repeat. 
+        my $gs_name = $subset_generecs->[0]->gene->stable_id . "-0";
         
-        my @kept_generecs;
-        my $need_to_repeat = 0;
+        my $gene_scaffold = $self->make_gene_scaffold_and_project_genes($net_blocks,
+                                                                        $subset_generecs,
+                                                                        $gs_name,
+                                                                        $self->MAX_EDITABLE_STOPS_PRIMARY,
+                                                                        $self->MIN_COVERAGE,
+                                                                        $self->MIN_NON_GAP,
+                                                                        1);
+        
+        push @these_results, [$gene_scaffold, @$subset_generecs];
+      }
+      
+      # check that all transcripts were successfully projected. If not,
+      # the gene scaffolds may contain unnecessary pieces, in which case
+      # we remove the unsuccesful transcript and repeat. 
+      
+      my @kept_generecs;
+      my $need_to_repeat = 0;
+      
+      foreach my $res (@these_results) {
+        my ($gs, @res_genes) = @$res;
 
-        foreach my $res (@these_results) {
-          my ($gs, @res_genes) = @$res;
-          
-          foreach my $res_gene (@res_genes) {
-            if (scalar(@{$res_gene->source_transcripts}) == 
-                scalar(@{$res_gene->projected_transcripts})) {
-              # all okay
-            } else {
-              $res_gene->source_transcripts($res_gene->good_source_transcripts);
-              $res_gene->projected_transcripts([]);
-              $res_gene->good_source_transcripts([]);
-              
-              if (@{$res_gene->source_transcripts}) {
-                push @kept_generecs, $res_gene;
-              }
-              
-              $need_to_repeat = 1;
-            }
-          }
-        }
-        
-        if ($need_to_repeat) {
-          if (@kept_generecs) {
-            @these_generecs = @kept_generecs;
-            next;
+        foreach my $res_gene (@res_genes) {
+          if (scalar(@{$res_gene->source_transcripts}) == 
+              scalar(@{$res_gene->projected_transcripts})) {
+            push @kept_generecs, $res_gene;
           } else {
-            last;
+            if (@{$res_gene->good_source_transcripts}) {
+              push @kept_generecs, $res_gene;
+            }
+            $need_to_repeat = 1;
           }
-        } else { 
-          if (@these_results) {
-            push @results, @these_results; 
-            
-            foreach my $pair (@these_pairs) {
-              my ($these_chains) = @$pair;
-              foreach my $chain (@$these_chains) {
-                foreach my $block (@$chain) {
-                  $blocks_from_used_chains{$block} = $block;
-                }
+        }
+      }
+      
+      if ($need_to_repeat) {
+        if (@kept_generecs) {
+          @these_generecs = @kept_generecs;
+          foreach my $grec (@these_generecs) {
+            $grec->source_transcripts($grec->good_source_transcripts);
+            $grec->projected_transcripts([]);
+            $grec->good_source_transcripts([]);
+          }
+          next;
+        } else {
+          last;
+        }
+      } else { 
+        if (@these_results) {
+          push @results, @these_results; 
+          
+          foreach my $pair (@these_pairs) {
+            my ($these_chains) = @$pair;
+            foreach my $chain (@$these_chains) {
+              foreach my $block (@$chain) {
+                $blocks_from_used_chains{$block} = $block;
               }
             }
           }
-          
-          last;
+        }
+        
+        last;
+      }
+    }
+    
+    my $filtered_chains = filter_block_overlap_chains($alignment_chains,
+                                                      [values %blocks_from_used_chains]);
+    
+    logger_info("ITERATING over remaining single chains\n");
+
+    foreach my $chain (@$filtered_chains) {
+      my ($single_pair) = $self->segregate_chains_and_generecords([$chain],
+                                                                  $generecs,
+                                                                  $self->MIN_CHAIN_ANNOTATION_OVERLAP);
+
+      if (defined $single_pair) {
+        logger_info("CHAIN_WITH_GENES\n" . stringify_chains([$chain]));
+
+        my @grs = map { $_->clone } @{$single_pair->[1]};;
+
+        my ($tg_al) = @{$chain->[0]->get_all_non_reference_genomic_aligns};
+
+        my $gs_name = $tg_al->dnafrag->name . "-" . $tg_al->dnafrag_start;
+
+        
+        my $gene_scaffold = $self->make_gene_scaffold_and_project_genes($chain,
+                                                                        \@grs,
+                                                                        $gs_name,
+                                                                        $self->MAX_EDITABLE_STOPS_NON_PRIMARY,
+                                                                        $self->MIN_COVERAGE,
+                                                                        $self->MIN_NON_GAP,
+                                                                        0);
+        my @kept;
+        foreach my $gr (@grs) {
+          if (scalar(@{$gr->projected_transcripts})) {
+            push @kept, $gr;
+          }
+        }
+        if (@kept) {
+          push @results, [$gene_scaffold, @kept];
         }
       }
     }
@@ -459,7 +496,14 @@ sub write_output {
 #  Obvious
 #################################################################
 sub make_gene_scaffold_and_project_genes {
-  my ($self, $blocks, $res_genes, $name) = @_;
+  my ($self, 
+      $blocks, 
+      $res_genes, 
+      $name,
+      $max_stops,
+      $min_coverage,
+      $min_non_gap,
+      $add_gaps) = @_;
   
   my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->
       new(-name => $name,
@@ -468,7 +512,7 @@ sub make_gene_scaffold_and_project_genes {
           -to_slices  => $self->target_slices,
           -transcripts   => [map {@{$_->source_transcripts}} @$res_genes],
           -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
-          -add_gaps => 1,
+          -add_gaps => $add_gaps,
           );
   
   foreach my $res_gene (@$res_genes) {
@@ -480,9 +524,9 @@ sub make_gene_scaffold_and_project_genes {
       
       $proj_trans = 
           $self->process_transcript($proj_trans, 
-                                    $self->MAX_EDITABLE_STOPS_PRIMARY,
-                                    $self->MIN_COVERAGE,
-                                    $self->MIN_NON_GAP,
+                                    $max_stops,
+                                    $min_coverage,
+                                    $min_non_gap,
                                     $tran->stable_id);
       
       if ($proj_trans) {
@@ -837,10 +881,10 @@ sub remove_contig_split_chains {
 # Decription:
 #   partition the chains and genes into (chain_list, gene_list)
 #   pairs, where each chain_list contains chains that touch
-#   one or more genes in gene_list, and each gene
+#   one or more genes in gene_list
 ###################################################################
 sub segregate_chains_and_generecords {
-  my ($self, $chains, $generecs) = @_;
+  my ($self, $chains, $generecs, $min_overlap) = @_;
 
   my (%generecs_by_id, %chains_by_id);
 
@@ -853,15 +897,13 @@ sub segregate_chains_and_generecords {
   foreach my $c (@$chains) {
     $chains_by_id{$c} = $c;
 
-    #print "CONSIDERING CHAIN $c\n";
-    
     my @ref_gas = map { $_->reference_genomic_align } @$c;
     @ref_gas = sort { $a->dnafrag_start <=> $b->dnafrag_start } @ref_gas;
     
     my %overlapping;
     
     foreach my $grec (@$generecs) {
-      my $overlaps = 0;
+      my $overlap_bps = 0;
 
     BLOCK: 
       foreach my $bl (@ref_gas) {
@@ -876,13 +918,18 @@ sub segregate_chains_and_generecords {
           } elsif ($f->end < $bl->dnafrag_start) {
             next FEAT;
           } else {
-            $overlaps = 1;
-            last BLOCK;
+            my $ov_start = $f->start;
+            my $ov_end   = $f->end;
+
+            $ov_start = $bl->dnafrag_start if $bl->dnafrag_start > $ov_start;
+            $ov_end  = $bl->dnafrag_end if $bl->dnafrag_end < $ov_end;
+
+            $overlap_bps += ($ov_end - $ov_start + 1);
           }
         }
       }
       
-      if ($overlaps) {
+      if ($overlap_bps >= $min_overlap) {
         $overlapping{$grec} = 1;
       }
     }
@@ -1044,10 +1091,6 @@ sub write_gene {
   foreach my $tran (@{$g->projected_transcripts}) {
     my ($sf) = @{$tran->get_all_supporting_features};
     my $tran_id = $gene_id . "_" . $sf->hseqname; 
-
-    printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%.2f\n", 
-           "HitCoverage",
-           $sf->hcoverage);
     
     foreach my $attr (@{$tran->get_all_Attributes}) {
       printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%s\n",
@@ -1229,6 +1272,19 @@ sub TARGET_CORE_DB {
 # chain filtering
 #
 
+sub MIN_CHAIN_ANNOTATION_OVERLAP {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_min_chain_annotation_overlap} = $val;
+  }
+
+  if (not exists($self->{_min_chain_annotation_overlap})) {
+    $self->{_min_chain_annotation_overlap} = 1;
+  }
+
+  return $self->{_min_chain_annotation_overlap};
+}
 
 sub OVERLAP_CHAIN_FILTER {
   my ($self, $val) = @_;
