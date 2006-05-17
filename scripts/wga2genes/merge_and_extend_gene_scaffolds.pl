@@ -13,15 +13,15 @@ my ($dbname,
     $dbport,
     $verbose,
     $agp_outfile, $agp_outfh,
-    $gff_outfile, $gff_outfh,
+    $gene_outfile, $gene_outfh,
     $log_outfile, $log_outfh,
     @agp_files,
-    @gff_files);
+    @gene_files);
 
 &GetOptions('agp=s@' => \@agp_files,
-            'gff=s@' => \@gff_files,
+            'genes=s@' => \@gene_files,
             'outagp=s' => \$agp_outfile,
-            'outgff=s' => \$gff_outfile,
+            'outgenes=s' => \$gene_outfile,
             'outlog=s' => \$log_outfile,
             'verbose' => \$verbose,
             'dbname=s' => \$dbname,
@@ -46,11 +46,11 @@ if (defined $agp_outfile) {
 } else {
   $agp_outfh = \*STDOUT;
 }
-if (defined $gff_outfile) {
-  open $gff_outfh, ">$gff_outfile" 
-      or die "Could not open $gff_outfile for writing\n";
+if (defined $gene_outfile) {
+  open $gene_outfh, ">$gene_outfile" 
+      or die "Could not open $gene_outfile for writing\n";
 } else {
-  $gff_outfh = \*STDOUT;
+  $gene_outfh = \*STDOUT;
 }
 if (defined $log_outfile) {
   open $log_outfh, ">$log_outfile" 
@@ -64,7 +64,7 @@ $verbose and print STDERR "Indexing AGP files...\n";
 my ($gs_index, $s_index) = &index_gene_scaffold_files(@agp_files);
 
 $verbose and print STDERR "Indexing Annotation files...\n";
-&index_gene_annotation_files(@gff_files);
+&index_gene_annotation_files(@gene_files);
 
 my @clusters;
 if (@ARGV) {
@@ -200,31 +200,32 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
       }
     }
     
-    printf $gff_outfh "# GFF for $new_gs_name [@gs_ids]\n";
+    printf $gene_outfh "# GENE for $new_gs_name [@gs_ids]\n";
 
     foreach my $gs_id (@gs_ids) {
       foreach my $line (@{$gene_scaffolds->{$gs_id}->{annotation}}) {
         if (ref($line) ne "ARRAY") {
-          print $gff_outfh $line;
+          print $gene_outfh $line;
           next;
         } 
         
         my ($loc_in_orig) = $orig_map->map_coordinates($line->[0],
                                                        $line->[3],
                                                        $line->[4],
-                                                       1,
+                                                       $line->[5],
                                                        'genescaffold');
         
         my ($loc_in_new) = $new_map->map_coordinates($loc_in_orig->id,
                                                      $loc_in_orig->start,
                                                      $loc_in_orig->end,
-                                                     1,
+                                                     $loc_in_orig->strand,
                                                      'scaffold');
         
         $line->[0] = $new_gs_name;
         $line->[3] = $loc_in_new->start;
         $line->[4] = $loc_in_new->end;
-        print $gff_outfh join("\t", @$line);
+        $line->[5] = $loc_in_new->strand;
+        print $gene_outfh join("\t", @$line);
       }
     }
   }
@@ -260,26 +261,27 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
 
       foreach my $line (@{$simple_gene_scaffolds{$gs_id}->{annotation}}) {
         if (ref($line) ne "ARRAY") {
-          print $gff_outfh $line;
+          print $gene_outfh $line;
           next;
         } 
         
         my ($loc_in_orig) = $orig_map->map_coordinates($line->[0],
                                                        $line->[3],
                                                        $line->[4],
-                                                       1,
+                                                       $line->[5],
                                                        'genescaffold');
         
         my ($loc_in_new) = $new_map->map_coordinates($loc_in_orig->id,
                                                      $loc_in_orig->start,
                                                      $loc_in_orig->end,
-                                                     1,
+                                                     $loc_in_orig->strand,
                                                      'scaffold');
         
         $line->[0] = $loc_in_new->id;
         $line->[3] = $loc_in_new->start;
         $line->[4] = $loc_in_new->end;
-        print $gff_outfh join("\t", @$line);
+        $line->[5] = $loc_in_new->strand;
+        print $gene_outfh join("\t", @$line);
       }
       
       delete $simple_gene_scaffolds{$gs_id};
@@ -300,11 +302,11 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
   # can be written directly without need for agp
 
   foreach my $gs_id (keys %simple_gene_scaffolds) {
-    printf $gff_outfh "# GFF for %s\n", $gs_id; 
+    printf $gene_outfh "# GENE output for %s\n", $gs_id; 
       
     foreach my $line (@{$simple_gene_scaffolds{$gs_id}->{annotation}}) {
       if (ref($line) ne "ARRAY") {
-        print $gff_outfh $line;
+        print $gene_outfh $line;
         next;
       } 
       
@@ -320,7 +322,7 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
       if ($simple_gene_scaffolds{$gs_id}->{components}->[0]->to->strand < 0) {
         $line->[5] *= -1;
       }
-      print $gff_outfh join("\t", @$line);
+      print $gene_outfh join("\t", @$line);
     }
 
     print $log_outfh "WRITE: Accommodated annotation for $gs_id without gene scaffold\n";
