@@ -67,6 +67,8 @@ eval {
 die "Could not find entry for component coord system\n"
     if not defined $cmp_coord_sys_version;
 
+$asm_coord_sys_version = $cmp_coord_sys_version if not defined $asm_coord_sys_version;
+
 my $tl_type_id = &get_toplevel_attribute_type_id;
 my $tl_attr = Bio::EnsEMBL::Attribute->new(-code => $TOPLEVEL_ATTR_CODE,
                                            -name => 'Top Level',
