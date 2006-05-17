@@ -53,7 +53,7 @@ if (not defined $analysis) {
 
   $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name,
                                           -module => 'WGA2Genes',
-                                          -gff_source => 'WGA2Genes',
+                                          -gff_source => 'ensembl',
                                           -gff_feature => 'gene');
   $db->get_AnalysisAdaptor->store($analysis);
 }
@@ -64,7 +64,7 @@ my ($gs_cs, $prev_tl_cs) =
 $verbose and print STDERR "Gene scaffold coord-system = '" . $gs_cs->name . "'\n";
 $verbose and print STDERR "Previous top level coord-system = '" . $prev_tl_cs->name . "'\n";
 
-$verbose and print STDERR "Reading GFF file...\n";
+$verbose and print STDERR "Reading GENE file...\n";
 
 while(<>) {
   #
@@ -178,7 +178,7 @@ $verbose and printf(STDERR "Constructing transcripts for %d seq_regions...\n",
 my $sr_count = 0;
 
 foreach my $target_id (keys %transcripts) {
-  my $slice;
+  my ($slice, @transcripts);
 
   if ($target_id =~ /^GeneScaffold/) {
     $slice = $db->get_SliceAdaptor->fetch_by_region($gs_cs->name,
@@ -189,7 +189,8 @@ foreach my $target_id (keys %transcripts) {
   }
 
   foreach my $transcript_id (keys %{$transcripts{$target_id}}) {
-    my $tran = Bio::EnsEMBL::Transcript->new;
+    my $tran = Bio::EnsEMBL::Transcript->new(-analysis => $analysis,
+                                             -biotype  => 'protein_coding');
 
     my (@tran_ug_feats);
 
@@ -246,12 +247,21 @@ foreach my $target_id (keys %transcripts) {
       $tran->add_Attributes($attr);
     }
 
-    my $gene = Bio::EnsEMBL::Gene->new;
-    $gene->biotype($logic_name);
-    $gene->analysis($analysis);
+    push @transcripts, $tran;
+  }
 
-    $gene->add_Transcript($tran);
+  foreach my $clust (&cluster_by_exon_overlap(@transcripts)) {
+    # check for exon-overlap between result genes;
+    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $analysis,
+                                       -biotype  => 'protein_coding');
+    foreach my $tran (@$clust) {
+      $gene->add_Transcript($tran);
+    }
 
+    if ($verbose and scalar(@$clust) > 1) {
+      print STDERR "Found a transcript cluster on $target_id\n";
+    }
+  
     push @out_genes, $gene;
   }
 
@@ -288,6 +298,61 @@ if ($test) {
   } else {
     print "Successfully wrote ", scalar(@out_genes), " transcripts\n";
   }
+}
+
+
+sub cluster_by_exon_overlap {
+  my (@trans) = @_;
+
+  my @clusters;
+  foreach my $t (@trans) {
+    my @exons = @{$t->get_all_Exons};
+
+    my @overlapping;
+
+    foreach my $c (@clusters) {
+      my $overlap = 0;
+
+      CT: foreach my $ct (@$c) {
+        my @c_exons = @{$ct->get_all_Exons};
+
+        
+        for(my $i=0; $i<@exons; $i++) {
+          for(my $j=0; $j < @c_exons; $j++) {
+            if ($exons[$i]->strand == $c_exons[$j]->strand and
+                $exons[$i]->start <= $c_exons[$j]->end and
+                $exons[$i]->end >= $c_exons[$j]->start) {
+              $overlap = 1;
+              last CT;
+            }
+          }
+        }
+      }
+      if ($overlap) {
+        push @overlapping, $c;
+      }
+    }
+
+    if (@overlapping) {
+      my ($first, @others) = @overlapping;
+      foreach my $o (@others) {
+        push @$first, @$o;
+        @$o = ();
+      }
+      push @$first, $t;
+    } else {
+      push @clusters, [$t];
+    }
+  }
+
+  my @final_clusts;
+  foreach my $c (@clusters) {
+    if (@$c) {
+      push @final_clusts, $c;
+    }
+  }
+
+  return @final_clusts;
 }
 
 
