@@ -114,7 +114,7 @@ sub print_Transcript{
   for my $transcript ( @transcripts ) { 
     print Transcript_info($transcript, $indent)."\n";
     my $translation_indent = $indent."\t";
-    print_Translation($transcript, $translation_indent) ; 
+    print_Translation($transcript, $translation_indent) ;
     foreach my $exon(@{$transcript->get_all_Exons}){
       my $exon_indent = $translation_indent."\t";
       print_Exon($exon, $exon_indent);
@@ -171,7 +171,7 @@ sub Transcript_info{
   $indent = '' if(!$indent);
   my $coord_string = coord_string($transcript); 
   my $id = id($transcript);
-  return $indent."TRANSCRIPT: ".$id." ".$coord_string."\n";
+  return $indent."TRANSCRIPT: ".$id." ".$coord_string;
 }
 
 =head2 print_Transcript_evidence
@@ -230,6 +230,7 @@ sub clone_Transcript{
   my $attribs = $transcript->get_all_Attributes();
   $newtranscript->add_Attributes(@$attribs);
   $newtranscript->slice($transcript->slice);
+  $newtranscript->biotype($transcript->biotype);
   $newtranscript->dbID($transcript->dbID);
   $newtranscript->stable_id($transcript->stable_id);
   return $newtranscript;
@@ -806,7 +807,6 @@ sub list_evidence{
 
 sub split_Transcript{
   my ($transcript, $max_intron_length, $checks) = @_;
-  logger_info("Spliting ".id($transcript)." on any intron longer $max_intron_length");
   #cloning the transcript to ensure if all else fails
   #the original is fine
   my $cloned_transcript = clone_Transcript($transcript);
@@ -824,7 +824,7 @@ sub split_Transcript{
   my $curr_transcript = new Bio::EnsEMBL::Transcript;
   my $curr_translation = new Bio::EnsEMBL::Translation;
   $curr_transcript->translation($curr_translation);
-  
+  $curr_transcript->biotype($transcript->biotype);
   my @split_transcripts;
   
   my $first_transcript = 1;
@@ -834,7 +834,7 @@ sub split_Transcript{
   
   #adding first new transcript to list
   push(@split_transcripts, $curr_transcript);
-  
+  my $last_exon;
   #checking each intron
  INTRON:
   foreach my $intron(@{$cloned_transcript->get_all_Introns}){
@@ -920,17 +920,31 @@ sub split_Transcript{
           if($translateable{$original_id});
       $curr_transcript = $t;
       $curr_translation = $tr;
+      $curr_transcript->biotype($transcript->biotype);
+      $last_exon = $next_exon;
       push(@split_transcripts, $curr_transcript);
     }
   }
-  
+  #Give the last transcript its needed end exon
+  my $original_id = $last_exon->start.":".
+   $last_exon->end.":".$last_exon->strand.":".
+   $last_exon->phase;
+  $last_exon = _trim_translation_end($last_exon);
+  my $translation_end = $last_exon->end - 
+     $last_exon->start + 1;
+  my $unique_string = $last_exon->start.":".
+    $last_exon->end.":".$last_exon->strand.":".
+          $last_exon->phase;
+      $translateable{$unique_string} = 1  
+          if($translateable{$original_id});
+  $curr_translation->end_Exon($last_exon);
+  $curr_translation->end($translation_end);
   #Now the split transcripts are checked for various things to
   #decide if they are valid
   my @checked_split_transcripts;
   my $initial_peptide = $transcript->translate->seq;
   my $split_count = 0;
   my $tidied_transcripts;
-
   if($checks){
   TRANS:
     foreach my $split_transcript(@split_transcripts){
@@ -943,8 +957,8 @@ sub split_Transcript{
             $ex->strand.":".$ex->phase;
         $coding = 1 if($translateable{$unique_string});
       }
-      logger_info("Ignorning split".$split_count." as ".
-                  "contains no coding exons") if(!$coding);
+      print "Ignorning split".$split_count." as ".
+             "contains no coding exons" if(!$coding);
       next TRANS if(!$coding);
       
       #Then if the intial or terminal exon are shorter than 3bps they
@@ -954,7 +968,6 @@ sub split_Transcript{
           ($split_transcript);
       push(@checked_split_transcripts, $trimed_transcript);
     }
-      
     #a series of other checks are performed, explained in the method
     #below
     $tidied_transcripts = _tidy_split_transcripts
@@ -962,9 +975,28 @@ sub split_Transcript{
   }else{
     $tidied_transcripts = \@split_transcripts;
   }
+  
   #any remaining transcripts are returned unless there aren't 
   #any then the original transcript is returned
-  return $tidied_transcripts if(scalar(@$tidied_transcripts) == 0);
+  foreach my $split_transcript(@$tidied_transcripts){
+    foreach my $f 
+      (@{$transcript->get_all_supporting_features}) {
+        my @ugs;
+        foreach my $ug ($f->ungapped_features) {
+          if ($ug->start >= $split_transcript->start and 
+              $ug->end <= $split_transcript->end) {
+            push @ugs, $ug;
+          }
+        }
+        #print "Turning into aligned evidence";
+        foreach my $f(@ugs){
+        #  print "Feature ".$f->start." ".$f->end." ".$f->strand." hit ".$f->hstart." ".$f->hend." ".$f->hstrand."\n";
+        }
+        my $newf = $f->new(-features => \@ugs) if(@ugs);
+        $split_transcript->add_supporting_features($newf);
+      }
+  }
+  return $tidied_transcripts if(scalar(@$tidied_transcripts) != 0);
   my $info = "Returning original transcript ".id($transcript).
     " as split produced no valid transcripts";
   logger_info($info);

@@ -215,17 +215,20 @@ sub contains_internal_stops{
 
 sub clone_Translation{
   my ($transcript, $newtranscript) = @_;
+  #print "\n**CLONING TRANSLATION**\n\n";
   my $newtranslation = Bio::EnsEMBL::Translation->new();
   my $translation = $transcript->translation;
   my %new_exons;
   foreach my $exon(@{$newtranscript->get_all_Exons}){
     my $id_string = $exon->start."-".$exon->end."-".
       $exon->strand;
+    #print "Adding ".$id_string." exon to hash\n";
     $new_exons{$id_string} = $exon;
   }
   my $start_exon = $translation->start_Exon;
   my $old_start_id_string = $start_exon->start."-".
     $start_exon->end."-".$start_exon->strand;
+
   my $new_start_Exon = $new_exons{$old_start_id_string};
   throw("Failed to find exon ".$old_start_id_string." for ".
         id($transcript)) if(!$new_start_Exon);
@@ -243,6 +246,7 @@ sub clone_Translation{
   $newtranslation->add_Attributes(@$attribs);
   $newtranslation->dbID($translation->dbID);
   return $newtranslation;
+  #print "\n\n**\n\n";
 }
 
 
