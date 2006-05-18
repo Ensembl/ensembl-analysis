@@ -79,45 +79,70 @@ sub fetch_input {
   ##########################################
 
   my @db_files;
-  my $target = $self->GENOMICSEQS;
+  my @target_list = $self->GENOMICSEQS;
+  
+  foreach my $target (@target_list){ 
 
-  if(ref $target eq 'ARRAY'){
-    # genome is in multiple directories;  the order of directories determines
-    # which file is used in case of duplicates. New versions should therefore
-    # be in the directory listed first.
-    foreach my $chr_name ($self->get_chr_names) {
-      my $found = 0;
-      DIRCHECK:
+    if(ref $target eq 'ARRAY'){
+      #check to see if we have multiple files or directories:
+  
+      my $dir = 0;
+  
+      foreach my $alt_target (@$target){
+        if (-d $alt_target){
+            $dir = 1;
+            last;
+        }
+      }
+  
+      # genome is in multiple directories;  the order of directories determines
+      # which file is used in case of duplicates. New versions should therefore
+      # be in the directory listed first.
+      
+      if ($dir){  
+  
+        foreach my $chr_name ($self->get_chr_names) {
+          my $found = 0;
+          DIRCHECK:
+          foreach my $alt_target (@$target){
+            if (-s "$alt_target/$chr_name.fa") {
+              push @db_files, "$alt_target/$chr_name.fa";
+              $found = 1;
+              last DIRCHECK;
+            }
+          }
+          if(!$found){
+	        warning( "Could not find fasta file for '$chr_name' in directories:\n".
+            join("\n\t", @$target)."\n");
+          }
+        }
+      }else{
         foreach my $alt_target (@$target){
-	  if (-s "$alt_target/$chr_name.fa") {
-	    push @db_files, "$alt_target/$chr_name.fa";
-	    $found = 1;
-	    last DIRCHECK;
-	  }
-	}
-      if(!$found){
-	warning( "Could not find fasta file for '$chr_name' in directories:\n".
-		 join("\n\t", @$target)."\n");
+          if (-s $alt_target){
+             push @db_files, $alt_target; 
+          }
+        }
       }
     }
-  }
-  else{
-    if (-e $target and -d $target) {
-      # genome is in a directory; the directory must contain the complete
-      # genome else we cannot do best-in-genome filtering. 
-      foreach my $chr_name ($self->get_chr_names) {
-	if (-s "$target/$chr_name.fa") {
-	  push @db_files, "$target/$chr_name.fa";
-	} else {
-	  warning( "Could not find fasta file for '$chr_name' in '$target'\n");
-	}
+    else{
+  
+      if (-e $target and -d $target) {
+        # genome is in a directory; the directory must contain the complete
+        # genome else we cannot do best-in-genome filtering. 
+        foreach my $chr_name ($self->get_chr_names) {
+          if (-s "$target/$chr_name.fa") {
+            push @db_files, "$target/$chr_name.fa";
+          } else {
+             warning( "Could not find fasta file for '$chr_name' in '$target'\n");
+          }
+        }
       }
-    }
-    elsif (-e $target and -s $target) {
-      # genome sequence is in a single file
-      @db_files = ($target);
-    } else {
-      throw("'$target' refers to something that could not be made sense of");
+      elsif (-e $target and -s $target) {
+        # genome sequence is in a single file
+        @db_files = ($target);
+      } else {
+        throw("'$target' refers to something that could not be made sense of");
+      }
     }
   }
 
@@ -256,7 +281,7 @@ sub make_genes{
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->type($self->analysis->logic_name);
-    
+
     ############################################################
     # put a slice on the transcript
     
@@ -267,7 +292,7 @@ sub make_genes{
       $genome_slices{$slice_id} = $slice_adaptor->fetch_by_name($slice_id);
     }
     my $slice = $genome_slices{$slice_id};
-    
+
     foreach my $exon (@{$tran->get_all_Exons}){
       $exon->slice($slice);
       foreach my $evi (@{$exon->get_all_supporting_features}){
@@ -279,7 +304,20 @@ sub make_genes{
       $evi->slice($slice);
       $evi->analysis($self->analysis);
     }
+    
+    if (!$slice){
+        my ($sf);
 
+        if (@{$tran->get_all_supporting_features}) {
+          ($sf) = @{$tran->get_all_supporting_features};
+        } else {
+          my @exons = @{$tran->get_all_Exons};
+          ($sf) = @{$exons[0]->get_all_supporting_features};    
+        }
+        print $sf->hseqname."\t$slice_id\n";
+    }
+ 
+    throw("Have no slice") if(!$slice);
     $tran->slice($slice);
     $gene->add_Transcript($tran);
     push( @genes, $gene);
@@ -399,13 +437,15 @@ sub read_and_check_config {
 
   # check that compulsory options have values
   foreach my $config_var (qw(QUERYSEQS 
-                             QUERYTYPE 
+                             QUERYTYPE
                              GENOMICSEQS)) {
 
-    throw("You must define $config_var in config for logic '$logic'")
+   throw("You must define $config_var in config for logic '$logic'")
         if not defined $self->$config_var;
   }
-
+  
+  
+  
   # output db does not have to be defined, but if it is, it should be a hash
   throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.")
       if $self->OUTDB and ref($self->OUTDB) ne "HASH";
@@ -466,7 +506,8 @@ sub QUERYTYPE {
 
 sub GENOMICSEQS {
   my ($self,$value) = @_;
-  
+
+
   if (defined $value) {
     $self->{'_CONFIG_GENOMICSEQS'} = $value;
   }
@@ -477,6 +518,7 @@ sub GENOMICSEQS {
     return undef;
   }
 }
+
 
 sub IIDREGEXP {
   my ($self,$value) = @_;
@@ -501,6 +543,7 @@ sub OUTDB {
 
   if (exists($self->{'_CONFIG_OUTDB'})) {
     return $self->{'_CONFIG_OUTDB'};
+
   } else {
     return undef;
   }
