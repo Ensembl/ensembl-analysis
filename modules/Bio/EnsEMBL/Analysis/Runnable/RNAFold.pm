@@ -156,7 +156,7 @@ sub parse{
 					  " miRNA:parse_results\n$@\n");
  LINE: while(<RNAFOLD>){
     chomp;
-    if ($_ =~ /([().]+)\s\(\s*(-\d+.\d+)\)$/){
+    if ($_ =~ /([().]+)\s\(\s*(-*\d+.\d+)\)$/){
       $structure = $1;
       $score = $2;
     }

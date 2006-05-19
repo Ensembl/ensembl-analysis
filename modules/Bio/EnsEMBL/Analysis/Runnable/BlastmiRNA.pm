@@ -135,8 +135,7 @@ sub parse_results{
 =head2 cluster
 
   Arg [1]   : Array ref of Bio::EnsEMBL::DnaDnaAlignFeature
-  Function  : Clusters overlapping blast hits and chooses the one with the smallest
-            : e-value to represent the cluster.
+  Function  : Clusters overlapping blast hits and chooses the one to represent the cluster.
   Returntype: Array ref of Bio::EnsEMBL::DnaDnaAlignFeature
   Exceptions: None
   Example   : my $output = $self->cluster(\@dna_align_features);
@@ -151,19 +150,26 @@ sub cluster{
   my @representative_sequences;
  DAFS: foreach my $daf (@dafs){
     my @cluster;
-    $start ++;
+    $start++;
     next DAFS unless($daf);	
     push @cluster,$daf;
-  MATCHES:  for (my $index = $start; $index <= $#dafs ; $index ++){
+  MATCHES:  for (my $index = $start; $index <= $#dafs ; $index++){
       next MATCHES unless ($dafs[$index]);
       if ($daf->end >= $dafs[$index]->start() && $daf->start() <= $dafs[$index]->end){
 	push @cluster,$dafs[$index];
 	$dafs[$index] = undef;
       }
     }
-    @cluster = sort{$a->p_value <=> $b->p_value} @cluster;
-    my $daf = shift @cluster;
-    push @representative_sequences, $daf;
+    # want to pick identical full length hits by preference
+    foreach my $daf ( @cluster ){
+      if($daf->score >= 100 && $daf->percent_id == 100){
+	push @representative_sequences, $daf;
+	next DAFS;
+      }
+    }
+    # otherwise sort by e_value
+    @cluster = sort{$b->p_value <=> $a->p_value} @cluster;
+    push @representative_sequences, shift @cluster;
   }
   return \@representative_sequences;
 }

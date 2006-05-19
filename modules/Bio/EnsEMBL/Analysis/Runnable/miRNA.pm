@@ -105,10 +105,10 @@ sub run{
   $self->throw("Cannot find query sequences $@\n") unless %queries;
   print STDERR "Run analysis\n" if $verbose;
  FAM:  foreach my $family (keys %queries){
-  DAF:foreach my $daf (@{$queries{$family}}){
+  DAF:foreach my $daf (@{$queries{$family}}){    
       # Does the alignment contain the mature sequence?
       my ($align,$status) = $self->run_analysis($daf);
-      next DAF unless (scalar @$align);
+      next DAF unless (scalar @$align > 0);
       # does the sequence fold into a hairpin ?
       my $seq = Bio::PrimarySeq->new
 	(
@@ -123,12 +123,12 @@ sub run{
       $RNAfold->run;
       # get the final structure encoded by run length
       my $structure = $RNAfold->encoded_str;
-      next DAF unless ($RNAfold->score < -15);
+      next DAF unless ($RNAfold->score < -20);
       next DAF unless ($RNAfold->structure);
       $self->display_stuff($daf,$RNAfold->structure,$align,$RNAfold->score) if $verbose;
       # create the gene
       # Dont call it known unless the gene it derives from is identical and experimentally verified
-      $status = "NOVEL" unless $daf->percent_id == 100 && $daf->score == 100;
+      $status = "NOVEL" unless $daf->percent_id == 100 && $daf->score >= 100;
       $self->make_gene($daf,$structure,$align,$status);
     }
   }
@@ -191,7 +191,8 @@ sub run_analysis{
   # can have more than 1 mature sequence per hairpin
   foreach my $mature(@$all_mature){
     my $miRNA = $miRNAs{$daf->hseqname};
-    my $miRNA_length = $mature->{'end'} - $mature->{'start'};
+    # length is 1 longer than end - start because it includes both the start and end base
+    my $miRNA_length = $mature->{'end'} - $mature->{'start'} +1;
     # change the U to T so as not to confuse the BioPerl
     my $seq = $miRNA->seq;
     $seq =~ s/[uU]/T/g;
@@ -208,14 +209,25 @@ sub run_analysis{
     $daf->hslice($slice);
     # make an alignment of just the mature sequence
     my $temp_align = $daf->restrict_between_positions($mature->{'start'},$mature->{'end'},"HSEQ");
-    next unless $temp_align;
-    $slice = $daf->feature_Slice;
-    my $align = $temp_align->transfer($slice);
-    my $align_length = $align->hend - $align->hstart;
-    # is the enitre mature sequence present in the alignment?
-    next unless ( $align_length >= $miRNA_length );
+    unless ($temp_align)
+      {
+#       print "rejecting ".$daf->p_value." cos of not getting mature alignment\n";
+       next;
+      }
+    my $align = $temp_align->transfer($daf->feature_Slice);
+    # is the enitre mature sequence present in the alignment, no indels?
+    unless ( $align->alignment_length == $miRNA_length && $align->alignment_length == $align->length)
+      {
+#	print "rejecting ".$daf->dbID." coz of not getting aligned length\n";
+	next;
+      }
     # is the mature alignment of high enough percent identity?
-    next unless ( $align->percent_id >= 90 );
+    # also no gaps in the mature alignment
+    unless ( $align->get_SimpleAlign->overall_percentage_identity >= 90 )
+      {
+#	print "rejecting ".$daf->p_value." cos of aligned ID\n";
+	next;
+      }
     push @mature_aligns,$align;
   }
   return \@mature_aligns,$status;
@@ -305,7 +317,7 @@ sub make_gene{
   $transcript->add_Exon($exon);
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
-  $transcript->type("miRNA");
+  $transcript->biotype("miRNA");
   # add the transcript attributes for the position of the mature miRNA as well as
   # the predicted structure
   foreach my $code(@$structure){
@@ -328,7 +340,7 @@ sub make_gene{
   }
   # gene
   my $gene = Bio::EnsEMBL::Gene->new;
-  $gene->type('miRNA');
+  $gene->biotype('miRNA');
   $gene->description($description." [Source: miRBase ".$self->analysis->db_version."]");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
