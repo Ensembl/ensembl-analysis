@@ -75,7 +75,8 @@ sub new {
                              'abinitio' => \@abinitio_logicnames , 
                             } ; 
 
-  return $self;
+  return $self; 
+  print STDERR " TC-db : new runnable created\n" ; 
 }
 
 
@@ -107,6 +108,7 @@ sub fetch_input{
 
 
   # the config for TranscriptCoalescer.pm is distributed over 3 files 
+  #    
   # - Databases.pm 
   # - Exonerate2Genes.pm
   # - TranscriptCoalescer.pm 
@@ -231,7 +233,8 @@ sub fetch_input{
 
   #
   # remove redundant transcripts which have all same exons to speed computation up 
-  # 
+  #
+  print "trying to remove redundant genes\n" ;  
   my $non_redundant_genes = _remove_redundant_genes(\%biotypes_to_genes) ;  
   
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer->new
@@ -241,6 +244,7 @@ sub fetch_input{
      -all_genes   => $non_redundant_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
      -evidence_sets   => $self->{evidence_sets} , 
      -dnadb => $self->db , 
+     -utils_verbosity => $self->{utils_verbosity}, 
     );
   $self->runnable($runnable);
 
@@ -425,11 +429,13 @@ sub _remove_redundant_genes {
   my %result ;
   my %tmp ;  
   for my $biotype ( keys %biotype2genes) {
+    print "biotype $biotype\n" ; 
     my ( %non_redundant_genes) ;  
     my @genes = @{$biotype2genes{$biotype}} ; 
     push @{$tmp{$biotype}}, scalar(@genes) ; 
 
     info ( "RunnableDB:  $biotype: " . scalar( @genes ) . "\n" ); 
+    next if ( scalar(@genes) == 0 ) ; 
 
     my $red = 0 ;      
     for my $g (@genes ) {
@@ -447,14 +453,16 @@ sub _remove_redundant_genes {
         $non_redundant_genes{$tr_hashkey}=$g; 
       }
     }
-    
     for my $key (keys %non_redundant_genes) {
       push @{ $result{$biotype}},  $non_redundant_genes{$key} ;
     }
+    
     push @{$tmp{$biotype}}, scalar(@{$result{$biotype}}) ;
   }
   for (keys %tmp) { 
-    info("having ${$tmp{$_}}[1] non-redundant genes ( out of ${ $tmp{$_} }[0] of biotype $_)\n") ; 
+    if (exists ${$tmp{$_}}[1]){ 
+      info("having ${$tmp{$_}}[1] non-redundant genes ( out of ${ $tmp{$_} }[0] of biotype $_)\n") ; 
+    }
   }
   return \%result ; 
 }
