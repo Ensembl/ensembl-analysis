@@ -50,7 +50,8 @@ use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::CoordUtils;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::ChainUtils;
 
-
+use IO::String;
+use Bio::SeqIO;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
 
@@ -504,7 +505,7 @@ sub make_gene_scaffold_and_project_genes {
       $min_coverage,
       $min_non_gap,
       $add_gaps) = @_;
-  
+
   my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->
       new(-name => $name,
           -genomic_align_blocks => $blocks,
@@ -1035,11 +1036,12 @@ sub write_agp {
   my @qsegs = $gscaf->project_up;
   
   print $fh "$prefix \#\n";
-  printf($fh "$prefix \#\# AGP for gene scaffold %s source-region=%s/%d-%d\n", 
+  printf($fh "$prefix \#\# AGP for %s source-region=%s/%d-%d (iid=%s)\n", 
          $gscaf->seq_region_name,
          $qsegs[0]->to_Slice->seq_region_name,
          $qsegs[0]->to_Slice->start,
-         $qsegs[-1]->to_Slice->end);
+         $qsegs[-1]->to_Slice->end,
+         $self->input_id);
 
   print $fh "$prefix \#\n";
 
@@ -1141,6 +1143,20 @@ sub write_gene {
         }
       }      
     }
+
+    my $pep = $tran->translate;
+    $pep->id($tran_id);
+
+    my $fasta_string;
+    my $stringio = IO::String->new($fasta_string);
+    my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                                -fh => $stringio);
+    $seqio->write_seq($pep);
+    logger_info("PROJECTED-PEPTIDE:\n$fasta_string\n"); 
+    if ($pep->seq =~ /^X/ or $pep->seq =~ /X$/) {
+      logger_info("Transcript $tran_id has Xs at the ends");
+    }
+
   }
 }
 
