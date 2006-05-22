@@ -115,14 +115,38 @@ sub place_transcript {
       $tran) = @_;
 
   my (@all_coords, @new_exons);
-
+  
   my @orig_exons = @{$tran->get_all_translateable_Exons};
-  if ($tran->strand < 0) {
-    @orig_exons = reverse @orig_exons;
+  @orig_exons = sort { $a->start <=> $b->start } @orig_exons;
+
+  my $orig_exon_coords = transcripts_to_coords($self->alignment_mapper,
+                                               $FROM_CS_NAME,
+                                               $tran);
+
+  my $restricted_range;
+  if (@$orig_exon_coords) {
+    $restricted_range = Bio::EnsEMBL::Mapper::Coordinate->new($orig_exon_coords->[0]->id,
+                                                              $orig_exon_coords->[0]->start,
+                                                              $orig_exon_coords->[-1]->end,
+                                                              $orig_exon_coords->[0]->strand);
+  } else {
+    $restricted_range = Bio::EnsEMBL::Mapper::Coordinate->new($orig_exons[0]->slice->seq_region_name,
+                                                              $orig_exons[0]->start,
+                                                              $orig_exons[-1]->end,
+                                                              $orig_exons[0]->strand);
   }
 
+  
   my $source_tran_length = 0;
   map { $source_tran_length += $_->length } @orig_exons; 
+  
+  my %filled_coords;
+
+  # look for regions that map down to filled gaps. If any of these
+  # lie outside the restricted range (i.e. extent of the transcript
+  # within which gaps were potentially filled), then they must 
+  # be gaps that were filled for a different transcript. In that
+  # case, discard these pieces
 
   foreach my $orig_exon (@orig_exons) {
     my @crds = $self->from_mapper->map_coordinates($orig_exon->slice->seq_region_name,
@@ -130,55 +154,72 @@ sub place_transcript {
                                                    $orig_exon->end,
                                                    1,
                                                    $FROM_CS_NAME);
-    push @all_coords, @crds;
-  }
+    foreach my $c (@crds) {
+      if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        my ($tc) = $self->to_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
+                                                     $c->start,
+                                                     $c->end,
+                                                     1,
+                                                     $GENE_SCAFFOLD_CS_NAME);
 
-  my $start_not_found = 0;
-  my $end_not_found   = 0;
+        if ($tc->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+          # this piece may partially extend into a real sequence gap;
+          # break it up into its consituent pieces          
+          my @alncrds = $self->alignment_mapper->map_coordinates($tc->id,
+                                                                 $tc->start,
+                                                                 $tc->end,
+                                                                 $tc->strand,
+                                                                 $TO_CS_NAME);
+          my $current_start = $c->start;
+          foreach my $ac (@alncrds) {
+            my $current_end = $current_start + $ac->length - 1;
+            my $newc = Bio::EnsEMBL::Mapper::Coordinate->new($c->id,
+                                                             $current_start,
+                                                             $current_end,
+                                                             $c->strand);
+            $current_start += $ac->length;
 
-  # Replace coords at start and end that map down to gaps with gaps.
-  # Although we have already trimmed back the gene scaffold for gap 
-  # exons at the ends, individual transripts could begin/end anywhere
-  # in the gene scaffold. 
-
-  for(my $i=0; $i < @all_coords; $i++) {
-
-    if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-      my ($tcoord) = $self->to_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
-                                                       $all_coords[$i]->start,
-                                                       $all_coords[$i]->end,
-                                                       1,
-                                                       $GENE_SCAFFOLD_CS_NAME);
-      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        last;
+            if ($ac->isa("Bio::EnsEMBL::Mapper::Gap")) {
+              $filled_coords{$newc} = 1;
+            }
+            push @all_coords, $newc;
+          }
+        } else {
+          $filled_coords{$c} = 1;
+          push @all_coords, $c;
+        }
       } else {
-        $all_coords[$i] = 
-            Bio::EnsEMBL::Mapper::Gap->new(1, $tcoord->length);
-        $start_not_found = 1;
+        push @all_coords, $c;
       }
-    } else {
-      $start_not_found = 1;
-    }
-  }
-  for(my $i=scalar(@all_coords)-1; $i >= 0; $i--) {
-    if ($all_coords[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-      my ($tcoord) = $self->to_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
-                                                       $all_coords[$i]->start,
-                                                       $all_coords[$i]->end,
-                                                       1,
-                                                       $GENE_SCAFFOLD_CS_NAME);
-      if ($tcoord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-        last;
-      } else {
-        $all_coords[$i] = 
-            Bio::EnsEMBL::Mapper::Gap->new(1, $tcoord->length);
-        $end_not_found = 1;
-      }
-    } else {
-      $end_not_found = 1;
     }
   }
 
+  my @kept_coords;
+  foreach my $c (@all_coords) {
+    if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate") and 
+                exists $filled_coords{$c}) {
+      # this is a filled coord, so MUST correspond to exactly one piece of the
+      # original query sequence
+      my ($oc) = $self->from_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
+                                                     $c->start,
+                                                     $c->end,
+                                                     1,
+                                                     $GENE_SCAFFOLD_CS_NAME);
+      if ($oc->start >= $restricted_range->start and
+          $oc->end <= $restricted_range->end) {
+        push @kept_coords, $c;
+      } else {
+        push @kept_coords, Bio::EnsEMBL::Mapper::Gap->new(1, $c->length);
+      }
+    } else {
+      push @kept_coords, $c;
+    }
+  }
+  @all_coords = @kept_coords;
+
+  #
+  # now massage the gaps to account for frameshifts
+  #
   my $need_another_pass;
   do {
     $need_another_pass = 0;
@@ -200,13 +241,14 @@ sub place_transcript {
       }
     }
 
+    
     GAP: foreach my $idx (@gap_indices) {
       my $gap = $proc_coords[$idx];
       my $frameshift = $gap->length % 3;
-
+      
       if ($frameshift) {
         my $bases_to_remove = 3 - $frameshift;      
-
+        
         # calculate "surplus" bases on incomplete codons to left and right
         my ($left_surplus, $right_surplus) = (0,0);
         for(my $j=$idx-1; $j >= 0; $j--) {
@@ -218,7 +260,7 @@ sub place_transcript {
         
         $left_surplus  = $left_surplus % 3;
         $right_surplus = $right_surplus % 3;
-
+        
         if ($left_surplus) {
           # eat left
           $bases_to_remove = $left_surplus;
@@ -235,7 +277,7 @@ sub place_transcript {
         }
         if ($right_surplus) {
           $bases_to_remove = $right_surplus;
-
+          
           my $right_coord = $proc_coords[$idx + 1];
           if ($right_coord->length > $bases_to_remove) {
             $gap->end($gap->end + $bases_to_remove);
@@ -253,8 +295,14 @@ sub place_transcript {
     }
     @all_coords = @proc_coords;    
   } while ($need_another_pass);
+  
+  my $start_not_found = $all_coords[0]->isa("Bio::EnsEMBL::Mapper::Gap") ? 1 : 0;
+  my $end_not_found = $all_coords[-1]->isa("Bio::EnsEMBL::Mapper::Gap") ? 1 : 0;
 
-
+  #
+  # The remaining non-gap pieces are the exons
+  #
+    
   foreach my $coord (@all_coords) {
     if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
       push @new_exons, Bio::EnsEMBL::Exon->new(-start => $coord->start,
@@ -263,15 +311,15 @@ sub place_transcript {
                                                -slice => $self);
     }
   }
-
+  
   my $total_tran_bps = 0;
   map { $total_tran_bps += $_->length } @new_exons; 
-
+  
   if (not @new_exons) {
     # the whole transcript mapped to gaps
     return 0;
   }
-
+  
   #
   # sort exons into rank order 
   #
@@ -280,21 +328,21 @@ sub place_transcript {
   } else {
     @new_exons = sort { $a->start <=> $b->start } @new_exons;
   }
-
+  
   #
   # calculate phases, and add supporting features
   #
   my ($previous_exon);
   foreach my $exon (@new_exons) {
-
+    
     if (defined $previous_exon) {
       $exon->phase($previous_exon->end_phase);
     } else {
       $exon->phase(0);
     }
-
+    
     $exon->end_phase((($exon->end - $exon->start + 1) + $exon->phase)%3);
-
+    
     # need to map back to the genomic coords to get the supporting feature
     # for this exon;
     my $extent_start = $exon->start;
@@ -306,23 +354,23 @@ sub place_transcript {
       $extent_start += $exon->end_phase if $exon->end_phase;
       $extent_end   -=  3 - $exon->phase if $exon->phase;
     }
-
+    
     if ($extent_end > $extent_start) {
       # if not, we've eaten away the whole exon, so there is no support
-
+      
       my @gen_coords = $self->from_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
                                                            $extent_start,
                                                            $extent_end,
                                                            1,
                                                            $GENE_SCAFFOLD_CS_NAME);
-
+      
       my @fps;
       my $cur_gs_start = $extent_start;
       foreach my $g_coord (@gen_coords) {
         my $cur_gs_end = $cur_gs_start + $g_coord->length - 1;
-                
+        
         if ($g_coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-
+          
           my ($p_coord) = $tran->genomic2pep($g_coord->start, 
                                              $g_coord->end,
                                              $exon->strand);
@@ -342,16 +390,16 @@ sub place_transcript {
         
         $cur_gs_start += $g_coord->length;
       }
-        
+      
       if (@fps) {
         my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@fps);
         $exon->add_supporting_features($f);
       }
     }
-
+    
     $previous_exon = $exon;
   }
-
+  
   #
   # merge abutting exons; deals with exon fusion events, and 
   # small, frame-preserving insertions in the target
@@ -359,11 +407,11 @@ sub place_transcript {
   my @merged_exons;
   foreach my $exon (@new_exons) {
     if (@merged_exons) {
-
+      
       my $prev_exon = pop @merged_exons;
-   
+      
       my ($new_start, $new_end);
-
+      
       if ($tran->strand < 0) {
         my $intron_len = $prev_exon->start - $exon->end - 1;
         if ($intron_len % 3 == 0 and 
@@ -379,7 +427,7 @@ sub place_transcript {
           $new_end   = $exon->end;
         }
       }
-
+      
       if (defined $new_start and defined $new_end) {
         my $merged_exon = Bio::EnsEMBL::Exon->
             new(-start => $new_start,
@@ -403,7 +451,7 @@ sub place_transcript {
               new(-features => \@ug_feats);
           $merged_exon->add_supporting_features($new_sup_feat);
         }
-
+        
         push @merged_exons, $merged_exon;
         next;
       } else {
@@ -415,9 +463,9 @@ sub place_transcript {
     }
   }
   
-
+  
   my $proj_tran = Bio::EnsEMBL::Transcript->new();
-
+  
   my (@trans_fps);
   foreach my $exon (@merged_exons) {
     $proj_tran->add_Exon($exon);
@@ -428,7 +476,7 @@ sub place_transcript {
       push @trans_fps, @e_fps;
     }
   }
-
+  
   #
   # do transcript-level supporting features/attributes
   #
@@ -436,7 +484,7 @@ sub place_transcript {
       new(-features => \@trans_fps);
   $t_sf->hcoverage( 100 * ($total_tran_bps / $source_tran_length) );
   $proj_tran->add_supporting_features($t_sf);
-
+  
   #
   # set translation
   #
@@ -445,11 +493,11 @@ sub place_transcript {
   $translation->start(1);
   $translation->end_Exon($merged_exons[-1]);
   $translation->end($merged_exons[-1]->end - $merged_exons[-1]->start + 1);
-
+  
   $proj_tran->translation($translation);
-
+  
   my $pep = $proj_tran->translate;
-
+  
   if (not defined $pep) {
     # this can happen if the transcript comprises a single stop codon only
     return 0;
@@ -462,8 +510,8 @@ sub place_transcript {
   # finally, attributes
   #
   my @attributes;
-
-
+  
+  
   my $cov_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'HitCoverage',
           -name => 'hit coverage',
@@ -498,15 +546,15 @@ sub place_transcript {
             -value => 1);
     push @attributes, $attr;
   }
-
-
+  
+  
   my $stop_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'NumStops',
           -name => 'number of stops',
           -desc => 'Number of stops before editing',
           -value => $num_stops);
   push @attributes, $stop_attr;
-
+  
   # indentify gap exons
   my $gap_exons = 0;
   foreach my $e (@{$proj_tran->get_all_Exons}) {
@@ -525,16 +573,16 @@ sub place_transcript {
           -description => 'number of gap exons',
           -value => $gap_exons);
   push @attributes, $gap_exon_attr;
-
+  
   my $tranid_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'SourceTran',
           -name => 'source transcript',
           -description => 'source transcript',
           -value => $tran->stable_id);
   push @attributes, $tranid_attr;
-
+  
   $proj_tran->add_Attributes(@attributes);
-
+  
   return $proj_tran;
 }
 
@@ -676,24 +724,25 @@ sub _construct_sequence {
 
   # step 1: flatten the exons from the transcripts into a non-overlapping
   # list, ommitting terminal exons that map completely to gaps
-  my $features = _projectable_features_from_transcripts($map,
-                                                        $transcripts);
+  my $tran_coords = transcripts_to_coords($map,
+                                          $FROM_CS_NAME,
+                                          @$transcripts);
   
+
   # step 2: infer list of exon regions that map to gaps. We are only 
   # interested, at this stage, in regions outside the blocks, because
   # these are the ones with potential to be "filled"
+  my @fillable_gaps;
 
-  my (@gap_positions, @coord_positions);
-
-  foreach my $f (sort { $a->start <=> $b->start } @$features) {
-    my $current_pos = $f->start;
+  foreach my $tc (sort { $a->start <=> $b->start } @$tran_coords) {
+    my $current_pos = $tc->start;
     
-    foreach my $c ($map->map_coordinates($f->slice->seq_region_name,
-                                         $f->start,
-                                         $f->end,
+    foreach my $c ($map->map_coordinates($tc->id,
+                                         $tc->start,
+                                         $tc->end,
                                          1,
                                          $FROM_CS_NAME)) {
-      my $from_coord = Bio::EnsEMBL::Mapper::Coordinate->new($f->slice->seq_region_name,
+      my $from_coord = Bio::EnsEMBL::Mapper::Coordinate->new($tc->id,
                                                              $current_pos,
                                                              $current_pos + $c->length - 1,
                                                              1);
@@ -710,21 +759,14 @@ sub _construct_sequence {
             $overlaps_block = 1;
             last;
           }
-
         }
         if (not $overlaps_block) {
-          push @gap_positions, Bio::EnsEMBL::Mapper::Pair->new($from_coord,
+          push @fillable_gaps, Bio::EnsEMBL::Mapper::Pair->new($from_coord,
                                                                $c);
         }
-      } else {
-        push @coord_positions, Bio::EnsEMBL::Mapper::Pair->new($from_coord,
-                                                               $c);
       }
-    }    
+    }
   }
-  
-  my @all_coord_pairs = (@block_coord_pairs, @gap_positions);
-  @all_coord_pairs = sort { $a->from->start <=> $b->from->start } @all_coord_pairs;
 
   # Non-fillable gaps:
   # 1. Gaps before the first or after the last block
@@ -735,14 +777,10 @@ sub _construct_sequence {
   #    separated by a sequence-level gap
   # 
 
-  while(@all_coord_pairs and 
-        $all_coord_pairs[0]->to->isa("Bio::EnsEMBL::Mapper::Gap")) {
-    shift @all_coord_pairs;
-  }
-  while(@all_coord_pairs and 
-        $all_coord_pairs[-1]->to->isa("Bio::EnsEMBL::Mapper::Gap")) {
-    pop @all_coord_pairs;
-  }
+  my @all_coord_pairs = (@block_coord_pairs, @fillable_gaps);
+  @all_coord_pairs = sort { $a->from->start <=> $b->from->start } @all_coord_pairs;
+
+  my @extend_pairs;
 
   if ($extend_into_gaps) {
     my (%pairs_to_remove, @replacements);
@@ -962,7 +1000,7 @@ sub _construct_sequence {
       }
       if ($fill) {
         $pair->to($rep);      
-        push @coord_positions, $pair;
+        push @extend_pairs, $pair;
       }
     }
   }
@@ -970,11 +1008,6 @@ sub _construct_sequence {
   if (not $add_gaps) {
     @all_coord_pairs = grep { not $_->to->isa("Bio::EnsEMBL::Mapper::Gap") } @all_coord_pairs;
   }
-
-  ############################################
-  # TODO: ascertain conditions under which we have no coord_pairs left here
-  # make sure that does not happen!
-  #############################################
 
   # merge adjacent targets   
   #  we want to be able to account for small, frame-preserving 
@@ -1099,88 +1132,57 @@ sub _construct_sequence {
       $seq .= ('n' x $INTERPIECE_PADDING);
     }
   }
+
+  #
+  # add the gaps we have extended into to the query map
+  #
+  foreach my $pair (@extend_pairs) {
+    my ($coord) = $t_map->map_coordinates($pair->to->id,
+                                          $pair->to->start,
+                                          $pair->to->end,
+                                          $pair->to->strand,
+                                          $TO_CS_NAME);
+    $q_map->add_map_coordinates($from_slice->seq_region_name,
+                                $pair->from->start,
+                                $pair->from->end,
+                                1,
+                                $GENE_SCAFFOLD_CS_NAME,
+                                $coord->start,
+                                $coord->end);
+  }
   
-  # now add of the original alignment pieces to the query map
-  foreach my $pair (@coord_positions) {
-    
-    if ($pair->to->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+  #
+  # finally add of the original alignment pieces to the query map
+  #
+  my @aln_coords = $map->map_coordinates($from_slice->seq_region_name,
+                                         $from_slice->start,
+                                         $from_slice->end,
+                                         1,
+                                         $FROM_CS_NAME);
+  my $current_start = $from_slice->start;
+  foreach my $c (@aln_coords) {
+    my $current_end = $current_start + $c->length - 1;
+
+    if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
       # get the gene_scaffold position from the target map
-      my ($coord) = $t_map->map_coordinates($pair->to->id,
-                                            $pair->to->start,
-                                            $pair->to->end,
-                                            $pair->to->strand,
+      my ($coord) = $t_map->map_coordinates($c->id,
+                                            $c->start,
+                                            $c->end,
+                                            $c->strand,
                                             $TO_CS_NAME);
 
       $q_map->add_map_coordinates($from_slice->seq_region_name,
-                                  $pair->from->start,
-                                  $pair->from->end,
+                                  $current_start,
+                                  $current_end,
                                   1,
                                   $GENE_SCAFFOLD_CS_NAME,
                                   $coord->start,
                                   $coord->end);
     }
+    $current_start += $c->length;
   }
 
   return ($seq, $q_map, $t_map);
-}
-
-#################################################
-
-sub _projectable_features_from_transcripts {
-  my ($map, $trans) = @_;
-
-  my @all_good_exons;
-
-  foreach my $tr (@$trans) {
-    my @exons = sort {$a->start <=> $b->start} @{$tr->get_all_translateable_Exons};
-
-    my $seen_good = 0;
-    my @gap_exons;
-
-    for(my $i = 0; $i < @exons; $i++) {
-      my $e = $exons[$i];
-
-      my @c = $map->map_coordinates($e->slice->seq_region_name,
-                                    $e->start,
-                                    $e->end,
-                                    1,
-                                    $FROM_CS_NAME);
-
-      if ((scalar(@c) == 1 and 
-          $c[0]->isa("Bio::EnsEMBL::Mapper::Gap")) or
-          $e->length <= 3) {
-
-        push @gap_exons, $e;
-      } else {
-        if ($seen_good) {
-          push @all_good_exons, @gap_exons;
-        }
-        @gap_exons = ();
-
-        push @all_good_exons, $e;
-        $seen_good = 1;
-      }
-    }
-  }
-
-  my @features;     
-  @all_good_exons = sort { $a->start <=> $b->start } @all_good_exons;
-
-  foreach my $e (@all_good_exons) {
-    if (not @features or
-        $features[-1]->end < $e->start - 1) {
-      push @features, Bio::EnsEMBL::Feature->
-          new(-start  => $e->start,
-              -end    => $e->end,
-              -slice  => $e->slice);
-    } else {
-      if ($e->end > $features[-1]->end) {
-        $features[-1]->end($e->end);
-      }
-    }
-  }
-
-  return \@features;
 }
 
 #################################################

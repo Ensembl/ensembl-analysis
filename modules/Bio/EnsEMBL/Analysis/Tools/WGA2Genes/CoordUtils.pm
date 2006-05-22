@@ -26,12 +26,13 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose
 
 @EXPORT = qw(check_consistent_coords
              distance_between_coords
-             separate_coords
              merge_coords
              extend_coord
+             transcripts_to_coords
             );
 
 
+######################################################
 
 sub check_consistent_coords {
   my ($cj, $ci) = @_; 
@@ -57,6 +58,7 @@ sub check_consistent_coords {
   return 1;
 }
 
+######################################################
 
 sub distance_between_coords {
   my ($cj, $ci) = @_; 
@@ -69,6 +71,7 @@ sub distance_between_coords {
   }
 }
 
+######################################################
 
 sub merge_coords {
   my ($ci, $cj) = @_;
@@ -87,7 +90,7 @@ sub merge_coords {
                                                $ci->strand);
 }
 
-
+######################################################
 
 sub separate_coords {
   my ($ci, $cj, $target_slice) = @_;
@@ -229,6 +232,7 @@ sub separate_coords {
   return (undef, undef);
 }
 
+############################################################
 
 sub extend_coord {
   my ($coord, $target_slice) = @_;
@@ -288,6 +292,117 @@ sub extend_coord {
 
   return ($ex_coord, $up_coord, $down_coord);
 }
+
+######################################################
+
+sub transcripts_to_coords {
+  my ($map, $from_cs_name, @trans) = @_;
+
+  my (@all_good_bits, @results);
+
+  foreach my $tr (@trans) {
+    my @exons = sort {$a->start <=> $b->start} @{$tr->get_all_translateable_Exons};
+
+    my @bits;
+
+    for(my $i = 0; $i < @exons; $i++) {
+      my $e = $exons[$i];
+
+      my @c = $map->map_coordinates($e->slice->seq_region_name,
+                                    $e->start,
+                                    $e->end,
+                                    1,
+                                    $from_cs_name);
+      my $current_pos = $e->start;
+      foreach my $c (@c) {
+        my $current_end = $current_pos + $c->length - 1;
+
+        if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+          push @bits, Bio::EnsEMBL::Mapper::Coordinate->new($e->slice->seq_region_name,
+                                                            $current_pos,
+                                                            $current_end,
+                                                            1);
+        } else {
+          push @bits, $c;
+        }
+            
+        $current_pos += $c->length;
+      }
+    }
+
+    # policy: only consider gaps as worth filling if they are flanked
+    # by aligned sequence that contains at least one full codon
+
+    my $total_bps = 0;
+    my $first_good = -1;
+
+    for(my $i=0; $i < @bits; $i++) {
+      if ($bits[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+
+        my $spare_start = (3 - ($total_bps % 3)) % 3;
+        my $spare_end = ($bits[$i]->length - $spare_start) % 3;
+        
+        my $codons = ($bits[$i]->length - $spare_start - $spare_end) / 3;
+        
+        if ($codons >= 1) {
+          $first_good = $i;
+          last;
+        }
+      }
+
+      $total_bps += $bits[$i]->length;
+    }
+
+    next if $first_good < 0;
+
+    @bits = splice(@bits, $first_good, scalar(@bits) - $first_good);
+
+    $total_bps = 0;
+    $first_good = -1;
+
+    for(my $i=scalar(@bits) - 1; $i >= 0; $i--) {
+      if ($bits[$i]->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        my $spare_end = (3 - ($total_bps % 3)) % 3;
+        my $spare_start = ($bits[$i]->length - $spare_end) % 3;
+        
+        my $codons = ($bits[$i]->length - $spare_start - $spare_end) / 3;
+        
+        if ($codons >= 1) {
+          $first_good = $i;
+          last;
+        }
+      }
+
+      $total_bps += $bits[$i]->length;
+    }
+
+    next if $first_good < 0;
+
+    @bits = splice(@bits, 0, $first_good + 1);
+
+    push @all_good_bits, @bits;
+  }
+
+  @all_good_bits = sort { $a->start <=> $b->start } @all_good_bits;
+
+  foreach my $g (@all_good_bits) {
+    if (not @results or
+        $results[-1]->end < $g->start - 1) {
+      push @results, Bio::EnsEMBL::Mapper::Coordinate->
+          new($trans[0]->slice->seq_region_name,
+              $g->start,
+              $g->end,
+              1);
+    } else {
+      if ($g->end > $results[-1]->end) {
+        $results[-1]->end($g->end);
+      }
+    }
+  }
+
+  return \@results;
+}
+
 
 
 1;
