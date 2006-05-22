@@ -118,8 +118,8 @@ sub new {
   $self->{v} = $VERBOSE ; # verbose or not 
   $self->{v} = 1 if ($utils_verbosity=~m/INFO/) ;   
 
-  $VERBOSE = 0 ; 
-  $self->{v} = 0; 
+  #$VERBOSE = 0 ; 
+  #$self->{v} = 0; 
   return $self ; 
 }
 
