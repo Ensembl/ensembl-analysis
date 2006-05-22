@@ -1532,13 +1532,13 @@ if ($test_ex_ok == scalar(@{ $st->get_all_Exons } ) ) {
     # xxxxxxxxxxxxx-------------xxxxxxxxxxxxxxxx------------xxxxxxxxxxxxxxx
     # xxxxxxxxxxxxx-----------------------------------------xxxxxxxxxxxxxxx
     #
-    for my $lge (@{$lg->get_all_Exons }) { 
-      unless (exists $mark_exon{$lge->hashkey}) {  
+    for my $lger (@{$lg->get_all_Exons }) { 
+      unless (exists $mark_exon{$lger->hashkey}) {  
         # if there are exons which are on the long one but not in the short one 
         
         # now check if mark-exon is outside of boundaries of st-transcript
-        if  ($st->seq_region_start <= $lge->seq_region_end 
-        && $st->seq_region_end >=$lge->seq_region_end ) { 
+        if  ($st->seq_region_start <= $lger->seq_region_end 
+        && $st->seq_region_end >=$lger->seq_region_end ) { 
           # overlap of skipped exon and transcript 
           # print "checkxxx not removed  " ; print_object($st) ; 
           return 0  ;
@@ -1677,9 +1677,9 @@ sub _compare_Genes {
     # exon-overlap only on coding exons !
     my $exons1 = get_coding_exons_for_gene($gene1);
     my $exons2 = get_coding_exons_for_gene($gene2);
-    foreach my $exon1 (@$exons1) {
-      foreach my $exon2 (@$exons2) {
-        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+    foreach my $exon1a (@$exons1) {
+      foreach my $exon2a (@$exons2) {
+        if ( ($exon1a->overlaps($exon2a)) && ($exon1a->strand == $exon2a->strand) ){
           #print "Passed CDS overlap check - returning 1\n";
           return 1;
         }
@@ -1689,9 +1689,9 @@ sub _compare_Genes {
     #
     # overlap check based on all (noncoding + coding) Exons 
     #
-    foreach my $exon1 (@{$gene1->get_all_Exons}){
-      foreach my $exon2 (@{$gene2->get_all_Exons}){
-        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+    foreach my $exon1a (@{$gene1->get_all_Exons}){
+      foreach my $exon2a (@{$gene2->get_all_Exons}){
+        if ( ($exon1a->overlaps($exon2a)) && ($exon1a->strand == $exon2a->strand) ){
           #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
           return 1;
         }
