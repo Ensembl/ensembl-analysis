@@ -1252,7 +1252,7 @@ sub exon_recursion {
               print "\nCloning transcript -has the foolowing exons now :\n" ;
               print "-------------------------------------------------\n" ; 
             }
-            my $new_tr_2 = new_tr($transcript) ; 
+            $new_tr_2 = new_tr($transcript) ; 
             my @all_exons_new_tr = @{$new_tr_2->get_all_Exons} ; 
             for my $e (@all_exons_new_tr) { 
               $self->print_exon($e) ; 
