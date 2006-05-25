@@ -11,7 +11,7 @@ use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 $ENV{BLASTDB} = '/data/blastdb/Finished';
 
 BEGIN {
-	print "\nUSING " . __PACKAGE__ . "\n\n";
+	print STDERR "\nUSING " . __PACKAGE__ . "\n\n";
 }
 
 sub get_analysis {
