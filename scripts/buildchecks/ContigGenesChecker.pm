@@ -47,6 +47,7 @@ The rest of the documentation details each of the object methods. Internal metho
 
 package ContigGenesChecker;
 use vars qw(@ISA);
+use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use strict;
 
 use Checker;
@@ -63,12 +64,12 @@ sub new {
   my $self = bless {},$class;
 
   my ( $genes, $ignorewarnings, $adaptor, 
-       $slice  ) = $self->_rearrange
-	 ( [ qw { GENES
+       $slice  ) = rearrange 
+	 ( [ qw ( GENES
                   IGNOREWARNINGS
                   ADAPTOR
                   SLICE
-	      }], @args );
+	      )], @args );
 
   
   if( !defined $genes ) { 

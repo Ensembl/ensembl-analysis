@@ -33,7 +33,7 @@ sub get_chrlengths_v20 {
                 " seq_region.coord_system_id=coord_system.coord_system_id and" .
                 " coord_system.version = '" . $type . "' and coord_system.name='$coordsystem'";
   
-    my $sth = $db->prepare($query);
+    my $sth = $db->dbc->prepare($query);
   
     $sth->execute;
   
@@ -44,7 +44,7 @@ sub get_chrlengths_v20 {
       # print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
     }
   } else {
-    my $sa = $db->get_SliceAdaptor;
+    my $sa = $db->dbc->get_SliceAdaptor;
 
     my @slices = @{$sa->fetch_all('toplevel')};
 
@@ -75,7 +75,7 @@ sub get_chrlengths_v19 {
               GROUP BY chrom.name
             );
 
-  my $sth = $db->prepare($q) || $db->throw("can't prepare: $q");
+  my $sth = $db->dbc->prepare($q) || $db->throw("can't prepare: $q");
   my $res = $sth->execute || $db->throw("can't execute: $q");
 
   while( my ($chr, $length) = $sth->fetchrow_array) {

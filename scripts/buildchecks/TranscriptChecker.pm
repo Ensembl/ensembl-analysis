@@ -53,6 +53,7 @@ The rest of the documentation details each of the object methods. Internal metho
 
 package TranscriptChecker;
 use vars qw(@ISA);
+use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use strict;
 
 use Checker;
@@ -70,8 +71,8 @@ sub new {
 
   my ( $transcript, $minshortintronlen, $maxshortintronlen, $minlongintronlen,
        $minshortexonlen, $maxshortexonlen, $minlongexonlen, $maxexonstranscript,
-       $mintranslationlen, $ignorewarnings, $slice, $adaptor ) = $self->_rearrange
-	 ( [ qw { TRANSCRIPT  
+       $mintranslationlen, $ignorewarnings, $slice, $adaptor ) = rearrange
+	 ( [ qw ( TRANSCRIPT  
 		  MINSHORTINTRONLEN
 		  MAXSHORTINTRONLEN
 		  MINLONGINTRONLEN
@@ -83,7 +84,7 @@ sub new {
                   IGNOREWARNINGS
                   SLICE
                   ADAPTOR
-	      }], @args );
+	      )], @args );
 
   
   if( !defined $transcript ) { 

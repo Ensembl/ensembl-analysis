@@ -45,6 +45,7 @@ The rest of the documentation details each of the object methods. Internal metho
 
 package GeneChecker;
 use vars qw(@ISA);
+use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use strict;
 
 use Checker;
@@ -60,14 +61,14 @@ sub new {
 
   my $self = bless {},$class;
 
-  my ( $gene, $maxgenelen, $maxtransgene, $ignorewarnings, $slice, $adaptor ) = $self->_rearrange
-	 ( [ qw { GENE
+  my ( $gene, $maxgenelen, $maxtransgene, $ignorewarnings, $slice, $adaptor ) = rearrange
+	 ( [ qw ( GENE
 		  MAXGENELEN
 		  MAXTRANSGENE
                   IGNOREWARNINGS
                   SLICE
                   ADAPTOR
-	      }], @args );
+	      )], @args );
 
  
   if( !defined $gene ) { 
