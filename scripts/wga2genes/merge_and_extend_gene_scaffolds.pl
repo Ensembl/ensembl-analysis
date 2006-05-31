@@ -186,7 +186,7 @@ for(my $cl_cnt=0; $cl_cnt < @clusters; $cl_cnt++) {
                $c->strand > 0 ? "+" : "-");        
       }
       
-      if (my $i < @coords - 1) {
+      unless ($i == @coords - 1) {
         $gs_start = $last_end + 1;
         $last_end = $gs_start + $GENE_SCAFFOLD_PADDING - 1;
         
