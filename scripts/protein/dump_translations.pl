@@ -23,19 +23,23 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::SeqIO;
 use Getopt::Long;
 
-my $dbhost    = '';
-my $dbuser    = '';
 my $dbname    = '';
-my $dbpass    = undef;
-my $dnadbhost    = '';
-my $dnadbuser    = '';
-my $dnadbname    = '';
-my $dnadbpass    = undef;
+my $dbhost    = '';
+my $dbuser    = 'ensro';
 my $dbport    = 3306;
+my $dbpass    = undef;
+
+my $dnadbname    = '';
+my $dnadbhost    = '';
+my $dnadbuser    = 'ensro';
+my $dnadbport    = 3306;
+my $dnadbpass    = undef;
+
 my $stable_id = 0;
 my $db_id = 0;
 my $file;
 my $slicename;
+my $verbose;
 
 GetOptions(
 	   'dbhost=s'    => \$dbhost,
@@ -43,31 +47,36 @@ GetOptions(
 	   'dbuser=s'    => \$dbuser,
 	   'dbpass=s'    => \$dbpass,
 	   'dbport=s'    => \$dbport,
-	   'dnadbhost=s'    => \$dnadbhost,
-	   'dnadbname=s'    => \$dnadbname,
-	   'dnadbuser=s'    => \$dnadbuser,
-	   'dnadbpass=s'    => \$dnadbpass,
-	   'stable_id!' => \$stable_id,
-	   'db_id!' => \$db_id,
-	   'file=s' => \$file,
+	   'dnadbhost=s' => \$dnadbhost,
+	   'dnadbname=s' => \$dnadbname,
+	   'dnadbuser=s' => \$dnadbuser,
+	   'dnadbport=s' => \$dnadbport,
+	   'dnadbpass=s' => \$dnadbpass,
+	   'stable_id!'  => \$stable_id,
+	   'db_id!'      => \$db_id,
+	   'file=s'      => \$file,
            'slicename=s' => \$slicename,
-)
-or die ("Couldn't get options");
+           'verbose'     => \$verbose,
+) or die ("Couldn't get options");
 
-if(!$dbhost || !$dbuser || !$dbname){
-  die ("need to pass database settings in on the commandline -dbhost -dbuser -dbname -dbpass");
-}
+die ("need to pass database settings in on the commandline -dbhost -dbuser -dbname -dbpass")
+    if not $dbhost or not $dbname;
 
-if(!$stable_id && !$db_id){
-  die "need to specify to use either stable_id or dbId for the header line";
-}elsif($stable_id && $db_id){
-  print STDERR "you have defined both stable_id and db_id your identifier will have the format db_id.stable_id\n";
+die "need to specify to use either stable_id or dbId for the header line"
+    if not defined $stable_id and not defined $db_id;
+
+if ($stable_id and $db_id){
+  $verbose and print STDERR "Entry ids will be db_id.stable_id\n";
+} elsif ($stable_id) {
+  $verbose and print STDERR "Entry ids will be translation stable_ids\n";
+} else {
+  $verbose and print STDERR "Entry ids will be translation dbIDs\n";
 }
 
 my $db;
 
 if ($dnadbname) {
-  if (!$dnadbhost or ! $dnadbuser) {
+  if (not $dnadbhost or not $dnadbuser) {
     die "Fine. Your DNA is not in '$dbname' but in '$dnadbname'. But you must give a user and host for it\n";
   }
  
@@ -76,7 +85,7 @@ if ($dnadbname) {
                                                  '-user'   => $dnadbuser,
                                                  '-dbname' => $dnadbname,
                                                  '-pass'   => $dnadbpass,
-                                                 '-port'   => $dbport,
+                                                 '-port'   => $dnadbport,
                                               );
 
   $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
@@ -97,15 +106,13 @@ if ($dnadbname) {
                                               );
 }
 
-
-print STDERR "connected to $dbname : $dbhost going to write to file ".
-  " $file\n";
-
 my $fh;
 if($file){
+  $verbose and print STDERR "Going to write peptides to '$file'\n";
   open (FH, '>'.$file) or die "couldn't open file ".$file." $!";
   $fh = \*FH;
 } else{
+  $verbose and print STDERR "Going to write peptides to stdout\n";
   $fh = \*STDOUT;
 }
 
