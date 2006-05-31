@@ -69,7 +69,7 @@ sub new {
   #SETTING DEFAULTS#
   ##################
   $self->program('cpg') if(!$self->program);
-  $self->min_length(1000);
+  $self->min_length(400);
   $self->min_gc_content(50);
   $self->min_oe(0.6);
   #################
