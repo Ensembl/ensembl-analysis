@@ -35,6 +35,14 @@ sub new {
   throw("Analysis object required") unless ($self->analysis);
 
   $self->read_and_check_config;
+
+  if (defined $self->GENEDB) {
+    my $gdb = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->GENEDB});
+    $gdb->dnadb($self->db);
+    $self->GENEDB($gdb);
+  } else {
+    $self->GENEDB($self->db);
+  }
   
   return $self;
 }
@@ -54,7 +62,7 @@ sub fetch_input {
   if ($self->input_id =~ /^(\d+)$/)  {
     my $prot;
     eval {
-      $prot = $self->db->get_TranslationAdaptor->fetch_by_dbID($self->input_id);
+      $prot = $self->GENEDB->get_TranslationAdaptor->fetch_by_dbID($self->input_id);
     };
     if($@ or not defined $prot) {
       throw($error);
@@ -85,7 +93,7 @@ sub write_output {
   
   my @features = @{$self->output()};
     
-  my $adap = $self->db->get_ProteinFeatureAdaptor;  
+  my $adap = $self->GENEDB->get_ProteinFeatureAdaptor;  
   
   foreach my $feat(@features) {
     $adap->store($feat, $feat->seqname);
@@ -183,5 +191,21 @@ sub BASE_DIR {
 
 }
 
+
+
+sub GENEDB {
+  my ($self, $val) = @_;
+
+
+  if (defined $val) {
+    $self->{_gene_db} = $val;
+  }
+
+  if (not exists $self->{_gene_db}) {
+    return undef;
+  } else {
+    return $self->{_gene_db};
+  }
+}
 
 1;

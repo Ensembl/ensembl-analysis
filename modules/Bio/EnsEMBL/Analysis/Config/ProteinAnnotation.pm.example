@@ -49,6 +49,10 @@ use vars qw( %ProteinAnnotation );
    PROTEINANNOTATION_CONFIG_BY_LOGIC => {
 
      DEFAULT => {
+       # connection details for database from which genes will
+       # be fetched and results written to. Leave undefined
+       # if genes are in pipeline database
+       GENEDB => undef,
        # most analyses are chunks, so default to chunk dir
        BASE_DIR      => '/directory/containing/chunks',
      },
