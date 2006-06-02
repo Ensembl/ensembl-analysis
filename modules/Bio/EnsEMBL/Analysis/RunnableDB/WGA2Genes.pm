@@ -181,20 +181,30 @@ sub fetch_input {
 
   } else {
     # assume iid is a gene stable id; ignore the kill-list
-    my ($gene);
+    my ($gene, $tran);
     eval {
       $gene = $q_dbh->get_GeneAdaptor->fetch_by_stable_id($input_id);
     };
-    if ($@ or not defined $gene) {
-      throw("Could not find gene '$input_id' in query database");
+    eval {
+      $tran = $q_dbh->get_TranscriptAdaptor->fetch_by_stable_id($input_id);
+    };
+    if (not defined $gene and not defined $tran) {
+      throw("Could not find gene or transcript with '$input_id' in query database");
     }
-    $self->query_slice($sa->fetch_by_region('toplevel', 
-                                            $gene->seq_region_name));
-    $gene = $gene->transfer($self->query_slice);
 
+    if (not defined $gene) {
+      $gene = Bio::EnsEMBL::Gene->new;
+      $gene->stable_id("None");
+      $gene->add_Transcript($tran);
+    }
+
+    $self->query_slice($sa->fetch_by_region('toplevel', 
+                                            $gene->seq_region_name));    
+    $gene = $gene->transfer($self->query_slice);
+    
     $reg_start = $gene->start;
     $reg_end   = $gene->end;
-
+    
     my @good_trans;
     foreach my $t (@{$gene->get_all_Transcripts}) {
       if (not exists($kill_list->{$t->stable_id})) {
@@ -436,7 +446,7 @@ sub run {
                                                                         $self->MAX_EDITABLE_STOPS_NON_PRIMARY,
                                                                         $self->MIN_COVERAGE,
                                                                         $self->MIN_NON_GAP,
-                                                                        0);
+                                                                        1);
         my @kept;
         foreach my $gr (@grs) {
           if (scalar(@{$gr->projected_transcripts})) {
