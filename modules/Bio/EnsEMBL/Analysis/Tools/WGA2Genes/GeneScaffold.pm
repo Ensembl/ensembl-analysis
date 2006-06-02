@@ -813,8 +813,7 @@ sub _construct_sequence {
         my ($ex_right, $ex_right_up, $ex_right_down) = 
             extend_coord($right_non_gap->to,
                          $to_slices->{$right_non_gap->to->id});
-        
-        
+
         # flanking coords are inconsistent,
         # which means that they come from different chains.
         # By chain filtering then, they must either come
@@ -857,7 +856,7 @@ sub _construct_sequence {
               $remove_coord = 0;
               
               if (defined $ex_left_up and 
-                  $this_pair->to->length <= $ex_left_up->end - $ex_left->start - 1) {                
+                  $this_pair->to->length <= $ex_left->start - $ex_left_up->end - 1) {
                 push @replace_coord, Bio::EnsEMBL::Mapper::Coordinate
                     ->new($ex_left->id,
                           $ex_left->start - $this_pair->to->length,
@@ -918,7 +917,7 @@ sub _construct_sequence {
                      $ex_left->start - $left_non_gap->to->start <= $NEAR_CONTIG_END) {
               
               if (defined $ex_left_up and 
-                  $this_pair->to->length <= $ex_left_up->end - $ex_left->start - 1) {
+                  $this_pair->to->length <= $ex_left->start - $ex_left_up->end - 1) {
                 push @replacements, [$this_pair,
                                      Bio::EnsEMBL::Mapper::Coordinate
                                      ->new($ex_left->id,
