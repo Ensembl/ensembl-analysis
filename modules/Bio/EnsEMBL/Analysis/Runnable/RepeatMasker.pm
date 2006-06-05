@@ -132,7 +132,6 @@ sub parse_results{
       }
       my @columns;
       if(/\d+/){ #ignoring introductory lines
-        print;
         chomp;
         @columns = split;
         pop @columns if $columns[-1] eq '*';
