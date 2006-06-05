@@ -34,15 +34,19 @@ sub get_dbadaptor{
   my $hash = $self->database_hash;
   my $db;
   if(!$hash->{$name}){
-    my $constructor_args = $DATABASES->{$name};
-    $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
-                                              %$constructor_args,
-                                             );
-    $self->database_hash($name, $db);
+    if (exists $DATABASES->{$name}) {
+      my $constructor_args = $DATABASES->{$name};
+      $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+                                                %$constructor_args,
+                                                );
+      $self->database_hash($name, $db);
+    } else {
+      throw("No entry in Config/GeneBuild/Databases.pm hash for $name");
+    }
   }else{
     $db = $hash->{$name};
   }
-  throw("Unable to find a db with name ".$name);
+  throw("Unable to find a db with name ".$name) if not $db;
   return $db;
 }
 
