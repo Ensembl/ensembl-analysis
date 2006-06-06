@@ -63,6 +63,8 @@ sub run{
   } else {
     if (-s $self->query) {
       $self->queryfile($self->query);
+      $self->run_analysis;
+      $self->parse_results;
     }
     elsif (ref($self->query) and
            $self->query->isa("Bio::PrimarySeqI")) {
@@ -71,13 +73,13 @@ sub run{
       my $filename = $self->write_seq_file($self->query);
       $self->files_to_delete($filename);
       $self->queryfile($filename);
+      $self->run_analysis;
+      $self->parse_results($self->query->id);
     } else {
       throw("Can't run if ".$self->query." isn't either a Bio::PrimarySeq  " .
             " or a file which has a size greater than 0");
     }
 
-    $self->run_analysis;
-    $self->parse_results;
   }
 
   $self->delete_files;
