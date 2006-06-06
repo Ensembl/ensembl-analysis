@@ -168,8 +168,11 @@ sub fetch_input {
 
       if (@good_trans) {
         if ($self->LONGEST_SOURCE_TRANSCRIPT) {
+          # load seq up front. Otherwise get warnings in the sort
+          map { $_->translateable_seq } @good_trans;
+          
           @good_trans = sort { 
-            length($b->translateable_seq) <=> length($a->translateable_seq);
+            CORE::length($b->translateable_seq) <=> CORE::length($a->translateable_seq);
           } @good_trans;
           @good_trans = ($good_trans[0]);
         }
@@ -214,8 +217,11 @@ sub fetch_input {
 
     if (@good_trans) {
       if ($self->LONGEST_SOURCE_TRANSCRIPT) {
+        # load seq up front. Otherwise get warnings in the sort
+        map { $_->translateable_seq } @good_trans;
+
         @good_trans = sort { 
-          length($b->translateable_seq) <=> length($a->translateable_seq);
+          CORE::length($b->translateable_seq) <=> CORE::length($a->translateable_seq);
         } @good_trans;
         @good_trans = ($good_trans[0]);
       }
@@ -228,7 +234,6 @@ sub fetch_input {
 
   $self->gene_records( \@gene_records );
   
-
   #########
   # get the compara data: MethodLinkSpeciesSet, reference DnaFrag, 
   # and all GenomicAlignBlocks
@@ -275,6 +280,7 @@ sub fetch_input {
 
     push @{$chains{$chain_id}}, $block;
   }
+
   foreach my $chain_id (keys %chains) {
     push @chains, [
                    sort {
@@ -285,6 +291,7 @@ sub fetch_input {
   }
   @chains = sort { $b->[0]->score <=> $a->[0]->score } @chains;  
   $self->genomic_align_block_chains(\@chains);
+
 }
 
 
@@ -585,7 +592,7 @@ sub process_transcript {
   #   higher that maximum proportion of gap residues
   ##################
 
-  if (length($pep) == 0) {
+  if (CORE::length($pep) == 0) {
     logger_info("Rejecting proj of $source_id because was just a stop codon");
     return 0;
   }
