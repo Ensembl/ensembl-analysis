@@ -240,8 +240,6 @@ sub read_agp_files {
     
     my @l = split(/\t/, $_);
     
-    $agp_hash->{$l[0]}->{length} += $l[2] - $l[1] + 1;
-    
     if ($l[4] ne 'N') {
       my $from = Bio::EnsEMBL::Mapper::Unit->new($l[0], $l[1], $l[2]);
       my $to  = Bio::EnsEMBL::Mapper::Unit->new($l[5], $l[6], $l[7]);
@@ -250,6 +248,10 @@ sub read_agp_files {
                                                  $l[8] eq '-' ? -1 : 1);
 
       push @{$agp_hash->{$l[0]}->{components}}, $pair;
+      if (not exists $agp_hash->{$l[0]} or
+          $agp_hash->{$l[0]}->{length} < $l[2]) {
+        $agp_hash->{$l[0]}->{length} = $l[2];
+      }
     }
   }
 }
