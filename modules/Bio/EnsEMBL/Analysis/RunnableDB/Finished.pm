@@ -30,15 +30,15 @@ sub write_output {
 	        my $adaptor = $self->get_adaptor($feat);
 		    # Remove the AlignFeatures already in db from the output and 
 		    # get rid of the old ones in the db (for dephtfilter features only)
-		    # Remove all SimpleFeatures
+		    my $clean = 0;
 	        if (ref($feat) =~ /AlignFeature$/) {
-	            if($self->analysis->module ne 'DepthFilter' ) {
-	            	$self->write_descriptions($output);
-	            	$self->remove_stored_AlignFeatures($adaptor, $output, 0);
+	            if($self->analysis->module eq 'DepthFilter' ) {
+	            	$clean = 1;	            	
 	            } else {
-	            	$self->remove_stored_AlignFeatures($adaptor, $output, 1);
+	            	$self->write_descriptions($output);
 	            }
-	        } else {
+	            $self->remove_stored_AlignFeatures($adaptor, $output, $clean)
+	        } else {# Remove all SimpleFeatures
 	        	$self->remove_all_features($adaptor);
 	        }        
 	        
@@ -88,12 +88,28 @@ sub replace_output {
 
 sub remove_stored_AlignFeatures {
     my ($self, $adaptor, $output, $clean) = @_;
-	## create a hashtable of key='feature signature' and value=1
+	## create a hashtable of the contig hits stored in the database
     my $db_features =
       $adaptor->fetch_all_by_Slice($self->query, $self->analysis->logic_name);
     print STDOUT "Finished: Found ", scalar(@$db_features), " features already in db\n";
     my %db_feat = map { $self->get_feature_key($_), $_ } @$db_features;
     my %db_feat_to_del = %db_feat;
+    ## remove old Uniprot features with missing sequence version. 
+    if($self->analysis->logic_name eq 'Uniprot_raw') {
+    	foreach my $new_f (@$output) {
+    		$new_f->slice($self->query) if (!$new_f->slice);
+			my $new_f_key = $self->get_feature_key($new_f,1); # get the string key without the sequence version
+			my $stored_f = $db_feat{$new_f_key};
+			if ($stored_f && $stored_f->display_id !~ /\.\d+/) {
+				print STDOUT "Finished: Remove old Uniprot feature ".$stored_f->display_id.
+							 ", replaced by ".$new_f->display_id."\n";
+				$adaptor->remove($stored_f);
+				delete $db_feat{$new_f_key} unless(!$db_feat{$new_f_key});
+				delete $db_feat_to_del{$new_f_key} unless(!$db_feat_to_del{$new_f_key});  
+        	}	    		
+    		
+    	}
+    }
     ## remove duplicated features from output
     for (my $i = 0 ; $i < @$output ;) {
     	my $feature = $output->[$i];
@@ -133,14 +149,16 @@ sub write_descriptions {
 }
 
 sub get_feature_key {
-	my ( $self, $feat ) = @_;
+	my ( $self, $feat, $uni ) = @_;
 	throw(
 "Must pass Bio::EnsEMBL::Analysis::RunnableDB::Finished::get_feature_key a Bio::EnsEMBL::BaseAlignFeature"
 		  . "not a "
 		  . $feat )
 	  unless ( $feat->isa('Bio::EnsEMBL::BaseAlignFeature') );
+	my $name = $feat->display_id;
+	$name =~ s/\.\d// if($uni);
 	return join( ':',
-		$feat->display_id, $feat->seq_region_name, $feat->cigar_string,
+		$name, $feat->seq_region_name, $feat->cigar_string,
 		$feat->start, $feat->end, $feat->hstart, $feat->hend );
 }
 
