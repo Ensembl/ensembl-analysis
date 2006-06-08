@@ -266,6 +266,7 @@ sub write_output {
     print OUTFILE ">".$affy_probe->dbID."\n";
     print OUTFILE $sequence."\n";
   }
+  close(OUTFILE) or throw("Failed top close ".$outfile);
 }
 
 ############################################################
