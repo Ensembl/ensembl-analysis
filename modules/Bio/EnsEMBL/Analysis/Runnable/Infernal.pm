@@ -48,7 +48,7 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-my $verbose;
+my $verbose = 1;
 
 =head2 new
 
@@ -429,11 +429,15 @@ sub make_gene{
        -phase => -1,
        -end_phase => -1
       );
+
+    # reject if it falls of the start of the slice
+    next if ($exon->start < 1);
     # Only allow exons that overlap the origional dna_align_feature and 
     # have a secondary structure that is possible to parse
     last if ($exon->overlaps($daf->transfer($slice)));
   }
   # return undef if no suitable candidates are found
+  return unless ($exon->start >= 1);
   return unless ($exon->overlaps($daf->transfer($slice)));
 #  $daf->score($score);
   $exon->add_supporting_features($daf->transfer($slice));
@@ -516,7 +520,10 @@ sub get_sequence{
   my ($self,$daf)=@_;
   my $domain = substr($daf->hseqname,0,7);
   my %thresholds = %{$self->thresholds};
+  my $slice = $daf->slice;
   my $padding = $thresholds{$domain}{'win'};
+  my $old_start = $daf->start;
+  my $old_end = $daf->end;
   print STDERR "Using padding of $padding\t"if $verbose;
   # add padding
   $daf->start($daf->start-$padding);
@@ -526,8 +533,8 @@ sub get_sequence{
 			    -display_id => $domain,
 			   );
   # remove padding
-  $daf->start($daf->start+$padding);
-  $daf->end($daf->end-$padding);
+  $daf->start($old_start);
+  $daf->end($old_end);
   print STDERR " total seq length = "if $verbose;;
   print $seq->length."\n"if $verbose;;
   return $seq;
