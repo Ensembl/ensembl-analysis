@@ -57,9 +57,11 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 	'-pass' => $dbpass
 );
 
+
 my $cmp_coord_sys_version;
 eval {
   my $cs = $db->get_CoordSystemAdaptor->fetch_by_name($cmp_coord_sys_name);
+  
   if (defined $cs) {
     $cmp_coord_sys_version = $cs->version;
   }
@@ -264,8 +266,7 @@ sub write_coord_system {
   my ($new_name, $new_version) = @_;
 
   # check to see that it does not already exist
-  my $csa = $db->get_CoordSystemAdaptor;
-  my $cs = $csa->fetch_by_name($new_name, $new_version);
+  my $cs = $db->get_CoordSystemAdaptor->fetch_by_name($new_name, $new_version);
 
   if (not defined $cs) {
     $cs = Bio::EnsEMBL::CoordSystem->new(-name => $new_name,
@@ -280,15 +281,16 @@ sub write_coord_system {
       @coord_sys = sort { $a->rank <=> $b->rank } @coord_sys;
       
       if ($coord_sys[0]->rank == 1) {
-        my $st = $db->dbc->prepare("update coord_system set rank = ? where coord_system_id = ?");
-        
         foreach my $cs (reverse @coord_sys) {
+          my $st = $db->dbc->prepare("update coord_system set rank = ? where coord_system_id = ?");        
           $st->execute($cs->rank + 1, $cs->dbID);
+          $st->finish;
         }
-        
-        $st->finish;
       }
 
+      # can't use cached adaptor to store the new entry here because 
+      # the ranks are cached. Need to construct a new adaptor
+      my $csa = Bio::EnsEMBL::DBSQL::CoordSystemAdaptor->new($db);
       $csa->store($cs);
     }
   } else {
