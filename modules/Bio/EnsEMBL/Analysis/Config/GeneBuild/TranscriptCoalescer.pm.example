@@ -89,7 +89,7 @@ use vars qw(%Config);
   #
  
   
-   TRANSCRIPT_COLAESCER_DB_CONFIG => { 
+   TRANSCRIPT_COALESCER_DB_CONFIG => { 
                  # add the logic_names of the ab-inito-predictions you like to 
                  # use for TranscriptCoalescer.pm here 
                  
