@@ -375,23 +375,19 @@ sub transcript_evidence{
   my $covered_exons = 0 ;
   
   foreach my $exon (@exons) {
-    ##############################################################
-    # Need to make intron and exon Features to compare with repeats
-    # features are relative to gene as are the repeats
-
     my $seq_feature_exon = Bio::EnsEMBL::Feature->new(
-							 -START => $exon->start-$gene->start,
-							 -END => $exon->end-$gene->start,
-							 -STRAND => $exon->strand
-							);
+                                                      -START => $exon->start,
+                                                      -END => $exon->end,
+                                                      -STRAND => $exon->strand
+                                                      );
     # Do intron
     if (defined($prev_exon)) {
       my $intron = Bio::EnsEMBL::Feature->new(
-						 -START => $prev_exon->end+1-$gene->start,
-						 -END => $exon->start-1-$gene->start,
-						 -STRAND => $exon->strand
-						);
-      if ($intron->length > 9) {
+                                              -START => $prev_exon->end+1,
+                                              -END => $exon->start-1,
+                                              -STRAND => $exon->strand
+                                              );
+      if ($intron->length > $PS_FRAMESHIFT_INTRON_LENGTH) {
 	$n_real_intron++;
       } else {
 	$n_frameshift_intron++;

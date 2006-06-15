@@ -31,6 +31,9 @@ use vars qw( %Pseudogene );
 %Pseudogene = (	
 
 	       # configs for the introns in repeats test
+
+               # introns longer than the following are considered "real"
+               PS_FRAMESHIFT_INTRON_LENGTH => 9,
 	       # total length of introns
 	       PS_MAX_INTRON_LENGTH   => '5000',
 	       # %coverd  repeats

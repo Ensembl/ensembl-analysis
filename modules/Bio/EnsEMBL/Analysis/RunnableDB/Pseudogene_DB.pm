@@ -97,7 +97,7 @@ sub fetch_input {
   my %repeat_blocks;
   my %homolog_hash;
   my @transferred_genes;
-  my $runname = "Bio::EnsEMBL::Analysis::Runnable::Pseudogene";
+
   print "Loading database ".$GB_DBNAME.":".$GB_DBHOST."\n";
   my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
@@ -128,6 +128,8 @@ sub fetch_input {
   my $genedb_sa = $self->gene_db->get_SliceAdaptor; 
   print  "DB NAME: ".$self->db->dbc->dbname."\n";
   my $genes_slice = $genedb_sa->fetch_by_name($self->input_id);
+  $self->query($genes_slice);
+
   my $genes = $genes_slice->get_all_Genes;
   print  $genes_slice->name."\t".
     $genes_slice->start."\n";
@@ -155,21 +157,34 @@ sub fetch_input {
 					      );
     # Only look for repeats in multiexon genes
     if (scalar(@{$transferred_gene->get_all_Exons()}) > 1){
-      my $blocks = $self->get_all_repeat_blocks($rep_gene_slice->get_all_RepeatFeatures);
+      my @feats = @{$rep_gene_slice->get_all_RepeatFeatures};
+      @feats = map { $_->transfer($chromosome_slice) } @feats;
+      my $blocks = $self->get_all_repeat_blocks(\@feats);
       # make hash of repeat blocks using the gene as the key
       $repeat_blocks{$transferred_gene} = $blocks;
     }
   }
-  # Make  the runnable
-    my $runnable = $runname->new
-      ( 
-       '-analysis' => $self->analysis,
-       '-genes' => \@transferred_genes,
-       '-repeat_features' => \%repeat_blocks,
-      );
-    $self->runnable($runnable);
+
+  $self->genes(\@transferred_genes);
+  $self->repeat_blocks(\%repeat_blocks);
+  $self->make_runnable;
+
   return 1;
 }
+
+
+sub make_runnable {
+  my ($self) = @_;
+      
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Pseudogene->new
+      ( 
+        '-analysis' => $self->analysis,
+        '-genes' => $self->genes,
+        '-repeat_features' => $self->repeat_blocks,
+        );
+  $self->runnable($runnable);
+}
+
 
 =head2 get_all_repeat_blocks
 
@@ -457,6 +472,25 @@ sub genes {
   }
   return $self->{'_genes'};
 }
+
+
+=head2 repeat_blocks
+
+  Arg [1]    : array ref
+  Description: get/set genescript set to run over
+
+=cut
+
+sub repeat_blocks {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_repeat_blocks} = $val;
+  }
+  return $self->{_repeat_blocks};
+}
+
+
 
 =head2 pseudo_genes
 
