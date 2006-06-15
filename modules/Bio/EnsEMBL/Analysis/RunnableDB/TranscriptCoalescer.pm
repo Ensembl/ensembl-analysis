@@ -116,10 +116,10 @@ sub fetch_input{
   # we merge the configs such that we have all in one hash $database 
   #
   
-  my %databases = %{$self->merge_config_details( $DATABASES, $EXONERATE_CONFIG_BY_LOGIC, $TRANSCRIPT_COLAESCER_DB_CONFIG)} ;   
+  my %databases = %{$self->merge_config_details( $DATABASES, $EXONERATE_CONFIG_BY_LOGIC, $TRANSCRIPT_COALESCER_DB_CONFIG)} ;   
 
   # check if every biotype/logic_name belongs to an EVIDENCE set
-  _check_config(\%databases, $TRANSCRIPT_COLAESCER_DB_CONFIG, $self->{evidence_sets} ) ; 
+  _check_config(\%databases, $TRANSCRIPT_COALESCER_DB_CONFIG, $self->{evidence_sets} ) ; 
  
   # now looping through all keys of %databases definend in the (merged) configs 
 
@@ -130,7 +130,7 @@ sub fetch_input{
     # skip all databases out of Exonerate2Genes.pm & Databases.pm which
     # have no configuration in TranscriptCoalescer.pm
    
-    next unless (exists $$TRANSCRIPT_COLAESCER_DB_CONFIG{$database_class}) ;  
+    next unless (exists $$TRANSCRIPT_COALESCER_DB_CONFIG{$database_class}) ;  
 
 
     my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
@@ -471,7 +471,7 @@ sub _remove_redundant_genes {
 
 =head2  _check_config
 
-   Arg[0] : Hash-reference to $TRANSCRIPT_COLAESCER_DB_CONFIG-Hash out of TranscriptCoalescer.pm 
+   Arg[0] : Hash-reference to $TRANSCRIPT_COALESCER_DB_CONFIG-Hash out of TranscriptCoalescer.pm 
    Arg[1] : href with evidence sets 
    Func   : Checks if every logic_name / biotype of gene belongs to an
          Evidence set 
@@ -480,10 +480,10 @@ sub _remove_redundant_genes {
 =cut  
 
 sub _check_config{ 
-  my ( $databases, $TRANSCRIPT_COLAESCER_DB_CONFIG, $ev_sets) = @_ ; 
+  my ( $databases, $TRANSCRIPT_COALESCER_DB_CONFIG, $ev_sets) = @_ ; 
 
   # check TranscriptCoalescer.pm:  
-  for my $db_class (keys %{$TRANSCRIPT_COLAESCER_DB_CONFIG}) { 
+  for my $db_class (keys %{$TRANSCRIPT_COALESCER_DB_CONFIG}) { 
     # check that each db_class (like REFERENCE_DB ...) in TranscriptCoalescer.pm has 
     # also a database in Databases.pm / Exonerate2Genes.pm 
     throw ( "\n\tConfig-Error: There is configuration for \"$db_class\" in Analysis/Config/GeneBuild/TranscriptCoalescer.pm " .
@@ -496,9 +496,9 @@ sub _check_config{
   # belongs to an ev-set 
   
   my %database_definition ; 
-  for my $db_class (keys %{$TRANSCRIPT_COLAESCER_DB_CONFIG}) {
-    for my $key ( keys %{ $$TRANSCRIPT_COLAESCER_DB_CONFIG{$db_class} } ) { 
-       map $database_definition{$_}=(),@{ ${$$TRANSCRIPT_COLAESCER_DB_CONFIG{$db_class}}{$key}};  
+  for my $db_class (keys %{$TRANSCRIPT_COALESCER_DB_CONFIG}) {
+    for my $key ( keys %{ $$TRANSCRIPT_COALESCER_DB_CONFIG{$db_class} } ) { 
+       map $database_definition{$_}=(),@{ ${$$TRANSCRIPT_COALESCER_DB_CONFIG{$db_class}}{$key}};  
     }
   }
    
