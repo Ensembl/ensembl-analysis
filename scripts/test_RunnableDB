@@ -199,9 +199,9 @@ my $runobj = "$runnable"->new(-db    => $db,
 print STDERR "Instantiated ".$runnable." runnabledb\n" if($verbose);
 $runobj->fetch_input;
 print STDERR "Fetched input\n" if($verbose);
-$runobj->run;
+$runobj->run unless($runobj->input_is_void);
 print STDERR "Run ".$runobj."\n" if($verbose);
-
+print "Input is void not running\n" if($runobj->input_is_void);
 if($write){
   $runobj->write_output;
   print STDERR "written output\n" if($verbose);
