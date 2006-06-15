@@ -95,13 +95,13 @@ sub id {
 
   if($feature->can('stable_id') && $feature->stable_id){
     $id = $feature->stable_id;
-  }elsif($feature->can('dbID')) {
+  }elsif($feature->can('dbID') && $feature->dbID) {
     $id = $feature->dbID;
   }else{ 
     $id = 'no-id';
   }
   if($feature->can('biotype') && $feature->biotype){
-    $id .= "_".$feature->biotype
+    $id .= "_".$feature->biotype;
   }
   return $id;
 }
