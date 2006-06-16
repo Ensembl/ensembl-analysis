@@ -87,8 +87,8 @@ sub run_analysis{
     unless($program && -x $program);
 
   my $command = $self->program." ".$self->matrix." ".$self->queryfile.
-    " -gff -aa ".$self->protfile." > ".$self->resultsfile;
-  print "Running analysis ".$command."\n";
+    " > ".$self->resultsfile;
+  print STDERR "Running analysis ".$command."\n";
   system($command) == 0 or throw("FAILED to run ".$command);
 }
 
@@ -117,23 +117,17 @@ sub parse_results{
     $results = $self->resultsfile;
   }
 
-   my $in  = Bio::SeqIO->new ( 
-                              '-format' => 'Fasta' , 
-                              -file => $self->protfile
-                             );
-  
-  my %peptides;
-  while(my $seq = $in->next_seq) {
-    $peptides{$seq->id} = $seq->seq;
-  }
-  $self->peptides(\%peptides);
-  open(OUT, "<".$results) or throw("FAILED to open ".$results.
-                                   "Snap:parse_results");
   $self->query($self->unaltered_slice);
   my $ff = $self->feature_factory;
   my $exon_count;
   my $current_trans;
+
+  open(OUT, "<".$results) or throw("FAILED to open ".$results.
+                                   "Snap:parse_results");
+
   while(<OUT>){
+    /^\>/ and next;
+
     my @element = split;
     throw("Unable to parse Snap output ".@element." in output ".
           "array expecting 9") if(@element != 9);
@@ -144,54 +138,33 @@ sub parse_results{
     }
     $exon_count++;
     my $name = $current_trans.".".$exon_count;
-    my $start = $element[3];
-    my $end = $element[4];
-    my $score = $element[5];
+    my $start = $element[1];
+    my $end = $element[2];
+    my $score = $element[4];
     throw("strand wrongly formated $element[6] not + or -")
-      unless ($element[6] eq '+' || $element[6] eq '-');
+      unless ($element[3] eq '+' || $element[3] eq '-');
     my $strand = 1;
-    $strand = -1 if($element[6] eq '-');
-    my $exon = $ff->create_prediction_exon($start, $end, $strand, 
-                                           $score, 0, 0, 
-                                           $name, $self->query, 
+    $strand = -1 if($element[3] eq '-');
+    
+    my $start_phase = (3 - $element[5]) % 3;
+
+    my $exon = $ff->create_prediction_exon($start, 
+                                           $end, 
+                                           $strand, 
+                                           $score, 
+                                           0, 
+                                           $start_phase,
+                                           $name, 
+                                           $self->query, 
                                            $self->analysis);
     $self->exon_groups($current_trans, $exon);
   }
   $self->create_transcripts;
-  $self->calculate_phases;
+
   close(OUT) or throw("FAILED to close ".$results.
                       "Snap:parse_results");
 
 }
-
-
-=head2 protfile
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Snap
-  Arg [2]   : string, filename
-  Function  : accessor method for prot file name, will create
-  one if one is requested but not defined
-  Returntype: string, filename
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-
-sub protfile{
-  my ($self, $filename) = @_;
-
-  if($filename){
-    $self->{'protfile'} = $filename;
-  }
-  if(!$self->{'protfile'}){
-    $self->{'protfile'} = $self->create_filename('snap', 'prot');
-  }
-  $self->files_to_delete($self->{'protfile'});
-  return $self->{'protfile'};
-}
-
 
 
 =head2 unaltered_slice
