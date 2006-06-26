@@ -19,6 +19,7 @@ my (
     $test,
     $verbose,
     $logic_name,
+    $load_attributes,
     %ug_feats, 
     %transcripts,
     %attributes,
@@ -34,6 +35,7 @@ my (
             'logic=s'  => \$logic_name,
             'test'     => \$test,
             'verbose'  => \$verbose,
+            'attributes' => \$load_attributes,
             );
 
 die "You must supply a logic name with -logic_name\n" 
@@ -239,12 +241,14 @@ foreach my $target_id (keys %transcripts) {
     $tran->translation($translation);
 
     # Attributes
-    foreach my $attr_hash (@{$attributes{$transcript_id}}) {
-      my $attr = Bio::EnsEMBL::Attribute->new(-code => $attr_hash->{code},
-                                              -name => $attr_hash->{name},
-                                              -desc => $attr_hash->{desc},
-                                              -value => $attr_hash->{value});
-      $tran->add_Attributes($attr);
+    if ($load_attributes) {
+      foreach my $attr_hash (@{$attributes{$transcript_id}}) {
+        my $attr = Bio::EnsEMBL::Attribute->new(-code => $attr_hash->{code},
+                                                -name => $attr_hash->{name},
+                                                -desc => $attr_hash->{desc},
+                                                -value => $attr_hash->{value});
+        $tran->add_Attributes($attr);
+      }
     }
 
     push @transcripts, $tran;
