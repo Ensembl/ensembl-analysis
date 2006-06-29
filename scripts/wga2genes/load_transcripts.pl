@@ -18,7 +18,8 @@ my (
     $dbpass,
     $test,
     $verbose,
-    $logic_name,
+    $gene_logic_name,
+    $sf_logic_name,
     $load_attributes,
     %ug_feats, 
     %transcripts,
@@ -27,19 +28,23 @@ my (
 );
 
 &GetOptions(
-            'dbname=s' => \$dbname,
-            'dbuser=s' => \$dbuser,
-            'dbhost=s' => \$dbhost,
-            'dbport=s' => \$dbport,
-            'dbpass=s' => \$dbpass,
-            'logic=s'  => \$logic_name,
-            'test'     => \$test,
-            'verbose'  => \$verbose,
-            'attributes' => \$load_attributes,
+            'dbname=s'     => \$dbname,
+            'dbuser=s'     => \$dbuser,
+            'dbhost=s'     => \$dbhost,
+            'dbport=s'     => \$dbport,
+            'dbpass=s'     => \$dbpass,
+            'genelogic=s'  => \$gene_logic_name,
+            'sflogic=s'    => \$sf_logic_name,
+            'test'         => \$test,
+            'verbose'      => \$verbose,
+            'attributes'   => \$load_attributes,
             );
 
-die "You must supply a logic name with -logic_name\n" 
-    if not defined $logic_name;
+die "You must supply a gene/transcript logic name with -genelogic\n" 
+    if not defined $gene_logic_name;
+die "You must supply a supporting_feature logic name with -sflogic\n" 
+    if not defined $gene_logic_name;
+
 
 my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                              '-dbname' => $dbname,
@@ -48,17 +53,30 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                              '-port' => $dbport,
                                              '-pass' => $dbpass);
 
-my $analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($logic_name);
+my $gene_analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($gene_logic_name);
 
-if (not defined $analysis) {
-  $verbose and print STDERR "Storing new entry in analysis for WGA2Genes\n";
+if (not defined $gene_analysis) {
+  $verbose and print STDERR "Storing new entry in analysis for WGA2Genes gene\n";
 
-  $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name,
-                                          -module => 'WGA2Genes',
-                                          -gff_source => 'ensembl',
-                                          -gff_feature => 'gene');
-  $db->get_AnalysisAdaptor->store($analysis);
+  $gene_analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $gene_logic_name,
+                                               -module => 'WGA2Genes',
+                                               -gff_source => 'ensembl',
+                                               -gff_feature => 'gene');
+  $db->get_AnalysisAdaptor->store($gene_analysis);
 }
+
+my $sf_analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($sf_logic_name);
+
+if (not defined $sf_analysis) {
+  $verbose and print STDERR "Storing new entry in analysis for WGA2Genes sup.feats\n";
+
+  $sf_analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $sf_logic_name,
+                                             -module => 'WGA2Genes',
+                                             -gff_source => 'ensembl',
+                                             -gff_feature => 'gene');
+  $db->get_AnalysisAdaptor->store($sf_analysis);
+}
+
 
 my ($gs_cs, $prev_tl_cs) = 
     sort {$a->rank <=> $b->rank} @{$db->get_CoordSystemAdaptor->fetch_all};
@@ -134,7 +152,6 @@ while(<>) {
       $end,
       $strand) = ($l[0], $l[1], $l[2], $l[3], $l[4], $l[5]);
 
-  next if $source ne $logic_name;
 
   if ($l[2] eq 'Exon') {
     my ($phase, $end_phase) = ($l[6], $l[7]);
@@ -191,7 +208,7 @@ foreach my $target_id (keys %transcripts) {
   }
 
   foreach my $transcript_id (keys %{$transcripts{$target_id}}) {
-    my $tran = Bio::EnsEMBL::Transcript->new(-analysis => $analysis,
+    my $tran = Bio::EnsEMBL::Transcript->new(-analysis => $gene_analysis,
                                              -biotype  => 'protein_coding');
 
     my (@tran_ug_feats);
@@ -213,7 +230,7 @@ foreach my $target_id (keys %transcripts) {
                                                  -hseqname => $f_hash->{hseqname},
                                                  -hstart   => $f_hash->{hstart},
                                                  -hend     => $f_hash->{hend},
-                                                 -analysis => $analysis);
+                                                 -analysis => $sf_analysis);
 
           push @exon_ug_feats, $f;
           push @tran_ug_feats, $f;
@@ -256,7 +273,7 @@ foreach my $target_id (keys %transcripts) {
 
   foreach my $clust (&cluster_by_exon_overlap(@transcripts)) {
     # check for exon-overlap between result genes;
-    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $analysis,
+    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $gene_analysis,
                                        -biotype  => 'protein_coding');
     foreach my $tran (@$clust) {
       $gene->add_Transcript($tran);
