@@ -120,7 +120,8 @@ use vars qw( %Config );
 
              Protein_logicname => {
                # GENOMICSEQS obtained from DEFAULT
-               QUERYTYPE => 'protein',
+               QUERYTYPE => 'protein', 
+                # QUERYSEQ can be a directory as well 
                QUERYSEQS  => '/file/containing/all/proteins.fa',
                # Input id is a chunk id and chunk total
                IIDREGEXP => '(\d+):(\d+)',
