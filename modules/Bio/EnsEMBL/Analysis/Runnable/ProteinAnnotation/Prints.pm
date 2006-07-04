@@ -33,6 +33,9 @@ sub multiprotein{
 
 sub run_analysis {
   my ($self) = @_;
+
+  # because Prints reports matches off the end of the sequence, 
+  # we need the sequence lengths to be able to trim them back
       
   my $command =  $self->program ." " . 
       $self->database . " " . 
@@ -47,7 +50,16 @@ sub run_analysis {
 
 sub parse_results {
   my ($self) = @_;
+
+  my %seqlengths;
   
+  my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                              -file   => $self->queryfile);
+  while (my $seq = $seqio->next_seq) {
+    $seqlengths{$seq->id} = $seq->length;
+  }
+  $seqio->close;
+    
   my ($fh);
 
   my $resfile = $self->resultsfile;
@@ -113,23 +125,23 @@ sub parse_results {
         
         my $start = $matchPosition;
         my $end = $matchPosition + $motifLength - 1;
+        
+        # Prints sometimes reports -1 for the motif position start;
+        $lowestMotifPosition = 1 if $lowestMotifPosition == -1;
 
         # It's possible that near the ends of the sequence,
         # fragment matches are found. These can result in a 
         # start < 1 or end > seq_length. Make a policy decision
-        # *not* to prune back the coords, because this is what
-        # prints is reporting (and it makes the protein coords
-        # consistent with the hit coords);        
-        
-        my $print_acc = $printsac{$fingerprintName};
-        
+        # prune these back in the sequence, but not the hit
+        $start = 1 if $start < 1;
+        $end = $seqlengths{$seq_id} if $end > $seqlengths{$seq_id};
     
         my $fp = $self->create_protein_feature($start, $end, 
                                                $profileScore,
                                                $seq_id, 
                                                $lowestMotifPosition, 
                                                $highestMotifPosition, 
-                                               $print_acc, 
+                                               $printsac{$fingerprintName},
                                                $self->analysis, 
                                                $pvalue, 
                                                $percentageIdentity);
