@@ -272,11 +272,12 @@ sub test_genes{
 	unless ($trans_type{'single_exon'} or
 		$trans_type{'indeterminate'} or
 		$trans_type{'real'}) {
-	  $gene->type('pseudogene');
+	  $gene->biotype('pseudogene');
 	  my @pseudo_trans = @{$trans_type{'pseudo'}};
 	  @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
 	  my $only_transcript_to_keep = pop  @pseudo_trans;
 	  $only_transcript_to_keep->translation(undef);
+	  $only_transcript_to_keep->biotype('pseudogene');
 	  foreach my $pseudo_transcript (@pseudo_trans) {
 	    $self->discarded_transcripts($pseudo_transcript);
 	    $pseudo_transcript->translation(undef);
