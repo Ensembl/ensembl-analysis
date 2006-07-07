@@ -157,7 +157,29 @@ use vars qw(%Config);
                                    -pass => '',
                                   },
                                  
-                 }
+                 },
+
+                 #############
+                 ### Databases for RunnableDB/CopyGenes.pm
+                 #############
+
+                 COPY_SOURCE_DB => {
+                     -dbname => '',
+                     -host => '',
+                     -port => '',
+                     -user => '',
+                     -pass => '',
+                 },
+
+                 COPY_TARGET_DB => {
+                     -dbname => '',
+                     -host => '',
+                     -port => '',
+                     -user => '',
+                     -pass => '',
+                },
+             }     
+
                    
              );
 
