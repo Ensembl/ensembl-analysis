@@ -50,30 +50,30 @@ sub run{
   my @overlaps;
   my @genes;
   if($self->PRE_FILTER){
-    print "Running a prefilter\n";
+    #print "Running a prefilter\n";
     my $filtered_genes = $self->filter_object->filter_genes($self->secondary_genes);
     push(@genes, @$filtered_genes);
   }else{
     push(@genes, @{$self->secondary_genes});
   }
-  print "Have ".@genes." secondary genes\n";
+  #print "Have ".@genes." secondary genes\n";
   foreach my $gene(@genes){
     my $keep_gene = 1;
     my $mask_reg_idx = 0;
     my @test_regions = ({start => $gene->start, end => $gene->end});
     FEAT: foreach my $f (@test_regions) {
-        print "Comparing ".$f->{'start'}." ".$f->{'end'}."\n";
-        print "have ".@$mask_regions." mask regions\n";
+        #print "Comparing ".$f->{'start'}." ".$f->{'end'}."\n";
+        #print "have ".@$mask_regions." mask regions\n";
         for( ; $mask_reg_idx < @$mask_regions; ) {
         my $mask_reg = $mask_regions->[$mask_reg_idx];
-        print "To ".$mask_reg->{'start'}." ".$mask_reg->{'end'}."\n";
+        #print "To ".$mask_reg->{'start'}." ".$mask_reg->{'end'}."\n";
         if ($mask_reg->{'start'} > $f->{'end'}) {
           # no mask regions will overlap this feature
           next FEAT;
 		    }
         elsif ( $mask_reg->{'end'} >= $f->{'start'}) {
           # overlap			
-          print "Overlap found\n";
+          #print "Overlap found\n";
           $keep_gene = 0;
           last FEAT;
         }			
@@ -94,9 +94,9 @@ sub run{
       push(@overlaps, $gene);
     }
   }
-  print "Have ".@{$self->primary_genes}." primary genes\n";
-  print "Have ".@non_overlaps." non overlapping genes\n";
-  print "Have ".@overlaps." overlapping genes\n";
+  #print "Have ".@{$self->primary_genes}." primary genes\n";
+  #print "Have ".@non_overlaps." non overlapping genes\n";
+  #print "Have ".@overlaps." overlapping genes\n";
   my @non_overlapping_genes;
   if($self->POST_FILTER){
     my $filtered_genes = $self->filter_object->filter_genes(\@non_overlaps);
@@ -112,9 +112,10 @@ sub run{
     }
   }
   my $primary_genes = $self->primary_genes;
+  print "Adding primary genes to set\n" if($self->STORE_PRIMARY);
   push(@output, @$primary_genes) if($self->STORE_PRIMARY);
   $self->output(\@output);
-  print "have ".@output." genes to store\n";
+  #print "have ".@output." genes to store\n";
   $self->overlapping_genes(\@overlaps);
 }
 
@@ -173,7 +174,7 @@ sub secondary_database{
     $self->{'secondary_database'} = $value;
   }
   if(!$self->{'secondary_database'}){
-    my $db = $self->get_dbadaptor->($self->SECONDARY_DB);
+    my $db = $self->get_dbadaptor($self->SECONDARY_DB);
     $db->dnadb($self->db);
     $self->{'secondary_database'} = $db;
   }
@@ -186,7 +187,7 @@ sub primary_database{
     $self->{'primary_database'} = $value;
   }
   if(!$self->{'primary_database'}){
-    my $db = $self->get_dbadaptor->($self->PRIMARY_DB);
+    my $db = $self->get_dbadaptor($self->PRIMARY_DB);
     $db->dnadb($self->db);
     $self->{'primary_database'} = $db;
   }
@@ -199,7 +200,7 @@ sub output_database{
     $self->{'output_database'} = $value;
   }
   if(!$self->{'output_database'}){
-    my $db = $self->get_dbadaptor->($self->OUTPUT_DB);
+    my $db = $self->get_dbadaptor($self->OUTPUT_DB);
     $db->dnadb($self->db);
     $self->{'output_database'} = $db;
   }
@@ -312,7 +313,7 @@ sub OUTPUT_DB{
 sub PRE_FILTER{
   my ($self,$value) = @_;
   
-  if ($value) {
+  if (defined $value) {
     $self->{'PRE_FILTER'} = $value;
   }
 
@@ -326,7 +327,7 @@ sub PRE_FILTER{
 sub POST_FILTER{
   my ($self,$value) = @_;
   
-  if ($value) {
+  if (defined $value) {
     $self->{'POST_FILTER'} = $value;
   }
 
@@ -340,7 +341,7 @@ sub POST_FILTER{
 sub STORE_PRIMARY{
   my ($self,$value) = @_;
   
-  if ($value) {
+  if (defined $value) {
     $self->{'STORE_PRIMARY'} = $value;
   }
 
@@ -355,7 +356,7 @@ sub STORE_PRIMARY{
 sub CALCULATE_TRANSLATION{
   my ($self,$value) = @_;
   
-  if ($value) {
+  if (defined $value) {
     $self->{'CALCULATE_TRANSLATION'} = $value;
   }
 
@@ -369,12 +370,27 @@ sub CALCULATE_TRANSLATION{
 sub DISCARD_IF_NO_ORF{
   my ($self,$value) = @_;
   
-  if ($value) {
+  if (defined $value) {
     $self->{'DISCARD_IF_NO_ORF'} = $value;
   }
 
   if (exists($self->{'DISCARD_IF_NO_ORF'})) {
     return $self->{'DISCARD_IF_NO_ORF'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub NEW_BIOTYPE{
+  my ($self,$value) = @_;
+  
+  if ($value) {
+    $self->{'NEW_BIOTYPE'} = $value;
+  }
+
+  if (exists($self->{'NEW_BIOTYPE'})) {
+    return $self->{'NEW_BIOTYPE'};
   } else {
     return undef;
   }
@@ -433,7 +449,7 @@ sub filter_object{
 
 sub mask_gene_regions{
   my ($self, $genes) = @_;
-  print "Generating mask regions for ".@$genes." genes\n";
+  #print "Generating mask regions for ".@$genes." genes\n";
   my @mask_gene_regions;
   foreach my $gene(@$genes){
     push @mask_gene_regions, { start => $gene->start, 
@@ -441,7 +457,7 @@ sub mask_gene_regions{
   }
   @mask_gene_regions = sort {$a->{'start'} <=> $b->{'start'} }
     @mask_gene_regions; 
-  print "Returning ".@mask_gene_regions." mask regions\n";
+  #print "Returning ".@mask_gene_regions." mask regions\n";
   return \@mask_gene_regions;
 }
 
@@ -489,8 +505,8 @@ sub calculate_translation{
  TRANS:foreach my $transcript (@{$gene->get_all_Transcripts}){
     my $seq = $transcript->slice->seq;
     #print "The slice seq of the transcript = ".$seq."\n";
-    print "dbadaptor of transcript ".
-      $transcript->adaptor->db->dnadb->dbname."\n";
+    #print "dbadaptor of transcript ".
+    #  $transcript->adaptor->db->dnadb->dbname."\n";
     my $new_translation = Bio::EnsEMBL::Pipeline::Tools::TranslationUtils->return_translation($transcript);
     if(!$new_translation && $self->DISCARD_IF_NO_ORF){
       next TRANS;
@@ -515,8 +531,12 @@ sub calculate_translation{
 sub get_Genes{
   my ($self, $slice, $biotypes) = @_;
   my @genes;
-  foreach my $biotype(@$biotypes){
-    push(@genes, @{$slice->get_all_Genes_by_type($biotype)});
+  if(@$biotypes){
+    foreach my $biotype(@$biotypes){
+      push(@genes, @{$slice->get_all_Genes_by_type($biotype)});
+    }
+  }else{
+    push(@genes, @{$slice->get_all_Genes});
   }
   return \@genes;
 }

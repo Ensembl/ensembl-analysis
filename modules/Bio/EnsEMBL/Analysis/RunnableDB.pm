@@ -81,7 +81,6 @@ use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 
 use vars qw (@ISA);
@@ -531,9 +530,11 @@ sub read_and_check_config{
   if (exists $var_hash->{$logic}) {
     # entry contains more specific values for the variables
     my $entry = $var_hash->{$logic};
-
+   
     foreach my $config_var (keys %{$entry}) {
+      
       if ($self->can($config_var)) {
+ 
         $self->$config_var($entry->{$config_var});
       } else {
         throw("no method defined in RunnableDB for config variable '$config_var'");
