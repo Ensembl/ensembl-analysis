@@ -6,13 +6,8 @@ ProteinAnnotation.pm - DESCRIPTION of Object
 =head1 SYNOPSIS
 
 RunnableDB for copying genes from a source database to a target
-database. Very simple at the moment - all genes in source are
-copies to target, and source and target database details are 
-defined in COPY_SOURCE_DB and COPY_TARGET_DB entries in
-Config/GeneBuild/Databases.pm.
-
-Note: make sure analysis tables are synchronised. Not essential,
-but ensures that analysis ids are preserved in the copy
+database. By default all the genes in the database COPY_SOURCE_DB are copied into
+the database COPY_TARGET_DB
 
 =head1 DESCRIPTION
 
@@ -23,6 +18,7 @@ ensembl-dev@ebi.ac.uk
 =cut
 
 package Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes;
+
 use vars qw(@ISA);
 use strict;
 
@@ -30,24 +26,78 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB
+@ISA = qw (
            Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
            );
+
+sub new{
+  my ($class,@args) = @_;
+  my $self = $class->SUPER::new(@args);
+  my ($source_db, $target_db, $biotype) = rearrange
+    (['SOURCE_DB', 'TARGET_DB', 'BIOTYPE'], @args);
+  ######################
+  #SETTING THE DEFAULTS#
+  ######################
+  $self->source_db_name('COPY_SOURCE_DB');
+  $self->target_db_name('COPY_TARGET_DB');
+  #####################
+  my $parameters_hash = $self->parameters_hash;
+  $source_db = $parameters_hash->{-source_db} if(!$source_db);
+  $target_db = $parameters_hash->{-target_db} if(!$target_db);
+  $biotype = $parameters_hash->{-biotype} if(!$biotype);
+  $self->source_db_name($source_db);
+  $self->target_db_name($target_db);
+  $self->biotype($biotype);
+  return $self;
+}
+
+
+#getter/setters
+
+sub source_db_name{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'source_db_name'} = $arg;
+  }
+  return $self->{'source_db_name'};
+}
+
+sub target_db_name{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'target_db_name'} = $arg;
+  }
+  return $self->{'target_db_name'};
+}
+
+sub biotype{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'biotype'} = $arg;
+  }
+  return $self->{'biotype'};
+}
 
 ################################
 sub fetch_input {
   my ($self) = @_;  
 
-  my $source_db = $self->get_dbadaptor('COPY_SOURCE_DB');
+  my $source_db = $self->get_dbadaptor($self->source_db_name);
   my $slice = $source_db->get_SliceAdaptor->fetch_by_name($self->input_id);
 
   #
   # total paranoia: fetch everything up front
   #
   my (@genes, %protein_features);
-
-  foreach my $g (@{$slice->get_all_Genes}) {
+  my @target_genes;
+  if($self->biotype){
+    @target_genes = @{$slice->get_all_Genes_by_type($self->biotype)};
+  }else{
+    @target_genes = @{$slice->get_all_Genes};
+  }
+  foreach my $g (@target_genes) {
 
     foreach my $t (@{$g->get_all_Transcripts}) {
       foreach my $e (@{$t->get_all_Exons}) {
@@ -92,7 +142,7 @@ sub fetch_input {
 sub write_output {
   my($self) = @_;
   
-  my $target_db = $self->get_dbadaptor('COPY_TARGET_DB');
+  my $target_db = $self->get_dbadaptor($self->target_db_name);
     
   my $g_adap = $target_db->get_GeneAdaptor;
   my $p_adap = $target_db->get_ProteinFeatureAdaptor;

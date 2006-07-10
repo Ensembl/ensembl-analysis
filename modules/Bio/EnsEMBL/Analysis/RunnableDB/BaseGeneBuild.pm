@@ -10,8 +10,11 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES);
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+use Bio::EnsEMBL::Analysis::RunnableDB;
 
+use vars qw(@ISA);
+
+@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
 
 #first of all we just need methods to get databases from the
 #database config
