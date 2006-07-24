@@ -27,6 +27,7 @@ use strict;
 use vars qw(@ISA);
 
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Sequence qw(reverse_comp);
 
 use Bio::EnsEMBL::Slice;
@@ -56,15 +57,32 @@ sub new {
       $to_slices,
       $extend_into_gaps,
       $add_gaps,
-      ) = rearrange([qw(NAME
+      $direct_target_coords,
+      ) = rearrange([qw(
+                        NAME
                         GENOMIC_ALIGN_BLOCKS
                         TRANSCRIPTS
                         FROM_SLICE
                         TO_SLICES
                         EXTEND_INTO_GAPS
-                        ADD_GAPS)], %given_args);
+                        ADD_GAPS
+                        DIRECT_TARGET_COORDS
+                        )], %given_args);
 
   $name = "GeneScaffold" if not defined $name;
+
+  if ($direct_target_coords) {
+    if ($add_gaps or $extend_into_gaps) {
+      warning("GeneScaffold: cannot use -direct_target_coords with either of " . 
+              "-add_gaps or -extend_into_gaps; unsetting both");
+      $add_gaps = 0;
+      $extend_into_gaps = 0;
+    }
+
+    # check that the genomic align blocks will allow this
+    $direct_target_coords = _check_direct_target_coordinates($genomic_align_blocks,
+                                                             $to_slices);
+  }
 
   my $aln_map = _make_alignment_mapper($genomic_align_blocks);
 
@@ -75,19 +93,26 @@ sub new {
                           $from_slice,
                           $to_slices,
                           $extend_into_gaps,
-                          $add_gaps);
+                          $add_gaps,
+                          $direct_target_coords);
 
   return undef if not defined $from_mapper;
 
+  my $gs_end = $direct_target_coords 
+      ? $direct_target_coords->length
+      : length($gs_seq);
   my $self = $class->SUPER::new(-coord_system => 
-                                  Bio::EnsEMBL::CoordSystem->new(-name => $GENE_SCAFFOLD_CS_NAME,
-                                                                 -rank => 1),
+                                   Bio::EnsEMBL::CoordSystem->new(-name => $GENE_SCAFFOLD_CS_NAME,
+                                                                  -rank => 1),
                                 -seq_region_name => $name,
                                 -seq => $gs_seq,
                                 -start => 1,
-                                -end   => length($gs_seq),
+                                -end   => $gs_end,
                                 );
 
+
+  $self->direct_target_coordinates($direct_target_coords)
+      if defined $direct_target_coords;  
   $self->from_slice($from_slice);
   $self->to_slices($to_slices);
   $self->alignment_mapper($aln_map);
@@ -303,10 +328,14 @@ sub place_transcript {
     
   foreach my $coord (@all_coords) {
     if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+      my $sl = $self->direct_target_coordinates 
+          ? $self->direct_target_coordinates 
+          : $self;
+
       push @new_exons, Bio::EnsEMBL::Exon->new(-start => $coord->start,
                                                -end   => $coord->end,
                                                -strand => $tran->strand,
-                                               -slice => $self);
+                                               -slice => $sl);
     }
   }
   
@@ -696,7 +725,8 @@ sub _construct_sequence {
       $from_slice,
       $to_slices,
       $extend_into_gaps,
-      $add_gaps) = @_;
+      $add_gaps,
+      $direct_target_coords) = @_;
 
   # Basic gene-scaffold structure is taken directly from the given block list
   my @block_coord_pairs;
@@ -1087,46 +1117,57 @@ sub _construct_sequence {
   for(my $i=0; $i < @merged_pairs; $i++) {
     my $pair = $merged_pairs[$i];
 
-    if ($pair->to->isa("Bio::EnsEMBL::Mapper::Coordinate")) {            
-      # the sequence itself        
-      my $slice = $to_slices->{$pair->to->id};
+    my ($gs_start, $gs_end);
+    if ($direct_target_coords) {
+      if ($pair->to->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        $t_map->add_map_coordinates($pair->to->id,
+                                    $pair->to->start,
+                                    $pair->to->end,
+                                    $pair->to->strand,
+                                    $GENE_SCAFFOLD_CS_NAME,
+                                    $pair->to->start,
+                                    $pair->to->end);
 
-      my $this_seq = $slice->subseq($pair->to->start, $pair->to->end);
+      }
+    } else{
+      if ($pair->to->isa("Bio::EnsEMBL::Mapper::Coordinate")) {            
+        # the sequence itself        
+        my $slice = $to_slices->{$pair->to->id};
+        my $this_seq = $slice->subseq($pair->to->start, $pair->to->end);
+        if ($pair->to->strand < 0) {
+          reverse_comp(\$this_seq);
+        }      
+        $seq .= $this_seq;
+        
+        $t_map->add_map_coordinates($pair->to->id,
+                                    $pair->to->start,
+                                    $pair->to->end,
+                                    $pair->to->strand,
+                                    $GENE_SCAFFOLD_CS_NAME,
+                                    $last_end_pos + 1,
+                                    $last_end_pos + $pair->to->length);
+      } else {
+        # the sequence itself
+        $seq .= ('n' x $pair->from->length);
+        
+        # and the map. This is a target gap we have "filled", so no position 
+        # in target, but a position in query
+        
+        $q_map->add_map_coordinates($from_slice->seq_region_name,
+                                    $pair->from->start,
+                                    $pair->from->end,
+                                    1,
+                                    $GENE_SCAFFOLD_CS_NAME,
+                                    $last_end_pos + 1,
+                                    $last_end_pos + $pair->from->length);
+      }
 
-      if ($pair->to->strand < 0) {
-        reverse_comp(\$this_seq);
-      }      
-      $seq .= $this_seq;
-
-      # and the map
-      $t_map->add_map_coordinates($pair->to->id,
-                                  $pair->to->start,
-                                  $pair->to->end,
-                                  $pair->to->strand,
-                                  $GENE_SCAFFOLD_CS_NAME,
-                                  $last_end_pos + 1,
-                                  $last_end_pos + $pair->to->length);
-    } else {
-      # the sequence itself
-      $seq .= ('n' x $pair->from->length);
-      
-      # and the map. This is a target gap we have "filled", so no position 
-      # in target, but a position in query
-      
-      $q_map->add_map_coordinates($from_slice->seq_region_name,
-                                  $pair->from->start,
-                                  $pair->from->end,
-                                  1,
-                                  $GENE_SCAFFOLD_CS_NAME,
-                                  $last_end_pos + 1,
-                                  $last_end_pos + $pair->from->length);
-    }
-
-    # add padding between the pieces
-    if ($i < @merged_pairs - 1) {
-      $last_end_pos += 
-          $pair->to->length + $INTERPIECE_PADDING;
-      $seq .= ('n' x $INTERPIECE_PADDING);
+      # add padding between the pieces
+      if ($i < @merged_pairs - 1) {
+        $last_end_pos += 
+            $pair->to->length + $INTERPIECE_PADDING;
+        $seq .= ('n' x $INTERPIECE_PADDING);
+      }
     }
   }
 
@@ -1210,6 +1251,33 @@ sub _make_alignment_mapper {
 
 
 ##############################################
+
+sub _check_direct_target_coordinates {
+  my ($blocks, $slices) = @_;
+
+  my $tname;
+
+  my @blocks = @$blocks;
+  for(my $i=1; $i < @blocks; $i++) {
+    my ($left_to) = @{$blocks[$i-1]->get_all_non_reference_genomic_aligns};
+    my ($right_to) = @{$blocks[$i]->get_all_non_reference_genomic_aligns};
+
+    if ($left_to->dnafrag->name ne $right_to->dnafrag->name or
+        $left_to->dnafrag_strand != $right_to->dnafrag_strand or
+        ($left_to->dnafrag_strand > 0 and $left_to->dnafrag_end >= $right_to->dnafrag_start) or
+        ($left_to->dnafrag_strand < 0 and $left_to->dnafrag_start <= $right_to->dnafrag_end)) {
+      
+      throw("Cannot use direct target coordinates with inconsistent set of blocks");
+    }
+
+    $tname = $left_to->dnafrag->name if not defined $tname;
+  }
+
+  return $slices->{$tname};
+}
+
+
+##############################################
 # Get/Sets
 ##############################################
 
@@ -1221,6 +1289,17 @@ sub alignment_mapper {
   }
 
   return $self->{_alignment_mapper};
+}
+
+
+sub direct_target_coordinates {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_direct_target} = $val;
+  }
+
+  return $self->{_direct_target};
 }
 
 
