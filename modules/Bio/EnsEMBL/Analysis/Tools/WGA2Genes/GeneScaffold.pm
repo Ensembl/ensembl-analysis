@@ -65,8 +65,6 @@ sub new {
                         ADD_GAPS)], %given_args);
 
   $name = "GeneScaffold" if not defined $name;
-  $add_gaps = 1 if not defined $add_gaps;
-  $extend_into_gaps = 1 if not defined $extend_into_gaps;
 
   my $aln_map = _make_alignment_mapper($genomic_align_blocks);
 

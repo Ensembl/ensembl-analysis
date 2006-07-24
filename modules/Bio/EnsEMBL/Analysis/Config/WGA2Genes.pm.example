@@ -107,6 +107,17 @@ use vars qw( %Config );
                # "non-primary" (second, third etc. level) gene scaffolds
                MAX_EDITABLE_STOPS_NON_PRIMARY => 0,
 
+               # If the following is non-zero, exons that appear to be
+               # missing from alignment to due a sequence gap will be
+               # placed in that gap (if circumstances allow)
+               FULLY_GAP_EXONS => 1,
+
+               # If the following is non-zero, exons with partial alignment
+               # cover to du an apparent sequence gap will be extended into
+               # that gap (if circumstances allow) 
+               PARTIAL_GAP_EXONS => 1,
+
+
                # Minimum coverage of source transcript
                MIN_COVERAGE => 50.0,
 

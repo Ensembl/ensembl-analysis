@@ -369,7 +369,8 @@ sub run {
                                                                         $self->MAX_EDITABLE_STOPS_PRIMARY,
                                                                         $self->MIN_COVERAGE,
                                                                         $self->MIN_NON_GAP,
-                                                                        1);
+                                                                        $self->FULLY_GAP_EXONS,
+                                                                        $self->PARTIAL_GAP_EXONS);
         
         push @these_results, [$gene_scaffold, @$subset_generecs];
       }
@@ -453,7 +454,8 @@ sub run {
                                                                         $self->MAX_EDITABLE_STOPS_NON_PRIMARY,
                                                                         $self->MIN_COVERAGE,
                                                                         $self->MIN_NON_GAP,
-                                                                        1);
+                                                                        $self->FULLY_GAP_EXONS,
+                                                                        $self->PARTIAL_GAP_EXONS);
         my @kept;
         foreach my $gr (@grs) {
           if (scalar(@{$gr->projected_transcripts})) {
@@ -521,7 +523,8 @@ sub make_gene_scaffold_and_project_genes {
       $max_stops,
       $min_coverage,
       $min_non_gap,
-      $add_gaps) = @_;
+      $add_gaps,
+      $extend_into_gaps) = @_;
 
   my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->
       new(-name => $name,
@@ -531,6 +534,7 @@ sub make_gene_scaffold_and_project_genes {
           -transcripts   => [map {@{$_->source_transcripts}} @$res_genes],
           -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
           -add_gaps => $add_gaps,
+          -extend_into_gaps => $extend_into_gaps,
           );
   
   foreach my $res_gene (@$res_genes) {
@@ -1361,6 +1365,28 @@ sub MAX_EDITABLE_STOPS_NON_PRIMARY {
 
   return $self->{_max_editable_stops_non_primary};
 }
+
+sub FULLY_GAP_EXONS {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_fully_gap_exons} = $val; 
+  }
+
+  return $self->{_fully_gap_exons};
+}
+
+
+sub PARTIAL_GAP_EXONS {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_partial_gap_exons} = $val; 
+  }
+
+  return $self->{_partial_gap_exons};
+}
+
 
 sub MIN_COVERAGE {
   my ($self, $val) = @_;
