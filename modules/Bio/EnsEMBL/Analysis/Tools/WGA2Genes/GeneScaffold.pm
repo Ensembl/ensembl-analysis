@@ -41,7 +41,6 @@ my $TO_CS_NAME   = 'scaffold';
 my $GENE_SCAFFOLD_CS_NAME  = 'genescaffold';
 
 my $INTERPIECE_PADDING      = 100;
-my $MAX_READTHROUGH_DIST    = 15;
 my $NEAR_CONTIG_END         = 15;
 ###############################################
 
@@ -55,6 +54,7 @@ sub new {
       $transcripts,
       $from_slice,
       $to_slices,
+      $max_readthrough_dist,
       $extend_into_gaps,
       $add_gaps,
       $direct_target_coords,
@@ -64,12 +64,14 @@ sub new {
                         TRANSCRIPTS
                         FROM_SLICE
                         TO_SLICES
+                        MAX_READTHROUGH_DIST
                         EXTEND_INTO_GAPS
                         ADD_GAPS
                         DIRECT_TARGET_COORDS
                         )], %given_args);
 
   $name = "GeneScaffold" if not defined $name;
+  $max_readthrough_dist = 15 if not defined $max_readthrough_dist;
 
   if ($direct_target_coords) {
     if ($add_gaps or $extend_into_gaps) {
@@ -92,6 +94,7 @@ sub new {
                           $transcripts,
                           $from_slice,
                           $to_slices,
+                          $max_readthrough_dist,
                           $extend_into_gaps,
                           $add_gaps,
                           $direct_target_coords);
@@ -113,6 +116,8 @@ sub new {
 
   $self->direct_target_coordinates($direct_target_coords)
       if defined $direct_target_coords;  
+  $self->max_readthrough_dist($max_readthrough_dist)
+      if defined $max_readthrough_dist;
   $self->from_slice($from_slice);
   $self->to_slices($to_slices);
   $self->alignment_mapper($aln_map);
@@ -442,14 +447,14 @@ sub place_transcript {
       if ($tran->strand < 0) {
         my $intron_len = $prev_exon->start - $exon->end - 1;
         if ($intron_len % 3 == 0 and 
-            $intron_len <= $MAX_READTHROUGH_DIST) { 
+            $intron_len <= $self->max_readthrough_dist) { 
           $new_start = $exon->start;
           $new_end   = $prev_exon->end;
         }
       } else {
         my $intron_len = $exon->start - $prev_exon->end - 1;
         if ($intron_len % 3 == 0 and 
-            $intron_len <= $MAX_READTHROUGH_DIST) {
+            $intron_len <= $self->max_readthrough_dist) {
           $new_start = $prev_exon->start;
           $new_end   = $exon->end;
         }
@@ -724,6 +729,7 @@ sub _construct_sequence {
       $transcripts,
       $from_slice,
       $to_slices,
+      $max_readthrough_dist,
       $extend_into_gaps,
       $add_gaps,
       $direct_target_coords) = @_;
@@ -1058,7 +1064,7 @@ sub _construct_sequence {
       my $dist = distance_between_coords($merged_pairs[-1]->to,
                                          $this_pair->to);
       
-      if ($dist <= $MAX_READTHROUGH_DIST) {
+      if ($dist <= $max_readthrough_dist) {
         
         my $last_pair = pop @merged_pairs;
 
@@ -1300,6 +1306,16 @@ sub direct_target_coordinates {
   }
 
   return $self->{_direct_target};
+}
+
+sub max_readthrough_dist {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_max_readthrough} = $val;
+  }
+
+  return $self->{_max_readthrough};
 }
 
 
