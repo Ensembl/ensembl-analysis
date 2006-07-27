@@ -542,7 +542,7 @@ sub make_gene_scaffold_and_project_genes {
     
     foreach my $tran (@{$res_gene->source_transcripts}) {
       my $proj_trans = 
-          $gene_scaffold->place_transcript($tran);
+          $gene_scaffold->place_transcript($tran, 1);
       
       $proj_trans = 
           $self->process_transcript($proj_trans, 

@@ -70,8 +70,10 @@ sub new {
                         DIRECT_TARGET_COORDS
                         )], %given_args);
 
+  _check_transcripts($transcripts);
+
   $name = "GeneScaffold" if not defined $name;
-  $max_readthrough_dist = 15 if not defined $max_readthrough_dist;
+  $max_readthrough_dist = 15 if not defined $max_readthrough_dist;  
 
   if ($direct_target_coords) {
     if ($add_gaps or $extend_into_gaps) {
@@ -140,7 +142,8 @@ sub new {
 
 sub place_transcript {
   my ($self, 
-      $tran) = @_;
+      $tran,
+      $add_attributes) = @_;
 
   my (@all_coords, @new_exons);
   
@@ -612,8 +615,10 @@ sub place_transcript {
           -description => 'source transcript',
           -value => $tran->stable_id);
   push @attributes, $tranid_attr;
-  
-  $proj_tran->add_Attributes(@attributes);
+
+  if ($add_attributes) {
+    $proj_tran->add_Attributes(@attributes);
+  }
   
   return $proj_tran;
 }
@@ -719,6 +724,25 @@ sub project_down {
 ###############################################
 # Internal helper methods
 ###############################################
+
+#################################################
+
+sub _check_transcripts {
+  my ($trans) = @_;
+
+  if (scalar(@$trans) == 0) {
+    throw("Attempt to create GeneScaffod with transcript list");
+  }
+
+  foreach my $t (@$trans) {
+    if (not $t->translation) {
+      throw("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
+    }
+    if (length($t->translateable_seq) % 3 != 0) {
+      throw("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
+    }
+  }
+}
 
 
 #################################################
