@@ -57,7 +57,7 @@ sub new {
       $max_readthrough_dist,
       $extend_into_gaps,
       $add_gaps,
-      $direct_target_coords,
+      $direct_target_slice,
       ) = rearrange([qw(
                         NAME
                         GENOMIC_ALIGN_BLOCKS
@@ -75,7 +75,7 @@ sub new {
   $name = "GeneScaffold" if not defined $name;
   $max_readthrough_dist = 15 if not defined $max_readthrough_dist;  
 
-  if ($direct_target_coords) {
+  if ($direct_target_slice) {
     if ($add_gaps or $extend_into_gaps) {
       warning("GeneScaffold: cannot use -direct_target_coords with either of " . 
               "-add_gaps or -extend_into_gaps; unsetting both");
@@ -84,8 +84,8 @@ sub new {
     }
 
     # check that the genomic align blocks will allow this
-    $direct_target_coords = _check_direct_target_coordinates($genomic_align_blocks,
-                                                             $to_slices);
+    $direct_target_slice = _check_direct_target_coordinates($genomic_align_blocks,
+                                                           $to_slices);
   }
 
   my $aln_map = _make_alignment_mapper($genomic_align_blocks);
@@ -99,12 +99,12 @@ sub new {
                           $max_readthrough_dist,
                           $extend_into_gaps,
                           $add_gaps,
-                          $direct_target_coords);
+                          $direct_target_slice);
 
   return undef if not defined $from_mapper;
 
-  my $gs_end = $direct_target_coords 
-      ? $direct_target_coords->length
+  my $gs_end = $direct_target_slice 
+      ? $direct_target_slice->length
       : length($gs_seq);
   my $self = $class->SUPER::new(-coord_system => 
                                    Bio::EnsEMBL::CoordSystem->new(-name => $GENE_SCAFFOLD_CS_NAME,
@@ -116,8 +116,8 @@ sub new {
                                 );
 
 
-  $self->direct_target_coordinates($direct_target_coords)
-      if defined $direct_target_coords;  
+  $self->direct_target_slice($direct_target_slice)
+      if defined $direct_target_slice;  
   $self->max_readthrough_dist($max_readthrough_dist)
       if defined $max_readthrough_dist;
   $self->from_slice($from_slice);
@@ -149,11 +149,11 @@ sub place_transcript {
   
   my @orig_exons = @{$tran->get_all_translateable_Exons};
   @orig_exons = sort { $a->start <=> $b->start } @orig_exons;
-
+  
   my $orig_exon_coords = transcripts_to_coords($self->alignment_mapper,
                                                $FROM_CS_NAME,
                                                $tran);
-
+  
   my $restricted_range;
   if (@$orig_exon_coords) {
     $restricted_range = Bio::EnsEMBL::Mapper::Coordinate->new($orig_exon_coords->[0]->id,
@@ -166,13 +166,9 @@ sub place_transcript {
                                                               $orig_exons[-1]->end,
                                                               $orig_exons[0]->strand);
   }
-
-  
-  my $source_tran_length = 0;
-  map { $source_tran_length += $_->length } @orig_exons; 
-  
+    
   my %filled_coords;
-
+  
   # look for regions that map down to filled gaps. If any of these
   # lie outside the restricted range (i.e. extent of the transcript
   # within which gaps were potentially filled), then they must 
@@ -185,6 +181,8 @@ sub place_transcript {
                                                    $orig_exon->end,
                                                    1,
                                                    $FROM_CS_NAME);
+    
+
     foreach my $c (@crds) {
       if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
         my ($tc) = $self->to_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
@@ -224,7 +222,7 @@ sub place_transcript {
       }
     }
   }
-
+  
   my @kept_coords;
   foreach my $c (@all_coords) {
     if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate") and 
@@ -247,7 +245,7 @@ sub place_transcript {
     }
   }
   @all_coords = @kept_coords;
-
+  
   #
   # now massage the gaps to account for frameshifts
   #
@@ -333,31 +331,19 @@ sub place_transcript {
   #
   # The remaining non-gap pieces are the exons
   #
-    
+  my $sl =  $self->direct_target_slice 
+      ? $self->direct_target_slice 
+      : $self;
+
   foreach my $coord (@all_coords) {
     if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-      my $sl = $self->direct_target_coordinates 
-          ? $self->direct_target_coordinates 
-          : $self;
-
       push @new_exons, Bio::EnsEMBL::Exon->new(-start => $coord->start,
                                                -end   => $coord->end,
                                                -strand => $tran->strand,
                                                -slice => $sl);
     }
   }
-  
-  my $total_tran_bps = 0;
-  map { $total_tran_bps += $_->length } @new_exons; 
-  
-  if (not @new_exons) {
-    # the whole transcript mapped to gaps
-    return 0;
-  }
-  
-  #
-  # sort exons into rank order 
-  #
+  return 0 if not @new_exons; 
   if ($tran->strand < 0) {
     @new_exons = sort { $b->start <=> $a->start } @new_exons;
   } else {
@@ -367,9 +353,19 @@ sub place_transcript {
   #
   # calculate phases, and add supporting features
   #
+  my $source_pep = $tran->translate->seq;
+  my $source_cds_len = 0; 
+  map { $source_cds_len  += $_->length } @orig_exons;
+  if (length($source_pep) + 1 == ($source_cds_len / 3)) {
+    # stop was removed
+    $source_pep .= "*";
+  }
+
+  my $transcript_aligned_aas = 0;
+  my $transcript_identical_aas = 0;
+
   my ($previous_exon);
   foreach my $exon (@new_exons) {
-    
     if (defined $previous_exon) {
       $exon->phase($previous_exon->end_phase);
     } else {
@@ -377,6 +373,17 @@ sub place_transcript {
     }
     
     $exon->end_phase((($exon->end - $exon->start + 1) + $exon->phase)%3);
+
+    my $exon_aligned_aas = 0;
+    my $exon_identical_aas = 0;
+
+    # optimistically, we are going to assume that split codons
+    # are identical and covered. This of course may not always
+    # be the case, but it's too fiddly (for now) to do it properly. 
+    if ($exon->phase > 0) {
+      $exon_aligned_aas++;
+      $exon_identical_aas++;
+    }
     
     # need to map back to the genomic coords to get the supporting feature
     # for this exon;
@@ -398,7 +405,7 @@ sub place_transcript {
                                                            $extent_end,
                                                            1,
                                                            $GENE_SCAFFOLD_CS_NAME);
-      
+
       my @fps;
       my $cur_gs_start = $extent_start;
       foreach my $g_coord (@gen_coords) {
@@ -409,7 +416,25 @@ sub place_transcript {
           my ($p_coord) = $tran->genomic2pep($g_coord->start, 
                                              $g_coord->end,
                                              $exon->strand);
-          
+          my $p_substr = uc(substr($source_pep, $p_coord->start - 1, $p_coord->length));
+          my $gs_reg = $sl->subseq($cur_gs_start, $cur_gs_end, $exon->strand);
+          my $gs_p_substr = uc(Bio::PrimarySeq->new(-seq => $gs_reg)->translate->seq);
+
+          if (length($p_substr) != length ($gs_p_substr)) {
+            warning("Pep segments differ; cannot calculate percentage identity");
+
+          } else {
+            $exon_aligned_aas += length($p_substr);
+
+            my @p1 = split(//, $p_substr);
+            my @p2 = split(//, $gs_p_substr);
+            for(my $i=0; $i < @p1; $i++) {
+              if ($p1[$i] eq $p2[$i]) {
+                $exon_identical_aas++;
+              }
+            }
+          }
+
           my $fp = Bio::EnsEMBL::FeaturePair->
               new(-seqname  => $self->seq_region_name,
                   -start    => $cur_gs_start,
@@ -419,7 +444,8 @@ sub place_transcript {
                   -hseqname => $tran->translation->stable_id,
                   -hstart   => $p_coord->start,
                   -hend     => $p_coord->end,
-                  -hstrand => $p_coord->strand);
+                  -hstrand  => $p_coord->strand,
+                  -slice    => $sl);
           push @fps, $fp;
         }
         
@@ -428,9 +454,13 @@ sub place_transcript {
       
       if (@fps) {
         my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@fps);
+        $f->percent_id(100 * ($exon_identical_aas / $exon_aligned_aas));
         $exon->add_supporting_features($f);
       }
     }
+    
+    $transcript_aligned_aas += $exon_aligned_aas;
+    $transcript_identical_aas += $exon_identical_aas;
     
     $previous_exon = $exon;
   }
@@ -473,17 +503,33 @@ sub place_transcript {
                 -slice  => $exon->slice);
         
         my @ug_feats;
+        my $len_l = 0;
+        my $pid_l = 0;
         if (@{$prev_exon->get_all_supporting_features}) {
           my ($sf) = @{$prev_exon->get_all_supporting_features};
-          push @ug_feats, $sf->ungapped_features;
+          $pid_l = $sf->percent_id;
+          foreach my $ug ($sf->ungapped_features) {
+            push @ug_feats, $ug;
+            $len_l += $ug->length;
+          }
         }
+        my $len_r = 0;
+        my $pid_r = 0;
         if (@{$exon->get_all_supporting_features}) {
           my ($sf) = @{$exon->get_all_supporting_features};
-          push @ug_feats, $sf->ungapped_features;
+          $pid_r = $sf->percent_id;
+          foreach my $ug ($sf->ungapped_features) {
+            push @ug_feats, $ug;
+            $len_r += $ug->length;
+          }
         }
         if (@ug_feats) {
+          map { $_->percent_id(100) } @ug_feats;
+
           my $new_sup_feat = Bio::EnsEMBL::DnaPepAlignFeature->
               new(-features => \@ug_feats);
+          $new_sup_feat->percent_id((($len_l * $pid_l) + ($len_r * $pid_r)) 
+                                    / ($len_l + $len_r));
           $merged_exon->add_supporting_features($new_sup_feat);
         }
         
@@ -497,27 +543,33 @@ sub place_transcript {
       push @merged_exons, $exon;
     }
   }
-  
-  
+    
   my $proj_tran = Bio::EnsEMBL::Transcript->new();
+  map { $proj_tran->add_Exon($_) } @merged_exons;
+  
+
+  #
+  # do transcript-level supporting features/attributes
+  #
   
   my (@trans_fps);
   foreach my $exon (@merged_exons) {
-    $proj_tran->add_Exon($exon);
     
     if (@{$exon->get_all_supporting_features}) {
       my ($sf) = @{$exon->get_all_supporting_features};
       my @e_fps = $sf->ungapped_features;
+      # need to reset the pids here, otherwise the API complains
+      map { $_->percent_id(100.0) } @e_fps;
       push @trans_fps, @e_fps;
     }
   }
-  
-  #
-  # do transcript-level supporting features/attributes
-  #
+    
   my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->
       new(-features => \@trans_fps);
-  $t_sf->hcoverage( 100 * ($total_tran_bps / $source_tran_length) );
+  # use score to hold coverage, so that it is stored somewhere when written to db
+  $t_sf->score(100 * ($transcript_aligned_aas / length($source_pep)));
+  $t_sf->hcoverage( 100 * ($transcript_aligned_aas / length($source_pep)));
+  $t_sf->percent_id(100 * ($transcript_identical_aas / $transcript_aligned_aas));
   $proj_tran->add_supporting_features($t_sf);
   
   #
@@ -537,7 +589,7 @@ sub place_transcript {
     # this can happen if the transcript comprises a single stop codon only
     return 0;
   }
-  
+
   my $prop_non_gap = 100 - (100 * (($pep->seq =~ tr/X/X/) / $pep->length));
   my $num_stops = $pep->seq =~ tr/\*/\*/;
   
@@ -546,13 +598,20 @@ sub place_transcript {
   #
   my @attributes;
   
-  
+  my $perc_id_attr = Bio::EnsEMBL::Attribute->
+      new(-code => 'HitSimilarity',
+          -name => 'hit similarity',
+          -description => 'percentage id to parent transcripts',
+          -value => sprintf("%.1f",
+                            100 * ($transcript_identical_aas / $transcript_aligned_aas)));
+  push @attributes, $perc_id_attr;
+
   my $cov_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'HitCoverage',
           -name => 'hit coverage',
           -description => 'coverage of parent transcripts',
           -value => sprintf("%.1f",
-                            100 * ($total_tran_bps / $source_tran_length)));
+                            100 * ($transcript_aligned_aas / length($source_pep))));
   push @attributes, $cov_attr;
   
   my $gap_attr = Bio::EnsEMBL::Attribute->
@@ -581,8 +640,7 @@ sub place_transcript {
             -value => 1);
     push @attributes, $attr;
   }
-  
-  
+    
   my $stop_attr = Bio::EnsEMBL::Attribute->
       new(-code => 'NumStops',
           -name => 'number of stops',
@@ -1288,19 +1346,21 @@ sub _check_direct_target_coordinates {
   my $tname;
 
   my @blocks = @$blocks;
-  for(my $i=1; $i < @blocks; $i++) {
-    my ($left_to) = @{$blocks[$i-1]->get_all_non_reference_genomic_aligns};
+  for(my $i=0; $i < @blocks; $i++) {
     my ($right_to) = @{$blocks[$i]->get_all_non_reference_genomic_aligns};
+    if ($i > 0) { 
+      my ($left_to) = @{$blocks[$i-1]->get_all_non_reference_genomic_aligns};
 
-    if ($left_to->dnafrag->name ne $right_to->dnafrag->name or
-        $left_to->dnafrag_strand != $right_to->dnafrag_strand or
-        ($left_to->dnafrag_strand > 0 and $left_to->dnafrag_end >= $right_to->dnafrag_start) or
-        ($left_to->dnafrag_strand < 0 and $left_to->dnafrag_start <= $right_to->dnafrag_end)) {
-      
-      throw("Cannot use direct target coordinates with inconsistent set of blocks");
+      if ($left_to->dnafrag->name ne $right_to->dnafrag->name or
+          $left_to->dnafrag_strand != $right_to->dnafrag_strand or
+          ($left_to->dnafrag_strand > 0 and $left_to->dnafrag_end >= $right_to->dnafrag_start) or
+          ($left_to->dnafrag_strand < 0 and $left_to->dnafrag_start <= $right_to->dnafrag_end)) {
+        
+        throw("Cannot use direct target coordinates with inconsistent set of blocks");
+      }
     }
 
-    $tname = $left_to->dnafrag->name if not defined $tname;
+    $tname = $right_to->dnafrag->name if not defined $tname;
   }
 
   return $slices->{$tname};
@@ -1322,7 +1382,7 @@ sub alignment_mapper {
 }
 
 
-sub direct_target_coordinates {
+sub direct_target_slice {
   my ($self, $val) = @_;
 
   if (defined $val) {
