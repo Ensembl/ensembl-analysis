@@ -675,6 +675,7 @@ sub process_transcript {
               } else {
                 # this ug must span the split
                 my $fp_left = Bio::EnsEMBL::FeaturePair->new();
+                $fp_left->slice     ($ug->slice);
                 $fp_left->seqname   ($ug->seqname);
                 $fp_left->strand    ($ug->strand);
                 $fp_left->hseqname  ($ug->hseqname);
@@ -684,6 +685,7 @@ sub process_transcript {
                 $fp_left->end       ($stop->start - 1);
                 
                 my $fp_right = Bio::EnsEMBL::FeaturePair->new();
+                $fp_right->slice     ($ug->slice);
                 $fp_right->seqname   ($ug->seqname);
                 $fp_right->strand    ($ug->strand);
                 $fp_right->hseqname  ($ug->hseqname);
