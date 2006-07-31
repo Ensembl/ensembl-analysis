@@ -174,14 +174,13 @@ sub place_transcript {
   # within which gaps were potentially filled), then they must 
   # be gaps that were filled for a different transcript. In that
   # case, discard these pieces
-
+  
   foreach my $orig_exon (@orig_exons) {
     my @crds = $self->from_mapper->map_coordinates($orig_exon->slice->seq_region_name,
                                                    $orig_exon->start,
                                                    $orig_exon->end,
                                                    1,
                                                    $FROM_CS_NAME);
-    
 
     foreach my $c (@crds) {
       if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
@@ -331,19 +330,20 @@ sub place_transcript {
   #
   # The remaining non-gap pieces are the exons
   #
-  my $sl =  $self->direct_target_slice 
-      ? $self->direct_target_slice 
-      : $self;
+  @all_coords = grep { $_->isa("Bio::EnsEMBL::Mapper::Coordinate") } @all_coords;
+  return 0 if not @all_coords;
+
+  my $sl =  $self->direct_target_slice
+       ? $self->direct_target_slice
+       : $self;
 
   foreach my $coord (@all_coords) {
-    if ($coord->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
-      push @new_exons, Bio::EnsEMBL::Exon->new(-start => $coord->start,
-                                               -end   => $coord->end,
-                                               -strand => $tran->strand,
-                                               -slice => $sl);
-    }
+    push @new_exons, Bio::EnsEMBL::Exon->new(-start => $coord->start,
+                                             -end   => $coord->end,
+                                             -strand => $tran->strand,
+                                             -slice => $sl);
   }
-  return 0 if not @new_exons; 
+
   if ($tran->strand < 0) {
     @new_exons = sort { $b->start <=> $a->start } @new_exons;
   } else {
@@ -371,7 +371,6 @@ sub place_transcript {
     } else {
       $exon->phase(0);
     }
-    
     $exon->end_phase((($exon->end - $exon->start + 1) + $exon->phase)%3);
 
     my $exon_aligned_aas = 0;
@@ -415,7 +414,7 @@ sub place_transcript {
           
           my ($p_coord) = $tran->genomic2pep($g_coord->start, 
                                              $g_coord->end,
-                                             $exon->strand);
+                                             $tran->strand);
           my $p_substr = uc(substr($source_pep, $p_coord->start - 1, $p_coord->length));
           my $gs_reg = $sl->subseq($cur_gs_start, $cur_gs_end, $exon->strand);
           my $gs_p_substr = uc(Bio::PrimarySeq->new(-seq => $gs_reg)->translate->seq);
@@ -678,6 +677,11 @@ sub place_transcript {
     $proj_tran->add_Attributes(@attributes);
   }
   
+  if ($self->direct_target_slice and
+      $self->direct_target_slice->strand < 0) {
+    $proj_tran = $proj_tran->transfer($self->direct_target_slice->invert);
+  }
+
   return $proj_tran;
 }
 
@@ -814,7 +818,7 @@ sub _construct_sequence {
       $max_readthrough_dist,
       $extend_into_gaps,
       $add_gaps,
-      $direct_target_coords) = @_;
+      $direct_target_slice) = @_;
 
   # Basic gene-scaffold structure is taken directly from the given block list
   my @block_coord_pairs;
@@ -1205,16 +1209,24 @@ sub _construct_sequence {
   for(my $i=0; $i < @merged_pairs; $i++) {
     my $pair = $merged_pairs[$i];
 
-    my ($gs_start, $gs_end);
-    if ($direct_target_coords) {
+    if ($direct_target_slice) {
       if ($pair->to->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
+        my ($gs_start, $gs_end);
+        if ($direct_target_slice->strand < 0) {
+          $gs_start = $direct_target_slice->length - $pair->to->end + 1;
+          $gs_end   = $direct_target_slice->length - $pair->to->start + 1;
+        } else {
+          $gs_start = $pair->to->start;
+          $gs_end = $pair->to->end;
+        }
+        
         $t_map->add_map_coordinates($pair->to->id,
                                     $pair->to->start,
                                     $pair->to->end,
                                     $pair->to->strand,
                                     $GENE_SCAFFOLD_CS_NAME,
-                                    $pair->to->start,
-                                    $pair->to->end);
+                                    $gs_start,
+                                    $gs_end);
 
       }
     } else{
@@ -1343,7 +1355,7 @@ sub _make_alignment_mapper {
 sub _check_direct_target_coordinates {
   my ($blocks, $slices) = @_;
 
-  my $tname;
+  my ($tname, $tstrand);
 
   my @blocks = @$blocks;
   for(my $i=0; $i < @blocks; $i++) {
@@ -1361,6 +1373,11 @@ sub _check_direct_target_coordinates {
     }
 
     $tname = $right_to->dnafrag->name if not defined $tname;
+    $tstrand = $right_to->dnafrag_strand if not defined $tstrand;
+  }
+
+  if ($tstrand < 0) {
+    $slices->{$tname} = $slices->{$tname}->invert;
   }
 
   return $slices->{$tname};
