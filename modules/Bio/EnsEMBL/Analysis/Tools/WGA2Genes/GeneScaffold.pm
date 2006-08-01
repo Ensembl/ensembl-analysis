@@ -327,6 +327,8 @@ sub place_transcript {
   my $start_not_found = $all_coords[0]->isa("Bio::EnsEMBL::Mapper::Gap") ? 1 : 0;
   my $end_not_found = $all_coords[-1]->isa("Bio::EnsEMBL::Mapper::Gap") ? 1 : 0;
 
+
+
   #
   # The remaining non-gap pieces are the exons
   #
@@ -363,6 +365,7 @@ sub place_transcript {
 
   my $transcript_aligned_aas = 0;
   my $transcript_identical_aas = 0;
+  my $incomplete_codon_bps = 0;
 
   my ($previous_exon);
   foreach my $exon (@new_exons) {
@@ -376,14 +379,6 @@ sub place_transcript {
     my $exon_aligned_aas = 0;
     my $exon_identical_aas = 0;
 
-    # optimistically, we are going to assume that split codons
-    # are identical and covered. This of course may not always
-    # be the case, but it's too fiddly (for now) to do it properly. 
-    if ($exon->phase > 0) {
-      $exon_aligned_aas++;
-      $exon_identical_aas++;
-    }
-    
     # need to map back to the genomic coords to get the supporting feature
     # for this exon;
     my $extent_start = $exon->start;
@@ -398,7 +393,9 @@ sub place_transcript {
     
     if ($extent_end > $extent_start) {
       # if not, we've eaten away the whole exon, so there is no support
-      
+      $incomplete_codon_bps += ($extent_start - $exon->start); 
+      $incomplete_codon_bps += ($exon->end - $extent_end); 
+
       my @gen_coords = $self->from_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
                                                            $extent_start,
                                                            $extent_end,
@@ -456,6 +453,8 @@ sub place_transcript {
         $f->percent_id(100 * ($exon_identical_aas / $exon_aligned_aas));
         $exon->add_supporting_features($f);
       }
+    } else {
+      $incomplete_codon_bps += $exon->length;
     }
     
     $transcript_aligned_aas += $exon_aligned_aas;
@@ -463,7 +462,12 @@ sub place_transcript {
     
     $previous_exon = $exon;
   }
-  
+  # optimistically, we are going to assume that split codons
+  # are identical and covered. This of course may not always
+  # be the case, but it's too fiddly (for now) to do it properly. 
+  $transcript_aligned_aas += int($incomplete_codon_bps / 3);
+  $transcript_identical_aas += int($incomplete_codon_bps / 3);
+
   #
   # merge abutting exons; deals with exon fusion events, and 
   # small, frame-preserving insertions in the target
@@ -558,11 +562,10 @@ sub place_transcript {
       my ($sf) = @{$exon->get_all_supporting_features};
       my @e_fps = $sf->ungapped_features;
       # need to reset the pids here, otherwise the API complains
-      map { $_->percent_id(100.0) } @e_fps;
+      map { $_->percent_id(100) } @e_fps;
       push @trans_fps, @e_fps;
     }
   }
-    
   my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->
       new(-features => \@trans_fps);
   # use score to hold coverage, so that it is stored somewhere when written to db
@@ -1376,11 +1379,14 @@ sub _check_direct_target_coordinates {
     $tstrand = $right_to->dnafrag_strand if not defined $tstrand;
   }
 
+  my $target_slice;
   if ($tstrand < 0) {
-    $slices->{$tname} = $slices->{$tname}->invert;
+    $target_slice = $slices->{$tname}->invert;
+  } else {
+    $target_slice = $slices->{$tname};
   }
 
-  return $slices->{$tname};
+  return $target_slice;
 }
 
 
