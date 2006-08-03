@@ -566,14 +566,22 @@ sub place_transcript {
       push @trans_fps, @e_fps;
     }
   }
-  my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->
-      new(-features => \@trans_fps);
-  # use score to hold coverage, so that it is stored somewhere when written to db
-  $t_sf->score(100 * ($transcript_aligned_aas / length($source_pep)));
-  $t_sf->hcoverage( 100 * ($transcript_aligned_aas / length($source_pep)));
-  $t_sf->percent_id(100 * ($transcript_identical_aas / $transcript_aligned_aas));
-  $proj_tran->add_supporting_features($t_sf);
+
+  if (@trans_fps) {
+    my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->
+        new(-features => \@trans_fps);
+    # use score to hold coverage, so that it is stored somewhere when written to db
+    $t_sf->score(100 * ($transcript_aligned_aas / length($source_pep)));
+    $t_sf->hcoverage( 100 * ($transcript_aligned_aas / length($source_pep)));
+    $t_sf->percent_id(100 * ($transcript_identical_aas / $transcript_aligned_aas));
+    $proj_tran->add_supporting_features($t_sf);
+  } else {
+    # there are no complete codons in any exon!
+    # this is clearly rubbish, so bail out
+    return 0;
+  }
   
+
   #
   # set translation
   #
