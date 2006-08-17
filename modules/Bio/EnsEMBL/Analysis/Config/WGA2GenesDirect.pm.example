@@ -1,0 +1,118 @@
+#
+# package Bio::EnsEMBL::Pipeline::Config::WGA2Genes
+# 
+# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+#
+# Copyright GRL & EBI
+#
+# You may distribute this module under the same terms as perl itself
+
+# POD documentation - main docs before the code
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
+
+=head1 SYNOPSIS
+
+use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect
+
+=head1 DESCRIPTION
+
+It imports and sets a number of standard global variables into the
+calling package, which are used in many scripts in the human sequence
+analysis system.  The variables are first declared using "use vars",
+so that it can be used when "use strict" is in use in the calling
+script.  Without arguments all the standard variables are set, and
+with a list, only those variables whose names are provided are set.
+
+=head1 CONTACT
+
+=cut
+
+
+package Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+           WGA2GENES_CONFIG_BY_LOGIC => {
+             DEFAULT => {
+
+               TARGET_CORE_DB => {
+                 -dbname => '',
+                 -user   => '',
+                 -pass   => '',
+                 -host   => '',
+                 -port   => '',
+               },
+               QUERY_CORE_DB => {
+                 -dbname => '',
+                 -user   => '',
+                 -host   => '',
+                 -port   => '',
+               },
+               COMPARA_DB => {
+                 -dbname => '',
+                 -host   => '',
+                 -user   => '',
+                 -port   => '',
+               },
+
+               INPUT_METHOD_LINK_TYPE => 'BLASTZ_NET',
+
+               #############################
+               # Transcript construction and filtering
+               #############################
+               
+               # The maximum number of in-frame stops that will be "edited
+               # out" (by introning over them) of the transcript for
+               # "primary" (first level) gene scaffold
+               # Minimum coverage of source transcript
+
+               MAX_EXON_READTHROUGH_DIST => 15,
+               
+               TRANSCRIPT_FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ClusterFilter',
+                           PARAMETERS => {
+                             -coverage => 50,
+                             -percent_id => 50,
+                             -max_editable_stops => 5,
+                             -best_in_genome => 1,
+                           },
+                         },
+
+             },
+           },
+
+           );
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
