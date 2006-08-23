@@ -435,7 +435,7 @@ sub _make_genes {
 	# fetch lookup multi-valued hash { pfam_id => [pfam_acc, pfam_desc], ... }
 
 	my $pfam_lookup  = $self->pfam_lookup();
-	my $pfam_release = $self->db_version_searched();
+	my $pfam_release = $self->get_db_version();
 	$self->_check_that_external_db_table_populated( $pfam_release, 'PFAM',
 		'XREF' );
 
