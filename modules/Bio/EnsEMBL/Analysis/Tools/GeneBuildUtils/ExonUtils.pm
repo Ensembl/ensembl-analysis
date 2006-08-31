@@ -57,6 +57,8 @@ use vars qw (@ISA @EXPORT);
              transfer_supporting_evidence
              get_upstream_Intron
              get_downstream_Intron
+             get_upstream_splice_sites
+             get_downstream_splice_sites
             );
 
 
@@ -216,6 +218,20 @@ sub transfer_supporting_evidence{
 }
 
 
+=head2 Intron methods
+
+  Arg [1]   : Bio::EnsEMBL::Exon
+  Arg [2]   : Bio::EnsEMBL::Transcript
+  Function  : these methods get either intron objects or splice site pairs
+  on the basis of a give exon and transcript
+  Returntype: either Bio::EnsEMBL::Intron or 2 strings. Note the 5" most exon will give
+  no upstream intron/splice sites and the 3" most exon will give no downstream
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
 
 sub get_upstream_Intron{
   my ($exon, $transcript) = @_;
@@ -237,6 +253,25 @@ sub get_downstream_Intron{
   return undef;
 }
 
+sub get_upstream_splice_sites{
+  my ($exon, $transcript) = @_;
+  my $upstream_intron = get_upstream_Intron($exon, $transcript);
+  if($upstream_intron){
+    return get_splice_sites($upstream_intron);
+  }else{
+    return undef;
+  }
+}
 
+
+sub get_downstream_splice_sites{
+  my ($exon, $transcript) = @_;
+  my $downstream_intron = get_downstream_Intron($exon, $transcript);
+  if($downstream_intron){
+    return get_splice_sites($downstream_intron);
+  }else{
+    return undef;
+  }
+}
 
 1;

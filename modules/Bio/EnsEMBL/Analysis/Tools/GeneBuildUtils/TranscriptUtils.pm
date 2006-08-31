@@ -41,7 +41,7 @@ use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info );
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites );
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
@@ -82,6 +82,11 @@ use vars qw (@ISA @EXPORT);
              get_evidence_ids
              dump_cDNA_file
              convert_to_genes
+             evidence_coverage
+             get_upstream_Intron_from_Exon
+             get_downstream_Intron_from_Exon
+             get_upstream_splice_sites
+             get_downstream_splice_sites
             );
 
 
@@ -667,10 +672,10 @@ sub are_splice_sites_canonical{
   my $non_canonical_count = 
     count_non_canonical_splice_sites($transcript);
   if($non_canonical_count){
-    warning(id($transcript)." contains ".
-            $non_canonical_count." non canonical ".
-            "splice sites out of ".@$introns.
-            " introns");
+    logger_info(id($transcript)." contains ".
+                $non_canonical_count." non canonical ".
+                "splice sites out of ".@$introns.
+                " introns");
     return 0;
   }
   if(@$introns == 0){
@@ -1482,8 +1487,82 @@ sub convert_to_genes {
 }
 
 
+=head2 evidence_coverage
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : Bio::Seq 
+  Function  : 
+  Returntype: 
+  Exceptions: 
+  Example   : 
+
+=cut
+
+#note this method is designed to work with protein evidence, it should work with
+#dna evidence but I am not sure
+
+sub evidence_coverage{
+  my ($transcript, $evidence) = @_;
+
+  throw("Can't work out evidence coverage for ".id($transcript).
+        " without any evidence") if(!$evidence);
+
+  my $matches = 0;
+  my $pstart  = 0;
+  my $pend    = 0;
+  my $evidence_name = $evidence->id;
+  my $plength;
+
+  foreach my $exon(@{$transcript->get_all_Exons}) {
+    $pstart = 0;
+    $pend   = 0;
+    
+    foreach my $f(@{$exon->get_all_supporting_features}){
+      
+      if($evidence_name ne $f->hseqname){
+        warning("$evidence_name ne " . $f->hseqname . "\n");
+      }
+      
+      if((!$pstart) || $pstart > $f->hstart){
+        $pstart = $f->hstart;
+      }
+      
+      if((!$pend) || $pend < $f->hend){
+        $pend= $f->hend;
+      }
+    }
+    $matches += ($pend - $pstart + 1);
+  }
+
+  $plength = $evidence->length;
+  if(!defined($plength) || $plength == 0){
+    warning("TranscriptUtils: no sensible length for ".$evidence_name." assuming 0% ".
+            "coverage");
+    return 0;
+  }
+  my $coverage = int(100 * $matches/$plength);
+  return $coverage;
+}
 
 
+sub get_upstream_Intron_from_Exon{
+  my ($transcript, $exon) = @_;
+  return get_upstream_Intron($exon, $transcript);
+}
 
+sub get_upstream_splice_sites_from_Exon{
+  my ($transcript, $exon) = @_;
+  return get_upstream_splice_sites($exon, $transcript);
+}
+
+sub get_downstream_Intron_from_Exon{
+  my ($transcript, $exon) = @_;
+  return get_downstream_Intron($exon, $transcript);
+}
+
+sub get_downstream_splice_sites_from_Exon{
+  my ($transcript, $exon) = @_;
+  return get_downstream_splice_sites($exon, $transcript);
+}
 
 1;
