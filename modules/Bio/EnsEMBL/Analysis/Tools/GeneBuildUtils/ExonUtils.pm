@@ -43,6 +43,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw(print_Evidence clone_Evidence);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(get_splice_sites);
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use vars qw (@ISA @EXPORT);
@@ -54,6 +55,8 @@ use vars qw (@ISA @EXPORT);
              Exon_info
              exon_length_less_than_maximum
              transfer_supporting_evidence
+             get_upstream_Intron
+             get_downstream_Intron
             );
 
 
@@ -211,6 +214,29 @@ sub transfer_supporting_evidence{
   }
   return $target_exon;
 }
+
+
+
+sub get_upstream_Intron{
+  my ($exon, $transcript) = @_;
+  foreach my $intron(@{$transcript->get_Introns}){
+    if($exon eq $intron->next_Exon){
+      return $intron;
+    }
+  }
+  return undef;
+}
+
+sub get_downstream_Intron{
+  my ($exon, $transcript) = @_;
+  foreach my $intron(@{$transcript->get_Introns}){
+    if($exon eq $intron->prev_Exon){
+      return $intron;
+    }
+  }
+  return undef;
+}
+
 
 
 1;
