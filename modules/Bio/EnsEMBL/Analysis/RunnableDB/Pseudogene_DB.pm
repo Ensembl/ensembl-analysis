@@ -337,7 +337,10 @@ sub store_ids {
   my $flag_adaptor = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
   my $analysis_adaptor = $self->db->get_AnalysisAdaptor;
   my $analysis = $analysis_adaptor->fetch_by_logic_name($analysis_name);
-  # What do you do if the analysis thing isnt found?
+  unless ($analysis) {  
+     throw( "analysis " . $analysis_name  . " can't be found in " . $self->db->dbname ." @ " . $self->db->host.  "\n")  ; 
+  } 
+# What do you do if the analysis thing isnt found?
   return 0 unless (scalar(@{$id_list} >0));
   foreach my $id(@{$id_list}){
     my $flag = Bio::EnsEMBL::Pipeline::Flag->new(
