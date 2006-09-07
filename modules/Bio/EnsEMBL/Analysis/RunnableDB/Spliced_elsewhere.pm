@@ -169,7 +169,7 @@ sub run {
 	  $self->pseudo_genes($gene);
 	} else {	
 	  $gene->type($RETRO_TYPE);
-	  $self->output($gene);
+	  $self->output([$gene]);
 	}
       }
     }
@@ -215,7 +215,7 @@ sub  parse_results{
 	my $real_trans;
 	# Warn if transcript cannot be found
 	eval{
-	  $real_trans =   $ta->fetch_by_translation_id($daf->hseqname);
+	  $real_trans =   $ta->fetch_by_translation_stable_id($daf->hseqname);
 	};
 	if ($@) {
 	  $self->warn("Unable to find translation $daf->hseqname \n$@\n");
