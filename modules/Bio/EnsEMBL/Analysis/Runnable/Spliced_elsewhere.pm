@@ -40,6 +40,9 @@ use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 use Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+
+
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Pseudogene);
@@ -60,9 +63,8 @@ sub new {
 
   $self->{'_genes'} = [];	#array of genescripts to test;  
 
-  my($genes) = $self->_rearrange([qw(
-				     GENES
-				    )], @args);
+  my($genes) = rearrange([qw( GENES)], @args);
+
   if ($genes) {
     $self->genes($genes);
   }
