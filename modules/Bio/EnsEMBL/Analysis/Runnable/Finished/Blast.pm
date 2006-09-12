@@ -5,7 +5,7 @@ use warnings;
 use BlastableVersion;
 use Symbol;
 use Bio::EnsEMBL::Analysis::Config::Blast;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 
 $ENV{BLASTDB} = '/data/blastdb/Finished';
@@ -34,6 +34,92 @@ sub get_analysis {
 		);
 	}
 	return $ana;
+}
+
+sub run_analysis {
+  my ($self) = @_;
+  
+  DB:foreach my $database (@{$self->databases}) {
+
+    my $db = $database;
+    $db =~ s/.*\///;
+    #allow system call to adapt to using ncbi blastall. 
+    #defaults to WU blast
+    my $command  = $self->program;
+    my $blastype = "";
+    my $filename = $self->queryfile;
+    my $results_file = $self->create_filename($db, 'blast.out');
+    $self->files_to_delete($results_file);
+    $self->results_files($results_file);
+    if ($self->type eq 'ncbi') {
+      $command .= " -d $database -i $filename ";
+    } else {
+      $command .= " $database $filename -gi ";
+    }
+    $command .= $self->options. ' 2>&1 > '.$results_file;
+    
+    info("Running blast ".$command);
+    print STDOUT "Blast command ".$command."\n";
+    
+    open(my $fh, "$command |") || 
+      throw("Error opening Blast cmd <$command>." .
+            " Returned error $? BLAST EXIT: '" . 
+            ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) . 
+            "', There was " . ($? & 128 ? 'a' : 'no') . 
+            " core dump");
+    # this loop reads the STDERR from the blast command
+    # checking for FATAL: messages (wublast) [what does ncbi blast say?]
+    # N.B. using simple die() to make it easier for RunnableDB to parse.
+    while(<$fh>){
+      if(/FATAL:(.+)/){
+        my $match = $1;
+        next DB if $match =~ /There is nothing in the requested database to search/;
+		# clean up before dying
+		$self->delete_files;
+        if($match =~ /no valid contexts/){
+          die qq{"VOID"\n}; # hack instead
+        }elsif($match =~ /Bus Error signal received/){
+          die qq{"BUS_ERROR"\n}; # can we work out which host?
+        }elsif($match =~ /Segmentation Violation signal received./){
+          die qq{"SEGMENTATION_FAULT"\n}; # can we work out which host?
+        }elsif($match =~ /Out of memory;(.+)/){
+          # (.+) will be something like "1050704 bytes were last 
+          #requested."
+          die qq{"OUT_OF_MEMORY"\n}; 
+          # resenD to big mem machine by rulemanager
+        }elsif($match =~ /the query sequence is shorter 
+               than the word length/){
+          #no valid context 
+          die qq{"VOID"\n}; # hack instead
+        }else{
+          warning("Something FATAL happened to BLAST we've not ".
+                  "seen before, please add it to Package: " 
+                  . __PACKAGE__ . ", File: " . __FILE__."\n[$match]\n");
+          die ($self->unknown_error_string."\n"); 
+          # send appropriate string 
+          #as standard this will be failed so job can be retried
+          #when in pipeline
+        }
+      }elsif(/WARNING:(.+)/){
+        # ONLY a warning usually something like hspmax=xxxx was exceeded
+        # skip ...
+      }elsif(/^\s{10}(.+)/){ # ten spaces
+        # Continuation of a WARNING: message
+        # Hope this doesn't catch more than these.
+        # skip ...
+      }
+    }
+    unless(close $fh){
+      # checking for failures when closing.
+      # we should't get here but if we do then $? is translated 
+      #below see man perlvar
+      warning("Error running Blast cmd <$command>. Returned ".
+              "error $? BLAST EXIT: '" . ($? >> 8) . 
+              "', SIGNAL '" . ($? & 127) . "', There was " . 
+              ($? & 128 ? 'a' : 'no') . " core dump");
+      die ($self->unknown_error_string."\n"); 
+    }
+  }
 }
 
 sub parse_results {
@@ -83,14 +169,12 @@ sub databases {
 			# and put them in the database array
 			if ( -f $dbname ) {
 				push( @databases, $dbname );
-				$self->get_db_version($dbname);
 			}
 			else {
 				my $count = 1;
 				my $db_filename;
 				while ( -f ( $db_filename = "${dbname}-${count}" ) ) {
 					push( @databases, $db_filename );
-					$self->get_db_version($db_filename);
 					$count++;
 				}
 				$! = undef
@@ -100,6 +184,10 @@ sub databases {
 		if ( scalar(@databases) == 0 ) {
 			throw( "No databases exist for " . $db_names );
 		} else {
+			foreach my $db_name (@databases){
+				$self->get_db_version($db_name) if $db_name =~ /emnew_/;
+			}
+			$self->get_db_version($databases[0]);
 			push @{$self->{databases}}, @databases;
 		}
 	}
