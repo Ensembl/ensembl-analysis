@@ -45,8 +45,14 @@ sub new {
     $self->analysis($analysis);
 
     # this should make a OBDAIndexSeqFetcher, but will default to Pfetch
-    my $indices = [ split(",", $self->analysis->db) ];
-    $seqfetcher = $self->_make_seqfetcher($indices);
+    # add the update blastdb indices to the list of release blastdb indices
+    # example: embl_est_hum => emnew_est_hum  
+    my @indices = split(",", $self->analysis->db) ;
+    foreach my $indice (@indices) {
+    	my $update = $indice;
+    	push @indices,$update if($update =~ s/^embl_/emnew_/g);  
+    }
+    $seqfetcher = $self->_make_seqfetcher(\@indices);
     $self->seqfetcher($seqfetcher);
     return $self;
 }
