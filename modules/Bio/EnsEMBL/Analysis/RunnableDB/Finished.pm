@@ -30,14 +30,11 @@ sub write_output {
 	        my $adaptor = $self->get_adaptor($feat);
 		    # Remove the AlignFeatures already in db from the output and 
 		    # get rid of the old ones in the db (for dephtfilter features only)
-		    my $clean = 0;
+		    my $all = 0;
 	        if (ref($feat) =~ /AlignFeature$/) {
-	            if($self->analysis->module eq 'DepthFilter' ) {
-	            	$clean = 1;	            	
-	            } else {
-	            	$self->write_descriptions($output);
-	            }
-	            $self->remove_stored_AlignFeatures($adaptor, $output, $clean)
+	            $all = 1 if($self->analysis->module eq 'DepthFilter' );
+	            $self->remove_stored_AlignFeatures($adaptor, $output, $all);
+	            $self->write_descriptions($output) unless ($self->analysis->module eq 'DepthFilter' );
 	        } else {# Remove all SimpleFeatures
 	        	$self->remove_all_features($adaptor);
 	        }        
@@ -87,7 +84,7 @@ sub replace_output {
 }
 
 sub remove_stored_AlignFeatures {
-    my ($self, $adaptor, $output, $clean) = @_;
+    my ($self, $adaptor, $output, $all) = @_;
 	## create a hashtable of the contig hits stored in the database
     my $db_features =
       $adaptor->fetch_all_by_Slice($self->query, $self->analysis->logic_name);
@@ -124,7 +121,7 @@ sub remove_stored_AlignFeatures {
         }
     }
     ## remove the old features present in the db and not in the output 
-    if($clean) {
+    if($all) {
     	foreach my $f (values(%db_feat_to_del)) { $adaptor->remove($f);}
     	print STDOUT "Finished: Removed ", scalar(keys(%db_feat_to_del)), " old features from db\n";
     } 
