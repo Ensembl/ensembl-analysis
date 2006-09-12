@@ -171,31 +171,39 @@ sub fetch_input {
 		warning("Need at least 3 nucleotides");
 	}
 	
-	# Vertrna specific incremental updating
-	# vertrna is made up of emnew_vertrna (patch) 
-	# and embl_vertrna (release) index files.
-	# This block of code makes sure that the blast search 
-	# is only run on updated index files
-	if($self->analysis->logic_name eq 'vertrna_raw'){
+	# Incremental updating of the embl blast db analysis 
+	# The embl blast dbs are made up of release files embl_*
+	# and update files emnew_*. This block of code makes
+	# sure that the analysis is only run against new version of either 
+	# of these files.
+	
+	my @files = split(",", $self->analysis->db_file);
+	my @patches;
+	if($files[0] =~ /^embl_/){
+		my $search_only_patch = 0;
 		my $sic = $self->db->get_StateInfoContainer;
 		my $db_version_saved = $sic->fetch_db_version($self->input_id, $self->analysis);
 		my $db_version_current = $self->analysis->db_version;
 		if($db_version_saved) {
-			# split db version like 12-Mar-06 (85) to obtain 
-			# patch version: 12-Mar-06 and release version: 85
+			# split the embl blast db version "12-Mar-06 (85)" to
+			# patch version "12-Mar-06" and release version "85"
 			my ($patch_sv,$release_sv) = $db_version_saved =~ /^(\S+)\s+\((\d+)\)$/;
-			my ($patch_cv,$release_cv) = $db_version_current =~ /^(\S+)\s+\((\d+)\)$/;	
-			# We delete the release db from the analysis db list if 
-			# it has already been searched (i.e. same release db version)
-			if($release_sv eq $release_cv){ 
-				print STDOUT "vertrna db file embl_vertrna version $release_sv already searched\n";
-				$self->analysis->db_file('emnew_vertrna');
+			my ($patch_cv,$release_cv) = $db_version_current =~ /^(\S+)\s+\((\d+)\)$/;
+			if($release_sv eq $release_cv){
+				$search_only_patch = 1;
+				print STDOUT "blast db files [ @files ] version $release_sv already searched\n";
 				# Just to make sure that nothing is going wrong with the incremental updating...
-				throw("Problem with the vertrna incremental updating, saved and current version identical !\n
-					   saved [$db_version_saved] = current [$db_version_current]\n") unless($patch_sv ne $patch_cv)
+				throw("Problem with the embl blast db incremental updating, saved and current version identical !\n
+				   saved [$db_version_saved] = current [$db_version_current]\n") unless($patch_sv ne $patch_cv)
 			}
 		}
+	    foreach my $file (@files) {
+	    	my $patch_file = $file;
+	    	$patch_file =~ s/^embl_/emnew_/g;
+	    	$search_only_patch ? $file = $patch_file : push @patches,$patch_file; 
+	    }
 	}
+	$self->analysis->db_file(join(",",@files,@patches));
 
 	my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::EST->new(
 		'-query'    => $maskedslice,
