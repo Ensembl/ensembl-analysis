@@ -59,14 +59,17 @@ sub run_analysis {
     $command .= $self->options. ' 2>&1 > '.$results_file;
     
     info("Running blast ".$command);
-    print STDOUT "Blast command ".$command."\n";
     
-    open(my $fh, "$command |") || 
+    my $fh;
+    unless (open($fh, "$command |")) { 
+      $self->delete_files;
       throw("Error opening Blast cmd <$command>." .
             " Returned error $? BLAST EXIT: '" . 
             ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) . 
             "', There was " . ($? & 128 ? 'a' : 'no') . 
             " core dump");
+    }
+
     # this loop reads the STDERR from the blast command
     # checking for FATAL: messages (wublast) [what does ncbi blast say?]
     # N.B. using simple die() to make it easier for RunnableDB to parse.
@@ -113,6 +116,7 @@ sub run_analysis {
       # checking for failures when closing.
       # we should't get here but if we do then $? is translated 
       #below see man perlvar
+      $self->delete_files;
       warning("Error running Blast cmd <$command>. Returned ".
               "error $? BLAST EXIT: '" . ($? >> 8) . 
               "', SIGNAL '" . ($? & 127) . "', There was " . 
