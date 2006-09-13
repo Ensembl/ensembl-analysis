@@ -188,7 +188,7 @@ sub exon_length_less_than_maximum{
 
 =cut
 
-#Note this method modified the target exon which is 
+#Note this method modifies the target exon which is_
 #passed in
 
 sub transfer_supporting_evidence{
@@ -212,7 +212,7 @@ sub transfer_supporting_evidence{
 
   foreach my $sf(values(%source_evidence)){
     logger_info("Adding ".$sf->hseqname." to the target exon");
-    $target_exon->add_supporting_feature($sf);
+    $target_exon->add_supporting_features($sf);
   }
   return $target_exon;
 }
