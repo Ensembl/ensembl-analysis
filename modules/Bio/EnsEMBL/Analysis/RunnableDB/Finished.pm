@@ -34,7 +34,8 @@ sub write_output {
 	        if (ref($feat) =~ /AlignFeature$/) {
 	            $all = 1 if($self->analysis->module eq 'DepthFilter' );
 	            $self->remove_stored_AlignFeatures($adaptor, $output, $all);
-	            $self->write_descriptions($output) unless ($self->analysis->module eq 'DepthFilter' );
+	            $self->write_descriptions($output) unless ( $self->analysis->module eq 'DepthFilter' ||
+	            											$self->analysis->logic_name =~ /refseq/);
 	        } else {# Remove all SimpleFeatures
 	        	$self->remove_all_features($adaptor);
 	        }        
