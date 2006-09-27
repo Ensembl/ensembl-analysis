@@ -97,7 +97,7 @@ sub put_Genes {
       my $set = $self->{'_types_sets'}{$set_name};
       foreach my $type ( @{$set} ){
 
-        if ($gene->type eq $type) {
+        if ($gene->biotype eq $type) {
           push ( @{ $self->{'_gene_sets'}{$set_name} }, $gene );
           next GENE; 
         } elsif (ref($gene)=~m/PredictionTranscript/)  { 
@@ -109,7 +109,7 @@ sub put_Genes {
         }
       }
     }
-    throw("Failed putting gene of type " . $gene->type . "\n");
+    throw("Failed putting gene of type " . $gene->biotype . "\n");
   }
   $self->{_cached_start}  = undef;
   $self->{_cached_end}    = undef;
@@ -256,7 +256,7 @@ sub get_Genes_of_Type() {
 
   my @genes = $self->get_Genes;  # this should give them in order, but we check anyway
   my @selected_genes;
-  push ( @selected_genes, grep { $_->type eq $type } @genes );
+  push ( @selected_genes, grep { $_->biotype eq $type } @genes );
   return @selected_genes;
 }
 
@@ -299,7 +299,7 @@ sub get_Genes_by_Type() {
   my @genes = $self->get_Genes;  # this should give them in order, but we check anyway
   my @selected_genes;
   foreach my $type ( @{ $types } ){
-    push ( @selected_genes, grep { $_->type eq $type } @genes );
+    push ( @selected_genes, grep { $_->biotype eq $type } @genes );
   }
   return @selected_genes;
 }
