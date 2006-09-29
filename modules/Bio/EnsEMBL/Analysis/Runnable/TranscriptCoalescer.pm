@@ -116,7 +116,9 @@ sub new {
   
   $self->{all_genes_href} = $all_genes ;      # hashref $hash{'biotype'} = \@genes 
   $self->{v} = $VERBOSE ; # verbose or not 
-  $self->{v} = 1 if ($utils_verbosity=~m/INFO/) ;   
+  if (defined($utils_verbosity)) {
+    $self->{v} = 1 if ($utils_verbosity=~m/INFO/) ;   
+  }
 
   #$VERBOSE = 0 ; 
   #$self->{v} = 0; 
