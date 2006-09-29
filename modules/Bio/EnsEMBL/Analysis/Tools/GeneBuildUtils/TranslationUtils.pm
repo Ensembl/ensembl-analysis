@@ -352,32 +352,47 @@ sub compute_translation{
   my $found_start = 0;
   my $found_end = 0;
   my $last_end_phase;
+  my $first_exon = 1;
+  # print "Setting phases on transcript after adding translation\n";
   foreach my $exon(@{$transcript->get_all_Exons}){
     $exon->phase(-1);
     $exon->end_phase(-1);
+
+    # print "  Have exon " . $exon->start . " " . $exon->end . "\n";
     if($translation->start_Exon == $exon){
-      if($translation->start == 1){
+      if($translation->start == 1 && $first_exon){
         $exon->phase(0);
+        # print "   setting start phase on it to 0 (tstart = 1 and is start_Exon)\n";
       }
       $found_start = 1;
     }elsif($found_start and not $found_end){
       $exon->phase($last_end_phase);
+      # print "   setting start phase on it to last_end_phase ($last_end_phase)\n";
     }
     my $end_phase;
     if($exon == $translation->start_Exon){
       $end_phase = ($exon->end - ($exon->start + 
                                   $translation->start 
                                   - 1) +1 ) %3;
+      # print "   start_Exon end phase calculated ($end_phase)\n";
     }else{
-      $end_phase = (($exon->length + $exon->phase) %3)
+      $end_phase = (($exon->length + $exon->phase) %3);
+      # print "   end phase calculated ($end_phase)\n";
     }
-    $exon->end_phase($end_phase) 
-      if(($exon == $translation->end_Exon
-         && $exon->length == $translation->end) ||
-         ($found_start and not $found_end));
+    if(($exon == $translation->end_Exon && $exon->length == $translation->end)){
+      # print "   setting end phase to $end_phase (end exon condition)\n";
+      $exon->end_phase($end_phase);
+    }
 
     $found_end = 1 if($exon == $translation->end_Exon);
+
+    if (($found_start and !$found_end)) {
+      # print "   setting end phase to $end_phase (found_start and not found_end condition)\n";
+      $exon->end_phase($end_phase);
+    }
+
     $last_end_phase = $exon->end_phase;
+    $first_exon = 0;
   }
   return $transcript;
 }
