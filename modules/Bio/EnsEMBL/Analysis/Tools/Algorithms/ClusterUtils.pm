@@ -61,8 +61,30 @@ sub cluster_Genes {
 
   print "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;
 
-  my @clusters;
+  my $count = 0;
+
+  my @active_clusters;
+  my @inactive_clusters;
   GENE: foreach my $gene (@sorted_genes) {
+    $count++;
+
+    # Every 50 genes divide clusters into an active (ones which could be have this gene added to it) and inactive 
+    # (ones which can not be altered by any of the genes to come)
+    if (!($count%50)) { 
+      #print ".";
+
+      my @still_active_clusters;
+      my $gene_start = $gene->start;
+      foreach my $cluster (@active_clusters) {
+        if ($cluster->end < $gene_start) {
+          push @inactive_clusters,$cluster;
+          #print "Cluster inactive\n";
+        } else {
+          push @still_active_clusters,$cluster;
+        }
+      }
+      @active_clusters = @still_active_clusters;
+    }
 
     my @matching_clusters;
 
@@ -73,7 +95,7 @@ sub cluster_Genes {
     ## belongs to the cluster
     ##
 
-    CLUSTER: foreach my $cluster (@clusters) {
+    CLUSTER: foreach my $cluster (@active_clusters) {
 
     # 
     # if gene lies in the boundaries of the cluster......
@@ -134,7 +156,7 @@ sub cluster_Genes {
         $newcluster->gene_Types($set_name,$types_hash->{$set_name});
       }
       $newcluster->put_Genes($gene);
-      push(@clusters,$newcluster);
+      push(@active_clusters,$newcluster);
 
       #
       # if above was found ONE matching cluster
@@ -160,16 +182,19 @@ sub cluster_Genes {
       push @new_clusters,$merged_cluster;
 
       # Add back non matching clusters
-      foreach my $clust (@clusters) {
+      foreach my $clust (@active_clusters) {
         if (!exists($match_cluster_hash{$clust})) {
           push @new_clusters,$clust;
         }
       }
-      @clusters =  @new_clusters;
+      @active_clusters =  @new_clusters;
     }
   }
   # Seperate genes which are UNclustered (only one gene in cluster ) and
   # from clusteres which hold more than one gene 
+
+  # print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
+  my @clusters = (@active_clusters,@inactive_clusters);
 
   my (@new_clusters, @unclustered);
   foreach my $cl (@clusters){
@@ -180,6 +205,7 @@ sub cluster_Genes {
     }
   }
   print "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
+  
   return (\@new_clusters, \@unclustered);
 }
 

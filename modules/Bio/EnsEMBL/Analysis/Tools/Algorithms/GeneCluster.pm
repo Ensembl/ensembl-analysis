@@ -92,28 +92,40 @@ sub put_Genes {
   foreach my $gene (@new_genes){
     throw("undef for gene") if (!$gene);
 
+    my $gene_biotype = $gene->biotype;
+
     foreach my $set_name ( keys %{$self->{'_types_sets'}}) {
 
       my $set = $self->{'_types_sets'}{$set_name};
       foreach my $type ( @{$set} ){
 
-        if ($gene->biotype eq $type) {
+        if ($gene_biotype eq $type) {
           push ( @{ $self->{'_gene_sets'}{$set_name} }, $gene );
+
+          if (defined($self->{_cached_start})) {
+            my $gene_start = $gene->start;
+            if ($gene_start < $self->{_cached_start}) {
+              $self->{_cached_start} = $gene_start;
+            }
+          }
+          if (defined($self->{_cached_end})) {
+            my $gene_end = $gene->end;
+            if ($gene_end > $self->{_cached_end}) {
+              $self->{_cached_end} = $gene_end;
+            }
+          }
+          if (defined($self->{_cached_strand})) {
+            my $gene_strand = $gene->start;
+            if ($gene_strand != $self->{_cached_strand}) {
+              throw("You have a cluster with genes on opposite strands");
+            }
+          }
           next GENE; 
-        } elsif (ref($gene)=~m/PredictionTranscript/)  { 
-
-          # gene is prediction_transcript 
-          push ( @{ $self->{'_gene_sets'}{$set_name} }, $gene );
-          next GENE ;  
-
         }
       }
     }
     throw("Failed putting gene of type " . $gene->biotype . "\n");
   }
-  $self->{_cached_start}  = undef;
-  $self->{_cached_end}    = undef;
-  $self->{_cached_strand} = undef;
 }
 
 
@@ -402,7 +414,7 @@ sub _translateable_exon_length {
 sub start{
   my ($self) = @_;
 
-  if (!defined($self->{_cached_end})) {
+  if (!defined($self->{_cached_start})) {
     my $start;
 
     foreach my $gene ($self->get_Genes) {
