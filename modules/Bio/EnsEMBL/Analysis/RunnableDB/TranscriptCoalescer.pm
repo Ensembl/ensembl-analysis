@@ -144,7 +144,7 @@ sub fetch_input{
     #
     #   
     for my $biotype ( @{$databases{$database_class}{BIOTYPES} }) { 
-      my $genes = $slice->get_all_Genes_by_type($biotype) ; 
+      my $genes = $slice->get_all_Genes_by_type($biotype, undef, 1) ; 
 
       my ( $set ) = $self->_get_evidence_set ( $biotype ) ; 
 
@@ -215,7 +215,7 @@ sub fetch_input{
     for my $logic_name_becomes_biotype ( @{$databases{$database_class}{AB_INITIO_LOGICNAMES} }) { 
 
      # get all PredictionTranscripts and convert them to Genes, set biotype to logic_name  
-     my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype ) ;  
+     my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype, 1 ) ;  
      
      # get ev-set 
      my $result_set_name  = $self->_get_evidence_set( $logic_name_becomes_biotype ) ; 
