@@ -280,7 +280,7 @@ sub make_genes{
   foreach my $tran ( @transcripts ){
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
-    $gene->type($self->analysis->logic_name);
+    $gene->biotype($self->analysis->logic_name);
 
     ############################################################
     # put a slice on the transcript
