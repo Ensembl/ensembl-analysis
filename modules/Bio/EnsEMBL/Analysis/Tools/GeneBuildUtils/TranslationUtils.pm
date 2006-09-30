@@ -441,6 +441,14 @@ sub run_translate{
     my $orf_start = $1;
     my $orf_end   = $2;
     next ORF if $orf_start>=$orf_end;
+
+    # Check if there's a stop codon and add it
+    if ($orf_end + 3 <= $seq->length) {
+      my $codon = uc($seq->subseq($orf_end+1,$orf_end+3));
+      if ($codon eq 'TAA' || $codon eq 'TAG' || $codon eq 'TGA' ) {
+        $orf_end+=3;
+      }
+    }
     my @prediction = ($orf_length,$orf_start,$orf_end);
     push( @orf_predictions, \@prediction );
   }
