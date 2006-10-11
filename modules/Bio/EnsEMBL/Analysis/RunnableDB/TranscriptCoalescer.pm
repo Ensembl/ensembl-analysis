@@ -252,54 +252,6 @@ sub fetch_input{
 }
 
 
-
-=head2 run
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
-  Function  : go through the runnables, run each one and check for errors
-  and push the output on to the output array
-  Returntype: 1;
-  Exceptions: throws if blast run fails
-  Example   : 
-
-=cut
-
-
-
-sub run {
-  my ($self) = @_;
-
-  my @runnables = @{$self->runnable};
-  foreach my $runnable(@runnables){
-    eval{
-      $runnable->run;
-    };
-    #
-    # checking errors from Runnable 
-    #
-    if(my $err = $@){
-      chomp $err;
-      print $err ;  
-      # only match '"ABC_DEFGH"' and not all possible throws
-      if ($err =~ /^\"([A-Z_]{1,40})\"$/i) {
-        my $code = $1;
-        if ($code ne 'VOID') {
-          $self->failing_job_status($1);          
-          throw("TranscriptCoalescer::run failed $@");
-        }
-      }
-    } else { 
-      print $@; 
-    }  
-    $self->output($runnable->output);
-  }
-  1;
-}
-
-
-
-
-
 =head2 write_output
 
   Arg [1]   : $self
