@@ -121,10 +121,10 @@ sub _add_new_exon {
   }
   $self->{_exonhash}{"$exon"} = $self->{_internal_index}++;
   #$self->{_exonidhash}{$exon->stable_id} = $exon;
-  if  (exists $self->{_exonidhash}{$exon->dbID}) { 
-    throw("Error : there seem to be exons with the same dbID in the databases ") ; 
+  if  (exists $self->{_exonidhash}{$exon->dbID.$exon->adaptor->db->dbname}) { 
+    $self->throw("Error : there seem to be exons with the same dbID and dbname in the databases ".$exon->dbID." ".$exon->adaptor->db->dbname) ; 
   }
-  $self->{_exonidhash}{$exon->dbID} = $exon;
+  $self->{_exonidhash}{$exon->dbID.$exon->adaptor->db->dbname} = $exon;
   $self->{_all_exons_in_cluster}{$exon}=$exon ; 
 }
 
@@ -225,12 +225,6 @@ sub get_all_Exons {
   my $self =shift;
   # return array of exons in cluster stored by their id 
   return values %{$self->{_exonidhash}};
-}
-
-sub contains_exon_by_id {
-  my ($self,$exon_id) = @_;
-
-  return  (exists $self->{_exonidhash}{$exon_id});
 }
 
 
