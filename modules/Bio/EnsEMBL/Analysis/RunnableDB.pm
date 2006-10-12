@@ -498,6 +498,8 @@ sub fetch_input{
 sub read_and_check_config{
   my ($self, $var_hash) = @_;
 
+  my $DEFAULT_ENTRY_KEY = 'DEFAULT';
+
   if(!$var_hash || ref($var_hash) ne 'HASH'){
     my $err = "Must pass read_and_check_config a hashref with the config ".
       "in ";
@@ -505,16 +507,29 @@ sub read_and_check_config{
     $err .= " RunnableDB::read_and_and_check_config";
     throw($err);
   }
-  #########################################################
-  # read values of config variables for this logic name into
-  # instance variable, set by method
-  #########################################################
 
-  if (not exists($var_hash->{DEFAULT})) {
-    throw("You must define a DEFAULT entry in your config");
+  my %check;
+  foreach my $k (keys %$var_hash) {
+    my $uc_key = uc($k);
+    if (exists $check{$uc_key}) {
+      throw("You have two entries in your config with the same name (ignoring case)\n");
+    }
+    $check{$uc_key} = $k;
+  }
+  # replace entries in config has with lower case versions. 
+  foreach my $k (keys %check) {
+    my $old_k = $check{$k};
+    my $entry = $var_hash->{$old_k};
+    delete $var_hash->{$old_k};
+
+    $var_hash->{$k} = $entry;
   }
 
-  my $default_entry = $var_hash->{DEFAULT};
+  if (not exists($var_hash->{$DEFAULT_ENTRY_KEY})) {
+    throw("You must define a $DEFAULT_ENTRY_KEY entry in your config");
+  }
+
+  my $default_entry = $var_hash->{$DEFAULT_ENTRY_KEY};
   # the following will fail if there are config variables that 
   # do not have a corresponding method here
   foreach my $config_var (keys %{$default_entry}) {
@@ -525,11 +540,16 @@ sub read_and_check_config{
     }
   }
 
-  my $logic = $self->analysis->logic_name;
+  #########################################################
+  # read values of config variables for this logic name into
+  # instance variable, set by method
+  #########################################################
 
-  if (exists $var_hash->{$logic}) {
+  my $uc_logic = uc($self->analysis->logic_name);
+
+  if (exists $var_hash->{$uc_logic}) {
     # entry contains more specific values for the variables
-    my $entry = $var_hash->{$logic};
+    my $entry = $var_hash->{$uc_logic};
    
     foreach my $config_var (keys %{$entry}) {
       
