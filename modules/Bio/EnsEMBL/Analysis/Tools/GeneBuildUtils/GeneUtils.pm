@@ -43,10 +43,13 @@ use Exporter;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(print_Gene 
+@EXPORT = qw(
+             print_Gene 
              clone_Gene 
              Gene_info
              prune_Exons
+             get_one2one_orth_for_gene_in_other_species
+             get_transcript_with_longest_CDS
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -196,6 +199,90 @@ sub prune_Exons{
 
   return $cloned_gene;
 }
+
+
+=head2 get_transcript_with_longest_CDS
+
+  Arg [0]   : Bio::EnsEMBL::Gene
+  Function  : returns Array containing the longest transcript-obj, the length of all translateable exons and 
+              the number of exons for this transcript 
+  Returntype: Array longest transcript, max. length, max nr of exons for this transcript 
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub get_transcript_with_longest_CDS_of_Gene {
+  my $gene = shift;
+
+  my $maxlen = 0;
+  my $nexonmax = 0;
+  my $longest; 
+
+  foreach my $trans (@{$gene->get_all_Transcripts}) {
+    my $len = 0;
+    if ($trans->translation) {
+      my @trans_exons = @{$trans->get_all_translateable_Exons()};
+      foreach my $exon (@trans_exons) {
+        $len+= $exon->length;
+      }
+      if ($len > $maxlen) {
+        $maxlen = $len;
+        $longest = $trans;
+        $nexonmax = scalar($trans->get_all_Exons)
+      }
+    }
+  }
+  if (!defined($longest)) {
+    print "Didn't find a longest transcript for gene ". $gene->stable_id . " type " . $gene->type . "\n";
+  }
+  
+  return ($longest,$maxlen,$nexonmax);
+}
+
+
+=head2 get_one2one_orth_for_gene_in_other_species 
+
+  Arg [0]   : Bio::EnsEMBL::Gene
+  Arg [1]   : String species_name  ("Homo sapiens") 
+  Description: Returns the one2one orthologue as a bIO::EnsEMBL::Gene object in the
+               specified species or undef if there is non or more than one orthologue 
+  Returntype: Bio::EnsEMBL::Gene object 
+  Exceptions: none
+  Example   : $one2one_orth_mus = get_one2one_orth_for_gene_in_other_species($gene, "Mus musculus"); 
+
+=cut
+
+
+sub get_one2one_orth_for_gene_in_other_species {
+    my ($gene, $other_species) = @_ ;
+
+    my $one2one_homologue_in_other_species = undef;
+
+    foreach my $homolog_to_check  ( @{ $gene->get_all_homologous_Genes()} ) {
+       my ($check_homg, $check_homology, $check_species ) = @$homolog_to_check ;
+
+       if ($check_species eq $other_species) {
+        if ($one2one_homologue_in_other_species ) {
+          $one2one_homologue_in_other_species = undef;
+          last;
+        }
+        $one2one_homologue_in_other_species = $check_homg ;
+      }
+    }
+    return $one2one_homologue_in_other_species;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 1;
