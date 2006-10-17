@@ -43,7 +43,7 @@ my (
 die "You must supply a gene/transcript logic name with -genelogic\n" 
     if not defined $gene_logic_name;
 die "You must supply a supporting_feature logic name with -sflogic\n" 
-    if not defined $gene_logic_name;
+    if not defined $sf_logic_name;
 
 
 my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
