@@ -16,11 +16,12 @@ use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
 my (
-	$dbname,
-	$dbhost,
-	$dbuser,
-	$dbport,
-	$dbpass
+    $dbname,
+    $dbhost,
+    $dbuser,
+    $dbport,
+    $dbpass.
+    $look_for_dodgy,
 );
 
 $dbuser = 'ensro';
@@ -31,6 +32,7 @@ $dbuser = 'ensro';
 	'dbhost=s' => \$dbhost,
 	'dbport=s' => \$dbport,
 	'dbpass=s' => \$dbpass
+        'dodgy'    => \$look_for_dodgy,
 );
 
 my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
@@ -77,17 +79,19 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
       } elsif ($t->biotype ne 'protein_coding') {
         $reject{$t->stable_id} = "Non-coding transcript in protein_coding gene";
       } else {
-        my ($cst, $cen);
-      
-        foreach my $e (@{$t->get_all_translateable_Exons}) {
-          $cst = $e->start if not defined $cst or $cst > $e->start;
-          $cen = $e->end   if not defined $cen or $cen < $e->end;
-        }
-
-        push @trans, {
-          start => $cst,
-          end   => $cen,
-          tran => $t,
+        if ($look_for_dodgy) {
+          my ($cst, $cen);
+          
+          foreach my $e (@{$t->get_all_translateable_Exons}) {
+            $cst = $e->start if not defined $cst or $cst > $e->start;
+            $cen = $e->end   if not defined $cen or $cen < $e->end;
+          }
+          
+          push @trans, {
+            start => $cst,
+            end   => $cen,
+            tran => $t,
+          }
         }
       }
     }
@@ -130,12 +134,6 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
 
   foreach my $c (@clusters) {
     if (@{$c->{genes}} > 1) {      
-      #printf("CLUSTER %s %d %d %d members\n", 
-      #       $sl->seq_region_name, 
-      #       $c->{start}, 
-      #       $c->{end}, 
-      #       scalar(@{$c->{genes}}));
-
       # indentify gene in the cluster where one transcript overlap
       # genomically with other genes, but other transcript(s) do
       # not
