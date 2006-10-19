@@ -1204,7 +1204,7 @@ my (@gs_fhs,
 sub index_gene_scaffold_files {
   my @files = @_;
 
-  my (%gs_index, %s_index);
+  my (%gs_index, %s_index, $last_gs_id);
 
   for(my $i=0; $i < @files; $i++) {
     my $file = $files[$i];
@@ -1231,9 +1231,14 @@ sub index_gene_scaffold_files {
           $gs_file_index{$gs_id} = {
             fh_index => $i,
             from     => $curpos,
+            to       => $curpos,
           };
-        } 
-        $gs_file_index{$gs_id}->{to} = $curpos;
+        } else {        
+          if (defined $last_gs_id and $gs_id ne $last_gs_id) {
+            die "Error in gene scaffold files(s) $gs_id appears in more than one block\n";
+          }
+          $gs_file_index{$gs_id}->{to} = $curpos;
+        }
 
         if (defined $s_id) {
           # maintain 2 other indices for the single-linkage clustering
@@ -1241,6 +1246,8 @@ sub index_gene_scaffold_files {
           $s_index{$s_id}->{$gs_id} = 1;
           $gs_index{$gs_id}->{$s_id} = 1;
         }
+
+        $last_gs_id = $gs_id;
       }     
     }
   }
@@ -1251,6 +1258,8 @@ sub index_gene_scaffold_files {
 
 sub index_gene_annotation_files {
   my @files = @_;
+
+  my ($last_gs_id);
 
   for(my $i=0; $i < @files; $i++) {
     my $file = $files[$i];
@@ -1274,9 +1283,16 @@ sub index_gene_annotation_files {
           $gene_file_index{$gs_id} = {
             fh_index => $i,
             from     => $curpos,
+            to       => $curpos,
           };
-        } 
-        $gene_file_index{$gs_id}->{to} = $curpos;
+        } else {
+          if (defined $last_gs_id and $gs_id ne $last_gs_id) {
+            die "Error in gene annotation(s) files: $gs_id appears in more than one block\n";
+          }
+          $gene_file_index{$gs_id}->{to} = $curpos;
+        }
+
+        $last_gs_id = $gs_id;
       }
     }
   }
