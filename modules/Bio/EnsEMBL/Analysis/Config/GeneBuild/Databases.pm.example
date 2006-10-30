@@ -157,7 +157,6 @@ use vars qw(%Config);
                                    -pass => '',
                                   },
                                  
-                 },
 
                  #############
                  ### Databases for RunnableDB/CopyGenes.pm
