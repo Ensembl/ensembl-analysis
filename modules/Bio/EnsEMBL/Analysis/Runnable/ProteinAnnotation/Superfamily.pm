@@ -55,10 +55,16 @@ sub new {
 
   if (defined $evalue) {
     $self->evalue_cutoff($evalue);
-    my $opts = defined($self->options) ? $self->options : "";
-    $self->options("$opts -E " . $evalue);
-  } 
+  } else {
+    # set it to something sensible
+    warning("No evalue cutoff given; defaulting to 0.02");
+    $self->evalue_cutoff("0.02");
+  }
 
+  my $opts = defined($self->options) ? $self->options : "";
+  $opts =~ s/\-E\s+\S+//; 
+  $self->options("$opts -E " . $self->evalue_cutoff);
+  
   return $self;
 }
 
