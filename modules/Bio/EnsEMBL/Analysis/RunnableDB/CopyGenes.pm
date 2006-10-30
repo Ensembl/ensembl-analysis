@@ -35,21 +35,25 @@ use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($source_db, $target_db, $biotype) = rearrange
+  my ($given_source_db, $given_target_db, $given_biotype) = rearrange
     (['SOURCE_DB', 'TARGET_DB', 'BIOTYPE'], @args);
-  ######################
-  #SETTING THE DEFAULTS#
-  ######################
-  $self->source_db_name('COPY_SOURCE_DB');
-  $self->target_db_name('COPY_TARGET_DB');
-  #####################
-  my $parameters_hash = $self->parameters_hash;
-  $source_db = $parameters_hash->{-source_db} if(!$source_db);
-  $target_db = $parameters_hash->{-target_db} if(!$target_db);
-  $biotype = $parameters_hash->{-biotype} if(!$biotype);
-  $self->source_db_name($source_db);
-  $self->target_db_name($target_db);
-  $self->biotype($biotype);
+
+  #### Default values...
+  $self->source_db_name("COPY_SOURCE_DB");
+  $self->target_db_name("COPY_TARGET_DB");
+  $self->biotype("");
+
+  ### ...are over-ridden by parameters given in analysis table...
+  my $ph = $self->parameters_hash;
+  $self->source_db_name($ph->{-source_db}) if exists $ph->{-source_db};
+  $self->target_db_name($ph->{-target_db}) if exists $ph->{-target_db};
+  $self->biotype($ph->{-biotype}) if exists $ph->{-biotype};
+  
+  ### ...which are over-ridden by constructor arguments. 
+  $self->source_db_name($given_source_db) if defined $given_source_db;
+  $self->target_db_name($given_target_db) if defined $given_target_db;
+  $self->biotype($given_biotype) if defined $given_biotype;
+ 
   return $self;
 }
 
