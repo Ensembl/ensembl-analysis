@@ -216,7 +216,10 @@ sub  parse_results{
 	# Warn if transcript cannot be found
 	eval{
 	  $real_trans =   $ta->fetch_by_translation_stable_id($daf->hseqname);
-	};
+	  unless ( $real_trans ) { 
+             $real_trans =   $ta->fetch_by_translation_id($daf->hseqname);
+          } 
+        };
 	if ($@) {
 	  $self->warn("Unable to find translation $daf->hseqname \n$@\n");
 	  next;
