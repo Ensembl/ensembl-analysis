@@ -48,8 +48,9 @@ use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
 
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
-use Bio::EnsEMBL::Analysis::Tools::ClusterFilter
-
+use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
+    qw(replace_stops_with_introns);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
 
