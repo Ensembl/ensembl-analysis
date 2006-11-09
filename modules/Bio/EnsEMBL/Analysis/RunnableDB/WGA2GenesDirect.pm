@@ -172,7 +172,7 @@ sub fetch_input {
                                                     $tga->dnafrag->name);
     }
 
-    my $chain_id =  $qga->genomic_align_group_id_by_type("default");
+    my $chain_id =  $qga->genomic_align_group_id_by_type($self->GENOMIC_ALIGN_TYPE);
 
     if ($block->reference_genomic_align->dnafrag_strand < 0) {
       $block->reverse_complement;
@@ -440,6 +440,7 @@ sub read_and_check_config {
   foreach my $var (qw(INPUT_METHOD_LINK_TYPE
                       QUERY_CORE_DB
                       TARGET_CORE_DB
+                      GENOMIC_ALIGN_TYPE 
                       COMPARA_DB)) {
 
     throw("You must define $var in config for logic '$logic'" . 
@@ -488,6 +489,16 @@ sub INPUT_METHOD_LINK_TYPE {
   }
 
   return $self->{_input_method_link_type};
+}
+
+sub GENOMIC_ALIGN_TYPE {
+  my ($self, $gatype) = @_;
+
+  if (defined $gatype) {
+    $self->{_genomic_align_type} = $gatype;
+  }
+
+  return $self->{_genomic_align_type};
 }
 
 
