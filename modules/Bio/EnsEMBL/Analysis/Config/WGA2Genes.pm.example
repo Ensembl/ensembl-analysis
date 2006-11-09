@@ -61,6 +61,8 @@ use vars qw( %Config );
                },
 
                INPUT_METHOD_LINK_TYPE => 'BLASTZ_NET_COW',
+
+               INPUT_GROUP_TYPE => 'chain',
                
                ########################
                # Source gene filtering

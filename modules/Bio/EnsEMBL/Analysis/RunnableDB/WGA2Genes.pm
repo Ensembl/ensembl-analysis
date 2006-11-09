@@ -275,7 +275,11 @@ sub fetch_input {
                                                     $tga->dnafrag->name);
     }
 
-    my $chain_id =  $qga->genomic_align_group_id_by_type("chain");
+    my $chain_id = $qga->genomic_align_group_id_by_type($self->INPUT_GROUP_TYPE);
+    if (not defined $chain_id or $chain_id <= 0) {
+      throw("Something badly wrong with input alignment; ".
+            "Could not obtain group_id for alignment blocks");
+    }
 
     if ($block->reference_genomic_align->dnafrag_strand < 0) {
       $block->reverse_complement;
@@ -1107,6 +1111,7 @@ sub read_and_check_config {
   my $logic = $self->analysis->logic_name;
 
   foreach my $var (qw(INPUT_METHOD_LINK_TYPE
+                      INPUT_GROUP_TYPE
                       QUERY_CORE_DB
                       TARGET_CORE_DB
                       COMPARA_DB)) {
@@ -1129,6 +1134,18 @@ sub INPUT_METHOD_LINK_TYPE {
   }
 
   return $self->{_input_method_link_type};
+}
+
+
+sub INPUT_GROUP_TYPE {
+  my ($self, $type) = @_;
+
+  if (defined $type) {
+    $self->{_input_group_type} = $type;
+  }
+
+  return $self->{_input_group_type};
+
 }
 
 
@@ -1164,6 +1181,10 @@ sub TARGET_CORE_DB {
   return $self->{_target_core_db};
 }
 
+sub INPUT_GROUP_TYPE {
+
+
+}
 
 #
 # chain filtering
