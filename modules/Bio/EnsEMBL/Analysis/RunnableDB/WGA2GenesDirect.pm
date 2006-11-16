@@ -366,11 +366,6 @@ sub process_transcript {
     return 0;
   }
 
-  my $stop_count = $pep =~ tr/\*/\*/;
-  if ($stop_count > $self->MAX_EDITABLE_STOPS) {
-    return 0;
-  }
-
   ##################
   # number of stops is non-zero but acceptable. Need to 
   # operate on the transcript to jump over the stops
@@ -545,16 +540,6 @@ sub TARGET_CORE_DB {
 # transcript editing and filtering
 #
 
-
-sub MAX_EDITABLE_STOPS {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_max_editable_stops} = $val; 
-  }
-
-  return $self->{_max_editable_stops};
-}
 
 sub TRANSCRIPT_FILTER {
    my ($self, $val) = @_;

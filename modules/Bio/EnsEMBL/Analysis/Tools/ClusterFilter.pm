@@ -59,12 +59,12 @@ sub new{
   &verbose('WARNING');
   my ($min_coverage,
       $min_percent,
-      $max_editable_stops,
+      $max_stops,
       $best_in_genome,
       ) = 
         rearrange(['coverage',
                    'percent_id',
-                   'max_editable_stops',
+                   'max_stops',
                    'best_in_genome'], @args); 
 
   ######################
@@ -73,7 +73,7 @@ sub new{
 
   $self->min_coverage($min_coverage) if defined $min_coverage;
   $self->min_percent($min_percent) if defined $min_percent;
-  $self->max_editable_stops($max_editable_stops) if defined $max_editable_stops;
+  $self->max_stops($max_stops) if defined $max_stops;
   $self->best_in_genome($best_in_genome) if $best_in_genome;
 
   return $self;
@@ -109,33 +109,24 @@ sub filter_results{
 
     my $coverage  = $self->_get_transcript_coverage($transcript);
     my $percent_id  = $self->_get_transcript_percent_id($transcript);
+    my $pep = $transcript->translate->seq;
+    my $num_stops = $pep =~ tr/\*/\*/;
 
-    if ($percent_id < $self->min_percent || $coverage < $self->min_coverage){
-      
-  #    return 0;
-      print "Transcript REJECTED with: perc_ident: ", $percent_id," and coverage ", $coverage,"\n";
+    if (defined $self->min_percent and $percent_id < $self->min_percent) {
+      print "Transcript REJECTED with: perc_ident: $percent_id\n";
       next TRANSCRIPT;
-
-    }elsif ($self->max_editable_stops){
-
-      my $pep = $transcript->translate->seq;
-
-      my $num_stops = $pep =~ tr/\*/\*/;
-
-      if ($num_stops > $self->max_editable_stops) {
-
-   #     return 0;
-        print "Rejecting proj due to too many STOPS ",$num_stops,"\n";
-        next TRANSCRIPT;
-
-      }else{
-        print "Transcripts passed stops filter with :",$num_stops," stop codons\n";
-        push @good_matches, $transcript;
-      }
-    }else{
-      print "transcript passed percent/coverage filter\n";
-      push @good_matches, $transcript;
     }
+    if (defined $self->min_coverage and $coverage < $self->min_coverage){
+      print "Transcript REJECTED with: coverage: $coverage\n";
+      next TRANSCRIPT;
+    }
+    if (defined $self->max_stops and $num_stops > $self->max_stop){
+      print "Rejecting proj due to too many STOPS ",$num_stops,"\n";
+      next TRANSCRIPT;
+    }
+    
+    print "Transcripts passed filter (cov=$coverage, per=$percent_id, stops=$num_stops\n";
+    push @good_matches, $transcript;
   }
 
   my @best_matches;
@@ -283,11 +274,11 @@ sub min_percent{
   return exists($self->{'_min_percent'}) ? $self->{'_min_percent'} : undef;
 }
 
-sub max_editable_stops{
+sub max_stops{
   my $self = shift;
-  $self->{'_max_editable_stops'} = shift if(@_);
+  $self->{'_max_stops'} = shift if(@_);
 
-  return exists($self->{'_max_editable_stops'}) ? $self->{'_max_editable_stops'} : undef;
+  return exists($self->{'_max_stops'}) ? $self->{'_max_stops'} : undef;
 }
 
 
