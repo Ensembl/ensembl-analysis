@@ -366,6 +366,11 @@ sub process_transcript {
     return 0;
   }
 
+  my $stop_count = $pep =~ tr/\*/\*/;
+  if ($stop_count > $self->MAX_EDITABLE_STOPS) {
+    return 0;
+  }
+
   ##################
   # number of stops is non-zero but acceptable. Need to 
   # operate on the transcript to jump over the stops
