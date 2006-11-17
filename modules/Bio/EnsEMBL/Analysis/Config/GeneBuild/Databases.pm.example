@@ -157,6 +157,17 @@ use vars qw(%Config);
                                    -pass => '',
                                   },
                                  
+                 # OrthologueAnalysis writes it's results into ORTHOLOGUE_DB 
+
+                  ORTHOLOGUE_DB => {
+                                     -dbname => '',
+                                     -host =>   '',
+                                     -port =>   '',
+                                     -user =>   '',
+                                     -pass =>   '',
+                                   },
+
+
 
                  #############
                  ### Databases for RunnableDB/CopyGenes.pm
