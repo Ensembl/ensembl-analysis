@@ -1,0 +1,210 @@
+#
+# Ensembl configuration file used in 
+#
+# Bio::EnsEMBL::Analysis::RunnableDB::OrthologueEvaluator
+#
+# Copyright (c) 2006 Ensembl
+#
+
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator
+
+=head1 SYNOPSIS
+
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator
+
+=head1 DESCRIPTION
+
+
+OrthologueEvaluator - Configuration 
+
+This is the main configuration file for OrthologueEvaluator, a perl 
+module which uses information from an Ensembl Compara database to 
+compare and assess gene predictions. 
+
+The parameters to connect to various databases are defiend in 
+
+  - modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm 
+  - modules/Bio/EnsEMBL/Analysis/Config/OrthologueEvaluator.pm 
+
+The general function of this config file is to import  a number of 
+standard global variables into the calling package. Without arguments 
+all the standard variables are set, and with a list, only those variables 
+whose names are provided are set.  The module will die if a variable 
+which doesn\'t appear in its C<%Config> hash is asked to be set.
+
+The variables can also be references to arrays or hashes.
+
+Edit C<%Config> to add or alter variables.
+
+All the variables are in capitals, so that they resemble environment
+variables.
+
+=head1 CONTACT
+
+B<ensembl-dev@ebi.ac.uk>
+
+=cut
+
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
+
+use strict;
+use vars qw(%Config);
+
+%Config= 
+ (
+
+   #
+   # 
+   # This is because the output-database as well as the directory where the sequences 
+   # will be dumped is defined in the Exonerte2Genes-configuration   
+   #  
+   # The value of EXONERATE_2_GENES_LOGIC_NAME has to point to a hashkey in Exonerate2Genes.pm 
+   # 
+   
+   MAIN_CONFIG =>  
+     { 
+       LOCATION_OF_COMPARA_REGISTRY_FILE =>  '',
+
+       #'/nfs/acari/jhv//cvs_checkout//ensembl-config/dog/canfam2/compara_conf/jhv_dog_compara.init.iaf',  
+
+       SEQUENCE_DUMP_BASE_DIR => "/path/to/seq_dump_dir/",
+
+       # flags for setup script   
+       
+       RUN_FIND_SPLIT_GENES => 0,
+       RUN_FIND_PARTIAL_GENES => 1, 
+       RUN_LOCATE_MISSING_ORTHOLOGUES => 1,  
+       QUERY_SPECIES_ALIAS => 'new_species',   
+     },
+                  
+   #
+   # This section configures the xx run :
+   #  
+   #
+   LOCATE_MISSING_ORTHOLOGUES=>  
+     # input_id : logic_name:chromosome:BROADD2:1:22222:99999:1 
+     
+     { 
+         # either the full species-name OR alias-name out of 
+         # the registry-file used for the species you like to assess
+         
+           QUERY_SPECIES_ALIAS => 'Canis the_new_dog' , 
+        
+         # 
+         # the Runnable will identify one2one orthologues in trusted set 
+         # and check if there's any known one2one orth between new_species 
+         # and one of the members of the trusted set    
+         # 
+         
+           DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,   
+         
+
+          # These are the analysis names for the exonerate2genes run 
+          # either : 
+          # create for every set an analysis like 'pre_hum_mus_one2one' 
+          # with module MissingOrthologues and create slice-based input ids 
+          #     OR 
+          # create input_ids like hum_mus_one2one:chromosome:1:NCBIM36:1:1:10000:1
+          # and have only one analysis ......
+          #     OR  
+          # for every set an analysis like 'pre_hum_mus_one2one' with module
+          # MissingOrthologues and create slice-based input ids 
+          #
+          ANALYSIS_SETS => {   
+              hum_mus_one2one     => ['Homo sapiens', 'Mus musculus'], 
+              hum_old_dog_one2one => ['Homo sapiens', 'old_dog'], 
+          } ,  
+
+       },
+   
+
+
+ 
+    #
+    # This section configures the FindPartialGenes-Runnable  
+    #
+    # --> input_id-format : 
+    #       find_partials:chromosome:BROADD2:chromosome:1:222222:333333:1  
+    #
+    # input-id is created by setup script 
+    # setup script creates post-analysis (find_partials) 
+    #
+
+    FIND_PARTIAL_GENES => 
+    {   
+                  # biotype of genes to fetch out of the db which was used 
+                  # for the compara run in registry file   
+                  DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,   
+                           
+
+                  # analysis_sets consist of logic_name and members. First, we 
+                  # find orhtologues between the QUERY SPECIES and main_orthologue, 
+                  # and the length of these two genes is noted. 
+                  # than we find orthologues between main_orthologue and comparision_1 
+                  # and main_orthologue and comparision_2 and calculate the ratio between 
+                  # these pairs . if the length difference is significant between the 
+                  # gene predictions in the other species and query-main, we've found partials.
+                  #
+                  #
+                  ANALYSIS_SETS => 
+                  {   
+
+                      find_partials =>
+                      { 
+
+                          'MAIN_ORTH'   => 'Homo sapiens',          
+                          'TEST_SPEC_1' => 'Monodelphis domestica',
+                          'TEST_SPEC_2' => 'Rattus norvegicus',    
+                                                    
+                           'RATIO_MAIN_vs_QUERY' =>        0.75,
+                           'RATIO_MAIN_vs_SPEC_1_LOW' =>   0.9,
+                           'RATIO_MAIN_vs_SPEC_1_HIGH' =>  1.1,
+                           'RATIO_MAIN_vs_SPEC_2_LOW' =>   0.9, 
+                           'RATIO_MAIN_vs_SPEC_2_HIGH' =>  1.1,
+
+                        },
+                        # new_logic_name => 
+                        # {
+                        #  MAIN_ORTH   => "Mus musculus", 
+                        #  TEST_SPEC_1 => "Canis familiaris", 
+                        #  TEST_SPEC_2 => "Rattus norvegicus" , 
+                        #  .... 
+                        # }
+                   }
+    }, 
+    
+    # 
+    # This section configures the RecoverSplitGene.pm RunnableDB 
+    # 
+
+    RECOVER_SPLIT_GENES =>{ 
+                            'split_1' => ['Homo sapiens','Monodelphis domestica','Rattus Norvegicus'],
+                          },
+    # statistic exon nr of recoverd genes etc  
+
+  );
+
+
+
+
+sub import {
+    my ($callpack) = caller(0); 
+    my $pack = shift; 
+    my @vars = @_ ? @_ : keys(%Config);
+    return unless @vars;
+    eval "package $callpack; use vars qw("
+         . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+    foreach (@vars) {
+	if (defined $Config{ $_ }) {
+            no strict 'refs';
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+1;
