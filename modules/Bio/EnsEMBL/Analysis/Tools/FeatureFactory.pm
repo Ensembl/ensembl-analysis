@@ -205,7 +205,7 @@ sub create_feature_pair {
     my ($self, $start, $end, $strand, $score, $hstart, $hend, 
         $hstrand, $hseqname, $percent_id, $p_value, $seqname,
         $slice, $analysis, $positive_matches, $identical_matches) = @_;
-    
+    print "Have slice ".$slice."\n";
     my $fp = Bio::EnsEMBL::FeaturePair->new(
                                             -start    => $start,
                                             -end      => $end,

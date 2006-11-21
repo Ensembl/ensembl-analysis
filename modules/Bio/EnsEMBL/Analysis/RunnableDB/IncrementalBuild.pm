@@ -3,7 +3,6 @@ package Bio::EnsEMBL::Analysis::RunnableDB::IncrementalBuild;
 use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::IncrementalBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;

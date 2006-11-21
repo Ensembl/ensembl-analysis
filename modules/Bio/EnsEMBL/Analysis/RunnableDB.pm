@@ -453,7 +453,7 @@ sub write_output{
     };
     if($@){
       throw("RunnableDB:store failed, failed to write ".$feature." to ".
-            "the database $@");
+            "the database ".$adaptor->dbc->dbname." $@");
     }
   }
   return 1;
@@ -499,7 +499,6 @@ sub read_and_check_config{
   my ($self, $var_hash) = @_;
 
   my $DEFAULT_ENTRY_KEY = 'DEFAULT';
-
   if(!$var_hash || ref($var_hash) ne 'HASH'){
     my $err = "Must pass read_and_check_config a hashref with the config ".
       "in ";

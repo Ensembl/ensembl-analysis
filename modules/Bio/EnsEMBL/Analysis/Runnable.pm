@@ -62,7 +62,7 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Runnable;
+ package Bio::EnsEMBL::Analysis::Runnable;
 
 use strict;
 use warnings;
@@ -155,7 +155,7 @@ sub new{
 sub options{
   my $self = shift;
   $self->{'options'} = shift if(@_);
-  return $self->{'options'};
+  return $self->{'options'} || '';
 }
 
 

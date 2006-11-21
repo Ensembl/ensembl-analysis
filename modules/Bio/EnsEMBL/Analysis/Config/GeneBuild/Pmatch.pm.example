@@ -1,0 +1,61 @@
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch;
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+           PMATCH_BY_LOGIC =>
+           {
+            DEFAULT =>{
+                       PROTEIN_FILE => '/path/to/protein/file',
+                       MIN_COVERAGE => 25,
+                       BINARY_LOCATION => '/usr/local/ensembl/bin/pmatch',
+                       REPEAT_MASKING => [],
+                       MAX_INTRON_LENGTH => 50000,
+                       OUTPUT_DB => 'GENEWISE_DB',
+                      }
+            #If you wish any of the settings to be non standard generate a hash
+            #with the same structure but change DEFAULT to be your analysis 
+            #logic_name
+           },
+           BESTPMATCH_BY_LOGIC => 
+           {
+            DEFAULT => {
+                        PMATCH_LOGIC_NAME => 'Pmatch',
+                        MIN_COVERAGE => 25,
+                        INPUT_DB => 'GENEWISE_DB',
+                        OUTPUT_DB => 'GENEWISE_DB',
+                       }
+           }
+
+           );
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;

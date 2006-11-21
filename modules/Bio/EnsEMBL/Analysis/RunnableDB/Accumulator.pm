@@ -63,7 +63,6 @@ sub fetch_input {
 
 sub run {
     my ($self) = @_;
-
     print "Dummy RunnableDB - no runnable to run\n";
 
 }
