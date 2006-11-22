@@ -1,0 +1,113 @@
+# package Bio::EnsEMBL::Analysis::Config::Ditag
+#
+# Copyright EMBL-EBI/Sanger center 2006
+#
+# You may distribute this module under the same terms as perl itself
+#
+# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+
+# POD documentation - main docs before the code
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::Ditag
+
+=head1 SYNOPSIS
+
+    use Bio::EnsEMBL::Analysis::Config::ExonerateTags;
+
+=head1 DESCRIPTION
+
+This contains the configuration for the  alignment of ditag
+sequences (dna) against a genome (dna) using exonerate.
+The ditags are created by CAGE/GIS/GSC experiments.
+
+The layout of the configuration is a set of hashes,
+each one keyed by logic name. There is also a DEFAULT hash,
+which is used as the default for all logic names.
+
+=head1 CONTACT
+
+=cut
+
+
+package Bio::EnsEMBL::Analysis::Config::ExonerateTags;
+use strict;
+use vars qw( %Config );
+
+%Config = (
+      DITAG_CONFIG => {
+	DEFAULT => {
+
+        ## GENERAL SECTION ##
+
+	  #use masked or unmasked genome
+          GENOMICSEQS         => '/data/blastdb/Ensembl/Human/NCBI36/genome/unmasked/',
+
+	  #Batchsize: 1000 for masked, 500 for unmasked
+          BATCHSIZE           => 400,
+	  MAXDISTANCE         => 600000,
+	  #min & max allowed length of the raw ditag sequences
+	  MINSEQLENGTH        => 34,
+	  MAXSEQLENGTH        => 40,
+          #max allowed number of repeated bases
+	  REPEATNUMBER        => 6,
+          TMPDIR              => '/tmp',
+          PROGRAM             => '/usr/local/ensembl/bin/exonerate-1.0.0',
+	  #adjust "softmasktarget" to masking choice
+          OPTIONS             => " -M 256 --softmasktarget FALSE --showsugar false --showvulgar false --showalignment false --forwardcoordinates true --bestn 100 --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" --saturatethreshold 100 ",
+
+	## SPECIFIC DITAG TYPES ##
+
+#       #GIS
+#	  IIDREGEXP           => '^>\S+\-(\S+)\s\S+\:(\d+)',
+#	  CHOPFIRST           => "G",
+#	  SPECOPTIONS         => "--dnahspthreshold 75 --score 75",
+#	  SPLITSEQS           => 1,
+#	  CHOPFIRST           => "G",
+#          CHOPLAST            => undef,
+#	  MAXMISMATCH         => 3,
+#          KEEPORDER           => 1,
+
+#	#SMN001
+#          TAGTYPE             => "SMN001",
+#          QUERYFILE           => 'SMN001.txt',
+
+
+
+
+#       #CAGE
+#	#phantom-representative set
+#	  TAGTYPE             => "CAGEmm5",
+#	  QUERYFILE           => 'cage.rep_tag.2004-11-16.fasta',
+#	  IIDREGEXP           => '^>(\S+)\s+tags=(\d+)',
+#	  CHOPFIRST           => "G",
+#	  SPECOPTIONS         => "--dnahspthreshold 85 --score 80",
+#	  SPLITSEQS           => 0,
+#	  MAXMISMATCH         => 3,
+
+	},
+
+      }
+);
+
+
+sub import {
+  my ($callpack) = caller(0);
+  my $pack = shift;
+  my @vars = @_ ? @_ : keys(%Config);
+  return unless @vars;
+  eval "package $callpack; use vars qw(".
+       join(' ', map { '$'.$_ } @vars) . ")";
+  die $@ if $@;
+  foreach (@vars) {
+    if (defined $Config{ $_ }) {
+      no strict 'refs';
+      *{"${callpack}::$_"} = \$Config{ $_ };
+    }else {
+      die "Error: Config: $_ not known\n";
+    }
+  }
+}
+
+1;
