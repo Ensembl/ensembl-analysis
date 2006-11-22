@@ -157,7 +157,7 @@ use vars qw(%Config);
                                    -pass => '',
                                   },
                                  
-                 # OrthologueAnalysis writes it's results into ORTHOLOGUE_DB 
+                 # OrthologueEvalutor, FindMissingGenes, etc. write it's results into ORTHOLOGUE_DB 
 
                   ORTHOLOGUE_DB => {
                                      -dbname => '',
