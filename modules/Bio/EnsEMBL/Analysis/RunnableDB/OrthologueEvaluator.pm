@@ -258,6 +258,8 @@ sub read_and_check_config {
 }
 
 
+
+
 sub pipeline_adaptor{  
     my ($self, $db )= @_ ;    
  
@@ -274,149 +276,6 @@ sub pipeline_adaptor{
     return $self->{_PA} ; 
 }
 
-
-
-#sub get_one2one_orthologues {  
-#    my ($compara, $species_1, $species_2 ) = @_ ;  
-#
-#    my $ha   = Bio::EnsEMBL::Registry->get_adaptor('compara','compara',"Homology" ) ;   
-#    my $gdba = Bio::EnsEMBL::Registry->get_adaptor('compara',"compara","GenomeDB");
-#    my $ma   = Bio::EnsEMBL::Registry->get_adaptor('compara',"compara","Member");  
-#
-#    my $taxon_1= $compara->get_GenomeDBAdaptor->fetch_by_registry_name($species_1)->taxon_id  ;  
-#
-#    # if you've used an alias in your config we now go back to real species name in compara 
-#    my $species_2_name = $compara->get_GenomeDBAdaptor->fetch_by_registry_name($species_2)->name;   
-#
-#    # ... now we get all objects out of compara which exist for species1 ( taxonid 1 ) 
-#    # basicly a list of members of species_1 which have a known orthologue anywhere 
-#    
-#    my $spec1_memb_ref =  $ma->fetch_all_by_source_taxon('ENSEMBLGENE',$taxon_1);  
-#
-#    my %one2one_orth ;    
-#    # loop trough the list of species_1 members  
-#    MEMBER: foreach my $member (@$spec1_memb_ref) {
-#
-#        my @all_known_homologies_for_member = @{$ha->fetch_all_by_Member($member )} ;  
-#        next MEMBER if (scalar(@all_known_homologies_for_member) <1)  ; 
-#
-#
-#        # this is because fetch_by_Member_paired_species does not work 
-#        my $hom_ref = filter_homologies( \@all_known_homologies_for_member,$species_2_name ) ;  
-#
-#        if ( scalar(@$hom_ref) ==  1 ) {   
-#
-#           HOMOLOGIES :for my $homology ( @$hom_ref ) { 
-#             my @all_member_attributes = @{$homology->get_all_Member_Attribute} ;
-#             shift @all_member_attributes ;  # first object is source itself so don't process this 
-#
-#             MA: foreach my $member_attribute (@all_member_attributes) { 
-#               my ($new_member, $attribute) = @{$member_attribute};
-#               my $species_name_of_orthologue = $new_member->genome_db->name ;  
-#               #print $member->stable_id  . "\t" . $new_member->stable_id . "\n" ;         
-#               $one2one_orth{$member->stable_id} = $new_member->stable_id ; 
-#             }
-#          }
-#       } else {  
-#         # no one2one relation 
-#       } 
-#   }   
-#   return \%one2one_orth ; 
-#} 
-#
-#sub filter_homologies {  
-#  my ( $all_homologies , $look_for_this_species) = @_ ;    
-#  my @result ;
-# 
-#  HOMOLOGIES :for my $homology ( @$all_homologies ) { 
-#     my @all_member_attributes = @{$homology->get_all_Member_Attribute} ;
-#     # first object is source itself so don't process this 
-#     shift @all_member_attributes ;
-#
-#     MA: foreach my $member_attribute (@all_member_attributes) { 
-#       my ($new_member, $attribute) = @{$member_attribute};
-#       my $species_name_of_orthologue = $new_member->genome_db->name ;    
-#       if ( $species_name_of_orthologue =~m/$look_for_this_species/) {  
-#         push @result, $homology ; 
-#       }
-#     } 
-#  }  
-#  return \@result ; 
-#} 
-#
-
-
-# this all goes into the setup script ..... 
-#   
-#   # check if Exonerate2Genes analysis exists in analysis-table of refdb 
-#
-#   my %e2g_config = %{$EXONERATE_CONFIG_BY_LOGIC};
-#
-#   print $EXONERATE_2_GENES_LOGIC_NAME . "\n" ; 
-# 
-#   unless ( exists $e2g_config{$EXONERATE_2_GENES_LOGIC_NAME} ) { 
-# 
-#     throw("You have defined a logic_name EXONERATE_2_GENES_LOGIC_NAME ".
-#           "\"$EXONERATE_2_GENES_LOGIC_NAME\"\n in our OrthologueEvaluator.pm".
-#           " configuration file but there is no configuration for such an analysis in the\n".
-#           " Exonerate2Genes-config, so i don't know where to write the genes to.\n".
-#           " I suggest to add a configuration for $EXONERATE_2_GENES_LOGIC_NAME to your ".
-#           "Exoneate2Genes.pm config\n") ; 
-#   }  
-#
-#   # check if the sequence dump directory in Exonerate2Genes config exists  
-# 
-#   my $seq_dump_dir = $$EXONERATE_CONFIG_BY_LOGIC{$EXONERATE_2_GENES_LOGIC_NAME}{QUERYSEQS} ; 
-#
-#   #
-#   #
-#   # THIS SECTION CREATES ANALYSIS AUTOMATICLY IF IT CAN'T FIND THE ANALYSIS IN THE DB 
-#   #
-#   #
-#
-# 
-#   if ($$FIND_MISSING_ORTH{AUTOMATE_ORTHOLOGUE_RECOVERY}){ 
-#
-#       my $analysis = 
-#         $self->db->get_AnalysisAdaptor->fetch_by_logic_name($EXONERATE_2_GENES_LOGIC_NAME) ;  
-#
-#       unless ($analysis) { 
-#         #
-#         # set up analysis if missing  
-#         #
-#         warning("Can't find analysis $EXONERATE_2_GENES_LOGIC_NAME in " . $self->db->dbname ." \@ "
-#                 . $self->db->host."\nCreating my very own analysis with hard-coded values ".
-#                  "out of RunnableDB $self now and a set of rules as well...\n") ;  
-#        
-#         my $ana = new Bio::EnsEMBL::Pipeline::Analysis ( 
-#                      -logic_name => $EXONERATE_2_GENES_LOGIC_NAME, 
-#                      -program    => 'exonerate' , 
-#                      -program_file => 'exonerate-1.0.0' , 
-#                      -module      => 'Exonerate2Genes' ,
-#                      -input_id_type => 'oa_filename',
-#                      )  ;    
-#
-#         $self->pipeline_adaptor->get_AnalysisAdaptor->store($ana) ;   
-#
-#         my $submit_ana = "Submit_".$EXONERATE_2_GENES_LOGIC_NAME ;
-# 
-#         my $submit = new Bio::EnsEMBL::Pipeline::Analysis ( 
-#                      -logic_name => $submit_ana , 
-#                      -module      => 'Dummy', 
-#                      -input_id_type => 'oa_filename',
-#                      )  ; 
-#
-#         $self->pipeline_adaptor->get_AnalysisAdaptor->store($submit) ;   
-#
-#         # store rule if does not exist
-#         my $ruleAdaptor = $self->pipeline_adaptor->get_RuleAdaptor();  
-#
-#         my $rule = Bio::EnsEMBL::Pipeline::Rule->new(-goalanalysis => $ana);
-#         $rule->add_condition($submit_ana) ; 
-#         $rule->goalAnalysis($ana); 
-#         $ruleAdaptor->store($rule); 
-#      }
-#    }
 
 
 1;
