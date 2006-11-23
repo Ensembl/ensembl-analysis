@@ -10,12 +10,12 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::DitagAlign
+Bio::EnsEMBL::Analysis::Runnable::ExonerateTags
 
 =head1 SYNOPSIS
 
  my $runnable = 
-    Bio::EnsEMBL::Analysis::Runnable::DitagAlign->new(
+    Bio::EnsEMBL::Analysis::Runnable::ExonerateTags->new(
      -QUERYFILE     => $ditag_file,
      -TARGETFILE    => $genome,
      -TAGTYPE       => $tagtype,
@@ -39,14 +39,14 @@ ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Runnable::DitagAlign;
+package Bio::EnsEMBL::Analysis::Runnable::ExonerateTags;
 
 use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Map::Ditag;
 use Bio::EnsEMBL::Map::DitagFeature;
-use Bio::EnsEMBL::Analysis::Config::Ditag;
+use Bio::EnsEMBL::Analysis::Config::ExonerateTags;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument  qw( rearrange );
@@ -58,7 +58,7 @@ use Bio::EnsEMBL::Utils::Argument  qw( rearrange );
 
   Args       : various
   Description: Runnable constructor
-  Returntype : Bio::EnsEMBL::Analysis::Runnable::DitagAlign
+  Returntype : Bio::EnsEMBL::Analysis::Runnable::ExonerateTags
   Caller     : general
 
 =cut
@@ -93,7 +93,7 @@ sub new {
     $self->analysis($analysis);
   }
   else{
-    $self->analysis('DitagAlign');
+    $self->analysis('ExonerateTags');
   }
   if( $maxdistance ) {
     $self->maxdistance($maxdistance);
