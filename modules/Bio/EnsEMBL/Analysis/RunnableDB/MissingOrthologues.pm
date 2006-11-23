@@ -71,9 +71,13 @@ sub new {
   $self->read_and_check_config ; 
   $self->verbose(1) ;  
 
-  my $trusted_one2one_set= $$LOCATE_MISSING_ORTHOLOGUES{ANALYSIS_SETS}{$self->post_logic_name};   
+  my $trusted_one2one_set= $$LOCATE_MISSING_ORTHOLOGUES{ANALYSIS_SETS}{$self->post_logic_name};    
+  
+  print "Searching for 1:1 orthoologues between $$trusted_one2one_set[0] and $$trusted_one2one_set[1]\n" ;  
+
   $self->species_1($$trusted_one2one_set[0]) ; 
-  $self->species_2($$trusted_one2one_set[1]) ; 
+  $self->species_2($$trusted_one2one_set[1]) ;  
+
   return $self;
 }
 
@@ -98,10 +102,11 @@ sub run {
   my $query_spec = $$LOCATE_MISSING_ORTHOLOGUES{QUERY_SPECIES_ALIAS};  
   my (%missing_orth,%trusted_orth); 
 
-  QUERY_GENES : for my $gene_spec1 (@{$self->genes} ) {
+  QUERY_GENES : for my $gene_spec1 (@{$self->genes} ) { 
+     #print " processing gene " . $gene_spec1->stable_id . "\n" ; 
      my $tg1_homol = get_one2one_orth_for_gene_in_other_species($gene_spec1 ,$self->species_2) ;    
-
-     if ( $tg1_homol ) { 
+      
+     if ( $tg1_homol ) {  
        $trusted_orth{$gene_spec1->stable_id}=1; 
        foreach my $homolog_to_check  ( @{ $gene_spec1->get_all_homologous_Genes()} ) { 
          my ($check_homg, $check_homology, $check_species ) = @$homolog_to_check ;  
@@ -112,6 +117,8 @@ sub run {
             $missing_orth{$gene_spec1->stable_id} =  $gene_spec1 ; 
            } 
          }
+      } else { 
+        #print " - no 1:1 homologue found for " . $self->species_2 . "\n" ;  
       }
   }
  
@@ -120,8 +127,7 @@ sub run {
   }  
 
   print scalar( keys %missing_orth)." missing orthologues identifed beteen " . $self->species_1 .  
-        " and $query_spec ( using " . $self->species_2 ."as informant )\n"; 
-
+        " and $query_spec ( using " . $self->species_2 ." as informant )\n"; 
 
    # dump sequences of identified missing orthologues   
   
