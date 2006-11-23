@@ -66,32 +66,34 @@ use vars qw(%Config);
    
    MAIN_CONFIG =>  
      { 
-       LOCATION_OF_COMPARA_REGISTRY_FILE =>  '',
+       LOCATION_OF_COMPARA_REGISTRY_FILE =>  '/nfs/acari/jhv/fsk_compara_reg.reg' , 
 
-       #'/nfs/acari/jhv//cvs_checkout//ensembl-config/dog/canfam2/compara_conf/jhv_dog_compara.init.iaf',  
+       SEQUENCE_DUMP_BASE_DIR => "/lustre/work1/ensembl/jhv/project_orth_analysis/seq_dump_cow" ,  
 
-       SEQUENCE_DUMP_BASE_DIR => "/path/to/seq_dump_dir/",
-
-       # flags for setup script   
+       # decide which analysis you like to run 
        
-       RUN_FIND_SPLIT_GENES => 0,
+       RUN_LOCATE_MISSING_ORTHOLOGUES => 1,   
        RUN_FIND_PARTIAL_GENES => 1, 
-       RUN_LOCATE_MISSING_ORTHOLOGUES => 1,  
-       QUERY_SPECIES_ALIAS => 'new_species',   
+       RUN_FIND_SPLIT_GENES => 1,
+
+       # ONLY use the species name used for the compara run 
+       # which is also stored in the genome_db table of the compara database  
+
+       QUERY_SPECIES => 'Bis taurus',   
      },
                   
    #
-   # This section configures the xx run :
-   #  
+   # This section configures the MissingOrthologue  run : 
    #
+   # input_id-format  :  
+   #
+   #       ANALYSIS_SET{$key}:chromosome:BROADD2:1:22222:99999:1 
+   # e.g. logic_name:chromosome:BROADD2:1:22222:99999:1 
+   #  
+   # 
    LOCATE_MISSING_ORTHOLOGUES=>  
-     # input_id : logic_name:chromosome:BROADD2:1:22222:99999:1 
      
      { 
-         # either the full species-name OR alias-name out of 
-         # the registry-file used for the species you like to assess
-         
-           QUERY_SPECIES_ALIAS => 'Canis the_new_dog' , 
         
          # 
          # the Runnable will identify one2one orthologues in trusted set 
@@ -100,22 +102,24 @@ use vars qw(%Config);
          # 
          
            DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,   
-         
-
-          # These are the analysis names for the exonerate2genes run 
-          # either : 
-          # create for every set an analysis like 'pre_hum_mus_one2one' 
-          # with module MissingOrthologues and create slice-based input ids 
-          #     OR 
-          # create input_ids like hum_mus_one2one:chromosome:1:NCBIM36:1:1:10000:1
-          # and have only one analysis ......
-          #     OR  
-          # for every set an analysis like 'pre_hum_mus_one2one' with module
-          # MissingOrthologues and create slice-based input ids 
-          #
-          ANALYSIS_SETS => {   
+          
+         #
+         # Define a species pair to find one2one orthologues for and than compare 
+         # with QUERY_SPECIES 
+         # These species should be not too dependend (rat and mus ) and not too distant ...
+         #
+          
+          ANALYSIS_SETS => {          
+                              #    
+                              # WARNING !          
+                              #
+                              # ONLY use the species name used for the compara run 
+                              # which is also stored in the genome_db table of the compara database  
+                              # (e.g. 'Canis familiaris' , 'Bos taurus_newbuild' .... ) 
+                              # 
               hum_mus_one2one     => ['Homo sapiens', 'Mus musculus'], 
-              hum_old_dog_one2one => ['Homo sapiens', 'old_dog'], 
+              hum_old_dog_one2one => ['Homo sapiens', 'Canis familiaris'], 
+              hum_old_cow_one2one => ['Homo sapiens', 'Bos taurus'], 
           } ,  
 
        },
@@ -126,12 +130,14 @@ use vars qw(%Config);
     #
     # This section configures the FindPartialGenes-Runnable  
     #
-    # --> input_id-format : 
-    #       find_partials:chromosome:BROADD2:chromosome:1:222222:333333:1  
+    # input_id-format :
+    # 
+    #       ANALYSIS_SET{KEY}:chromosome:BROADD2:chromosome:1:222222:333333:1  
+    # e.g.  find_paritals:chromosome:BROADD2:chromosome:1:222222:333333:1  
     #
     # input-id is created by setup script 
     # setup script creates post-analysis (find_partials) 
-    #
+    # if you like to add new post_analysis 
 
     FIND_PARTIAL_GENES => 
     {   
@@ -141,7 +147,7 @@ use vars qw(%Config);
                            
 
                   # analysis_sets consist of logic_name and members. First, we 
-                  # find orhtologues between the QUERY SPECIES and main_orthologue, 
+                  # find orthologues between the QUERY SPECIES and main_orthologue, 
                   # and the length of these two genes is noted. 
                   # than we find orthologues between main_orthologue and comparision_1 
                   # and main_orthologue and comparision_2 and calculate the ratio between 
@@ -154,10 +160,17 @@ use vars qw(%Config);
 
                       find_partials =>
                       { 
+                     
+                           # WARNING !
+                           # ONLY use the species name which is also stored in the genome_db 
+                           # table of the compara-database you're using (and in the reg-file of course!)
+                           # 
+                          
+                           # well annoteted spec which have a bit of distantance as well as conserverd genes   
 
-                          'MAIN_ORTH'   => 'Homo sapiens',          
-                          'TEST_SPEC_1' => 'Monodelphis domestica',
-                          'TEST_SPEC_2' => 'Rattus norvegicus',    
+                           'MAIN_ORTH'   => 'Homo sapiens',          
+                           'TEST_SPEC_1' => 'Mus musculus',    
+                           'TEST_SPEC_2' => 'Canis familiaris',
                                                     
                            'RATIO_MAIN_vs_QUERY' =>        0.75,
                            'RATIO_MAIN_vs_SPEC_1_LOW' =>   0.9,
@@ -170,21 +183,38 @@ use vars qw(%Config);
                         # {
                         #  MAIN_ORTH   => "Mus musculus", 
                         #  TEST_SPEC_1 => "Canis familiaris", 
-                        #  TEST_SPEC_2 => "Rattus norvegicus" , 
+                        #  TEST_SPEC_2 => ".....", 
                         #  .... 
                         # }
                    }
     }, 
     
     # 
-    # This section configures the RecoverSplitGene.pm RunnableDB 
+    # This section configures the FindSplitGene.pm RunnableDB 
     # 
 
-    RECOVER_SPLIT_GENES =>{ 
-                            'split_1' => ['Homo sapiens','Monodelphis domestica','Rattus Norvegicus'],
-                          },
-    # statistic exon nr of recoverd genes etc  
+    FIND_SPLIT_GENES =>{   
+                              ANALYSIS_SETS => 
+                              {   
+                                   hum_dog_split=>
+                                   { 
+                                     'INFORMANT' => 'Homo sapiens',          
+                                     'INFORMANT_PERC_COV' => 20,  
 
+                                     'TARGETTED' => 'Canis familiaris', 
+                                     'TARGETTED_PERC_COV' => 70,
+                                    }, 
+
+                                   hum_mus_split=>
+                                   { 
+                                     'INFORMANT' => 'Homo sapiens',          
+                                     'INFORMANT_PERC_COV' => 20,  
+
+                                     'TARGETTED' => 'Mus musculus', 
+                                     'TARGETTED_PERC_COV' => 70,
+                                    },
+                               },
+                          }
   );
 
 
