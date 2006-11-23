@@ -86,7 +86,7 @@ sub fetch_input {
   # fetch all protein_coding genes from QUERY_SPECIES    
   
   $self->get_initial_geneset(
-                              $$MAIN_CONFIG{QUERY_SPECIES_ALIAS}, 
+                              $$MAIN_CONFIG{QUERY_SPECIES}, 
                               $$FIND_PARTIAL_GENES{DEFAULT_GENE_BIOTYPES}
                             ); 
   print "SUMMARY : " . scalar( @{$self->genes}) . " genes fetched\n" ; 
@@ -99,7 +99,7 @@ sub run {
   # process all genes on this slice   
  
   # comparision species are defined in config file 
-  my $qy_species  = $$MAIN_CONFIG{QUERY_SPECIES_ALIAS};  
+  my $qy_species  = $$MAIN_CONFIG{QUERY_SPECIES};  
   my $tg1_species = $$FIND_PARTIAL_GENES{ANALYSIS_SETS}{$self->post_logic_name}{MAIN_ORTH}; 
   my $tg2_species = $$FIND_PARTIAL_GENES{ANALYSIS_SETS}{$self->post_logic_name}{TEST_SPEC_1}; 
   my $tg3_species = $$FIND_PARTIAL_GENES{ANALYSIS_SETS}{$self->post_logic_name}{TEST_SPEC_2}; 

@@ -57,7 +57,7 @@ sub fetch_input {
   my $method_link_type = "ENSEMBL_ORTHOLOGUES";
 
   # this should be the same so REVOCER_SPLIT_GENES ... can be removed ...
-  my $qy_species  = $$MAIN_CONFIG{QUERY_SPECIES_ALIAS};  
+  my $qy_species  = $$MAIN_CONFIG{QUERY_SPECIES};  
   my $targeted_species = $$FIND_SPLIT_GENES{ANALYSIS_SETS}{$self->post_logic_name}{TARGETTED}; 
 
   my $informant_species = $$FIND_SPLIT_GENES{ANALYSIS_SETS}{$self->post_logic_name}{INFORMANT}; 

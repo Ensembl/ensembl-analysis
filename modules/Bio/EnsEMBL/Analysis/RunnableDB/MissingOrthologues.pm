@@ -99,7 +99,7 @@ sub fetch_input {
 sub run {
   my ($self) = @_; 
 
-  my $query_spec = $$LOCATE_MISSING_ORTHOLOGUES{QUERY_SPECIES_ALIAS};  
+  my $query_spec = $$MAIN_CONFIG{QUERY_SPECIES};  
   my (%missing_orth,%trusted_orth); 
 
   QUERY_GENES : for my $gene_spec1 (@{$self->genes} ) { 
