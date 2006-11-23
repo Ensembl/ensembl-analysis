@@ -69,21 +69,20 @@ sub new {
 }
 
 
-sub get_initial_geneset {  
+sub get_initial_geneset {   
+
   my ( $self, $species_alias,$biotypes) = @_ ; 
 
   my $dba = Bio::EnsEMBL::Registry->get_DBAdaptor($species_alias,'core') ; 
   my $sa = $dba->get_SliceAdaptor() ;
 
-  print "fetching genes out of ". $dba->dbname . " @ " . $dba->host ." : " . $dba->port . "\n" 
-  if $self->verbose;
-
+  print "Fetching genes out of ". $dba->dbname . " @ " . $dba->host ." : " . $dba->port ." : " . $self->slice_name .  "\n" ;
   my $qy_slice      = $sa->fetch_by_name($self->slice_name) ;
 
   my @pt_genes ;
   for my $bt ( @$biotypes ) { 
     my $genes_on_slice =  $qy_slice->get_all_Genes_by_type( $bt );
-    print scalar(@$genes_on_slice) . " genes of biotype $bt found on slice\n";  
+    print scalar(@$genes_on_slice) . " genes of biotype $bt found on slice ( $species_alias ) \n";  
     $self->genes( $genes_on_slice ) ; 
    }
 } 
