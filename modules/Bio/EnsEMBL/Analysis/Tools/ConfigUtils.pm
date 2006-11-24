@@ -86,7 +86,7 @@ sub write_config {
    push @content, "\n\n" , $self->print;  
    push @content, "\n\n",$self->get_subroutine("import"),"\n\n1;";
    
-   my $f = $self->file ; 
+   my $f = $self->file ;  
    open (I,">$f") || die "Can't acess file ".$self->file()."\n";    
      print I join("\n" ,@content) ; 
    close(I); 
@@ -387,7 +387,6 @@ sub print {
   $d->Deepcopy(1);  
   my $rep = $d->Dump() ; 
   $rep=~s/\%var_name/\%$var_name/; 
-  print $rep ;  
   return $rep ; 
 } 
 
