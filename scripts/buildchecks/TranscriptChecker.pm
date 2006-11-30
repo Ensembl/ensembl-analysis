@@ -592,7 +592,7 @@ sub check_UTRs {
     }
     if ($exon == $trans_end_exon) {
       $foundend = 1;
-      if ($translation->end < ($exon->length-2) || $rank < scalar($exons) - 1) {
+      if ($translation->end < ($exon->length-2) || $rank < scalar(@$exons) - 1) {
         my $stopcodon = substr($exon->seq->seq,$translation->end-3,3); 
         if ($stopcodon !~ /TAA|TAG|TGA/) {
           $self->add_Warning("No TAA, TAG or TGA at three prime end of transcript CDS with UTR (has $stopcodon)\n");

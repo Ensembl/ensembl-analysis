@@ -44,7 +44,7 @@ sub get_chrlengths_v20 {
       # print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
     }
   } else {
-    my $sa = $db->dbc->get_SliceAdaptor;
+    my $sa = $db->get_SliceAdaptor;
 
     my @slices = @{$sa->fetch_all('toplevel')};
 
