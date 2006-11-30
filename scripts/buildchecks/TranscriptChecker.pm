@@ -268,7 +268,7 @@ sub output {
  
   my $vcoffset = 0;
   if ($self->slice) {
-    $vcoffset = $self->slice->chr_start - 1;
+    $vcoffset = $self->slice->start - 1;
   }
 
   my $translation = $transcript->translation;
@@ -377,7 +377,7 @@ sub check {
   my $transend;
   my $vcoffset = 0;
   if ($self->slice) {
-    $vcoffset = $self->slice->chr_start - 1;
+    $vcoffset = $self->slice->start - 1;
   }
 
   if ($exons[0]->strand == 1) {

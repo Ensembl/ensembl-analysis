@@ -173,7 +173,7 @@ sub output {
  
   my $vcoffset = 0;
   if ($self->slice) {
-    $vcoffset = $self->slice->chr_start - 1;
+    $vcoffset = $self->slice->start - 1;
   }
 
   print " Extents:         " . ($self->gene->start+$vcoffset) . " " . ($self->gene->end+$vcoffset) . " " . $self->gene->strand . "\n";
