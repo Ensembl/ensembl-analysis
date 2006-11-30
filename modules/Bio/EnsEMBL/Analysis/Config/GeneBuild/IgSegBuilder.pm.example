@@ -1,0 +1,80 @@
+#
+# package Bio::EnsEMBL::Analysis::Config::IgSegBuilder
+# 
+# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+#
+# Copyright GRL & EBI
+#
+# You may distribute this module under the same terms as perl itself
+
+# POD documentation - main docs before the code
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config:IgSegBuilder
+
+=head1 SYNOPSIS
+
+    use Bio::EnsEMBL::Analysis::Config::Genebuild::IgSegBuilder;
+
+=cut
+
+
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::IgSegBuilder;
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+           IGSEG_CONFIG_BY_LOGIC => {
+             DEFAULT => {
+
+               DNADB_DATABASES_NAME        => 'REFERENCE_DB',
+
+               TRANDB_DATABASES_NAME => 'IG_EXONERATE_DB',
+               LV_LOGICS => ['LV_pep'],
+               #LV_LOGICS => [],
+               #D_LOGICS  => ['D_pep'],
+               D_LOGICS  => [],
+               # J_LOGICS  => ['J_pep'],
+               J_LOGICS  => [],
+               C_LOGICS  => ['C_pep'],
+               #C_LOGICS  => [],
+
+               OUTPUTDB_DATABASES_NAME     => 'IG_OUTPUT_DB',
+               OUTPUT_BIOTYPE => 'Ig_segment',
+
+               # other stuff
+             },
+           }
+           );
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
