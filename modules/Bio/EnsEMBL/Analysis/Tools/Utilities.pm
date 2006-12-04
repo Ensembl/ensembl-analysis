@@ -42,7 +42,74 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw( shuffle );
+@EXPORT = qw( shuffle merge_config_details );
+
+
+
+
+=head2 merge_config_details
+
+  Arg [0]   : Array of Hashreferences
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Function  : This func. merges the Configurations out differnt configuration-files into one Hash
+  Returntype: Hashref. 
+  Exceptions: throws as this method should be implemented by any child
+  Example   : merge_database_configs ($DATABASES, $EXONERATE2GENES, $TRANSCRIPT_COALESCER) ; 
+
+=cut
+
+
+sub merge_config_details {
+  my ($self,  @config_hashes )= @_ ;
+
+  my %result ;
+
+  # loop through all hrefs which are passed as input 
+
+  foreach my $config_file ( @config_hashes ) {
+
+    my %file = %$config_file ;
+
+    foreach my $db_class ( keys %file ) {
+
+      # process Exonerate2Genes.pm config (has section --> OUTDB)
+
+      if ( exists ${$file{$db_class}}{OUTDB} ) {
+        if ( defined ${$file{$db_class}}{OUTDB} && length(${$file{$db_class}}{OUTDB}{'-dbname'}) > 0  ) {
+        # don't process undefiend OUT-DB's and  don't process defiened OUT-DB's which have no name
+           #print "-dbname "  .${$file{$db_class}}{OUTDB}{'-dbname'}. "\n\n\n" ;
+
+          $result{$db_class}{db} = ${$file{$db_class}}{OUTDB} ;
+
+        }else {
+         next ;
+        }
+      }
+
+      # process /Conf/GeneBuild/Databases.pm 
+
+      if (defined ( ${$file{$db_class}}{'-dbname'}) &&  length ( ${$file{$db_class}}{'-dbname'}) > 0 )  {
+        # we process Databases.pm // parameteres for db-connection are ok
+        $result{$db_class}{db} = \%{$file{$db_class}} ;
+
+      } elsif (defined ( ${$file{$db_class}}{'-dbname'}) &&  length ( ${$file{$db_class}}{'-dbname'}) == 0  ) {
+        next ;
+      }
+
+      # add / process data from other configs in format TranscriptCoalescer.pm 
+      # and attach data to main config hash 
+
+      for my $key (keys %{$file{$db_class}}) {
+        $result{$db_class}{$key} = $file{$db_class}{$key};
+      }
+    }
+  }
+  return \%result ;
+}
+
+
+
+
 
 
 =head2 shuffle 
