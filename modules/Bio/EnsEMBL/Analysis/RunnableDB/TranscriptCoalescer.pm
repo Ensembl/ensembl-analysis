@@ -51,6 +51,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
 use Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended ;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw ( merge_config_details ) ; 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
 
 use vars qw(@ISA);
