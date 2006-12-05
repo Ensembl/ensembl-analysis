@@ -139,6 +139,15 @@ TRAN:
     
     #print STDERR "####################\n";
     #print STDERR "Matches for $query_id:\n";
+
+  #get the slice_name, start, and end of the best hit and store them to be used
+  #in checking of any other good hit may be overlaping the best prediction
+  # This is to avoid a match that spans over a region where two or more proteins of
+  # a same family are close together and they get merged by a wrong "good quallity" alignment
+    my $best_transcript = ${$matches_sorted_by_coverage{$query_id}}[0]->{transcript};
+    my $best_start = $best_transcript->start;
+    my $best_end = $best_transcript->end;
+    my $best_slice = $best_transcript->slice;
     
   TRANSCRIPT:
     foreach my $hit ( @{$matches_sorted_by_coverage{$query_id}} ){
@@ -192,6 +201,13 @@ TRAN:
 	       && ! $is_spliced) {
 	    $accept = 'NO';
 	  }
+          # ... if one transcript with lower quality completely overlaps
+          # the best one don't accept the lower quality one.
+          elsif ($best_slice eq $transcript->slice && 
+                 $best_start > $transcript->start &&
+                 $best_end   < $transcript->end){
+            $accept = 'NO';
+          }
 	  else {
 	    $accept = 'YES';
 	    push( @good_matches, $transcript);
@@ -241,7 +257,7 @@ TRAN:
   return \@good_matches;
 
 }
-
+ 
 ############################################################
 
 sub _get_transcript_coverage{
