@@ -25,6 +25,7 @@ use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::IgSegBuilder;
 
+use Bio::SeqIO;
 use Bio::EnsEMBL::Gene;
 
 
@@ -65,6 +66,7 @@ sub fetch_input {
   if ($self->LV_LOGICS) {
     foreach my $logic (@{$self->LV_LOGICS}) {
       foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
+        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
         push @lv, $t->transfer($tlslice);
       }
     }
@@ -72,6 +74,7 @@ sub fetch_input {
   if ($self->D_LOGICS) {
     foreach my $logic (@{$self->D_LOGICS}) {
       foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
+        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
         push @d, $t->transfer($tlslice);
       }
     }
@@ -79,6 +82,7 @@ sub fetch_input {
   if ($self->J_LOGICS) {
     foreach my $logic (@{$self->J_LOGICS}) {
       foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
+        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
         push @j, $t->transfer($tlslice); 
       }
     }
@@ -86,6 +90,7 @@ sub fetch_input {
   if ($self->C_LOGICS) {
     foreach my $logic (@{$self->C_LOGICS}) {
       foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
+        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
         push @c, $t->transfer($tlslice);
       }
     }
@@ -102,7 +107,7 @@ sub fetch_input {
 sub write_output {
   my ($self) = @_;
 
-  my $out_db = $self->get_dbadaptor($self->OUTPUT_DB_NAME);
+  my $out_db = $self->get_dbadaptor($self->OUTPUTDB_DATABASES_NAME);
   my $ga = $out_db->get_GeneAdaptor;
 
   foreach my $g (@{$self->output}) {
@@ -122,25 +127,42 @@ sub run {
   my @lv_genes = @{$self->cluster_by_genomic_overlap($self->LV_transcripts)};
   @lv_genes = @{$self->transfer_to_local_slices(\@lv_genes)};
   foreach my $g (@lv_genes) {
-    $g = $self->adjust_gene_3($g, "CAC");
+    $self->adjust_gene_3($g, "CAC");
+    $self->trim_gene_translation3($g);
     $g = $self->prune_LV_transcripts($g);
 
-    # extend/trim translation to exclude stops
-    push @all_genes, $g;
+    push @all_genes, $g if @{$g->get_all_Transcripts};
   }
 
+
+  # D segments...
+
+  my @d_genes = @{$self->cluster_by_genomic_overlap($self->D_transcripts)};
+  @d_genes = @{$self->transfer_to_local_slices(\@d_genes)};
+  foreach my $g (@d_genes) {
+    $self->adjust_gene_5($g, "GTG");
+    $self->adjust_gene_3($g, "CAC");;
+    $self->trim_gene_translation5($g);
+    $self->trim_gene_translation3($g);
+    $g = $self->prune_D_J_transcripts($g);
+
+    # extend/trim translation to exclude stops    
+    push @all_genes, $g if @{$g->get_all_Transcripts};
+  }
 
   # J segments...
 
   my @j_genes = @{$self->cluster_by_genomic_overlap($self->J_transcripts)};
   @j_genes = @{$self->transfer_to_local_slices(\@j_genes)};
   foreach my $g (@j_genes) {
-    $g = $self->adjust_gene_3($g, "GT");
-    $g = $self->adjust_gene_5($g, "GTG");
-    $g = $self->prune_D_J_transcripts($g);
-    # extend/trim translation to exclude stops    
+    $self->adjust_gene_5($g, "GTG");
+    $self->adjust_gene_3($g, "GT");
+    $self->trim_gene_translation5($g);
+    $self->trim_gene_translation3($g);
 
-    push @all_genes, $g;
+    $g = $self->prune_D_J_transcripts($g);
+
+    push @all_genes, $g if @{$g->get_all_Transcripts};
   }
 
   # C segments...
@@ -148,24 +170,15 @@ sub run {
   my @c_genes = @{$self->cluster_by_genomic_overlap($self->C_transcripts)};
   @c_genes = @{$self->transfer_to_local_slices(\@c_genes)};
   foreach my $g (@c_genes) {
-    $g = $self->adjust_gene_5($g, "AG");
+    $self->adjust_gene_5($g, "AG");
+    $self->set_gene_stop_codon($g);
     $g = $self->prune_C_transcripts($g);
 
-    push @all_genes, $g;
+    push @all_genes, $g if @{$g->get_all_Transcripts};
   }
 
-  # D segments. Don't do anything for now...
-
-  my @d_genes = @{$self->cluster_by_genomic_overlap($self->D_transcripts)};
-  @d_genes = @{$self->transfer_to_local_slices(\@d_genes)};
-  foreach my $g (@d_genes) {
-    $g = $self->adjust_gene_5($g, "GTG");
-    $g = $self->adjust_gene_3($g, "CAC");;
-    $g = $self->prune_D_J_transcripts($g);
-
-    # extend/trim translation to exclude stops    
-    push @all_genes, $g;
-  }
+  #my $seqout = Bio::SeqIO->new(-format=>'fasta',
+  #                             -fh => \*STDOUT);
 
   my @final_genes;
   foreach my $g (@all_genes) {
@@ -173,6 +186,12 @@ sub run {
     $g->analysis($self->analysis);
     $g->biotype($self->OUTPUT_BIOTYPE);
     $self->prune_Exons($g);
+
+    #foreach my $t (@{$g->get_all_Transcripts}) {
+    #  my $tr = $t->translate;
+    #  $tr->id($t->get_all_supporting_features->[0]->hseqname);
+    #  $seqout->write_seq($tr);
+    #}
 
     push @final_genes, $g;
   }
@@ -252,7 +271,6 @@ sub transfer_to_local_slices {
                                           $gstart,
                                           $gend,
                                           $grp->{strand});
-    print "TRANSFERRINF TO LOCAL SLICE: ", $local_slice->start, " ", $local_slice->end, "\n";
     push @retgenes, map { $_->transfer($local_slice) } @{$grp->{genes}}; 
   }
 
@@ -276,6 +294,9 @@ sub prune_Exons {
                    $e->end_phase);
       if (not exists $gene_exons{$k}) {
         $gene_exons{$k} = $e;
+      } else {
+        $gene_exons{$k}->
+            add_supporting_features(@{$e->get_all_supporting_features});
       }
       push @t_exons, $gene_exons{$k};
 
@@ -290,7 +311,6 @@ sub prune_Exons {
     $tran->flush_Exons;
     map { $tran->add_Exon($_) } @t_exons;
   }
-  return $gene;
 }
 
 
@@ -301,6 +321,7 @@ sub prune_LV_transcripts {
 
   my @ftran;  
   my @tran = @{$gene->get_all_Transcripts};
+  @tran = grep { $_->translate->seq !~ /\*/ } @tran;
 
   #
   # if there are transcripts with a single intron, remove others
@@ -390,6 +411,7 @@ sub prune_C_transcripts {
   my ($self, $gene) = @_;
 
   my @tran = @{$gene->get_all_Transcripts};
+  @tran = grep { $_->translate->seq !~ /\*/ } @tran;
   @tran = sort _by_total_exon_length @tran;
 
   my (@newtran, @intron_lists, %all_exons);
@@ -458,6 +480,7 @@ sub prune_D_J_transcripts {
   my ($self, $gene) = @_;
 
   my @tran = @{$gene->get_all_Transcripts};
+  @tran = grep { $_->translate->seq !~ /\*/ } @tran;
   @tran = grep { scalar(@{$_->get_all_Exons}) == 1 } @tran;
 
   my ($best) = sort { $a->length <=> $b->length } @tran;
@@ -467,13 +490,96 @@ sub prune_D_J_transcripts {
 
 #########################################################
 
+
+sub set_gene_stop_codon {
+  my ($self, $gene) = @_;
+
+  my $seq = uc($gene->slice->seq);
+  
+  my %stops = (TAA => 1,
+               TGA => 1,
+               TAG => 1);
+
+  foreach my $t (@{$gene->get_all_Transcripts}) {
+    my $reg_start = $t->end - 2;
+
+    my $subseq = substr($seq, $t->end - 3, 3);
+    if (not exists $stops{$subseq}) {
+      my $next_seq = substr($seq, $t->end, 3);
+
+      if (exists $stops{$next_seq}) {
+        $self->adjust_transcript($t, 0, 3); 
+      }
+    }
+  }
+}
+
+
+sub trim_gene_translation5 {
+  my ($self, $gene) = @_;
+  
+  my $seq = uc($gene->slice->seq);
+  
+  my $codons_to_check = 2;
+  
+  foreach my $t (@{$gene->get_all_Transcripts}) {
+    my $exon = $t->get_all_Exons->[0];
+    my $spare = (3 - $exon->phase) % 3;
+    my $adjust = 0;
+    
+    for(my $i=0; $i < $codons_to_check; $i++) {
+      my $start = $exon->start + $spare + (3 * $i);
+      my $codon = substr($seq, $start - 1, 3);
+      if ($codon eq 'TAA' or 
+          $codon eq 'TGA' or 
+          $codon eq 'TAG') {
+        $adjust = (3 * $i) + 3 + $spare;
+      }
+    }
+    
+    if ($adjust) {
+      $t->translation->start($adjust);
+    }
+  }
+}
+
+sub trim_gene_translation3 {
+  my ($self, $gene) = @_;
+  
+  my $seq = uc($gene->slice->seq);
+  
+  my $codons_to_check = 2;
+  
+  foreach my $t (@{$gene->get_all_Transcripts}) {
+    my $exon = $t->get_all_Exons->[-1];
+    my $spare = $exon->end_phase;
+    my $adjust = 0;
+    
+    for(my $i=0; $i < $codons_to_check; $i++) {
+      my $start = $exon->end - $spare - 2 - (3 * $i);
+      my $codon = substr($seq, $start - 1, 3);
+      if ($codon eq 'TAA' or 
+          $codon eq 'TGA' or 
+          $codon eq 'TAG') {
+        $adjust = (3 * $i) + 3 + $spare;
+      }
+    }
+    
+    if ($adjust) {
+      $t->translation->end($exon->length - $adjust);
+    }
+  }
+}
+
 sub adjust_gene_5 {
   my ($self, $gene, $motif) = @_;
 
   my $seq = uc($gene->slice->seq);
 
   # we will consider adding/removing a maximum of
-  # 2 bps to the transcript start.
+  # 2 bps to the transcript start (to allow for
+  # a partial codon at the start sometimes being
+  # included in the translation, and sometimes not)
 
   my (@adjusted_trans);
   
@@ -481,17 +587,14 @@ sub adjust_gene_5 {
     my $reg_end = $t->start + 1;
     my $reg_start = $t->start - 2 - length($motif);
     my $subseq = substr($seq, $reg_start - 1, $reg_end - $reg_start + 1);
-    print "SUBSEQ = $subseq\n";
 
     # favour extension so take the first match
     if ((my $subseqoff = index($subseq, $motif)) >= 0) {
       my $newstart = $subseqoff + length($motif) + $reg_start;
       $self->adjust_transcript($t, $t->start - $newstart, 0);
     }
-    push @adjusted_trans, $t;
   }
 
-  return Bio::EnsEMBL::Gene->new(-transcripts => \@adjusted_trans);
 }
 
 
@@ -501,10 +604,10 @@ sub adjust_gene_3 {
   my $seq = uc($gene->slice->seq);
 
   # we will consider adding/removing a maximum of
-  # 2 bps to the transcript end. 
+  # 2 bps to the transcript end (to allow for
+  # a partial codon at the end sometimes being
+  # included in the translation, and sometimes not)
 
-  my (@adjusted_trans);
-  
   foreach my $t (@{$gene->get_all_Transcripts}) {
     my $tname = $t->get_all_supporting_features->[0]->hseqname;
 
@@ -520,11 +623,7 @@ sub adjust_gene_3 {
       my $newend = $subseqoff + $reg_start - 1;
       $self->adjust_transcript($t, 0, $newend - $t->end);
     }
-    push @adjusted_trans, $t;
   }
-
-  return Bio::EnsEMBL::Gene->new(-transcripts => \@adjusted_trans);
-
 }
 
 # offsets in the following are how much to EXTEND transcript
@@ -539,7 +638,7 @@ sub adjust_transcript {
     $exons[0]->start($exons[0]->start - $offset5);
     $exons[0]->phase( ($exons[0]->phase - $offset5) % 3 );
     if ($tran->translation) {
-      $tran->translation->end($tran->translation->end + $offset5);
+      $tran->translation->end($exons[-1]->length);
     }
     $tran->recalculate_coordinates;
   }
@@ -548,7 +647,7 @@ sub adjust_transcript {
     $exons[-1]->end($exons[-1]->end + $offset3);    
     $exons[-1]->end_phase( ($exons[-1]->end_phase + $offset3) % 3 );
     if ($tran->translation) {
-      $tran->translation->end($tran->translation->end + $offset3);
+      $tran->translation->end($exons[-1]->length);
     }
     $tran->recalculate_coordinates;
   }
