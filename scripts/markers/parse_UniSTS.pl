@@ -55,7 +55,7 @@ while (my $line = <UNI>) {
 }
 close(UNI) ;  
 
-open(O,$opt{outfile}) || die("Can't write to outfile $opt{outfile}\n"); 
+open(O, "> $opt{outfile}") || die("Can't write to outfile $opt{outfile}\n"); 
 
 print scalar(@species_entries) . " entries for $opt{species} found\n" ; 
 
