@@ -71,7 +71,7 @@ sub new {
   $self->read_and_check_config ; 
   $self->verbose(1) ;  
 
-  my $trusted_one2one_set= $$LOCATE_MISSING_ORTHOLOGUES{ANALYSIS_SETS}{$self->post_logic_name};    
+  my $trusted_one2one_set= $$FIND_MISSING_ORTHOLOGUES{ANALYSIS_SETS}{$self->post_logic_name};    
   
   print "Searching for 1:1 orthoologues between $$trusted_one2one_set[0] and $$trusted_one2one_set[1]\n" ;  
 
@@ -92,7 +92,7 @@ sub fetch_input {
   my( $self ) = @_;  
 
   # get all genes on slice for 1st species in array (species 1)
-  $self->get_initial_geneset($self->species_1, $$LOCATE_MISSING_ORTHOLOGUES{DEFAULT_GENE_BIOTYPES}) ; 
+  $self->get_initial_geneset($self->species_1, $$FIND_MISSING_ORTHOLOGUES{DEFAULT_GENE_BIOTYPES}) ; 
 }
 
 
@@ -156,9 +156,14 @@ sub run {
 
 sub write_output{
   my ($self) = @_;
-  my $written_files = $self->chunk_and_write_fasta_sequences( $self->output) ;
-  print scalar(@$written_files) . " fasta-files written for " . $self->species_1."\n" ;   
-  $self->upload_input_ids( $written_files );  
+  my $written_files = $self->chunk_and_write_fasta_sequences( $self->output) ; 
+  if ( $written_files ) { 
+    print scalar(@$written_files) . " fasta-files written for " . $self->species_1."\n" ;   
+    $self->upload_input_ids( $written_files );   
+    print STDERR "input_ids uploaded\n" ;   
+  } else { 
+    print STDERR "NO input_ids uploaded\n" ;    
+ }
 }
 
 
@@ -215,7 +220,7 @@ sub read_and_check_config {
 
 
   # check config for MissingOrthologues 
-   my %config_hash = %{$LOCATE_MISSING_ORTHOLOGUES}; 
+   my %config_hash = %{$FIND_MISSING_ORTHOLOGUES}; 
 }
 
 
