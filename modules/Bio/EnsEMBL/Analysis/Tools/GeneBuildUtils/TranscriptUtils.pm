@@ -43,8 +43,9 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites );
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
@@ -87,6 +88,9 @@ use vars qw (@ISA @EXPORT);
              get_downstream_Intron_from_Exon
              get_upstream_splice_sites
              get_downstream_splice_sites
+             attach_Slice_to_Transcript
+             empty_Transcript
+             fully_load_Transcript
             );
 
 
@@ -566,18 +570,6 @@ sub has_no_unwanted_evidence{
 
 =cut
 
-
-=head2 get_evidence_ids
-
-  Arg [1]   : Bio::EnsEMBL::Transcript
-  Function  : get a unique hash of evidence ids from the given
-  transcript. Note this is curretnly an internal method and is
-  not exported from the module
-  Returntype: hashref of unique ids 
-  Exceptions: none
-  Example   : 
-  Note      :This is a private method which is not exported
-=cut
 
 
 sub get_evidence_ids{
@@ -1443,13 +1435,9 @@ sub dump_cDNA_file{
   logger_info("You are going to dump the cdna of ".
               id($transcript)." into ".$filename." format ".
               $format);
-  my $seqout = Bio::SeqIO(
-                          '-format' => $format,
-                          '-filename' => $filename,
-                         );
   my $seq = $transcript->seq;
   $seq->display_id(id($transcript));
-  $seqout->writefile($seq);
+  $filename = write_seqfile($seq, $filename, $format);
   return $filename;
 }
 
@@ -1563,6 +1551,57 @@ sub get_downstream_Intron_from_Exon{
 sub get_downstream_splice_sites_from_Exon{
   my ($transcript, $exon) = @_;
   return get_downstream_splice_sites($exon, $transcript);
+}
+
+
+sub attach_Slice_to_Transcript{
+  my ($transcript, $slice) = @_;
+  $transcript->slice($slice);
+  foreach my $sf(@{$transcript->get_all_supporting_features}){
+    $sf->slice($slice);
+  }
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    $exon->slice($slice);
+    foreach my $sf(@{$exon->get_all_supporting_features}){
+      $sf->slice($slice);
+    }
+  }
+}
+
+
+sub fully_load_Transcript{
+  my ($transcript) = @_;
+ TSF:foreach my $sf(@{$transcript->get_all_supporting_features}){
+    next TSF;
+  }
+  my $translation = $transcript->translation;
+  $translation->start_Exon;
+  $translation->end_Exon;
+ EXON:foreach my $e(@{$transcript->get_all_Exons}){
+  SF:foreach my $sf(@{$e->get_all_supporting_features}){
+      next SF;
+    }
+  }
+  $transcript->analysis;
+  return $transcript;
+}
+
+sub empty_Transcript{
+  my ($transcript, $remove_stable_id, $remove_xrefs) = @_;
+  fully_load_Transcript($transcript);
+  foreach my $sf(@{$transcript->get_all_supporting_features}){
+    empty_Object($sf);
+  }
+  empty_Object($transcript->translation, $remove_stable_id);
+ EXON:foreach my $e(@{$transcript->get_all_Exons}){
+  SF:foreach my $sf(@{$e->get_all_supporting_features}){
+      empty_Object($sf, $remove_stable_id);
+    }
+    empty_Object($e, $remove_stable_id);
+  }
+  $transcript->display_xref(undef) if($remove_xrefs);
+  empty_Object($transcript, $remove_stable_id);
+  return $transcript;
 }
 
 1;

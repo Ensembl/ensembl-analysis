@@ -13,9 +13,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
 my $exonerate2genes = Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes->new(
                               -db         => $refdb,
 			      -analysis   => $analysis_obj,
-			      -database   => $EST_GENOMIC,
-			      -query_seqs => \@sequences,
-			      -query_type => 'dna',
+			      -input_id => $chunk_file_name
 			     );
 
 $exonerate2genes->fetch_input();

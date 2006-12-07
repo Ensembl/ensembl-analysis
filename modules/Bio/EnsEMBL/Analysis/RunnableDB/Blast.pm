@@ -145,30 +145,6 @@ sub run {
 
 
 
-=head2 require_module
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Arg [2]   : string, module path
-  Function  : uses perls require to use the past in module
-  Returntype: returns module name with / replaced by ::
-  Exceptions: throws if require fails
-  Example   : my $parser = 
-  $self->require('Bio/EnsEMBL/Analysis/Tools/BPliteWrapper');
-
-=cut
-
-
-
-sub require_module{
-  my ($self, $module) = @_;
-  my $class;
-  ($class = $module) =~ s/::/\//g;
-  eval{
-    require "$class.pm";
-  };
-  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
-  return $module;
-}
 
 
 

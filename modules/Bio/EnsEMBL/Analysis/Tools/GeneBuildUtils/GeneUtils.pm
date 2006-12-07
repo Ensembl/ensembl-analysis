@@ -50,12 +50,15 @@ use vars qw (@ISA  @EXPORT);
              prune_Exons
              get_one2one_orth_for_gene_in_other_species
              get_transcript_with_longest_CDS
+             attach_Slice_to_Gene
+             fully_load_Gene
+             empty_Gene
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript);
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
 use Bio::EnsEMBL::Gene;
 
@@ -135,7 +138,7 @@ sub Gene_info{
   my ($gene) = @_;
   my $coord_string = coord_string($gene);
   my $id = id($gene);
-  return "GENE: id ".$id." ".$coord_string." logic_name ".$gene->analysis->logic_name;
+  return "GENE: id ".$id." ".$coord_string." biotype ".$gene->biotype;
 }
 
 
@@ -276,11 +279,74 @@ sub get_one2one_orth_for_gene_in_other_species {
 
 
 
+=head2 attach_Slice_to_Gene
+
+  Arg [1]   : Bio::EnsEMBL::Gene
+  Arg [2]   : Bio::EnsEMBL::Slice
+  Function  : attach given slice to gene and its object hierachy
+  Returntype: n/a
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub attach_Slice_to_Gene{
+  my ($gene, $slice) = @_;
+  $gene->slice($slice);
+  foreach my $transcript(@{$gene->get_all_Transcripts}){
+    attach_Slice_to_Transcript($transcript, $slice);
+  }
+}
+
+
+=head2 fully_load_Gene
+
+  Arg [1]   : Bio::EnsEMBL::Gene
+  Function  : descend object hierachy to ensure is fully loaded from the database
+  Returntype: Bio::EnsEMBL::Gene
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub fully_load_Gene{
+  my ($gene) = @_;
+  foreach my $t(@{$gene->get_all_Transcripts}){
+    fully_load_Transcript($t);
+  }
+  $gene->analysis;
+  $gene->get_all_DBEntries;
+  $gene->stable_id;
+  return $gene;
+}
+
+
+=head2 empty_Gene
+
+  Arg [1]   : Bio::EnsEMBL::Gene
+  Arg [2]   : Boolean, whether to remove the stable id
+  Arg [3]   : Boolean, whether to remove the xrefs
+  Function  : detached gene and its object hierachy from database
+  Returntype: Bio::EnsEMBL::Gene
+  Exceptions: 
+  Example   : 
+
+=cut
 
 
 
-
-
+sub empty_Gene{
+  my ($gene, $remove_stable_id, $remove_xrefs) = @_;
+  fully_load_Gene($gene);
+  foreach my $t(@{$gene->get_all_Transcripts}){
+    empty_Transcript($t, $remove_stable_id, $remove_xrefs);
+  }
+  $gene->display_xref(undef) if($remove_xrefs);
+  empty_Object($gene, $remove_stable_id);
+  return $gene;
+}
 
 
 

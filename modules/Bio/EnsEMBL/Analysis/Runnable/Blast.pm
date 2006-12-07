@@ -257,6 +257,7 @@ sub run_analysis {
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
     
+    print "Running blast ".$command."\n";
     info("Running blast ".$command);
     
     open(my $fh, "$command |") || 

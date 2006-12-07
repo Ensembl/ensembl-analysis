@@ -47,7 +47,9 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
-
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(create_Exon);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils 
+  qw(create_feature create_feature_from_gapped_pieces);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
@@ -60,7 +62,7 @@ sub new {
                                                             MEMORY 
                                                             REVERSE 
                                                             ENDBIAS 
-                                                            GAP 
+                                                           GAP 
                                                             EXTENSION 
                                                             SUBS 
                                                             MATRIX
@@ -153,38 +155,7 @@ sub run_analysis{
   system($command) == 0 or throw("FAILED to run ".$command);
 }
 
-#sub run_analysis{
-#  my ($self, $program) = @_;
-#  if(!$program){
-#    $program = $self->program;
-#  }
-#  $self->check_environment;
-#  throw($program." is not executable Runnable::Genewise::run_analysis ") 
-#    unless($program && -x $program);
-#  my $command = $self->program." ";
-#  if($self->protfile){
-#   $command .=  $self->protfile." ";
-#  }
-#  $command .= $self->queryfile." -genesf -kbyte ".$self->memory." -ext ".
-#    $self->extension." -gap ".$self->gap." -subs ".$self->subs." -m ".
-#      $self->matrix." ".$self->options;
-#  if($self->hmm){
-#    $command .= "-hmmer ".$self->hmm;
-#  }
-#  if($self->endbias == 1){
-#    $command =~ s/-init endbias//;
-#    $command =~ s/-splice flat//;
-#    $command =~ s/-splice_gtag//;
-#    $command .= " -init endbias -splice_gtag ";
-#  }
-#  if (($self->reverse) && $self->reverse == 1) {
-#    $command .= " -trev ";
-#  }
-#  $command .= " > ".$self->resultsfile;
-#  logger_info($command);
-#  print $command."\n";
-#  system($command) == 0 or throw("FAILED to run ".$command);
-#}
+
 
 
 =head2 parse_genewise_output
@@ -218,135 +189,7 @@ sub parse_results{
   }
 }
 
-#sub parse_genewise_output {
-#  my ($self, $fh) = @_;
 
-#  my ($last_geneid, @exons_and_sfs);
-
-#  while(<$fh>) {
-#    print if($self->verbose);
-#    chomp;    
-
-#    my @l = split;
-
-#    next unless (defined $l[0] && ($l[0] eq 'Gene' || $l[0] eq 'Exon' || $l[0] eq 'Supporting'));
-
-#    if($l[0] eq 'Gene'){
-
-#      # flag a frameshift - ultimately we will do something clever here but for now ...
-#      # frameshift is here defined as two or more genes produced by Genewise from a single protein
-      
-#      if (/^(Gene\s+\d+)$/){
-#        if(!defined($last_geneid)){
-#          $last_geneid = $1;
-#        } 
-#        elsif ($1 ne $last_geneid) {
-#          warning("frameshift!\n");
-#        }
-#      }
-#    }    
-#    elsif($l[0] eq 'Exon'){
-#      my $start  = $l[1];
-#      my $end    = $l[2];
-#      my $phase  = $l[4];
-#      my $strand;
-      
-#      if ($l[1] == $l[2]) {
-#        # can't determine strand; defer
-#        $strand = 0;
-#      } else {
-#        if($l[1] > $l[2]){
-#          $strand = -1;
-#          $start  = $l[2];
-#          $end    = $l[1];
-#        } else {
-#          $strand = 1;
-#        }
-#      }
-      
-#      my $exon_length = $end - $start + 1;
-      
-#      # end phase is the number of bases at the end of the exon which do not
-#      # fall in a codon and it coincides with the phase of the following exon.
-      
-#      my $end_phase   = ( $exon_length + $phase ) %3;
-      
-#      my $exon = new Bio::EnsEMBL::Exon;
-
-#      $exon->start    ($start);
-#      $exon->end      ($end);
-#      $exon->strand   ($strand);
-#      $exon->phase    ($phase);
-#      $exon->end_phase($end_phase);      
-#      $exon->slice($self->query);
-
-#      push @exons_and_sfs, { exon => $exon,
-#                             sfs  => [],
-#                           };      
-#    }    
-#    elsif($l[0] eq 'Supporting') {
-      
-#      my $gstart = $l[1];
-#      my $gend   = $l[2];
-#      my $pstart = $l[3];
-#      my $pend   = $l[4];
-      
-#      my $strand = 1;
-      
-#      if ($gstart > $gend){
-#        $gstart = $l[2];
-#        $gend   = $l[1];
-#        $strand = -1;
-#      }
-      
-#      if($strand != $exons_and_sfs[-1]->{exon}->strand){
-#        warning("incompatible strands between exon and supporting feature - cannot add suppfeat\n");
-#        return;
-#      }
-      
-#      if($pstart > $pend){
-#        warning("Protein start greater than end! Skipping this suppfeat\n");
-#        return;
-#      }
-      
-#      my $fp = new Bio::EnsEMBL::FeaturePair();
-#      $fp->start   ($gstart);
-#      $fp->end     ($gend);
-#      $fp->strand  ($strand);
-#      $fp->seqname ($self->query->id);
-#      $fp->hseqname($self->protein->id);
-#      $fp->hstart  ($pstart);
-#      $fp->hend    ($pend);
-#      $fp->hstrand (1);
-#      push(@{$exons_and_sfs[-1]->{sfs}}, $fp);
-
-#    }
-#  }
-
-#  my ($consensus_strand, @strandless_exons);
-
-#  foreach my $entry (@exons_and_sfs) {
-#    my ($exon, @sfs) = ($entry->{exon}, @{$entry->{sfs}});
-
-#    if ($exon->strand != 0 and not defined $consensus_strand) {
-#      $consensus_strand = $exon->strand;
-#    } else {
-#      push @strandless_exons, $exon;
-#    }
-          
-#    if (@sfs) {
-#      my $align = new Bio::EnsEMBL::DnaPepAlignFeature(-features => \@sfs);
-#      $align->seqname($self->query->seq_region_name);
-#      $align->slice($self->query);
-#      $align->score(100);
-#      $exon->add_supporting_features($align);    
-#    }
-#  }
-
-#  map { $_->strand($consensus_strand) } @strandless_exons;
-
-#  return map { $_->{exon} } @exons_and_sfs;
-#}
 sub parse_genewise_output {
   my ($self, $fh) = @_;
 
@@ -432,16 +275,9 @@ sub parse_genewise_output {
         return;
       }
       
-      my $fp = new Bio::EnsEMBL::FeaturePair();
-      $fp->start   ($gstart);
-      $fp->end     ($gend);
-      $fp->strand  ($strand);
-      $fp->seqname ($self->query->id);
-      $fp->hseqname($hit_name);
-      $fp->hstart  ($pstart);
-      $fp->hend    ($pend);
-      $fp->hstrand (1);
-      $fp->analysis($self->analysis);
+      my $fp = create_feature("Bio::EnsEMBL::FeaturePair", $gstart, $gend, $strand,
+                              $pstart, $pend, 1, undef, undef, undef, $hit_name,
+                              undef, $self->analysis);
 
       if (not exists $genes[-1]->{start}) {
         $genes[-1]->{start}  = $fp->start;
@@ -540,7 +376,7 @@ sub make_transcript{
   $transcript->translation($translation);
 
   if ($#exons < 0) {
-    print STDERR "Odd.  No exons found\n";
+    warning("Odd.  No exons found\n");
     return undef;
   }
 
@@ -573,7 +409,6 @@ sub make_transcript{
 
       if (defined $sf) {
         $hit_name = $sf->hseqname;
-
         if (not defined $min_start or $sf->start < $min_start) {
           $min_start = $sf->start;
         }
@@ -591,7 +426,6 @@ sub make_transcript{
 
       $transcript->add_Exon($exon);
     }
-
     my $tsf = Bio::EnsEMBL::FeaturePair->new();
     $tsf->start($min_start);
     $tsf->end($max_end);
@@ -651,7 +485,7 @@ sub memory {
 			$self->{'_memory'} = $arg;
     }
 
-    return $self->{'_memory'} || 100000;
+    return $self->{'_memory'};
 }
 
 sub gap {
@@ -664,7 +498,7 @@ sub gap {
       $self->{'_gap'} = $arg;
     }
 
-    return $self->{'_gap'} || 12;
+    return $self->{'_gap'};
 }
 
 sub extension {
@@ -677,7 +511,7 @@ sub extension {
       $self->{'_ext'} = $arg;
     }
 
-    return $self->{'_ext'} || 2;
+    return $self->{'_ext'};
 }
 
 sub subs{
@@ -690,7 +524,7 @@ sub subs{
       $self->{'_subs'} = $arg;
     }
 
-    return $self->{'_subs'} || 0.0000001;
+    return $self->{'_subs'};
 }
 
 sub matrix{
@@ -729,6 +563,7 @@ sub protein {
 				 $arg->isa("Bio::PrimarySeqI"));
 			
 			$self->{'_protein'} = $arg;
+                        $self->target_length($arg->length);
     }
     return $self->{'_protein'};
 }

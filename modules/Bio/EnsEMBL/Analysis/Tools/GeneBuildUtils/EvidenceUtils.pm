@@ -12,7 +12,8 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw (print_Evidence clone_Evidence Evidence_info);
+@EXPORT = qw (print_Evidence clone_Evidence Evidence_info create_feature 
+              create_feature_from_gapped_pieces);
 
 
 sub print_Evidence{
@@ -99,6 +100,25 @@ sub create_feature{
         -cigar_string => $cigar_string,
        );
   $feature->slice($slice);
+  $feature->hseqname($hseqname);
+  return $feature;
+}
+
+
+sub create_feature_from_gapped_pieces{
+  my ($feature_string, $pieces, $score, $percent_id, $p_value, $slice, $hseqname, 
+      $analysis) = @_;
+  
+  my $feature = $feature_string->new(
+                                     -features => $pieces,
+                                     -percent_id => $percent_id,
+                                     -score    => $score,
+                                     -p_value  => $p_value,
+                                     -hseqname => $hseqname,
+                                     -analysis => $analysis,
+                                    );
+  $feature->slice($slice);
+  $feature->hseqname($hseqname);
   return $feature;
 }
 

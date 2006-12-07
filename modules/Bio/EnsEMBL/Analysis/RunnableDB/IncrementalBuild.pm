@@ -8,6 +8,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::IncrementalBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 @ISA = qw (
            Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
@@ -124,7 +125,7 @@ sub write_output{
   my $db = $self->output_database;
   my $gene_adaptor = $db->get_GeneAdaptor;
   foreach my $gene (@{$self->output}){
-    $self->empty_gene($gene);
+    empty_Gene($gene);
     eval{
       $gene_adaptor->store($gene);
     };
@@ -460,34 +461,6 @@ sub mask_gene_regions{
   return \@mask_gene_regions;
 }
 
-sub empty_gene{
-  my ($self, $gene) = @_;
-  
-  foreach my $trans(@{$gene->get_all_Transcripts}){
-    my $translation = $self->object_empty($trans->translation)
-      if($trans->translation);
-    foreach my $sf (@{$trans->get_all_supporting_features}){
-      $sf = $self->object_empty($sf);
-    }
-    foreach my $exon(@{$trans->get_all_Exons}){
-      foreach my $sf (@{$exon->get_all_supporting_features}){
-        $sf = $self->object_empty($sf);
-      }
-      $exon = $self->object_empty($exon);
-    }
-    $trans = $self->object_empty($trans);
-  }
-  $gene = $self->object_empty($gene);
-  return $gene;
-}
-
-sub object_empty{
-  my ($self, $object) = @_;
-  my ($p, $f, $l) = caller;
-  $object->adaptor(undef);
-  $object->dbID(undef);
-  return $object;
-}
 
 
 sub calculate_translation{

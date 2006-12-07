@@ -42,7 +42,10 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw( shuffle merge_config_details );
+
+@EXPORT = qw( shuffle parse_config create_file_name write_seqfile merge_config_details );
+
+
 
 
 
@@ -108,10 +111,6 @@ sub merge_config_details {
 }
 
 
-
-
-
-
 =head2 shuffle 
 
   Arg [1]   : Reference to Array
@@ -130,6 +129,153 @@ sub shuffle {
      @$tref[$i,$j] = @$tref[$j,$i];
   }
   return $tref ;
+}
+
+
+
+sub parse_config{
+  my ($obj, $var_hash, $label) = @_;
+
+  my $DEFAULT_ENTRY_KEY = 'DEFAULT';
+  if(!$var_hash || ref($var_hash) ne 'HASH'){
+    my $err = "Must pass read_and_check_config a hashref with the config ".
+      "in ";
+    $err .= " not a ".$var_hash if($var_hash);
+    $err .= " Utilities::read_and_and_check_config";
+    throw($err);
+  }
+
+  my %check;
+  foreach my $k (keys %$var_hash) {
+    my $uc_key = uc($k);
+    if (exists $check{$uc_key}) {
+      throw("You have two entries in your config with the same name (ignoring case)\n");
+    }
+    $check{$uc_key} = $k;
+  }
+  # replace entries in config has with lower case versions. 
+  foreach my $k (keys %check) {
+    my $old_k = $check{$k};
+    my $entry = $var_hash->{$old_k};
+    delete $var_hash->{$old_k};
+
+    $var_hash->{$k} = $entry;
+  }
+
+  if (not exists($var_hash->{$DEFAULT_ENTRY_KEY})) {
+    throw("You must define a $DEFAULT_ENTRY_KEY entry in your config");
+  }
+
+  my $default_entry = $var_hash->{$DEFAULT_ENTRY_KEY};
+  # the following will fail if there are config variables that 
+  # do not have a corresponding method here
+  foreach my $config_var (keys %{$default_entry}) {
+    if ($obj->can($config_var)) {
+      $obj->$config_var($default_entry->{$config_var});
+    } else {
+      throw("no method defined in Utilities for config variable '$config_var'");
+    }
+  }
+
+  #########################################################
+  # read values of config variables for this logic name into
+  # instance variable, set by method
+  #########################################################
+
+  my $uc_logic = uc($label);
+
+  if (exists $var_hash->{$uc_logic}) {
+    # entry contains more specific values for the variables
+    my $entry = $var_hash->{$uc_logic};
+   
+    foreach my $config_var (keys %{$entry}) {
+      
+      if ($obj->can($config_var)) {
+ 
+        $obj->$config_var($entry->{$config_var});
+      } else {
+        throw("no method defined in Utilities for config variable '$config_var'");
+      }
+    }
+  }
+}
+
+
+=head2 create_file_name
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Arg [2]   : string, stem of filename
+  Arg [3]   : string, extension of filename
+  Arg [4]   : directory file should live in
+  Function  : create a filename containing the PID and a random number
+  with the specified directory, stem and extension
+  Returntype: string, filename
+  Exceptions: throw if directory specifed doesnt exist
+  Example   : my $queryfile = $self->create_filename('seq', 'fa');
+
+=cut
+
+
+
+sub create_file_name{
+  my ($stem, $ext, $dir) = @_;
+  if(!$dir){
+    $dir = '/tmp';
+  }
+  $stem = '' if(!$stem);
+  $ext = '' if(!$ext);
+  throw($dir." doesn't exist SequenceUtils::create_filename") 
+    unless(-d $dir);
+  my $num = int(rand(100000));
+  my $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
+  while(-e $file){
+    $num = int(rand(100000));
+    $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
+  }
+  return $file;
+}
+
+
+
+=head2 write_seq_file
+
+  Arg [1]   : Bio::Seq
+  Arg [2]   : string, filename
+  Function  : This uses Bio::SeqIO to dump a sequence to a fasta file
+  Returntype: string, filename
+  Exceptions: throw if failed to write sequence
+  Example   : 
+
+=cut
+
+sub write_seqfile{
+  my ($seq, $filename, $format) = @_;
+  $format = 'fasta' if(!$format);
+  my @seqs;
+  if(ref($seq) eq "ARRAY"){
+    @seqs = @$seq;
+    throw("Seqs need to be Bio::PrimarySeqI object not a ".$seqs[0])
+      unless($seqs[0]->isa('Bio::PrimarySeqI'));
+  }else{
+    throw("Need a Bio::PrimarySeqI object not a ".$seq)
+      if(!$seq || !$seq->isa('Bio::PrimarySeqI'));
+    @seqs = ($seq);
+  }
+  $filename = create_file_name('seq', 'fa', '/tmp') 
+    if(!$filename);
+  my $seqout = Bio::SeqIO->new(
+                               -file => ">".$filename,
+                               -format => $format,
+                              );
+  foreach my $seq(@seqs){
+    eval{
+      $seqout->write_seq($seq);
+    };
+    if($@){
+      throw("FAILED to write $seq to $filename SequenceUtils:write_seq_file $@");
+    }
+  }
+  return $filename;
 }
 
 

@@ -59,6 +59,7 @@ use vars qw (@ISA @EXPORT);
              get_downstream_Intron
              get_upstream_splice_sites
              get_downstream_splice_sites
+             create_Exon
             );
 
 
@@ -132,23 +133,39 @@ sub Exon_info{
 
 sub clone_Exon{
   my ($exon) = @_;
-  my $newexon = Bio::EnsEMBL::Exon->new();
-  $newexon->start      ($exon->start);
-  $newexon->end        ($exon->end);
-  $newexon->phase      ($exon->phase);
-  $newexon->end_phase  ($exon->end_phase);
-  $newexon->strand     ($exon->strand);
-  $newexon->dbID       ($exon->dbID);
-  $newexon->slice      ($exon->slice);
-  $newexon->stable_id  ($exon->stable_id);
-  $newexon->analysis   ($exon->analysis);
+
+  my @sfs;
+
   foreach my $sf(@{$exon->get_all_supporting_features}){
     my $newsf = clone_Evidence($sf);
+    push(@sfs, $newsf);
+  }
+
+  my $newexon = create_Exon($exon->start, $exon->end, $exon->phase, $exon->end_phase,
+                            $exon->strand, $exon->analysis, \@sfs, $exon->dbID,
+                            $exon->slice, $exon->stable_id);
+  return $newexon;
+}
+
+
+sub create_Exon{
+  my ($start, $end, $phase, $end_phase, $strand, $slice, $analysis, $sfs, $dbID,
+      $stable_id) = @_;
+  my $newexon = Bio::EnsEMBL::Exon->new();
+  $newexon->start      ($start);
+  $newexon->end        ($end);
+  $newexon->phase      ($phase);
+  $newexon->end_phase  ($end_phase);
+  $newexon->strand     ($strand);
+  $newexon->dbID       ($dbID);
+  $newexon->slice      ($slice);
+  $newexon->stable_id  ($stable_id);
+  $newexon->analysis   ($analysis);
+  foreach my $sf(@$sfs){
     $newexon->add_supporting_features($sf);
   }
   return $newexon;
 }
-
 
 
 =head2 exon_length_less_than_maximum

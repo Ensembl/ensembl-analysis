@@ -6,7 +6,8 @@ genebuild utility methods
 
 =head1 SYNOPSIS
 
-  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id 
+                                                       empty_Object);
 
   or 
 
@@ -23,7 +24,8 @@ direct outside of these classes but it can been if needed
 It provides some simple functionality that all of the utility
 modules need like id, to provide a sensible id string or
 coord string to provide a basic, start, end, strand, 
-seq_region_name string for printing
+seq_region_name string for printing or removing databases connections
+from objects
 
 These modules are heavily based on the Utils modules which
 can be found in EnsEMBL::Analysis::Pipeline::Tools
@@ -50,7 +52,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(coord_string id);
+@EXPORT = qw(coord_string id empty_Object);
 
 
 =head2 coord_string
@@ -68,6 +70,7 @@ use vars qw (@ISA  @EXPORT);
 
 sub coord_string{
   my $feature = shift;
+  my ($p, $f, $l) = caller;
   throw("Must be passed a feature") if(!$feature);
   my $string = $feature->start."\t".$feature->end."\t".$feature->strand."\t".$feature->slice->seq_region_name;
   return $string;
@@ -105,5 +108,31 @@ sub id {
   }
   return $id;
 }
+
+
+
+=head2 empty_Object
+
+  Arg [1]   : Bio::EnsEMBL::Storeable or an object which inherits from it
+  Arg [2]   : Boolean, whether to remove the stable id from the given object
+  Function  : remove the dbID, adaptor and if appropriate the stable id
+  Returntype: Bio::EnsEMBL::Storeable
+  Exceptions: n/a
+  Example   : empty_Object($object);
+
+=cut
+
+
+
+sub empty_Object{
+  my ($object, $include_stable_id) = @_;
+  $object->adaptor(undef);
+  $object->dbID(undef);
+  $object->stable_id(undef) if($object->can("stable_id") && 
+                               $include_stable_id);
+  return $object;
+}
+
+
 
 1;
