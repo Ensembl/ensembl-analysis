@@ -33,17 +33,17 @@ use vars qw( %Config );
                DNADB_DATABASES_NAME        => 'REFERENCE_DB',
 
                TRANDB_DATABASES_NAME => 'IG_EXONERATE_DB',
-               LV_LOGICS => ['LV_pep'],
-               #LV_LOGICS => [],
-               #D_LOGICS  => ['D_pep'],
+               LV_LOGICS => [],
                D_LOGICS  => [],
-               # J_LOGICS  => ['J_pep'],
                J_LOGICS  => [],
-               C_LOGICS  => ['C_pep'],
-               #C_LOGICS  => [],
+               C_LOGICS  => [],
+
+               LV_OUTPUT_BIOTYPE => 'LV_segment',
+               D_OUTPUT_BIOTYPE => 'D_segment',
+               J_OUTPUT_BIOTYPE => 'J_segment',
+               C_OUTPUT_BIOTYPE => 'C_segment',
 
                OUTPUTDB_DATABASES_NAME     => 'IG_OUTPUT_DB',
-               OUTPUT_BIOTYPE => 'Ig_segment',
 
                # other stuff
              },

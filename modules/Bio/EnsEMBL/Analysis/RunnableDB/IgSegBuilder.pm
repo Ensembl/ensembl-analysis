@@ -27,7 +27,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::IgSegBuilder;
 
 use Bio::SeqIO;
 use Bio::EnsEMBL::Gene;
-
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
@@ -120,7 +120,7 @@ sub write_output {
 sub run {
   my ($self) = @_;
 
-  my @all_genes;
+  my @genes;
 
   # LV segments...
 
@@ -130,40 +130,14 @@ sub run {
     $self->adjust_gene_3($g, "CAC");
     $self->trim_gene_translation3($g);
     $g = $self->prune_LV_transcripts($g);
-
-    push @all_genes, $g if @{$g->get_all_Transcripts};
+    if (@{$g->get_all_Transcripts}) {
+      $g = $g->transfer($self->query);
+      $g->biotype($self->LV_OUTPUT_BIOTYPE);
+      push @genes, $g;
+    }
   }
+  @lv_genes = @genes; @genes = ();
 
-
-  # D segments...
-
-  my @d_genes = @{$self->cluster_by_genomic_overlap($self->D_transcripts)};
-  @d_genes = @{$self->transfer_to_local_slices(\@d_genes)};
-  foreach my $g (@d_genes) {
-    $self->adjust_gene_5($g, "GTG");
-    $self->adjust_gene_3($g, "CAC");;
-    $self->trim_gene_translation5($g);
-    $self->trim_gene_translation3($g);
-    $g = $self->prune_D_J_transcripts($g);
-
-    # extend/trim translation to exclude stops    
-    push @all_genes, $g if @{$g->get_all_Transcripts};
-  }
-
-  # J segments...
-
-  my @j_genes = @{$self->cluster_by_genomic_overlap($self->J_transcripts)};
-  @j_genes = @{$self->transfer_to_local_slices(\@j_genes)};
-  foreach my $g (@j_genes) {
-    $self->adjust_gene_5($g, "GTG");
-    $self->adjust_gene_3($g, "GT");
-    $self->trim_gene_translation5($g);
-    $self->trim_gene_translation3($g);
-
-    $g = $self->prune_D_J_transcripts($g);
-
-    push @all_genes, $g if @{$g->get_all_Transcripts};
-  }
 
   # C segments...
 
@@ -173,30 +147,63 @@ sub run {
     $self->adjust_gene_5($g, "AG");
     $self->set_gene_stop_codon($g);
     $g = $self->prune_C_transcripts($g);
-
-    push @all_genes, $g if @{$g->get_all_Transcripts};
+    if (@{$g->get_all_Transcripts}) {
+      $g = $g->transfer($self->query);
+      $g->biotype($self->C_OUTPUT_BIOTYPE);
+      push @genes, $g;
+    }
   }
+  @c_genes = @genes; @genes = ();
 
-  #my $seqout = Bio::SeqIO->new(-format=>'fasta',
-  #                             -fh => \*STDOUT);
 
-  my @final_genes;
-  foreach my $g (@all_genes) {
-    $g = $g->transfer($self->query);
-    $g->analysis($self->analysis);
-    $g->biotype($self->OUTPUT_BIOTYPE);
+  # D segments...
+
+  my @d_genes = @{$self->cluster_by_genomic_overlap($self->D_transcripts)};
+  @d_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @d_genes;
+  @d_genes = @{$self->transfer_to_local_slices(\@d_genes)};
+  foreach my $g (@d_genes) {
+    $self->adjust_gene_5($g, "GTG");
+    $self->adjust_gene_3($g, "CAC");;
+    $self->trim_gene_translation5($g);
+    $self->trim_gene_translation3($g);
+    $g = $self->prune_D_J_transcripts($g);
+    if (@{$g->get_all_Transcripts}) {
+      $g = $g->transfer($self->query);
+      $g->biotype($self->D_OUTPUT_BIOTYPE);
+      push @genes, $g;
+    }
+  }
+  @d_genes = @genes; @genes = ();
+
+
+  # J segments...
+
+  my @j_genes = @{$self->cluster_by_genomic_overlap($self->J_transcripts)};
+  @j_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @j_genes;
+  @j_genes = @{$self->transfer_to_local_slices(\@j_genes)};
+  foreach my $g (@j_genes) {
+    $self->adjust_gene_5($g, "GTG");
+    $self->adjust_gene_3($g, "GT");
+    $self->trim_gene_translation5($g);
+    $self->trim_gene_translation3($g);
+    $g = $self->prune_D_J_transcripts($g);
+    if (@{$g->get_all_Transcripts}) {
+      $g = $g->transfer($self->query);
+      $g->biotype($self->J_OUTPUT_BIOTYPE);
+      push @genes, $g;
+    }
+  }
+  @j_genes = @genes; @genes = ();
+
+  foreach my $g (@lv_genes, @c_genes, @j_genes, @d_genes) {
     $self->prune_Exons($g);
+    $g->analysis($self->analysis);
 
-    #foreach my $t (@{$g->get_all_Transcripts}) {
-    #  my $tr = $t->translate;
-    #  $tr->id($t->get_all_supporting_features->[0]->hseqname);
-    #  $seqout->write_seq($tr);
-    #}
-
-    push @final_genes, $g;
+    push @genes, $g;
   }
+  @genes = sort { $a->start <=> $b->start } @genes;
 
-  $self->output(\@final_genes);
+  $self->output(\@genes);
 }
 
 ############################################################
@@ -277,6 +284,7 @@ sub transfer_to_local_slices {
   return \@retgenes;
 }
 
+
 #############################################################
 sub prune_Exons {
   my ($self, $gene) = @_;
@@ -315,7 +323,6 @@ sub prune_Exons {
 
 
 #############################################################
-
 sub prune_LV_transcripts {
   my ($self, $gene) = @_;
 
@@ -406,7 +413,6 @@ sub prune_LV_transcripts {
 }
 
 ########################################################
-
 sub prune_C_transcripts {
   my ($self, $gene) = @_;
 
@@ -475,22 +481,24 @@ sub prune_C_transcripts {
 }
 
 ########################################################
-
 sub prune_D_J_transcripts {
   my ($self, $gene) = @_;
 
   my @tran = @{$gene->get_all_Transcripts};
-  @tran = grep { $_->translate->seq !~ /\*/ } @tran;
   @tran = grep { scalar(@{$_->get_all_Exons}) == 1 } @tran;
+  @tran = sort { $a->length <=> $b->length } @tran;
 
-  my ($best) = sort { $a->length <=> $b->length } @tran;
+  foreach my $t (@tran) {
+    if ($t->translate->seq !~ /\*/) {
+      return Bio::EnsEMBL::Gene->new(-transcripts => [$t]);      
+    }
+  }
 
-  return Bio::EnsEMBL::Gene->new(-transcripts => [$best]);
+  return Bio::EnsEMBL::Gene->new(-transcripts => []);
 }
 
+
 #########################################################
-
-
 sub set_gene_stop_codon {
   my ($self, $gene) = @_;
 
@@ -514,7 +522,7 @@ sub set_gene_stop_codon {
   }
 }
 
-
+#########################################################
 sub trim_gene_translation5 {
   my ($self, $gene) = @_;
   
@@ -543,6 +551,7 @@ sub trim_gene_translation5 {
   }
 }
 
+#########################################################
 sub trim_gene_translation3 {
   my ($self, $gene) = @_;
   
@@ -571,6 +580,7 @@ sub trim_gene_translation3 {
   }
 }
 
+#########################################################
 sub adjust_gene_5 {
   my ($self, $gene, $motif) = @_;
 
@@ -594,10 +604,10 @@ sub adjust_gene_5 {
       $self->adjust_transcript($t, $t->start - $newstart, 0);
     }
   }
-
 }
 
 
+#########################################################
 sub adjust_gene_3 {
   my ($self, $gene, $motif) = @_;
 
@@ -626,11 +636,12 @@ sub adjust_gene_3 {
   }
 }
 
-# offsets in the following are how much to EXTEND transcript
-# by at each end (-> negative offsets are truncations)
-
+#########################################################
 sub adjust_transcript {
   my ($self, $tran, $offset5, $offset3) = @_;
+
+  # offsets in the following are how much to EXTEND transcript
+  # by at each end (-> negative offsets are truncations)
 
   my @exons = @{$tran->get_all_Exons};
 
@@ -653,6 +664,28 @@ sub adjust_transcript {
   }
 }
 
+
+sub gene_close_to_others {
+  my ($self, $gene, $max_dist, @glists) = @_;
+
+  # return true if gene is within 2Mb of at least
+  # one other gene in each of the given lists
+
+  foreach my $list (@glists) {
+    my $member_close = 0;
+    foreach my $g (@$list) {
+      if (abs($g->start - $gene->start) <= $max_dist) {
+        $member_close = 1;
+        last;
+      }
+    }
+    if (not $member_close) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
 
 #######
 
@@ -760,6 +793,51 @@ sub C_LOGICS {
 }
 
 
+sub LV_OUTPUT_BIOTYPE {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_output_lv_biotype} = $val;
+  }
+
+  return $self->{_output_lv_biotype};
+}
+
+
+sub D_OUTPUT_BIOTYPE {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_output_d_biotype} = $val;
+  }
+
+  return $self->{_output_d_biotype};
+}
+
+
+sub J_OUTPUT_BIOTYPE {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_output_j_biotype} = $val;
+  }
+
+  return $self->{_output_j_biotype};
+}
+
+
+sub C_OUTPUT_BIOTYPE {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_output_c_biotype} = $val;
+  }
+
+  return $self->{_output_c_biotype};
+}
+
+
+
 sub DNADB_DATABASES_NAME {
   my ($self, $val) = @_;
 
@@ -792,16 +870,6 @@ sub OUTPUTDB_DATABASES_NAME {
   return $self->{_outputdb_name};
 }
 
-
-sub OUTPUT_BIOTYPE {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_output_biotype} = $val;
-  }
-
-  return $self->{_output_biotype};
-}
 
 
 
