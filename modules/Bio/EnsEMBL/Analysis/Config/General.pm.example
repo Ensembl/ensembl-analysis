@@ -45,6 +45,8 @@ use vars qw(%Config);
            BIN_DIR  => '/usr/local/ensembl/bin',
            DATA_DIR => '/usr/local/ensembl/data',
            LIB_DIR  => '/usr/local/ensembl/lib',
+
+           # Path where the parser and parameter files for FirstEF program are allocated
            PARAMETERS_DIR => '/vol/software/linux-i386/farm/lib/firstef/parameters/',
            PARSE_SCRIPT => '/vol/software/linux-i386/farm/lib/firstef/FirstEF_parser.pl',
 
