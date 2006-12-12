@@ -60,16 +60,16 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);    
 
-  my($param_dir, $parse_script) = rearrange
-    (['PARAMETERS_DIR', 'PARSE_SCRIPT'], @args);
+  my($param_dir, $parse_script) = rearrange(["PARAM_DIR", "PARSE_SCRIPT"], @args);
 
   ##################
   #SETTING DEFAULTS#
   ##################
   $self->program('firstef') if(!$self->program);
-  ##################
+ ##################
 
   $self->param_dir($param_dir) if($param_dir);
+ 
   $self->parse_script($parse_script) if($parse_script);
 
   return $self;

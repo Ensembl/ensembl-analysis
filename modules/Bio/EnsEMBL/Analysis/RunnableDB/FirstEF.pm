@@ -42,7 +42,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::FirstEF;
-use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Analysis::Config::General qw(PARAMETERS_DIR PARSE_SCRIPT) ;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
@@ -62,22 +62,29 @@ use vars qw(@ISA);
 
 sub fetch_input{
   my ($self) = @_;
-  my $slice = $self->fetch_sequence($self->input_id, $self->db, 
-                                    ['']); 
+  my $slice = $self->fetch_sequence($self->input_id, $self->db, ['']); 
   #hard coded array is used here as it always wants all repeats in 
   #the table masked at somepoint the general variables will be replaced by
-  #analysis specific variables nd this will move back into config
-
+  #analysis specific variables and this will move back into confi
   $self->query($slice);
+
+  if(!$self->analysis->program_file){
+    $self->analysis->program_file('firstef');
+  }
+
+
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
+
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::FirstEF->new
     (
      -query => $self->query,
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
+     -param_dir => $PARAMETERS_DIR,
+     -parse_script => $PARSE_SCRIPT,
      %parameters,
     );
   $self->runnable($runnable);
