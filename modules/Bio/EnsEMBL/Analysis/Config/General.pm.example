@@ -45,6 +45,9 @@ use vars qw(%Config);
            BIN_DIR  => '/usr/local/ensembl/bin',
            DATA_DIR => '/usr/local/ensembl/data',
            LIB_DIR  => '/usr/local/ensembl/lib',
+           PARAMETERS_DIR => '/vol/software/linux-i386/farm/lib/firstef/parameters/',
+           PARSE_SCRIPT => '/vol/software/linux-i386/farm/lib/firstef/FirstEF_parser.pl',
+
 
            ANALYSIS_WORK_DIR => '/tmp',
            ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
