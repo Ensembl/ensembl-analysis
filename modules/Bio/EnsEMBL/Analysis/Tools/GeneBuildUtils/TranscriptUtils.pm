@@ -58,39 +58,40 @@ use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
-             print_Transcript
-             print_Transcript_and_Exons
-             clone_Transcript
-             print_Transcript_evidence
-             Transcript_info
-             are_strands_consistent
-             lies_inside_of_slice
-             exon_lengths_all_less_than_maximum
-             intron_lengths_all_less_than_maximum
              are_phases_consistent
-             is_not_folded
-             low_complexity_less_than_maximum
-             has_no_unwanted_evidence
-             is_spliced 
              are_splice_sites_canonical
-             count_non_canonical_splice_sites
-             exonic_proportion
+             are_strands_consistent
+             attach_Slice_to_Transcript
+             calculate_exon_phases
+             clone_Transcript
              coding_coverage
+             convert_to_genes
+             count_non_canonical_splice_sites
+             dump_cDNA_file
+             empty_Transcript
+             evidence_coverage
+             exon_lengths_all_less_than_maximum
+             exonic_proportion
+             fully_load_Transcript
+             get_downstream_Intron_from_Exon
+             get_downstream_splice_sites
+             get_evidence_ids
+             get_upstream_splice_sites
+             get_upstream_Intron_from_Exon
+             has_no_unwanted_evidence
+             intron_lengths_all_less_than_maximum
+             is_not_folded
+             is_spliced 
+             lies_inside_of_slice
              list_evidence
-             split_Transcript
+             low_complexity_less_than_maximum
              replace_stops_with_introns
              remove_initial_or_terminal_short_exons
-             get_evidence_ids
-             dump_cDNA_file
-             convert_to_genes
-             evidence_coverage
-             get_upstream_Intron_from_Exon
-             get_downstream_Intron_from_Exon
-             get_upstream_splice_sites
-             get_downstream_splice_sites
-             attach_Slice_to_Transcript
-             empty_Transcript
-             fully_load_Transcript
+             print_Transcript
+             print_Transcript_and_Exons
+             print_Transcript_evidence
+             split_Transcript
+             Transcript_info
             );
 
 
@@ -433,6 +434,60 @@ sub are_phases_consistent{
 
 
 
+=head2 calculate_exon_phases
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : Given a transcript, calculates and sets
+    exon phases according to translation and given
+    start phase
+
+=cut
+
+sub calculate_exon_phases {
+  my ($transcript, $start_phase) = @_;
+
+  foreach my $e (@{$transcript->get_all_Exons}) {
+    $e->phase(-1);
+    $e->end_phase(-1);
+  }
+
+  if ($transcript->translation) {
+    my $tr = $transcript->translation;
+
+    my @exons = @{$transcript->get_all_Exons};
+
+    while($exons[0] != $tr->start_Exon) {
+      shift @exons;
+    }
+    while($exons[-1] != $tr->end_Exon) {
+      pop @exons;
+    }
+    
+    # set phase of for first coding exon
+    my $cds_len = $exons[0]->length;
+    if ($tr->start == 1) {
+      $exons[0]->phase($start_phase);
+      $cds_len += $start_phase;
+    } else {
+      $cds_len -= ($tr->start - 1);
+    }
+    $exons[0]->end_phase($cds_len % 3);
+
+    # set phase for internal coding exons      
+    for(my $i=1; $i < @exons; $i++) {
+      $exons[$i]->phase($exons[$i-1]->end_phase);
+      $exons[$i]->end_phase(($exons[$i]->length + $exons[$i]->phase) % 3);
+    }
+        
+    # set phase for last coding exon
+    if ($exons[-1]->length > $tr->end) {
+      $exons[-1]->end_phase(-1);
+    }
+  }
+}
+
+
+
 =head2 is_not_folded
 
   Arg [1]   : Bio::EnsEMBL::Transcript
@@ -543,12 +598,12 @@ sub has_no_unwanted_evidence{
   my ($transcript, $ids) = @_;
   $ids = {} if(!$ids);
   $ids->{'NG_'} = 1;
-  my $return = 1;
+
   my $evidence = get_evidence_ids($transcript);
-  foreach my $evidence(keys(%$evidence)){
-    foreach my $unwanted(keys(%$ids)){
-      if($evidence =~ /$unwanted/){
-        warning(id($transcript)." has ".$evidence.
+  foreach my $evi(keys(%$evidence)){
+    foreach my $unwanted (keys(%$ids)) {
+      if($evi =~ /$unwanted/){
+        warning(id($transcript)." has ".$evi.
                 " unwanted evidence");
         return 0;
       }
