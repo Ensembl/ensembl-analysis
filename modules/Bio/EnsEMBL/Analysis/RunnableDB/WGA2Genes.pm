@@ -1181,10 +1181,6 @@ sub TARGET_CORE_DB {
   return $self->{_target_core_db};
 }
 
-sub INPUT_GROUP_TYPE {
-
-
-}
 
 #
 # chain filtering
