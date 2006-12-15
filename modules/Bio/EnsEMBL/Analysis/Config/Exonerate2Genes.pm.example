@@ -63,6 +63,7 @@ use vars qw( %Config );
                GENOMICSEQS         => '/your/soft/masked/genome.fa',
                QUERYTYPE           => undef,
                QUERYSEQS           => undef,
+               QUERYANNOTATION     => undef,
                IIDREGEXP           => undef,
                OUTDB               => undef,
                FILTER              => undef,

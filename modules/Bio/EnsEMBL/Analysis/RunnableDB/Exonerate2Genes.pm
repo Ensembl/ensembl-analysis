@@ -174,8 +174,9 @@ sub fetch_input {
   }
 
   ##########################################
-  # load and create filterm is there is one
+  # Annotation file with CDS positions
   ##########################################
+
   
   ##########################################
   # setup the runnables
@@ -200,6 +201,7 @@ sub fetch_input {
               -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
               -query_file     => $query_file,
+              -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               %parameters,
@@ -448,6 +450,9 @@ sub read_and_check_config {
   throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.")
       if $self->OUTDB and ref($self->OUTDB) ne "HASH";
 
+  throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
+      if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
+
   # filter does not have to be defined, but if it is, it should
   # give details of an object and its parameters
   if ($self->FILTER) {
@@ -501,6 +506,23 @@ sub QUERYTYPE {
     return undef;
   }
 }
+
+
+sub QUERYANNOTATION {
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{'_CONFIG_QUERYANNOTATION'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_QUERYANNOTATION'})) {
+    return $self->{'_CONFIG_QUERYANNOTATION'};
+  } else {
+    return undef;
+  }
+}
+
+
 
 sub GENOMICSEQS {
   my ($self,$value) = @_;

@@ -54,6 +54,7 @@ use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseExonerate);
 
@@ -230,6 +231,10 @@ sub parse_results {
 
     my @exons = @{$transcript->get_all_Exons};
     if (scalar(@exons)) {
+      foreach my $e (@exons) {
+        $e->phase(-1);
+        $e->end_phase(-1);
+      }
 
       if ($self->query_type eq 'protein') {
         # add a translation if this is a protein alignment
@@ -252,10 +257,60 @@ sub parse_results {
         $exons[-1]->end_phase( ($exons[-1]->phase + $exons[-1]->length) % 3 );
 
         $transcript->translation($translation);
-      } else {
-        foreach my $e (@exons) {
-          $e->phase(-1);
-          $e->end_phase(-1);
+      } elsif ($self->annotation_features and
+               exists $self->annotation_features->{$q_id}) {
+        my $cds_start = $self->annotation_features->{$q_id}->start;
+        my $cds_end = $self->annotation_features->{$q_id}->end;
+        # the start and end coords are with reference to the forward
+        # strand of the query
+
+        my ($tr_st_exon, $tr_gen_start, $tr_en_exon, $tr_gen_end); 
+        foreach my $ex (@exons) {
+          foreach my $f (@{$ex->get_all_supporting_features}) {
+            foreach my $ug ($f->ungapped_features) {
+              if ($q_strand > 0 and $ug->hstart == $cds_start or
+                  $q_strand < 0 and $ug->hend == $cds_start) {
+                  
+                $tr_st_exon = $ex;
+                if ($t_strand > 0) {
+                  $tr_gen_start = $ug->start;
+                } else {
+                  $tr_gen_start = $ug->end;
+                }
+              }
+              if ($q_strand > 0 and $ug->hend == $cds_end or
+                  $q_strand < 0 and $ug->start == $cds_end) {
+                # translation ends at this point in the 
+                $tr_en_exon = $ex;
+                if ($t_strand > 0) {
+                  $tr_gen_end = $ug->end;
+                } else {
+                  $tr_gen_end = $ug->start;
+                }
+              }
+            }
+          }
+        }
+        if (defined $tr_st_exon and defined $tr_gen_start and
+            defined $tr_en_exon and defined $tr_gen_end) {
+
+          my $translation = Bio::EnsEMBL::Translation->new();
+
+          $translation->start_Exon($tr_st_exon);
+          $translation->end_Exon  ($tr_en_exon);
+          if ($t_strand > 0) {
+            $translation->start($tr_gen_start - $tr_st_exon->start + 1);
+            $translation->end($tr_gen_end - $tr_en_exon->start + 1);
+          } else {
+            $translation->start($tr_st_exon->end - $tr_gen_start + 1);
+            $translation->end( $tr_en_exon->end - $tr_gen_end + 1);
+          }
+
+          $transcript->translation($translation);
+
+          calculate_exon_phases($transcript);
+        } else {
+          warning("Could not find translation using given annotation features\n");
         }
       }
 
