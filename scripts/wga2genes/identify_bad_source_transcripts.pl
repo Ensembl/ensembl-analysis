@@ -20,7 +20,7 @@ my (
     $dbhost,
     $dbuser,
     $dbport,
-    $dbpass.
+    $dbpass, 
     $look_for_dodgy,
 );
 
@@ -31,7 +31,7 @@ $dbuser = 'ensro';
 	'dbuser=s' => \$dbuser,
 	'dbhost=s' => \$dbhost,
 	'dbport=s' => \$dbport,
-	'dbpass=s' => \$dbpass
+	'dbpass=s' => \$dbpass,
         'dodgy'    => \$look_for_dodgy,
 );
 
