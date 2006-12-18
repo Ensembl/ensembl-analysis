@@ -311,6 +311,7 @@ sub parse_results {
           calculate_exon_phases($transcript);
         } else {
           warning("Could not find translation using given annotation features\n");
+          next TRANSCRIPT;
         }
       }
 
