@@ -426,13 +426,6 @@ sub make_genes{
     $gene->slice($transcript->slice);
     $gene->add_Transcript($transcript);
     $gene->analysis($transcript->analysis);
-    foreach my $e (@{$transcript->get_all_Exons}){
-      print $collapsed_cluster->exon_info($e);
-      print " " . $e->phase . " " . $e->end_phase;
-      print " S" if $transcript->translation->start_Exon eq $e;
-      print " E" if $transcript->translation->end_Exon eq $e;
-      print "\n";
-    }
     push @genes,$gene;
   }
   # add the models of the single exon genes 
