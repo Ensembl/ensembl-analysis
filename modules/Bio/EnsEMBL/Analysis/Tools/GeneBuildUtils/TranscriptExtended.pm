@@ -242,3 +242,41 @@ sub exchange_exon {
   $new_tr->biotype($biotype) ; 
   return $new_tr ; 
 }
+
+=head  
+
+Name      : score
+Arg[1]    : Scalar score
+Func      : Get / Set a score value for the transcript
+Returnval : Scalar score
+
+=cut
+
+sub score {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'score'} = $value;
+  }
+  return $self->{'score'};
+}
+
+=head  
+
+Name      : similarity
+Arg[1]    : Bio::EnsEMBL::Transcript
+Func      : Get / Set a similarity transcript associated with this transcript
+Returnval : Bio::EnsEMBL::Transcript
+
+=cut
+
+sub similarity {
+  my ($self,$value) = @_;
+  if (defined($value)) {
+    $self->{'similarity'} = $value;
+  }
+  return $self->{'similarity'};
+}
+
+
+
+1;

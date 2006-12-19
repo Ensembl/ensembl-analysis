@@ -156,7 +156,7 @@ sub number_exons {
  my ($self) = @_ ; 
   if (defined($self->transcript)){ 
     return scalar( @{ $self->transcript->get_all_Exons} ) ; 
-  }else { 
+  }else {
     warning("Exon has no Bio::EnsEMBL::Transript-object attached - can't get number of exons\n" ) ; 
   }
   return undef ; 
@@ -210,9 +210,9 @@ sub next_exon {
 sub is_terminal_exon {
   my ($self) = @_;
   if ($self->next_exon && $self->prev_exon) {
-    return 0 ; 
-  } 
-  return  1 ; 
+    return 0 ;
+  }
+  return  1 ;
 }
 
 =head2 is_3prim_exon
@@ -227,7 +227,7 @@ sub is_terminal_exon {
 sub is_3prim_exon {
   my ($self) = @_;
   return 1 if ($self->prev_exon && !$self->next_exon) ; 
-  return 0 ;   
+  return 0 ;
 }
 
 =head2 is_5prim_exon
