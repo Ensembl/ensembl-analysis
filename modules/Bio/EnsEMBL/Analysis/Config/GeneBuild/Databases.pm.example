@@ -50,10 +50,6 @@ use vars qw(%Config);
 
 %Config= (
 
-           #
-           # This config-file is currently only used by 
-           #           TranscriptCoalescer.pm  
-
 
   DATABASES => { 
                   
@@ -188,7 +184,8 @@ use vars qw(%Config);
                      -user => '',
                      -pass => '',
                 },
-             }     
+             },
+             DNA_DBNAME => "REFERENCE_DB",      
 
                    
              );

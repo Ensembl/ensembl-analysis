@@ -9,7 +9,7 @@ use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES);
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 
 use vars qw(@ISA);
@@ -42,6 +42,10 @@ sub get_dbadaptor{
       $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                                 %$constructor_args,
                                                 );
+      if($name ne $DNA_DBNAME){
+        my $dnadb = $self->get_dbadaptor($DNA_DBNAME);
+        $db->dnadb($dnadb);
+      }
       $self->database_hash($name, $db);
     } else {
       throw("No entry in Config/GeneBuild/Databases.pm hash for $name");
