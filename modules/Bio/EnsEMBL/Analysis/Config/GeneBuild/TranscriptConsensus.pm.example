@@ -1,0 +1,121 @@
+# Ensembl module for Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus
+#
+# Copyright (c) 2004 Ensembl
+#
+
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer
+
+=head1 SYNOPSIS
+
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer ; 
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer qw () ; 
+
+=head1 DESCRIPTION
+
+
+TranscriptCoalescer-Configuration 
+
+This is the main configuration file for TranscriptCoalescer, a perl 
+module which coalesces genes of different sources (EST-genes are 
+combined with other EST-genes and Similarity-Genewise-genes or 
+ab-initio-predictions (i.e. fgenesh, Genscan, GeneFinder ...) . 
+
+TranscriptCoalescer fetches genes and prediction_transcripts by it's 
+biotype (for Bio::EnsEMBL::Gene-objects) and by it's logic_name 
+(for Bio::EnsEMBL::PredictionTranscript-objects). These biotypes/
+logic_names are defiend in this configuration-file. Each biotype/
+logic_name has to belong to a different evidence_set. (see below).
+
+The parameters to connect to various databases are defiend in 
+
+  - modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm 
+  - modules/Bio/EnsEMBL/Analysis/Config/Exonerate2Genes.pm  
+
+The general function of this config file is to import  a number of 
+standard global variables into the calling package. Without arguments 
+all the standard variables are set, and with a list, only those variables 
+whose names are provided are set.  The module will die if a variable 
+which doesn\'t appear in its C<%Config> hash is asked to be set.
+
+The variables can also be references to arrays or hashes.
+
+Edit C<%Config> to add or alter variables.
+
+All the variables are in capitals, so that they resemble environment
+variables.
+
+=head1 CONTACT
+
+B<ensembl-dev@ebi.ac.uk>
+
+=cut
+
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
+
+use strict;
+use vars qw(%Config);
+
+%Config= 
+ (
+  # filter out genes with >= x singleton exons or non cannonical splice sites
+  FILTER_SINGLETONS => 0,
+  FILTER_NON_CONSENSUS => 0,
+  # do you want to include ests in the filtering 1 / 0
+  FILTER_ESTS       => 0,
+  # Do you want to use your est sets to add UTR?
+  ADD_UTR => 1,
+  # How many transcripts must be present before you take the consensus
+  MIN_CONSENSUS => 4,
+  # makes UTR addition more conservative 0 = neutral 1 = rarely add UTR
+  UTR_PENALTY => 0.1,
+  # penalty to stop "spindly" exons
+  END_EXON_PENALTY => 0.3,
+  # penalty for overlapping an est but not sharing any exons 
+  EST_OVERLAP_PENALTY => 0.1,
+  # penalise exons shorter than this (bases)
+  SHORT_INTRON_PENALTY => 10,  
+  # penalise introns shorter than this (bases)
+  SHORT_EXON_PENALTY => 10,     
+  # Percent of genes to class as good ie: 2 = top 2%
+  # 0 = the model / models with the highest score
+  GOOD_PERCENT  => 0,
+  # biotype of good genes
+  GOOD_BIOTYPE => 'good',
+  # biotype of the bad genes - leave blank and they will not be written
+  BAD_BIOTYPE => 'bad', 
+  # biotype of the genes if the cluster is too small to use - leave blank and they will not be written
+  SMALL_BIOTYPE => 'small',
+  );
+
+
+sub import {
+    my ($callpack) = caller(0); # Name of the calling package
+    my $pack = shift; # Need to move package off @_
+
+    # Get list of variables supplied, or else all
+    my @vars = @_ ? @_ : keys(%Config);
+    return unless @vars;
+
+    # Predeclare global variables in calling package
+    eval "package $callpack; use vars qw("
+         . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if (defined $Config{ $_ }) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
