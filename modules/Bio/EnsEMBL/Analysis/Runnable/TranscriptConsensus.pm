@@ -737,7 +737,7 @@ sub filter_genes {
   for ( my $g = 0 ; $g < scalar(@$genes) ; $g++ ){
     # dont run on ests unless specifically asked to 
     unless ($FILTER_ESTS){
-      next if ($self->evidence_set_by_biotype($genes->[$g]->biotype) eq 'est');
+      next if ($genes->[$g]->get_all_Transcripts->[0]->ev_set eq 'est');
     }
     $gene_count++;
     foreach my $trans (@{$genes->[$g]->get_all_Transcripts}){
