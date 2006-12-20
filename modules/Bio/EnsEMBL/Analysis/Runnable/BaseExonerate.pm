@@ -59,8 +59,9 @@ sub new {
   
   my 
     (
-      $query_type, $query_seqs, $query_file, $q_chunk_num, $q_chunk_total,
-      $target_seqs, $target_file, $t_chunk_num, $t_chunk_total, $verbose
+     $query_type, $query_seqs, $query_file, $q_chunk_num, $q_chunk_total,
+     $target_seqs, $target_file, $t_chunk_num, $t_chunk_total, 
+     $annotation_features, $annotation_file, $verbose
     ) =
     rearrange(
       [
@@ -74,6 +75,8 @@ sub new {
           TARGET_FILE
           TARGET_CHUNK_NUMBER
           TARGET_CHUNK_TOTAL
+          ANNOTATION_FEATURES
+          ANNOTATION_FILE
           VERBOSE
         )
       ], 
@@ -111,6 +114,16 @@ sub new {
     $self->target_file($target_file);
   }
 
+  if (defined $annotation_features) {
+    if (ref($annotation_features) ne "HASH") {
+      throw("You must supply a hash reference with -annotation_features");
+    }
+    $self->annotation_features($annotation_features);
+  } elsif (defined $annotation_file) {
+    throw("The given annotation file does not exist") if ! -e $annotation_file;
+    $self->annotation_file($annotation_file);
+  }
+
   if (not $self->program) {
     $self->program('/usr/local/ensembl/bin/exonerate-0.8.3');
   }
@@ -133,6 +146,8 @@ sub new {
   
   $self->options($basic_options);
 
+
+
   return $self;
 }
 
@@ -153,6 +168,40 @@ Function:   Runs exonerate script and puts the results into the file $self->resu
 
 sub run {
   my ($self) = @_;
+
+
+  if ($self->annotation_features) {
+    my $annot_file = $self->workdir . "/exonerate_a.$$";
+    open F, ">$annot_file" or 
+        throw "Could not open temp $annot_file for writing";
+    foreach my $id (keys %{$self->annotation_features}) {
+      my $f = $self->annotation_features->{$id};
+      printf(F "%s %s %d %d\n", 
+             $f->seqname, 
+             $f->strand < 0 ? "-" : "+",
+             $f->start,
+             $f->length);
+      
+    } 
+    close(F);
+    $self->files_to_delete($annot_file);
+    $self->annotation_file($annot_file);
+  } elsif ($self->annotation_file) {
+    my %feats;
+    open F, $self->annotation_file or 
+        throw("Could not open supplied annotation file for reading");
+    while(<F>) {
+      /^(\S+)\s+(\S+)\s+(\d+)\s+(\d+)/ and do {
+        $feats{$1} = Bio::EnsEMBL::Feature->new(-seqname => $1, 
+                                                -strand  => $2 eq "-" ? -1 : 1,
+                                                -start   => $3,
+                                                -end     => $3 + $4 - 1); 
+      };      
+    }
+    close(F);
+    $self->annotation_features(\%feats);
+  }
+
 
   if ($self->query_seqs) {
     # Write query sequences to file if necessary
@@ -198,6 +247,7 @@ sub run {
     " --targettype " . $self->target_type .
     " --query "  . $self->query_file .
     " --target " . $self->target_file;
+  $command .= " --annotation " . $self->annotation_file if $self->annotation_features;
   
   # Execute command and parse results
 
@@ -248,6 +298,35 @@ sub parse_results {
 #
 # get/set methods
 #
+############################################################
+
+sub annotation_features {
+  my ($self, $feats) = @_;
+  
+  if ($feats){
+    foreach my $k (keys %$feats) {
+      my $f = $feats->{$k};
+      unless ($f->isa("Bio::EnsEMBL::Feature")) {
+        throw("annotation features must be Bio::EnsEMBL::Features");
+      }
+    }
+    $self->{_annot_feats} = $feats;
+  }
+  return $self->{_annot_feats};
+}
+  
+
+############################################################
+
+sub annotation_file {
+  my ($self, $file) = @_;
+
+  if (defined $file) {
+    $self->{_annot_file} = $file;
+  }
+  return $self->{_annot_file};
+}
+
 ############################################################
 
 sub query_type {
