@@ -51,10 +51,6 @@ sub fetch_input {
   my($self) = @_;
   
   my $trandb = $self->get_dbadaptor($self->TRANDB_DATABASES_NAME);
-  eval {
-    my $dnadb = $self->get_dbadaptor($self->DNADB_DATABASES_NAME);
-    $trandb->dnadb($dnadb);
-  };
 
   my $slice = $trandb->get_SliceAdaptor->fetch_by_name($self->input_id);
   my $tlslice = $trandb->get_SliceAdaptor->fetch_by_region('toplevel',
@@ -288,7 +284,7 @@ sub transfer_to_local_slices {
     my $gend   = $grp->{end} + 10; 
     $gstart = $self->query->end if $gstart > $self->query->end;
     
-    my $local_slice = $self->get_dbadaptor($self->DNADB_DATABASES_NAME)->
+    my $local_slice = $self->get_dbadaptor($self->TRANDB_DATABASES_NAME)->
         get_SliceAdaptor->fetch_by_region($self->query->coord_system->name,
                                           $self->query->seq_region_name,
                                           $gstart,
@@ -546,6 +542,7 @@ sub set_gene_stop_codon {
     my $reg_start = $t->end - 2;
 
     my $subseq = substr($seq, $t->end - 3, 3);
+
     if (not exists $stops{$subseq}) {
       my $next_seq = substr($seq, $t->end, 3);
 
@@ -866,18 +863,6 @@ sub C_OUTPUT_BIOTYPE {
   }
 
   return $self->{_output_c_biotype};
-}
-
-
-
-sub DNADB_DATABASES_NAME {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_dnadb_name} = $val;
-  }
-
-  return $self->{_dnadb_name};
 }
 
 

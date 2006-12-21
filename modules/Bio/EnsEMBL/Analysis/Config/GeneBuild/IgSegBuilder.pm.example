@@ -30,8 +30,6 @@ use vars qw( %Config );
            IGSEG_CONFIG_BY_LOGIC => {
              DEFAULT => {
 
-               DNADB_DATABASES_NAME        => 'REFERENCE_DB',
-
                TRANDB_DATABASES_NAME => 'IG_EXONERATE_DB',
                LV_LOGICS => [],
                D_LOGICS  => [],
