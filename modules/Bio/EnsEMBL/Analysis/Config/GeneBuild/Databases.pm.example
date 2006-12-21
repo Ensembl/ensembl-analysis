@@ -25,6 +25,15 @@ and with a list, only those variables whose names are provided are set.
 The module will die if a variable which doesn\'t appear in its
 C<%Config> hash is asked to be set.
 
+ 
+A common way to get an DBAdaptor in a module is 
+ 
+ print "Loading database : ".  $$DATABASES{REFERENCE_DB}{"-dbname"} . "\n";  
+
+ my $ref_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{REFERENCE_DB} }) ;
+ 
+ 
+
 The variables can also be references to arrays or hashes.
 
 Edit C<%Config> to add or alter variables.
