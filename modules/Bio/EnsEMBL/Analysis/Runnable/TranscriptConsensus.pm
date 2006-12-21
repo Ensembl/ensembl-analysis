@@ -48,7 +48,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw( clone_Tr
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer);
