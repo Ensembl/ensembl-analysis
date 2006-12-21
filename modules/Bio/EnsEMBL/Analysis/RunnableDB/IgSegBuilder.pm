@@ -63,36 +63,47 @@ sub fetch_input {
 
   my (@lv, @d, @j, @c);
 
-  if ($self->LV_LOGICS) {
-    foreach my $logic (@{$self->LV_LOGICS}) {
-      foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
-        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
-        push @lv, $t->transfer($tlslice);
-      }
-    }
-  }
-  if ($self->D_LOGICS) {
-    foreach my $logic (@{$self->D_LOGICS}) {
-      foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
-        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
-        push @d, $t->transfer($tlslice);
-      }
-    }
-  }
-  if ($self->J_LOGICS) {
-    foreach my $logic (@{$self->J_LOGICS}) {
-      foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
-        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
-        push @j, $t->transfer($tlslice); 
-      }
-    }
-  }
-  if ($self->C_LOGICS) {
-    foreach my $logic (@{$self->C_LOGICS}) {
-      foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
-        map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
-        push @c, $t->transfer($tlslice);
-      }
+  my @groups = 
+      (
+       { logics => $self->LV_LOGICS, result => \@lv, },
+       { logics => $self->D_LOGICS,  result => \@d,  },
+       { logics => $self->J_LOGICS,  result => \@j,  },
+       { logics => $self->C_LOGICS,  result => \@c,  },
+       );
+
+  foreach my $grp (@groups) {
+    my ($logics, $result) = ($grp->{logics}, $grp->{result});
+
+    if ($logics) {
+      foreach my $logic (@$logics) {
+        foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
+          map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
+          $t = $t->transfer($tlslice);
+
+
+          if ($t->coding_region_start > $t->start or $t->coding_region_end < $t->end) {
+            my @e = @{$t->get_all_translateable_Exons};
+            my $tr = Bio::EnsEMBL::Translation->new(-start_Exon => $e[0],
+                                                    -end_Exon => $e[-1],
+                                                    -start => 1,
+                                                    -end => $e[-1]->length);
+            my @sfs = @{$t->get_all_supporting_features};
+            $t = Bio::EnsEMBL::Transcript
+                ->new(-analysis => $t->analysis,
+                      -exons    => $t->get_all_translateable_Exons);
+            $t->add_supporting_features(@sfs);
+            $t->translation($tr);
+            
+            if ($t->get_all_Exons->[0]->phase < 0) {
+              $t->get_all_Exons->[0]->phase(0);
+            }
+            if ($t->get_all_Exons->[-1]->end_phase < 0) {
+              $t->get_all_Exons->[-1]->end_phase(0);
+            }
+          }
+          push @{$result}, $t;
+        }
+      }                       
     }
   }
 
@@ -133,6 +144,7 @@ sub run {
     if (@{$g->get_all_Transcripts}) {
       $g = $g->transfer($self->query);
       $g->biotype($self->LV_OUTPUT_BIOTYPE);
+      map { $_->biotype($self->LV_OUTPUT_BIOTYPE) } @{$g->get_all_Transcripts};
       push @genes, $g;
     }
   }
@@ -150,6 +162,7 @@ sub run {
     if (@{$g->get_all_Transcripts}) {
       $g = $g->transfer($self->query);
       $g->biotype($self->C_OUTPUT_BIOTYPE);
+      map { $_->biotype($self->C_OUTPUT_BIOTYPE) } @{$g->get_all_Transcripts};
       push @genes, $g;
     }
   }
@@ -159,17 +172,19 @@ sub run {
   # D segments...
 
   my @d_genes = @{$self->cluster_by_genomic_overlap($self->D_transcripts)};
-  @d_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @d_genes;
+  #@d_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @d_genes;
   @d_genes = @{$self->transfer_to_local_slices(\@d_genes)};
+
   foreach my $g (@d_genes) {
     $self->adjust_gene_5($g, "GTG");
     $self->adjust_gene_3($g, "CAC");;
-    $self->trim_gene_translation5($g);
-    $self->trim_gene_translation3($g);
+    #$self->trim_gene_translation5($g);
+    #$self->trim_gene_translation3($g);
     $g = $self->prune_D_J_transcripts($g);
     if (@{$g->get_all_Transcripts}) {
       $g = $g->transfer($self->query);
       $g->biotype($self->D_OUTPUT_BIOTYPE);
+      map { $_->biotype($self->D_OUTPUT_BIOTYPE) } @{$g->get_all_Transcripts};
       push @genes, $g;
     }
   }
@@ -184,12 +199,13 @@ sub run {
   foreach my $g (@j_genes) {
     $self->adjust_gene_5($g, "GTG");
     $self->adjust_gene_3($g, "GT");
-    $self->trim_gene_translation5($g);
-    $self->trim_gene_translation3($g);
+    #$self->trim_gene_translation5($g);
+    #$self->trim_gene_translation3($g);
     $g = $self->prune_D_J_transcripts($g);
     if (@{$g->get_all_Transcripts}) {
       $g = $g->transfer($self->query);
       $g->biotype($self->J_OUTPUT_BIOTYPE);
+      map { $_->biotype($self->J_OUTPUT_BIOTYPE) } @{$g->get_all_Transcripts};
       push @genes, $g;
     }
   }
@@ -308,11 +324,13 @@ sub prune_Exons {
       }
       push @t_exons, $gene_exons{$k};
 
-      if ($e == $tran->translation->start_Exon) {
-        $tran->translation->start_Exon($gene_exons{$k});
-      }
-      if ($e == $tran->translation->end_Exon) {
-        $tran->translation->end_Exon($gene_exons{$k});
+      if ($tran->translation) {
+        if ($e == $tran->translation->start_Exon) {
+          $tran->translation->start_Exon($gene_exons{$k});
+        }
+        if ($e == $tran->translation->end_Exon) {
+          $tran->translation->end_Exon($gene_exons{$k});
+        }
       }
     }
     
@@ -484,17 +502,33 @@ sub prune_C_transcripts {
 sub prune_D_J_transcripts {
   my ($self, $gene) = @_;
 
-  my @tran = @{$gene->get_all_Transcripts};
-  @tran = grep { scalar(@{$_->get_all_Exons}) == 1 } @tran;
-  @tran = sort { $a->length <=> $b->length } @tran;
+  my ($best) = sort _by_total_exon_length @{$gene->get_all_Transcripts};
 
-  foreach my $t (@tran) {
-    if ($t->translate->seq !~ /\*/) {
-      return Bio::EnsEMBL::Gene->new(-transcripts => [$t]);      
+  if (scalar(@{$best->get_all_Exons}) > 1) {
+    my ($exon, $min, $max);
+    foreach my $e (@{$best->get_all_Exons}) {
+      if (not defined $exon) {
+        $exon = $e;
+        $min = $e->start;
+        $max = $e->end;
+      } else {
+        $min = $e->start if $e->start < $min;
+        $max = $e->end   if $e->end > $max;
+      }
     }
-  }
+    $exon->start($min);
+    $exon->end($max);
 
-  return Bio::EnsEMBL::Gene->new(-transcripts => []);
+    $best->flush_Exons;
+    $best->add_Exon($exon);
+  }
+  
+  # remove translation
+  $best->translation(undef);
+  $best->recalculate_coordinates;
+  map { $_->phase(-1); $_->end_phase(-1) } @{$best->get_all_Exons};
+    
+  return Bio::EnsEMBL::Gene->new(-transcripts => [$best]);
 }
 
 
@@ -619,8 +653,6 @@ sub adjust_gene_3 {
   # included in the translation, and sometimes not)
 
   foreach my $t (@{$gene->get_all_Transcripts}) {
-    my $tname = $t->get_all_supporting_features->[0]->hseqname;
-
     my $reg_start = $t->end - 1;
     my $reg_end = $t->end + 2 + length($motif);
     my $subseq = substr($seq, $reg_start - 1, $reg_end - $reg_start + 1);
