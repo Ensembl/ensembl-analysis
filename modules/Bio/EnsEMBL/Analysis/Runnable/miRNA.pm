@@ -350,7 +350,7 @@ sub make_gene{
     (
      -primary_id => $daf->hseqname,
      -display_id => $description,
-     -dbname => 'miRNA_Registry',
+     -dbname => 'miRBase',
      -release => 1,
      -description => $description." [Source: miRBase ".$self->analysis->db_version."]",
     );  
