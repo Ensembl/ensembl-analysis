@@ -168,7 +168,7 @@ sub run {
   # D segments...
 
   my @d_genes = @{$self->cluster_by_genomic_overlap($self->D_transcripts)};
-  #@d_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @d_genes;
+  @d_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @d_genes;
   @d_genes = @{$self->transfer_to_local_slices(\@d_genes)};
 
   foreach my $g (@d_genes) {
