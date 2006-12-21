@@ -125,9 +125,11 @@ use vars qw(%Config);
                                    -pass => '',
                                   },
                                  
-                   
+                 # 
                  # GENEBUILD_DB (formerly GB_FINALDB) is the Database where 
-                 # GeneBuilder.pm writes it's results to 
+                 # GeneBuilder.pm writes it's results to this database and 
+                 # The Pseudogene-code READS from this database 
+                 # 
 
                  GENEBUILD_DB =>
                                  { 
