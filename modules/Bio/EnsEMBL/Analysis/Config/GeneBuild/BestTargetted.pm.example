@@ -1,0 +1,127 @@
+# Cared for by Ensembl
+#
+# Copyright GRL & EBI
+#
+# You may distribute this module under the same terms as perl itself
+#
+# POD documentation - main docs before the code
+
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::GeneBuild::BestTargetted
+
+=head1 SYNOPSIS
+
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::BestTargetted ; 
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::BestTargetted qw () ; 
+
+=head1 DESCRIPTION
+
+
+BestTargetted-Configuration 
+
+This is the configuration file for BestTargetted, a perl module which 
+takes two sets of genes from different Targetted runs and generates a 
+new set containing the best genes from the two input sets.
+
+BestTargetted fetches the gene sets by analysis, the logic names are defined
+in this configuration file. Pairs of overlapping genes are compared and
+where different structures have been built from the same evidence the 
+translations are compared. The protein index file which was used in 
+the targetted run should be specified in this configuraion along with 
+the path to the seqfetcher object.
+
+If neither translation gives the same sequence as the evidence it was 
+built from, Exonerate is used to assign a score to the alignment of
+each translation to the evidence. The Exonerate program can be 
+specified below othewise the default will be take from 
+ - modules/Bio/EnsEMBL/Analysis/Runnable/BaseExonerate.pm
+ 
+The parameters to connect to the databases are defined in 
+  - Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm 
+If no OUT_DB_NAME is given the output will be written to DB_NAME.
+
+The general function of this config file is to import  a number of 
+standard global variables into the calling package. Without arguments 
+all the standard variables are set, and with a list, only those variables 
+whose names are provided are set.  The module will die if a variable 
+which doesn\'t appear in its C<%Config> hash is asked to be set.
+
+The variables can also be references to arrays or hashes.
+
+Edit C<%Config> to add or alter variables.
+
+All the variables are in capitals, so that they resemble environment
+variables.
+
+
+
+
+=head1 CONTACT
+
+B<ensembl-dev@ebi.ac.uk>
+
+=cut
+
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::BestTargetted;
+
+use strict;
+use vars qw(%Config);
+
+%Config= 
+ (
+  BEST_TARGETTED_CONFIG => {
+  
+    DEFAULT => {
+  
+  
+      VERBOSE => 1 , 
+
+
+      SEQFETCHER_DIR => '/lustre/work1/ensembl/sd3/ecs4/work1/sd3/ccds/human/targetted/seqdata/human_proteome/',
+      SEQFETCHER_OBJECT =>  'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+
+      # add the logic names of your targetted genes here. 
+
+      PRIMARY_LOGICNAME                  => 'TargettedGenewise_non_gtag',  
+      SECONDARY_LOGICNAME                => 'TargettedGenewise', 
+
+      DB_NAME                            => 'GENEWISE_DB',
+      OUT_DB_NAME                        => 'GENEWISE_DB',
+
+      EXONERATE_PROGRAM                  => '/usr/local/ensembl/bin/exonerate-0.9.0',
+    },
+  }
+
+ );
+
+
+sub import {
+    my ($callpack) = caller(0); # Name of the calling package
+    my $pack = shift; # Need to move package off @_
+
+    # Get list of variables supplied, or else all
+    my @vars = @_ ? @_ : keys(%Config);
+    return unless @vars;
+
+    # Predeclare global variables in calling package
+    eval "package $callpack; use vars qw("
+         . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	    if (defined $Config{ $_ }) {
+                no strict 'refs';
+	        # Exporter does a similar job to the following
+	        # statement, but for function names, not
+	        # scalar variables:
+	        *{"${callpack}::$_"} = \$Config{ $_ };
+	    } else {
+	        die "Error: Config: $_ not known\n";
+	    }
+    }
+}
+
+1;
