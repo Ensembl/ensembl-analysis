@@ -85,7 +85,7 @@ sub fetch_input {
                                                     -end => $e[-1]->length);
             my @sfs = @{$t->get_all_supporting_features};
             $t = Bio::EnsEMBL::Transcript
-                ->new(-analysis => $t->analysis,
+                ->new(-analysis => $self->analysis,
                       -exons    => $t->get_all_translateable_Exons);
             $t->add_supporting_features(@sfs);
             $t->translation($tr);
@@ -174,8 +174,6 @@ sub run {
   foreach my $g (@d_genes) {
     $self->adjust_gene_5($g, "GTG");
     $self->adjust_gene_3($g, "CAC");;
-    #$self->trim_gene_translation5($g);
-    #$self->trim_gene_translation3($g);
     $g = $self->prune_D_J_transcripts($g);
     if (@{$g->get_all_Transcripts}) {
       $g = $g->transfer($self->query);
@@ -195,8 +193,6 @@ sub run {
   foreach my $g (@j_genes) {
     $self->adjust_gene_5($g, "GTG");
     $self->adjust_gene_3($g, "GT");
-    #$self->trim_gene_translation5($g);
-    #$self->trim_gene_translation3($g);
     $g = $self->prune_D_J_transcripts($g);
     if (@{$g->get_all_Transcripts}) {
       $g = $g->transfer($self->query);
@@ -315,8 +311,13 @@ sub prune_Exons {
       if (not exists $gene_exons{$k}) {
         $gene_exons{$k} = $e;
       } else {
-        $gene_exons{$k}->
-            add_supporting_features(@{$e->get_all_supporting_features});
+        my %sf;
+        map { $sf{$_} = $_ } @{$gene_exons{$k}->get_all_supporting_features};
+        foreach my $osf (@{$e->get_all_supporting_features}) {
+          if (not exists $sf{$osf}) {
+            $gene_exons{$k}->add_supporting_features($osf);
+          }
+        }
       }
       push @t_exons, $gene_exons{$k};
 
@@ -397,6 +398,7 @@ sub prune_LV_transcripts {
   # unique introns are kept
   #
   @tran = sort _by_total_exon_length @tran;
+  my @redun_tran;
 
   foreach my $t (@tran) {
     my @intr = @{$t->get_all_Introns};
@@ -420,8 +422,12 @@ sub prune_LV_transcripts {
     }
     if (not $redundant) {
       push @ftran, $t;
+    } else {
+      push @redun_tran, $t;
     }
   }
+
+  $self->transfer_exon_supporting_features(\@redun_tran, \@ftran);
 
   return Bio::EnsEMBL::Gene->new(-transcripts => \@ftran);
 }
@@ -434,7 +440,7 @@ sub prune_C_transcripts {
   @tran = grep { $_->translate->seq !~ /\*/ } @tran;
   @tran = sort _by_total_exon_length @tran;
 
-  my (@newtran, @intron_lists, %all_exons);
+  my (@newtran, @redun_tran, @intron_lists, %all_exons);
   foreach my $tran (@tran) {
     my @exons = sort {$a->start <=> $b->start} @{$tran->get_all_Exons};
     my @introns = sort {$a->start <=> $b->start} @{$tran->get_all_Introns};
@@ -487,9 +493,13 @@ sub prune_C_transcripts {
         push @newtran, $tran;
         push @intron_lists, \@introns;
         map { $all_exons{$_->start . ":" . $_->end} = $_} @exons;
+      } else {
+        push @redun_tran, $tran;
       }
     }
   }
+
+  $self->transfer_exon_supporting_features(\@redun_tran, \@newtran);
 
   return Bio::EnsEMBL::Gene->new(-transcripts => \@newtran);
 }
@@ -498,7 +508,7 @@ sub prune_C_transcripts {
 sub prune_D_J_transcripts {
   my ($self, $gene) = @_;
 
-  my ($best) = sort _by_total_exon_length @{$gene->get_all_Transcripts};
+  my ($best, @others) = sort _by_total_exon_length @{$gene->get_all_Transcripts};
 
   if (scalar(@{$best->get_all_Exons}) > 1) {
     my ($exon, $min, $max);
@@ -524,6 +534,8 @@ sub prune_D_J_transcripts {
   $best->recalculate_coordinates;
   map { $_->phase(-1); $_->end_phase(-1) } @{$best->get_all_Exons};
     
+  $self->transfer_exon_supporting_features(\@others, [$best]);
+
   return Bio::EnsEMBL::Gene->new(-transcripts => [$best]);
 }
 
@@ -715,6 +727,36 @@ sub gene_close_to_others {
 
   return 1;
 }
+
+
+sub transfer_exon_supporting_features {
+  my ($self, $src_trans, $tgt_trans) = @_;
+
+  my @src_sf;
+
+  foreach my $t (@{$src_trans}) {
+    foreach my $e (@{$t->get_all_Exons}) {
+      push @src_sf, @{$e->get_all_supporting_features};
+    }
+  }
+
+  @src_sf = sort { $a->start <=> $b->start } @src_sf;
+
+  foreach my $t (@{$tgt_trans}) {
+    my @e = sort { $a->start <=> $b->start } @{$t->get_all_Exons};
+
+    foreach my $e (sort { $a->start <=> $b->start } @{$t->get_all_Exons}) {
+      foreach my $sf (@src_sf) {
+        if ($sf->start <= $e->end and $sf->end >= $e->start) {
+          $e->add_supporting_features($sf);
+        } elsif ($sf->start > $e->end) {
+          last;
+        }
+      }
+    }
+  }
+}
+
 
 #######
 
