@@ -155,8 +155,9 @@ sub check_Clustering {
   }
 
   my @transcripts = sort by_transcript_high @transcripts_unsorted;
- 
- 
+
+  my $ga = $self->adaptor->get_adaptor("Gene");
+
   my @clusters;
 # clusters transcripts by whether or not any exon overlaps with an exon in 
 # another transcript (came from prune in GeneBuilder)
@@ -196,7 +197,7 @@ sub check_Clustering {
       push(@clusters,$newcluster);
 
     } elsif (scalar(@matching_clusters) == 1) {
-      # print STDERR "Adding to cluster for " . $tran->dbID . "\n";
+       # print STDERR "Adding to cluster for " . $tran->dbID . "\n";
       $matching_clusters[0]->put_Transcripts($tran);
 
     } else {
@@ -232,15 +233,25 @@ sub check_Clustering {
   my $ntrans = 0;
   my %trans_check_hash;
   foreach my $cluster (@clusters) {
+
+    my %gene_ids = ();
     $ntrans += scalar(@{$cluster->get_Transcripts});
     foreach my $trans (@{$cluster->get_Transcripts}) {
       if (defined($trans_check_hash{"$trans"})) {
         $self->throw("Transcript " . $trans->dbID . " added twice to clusters\n");
       }
       $trans_check_hash{"$trans"} = 1;
+
+      #recording gene ids
+      $gene_ids{$ga->fetch_by_transcript_id($trans->dbID)->dbID} = 1;
+
     }
     if (!scalar(@{$cluster->get_Transcripts})) {
       $self->throw("Empty cluster");
+    }
+
+    if(scalar keys %gene_ids > 1){
+      print STDERR "Multiple gene cluster: ".(join(", ", keys %gene_ids))."\n";
     }
   }
   if ($ntrans != scalar(@transcripts)) {
