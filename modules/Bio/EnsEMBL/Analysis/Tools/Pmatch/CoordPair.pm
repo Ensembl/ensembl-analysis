@@ -2,17 +2,10 @@
 # the start and end positions of the 
 
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair;
-
-use strict;
-use warnings;
-
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-use vars qw (@ISA);
-
 @ISA = qw();
-
 
 =head2 new
 
@@ -30,15 +23,16 @@ sub new {
   my ($class, @args) = @_;
   my $self = bless {}, $class;
 
-  my ($query, $target, $qstart, $qend, $tstart, $tend, $percent, $strand) = rearrange(['QUERY',
-										     'TARGET',
-										     'QSTART',
-										     'QEND',
-										     'TSTART',
-										     'TEND', 
-										     'PERCENT',
-										     'STRAND'],@args);
-
+  my ($query, $target, $qstart, $qend, $tstart, $tend, $percent, $strand) = 
+    rearrange(['QUERY',
+               'TARGET',
+               'QSTART',
+               'QEND',
+               'TSTART',
+               'TEND', 
+               'PERCENT',
+               'STRAND'],@args);
+  
   throw("No query") unless defined $query;
   $self->query($query);
 

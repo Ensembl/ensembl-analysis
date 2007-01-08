@@ -1,32 +1,34 @@
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF;
-use Bio::EnsEMBL::Pipeline::Tools::Pmatch::ContigHit;
-use Bio::EnsEMBL::Pipeline::Tools::Pmatch::ProteinHit;
-use Bio::EnsEMBL::Pipeline::Tools::Pmatch::CoordPair;
-use Bio::EnsEMBL::Pipeline::Tools::Pmatch::MergedHit;
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
+use Bio::Root::Object;
+use Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
+use Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;
+use Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair;
+use Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-@ISA = qw();
+@ISA = qw(Bio::Root::Object);
 
 sub new {
   my ($class, @args) = @_;
   my $self = bless {}, $class;
 
   my ($plengths, $maxintronlen, $min_coverage) = 
-                 rearrange(['PROTEIN_LENGTHS','MAX_INTRON_LENGTH', 'MIN_COVERAGE'], @args);
+                 rearrange(['PLENGTHS','MAXINTRONLEN', 'MIN_COVERAGE'], @args);
 
-  #Setting a default
+  #Setting defaults
   $self->min_coverage(25);
+  $self->maxintronlen(50000);
+  #################
 
-  #print STDERR "Creating FIRST_PMF with @args\n";
-  throw("No protlengths data") unless defined $plengths;
-  $self->protein_lengths($plengths);
-
-  throw("No maximum intron length") unless defined $maxintronlen;
-  $self->max_intron_len($maxintronlen);
+  $self->plengths($plengths);
+  $self->maxintronlen($maxintronlen);
   $self->min_coverage($min_coverage);
-  return $self;
 
+  throw("No protlengths data") unless $self->plengths;
+  throw("No maximum intron length") unless defined $self->maxintronlen;
+
+  return $self;
 }
 
 =head2 make_coord_pair
@@ -56,7 +58,7 @@ sub make_coord_pair {
   my $strand = 1;
   if ( $cols[3] < $cols[2]  ) { $strand=-1; }
   
-  my $cp = new Bio::EnsEMBL::Pipeline::Tools::Pmatch::CoordPair(
+  my $cp = new Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair(
 							 -query  => $cols[1],
 							 -target => $protid,
 							 -qstart => $cols[2],
@@ -69,20 +71,20 @@ sub make_coord_pair {
 
   # where to put the CoordPair?
   # find the relevant ProteinHit, or make a new one
-  my %proteins;
-  my $ph = $proteins{$protid};
+  my $proteins = $self->proteins;
+  my $ph = $$proteins{$protid};
 
   if (!defined $ph) {
      #make a new one and add it into %proteins
-    $ph = new Bio::EnsEMBL::Pipeline::Tools::Pmatch::ProteinHit(-id=>$protid);
-    $proteins{$protid} = $ph;
+    $ph = new Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit(-id=>$protid);
+    $$proteins{$protid} = $ph;
   }
-  $self->proteins(\%proteins);
+  $self->proteins($proteins);
   # now find the relevant ContigHit, or make a new one
   my $ch = $ph->get_ContigHit($cols[1]);
   if (!defined $ch) {
      # make a new one and add it into $ph
-    $ch = new Bio::EnsEMBL::Pipeline::Tools::Pmatch::ContigHit(-id => $cols[1]);
+    $ch = Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit->new(-id => $cols[1]);
     $ph->add_ContigHit($ch);
   }
   
@@ -111,12 +113,12 @@ sub merge_hits {
   my $protref = $self->proteins;
 
   foreach my $p_hit(values %$protref) {
-    my $allhits = $self->make_mergelist($p_hit);
+    my @allhits = @{$self->make_mergelist($p_hit)};
     
-    my $chosen = $self->prune($allhits);
+    my @chosen = @{$self->prune(\@allhits)};
     #print STDERR "\nNo hits good enough for " . $p_hit->id() . "\n"
     #  unless scalar(@chosen);
-    push(@merged,@$chosen);
+    push(@merged,@chosen);
   }
   #print STDERR "PMF have ".@merged." ".$merged[0]." results\n";
   return \@merged;
@@ -141,11 +143,11 @@ sub make_mergelist {
   my @hits = ();
   foreach my $ch($ph->each_ContigHit()) {
     # forward strand
-    my @cps = $ch->each_ForwardPair();
+    my @cps = @{$ch->each_ForwardPair()};
     # sort!
     @cps = sort {$a->qstart <=> $b->qstart} @cps;
     #reverse strand
-    my @mps = $ch->each_ReversePair();
+    my @mps = @{$ch->each_ReversePair()};
     @mps = sort {$b->qstart <=> $a->qstart} @mps;
     push (@cps,@mps);
     
@@ -217,7 +219,7 @@ sub make_mergelist {
   # print "Number of hits = " . scalar(@hits) . "\n";
 
   # sort out coverage
-  my $plengths = $self->protein_lengths;
+  my $plengths = $self->plengths;
   my $protlen = $$plengths{$ph->id};
   warn "No length for " . $ph->id . "\n" unless $protlen;
   return unless $protlen; 
@@ -247,7 +249,7 @@ sub make_mergelist {
 sub new_merged_hit {
   my ($self,$cp) = @_;
   my $coverage = $cp->tend - $cp->tstart + 1;
-  my $mh = new Bio::EnsEMBL::Pipeline::Tools::Pmatch::MergedHit( -query    =>  $cp->query(),
+  my $mh = new Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit( -query    =>  $cp->query(),
 			  -target   =>  $cp->target(),
 			  -strand   =>  $cp->strand(),
 			  -coverage =>  $coverage,
@@ -256,18 +258,7 @@ sub new_merged_hit {
   return $mh;
 }
 
-sub proteins{
-  my ($self, $arg) = @_;
-  if(!$self->{'proteins'}){
-    $self->{'proteins'} = {};
-  }
-  if($arg){
-    $self->{'proteins'} = $arg;
-  }
-  return $self->{'proteins'};
-}
-
-sub protein_lengths {
+sub plengths {
   my ($self, $plengths) = @_;
   
   # $plengths is a hash reference
@@ -284,9 +275,27 @@ sub protein_lengths {
 
 }
 
+sub proteins {
+  my ($self, $proteins) = @_;
+  
+  if(!$self->{_proteins}){
+    $self->{_proteins} = {};
+  }
+  # $proteins is a hash reference
+  if(defined($proteins)){
+    if (ref($proteins) eq "HASH") {
+      $self->{_proteins} = $proteins;
+    } 
+    else {
+      throw("[$proteins] is not a hash ref.");
+    }
+  }
+     
+  return $self->{_proteins};
 
+}
 
-sub max_intron_len {
+sub maxintronlen {
   my ($self, $maxintronlen) = @_;
   
   if(defined($maxintronlen)){
@@ -301,28 +310,25 @@ sub max_intron_len {
   
 }
 
+
 sub min_coverage {
-  my ($self, $mincoverage) = @_;
+  my ($self, $min_coverage) = @_;
   
-  if(defined($mincoverage)){
-    if ($mincoverage =~ /\d+/) {
-      $self->{_mincoverage} = $mincoverage;
+  if(defined($min_coverage)){
+    if ($min_coverage =~ /\d+/) {
+      $self->{_min_coverage} = $min_coverage;
     } 
     else {
-      throw("[$mincoverage] is not numeric.");
+      throw("[$min_coverage] is not numeric.");
     }
   }
-  return $self->{_mincoverage};
+  return $self->{_min_coverage};
   
 }
 
-sub output{
-  my ($self) = @_;
-  if (!defined($self->{_output})) {
-    $self->{_output} = [];
-  } 
-  return $self->{_output};
-}
+
+
+
 
 sub extend_hits {
   my ($self, $hits) = @_;
@@ -332,7 +338,7 @@ sub extend_hits {
   my @fhits;
   my @rhits;
   my @newhits;
-  #separate the forward and reverse strand hits into 2 separate arrays
+
   foreach my $mh(@$hits){
     if($mh->strand == 1){
       push (@fhits, $mh);
@@ -342,21 +348,18 @@ sub extend_hits {
     }
   }
 
-  @fhits = sort {$a->qstart <=> $b->qstart} @fhits; #sort the forward strand 
-  #lowest to highest
+  @fhits = sort {$a->qstart <=> $b->qstart} @fhits;
   @rhits = sort {$b->qstart <=> $a->qstart} @rhits;
-  #and the reverse strand highest to lowest
-  #This is so both sets of features sit in 5" to 3" order
 
-  while(scalar(@fhits)){ #This is a recursive process
-    my $hit = shift(@fhits); #We take current most 5" hit on the array
-    push (@newhits, $hit); #and add it to the new array
+
+  while(scalar(@fhits)){
+    my $hit = shift(@fhits);
+    push (@newhits, $hit);
 
     # can we link it up to a subsequent hit?
-    foreach my $sh(@fhits){ #For each of the subsequenct hits
-      die ("Argh!") unless $hit->strand == $sh->strand; #die if its not on the
-      #same strand
-      last if ($hit->qend+$self->max_intron_len < $sh->qstart);
+    foreach my $sh(@fhits){
+      die ("Argh!") unless $hit->strand == $sh->strand;
+      last if ($hit->qend+$self->{_maxintronlen} < $sh->qstart);
       if ($sh->tstart > $hit->tend &&
 	  $sh->tend   > $hit->tend &&
 	  abs($sh->tstart - $hit->tend) <= 3 &&
@@ -381,8 +384,8 @@ sub extend_hits {
       die ("Argh!") unless $hit->strand == $sh->strand;
 # hmmmm On minus strand qstart is currently > qend
 # ie $sh->qend <= $sh->qstart <= $hit->qend <= $hit->qstart
-#      last if ($hit->qstart-$self->max_intron_len > $sh->qend);
-      last if ($hit->qend-$self->max_intron_len > $sh->qstart);
+#      last if ($hit->qstart-$self->{_maxintronlen} > $sh->qend);
+      last if ($hit->qend-$self->{_maxintronlen} > $sh->qstart);
       if ($sh->tstart > $hit->tend &&
 	  $sh->tend   > $hit->tend &&
 	  abs($sh->tstart - $hit->tend) <= 3 &&

@@ -2,16 +2,10 @@
 # and a list of start-end positions
 
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
-
-use strict;
-use warnings;
-
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
-use vars qw (@ISA);
-
 @ISA = qw();
+
 
 =head2 new
 
@@ -31,7 +25,7 @@ sub new {
 
   my ($id) = rearrange(['ID'], @args);
 
-  $self->throw("No id") unless defined $id;
+  throw("No id") unless defined $id;
   $self->id($id);
  
   $self->{'_forward_pairs'} = [];
@@ -75,8 +69,8 @@ sub id {
 
 sub add_CoordPair {
   my ($self,$pair) = @_;
-  $self->throw('No coord pair') unless defined $pair;
-  $self->throw('$pair is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair') unless $pair->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair");
+  throw('No coord pair') unless defined $pair;
+  throw('$pair is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair') unless $pair->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair");
   if($pair->strand == 1) {
     push(@{$self->{_forward_pairs}},$pair);
   }
@@ -99,7 +93,7 @@ sub add_CoordPair {
 
 sub each_ForwardPair {
   my ($self) = @_;
-  return @{$self->{_forward_pairs}};
+  return $self->{_forward_pairs};
 }
 
 =head2 each_ReversePair
@@ -116,6 +110,6 @@ sub each_ForwardPair {
 
 sub each_ReversePair {
   my ($self) = @_;
-  return @{$self->{_reverse_pairs}};
+  return $self->{_reverse_pairs};
 }
 1;

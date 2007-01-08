@@ -2,17 +2,9 @@
 # and a list of ContigHit objects
 
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;
+use Bio::Root::Object;
 
-
-use strict;
-use warnings;
-
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
-use vars qw (@ISA);
-
-@ISA = qw();
+@ISA = qw(Bio::Root::Object);
 
 =head2 new
 
@@ -30,9 +22,9 @@ sub new {
   my ($class, @args) = @_;
   my $self = bless {}, $class;
 
-  my ($id) = rearrange(['ID'], @args);
+  my ($id) = $self->_rearrange(['ID'], @args);
 
-  throw("No id") unless defined $id;
+  $self->throw("No id") unless defined $id;
   $self->id($id);
   
   return $self;
@@ -73,8 +65,8 @@ sub id {
 
 sub add_ContigHit {
   my ($self,$hit) = @_;
-  throw('No contig hit') unless defined $hit;
-  throw('$contig is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit') unless $hit->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit");
+  $self->throw('No contig hit') unless defined $hit;
+  $self->throw('$contig is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit') unless $hit->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit");
   $self->{_contig_hits}{$hit->id()} = $hit;
 }
 
