@@ -41,7 +41,7 @@ use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites );
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites validate_Exon_coords);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
@@ -87,6 +87,18 @@ use vars qw (@ISA @EXPORT);
              low_complexity_less_than_maximum
              replace_stops_with_introns
              remove_initial_or_terminal_short_exons
+             get_evidence_ids
+             dump_cDNA_file
+             convert_to_genes
+             evidence_coverage
+             get_upstream_Intron_from_Exon
+             get_downstream_Intron_from_Exon
+             get_upstream_splice_sites
+             get_downstream_splice_sites
+             attach_Slice_to_Transcript
+             empty_Transcript
+             fully_load_Transcript
+             all_exons_are_valid
              print_Transcript
              print_Transcript_and_Exons
              print_Transcript_evidence
@@ -1507,13 +1519,14 @@ Returntype : Arrayref of Bio::EnsEMBL::Gene objects
 =cut
 
 sub convert_to_genes {
-  my ($tref, $analysis ) = @_;
+  my ($tref, $analysis, $biotype ) = @_;
   my @genes ;
 
   my @tr = (ref($tref)=~m/ARRAY/) ? @$tref : ($tref) ; 
 
   for my $t (@tr) {
     $analysis = $t->analysis unless $analysis ;
+    $t->biotype($biotype);
     my $g = Bio::EnsEMBL::Gene->new() ;
     $g->biotype( $t->biotype ) ;
     $g->add_Transcript($t);
@@ -1657,6 +1670,38 @@ sub empty_Transcript{
   $transcript->display_xref(undef) if($remove_xrefs);
   empty_Object($transcript, $remove_stable_id);
   return $transcript;
+}
+
+sub all_exons_are_valid{
+  my ($transcript, $max_length) = @_;
+
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    if(!exon_length_less_than_maximum($exon, $max_length)){
+      logger_info("Transcript ".id($transcript)." has ".
+                  "exon longer than ".$max_length);
+      return 0;
+    }
+    throw(Transcript_info($transcript)." seems to contain an undefined exon") 
+      if(!$exon);
+    if(!validate_Exon_coords($exon)){
+      logger_info("Transcript ".id($transcript)." has ".
+                  "invalid exon coords ".Exon_info($exon));
+      return 0;
+    }
+  }
+  return 1;
+}
+
+
+sub evidence_coverage_greater_than_minimum{
+  my ($transcript, $evidence, $min_coverage) = @_;
+  warning ("There has been no evidence passed in for ".Transcript_info($transcript).
+           "Assumung coverage is fine") if(!$evidence);
+  return 1 if(!$evidence);
+  my $coverage = evidence_coverage($transcript, $evidence);
+  warning(Transcript_info($transcript)." based on ".$evidence->id." has too ".
+          "low coverage ".$coverage." of the evidence") 
+    unless($coverage > $min_coverage);
 }
 
 1;

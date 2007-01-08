@@ -60,6 +60,7 @@ use vars qw (@ISA @EXPORT);
              get_upstream_splice_sites
              get_downstream_splice_sites
              create_Exon
+             validate_Exon_coords
             );
 
 
@@ -236,6 +237,19 @@ sub transfer_supporting_evidence{
   return $target_exon;
 }
 
+
+sub validate_Exon_coords{
+  my ($exon) = @_;
+  throw("Must pass ExonUtils::validate_Exon_coords an exon ") if(!$exon);
+  if($exon->start < 0){
+    warning(id($exon)." ".$exon->start." is less than zero");
+    return 0;
+  }
+  elsif($exon->start > $exon->end){
+    warning(id($exon)." ".$exon->start." is greater than ".$exon->end);
+    return 0;
+  }
+}
 
 =head2 Intron methods
 

@@ -27,6 +27,7 @@ use vars qw (@ISA  @EXPORT);
              run_translate
              compute_translation
              return_translation
+             validate_Translation_coords
             );
 
 
@@ -459,6 +460,20 @@ sub run_translate{
 }
 
 
-
+sub validate_Translation_coords{
+  my ($self, $transcript) = @_;
+  my $translation = $transcript->translation;
+  if($translation->start < 1){
+    warning(Translation_info($transcript)." has a start  ".$translation->start.
+            " less than 1");
+    return 0;
+  }
+  if($translation->end < 0 || $translation->end > $translation->end_exon->length){
+    warning(Translation_info($transcript)." has an end ".$translation->end.
+            " less than 1 or greater than ".$translation->end_exon->length);
+    return 0;
+  }
+  return 1;
+}
 
 1;

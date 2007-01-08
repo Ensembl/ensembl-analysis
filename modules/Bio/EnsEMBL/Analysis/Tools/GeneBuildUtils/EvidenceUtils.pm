@@ -9,6 +9,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::DnaPepAlignFeature;
+use Bio::EnsEMBL::FeaturePair;
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
@@ -119,6 +120,7 @@ sub create_feature_from_gapped_pieces{
                                     );
   $feature->slice($slice);
   $feature->hseqname($hseqname);
+  $feature->analysis($analysis);
   return $feature;
 }
 
