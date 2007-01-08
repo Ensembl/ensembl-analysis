@@ -9,6 +9,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(empty_Object);
 use Bio::EnsEMBL::Analysis::Runnable::BestPmatch;
 
 @ISA = qw (
@@ -45,6 +46,9 @@ sub run{
        );
   $pmf2->run;
   my @output = @{$pmf2->output};
+  foreach my $output(@output){
+    empty_Object($output);
+  }
   #my @unique = $self->uniquify(@output);
   $self->output(\@output);
 }

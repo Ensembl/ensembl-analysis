@@ -109,6 +109,7 @@ sub run_analysis{
     unless($program && -x $program); 
   my $command = $self->program." -D ".$self->options." ".$self->protein_file." ".
      $self->queryfile." > ".$self->resultsfile;
+  print "Running analysis ".$command."\n";
   logger_info("Running analysis ".$command);
   system($command) == 0 or throw("FAILED to run ".$command);
 }
@@ -125,11 +126,12 @@ sub parse_results{
     #print;
     my @cols = split;
     if(!$prot_id || $cols[5] ne $prot_id){
-      $self->pm_filters($current_pmf);
+      $self->pm_filters($current_pmf) if($current_pmf);
+   
       $current_pmf = Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF
         ->new(
-              -protein_lengths => $self->protein_lengths,
-              -max_intron_length => $self->max_intron_length,
+              -plengths => $self->protein_lengths,
+              -maxintronlen => $self->max_intron_length,
               -min_coverage => $self->min_coverage,
              );
       $prot_id = $cols[5];
@@ -138,6 +140,7 @@ sub parse_results{
       $current_pmf->make_coord_pair($_);
     }
   }
+  $self->pm_filters($current_pmf) if($current_pmf);
   close(PM) or throw("Runnable::Pmatch::parse_results error closing".
                      "the results file" . $self->resultsfile." $! ");
   my @filters = @{$self->pm_filters};
@@ -145,7 +148,7 @@ sub parse_results{
   my %unique;
   foreach my $f(@filters){
     my @hits = @{$f->merge_hits};
-    print "Have ".@hits." hits\n";
+    #print "Have ".@hits." hits\n";
     foreach my $hit(@hits){
       my $start = $hit->qstart;
       my $end = $hit->qend;
