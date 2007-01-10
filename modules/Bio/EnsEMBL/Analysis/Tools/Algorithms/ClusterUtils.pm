@@ -7,6 +7,7 @@ use Carp;
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster ; 
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster ; 
 
 use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ; 
 @ISA=qw(Exporter);
