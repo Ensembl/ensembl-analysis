@@ -128,6 +128,8 @@ sub parse_results {
         
         # Prints sometimes reports -1 for the motif position start;
         $lowestMotifPosition = 1 if $lowestMotifPosition == -1;
+        $highestMotifPosition = $lowestMotifPosition + $motifLength -1 
+            if $highestMotifPosition == -1;
 
         # It's possible that near the ends of the sequence,
         # fragment matches are found. These can result in a 
