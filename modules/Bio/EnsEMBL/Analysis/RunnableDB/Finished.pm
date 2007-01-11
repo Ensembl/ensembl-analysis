@@ -44,7 +44,7 @@ sub write_output {
 	    	my $slice    = $self->query;
 		    my $ff       = $self->feature_factory;
 	        # Store features in the database
-	        print STDOUT "Finished: Writting ".scalar(@$output)." ".ref($feat)." in database\n";
+	        print STDOUT "Finished: Writting ".scalar(@$output)." new ".ref($feat)." in the database\n";
 	        foreach my $feature (@$output) {
 	        	$feature->analysis($analysis);
 	        	$feature->slice($slice) if (!$feature->slice);
@@ -89,7 +89,8 @@ sub remove_stored_AlignFeatures {
 	## create a hashtable of the contig hits stored in the database
     my $db_features =
       $adaptor->fetch_all_by_Slice($self->query, $self->analysis->logic_name);
-    print STDOUT "Finished: Found ", scalar(@$db_features), " features already in db\n";
+    print STDOUT "Finished: Found ", scalar(@$db_features), " features already stored in the database\n";
+    print STDOUT "Finished: Found ", scalar(@$output), " features in the output\n";
     my %db_feat = map { $self->get_feature_key($_), $_ } @$db_features;
     my %db_feat_to_del = %db_feat;
     ## remove old Uniprot features with missing sequence version. 
