@@ -146,6 +146,11 @@ sub parse_results {
 	return $output;
 }
 
+sub clean_databases {
+	my ( $self) = @_;
+	$self->{databases} = [];
+}
+
 sub databases {
 	my ( $self, @vals ) = @_;
 
