@@ -18,13 +18,13 @@ ensembl-dev@ebi.ac.uk
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation;
 use vars qw(@ISA);
 use strict;
-use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::DBSQL::ProteinFeatureAdaptor;
 use Bio::EnsEMBL::Analysis::Config::ProteinAnnotation;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 ################################
@@ -36,14 +36,6 @@ sub new {
 
   $self->read_and_check_config;
 
-  if (defined $self->GENEDB) {
-    my $gdb = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->GENEDB});
-    $gdb->dnadb($self->db);
-    $self->GENEDB($gdb);
-  } else {
-    $self->GENEDB($self->db);
-  }
-  
   return $self;
 }
 
@@ -52,6 +44,13 @@ sub new {
 sub fetch_input {
   my ($self) = @_;  
   my $input_id;
+
+  my $db;
+  if ($self->GENEDB) {
+    $db = $self->get_dbadaptor($self->GENEDB);
+  } else {
+    $db = $self->db;
+  }
 
   my $error = "For logic " . $self->analysis->logic_name . ", Input id must be:\n";
   $error .= "(a) a valid translation dbID; or\n";
@@ -62,7 +61,7 @@ sub fetch_input {
   if ($self->input_id =~ /^(\d+)$/)  {
     my $prot;
     eval {
-      $prot = $self->GENEDB->get_TranslationAdaptor->fetch_by_dbID($self->input_id);
+      $prot = $db->get_TranslationAdaptor->fetch_by_dbID($self->input_id);
     };
     if($@ or not defined $prot) {
       throw($error);
@@ -93,7 +92,14 @@ sub write_output {
   
   my @features = @{$self->output()};
     
-  my $adap = $self->GENEDB->get_ProteinFeatureAdaptor;  
+  my $db;
+  if ($self->GENEDB) {
+    $db = $self->get_dbadaptor($self->GENEDB);
+  } else {
+    $db =$self->db;
+  }
+
+  my $adap = $db->get_ProteinFeatureAdaptor;
   
   foreach my $feat(@features) {
     $adap->store($feat, $feat->seqname);
