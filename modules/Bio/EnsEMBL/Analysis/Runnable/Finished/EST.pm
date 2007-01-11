@@ -45,14 +45,8 @@ sub new {
     $self->analysis($analysis);
 
     # this should make a OBDAIndexSeqFetcher, but will default to Pfetch
-    # add the update blastdb indices to the list of release blastdb indices
-    # example: embl_est_hum => emnew_est_hum  
-    my @indices = split(",", $self->analysis->db) ;
-    foreach my $indice (@indices) {
-    	my $update = $indice;
-    	push @indices,$update if($update =~ s/^embl_/emnew_/g);  
-    }
-    $seqfetcher = $self->_make_seqfetcher(\@indices);
+    my $indices = [ split(",", $self->analysis->db) ];
+    $seqfetcher = $self->_make_seqfetcher($indices);
     $self->seqfetcher($seqfetcher);
     return $self;
 }
@@ -103,7 +97,6 @@ sub run {
     my $filter = shift;
     my $blastcon = shift;
 
-
     my $blast = Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new(
      -query => $self->query,
      -program => 'wublastn',
@@ -113,19 +106,36 @@ sub run {
      -filter => $filter,
      %{$blastcon},
      );
-    $blast->run();
-    # keep the features
-    my $features =  $blast->output ;
-
+    
+    my $db_files = $blast->databases;
+    
     # set the db_version_searched
     my $dbv = $blast->get_db_version();
     print "using $dbv\n";
     $self->get_db_version($dbv);
-    print STDERR "\nPlus strand est_genome\n" if $verbose;
-    $self->run_est_genome_on_strand( 1, $features );
-
-    print STDERR "\nMinus strand est_genome\n" if $verbose;
-    $self->run_est_genome_on_strand( -1, $features)
+    
+    foreach my $db_file (sort @$db_files) {
+    	print STDOUT "database file $db_file\n";
+    	$blast->clean_output();
+    	$blast->clean_databases();
+    	$blast->databases($db_file);
+	    $blast->run();
+	    my $features =  $blast->output ;
+		
+		if (!$self->analysis->db)
+		{	
+			$db_file =~ s/-\d+//g;
+			print STDOUT "indice file $db_file\n";
+			my $seqfetcher = $self->_make_seqfetcher([$db_file]);
+	    	$self->seqfetcher($seqfetcher);
+		}
+	
+	    print STDERR "\nPlus strand est_genome\n" if $verbose;
+	    $self->run_est_genome_on_strand( 1, $features );
+	
+	    print STDERR "\nMinus strand est_genome\n" if $verbose;
+	    $self->run_est_genome_on_strand( -1, $features)
+    }
 }
 
 sub run_est_genome_on_strand {
