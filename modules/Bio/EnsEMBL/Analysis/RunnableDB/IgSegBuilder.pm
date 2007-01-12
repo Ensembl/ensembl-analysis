@@ -85,7 +85,7 @@ sub fetch_input {
                                                     -end => $e[-1]->length);
             my @sfs = @{$t->get_all_supporting_features};
             $t = Bio::EnsEMBL::Transcript
-                ->new(-analysis => $self->analysis,
+                ->new(-analysis => $t->analysis,
                       -exons    => $t->get_all_translateable_Exons);
             $t->add_supporting_features(@sfs);
             $t->translation($tr);
@@ -206,6 +206,17 @@ sub run {
   foreach my $g (@lv_genes, @c_genes, @j_genes, @d_genes) {
     $self->prune_Exons($g);
     $g->analysis($self->analysis);
+    foreach my $t (@{$g->get_all_Transcripts}) {
+      $t->analysis($self->analysis);
+      foreach my $sf (@{$t->get_all_supporting_features}) {
+        $sf->analysis($self->analysis);
+      }
+      foreach my $e (@{$t->get_all_Exons}) {
+        foreach my $sf (@{$e->get_all_supporting_features}) {
+          $sf->analysis($self->analysis);
+        }
+      }
+    }
 
     push @genes, $g;
   }
