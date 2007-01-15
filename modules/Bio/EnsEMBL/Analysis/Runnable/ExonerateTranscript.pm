@@ -315,10 +315,12 @@ sub parse_results {
         }
       }
 
-      push @transcripts, $transcript;
+      push @transcripts, [$score, $transcript];
     }
-
   }
+
+  @transcripts = sort { $b->[0] <=> $a->[0] } @transcripts;
+  @transcripts = map { $_->[1] } @transcripts;
 
   return \@transcripts;
 }
