@@ -73,17 +73,17 @@ use vars qw(%Config);
 #
 # Analysis  query_type    database_type
 #-------------------------------------
-#  blastp     pep            pep
+#  blastp     pep            pep        ("standard" Uniprot-run using module BlastGenscanPep.pm)
 #  blastn     dna            dna
-#  blastx     dna            pep         (i.e.Uniprot-wublastx)
+#  blastx     dna            pep        (i.e.Uniprot-wublastx with module Blast.pm)
 # tblastn     pep            dna
 # tblastx     dna            dna
 #
 #
-# For running an unfiltered blastx against Uniprot with the logic_name "Uniprot" in the 
-# analysis-table, use query_type='dna' and database-type 'pep'.
 #
-#    ########  Example-configuration for blastx against UNIPROT  #########
+#    ########  Example-configuration for a 'standard' Uniprot run which uses
+#    ########  the program wublastp and the module BlastGenscanPep.pm  
+#
 #    Uniprot =>
 #            {
 #             BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
