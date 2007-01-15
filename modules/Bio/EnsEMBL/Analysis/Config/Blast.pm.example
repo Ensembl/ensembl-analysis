@@ -89,7 +89,7 @@ use vars qw(%Config);
 #             BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
 #             PARSER_PARAMS => {
 #                               -regex => '^\w+\s+(\w+)',
-#                               -query_type => 'dna',       # see PARSER_PARAMS-table
+#                               -query_type => 'pep',       # see PARSER_PARAMS-table
 #                               -database_type => 'pep',    # see PARSER_PARAMS-table
 #                               -threshold_type => 'PVALUE',
 #                               -threshold => 0.01,
