@@ -409,6 +409,7 @@ sub prune_LV_transcripts {
   # unique introns are kept
   #
   @tran = sort _by_total_exon_length @tran;
+
   my @redun_tran;
 
   foreach my $t (@tran) {
@@ -781,7 +782,10 @@ sub _by_total_exon_length {
     $blen += $e->length;
   }
   
-  return $blen <=> $alen;
+  my ($aevi) = @{$a->get_all_supporting_features};
+  my ($bevi) = @{$b->get_all_supporting_features};
+
+  return ($blen <=> $alen or $bevi->percent_id <=> $aevi->percent_id);
 }
 
 
