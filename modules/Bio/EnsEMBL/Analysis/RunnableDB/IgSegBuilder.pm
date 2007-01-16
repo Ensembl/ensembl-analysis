@@ -235,9 +235,8 @@ sub cluster_by_genomic_overlap {
   my %tran_groups;
   foreach my $t (@$tran) {
     my $sr = $t->slice->seq_region_name;
-    my $str = $t->strand;
 
-    push @{$tran_groups{$sr . ":" . $str}}, $t;
+    push @{$tran_groups{$sr}}, $t;
   }
 
   my @genes;
@@ -245,12 +244,43 @@ sub cluster_by_genomic_overlap {
   foreach my $grp (values %tran_groups) {
     my @c;
     foreach my $t (sort {$a->start <=> $b->start} @$grp) {
-      if (not @c or $t->start > $c[-1]->end + 1) {
-        push @c, Bio::EnsEMBL::Gene->new();
+      if (not @c or $t->start > $c[-1]->{end} + 1) {
+        push @c, {
+          start => $t->start,
+          end   => $t->end,
+          trans => [$t],
+        };
+      } else {
+        push @{$c[-1]->{trans}}, $t;
+        if ($c[-1]->{end} < $t->end) {
+          $c[-1]->{end} = $t->end;
+        }
       }
-      $c[-1]->add_Transcript($t);
+
     }
-    push @genes, @c;
+    foreach my $c (@c) {
+      # all transcripts in cluster should be same strand; if
+      # not, use voting to decide correct strand and remove
+      # transcripts from other strand
+      my @t = @{$c->{trans}};
+      my @forward = grep { $_->strand > 0 } @t;
+      my @reverse = grep { $_->strand < 0 } @t;
+
+      my @all;
+      if (scalar(@forward) > scalar(@reverse)) {
+        @all = @forward;
+      } elsif (scalar(@reverse) > scalar(@forward)) {
+        @all = @reverse;
+      } else {
+        # equal number of forward and reverse transcripts in this locus; 
+        # arbitrarily choose forward
+        @all = @forward;
+      }
+      
+      my $gene = Bio::EnsEMBL::Gene->new();
+      map { $gene->add_Transcript($_) } @all;
+      push @genes, $gene;
+    }
   }
 
   return \@genes;
@@ -355,6 +385,8 @@ sub prune_LV_transcripts {
   my @ftran;  
   my @tran = @{$gene->get_all_Transcripts};
   @tran = grep { $_->translate->seq !~ /\*/ } @tran;
+
+  
 
   #
   # if there are transcripts with a single intron, remove others
