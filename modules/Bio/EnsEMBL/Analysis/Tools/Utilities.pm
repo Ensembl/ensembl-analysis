@@ -197,6 +197,9 @@ sub parse_config{
         throw("no method defined in Utilities for config variable '$config_var'");
       }
     }
+  }else{
+    throw("Your logic_name ".$uc_logic." doesn't appear in your config file hash ".
+          $var_hash);
   }
 }
 
