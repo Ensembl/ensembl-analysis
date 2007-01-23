@@ -117,6 +117,30 @@ sub write_output {
   my $out_db = $self->get_dbadaptor($self->OUTPUTDB_DATABASES_NAME);
   my $ga = $out_db->get_GeneAdaptor;
 
+  my $sf_ana = $self->analysis;
+  if ($self->SUPPORTING_FEATURE_OUTPUT_LOGIC) {
+    $sf_ana = $out_db->get_AnalysisAdaptor
+        ->fetch_by_logic_name($self->SUPPORTING_FEATURE_OUTPUT_LOGIC);
+    if (not defined $sf_ana) {
+      $sf_ana = $self->analysis;
+    }
+  }
+
+  foreach my $g (@{$self->output}) {
+    $g->analysis($self->analysis);
+    foreach my $t (@{$g->get_all_Transcripts}) {
+      $t->analysis($self->analysis);
+      foreach my $sf (@{$t->get_all_supporting_features}) {
+        $sf->analysis($sf_ana);
+      }
+      foreach my $e (@{$t->get_all_Exons}) {
+        foreach my $sf (@{$e->get_all_supporting_features}) {
+          $sf->analysis($sf_ana);
+        }
+      }
+    }
+  }
+
   foreach my $g (@{$self->output}) {
     $ga->store($g);
   }
@@ -168,7 +192,7 @@ sub run {
   # D segments...
 
   my @d_genes = @{$self->cluster_by_genomic_overlap($self->D_transcripts)};
-  @d_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @d_genes;
+  @d_genes = grep { $self->gene_close_to_others($_, \@lv_genes, \@c_genes) } @d_genes;
   @d_genes = @{$self->transfer_to_local_slices(\@d_genes)};
 
   foreach my $g (@d_genes) {
@@ -188,7 +212,7 @@ sub run {
   # J segments...
 
   my @j_genes = @{$self->cluster_by_genomic_overlap($self->J_transcripts)};
-  @j_genes = grep { $self->gene_close_to_others($_, 2000000, \@lv_genes, \@c_genes) } @j_genes;
+  @j_genes = grep { $self->gene_close_to_others($_, \@lv_genes, \@c_genes) } @j_genes;
   @j_genes = @{$self->transfer_to_local_slices(\@j_genes)};
   foreach my $g (@j_genes) {
     $self->adjust_gene_5($g, "GTG");
@@ -202,22 +226,9 @@ sub run {
     }
   }
   @j_genes = @genes; @genes = ();
-
+ 
   foreach my $g (@lv_genes, @c_genes, @j_genes, @d_genes) {
     $self->prune_Exons($g);
-    $g->analysis($self->analysis);
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      $t->analysis($self->analysis);
-      foreach my $sf (@{$t->get_all_supporting_features}) {
-        $sf->analysis($self->analysis);
-      }
-      foreach my $e (@{$t->get_all_Exons}) {
-        foreach my $sf (@{$e->get_all_supporting_features}) {
-          $sf->analysis($self->analysis);
-        }
-      }
-    }
-
     push @genes, $g;
   }
   @genes = sort { $a->start <=> $b->start } @genes;
@@ -386,7 +397,18 @@ sub prune_LV_transcripts {
   my @tran = @{$gene->get_all_Transcripts};
   @tran = grep { $_->translate->seq !~ /\*/ } @tran;
 
-  
+  #
+  # remove transcripts with frameshift introns
+  #
+  TRAN: foreach my $t (@tran) {
+    foreach my $i (@{$t->get_all_Introns}) {
+      if ($i->length <= 10) {
+        next TRAN;
+      }
+    }
+    push @ftran, $t;
+  }
+  @tran = @ftran; @ftran = ();
 
   #
   # if there are transcripts with a single intron, remove others
@@ -460,6 +482,46 @@ sub prune_LV_transcripts {
         }
       }
       if ($matches == scalar(@intr)) {
+        $redundant = 1;
+        last;
+      }
+    }
+    if (not $redundant) {
+      push @ftran, $t;
+    } else {
+      push @redun_tran, $t;
+    }
+  }
+
+  #
+  # finally, check that the results are not trivial variants
+  # differing by only a small number of amino acids
+  #
+  @tran = @ftran;
+  @ftran = ();
+
+  @tran = sort _by_percent_id @tran;
+  foreach my $t (@tran) {
+    my $redundant = 0;
+    foreach my $ft (@ftran) {
+      my $all_covered = 1;
+      foreach my $i (@{$t->get_all_Introns}) {
+        # find correponding intron
+        my $found_matching = 0;
+        foreach my $fi (@{$ft->get_all_Introns}) {
+          if ($i->overlaps($fi) and
+              abs($i->start  - $fi->start <= 9) and
+              abs($i->end - $fi->end <= 9)) {
+            $found_matching = 1;
+            last;
+          }
+        }
+        if (not $found_matching) {
+          $all_covered = 0;
+          last;
+        }
+      }
+      if ($all_covered) {
         $redundant = 1;
         last;
       }
@@ -751,21 +813,25 @@ sub adjust_transcript {
 
 
 sub gene_close_to_others {
-  my ($self, $gene, $max_dist, @glists) = @_;
+  my ($self, $gene, @glists) = @_;
 
   # return true if gene is within 2Mb of at least
   # one other gene in each of the given lists
 
-  foreach my $list (@glists) {
-    my $member_close = 0;
-    foreach my $g (@$list) {
-      if (abs($g->start - $gene->start) <= $max_dist) {
-        $member_close = 1;
-        last;
+  if (not $self->D_J_PROXIMITY_THRESHOLD) {
+    return 1;
+  } else {
+    foreach my $list (@glists) {
+      my $member_close = 0;
+      foreach my $g (@$list) {
+        if (abs($g->start - $gene->start) <= $self->D_J_PROXIMITY_THRESHOLD) {
+          $member_close = 1;
+          last;
+        }
       }
-    }
-    if (not $member_close) {
-      return 0;
+      if (not $member_close) {
+        return 0;
+      }
     }
   }
 
@@ -821,6 +887,24 @@ sub _by_total_exon_length {
 }
 
 
+sub _by_percent_id {
+  my $alen = 0;
+  my $blen = 0;
+  foreach my $e (@{$a->get_all_Exons}) {
+    $alen += $e->length;
+  }
+  foreach my $e (@{$b->get_all_Exons}) {
+    $blen += $e->length;
+  }
+  
+  my ($aevi) = @{$a->get_all_supporting_features};
+  my ($bevi) = @{$b->get_all_supporting_features};
+
+  return ($bevi->percent_id <=> $aevi->percent_id or $blen <=> $alen);
+}
+
+
+
 
 ############################################################
 # containers
@@ -865,6 +949,15 @@ sub C_transcripts{
   return $self->{_c_transcripts};
 }
 
+
+sub supporting_feature_analysis {
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_support_ana} = $value;
+  }
+  return $self->{_support_ana};
+} 
 
 
 ############################################################
@@ -954,6 +1047,15 @@ sub C_OUTPUT_BIOTYPE {
   return $self->{_output_c_biotype};
 }
 
+sub SUPPORTING_FEATURE_OUTPUT_LOGIC {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_supporting_logic} = $val;
+  }
+
+  return $self->{_supporting_logic};
+}
 
 sub TRANDB_DATABASES_NAME {
   my ($self, $val) = @_;
@@ -976,7 +1078,16 @@ sub OUTPUTDB_DATABASES_NAME {
   return $self->{_outputdb_name};
 }
 
+sub D_J_PROXIMITY_THRESHOLD {
+  my ($self, $val) = @_;
 
+  if (defined $val) {
+    $self->{_dj_prox} = $val;
+  }
+
+  return $self->{_dj_prox};
+
+}
 
 
 1;

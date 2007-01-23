@@ -41,9 +41,14 @@ use vars qw( %Config );
                J_OUTPUT_BIOTYPE => 'J_segment',
                C_OUTPUT_BIOTYPE => 'C_segment',
 
+               SUPPORTING_FEATURE_OUTPUT_LOGIC => '',
+
                OUTPUTDB_DATABASES_NAME     => 'IG_OUTPUT_DB',
 
-               # other stuff
+               # D/J genes that are not closer than the distance
+               # below to a V/C gene are rejected               
+               D_J_PROXIMITY_THRESHOLD => 200000,
+
              },
            }
            );
