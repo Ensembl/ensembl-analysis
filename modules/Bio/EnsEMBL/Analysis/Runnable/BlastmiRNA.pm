@@ -123,6 +123,7 @@ sub parse_results{
 	     }
 	     $daf->score($coverage);
 	     push  @daf_coverage_results, $daf;
+	          print "DAF ".$daf->p_value."\n";
 	   }
 	 }
       }
@@ -169,7 +170,7 @@ sub cluster{
     }
     # otherwise sort by e_value
     @cluster = sort{$b->p_value <=> $a->p_value} @cluster;
-    push @representative_sequences, shift @cluster;
+    push @representative_sequences, pop @cluster;
   }
   return \@representative_sequences;
 }
