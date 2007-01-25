@@ -73,7 +73,7 @@ if (not defined $sf_analysis) {
   $sf_analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $sf_logic_name,
                                              -module => 'WGA2Genes',
                                              -gff_source => 'ensembl',
-                                             -gff_feature => 'gene');
+                                             -gff_feature => 'feature');
   $db->get_AnalysisAdaptor->store($sf_analysis);
 }
 
