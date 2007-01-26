@@ -381,6 +381,7 @@ sub get_Sequence {
     };
 
     # if we didn't get it by accession, try by id
+    # get_Seq_by_id method not in Pfetch.pm module
     if(!defined $seq){
       eval{
 	$seq = $seqfetcher->get_Seq_by_id($id) unless defined $seq;
