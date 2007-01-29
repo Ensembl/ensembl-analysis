@@ -60,7 +60,7 @@ use vars qw( %Config );
                  -port   => '3306',
                },
 
-               INPUT_METHOD_LINK_TYPE => 'BLASTZ_NET_COW',
+               INPUT_METHOD_LINK_TYPE => 'CONTIG_AWARE_NET',
 
                INPUT_GROUP_TYPE => 'chain',
                
