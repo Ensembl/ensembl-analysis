@@ -17,6 +17,7 @@ my (
     $tgdbuser,
     $tgdbport,
     $tgdbpass,
+    $patch,
     $old_db_name,
     $new_db_name,
     $new_mapping_session_id,
@@ -40,14 +41,17 @@ $tgdbport = 3306;
             'tgdbhost=s' => \$tgdbhost,
             'tgdbport=s' => \$tgdbport,
             'tgdbpass=s' => \$tgdbpass,
+            'patch'    => \$patch,
             'old_db_name=s' => \$old_db_name,
             'new_db_name=s' => \$new_db_name,
             'new_session_id=s' => \$new_mapping_session_id,
             'verbose'   => \$verbose,
             );
 
-die "You must provide and old_db_name and a new_db_name"
-    if not defined $old_db_name or not defined $new_db_name;
+if ($patch) {
+  die "You must provide and old_db_name and a new_db_name"
+      if not defined $old_db_name or not defined $new_db_name;
+}
 
 my $qy_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
     new(
@@ -97,8 +101,10 @@ my ($new_sid_hash, $pep_feat_hash);
 $verbose and print STDERR "Fully loading genes...\n";
 $pep_feat_hash = &fully_load_genes(\@genes);
 
-$verbose and print STDERR "Setting up new stable ids...\n";
-&set_stable_ids(\@genes);
+if ($patch) {
+  $verbose and print STDERR "Setting up new stable ids...\n";
+  &set_stable_ids(\@genes);
+}
 
 ########################################################
 # Find relationships between new genes and old geneset
@@ -119,23 +125,24 @@ foreach my $g (values %$genes_to_delete_hash) {
 }
 
 
-######################################################################
-# update relevant stable id tables with relationships
-######################################################################
-$verbose and print STDERR "Populating the stable_id_event table...\n";
-my $map_session_id = &populate_stable_id_event([values %$genes_to_delete_hash],
-                                               \@genes,
-                                               $stable_id_event_hash);
-
-######################################################################
-# for translations no longer present in the database, add to
-# peptide/gene archive
-######################################################################
-$verbose and print STDERR "Populating the peptide/gene archive tables...\n";
-&populate_gene_archive([values %$genes_to_delete_hash], 
-                       \@genes,
-                       $map_session_id);
-
+if ($patch) {
+  ######################################################################
+  # update relevant stable id tables with relationships
+  ######################################################################
+  $verbose and print STDERR "Populating the stable_id_event table...\n";
+  my $map_session_id = &populate_stable_id_event([values %$genes_to_delete_hash],
+                                                 \@genes,
+                                                 $stable_id_event_hash);
+  
+  ######################################################################
+  # for translations no longer present in the database, add to
+  # peptide/gene archive
+  ######################################################################
+  $verbose and print STDERR "Populating the peptide/gene archive tables...\n";
+  &populate_gene_archive([values %$genes_to_delete_hash], 
+                         \@genes,
+                         $map_session_id);
+}
 
 
 $verbose and printf(STDERR "Done (%s removed, %d added)\n%s\n",
@@ -374,11 +381,15 @@ sub compare_new_genes_with_current_genes {
                 #   map $og to $g
                 #   map $ot to $t
                 #   map $ot->translation to $t->translation
-                $genes_to_remove{$og->stable_id} = $og;
-                $stable_id_event{gene}->{$og->stable_id}->{$g->stable_id} = 1;
-                $stable_id_event{transcript}->{$ot->stable_id}->{$t->stable_id} = 1;
-                if ($t->translation and $ot->translation) {
-                  $stable_id_event{translation}->{$ot->translation->stable_id}->{$t->translation->stable_id} = 1;
+                if ($patch) {
+                  $genes_to_remove{$og->stable_id} = $og;
+                  $stable_id_event{gene}->{$og->stable_id}->{$g->stable_id} = 1;
+                  $stable_id_event{transcript}->{$ot->stable_id}->{$t->stable_id} = 1;
+                  if ($t->translation and $ot->translation) {
+                    $stable_id_event{translation}->{$ot->translation->stable_id}->{$t->translation->stable_id} = 1;
+                  }
+                } else {
+                  $genes_to_remove{$og->dbID} = $og;
                 }
               }
             }
