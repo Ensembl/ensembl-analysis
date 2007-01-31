@@ -19,39 +19,55 @@ sub fetch_input {
 
 sub run {
 	my ($self) = @_;
-	my $orig_analysis_name = $self->analysis->logic_name;
-	$orig_analysis_name .= '_raw';
+
+    my %params = %{ $self->parameters_hash() };
+    my $max_coverage     = $params{max_coverage} || 10;
+    my $percentid_cutoff = $params{percentid_cutoff} || 0.0;
+	my $orig_analysis_name = $params{ori_analysis};
+	my $hit_db = $params{hit_db};
+	
 	# Get the blast db version from the raw analysis and save it
 	my $analysis_adaptor = $self->db->get_AnalysisAdaptor();
 	my $ana = $analysis_adaptor->fetch_by_logic_name($orig_analysis_name);
 	my $stateinfocontainer = $self->db->get_StateInfoContainer;
 	my $db_version = $stateinfocontainer->fetch_db_version($self->input_id,$ana);
-	$self->db_version_searched($db_version);	
-    my %params = %{ $self->parameters_hash() };
-
-    my $max_coverage     = $params{max_coverage} || 10;
-    my $percentid_cutoff = $params{percentid_cutoff} || 0.0;
-
-	my $dna_feat_a  = $self->db->get_DnaAlignFeatureAdaptor;
-    my $prot_feat_a = $self->db->get_ProteinAlignFeatureAdaptor;
-
+	$self->db_version_searched($db_version);
+		
     my $slice = $self->query();
 
-        # Try the DNA features first:
-	my $orig_features =
-	  $dna_feat_a->fetch_all_by_Slice( $slice, $orig_analysis_name );
-
-        # If we haven't found anything, try Protein features:
-	if (!(@$orig_features))
-	{
-		$orig_features =
-		  $prot_feat_a->fetch_all_by_Slice( $slice, $orig_analysis_name );
-	}
+	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db);
 
 	my ( $filtered_features, $saturated_zones) =
         $self->depth_filter($orig_features, $slice, $max_coverage, $percentid_cutoff); 
 
 	$self->output($filtered_features, $saturated_zones);
+}
+
+sub get_original_features {
+	my ($self,$slice,$analysis,$hit_db) = @_;
+	my $hit_db_features = [];
+    my $prot_feat_a = $self->db->get_ProteinAlignFeatureAdaptor;
+    my $dna_feat_a  = $self->db->get_DnaAlignFeatureAdaptor;
+    my $hit_desc_a = $self->db->get_HitDescriptionAdaptor;
+    
+    my $orig_features = $dna_feat_a->fetch_all_by_Slice( $slice, $analysis );
+	$orig_features = $prot_feat_a->fetch_all_by_Slice( $slice, $analysis ) if (!(@$orig_features));
+	
+    if($hit_db){
+    	print STDERR "DepthFilter: hit db is $hit_db\n";
+    	my $hit_hash = {map {$_->hseqname, undef} @$orig_features};
+	    $hit_desc_a->fetch_HitDescriptions_into_hash($hit_hash);
+	    foreach my $feat (@$orig_features) {
+	        if (my $desc = $hit_hash->{$feat->hseqname}) {
+	            push @$hit_db_features, $feat if($desc->db_name eq $hit_db);
+	        }
+	    }
+	    print STDERR "DepthFilter: use ".scalar(@$hit_db_features)." features out of ".scalar(@$orig_features)."\n";
+    } else {
+    	return $orig_features;
+    }
+    
+    return $hit_db_features
 }
 
 
