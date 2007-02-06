@@ -461,16 +461,16 @@ sub run_translate{
 
 
 sub validate_Translation_coords{
-  my ($self, $transcript) = @_;
+  my ($transcript) = @_;
   my $translation = $transcript->translation;
   if($translation->start < 1){
     warning(Translation_info($transcript)." has a start  ".$translation->start.
             " less than 1");
     return 0;
   }
-  if($translation->end < 0 || $translation->end > $translation->end_exon->length){
+  if($translation->end < 0 || $translation->end > $translation->end_Exon->length){
     warning(Translation_info($transcript)." has an end ".$translation->end.
-            " less than 1 or greater than ".$translation->end_exon->length);
+            " less than 1 or greater than ".$translation->end_Exon->length);
     return 0;
   }
   return 1;

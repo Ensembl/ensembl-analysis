@@ -249,6 +249,7 @@ sub validate_Exon_coords{
     warning(id($exon)." ".$exon->start." is greater than ".$exon->end);
     return 0;
   }
+  return 1;
 }
 
 =head2 Intron methods

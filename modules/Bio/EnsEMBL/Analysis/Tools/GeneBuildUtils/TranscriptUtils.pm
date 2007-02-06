@@ -72,7 +72,6 @@ use vars qw (@ISA @EXPORT);
              evidence_coverage
              exon_lengths_all_less_than_maximum
              exonic_proportion
-             fully_load_Transcript
              get_downstream_Intron_from_Exon
              get_downstream_splice_sites
              get_evidence_ids
@@ -104,6 +103,7 @@ use vars qw (@ISA @EXPORT);
              print_Transcript_evidence
              split_Transcript
              Transcript_info
+             evidence_coverage_greater_than_minimum
             );
 
 
@@ -1676,13 +1676,13 @@ sub all_exons_are_valid{
   my ($transcript, $max_length) = @_;
 
   foreach my $exon(@{$transcript->get_all_Exons}){
+    throw(Transcript_info($transcript)." seems to contain an undefined exon") 
+      if(!$exon); 
     if(!exon_length_less_than_maximum($exon, $max_length)){
       logger_info("Transcript ".id($transcript)." has ".
                   "exon longer than ".$max_length);
       return 0;
     }
-    throw(Transcript_info($transcript)." seems to contain an undefined exon") 
-      if(!$exon);
     if(!validate_Exon_coords($exon)){
       logger_info("Transcript ".id($transcript)." has ".
                   "invalid exon coords ".Exon_info($exon));
