@@ -37,59 +37,49 @@ use vars qw( %Config );
 
 %Config = (
       DITAG_CONFIG => {
-	DEFAULT => {
+        DEFAULT => {
 
         ## GENERAL SECTION ##
 
-	  #use masked or unmasked genome
-          GENOMICSEQS         => '/data/blastdb/Ensembl/Human/NCBI36/genome/unmasked/',
+          #use masked or unmasked genome
+          GENOMICSEQS         => '/data/blastdb/Ensembl/Mouse/NCBIM36/genome/toplevel.fa',
 
-	  #Batchsize: 1000 for masked, 500 for unmasked
+          #Batchsize: 1000 for masked, 500 for unmasked
           BATCHSIZE           => 400,
-	  MAXDISTANCE         => 600000,
-	  #min & max allowed length of the raw ditag sequences
-	  MINSEQLENGTH        => 34,
-	  MAXSEQLENGTH        => 40,
+          MAXDISTANCE         => 600000,
+          #min & max allowed length of the raw ditag sequences
+          MINSEQLENGTH        => 34,
+          MAXSEQLENGTH        => 40,
           #max allowed number of repeated bases
-	  REPEATNUMBER        => 6,
+          REPEATNUMBER        => 6,
           TMPDIR              => '/tmp',
           PROGRAM             => '/usr/local/ensembl/bin/exonerate-1.0.0',
-	  #adjust "softmasktarget" to masking choice
+          #adjust "softmasktarget" to masking choice
           OPTIONS             => " -M 256 --softmasktarget FALSE --showsugar false --showvulgar false --showalignment false --forwardcoordinates true --bestn 100 --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" --saturatethreshold 100 ",
+       },
 
-	## SPECIFIC DITAG TYPES ##
+        ## SPECIFIC DITAG TYPES ##
 
-#       #GIS
-#	  IIDREGEXP           => '^>\S+\-(\S+)\s\S+\:(\d+)',
-#	  CHOPFIRST           => "G",
-#	  SPECOPTIONS         => "--dnahspthreshold 75 --score 75",
-#	  SPLITSEQS           => 1,
-#	  CHOPFIRST           => "G",
-#          CHOPLAST            => undef,
-#	  MAXMISMATCH         => 3,
-#          KEEPORDER           => 1,
+       ExonerateTags => {
 
-#	#SMN001
-#          TAGTYPE             => "SMN001",
-#          QUERYFILE           => 'SMN001.txt',
+       #GSC
+          IIDREGEXP           => '^>\S{4}(\S+)\|(\S+)\|\S+\|\S+\|\S+\|\S+\|\S+',
+          SPECOPTIONS         => "--dnahspthreshold 80 --score 80",
+          SPLITSEQS           => 1,
+          MAXMISMATCH         => 3,
+          KEEPORDER           => 0,
+          CHOPLAST            => undef,
+          CHOPFIRST           => undef,
 
+        #ZZ11
+          TAGTYPE             => "ZZ11",
+          QUERYFILE           => '.../GSC/gsc-ZZ11.fa',
 
-
-
-#       #CAGE
-#	#phantom-representative set
-#	  TAGTYPE             => "CAGEmm5",
-#	  QUERYFILE           => 'cage.rep_tag.2004-11-16.fasta',
-#	  IIDREGEXP           => '^>(\S+)\s+tags=(\d+)',
-#	  CHOPFIRST           => "G",
-#	  SPECOPTIONS         => "--dnahspthreshold 85 --score 80",
-#	  SPLITSEQS           => 0,
-#	  MAXMISMATCH         => 3,
-
-	},
+        },
 
       }
 );
+
 
 
 sub import {
