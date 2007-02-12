@@ -6,7 +6,7 @@
 package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use strict;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES DNA_DBNAME);
@@ -42,9 +42,13 @@ sub get_dbadaptor{
       $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                                 %$constructor_args,
                                                 );
-      if($name ne $DNA_DBNAME){
-        my $dnadb = $self->get_dbadaptor($DNA_DBNAME);
-        $db->dnadb($dnadb);
+      if($name ne $DNA_DBNAME ){
+        if (length($DNA_DBNAME) ne 0 ){
+          my $dnadb = $self->get_dbadaptor($DNA_DBNAME);
+          $db->dnadb($dnadb);
+        }else{
+          warning("You haven't defined a DNA_DBNAME in Config/Databases.pm");
+        }
       }
       $self->database_hash($name, $db);
     } else {
