@@ -233,14 +233,13 @@ sub get_transcript_with_longest_CDS {
       if ($len > $maxlen) {
         $maxlen = $len;
         $longest = $trans;
-        $nexonmax = scalar($trans->get_all_Exons)
+        $nexonmax = scalar(@{$trans->get_all_Exons});
       }
     }
   }
   if (!defined($longest)) {
     print "Didn't find a longest transcript for gene ". $gene->stable_id . " type " . $gene->type . "\n";
   }
-  
   return ($longest,$maxlen,$nexonmax);
 }
 
