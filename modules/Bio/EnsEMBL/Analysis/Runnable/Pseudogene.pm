@@ -774,9 +774,6 @@ Arg [1]    : array ref
 
 sub get_repeats {
   my ($self, $gene) = @_;
-  unless ( $self->{'_repeats'}->{$gene}) {
-    warn ("repeat array not found for gene object $gene\n$@");
-  }
   return  $self->{'_repeats'}->{$gene};
 }
 
