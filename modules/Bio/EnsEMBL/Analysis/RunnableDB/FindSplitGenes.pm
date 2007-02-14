@@ -5,9 +5,6 @@ use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Gene;  
-
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils 
- qw(get_transcript_with_longest_CDS get_one2one_orth_for_gene_in_other_species  ) ;  
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils; 
 #use Bio::EnsEMBL::Analysis::Tools::Utilities; 
 
