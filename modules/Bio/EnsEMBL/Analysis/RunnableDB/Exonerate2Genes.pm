@@ -127,12 +127,34 @@ sub fetch_input {
       if (-e $target and -d $target) {
         # genome is in a directory; the directory must contain the complete
         # genome else we cannot do best-in-genome filtering. 
-        foreach my $chr_name ($self->get_chr_names) {
-          if (-s "$target/$chr_name.fa") {
-            push @db_files, "$target/$chr_name.fa";
-          } else {
-             warning( "Could not find fasta file for '$chr_name' in '$target'\n");
+        # 
+        # We would like to use exonerate's ability to accept a directory as
+        # target (because bestn then works), but we must check that the directory 
+        # contains only toplevel sequence files
+
+        my %dir_contents;
+        opendir DIR, $target;
+        while(my $entry = readdir DIR) {
+          if ($entry ne '.' and $entry ne '..') {
+            $dir_contents{$entry} = 0;
           }
+        }
+        closedir(DIR);
+
+        foreach my $chr ($self->get_chr_names) {
+          my $seq_fname = "$chr.fa"; 
+          if (-s "$target/$seq_fname") {
+            $dir_contents{$seq_fname}++;
+            push @db_files, "$target/$seq_fname";
+          } else {
+            warning( "Could not find fasta file for '$chr' in '$target'\n");
+          }
+        }        
+
+        # if all files in dir were expected, we can revert to having
+        # the whole directory as target
+        if (not grep { $dir_contents{$_} == 0 } keys %dir_contents) {
+          @db_files = ($target);
         }
       }
       elsif (-e $target and -s $target) {
@@ -526,7 +548,6 @@ sub QUERYANNOTATION {
 
 sub GENOMICSEQS {
   my ($self,$value) = @_;
-
 
   if (defined $value) {
     $self->{'_CONFIG_GENOMICSEQS'} = $value;
