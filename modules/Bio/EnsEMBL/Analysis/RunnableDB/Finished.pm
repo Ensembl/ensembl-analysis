@@ -43,14 +43,19 @@ sub write_output {
 		    my $analysis = $self->analysis;
 	    	my $slice    = $self->query;
 		    my $ff       = $self->feature_factory;
-	        # Store features in the database
-	        print STDOUT "Finished: Writting ".scalar(@$output)." new ".ref($feat)." in the database\n";
+	        
 	        foreach my $feature (@$output) {
 	        	$feature->analysis($analysis);
 	        	$feature->slice($slice) if (!$feature->slice);
 	        	$ff->validate($feature);
-	            $adaptor->store($feature);
 	        }
+	        if($adaptor->can('db_version')) {
+	        	$adaptor->db_version($self->db_version_searched);
+	        }
+	        # Store features in the database
+	        print STDOUT "Finished: Writting ".scalar(@$output)." new ".ref($feat)." in the database\n";
+	        $adaptor->store(@$output) unless !@$output;
+	        
 	    }
 	    $dbh->commit;
     };
