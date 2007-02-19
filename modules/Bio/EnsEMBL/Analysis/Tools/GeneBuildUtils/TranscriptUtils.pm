@@ -1642,9 +1642,12 @@ sub fully_load_Transcript{
  TSF:foreach my $sf(@{$transcript->get_all_supporting_features}){
     next TSF;
   }
+  
   my $translation = $transcript->translation;
-  $translation->start_Exon;
-  $translation->end_Exon;
+  if ($translation) {
+    $translation->start_Exon;
+    $translation->end_Exon;
+  }
  EXON:foreach my $e(@{$transcript->get_all_Exons}){
   SF:foreach my $sf(@{$e->get_all_supporting_features}){
       next SF;
