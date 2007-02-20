@@ -194,6 +194,8 @@ sub parse_results{
     if ($_ =~ /^hit/){
       if ($score &&  $threshold && $score > $threshold && $align->{'name'}){
 	$str = $self->parse_structure($align);
+	print STDERR "positve result at ".$daf->seq_region_name.":".$daf->seq_region_start."-".$daf->seq_region_end." strand ".
+           $daf->strand."\n" if $verbose;
 	push @results, {str => $str,
 			score => $score,
 			start => $start,
