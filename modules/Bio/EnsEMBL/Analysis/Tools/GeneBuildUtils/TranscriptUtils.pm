@@ -1154,31 +1154,32 @@ sub trim_cds_to_whole_codons {
     if ($tr->end_Exon == $exons[-1] and $tr->end_Exon->end_phase > 0) {
       $remove3 = $tr->end_Exon->end_phase;
     }
-  }
 
-  if ($remove5 or $remove3) {
-    my $cloned_transcript = clone_Transcript($transcript);
-    my @exons = @{$cloned_transcript->get_all_Exons};
-    
-    if ($remove5) {
-      if ($cloned_transcript->strand > 0) {
-        $exons[0]->start($exons[0]->start + $remove5);
-      } else {
-        $exons[0]->end($exons[0]->end - $remove5);
+    if ($remove5 or $remove3) {
+      my $cloned_transcript = clone_Transcript($transcript);
+      my @exons = @{$cloned_transcript->get_all_Exons};
+      
+      if ($remove5) {
+        if ($cloned_transcript->strand > 0) {
+          $exons[0]->start($exons[0]->start + $remove5);
+        } else {
+          $exons[0]->end($exons[0]->end - $remove5);
+        }
+        $tr->start($tr->start + $remove5);
       }
-    }
-    if ($remove3) {
-      if ($cloned_transcript->strand > 0) {
-        $exons[-1]->end($exons[-1]->end - $remove3);
-      } else {
-        $exons[-1]->start($exons[-1]->end + $remove3);
+      if ($remove3) {
+        if ($cloned_transcript->strand > 0) {
+          $exons[-1]->end($exons[-1]->end - $remove3);
+        } else {
+          $exons[-1]->start($exons[-1]->end + $remove3);
+        }
+        $tr->end($tr->end - $remove3);
       }
+      return $cloned_transcript;
     }
-    return $cloned_transcript;
-  } else {
-    return $transcript;
-  }
+  } 
 
+  return $transcript;
 }
 
 
