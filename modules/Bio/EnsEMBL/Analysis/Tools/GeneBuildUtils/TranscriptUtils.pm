@@ -860,10 +860,8 @@ sub list_evidence{
   Exceptions: throws if not passed a Bio::EnsEMBL::Transcript
   object
   Example   : 
-  Notes     : Needs extension to deal with transcript_supporting_feats
+
 =cut
-
-
 
 #This method is designed to split transcripts on
 #long introns and hopefully maintain clean and sensible
@@ -1006,7 +1004,6 @@ sub split_Transcript{
   #Now the split transcripts are checked for various things to
   #decide if they are valid
   my @checked_split_transcripts;
-  my $initial_peptide = $transcript->translate->seq;
   my $split_count = 0;
   my $tidied_transcripts;
   if($checks){
@@ -1030,6 +1027,7 @@ sub split_Transcript{
       my $trimed_transcript = 
           remove_initial_or_terminal_short_exons
           ($split_transcript);
+
       push(@checked_split_transcripts, $trimed_transcript);
     }
     #a series of other checks are performed, explained in the method
@@ -1052,10 +1050,6 @@ sub split_Transcript{
             push @ugs, $ug;
           }
         }
-        #print "Turning into aligned evidence";
-        foreach my $f(@ugs){
-        #  print "Feature ".$f->start." ".$f->end." ".$f->strand." hit ".$f->hstart." ".$f->hend." ".$f->hstrand."\n";
-        }
         my $newf = $f->new(-features => \@ugs) if(@ugs);
         $split_transcript->add_supporting_features($newf);
       }
@@ -1066,7 +1060,6 @@ sub split_Transcript{
   logger_info($info);
   return [$transcript];
 }
-
 
 
 =head2 _tidy_split_transcripts
@@ -1132,6 +1125,63 @@ sub _tidy_split_transcripts{
 }
 
 
+=head2 trim_cds_to_whole_codons
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : when start/end of translation is flush to
+    start/end of transcript, and phase is non-zero, trim
+    back to whole codon. If we have UTR adjacent to a non-zero
+    phase codon, then something is wrong, so best to leave it
+    alone    
+  Returntype: Bio::EnsEMBL::Transcript 
+  Exceptions: 
+  Example   : 
+=cut
+
+sub trim_cds_to_whole_codons {
+  my ($transcript) = @_;
+
+  my $remove5 = 0;
+  my $remove3 = 0;  
+
+  if ($transcript->translation) {
+    my @exons = @{$transcript->get_all_Exons};
+    my $tr = $transcript->translation;
+
+    if ($tr->start_Exon == $exons[0] and $tr->start_Exon->phase > 0) {
+      $remove5 = (3 - $tr->start_Exon->phase) % 3;
+    }
+    if ($tr->end_Exon == $exons[-1] and $tr->end_Exon->end_phase > 0) {
+      $remove3 = $tr->end_Exon->end_phase;
+    }
+  }
+
+  if ($remove5 or $remove3) {
+    my $cloned_transcript = clone_Transcript($transcript);
+    my @exons = @{$cloned_transcript->get_all_Exons};
+    
+    if ($remove5) {
+      if ($cloned_transcript->strand > 0) {
+        $exons[0]->start($exons[0]->start + $remove5);
+      } else {
+        $exons[0]->end($exons[0]->end - $remove5);
+      }
+    }
+    if ($remove3) {
+      if ($cloned_transcript->strand > 0) {
+        $exons[-1]->end($exons[-1]->end - $remove3);
+      } else {
+        $exons[-1]->start($exons[-1]->end + $remove3);
+      }
+    }
+    return $cloned_transcript;
+  } else {
+    return $transcript;
+  }
+
+}
+
+
 =head2 replace_stops_with_introns
 
   Arg [1]   : Bio::EnsEMBL::Transcript
@@ -1142,8 +1192,6 @@ sub _tidy_split_transcripts{
   Example   : 
   Notes     : Needs extension to deal with transcript_supporting_feats
 =cut
-
-
 
 sub replace_stops_with_introns{
   my ($transcript) = @_;
