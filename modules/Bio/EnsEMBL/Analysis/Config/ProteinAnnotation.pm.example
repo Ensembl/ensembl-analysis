@@ -61,10 +61,31 @@ use vars qw( %ProteinAnnotation );
        # only specify DIR where the file with all translations lives - 
        # Seg get's the filename out of table input_id_analysis.input_id 
        BASE_DIR      => '/directory/containing/proteme/directory',
-     }
-     
+     },
+     Signalp => {
+     },
+     Ncoils => {
+     },
+     Tmhmm => {
+     },
+     Prints => {
+     },
+     scanprosite => {
+     },
+     pfscan => {
+     },
+     Pfam => {
+     },
+     Tigrfam => {
+     },
+     Superfamily => {
+     },
+     Smart => {
+     },
+     PIRSF => {
+     },
    }                      
-                      );
+);
 
 sub import {
   my ($callpack) = caller(0); # Name of the calling package
