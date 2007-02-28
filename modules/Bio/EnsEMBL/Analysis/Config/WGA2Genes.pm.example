@@ -127,9 +127,10 @@ use vars qw( %Config );
                MIN_NON_GAP  => 50.0,
 
              },
+             WGA2Genes => {
+             },
            },
-
-           );
+);
 
 sub import {
   my ($callpack) = caller(0); # Name of the calling package
