@@ -345,18 +345,8 @@ sub make_gene{
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
   $gene->status($status);
-  # XREFS
-  my $xref = Bio::EnsEMBL::DBEntry->new
-    (
-     -primary_id => $daf->hseqname,
-     -display_id => $description,
-     -dbname => 'miRBase',
-     -release => 1,
-     -description => $description." [Source: miRBase ".$self->analysis->db_version."]",
-    );  
   $gene_hash{'gene'} = $gene;
   $gene_hash{'attrib'} = \@attributes;
-  $gene_hash{'xref'} = $xref;
   $self->output(\%gene_hash);
 }
 

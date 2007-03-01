@@ -162,7 +162,6 @@ sub write_output{
   foreach my $gene_hash (@{$self->output}){
     my $gene = $gene_hash->{'gene'};
     @attributes = @{$gene_hash->{'attrib'}};
-    $xref = $gene_hash->{'xref'};
     $gene->analysis($self->analysis);
     foreach my $trans (@{$gene->get_all_Transcripts}){
       $trans->analysis($self->analysis);
@@ -180,9 +179,6 @@ sub write_output{
     foreach my $trans (@{$gene->get_all_Transcripts}){
       eval{
 	$aa->store_on_Transcript($trans,\@attributes);
-	$dbea->store($xref, $trans, 'Transcript') if $xref;
-	$trans->display_xref($xref);
-	$gene->display_xref($xref);
 	$self->gene_db->get_TranscriptAdaptor->update($trans);
 	$self->gene_db->get_GeneAdaptor->update($gene);	
       };
