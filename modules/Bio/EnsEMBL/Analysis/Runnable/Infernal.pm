@@ -409,24 +409,28 @@ sub make_gene{
   my %thresholds = %{$self->thresholds};
   my $padding = $thresholds{$domain}{'win'};
   my %gene_hash;
-  my $slice = $daf->feature_Slice;
+  my $slice = $daf->slice;
   my @attributes;
   my ($start,$end,$strand,$str,$score,$exon);
   # step through all the results in order of score, highest first until
   # you find a model that overlapping the blast hit
   foreach my $result (@$results){
-    $start = $result->{'start'};
-    $end = $result->{'end'};
-    $strand = $result->{'strand'};
+    if ($daf->strand == 1){
+      $start = $daf->start - $padding + $result->{'start'} - 1 ;
+      $end   = $daf->start - $padding + $result->{'end'}   - 1;
+    } else {
+      $start = $daf->end + $padding - $result->{'end'}   + 1 ;
+      $end   = $daf->end + $padding - $result->{'start'} + 1;
+    }
     $str = $result->{'str'};
     $score = $result->{'score'};
     # exons
     # need to remove padding from exon coordinates to put them in the correct place
     $exon = Bio::EnsEMBL::Exon->new
       (
-       -start => $start-$padding,
-       -end   => $end-$padding,
-       -strand => $strand,
+       -start => $start,
+       -end   => $end,
+       -strand => $daf->strand,
        -slice => $slice,
        -phase => -1,
        -end_phase => -1
@@ -436,13 +440,13 @@ sub make_gene{
     next if ($exon->start < 1);
     # Only allow exons that overlap the origional dna_align_feature and 
     # have a secondary structure that is possible to parse
-    last if ($exon->overlaps($daf->transfer($slice)));
+    last if ($exon->overlaps($daf));
   }
   # return undef if no suitable candidates are found
   return unless ($exon->start >= 1);
-  return unless ($exon->overlaps($daf->transfer($slice)));
+  return unless ($exon->overlaps($daf));
 #  $daf->score($score);
-  $exon->add_supporting_features($daf->transfer($slice));
+  $exon->add_supporting_features($daf);
   # transcripts
   my $transcript = Bio::EnsEMBL::Transcript->new;
   $transcript->add_Exon($exon);
