@@ -94,7 +94,7 @@ sub fetch_input {
   #
   # total paranoia: fetch everything up front
   #
-  my (@genes, %protein_features);
+  my (@genes);
   my @target_genes;
   if($self->biotype){
     @target_genes = @{$slice->get_all_Genes_by_type($self->biotype)};
@@ -113,15 +113,7 @@ sub fetch_input {
         $tr->stable_id;
         $tr->get_all_Attributes;
         $tr->get_all_DBEntries;
-
-        # adaptor cascade for gene does not handle protein
-        # features. In order to do that here, we have to keep
-        # the the translation object so that we can obtain
-        # its new dbID after storage
-        $protein_features{$tr->dbID} = [$tr];
-        foreach my $pf (@{$tr->get_all_ProteinFeatures}) {
-          push @{$protein_features{$tr->dbID}}, $pf;
-        }
+        $tr->get_all_ProteinFeatures;
       }
       $t->stable_id;
       $t->get_all_supporting_features;
@@ -137,7 +129,6 @@ sub fetch_input {
     push @genes, $g;
   }
 
-  $self->protein_features(\%protein_features);
   $self->output(\@genes);
 }
 
@@ -149,38 +140,13 @@ sub write_output {
   my $target_db = $self->get_dbadaptor($self->target_db_name);
     
   my $g_adap = $target_db->get_GeneAdaptor;
-  my $p_adap = $target_db->get_ProteinFeatureAdaptor;
 
   foreach my $g (@{$self->output}) {
     $g_adap->store($g);
-  }
-
-  # At this point, all translations should have new dbIDs.
-  # We can now store the protein features
-  foreach my $old_dbid (keys %{$self->protein_features}) {
-    my ($trans, @feats) = @{$self->protein_features->{$old_dbid}};
-
-    my $new_dbid = $trans->dbID;
-    foreach my $f (@feats) {
-      $p_adap->store($f, $new_dbid);
-    }
   }
   
   return 1;
 }
 
-
-
-##########
-
-sub protein_features {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_protein_feature_map} = $val;
-  }
-
-  return $self->{_protein_feature_map};
-}
 
 1;
