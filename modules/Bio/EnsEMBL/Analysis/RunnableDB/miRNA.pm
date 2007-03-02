@@ -156,7 +156,6 @@ sub write_output{
   my ($self) = @_;
   my $adaptor = $self->gene_db->get_GeneAdaptor;
   my $aa = $self->gene_db->get_AttributeAdaptor;
-  my $dbea = $self->gene_db->get_DBEntryAdaptor;
   my @attributes; 
   my $xref;
   foreach my $gene_hash (@{$self->output}){
@@ -178,7 +177,7 @@ sub write_output{
     }
     foreach my $trans (@{$gene->get_all_Transcripts}){
       eval{
-	$aa->store_on_Transcript($trans,\@attributes);
+	$aa->store_on_Transcript($trans->dbID,\@attributes);
 	$self->gene_db->get_TranscriptAdaptor->update($trans);
 	$self->gene_db->get_GeneAdaptor->update($gene);	
       };

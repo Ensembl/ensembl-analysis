@@ -100,7 +100,6 @@ sub run{
   print STDERR "get miRNAs\n"  if $verbose;
   # fetch the coordinates of the mature miRNAs
   $self->get_miRNAs;
-  my $status;
   my %queries = %{$self->queries};
   $self->throw("Cannot find query sequences $@\n") unless %queries;
   print STDERR "Run analysis\n" if $verbose;
@@ -127,9 +126,7 @@ sub run{
       next DAF unless ($RNAfold->structure);
       $self->display_stuff($daf,$RNAfold->structure,$align,$RNAfold->score) if $verbose;
       # create the gene
-      # Dont call it known unless the gene it derives from is identical and experimentally verified
-      $status = "NOVEL" unless $daf->percent_id == 100 && $daf->score >= 100;
-      $self->make_gene($daf,$structure,$align,$status);
+      $self->make_gene($daf,$structure,$align);
     }
   }
   print STDERR "delete temp files\n"  if $verbose;
@@ -293,7 +290,7 @@ sub get_mature{
 =cut
 
 sub make_gene{
-  my ($self,$daf,$structure,$aligns,$status) = @_;
+  my ($self,$daf,$structure,$aligns) = @_;
   my %miRNAs = %{$self->miRNAs};
   my @mature;
   my %gene_hash;
@@ -341,10 +338,9 @@ sub make_gene{
   # gene
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->biotype('miRNA');
-  $gene->description($description." [Source: miRBase ".$self->analysis->db_version."]");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
-  $gene->status($status);
+  $gene->status('NOVEL');
   $gene_hash{'gene'} = $gene;
   $gene_hash{'attrib'} = \@attributes;
   $self->output(\%gene_hash);
