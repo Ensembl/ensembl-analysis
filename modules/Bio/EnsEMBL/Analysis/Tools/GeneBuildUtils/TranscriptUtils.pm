@@ -418,31 +418,43 @@ sub intron_lengths_all_less_than_maximum{
 sub are_phases_consistent{
   my ($transcript) = @_;
   my $exons = $transcript->get_all_Exons;
-  my $end_phase = $exons->[0]->end_phase;
-  if(@$exons == 1){
-    my $warn = "are_phases_consistent ".
-      "is an inappropriate test for a single ".
-        "exon gene";
-    logger_info($warn);
-    return 1;
-  }
-  for(my $i=1;$i < @$exons;$i++){
-    if($exons->[$i]->phase != $end_phase){
-      my $warn = (id($transcript)." has inconsistent ".
-        "phases between exon ".id($exons->[$i])."-".
-          $i." and ".id($exons->[$i-1])."-".($i-1));
-      warning($warn)
-        unless($end_phase == -1 &&
-               $exons->[-1]->phase != -1 || 
-               $end_phase != -1 &&
-               $exons->[-1]->phase == -1);;
-      return 0 unless($end_phase == -1 &&
-                          $exons->[-1]->phase != -1 || 
-                          $end_phase != -1 &&
-                          $exons->[-1]->phase == -1);
+
+  if (not $transcript->translation) {
+    # all phases should be -1
+    foreach my $e (@$exons) {
+      if ($e->phase != -1 or $e->end_phase != -1) {
+        logger_info("Non-coding transcript does not have -1 phases");
+        return 0;
+      }
     }
-    $end_phase = $exons->[$i]->end_phase;
+  } else {
+    my $tr = $transcript->translation;
+
+    for(my $i=1;$i < @$exons;$i++){
+      my $prev_end_phase = $exons->[$i-1]->end_phase;
+      my $this_phase = $exons->[$i]->phase;
+
+      if($prev_end_phase != $this_phase) {
+        # exception: allow a -1<->0 transition if exon is
+        # translation start exon
+        if ($prev_end_phase == -1 and 
+            $this_phase == 0 and
+            $tr->start_Exon == $exons->[$i]) {
+          # okay
+          next;
+        } elsif ($prev_end_phase == 0 and
+                 $this_phase == -1 and
+                 $tr->end_Exon == $exons->[$i-1]) {
+          # okay
+          next;
+        } else {
+          logger_info("Coding transcript has inconsistent phases");
+          return 0;
+        }
+      }
+    }
   }
+
   return 1;
 }
 
