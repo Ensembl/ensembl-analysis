@@ -98,7 +98,7 @@ sub create_scanning_code_from_patterns {
   my ($self, $pattern_file, $confirm_file) = @_;
 
   my $confirm_hash = {}; 
-  if (defined $confirm_file and -s $confirm_file) {
+  if (defined $confirm_file) {
     $self->_read_confirm_patterns($confirm_file,
                                   $confirm_hash);
   }
