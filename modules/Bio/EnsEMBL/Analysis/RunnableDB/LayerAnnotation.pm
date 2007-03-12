@@ -117,7 +117,7 @@ sub run {
 sub write_output {
   my($self) = @_;
   
-  my $target_db = $self->get_dbadaptor($self->TARGETDB_ID);    
+  my $target_db = $self->get_dbadaptor($self->TARGETDB_REF);    
   my $g_adap = $target_db->get_GeneAdaptor;
 
   # fully loading gene is required for the store to work
