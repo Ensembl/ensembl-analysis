@@ -55,16 +55,15 @@ sub fetch_input {
     my $tlslice = $dbh->get_SliceAdaptor->fetch_by_region($slice->coord_system->name,
                                                           $slice->seq_region_name);
 
-    foreach my $layer (@{$self->LAYERS}) {
-      foreach my $tp (@{$layer->{BIOTYPES}}) {
+    foreach my $layer (@{$self->layers}) {
+      foreach my $tp (@{$layer->biotypes}) {
         foreach my $g (@{$slice->get_all_Genes_by_type($tp)}) {
           $g = $g->transfer($tlslice);
-          push @{$layer->{GENES}}, $g;
+          push @{$layer->genes}, $g;
         }
       }
     }
   }
-
 }
 
 
@@ -74,41 +73,42 @@ sub run {
 
   my (@retained_genes);
 
-  my @layers = @{$self->LAYERS};
+  my @layers = @{$self->layers};
 
   for(my $i=0; $i < @layers; $i++) {
     my $layer = $layers[$i];
 
-    if (exists $layer->{GENES}) {
-      my @layer_genes = sort {$a->start <=> $b->start} @{$layer->{GENES}};
+    if ($layer->genes) {
+      my @layer_genes = sort {$a->start <=> $b->start} @{$layer->genes};
 
-      if (exists $layer->{FILTER_AGAINST}) {
-        my @compare_genes;
+      my @compare_genes;
+      
+      my %filter_against = map { $_ => 1 } @{$layer->filter_against};
 
-        my %filter_against = map { $_ => 1 } @{$layer->{FILTER_AGAINST}};
-        for(my $j = $i-1; $j>=0; $j--) {
-          if (exists $filter_against{$layers[$j]->{ID}} and
-              exists $layers[$j]->{GENES}) {
-            push @compare_genes, @{$layers[$j]->{GENES}};
-          }
+      for(my $j = $i-1; $j>=0; $j--) {
+        if (exists $filter_against{$layers[$j]->id} and
+            @{$layers[$j]->genes}) {
+          push @compare_genes, @{$layers[$j]->genes};
         }
-        @compare_genes = sort {$a->start <=> $b->start} @compare_genes;
+      }
+      @compare_genes = sort {$a->start <=> $b->start} @compare_genes;
 
-        if (exists $layer->{FILTER_OBJECT}) {
-          @layer_genes = @{$layer->{FILTER_OBJECT}->filter(\@layer_genes, \@compare_genes)};
+      if (@compare_genes) {
+        if ($layer->filter_object) {
+          @layer_genes = @{$layer->filter_object->filter(\@layer_genes, \@compare_genes)};
         } else {
           @layer_genes = @{$self->generic_filter(\@layer_genes, \@compare_genes)};
         }
       }
       
-      if (not $layer->{DISCARD}) {
+      if (not $layer->discard) {
         push @retained_genes, @layer_genes;
       }
 
-      $layer->{GENES} = \@layer_genes;
+      $layer->genes(\@layer_genes);
     }
   }
-
+  
   $self->output(\@retained_genes);
 }
 
@@ -192,6 +192,19 @@ sub generic_filter {
 
 
 ####################################
+sub layers {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_runnabledb_layers} = $val;
+  }
+
+  return $self->{_runnabledb_layers};
+}
+
+
+
+####################################
 sub read_and_check_config {
   my ($self, $hash) = @_;
 
@@ -213,7 +226,7 @@ sub read_and_check_config {
   throw("Config var TARGETDB_REF must be an scalar")
       if ref($self->TARGETDB_REF);
 
-  my (%biotypes, %layer_ids);
+  my (%biotypes, %layer_ids, @layers);
 
   # finally, check the integrity of the LAYERS
   foreach my $el (@{$self->LAYERS}) {
@@ -225,36 +238,50 @@ sub read_and_check_config {
 
     throw("LAYER " . $el->{ID} . " should a list of BIOTYPES")
         if not exists $el->{BIOTYPES} or ref($el->{BIOTYPES}) ne "ARRAY";
-  }
 
-  foreach my $el (@{$self->LAYERS}) {
-    if (not exists $el->{DISCARD}) {
-      $el->{DISCARD} = 0;
+    my $layer_id = $el->{ID};
+    my @biotypes = @{$el->{BIOTYPES}};
+    my $discard = 0;
+    my ($filter, @filter_against);
+
+    if (exists $el->{DISCARD} and $el->{DISCARD}) {
+      $discard = 1;
     }
-
-    foreach my $tp (@{$el->{BIOTYPES}}) {
+    foreach my $tp (@biotypes) {
       if (exists $biotypes{$tp}) {
-        throw("In layer ".$el->{ID} . ", biotype $tp occurs more than once");
+        throw("biotype $tp occurs more than once");
       }
       $biotypes{$tp} = 1;
     }
     if (exists $el->{FILTER_AGAINST}) {
-      throw("In layer ".$el->{ID} . ", FILTER_AGAINST must contain a list of layer ids")
+      throw("In layer $layer_id FILTER_AGAINST must contain a list of layer ids")
           if ref($el->{FILTER_AGAINST}) ne "ARRAY";      
-      foreach my $id (@{$el->{FILTER_AGAINST}}) {
-        throw("In FILTER_AGAINST in layer ". $el->{ID} . ", '$id' is not the name ". 
+      @filter_against = @{$el->{FILTER_AGAINST}};
+
+      foreach my $id (@filter_against) {
+        throw("In FILTER_AGAINST in layer $layer_id, '$id' is not the name ". 
               "of a higher level layer")
             if not exists $layer_ids{$id};
       }
-      
-      if (exists $el->{FILTER} and not exists $self->{FILTER_OBJECT}) {
-        $self->require_module($el->{FILTER});
-        $el->{FILTER_OBJECT} = $el->{FILTER}->new();
-      }     
-    }
+    }      
+    
 
-    $layer_ids{$el->{ID}} = 1;
+    if (exists $el->{FILTER}) {
+      $self->require_module($el->{FILTER});
+      $filter = $el->{FILTER}->new;
+    }     
+
+    push @layers, Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation::Layer
+        ->new(-id => $layer_id,
+              -discard => $discard,
+              -biotypes =>  \@biotypes,
+              -filter   => $filter,
+              -filter_against => \@filter_against);
+
+    $layer_ids{$layer_id} = 1;
   }
+
+  $self->layers(\@layers);
 }
 
 
@@ -293,6 +320,103 @@ sub TARGETDB_REF {
 
   return $self->{_outputdb_name};
 }
+
+##############################################
+
+package Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation::Layer;
+
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+
+sub new {
+  my ($class, @args) = @_;
+
+  my $self = bless {}, $class;
+
+  my ($id,
+      $discard,
+      $genes,
+      $filter_object,
+      $filter_against, 
+      $biotypes) = rearrange
+          (['ID','DISCARD','GENES','FILTER_OBJECT','FILTER_AGAINST','BIOTYPES'],@args);
+
+  throw("Layers must have an id") if not defined $id;
+  throw("Layers must have a list of biotypes") if not defined $biotypes;
+  $discard = 0 if not defined $discard;
+  $genes = [] if not defined $genes;
+  $filter_against = [] if not defined $filter_against;
+
+  $self->id($id);
+  $self->filter_object($filter_object) if defined $filter_object;
+  $self->filter_against($filter_against);
+  $self->biotypes($biotypes);
+  $self->discard($discard);
+  $self->genes($genes);
+
+  return $self;
+}
+
+
+sub id{
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_layer_id} = $value;
+  }
+  return $self->{_layer_id};
+}
+
+
+sub filter_against{
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_layer_filter_against} = $value;
+  }
+  return $self->{_layer_filter_against};
+}
+
+
+sub filter_object{
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_layer_filter} = $value;
+  }
+  return $self->{_layer_filter};
+}
+
+
+sub discard{
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_layer_discard} = $value;
+    }
+  return $self->{_layer_discard};
+}
+
+
+sub biotypes{
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_layer_biotypes} = $value;
+    }
+  return $self->{_layer_biotypes};
+}
+
+
+sub genes{
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{_layer_genes} = $value;
+  }
+  return $self->{_layer_genes};
+}
+
 
 
 1;
