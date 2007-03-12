@@ -259,7 +259,7 @@ sub run_analysis {
     
     print "Running blast ".$command."\n";
     info("Running blast ".$command);
-    
+     
     open(my $fh, "$command |") || 
       throw("Error opening Blast cmd <$command>." .
             " Returned error $? BLAST EXIT: '" . 
@@ -290,6 +290,9 @@ sub run_analysis {
                than the word length/){
           #no valid context 
           die qq{"VOID"\n}; # hack instead
+        }elsif($match =~ /External filter/){
+          # Error while using an external filter
+          die qq{"EXTERNAL_FITLER_ERROR"\n}; 
         }else{
           warning("Something FATAL happened to BLAST we've not ".
                   "seen before, please add it to Package: " 
