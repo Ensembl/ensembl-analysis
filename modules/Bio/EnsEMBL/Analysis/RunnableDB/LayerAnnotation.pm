@@ -94,8 +94,8 @@ sub run {
         }
         @compare_genes = sort {$a->start <=> $b->start} @compare_genes;
 
-        if (exists $layer->{FILTER}) {
-          @layer_genes = @{$layer->{FILTER}->filter(\@layer_genes, \@compare_genes)};
+        if (exists $layer->{FILTER_OBJECT}) {
+          @layer_genes = @{$layer->{FILTER_OBJECT}->filter(\@layer_genes, \@compare_genes)};
         } else {
           @layer_genes = @{$self->generic_filter(\@layer_genes, \@compare_genes)};
         }
@@ -242,14 +242,14 @@ sub read_and_check_config {
       throw("In layer ".$el->{ID} . ", FILTER_AGAINST must contain a list of layer ids")
           if ref($el->{FILTER_AGAINST}) ne "ARRAY";      
       foreach my $id (@{$el->{FILTER_AGAINST}}) {
-        throw("In FILTER_AGAINT in layer ". $el->{ID} . ", '$id' is not the name ". 
+        throw("In FILTER_AGAINST in layer ". $el->{ID} . ", '$id' is not the name ". 
               "of a higher level layer")
             if not exists $layer_ids{$id};
       }
       
-      if (exists $el->{FILTER}) {
+      if (exists $el->{FILTER} and not exists $self->{FILTER_OBJECT}) {
         $self->require_module($el->{FILTER});
-        $el->{FILTER} = $el->{FILTER}->new();;
+        $el->{FILTER_OBJECT} = $el->{FILTER}->new();
       }     
     }
 
