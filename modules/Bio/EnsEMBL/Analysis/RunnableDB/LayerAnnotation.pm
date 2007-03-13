@@ -275,7 +275,7 @@ sub read_and_check_config {
         ->new(-id => $layer_id,
               -discard => $discard,
               -biotypes =>  \@biotypes,
-              -filter   => $filter,
+              -filter_object  => $filter,
               -filter_against => \@filter_against);
 
     $layer_ids{$layer_id} = 1;
