@@ -93,12 +93,10 @@ sub run {
       }
       @compare_genes = sort {$a->start <=> $b->start} @compare_genes;
 
-      if (@compare_genes) {
-        if ($layer->filter_object) {
-          @layer_genes = @{$layer->filter_object->filter(\@layer_genes, \@compare_genes)};
-        } else {
-          @layer_genes = @{$self->generic_filter(\@layer_genes, \@compare_genes)};
-        }
+      if ($layer->filter_object) {
+        @layer_genes = @{$layer->filter_object->filter(\@layer_genes, \@compare_genes)};
+      } else {
+        @layer_genes = @{$self->generic_filter(\@layer_genes, \@compare_genes)};
       }
       
       if (not $layer->discard) {
@@ -168,20 +166,22 @@ sub generic_filter {
     $cur_idx = $left_bound if defined $left_bound;
 
     my $exon_overlap = 0;
-    my @exons = @{$obj->get_all_Exons};
-    OG: foreach my $o_obj (@genomic_overlap) {
-      foreach my $oe (@{$o_obj->get_all_Exons}) {
-        foreach my $e (@exons) {
-          if ($oe->strand == $e->strand and 
-              $oe->end >= $e->start and
-              $oe->start <= $e->end) {  
-            $exon_overlap = 1;
-            last OG;
+    if (@genomic_overlap) {
+      my @exons = @{$obj->get_all_Exons};
+      OG: foreach my $o_obj (@genomic_overlap) {
+        foreach my $oe (@{$o_obj->get_all_Exons}) {
+          foreach my $e (@exons) {
+            if ($oe->strand == $e->strand and 
+                $oe->end >= $e->start and
+                $oe->start <= $e->end) {  
+              $exon_overlap = 1;
+              last OG;
+            }
           }
         }
       }
-    }
-    
+    }      
+
     if (not $exon_overlap) {
       push @filtered, $obj;
     }
