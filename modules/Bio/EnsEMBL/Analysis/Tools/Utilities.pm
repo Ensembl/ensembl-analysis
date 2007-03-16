@@ -43,7 +43,8 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 
-@EXPORT = qw( shuffle parse_config create_file_name write_seqfile merge_config_details );
+@EXPORT = qw( shuffle parse_config create_file_name write_seqfile merge_config_details
+              get_input_arg  );
 
 
 
@@ -131,6 +132,28 @@ sub shuffle {
   return $tref ;
 }
 
+
+
+=head2 get_input_arg 
+
+  Function  : waits for input from STDIN and returns '1' if input =~m/y/i         
+              and '0' if input matches /n/i.  
+  Returntype: 1 or 0 
+  Exceptions: none
+
+=cut
+
+sub get_input_arg { 
+  while (defined (my $line=<STDIN>)){ 
+   chomp($line) ;
+   if ( $line=~m/y/i){
+      return 1 ;
+   }elsif( $line =~m/n/i){
+     return 0 ;
+   }
+   print "Wrong input - only answer 'y' or 'n'\n" ; 
+  } 
+} 
 
 
 sub parse_config{
