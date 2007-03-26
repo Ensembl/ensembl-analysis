@@ -1,4 +1,4 @@
-# package Bio::EnsEMBL::Analysis::Config::Ditag
+# package Bio::EnsEMBL::Analysis::Config::ExonerateTags
 #
 # Copyright EMBL-EBI/Sanger center 2006
 #
@@ -19,7 +19,8 @@ Bio::EnsEMBL::Analysis::Config::Ditag
 =head1 DESCRIPTION
 
 This contains the configuration for the  alignment of ditag
-sequences (dna) against a genome (dna) using exonerate.
+sequences (dna) against a genome (dna) using exonerate in the
+analysis Bio::EnsEMBL::Analysis::Runnable::ExonerateTags.pm.
 The ditags are created by CAGE/GIS/GSC experiments.
 
 The layout of the configuration is a set of hashes,
@@ -41,11 +42,11 @@ use vars qw( %Config );
 
         ## GENERAL SECTION ##
 
-          #use masked or unmasked genome
-          GENOMICSEQS         => '/data/blastdb/Ensembl/Mouse/NCBIM36/genome/toplevel.fa',
+          #use masked or unmasked genome, e.g. /data/blastdb/Ensembl/Mouse/NCBIM36/genome/toplevel.fa
+          GENOMICSEQS         => '',
 
-          #Batchsize: 1000 for masked, 500 for unmasked
-          BATCHSIZE           => 400,
+          #Batchsize: ~1000 for masked, ~500 for unmasked
+          BATCHSIZE           => 500,
           MAXDISTANCE         => 600000,
           #min & max allowed length of the raw ditag sequences
           MINSEQLENGTH        => 34,
@@ -63,17 +64,25 @@ use vars qw( %Config );
        ExonerateTags => {
 
        #GSC
+	  #regex for the (fasta) header
           IIDREGEXP           => '^>\S{4}(\S+)\|(\S+)\|\S+\|\S+\|\S+\|\S+\|\S+',
+	  #aaditional exonerate options
           SPECOPTIONS         => "--dnahspthreshold 80 --score 80",
+	  #does the input seq need to be split into 2 parts?
           SPLITSEQS           => 1,
+	  #number of allowed mismatches
           MAXMISMATCH         => 3,
+	  #for split  seqs: is the right part really the 5' seq?
           KEEPORDER           => 0,
+	  #remove the last X bases
           CHOPLAST            => undef,
+	  #remove the first X bases
           CHOPFIRST           => undef,
 
         #ZZ11
+	  #name & input (fasta) file of tags
           TAGTYPE             => "ZZ11",
-          QUERYFILE           => '.../GSC/gsc-ZZ11.fa',
+          QUERYFILE           => '',
 
         },
 
