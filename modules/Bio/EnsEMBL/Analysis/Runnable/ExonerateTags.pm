@@ -1,4 +1,4 @@
-# package Bio::EnsEMBL::Analysis::Runnable::ExonerateDitag
+# package Bio::EnsEMBL::Analysis::Runnable::ExonerateTags
 #
 # Copyright EMBL-EBI/Wellcome Trust Sanger Center 2006
 #
@@ -408,11 +408,6 @@ sub filter_split_hits {
 
      INNER:
       for(my $j=0; $j<(scalar @taglist_R); $j++){
-
-#	print "\n";
-#	foreach my $key (keys %{$taglist_R[$j]}){
-#	  print "\n\t".$key.": ".$taglist_R[$j]->{$key};
-#	}
 
         #discard hits with high mismatches
         if($taglist_R[$j]->{'ali_length'} < ($taglist_R[$j]->{'length'} - $self->maxmismatch()) ){
