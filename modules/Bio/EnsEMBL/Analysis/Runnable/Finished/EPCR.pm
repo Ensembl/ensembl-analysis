@@ -92,6 +92,7 @@ sub parse_results{
   ## Create marker feature objects
   foreach my $dbid (keys %$hash) {
   	my $m = $ff->create_marker($dbid);
+  	$m->adaptor($self->analysis->adaptor);
   	foreach my $coord (@{$hash->{$dbid}}) {
   		next unless $coord;
   		my $start = $coord->[0];
