@@ -318,7 +318,6 @@ sub fully_load_Gene{
   }
   $gene->analysis;
   $gene->get_all_DBEntries if($keep_xrefs);
-  $gene->display_xref if($keep_xrefs);
   $gene->get_all_Attributes;
   $gene->stable_id;
   return $gene;
