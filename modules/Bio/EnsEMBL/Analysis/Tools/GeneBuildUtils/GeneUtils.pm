@@ -311,12 +311,15 @@ sub attach_Slice_to_Gene{
 
 
 sub fully_load_Gene{
-  my ($gene) = @_;
+  my ($gene, $keep_xrefs) = @_;
+  $keep_xrefs = 1 if(!defined($keep_xrefs));
   foreach my $t(@{$gene->get_all_Transcripts}){
-    fully_load_Transcript($t);
+    fully_load_Transcript($t, $keep_xrefs);
   }
   $gene->analysis;
-  $gene->get_all_DBEntries;
+  $gene->get_all_DBEntries if($keep_xrefs);
+  $gene->display_xref if($keep_xrefs);
+  $gene->get_all_Attributes;
   $gene->stable_id;
   return $gene;
 }

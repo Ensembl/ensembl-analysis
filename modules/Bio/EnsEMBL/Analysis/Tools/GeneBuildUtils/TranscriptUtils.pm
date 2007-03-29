@@ -248,8 +248,11 @@ sub clone_Transcript{
     my $newsf = clone_Evidence($sf);
     $newtranscript->add_supporting_features($newsf);
   }
-  my $newtranslation = clone_Translation($transcript, 
-                                         $newtranscript);
+  my $newtranslation;
+  if($transcript->translation){
+    $newtranslation = clone_Translation($transcript, 
+                                        $newtranscript);
+  }
   $newtranscript->translation($newtranslation);
   my $attribs = $transcript->get_all_Attributes();
   $newtranscript->add_Attributes(@$attribs);
@@ -257,6 +260,7 @@ sub clone_Transcript{
   $newtranscript->biotype($transcript->biotype);
   $newtranscript->dbID($transcript->dbID);
   $newtranscript->stable_id($transcript->stable_id);
+  $newtranscript->analysis($transcript->analysis);
   return $newtranscript;
 }
 
@@ -1356,6 +1360,8 @@ sub replace_stops_with_introns{
 sub remove_initial_or_terminal_short_exons{
   my ($transcript, $min_length) = @_;
   $min_length = 3 unless($min_length);
+  throw("TranscriptUtils::remove_initial_or_terminal_short_exons will not work ".
+        " if ".id($transcript)." has no translation") if(!$transcript->translation);
   my %translateable = %{_identify_translateable_exons
                           ($transcript)};
 
@@ -1484,6 +1490,9 @@ sub _identify_translateable_exons{
 
 =cut
 
+
+#Should these be here, they are not exported but they take exons not transcripts
+#so don't really follow convention, if they are ever made public they should
 
 #This adjusts the appropriate end of an exon to ensure the
 #translation has no untranslated basepairs preceeding it
@@ -1677,22 +1686,29 @@ sub attach_Slice_to_Transcript{
 
 
 sub fully_load_Transcript{
-  my ($transcript) = @_;
- TSF:foreach my $sf(@{$transcript->get_all_supporting_features}){
-    next TSF;
+  my ($transcript, $keep_xrefs) = @_;
+
+  $keep_xrefs = 1 if(!defined($keep_xrefs));
+
+  if ($transcript->translation) {
+    $transcript->translate;
+    $transcript->translation->get_all_Attributes;
+    $transcript->translation->get_all_DBEntries if($keep_xrefs);
+    $transcript->translation->get_all_ProteinFeatures;
   }
-  
-  my $translation = $transcript->translation;
-  if ($translation) {
-    $translation->start_Exon;
-    $translation->end_Exon;
-  }
+
  EXON:foreach my $e(@{$transcript->get_all_Exons}){
-  SF:foreach my $sf(@{$e->get_all_supporting_features}){
-      next SF;
-    }
+    $e->analysis;
+    $e->stable_id;
+    $e->get_all_supporting_features;
   }
+
+  $transcript->stable_id;
   $transcript->analysis;
+  $transcript->get_all_Attributes;
+  $transcript->get_all_DBEntries if($keep_xrefs);
+  $transcript->get_all_supporting_features;
+
   return $transcript;
 }
 
@@ -1702,7 +1718,8 @@ sub empty_Transcript{
   foreach my $sf(@{$transcript->get_all_supporting_features}){
     empty_Object($sf);
   }
-  empty_Object($transcript->translation, $remove_stable_id);
+  empty_Object($transcript->translation, $remove_stable_id) 
+    if($transcript->translation);;
  EXON:foreach my $e(@{$transcript->get_all_Exons}){
   SF:foreach my $sf(@{$e->get_all_supporting_features}){
       empty_Object($sf, $remove_stable_id);
