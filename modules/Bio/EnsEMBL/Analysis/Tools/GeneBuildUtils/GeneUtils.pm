@@ -115,7 +115,7 @@ sub clone_Gene{
     my $newtranscript = clone_Transcript($transcript);
     $newgene->add_Transcript($newtranscript);
   }
-  $newgene->slice($newgene->slice);
+  $newgene->slice($gene->slice);
   return $newgene;
 }
 
