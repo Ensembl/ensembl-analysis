@@ -1,0 +1,70 @@
+46919	Superfamily: N-terminal Zn binding domain of HIV integrase
+47353	Retrovirus capsid protein C-terminal domain
+47836	Retroviral matrix proteins
+47943	Retrovirus capsid protein, N-terminal core domain
+49830	ENV polyprotein, receptor-binding domain
+53098	Ribonuclease H-like
+PF00073	picornavirus capsid protein
+PF00075	RNase H digests the RNA strand of an RNA/DNA hybrid. Important enzyme in retroviral replication cycle
+PF00077	Retroviral aspartyl protease
+PF00078	Reverse transcriptase (RNA-dependent DNA polymerase)
+PF00429	ENV polyprotein (coat polyprotein)
+PF00516	Envelope glycoprotein GP120
+PF00517	Envelope Polyprotein GP41
+PF00540	gag gene protein p17 (matrix protein)
+PF00552	Integrase DNA binding domain
+PF00607	gag gene protein p24 (core nucleocapsid protein)
+PF00665	Integrase core domain
+PF00665	Integrase core domain Integrase mediates integration of a DNA copy of the viral genome into the host chromosome.
+PF00718	Polyomavirus coat protein
+PF00761	Polyomavirus coat protein
+PF00944	Alphavirus core protein
+PF00951	Arterivirus GL envelope glycoprotein
+PF00952	Bunyavirus nucleocapsid (N) protein
+PF00979	Reovirus outer capsid protein, Sigma 3
+PF01003	Flavivirus capsid protein C
+PF01004	Flavivirus envelope glycoprotein M
+PF01065	Hexon, adenovirus major coat protein, N-terminal domain
+PF01140	Matrix protein (MA), p15
+PF01140	The matrix protein, p15, is encoded by the gag gene.
+PF01141	Gag polyprotein, inner coat protein p12
+PF01309	Equine arteritis virus small envelope glycoprotein
+PF01539	Hepatitis C virus envelope glycoprotein E1
+PF01542	Hepatitis C virus core protein
+PF01560	Hepatitis C virus non-structural protein E2/NS1
+PF01570	Flavivirus polyprotein propeptide
+PF01606	Arterivirus envelope protein
+PF01673	Herpesvirus putative major envelope glycoprotein
+PF02022	Integrase mediates integration of a DNA copy of the viral genome into the host chromosome.
+PF02093	Gag P30 core shell protein
+PF02228	Major core protein p19
+PF02337	Retroviral GAG p10 protein
+PF02340	PRRSV putative envelope protein
+PF02723	Non-structural protein NS3/Small envelope protein E
+PF03056	Env gp36 protein (HERV/MMTV type)
+PF03276	Spumavirus gag protein
+PF03391	Nepovirus coat protein, central domain
+PF03408	Foamy virus envelope protein
+PF03554	UL73 viral envelope glycoprotein
+PF03688	Nepovirus coat protein, C-terminal domain
+PF03689	Nepovirus coat protein, N-terminal domain
+PF03708	Avian retrovirus envelope protein, gp85
+PF03732	Retrotransposon gag protein
+PF04512	Baculovirus polyhedron envelope protein, PEP, N terminus
+PF04513	Baculovirus polyhedron envelope protein, PEP, C terminus
+PF04639	Baculoviral E56 protein, specific to ODV envelope
+PF04850	Baculovirus E66 occlusion-derived virus envelope protein
+PF05109	Herpes virus major outer envelope glycoprotein (BLLF1)
+PF05274	Occlusion-derived virus envelope protein E25
+PF05330	Protein of unknown function (DUF741)
+PF05750	Rubella capsid protein
+PF05767	Poxvirus virion envelope protein A14
+PF05784	Betaherpesvirus UL82/83 protein N terminus
+PF05858	Bovine immunodeficiency virus surface envelope protein (ENV)
+PF06817	Reverse transcriptase thumb domain
+PF07727	Reverse transcriptase (RNA-dependent DNA polymerase)
+PF08705	Gag protein p6
+PF08723	Gag protein p15
+PF08791	Viral envelope protein
+PS00141	Eukaryotic and viral aspartyl proteases active site.
+PS50175	Aspartyl protease, retroviral-type family profile.
