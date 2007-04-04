@@ -3,7 +3,6 @@
 47836	Retroviral matrix proteins
 47943	Retrovirus capsid protein, N-terminal core domain
 49830	ENV polyprotein, receptor-binding domain
-53098	Ribonuclease H-like
 PF00073	picornavirus capsid protein
 PF00075	RNase H digests the RNA strand of an RNA/DNA hybrid. Important enzyme in retroviral replication cycle
 PF00077	Retroviral aspartyl protease
