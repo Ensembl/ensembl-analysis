@@ -351,7 +351,7 @@ sub write_output {
     $gene_num++;
     my $gene = $genelist->{$gene_id}{'gene'};
     if ( $genelist->{$gene_id}{'expanded'} ){
-      print HTML "<TR><TD>$gene_num <b>E</b><TD><a href= 'http://staging.ensembl.org/$URL/geneview?gene=" 
+      print HTML "<TR><TD>$gene_num <b>E</b><TD><a href= 'http://www.ensembl.org/$URL/geneview?gene=" 
 	. $gene->stable_id .";db=core'>".$gene->stable_id.' </a>' if $html;
       print SUMMARY  "Expanded gene id :\t" . $gene->dbID;
       if ($gene->stable_id){
@@ -366,7 +366,7 @@ sub write_output {
       } else {
 	print GENES $gene->dbID . "\n";
       }
-      print HTML "<TR><TD>$gene_num<TD><a href= 'http://staging.ensembl.org/$URL/geneview?gene=" 
+      print HTML "<TR><TD>$gene_num<TD><a href= 'http://www.ensembl.org/$URL/geneview?gene=" 
 	. $gene->stable_id .";db=core'>".$gene->stable_id.' </a>' if $html;
     }
     print SUMMARY  "\t". $gene->stable_id if $gene->stable_id;
@@ -378,14 +378,14 @@ sub write_output {
       print SUMMARY  "  Transcript id :\t" . $transcript->dbID;
       print HTML"<TR><TD> <TD> "  if $html &&  $count > 0 ;
       $count++;
-      print HTML "<TD><a href= 'http://staging.ensembl.org/$URL/transview?;db=core;transcript=" . $transcript->stable_id .";db=core'>".$transcript->stable_id.' </a>'if $html;
+      print HTML "<TD><a href= 'http://www.ensembl.org/$URL/transview?;db=core;transcript=" . $transcript->stable_id .";db=core'>".$transcript->stable_id.' </a>'if $html;
       print SUMMARY  "\t". $transcript->stable_id if $transcript->stable_id;
       print SUMMARY "\n";
 
       # Translations
       if ( my $translation = $transcript->translation ) {
 	print SUMMARY "  Translation id :\t" .$translation->dbID;
-	print HTML "<TD><a href= 'http://staging.ensembl.org/$URL/protview?transcript=" . $transcript->stable_id .";db=core'>".$translation->stable_id.' </a>'if $html ;
+	print HTML "<TD><a href= 'http://www.ensembl.org/$URL/protview?transcript=" . $transcript->stable_id .";db=core'>".$translation->stable_id.' </a>'if $html ;
 	print SUMMARY  "\t". $translation->stable_id if $translation->stable_id;
 	print SUMMARY "\n";
       }
