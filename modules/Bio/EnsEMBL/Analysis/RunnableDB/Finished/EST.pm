@@ -179,7 +179,7 @@ sub fetch_input {
 	
 	my @files = split(",", $self->analysis->db_file);
 	my @patches;
-	if($files[0] =~ /^embl_/){
+	if($files[-1] =~ /^embl_/){
 		my $search_only_patch = 0;
 		my $sic = $self->db->get_StateInfoContainer;
 		my $db_version_saved = $sic->fetch_db_version($self->input_id, $self->analysis);
