@@ -256,7 +256,7 @@ sub run {
 	  . "/est2genome -reverse -genome $genfile -est $estfile -space 500000 -out stdout 2>&1 |";
 
 	# use -align to get alignment
-	print STDERR "\nRunning command $est_genome_command\n\n";
+	print STDERR "\nRunning command $est_genome_command\n" if $verbose ;
 
 	unless ( open( ESTGENOME, $est_genome_command ) ) {
 		$self->_deletefiles( $genfile, $estfile );
