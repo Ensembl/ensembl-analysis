@@ -66,4 +66,4 @@ PF08705	Gag protein p6
 PF08723	Gag protein p15
 PF08791	Viral envelope protein
 PS00141	Eukaryotic and viral aspartyl proteases active site.
-PS50175	Aspartyl protease, retroviral-type family profile.
+
