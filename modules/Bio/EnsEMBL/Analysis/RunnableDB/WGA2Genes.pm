@@ -356,6 +356,10 @@ sub run {
       
       $filtered_chains = $self->remove_contig_split_chains($filtered_chains);
       logger_info("NON_CONTIG_SPLIT_CHAINS\n" . stringify_chains($filtered_chains));
+
+      $filtered_chains = $self->trim_exon_split_chains($filtered_chains, 
+                                                       \@cds_feats);
+      logger_info("TRIMMED_CHAINS\n" . stringify_chains($filtered_chains));
       
       my @these_pairs = $self->segregate_chains_and_generecords($filtered_chains,
                                                                 \@these_generecs,
@@ -367,7 +371,7 @@ sub run {
         my ($subset_chains, $subset_generecs) = @$pair;
         
         my $net_blocks = flatten_chains($subset_chains, 1);
-        
+
         my $gs_name = $subset_generecs->[0]->gene->stable_id . "-0";
         
         my $gene_scaffold = $self->make_gene_scaffold_and_project_genes($net_blocks,
@@ -759,6 +763,97 @@ sub remove_contig_split_chains {
     
   return \@kept_chains;
 }
+
+
+###################################################################
+# FUNCTION: trim_exon_split_chains
+#
+# Decription:
+#  When a single exon overlaps blocks in more than one chain, the
+#  minority chains are trimmed back.
+#  This prevents the situation of a single-exon gene in the 
+#  reference mapping down to a multi-scaffold GeneScaffold, and
+#  generally gives cleaner results.
+###################################################################
+sub trim_exon_split_chains {
+  my ($self, $chains, $feats) = @_;
+
+  # make nr list of coding regions
+  my (@nr_cds);
+
+  foreach my $cds (sort { $a->start <=> $b->start } @$feats) {
+    if (not @nr_cds or $cds->start > $nr_cds[-1]->end + 1) {
+      push @nr_cds, $cds;
+    } elsif ($cds->end > $nr_cds[-1]->end) {
+      $nr_cds[-1]->end($cds->end);
+    }
+  }
+
+  foreach my $cds (@nr_cds) {
+    my (@ov_chains, @other_chains);
+
+    CH: foreach my $ch (@$chains) {
+      my $ov_bps = 0;
+      foreach my $bl (@$ch) {
+        my $ga = $bl->reference_genomic_align;
+        if ($ga->dnafrag_start <= $cds->end and
+            $ga->dnafrag_end >= $cds->start) {
+          my ($st, $en) = ($cds->start, $cds->end);
+          $st = $ga->dnafrag_start if $ga->dnafrag_start > $st;
+          $en = $ga->dnafrag_end if $ga->dnafrag_end < $en;
+
+          $ov_bps += ($en - $st + 1);          
+        }
+      }
+      if ($ov_bps) {
+        push @ov_chains, {
+          chain => $ch,
+          ov_bps => $ov_bps,
+        };
+      } else {
+        push @other_chains, $ch;
+      }
+    }
+    
+    if (scalar(@ov_chains) > 1) {
+      # more than one chain implicated. Find the "dominant" chain
+      # for this exon and trim back the blocks for the other ones
+      @ov_chains = sort { $b->{ov_bps} <=> $a->{ov_bps} } @ov_chains;
+      my @new_chains = (@other_chains, $ov_chains[0]->{chain});
+
+      for (my $i=1; $i < @ov_chains; $i++) {
+        my @retained_blocks;
+        foreach my $bl (@{$ov_chains[$i]->{chain}}) {
+          my $ga = $bl->reference_genomic_align;
+          if ($ga->dnafrag_end < $cds->start or $ga->dnafrag_start > $cds->end) {
+            push @retained_blocks, $bl;
+          } else {
+            if ($ga->dnafrag_start < $cds->start) {
+              my $cut_bl = $bl->restrict_between_reference_positions($ga->dnafrag_start, 
+                                                                     $cds->start - 1);
+              $cut_bl->score($bl->score);
+              push @retained_blocks, $cut_bl; 
+
+            }
+            if ($ga->dnafrag_end > $cds->end) {
+              my $cut_bl = $bl->restrict_between_reference_positions($cds->end + 1, 
+                                                                     $ga->dnafrag_end);
+              $cut_bl->score($bl->score);
+              push @retained_blocks, $cut_bl;
+            }
+          }
+        }
+        if (@retained_blocks) { 
+          push @new_chains, \@retained_blocks;
+        }
+      }
+      $chains = \@new_chains;
+    }
+  }
+
+  return $chains;
+}
+
 
 
 ###################################################################
