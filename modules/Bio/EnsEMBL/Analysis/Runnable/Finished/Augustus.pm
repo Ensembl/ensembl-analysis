@@ -64,7 +64,7 @@ sub new {
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->program('/software/anacode/augustus') if(!$self->program);
+  $self->program('/software/anacode/bin/augustus') if(!$self->program);
   $self->species('human') if(!$self->species);
   ######################
 
