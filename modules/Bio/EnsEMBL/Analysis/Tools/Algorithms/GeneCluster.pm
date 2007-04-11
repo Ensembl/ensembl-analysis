@@ -167,6 +167,22 @@ sub get_Genes {
   return @genes;
 }
 
+sub get_Genes_ref {
+  my $self = shift @_;
+
+  my @genes;
+  if (!defined( $self->{'_gene_sets'} ) ) {
+    $self->warning("The gene array you try to retrieve is empty");
+    @genes = ();
+  }
+
+  foreach my $set_name (keys %{$self->{'_gene_sets'}}) {
+    push( @genes, @{ $self->{'_gene_sets'}{$set_name} } );
+  }
+
+  return \@genes;
+}
+
 sub get_all_Exons {
   my $self = shift @_;
 
