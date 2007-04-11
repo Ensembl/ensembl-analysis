@@ -241,6 +241,7 @@ sub clone_Transcript{
   my ($transcript) = @_;
   my $newtranscript = new Bio::EnsEMBL::Transcript();
   foreach my $exon(@{$transcript->get_all_Exons}){
+    
     my $newexon = clone_Exon($exon);
     $newtranscript->add_Exon($newexon);
   }
@@ -260,6 +261,7 @@ sub clone_Transcript{
   $newtranscript->biotype($transcript->biotype);
   $newtranscript->dbID($transcript->dbID);
   $newtranscript->stable_id($transcript->stable_id);
+  $newtranscript->version($transcript->version);
   $newtranscript->analysis($transcript->analysis);
   return $newtranscript;
 }

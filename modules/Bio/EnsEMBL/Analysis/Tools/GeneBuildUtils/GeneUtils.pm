@@ -111,6 +111,7 @@ sub clone_Gene{
   $newgene->biotype($gene->biotype);
   $newgene->analysis($gene->analysis);
   $newgene->stable_id($gene->stable_id);
+  $newgene->version($gene->version);
   foreach my $transcript(@{$gene->get_all_Transcripts}){
     my $newtranscript = clone_Transcript($transcript);
     $newgene->add_Transcript($newtranscript);
