@@ -1,9 +1,12 @@
+#####################################################################
 # Domain kill list
 # This list consists of Pfam and Scop profiles for viral proteins
 # The primary list is used to identify potential viral genes
 # The secondary list is used as supporting evidence for a viral gene
 # but is not considered enough on it's own
+#####################################################################
 
+# Primary domains
 47353	Retrovirus capsid protein C-terminal domain
 47836	Retroviral matrix proteins
 47943	Retrovirus capsid protein, N-terminal core domain
@@ -50,6 +53,7 @@ PF02228	Major core protein p19
 PF02337	Retroviral GAG p10 protein
 PF02340	PRRSV putative envelope protein
 PF02723	Non-structural protein NS3/Small envelope protein E
+PF02813	Retroviral M domain
 PF03056	Env gp36 protein (HERV/MMTV type)
 PF03276	Spumavirus gag protein
 PF03391	Nepovirus coat protein, central domain
@@ -74,15 +78,8 @@ PF07727	Reverse transcriptase (RNA-dependent DNA polymerase)
 PF08705	Gag protein p6
 PF08723	Gag protein p15
 PF08791	Viral envelope protein
-PF02813	Retroviral M domain
 
 # secondary domains that are found in viruses but are not proof on their own:
-2	50122	DNA-binding domain of retroviral integrase
-2	53099	Ribonuclease H-like
-2	49835	Virus attachment protein globular domain
-2	PF01585	G-patch domain
-2	PF08371	Phospholipase D/viral envelope
-2	49749	Group II dsDNA viruses VP
 2	101257	Flavivirus capsid protein C
 2	103068	Arterivirus nucleocapsid protein
 2	103145	Tombusvirus P19 core protein, VP19
@@ -93,11 +90,22 @@ PF02813	Retroviral M domain
 2	116854	Avirulence protein AvrPto
 2	118396	Ilarvirus coat protein N-terminal fragment
 2	46919	Superfamily: N-terminal Zn binding domain of HIV integrase
+2	49749	Group II dsDNA viruses VP
 2	49835	Virus attachment protein globular domain
 2	49894	Baculovirus p35 protein
+2	50122	DNA-binding domain of retroviral integrase
+2	50630	Acid proteases
 2	50789	Herpes virus serine proteinase, assemblin
 2	51225	Fibre shaft of virus attachment proteins
+2	51283	dUTPase-like
 2	51289	Tlp20, baculovirus telokin-like protein
+2	53098	Ribonuclease H-like
+2	53099	Ribonuclease H-like
+2	54160	Chromo domain-like
+2	54334	Superantigen toxins, C-terminal domain
+2	56219	DNase I-like
+2	56672	DNA/RNA polymerases
+2	57756	Retrovirus zinc finger-like domains
 2	58030	Rotavirus nonstructural proteins
 2	58034	Multimerization domain of the phosphoprotein from sendai virus
 2	58069	Virus ectodomain
@@ -108,17 +116,10 @@ PF02813	Retroviral M domain
 2	88648	Group I dsDNA viruses
 2	88650	Satellite viruses
 2	89043	Soluble domain of poliovirus core protein 3a
-2	56672	DNA/RNA polymerases
-2	PF00692	dUTPase
-2	50630	Acid proteases
-2	51283	dUTPase-like
 2	PF00098	Zinc knuckle
-2	57756	Retrovirus zinc finger-like domains
-2	56219	DNase I-like
-2	56672	DNA/RNA polymerases
-2	54334	Superantigen toxins, C-terminal domain
-2	53098	Ribonuclease H-like
-2	54160	Chromo domain-like
 2	PF00385	'chromo' (CHRromatin Organisation MOdifier) domain
-2	PF08333	Protein of unknown function (DUF1725)
+2	PF00692	dUTPase
+2	PF01585	G-patch domain
 2	PF03372	Endonuclease/Exonuclease/phosphatase family
+2	PF08333	Protein of unknown function (DUF1725)
+2	PF08371	Phospholipase D/viral envelope
