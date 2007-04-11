@@ -219,6 +219,7 @@ sub clone_Translation{
   #print "\n**CLONING TRANSLATION**\n\n";
   my $newtranslation = Bio::EnsEMBL::Translation->new();
   my $translation = $transcript->translation;
+  
   my %new_exons;
   foreach my $exon(@{$newtranscript->get_all_Exons}){
     my $id_string = $exon->start."-".$exon->end."-".
@@ -246,6 +247,8 @@ sub clone_Translation{
   my $attribs = $translation->get_all_Attributes();
   $newtranslation->add_Attributes(@$attribs);
   $newtranslation->dbID($translation->dbID);
+  $newtranslation->stable_id($translation->stable_id);
+  $newtranslation->version($translation->version);
   return $newtranslation;
   #print "\n\n**\n\n";
 }
