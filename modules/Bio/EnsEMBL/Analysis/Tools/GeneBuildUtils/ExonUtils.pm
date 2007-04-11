@@ -145,15 +145,14 @@ sub clone_Exon{
     
   my $newexon = create_Exon($exon->start, $exon->end, $exon->phase, $exon->end_phase,
                             $exon->strand, $exon->analysis, \@sfs, $exon->dbID,
-                            $exon->slice, $exon->stable_id);
+                            $exon->slice, $exon->stable_id, $exon->version);
   return $newexon;
 }
 
 
 sub create_Exon{
-  my ($start, $end, $phase, $end_phase, $strand, $analysis, $sfs, $dbID, $slice, 
-      $stable_id) = @_;
-      
+  my ($start, $end, $phase, $end_phase, $strand, $analysis, $sfs, $dbID, $slice, $stable_id, $version) = @_;
+  
   my $newexon = Bio::EnsEMBL::Exon->new();
   $newexon->start      ($start);
   $newexon->end        ($end);
@@ -164,6 +163,7 @@ sub create_Exon{
   $newexon->dbID       ($dbID);
   $newexon->slice      ($slice);
   $newexon->stable_id  ($stable_id);
+  $newexon->version    ($version);
   foreach my $sf(@$sfs){
     $newexon->add_supporting_features($sf);
   }
