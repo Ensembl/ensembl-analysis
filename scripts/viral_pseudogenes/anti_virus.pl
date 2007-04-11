@@ -209,7 +209,7 @@ foreach my $db (@dbas) {
   # write out the killlist
   open (KILL   ,">$output.killlist") or die("Cannot open killlist file $file.killlist\n");
   foreach my $protein ( keys %$killlist ) {
-    print KILL "$protein\n";
+    print KILL "$protein\n" unless $protein =~ /^ENS/;
   }
   close KILL;
 }
