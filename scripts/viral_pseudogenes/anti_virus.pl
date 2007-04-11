@@ -10,13 +10,30 @@
 =head1 DESCRIPTION
 
   Script to identify genes that are built from viral proteins. It produces a summary of the
-  affected genes, a list of gene dbids to remove and a list of supporting protein evidence
+  affected genes, a list of gene identifiers to remove and a list of supporting protein evidence
   to add to the kill list. If you are checking a database that is already on the website
   you can also generate an HTML click list so you can easily check the  results.
 
   The script can work either on single or multiple databases:
      Multiple databases require a registry file and a compara database.
      Single database just needs standard database accessors.
+
+  The profiles used to identify the genes are in the domain_kill_list.txt file, these
+  consist of primary domain profiles that are used to find the putative viral genes and
+  secondary domain profiles that are used as supporting evidence that a gene is viral but
+  are not considered to be proof on their own.
+
+  Genes are considered viral if any of the following are true:
+
+  1. They contain a hit to a primary domain and they have at least one 'short' transcript.
+     'Short' = genomic span of cds / cds length >= 2
+
+  2. They do not have any short transcripts but all the domains in all the transcripts
+     are either primary or secondary domains
+
+  Once the viral genes have been identified and the kill list collated the script then
+  finds any  other genes made from proteins on the kill list and applies the length filter
+  to them to decide whether to kill them.
 
 =head1 SYNOPSIS
 
@@ -33,8 +50,6 @@
   -kill_list  file with the viral domains in
 
   -click_list make the HTML click list, the database needs to be on the website for this to work!
-
-  -output     file to write output to - is species name if running in multispecies name
 
   -dir        Directory to write output to
 
@@ -55,10 +70,10 @@ my $file   = '' ;
 my $dbname = '';
 my $dbhost = '';
 my $dbport = 3306;
-my $output = '';
 my @dbas;
 my $html;
 my $URL;
+my $output;
 my $help;
 my $dir = ".";
 
@@ -72,13 +87,12 @@ GetOptions(
 	   'dbhost=s'    => \$dbhost,
 	   'kill_list:s' => \$file,
 	   'click_list!' => \$html,
-	   'output:s'    => \$output,
 	   'dir:s'       => \$dir,
 	   'help!'       => \$help,
 	   'h!'          => \$help,
 	  );
 
-unless (($regfile && $compara && $file) or ($dbname && $dbhost && $dbport && $file && $output)){
+unless (($regfile && $compara && $file) or ($dbname && $dbhost && $dbport && $file)){
    print "anti_virus.pl - Current variables are:
 regfile    $regfile
 compara    $compara
@@ -87,7 +101,6 @@ dbport     $dbport
 dbhost     $dbhost
 kill_list  $file
 click_list $html
-output     $output
 dir        $dir
 ";
    exec('perldoc', $0);
@@ -114,35 +127,39 @@ if ($regfile && $compara) {
 die ("No databases found\n") unless (scalar(@dbas) > 0 );
 
 # parse the kill list file first
-my %domains = %{kill_list($file)};
+my ($domains,$supporting_evidence) = kill_list($file);
 
 foreach my $db (@dbas) {
   next unless $db->group eq "core";
   my @genes;
   my $gene_id;
 
-  print STDERR "Looking at ".$db->species." \n";
   # adjust the species name to fit the ensembl URL
   $URL = $db->species;
   $URL =~ s/ /_/;
 
   # for multiple species change the output file name to the species name
-  if (scalar(@dbas) > 1) {
-    $output = $dir."/".$URL;
-  } else {
-    $output = $dir."/".$output;
+  if (scalar(@dbas) == 1) {
+    my @species_array = @{sql("SELECT meta_value 
+         FROM meta 
+         WHERE  meta_key = 'species.classification'
+         ORDER BY meta_id
+         LIMIT 2;",$db)};
+    $URL = $species_array[1]."_".$species_array[0];
   }
-
+  $output = $dir."/".$URL;
+  print STDERR "Looking at $URL \n";
   print STDERR "Finding genes by domain\n";
 
   # Get a list of genes containing hits to the bad domains
-  foreach my $domain (keys %domains) {
+  foreach my $domain (keys %$domains) {
     push @genes , @{sql("SELECT DISTINCT(transcript.gene_id)
     FROM protein_feature, transcript, translation
     WHERE hit_id = \'$domain\'
     AND protein_feature.translation_id = translation.translation_id
     AND translation.transcript_id = transcript.transcript_id", $db)};
   }
+
   next unless scalar(@genes) > 0;
 
   # make genes non redundant - the same gene can be found
@@ -218,21 +235,28 @@ sub sql {
 sub kill_list {
   my ($file) = @_;
   my %domains;
+  my %supporting_evidence;
   open (KILLLIST,"$file") or die ("Cannot open kill list file for $file\n");
   print STDERR "Parsing kill list ";
   while (<KILLLIST>) {
     # parse the domains into a hash
-    next if $_ =~ /^#/;
     chomp;
-    if ($_ =~ /^(\S+)\t(.+)$/) {
-      $domains{$1} = $2;
+    next if $_ =~ /^#/;
+    next unless $_;
+
+    if ($_ =~ /^2\t(\S+)\t(.+)$/) {
+      $supporting_evidence{$1} = $2;
     } else {
-      print STDERR "\ncannot parse $_\n";
+      if ($_ =~ /^(\S+)\t(.+)$/) {
+	$domains{$1} = $2;
+      } else {
+	print STDERR "\ncannot parse $_\n";
+      }
     }
   }
   close KILLLIST;
   print STDERR "...done\n";
-  return \%domains;
+  return \%domains,\%supporting_evidence;
 }
 
 
@@ -250,6 +274,12 @@ TD{font-family: Verdana; font-size: 10pt;}
 </HEAD>
 <BODY>
 <TABLE border='1'>
+<CAPTION><b>Key:</b></CAPTION>
+<TR><TD><b>1</b><TD>  Primary domain - only found in viral proteins.</TR>
+<TR><TD><b>2</b><TD>  Secondary domain - associated with viral proteins not sufficient evidence on their own.</TR>
+<TR><TD><b>Unknown</b> <TD> Domain is not currently in the kill list.</TR>
+</TABLE><br><br>
+<TABLE border='1'>
 <CAPTION><EM>$URL Genes containing viral domains</EM></CAPTION>
 <TR><TD>Num<TD>Gene ID<TD>Transcript ID<TD>Translation ID<TD>Exons<TD>Span / cds<TD>Supporting Evidence<TD>Domains</TR>\n";
 }
@@ -266,9 +296,13 @@ sub filter_genes {
   my $failed;
  GENE:  foreach my $gene_id (@$genes){
     my %bad_domains;
+    my %dodgy_domains;
+    my %total_domains;
+    my %unknown_domains;
     my @bad_proteins;
     my $short_trans = 0;
     my $bad_trans = 0;
+    my $dodgy_trans = 0;
 
     # so lets be strict, we want to delete only things where all the transcripts hit a bad domain and at least one of them has the small span
     my $gene = $db->get_GeneAdaptor->fetch_by_dbID($gene_id);
@@ -279,6 +313,10 @@ sub filter_genes {
     }
 
   TRANS:   foreach my $transcript (@{$gene->get_all_Transcripts}){
+
+      $dodgy_domains{$transcript->dbID}{'count'} = 0;
+      $bad_domains{$transcript->dbID}{'count'} = 0;
+      $total_domains{$transcript->dbID} = 0;
 
       # identify the transcript supporing features
       my @sfs = @{$transcript->get_all_supporting_features};
@@ -293,35 +331,86 @@ sub filter_genes {
 	}
       }
 
-      # DODGY TRANSCRIPTS HAVE THE SHORT SPAN
-      if (( $transcript->seq_region_end - $transcript->seq_region_start ) / 
+      # BAD TRANSCRIPTS HAVE THE SHORT SPAN
+      if (( $transcript->coding_region_end - $transcript->coding_region_start ) / 
 	  ( $transcript->cdna_coding_end - $transcript->cdna_coding_start ) <= 2 ) {
 	$short_trans++;
       }
 
-      # EACH TRANSCRIPT NEEDS TO HIT A BAD DOMAIN BEFORE THE GENE IS DELETED
-      foreach my $pf (@{$transcript->translation->get_all_ProteinFeatures}) {
-	if ($check_domains){
-	  if ($domains{$pf->hseqname}) {
-	    $bad_trans++ unless $bad_domains{$transcript->dbID};
+      if ($check_domains){
+	
+	# EACH TRANSCRIPT NEEDS TO HIT A BAD DOMAIN BEFORE THE GENE IS DELETED
+	foreach my $pf (@{$transcript->translation->get_all_ProteinFeatures}) {
+	  next unless $pf->analysis->logic_name eq "Superfamily" or
+	    $pf->analysis->logic_name eq "Pfam" ;
+	  $total_domains{$transcript->dbID}++;
+
+
+	  # Bad domains
+	  if ($domains->{$pf->hseqname}) {
+	    $bad_trans++ unless $bad_domains{$transcript->dbID}{'count'} > 0;
 	    $bad_domains{$transcript->dbID}{$pf->hseqname} = 1;
+	    $bad_domains{$transcript->dbID}{'count'}++;
+	    #	    print "BAD TRANS $bad_trans\n";
 	  }
-	} else {
-	  $bad_trans++;
+	
+	  # Dodgy domains
+	  if ($supporting_evidence->{$pf->hseqname}) {
+	    $dodgy_trans++ unless ($dodgy_domains{$transcript->dbID} or $bad_domains{$transcript->dbID});
+	    $dodgy_domains{$transcript->dbID}{$pf->hseqname} = 1;
+	    $dodgy_domains{$transcript->dbID}{'count'}++;
+	  }
+	
+	  # Unknown domains
+	  unless ($supporting_evidence->{$pf->hseqname} or $domains->{$pf->hseqname}){
+	    $unknown_domains{$transcript->dbID}{$pf->hseqname} = 1;
+	  }
 	}
+      } else {
+	$bad_trans++;
+      }
+
+      # call the transcript dodgy if all the domains it has are bad or dodgy ones
+      if ( $total_domains{$transcript->dbID} == ($bad_domains{$transcript->dbID}{'count'} + $dodgy_domains{$transcript->dbID}{'count'}) 
+	   && $total_domains{$transcript->dbID} > 1 ){
+	$dodgy_trans++;
       }
     }
+
     # ADD UP ALL THE SCORES FOR THE ENTIRE GENE
     if ($short_trans && $bad_trans ==  scalar(@{$gene->get_all_Transcripts}) ) {
       $genelist->{$gene_id}{'domain'} = \%bad_domains;
       $genelist->{$gene_id}{'gene'} = $gene;
+      $genelist->{$gene_id}{'dodgy_domains'} = \%dodgy_domains;
       $genelist->{$gene_id}{'expanded'} = 1 unless $check_domains;
+      $genelist->{$gene_id}{'unknown'} = \%unknown_domains;
       foreach my $protein (@bad_proteins){
 	$killlist->{$protein} = 1
       }
-    } else {
-      $failed++;
+      next GENE;
     }
+
+    # Dosent pass the span criteria but all of the transcripts hit domains of some sort
+    # and *all* the domains are bad in some way
+    if ( $dodgy_trans  ==  scalar(@{$gene->get_all_Transcripts}) ) {
+      $genelist->{$gene_id}{'domain'} = \%bad_domains;
+      $genelist->{$gene_id}{'gene'} = $gene;
+      $genelist->{$gene_id}{'dodgy_domains'} = \%dodgy_domains;
+      $genelist->{$gene_id}{'dodgy'} = 1;
+      $genelist->{$gene_id}{'expanded'} = 1 unless $check_domains;
+      $genelist->{$gene_id}{'unknown'} = \%unknown_domains;
+      foreach my $protein (@bad_proteins){
+	$killlist->{$protein} = 1
+      }
+      next GENE;
+    }
+
+    $failed++;
+    $genelist->{$gene_id}{'domain'} = \%bad_domains;
+    $genelist->{$gene_id}{'gene'} = $gene;
+    $genelist->{$gene_id}{'expanded'} = 1 unless $check_domains;
+    $genelist->{$gene_id}{'failed'} = 1;
+    $genelist->{$gene_id}{'unknown'} = \%unknown_domains;
   }
 
   print STDERR "Eliminated $pseudogene pseudogenes\n"  if $pseudogene;
@@ -348,26 +437,17 @@ sub write_output {
   # Genes
   foreach my $gene_id (keys %$genelist) {
     my $count = 0;
-    $gene_num++;
     my $gene = $genelist->{$gene_id}{'gene'};
-    if ( $genelist->{$gene_id}{'expanded'} ){
-      print HTML "<TR><TD>$gene_num <b>E</b><TD><a href= 'http://www.ensembl.org/$URL/geneview?gene=" 
-	. $gene->stable_id .";db=core'>".$gene->stable_id.' </a>' if $html;
-      print SUMMARY  "Expanded gene id :\t" . $gene->dbID;
-      if ($gene->stable_id){
-	print GENES $gene->stable_id. " (E)\n";
-      } else {
-	print GENES $gene->dbID . " (E)\n";
-      }
+    next if $genelist->{$gene_id}{'failed'};
+    $gene_num++;     
+    print HTML "<TR><TD>$gene_num<TD><a href= 'http://dev.ensembl.org/$URL/geneview?gene=" 
+      . $gene->stable_id .";db=core'>".$gene->stable_id.' </a>' if $html;
+
+    print SUMMARY  "Gene id :\t" . $gene->dbID;
+    if ($gene->stable_id){
+      print GENES $gene->stable_id. "\n";
     } else {
-      print SUMMARY  "Gene id :\t" . $gene->dbID;
-      if ($gene->stable_id){
-	print GENES $gene->stable_id. "\n";
-      } else {
-	print GENES $gene->dbID . "\n";
-      }
-      print HTML "<TR><TD>$gene_num<TD><a href= 'http://www.ensembl.org/$URL/geneview?gene=" 
-	. $gene->stable_id .";db=core'>".$gene->stable_id.' </a>' if $html;
+      print GENES $gene->dbID . "\n";
     }
     print SUMMARY  "\t". $gene->stable_id if $gene->stable_id;
     print SUMMARY "\n";
@@ -378,14 +458,14 @@ sub write_output {
       print SUMMARY  "  Transcript id :\t" . $transcript->dbID;
       print HTML"<TR><TD> <TD> "  if $html &&  $count > 0 ;
       $count++;
-      print HTML "<TD><a href= 'http://www.ensembl.org/$URL/transview?;db=core;transcript=" . $transcript->stable_id .";db=core'>".$transcript->stable_id.' </a>'if $html;
+      print HTML "<TD><a href= 'http://dev.ensembl.org/$URL/transview?;db=core;transcript=" . $transcript->stable_id .";db=core'>".$transcript->stable_id.' </a>'if $html;
       print SUMMARY  "\t". $transcript->stable_id if $transcript->stable_id;
       print SUMMARY "\n";
 
       # Translations
       if ( my $translation = $transcript->translation ) {
 	print SUMMARY "  Translation id :\t" .$translation->dbID;
-	print HTML "<TD><a href= 'http://www.ensembl.org/$URL/protview?transcript=" . $transcript->stable_id .";db=core'>".$translation->stable_id.' </a>'if $html ;
+	print HTML "<TD><a href= 'http://dev.ensembl.org/$URL/protview?transcript=" . $transcript->stable_id .";db=core'>".$translation->stable_id.' </a>'if $html ;
 	print SUMMARY  "\t". $translation->stable_id if $translation->stable_id;
 	print SUMMARY "\n";
       }
@@ -393,10 +473,10 @@ sub write_output {
       # Exons
       print SUMMARY  "  Exons :\t" . scalar(@{$transcript->get_all_Exons}) . "\n" ;
       print SUMMARY  "  cdna length / genomic span : \t". 
-	sprintf("%.2f", ( $transcript->seq_region_end - $transcript->seq_region_start ) /
+	sprintf("%.2f", ( $transcript->coding_region_end - $transcript->coding_region_start ) /
 		( $transcript->cdna_coding_end - $transcript->cdna_coding_start )) . "\n";
       print HTML "<TD>" . scalar(@{$transcript->get_all_Exons}) if $html;
-      print HTML "<TD>". sprintf("%.2f", ( $transcript->seq_region_end - $transcript->seq_region_start ) /
+      print HTML "<TD>". sprintf("%.2f", ( $transcript->coding_region_end - $transcript->coding_region_start ) /
 				 ( $transcript->cdna_coding_end - $transcript->cdna_coding_start ) ). "<TD>" if $html;
 
       # protein evidence
@@ -417,12 +497,38 @@ sub write_output {
 
       # Domains
       print HTML "<TD>"if $html;
-      my $bad_domains = $genelist->{$gene_id}{'domain'};
       print SUMMARY "Domains :";
+
+      # Bad
+      my $bad_domains = $genelist->{$gene_id}{'domain'};
       foreach my $domain (keys %{$bad_domains->{$transcript->dbID}}) {
-	print SUMMARY "\t". $domain . "\t" . $domains{$domain} . "\n";
-      print HTML "$domain ". $domains{$domain} . "<br>" if $html;
+	if ($domains->{$domain}){
+	  print SUMMARY "\t1:  " . $domain . "\t" . $domains->{$domain} . "\n";
+	  print HTML "<B>1:</b> $domain ". $domains->{$domain} . "<br>" if $html;
+	}
       }
+
+      # Dodgy
+      my $dodgy_domains = $genelist->{$gene_id}{'dodgy_domains'};
+      foreach my $domain (keys %{$dodgy_domains->{$transcript->dbID}}) {
+	if ($supporting_evidence->{$domain}){
+	  print SUMMARY "\t2: ". $domain . "\t" . $supporting_evidence->{$domain} . "\n";
+	  print HTML "<B>2:</b> $domain ". $supporting_evidence->{$domain} . "<br>" if $html;
+	}
+      }
+
+      # Unknown
+      my $unknown_domains = $genelist->{$gene_id}{'unknown'};
+      foreach my $domain (keys %{$unknown_domains->{$transcript->dbID}}) {
+	print SUMMARY "\tUnknown\t". $domain . "\tUnknown\n";
+	print HTML "<B>Unknown:</b> $domain<br>" if $html;
+      }
+
+      if ( $genelist->{$gene_id}{'expanded'} ){
+	print SUMMARY "\tTranscript built from evidence on the kill list\n";
+	print HTML '<b>Transcript built from evidence on the kill list<b>' if $html;
+      }
+
       print HTML "</TR>\n" if $html;
     }
     print SUMMARY "\n***************************************************************************************************************************\n\n";
