@@ -1165,7 +1165,7 @@ sub trim_cds_to_whole_codons {
         if ($cloned_transcript->strand > 0) {
           $exons[-1]->end($exons[-1]->end - $remove3);
         } else {
-          $exons[-1]->start($exons[-1]->end + $remove3);
+          $exons[-1]->start($exons[-1]->start + $remove3);
         }
         $exons[-1]->end_phase(0);
         $tr->end_Exon($exons[-1]);
