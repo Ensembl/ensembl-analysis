@@ -45,7 +45,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Pipeline::DBSQL::AnalysisAdaptor;
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::Config::Ditag;
+use Bio::EnsEMBL::Analysis::Config::ExonerateTags;
 use Bio::EnsEMBL::Analysis::Config::Databases;
 use Getopt::Long;
 
@@ -70,7 +70,7 @@ if($help or !$tagtype){
 }
 
 my $db = setup();
-print STDERR "\nReadig from Bio::EnsEMBL::Analysis::Config::Ditag.pm".
+print STDERR "\nReadig from Bio::EnsEMBL::Analysis::Config::ExonerateTags".
              "\nLooking at database $GB_DBHOST:$GB_DBPORT:$GB_DBNAME.\n";
 
 if(!$option or $option eq "A"){
@@ -91,8 +91,13 @@ sub setup {
   foreach my $config_var (keys %{$default_entry}) {
     $config{$config_var} = $default_entry->{$config_var};
   }
+  $default_entry = $DITAG_CONFIG->{EXONERATETAGS};
+  foreach my $config_var (keys %{$default_entry}) {
+    $config{$config_var} = $default_entry->{$config_var};
+  }
   #specific variables
   if (exists $DITAG_CONFIG->{$tagtype}) {
+warn "\n$tagtype: ".$DITAG_CONFIG->{$tagtype};
     my $entry = $DITAG_CONFIG->{$tagtype};
     foreach my $config_var (keys %{$entry}) {
       $config{$config_var} = $entry->{$config_var};
@@ -100,7 +105,7 @@ sub setup {
   }
   if(!$GB_DBHOST or !$GB_DBPORT or !$GB_DBNAME or !$GB_DBUSER or !$GB_DBPASS){
     throw "\nDatabase parameters missing from file ".
-          "Bio::EnsEMBL:Analysis::Config::Databases.pm\n";
+          "Bio::EnsEMBL:Analysis::Config::Databases\n";
   }
 
   #CHECK ALL VARIABLES NEEDED
@@ -109,12 +114,12 @@ sub setup {
     my $configvarref = $config{$configvar};
     if(!$configvarref){
       throw "\nAnalysis parameters $configvar missing from file ".
-	    "Bio::EnsEMBL:Analysis::Config::Ditag.pm\n";
+	    "Bio::EnsEMBL:Analysis::Config::ExonerateTags\n";
     }
     if($configvar =~ m/DIR/){
       if(!-e $configvarref){
 	throw "\nCouldn t find/access file or directory ".
-	      "from file Bio::EnsEMBL:Analysis::Config::Ditag.pm\n";
+	      "from file Bio::EnsEMBL:Analysis::Config::ExonerateTags\n";
       }
     }
   }
