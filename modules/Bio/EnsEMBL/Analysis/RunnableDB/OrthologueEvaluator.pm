@@ -3,7 +3,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::OrthologueAnaysis; 
+Bio::EnsEMBL::Analysis::RunnableDB::OrthologueEvaluator; 
 
 
 
@@ -145,8 +145,15 @@ sub chunk_and_write_fasta_sequences {
     $base_dir = $base_dir . "/" unless $base_dir =~m/\/$/;
     #$base_dir = $base_dir . $self->post_logic_name . "/" ;
 
-    `mkdir $base_dir ` unless ( -e $base_dir);
-    $file_prefix = $self->slice_name unless $file_prefix ;
+    `mkdir $base_dir ` unless ( -e $base_dir); 
+    unless ( $file_prefix ) { 
+      if ($self->slice_name){
+        $file_prefix = $self->slice_name ; 
+      }elsif( $self->input_id ) { 
+        $file_prefix = $self->input_id ; 
+      }else{
+        throw("Error - can't create file name because of missing slice-name or input_id\n") ; 
+      }
     $file_suffix = ".fa" unless $file_suffix ;
 
     print "writing squences to $base_dir\n" ;
@@ -239,6 +246,7 @@ sub read_and_check_config {
         "\nCheck your config !")
      unless ( -e $$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE} ) ; 
 
+     print STDERR "reading compara-config file : $$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE}\n"; 
     # check compara configuration file and schema-versions of dbs
 
     Bio::EnsEMBL::Registry->load_all($$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE});
