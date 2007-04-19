@@ -106,6 +106,7 @@ use vars qw (@ISA @EXPORT);
              trim_cds_to_whole_codons
              Transcript_info
              evidence_coverage_greater_than_minimum
+             count_real_introns
             );
 
 
