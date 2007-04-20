@@ -145,8 +145,9 @@ sub chunk_and_write_fasta_sequences {
     $base_dir = $base_dir . "/" unless $base_dir =~m/\/$/;
     #$base_dir = $base_dir . $self->post_logic_name . "/" ;
 
-    `mkdir $base_dir ` unless ( -e $base_dir); 
-    unless ( $file_prefix ) { 
+    `mkdir $base_dir ` unless ( -e $base_dir);  
+
+    unless ( $file_prefix ) {  
       if ($self->slice_name){
         $file_prefix = $self->slice_name ; 
       }elsif( $self->input_id ) { 
@@ -154,6 +155,7 @@ sub chunk_and_write_fasta_sequences {
       }else{
         throw("Error - can't create file name because of missing slice-name or input_id\n") ; 
       }
+    }
     $file_suffix = ".fa" unless $file_suffix ;
 
     print "writing squences to $base_dir\n" ;
