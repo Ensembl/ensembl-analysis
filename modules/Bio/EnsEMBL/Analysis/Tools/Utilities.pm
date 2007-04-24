@@ -44,7 +44,7 @@ use vars qw (@ISA  @EXPORT);
 @ISA = qw(Exporter);
 
 @EXPORT = qw( shuffle parse_config create_file_name write_seqfile merge_config_details
-              get_input_arg  );
+              get_input_arg get_db_adaptor_by_string );
 
 
 
@@ -305,6 +305,42 @@ sub write_seqfile{
 }
 
 
+
+=head2 get_db_adaptor_by_string
+
+  Arg [1]   : String 
+  Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given string.
+              Requires proper configuration of 
+              Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
+ 
+  Returntype: Bio::EnsEMBL::Analysis::DBSQL::DBAdaptor 
+  Exceptions: throw if string can't be found in Databases.pm 
+
+=cut
+
+sub get_db_adaptor_by_string {
+   my ($string) = @_ ;
+
+
+   require "Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm" ;
+   no strict ;
+   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DATABASES");
+   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DNA_DBNAME");
+
+   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
+   my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;
+
+   if($string ne $DNA_DBNAME ){
+     if (length($DNA_DBNAME) ne 0 ){
+        $db->dnadb($dnadb);
+     }else{
+        warning("You haven't defined a DNA_DBNAME in Config/Databases.pm");
+     }
+   }
+  use strict ;
+  throw("No entry in Config/GeneBuild/Databases.pm hash for $string") unless $db ;
+  return $db;
+}
 
 
 1;
