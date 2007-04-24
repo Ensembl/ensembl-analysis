@@ -45,6 +45,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
 
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_db_adaptor_by_string) ;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
@@ -380,8 +381,13 @@ sub get_output_db {
   my $outdb;
 
   if ($self->OUTDB) {
-    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$self->OUTDB},
+    if ( ref($self->OUTDB)=~m/HASH/) {
+
+      $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$self->OUTDB},
                                                 -dnadb => $self->db);
+    }else{
+      $outdb = get_db_adaptor_by_string($self->OUTDB);
+    }
   } else {
     $outdb = $self->db;
   }
