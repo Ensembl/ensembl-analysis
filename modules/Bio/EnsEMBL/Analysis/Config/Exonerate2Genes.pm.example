@@ -77,14 +77,15 @@ use vars qw( %Config );
                # GENOMICSEQS obtained from DEFAULT
                QUERYTYPE => 'dna',
                QUERYSEQS  => '/directory/with/EST/chunks',
-               # IIDREGEXP not set; input ids are file names
-               OUTDB => { -dbname => '',
-                          -host => '',
-                          -port => '',
-                          -user => '',
-                          -pass => '',
-                        },               
-               FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+               # IIDREGEXP not set; input ids are file names  
+
+               # CHANGE ! You can now either submit all db-connection parameters 
+               # for OUTDB (old method ) - or you can just supply a string. The string 
+               # must be assigned to a database-connection in Databases.pm 
+               
+               OUTDB => "EXONERATE_DB" ,   # HASH-key out of Databases.pm 
+
+               FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter', 
                            PARAMETERS => {
                              -coverage => 90,
                              -percent_id => 97,
