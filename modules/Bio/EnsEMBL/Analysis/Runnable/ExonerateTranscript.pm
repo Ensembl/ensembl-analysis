@@ -13,7 +13,7 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
 								 -query_type     => 'dna',
 								 -target_seqs    => \@t_seqs,
                                                              [or -target_file    => $t_file]   
-                                                                 -exonerate      => $exonerate,
+                                                                 -program      => $exonerate,
 								 -options        => $options,
 								);
 
@@ -104,7 +104,7 @@ sub parse_results {
 
  TRANSCRIPT:
   while (<$fh>){
-    print STDERR $_ if $self->_verbose;
+    print STDERR $_;# if $self->_verbose;
 
     next unless /^RESULT:/;
 
