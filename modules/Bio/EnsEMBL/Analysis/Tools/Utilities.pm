@@ -37,6 +37,8 @@ package Bio::EnsEMBL::Analysis::Tools::Utilities;
 use strict;
 use warnings;
 use Exporter;
+use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
+
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use vars qw (@ISA  @EXPORT);
@@ -44,7 +46,7 @@ use vars qw (@ISA  @EXPORT);
 @ISA = qw(Exporter);
 
 @EXPORT = qw( shuffle parse_config create_file_name write_seqfile merge_config_details
-              get_input_arg get_db_adaptor_by_string );
+              get_input_arg get_db_adaptor_by_string read_config import_var );
 
 
 
@@ -343,4 +345,88 @@ sub get_db_adaptor_by_string {
 }
 
 
+
+=head2 read_config 
+
+  Arg [1]   : String 
+  Arg [2]   : optional Array-reference
+  Function  : reads a configuration file in the ensembl perl module format 
+              in runtime and, accesses the variables ( either only the variables
+              listend in $aref or all variables ) and returns a hash-reference to this. 
+ 
+  Returntype: 
+  Exceptions: 
+  Requires  : use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; 
+
+=cut
+
+sub read_config {
+   my ($module_name , $aref ) = @_ ;
+
+   (my $module_path = $module_name )=~s/::/\//g; 
+   require "$module_path.pm" ;   
+
+   # get the names of the variables  
+   unless ($aref) { 
+     my ($config_href, $varname ) = @{package_stash("$module_name")};    
+     map { $module_name->import($_) } keys %$config_href ;  
+
+     return $config_href; 
+   } 
+
+   # import only variables specified in $aref
+   no strict ; 
+   map { $module_name->import($_) } @$aref ;
+   my %import ;  
+   map {$import{$_} = ${$_}} @$aref ; 
+   use strict ; 
+   return \%import;  
+}
+
+
+
+=head2 import_var  
+
+  Arg [0]   : Array of Hashreferences
+  Arg [1]   : optional Array-ref
+  Function  : gets a hash-reference and adds them to the namespace of the module - they can 
+              be accesed in the package by using 'no strict;' 
+  Returntype: Hashref. 
+  Examples  : import_var ($href) ; 
+              import_var(read_config("Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases"));
+ 
+
+=cut
+
+
+
+sub import_var {
+    my ($callpack) = caller(0); # Name of the calling package
+   # my $pack = shift; # Need to move package off @_ 
+    my $vars_to_import = shift ;
+
+   # $vars_to_import = $pack unless $vars_to_import ;
+    # Get list of variables supplied, or else all 
+
+    my @vars = @_ ? @_ : keys(%{$vars_to_import});
+
+    return unless @vars;
+
+    # Predeclare global variables in calling package
+    eval "package $callpack; use vars qw(" 
+         . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+    foreach (@vars) {
+        if (defined ${$vars_to_import}{ $_ }) {
+            no strict 'refs';
+            # Exporter does a similar job to the following
+            # statement, but for function names, not
+            # scalar variables:
+            *{"${callpack}::$_"} = \${$vars_to_import}{ $_ };
+        } else {
+            die "Error: Config: $_ not known\n";
+        }
+    }
+}
 1;
