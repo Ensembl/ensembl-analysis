@@ -19,7 +19,6 @@
 82856	L-A virus major coat protein
 PF00073	picornavirus capsid protein
 PF00075	RNase H digests the RNA strand of an RNA/DNA hybrid. Important enzyme in retroviral replication cycle
-PF00077	Retroviral aspartyl protease
 PF00078	Reverse transcriptase (RNA-dependent DNA polymerase)
 PF00429	ENV polyprotein (coat polyprotein)
 PF00516	Envelope glycoprotein GP120
@@ -123,3 +122,4 @@ PF08791	Viral envelope protein
 2	PF03372	Endonuclease/Exonuclease/phosphatase family
 2	PF08333	Protein of unknown function (DUF1725)
 2	PF08371	Phospholipase D/viral envelope
+2	PF00077	Retroviral aspartyl protease
