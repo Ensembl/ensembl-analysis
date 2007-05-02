@@ -214,6 +214,7 @@ sub Transcript_info{
 
 sub print_Transcript_evidence{
   my ($transcript, $indent) = @_;
+  $indent = '' if(!$indent);
   print $indent."TRANSCRIPT EVIDENCE:\n";
   foreach my $evidence(@{$transcript->get_all_supporting_features}){
     my $evidence_indent = $indent."\t";
@@ -918,6 +919,7 @@ sub split_Transcript{
   #creating first new transcript
   my $curr_transcript = new Bio::EnsEMBL::Transcript;
   $curr_transcript->biotype($transcript->biotype);
+  $curr_transcript->analysis($transcript->analysis);
   my @split_transcripts;
   
   my $first_exon = 1;
@@ -962,6 +964,7 @@ sub split_Transcript{
       $t->add_Exon($next_exon);
       $curr_transcript = $t;
       $curr_transcript->biotype($transcript->biotype);
+      $curr_transcript->analysis($transcript->analysis);
       $last_exon = $next_exon;
       push(@split_transcripts, $curr_transcript);
     }
@@ -1140,7 +1143,7 @@ sub trim_cds_to_whole_codons {
     if ($remove5 or $remove3) {
       my $cloned_transcript = clone_Transcript($transcript);
       my @exons = @{$cloned_transcript->get_all_Exons};
-      
+      my $cloned_tr = $cloned_transcript->translation;
       if ($remove5) {
         while(@exons and $exons[0]->length <= $remove5) {
           $remove5 -= $exons[0]->length;
@@ -1155,8 +1158,8 @@ sub trim_cds_to_whole_codons {
           $exons[0]->end($exons[0]->end - $remove5);
         }
         $exons[0]->phase(0);
-        $tr->start_Exon($exons[0]);
-        $tr->start(1);
+        $cloned_tr->start_Exon($exons[0]);
+        $cloned_tr->start(1);
       }
       if ($remove3) {
         while(@exons and $exons[-1]->length <= $remove3) {
@@ -1169,13 +1172,12 @@ sub trim_cds_to_whole_codons {
           $exons[-1]->start($exons[-1]->start + $remove3);
         }
         $exons[-1]->end_phase(0);
-        $tr->end_Exon($exons[-1]);
-        $tr->end($exons[0]->length);
+        $cloned_tr->end_Exon($exons[-1]);
+        $cloned_tr->end($exons[-1]->length);
       }
       return $cloned_transcript;
     }
   } 
-
   return $transcript;
 }
 
