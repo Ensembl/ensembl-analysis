@@ -64,7 +64,7 @@ use vars qw(@ISA);
 sub new {
 
     my ($class,@args) = @_;
-    print Dumper @args;
+    #print Dumper @args;
     my $self = $class->SUPER::new(@args);
     #print Dumper $self;
 
@@ -110,12 +110,12 @@ sub run {
     }
     #print Dumper $self->options;
 
-    $self->workdir($dir) if($dir);
-    
     throw("Can't run ".$self." without a probe features") 
         unless($self->probe_features);
     
+    $self->workdir($dir) if($dir);
     $self->checkdir();
+    #print "work dir checked\n";
     my $infile = $self->write_infile();
     (my $resultsfile = $infile) =~ s/\.dat$/\_$alpha\_peaks\.tsv/;
     $self->resultsfile($resultsfile);
@@ -123,10 +123,12 @@ sub run {
     #warn("resultsfile:\t".$resultsfile);
     
     $self->files_to_delete($infile);
-    $self->files_to_delete($self->resultsfile);
+    #$self->files_to_delete($self->resultsfile);
     $self->run_analysis();
+    #print "Parsing results ... ";
     $self->parse_results;
-    #$self->delete_files;
+    #print "done!\n";
+    $self->delete_files;
     return 1;
 }
 

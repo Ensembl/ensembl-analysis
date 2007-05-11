@@ -49,6 +49,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::Funcgen;
 use Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle;
 
+use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -99,25 +100,45 @@ sub read_and_check_config {
   # CHECKS
   ##########
 
-  my $logic = $self->analysis->logic_name;
-
   # check that compulsory options have values
-  foreach my $config_var (
-    qw(
-       PROGRAM
-       OPTIONS
-       LOGIC_NAME
-       EFG_EXPERIMENT
-       EFG_ANALYSIS
-       EFG_FT_NAME
-       EFG_FT_CLASS
-       EFG_CT_NAME
-    )
-  ){
-    if ( not defined $self->$config_var ){
-      throw("You must define $config_var in config.");
-    }
-  }
+  foreach my $config_var 
+      (
+       qw(
+          PROGRAM
+          OPTIONS
+          LOGIC_NAME
+          EFG_EXPERIMENT
+          )
+       ){
+          if ( not defined $self->$config_var ){
+              throw("You must define $config_var in config.");
+          }
+          
+          #print Dumper $self->$config_var;
+          
+      }
+  
+  # make sure EFG_EXPERIMENT exists, is a hash, and contains all 
+  # compulsory options
+  throw("EFG_EXPERIMENT for ".$self->experiment." is not defined.")
+      if(! exists $self->EFG_EXPERIMENT->{$self->experiment});
+  throw("EFG_EXPERIMENT must be a hash ref not ".$self->EFG_EXPERIMENT.
+        " Chipotle::read_and_check_config")
+      if(ref($self->EFG_EXPERIMENT) ne 'HASH');
+  foreach my $config_var
+      (
+       qw(
+          FT_NAME
+          FT_CLASS
+          FT_DESC
+          CT_NAME
+          CT_DESC
+          )
+       ){
+          throw("Must define $config_var in EFG_EXPERIMENT config.")
+          if (! defined $self->EFG_EXPERIMENT->{$self->experiment}->{$config_var});
+      }
+
 }
 
 sub PROGRAM {
@@ -176,61 +197,103 @@ sub EFG_EXPERIMENT {
   }
 }
 
-sub EFG_ANALYSIS {
-  my ( $self, $value ) = @_;
+#sub EFG_ANALYSIS {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_EFG_ANALYSIS'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_EFG_ANALYSIS'} ) ) {
+#    return $self->{'_CONFIG_EFG_ANALYSIS'};
+#  } else {
+#    return undef;
+#  }
+#}
+#
+#sub EFG_FT_NAME {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_EFG_FT_NAME'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_EFG_FT_NAME'} ) ) {
+#    return $self->{'_CONFIG_EFG_FT_NAME'};
+#  } else {
+#    return undef;
+#  }
+#}
+#
+#sub EFG_FT_CLASS {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_EFG_FT_CLASS'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_EFG_FT_CLASS'} ) ) {
+#    return $self->{'_CONFIG_EFG_FT_CLASS'};
+#  } else {
+#    return undef;
+#  }
+#}
+#
+#sub EFG_FT_DESC {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_EFG_FT_DESC'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_EFG_FT_DESC'} ) ) {
+#    return $self->{'_CONFIG_EFG_FT_DESC'};
+#  } else {
+#    return undef;
+#  }
+#}
+#
+#sub EFG_CT_NAME {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_EFG_CT_NAME'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_EFG_CT_NAME'} ) ) {
+#    return $self->{'_CONFIG_EFG_CT_NAME'};
+#  } else {
+#    return undef;
+#  }
+#}
+#
+#sub EFG_CT_DESC {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_EFG_CT_DESC'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_EFG_CT_DESC'} ) ) {
+#    return $self->{'_CONFIG_EFG_CT_DESC'};
+#  } else {
+#    return undef;
+#  }
+#}
 
-  if ( defined $value ) {
-    $self->{'_CONFIG_EFG_ANALYSIS'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_EFG_ANALYSIS'} ) ) {
-    return $self->{'_CONFIG_EFG_ANALYSIS'};
-  } else {
-    return undef;
-  }
-}
-
-sub EFG_FT_NAME {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_EFG_FT_NAME'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_EFG_FT_NAME'} ) ) {
-    return $self->{'_CONFIG_EFG_FT_NAME'};
-  } else {
-    return undef;
-  }
-}
-
-sub EFG_FT_CLASS {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_EFG_FT_CLASS'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_EFG_FT_CLASS'} ) ) {
-    return $self->{'_CONFIG_EFG_FT_CLASS'};
-  } else {
-    return undef;
-  }
-}
-
-sub EFG_CT_NAME {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_EFG_CT_NAME'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_EFG_CT_NAME'} ) ) {
-    return $self->{'_CONFIG_EFG_CT_NAME'};
-  } else {
-    return undef;
-  }
-}
+#sub EFG_FS_NAME {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_EFG_FS_NAME'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_EFG_FS_NAME'} ) ) {
+#    return $self->{'_CONFIG_EFG_FS_NAME'};
+#  } else {
+#    return undef;
+#  }
+#}
 
 #############################################################
 ###     end of config

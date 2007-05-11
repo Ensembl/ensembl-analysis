@@ -37,31 +37,138 @@ package Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
 use strict;
 use vars qw(%Config);
 
+my %ftype = (
+             'H3K4me1' => ['Histone 3 Lysine 4 Mono-Methylation','HISTONE'],
+             'H3K4me2' => ['Histone 3 Lysine 4 Di-Methylation','HISTONE'],
+             'H3K4me3' => ['Histone 3 Lysine 4 Tri-Methylation','HISTONE'],
+             'H3ac'    => ['Histone 3 Acethylation','HISTONE'],
+             'H3K9ac'  => ['Histone 3 Lysine 9 Acethylation','HISTONE'],
+             'H4ac'    => ['Histone 4 Acethylation','HISTONE'],
+             'CTCF'    => ['CCCTC-binding factor sites','INSULATOR']
+             );
+my %ctype = (
+             'HeLa'    => 'Human Epithelial Carcinoma Cells',
+             'GM06990' => 'Human B-Lymphocyte Cells',
+             'U2OS'    => 'Human Bone Osteosarcoma Epithelial Cells',
+             'IMR90'   => 'Human Primary Fibroblast Cells',
+             'U937'    => 'Human leukemic monocyte lymphoma Cells'
+             );
 
-%Config = 
-    (
-     CHIPOTLE_CONFIG =>{
-         DEFAULT => {
-             PROGRAM => 'chipotle.pl',
-             OPTIONS => 
-                 ' --model gauss'.
-                 ' --window 990'.
-                 ' --step 150'.
-                 ' --correction BH'.
-                 ' --alpha 0.05',
-                 #' --dolog2'.
-                 #' --transform 0'
-             LOGIC_NAME => 'Chipotle',
-             EFG_EXPERIMENT => 'HeLaS3_FAIRE_WholeGenome',
-                              #'H3K4me3-GM06990', # Sanger
-                              #'Stunnenberg_all_OID_1963'
-             EFG_ANALYSIS =>   'VSN_GLOG',
-                              #'SangerPCR',
-             EFG_FT_NAME => 'FAIRE',
-             EFG_FT_CLASS => 'Regulatory Elements',
-             EFG_CT_NAME => 'HeLaS3',
-             }
-     });
+
+%Config = (
+           CHIPOTLE_CONFIG => {
+           DEFAULT => {
+               EFG_EXPERIMENT => 'Experiment Name',
+               LOGIC_NAME     => 'Chipotle',
+               PROGRAM        => 'chipotle.pl',
+               OPTIONS        => 
+                   ' --model gauss'.
+                   ' --window 990'.
+                   ' --step 198'.
+                   ' --correction BH'.
+                   ' --alpha 0.05',
+                   #' --dolog2 '.
+                   #' --transform 0'
+               },
+           CHIPOTLE => {
+               EFG_EXPERIMENT => {
+                   # Sanger Encode
+                   'H3K4me1-HeLa' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3K4me1',
+                       FT_CLASS   => $ftype{'H3K4me1'}[1],
+                       FT_DESC    => $ftype{'H3K4me1'}[0],
+                       CT_NAME    => 'HeLa',
+                       CT_DESC    => $ctype{'HeLa'}},
+                   'H3K4me2-HeLa' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3K4me2',
+                       FT_CLASS   => $ftype{'H3K4me2'}[1],
+                       FT_DESC    => $ftype{'H3K4me2'}[0],
+                       CT_NAME    => 'HeLa',
+                       CT_DESC    => $ctype{'HeLa'}},
+                   'H3K4me3-HeLa' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3K4me3',
+                       FT_CLASS   => $ftype{'H3K4me3'}[1],
+                       FT_DESC    => $ftype{'H3K4me3'}[0],
+                       CT_NAME    => 'HeLa',
+                       CT_DESC    => $ctype{'HeLa'}},
+                   'H3ac-HeLa' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3ac',
+                       FT_CLASS   => $ftype{'H3ac'}[1],
+                       FT_DESC    => $ftype{'H3ac'}[0],
+                       CT_NAME    => 'HeLa',
+                       CT_DESC    => $ctype{'HeLa'}},
+                   'H4ac-HeLa' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H4ac',
+                       FT_CLASS   => $ftype{'H4ac'}[1],
+                       FT_DESC    => $ftype{'H4ac'}[0],
+                       CT_NAME    => 'HeLa',
+                       CT_DESC    => $ctype{'HeLa'}},
+                   'H3K4me1-GM06990' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3K4me1',
+                       FT_CLASS   => $ftype{'H3K4me1'}[1],
+                       FT_DESC    => $ftype{'H3K4me1'}[0],
+                       CT_NAME    => 'GM06990',
+                       CT_DESC    => $ctype{'GM06990'}},
+                   'H3K4me2-GM06990' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3K4me2',
+                       FT_CLASS   => $ftype{'H3K4me2'}[1],
+                       FT_DESC    => $ftype{'H3K4me2'}[0],
+                       CT_NAME    => 'GM06990',
+                       CT_DESC    => $ctype{'GM06990'}},
+                   'H3K4me3-GM06990' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3K4me3',
+                       FT_CLASS   => $ftype{'H3K4me3'}[1],
+                       FT_DESC    => $ftype{'H3K4me3'}[0],
+                       CT_NAME    => 'GM06990',
+                       CT_DESC    => $ctype{'GM06990'}},
+                   'H3ac-GM06990' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H3ac',
+                       FT_CLASS   => $ftype{'H3ac'}[1],
+                       FT_DESC    => $ftype{'H3ac'}[0],
+                       CT_NAME    => 'GM06990',
+                       CT_DESC    => $ctype{'GM06990'}},
+                   'H4ac-GM06990' => {
+                       ANALYSIS   => 'SangerPCR',
+                       FT_NAME    => 'H4ac',
+                       FT_CLASS   => $ftype{'H4ac'}[1],
+                       FT_DESC    => $ftype{'H4ac'}[0],
+                       CT_NAME    => 'GM06990',
+                       CT_DESC    => $ctype{'GM06990'}},
+
+                   # NCMLS
+                   'Stunnenberg_all_OID_1963' => {
+                       ANALYSIS   => 'VSN_GLOG',
+                       FT_NAME    => 'H3K9ac',
+                       FT_CLASS   => $ftype{'H3K9ac'}[1],
+                       FT_DESC    => $ftype{'H3K9ac'}[0],
+                       CT_NAME    => 'U2OS',
+                       CT_DESC    => $ctype{'U2OS'}},
+
+                   # CTCF (Bing Ren)
+                   'ctcf_ren' => {
+                       ANALYSIS   => 'VSN_GLOG',
+                       FT_NAME    => 'CTCF',
+                       FT_CLASS   => $ftype{'CTCF'}[1],
+                       FT_DESC    => $ftype{'CTCF'}[0],
+                       CT_NAME    => 'IMR90',
+                       CT_DESC    => $ctype{'IMR90'}},
+                   
+                   #FAIRE (Duke University)
+                   #EXPERIMENT => 'HeLaS3_FAIRE_WholeGenome',
+ 
+               }               
+           }
+       }
+           );
 
 sub import {
     my ($callpack) = caller(0); # Name of the calling package

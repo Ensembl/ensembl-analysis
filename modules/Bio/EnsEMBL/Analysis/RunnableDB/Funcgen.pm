@@ -35,10 +35,47 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 
 use Bio::EnsEMBL::Analysis::Config::General;
 
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+
+=head2 new
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor
+  Arg [3]   : Bio::EnsEMBL::Analysis
+  Function  : create a Bio::EnsEMBL::Analysis::RunnableDB object
+  Returntype: Bio::EnsEMBL::Analysis::RunnableDB
+  Exceptions: throws if not passed either a dbadaptor, input id or
+  an analysis object
+  Example   : $rdb = $perl_path->new( -analysis => $self->analysis,
+                                      -input_id => $self->input_id,
+                                      -db => $self->adaptor->db );
+
+=cut
+
+
+
+sub new{
+  my ($class,@args) = @_;
+  my $self = bless {},$class;
+  my ($db, $input_id, $experiment, $analysis) = rearrange
+    (['DB', 'INPUT_ID', 'EXPERIMENT', 'ANALYSIS'], @args);
+  if(!$db || !$analysis || !$experiment || !$input_id){
+    throw("Must instantiate RunnableDB with a dbadaptor".
+          ", an experiment, an analysis object".
+          ", and an input_id.");
+  }
+
+  $self->db($db);
+  $self->input_id($input_id);
+  $self->experiment($experiment);
+  $self->analysis($analysis);
+
+  return $self;
+}
 
 =head2 fetch_input
 
@@ -62,10 +99,11 @@ sub fetch_input {
     #warn("write file: ", Dumper $self->db);
 
     my $ea = $self->db->get_ExperimentAdaptor();
-    my $e = $ea->fetch_by_name($self->EFG_EXPERIMENT);
-
+    my $e = $ea->fetch_by_name($self->experiment);
+    
+    my $analysis = $self->EFG_EXPERIMENT->{$self->experiment}->{ANALYSIS};
     my $aa = $self->db->get_AnalysisAdaptor();
-    my $a = $aa->fetch_by_logic_name($self->EFG_ANALYSIS);
+    my $a = $aa->fetch_by_logic_name($analysis);
 
     my $rsa = $self->db->get_ResultSetAdaptor();
     my $rsets = $rsa->fetch_all_by_Experiment_Analysis($e, $a);
@@ -85,10 +123,11 @@ sub fetch_input {
     my @features = ();
 
     #print "result_set dbID: ", $rset->dbID(), "\n";
-        
+    
     my $prb_ft = $pfa->fetch_all_by_Slice_ExperimentalChips
         ( $slice, $rset->get_ExperimentalChips() );
-        
+
+    #print "Getting list of features ";
     foreach my $ft (@{$prb_ft}) {
         next if (! defined $ft->get_result_by_ResultSet($rset));
         #print join(' ', $ft->dbID(), $ft->start(), $ft->end()), "\n";
@@ -97,8 +136,9 @@ sub fetch_input {
                           $ft->start(),
                           $ft->end(), 
                           $ft->get_result_by_ResultSet($rset) ];
-        
+        #print ".";
     }
+    #print "done!\n";
     $self->probe_features(\@features);
 
     # set program options defined in Config
@@ -158,7 +198,8 @@ sub write_output{
   #print Dumper($logic_name);  
 
   my $analysis = $aa->fetch_by_logic_name($logic_name);
-  if (! $analysis) {
+  ### must implement check if analysis with logic_name also has same options
+  if (! defined $analysis) {
 
       # add analysis
       $analysis = Bio::EnsEMBL::Analysis->new
@@ -184,79 +225,140 @@ sub write_output{
   }
   #print Dumper($analysis);
   
-  my $ftype = $fta->fetch_by_name($self->EFG_FT_NAME);
-  if (! $ftype) {
+  # get userdefined experiment meta data
+  my $e_conf = $self->EFG_EXPERIMENT->{$self->experiment};
+
+  my $ftype = $fta->fetch_by_name($e_conf->{FT_NAME});
+  if (! defined $ftype) {
       
       # add new feature type
       $ftype = Bio::EnsEMBL::Funcgen::FeatureType->new
           (
            -name => $self->EFG_FT_NAME,
            -class => $self->EFG_FT_CLASS,
-           #-description => 'NULL'
+           -description => $self->EFG_FT_DESC
            );
-      $fta->store($ftype);
+      $ftype = $fta->store($ftype);
   }
   #print Dumper($ftype);
   
-  my $ctype = $cta->fetch_by_name($self->EFG_CT_NAME);
-  if (! $ctype) {
+  my $ctype = $cta->fetch_by_name($e_conf->{CT_NAME});
+  if (! defined $ctype) {
       
       # add new cell type
       $ctype = Bio::EnsEMBL::Funcgen::CellType->new
           (
            -name => $self->EFG_CT_NAME,
            -display_label => $self->EFG_CT_NAME,
-           #-description => 'NULL'
+           -description => $self->EFG_CT_DESC
            );
-      $cta->store($ctype);
+      $ctype = $cta->store($ctype);
   }
   #print Dumper($ctype);
-    
-  # add new feature set
-  my $fset = Bio::EnsEMBL::Funcgen::FeatureSet
-      ->new(
-            -analysis => $analysis,
-            -feature_type => $ftype,
-            -cell_type => $ctype
-            );
-  #print Dumper($fset);
-  $fsa->store($fset);
 
-  # add new data set
-  my $dset = Bio::EnsEMBL::Funcgen::DataSet->new
-      (
-       -RESULT_SET => $self->result_set(),
-       -FEATURE_SET => $fset,
-       );
-  #print Dumper($dset);
-  $dsa->store($dset);
-
-  my @pf;
-  foreach my $ft (@{$self->output}){
-
-      print Dumper $ft;
-      my ($peakid, $seqid, $start, $end, 
-          $score, # 
-          $pval, # P value for that peak
-          $avgwinscore # 
-          ) = @{$ft};
-
-      my $pf = Bio::EnsEMBL::Funcgen::PredictedFeature->new
+  my $fset_name = $self->LOGIC_NAME.'_'.$e_conf->{FT_NAME}.
+      '_'.$e_conf->{CT_NAME};
+  my $fset = $fsa->fetch_all_by_name($fset_name);
+  if (! @{$fset}) {
+      # add new feature set
+      $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
           (
-           -slice         => $self->query,
-           -start         => $start,
-           -end           => $end,
-           -strand        => 1,
-           -display_label => 'enriched_site',
-           -score         => $score,
-           -feature_set   => $fset,
+           -analysis => $analysis,
+           -feature_type => $ftype,
+           -cell_type => $ctype,
+           -name => $fset_name
            );
+      $fset = $fsa->store($fset);
+  } else {
+      throw("More than one feature_set is currently not supported.")
+          if (scalar(@{$fset}) > 1);
+  }
+  $fset = $fset->[0];
   
-      push @pf, $pf;
+  my $dset = $dsa->fetch_all_by_FeatureSet($fset);
+  
+  my $add_dset = 1;
+  foreach my $ds (@{$dset}) {
+      foreach my $rs (@{$ds->get_ResultSets}){
+          print Dumper $rs->dbID;
+          
+          if ($rs->dbID == $self->result_set()->dbID) {
+              warn("Data_set ".$ds->dbID.
+                   " linking result_set ".$self->result_set()->dbID.
+                   " with feature_set ".$fset->dbID." already exists");
+              $add_dset=0;
+              last;
+          }
+      }
+  }
+  if ($add_dset) {
+      # add new data set
+      $dset = Bio::EnsEMBL::Funcgen::DataSet->new
+          (
+           -result_set => $self->result_set(),
+           -feature_set => $fset,
+           #-name => $fset_name
+           );
+      $dsa->store($dset);
+  }
+
+  my ($transfer, $slice);
+  if($self->query->start != 1 || $self->query->strand != 1) {
+      my $sa = $self->db->get_SliceAdaptor();
+      $slice = $sa->fetch_by_region($self->query->coord_system->name(),
+                                    $self->query->seq_region_name(),
+                                    undef, #start
+                                    undef, #end
+                                    undef, #strand
+                                    $self->query->coord_system->version());
+      $transfer = 1;
+  } else {
+      $slice = $self->query;
+  }
+
+  my $pf = $pfa->fetch_all_by_Slice_FeatureSet($slice, $fset);
+
+
+  if (@$pf) {
+
+      throw("database already contains ".scalar(@$pf)." predicted features ".
+            " of this feature_set on this slice. Not importing!");
+
+  } else {
+      my @pf;
+      foreach my $ft (@{$self->output}){
+          
+          #print Dumper $ft;
+          my ($peakid, $seqid, $start, $end, 
+              $score, # 
+              $pval, # P value for that peak
+              $avgwinscore # 
+              ) = @{$ft};
+          
+          my $pf = Bio::EnsEMBL::Funcgen::PredictedFeature->new
+              (
+               -slice         => $self->query,
+               -start         => $start,
+               -end           => $end,
+               -strand        => 1,
+               -display_label => 'enriched_site',
+               -score         => $score,
+               -feature_set   => $fset,
+               );
+          # make sure feature coords are relative to start of entire seq_region
+          if ($transfer) {
+              #warn("original pf:\t", join("\t", $pf->start, $pf->end), "\n");
+              $pf = $pf->transfer($slice);
+              #warn("remapped pf:\t", join("\t", $pf->start, $pf->end), "\n");
+          }
+
+          push(@pf, $pf);
+
+      }
+      $pfa->store(@pf);
 
   }
 
-  $pfa->store(@pf);
   return 1;
 
 }
@@ -310,6 +412,12 @@ sub result_set {
 
   return $self->{'result_set'};
 
+}
+
+sub experiment{
+  my $self = shift;
+  $self->{'experiment'} = shift if(@_);
+  return $self->{'experiment'};
 }
 
 1;
