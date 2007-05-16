@@ -80,6 +80,8 @@ sub fetch_input {
   my $genes = $self->db->get_GeneAdaptor->fetch_all_by_Slice($self->query);
   # get longest transcript; only sensible to do it for that
   foreach my $gene (@$genes) {
+    next if $gene->start < 1;
+
     my ($longest_pep_tran, $longest_pep_tran_len);
     foreach my $tran (@{$gene->get_all_Transcripts}) {
       if ($tran->translation) {
