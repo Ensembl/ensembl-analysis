@@ -88,9 +88,17 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($self->input_id, $db);
   $self->query($slice);
   
-  my @genes = @{ $slice->get_all_Genes($self->PRIMARY_LOGICNAME) }  ;
-  push @genes, @{ $slice->get_all_Genes($self->SECONDARY_LOGICNAME) }  ;
+  my @genes;
+  foreach my $logic (@{$self->LOGICNAMES}) {
+    push @genes, @{ $slice->get_all_Genes($logic) }  ;
+  }
+  print "\nGot ".scalar(@genes)." genes\n";
   $self->genes(\@genes);
+#  my @genes = @{ $slice->get_all_Genes($self->PRIMARY_LOGICNAME) }  ;
+#  print "\nGot ".scalar(@genes)." genes from primary logic_name\n";
+#  push @genes, @{ $slice->get_all_Genes($self->SECONDARY_LOGICNAME) }  ;
+#  print "Now have ".scalar(@genes)." genes in total";
+#  $self->genes(\@genes);
   
 
   return 1;
@@ -106,8 +114,7 @@ sub run {
      -query             => $self->query,
      -analysis          => $self->analysis,
      -seqfetcher        => $self->seqfetcher,
-     -primary_logic_name   => $self->PRIMARY_LOGICNAME,
-     -secondary_logic_name => $self->SECONDARY_LOGICNAME,
+     -logic_names       => $self->LOGICNAMES,
      -program           => $self->EXONERATE_PROGRAM,
      -verbose           => $self->VERBOSE,
      -genes             => $self->genes,
@@ -211,8 +218,7 @@ sub read_and_check_config {
  
   my $logic = $self->analysis->logic_name;
 
-  foreach my $var (qw(PRIMARY_LOGICNAME
-                      SECONDARY_LOGICNAME
+  foreach my $var (qw(LOGICNAMES
                       DB_NAME
                       SEQFETCHER_DIR
                       SEQFETCHER_OBJECT)) {
@@ -269,23 +275,13 @@ sub genes {
 # CONFIG VARS
 ################
 
-sub PRIMARY_LOGICNAME{
+sub LOGICNAMES {
   my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{_first_logicname} = $value;
-  }
-  return $self->{_first_logicname};
-}
 
-
-sub SECONDARY_LOGICNAME{
-  my ($self,$value) = @_;
-  
   if (defined $value) {
-    $self->{_second_logicname} = $value;
+    $self->{_logicnames} = $value;
   }
-  return $self->{_second_logicname};
+  return $self->{_logicnames};
 }
 
 
