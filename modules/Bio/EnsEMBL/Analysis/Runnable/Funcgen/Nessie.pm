@@ -1,28 +1,27 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle
+# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie
 #
 # Copyright (c) 2007 Ensembl
 #
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle
+Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie
 
 =head1 SYNOPSIS
 
-  my $chipotle = Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle->new
+  my $nessie = Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle->new
   (
     -analysis => $analysis,
     -query => 'slice',
-    -program => 'chipotle.pl',
+    -program => 'nessie',
   );
-  $chipotle->run;
-  my @predicted_features = @{$chipotle->output};
+  $nessie->run;
+  my @predicted_features = @{$nessie->output};
 
 =head1 DESCRIPTION
 
-Chipotle expects to run the program ChIPOTle (PMID: 16277752) and 
-predicts features which can be stored in the predicted_feature table 
-in the eFG database
+Nessie expects to run the program Nessie and predicts features which 
+can be stored in the predicted_feature table in the eFG database
 
 =head1 AUTHOR
 
@@ -35,7 +34,7 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle;
+package Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie;
 
 use strict;
 use warnings;
@@ -54,9 +53,9 @@ use vars qw(@ISA);
 =head2 new
 
   Arg         : 
-  Usage       : my $runnable = Bio::EnsEMBL::Analysis::Runnable::Chipotle->new()
+  Usage       : my $runnable = Bio::EnsEMBL::Analysis::Runnable::Nessie->new()
   Description : Instantiates new Chipotle runnable
-  Returns     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle object
+  Returns     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie object
   Exceptions  : none
 
 =cut
@@ -79,7 +78,7 @@ sub new {
     ##################
     #SETTING DEFAULTS#
     ##################
-    $self->program('chipotle.pl') if (!$self->program);
+    $self->program('nessie') if (!$self->program);
     ##################
 
     #print Dumper $self;
@@ -104,32 +103,43 @@ sub new {
 sub run {
     my ($self, $dir) = @_;
   
-    my $alpha = 0.05;
-    if ($self->options =~ m/--alpha (\d+\.\d+)/) {
-        $alpha = $1;
-    }
     #print Dumper $self->options;
 
     throw("Can't run ".$self." without a probe features") 
         unless($self->probe_features);
-    
+ 
+    #print Dumper $self->probe_features;
+   
     $self->workdir($dir) if($dir);
     $self->checkdir();
     #print "work dir checked\n";
-    my $infile;
-    $infile = $self->write_infile();
-    (my $resultsfile = $infile) =~ s/\.dat$/\_$alpha\_peaks\.tsv/;
-    $self->resultsfile($resultsfile);
-    #warn("infile:\t".$infile);
-    #warn("resultsfile:\t".$resultsfile);
+
+    my $infile = $self->infile();
+    print Dumper $infile;
     
-    $self->files_to_delete($infile);
-    #$self->files_to_delete($self->resultsfile);
+    foreach my $rset_name (sort keys %{$self->probe_features})
+    {
+
+        (my $datafile = $infile) =~ s,\.dat,.$rset_name.dat,;
+        @{$self->datafiles($self->write_infile($datafile))};
+
+    }
+    print Dumper $self->datafiles;
+    $self->write_filelist();
+
+#    (my $resultsfile = $infile) =~ s/\.dat$/\_$alpha\_peaks\.tsv/;
+#    $self->resultsfile($resultsfile);
+#    #warn("infile:\t".$infile);
+#    #warn("resultsfile:\t".$resultsfile);
+#    
+    $self->files_to_delete($self->infile);
+    map {$self->files_to_delete($_)} @{$self->datafiles};
+#    #$self->files_to_delete($self->resultsfile);
     $self->run_analysis();
-    #print "Parsing results ... ";
-    $self->parse_results;
-    #print "done!\n";
-    $self->delete_files;
+#    #print "Parsing results ... ";
+#    $self->parse_results;
+#    #print "done!\n";
+#    $self->delete_files;
     return 1;
 }
 
@@ -154,36 +164,36 @@ sub run_analysis {
     throw($program." is not executable Chipotle::run_analysis ") 
         unless($program && -x $program);
     
-    my $command = $self->program . " --infile " . $self->infile() . $self->options;
+    my $command = $self->program.' --data="'.$self->infile().'" '.$self->options;
     
     warn("Running analysis " . $command . "\n");
     
-    eval { system($command) };
-    throw("FAILED to run $command: ", $@) if ($@);
-    
-    # Check if adjustments via --transform need to be applied
-    
-    (my $logfile = $self->resultsfile()) =~ s/_peaks.tsv/_STDOUT.txt/;
-    open(LOG, "$logfile")
-        or throw("Unable to open logfile $logfile.");
-    my $transform;
-    while (<LOG>) {
-        print;
-        next until (/^Re-run chipotle using \'(--transform -?\d+\.\d+)\'/);
-        $transform = $1;
-        #print "transform: ", $transform, "\n";
-    }
-    close LOG;
-
-    if (defined $transform) {
-        $command .= " $transform";
-        warn("Re-running analysis " . $command . "\n");
-        
-        eval { system($command) };
-        if ($@) {
-            throw("FAILED to run ".$command);
-        }
-    }
+#    eval { system($command) };
+#    throw("FAILED to run $command: ", $@) if ($@);
+#    
+#    # Check if adjustments via --transform need to be applied
+#    
+#    (my $logfile = $self->resultsfile()) =~ s/_peaks.tsv/_STDOUT.txt/;
+#    open(LOG, "$logfile")
+#        or throw("Unable to open logfile $logfile.");
+#    my $transform;
+#    while (<LOG>) {
+#        print;
+#        next until (/^Re-run chipotle using \'(--transform -?\d+\.\d+)\'/);
+#        $transform = $1;
+#        #print "transform: ", $transform, "\n";
+#    }
+#    close LOG;
+#
+#    if (defined $transform) {
+#        $command .= " $transform";
+#        warn("Re-running analysis " . $command . "\n");
+#        
+#        eval { system($command) };
+#        if ($@) {
+#            throw("FAILED to run ".$command);
+#        }
+#    }
 }
 
 =head2 write_infile
@@ -208,13 +218,14 @@ sub write_infile {
     open(F, ">".$filename)
         or throw("Can't open file $filename.");
 
-    #print Dumper $self->probe_features;
-
-    foreach (values %{$self->probe_features}) {
-        foreach my $ft (@$_) {
+    foreach (keys %{$self->probe_features}) {
+        next unless ($filename =~ m/$_/);
+        foreach my $ft (@{$self->probe_features->{$_}}) {
             print F join("\t", @$ft), "\n";
         }
+        last;
     }
+
     close F;
 
     return $filename;
@@ -242,10 +253,66 @@ sub infile{
     $self->{'infile'} = $filename;
   }
   if(!$self->{'infile'}){
-    $self->{'infile'} = $self->create_filename('chipotle', 'dat');
+    $self->{'infile'} = $self->create_filename('nessie', 'dat');
   }
 
   return $self->{'infile'};
+
+}
+
+=head2 datafiles
+
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+  Arg [2]     : filename (string)
+  Description : will hold/add a list of filename
+  Returntype  : listref of filenames
+  Exceptions  : none
+  Example     : 
+
+=cut
+
+
+sub datafiles{
+
+  my ($self, $filename) = @_;
+
+  if(! $self->{'datafiles'}){
+      $self->{'datafiles'} = [];
+  }
+
+  if($filename){
+      push @{$self->{'datafiles'}}, $filename;
+  }
+
+  return \@{$self->{'datafiles'}};
+
+}
+
+=head2 write_filelist
+
+    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+    Description : writes the nessie specific wrapper file containing a 
+                  list of replicate data file names
+    Returntype  : none
+    Exceptions  : 
+    Example     : 
+
+=cut
+
+sub write_filelist {
+
+    my ($self) = shift;
+
+    throw("No infile found") if (! $self->infile());
+    
+    open(F, ">".$self->infile())
+        or throw("Can't open file $self->infile.");
+
+    foreach my $f (@{$self->datafiles}) {
+        print F $f, "\n";
+    }
+
+    close F;
 
 }
 
