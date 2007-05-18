@@ -76,18 +76,6 @@ sub min_coverage{
   return $self->{'min_coverage'};
 }
 
-sub pm_filters{
-  my ($self, $arg) = @_;
-  
-  if(!$self->{'_pm_filters'}){
-    $self->{'_pm_filters'} = [];
-  }
-  
-  if($arg){
-    push(@{$self->{'_pm_filters'}}, $arg);
-  }
-  return $self->{'_pm_filters'};
-}
 
 sub make_protein_length_hash{
   my ($self) = @_;
@@ -114,58 +102,88 @@ sub run_analysis{
   system($command) == 0 or throw("FAILED to run ".$command);
 }
 
-
-sub parse_results{
+sub parse_results {
   my ($self) = @_;
 
-  my $command = "sort -k6,6 -k3,3n " . $self->resultsfile;
-  open(PM, "$command |") or throw("Runnable::Pmatch::parse_results error sorting ".
-                                  "the results file" . $self->resultsfile." $!");
-  my ($current_pmf, $prot_id);
-  while(<PM>){
-    #print;
+  my (%prot_ids, @all_merged_hits);
+
+  open RES, $self->resultsfile or $self->throw("Could not open " . $self->resultsfile . " results file\n");
+  while(<RES>) {
     my @cols = split;
-    if(!$prot_id || $cols[5] ne $prot_id){
-      $self->pm_filters($current_pmf) if($current_pmf);
-   
-      $current_pmf = Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF
-        ->new(
-              -plengths => $self->protein_lengths,
-              -maxintronlen => $self->max_intron_length,
-              -min_coverage => $self->min_coverage,
-             );
-      $prot_id = $cols[5];
-      $current_pmf->make_coord_pair($_);
-    }else{
-      $current_pmf->make_coord_pair($_);
+    $prot_ids{$cols[5]}++;
+  }
+  close(RES);
+
+  my @idlist = sort keys %prot_ids;
+  my @lists;
+  # chop list into group ensuring that the total number of features
+  # in each group does not exceed 1M
+  foreach my $id (sort keys %prot_ids) {
+    my $size = $prot_ids{$id};
+    if (not @lists or $lists[-1]->{size} + $size > 1000000) {
+      push @lists, {
+        size => 0,
+        ids  => [],
+      };
+    }
+    push @{$lists[-1]->{ids}}, $id;
+    $lists[-1]->{size} += $size;
+  }
+
+  foreach my $list (@lists) {
+    my %these_ids = map { $_ => 1 } @{$list->{ids}};
+    my (%hits);
+
+    open RES, $self->resultsfile or $self->throw("Could not re-open " . $self->resultsfile . " results file\n");
+    while(<RES>) {
+      my @cols = split;
+      if (exists $these_ids{$cols[5]}) {
+        push @{$hits{$cols[5]}}, [$cols[2], $_];
+      }
+    }
+    close(RES);
+
+    foreach my $id (keys %hits) {
+      my $pmf = new Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF(
+                                                                     -plengths => $self->protein_lengths,
+                                                                     -maxintronlen => $self->max_intron_length,
+                                                                     -min_coverage => $self->min_coverage,
+                                                                     );
+      foreach my $el (sort { $a->[0] <=> $b->[0] } @{$hits{$id}}) {
+        $_ = $el->[1];
+        $pmf->make_coord_pair($_);
+      }
+      my @merged_hits = @{$pmf->merge_hits};
+
+      push @all_merged_hits, @merged_hits;
     }
   }
-  $self->pm_filters($current_pmf) if($current_pmf);
-  close(PM) or throw("Runnable::Pmatch::parse_results error closing".
-                     "the results file" . $self->resultsfile." $! ");
-  my @filters = @{$self->pm_filters};
+
   my $ff = $self->feature_factory;
-  my %unique;
-  foreach my $f(@filters){
-    my @hits = @{$f->merge_hits};
-    #print "Have ".@hits." hits\n";
-    foreach my $hit(@hits){
-      my $start = $hit->qstart;
-      my $end = $hit->qend;
-      if($start > $end){
-        my $temp = $start;
-        $start = $end;
-        $end = $temp;
-      }
-      my $hstart = 1;
-      my $hlength = ($end - $start +1)/3;
-      my $hend = sprintf("%.0f", $hlength);
-      my $fp = $ff->create_feature_pair($start, $end, $hit->strand,
-                                        $hit->coverage, $hstart, $hend,
-                                        1, $hit->target, 100, 0, $hit->query, 
-                                        $self->query, $self->analysis);
-      my $paf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [$fp]);
-      $self->output([$paf]);
-    } 
+
+  foreach my $hit (@all_merged_hits) {
+    my $start = $hit->qstart;
+    my $end = $hit->qend;
+    if($start > $end){
+      ($start, $end) = ($end, $start);
+    }
+    my $hstart = 1;
+    my $hlength = ($end - $start +1)/3;
+    my $hend = sprintf("%.0f", $hlength);
+    my $fp = $ff->create_feature_pair($start, 
+                                      $end, 
+                                      $hit->strand,
+                                      $hit->coverage, 
+                                      $hstart, 
+                                      $hend,
+                                      1, 
+                                      $hit->target, 
+                                      100, 
+                                      0, 
+                                      $hit->query, 
+                                      $self->query, 
+                                      $self->analysis);
+    my $paf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [$fp]);
+    $self->output([$paf]);
   }
 }
