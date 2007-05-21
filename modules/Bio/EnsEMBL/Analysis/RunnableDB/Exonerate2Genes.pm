@@ -45,7 +45,6 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
 
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_db_adaptor_by_string) ;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
@@ -386,7 +385,7 @@ sub get_output_db {
       $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$self->OUTDB},
                                                 -dnadb => $self->db);
     }else{
-      $outdb = get_db_adaptor_by_string($self->OUTDB);
+      $outdb = $self->get_dbadaptor($self->OUTDB);
     }
   } else {
     $outdb = $self->db;
@@ -472,12 +471,6 @@ sub read_and_check_config {
         if not defined $self->$config_var;
   }
   
-  
-  
-  # output db does not have to be defined, but if it is, it should be a hash
-  throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.")
-      if $self->OUTDB and ref($self->OUTDB) ne "HASH";
-
   throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
       if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
 
