@@ -16,6 +16,7 @@ my (
     $index_dir,
     $index_file,
     $guess_gene_names,
+    $all_gene_names,
 );
 
 $dbuser = 'ensro';
@@ -29,7 +30,8 @@ $dbport = 3306;
             'dbpass=s' => \$dbpass,
             'indexdir=s' => \$index_dir,
             'indexfile=s' => \$index_file,
-            'guessgene=s' => \$guess_gene_names,
+            'guessgenenames=s' => \$guess_gene_names,
+            'allgenenames=s' => \$all_gene_names,
             );
 
 my $qy_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
@@ -122,7 +124,7 @@ foreach my $sr_id (keys %genes_by_slice) {
       printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", 
              $g->stable_id,
              $t->stable_id,
-             "IMGT/LIGM-DB",
+             "IMGT/LIGM_DB",
              $f->hseqname,
              $f->hseqname,
              "", 
@@ -202,7 +204,7 @@ foreach my $gid (sort {
     if ($guess_gene_names or
         scalar(@{$gene_to_name{$gid}}) == 1) {
       push @names, $gene_to_name{$gid}->[0]->{name};
-    } else {
+    } elsif ($all_gene_names) {
       foreach my $nh (@{$gene_to_name{$gid}}) {
         push @names, sprintf("%s(%d,%.1f%s)", 
                              $nh->{name}, 
@@ -218,7 +220,7 @@ foreach my $gid (sort {
       printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", 
              $g->stable_id,
              $t->stable_id,
-             "IMGT/GENE-DB",
+             "IMGT/GENE_DB",
              join(":", @names),
              join(":", @names),                
              $desc ? join(" ", $classes{$desc}, $biotypes{$t->biotype}) : "",
