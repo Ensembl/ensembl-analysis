@@ -9,16 +9,16 @@
 
 =head1 SYNOPSIS
 
-  use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::Nessie;
   
-  use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle qw(CONFIG);
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::Nessie qw(CONFIG);
 
 =head1 DESCRIPTION
 
 This is a module needed to provide configuration for the
 Chipotle RunnableDBs.
 
-CHIPOTLE_CONFIG is an hash of hashes which contains analysis specific
+NESSIE_CONFIG is an hash of hashes which contains analysis specific
 settings and is keyed on logic_name
 
 =head1 AUTHOR

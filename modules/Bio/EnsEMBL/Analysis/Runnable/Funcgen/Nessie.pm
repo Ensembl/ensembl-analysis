@@ -9,14 +9,14 @@ Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie
 
 =head1 SYNOPSIS
 
-  my $nessie = Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle->new
+  my $nessie = Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie->new
   (
     -analysis => $analysis,
     -query => 'slice',
     -program => 'nessie',
   );
   $nessie->run;
-  my @predicted_features = @{$nessie->output};
+  my @annotated_features = @{$nessie->output};
 
 =head1 DESCRIPTION
 
@@ -44,108 +44,14 @@ use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::Funcgen;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use vars qw(@ISA);
 
+use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Funcgen);
 
 
-=head2 new
-
-  Arg         : 
-  Usage       : my $runnable = Bio::EnsEMBL::Analysis::Runnable::Nessie->new()
-  Description : Instantiates new Chipotle runnable
-  Returns     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie object
-  Exceptions  : none
-
-=cut
-
-sub new {
-
-    my ($class,@args) = @_;
-    #print Dumper @args;
-    my $self = $class->SUPER::new(@args);
-    #print Dumper $self;
-
-    my ($features, $options) = 
-        rearrange(['FEATURES', 'OPTIONS'], @args);
-    $self->probe_features($features);
-    #print Dumper($self->features);
-    #print Dumper($options);
-    $self->options($options);
-    #print Dumper($self->options);
-
-    ##################
-    #SETTING DEFAULTS#
-    ##################
-    $self->program('nessie') if (!$self->program);
-    ##################
-
-    #print Dumper $self;
-    return $self;
-
-}
-
-=head2 run
-
-    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle
-    Arg [2]     : string, directory
-    Description : Class specific run method. This checks the directory specifed
-    to run it, write the data to file (tab-delimited), marks the query infile 
-    and results file for deletion, runs the analysis, parses the results and 
-    deletes any files
-    Returntype  : 1
-    Exceptions  : throws if no query sequence is specified
-    Example     : 
-
-=cut
-
-sub run {
-    my ($self, $dir) = @_;
-  
-    #print Dumper $self->options;
-
-    throw("Can't run ".$self." without a probe features") 
-        unless($self->probe_features);
- 
-    #print Dumper $self->probe_features;
-   
-    $self->workdir($dir) if($dir);
-    $self->checkdir();
-    #print "work dir checked\n";
-
-    my $infile = $self->infile();
-    print Dumper $infile;
-    
-    foreach my $rset_name (sort keys %{$self->probe_features})
-    {
-
-        (my $datafile = $infile) =~ s,\.dat,.$rset_name.dat,;
-        @{$self->datafiles($self->write_infile($datafile))};
-
-    }
-    print Dumper $self->datafiles;
-    $self->write_filelist();
-
-#    (my $resultsfile = $infile) =~ s/\.dat$/\_$alpha\_peaks\.tsv/;
-#    $self->resultsfile($resultsfile);
-#    #warn("infile:\t".$infile);
-#    #warn("resultsfile:\t".$resultsfile);
-#    
-    $self->files_to_delete($self->infile);
-    map {$self->files_to_delete($_)} @{$self->datafiles};
-#    #$self->files_to_delete($self->resultsfile);
-    $self->run_analysis();
-#    #print "Parsing results ... ";
-#    $self->parse_results;
-#    #print "done!\n";
-#    $self->delete_files;
-    return 1;
-}
-
 =head2 run_analysis
 
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
   Arg [2]     : string, program name
   Usage       : 
   Description : 
@@ -161,44 +67,38 @@ sub run_analysis {
     if(!$program){
         $program = $self->program;
     }
-    throw($program." is not executable Chipotle::run_analysis ") 
+    throw($program." is not executable Nessie::run_analysis ") 
         unless($program && -x $program);
     
-    my $command = $self->program.' --data="'.$self->infile().'" '.$self->options;
+    (my $outfile = $self->infile()) =~ s/\.dat$/.out/;
+    my @fields = (0..2,4);
+    $self->output_fields(\@fields);
+
+    (my $resultsfile = $self->infile()) =~ s/\.dat$/_peaks.out/;
+    
+    my $command = $self->program.' --data="'.$self->infile().'" '.
+        $self->analysis->parameters. ' > '.$outfile;
     
     warn("Running analysis " . $command . "\n");
+    eval { system($command) };
+    throw("FAILED to run $command: ", $@) if ($@);
+
+    my $parser = 'oligo_peaks.pl --gap 500 --sang --split 2500 '.
+        '--bridge --mindist 500 --minpost 0.99 --autonorm -l '.
+        $outfile.' '.$self->infile.' > '.$resultsfile; 
+        
+    warn("Running parser " . $parser . "\n");
+    eval { system($parser) };
+    throw("FAILED to run $parser: ", $@) if ($@);
+
+    throw("No peak resultfile.") if (! -e $resultsfile);
+    $self->resultsfile($resultsfile);
     
-#    eval { system($command) };
-#    throw("FAILED to run $command: ", $@) if ($@);
-#    
-#    # Check if adjustments via --transform need to be applied
-#    
-#    (my $logfile = $self->resultsfile()) =~ s/_peaks.tsv/_STDOUT.txt/;
-#    open(LOG, "$logfile")
-#        or throw("Unable to open logfile $logfile.");
-#    my $transform;
-#    while (<LOG>) {
-#        print;
-#        next until (/^Re-run chipotle using \'(--transform -?\d+\.\d+)\'/);
-#        $transform = $1;
-#        #print "transform: ", $transform, "\n";
-#    }
-#    close LOG;
-#
-#    if (defined $transform) {
-#        $command .= " $transform";
-#        warn("Re-running analysis " . $command . "\n");
-#        
-#        eval { system($command) };
-#        if ($@) {
-#            throw("FAILED to run ".$command);
-#        }
-#    }
 }
 
 =head2 write_infile
 
-    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
     Arg [2]     : filename
     Description : 
     Returntype  : 
@@ -214,19 +114,34 @@ sub write_infile {
     if (! $filename) {
         $filename = $self->infile();
     }
-    
-    open(F, ">".$filename)
-        or throw("Can't open file $filename.");
 
-    foreach (keys %{$self->probe_features}) {
-        next unless ($filename =~ m/$_/);
-        foreach my $ft (@{$self->probe_features->{$_}}) {
-            print F join("\t", @$ft), "\n";
+
+    foreach my $rset_name (sort keys %{$self->probe_features})
+    {
+
+        (my $datafile = $filename) =~ s,\.dat,.$rset_name.dat,;
+
+        open(F, ">".$datafile)
+            or throw("Can't open file $datafile.");
+
+        foreach (keys %{$self->probe_features}) {
+            next unless ($datafile =~ m/$_/);
+            foreach my $ft (@{$self->probe_features->{$_}}) {
+                #print join("\t", @$ft), "\n";
+                print F join("\t", @$ft), "\n";
+            }
+            last;
         }
-        last;
-    }
+        
+        close F;
 
-    close F;
+        $self->datafiles($datafile);
+
+    }
+    #print Dumper $self->datafiles;
+
+    $self->write_filelist();
+    map {$self->files_to_delete($_)} @{$self->datafiles};
 
     return $filename;
 
@@ -234,7 +149,7 @@ sub write_infile {
 
 =head2 infile
 
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
   Arg [2]     : filename (string)
   Description : will hold a given filename or if one is requested but none
   defined it will use the create_filename method to create a filename
@@ -262,7 +177,7 @@ sub infile{
 
 =head2 datafiles
 
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
   Arg [2]     : filename (string)
   Description : will hold/add a list of filename
   Returntype  : listref of filenames
@@ -290,7 +205,7 @@ sub datafiles{
 
 =head2 write_filelist
 
-    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
     Description : writes the nessie specific wrapper file containing a 
                   list of replicate data file names
     Returntype  : none
@@ -313,50 +228,6 @@ sub write_filelist {
     }
 
     close F;
-
-}
-
-=head2 parse_results
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
-  Arg [2]     : filename (string)
-  Decription  : open and parse resultsfile
-  Returntype  : none
-  Exceptions  : throws 
-  Example     : 
-
-=cut
-
-sub parse_results{
-  my ($self, $resultsfile) = @_;
-
-  if(!$resultsfile){
-      $resultsfile = $self->resultsfile;
-  }
-
-  throw("parse_results: results file ".$resultsfile." does not exist.")
-      if (! -e $resultsfile);
-  
-  throw("parse_results: can't open file ".$resultsfile.".")
-      unless (open(F, $resultsfile));
-
-  my $ff = $self->feature_factory;
-  my @output = ();
-
-  while (<F>) {
-
-      chomp;
-      my @ft = split;
-      push(@output, \@ft);
-
-  }
-
-  $self->output(\@output);
-  #print Dumper $self->output();
-
-  throw("parse_results: can't close file ".$resultsfile.".")
-      unless (close(F));
-
 
 }
 

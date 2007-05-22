@@ -56,401 +56,161 @@ use vars qw(@ISA);
 
 =cut
 
-
-
 sub new{
-  my ($class,@args) = @_;
-  my $self = bless {},$class;
-  my ($db, $input_id, $experiment, $analysis) = rearrange
-    (['DB', 'INPUT_ID', 'EXPERIMENT', 'ANALYSIS'], @args);
-  #print Dumper ($db, $input_id, $experiment, $analysis);
-  if(!$db || !$analysis || !$experiment || !$input_id){
-    throw("Must instantiate RunnableDB with a dbadaptor".
-          ", an experiment, an analysis object".
-          ", and an input_id.");
-  }
 
-  $self->db($db);
-  $self->input_id($input_id);
-  $self->experiment($experiment);
-  $self->analysis($analysis);
+    print "Funcgen::new\n";
+    
+    my ($class,@args) = @_;
+    my $self = $class->SUPER::new(@args);
+    
+    my ($experiment, $result_set_analysis) = rearrange
+        ( ['EXPERIMENT', 'RESULT_SET_ANALYSIS'], @args);
+    #print Dumper ($experiment, $result_set_analysis);
+    
+    throw("Must instantiate RunnableDB with an experiment name and ".
+          "result set analysis.") if (!$experiment || !$result_set_analysis);
 
-  return $self;
-}
+    my $ea = $self->db->get_ExperimentAdaptor();
+    my $e = $ea->fetch_by_name($experiment);
+    throw("Can't fetch experiment with name ".$experiment) if (!$e);
+    $self->experiment($e);
 
-=head2 fetch_input
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::LOGIC_NAME
-  Description : fetch data out of database and create runnable
-  Returns     : 1
-  Exceptions  : none
-  Example     : 
-
-=cut
-
-sub fetch_input {
-    my ($self) = @_;
-    #print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::fetch_input\n";
+    my $aa = $self->db->get_AnalysisAdaptor();
+    my $a = $aa->fetch_by_logic_name($result_set_analysis);
+    throw("Can't fetch result set analysis ".$result_set_analysis) if (!$a);
+    $self->result_set_analysis($a);
 
     my $sa = $self->db->get_SliceAdaptor();
     #warn( Dumper($self->input_id) );
     my $slice = $sa->fetch_by_name($self->input_id);
-    #warn( Dumper($sa, $slice) );
-
+    throw("Can't fetch slice ".$self->input_id) if (!$slice);
     $self->query($slice);
-    #warn("write file: ", Dumper $self->db);
 
-    my $ea = $self->db->get_ExperimentAdaptor();
-    my $e = $ea->fetch_by_name($self->experiment);
-    
-    my $analysis = $self->EFG_EXPERIMENT->{$self->experiment}->{ANALYSIS};
-    my $aa = $self->db->get_AnalysisAdaptor();
-    my $a = $aa->fetch_by_logic_name($analysis);
-
-    my $rsa = $self->db->get_ResultSetAdaptor();
-    my $rset = $rsa->fetch_by_name_Analysis($self->experiment."_IMPORT", $a);
-    #print scalar(@$rsets);
-    $self->result_sets($rset);
-    
-    # maybe good enough for now, but might cause trouble in the case of 
-    # result set duplication 
-    #throw("More than one resultset for Experiment_Analysis!") 
-    #    if (scalar(@{$rsets}) > 1);
-    #my $rset = $rsets->[0];
-    #print Dumper $rset;
-
-    my $pfa = $self->db->get_ProbeFeatureAdaptor();
-
-    my @features = ();
-
-    #print "result_set dbID: ", $rset->dbID(), "\n";
-        
-    #warn($self->query()->display_id());
-    
-    my $prb_ft = $pfa->fetch_all_by_Slice_ExperimentalChips
-        ( $self->query(), $rset->get_ExperimentalChips() );
-    #print Dumper $prb_ft;
-    #print "Getting list of features ";
-    foreach my $ft (@{$prb_ft}) {
-        next if (! defined $ft->get_result_by_ResultSet($rset));
-        #print join(' ', $ft->dbID(), $ft->start(), $ft->end()), "\n";
-        push @features, [ $ft->probe->get_probename(), 
-                          $ft->slice()->seq_region_name(),
-                          $ft->start(),
-                          $ft->end(), 
-                          $ft->get_result_by_ResultSet($rset) ];
-        #print ".";
-    }
-    #print "done!\n";
-    
-    throw("EXIT: No probe results features for result set!") if (! @features);
-    warn("No. of features:\t", scalar(@features));
-
-    my %features = ();
-    $features{$rset->name()} = \@features;
-    $self->probe_features(\%features);
-
-    # set program options defined in Config
-    my %parameters = %{$self->parameters_hash($self->OPTIONS)};
-    #print Dumper %parameters;
-
-    if(!$self->analysis->program){
-        $self->analysis->program($self->PROGRAM);
-    }
-    if(!$self->analysis->program_file){
-        $self->analysis->program_file($self->PROGRAM);
-    }
-    
-    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.$self->LOGIC_NAME;
-    $runnable = $runnable->new
-        (
-         -query => $self->query,
-         -program => $self->analysis->program_file,
-         -analysis => $self->analysis,
-         -features => $self->probe_features,
-         %parameters,
-         );
-    
-    $self->runnable($runnable);
-
-    return 1;
-
+    #print Dumper ($self);
+    return $self;
 }
 
-=head2 write_output
+### 
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle
-  Function  : set analysis and slice on each feature
-  Returntype: 1
-  Exceptions: none
-  Example   : 
-
-=cut
-
-sub write_output{
-
-  my ($self) = @_;
-
-  # needed adaptors
-  my $pfa = $self->db->get_PredictedFeatureAdaptor();
-  my $dsa = $self->db->get_DataSetAdaptor();
-  my $fsa = $self->db->get_FeatureSetAdaptor();
-  my $cta = $self->db->get_CellTypeAdaptor();
-  my $fta = $self->db->get_FeatureTypeAdaptor();
-  my $aa = $self->db->get_AnalysisAdaptor();
-
-  # stored results_set from fetch_input
-  my $rsets = $self->result_sets();
-  
-  #print Dumper $self->analysis();
-  
-  my $logic_name = $self->analysis->logic_name;
-  if (! $logic_name) {
-      $logic_name = $self->LOGIC_NAME;
-  }
-  #print Dumper($logic_name);  
-
-  my $analysis = $aa->fetch_by_logic_name($logic_name);
-  ### must implement check if analysis with logic_name also has same options
-  if (! defined $analysis) {
-
-      # add analysis
-      $analysis = Bio::EnsEMBL::Analysis->new
-          (
-           -logic_name      => $logic_name,
-           #-db              => 'NULL',
-           #-db_version      => 'NULL',
-           #-db_file         => 'NULL',
-           #-program         => 'NULL',
-           #-program_version => 'NULL',
-           -program_file    => $self->analysis->program_file,
-           #-gff_source      => 'NULL',
-           #-gff_feature     => 'NULL',
-           -module          => $logic_name,
-           #-module_version  => 'NULL',
-           -parameters      => $self->OPTIONS,
-           #-created         => 'NULL',
-           -description     => $self->analysis->description,
-           -display_label   => $self->analysis->display_label,
-           -displayable     => 1,
-           );
-      $analysis = $aa->store($analysis);
-  }
-  #print Dumper($analysis);
-  
-  # get userdefined experiment meta data
-  my $e_conf = $self->EFG_EXPERIMENT->{$self->experiment};
-
-  my $ftype = $fta->fetch_by_name($e_conf->{FT_NAME});
-  if (! defined $ftype) {
-      
-      # add new feature type
-      $ftype = Bio::EnsEMBL::Funcgen::FeatureType->new
-          (
-           -name => $e_conf->{FT_NAME},
-           -class => $e_conf->{FT_CLASS},
-           -description => $e_conf->{FT_DESC}
-           );
-      $ftype = $fta->store($ftype);
-  }
-  #print Dumper($ftype);
-  
-  my $ctype = $cta->fetch_by_name($e_conf->{CT_NAME});
-  if (! defined $ctype) {
-      
-      # add new cell type
-      $ctype = Bio::EnsEMBL::Funcgen::CellType->new
-          (
-           -name => $e_conf->{CT_NAME},
-           -display_label => $e_conf->{CT_NAME},
-           -description => $e_conf->{CT_DESC}
-           );
-      $ctype = $cta->store($ctype);
-  }
-  #print Dumper($ctype);
-
-  my $fset_name = $self->LOGIC_NAME.'_'.$e_conf->{FT_NAME}.
-      '_'.$e_conf->{CT_NAME};
-  my $fset = $fsa->fetch_all_by_name($fset_name);
-  if (! @{$fset}) {
-      # add new feature set
-      $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
-          (
-           -analysis => $analysis,
-           -feature_type => $ftype,
-           -cell_type => $ctype,
-           -name => $fset_name
-           );
-      $fset = $fsa->store($fset);
-  } else {
-      throw("More than one feature_set is currently not supported.")
-          if (scalar(@{$fset}) > 1);
-  }
-  $fset = $fset->[0];
-  
-  my $dset = $dsa->fetch_all_by_FeatureSet($fset);
-  if (! @{$dset}) {
-      warn("Need to add new data set(s)!");
-      foreach my $rset (@{$self->result_sets()}) {
-
-          # add new data set
-          $dset = Bio::EnsEMBL::Funcgen::DataSet->new
-              (
-               -result_set => $rset,
-               -feature_set => $fset,
-               #-name => $fset_name
-               );
-          $dsa->store($dset);
-      }
-      
-  } else {
-
-      my $add_dset = 1;
-      foreach my $ds (@{$dset}) {
-          foreach my $rset (@{$self->result_sets()}) {
-              foreach my $rs (@{$ds->get_ResultSets}){
-              
-                  if ($rs->dbID == $rset->dbID) {
-                      warn("Data set ".$ds->dbID.
-                           " linking result_set ".$rset->dbID.
-                           " with feature_set ".$fset->dbID." already exists");
-                      $add_dset=0;
-                      last;
-                  }
-              }
-              if ($add_dset) {
-                  # add new data set
-                  $dset = Bio::EnsEMBL::Funcgen::DataSet->new
-                      (
-                       -result_set => $rset,
-                       -feature_set => $fset,
-                       #-name => $fset_name
-                       );
-                  $dsa->store($dset);
-              }
-          }
-      }
-  }
-
-  my ($transfer, $slice);
-  if($self->query->start != 1 || $self->query->strand != 1) {
-      my $sa = $self->db->get_SliceAdaptor();
-      $slice = $sa->fetch_by_region($self->query->coord_system->name(),
-                                    $self->query->seq_region_name(),
-                                    undef, #start
-                                    undef, #end
-                                    undef, #strand
-                                    $self->query->coord_system->version());
-      $transfer = 1;
-  } else {
-      $slice = $self->query;
-  }
-
-  my $pf = $pfa->fetch_all_by_Slice_FeatureSet($self->query, $fset);
-  if (@$pf) {
-
-      throw("NOT IMPORTING ".scalar(@{$self->output})." predicted features! Slice ".
-            join(':', $self->query->seq_region_name,$self->query->start,$self->query->end).
-            " already contains ".scalar(@$pf)." predicted features of feature set ".
-            $fset->dbID.".");
-
-  } else {
-      my @pf;
-      foreach my $ft (@{$self->output}){
-          
-          #print Dumper $ft;
-          my ($peakid, $seqid, $start, $end, 
-              $score, # 
-              $pval, # P value for that peak
-              $avgwinscore # 
-              ) = @{$ft};
-          
-          my $pf = Bio::EnsEMBL::Funcgen::PredictedFeature->new
-              (
-               -slice         => $self->query,
-               -start         => $start,
-               -end           => $end,
-               -strand        => 1,
-               -display_label => 'enriched_site',
-               -score         => $score,
-               -feature_set   => $fset,
-               );
-          # make sure feature coords are relative to start of entire seq_region
-          if ($transfer) {
-              #warn("original pf:\t", join("\t", $pf->start, $pf->end), "\n");
-              $pf = $pf->transfer($slice);
-              #warn("remapped pf:\t", join("\t", $pf->start, $pf->end), "\n");
-          }
-
-          push(@pf, $pf);
-
-      }
-      $pfa->store(@pf);
-
-  }
-
-  return 1;
-
+sub experiment {
+    my $self = shift;
+    $self->{'experiment'} = shift if(@_);
+    return $self->{'experiment'};
 }
 
-=head2 probe_features
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Chipotle
-  Arg [2]     : arrayref of probe features
-  Description : container for probe features
-  Returntype  : hashref
-  Exceptions  : throws if no probe feature container is defined
-  Example     : 
-
-=cut
-
-sub probe_features {
-
-  my ($self, $features) = @_;
-
-  if($features){
-      $self->{'probe_features'} = $features;
-  }
-
-  throw("No probe features available in Runnable.") 
-      if (!$self->{'probe_features'});
-
-  return $self->{'probe_features'};
-
+sub result_set_analysis {
+    my $self = shift;
+    $self->{'result_set_analysis'} = shift if(@_);
+    return $self->{'result_set_analysis'};
 }
-
-=head2 result_sets
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Chipotle
-  Arg [2]     : arrayref of result_set objects
-  Description : container for result_sets
-  Returntype  : arrayref
-  Exceptions  : throws if no result_set container is defined
-  Example     : 
-
-=cut
 
 sub result_sets {
+    my ($self, $rsets) = @_;
+    $self->{'result_sets'} = $rsets if ($rsets);
+    throw("No result_set in RunnableDB.") 
+        if (!$self->{'result_sets'});
+    return $self->{'result_sets'};
+}
 
-  my ($self, $rsets) = @_;
+sub feature_type {
+    my $self = shift;
+    $self->{'feature_type'} = shift if(@_);
+    return $self->{'feature_type'};
+}
 
-  if($rsets){
-      $self->{'result_sets'} = $rsets;
-  }
+sub cell_type {
+    my $self = shift;
+    $self->{'cell_type'} = shift if(@_);
+    return $self->{'cell_type'};
+}
 
-  throw("No result_set in RunnableDB.") if (!$self->{'result_sets'});
+################################################################################
+### Declare and set up config variables
+################################################################################
 
-  return $self->{'result_sets'};
+sub read_and_check_config {
+
+    #print "FunGen::read_and_check_config\n";
+
+    my ($self, $config) = @_;
+
+    $self->SUPER::read_and_check_config($config);
+
+    ### check if analysis with this logic_name already exists in the database
+    ### and has same program version and parameters
+ 
+    my $aa = $self->db->get_AnalysisAdaptor();
+    my $logic_name = $self->analysis->logic_name();
+    my $analysis = $aa->fetch_by_logic_name($logic_name);
+    if (defined $analysis) {
+        print "Analysis with logic_name '$logic_name' already exists!\n";
+     
+        my @options = split(/\s+--?/, $self->PARAMETERS);
+        my @options1 = split(/\s+--?/, $analysis->parameters);
+        #print Dumper(@options, @options1);
+
+        my %seen;
+        foreach my $o (@options, @options1) {
+            next if ($o =~ m/^$/ || $o eq 'NULL');
+            my ($k, $v) = split /[= ]/, $o;
+            $v =~ s/[\"\']//g;
+            $seen{$k}{$v}++;
+        }
+        #print Dumper %seen;
+        
+      CHECK:
+        foreach my $k (keys %seen) {
+            foreach my $v (keys %{$seen{$k}}) {
+                if ($seen{$k}{$v} < 2) {
+                    throw('Analysis with logic name \''.$logic_name.'\' already '.
+                          'exists, but has different options! Must choose different '.
+                          'logic_name for analysis.');
+                }
+            }
+        }
+    } else {
+
+        $self->analysis->parameters($self->PARAMETERS);
+        $self->analysis->program($self->PROGRAM);
+        $self->analysis->program_file($self->PROGRAM_FILE);
+        $self->analysis->program_version($self->VERSION);
+        $self->analysis->parameters($self->PARAMETERS);
+        $self->analysis->displayable(1);
+        #print Dumper $self->analysis;
+
+    }
+
+    ### check feature_type and cell_type info for experiment
+
+    my $eca = $self->db->get_ExperimentalChipAdaptor();
+    my $echips = $eca->fetch_all_by_Experiment($self->experiment());
+    
+    my (%ftype, $ftype, %ctype, $ctype);
+    foreach my $echip (@{$echips}) {
+        $ftype = $echip->feature_type();
+        throw("No feature type defined for experimental chip (unique id: ".
+              $echips->unique_id."\n") if (! defined $ftype);
+        $ftype{$ftype->dbID()}++;
+
+        $ctype = $echip->cell_type();
+        throw("No cell type defined for experimental chip (unique id: ".
+              $echips->unique_id."\n") if (! defined $ctype);
+        $ctype{$ctype->dbID()}++;
+    }
+    
+    #print Dumper %ftype;
+    throw("Experiment '".$self->experiment."' has more than one feature type")
+        if (keys(%ftype) > 1);
+    $self->feature_type($ftype);
+
+    #print Dumper %ctype;
+    throw("Experiment '".$self->experiment."' has more than one cell type")
+        if (keys(%ctype) > 1);
+    $self->cell_type($ctype);
 
 }
 
-sub experiment{
-  my $self = shift;
-  $self->{'experiment'} = shift if(@_);
-  return $self->{'experiment'};
-}
-
-### container for CONFIG parameter ###
+### container for CONFIG parameter
 
 sub PROGRAM {
   my ( $self, $value ) = @_;
@@ -466,144 +226,317 @@ sub PROGRAM {
   }
 }
 
-sub OPTIONS {
+sub PROGRAM_FILE {
   my ( $self, $value ) = @_;
 
   if ( defined $value ) {
-    $self->{'_CONFIG_OPTIONS'} = $value;
+    $self->{'_CONFIG_PROGRAM_FILE'} = $value;
   }
 
-  if ( exists( $self->{'_CONFIG_OPTIONS'} ) ) {
-    return $self->{'_CONFIG_OPTIONS'};
+  if ( exists( $self->{'_CONFIG_PROGRAM_FILE'} ) ) {
+    return $self->{'_CONFIG_PROGRAM_FILE'};
   } else {
     return undef;
   }
 }
 
-sub LOGIC_NAME {
+sub VERSION {
   my ( $self, $value ) = @_;
 
   if ( defined $value ) {
-    $self->{'_CONFIG_LOGIC_NAME'} = $value;
+    $self->{'_CONFIG_VERSION'} = $value;
   }
 
-  if ( exists( $self->{'_CONFIG_LOGIC_NAME'} ) ) {
-    return $self->{'_CONFIG_LOGIC_NAME'};
+  if ( exists( $self->{'_CONFIG_VERSION'} ) ) {
+    return $self->{'_CONFIG_VERSION'};
   } else {
     return undef;
   }
 }
 
-sub EFG_EXPERIMENT {
+sub PARAMETERS {
   my ( $self, $value ) = @_;
 
   if ( defined $value ) {
-    $self->{'_CONFIG_EFG_EXPERIMENT'} = $value;
+    $self->{'_CONFIG_PARAMETERS'} = $value;
   }
 
-  if ( exists( $self->{'_CONFIG_EFG_EXPERIMENT'} ) ) {
-    return $self->{'_CONFIG_EFG_EXPERIMENT'};
+  if ( exists( $self->{'_CONFIG_PARAMETERS'} ) ) {
+    return $self->{'_CONFIG_PARAMETERS'};
   } else {
     return undef;
   }
 }
 
-#sub EFG_ANALYSIS {
-#  my ( $self, $value ) = @_;
+sub RESULT_SET_REGEX {
+  my ( $self, $value ) = @_;
+
+  if ( defined $value ) {
+    $self->{'_CONFIG_RESULT_SET_REGEX'} = $value;
+  }
+
+  if ( exists( $self->{'_CONFIG_RESULT_SET_REGEX'} ) ) {
+    return $self->{'_CONFIG_RESULT_SET_REGEX'};
+  } else {
+    return undef;
+  }
+}
+
+################################################################################
+### end of config
+################################################################################
+
+=head2 fetch_input
+
+  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen
+  Description : fetch data out of database and create runnable
+  Returns     : 1
+  Exceptions  : none
+  Example     : 
+
+=cut
+
+sub fetch_input {
+    my ($self) = @_;
+    #print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::fetch_input\n";
+
+    #warn("write file: ", Dumper $self->db);
+
+    my $rsets = $self->fetch_ResultSets();
+    #print Dumper $rsets;
+    $self->result_sets($rsets);
+
+    my %probe_features = ();
+    foreach my $rset (@{$rsets}) {
+        #print Dumper $rset->name();
+
+        print join(" ", $rset->dbID, $rset->name), "\n";
+        
+        my $probe_features = $rset->get_ResultFeatures_by_Slice($self->query());
+        print "No. of ResultFeatures_by_Slice:\t", scalar(@$probe_features), "\n";
+
+        my @probe_features = ();
+        my $ft_cnt = 1;
+        foreach my $prb_ft (@{$probe_features}) {
+            #print join(" ", $self->query()->seq_region_name, 
+            #           @$prb_ft, $ft_cnt++), "\n";
+            push (@probe_features,
+                  [ $self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
+        }
+
+        $probe_features{$rset->name} = \@probe_features;
+
+    }
+    
+    #$self->probe_features(\%features);
+    #print Dumper $self->probe_features();
+
+    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.$self->analysis->module;
+    $runnable = $runnable->new
+        (
+         -query => $self->query,
+         -program => $self->analysis->program_file,
+         -analysis => $self->analysis,
+         -probe_features => \%probe_features,
+         );
+    
+    $self->runnable($runnable);
+
+    return 1;
+
+}
+
+#sub fetch_input_alt {
+#    my ($self) = @_;
+#    my $pfa = $self->db->get_ProbeFeatureAdaptor();
+#    my @features = ();
+#    #print "result_set dbID: ", $rset->dbID(), "\n";
+#    my $prb_ft = $pfa->fetch_all_by_Slice_ExperimentalChips
+#        ( $self->query(), $rset->get_ExperimentalChips() );
+#    #print Dumper $prb_ft;
+#    #print "Getting list of features ";
+#    foreach my $ft (@{$prb_ft}) {
+#        next if (! defined $ft->get_result_by_ResultSet($rset));
+#        #print join(' ', $ft->dbID(), $ft->start(), $ft->end()), "\n";
+#        push @features, [ $ft->probe->get_probename(), 
+#                          $ft->slice()->seq_region_name(),
+#                          $ft->start(),
+#                          $ft->end(), 
+#                          $ft->get_result_by_ResultSet($rset) ];
+#        #print ".";
+#    }
+#    #print "done!\n";
+#    
+#    throw("EXIT: No probe results features for result set!") if (! @features);
+#    warn("No. of features:\t", scalar(@features));
 #
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_EFG_ANALYSIS'} = $value;
-#  }
+#    my %features = ();
+#    $features{$rset->name()} = \@features;
+#    $self->probe_features(\%features);
 #
-#  if ( exists( $self->{'_CONFIG_EFG_ANALYSIS'} ) ) {
-#    return $self->{'_CONFIG_EFG_ANALYSIS'};
-#  } else {
-#    return undef;
-#  }
-#}
+#    # set program options defined in Config
+#    my %parameters = %{$self->parameters_hash($self->OPTIONS)};
+#    #print Dumper %parameters;
 #
-#sub EFG_FT_NAME {
-#  my ( $self, $value ) = @_;
-#
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_EFG_FT_NAME'} = $value;
-#  }
-#
-#  if ( exists( $self->{'_CONFIG_EFG_FT_NAME'} ) ) {
-#    return $self->{'_CONFIG_EFG_FT_NAME'};
-#  } else {
-#    return undef;
-#  }
-#}
-#
-#sub EFG_FT_CLASS {
-#  my ( $self, $value ) = @_;
-#
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_EFG_FT_CLASS'} = $value;
-#  }
-#
-#  if ( exists( $self->{'_CONFIG_EFG_FT_CLASS'} ) ) {
-#    return $self->{'_CONFIG_EFG_FT_CLASS'};
-#  } else {
-#    return undef;
-#  }
-#}
-#
-#sub EFG_FT_DESC {
-#  my ( $self, $value ) = @_;
-#
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_EFG_FT_DESC'} = $value;
-#  }
-#
-#  if ( exists( $self->{'_CONFIG_EFG_FT_DESC'} ) ) {
-#    return $self->{'_CONFIG_EFG_FT_DESC'};
-#  } else {
-#    return undef;
-#  }
-#}
-#
-#sub EFG_CT_NAME {
-#  my ( $self, $value ) = @_;
-#
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_EFG_CT_NAME'} = $value;
-#  }
-#
-#  if ( exists( $self->{'_CONFIG_EFG_CT_NAME'} ) ) {
-#    return $self->{'_CONFIG_EFG_CT_NAME'};
-#  } else {
-#    return undef;
-#  }
-#}
-#
-#sub EFG_CT_DESC {
-#  my ( $self, $value ) = @_;
-#
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_EFG_CT_DESC'} = $value;
-#  }
-#
-#  if ( exists( $self->{'_CONFIG_EFG_CT_DESC'} ) ) {
-#    return $self->{'_CONFIG_EFG_CT_DESC'};
-#  } else {
-#    return undef;
-#  }
+#    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.$self->LOGIC_NAME;
+#    $runnable = $runnable->new
+#        (
+#         -query => $self->query,
+#         -program => $self->analysis->program_file,
+#         -analysis => $self->analysis,
+#         -features => $self->probe_features,
+#         %parameters,
+#         );
+#    
+#    $self->runnable($runnable);
+#    return 1;
 #}
 
-#sub EFG_FS_NAME {
-#  my ( $self, $value ) = @_;
-#
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_EFG_FS_NAME'} = $value;
-#  }
-#
-#  if ( exists( $self->{'_CONFIG_EFG_FS_NAME'} ) ) {
-#    return $self->{'_CONFIG_EFG_FS_NAME'};
-#  } else {
-#    return undef;
-#  }
-#}
+=head2 write_output
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle
+  Function  : set analysis and slice on each feature
+  Returntype: 1
+  Exceptions: none
+  Example   : 
+
+=cut
+
+sub write_output{
+
+    print "RunnableDB::Funcgen::write_output\n";
+    my ($self) = @_;
+
+    my $analysis_dbID = $self->analysis()->dbID();
+    if (! defined $analysis_dbID) {
+
+        my $aa = $self->db->get_AnalysisAdaptor();
+        print "Storing new analysis '".$self->analysis->logic_name()."'\n";
+        $analysis_dbID = $aa->store($self->analysis());
+
+    }
+    
+    ### get feature_set/data_set name by determine the longest common 
+    ### substring of the result_set names
+    my @names;
+    map { push @names, $_->name } @{$self->result_sets()};
+    #print Dumper @names;
+    my %hash = (); my $i = 0;
+    while (keys(%hash) != 1) {
+        %hash = ();
+        foreach my $n (@names) {
+            $n =~ s/(_[^_]*){$i}$//;
+            #print $n, "\n";
+            $hash{$n}++;
+        }
+        $i++;
+    }
+    my $set_name = $self->analysis->logic_name.'_'.(keys(%hash))[0];
+    #print Dumper $set_name;
+    
+    ### implement check if this is a subset of the chosen replicates by 
+    ### comparing number of keys in %hash with return value from still to be implemented method
+    
+    ### feature_set
+    my $fsa = $self->db->get_FeatureSetAdaptor();
+    my $fset = $fsa->fetch_by_name($set_name);
+    if (defined $fset) {
+        
+        warn("Feature set '".$set_name."' already exists.");
+        #print Dumper $fset->name;
+
+    } else {
+    
+        $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
+            (
+             -analysis => $self->analysis,
+             -feature_type => $self->feature_type,
+             -cell_type => $self->cell_type,
+             -name => $set_name
+             );
+        #print Dumper $fset;
+        
+        $fset = $fsa->store($fset)->[0];
+    }
+    #print Dumper $fset;
+
+    ### data set
+    my $dsa = $self->db->get_DataSetAdaptor();
+    my $dsets = $dsa->fetch_all_by_FeatureSet($fset);
+    #print Dumper $dsets;
+    
+    my %rset_ids;
+    foreach my $ds (@{$dsets}) {
+        foreach my $rs (@{$ds->get_ResultSets}) {
+            $rset_ids{$rs->dbID}++;
+        }
+    }
+    
+    foreach my $rset (@{$self->result_sets()}) {
+        next if (exists $rset_ids{$rset->dbID});
+        
+        # add new data set
+        my $dset = Bio::EnsEMBL::Funcgen::DataSet->new
+            (
+             -result_set => $rset,
+             -feature_set => $fset,
+             -name => $set_name
+             );
+        $dsa->store($dset);
+        
+    }
+
+    ### predicted features
+    my ($transfer, $slice);
+    if($self->query->start != 1 || $self->query->strand != 1) {
+        my $sa = $self->db->get_SliceAdaptor();
+        $slice = $sa->fetch_by_region($self->query->coord_system->name(),
+                                      $self->query->seq_region_name(),
+                                      undef, #start
+                                      undef, #end
+                                      undef, #strand
+                                      $self->query->coord_system->version());
+        $transfer = 1;
+    } else {
+        $slice = $self->query;
+    }
+    
+    my $pfa = $self->db->get_PredictedFeatureAdaptor();
+    my $pf = $pfa->fetch_all_by_Slice_FeatureSet($self->query, $fset);
+    if (@$pf) {
+        
+        throw("NOT IMPORTING ".scalar(@{$self->output})." predicted features! Slice ".
+              join(':', $self->query->seq_region_name,$self->query->start,$self->query->end).
+              " already contains ".scalar(@$pf)." predicted features of feature set ".
+              $fset->dbID.".");
+        
+    } else {
+        my @pf;
+        foreach my $ft (@{$self->output}){
+            
+            #print Dumper $ft;
+            my ($seqid, $start, $end, $score) = @{$ft};
+            
+            my $pf = Bio::EnsEMBL::Funcgen::PredictedFeature->new
+                (
+                 -slice         => $self->query,
+                 -start         => $start,
+                 -end           => $end,
+                 -strand        => 0,
+                 -score         => $score,
+                 -feature_set   => $fset,
+                 );
+            # make sure feature coords are relative to start of entire seq_region
+            if ($transfer) {
+                #warn("original pf:\t", join("\t", $pf->start, $pf->end), "\n");
+                $pf = $pf->transfer($slice);
+                #warn("remapped pf:\t", join("\t", $pf->start, $pf->end), "\n");
+            }
+            push(@pf, $pf);
+        }
+        $pfa->store(@pf);
+    }
+    return 1;
+}
 
 1;

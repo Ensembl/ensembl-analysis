@@ -16,7 +16,7 @@ Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle
     -program => 'chipotle.pl',
   );
   $chipotle->run;
-  my @predicted_features = @{$chipotle->output};
+  my @annotated_features = @{$chipotle->output};
 
 =head1 DESCRIPTION
 
@@ -46,46 +46,9 @@ use Bio::EnsEMBL::Analysis::Runnable::Funcgen;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+
 use vars qw(@ISA);
-
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Funcgen);
-
-
-=head2 new
-
-  Arg         : 
-  Usage       : my $runnable = Bio::EnsEMBL::Analysis::Runnable::Chipotle->new()
-  Description : Instantiates new Chipotle runnable
-  Returns     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle object
-  Exceptions  : none
-
-=cut
-
-sub new {
-
-    my ($class,@args) = @_;
-    #print Dumper @args;
-    my $self = $class->SUPER::new(@args);
-    #print Dumper $self;
-
-    my ($features, $options) = 
-        rearrange(['FEATURES', 'OPTIONS'], @args);
-    $self->probe_features($features);
-    #print Dumper($self->features);
-    #print Dumper($options);
-    $self->options($options);
-    #print Dumper($self->options);
-
-    ##################
-    #SETTING DEFAULTS#
-    ##################
-    $self->program('chipotle.pl') if (!$self->program);
-    ##################
-
-    #print Dumper $self;
-    return $self;
-
-}
 
 =head2 run
 
@@ -100,38 +63,6 @@ sub new {
     Example     : 
 
 =cut
-
-sub run {
-    my ($self, $dir) = @_;
-  
-    my $alpha = 0.05;
-    if ($self->options =~ m/--alpha (\d+\.\d+)/) {
-        $alpha = $1;
-    }
-    #print Dumper $self->options;
-
-    throw("Can't run ".$self." without a probe features") 
-        unless($self->probe_features);
-    
-    $self->workdir($dir) if($dir);
-    $self->checkdir();
-    #print "work dir checked\n";
-    my $infile;
-    $infile = $self->write_infile();
-    (my $resultsfile = $infile) =~ s/\.dat$/\_$alpha\_peaks\.tsv/;
-    $self->resultsfile($resultsfile);
-    #warn("infile:\t".$infile);
-    #warn("resultsfile:\t".$resultsfile);
-    
-    $self->files_to_delete($infile);
-    #$self->files_to_delete($self->resultsfile);
-    $self->run_analysis();
-    #print "Parsing results ... ";
-    $self->parse_results;
-    #print "done!\n";
-    $self->delete_files;
-    return 1;
-}
 
 =head2 run_analysis
 
@@ -154,6 +85,20 @@ sub run_analysis {
     throw($program." is not executable Chipotle::run_analysis ") 
         unless($program && -x $program);
     
+    my $alpha = 0.05;
+    #print Dumper $self->analysis->parameters();
+    if ($self->analysis->parameters =~ m/--alpha (\d+\.\d+)/) {
+        $alpha = $1;
+    }
+    #print $alpha;
+
+    (my $resultsfile = $self->infile) =~ s/\.dat$/\_$alpha\_peaks\.tsv/;
+    $self->resultsfile($resultsfile);
+    $self->files_to_delete($resultsfile);
+
+    my @fields = (1..4);
+    $self->output_fields(\@fields);
+
     my $command = $self->program . " --infile " . $self->infile() . $self->options;
     
     warn("Running analysis " . $command . "\n");
@@ -209,10 +154,10 @@ sub write_infile {
         or throw("Can't open file $filename.");
 
     #print Dumper $self->probe_features;
-
     foreach (values %{$self->probe_features}) {
         foreach my $ft (@$_) {
-            print F join("\t", @$ft), "\n";
+            #print join("\t", (@$ft)[4,0..3]), "\n";
+            print F join("\t", (@$ft)[4,0..3]), "\n";
         }
     }
     close F;
@@ -246,50 +191,6 @@ sub infile{
   }
 
   return $self->{'infile'};
-
-}
-
-=head2 parse_results
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
-  Arg [2]     : filename (string)
-  Decription  : open and parse resultsfile
-  Returntype  : none
-  Exceptions  : throws 
-  Example     : 
-
-=cut
-
-sub parse_results{
-  my ($self, $resultsfile) = @_;
-
-  if(!$resultsfile){
-      $resultsfile = $self->resultsfile;
-  }
-
-  throw("parse_results: results file ".$resultsfile." does not exist.")
-      if (! -e $resultsfile);
-  
-  throw("parse_results: can't open file ".$resultsfile.".")
-      unless (open(F, $resultsfile));
-
-  my $ff = $self->feature_factory;
-  my @output = ();
-
-  while (<F>) {
-
-      chomp;
-      my @ft = split;
-      push(@output, \@ft);
-
-  }
-
-  $self->output(\@output);
-  #print Dumper $self->output();
-
-  throw("parse_results: can't close file ".$resultsfile.".")
-      unless (close(F));
-
 
 }
 

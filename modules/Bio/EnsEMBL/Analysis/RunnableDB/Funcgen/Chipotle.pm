@@ -71,78 +71,64 @@ use vars qw(@ISA);
 =cut
 
 sub new {
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
-  
-  $self->read_and_check_config($CHIPOTLE_CONFIG);
 
-  # Chipotle analysis defaults
-  $self->analysis->description('Sliding window approach bases on Gaussian '.
-                               'background model method for significance '.
-                               'estimation.');
-  $self->analysis->display_label('ChIPOTle');
+    print "Chipotle::new\n";
 
-  #print Dumper $self;
+    my ($class,@args) = @_;
 
-  return $self;
+    my $self = $class->SUPER::new(@args);
+    
+    $self->read_and_check_config($CHIPOTLE_CONFIG);
+
+    # Chipotle analysis defaults
+    $self->analysis->description('Sliding window approach bases on Gaussian '.
+                                 'background model method for significance '.
+                                 'estimation.');
+    $self->analysis->display_label('ChIPOTle');
+
+    #print Dumper $self;
+    return $self;
 }
 
-################################################################################
-# Declare and set up config variables
-################################################################################
+sub fetch_ResultSets
+{
+    my $self = shift;
 
-sub read_and_check_config {
-  my $self = shift;
+    my $rsa = $self->db->get_ResultSetAdaptor();
+    my $rsets = $rsa->fetch_all_by_Experiment_Analysis
+        ($self->experiment, $self->result_set_analysis);
+    print "No. of available ResultSets: ", scalar(@$rsets), "\n";
 
-  $self->SUPER::read_and_check_config($CHIPOTLE_CONFIG);
+    my @rsets = ();
+    my $regex = $self->RESULT_SET_REGEX;
+    foreach my $rset (@{$rsets}) {
+        #print Dumper $rset->name();
+        next if ($rset->name() !~ m/$regex$/);
+        push(@rsets, $rset);
+    }
 
-  ##########
-  # CHECKS
-  ##########
-
-  # check that compulsory options have values
-  foreach my $config_var 
-      (
-       qw(
-          PROGRAM
-          OPTIONS
-          LOGIC_NAME
-          EFG_EXPERIMENT
-          )
-       ){
-          if ( not defined $self->$config_var ){
-              throw("You must define $config_var in config.");
-          }
-          
-          #print Dumper $self->$config_var;
-          
-      }
-  
-  # make sure EFG_EXPERIMENT exists, is a hash, and contains all 
-  # compulsory options
-  throw("EFG_EXPERIMENT for ".$self->experiment." is not defined.")
-      if(! exists $self->EFG_EXPERIMENT->{$self->experiment});
-  throw("EFG_EXPERIMENT must be a hash ref not ".$self->EFG_EXPERIMENT.
-        " Chipotle::read_and_check_config")
-      if(ref($self->EFG_EXPERIMENT) ne 'HASH');
-  foreach my $config_var
-      (
-       qw(
-          FT_NAME
-          FT_CLASS
-          FT_DESC
-          CT_NAME
-          CT_DESC
-          )
-       ){
-          throw("Must define $config_var in EFG_EXPERIMENT config.")
-          if (! defined $self->EFG_EXPERIMENT->{$self->experiment}->{$config_var});
-      }
+    return \@rsets;;
 
 }
 
-#############################################################
-###     end of config
-#############################################################
+#sub fetch_ResultSets
+#{
+#    my $self = shift;
+#
+#    my $rsa = $self->db->get_ResultSetAdaptor();
+#    
+#    #print Dumper $self->experiment->name.$self->RESULT_SET_REGEX;
+#    my $rset = $rsa->fetch_by_name_Analysis
+#        ($self->experiment->name.$self->RESULT_SET_REGEX, $self->result_set_analysis);
+#    #print Dumper $rset;
+#
+#    my @rsets = ();
+#    push(@rsets, $rset);
+#    print "No. of available ResultSets: ", scalar(@rsets), "\n";
+#
+#    return \@rsets;
+#
+#}
+
 
 1;

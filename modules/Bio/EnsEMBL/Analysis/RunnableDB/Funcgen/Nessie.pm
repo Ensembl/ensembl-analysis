@@ -71,158 +71,131 @@ use vars qw(@ISA);
 =cut
 
 sub new {
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
-  
-  $self->read_and_check_config($NESSIE_CONFIG);
-  #print Dumper $self;
 
-  return $self;
+    print "Nessie::new\n";
+    
+    my ($class,@args) = @_;
+    my $self = $class->SUPER::new(@args);
+    
+    $self->read_and_check_config($NESSIE_CONFIG);
+
+    # Nessie analysis defaults
+    $self->analysis->description('Hidden Markov Model based predictions '.
+                                 'based on tiling array data');
+    $self->analysis->display_label('Nessie (TilingHMM)');
+
+    #print Dumper $self;
+    return $self;
 }
 
-=head2 fetch_input
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Nessie
-  Description : fetch data out of database and create runnable
-  Returns     : 1
-  Exceptions  : none
-  Example     : 
-
-=cut
-
-sub fetch_input {
-    my ($self) = @_;
-    print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Nessie::fetch_input\n";
-
-    my $sa = $self->db->get_SliceAdaptor();
-    #warn( Dumper($self->input_id) );
-    my $slice = $sa->fetch_by_name($self->input_id);
-    #warn( Dumper($sa, $slice) );
-    $self->query($slice);
-
-    my $ea = $self->db->get_ExperimentAdaptor();
-    my $e = $ea->fetch_by_name($self->experiment);
-    
-    my $analysis = $self->EFG_EXPERIMENT->{$self->experiment}->{ANALYSIS};
-    my $aa = $self->db->get_AnalysisAdaptor();
-    my $a = $aa->fetch_by_logic_name($analysis);
+sub fetch_ResultSets
+{
+    my $self = shift;
 
     my $rsa = $self->db->get_ResultSetAdaptor();
-    my $rsets = $rsa->fetch_all_by_Experiment_Analysis($e, $a);
-    #print scalar(@$rsets);
-    $self->result_sets($rsets);
-    
-    my %features = ();
+    my $rsets = $rsa->fetch_all_by_Experiment_Analysis
+        ($self->experiment, $self->result_set_analysis);
+    print "No. of available ResultSets: ", scalar(@$rsets), "\n";
+
+    my @rsets = ();
+    my $regex = $self->RESULT_SET_REGEX;
     foreach my $rset (@{$rsets}) {
         #print Dumper $rset->name();
-
-        next if ($rset->name() !~ m/_TR\d+$/);
-        print join(" ", $rset->dbID, $rset->name), "\n";
-
-        my $results = $rset->get_ResultFeatures_by_Slice($self->query());
-        #print "  ResultFeatures_by_Slice:\t", scalar(@$results), "\n";
-
-        my @features = ();
-        my $ft_cnt = 1;
-        foreach my $prb_ft (@{$results}) {
-            #print join(" ", $self->query()->seq_region_name, 
-            #           @$prb_ft, $ft_cnt++), "\n";
-            push (@features,
-                  [ 'chr'.$self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
-        }
-
-        $features{$rset->name} = \@features;
-
-        #print Dumper $results;
-
+        next if ($rset->name() !~ m/$regex/);
+        push(@rsets, $rset);
     }
-    
-    $self->probe_features(\%features);
-    #print Dumper $self->probe_features();
 
-    # set program options defined in Config
-    my %parameters = %{$self->parameters_hash($self->OPTIONS)};
-    #print Dumper %parameters;
-
-    if(!$self->analysis->program){
-        $self->analysis->program($self->PROGRAM);
-    }
-    if(!$self->analysis->program_file){
-        $self->analysis->program_file($self->PROGRAM);
-    }
-    
-    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.$self->LOGIC_NAME;
-    $runnable = $runnable->new
-        (
-         -query => $self->query,
-         -program => $self->analysis->program_file,
-         -analysis => $self->analysis,
-         -features => $self->probe_features,
-         %parameters,
-         );
-    
-    $self->runnable($runnable);
-
-    return 1;
+    return \@rsets;;
 
 }
 
-################################################################################
-# Declare and set up config variables
-################################################################################
+#=head2 fetch_input
+#
+#  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Nessie
+#  Description : fetch data out of database and create runnable
+#  Returns     : 1
+#  Exceptions  : none
+#  Example     : 
+#
+#=cut
+#
+#sub fetch_input {
+#    my ($self) = @_;
+#    print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Nessie::fetch_input\n";
+#
+#    my $sa = $self->db->get_SliceAdaptor();
+#    #warn( Dumper($self->input_id) );
+#    my $slice = $sa->fetch_by_name($self->input_id);
+#    #warn( Dumper($sa, $slice) );
+#    $self->query($slice);
+#
+#    my $ea = $self->db->get_ExperimentAdaptor();
+#    my $e = $ea->fetch_by_name($self->experiment);
+#    
+#    my $analysis = $self->EFG_EXPERIMENT->{$self->experiment}->{ANALYSIS};
+#    my $aa = $self->db->get_AnalysisAdaptor();
+#    my $a = $aa->fetch_by_logic_name($analysis);
+#
+#    my $rsa = $self->db->get_ResultSetAdaptor();
+#    my $rsets = $rsa->fetch_all_by_Experiment_Analysis($e, $a);
+#    #print scalar(@$rsets);
+#    $self->result_sets($rsets);
+#    
+#    my %features = ();
+#    foreach my $rset (@{$rsets}) {
+#        #print Dumper $rset->name();
+#
+#        next if ($rset->name() !~ m/_TR\d+$/);
+#        print join(" ", $rset->dbID, $rset->name), "\n";
+#
+#        my $results = $rset->get_ResultFeatures_by_Slice($self->query());
+#        #print "  ResultFeatures_by_Slice:\t", scalar(@$results), "\n";
+#
+#        my @features = ();
+#        my $ft_cnt = 1;
+#        foreach my $prb_ft (@{$results}) {
+#            #print join(" ", $self->query()->seq_region_name, 
+#            #           @$prb_ft, $ft_cnt++), "\n";
+#            push (@features,
+#                  [ 'chr'.$self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
+#        }
+#
+#        $features{$rset->name} = \@features;
+#
+#        #print Dumper $results;
+#
+#    }
+#    
+#    $self->probe_features(\%features);
+#    #print Dumper $self->probe_features();
+#
+#    # set program options defined in Config
+#    my %parameters = %{$self->parameters_hash($self->OPTIONS)};
+#    #print Dumper %parameters;
+#
+#    if(!$self->analysis->program){
+#        $self->analysis->program($self->PROGRAM);
+#    }
+#    if(!$self->analysis->program_file){
+#        $self->analysis->program_file($self->PROGRAM);
+#    }
+#    
+#    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.
+#        $self->analysis->module;
+#    $runnable = $runnable->new
+#        (
+#         -query => $self->query,
+#         -program => $self->analysis->program_file,
+#         -analysis => $self->analysis,
+#         -features => $self->probe_features,
+#         %parameters,
+#         );
+#    
+#    $self->runnable($runnable);
+#
+#    return 1;
+#
+#}
 
-sub read_and_check_config {
-  my $self = shift;
-
-  $self->SUPER::read_and_check_config($NESSIE_CONFIG);
-
-  ##########
-  # CHECKS
-  ##########
-
-  # check that compulsory options have values
-  foreach my $config_var 
-      (
-       qw(
-          PROGRAM
-          OPTIONS
-          LOGIC_NAME
-          EFG_EXPERIMENT
-          )
-       ){
-          if ( not defined $self->$config_var ){
-              throw("You must define $config_var in config.");
-          }
-          
-          #print Dumper $self->$config_var;
-          
-      }
-  
-  # make sure EFG_EXPERIMENT exists, is a hash, and contains all 
-  # compulsory options
-  throw("EFG_EXPERIMENT for ".$self->experiment." is not defined.")
-      if(! exists $self->EFG_EXPERIMENT->{$self->experiment});
-  throw("EFG_EXPERIMENT must be a hash ref not ".$self->EFG_EXPERIMENT.
-        " Chipotle::read_and_check_config")
-      if(ref($self->EFG_EXPERIMENT) ne 'HASH');
-  foreach my $config_var
-      (
-       qw(
-          FT_NAME
-          FT_CLASS
-          FT_DESC
-          CT_NAME
-          CT_DESC
-          )
-       ){
-          throw("Must define $config_var in EFG_EXPERIMENT config.")
-          if (! defined $self->EFG_EXPERIMENT->{$self->experiment}->{$config_var});
-      }
-
-}
-
-#############################################################
-###     end of config
-#############################################################
 
 1;
