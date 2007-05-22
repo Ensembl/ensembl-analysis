@@ -30,8 +30,8 @@ $dbport = 3306;
             'dbpass=s' => \$dbpass,
             'indexdir=s' => \$index_dir,
             'indexfile=s' => \$index_file,
-            'guessgenenames=s' => \$guess_gene_names,
-            'allgenenames=s' => \$all_gene_names,
+            'guessgenenames' => \$guess_gene_names,
+            'allgenenames' => \$all_gene_names,
             );
 
 my $qy_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
@@ -122,8 +122,8 @@ foreach my $sr_id (keys %genes_by_slice) {
       my $info = $seq_info_cache{$id};
   
       printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", 
-             $g->stable_id,
-             $t->stable_id,
+             $g->stable_id ? $g->stable_id : $g->dbID,
+             $t->stable_id ? $t->stable_id : $t->dbID,
              "IMGT/LIGM_DB",
              $f->hseqname,
              $f->hseqname,
@@ -215,17 +215,15 @@ foreach my $gid (sort {
     }
   }
   
-  if (@names) {
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", 
-             $g->stable_id,
-             $t->stable_id,
-             "IMGT/GENE_DB",
-             join(":", @names),
-             join(":", @names),                
-             $desc ? join(" ", $classes{$desc}, $biotypes{$t->biotype}) : "",
-             "KNOWN");
-    }
+  foreach my $t (@{$g->get_all_Transcripts}) {
+    printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", 
+           $g->stable_id ? $g->stable_id : $g->dbID,
+           $t->stable_id ? $t->stable_id : $t->dbID,
+           "IMGT/GENE_DB",
+           @names ? join(":", @names) : "NONAME", 
+           @names ? join(":", @names) : "NONAME", 
+           $desc ? join(" ", $classes{$desc}, $biotypes{$t->biotype}) : "",
+           "KNOWN");
   }
 }
 
