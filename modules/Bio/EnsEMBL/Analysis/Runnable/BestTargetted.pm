@@ -70,7 +70,7 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript identical_Transcripts);
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
@@ -189,7 +189,6 @@ sub run {
       print "Comparing transcripts made from protein $protein with seq $pep\n";
 
       my @doublesets = check_for_pairs($protein_clusters{$protein});
-
 #      # do clustering. Cluster genes made form the same protein.
 #      my ($prot_clusters, $prot_non_clusters) = cluster_Genes($protein_clusters{$protein}, \%logic_hash ) ;
 #      if ($self->verbose){
@@ -373,9 +372,18 @@ sub get_best_gene {
       # note that if 2 biotypes have the same max score, then there is no
       # distinguishing which one is betetr
       my $best_biotype;
-      my $max_dbl_score;
-      foreach my $dbl_logic (keys %allowed_doubles) {
-        if (defined $dbl_logic && ($allowed_doubles{$dbl_logic} >= $max_dbl_score)) {
+      my $max_dbl_score = 0;
+      
+      #sort allowed doubles by order in config
+      my @sorted_allowed;
+      foreach my $logic (@{$self->logic_names}) {
+	if (exists $allowed_doubles{$logic}){
+	  push @sorted_allowed, $logic;
+	}        
+      }
+      foreach my $dbl_logic (@sorted_allowed) {
+	
+	if (defined $dbl_logic && ($allowed_doubles{$dbl_logic} > $max_dbl_score)) {
           $max_dbl_score = $allowed_doubles{$dbl_logic};
           $best_biotype = $dbl_logic;
         } 
@@ -407,14 +415,17 @@ sub check_for_pairs {
   my ($genes) = @_;
   my %logics;
 
+  print "we have ". scalar @$genes ." genes to compare\n";
+
+  
   # all the genes passed in are made from the same protein.
   # see if there are any NON-OVERLAPPING genes of the same biotype  
   foreach my $outer (@$genes) {
     foreach my $inner (@$genes) {
-      if ($outer->biotype eq $inner->biotype && ($outer->start > $inner->end || $outer->end < $inner->start)) {
+      if (($outer->biotype eq $inner->biotype) && ($outer->start > $inner->end || $outer->end < $inner->start)) {
         #they have the same biotype
         #they do not overlap
-        $logics{$outer->biotype} = 1;
+	$logics{$outer->biotype} = 1;
       }
     }
   }
@@ -445,13 +456,37 @@ sub cluster_by_protein {
   my ($cluster) = @_;
   my %protein_hash;
 
-  # get all gene smade from 1 protein
+  # get all genes made from 1 protein
+  
   GENE: foreach my $gene ($cluster->get_Genes()) {
     my ($gene_ok, $protein) = check_gene($gene);
+    
     if (!$gene_ok) {
       throw("Gene check failed for gene ".$gene->dbID."");
     }
-    push @{$protein_hash{$protein}}, $gene;
+    
+    my $duplicate; 
+    if (exists $protein_hash{$protein}) {
+      GOT: foreach my $got_gene (@{$protein_hash{$protein}}){
+        if ($gene->biotype ne $got_gene->biotype) {
+          next GOT;
+        }
+	# we assume that each gene has only one Transcript
+	my @transcripts1 = @{$gene->get_all_Transcripts()};
+	my @transcripts2 = @{$got_gene->get_all_Transcripts()}; 
+
+	if (identical_Transcripts($transcripts1[0], $transcripts2[0])) {
+          $duplicate = 1; 
+	}  
+      }
+      if (!$duplicate) {
+        push @{$protein_hash{$protein}}, $gene;
+      }    
+    } else {
+      push @{$protein_hash{$protein}}, $gene;
+    }
+    
+
     # If genes 1, 2 and 3 are all made from the same protein,
     # then they will be grouped together even if gene 2
     # and gene3 do not overlap.
