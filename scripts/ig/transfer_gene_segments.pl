@@ -17,6 +17,7 @@ my (
     $tgdbuser,
     $tgdbport,
     $tgdbpass,
+    @tg_biotypes, %tg_biotypes,
     $patch,
     $old_db_name,
     $new_db_name,
@@ -41,6 +42,7 @@ $tgdbport = 3306;
             'tgdbhost=s' => \$tgdbhost,
             'tgdbport=s' => \$tgdbport,
             'tgdbpass=s' => \$tgdbpass,
+            'tgbiotype=s@' => \@tg_biotypes,
             'patch'    => \$patch,
             'old_db_name=s' => \$old_db_name,
             'new_db_name=s' => \$new_db_name,
@@ -70,6 +72,12 @@ my $tg_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
         '-port' => $tgdbport,
         '-pass' => $tgdbpass
         );
+
+if (@tg_biotypes) {
+  map { $tg_biotypes{$_} = 1 } @tg_biotypes;
+} else {
+  map { $tg_biotypes{$_} = 1 } ('protein_coding', 'pseudogene');
+}
 
 
 $verbose and print STDERR "Current target db gene summary:\n" . &gene_stats_string . "\n";
@@ -354,7 +362,7 @@ sub compare_new_genes_with_current_genes {
                                                              $g->end);
       
       my @ogenes = map { $_->transfer($tg_tl_slice) } @{$oslice->get_all_Genes};
-      @ogenes = grep { $_->biotype eq 'protein_coding' or $_->biotype eq 'pseudogene' } @ogenes;
+      @ogenes = grep { exists($tg_biotypes{$_->biotype}) } @ogenes;
       
       if (@ogenes) {
         foreach my $t (@{$g->get_all_Transcripts}) {
