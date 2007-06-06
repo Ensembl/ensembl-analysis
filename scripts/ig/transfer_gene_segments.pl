@@ -104,10 +104,10 @@ if (@ARGV) {
 #########################################################
 # Assign stable ids to new genes and copy them over
 #########################################################
-my ($new_sid_hash, $pep_feat_hash);
+my ($new_sid_hash);
 
 $verbose and print STDERR "Fully loading genes...\n";
-$pep_feat_hash = &fully_load_genes(\@genes);
+&fully_load_genes(\@genes);
 
 if ($patch) {
   $verbose and print STDERR "Setting up new stable ids...\n";
@@ -125,7 +125,7 @@ my ($genes_to_delete_hash, $stable_id_event_hash) =
 # remove old genes and store new ones
 ######################################################################
 $verbose and print STDERR "Storing new genes...\n";
-@genes = @{&store_genes($pep_feat_hash, \@genes)};
+@genes = @{&store_genes(\@genes)};
 
 $verbose and print "Removing interfering old genes...\n";
 foreach my $g (values %$genes_to_delete_hash) {
@@ -164,29 +164,15 @@ $verbose and printf(STDERR "Done (%s removed, %d added)\n%s\n",
 sub fully_load_genes {
   my $glist = shift;
   
-  my $prot_feat_hash = {};
-
   foreach my $g (@$glist) {
     foreach my $t (@{$g->get_all_Transcripts}) {
       foreach my $e (@{$t->get_all_Exons}) {
         $e->get_all_supporting_features;
       }
       my $tr = $t->translation;
-      if (defined $tr) {
-        # adaptor cascade for gene does not handle protein
-        # features. In order to do that here, we have to keep
-        # the the translation object so that we can obtain
-        # its new dbID after storage
-        $prot_feat_hash->{$tr->dbID} = [$tr];
-        foreach my $pf (@{$tr->get_all_ProteinFeatures}) {
-          push @{$prot_feat_hash->{$tr->dbID}}, $pf;
-        }
-      }
       $t->get_all_supporting_features;
     }
   }
-
-  return $prot_feat_hash;
 }
 
 ######################################################################
@@ -287,20 +273,7 @@ sub set_stable_ids {
 ######################################################################
 
 sub store_genes {
-  my ($prot_feat_hash, $glist) = @_;
-
-  #foreach my $g (@g) {
-  #  printf "GENE %d = %s\n", $g->dbID, $g->stable_id;
-  #  foreach my $t (@{$g->get_all_Transcripts}) {
-  #    printf " TRANSCRIPT = %d = %s\n", $t->dbID, $t->stable_id;
-  #    foreach my $e (@{$t->get_all_Exons}) {
-  #      printf "  EXON %d = %s\n", $e->dbID, $e->stable_id;
-  #    }
-  #    if ($t->translation) {
-  #      printf " TRANSLATION %d = %s\n", $t->translation->dbID, $t->translation->stable_id;
-  #    }
-  #  }
-  #}
+  my ($glist) = @_;
 
   my $g_adap = $tg_db->get_GeneAdaptor;
   my $p_adap = $tg_db->get_ProteinFeatureAdaptor;
@@ -309,34 +282,28 @@ sub store_genes {
     $g_adap->store($g);
   }
 
-  # At this point, all translations should have new dbIDs.
-  # We can now store the protein features
-  foreach my $old_dbid (keys %$prot_feat_hash) {
-    my ($trn, @feats) = @{$prot_feat_hash->{$old_dbid}};
-
-    my $new_dbid = $trn->dbID;
-    foreach my $f (@feats) {
-      $p_adap->store($f, $new_dbid);
-    }
-  }
-
   # finally, refetch the stored genes from the target database
   # so that they we are working exclusively with target databases
-  # adaptors from here on in
-  my @tg_genes;
-  foreach my $g (@$glist) {
-    my $ng = $g_adap->fetch_by_stable_id($g->stable_id);
-    foreach my $t (@{$ng->get_all_Transcripts}) {
-      $t->get_all_supporting_features;
-      $t->translation;
-      foreach my $e (@{$t->get_all_Exons}) {
-        $e->get_all_supporting_features;
-      }
-    }
-    push @tg_genes, $ng;
-  }
+  # adaptors from here on in; only relevant for patch mode
+  if ($patch) {
+    my @tg_genes;
 
-  return \@tg_genes;
+    foreach my $g (@$glist) {
+      my $ng = $g_adap->fetch_by_stable_id($g->stable_id);
+      foreach my $t (@{$ng->get_all_Transcripts}) {
+        $t->get_all_supporting_features;
+        $t->translation;
+        foreach my $e (@{$t->get_all_Exons}) {
+          $e->get_all_supporting_features;
+        }
+      }
+      push @tg_genes, $ng;
+    }
+
+    return \@tg_genes;    
+  } else {
+    return $glist;
+  }
 }
 
 ######################################################################
