@@ -5,10 +5,13 @@ use warnings;
 use BlastableVersion;
 use Symbol;
 use Bio::EnsEMBL::Analysis::Config::Blast;
+use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 
-$ENV{BLASTDB} = '/data/blastdb/Finished';
+$ENV{BLASTMAT} 		= $MAT_DIR;
+$ENV{BLASTFILTER} 	= $BIN_DIR;
+$ENV{BLASTDB} 		= $DATA_DIR;
 
 BEGIN {
 	print STDERR "\nUSING " . __PACKAGE__ . "\n\n";
@@ -38,12 +41,12 @@ sub get_analysis {
 
 sub run_analysis {
   my ($self) = @_;
-  
+
   DB:foreach my $database (@{$self->databases}) {
 
     my $db = $database;
     $db =~ s/.*\///;
-    #allow system call to adapt to using ncbi blastall. 
+    #allow system call to adapt to using ncbi blastall.
     #defaults to WU blast
     my $command  = $self->program;
     my $blastype = "";
@@ -57,16 +60,16 @@ sub run_analysis {
       $command .= " $database $filename -gi ";
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
-    
+
     info("Running blast ".$command);
-    
+
     my $fh;
-    unless (open($fh, "$command |")) { 
+    unless (open($fh, "$command |")) {
       $self->delete_files;
       throw("Error opening Blast cmd <$command>." .
-            " Returned error $? BLAST EXIT: '" . 
-            ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) . 
-            "', There was " . ($? & 128 ? 'a' : 'no') . 
+            " Returned error $? BLAST EXIT: '" .
+            ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
+            "', There was " . ($? & 128 ? 'a' : 'no') .
             " core dump");
     }
 
@@ -86,20 +89,20 @@ sub run_analysis {
         }elsif($match =~ /Segmentation Violation signal received./){
           die qq{"SEGMENTATION_FAULT"\n}; # can we work out which host?
         }elsif($match =~ /Out of memory;(.+)/){
-          # (.+) will be something like "1050704 bytes were last 
+          # (.+) will be something like "1050704 bytes were last
           #requested."
-          die qq{"OUT_OF_MEMORY"\n}; 
+          die qq{"OUT_OF_MEMORY"\n};
           # resenD to big mem machine by rulemanager
-        }elsif($match =~ /the query sequence is shorter 
+        }elsif($match =~ /the query sequence is shorter
                than the word length/){
-          #no valid context 
+          #no valid context
           die qq{"VOID"\n}; # hack instead
         }else{
           warning("Something FATAL happened to BLAST we've not ".
-                  "seen before, please add it to Package: " 
+                  "seen before, please add it to Package: "
                   . __PACKAGE__ . ", File: " . __FILE__."\n[$match]\n");
-          die ($self->unknown_error_string."\n"); 
-          # send appropriate string 
+          die ($self->unknown_error_string."\n");
+          # send appropriate string
           #as standard this will be failed so job can be retried
           #when in pipeline
         }
@@ -114,14 +117,14 @@ sub run_analysis {
     }
     unless(close $fh){
       # checking for failures when closing.
-      # we should't get here but if we do then $? is translated 
+      # we should't get here but if we do then $? is translated
       #below see man perlvar
       $self->delete_files;
       warning("Error running Blast cmd <$command>. Returned ".
-              "error $? BLAST EXIT: '" . ($? >> 8) . 
-              "', SIGNAL '" . ($? & 127) . "', There was " . 
+              "error $? BLAST EXIT: '" . ($? >> 8) .
+              "', SIGNAL '" . ($? & 127) . "', There was " .
               ($? & 128 ? 'a' : 'no') . " core dump");
-      die ($self->unknown_error_string."\n"); 
+      die ($self->unknown_error_string."\n");
     }
   }
 }
@@ -207,7 +210,7 @@ sub databases {
 
 =head2 get_db_version
 
-    Title   :  get_db_version 
+    Title   :  get_db_version
                [ distinguished from RunnableDB::*::db_version_searched() ]
     Useage  :  $self->get_db_version('/data/base/path')
                $obj->get_db_version()
@@ -267,11 +270,11 @@ sub get_db_version {
 	return $self->{'_db_version_searched'};
 }
 
-sub DESTROY 
+sub DESTROY
 {
 	my ( $self ) = @_;
 	# just do the cleanup
-	$self->delete_files;	
+	$self->delete_files;
 }
 
 1;
@@ -291,9 +294,9 @@ large numbers of blast matches.
 =head2 usage of Bio::EnsEMBL::Analysis::Config::Blast with this module
 
 
-BLAST_CONFIG => 
-        { 
-            Uniprot => 
+BLAST_CONFIG =>
+        {
+            Uniprot =>
             {
             BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::Finished::BPliteWrapper',
             PARSER_PARAMS => {
@@ -316,7 +319,7 @@ BLAST_CONFIG =>
                              -type => 'wu',
                             },
             },
-            DEFAULT => 
+            DEFAULT =>
             {
              BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
              PARSER_PARAMS => {
@@ -334,7 +337,7 @@ BLAST_CONFIG =>
 
            BLAST_AB_INITIO_LOGICNAME => 'Genscan'
 	   }
-       
+
 
 =head1 AUTHOR
 
