@@ -104,7 +104,7 @@ sub parse_results {
 
  TRANSCRIPT:
   while (<$fh>){
-    print STDERR $_;# if $self->_verbose;
+    print STDERR $_ if $self->_verbose;
 
     next unless /^RESULT:/;
 
@@ -155,7 +155,9 @@ sub parse_results {
     # attach this to our Exon.
     my $transcript = Bio::EnsEMBL::Transcript->new();
 
-    my (@tran_feature_pairs);
+    my (@tran_feature_pairs, 
+        $cds_start_exon, $cds_start,
+        $cds_end_exon, $cds_end);
 
     foreach my $proto_exon (@$exons){
       
@@ -209,6 +211,16 @@ sub parse_results {
         $exon->add_supporting_features($supp_feature);
       }      
 
+      if (exists $proto_exon->{coding_start}) {
+        if (not defined $cds_start_exon) {
+          $cds_start_exon = $exon;
+          $cds_start = $proto_exon->{coding_start};
+        }
+        $cds_end_exon = $exon;
+        $cds_end = $proto_exon->{coding_end};
+      }
+
+
       $transcript->add_Exon($exon);
     }
 
@@ -230,91 +242,19 @@ sub parse_results {
     }
 
     my @exons = @{$transcript->get_all_Exons};
+
     if (scalar(@exons)) {
-      foreach my $e (@exons) {
-        $e->phase(-1);
-        $e->end_phase(-1);
-      }
-
-      if ($self->query_type eq 'protein') {
-        # add a translation if this is a protein alignment
-
+      if (defined $cds_start_exon) {
         my $translation = Bio::EnsEMBL::Translation->new();
-
-        $translation->start_Exon($exons[0]);
-        $translation->end_Exon  ($exons[-1]);
-        $translation->start(1);
-        $translation->end($exons[-1]->end - $exons[-1]->start + 1);
-        
-        # since we assume that exonerate alignments always start 
-        # and end with a match state, the start phase of the first
-        # exon will always be 0
-        $exons[0]->phase(0);
-        for(my $i=1; $i < @exons; $i++) {
-          $exons[$i-1]->end_phase( ($exons[$i-1]->phase + $exons[$i-1]->length) % 3 );
-          $exons[$i]->phase( $exons[$i-1]->end_phase );
-        }
-        $exons[-1]->end_phase( ($exons[-1]->phase + $exons[-1]->length) % 3 );
+        $translation->start_Exon($cds_start_exon);
+        $translation->start($cds_start);      
+        $translation->end_Exon($cds_end_exon);
+        $translation->end($cds_end);
 
         $transcript->translation($translation);
-      } elsif ($self->annotation_features and
-               exists $self->annotation_features->{$q_id}) {
-        my $cds_start = $self->annotation_features->{$q_id}->start;
-        my $cds_end = $self->annotation_features->{$q_id}->end;
-        # the start and end coords are with reference to the forward
-        # strand of the query
-
-        my ($tr_st_exon, $tr_gen_start, $tr_en_exon, $tr_gen_end); 
-        foreach my $ex (@exons) {
-          foreach my $f (@{$ex->get_all_supporting_features}) {
-            foreach my $ug ($f->ungapped_features) {
-              if ($q_strand > 0 and $ug->hstart == $cds_start or
-                  $q_strand < 0 and $ug->hend == $cds_start) {
-                  
-                $tr_st_exon = $ex;
-                if ($t_strand > 0) {
-                  $tr_gen_start = $ug->start;
-                } else {
-                  $tr_gen_start = $ug->end;
-                }
-              }
-              if ($q_strand > 0 and $ug->hend == $cds_end or
-                  $q_strand < 0 and $ug->start == $cds_end) {
-                # translation ends at this point in the 
-                $tr_en_exon = $ex;
-                if ($t_strand > 0) {
-                  $tr_gen_end = $ug->end;
-                } else {
-                  $tr_gen_end = $ug->start;
-                }
-              }
-            }
-          }
-        }
-        if (defined $tr_st_exon and defined $tr_gen_start and
-            defined $tr_en_exon and defined $tr_gen_end) {
-
-          my $translation = Bio::EnsEMBL::Translation->new();
-
-          $translation->start_Exon($tr_st_exon);
-          $translation->end_Exon  ($tr_en_exon);
-          if ($t_strand > 0) {
-            $translation->start($tr_gen_start - $tr_st_exon->start + 1);
-            $translation->end($tr_gen_end - $tr_en_exon->start + 1);
-          } else {
-            $translation->start($tr_st_exon->end - $tr_gen_start + 1);
-            $translation->end( $tr_en_exon->end - $tr_gen_end + 1);
-          }
-
-          $transcript->translation($translation);
-
-          calculate_exon_phases($transcript);
-        } else {
-          warning("Could not find translation using given annotation features\n");
-          next TRANSCRIPT;
-        }
       }
-
+      
+      calculate_exon_phases($transcript, 0);
       push @transcripts, [$score, $transcript];
     }
   }
@@ -381,8 +321,8 @@ sub _parse_vulgar_block {
 		 "expecting this.")
       if (scalar @exons == 0) && $type ne 'M' && $type ne 'S';
 
-    if ($type eq 'M' or $type eq 'S'){
-      my %hash;
+    if ($type eq 'M' or $type eq 'S' or $type eq 'C'){
+      my %hash = (type => $type);
 
       if ($target_strand == -1) {
         if ($target_in_forward_coords) {
@@ -408,10 +348,6 @@ sub _parse_vulgar_block {
       } else {
         $hash{query_start} = $cumulative_query_coord;
         $hash{query_end}   = $cumulative_query_coord + ($query_match_length - 1);
-      }
-
-      if ($type eq 'S') {
-        $hash{incomplete_codon} = $target_match_length;
       }
 
       # there is nothing to add if this is the last state of the exon
@@ -459,11 +395,11 @@ sub _parse_vulgar_block {
 
   for(my $i = 0; $i < @exons; $i++) {
     my $ex = $exons[$i];
-    my $ex_sf = $ex->{sf};
+    my @ex_sf = @{$ex->{sf}};
 
     if ($target_strand == -1) {
-      $ex->{exon_start} = $ex_sf->[-1]->{target_start};
-      $ex->{exon_end}   = $ex_sf->[0]->{target_end};
+      $ex->{exon_start} = $ex_sf[-1]->{target_start};
+      $ex->{exon_end}   = $ex_sf[0]->{target_end};
 
       if (exists $ex->{gap_start}) {
         $ex->{exon_end} += $ex->{gap_start};
@@ -473,8 +409,8 @@ sub _parse_vulgar_block {
       }
 
     } else {
-      $ex->{exon_start} = $ex_sf->[0]->{target_start};
-      $ex->{exon_end}   = $ex_sf->[-1]->{target_end};
+      $ex->{exon_start} = $ex_sf[0]->{target_start};
+      $ex->{exon_end}   = $ex_sf[-1]->{target_end};
 
       if (exists $ex->{gap_start}) {
         $ex->{exon_start} -= $ex->{gap_start};
@@ -484,14 +420,62 @@ sub _parse_vulgar_block {
       }
     }
 
-    # filter out the incomplete supporting features
-    my @sfs;
-    foreach my $f (@$ex_sf) {
-      if (not exists ($f->{incomplete_codon})) {
-        push @sfs, $f;
+    # split codons are a pain. If the query is dna, we must be in the 
+    # cdna2genome model so they must be part of the supporting feature. 
+    # If query is protein, they need to be removed from the supporting feature
+
+    if ($self->query_type eq 'dna') {
+      map { $_->{type} = 'C' if $_->{type} eq 'S' } @ex_sf;
+      if (my @cod = grep { $_->{type} eq 'C' } @ex_sf) {
+        # at least part of this exon is coding
+
+        @cod = sort { $a->{target_start} <=> $b->{target_start} } @cod;
+        my $cod_start = $cod[0]->{target_start};
+        my $cod_end   = $cod[-1]->{target_end};
+
+        $ex->{coding_end}   = $cod_end - $cod_start + 1;
+
+        if ($target_strand == -1) {
+          $ex->{coding_start} = $ex->{exon_end} - $cod_end + 1;
+        } else {
+          $ex->{coding_start} = $cod_start - $ex->{exon_start} + 1;
+        }
       }
+      # merge together abutting ungapped features
+      my @nr_sf;
+      foreach my $sf (@ex_sf) {
+        my $merged = 0;
+        if (@nr_sf and
+            $sf->{type} eq 'C' and
+            $nr_sf[-1]->{type} eq 'C' and
+            $sf->{query_start} == $nr_sf[-1]->{query_end} + 1) {
+          if ($target_strand == -1) {
+            if ($sf->{target_end} == $nr_sf[-1]->{target_start} - 1) {
+              $nr_sf[-1]->{target_start} = $sf->{target_start};
+              $nr_sf[-1]->{query_end}  = $sf->{query_end};
+              $merged = 1;
+            }
+          } else {
+            if ($sf->{target_start} == $nr_sf[-1]->{target_end} + 1) {
+              $nr_sf[-1]->{target_end} = $sf->{target_end};
+              $nr_sf[-1]->{query_end}  = $sf->{query_end};
+              $merged = 1;
+            }
+          }         
+        }
+        if (not $merged) {
+          push @nr_sf, $sf;
+        }
+      }
+      @ex_sf = @nr_sf;
+    } else {
+      # query type is protein
+      @ex_sf = grep { $_->{type} ne 'S' } @ex_sf;
+      $ex->{coding_start} = 1;
+      $ex->{coding_end} = $ex->{exon_end} - $ex->{exon_start} + 1;
     }
-    $ex->{sf} = \@sfs;
+
+    $ex->{sf} = \@ex_sf;
   }
 
   return \@exons;
@@ -508,9 +492,9 @@ sub coverage_as_proportion_of_aligned_residues {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{'_coverage_aligned'} = $val;
+    $self->{_coverage_aligned} = $val;
   }
-  return $self->{'_coverage_aligned'};
+  return $self->{_coverage_aligned};
 }
 
 
