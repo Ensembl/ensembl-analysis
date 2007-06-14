@@ -11,7 +11,7 @@ use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 
 $ENV{BLASTMAT} 		= $MAT_DIR;
 $ENV{BLASTFILTER} 	= $BIN_DIR;
-$ENV{BLASTDB} 		= $DATA_DIR;
+$ENV{BLASTDB} 		= $BLAST_DIR;
 
 BEGIN {
 	print STDERR "\nUSING " . __PACKAGE__ . "\n\n";
