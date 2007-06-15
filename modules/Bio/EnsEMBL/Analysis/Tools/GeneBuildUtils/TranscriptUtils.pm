@@ -81,7 +81,6 @@ use vars qw (@ISA @EXPORT);
              intron_lengths_all_less_than_maximum
              is_not_folded
              is_spliced 
-             lies_inside_of_slice
              list_evidence
              low_complexity_less_than_maximum
              replace_stops_with_introns
@@ -310,38 +309,6 @@ sub are_strands_consistent{
 }
 
 
-
-=head2 lies_inside_of_slice
-
-  Arg [1]   : Bio::EnsEMBL::Transcript
-  Arg [2]   : Bio::EnsEMBL::Slice
-  Function  : ensures the transcript within the slice, 
-  completely on the lower end, it can overhang the upper end
-  Returntype: boolean, 1 for pass 0 for fail ie(lies outside
-                                                    of slice or
-                                                    across lower 
-                                                    boundary)
-  Exceptions: none
-  Example   : 
-
-=cut
-
-
-sub lies_inside_of_slice{
-  my ($transcript, $slice) = @_;
-  if($transcript->start > $slice->length || 
-     $transcript->end < 1){
-    warning(id($transcript)." lies off edge if slice ".
-            $slice->name);
-    return 0;
-  }
-  if($transcript->start < 1 && $transcript->end > 1){
-    warning(id($transcript)." lies over lower boundary".
-            " of slice ".$slice->name);
-    return 0;
-  }
-  return 1;
-}
 
 
 

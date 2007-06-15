@@ -52,7 +52,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(coord_string id empty_Object);
+@EXPORT = qw(coord_string id empty_Object lies_inside_of_slice);
 
 
 =head2 coord_string
@@ -133,6 +133,39 @@ sub empty_Object{
   return $object;
 }
 
+
+
+=head2 lies_inside_of_slice
+
+  Arg [1]   : Bio::EnsEMBL::Feature
+  Arg [2]   : Bio::EnsEMBL::Slice
+  Function  : ensures the transcript within the slice, 
+  completely on the lower end, it can overhang the upper end
+  Returntype: boolean, 1 for pass 0 for fail ie(lies outside
+                                                    of slice or
+                                                    across lower 
+                                                    boundary)
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+sub lies_inside_of_slice{
+  my ($feature, $slice) = @_;
+  if($feature->start > $slice->length || 
+     $feature->end < 1){
+    warning(id($feature)." lies off edge if slice ".
+            $slice->name);
+    return 0;
+  }
+  if($feature->start < 1 && $feature->end > 1){
+    warning(id($feature)." lies over lower boundary".
+            " of slice ".$slice->name);
+    return 0;
+  }
+  return 1;
+}
 
 
 1;
