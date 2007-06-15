@@ -432,14 +432,15 @@ sub _parse_vulgar_block {
         @cod = sort { $a->{target_start} <=> $b->{target_start} } @cod;
         my $cod_start = $cod[0]->{target_start};
         my $cod_end   = $cod[-1]->{target_end};
-
-        $ex->{coding_end}   = $cod_end - $cod_start + 1;
+        my $cod_len   = $cod_end - $cod_start + 1;
 
         if ($target_strand == -1) {
           $ex->{coding_start} = $ex->{exon_end} - $cod_end + 1;
         } else {
           $ex->{coding_start} = $cod_start - $ex->{exon_start} + 1;
         }
+
+        $ex->{coding_end}   = $ex->{coding_start} + $cod_len - 1;
       }
       # merge together abutting ungapped features
       my @nr_sf;
