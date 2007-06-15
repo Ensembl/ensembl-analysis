@@ -45,7 +45,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
 
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 
@@ -53,7 +53,7 @@ use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;
 
 use vars qw(@ISA);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 ############################################################
