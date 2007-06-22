@@ -1,7 +1,7 @@
 ### Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome
 # POD documentation - main docs before the code
 
-=pod 
+=pod
 
 =head1 NAME
 
@@ -28,7 +28,7 @@ Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
 
 =head1 APPENDIX
 
-The rest of the documentation details each of the object methods. 
+The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _
 
 =cut
@@ -36,7 +36,7 @@ Internal methods are usually preceded with a _
 package Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome;
 
 use strict;
-use Bio::EnsEMBL::Analysis::MiniSeq;
+use Bio::EnsEMBL::Analysis::Tools::MiniSeq;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::Analysis;
@@ -68,7 +68,7 @@ sub new {
 
   $self->throw("No seqfetcher provided")
     unless defined($seqfetcher);
-  $self->throw("[$seqfetcher] is not a Bio::DB::RandomAccessI") 
+  $self->throw("[$seqfetcher] is not a Bio::DB::RandomAccessI")
     unless $seqfetcher->isa("Bio::DB::RandomAccessI");
   $self->seqfetcher($seqfetcher) if defined($seqfetcher);
   $self->analysis($analysis) if defined $analysis;
@@ -130,7 +130,7 @@ sub get_all_FeaturesById {
     if (!(defined($f->hseqname))) {
 	warning("No hit name for " . $f->seqname . "\n");
 	    next FEAT;
-	} 
+	}
 	if (defined($idhash{$f->hseqname})) {
 	    push(@{$idhash{$f->hseqname}},$f);
 	} else {
@@ -165,7 +165,7 @@ sub get_all_Features {
 
   Title   : get_all_FeatureIds
   Usage   : my @ids = get_all_FeatureIds
-  Function: Returns an array of all distinct feature hids 
+  Function: Returns an array of all distinct feature hids
   Returns : @string
   Args    : none
 
@@ -190,10 +190,10 @@ sub get_all_FeatureIds {
 =head2 make_miniseq
 
   Title   : make_miniseq
-  Usage   : 
+  Usage   :
   Function: makes a mini genomic from the genomic sequence and features list
-  Returns : 
-  Args    : 
+  Returns :
+  Args    :
 
 =cut
 
@@ -205,7 +205,7 @@ sub make_miniseq {
     my $count  = 0;
     my $mingap = $self->minimum_intron;
 
-    my $pairaln = new Bio::EnsEMBL::Analysis::PairAlign;
+    my $pairaln = new Bio::EnsEMBL::Analysis::Tools::PairAlign;
 
     my @genomic_features;
 
@@ -231,7 +231,7 @@ sub make_miniseq {
 	  $prevcdnaend = $f->hend;
 
       } else {
-	
+
 	    my $newfeature = new Bio::EnsEMBL::SeqFeature;
 
 	    $newfeature->seqname ($f->hseqname);
@@ -243,44 +243,44 @@ sub make_miniseq {
 
 	    push(@genomic_features,$newfeature);
 	    $prevend = $end;
-	    $prevcdnaend = $f->hend; 
+	    $prevcdnaend = $f->hend;
 
 	}
 	$count++;
     }
 
     # Now we make the cDNA features
-    # but presumably only if we actually HAVE any ... 
+    # but presumably only if we actually HAVE any ...
     return unless scalar(@genomic_features);
 
     my $current_coord = 1;
 
-    # make a forward strand sequence, est2genome runs -reverse 
+    # make a forward strand sequence, est2genome runs -reverse
     @genomic_features = sort {$a->start <=> $b->start } @genomic_features;
 
     foreach my $f (@genomic_features) {
 	$f->strand(1);
 	my $cdna_start = $current_coord;
 	my $cdna_end   = $current_coord + ($f->end - $f->start);
-	
+
 	my $tmp = new Bio::EnsEMBL::SeqFeature(
 					       -seqname => $f->seqname.'.cDNA',
 					       -start => $cdna_start,
 					       -end   => $cdna_end,
 					       -strand => 1);
-	
+
 	my $fp  = new Bio::EnsEMBL::FeaturePair(-feature1 => $f,
 						-feature2 => $tmp);
-	
+
 	$pairaln->addFeaturePair($fp);
-	
+
 #	$self->print_FeaturePair($fp);
 
 	$current_coord = $cdna_end+1;
     }
-	
+
     #changed id from 'Genomic' to seqname
-    my $miniseq = new Bio::EnsEMBL::Analysis::MiniSeq(-id        => $seqname,
+    my $miniseq = new Bio::EnsEMBL::Analysis::Tools::MiniSeq(-id        => $seqname,
 						      -pairalign => $pairaln);
 
     my $newgenomic = $miniseq->get_cDNA_sequence->seq;
@@ -294,10 +294,10 @@ sub make_miniseq {
 =head2 minimum_introm
 
   Title   : minimum_intron
-  Usage   : 
+  Usage   :
   Function: Defines minimum intron size for miniseq
-  Returns : 
-  Args    : 
+  Returns :
+  Args    :
 
 =cut
 
@@ -314,10 +314,10 @@ sub minimum_intron {
 =head2 exon_padding
 
   Title   : exon_padding
-  Usage   : 
+  Usage   :
   Function: Defines exon padding extent for miniseq
-  Returns : 
-  Args    : 
+  Returns :
+  Args    :
 
 =cut
 
@@ -336,22 +336,22 @@ sub exon_padding {
 =head2 print_FeaturePair
 
   Title   : print_FeaturePair
-  Usage   : 
+  Usage   :
   Function: for debugging
-  Returns : 
-  Args    : 
+  Returns :
+  Args    :
 
 =cut
 
 sub print_FeaturePair {
     my ($self,$nf) = @_;
     #changed $nf->id to $nf->seqname
-    print(STDERR "FeaturePair is " . $nf->seqname    . "\t" . 
-	  $nf->start . "\t" . 
-	  $nf->end   . "\t(" . 
+    print(STDERR "FeaturePair is " . $nf->seqname    . "\t" .
+	  $nf->start . "\t" .
+	  $nf->end   . "\t(" .
 	  $nf->strand . ")\t" .
-	  $nf->hseqname  . "\t" . 
-	  $nf->hstart   . "\t" . 
+	  $nf->hseqname  . "\t" .
+	  $nf->hstart   . "\t" .
 	  $nf->hend     . "\t(" .
 	  $nf->hstrand  . ")\n");
 }
@@ -425,7 +425,7 @@ sub get_all_Sequences {
   Usage   : $self->run_blaste2g()
   Function: Runs est2genome on a MiniSeq
   Returns : none
-  Args    : 
+  Args    :
 
 =cut
 
@@ -435,7 +435,7 @@ sub run_blaste2g {
     my $miniseq = $self->make_miniseq(@$features);
     my $hseq    = $self->get_Sequence($est) or throw("Can't fetch sequence for id '$est'");
 	my $g = $miniseq->get_cDNA_sequence;
-	
+
     my $eg = new Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome(
         -genomic => $g,
         -est     => $hseq,
@@ -455,7 +455,7 @@ sub run_blaste2g {
 	# so we put them back here.
 	my $new = $converted[0];
 
-#            $new->seqname( $fp->hseqname );  # 
+#            $new->seqname( $fp->hseqname );  #
 #            $new->strand( $fp->strand );     #
 #            $new->hseqname( $fp->hseqname ); #
 #            $new->percent_id( $fp->percent_id ); #
@@ -551,7 +551,7 @@ sub find_extras {
     #$self->print_FeaturePair($f);
     foreach my $out (@output) {
       foreach my $sf ($out->sub_SeqFeature) {
-	
+
 	if (!($f->end < $out->start || $f->start >$out->end)) {
 	  $found = 1;
 	}
@@ -591,7 +591,7 @@ sub output {
   Usage   : $self->run()
   Function: Runs est2genome on MiniSeq representation of genomic sequence for each EST
   Returns : none
-  Args    : 
+  Args    :
 
 =cut
 
