@@ -25,34 +25,67 @@ sub run {
     my $percentid_cutoff = $params{percentid_cutoff} || 0.0;
 	my $orig_analysis_name = $params{ori_analysis};
 	my $hit_db = $params{hit_db};
-	
+	my $mode = $params{mode};
+
 	# Get the blast db version from the raw analysis and save it
 	my $analysis_adaptor = $self->db->get_AnalysisAdaptor();
 	my $ana = $analysis_adaptor->fetch_by_logic_name($orig_analysis_name);
 	my $stateinfocontainer = $self->db->get_StateInfoContainer;
 	my $db_version = $stateinfocontainer->fetch_db_version($self->input_id,$ana);
 	$self->db_version_searched($db_version);
-		
+
     my $slice = $self->query();
 
-	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db);
+	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db,$mode);
 
 	my ( $filtered_features, $saturated_zones) =
-        $self->depth_filter($orig_features, $slice, $max_coverage, $percentid_cutoff); 
+        $self->depth_filter($orig_features, $slice, $max_coverage, $percentid_cutoff);
 
 	$self->output($filtered_features, $saturated_zones);
 }
 
 sub get_original_features {
-	my ($self,$slice,$analysis,$hit_db) = @_;
+	my ($self,$slice,$analysis,$hit_db,$mode) = @_;
 	my $hit_db_features = [];
     my $prot_feat_a = $self->db->get_ProteinAlignFeatureAdaptor;
     my $dna_feat_a  = $self->db->get_DnaAlignFeatureAdaptor;
     my $hit_desc_a = $self->db->get_HitDescriptionAdaptor;
-    
+
     my $orig_features = $dna_feat_a->fetch_all_by_Slice( $slice, $analysis );
 	$orig_features = $prot_feat_a->fetch_all_by_Slice( $slice, $analysis ) if (!(@$orig_features));
-	
+
+	# The block of code below discard old sequence versions from the original set
+	# of features (should add "mode => single" in analysis parameters)
+	if($mode && $mode eq "single") {
+		print STDERR "DepthFilter: $mode mode\n";
+		my $single_hash;
+		my $old_seq;
+		foreach my $feature (@$orig_features) {
+			my $hit_name	= $feature->hseqname;
+			my ($acc,$ver)	= $hit_name =~ /(\w+-?\w+)\.(\d+)/;
+			my $key			= $acc;
+			if($single_hash->{$key}) {
+				my $stored_feature = $single_hash->{$key}->[0];
+				my ($sacc,$sver)	= $stored_feature->hseqname =~ /(\w+-?\w+)\.(\d+)/;
+				if($ver > $sver) {
+					$single_hash->{$key} = [$feature];
+					#print STDERR "DepthFilter: drop ".$stored_feature->hseqname." (".$feature->hseqname.")\n";
+					push @$old_seq, $stored_feature;
+				} elsif($ver == $sver) {
+					push @{$single_hash->{$key}}, $feature;
+				} else {
+					#print STDERR "DepthFilter: drop ".$feature->hseqname." (".$stored_feature->hseqname.")\n";
+					push @$old_seq, $feature;
+				}
+			} else {
+				$single_hash->{$key} = [$feature];
+			}
+		}
+		print STDERR "DepthFilter: drop ".scalar(@$old_seq)." old sequences\n";
+		$orig_features = [];
+		map ( push(@$orig_features,@$_) , values %$single_hash);
+	}
+
     if($hit_db){
     	print STDERR "DepthFilter: hit db is $hit_db\n";
     	my $hit_hash = {map {$_->hseqname, undef} @$orig_features};
@@ -66,7 +99,7 @@ sub get_original_features {
     } else {
     	return $orig_features;
     }
-    
+
     return $hit_db_features
 }
 
