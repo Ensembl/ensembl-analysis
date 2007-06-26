@@ -135,7 +135,7 @@ foreach my $g (@genes) {
       printf(STDERR "Writing xref %s for transcript %s (%d)\n", 
              $t_dbens{$sid}->primary_id, $t->stable_id, $t->dbID)
           if $verbose;
-      $dbea->store($t_dbens{$sid}, $g->dbID, 'Transcript');
+      $dbea->store($t_dbens{$sid}, $t->dbID, 'Transcript');
     }
   }
 
