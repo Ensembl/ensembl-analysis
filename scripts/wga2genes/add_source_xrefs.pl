@@ -18,7 +18,7 @@ my (
     $dbuser,
     $dbport,
     $dbpass,
-    $src_dbname,
+    @src_dbname,
     $src_dbhost,
     $src_dbuser,
     $src_dbport,
@@ -35,7 +35,7 @@ $src_dbuser = 'ensro';
             'dbhost=s' => \$dbhost,
             'dbport=s' => \$dbport,
             'dbpass=s' => \$dbpass,
-            'srcdbname=s' => \$src_dbname,
+            'srcdbname=s@' => \@src_dbname,
             'srcdbuser=s' => \$src_dbuser,
             'srcdbhost=s' => \$src_dbhost,
             'srcdbport=s' => \$src_dbport,
@@ -52,19 +52,28 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 	'-pass' => $dbpass
 );
 
+my @src_dbs;
 
-my $src_db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
-	'-dbname' => $src_dbname,
-	'-host' => $src_dbhost,
-	'-user' => $src_dbuser,
-	'-port' => $src_dbport,
-	'-pass' => $src_dbpass
-);
+foreach my $src_dbname (@src_dbname) {
+  my $src_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
+      new(
+          '-dbname' => $src_dbname,
+          '-host' => $src_dbhost,
+          '-user' => $src_dbuser,
+          '-port' => $src_dbport,
+          '-pass' => $src_dbpass
+          );
+  if (not defined $src_db) {
+    die "Could not connect to $src_dbname\n";
+  } else {
+    push @src_dbs, $src_db;
+  }
+}
 
 my $ga = $db->get_GeneAdaptor;
 my $dbea = $db->get_DBEntryAdaptor;
 
-$verbose and print STDERR "Fetching genes...\n";
+$verbose and print STDERR "Fetching genes...";
 
 my @genes;
 if (@ARGV) {
@@ -72,6 +81,8 @@ if (@ARGV) {
 } else {
   @genes = map { $ga->fetch_by_dbID($_) } @{$ga->list_dbIDs};
 }
+
+$verbose and print STDERR "fetched ", scalar(@genes), " genes\n";
 
 foreach my $g (@genes) {
   my (@t) = @{$g->get_all_Transcripts};
@@ -89,10 +100,17 @@ foreach my $g (@genes) {
     my %t_dbens;
 
     foreach my $ens_pep_name (@ens_pep_names) {    
-            
-      my $src_tr = $src_db->get_TranslationAdaptor->
-          fetch_by_stable_id($ens_pep_name);
-      
+      my ($src_tr, $src_db);
+      # loop through dbs, looking for this translation
+      foreach my $db (@src_dbs) {
+        $src_tr = $db->get_TranslationAdaptor->
+            fetch_by_stable_id($ens_pep_name);
+        if (defined $src_tr) {
+          $src_db = $db;
+          last;
+        }
+      }
+
       if (defined $src_tr) {
         my $src_t = $src_db->get_TranscriptAdaptor->
             fetch_by_translation_stable_id($src_tr->stable_id);
