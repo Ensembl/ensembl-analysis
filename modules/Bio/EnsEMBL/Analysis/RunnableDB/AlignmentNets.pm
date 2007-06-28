@@ -99,7 +99,6 @@ sub fetch_input {
   }
 
 
-  $self->OUTPUT_GROUP_TYPE("chain") unless (defined $self->OUTPUT_GROUP_TYPE);
   my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(%{$self->COMPARA_DB});
 
   my $query_species = $self->QUERY_SPECIES;
@@ -174,13 +173,9 @@ sub fetch_input {
          -hend     => $tg_al->dnafrag_end,
          -hstrand  => $tg_al->dnafrag_strand,         
          -score    => $block->score,
-         -cigar_string => $daf_cigar);
+         -cigar_string => $daf_cigar,
+         -group_id => $block->group_id);
 
-    my $group_id = $qy_al->genomic_align_group_id_by_type("chain");
-    if ($group_id != $tg_al->genomic_align_group_id_by_type("chain")) {
-      throw("GenomicAligns in a GenomicAlignBlock belong to different group");
-    }
-    $daf->group_id($group_id);
     push @{$features_by_group{$group_id}}, $daf;
   }
 

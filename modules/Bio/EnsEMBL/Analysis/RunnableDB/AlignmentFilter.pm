@@ -96,24 +96,24 @@ sub write_output {
 
   my @gen_al_groups;
   foreach my $chain (@{$self->output}) {
-    my (@chain_aligns);
-
+    my $group_id;
+    #store first block
+    my $first_block = shift @$chain;
+    $compara_dbh->get_GenomicAlignBlockAdaptor->store($first_block);
+    
+    # Set the group_id if one doesn't already exist ie for chains, to be the
+    # dbID of the first genomic_align_block. For nets,the group_id has already
+    # been set and is the same as it's chain.
+    unless (defined($first_block->group_id)) {
+      $group_id = $first_block->dbID;
+      $compara_dbh->get_GenomicAlignBlockAdaptor->store_group_id($first_block, $group_id);
+    }
+    
+    #store the rest of the genomic_align_blocks
     foreach my $block (@$chain) {
+      $block->group_id($group_id);
       $compara_dbh->get_GenomicAlignBlockAdaptor->store($block);
-      push @chain_aligns, @{$block->get_all_GenomicAligns};
     }
-
-    # we can only create the group after storing all GenomicAligns
-    # in all of the blocks in the chain
-    my $group = Bio::EnsEMBL::Compara::GenomicAlignGroup->new
-        (-type                => $self->OUTPUT_GROUP_TYPE,
-         -genomic_align_array => \@chain_aligns);
-
-    if (defined $chain_aligns[0]->genomic_align_group_by_type($self->INPUT_GROUP_TYPE) &&
-        defined $chain_aligns[0]->genomic_align_group_by_type($self->INPUT_GROUP_TYPE)->dbID) {
-      $group->dbID($chain_aligns[0]->genomic_align_group_by_type($self->INPUT_GROUP_TYPE)->dbID);
-    }
-    $compara_dbh->get_GenomicAlignGroupAdaptor->store($group);
   }
 }
 
@@ -552,27 +552,6 @@ sub MIN_CHAIN_SCORE {
   }
 }
 
-
-
-sub OUTPUT_GROUP_TYPE {
-  my ($self, $val) = @_;
-  
-  if (defined $val) {
-    $self->{_output_group_type} = $val;
-  }
-
-  return $self->{_output_group_type};
-}
-
-sub INPUT_GROUP_TYPE {
-  my ($self, $val) = @_;
-  
-  if (defined $val) {
-    $self->{_input_group_type} = $val;
-  }
-
-  return $self->{_input_group_type};
-}
 
 
 1;
