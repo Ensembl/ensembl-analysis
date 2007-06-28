@@ -74,8 +74,6 @@ use vars qw( %Config );
 
                MAX_EXON_READTHROUGH_DIST => 15,
                
-               GENOMIC_ALIGN_TYPE => 'chain',
-              
                TRANSCRIPT_FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ClusterFilter',
                            PARAMETERS => {
                              -coverage => 50,
