@@ -59,7 +59,7 @@ sub get_original_features {
 	if($mode && $mode eq "single") {
 		print STDERR "DepthFilter: $mode mode\n";
 		my $single_hash;
-		my $old_seq;
+		my $old_seq = [];
 		foreach my $feature (@$orig_features) {
 			my $hit_name	= $feature->hseqname;
 			my ($acc,$ver)	= $hit_name =~ /(\w+-?\w+)\.(\d+)/;
