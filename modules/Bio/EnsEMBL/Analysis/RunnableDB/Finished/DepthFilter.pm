@@ -81,7 +81,7 @@ sub get_original_features {
 				$single_hash->{$key} = [$feature];
 			}
 		}
-		print STDERR "DepthFilter: drop ".scalar(@$old_seq)." old sequences\n";
+		print STDERR "DepthFilter: drop ".scalar(@$old_seq)." old sequences\n" if @$old_seq;
 		$orig_features = [];
 		map ( push(@$orig_features,@$_) , values %$single_hash);
 	}
