@@ -62,8 +62,6 @@ use vars qw( %Config );
 
                INPUT_METHOD_LINK_TYPE => 'CONTIG_AWARE_NET',
 
-               INPUT_GROUP_TYPE => 'chain',
-               
                ########################
                # Source gene filtering
                ########################
