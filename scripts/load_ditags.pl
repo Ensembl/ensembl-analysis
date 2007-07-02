@@ -76,7 +76,7 @@ print STDERR "\nReadig from Bio::EnsEMBL::Analysis::Config::ExonerateTags".
 if(!$option or $option eq "A"){
   save_ditags($db, $tagtype, $write, $delete);
 }
-if(!$option or $option eq "B"){
+if((!$option and $write) or $option eq "B"){
   make_input_ids($db, $write, $delete);
 }
 
@@ -97,7 +97,6 @@ sub setup {
   }
   #specific variables
   if (exists $DITAG_CONFIG->{$tagtype}) {
-warn "\n$tagtype: ".$DITAG_CONFIG->{$tagtype};
     my $entry = $DITAG_CONFIG->{$tagtype};
     foreach my $config_var (keys %{$entry}) {
       $config{$config_var} = $entry->{$config_var};
