@@ -61,7 +61,7 @@ use vars qw( %Config );
 
         ## SPECIFIC DITAG TYPES ##
 
-       ExonerateTags => {
+       EXONERATETAGS => {
 
        #GSC
 	  #regex for the (fasta) header
