@@ -89,8 +89,8 @@ sub fetch_input{
   $self->query($slice);
   
   my @genes;
-  foreach my $logic (@{$self->LOGICNAMES}) {
-    push @genes, @{ $slice->get_all_Genes($logic) }  ;
+  foreach my $biotype (@{$self->BIOTYPES}) {
+    push @genes, @{ $slice->get_all_Genes_by_type($biotype) }  ;
   }
   print "\nGot ".scalar(@genes)." genes\n";
   $self->genes(\@genes);
@@ -114,7 +114,7 @@ sub run {
      -query             => $self->query,
      -analysis          => $self->analysis,
      -seqfetcher        => $self->seqfetcher,
-     -logic_names       => $self->LOGICNAMES,
+     -biotypes          => $self->BIOTYPES,
      -program           => $self->EXONERATE_PROGRAM,
      -verbose           => $self->VERBOSE,
      -genes             => $self->genes,
@@ -218,7 +218,7 @@ sub read_and_check_config {
  
   my $logic = $self->analysis->logic_name;
 
-  foreach my $var (qw(LOGICNAMES
+  foreach my $var (qw(BIOTYPES 
                       DB_NAME
                       SEQFETCHER_DIR
                       SEQFETCHER_OBJECT)) {
@@ -275,13 +275,13 @@ sub genes {
 # CONFIG VARS
 ################
 
-sub LOGICNAMES {
+sub BIOTYPES {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{_logicnames} = $value;
+    $self->{_biotypes} = $value;
   }
-  return $self->{_logicnames};
+  return $self->{_biotypes};
 }
 
 
