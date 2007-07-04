@@ -30,7 +30,7 @@ NOTES
   cluster overlaps with at least one other Transcript.
 - Unclustered Transcripts (those that do not overlap with any other Transcript)
   are automatically kept
-- If Genes in a cluster consist of those from only one analysis (logic_name), 
+- If Genes in a cluster consist of those from only one analysis (biotype), 
   then all the Genes in this cluster will be stored.
 - The tricky bit. Now we have a cluster that contains Genes from more than one
   analysis. The Transcripts in the this cluster are hashed by:
@@ -39,7 +39,7 @@ NOTES
   location where all the Transcripts in this location overlap with every other 
   Transcript, and all Transcripts are made from the same protein.
 - Foreach block, we want to find the best protein. This is achieved by ordering 
-  the Genes in the block by logic_name, with Genes from the preferred analysis
+  the Genes in the block by biotype, with Genes from the preferred analysis
   being first in the list. The Transcript translations are compared against the
   actual source protein. The first Transcript to match exactly is stored. If no
   Transcripts match exactly, but all Transcripts have the same Tranlasion, then
@@ -87,16 +87,16 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
     
-  my( $logic_names, $seqfetcher, $verbose, $genes ) = 
+  my( $biotypes, $seqfetcher, $verbose, $genes ) = 
       rearrange([qw(
-                     LOGIC_NAMES
+                     BIOTYPES 
                      SEQFETCHER
                      VERBOSE
                      GENES
                     )], @args);
 
   $self->seqfetcher($seqfetcher) if defined $seqfetcher;
-  $self->logic_names($logic_names) if defined $logic_names;
+  $self->biotypes($biotypes) if defined $biotypes;
   $self->verbose($verbose) if defined $verbose;
   $self->all_genes($genes) if defined $genes;
 
@@ -122,7 +122,7 @@ sub run {
    
   # get all genes using both logic names on slice and cluster them
   my %logic_hash;
-  foreach my $logic (@{$self->logic_names}) {
+  foreach my $logic (@{$self->biotypes}) {
     #print STDERR "got $logic\n";
     $logic_hash{$logic} = [$logic];
   }
@@ -176,49 +176,27 @@ sub run {
 
 
   # # #
-  # Now look at the clusters that contain genes of more than one biotype / logic_name
+  # Now look at the clusters that contain genes of more than one biotype / biotype
   # # #
   foreach my $cluster (@twoways) {
     # check that genes have only one transcript
     # ignore gene if it does not translate
     # make a hash with keys = protein
     # and values = an array of all genes whose transcripts are made from this protein
-    my %protein_clusters = %{cluster_by_protein($cluster)};    
-    foreach my $protein (keys %protein_clusters) {
+    my $protein_clusters = cluster_by_protein($cluster);    
+    my $filtered = filter_transcripts($protein_clusters);
+
+    foreach my $protein (keys %{$protein_clusters}) {
       my $pep = $self->seqfetcher->get_Seq_by_acc($protein)->seq;
       print "Comparing transcripts made from protein $protein with seq $pep\n";
 
-      my @doublesets = check_for_pairs($protein_clusters{$protein});
-#      # do clustering. Cluster genes made form the same protein.
-#      my ($prot_clusters, $prot_non_clusters) = cluster_Genes($protein_clusters{$protein}, \%logic_hash ) ;
-#      if ($self->verbose){
-#        print @$prot_non_clusters ." non_clusters and ".@$prot_clusters ." clusters\n";
-#      }
-#      # see how many genes from each logic_name
-#      # we don't expect any non_clusters
-#      foreach my $non_cluster ( @$prot_non_clusters ) {
-#        foreach my $gene ($non_cluster->get_Genes()) {
-#          warning("Got non_cluster gene ".$gene->dbID);
-#        }
-#      } 
-#      foreach my $cluster (@$prot_clusters) {
-#        my @doublesets;
-#        foreach my $set (@{$cluster->get_sets_included}) {
-#          print "  Got set $set with ".$cluster->get_Genes_by_Set($set)." genes\n";
-#          if ($cluster->get_Genes_by_Set($set) > 1) {
-#            push @doublesets, $set;
-#          } # if ($cluster->get_Genes_by_Set($set) > 1) {
-#        } # foreach my $set (@{$cluster->get_sets_included}) {
-#        my @unordered = $cluster->get_Genes();
-
-      my @unordered = @{$protein_clusters{$protein}};
-      my $ordered_genes = $self->get_ordered_genes(\@unordered);
-      my @best_genes = @{$self->get_best_gene($protein, $ordered_genes, \@doublesets)};
+      # filter the genes
+      my @best_genes = @{$self->get_best_gene($protein, $self->biotypes, $filtered)};
       foreach my $best_gene (@best_genes) {
         if (! exists $outgenes{$best_gene}){
           $outgenes{$best_gene} = make_outgenes($self->analysis, $best_gene);
         }
-      } # foreach my $best_gene (@best_genes) {
+      } 
     } #foreach my $prot (keys %protein_clusters) {
   } # oreach my $cluster (@twoways) {
   my @outgenes;
@@ -232,36 +210,63 @@ sub run {
 
 
 sub get_best_gene {
-  my ($self, $protein, $genes, $doubles) = @_;
+  my ($self, $protein, $biotypes, $hsh) = @_;
 
-  # genes ordered by biotype, from most preferred to least preferred biotype
-  if (scalar(@$doubles) > 0) {
-    print "*** Have doubles so need to be careful ***\n";
-  }
+  my %hash = %{$hsh};
+  # which biotypes have more than 1 gene made from $protein?
+  my @doubles;
+  my $num_genes = 0;
+  #foreach my $type (@$biotypes) {
+    foreach my $biotype (keys %{$hash{$protein}}) {
+        #my @g = $hash->{$protein}->{$biotype};
+        #print "have ".scalar(@g)." genes, existing...\n"; 
+        print "biotype $biotype has ".scalar(@{$hash{$protein}{$biotype}})." genes \n";
+        $num_genes += scalar(@{$hash{$protein}{$biotype}});
+        if (scalar(@{$hash{$protein}{$biotype}}) > 1) {
+          print "*** Have ".$biotype." doubles so need to be careful ***\n";
+          push @doubles, $biotype;
+
+        }
+    }
+  #} 
+
+  # fetch the protein
   my $pep = $self->seqfetcher->get_Seq_by_acc($protein)->seq;
   my @best;
-  my $exonerate;
+  my $exonerate; # flag
   print "Finding best gene for protein $protein...\n";
 
 
-  # Go thru each gene
+  # Go thru each gene in order of favourite to least fav biotype
   # See whether its tln matches the peptide
   my @match_pep;
   my %tln_groups;
   my $tln_seq;
-  foreach my $gene (@$genes) {
-    foreach my $transcript (@{$gene->get_all_Transcripts}) {
-      $tln_seq = $transcript->translate->seq;
-      if ($tln_seq eq $pep) {
-        push @match_pep, $gene;
+  OUTER: foreach my $type (@$biotypes) {
+    INNER: foreach my $biotype (keys %{$hash{$protein}}) {
+      if ($biotype ne $type) {
+        next INNER;
       }
-      push @{$tln_groups{$tln_seq}}, $gene; 
+      if (scalar(@{$hash{$protein}{$biotype}}) > 0) {
+        foreach my $gene (@{$hash{$protein}{$biotype}}) {
+          print "Got gene dbid ".$gene->dbID." ".$gene->biotype."\n";
+          foreach my $transcript (@{$gene->get_all_Transcripts}) {
+            $tln_seq = $transcript->translate->seq;
+            if ($tln_seq eq $pep) {
+              push @match_pep, $gene;
+            }
+            push @{$tln_groups{$tln_seq}}, $gene; 
+          }
+        }
+      } else {
+        print "No genes for biotype $biotype\n";
+      }
     }
   }
   my $num_tln_groups = scalar(keys %tln_groups);
   print "Have $num_tln_groups different possible translations represented.\n"; 
   foreach my $s (keys %tln_groups) {
-    print "option: $s\n";
+    print "option ".$tln_groups{$s}[0]->biotype.": $s\n";
   }
 
 
@@ -274,7 +279,7 @@ sub get_best_gene {
 
   } elsif (scalar(@match_pep > 1)) {
     print "More than one exact match to protein.\n"; 
-    if (scalar(@$doubles) > 0) {
+    if (scalar(@doubles) > 0) {
       print "Have doubles and more than one match to the protein.\n";
       $exonerate = 1;
     } else {
@@ -288,13 +293,14 @@ sub get_best_gene {
     # we may have the translated sequences being all the same, 
     # or we may have the translated sequences being different.
     # take the first gene if they're all the same
-    if ((scalar(@$genes) > 1) && (scalar(keys %tln_groups) == 1) && (scalar(@$doubles < 1))) {
+    if (($num_genes > 1) && (scalar(keys %tln_groups) == 1) && (scalar(@doubles < 1))) {
       print "All transcripts have the same translated sequence. \nKeeping first gene ".$tln_groups{$tln_seq}->[0]->dbID.
             " from array as we prefer it's analysis (".$tln_groups{$tln_seq}->[0]->biotype.")\n";
       print "*** Maybe we should exonerate or look at exon structure to decide what to choose?\n";
       @best = ( $tln_groups{$tln_seq}->[0] );
     } else {
-      print "We have ".scalar(@$genes)." genes, ".scalar(keys %tln_groups)." different sequences and ".scalar(@$doubles)." doubles. Let's dig deeper.\n";
+      print "We have $num_genes genes, ".scalar(keys %tln_groups)." different sequences ".
+            " and ".scalar(@doubles)." doubles. Let's dig deeper.\n";
       $exonerate = 1;
     }
   }
@@ -310,63 +316,59 @@ sub get_best_gene {
     my $best;
     my %scores;
     my $target = Bio::Seq->new( -display_id => $protein, -seq => $pep);
-    foreach my $gene (@$genes) {
-      if (!defined $best) {
-        # sometimes, when there is only one gene and it is very short, it has a score = 0
-        print "First gene is ".$gene->dbID."\n";
-        $best = $gene;
+    foreach my $biotype (@$biotypes) {
+      if (defined $hash{$protein}{$biotype}) {
+        foreach my $gene (@{$hash{$protein}{$biotype}}) {
+          if (!defined $best) {
+            # sometimes, when there is only one gene and it is very short, it has a score = 0
+            print "First gene is ".$gene->dbID."\n";
+            $best = $gene;
+          }
+          foreach my $transcript (@{$gene->get_all_Transcripts}) {
+            print "Running transcript ".$transcript->dbID."\n";
+            my $query = Bio::Seq->new( -display_id => $transcript->dbID, -seq => $transcript->translate->seq);
+            my ($gene_score, $perc_id) = @{$self->run_exonerate($query, $target)}; 
+           # my $gene_score = shift @{$self->run_exonerate($query, $target)};
+    
+            print "Gene ".$gene->dbID." (".$gene->biotype.") has score $gene_score and percent_id $perc_id\n";
+            $scores{$gene->biotype}{$gene->dbID}{'score'} = $gene_score;
+            $scores{$gene->biotype}{$gene->dbID}{'percent_id'} = $perc_id; 
+            if ($gene_score > $max_gene_score) {
+              $max_gene_score = $gene_score;
+              $best = $gene;
+              print "Gene with max score $max_gene_score is now ".$gene->dbID." (with percent_id $perc_id)\n";
+            } # $gene_score > $max_gene_score
+            if ($perc_id > $max_perc_id) {
+              $max_perc_id = $perc_id;
+            }
+          } # reach my $transcript (@{$gene->get_all_Transcripts}) {
+        } # foreach my $gene (@$genes) {
       }
-      foreach my $transcript (@{$gene->get_all_Transcripts}) {
-        my $query = Bio::Seq->new( -display_id => $transcript->dbID, -seq => $transcript->translate->seq);
-        my ($gene_score, $perc_id) = @{$self->run_exonerate($query, $target)}; 
-       # my $gene_score = shift @{$self->run_exonerate($query, $target)};
-
-        print "Gene ".$gene->dbID." (".$gene->biotype.") has score $gene_score and percent_id $perc_id\n";
-        $scores{$gene->biotype}{$gene->dbID}{'score'} = $gene_score;
-        $scores{$gene->biotype}{$gene->dbID}{'percent_id'} = $perc_id; 
-        if ($gene_score > $max_gene_score) {
-          $max_gene_score = $gene_score;
-          $max_perc_id = $perc_id;
-          $best = $gene;
-          print "Gene with max score $max_gene_score is now ".$gene->dbID." (with percent_id $perc_id)\n";
-        } # $gene_score > $max_gene_score
-      } # reach my $transcript (@{$gene->get_all_Transcripts}) {
-    } # foreach my $gene (@$genes) {
+    } # foreach my $biotype (@$biotypes) {
 
     # ok, we have all info that we need. Now 
     # see what we're dealing with. Are there doubles 
     # or can we just take the gene with the highest score?
     my %allowed_doubles;
-    if (scalar(@$doubles) == 0) {
+    if (scalar(@doubles) == 0) {
       print "No doubles.\nKeeping gene ".$best->dbID." (".$best->biotype.
             ") with highest score of $max_gene_score and percent_id $max_perc_id\n";
       @best = ($best);
-    } elsif (scalar(@$doubles) >= 1) {
-      print "We have ".scalar(@$doubles)." sets of doubles\n";
+    } elsif (scalar(@doubles) >= 1) {
+      print "We have ".scalar(@doubles)." sets of doubles\n";
       # check that all genes have score >= 90% of the max
       # and then choose the biotype with the highest collective score
-      foreach my $dbl_logic (@$doubles) {
-        my $count = 0;
-        $allowed_doubles{$dbl_logic} = 0;
-        foreach my $gid (keys %{$scores{$dbl_logic}}) {
-          if ($scores{$dbl_logic}{$gid}{'score'} >= 0.9*$max_gene_score) {
+      foreach my $dbl_biotype (@doubles) {
+        $allowed_doubles{$dbl_biotype} = 0;
+        foreach my $gid (keys %{$scores{$dbl_biotype}}) {
+          if ($scores{$dbl_biotype}{$gid}{'score'} >= 0.9*$max_gene_score) {
             # gene has sufficiently high score that we want to leep it
-            $count++;
-            $allowed_doubles{$dbl_logic} += $scores{$dbl_logic}{$gid}{'score'};
+            $allowed_doubles{$dbl_biotype} += $scores{$dbl_biotype}{$gid}{'score'};
           } else {
-            print "  Not acceptable: gene $gid has score ".$scores{$dbl_logic}{$gid}{'score'}." which is too low\n";
+            print "  Not acceptable: gene $gid has score ".$scores{$dbl_biotype}{$gid}{'score'}." which is too low\n";
           } #if
         } # gid
-        if ($count != scalar(keys %{$scores{$dbl_logic}})) {
-          # we don't want to use this biotype as one or more of its gene has a low score
-          # NOTE: what happens if there are 3 genes for the one biotype, with two non-overlapping
-          # genes and the third gene having a long intron that joins the other two?
-          # Do we want to consider all 3 genes or only the non-overlapping ones?
-          print "  Not allowed to use biotype $dbl_logic. (Have ".scalar(keys %{$scores{$dbl_logic}}).
-                " genes but only $count pass the threshold 90%)\n";
-          $allowed_doubles{$dbl_logic} = 0; 
-        }
-      } # foreach my $dbl_logic (@$doubles) { 
+      } # foreach my $dbl_biotype (@$doubles) { 
     
       # choose the one with the max score
       # note that if 2 biotypes have the same max score, then there is no
@@ -374,26 +376,24 @@ sub get_best_gene {
       my $best_biotype;
       my $max_dbl_score = 0;
       
-      #sort allowed doubles by order in config
-      my @sorted_allowed;
-      foreach my $logic (@{$self->logic_names}) {
-	if (exists $allowed_doubles{$logic}){
-	  push @sorted_allowed, $logic;
-	}        
-      }
-      foreach my $dbl_logic (@sorted_allowed) {
+      foreach my $dbl_biotype (@$biotypes) {
 	
-	if (defined $dbl_logic && ($allowed_doubles{$dbl_logic} > $max_dbl_score)) {
-          $max_dbl_score = $allowed_doubles{$dbl_logic};
-          $best_biotype = $dbl_logic;
+	if (defined $dbl_biotype && ($allowed_doubles{$dbl_biotype} > $max_dbl_score)) {
+          $max_dbl_score = $allowed_doubles{$dbl_biotype};
+          $best_biotype = $dbl_biotype;
         } 
       }
       if ($max_dbl_score > 0) {
         # we take the doubles
-        foreach my $gene (@$genes) {
-          if ($gene->biotype eq $best_biotype) {
+        foreach my $gene (@{$hash{$protein}{$best_biotype}}) {
+          if (($gene->biotype eq $best_biotype) && ($scores{$gene->biotype}{$gene->dbID}{'score'} >= 0.9*$max_gene_score)) {
             print "Keeping gene ".$gene->dbID." biotype ".$gene->biotype."\n";
             push @best, $gene;
+            if ($scores{$gene->biotype}{$gene->dbID}{'percent_id'} < 95) {
+              print "WARNING_FLAG: percent_id is less than max\n";
+            }
+          } else {
+            print "(Not keeping ".$gene->dbID." as score too low)\n";
           }
         }
       } else {
@@ -403,7 +403,8 @@ sub get_best_gene {
     } # if (scalar(@$doubles) > 0) {
     foreach my $b (@best) {
       if ($scores{$b->biotype}{$b->dbID}{'percent_id'} < 90) {
-        print "FLAG: best_gene ".$b->dbID." has percent_id ".$scores{$b->biotype}{$b->dbID}{'percent_id'}."<90 (start ".$b->start." end ".$b->end.")\n";
+        print "FLAG: best_gene ".$b->dbID." has percent_id ".$scores{$b->biotype}{$b->dbID}{'percent_id'}.
+              "<90 (start ".$b->start." end ".$b->end.")\n";
       }
     }
   } #if (defined $exonerate) {
@@ -416,7 +417,6 @@ sub check_for_pairs {
   my %logics;
 
   print "we have ". scalar @$genes ." genes to compare\n";
-
   
   # all the genes passed in are made from the same protein.
   # see if there are any NON-OVERLAPPING genes of the same biotype  
@@ -425,10 +425,22 @@ sub check_for_pairs {
       if (($outer->biotype eq $inner->biotype) && ($outer->start > $inner->end || $outer->end < $inner->start)) {
         #they have the same biotype
         #they do not overlap
-	$logics{$outer->biotype} = 1;
+	$logics{$outer->biotype} += 1;
       }
     }
   }
+  foreach my $k (keys %logics){
+    print "Double count $k ".($logics{$k} / 2)."\n"; #divided by 2 because each pair counted twice
+  }
+
+ #print if a biotype has >2 transcripts in that cluster
+  foreach my $k (keys %logics){
+    if ($logics{$k} > 2){
+      print "Eek - more than 1 pair of doubles for a single biotype\n";
+      last;
+    }
+  }
+
   return keys %logics;
 }
 
@@ -440,7 +452,7 @@ sub get_ordered_genes {
   my %seen;  
   
   print "block has ".scalar(@$genes)." genes\n";
-  foreach my $logic (@{$self->logic_names}) {
+  foreach my $logic (@{$self->biotypes}) {
     foreach my $gene (@$genes) {  
       if (!exists $seen{$gene} && ($logic eq $gene->biotype)) {
         print "  Got in cluster: gene ".$gene->dbID." of biotype ".$gene->biotype."\n";
@@ -466,8 +478,10 @@ sub cluster_by_protein {
     }
     
     my $duplicate; 
-    if (exists $protein_hash{$protein}) {
-      GOT: foreach my $got_gene (@{$protein_hash{$protein}}){
+    if (!exists $protein_hash{$protein}{$gene->biotype}) {
+      push @{$protein_hash{$protein}{$gene->biotype}}, $gene;
+    } else {
+      GOT: foreach my $got_gene (@{$protein_hash{$protein}{$gene->biotype}}){
         if ($gene->biotype ne $got_gene->biotype) {
           next GOT;
         }
@@ -480,10 +494,8 @@ sub cluster_by_protein {
 	}  
       }
       if (!$duplicate) {
-        push @{$protein_hash{$protein}}, $gene;
+        push @{$protein_hash{$protein}{$gene->biotype}}, $gene;
       }    
-    } else {
-      push @{$protein_hash{$protein}}, $gene;
     }
     
 
@@ -584,6 +596,70 @@ sub get_alternate_transcripts {
     } #inner
   } # genes
   return \%alternates;
+}
+
+
+sub filter_transcripts {
+  my ($h) = @_;
+  my %hash = %{$h};
+  my %hash2;
+  #my %filtered = %{filter_transcripts(\%protein_clusters)};
+  # fix doubles and overlappings
+  foreach my $protein (keys %hash) {
+    print "Filtering protein $protein\n";
+    foreach my $biotype (keys %{$hash{$protein}}) {
+      print "Filtering biotypes in random order $biotype\n";
+      my @genes = @{$hash{$protein}{$biotype}};
+      print "  started off with ".scalar(@genes)." genes\n";
+      foreach my $g (@genes) {
+        print "... gene ".$g->dbID."\n";
+      }
+      if (scalar(@genes) > 1) {
+        print "We have doubles or overlapping\n";
+        my @genes2 = @{tidy_up($hash{$protein}{$biotype})};
+        print "  now have ".scalar(@genes2)." genes left\n";
+        push @{$hash2{$protein}{$biotype}}, @{tidy_up($hash{$protein}{$biotype})}; 
+      } else {
+        push @{$hash2{$protein}{$biotype}},  @genes;
+      }
+    }
+  }
+  return \%hash2;
+}
+
+sub tidy_up {
+  my ($genes) = @_;
+
+  print "In tidy up...have ".scalar(@$genes)." genes\n";
+  my @ordered = sort {($a->end - $a->start) <=> ($b->end - $b->start)} @$genes;
+
+  # make an array holding the shortest gene
+  my @non_overlapping;
+  push @non_overlapping, $ordered[0];
+
+  # add in genes if they don't overlap
+  my $overlaps;
+  OUTER: foreach my $outer (@ordered) {
+    INNER: foreach my $inner (@non_overlapping) {
+      if ($outer->dbID == $inner->dbID) {
+        next OUTER;
+      }
+      print "non-verlapping has no. elements = ".scalar(@non_overlapping)."\n";
+      if (($outer->start <= $inner->end && $outer->end >= $inner->start) 
+       || ($inner->start <= $outer->end && $inner->end >= $outer->start)) {
+        print "overlaps\n";
+        $overlaps++;
+        next OUTER;
+      }
+    }
+    if ($overlaps < 1) {
+      print "ADDING A DOUBLE\n";
+      push @non_overlapping, $outer;
+    }
+  }
+
+  # now, we might be able 
+  return \@non_overlapping;
 }
 
 sub overlaps_all {
@@ -764,6 +840,16 @@ sub seqfetcher {
   return $self->{_bt_seqfetcher};
 }
 
+sub biotypes {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_bt_biotypes} = $val;
+  }
+
+  return $self->{_bt_biotypes};
+}
+
 sub logic_names {
   my ($self, $val) = @_;
 
@@ -834,6 +920,8 @@ sub parse_results {
   while (<$fh>){
     if ($_=~/^RESULT:/){
       my @tmp = split/\s+/, $_;
+      print "exonerate results @tmp ";
+      print "\n";
 #     my (
 #        $tag, $q_id, $q_start, $q_end, $q_strand,
 #        $t_id, $t_start, $t_end, $t_strand, $score,
@@ -849,6 +937,7 @@ sub parse_results {
   }  
 
   $self->output([$score, $perc_id]);
+
 }
 
 
