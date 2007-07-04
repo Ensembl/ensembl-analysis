@@ -472,6 +472,7 @@ sub make_gene{
      -display_id => $name,
      -dbname => 'RFAM',
      -release => 1,
+     -version => 0,
      -description => $description." [Source: RFAM ".$self->analysis->db_version."]",
     );
   # Use RNA fold to tidy up the structure parsed from cmsearch results
