@@ -84,7 +84,7 @@ use vars qw(%Config);
       SEQFETCHER_OBJECT =>  'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
 
       # add the logic names of your targetted genes here. 
-      LOGICNAMES                         => ['TargettedGenewise', 'TargettedExonerate', 'TargettedGenewise_gtag'],
+      BIOTYPES                           => ['TargettedGenewise', 'TargettedExonerate', 'TargettedGenewise_gtag'],
 
       DB_NAME                            => 'GENEWISE_DB',
       OUT_DB_NAME                        => 'GENEWISE_DB',
