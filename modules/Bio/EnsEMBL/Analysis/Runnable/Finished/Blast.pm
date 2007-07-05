@@ -154,6 +154,11 @@ sub clean_databases {
 	$self->{databases} = [];
 }
 
+sub clean_results_files {
+  my ($self) = @_;
+  $self->{'results_files'} = [];
+}
+
 sub databases {
 	my ( $self, @vals ) = @_;
 
