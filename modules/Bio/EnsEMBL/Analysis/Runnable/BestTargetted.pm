@@ -236,6 +236,21 @@ sub get_best_gene {
   my $exonerate; # flag
   print "Finding best gene for protein $protein...\n";
 
+  if (scalar(@doubles) > 0) {
+    print "We ave doubles so let's just use them\n";
+    OUTER: foreach my $biotype (@$biotypes) {
+      INNER: foreach my $type (@doubles) {
+        if ($biotype eq $type) {
+          print "The most favoured set of doubles is $biotype so we takes them\n";
+          foreach my $gene (@{$hash{$protein}{$biotype}}) {
+            print "Keeping gene ".$gene->dbID."\n";
+          }
+          push @best, @{$hash{$protein}{$biotype}};
+          return \@best;
+        }
+      }
+    }
+  }
 
   # Go thru each gene in order of favourite to least fav biotype
   # See whether its tln matches the peptide
@@ -311,9 +326,11 @@ sub get_best_gene {
   # we keep track of all genes' scores and percent_ids for later use
   if (defined $exonerate) {
     print "Exonerate...\n";
+    my $gene_tln_comp;
     my $max_gene_score = 0;
     my $max_perc_id = 0;
     my $best;
+    my $first_best;
     my %scores;
     my $target = Bio::Seq->new( -display_id => $protein, -seq => $pep);
     foreach my $biotype (@$biotypes) {
@@ -323,6 +340,7 @@ sub get_best_gene {
             # sometimes, when there is only one gene and it is very short, it has a score = 0
             print "First gene is ".$gene->dbID."\n";
             $best = $gene;
+            $first_best = $gene;
           }
           foreach my $transcript (@{$gene->get_all_Transcripts}) {
             print "Running transcript ".$transcript->dbID."\n";
@@ -330,9 +348,12 @@ sub get_best_gene {
             my ($gene_score, $perc_id) = @{$self->run_exonerate($query, $target)}; 
            # my $gene_score = shift @{$self->run_exonerate($query, $target)};
     
-            print "Gene ".$gene->dbID." (".$gene->biotype.") has score $gene_score and percent_id $perc_id\n";
+            print "Gene ".$gene->dbID." (".$gene->biotype.") has score $gene_score and percent_id $perc_id (ratio ".
+                  ($transcript->translation->length)/($transcript->end - $transcript->start).")\n";
             $scores{$gene->biotype}{$gene->dbID}{'score'} = $gene_score;
             $scores{$gene->biotype}{$gene->dbID}{'percent_id'} = $perc_id; 
+            $scores{$gene->biotype}{$gene->dbID}{'ratio'} = ($transcript->translation->length)/($transcript->end - $transcript->start);
+            $scores{$gene->biotype}{$gene->dbID}{'gene'} = $gene;
             if ($gene_score > $max_gene_score) {
               $max_gene_score = $gene_score;
               $best = $gene;
@@ -351,9 +372,17 @@ sub get_best_gene {
     # or can we just take the gene with the highest score?
     my %allowed_doubles;
     if (scalar(@doubles) == 0) {
-      print "No doubles.\nKeeping gene ".$best->dbID." (".$best->biotype.
-            ") with highest score of $max_gene_score and percent_id $max_perc_id\n";
-      @best = ($best);
+      print "No doubles, Checking the ratio\n";
+      if ($scores{$best->biotype}{$best->dbID}{'ratio'} >= 0.8*($scores{$first_best->biotype}{$first_best->dbID}{'ratio'})) {
+        @best = ($best);
+        print "ratio OK. Keeping gene ".$best->dbID." biotype ".$best->biotype.
+             " , ratio ".$scores{$best->biotype}{$best->dbID}{'ratio'}." vs ".
+              $scores{$first_best->biotype}{$first_best->dbID}{'ratio'}."\n";
+      } else {
+        print "Ratio too low. Befault to 1st biotype. Keeping gene ".$first_best->dbID." biotype ".$first_best->biotype."\n";
+        @best = ($first_best);
+      }
+
     } elsif (scalar(@doubles) >= 1) {
       print "We have ".scalar(@doubles)." sets of doubles\n";
       # check that all genes have score >= 90% of the max
@@ -396,11 +425,8 @@ sub get_best_gene {
             print "(Not keeping ".$gene->dbID." as score too low)\n";
           }
         }
-      } else {
-        @best = ($best);
-        print "Keeping gene ".$best->dbID." biotype ".$best->biotype."\n";
       }
-    } # if (scalar(@$doubles) > 0) {
+    }
     foreach my $b (@best) {
       if ($scores{$b->biotype}{$b->dbID}{'percent_id'} < 90) {
         print "FLAG: best_gene ".$b->dbID." has percent_id ".$scores{$b->biotype}{$b->dbID}{'percent_id'}.
@@ -638,18 +664,37 @@ sub tidy_up {
   push @non_overlapping, $ordered[0];
 
   # add in genes if they don't overlap
-  my $overlaps;
+  my $overlaps = 0;
   OUTER: foreach my $outer (@ordered) {
     INNER: foreach my $inner (@non_overlapping) {
       if ($outer->dbID == $inner->dbID) {
         next OUTER;
       }
-      print "non-verlapping has no. elements = ".scalar(@non_overlapping)."\n";
       if (($outer->start <= $inner->end && $outer->end >= $inner->start) 
        || ($inner->start <= $outer->end && $inner->end >= $outer->start)) {
-        print "overlaps\n";
-        $overlaps++;
-        next OUTER;
+        print "overlaps... checking if it extends the smaller gene... ";
+        my $outer_transc = $outer->get_all_Transcripts->[0];
+        my $inner_transc = $inner->get_all_Transcripts->[0];
+        #my $outer_transc_seq = $outer->get_all_Transcripts->[0]->translateable_seq;
+        #my $inner_transc_seq = $inner->get_all_Transcripts->[0]->translateable_seq;
+        my $exact_match;
+        for (my $i=0; $i< scalar(@{$outer_transc->get_all_Exons}); $i++) {
+          for (my $j=0; $j<scalar(@{$inner_transc->get_all_Exons}); $j++) {
+            if ($outer_transc->get_all_Exons->[$i]->start == $inner_transc->get_all_Exons->[$j]->start &&
+                $outer_transc->get_all_Exons->[$i]->end == $inner_transc->get_all_Exons->[$j]->end) {
+              $exact_match++;
+              #next;
+            }
+          }
+        }
+        if ($exact_match == scalar(@{$inner_transc->get_all_Exons})) { 
+        #if ($outer_transc->translateable_seq =~ m/$inner_transc_seq/) {
+          print "EXTENDS\n";
+        } else {
+          print "OVERLAP\n";
+          $overlaps++;
+          next OUTER;
+        }
       }
     }
     if ($overlaps < 1) {
