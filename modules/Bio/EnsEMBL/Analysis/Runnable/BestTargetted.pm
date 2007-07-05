@@ -213,6 +213,21 @@ sub get_best_gene {
   my ($self, $protein, $biotypes, $hsh) = @_;
 
   my %hash = %{$hsh};
+
+  # we don't wanna make a gene here if only one analysis has built here
+  my $biotypes_represented;
+  my $token_gene;
+  foreach my $biotype (keys %{$hash{$protein}}) {
+    if (scalar(@{$hash{$protein}{$biotype}}) > 0) {
+      $biotypes_represented++;
+      $token_gene = $hash{$protein}{$biotype}->[0];
+    }
+  }
+  if ($biotypes_represented == 1 && scalar(@$biotypes) > 2) {
+    print "FLAG_NULL: For $protein, am returning no genes. See gene ".$token_gene->dbID." (".$token_gene->biotype.")\n";
+    return [];
+  }
+
   # which biotypes have more than 1 gene made from $protein?
   my @doubles;
   my $num_genes = 0;
