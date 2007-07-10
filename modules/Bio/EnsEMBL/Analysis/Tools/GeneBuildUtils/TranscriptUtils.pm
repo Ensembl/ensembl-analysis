@@ -65,7 +65,6 @@ use vars qw (@ISA @EXPORT);
              calculate_exon_phases
              clone_Transcript
              coding_coverage
-             convert_to_genes
              count_non_canonical_splice_sites
              dump_cDNA_file
              empty_Transcript
@@ -107,7 +106,7 @@ use vars qw (@ISA @EXPORT);
              evidence_coverage_greater_than_minimum
              count_real_introns
              identical_Transcripts
-             convert_translateable_exons_to_exon_extended_objects
+             convert_translateable_exons_to_exon_extended_objects 
             );
 
 
