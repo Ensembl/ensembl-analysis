@@ -107,7 +107,47 @@ use vars qw (@ISA @EXPORT);
              evidence_coverage_greater_than_minimum
              count_real_introns
              identical_Transcripts
+             convert_translateable_exons_to_exon_extended_objects
             );
+
+
+
+=head2 convert_translateable_exons_to_exon_extended_objects 
+
+  Arg [0]   : Bio::EnsEMBL::Transcript 
+  Function  : converts all translateable Exons of a Bio::EnsEMBL::Transcript object 
+              into  ExonExtended objects to access addtional attributes, like previouus exon etc 
+  Returntype: Arrayref of Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended objects 
+  Example   : 
+
+=cut
+
+
+sub convert_translateable_exons_to_exon_extended_objects {
+  my ( $transcript ) = @_ ;
+
+  my $exons = $transcript->get_all_translateable_Exons;
+  my @conv_exons ;
+
+   for (my $i=0 ; $i < scalar ( @$exons) ; $i++) {
+      my $pte = ${$exons}[$i] ;
+      bless $pte,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended" ;
+
+      if ( ($i+1) <scalar(@$exons)) {
+        $pte->next_exon(${$exons}[$i+1]) ;
+      }
+      if ( ($i-1)>=0) {
+        $pte->prev_exon(${$exons}[$i-1]) ;
+      }
+      $pte->transcript($transcript) ;
+      push @conv_exons , $pte ;
+   }
+   return \@conv_exons ;
+}
+
+
+
+
 
 
 =head2 print_Transcript
