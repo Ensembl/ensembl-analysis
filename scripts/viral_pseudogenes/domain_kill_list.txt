@@ -53,6 +53,7 @@ PF02337	Retroviral GAG p10 protein
 PF02340	PRRSV putative envelope protein
 PF02723	Non-structural protein NS3/Small envelope protein E
 PF02813	Retroviral M domain
+PF02994	L1 transposable element
 PF03056	Env gp36 protein (HERV/MMTV type)
 PF03276	Spumavirus gag protein
 PF03391	Nepovirus coat protein, central domain
