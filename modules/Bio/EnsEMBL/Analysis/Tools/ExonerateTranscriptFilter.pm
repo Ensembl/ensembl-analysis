@@ -147,7 +147,12 @@ TRAN:
     my $best_transcript = ${$matches_sorted_by_coverage{$query_id}}[0]->{transcript};
     my $best_start = $best_transcript->start;
     my $best_end = $best_transcript->end;
-    my $best_slice = $best_transcript->slice;
+    my $best_slice;
+    if (!defined $best_transcript->slice) {
+      $best_slice = $best_transcript->start_Exon->seqname;
+    } else {
+      $best_slice = $best_transcript->slice;
+    }
     
   TRANSCRIPT:
     foreach my $hit ( @{$matches_sorted_by_coverage{$query_id}} ){
@@ -159,7 +164,14 @@ TRAN:
       my $coverage = $hit->{coverage};
       my $percent_id = $hit->{percent_id};
       my $is_spliced = $hit->{is_spliced};
-     
+
+      my $transcript_slice;
+      if (!defined $transcript->slice) {
+        $transcript_slice = $transcript->start_Exon->seqname;
+      } else {
+        $transcript_slice = $transcript->slice; 
+      }
+
       unless ($max_coverage){
 	$max_coverage = $coverage;
       }
@@ -203,7 +215,7 @@ TRAN:
 	  }
           # ... if one transcript with lower quality completely overlaps
           # the best one don't accept the lower quality one.
-          elsif ($best_slice eq $transcript->slice && 
+          elsif ($best_slice eq $transcript_slice &&
                  $best_start > $transcript->start &&
                  $best_end   < $transcript->end){
             $accept = 'NO';
