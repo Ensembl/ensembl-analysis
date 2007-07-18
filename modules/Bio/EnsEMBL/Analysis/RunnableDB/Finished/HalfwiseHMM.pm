@@ -7,7 +7,7 @@
 #
 # POD documentation - main docs before the code
 
-=pod 
+=pod
 
 =head1 NAME
 
@@ -75,7 +75,7 @@ use BlastableVersion;
     Arg      : all those inherited from RunnableDB
     Function : Make a new HalfwiseHMM object defining the above variables
     Exception: thrown if no input id is provided, this is found in RunnableDB
-    Caller   : 
+    Caller   :
     Example  : $runnable = Bio::EnsEMBL::Analysis::RunnableDB::HalfwiseHMM new->(-db => $db
 										 -INPUT_ID => $id
 										 -ANALYSIS => $analysis);
@@ -219,7 +219,7 @@ sub getPfamDB {
 
 =head2 get_db_version
 
-    Title   :  get_db_version 
+    Title   :  get_db_version
                [ distinguished from RunnableDB::*::db_version_searched() ]
     Useage  :  $self->get_db_version('/data/base/path')
                $obj->get_db_version()
@@ -284,9 +284,9 @@ sub db_version_searched {
 =head2  runnable
 
     Arg      : a Bio::EnsEMBL::Analysis::Runnable
-    Function : Gets/sets the runnable 
+    Function : Gets/sets the runnable
     Exception: throws if argument passed isn't a runnable
-    Caller   : 
+    Caller   :
     Example  :'
 
 =cut
@@ -328,7 +328,7 @@ sub run {
     Arg      : none
     Function : writes the converted output to the database as genes
     Exception: none
-    Caller   : 
+    Caller   :
     Example  :
 
 =cut
@@ -364,7 +364,7 @@ sub write_output {
     Arg      : none
     Function : takes the features from the halfwise runnable and runs _make_genes to convert them into Bio::EnsEMBL::Genes with appropriately attached exons and supporting evidence
     Exception: thows if there are no analysis types
-    Caller   : 
+    Caller   :
     Example  :
 
 =cut
@@ -407,7 +407,7 @@ sub pfam_lookup {
     Arg      : runnable being run and analysis object being used
     Function : converts the seqfeatures outputed by the runnable and actually converts them into Bio::EnsEMBL::Genes
     Exception: none
-    Caller   : 
+    Caller   :
     Example  :
 
 =cut
@@ -417,7 +417,7 @@ sub pfam_lookup {
   Title   :   make_genes
   Usage   :   $self->make_genes
   Function:   makes Bio::EnsEMBL::Genes out of the output from runnables
-  Returns :   array of Bio::EnsEMBL::Gene  
+  Returns :   array of Bio::EnsEMBL::Gene
   Args    :   $genetype: string
               $analysis_obj: Bio::EnsEMBL::Analysis
               $results: reference to an array of FeaturePairs
@@ -457,7 +457,7 @@ sub _make_genes {
 		my $transcript =
 		  $self->_make_transcript( $tmp_gene, $slice, $genetype,
 			$analysis_obj );
-		$gene->type($genetype);
+		$gene->biotype($genetype);
 		$gene->analysis($analysis_obj);
 		$gene->add_Transcript($transcript);
 		$gene->add_DBEntry($dbentry);
@@ -513,10 +513,10 @@ q`INSERT INTO external_db (external_db_id, db_name, db_release, status) VALUES(?
 
  Title   : make_transcript
  Usage   : $self->make_transcript($gene, $slice, $genetype)
- Function: makes a Bio::EnsEMBL::Transcript from a SeqFeature representing a gene, 
+ Function: makes a Bio::EnsEMBL::Transcript from a SeqFeature representing a gene,
            with sub_SeqFeatures representing exons.
  Example :
- Returns : Bio::EnsEMBL::Transcript with Bio::EnsEMBL:Exons(with supporting feature 
+ Returns : Bio::EnsEMBL::Transcript with Bio::EnsEMBL:Exons(with supporting feature
            data), and a Bio::EnsEMBL::translation
  Args    : $gene: Bio::EnsEMBL::SeqFeatureI, $contig: Bio::EnsEMBL::RawContig,
   $genetype: string, $analysis_obj: Bio::EnsEMBL::Analysis
@@ -537,6 +537,7 @@ sub _make_transcript {
 	my $translation = Bio::EnsEMBL::Translation->new();
 
 	$transcript->translation($translation);
+	$transcript->analysis($analysis_obj);
 
 	my $excount = 1;
 	my @exons;
@@ -546,7 +547,7 @@ sub _make_transcript {
 		# make an exon
 		my $exon = Bio::EnsEMBL::Exon->new();
 		my $sa   = $slice->adaptor();
-		$exon->id( $sa->get_seq_region_id($slice) );
+		$exon->display_id( $sa->get_seq_region_id($slice) );
 		$exon->start( $exon_pred->start );
 		$exon->end( $exon_pred->end );
 		$exon->strand( $exon_pred->strand );
