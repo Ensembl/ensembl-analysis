@@ -1,5 +1,5 @@
 
-=pod 
+=pod
 
 =head1 NAME
 
@@ -27,7 +27,7 @@ rds@sanger.ac.uk
 refactored by Sindhu K. Pillai B<sp1@sanger.ac.uk>
 =head1 APPENDIX
 
-The rest of the documentation details each of the object methods. 
+The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _
 
 =cut
@@ -79,7 +79,7 @@ sub new {
     $self->{'_output_features'} = [];
     $self->{'_hmmfetch'} = undef;
     $self->{'_hmmdb'} = undef;
-    $self->{'_hmmfilename'} = undef; #file to store protein profile hmms 
+    $self->{'_hmmfilename'} = undef; #file to store protein profile hmms
     $self->{'_errorfile'} = undef; #file to store any errors hmmfetch throw
     $self->{'_dbm_file'} = undef;
     #print STDERR "args = @args\n";
@@ -90,7 +90,7 @@ sub new {
 											   PFAMDB
 											   MEMORY
 											   OPTIONS
-											   ANALYSIS	
+											   ANALYSIS
 											   PROGRAM)], @args);
     throw("No genomic sequence input") unless defined($genomic);
     $self->query($genomic);
@@ -111,7 +111,7 @@ sub new {
 	$self->hmmdb($hmmdb);
     } else {
 	$self->hmmdb('/data/blastdb/Finished/Pfam_ls');
-	
+
     }
     $self->memory ($memory)    if (defined($memory));
     return $self; # success - we hope!
@@ -171,7 +171,7 @@ sub program{
   Arg      : Bio:Seq object
   Function : get/set method for query
   Exception: throws an exception if not passed a Bio:PrimarySeq
-  Caller   : 
+  Caller   :
 
 =cut
 
@@ -190,7 +190,7 @@ sub query {
     Arg      : reference to array of features
     Function : get/set method for input features
     Exception: throws an exception if not passed an array ref
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -208,7 +208,7 @@ sub add_input_features{
     Arg      : none
     Function : returns all input features
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -230,7 +230,7 @@ sub all_input_features{
     Arg      : location of hmmfetch program
     Function : gets/sets location of hmmfetch program
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -245,10 +245,10 @@ sub hmmfetch {
 
 =head2 hmmdb
 
-    Arg      : location of hmmdb 
+    Arg      : location of hmmdb
     Function : gets/sets location of hmmdb
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -267,7 +267,7 @@ sub hmmdb {
     Arg      : hmm filename
     Function : gets/sets hmmfilename
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -285,7 +285,7 @@ sub hmmfilename {
     Arg      : dbm filename
     Function : gets/sets dbm filename
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -305,7 +305,7 @@ sub dbm_file {
     Arg      : value memory to be set to, this is an option of how much memory genewise can use when it is run
     Function : gets/sets memory
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -325,31 +325,23 @@ sub memory {
 
 =head2 run
 
-    Arg      : directory if to be set to anything other than tmp 
+    Arg      : directory if to be set to anything other than tmp
     Function : runs functions which run genewisehmm
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
 sub run {
 
     my ($self, $dir) = @_;
-    #print "running halfwise\n";
-    my $swissprot_ids = $self->get_swissprot_ids();
-    #print "got swiss prot ids \n";
-    #my @keys = keys(%$swissprot_ids);
-    #foreach my $key (@keys){
-    #  print "hid = ".$key." strand = ".$swissprot_ids{$key}."\n";
-    #}
 
-    my $pfam_ids = $self->get_pfam_ids($swissprot_ids);
-    #throw(Dumper($pfam_ids));
-    #print "got pfam ids \n";
+    my $swissprot_ids = $self->get_swissprot_ids();
+    my $pfam_ids = $self->get_pfam_hmm($swissprot_ids,$dir);
+
     #$self->create_genewisehmm($pfam_ids, $dir);
     #$self->create_genewisehmm_individually($pfam_ids, $dir);
-    $self->create_genewisehmm_complete($pfam_ids, $dir);
-    #throw(Dumper($pfam_ids));
+    $self->create_genewisehmm_complete($pfam_ids);
 }
 
 =head2 get_swissprot_ids
@@ -357,11 +349,11 @@ sub run {
     Arg      : none
     Function : gets swissprot ids and strands from input features and returns a hash of these
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
-### 1, -1 and 0 are used to repesent strand, 1 and -1 have the same meaning as in teh ensembl databases 1 is the forward strand and -1 is the reverse 
+### 1, -1 and 0 are used to repesent strand, 1 and -1 have the same meaning as in teh ensembl databases 1 is the forward strand and -1 is the reverse
 ### 0 is used if a particular id has hit on both strands
 
 sub get_swissprot_ids{
@@ -386,9 +378,64 @@ sub get_swissprot_ids{
     Arg      : reference to a hash of swissprotids and stands
     Function : gets all pfam ids for a particular swissprot id and puts them in a hash along with the strand the swissprot id is found on and returns its
     Exception: warns if swissprot id has no pfam domains
-    Caller   : 
+    Caller   :
 
 =cut
+
+sub get_pfam_hmm {
+	my ($self, $uniprot_ids, $dir) = @_;
+    my $pfam_accs;
+    my $pfam_lookup;
+    my $db = $self->pfamDB();
+
+    $self->workdir('/tmp') unless($self->workdir($dir));
+    $self->checkdir();
+
+	my $sql = "SELECT
+	    			DISTINCT(CONCAT(a.pfamA_acc,'.',a.version)),
+	    			a.pfamA_id,
+	    			a.description,
+	    			ls.hmm_ls
+				FROM
+				    pfamA_reg_full_significant f,
+				    pfamseq p,
+				    pfamA a,
+				    pfamA_HMM_ls ls
+				WHERE
+				    f.auto_pfamseq = p.auto_pfamseq AND
+				    f.in_full = 1 AND
+				    a.auto_pfamA = f.auto_pfamA AND
+				    ls.auto_pfamA = f.auto_pfamA AND
+				    p.pfamseq_acc IN ";
+
+    my @accessions = keys(%$uniprot_ids);
+    map ( s/(\w*(-\d+)?)(\.\d+)?/'$1'/,@accessions);
+
+	$sql .= "(".join(',',@accessions).")";
+
+	#print STDOUT $sql."\n";
+
+	# create the hmm file
+    $self->hmmfilename("halfwise.$$.hmmdb");
+    open (HMMFILE, ">".$self->hmmfilename) or die "couldn't create hmm file ".$self->hmmfilename." $!";
+	#print STDOUT "HMM file is ".$self->hmmfilename."\n";
+
+	my $sth = $db->prepare($sql);
+    $sth->execute();
+    my ($pfam_acc, $pfam_id, $description, $hmm_ls);
+    $sth->bind_columns(\($pfam_acc, $pfam_id, $description, $hmm_ls));
+
+    while(my $row = $sth->fetchrow_arrayref()){
+    	$pfam_lookup->{$pfam_id}	= [$pfam_acc, $description];
+    	$pfam_accs->{$pfam_acc}		= 1;
+    	print HMMFILE $hmm_ls;
+    }
+    $sth->finish();
+	close HMMFILE;
+	$self->pfam_lookup($pfam_lookup);
+
+    return $pfam_accs;
+}
 
 sub get_pfam_ids{
 
@@ -413,7 +460,7 @@ sub get_pfam_ids{
     my $sql = qq{INSERT IGNORE INTO $tbl_name (pfamseq_id, strand) VALUES };
     while (my ($swiss_id, $strand) = each(%$swissprot_ids)){
         #print STDERR "$swiss_id : $strand\n";
-    # strip off sequence version from uniprot ID (introduced in Uniprot release 7.0) 
+    # strip off sequence version from uniprot ID (introduced in Uniprot release 7.0)
     $swiss_id =~ s/\.\d+//;
 	push(@binds, $swiss_id, $strand);
 	push(@values, qq{ (?, ?)});
@@ -475,14 +522,14 @@ sub pfam_lookup{
     Arg      : reference to pfam_id hash and directory if it is to be set to anything other than temp
     Function : runs through each pfam id runs, get_hmm and creates and runs the GenewiseHmm runnable
     Exception: throws an exception if anything other than 1, -1 or 0 is found for strand
-    Caller   : 
+    Caller   :
 
 =cut
 
 sub create_genewisehmm_individually{
     my ($self, $pfam_ids, $dir) = @_;
     print STDERR "getting hmms\n"; ##########
-    $self->workdir('/tmp') unless ($self->workdir($dir)); 
+    $self->workdir('/tmp') unless ($self->workdir($dir));
     $self->checkdir();
     my $memory = $self->memory;
 
@@ -527,28 +574,24 @@ sub create_genewisehmm_individually{
 
     Arg      : reference to pfam_id hash and directory if it is to be set to anything other than temp
     Function : creates a hmm databases of pfam ids, then creates and runs the GenewiseHmm runnable
-    Exception: 
-    Caller   : 
+    Exception:
+    Caller   :
 
 =cut
 
 sub create_genewisehmm_complete{
-    my ($self, $pfam_ids, $dir) = @_;
+    my ($self, $pfam_ids) = @_;
     print STDERR "getting hmms\n"; ##########
-    $self->workdir('/tmp') unless ($self->workdir($dir)); 
-    $self->checkdir();
-
     print STDERR "\nthere are ".scalar(keys(%$pfam_ids))." pfam ids in database\n"; ##########
+
     return unless scalar(keys(%$pfam_ids));
+
     print STDERR "doing the hmm for ids: ". join(" ", keys(%$pfam_ids)) . "\n"; ##########
-    $self->get_hmmdb($pfam_ids);
-    if (-z $self->hmmfilename){
-        throw("hmm file not created :$!");
-    }
+
     $self->run_genewisehmm(0);
     print STDERR "removing hmmfile: ".$self->hmmfilename()."\n"; ##########
     unlink $self->hmmfilename();
-    #throw("finished this bit");
+
     return undef;
 }
 
@@ -577,7 +620,7 @@ sub run_genewisehmm{
     Arg      : the strand of the hit and the memory to be used by genewisehmm
     Function : runs the new method of GenewiseHmm and returns the runnable
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -605,10 +648,10 @@ sub get_GenewiseHMM{
 
 =head2 get_hmm
 
-    Arg      : id of hmm to be fetched normally a pfam id 
+    Arg      : id of hmm to be fetched normally a pfam id
     Function : runs hmmfetch on given id
     Exception: thows if no hmmfile is created
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -675,7 +718,7 @@ sub get_hmmdb{
     Arg      : array ref to array of output features
     Function : adds the array of features to the output feature array
     Exception: throws an exception if not passed an array ref
-    Caller   : 
+    Caller   :
 
 =cut
 
@@ -704,7 +747,7 @@ sub add_output_features{
     Arg      : none
     Function : returns the array of output features
     Exception: none
-    Caller   : 
+    Caller   :
 
 =cut
 
