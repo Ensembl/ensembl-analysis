@@ -176,7 +176,7 @@ sub fetch_input {
       $block->reverse_complement;
     }
 
-    push @{$chains{$block->chain_id}}, $block;
+    push @{$chains{$block->group_id}}, $block;
   }
 
   foreach my $chain_id (keys %chains) {
