@@ -1,6 +1,6 @@
 # Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome
 
-=pod 
+=pod
 
 =head1 NAME
 
@@ -10,7 +10,7 @@ Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome
 
     my $obj = Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome->new(
                                              -genomic => $genseq,
-                                             -est     => $estseq 
+                                             -est     => $estseq
                                              );
     or
     my $obj = Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome->new()
@@ -34,7 +34,7 @@ Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
 
 =head1 APPENDIX
 
-The rest of the documentation details each of the object methods. 
+The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _
 
 =cut
@@ -75,9 +75,9 @@ $verbose = 0;
                 Bio::EnsEMBL::Analysis::Runnable::Est2Genome object
     Returns :   A Bio::EnsEMBL::Analysis::Runnable::Est2Genome object
     Args    :   -genomic:    Bio::PrimarySeqI object (genomic sequence)
-                -est:        Bio::PrimarySeqI object (est sequence), 
+                -est:        Bio::PrimarySeqI object (est sequence),
                 -e2g:        Path to Est2Genome executable
-                -args:       Arguments when running est2genome 
+                -args:       Arguments when running est2genome
 =cut
 
 sub new {
@@ -272,7 +272,7 @@ sub run {
 		if ( $firstline =~ /insufficient memory available/ ) {
 			close(ESTGENOME) or warning("problem closing est_genome: $!\n");
 			$self->_deletefiles( $genfile, $estfile );
-			die qq{"OUT_OF_MEMORY"\n}; 
+			die qq{"OUT_OF_MEMORY"\n};
 		}
 	}
 
@@ -729,24 +729,24 @@ sub _getname {
 
 sub _diskspace {
 	my ( $self, $dir, $limit ) = @_;
-	my $block_size;    #could be used where block size != 512 ?
 	my $Gb   = 1024**3;
-	my $pipe = "df $dir |";
-	local *DF;
-	open DF, $pipe or throw("Can't open pipe '$pipe' [$!]");
+
+	open DF, "df -k $dir |" || throw("FAILED to open 'df' pipe ".
+                                   "Runnable::diskspace : $!\n");
+  	my $count = 0;
+  	my $status = 1;
 	while (<DF>) {
-		if ($block_size) {
-			my @L           = split;
-			my $space_in_Gb = $L[3] * 512 / $Gb;
-			return 0 if ( $space_in_Gb < $limit );
-			return 1;
-		}
-		else {
-			($block_size) = /(\d+).+blocks/i
-			  || throw("Can't determine block size from:\n$_");
-		}
+		if($count && $count > 0){
+      		my @values = split;
+      		my $space_in_Gb = $values[3] * 1024 / $Gb;
+      		$status = 0 if ($space_in_Gb < $limit);
+    	}
+    	$count++;
 	}
-	close DF || throw("Error running '$pipe' : exit $?");
+	close DF || throw("FAILED to close 'df' pipe ".
+                    "Runnable::diskspace : $!\n");
+
+	return $status;
 }
 
 sub _deletefiles {
