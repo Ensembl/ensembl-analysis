@@ -90,9 +90,13 @@ use vars qw(%Config);
    #       ANALYSIS_SET{$key}:chromosome:BROADD2:1:22222:99999:1 
    # e.g. logic_name:chromosome:BROADD2:1:22222:99999:1 
    #  
-   # 
-   FIND_MISSING_ORTHOLOGUES=>  
-     
+   #  
+
+
+
+
+
+FIND_MISSING_ORTHOLOGUES=>  
      { 
         
          # 
@@ -119,7 +123,8 @@ use vars qw(%Config);
                               # 
               hum_mus_one2one     => ['Homo sapiens', 'Mus musculus'], 
               hum_old_dog_one2one => ['Homo sapiens', 'Canis familiaris'], 
-              hum_old_cow_one2one => ['Homo sapiens', 'Bos taurus'], 
+              hum_old_cow_one2one => ['Homo sapiens', 'Bos taurus'],  
+              my_name_is_not_important => ['Mus musculus', 'Homo sapiens'],
           } ,  
 
        },
@@ -139,7 +144,7 @@ use vars qw(%Config);
     # setup script creates post-analysis (find_partials) 
     # if you like to add new post_analysis 
 
-    FIND_PARTIAL_GENES => 
+FIND_PARTIAL_GENES => 
     {   
                   # biotype of genes to fetch out of the db which was used 
                   # for the compara run in registry file   
@@ -147,11 +152,14 @@ use vars qw(%Config);
                            
 
                   # analysis_sets consist of logic_name and members. First, we 
-                  # find orthologues between the QUERY SPECIES and main_orthologue, 
-                  # and the length of these two genes is noted. 
-                  # than we find orthologues between main_orthologue and comparision_1 
-                  # and main_orthologue and comparision_2 and calculate the ratio between 
-                  # these pairs . if the length difference is significant between the 
+                  # find orthologues between the QUERY SPECIES (your new build ) 
+                  # and MAIN_ORTH ( a species with a trustable set of gene predcitions which 
+                  # is also close to QUERY SPECIES ).  
+                  #
+                  # - the length of these two genes is noted. 
+                  # than we find orthologues between MAIN_ORTH and TEST_SPEC_1 
+                  # and MAIN_ORTH and TEST_SPEC_2 and calculates the ratio between 
+                  # these pairs . If the length difference is significant between the 
                   # gene predictions in the other species and query-main, we've found partials.
                   #
                   #
@@ -178,12 +186,16 @@ use vars qw(%Config);
                            'RATIO_MAIN_vs_SPEC_2_LOW' =>   0.9, 
                            'RATIO_MAIN_vs_SPEC_2_HIGH' =>  1.1,
 
-                        },
+                        },  
+                        #
+                        # if you like you can test other sets as well : 
+                        #
                         # new_logic_name => 
                         # {
                         #  MAIN_ORTH   => "Mus musculus", 
                         #  TEST_SPEC_1 => "Canis familiaris", 
                         #  TEST_SPEC_2 => ".....", 
+                        #  RATIO_MAIN_vs_QUERY =>        0.75,
                         #  .... 
                         # }
                    }
@@ -191,9 +203,12 @@ use vars qw(%Config);
     
     # 
     # This section configures the FindSplitGene.pm RunnableDB 
+    # You can define new sets as well, the names like 'hum_dog_split' can be 
+    # changed to whatever you like (foo_bla_bar etc.) - they are only used 
+    # as hash-keys so the runnableDB will loop over all keys of the ANALYSIS_SETS -hash
     # 
 
-    FIND_SPLIT_GENES =>{   
+FIND_SPLIT_GENES =>{   
                               ANALYSIS_SETS => 
                               {   
                                    hum_dog_split=>
