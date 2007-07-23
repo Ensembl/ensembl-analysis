@@ -661,17 +661,19 @@ sub diskspace {
   open DF, "df -k $dir |" || throw("FAILED to open 'df' pipe ".
                                    "Runnable::diskspace : $!\n");
   my $count = 0;
+  my $status = 1;
   while (<DF>) {
     if($count && $count > 0){
       my @values = split;
       my $space_in_Gb = $values[3] * 1024 / $Gb;
-      return 0 if ($space_in_Gb < $limit);
-      return 1;
+      $status = 0 if ($space_in_Gb < $limit);
     }
     $count++;
   }
   close DF || throw("FAILED to close 'df' pipe ".
                     "Runnable::diskspace : $!\n");
+  return 0 if($status = 0);
+  return 1;
 }
 
 
