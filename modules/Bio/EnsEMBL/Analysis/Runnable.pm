@@ -672,8 +672,7 @@ sub diskspace {
   }
   close DF || throw("FAILED to close 'df' pipe ".
                     "Runnable::diskspace : $!\n");
-  return 0 if($status == 0);
-  return 1;
+  return $status;
 }
 
 
