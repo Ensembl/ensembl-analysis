@@ -251,7 +251,7 @@ sub read_and_check_config {
      print STDERR "reading compara-config file : $$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE}\n"; 
     # check compara configuration file and schema-versions of dbs
 
-    Bio::EnsEMBL::Registry->load_all($$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE});
+    Bio::EnsEMBL::Registry->load_all($$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE},1,1);
     my @dba = @{Bio::EnsEMBL::Registry->get_all_DBAdaptors()}; 
    
     my %tmp; 

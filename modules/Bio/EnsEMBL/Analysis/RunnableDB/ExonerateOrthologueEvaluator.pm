@@ -65,7 +65,7 @@ sub run{
    
   # load connection to core where the 'old' genes are stored in 
  
-  Bio::EnsEMBL::Registry->load_all($$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE});
+  Bio::EnsEMBL::Registry->load_all($$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE},1,1);
   my $storedb = Bio::EnsEMBL::Registry->get_DBAdaptor($$MAIN_CONFIG{QUERY_SPECIES},'core') ;   
   throw ("Could not get dba\n") unless $storedb ;   
 
