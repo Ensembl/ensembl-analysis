@@ -7,6 +7,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Gene;  
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils; 
 #use Bio::EnsEMBL::Analysis::Tools::Utilities; 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw ( shuffle ) ; 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
