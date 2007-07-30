@@ -83,6 +83,7 @@ sub new {
   $self->{'_pseudogenes'} = 0;	#scalar number of pseudogenes identified
   $self->{'_indeterminate_genes'} = [];	#array of indeterminategenes dbIDs identified
   $self->{'_single_exon_genes'} = [];	#array of single exon  gene dbIDs identified
+  $self->{'_multi_exon_genes'} = [];	#array of multiple exon  gene to make into a blast database for spliced elsewhere 
  
   my( $genes,$repeats) = rearrange([qw(
                                        GENES
@@ -114,7 +115,7 @@ sub run {
   if ($SINGLE_EXON){
     # Write out multiple exon genes for making into blast db for Spliced elsewhere
     my $filename = $self->create_filename('multi_exon_seq','fasta',$PS_MULTI_EXON_DIR);
-    $self->write_seq_array($self->modified_genes,$filename);
+    $self->write_seq_array($self->multi_exon_genes,$filename);
   }
   return 0;
 }
@@ -243,6 +244,7 @@ sub test_genes{
 
       # transcript passes all tests, it is real
       push @{$trans_type{'real'}}, $transcript;
+      push @{$trans_type{'not_multi_exon'}}, $transcript if scalar @{$transcript->get_all_Exons} < $PS_MIN_EXONS;
     }
 
     #########################################
@@ -252,14 +254,17 @@ sub test_genes{
     # All transcripts have only one exon
     # put them to be stored for spliced elsewhere
     # if specified in config
+    # Dont store IG segment genes, just protein codinf
 
     if ($SINGLE_EXON){
       if ($trans_type{'single_exon'}){
-	unless ($trans_type{'pseudo'} or
-		$trans_type{'indeterminate'} or
-		$trans_type{'real'}) {
-	  $self->single_exon_genes($gene->dbID);
-	  next GENE;
+	if ( $gene->biotype eq 'protein_coding' ){
+	  unless ($trans_type{'pseudo'} or
+		  $trans_type{'indeterminate'} or
+		  $trans_type{'real'}) {
+	    $self->single_exon_genes($gene->dbID);
+	    next GENE;
+	  }
 	}
       }
     }
@@ -319,6 +324,7 @@ sub test_genes{
 	  $self->_remove_transcript_from_gene($gene,$trans); 
 	}
 	$self->modified_genes($gene);
+	$self->multi_exon_genes($gene) unless $trans_type{'not_multi_exon'};
 	$self->discarded_transcripts(@{$trans_type{'pseudo'}});
 	$self->real(1);
 	next GENE;
@@ -330,6 +336,7 @@ sub test_genes{
 
     unless ($trans_type{'pseudo'}) {
       $self->modified_genes($gene);
+      $self->multi_exon_genes($gene) unless $trans_type{'not_multi_exon'};
       $self->real(1);
       next GENE;
     }
@@ -636,7 +643,7 @@ sub output {
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : Array of Bio::Ensembl::Gene objects
   Arg [3]   : filename
-  Function  : This uses Bio::SeqIO to dump a sequence to a fasta file
+  Function  : This uses Bio::SeqIO to dump a transcript sequence to a fasta file
   Returntype: string, filename
   Exceptions: throw if failed to write sequence
   Example   : 
@@ -657,9 +664,8 @@ sub write_seq_array{
   eval{
     foreach my $gene (@{$genes}){
       foreach my $transcript (@{$gene->get_all_Transcripts}){
-	if ($transcript->translateable_seq){
-	  $seqout->write_seq($transcript->translate);
-	}
+        next unless ( $transcript->translateable_seq );
+        $seqout->write_seq($transcript->seq);
       }
     }
   };
@@ -694,6 +700,28 @@ sub modified_genes {
   }
   return $self->{'_modified_genes'};
 }
+
+=head2 multi_exon_genes
+
+Arg [1]    : array ref
+  Description: get/set multi exon gene set to return 
+  Returntype : array ref to Bio::EnsEMBL::Gene objects
+  Exceptions : throws if not a Bio::EnsEMBL::Gene
+  Caller     : general
+
+=cut
+
+sub multi_exon_genes {
+  my ($self, $multi_exon_genes) = @_;
+  if ($multi_exon_genes) {
+    unless  ($multi_exon_genes->isa("Bio::EnsEMBL::Gene")){
+      $self->throw("Input isn't a Bio::EnsEMBL::Gene, it is a $multi_exon_genes\n$@");
+    }
+    push @{$self->{'_multi_exon_genes'}}, $multi_exon_genes;
+  }
+  return $self->{'_multi_exon_genes'};
+}
+
 
 =head2 discarded transcripts
 

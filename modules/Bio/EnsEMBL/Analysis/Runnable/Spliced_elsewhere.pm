@@ -69,7 +69,7 @@ sub new {
     $self->genes($genes);
   }
   # Path to blast database
-  $self->db("$PS_MULTI_EXON_DIR"."all_multi_exon_genes.fasta");
+  $self->db("$PS_MULTI_EXON_DIR"."/all_multi_exon_genes.fasta");
   return $self;
 }
 
@@ -108,29 +108,48 @@ sub  run_blast{
   my ($self,$gene)=@_;
   my $bplitewrapper = Bio::EnsEMBL::Analysis::Tools::BPliteWrapper-> new
     (
-     -query_type => 'pep',
-     -database_type => 'pep',
+     -query_type => 'dna',
+     -database_type => 'dna',
     );
   my %output_hash;
   foreach my $trans (@{$gene->get_all_Transcripts}){ 
     next unless ($trans->translateable_seq);
-    my $query = $trans->translate;
+    my $query = $trans->feature_Slice->expand(1000,1000)->get_repeatmasked_seq;
+    my $test = $trans->feature_Slice->get_repeatmasked_seq->seq;
+  #  print "BEFORE  Ns have gone " . length($test) . "\n"; 
+    $test =~ s/N//g;
+#    print "AFTER Ns have gone " . length($test) . "\n";
+    unless ( length($test) > 5 ) {
+      print STDOUT "ignoring " . $trans->stable_id. " all Ns \n";
+      return 1;
+    }
+    print  $trans->stable_id . "\n";
+    # need to mask out other coding sequences here
     my $blast =  Bio::EnsEMBL::Analysis::Runnable::Blast->new 
       ('-query'     => $query,
-       '-program'   => 'blastp',
+       '-program'   => 'blastn',
        '-database'  => $self->db,
-       '-threshold' => 1e-6,
+       '-threshold' => 1e-50,
        '-parser'    => $bplitewrapper,
        '-options'   => 'V=10',
        '-analysis'  => $self->analysis,
       );
-    $blast->run();
-    $output_hash{$trans->dbID}= $blast->output;
+    eval {
+      $blast->run();
+    };
+    if ($@) {
+      if ($@ =~ /no valid contexts/){
+	print "$@ ignoring " . $trans->stable_id. "\n";
+      } else {
+	$self->throw("Problem with Blast $@ \n ");
+      }
+    } else {
+      $output_hash{$trans->dbID}= $blast->output;
+    }
   }
   $self->output(\%output_hash);
   return 1;
 }
-
 
 
 

@@ -59,6 +59,7 @@ use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
+use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB);
@@ -198,33 +199,83 @@ sub  parse_results{
   my ($self,$results)=@_;
   my $ta = $self->gene_db->get_TranscriptAdaptor;
   my $ga = $self->gene_db->get_GeneAdaptor;
- RESULT:foreach my $result_hash_ref (@{$results}) {    
+ RESULT:foreach my $result_hash_ref (@{$results}) {
     my %result_hash = %{$result_hash_ref};
-    my %trans_type =();  
-  TRANS: foreach my $id (keys %result_hash){  
+    my %trans_type ;
+    next RESULT unless ( %result_hash );
+  TRANS: foreach my $id (keys %result_hash){
       my $retro_trans = $ta->fetch_by_dbID($id);
       my $retro_span = $retro_trans->cdna_coding_end- $retro_trans->cdna_coding_start;
-      my @dafs =  @{$result_hash{$id}};      
-      @dafs = sort {$b->p_value <=> $a->p_value} @dafs;
+      my @dafs =  @{$result_hash{$id}};
+      @dafs = sort {$a->p_value <=> $b->p_value} @dafs;
+#      print "NAME " . $retro_trans->stable_id . "\n";
     DAF: foreach my $daf (@dafs) {
+	my $retro_coverage = 0;
+	my $real_coverage = 0;
 	# is the percent id above threshold?
 	next DAF unless ($daf->percent_id > $PS_PERCENT_ID_CUTOFF);
-	my $coverage = int($daf->length/$retro_trans->translate->length*100);
-	# is the coverage above the threshold?
-	next DAF unless ($coverage > $PS_PERCENT_ID_CUTOFF);
+	next DAF unless ($daf->p_value <  $PS_P_VALUE_CUTOFF);
+	# dont want reverse matches
+	next DAF unless ($daf->strand == $daf->hstrand ) ;
+	# tighten up the result set
+	next DAF unless ($daf->percent_id > 80 or ( $daf->percent_id > 70 and $daf->p_value < 1.0e-140 ));
+#	print "P-value " . $daf->p_value . "\n";
+	my @align_blocks = $daf->ungapped_features;
+        # is the coverage above the threshold?
+	# There are a few things to consider the coverage of the PROTEIN sitting in the genomic say > 50 %
+	# There is how much GENOMIC dna has been aligned as well - thats a good sign it is a retro gene
+	# lets work out the coverage exon at a time
+	foreach my $e ( @{$retro_trans->get_all_Exons} ) {
+	  # put the exons onto the same slice as the dafs
+	  my $slice = $retro_trans->feature_Slice;
+	  my $exon = $e->transfer($slice);
+#	  print "EXON " . $exon->start . "-" . $exon->end . " ". $exon->strand . "\n";
+	  foreach my $block ( @align_blocks ) {
+	    # compensate for the 1kb padding on the retro transcript
+	    $block->start($block->start-1000);
+	    $block->end($block->end-1000);
+	    $real_coverage+= $block->length;
+#	    print "BLOCK " . $block->start . ":" . $block->end . ":". $block->strand . "\n";
+	    if ( $exon->overlaps($block) ) {
+	      if ( $exon->start < $block->start && $exon->end < $block->end ) {
+		#            Bs|---------------|------Be
+		#         Es---|===============|Ee
+		$retro_coverage+= $exon->end - $block->start ;
+	      } elsif ( $exon->start >= $block->start && $exon->end >= $block->end ) {
+		#    Bs-----|---------------|Be
+		#         Es|===============|-----Ee		
+		$retro_coverage+= $block->end - $exon->start;
+	      } elsif ( $exon->start < $block->start && $exon->end >= $block->end ) {
+		#         Bs|---------------------|Be
+		#     Es----|=====================|-----Ee
+		$retro_coverage+= $block->end - $block->start;
+	      } elsif ( $exon->start >= $block->start && $exon->end < $block->end ) {
+		#     Bs|---|---------------------|---|Be
+		#         Es|=====================|Ee
+		$retro_coverage+= $exon->end - $exon->start;
+	      }
+	    }
+	  }
+	}
+	my $coverage = int(($retro_coverage / $retro_trans->length)*100);
+
+	my $aligned_genomic = $real_coverage - $retro_coverage;
+	next DAF unless ($coverage > $PS_RETOTRANSPOSED_COVERAGE);
+	next DAF unless ($aligned_genomic > $PS_ALIGNED_GENOMIC);
+
 	my $real_trans;
-	# Warn if transcript cannot be found
+	# Throw if transcript cannot be found
 	eval{
-	  $real_trans =   $ta->fetch_by_translation_stable_id($daf->hseqname);
+	  $real_trans =   $ta->fetch_by_stable_id($daf->hseqname);
 	  unless ( $real_trans ) { 
-             $real_trans =   $ta->fetch_by_translation_id($daf->hseqname);
+             $real_trans =   $ta->fetch_by_dbID($daf->hseqname);
           } 
         };
 	if ($@) {
-	  $self->warn("Unable to find translation $daf->hseqname \n$@\n");
+	  $self->throw("Unable to find transcript $daf->hseqname \n$@\n");
 	  next;
 	}
-	
+#	print "REAL " . $real_trans->stable_id . "\n";	
 	##################################################################
 	# real span is the genomic span of the subject HSP
 	# hstart+3 and $daf->hend-3 move inwards at both ends of the HSP by
@@ -233,16 +284,30 @@ sub  parse_results{
 	# before it gets included
 	
 	my $real_span;
-	my @genomic_coords = $real_trans->pep2genomic($daf->hstart+3,$daf->hend-3);
+	my @genomic_coords = $real_trans->cdna2genomic($daf->hstart+9,$daf->hend-9);
 	@genomic_coords = sort {$a->start <=> $b->start} @genomic_coords;
 	$real_span = $genomic_coords[$#genomic_coords]->end - $genomic_coords[0]->start;
 	
 	# Is the span higher than the allowed ratio?
 	if ($real_span / $retro_span > $PS_SPAN_RATIO ) {
-	  print STDERR "transcript id ". $retro_trans->dbID." matches translation id " . $daf->hseqname . " at "
-	    . $daf->percent_id . " %ID and $coverage % coverage with pseudogene span of $retro_span vs real gene span of $real_span\n";
-	  print STDERR ">".$retro_trans->dbID;
-	  print STDERR "\n".$retro_trans->translate->seq."\n";
+	  print STDERR "---------------------------------------------------------------------------------------------------\n";
+	print STDERR "DAF: " .
+	  $daf->start . " " .
+	    $daf->end . " " .
+	      $daf->strand . " " .
+		$daf->hstart . " " .
+		  $daf->hend . " " .
+		    $daf->hstrand . " " .
+		      $daf->hseqname  . " " .
+			$daf->cigar_string . "\n";
+	  print STDERR "transcript id ". $retro_trans->stable_id." matches transcriptid " . $daf->hseqname . " at "
+	    . $daf->percent_id . " %ID and $coverage % coverage with $aligned_genomic flanking genomic bases aligned pseudogene span of $retro_span vs real gene span of $real_span\n";
+	  print STDERR "P-value = " . $daf->p_value . "\n";
+	  print STDERR  "Coverage $coverage% - $retro_coverage bp of gene and $aligned_genomic bp of genomic $real_coverage total\n";
+	  print STDERR ">".$retro_trans->stable_id;
+	  print STDERR "\n".$retro_trans->feature_Slice->expand(1000,1000)->get_repeatmasked_seq->seq."\n";
+	  print STDERR ">".$real_trans->stable_id;
+	  print STDERR "\n".$real_trans->seq->seq."\n";	 
 	  # Gene is pseudo, store it internally
 	  push @{$trans_type{'pseudo'}},$retro_trans;
 	  next TRANS;
@@ -251,13 +316,14 @@ sub  parse_results{
       # transcript is real
       push @{$trans_type{'real'}},$retro_trans; 	
     }
-    unless ($trans_type{'real'}) {
+
+    unless (defined($trans_type{'real'})) {
       # if all transcripts are pseudo get label the gene as a pseudogene
       my $gene = $ga->fetch_by_transcript_id($trans_type{'pseudo'}[0]->dbID);
       $self->retro_genes($gene);
       next RESULT;
     }
-    # gene has at least on ereal transcript so it is real
+    # gene has at least one real transcript so it is real
     $self->real_genes($ga->fetch_by_transcript_id($trans_type{'real'}[0]->dbID));
   }
   return 1; 

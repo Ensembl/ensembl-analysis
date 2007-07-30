@@ -107,7 +107,7 @@ sub run{
   DAF:foreach my $daf (@{$queries{$family}}){    
       # Does the alignment contain the mature sequence?
       my ($align,$status) = $self->run_analysis($daf);
-      next DAF unless (scalar @$align > 0);
+      next DAF unless ($align && scalar @$align > 0);
       # does the sequence fold into a hairpin ?
       my $seq = Bio::PrimarySeq->new
 	(
@@ -182,7 +182,7 @@ sub run_analysis{
     ($all_mature,$status) = $self->get_mature($daf)
   } else {
     # ignore if you dont have a mature form identified.
-    $self->warn("No mature sequence identified for sequence ".$daf->hseqname." $@\n");
+    $self->warning("No mature sequence identified for sequence ".$daf->hseqname." $@");
     return 0;
   }
   # can have more than 1 mature sequence per hairpin
