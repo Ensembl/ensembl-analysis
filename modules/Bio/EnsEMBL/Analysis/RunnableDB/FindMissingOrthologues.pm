@@ -91,7 +91,8 @@ sub new {
 sub fetch_input {
   my( $self ) = @_;  
 
-  # get all genes on slice for 1st species in array (species 1)
+  # get all genes on slice for 1st species in array (species 1) 
+	print "getting all genes for " . $self->species_1 . " type $$FIND_MISSING_ORTHOLOGUES{DEFAULT_GENE_BIOTYPES}\n"; 
   $self->get_initial_geneset($self->species_1, $$FIND_MISSING_ORTHOLOGUES{DEFAULT_GENE_BIOTYPES}) ; 
 }
 
@@ -101,26 +102,46 @@ sub run {
 
   my $query_spec = $$MAIN_CONFIG{QUERY_SPECIES};  
   my (%missing_orth,%trusted_orth); 
+  my $no_one2one_found = 0 ; 
 
   QUERY_GENES : for my $gene_spec1 (@{$self->genes} ) { 
-     #print " processing gene " . $gene_spec1->stable_id . "\n" ; 
+     print " processing gene " . $gene_spec1->stable_id . " species : " . $self->species_1 ."\n" ;   
+
+		 print "looking if gene has homolog in " . $self->species_2 . " \n" ; 
+
      my $tg1_homol = get_one2one_orth_for_gene_in_other_species($gene_spec1 ,$self->species_2) ;    
       
-     if ( $tg1_homol ) {  
-       $trusted_orth{$gene_spec1->stable_id}=1; 
+     if ( $tg1_homol ) {   
+		   print "the gene has one2one-homology in " . $self->species_2 . " and is considered as trusted !\n" ;  
+       $trusted_orth{$gene_spec1->stable_id}=1;  
+
+			 print "checking if gene has homology in new build : $query_spec\n" ;  
+
+       my $look_if_new_build_has_homologue = 0 ; 
        foreach my $homolog_to_check  ( @{ $gene_spec1->get_all_homologous_Genes()} ) { 
-         my ($check_homg, $check_homology, $check_species ) = @$homolog_to_check ;  
-           if  ($check_species eq $query_spec ) { 
-             #print "orth. between $query_spec and $$trusted_one2one_set[0] known\n" ; 
-             next QUERY_GENES  ;
-           }else { 
-            $missing_orth{$gene_spec1->stable_id} =  $gene_spec1 ; 
-           } 
-         }
+         my ($check_homg, $check_homology, $check_species ) = @$homolog_to_check ;   
+           if  ($check_species eq $query_spec ) {  
+             print "orth. between $query_spec and $check_species found\n" ;  
+						 $look_if_new_build_has_homologue = 1 ; 
+             #next QUERY_GENES  ;
+           }
+					 #else {
+					 # print "flagging gene as missing orth : " . $gene_spec1->stable_id . "\n" ; 
+           # $missing_orth{$gene_spec1->stable_id} =  $gene_spec1 ; 
+           #} 
+         } 
+				 if ( $look_if_new_build_has_homologue == 0 ) { 
+            $missing_orth{$gene_spec1->stable_id} =  $gene_spec1 ;  
+				 }
+				  
       } else { 
-        #print " - no 1:1 homologue found for " . $self->species_2 . "\n" ;  
+        print " - no 1:1 homologue found for " . $self->species_2 . " so we don't consider this gene as trusted : " . $gene_spec1->stable_id . "\n" ;     
+				$no_one2one_found++; 
       }
-  }
+  } 
+	print "number of all genes fetched : " . scalar ( @{$self->genes } ) . "\n" ; 
+  print "\n\nNumber of genes out of ".$self->species_1 ." which don't have a one2one orth in " .$self->species_2 . " : $no_one2one_found\n";    
+
  
   for ( keys %missing_orth) { 
     print "missing_orthologue: $_\n"; 
