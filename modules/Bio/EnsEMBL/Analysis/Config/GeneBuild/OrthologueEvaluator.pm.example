@@ -108,10 +108,22 @@ FIND_MISSING_ORTHOLOGUES=>
            DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,   
           
          #
-         # Define a species pair to find one2one orthologues for and than compare 
-         # with QUERY_SPECIES 
-         # These species should be not too dependend (rat and mus ) and not too distant ...
+         # Define a 'trusted' species pair to find one2one orthologues between this pair.
+         # The analysis than checks if this one2one relation also exists in the first species
+         # of the set and the QUERY_SPECIES. 
+         # 
+         # These species should be not too dependend (i.e. don't use rat and mus as a 
+         # trusted set ) and the 2 species in the set should also be not too distant........ 
          #
+         # Example :  Trusted set :  ['Homo sapiens','Mus musculus']   
+         #            QUERY_SPECIES ='Bis taurus_new_build'  
+         # The analysis gets all genes in Homos sapiens, identifies the ones which have a 
+         # one2one homologue in Mus musculus and than checks if your compara-run identified a 
+         # one2one gene betweeen Homo sapiens and your QUERY_SPECIES ( as defined in the MAIN_CONFIG part). 
+         # If no such 'Homo sapiens-QUERY_SPECIES relation is found the protein sequence of the 
+         # Homo sapiens protein is dumped out and later on exonerated against the genome of 
+         # QUERY_SPECIES.  
+         # It does really not make sense to use your QUERY_SPECIES in the trusted set. 
           
           ANALYSIS_SETS => {          
                               #    
