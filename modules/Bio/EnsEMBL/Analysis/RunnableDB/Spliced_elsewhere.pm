@@ -300,13 +300,13 @@ sub  parse_results{
 		    $daf->hstrand . " " .
 		      $daf->hseqname  . " " .
 			$daf->cigar_string . "\n";
-	  print STDERR "transcript id ". $retro_trans->stable_id." matches transcriptid " . $daf->hseqname . " at "
+	  print STDERR "transcript id ". $retro_trans->dbID." matches transcriptid " . $daf->hseqname . " at "
 	    . $daf->percent_id . " %ID and $coverage % coverage with $aligned_genomic flanking genomic bases aligned pseudogene span of $retro_span vs real gene span of $real_span\n";
 	  print STDERR "P-value = " . $daf->p_value . "\n";
 	  print STDERR  "Coverage $coverage% - $retro_coverage bp of gene and $aligned_genomic bp of genomic $real_coverage total\n";
-	  print STDERR ">".$retro_trans->stable_id;
+	  print STDERR ">".$retro_trans->dbID;
 	  print STDERR "\n".$retro_trans->feature_Slice->expand(1000,1000)->get_repeatmasked_seq->seq."\n";
-	  print STDERR ">".$real_trans->stable_id;
+	  print STDERR ">".$real_trans->dbID;
 	  print STDERR "\n".$real_trans->seq->seq."\n";	 
 	  # Gene is pseudo, store it internally
 	  push @{$trans_type{'pseudo'}},$retro_trans;
