@@ -164,9 +164,10 @@ sub run {
       push @twoways, $cluster;
     } elsif (scalar @inc_sets == 1) { 
       foreach my $gene ($cluster->get_Genes_by_Set($inc_sets[0])) {
-        if ($self->verbose){
-          print "storing single_set_cluster_gene ".$gene->dbID." ".$inc_sets[0]."\n";
-        }
+        if ($self->verbose){ 
+           my $gene_id = $gene->dbID ? $gene->dbID : "" ; 
+           print "storing single_set_cluster_gene ".$gene_id ." ".$inc_sets[0]."\n";
+         }
         $outgenes{$gene} = make_outgenes($self->analysis, $gene);
       } # end of foreach my $gene ($cluster->get_Genes_by_Set($inc_sets[0])) {
     } # end of if (scalar @inc_sets >= 2) { 
