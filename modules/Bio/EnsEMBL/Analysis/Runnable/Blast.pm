@@ -286,8 +286,7 @@ sub run_analysis {
           #requested."
           die qq{"OUT_OF_MEMORY"\n}; 
           # resenD to big mem machine by rulemanager
-        }elsif($match =~ /the query sequence is shorter 
-               than the word length/){
+        }elsif($match =~ /the query sequence is shorter than the word length/){
           #no valid context 
           die qq{"VOID"\n}; # hack instead
         }elsif($match =~ /External filter/){
