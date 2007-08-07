@@ -105,15 +105,21 @@ sub print_Gene{
 
 
 sub clone_Gene{
-  my ($gene) = @_;
+  my ($gene, $clone_xrefs) = @_;
+  $clone_xrefs = 1 if(!defined($clone_xrefs));
   my $newgene = Bio::EnsEMBL::Gene->new();
   $newgene->dbID($gene->dbID);
   $newgene->biotype($gene->biotype);
   $newgene->analysis($gene->analysis);
   $newgene->stable_id($gene->stable_id);
   $newgene->version($gene->version);
+  if ($clone_xrefs){
+    foreach my $DBEntry (@{$gene->get_all_DBEntries}){
+      $newgene->add_DBEntry($DBEntry);
+    }
+  }  
   foreach my $transcript(@{$gene->get_all_Transcripts}){
-    my $newtranscript = clone_Transcript($transcript);
+    my $newtranscript = clone_Transcript($transcript, $clone_xrefs);
     $newgene->add_Transcript($newtranscript);
   }
   $newgene->slice($gene->slice);

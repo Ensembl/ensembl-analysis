@@ -279,7 +279,8 @@ sub print_Transcript_evidence{
 
 
 sub clone_Transcript{
-  my ($transcript) = @_;
+  my ($transcript, $clone_xrefs) = @_;
+  $clone_xrefs = 1 if(!defined($clone_xrefs));
   my $newtranscript = new Bio::EnsEMBL::Transcript();
   foreach my $exon(@{$transcript->get_all_Exons}){
     
@@ -293,7 +294,7 @@ sub clone_Transcript{
   my $newtranslation;
   if($transcript->translation){
     $newtranslation = clone_Translation($transcript, 
-                                        $newtranscript);
+                                        $newtranscript, $clone_xrefs);
   }
   $newtranscript->translation($newtranslation);
   my $attribs = $transcript->get_all_Attributes();
@@ -304,6 +305,12 @@ sub clone_Transcript{
   $newtranscript->stable_id($transcript->stable_id);
   $newtranscript->version($transcript->version);
   $newtranscript->analysis($transcript->analysis);
+  if ($clone_xrefs){
+    foreach my $DBEntry (@{$transcript->get_all_DBEntries}){
+      $newtranscript->add_DBEntry($DBEntry);
+    }
+  } 
+  
   return $newtranscript;
 }
 
@@ -1798,9 +1805,9 @@ sub identical_Transcripts {
   if (scalar(@exons1) != scalar(@exons2)) {
     return 0;
   }
-
   # compare Exon coordinates and strand
   foreach ( my $num = 0; $num < scalar(@exons1); $num++ ) {
+
     if ($exons1[$num]->strand != $exons2[$num]->strand) {
       return 0;
     }
@@ -1813,7 +1820,6 @@ sub identical_Transcripts {
   }
 
   # you may want to check the evidence and phase at some stage by adding a wrapper method
-
   return 1;
 }
 1;

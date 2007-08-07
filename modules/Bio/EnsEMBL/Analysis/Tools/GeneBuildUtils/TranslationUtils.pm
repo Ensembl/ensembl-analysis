@@ -215,7 +215,8 @@ sub contains_internal_stops{
 
 
 sub clone_Translation{
-  my ($transcript, $newtranscript) = @_;
+  my ($transcript, $newtranscript, $clone_xrefs) = @_;
+  $clone_xrefs = 1 if(!defined($clone_xrefs));
   #print "\n**CLONING TRANSLATION**\n\n";
   my $newtranslation = Bio::EnsEMBL::Translation->new();
   my $translation = $transcript->translation;
@@ -249,6 +250,11 @@ sub clone_Translation{
   $newtranslation->dbID($translation->dbID);
   $newtranslation->stable_id($translation->stable_id);
   $newtranslation->version($translation->version);
+  if ($clone_xrefs){
+    foreach my $DBEntry (@{$translation->get_all_DBEntries}){
+      $newtranslation->add_DBEntry($DBEntry);
+    }
+  }
   return $newtranslation;
   #print "\n\n**\n\n";
 }
