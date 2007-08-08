@@ -133,7 +133,13 @@ sub fetch_input {
   my $genes = $genes_slice->get_all_Genes;
   print  $genes_slice->name."\t".
     $genes_slice->start."\n";
-  foreach my $gene (@{$genes}) {
+  GENE: foreach my $gene (@{$genes}) {
+    # Ignore genes that are not protein_coding
+    unless ( $gene->biotype eq $PS_BIOTYPE ) {
+      $self->ignored_genes($gene);
+      next GENE;
+    }
+
 
     ############################################################################
     # transfer gene coordinates to entire chromosome to prevent problems arising
@@ -155,14 +161,12 @@ sub fetch_input {
 					       $transferred_gene->start,
 					       $transferred_gene->end,
 					      );
-    # Only look for repeats in multiexon genes
-    if (scalar(@{$transferred_gene->get_all_Exons()}) > 1){
-      my @feats = @{$rep_gene_slice->get_all_RepeatFeatures};
-      @feats = map { $_->transfer($chromosome_slice) } @feats;
-      my $blocks = $self->get_all_repeat_blocks(\@feats);
-      # make hash of repeat blocks using the gene as the key
-      $repeat_blocks{$transferred_gene} = $blocks;
-    }
+    # get repeat blocks
+    my @feats = @{$rep_gene_slice->get_all_RepeatFeatures};
+    @feats = map { $_->transfer($chromosome_slice) } @feats;
+    my $blocks = $self->get_all_repeat_blocks(\@feats);
+    # make hash of repeat blocks using the gene as the key
+    $repeat_blocks{$transferred_gene} = $blocks;
   }
 
   $self->genes(\@transferred_genes);
@@ -203,9 +207,14 @@ sub get_all_repeat_blocks {
 
  REPLOOP: foreach my $repeat (@repeats) {
     my $rc = $repeat->repeat_consensus;
-    if ($rc->repeat_class !~ /LINE/ && $rc->repeat_class !~ /LTR/ && $rc->repeat_class !~ /SINE/) {  
-    next REPLOOP;
-   }
+    my $use = 0;
+    foreach my $type (@$PS_REPEAT_TYPES){
+      if ($rc->repeat_class =~ /$type/) {
+	$use = 1;
+	last;
+      }
+    }
+    next REPLOOP unless $use;
     if ($repeat->start <= 0) { 
       $repeat->start(1); 
     }
@@ -239,6 +248,7 @@ sub get_all_repeat_blocks {
 sub write_output {
   my($self) = @_;
   my $genes = $self->output;
+  push @{$genes},@{$self->ignored_genes} if $self->ignored_genes;
   my %feature_hash;
   #  empty_Analysis_cache();
   # write genes out to a different database from the one we read genes from.
@@ -280,19 +290,19 @@ sub write_output {
   }
 
   foreach my $old_id (keys %feature_hash){	
-    eval {
-      my $new_id = pop @{$feature_hash{$old_id}};
-      print "Storing features for old traslation $old_id - ";
-      foreach my $feat (@{$feature_hash{$old_id}}){
-	print $feat->hseqname."\t"; 
-	$pfa->store($feat,$new_id->dbID);	
+      eval {
+        my $new_id = pop @{$feature_hash{$old_id}};
+        print "Storing features for old traslation $old_id - ";
+        foreach my $feat (@{$feature_hash{$old_id}}){
+	  print $feat->hseqname."\t"; 
+  	$pfa->store($feat,$new_id->dbID);	
       }
-      print "for new translation ".$new_id->dbID."\n";
-    };
-    if ( $@ ) {
-      warning("UNABLE TO WRITE PROTEIN FEATURES:\n$@");
+        print "for new translation ".$new_id->dbID."\n";
+      };
+      if ( $@ ) {
+        warning("UNABLE TO WRITE PROTEIN FEATURES:\n$@");
+      }
     }
-  }
   return 1;
 }
 
@@ -544,6 +554,28 @@ sub real_genes {
     push @{$self->{'_real_gene'}},$self->lazy_load($real_gene);
   }
   return $self->{'_real_gene'};
+}
+
+
+=head2 ignored_genes
+
+Arg [1]    : Bio::EnsEMBL::Gene
+ Description: get/set for genes that pseudogene does not check
+  Returntype : Bio::EnsEMBL::Gene
+  Exceptions : none
+  Caller     : general
+
+=cut
+
+sub ignored_genes {
+  my ($self, $ignored_gene) = @_;
+  if ($ignored_gene) {
+    unless ($ignored_gene->isa("Bio::EnsEMBL::Gene")){
+      throw("ignored gene is not a Bio::EnsEMBL::Gene, it is a $ignored_gene");
+    }
+    push @{$self->{'_ignored_gene'}},$self->lazy_load($ignored_gene);
+  }
+  return $self->{'_ignored_gene'};
 }
 
 

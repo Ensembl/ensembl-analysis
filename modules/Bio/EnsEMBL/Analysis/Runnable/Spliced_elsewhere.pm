@@ -120,8 +120,10 @@ sub  run_blast{
     $test =~ s/N//g;
 #    print "AFTER Ns have gone " . length($test) . "\n";
     unless ( length($test) > 5 ) {
-      print STDOUT "ignoring " . $trans->stable_id. " all Ns \n";
-      return 1;
+      print STDOUT "ignoring " . $trans->display_id. " all Ns \n";
+      $output_hash{$trans->dbID}= 'REPEATS';
+      $self->output(\%output_hash);
+    return 1;
     }
     print  $trans->stable_id . "\n";
     # need to mask out other coding sequences here
@@ -138,13 +140,13 @@ sub  run_blast{
       $blast->run();
     };
     if ($@) {
-      if ($@ =~ /no valid contexts/){
-	print "$@ ignoring " . $trans->stable_id. "\n";
-      } else {
-	$self->throw("Problem with Blast $@ \n ");
-      }
+      $self->throw("Problem with Blast $@ \n ");
     } else {
-      $output_hash{$trans->dbID}= $blast->output;
+      if ( $blast->output ) {
+	$output_hash{$trans->dbID}= $blast->output;
+      } else {
+	$output_hash{$trans->dbID}= 'NONE';
+      }
     }
   }
   $self->output(\%output_hash);

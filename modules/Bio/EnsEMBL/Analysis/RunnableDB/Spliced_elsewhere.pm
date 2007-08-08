@@ -206,9 +206,21 @@ sub  parse_results{
   TRANS: foreach my $id (keys %result_hash){
       my $retro_trans = $ta->fetch_by_dbID($id);
       my $retro_span = $retro_trans->cdna_coding_end- $retro_trans->cdna_coding_start;
+      # catch results where the blast job failed
+      if ( $result_hash{$id} eq 'NONE' ){
+	# gene is very unique we have to call it real really
+	push @{$trans_type{'real'}},$retro_trans;
+	next TRANS;
+      }
+      if ( $result_hash{$id} eq 'REPEATS' ) {
+	# gene is covered with low complexity repeats probably - let it through
+	push @{$trans_type{'real'}},$retro_trans;
+	next TRANS;	
+      }
+
       my @dafs =  @{$result_hash{$id}};
       @dafs = sort {$a->p_value <=> $b->p_value} @dafs;
-#      print "NAME " . $retro_trans->stable_id . "\n";
+
     DAF: foreach my $daf (@dafs) {
 	my $retro_coverage = 0;
 	my $real_coverage = 0;
@@ -219,7 +231,7 @@ sub  parse_results{
 	next DAF unless ($daf->strand == $daf->hstrand ) ;
 	# tighten up the result set
 	next DAF unless ($daf->percent_id > 80 or ( $daf->percent_id > 70 and $daf->p_value < 1.0e-140 ));
-#	print "P-value " . $daf->p_value . "\n";
+
 	my @align_blocks = $daf->ungapped_features;
         # is the coverage above the threshold?
 	# There are a few things to consider the coverage of the PROTEIN sitting in the genomic say > 50 %
@@ -229,13 +241,13 @@ sub  parse_results{
 	  # put the exons onto the same slice as the dafs
 	  my $slice = $retro_trans->feature_Slice;
 	  my $exon = $e->transfer($slice);
-#	  print "EXON " . $exon->start . "-" . $exon->end . " ". $exon->strand . "\n";
+
 	  foreach my $block ( @align_blocks ) {
 	    # compensate for the 1kb padding on the retro transcript
 	    $block->start($block->start-1000);
 	    $block->end($block->end-1000);
 	    $real_coverage+= $block->length;
-#	    print "BLOCK " . $block->start . ":" . $block->end . ":". $block->strand . "\n";
+
 	    if ( $exon->overlaps($block) ) {
 	      if ( $exon->start < $block->start && $exon->end < $block->end ) {
 		#            Bs|---------------|------Be
@@ -275,7 +287,7 @@ sub  parse_results{
 	  $self->throw("Unable to find transcript $daf->hseqname \n$@\n");
 	  next;
 	}
-#	print "REAL " . $real_trans->stable_id . "\n";	
+
 	##################################################################
 	# real span is the genomic span of the subject HSP
 	# hstart+3 and $daf->hend-3 move inwards at both ends of the HSP by
@@ -314,12 +326,22 @@ sub  parse_results{
 	}
       }
       # transcript is real
-      push @{$trans_type{'real'}},$retro_trans; 	
+      push @{$trans_type{'real'}},$retro_trans;	
     }
 
     unless (defined($trans_type{'real'})) {
       # if all transcripts are pseudo get label the gene as a pseudogene
       my $gene = $ga->fetch_by_transcript_id($trans_type{'pseudo'}[0]->dbID);
+      my @pseudo_trans = @{$gene->get_all_Transcripts};
+      @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
+      my $only_transcript_to_keep = pop  @pseudo_trans;
+      $only_transcript_to_keep->translation(undef);
+      $only_transcript_to_keep->biotype($RETRO_TYPE);
+      foreach my $pseudo_transcript (@pseudo_trans) {
+	$pseudo_transcript->translation(undef);
+	$self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+      }
+      $gene->biotype($RETRO_TYPE);
       $self->retro_genes($gene);
       next RESULT;
     }
@@ -350,7 +372,7 @@ sub retro_genes {
     unless ($retro_gene->isa("Bio::EnsEMBL::Gene")){
       $self->throw("retro gene is not a Bio::EnsEMBL::Gene, it is a $retro_gene");
     }
-    push @{$self->{'_retro_gene'}},$self->lazy_load($retro_gene);
+    push @{$self->{'_retro_gene'}},$retro_gene;
   }
   return $self->{'_retro_gene'};
 }

@@ -134,7 +134,9 @@ sub summary {
   my ($self) = @_;
   print STDERR   $self->real." real genes identified \n";
   print STDERR   $self->pseudogenes." pseudogenes identified \n";
+  print STDERR   $self->repeatgenes." repeat genes identified \n";
   print STDERR   scalar(@{$self->discarded_transcripts})." pseudotranscripts to be chucked \n";
+  
   foreach my $transcript (@{$self->discarded_transcripts}) {
     print STDERR   $transcript->dbID."\n";
   }
@@ -182,15 +184,20 @@ sub test_genes{
 
   TRANS: foreach my $transcript (@{$gene->get_all_Transcripts}) {
 
-    if ($SINGLE_EXON){
-      if (scalar(@{$transcript->get_all_Exons()})==1) {
-	push @{$trans_type{'single_exon'}}, $transcript;
-	next TRANS;
+
+      my $evidence = $self->transcript_evidence($transcript,$gene);
+
+      # store the single exon gene for further analysis unless they are all covered by repeats
+      if ($SINGLE_EXON){
+	if (scalar(@{$transcript->get_all_Exons()})==1) {
+	  unless ( $evidence->{'covered_exons'} && $evidence->{'covered_exons'} >= $PS_MAX_EXON_COVERAGE ) {
+	    push @{$trans_type{'single_exon'}}, $transcript;
+	    next TRANS;
+	  }
+	}
       }
-    }
 
       $num++;
-      my $evidence = $self->transcript_evidence($transcript,$gene);
 
       #transcript tests
 
@@ -214,7 +221,15 @@ sub test_genes{
 	  $evidence->{'frameshift_introns'} == $evidence->{'num_introns'}) {
 	push@{$trans_type{'pseudo'}},  $transcript;
 	next TRANS;
-      }      
+      }
+
+    # repeats covering exons
+
+    if ($evidence->{'covered_exons'} && 
+	$evidence->{'covered_exons'} >= $PS_MAX_EXON_COVERAGE ) {
+      push@{$trans_type{'repeat'}},  $transcript;
+      next TRANS;
+    }
 
 
       if ($INDETERMINATE){
@@ -261,7 +276,8 @@ sub test_genes{
 	if ( $gene->biotype eq 'protein_coding' ){
 	  unless ($trans_type{'pseudo'} or
 		  $trans_type{'indeterminate'} or
-		  $trans_type{'real'}) {
+		  $trans_type{'real'} or
+		  $trans_type{'repeat'}) {
 	    $self->single_exon_genes($gene->dbID);
 	    next GENE;
 	  }
@@ -276,7 +292,8 @@ sub test_genes{
       if ($trans_type{'pseudo'}){
 	unless ($trans_type{'single_exon'} or
 		$trans_type{'indeterminate'} or
-		$trans_type{'real'}) {
+		$trans_type{'real'} or
+		$trans_type{'repeat'}) {
 	  $gene->biotype('pseudogene');
 	  my @pseudo_trans = @{$trans_type{'pseudo'}};
 	  @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
@@ -302,7 +319,9 @@ sub test_genes{
 
     if ($INDETERMINATE){
       if ($trans_type{'indeterminate'}){
-	unless ($trans_type{'real'} or $trans_type{'single_exon'}){
+	unless ($trans_type{'real'} or
+		$trans_type{'single_exon'} or
+		$trans_type{'repeat'} ){
 	  $self->indeterminate_genes($gene->dbID);
 	  next GENE;
 	}
@@ -318,15 +337,16 @@ sub test_genes{
     if ($trans_type{'pseudo'}){
       if ($trans_type{'real'} or 
 	  $trans_type{'single_exon'} or 
-	  $trans_type{'indeterminate'} ){
+	  $trans_type{'indeterminate'} or 
+	  $trans_type{'repeat'}){
 	foreach my $trans (@{$trans_type{'pseudo'}}) {
 	  $trans->translation(undef);
-	  $self->_remove_transcript_from_gene($gene,$trans); 
+	  $self->_remove_transcript_from_gene($gene,$trans);
 	}
 	$self->modified_genes($gene);
 	$self->multi_exon_genes($gene) unless $trans_type{'not_multi_exon'};
 	$self->discarded_transcripts(@{$trans_type{'pseudo'}});
-	$self->real(1);
+	$self->pseudogenes(1);
 	next GENE;
       }
     }
@@ -334,10 +354,34 @@ sub test_genes{
     ####################################
     # gene and transcripts are real
 
-    unless ($trans_type{'pseudo'}) {
+    unless ($trans_type{'pseudo'} or $trans_type{'repeat'}) {
       $self->modified_genes($gene);
       $self->multi_exon_genes($gene) unless $trans_type{'not_multi_exon'};
       $self->real(1);
+      next GENE;
+    }
+
+    if ($trans_type{'repeat'}) {
+      # if a repeat type is specified label the gene as a repeat and store it
+      # otherwise we can just leave it - it wont get written to the final db
+      if ($PS_REPEAT_TYPE) {
+	my @pseudo_trans = @{$gene->get_all_Transcripts};
+	@pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
+	my $only_transcript_to_keep = pop  @pseudo_trans;
+	$only_transcript_to_keep->translation(undef);
+	$only_transcript_to_keep->biotype($PS_REPEAT_TYPE);
+	foreach my $pseudo_transcript (@pseudo_trans) {
+	  $self->discarded_transcripts($pseudo_transcript);
+	  $pseudo_transcript->translation(undef);
+	  $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	}
+	$gene->biotype($PS_REPEAT_TYPE);
+	$self->modified_genes($gene);
+	$self->repeatgenes(1);
+      } else {
+	print STDERR "Gene " . $gene->display_id . " is covered with repeats - ignoring it\n";
+	$self->repeatgenes(1);
+      }
       next GENE;
     }
 
@@ -842,6 +886,15 @@ sub pseudogenes{
   }
   return $self->{'_pseudogenes'};
 }
+
+sub repeatgenes{
+  my ($self,$num) = @_;
+  if ($num){
+    $self->{'_repeatgenes'}+= $num;
+  }
+  return $self->{'_repeatgenes'};
+}
+
 
 sub indeterminate_genes{
   my ($self,$input) = @_;
