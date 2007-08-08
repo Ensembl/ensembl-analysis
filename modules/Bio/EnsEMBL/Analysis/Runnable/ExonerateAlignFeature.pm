@@ -87,10 +87,10 @@ sub parse_results {
 
       if ($match_type eq "G"){
 	if ($query_match_length == 0){
-          $match_type="D";
+          $match_type="I";
           $query_match_length = $target_match_length;
         }elsif ($target_match_length == 0){
-          $match_type="I";
+          $match_type="D";
 	}
       }    
       $cigar_string .= $query_match_length.$match_type;     
