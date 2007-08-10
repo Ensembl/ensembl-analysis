@@ -124,3 +124,29 @@ sub get_adaptor{
   my $output_db = $self->get_dbadaptor($self->OUTPUT_DB);
   return $output_db->get_ProteinAlignFeatureAdaptor;
 }
+
+
+sub write_output{
+  my ($self) = @_;
+  my $adaptor = $self->get_adaptor;
+  my %unique;
+ FEATURE:foreach my $feature(@{$self->output}){
+    $feature->analysis($self->analysis);
+    $feature->slice($self->query) if(!$feature->slice);
+    my $unique_string = $feature->start." ".$feature->end." ".$feature->score." ".$feature->hseqname;
+    next FEATURE if($unique{$unique_string});
+    $unique{$unique_string} = 1;
+    $self->feature_factory->validate($feature);
+    eval{
+      $adaptor->store($feature);
+    };
+    if($@){
+      throw("RunnableDB:store failed, failed to write ".$feature." to ".
+            "the database ".$adaptor->dbc->dbname." $@");
+    }
+  }
+  return 1;
+}
+
+
+1;
