@@ -335,11 +335,13 @@ sub  parse_results{
       my @pseudo_trans = @{$gene->get_all_Transcripts};
       @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
       my $only_transcript_to_keep = pop  @pseudo_trans;
-      $only_transcript_to_keep->translation(undef);
-      $only_transcript_to_keep->biotype($RETRO_TYPE);
+      $self->transcript_to_keep($only_transcript_to_keep);
       foreach my $pseudo_transcript (@pseudo_trans) {
-	$pseudo_transcript->translation(undef);
-	$self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	if ( $blessed ) {
+	  print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
+	    " is a retro transcript \n";
+	}
       }
       $gene->biotype($RETRO_TYPE);
       $self->retro_genes($gene);

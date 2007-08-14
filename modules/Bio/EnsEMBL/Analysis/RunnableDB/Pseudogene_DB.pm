@@ -68,6 +68,8 @@ use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Pipeline::Flag;
 use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
+use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Blessed;
+use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Combined;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning 
                                       stack_trace);
 use Data::Dumper;
@@ -273,6 +275,7 @@ sub write_output {
       if (my $translation = $trans->translation){
 	foreach my $feat (@{$translation->get_all_ProteinFeatures}){
 	  $feat->dbID(undef);
+	  $feat->adaptor(undef);
 	  push @{$feature_hash{$translation->dbID}},$feat;
 	}
 	push @{$feature_hash{$translation->dbID}},$translation;
@@ -400,6 +403,14 @@ sub lazy_load {
 
 sub _remove_transcript_from_gene {
   my ($self, $gene, $trans_to_del)  = @_;
+  # check to see if it is a blessed transcript first
+  foreach my $blessed ( @{$GB_BLESSED_GENETYPES} ) {
+    if ( $trans_to_del->biotype eq $blessed->{'type'} or 
+	 $trans_to_del->biotype eq $GB_BLESSED_COMBINED_GENETYPE ) {
+      # transcript is blessed dont delete it
+      return 'BLESSED';
+    }
+  }
 
   my @newtrans;
   foreach my $trans (@{$gene->get_all_Transcripts}) {
@@ -415,8 +426,31 @@ sub _remove_transcript_from_gene {
     $gene->add_Transcript($trans);
   }
 
-  return scalar(@newtrans);
+  return;
 }
+
+=head2 transcript_to_keep
+
+  Args       : Bio::EnsEMBL::Transcript object
+  Description: removes the translation provided it is not a blessed transcript
+  Returntype : scalar
+
+=cut 
+
+
+sub transcript_to_keep {
+  my ($self, $trans_to_keep)  = @_;
+  foreach my $blessed ( @{$GB_BLESSED_GENETYPES} ) {
+    if ( $trans_to_keep->biotype eq $blessed->{'type'} or 
+	 $trans_to_keep->biotype eq $GB_BLESSED_COMBINED_GENETYPE ) {
+      # transcript is blessed dont delete the translation
+      return;
+    }
+  }
+  $trans_to_keep->translation(undef);
+  return;
+}
+
 
 ############################################################################
 # container methods
@@ -520,15 +554,6 @@ sub pseudo_genes {
   if ($pseudo_gene) {
     unless ($pseudo_gene->isa("Bio::EnsEMBL::Gene")){
       throw("pseudo gene is not a Bio::EnsEMBL::Gene, it is a $pseudo_gene");
-    }
-    $pseudo_gene->type('pseudogene');
-    my @pseudo_trans = @{$pseudo_gene->get_all_Transcripts};
-    @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
-    my $only_transcript_to_keep = pop  @pseudo_trans;
-    $only_transcript_to_keep->translation(undef);
-    foreach my $pseudo_transcript (@pseudo_trans) {
-      $pseudo_transcript->translation(undef);
-      $self->_remove_transcript_from_gene($pseudo_gene,$pseudo_transcript);
     }
     push @{$self->{'_pseudo_gene'}},$self->lazy_load($pseudo_gene);
   }

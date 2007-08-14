@@ -52,6 +52,8 @@ use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Blessed;
+use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Combined;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -184,7 +186,6 @@ sub test_genes{
 
   TRANS: foreach my $transcript (@{$gene->get_all_Transcripts}) {
 
-
       my $evidence = $self->transcript_evidence($transcript,$gene);
 
       # store the single exon gene for further analysis unless they are all covered by repeats
@@ -298,12 +299,13 @@ sub test_genes{
 	  my @pseudo_trans = @{$trans_type{'pseudo'}};
 	  @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
 	  my $only_transcript_to_keep = pop  @pseudo_trans;
-	  $only_transcript_to_keep->translation(undef);
-	  $only_transcript_to_keep->biotype('pseudogene');
+	  $self->transcript_to_keep($only_transcript_to_keep);
 	  foreach my $pseudo_transcript (@pseudo_trans) {
-	    $self->discarded_transcripts($pseudo_transcript);
-	    $pseudo_transcript->translation(undef);
-	    $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	    my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	    if ( $blessed ) {
+	      print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
+		" is a pseudo transcript \n";
+	    }
 	  }
 	  $self->modified_genes($gene);
 	  $self->pseudogenes(1);
@@ -340,12 +342,14 @@ sub test_genes{
 	  $trans_type{'indeterminate'} or 
 	  $trans_type{'repeat'}){
 	foreach my $trans (@{$trans_type{'pseudo'}}) {
-	  $trans->translation(undef);
-	  $self->_remove_transcript_from_gene($gene,$trans);
+	  my $blessed = $self->_remove_transcript_from_gene($gene,$trans);
+	  if ( $blessed ) {
+	    print STDERR "Blessed transcript " . $trans->display_id . 
+	      " is a pseudo transcript \n";
+	  }
 	}
 	$self->modified_genes($gene);
 	$self->multi_exon_genes($gene) unless $trans_type{'not_multi_exon'};
-	$self->discarded_transcripts(@{$trans_type{'pseudo'}});
 	$self->pseudogenes(1);
 	next GENE;
       }
@@ -368,12 +372,13 @@ sub test_genes{
 	my @pseudo_trans = @{$gene->get_all_Transcripts};
 	@pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
 	my $only_transcript_to_keep = pop  @pseudo_trans;
-	$only_transcript_to_keep->translation(undef);
-	$only_transcript_to_keep->biotype($PS_REPEAT_TYPE);
+	$self->transcript_to_keep($only_transcript_to_keep);
 	foreach my $pseudo_transcript (@pseudo_trans) {
-	  $self->discarded_transcripts($pseudo_transcript);
-	  $pseudo_transcript->translation(undef);
-	  $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	  my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	  if ( $blessed ) {
+	    print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
+	      " is covered with repeats \n";
+	  }
 	}
 	$gene->biotype($PS_REPEAT_TYPE);
 	$self->modified_genes($gene);
@@ -616,6 +621,16 @@ sub protein_covered_intron{
 sub _remove_transcript_from_gene {
   my ($self, $gene, $trans_to_del)  = @_;
 
+  foreach my $blessed ( @{$GB_BLESSED_GENETYPES} ) {
+    if ( $trans_to_del->biotype eq $blessed->{'type'} or 
+	 $trans_to_del->biotype eq $GB_BLESSED_COMBINED_GENETYPE ) {
+      # transcript is blessed dont delete it
+      return 'BLESSED';
+    }
+  }
+
+  $self->discarded_transcripts($trans_to_del);
+  $trans_to_del->translation(undef);
   my @newtrans;
   foreach my $trans (@{$gene->get_all_Transcripts}) {
     if ($trans != $trans_to_del) {
@@ -630,7 +645,29 @@ sub _remove_transcript_from_gene {
     $gene->add_Transcript($trans);
   }
 
-  return scalar(@newtrans);
+  return ;
+}
+
+=head2 transcript_to_keep
+
+  Args       : Bio::EnsEMBL::Transcript object
+  Description: removes the translation provided it is not a blessed transcript
+  Returntype : scalar
+
+=cut 
+
+
+sub transcript_to_keep {
+  my ($self, $trans_to_keep)  = @_;
+  foreach my $blessed ( @{$GB_BLESSED_GENETYPES} ) {
+    if ( $trans_to_keep->biotype eq $blessed->{'type'} or 
+	 $trans_to_keep->biotype eq $GB_BLESSED_COMBINED_GENETYPE ) {
+      # transcript is blessed dont delete the translation
+      return;
+    }
+  }
+  $trans_to_keep->translation(undef);
+  return;
 }
 
 =head2 intersection
