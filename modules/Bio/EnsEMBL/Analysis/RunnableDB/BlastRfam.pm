@@ -42,10 +42,11 @@ use Bio::EnsEMBL::Analysis::Runnable::BlastRfam;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
-use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Blast);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Blast Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 =head2 fetch_input
@@ -62,18 +63,12 @@ use vars qw(@ISA);
 
 
 sub fetch_input{
-  my ($self) = @_;
-  # dna database
-  my $dna_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_DBHOST,
-     '-user'   => $GB_DBUSER,
-     '-dbname' => $GB_DBNAME,
-     '-pass'   => $GB_DBPASS,
-     '-port'   => $GB_DBPORT,
-    );
-  #add dna_db
-  $self->db->dnadb($dna_db);
+  my ($self) = @_; 
+ 
+  # attach dna-db to db
+  my $dna_db = $self->get_get_dbadaptor("DNA_DBNAME"); 
+  $self->db->dnadb($dna_db); 
+
   my $slice = $self->fetch_sequence($self->input_id, $self->db,'');
   $self->query($slice);
   my %blast = %{$self->BLAST_PARAMS};
