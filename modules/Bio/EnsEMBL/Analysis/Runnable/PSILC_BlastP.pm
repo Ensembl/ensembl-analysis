@@ -38,7 +38,6 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 use Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
