@@ -159,9 +159,18 @@ sub run {
                   " with " . $tg1_species . "\t" . $longest_tg1->stable_id .
                   "\t" . $tg1_homol->stable_id . " (" . $tg1_homol->external_name . ")\n";
 
-            my $transcript_stable_id = $longest_tg1->stable_id;  
+            my $transcript_stable_id = $longest_tg1->stable_id;   
 
-            $self->partials($transcript_stable_id, $tg1_homol, $longest_tg1, $query_gene ) ; 
+            if ( $$FIND_PARTIAL_GENES{ANALYSIS_SETS}{$self->post_logic_name}{IGNORE_ORTHOLOGUES_ON_MT_REGIONS} ) { 
+	      if ( $tg1_homol->slice->seq_region_name =~m/MT/){  
+	           print "ignore MT regions is switched on \n" ; 
+	           print "\nIgnoring homolog : $transcript_stable_id 'cause it's on an MT region \n" ; 
+	        } else { 
+                   $self->partials($transcript_stable_id, $tg1_homol, $longest_tg1, $query_gene ) ; 
+	        }
+	    } else {
+              $self->partials($transcript_stable_id, $tg1_homol, $longest_tg1, $query_gene ) ; 
+	    }
           }
         }
       }
