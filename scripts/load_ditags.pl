@@ -111,7 +111,7 @@ if ( !$$DATABASES{'REFERENCE_DB'}{'-dbname'} or
      !$$DATABASES{'REFERENCE_DB'}{'-user'} or
      !$$DATABASES{'REFERENCE_DB'}{'-pass'} ){ 
     throw "\nDatabase parameters missing from file ".
-          "Bio::EnsEMBL:Analysis::Config::Databases\n";
+          "Bio::EnsEMBL:Analysis::Config::GeneBuild::Databases\n";
   }
 
   #CHECK ALL VARIABLES NEEDED
