@@ -66,7 +66,7 @@ sub fetch_input{
   my ($self) = @_; 
  
   # attach dna-db to db
-  my $dna_db = $self->get_get_dbadaptor("DNA_DBNAME"); 
+  my $dna_db = $self->get_get_dbadaptor($DNA_DBNAME); 
   $self->db->dnadb($dna_db); 
 
   my $slice = $self->fetch_sequence($self->input_id, $self->db,'');
