@@ -191,7 +191,7 @@ FIND_PARTIAL_GENES =>
                            'MAIN_ORTH'   => 'Homo sapiens',          
                            'TEST_SPEC_1' => 'Mus musculus',    
                            'TEST_SPEC_2' => 'Canis familiaris',
-                                                    
+                           'IGNORE_ORTHOLOGUES_ON_MT_REGIONS' => 1 ,  
                            'RATIO_MAIN_vs_QUERY' =>        0.75,
                            'RATIO_MAIN_vs_SPEC_1_LOW' =>   0.9,
                            'RATIO_MAIN_vs_SPEC_1_HIGH' =>  1.1,
@@ -207,6 +207,7 @@ FIND_PARTIAL_GENES =>
                         #  MAIN_ORTH   => "Mus musculus", 
                         #  TEST_SPEC_1 => "Canis familiaris", 
                         #  TEST_SPEC_2 => ".....", 
+                        #   'IGNORE_ORTHOLOGUES_ON_MT_REGIONS' => 1 ,  
                         #  RATIO_MAIN_vs_QUERY =>        0.75,
                         #  .... 
                         # }
