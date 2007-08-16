@@ -45,7 +45,7 @@ use vars qw(@ISA);
 
 use Bio::EnsEMBL::DBSQL::DBConnection;
 
-use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning 
                                       stack_trace);
