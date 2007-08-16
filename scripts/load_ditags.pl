@@ -46,7 +46,7 @@ use Bio::EnsEMBL::Pipeline::DBSQL::AnalysisAdaptor;
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::ExonerateTags;
-use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Getopt::Long;
 
 my ($tagtype, $help);
@@ -70,8 +70,11 @@ if($help or !$tagtype){
 }
 
 my $db = setup();
-print STDERR "\nReadig from Bio::EnsEMBL::Analysis::Config::ExonerateTags".
-             "\nLooking at database $GB_DBHOST:$GB_DBPORT:$GB_DBNAME.\n";
+print STDERR "\nReadig from Bio::EnsEMBL::Analysis::Config::Ditag.pm".
+             "\nLooking at database " .
+               $$DATABASES{'REFERENCE_DB'}{'-dbname'}.":".
+               $$DATABASES{'REFERENCE_DB'}{'-host'}.":".
+               $$DATABASES{'REFERENCE_DB'}{'-port'}."\n";
 
 if(!$option or $option eq "A"){
   save_ditags($db, $tagtype, $write, $delete);
@@ -102,7 +105,11 @@ sub setup {
       $config{$config_var} = $entry->{$config_var};
     }
   }
-  if(!$GB_DBHOST or !$GB_DBPORT or !$GB_DBNAME or !$GB_DBUSER or !$GB_DBPASS){
+if ( !$$DATABASES{'REFERENCE_DB'}{'-dbname'} or
+     !$$DATABASES{'REFERENCE_DB'}{'-host'} or
+     !$$DATABASES{'REFERENCE_DB'}{'-port'} or
+     !$$DATABASES{'REFERENCE_DB'}{'-user'} or
+     !$$DATABASES{'REFERENCE_DB'}{'-pass'} ){ 
     throw "\nDatabase parameters missing from file ".
           "Bio::EnsEMBL:Analysis::Config::Databases\n";
   }
@@ -124,13 +131,8 @@ sub setup {
   }
 
   #CONNECT TO PIPELINE DATABASE
-  my $pipedb = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor(
-					   -host    => $GB_DBHOST,
-					   -port    => $GB_DBPORT,
-					   -user    => $GB_DBUSER,
-					   -pass    => $GB_DBPASS,
-					   -dbname  => $GB_DBNAME
-					  ) or throw "cant connect to pipedatabase.";
+  my $pipedb = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor($$DATABASES{'REFERENCE_DB'})
+					  or throw "cant connect to pipedatabase.";
   return($pipedb);
 }
 
@@ -220,11 +222,21 @@ sub save_ditags {
   print STDERR "\nSQL INSERTS FOR DITAGS WRITTEN TO $tmpfile [$count].\n";
 
   if($write){
-    #LOAD TO DATABASE
-    if(system("mysql -h$GB_DBHOST -P$GB_DBPORT -u$GB_DBUSER -p$GB_DBPASS -D$GB_DBNAME < $tmpfile" )){
-      throw("couldn t load file $tmpfile to database $GB_DBNAME.");
+    #LOAD TO DATABASE 
+    my $cmd = "mysql -h $$DATABASES{'REFERENCE_DB'}{'-host'} ".
+               " -P$$DATABASES{'REFERENCE_DB'}{'-port'} ".
+               " -u$$DATABASES{'REFERENCE_DB'}{'-user'} ".
+               " -p$$DATABASES{'REFERENCE_DB'}{'-pass'} ".
+               " -D$$DATABASES{'REFERENCE_DB'}{'-dbname'} ".
+               " < $tmpfile " ; 
+ 
+    if(system($cmd)) { 
+      throw("couldn t load file $tmpfile to database $$DATABASES{'REFERENCE_DB'}{'-dbname'}");
     }
-    print STDERR "DITAGS STORED IN ".$GB_DBHOST.":".$GB_DBPORT.":".$GB_DBNAME.".\n";
+    print STDERR "DITAGS STORED IN ".  $$DATABASES{'REFERENCE_DB'}{'-dbname'}.":".
+               $$DATABASES{'REFERENCE_DB'}{'-host'}.":".
+               $$DATABASES{'REFERENCE_DB'}{'-port'}."\n";  
+
     if(!defined $delete){
       print STDERR "REMOVE FILE? ";
       $ans = <>;
@@ -272,10 +284,19 @@ sub make_input_ids {
 
   if($write){
     #LOAD TO DATABASE
-    if(system("mysql -h$GB_DBHOST -P$GB_DBPORT -u$GB_DBUSER -p$GB_DBPASS -D$GB_DBNAME < $tmpfile" )){
-      throw("couldn t load file $tmpfile to database $GB_DBNAME.");
+    my $cmd = "mysql -h $$DATABASES{'REFERENCE_DB'}{'-host'} ".
+               " -P$$DATABASES{'REFERENCE_DB'}{'-port'} ".
+               " -u$$DATABASES{'REFERENCE_DB'}{'-user'} ".
+               " -p$$DATABASES{'REFERENCE_DB'}{'-pass'} ".
+               " -D$$DATABASES{'REFERENCE_DB'}{'-dbname'} ".
+               " < $tmpfile " ; 
+    if(system($cmd)) { 
+      throw("couldn t load file $tmpfile to database $$DATABASES{'REFERENCE_DB'}{'-dbname'}");
     }
-    print STDERR "INPUT IDS CREATED IN ".$GB_DBHOST.":".$GB_DBPORT.":".$GB_DBNAME.".\n";
+    print STDERR "INPUT IDS CREATED IN ".
+               $$DATABASES{'REFERENCE_DB'}{'-dbname'}.":".
+               $$DATABASES{'REFERENCE_DB'}{'-host'}.":".
+               $$DATABASES{'REFERENCE_DB'}{'-port'}."\n";
     if(!defined $delete){
       print STDERR "REMOVE FILE? ";
       $ans = <>;
