@@ -53,7 +53,7 @@ use vars qw(@ISA);
 
   Title      : fetch_input
   Usage      : $miRNA->fetch_input();
-  Function   : opens and stores connections to databases in Bio::EnsEMBL::Analysis::Config::Databases
+  Function   : opens and stores connections to databases in Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
              : fetches all dna align features by analysis logic name specified in the 
              : input id 
   Returns    : Hash reference
