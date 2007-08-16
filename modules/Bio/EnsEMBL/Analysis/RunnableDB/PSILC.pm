@@ -67,13 +67,14 @@ use warnings;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 use Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Runnable::PSILC; 
-
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
+
 
 my $runnable;
 
@@ -96,7 +97,7 @@ sub fetch_input{
   # open the dbs, get the adaptors and store them
   my ($start, $end);
   my $count=0;
-  my @genes;
+  my @genes; 
   my $subjectdb = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
      '-host'   => $PSILC_SUBJECT_DBHOST,
@@ -117,33 +118,18 @@ sub fetch_input{
      '-user'   => 'ensro',
      '-dbname' => $PSILC_ORTH2_DBNAME,
      '-port'   => $PSILC_ORTH2_DBPORT,
-    );
+    ); 
+
   $self->species_db($SUBJECT,$subjectdb);
   $self->species_db($ORTH1,$orth1db);
-  $self->species_db($ORTH2,$orth2db);
-  
-  my $dna_db = new Bio::EnsEMBL::DBSQL::DBAdaptor 
-    (
-     '-host'   => $GB_DBHOST,
-     '-user'   => $GB_DBUSER,
-     '-dbname' => $GB_DBNAME,
-     '-pass'   => $GB_DBPASS,
-     '-port'   => $GB_DBPORT,
-    );
+  $self->species_db($ORTH2,$orth2db); 
+
   #store repeat db internally
+  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
   $self->rep_db($dna_db);
 
   #genes come from final genebuild database
-  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor 
-    (
-     '-host'   => $GB_FINALDBHOST,
-     '-user'   => $GB_FINALDBUSER,
-     '-dbname' => $GB_FINALDBNAME,
-     '-pass'   => $GB_FINALDBPASS,
-     '-port'   => $GB_FINALDBPORT,
-     '-dnadb'  => $dna_db,
-    );  
-  #store repeat db internally
+  my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
   $self->gene_db($genes_db);
  
   my $ga = $genes_db->get_GeneAdaptor;
