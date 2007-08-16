@@ -1,4 +1,4 @@
-  my $description = $descriptions->{$domain}->{'description'};# You may distribute this module under the same terms as perl itself
+# You may distribute this module under the same terms as perl itself
 #
 # POD documentation - main docs before the code
 
@@ -48,13 +48,15 @@ use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::Seq;
 use Bio::EnsEMBL::Analysis::Runnable::Infernal;
-use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
+
 use strict;
 use warnings;
 
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB  Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 my $runnable;
 
@@ -76,31 +78,20 @@ sub fetch_input{
   # open connection to genes database
   # if you want to write the final genes into the pipeline database need 
   # to catch it first and store the $self->db as the genes->db otherwise the
-  # registry will cause problems
-  if ($GB_FINALDBNAME eq $self->db->dbc->dbname &&
-      $GB_FINALDBPORT == $self->db->dbc->port &&
-      $GB_FINALDBHOST eq $self->db->dbc->host){
-         $self->gene_db($self->db);
-  } else { 
-    my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-      (
-       '-host'   => $GB_FINALDBHOST,
-       '-user'   => $GB_FINALDBUSER,
-       '-dbname' => $GB_FINALDBNAME,
-       '-pass'   => $GB_FINALDBPASS,
-       '-port'   => $GB_FINALDBPORT,
-      );
+  # registry will cause problems 
+ 
+   if ( $$DATABASES{'GENEWISE_DB'}{'-dbname'} eq $self->db->dbc->dbname &&
+        $$DATABASES{'GENEWISE_DB'}{'-host'} == $self->db->dbc->port && 
+        $$DATABASES{'GENEWISE_DB'}{'-port'} eq $self->db->dbc->host){  
+
+        $self->gene_db($self->db); 
+   } else {  
+    my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
     $self->gene_db($genes_db);
-  }
-  my $dna_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_DBHOST,
-     '-user'   => $GB_DBUSER,
-     '-dbname' => $GB_DBNAME,
-     '-pass'   => $GB_DBPASS,
-     '-port'   => $GB_DBPORT,
-    );
+  }  
+
   #add dna_db
+  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
   $self->db->dnadb($dna_db);
 
   my ($start,$end);
