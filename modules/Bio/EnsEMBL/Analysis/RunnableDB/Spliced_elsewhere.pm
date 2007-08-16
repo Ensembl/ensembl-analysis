@@ -37,7 +37,7 @@ span of the query. These numbers are configurable through:
 Bio::EnsEMBL::Analysis::Config::Pseudogene
 
 The databses used by the module are configured through:
-Bio::EnsEMBL::Analysis::Config::Databases;
+Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 
 Runs as a part of the larger pseudogene analysis. Uses flagged single exon genes
 identified by Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
@@ -55,14 +55,15 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
-use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
+use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB);
+@ISA = qw( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB);
 
 
 
@@ -86,30 +87,15 @@ sub fetch_input{
   if ($self->parameters_hash) {
     %parameters = %{$self->parameters_hash};
   }
-  my $runname = "Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere";
+  my $runname = "Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere"; 
 
-  my $dna_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_DBHOST,
-     '-user'   => $GB_DBUSER,
-     '-dbname' => $GB_DBNAME,
-     '-pass'   => $GB_DBPASS,
-     '-port'   => $GB_DBPORT,
-    );
-  #store repeat db internally
+  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
   $self->rep_db($dna_db);
 
   #genes come from final genebuild database
-  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_FINALDBHOST,
-     '-user'   => $GB_FINALDBUSER,
-     '-dbname' => $GB_FINALDBNAME,
-     '-pass'   => $GB_FINALDBPASS,
-     '-port'   => $GB_FINALDBPORT,
-     '-dnadb'  => $dna_db,
-    );
-  $self->gene_db($genes_db);
+  my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
+  $self->gene_db($genes_db); 
+
   my $ga = $genes_db->get_GeneAdaptor;
   my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
   my $ids = $fa->fetch_by_analysis($self->analysis);
