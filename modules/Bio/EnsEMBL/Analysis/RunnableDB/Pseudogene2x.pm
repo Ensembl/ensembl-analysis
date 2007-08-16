@@ -45,7 +45,6 @@ use vars qw(@ISA);
 
 use Bio::EnsEMBL::DBSQL::DBConnection;
 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning 
                                       stack_trace);
@@ -55,7 +54,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene2x;
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB ); 
 
 
 sub fetch_input {
