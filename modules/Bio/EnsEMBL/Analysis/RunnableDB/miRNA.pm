@@ -40,12 +40,13 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild ; 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::miRNA;
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 =head2 fetch_input
@@ -65,31 +66,17 @@ sub fetch_input{
   my ($self) = @_;
 
   # dna database
+  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
 
-  my $dna_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_DBHOST,
-     '-user'   => $GB_DBUSER,
-     '-dbname' => $GB_DBNAME,
-     '-pass'   => $GB_DBPASS,
-     '-port'   => $GB_DBPORT,
-    );
   # if you want to write the final genes into the pipeline database need 
   # to catch it first and store the $self->db as the genes->db otherwise the
-  # registry will cause problems
-  if ($GB_FINALDBNAME eq $self->db->dbc->dbname &&
-      $GB_FINALDBPORT == $self->db->dbc->port &&
-      $GB_FINALDBHOST eq $self->db->dbc->host){
+  # registry will cause problems 
+  if ( $$DATABASES{'GENEBUILD_DB'}{'-dbname'} eq $self->db->dbc->dbname &&
+       $$DATABASES{'GENEBUILD_DB'}{'-host'} == $self->db->dbc->port &&
+       $$DATABASES{'GENEBUILD_DB'}{'-port'} eq $self->db->dbc->host){
          $self->gene_db($self->db);
   } else { 
-    my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-      (
-       '-host'   => $GB_FINALDBHOST,
-       '-user'   => $GB_FINALDBUSER,
-       '-dbname' => $GB_FINALDBNAME,
-       '-pass'   => $GB_FINALDBPASS,
-       '-port'   => $GB_FINALDBPORT,
-      );
+    my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
     $self->gene_db($genes_db);
   }
 # add dna_db 
