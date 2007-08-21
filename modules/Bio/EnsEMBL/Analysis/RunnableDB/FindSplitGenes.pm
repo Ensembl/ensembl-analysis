@@ -36,6 +36,12 @@ sub new {
 # fetches the genes out of the QUERY database 
 # ( db which contains the predictions of species we're working on ) 
 
+
+# The module FindSplitGenes queries the compara database with raw sql. 
+#
+# It uses any random string as input id. it does not run on slices etc. 
+#  
+#
 sub fetch_input {
   my( $self ) = @_;  
 
