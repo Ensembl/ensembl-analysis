@@ -56,48 +56,52 @@ use vars qw(%Config);
 %Config= 
  (
 
-   #
-   # 
-   # This is because the output-database as well as the directory where the sequences 
-   # will be dumped is defined in the Exonerte2Genes-configuration   
-   #  
-   # The value of EXONERATE_2_GENES_LOGIC_NAME has to point to a hashkey in Exonerate2Genes.pm 
-   # 
+###################################################################################    
+#
+# 
+# This is because the output-database as well as the directory where the sequences 
+# will be dumped is defined in the Exonerte2Genes-configuration   
+#  
+# The value of EXONERATE_2_GENES_LOGIC_NAME has to point to a hashkey in Exonerate2Genes.pm 
+# 
    
-   MAIN_CONFIG =>  
-     { 
-       LOCATION_OF_COMPARA_REGISTRY_FILE =>  '/nfs/acari/jhv/fsk_compara_reg.reg' , 
+MAIN_CONFIG =>  
+{ 
+           LOCATION_OF_COMPARA_REGISTRY_FILE =>  '/nfs/acari/jhv/fsk_compara_reg.reg' , 
 
-       SEQUENCE_DUMP_BASE_DIR => "/lustre/work1/ensembl/jhv/project_orth_analysis/seq_dump_cow" ,  
+           SEQUENCE_DUMP_BASE_DIR => "/lustre/work1/ensembl/jhv/project_orth_analysis/seq_dump_cow" ,  
 
-       # decide which analysis you like to run 
+           # decide which analyses you like to run 
        
-       RUN_FIND_MISSING_ORTHOLOGUES => 1,   
-       RUN_FIND_PARTIAL_GENES => 1, 
-       RUN_FIND_SPLIT_GENES => 1,
+           RUN_FIND_MISSING_ORTHOLOGUES => 1,   
+           RUN_FIND_PARTIAL_GENES       => 1, 
+           RUN_FIND_SPLIT_GENES         => 1,
+           RUN_FIND_FALSE_INTRONS       => 1,  
 
        # ONLY use the species name used for the compara run 
        # which is also stored in the genome_db table of the compara database  
 
-       QUERY_SPECIES => 'Bis taurus',   
-     },
+           QUERY_SPECIES => 'Bis taurus',    
+
+}, # // MAIN_CONFIG-end 
+
+
+
+
                   
-   #
-   # This section configures the MissingOrthologue  run : 
-   #
-   # input_id-format  :  
-   #
-   #       ANALYSIS_SET{$key}:chromosome:BROADD2:1:22222:99999:1 
-   # e.g. logic_name:chromosome:BROADD2:1:22222:99999:1 
-   #  
-   #  
-
-
-
-
+###################################################################################    
+#
+# The following section configures the MissingOrthologue  run : 
+#
+# input_id-format  :  
+#
+#       ANALYSIS_SET{$key}:chromosome:BROADD2:1:22222:99999:1 
+# e.g. logic_name:chromosome:BROADD2:1:22222:99999:1 
+#  
+#  
 
 FIND_MISSING_ORTHOLOGUES=>  
-     { 
+{ 
         
          # 
          # the Runnable will identify one2one orthologues in trusted set 
@@ -125,68 +129,72 @@ FIND_MISSING_ORTHOLOGUES=>
          # QUERY_SPECIES.  
          # It does really not make sense to use your QUERY_SPECIES in the trusted set. 
           
-          ANALYSIS_SETS => {          
-                              #    
-                              # WARNING !          
-                              #
-                              # ONLY use the species name used for the compara run 
-                              # which is also stored in the genome_db table of the compara database  
-                              # (e.g. 'Canis familiaris' , 'Bos taurus_newbuild' .... ) 
-                              # 
-              hum_mus_one2one     => ['Homo sapiens', 'Mus musculus'], 
-              hum_old_dog_one2one => ['Homo sapiens', 'Canis familiaris'], 
-              hum_old_cow_one2one => ['Homo sapiens', 'Bos taurus'],  
-              my_name_is_not_important => ['Mus musculus', 'Homo sapiens'],
-          } ,  
+           ANALYSIS_SETS => 
+           {          
+                      #    
+                      # WARNING !          
+                      #
+                      # ONLY use the species name used for the compara run 
+                      # which is also stored in the genome_db table of the compara database  
+                      # (e.g. 'Canis familiaris' , 'Bos taurus_newbuild' .... ) 
+                      # 
+                        hum_mus_one2one     => ['Homo sapiens', 'Mus musculus'], 
+                        hum_old_dog_one2one => ['Homo sapiens', 'Canis familiaris'], 
+                        hum_old_cow_one2one => ['Homo sapiens', 'Bos taurus'],  
+                        my_name_is_not_important => ['Mus musculus', 'Homo sapiens'],
+           } ,  
 
-       },
+},  # // FIND_MISSING_ORTHOLOGUES section-end
    
 
 
+
+
+
  
-    #
-    # This section configures the FindPartialGenes-Runnable  
-    #
-    # input_id-format :
-    # 
-    #       ANALYSIS_SET{KEY}:chromosome:BROADD2:chromosome:1:222222:333333:1  
-    # e.g.  find_paritals:chromosome:BROADD2:chromosome:1:222222:333333:1  
-    #
-    # input-id is created by setup script 
-    # setup script creates post-analysis (find_partials) 
-    # if you like to add new post_analysis 
+###################################################################################    
+#
+# The following section configures the FindPartialGenes-Runnable  
+#
+# input_id-format :
+# 
+#       ANALYSIS_SET{KEY}:chromosome:BROADD2:chromosome:1:222222:333333:1  
+# e.g.  find_paritals:chromosome:BROADD2:chromosome:1:222222:333333:1  
+#
+# input-id is created by setup script 
+# setup script creates post-analysis (find_partials) 
+# if you like to add new post_analysis 
 
 FIND_PARTIAL_GENES => 
-    {   
-                  # biotype of genes to fetch out of the db which was used 
-                  # for the compara run in registry file   
-                  DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,   
+{   
+         # biotype of genes to fetch out of the db which was used 
+         # for the compara run in registry file   
+           DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,   
                            
 
-                  # analysis_sets consist of logic_name and members. First, we 
-                  # find orthologues between the QUERY SPECIES (your new build ) 
-                  # and MAIN_ORTH ( a species with a trustable set of gene predcitions which 
-                  # is also close to QUERY SPECIES ).  
-                  #
-                  # - the length of these two genes is noted. 
-                  # than we find orthologues between MAIN_ORTH and TEST_SPEC_1 
-                  # and MAIN_ORTH and TEST_SPEC_2 and calculates the ratio between 
-                  # these pairs . If the length difference is significant between the 
-                  # gene predictions in the other species and query-main, we've found partials.
-                  #
-                  #
-                  ANALYSIS_SETS => 
-                  {   
+          # analysis_sets consist of logic_name and members. First, we 
+          # find orthologues between the QUERY SPECIES (your new build ) 
+          # and MAIN_ORTH ( a species with a trustable set of gene predcitions which 
+          # is also close to QUERY SPECIES ).  
+          #
+          # - the length of these two genes is noted. 
+          # than we find orthologues between MAIN_ORTH and TEST_SPEC_1 
+          # and MAIN_ORTH and TEST_SPEC_2 and calculates the ratio between 
+          # these pairs . If the length difference is significant between the 
+          # gene predictions in the other species and query-main, we've found partials.
+          #
+          #
+           ANALYSIS_SETS => 
+           {   
 
                       find_partials =>
                       { 
                      
-                           # WARNING !
-                           # ONLY use the species name which is also stored in the genome_db 
-                           # table of the compara-database you're using (and in the reg-file of course!)
-                           # 
-                          
-                           # well annoteted spec which have a bit of distantance as well as conserverd genes   
+                         # WARNING !
+                         # ONLY use the species name which is also stored in the genome_db 
+                         # table of the compara-database you're using (and in the reg-file of course!)
+                         # 
+                         # well-annoteted spec which have a bit of dist. as well as conserverd genes   
 
                            'MAIN_ORTH'   => 'Homo sapiens',          
                            'TEST_SPEC_1' => 'Mus musculus',    
@@ -202,28 +210,40 @@ FIND_PARTIAL_GENES =>
                         #
                         # if you like you can test other sets as well : 
                         #
-                        # new_logic_name => 
+                        # whatever_new_logic_name => 
                         # {
-                        #  MAIN_ORTH   => "Mus musculus", 
-                        #  TEST_SPEC_1 => "Canis familiaris", 
-                        #  TEST_SPEC_2 => ".....", 
-                        #   'IGNORE_ORTHOLOGUES_ON_MT_REGIONS' => 1 ,  
-                        #  RATIO_MAIN_vs_QUERY =>        0.75,
-                        #  .... 
+                        #   MAIN_ORTH   => "Mus musculus", 
+                        #   TEST_SPEC_1 => "Canis familiaris", 
+                        #   TEST_SPEC_2 => ".....", 
+                        #   IGNORE_ORTHOLOGUES_ON_MT_REGIONS => 1 ,  
+                        #   RATIO_MAIN_vs_QUERY =>        0.75,
+                        #   RATIO_MAIN_vs_SPEC_1_LOW =>   0.9,
+                        #   RATIO_MAIN_vs_SPEC_1_HIGH =>  1.1,
+                        #   RATIO_MAIN_vs_SPEC_2_LOW =>   0.9, 
+                        #   RATIO_MAIN_vs_SPEC_2_HIG' =>  1.1,
                         # }
-                   }
-    }, 
-    
-    # 
-    # This section configures the FindSplitGene.pm RunnableDB 
-    # You can define new sets as well, the names like 'hum_dog_split' can be 
-    # changed to whatever you like (foo_bla_bar etc.) - they are only used 
-    # as hash-keys so the runnableDB will loop over all keys of the ANALYSIS_SETS -hash
-    # 
+           },
+},  # // FIND_PARTIAL_GENES section-end
 
-FIND_SPLIT_GENES =>{   
-                              ANALYSIS_SETS => 
-                              {   
+
+
+
+###################################################################################    
+# 
+# This section configures the FindSplitGene.pm RunnableDB 
+# You can define new sets as well, the names like 'hum_dog_split' can be 
+# changed to whatever you like (foo_bla_bar etc.) - they are only used 
+# as hash-keys so the runnableDB will loop over all keys of the ANALYSIS_SETS -hash
+# 
+# FindSplitGenes is running on the whole genome , you can use any dummy-string
+# as input_id 
+#
+FIND_SPLIT_GENES =>
+{    
+
+
+           ANALYSIS_SETS => 
+           {   
                                    hum_dog_split=>
                                    { 
                                      'INFORMANT' => 'Homo sapiens',          
@@ -241,8 +261,59 @@ FIND_SPLIT_GENES =>{
                                      'TARGETTED' => 'Mus musculus', 
                                      'TARGETTED_PERC_COV' => 70,
                                     },
-                               },
-                          }
+           }, 
+
+
+}, # // FIND_SPLIT_GENES-section-end
+
+
+
+
+###################################################################################    
+# 
+# This section configures the FindFalseIntrons.pm-RunnableDB-run. 
+# The analysis will check all gene-structures of a certain biotype of the 
+# QUERY_SPECIES which you configured in the MAIN_CONFIG section in this file.  
+#
+# The introns of the QUERY_SPECIES are aligned with exonerate against the 
+# homologue gene structure of the PRIMARY_ORTH and/ or SECONDARY_ORTH. 
+#
+# If the intron aligns to the sequence of the orth. gene structure it shows that 
+# the intron is wrongly predicted and should be recoverd. 
+# 
+
+
+FIND_FALSE_INTRONS => 
+{ 
+
+           DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,    
+
+           # advance config not implememnted now 
+#           ANALYSIS_SETS =>
+#           {
+#                          check_vs_mus_hum =>{
+#                                              'PRIMARY_ORTH'   => 'Homo sapiens',
+#                                              'SECONDARY_ORTH' => 'Mus musculus',
+#                                             },
+#
+#           }
+           ANALYSIS_SETS =>
+           {
+                PRIMARY_ORTH   => 'Homo sapiens',
+                SECONDARY_ORTH => 'Mus musculus',
+
+           },
+
+
+
+
+
+}, # // FIND_FALSE_INTRONS-section-end
+
+
+
+
+
   );
 
 
