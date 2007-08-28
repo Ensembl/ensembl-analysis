@@ -31,7 +31,7 @@ load_Ditags.pl
 
  If you are confident, just call it like this to get ready to run:
  perl load_Ditags.pl -type ZZ11 -write -delete
- Make sure the type matches the type in the Config::Ditag.pm file.
+ Make sure the type matches the type in the Config::ExonerateTags.pm file.
 
 =head1 CONTACT
 
@@ -131,7 +131,13 @@ if ( !$$DATABASES{'REFERENCE_DB'}{'-dbname'} or
   }
 
   #CONNECT TO PIPELINE DATABASE
-  my $pipedb = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor($$DATABASES{'REFERENCE_DB'})
+  my $pipedb = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor(
+							    -host    => $$DATABASES{'REFERENCE_DB'}{'-host'},
+							    -port    => $$DATABASES{'REFERENCE_DB'}{'-port'},
+							    -user    => $$DATABASES{'REFERENCE_DB'}{'-user'},
+							    -pass    => $$DATABASES{'REFERENCE_DB'}{'-pass'},
+							    -dbname  => $$DATABASES{'REFERENCE_DB'}{'-dbname'}
+							   )
 					  or throw "cant connect to pipedatabase.";
   return($pipedb);
 }
@@ -145,7 +151,7 @@ sub save_ditags {
   #when importing mappings from other sources
   #there might be information about the tag number
   #within the header line
-  my $expect_count = 1;
+  my $expect_count = $config{TAGCOUNT};
 
   my $ditagcount   = 0;
   my $count        = 0;
