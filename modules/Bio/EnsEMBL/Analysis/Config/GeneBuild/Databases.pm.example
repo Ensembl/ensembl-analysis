@@ -32,6 +32,12 @@ A common way to get an DBAdaptor in a module is
 
  my $ref_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{REFERENCE_DB} }) ;
  
+ OR :  
+
+   use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
+   @ISA = qw ( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild ) 
+
+   my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
  
 
 The variables can also be references to arrays or hashes.
