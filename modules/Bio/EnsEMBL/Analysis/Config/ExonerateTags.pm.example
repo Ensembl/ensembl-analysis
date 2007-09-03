@@ -38,6 +38,7 @@ use vars qw( %Config );
 
 %Config = (
       DITAG_CONFIG => {
+
         DEFAULT => {
 
         ## GENERAL SECTION ##
@@ -78,11 +79,15 @@ use vars qw( %Config );
           CHOPLAST            => undef,
 	  #remove the first X bases
           CHOPFIRST           => undef,
+	  #is there a initial number of hits givem in the header?
+	  TAGCOUNT            => 0,
 
-        #ZZ11
-	  #name & input (fasta) file of tags
-          TAGTYPE             => "ZZ11",
-          QUERYFILE           => '',
+	  QUERYFILES  => {
+		   ZZ11        => 'ditag/tags/archive/GSC/gsc-ZZ11.fa',
+		   ZZ12        => 'ditag/tags/archive/GSC/gsc-ZZ12.fa',
+		   ZZ13        => 'ditag/tags/archive/GSC/gsc-ZZ13.fa',
+		   ZZ14        => 'ditag/tags/archive/GSC/gsc-ZZ14.fa',
+          }
 
         },
 

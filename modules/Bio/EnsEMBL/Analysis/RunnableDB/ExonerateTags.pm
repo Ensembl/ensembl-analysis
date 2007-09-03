@@ -41,7 +41,6 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument  qw( rearrange );
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTags;
-#use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::SeqIO;
 use Bio::Seq;
 use Bio::EnsEMBL::Analysis::Config::ExonerateTags;
@@ -96,14 +95,17 @@ sub fetch_input{
   my @fasta_entries = ();
   my $tmp_dir       = $self->TMPDIR;
   #expected format of input ids: ditag.<TYPE>.<NUMBER>
-  $self->input_id =~ /ditag\.\S+\.([0-9]+)/;
-  my $input_index   = $1;
+  $self->input_id   =~ /ditag\.(\S+)\.([0-9]+)/;
+  my $tagtype       = $1;
+  my $input_index   = $2;
   throw("Couldn t get index number from input-id ".$self->input_id)
       unless($input_index);
+  throw("Couldn t get tag-type from input-id ".$self->input_id)
+      unless($tagtype);
 
   #fetch all desired ditags
   my $batch_size = $self->BATCHSIZE();
-  my $tagtype    = $self->TAGTYPE();
+  #my $tagtype    = $self->TAGTYPE();
   my $ditags     = $self->db->get_ditagAdaptor->fetch_all_with_limit(
                    $tagtype, $batch_size, ($batch_size * ($input_index - 1)) );
   my $chop_first = $self->CHOPFIRST();
@@ -241,6 +243,7 @@ sub _check_seq {
   #remove repetetive sequences
   if( ($ditag->sequence =~ /A{$repeat_number}/) or ($ditag->sequence =~ /T{$repeat_number}/) or
       ($ditag->sequence =~ /C{$repeat_number}/) or ($ditag->sequence =~ /G{$repeat_number}/) ){
+#  if( $ditag->sequence =~ /A{$repeat_number} | T{$repeat_number} | C{$repeat_number} | G{$repeat_number}/ ){
     print "removing repetitive ditag ".($ditag->dbID)." ".($ditag->tag_count)."\n";
     $ditag = undef;
   }
@@ -362,7 +365,7 @@ sub write_output {
   if(!$ditagfeatures or !(scalar @$ditagfeatures)){
     $ditagfeatures = $self->output();
   }
-  print "\nhave features to store: ".(scalar @$ditagfeatures);
+  print "\nhave ".(scalar @$ditagfeatures)." features to store.\n";
   if(!$ditagfeatures or !(scalar @$ditagfeatures)){
     warn "no features to store.";
   }
@@ -570,7 +573,7 @@ sub BATCHSIZE {
   return $self->{'_BATCHSIZE'};
 }
 
-sub QUERYFILE {
+sub QUERYFILES {
   my ( $self, $value ) = @_;
   if ($value) {
     $self->{'_QUERYFILE'} = $value;
@@ -663,6 +666,15 @@ sub KEEPORDER {
   }
 
   return $self->{'_KEEPORDER'};
+}
+
+sub TAGCOUNT {
+  my ( $self, $value ) = @_;
+  if ($value) {
+    $self->{'_TAGCOUNT'} = $value;
+  }
+
+  return $self->{'_TAGCOUNT'};
 }
 
 1;
