@@ -40,6 +40,7 @@ PF01065	Hexon, adenovirus major coat protein, N-terminal domain
 PF01140	The matrix protein, p15, is encoded by the gag gene.
 PF01141	Gag polyprotein, inner coat protein p12
 PF01309	Equine arteritis virus small envelope glycoprotein
+PF01498	Transposase_5
 PF01539	Hepatitis C virus envelope glycoprotein E1
 PF01542	Hepatitis C virus core protein
 PF01560	Hepatitis C virus non-structural protein E2/NS1
