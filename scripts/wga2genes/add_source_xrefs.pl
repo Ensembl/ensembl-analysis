@@ -46,7 +46,6 @@ $src_dbuser = 'ensro';
 
 );
 
-
 my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 	'-dbname' => $dbname,
 	'-host' => $dbhost,
@@ -107,7 +106,8 @@ foreach my $g (@genes) {
 
     my %t_dbens;
 
-    foreach my $ens_pep_name (@ens_pep_names) {    
+    foreach my $ens_pep_name (@ens_pep_names) {  
+
       my ($src_p_id, $src_p_ver);
       my ($src_t_id, $src_t_ver);
       my ($src_g_id, $src_g_ver);
@@ -118,6 +118,7 @@ foreach my $g (@genes) {
               @{$stable_id_map->{$ens_pep_name}};
         }
       } elsif (@src_dbs) {
+
         my ($src_p, $src_t, $src_g) = &find_source_transcript_and_gene($ens_pep_name);
 
         if (defined $src_p) {
@@ -193,19 +194,18 @@ sub find_source_transcript_and_gene {
 
     $src_p = $db->get_TranslationAdaptor->
         fetch_by_stable_id($ensp_id);
-    if (defined $src_p) {
-      $src_db = $db;
-      last;
-    }
+    next unless defined $src_p;    
+
+    $src_db = $db;
     
     if (defined $src_p) {
       $src_t = $src_db->get_TranscriptAdaptor->
           fetch_by_translation_stable_id($src_p->stable_id);
 
+
       if (defined $src_t) {
         $src_g = $src_db->get_GeneAdaptor->
             fetch_by_transcript_stable_id($src_t->stable_id);
-
       }
     }
   }
