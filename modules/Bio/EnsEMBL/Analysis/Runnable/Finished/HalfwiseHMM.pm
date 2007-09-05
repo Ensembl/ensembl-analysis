@@ -411,7 +411,10 @@ sub get_pfam_hmm {
     my @accessions = keys(%$uniprot_ids);
     map ( s/(\w*(-\d+)?)(\.\d+)?/'$1'/,@accessions);
 
-	$sql .= "(".join(',',@accessions).")";
+    # deal with empty @accessions
+    next unless defined @accessions;
+
+    $sql .= "(".join(',',@accessions).")";
 
 	#print STDOUT $sql."\n";
 
