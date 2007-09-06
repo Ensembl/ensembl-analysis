@@ -24,7 +24,7 @@ and repeat_consensus tables in the core database
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+Post questions to : anacode@sanger.ac.uk
 
 =cut
 
