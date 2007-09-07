@@ -56,7 +56,8 @@ use vars qw( %Pseudogene );
 	       PS_ALIGNED_GENOMIC  => 100,
 	       # logic name to give genes with exons covered by repeats 
 	       # if left blank they will just get deleted
-	       PS_REPEAT_TYPE      => '',
+         PS_PSEUDO_TYPE      => 'pseudogene_extra',
+         PS_REPEAT_TYPE      => '',
 
 	       # analysis logic names to run over genes falling into these categories
 	       SINGLE_EXON      => 'spliced_elsewhere',

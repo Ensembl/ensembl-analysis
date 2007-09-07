@@ -134,10 +134,10 @@ Arg [none] :
 
 sub summary {
   my ($self) = @_;
-  print STDERR   $self->real." real genes identified \n";
-  print STDERR   $self->pseudogenes." pseudogenes identified \n";
-  print STDERR   $self->repeatgenes." repeat genes identified \n";
-  print STDERR   scalar(@{$self->discarded_transcripts})." pseudotranscripts to be chucked \n";
+  if ( $self->real){print STDERR   $self->real." real genes identified \n";}
+  if ( $self->pseudogenes){print STDERR   $self->pseudogenes." pseudogenes identified \n";}
+  if ( $self->repeatgenes){print STDERR   $self->repeatgenes." repeat genes identified \n";}
+  if ( $self->discarded_transcripts){print STDERR   scalar(@{$self->discarded_transcripts})." pseudotranscripts to be chucked \n";}
   
   foreach my $transcript (@{$self->discarded_transcripts}) {
     print STDERR   $transcript->dbID."\n";
@@ -274,7 +274,7 @@ sub test_genes{
 
     if ($SINGLE_EXON){
       if ($trans_type{'single_exon'}){
-	if ( $gene->biotype eq 'protein_coding' ){
+	if ( $gene->biotype eq $PS_BIOTYPE ){
 	  unless ($trans_type{'pseudo'} or
 		  $trans_type{'indeterminate'} or
 		  $trans_type{'real'} or
@@ -295,7 +295,7 @@ sub test_genes{
 		$trans_type{'indeterminate'} or
 		$trans_type{'real'} or
 		$trans_type{'repeat'}) {
-	  $gene->biotype('pseudogene');
+	  $gene->biotype($PS_PSEUDO_TYPE);
 	  my @pseudo_trans = @{$trans_type{'pseudo'}};
 	  @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
 	  my $only_transcript_to_keep = pop  @pseudo_trans;
