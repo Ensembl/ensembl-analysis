@@ -299,9 +299,11 @@ FIND_FALSE_INTRONS =>
 #           }
            ANALYSIS_SETS =>
            {
-                PRIMARY_ORTH   => 'Homo sapiens',
-                SECONDARY_ORTH => 'Mus musculus',
-
+                FindFalseIntrons_hum_mus => 
+                                           {
+                                             PRIMARY_ORTH   => 'Homo sapiens',
+                                             SECONDARY_ORTH => 'Mus musculus',
+                                           }
            },
 
 
