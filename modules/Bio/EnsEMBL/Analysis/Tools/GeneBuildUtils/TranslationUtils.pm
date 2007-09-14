@@ -8,6 +8,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info);
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
@@ -195,6 +196,8 @@ sub contains_internal_stops{
   my ($transcript) = @_;
   my $pep = $transcript->translate->seq;
   my $num = $pep =~ /\*/;
+  logger_info(Translation_info($transcript)." contains internal stops ".$pep)
+    if($num);
   return $num;
 }
 

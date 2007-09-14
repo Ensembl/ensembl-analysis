@@ -106,6 +106,8 @@ use vars qw (@ISA @EXPORT);
              evidence_coverage_greater_than_minimum
              count_real_introns
              identical_Transcripts
+             set_start_codon
+             set_stop_codon
              convert_translateable_exons_to_exon_extended_objects 
             );
 
@@ -406,7 +408,7 @@ sub intron_lengths_all_less_than_maximum{
     if(!intron_length_less_than_maximum($intron, 
                                         $max_length)){
       warning("Transcript ".id($transcript)." has ".
-              "intron longer than ".$max_length);
+              "intron ".$intron->length." longer than ".$max_length);
       return 0;
     }
   }
@@ -615,9 +617,9 @@ sub low_complexity_less_than_maximum{
   my $low_complexity = $seg->get_low_complexity_length;
   logger_info(id($transcript)." has ".$low_complexity.
               " low complexity sequence");
-  if($low_complexity > $complexity_threshold){
+  if($low_complexity >= $complexity_threshold){
     warning(id($transcript)."'s low ".
-            "complexity is above ".
+            "complexity (".$low_complexity.") is above ".
             "the threshold ".$complexity_threshold.
             "\n");
     return 0;
@@ -905,13 +907,14 @@ sub list_evidence{
 
 sub split_Transcript{
   my ($transcript, $max_intron_length, $intron_numbers) = @_;
+  throw("TranscriptUtils:split_Transcript will not work on single exon transcripts")
+    if(@{$transcript->get_all_Exons} == 0);
   #cloning the transcript to ensure if all else fails
   #the original is fine
   my %intron_numbers;
   if (defined $intron_numbers) {
     map { $intron_numbers{$_} = 1 } @$intron_numbers;
   }
-
   my ($cds_start, $cds_end);
   if ($transcript->translation) {
     my ($c) = $transcript->cdna2genomic($transcript->cdna_coding_start, 
@@ -926,7 +929,7 @@ sub split_Transcript{
       ($cds_start, $cds_end) = ($cds_end, $cds_start);
     }
   }
-
+  throw("cds_start ".$cds_start." or cds_end.".$cds_end." is not defined") if(!$cds_start || !$cds_end);
 
   my $cloned_transcript = clone_Transcript($transcript);
 
@@ -973,7 +976,7 @@ sub split_Transcript{
       #transcript must be started. This means the last exon 
       #needs to be set as the end of the previous translation
       #and a new transcript must be created
-      
+
       my $t = Bio::EnsEMBL::Transcript->new;
       $t->add_Exon($next_exon);
       $curr_transcript = $t;
@@ -983,7 +986,7 @@ sub split_Transcript{
       push(@split_transcripts, $curr_transcript);
     }
   }
-
+ 
   # now add the translations, and trim back transcripts that
   # do not end in whole codons
   my @processed;
@@ -1030,7 +1033,7 @@ sub split_Transcript{
       }
     }
     if ($stran->translation) {
-      $stran = trim_cds_to_whole_codons($stran);
+      #$stran = trim_cds_to_whole_codons($stran);
     }
     foreach my $sf (@{$transcript->get_all_supporting_features}) {
       my @ugs;
@@ -1050,7 +1053,6 @@ sub split_Transcript{
 
   my $info = "split_Transcript Returning " . scalar(@processed) . " transcripts";
   logger_info($info);
-
   return \@processed;
 }
 
@@ -1135,7 +1137,6 @@ sub tidy_split_transcripts{
 
 sub trim_cds_to_whole_codons {
   my ($transcript) = @_;
-
   my $remove5 = 0;
   my $remove3 = 0;  
 
@@ -1629,7 +1630,6 @@ sub evidence_coverage{
 
   throw("Can't work out evidence coverage for ".id($transcript).
         " without any evidence") if(!$evidence);
-
   my $matches = 0;
   my $pstart  = 0;
   my $pend    = 0;
@@ -1780,6 +1780,8 @@ sub evidence_coverage_greater_than_minimum{
   warning(Transcript_info($transcript)." based on ".$evidence->id." has too ".
           "low coverage ".$coverage." of the evidence") 
     unless($coverage > $min_coverage);
+  return 0 unless($coverage > $min_coverage);
+  return 1;
 }
 
 
@@ -1795,6 +1797,7 @@ sub evidence_coverage_greater_than_minimum{
  Args    : Transcript, Transcript
            Transcript, Transcript
 =cut
+
 sub identical_Transcripts {
   my ($transcript1, $transcript2) = @_;
 
@@ -1822,4 +1825,505 @@ sub identical_Transcripts {
   # you may want to check the evidence and phase at some stage by adding a wrapper method
   return 1;
 }
+
+sub set_start_codon{
+  my ($transcript) = @_;
+
+  # check transcript has a translation
+  if(!$transcript->translation || !$transcript->translation->start_Exon){
+    warning("Transcript has no translation, or no start exon - maybe a pseudogene?");
+    return $transcript;
+  }
+  my $cloned_transcript = clone_Transcript($transcript);
+  # useful info in genomic coordinates
+  my $strand = @{$cloned_transcript->get_all_Exons}[0]->strand;
+  my $translation       = $cloned_transcript->translation;
+  my $start_exon        = $translation->start_Exon;
+  my $cdna_coding_start = $cloned_transcript->cdna_coding_start;
+  my $cdna_seq          = uc($cloned_transcript->spliced_seq);
+  my @pepgencoords      = $cloned_transcript->pep2genomic(1,1);
+
+  if(scalar(@pepgencoords) > 2) {
+    logger_info("peptide start does not map cleanly - not modifying transcript");
+    return $cloned_transcript;
+  }
+
+  my $pepgenstart = $pepgencoords[0]->start;
+  my $pepgenend   = $pepgencoords[$#pepgencoords]->end;
+
+  unless($pepgencoords[0]->isa('Bio::EnsEMBL::Mapper::Coordinate') && 
+	 $pepgencoords[$#pepgencoords]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
+    logger_info("peptide coordinate(s)  maps to gap - not modifying transcript");
+    return $cloned_transcript;
+  }
+
+  ############################################################
+  # first see whether the transcript already begins with ATG
+  my $first_codon = substr($cdna_seq, $cdna_coding_start-1, 3);
+
+  if ( uc($first_codon) eq 'ATG' ){
+    logger_info("transcript already starts with ATG - no need to modify");
+    return $cloned_transcript;
+  }
+  
+  ############################################################
+  # now look at the previous codon
+  ############################################################
+  # first the simplest cases
+  if($cdna_coding_start>3){
+    # the previous codon is in the cdna
+    $first_codon = substr($cdna_seq, $cdna_coding_start-4, 3);
+    if ($first_codon ne 'ATG'){
+      logger_info("Upstream codon is not an ATG - not modifying transcript");
+      return $cloned_transcript;
+    }else{
+      # save current coords, just in case we need to revert
+      my $current_translation_start = $cloned_transcript->translation->start;
+      my $current_start_exon        = $cloned_transcript->translation->start_Exon;
+      my $current_start_exon_start  = $current_start_exon->start;
+      my $current_start_exon_end  = $current_start_exon->end;
+      my $current_start_exon_phase = $current_start_exon->phase;
+      my $newstartexon;
+      my $current_newstartexon_endphase;
+
+      my @coords = $cloned_transcript->cdna2genomic($cdna_coding_start-3,$cdna_coding_start-1,$strand);
+      my $new_start;
+      my $new_end;
+
+      # check not mapping to gaps
+      unless($coords[0]->isa('Bio::EnsEMBL::Mapper::Coordinate') &&
+	     $coords[$#coords]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
+	logger_info("new coordinate(s) maps to gap - not modifying transcript");
+	return $cloned_transcript;
+      }
+
+      if (scalar(@coords) > 2){
+	print STDERR "coordinate mapping not done cleanly - not modifying transcript!\n";
+	return $cloned_transcript;
+      }elsif(scalar(@coords) == 2){
+	logger_info("new start codon split across intron");
+	logger_info("coord[0] = " . $coords[0]->start . " " . $coords[0]->end);
+	logger_info("coord[1] = " . $coords[1]->start . " " . $coords[1]->end);
+	
+	if($strand == 1){
+	  $new_start = $coords[0]->start;
+	  $new_end   = $coords[$#coords]->end;}
+	else{
+	  $new_start = $coords[0]->end;
+	  $new_end   = $coords[$#coords]->start; 
+	}
+	
+	# find exon
+	my $newstartexon = get_previous_Exon($cloned_transcript, $start_exon);
+
+	if (!$newstartexon) {
+	  logger_info("Failed finding new start exon - not modifying transcript");
+	  return $cloned_transcript;
+	}
+
+	# save in case we need to revert
+	my $current_newstartexon_endphase = $newstartexon->end_phase;
+	
+	my $newphase;
+	if ($strand == 1) {
+	  $newphase = $newstartexon->end - $new_start + 1;
+	} else {
+	  $newphase = $new_start - $newstartexon->start + 1;
+	}
+	
+	$start_exon->phase($newphase);
+	$newstartexon->end_phase($newphase);
+	$translation->start_Exon($newstartexon);
+	$translation->start($newstartexon->length-$newphase+1);
+
+	# make sure it still translates, and revert if necessary
+	eval{
+	  $cloned_transcript->translate;
+	};
+	if($@){
+	  logger_info("problem with modified transcript - reverting coordinates");
+	  $cloned_transcript->start_Exon($current_start_exon);
+	  $cloned_transcript->start_Exon->start($current_start_exon_start);
+	  $cloned_transcript->start_Exon->end($current_start_exon_end);
+	  $translation->start($current_translation_start);
+	  $cloned_transcript->start_Exon->phase($current_start_exon_phase);
+	  if ($newstartexon){
+	    $newstartexon->end_phase($current_newstartexon_endphase);
+	  }
+	}	
+	
+	$cloned_transcript->recalculate_coordinates;
+	return $cloned_transcript;
+      }else{
+	logger_info("New start codon doesn't split across introns - but which exon is it in");
+	$new_start = $coords[0]->start;
+	$new_end   = $coords[0]->end;
+	if (($strand == 1  && $new_end == $pepgenstart-1) ||
+	    ($strand == -1 && $new_start == $pepgenend+1)) { 
+	  $translation->start($translation->start-3);
+	} else{
+          # find exon
+	  my $newstartexon = get_previous_Exon($cloned_transcript, $start_exon);
+	  if (!$newstartexon) {
+	    logger_info("Failed finding new start exon - how can this be?");
+	    return $cloned_transcript;
+	  }
+
+	  $current_newstartexon_endphase = $newstartexon->end_phase;
+           
+	  # make the boundary phases 0 - the ATG is the last codon of $newstartexon 
+	  # as we know it doesn't cross the intron
+	  $start_exon->phase(0);
+	  $newstartexon->end_phase(0);
+
+	  # Reset translation start exon
+	  $translation->start_Exon($newstartexon);
+	  $translation->start($newstartexon->length-2);
+	}
+	
+	# make sure it still translates, and revert if necessary
+	eval{
+	  $cloned_transcript->translate;
+	};
+
+	if($@){
+          logger_info("problem with modified transcript - reverting coordinates");
+          #print "REVERTING TO NORMAL\n";
+	  $cloned_transcript->start_Exon($current_start_exon);
+	  $cloned_transcript->start_Exon->start($current_start_exon_start);
+	  $cloned_transcript->start_Exon->end($current_start_exon_end);
+	  $translation->start($current_translation_start);
+	  $cloned_transcript->start_Exon->phase($current_start_exon_phase);
+	  $newstartexon->end_phase($current_newstartexon_endphase);
+	}
+	$cloned_transcript->recalculate_coordinates;
+        #print "HAVE ALTERED TRANSCRIPT\n";
+	return $cloned_transcript;
+      } 
+    }
+  }
+
+  ############################################################
+  # more complex cases: the previous codon falls off the cdna
+  else{
+    my $codon_start;
+    my $codon_end; 
+    
+    if ($strand == 1) {
+      $codon_start = $pepgenstart - 3;
+      $codon_end   = $pepgenstart - 1;
+    } else {
+      $codon_start = $pepgenend + 1;
+      $codon_end   = $pepgenend + 3;
+    }
+    
+    my $seq_adaptor = $start_exon->slice->adaptor->db->get_SequenceAdaptor;
+    my $codonseq      = uc(${$seq_adaptor->fetch_by_Slice_start_end_strand
+                           ($start_exon->slice, $codon_start,$codon_end, 
+                            $strand)});
+    
+    #print "Got codon seq " . $codonseq . "\n";
+    if ($codonseq ne "ATG") {
+      logger_info("upstream codon (faling off the slice) is not ATG - not modifying transcript");
+      return $cloned_transcript;
+    }
+    else{
+      # fun fun fun
+
+      # save current coordinates in case we need to revert
+      my $current_start_exon         = $start_exon;
+      my $current_start_exon_start    = $start_exon->start;
+      my $current_start_exon_end      = $start_exon->end;
+      my $current_start_exon_phase    = $start_exon->phase;
+      my $current_start_exon_endphase = $start_exon->end_phase;
+      my $current_translation_start  = $translation->start;
+      my $current_translation_end    = $translation->end;
+
+      if($strand == 1){
+	$start_exon->start($codon_start)
+      }
+      else{
+	$start_exon->end($codon_end)
+      }
+      $start_exon->phase(0);
+      if ($translation->end_Exon == $start_exon){
+	$translation->end($translation->end + (4-$translation->start));
+      }
+      $translation->start(1);
+
+      # make sure it still translates, and revert if necessary
+      eval{
+	$cloned_transcript->translate;
+      };
+      if($@){
+	logger_info("problem with modified transcript - reverting coordinates");
+        #print "REVERTING TO NORMAL\n";
+	$cloned_transcript->start_Exon($current_start_exon);
+	$cloned_transcript->start_Exon->start($current_start_exon_start);
+	$cloned_transcript->start_Exon->end($current_start_exon_end);
+	$translation->start($current_translation_start);
+	$translation->end($current_translation_end);
+	$cloned_transcript->start_Exon->phase($current_start_exon_phase);
+	$cloned_transcript->start_Exon->end_phase($current_start_exon_endphase);
+      }
+
+      $cloned_transcript->recalculate_coordinates;
+      #print "HAVE PROBABLY ALTERED TRANSCRIPT\n";
+	return $cloned_transcript;
+    }
+  }
+}
+
+sub get_previous_Exon{
+  my ($transcript, $exon ) = @_;
+    
+  # this order the exons 5' to 3'
+  
+  my @exons = @{$transcript->get_all_Exons};
+  
+  for (my $i=0; $i<=$#exons; $i++ ){
+    if ( $exons[$i]->start == $exon->start 
+	 && 
+	 $exons[$i]->end   == $exon->end
+	 &&
+	 $exons[$i]->strand == $exon->strand 
+	 &&
+	 $i > 0 
+       ){
+      return $exons[$i-1];
+    }
+  }
+  return undef;
+}
+
+sub get_next_Exon{
+  my ($transcript, $exon ) = @_;
+    
+  # this order the exons 5' to 3'
+
+  my @exons = @{$transcript->get_all_Exons};
+  for (my $i=0; $i<=$#exons; $i++ ){
+    if ( $exons[$i]->start == $exon->start 
+	 && 
+	 $exons[$i]->end   == $exon->end
+	 &&
+	 $exons[$i]->strand == $exon->strand 
+	 &&
+	 ($i+1) <= $#exons
+       ){
+      return $exons[$i+1];
+    }
+  }
+  return undef;
+}
+
+sub set_stop_codon{
+  my ($transcript) = @_;
+  my  $verbose = 0;
+  unless ( $transcript->translation ){
+    logger_info("transcript has no translation - cannot put the stops");
+    return $transcript;
+  }
+  my $cloned_transcript = clone_Transcript($transcript);
+  
+  my $end      = $cloned_transcript->translation->end;
+  my $end_exon = $cloned_transcript->translation->end_Exon;
+  
+  ############################################################
+  # first see whether the transcript already include the stop:  taa/tag/tga
+  # this gives you the sequence 5' to 3'
+
+  my $bioseq = $end_exon->seq; 
+  my $last_codon;
+  if ( $end > 2 ){
+    $last_codon = $bioseq->subseq( $end - 2, $end );
+  }else{
+    my $donor    = 3 - $end;
+    my $acceptor = $end;
+
+    my $previous_exon = get_previous_Exon( $cloned_transcript, $end_exon );
+    if ($previous_exon ){
+      my $subseq_start = 
+        $previous_exon->end - $previous_exon->start + 1 - $donor + 1;
+      my $subseq_end =  $previous_exon->end - $previous_exon->start + 1;
+      my $donor_seq = $previous_exon->seq->subseq
+        ($subseq_start, $subseq_end);
+      my $acceptor_seq = $end_exon->seq->subseq( 1, $end );
+      $last_codon = $donor_seq.$acceptor_seq;
+    }
+  }
+  if ( uc($last_codon) eq 'TAA' || uc($last_codon) eq 'TAG' 
+       || uc($last_codon) eq 'TGA' ){ 
+    logger_info("transcript already has a stop at the end - no need ".
+                "to modify");
+    return $cloned_transcript;
+  }
+  ############################################################
+  # now look at the next codon
+  ############################################################
+  # first the simplest case
+  if ( $end + 3 <= ($end_exon->end - $end_exon->start + 1) ){
+    my $next_codon = $bioseq->subseq( $end+1, $end+3 );      
+    if ( uc($next_codon) eq 'TAA' || uc($next_codon) eq 'TAG' || 
+         uc($next_codon) eq 'TGA'){ 
+      logger_info("simple-case: next codon is a stop - ".
+                  "extending translation\n");
+      $cloned_transcript->translation->end( $end + 3 );
+      $cloned_transcript->recalculate_coordinates;
+      return $cloned_transcript;
+    }else{
+      logger_info("next codon is not a stop - not modifying translation");
+      return $cloned_transcript;
+    }
+  }
+  
+  ############################################################
+  # more complex cases we need to know if there is a next exon:
+  my $next_exon = get_next_Exon( $cloned_transcript, $end_exon );
+  
+  if ( $next_exon ){
+    ############################################################
+    # how many bases of the next codon sit in $end_exon?
+    my $donor_bases_count = ( $end_exon->end - $end_exon->start + 1 ) 
+      - $end;
+    my $acceptor_bases_count = 3 - $donor_bases_count;
+    
+    ############################################################
+    # get the next codon
+    my $next_bioseq = $next_exon->seq;
+    my $donor;
+    if ( $donor_bases_count == 0 ){
+      $donor = '';
+    }
+    else{
+      $donor = $bioseq->subseq( $end+1, ($end_exon->end - 
+                                         $end_exon->start + 1 ));
+    }
+    my $acceptor = $next_bioseq->subseq( 1, $acceptor_bases_count );
+
+    my $next_codon = $donor.$acceptor;
+    if ( uc($next_codon) eq 'TAA' || uc($next_codon) eq 'TAG' 
+         || uc($next_codon) eq 'TGA'){ 
+      logger_info("shared-codon: next codon is a stop - ".
+                  "extending translation");
+
+      $cloned_transcript->translation->end_Exon( $next_exon );
+      $cloned_transcript->translation->end( $acceptor_bases_count );
+      ############################################################
+      # re-set the phases:
+      $end_exon->end_phase($donor_bases_count%3);
+      $next_exon->phase( $donor_bases_count%3 );
+      $cloned_transcript->recalculate_coordinates;
+      return $cloned_transcript;
+    } else{
+      logge_info("next codon is not a stop - not modifying translation");
+      return $cloned_transcript;
+    }
+  }elsif( $end + 3 > ($end_exon->end - $end_exon->start + 1) ){
+    # there is no next exon and the next codon would fall off the end 
+    # of the exon 
+
+    # need to get the slice sequence
+    my $adaptor =  $end_exon->slice->adaptor;
+    if ( $adaptor ){
+      my $donor_bases_count = ( $end_exon->end - $end_exon->start + 1 ) 
+        - $end;
+      my $acceptor_bases_count = 3 - $donor_bases_count;
+
+      # the sequence from the current end exon is:
+      my $donor;
+      if ( $donor_bases_count == 0 ){
+        $donor = '';
+      } else {
+        $donor = $bioseq->subseq( $end+1, ( $end_exon->end - 
+                                            $end_exon->start + 1 ));
+      }
+
+      ############################################################
+      # here we distinguish the strands
+      if ( $end_exon->strand == 1 ){
+        my $slice_start = $end_exon->slice->start;
+
+        ############################################################
+        # calculate the next codon start/end in chr coordinates 
+
+        my $codon_start = $slice_start + ( $end_exon->start + $end - 1 );
+        my $codon_end   = $codon_start + 2;
+
+        my $codon_slice = $adaptor->fetch_by_region
+          ($end_exon->slice->coord_system->name, 
+           $end_exon->slice->seq_region_name, $codon_start, $codon_end );
+        my $codon = $codon_slice->seq;
+
+        ############################################################
+        if ( uc($codon) eq 'TAA' || uc($codon) eq 'TAG' || uc($codon) eq 'TGA'){ 
+          logger_info("forward-strand:next codon (falling off the exon) ".
+                      "is a stop - extending translation");
+          $end_exon->end( $end_exon->end + $acceptor_bases_count );
+          $cloned_transcript->translation->end( $end + 3 );
+          
+          ############################################################
+          # update the exon sequence:	    	    
+          my $seq_string = $end_exon->slice->subseq( $end_exon->start, $end_exon->end, $end_exon->strand );
+      
+          $cloned_transcript->translation->end_Exon($end_exon);
+      
+          $cloned_transcript->recalculate_coordinates;
+          return $cloned_transcript;
+        }
+        else{
+          logger_info("next codon (falling off the exon) is not a stop - not modifying");
+          return $cloned_transcript;
+        }
+      } else {
+        my $slice_start = $end_exon->slice->start;
+        
+        ############################################################
+        # calculate the next codon start/end in chr coordinates 
+
+        my $codon_end   = $slice_start + $end_exon->end - $end - 1;
+        my $codon_start = $codon_end - 2;
+       
+        if($codon_start <= 0){
+          logger_info("Can't extend the transcript off the end of a ".
+                  $end_exon->slice->coord_system->name);
+          return $cloned_transcript;
+        }
+        my $codon_slice = $adaptor->fetch_by_region
+          ($end_exon->slice->coord_system->name, 
+           $end_exon->slice->seq_region_name, $codon_start, $codon_end );
+        my $pre_codon = $codon_slice->seq;
+        
+        # need to reverse and complement:
+        my $codon;
+        ( $codon = reverse $pre_codon ) =~tr/gatcGATC/ctagCTAG/; 
+       ;
+        if ( uc($codon) eq 'TAA' || uc($codon) eq 'TAG' || uc($codon) eq 'TGA'){ 
+          logger_info("reverse-strand: next codon (falling off the exon) is a stop - extending translation\n");
+
+          $end_exon->start( $end_exon->start - $acceptor_bases_count);
+          $cloned_transcript->translation->end( $end + 3 );
+
+          ############################################################
+          # update the exon sequence:	    	    
+          my $seq_string = $end_exon->slice->subseq( $end_exon->start, $end_exon->end, $end_exon->strand );
+
+          $cloned_transcript->translation->end_Exon( $end_exon );
+          $cloned_transcript->recalculate_coordinates;
+          return $cloned_transcript;
+        } else {
+          logger_info("next codon (falling off the exon) is not a stop - not modifying");
+          return $cloned_transcript;
+        }
+      }
+    } else {
+      logger_info("cannot get an adaptor to get the sequence - not modifying the translation");
+      return $cloned_transcript;
+    }
+  } else {
+    logger_info("There is no downstream exon - and no stop codon beyond the last exon - not modifying");
+    return $cloned_transcript;
+  }
+}
+
 1;
