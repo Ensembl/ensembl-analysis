@@ -7,7 +7,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder;
+Bio::EnsEMBL::Pipeline::Runnable::BlastMiniBuilder;
 
 =head1 SYNOPSIS
 
@@ -15,7 +15,7 @@ Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder;
 
 =head1 CONTACT
 
-ensembl dev <ensembl-dev@ebi.ac.uk>
+Dan Andrews <dta@sanger.ac.uk>
 
 =head1 APPENDIX
 
@@ -30,14 +30,15 @@ package Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder;
 
 use vars qw(@ISA);
 use strict;
-use warnings;
 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+
 use Bio::EnsEMBL::Analysis::Runnable;
-
+use Bio::EnsEMBL::Slice;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+
+
+
 
 
 =head2 build_runnables
@@ -63,7 +64,7 @@ use Bio::EnsEMBL::Analysis::Runnable;
                When this happens this method returns
                multiple runnables that examine smaller
                portions of genomic DNA.
-  Returntype : A list of Bio::EnsEMBL::Analysis::Runnable
+  Returntype : A list of Bio::EnsEMBL::Pipeline::Runnable
                - the exact identity of the runnable sub-class
                is determined by the calling class (as the 
                actual final runnable construction is done in 
@@ -74,17 +75,18 @@ use Bio::EnsEMBL::Analysis::Runnable;
 =cut
 
 sub build_runnables {
-  my ($self, $features) = @_;
+  my ($self, @features) = @_;
 
   my @runnables;
 
   my %unfiltered_partitioned_features;
-
-  foreach my $raw_feat (@$features){
-     #print "UNFILTERED seqname ".$raw_feat->seqname." hseqname ".$raw_feat->hseqname."\n";
-      push (@{$unfiltered_partitioned_features{$raw_feat->hseqname}}, $raw_feat);
+ 
+  my $hseqname;
+  foreach my $raw_feat (@features){
+    push (@{$unfiltered_partitioned_features{$raw_feat->hseqname}}, $raw_feat);
+    $hseqname = $raw_feat->hseqname;
   }
-
+  
   # We partition the features by sequence id such that we can
   # iterate for each id.  Most ids  will fall through
   # to the simplest case where we make a single runnable with one 
@@ -101,20 +103,20 @@ sub build_runnables {
   # original blast-derived feature pairs.
 
   my %partitioned_features;
-  
-  foreach my $raw_feat (@$features){
-    #print "PARTITIONED seqname ".$raw_feat->seqname." hseqname ".$raw_feat->hseqname."\n";
+
+  foreach my $raw_feat (@features){
+
     # Imporantly, the features are filtered for low identity matches.
     # This is just for the clustering process.  The full set of features
     # are still passed to the runnable at the end.
     if($raw_feat->percent_id >= 80){
-      push (@{$partitioned_features{$raw_feat->hseqname}}, $raw_feat);
+	    push (@{$partitioned_features{$raw_feat->hseqname}}, $raw_feat);
     }
   }
-  
-  my %runnable_featids;
 
+  my %runnable_featids;
   foreach my $seqname (keys %partitioned_features){
+    
     # Preliminary check to see whether our filtered features
     # give enough coverage to make it worth continuing.
 
@@ -123,7 +125,7 @@ sub build_runnables {
     # If only sparse coverage, go home early.
     unless ($coverage > 0.5) {
 
-      my $runnable = $self->make_object($self->query, $unfiltered_partitioned_features{$seqname});
+      my $runnable = $self->make_object($self->genomic_sequence, $unfiltered_partitioned_features{$seqname});
       push (@runnables, $runnable);
 
       $runnable_featids{$seqname}++;
@@ -163,12 +165,10 @@ sub build_runnables {
     # sequence into fragments and construct multiple runnables.
     # Otherwise, we default to the normal way of building our
     # runnable.
-    
     if ((@$clustered_features)&&($clusters_seem_real > 0)) {
+      # Write to logfile
 
-# Write to logfile
-
-print "Multi-gene code has turned itself on.\nProtein sequence is $seqname\nGenomic region is " . $self->query->id . "\tLength " . $self->query->length . "\n";
+print "Multi-gene code has turned itself on.\nProtein sequence is $seqname\nGenomic region is " . $self->genomic_sequence->id . "\tLength " . $self->genomic_sequence->length . "\n";
 
 #      print STDERR "Minigenomic sequence could contain a number "
 #	. "of highly similar genes.  Fragmenting the minigenomic "
@@ -208,9 +208,9 @@ print "Multi-gene code has turned itself on.\nProtein sequence is $seqname\nGeno
 	    $cluster_start = 1;
 	  }
 	}
-        if ($cluster_end > $self->query->length) {
-	  if ($sorted_gene_cluster[0]->start <= $self->query->length) {
-	    $cluster_end = $self->query->length;
+        if ($cluster_end > $self->genomic_sequence->length) {
+	  if ($sorted_gene_cluster[0]->start <= $self->genomic_sequence->length) {
+	    $cluster_end = $self->genomic_sequence->length;
 	  } 
 	}        
 
@@ -223,15 +223,28 @@ print "Multi-gene code has turned itself on.\nProtein sequence is $seqname\nGeno
 	# that we make a genomic sequence where the regions 
 	# flanking our gene are masked.
   #	my $string_seq = ('N' x ($cluster_start - 1)) . 
-  #	         $self->query->subseq($cluster_start, $cluster_end)
-  #		 . ('N' x ($self->query->length - ($cluster_end + 1)));
+  #	         $self->genomic_sequence->subseq($cluster_start, $cluster_end)
+  #		 . ('N' x ($self->genomic_sequence->length - ($cluster_end + 1)));
   
- 
-
+  #print "   Fragmented mini-genomic sequence - Start $cluster_start\tEnd $cluster_end\n";
   
-	my $runnable = $self->make_object($self->query, $unfiltered_partitioned_features{$seqname}, 
+  #print "Length of string_seq = " . length($string_seq) . "\n";
+  
+  #	my $genomic_subseq = Bio::EnsEMBL::Slice->new
+  #    (
+  #     -seq => $string_seq,
+  #     -seq_region_name  => $self->genomic_sequence->seq_region_name,
+  #     -start => 1,
+  #     -end => length($string_seq),
+  #     -coord_system => $self->genomic_sequence->coord_system,
+  #    );
+  #print STDERR "Have genomic subseq ".$genomic_subseq->name."\n";
+  
+  #	my $runnable = $self->make_object($genomic_subseq, $unfiltered_partitioned_features{$seqname});
+  
+	my $runnable = $self->make_object($self->genomic_sequence, $unfiltered_partitioned_features{$seqname}, 
                                           $cluster_start, $cluster_end);
-
+ 
 	push (@runnables, $runnable);
 
 	$runnable_featids{$seqname}++;
@@ -241,7 +254,7 @@ print "Multi-gene code has turned itself on.\nProtein sequence is $seqname\nGeno
       # This is what we do when we dont have multiple genes
       # in our genomic fragment.  This is "Normal mode".
 
-      my $runnable = $self->make_object($self->query, $unfiltered_partitioned_features{$seqname});
+      my $runnable = $self->make_object($self->genomic_sequence, $unfiltered_partitioned_features{$seqname});
       push (@runnables, $runnable);
 
       $runnable_featids{$seqname}++;
@@ -256,19 +269,32 @@ print "Multi-gene code has turned itself on.\nProtein sequence is $seqname\nGeno
   # away.  Had better just make a default runnable...
 
   my %feature_ids;
-  foreach my $feature (@$features){
+  foreach my $feature (@features){
     $feature_ids{$feature->hseqname}++;
   }
 
   foreach my $feature_id (keys %feature_ids){
     unless ($runnable_featids{$feature_id}){
-      my $runnable = $self->make_object($self->query, $unfiltered_partitioned_features{$feature_id});
+      my $runnable = $self->make_object($self->genomic_sequence, $unfiltered_partitioned_features{$feature_id});
+      
       push (@runnables, $runnable);
     }
   }
-
+  
   return \@runnables;
 }
+
+sub genomic_sequence{
+  my $self = shift;
+  my $slice = shift;
+  if($slice){
+    throw("Must pass Runnable::query a Bio::PrimarySeqI not a ".
+          $slice) unless($slice->isa('Bio::PrimarySeqI'));
+    $self->{'query'} = $slice;
+  }
+  return $self->{'query'};
+}
+
 
 =head2 cluster_features
 
@@ -463,7 +489,7 @@ sub make_object {
   #
   #  my ($self, $miniseq, $features) = @_;
   #
-  #  my $mg      = new Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise(
+  #  my $mg      = new Bio::EnsEMBL::Pipeline::Runnable::MultiMiniGenewise(
   #	       		       '-genomic'    => $miniseq,
   #	       		       '-features'   => \@newf,
   #	       		       '-seqfetcher' => $self->seqfetcher,
@@ -543,7 +569,7 @@ sub check_overlap {
 
 sub check_coverage {
   my ($self, $seqname, $features) = @_;
-  
+
   my $protein = $self->get_Sequence($seqname);  
   my $protein_length = $protein->length;
 
