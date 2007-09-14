@@ -41,9 +41,9 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::MiniGenewise;
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Slice_to_Gene);
-#use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
-#  qw(attach_Slice_to_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
+  qw(attach_Slice_to_Transcript);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
@@ -53,12 +53,14 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args); 
   my( $features,$seqfetcher, $cluster_start, $cluster_end, $full_seq,
-      $genewise_options, $minigenewise_options) =
+      $genewise_options, $minigenewise_options, $min_length) =
         rearrange([qw( FEATURES SEQFETCHER CLUSTER_START CLUSTER_END 
-                       FULLSEQ GENEWISE_OPTIONS )], @args);
+                       FULLSEQ GENEWISE_OPTIONS MINIGENEWISE_OPTIONS
+                       MINIMUM_FEATURE_LENGTH)], @args);
 
-  #NO DEFAULTS TO SET
-
+  #SETTING DEFAULTS
+  $self->minimum_feature_length(50);
+  #################
   $self->seqfetcher($seqfetcher);
   $self->features($features);
   $self->cluster_start($cluster_start);
@@ -66,12 +68,14 @@ sub new {
   $self->full_seq($full_seq);
   $self->genewise_options($genewise_options);
   $self->minigenewise_options($minigenewise_options);
-
+  $self->minimum_feature_length($min_length);
   throw("MultiMiniGenewise needs a query sequence ") unless($self->query);
   throw("MultiMiniGenewise needs features to run across")
     unless($self->features && scalar(@{$self->features}));
   throw("MultiMiniGenewise needs a sequence fetcher ") unless($self->seqfetcher);
 
+
+  
   return $self;
 }
 
@@ -231,17 +235,6 @@ sub terminal_padding {
   
 }
 
-sub minimum_feature_length {
-  my ($self,$arg) = @_;
-  
-  if (defined($arg)) {
-    $self->{'_feature_length'} = $arg;
-  }
-  #does the default want to be 50?
-  return $self->{'_feature_length'} || 50;
-  
-}
-
 sub cluster_start {
   my ($self,$arg) = @_;
   
@@ -270,6 +263,14 @@ sub full_seq {
   return $self->{'_full_seq'};
 }
 
+sub minimum_feature_length {
+  my ($self,$arg) = @_;
+  
+  if (defined($arg)) {
+    $self->{_minimum_feature_length} = $arg;
+  }
+  return $self->{_minimum_feature_length};
+}
 
 
 #Functionality
@@ -297,6 +298,7 @@ sub run{
   my @output;
  ID:foreach my $id(@$ids){
     my $features = $fhash->{$id};
+    #printf STDERR "MMG doing $id (%d feats)\n", scalar(@$features);
     my @forward;
     my @reverse;
     my $peptide_sequence = $self->get_Sequence($features->[0]->hseqname);
@@ -312,14 +314,17 @@ sub run{
         throw("MultiMiniGenewise ".$feature." from id ".$id.
               " seems to have no strand defined");
       }
-    }   ;
+    }   
+    
+    logger_info("MMG have ".@forward." forward strand features and ".@reverse.
+                " reverse strand features\n");
     my $slice = $self->query;
     if($self->cluster_end){
+      #print "MMG making subseq based on ".$self->cluster_start." ".$self->cluster_end." from ".$self->query->name."\n";
       my $string_seq = ('N' x ($self->cluster_start - 1)) .
         $self->query->subseq($self->cluster_start, $self->cluster_end) .
           ('N' x ($self->query->length - ($self->cluster_end + 1)));
-      
-      $slice = Bio::EnsEMBL::Slice->new
+      $slice = Bio::EnsEMBL::Slice->new 
         (
          -seq => $string_seq,
          -seq_region_name  => $self->query->seq_region_name,
@@ -327,22 +332,31 @@ sub run{
          -end => length($string_seq),
          -coord_system => $self->query->coord_system,
         );
+    }else{
+      #print "MMG using whole query ".$self->query->name."\n";
     }
     my $forward_output = $self->run_MiniGenewise(\@forward, $slice, 
                                                  $peptide_sequence) 
       if(@forward >= 1);
+    $self->output($forward_output);
     my $reverse_output = $self->run_MiniGenewise(\@reverse, $slice,
                                                  $peptide_sequence)
       if(@reverse >= 1);
+    $self->output($reverse_output);
     push(@output, @$forward_output) if($forward_output);
     push(@output, @$reverse_output) if($reverse_output);
   }
   if($self->cluster_end){
-    foreach my $output(@output){
-      attach_Slice_to_Gene($output, $self->query);
+    foreach my $output(@{$self->output}){
+      attach_Slice_to_Transcript($output, $self->query);
     }
   }
-  $self->output(\@output);
+  my $count = 1;
+  foreach my $output(@{$self->output}){
+    #print "MMG output $count ".$output->start." ".$output->end." ".$output->strand." ".@{$output->get_all_Exons}."\n";
+    $count++;
+  }
+  #$self->output(\@output);
   if($failed_count == @$ids){
     throw("Can't find any sequences for the ".@$ids." ids which match ".
           $self->query->name); 
@@ -367,6 +381,9 @@ sub run{
 
 sub run_MiniGenewise{
   my ($self, $features, $slice, $peptide) = @_;
+  my @to_use = @{$self->find_extras($features)};
+ 
+  return () if(@to_use == 0);
   if($self->full_seq){
     my $rangefeat = new Bio::EnsEMBL::FeaturePair
       (
@@ -388,6 +405,7 @@ sub run_MiniGenewise{
      -analysis         => $self->analysis,
      %params,
     );
+  %params = ();
   $runnable->run;
   my @output = @{$runnable->output};
   return(\@output);
@@ -477,6 +495,32 @@ sub get_Sequence {
   return $seq;
 }
 
+
+sub find_extras{
+  my ($self, $features) = @_;
+  my $output = $self->output;
+  my @out;
+  foreach my $f(@$features){
+    my $found = 0;
+    $f->slice($self->query);
+    $f->seqname($f->slice->name);
+    if($f->length <  $self->minimum_feature_length){
+      next;
+    }
+    foreach my $transcript(@$output){
+      foreach my $exon(@{$transcript->get_all_Exons}){
+        $exon->slice($self->query);
+        if($f->overlaps($exon)){
+          $found = 1;
+        }
+      }
+    }
+    if($found == 0){
+      push(@out, $f);
+    }
+  }
+  return \@out;
+}
 
 1;
 

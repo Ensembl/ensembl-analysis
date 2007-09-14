@@ -50,19 +50,21 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(create_Exon);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils 
   qw(create_feature create_feature_from_gapped_pieces);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
 sub new {
   my($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
+  #print "IN CONSTRUCTOR\n";
   my ($protein, $memory, $reverse,$endbias, $gap, 
       $ext, $subs, $matrix, $verbose, $hmm) = rearrange([qw(
                                                             PROTEIN 
                                                             MEMORY 
                                                             REVERSE 
                                                             ENDBIAS 
-                                                           GAP 
+                                                            GAP 
                                                             EXTENSION 
                                                             SUBS 
                                                             MATRIX
@@ -76,6 +78,7 @@ sub new {
   $self->subs(0.0000001);
   $self->matrix('BLOSUM62.bla');
   $self->options('-quiet') unless($self->options);
+  #$self->endbias(1);
   ########################
  
   $self->protein($protein);
@@ -85,16 +88,15 @@ sub new {
     if($self->protein && $self->hmm);
   throw("Must have a query sequence defined")
     if(!$self->query);
-
   $self->reverse($reverse);             
-  $self->endbias($endbias);
+  $self->endbias($endbias) if(defined $endbias);
   $self->memory ($memory);
   $self->gap($gap);
   $self->extension($ext);
   $self->subs($subs);
   $self->matrix($matrix);
   $self->verbose($verbose);
-
+  #print "RUNNING On ".$self->query->id." protein ".$self->protein->id."\n";
   return $self;
 }
 
@@ -103,6 +105,7 @@ sub run{
   my ($self, $dir) = @_;
   $self->workdir($dir) if($dir);
   $self->checkdir();
+  #throw("Sequence appears to have no context") unless($self->query->seq =~ /[CATG]{3}/);
   my $seqfile = $self->write_seq_file;
   $self->files_to_delete($seqfile);
   if($self->protein){
@@ -127,7 +130,6 @@ sub run_analysis{
   $self->check_environment;
   throw($program." is not executable Runnable::Genewise::run_analysis ") 
     unless($program && -x $program);
-
   my $options = " -genesf -kbyte ".$self->memory." -ext ".
     $self->extension." -gap ".$self->gap." -subs ".$self->subs." -m ".
       $self->matrix." ".$self->options;
@@ -151,7 +153,8 @@ sub run_analysis{
   }
   $command .= " > ".$self->resultsfile;
   logger_info($command);
-  print $command."\n";
+  print "MMG COMMAND for ".$self->protein->id." ".$self->query->id." ".
+  $command."\n";
   system($command) == 0 or throw("FAILED to run ".$command);
 }
 
@@ -185,7 +188,7 @@ sub parse_results{
   if(defined $transcript){
     $self->output([$transcript]);
   }else{
-    logger_info("No valid transcript made, cannot make gene"); 
+    warning("No valid transcript made, cannot make gene for ".$self->protein->id); 
   }
 }
 
@@ -456,87 +459,87 @@ sub protfile{
 }
 
 sub reverse {
-    my ($self,$arg) = @_;
-
-    if (defined($arg)) {
-	$self->{'_reverse'} = $arg;
-    }
-    return $self->{'_reverse'};
+  my ($self,$arg) = @_;
+  
+  if (defined($arg)) {
+    $self->{'_reverse'} = $arg;
+  }
+  return $self->{'_reverse'};
 }
 
 sub endbias {
-    my ($self,$arg) = @_;
-
-    if (defined($arg)) {
-	$self->{'_endbias'} = $arg;
-    }
-
-    if (!defined($self->{'_endbias'})) {
-      $self->{'_endbias'} = 0;
-    }
-
-    return $self->{'_endbias'};
+  my ($self,$arg) = @_;
+  
+  if (defined($arg)) {
+    $self->{'_endbias'} = $arg;
+  }
+  
+  if (!defined($self->{'_endbias'})) {
+    $self->{'_endbias'} = 0;
+  }
+  
+  return $self->{'_endbias'};
 }
 
 sub memory {
-    my ($self,$arg) = @_;
-
-    if (defined($arg)) {
-			$self->{'_memory'} = $arg;
-    }
-
-    return $self->{'_memory'};
+  my ($self,$arg) = @_;
+  
+  if (defined($arg)) {
+    $self->{'_memory'} = $arg;
+  }
+  
+  return $self->{'_memory'};
 }
 
 sub gap {
-    my ($self,$arg) = @_;
-
-    if(!$self->{'_gap'}){
-      $self->{'_gap'} = undef;
-    }
-    if (defined($arg)) {
-      $self->{'_gap'} = $arg;
-    }
-
-    return $self->{'_gap'};
+  my ($self,$arg) = @_;
+  
+  if(!$self->{'_gap'}){
+    $self->{'_gap'} = undef;
+  }
+  if (defined($arg)) {
+    $self->{'_gap'} = $arg;
+  }
+  
+  return $self->{'_gap'};
 }
 
 sub extension {
-    my ($self,$arg) = @_;
-
-    if(!$self->{'_ext'}){
-      $self->{'_ext'} = undef;
-    }
-    if (defined($arg)) {
-      $self->{'_ext'} = $arg;
-    }
-
-    return $self->{'_ext'};
+  my ($self,$arg) = @_;
+  
+  if(!$self->{'_ext'}){
+    $self->{'_ext'} = undef;
+  }
+  if (defined($arg)) {
+    $self->{'_ext'} = $arg;
+  }
+  
+  return $self->{'_ext'};
 }
 
 sub subs{
-    my ($self,$arg) = @_;
-
-    if(!$self->{'_subs'}){
-      $self->{'_subs'} = undef;
-    }
-    if (defined($arg)) {
-      $self->{'_subs'} = $arg;
-    }
-
-    return $self->{'_subs'};
+  my ($self,$arg) = @_;
+  
+  if(!$self->{'_subs'}){
+    $self->{'_subs'} = undef;
+  }
+  if (defined($arg)) {
+    $self->{'_subs'} = $arg;
+  }
+  
+  return $self->{'_subs'};
 }
 
 sub matrix{
-    my ($self,$arg) = @_;
-
-    if(!$self->{'_matrix'}){
-      $self->{'_matrix'} = undef;
-    }
-    if (defined($arg)) {
-      $self->{'_matrix'} = $arg;
-    }
-
+  my ($self,$arg) = @_;
+  
+  if(!$self->{'_matrix'}){
+    $self->{'_matrix'} = undef;
+  }
+  if (defined($arg)) {
+    $self->{'_matrix'} = $arg;
+  }
+  
     return $self->{'_matrix'};
 }
 
@@ -554,18 +557,18 @@ sub verbose {
 }
 
 sub protein {
-    my ($self,$arg) = @_;
-
-    if (defined($arg)) {
-			throw("[$arg] is not a Bio::SeqI or Bio::Seq or Bio::PrimarySeqI") unless
-				($arg->isa("Bio::SeqI") || 
-				 $arg->isa("Bio::Seq")  || 
-				 $arg->isa("Bio::PrimarySeqI"));
-			
-			$self->{'_protein'} = $arg;
-                        $self->target_length($arg->length);
-    }
-    return $self->{'_protein'};
+  my ($self,$arg) = @_;
+  
+  if (defined($arg)) {
+    throw("[$arg] is not a Bio::SeqI or Bio::Seq or Bio::PrimarySeqI") unless
+      ($arg->isa("Bio::SeqI") || 
+       $arg->isa("Bio::Seq")  || 
+       $arg->isa("Bio::PrimarySeqI"));
+    
+    $self->{'_protein'} = $arg;
+    $self->target_length($arg->length);
+  }
+  return $self->{'_protein'};
 }
 
 sub hmm {
@@ -592,7 +595,7 @@ sub hmm {
 
 sub target_length {
   my ($self, $arg) = @_;
-
+  
   if (defined $arg) {
     $self->{'_target_length'} = $arg;
   }
@@ -601,11 +604,9 @@ sub target_length {
 
 sub check_environment {
   my($self,$genefile) = @_;
-
   if (! -d $ENV{WISECONFIGDIR}) {
     throw("No WISECONFIGDIR ["  . $ENV{WISECONFIGDIR} . "]");
   }
-
 }
 
 1;
