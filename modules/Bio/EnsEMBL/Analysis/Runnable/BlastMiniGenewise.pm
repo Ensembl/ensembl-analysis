@@ -7,11 +7,11 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Pipeline::Runnable::BlastMiniGenewise
+Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise
 
 =head1 SYNOPSIS
 
-    my $obj = Bio::EnsEMBL::Pipeline::Runnable::BlastMiniGenewise->new
+    my $obj = Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise->new
     ('-genomic'        => $genseq,
      '-features'       => $features,
      '-protein'        => $protein,
@@ -64,21 +64,20 @@ use Bio::EnsEMBL::Analysis::Tools::FeatureFilter;
 
 sub new {
   my ($class,@args) = @_;
-
   my $self = $class->SUPER::new(@args);
-
-  my( $ids, $seqfetcher, $minigenewise_options, $check_repeated, $full_seq,
-      $exonerate,$exonerate_path, $exonerate_options, $genewise_options, 
-      $blast_parser, $blast_filter, $post_filter, $score_cutoff, $blastdb) = 
+  my( $ids, $seqfetcher, $minigenewise_options, $check_repeated, 
+      $full_seq,$exonerate,$exonerate_path, $exonerate_options, $genewise_options, 
+      $blast_parser, $blast_filter, $post_filter, $score_cutoff, $blastdb, $mmg_options) = 
         rearrange([qw(IDS SEQFETCHER MINIGENEWISE_OPTIONS
                       CHECK_REPEATED FULLSEQ EXONERATE EXONERATE_PATH 
                       EXONERATE_OPTIONS GENEWISE_OPTIONS BLAST_PARSER
-                      BLAST_FILTER POST_BLAST_FILTER BLASTDB)], @args);
+                      BLAST_FILTER POST_BLAST_FILTER SCORE_CUTOFF BLASTDB 
+                      MULTIMINIGENEWISE_OPTIONS)], @args);
 
   ####SETTING DEFAULTS#####
-  #There are no defaults currently
+  $self->check_repeated(1);
   #########################
-
+  
   $self->seqfetcher($seqfetcher);
   $self->ids($ids);
   $self->minigenewise_options($minigenewise_options);
@@ -86,8 +85,9 @@ sub new {
   $self->exonerate($exonerate);
   $self->exonerate_path($exonerate_path);
   $self->exonerate_options($exonerate_options);
-  $self->check_repeated($check_repeated);
+  $self->check_repeated($check_repeated) if(defined($check_repeated));
   $self->genewise_options($genewise_options);
+  $self->multiminigenewise_options($mmg_options);
   $self->blast_parser($blast_parser);
   $self->blast_filter($blast_filter);
   $self->post_blast_filter($post_filter);
@@ -95,14 +95,16 @@ sub new {
   $self->blastdb($blastdb);
   #note this is a default but due to the nature of it defaulting to on this
   #way is needed
-  $self->check_repeated(1) if(!defined($self->check_repeated));
-
   throw("No query sequence input")    unless ($self->query);
   throw("No seqfetcher provided")     unless ($self->seqfetcher);
   throw("No ids arrary ref provided") unless ($self->ids);
-     
+  throw("No analysis defined") unless($self->analysis);
+ 
+  
   return $self;
 }
+
+
 
 sub ids{
   my ($self, $arg) = @_;
@@ -140,6 +142,7 @@ sub blast_filter{
   if(!$self->{blast_filter}){
     $self->{blast_filter} = Bio::EnsEMBL::Analysis::Tools::FeatureFilter
       ->new(
+            -max_pvalue => 100,
             -prune => 1,
             -coverage => 100,
            );
@@ -167,6 +170,27 @@ sub minigenewise_options{
     $self->{'minigenewise_options'} = $arg;
   }
   return $self->{'minigenewise_options'};
+}
+
+=head2 multiminigenewise_options
+
+    Title   :   multiminigenewise_options
+    Usage   :   $self->multiminigenewise_options($multiminigenewise_options)
+    Function:   Get/set method for multiminigenewise multiminigenewise_options
+    Returns :   
+    Args    :   
+
+=cut
+
+
+sub multiminigenewise_options{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    throw("BlastMiniGenewise::multiminigenewise_options must be given an hasref".
+          "not a $arg") unless(ref($arg) eq "HASH");
+    $self->{'multiminigenewise_options'} = $arg;
+  }
+  return $self->{'multiminigenewise_options'};
 }
 
 =head2 genewise_options
@@ -223,7 +247,7 @@ sub post_blast_filter{
     Title   :   seqfetcher
     Usage   :   $self->seqfetcher($seqfetcher)
     Function:   Get/set method for SeqFetcher
-    Returns :   Bio::EnsEMBL::Pipeline::SeqFetcher object
+    Returns :   Bio::EnsEMBL::Analysis::SeqFetcher object
     Args    :   Bio::EnsEMBL::Pipeline::SeqFetcher object
 
 =cut
@@ -391,12 +415,11 @@ sub blastdb_file{
 
 
 =head2 run
-
-  Title   : run
+  Title   : run.
   Usage   : $self->run()
   Function: Performs a Blast search or an Exonerate search 
           : with all the protiens, passes the resulting proteins
-          : into a Bio::EnsEMBL::Pipeline::Runnable::MultiMiniGenewise
+          : into a Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise
           : runnable
   Returns : none
   Args    : none
@@ -418,19 +441,29 @@ sub run {
 
   my @sorted_features = sort{$a->start <=> $b->start  
                      || $a->end <=> $b->end} @$features; 
-
+  my %hash;
+  foreach my $f(@sorted_features){
+    if(!$hash{$f->hseqname}){
+      $hash{$f->hseqname} = 1;
+    }else{
+      $hash{$f->hseqname}++;
+    }
+  }
+  
   if ($self->check_repeated){ 
-    $mg_runnables = $self->build_runnables(\@sorted_features);
+    $mg_runnables = $self->build_runnables(@sorted_features);
   } else {
     my $runnable = $self->make_object($self->query, \@sorted_features);
     push (@$mg_runnables, $runnable); 
   }
-
+  my $output_count;
   foreach my $mg (@$mg_runnables){
     $mg->run;
     my @f = @{$mg->output};
     $self->output(\@f);
+    $output_count += @f;
   }
+
   $self->delete_files;
   return 1;
   
@@ -450,7 +483,7 @@ sub run_alignment{
             " sequences");
   }
   logger_info("There are ".@$valid_seqs." sequences to align using blast/exonerate");
-  my @features;
+  my @features; 
   my @sorted_seqs = sort {$a->id cmp $b->id} @$valid_seqs;
   foreach my $seq(@sorted_seqs){
     if($self->exonerate){
@@ -459,6 +492,7 @@ sub run_alignment{
       #push(@features, @{$self->run_blast($seq)});
       foreach my $f(@{$self->run_blast($seq)}){
         $f->invert;
+        $f->slice($self->query);
         push(@features, $f);
       }
     }
@@ -468,7 +502,6 @@ sub run_alignment{
 
 sub run_blast {
   my ($self, $seq) = @_;
-
   my $blastdb_file = $self->blastdb_file;
   my $run = Bio::EnsEMBL::Analysis::Runnable::Blast
     ->new(
@@ -484,11 +517,11 @@ sub run_blast {
   foreach my $f (@{$run->output}){
     my $id = $seq->id;
     if($f->seqname =~ /$id/){
-      #print $f->seqname." contains ".$id."\n";
       $f->seqname($id);
     }else{
       throw($f->seqname." doesn't contain ".$id);
     }
+    $f->slice($self->query);
     push(@blast_features,$f);
   }
   my @filter_features;
@@ -610,7 +643,7 @@ sub run_exonerate {
                MultiMiniGenewise runnable object using the 
                list of FeaturePairs.
   Returntype : A list of 
-               Bio::EnsEMBL::Pipeline::Runnable::MultiMiniGenewise
+               Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise
   Exceptions : none
   Caller     : $self->build_runnables
 
@@ -620,7 +653,7 @@ sub run_exonerate {
 #sub make_mmgw {
 sub make_object {
   my ($self, $miniseq, $features, $cluster_start, $cluster_end) = @_;
-
+  
 #  # Before we pass our blast generated features to 
 #  # MultiMiniGenewise we must first convert them from 
 #  # PepDnaAlignFeatures to FeaturePairs.
@@ -634,12 +667,12 @@ sub make_object {
 
   # Create a MultiMiniGenewise object with the features we've
   # just converted.
-  my %pars;
+  
+  my %pars = %{$self->multiminigenewise_options} if($self->multiminigenewise_options);
   if (defined($cluster_end)) {
     $pars{-cluster_start} = $cluster_start;
     $pars{-cluster_end}   = $cluster_end;
   }
-
   my $mg = Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise->new
     (     
      -query            => $miniseq,
@@ -651,7 +684,7 @@ sub make_object {
      -analysis         => $self->analysis,
      %pars,
     );
-
+  %pars = ();
   return $mg;
 }
 
@@ -702,6 +735,7 @@ sub validate_Sequences {
   } 
   return \@validated;  
 }
+
 =head2 get_Sequence
 
   Title   : get_Sequence
