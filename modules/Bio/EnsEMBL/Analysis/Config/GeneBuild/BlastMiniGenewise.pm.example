@@ -83,6 +83,7 @@ use vars qw( %Config );
              PRE_GENEWISE_MASK => 1,
              POST_GENEWISE_MASK => 1,
              REPEATMASKING => [],
+             SOFTMASKING => 0,
              SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
              SEQFETCHER_PARAMS => {},
              USE_KILL_LIST => 1,
