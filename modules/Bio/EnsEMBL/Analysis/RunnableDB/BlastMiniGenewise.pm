@@ -422,7 +422,7 @@ sub create_bmg_runnables{
                     $start.":".$end.":".
                     $self->query->strand);
         my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);
-        my $query = $self->fetch_sequence($name, $db, $self->REPEATMASKING);
+        my $query = $self->fetch_sequence($name, $db, $self->REPEATMASKING, $self->SOFTMASKING);
         logger_info("Creating BlastMiniGenewise Runnable over a limited range with ".$id." and ".$seqfetcher." to run on ".$query->name);
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise->
           new(
@@ -1193,6 +1193,15 @@ sub REJECTED_BIOTYPE{
     $self->{REJECTED_BIOTYPE} = $arg;
   }
   return $self->{REJECTED_BIOTYPE};
+}
+
+
+sub SOFTMASKING{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{SOFTMASKING} = $arg;
+  }
+  return $self->{SOFTMASKING}
 }
 
 
