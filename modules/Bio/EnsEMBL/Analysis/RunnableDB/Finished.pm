@@ -4,7 +4,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Finished;
 
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
-use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;
+use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Dfetch;
 use base 'Bio::EnsEMBL::Analysis::RunnableDB';
 
 sub write_output {
@@ -22,13 +22,13 @@ sub write_output {
 	eval {
 	    # We expect an array of arrays from output()
 	    foreach my $output (@$outputs) {
-	        next unless @$output;   # No feature output        
+	        next unless @$output;   # No feature output
 	        my $feat = $output->[0];
-	        
+
 	        # The type of adaptor used to store the data depends
 	        # upon the type of the first element of @$output
 	        my $adaptor = $self->get_adaptor($feat);
-		    # Remove the AlignFeatures already in db from the output and 
+		    # Remove the AlignFeatures already in db from the output and
 		    # get rid of the old ones in the db (for dephtfilter features only)
 		    my $all = 0;
 	        if (ref($feat) =~ /AlignFeature$/) {
@@ -38,12 +38,12 @@ sub write_output {
 	            											$self->analysis->logic_name =~ /refseq/);
 	        } else {# Remove all SimpleFeatures
 	        	$self->remove_all_features($adaptor);
-	        }        
-	        
+	        }
+
 		    my $analysis = $self->analysis;
 	    	my $slice    = $self->query;
 		    my $ff       = $self->feature_factory;
-	        
+
 	        foreach my $feature (@$output) {
 	        	$feature->analysis($analysis);
 	        	$feature->slice($slice) if (!$feature->slice);
@@ -55,7 +55,7 @@ sub write_output {
 	        # Store features in the database
 	        print STDOUT "Finished: Writting ".scalar(@$output)." new ".ref($feat)." in the database\n";
 	        $adaptor->store(@$output) unless !@$output;
-	        
+
 	    }
 	    $dbh->commit;
     };
@@ -98,7 +98,7 @@ sub remove_stored_AlignFeatures {
     print STDOUT "Finished: Found ", scalar(@$output), " features in the output\n";
     my %db_feat = map { $self->get_feature_key($_), $_ } @$db_features;
     my %db_feat_to_del = %db_feat;
-    ## remove old Uniprot features with missing sequence version. 
+    ## remove old Uniprot features with missing sequence version.
     if($self->analysis->logic_name eq 'Uniprot_raw') {
     	foreach my $new_f (@$output) {
     		$new_f->slice($self->query) if (!$new_f->slice);
@@ -109,9 +109,9 @@ sub remove_stored_AlignFeatures {
 							 ", replaced by ".$new_f->display_id."\n";
 				$adaptor->remove($stored_f);
 				delete $db_feat{$new_f_key} unless(!$db_feat{$new_f_key});
-				delete $db_feat_to_del{$new_f_key} unless(!$db_feat_to_del{$new_f_key});  
-        	}	    		
-    		
+				delete $db_feat_to_del{$new_f_key} unless(!$db_feat_to_del{$new_f_key});
+        	}
+
     	}
     }
     ## remove duplicated features from output
@@ -121,17 +121,17 @@ sub remove_stored_AlignFeatures {
         my $f_key = $self->get_feature_key($feature);
         if ($db_feat{$f_key}) {
             splice(@$output, $i, 1);
-			delete $db_feat_to_del{$f_key} unless(!$db_feat_to_del{$f_key}); 
+			delete $db_feat_to_del{$f_key} unless(!$db_feat_to_del{$f_key});
         }
         else {
             $i++;
         }
     }
-    ## remove the old features present in the db and not in the output 
+    ## remove the old features present in the db and not in the output
     if($all) {
     	foreach my $f (values(%db_feat_to_del)) { $adaptor->remove($f);}
     	print STDOUT "Finished: Removed ", scalar(keys(%db_feat_to_del)), " old features from db\n";
-    } 
+    }
 }
 
 sub remove_all_features {
@@ -145,7 +145,8 @@ sub remove_all_features {
 sub write_descriptions {
     my( $self, $output ) = @_;
     my $dbobj = $self->db;
-    my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch->new;
+    my $type = $self->analysis->logic_name =~ /uniprot/i ? 'protein':'dna';
+    my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Dfetch->new(-type => $type, -analysis => $self->analysis);
     my %single_ids = map { $_->hseqname => 1} @$output;
     my @ids = keys(%single_ids);
     $seqfetcher->write_descriptions( $dbobj, \@ids );
