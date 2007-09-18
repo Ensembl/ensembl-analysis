@@ -158,7 +158,7 @@ use vars qw( %Config );
                                   -max_exon_length => '20000',
                                   -multi_exon_min_coverage => '25',
                                   -single_exon_min_coverage => '80',
-                                  -max_intron_length => '200000',
+                                  -max_intron_length => '700000',
                                   -min_split_coverage => 95,
                                   -max_low_complexity => 101,
                                  },
