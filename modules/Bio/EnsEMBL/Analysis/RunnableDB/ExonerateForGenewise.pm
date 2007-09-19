@@ -5,7 +5,7 @@ use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info set_stop_codon set_start_codon attach_Slice_to_Transcript evidence_coverage low_complexity_less_than_maximum);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info set_stop_codon set_start_codon attach_Slice_to_Transcript evidence_coverage low_complexity_less_than_maximum list_evidence);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(contains_internal_stops);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
@@ -151,7 +151,8 @@ sub filter_genes{
     foreach my $gene(@{$filtered_set}){
       my $transcripts = $gene->get_all_Transcripts;
       my $transcript = $transcripts->[0];
-      my $coverage = evidence_coverage($transcript);
+      my $evidence = $self->get_Transcript_supporting_evidence($transcript);
+      my $coverage = evidence_coverage($transcript, $evidence);
       if(low_complexity_less_than_maximum($transcript, $coverage)){
         push(@$output, $gene);
       }else{
@@ -211,5 +212,22 @@ sub extra_sanity_check{
     if(!$self->EXONERATE_PARAMETERS);
 }
 
+
+sub get_Transcript_supporting_evidence{
+  my ($self, $transcript, $seqfetcher) = @_;
+
+  $seqfetcher = $self->seqfetcher if(!$seqfetcher);
+  throw("Can't get ".$transcript." transcrpts supporting features without ".
+        "a seqfetcher object") if(!$seqfetcher);
+  my $ids = list_evidence($transcript);
+  my $sequence;
+  foreach my $id(@$ids){
+    $sequence = $seqfetcher->get_Seq_by_acc($id);
+    last if($sequence);
+  }
+  return $sequence;
+}
+
+1;
 
 1;
