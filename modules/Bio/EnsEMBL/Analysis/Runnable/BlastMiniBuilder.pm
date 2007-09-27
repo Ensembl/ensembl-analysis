@@ -7,7 +7,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Pipeline::Runnable::BlastMiniBuilder;
+Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder;
 
 =head1 SYNOPSIS
 
@@ -64,7 +64,7 @@ use Bio::EnsEMBL::Slice;
                When this happens this method returns
                multiple runnables that examine smaller
                portions of genomic DNA.
-  Returntype : A list of Bio::EnsEMBL::Pipeline::Runnable
+  Returntype : A list of Bio::EnsEMBL::Analysis::Runnable
                - the exact identity of the runnable sub-class
                is determined by the calling class (as the 
                actual final runnable construction is done in 
@@ -489,7 +489,7 @@ sub make_object {
   #
   #  my ($self, $miniseq, $features) = @_;
   #
-  #  my $mg      = new Bio::EnsEMBL::Pipeline::Runnable::MultiMiniGenewise(
+  #  my $mg      = new Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise(
   #	       		       '-genomic'    => $miniseq,
   #	       		       '-features'   => \@newf,
   #	       		       '-seqfetcher' => $self->seqfetcher,
