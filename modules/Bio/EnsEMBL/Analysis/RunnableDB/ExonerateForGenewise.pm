@@ -64,7 +64,6 @@ sub create_bmg_runnables{
     foreach my $id(keys(%$hits_hash)){
       my $features = $hits_hash->{$id};
       foreach my $feature(@$features){
-        print "MAKING RUNNABLE with ".$id." protein\n";
         #This should be made a non overlapping range
         my $start = $feature->seq_region_start - $self->FEATURE_RANGE_PADDING;
         my $end = $feature->seq_region_end + $self->FEATURE_RANGE_PADDING;

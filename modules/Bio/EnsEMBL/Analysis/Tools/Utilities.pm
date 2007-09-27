@@ -160,7 +160,7 @@ sub get_input_arg {
 
 sub parse_config{
   my ($obj, $var_hash, $label) = @_;
-
+  throw("Can't parse the ".$var_hash." hash for object ".$obj." if we are give no label") if(!$label);
   my $DEFAULT_ENTRY_KEY = 'DEFAULT';
   if(!$var_hash || ref($var_hash) ne 'HASH'){
     my $err = "Must pass read_and_check_config a hashref with the config ".
@@ -206,7 +206,6 @@ sub parse_config{
   # read values of config variables for this logic name into
   # instance variable, set by method
   #########################################################
-
   my $uc_logic = uc($label);
 
   if (exists $var_hash->{$uc_logic}) {

@@ -61,7 +61,7 @@ use strict;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Tools::PairAlign;
 use Bio::PrimarySeq;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump verbose);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 @ISA = qw();
@@ -72,7 +72,7 @@ sub new {
   bless $self, $class;
 
   my ($id,$pairalign) = rearrange([qw(ID PAIRALIGN)],@args);
-
+  verbose('warning');
   #No defaults
 
   $self->id($id);
@@ -156,7 +156,6 @@ sub get_cDNA_sequence {
   my $seqstr = "";
 
   my @exons = @{$self->pairAlign->eachFeaturePair};
-
   return unless (scalar @exons > 0);
 
   foreach my $exon (@exons) {

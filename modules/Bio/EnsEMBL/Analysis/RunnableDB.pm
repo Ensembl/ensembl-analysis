@@ -83,8 +83,9 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_config);
-
-
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info logger_verbosity);
+use Bio::EnsEMBL::Analysis::Config::General qw(CORE_VERBOSITY
+                                               LOGGER_VERBOSITY);
 use vars qw (@ISA);
 
 @ISA = qw();
@@ -117,11 +118,12 @@ sub new{
           $db." an analysis object ".$analysis.
           " or an input_id ".$input_id);
   }
-
+  
   $self->db($db);
   $self->analysis($analysis);
   $self->input_id($input_id);
-
+  verbose($CORE_VERBOSITY);
+  logger_verbosity($LOGGER_VERBOSITY);
   return $self;
 }
 

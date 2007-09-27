@@ -62,6 +62,7 @@ use vars qw (@ISA @EXPORT);
              are_splice_sites_canonical
              are_strands_consistent
              attach_Slice_to_Transcript
+             attach_Analysis_to_Transcript
              calculate_exon_phases
              clone_Transcript
              coding_coverage
@@ -92,7 +93,6 @@ use vars qw (@ISA @EXPORT);
              get_downstream_Intron_from_Exon
              get_upstream_splice_sites
              get_downstream_splice_sites
-             attach_Slice_to_Transcript
              empty_Transcript
              fully_load_Transcript
              all_exons_are_valid
@@ -617,6 +617,8 @@ sub low_complexity_less_than_maximum{
   my $low_complexity = $seg->get_low_complexity_length;
   logger_info(id($transcript)." has ".$low_complexity.
               " low complexity sequence");
+  print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
+    " ".$complexity_threshold."\n";
   if($low_complexity >= $complexity_threshold){
     warning(id($transcript)."'s low ".
             "complexity (".$low_complexity.") is above ".
@@ -971,7 +973,6 @@ sub split_Transcript{
       $curr_transcript->add_Exon($next_exon);
       next INTRON;
     }else{
-      
       #If the intron is longer than maximum length a new
       #transcript must be started. This means the last exon 
       #needs to be set as the end of the previous translation
@@ -1703,6 +1704,19 @@ sub attach_Slice_to_Transcript{
   }
 }
 
+sub attach_Analysis_to_Transcript{
+  my ($transcript, $analysis) = @_;
+  $transcript->analysis($analysis);
+  foreach my $sf(@{$transcript->get_all_supporting_features}){
+    $sf->analysis($analysis);
+  }
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    $exon->analysis($analysis);
+    foreach my $sf(@{$exon->get_all_supporting_features}){
+      $sf->analysis($analysis);
+    }
+  }
+}
 
 sub fully_load_Transcript{
   my ($transcript, $keep_xrefs) = @_;
@@ -1988,7 +2002,6 @@ sub set_start_codon{
 
 	if($@){
           logger_info("problem with modified transcript - reverting coordinates");
-          #print "REVERTING TO NORMAL\n";
 	  $cloned_transcript->start_Exon($current_start_exon);
 	  $cloned_transcript->start_Exon->start($current_start_exon_start);
 	  $cloned_transcript->start_Exon->end($current_start_exon_end);
@@ -1997,7 +2010,6 @@ sub set_start_codon{
 	  $newstartexon->end_phase($current_newstartexon_endphase);
 	}
 	$cloned_transcript->recalculate_coordinates;
-        #print "HAVE ALTERED TRANSCRIPT\n";
 	return $cloned_transcript;
       } 
     }
@@ -2022,7 +2034,6 @@ sub set_start_codon{
                            ($start_exon->slice, $codon_start,$codon_end, 
                             $strand)});
     
-    #print "Got codon seq " . $codonseq . "\n";
     if ($codonseq ne "ATG") {
       logger_info("upstream codon (faling off the slice) is not ATG - not modifying transcript");
       return $cloned_transcript;
@@ -2057,7 +2068,6 @@ sub set_start_codon{
       };
       if($@){
 	logger_info("problem with modified transcript - reverting coordinates");
-        #print "REVERTING TO NORMAL\n";
 	$cloned_transcript->start_Exon($current_start_exon);
 	$cloned_transcript->start_Exon->start($current_start_exon_start);
 	$cloned_transcript->start_Exon->end($current_start_exon_end);
@@ -2067,8 +2077,7 @@ sub set_start_codon{
 	$cloned_transcript->start_Exon->end_phase($current_start_exon_endphase);
       }
 
-      $cloned_transcript->recalculate_coordinates;
-      #print "HAVE PROBABLY ALTERED TRANSCRIPT\n";
+      $cloned_transcript->recalculate_coordinate;
 	return $cloned_transcript;
     }
   }

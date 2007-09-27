@@ -76,11 +76,7 @@ sub new {
 
 sub addFeaturePair {
   my ($self,$pair) = @_;
-
-  throw("Not a Bio::EnsEMBL::FeaturePair object") unless ($pair->isa("Bio::EnsEMBL::FeaturePair"));
-
   push(@{$self->{'_pairs'}},$pair);
-
 }
 
 

@@ -51,12 +51,13 @@ use vars qw (@ISA  @EXPORT);
              get_one2one_orth_for_gene_in_other_species
              get_transcript_with_longest_CDS
              attach_Slice_to_Gene
+             attach_Analysis_to_Gene
              fully_load_Gene
              empty_Gene
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript attach_Analysis_to_Transcript);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
@@ -305,6 +306,14 @@ sub attach_Slice_to_Gene{
   }
 }
 
+
+sub attach_Analysis_to_Gene{
+  my ($gene, $analysis) = @_;
+  $gene->analysis($analysis);
+  foreach my $transcript(@{$gene->get_all_Transcripts}){
+    attach_Analysis_to_Transcript($transcript, $analysis);
+  }
+}
 
 =head2 fully_load_Gene
 

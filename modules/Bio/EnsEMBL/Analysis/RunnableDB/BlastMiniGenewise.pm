@@ -90,7 +90,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes Transcript_info set_start_codon set_stop_codon list_evidence attach_Slice_to_Transcript);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_Gene attach_Analysis_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::KillList::KillList;
@@ -119,7 +119,6 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   $self->read_and_check_config($GENEWISE_CONFIG_BY_LOGIC);
-
   return $self;
 }
 
@@ -160,10 +159,8 @@ sub fetch_input{
       $protein_count{$feature->hseqname} = 1;
       my $temp_id = $feature->hseqname;
       $temp_id =~ s/\.\d+//;
-      #next FEATURE if($self->overlaps_fiveprime_end_of_slice($feature, $self->query));
+      next FEATURE if($self->overlaps_fiveprime_end_of_slice($feature, $self->query));
       $killed_count++ if($kill_list{$temp_id});
-      #print "SKIPPING ".$feature->hseqname." on kill list\n" 
-      #  if ($kill_list{$temp_id});
       logger_info("SKIPPING ".$feature->hseqname." on kill list") 
         if ($kill_list{$temp_id});
       next FEATURE if($kill_list{$temp_id});
@@ -172,9 +169,6 @@ sub fetch_input{
            $feature->score < $self->PAF_UPPER_SCORE_THRESHOLD);
       next FEATURE if($self->PAF_UPPER_SCORE_THRESHOLD and
                       $feature->score < $self->PAF_UPPER_SCORE_THRESHOLD);
-      #print "SKIPPING ".$feature->hseqname." on the mask list\n"
-      #  if($self->PRE_GENEWISE_MASK && 
-      #     $ids_to_ignore{$feature->hseqname}) ;
       logger_info("SKIPPING ".$feature->hseqname." on the mask list")
         if($self->PRE_GENEWISE_MASK && 
            $ids_to_ignore{$feature->hseqname}) ;
@@ -547,11 +541,9 @@ sub run{
   my @transcripts;
   $self->gene_source_db->dbc->disconnect_when_inactive(1);
   $self->paf_source_db->dbc->disconnect_when_inactive(1);
+
   foreach my $runnable(@{$self->runnable}){
-    #my $ids = $runnable->ids;
-    #my $id = $ids->[0];
     my $output;
-    #print "RUNNING ".$runnable->query->name." with first ".$id."\n";
     eval{
       $runnable->run;
     };
@@ -560,10 +552,9 @@ sub run{
     }else{
       $output =  $runnable->output;
     }
-    #print "RUNNING have ".@$output." output with ".$id."\n" if($output);
     push(@transcripts, @$output) if($output);
   }
-
+  
   my $complete_transcripts = $self->process_transcripts(\@transcripts);
   my @genes = @{convert_to_genes($complete_transcripts, $self->analysis, 
                                  $self->OUTPUT_BIOTYPE)};
@@ -581,22 +572,39 @@ sub run{
   }
   logger_info("HAVE ".@masked_genes." genesafter masking") if($self->POST_GENEWISE_MASK);
   
-  if($self->filter_object){
-    my ($filtered_set, $rejected_set) = 
-      $self->filter_object->filter_genes(\@masked_genes);
-    $self->output($filtered_set);
-    $self->rejected_set($rejected_set);
-  }else{
-   $self->output(\@masked_genes);
-  }
+  $self->filter_genes(\@masked_genes);
   #$hash = $self->group_genes_by_id($self->output);
   #foreach my $name(keys(%{$hash})){
   #  print "FILTER ".$name." has ".$hash->{$name}." genes after filter\n";
   #}
+  logger_info("HAVE ".@{$self->output}." genes to return");
   return $self->output;
 }
 
 
+=head2 filter_genes
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
+  Arg [2]   : arrayref of Genes
+  Function  : filters the gene sets using the defined filter
+  Returntype: n/a, stores the genes in the output array
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub filter_genes{
+  my ($self, $genes) = @_;
+  if($self->filter_object){
+    my ($filtered_set, $rejected_set) = 
+      $self->filter_object->filter_genes($genes);
+    $self->output($filtered_set);
+    $self->rejected_set($rejected_set);
+  }else{
+   $self->output($genes);
+  }
+}
 
 =head2 process_transcripts
 
@@ -645,6 +653,19 @@ sub write_output{
   my $sucessful_count = 0;
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
   foreach my $gene(@{$self->output}){
+    my $attach = 0;
+    if(!$gene->analysis){
+      my $attach = 1;
+      attach_Analysis_to_Gene($gene, $self->analysis);
+    }
+    if($attach == 0){
+    TRANSCRIPT:foreach my $transcript(@{$gene->get_all_Transcripts}){
+        if(!$transcript->analysis){
+          attach_Analysis_to_Gene($gene, $self->analysis);
+          last TRANSCRIPT;
+        }
+      }
+    }
     eval{
       $ga->store($gene);
     };

@@ -40,19 +40,24 @@ use strict;
 use vars qw(%Config);
 
 %Config = (
-
+           
            # binaries, libraries and data files
            BIN_DIR  => '/usr/local/ensembl/bin',
            DATA_DIR => '/usr/local/ensembl/data',
            LIB_DIR  => '/usr/local/ensembl/lib',
-
+           
            # Path where the parser and parameter files for FirstEF program are allocated
            PARAMETERS_DIR => '/vol/software/linux-i386/farm/lib/firstef/parameters/',
            PARSE_SCRIPT => '/vol/software/linux-i386/farm/lib/firstef/FirstEF_parser.pl',
-
-
            ANALYSIS_WORK_DIR => '/tmp',
            ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
+           CORE_VERBOSITY => 'WARNING',
+           LOGGER_VERBOSITY => 'OFF',
+           
+           #the two versbosity values control when commands like warning or logger_info
+           #print to screen The current settings give you most of what you want but 
+           #look at Bio::EnsEMBL::Utils::Exception and 
+           #Bio::EnsEMBL::Analysis::Tools::Logger for more info
 
 );
 
