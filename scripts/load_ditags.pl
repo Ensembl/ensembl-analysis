@@ -70,11 +70,11 @@ if($help or !$tagtype){
 }
 
 my $db = setup();
-print STDERR "\nReadig from Bio::EnsEMBL::Analysis::Config::Ditag.pm".
-             "\nLooking at database " .
+print STDERR "\nReading from Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases && ".
+             "Bio::EnsEMBL::Analysis::Config::ExonerateTags.\nLooking at database " .
                $$DATABASES{'REFERENCE_DB'}{'-dbname'}.":".
                $$DATABASES{'REFERENCE_DB'}{'-host'}.":".
-               $$DATABASES{'REFERENCE_DB'}{'-port'}."\n";
+               $$DATABASES{'REFERENCE_DB'}{'-port'}."\n\n";
 
 if(!$option or $option eq "A"){
   save_ditags($db, $tagtype, $write, $delete);
@@ -105,17 +105,17 @@ sub setup {
       $config{$config_var} = $entry->{$config_var};
     }
   }
-if ( !$$DATABASES{'REFERENCE_DB'}{'-dbname'} or
-     !$$DATABASES{'REFERENCE_DB'}{'-host'} or
-     !$$DATABASES{'REFERENCE_DB'}{'-port'} or
-     !$$DATABASES{'REFERENCE_DB'}{'-user'} or
-     !$$DATABASES{'REFERENCE_DB'}{'-pass'} ){ 
-    throw "\nDatabase parameters missing from file ".
-          "Bio::EnsEMBL:Analysis::Config::GeneBuild::Databases\n";
+  if ( !$$DATABASES{'REFERENCE_DB'}{'-dbname'} or
+       !$$DATABASES{'REFERENCE_DB'}{'-host'} or
+       !$$DATABASES{'REFERENCE_DB'}{'-port'} or
+       !$$DATABASES{'REFERENCE_DB'}{'-user'} or
+       !$$DATABASES{'REFERENCE_DB'}{'-pass'} ){ 
+    throw "\nDatabase parameters missing from file ".$$DATABASES{'REFERENCE_DB'}{'-host'}.
+      "Bio::EnsEMBL:Analysis::Config::GeneBuild::Databases\n";
   }
 
   #CHECK ALL VARIABLES NEEDED
-  my @configvars = qw( QUERYFILE GENOMICSEQS TAGTYPE IIDREGEXP BATCHSIZE TMPDIR PROGRAM OPTIONS );
+  my @configvars = qw( QUERYFILES GENOMICSEQS IIDREGEXP BATCHSIZE TMPDIR PROGRAM OPTIONS );
   foreach my $configvar (@configvars){
     my $configvarref = $config{$configvar};
     if(!$configvarref){
@@ -161,9 +161,11 @@ sub save_ditags {
   my $ditag_adaptor = $db->get_ditagAdaptor
        or throw("Couldn t get DitagAdaptor. Check analysis tables.");
 
-  my $tmpfile = $config{TMPDIR}.'/ditag_inserts.'.$tagtype.'_.sql';
-  open( DITAGS, "<" . $config{QUERYFILE} )
-    or throw( "Couldn t open ditag file " . $config{QUERYFILE} );
+  my $tmpfile = $config{TMPDIR}.'/ditag_inserts.'.$tagtype.'.sql';
+  my $queryfile = $config{QUERYFILES}{$tagtype};
+
+  open( DITAGS, "<" . $queryfile )
+    or throw( "Couldn t open ditag file " . $queryfile );
   open( TOFILE, ">" . $tmpfile )
     or throw( "Couldn t open output file " . $tmpfile );
 
@@ -224,7 +226,7 @@ sub save_ditags {
   }
 
   close(TOFILE) or throw("cant close file ".$tmpfile);
-  close(DITAGS) or throw("cant close file ".$config{QUERYFILE});
+  close(DITAGS) or throw("cant close file ".$queryfile);
   print STDERR "\nSQL INSERTS FOR DITAGS WRITTEN TO $tmpfile [$count].\n";
 
   if($write){
@@ -234,14 +236,14 @@ sub save_ditags {
                " -u$$DATABASES{'REFERENCE_DB'}{'-user'} ".
                " -p$$DATABASES{'REFERENCE_DB'}{'-pass'} ".
                " -D$$DATABASES{'REFERENCE_DB'}{'-dbname'} ".
-               " < $tmpfile " ; 
- 
+               " < $tmpfile " ;
+
     if(system($cmd)) { 
       throw("couldn t load file $tmpfile to database $$DATABASES{'REFERENCE_DB'}{'-dbname'}");
     }
     print STDERR "DITAGS STORED IN ".  $$DATABASES{'REFERENCE_DB'}{'-dbname'}.":".
                $$DATABASES{'REFERENCE_DB'}{'-host'}.":".
-               $$DATABASES{'REFERENCE_DB'}{'-port'}."\n";  
+               $$DATABASES{'REFERENCE_DB'}{'-port'}."\n";
 
     if(!defined $delete){
       print STDERR "REMOVE FILE? ";
