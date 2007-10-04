@@ -14,6 +14,14 @@ use vars qw( %Config );
                        REPEAT_MASKING => [],
                        MAX_INTRON_LENGTH => 50000,
                        OUTPUT_DB => 'GENEWISE_DB',
+                      },
+            PMATCH =>{
+                       PROTEIN_FILE => '/path/to/protein/file',
+                       MIN_COVERAGE => 25,
+                       BINARY_LOCATION => '/usr/local/ensembl/bin/pmatch',
+                       REPEAT_MASKING => [],
+                       MAX_INTRON_LENGTH => 50000,
+                       OUTPUT_DB => 'GENEWISE_DB',
                       }
             #If you wish any of the settings to be non standard generate a hash
             #with the same structure but change DEFAULT to be your analysis 
