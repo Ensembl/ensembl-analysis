@@ -123,7 +123,6 @@ sub parse_results{
 	     }
 	     $daf->score($coverage);
 	     push  @daf_coverage_results, $daf;
-	          print "DAF ".$daf->p_value."\n";
 	   }
 	 }
       }
