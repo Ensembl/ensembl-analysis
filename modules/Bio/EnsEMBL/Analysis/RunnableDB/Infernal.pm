@@ -80,9 +80,9 @@ sub fetch_input{
   # to catch it first and store the $self->db as the genes->db otherwise the
   # registry will cause problems 
  
-   if ( $$DATABASES{'GENEWISE_DB'}{'-dbname'} eq $self->db->dbc->dbname &&
-        $$DATABASES{'GENEWISE_DB'}{'-host'} == $self->db->dbc->port && 
-        $$DATABASES{'GENEWISE_DB'}{'-port'} eq $self->db->dbc->host){  
+   if ( $$DATABASES{'GENEBUILD_DB'}{'-dbname'} eq $self->db->dbc->dbname &&
+        $$DATABASES{'GENEBUILD_DB'}{'-host'} == $self->db->dbc->port && 
+        $$DATABASES{'GENEBUILD_DB'}{'-port'} eq $self->db->dbc->host){  
 
         $self->gene_db($self->db); 
    } else {  
@@ -174,8 +174,10 @@ sub write_output{
     @attributes = @{$gene_hash->{'attrib'}};
     $xref = $gene_hash->{'xref'};
     $gene->analysis($self->analysis);
+    $gene->status('PREDICTED');
     foreach my $trans (@{$gene->get_all_Transcripts}){
       $trans->analysis($self->analysis);
+      $trans->status('PREDICTED');
     }
     $gene->slice($self->query) if(!$gene->slice);
     $self->feature_factory->validate($gene);
