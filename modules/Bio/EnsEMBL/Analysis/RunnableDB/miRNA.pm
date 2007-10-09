@@ -72,14 +72,15 @@ sub fetch_input{
   # to catch it first and store the $self->db as the genes->db otherwise the
   # registry will cause problems 
   if ( $$DATABASES{'GENEBUILD_DB'}{'-dbname'} eq $self->db->dbc->dbname &&
-       $$DATABASES{'GENEBUILD_DB'}{'-host'} == $self->db->dbc->port &&
-       $$DATABASES{'GENEBUILD_DB'}{'-port'} eq $self->db->dbc->host){
+       $$DATABASES{'GENEBUILD_DB'}{'-port'} == $self->db->dbc->port &&
+       $$DATABASES{'GENEBUILD_DB'}{'-host'} eq $self->db->dbc->host){
          $self->gene_db($self->db);
   } else { 
     my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
     $self->gene_db($genes_db);
   }
 # add dna_db 
+  print "Fetching features\n";
   $self->db->dnadb($dna_db);
   my $aa = $self->db->get_AnalysisAdaptor;
   my $analysis = $aa->fetch_by_logic_name($self->input_id);
@@ -87,8 +88,12 @@ sub fetch_input{
   my $dafa = $self->db->get_DnaAlignFeatureAdaptor;
   my @dafs = @{$dafa->generic_fetch(" analysis_id = ".$analysis->dbID)};
   $self->throw("No dna align features found ") unless (scalar(@dafs) >=1);
-  print scalar(@dafs)." dafs found\n";
+  print scalar(@dafs)." dafs found\nMaking families";
   my %families = %{$self->family(\@dafs)};
+  # empty the array
+  @dafs = ();
+  print "Daf array now " . scalar(@dafs) . "\n";
+  print "Families = " . scalar(keys %families ) . "\n";
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::miRNA->new
     (
      -queries => \%families,
