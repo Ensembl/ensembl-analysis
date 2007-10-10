@@ -121,9 +121,9 @@ sub fetch_input {
           }
         }
       }
-    }
+    } # // end target is a directory 
     else{
-  
+      $target =~s/^\s+//;  
       if (-e $target and -d $target) {
         # genome is in a directory; the directory must contain the complete
         # genome else we cannot do best-in-genome filtering. 
