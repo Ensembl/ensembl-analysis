@@ -44,6 +44,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild ; 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::miRNA;
+use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
@@ -79,21 +80,30 @@ sub fetch_input{
     my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
     $self->gene_db($genes_db);
   }
-# add dna_db 
-  print "Fetching features\n";
   $self->db->dnadb($dna_db);
   my $aa = $self->db->get_AnalysisAdaptor;
   my $analysis = $aa->fetch_by_logic_name($self->input_id);
-  $self->throw("Analysis ".$self->input_id." not found $@\n") unless $analysis;
+  $self->throw("Analysis BlastmiRNA not found $@\n") unless $analysis;
   my $dafa = $self->db->get_DnaAlignFeatureAdaptor;
-  my @dafs = @{$dafa->generic_fetch(" analysis_id = ".$analysis->dbID)};
+  my @flags;
+  my @dafs;
+  my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
+  print "Fetching features\n";
+  eval{
+    @flags = @{$fa->fetch_by_analysis($self->analysis)};
+  };
+  foreach my $flag (@flags){
+    if ($flag->goalAnalysis->logic_name eq $self->analysis->logic_name){
+      my $daf = $dafa->fetch_by_dbID($flag->ensembl_id);
+      push @dafs, $daf;
+    }
+  }
   $self->throw("No dna align features found ") unless (scalar(@dafs) >=1);
-  print scalar(@dafs)." dafs found\nMaking families";
+  print scalar(@dafs)." dafs found\n";
   my %families = %{$self->family(\@dafs)};
   # empty the array
   @dafs = ();
-  print "Daf array now " . scalar(@dafs) . "\n";
-  print "Families = " . scalar(keys %families ) . "\n";
+  
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::miRNA->new
     (
      -queries => \%families,
