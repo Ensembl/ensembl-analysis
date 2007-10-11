@@ -163,13 +163,15 @@ sub run {
      } else { 
        print "Skipping transcript because it contains internal stops\n" ;  
      } 
-   }
+   } 
+   print " getting longest transcripts and their translation for the missing orth\n" ; 
    my @cds ; 
    for my $tr ( @longest_transcripts ) {  
      my $cds = $tr->translate;
      $cds->display_id($tr->translation->stable_id ) ; 
      push @cds, $cds ; 
-   } 
+   }  
+   print " use -write option in the test-runnable to write the identfied sequences to disk\n" ;  
    $self->output(shuffle(\@cds))   ;
 }  
 
@@ -177,9 +179,11 @@ sub run {
 
 sub write_output{
   my ($self) = @_;
-  my $written_files = $self->chunk_and_write_fasta_sequences( $self->output) ; 
+  my $written_files = $self->chunk_and_write_fasta_sequences($self->output) ; 
   if ( $written_files ) { 
-    print scalar(@$written_files) . " fasta-files written for " . $self->species_1."\n" ;   
+    print scalar(@$written_files) . " fasta-files written for " . $self->species_1."\n" ;    
+    print "FILES :\n" ; 
+    print join ("\n", @$written_files) ; 
     $self->upload_input_ids( $written_files );   
     print STDERR "input_ids uploaded\n" ;   
   } else { 
