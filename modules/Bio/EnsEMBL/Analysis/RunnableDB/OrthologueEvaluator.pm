@@ -91,7 +91,10 @@ sub get_initial_geneset {
 sub upload_input_ids {  
    my ( $self, $input_ids  ) = @_ ; 
  
-   my $submit_analysis = "Submit_" . $self->post_logic_name;     
+   my $submit_analysis = "Submit_" . $self->post_logic_name;      
+
+   print "Submit-analysis for next analysis is : $submit_analysis\n" ; 
+   print "Logic-name for next analysis is      : " . $self->post_logic_name . "\n" ; 
 
    # otherwise the Registry overrides the adaptor - silly ... 
    #print "db before clear : " . $self->db(); 
@@ -130,8 +133,9 @@ sub upload_input_ids {
 
 
 sub chunk_and_write_fasta_sequences {
-    my ( $self, $tref, $base_dir , $file_prefix, $file_suffix  ) = @_ ;
+    my ( $self, $tref, $base_dir , $file_prefix, $file_suffix,$chunk_size  ) = @_ ;
 
+    $chunk_size = 5 unless $chunk_size ; 
     print scalar(@$tref) . " sequences to write \n" ;
 
     return if scalar(@$tref) == 0 ; 
@@ -162,7 +166,6 @@ sub chunk_and_write_fasta_sequences {
 
     my @filenames ;
 
-    my $cs = 10  ; # chunksize    
     my $wtf = 0 ;
     my @ltr = @$tref ;
     my ($seq_file , $name ) ;
@@ -170,8 +173,8 @@ sub chunk_and_write_fasta_sequences {
 
     for ( my $i=0 ; $i<scalar(@ltr) ; $i++ ) {
       my $seq = $ltr[$i] ;
-      # create new file if #$cs chunks are already written
-      if ($i % $cs == 0 ){
+      # create new file if #$chunk_size chunks are already written
+      if ($i % $chunk_size  == 0 ){
 
           $seq_file->close() if ($wtf == 1) ;
           $fcnt++;
