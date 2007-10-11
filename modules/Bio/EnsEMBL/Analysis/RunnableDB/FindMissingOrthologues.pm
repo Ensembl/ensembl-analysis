@@ -41,7 +41,7 @@ Internal methods are usually preceded with a '_'
 package Bio::EnsEMBL::Analysis::RunnableDB::FindMissingOrthologues; 
 use strict;
 use Bio::SeqIO;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Gene; 
 
@@ -77,6 +77,7 @@ sub new {
 
   $self->species_1($$trusted_one2one_set[0]) ; 
   $self->species_2($$trusted_one2one_set[1]) ;  
+  verbose('WARNING') ; 
 
   return $self;
 }
@@ -170,20 +171,26 @@ sub run {
      my $cds = $tr->translate;
      $cds->display_id($tr->translation->stable_id ) ; 
      push @cds, $cds ; 
-   }  
-   print " use -write option in the test-runnable to write the identfied sequences to disk\n" ;  
+   }   
+
+   print " use -write option in the test-runnable to dump the identfied sequences to disk\n" ;   
+   print " and upload the new input_ids into the reference-db for the post-analysis (exonerate)\n" ; 
+ 
    $self->output(shuffle(\@cds))   ;
 }  
 
 
 
 sub write_output{
-  my ($self) = @_;
-  my $written_files = $self->chunk_and_write_fasta_sequences($self->output) ; 
+  my ($self) = @_; 
+  my $nr_of_seqs_in_file = 1 ; # chunk-size 
+   
+  my $written_files = $self->chunk_and_write_fasta_sequences($self->output, undef,undef,undef, $nr_of_seqs_in_file ) ; 
   if ( $written_files ) { 
     print scalar(@$written_files) . " fasta-files written for " . $self->species_1."\n" ;    
-    print "FILES :\n" ; 
-    print join ("\n", @$written_files) ; 
+    print "\nsequence written to files:\n" ; 
+    print join ("\n", @$written_files) ;  
+    print "\n\n"; 
     $self->upload_input_ids( $written_files );   
     print STDERR "input_ids uploaded\n" ;   
   } else { 
