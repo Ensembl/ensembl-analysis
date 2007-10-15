@@ -72,8 +72,7 @@ use vars qw(@ISA);
 
 sub new {
 
-    print "Nessie::new\n";
-    
+    #print "Nessie::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
     
@@ -98,7 +97,7 @@ sub fetch_ResultSets
     print "No. of available ResultSets: ", scalar(@$rsets), "\n";
 
     my @rsets = ();
-    my $regex = $self->RESULT_SET_REGEX;
+    my $regex = $self->RESULT_SET_REGEXP;
     foreach my $rset (@{$rsets}) {
         #print Dumper $rset->name();
         next if ($rset->name() !~ m/$regex/);

@@ -65,7 +65,7 @@ sub new {
 
 =head2 run
 
-    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle
+    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen
     Arg [2]     : string, directory
     Description : Class specific run method. This checks the directory specifed
     to run it, write the data to file (tab-delimited), marks the query infile 
@@ -92,6 +92,7 @@ sub run {
     
     my $infile = $self->write_infile();
     #print Dumper $infile;
+    throw("Input file $infile is empty.") if (-z $infile);
     $self->files_to_delete($self->infile);
 
     $self->run_analysis();
@@ -173,6 +174,8 @@ sub parse_results{
       push(@output, [ @ft[@{$self->output_fields()}] ]);
 
   }
+
+  throw("No features to annotate!") if (scalar(@output) == 0);
 
   $self->output(\@output);
   #print Dumper $self->output();

@@ -72,10 +72,8 @@ use vars qw(@ISA);
 
 sub new {
 
-    print "Chipotle::new\n";
-
+    #print "Chipotle::new\n";
     my ($class,@args) = @_;
-
     my $self = $class->SUPER::new(@args);
     
     $self->read_and_check_config($CHIPOTLE_CONFIG);
@@ -97,10 +95,11 @@ sub fetch_ResultSets
     my $rsa = $self->db->get_ResultSetAdaptor();
     my $rsets = $rsa->fetch_all_by_Experiment_Analysis
         ($self->experiment, $self->result_set_analysis);
+    print Dumper ($self->experiment->name, $self->analysis->logic_name);
     print "No. of available ResultSets: ", scalar(@$rsets), "\n";
 
     my @rsets = ();
-    my $regex = $self->RESULT_SET_REGEX;
+    my $regex = $self->RESULT_SET_REGEXP;
     foreach my $rset (@{$rsets}) {
         #print Dumper $rset->name();
         next if ($rset->name() !~ m/$regex$/);

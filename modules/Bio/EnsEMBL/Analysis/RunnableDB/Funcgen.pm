@@ -58,8 +58,7 @@ use vars qw(@ISA);
 
 sub new{
 
-    print "Funcgen::new\n";
-    
+    #print "Funcgen::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
     
@@ -189,12 +188,12 @@ sub read_and_check_config {
     foreach my $echip (@{$echips}) {
         $ftype = $echip->feature_type();
         throw("No feature type defined for experimental chip (unique id: ".
-              $echips->unique_id."\n") if (! defined $ftype);
+              $echip->unique_id.")\n") if (! defined $ftype);
         $ftype{$ftype->dbID()}++;
 
         $ctype = $echip->cell_type();
         throw("No cell type defined for experimental chip (unique id: ".
-              $echips->unique_id."\n") if (! defined $ctype);
+              $echip->unique_id.")\n") if (! defined $ctype);
         $ctype{$ctype->dbID()}++;
     }
     
@@ -268,15 +267,15 @@ sub PARAMETERS {
   }
 }
 
-sub RESULT_SET_REGEX {
+sub RESULT_SET_REGEXP {
   my ( $self, $value ) = @_;
 
   if ( defined $value ) {
-    $self->{'_CONFIG_RESULT_SET_REGEX'} = $value;
+    $self->{'_CONFIG_RESULT_SET_REGEXP'} = $value;
   }
 
-  if ( exists( $self->{'_CONFIG_RESULT_SET_REGEX'} ) ) {
-    return $self->{'_CONFIG_RESULT_SET_REGEX'};
+  if ( exists( $self->{'_CONFIG_RESULT_SET_REGEXP'} ) ) {
+    return $self->{'_CONFIG_RESULT_SET_REGEXP'};
   } else {
     return undef;
   }
@@ -305,6 +304,7 @@ sub fetch_input {
     my $rsets = $self->fetch_ResultSets();
     #print Dumper $rsets;
     $self->result_sets($rsets);
+    print "No. of result sets: ", scalar(@$rsets), "\n";
 
     my %probe_features = ();
     foreach my $rset (@{$rsets}) {
@@ -314,6 +314,9 @@ sub fetch_input {
         
         my $probe_features = $rset->get_ResultFeatures_by_Slice($self->query());
         print "No. of ResultFeatures_by_Slice:\t", scalar(@$probe_features), "\n";
+
+        throw("No result_features on slice ".$self->query()->name())
+            if scalar(@$probe_features) == 0;
 
         my @probe_features = ();
         my $ft_cnt = 1;
@@ -425,8 +428,8 @@ sub write_output{
     while (keys(%hash) != 1) {
         %hash = ();
         foreach my $n (@names) {
-            $n =~ s/(_[^_]*){$i}$//;
-            #print $n, "\n";
+            $n =~ s/(_[^_]+){$i}$//;
+            print $n, "\n";
             $hash{$n}++;
         }
         $i++;
@@ -436,6 +439,12 @@ sub write_output{
     
     ### implement check if this is a subset of the chosen replicates by 
     ### comparing number of keys in %hash with return value from still to be implemented method
+
+    throw("Need to implement/update how to store fset/dset/rset via new() and add_ResultSet() ".
+          "of DataSet and add contains_ResultSet ... (see comments!)")
+    # Logic: 1) Check whether feature_set already exists in data_set otherwise create 2) for each 
+    # ResultSet check whether it is already stored with FeatureSet, otherwise add_ResultSet to
+    # FeatureSet
     
     ### feature_set
     my $fsa = $self->db->get_FeatureSetAdaptor();
@@ -464,7 +473,7 @@ sub write_output{
     my $dsa = $self->db->get_DataSetAdaptor();
     my $dsets = $dsa->fetch_all_by_FeatureSet($fset);
     #print Dumper $dsets;
-    
+
     my %rset_ids;
     foreach my $ds (@{$dsets}) {
         foreach my $rs (@{$ds->get_ResultSets}) {
@@ -534,6 +543,7 @@ sub write_output{
             }
             push(@pf, $pf);
         }
+
         $pfa->store(@pf);
     }
     return 1;
