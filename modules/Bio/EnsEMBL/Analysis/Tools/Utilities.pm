@@ -179,7 +179,7 @@ sub parse_config{
     $check{$uc_key} = $k;
   }
   # replace entries in config has with lower case versions. 
-  foreach my $k (keys %check) {
+  foreach my $k (keys %check) {  
     my $old_k = $check{$k};
     my $entry = $var_hash->{$old_k};
     delete $var_hash->{$old_k};
@@ -207,7 +207,6 @@ sub parse_config{
   # instance variable, set by method
   #########################################################
   my $uc_logic = uc($label);
-
   if (exists $var_hash->{$uc_logic}) {
     # entry contains more specific values for the variables
     my $entry = $var_hash->{$uc_logic};
@@ -222,7 +221,7 @@ sub parse_config{
       }
     }
   }else{
-    throw("Your logic_name ".$uc_logic." doesn't appear in your config file hash ".
+    warning("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".  
           $var_hash);
   }
 }
