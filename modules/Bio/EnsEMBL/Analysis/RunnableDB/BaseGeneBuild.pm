@@ -38,7 +38,14 @@ sub get_dbadaptor{
   my $db;
   if(!$hash->{$name}){
     if (exists $DATABASES->{$name}) {
-      my $constructor_args = $DATABASES->{$name};
+      my $constructor_args = $DATABASES->{$name}; 
+
+      foreach my $arg ( qw ( -user -port -host -dbname) ) {  
+        unless ( $$constructor_args{$arg}){ 
+          throw ("Database-connection-details not properly configured : Arguemnt : $arg missing in Databases.pm\n") ; 
+        }
+      }
+
       $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                                 %$constructor_args,
                                                 );
