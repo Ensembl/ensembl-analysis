@@ -91,12 +91,15 @@ use vars qw( %Config );
              FEATURE_RANGE_PADDING => 0,
              WRITE_REJECTED => 0,
              REJECTED_BIOTYPE => 'rejected',
-            },
+            }, 
+
             TargettedGenewise => 
             {
              PAF_LOGICNAMES => ['Best_Pmatch'],
              OUTPUT_BIOTYPE => ' targetted',
-             GENEWISE_PARAMETERS => {
+             GENEWISE_PARAMETERS => { 
+                                     # pass parameters go genewise here, i.e. -program =>"/usr/local/ensembl/bin/genewiseXXX"
+                                     # for more options which can be passed see Runnable/Genewise.pm 
                                      -endbias => 1,
                                      -matrix => 'BLOSUM80.bla',
                                      -gap => 20,
