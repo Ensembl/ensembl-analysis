@@ -121,7 +121,7 @@ sub process_transcripts{
     push(@complete_transcripts, $end_t);
   }
   foreach my $file($self->genomic_file, @{$self->peptide_file}){
-    #unlink $file;
+    unlink $file;
   }
   return \@complete_transcripts
 }
