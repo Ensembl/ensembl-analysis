@@ -54,8 +54,8 @@ sub new {
     my $self = $class->SUPER::new(@args);
     #print Dumper $self;
 
-    my ($probe_features) = rearrange(['PROBE_FEATURES'], @args);
-    $self->probe_features($probe_features);
+    my ($result_features) = rearrange(['RESULT_FEATURES'], @args);
+    $self->result_features($result_features);
     #print Dumper($self->features);
 
     #print Dumper $self;
@@ -83,7 +83,7 @@ sub run {
     #print Dumper $self->options;
 
     throw("Can't run ".$self." without probe features") 
-        unless($self->probe_features);
+        unless($self->result_features);
     #print Dumper $self->probe_features;
    
     $self->workdir($dir) if ($dir);
@@ -93,8 +93,8 @@ sub run {
     my $infile = $self->write_infile();
     #print Dumper $infile;
     throw("Input file $infile is empty.") if (-z $infile);
-    $self->files_to_delete($self->infile);
-
+    #$self->files_to_delete($self->infile);
+	
     $self->run_analysis();
 
     #print "Parsing results ... ";
@@ -116,14 +116,14 @@ sub run {
 
 =cut
 
-sub probe_features {
+sub result_features {
     my ($self, $features) = @_;
     if($features){
-        $self->{'probe_features'} = $features;
+        $self->{'result_features'} = $features;
     }
-    throw("No probe features available in Runnable.") 
-        if (!$self->{'probe_features'});
-    return $self->{'probe_features'};
+    throw("No result features available in Runnable.") 
+        if (!$self->{'result_features'});
+    return $self->{'result_features'};
 }
 
 
@@ -169,6 +169,8 @@ sub parse_results{
 
   while (<F>) {
 
+	  next unless (/^[1-9XYM]\w/);
+	  
       chomp;
       my @ft = split;
       push(@output, [ @ft[@{$self->output_fields()}] ]);
