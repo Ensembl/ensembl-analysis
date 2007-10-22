@@ -58,13 +58,13 @@ use vars qw(@ISA);
 
 sub new{
 
-    #print "Funcgen::new\n";
+    print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
     
     #warn( Dumper($self->input_id) );
     my $slice = $self->SliceAdaptor()->fetch_by_name($self->input_id);
-	#print Dumper $slice;
+    #print Dumper $slice;
     throw("Can't fetch slice ".$self->input_id) if (!$slice);
     $self->query($slice);
 
@@ -183,14 +183,14 @@ sub read_and_check_config {
 
     $self->SUPER::read_and_check_config($config);
 
-	# get/set experimnent
+    # get/set experimnent
     my $ea = $self->db->get_ExperimentAdaptor();
     my $e = $ea->fetch_by_name($self->EXPERIMENT);
     throw("Can't fetch experiment with name ".$self->EXPERIMENT) if (!$e);
     $self->experiment($e);
 
-	# get/set norm_analysis
-	print Dumper $ENV{NORM_ANALYSIS};
+    # get/set norm_analysis
+    #print Dumper $ENV{NORM_ANALYSIS};
     my $a = $self->AnalysisAdaptor()->fetch_by_logic_name($self->NORM_ANALYSIS);
     throw("Can't fetch result set analysis ".$self->NORM_ANALYSIS) if (!$a);
     $self->norm_analysis($a);
@@ -200,40 +200,46 @@ sub read_and_check_config {
 
     my $logic_name = $self->analysis->logic_name();
 
-    my $analysis = Bio::EnsEMBL::Analysis->new(
-		-logic_name => $logic_name,
-		-module => $self->analysis->module,
-		-program => $self->PROGRAM,
-		-program_file => $self->PROGRAM_FILE,
-		-program_version => $self->VERSION,
-		-parameters => $self->PARAMETERS,
-		-displayable => 1
-		);
+    my $analysis = Bio::EnsEMBL::Analysis->new
+        (
+         -logic_name => $logic_name,
+         -module => $self->analysis->module,
+         -program => $self->PROGRAM,
+         -program_file => $self->PROGRAM_FILE,
+         -program_version => $self->VERSION,
+         -parameters => $self->PARAMETERS,
+         -displayable => 1
+         );
 
-	if (defined $self->analysis->dbID) {
-		
-		### analysis compare
-		# returns  1 if this analysis is special case of given analysis
-		# returns  0 if they are equal
-		# returns -1 if they are completely different
-		throw('Analysis with logic name \''.$logic_name.'\' already '.
-			  'exists, but has different options! Must choose different '.
-			  'logic_name for analysis.') 
-			if ($self->analysis->compare($analysis));
+    #print Dumper ($self->PARAMETERS, $self->analysis->parameters);
+    #print Dumper ($self->PROGRAM_FILE, $self->analysis->program_file);
 
-	} else {
+    if (defined $self->analysis->dbID) {
+        
+        ### analysis compare
+        # returns  1 if this analysis is special case of given analysis
+        # returns  0 if they are equal
+        # returns -1 if they are completely different
+        throw('Analysis with logic name \''.$logic_name.'\' already '.
+              'exists, but has different options! Must choose different '.
+              'logic_name for analysis.') 
+            if ($self->analysis->compare($analysis));
 
-		warn("New Analysis with logic name $logic_name.");
-		$self->analysis($analysis);
+    } else {
 
-	}
+        warn("New Analysis with logic name $logic_name.");
+        #print Dumper $analysis;
+        my $dbID = $self->AnalysisAdaptor->store($analysis);
+        $self->analysis($self->AnalysisAdaptor->fetch_by_dbID($dbID));
+
+    }
 
     ### check feature_type and cell_type info for experiment
 
     my $eca = $self->db->get_ExperimentalChipAdaptor();
     my $echips = $eca->fetch_all_by_Experiment($self->experiment);
     
-	throw("Couldn\'t fetch exp. chips") if (! @{$echips});
+    throw("Couldn\'t fetch exp. chips") if (! @{$echips});
 
     my (%ftype, $ftype, %ctype, $ctype);
     foreach my $echip (@{$echips}) {
@@ -260,54 +266,54 @@ sub read_and_check_config {
 
 
 
-	### check that result_set, data_set, feature_set are storable
+    ### check that result_set, data_set, feature_set are storable
 
 
-	my @rsets = ();
-	#print Dumper( $self->experiment->name, $self->RESULT_SET_REGEXP);
-	my $regexp=$self->RESULT_SET_REGEXP;
+    my @rsets = ();
+    #print Dumper( $self->experiment->name, $self->RESULT_SET_REGEXP);
+    my $regexp=$self->RESULT_SET_REGEXP;
 
-	# this one is veeeery slow ... (?)
-	foreach my $rset (@{$self->ResultSetAdaptor->fetch_all_by_Experiment_Analysis
-					  ($self->experiment, $self->norm_analysis)}) {
-		push (@rsets, $rset) if ($rset->name =~ /$regexp/);
-	}
+    # this one is veeeery slow ... (?)
+    foreach my $rset (@{$self->ResultSetAdaptor->fetch_all_by_Experiment_Analysis
+                            ($self->experiment, $self->norm_analysis)}) {
+        push (@rsets, $rset) if ($rset->name =~ /$regexp/);
+    }
     $self->ResultSets(\@rsets);
 
     print "Selected result sets: ", join(', ', map { $_->name } @rsets), 
-	' (in total ', scalar(@rsets), ")\n";
-	
+    ' (in total ', scalar(@rsets), ")\n";
+    
     ### get feature_set/data_set name by determine the longest common 
     ### prefix of the result_set names
-	#print Dumper @{$self->ResultSets()};
+    #print Dumper @{$self->ResultSets()};
     my @names = map { $_->name } @{$self->ResultSets()};
-	#print Dumper @names;
+    #print Dumper @names;
 
-	my %hash = ();
-	foreach my $n (@names) {
-		my @chars = split(//, $n);
+    my %hash = ();
+    foreach my $n (@names) {
+        my @chars = split(//, $n);
 
-		my $string = '';
-		foreach my $c (@chars) {
-			$string .= $c;
-			$hash{$string}++;
-		}
-	}
-	my $lcp = '';
+        my $string = '';
+        foreach my $c (@chars) {
+            $string .= $c;
+            $hash{$string}++;
+        }
+    }
+    my $lcp = '';
 
-	foreach (sort keys %hash) {
-		last if ($hash{$_} < scalar(@rsets));
-		$lcp = $_;
-	} 
-	$lcp =~ s/_$//;
-	#print Dumper $lcp;
+    foreach (sort keys %hash) {
+        last if ($hash{$_} < scalar(@rsets));
+        $lcp = $_;
+    } 
+    $lcp =~ s/_$//;
+    #print Dumper $lcp;
 
     my $set_name = $lcp.'_'.$self->DATASET_NAME;
-    print Dumper $set_name;
+    print 'DataSet name: ', $set_name, "\n";
 
     ### implement check if this is a subset of the chosen replicates by 
     ### comparing number of keys in %hash with return value from still to
-	### be implemented method
+    ### be implemented method
 
     #throw("Need to implement/update how to store fset/dset/rset via new() and add_ResultSet() ".
     #      "of DataSet and add contains_ResultSet ... (see comments!)");
@@ -315,51 +321,52 @@ sub read_and_check_config {
     # ResultSet check whether it is already stored with FeatureSet, otherwise add_ResultSet to
     # FeatureSet
 
-	my $dset = $self->DataSetAdaptor->fetch_by_name($set_name);
-	my $fset = $self->FeatureSetAdaptor->fetch_by_name($set_name);
+    my $dset = $self->DataSetAdaptor->fetch_by_name($set_name);
+    my $fset = $self->FeatureSetAdaptor->fetch_by_name($set_name);
 
-	unless (defined $dset) {
+    unless (defined $dset) {
 
-		unless (defined $fset) {
-        
-			$fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
-				(
-				 -analysis => $self->analysis,
-				 -feature_type => $self->feature_type,
-				 -cell_type => $self->cell_type,
-				 -name => $set_name,
-				 -type => 'annotated'
-				);
-			#print Dumper $fset;
-			
-			#$fset = $self->FeatureSetAdaptor->store($fset);
+        unless (defined $fset) {
+            
+            $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
+                (
+                 -analysis => $self->analysis,
+                 -feature_type => $self->feature_type,
+                 -cell_type => $self->cell_type,
+                 -name => $set_name,
+                 -type => 'annotated'
+                 );
+            #print Dumper $fset;
+            
+            #$fset = $self->FeatureSetAdaptor->store($fset);
 
-		} else {
+        } else {
 
-			warn("Feature set with name $set_name already exists.\n".
-				  "Must choose a different feature set name.");
-		}
-		#print Dumper $fset;
+            warn("Feature set with name $set_name already exists.\n".
+                 "Must choose a different feature set name.");
+        }
+        #print Dumper $fset;
 
-		$dset = Bio::EnsEMBL::Funcgen::DataSet->new(
-			-SUPPORTING_SETS     => $self->ResultSets,
-			-FEATURE_SET         => $fset,
-			-DISPLAYABLE         => 1,
-			-NAME                => $set_name,
-			-SUPPORTING_SET_TYPE => 'result',
-			);
+        $dset = Bio::EnsEMBL::Funcgen::DataSet->new
+            (
+             -SUPPORTING_SETS     => $self->ResultSets,
+             -FEATURE_SET         => $fset,
+             -DISPLAYABLE         => 1,
+             -NAME                => $set_name,
+             -SUPPORTING_SET_TYPE => 'result',
+             );
 
-		#$dset = $self->DataSetAdaptor->store($dset);
+        #$dset = $self->DataSetAdaptor->store($dset);
 
-	} else {
+    } else {
 
- 		warn("Data set with name $set_name already exists.\n".
-			 "Must choose a different data set name.");
+        warn("Data set with name $set_name already exists.\n".
+             "Must choose a different data set name.");
 
-	}
+    }
 
-	$self->DataSet($dset);
-	$self->FeatureSet($fset);
+    $self->DataSet($dset);
+    $self->FeatureSet($fset);
 
 }
 
@@ -507,7 +514,7 @@ sub ANALYSIS_WORK_DIR {
 
 sub fetch_input {
     my ($self) = @_;
-    #print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::fetch_input\n";
+    print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::fetch_input\n";
 
     #warn("write file: ", Dumper $self->db);
 
@@ -543,7 +550,8 @@ sub fetch_input {
     #$self->result_features(\%features);
     #print Dumper $self->result_features();
 
-    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.$self->analysis->module;
+    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
+        .$self->analysis->module;
     $runnable = $runnable->new
         (
          -query => $self->query,
@@ -620,7 +628,8 @@ sub write_output{
     my ($self) = @_;
 
 	# store analysis, feature set and data set
-	$self->AnalysisAdaptor->store($self->analysis());
+  # analysis was alredy been stored while checking config in read_and_check_config
+	#$self->AnalysisAdaptor->store($self->analysis());
 	if (! defined $self->FeatureSet->dbID) {
 		$self->FeatureSetAdaptor->store($self->FeatureSet());
 	}

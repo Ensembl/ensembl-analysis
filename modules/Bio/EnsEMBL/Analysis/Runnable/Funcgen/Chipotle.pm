@@ -77,6 +77,7 @@ use vars qw(@ISA);
 
 sub run_analysis {
         
+    print "Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle\n";
     my ($self, $program) = @_;
     
     if(!$program){
@@ -153,8 +154,8 @@ sub write_infile {
     open(F, ">".$filename)
         or throw("Can't open file $filename.");
 
-    #print Dumper $self->probe_features;
-    foreach (values %{$self->probe_features}) {
+    #print Dumper $self->result_features;
+    foreach (values %{$self->result_features}) {
         foreach my $ft (@$_) {
             #print join("\t", (@$ft)[4,0..3]), "\n";
             print F join("\t", (@$ft)[4,0..3]), "\n";

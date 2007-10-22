@@ -78,10 +78,6 @@ sub new {
 
     $self->read_and_check_config($TILEMAP_CONFIG);
 
-    # TileMap analysis object values
-    $self->analysis->description('HMM');
-    $self->analysis->display_label('TileMap');
-
     return $self;
 	
 }

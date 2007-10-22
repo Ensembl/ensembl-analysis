@@ -144,17 +144,26 @@ sub write_infile {
 		or throw("Can't open config file $config");
 
 	map { 
-		s,^(O.1-.+=).+$,$1 $workdir,;
-		s,^(O.2-.+=).+$,$1 $project,;
-		s,^(I.2-.+=).+$,$1 $project.dat,;
-		s,^(IV.5-.+=).+$,$1 ${project}_f_pb.sum,;
+		s,^(O.1-.+=).+$,$1 $workdir,;     #[Working directory]
+		s,^(O.2-.+=).+$,$1 $project,;     #[Project Title]
+		s,^(I.2-.+=).+$,$1 $project.dat,; #[Raw data file]
+		s,^(I.3-.+=).+$,$1 2,;            #[Range of test-statistics] (0: default; 1: [0,1], 2: (-inf, +inf))
+		s,^(II.1-.+=).+$,$1 0,;           #[Apply local repeat filter?] (0:No; 1:Yes)
+		s,^(II.2-.+=).+$,$1 NULL,;        #[*.refmask file]
+		s,^(III.2-.+=).+$,$1 0,;          #[Method to combine neighboring probes] (0:HMM, 1:MA)
+        s,^(IV.1-.+=).+$,$1 0.15,;         #[Posterior probability >]
+        s,^(IV.2-.+=).+$,$1 250,;         #[Maximal gap allowed]
+		s,^(IV.4-.+=).+$,$1 1,;           #[Provide your own selection statistics?] (0: No, use default; 1: Yes)
+		s,^(IV.5-.+=).+$,$1 ${project}_f_pb.sum,; #[If Yes to IV.4, selection statistics file]
+        s,^(IV.10-.+=).+$,$1 5,;         #[Expected hybridization length]
 		print OUT;
 	} <IN>;
 
 	close IN;
 	close OUT;
 
-	(my $cmpinfo_template = $config_template) =~ s,_arg.txt,.cmpinfo,;
+    
+	(my $cmpinfo_template = $config_template) =~ s,_tilemap_arg.txt,.cmpinfo,;
 	#print Dumper $cmpinfo_template;
 	my $cmpinfo = $self->workdir.'/'.$project.'.cmpinfo';
 	system("cp $cmpinfo_template $cmpinfo");

@@ -1,24 +1,24 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle
+# Ensembl module for Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap
 #
 # Copyright (c) 2007 Ensembl
 #
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle
+  Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap
 
 =head1 SYNOPSIS
 
-  use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap;
   
-  use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle qw(CONFIG);
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap qw(CONFIG);
 
 =head1 DESCRIPTION
 
 This is a module needed to provide configuration for the
-Chipotle RunnableDBs.
+TileMap RunnableDBs.
 
-BLAST_CONFIG is an hash of hashes which contains analysis specific
+CHIPOTLE_CONFIG is an hash of hashes which contains analysis specific
 settings and is keyed on logic_name
 
 =head1 AUTHOR
@@ -32,36 +32,36 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
+package Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap;
 
 use strict;
 use vars qw(%Config);
 
 %Config = 
     (
-     CHIPOTLE_CONFIG => {
+     TILEMAP_CONFIG => {
          DEFAULT => {
-             PROGRAM           => $ENV{CH_PROGRAM},
-             PROGRAM_FILE      => $ENV{CH_PROGRAM_FILE},
-             VERSION           => $ENV{CH_VERSION},
-             PARAMETERS        => $ENV{CH_PARAMETERS},
+             PROGRAM           => $ENV{TM_PROGRAM},
+             PROGRAM_FILE      => $ENV{TM_PROGRAM_FILE},
+             VERSION           => $ENV{TM_VERSION},
+             PARAMETERS        => $ENV{TM_PARAMETERS},
              EXPERIMENT        => $ENV{EXPERIMENT},
              NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
              RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
              DATASET_NAME      => $ENV{DATASET_NAME},
              ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
          },
-#         CHIPOTLE => {
-#             PROGRAM           => $ENV{CH_PROGRAM},
-#             PROGRAM_FILE      => $ENV{CH_PROGRAM_FILE},
-#             VERSION           => $ENV{CH_VERSION},
-#             PARAMETERS        => $ENV{CH_PARAMETERS},
+#         TILEMAP => {
+#             PROGRAM           => $ENV{TM_PROGRAM},
+#             PROGRAM_FILE      => $ENV{TM_PROGRAM_FILE},
+#             VERSION           => $ENV{TM_VERSION},
+#             PARAMETERS        => $ENV{TM_PARAMETERS},
 #             EXPERIMENT        => $ENV{EXPERIMENT},
 #             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
 #             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
 #             DATASET_NAME      => $ENV{DATASET_NAME},
 #             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
-#         }
+         }
      });
 
 sub import {
