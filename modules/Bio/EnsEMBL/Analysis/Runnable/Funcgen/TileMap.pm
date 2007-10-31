@@ -105,83 +105,116 @@ sub run_analysis {
 
 =cut
 
-sub write_infile {
+    sub write_infile {
 
-    my ($self, $filename) = @_;
+        my ($self, $filename) = @_;
 
-    if (! $filename) {
-        $filename = $self->infile();
-    }
-    
-    open(F, ">".$filename)
-        or throw("Can't open file $filename.");
-	print F join("\t", 'chromosome', 'position', 'array ids'), "\n";
-    #print Dumper $self->result_features;
-    foreach (values %{$self->result_features}) {
-        foreach my $ft (@$_) {
-            #print join("\t", (@$ft)[0..1,3]), "\n";
-            print F join("\t", (@$ft)[0..1,3]), "\n";
+        if (! $filename) {
+            $filename = $self->infile();
         }
-    }
-    close F;
 
-	# write config and cmpinfo files from templates
-	(my $project = $filename) =~ s,.+/(.+)\.dat,$1,;
+        warn("IMPLEMENT REPLICATE HANDLING HERE.");
+        
+        open(F, ">".$filename)
+            or throw("Can't open file $filename.");
+        print F join("\t", 'chromosome', 'position', 'array ids'), "\n";
 
-	my $workdir = $self->workdir;
+        #print Dumper $self->result_features;
+        
+        my $nof = $#{(values %{$self->result_features})[0]};
+        warn('no. of result fts: ', $nof);
 
-	my $config_template = $self->analysis->parameters();
-	#print Dumper $config_template;
+        for (my $i=0; $i<=$nof; $i++) {
+            my $coord=0;
+            foreach my $rset (values %{$self->result_features}) {
+                print F join("\t", ${$rset}[$i][0], ${$rset}[$i][1]) unless ($coord);
+                $coord=1;    
+                print F "\t".${$rset}[$i][3];
+            }
+            print F "\n";
+        }
+        close F;
 
-	my $config = $workdir.'/'.$project.'_args.txt';
-	#print Dumper $config;
-	$self->config_file($config);
+        # write config and cmpinfo files from templates
+        (my $project = $filename) =~ s,.+/(.+)\.dat,$1,;
 
-	open(IN, $config_template)
-		or throw("Can't open config file $config_template");
+        my $workdir = $self->workdir;
 
-	open(OUT, ">$config")
-		or throw("Can't open config file $config");
+        my $config_template = $self->analysis->parameters();
+        #print Dumper $config_template;
 
-	map { 
-		s,^(O.1-.+=).+$,$1 $workdir,;     #[Working directory]
-		s,^(O.2-.+=).+$,$1 $project,;     #[Project Title]
-		s,^(I.2-.+=).+$,$1 $project.dat,; #[Raw data file]
-		s,^(I.3-.+=).+$,$1 2,;            #[Range of test-statistics] (0: default; 1: [0,1], 2: (-inf, +inf))
-		s,^(II.1-.+=).+$,$1 0,;           #[Apply local repeat filter?] (0:No; 1:Yes)
-		s,^(II.2-.+=).+$,$1 NULL,;        #[*.refmask file]
-		s,^(III.2-.+=).+$,$1 0,;          #[Method to combine neighboring probes] (0:HMM, 1:MA)
-        s,^(IV.1-.+=).+$,$1 0.15,;         #[Posterior probability >]
-        s,^(IV.2-.+=).+$,$1 250,;         #[Maximal gap allowed]
-		s,^(IV.4-.+=).+$,$1 1,;           #[Provide your own selection statistics?] (0: No, use default; 1: Yes)
-		s,^(IV.5-.+=).+$,$1 ${project}_f_pb.sum,; #[If Yes to IV.4, selection statistics file]
-        s,^(IV.10-.+=).+$,$1 5,;         #[Expected hybridization length]
-		print OUT;
-	} <IN>;
+        my $config = $workdir.'/'.$project.'_args.txt';
+        #print Dumper $config;
+        $self->config_file($config);
 
-	close IN;
-	close OUT;
+        open(IN, $config_template)
+            or throw("Can't open config file $config_template");
 
-    
-	(my $cmpinfo_template = $config_template) =~ s,_tilemap_arg.txt,.cmpinfo,;
-	#print Dumper $cmpinfo_template;
-	my $cmpinfo = $self->workdir.'/'.$project.'.cmpinfo';
-	system("cp $cmpinfo_template $cmpinfo");
+        open(OUT, ">$config")
+            or throw("Can't open config file $config");
 
-	# UCSC *.bed file to report significant regions. 
-	# Regions are sorted according to their genomic locations.
-	my $results = $self->workdir.'/'.$project.'_hmm.bed';
-	# tab-delimited file to report significant regions. Regions 
-	# are ranked according to their significance levels.
-	#my $results = $self->workdir.'/'.$project.'_hmm.reg';
-	$self->resultsfile($results);
+        map { 
+            s,^(O.1-.+=).+$,$1 $workdir,;     #[Working directory]
+            s,^(O.2-.+=).+$,$1 $project,;     #[Project Title]
+            s,^(I.2-.+=).+$,$1 $project.dat,; #[Raw data file]
+            s,^(I.3-.+=).+$,$1 2,;            #[Range of test-statistics] (0: default; 1: [0,1], 2: (-inf, +inf))
+            s,^(II.1-.+=).+$,$1 0,;           #[Apply local repeat filter?] (0:No; 1:Yes)
+            s,^(II.2-.+=).+$,$1 NULL,;        #[*.refmask file]
+            s,^(III.2-.+=).+$,$1 0,;          #[Method to combine neighboring probes] (0:HMM, 1:MA)
+            s,^(IV.1-.+=).+$,$1 0.5,;         #[Posterior probability >]
+            s,^(IV.2-.+=).+$,$1 250,;         #[Maximal gap allowed]
+            s,^(IV.4-.+=).+$,$1 0,;           #[Provide your own selection statistics?] (0: No, use default; 1: Yes)
+            s,^(IV.5-.+=).+$,$1 NULL;         #[If Yes to IV.4, selection statistics file]
+            s,^(IV.10-.+=).+$,$1 5,;          #[Expected hybridization length]
+            print OUT;
+        } <IN>;
 
-    # set columns (fields) for output
-    my @fields = (0..2,4); # bed
-    #my @fields = (0..2,6); # reg
-    $self->output_fields(\@fields);
+        close IN;
+        close OUT;
+        
+        warn("Cmpinfo file HERE");
 
-    return $filename;
+        (my $cmpinfo_template = $config_template) =~ s,_tilemap_arg.txt,.cmpinfo,;
+        #print Dumper $cmpinfo_template;
+        my $cmpinfo = $self->workdir.'/'.$project.'.cmpinfo';
+
+        open(IN, $cmpinfo_template)
+            or throw("Can't open config file $cmpinfo_template");
+
+        open(OUT, ">$cmpinfo")
+            or throw("Can't open cmpinfo file $cmpinfo");
+
+        my $noa = scalar(keys %{$self->result_features});
+        my $groups = join(' ', split('', sprintf('1' x ($noa-1))));
+        print Dumper $groups;
+        map { 
+            s,^(\[Array number\].+=).+$,$1 $noa,;
+            s,^(\[Group number\].+=).+$,$1 2,;
+            s,^1 1 1 2 2 2 3 3 3 1 1 1 2 2 2 3 3 3,$groups 2,;
+            s,^\(1>2\) & \(1>3\),(1>2),;
+            s,^1 2 3,1 2,;
+            print OUT;
+       } <IN>;
+
+        close IN;
+        close OUT;
+        
+        #system("cp $cmpinfo_template $cmpinfo");
+
+        # UCSC *.bed file to report significant regions. 
+        # Regions are sorted according to their genomic locations.
+        my $results = $self->workdir.'/'.$project.'_hmm.bed';
+        # tab-delimited file to report significant regions. Regions 
+        # are ranked according to their significance levels.
+        #my $results = $self->workdir.'/'.$project.'_hmm.reg';
+        $self->resultsfile($results);
+
+        # set columns (fields) for output
+        my @fields = (0..2,4); # bed
+        #my @fields = (0..2,6); # reg
+        $self->output_fields(\@fields);
+
+        return $filename;
 
 }
 
