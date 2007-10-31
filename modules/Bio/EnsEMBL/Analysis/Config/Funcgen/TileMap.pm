@@ -41,26 +41,26 @@ use vars qw(%Config);
     (
      TILEMAP_CONFIG => {
          DEFAULT => {
-			 PROGRAM           => $ENV{TM_PROGRAM},
+             PROGRAM           => $ENV{TM_PROGRAM},
              PROGRAM_FILE      => $ENV{TM_PROGRAM_FILE},
              VERSION           => $ENV{TM_VERSION},
              PARAMETERS        => $ENV{TM_PARAMETERS},
-			 EXPERIMENT        => $ENV{EXPERIMENT},
-			 NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
+             EXPERIMENT        => $ENV{EXPERIMENT},
+             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
              RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-			 DATASET_NAME      => $ENV{DATASET_NAME},
-			 ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
+             DATASET_NAME      => $ENV{DATASET_NAME},
+             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
          },
          TILEMAP => {
-			 PROGRAM           => $ENV{TM_PROGRAM},
+             PROGRAM           => $ENV{TM_PROGRAM},
              PROGRAM_FILE      => $ENV{TM_PROGRAM_FILE},
              VERSION           => $ENV{TM_VERSION},
              PARAMETERS        => $ENV{TM_PARAMETERS},
-			 EXPERIMENT        => $ENV{EXPERIMENT},
-			 NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
+             EXPERIMENT        => $ENV{EXPERIMENT},
+             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
              RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-			 DATASET_NAME      => $ENV{DATASET_NAME},
-			 ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
+             DATASET_NAME      => $ENV{DATASET_NAME},
+             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
          }
      });
 
