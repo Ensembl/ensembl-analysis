@@ -78,6 +78,7 @@ sub new {
 =cut
 
 sub run {
+    print "Bio::EnsEMBL::Analysis::Runnable::Funcgen::run\n";
     my ($self, $dir) = @_;
   
     #print Dumper $self->options;
@@ -86,9 +87,10 @@ sub run {
         unless($self->result_features);
     #print Dumper $self->probe_features;
    
-    $self->workdir($dir) if ($dir);
+    #$self->workdir($dir) if ($dir);
+    $self->workdir($ENV{ANALYSIS_WORK_DIR});
     $self->checkdir();
-    #print "work dir ".$self->workdir()." checked\n";
+    print "work dir ".$self->workdir()." checked\n";
     
     my $infile = $self->write_infile();
     #print Dumper $infile;
