@@ -1,11 +1,11 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle
+# Ensembl module for Bio::EnsEMBL::Analysis::Config::Funcgen::Nessie
 #
 # Copyright (c) 2007 Ensembl
 #
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle
+  Bio::EnsEMBL::Analysis::Config::Funcgen::Nessie
 
 =head1 SYNOPSIS
 
@@ -16,7 +16,7 @@
 =head1 DESCRIPTION
 
 This is a module needed to provide configuration for the
-Chipotle RunnableDBs.
+Nessie RunnableDBs.
 
 NESSIE_CONFIG is an hash of hashes which contains analysis specific
 settings and is keyed on logic_name
@@ -32,32 +32,25 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
+package Bio::EnsEMBL::Analysis::Config::Funcgen::Nessie;
 
 use strict;
 use vars qw(%Config);
 
 %Config = 
     (
-     CHIPOTLE_CONFIG => {
+     NESSIE_CONFIG => {
          DEFAULT => {
-             PROGRAM        => 'Chipotle',
-             PROGRAM_FILE   => 'chipotle.pl',
-             VERSION => '1.03',
-             PARAMETERS     => 
-                 ' --model gauss'.
-                 ' --window 990'.
-                 ' --step 198'.
-                 ' --correction BH'.
-                 ' --alpha 0.05',
-                 #' --dolog2 '.
-                 #' --transform 0'
-             RESULT_SET_REGEX => '_IMPORT'
+             PROGRAM           => $ENV{NE_PROGRAM},
+             PROGRAM_FILE      => $ENV{NE_PROGRAM_FILE},
+             VERSION           => $ENV{NE_VERSION},
+             PARAMETERS        => $ENV{NE_PARAMETERS},
+             EXPERIMENT        => $ENV{EXPERIMENT},
+             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
+             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
+             DATASET_NAME      => $ENV{DATASET_NAME},
+             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
          },
-         CHIPOTLE => {
-             VERSION => '1.03',
-             RESULT_SET_REGEX => '_IMPORT',
-         }
      });
 
 sub import {
