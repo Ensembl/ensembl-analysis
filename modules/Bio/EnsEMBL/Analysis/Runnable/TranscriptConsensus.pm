@@ -419,6 +419,22 @@ sub make_genes{
       # dont need to mess with translations if I am not adding UTR...
       my $newtranslation = clone_Translation($similarity_tran,$transcript);
       $transcript->translation($newtranslation);
+      # fix phases
+      my @exon_array = @{$transcript->get_all_Exons};
+      my @similarity_exons = sort { $a->start <=> $b->start } @{$similarity_tran->get_all_Exons};
+      for ( my $i = 0 ; $i < scalar(@exon_array) ; $i ++ ){
+	# check for overlaps 
+	my $exon = $exon_array[$i];
+	foreach my $se (@similarity_exons){
+	  # set coding exons to have same phase as similarity exons
+	  if ($exon->start == $se->start){
+	    $exon->phase($se->phase);
+	  }
+	  if ( $exon->end == $se->end ){
+	    $exon->end_phase($se->end_phase);
+	  }
+	}
+      }
     }
 	
     # penalise transcripts where a utr exon overlaps another exon that was previously coding
