@@ -211,9 +211,11 @@ sub read_and_check_config {
          -displayable => 1
          );
 
-    #print Dumper ($self->PARAMETERS, $self->analysis->parameters);
+    #print Dumper ($self->PROGRAM, $self->analysis->program);
     #print Dumper ($self->PROGRAM_FILE, $self->analysis->program_file);
-
+    #print Dumper ($self->VERSION, $self->analysis->program_version);
+    #print Dumper ($self->PARAMETERS, $self->analysis->parameters);
+    
     if (defined $self->analysis->dbID) {
         
         ### analysis compare
@@ -264,10 +266,7 @@ sub read_and_check_config {
         if (keys(%ctype) > 1);
     $self->cell_type($ctype);
 
-
-
     ### check that result_set, data_set, feature_set are storable
-
 
     my @rsets = ();
     #print Dumper( $self->experiment->name, $self->RESULT_SET_REGEXP);
@@ -276,6 +275,7 @@ sub read_and_check_config {
     # this one is veeeery slow ... (?)
     foreach my $rset (@{$self->ResultSetAdaptor->fetch_all_by_Experiment_Analysis
                             ($self->experiment, $self->norm_analysis)}) {
+        #warn($rset->name);
         push (@rsets, $rset) if ($rset->name =~ /$regexp/);
     }
     $self->ResultSets(\@rsets);
@@ -545,7 +545,7 @@ sub fetch_input {
 
     }
     
-	#print Dumper %result_features;
+    #print Dumper %result_features;
     
     #$self->result_features(\%features);
     #print Dumper $self->result_features();
@@ -566,51 +566,6 @@ sub fetch_input {
 
 }
 
-#sub fetch_input_alt {
-#    my ($self) = @_;
-#    my $pfa = $self->db->get_ProbeFeatureAdaptor();
-#    my @features = ();
-#    #print "result_set dbID: ", $rset->dbID(), "\n";
-#    my $prb_ft = $pfa->fetch_all_by_Slice_ExperimentalChips
-#        ( $self->query(), $rset->get_ExperimentalChips() );
-#    #print Dumper $prb_ft;
-#    #print "Getting list of features ";
-#    foreach my $ft (@{$prb_ft}) {
-#        next if (! defined $ft->get_result_by_ResultSet($rset));
-#        #print join(' ', $ft->dbID(), $ft->start(), $ft->end()), "\n";
-#        push @features, [ $ft->probe->get_probename(), 
-#                          $ft->slice()->seq_region_name(),
-#                          $ft->start(),
-#                          $ft->end(), 
-#                          $ft->get_result_by_ResultSet($rset) ];
-#        #print ".";
-#    }
-#    #print "done!\n";
-#    
-#    throw("EXIT: No probe results features for result set!") if (! @features);
-#    warn("No. of features:\t", scalar(@features));
-#
-#    my %features = ();
-#    $features{$rset->name()} = \@features;
-#    $self->probe_features(\%features);
-#
-#    # set program options defined in Config
-#    my %parameters = %{$self->parameters_hash($self->OPTIONS)};
-#    #print Dumper %parameters;
-#
-#    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.$self->LOGIC_NAME;
-#    $runnable = $runnable->new
-#        (
-#         -query => $self->query,
-#         -program => $self->analysis->program_file,
-#         -analysis => $self->analysis,
-#         -features => $self->probe_features,
-#         %parameters,
-#         );
-#    
-#    $self->runnable($runnable);
-#    return 1;
-#}
 
 =head2 write_output
 
@@ -663,7 +618,8 @@ sub write_output{
 	my $af = $self->AnnotatedFeatureAdaptor->fetch_all_by_Slice_FeatureSet
 		($slice, $fset, $self->analysis->logic_name);
 	
-	print 'No. of annotated features already stored: '.scalar(@$af)."\n";
+    print 'No. of annotated features already stored: '.scalar(@$af)."\n";
+    print 'No. of annotated features to be stored: '.scalar(@{$self->output})."\n";
 
     if (@$af) {
         
@@ -676,21 +632,21 @@ sub write_output{
         my @af;
         foreach my $ft (@{$self->output}){
             
-			#print Dumper $ft;
+            #print Dumper $ft;
             my ($seqid, $start, $end, $score) = @{$ft};
             
-			#print Dumper ($seqid, $start, $end, $score);
-			my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
+            #print Dumper ($seqid, $start, $end, $score);
+            my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
                 (
                  -slice         => $self->query,
                  -start         => $start,
                  -end           => $end,
                  -strand        => 0,
-				 -display_label => $self->analysis->logic_name,
+                 -display_label => $self->analysis->logic_name,
                  -score         => $score,
                  -feature_set   => $fset,
                  );
-
+            
             # make sure feature coords are relative to start of entire seq_region
             if ($transfer) {
                 #warn("original af:\t", join("\t", $af->start, $af->end), "\n");
