@@ -78,6 +78,8 @@ sub run_analysis {
     
     my $command = $self->program.' --data="'.$self->infile().'" '.
         $self->analysis->parameters. ' > '.$outfile;
+
+    print Dumper $command;
     
     warn("Running analysis " . $command . "\n");
     eval { system($command) };
@@ -116,7 +118,7 @@ sub write_infile {
     }
 
 
-    foreach my $rset_name (sort keys %{$self->probe_features})
+    foreach my $rset_name (sort keys %{$self->result_features})
     {
 
         (my $datafile = $filename) =~ s,\.dat,.$rset_name.dat,;
@@ -124,9 +126,9 @@ sub write_infile {
         open(F, ">".$datafile)
             or throw("Can't open file $datafile.");
 
-        foreach (keys %{$self->probe_features}) {
+        foreach (keys %{$self->result_features}) {
             next unless ($datafile =~ m/$_/);
-            foreach my $ft (@{$self->probe_features->{$_}}) {
+            foreach my $ft (@{$self->result_features->{$_}}) {
                 #print join("\t", @$ft), "\n";
                 print F join("\t", @$ft), "\n";
             }
