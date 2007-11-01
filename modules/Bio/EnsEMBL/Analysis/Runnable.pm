@@ -643,7 +643,7 @@ sub checkdir{
   Arg [2]   : string, directory
   Arg [3]   : int, space limit
   Function  : checks how much space is availible in the specified 
-  directory using df -k
+  directory using df -kP 
   Returntype: int, binary toggle, returns 0 if not enough space, 1 if 
   there is
   Exceptions: opens DF using a pipe throws if failed to open or close
@@ -658,7 +658,7 @@ sub diskspace {
   my $block_size; #could be used where block size != 512 ?
   my $Gb = 1024 ** 3;
 
-  open DF, "df -k $dir |" || throw("FAILED to open 'df' pipe ".
+  open DF, "df -kP $dir |" || throw("FAILED to open 'df' pipe ".
                                    "Runnable::diskspace : $!\n");
   my $count = 0;
   my $status = 1;
