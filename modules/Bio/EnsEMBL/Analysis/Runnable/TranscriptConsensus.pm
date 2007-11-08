@@ -42,7 +42,8 @@ use Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (count_non_canonical_splice_sites) ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (count_non_canonical_splice_sites are_phases_consistent Transcript_info) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw ( clone_Evidence );
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw( clone_Translation );
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
@@ -72,13 +73,21 @@ sub run {
 
   my @allgenes = @{ $self->get_genes_by_evidence_set('simgw') }  ;
   push @allgenes , @{ $self->get_genes_by_evidence_set('est') }  ;
-
-  if ($FILTER_SINGLETONS or   $FILTER_NON_CONSENSUS){
-    @allgenes = @{$self->filter_genes(\@allgenes)};
-  }
   
-  my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
+  if ($FILTER_SINGLETONS or   $FILTER_NON_CONSENSUS){
+    #@allgenes = @{$self->filter_genes(\@allgenes)};
+    my @tmp;
+    my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
+    foreach my $cluster(@$clusters, @$non_clusters){
+      my @genes = $cluster->get_Genes;
+      @genes = @{$self->filter_genes(\@genes)};
+      push(@tmp, @genes);
+    }
+    @allgenes = @tmp;
+  }
 
+  my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
+  
   # create a hash of genes by strand to use when looking for overlapping genes
   # useful to look at ALL genes not just those in the cluster to prevent cluster joining
   foreach my $gene (@allgenes){
@@ -86,13 +95,18 @@ sub run {
   }
 
   push @$clusters, @$non_clusters if (scalar(@$non_clusters) > 0 ) ;
-
+  my $found;
   $count = 0;
   foreach my $cluster (@$clusters){
     my $simgw;
     # cluster has to contain at least one similarity gene to be worth continuing with
+    my @genes = $cluster->get_Genes;
+    #foreach my $gene(@genes){
+     # my $new_gene = $gene->transform("toplevel");
+     # print Gene_info($new_gene)."\n"; #if($gene->start == 6633986 && $gene->end == 6649904);
+    #}
     next unless $cluster->get_Genes_by_Set('simgw');
-
+    
     print "\nCluster $count\n" if $VERBOSE;
     print $cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $VERBOSE;
     $count++;
@@ -464,8 +478,9 @@ sub make_genes{
       my $biotype = $BAD_BIOTYPE;
       # how about if we include the top 5% of the gene scores
       if ($GOOD_PERCENT){
-	if (($transcript->score - $bottom_score )/( $top_score - $bottom_score) * 100 
-	    >= 100 - $GOOD_PERCENT){
+        my $top = ($transcript->score - $bottom_score );
+        my $bottom = ($top_score - $bottom_score);
+	if ($bottom && (($top/$bottom) * 100 >= 100 - $GOOD_PERCENT)){
 	  $biotype = $GOOD_BIOTYPE;
 	}
       } else {
@@ -477,6 +492,12 @@ sub make_genes{
       $biotype = $SMALL_BIOTYPE if (scalar(@genes) < $MIN_CONSENSUS);
       $gene->biotype($biotype);
       push @final_genes, $gene if $biotype;
+    }
+  }
+  foreach my $final(@final_genes){
+    foreach my $transcript(@{$final->get_all_Transcripts}){
+      throw(Transcript_info($transcript)." has inconsistent phases") 
+        unless(are_phases_consistent($transcript));
     }
   }
   $self->output(\@final_genes);
@@ -741,6 +762,8 @@ sub transcript_from_exons {
 
 sub filter_genes {
   my ( $self, $genes) = @_;
+  #print "FILTERING TRANSCRIPTS\n";
+  #print "Have ".@$genes." genes to filter\n";
   my @genes_to_filter;
   my %singletons;
   my %non_con;
