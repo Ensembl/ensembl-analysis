@@ -108,7 +108,8 @@ use vars qw (@ISA @EXPORT);
              identical_Transcripts
              set_start_codon
              set_stop_codon
-             convert_translateable_exons_to_exon_extended_objects 
+             convert_translateable_exons_to_exon_extended_objects
+             is_Transcript_sane
             );
 
 
@@ -617,8 +618,9 @@ sub low_complexity_less_than_maximum{
   my $low_complexity = $seg->get_low_complexity_length;
   logger_info(id($transcript)." has ".$low_complexity.
               " low complexity sequence");
-  print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
-    " ".$complexity_threshold."\n";
+  #print_peptide($transcript);
+  #print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
+  #  " ".$complexity_threshold."\n";
   if($low_complexity >= $complexity_threshold){
     warning(id($transcript)."'s low ".
             "complexity (".$low_complexity.") is above ".
@@ -2333,6 +2335,36 @@ sub set_stop_codon{
     logger_info("There is no downstream exon - and no stop codon beyond the last exon - not modifying");
     return $cloned_transcript;
   }
+}
+
+
+
+
+=head2 is_Transcript_sane
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : checks some simple facts about a transcript structure to ensure
+  its sane
+  Returntype: boolean 
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+sub is_Transcript_sane{
+  my ($transcript) = @_;
+  #exon coord sanity
+  my $sane = 1;
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    if($exon->start > $exon->end){
+      $sane = 0;
+    }
+  }
+  $sane = 0 unless(are_strands_consistent($transcript));
+  $sane = 0 unless(are_phases_consistent($transcript));
+  $sane = 0 unless(is_not_folded($transcript));
+  return $sane;
 }
 
 1;
