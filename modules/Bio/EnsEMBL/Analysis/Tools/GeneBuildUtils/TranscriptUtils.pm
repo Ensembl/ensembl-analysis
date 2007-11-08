@@ -2077,7 +2077,7 @@ sub set_start_codon{
 	$cloned_transcript->start_Exon->end_phase($current_start_exon_endphase);
       }
 
-      $cloned_transcript->recalculate_coordinate;
+      $cloned_transcript->recalculate_coordinates;
 	return $cloned_transcript;
     }
   }
