@@ -1,15 +1,15 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Chipotle
+# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::ACME
 #
 # Copyright (c) 2007 Ensembl
 #
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle
+Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::ACME
 
 =head1 SYNOPSIS
 
-  my $runnable = Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle->new
+  my $runnable = Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::ACME->new
      (
          -db       => $db,
          -input_id => 'chromosome::20:1:100000:1',
@@ -21,8 +21,9 @@ Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle
 
 =head1 DESCRIPTION
 
-This module provides an interface between the ensembl database and
-the Runnable Chipotle which wraps the program ChIPoTle
+This module provides an interface between the ensembl functional genomics 
+database and the Runnable ACME which wraps the R package ACME (for Algorithm 
+for Capturing Microarray Enrichment).
 
 =head1 AUTHOR
 
@@ -34,7 +35,7 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle;
+package Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::ACME;
 
 use strict;
 use warnings;
@@ -42,24 +43,22 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::Funcgen;
-use Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle;
+use Bio::EnsEMBL::Analysis::Runnable::Funcgen::ACME;
 
 use Bio::EnsEMBL::Analysis::Config::General;
-use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
+use Bio::EnsEMBL::Analysis::Config::Funcgen::ACME;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use vars qw(@ISA); 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Funcgen);
 
-
-
 =head2 new
 
   Arg [1]     : 
   Arg [2]     : 
-  Description : Instantiates new Chipotle runnabledb
-  Returntype  : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle object
+  Description : Instantiates new ACME runnabledb
+  Returntype  : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::ACME object
   Exceptions  : 
   Example     : 
 
@@ -67,14 +66,14 @@ use vars qw(@ISA);
 
 sub new {
 
-    #print "Chipotle::new\n";
+    #print "ACME::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
-    
+
     $self->read_and_check_config($CONFIG);
 
-    #print Dumper $self;
     return $self;
+	
 }
 
 1;

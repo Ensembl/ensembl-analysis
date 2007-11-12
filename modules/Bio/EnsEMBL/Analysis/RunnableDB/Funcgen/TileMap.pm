@@ -9,29 +9,29 @@ Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::TileMap
 
 =head1 SYNOPSIS
 
-  my $chipotle = Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::TileMap->new
+  my $runnable = Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::TileMap->new
      (
-        -input_id => 'chromosome::20:1:100000:1',
-        
+         -db       => $db,
+         -input_id => 'chromosome::20:1:100000:1',
+         -analysis => $analysis,
      );
-  $chipotle->fetch_input;
-  $chipotle->run;
-  $chipotle->write_output;
+  $runnable->fetch_input;
+  $runnable->run;
+  $runnable->write_output;
 
 =head1 DESCRIPTION
 
 This module provides an interface between the ensembl database and
-the Runnable TileMap which wraps the program ChIPoTle
+the Runnable TileMap which wraps the program TileMap
 
-This module can fetch appropriate input from the database
-pass it to the runnable then write the results back to the database
-in the predicted_feature table with respect to the resut_set, data_set 
-and feature_set table
+=head1 LICENCE
+
+This code is distributed under an Apache style licence. Please see
+http://www.ensembl.org/info/about/code_licence.html for details.
 
 =head1 AUTHOR
 
-This module was created by Stefan Graf. It is part of the 
-Ensembl project: http://www.ensembl.org/
+Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org
 
 =head1 CONTACT
 
@@ -72,36 +72,14 @@ use vars qw(@ISA);
 
 sub new {
 
-    #print "TileMap::new\n";
+    print "Analysis::RunnableDB::Funcgen::TileMap::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    $self->read_and_check_config($TILEMAP_CONFIG);
+    $self->read_and_check_config($CONFIG);
 
     return $self;
 	
-}
-
-sub fetch_ResultSets
-{
-    my $self = shift;
-
-    my $rsa = $self->db->get_ResultSetAdaptor();
-    my $rsets = $rsa->fetch_all_by_Experiment_Analysis
-        ($self->experiment, $self->norm_analysis);
-    print Dumper ($self->experiment->name, $self->analysis->logic_name);
-    print "No. of available ResultSets: ", scalar(@$rsets), "\n";
-
-    my @rsets = ();
-    my $regex = $self->RESULT_SET_REGEXP;
-    foreach my $rset (@{$rsets}) {
-        #print Dumper $rset->name();
-        next if ($rset->name() !~ m/$regex$/);
-        push(@rsets, $rset);
-    }
-
-    return \@rsets;;
-
 }
 
 1;

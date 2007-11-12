@@ -11,13 +11,17 @@ Bio::EnsEMBL::Analysis::RunnableDB::Fungen
 =head1 DESCRIPTION
 
 This module is the base class for the Fungen Runnabledbs that act as an 
-interface between the function genomics database and the Funcgen Runnables 
+interface between the functional genomics database and the Funcgen Runnables 
 both fetching input data and writing data back to the databases.
+
+=head1 LICENCE
+
+This code is distributed under an Apache style licence. Please see
+http://www.ensembl.org/info/about/code_licence.html for details.
 
 =head1 AUTHOR
 
-This module was created by Stefan Graf. It is part of the 
-Ensembl project: http://www.ensembl.org/
+Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org
 
 =head1 CONTACT
 
@@ -63,7 +67,7 @@ sub new{
     my $self = $class->SUPER::new(@args);
     
     #warn( Dumper($self->input_id) );
-    my $slice = $self->SliceAdaptor()->fetch_by_name($self->input_id);
+    my $slice = $self->adaptor('Slice')->fetch_by_name($self->input_id);
     #print Dumper $slice;
     throw("Can't fetch slice ".$self->input_id) if (!$slice);
     $self->query($slice);
@@ -74,53 +78,17 @@ sub new{
 
 ### 
 
-sub SliceAdaptor {
-    my ($self) = shift;
-    $self->{'SliceAdaptor'} = $self->db->get_SliceAdaptor
-		if (! $self->{'SliceAdaptor'} );
-    throw("No SliceAdaptor in RunnableDB.") 
-        if (!$self->{'SliceAdaptor'});
-    return $self->{'SliceAdaptor'};
-}
-sub AnalysisAdaptor {
-    my ($self) = shift;
-    $self->{'AnalysisAdaptor'} = $self->db->get_AnalysisAdaptor
-		if (! $self->{'AnalysisAdaptor'} );
-    throw("No AnalysisAdaptor in RunnableDB.") 
-        if (!$self->{'AnalysisAdaptor'});
-    return $self->{'AnalysisAdaptor'};
-}
-sub ResultSetAdaptor {
-    my ($self) = shift;
-    $self->{'ResultSetAdaptor'} = $self->db->get_ResultSetAdaptor
-		if (! $self->{'ResultSetAdaptor'} );
-    throw("No ResultSetAdaptor in RunnableDB.") 
-        if (!$self->{'ResultSetAdaptor'});
-    return $self->{'ResultSetAdaptor'};
-}
-sub DataSetAdaptor {
-    my ($self) = shift;
-    $self->{'DataSetAdaptor'} = $self->db->get_DataSetAdaptor
-		if (! $self->{'DataSetAdaptor'} );
-    throw("No DataSetAdaptor in RunnableDB.") 
-        if (!$self->{'DataSetAdaptor'});
-    return $self->{'DataSetAdaptor'};
-}
-sub FeatureSetAdaptor {
-    my ($self) = shift;
-    $self->{'FeatureSetAdaptor'} = $self->db->get_FeatureSetAdaptor
-		if (! $self->{'FeatureSetAdaptor'} );
-    throw("No FeatureSetAdaptor in RunnableDB.") 
-        if (!$self->{'FeatureSetAdaptor'});
-    return $self->{'FeatureSetAdaptor'};
-}
-sub AnnotatedFeatureAdaptor {
-    my ($self) = shift;
-    $self->{'AnnotatedFeatureAdaptor'} = $self->db->get_AnnotatedFeatureAdaptor
-		if (! $self->{'AnnotatedFeatureAdaptor'} );
-    throw("No AnnotatedFeatureAdaptor in RunnableDB.") 
-        if (!$self->{'AnnotatedFeatureAdaptor'});
-    return $self->{'AnnotatedFeatureAdaptor'};
+# generic ensembl db adapter method
+sub adaptor {
+    my ($self, $name) = @_;
+	my $adaptor = $name.'Adaptor';
+	my $method = 'get_'.$adaptor;
+
+    $self->{$adaptor} = $self->db->$method
+		if (! $self->{$adaptor} );
+    throw("No ".$adaptor."Adaptor in RunnableDB.") 
+        if (!$self->{$adaptor});
+    return $self->{$adaptor};
 }
 
 sub experiment {
@@ -135,30 +103,6 @@ sub norm_analysis {
     return $self->{'norm_analysis'};
 }
 
-sub DataSet {
-    my ($self, $rsets) = @_;
-    $self->{'DataSet'} = $rsets if ($rsets);
-    throw("No DataSet in RunnableDB.") 
-        if (!$self->{'DataSet'});
-    return $self->{'DataSet'};
-}
-
-sub FeatureSet {
-    my ($self, $rsets) = @_;
-    $self->{'FeatureSet'} = $rsets if ($rsets);
-    throw("No FeatureSet in RunnableDB.") 
-        if (!$self->{'FeatureSet'});
-    return $self->{'FeatureSet'};
-}
-
-sub ResultSets {
-    my ($self, $rsets) = @_;
-    $self->{'ResultSets'} = $rsets if ($rsets);
-    throw("No ResultSets in RunnableDB.") 
-        if (!$self->{'ResultSets'});
-    return $self->{'ResultSets'};
-}
-
 sub feature_type {
     my $self = shift;
     $self->{'feature_type'} = shift if(@_);
@@ -171,19 +115,45 @@ sub cell_type {
     return $self->{'cell_type'};
 }
 
+sub DataSet {
+    my ($self, $set) = @_;
+    $self->{'DataSet'} = $set if ($set);
+    throw("No DataSet in RunnableDB.") 
+        if (!$self->{'DataSet'});
+    return $self->{'DataSet'};
+}
+
+sub FeatureSet {
+    my ($self, $set) = @_;
+    $self->{'FeatureSet'} = $set if ($set);
+    throw("No FeatureSet in RunnableDB.") 
+        if (!$self->{'FeatureSet'});
+    return $self->{'FeatureSet'};
+}
+
+sub ResultSets {
+    my ($self, $sets) = @_;
+    $self->{'ResultSets'} = $sets if ($sets);
+    throw("No ResultSets in RunnableDB.") 
+        if (!$self->{'ResultSets'});
+    return $self->{'ResultSets'};
+}
+
 ################################################################################
 ### Declare and set up config variables
 ################################################################################
 
 sub read_and_check_config {
 
-    #print "FunGen::read_and_check_config\n";
+    print "Analysis::RunnableDB::Funcgen::read_and_check_config\n";
 
     my ($self, $config) = @_;
 
+	#print Dumper $config;
+
     $self->SUPER::read_and_check_config($config);
 
-    # get/set experimnent
+    # get/set experiment
     my $ea = $self->db->get_ExperimentAdaptor();
     my $e = $ea->fetch_by_name($self->EXPERIMENT);
     throw("Can't fetch experiment with name ".$self->EXPERIMENT) if (!$e);
@@ -191,7 +161,7 @@ sub read_and_check_config {
 
     # get/set norm_analysis
     #print Dumper $ENV{NORM_ANALYSIS};
-    my $a = $self->AnalysisAdaptor()->fetch_by_logic_name($self->NORM_ANALYSIS);
+    my $a = $self->adaptor('Analysis')->fetch_by_logic_name($self->NORM_ANALYSIS);
     throw("Can't fetch result set analysis ".$self->NORM_ANALYSIS) if (!$a);
     $self->norm_analysis($a);
 
@@ -231,58 +201,18 @@ sub read_and_check_config {
 
         warn("New Analysis with logic name $logic_name.");
         #print Dumper $analysis;
-        my $dbID = $self->AnalysisAdaptor->store($analysis);
-        $self->analysis($self->AnalysisAdaptor->fetch_by_dbID($dbID));
+        my $dbID = $self->adaptor('Analysis')->store($analysis);
+        $self->analysis($self->adaptor('Analysis')->fetch_by_dbID($dbID));
 
     }
 
-    ### check feature_type and cell_type info for experiment
-
-    my $eca = $self->db->get_ExperimentalChipAdaptor();
-    my $echips = $eca->fetch_all_by_Experiment($self->experiment);
-    
-    throw("Couldn\'t fetch exp. chips") if (! @{$echips});
-
-    my (%ftype, $ftype, %ctype, $ctype);
-    foreach my $echip (@{$echips}) {
-        $ftype = $echip->feature_type();
-        throw("No feature type defined for experimental chip (unique id: ".
-              $echip->unique_id.")\n") if (! defined $ftype);
-        $ftype{$ftype->dbID()}++;
-
-        $ctype = $echip->cell_type();
-        throw("No cell type defined for experimental chip (unique id: ".
-              $echip->unique_id.")\n") if (! defined $ctype);
-        $ctype{$ctype->dbID()}++;
-    }
-    
-    #print Dumper %ftype;
-    throw("Experiment '".$self->experiment."' has more than one feature type")
-        if (keys(%ftype) > 1);
-    $self->feature_type($ftype);
-
-    #print Dumper %ctype;
-    throw("Experiment '".$self->experiment."' has more than one cell type")
-        if (keys(%ctype) > 1);
-    $self->cell_type($ctype);
-
-    ### check that result_set, data_set, feature_set are storable
+    ### get result sets to process and check that result_set, data_set, 
+	### feature_set are storable
 
     my @rsets = ();
-    #print Dumper( $self->experiment->name, $self->RESULT_SET_REGEXP);
-    my $regexp=$self->RESULT_SET_REGEXP;
 
-    # this one is veeeery slow ... (?)
-    foreach my $rset (@{$self->ResultSetAdaptor->fetch_all_by_Experiment_Analysis
-                            ($self->experiment, $self->norm_analysis)}) {
-        #warn($rset->name);
-        push (@rsets, $rset) if ($rset->name =~ /$regexp/);
-    }
-    $self->ResultSets(\@rsets);
+	$self->fetch_ResultSets();
 
-    print "Selected result sets: ", join(', ', map { $_->name } @rsets), 
-    ' (in total ', scalar(@rsets), ")\n";
-    
     ### get feature_set/data_set name by determine the longest common 
     ### prefix of the result_set names
     #print Dumper @{$self->ResultSets()};
@@ -321,8 +251,8 @@ sub read_and_check_config {
     # ResultSet check whether it is already stored with FeatureSet, otherwise add_ResultSet to
     # FeatureSet
 
-    my $dset = $self->DataSetAdaptor->fetch_by_name($set_name);
-    my $fset = $self->FeatureSetAdaptor->fetch_by_name($set_name);
+    my $dset = $self->adaptor('DataSet')->fetch_by_name($set_name);
+    my $fset = $self->adaptor('FeatureSet')->fetch_by_name($set_name);
 
     unless (defined $dset) {
 
@@ -338,7 +268,7 @@ sub read_and_check_config {
                  );
             #print Dumper $fset;
             
-            #$fset = $self->FeatureSetAdaptor->store($fset);
+            #$fset = $self->adaptor('FeatureSet')->store($fset);
 
         } else {
 
@@ -356,7 +286,7 @@ sub read_and_check_config {
              -SUPPORTING_SET_TYPE => 'result',
              );
 
-        #$dset = $self->DataSetAdaptor->store($dset);
+        #$dset = $self->adaptor('DataSet')->store($dset);
 
     } else {
 
@@ -513,12 +443,11 @@ sub ANALYSIS_WORK_DIR {
 =cut
 
 sub fetch_input {
+
     my ($self) = @_;
     print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::fetch_input\n";
 
     #warn("write file: ", Dumper $self->db);
-
-	
 
     my %result_features = ();
     foreach my $rset (@{$self->ResultSets}) {
@@ -584,19 +513,19 @@ sub write_output{
 
 	# store analysis, feature set and data set
   # analysis was alredy been stored while checking config in read_and_check_config
-	#$self->AnalysisAdaptor->store($self->analysis());
+	#$self->adaptor('Analysis')->store($self->analysis());
 	if (! defined $self->FeatureSet->dbID) {
-		$self->FeatureSetAdaptor->store($self->FeatureSet());
+		$self->adaptor('FeatureSet')->store($self->FeatureSet());
 	}
 	if (! defined $self->DataSet->dbID) {
-		$self->DataSetAdaptor->store($self->DataSet());
+		$self->adaptor('DataSet')->store($self->DataSet());
 	}
 
     ### annotated features
 
     my ($transfer, $slice);
     if($self->query->start != 1 || $self->query->strand != 1) {
-        my $sa = $self->SliceAdaptor();
+        my $sa = $self->adaptor('Slice');
         $slice = $sa->fetch_by_region($self->query->coord_system->name(),
                                       $self->query->seq_region_name(),
                                       undef, #start
@@ -608,14 +537,14 @@ sub write_output{
         $slice = $self->query;
     }
     
-#    my $af = $self->AnnotatedFeatureAdaptor()->fetch_all_by_Slice_FeatureSet(
+#    my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet(
 #		$self->query, $fset);
 
 	my $fset = $self->FeatureSet;	
 	my $fs_id = $fset->dbID();
 	my $constraint = qq( af.feature_set_id = $fs_id );
 
-	my $af = $self->AnnotatedFeatureAdaptor->fetch_all_by_Slice_FeatureSet
+	my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet
 		($slice, $fset, $self->analysis->logic_name);
 	
     print 'No. of annotated features already stored: '.scalar(@$af)."\n";
@@ -656,9 +585,78 @@ sub write_output{
             push(@af, $af);
         }
 
-        $self->AnnotatedFeatureAdaptor->store(@af);
+        $self->adaptor('AnnotatedFeature')->store(@af);
     }
     return 1;
+}
+
+
+=head2 write_output
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Function  : fetch and set ResultSets of interest
+  Returntype: 1
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+sub fetch_ResultSets
+{
+	print "Analysis::RunnableDB::Funcgen::fetch_ResultSets\n";
+
+    my $self = shift;
+	#print Dumper $self;
+
+    my $rsa = $self->adaptor('ResultSet');
+
+	### Can we speed this up???
+	my $rsets = $rsa->fetch_all_by_Experiment_Analysis
+		($self->experiment, $self->norm_analysis);
+
+    print "No. of available ResultSets: ", scalar(@$rsets), "\n";
+
+    my @rsets = ();
+
+    #print Dumper( $self->experiment->name, $self->RESULT_SET_REGEXP);
+    my $regex = $self->RESULT_SET_REGEXP;
+    foreach my $rset (@{$rsets}) {
+        #print Dumper $rset->name();
+        next if ($rset->name() !~ m/$regex/);
+        push(@rsets, $rset);
+
+		# check feature_type
+		if (! defined $self->feature_type ) {
+			$self->feature_type($rset->feature_type);
+		} else {
+			throw("replicates differ in feature types")
+				if ($self->feature_type->dbID != $rset->feature_type->dbID);
+		}
+
+		# check cell_type
+		if ( ! defined $self->cell_type() ) {
+			$self->cell_type($rset->cell_type);
+		} else {
+			throw("replicates differ in cell types")
+				if ($self->cell_type->dbID != $rset->cell_type->dbID);
+		}
+
+    }
+
+	if (!@rsets) {
+		
+		my $rset_list = join(' ', map { $_->name } @{$rsets});
+		throw ("RESULT_SET_REGEXP doesn't match any the following result set:\n$rset_list");
+	}
+	
+    $self->ResultSets(\@rsets);
+
+    print "Selected result sets: ", join(', ', map { $_->name } @rsets), 
+    ' (in total ', scalar(@rsets), ")\n";
+
+    return 1;
+
 }
 
 1;
