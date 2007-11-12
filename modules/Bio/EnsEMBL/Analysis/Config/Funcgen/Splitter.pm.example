@@ -1,22 +1,22 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap
+# Ensembl module for Bio::EnsEMBL::Analysis::Config::Funcgen::Splitter
 #
 # Copyright (c) 2007 Ensembl
 #
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap
+  Bio::EnsEMBL::Analysis::Config::Funcgen::Splitter
 
 =head1 SYNOPSIS
 
-  use Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap;
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::Splitter;
   
-  use Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap qw(CONFIG);
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::Splitter qw(CONFIG);
 
 =head1 DESCRIPTION
 
-This is a module needed to provide configuration for the
-TileMap RunnableDBs.
+This is a module needed to provide configuration for the 
+Splitter RunnableDBs.
 
 CONFIG is an hash of hashes which contains analysis specific
 settings and is keyed on logic_name
@@ -36,7 +36,7 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Config::Funcgen::TileMap;
+package Bio::EnsEMBL::Analysis::Config::Funcgen::Splitter;
 
 use strict;
 use vars qw(%Config);

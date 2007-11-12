@@ -18,13 +18,17 @@
 This is a module needed to provide configuration for the
 Chipotle RunnableDBs.
 
-BLAST_CONFIG is an hash of hashes which contains analysis specific
+CONFIG is an hash of hashes which contains analysis specific
 settings and is keyed on logic_name
+
+=head1 LICENCE
+
+This code is distributed under an Apache style licence. Please see
+http://www.ensembl.org/info/about/code_licence.html for details.
 
 =head1 AUTHOR
 
-This module was created by Stefan Graf. It is part of the 
-Ensembl project: http://www.ensembl.org/
+Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org/
 
 =head1 CONTACT
 
@@ -39,29 +43,18 @@ use vars qw(%Config);
 
 %Config = 
     (
-     CHIPOTLE_CONFIG => {
+     CONFIG => {
          DEFAULT => {
-             PROGRAM           => $ENV{CH_PROGRAM},
-             PROGRAM_FILE      => $ENV{CH_PROGRAM_FILE},
-             VERSION           => $ENV{CH_VERSION},
-             PARAMETERS        => $ENV{CH_PARAMETERS},
+             PROGRAM           => $ENV{PROGRAM},
+             PROGRAM_FILE      => $ENV{PROGRAM_FILE},
+             VERSION           => $ENV{VERSION},
+             PARAMETERS        => $ENV{PARAMETERS},
              EXPERIMENT        => $ENV{EXPERIMENT},
              NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
              RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
              DATASET_NAME      => $ENV{DATASET_NAME},
              ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
-         },
-#         CHIPOTLE => {
-#             PROGRAM           => $ENV{CH_PROGRAM},
-#             PROGRAM_FILE      => $ENV{CH_PROGRAM_FILE},
-#             VERSION           => $ENV{CH_VERSION},
-#             PARAMETERS        => $ENV{CH_PARAMETERS},
-#             EXPERIMENT        => $ENV{EXPERIMENT},
-#             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
-#             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-#             DATASET_NAME      => $ENV{DATASET_NAME},
-#             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
-#         }
+         }
      });
 
 sub import {
