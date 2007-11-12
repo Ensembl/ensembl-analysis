@@ -10,12 +10,16 @@ Bio::EnsEMBL::Analysis::Runnable::Fungen
 
 =head1 DESCRIPTION
 
-This module is the base class for the Fungen Runnables.
+This module is the base class for Fungen Runnables.
+
+=head1 LICENCE
+
+This code is distributed under an Apache style licence. Please see
+http://www.ensembl.org/info/about/code_licence.html for details.
 
 =head1 AUTHOR
 
-This module was created by Stefan Graf. It is part 
-of the Ensembl project: http://www.ensembl.org/
+Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org
 
 =head1 CONTACT
 
@@ -34,8 +38,8 @@ use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw( throw warning );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-use vars qw(@ISA);
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use vars qw( @ISA );
+@ISA = qw( Bio::EnsEMBL::Analysis::Runnable );
 
 =head2 new
 
@@ -92,9 +96,9 @@ sub run {
     $self->checkdir();
     print "work dir ".$self->workdir()." checked\n";
     
-    my $infile = $self->write_infile();
-    #print Dumper $infile;
-    throw("Input file $infile is empty.") if (-z $infile);
+    $self->write_infile();
+    print Dumper $self->infile;
+    throw("Input file ".$self->infile." is empty.") if (-z $self->infile);
     #$self->files_to_delete($self->infile);
 	
     $self->run_analysis();
@@ -107,11 +111,11 @@ sub run {
     return 1;
 }
 
-=head2 probe_features
+=head2 result_features
 
-  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Chipotle
-  Arg [2]     : arrayref of probe features
-  Description : container for probe features
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen
+  Arg [2]     : arrayref of result features
+  Description : container for result features
   Returntype  : arrayref
   Exceptions  : throws if no probe feature container is defined
   Example     : 
@@ -128,6 +132,16 @@ sub result_features {
     return $self->{'result_features'};
 }
 
+=head2 output_fields
+
+  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]     : arrayref of output fields
+  Description : container for outout fields
+  Returntype  : arrayref
+  Exceptions  : throws if no output field container is defined
+  Example     : 
+
+=cut
 
 sub output_fields {
     my ($self, $array) = @_;
@@ -143,7 +157,7 @@ sub output_fields {
 
 =head2 parse_results
 
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen
   Arg [2]     : filename (string)
   Decription  : open and parse resultsfile
   Returntype  : none
@@ -170,8 +184,7 @@ sub parse_results{
   my @output = ();
 
   while (<F>) {
-
-	  next unless (/^[1-9XYM]\w/);
+	  next unless (/^[1-9XYM]\s/);
 	  
       chomp;
       my @ft = split;

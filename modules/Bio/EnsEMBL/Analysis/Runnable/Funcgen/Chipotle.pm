@@ -9,14 +9,14 @@ Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle
 
 =head1 SYNOPSIS
 
-  my $chipotle = Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle->new
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle->new
   (
     -analysis => $analysis,
     -query => 'slice',
-    -program => 'chipotle.pl',
+    -program => 'program.pl',
   );
-  $chipotle->run;
-  my @annotated_features = @{$chipotle->output};
+  $runnable->run;
+  my @annotated_features = @{$runnable->output};
 
 =head1 DESCRIPTION
 
@@ -85,51 +85,83 @@ sub run_analysis {
     }
     throw($program." is not executable Chipotle::run_analysis ") 
         unless($program && -x $program);
-    
-    my $alpha = 0.05;
+
+
+	#default parameters
+	my %param = (
+		'alpha' => 0.05,
+		'stepSize' => 50,
+		'windowSize' => 400,
+		# Benjamini Hochberg
+		'adjustPvalue' => 'BH',  
+		# Bonferroni 
+		#'adjustPvalue' => 'BON',
+	);
     #print Dumper $self->analysis->parameters();
-    if ($self->analysis->parameters =~ m/--alpha (\d+\.\d+)/) {
-        $alpha = $1;
-    }
+
+	foreach my $param (split(/,\s+/,$self->analysis->parameters())) {
+		
+		if ($param =~ m/-(.+)=>(.+)/) {
+			
+			#print Dumper $1;
+			throw("Parameter $param is not valid.") if ! exists $param{$1};
+
+			$param{$1} = $2;
+			
+		} else {
+
+			throw("Parameter $param has not the correct format.");
+
+		}
+
+	}
+	
+    #if ($self->analysis->parameters =~ m/--alpha (\d+\.\d+)/) {
+    #    $alpha = $1;
+    #}
     #print $alpha;
 
-    (my $resultsfile = $self->infile) =~ s/\.dat$/\_$alpha\_peaks\.tsv/;
+    (my $resultsfile = $self->infile) =~ s/\.dat$/.peaks/;
     $self->resultsfile($resultsfile);
     $self->files_to_delete($resultsfile);
 
-    my @fields = (1..4);
+    my @fields = (0..3);
     $self->output_fields(\@fields);
 
-    my $command = $self->program . " --infile " . $self->infile() . $self->options;
+    my $command = join(' ', $self->program, 'get_peaks', '0', '0', 
+					   $self->infile(), $self->resultsfile(), 
+					   $param{alpha}, $param{stepSize},
+					   $param{windowSize}, $param{adjustPvalue});
     
     warn("Running analysis " . $command . "\n");
     
     eval { system($command) };
     throw("FAILED to run $command: ", $@) if ($@);
-    
-    # Check if adjustments via --transform need to be applied
-    
-    (my $logfile = $self->resultsfile()) =~ s/_peaks.tsv/_STDOUT.txt/;
-    open(LOG, "$logfile")
-        or throw("Unable to open logfile $logfile.");
-    my $transform;
-    while (<LOG>) {
-        print;
-        next until (/^Re-run chipotle using \'(--transform -?\d+\.\d+)\'/);
-        $transform = $1;
-        #print "transform: ", $transform, "\n";
-    }
-    close LOG;
 
-    if (defined $transform) {
-        $command .= " $transform";
-        warn("Re-running analysis " . $command . "\n");
-        
-        eval { system($command) };
-        if ($@) {
-            throw("FAILED to run ".$command);
-        }
-    }
+    # Check if adjustments via --transform need to be applied
+	### Version 1 logfile processing disabled ###
+    
+    #(my $logfile = $self->resultsfile()) =~ s/_peaks.tsv/_STDOUT.txt/;
+    #open(LOG, "$logfile")
+    #    or throw("Unable to open logfile $logfile.");
+    #my $transform;
+    #while (<LOG>) {
+    #    print;
+    #    next until (/^Re-run chipotle using \'(--transform -?\d+\.\d+)\'/);
+    #    $transform = $1;
+    #    #print "transform: ", $transform, "\n";
+    #}
+    #close LOG;
+
+    #if (defined $transform) {
+    #    $command .= " $transform";
+    #    warn("Re-running analysis " . $command . "\n");
+    #    
+    #    eval { system($command) };
+    #    if ($@) {
+    #        throw("FAILED to run ".$command);
+    #    }
+    #}
 }
 
 =head2 write_infile
