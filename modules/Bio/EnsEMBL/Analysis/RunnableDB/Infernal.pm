@@ -81,8 +81,8 @@ sub fetch_input{
   # registry will cause problems 
  
    if ( $$DATABASES{'GENEBUILD_DB'}{'-dbname'} eq $self->db->dbc->dbname &&
-        $$DATABASES{'GENEBUILD_DB'}{'-host'} == $self->db->dbc->port && 
-        $$DATABASES{'GENEBUILD_DB'}{'-port'} eq $self->db->dbc->host){  
+        $$DATABASES{'GENEBUILD_DB'}{'-host'} eq $self->db->dbc->port && 
+        $$DATABASES{'GENEBUILD_DB'}{'-port'} == $self->db->dbc->host){  
 
         $self->gene_db($self->db); 
    } else {  
