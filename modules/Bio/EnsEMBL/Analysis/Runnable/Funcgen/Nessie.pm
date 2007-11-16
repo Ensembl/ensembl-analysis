@@ -63,10 +63,11 @@ use vars qw(@ISA);
 sub run_analysis {
         
     my ($self, $program) = @_;
-    
+
     if(!$program){
         $program = $self->program;
     }
+
     throw($program." is not executable Nessie::run_analysis ") 
         unless($program && -x $program);
     
@@ -79,8 +80,6 @@ sub run_analysis {
     my $command = $self->program.' --data="'.$self->infile().'" '.
         $self->analysis->parameters. ' > '.$outfile;
 
-    print Dumper $command;
-    
     warn("Running analysis " . $command . "\n");
     eval { system($command) };
     throw("FAILED to run $command: ", $@) if ($@);

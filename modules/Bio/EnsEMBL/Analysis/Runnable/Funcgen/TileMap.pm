@@ -106,7 +106,7 @@ sub write_infile {
 	# write config and cmpinfo files from templates
 	(my $project = $filename) =~ s,.+/(.+)\.dat,$1,;
 
-	my $config_template = $self->analysis->parameters();
+	my $config_template = $ENV{PARAMETERFILE};
 	#print Dumper $config_template;
 
 	my $config = $workdir.'/'.$project.'_args.txt';

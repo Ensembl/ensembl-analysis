@@ -111,6 +111,8 @@ sub write_infile {
 	my $workdir = $self->workdir;
 	my $window = $ENV{WINDOW};
 	my $threshold = $ENV{THRESHOLD};
+
+	my $pvalue = $ENV{PVALUE};
 	my $chrom = $self->query()->seq_region_name;
 	my $start = $self->query()->start, 
 	my $end = $self->query()->end;
@@ -125,11 +127,11 @@ sub write_infile {
 	fnames <- c("$fnames")
 	a <- read.resultsGFF(fnames)
 	colnames(a\@data) <- fnames
-	str(a)
+	#str(a)
 	aGFFCalc <- do.aGFF.calc(a, window = $window, thresh = $threshold)
-	regions <- findRegions(aGFFCalc,thresh=0.001)
+	regions <- findRegions(aGFFCalc,thresh=$pvalue)
 	write.table(regions[,c('Chromosome', 'Start', 'End', 'Mean', 'Median')],
-				file="$resultsfile", sep="\t", 
+				file="$resultsfile", sep="\\t", 
 				row.names = FALSE, col.names = FALSE)
 	#pdf("$PDFfile", height = 10, width = 15);
 	#plot(aGFFCalc, chrom = "$chrom", sample = 1, xlim = c($start, $end))
@@ -165,8 +167,7 @@ sub run_analysis {
     throw($program." is not executable ACME::run_analysis ") 
         unless($program && -x $program);
 
-    my $command = $self->program . ' ' . $self->analysis->parameters .
-		' < ' . $self->infile;
+    my $command = $self->program . ' --no-save --slave < ' . $self->infile;
     
     warn("Running analysis " . $command . "\n");
     

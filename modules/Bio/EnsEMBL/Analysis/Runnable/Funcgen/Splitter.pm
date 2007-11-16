@@ -235,7 +235,7 @@ sub parse_results{
 
   }
 
-  throw("No features to annotate!") if (scalar(@output) == 0);
+  throw("No features to annotate  on slice ".$self->query->seq_region_name."!") if (scalar(@output) == 0);
 
   $self->output(\@output);
   #print Dumper $self->output();
