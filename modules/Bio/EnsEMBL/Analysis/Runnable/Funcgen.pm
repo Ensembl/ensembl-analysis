@@ -167,15 +167,15 @@ sub output_fields {
 =cut
 
 sub parse_results{
-  my ($self, $resultsfile) = @_;
-
-  if (! defined $resultsfile) {
-      $resultsfile = $self->resultsfile;
-  }
-  throw ('No resultsfile defined in instance!')
-      if(! defined $resultsfile);
-
-  throw("parse_results: results file ".$resultsfile." does not exist.")
+    my ($self, $resultsfile) = @_;
+    
+    if (! defined $resultsfile) {
+        $resultsfile = $self->resultsfile;
+    }
+    throw ('No resultsfile defined in instance!')
+        if(! defined $resultsfile);
+    
+    throw("parse_results: results file ".$resultsfile." does not exist.")
       if (! -e $resultsfile);
   
   throw("parse_results: can't open file ".$resultsfile.": ". $!)
@@ -184,7 +184,8 @@ sub parse_results{
   my @output = ();
 
   while (<F>) {
-	  next unless (/^[1-9XYM]\s/);
+      s/\"//;
+	  next unless (/^[0-9XYM]+\s/);
 	  
       chomp;
       my @ft = split;
@@ -192,7 +193,7 @@ sub parse_results{
 
   }
 
-  throw("No features to annotate!") if (scalar(@output) == 0);
+  throw("No features to annotate on slice ".$self->query->seq_region_name."!") if (scalar(@output) == 0);
 
   $self->output(\@output);
   #print Dumper $self->output();
