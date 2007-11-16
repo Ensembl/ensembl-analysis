@@ -87,27 +87,6 @@ sub new {
     return $self;
 }
 
-sub fetch_ResultSets
-{
-    my $self = shift;
-
-    my $rsa = $self->db->get_ResultSetAdaptor();
-    my $rsets = $rsa->fetch_all_by_Experiment_Analysis
-        ($self->experiment, $self->result_set_analysis);
-    print "No. of available ResultSets: ", scalar(@$rsets), "\n";
-
-    my @rsets = ();
-    my $regex = $self->RESULT_SET_REGEXP;
-    foreach my $rset (@{$rsets}) {
-        #print Dumper $rset->name();
-        next if ($rset->name() !~ m/$regex/);
-        push(@rsets, $rset);
-    }
-
-    return \@rsets;;
-
-}
-
 #=head2 fetch_input
 #
 #  Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Nessie

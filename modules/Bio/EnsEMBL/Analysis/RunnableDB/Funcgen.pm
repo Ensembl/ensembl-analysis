@@ -61,7 +61,7 @@ use vars qw(@ISA);
 =cut
 
 sub new{
-
+    
     print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
@@ -71,7 +71,7 @@ sub new{
     #print Dumper $slice;
     throw("Can't fetch slice ".$self->input_id) if (!$slice);
     $self->query($slice);
-
+    
     #print Dumper ($self);
     return $self;
 }
@@ -81,11 +81,11 @@ sub new{
 # generic ensembl db adapter method
 sub adaptor {
     my ($self, $name) = @_;
-	my $adaptor = $name.'Adaptor';
-	my $method = 'get_'.$adaptor;
+    my $adaptor = $name.'Adaptor';
+    my $method = 'get_'.$adaptor;
 
     $self->{$adaptor} = $self->db->$method
-		if (! $self->{$adaptor} );
+        if (! $self->{$adaptor} );
     throw("No ".$adaptor."Adaptor in RunnableDB.") 
         if (!$self->{$adaptor});
     return $self->{$adaptor};
@@ -149,13 +149,152 @@ sub read_and_check_config {
 
     my ($self, $config) = @_;
 
-	#print Dumper $config;
+    #print Dumper $config;
 
     $self->SUPER::read_and_check_config($config);
 
+    # make sure we have a valid analysis object
+    $self->check_Analysis();
+    
+    # make sure we have valid feature and data set objects incl. supporting sets
+    $self->check_Sets();
+    
+}
+
+### container for CONFIG parameter
+
+sub PROGRAM {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_PROGRAM'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_PROGRAM'} ) ) {
+        return $self->{'_CONFIG_PROGRAM'};
+    } else {
+        return undef;
+    }
+}
+
+sub PROGRAM_FILE {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_PROGRAM_FILE'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_PROGRAM_FILE'} ) ) {
+        return $self->{'_CONFIG_PROGRAM_FILE'};
+    } else {
+        return undef;
+    }
+}
+
+sub VERSION {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_VERSION'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_VERSION'} ) ) {
+        return $self->{'_CONFIG_VERSION'};
+    } else {
+        return undef;
+    }
+}
+
+sub PARAMETERS {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_PARAMETERS'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_PARAMETERS'} ) ) {
+        return $self->{'_CONFIG_PARAMETERS'};
+    } else {
+        return undef;
+    }
+}
+
+sub EXPERIMENT {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_EXPERIMENT'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_EXPERIMENT'} ) ) {
+        return $self->{'_CONFIG_EXPERIMENT'};
+    } else {
+        return undef;
+    }
+}
+
+sub RESULT_SET_REGEXP {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_RESULT_SET_REGEXP'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_RESULT_SET_REGEXP'} ) ) {
+        return $self->{'_CONFIG_RESULT_SET_REGEXP'};
+    } else {
+        return undef;
+    }
+}
+
+sub NORM_ANALYSIS {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_NORM_ANALYSIS'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_NORM_ANALYSIS'} ) ) {
+        return $self->{'_CONFIG_NORM_ANALYSIS'};
+    } else {
+        return undef;
+    }
+}
+
+sub DATASET_NAME {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_DATASET_NAME'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_DATASET_NAME'} ) ) {
+        return $self->{'_CONFIG_DATASET_NAME'};
+    } else {
+        return undef;
+    }
+}
+
+sub ANALYSIS_WORK_DIR {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_ANALYSIS_WORK_DIR'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_ANALYSIS_WORK_DIR'} ) ) {
+        return $self->{'_CONFIG_ANALYSIS_WORK_DIR'};
+    } else {
+        return undef;
+    }
+}
+
+sub check_Analysis {
+
+    my ($self) = @_;
+
     # get/set experiment
-    my $ea = $self->db->get_ExperimentAdaptor();
-    my $e = $ea->fetch_by_name($self->EXPERIMENT);
+    my $e = $self->adaptor('Experiment')->fetch_by_name($self->EXPERIMENT);
     throw("Can't fetch experiment with name ".$self->EXPERIMENT) if (!$e);
     $self->experiment($e);
 
@@ -194,7 +333,7 @@ sub read_and_check_config {
         # returns -1 if they are completely different
         throw('Analysis with logic name \''.$logic_name.'\' already '.
               'exists, but has different options! Must choose different '.
-              'logic_name for analysis.') 
+              'logic_name for analysis and edit config hash of $self accordingly.') 
             if ($self->analysis->compare($analysis));
 
     } else {
@@ -206,14 +345,18 @@ sub read_and_check_config {
 
     }
 
+}
+
+sub check_Sets {
+
+    my ($self) = @_;
+
     ### get result sets to process and check that result_set, data_set, 
-	### feature_set are storable
+    ### feature_set are storable
 
-    my @rsets = ();
+    my $rsets = $self->fetch_ResultSets();
 
-	$self->fetch_ResultSets();
-
-    ### get feature_set/data_set name by determine the longest common 
+    ### get feature_set/data_set name by determining the longest common 
     ### prefix of the result_set names
     #print Dumper @{$self->ResultSets()};
     my @names = map { $_->name } @{$self->ResultSets()};
@@ -226,56 +369,54 @@ sub read_and_check_config {
         my $string = '';
         foreach my $c (@chars) {
             $string .= $c;
+            #print Dumper $string;
             $hash{$string}++;
         }
     }
     my $lcp = '';
 
     foreach (sort keys %hash) {
-        last if ($hash{$_} < scalar(@rsets));
+        last if ($hash{$_} < scalar(@$rsets));
+        #print Dumper( $_, $hash{$_}, scalar(@$rsets) ) ;
         $lcp = $_;
     } 
     $lcp =~ s/_$//;
-    #print Dumper $lcp;
 
     my $set_name = $lcp.'_'.$self->DATASET_NAME;
-    print 'DataSet name: ', $set_name, "\n";
+    print 'Set name: ', $set_name, "\n";
+    #print Dumper $self->analysis;
 
-    ### implement check if this is a subset of the chosen replicates by 
-    ### comparing number of keys in %hash with return value from still to
-    ### be implemented method
+    my $fset = $self->adaptor('FeatureSet')->fetch_by_name($set_name);
+    #print Dumper $fset;
 
-    #throw("Need to implement/update how to store fset/dset/rset via new() and add_ResultSet() ".
-    #      "of DataSet and add contains_ResultSet ... (see comments!)");
-    # Logic: 1) Check whether feature_set already exists in data_set otherwise create 2) for each 
-    # ResultSet check whether it is already stored with FeatureSet, otherwise add_ResultSet to
-    # FeatureSet
+    if ( ! defined $fset ) {
+
+        $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
+            (
+             -analysis => $self->analysis,
+             -feature_type => $self->feature_type,
+             -cell_type => $self->cell_type,
+             -name => $set_name,
+             -type => 'annotated'
+             );
+        #print Dumper $fset;
+        
+        warn("Storing new feature set \'$set_name\'");
+        eval { $fset = ${$self->adaptor('FeatureSet')->store($fset)}[0] };
+        throw("Coudn't store feature set \'$set_name\': $!") if ($@);
+
+    } else {
+
+        warn("Feature set with name $set_name already exists.");
+
+    }
+    # save FeatureSet
+    $self->FeatureSet($fset);
 
     my $dset = $self->adaptor('DataSet')->fetch_by_name($set_name);
-    my $fset = $self->adaptor('FeatureSet')->fetch_by_name($set_name);
+    #print Dumper $dset;
 
-    unless (defined $dset) {
-
-        unless (defined $fset) {
-            
-            $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
-                (
-                 -analysis => $self->analysis,
-                 -feature_type => $self->feature_type,
-                 -cell_type => $self->cell_type,
-                 -name => $set_name,
-                 -type => 'annotated'
-                 );
-            #print Dumper $fset;
-            
-            #$fset = $self->adaptor('FeatureSet')->store($fset);
-
-        } else {
-
-            warn("Feature set with name $set_name already exists.\n".
-                 "Must choose a different feature set name.");
-        }
-        #print Dumper $fset;
+    if ( ! defined $dset ) {
 
         $dset = Bio::EnsEMBL::Funcgen::DataSet->new
             (
@@ -285,147 +426,31 @@ sub read_and_check_config {
              -NAME                => $set_name,
              -SUPPORTING_SET_TYPE => 'result',
              );
+        #print Dumper $dset;
 
-        #$dset = $self->adaptor('DataSet')->store($dset);
+        warn("Storing new feature set \'$set_name\'");
+        eval { $dset = ${$self->adaptor('DataSet')->store($dset)}[0] };
+        throw("Coudn't store data set \'$set_name\': $!") if ($@);
 
     } else {
 
-        warn("Data set with name $set_name already exists.\n".
-             "Must choose a different data set name.");
+        warn("Data set with name $set_name already exists.");
+
+        # need to check whether ResultSets and supporting_sets are the same and 
+        # possibly add ResultSet to supporting_sets
+
+        my $ssets = $dset->get_supporting_sets();
+
+        my %ssets_dbIDs = ();
+        map { $ssets_dbIDs{$_->dbID}='' } (@{$ssets});
+        map { 
+            $dset->add_supporting_sets([ $_ ]) if (! exists $ssets_dbIDs{$_->dbID}); 
+        } @{$self->ResultSets} 
 
     }
-
+    # save DataSet
     $self->DataSet($dset);
-    $self->FeatureSet($fset);
 
-}
-
-### container for CONFIG parameter
-
-sub PROGRAM {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_PROGRAM'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_PROGRAM'} ) ) {
-    return $self->{'_CONFIG_PROGRAM'};
-  } else {
-    return undef;
-  }
-}
-
-sub PROGRAM_FILE {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_PROGRAM_FILE'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_PROGRAM_FILE'} ) ) {
-    return $self->{'_CONFIG_PROGRAM_FILE'};
-  } else {
-    return undef;
-  }
-}
-
-sub VERSION {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_VERSION'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_VERSION'} ) ) {
-    return $self->{'_CONFIG_VERSION'};
-  } else {
-    return undef;
-  }
-}
-
-sub PARAMETERS {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_PARAMETERS'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_PARAMETERS'} ) ) {
-    return $self->{'_CONFIG_PARAMETERS'};
-  } else {
-    return undef;
-  }
-}
-
-sub EXPERIMENT {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_EXPERIMENT'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_EXPERIMENT'} ) ) {
-    return $self->{'_CONFIG_EXPERIMENT'};
-  } else {
-    return undef;
-  }
-}
-
-sub RESULT_SET_REGEXP {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_RESULT_SET_REGEXP'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_RESULT_SET_REGEXP'} ) ) {
-    return $self->{'_CONFIG_RESULT_SET_REGEXP'};
-  } else {
-    return undef;
-  }
-}
-
-sub NORM_ANALYSIS {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_NORM_ANALYSIS'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_NORM_ANALYSIS'} ) ) {
-    return $self->{'_CONFIG_NORM_ANALYSIS'};
-  } else {
-    return undef;
-  }
-}
-
-sub DATASET_NAME {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_DATASET_NAME'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_DATASET_NAME'} ) ) {
-    return $self->{'_CONFIG_DATASET_NAME'};
-  } else {
-    return undef;
-  }
-}
-
-sub ANALYSIS_WORK_DIR {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_ANALYSIS_WORK_DIR'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_ANALYSIS_WORK_DIR'} ) ) {
-    return $self->{'_CONFIG_ANALYSIS_WORK_DIR'};
-  } else {
-    return undef;
-  }
 }
 
 ################################################################################
@@ -443,57 +468,57 @@ sub ANALYSIS_WORK_DIR {
 =cut
 
 sub fetch_input {
-
+    
     my ($self) = @_;
     print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::fetch_input\n";
-
+    
     #warn("write file: ", Dumper $self->db);
-
+    
     my %result_features = ();
     foreach my $rset (@{$self->ResultSets}) {
         #print Dumper $rset->name();
-
+        
         print join(" ", $rset->dbID, $rset->name), "\n";
         
-        my $result_features = $rset->get_ResultFeatures_by_Slice($self->query());
-        print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
+            my $result_features = $rset->get_ResultFeatures_by_Slice($self->query());
+            print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
+            
+            throw("No result_features on slice ".$self->query()->name())
+                if scalar(@$result_features) == 0;
+            
+            my @result_features = ();
+            my $ft_cnt = 1;
+            foreach my $prb_ft (@{$result_features}) {
+                #print join(" ", $self->query()->seq_region_name, 
+                #           @$prb_ft, $ft_cnt++), "\n";
+                push (@result_features,
+                      [ $self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
+            }
 
-        throw("No result_features on slice ".$self->query()->name())
-            if scalar(@$result_features) == 0;
+            $result_features{$rset->name} = \@result_features;
 
-        my @result_features = ();
-        my $ft_cnt = 1;
-        foreach my $prb_ft (@{$result_features}) {
-            #print join(" ", $self->query()->seq_region_name, 
-            #           @$prb_ft, $ft_cnt++), "\n";
-            push (@result_features,
-                  [ $self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
         }
+        
+        #print Dumper %result_features;
+        
+        #$self->result_features(\%features);
+        #print Dumper $self->result_features();
 
-        $result_features{$rset->name} = \@result_features;
+        my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
+            .$self->analysis->module;
+        $runnable = $runnable->new
+            (
+             -query => $self->query,
+             -program => $self->analysis->program_file,
+             -analysis => $self->analysis,
+             -result_features => \%result_features,
+             );
+        
+        $self->runnable($runnable);
+
+        return 1;
 
     }
-    
-    #print Dumper %result_features;
-    
-    #$self->result_features(\%features);
-    #print Dumper $self->result_features();
-
-    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
-        .$self->analysis->module;
-    $runnable = $runnable->new
-        (
-         -query => $self->query,
-         -program => $self->analysis->program_file,
-         -analysis => $self->analysis,
-         -result_features => \%result_features,
-         );
-    
-    $self->runnable($runnable);
-
-    return 1;
-
-}
 
 
 =head2 write_output
@@ -506,89 +531,89 @@ sub fetch_input {
 
 =cut
 
-sub write_output{
+    sub write_output{
 
-    print "RunnableDB::Funcgen::write_output\n";
-    my ($self) = @_;
+        print "RunnableDB::Funcgen::write_output\n";
+        my ($self) = @_;
 
-	# store analysis, feature set and data set
-  # analysis was alredy been stored while checking config in read_and_check_config
-	#$self->adaptor('Analysis')->store($self->analysis());
-	if (! defined $self->FeatureSet->dbID) {
-		$self->adaptor('FeatureSet')->store($self->FeatureSet());
-	}
-	if (! defined $self->DataSet->dbID) {
-		$self->adaptor('DataSet')->store($self->DataSet());
-	}
+        # store analysis, feature set and data set
+        # analysis was alredy been stored while checking config in read_and_check_config
+        #$self->adaptor('Analysis')->store($self->analysis());
+        if (! defined $self->FeatureSet->dbID) {
+            $self->adaptor('FeatureSet')->store($self->FeatureSet());
+        }
+        if (! defined $self->DataSet->dbID) {
+            $self->adaptor('DataSet')->store($self->DataSet());
+        }
 
-    ### annotated features
+        ### annotated features
 
-    my ($transfer, $slice);
-    if($self->query->start != 1 || $self->query->strand != 1) {
-        my $sa = $self->adaptor('Slice');
-        $slice = $sa->fetch_by_region($self->query->coord_system->name(),
-                                      $self->query->seq_region_name(),
-                                      undef, #start
-                                      undef, #end
-                                      undef, #strand
-                                      $self->query->coord_system->version());
-        $transfer = 1;
-    } else {
-        $slice = $self->query;
-    }
-    
+        my ($transfer, $slice);
+        if($self->query->start != 1 || $self->query->strand != 1) {
+            my $sa = $self->adaptor('Slice');
+            $slice = $sa->fetch_by_region($self->query->coord_system->name(),
+                                          $self->query->seq_region_name(),
+                                          undef, #start
+                                          undef, #end
+                                          undef, #strand
+                                          $self->query->coord_system->version());
+            $transfer = 1;
+        } else {
+            $slice = $self->query;
+        }
+        
 #    my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet(
 #		$self->query, $fset);
 
-	my $fset = $self->FeatureSet;	
-	my $fs_id = $fset->dbID();
-	my $constraint = qq( af.feature_set_id = $fs_id );
+        my $fset = $self->FeatureSet;	
+        my $fs_id = $fset->dbID();
+        my $constraint = qq( af.feature_set_id = $fs_id );
 
-	my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet
-		($slice, $fset, $self->analysis->logic_name);
-	
-    print 'No. of annotated features already stored: '.scalar(@$af)."\n";
-    print 'No. of annotated features to be stored: '.scalar(@{$self->output})."\n";
+        my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet
+            ($slice, $fset, $self->analysis->logic_name);
+        
+        print 'No. of annotated features already stored: '.scalar(@$af)."\n";
+        print 'No. of annotated features to be stored: '.scalar(@{$self->output})."\n";
 
-    if (@$af) {
-        
-        throw("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
-              join(':', $self->query->seq_region_name,$self->query->start,$self->query->end).
-              " already contains ".scalar(@$af)." annotated features of feature set ".
-              $fset->dbID.".");
-        
-    } else {
-        my @af;
-        foreach my $ft (@{$self->output}){
+        if (@$af) {
             
-            #print Dumper $ft;
-            my ($seqid, $start, $end, $score) = @{$ft};
+            throw("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
+                  join(':', $self->query->seq_region_name,$self->query->start,$self->query->end).
+                  " already contains ".scalar(@$af)." annotated features of feature set ".
+                  $fset->dbID.".");
             
-            #print Dumper ($seqid, $start, $end, $score);
-            my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
-                (
-                 -slice         => $self->query,
-                 -start         => $start,
-                 -end           => $end,
-                 -strand        => 0,
-                 -display_label => $self->analysis->logic_name,
-                 -score         => $score,
-                 -feature_set   => $fset,
-                 );
-            
-            # make sure feature coords are relative to start of entire seq_region
-            if ($transfer) {
-                #warn("original af:\t", join("\t", $af->start, $af->end), "\n");
-                $af = $af->transfer($slice);
-                #warn("remapped af:\t", join("\t", $af->start, $af->end), "\n");
+        } else {
+            my @af;
+            foreach my $ft (@{$self->output}){
+                
+                #print Dumper $ft;
+                my ($seqid, $start, $end, $score) = @{$ft};
+                
+                #print Dumper ($seqid, $start, $end, $score);
+                my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
+                    (
+                     -slice         => $self->query,
+                     -start         => $start,
+                     -end           => $end,
+                     -strand        => 0,
+                     -display_label => $self->analysis->logic_name,
+                     -score         => $score,
+                     -feature_set   => $fset,
+                     );
+                
+                # make sure feature coords are relative to start of entire seq_region
+                if ($transfer) {
+                    #warn("original af:\t", join("\t", $af->start, $af->end), "\n");
+                    $af = $af->transfer($slice);
+                    #warn("remapped af:\t", join("\t", $af->start, $af->end), "\n");
+                }
+                push(@af, $af);
             }
-            push(@af, $af);
-        }
 
-        $self->adaptor('AnnotatedFeature')->store(@af);
+            $self->adaptor('AnnotatedFeature')->store(@af);
+        }
+        return 1;
     }
-    return 1;
-}
 
 
 =head2 write_output
@@ -604,16 +629,16 @@ sub write_output{
 
 sub fetch_ResultSets
 {
-	print "Analysis::RunnableDB::Funcgen::fetch_ResultSets\n";
+    print "Analysis::RunnableDB::Funcgen::fetch_ResultSets\n";
 
     my $self = shift;
-	#print Dumper $self;
+    #print Dumper $self;
 
     my $rsa = $self->adaptor('ResultSet');
 
-	### Can we speed this up???
-	my $rsets = $rsa->fetch_all_by_Experiment_Analysis
-		($self->experiment, $self->norm_analysis);
+    ### Can we speed this up???
+    my $rsets = $rsa->fetch_all_by_Experiment_Analysis
+        ($self->experiment, $self->norm_analysis);
 
     print "No. of available ResultSets: ", scalar(@$rsets), "\n";
 
@@ -626,36 +651,36 @@ sub fetch_ResultSets
         next if ($rset->name() !~ m/$regex/);
         push(@rsets, $rset);
 
-		# check feature_type
-		if (! defined $self->feature_type ) {
-			$self->feature_type($rset->feature_type);
-		} else {
-			throw("replicates differ in feature types")
-				if ($self->feature_type->dbID != $rset->feature_type->dbID);
-		}
+        # check feature_type
+        if (! defined $self->feature_type ) {
+            $self->feature_type($rset->feature_type);
+        } else {
+            throw("replicates differ in feature types")
+                if ($self->feature_type->dbID != $rset->feature_type->dbID);
+        }
 
-		# check cell_type
-		if ( ! defined $self->cell_type() ) {
-			$self->cell_type($rset->cell_type);
-		} else {
-			throw("replicates differ in cell types")
-				if ($self->cell_type->dbID != $rset->cell_type->dbID);
-		}
+        # check cell_type
+        if ( ! defined $self->cell_type() ) {
+            $self->cell_type($rset->cell_type);
+        } else {
+            throw("replicates differ in cell types")
+                if ($self->cell_type->dbID != $rset->cell_type->dbID);
+        }
 
     }
 
-	if (!@rsets) {
-		
-		my $rset_list = join(' ', map { $_->name } @{$rsets});
-		throw ("RESULT_SET_REGEXP doesn't match any the following result set:\n$rset_list");
-	}
-	
+    if (!@rsets) {
+        
+        my $rset_list = join(' ', map { $_->name } @{$rsets});
+        throw ("RESULT_SET_REGEXP doesn't match any the following result set:\n$rset_list");
+    }
+    
     $self->ResultSets(\@rsets);
 
     print "Selected result sets: ", join(', ', map { $_->name } @rsets), 
     ' (in total ', scalar(@rsets), ")\n";
 
-    return 1;
+    return \@rsets;
 
 }
 
