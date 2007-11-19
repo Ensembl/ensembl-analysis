@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::ACME
+# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::ACME
 #
 # Copyright (c) 2007 Ensembl
 #

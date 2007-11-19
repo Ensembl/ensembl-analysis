@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::TileMap
+# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::TileMap
 #
 # Copyright (c) 2007 Ensembl
 #

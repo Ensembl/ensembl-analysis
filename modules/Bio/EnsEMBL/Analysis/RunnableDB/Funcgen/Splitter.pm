@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Splitter
+# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Splitter
 #
 # Copyright (c) 2007 Ensembl
 #

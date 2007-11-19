@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Chipotle
+# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle
 #
 # Copyright (c) 2007 Ensembl
 #

@@ -61,8 +61,7 @@ use vars qw(@ISA);
 =cut
 
 sub new{
-    
-    print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::new\n";
+    print "Analysis::RunnableDB::Funcgen::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
     
