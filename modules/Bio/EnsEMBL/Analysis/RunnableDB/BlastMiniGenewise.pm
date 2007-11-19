@@ -151,9 +151,15 @@ sub fetch_input{
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
     my $features = $self->paf_slice->get_all_ProteinAlignFeatures
       ($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
+    my %unique;
+    foreach my $feature(@$features){
+      $unique{$feature->hseqname} = 1;
+    }
+    #print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
     logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
     $feature_count += scalar(@$features);
     my %ids_to_ignore = %{$self->generate_ids_to_ignore($features)};
+    #print "HAVE ".keys(%ids_to_ignore)." ids to ignore\n";
     logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore");
   FEATURE:foreach my $feature(@$features){
       $protein_count{$feature->hseqname} = 1;
@@ -435,6 +441,7 @@ sub create_bmg_runnables{
     }
   }else{
     my @ids = sort keys(%$hits_hash);
+    #print "***Creating BlastMiniGenewise Runnable with ".@ids." ids and ".$seqfetcher." to run on ".$self->query->name."***\n";
     logger_info("Creating BlastMiniGenewise Runnable with ".@ids." ids and ".$seqfetcher." to run on ".$self->query->name);
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise->
       new(
@@ -541,7 +548,7 @@ sub run{
   my @transcripts;
   $self->gene_source_db->dbc->disconnect_when_inactive(1);
   $self->paf_source_db->dbc->disconnect_when_inactive(1);
-
+  #print "HAVE ".@{$self->runnable}." runnables to run\n";
   foreach my $runnable(@{$self->runnable}){
     my $output;
     eval{
@@ -681,7 +688,23 @@ sub write_output{
   }
   if($self->WRITE_REJECTED){
     $sucessful_count = 0;
+    my $biotype = $self->REJECTED_BIOTYPE;
+    $biotype = "reject_".$self->analysis->logic_name if(!$biotype);
     foreach my $gene(@{$self->rejected_set}){
+      my $attach = 0;
+      if(!$gene->analysis){
+        my $attach = 1;
+        attach_Analysis_to_Gene($gene, $self->analysis);
+      }
+      if($attach == 0){
+      TRANSCRIPT:foreach my $transcript(@{$gene->get_all_Transcripts}){
+          if(!$transcript->analysis){
+            attach_Analysis_to_Gene($gene, $self->analysis);
+            last TRANSCRIPT;
+          }
+        }
+      }
+      $gene->biotype($biotype);
       eval{
         $ga->store($gene);
       };
@@ -1078,6 +1101,7 @@ sub BLASTMINIGENEWISE_PARAMETERS{
   }
   return $self->{BLASTMINIGENEWISE_PARAMETERS}
 }
+
 
 sub EXONERATE_PARAMETERS{
   my ($self, $arg) = @_;
