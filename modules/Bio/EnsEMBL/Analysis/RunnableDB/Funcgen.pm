@@ -66,11 +66,12 @@ sub new{
     my $self = $class->SUPER::new(@args);
     
     #warn( Dumper($self->input_id) );
-    my $slice = $self->adaptor('Slice')->fetch_by_name($self->input_id);
+    #my $slice = $self->adaptor('Slice')->fetch_by_name($self->input_id);
     #print Dumper $slice;
-    throw("Can't fetch slice ".$self->input_id) if (!$slice);
-    $self->query($slice);
-    
+    #throw("Can't fetch slice ".$self->input_id) if (!$slice);
+
+    $self->query($self->input_id);
+
     #print Dumper ($self);
     return $self;
 }
@@ -294,13 +295,13 @@ sub check_Analysis {
 
     # get/set experiment
     my $e = $self->adaptor('Experiment')->fetch_by_name($self->EXPERIMENT);
-    throw("Can't fetch experiment with name ".$self->EXPERIMENT) if (!$e);
+    warn("Can't fetch experiment with name ".$self->EXPERIMENT) if (!$e);
     $self->experiment($e);
 
     # get/set norm_analysis
     #print Dumper $ENV{NORM_ANALYSIS};
     my $a = $self->adaptor('Analysis')->fetch_by_logic_name($self->NORM_ANALYSIS);
-    throw("Can't fetch result set analysis ".$self->NORM_ANALYSIS) if (!$a);
+    warn("Can't fetch normalization analysis ".$self->NORM_ANALYSIS) if (!$a);
     $self->norm_analysis($a);
 
     ### check if analysis with this logic_name already exists in the database
@@ -479,45 +480,53 @@ sub fetch_input {
         
         print join(" ", $rset->dbID, $rset->name), "\n";
         
-            my $result_features = $rset->get_ResultFeatures_by_Slice($self->query());
-            print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
-            
-            throw("No result_features on slice ".$self->query()->name())
-                if scalar(@$result_features) == 0;
-            
-            my @result_features = ();
-            my $ft_cnt = 1;
-            foreach my $prb_ft (@{$result_features}) {
-                #print join(" ", $self->query()->seq_region_name, 
-                #           @$prb_ft, $ft_cnt++), "\n";
-                push (@result_features,
-                      [ $self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
-            }
-
-            $result_features{$rset->name} = \@result_features;
-
+        my $result_features = $rset->get_ResultFeatures_by_Slice($self->query());
+        print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
+        
+        throw("No result_features on slice ".$self->query()->name())
+            if scalar(@$result_features) == 0;
+        
+        my @result_features = ();
+        my $ft_cnt = 1;
+        foreach my $prb_ft (@{$result_features}) {
+            #print join(" ", $self->query()->seq_region_name, 
+            #           @$prb_ft, $ft_cnt++), "\n";
+            push (@result_features,
+                  [ $self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
         }
         
-        #print Dumper %result_features;
+        $result_features{$rset->name} = \@result_features;
         
-        #$self->result_features(\%features);
-        #print Dumper $self->result_features();
-
-        my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
-            .$self->analysis->module;
-        $runnable = $runnable->new
-            (
-             -query => $self->query,
-             -program => $self->analysis->program_file,
-             -analysis => $self->analysis,
-             -result_features => \%result_features,
-             );
-        
-        $self->runnable($runnable);
-
-        return 1;
-
     }
+    
+    #print Dumper %result_features;
+    
+    #$self->result_features(\%features);
+    #print Dumper $self->result_features();
+
+    my %parameters_hash = ();
+
+    if ($self->parameters_hash) {
+        %parameters_hash = %{$self->parameters_hash};
+    }
+
+    $parameters_hash{-result_features} = \%result_features;
+
+    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
+        .$self->analysis->module;
+    $runnable = $runnable->new
+        (
+         -query => $self->query,
+         -program => $self->analysis->program_file,
+         -analysis => $self->analysis,
+         %parameters_hash
+         );
+    
+    $self->runnable($runnable);
+    
+    return 1;
+    
+}
 
 
 =head2 write_output
@@ -529,93 +538,93 @@ sub fetch_input {
   Example   : 
 
 =cut
-
-    sub write_output{
-
-        print "RunnableDB::Funcgen::write_output\n";
-        my ($self) = @_;
-
-        # store analysis, feature set and data set
-        # analysis was alredy been stored while checking config in read_and_check_config
-        #$self->adaptor('Analysis')->store($self->analysis());
-        if (! defined $self->FeatureSet->dbID) {
-            $self->adaptor('FeatureSet')->store($self->FeatureSet());
-        }
-        if (! defined $self->DataSet->dbID) {
-            $self->adaptor('DataSet')->store($self->DataSet());
-        }
-
-        ### annotated features
-
-        my ($transfer, $slice);
-        if($self->query->start != 1 || $self->query->strand != 1) {
-            my $sa = $self->adaptor('Slice');
-            $slice = $sa->fetch_by_region($self->query->coord_system->name(),
-                                          $self->query->seq_region_name(),
-                                          undef, #start
-                                          undef, #end
-                                          undef, #strand
-                                          $self->query->coord_system->version());
-            $transfer = 1;
-        } else {
-            $slice = $self->query;
-        }
-        
+    
+sub write_output{
+    
+    print "RunnableDB::Funcgen::write_output\n";
+    my ($self) = @_;
+    
+    # store analysis, feature set and data set
+    # analysis was alredy been stored while checking config in read_and_check_config
+    #$self->adaptor('Analysis')->store($self->analysis());
+    if (! defined $self->FeatureSet->dbID) {
+        $self->adaptor('FeatureSet')->store($self->FeatureSet());
+    }
+    if (! defined $self->DataSet->dbID) {
+        $self->adaptor('DataSet')->store($self->DataSet());
+    }
+    
+    ### annotated features
+    
+    my ($transfer, $slice);
+    if($self->query->start != 1 || $self->query->strand != 1) {
+        my $sa = $self->adaptor('Slice');
+        $slice = $sa->fetch_by_region($self->query->coord_system->name(),
+                                      $self->query->seq_region_name(),
+                                      undef, #start
+                                      undef, #end
+                                      undef, #strand
+                                      $self->query->coord_system->version());
+        $transfer = 1;
+    } else {
+        $slice = $self->query;
+    }
+    
 #    my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet(
 #		$self->query, $fset);
 
-        my $fset = $self->FeatureSet;	
-        my $fs_id = $fset->dbID();
-        my $constraint = qq( af.feature_set_id = $fs_id );
-
-        my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet
-            ($slice, $fset, $self->analysis->logic_name);
+    my $fset = $self->FeatureSet;	
+    my $fs_id = $fset->dbID();
+    my $constraint = qq( af.feature_set_id = $fs_id );
+    
+    my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet
+        ($slice, $fset, $self->analysis->logic_name);
+    
+    print 'No. of annotated features already stored: '.scalar(@$af)."\n";
+    print 'No. of annotated features to be stored: '.scalar(@{$self->output})."\n";
+    
+    if (@$af) {
         
-        print 'No. of annotated features already stored: '.scalar(@$af)."\n";
-        print 'No. of annotated features to be stored: '.scalar(@{$self->output})."\n";
-
-        if (@$af) {
-            
-            throw("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
-                  join(':', $self->query->seq_region_name,$self->query->start,$self->query->end).
+        throw("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
+              join(':', $self->query->seq_region_name,$self->query->start,$self->query->end).
                   " already contains ".scalar(@$af)." annotated features of feature set ".
-                  $fset->dbID.".");
+              $fset->dbID.".");
+        
+    } else {
+        my @af;
+        foreach my $ft (@{$self->output}){
             
-        } else {
-            my @af;
-            foreach my $ft (@{$self->output}){
+            #print Dumper $ft;
+            my ($seqid, $start, $end, $score) = @{$ft};
                 
-                #print Dumper $ft;
-                my ($seqid, $start, $end, $score) = @{$ft};
-                
-                #print Dumper ($seqid, $start, $end, $score);
-                my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
-                    (
-                     -slice         => $self->query,
-                     -start         => $start,
-                     -end           => $end,
-                     -strand        => 0,
-                     -display_label => $self->analysis->logic_name,
-                     -score         => $score,
-                     -feature_set   => $fset,
-                     );
-                
-                # make sure feature coords are relative to start of entire seq_region
-                if ($transfer) {
-                    #warn("original af:\t", join("\t", $af->start, $af->end), "\n");
-                    $af = $af->transfer($slice);
-                    #warn("remapped af:\t", join("\t", $af->start, $af->end), "\n");
-                }
-                push(@af, $af);
+            #print Dumper ($seqid, $start, $end, $score);
+            my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
+                (
+                 -slice         => $self->query,
+                 -start         => $start,
+                 -end           => $end,
+                 -strand        => 0,
+                 -display_label => $self->analysis->logic_name,
+                 -score         => $score,
+                 -feature_set   => $fset,
+                 );
+            
+            # make sure feature coords are relative to start of entire seq_region
+            if ($transfer) {
+                #warn("original af:\t", join("\t", $af->start, $af->end), "\n");
+                $af = $af->transfer($slice);
+                #warn("remapped af:\t", join("\t", $af->start, $af->end), "\n");
             }
-
-            $self->adaptor('AnnotatedFeature')->store(@af);
+            push(@af, $af);
         }
-        return 1;
+        
+        $self->adaptor('AnnotatedFeature')->store(@af);
     }
+    return 1;
+}
 
 
-=head2 write_output
+=head2 fetch_ResultSets
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
   Function  : fetch and set ResultSets of interest

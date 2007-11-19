@@ -54,34 +54,27 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Funcgen);
 
-=head2 new
+=head2 query
 
-  Arg         : 
-  Usage       : my $runnable = Bio::EnsEMBL::Analysis::Runnable::Funcgen->new()
-  Description : Instantiates new Chipotle runnable
-  Returns     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie object
-  Exceptions  : none
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Arg [2]   : integer
+  Function  : container for the chip number
+  Returntype: interger
+  Exceptions: throws if passed an object which isnt a slice
+  Example   : 
 
 =cut
 
-sub new {
-
-    my ($class,@args) = @_;
-    #print Dumper @args;
-	my $self = bless {},$class;
-    #print Dumper $self;
-
-    #my ($result_features) = rearrange(['RESULT_FEATURES'], @args);
-    #$self->result_features($result_features);
-    #print Dumper($self->features);
-
-    #print Dumper $self;
-    return $self;
-
+sub query {
+    my ($self, $chip) = @_;
+    if ($chip){
+        throw("Must pass RunnableDB::Funcgen::MAT::query an integer ".
+              "specifying the chip to br processed not ".$chip) 
+            unless($chip =~ m/^\d+$/);
+        $self->{'chip'} = $chip;
+    }
+    return $self->{'chip'};
 }
-
-
-
 
 =head2 write_infile
 
@@ -99,8 +92,63 @@ sub write_infile {
 	my ($self, $filename) = @_;
 
 	if (! $filename) {
-		$filename = $self->infile();
+		#($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.21710.46133.dat')) =~ s/\.dat$/.tag/;
+		($filename = $self->infile()) =~ s/\.dat$/.tag/;
 	}
+
+    my $chipno = sprintf("%02d", $self->query);
+
+    $ENV{BPMAPFILE} =~ s/<CHIPNO>/$chipno/;
+    $ENV{CELFILES} =~ s/<CHIPNO>/$chipno/g;
+    $ENV{LOGFILE} =~ s/<CHIPNO>/$chipno/;
+    
+    open(TAG, ">$filename")
+        or throw("Can't open .tag-file $filename.");
+    print TAG <<EOT;
+
+[data]
+BpmapFolder = $ENV{BPMAPFOLDER}
+CelFolder = $ENV{CELFOLDER}
+GenomeGrp = $ENV{GENOMEGRP}
+RepLib = $ENV{REPLIB}
+Group = $ENV{GROUP}
+Pair = $ENV{PAIR}
+
+[bpmap]
+1 = $ENV{BPMAPFILE}
+
+[cel]
+1 = $ENV{CELFILES}
+
+[intensity analysis]
+BandWidth = $ENV{BANDWIDTH}
+MaxGap = $ENV{MAXGAP}
+MinProbe  = $ENV{MINPROBE}
+
+[interval analysis]
+Matscore =
+Pvalue = 1e-5
+FDR =
+Extend =
+
+[output]
+Log = $ENV{LOGFILE}
+
+EOT
+    
+    close TAG;
+
+    $self->infile($filename);
+
+    (my $bedfile = $filename) =~ s/\.tag$/.bed/;
+    $self->resultsfile($bedfile);
+
+    # set columns (fields) for output
+    my @fields = (0..2,4); # bed
+
+    $self->output_fields(\@fields);
+
+    return $filename;
 
 }
 
@@ -122,14 +170,14 @@ sub run_analysis {
     if(!$program){
         $program = $self->program;
     }
-    throw($program." is not executable ACME::run_analysis ") 
+    throw($program." is not executable") 
         unless($program && -x $program);
 
-    my $command = $self->program . ' ' . $self->analysis->parameters;
+    my $command = $self->program . ' ' . $self->infile;
     
     warn("Running analysis " . $command . "\n");
     
-    #eval { system($command) };
+    eval { system($command) };
     throw("FAILED to run $command: ", $@) if ($@);
 
 }

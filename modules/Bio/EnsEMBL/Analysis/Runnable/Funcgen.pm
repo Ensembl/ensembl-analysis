@@ -87,8 +87,8 @@ sub run {
   
     #print Dumper $self->options;
 
-    throw("Can't run ".$self." without probe features") 
-        unless($self->result_features);
+    #throw("Can't run ".$self." without result features") 
+    #    unless($self->result_features);
     #print Dumper $self->probe_features;
    
     #$self->workdir($dir) if ($dir);
@@ -97,7 +97,7 @@ sub run {
     print "work dir ".$self->workdir()." checked\n";
     
     $self->write_infile();
-    print Dumper $self->infile;
+    
     throw("Input file ".$self->infile." is empty.") if (-z $self->infile);
     #$self->files_to_delete($self->infile);
 	
@@ -127,8 +127,8 @@ sub result_features {
     if($features){
         $self->{'result_features'} = $features;
     }
-    throw("No result features available in Runnable.") 
-        if (!$self->{'result_features'});
+    #throw("No result features available in Runnable.") 
+    #    if (!$self->{'result_features'});
     return $self->{'result_features'};
 }
 
@@ -185,6 +185,7 @@ sub parse_results{
 
   while (<F>) {
       s/\"//;
+      s/^chr//;
 	  next unless (/^[0-9XYM]+\s/);
 	  
       chomp;
@@ -193,7 +194,8 @@ sub parse_results{
 
   }
 
-  throw("No features to annotate on slice ".$self->query->seq_region_name."!") if (scalar(@output) == 0);
+  throw("No features to annotate on slice ".$self->query->seq_region_name."!") 
+      if (scalar(@output) == 0);
 
   $self->output(\@output);
   #print Dumper $self->output();

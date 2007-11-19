@@ -378,7 +378,9 @@ sub fetch_sequence{
 
 
 sub parameters_hash{
+    use Data::Dumper;
   my ($self, $string) = @_;
+  print Dumper  $string;
   if(!$string){
     $string = $self->analysis->parameters;
   }

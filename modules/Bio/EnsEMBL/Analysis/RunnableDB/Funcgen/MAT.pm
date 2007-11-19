@@ -67,18 +67,54 @@ use vars qw(@ISA);
 sub new {
 
     print "Analysis::RunnableDB::Funcgen::MAT::new\n";
-
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    $self->Bio::EnsEMBL::Analysis::RunnableDB::read_and_check_config($CONFIG);
-
-	### need to do some variable/config checking here ###
-
-	#print Dumper $self;
+    $self->read_and_check_config($CONFIG);
 
     return $self;
 	
+}
+
+=head2 query
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : integer
+  Function  : container for chip number 
+  Returntype: integer
+  Exceptions: throws if passed the incorrect value
+  Example   : 
+
+=cut
+
+
+sub query{
+  my ($self, $chip) = @_;
+  if($chip){
+    throw("Must pass RunnableDB::Funcgen::MAT::query an integer ".
+          "specifying the chip to process not ".$chip) 
+        unless($chip =~ m/^\d+$/);
+    $self->{'chip'} = $chip;
+  }
+  return $self->{'chip'};
+}
+
+=head2 check_Sets
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Function  : fetch and set ResultSets of interest
+  Returntype: 1
+  Exceptions: none
+  Example   : 
+
+=cut
+
+
+sub check_Sets
+{
+
+    warn("\nNEED TO IMPLEMENT SETTING OF RESULT/DATA/FEATURE SET!!!\n\n");
+
 }
 
 sub fetch_input {
@@ -88,6 +124,8 @@ sub fetch_input {
 
     my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
         .$self->analysis->module;
+
+    warn("No input to fetch since we are going to work directly on the CEL files.");
 
     $runnable = $runnable->new
         (
