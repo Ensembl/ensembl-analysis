@@ -288,15 +288,6 @@ FIND_FALSE_INTRONS =>
 
            DEFAULT_GENE_BIOTYPES => ['protein_coding'] ,    
 
-           # advance config not implememnted now 
-#           ANALYSIS_SETS =>
-#           {
-#                          check_vs_mus_hum =>{
-#                                              'PRIMARY_ORTH'   => 'Homo sapiens',
-#                                              'SECONDARY_ORTH' => 'Mus musculus',
-#                                             },
-#
-#           }
            ANALYSIS_SETS =>
            {
                 FindFalseIntrons_hum_mus => 
