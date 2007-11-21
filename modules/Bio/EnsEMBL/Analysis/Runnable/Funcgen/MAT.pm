@@ -92,8 +92,8 @@ sub write_infile {
 	my ($self, $filename) = @_;
 
 	if (! $filename) {
-		#($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.21710.46133.dat')) =~ s/\.dat$/.tag/;
-		($filename = $self->infile()) =~ s/\.dat$/.tag/;
+		($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.4342.85151.dat')) =~ s/\.dat$/.tag/;
+		#($filename = $self->infile()) =~ s/\.dat$/.tag/;
 	}
 
     my $chipno = sprintf("%02d", $self->query);
@@ -177,7 +177,7 @@ sub run_analysis {
     
     warn("Running analysis " . $command . "\n");
     
-    eval { system($command) };
+    #eval { system($command) };
     throw("FAILED to run $command: ", $@) if ($@);
 
 }
@@ -194,22 +194,20 @@ sub run_analysis {
 
 =cut
 
-
 sub infile{
 
-  my ($self, $filename) = @_;
-
-  if($filename){
-    $self->{'infile'} = $filename;
-  }
-  if(!$self->{'infile'}){
-    $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
-  }
-
-  return $self->{'infile'};
-
+    my ($self, $filename) = @_;
+    
+    if($filename){
+        $self->{'infile'} = $filename;
+    }
+    if(!$self->{'infile'}){
+        $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
+    }
+    
+    return $self->{'infile'};
+    
 }
-
 
 sub config_file {
     my $self = shift;

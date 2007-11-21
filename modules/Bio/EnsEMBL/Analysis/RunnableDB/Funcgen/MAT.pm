@@ -49,8 +49,10 @@ use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Funcgen::MAT;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use vars qw(@ISA); 
 
+use Bio::EnsEMBL::Funcgen::Importer;
+
+use vars qw(@ISA); 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Funcgen);
 
 =head2 new
@@ -88,15 +90,15 @@ sub new {
 =cut
 
 
-sub query{
-  my ($self, $chip) = @_;
-  if($chip){
-    throw("Must pass RunnableDB::Funcgen::MAT::query an integer ".
-          "specifying the chip to process not ".$chip) 
-        unless($chip =~ m/^\d+$/);
-    $self->{'chip'} = $chip;
-  }
-  return $self->{'chip'};
+sub query {
+    my ($self, $chip) = @_;
+    if($chip){
+        throw("Must pass RunnableDB::Funcgen::MAT::query an integer ".
+              "specifying the chip to process not ".$chip) 
+            unless($chip =~ m/^\d+$/);
+        $self->{'chip'} = $chip;
+    }
+    return $self->{'chip'};
 }
 
 =head2 check_Sets
@@ -139,5 +141,58 @@ sub fetch_input {
     return 1;
 
 }
+
+sub write_output{
+    
+    print "RunnableDB::Funcgen::MAT::write_output\n";
+    my ($self) = @_;
+
+    #print Dumper $ENV{EXP_SET};
+    
+    my $Import = Bio::EnsEMBL::Funcgen::Importer->new
+        (
+         -name        => $ENV{EXPERIMENT},
+         -vendor      => $ENV{VENDOR},
+         -format      => $ENV{FORMAT},
+         -host        => $self->db->host,
+         -port        => $self->db->port,
+         -user        => $self->db->username,
+         -pass        => $self->db->password,
+         -dbname      => $self->db->dbname,
+         -species     => $ENV{SPECIES},
+         -data_version => $ENV{DATA_VERSION},
+         -experimental_set_name => $ENV{EXP_SET},
+         -feature_type_name => $ENV{FEATURE_TYPE},
+         -cell_type_name => $ENV{CELL_TYPE},
+         -location    => $ENV{LOCATION},
+         -contact     => $ENV{CONTACT},
+         -group       => $ENV{GROUP},
+         -recover     => 1,
+         -verbose     => 1,
+#         -ssh         =>  $ssh,
+#         -array_set   => $array_set,
+#         -array_name  => $array_name,
+#         -result_set_name => $rset_name, #not implemented yet
+#         -write_mage    => $write_mage,
+#         -update_xml => $update_xml,
+#         -no_mage => $no_mage,
+#         -data_root   => $data_dir,
+#         -output_dir  => $output_dir,
+#         -dump_fasta  => $fasta,
+#         -norm_method => $nmethod,
+#         -farm => $farm,
+#         -input_dir   => $input_dir,
+#         -exp_date     => $exp_date,
+#         -result_files => \@result_files,
+#         -old_dvd_format => $old_dvd_format,
+         #Exp does not build input dir, but could
+         #This allows input dir to be somewhere 
+         #other than efg dir structure
+         );
+
+    
+    
+}
+
 
 1;
