@@ -92,8 +92,9 @@ sub write_infile {
 	my ($self, $filename) = @_;
 
 	if (! $filename) {
-		($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.4342.85151.dat')) =~ s/\.dat$/.tag/;
-		#($filename = $self->infile()) =~ s/\.dat$/.tag/;
+		#($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.4342.85151.dat')) =~ s/\.dat$/.tag/;
+        #($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.28961.67910.dat')) =~ s/\.dat$/.tag/;
+		($filename = $self->infile()) =~ s/\.dat$/.tag/;
 	}
 
     my $chipno = sprintf("%02d", $self->query);

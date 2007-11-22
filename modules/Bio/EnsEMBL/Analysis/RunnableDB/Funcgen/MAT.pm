@@ -147,13 +147,16 @@ sub write_output{
     print "RunnableDB::Funcgen::MAT::write_output\n";
     my ($self) = @_;
 
-    #print Dumper $ENV{EXP_SET};
+    my @result_files = map { $_->resultsfile } @{$self->runnable};
     
-    my $Import = Bio::EnsEMBL::Funcgen::Importer->new
+    print Dumper @result_files;
+
+    my $Importer = Bio::EnsEMBL::Funcgen::Importer->new
         (
          -name        => $ENV{EXPERIMENT},
          -vendor      => $ENV{VENDOR},
          -format      => $ENV{FORMAT},
+         -db          => $self->db,
          -host        => $self->db->host,
          -port        => $self->db->port,
          -user        => $self->db->username,
@@ -161,12 +164,16 @@ sub write_output{
          -dbname      => $self->db->dbname,
          -species     => $ENV{SPECIES},
          -data_version => $ENV{DATA_VERSION},
+         -input_dir   => $ENV{ANALYSIS_WORK_DIR},
+         -output_dir  => $ENV{ANALYSIS_WORK_DIR},
+         -result_files => \@result_files,
          -experimental_set_name => $ENV{EXP_SET},
+         -exp_date     => $ENV{EXP_DATE},
          -feature_type_name => $ENV{FEATURE_TYPE},
          -cell_type_name => $ENV{CELL_TYPE},
          -location    => $ENV{LOCATION},
          -contact     => $ENV{CONTACT},
-         -group       => $ENV{GROUP},
+         -group       => $ENV{EGROUP},
          -recover     => 1,
          -verbose     => 1,
 #         -ssh         =>  $ssh,
@@ -177,7 +184,6 @@ sub write_output{
 #         -update_xml => $update_xml,
 #         -no_mage => $no_mage,
 #         -data_root   => $data_dir,
-#         -output_dir  => $output_dir,
 #         -dump_fasta  => $fasta,
 #         -norm_method => $nmethod,
 #         -farm => $farm,
@@ -190,7 +196,7 @@ sub write_output{
          #other than efg dir structure
          );
 
-    
+    $Importer->register_experiment();
     
 }
 
