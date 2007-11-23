@@ -309,6 +309,7 @@ sub write_seqfile{
 =head2 get_db_adaptor_by_string
 
   Arg [1]   : String 
+  Arg [2]   : verbose-flag 
   Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given string.
               Requires proper configuration of 
               Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
@@ -319,7 +320,7 @@ sub write_seqfile{
 =cut
 
 sub get_db_adaptor_by_string {
-   my ($string) = @_ ;
+   my ($string, $verbose) = @_ ;
 
 
    require "Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm" ;
@@ -329,6 +330,11 @@ sub get_db_adaptor_by_string {
 
    my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
    my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;
+
+   if ( $verbose ) {   
+     my %tmp =  %{${$DATABASES}{$string}} ;
+     print "Database : $tmp{'-dbname'} @ $tmp{'-host'} : $tmp{'-port'} AS $tmp{'-user'} - $tmp{'-pass'}\n" ;  
+   } 
 
    if($string ne $DNA_DBNAME ){
      if (length($DNA_DBNAME) ne 0 ){
@@ -341,6 +347,9 @@ sub get_db_adaptor_by_string {
   throw("No entry in Config/GeneBuild/Databases.pm hash for $string") unless $db ;
   return $db;
 }
+
+
+
 
 
 
