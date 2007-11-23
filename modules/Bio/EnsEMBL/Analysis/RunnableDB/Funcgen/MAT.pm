@@ -169,6 +169,7 @@ sub write_output{
          -result_files => \@result_files,
          -experimental_set_name => $ENV{EXP_SET},
          -exp_date     => $ENV{EXP_DATE},
+         -feature_analysis => $self->analysis->logic_name,
          -feature_type_name => $ENV{FEATURE_TYPE},
          -cell_type_name => $ENV{CELL_TYPE},
          -location    => $ENV{LOCATION},

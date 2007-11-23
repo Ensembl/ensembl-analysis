@@ -91,13 +91,11 @@ sub write_infile {
 	
 	my ($self, $filename) = @_;
 
-	if (! $filename) {
-		#($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.4342.85151.dat')) =~ s/\.dat$/.tag/;
-        #($filename = $self->infile('/lustre/work1/ensembl/graef/efg/data/H3ac_ChIPchip_Upsalla/MAT.28961.67910.dat')) =~ s/\.dat$/.tag/;
-		($filename = $self->infile()) =~ s/\.dat$/.tag/;
-	}
-
     my $chipno = sprintf("%02d", $self->query);
+
+	if (! $filename) {
+		($filename = $self->infile()) =~ s/\.dat$/.$chipno.tag/;
+	}
 
     $ENV{BPMAPFILE} =~ s/<CHIPNO>/$chipno/;
     $ENV{CELFILES} =~ s/<CHIPNO>/$chipno/g;
@@ -178,7 +176,7 @@ sub run_analysis {
     
     warn("Running analysis " . $command . "\n");
     
-    #eval { system($command) };
+    eval { system($command) };
     throw("FAILED to run $command: ", $@) if ($@);
 
 }
