@@ -55,7 +55,7 @@ use vars qw(@ISA @EXPORT);
 =cut
 sub clip_if_necessary {
   my ($unprepared, $buffer, $window_size) = @_;
-  my $clipped = new Bio::Seq;
+  my $clipped = undef;
   my $clipped_seq = "";
   my $clip_end;
 
@@ -136,6 +136,7 @@ sub clip_if_necessary {
   # # #
   my $num_bases_removed;
   if (defined $clipped_seq) {
+    $clipped = new Bio::Seq;
     eval {
       $clipped->seq($clipped_seq);
       $clipped->display_id($unclipped->display_id);
