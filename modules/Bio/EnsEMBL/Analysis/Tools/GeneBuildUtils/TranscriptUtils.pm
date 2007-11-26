@@ -1597,7 +1597,7 @@ sub convert_to_genes {
 
   for my $t (@tr) {
     $analysis = $t->analysis unless $analysis ;
-    $t->biotype($biotype);
+    if($biotype){ $t->biotype($biotype); }
     my $g = Bio::EnsEMBL::Gene->new() ;
     $g->biotype( $t->biotype ) ;
     $g->add_Transcript($t);
