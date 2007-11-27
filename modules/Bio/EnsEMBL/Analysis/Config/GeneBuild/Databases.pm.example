@@ -91,7 +91,7 @@ use vars qw(%Config);
   
  
                  # The GENEWISE_DB holds genes made by FPC_TargettedGenewise or FPC_BlastMiniGenewise 
-                 # (TGE_gw or similarity_genewise - genes ) 
+                 # (TGE_gw or similarity_genewise - genes ) ( formerly GB_GW_DB ) 
 
                  GENEWISE_DB => 
                                  { 
