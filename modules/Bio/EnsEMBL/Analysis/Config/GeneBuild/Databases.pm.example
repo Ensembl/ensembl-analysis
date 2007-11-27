@@ -31,15 +31,24 @@ A common way to get an DBAdaptor in a module is
  print "Loading database : ".  $$DATABASES{REFERENCE_DB}{"-dbname"} . "\n";  
 
  my $ref_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{REFERENCE_DB} }) ;
+
  
- OR :  
+ OR if you write a RunnableDB:  
+
 
    use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
    @ISA = qw ( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild ) 
 
    my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
- 
 
+ 
+ OR for normal scripts :
+
+   use Bio::EnsEMBL::Analysis::Tools::Utilities qw( get_db_adaptor_by_string );
+   get_db_adaptor_by_string("GENEBUILD_DB")
+
+  
+ 
 The variables can also be references to arrays or hashes.
 
 Edit C<%Config> to add or alter variables.
@@ -181,8 +190,21 @@ use vars qw(%Config);
                                    },
 
 
-                # This database is use mainly with human an mouse for merging the havana get set with the ensembl genebuild
+                # This database is use mainly with human an mouse for merging the 
+                # havana get set with the ensembl genebuild 
+
                   GB_HAVANA_DB  => {
+                                     -dbname => '',
+                                     -host =>   '',
+                                     -port =>   '',
+                                     -user =>   '',
+                                     -pass =>   '',
+                                   },
+ 
+                 
+                # Database which stores the ditags...
+ 
+                  DITAG_DB => {
                                      -dbname => '',
                                      -host =>   '',
                                      -port =>   '',
