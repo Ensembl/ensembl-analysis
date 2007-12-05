@@ -45,8 +45,15 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 
-@EXPORT = qw( shuffle parse_config create_file_name write_seqfile merge_config_details
-              get_input_arg get_db_adaptor_by_string read_config import_var );
+@EXPORT = qw( shuffle 
+              parse_config 
+              create_file_name 
+              write_seqfile
+              merge_config_details
+              get_input_arg 
+              get_db_adaptor_by_string read_config 
+              import_var 
+              get_database_connection_parameters_by_string ) ; 
 
 
 
@@ -73,22 +80,37 @@ sub merge_config_details {
   # loop through all hrefs which are passed as input 
 
   foreach my $config_file ( @config_hashes ) {
-
     my %file = %$config_file ;
 
     foreach my $db_class ( keys %file ) {
 
       # process Exonerate2Genes.pm config (has section --> OUTDB)
 
-      if ( exists ${$file{$db_class}}{OUTDB} ) {
-        if ( defined ${$file{$db_class}}{OUTDB} && length(${$file{$db_class}}{OUTDB}{'-dbname'}) > 0  ) {
-        # don't process undefiend OUT-DB's and  don't process defiened OUT-DB's which have no name
-           #print "-dbname "  .${$file{$db_class}}{OUTDB}{'-dbname'}. "\n\n\n" ;
+      if ( exists ${$file{$db_class}}{OUTDB} ) {   
 
-          $result{$db_class}{db} = ${$file{$db_class}}{OUTDB} ;
+       if ( ref(${$file{$db_class}}{OUTDB}) !~m/HASH/) {  
+         # section in Exonerate2Genes is not a HREF which defines details for 
+         # database-connection - it's a hash-key pointing to Databases.pm 
+ 
+         my $href = get_database_connection_parameters_by_string(${$file{$db_class}}{OUTDB}) ;   
 
-        }else {
-         next ;
+         unless ( $href )  {  
+          print " $db_class  parameters are not defined in Databases.pm - skipping\n";
+          next ; 
+         } else {   
+            #print "Used database : $$href{'-dbname'}\n" ; 
+            $result{$db_class}{db} = $href ; 
+         } 
+        }else {  
+          if ( defined ${$file{$db_class}}{OUTDB} 
+          && length(${$file{$db_class}}{OUTDB}{'-dbname'}) > 0  ) {
+          # don't process undefiend OUT-DB's and  
+          # don't process defined OUT-DB's which have no name
+            $result{$db_class}{db} = ${$file{$db_class}}{OUTDB} ;
+  
+          }else {
+           next ;
+          } 
         }
       }
 
@@ -328,12 +350,22 @@ sub get_db_adaptor_by_string {
    Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DATABASES");
    Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DNA_DBNAME");
 
+   unless ( ${$DATABASES}{$string} ) {  
+     print "WARNING : Database parameters undefined - skipping \n" ; 
+     return undef ; 
+   } 
+   
+   if ( length(${$DATABASES}{$string}{'-dbname'}) == 0 ) {  
+     print "WARNING : You haven't defined a database-name in the Databases.pm config-file for $string\n" ; 
+     return undef ; 
+   }
+
    my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
    my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;
 
    if ( $verbose ) {   
      my %tmp =  %{${$DATABASES}{$string}} ;
-     print "Database : $tmp{'-dbname'} @ $tmp{'-host'} : $tmp{'-port'} AS $tmp{'-user'} - $tmp{'-pass'}\n" ;  
+     print STDERR "Database : $tmp{'-dbname'} @ $tmp{'-host'} : $tmp{'-port'} AS $tmp{'-user'} - $tmp{'-pass'}\n" ;  
    } 
 
    if($string ne $DNA_DBNAME ){
@@ -349,6 +381,40 @@ sub get_db_adaptor_by_string {
 }
 
 
+
+
+=head2 get_database_connection_parameters_by_string
+
+  Arg [1]   : String 
+  Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given string.
+              Requires proper configuration of 
+              Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
+ 
+  Returntype: Hashref 
+  Exceptions: throw if string can't be found in Databases.pm 
+
+=cut
+
+sub get_database_connection_parameters_by_string {
+   my ($string) = @_ ;
+
+
+   require "Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm" ;
+   no strict ;
+   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DATABASES");
+   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DNA_DBNAME");
+
+   unless ( ${$DATABASES}{$string} ) {  
+     print "WARNING : Database parameters undefined - skipping \n" ; 
+     return undef ; 
+   } 
+   
+   if ( length(${$DATABASES}{$string}{'-dbname'}) == 0 ) {  
+     print "You haven't defined a database-name in the Databases.pm config-file for $string\n" ; 
+     return undef ; 
+   }
+   return ${$DATABASES}{$string} ; 
+}
 
 
 
