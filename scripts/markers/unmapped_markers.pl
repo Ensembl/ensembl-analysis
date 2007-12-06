@@ -61,9 +61,10 @@ die("No markers found\n") unless  scalar(@markers) > 0 ;
 print STDERR "Found " . scalar(@markers) . " markers, checking / setting marker_feature map weights....\n";
 foreach my $marker ( @markers ) {
   my @features = @{$marker->get_all_MarkerFeatures} ;
-  if ( scalar(@features > $max_duplicates )) {
+  my @map_locations = @{$marker->get_all_MapLocations} ;
+  if ( scalar(@features > $max_duplicates ) && scalar(@map_locations) ==  0 ) {
     push @duplicates,$marker;
-  } elsif ( scalar(@features == 0 )) {
+  } elsif ( scalar(@features == 0 ) && scalar(@map_locations) ==  0 ) {
     push @unmapped,$marker;
   }
   # update map weights
@@ -81,7 +82,7 @@ print STDERR "Creating unmapped entries...\n";
 my @unmapped_objects = @{make_entries("duplicates",\@duplicates)};
 push @unmapped_objects,@{make_entries("unmapped",\@unmapped)};
 foreach my $umo ( @unmapped_objects ) {
-  $umma->store($umo);
+#  $umma->store($umo);
 }
 print STDERR "Deleting duplicated and unmapped markers...\n";
 
@@ -98,6 +99,10 @@ foreach my $marker ( @unmapped ) {
 sql("DELETE marker_feature from marker_feature LEFT JOIN marker
 ON marker_feature.marker_id =  marker.marker_id 
 WHERE marker.marker_id is null ",$db);
+# marker feature where the marker hits lots of times but is also in the marker_map_locations table
+# just delete the multiple hitting markers
+sql("DELETE marker_feature from marker_feature 
+WHERE map_weight > $max_duplicates",$db);
 # marker synonym
 sql("DELETE marker_synonym from marker_synonym LEFT JOIN marker
 ON marker_synonym.marker_id =  marker.marker_id 
