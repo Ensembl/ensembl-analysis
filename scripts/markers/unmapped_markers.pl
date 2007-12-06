@@ -82,7 +82,7 @@ print STDERR "Creating unmapped entries...\n";
 my @unmapped_objects = @{make_entries("duplicates",\@duplicates)};
 push @unmapped_objects,@{make_entries("unmapped",\@unmapped)};
 foreach my $umo ( @unmapped_objects ) {
-#  $umma->store($umo);
+  $umma->store($umo);
 }
 print STDERR "Deleting duplicated and unmapped markers...\n";
 
