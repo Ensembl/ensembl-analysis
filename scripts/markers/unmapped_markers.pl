@@ -18,12 +18,12 @@ my @unmapped;
 my $pass = '';
 my $ln = 'Marker';
 GetOptions(
-	   'host:s'             => \$host,
-	   'user:s'             => \$user,
+	   'host|dbhost:s'      => \$host,
+	   'user|dbuser:s'      => \$user,
 	   'dbname:s'           => \$dbname,
-	   'port:n'             => \$port,
+	   'port|dbport:n'      => \$port,
 	   'logic_name:s'       => \$ln,
-	   'pass:s'             => \$pass,
+	   'pass|dbpass:s'      => \$pass,
 	   'max_duplicates:n'   => \$max_duplicates,
 	  );
 
