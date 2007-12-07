@@ -74,6 +74,8 @@ sub clone_Evidence{
                                   $feature->hseqname,
                                   $feature->cigar_string,
                                   $feature->analysis,
+                                  $feature->external_db_id,
+                                  $feature->hcoverage,
                                   $feature->slice);
   $newfeature->dbID($feature->dbID);
   return $newfeature;
@@ -84,7 +86,7 @@ sub clone_Evidence{
 sub create_feature{
   my ($feature_string, $start, $end, $strand, $hstart, $hend, 
       $hstrand, $percent_id, $p_value, $score, $hseqname,
-      $cigar_string, $analysis, $slice) = @_;
+      $cigar_string, $analysis, $external_db_id, $hcoverage, $slice) = @_;
   my $feature = $feature_string->
     new(
         -start    => $start,
@@ -98,6 +100,8 @@ sub create_feature{
         -p_value  => $p_value,
         -hseqname => $hseqname,
         -analysis => $analysis,
+        -external_db_id => $external_db_id,
+        -hcoverage => $hcoverage,
         -cigar_string => $cigar_string,
        );
   $feature->slice($slice);
