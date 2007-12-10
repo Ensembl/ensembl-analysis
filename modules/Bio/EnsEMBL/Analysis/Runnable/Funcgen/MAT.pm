@@ -93,14 +93,29 @@ sub write_infile {
 
     my $chipno = sprintf("%02d", $self->query);
 
+    if (exists $ENV{INFILE_EXISTS} && $ENV{INFILE_EXISTS}) {
+
+        opendir(DIR, $self->workdir())
+            or throw("Can't open dir ".$self->workdir());
+        my @files = grep { /.$chipno.tag$/ } readdir DIR;
+
+        throw("More than one tag file fir chip $chipno in ".$self->workdir)
+            if (! @files);
+        $filename = $self->workdir.'/'.$files[0];
+
+        closedir DIR;
+
+    }
+
 	if (! $filename) {
 		($filename = $self->infile()) =~ s/\.dat$/.$chipno.tag/;
 	}
 
+    (my $logfile = $filename) =~ s/\.tag$/.log/;
+    
     $ENV{BPMAPFILE} =~ s/<CHIPNO>/$chipno/;
     $ENV{CELFILES} =~ s/<CHIPNO>/$chipno/g;
-    $ENV{LOGFILE} =~ s/<CHIPNO>/$chipno/;
-    
+
     open(TAG, ">$filename")
         or throw("Can't open .tag-file $filename.");
     print TAG <<EOT;
@@ -131,7 +146,7 @@ FDR =
 Extend =
 
 [output]
-Log = $ENV{LOGFILE}
+Log = $logfile
 
 EOT
     
@@ -163,7 +178,7 @@ EOT
 =cut
 
 sub run_analysis {
-        
+
     my ($self, $program) = @_;
     
     if(!$program){
@@ -172,13 +187,15 @@ sub run_analysis {
     throw($program." is not executable") 
         unless($program && -x $program);
 
-    my $command = $self->program . ' ' . $self->infile;
-    
-    warn("Running analysis " . $command . "\n");
-    
-    eval { system($command) };
-    throw("FAILED to run $command: ", $@) if ($@);
-
+    if (! $ENV{INFILE_EXISTS}) {
+        
+        my $command = $self->program . ' ' . $self->infile;
+        
+        warn("Running analysis " . $command . "\n");
+        
+        #eval { system($command) };
+        throw("FAILED to run $command: ", $@) if ($@);
+    }
 }
 
 =head2 infile
