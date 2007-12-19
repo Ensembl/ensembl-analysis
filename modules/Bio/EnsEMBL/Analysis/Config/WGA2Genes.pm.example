@@ -60,6 +60,9 @@ use vars qw( %Config );
                  -port   => '3306',
                },
 
+               # reference (TARGET) species external db
+               TARGET_SPECIES_EXTERNAL_DBNAME => 'Ens_Hs_translation', # or Ens_Mm_translation
+
                INPUT_METHOD_LINK_TYPE => 'CONTIG_AWARE_NET',
 
                ########################
