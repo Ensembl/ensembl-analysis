@@ -66,7 +66,8 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Pipeline::Flag;
-use Bio::EnsEMBL::Analysis::Config::Databases;
+#use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Blessed;
 use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Combined;
@@ -100,28 +101,35 @@ sub fetch_input {
   my %homolog_hash;
   my @transferred_genes;
 
-  print "Loading database ".$GB_DBNAME.":".$GB_DBHOST."\n";
-  my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_DBHOST,
-     '-user'   => $GB_DBUSER,
-     '-dbname' => $GB_DBNAME,
-     '-pass'   => $GB_DBPASS,
-     '-port'   => $GB_DBPORT,
-    );
+#  print "Loading database ".$GB_DBNAME.":".$GB_DBHOST."\n";
+#  my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
+#    (
+#     '-host'   => $GB_DBHOST,
+#     '-user'   => $GB_DBUSER,
+#     '-dbname' => $GB_DBNAME,
+#     '-pass'   => $GB_DBPASS,
+#     '-port'   => $GB_DBPORT,
+#    );
+  #now using Analysis:Databases
+  print "Loading reference database.\n";
+  my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{REFERENCE_DB} });
+
   #store repeat db internally
   $self->rep_db($rep_db);
   my $rsa = $rep_db->get_SliceAdaptor;
 
   #genes come from final genebuild database
-  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-    (
-     '-host'   => $GB_FINALDBHOST,
-     '-user'   => $GB_FINALDBUSER,
-     '-dbname' => $GB_FINALDBNAME,
-     '-pass'   => $GB_FINALDBPASS,
-     '-port'   => $GB_FINALDBPORT,
-    );
+#  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
+#    (
+#     '-host'   => $GB_FINALDBHOST,
+#     '-user'   => $GB_FINALDBUSER,
+#     '-dbname' => $GB_FINALDBNAME,
+#     '-pass'   => $GB_FINALDBPASS,
+#     '-port'   => $GB_FINALDBPORT,
+#    );
+  #now using Analysis:Databases
+  print "Loading genes database.\n";
+  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{GENEBUILD_DB} });
 
   $self->gene_db($genes_db);
   #genes are written to the pseudogene database
@@ -255,15 +263,19 @@ my($self) = @_;
   #  empty_Analysis_cache();
   # write genes out to a different database from the one we read genes from.
 
-  my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-					      '-host'   => $PSEUDO_DBHOST,
-					      '-user'   => $PSEUDO_DBUSER,
-					      '-dbname' => $PSEUDO_DBNAME,
-					      '-pass'   => $PSEUDO_DBPASS,
-					      '-port'   => $PSEUDO_DBPORT,
-					     );
+#  my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+#					      '-host'   => $PSEUDO_DBHOST,
+#					      '-user'   => $PSEUDO_DBUSER,
+#					      '-dbname' => $PSEUDO_DBNAME,
+#					      '-pass'   => $PSEUDO_DBPASS,
+#					      '-port'   => $PSEUDO_DBPORT,
+#					     );
 
   #my $db = $self->get_dbadaptor("PSEUDO_DB") ;
+
+  #now using Analysis:Databases
+  print "Loading pseudo database.\n";
+  my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{PSEUDO_DB} });
 
   # sort out analysis
   my $analysis = $self->analysis;
