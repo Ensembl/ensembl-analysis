@@ -42,7 +42,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
@@ -51,12 +51,13 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
 use Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw ( merge_config_details ) ; 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
 
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 sub new {
@@ -134,10 +135,10 @@ sub fetch_input{
     next unless (exists $$TRANSCRIPT_COALESCER_DB_CONFIG{$database_class}) ;  
 
 
-    my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
+    #my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
     # attache refdb as dnadb  
-    $dba->dnadb($self->db) ; 
-    
+    #$dba->dnadb($self->db) ; 
+    my $dba = $self->get_dbadaptor($database_class);
     my $slice = $self->fetch_sequence($self->input_id, $dba );
     # 
     # organise genes into "EVIDENCE_SETS" depending on their underlying source 
@@ -268,13 +269,18 @@ sub fetch_input{
 sub write_output{
   my ($self) = @_;
 
-  my $out_dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{$$DATABASES{COALESCER_DB}} ) ; 
-
+  #my $out_dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{$$DATABASES{COALESCER_DB}}) ; 
+  my $out_dba = $self->get_dbadaptor($OUTPUT_DATABASE);
   my $gene_a = $out_dba->get_GeneAdaptor() ; 
   info ("trying to write output") ;  
   foreach my $gene (@{$self->output}){
-     info("storing $gene" ); 
-    $gene_a->store($gene) ; 
+    info("storing $gene" ); 
+    eval{
+      $gene_a->store($gene) ; 
+    };
+    if($@){
+      warning("Failed to store gene ".$@);
+    }
   }  
   return ;
 }
