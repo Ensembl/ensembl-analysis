@@ -1270,6 +1270,8 @@ sub replace_stops_with_introns{
                 $fp_left->percent_id($ug->percent_id);
                 $fp_left->start     ($ug->start);
                 $fp_left->end       ($stop->start - 1);
+                $fp_left->external_db_id($ug->external_db_id);
+                $fp_left->hcoverage($ug->hcoverage);
                 
                 my $fp_right = Bio::EnsEMBL::FeaturePair->new();
                 if ($ug->slice) {
@@ -1282,6 +1284,8 @@ sub replace_stops_with_introns{
                 $fp_right->percent_id($ug->percent_id);
                 $fp_right->start     ($stop->end + 1);
                 $fp_right->end       ($ug->end);
+                $fp_right->external_db_id($ug->external_db_id);
+                $fp_right->hcoverage($ug->hcoverage);
                 
                 if ($exon->strand > 0) {
                   $fp_left->hstart($ug->hstart);
