@@ -143,7 +143,8 @@ sub new {
 sub place_transcript {
   my ($self, 
       $tran,
-      $add_attributes) = @_;
+      $add_attributes,
+      $external_db_id) = @_;
 
   my (@all_coords, @new_exons);
   
@@ -439,6 +440,8 @@ sub place_transcript {
                   -score    => 100.0,
                   -hseqname => $tran->translation->stable_id,
                   -hstart   => $p_coord->start,
+                  -external_db_id => $external_db_id, 
+                  -hcoverage => $hcoverage, 
                   -hend     => $p_coord->end,
                   -hstrand  => $p_coord->strand,
                   -slice    => $sl);
