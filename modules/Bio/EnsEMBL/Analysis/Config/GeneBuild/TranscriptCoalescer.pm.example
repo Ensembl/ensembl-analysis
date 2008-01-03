@@ -63,6 +63,9 @@ use vars qw(%Config);
 
   NEW_BIOTYPE => 'Coalescer',  # Biotype of genes which will be written to COALESCER_DB
 
+  OUTPUT_DATABASE => 'COALESCER_DB',     
+  #This is the database the output will be written to as defined in 
+  #Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
 
   # The runnable includes a filtering proceudure which removes partial transcripts 
   # if they are overlapped by a longer transcript. These transcripts have a different 
@@ -131,6 +134,11 @@ use vars qw(%Config);
                   # Put the biotypes for Bio::EnsEMBL::Gene objects in the set.
                   # For Bio::EnsEMBL::PredictionTranscripts use the logic_name
                   #
+                  #These define which biotypes/logicnames from the above data sets
+                  #get put into which gene sets for the analysis. For example if
+                  #you have 2 sets of similarity genes from different databases they
+                  #would be both defined in different database names hashes above but
+                  #their biotypes would go into the same SIMGW_SETS array below
                   
                   EST_SETS      =>['est_all'], 
                   SIMGW_SETS    =>['simgw_no_miniseq_80'],   
