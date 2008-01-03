@@ -30,9 +30,9 @@ Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes
 =cut
 package Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes;
 
-use vars qw(@ISA);
+require Exporter;
+use vars qw(@ISA @EXPORT);
 use strict;
-
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -56,7 +56,11 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
 use IO::String;
 use Bio::SeqIO;
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+use DBI qw(:sql_types);
+use DBD::mysql;
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB 
+          Exporter);
+@EXPORT = (@{$DBI::EXPORT_TAGS{'sql_types'}});
 
 
 ############################################################
@@ -306,6 +310,8 @@ sub run {
 
   my (@results, @original_genes, @chains_generecs_pairs);
 
+  my $external_db_id = $self->get_external_db_id();
+
   logger_info("INITIAL GENES: " . 
               join(" ", map {$_->gene->stable_id} @{$self->gene_records}) . "\n");
 
@@ -375,7 +381,8 @@ sub run {
                                                                         $self->MIN_COVERAGE,
                                                                         $self->MIN_NON_GAP,
                                                                         $self->FULLY_GAP_EXONS,
-                                                                        $self->PARTIAL_GAP_EXONS);
+                                                                        $self->PARTIAL_GAP_EXONS,
+                                                                        $external_db_id);
         
         push @these_results, [$gene_scaffold, @$subset_generecs];
       }
@@ -460,7 +467,8 @@ sub run {
                                                                         $self->MIN_COVERAGE,
                                                                         $self->MIN_NON_GAP,
                                                                         $self->FULLY_GAP_EXONS,
-                                                                        $self->PARTIAL_GAP_EXONS);
+                                                                        $self->PARTIAL_GAP_EXONS,
+                                                                        $external_db_id);
         my @kept;
         foreach my $gr (@grs) {
           if (scalar(@{$gr->projected_transcripts})) {
@@ -529,7 +537,8 @@ sub make_gene_scaffold_and_project_genes {
       $min_coverage,
       $min_non_gap,
       $add_gaps,
-      $extend_into_gaps) = @_;
+      $extend_into_gaps,
+      $external_db_id) = @_;
 
   my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->
       new(-name => $name,
@@ -547,7 +556,7 @@ sub make_gene_scaffold_and_project_genes {
     
     foreach my $tran (@{$res_gene->source_transcripts}) {
       my $proj_trans = 
-          $gene_scaffold->place_transcript($tran, 1);
+          $gene_scaffold->place_transcript($tran, 1, $external_db_id);
       
       $proj_trans = 
           $self->process_transcript($proj_trans, 
@@ -1098,7 +1107,7 @@ sub write_gene {
              $gene_id);
       foreach my $sup_feat (@{$exon->get_all_supporting_features}) {
         foreach my $ug ($sup_feat->ungapped_features) {
-          printf($fh "%s %s\t%s\t%s\t%d\t%d\t%d\t%s=%s; %s=%s; %s=%s; %s=%s\n", 
+          printf($fh "%s %s\t%s\t%s\t%d\t%d\t%d\t%s=%s; %s=%s; %s=%s; %s=%s; %s=%s; %s=%s\n", 
                  $prefix,
                  $seq_id,
                  "WGA2Genes",
@@ -1113,7 +1122,11 @@ sub write_gene {
                  "hstart",
                  $ug->hstart,
                  "hend",
-                 $ug->hend);
+                 $ug->hend,
+                 "external_db_id",
+                 $ug->external_db_id,
+                 "hcoverage",
+                 $ug->hcoverage);
         }
       }      
     }
@@ -1202,7 +1215,8 @@ sub read_and_check_config {
   foreach my $var (qw(INPUT_METHOD_LINK_TYPE
                       QUERY_CORE_DB
                       TARGET_CORE_DB
-                      COMPARA_DB)) {
+                      COMPARA_DB
+                      TARGET_SPECIES_EXTERNAL_DBNAME)) {
 
     throw("You must define $var in config for logic '$logic'" . 
           " or in the DEFAULT entry")
@@ -1258,6 +1272,15 @@ sub TARGET_CORE_DB {
   return $self->{_target_core_db};
 }
 
+sub TARGET_SPECIES_EXTERNAL_DBNAME {
+  my ($self, $target_species_external_dbname) = @_;
+
+  if (defined $target_species_external_dbname) {
+    $self->{_target_species_external_dbname} = $target_species_external_dbname;
+  }
+
+  return $self->{_target_species_external_dbname};
+}
 
 #
 # chain filtering
@@ -1389,6 +1412,26 @@ sub KILL_LIST {
   return $self->{_kill_list};
 }
 
+sub get_external_db_id {
+  my ($self) = @_;
+
+  my $query_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
+      new(%{$self->QUERY_CORE_DB});
+  my $external_dbname = $self->TARGET_SPECIES_EXTERNAL_DBNAME;
+
+  my $sth = $query_db->prepare(
+            "SELECT external_db_id ".
+            "FROM external_db ".
+            "WHERE db_name = ?"
+                          );
+  $sth->bind_param(1, $external_dbname, SQL_VARCHAR);
+  $sth->execute();
+
+  my ($external_db_id) = $sth->fetchrow();
+  $sth->finish();
+
+  return $external_db_id;
+}
 
 ###########################################
 # Local class Result to encapsulate results
@@ -1537,11 +1580,6 @@ sub projected_transcripts {
 
   return $self->{_projected_transcripts};
 }
-
-
-
-
-
 
 
 1;
