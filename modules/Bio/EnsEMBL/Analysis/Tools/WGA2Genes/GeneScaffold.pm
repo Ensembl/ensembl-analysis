@@ -441,7 +441,6 @@ sub place_transcript {
                   -hseqname => $tran->translation->stable_id,
                   -hstart   => $p_coord->start,
                   -external_db_id => $external_db_id, 
-                  -hcoverage => $hcoverage, 
                   -hend     => $p_coord->end,
                   -hstrand  => $p_coord->strand,
                   -slice    => $sl);
@@ -578,6 +577,14 @@ sub place_transcript {
     $t_sf->hcoverage( 100 * ($transcript_aligned_aas / length($source_pep)));
     $t_sf->percent_id(100 * ($transcript_identical_aas / $transcript_aligned_aas));
     $proj_tran->add_supporting_features($t_sf);
+
+    # now copy this hcoverage value to all the exon supporting features
+    foreach my $exon (@{$proj_tran->get_all_Exons}) {
+      foreach my $exon_sf (@{$exon->get_all_supporting_features}) {
+        $exon_sf->hcoverage($t_sf->hcoverage); 
+      }
+    }
+
   } else {
     # there are no complete codons in any exon!
     # this is clearly rubbish, so bail out
