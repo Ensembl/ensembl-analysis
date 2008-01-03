@@ -87,6 +87,7 @@ sub create_feature{
   my ($feature_string, $start, $end, $strand, $hstart, $hend, 
       $hstrand, $percent_id, $p_value, $score, $hseqname,
       $cigar_string, $analysis, $external_db_id, $hcoverage, $slice) = @_;
+
   my $feature = $feature_string->
     new(
         -start    => $start,
@@ -112,7 +113,7 @@ sub create_feature{
 
 sub create_feature_from_gapped_pieces{
   my ($feature_string, $pieces, $score, $percent_id, $p_value, $slice, $hseqname, 
-      $analysis) = @_;
+      $analysis, $external_db_id, $hcoverage) = @_;
   
   my $feature = $feature_string->new(
                                      -features => $pieces,
@@ -121,6 +122,8 @@ sub create_feature_from_gapped_pieces{
                                      -p_value  => $p_value,
                                      -hseqname => $hseqname,
                                      -analysis => $analysis,
+                                     -external_db_id => $external_db_id,
+                                     -hcoverage => $hcoverage,
                                     );
   $feature->slice($slice);
   $feature->hseqname($hseqname);
