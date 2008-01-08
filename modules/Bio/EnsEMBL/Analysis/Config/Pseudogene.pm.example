@@ -54,10 +54,11 @@ use vars qw( %Pseudogene );
 	       PS_P_VALUE_CUTOFF   => '1.0e-50',
 	       PS_RETOTRANSPOSED_COVERAGE   => 80,
 	       PS_ALIGNED_GENOMIC  => 100,
+	       # logic name to give to pseudogenes
+               PS_PSEUDO_TYPE      => 'pseudogene',
 	       # logic name to give genes with exons covered by repeats 
-	       # if left blank they will just get deleted
-         PS_PSEUDO_TYPE      => 'pseudogene_extra',
-         PS_REPEAT_TYPE      => '',
+	       # if left blank they will just get deleted (recommended)
+               PS_REPEAT_TYPE      => '',
 
 	       # analysis logic names to run over genes falling into these categories
 	       SINGLE_EXON      => 'spliced_elsewhere',
