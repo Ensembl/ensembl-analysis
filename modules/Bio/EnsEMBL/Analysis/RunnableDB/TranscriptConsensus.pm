@@ -37,6 +37,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
 use Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer;
 use Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer);
@@ -61,7 +62,7 @@ sub fetch_input{
   $self->throw("No input id") unless defined($self->input_id);
 
   my $slice = $self->fetch_sequence($self->input_id, $self->db );
-
+  my $solexa_slice;
   my (%est_genes, %simgw_genes, %pred_transcripts )  ;  
 
   $self->query($slice);
@@ -89,12 +90,21 @@ sub fetch_input{
   
     # skip all databases out of Exonerate2Genes.pm & Databases.pm which
     # have no configuration in TranscriptCoalescer.pm
-   
+    # Unless its the solexa db in the trascript consensus config
+
+    if ($SOLEXA && exists $$TRANSCRIPT_CONSENSUS_DB_CONFIG{$database_class}) {
+      my $dba = $self->get_connection($database_class,\%databases);
+
+      # attach refdb as dnadb  
+      $dba->dnadb($self->db) ; 
+      $solexa_slice = $self->fetch_sequence($self->input_id, $dba );
+     }
+
     next unless (exists $$TRANSCRIPT_COALESCER_DB_CONFIG{$database_class}) ;  
 
 
-    my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
-    # attache refdb as dnadb  
+    my $dba = $self->get_connection($database_class,\%databases);
+    # attach refdb as dnadb  
     $dba->dnadb($self->db) ; 
     
     my $slice = $self->fetch_sequence($self->input_id, $dba );
@@ -198,21 +208,18 @@ sub fetch_input{
      }
    }
   } 
-
-  #
-  # remove redundant transcripts which have all same exons to speed computation up 
-  #
-  print "trying to remove redundant genes\n" ;  
   
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->new
     (
      -query    => $self->query,
+     -solexa   => $solexa_slice,
      -analysis => $self->analysis,
      -all_genes   => \%biotypes_to_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
      -evidence_sets   => $self->{evidence_sets} , 
      -dnadb => $self->db , 
      -utils_verbosity => $self->{utils_verbosity}, 
     );
+  $runnable->solexa_slice($solexa_slice) if ($SOLEXA && $solexa_slice);
   $self->runnable($runnable);
 
 
@@ -286,5 +293,13 @@ sub _check_config{
 }
 
 
-
+sub get_connection {
+  my ($self,$database_class,$d) = @_;
+  my %databases = %$d;
+#  print "Connection  " . $database_class ."\n";
+  unless ( $self->{_db_conn}{$database_class} ) {
+    $self->{_db_conn}{$database_class} = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
+  }
+  return $self->{_db_conn}{$database_class};
+}
 1;
