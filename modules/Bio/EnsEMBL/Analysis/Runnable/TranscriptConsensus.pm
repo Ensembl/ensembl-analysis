@@ -54,6 +54,8 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer);
 
+
+
 =head2 run
 
    Name       : run
@@ -204,6 +206,7 @@ sub collapse_cluster{
 sub score {
   my ($self,$collapsed_cluster,$feature,$genes,$type) = @_;
   my $total_score;
+  my $solexa_score = 0;
   # scores are calculated as the number of exoct matches / the number of overlaps
   # it is complicated by end exons and evidence sets however.
   $total_score = $collapsed_cluster->get_intron_count($feature) if $type eq 'intron';
@@ -214,7 +217,28 @@ sub score {
   # this way we penalise anything with less than exons than the minumum number of overlapping exons
   my $overlap = $MIN_CONSENSUS ;
   my $est_trans = $MIN_CONSENSUS;
-
+  # get solexa data if it's there
+  if ($SOLEXA &&  defined($self->solexa_slice) && $type eq 'exon'){
+    #Fetch the slice from the solexa db that corresponds to the exon
+    #Get all solexa reads with score above the cutoff ( 150 reccomended ) regardless of strand
+    my $sub_slice = $self->solexa_slice->adaptor->fetch_by_region
+      (
+       'toplevel',
+       $self->solexa_slice->seq_region_name,
+       $feature->start + $self->solexa_slice->start,
+       $feature->end + $self->solexa_slice->start,
+       1);
+    $self->throw("Sub slice not found " . $feature->start . " " .  $feature->end . " " .  $feature->strand . "\n")
+      unless $sub_slice;
+    # Fetch the features
+    $solexa_score = scalar(@{$sub_slice->get_all_DnaAlignFeatures
+			       (
+				$$TRANSCRIPT_CONSENSUS_DB_CONFIG{"SOLEXA_DB"}->{"BIOTYPE"}[0],
+				$SOLEXA_SCORE_CUTOFF)}
+			  );
+    print  "Solexa reads = $solexa_score\n" if $VERBOSE;
+  }
+  
   # the weighted score is:
   # 50% - proportion of exons in the stack that come from ests / number of overlapping est transcripts
   # 50% - the non est exons over the total number of overlapping transcripts of any type
@@ -260,16 +284,16 @@ sub score {
     my $weighted_score = 0;
     my $unweighted_score = 0;
     if ($est_trans){
-      $weighted_score = $est_exons / $est_trans  ;
+      $weighted_score = ($est_exons + $solexa_score) / ($est_trans + $solexa_score) ;
       print "weighted score $weighted_score " if $VERBOSE;
     }
     # other componnt of score comes from all the exons
-    $unweighted_score =  $total_score / $overlap ;
+    $unweighted_score =  ($total_score + $solexa_score) / ($overlap + $solexa_score) ;
     print "unweighted score $unweighted_score \t" if $VERBOSE;
     $score = ($weighted_score + $unweighted_score) / 2;
   } else {
     # there are no est exons overlaping this feature score is simple identical / non-identical overlaps
-    $score += ($total_score / $overlap) ;
+    $score += (($total_score + $solexa_score) / ($overlap + $solexa_score)) ;
     # if the feature overlaps an est transcript but not est exons, add a penalty
     if ($est_trans &&  $est_trans > 1.5 ){
       $score -= $EST_OVERLAP_PENALTY;
@@ -336,7 +360,7 @@ sub make_genes{
       # just transfer it, if it is over the end of the new exon
       # trim back so that it is in the exon if you see what I mean
       # print stuff
-      print "Transcript ".$transcript->start.":".$transcript->end.":".$transcript->strand." ".$transcript->biotype." " if $VERBOSE;
+      print "Transcript ".$transcript->start .":".$transcript->end .":".$transcript->strand." ".$transcript->biotype." " if $VERBOSE;
       print scalar(@{$transcript->get_all_Exons})." Exons\n" if $VERBOSE;
       my $last_exon;
       foreach my $exon (@{$transcript->get_all_Exons}){
@@ -428,6 +452,7 @@ sub make_genes{
 	# flip it back onto the - strand
 	my $slice = $transcript->slice->invert;
 	$transcript = $transcript->transfer($slice);
+	$similarity_tran = $similarity_tran->transfer($slice);
       }	
     } else {
       # dont need to mess with translations if I am not adding UTR...
@@ -498,6 +523,20 @@ sub make_genes{
     foreach my $transcript(@{$final->get_all_Transcripts}){
       throw(Transcript_info($transcript)." has inconsistent phases") 
         unless(are_phases_consistent($transcript));
+      #modify score to be independent of length i total / number of introns+exons
+      #Should always be less than 1
+      my $final_score = $transcript->score / (scalar(@{$transcript->get_all_Exons})*2-1);    
+      # add score into trancript supporting feature score feild and move
+      # coverage into the new covergae field
+      foreach my $tsf ( @{$transcript->get_all_supporting_features}) {
+	$tsf->hcoverage($tsf->score);
+	$tsf->score(sprintf("%.4f", $final_score));
+      }	
+      print "Transcript ". ($transcript->start + $self->solexa_slice->start -1) .":".
+	($transcript->end  + $self->solexa_slice->start-1) . ":".
+	  $transcript->strand." ".
+	    $final->biotype." " if $VERBOSE && $SOLEXA;
+      print "Final score $final_score\n";
     }
   }
   $self->output(\@final_genes);
@@ -683,6 +722,7 @@ sub make_transcripts {
       my $chosen_transcript = $possible_transcripts[-1];
       # keep the transcript supporting feature of the similarity gene
       $chosen_transcript->add_supporting_features(@{$trans->get_all_supporting_features});
+      $chosen_transcript->biotype($trans->biotype);
       push @all_transcripts, $chosen_transcript ;
     }
   }
@@ -933,5 +973,14 @@ sub clone_exon_extended {
   $newexon->cluster    ($exon->cluster);
   return $newexon;
 }
+
+sub solexa_slice{
+  my ($self,$slice) = @_;
+  if  (defined($slice)) {
+    $self->{_solexa} = $slice;
+  }
+  return $self->{_solexa};
+}
+
 
 1;
