@@ -66,7 +66,7 @@ use vars qw(%Config);
   # do you want to include ests in the filtering 1 / 0
   FILTER_ESTS       => 0,
   # Do you want to use your est sets to add UTR?
-  ADD_UTR => 1,
+  ADD_UTR => 0,
   # How many transcripts must be present before you take the consensus
   MIN_CONSENSUS => 4,
   # makes UTR addition more conservative 0 = neutral 1 = rarely add UTR
@@ -88,6 +88,22 @@ use vars qw(%Config);
   BAD_BIOTYPE => 'bad', 
   # biotype of the genes if the cluster is too small to use - leave blank and they will not be written
   SMALL_BIOTYPE => 'small',
+  
+  # Solexa data
+  ##############
+  
+  # Set flag to 1 if you want to use solexa data
+  SOLEXA => 0,
+  # only fetch solexa reads scoring >= this...
+  SOLEXA_SCORE_CUTOFF => 150,
+  # define the db to fetch solexa data from 
+  TRANSCRIPT_CONSENSUS_DB_CONFIG => {
+  	# Database hash from Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+          SOLEXA_DB => { 
+	  	         # biotype of the features to fetch
+        	         BIOTYPE => ['solexa_exonerate'],    
+                        }, 
+	},
   );
 
 
