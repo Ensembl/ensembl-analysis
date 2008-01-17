@@ -55,7 +55,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 #use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Analysis::Config::Pseudogene;
+use Bio::EnsEMBL::Analysis::Config::Pseudogene qw ( PS_INPUT_DATABASE ) ; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
@@ -93,7 +93,7 @@ sub fetch_input{
   $self->rep_db($dna_db);
 
   #genes come from final genebuild database
-  my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
+  my $genes_db = $self->get_dbadaptor("$PS_INPUT_DATABASE");
   $self->gene_db($genes_db); 
 
   my $ga = $genes_db->get_GeneAdaptor;
