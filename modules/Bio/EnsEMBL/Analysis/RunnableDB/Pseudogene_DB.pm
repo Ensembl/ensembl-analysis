@@ -146,14 +146,16 @@ sub fetch_input {
 
   my $genes = $genes_slice->get_all_Genes;
   print  $genes_slice->name."\t".
-    $genes_slice->start."\n";
-  GENE: foreach my $gene (@{$genes}) {
-    # Ignore genes that are not protein_coding
+    $genes_slice->start."\n"; 
+  GENE: foreach my $gene (@{$genes}) { 
+    # gnore all other biotypes of genes that are not protein_coding 
+    # these genes will still be written to PS_OUTPUT_DATABASE - unless you set 
+    # PS_DO_NOT_WRITE_IGNORED_GENES  = 0 
+    # 
     unless ( $gene->biotype eq $PS_BIOTYPE ) {
       $self->ignored_genes($gene);
       next GENE;
     }
-
 
     ############################################################################
     # transfer gene coordinates to entire chromosome to prevent problems arising
@@ -261,9 +263,13 @@ sub get_all_repeat_blocks {
 
 sub write_output {
 my($self) = @_;
-  my $genes = $self->output;
-  push @{$genes},@{$self->ignored_genes} if $self->ignored_genes;
-  my %feature_hash;
+  my $genes = $self->output; 
+  if ( $PS_WRITE_IGNORED_GENES == 1 ) {  
+    print "writing ignored genes\n" ; 
+    push @{$genes},@{$self->ignored_genes} if $self->ignored_genes;  
+  }  
+  
+    my %feature_hash;
   #  empty_Analysis_cache();
   # write genes out to a different database from the one we read genes from.
 
