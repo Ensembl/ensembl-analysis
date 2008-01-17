@@ -125,7 +125,7 @@ sub  run_blast{
       $self->output(\%output_hash);
     return 1;
     }
-    print  $trans->stable_id . "\n";
+    print  $trans->stable_id if ( $trans->stable_id ) ; 
     # need to mask out other coding sequences here
     my $blast =  Bio::EnsEMBL::Analysis::Runnable::Blast->new 
       ('-query'     => $query,
