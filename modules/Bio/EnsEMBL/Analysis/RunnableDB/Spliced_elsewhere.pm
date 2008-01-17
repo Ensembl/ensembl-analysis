@@ -55,7 +55,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 #use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Analysis::Config::Pseudogene qw ( PS_INPUT_DATABASE ) ; 
+use Bio::EnsEMBL::Analysis::Config::Pseudogene; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
