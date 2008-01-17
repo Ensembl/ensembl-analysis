@@ -69,8 +69,10 @@ use Bio::EnsEMBL::Pipeline::Flag;
 #use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
+use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Blessed;
 use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Combined;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning 
                                       stack_trace);
 use Data::Dumper;
@@ -78,7 +80,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 
@@ -111,8 +113,9 @@ sub fetch_input {
 #     '-port'   => $GB_DBPORT,
 #    );
   #now using Analysis:Databases
-  print "Loading reference database.\n";
-  my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{REFERENCE_DB} });
+  print "Loading reference database : REFERENCE_DB.\n";
+  my $rep_db = $self->get_dbadaptor("REFERENCE_DB") ; 
+  #my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{REFERENCE_DB} });
 
   #store repeat db internally
   $self->rep_db($rep_db);
@@ -128,8 +131,9 @@ sub fetch_input {
 #     '-port'   => $GB_FINALDBPORT,
 #    );
   #now using Analysis:Databases
-  print "Loading genes database.\n";
-  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{GENEBUILD_DB} });
+  print "Loading genes database : PS_INPUT_DATABASE => $PS_INPUT_DATABASE ( defined in Databases.pm ) \n";
+  #my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{GENEBUILD_DB} });
+  my $genes_db = $self->get_dbadaptor("$PS_INPUT_DATABASE") ; 
 
   $self->gene_db($genes_db);
   #genes are written to the pseudogene database
@@ -271,11 +275,12 @@ my($self) = @_;
 #					      '-port'   => $PSEUDO_DBPORT,
 #					     );
 
-  #my $db = $self->get_dbadaptor("PSEUDO_DB") ;
+# my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{PSEUDO_DB} });
+  my $db = $self->get_dbadaptor("$PS_OUTPUT_DATABASE") ; 
 
   #now using Analysis:Databases
-  print "Loading pseudo database.\n";
-  my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{PSEUDO_DB} });
+  print "Writing to database PS_OUTPUT_DATABASE : $PS_OUTPUT_DATABASE\n"; 
+
 
   # sort out analysis
   my $analysis = $self->analysis;
