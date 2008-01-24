@@ -425,7 +425,6 @@ sub compute_translation{
 =cut
 
 
-
 sub run_translate{
   my ($trans,$met) = @_;
 
@@ -472,10 +471,19 @@ sub run_translate{
 }
 
 
+=head2 validate_Translation_coords
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : (optional) boolean, allow negative start coordinates
+  Function  : check coordinates of translation of transcript
+  Returntype: boolean, 1 if translation is ok
+
+=cut
+
 sub validate_Translation_coords{
-  my ($transcript) = @_;
+  my ($transcript, $allow_negative_start) = @_;
   my $translation = $transcript->translation;
-  if($translation->start < 1){
+  if(!$allow_negative_start && ($translation->start < 1)){
     warning(Translation_info($transcript)." has a start  ".$translation->start.
             " less than 1");
     return 0;
