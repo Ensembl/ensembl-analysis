@@ -49,7 +49,6 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
-use Bio::EnsEMBL::Pipeline::Tools::TranslationUtils ; 
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (compute_translation return_translation) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (convert_to_genes print_Transcript print_Transcript_and_Exons Transcript_info ) ; 
@@ -139,7 +138,7 @@ sub new {
 
 sub run { 
   my ($self) = @_ ; 
-  print " all genes fetched\n" if $VERBOSE  ;   
+  print " all genes fetched\n" if $self->{v};   
   # get all genes of evidence set 'est' on slice and cluster them
   
   my @allgenes = @{ $self->get_genes_by_evidence_set('est') }  ;
@@ -157,7 +156,8 @@ sub run {
   print "non_clusters : " . scalar(@$non_clusters) . "\n" if $self->{v};  
 
   GENE_CLUSTER: foreach my $gene_cluster (@$clusters) {
-    if ($self->{v}) { 
+    if ($self->{v}) {  
+      print " processing gene_cluster : $gene_cluster\n" ; 
       print "\n" ; print_cluster_info($self->query,$gene_cluster ) ; print "="x80; print "\n" ;  
     }
 
@@ -175,11 +175,11 @@ sub run {
     if ( $tr ) {
       if ($self->{v}){  
         print "Stage 1: Number Genes resulting out of pure est-merging           : ".scalar(@$tr)."\n"; 
-        print_Transcript_and_Exons ($tr) ; 
+        print_Transcript_and_Exons($tr) ; 
       }
       # remove red. trans, edit terminal exons and remove redundant trans again 
       my @non_red_trans = 
-      @{ remove_redundant_transcripts( $self->edit_terminal_exons(remove_redundant_transcripts($tr)))}; 
+      @{ remove_redundant_transcripts( $self->edit_terminal_exons(remove_redundant_transcripts($tr)))};  
 
       print "Stage 2: Number Trans. after term exon edit / removing redundancy : "
        . scalar(@non_red_trans)."\n" if $self->{v}; 
@@ -205,7 +205,6 @@ sub run {
     }
   } # GENE_CLUSTER 
 
-
  ##
  ##
  ##                 RE-clustering of genes with other evidence 
@@ -222,16 +221,17 @@ sub run {
   # 
   # building new gene set which contains genes of set abinitio and simgw and the 
   # freshly merged genes (biotype of these genes is set in config) 
-  #
+  # 
+  
 
   my @new_gene_set ; 
-  push @new_gene_set , @{convert_to_genes( \@all_merged_est_transcripts, $self->analysis ) } ; 
-  push @new_gene_set , @{ $self->get_genes_by_evidence_set('abinitio') }  ;
+  push @new_gene_set , @{convert_to_genes( \@all_merged_est_transcripts, $self->analysis ) } ;  
+  push @new_gene_set , @{ $self->get_genes_by_evidence_set('abinitio') }  ; 
   push @new_gene_set , @{ $self->get_genes_by_evidence_set('simgw') }  ; 
   
   #
   # re-cluster freshly merged / extended of type 'est_merged' genes of other sources 
-  #
+  # 
   my ($clusters2, $non_clusters2) = cluster_Genes(\@new_gene_set, $self->get_all_evidence_sets ) ; 
 
   GENE_CLUSTERS: for my $gene_cluster (@$clusters2) { 
@@ -948,9 +948,8 @@ sub main_clustering_and_recursion {
   #
 
   my @pruned_transcripts ;   
-  for my $transcript ( @$trans_aref ) {  
+  for my $transcript ( @$trans_aref ) {   
     my $ntr = new Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended( -BIOTYPE => $self->{new_biotype} ) ; 
-
     for my $exon ( @{ $transcript->get_all_Exons } ) { 
       $exon->biotype( $self->{new_biotype} ) ; 
       $ntr->add_Exon( $exon ) ; 
