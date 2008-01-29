@@ -646,6 +646,21 @@ sub NONREF_REGIONS {
   }
 }
 
+sub PROGRAM {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PROGRAM'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_PROGRAM'})) {
+    return $self->{'_CONFIG_PROGRAM'};
+  } else {
+    return undef;
+  }
+}
+
+
 ###############################################
 ###     end of config
 ###############################################
