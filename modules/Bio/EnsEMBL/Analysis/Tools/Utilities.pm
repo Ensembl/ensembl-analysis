@@ -243,7 +243,7 @@ sub parse_config{
       }
     }
   }else{
-    warning("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".  
+    throw("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".  
           $var_hash);
   }
 }
