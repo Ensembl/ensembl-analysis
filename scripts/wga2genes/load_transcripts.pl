@@ -177,6 +177,8 @@ while(<>) {
     my ($hit_start) = $group{hstart};
     my ($hit_end) = $group{hend};
     my ($exon_id) = $group{exon};
+    my ($external_db_id) = $group{external_db_id};
+    my ($hcoverage) = $group{hcoverage};
     
     push @{$ug_feats{$exon_id}}, {
       start => $start,
@@ -185,6 +187,8 @@ while(<>) {
       hseqname => $hit_name,
       hstart => $hit_start,
       hend  => $hit_end,
+      external_db_id => $external_db_id,
+      hcoverage => $hcoverage,
     };
   }
 }
@@ -230,6 +234,8 @@ foreach my $target_id (keys %transcripts) {
                                                  -hseqname => $f_hash->{hseqname},
                                                  -hstart   => $f_hash->{hstart},
                                                  -hend     => $f_hash->{hend},
+                                                 -external_db_id => $f_hash->{external_db_id},
+                                                 -hcoverage => $f_hash->{hcoverage},
                                                  -analysis => $sf_analysis);
 
           push @exon_ug_feats, $f;
