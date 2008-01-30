@@ -1136,6 +1136,7 @@ sub tidy_split_transcripts{
   Returntype: Bio::EnsEMBL::Transcript 
   Exceptions: 
   Example   : 
+
 =cut
 
 sub trim_cds_to_whole_codons {
@@ -1209,6 +1210,7 @@ sub trim_cds_to_whole_codons {
   Exceptions: 
   Example   : 
   Notes     : Needs extension to deal with transcript_supporting_feats
+
 =cut
 
 sub replace_stops_with_introns{
@@ -1771,7 +1773,7 @@ sub empty_Transcript{
 }
 
 sub all_exons_are_valid{
-  my ($transcript, $max_length) = @_;
+  my ($transcript, $max_length, $allow_negative_start) = @_;
 
   foreach my $exon(@{$transcript->get_all_Exons}){
     throw(Transcript_info($transcript)." seems to contain an undefined exon") 
@@ -1781,7 +1783,7 @@ sub all_exons_are_valid{
                   "exon longer than ".$max_length);
       return 0;
     }
-    if(!validate_Exon_coords($exon)){
+    if(!validate_Exon_coords($exon, $allow_negative_start)){
       logger_info("Transcript ".id($transcript)." has ".
                   "invalid exon coords ".Exon_info($exon));
       return 0;
@@ -1806,6 +1808,7 @@ sub evidence_coverage_greater_than_minimum{
 
 
 =head2 identical_Transcripts
+
  Title   : identical_Transcripts
  Usage   : $identical = identical_Transcripts($transcript1, $transcript2);
  Function: compares 2 Transcripts. DOES NOT CHECK TO SEE WHETHER PHASES ARE IDENTICAL

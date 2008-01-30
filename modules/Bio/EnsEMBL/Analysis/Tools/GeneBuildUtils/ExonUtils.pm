@@ -239,9 +239,9 @@ sub transfer_supporting_evidence{
 
 
 sub validate_Exon_coords{
-  my ($exon) = @_;
+  my ($exon, $allow_negative_start) = @_;
   throw("Must pass ExonUtils::validate_Exon_coords an exon ") if(!$exon);
-  if($exon->start < 0){
+  if(!$allow_negative_start && ($exon->start < 0)){
     warning(id($exon)." ".$exon->start." is less than zero");
     return 0;
   }
