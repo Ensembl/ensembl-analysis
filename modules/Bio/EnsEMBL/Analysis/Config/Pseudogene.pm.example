@@ -29,8 +29,13 @@ use vars qw( %Pseudogene );
 
 # Hash containing config info
 %Pseudogene = (	
+ 
+               # you can set the input- and output database - the names should point to 
+               # keys in Database.pm 
+               PS_INPUT_DATABASE  => 'GENEBUILD_DB',  
+               PS_OUTPUT_DATABASE => 'PSEUDO_DB',     
 
-	       # configs for the introns in repeats test
+	       # configs for the introns in repeats test  
 
                # introns longer than the following are considered "real"
                PS_FRAMESHIFT_INTRON_LENGTH => 9,
@@ -45,7 +50,14 @@ use vars qw( %Pseudogene );
 	       PS_NUM_FRAMESHIFT_INTRONS  => 1,
 	       PS_NUM_REAL_INTRONS  => 1,
 	       # biotype of genes to check
-	       PS_BIOTYPE  => 'protein_coding',
+	       PS_BIOTYPE  => 'protein_coding',  
+
+               # The default behaviour of pseudogene_DB.pm is to analyse ALL genes in a database 
+               # whcih have biotype PS_BIOTYPE ( default : protein_coding ). ALL genes which don't 
+               # match this biotype are not analysed, but will still be written to PS_OUTPUT_DATABASE                # You can switch this default behaviour OFF if you set PS_WRITE_IGNORED_GENES to 0. 
+
+               PS_WRITE_IGNORED_GENES => 1, 
+
 	       # configs for the spliced elsewhere tests
 	       # %ID of a tbalstx of the (presumed) retrotransposed query sequence to its 
 	       # homolog that is spliced elsewhere in the genome. hits falling below 
@@ -57,6 +69,7 @@ use vars qw( %Pseudogene );
 	       # logic name to give to pseudogenes
                PS_PSEUDO_TYPE      => 'pseudogene',
 	       # logic name to give genes with exons covered by repeats 
+
 	       # if left blank they will just get deleted (recommended)
                PS_REPEAT_TYPE      => '',
 
