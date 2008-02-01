@@ -318,8 +318,8 @@ sub _parse_vulgar_block {
     my $target_match_length = shift @$vulgar_components;
 
     throw("Vulgar string does not start with a match.  Was not " . 
-		 "expecting this.")
-      if (scalar @exons == 0) && $type ne 'M' && $type ne 'S';
+		 "expecting this. (Have type $type)")
+      if (scalar @exons == 0) && $type ne 'M' && $type ne 'S' && $type ne 'C';
 
     if ($type eq 'M' or $type eq 'S' or $type eq 'C'){
       my %hash = (type => $type);
