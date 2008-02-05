@@ -108,7 +108,7 @@ use vars qw( %Config );
              MINIGENEWISE_PARAMETERS => {
                                          -terminal_padding => 20000,
                                          -exon_padding => 200,
-                                         -minium_intron => 1000,
+                                         -minimum_intron => 1000,
                                         },
              MULTIMINIGENEWISE_PARAMETERS =>{
                                               -minimum_feature_length => 50,
