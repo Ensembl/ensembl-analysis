@@ -35,7 +35,7 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable;
 
-use Bio::EnsEMBL::Utils::Exception qw( throw warning );
+use Bio::EnsEMBL::Utils::Exception qw( throw warning stack_trace_dump );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw( @ISA );
@@ -92,10 +92,11 @@ sub run {
     #print Dumper $self->probe_features;
    
     #$self->workdir($dir) if ($dir);
+    ### DO NOT USE environment variable here!!! ###
     $self->workdir($ENV{ANALYSIS_WORK_DIR});
     $self->checkdir();
     print "work dir ".$self->workdir()." checked\n";
-    
+
     $self->write_infile();
     
     throw("Input file ".$self->infile." is empty.") if (-z $self->infile);
@@ -176,33 +177,32 @@ sub parse_results{
         if(! defined $resultsfile);
     
     throw("parse_results: results file ".$resultsfile." does not exist.")
-      if (! -e $resultsfile);
-  
-  throw("parse_results: can't open file ".$resultsfile.": ". $!)
-      unless (open(F, $resultsfile));
-
-  my @output = ();
-
-  while (<F>) {
-      s/\"//;
-      s/^chr//;
-	  next unless (/^[0-9XYM]+\s/);
-	  
-      chomp;
-      my @ft = split;
-      push(@output, [ @ft[@{$self->output_fields()}] ]);
-
-  }
-
-  throw("No features to annotate on slice ".$self->query->seq_region_name."!") 
-      if (scalar(@output) == 0);
-
-  $self->output(\@output);
-  #print Dumper $self->output();
-
-  throw("parse_results: can't close file ".$resultsfile.".")
-      unless (close(F));
-
+        if (! -e $resultsfile);
+    
+    print Dumper $resultsfile;
+    
+    throw("parse_results: can't open file ".$resultsfile.": ". $!)
+        unless (open(F, $resultsfile));
+    
+    my @output = ();
+    
+    while (<F>) {
+        s/\"//;
+        s/^chr//;
+        next unless (/^[0-9XYM]+\s/);
+        
+        chomp;
+        my @ft = split;
+        push(@output, [ @ft[@{$self->output_fields()}] ]);
+        
+    }
+    
+    $self->output(\@output);
+    #print Dumper $self->output();
+    
+    throw("parse_results: can't close file ".$resultsfile.".")
+        unless (close(F));
+    
 }
 
 1;

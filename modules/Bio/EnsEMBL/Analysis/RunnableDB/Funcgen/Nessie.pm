@@ -40,19 +40,17 @@ use strict;
 use warnings;
 use Data::Dumper;
 
+use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Analysis::Config::Funcgen::Nessie;
+
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::Funcgen;
 use Bio::EnsEMBL::Analysis::Runnable::Funcgen::Nessie;
 
-use Bio::EnsEMBL::Analysis::Config::General;
-use Bio::EnsEMBL::Analysis::Config::Funcgen::Nessie;
-
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use vars qw(@ISA); 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Funcgen);
-
-
 
 =head2 new
 
@@ -67,14 +65,41 @@ use vars qw(@ISA);
 
 sub new {
 
-    #print "Nessie::new\n";
+    print "Analysis::RunnableDB::Funcgen::Nessie::new\n";
     my ($class,@args) = @_;
+
     my $self = $class->SUPER::new(@args);
-    
+
     $self->read_and_check_config($CONFIG);
 
-    #print Dumper $self;
+    # add some runnable/program special params to analysis
+    $self->analysis->parameters($self->analysis->parameters().$self->TRAIN_PARAMETERS);
+
+    # make sure we have the correct analysis object
+    $self->check_Analysis();
+
+    # make sure we can store the correct feature_set, data_sets, and result_sets
+    $self->check_Sets();
+
     return $self;
+
 }
+
+sub TRAIN_PARAMETERS {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_TRAIN_PARAMETERS'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_TRAIN_PARAMETERS'} ) ) {
+        return $self->{'_CONFIG_TRAIN_PARAMETERS'};
+    } else {
+        return undef;
+    }
+}
+
+
+
 
 1;

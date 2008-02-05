@@ -43,7 +43,7 @@ use Data::Dumper;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::Funcgen;
 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Funcgen);
@@ -78,6 +78,7 @@ sub run_analysis {
     (my $resultsfile = $self->infile()) =~ s/\.dat$/_peaks.out/;
     
     my $command = $self->program.' --data="'.$self->infile().'" '.
+        '--replicates='.scalar(keys %{$self->result_features}).
         $self->analysis->parameters. ' > '.$outfile;
 
     warn("Running analysis " . $command . "\n");
@@ -85,7 +86,7 @@ sub run_analysis {
     throw("FAILED to run $command: ", $@) if ($@);
 
     my $parser = 'oligo_peaks.pl --gap 500 --sang --split 2500 '.
-        '--bridge --mindist 500 --minpost 0.99 --autonorm -l '.
+        '--bridge --mindist 400 --minpost 0.99 --autonorm -l '.
         $outfile.' '.$self->infile.' > '.$resultsfile; 
         
     warn("Running parser " . $parser . "\n");
