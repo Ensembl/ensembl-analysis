@@ -39,8 +39,9 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw( parse_config );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
+use Bio::EnsEMBL::Utils::Exception qw( throw warning stack_trace_dump );
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
@@ -64,8 +65,8 @@ sub new{
 
     print "Analysis::RunnableDB::Funcgen::new\n";
     my ($class,@args) = @_;
+    #print stack_trace_dump();
     my $self = $class->SUPER::new(@args);
-
     return $self;
 
 }
@@ -84,25 +85,33 @@ sub read_and_check_config {
     # For eFG we need to tweak the analysis logic_name a bit, which
     # contains the actual logic_name, experiment name, and result_set regexp
     # separated by colon.
-    my ($logic_name, $experiment, $rset_regexp) = split(':', $self->analysis->logic_name);
-    
+
+    print Dumper $self->analysis->logic_name;
+    my ($logic_name, $experiment) = split(':', $self->analysis->logic_name);
+    print join (' : ', $self->input_id, $logic_name, $experiment), "\n";
+
     # Make sure we deal with the correct analysis object!!!
-    $self->analysis->logic_name($logic_name);
+    #$self->analysis->logic_name($logic_name);
 
     # Now read and check analysis config hash
-    $self->SUPER::read_and_check_config($config);
-
-    # and add/update analysis settings
-    $self->analysis->program($self->PROGRAM);
-    $self->analysis->program_file($self->PROGRAM_FILE);
-    $self->analysis->program_version($self->VERSION);
-    $self->analysis->parameters($self->PARAMETERS);
-    $self->analysis->displayable(1);
-
+    #$self->SUPER::read_and_check_config($config);
+    #print Dumper $config;
+    
+    # first get default and eFG analysis config
+    parse_config($self, $config, $logic_name);
+    # then get config for pipeline analysis (individual experiment settings,
+    # like RESULT_SET_REGEXP)
+    parse_config($self, $config, $self->analysis->logic_name);
+    #print Dumper $self;
+    
     # Make sure we have the correct DB adaptors!!!
     $self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
     $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(%{ $self->EFGDB })); 
     #print Dumper ($self->dnadb, $self->efgdb);
+
+    # Set analysis
+    my $efg_analysis = new Bio::EnsEMBL::Analysis( -logic_name => $logic_name );
+    $self->efg_analysis($efg_analysis);
 
     # Set experiment
     my $e = $self->efgdb->get_ExperimentAdaptor->fetch_by_name($experiment);
@@ -115,10 +124,6 @@ sub read_and_check_config {
     $self->norm_method($m) 
         or throw("Can't fetch analysis object for norm method ".$self->NORM_METHOD);
     #print Dumper $self->norm_method;
-
-    # Set result_set regular expression
-    $self->RESULT_SET_REGEXP($rset_regexp) 
-        or throw('No RESULT_SET_REGEXP defined!');
 
     # Save/set input_id as slice
     my $slice = $self->dnadb->get_SliceAdaptor->fetch_by_name($self->input_id);
@@ -135,19 +140,29 @@ sub check_Analysis {
 
     my ($self) = @_;
 
+    # add/update efg_analysis config
+    $self->efg_analysis->module($self->MODULE);
+    $self->efg_analysis->program($self->PROGRAM);
+    $self->efg_analysis->program_file($self->PROGRAM_FILE);
+    $self->efg_analysis->program_version($self->VERSION);
+    $self->efg_analysis->parameters($self->PARAMETERS);
+    $self->efg_analysis->displayable(1);
+
+    my $logic_name = $self->efg_analysis->logic_name;
+    #print Dumper $self->efg_analysis, $logic_name;
+
     ### check if analysis with this logic_name already exists in the database
     ### and has got same settings
     
-    my $logic_name = $self->analysis->logic_name();
     my $aa = $self->efgdb->get_AnalysisAdaptor;
     my $analysis = $aa->fetch_by_logic_name($logic_name);
-
-    if ( ! defined $analysis->dbID ) { # NEW
+    
+    if ( ! defined $analysis ) { # NEW
 
         warn("Storing new analysis with logic name $logic_name.");
-        $aa->store($self->analysis);
+        $aa->store($self->efg_analysis);
 
-    } elsif ( $self->analysis->compare($analysis) ) { # UPDATE
+    } elsif ( $self->efg_analysis->compare($analysis) ) { # UPDATE
 
         ### analysis compare
         # returns  1 if this analysis is special case of given analysis
@@ -157,9 +172,9 @@ sub check_Analysis {
         warn('Analysis with logic name \''.$logic_name.'\' already '.
              'exists, but has different options! Updating analysis ...');
 
-        $self->analysis->dbID($analysis->dbID);
-        $self->analysis->adaptor($self->efgdb->get_AnalysisAdaptor);
-        $aa->update($self->analysis);
+        $self->efg_analysis->dbID($analysis->dbID);
+        $self->efg_analysis->adaptor($self->efgdb->get_AnalysisAdaptor);
+        $aa->update($self->efg_analysis);
  
     } else { # EXISTS
 
@@ -168,7 +183,7 @@ sub check_Analysis {
 
     }
 
-    $self->analysis($aa->fetch_by_logic_name($logic_name));
+    $self->efg_analysis($aa->fetch_by_logic_name($logic_name));
 
 }
 
@@ -207,7 +222,7 @@ sub check_Sets {
     } 
     $lcp =~ s/_$//;
     
-    my $set_name = $self->analysis->logic_name.'_'.$lcp; #.'_'.$self->DATASET_NAME;
+    my $set_name = $self->efg_analysis->logic_name.'_'.$lcp; #.'_'.$self->DATASET_NAME;
     print 'Set name: ', $set_name, "\n";
     
     my $fsa = $self->efgdb->get_FeatureSetAdaptor();
@@ -218,7 +233,7 @@ sub check_Sets {
 
         $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
             (
-             -analysis => $self->analysis,
+             -analysis => $self->efg_analysis,
              -feature_type => $self->feature_type,
              -cell_type => $self->cell_type,
              -name => $set_name,
@@ -378,7 +393,7 @@ sub fetch_input {
         
         if (scalar(@$result_features) == 0) {
             warn("No result_features on slice ".$self->query()->name());
-            exit 0;
+            next;
         }
 
         my @result_features = ();
@@ -392,6 +407,13 @@ sub fetch_input {
         
         $result_features{$rset->name} = \@result_features;
         
+    }
+
+    if (scalar(keys %result_features) == 0) {
+
+        warn('No ResultFeatures on slice');
+        return 1;
+
     }
     
     #print Dumper %result_features;
@@ -408,12 +430,12 @@ sub fetch_input {
     $parameters_hash{-result_features} = \%result_features;
 
     my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
-        .$self->analysis->module;
+        .$self->efg_analysis->module;
     $runnable = $runnable->new
         (
          -query => $self->query,
-         -program => $self->analysis->program_file,
-         -analysis => $self->analysis,
+         -program => $self->efg_analysis->program_file,
+         -analysis => $self->efg_analysis,
          %parameters_hash
          );
     
@@ -441,7 +463,7 @@ sub write_output{
     if (scalar(@{$self->output}) == 0) {
         warn("No features to annotate on slice ".$self->query->name.
              " for experiment ".$self->experiment->name()."!");
-        exit 0;
+        return 1;
     }
     
     # store analysis, feature set and data set
@@ -470,25 +492,25 @@ sub write_output{
         $slice = $self->query;
     }
     
-#    my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet(
-#		$self->query, $fset);
+    #my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet
+    #    ($self->query, $fset);
 
     my $fset = $self->feature_set;	
     my $fs_id = $fset->dbID();
     my $constraint = qq( af.feature_set_id = $fs_id );
     
     my $af = $self->efgdb->get_AnnotatedFeatureAdaptor->fetch_all_by_Slice_FeatureSet
-        ($slice, $fset, $self->analysis->logic_name);
+        ($slice, $fset, $self->efg_analysis->logic_name);
     
     print 'No. of annotated features already stored: '.scalar(@$af)."\n";
     print 'No. of annotated features to be stored: '.scalar(@{$self->output})."\n";
     
     if (@$af) {
         
-        throw("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
-              join(':', $self->query->seq_region_name,$self->query->start,$self->query->end).
-                  " already contains ".scalar(@$af)." annotated features of feature set ".
-              $fset->dbID.".");
+        warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
+             $self->query->name." already contains ".scalar(@$af).
+             " annotated features of feature set ".$fset->dbID.".");
+        return 1;
         
     } else {
         my @af;
@@ -504,7 +526,7 @@ sub write_output{
                  -start         => $start,
                  -end           => $end,
                  -strand        => 0,
-                 -display_label => $self->analysis->logic_name,
+                 -display_label => $self->efg_analysis->logic_name,
                  -score         => $score,
                  -feature_set   => $fset,
                  );
@@ -525,6 +547,20 @@ sub write_output{
 
 
 ### container for config hash parameter
+
+sub MODULE {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_MODULE'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_MODULE'} ) ) {
+        return $self->{'_CONFIG_MODULE'};
+    } else {
+        return undef;
+    }
+}
 
 sub PROGRAM {
     my ( $self, $value ) = @_;
@@ -631,6 +667,16 @@ sub efgdb{
       $self->{'efgdb'} = $db;
   }
   return $self->{'efgdb'};
+}
+
+sub efg_analysis {
+    my ($self, $a) = @_;
+    if ($a) {
+      throw("Must pass a Bio::EnsEMBL::Analysis not a ".$a)
+          unless($a->isa('Bio::EnsEMBL::Analysis'));         
+      $self->{'efg_analysis'} = $a;      
+    }
+    return $self->{'efg_analysis'};
 }
 
 sub experiment {

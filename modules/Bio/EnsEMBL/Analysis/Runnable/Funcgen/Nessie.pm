@@ -77,8 +77,11 @@ sub run_analysis {
 
     (my $resultsfile = $self->infile()) =~ s/\.dat$/_peaks.out/;
     
+    my $replicates = scalar(keys %{$self->result_features});
+    if ($replicates == 1) { $replicates=2 }
+
     my $command = $self->program.' --data="'.$self->infile().'" '.
-        '--replicates='.scalar(keys %{$self->result_features}).
+        '--replicates='.$replicates.
         $self->analysis->parameters. ' > '.$outfile;
 
     warn("Running analysis " . $command . "\n");
@@ -227,6 +230,12 @@ sub write_filelist {
 
     foreach my $f (@{$self->datafiles}) {
         print F $f, "\n";
+    }
+
+    # nessie hack: if there is only one replicate data set we duplicate this one ...
+    if (scalar(@{$self->datafiles}) == 1) {
+        warn("Duplicating input data file.");
+        print F ${$self->datafiles}[0], "\n";
     }
 
     close F;
