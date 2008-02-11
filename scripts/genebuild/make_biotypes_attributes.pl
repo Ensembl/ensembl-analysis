@@ -49,7 +49,7 @@ if($config_dbname){
         "-config_dbname $config_dbname for the script to work");
 }
 
-
+print "Have database ".$db."\n";
 my $sa = $db->get_SliceAdaptor;
 
 my $slices;
@@ -59,11 +59,14 @@ if($seq_region){
 }else{
   $slices = $sa->fetch_all($coord_system);
 }
+print "Have ".@$slices." slices\n";
 my %attributes;
 my $aa = $db->get_AttributeAdaptor;
 
 SLICE:while(my $slice = shift(@$slices)){
+  print "Looking at ".$slice->name."\n";
   my $genes = $slice->get_all_Genes;
+  print "Have ".@$genes." genes\n";
  GENE:while(my $gene = shift(@$genes)){
     if(!$attributes{$gene->biotype}){
       my $attrib = create_Attribute($gene->biotype);

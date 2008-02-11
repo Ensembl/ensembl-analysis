@@ -1,11 +1,5 @@
 #!/usr/local/bin/perl
 
-
-
-
-
-
-
 # call 
 #
 # perl ./genebuild/prepare_proteome.pl 
@@ -16,7 +10,6 @@
 # >ABC234.1 
 # >ABC234.1 
 #
-
 
 use strict;
 use Bio::EnsEMBL::KillList::KillList;
@@ -32,13 +25,15 @@ my $skip_xs = 5;
 my $use_killlist = 1;
 my $skip_xps = 1;
 my $logger_verbosity = "NONE";
+
 &GetOptions(
-            "proteome_file|pmatch_output_file:s" => \$output_file,
+            "proteome_file:s" => \$output_file,
             "file_info:s@" => \@file_info,
             "skip_xs:s" => \$skip_xs,
             "use_killlist!" => \$use_killlist,
             "logger_verbosity:s" => \$logger_verbosity,
            );
+
 logger_verbosity($logger_verbosity);
 my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new(-TYPE => 'PROTEIN');
 my %kill_list = %{$kill_list_object->get_kill_list()};
@@ -46,7 +41,10 @@ my %kill_list = %{$kill_list_object->get_kill_list()};
 my %files;
 my %refseq;
 foreach my $file_info(@file_info){
-  my ($file, $regex, $other) = split /\=/, $file_info; 
+  #print "Have file info ".$file_info."\n";
+  my ($file, $regex, $other) = split /\=/, $file_info;
+  #print "HAVE FILE ".$file." and regex ".$regex."\n";
+  throw("Need both a file ".$file." and a regex ".$regex) if(!$file || !$regex);
   $files{$file} = $regex;
   if($other && $other =~ /^refseq$/i){
     $refseq{$file} = 1;
@@ -57,16 +55,16 @@ foreach my $file_info(@file_info){
 if(-e $output_file){
   print "Protein file ".$output_file." already exists, these ".
     "entries will be appended to the end of the file\n";
-  print "Do you want this? answer y/n OR ";
-  print "enter \"delete\" to delete the existing file and create an new one\n";
-  my $reply = <>;
-  chomp;
-  if($reply =~ /^n/i){
-    print "You need to delete or change the name of ".$output_file." before rerunning\n";
-    exit(0);
-  }elsif($reply =~ /delete/i){  
-    system("rm $output_file"); 
+  print "Do you want this? answer y/n or delete\n";
+  my $reply = get_input_arg();
+  if($reply =~ m/n/i){
+    print "You must delete or rename ".$output_file." before you continue\n";
+  }elsif($reply =~ m/delete/i){
+    print "Running rm -f $output_file\n";
+    system("rm -f $output_file"); 
     print "file $output_file deleted\n";
+  }else{
+    print "Will append new entries to ".$output_file."\n";
   }
 }
 my $output_io =  Bio::SeqIO->new(
@@ -76,7 +74,8 @@ my $output_io =  Bio::SeqIO->new(
 my %ids;
 foreach my $file(keys(%files)){
   my $refseq = $refseq{$file};
-  my $regex = $files{$file}; 
+  my $regex = $files{$file};
+  print "On file ".$file." with ".$regex."\n";
   my $x_string;
   if($skip_xs){
     $x_string = "X" x $skip_xs;
@@ -86,10 +85,14 @@ foreach my $file(keys(%files)){
                             -file   => $file,
                            );
  SEQ:while(my $seq = $io->next_seq){
-    my $parseable_string = $seq->id." ".$seq->desc; 
-    my ($id) = $parseable_string =~ /$regex/; 
+    my $parseable_string = $seq->id." ".$seq->desc;
+    my ($id) = $parseable_string =~ /$regex/;
+    if($id =~ m/^1$/){
+      print "got ".$id." from ".$parseable_string."\n";
+      die;
+    } 
     if(!$id){
-      throw($regex." failed to parse an id out of ".
+      warn($regex." failed to parse an id out of ".
             $parseable_string);
         next SEQ;
     }
@@ -120,6 +123,11 @@ foreach my $file(keys(%files)){
     $seq->seq($seq_string);
     $output_io->write_seq($seq);
   }
-} 
-print "output written to $output_file\n" ; 
+}
 
+sub get_input_arg{
+  my $line;
+  print "Getting input arg\n";
+  my $line = <>;
+  return $line;
+}
