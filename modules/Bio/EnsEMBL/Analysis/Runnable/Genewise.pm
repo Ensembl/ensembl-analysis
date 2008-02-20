@@ -59,7 +59,7 @@ sub new {
   my $self = $class->SUPER::new(@args);
   #print "IN CONSTRUCTOR\n";
   my ($protein, $memory, $reverse,$endbias, $gap, 
-      $ext, $subs, $matrix, $verbose, $hmm) = rearrange([qw(
+      $ext, $subs, $matrix, $verbose, $hmm, $splice_model) = rearrange([qw(
                                                             PROTEIN 
                                                             MEMORY 
                                                             REVERSE 
@@ -69,8 +69,10 @@ sub new {
                                                             SUBS 
                                                             MATRIX
                                                             VERBOSE
-                                                            HMM )], @args);
-  ####SETTING DEFAULTS####
+                                                            HMM
+																														SPLICE_MODEL)], @args);
+  
+	####SETTING DEFAULTS####
   $self->program('genewise') unless($self->program);
   $self->memory(100000);
   $self->gap(12);
@@ -79,6 +81,7 @@ sub new {
   $self->matrix('BLOSUM62.bla');
   $self->options('-quiet') unless($self->options);
   #$self->endbias(1);
+	#$self->splice_model(0);
   ########################
  
   $self->protein($protein);
@@ -95,6 +98,7 @@ sub new {
   $self->extension($ext);
   $self->subs($subs);
   $self->matrix($matrix);
+	$self->splice_model($splice_model) if($splice_model);
   $self->verbose($verbose);
   #print "RUNNING On ".$self->query->id." protein ".$self->protein->id."\n";
   return $self;
@@ -138,7 +142,14 @@ sub run_analysis{
     $options =~ s/-init endbias//;
     $options =~ s/-splice flat//;
     $options =~ s/-splice_gtag//;
-    $options .= " -init endbias -splice_gtag ";
+    
+		if (!$self->splice_model || $self->splice_model == 0){
+		  print "USING STANDARD SPLICE MODEL\n";
+		  $options .= " -init endbias -splice_gtag ";
+    }elsif ($self->splice_model == 1){
+		  print "USING ALTERNATIVE SPLICE MODEL\n";
+      $options .= " -splice model ";
+		}
   }
   if (($self->reverse) && $self->reverse == 1) {
     $options .= " -trev ";
@@ -543,6 +554,17 @@ sub matrix{
     return $self->{'_matrix'};
 }
 
+sub splice_model{
+  my ($self, $arg) = @_;
+
+	if(!$self->{'_splice_model'}){
+	  $self->{'_splice_model'} = undef;
+	}
+	if ($arg){
+    $self->{'_splice_model'} = $arg;
+	}
+	return $self->{'_splice_model'};
+}
 sub verbose {
   my ($self,$arg) = @_;
   

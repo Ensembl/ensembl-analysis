@@ -116,8 +116,10 @@ use Bio::EnsEMBL::KillList::KillList;
 
 sub new {
   my ($class,@args) = @_;
+  print "In BlastMiniGenewise constructor with super class" . ref($class) . "\n";
   my $self = $class->SUPER::new(@args);
 
+  print "In BlastMiniGenewise constructor - read and check\n";
   $self->read_and_check_config($GENEWISE_CONFIG_BY_LOGIC);
   return $self;
 }
@@ -149,13 +151,14 @@ sub fetch_input{
   my $feature_count = 0;
   my %protein_count;
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
-    my $features = $self->paf_slice->get_all_ProteinAlignFeatures
+    #print "LOGIC NAME : ",$logic_name,"\n";
+my $features = $self->paf_slice->get_all_ProteinAlignFeatures
       ($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
     my %unique;
     foreach my $feature(@$features){
       $unique{$feature->hseqname} = 1;
     }
-    #print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
+   # print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
     logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
     $feature_count += scalar(@$features);
     my %ids_to_ignore = %{$self->generate_ids_to_ignore($features)};
@@ -227,7 +230,7 @@ sub fetch_input{
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise
   Arg [2]   : Arrayref of Bio::EnsEMBL::Features
-  Function  : to produce a list of ids which shouldn't be considered as their features
+  Function  : to produce a list of ids which shouldnt be considered as their features
   overlap with existing genes
   Returntype: hashref
   Exceptions: 
@@ -809,9 +812,6 @@ sub gene_source_db{
   return $self->{gene_source_db};
 }
 
-
-
-
 sub output_db{
   my ($self, $db) = @_;
   if($db){
@@ -823,7 +823,6 @@ sub output_db{
   }
   return $self->{output_db};
 }
-
 
 sub get_adaptor{
   my ($self) = @_;
@@ -917,6 +916,7 @@ sub filter_object{
 
 sub seqfetcher{
   my ($self, $arg) = @_;
+
   if($arg){
     throw("RunnableDB::BlastMiniGenewise ".
           $arg." must have a method get_Seq_by_acc") 
@@ -926,6 +926,7 @@ sub seqfetcher{
   if(!$self->{seqfetcher}){
     $self->require_module($self->SEQFETCHER_OBJECT);
     my %params = %{$self->SEQFETCHER_PARAMS};
+    print $params{-db}->[0], "\n";
     $arg = $self->SEQFETCHER_OBJECT->new(
                                     %params,
                                    );
@@ -934,13 +935,36 @@ sub seqfetcher{
   return $self->{seqfetcher};
 }
 
+=head2 require_module
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
+  Arg [2]   : string, module path
+  Function  : uses perls require to use the past in module
+  Returntype: returns module name with / replaced by ::
+  Exceptions: throws if require fails
+  Example   : my $parser = $self->require('Bio/EnsEMBL/Analysis/Tools/BPliteWrapper');
+
+=cut
+
+sub require_module{
+  my ($self, $module) = @_;
+  my $class;
+  ($class = $module) =~ s/::/\//g;
+  eval{
+    require "$class.pm";
+  };
+  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  return $module;
+}
+
+
 
 =head2 overlaps_fiveprime_end_of_slice
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
   Arg [2]   : Bio::EnsEMBL::Feature
   Arg [3]   : Bio::EnsEMBL::Slice
-  Function  : returns 1 if the features starts of the 5" end of the slice
+  Function  : returns 1 if the features starts of the 5 end of the slice
   Returntype: boolean
   Exceptions: 
   Example   : 
@@ -967,11 +991,10 @@ sub overlaps_fiveprime_end_of_slice{
   Function  : call the superclass method to set all the varibles and carry
   out some sanity checking
   Returntype: N/A
-  Exceptions: throws if certain variables aren't set properlu
+  Exceptions: throws if certain variables arent set properlu
   Example   : 
 
 =cut
-
 
 sub read_and_check_config{
   my ($self, $hash) = @_;
@@ -1033,8 +1056,6 @@ sub PAF_UPPER_SCORE_THRESHOLD{
   return $self->{PAF_UPPER_SCORE_THRESHOLD}
 }
 
-
-
 sub PAF_SOURCE_DB{
   my ($self, $arg) = @_;
   if($arg){
@@ -1050,9 +1071,6 @@ sub GENE_SOURCE_DB{
   }
   return $self->{GENE_SOURCE_DB}
 }
-
-
-
 
 sub OUTPUT_DB{
   my ($self, $arg) = @_;
@@ -1120,8 +1138,6 @@ sub FILTER_PARAMS{
   return $self->{FILTER_PARAMETERS}
 }
 
-
-
 sub FILTER_OBJECT{
   my ($self, $arg) = @_;
   if($arg){
@@ -1129,7 +1145,6 @@ sub FILTER_OBJECT{
   }
   return $self->{FILTER_OBJECT}
 }
-
 
 sub BIOTYPES_TO_MASK{
   my ($self, $arg) = @_;
@@ -1139,7 +1154,6 @@ sub BIOTYPES_TO_MASK{
   return $self->{BIOTYPES_TO_MASK}
 }
 
-
 sub EXON_BASED_MASKING{
   my ($self, $arg) = @_;
   if($arg){
@@ -1147,7 +1161,6 @@ sub EXON_BASED_MASKING{
   }
   return $self->{EXON_BASED_MASKING}
 }
-
 
 sub GENE_BASED_MASKING{
   my ($self, $arg) = @_;
@@ -1206,7 +1219,6 @@ sub USE_KILL_LIST{
   return $self->{USE_KILL_LIST}
 }
 
-
 sub LIMIT_TO_FEATURE_RANGE{
   my ($self, $arg) = @_;
   if($arg){
@@ -1239,7 +1251,6 @@ sub REJECTED_BIOTYPE{
   }
   return $self->{REJECTED_BIOTYPE};
 }
-
 
 sub SOFTMASKING{
   my ($self, $arg) = @_;

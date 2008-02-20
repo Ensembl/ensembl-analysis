@@ -99,7 +99,6 @@ sub new {
   throw("No seqfetcher provided")     unless ($self->seqfetcher);
   throw("No ids arrary ref provided") unless ($self->ids);
   throw("No analysis defined") unless($self->analysis);
- 
   
   return $self;
 }
@@ -344,7 +343,6 @@ sub full_seq {
 
   return $self->{'_full_seq'};
 }
-
 
 
 sub blast_parser{

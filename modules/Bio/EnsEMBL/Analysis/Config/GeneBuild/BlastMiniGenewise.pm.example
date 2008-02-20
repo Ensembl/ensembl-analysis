@@ -104,6 +104,7 @@ use vars qw( %Config );
                                      -matrix => 'BLOSUM80.bla',
                                      -gap => 20,
                                     -extension => 8,
+                                    -splice_model => 0
                                     },
              MINIGENEWISE_PARAMETERS => {
                                          -terminal_padding => 20000,
