@@ -128,6 +128,7 @@ use vars qw (@ISA @EXPORT);
 sub convert_translateable_exons_to_exon_extended_objects {
   my ( $transcript ) = @_ ;
 
+  $transcript->sort;
   my $exons = $transcript->get_all_translateable_Exons;
   my @conv_exons ;
 
@@ -169,9 +170,8 @@ sub convert_translateable_exons_to_exon_extended_objects {
 
 sub print_Transcript{
   my ($tref, $indent) = @_;
-  
-  $indent = '' if(!$indent);
 
+  $indent = '' if(!$indent);
   my @transcripts ; 
   if (ref($tref)=~m/ARRAY/){
     @transcripts = @$tref; 
@@ -337,9 +337,10 @@ sub clone_Transcript{
 
 sub are_strands_consistent{
   my ($transcript) = @_;
+
   my $exons = $transcript->get_all_Exons;
   if($exons->[0]->strand != $transcript->strand){
-    warning("Strands are inconsistent between the ".
+    warn("Strands are inconsistent between the ".
             "first exon and the transcript for ".
             id($transcript));
     return 0;
@@ -347,7 +348,7 @@ sub are_strands_consistent{
   if(@$exons >= 2){
     for(my $i = 1;$i < @$exons;$i++){
       if($exons->[$i]->strand != $exons->[$i-1]->strand){
-        warning("Strands are inconsistent between ".
+        warn("Strands are inconsistent between ".
                 "exon $i exon and exon ".($i-1)." for ".
                 id($transcript));
         return 0;
@@ -378,9 +379,11 @@ sub are_strands_consistent{
 
 sub exon_lengths_all_less_than_maximum{
   my ($transcript, $max_length) = @_;
+
+  $transcript->sort;
   foreach my $exon(@{$transcript->get_all_Exons}){
     if(!exon_length_less_than_maximum($exon, $max_length)){
-      logger_info("Transcript ".id($transcript)." has ".
+      warn("Transcript ".id($transcript)." has ".
                   "exon longer than ".$max_length);
       return 0;
     }
@@ -405,10 +408,12 @@ sub exon_lengths_all_less_than_maximum{
 
 sub intron_lengths_all_less_than_maximum{
   my ($transcript, $max_length) = @_;
+
+  $transcript->sort;
   foreach my $intron(@{$transcript->get_all_Introns}){
     if(!intron_length_less_than_maximum($intron, 
                                         $max_length)){
-      warning("Transcript ".id($transcript)." has ".
+      warn("Transcript ".id($transcript)." has ".
               "intron ".$intron->length." longer than ".$max_length);
       return 0;
     }
@@ -442,14 +447,15 @@ sub intron_lengths_all_less_than_maximum{
 
 sub are_phases_consistent{
   my ($transcript) = @_;
+
   my $exons = $transcript->get_all_Exons;
 
   if (not $transcript->translation) {
     # all phases should be -1
     foreach my $e (@$exons) {
       if ($e->phase != -1 or $e->end_phase != -1) {
-        logger_info("Non-coding transcript does not have -1 phases");
-        return 0;
+        warn("Non-coding transcript does not have -1 phases");
+#        return 0;
       }
     }
   } else {
@@ -473,7 +479,7 @@ sub are_phases_consistent{
           # okay
           next;
         } else {
-          logger_info("Coding transcript has inconsistent phases");
+          warn("Coding transcript has inconsistent phases");
           return 0;
         }
       }
@@ -497,6 +503,7 @@ sub are_phases_consistent{
 sub calculate_exon_phases {
   my ($transcript, $start_phase) = @_;
 
+  $transcript->sort;
   foreach my $e (@{$transcript->get_all_Exons}) {
     $e->phase(-1);
     $e->end_phase(-1);
@@ -554,6 +561,8 @@ sub calculate_exon_phases {
 
 sub is_not_folded{
   my ($transcript) = @_;
+
+  $transcript->sort;
   my $exons = $transcript->get_all_Exons;
   if(@$exons == 1){
     my $warn = "is_not_folded ".
@@ -567,7 +576,7 @@ sub is_not_folded{
     if($exons->[$i]->strand == 1){
       if($exons->[$i]->start < $exons->[$i-1]->end){
         warning(id($transcript)." is folded");
-        logger_info($i." ".id($exons->[$i])." has a start which ".
+        warn($i." ".id($exons->[$i])." has a start which ".
                     "is less than ".($i-1)." ".id($exons->[$i-1]).
                     " end");
         return 0;
@@ -575,7 +584,7 @@ sub is_not_folded{
     }else{
       if($exons->[$i]->end > $exons->[$i-1]->start){
         warning(id($transcript)." is folded");
-        logger_info($i." ".id($exons->[$i])." has a end which ".
+        warn($i." ".id($exons->[$i])." has a end which ".
                     "is greater than ".($i-1)." ".id($exons->[$i-1]).
                     " start");
         return 0;
@@ -622,7 +631,7 @@ sub low_complexity_less_than_maximum{
   #print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
   #  " ".$complexity_threshold."\n";
   if($low_complexity >= $complexity_threshold){
-    warning(id($transcript)."'s low ".
+    warn(id($transcript)."'s low ".
             "complexity (".$low_complexity.") is above ".
             "the threshold ".$complexity_threshold.
             "\n");
@@ -657,7 +666,7 @@ sub has_no_unwanted_evidence{
   foreach my $evi(keys(%$evidence)){
     foreach my $unwanted (keys(%$ids)) {
       if($evi =~ /$unwanted/){
-        warning(id($transcript)." has ".$evi.
+        warn(id($transcript)." has ".$evi.
                 " unwanted evidence");
         return 0;
       }
@@ -773,7 +782,7 @@ sub are_splice_sites_canonical{
   my $non_canonical_count = 
     count_non_canonical_splice_sites($transcript);
   if($non_canonical_count){
-    logger_info(id($transcript)." contains ".
+    warn(id($transcript)." contains ".
                 $non_canonical_count." non canonical ".
                 "splice sites out of ".@$introns.
                 " introns");
@@ -901,7 +910,6 @@ sub list_evidence{
   Returntype: arrayref of Bio::EnsEMBL::Transcript objects
   Exceptions: throws if not passed a Bio::EnsEMBL::Transcript
   object
-  Example   : 
 
 =cut
 
@@ -911,6 +919,7 @@ sub list_evidence{
 
 sub split_Transcript{
   my ($transcript, $max_intron_length, $intron_numbers) = @_;
+
   throw("TranscriptUtils:split_Transcript will not work on single exon transcripts")
     if(@{$transcript->get_all_Exons} == 0);
   #cloning the transcript to ensure if all else fails
@@ -1216,6 +1225,7 @@ sub trim_cds_to_whole_codons {
 sub replace_stops_with_introns{
   my ($transcript) = @_;
 
+  $transcript->sort;
   my $newtranscript = clone_Transcript($transcript);
   my @exons = @{$newtranscript->get_all_Exons};
   my $pep = $newtranscript->translate->seq;
@@ -1388,6 +1398,8 @@ sub replace_stops_with_introns{
 
 sub remove_initial_or_terminal_short_exons{
   my ($transcript, $min_length) = @_;
+
+  $transcript->sort;
   $min_length = 3 unless($min_length);
   throw("TranscriptUtils::remove_initial_or_terminal_short_exons will not work ".
         " if ".id($transcript)." has no translation") if(!$transcript->translation);
@@ -1484,6 +1496,7 @@ sub remove_initial_or_terminal_short_exons{
 
 sub _identify_translateable_exons{
   my ($transcript) = @_;
+
   my $start_exon = 
     $transcript->translation->start_Exon;
   my $end_exon = 
@@ -1775,16 +1788,17 @@ sub empty_Transcript{
 sub all_exons_are_valid{
   my ($transcript, $max_length, $allow_negative_start) = @_;
 
+  $transcript->sort;
   foreach my $exon(@{$transcript->get_all_Exons}){
     throw(Transcript_info($transcript)." seems to contain an undefined exon") 
       if(!$exon); 
     if(!exon_length_less_than_maximum($exon, $max_length)){
-      logger_info("Transcript ".id($transcript)." has ".
+      warn("Transcript ".id($transcript)." has ".
                   "exon longer than ".$max_length);
       return 0;
     }
     if(!validate_Exon_coords($exon, $allow_negative_start)){
-      logger_info("Transcript ".id($transcript)." has ".
+      warn("Transcript ".id($transcript)." has ".
                   "invalid exon coords ".Exon_info($exon));
       return 0;
     }
@@ -1818,7 +1832,7 @@ sub evidence_coverage_greater_than_minimum{
  Example :
  Returns : 1 if identical, 0 if not indentical
  Args    : Transcript, Transcript
-           Transcript, Transcript
+
 =cut
 
 sub identical_Transcripts {
@@ -2361,8 +2375,10 @@ sub set_stop_codon{
 
 sub is_Transcript_sane{
   my ($transcript) = @_;
+
   #exon coord sanity
   my $sane = 1;
+  $transcript->sort;
   foreach my $exon(@{$transcript->get_all_Exons}){
     if($exon->start > $exon->end){
       $sane = 0;
