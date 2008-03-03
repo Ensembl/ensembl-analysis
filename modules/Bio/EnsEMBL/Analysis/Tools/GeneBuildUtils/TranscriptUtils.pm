@@ -2248,7 +2248,7 @@ sub set_stop_codon{
       $cloned_transcript->recalculate_coordinates;
       return $cloned_transcript;
     } else{
-      logge_info("next codon is not a stop - not modifying translation");
+      logger_info("next codon is not a stop - not modifying translation");
       return $cloned_transcript;
     }
   }elsif( $end + 3 > ($end_exon->end - $end_exon->start + 1) ){
