@@ -87,18 +87,20 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
     
-  my( $biotypes, $seqfetcher, $verbose, $genes ) = 
+  my( $biotypes, $seqfetcher, $verbose, $genes, $keep_single_analysis ) = 
       rearrange([qw(
                      BIOTYPES 
                      SEQFETCHER
                      VERBOSE
                      GENES
+                     KEEP_SINGLE_ANALYSIS
                     )], @args);
 
   $self->seqfetcher($seqfetcher) if defined $seqfetcher;
   $self->biotypes($biotypes) if defined $biotypes;
   $self->verbose($verbose) if defined $verbose;
   $self->all_genes($genes) if defined $genes;
+  $self->keep_single_analysis($keep_single_analysis) if defined $keep_single_analysis;
 
   return $self ; 
 }
@@ -188,16 +190,25 @@ sub run {
     my $filtered = filter_transcripts($protein_clusters);
 
     foreach my $protein (keys %{$protein_clusters}) {
-      my $pep = $self->seqfetcher->get_Seq_by_acc($protein)->seq;
-      print "Comparing transcripts made from protein $protein with seq $pep\n";
-
-      # filter the genes
-      my @best_genes = @{$self->get_best_gene($protein, $self->biotypes, $filtered)};
-      foreach my $best_gene (@best_genes) {
-        if (! exists $outgenes{$best_gene}){
-          $outgenes{$best_gene} = make_outgenes($self->analysis, $best_gene);
+      if ($self->seqfetcher->get_Seq_by_acc($protein)) {
+        my $pep;
+        print "  * can seqfetcher->get_Seq_by_acc for protein '$protein'\n";
+        $pep = $self->seqfetcher->get_Seq_by_acc($protein)->seq;
+        print "Comparing transcripts made from protein $protein with seq $pep\n";
+        if (!$pep) {
+          throw("Unable to fetch peptide sequence for protein $protein");
         }
-      } 
+  
+        # filter the genes
+        my @best_genes = @{$self->get_best_gene($protein, $self->biotypes, $filtered)};
+        foreach my $best_gene (@best_genes) {
+          if (! exists $outgenes{$best_gene}){
+            $outgenes{$best_gene} = make_outgenes($self->analysis, $best_gene);
+          }
+        }
+      } else {
+        throw("SeqFetcher cannot get_Seq_by_acc for protein '$protein'");
+      }
     } #foreach my $prot (keys %protein_clusters) {
   } # oreach my $cluster (@twoways) {
   my @outgenes;
@@ -225,8 +236,11 @@ sub get_best_gene {
     }
   }
   if ($biotypes_represented == 1 && scalar(@$biotypes) > 2) {
-    print "FLAG_NULL: For $protein, am returning no genes. See gene ".$token_gene->dbID." (".$token_gene->biotype.")\n";
-    return [];
+    print "FLAG_NULL1: For $protein, only one biotype represented. See gene ".$token_gene->dbID." (".$token_gene->biotype.")\n";
+    if (!defined $self->keep_single_analysis) {
+      print "FLAG_NULL2: For $protein, am returning no genes.\n";
+      return [];
+    }
   }
 
   # which biotypes have more than 1 gene made from $protein?
@@ -248,6 +262,9 @@ sub get_best_gene {
 
   # fetch the protein
   my $pep = $self->seqfetcher->get_Seq_by_acc($protein)->seq;
+  if (!$pep) {
+    throw("Unable to fetch peptide sequence");
+  }
   my @best;
   my $exonerate; # flag
   print "Finding best gene for protein $protein...\n";
@@ -941,6 +958,15 @@ sub all_genes {
   return $self->{_all_genes};
 }
 
+sub keep_single_analysis {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_bt_keep_single_analysis} = $val;
+  }
+
+  return $self->{_bt_keep_single_analysis};
+}
 
 
 
