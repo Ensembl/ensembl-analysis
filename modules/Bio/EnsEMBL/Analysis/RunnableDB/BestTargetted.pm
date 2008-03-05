@@ -117,6 +117,7 @@ sub run {
      -biotypes          => $self->BIOTYPES,
      -program           => $self->EXONERATE_PROGRAM,
      -verbose           => $self->VERBOSE,
+     -keep_single_analysis => $self->KEEP_SINGLE_ANALYSIS,
      -genes             => $self->genes,
      
     );
@@ -343,5 +344,13 @@ sub VERBOSE {
   return $self->{_verbose};
 }
 
+sub KEEP_SINGLE_ANALYSIS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{_keep_single_analysis} = $value;
+  }
+  return $self->{_keep_single_analysis};
+}
 
 1;
