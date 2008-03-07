@@ -105,7 +105,7 @@ sub read_and_check_config {
     #print Dumper $self;
     
     # Make sure we have the correct DB adaptors!!!
-    $self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
+    #$self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
     $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(%{ $self->EFGDB })); 
     #print Dumper ($self->dnadb, $self->efgdb);
 
@@ -126,7 +126,7 @@ sub read_and_check_config {
     #print Dumper $self->norm_method;
 
     # Save/set input_id as slice
-    my $slice = $self->dnadb->get_SliceAdaptor->fetch_by_name($self->input_id);
+    my $slice = $self->efgdb->get_SliceAdaptor->fetch_by_name($self->input_id);
     throw("Can't fetch slice ".$self->input_id) if (!$slice);
     $self->query($slice);
     #print Dumper $self->query;
@@ -387,7 +387,7 @@ sub fetch_input {
         
         print join(" ", $rset->dbID, $rset->name), "\n";
         
-        my $result_features = $rset->get_ResultFeatures_by_Slice($self->query());
+        my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'',1);
 
         print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
         
@@ -399,14 +399,25 @@ sub fetch_input {
         my @result_features = ();
         my $ft_cnt = 1;
         foreach my $prb_ft (@{$result_features}) {
-            #print join(" ", $self->query()->seq_region_name, 
-            #           @$prb_ft, $ft_cnt++), "\n";
-            push (@result_features,
-                  [ $self->query()->seq_region_name, @$prb_ft, $ft_cnt++ ]);
+            #print '<', join("><", 
+            #           $self->query()->seq_region_name, 
+            #           $prb_ft->start, 
+            #           $prb_ft->end, 
+            #           $prb_ft->score, 
+            #           $prb_ft->probe->get_probename), ">\n";
+            push (@result_features, 
+                  [ 
+                    $self->query()->seq_region_name,
+                    $prb_ft->start, 
+                    $prb_ft->end, 
+                    $prb_ft->score, 
+                    $prb_ft->probe->get_probename,
+                    ]
+                  );
         }
         
         $result_features{$rset->name} = \@result_features;
-        
+
     }
 
     if (scalar(keys %result_features) == 0) {
