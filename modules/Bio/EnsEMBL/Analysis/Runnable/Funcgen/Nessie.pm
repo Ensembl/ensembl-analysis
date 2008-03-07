@@ -80,17 +80,18 @@ sub run_analysis {
     my $replicates = scalar(keys %{$self->result_features});
     if ($replicates == 1) { $replicates=2 }
 
+    my ($nessie_parameters, $peak_parameters) = split('; ', $self->analysis->parameters);
+    print Dumper ($nessie_parameters, $peak_parameters);
+    
     my $command = $self->program.' --data="'.$self->infile().'" '.
-        '--replicates='.$replicates.
-        $self->analysis->parameters. ' > '.$outfile;
+        '--replicates='.$replicates.$nessie_parameters.' > '.$outfile;
 
     warn("Running analysis " . $command . "\n");
     eval { system($command) };
     throw("FAILED to run $command: ", $@) if ($@);
 
-    my $parser = 'oligo_peaks.pl --gap 500 --sang --split 2500 '.
-        '--bridge --mindist 400 --minpost 0.99 --autonorm -l '.
-        $outfile.' '.$self->infile.' > '.$resultsfile; 
+    my $parser = 'oligo_peaks.pl --sang --autonorm '. $peak_parameters .
+        ' -l '.$outfile.' '.$self->infile.' > '.$resultsfile; 
         
     warn("Running parser " . $parser . "\n");
     eval { system($parser) };
@@ -124,7 +125,11 @@ sub write_infile {
     foreach my $rset_name (sort keys %{$self->result_features})
     {
 
+        print Dumper $rset_name;
+
         (my $datafile = $filename) =~ s,\.dat,.$rset_name.dat,;
+
+        print Dumper $datafile;
 
         open(F, ">".$datafile)
             or throw("Can't open file $datafile.");
