@@ -193,13 +193,23 @@ use vars qw(%Config);
                 # This database is use mainly with human an mouse for merging the 
                 # havana get set with the ensembl genebuild 
 
-                  GB_HAVANA_DB  => {
+                  HAVANA_DB  => {
                                      -dbname => '',
                                      -host =>   '',
                                      -port =>   '',
                                      -user =>   '',
                                      -pass =>   '',
                                    },
+
+                # This database is use mainly with human variation genewise alignments
+                  VARIATION_DB  => {
+                                     -dbname => '',
+                                     -host =>   '',
+                                     -port =>   '',
+                                     -user =>   '',
+                                     -pass =>   '',
+                                   },
+ 
  
                  
                 # Database which stores the ditags...
