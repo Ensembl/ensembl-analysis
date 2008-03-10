@@ -46,7 +46,7 @@ use vars qw(@ISA);
 use strict;
 
 # Object preamble
-use Bio::EnsEMBL::Analysis::Tools::TranscriptUtils;
+#use Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::HavanaAdder;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
@@ -74,7 +74,6 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases   qw (DATABASES
                            -INPUT_ID    => $id,
                            -SEQFETCHER  => $sf,
                            -ANALYSIS    => $analysis,
-                           -VCONTIG     => 1,
                           );
 
                            
@@ -84,8 +83,6 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases   qw (DATABASES
                 -input_id:   Contig input id (required), 
                 -seqfetcher: A Sequence Fetcher Object,
                 -analysis:   A Bio::EnsEMBL::Analysis (optional) 
-                -vcontig:    determines whether it is running on virtual contigs
-                             or RawContigs
                 -extend:     determines the extension of the virtual contig
                              note: not implemented yet!
                 -golden_path: determines the name of the golden path to use
@@ -93,15 +90,17 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases   qw (DATABASES
 
 sub new {
     my ($class,@args) = @_;
+
+    #print  join ('  ',@args);
     my $self = $class->SUPER::new(@args);    
            
-#    my( $use_vcontig) = $self->_rearrange([qw(VCONTIG)], @args);
-#       
-#    if (! defined $use_vcontig) {
-#      $use_vcontig = $GB_VCONTIG;
-#    }  
-    
-#    $self->use_vcontig($use_vcontig);
+    #my( $use_vcontig) = $self->rearrange([qw(VCONTIG)], @args);
+       
+    #if (! defined $use_vcontig) {
+    #  $use_vcontig = 1;#$GB_VCONTIG;
+    #}  
+   
+    #$self->use_vcontig($use_vcontig);
 
     return $self;
 }
@@ -210,10 +209,23 @@ sub fetch_input {
     # database where the genebuild produced genes are
     my $ensembl_db = $self->get_dbadaptor("PSEUDO_DB") ;
 
+    print "ENSEMBL DB : ",  $ensembl_db,"\n";
+
     my $havana_db = $self->get_dbadaptor("HAVANA_DB") ;
+     
+    print "HAVANA DB : ",  $havana_db,"\n";
     
-    #print STDERR "reading genewise and combined genes from $GB_COMB_DBNAME : $GB_COMB_DBHOST\n";
-    
+    my $ref_db = $self->get_dbadaptor("REFERENCE_DB");
+
+    print $self->input_id,"\n";
+
+    my $slice = $ref_db->get_SliceAdaptor->fetch_by_name($self->input_id);
+
+    print $slice,"\n";
+   
+    $self->query($slice);
+
+    print "QUERY: ",$self->query,"\n";
     my $genebuilder = new Bio::EnsEMBL::Analysis::Runnable::HavanaAdder
       (
        '-slice'   => $self->query,
@@ -234,7 +246,7 @@ sub fetch_input {
 #    
 #    if (defined($arg)) {
 #	$self->{_vcontig} = $arg;
-#    }
+#    }#
 #
 #    return $self->{_vcontig};
 #}

@@ -12,7 +12,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::HavanaAdder
+Bio::EnsEMBL::Analysis::Runnable::HavanaAdder
 
 =head1 SYNOPSIS
 
@@ -67,7 +67,7 @@ methods. Internal methods are usually preceded with a _
 
 # Let the code begin...
 
-package Bio::EnsEMBL::Analysis::HavanaAdder;
+package Bio::EnsEMBL::Analysis::Runnable::HavanaAdder;
 
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Exon;
@@ -78,7 +78,7 @@ use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Attribute;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
+#use Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
@@ -104,7 +104,7 @@ sub new {
     my ($class,@args) = @_;
 
     my $self = $class->SUPER::new(@args);
-
+    print "IM HERE 1\n";
     my ($slice,$input_id) = $self->_rearrange([qw(SLICE INPUT_ID)],
 					      @args);
 
@@ -945,7 +945,7 @@ sub cluster_into_Genes{
     my $count = 0;
     my $gene = new Bio::EnsEMBL::Gene;
     foreach my $transcript (@$cluster){
-      print "Transcript Stable ID: ",$transcript->stable_id,"\n";
+      print "Transcript Stable ID: ",$transcript->dbID,"\n";
       $gene->add_Transcript($transcript);
     }
     push( @genes, $gene );
@@ -1142,7 +1142,7 @@ sub prune_Exons {
       $tran->add_Exon($exon);
     }
    
-    print "Uniq_tran sid: ",$tran->stable_id,"\n";
+    print "Uniq_tran sid: ",$tran->dbID,"\n";
 
   }
   return $gene;
