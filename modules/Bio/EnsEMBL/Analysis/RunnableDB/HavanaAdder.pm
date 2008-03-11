@@ -50,6 +50,8 @@ use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::HavanaAdder;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
 							       GB_INPUTID_REGEX
@@ -181,10 +183,11 @@ sub write_output {
         #   $gene->adaptor->db->dbname."\n";
       }; 
       if( $@ ) {
-        $self->warn("UNABLE TO WRITE GENE:\n$@");
+        warning("UNABLE TO WRITE GENE:\n$@");
       }
     }   
-  }    
+  } 
+  return 1;   
 }
 
 ############################################################
