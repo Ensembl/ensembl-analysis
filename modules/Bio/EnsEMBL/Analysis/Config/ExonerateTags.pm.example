@@ -31,7 +31,6 @@ which is used as the default for all logic names.
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::Config::ExonerateTags;
 use strict;
 use vars qw( %Config );
@@ -49,9 +48,6 @@ use vars qw( %Config );
           #Batchsize: ~1000 for masked, ~500 for unmasked
           BATCHSIZE           => 500,
           MAXDISTANCE         => 600000,
-          #min & max allowed length of the raw ditag sequences
-          MINSEQLENGTH        => 34,
-          MAXSEQLENGTH        => 40,
           #max allowed number of repeated bases
           REPEATNUMBER        => 6,
           TMPDIR              => '/tmp',
@@ -67,21 +63,24 @@ use vars qw( %Config );
        #GSC
 	  #regex for the (fasta) header
           IIDREGEXP           => '^>\S{4}(\S+)\|(\S+)\|\S+\|\S+\|\S+\|\S+\|\S+',
-	  #aaditional exonerate options
+	  #additional exonerate options, required!
           SPECOPTIONS         => "--dnahspthreshold 80 --score 80",
 	  #does the input seq need to be split into 2 parts?
           SPLITSEQS           => 1,
+          #min & max allowed length of the raw ditag sequences
+          MINSEQLENGTH        => 34,
+          MAXSEQLENGTH        => 40,
 	  #number of allowed mismatches
           MAXMISMATCH         => 3,
-	  #for split  seqs: is the right part really the 5' seq?
+	  #for split seqs: is the right part really the 5' seq? If they align the other way around they will be filtered out.
           KEEPORDER           => 0,
 	  #remove the last X bases
           CHOPLAST            => undef,
 	  #remove the first X bases
           CHOPFIRST           => undef,
-	  #is there a initial number of hits givem in the header?
+	  #is there a initial number of hits givem in the header of the tag file that can be parsed out?
 	  TAGCOUNT            => 0,
-
+	  #input files with the tag seqs
 	  QUERYFILES  => {
 		   ZZ11        => 'ditag/tags/archive/GSC/gsc-ZZ11.fa',
 		   ZZ12        => 'ditag/tags/archive/GSC/gsc-ZZ12.fa',
@@ -93,7 +92,6 @@ use vars qw( %Config );
 
       }
 );
-
 
 
 sub import {
