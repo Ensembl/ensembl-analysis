@@ -128,6 +128,19 @@ FIND_MISSING_ORTHOLOGUES=>
          # Homo sapiens protein is dumped out and later on exonerated against the genome of 
          # QUERY_SPECIES.  
          # It does really not make sense to use your QUERY_SPECIES in the trusted set. 
+
+
+         # If you want to re-align all one2one_orthologs between your 2 trusted species, no matter 
+         # if an ortholog is computed or not, set this option to '1' ( for example for pre-sites ...) 
+         #
+         # For identifing only missing orthologs set this option to '0'   ( default ) 
+         #  
+
+           RE_EXONERATE_ALL_ONE2ONE_ORTHOLOGS => 0, 
+
+
+
+
           
            ANALYSIS_SETS => 
            {          
