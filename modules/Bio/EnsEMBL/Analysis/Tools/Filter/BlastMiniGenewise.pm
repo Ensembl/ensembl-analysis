@@ -72,6 +72,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils 
   qw(validate_Translation_coords contains_internal_stops print_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+use Bio::EnsEMBL::Attribute;
 use vars qw (@ISA);
 
 @ISA = qw();
@@ -358,6 +359,10 @@ sub filter_genes{
       my $acceptable_transcripts = tidy_split_transcripts($transcripts[0], $split_transcripts);
       my $genes = convert_to_genes($acceptable_transcripts, $accepted->analysis, $accepted->biotype);
       foreach my $gene(@$genes){
+        my $attrib = $self->get_Attribute("split_transcript");
+        foreach my $transcript(@{$gene->get_all_Transcripts}){
+          $transcript->add_Attribute($attrib);
+        }
         $self->accepted_genes($gene);
       }
     }
@@ -385,16 +390,30 @@ sub validate_Transcript{
   $slice = $transcript->slice if(!$slice);
   my $is_valid = 0;
   #basic transcript validation
-  $is_valid++ unless(are_strands_consistent($transcript));
+  unless(are_strands_consistent($transcript)){
+    $is_valid++;
+    my $attrib = $self->get_Attribute("incons_strands");
+    $transcript->add_Attribute($attrib);
+  }
   #print "IS VALID is ".$is_valid." after strand consistency\n";
-  #$is_valid++ unless(lies_inside_of_slice($transcript, $slice));
-  #print "IS VALID is ".$is_valid." lies inside of slice\n";
-  $is_valid++ unless(are_phases_consistent($transcript));
+  unless(are_phases_consistent($transcript)){
+    $is_valid++;
+    my $attrib = $self->get_Attribute("incons_phases");
+    $transcript->add_Attribute($attrib);
+  }
   #print "IS VALID is ".$is_valid." phase consistency\n";
-  $is_valid++ unless(is_not_folded($transcript));
+  unless(is_not_folded($transcript)){
+    $is_valid++;
+    my $attrib = $self->get_Attribute("is_folded");
+    $transcript->add_Attribute($attrib);
+  }
   #print "IS VALID is ".$is_valid." folded \n";
-  $is_valid++ unless(has_no_unwanted_evidence($transcript, 
-                                              $self->unwanted_evidence));
+  unless(has_no_unwanted_evidence($transcript, 
+                                  $self->unwanted_evidence)){
+    $is_valid++;
+    my $attrib = $self->get_Attribute("incons_strands");
+    $transcript->add_Attribute($attrib);
+  }
   #print "IS VALID is ".$is_valid." after unwanted evidence\n";
   #$is_valid++ unless(all_exons_are_valid($transcript, $self->max_exon_length));
  EXON:foreach my $exon(@{$transcript->get_all_Exons}){
@@ -403,26 +422,38 @@ sub validate_Transcript{
     }else{
       $is_valid++;
       last EXON;
+      my $attrib = $self->get_Attribute("exon_too_long");
+      $transcript->add_Attribute($attrib);
     }
   }
   #print "IS VALID is ".$is_valid." after exon validation\n";
   #basic translation validation
-  print_peptide($transcript);
+  #print_peptide($transcript);
   if(contains_internal_stops($transcript)){
     warning(Transcript_info($transcript)." contains internal stop codons");
     $is_valid++;
+    my $attrib = $self->get_Attribute("contains_stops");
+    $transcript->add_Attribute($attrib);          
   }
   #print "IS VALID is ".$is_valid." after contains internal stops\n";
-  $is_valid++ unless(validate_Translation_coords($transcript));
+  unless(validate_Translation_coords($transcript)){
+    $is_valid++;
+    my $attrib = $self->get_Attribute("borked_coords");
+    $transcript->add_Attribute($attrib);          
+  }
   #print "IS VALID is ".$is_valid." after translation coord validation\n";
   #intron checks
   #$is_valid++ 
   #  unless(intron_lengths_all_less_than_maximum($transcript,                                                $self->max_intron_length));
   #print "IS VALID is ".$is_valid." intron length check\n";
   #checking low complexity
-  $is_valid++ 
-    unless(low_complexity_less_than_maximum($transcript, 
-                                            $self->max_low_complexity));
+  
+  unless(low_complexity_less_than_maximum($transcript, 
+                                          $self->max_low_complexity)){
+    $is_valid++;
+    my $attrib = $self->get_Attribute("low_complex");
+    $transcript->add_Attribute($attrib)
+  }
   #print "IS VALID is ".$is_valid." low complexity check\n";
   #evidence coverage
   #note the coverage passed into the method is min - 1 as the method returns true if
@@ -433,14 +464,20 @@ sub validate_Transcript{
   my $evidence = $self->get_Transcript_supporting_evidence($transcript);
   if(@{$transcript->get_all_Exons} >= 2){
     my $coverage = evidence_coverage($transcript, $evidence);
-    $is_valid++
-      unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
-                                                    ($self->min_coverage - 1)));
+    unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
+                                                  ($self->min_coverage - 1))){
+      $is_valid++;
+      my $attrib = $self->get_Attribute("evi_coverage");
+      $transcript->add_Attribute($attrib);          
+    }
   }else{
-    $is_valid++
-      unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
-                                                    ($self->single_exon_min_coverage
-                                                     -1)));
+    unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
+                                                  ($self->single_exon_min_coverage
+                                                   -1))){
+      $is_valid++;
+      my $attrib = $self->get_Attribute("evi_coverage");
+      $transcript->add_Attribute($attrib);          
+    }
   }
   #print "IS VALID is ".$is_valid." after evidence coverage check\n";
   warning(Transcript_info($transcript)." failed ".$is_valid." tests out of 9 ".
@@ -462,6 +499,31 @@ sub get_Transcript_supporting_evidence{
     last if($sequence);
   }
   return $sequence;
+}
+
+sub create_Attribute{
+  my ($self, $reason, $description) = @_;
+  $description = $reason if(!$description);
+  my $attrib = Bio::EnsEMBL::Attribute->new(
+                                            -code => $reason,
+                                            -name => $reason,
+                                            -description => $description,
+                                            -value => $description,
+                                           );
+  return $attrib;
+}
+
+sub get_Attribute{
+  my ($self, $code, $description) = @_;
+  if(!$self->{'attribute_hash'}){
+    $self->{'attribute_hash'} = {};
+  }
+  my $attrib = $self->{'attribute_hash'}->{$code};
+  if(!$attrib){
+    $attrib = $self->create_Attribute($code, $description);
+    $self->{'attribute_hash'}->{$code} = $attrib;
+  }
+  return $attrib;
 }
 
 1;
