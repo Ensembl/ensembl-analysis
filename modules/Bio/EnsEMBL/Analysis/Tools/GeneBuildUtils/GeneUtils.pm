@@ -270,17 +270,44 @@ sub get_one2one_orth_for_gene_in_other_species {
 
     my $one2one_homologue_in_other_species = undef;
 
+
+    my @homologies_found ; 
+
     foreach my $homolog_to_check  ( @{ $gene->get_all_homologous_Genes()} ) {
        my ($check_homg, $check_homology, $check_species ) = @$homolog_to_check ;
 
-       if ($check_species eq $other_species) {
-        if ($one2one_homologue_in_other_species ) {
-          $one2one_homologue_in_other_species = undef;
-          last;
+        #print  $check_homology->subtype. "\t" ; 
+        #print $check_species . "\n" ;  
+
+       if ($check_species eq $other_species) {  
+         push @homologies_found , [$check_homology,$check_homg]; 
+         #print "Homology found : " .  $check_homology->description. "\t" . $check_homg->stable_id . "\n" ;    
+
+         # now this is a tricky one ... depending on the string we need to make a decision if it's a one2one or not. 
+         # if compara changes this string ( stored for release v49 in homology-table column description, we're ...hm...  broken. 
+
+        if ( $check_homology->description=~m/ortholog_one2one/){ 
+
+          # a ortholog_one2one-relation has already been found - this is wrong, or compara changed ...          
+          
+          if ($one2one_homologue_in_other_species ) {   
+            print "We have more than one ortholog_one2one-relationship found for : " . $gene->stable_id . "\n" ;  
+            for ( @homologies_found ) {  
+              print join ("\t", @$_) ."\n" ; 
+            }  
+          } 
+          $one2one_homologue_in_other_species = $check_homg ;
         }
-        $one2one_homologue_in_other_species = $check_homg ;
       }
-    }
+    }  
+#    if ( scalar (@homologies_found ) > 0 ) { 
+#      print "\nRelationships identified for : " . $gene->stable_id . " :\n" ; 
+#      for my $hg ( @homologies_found ) {   
+#         my ( $homology, $homolog ) = @$hg  ; 
+#         print "\t" .  $homology->description ."\t" . $homolog->stable_id . "\n" ; 
+#      } 
+#      print "\n" ;   
+#    } 
     return $one2one_homologue_in_other_species;
 }
 
