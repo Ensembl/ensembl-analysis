@@ -112,10 +112,11 @@ foreach my $file(keys(%files)){
       logger_info($id." on kill list as $no_version_id");
       next SEQ;
     }
-    if($ids{$id}){
+    if(exists($ids{$id})){
       logger_info($id." has already been stored");
       next SEQ;
     }
+    $ids{$id} = 1;
     $seq->desc("");
     $seq->id($id);
     my $seq_string = $seq->seq;
