@@ -361,7 +361,7 @@ sub filter_genes{
       foreach my $gene(@$genes){
         my $attrib = $self->get_Attribute("split_transcript");
         foreach my $transcript(@{$gene->get_all_Transcripts}){
-          $transcript->add_Attribute($attrib);
+          $transcript->add_Attributes($attrib);
         }
         $self->accepted_genes($gene);
       }
@@ -393,26 +393,26 @@ sub validate_Transcript{
   unless(are_strands_consistent($transcript)){
     $is_valid++;
     my $attrib = $self->get_Attribute("incons_strands");
-    $transcript->add_Attribute($attrib);
+    $transcript->add_Attributes($attrib);
   }
   #print "IS VALID is ".$is_valid." after strand consistency\n";
   unless(are_phases_consistent($transcript)){
     $is_valid++;
     my $attrib = $self->get_Attribute("incons_phases");
-    $transcript->add_Attribute($attrib);
+    $transcript->add_Attributes($attrib);
   }
   #print "IS VALID is ".$is_valid." phase consistency\n";
   unless(is_not_folded($transcript)){
     $is_valid++;
     my $attrib = $self->get_Attribute("is_folded");
-    $transcript->add_Attribute($attrib);
+    $transcript->add_Attributes($attrib);
   }
   #print "IS VALID is ".$is_valid." folded \n";
   unless(has_no_unwanted_evidence($transcript, 
                                   $self->unwanted_evidence)){
     $is_valid++;
     my $attrib = $self->get_Attribute("incons_strands");
-    $transcript->add_Attribute($attrib);
+    $transcript->add_Attributes($attrib);
   }
   #print "IS VALID is ".$is_valid." after unwanted evidence\n";
   #$is_valid++ unless(all_exons_are_valid($transcript, $self->max_exon_length));
@@ -423,7 +423,7 @@ sub validate_Transcript{
       $is_valid++;
       last EXON;
       my $attrib = $self->get_Attribute("exon_too_long");
-      $transcript->add_Attribute($attrib);
+      $transcript->add_Attributes($attrib);
     }
   }
   #print "IS VALID is ".$is_valid." after exon validation\n";
@@ -433,13 +433,13 @@ sub validate_Transcript{
     warning(Transcript_info($transcript)." contains internal stop codons");
     $is_valid++;
     my $attrib = $self->get_Attribute("contains_stops");
-    $transcript->add_Attribute($attrib);          
+    $transcript->add_Attributes($attrib);          
   }
   #print "IS VALID is ".$is_valid." after contains internal stops\n";
   unless(validate_Translation_coords($transcript)){
     $is_valid++;
     my $attrib = $self->get_Attribute("borked_coords");
-    $transcript->add_Attribute($attrib);          
+    $transcript->add_Attributes($attrib);          
   }
   #print "IS VALID is ".$is_valid." after translation coord validation\n";
   #intron checks
@@ -452,7 +452,7 @@ sub validate_Transcript{
                                           $self->max_low_complexity)){
     $is_valid++;
     my $attrib = $self->get_Attribute("low_complex");
-    $transcript->add_Attribute($attrib)
+    $transcript->add_Attributes($attrib)
   }
   #print "IS VALID is ".$is_valid." low complexity check\n";
   #evidence coverage
@@ -468,7 +468,7 @@ sub validate_Transcript{
                                                   ($self->min_coverage - 1))){
       $is_valid++;
       my $attrib = $self->get_Attribute("evi_coverage");
-      $transcript->add_Attribute($attrib);          
+      $transcript->add_Attributes($attrib);          
     }
   }else{
     unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
@@ -476,7 +476,7 @@ sub validate_Transcript{
                                                    -1))){
       $is_valid++;
       my $attrib = $self->get_Attribute("evi_coverage");
-      $transcript->add_Attribute($attrib);          
+      $transcript->add_Attributes($attrib);          
     }
   }
   #print "IS VALID is ".$is_valid." after evidence coverage check\n";
