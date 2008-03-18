@@ -226,7 +226,9 @@ sub _merge_redundant_transcripts{
             $et->stable_id($stable_id);
             $ht->stable_id($stable_id);
           }
-          $self->_remove_transcript_from_gene($gene, $delete_t);          
+         
+         $self->_remove_transcript_from_gene($gene, $delete_t) unless $delete_t == 1;         
+       
         }
         #print "Ens tsid: ",$et->stable_id,"\n";
       }
@@ -313,18 +315,28 @@ sub are_matched_pair {
   }
   # if is a multi exons transcript
   else{
-    # First we check the internal structure of the transcript where everything has to be exactly equal
-    print "CHECKING INTERNAL EXONS \n";
+    # First we check the internal  coding structure of the transcript where everything has to be exactly equal
+    #print "CHECKING INTERNAL EXONS \n";
+    for(my $i=1; $i<=($#thexons-1); $i++){
+      return 0 unless ($thexons[$i]->start     == $teexons[$i]->start &&
+                       $thexons[$i]->end       == $teexons[$i]->end &&
+                       $thexons[$i]->strand    == $teexons[$i]->strand &&
+                      # $hexons[$i]->phase     == $eexons[$i]->phase &&
+                       $thexons[$i]->end_phase == $teexons[$i]->end_phase);
+    }
+    print "INTERNAL CODING EXONS ARE OK \n";
+ 
+   #  now check the rest of the internal exons that are not coding.
     for(my $i=1; $i<=($#hexons-1); $i++){
-      return 0 unless ($hexons[$i]->start     == $eexons[$i]->start &&
+      return 1 unless ($hexons[$i]->start     == $eexons[$i]->start &&
                        $hexons[$i]->end       == $eexons[$i]->end &&
                        $hexons[$i]->strand    == $eexons[$i]->strand &&
-                      # $hexons[$i]->phase     == $eexons[$i]->phase &&
+                       # $hexons[$i]->phase     == $eexons[$i]->phase &&
                        $hexons[$i]->end_phase == $eexons[$i]->end_phase);
     }
-    print "INTERNAL EXONS ARE OK \n";
+    print "INTERNAL UTR EXONS ARE OK \n";
+    
     # Then check the first an last exon to check if they are the same. If just start and end of UTR are different keep ensembl one
-
     # CASE 1: Both coding and UTR are the same, keep Havana and delete Ensembl
     if ($hexons[0]->start     == $eexons[0]->start &&
         $hexons[0]->end       == $eexons[0]->end &&
@@ -397,7 +409,7 @@ sub are_matched_pair {
     }else{
 
       print "Keep MULTIEXON BOTH\n";
-      return 0;
+      return 1;
       
     }
     
@@ -411,23 +423,78 @@ sub set_transcript_relation {
   
   my($self, $delete_t, @t_pair) = @_;
   
- # print " To delete: ",$delete_t," havana ", $t_pair[0],"\n";
+  # print " To delete: ",$delete_t," havana ", $t_pair[0],"\n";
   
-  # If transcript to delete is Havana we create an xref for the entry say that the transcript is CDS equal to ENSEMBL
-  if ($delete_t == $t_pair[0]){
+  # If both share CDS but we keep both as UTR is different in structure and number of exons we link them with an Xref
+  if ($delete_t == 1){
+    print "IM IN ONE OF THOSE SPECIAL CASES....\n";
     # transfer OTT ID and/or ENST
     foreach my $entry(@{ $t_pair[0]->get_all_DBEntries}){
       if ($entry->dbname eq 'Vega_transcript'){
         my $newentry = new Bio::EnsEMBL::DBEntry
             (
-              -primary_id => $entry->primary_id,
-              -display_id => $entry->display_id,
-              -priority => 1,
-              -xref_priority => 0,
-              -version => 1,
-              -release => 1,
-              -dbname => 'shares_CDS_with'
-              );
+             -primary_id => $entry->primary_id,
+             -display_id => $entry->display_id,
+             -priority => 1,
+             -xref_priority => 0,
+             -version => 1,
+             -release => 1,
+             -dbname => 'shares_CDS_with_OTTT'
+             );
+        
+        $newentry->status("XREF");
+        
+        $t_pair[1]->add_DBEntry($newentry);
+      }
+    }
+    # foreach my $entry(@{ $t_pair[1]->get_all_DBEntries}){
+    #print "ENTRY = ",$t_pair[1],"\n";
+    #  if ($entry->dbname eq 'Vega_transcript'){
+    my @tsfs = @{ $t_pair[1]->get_all_supporting_features };
+    my $psf_id;
+    foreach my $tsf(@tsfs){
+      print $tsf,"\n";
+      if ($tsf->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
+        $psf_id = $tsf->hseqname; 
+      }
+      
+    }
+   # print $psf_id,"\n";
+    my $xref_entry = new Bio::EnsEMBL::DBEntry
+        (
+         -primary_id =>$psf_id,
+         -display_id =>$psf_id,
+         -priority => 1,
+         -xref_priority => 0,
+         -version => 1,
+         -release => 1,
+         -dbname => 'shares_CDS_with_ENST'
+         );
+    
+      $xref_entry->status("XREF");
+      
+      $t_pair[0]->add_DBEntry($xref_entry);
+   # }
+    print "HAPPENING HERE: ", $t_pair[0]->slice->coord_system_name.":".$t_pair[0]->slice->coord_system->version.":"
+        .$t_pair[0]->slice->seq_region_name.":".$t_pair[0]->start.":".$t_pair[0]->end.":1\n";
+
+  }
+  
+  # If transcript to delete is Havana we create an xref for the entry say that the transcript is CDS equal to ENSEMBL
+  elsif ($delete_t == $t_pair[0]){
+    # transfer OTT ID and/or ENST
+    foreach my $entry(@{ $t_pair[0]->get_all_DBEntries}){
+      if ($entry->dbname eq 'Vega_transcript'){
+        my $newentry = new Bio::EnsEMBL::DBEntry
+            (
+             -primary_id => $entry->primary_id,
+             -display_id => $entry->display_id,
+             -priority => 1,
+             -xref_priority => 0,
+             -version => 1,
+             -release => 1,
+             -dbname => 'shares_CDS_with_OTTT'
+             );
         
         $newentry->status("XREF");
         
@@ -437,16 +504,16 @@ sub set_transcript_relation {
     
     # We add a transcript attribute to the ensembl transcript with the start and end coords of the Havana transcript that we will delete
     my $attrib_value = $t_pair[0]->slice->coord_system_name.":".$t_pair[0]->slice->coord_system->version.":".$t_pair[0]->slice->seq_region_name.":".
-                       $t_pair[0]->start.":".$t_pair[0]->end.":1";
-   # print "ATTRIB VALUE:---------- ",$attrib_value,"\n";
+        $t_pair[0]->start.":".$t_pair[0]->end.":1";
+    # print "ATTRIB VALUE:---------- ",$attrib_value,"\n";
     my $attribute = Bio::EnsEMBL::Attribute->new
-       (-CODE => 'TranscriptEdge',
-        -NAME => 'Transcript Edge',
-        -DESCRIPTION => '',
-        -VALUE => $attrib_value);
-
-   $t_pair[1]->add_Attributes($attribute);
-
+        (-CODE => 'TranscriptEdge',
+         -NAME => 'Transcript Edge',
+         -DESCRIPTION => '',
+         -VALUE => $attrib_value);
+    
+    $t_pair[1]->add_Attributes($attribute);
+    
     #$t_pair[1]->get_all_supporting_features;
     # When we delete a Havana transcript we want to transfer the exon supporting features to the transcript we keep    
     my @delete_e = @{$delete_t->get_all_Exons};
@@ -466,7 +533,7 @@ sub set_transcript_relation {
         }
       }
     }
-  }else{
+  }elsif ($delete_t == $t_pair[1]){
     # If the transcript to delete is ENSEMBL we add an xref entry say that both transcripts are exact matches (including UTR)
     foreach my $entry(@{ $t_pair[0]->get_all_DBEntries}){
       if ($entry->dbname eq 'Vega_transcript'){
@@ -478,7 +545,7 @@ sub set_transcript_relation {
               -release => 1,
               -priority => 1,
               -xref_priority => 0,
-              -dbname => 'shares_CDS_and_UTR_with'
+              -dbname => 'shares_CDS_and_UTR_with_OTTT'
               );
         
         $enstentry->status("XREF");
@@ -486,7 +553,7 @@ sub set_transcript_relation {
         $t_pair[0]->add_DBEntry($enstentry);
       }
     } 
-  # Transfer the supporting features both for transccript and exon of the transcript to delete to the transcript we keep
+    # Transfer the supporting features both for transccript and exon of the transcript to delete to the transcript we keep
     $self->transfer_supporting_features($delete_t,$t_pair[0]);
   }
 }
@@ -1142,7 +1209,7 @@ sub prune_Exons {
       $tran->add_Exon($exon);
     }
    
-    print "Uniq_tran sid: ",$tran->dbID,"\n";
+    #print "Uniq_tran sid: ",$tran->dbID,"\n";
 
   }
   return $gene;
