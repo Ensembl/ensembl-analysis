@@ -61,8 +61,6 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets; 
 use Bio::EnsEMBL::Registry; 
-use Bio::EnsEMBL::Pipeline::RunnableDB::FPC_BlastMiniGenewise; 
-use Bio::EnsEMBL::Analysis::Tools::FileLog;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils 
          qw(
             get_transcript_with_longest_CDS
@@ -91,13 +89,8 @@ sub new {
   $self->read_and_check_config();  
  # $self->verbose(50000) ;  
 
-  #$self->first_species(@{$$FIND_FALSE_INTRONS{ANALYSIS_SETS} {$self->analysis->logic_name}};
-  #$self->second_species($$FIND_FALSE_INTRONS{ANALYSIS_SETS} {$self->analysis->logic_name}{SECONDARY_ORTH}) ;  
-
-  $self->orthologues_species( $$FIND_FALSE_INTRONS{ANALYSIS_SETS}{$self->analysis->logic_name} ) ;
+  $self->orthologues_species( $$FIND_FALSE_INTRONS{ANALYSIS_SETS}{$self->analysis->logic_name} ) ; 
   #print join ("\n" , @{$$FIND_FALSE_INTRONS{ANALYSIS_SETS}{$self->analysis->logic_name}} ) ; 
-
-
   
   return $self;
 }
@@ -254,7 +247,8 @@ sub run {
                  for my $false_intron  (  @{$false_transcripts{$f_tsi }} ) {      
                    my $delete_recovery_id = 0 ;  
 
-                   if ( (scalar( @{$false_transcripts{$f_tsi }}) == $nr_false_introns_recovered)   && (scalar( @{$intron_is_coding_in_homologues{$false_intron}}) == 2 ) )  {  
+                   if (    (scalar( @{$false_transcripts{$f_tsi }}) == $nr_false_introns_recovered)   
+                        && (scalar( @{$intron_is_coding_in_homologues{$false_intron}}) == scalar(@{$self->orthologues_species}) ) )  {  
                       # all FalseIntrons are coding in alternative transcript as well as in both Orthologues  
                       print "marked_for_deletion_alt_coding_and_coding_in_homologues : $f_tsi\n" ;  
                       $transcripts_marked_for_deletion{coding_in_alt_tr}{$f_tsi}=1;
