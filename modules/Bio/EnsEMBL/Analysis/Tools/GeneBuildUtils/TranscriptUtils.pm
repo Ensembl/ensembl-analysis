@@ -80,7 +80,7 @@ use vars qw (@ISA @EXPORT);
              has_no_unwanted_evidence
              intron_lengths_all_less_than_maximum
              is_not_folded
-             is_spliced 
+             is_spliced
              list_evidence
              low_complexity_less_than_maximum
              replace_stops_with_introns
@@ -413,8 +413,8 @@ sub intron_lengths_all_less_than_maximum{
   foreach my $intron(@{$transcript->get_all_Introns}){
     if(!intron_length_less_than_maximum($intron, 
                                         $max_length)){
-      warn("Transcript ".id($transcript)." has ".
-              "intron ".$intron->length." longer than ".$max_length);
+      #warning("Transcript ".id($transcript)." has ".
+      #        "intron ".$intron->length." longer than ".$max_length);
       return 0;
     }
   }
@@ -1615,12 +1615,15 @@ sub convert_to_genes {
   my @tr = (ref($tref)=~m/ARRAY/) ? @$tref : ($tref) ; 
 
   for my $t (@tr) {
+    throw("Problems with ".id($t)." undef coords") if(!$t->start || !$t->end);
+    fully_load_Transcript($t);
     $analysis = $t->analysis unless $analysis ;
     if($biotype){ $t->biotype($biotype); }
     my $g = Bio::EnsEMBL::Gene->new() ;
     $g->biotype( $t->biotype ) ;
     $g->add_Transcript($t);
     $g->analysis($analysis) ;
+    $g->dbID($t->dbID);
     push @genes, $g ;
   }
   for my $g(@genes) {
@@ -1628,6 +1631,9 @@ sub convert_to_genes {
     for my $tr ( @{$g->get_all_Transcripts} ) {
       throw("there are no exons  for this transcript \n") if scalar(@{$tr->get_all_Exons}) == 0 ;
     }
+  }
+  foreach my $gene(@genes){
+    throw("Problems with ".id($gene)." undef coords") if(!$gene->start || !$gene->end);
   }
   return \@genes ;
 }
@@ -1686,6 +1692,9 @@ sub evidence_coverage{
     return 0;
   }
   my $coverage = int(100 * $matches/$plength);
+  foreach my $sf(@{$transcript->get_all_supporting_features}){
+    $sf->hcoverage($coverage) if($sf->hseqname eq $evidence_name);
+  }
   return $coverage;
 }
 
