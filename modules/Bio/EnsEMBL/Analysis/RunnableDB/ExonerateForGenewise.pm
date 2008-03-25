@@ -1,5 +1,28 @@
-package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise;
+#
+# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
+#
+# Copyright (c) 2008 Ensembl
+#
 
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise 
+
+=head1 SYNOPSIS
+
+  my $EFG = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise->new()
+  $EFG->fetch_input;
+  $EFG->run;
+  $EFG->write_output;
+
+=head1 DESCRIPTION
+
+This module replaces Bio::EnsEMBL::Pipeline::RunnableDB::TargettedExonerate
+
+=cut
+
+
+package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise;
 use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise;
