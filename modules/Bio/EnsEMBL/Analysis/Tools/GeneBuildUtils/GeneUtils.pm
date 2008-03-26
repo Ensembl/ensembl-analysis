@@ -268,37 +268,74 @@ sub get_transcript_with_longest_CDS {
 sub get_one2one_orth_for_gene_in_other_species {
     my ($gene, $other_species) = @_ ;
 
-    my $one2one_homologue_in_other_species = undef;
+
+    # this is a list of homolgy-desription terms which are used in ensembl_compara databases 
+    # versions v18 - v 47. They are stored in homology.description table. 
 
 
-    my @homologies_found ; 
+    my @orthology_description_dictionary = qw (  
+                                                PIP
+                                                SEED
+                                                BRH
+                                                DWGA
+                                                MBRH
+                                                RHS
+                                                UBRH
+                                                YoungParalogues
+                                                ortholog_many2many
+                                                ortholog_one2many
+                                                ortholog_one2one
+                                                apparent_ortholog_one2one
+                                                between_species_paralog
+                                                within_species_paralog
+                                               ) ; 
+
+   my %orthology_dict; 
+   @orthology_dict{@orthology_description_dictionary} = 1;
+
+   my $one2one_homologue_in_other_species = undef; 
+
+   my @homologies_found ; 
 
     foreach my $homolog_to_check  ( @{ $gene->get_all_homologous_Genes()} ) {
        my ($check_homg, $check_homology, $check_species ) = @$homolog_to_check ;
 
-        #print  $check_homology->subtype. "\t" ; 
-        #print $check_species . "\n" ;  
+        unless ( exists $orthology_dict{$check_homology->description}){ 
+          throw("The homology-description : ".$check_homology->description. " is an unknow, probably new description. This".
+                " is probably due to changes in compara. Please add the new description to the \@orthology_description_dictionary ".
+                " in the GeneUtils.pm module and make sure that the  retrieval of one2one orthologues is not affected\n") ; 
+        }
 
        if ($check_species eq $other_species) {  
          push @homologies_found , [$check_homology,$check_homg]; 
          #print "Homology found : " .  $check_homology->description. "\t" . $check_homg->stable_id . "\n" ;    
 
          # now this is a tricky one ... depending on the string we need to make a decision if it's a one2one or not. 
-         # if compara changes this string ( stored for release v49 in homology-table column description, we're ...hm...  broken. 
+         # ortholgos can be retrieved by gene-trees as well as the homology pipeline. 
+         # compara changes this string ( stored in the compara homology-table column description
 
-        if ( $check_homology->description=~m/ortholog_one2one/){ 
+         if ( $check_homology->description=~m/ortholog_one2one/){ 
+  
+            # a ortholog_one2one-relation has already been found - this is wrong, or compara changed ...          
+            
+            if ($one2one_homologue_in_other_species ) {   
+              my $err_str = "We have more than one ortholog_one2one-relationship found for : " . $gene->stable_id ."\t" . $check_species. "\n" ;   
 
-          # a ortholog_one2one-relation has already been found - this is wrong, or compara changed ...          
-          
-          if ($one2one_homologue_in_other_species ) {   
-            print "We have more than one ortholog_one2one-relationship found for : " . $gene->stable_id . "\n" ;  
-            for ( @homologies_found ) {  
-              print join ("\t", @$_) ."\n" ; 
-            }  
-          } 
-          $one2one_homologue_in_other_species = $check_homg ;
-        }
-      }
+              for my $hg ( @homologies_found ) {  
+                my ( $homology, $homolog ) = @$hg  ; 
+                $err_str .= $homology->description ."\t" . $homolog->stable_id . "\n" ; 
+              } 
+              throw("$err_str"); 
+            } 
+            $one2one_homologue_in_other_species = $check_homg ;
+         } elsif ( $check_homology->description=~m/(PIP|SEED|BRH|DWGA|MBRH|RHS|UBRH)/){ 
+           if ( $one2one_homologue_in_other_species ) {   
+             print "more than one homology found, so i assume that it's not a one2one homolog\n" ; 
+             return undef ; 
+           } 
+           $one2one_homologue_in_other_species = $check_homg ;        
+         }
+       } 
     }  
 #    if ( scalar (@homologies_found ) > 0 ) { 
 #      print "\nRelationships identified for : " . $gene->stable_id . " :\n" ; 
