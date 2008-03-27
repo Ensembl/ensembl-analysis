@@ -38,8 +38,7 @@ Config files to set-up are
    Bio::EnsEMBL::Analysis::Config::GeneBuild::UTR_Builder
    Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus (just a copy of the example file)
- and also
-   Bio::EnsEMBL::Pipeline::Config::GeneBuild::KillListFilter
+   Bio::EnsEMBL::Analysis::Config::GeneBuild::KillListFilter
 
 =head1 CONTACT
 
@@ -98,7 +97,7 @@ use Bio::EnsEMBL::KillList::DBSQL::DBAdaptor;
 #CONFIG FILES
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::UTR_Builder;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
-use Bio::EnsEMBL::Pipeline::Config::GeneBuild::KillListFilter;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::KillListFilter;
 
 @ISA = qw ( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild );
 
