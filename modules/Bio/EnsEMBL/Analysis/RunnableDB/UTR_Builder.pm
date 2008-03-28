@@ -97,7 +97,7 @@ use Bio::EnsEMBL::KillList::DBSQL::DBAdaptor;
 #CONFIG FILES
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::UTR_Builder;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::KillListFilter;
+use Bio::EnsEMBL::Pipeline::Config::GeneBuild::KillListFilter;
 
 @ISA = qw ( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild );
 
@@ -161,6 +161,7 @@ sub fetch_input{
       my $blessed_genes = $blessed_slice->get_all_Genes_by_type($bgt);
       print STDERR "got " . scalar(@{$blessed_genes}) . " $bgt genes [ ".
 	$self->BLESSED_DB->dbname() . "@" . $self->BLESSED_DB->host ." ]\n";
+
       $self->blessed_genes( $blessed_slice, $blessed_genes );
       $blessed_type .= $bgt."";
     }
@@ -628,12 +629,12 @@ sub run_matching{
   my @merged_genes = ();
 
   #maybe we should not do merging with blessed genes at all?!
-  #if(!$blessed){
+  if(!$blessed){
     @merged_genes = $self->_merge_genes($genesref);
-  #}
-  #else{
-  #  @merged_genes = @{$genesref};
-  #}
+  }
+  else{
+    @merged_genes = @{$genesref};
+  }
   print STDERR "\n --- \ngot " . scalar(@merged_genes) . " merged " . $combined_genetype . " genes\n" if $self->VERBOSE;
 
   # sort genewises by exonic length and genomic length
@@ -675,7 +676,7 @@ sub run_matching{
 
     if($self->LOOK_FOR_KNOWN){
 
-      $predef_match = $self->check_for_predefined_pairing($cds);
+      $predef_match = $self->check_for_predefined_pairing($cds, $blessed);
 
       if(defined $predef_match){
 
@@ -848,19 +849,44 @@ sub run_matching{
 
       $combined_transcript = $self->_transfer_evidence($combined_transcript, $cdna_match);
 
-      #make the new gene with UTR
+#      #make the new gene with UTR
+#      my $genetype;
+#      if($usingKnown){
+#         $genetype = $self->KNOWN_UTR_GENETYPE;
+#      } else{
+#         if ( $self->EXTEND_ORIGINAL_BIOTYPE && (length($self->EXTEND_ORIGINAL_BIOTYPE)>0)) {
+#           my $sep = "";
+#           $sep = "_"  unless ( $self->UTR_GENETYPE =~ m/^_/ );
+#           $genetype = $combined_transcript->biotype. $sep. $self->UTR_GENETYPE ;
+#         } else {
+#           $genetype = $combined_genetype;
+#         }
+#      }
+
+
+
+      #set biotype
       my $genetype;
-      if($usingKnown){
-         $genetype = $self->KNOWN_UTR_GENETYPE;
-      } else{
-         if ( $self->EXTEND_ORIGINAL_BIOTYPE && (length($self->EXTEND_ORIGINAL_BIOTYPE)>0)) {
-           my $sep = "";
-           $sep = "_"  unless ( $self->UTR_GENETYPE =~ m/_/ );
-           $genetype = $combined_transcript->biotype. $sep. $self->UTR_GENETYPE ;
-         } else {
-           $genetype = $combined_genetype;
-         }
+      if ( $self->EXTEND_ORIGINAL_BIOTYPE && (length($self->EXTEND_ORIGINAL_BIOTYPE)>0)) {
+	my $sep = "";
+	if($usingKnown){
+	  $sep = "_"  unless ( $self->KNOWN_UTR_GENETYPE =~ m/^_/ );
+	  $genetype = $combined_transcript->biotype. $sep. $self->KNOWN_UTR_GENETYPE;
+	}
+	else{
+	  $sep = "_"  unless ( $self->UTR_GENETYPE =~ m/^_/ );
+	  $genetype = $combined_transcript->biotype. $sep. $self->UTR_GENETYPE;
+	}
       }
+      else {
+	if($usingKnown){
+	  $genetype = $self->KNOWN_UTR_GENETYPE;
+	}
+	else{
+	  $genetype = $combined_genetype;
+	}
+      }
+
 
       #print STDERR "MAKING_GENE FROM ".." AND ".$cdna_match->hit_name."\n";
 
@@ -1006,22 +1032,25 @@ sub score_ditags{
 =head2 check_for_predefined_pairing
 
   Arg [1]    : Bio::EnsEMBL::Gene CDS gene
+  Arg [2]    : Boolean to indicate blessed gene
   Description: check whether there is a specific cDNA assigned to the given gene model
-               These are stored in the protein table using a sep. script
   Returntype : Bio::EnsEMBL::Gene cDNA gene
 
 =cut
 
 sub check_for_predefined_pairing {
-  my ($self, $gene) = @_;
+  my ($self, $gene, $blessed) = @_;
 
   my $cdna = undef;
   my $protein_id;
+  my $cdna_id;
 
   # get hash with cDNAs: $cdna_evidence{$evidence->hseqname()} = $cdna-gene;
   my $cdna_evidence = $self->_cdna_evidence();
 
-  # get the protein id, the gene was built from
+
+  # get the protein id, the gene was built from;
+  # do this for blessed genes also, as this should be most reliable
  EXON:
   foreach my $exon(@{$gene->get_all_Exons}){
     my @feat = @{$exon->get_all_supporting_features};
@@ -1030,19 +1059,42 @@ sub check_for_predefined_pairing {
       last EXON if (defined $protein_id);
     }
   }
-  if (!defined $protein_id || $protein_id eq ''){
-    print STDERR "no protein_id for gene.\n" if $self->VERBOSE;
-    return undef;
+
+  if ((!defined $protein_id || $protein_id eq '') && $blessed){
+    #try to use RefSeq xrefs for the blessed genes
+    #The CCDS genes are stored with NM-entries in the xref table,
+    #so these can be used directly as cDNA-ids.
+    #Might have to be adjusted if this changes.
+    $protein_id = 'blessed';
+    my @xrefs = @{$gene->get_all_DBLinks()};
+
+    if(scalar @xrefs){
+      foreach my $xref (@xrefs){
+	if($xref->display_id =~ "^NM_"){
+	  $cdna_id = $xref->display_id;
+	  $cdna_id =~ s/\.\S+$//;
+	  print STDERR "have xref $cdna_id\n" if $self->VERBOSE;
+	  last;
+	}
+      }
+    }
+    else{ print STDERR "no suitable xref\n" if $self->VERBOSE; }
+  }
+  else{
+    if (!defined $protein_id || $protein_id eq ''){
+      print STDERR "no protein_id for gene.\n" if $self->VERBOSE;
+      return undef;
+    }
+
+    # Using the protein id of the targetted gene, determine the
+    # corresponding cDNA id from the pre-loaded hash.
+    #remove version info
+    $protein_id =~ s/\.\S+$//;
+    $cdna_id = $self->get_cdna_id_from_protein_id($protein_id);
   }
 
-  # Using the protein id of the targetted gene, determine the
-  # corresponding cDNA id from the pre-loaded hash.
-  #remove version info
-  $protein_id =~ s/\.\S+$//;
-  my $cdna_id = $self->get_cdna_id_from_protein_id($protein_id);
-
   if (!defined $cdna_id || $cdna_id eq ''){
-    print STDERR "no predefined cDNA for $protein_id\n" if $self->VERBOSE;
+    print STDERR "no predefined cDNA found.\n" if $self->VERBOSE;
     return undef;
   }
   else{
@@ -2884,17 +2936,16 @@ sub remap_genes {
 
     #leave the blessed genes alone
     my $biotype = $gene->biotype;
-    if($blessed_type =~ m/$biotype/){
-      print STDERR "not remapping ".$gene->biotype."\n" if $self->VERBOSE;
-      push(@remapped_genes, $gene);
-      next GENE;
-    }
-    print STDERR "remapping ".$gene->biotype."\n" if $self->VERBOSE;
-
     #force a centain biotype?
     if($biotype_suffix && (length($biotype_suffix) > 0)){
       $gene->biotype($gene->biotype().$biotype_suffix);
     }
+    if($blessed_type =~ m/$biotype/){
+      print STDERR "not remapping ".$biotype."\n" if $self->VERBOSE;
+      push(@remapped_genes, $gene);
+      next GENE;
+    }
+    print STDERR "remapping ".$gene->biotype."\n" if $self->VERBOSE;
 
     my @t = @{$gene->get_all_Transcripts};
     my $tran = $t[0];
@@ -3505,8 +3556,6 @@ sub look_for_both {
 sub forward_genewise_clusters{
   my ($self, $cluster_ref) = @_;
 
-print STDERR "rceived ".@{$cluster_ref}." fwd clusters.\n" if $cluster_ref;
-
   if (!defined($self->{'_forward_genewise_clusters'})) {
     $self->{'_forward_genewise_clusters'} = [];
   }
@@ -3532,8 +3581,6 @@ print STDERR "rceived ".@{$cluster_ref}." fwd clusters.\n" if $cluster_ref;
 
 sub reverse_genewise_clusters{
   my ($self, $cluster_ref) = @_;
-
-print STDERR "rceived ".@{$cluster_ref}." rvs clusters.\n" if $cluster_ref;
 
   if (!defined($self->{'_reverse_genewise_clusters'})) {
     $self->{'_reverse_genewise_clusters'} = [];
@@ -3675,6 +3722,7 @@ sub gw_genes {
 
 sub blessed_genes {
   my ($self, $slice, $genes) = @_;
+
   if (!defined($self->{'_blessed_genes'})) {
     $self->{'_blessed_genes'} = [];
   }
@@ -3689,7 +3737,11 @@ sub blessed_genes {
 	# make a new gene
 	my $newgene = new Bio::EnsEMBL::Gene;
 	$newgene->biotype($gene->biotype);
-
+	#preserve the xref of the blessed genes!
+	foreach my $dblink (@{$gene->get_all_DBLinks()}){
+	  #print STDERR "Adding xref ".$dblink->display_id."\n";
+	  $newgene->add_DBEntry($dblink);
+	}
 	# clone transcript
 	my $newtranscript = new Bio::EnsEMBL::Transcript;
 	$newtranscript->slice($slice);
@@ -3744,7 +3796,7 @@ sub blessed_genes {
 
 	$newgene->add_Transcript($newtranscript);
 	push(@{$self->{'_blessed_genes'}}, $newgene);	
-	
+
       }
     }
   }
