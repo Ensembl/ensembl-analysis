@@ -104,7 +104,7 @@ sub new {
     my ($class,@args) = @_;
 
     my $self = $class->SUPER::new(@args);
-    print "IM HERE 1\n";
+    #print "IM HERE 1\n";
     my ($slice,$input_id) = $self->_rearrange([qw(SLICE INPUT_ID)],
 					      @args);
 
@@ -459,25 +459,40 @@ sub set_transcript_relation {
       }
       
     }
-   # print $psf_id,"\n";
-    my $xref_entry = new Bio::EnsEMBL::DBEntry
-        (
-         -primary_id =>$psf_id,
-         -display_id =>$psf_id,
-         -priority => 1,
-         -xref_priority => 0,
-         -version => 1,
-         -release => 1,
-         -dbname => 'shares_CDS_with_ENST'
-         );
-    
+
+    # A very few transcript where only built from cDNA alignments
+    if (!$psf_id){
+      print "This transcript don't have psf, getting tsf instead\n";
+      foreach my $tsf(@tsfs){
+        print $tsf,"\n";
+        if ($tsf->isa("Bio::EnsEMBL::DnaDnaAlignFeature")){
+          $psf_id = $tsf->hseqname;
+          last; 
+        } 
+      }
+    }
+
+    if ($psf_id){
+      # print $psf_id,"\n";
+      my $xref_entry = new Bio::EnsEMBL::DBEntry
+          (
+           -primary_id =>$psf_id,
+           -display_id =>$t_pair[1]->seq_region_name.":".$t_pair[1]->seq_region_start.":".$t_pair[1]->seq_region_end.":".$t_pair[1]->seq_region_strand,
+           -priority => 1,
+           -xref_priority => 0,
+           -version => 1,
+           -release => 1,
+           -dbname => 'shares_CDS_with_ENST'
+           );
+      
       $xref_entry->status("XREF");
       
       $t_pair[0]->add_DBEntry($xref_entry);
-   # }
-    print "HAPPENING HERE: ", $t_pair[0]->slice->coord_system_name.":".$t_pair[0]->slice->coord_system->version.":"
-        .$t_pair[0]->slice->seq_region_name.":".$t_pair[0]->start.":".$t_pair[0]->end.":1\n";
-
+    }
+    # }
+    #  print "HAPPENING HERE: ", $t_pair[0]->slice->coord_system_name.":".$t_pair[0]->slice->coord_system->version.":"
+    #      .$t_pair[0]->slice->seq_region_name.":".$t_pair[0]->start.":".$t_pair[0]->end.":1\n";
+    
   }
   
   # If transcript to delete is Havana we create an xref for the entry say that the transcript is CDS equal to ENSEMBL
@@ -1012,7 +1027,7 @@ sub cluster_into_Genes{
     my $count = 0;
     my $gene = new Bio::EnsEMBL::Gene;
     foreach my $transcript (@$cluster){
-      print "Transcript Stable ID: ",$transcript->dbID,"\n";
+      #print "Transcript Stable ID: ",$transcript->dbID,"\n";
       $gene->add_Transcript($transcript);
     }
     push( @genes, $gene );

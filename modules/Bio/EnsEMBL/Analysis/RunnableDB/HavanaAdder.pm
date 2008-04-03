@@ -212,11 +212,11 @@ sub fetch_input {
     # database where the genebuild produced genes are
     my $ensembl_db = $self->get_dbadaptor("PSEUDO_DB") ;
 
-    print "ENSEMBL DB : ",  $ensembl_db,"\n";
+    print "ENSEMBL DB : ",  $ensembl_db->dbname,"\n";
 
     my $havana_db = $self->get_dbadaptor("HAVANA_DB") ;
      
-    print "HAVANA DB : ",  $havana_db,"\n";
+    print "HAVANA DB : ",  $havana_db->dbname,"\n";
     
     my $ref_db = $self->get_dbadaptor("REFERENCE_DB");
 
@@ -228,7 +228,7 @@ sub fetch_input {
    
     $self->query($slice);
 
-    print "QUERY: ",$self->query,"\n";
+    print "QUERY: ",$self->query->seq_region_name,"\n";
     my $genebuilder = new Bio::EnsEMBL::Analysis::Runnable::HavanaAdder
       (
        '-slice'   => $self->query,
@@ -241,18 +241,6 @@ sub fetch_input {
     $self->addgenebuilder($genebuilder,$self->query);
     
 }
-
-############################################################
-
-#sub use_vcontig {
-#    my ($self,$arg) = @_;
-#    
-#    if (defined($arg)) {
-#	$self->{_vcontig} = $arg;
-#    }#
-#
-#    return $self->{_vcontig};
-#}
 
 ############################################################
 
