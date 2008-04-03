@@ -8,7 +8,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
-
+use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 
@@ -46,7 +46,7 @@ sub get_dbadaptor{
         }
       }
 
-      $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+      $db = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new(
                                                 %$constructor_args,
                                                 );
       if($name ne $DNA_DBNAME ){

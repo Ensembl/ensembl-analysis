@@ -38,7 +38,7 @@ use strict;
 use warnings;
 use Exporter;
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
-
+use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use vars qw (@ISA  @EXPORT);
@@ -332,11 +332,11 @@ sub write_seqfile{
 
   Arg [1]   : String 
   Arg [2]   : verbose-flag 
-  Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given string.
+  Function  : Returns a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor for a given string.
               Requires proper configuration of 
               Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
  
-  Returntype: Bio::EnsEMBL::Analysis::DBSQL::DBAdaptor 
+  Returntype: Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor 
   Exceptions: throw if string can't be found in Databases.pm 
 
 =cut
@@ -351,7 +351,7 @@ sub get_db_adaptor_by_string {
    Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DNA_DBNAME");
 
    unless ( ${$DATABASES}{$string} ) {  
-     print "WARNING : Database parameters undefined - skipping \n" ; 
+     print "WARNING : Database parameters undefined for - skipping \n" ; 
      return undef ; 
    } 
    
@@ -360,8 +360,8 @@ sub get_db_adaptor_by_string {
      return undef ; 
    }
 
-   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
-   my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;
+   my $db = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
+   my $dnadb = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;
 
    if ( $verbose ) {   
      my %tmp =  %{${$DATABASES}{$string}} ;
@@ -376,7 +376,6 @@ sub get_db_adaptor_by_string {
      }
    }
   use strict ;
-  throw("No entry in Config/GeneBuild/Databases.pm hash for $string") unless $db ;
   return $db;
 }
 
@@ -386,7 +385,7 @@ sub get_db_adaptor_by_string {
 =head2 get_database_connection_parameters_by_string
 
   Arg [1]   : String 
-  Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given string.
+  Function  : Returns a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor for a given string.
               Requires proper configuration of 
               Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
  

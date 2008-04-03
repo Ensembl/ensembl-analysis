@@ -39,8 +39,8 @@ use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature;
-use Bio::EnsEMBL::Pipeline::DBSQL::CompressedDnaAlignFeatureAdaptor;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExonerateSolexa;
+
 use vars qw(@ISA);
 
 @ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature);
@@ -72,10 +72,7 @@ sub write_output {
 
   my $fa;
   if ( $self->COMPRESSION ) {
-    $fa = Bio::EnsEMBL::Pipeline::DBSQL::CompressedDnaAlignFeatureAdaptor->new
-      (
-       $outdb
-      );
+    $fa = $outdb->get_CompressedDnaAlignFeatureAdaptor;
   } else {
     $fa = $outdb->get_DnaAlignFeatureAdaptor;
   }

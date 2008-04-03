@@ -37,13 +37,13 @@ package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature;
 
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature;
 use Bio::EnsEMBL::Analysis::Config::ExonerateAlignFeature;
 
 use vars qw(@ISA);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 ############################################################
 sub new {
