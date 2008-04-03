@@ -70,7 +70,7 @@ sub parse_results {
       $tag, $q_id, $q_start, $q_end, $q_strand, 
       $t_id, $t_start, $t_end, $t_strand, $score, 
       $perc_id, $q_length, $t_length, $gene_orientation,
-      @vulgar_blocks
+      @vulgar_blocks, $total_match_length
     ) = split;
 
     my $cigar_string='';  
@@ -83,7 +83,7 @@ sub parse_results {
       my $match_type          = shift @vulgar_blocks;
       my $query_match_length  = shift @vulgar_blocks;
       my $target_match_length = shift @vulgar_blocks;
-
+      $total_match_length +=  $query_match_length;
 
       if ($match_type eq "G"){
 	if ($query_match_length == 0){
@@ -95,12 +95,12 @@ sub parse_results {
       }    
       $cigar_string .= $query_match_length.$match_type;     
     }
-
+    my $hcoverage = $total_match_length / $q_length * 100;
     my $feature = 
       $self->make_feature(
         $q_id, $q_length, $q_start, $q_end, $q_strand, 
         $t_id, $t_length, $t_start, $t_end, $t_strand, 
-        $score, $perc_id, $cigar_string
+        $score, $perc_id, $cigar_string, $hcoverage
       );
 
     if($feature){
@@ -120,7 +120,7 @@ sub make_feature{
   my ($self,
       $q_id, $q_len, $q_start, $q_end, $q_strand,
       $t_id, $t_len, $t_start, $t_end, $t_strand,
-      $score, $perc_id, $cigar_string) = @_;
+      $score, $perc_id, $cigar_string, $hcoverage) = @_;
  
   if($q_strand eq '+'){
     $q_strand = 1;
@@ -174,6 +174,7 @@ sub make_feature{
       -score        => $score,
       -percent_id   => $perc_id,
       -cigar_string => $cigar_string,
+      -hcoverage    => $hcoverage,
     );
   
   return $feature;
