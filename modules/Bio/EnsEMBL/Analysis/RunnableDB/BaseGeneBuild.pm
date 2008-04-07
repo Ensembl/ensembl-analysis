@@ -9,6 +9,7 @@ use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 
@@ -31,9 +32,22 @@ sub database_hash{
   return $self->{'db_hash'};
 }
 
+=head2 get_dbadaptor
+
+  Arg [1]   : String - key of database hash
+  Arg [2]   : return a pipeline db adaptor flag
+  Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given hash key.
+              or a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor if requested
+              Requires proper configuration of 
+              Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
+ 
+  Returntype: Bio::EnsEMBL:DBSQL::DBAdaptor or Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor
+  Exceptions: throw if key can't be found in Databases.pm 
+
+=cut
 
 sub get_dbadaptor{
-  my ($self, $name) = @_;
+  my ($self, $name, $use_pipeline_adaptor) = @_;
   my $hash = $self->database_hash;
   my $db;
   if(!$hash->{$name}){
@@ -45,10 +59,15 @@ sub get_dbadaptor{
           throw ("Database-connection-details not properly configured : Arguemnt : $arg missing in Databases.pm\n") ; 
         }
       }
-
-      $db = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new(
-                                                %$constructor_args,
-                                                );
+      if ( $use_pipeline_adaptor ) {
+	$db = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new(
+							    %$constructor_args,
+							   );
+      } else {
+	$db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+						  %$constructor_args,
+						 );
+      }
       if($name ne $DNA_DBNAME ){
         if (length($DNA_DBNAME) ne 0 ){
           my $dnadb = $self->get_dbadaptor($DNA_DBNAME);

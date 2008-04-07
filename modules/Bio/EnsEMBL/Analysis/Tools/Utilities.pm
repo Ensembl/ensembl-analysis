@@ -39,6 +39,7 @@ use warnings;
 use Exporter;
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use vars qw (@ISA  @EXPORT);
@@ -331,18 +332,20 @@ sub write_seqfile{
 =head2 get_db_adaptor_by_string
 
   Arg [1]   : String 
-  Arg [2]   : verbose-flag 
-  Function  : Returns a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor for a given string.
+  Arg [2]   : verbose-flag
+  Arg [3]   : return a pipeline db adaptor flag
+  Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given string.
+              or a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor if requested
               Requires proper configuration of 
               Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
  
-  Returntype: Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor 
+  Returntype: Bio::EnsEMBL:DBSQL::DBAdaptor or Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor 
   Exceptions: throw if string can't be found in Databases.pm 
 
 =cut
 
 sub get_db_adaptor_by_string {
-   my ($string, $verbose) = @_ ;
+   my ($string, $verbose, $use_pipeline_adaptor) = @_ ;
 
 
    require "Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm" ;
@@ -359,10 +362,16 @@ sub get_db_adaptor_by_string {
      print "WARNING : You haven't defined a database-name in the Databases.pm config-file for $string\n" ; 
      return undef ; 
    }
-
-   my $db = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
-   my $dnadb = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;
-
+   
+   my $db;
+   my $dnadb;
+   if ( $use_pipeline_adaptor ) {
+     $db = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
+     $dnadb = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;
+   } else {
+     $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
+     $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;   
+   }
    if ( $verbose ) {   
      my %tmp =  %{${$DATABASES}{$string}} ;
      print STDERR "Database : $tmp{'-dbname'} @ $tmp{'-host'} : $tmp{'-port'} AS $tmp{'-user'} - $tmp{'-pass'}\n" ;  

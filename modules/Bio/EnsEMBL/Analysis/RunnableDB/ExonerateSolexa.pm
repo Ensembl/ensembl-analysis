@@ -40,6 +40,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExonerateSolexa;
+use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use vars qw(@ISA);
 
@@ -67,8 +68,9 @@ sub new {
 
 sub write_output {
   my ( $self, @output ) = @_;
-
-  my $outdb = $self->get_dbadaptor($self->OUT_DB);
+  # Flag set to 1 = return a pipeline adaptor
+  my $outdb = get_db_adaptor_by_string("TEST2_DB",undef,1);
+# $outdb = $self->get_dbadaptor($self->OUT_DB,1);
 
   my $fa;
   if ( $self->COMPRESSION ) {
