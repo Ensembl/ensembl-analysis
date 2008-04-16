@@ -39,18 +39,49 @@ use vars qw(%Config);
 
 %Config = 
     (
-     NESSIE_CONFIG => {
+     CONFIG => {
          DEFAULT => {
-             PROGRAM           => $ENV{NE_PROGRAM},
-             PROGRAM_FILE      => $ENV{NE_PROGRAM_FILE},
-             VERSION           => $ENV{NE_VERSION},
-             PARAMETERS        => $ENV{NE_PARAMETERS},
-             EXPERIMENT        => $ENV{EXPERIMENT},
-             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
-             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-             DATASET_NAME      => $ENV{DATASET_NAME},
-             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
+             EFGDB => {
+                 -dbname => $ENV{'DBNAME'},
+                 -host => $ENV{'DBHOST'},
+                 -port => $ENV{'DBPORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => 'ensadmin',
+                 -pass => 'ensembl',
+             },
+             MODULE            => 'Nessie',
+             PROGRAM           => 'nessie',
+             PROGRAM_FILE      => 'nessie',
+             VERSION           => '0.13',
+             #PARAMETERS        => undef,
+             TRAIN_PARAMETERS  => " --onestep=$ENV{HOME}/bin/train_state.para",
+             #PEAK_PARAMETERS   => " --bridge --gap 500 --split 2500 --mindist 400 --minpost 0.99",
+             NORM_METHOD       => 'VSN_GLOG', 
+             RESULT_SET_REGEXP => 'BR._TR.', 
+             SCORE_FACTOR      => 1,
+             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{DBNAME}",
          },
+
+         #--replicates=2 --onestep="/nfs/acari/graef/bin/train_state.para"
+
+         # NimbleGen data
+         # (recommended for standard ChIP-chip fragment length ~300-600)
+         'Nessie_NG' => {
+             PARAMETERS => ' --distribution="weibull" --fit-method="slope"',
+             PEAK_PARAMETERS   => " --bridge --gap 500 --split 2500 --mindist 400 --minpost 0.99",
+         },
+
+         # PCR array based data
+         'Nessie_PCR' => {
+             PARAMETERS => ' --distribution="normal" --fit-method="full"',
+         },
+
+         # Affymetrix data and NimbleGen
+         # (use with very short fragments hybridised to arrays ~200bp)
+         'Nessie_200' => {
+             PARAMETERS => ' --distribution="normal" --fit-method="slope" ',
+         },
+
      });
 
 sub import {

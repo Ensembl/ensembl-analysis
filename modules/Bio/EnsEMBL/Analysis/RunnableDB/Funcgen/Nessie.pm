@@ -73,7 +73,9 @@ sub new {
     $self->read_and_check_config($CONFIG);
 
     # add some runnable/program special params to analysis
-    $self->PARAMETERS($self->PARAMETERS.$self->TRAIN_PARAMETERS.'; '.$self->PEAK_PARAMETERS);
+    $self->PARAMETERS(join('; ',
+                           $self->PARAMETERS.$self->TRAIN_PARAMETERS,
+                           $self->PEAK_PARAMETERS));
     #print Dumper $self->PARAMETERS;
     
     # make sure we have the correct analysis object

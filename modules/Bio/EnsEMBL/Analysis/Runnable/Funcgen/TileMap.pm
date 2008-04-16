@@ -54,7 +54,6 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Funcgen);
 
-
 =head2 write_infile
 
     Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::TileMap
@@ -74,53 +73,64 @@ sub write_infile {
 		$filename = $self->infile();
 	}
 
-	# determine both number of result sets (replicates) and features
+	# determine both number of result sets (replicates/arrays) and features
 
 	my $noa = scalar(keys %{$self->result_features});
-	warn('no. of result sets: ', $noa);
+	warn("\tNo. of result sets: ". $noa);
 
 	my $nof = scalar(@{(values %{$self->result_features})[0]});
-	warn('no. of result fts: ', $nof);
+	warn("\tNo. of result features: ". $nof);
 
 	# dump features
-	open(F, ">".$filename)
+	my $header = join("\t", 'chromosome', 'position', keys %{$self->result_features});
+	$header .= "\tDUMMY" if ($noa == 1);
+    
+    open(F, ">".$filename)
 		or throw("Can't open file $filename.");
-	print F join("\t", 'chromosome', 'position', 'array ids'), "\n";
-
+    print F $header, "\n";
+    
 	#print Dumper $self->result_features;
 	
 	for (my $i=0; $i<$nof; $i++) {
 		my $coord=0;
 		foreach my $rset (values %{$self->result_features}) {
 			print F join("\t", ${$rset}[$i][0], ${$rset}[$i][1]) unless ($coord);
-			$coord=1;    
-			print F "\t".${$rset}[$i][3];
+			$coord=1;
+            #why do we have to invert the score here???
+			print F "\t".(-1*${$rset}[$i][3]);
 		}
 		print F "\t0" if ($noa == 1);
 		print F "\n";
 	}
 	close F;
+    warn("\tresult features written to ".$filename);
 
 	my $workdir = $self->workdir;
+    #warn("\tworkdir: ".$workdir);
 
 	# write config and cmpinfo files from templates
 	(my $project = $filename) =~ s,.+/(.+)\.dat,$1,;
 
-	my $config_template = $ENV{PARAMETERFILE};
-	#print Dumper $config_template;
+
+	# program parameters
+
+    warn('ANALYSIS PARAMETERS: '.$self->analysis->parameters);
+
+    my %parameters = ();
+    map { 
+        my ($key, $value) = split (/=/);
+        $parameters{$key} = $value;
+    } split(/;\s+/, $self->analysis->parameters);
+
+    #print Dumper %parameters;
 
 	my $config = $workdir.'/'.$project.'_args.txt';
 	#print Dumper $config;
 	$self->config_file($config);
 
-	# program parameters
-	my $method	= exists $ENV{METHOD}? $ENV{METHOD} : 0;
-	my $postprob = exists $ENV{POSTPROB}? $ENV{POSTPROB} : 0.5;
-	my $maxgap = exists $ENV{MAXGAP}? $ENV{MAXGAP} : 1000;
-	my $hyblength = exists $ENV{HYBLENGTH}? $ENV{HYBLENGTH} : 28;
-
-	open(IN, $config_template)
-		or throw("Can't open config file $config_template");
+    my $template_file = $parameters{TEMPLATE_FILE};
+	open(IN, $template_file)
+		or throw("Can't open config file $template_file");
 
 	open(OUT, ">$config")
 		or throw("Can't open config file $config");
@@ -132,49 +142,85 @@ sub write_infile {
 		s,^(I.3-.+=).+$,$1 2,;            #[Range of test-statistics] (0: default; 1: [0,1], 2: (-inf, +inf))
 		s,^(II.1-.+=).+$,$1 0,;           #[Apply local repeat filter?] (0:No; 1:Yes)
 		s,^(II.2-.+=).+$,$1 NULL,;        #[*.refmask file]
-		s,^(III.2-.+=).+$,$1 $method,;    #[Method to combine neighboring probes] (0:HMM, 1:MA)
-		s,^(IV.1-.+=).+$,$1 $postprob,;   #[Posterior probability >]
-		s,^(IV.2-.+=).+$,$1 $maxgap,;     #[Maximal gap allowed] (1000: default)
+		s,^(III.2-.+=).+$,$1 $parameters{METHOD},;    #[Method to combine neighboring probes] (0:HMM, 1:MA)
+		s,^(IV.1-.+=).+$,$1 $parameters{POSTPROB},;   #[Posterior probability >]
+		s,^(IV.2-.+=).+$,$1 $parameters{MAXGAP},;     #[Maximal gap allowed] (1000: default)
 		s,^(IV.4-.+=).+$,$1 0,;           #[Provide your own selection statistics?] (0: No, use default; 1: Yes)
 		s,^(IV.5-.+=).+$,$1 NULL,;        #[If Yes to IV.4, selection statistics file]
-		s,^(IV.10-.+=).+$,$1 $hyblength,; #[Expected hybridization length]
-		s,^(V.2-.+=).+$,$1 $maxgap,;      #[Maximal gap allowed] (500: default)
+		s,^(IV.10-.+=).+$,$1 $parameters{HYBLENGTH},; #[Expected hybridization length]
+		s,^(V.2-.+=).+$,$1 $parameters{MAXGAP},;      #[Maximal gap allowed] (500: default)
 		print OUT;
 	} <IN>;
 
 	close IN;
 	close OUT;
 	
-	(my $cmpinfo_template = $config_template) =~ s,_tilemap_arg.txt,.cmpinfo,;
-	#print Dumper $cmpinfo_template;
 	my $cmpinfo = $self->workdir.'/'.$project.'.cmpinfo';
+    warn("cmp info file: $cmpinfo");
 
-	open(IN, $cmpinfo_template)
-		or throw("Can't open config file $cmpinfo_template");
-
-	open(OUT, ">$cmpinfo")
+	open(CMP, ">$cmpinfo")
 		or throw("Can't open cmpinfo file $cmpinfo");
 
 	my $array_no = ($noa == 1)? '2' : $noa;
-	my $group_no = ($noa == 1)? '2': $noa;
-	my $groups = ($noa == 1)? '1 2': '1 'x $noa;
+	my $group_no = ($noa == 1)? '2' : 1;
+	my $groups = ($noa == 1)? '1 2' : '1 'x $noa;
+    warn("array_no: " . $array_no);
+    warn("group_no: " . $group_no);
+    warn("groups: " . $groups);
 
-	map { 
-		s,^(\[Array number\].+=).+$,$1 $array_no,;
-		s,^(\[Group number\].+=).+$,$1 $group_no,;
-		s,^1 1 1 2 2 2 3 3 3 1 1 1 2 2 2 3 3 3,$groups,;
-		s,^\(1>2\) & \(1>3\),1>2,;
-		s,^1 2 3,1 2,;
-		print OUT;
-	} <IN>;
 
-	close IN;
+    print CMP <<EOCMP;
+##############################
+# TileMap Comparison Info    #
+##############################
+    
+##############################
+# Basic Info                 #
+##############################
+[Array number] = $array_no
+[Group number] = $group_no
+[Group ID]
+$groups
+
+##############################
+# Patterns of Interest       #
+##############################
+[Comparisons]
+1>2
+
+##############################
+# Preprocessing              #
+##############################
+[Truncation lower bound] = -1000000000000.0
+[Take log2 before calculation?] (1:yes; 0:no) = 0
+
+##############################
+# Simulation Setup           #
+##############################
+[Monte Carlo draws for posterior prob.] = 0
+
+##############################
+# Common Variance Groups     #
+##############################
+[Common variance groups] = 1
+$groups
+
+##############################
+# Permutation Setup          #
+##############################
+[Number of permutations] = 0
+[Exchangeable groups] = 1
+$groups
+EOCMP
+
+
+
 	close OUT;
 	
 	#system("cp $cmpinfo_template $cmpinfo");
 
 	my $ext;
-	if ($method) {
+	if ($parameters{METHOD}) {
 		$ext = '_ma';
 	} else {
 		$ext = '_hmm';
@@ -222,8 +268,8 @@ sub run_analysis {
     
     warn("Running analysis " . $command . "\n");
     
-    eval { system($command) };
-    throw("FAILED to run $command: ", $@) if ($@);
+    system($command) == 0 
+        or throw("FAILED to run $command: ".$?);
 
 }
 

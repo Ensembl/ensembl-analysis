@@ -82,13 +82,55 @@ sub read_and_check_config {
 
     my ($self, $config) = @_;
 
-    # For eFG we need to tweak the analysis logic_name a bit, which
-    # contains the actual logic_name, experiment name, and result_set regexp
-    # separated by colon.
+    # get config for logic_name
+    warn("LOGIC_NAME:\t".$self->analysis->logic_name);
+    warn("Reading config for '".$self->analysis->logic_name."'");
+    parse_config($self, $config, $self->analysis->logic_name);
+    #print Dumper $self;
 
-    print Dumper $self->analysis->logic_name;
-    my ($logic_name, $experiment) = split(':', $self->analysis->logic_name);
-    print join (' : ', $self->input_id, $logic_name, $experiment), "\n";
+    # first get default and eFG analysis config
+    #warn("Reading config for '$logic_name'");
+    #parse_config($self, $config, $logic_name);
+    # then get config for pipeline analysis (individual experiment settings,
+    # like RESULT_SET_REGEXP)
+    
+    # Make sure we have the correct DB adaptors!!!
+    #$self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
+    $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(%{ $self->EFGDB })); 
+    #print Dumper ($self->dnadb, $self->efgdb);
+
+    # Set analysis
+    my $efg_analysis = new Bio::EnsEMBL::Analysis( -logic_name => $self->analysis->logic_name );
+    $self->efg_analysis($efg_analysis);
+
+    # exrtact experiment name and query slice from input_id
+    warn("INPUT_ID:\t".$self->input_id);
+    my @input = split(':', $self->input_id);
+
+    # Set experiment
+    my $experiment = shift @input;
+    my $e = $self->efgdb->get_ExperimentAdaptor->fetch_by_name($experiment);
+    $self->experiment($e) 
+        or throw("Can't fetch experiment with name ".$experiment);
+    #print Dumper $self->experiment;
+    warn("EXPERIMENT:\t".$self->experiment);
+
+    # detect depletion
+    if ($experiment =~ m/H3-Core|H3K9me2/) {
+        $self->SCORE_FACTOR(-1);
+    } else {
+        $self->SCORE_FACTOR(1);
+    }
+
+    # Set query slice
+    my $slice = $self->efgdb->get_SliceAdaptor->fetch_by_name(join(':', @input));
+    throw("Can't fetch slice ".$self->input_id) if (!$slice);
+    $self->query($slice);
+    warn("QUERY:\t".$self->query->name);
+
+
+    #my ($logic_name, $experiment) = split(':', $self->analysis->logic_name);
+    #warn(join (' : ', $self->input_id, $logic_name, $experiment));
 
     # Make sure we deal with the correct analysis object!!!
     #$self->analysis->logic_name($logic_name);
@@ -97,27 +139,6 @@ sub read_and_check_config {
     #$self->SUPER::read_and_check_config($config);
     #print Dumper $config;
     
-    # first get default and eFG analysis config
-    parse_config($self, $config, $logic_name);
-    # then get config for pipeline analysis (individual experiment settings,
-    # like RESULT_SET_REGEXP)
-    parse_config($self, $config, $self->analysis->logic_name);
-    #print Dumper $self;
-    
-    # Make sure we have the correct DB adaptors!!!
-    #$self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
-    $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(%{ $self->EFGDB })); 
-    #print Dumper ($self->dnadb, $self->efgdb);
-
-    # Set analysis
-    my $efg_analysis = new Bio::EnsEMBL::Analysis( -logic_name => $logic_name );
-    $self->efg_analysis($efg_analysis);
-
-    # Set experiment
-    my $e = $self->efgdb->get_ExperimentAdaptor->fetch_by_name($experiment);
-    $self->experiment($e) 
-        or throw("Can't fetch experiment with name ".$experiment);
-    #print Dumper $self->experiment;
 
     # Set normalization method
     my $m = $self->efgdb->get_AnalysisAdaptor->fetch_by_logic_name($self->NORM_METHOD);
@@ -125,12 +146,6 @@ sub read_and_check_config {
         or throw("Can't fetch analysis object for norm method ".$self->NORM_METHOD);
     #print Dumper $self->norm_method;
 
-    # Save/set input_id as slice
-    my $slice = $self->efgdb->get_SliceAdaptor->fetch_by_name($self->input_id);
-    throw("Can't fetch slice ".$self->input_id) if (!$slice);
-    $self->query($slice);
-    #print Dumper $self->query;
-    
     # make sure we have valid feature and data set objects incl. supporting sets
     #$self->check_Sets();
     
@@ -383,41 +398,92 @@ sub fetch_input {
     #warn("write file: ", Dumper $self->db);
     
     my %result_features = ();
+    my $norf;
     foreach my $rset (@{$self->ResultSets}) {
-        
-        print join(" ", $rset->dbID, $rset->name), "\n";
-        
-        my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'',1);
 
-        print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
-        
-        if (scalar(@$result_features) == 0) {
-            warn("No result_features on slice ".$self->query()->name());
-            next;
-        }
+        print join(" ", $rset->dbID, $rset->name), "\n";
+
+        my $datfile = $self->ANALYSIS_WORK_DIR.'/cache/'.
+            $self->query->name.'.'.$rset->name.'.dat';
+        warn('datafile: '.$datfile);
 
         my @result_features = ();
-        my $ft_cnt = 1;
-        foreach my $prb_ft (@{$result_features}) {
-            #print '<', join("><", 
-            #           $self->query()->seq_region_name, 
-            #           $prb_ft->start, 
-            #           $prb_ft->end, 
-            #           $prb_ft->score, 
-            #           $prb_ft->probe->get_probename), ">\n";
-            push (@result_features, 
-                  [ 
-                    $self->query()->seq_region_name,
-                    $prb_ft->start, 
-                    $prb_ft->end, 
-                    $prb_ft->score, 
-                    $prb_ft->probe->get_probename,
-                    ]
-                  );
-        }
-        
-        $result_features{$rset->name} = \@result_features;
 
+        warn("SCORE_FACTOR: ".$self->SCORE_FACTOR);
+
+        unless ( -e $datfile ) { # dat file already dumped; skipping sql
+            
+            #my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE',1);
+            my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE');
+
+            print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
+        
+            if (scalar(@$result_features) == 0) {
+                warn("No result_features on slice ".$self->query()->name());
+                next;
+            }
+
+            my $ft_cnt = 1;
+
+            foreach my $prb_ft (sort {$a->start <=> $b->start} @{$result_features}) {
+                #print '<', join("><", 
+                #           $self->query()->seq_region_name, 
+                #           $prb_ft->start, 
+                #           $prb_ft->end, 
+                #           $prb_ft->score*($self->SCORE_FACTOR), 
+                #           $prb_ft->probe->get_probename), ">\n";
+                push (@result_features, 
+                      [ 
+                        $self->query()->seq_region_name,
+                        $prb_ft->start, 
+                        $prb_ft->end, 
+                        $prb_ft->score*$self->SCORE_FACTOR,
+                        $ft_cnt++,
+                        #$prb_ft->probe->get_probename,
+                        ]
+                      );
+            }
+
+            open(RF, "> $datfile")
+                or throw("Can't open file $datfile");
+
+                map {
+                    print RF join("\t", @$_),"\n";
+                  } @result_features;
+
+            close RF
+                or throw("Can't close file $datfile");
+
+        } else {
+
+            print "Using cached ResultFeatures:\t", $datfile, "\n";
+
+            open(CACHE, $datfile)
+                or throw("Can't open file cache $datfile");
+            while (<CACHE>) {
+                #print;
+
+                my @values = split(/\t/);
+                push (@result_features, 
+                      [ 
+                        @values
+                        ]
+                      );
+            }           
+            close CACHE;
+            
+        }
+
+        
+        warn("No. of ResultFeatures_by_Slice:\t".scalar(@result_features));
+
+        throw ("No of result_features doesn't match") 
+            if (@result_features && $norf && $norf != scalar(@result_features));
+
+        $result_features{$rset->name} = \@result_features;
+        
+        $norf = scalar(@result_features);
+        
     }
 
     if (scalar(keys %result_features) == 0) {
@@ -431,12 +497,9 @@ sub fetch_input {
     
     #$self->result_features(\%features);
     #print Dumper $self->result_features();
+    #warn('EFG ANALYSIS PARAMETERS: '.$self->efg_analysis->parameters);
 
-    my %parameters_hash = ();
-
-    if ($self->parameters_hash) {
-        %parameters_hash = %{$self->parameters_hash};
-    }
+    my %parameters_hash = %{$self->parameters_hash($self->efg_analysis->parameters)};
 
     $parameters_hash{-result_features} = \%result_features;
 
@@ -447,6 +510,7 @@ sub fetch_input {
          -query => $self->query,
          -program => $self->efg_analysis->program_file,
          -analysis => $self->efg_analysis,
+         -workdir => $self->ANALYSIS_WORK_DIR,
          %parameters_hash
          );
     
@@ -491,7 +555,7 @@ sub write_output{
     
     my ($transfer, $slice);
     if($self->query->start != 1 || $self->query->strand != 1) {
-        my $sa = $self->dnadb->get_SliceAdaptor;
+        my $sa = $self->efgdb->get_SliceAdaptor;
         $slice = $sa->fetch_by_region($self->query->coord_system->name(),
                                       $self->query->seq_region_name(),
                                       undef, #start
@@ -499,6 +563,7 @@ sub write_output{
                                       undef, #strand
                                       $self->query->coord_system->version());
         $transfer = 1;
+        warn('TRANSFER: 1');
     } else {
         $slice = $self->query;
     }
@@ -511,19 +576,19 @@ sub write_output{
     my $constraint = qq( af.feature_set_id = $fs_id );
     
     my $af = $self->efgdb->get_AnnotatedFeatureAdaptor->fetch_all_by_Slice_FeatureSet
-        ($slice, $fset, $self->efg_analysis->logic_name);
+        ($self->query, $fset, $self->efg_analysis->logic_name);
     
-    print 'No. of annotated features already stored: '.scalar(@$af)."\n";
-    print 'No. of annotated features to be stored: '.scalar(@{$self->output})."\n";
+    warn('No. of annotated features already stored: '.scalar(@$af).' ('.$self->query->name.' '.$fset->name.')');
+    warn('No. of annotated features to be stored: '.scalar(@{$self->output}).' ('.$self->query->name.')');
     
-    if (@$af) {
-        
-        warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
-             $self->query->name." already contains ".scalar(@$af).
-             " annotated features of feature set ".$fset->dbID.".");
-        return 1;
-        
-    } else {
+   if (@$af) {
+       
+       warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
+            $self->query->name." already contains ".scalar(@$af).
+            " annotated features of feature set ".$fset->dbID.".");
+       return 1;
+       
+   } else {
         my @af;
         foreach my $ft (@{$self->output}){
             
@@ -550,7 +615,7 @@ sub write_output{
             }
             push(@af, $af);
         }
-        
+
         $self->efgdb->get_AnnotatedFeatureAdaptor->store(@af);
     }
     return 1;
@@ -629,32 +694,46 @@ sub PARAMETERS {
     }
 }
 
+sub SCORE_FACTOR {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_SCORE_FACTOR'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_SCORE_FACTOR'} ) ) {
+        return $self->{'_CONFIG_SCORE_FACTOR'};
+    } else {
+        return undef;
+    }
+}
+
 
 ### 
 
-=head2 dnadb
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Arg [2]   : Bio::EnsEMBL::DBSQL::DBAdaptor
-  Function  : container for dbadaptor
-  Returntype: Bio::EnsEMBL::DBSQL::DBAdaptor
-  Exceptions: throws if not passed a Bio::EnsEMBL::DBSQL::DBConnection
-    object
-  Example   : 
-
-=cut
-
-
-sub dnadb{
-  my ($self, $db) = @_;
-  if($db){
-      throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor ".
-            "not a ".$db) 
-          unless($db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
-      $self->{'dnadb'} = $db;
-  }
-  return $self->{'dnadb'};
-}
+#=head2 dnadb
+#
+#  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+#  Arg [2]   : Bio::EnsEMBL::DBSQL::DBAdaptor
+#  Function  : container for dbadaptor
+#  Returntype: Bio::EnsEMBL::DBSQL::DBAdaptor
+#  Exceptions: throws if not passed a Bio::EnsEMBL::DBSQL::DBConnection
+#    object
+#  Example   : 
+#
+#=cut
+#
+#
+#sub dnadb{
+#  my ($self, $db) = @_;
+#  if($db){
+#      throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor ".
+#            "not a ".$db) 
+#          unless($db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
+#      $self->{'dnadb'} = $db;
+#  }
+#  return $self->{'dnadb'};
+#}
 
 =head2 efgdb
 
@@ -819,19 +898,19 @@ sub EFGDB {
   }
 }
 
-sub DNADB {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_CONFIG_DNADB'} = $value;
-  }
-
-  if ( exists( $self->{'_CONFIG_DNADB'} ) ) {
-    return $self->{'_CONFIG_DNADB'};
-  } else {
-    return undef;
-  }
-}
+#sub DNADB {
+#  my ( $self, $value ) = @_;
+#
+#  if ( defined $value ) {
+#    $self->{'_CONFIG_DNADB'} = $value;
+#  }
+#
+#  if ( exists( $self->{'_CONFIG_DNADB'} ) ) {
+#    return $self->{'_CONFIG_DNADB'};
+#  } else {
+#    return undef;
+#  }
+#}
 
 
 

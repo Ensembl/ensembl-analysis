@@ -45,16 +45,36 @@ use vars qw(%Config);
     (
      CONFIG => {
          DEFAULT => {
-             PROGRAM           => $ENV{PROGRAM},
-             PROGRAM_FILE      => $ENV{PROGRAM_FILE},
-             VERSION           => $ENV{VERSION},
-             PARAMETERS        => $ENV{PARAMETERS},
-             EXPERIMENT        => $ENV{EXPERIMENT},
-             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
-             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-             DATASET_NAME      => $ENV{DATASET_NAME},
-             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
-         }
+             EFGDB => {
+                 -dbname => $ENV{'DBNAME'},
+                 -host => $ENV{'DBHOST'},
+                 -port => $ENV{'DBPORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => 'ensadmin',
+                 -pass => 'ensembl',
+             },
+             MODULE            => 'TileMap',
+             PROGRAM           => 'TileMap',
+             PROGRAM_FILE      => 'tilemap',
+             VERSION           => '2.0',
+             TEMPLATE_FILE 
+                 => "$ENV{HOME}/src/tilemap/readme/TileMap_arg.txt",
+             NORM_METHOD       => 'VSN_GLOG', 
+             RESULT_SET_REGEXP => 'BR._TR.', 
+             SCORE_FACTOR      => 1,
+             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{DBNAME}",
+         },
+         TILEMAP => {
+             # Method to combine neighboring probes (0:HMM, 1:MA)
+             METHOD => 0,
+             # Posterior probability > val (default: 0.5)
+             POSTPROB => 0.5,
+             # Maximal gap allowed (1000: default)
+             MAXGAP => 100,
+             # Expected hybridization length (28: default)
+             HYBLENGTH => 50,
+         },
+
      });
 
 sub import {

@@ -61,6 +61,8 @@ use vars qw(@ISA);
 =cut
 
 sub run_analysis {
+
+    print "Analysis::Runnable::Funcgen::Nessie::run_analysis\n";
         
     my ($self, $program) = @_;
 
@@ -80,7 +82,7 @@ sub run_analysis {
     my $replicates = scalar(keys %{$self->result_features});
     if ($replicates == 1) { $replicates=2 }
 
-    my ($nessie_parameters, $peak_parameters) = split('; ', $self->analysis->parameters);
+    my ($nessie_parameters, $peak_parameters) = split('; ', $self->options);
     print Dumper ($nessie_parameters, $peak_parameters);
     
     my $command = $self->program.' --data="'.$self->infile().'" '.
@@ -115,38 +117,48 @@ sub run_analysis {
 
 sub write_infile {
 
+    print "Analysis::Runnable::Funcgen::Nessie::write_infile\n";
+
     my ($self, $filename) = @_;
+
+    warn("workdir : ".$self->workdir);
 
     if (! $filename) {
         $filename = $self->infile();
     }
 
+    warn("filename: ".$filename);
 
     foreach my $rset_name (sort keys %{$self->result_features})
     {
 
-        print Dumper $rset_name;
+        #print Dumper $self->query->name, $rset_name, $filename;
+        #print $self->result_features->{$rset_name}, "\n";
 
-        (my $datafile = $filename) =~ s,\.dat,.$rset_name.dat,;
+        my $datafile = $self->workdir.'/cache/'.$self->query->name.'.'.$rset_name.'.dat';
+        warn("datafile: ".$datafile);
+            
+        unless ( -e $datafile ) {
 
-        print Dumper $datafile;
+            
+            open(F, ">".$datafile)
+                or throw("Can't open file $datafile.");
 
-        open(F, ">".$datafile)
-            or throw("Can't open file $datafile.");
+            #foreach (keys %{$self->result_features}) {
+            #    next unless ($datafile =~ m/$_/);
+                foreach my $ft (@{$self->result_features->{$rset_name}}) {
+                    #print join("\t", @$ft), "\n";
+                    print F join("\t", @$ft), "\n";
+                }
+            #   last;
+            #}
+            
+            close F;
 
-        foreach (keys %{$self->result_features}) {
-            next unless ($datafile =~ m/$_/);
-            foreach my $ft (@{$self->result_features->{$_}}) {
-                #print join("\t", @$ft), "\n";
-                print F join("\t", @$ft), "\n";
-            }
-            last;
         }
         
-        close F;
-
         $self->datafiles($datafile);
-
+            
     }
     #print Dumper $self->datafiles;
 
@@ -154,34 +166,6 @@ sub write_infile {
     map {$self->files_to_delete($_)} @{$self->datafiles};
 
     return $filename;
-
-}
-
-=head2 infile
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
-  Arg [2]     : filename (string)
-  Description : will hold a given filename or if one is requested but none
-  defined it will use the create_filename method to create a filename
-  Returntype  : string, filename
-  Exceptions  : none
-  Example     : 
-
-=cut
-
-
-sub infile{
-
-  my ($self, $filename) = @_;
-
-  if($filename){
-    $self->{'infile'} = $filename;
-  }
-  if(!$self->{'infile'}){
-    $self->{'infile'} = $self->create_filename('nessie', 'dat');
-  }
-
-  return $self->{'infile'};
 
 }
 
@@ -231,7 +215,7 @@ sub write_filelist {
     throw("No infile found") if (! $self->infile());
     
     open(F, ">".$self->infile())
-        or throw("Can't open file $self->infile.");
+        or throw("Can't open file ".$self->infile);
 
     foreach my $f (@{$self->datafiles}) {
         print F $f, "\n";

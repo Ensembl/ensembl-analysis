@@ -74,12 +74,96 @@ sub new {
 
     print "Analysis::RunnableDB::Funcgen::TileMap::new\n";
     my ($class,@args) = @_;
+
     my $self = $class->SUPER::new(@args);
 
     $self->read_and_check_config($CONFIG);
 
+    $self->PARAMETERS(join('; ',
+                           'METHOD='.$self->METHOD,
+                           'POSTPROB='.$self->POSTPROB,
+                           'MAXGAP='.$self->MAXGAP,
+                           'HYBLENGTH='.$self->HYBLENGTH,
+                           'TEMPLATE_FILE='.$self->TEMPLATE_FILE));
+
+    # make sure we have the correct analysis object
+    $self->check_Analysis();
+
+    # make sure we can store the correct feature_set, data_sets, and result_sets
+    $self->check_Sets();
+
     return $self;
 	
+}
+
+sub TEMPLATE_FILE {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_TEMPLATE_FILE'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_TEMPLATE_FILE'} ) ) {
+        return $self->{'_CONFIG_TEMPLATE_FILE'};
+    } else {
+        return undef;
+    }
+}
+
+sub POSTPROB {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_POSTPROB'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_POSTPROB'} ) ) {
+        return $self->{'_CONFIG_POSTPROB'};
+    } else {
+        return undef;
+    }
+}
+
+sub HYBLENGTH {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_HYBLENGTH'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_HYBLENGTH'} ) ) {
+        return $self->{'_CONFIG_HYBLENGTH'};
+    } else {
+        return undef;
+    }
+}
+
+sub MAXGAP {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_MAXGAP'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_MAXGAP'} ) ) {
+        return $self->{'_CONFIG_MAXGAP'};
+    } else {
+        return undef;
+    }
+}
+
+sub METHOD {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_METHOD'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_METHOD'} ) ) {
+        return $self->{'_CONFIG_METHOD'};
+    } else {
+        return undef;
+    }
 }
 
 1;
