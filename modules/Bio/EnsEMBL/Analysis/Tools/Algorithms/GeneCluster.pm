@@ -502,6 +502,36 @@ sub get_exon_clustering_from_gene_cluster {
   return \@exon_clusters ;
 }
 
+=head2 get_coding_exon_clustering_from_gene_cluster
+
+   Name      : $self->get_coding_exon_clustering_from_gene_cluster()
+   Arg[0]    : Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
+   Function  : gets a GeneCluster and converts it by building a TranscriptCluster,
+               using only coding exons for the clustering. It then clusters the 
+               coding exons of all Transcripts and returns an array-ref to
+               Bio::EnsEMBL::ExonCluster-objects
+   Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
+
+=cut
+
+sub get_coding_exon_clustering_from_gene_cluster {
+  my ($self) = @_ ;
+
+  my @clg  = sort {$a->start <=> $b->start} $self->get_Genes ;
+
+  # building Transcript-Cluster 
+  #my $tc = genes_to_Transcript_Cluster(\@clg);
+  my $tc = $self->get_coding_TranscriptCluster ; 
+
+  my @exon_clusters = $tc->get_coding_ExonCluster() ; 
+
+  if ($tc->strand eq '1') {
+    @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
+  } else {
+    @exon_clusters = sort { $b->start <=> $a->start } @exon_clusters ;
+  }
+  return \@exon_clusters ;
+}
 
 
 =head2 get_TranscriptCluster 
@@ -556,5 +586,46 @@ sub get_TranscriptCluster {
   return $tc;
 }
 
+sub get_coding_TranscriptCluster {
+  my ($self) = @_;
+  #my ($genes_or_predTrans) = @_;
 
+  my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
+  print "building new TranscriptCluster using only coding Exons\n"  if $self->{v};
+    
+  foreach my $gene ( $self->get_Genes ) { 
+
+    if( ref($gene)=~m/Gene/){
+      # is a Bio::EnsEMBL::Gene 
+      # loop though transcripts to get clusters
+      foreach my $trans (@{$gene->get_all_Transcripts}) {
+        if ($gene->strand ne $trans->strand ) {
+          throw("Weird - gene is on other strand than transcript\n") ;
+        }
+        for (@{ $trans->get_all_translateable_Exons} ) {
+           if ($_->strand ne $trans->strand ) {
+             print $trans->biotype . " " . $trans->seq_region_start . " "
+              . $trans->seq_region_end . " " . $trans->seq_region_strand ."\n" ;
+             print $_->biotype . " " . $_->seq_region_start . " "  . $_->seq_region_end . " " .$_->seq_region_strand . "\n";
+             throw("Weird - exon is on other strand than transcript\n") ;
+           }
+        }
+        # assure that transcript has same biotype as gene 
+        $trans->biotype($gene->biotype) ;
+        $trans->sort;
+        print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
+        # keep the type sets
+        $tc->{'_types_sets'} = $self->{'_types_sets'};
+        $tc->put_Transcripts($trans);
+        $tc->register_biotype($gene->biotype) ;
+      }
+    } else {
+      # is not a Bio::EnsEMBL::Gene  
+      warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
+      $gene->sort ;
+      $tc->put_Transcripts($gene) ;
+    }
+  }
+  return $tc;
+}
 1;
