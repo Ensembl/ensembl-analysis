@@ -104,6 +104,27 @@ sub add_exon {
   $self->{'_type'} = undef;
 }
 
+# this is a variation on the method above.
+# calls contains_exon_with_dbid_and_dbname
+# instead of contains_exon
+sub add_exon_if_not_present {
+  my ($self,$exon,$transcript) = @_;
+
+  if (!$self->contains_exon_with_dbid_and_dbname($exon)) {
+    $self->_add_new_exon($exon);
+    # print "Added exon " . $exon->dbID . "\n";
+  } else {
+    return;
+  }
+  $self->_add_transcript_reference($exon,$transcript);
+  $self->_add_exon_biotype($exon,$transcript) ;
+
+  if ($self->{_internal_index} != 1) {
+    #print "Got more than one exon in cluster\n";
+  }
+  $self->{'_type'} = undef;
+}
+
 sub _add_new_exon {
   my ($self,$exon) = @_;
 
@@ -171,7 +192,23 @@ sub contains_exon {
   return  (exists $self->{_exonhash}{"$exon"});
 }
 
+# this is a variation on the method above. contains_exon looks in the 
+# _exonhash which keys on the memory location of the Exon objects. This means 
+# that, when we fetch the same exon from the same db at two different times,
+# the _exonhash will not recognise that they are the same because their location
+# in memory is different. contains_exon only works when the Exon object has not 
+# gone out of scope.
+sub contains_exon_with_dbid_and_dbname {
+  my ($self,$exon) = @_;
+  my $exon_duplicate = 0;
 
+  foreach my $ex (keys %{$self->{_exonidhash}}) {
+    if ($ex eq "".$exon->dbID.$exon->adaptor->db->dbname) {
+      $exon_duplicate = 1;
+    }
+  }
+  return $exon_duplicate;
+}
 
 =head2 
 
