@@ -186,7 +186,7 @@ sub run {
     # ignore gene if it does not translate
     # make a hash with keys = protein
     # and values = an array of all genes whose transcripts are made from this protein
-    my $protein_clusters = cluster_by_protein($cluster);    
+    my $protein_clusters = cluster_by_protein($self, $cluster);    
     my $filtered = filter_transcripts($protein_clusters);
 
     foreach my $protein (keys %{$protein_clusters}) {
@@ -261,6 +261,8 @@ sub get_best_gene {
   #} 
 
   # fetch the protein
+  # for cdna2genome, we might need to fix things here. Getting a protein seq this way
+  # we need to modify the input config file to have peptide seq with a cdna id header
   my $pep = $self->seqfetcher->get_Seq_by_acc($protein)->seq;
   if (!$pep) {
     throw("Unable to fetch peptide sequence");
@@ -365,6 +367,7 @@ sub get_best_gene {
     my $best;
     my $first_best;
     my %scores;
+    # make sure that you're using the correct protein and pep for cdna2genome
     my $target = Bio::Seq->new( -display_id => $protein, -seq => $pep);
     foreach my $biotype (@$biotypes) {
       if (defined $hash{$protein}{$biotype}) {
@@ -524,13 +527,16 @@ sub get_ordered_genes {
 }
 
 sub cluster_by_protein {
-  my ($cluster) = @_;
+  my ($self, $cluster) = @_;
   my %protein_hash;
 
   # get all genes made from 1 protein
   
+  # for this method, we want to use the actual protein
+  # so, for cdna2genome, we use the protein id (which
+  # is the second accession in the header line)
   GENE: foreach my $gene ($cluster->get_Genes()) {
-    my ($gene_ok, $protein) = check_gene($gene);
+    my ($gene_ok, $protein) = check_gene($self, $gene);
     
     if (!$gene_ok) {
       throw("Gene check failed for gene ".$gene->dbID."");
@@ -578,7 +584,7 @@ sub cluster_by_protein {
 
 =cut
 sub get_alternate_transcripts {
-  my ($cluster) = @_;
+  my ($self, $cluster) = @_;
 
   my %alternates;
   my %seen;
@@ -595,7 +601,7 @@ sub get_alternate_transcripts {
     # each gene has only 1 transcript
     # each transcript translates
     # each transcript has one tsf
-    my ($gene_ok, $protein) = check_gene($gene);
+    my ($gene_ok, $protein) = check_gene($self, $gene);
     if (!$gene_ok) {
       throw("Gene check failed for gene ".$gene->dbID."");
     }
@@ -612,7 +618,7 @@ sub get_alternate_transcripts {
         next INNER;
       }
       # DO CHECKS as above
-      my ($inner_gene_ok, $inner_protein) = check_gene($inner_gene);
+      my ($inner_gene_ok, $inner_protein) = check_gene($self, $inner_gene);
       if (!$inner_gene_ok) {
         throw("Gene check failed for gene ".$inner_gene->dbID."");
       }
@@ -772,33 +778,76 @@ sub make_exon_string {
 
 
 sub check_gene {
-  my ($gene) = @_;
+  my ($self, $gene) = @_;
 
   my $pass_checks = 1;
-  my $protein;
+  my $hit_name;
   my @transcripts = @{$gene->get_all_Transcripts};
+  my $protein_acc;
 
   if (scalar(@transcripts) != 1) {
     print STDERR "Gene ".$gene->stable_id." with dbID ".$gene->dbID." has ".scalar(@transcripts)." transcripts\n";
     $pass_checks = 0;
   }
 
+  # This bit requires a bit of tweaking for cdna2genome:
+  # the genes from cdna2genome have cdnas as transcript_supporting_evidence
+  # so will be dna_align_features with a hseqname=cdna_id. 
+  # For targetted run, tsfs are protein_align_features
+  # with hseqname=protein_id. 
   foreach my $transcript (@transcripts) {
     my @tsfs = @{$transcript->get_all_supporting_features};
     if (scalar(@tsfs) == 1) {
-      $protein = $tsfs[0]->hseqname;
+      $hit_name = $tsfs[0]->hseqname;
+      my $entry_obj1 = $self->seqfetcher->get_entry_by_acc($hit_name);
+      #print "PRIMARY primary $hit_name ".$entry_obj1."\n";
+
+     # my @namesp = @{$self->seqfetcher->secondary_namespaces};
+     # if (scalar(@namesp ) >0) {
+     #   foreach my $sn (@namesp) {
+     #     print "Namespace '$sn'\n";
+     #   }
+     # }
+
+      #my $secondary_header_id;
+      if ($entry_obj1 =~ m/^\>(\S+)\n/) {
+        $protein_acc = $1;
+      } elsif ($entry_obj1 =~ m/^\>(\S+)\s+(\S+)\n/) {
+      #  $secondary_header_id = $2;
+        $protein_acc = $2;
+      } else {
+        throw("Entry has unusual header $entry_obj1");
+      }
+
+      #if ($secondary_header_id) {
+      #  print STDERR "fetching secondary seq with 'ID' and acc $secondary_header_id\n\n";
+      #  my @seq_objs = $self->seqfetcher->get_Seq_by_secondary('ID', $secondary_header_id);
+      #  foreach my $seq_obj2 (@seq_objs) {
+      #    print "SECONDARY SEQ $hit_name $secondary_header_id\n ".$seq_obj2->seq."\n";
+      #  }
+      #}
+
+      #if ($secondary_header_id) {
+      #  my $sseq_obj = $self->seqfetcher->get_Seq_by_acc($secondary_header_id);
+      #  print ">$secondary_header_id\n".$sseq_obj->seq."\n";
+      #}
+
+      # print "index name ".$self->seqfetcher->index_name."\n"; # prints /lustre/work1/ensembl/ba1/cow4/Seq/BestTargetted_proteome_final/proteome.fa
+       
     } else {
-      print STDERR "WARNING: transcript ".$transcript->stable_id." (dbID ".$transcript->dbID.") has ".scalar(@tsfs)." tsfs. ".
+      print STDERR "WARNING: transcript ".$transcript->stable_id." (dbID ".$transcript->dbID.
+                   ") has ".scalar(@tsfs)." tsfs. ".
                    "Should only have one transcript_supporting_feature\n";
       $pass_checks = 0;
     }
+
     # check for a translation
     if (!defined($transcript->translation)) {
       print STDERR "Transcript ".$transcript->stable_id." does not translate.\n";
       $pass_checks = 0;
     }
   }
-  return $pass_checks, $protein;
+  return $pass_checks, $protein_acc;
 }
  
 
