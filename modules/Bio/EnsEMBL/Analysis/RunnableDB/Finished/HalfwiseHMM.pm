@@ -187,7 +187,11 @@ sub make_hash_from_meta_value {
 	my ( $self, $string ) = @_;
 	if ($string) {
 		my $hash = { eval $string };
-		$@ ? die "error evaluating $string [$@]" : return $hash || {};
+		if($@) {
+			die "error evaluating $string [$@]";
+		} else {
+			return $hash || {};
+		}
 	}
 
 	return {};
