@@ -629,12 +629,8 @@ sub run_matching{
   my @merged_genes = ();
 
   #maybe we should not do merging with blessed genes at all?!
-  if(!$blessed){
-    @merged_genes = $self->_merge_genes($genesref);
-  }
-  else{
-    @merged_genes = @{$genesref};
-  }
+  @merged_genes = $self->_merge_genes($genesref);
+
   print STDERR "\n --- \ngot " . scalar(@merged_genes) . " merged " . $combined_genetype . " genes\n" if $self->VERBOSE;
 
   # sort genewises by exonic length and genomic length
@@ -800,7 +796,6 @@ sub run_matching{
     POS:
       while(my $chosen_transcript = pop @possible_transcripts){
 
-
         my $chosen_feats = $chosen_transcript->get_all_supporting_features;
 
 	#make a gene from this
@@ -812,24 +807,28 @@ sub run_matching{
 
 	#combine it with the cds gene
 	$combined_transcript = $self->combine_genes($cds, $cdna_match);
-        $combined_transcript->sort;
 
 	# just check combined transcript works before throwing away the original  transcript
-	if ( defined($combined_transcript)
-	     && is_Transcript_sane($combined_transcript)
+	if ( defined($combined_transcript)){
+	  $combined_transcript->sort;
+	  if(is_Transcript_sane($combined_transcript)
 	     && all_exons_are_valid($combined_transcript, $self->MAX_EXON_LENGTH, 1)
 	     && intron_lengths_all_less_than_maximum($combined_transcript, $self->MAX_INTRON_LENGTH)
 	     && has_no_unwanted_evidence($combined_transcript)
 	   ){
 
-	  # make sure combined transcript doesn't misjoin any genewise clusters
-	  if($self->find_cluster_joiners($combined_transcript)){
-	    print STDERR "Found a cluster_joiner!\n" if $self->VERBOSE;
-	    print STDERR $combined_transcript->seq_region_start."/".$combined_transcript->seq_region_end."\n" if $self->VERBOSE;
-	    #dont use this one
+	    # make sure combined transcript doesn't misjoin any genewise clusters
+	    if($self->find_cluster_joiners($combined_transcript)){
+	      print STDERR "Found a cluster_joiner!\n" if $self->VERBOSE;
+	      print STDERR $combined_transcript->seq_region_start."/".$combined_transcript->seq_region_end."\n" if $self->VERBOSE;
+	      #dont use this one
+	      $combined_transcript = undef;
+	    }
+	  }
+	  else{
+	    print STDERR "Didn't pass checks.\n" if $self->VERBOSE;
 	    $combined_transcript = undef;
 	  }
-
 	}
 	else{
 	  $combined_transcript = undef;
@@ -1936,6 +1935,7 @@ sub _merge_genes {
     # transcript
     my $merged_transcript   = new Bio::EnsEMBL::Transcript;
     $merged_transcript->dbID($trans[0]->dbID);
+
     foreach my $pe(@pred_exons){
 	$merged_transcript->add_Exon($pe);
     }
@@ -1972,8 +1972,9 @@ sub _merge_genes {
     push(@merged, $gene);
     $count++;
 
-    # store match between merged and original gene so we can easily retrieve the latter if we need to #fsk!!!
+    # store match between merged and original gene so we can easily retrieve the latter if we need to
     $self->merged_unmerged_pairs($gene,$unmerged);
+
   } # end UNMERGED_GENE
 
   return @merged;
@@ -2925,7 +2926,7 @@ sub add_3prime_exons {
 =cut
 
 sub remap_genes {
-  my ($self, $genes, $biotype_suffix) = @_; 
+  my ($self, $genes, $biotype_suffix) = @_;
 
   my @remapped_genes = ();
   my $blessed_type   = $self->{'blessed_type'};
@@ -3901,6 +3902,11 @@ sub retrieve_unmerged_gene{
   my ($self, $merged_gene) = @_;
 
   my %pairs = %{$self->merged_unmerged_pairs()};
+  if(!exists $pairs{$merged_gene}){
+    print STDERR "Can't retrieve unmerged \n";
+    print STDERR "for gene ".$merged_gene->dbID." \n";
+  }
+
   return $pairs{$merged_gene};
 }
 
