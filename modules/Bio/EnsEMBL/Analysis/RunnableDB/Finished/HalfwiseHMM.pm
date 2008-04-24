@@ -435,8 +435,8 @@ sub _make_genes {
 	my $sa      = $self->db->get_SliceAdaptor();
 	my $slice   = $sa->fetch_by_name($sliceid);
 	my @genes;
-	my $info_type	= 'HALFWISE';
-	my $info_txt	= 'Relationship generated from genewisedb search';
+	my $info_type	= 'MISC';
+	my $info_text	= 'Relationship generated from genewisedb search';
 
 	# fetch lookup multi-valued hash { pfam_id => [pfam_acc, pfam_desc], ... }
 
@@ -457,7 +457,7 @@ sub _make_genes {
 			-dbname      => "PFAM",
 			-description => $pfam_lookup->{$pfam_id}->[1],
 			-info_type	=>	$info_type,
-			-info_txt	=>	$info_txt
+			-info_text	=>	$info_text
 		);
 		$dbentry->status('XREF');
 
