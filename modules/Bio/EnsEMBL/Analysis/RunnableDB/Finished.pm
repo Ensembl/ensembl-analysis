@@ -5,7 +5,36 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Finished;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Dfetch;
+
 use base 'Bio::EnsEMBL::Analysis::RunnableDB';
+
+my %ana2extdbid = (
+					Uniprot_raw => { "." => 2250 },
+					Uniprot_SW => { "-" => 2202 , "^\\w+\\.\\d+" => 2200 },
+					Uniprot_TR => { "." => 2000 },
+					default => { "." => 700 },
+					refseq => { "M_" => 1800, "P_" => 1810, "R_" => 1820,  "^(AC|N[CGTWSZ])_" => 1830 }
+				  );
+
+sub get_extdb_id {
+	my ($self, $logic_name, $hit_name) = @_;
+	my $hash;
+	# get the right analysis hash
+	foreach (keys %ana2extdbid) {
+		if( $logic_name =~ /$_/ ) {
+			$hash = $ana2extdbid{$_};
+		}
+	}
+	$hash = $ana2extdbid{default} unless $hash;
+	# check the hit_name
+	foreach (keys %$hash) {
+		if( $hit_name =~ /$_/ ){
+			return $hash->{$_};
+		}
+	}
+
+	throw("Cannot get external_db id for hit $hit_name and analysis $logic_name\n");
+}
 
 sub write_output {
 	my ($self) = @_;
@@ -24,6 +53,7 @@ sub write_output {
 	    foreach my $output (@$outputs) {
 	        next unless @$output;   # No feature output
 	        my $feat = $output->[0];
+	        my $is_align = ref($feat) =~ /AlignFeature$/ ? 1 : 0;
 
 	        # The type of adaptor used to store the data depends
 	        # upon the type of the first element of @$output
@@ -31,20 +61,24 @@ sub write_output {
 		    # Remove the AlignFeatures already in db from the output and
 		    # get rid of the old ones in the db (for dephtfilter features only)
 		    my $all = 0;
-	        if (ref($feat) =~ /AlignFeature$/) {
+	        if ($is_align) {
 	            $all = 1 if($self->analysis->module eq 'DepthFilter' );
 	            $self->remove_stored_AlignFeatures($adaptor, $output, $all);
-	            $self->write_descriptions($output) unless ( $self->analysis->module eq 'DepthFilter' ||
-	            											$self->analysis->logic_name =~ /refseq/);
+	            $self->write_descriptions($output) unless ( $all || $self->analysis->logic_name =~ /refseq/);
 	        } else {# Remove all SimpleFeatures
 	        	$self->remove_all_features($adaptor);
 	        }
 
 		    my $analysis = $self->analysis;
+		    my $logic	 = $analysis->logic_name;
 	    	my $slice    = $self->query;
 		    my $ff       = $self->feature_factory;
 
 	        foreach my $feature (@$output) {
+				if($is_align){
+					my $hit_name = $feature->hseqname;
+					$feature->external_db_id($self->get_extdb_id($logic,$hit_name));
+				}
 	        	$feature->analysis($analysis);
 	        	$feature->slice($slice) if (!$feature->slice);
 	        	$ff->validate($feature);
