@@ -146,7 +146,14 @@ sub run {
   # # #
   foreach my $non_cluster ( @$non_clusters ) {
     my @genes = $non_cluster->get_Genes();
-    foreach my $gene (@genes){
+    GENE: foreach my $gene (@genes){
+      # need to check that they have a tln
+      my ($gene_ok, $protein) = check_gene($self, $gene);
+      if (!$gene_ok) {
+        warning("Gene check failed for unclustered gene ".$gene->dbID." - removed from analysis");
+        next GENE;
+      }
+
       if ($self->verbose){
         print "storing non_cluster_gene ".$gene->dbID."\n";
       }
@@ -165,7 +172,13 @@ sub run {
     if (scalar @inc_sets >= 2) {
       push @twoways, $cluster;
     } elsif (scalar @inc_sets == 1) { 
-      foreach my $gene ($cluster->get_Genes_by_Set($inc_sets[0])) {
+      GENE: foreach my $gene ($cluster->get_Genes_by_Set($inc_sets[0])) {
+        # need to check that they have a tln
+        my ($gene_ok, $protein) = check_gene($self, $gene);
+        if (!$gene_ok) {
+          warning("Gene check failed for gene ".$gene->dbID." (in cluster of only one Set) - removed from analysis");
+          next GENE;
+        }
         if ($self->verbose){ 
            my $gene_id = $gene->dbID ? $gene->dbID : "" ; 
            print "storing single_set_cluster_gene ".$gene_id ." ".$inc_sets[0]."\n";
@@ -539,7 +552,8 @@ sub cluster_by_protein {
     my ($gene_ok, $protein) = check_gene($self, $gene);
     
     if (!$gene_ok) {
-      throw("Gene check failed for gene ".$gene->dbID."");
+      warning("Gene check failed for gene ".$gene->dbID." (in cluster with 2 or more Sets) - removed from analysis");
+      next GENE;
     }
     
     my $duplicate; 
@@ -786,7 +800,7 @@ sub check_gene {
   my $protein_acc;
 
   if (scalar(@transcripts) != 1) {
-    print STDERR "Gene ".$gene->stable_id." with dbID ".$gene->dbID." has ".scalar(@transcripts)." transcripts\n";
+    print STDERR "Gene with dbID ".$gene->dbID." has ".scalar(@transcripts)." transcripts\n";
     $pass_checks = 0;
   }
 
@@ -835,15 +849,15 @@ sub check_gene {
       # print "index name ".$self->seqfetcher->index_name."\n"; # prints /lustre/work1/ensembl/ba1/cow4/Seq/BestTargetted_proteome_final/proteome.fa
        
     } else {
-      print STDERR "WARNING: transcript ".$transcript->stable_id." (dbID ".$transcript->dbID.
-                   ") has ".scalar(@tsfs)." tsfs. ".
-                   "Should only have one transcript_supporting_feature\n";
+      print STDERR "Transcript with dbID ".$transcript->dbID.
+           " has ".scalar(@tsfs)." tsfs. ".
+           "Should only have one transcript_supporting_feature\n";
       $pass_checks = 0;
     }
 
     # check for a translation
     if (!defined($transcript->translation)) {
-      print STDERR "Transcript ".$transcript->stable_id." does not translate.\n";
+      print STDERR "Transcript with dbID ".$transcript->dbID." does not translate.\n";
       $pass_checks = 0;
     }
   }
