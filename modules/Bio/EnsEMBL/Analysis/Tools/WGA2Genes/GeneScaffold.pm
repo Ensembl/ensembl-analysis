@@ -103,6 +103,8 @@ sub new {
 
   return undef if not defined $from_mapper;
 
+  print "1: ", $direct_target_slice,"\n2: ",$direct_target_slice->length,"\n3: ",length($gs_seq),"\n";
+
   my $gs_end = $direct_target_slice 
       ? $direct_target_slice->length
       : length($gs_seq);
@@ -110,7 +112,7 @@ sub new {
                                    Bio::EnsEMBL::CoordSystem->new(-name => $GENE_SCAFFOLD_CS_NAME,
                                                                   -rank => 1),
                                 -seq_region_name => $name,
-                                -seq => $gs_seq,
+                                -seq => ( $gs_seq eq "" ? undef : $gs_seq),
                                 -start => 1,
                                 -end   => $gs_end,
                                 );
@@ -149,11 +151,13 @@ sub place_transcript {
   my (@all_coords, @new_exons);
   
   my @orig_exons = @{$tran->get_all_translateable_Exons};
+
   @orig_exons = sort { $a->start <=> $b->start } @orig_exons;
   
   my $orig_exon_coords = transcripts_to_coords($self->alignment_mapper,
                                                $FROM_CS_NAME,
                                                $tran);
+
   
   my $restricted_range;
   if (@$orig_exon_coords) {
@@ -175,7 +179,7 @@ sub place_transcript {
   # within which gaps were potentially filled), then they must 
   # be gaps that were filled for a different transcript. In that
   # case, discard these pieces
-  
+
   foreach my $orig_exon (@orig_exons) {
     my @crds = $self->from_mapper->map_coordinates($orig_exon->slice->seq_region_name,
                                                    $orig_exon->start,
@@ -246,6 +250,7 @@ sub place_transcript {
   }
   @all_coords = @kept_coords;
   
+
   #
   # now massage the gaps to account for frameshifts
   #
@@ -269,7 +274,6 @@ sub place_transcript {
         push @proc_coords, $c;
       }
     }
-
     
     GAP: foreach my $idx (@gap_indices) {
       my $gap = $proc_coords[$idx];
@@ -318,7 +322,7 @@ sub place_transcript {
           }
         }
         
-        $need_another_pass = 1;
+        #$need_another_pass = 1;
         last GAP;
       }      
     }
@@ -369,6 +373,7 @@ sub place_transcript {
   my $incomplete_codon_bps = 0;
 
   my ($previous_exon);
+
   foreach my $exon (@new_exons) {
     if (defined $previous_exon) {
       $exon->phase($previous_exon->end_phase);
@@ -819,10 +824,12 @@ sub _check_transcripts {
 
   foreach my $t (@$trans) {
     if (not $t->translation) {
-      throw("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
+     # throw("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
+warn("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
     }
     if (length($t->translateable_seq) % 3 != 0) {
-      throw("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
+    #  throw("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
+warn("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
     }
   }
 }
