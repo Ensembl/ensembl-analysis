@@ -113,7 +113,7 @@ sub fetch_input{
     # these sets are specified in the config file TranscriptCoalescer.pm 
     #
     #   
-    for my $biotype ( @{$databases{$database_class}{BIOTYPES} }) { 
+    for my $biotype ( @{$databases{$database_class}{BIOTYPES} }) {
       my $genes = $slice->get_all_Genes_by_type($biotype) ; 
       # lazy load 
       foreach my $gene (@$genes){
