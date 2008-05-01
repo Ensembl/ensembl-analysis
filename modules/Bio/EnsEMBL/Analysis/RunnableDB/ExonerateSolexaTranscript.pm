@@ -217,7 +217,17 @@ FEATURE:  foreach my $f (@$flist) {
     }
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
     $feat->analysis($self->analysis);
-    push @dafs,$feat;
+    # dont store the same feature twice because it aligns to a different transcript in the same gene.
+    my $unique_id = $feat->seq_region_name .":" .
+      $feat->start .":" .
+	$feat->end .":" .	
+	  $feat->strand .":" .
+	    $feat->hseqname;
+    unless ($self->stored_features($unique_id)){
+      push @dafs,$feat;
+      # keep tabs on it so you don't store it again.
+      $self->stored_features($unique_id,1);
+    }
   }
   return \@dafs;
 }
@@ -272,4 +282,19 @@ sub exon_ends {
   }
 }
 
+sub stored_features {
+  my ($self,$key,$value) = @_;
+
+  return undef unless defined ($key);
+
+  if (defined $value) {
+    $self->{'_stored_features'}{$key} = $value;
+  }
+
+  if (exists($self->{'_stored_features'}{$key})) {
+    return $self->{'_stored_features'}{$key};
+  } else {
+    return undef;
+  }
+}
 1;
