@@ -37,7 +37,7 @@ span of the query. These numbers are configurable through:
 Bio::EnsEMBL::Analysis::Config::Pseudogene
 
 The databses used by the module are configured through:
-Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+Bio::EnsEMBL::Analysis::Config::Databases;
 
 Runs as a part of the larger pseudogene analysis. Uses flagged single exon genes
 identified by Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
@@ -56,7 +56,6 @@ use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 #use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 

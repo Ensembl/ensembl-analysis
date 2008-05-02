@@ -45,7 +45,7 @@ use warnings;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
 
 use Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;

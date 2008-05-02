@@ -426,7 +426,6 @@ sub run{
   my ($self) = @_;
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
-    my $output =  $runnable->output;
     $self->output($runnable->output);
   }
   return $self->{'output'};

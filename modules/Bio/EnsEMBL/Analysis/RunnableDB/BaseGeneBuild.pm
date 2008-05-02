@@ -10,7 +10,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases qw(DATABASES DNA_DBNAME);
+use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 
 use vars qw(@ISA);
@@ -39,7 +39,7 @@ sub database_hash{
   Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given hash key.
               or a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor if requested
               Requires proper configuration of 
-              Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
+              Bio::EnsEMBL::Analysis::Config::Databases 
  
   Returntype: Bio::EnsEMBL:DBSQL::DBAdaptor or Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor
   Exceptions: throw if key can't be found in Databases.pm 

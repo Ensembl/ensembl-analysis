@@ -31,7 +31,7 @@ logic_name has to belong to a different evidence_set. (see below).
 
 The parameters to connect to various databases are defiend in 
 
-  - modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm 
+  - modules/Bio/EnsEMBL/Analysis/Config/Databases.pm 
   - modules/Bio/EnsEMBL/Analysis/Config/Exonerate2Genes.pm  
 
 The general function of this config file is to import  a number of 
@@ -65,7 +65,7 @@ use vars qw(%Config);
 
   OUTPUT_DATABASE => 'COALESCER_DB',     
   #This is the database the output will be written to as defined in 
-  #Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+  #Bio::EnsEMBL::Analysis::Config::Databases
 
   # The runnable includes a filtering proceudure which removes partial transcripts 
   # if they are overlapped by a longer transcript. These transcripts have a different 

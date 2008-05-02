@@ -26,7 +26,7 @@ compare and assess gene predictions.
 
 The parameters to connect to various databases are defiend in 
 
-  - modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm 
+  - modules/Bio/EnsEMBL/Analysis/Config/Databases.pm 
   - modules/Bio/EnsEMBL/Analysis/Config/OrthologueEvaluator.pm 
 
 The general function of this config file is to import  a number of 

@@ -115,7 +115,7 @@ sub merge_config_details {
         }
       }
 
-      # process /Conf/GeneBuild/Databases.pm 
+      # process /Conf/Databases.pm 
 
       if (defined ( ${$file{$db_class}}{'-dbname'}) &&  length ( ${$file{$db_class}}{'-dbname'}) > 0 )  {
         # we process Databases.pm // parameteres for db-connection are ok
@@ -337,7 +337,7 @@ sub write_seqfile{
   Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given string.
               or a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor if requested
               Requires proper configuration of 
-              Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
+              Bio::EnsEMBL::Analysis::Config::Databases 
  
   Returntype: Bio::EnsEMBL:DBSQL::DBAdaptor or Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor 
   Exceptions: throw if string can't be found in Databases.pm 
@@ -347,11 +347,11 @@ sub write_seqfile{
 sub get_db_adaptor_by_string {
    my ($string, $verbose, $use_pipeline_adaptor) = @_ ;
 
-
-   require "Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm" ;
+   #print "Fetching ".$string."\n";
+   require "Bio/EnsEMBL/Analysis/Config/Databases.pm" ;
    no strict ;
-   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DATABASES");
-   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DNA_DBNAME");
+   Bio::EnsEMBL::Analysis::Config::Databases->import("DATABASES");
+   Bio::EnsEMBL::Analysis::Config::Databases->import("DNA_DBNAME");
 
    unless ( ${$DATABASES}{$string} ) {  
      print "WARNING : Database parameters undefined for - skipping \n" ; 
@@ -372,6 +372,7 @@ sub get_db_adaptor_by_string {
      $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$string} } ) ;
      $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$DATABASES}{$DNA_DBNAME} } ) ;   
    }
+   #print "Got ".$db."\n";
    if ( $verbose ) {   
      my %tmp =  %{${$DATABASES}{$string}} ;
      print STDERR "Database : $tmp{'-dbname'} @ $tmp{'-host'} : $tmp{'-port'} AS $tmp{'-user'} - $tmp{'-pass'}\n" ;  
@@ -396,7 +397,7 @@ sub get_db_adaptor_by_string {
   Arg [1]   : String 
   Function  : Returns a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor for a given string.
               Requires proper configuration of 
-              Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases 
+              Bio::EnsEMBL::Analysis::Config::Databases 
  
   Returntype: Hashref 
   Exceptions: throw if string can't be found in Databases.pm 
@@ -407,10 +408,10 @@ sub get_database_connection_parameters_by_string {
    my ($string) = @_ ;
 
 
-   require "Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm" ;
+   require "Bio/EnsEMBL/Analysis/Config/Databases.pm" ;
    no strict ;
-   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DATABASES");
-   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases->import("DNA_DBNAME");
+   Bio::EnsEMBL::Analysis::Config::Databases->import("DATABASES");
+   Bio::EnsEMBL::Analysis::Config::Databases->import("DNA_DBNAME");
 
    unless ( ${$DATABASES}{$string} ) {  
      print "WARNING : Database parameters undefined - skipping \n" ; 
@@ -474,7 +475,7 @@ sub read_config {
               be accesed in the package by using 'no strict;' 
   Returntype: Hashref. 
   Examples  : import_var ($href) ; 
-              import_var(read_config("Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases"));
+              import_var(read_config("Bio::EnsEMBL::Analysis::Config::Databases"));
  
 
 =cut

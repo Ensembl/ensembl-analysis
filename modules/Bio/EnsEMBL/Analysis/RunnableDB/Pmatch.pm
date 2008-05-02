@@ -6,7 +6,6 @@ use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch qw(PMATCH_BY_LOGIC);
 use Bio::EnsEMBL::Analysis::Runnable::Pmatch;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 

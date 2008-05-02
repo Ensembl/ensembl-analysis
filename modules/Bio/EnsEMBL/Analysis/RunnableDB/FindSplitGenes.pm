@@ -10,7 +10,6 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw ( shuffle ) ; 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
 use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;   
 
 use Bio::EnsEMBL::Registry; 

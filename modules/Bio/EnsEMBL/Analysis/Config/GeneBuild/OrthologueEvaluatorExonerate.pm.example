@@ -12,7 +12,7 @@ use vars qw(%Config);
                 IIDREGEXP => '(\d+):(\d+)',   
                 #
                 # either you set this variable or you fill out 
-                # Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+                # Bio::EnsEMBL::Analysis::Config::Databases
                 #
                 OUTDB => { -dbname => '',
                            -host   => '',

@@ -37,7 +37,7 @@ database
 It is configured by the code
 
 Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastMiniGenewise and
-Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+Bio::EnsEMBL::Analysis::Config::Databases
 
 and it takes 3 input id formates
 
@@ -86,7 +86,6 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastMiniGenewise 
   qw(GENEWISE_CONFIG_BY_LOGIC);
 use Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes Transcript_info set_start_codon set_stop_codon list_evidence attach_Slice_to_Transcript);

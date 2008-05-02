@@ -1,4 +1,4 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::miRNA
+## Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::miRNA
 #
 # Copyright (c) 2004 Ensembl
 #
@@ -40,7 +40,7 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild ; 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::miRNA;
@@ -54,7 +54,7 @@ use vars qw(@ISA);
 
   Title      : fetch_input
   Usage      : $miRNA->fetch_input();
-  Function   : opens and stores connections to databases in Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+  Function   : opens and stores connections to databases in Bio::EnsEMBL::Analysis::Config::Databases
              : fetches all dna align features by analysis logic name specified in the 
              : input id 
   Returns    : Hash reference

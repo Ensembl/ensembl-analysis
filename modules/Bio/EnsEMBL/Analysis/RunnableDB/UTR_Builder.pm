@@ -36,7 +36,7 @@ looking for NM/NPentries in a GeneBank file.
 
 Config files to set-up are
    Bio::EnsEMBL::Analysis::Config::GeneBuild::UTR_Builder
-   Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+   Bio::EnsEMBL::Analysis::Config::Databases
    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus (just a copy of the example file)
    Bio::EnsEMBL::Analysis::Config::GeneBuild::KillListFilter
 

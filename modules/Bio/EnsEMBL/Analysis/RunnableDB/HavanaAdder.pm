@@ -62,8 +62,6 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
                                                                GB_GENE_OUTPUT_BIOTYPE
                                                               );
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases   qw (DATABASES
-                                                              );
 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);

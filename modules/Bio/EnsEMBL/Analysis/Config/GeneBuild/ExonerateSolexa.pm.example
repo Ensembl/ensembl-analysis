@@ -37,7 +37,7 @@ use vars qw( %Config );
   EXONERATE_SOLEXA_CONFIG_BY_LOGIC =>  {
 	    DEFAULT =>  {
 	     # The database connections used are defined in 
-	     # Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+	     # Bio::EnsEMBL::Analysis::Config::Databases
 
 	     # Database to write the output features into
 	     OUT_DB   => '',

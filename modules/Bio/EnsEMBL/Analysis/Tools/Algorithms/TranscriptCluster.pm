@@ -62,7 +62,7 @@ sub new {
   bless($self,$class);
   
   if ($whatever){
-    $self->throw( "Can't pass an object to new() method. Use put_Genes() to include Bio::EnsEMBL::Gene in cluster");
+    throw( "Can't pass an object to new() method. Use put_Genes() to include Bio::EnsEMBL::Gene in cluster");
   }
   $self->{_biotype}={} ; 
   return $self;
@@ -88,7 +88,7 @@ and geometrical methods for a range.
 sub start{
   my ($self,$start) = @_;
   if ($start){
-    $self->throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
+    throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
     $self->{'_start'} = $start;
   }
   return $self->{'_start'};
@@ -110,7 +110,7 @@ sub start{
 sub end{
   my ($self,$end) = @_;
   if ($end){
-    $self->throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
+    throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
     $self->{'_end'} = $end;
   }
   return $self->{'_end'};
@@ -245,13 +245,13 @@ sub intersection{
 
   # if either is empty, return an empty cluster
   if ( scalar( $self->get_Transcripts) == 0 ){
-    $self->warning( "cluster $self is empty, returning an empty TranscriptCluster");
+    warning( "cluster $self is empty, returning an empty TranscriptCluster");
     my $empty_cluster = Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new();
     return $empty_cluster;
   }
 
   if ( scalar( $cluster->get_Transcripts ) == 0 ){
-    $self->warning( "cluster $cluster is empty, returning an empty TranscriptCluster");
+    warning( "cluster $cluster is empty, returning an empty TranscriptCluster");
     # my $empty_cluster = Bio::EnsEMBL::Utils::TranscriptCluster->new();
     my $empty_cluster =Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new(); 
     return $empty_cluster;
@@ -279,7 +279,7 @@ sub intersection{
     $inter_end = ($end2 < $end1) ? $end2 : $end1;
   }
   else{
-    $self->warning( "clusters $self and $cluster do not intersect range-wise, returning an empty TranscriptCluster");
+    warning( "clusters $self and $cluster do not intersect range-wise, returning an empty TranscriptCluster");
     my $empty_cluster =Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new(); 
     #my $empty_cluster = Bio::EnsEMBL::Utils::TranscriptCluster->new();
     return $empty_cluster;
@@ -297,7 +297,7 @@ sub intersection{
   }
 
   if ( scalar( $inter_cluster->get_Transcripts ) == 0 ){
-     $self->warning( "cluster $inter_cluster is empty, returning an empty TranscriptCluster");
+     warning( "cluster $inter_cluster is empty, returning an empty TranscriptCluster");
      return $inter_cluster;
   }
   else{
@@ -332,7 +332,7 @@ foreach my $cluster (@clusters){
   $union_strand = $cluster->strand;
  }
  unless ( $cluster->strand == $union_strand){
-  $self->warning("You're making the union of clusters in opposite strands");
+  warning("You're making the union of clusters in opposite strands");
  }
  $union_cluster->put_Transcripts($cluster->get_Transcripts);
 }
@@ -353,9 +353,9 @@ return $union_cluster;
 
 sub put_Transcripts {
   my ($self, @new_transcripts)= @_;
-  
+  throw("Can't add no transcripts to ".$self) if(!@new_transcripts || !$new_transcripts[0]);
   if ( !$new_transcripts[0]->isa('Bio::EnsEMBL::Transcript') ){
-    $self->throw( "Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
+    throw( "Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
   }
 
   #Get bounds of new transcripts

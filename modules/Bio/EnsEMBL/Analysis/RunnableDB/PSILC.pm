@@ -67,7 +67,6 @@ use warnings;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 use Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
 use Bio::EnsEMBL::Analysis::Runnable::PSILC; 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 

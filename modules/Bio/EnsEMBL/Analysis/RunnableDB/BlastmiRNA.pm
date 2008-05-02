@@ -42,7 +42,6 @@ use Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild; 
 
 use vars qw(@ISA);

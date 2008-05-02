@@ -46,7 +46,6 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Gene; 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
 use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;   
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (
                                                                  get_one2one_orth_for_gene_in_other_species 

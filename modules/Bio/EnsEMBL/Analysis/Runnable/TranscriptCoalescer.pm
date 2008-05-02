@@ -46,8 +46,6 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
-
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;  
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (compute_translation return_translation) ;

@@ -31,7 +31,7 @@ logic_name has to belong to a different evidence_set. (see below).
 
 The parameters to connect to various databases are defiend in 
 
-  - modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Databases.pm 
+  - modules/Bio/EnsEMBL/Analysis/Config/Databases.pm 
   - modules/Bio/EnsEMBL/Analysis/Config/Exonerate2Genes.pm  
 
 The general function of this config file is to import  a number of 
@@ -98,7 +98,7 @@ use vars qw(%Config);
   SOLEXA_SCORE_CUTOFF => 150,
   # define the db to fetch solexa data from 
   TRANSCRIPT_CONSENSUS_DB_CONFIG => {
-  	# Database hash from Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+  	# Database hash from Bio::EnsEMBL::Analysis::Config::Databases
           SOLEXA_DB => { 
 	  	         # biotype of the features to fetch
         	         BIOTYPE => ['solexa_exonerate'],    

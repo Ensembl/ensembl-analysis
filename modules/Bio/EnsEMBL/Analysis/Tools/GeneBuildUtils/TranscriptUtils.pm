@@ -215,9 +215,15 @@ sub print_Transcript_and_Exons{
 
   for my $transcript ( @tr )  { 
     print "\n" .  Transcript_info($transcript, $indent)."\n"; 
-    map { print Exon_info($_, $indent."\t")."\n"  } @{$transcript->get_all_Exons} ; 
+    #map { print Exon_info($_, $indent."\t")."\n"  } @{$transcript->get_all_Exons} ; 
+    my $count = 1;
+    foreach my $exon(@{$transcript->get_all_Exons}){
+      print $indent."\t".$count." ".Exon_info($exon)."\n";
+      $count++;
+    }
   }
 }
+
 
 
 =head2 Transcript_info

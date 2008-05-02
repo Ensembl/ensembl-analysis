@@ -28,7 +28,7 @@ Uses RFAM blast hits to identify regions where cmsearch should be run. Blast hit
 are run using the RfamBlast module and then are filtered on a familly by familly basis.
 Blast hits that look promising are flagged by predict_ncRNAs.pl and the flags are used
 as input_ids.
-Uses the Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases config file. Writes non coding genes to 
+Uses the Bio::EnsEMBL::Analysis::Config::Databases config file. Writes non coding genes to 
 the $GB_FINALDB database and gets DNA from $GB_ database. The blast hits from BlastRfam are
 stored in the pipeline database;
 Creates single exon non-coding genes with gene descriptions obtained from Rfam.descriptions
@@ -48,7 +48,7 @@ use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::Seq;
 use Bio::EnsEMBL::Analysis::Runnable::Infernal;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
+use Bio::EnsEMBL::Analysis::Config::Databases; 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use strict;

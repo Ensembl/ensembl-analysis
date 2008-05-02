@@ -32,7 +32,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus;
 use strict;
 use warnings;
 use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
 use Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer;

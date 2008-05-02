@@ -46,7 +46,6 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Gene; 
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
 use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;   
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (
                                                                  get_one2one_orth_for_gene_in_other_species 
@@ -56,9 +55,6 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw (contains_internal_stops);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (shuffle ) ; 
 use Bio::EnsEMBL::Registry; 
-use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor; 
-use Bio::EnsEMBL::Pipeline::DBSQL::RuleAdaptor;
-use Bio::EnsEMBL::Pipeline::Rule; 
 use vars qw(@ISA); 
 use Bio::EnsEMBL::Analysis::RunnableDB::OrthologueEvaluator; 
 

@@ -411,7 +411,7 @@ sub validate_Transcript{
   unless(has_no_unwanted_evidence($transcript, 
                                   $self->unwanted_evidence)){
     $is_valid++;
-    my $attrib = $self->get_Attribute("incons_strands");
+    my $attrib = $self->get_Attribute("unwanted_evidence");
     $transcript->add_Attributes($attrib);
   }
   #print "IS VALID is ".$is_valid." after unwanted evidence\n";

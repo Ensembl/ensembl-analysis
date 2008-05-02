@@ -55,7 +55,6 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
