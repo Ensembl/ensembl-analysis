@@ -511,7 +511,7 @@ sub place_transcript {
         $exon->add_supporting_features($f);
       }
     } else {
-		  p#rint "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Short exon of " . $exon->length . " bases\n";
+      #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Short exon of " . $exon->length . " bases\n";
       $incomplete_codon_bps += $exon->length;
     }
     
