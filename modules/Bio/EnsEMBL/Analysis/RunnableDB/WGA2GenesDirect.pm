@@ -46,8 +46,9 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
 
-use Bio::EnsEMBL::Analysis::Tools::Logger;
+#use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
+use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffoldDirect;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
     qw(replace_stops_with_introns);
@@ -204,50 +205,52 @@ sub run {
   my @res_tran;
   my $tran_stable_id;
   my @final_tran;
-
+  print scalar(@{$self->genomic_align_block_chains}),"\n";
   foreach my $chain (@{$self->genomic_align_block_chains}) {
     
-    my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->
-        new(
-            -genomic_align_blocks => $chain,
-            -from_slice    => $self->gene->slice,
-            -to_slices     => $self->target_slices,
-            -transcripts   => $self->good_transcripts,
-            -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
-            -direct_target_coords => 1,
-          );
-
+    my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
+#    my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffoldDirect->new(
+                                                                                    -genomic_align_blocks => $chain,
+                                                                                    -from_slice    => $self->gene->slice,
+                                                                                    -to_slices     => $self->target_slices,
+                                                                                    -transcripts   => $self->good_transcripts,
+                                                                                    -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
+                                                                                    -direct_target_coords => 1,
+                                                                                    );
+    
     foreach my $tran (@{$self->good_transcripts}) {
       
       $tran_stable_id = $tran->stable_id;
-    
-      my $proj_trans = 
-
-          # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
-          $gene_scaffold->place_transcript($tran,1);
       
-   
+      my $proj_trans = 
+          
+          # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
+          #$gene_scaffold->place_transcript($tran,1);
+          $gene_scaffold->place_transcript($tran);
+      
       if ($proj_trans) {
+        
         push @res_tran, $proj_trans;
       }
     }
   }
-
+  
   if ($self->TRANSCRIPT_FILTER){
     @res_tran = @{$self->filter->filter_results(\@res_tran)};
   }
   
-
+  
   foreach my $res_tran (@res_tran){ 
     $res_tran = $self->process_transcript($res_tran,
-                            $tran_stable_id);
+                                          $tran_stable_id);
     push @final_tran, $res_tran;
   }
   # create new gene object for each transcript
-
+  
   print "At the end of RUN, we had ", scalar(@final_tran), " transcripts\n";
-
+  
   $self->output(\@final_tran);
+  
 }
 
 
@@ -314,14 +317,23 @@ sub _check_gene {
   my @good_transcripts;  
 
   foreach my $t (@{$gene->get_all_Transcripts}){
+    #print "Transcript Start: ",$t->start, "  END: ", $t->end,"\n";
+    #print "translation: ",$t->translateable_seq,"\n";
+
     if ((length($t->translateable_seq) % 3) == 0){
 
-      push @good_transcripts, $t
+      push @good_transcripts, $t;
 
       }
+    else{
+      warn ("Gene ", $gene->display_id(), " contains no valid transcripts");
+      #push @good_transcripts, $t;
+      #print "Done\n";
+      #exit(1);
+    }
   }
   
-  throw ("Gene ", $gene->display_id(), " contains no valid transcripts") if (scalar(@good_transcripts) == 0); 
+  warn ("Gene ", $gene->display_id(), " contains no valid transcripts") if (scalar(@good_transcripts) == 0); 
 
   $self->good_transcripts(\@good_transcripts);
   
