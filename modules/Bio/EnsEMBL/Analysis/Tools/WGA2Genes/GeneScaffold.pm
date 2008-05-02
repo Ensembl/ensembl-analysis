@@ -164,14 +164,14 @@ sub place_transcript {
   my $restricted_range;
   if (@$orig_exon_coords) {
 
-    print "ORIGINAL EXON COORDS: First start: ",$orig_exon_coords->[0]->start, " last end: ",$orig_exon_coords->[-1]->end," length: ",$orig_exon_coords->[-1]->end-$orig_exon_coords->[0]->start+1 ,"\n";
+   # print "ORIGINAL EXON COORDS: First start: ",$orig_exon_coords->[0]->start, " last end: ",$orig_exon_coords->[-1]->end," length: ",$orig_exon_coords->[-1]->end-$orig_exon_coords->[0]->start+1 ,"\n";
     $restricted_range = Bio::EnsEMBL::Mapper::Coordinate->new($orig_exon_coords->[0]->id,
                                                               $orig_exon_coords->[0]->start,
                                                               $orig_exon_coords->[-1]->end,
                                                               $orig_exon_coords->[0]->strand);
   } else {
 
-    print "ORIGINAL EXON COORDS: First start: ",$orig_exons[0]->start, " last end: ",$orig_exons[-1]->end," length ",$orig_exons[-1]->end-$orig_exons[0]->start+1,"\n";
+    #print "ORIGINAL EXON COORDS: First start: ",$orig_exons[0]->start, " last end: ",$orig_exons[-1]->end," length ",$orig_exons[-1]->end-$orig_exons[0]->start+1,"\n";
     $restricted_range = Bio::EnsEMBL::Mapper::Coordinate->new($orig_exons[0]->slice->seq_region_name,
                                                               $orig_exons[0]->start,
                                                               $orig_exons[-1]->end,
@@ -188,7 +188,7 @@ sub place_transcript {
 
   foreach my $orig_exon (@orig_exons) {
 
-    print "Single exon original coords:  START: ", $orig_exon->start," END: ", $orig_exon->end," length ",$orig_exon->end-$orig_exon->start+1,"\n";
+    #print "Single exon original coords:  START: ", $orig_exon->start," END: ", $orig_exon->end," length ",$orig_exon->end-$orig_exon->start+1,"\n";
     my @crds = $self->from_mapper->map_coordinates($orig_exon->slice->seq_region_name,
                                                    $orig_exon->start,
                                                    $orig_exon->end,
@@ -198,7 +198,7 @@ sub place_transcript {
     foreach my $c (@crds) {
       if ($c->isa("Bio::EnsEMBL::Mapper::Coordinate")) {
       
-        print "Exon Mapper from coordinates: START:", $c->start, " END: ",$c->end," length ",$c->end-$c->start+1,"\n"; 
+        #print "Exon Mapper from coordinates: START:", $c->start, " END: ",$c->end," length ",$c->end-$c->start+1,"\n"; 
         my ($tc) = $self->to_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
                                                      $c->start,
                                                      $c->end,
@@ -209,7 +209,7 @@ sub place_transcript {
           # this piece may partially extend into a real sequence gap;
           # break it up into its constituent pieces    
 
-          print "TC Mapper from coordinates: START:", $tc->start, " END: ",$tc->end," length ",$tc->end-$tc->start+1,"\n"; 
+          #print "TC Mapper from coordinates: START:", $tc->start, " END: ",$tc->end," length ",$tc->end-$tc->start+1,"\n"; 
           my @alncrds = $self->alignment_mapper->map_coordinates($tc->id,
                                                                  $tc->start,
                                                                  $tc->end,
@@ -217,7 +217,7 @@ sub place_transcript {
                                                                  $TO_CS_NAME);
           my $current_start = $c->start;
           foreach my $ac (@alncrds) {
-            print "AC coords START: ", $ac->start, "  END: ".$ac->end," length ",$ac->end-$ac->start+1,"\n";
+            #print "AC coords START: ", $ac->start, "  END: ".$ac->end," length ",$ac->end-$ac->start+1,"\n";
 
             my $current_end = $current_start + $ac->length - 1;
             my $newc = Bio::EnsEMBL::Mapper::Coordinate->new($c->id,
@@ -227,7 +227,7 @@ sub place_transcript {
             $current_start += $ac->length;
 
             if ($ac->isa("Bio::EnsEMBL::Mapper::Gap")) {
-              print "\nAC is a GAP\n\n";
+              #print "\nAC is a GAP\n\n";
               $filled_coords{$newc} = 1;
             }
             push @all_coords, $newc;
@@ -248,7 +248,7 @@ sub place_transcript {
                 exists $filled_coords{$c}) {
       # this is a filled coord, so MUST correspond to exactly one piece of the
       # original query sequence
-      print "KEPT coord START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
+      #print "KEPT coord START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
 
       my ($oc) = $self->from_mapper->map_coordinates($GENE_SCAFFOLD_CS_NAME,
                                                      $c->start,
@@ -263,7 +263,7 @@ sub place_transcript {
         push @kept_coords, Bio::EnsEMBL::Mapper::Gap->new(1, $c->length);
       }
     } else {
-      print "KEPT coord START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
+      #print "KEPT coord START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
       push @kept_coords, $c;
     }
   }
@@ -282,14 +282,14 @@ sub place_transcript {
     # merge gaps
     foreach my $c (@all_coords) {
       if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
-         print "GAP PRESENT START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
+         #print "GAP PRESENT START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
 
         if (@proc_coords and 
             $proc_coords[-1]->isa("Bio::EnsEMBL::Mapper::Gap")) {
           $proc_coords[-1]->end( $proc_coords[-1]->end + $c->length );
-          print "Extending existing GAP\n";
+          #print "Extending existing GAP\n";
         } else {
-          print "ADDing new GAP with length ",$c->length ,"\n";
+          #print "ADDing new GAP with length ",$c->length ,"\n";
           push @proc_coords, Bio::EnsEMBL::Mapper::Gap->new(1, 
                                                             $c->length);
           push @gap_indices, scalar(@proc_coords) - 1;
@@ -300,12 +300,12 @@ sub place_transcript {
     }
     
     GAP: foreach my $idx (@gap_indices) {
-      print "I have to handle a GAP\n";
+      #print "I have to handle a GAP\n";
       my $gap = $proc_coords[$idx];
       my $frameshift = $gap->length % 3;
       
       if ($frameshift) {
-        print "!!! Have a frameshift at " . $gap->start . "\n";
+        #print "!!! Have a frameshift at " . $gap->start . "\n";
         my $bases_to_remove = 3 - $frameshift;      
         
         # calculate "surplus" bases on incomplete codons to left and right
@@ -411,9 +411,9 @@ sub place_transcript {
       $exon->phase(0);
     }
   #  $exon->end_phase((($exon->end - $exon->start + 1) + $exon->phase)%3);
-	  print " Exon length = " . $exon->length . " phase = " . $exon->phase . "\n";
+	  #print " Exon length = " . $exon->length . " phase = " . $exon->phase . "\n";
     $exon->end_phase((($exon->length) + $exon->phase)%3);
-	  print " Setting Exon end_phase to  " . $exon->end_phase . "\n";
+	  #print " Setting Exon end_phase to  " . $exon->end_phase . "\n";
 
     my $exon_aligned_aas = 0;
     my $exon_identical_aas = 0;
@@ -429,11 +429,11 @@ sub place_transcript {
       $extent_start += $exon->end_phase if $exon->end_phase;
       $extent_end   -=  3 - $exon->phase if $exon->phase;
     }
-    print "Exon phase : ",$exon->phase,"\n";
-    print "Exon end phase : ",$exon->end_phase,"\n";
-    print "Previous exon end phase : ",$previous_exon->end_phase,"\n" if ($previous_exon);
+    #print "Exon phase : ",$exon->phase,"\n";
+    #print "Exon end phase : ",$exon->end_phase,"\n";
+    #print "Previous exon end phase : ",$previous_exon->end_phase,"\n" if ($previous_exon);
     if ($extent_end > $extent_start) {
-			print "extent start = " . $extent_start . " extent_end = " . $extent_end ."\n";
+			#print "extent start = " . $extent_start . " extent_end = " . $extent_end ."\n";
       # if not, we've eaten away the whole exon, so there is no support
       $incomplete_codon_bps += ($extent_start - $exon->start); 
       $incomplete_codon_bps += ($exon->end - $extent_end); 
@@ -444,14 +444,14 @@ sub place_transcript {
                                                            1,
                                                            $GENE_SCAFFOLD_CS_NAME);
 
-      print " Have " . scalar(@gen_coords) . " gen_coords\n";
+      #print " Have " . scalar(@gen_coords) . " gen_coords\n";
       my @fps;
       my $cur_gs_start = $extent_start;
 			print "Exon coords = " . $exon->start . " " . $exon->end ."\n";
       foreach my $g_coord (@gen_coords) {
 			  print " g_coord = " . $g_coord->start . " " . $g_coord->end ."\n";
-        print "EXTEND LENGTH: ",($extent_end - $extent_start+1),"\n";
-        print "G LENGTH: ",($g_coord->end- $g_coord->start+1),"\t length: ",$g_coord->length,"\n";
+        #print "EXTEND LENGTH: ",($extent_end - $extent_start+1),"\n";
+        #print "G LENGTH: ",($g_coord->end- $g_coord->start+1),"\t length: ",$g_coord->length,"\n";
 
         my $cur_gs_end = $cur_gs_start + $g_coord->length - 1;
         
@@ -465,14 +465,14 @@ sub place_transcript {
 
           my $p_substr = uc(substr($source_pep, $p_coord->start - 1, $p_coord->length));
           my $gs_reg = $sl->subseq($cur_gs_start, $cur_gs_end, $exon->strand);
-          print "SEQ: ",length($gs_reg),"\n";
+          #print "SEQ: ",length($gs_reg),"\n";
 
           my $gs_p_substr = uc(Bio::PrimarySeq->new(-seq => $gs_reg)->translate->seq);
 
-            print $p_substr, "\n AND: ",$gs_p_substr,"\n";
+            #print $p_substr, "\n AND: ",$gs_p_substr,"\n";
 
           if (length($p_substr) != length ($gs_p_substr)) {
-            print "Length from source_pep = ", length($p_substr), "\n AND: from genomic translation ",length($gs_p_substr),"\n";
+            #print "Length from source_pep = ", length($p_substr), "\n AND: from genomic translation ",length($gs_p_substr),"\n";
             warning("Pep segments differ; cannot calculate percentage identity");
 
           } else {
@@ -511,7 +511,7 @@ sub place_transcript {
         $exon->add_supporting_features($f);
       }
     } else {
-		  print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Short exon of " . $exon->length . " bases\n";
+		  p#rint "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Short exon of " . $exon->length . " bases\n";
       $incomplete_codon_bps += $exon->length;
     }
     
