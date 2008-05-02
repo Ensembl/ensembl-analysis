@@ -447,9 +447,9 @@ sub place_transcript {
       #print " Have " . scalar(@gen_coords) . " gen_coords\n";
       my @fps;
       my $cur_gs_start = $extent_start;
-			print "Exon coords = " . $exon->start . " " . $exon->end ."\n";
+      #print "Exon coords = " . $exon->start . " " . $exon->end ."\n";
       foreach my $g_coord (@gen_coords) {
-			  print " g_coord = " . $g_coord->start . " " . $g_coord->end ."\n";
+        #print " g_coord = " . $g_coord->start . " " . $g_coord->end ."\n";
         #print "EXTEND LENGTH: ",($extent_end - $extent_start+1),"\n";
         #print "G LENGTH: ",($g_coord->end- $g_coord->start+1),"\t length: ",$g_coord->length,"\n";
 
