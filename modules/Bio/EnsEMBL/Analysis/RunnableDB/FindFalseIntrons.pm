@@ -55,6 +55,7 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
@@ -64,6 +65,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils
          qw(
             get_transcript_with_longest_CDS
             get_one2one_homology_for_gene_in_other_species
+            get_one2one_orth_for_gene_in_other_species
            );
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::HomologyUtils 
@@ -90,7 +92,6 @@ sub new {
 
   $self->orthologues_species( $$FIND_FALSE_INTRONS{ANALYSIS_SETS}{$self->analysis->logic_name} ) ; 
   #print join ("\n" , @{$$FIND_FALSE_INTRONS{ANALYSIS_SETS}{$self->analysis->logic_name}} ) ; 
-  
   return $self;
 }
 
@@ -309,7 +310,7 @@ sub run {
       for my $exVSgen_id ( @{ $intron_attributes{$false_intron}{input_ids} }){ 
         $input_ids_to_upload{$exVSgen_id.":".$feature->dbID}=1;     
         #$intron_attributes{$false_intron}{input_id} = $exVSgen_id ; 
-       print "FEATURE : $false_intron \t $exVSgen_id:".$feature->dbID . "\n" ; 
+        print "FEATURE : $false_intron \t $exVSgen_id:".$feature->dbID . "\n" ; 
       }   
     }
   }  
@@ -336,10 +337,10 @@ sub run {
     $sfa->store($feature) ;       
     print $feature->display_id() . " stored for further investigation in SimpleFeature table \n" ; 
     } 
-  }
+  } 
+
   # NOW check analysis and upload input_ids  
-  #
-  #
+  
   # THIS CAN ALL GO INTO WRITE_OUTPUT 
      
   # check if we got a post-analysis stored in the db otherwise set one up 
@@ -395,8 +396,20 @@ sub exonerate_intron_vs_homologs {
 
      my %i2t = %{$i2t};  
      my @aligned_homolog_transcripts ;     
-     HOMOLOG: for my  $homolog ( @{ $self->get_homologues_genes($gene)  } ) {  
-         TRANS: for my $homology_trans ( @{$homolog->get_all_Transcripts } ) {  
+     HOMOLOG: for my  $homolog_gene ( @{ $self->get_homologues_genes($gene)  } ) {    
+
+
+         print $homolog_gene . "\t" . $homolog_gene->stable_id . "\n" ; 
+
+         # build array of coding exons for homologues transcript  
+         my @introns_in_homolog_gene ; 
+         TRANS: for my $ht ( @{$homolog_gene->get_all_Transcripts } ) {   
+           push @introns_in_homolog_gene,  @{$ht->get_all_Introns}; 
+         }  
+
+
+
+         TRANS: for my $homology_trans ( @{$homolog_gene->get_all_Transcripts } ) {  
          
            my $transcript_of_intron  = $i2t{$intron_to_check};  
            my $intron_id = $transcript_of_intron->stable_id."_".$intron_to_check->prev_Exon->stable_id."_".$intron_to_check->next_Exon->stable_id; 
@@ -406,13 +419,10 @@ sub exonerate_intron_vs_homologs {
            if ( $query_length > 0 ) {   
              push @aligned_homolog_transcripts, $homology_trans ; 
 
-             # we should now check if any of the other exons / sequence of the other transcripts 
-             # of the whole gene structure aligns with this intron 
-
-
                #
-               # check if the intron which aligned to the CDS of the homolog is 
-               # coding sequence in one of the other alternatively spliced transcripts
+               # check if the intron which aligned to the CDS-exon of one of the homologs is 
+               # coding sequence in one of the other alternatively spliced transcripts 
+               # of the gene to investigate ? or of the other homologs ? 
                #
                
                TRANSCRIPTS: for my $tr ( @{$gene->get_all_Transcripts} ) {      
@@ -438,6 +448,25 @@ sub exonerate_intron_vs_homologs {
                     } 
                   }  
                }
+
+
+               # OK now identify the intron -vs- coding-exon-in-homolog pair ... 
+               # get all coding exons of homolog 
+               my %hom_coding_alinging_exons = %{  exonerate_intron_vs_exons($intron_to_check, $homology_trans, $intron_id, $transcript_of_intron) } ; 
+               print "exonerating done \n" ; 
+               for my $exon_stable_id ( keys %hom_coding_alinging_exons ) {  
+                  my ( $exon, $query_length ) = @{$hom_coding_alinging_exons{$exon_stable_id}} ; 
+
+                  for my $hom_trans_intron ( @introns_in_homolog_gene ) {  
+                     if ( $hom_trans_intron->overlaps($exon) ) { 
+                         print "\nXXXXXXXX\nIntron  overlaps " . $exon->stable_id . " - better not recover this as it's \nXXXXXXXXX\n" ;  
+                         print $hom_trans_intron->prev_Exon->stable_id . "   " . 
+                               $hom_trans_intron->next_Exon->stable_id . "   " . 
+                               $exon->stable_id . "\n" ;  
+                               print "\nXXXXXXXXXXXXXX\n" ; 
+                     } 
+                  }
+               } 
          } 
        } # // foreach transcript 
      } # // foreach homolog
@@ -491,13 +520,19 @@ sub exonerate_sequences {
   
     open (FH,">$f1") || die "Cant write file $f1\n" ;    
        # this was set before in one of the subroutines  
-       # may need to worry if this gets redundant / if it's unset .......    
+       # may need to worry if this gets redundant / if it's unset .......     
+       
+       #  write INTRON to file
+       
        my $seq = $intron_to_check->seq; 
-           $seq=~ s/(.{1,60})/$1\n/g;
-           print FH ">Intron $intron_id\n" . $seq;  
-           close(FH) ; 
-           open (FH,">$f2") || die "Cant write file $f2\n" ;   
-           ($seq=$target->seq->seq )=~ s/(.{1,60})/$1\n/g;
+       $seq=~ s/(.{1,60})/$1\n/g;
+       print FH ">Intron $intron_id\n" . $seq;  
+       close(FH) ;   
+
+       #  write TRANSCRIPT to file
+       open (FH,">$f2") || die "Cant write file $f2\n" ;   
+           #($seq=$target->seq->seq )=~ s/(.{1,60})/$1\n/g;
+           ($seq=$target->translateable_seq )=~ s/(.{1,60})/$1\n/g;
            print FH ">".$target->stable_id . "\n$seq";  
            close(FH) ;   
            my $cmd = "/usr/local/ensembl/bin/exonerate-1.0.0 ".
@@ -529,7 +564,8 @@ sub exonerate_sequences {
 
           #  print info 
 
-          if ( $hit )  {           
+          if ( $hit )  {            
+             print "\n$f1 \n $f2 \n $f3\n" ; 
              print "\nIntron_exonerate_alignment_OK :  " . $transcript_of_intron->stable_id." [ ".  $intron_to_check->prev_Exon->stable_id." <intron>  "
               .$intron_to_check->next_Exon->stable_id . "]  ALIGNS " . $target->stable_id ." ]  QLEN $query_length iLEN " . $intron_to_check->length."\n\n" ;   
 
@@ -547,6 +583,88 @@ sub exonerate_sequences {
           system("rm $f1"); system("rm $f2"); system("rm $f3");   
           return $query_length ; 
 }  
+
+
+sub exonerate_intron_vs_exons {  
+  my ($intron_to_check , $homology_trans, $intron_id, $transcript_of_intron  ) = @_ ;   
+
+   print "INTRON_EXONERATING to identify CODING exons in homolog.....................\n";
+    
+    unless ( $intron_id) {  
+       $intron_id = $intron_to_check->display_id ; 
+    } 
+
+    my $f1= $OUTPUT_DIR."/".$intron_id.".query"  ; # intron seq ( short seq )  
+
+    my @alignment ;  
+
+    # write INTRON seq to file 
+  
+    open (FH,">$f1") || die "Cant write file $f1\n" ;    
+    my $seq = $intron_to_check->seq; 
+    $seq=~ s/(.{1,60})/$1\n/g;
+    print FH ">Intron $intron_id\n" . $seq;  
+    close(FH) ;  
+
+    my %aligning_hom_exons ; 
+
+    my @homology_exons = @{$homology_trans->get_all_translateable_Exons};
+
+    for my $hom_exon ( @homology_exons ) {   
+
+      my $f2= $OUTPUT_DIR."/".$hom_exon->stable_id .".homology_trans";   # gene seq/ genome seq
+      my $f3= $OUTPUT_DIR."/".$hom_exon->stable_id .".exonerate";   
+ 
+    # write HOMOLOGS CODING EXON seq to file  
+    
+      open (FH,">$f2") || die "Cant write file $f2\n" ;   
+        ($seq=$hom_exon->seq->seq )=~ s/(.{1,60})/$1\n/g;
+        print FH ">".$hom_exon->stable_id . "\n$seq";  
+      close(FH) ;    
+
+      my $cmd = "/usr/local/ensembl/bin/exonerate-1.0.0  -q $f1 -t $f2 -m affine:local --bestn 1 > $f3"; 
+      system("$cmd") ;   
+      
+      my $hit = 0 ; 
+      my $query_length =0  ;  
+      my $raw_score ;  
+
+      open (F,"$f3") || die " can't read $f3\n" ;   
+        foreach my $l (<F>){     
+          if ($l=~/C4 Alignment:/) {
+             $hit = 1;  
+             $l = "INTRON vs CDS-EXON-HOMOLOG " . $l ;  
+             print "\nINTRON vs CDS-EXON-HOMOLOG\n"; 
+          } 
+          push @alignment , $l  if $hit ;  
+                 
+          if ( $l=~m/Query range:/){
+            my @it = split/\s+/,$l ; 
+            if ( $it[5]>$it[3]) { 
+              $query_length = ($it[5] - $it[3])+1  ;  
+            } else { 
+                $query_length = ($it[3] - $it[5])+1  ;  
+            } 
+          }
+        } 
+      close(F);    
+
+      if ( $hit )  {           
+          print "\ntest-intron aligns vs coding exon : " . $transcript_of_intron->stable_id.
+             " [ ".  $intron_to_check->prev_Exon->stable_id." <intron>  " .$intron_to_check->next_Exon->stable_id . "]  ALIGNS " 
+              . $hom_exon->stable_id ." ]  QLEN $query_length iLEN " . $intron_to_check->length."\n\n" ;   
+
+             print "\n\n".join("",@alignment) ;    
+           $aligning_hom_exons{$hom_exon->stable_id} = [ $hom_exon , $query_length] ; 
+      }else {  
+        print "intron does not match exon " . $hom_exon->stable_id . "\n" ;  
+      } 
+          system("rm $f2"); system("rm $f3");    
+   } 
+   system("rm $f1"); 
+  return \%aligning_hom_exons ; 
+}  
+
 
 
 
@@ -629,20 +747,35 @@ sub get_homologues_genes {
 
    my @homologs; 
 
-   SPECIES: foreach my $spec ( @specs_to_check ) {    
-     my $homology = get_one2one_homology_for_gene_in_other_species( $gene ,$spec  ) ;    
+#   SPECIES: foreach my $spec ( @specs_to_check ) {    
+#     my $homology = get_one2one_homology_for_gene_in_other_species( $gene ,$spec  ) ;    
+#
+#     if ( $homology ) {  
+#       my $homol_gene = get_gene_obj_out_of_compara_homology_object($homology, $spec) ;    
+#
+#       if ( $homol_gene ) {     
+#         if ( $homol_gene->biotype=~m/protein_coding/ ) { 
+#           push @homologs , $homol_gene ; 
+#         } 
+#       }
+#     } 
+#   }   
+#   for ( @homologs ) {  
+#      print "METHOD_1 identified homologs        : " . $_->stable_id . "\t". $_ . "\n"  ; 
+#   }  
 
-     if ( $homology ) {  
-       my $homol_gene = get_gene_obj_out_of_compara_homology_object($homology, $spec) ;    
-
-       if ( $homol_gene ) {     
-         if ( $homol_gene->biotype=~m/protein_coding/ ) { 
-           push @homologs , $homol_gene ; 
+   my @hg_2 ; 
+   SPECIES: foreach my $other_species ( @specs_to_check ) {    
+     my $hg =  get_one2one_orth_for_gene_in_other_species($gene, $other_species) ;   
+       if ( $hg ) {     
+         if ( $hg->biotype=~m/protein_coding/ ) { 
+           push @hg_2 , $hg; 
          } 
-       }
-     } 
+       } 
    } 
-   return \@homologs ; 
+
+
+   return \@hg_2; 
 } 
 
 
@@ -801,7 +934,6 @@ sub fetch_input {
     print "==>  have ".scalar(@genes_for_stats)." genes fetched for ".$self->cmp_species()."\n";
     $self->genes(\@genes_for_stats) ;  
 } 
-
 
 
 
