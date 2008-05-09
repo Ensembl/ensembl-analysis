@@ -43,6 +43,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
+use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Blast Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
