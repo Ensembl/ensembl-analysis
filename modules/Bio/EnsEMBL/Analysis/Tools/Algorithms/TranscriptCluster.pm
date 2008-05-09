@@ -26,6 +26,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::IntronCluster;
 use strict;
 
 use Bio::EnsEMBL::Gene;
@@ -651,4 +652,96 @@ sub get_coding_ExonCluster{
   return @clusters;
 }
 
+sub get_IntronClusters {
+  my ( $self ) = @_;
+  my @clusters;
+
+  foreach my $trans (@{$self->get_Transcripts}) {
+
+    my @introns = @{get_all_Introns_between_translateable_Exons($trans)};
+    # print "\n\n\nTranscript ".$trans->stable_id." ".$trans->biotype." with ".scalar(@introns)." introns\n";
+    my $tr_biotype = $trans->biotype;
+
+
+    foreach my $intron (@{get_all_Introns_between_translateable_Exons($trans)}) {
+      #my ($intron_start, $intron_end, $intron_strand) = get_Intron_info($intron);
+
+      my @matching_clusters;
+       # print "\nStarting Intron with limits: " . $intron_start . 
+       #" and " .  $intron_end . ", ".$intron->start." and ".$intron->end."\n";
+
+      CLUSTER: foreach my $cluster (@clusters) {
+        # print "Testing against cluster with limits " . 
+        # $cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\n";
+        if ($intron->start == $cluster->start && $intron->end == $cluster->end) {
+           if ($cluster->strand eq $intron->strand ){
+              push (@matching_clusters, $cluster);
+              #print "cl. matches " .$cluster->strand ."\t" .$intron_strand . "\t" .$trans->strand ."\n" ;
+           }
+        }
+        #print "\n";
+      }
+      if (scalar(@matching_clusters) == 0) {
+        # print STDERR "Created new cluster for " . $intron->stable_id . " " . $intron->dbID . "\n";
+        # print "\ncreating new cluster for Intron " . $intron->dbID . 
+        # " limits: " . $intron_start . " and " .  $intron_end . "\n";
+
+       # print "Making new intron cluster...\n";
+        my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::IntronCluster->new() ;
+        $newcluster->{'_types_sets'} = $self->{'_types_sets'};
+
+        $newcluster->put_Introns([$intron],$trans);
+        push(@clusters,$newcluster);
+        
+      } elsif (scalar(@matching_clusters) == 1) {
+        # print STDERR "Adding to cluster for " . $intron->stable_id . " " . $intron->dbID . "\n";
+        #$matching_clusters[0]->put_Intron($intron,$trans);
+        $matching_clusters[0]->put_Introns([$intron],$trans);
+      } else {
+        throw("Intron cannot match more than one cluster or it will not be unique");
+      }
+    }
+  }
+
+  return @clusters;
+}
+
+sub get_all_Introns_between_translateable_Exons {
+  my ($transcript) = @_;
+  my @introns;
+
+  my @exons = @{$transcript->get_all_translateable_Exons}; 
+
+  for (my $i = 0; $i < scalar(@exons) - 1; $i++) {
+    my $intron = new Bio::EnsEMBL::Intron($exons[$i],$exons[$i+1]);
+    push @introns, $intron;
+  }
+
+  return \@introns;
+}
+
+#sub get_Intron_info {
+#  my ($intron) = @_;
+#
+#  if (ref($intron) !~ m/Intron/) {
+#    throw("Cannot get_Intron_info for object $intron");
+#  }
+#
+#  my $intron_strand = $intron->prev_Exon->strand;
+#  if ($intron->next_Exon->strand != $intron_strand) {
+#    throw("Intron bounded by 2 exons on different strands");
+#  }
+#
+#  my ($intron_start, $intron_end);
+#  if ($intron_strand == 1) {
+#    $intron_start = $intron->prev_Exon->end + 1;
+#    $intron_end = $intron->next_Exon->start - 1;
+#  } elsif ($intron_strand == -1) {
+#    $intron_start = $intron->next_Exon->end + 1;
+#    $intron_end = $intron->prev_Exon->start - 1;
+#  } else {
+#    throw("Strand not recognised");
+#  }
+#  return ($intron_start, $intron_end, $intron_strand);
+#}
 1;
