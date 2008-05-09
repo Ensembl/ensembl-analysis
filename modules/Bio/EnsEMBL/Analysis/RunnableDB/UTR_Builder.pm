@@ -2941,7 +2941,7 @@ sub remap_genes {
     if($biotype_suffix && (length($biotype_suffix) > 0)){
       $gene->biotype($gene->biotype().$biotype_suffix);
     }
-    if($blessed_type =~ m/$biotype/){
+    if(defined $blessed_type && $blessed_type =~ m/$biotype/){
       print STDERR "not remapping ".$biotype."\n" if $self->VERBOSE;
       push(@remapped_genes, $gene);
       next GENE;
