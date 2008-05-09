@@ -4176,7 +4176,8 @@ sub DITAG_DB {
     if ($ditag_db){
       $self->{_ditag_db} = get_db_adaptor_by_string($ditag_db,1);
     }
-    if((!$self->{_ditag_db}) && (scalar @{$self->DITAG_TYPE_NAMES})){
+
+    if((defined $self->{_ditag_db}) && (!$self->{_ditag_db}) && (scalar @{$self->DITAG_TYPE_NAMES})){
       throw("You have defined DITAG_TYPE_NAMES, but no DITAG_DB parameters.\n");
     }
     return $self->{_ditag_db};
