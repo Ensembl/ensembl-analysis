@@ -57,7 +57,7 @@ use vars qw(%Config);
 	          BLESSED_GENETYPES    => ['ccds_gene'],
 
 	          # input gene type for cDNAs aligned with exonerate & est2genome
-	          cDNA_GENETYPE        => 'cDNA_update',
+	          cDNA_GENETYPE        => ['cDNA_update'],
 
 	          # input gene type for ESTs aligned with exonerate & est2genome
 	          EST_GENETYPE         => 'est_exonerate',

@@ -182,15 +182,18 @@ sub fetch_input{
   else{
     my $cdna_vc = $self->CDNA_DB->get_SliceAdaptor->fetch_by_name($self->input_id);
     $self->_cdna_slice($cdna_vc);
-    my @cdna_genes = @{$cdna_vc->get_all_Genes_by_type($self->cDNA_GENETYPE)};
-    print STDERR "got ".scalar(@cdna_genes)." ".$self->cDNA_GENETYPE." cDNAs.\n" if $self->VERBOSE;
-    $self->CDNA_DB->dbc->disconnect_when_inactive(1);
-
-    # filter cdnas
-    my $filtered_cdna = $self->_filter_cdnas(\@cdna_genes, 0);
-
-    $self->cdna_genes($filtered_cdna);
-    print STDERR "got " . scalar(@{$filtered_cdna}) . " cdnas after filtering.\n" if $self->VERBOSE;
+    foreach my $cdna_type (@{$self->cDNA_GENETYPE}){
+    #my @cdna_genes = @{$cdna_vc->get_all_Genes_by_type($cdna_type)};
+      my @cdna_genes = @{$self->_cdna_slice->get_all_Genes_by_type($cdna_type)};
+      print STDERR "got ".scalar(@cdna_genes)." ".$cdna_type." cDNAs.\n" if $self->VERBOSE;
+      $self->CDNA_DB->dbc->disconnect_when_inactive(1);
+      
+      # filter cdnas
+      my $filtered_cdna = $self->_filter_cdnas(\@cdna_genes, 0);
+      
+      $self->cdna_genes($filtered_cdna);
+      print STDERR "got " . scalar(@{$filtered_cdna}) . " cdnas after filtering.\n" if $self->VERBOSE;
+    }
   }
 
   # get ESTs
@@ -245,7 +248,7 @@ sub fetch_input{
   my (@est_biotypes, @cdna_logicnames);
   push(@est_biotypes, $self->EST_GENETYPE);
   my @simgw_biotypes  = @{ $self->INPUT_GENETYPES };
-  push(@cdna_logicnames, $self->cDNA_GENETYPE);
+  push(@cdna_logicnames, @{$self->cDNA_GENETYPE});
   $self->{evidence_sets} = {
 			    'est'   => \@est_biotypes,
 			    'simgw' => \@simgw_biotypes,
@@ -741,6 +744,10 @@ sub run_matching{
 
       #cluster matching cDNA or EST genes
       #call cluster method from ClusterUtils
+      # print "EXTENDED : ",join('   ',@{$matching_extended_cdnas}),"\n";
+      #foreach my $keys (keys %{$self->{evidence_sets}}){
+      #  print "Evidence: ",@{$self->{evidence_sets}{$keys}},"\n";
+      #}
       my ($clusters, $non_clusters) = cluster_Genes( $matching_extended_cdnas, $self->{evidence_sets} ) ;
 
       #store genes seperated by strand #USAGE??
