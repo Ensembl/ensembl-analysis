@@ -93,7 +93,7 @@ use ContigGenesChecker;
 use GeneChecker;
 use ScriptUtils;
 
-use Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder qw (
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder qw (
 					 GB_MAXSHORTINTRONLEN
 					 GB_MINSHORTINTRONLEN
 					 GB_MINLONGINTRONLEN
