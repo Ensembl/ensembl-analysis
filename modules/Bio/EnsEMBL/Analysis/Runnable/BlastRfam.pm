@@ -228,7 +228,7 @@ sub run_ncbi_analysis {
   # had coded options used in SGJs Rfam scan
   my $database = $self->params->{'lowcopy'};
   my $options  = "-W7 -F F -b 1000000 -v 1000000 ";
-  my $command  = "/usr/local/ensembl/bin/blastall";
+  my $command  = "/software/bin/blastall";
   my $filename = $self->queryfile;
   my $results_file = $self->create_filename("Infernal", 'blast.out');
   $self->files_to_delete($results_file);
