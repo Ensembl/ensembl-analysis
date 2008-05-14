@@ -414,7 +414,8 @@ sub fetch_input {
         unless ( -e $datfile ) { # dat file already dumped; skipping sql
             
             #my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE',1);
-            my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE');
+            #my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE');
+            my $result_features = $rset->get_ResultFeatures_by_Slice($self->query());
 
             print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
         
