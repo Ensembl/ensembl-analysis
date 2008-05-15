@@ -716,23 +716,52 @@ sub get_recover_ids {
   my $g_sid = $gene->stable_id ? $gene->stable_id : "NO_ID_".$gene->dbID ; 
   my %recover_ids ;  
 
-  my ($start, $end , $chr ) = get_coords($gene) ; 
+  my ($start, $end , $chr ) = get_coords($gene) ;
 
-  my $csa = $self->db->get_CoordSystemAdaptor(); 
-  my $cs = $csa->fetch_by_name('chromosome'); 
-  my $csv ;  
+  print " coord_system of gene : " . $gene->slice->coord_system_name()."\n" ; 
+  print " coord_system of gene : " . $gene->slice->coord_system()."\n" ; 
+  print " coord_system of gene : " . $gene->slice->coord_system->version()."\n" ; 
+  print " coord_system of gene : " . $gene->slice->coord_system->name()."\n" ; 
 
-  if ( $cs ) { 
-      $csv = $cs->version() ;  
-  } elsif ( $csa->fetch_top_level ) {  
-      $csv =  $csa->fetch_top_level->version();
-  } 
+  my $cs = $gene->slice->coord_system->name();  
+  my $csv = $gene->slice->coord_system->version();  
+#
+#
+#
+#  my $csa = $self->db->get_CoordSystemAdaptor(); 
+#  my $cs = $csa->fetch_by_name('chromosome'); 
+#  #my $cs = $csa->fetch_top_level(); 
+#  my $csv ;  
+#
+#  unless ( $cs ) { 
+#
+#    foreach my $cs (@{$csa->fetch_all()}) {
+#      print $cs->name, ' ',  $cs->version, ' ' , $cs->rank ,  "\n";
+#    }
+#
+#
+#      my $cst =  $csa->fetch_by_name('toplevel'); 
+#      unless ( $cst ) {  
+#        throw("Error: Could not fetch top level out of database\n") ; 
+#      }
+#     print "try to get version onw \n" ;   
+#     print $cst . "\n" ; 
+#     print $cst->name . "\n" ; 
+#     print $cst->rank. "\n" ; 
+#     print $cst->version. "\n" ; 
+#     $csv = $cst->version;  
+#  }elsif ( $cs->version ) { 
+#      $csv = $cs->version() ;   
+#  } 
+#      
+#
+ 
   unless ( $csv ) {  
-      throw("could not read defalt assembly name / coord system version out of db\n");
+      throw("Error: Could not read default assembly name / coord system version out of db\n");
   }        
 
   for my $homolog ( @$aref ) { 
-    $recover_ids{"chromosome:$csv:$chr:$start:$end:1:".$t_long->stable_id.":".$homolog->stable_id}=1;
+    $recover_ids{"$cs:$csv:$chr:$start:$end:1:".$t_long->stable_id.":".$homolog->stable_id}=1;
   }    
 
   return [keys %recover_ids] ; 
