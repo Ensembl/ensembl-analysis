@@ -53,16 +53,26 @@ use vars qw( @ISA );
 
 sub new {
 
+    print "Analysis::Runnable::Funcgen::new\n";
+
     my ($class,@args) = @_;
     #print Dumper @args;
     my $self = $class->SUPER::new(@args);
     #print Dumper $self;
 
-    my ($result_features) = rearrange(['RESULT_FEATURES'], @args);
-    $self->result_features($result_features);
-    #print Dumper($self->features);
+    my ($result_features, $options, $workdir) = rearrange
+        (['RESULT_FEATURES', 'OPTIONS', 'WORKDIR'], @args);
 
-    #print Dumper $self;
+    $self->result_features($result_features);
+    $self->workdir($workdir);
+    $self->checkdir();
+    warn("workdir ".$self->workdir()." OK!");
+
+    #warn('RESULT_FEATURES: '.$self->result_features);
+
+    #warn('OPTIONS:  '.$self->options);
+    #warn('A_PARAMS: '.$self->analysis->parameters);
+
     return $self;
 
 }
@@ -82,6 +92,7 @@ sub new {
 =cut
 
 sub run {
+
     print "Bio::EnsEMBL::Analysis::Runnable::Funcgen::run\n";
     my ($self, $dir) = @_;
   
@@ -91,16 +102,12 @@ sub run {
     #    unless($self->result_features);
     #print Dumper $self->probe_features;
    
-    #$self->workdir($dir) if ($dir);
-    ### DO NOT USE environment variable here!!! ###
-    $self->workdir($ENV{ANALYSIS_WORK_DIR});
-    $self->checkdir();
-    print "work dir ".$self->workdir()." checked\n";
-
     $self->write_infile();
-    
+
+    warn("infile: ".$self->infile);
+
     throw("Input file ".$self->infile." is empty.") if (-z $self->infile);
-    #$self->files_to_delete($self->infile);
+    $self->files_to_delete($self->infile);
 	
     $self->run_analysis();
 
@@ -108,8 +115,39 @@ sub run {
     $self->parse_results();
     #print "done!\n";
 
-    $self->delete_files;
+    #$self->delete_files;
     return 1;
+}
+
+=head2 infile
+
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
+  Arg [2]     : filename (string)
+  Description : will hold a given filename or if one is requested but none
+  defined it will use the create_filename method to create a filename
+  Returntype  : string, filename
+  Exceptions  : none
+  Example     : 
+
+=cut
+
+
+sub infile{
+
+  my ($self, $filename) = @_;
+
+  if($filename){
+    $self->{'infile'} = $filename;
+  }
+  if(!$self->{'infile'}){
+    $self->{'infile'} = $self->create_filename
+        ($self->analysis->module.'/'.$self->analysis->module, 'dat');
+    (my $dir = $self->{'infile'}) =~ s,/[^/]+$,,;
+    system("mkdir -p $dir") unless ( -d $dir );
+  }
+
+  return $self->{'infile'};
+
 }
 
 =head2 result_features
@@ -179,7 +217,7 @@ sub parse_results{
     throw("parse_results: results file ".$resultsfile." does not exist.")
         if (! -e $resultsfile);
     
-    print Dumper $resultsfile;
+    warn('Resultsfile: '.$resultsfile);
     
     throw("parse_results: can't open file ".$resultsfile.": ". $!)
         unless (open(F, $resultsfile));
