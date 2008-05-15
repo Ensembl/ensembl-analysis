@@ -63,6 +63,7 @@ use vars qw (@ISA @EXPORT);
              are_strands_consistent
              attach_Slice_to_Transcript
              attach_Analysis_to_Transcript
+             attach_Analysis_to_Transcript_no_support
              calculate_exon_phases
              clone_Transcript
              coding_coverage
@@ -1752,6 +1753,10 @@ sub attach_Analysis_to_Transcript{
       $sf->analysis($analysis);
     }
   }
+}
+sub attach_Analysis_to_Transcript_no_support{
+  my ($transcript, $analysis) = @_;
+  $transcript->analysis($analysis);
 }
 
 sub fully_load_Transcript{
