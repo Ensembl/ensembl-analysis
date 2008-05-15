@@ -21,23 +21,25 @@ sub new{
   #print "In GeneBuilder constructor with super class" . ref($class) . "\n";
   my $self = $class->SUPER::new(@args);
   my($genes, $blessed_biotypes, $max_transcript_number,
-     $min_short_intron, $max_short_intron,$output_biotype) = 
+     $min_short_intron_len, $max_short_intron_len,$output_biotype) = 
     rearrange([qw(GENES BLESSED_BIOTYPES MAX_TRANSCRIPT_PER_CLUSTER
                   MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE)], @args);
+  print "HERE ARE THE ARGS: ", join("  ",@args),"\n";
+  print "HERE I AM: ", $min_short_intron_len,"\t", $max_short_intron_len,"\n";
 
   ########################
   ###SETTING DEFAULTS#####
   $self->max_transcript_number(10);
-  $self->min_short_intron_len(7);
-  $self->max_short_intron_len(15);
+  #$self->min_short_intron_len(7);
+  #$self->max_short_intron_len(15);
   $self->output_biotype($self->analysis->logic_name);
   #########################
 
   $self->input_genes($genes);
   $self->blessed_biotypes($blessed_biotypes);
   $self->max_transcript_number($max_transcript_number);
-  $self->min_short_intron_len($min_short_intron);
-  $self->max_short_intron_len($max_short_intron);
+  $self->min_short_intron_len($min_short_intron_len);
+  $self->max_short_intron_len($max_short_intron_len);
   $self->output_biotype($output_biotype);
 
   #data sanity

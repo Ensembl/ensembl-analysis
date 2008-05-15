@@ -10,7 +10,7 @@ use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(are_strands_consistent are_phases_consistent 
      is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum);
@@ -59,6 +59,7 @@ sub fetch_input{
   my @filtered_genes = @{$self->filter_genes($self->input_genes)};
   #print "Have ".@filtered_genes." filtered genes\n";
   #create genebuilder runnable
+
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder
     ->new(
           -query => $self->query,
@@ -66,8 +67,8 @@ sub fetch_input{
           -genes => \@filtered_genes,
           -output_biotype => $self->OUTPUT_BIOTYPE,
           -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER,
-          -min_short_intron => $self->MIN_SHORT_INTRON_LEN,
-          -max_short_intron => $self->MAX_SHORT_INTRON_LEN,
+          -min_short_intron_len => $self->MIN_SHORT_INTRON_LEN,
+          -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
           -blessed_biotypes => $self->BLESSED_BIOTYPES,
          );
   $self->runnable($runnable);
@@ -84,12 +85,12 @@ sub write_output{
     my $attach = 0;
     if(!$gene->analysis){
       my $attach = 1;
-      attach_Analysis_to_Gene($gene, $self->analysis);
+      attach_Analysis_to_Gene_no_support($gene, $self->analysis);
     }
     if($attach == 0){
     TRANSCRIPT:foreach my $transcript(@{$gene->get_all_Transcripts}){
         if(!$transcript->analysis){
-          attach_Analysis_to_Gene($gene, $self->analysis);
+          attach_Analysis_to_Gene_no_support($gene, $self->analysis);
           last TRANSCRIPT;
         }
       }
