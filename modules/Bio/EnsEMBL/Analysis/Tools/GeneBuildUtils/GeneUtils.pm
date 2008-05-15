@@ -53,12 +53,13 @@ use vars qw (@ISA  @EXPORT);
              get_transcript_with_longest_CDS
              attach_Slice_to_Gene
              attach_Analysis_to_Gene
+             attach_Analysis_to_Gene_no_support
              fully_load_Gene
              empty_Gene
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript attach_Analysis_to_Transcript print_Transcript_and_Exons);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript attach_Analysis_to_Transcript attach_Analysis_to_Transcript_no_support print_Transcript_and_Exons);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
@@ -266,7 +267,7 @@ sub get_transcript_with_longest_CDS {
 
   Arg [0]   : Bio::EnsEMBL::Gene
   Arg [1]   : String species_name  ("Homo sapiens") 
-  Description: Returns the one2one orthologue as a bIO::EnsEMBL::Gene object in the
+  Description: Returns the one2one orthologue as a Bio::EnsEMBL::Gene object in the
                specified species or undef if there is non or more than one orthologue 
   Returntype: Bio::EnsEMBL::Gene object 
   Exceptions: none
@@ -389,6 +390,13 @@ sub attach_Analysis_to_Gene{
   }
 }
 
+sub attach_Analysis_to_Gene_no_support{
+  my ($gene, $analysis) = @_;
+  $gene->analysis($analysis);
+  foreach my $transcript(@{$gene->get_all_Transcripts}){
+    attach_Analysis_to_Transcript_no_support($transcript, $analysis);
+  }
+}
 =head2 fully_load_Gene
 
   Arg [1]   : Bio::EnsEMBL::Gene
