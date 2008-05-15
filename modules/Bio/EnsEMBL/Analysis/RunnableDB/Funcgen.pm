@@ -399,12 +399,20 @@ sub fetch_input {
     
     my %result_features = ();
     my $norf;
+
+    # make sure the cache directory exists
+    my $cachedir = $self->ANALYSIS_WORK_DIR.'/cache';
+    if ( ! -d $cachedir) {
+        my $retval = system("mkdir -p $cachedir");
+        throw("Couldn't create cache directory $cachedir") unless ($retval == 0);
+    }
+
     foreach my $rset (@{$self->ResultSets}) {
 
         print join(" ", $rset->dbID, $rset->name), "\n";
 
-        my $datfile = $self->ANALYSIS_WORK_DIR.'/cache/'.
-            $self->query->name.'.'.$rset->name.'.dat';
+
+        my $datfile = $cachedir.'/'.$self->query->name.'.'.$rset->name.'.dat';
         warn('datafile: '.$datfile);
 
         my @result_features = ();
