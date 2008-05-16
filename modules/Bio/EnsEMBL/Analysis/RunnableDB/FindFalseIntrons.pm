@@ -36,6 +36,7 @@
  
             chromosome:BROADD2:12:1333:890890:1 
 
+            chromosome:BROADD2:3:30434100:30529400:1
 
 =head1 CONTACT
 
@@ -302,15 +303,17 @@ sub run {
 
  # upload SimpleFeatures for FalseIntrons with coordinates 
 
+  
+
   for my $false_intron  ( keys %intron_attributes ) { 
  
     my $feature = $intron_attributes{$false_intron}{feature}; 
     if ( $feature ) { 
       $sfa->store($feature) ;       
-      for my $exVSgen_id ( @{ $intron_attributes{$false_intron}{input_ids} }){ 
+      for my $exVSgen_id ( @{ $intron_attributes{$false_intron}{input_ids} }){  
+        #print FEATURE : $feature->dbID  . "\n" ; 
         $input_ids_to_upload{$exVSgen_id.":".$feature->dbID}=1;     
         #$intron_attributes{$false_intron}{input_id} = $exVSgen_id ; 
-        print "FEATURE : $false_intron \t $exVSgen_id:".$feature->dbID . "\n" ; 
       }   
     }
   }  
@@ -361,16 +364,25 @@ sub run {
         $aa->store($submit_ana);
         $aa->store($analysis_obj); 
 
-        # set up rules / conditions for post analysis    
-        print "input_ids:\n" ;  
-        print join("\n", keys %input_ids_to_upload)."\n\n" ;  
+        # set up rules / conditions for post analysis     
+        print "input_ids:\n" ;   
+        print join("\n", keys %input_ids_to_upload)."\n\n" ;   
+  
+        print "reformatting input_ids as we use the new format:\n" ;   
 
- 
-        $self->upload_input_ids( [keys %input_ids_to_upload] , "RecoverFalseIntrons" , "prot_slice_form") ;  
+        my @old_input_ids = keys %input_ids_to_upload; 
+        my @new_input_ids = @{reformat_input_ids(\@old_input_ids)} ; 
+
+        print "new_input_ids:\n" ;    
+        for my $nid ( @new_input_ids ) { 
+           print "new_input_id " . $nid . "\n" ; 
+           print "new_input_id_length  " . length($nid) . "\n" ; 
+        } 
+        # $self->upload_input_ids( [keys %input_ids_to_upload] , "RecoverFalseIntrons" , "prot_slice_form") ;  
+        $self->upload_input_ids( \@new_input_ids , "Submit_RecoverFalseIntrons" , "prot_slice_form") ;  
         my $goal_analysis = $aa->fetch_by_logic_name("RecoverFalseIntrons") ; 
         my $rule = Bio::EnsEMBL::Pipeline::Rule->new(-goalanalysis => $goal_analysis); 
 
-      
         # check if rule has already been stored ...
         my $ra = $self->pipeline_adaptor($self->db)->get_RuleAdaptor(); 
         my $store_rule = 1 ; 
@@ -382,12 +394,67 @@ sub run {
       if ( $store_rule ) {  
         $ra->store($rule) ; 
       }
-
-  $self->write_output(); 
-}  # // run 
+}  
 
 
 
+
+
+sub reformat_input_ids { 
+  my ($input_id_aref ) = @_ ;  
+
+  my @new_ids ; 
+  my %tmp; 
+ 
+  for my $id ( @{$input_id_aref} ) {   
+
+    #my ($cs,$asm,$sname,$start,$end,$strand,$query_stable_id,$hom_stable_id,$sf_id) = split /\:/,$id ;       
+    my @components = split /\:/,$id ;       
+    my $sf_id = pop  @components ;
+    my $hom_stable_id = pop @components ; 
+    print " hom : $hom_stable_id \t sf_id $sf_id \n" ; 
+    my $key = join ( ":", @components ) ;  
+    push @{$tmp{$key}{$hom_stable_id}}, $sf_id ;    
+  }       
+   
+  my %sf_id_index ; 
+  for my $region_key ( keys %tmp ) {   
+      print "processing region and transcript : \n";  
+      print $region_key . "\n" ; 
+      my %hom_to_sf_id = %{$tmp{$region_key}} ;  
+
+      
+      for my $stable_id ( keys %hom_to_sf_id ) { 
+        my @sf_ids = @{$hom_to_sf_id{ $stable_id}};
+        for my $sf_id ( @sf_ids ) { 
+          $sf_id_index{$sf_id} = 1; 
+        }
+      }   
+      my $sf_db_id_string = ""; 
+      my $counter = 0 ; 
+      for my $id ( sort keys %sf_id_index ) {   
+        $sf_db_id_string .= $id .",";
+        $sf_id_index{$id}=$counter ; 
+        $counter++;   
+      }  
+      my $sf_string =""; 
+      my $hom_string ="";
+      for my $stable_id ( keys %hom_to_sf_id ) {  
+        $hom_string .=$stable_id."," ; 
+        for my $sf_id ( sort @{$hom_to_sf_id{ $stable_id}} ) {   
+            $sf_string .= $sf_id_index{$sf_id}. ",";
+        }
+        $sf_string =~s/,$//; 
+        $sf_string .= "_";
+      } 
+      $sf_string=~s/_$//; 
+      $sf_string=~s/,$//; 
+      $sf_db_id_string=~s/,$//; 
+      $hom_string =~s/,$//; 
+      push @new_ids , $region_key . ":" . $hom_string .":" . $sf_string . ":" . $sf_db_id_string ; 
+  } 
+  return \@new_ids ;  
+}
 
 sub exonerate_intron_vs_homologs {    
     my ($self,$intron_to_check, $gene, $i2t, $transcript_of_intron ) = @_ ;  
@@ -724,7 +791,8 @@ sub get_recover_ids {
   print " coord_system of gene : " . $gene->slice->coord_system->name()."\n" ; 
 
   my $cs = $gene->slice->coord_system->name();  
-  my $csv = $gene->slice->coord_system->version();  
+  my $csv = $gene->slice->coord_system->version();   
+
 #
 #
 #
@@ -758,7 +826,7 @@ sub get_recover_ids {
  
   unless ( $csv ) {  
       throw("Error: Could not read default assembly name / coord system version out of db\n");
-  }        
+  }         
 
   for my $homolog ( @$aref ) { 
     $recover_ids{"$cs:$csv:$chr:$start:$end:1:".$t_long->stable_id.":".$homolog->stable_id}=1;
@@ -810,28 +878,6 @@ sub get_homologues_genes {
 
 
 
-
-
-
-sub write_output{
-  my ($self) = @_;    
-
-#   
-#  my $file_name = "full_exon_report.txt"; 
-#  my $aref = $self->full_exon_report ; 
-#
-#  if ( $self->overwrite_files == 1){
-#    open ( O, ">$OUTPUT_DIR/$file_name") || die ("Can't write output-file $OUTPUT_DIR/$file_name\n") ;
-#  } else { 
-#    open ( O, ">>$OUTPUT_DIR/$file_name") || die ("Can't write output-file $OUTPUT_DIR/$file_name\n") ;
-#  } 
-#
-#  foreach my $line ( @$aref ) { 
-#    print O $line;
-#  }  
-#  close(O);  
-#  $self->overwrite_files(0);
-}
 
 
 
