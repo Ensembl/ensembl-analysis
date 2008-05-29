@@ -41,7 +41,6 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::IPRScan;
 
 sub fetch_input {
   my ($self) = @_;
- 
   $self->SUPER::fetch_input;
   print "FETCHING INPUT\n";
   my $run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::IPRScan->
@@ -53,3 +52,5 @@ sub fetch_input {
          );
   $self->runnable($run);
 }
+
+1;

@@ -79,7 +79,7 @@ sub parse_results{
                                              " IPRSCAN:parse_results");
   my @out;
   while(<OUT>){
-    #print;
+    print;
     chomp;
     if(/SUBMITTED\s+(\S+)/){
       my $dir_name = $1;
@@ -92,14 +92,14 @@ sub parse_results{
       next;
     }
     next if((!$_) || (!$_ =~ /\d+/));
-    print $_."\n";
+    #print $_."\n";
     #19897	4AB50DD3FDE96DB6	468	ProfileScan	PS50157	ZINC_FINGER_C2H2_2	243	270	16.685	T	14-Nov-2007
     my ($translation_id, $crd, $aa_length, $method, $hit_name, $desc, $start, $end, $evalue, $status, $date) = split /\t/, $_;
     if(!$start || !$end){
       next;
     }
     if($evalue && !($evalue =~ /\d+/)){
-      $evalue = 0;
+      $evalue = undef;
     }
     if($start > $end){
       my $temp = $start;
