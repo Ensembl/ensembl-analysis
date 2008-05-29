@@ -163,6 +163,7 @@ sub parse_results{
 	       $daf->hstrand(1);
 	     }
 	     $daf->score($coverage);
+	     $daf->external_db_id(4200);
 	     push  @daf_coverage_results, $daf;
 	   }
 	 }
