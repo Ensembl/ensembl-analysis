@@ -44,25 +44,11 @@ use Data::Dumper;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::Funcgen;
 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Funcgen);
-
-=head2 run
-
-    Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle
-    Arg [2]     : string, directory
-    Description : Class specific run method. This checks the directory specifed
-    to run it, write the data to file (tab-delimited), marks the query infile 
-    and results file for deletion, runs the analysis, parses the results and 
-    deletes any files
-    Returntype  : 1
-    Exceptions  : throws if no query sequence is specified
-    Example     : 
-
-=cut
 
 =head2 run_analysis
 
@@ -77,7 +63,7 @@ use vars qw(@ISA);
 
 sub run_analysis {
         
-    print "Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle\n";
+    print "Analysis::Runnable::Funcgen::Chipotle::run_analysis\n";
     my ($self, $program) = @_;
     
     if(!$program){
@@ -87,39 +73,8 @@ sub run_analysis {
         unless($program && -x $program);
 
 
-	#default parameters
-	my %param = (
-		'alpha' => 0.05,
-		'stepSize' => 50,
-		'windowSize' => 400,
-		# Benjamini Hochberg
-		'adjustPvalue' => 'BH',  
-		# Bonferroni 
-		#'adjustPvalue' => 'BON',
-	);
-    #print Dumper $self->analysis->parameters();
-
-	foreach my $param (split(/,\s+/,$self->analysis->parameters())) {
-		
-		if ($param =~ m/-(.+)=>(.+)/) {
-			
-			#print Dumper $1;
-			throw("Parameter $param is not valid.") if ! exists $param{$1};
-
-			$param{$1} = $2;
-			
-		} else {
-
-			throw("Parameter $param has not the correct format.");
-
-		}
-
-	}
-	
-    #if ($self->analysis->parameters =~ m/--alpha (\d+\.\d+)/) {
-    #    $alpha = $1;
-    #}
-    #print $alpha;
+	# parse parameters
+	my $param = $self->get_parameters();
 
     (my $resultsfile = $self->infile) =~ s/\.dat$/.peaks/;
     $self->resultsfile($resultsfile);
@@ -130,11 +85,11 @@ sub run_analysis {
 
     my $command = join(' ', $self->program, 'get_peaks', '0', '0', 
 					   $self->infile(), $self->resultsfile(), 
-					   $param{alpha}, $param{stepSize},
-					   $param{windowSize}, $param{adjustPvalue});
+					   $param->{alpha}, $param->{stepSize},
+					   $param->{windowSize}, $param->{adjustPvalue}, 'NORM');
     
     warn("Running analysis " . $command . "\n");
-    
+
     eval { system($command) };
     throw("FAILED to run $command: ", $@) if ($@);
 
@@ -178,52 +133,68 @@ sub run_analysis {
 sub write_infile {
 
     my ($self, $filename) = @_;
+    print "Analysis::Runnable::Funcgen::Chipotle::write_infile\n";
 
     if (! $filename) {
         $filename = $self->infile();
     }
     
-    open(F, ">".$filename)
-        or throw("Can't open file $filename.");
+    # merge infiles if more than one replicate have been selected
+    my $replicates = scalar(keys %{$self->result_features});
+    #print Dumper $replicates;
 
-    #print Dumper $self->result_features;
-    foreach (values %{$self->result_features}) {
-        foreach my $ft (@$_) {
-            #print join("\t", (@$ft)[4,0..3]), "\n";
-            print F join("\t", (@$ft)[4,0..3]), "\n";
+    if ($replicates > 1) {
+
+        my @tmpfiles = ();
+        foreach my $rset (sort keys %{$self->result_features}) {
+            
+            my $i = 1;
+            
+            (my $tmpfile = $self->infile) =~ s/\.dat$/.$rset.dat/;
+            print Dumper $tmpfile;
+            open(DAT, ">$tmpfile") 
+                or throw ("Can't open file $tmpfile");
+
+            map {
+                printf DAT "%d\t%s\t%d\t%d\t%f\n", 
+                $i++, (@$_)[0..3];
+            } @{$self->result_features->{$rset}};
+
+            close DAT 
+                or throw ("Can't close file $tmpfile");
+            
+            push(@tmpfiles, $tmpfile);
+            
+
         }
+        
+        my $command = join(' ', $self->program, 'merge_files', '0',
+                           $replicates, @tmpfiles, $filename);
+
+        warn("Merging infiles " . $command . "\n");
+        
+        eval { system($command) };
+        throw("FAILED to run $command: ", $@) if ($@);
+
+        map {$self->files_to_delete($_)} @tmpfiles;
+
+
+    } else {
+
+        open(F, ">".$filename)
+            or throw("Can't open file $filename.");
+        
+        #print Dumper $self->result_features;
+        foreach (values %{$self->result_features}) {
+            foreach my $ft (@$_) {
+                #print join("\t", (@$ft)[4,0..3]), "\n";
+                print F join("\t", (@$ft)[4,0..3]), "\n";
+            }
+        }
+        close F;
     }
-    close F;
-
+        
     return $filename;
-
-}
-
-=head2 infile
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Chipotle
-  Arg [2]     : filename (string)
-  Description : will hold a given filename or if one is requested but none
-  defined it will use the create_filename method to create a filename
-  Returntype  : string, filename
-  Exceptions  : none
-  Example     : 
-
-=cut
-
-
-sub infile{
-
-  my ($self, $filename) = @_;
-
-  if($filename){
-    $self->{'infile'} = $filename;
-  }
-  if(!$self->{'infile'}){
-    $self->{'infile'} = $self->create_filename('chipotle', 'dat');
-  }
-
-  return $self->{'infile'};
 
 }
 

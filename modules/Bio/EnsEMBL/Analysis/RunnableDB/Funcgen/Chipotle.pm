@@ -40,19 +40,17 @@ use strict;
 use warnings;
 use Data::Dumper;
 
+use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
+
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::Funcgen;
 use Bio::EnsEMBL::Analysis::Runnable::Funcgen::Chipotle;
 
-use Bio::EnsEMBL::Analysis::Config::General;
-use Bio::EnsEMBL::Analysis::Config::Funcgen::Chipotle;
-
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use vars qw(@ISA); 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Funcgen);
-
-
 
 =head2 new
 
@@ -67,13 +65,21 @@ use vars qw(@ISA);
 
 sub new {
 
-    #print "Chipotle::new\n";
+    print "Analysis::RunnableDB::Funcgen::Chipotle::new\n";
     my ($class,@args) = @_;
+
     my $self = $class->SUPER::new(@args);
     
     $self->read_and_check_config($CONFIG);
 
-    #print Dumper $self;
+    # add some runnable/program special params to analysis here
+
+    # make sure we have the correct analysis object
+    $self->check_Analysis();
+
+    # make sure we can store the correct feature_set, data_sets, and result_sets
+    $self->check_Sets();
+
     return $self;
 }
 

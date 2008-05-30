@@ -74,6 +74,9 @@ sub write_infile {
 		$filename = $self->infile();
 	}
 
+    warn("filename: ", $filename);
+    
+
 	# determine both number of result sets (replicates) and features
 
 	my $noa = scalar(keys %{$self->result_features});
@@ -82,21 +85,26 @@ sub write_infile {
 
 	# dump features in GFF format
 	
+	my $workdir = $self->workdir.'/'.$self->analysis->module();
+    warn($workdir);
+
 	#print Dumper $self->result_features;
 
 	my @fnames=();
 	
 	foreach my $rset_name (keys %{$self->result_features}) {
 		(my $fname = $filename) =~ s,^.+/(.+)\.dat,$1_${rset_name}.dat,;
+        warn("fname: ", $fname);
 		push (@fnames, $fname);
-		open(F, ">$fname")
+		open(F, ">$workdir/$fname")
 			or throw("Can't open file $filename.");
 		foreach my $ft (@{${$self->result_features}{$rset_name}}) {
 			printf F "%s\t%s\t%s\t%d\t%d\t%f\t.\t.\t.\n", 
-			$ft->[0], $ENV{NORM_ANALYSIS}, $rset_name, $ft->[1], $ft->[2], $ft->[3];
+			$ft->[0], $ENV{NORM_METHOD}, $rset_name, $ft->[1], $ft->[2], $ft->[3];
 		}
 		close F;
 	}
+    warn("fnames: ", @fnames);
 
 	(my $Rfile = $filename) =~ s/\.dat/.R/;
 	$self->infile($Rfile);
@@ -108,11 +116,15 @@ sub write_infile {
 	(my $PDFfile = $filename) =~ s/\.dat/.pdf/;
 
 	my $fnames = join('", "', @fnames);
-	my $workdir = $self->workdir;
-	my $window = $ENV{WINDOW};
-	my $threshold = $ENV{THRESHOLD};
+    
+	# parse parameters
+	my $param = $self->get_parameters();
 
-	my $pvalue = $ENV{PVALUE};
+	my $window = $param->{WINDOW};
+	my $threshold = $param->{THRESHOLD};
+
+	my $pvalue = $param->{PVALUE};
+
 	my $chrom = $self->query()->seq_region_name;
 	my $start = $self->query()->start, 
 	my $end = $self->query()->end;
@@ -130,11 +142,19 @@ sub write_infile {
 	#str(a)
 	aGFFCalc <- do.aGFF.calc(a, window = $window, thresh = $threshold)
 	regions <- findRegions(aGFFCalc,thresh=$pvalue)
-	write.table(regions[,c('Chromosome', 'Start', 'End', 'Mean', 'Median')],
+	write.table(regions[regions\$TF,c('Chromosome', 'Start', 'End', 'Mean', 'Median')],
 				file="$resultsfile", sep="\\t", 
 				row.names = FALSE, col.names = FALSE)
-	#pdf("$PDFfile", height = 10, width = 15);
-	#plot(aGFFCalc, chrom = "$chrom", sample = 1, xlim = c($start, $end))
+
+    #f=file('${resultsfile}.bed','w')
+    #writeLines('track name="ACME findRegions $pvalue" description="$pvalue"',con=f)
+    #regions\$Chromosome <- paste('chr',regions\$Chromosome,sep="")
+    #write.table(regions[regions\$TF==TRUE,c('Chromosome','Start','End')],f,sep="\t",col.names=F,row.names=F,quote=F)
+
+
+	pdf("$PDFfile", height = 10, width = 15);
+	plot(aGFFCalc, chrom = "$chrom", sample = 1)
+    dev.off()
 EOR
 
 	close R;
@@ -176,33 +196,33 @@ sub run_analysis {
 
 }
 
-=head2 infile
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::ACME
-  Arg [2]     : filename (string)
-  Description : will hold a given filename or if one is requested but none
-  defined it will use the create_filename method to create a filename
-  Returntype  : string, filename
-  Exceptions  : none
-  Example     : 
-
-=cut
-
-
-sub infile{
-
-  my ($self, $filename) = @_;
-
-  if($filename){
-    $self->{'infile'} = $filename;
-  }
-  if(!$self->{'infile'}){
-    $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
-  }
-
-  return $self->{'infile'};
-
-}
+#=head2 infile
+#
+#  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::ACME
+#  Arg [2]     : filename (string)
+#  Description : will hold a given filename or if one is requested but none
+#  defined it will use the create_filename method to create a filename
+#  Returntype  : string, filename
+#  Exceptions  : none
+#  Example     : 
+#
+#=cut
+#
+#
+#sub infile{
+#
+#  my ($self, $filename) = @_;
+#
+#  if($filename){
+#    $self->{'infile'} = $filename;
+#  }
+#  if(!$self->{'infile'}){
+#    $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
+#  }
+#
+#  return $self->{'infile'};
+#
+#}
 
 
 sub config_file {

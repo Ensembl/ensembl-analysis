@@ -105,7 +105,7 @@ sub write_infile {
 	close F;
     warn("\tresult features written to ".$filename);
 
-	my $workdir = $self->workdir;
+	my $workdir = $self->workdir.'/'.$self->analysis->module();
     #warn("\tworkdir: ".$workdir);
 
 	# write config and cmpinfo files from templates
@@ -155,7 +155,7 @@ sub write_infile {
 	close IN;
 	close OUT;
 	
-	my $cmpinfo = $self->workdir.'/'.$project.'.cmpinfo';
+	my $cmpinfo = $workdir.'/'.$project.'.cmpinfo';
     warn("cmp info file: $cmpinfo");
 
 	open(CMP, ">$cmpinfo")
@@ -227,10 +227,10 @@ EOCMP
 	}
 	# UCSC *.bed file to report significant regions. 
 	# Regions are sorted according to their genomic locations.
-	my $results = $self->workdir.'/'.$project.$ext.'.bed';
+	my $results = $workdir.'/'.$project.$ext.'.bed';
 	# This .reg file is a tab-delimited file to report significant regions. 
 	# Regions are ranked according to their significance levels.
-	#my $results = $self->workdir.'/'.$project.$ext.'.reg';
+	#my $results = $workdir.'/'.$project.$ext.'.reg';
 
 	$self->resultsfile($results);
 
@@ -273,33 +273,33 @@ sub run_analysis {
 
 }
 
-=head2 infile
-
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::TileMap
-  Arg [2]     : filename (string)
-  Description : will hold a given filename or if one is requested but none
-  defined it will use the create_filename method to create a filename
-  Returntype  : string, filename
-  Exceptions  : none
-  Example     : 
-
-=cut
-
-
-sub infile{
-
-  my ($self, $filename) = @_;
-
-  if($filename){
-    $self->{'infile'} = $filename;
-  }
-  if(!$self->{'infile'}){
-    $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
-  }
-
-  return $self->{'infile'};
-
-}
+#=head2 infile
+#
+#  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::TileMap
+#  Arg [2]     : filename (string)
+#  Description : will hold a given filename or if one is requested but none
+#  defined it will use the create_filename method to create a filename
+#  Returntype  : string, filename
+#  Exceptions  : none
+#  Example     : 
+#
+#=cut
+#
+#
+#sub infile{
+#
+#  my ($self, $filename) = @_;
+#
+#  if($filename){
+#    $self->{'infile'} = $filename;
+#  }
+#  if(!$self->{'infile'}){
+#    $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
+#  }
+#
+#  return $self->{'infile'};
+#
+#}
 
 
 sub config_file {

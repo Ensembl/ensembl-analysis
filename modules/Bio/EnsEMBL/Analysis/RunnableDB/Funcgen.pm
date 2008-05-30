@@ -470,6 +470,7 @@ sub fetch_input {
             open(CACHE, $datfile)
                 or throw("Can't open file cache $datfile");
             while (<CACHE>) {
+                chomp;
                 #print;
 
                 my @values = split(/\t/);

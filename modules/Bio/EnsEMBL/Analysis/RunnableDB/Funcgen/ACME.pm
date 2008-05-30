@@ -66,11 +66,17 @@ use vars qw(@ISA);
 
 sub new {
 
-    #print "ACME::new\n";
+    print "Analysis::RunnableDB::Funcgen::ACME::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
     $self->read_and_check_config($CONFIG);
+
+    # make sure we have the correct analysis object
+    $self->check_Analysis();
+
+    # make sure we can store the correct feature_set, data_sets, and result_sets
+    $self->check_Sets();
 
     return $self;
 	

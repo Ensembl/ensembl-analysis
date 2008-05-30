@@ -119,9 +119,40 @@ sub run {
     return 1;
 }
 
+=head2 get_parameters
+
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen
+  Description : parse analysis parameters
+  Returntype  : hash ref with parameter names as keys
+  Exceptions  : none
+  Example     : 
+
+=cut
+
+
+sub get_parameters {
+
+    my ($self) = @_;
+    my %parameters = ();
+    
+    throw ("Object needs to be a Bio::EnsEMBL::Analysis::Runnable::Funcgen") 
+        if (! $self->isa("Bio::EnsEMBL::Analysis::Runnable::Funcgen"));
+
+    my @parameters = split(/\s+/, $self->analysis->parameters());
+    map { throw("Parameter $_ has not the correct format.") 
+              if (! m/^(.+)=(.+)/);
+          $parameters{$1} = $2; } @parameters;
+
+    #print Dumper %parameters;
+
+    return \%parameters;
+
+}
+
+
 =head2 infile
 
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Nessie
+  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen
   Arg [2]     : filename (string)
   Description : will hold a given filename or if one is requested but none
   defined it will use the create_filename method to create a filename
@@ -242,5 +273,9 @@ sub parse_results{
         unless (close(F));
     
 }
+
+
+
+
 
 1;
