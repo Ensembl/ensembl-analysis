@@ -92,71 +92,66 @@ use TranscriptChecker;
 use ContigGenesChecker;
 use GeneChecker;
 use ScriptUtils;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::BuildChecks qw (
+                                                               MAXSHORTINTRONLEN
+                                                               MINSHORTINTRONLEN
+                                                               MINLONGINTRONLEN
+                                                               MAX_EXONSTRANSCRIPT
+                                                               MAXSHORTEXONLEN
+                                                               MINSHORTEXONLEN
+                                                               MINLONGEXONLEN 
+                                                               MAXTRANSCRIPTS
+                                                               MINTRANSLATIONLEN
+                                                               IGNOREWARNINGS
+                                                               MAXGENELEN
+                                                              ); ;
+use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder qw (
-					 GB_MAXSHORTINTRONLEN
-					 GB_MINSHORTINTRONLEN
-					 GB_MINLONGINTRONLEN
-					 GB_MAX_EXONSTRANSCRIPT
-					 GB_MAXSHORTEXONLEN
-					 GB_MINSHORTEXONLEN
-					 GB_MINLONGEXONLEN 
-					 GB_MAXTRANSCRIPTS
-					 GB_MINTRANSLATIONLEN
-					 GB_IGNOREWARNINGS
-					 GB_MAXGENELEN
-					 );
 
-use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases qw (
-					 GB_FINALDBHOST
-					 GB_FINALDBNAME
-					 GB_FINALDBUSER
-					 GB_FINALDBPASS
-					 GB_FINALDBPORT
-					 );
 $| = 1;
 
-my $host = $GB_FINALDBHOST || undef;
-my $dbname = $GB_FINALDBNAME || undef;
-my $user = $GB_FINALDBUSER || 'ensro';
-my $pass = $GB_FINALDBPASS || ''; 
-my $port = $GB_FINALDBPORT || ''; 
+my $host;
+my $dbname;
+my $user;
+my $pass;
+my $port;
+my $gene_database_name;
+my $path;
 
 # default path comes out of database
-my $path = undef; 
 
 my $maxshortintronlen  =  50;
-if (defined($GB_MAXSHORTINTRONLEN)) { $maxshortintronlen  = $GB_MAXSHORTINTRONLEN; }
+if (defined($MAXSHORTINTRONLEN)) { $maxshortintronlen  = $MAXSHORTINTRONLEN; }
 
 my $minshortintronlen  =  3;
-if (defined($GB_MINSHORTINTRONLEN)) { $minshortintronlen  = $GB_MINSHORTINTRONLEN; }
+if (defined($MINSHORTINTRONLEN)) { $minshortintronlen  = $MINSHORTINTRONLEN; }
 
 my $minlongintronlen   =  100000;
-if (defined($GB_MINLONGINTRONLEN )) { $minlongintronlen   = $GB_MINLONGINTRONLEN; }
+if (defined($MINLONGINTRONLEN )) { $minlongintronlen   = $MINLONGINTRONLEN; }
 
 my $maxexonstranscript =  150;
-if (defined($GB_MAX_EXONSTRANSCRIPT)) { $maxexonstranscript = $GB_MAX_EXONSTRANSCRIPT; }
+if (defined($MAX_EXONSTRANSCRIPT)) { $maxexonstranscript = $MAX_EXONSTRANSCRIPT; }
 
 my $maxshortexonlen    =  10;
-if (defined($GB_MAXSHORTEXONLEN)) { $maxshortexonlen    = $GB_MAXSHORTEXONLEN; }
+if (defined($MAXSHORTEXONLEN)) { $maxshortexonlen    = $MAXSHORTEXONLEN; }
 
 my $minshortexonlen    =  3;
-if (defined($GB_MINSHORTEXONLEN)) { $minshortexonlen    = $GB_MINSHORTEXONLEN; }
+if (defined($MINSHORTEXONLEN)) { $minshortexonlen    = $MINSHORTEXONLEN; }
 
 my $minlongexonlen     =  50000;
-if (defined($GB_MINLONGEXONLEN )) { $minlongexonlen     = $GB_MINLONGEXONLEN; }
+if (defined($MINLONGEXONLEN )) { $minlongexonlen     = $MINLONGEXONLEN; }
 
 my $maxtranscripts     =  10; 
-if (defined($GB_MAXTRANSCRIPTS)) { $maxtranscripts     = $GB_MAXTRANSCRIPTS; }
+if (defined($MAXTRANSCRIPTS)) { $maxtranscripts     = $MAXTRANSCRIPTS; }
 
 my $mintranslationlen  =  10; 
-if (defined($GB_MINTRANSLATIONLEN)) { $mintranslationlen  = $GB_MINTRANSLATIONLEN; }
+if (defined($MINTRANSLATIONLEN)) { $mintranslationlen  = $MINTRANSLATIONLEN; }
 
 my $ignorewarnings     =  0; 
-if (defined($GB_IGNOREWARNINGS)) { $ignorewarnings     = $GB_IGNOREWARNINGS; }
+if (defined($IGNOREWARNINGS)) { $ignorewarnings     = $IGNOREWARNINGS; }
 
 my $maxgenelen     =  2_000_000; 
-if (defined($GB_MAXGENELEN)) { $maxgenelen     = $GB_MAXGENELEN; }
+if (defined($MAXGENELEN)) { $maxgenelen     = $MAXGENELEN; }
 
 my @chromosomes;
 
@@ -184,7 +179,8 @@ my @genetypes;
             'dnahost:s'        => \$dnahost,
             'dnaport:n'        => \$dnaport,
             'dnadbname:s'      => \$dnadbname,
-            'path:s'           => \$path,
+            'gene_database:s'  => \$gene_database_name,
+            'path:s'           => \$path, 
             'ignorewarnings!'  => \$ignorewarnings,
             'chromosomes:s'    => \@chromosomes,
             'coordsystem:s'    => \$coordsystem,
@@ -197,10 +193,12 @@ my @genetypes;
             'help!'            => \$help,
            ) or perldocs("Failed to get options");
 
-if (!defined($host) || !defined($dbname)) {
-  die "ERROR: Must at least set host (-host), dbname (-dbname)\n" .
-      "       (options can also be set ".
-        "Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases)\n";
+if ((!defined($host) || !defined($dbname))){
+  if(!defined($gene_database_name)) {
+    die "ERROR: Must at least set host (-host), dbname (-dbname) or -gene_database\n" .
+      "       to allow the connection to be fetched from\n".
+        "     Bio::EnsEMBL::Analysis::Config::Databases.pm \n";
+  }
 }
 
 if($help){
@@ -215,30 +213,28 @@ if (scalar(@genetypes)) {
   @genetypes = split(/,/,join(',',@genetypes));
 }
 
-my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-host => $host,
-                                            -user => $user,
-                                            -port => $port,
-                                            -dbname => $dbname,
-                                            -pass => $pass);
-                                            
+my $db;
 
-if ($path) {
-  $db->assembly_type($path);
-}
-
-if ($dnadbname ne "") {
-
-  if ($dnahost eq "") {
-    $dnahost = $host;
+if($gene_database_name){
+  $db = get_db_adaptor_by_string($gene_database_name);
+}else{
+  $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-host => $host,
+                                           -user => $user,
+                                           -port => $port,
+                                           -dbname => $dbname,
+                                           -pass => $pass);
+  if ($dnadbname ne "") {
+    if ($dnahost eq "") {
+      $dnahost = $host;
+    }
+    my $dnadbase = new Bio::EnsEMBL::DBSQL::DBAdaptor(-host   => $dnahost,
+                                                      -user   => $user,
+                                                      -port   => $dnaport,
+                                                      -dbname => $dnadbname,
+                                                      -pass   => $pass,
+                                                     );
+    $db->dnadb($dnadbase);
   }
-
-  my $dnadbase = new Bio::EnsEMBL::DBSQL::DBAdaptor(-host   => $dnahost,
-                                                    -user   => $user,
-                                                    -port   => $dnaport,
-                                                    -dbname => $dnadbname,
-                                                    -pass   => $pass,
-                                                   );
-  $db->dnadb($dnadbase);
 }
 
 my $sa = $db->get_SliceAdaptor();
