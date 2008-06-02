@@ -164,6 +164,9 @@ my $features = $self->paf_slice->get_all_ProteinAlignFeatures
     #print "HAVE ".keys(%ids_to_ignore)." ids to ignore\n";
     logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore");
   FEATURE:foreach my $feature(@$features){
+  	
+	#print $feature->hseqname." is in this ID with paf_id ".$feature->dbID."\n" if($feature->hseqname=~m/Q2PHF0.1/);
+      
       $protein_count{$feature->hseqname} = 1;
       my $temp_id = $feature->hseqname;
       $temp_id =~ s/\.\d+//;
@@ -209,6 +212,8 @@ my $features = $self->paf_slice->get_all_ProteinAlignFeatures
       push @restricted_list, $local_ids[$i];
     }
     %hit_list = map { $_ => $hit_list{$_} } @restricted_list;
+    #print "Hit name in list\n" if(exists $hit_list{'Q2PHF0.1'});
+    
   }
   if($killed_count && $feature_count && $killed_count == $feature_count){
     warning("RunnableDB:BlastMiniGenewise Killed all the potential ".
@@ -657,11 +662,14 @@ sub process_transcripts{
 
 
 sub write_output{
+	
   my ($self) = @_;
   my $ga = $self->get_adaptor;
   my $sucessful_count = 0;
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
+ 
   foreach my $gene(@{$self->output}){
+  
     my $attach = 0;
     if(!$gene->analysis){
       my $attach = 1;
@@ -692,21 +700,18 @@ sub write_output{
     $sucessful_count = 0;
     my $biotype = $self->REJECTED_BIOTYPE;
     $biotype = "reject_".$self->analysis->logic_name if(!$biotype);
-    foreach my $gene(@{$self->rejected_set}){
-      my $attach = 0;
-      if(!$gene->analysis){
-        my $attach = 1;
-        attach_Analysis_to_Gene($gene, $self->analysis);
-      }
-      if($attach == 0){
+    
+    foreach my $gene(@{$self->rejected_set}){  
       TRANSCRIPT:foreach my $transcript(@{$gene->get_all_Transcripts}){
-          if(!$transcript->analysis){
+          $transcript->biotype($biotype);
+          if(!$gene->analysis||!$transcript->analysis){
             attach_Analysis_to_Gene($gene, $self->analysis);
             last TRANSCRIPT;
           }
         }
-      }
+      
       $gene->biotype($biotype);
+      
       eval{
         $ga->store($gene);
       };
@@ -714,7 +719,7 @@ sub write_output{
         warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
       }else{
         $sucessful_count++;
-      }
+      }      
     }
     if($sucessful_count != @{$self->rejected_set}){
       throw("Failed to write some rejected genes");
