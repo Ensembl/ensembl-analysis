@@ -103,7 +103,7 @@ sub new {
 
   return undef if not defined $from_mapper;
 
-  print "1: ", $direct_target_slice,"\n2: ",$direct_target_slice->length,"\n3: ",length($gs_seq),"\n";
+#  print "1: ", $direct_target_slice,"\n2: ",$direct_target_slice->length,"\n3: ",length($gs_seq),"\n";
 
   my $gs_end = $direct_target_slice 
       ? $direct_target_slice->length
