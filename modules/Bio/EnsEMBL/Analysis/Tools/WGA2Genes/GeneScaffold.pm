@@ -668,7 +668,8 @@ sub place_transcript {
 
   my $prop_non_gap = 100 - (100 * (($pep->seq =~ tr/X/X/) / $pep->length));
   my $num_stops = $pep->seq =~ tr/\*/\*/;
-  
+  my $num_gaps  = $pep->seq =~ tr/X/X/;
+
   #
   # finally, attributes
   #
@@ -698,6 +699,14 @@ sub place_transcript {
                             $prop_non_gap));
   push @attributes, $gap_attr;
   
+  my $prop_non_gap_of_coverage_attr = Bio::EnsEMBL::Attribute->
+    new(-code => 'NonGapHCov',
+        -name => 'proportion non gap of hit coverage',
+        -description => 'proportion non gap of hit coverage',
+        -value => sprintf("%.1f",
+                          100 * (($transcript_aligned_aas - $num_gaps) / length($source_pep))));
+  push @attributes, $prop_non_gap_of_coverage_attr;
+
   if ($start_not_found and $tran->strand > 0 or
       $end_not_found and $tran->strand < 0) {
     my $attr = Bio::EnsEMBL::Attribute->
