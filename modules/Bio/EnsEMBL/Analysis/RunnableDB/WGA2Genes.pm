@@ -1,4 +1,4 @@
-# Cared for by Ensembl
+# cARED For by Ensembl
 #
 # Copyright GRL & EBI
 #
@@ -33,6 +33,9 @@ package Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes;
 require Exporter;
 use vars qw(@ISA @EXPORT);
 use strict;
+
+use warnings;
+use Data::Dumper;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -312,8 +315,8 @@ sub run {
 
   my $external_db_id = $self->get_external_db_id();
 
-  logger_info("INITIAL GENES: " . 
-              join(" ", map {$_->gene->stable_id} @{$self->gene_records}) . "\n");
+  logger_info("INITIAL GENES: " . join(" ", map {$_->gene->stable_id}
+  @{$self->gene_records}) . "\n");
 
   logger_info("ORIGINAL_CHAINS\n" . 
               stringify_chains($self->genomic_align_block_chains));
@@ -494,24 +497,58 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
-  print  "#\n";
-  printf("# WGA2Genes output for %s\n", $self->input_id);
-  printf("#  Genes are:");
+  my $outfile = $self->create_output_dir;
+
+  # This is just to make sure that the output files written properly
+  # and contain all the information that they should. This is done by
+  # counting the number of lines in each file and comparing them to
+  # what is actually printed out.
+
+  open(FH, ">$outfile") or throw("Failed to open $outfile!\n$!");
+
+  my $fh = \*FH;
+  my $line_numbers = 0;
+
+  print ($fh "#\n");
+  $line_numbers++;
+  printf($fh "# WGA2Genes output for %s\n", $self->input_id);
+  $line_numbers++;
+  printf($fh "#  Genes are:");
+  $line_numbers++;
   foreach my $grec (@{$self->gene_records}) {
-    print " " . $grec->gene->stable_id;
+    print ($fh " " . $grec->gene->stable_id);
   }
-  print "\n#\n";
+  print ($fh "\n#\n");
+  $line_numbers++;
+  #print "OUTFILE ".$outfile." used\n";
 
   foreach my $obj (@{$self->output}) {
     my ($gs, @res_genes) = @$obj;
 
-    $self->write_agp($gs);
+    $line_numbers += $self->write_agp($gs, $fh);
     foreach my $g (@res_genes) {
-      $self->write_gene($gs, 
-                        $g);
+      $line_numbers += $self->write_gene($gs, 
+                        $g,
+                        $fh);
     }
   }
 
+  if (!-e $outfile) { throw("The $outfile was not created.\n"); }
+
+  #print $line_numbers, "<-- counted number of lines\n";
+
+  my $cmd = "wc -l $outfile";
+
+  # Run the command and capture the output
+  my $cmd_string = `$cmd`;
+  my @wc = (split(/ /, $cmd_string));
+  #print $wc[0], "<-- what should have been written\n";
+  if ($wc[0] !~ $line_numbers) {
+    throw("The number of lines in the output files differ to what should have
+    been saved. You might need to rerun the pipeline\n");
+  }
+
+  close($fh);
   return;
 }
 
@@ -912,20 +949,20 @@ sub segregate_chains_and_generecords {
           }
         }
       }
-      
+
       if ($overlap_bps >= $min_overlap) {
         $overlapping{$grec} = 1;
       }
     }
-    
+
     foreach my $grecid (keys %overlapping) {
       #print "FOUND A GENE OVERLAP\n";
       $genes_per_chain{$c}->{$grecid} = 1;
     }
   }
-    
+
   my (@clusters, @name_clusters, @res_clusters);
-    
+
   foreach my $cref (keys %genes_per_chain) {
     my $clust = {
       chains => { $cref => 1 },
@@ -1008,25 +1045,31 @@ sub segregate_chains_and_generecords {
 ###########################################################
 
 sub write_agp {
-  my ($self, 
-      $gscaf) = @_;
+  my ($self,
+      $gscaf,
+      $fh) = @_;
 
-  my $fh = \*STDOUT;
+  $fh = \*STDOUT if(!$fh);
 
   my $prefix = "##-AGP";
 
+  my $line_count = 0;
   my @tsegs = $gscaf->project_down;
   my @qsegs = $gscaf->project_up;
-  
+
   print $fh "$prefix \#\n";
+  $line_count++;
+
   printf($fh "$prefix \#\# AGP for %s source-region=%s/%d-%d (iid=%s)\n", 
          $gscaf->seq_region_name,
          $qsegs[0]->to_Slice->seq_region_name,
          $qsegs[0]->to_Slice->start,
          $qsegs[-1]->to_Slice->end,
          $self->input_id);
+  $line_count++;
 
   print $fh "$prefix \#\n";
+  $line_count++;
 
   my $piece_count = 1;
 
@@ -1044,6 +1087,7 @@ sub write_agp {
            $seg->to_Slice->end,
            $seg->to_Slice->strand < 0 ? "-" : "+"
            );
+    $line_count++;
 
     if ($i < @tsegs - 1) {
       printf($fh "$prefix %s\t%d\t%d\t%s\t%s\t%d\n",
@@ -1054,41 +1098,48 @@ sub write_agp {
              "N",
              $tsegs[$i+1]->from_start - $seg->from_end - 1,
              );
+      $line_count++;
     }
   }
+  return $line_count;
 }
 
 
 sub write_gene {
-  my ($self, 
+  my ($self,
       $gene_scaf,
-      $g) = @_;
+      $g,
+      $fh ) = @_;
 
-  my $fh = \*STDOUT;
+  $fh = \*STDOUT if(!$fh);
 
   my $prefix = "##-GENES ";
-  
+
+  my $line_count = 0;
+
   my $seq_id = $gene_scaf->seq_region_name;
   my $gene_id = $g->name;
 
   printf $fh "$prefix \# Gene report for $seq_id\n";
-  
+  $line_count++;
+
   foreach my $tran (@{$g->projected_transcripts}) {
     my ($sf) = @{$tran->get_all_supporting_features};
     my $tran_id = $gene_id . "_" . $sf->hseqname; 
-    
+
     foreach my $attr (@{$tran->get_all_Attributes}) {
       printf($fh "$prefix \##\-ATTRIBUTE transcript=$tran_id code=%s value=%s\n",
              $attr->code, 
              $attr->value);
+      $line_count++;
     }
 
     my @exons = @{$tran->get_all_Exons};
-    
+
     for (my $i=0; $i < @exons; $i++) {
       my $exon = $exons[$i];
       my $exon_id = $tran_id . "_" . $i;
-      
+
       printf($fh "%s %s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s=%s; %s=%s; %s=%s\n", 
              $prefix,
              $seq_id,
@@ -1105,6 +1156,8 @@ sub write_gene {
              $tran_id,
              "gene",
              $gene_id);
+      $line_count++;
+
       foreach my $sup_feat (@{$exon->get_all_supporting_features}) {
         foreach my $ug ($sup_feat->ungapped_features) {
           printf($fh "%s %s\t%s\t%s\t%d\t%d\t%d\t%s=%s; %s=%s; %s=%s; %s=%s; %s=%s; %s=%s\n", 
@@ -1127,8 +1180,9 @@ sub write_gene {
                  $ug->external_db_id,
                  "hcoverage",
                  $ug->hcoverage);
+          $line_count++;
         }
-      }      
+      }
     }
 
     my $pep = $tran->translate;
@@ -1143,10 +1197,40 @@ sub write_gene {
     if ($pep->seq =~ /^X/ or $pep->seq =~ /X$/) {
       logger_info("Transcript $tran_id has Xs at the ends");
     }
-
   }
+  return $line_count;
 }
 
+sub create_output_dir {
+  my ($self, $output_dir_number) = @_;
+  $output_dir_number = 10 if(!$output_dir_number);
+  my $num = int(rand($output_dir_number));
+  my $output_dir = $self->OUTPUT_DIR;
+  if (! -e $output_dir) {
+    warning("Your output directory '" . $output_dir . "' does not exist");
+    warning("- it will be created now\n");
+    eval{
+      system("mkdir -p " . $output_dir);
+    };
+    if($@){
+      throw("Failed to make output directory " . $output_dir . "$@" );
+    }
+  }
+  my $dir = $output_dir."/".$num;
+  if(! -e $dir){
+    my $command = "mkdir $dir";
+    eval{
+      system($command);
+    };
+    if($@){
+      throw("Failed to make $dir $@");
+    }
+  }
+  my $filename = $dir. "/" . $self->input_id."_".$self->analysis->logic_name."_";
+  $filename .= int(rand(1000));
+  $filename .= ".out";
+  return $filename;
+}
 
 ###########################
 # gets/sets
@@ -1401,6 +1485,15 @@ sub LONGEST_SOURCE_TRANSCRIPT {
   return $self->{_longest_source};
 }
 
+sub OUTPUT_DIR {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_output_dir} = $val;
+  }
+
+  return $self->{_output_dir};
+}
 
 sub KILL_LIST {
   my ($self, $val) = @_;
