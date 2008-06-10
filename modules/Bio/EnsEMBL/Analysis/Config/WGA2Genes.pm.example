@@ -127,8 +127,13 @@ use vars qw( %Config );
                # Minimum proportion of result transcript that is not gap
                MIN_NON_GAP  => 50.0,
 
+               # Output directory for the output files
+               OUTPUT_DIR => undeef,
+
              },
              WGA2Genes => {
+               # Directory for WGA2Genes specific output files
+               OUTPUT_DIR => '',
              },
            },
 );
