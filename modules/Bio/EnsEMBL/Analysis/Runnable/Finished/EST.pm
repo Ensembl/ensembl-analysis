@@ -125,7 +125,6 @@ sub run {
 
 		if (!$self->analysis->db)
 		{
-			$db_file =~ s/-\d+//g;
 			print STDOUT "indice file $db_file\n";
 			my $seqfetcher = $self->_make_seqfetcher([$db_file]);
 	    	$self->seqfetcher($seqfetcher);

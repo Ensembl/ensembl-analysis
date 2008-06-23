@@ -10,7 +10,7 @@ use Bio::EnsEMBL::Pipeline::SeqFetcher::Pfetch;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Getseqs;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::EST;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Pipeline::SeqFetcher::xdget;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;

@@ -120,7 +120,6 @@ sub run {
 
 		if (!$self->analysis->db)
 		{
-			$db_file =~ s/-\d+//g;
 			print STDOUT "indice file $db_file\n";
 			my $seqfetcher = $self->_make_seqfetcher([$db_file]);
 	    	$self->seqfetcher($seqfetcher);
@@ -208,7 +207,8 @@ sub _make_seqfetcher {
     my ( $self, $indices ) = @_;
     my $seqfetcher;
     if ( ref($indices) eq "ARRAY"){
-        $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(-db => $indices);
+        $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::xdget->new(-db => $indices,
+        															 -executable => '/software/farm/bin/xdget');
     }
     else{
         $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Pfetch->new();
