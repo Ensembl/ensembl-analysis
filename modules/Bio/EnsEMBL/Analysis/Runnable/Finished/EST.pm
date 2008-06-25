@@ -252,7 +252,8 @@ sub _make_seqfetcher {
     my ( $self, $indices ) = @_;
     my $seqfetcher;
     if ( ref($indices) eq "ARRAY"){
-        $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(-db => $indices);
+        $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::xdget->new(-db => $indices,
+        															 -executable => '/software/farm/bin/xdget');
     }
     else{
         $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Pfetch->new();
