@@ -280,18 +280,19 @@ sub end{
 sub get_transcripts_having_Intron_in_IntronCluster {
   my ($self,$intron) = @_;
 
-  my @transcript_links;
+  my @transcript_array;
   my %transhash =  $self->each_transcripts_introns;
 
   TRANS: foreach my $trans_id (keys %transhash) {
-    foreach my $intron_to_test (@{$transhash{$trans_id}}) {
+    foreach my $intron_to_test (@{$transhash{$trans_id}{'introns'}}) {
+      #print STDERR "transcript $trans_id, intron start ".$intron_to_test->start.", intron end ".$intron_to_test->end.", self start ".$self->start.", self end ".$self->end."\n";
       if($intron_to_test->start == $self->start &&  $intron_to_test->end == $self->end){
-        push @transcript_links, $trans_id;
+        push @transcript_array, $transhash{$trans_id}{'transcript'};
          next TRANS;
       }
     }
   }
-  return \@transcript_links;
+  return \@transcript_array;
 }
 
 =head2
@@ -322,13 +323,14 @@ sub each_transcripts_introns {
 =cut
 
 sub _add_transcript_reference {
-  my ($self,$exon,$transcript) = @_;
+  my ($self,$intron,$transcript) = @_;
   #if there's not already a reference to transcript stored make an arrayref
   if (!$self->contains_transcript($transcript)) {
-    $self->{_transcripthash}{$transcript->adaptor->dbc->dbname."_".$transcript->dbID} = [];
+    $self->{_transcripthash}{$transcript->adaptor->dbc->dbname."_".$transcript->dbID}{'introns'} = [];
+    $self->{_transcripthash}{$transcript->adaptor->dbc->dbname."_".$transcript->dbID}{'transcript'} = $transcript;
   }
-  # store exons of transcript (key: transcript)
-  push @{$self->{_transcripthash}{$transcript->adaptor->dbc->dbname."_".$transcript->dbID}}, $exon;
+  # store introns of transcript (key: transcript)
+  push @{$self->{_transcripthash}{$transcript->adaptor->dbc->dbname."_".$transcript->dbID}{'introns'}}, $intron;
 }
 
 =head2
