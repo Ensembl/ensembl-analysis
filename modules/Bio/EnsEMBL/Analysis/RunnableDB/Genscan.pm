@@ -68,12 +68,12 @@ sub fetch_input{
      %args,
     );
   
-  my $seq = $self->query->seq;
+  my $seq = $self->query->seq; 
   if ($seq =~ /[CATG]{3}/) {
      $self->input_is_void(0);
   } else {
      $self->input_is_void(1);
-     warning("Need at least 3 nucleotides");
+     warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
   }
   
   $self->runnable($runnable);
