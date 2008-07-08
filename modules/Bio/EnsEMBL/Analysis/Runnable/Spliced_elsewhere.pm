@@ -63,13 +63,16 @@ sub new {
 
   $self->{'_genes'} = [];	#array of genescripts to test;  
 
-  my($genes) = rearrange([qw( GENES)], @args);
+  my($genes,$PS_MULTI_EXON_DIR) =
+    rearrange([qw( GENES
+		   PS_MULTI_EXON_DIR
+ )], @args);
+ 
+  $self->genes($genes);
+  $self->PS_MULTI_EXON_DIR($PS_MULTI_EXON_DIR);
 
-  if ($genes) {
-    $self->genes($genes);
-  }
   # Path to blast database
-  $self->db("$PS_MULTI_EXON_DIR"."/all_multi_exon_genes.fasta");
+  $self->db($self->PS_MULTI_EXON_DIR."/all_multi_exon_genes.fasta");
   return $self;
 }
 
