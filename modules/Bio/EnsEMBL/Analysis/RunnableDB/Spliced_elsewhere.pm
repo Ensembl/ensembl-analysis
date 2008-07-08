@@ -54,7 +54,6 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;
 
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
-#use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene; 
 use Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
@@ -88,17 +87,17 @@ sub fetch_input{
   }
   my $runname = "Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere"; 
 
-  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
-  $self->rep_db($dna_db);
+  my $dna_db = $self->get_dbadaptor("REFERENCE_DB") ;
 
   #genes come from final genebuild database
-  my $genes_db = $self->get_dbadaptor("$PS_INPUT_DATABASE");
+  my $genes_db = $self->get_dbadaptor($self->PS_INPUT_DATABASE);
   $self->gene_db($genes_db); 
 
   my $ga = $genes_db->get_GeneAdaptor;
   my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
   my $ids = $fa->fetch_by_analysis($self->analysis);
-  $self->throw("No flags found for analysis $SPLICED_ELSEWHERE_LOGIC_NAME\n")  unless (scalar(@{$ids}>0));
+  $self->throw("No flags found for analysis " .
+	       $self->SPLICED_ELSEWHERE_LOGIC_NAME ."\n")  unless (scalar(@{$ids}>0));
   if ($self->input_id =~ /(\d+):(\d+)/) {
     $start = $1;
     $end = $2;
@@ -114,10 +113,13 @@ sub fetch_input{
     }
   }
   print "$count genes retrieved\n";
-  my $runnable = $runname->new (
-				'-genes' => \@genes,
-				'-analysis' => $self->analysis,
-			       );
+  my $runnable = $runname->new 
+    (
+     '-genes'             => \@genes,
+     '-analysis'          => $self->analysis,
+     '-PS_MULTI_EXON_DIR' => $self->PS_MULTI_EXON_DIR,
+    );
+
   $self->runnable($runnable);
   return 1;
 }
@@ -141,7 +143,7 @@ sub run {
     $self->output($self->real_genes);
     # If you want to store retrotransposed genes for psilc
     return 1 unless ($self->retro_genes);
-    if ($RETROTRANSPOSED ) {
+    if ($self->RETROTRANSPOSED ) {
       # Store gene dbIDS for PSILC 
       my @id_list;
       foreach my $gene (@{$self->retro_genes}) {
@@ -151,10 +153,10 @@ sub run {
     } else {
       # store retrotransposed genes as pseudo or real depending on config
       foreach my $gene (@{$self->retro_genes}) {
-	if ($RETRO_TYPE eq 'pseudogene') {
+	if ($self->RETRO_TYPE eq 'pseudogene') {
 	  $self->pseudo_genes($gene);
 	} else {	
-	  $gene->type($RETRO_TYPE);
+	  $gene->type($self->RETRO_TYPE);
 	  $self->output([$gene]);
 	}
       }
@@ -210,8 +212,8 @@ sub  parse_results{
 	my $retro_coverage = 0;
 	my $real_coverage = 0;
 	# is the percent id above threshold?
-	next DAF unless ($daf->percent_id > $PS_PERCENT_ID_CUTOFF);
-	next DAF unless ($daf->p_value <  $PS_P_VALUE_CUTOFF);
+	next DAF unless ($daf->percent_id > $self->PS_PERCENT_ID_CUTOFF);
+	next DAF unless ($daf->p_value <  $self->PS_P_VALUE_CUTOFF);
 	# dont want reverse matches
 	next DAF unless ($daf->strand == $daf->hstrand ) ;
 	# tighten up the result set
@@ -257,8 +259,8 @@ sub  parse_results{
 	my $coverage = int(($retro_coverage / $retro_trans->length)*100);
 
 	my $aligned_genomic = $real_coverage - $retro_coverage;
-	next DAF unless ($coverage > $PS_RETOTRANSPOSED_COVERAGE);
-	next DAF unless ($aligned_genomic > $PS_ALIGNED_GENOMIC);
+	next DAF unless ($coverage > $self->PS_RETOTRANSPOSED_COVERAGE);
+	next DAF unless ($aligned_genomic > $self->PS_ALIGNED_GENOMIC);
 
 	my $real_trans;
 	# Throw if transcript cannot be found
@@ -286,7 +288,7 @@ sub  parse_results{
 	$real_span = $genomic_coords[$#genomic_coords]->end - $genomic_coords[0]->start;
 	
 	# Is the span higher than the allowed ratio?
-	if ($real_span / $retro_span > $PS_SPAN_RATIO ) {
+	if ($real_span / $retro_span > $self->PS_SPAN_RATIO ) {
 	  print STDERR "---------------------------------------------------------------------------------------------------\n";
 	print STDERR "DAF: " .
 	  $daf->start . " " .
@@ -328,7 +330,7 @@ sub  parse_results{
 	    " is a retro transcript \n";
 	}
       }
-      $gene->biotype($RETRO_TYPE);
+      $gene->biotype($self->RETRO_TYPE);
       $self->retro_genes($gene);
       next RESULT;
     }

@@ -60,22 +60,15 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 package Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 
 use strict;
-use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
-use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Pipeline::Flag;
-#use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Blessed;
-use Bio::EnsEMBL::Pipeline::Config::GeneBuild::Combined;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning 
                                       stack_trace);
-use Data::Dumper;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw(@ISA);
@@ -83,6 +76,12 @@ use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
+sub new {
+  my ($class,@args) = @_;
+  my $self = $class->SUPER::new(@args);
+  $self->read_and_check_config($PSEUDOGENE_CONFIG_BY_LOGIC);
+  return $self;
+}
 
 =head2 fetch_input
 
@@ -103,37 +102,16 @@ sub fetch_input {
   my %homolog_hash;
   my @transferred_genes;
 
-#  print "Loading database ".$GB_DBNAME.":".$GB_DBHOST."\n";
-#  my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-#    (
-#     '-host'   => $GB_DBHOST,
-#     '-user'   => $GB_DBUSER,
-#     '-dbname' => $GB_DBNAME,
-#     '-pass'   => $GB_DBPASS,
-#     '-port'   => $GB_DBPORT,
-#    );
-  #now using Analysis:Databases
   print "Loading reference database : REFERENCE_DB.\n";
   my $rep_db = $self->get_dbadaptor("REFERENCE_DB") ; 
-  #my $rep_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{REFERENCE_DB} });
-
+ 
   #store repeat db internally
   $self->rep_db($rep_db);
   my $rsa = $rep_db->get_SliceAdaptor;
 
-  #genes come from final genebuild database
-#  my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-#    (
-#     '-host'   => $GB_FINALDBHOST,
-#     '-user'   => $GB_FINALDBUSER,
-#     '-dbname' => $GB_FINALDBNAME,
-#     '-pass'   => $GB_FINALDBPASS,
-#     '-port'   => $GB_FINALDBPORT,
-#    );
-  #now using Analysis:Databases
-  print "Loading genes database : PS_INPUT_DATABASE => $PS_INPUT_DATABASE ( defined in Databases.pm ) \n";
-  #my $genes_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{GENEBUILD_DB} });
-  my $genes_db = $self->get_dbadaptor("$PS_INPUT_DATABASE") ; 
+
+  print "Loading genes database : PS_INPUT_DATABASE => ". $self->PS_INPUT_DATABASE." ( defined in Databases.pm ) \n";
+  my $genes_db = $self->get_dbadaptor($self->PS_INPUT_DATABASE) ; 
 
   $self->gene_db($genes_db);
   #genes are written to the pseudogene database
@@ -148,11 +126,11 @@ sub fetch_input {
   print  $genes_slice->name."\t".
     $genes_slice->start."\n"; 
   GENE: foreach my $gene (@{$genes}) { 
-    # gnore all other biotypes of genes that are not protein_coding 
+    # Ignore all other biotypes of genes that are not protein_coding 
     # these genes will still be written to PS_OUTPUT_DATABASE - unless you set 
     # PS_DO_NOT_WRITE_IGNORED_GENES  = 0 
     # 
-    unless ( $gene->biotype eq $PS_BIOTYPE ) {
+    unless ( $gene->biotype eq $self->PS_BIOTYPE ) {
       $self->ignored_genes($gene);
       next GENE;
     }
@@ -197,11 +175,26 @@ sub make_runnable {
   my ($self) = @_;
       
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Pseudogene->new
-      ( 
-        '-analysis' => $self->analysis,
-        '-genes' => $self->genes,
-        '-repeat_features' => $self->repeat_blocks,
-        );
+    ( 
+     -analysis                     => $self->analysis,
+     -genes                        => $self->genes,
+     -repeat_features              => $self->repeat_blocks,
+     -PS_REPEAT_TYPES              => $self->PS_REPEAT_TYPES,
+     -PS_FRAMESHIFT_INTRON_LENGTH  => $self->PS_FRAMESHIFT_INTRON_LENGTH,
+     -PS_MAX_INTRON_LENGTH         => $self->PS_MAX_INTRON_LENGTH,
+     -PS_MAX_INTRON_COVERAGE       => $self->PS_MAX_INTRON_COVERAGE,
+     -PS_MAX_EXON_COVERAGE         => $self->PS_MAX_EXON_COVERAGE,
+     -PS_NUM_FRAMESHIFT_INTRONS    => $self->PS_NUM_FRAMESHIFT_INTRONS,
+     -PS_NUM_REAL_INTRONS          => $self->PS_NUM_REAL_INTRONS,
+     -SINGLE_EXON                  => $self->SINGLE_EXON,
+     -INDETERMINATE                => $self->INDETERMINATE,
+     -PS_MIN_EXONS                 => $self->PS_MIN_EXONS,
+     -PS_MULTI_EXON_DIR            => $self->PS_MULTI_EXON_DIR,
+     -BLESSED_BIOTYPES             => $self->BLESSED_BIOTYPES,
+     -PS_PSEUDO_TYPE               => $self->PS_PSEUDO_TYPE,
+     -PS_BIOTYPE                   => $self->PS_BIOTYPE,
+     -DEBUG                        => $self->DEBUG,
+    );
   $self->runnable($runnable);
 }
 
@@ -224,7 +217,7 @@ sub get_all_repeat_blocks {
  REPLOOP: foreach my $repeat (@repeats) {
     my $rc = $repeat->repeat_consensus;
     my $use = 0;
-    foreach my $type (@$PS_REPEAT_TYPES){
+    foreach my $type (@{$self->PS_REPEAT_TYPES}){
       if ($rc->repeat_class =~ /$type/) {
 	$use = 1;
 	last;
@@ -264,7 +257,7 @@ sub get_all_repeat_blocks {
 sub write_output {
 my($self) = @_;
   my $genes = $self->output; 
-  if ( $PS_WRITE_IGNORED_GENES == 1 ) {  
+  if ( $self->PS_WRITE_IGNORED_GENES == 1 ) {  
     print "writing ignored genes\n" ; 
     push @{$genes},@{$self->ignored_genes} if $self->ignored_genes;  
   }  
@@ -272,20 +265,10 @@ my($self) = @_;
     my %feature_hash;
   #  empty_Analysis_cache();
   # write genes out to a different database from the one we read genes from.
-
-#  my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-#					      '-host'   => $PSEUDO_DBHOST,
-#					      '-user'   => $PSEUDO_DBUSER,
-#					      '-dbname' => $PSEUDO_DBNAME,
-#					      '-pass'   => $PSEUDO_DBPASS,
-#					      '-port'   => $PSEUDO_DBPORT,
-#					     );
-
-# my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $$DATABASES{PSEUDO_DB} });
-  my $db = $self->get_dbadaptor("$PS_OUTPUT_DATABASE") ; 
+  my $db = $self->get_dbadaptor($self->PS_OUTPUT_DATABASE) ; 
 
   #now using Analysis:Databases
-  print "Writing to database PS_OUTPUT_DATABASE : $PS_OUTPUT_DATABASE\n"; 
+  print "Writing to database PS_OUTPUT_DATABASE : " . $self->PS_OUTPUT_DATABASE . "\n"; 
 
 
   # sort out analysis
@@ -298,8 +281,6 @@ my($self) = @_;
     # store gene
     eval {
       $gene_adaptor->store($self->lazy_load($gene));
-      print STDERR  "wrote gene " . $gene->dbID . " to database ".
-        $gene_adaptor->db->dbname."\n";
     };
     if ( $@ ) {
       warning("UNABLE TO WRITE GENE:\n$@");
@@ -325,11 +306,11 @@ sub run  {
     throw("Runnable module not set") unless ($runnable->isa("Bio::EnsEMBL::Analysis::Runnable"));
     $runnable->run();
     $self->output($runnable->output);
-    if ($SINGLE_EXON){
-      $self->store_ids($runnable->single_exon_genes,$SPLICED_ELSEWHERE_LOGIC_NAME);
+    if ($self->SINGLE_EXON){
+      $self->store_ids($runnable->single_exon_genes,$self->SPLICED_ELSEWHERE_LOGIC_NAME);
     }    
-    if ($INDETERMINATE){
-      $self->store_ids($runnable->indeterminate_genes,$PSILC_LOGIC_NAME);
+    if ($self->INDETERMINATE){
+      $self->store_ids($runnable->indeterminate_genes,$self->PSILC_LOGIC_NAME);
     }
   }
   return 0;
@@ -405,14 +386,7 @@ sub lazy_load {
 sub _remove_transcript_from_gene {
   my ($self, $gene, $trans_to_del)  = @_;
   # check to see if it is a blessed transcript first
-  foreach my $blessed ( @{$GB_BLESSED_GENETYPES} ) {
-    if ( $trans_to_del->biotype eq $blessed->{'type'} or 
-	 $trans_to_del->biotype eq $GB_BLESSED_COMBINED_GENETYPE ) {
-      # transcript is blessed dont delete it
-      return 'BLESSED';
-    }
-  }
-
+  return 'BLESSED' if $self->BLESSED_BIOTYPES->{$trans_to_del->biotype};
   my @newtrans;
   foreach my $trans (@{$gene->get_all_Transcripts}) {
     if ($trans != $trans_to_del) {
@@ -441,13 +415,7 @@ sub _remove_transcript_from_gene {
 
 sub transcript_to_keep {
   my ($self, $trans_to_keep)  = @_;
-  foreach my $blessed ( @{$GB_BLESSED_GENETYPES} ) {
-    if ( $trans_to_keep->biotype eq $blessed->{'type'} or 
-	 $trans_to_keep->biotype eq $GB_BLESSED_COMBINED_GENETYPE ) {
-      # transcript is blessed dont delete the translation
-      return;
-    }
-  }
+  return if  $self->BLESSED_BIOTYPES->{$trans_to_keep->biotype};
   $trans_to_keep->translation(undef);
   return;
 }
@@ -604,6 +572,388 @@ sub ignored_genes {
   return $self->{'_ignored_gene'};
 }
 
+#==================================================================
 
+sub PS_INPUT_DATABASE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_INPUT_DATABASE'} = $arg;
+  }
+  return $self->{'PS_INPUT_DATABASE'};
+}
+
+sub PS_OUTPUT_DATABASE {
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_OUTPUT_DATABASE'} = $arg;
+  }
+  return $self->{'PS_OUTPUT_DATABASE'};
+}
+
+sub PS_FRAMESHIFT_INTRON_LENGTH{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_FRAMESHIFT_INTRON_LENGTH'} = $arg;
+  }
+  return $self->{'PS_FRAMESHIFT_INTRON_LENGTH'};
+}
+
+sub PS_MAX_INTRON_LENGTH{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_MAX_INTRON_LENGTH'} = $arg;
+  }
+  return $self->{'PS_MAX_INTRON_LENGTH'};
+}
+
+sub PS_REPEAT_TYPES{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_REPEAT_TYPES'} = $arg;
+  }
+  return $self->{'PS_REPEAT_TYPES'};
+}
+
+sub PS_MAX_INTRON_COVERAGE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_MAX_INTRON_COVERAGE'} = $arg;
+  }
+  return $self->{'PS_MAX_INTRON_COVERAGE'};
+}
+
+
+sub PS_MAX_EXON_COVERAGE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_MAX_EXON_COVERAGE'} = $arg;
+  }
+  return $self->{'PS_MAX_EXON_COVERAGE'};
+}
+
+sub PS_NUM_FRAMESHIFT_INTRONS {
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_NUM_FRAMESHIFT_INTRONS'} = $arg;
+  }
+  return $self->{'PS_NUM_FRAMESHIFT_INTRONS'};
+}
+
+sub PS_NUM_REAL_INTRONS{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_NUM_REAL_INTRONS'} = $arg;
+  }
+  return $self->{'PS_NUM_REAL_INTRONS'};
+}
+
+sub PS_BIOTYPE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_BIOTYPE'} = $arg;
+  }
+  return $self->{'PS_BIOTYPE'};
+}
+
+sub PS_WRITE_IGNORED_GENES{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_WRITE_IGNORED_GENES'} = $arg;
+  }
+  return $self->{'PS_WRITE_IGNORED_GENES'};
+}
+
+sub PS_PERCENT_ID_CUTOFF{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_PERCENT_ID_CUTOFF'} = $arg;
+  }
+  return $self->{'PS_PERCENT_ID_CUTOFF'};
+}
+
+
+sub PS_P_VALUE_CUTOFF{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_P_VALUE_CUTOFF'} = $arg;
+  }
+  return $self->{'PS_P_VALUE_CUTOFF'};
+}
+
+
+sub PS_RETOTRANSPOSED_COVERAGE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_RETOTRANSPOSED_COVERAGE'} = $arg;
+  }
+  return $self->{'PS_RETOTRANSPOSED_COVERAGE'};
+}
+
+
+sub PS_ALIGNED_GENOMIC{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_ALIGNED_GENOMIC'} = $arg;
+  }
+  return $self->{'PS_ALIGNED_GENOMIC'};
+}
+
+
+sub PS_PSEUDO_TYPE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_PSEUDO_TYPE'} = $arg;
+  }
+  return $self->{'PS_PSEUDO_TYPE'};
+}
+
+
+sub PS_REPEAT_TYPE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_REPEAT_TYPE'} = $arg;
+  }
+  return $self->{'PS_REPEAT_TYPE'};
+}
+
+
+sub SINGLE_EXON{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'SINGLE_EXON'} = $arg;
+  }
+  return $self->{'SINGLE_EXON'};
+}
+
+
+sub INDETERMINATE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'INDETERMINATE'} = $arg;
+  }
+  return $self->{'INDETERMINATE'};
+}
+
+
+sub RETROTRANSPOSED{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'RETROTRANSPOSED'} = $arg;
+  }
+  return $self->{'RETROTRANSPOSED'};
+}
+
+
+sub RETRO_TYPE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'RETRO_TYPE'} = $arg;
+  }
+  return $self->{'RETRO_TYPE'};
+}
+
+
+sub SPLICED_ELSEWHERE_LOGIC_NAME{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'SPLICED_ELSEWHERE_LOGIC_NAME'} = $arg;
+  }
+  return $self->{'SPLICED_ELSEWHERE_LOGIC_NAME'};
+}
+
+sub PSILC_LOGIC_NAME{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_LOGIC_NAME'} = $arg;
+  }
+  return $self->{'PSILC_LOGIC_NAME'};
+}
+
+sub PS_SPAN_RATIO{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_SPAN_RATIO'} = $arg;
+  }
+  return $self->{'PS_SPAN_RATIO'};
+}
+
+sub PS_MIN_EXONS{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_MIN_EXONS'} = $arg;
+  }
+  return $self->{'PS_MIN_EXONS'};
+}
+
+
+sub PS_MULTI_EXON_DIR{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_MULTI_EXON_DIR'} = $arg;
+  }
+  return $self->{'PS_MULTI_EXON_DIR'};
+}
+
+sub PS_CHUNK{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_CHUNK'} = $arg;
+  }
+  return $self->{'PS_CHUNK'};
+}
+
+sub DEBUG{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'DEBUG'} = $arg;
+  }
+  return $self->{'DEBUG'};
+}
+
+sub SUBJECT{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'SUBJECT'} = $arg;
+  }
+  return $self->{'SUBJECT'};
+}
+
+sub PSILC_SUBJECT_DBNAME{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_SUBJECT_DBNAME'} = $arg;
+  }
+  return $self->{'PSILC_SUBJECT_DBNAME'};
+}
+
+sub PSILC_SUBJECT_DBHOST{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_SUBJECT_DBHOST'} = $arg;
+  }
+  return $self->{'PSILC_SUBJECT_DBHOST'};
+}
+
+sub PSILC_SUBJECT_DBPORT{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_SUBJECT_DBPORT'} = $arg;
+  }
+  return $self->{'PSILC_SUBJECT_DBPORT'};
+}
+
+sub ORTH1{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'ORTH1'} = $arg;
+  }
+  return $self->{'ORTH1'};
+}
+
+
+
+sub PSILC_ORTH1_DBNAME{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_ORTH1_DBNAME'} = $arg;
+  }
+  return $self->{'PSILC_ORTH1_DBNAME'};
+}
+
+sub PSILC_ORTH1_DBHOST{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_ORTH1_DBHOST'} = $arg;
+  }
+  return $self->{'PSILC_ORTH1_DBHOST'};
+}
+
+sub PSILC_ORTH1_DBPORT{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_ORTH1_DBPORT'} = $arg;
+  }
+  return $self->{'PSILC_ORTH1_DBPORT'};
+}
+
+sub ORTH2{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'ORTH2'} = $arg;
+  }
+  return $self->{'ORTH2'};
+}
+
+sub PSILC_ORTH2_DBNAME{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_ORTH2_DBNAME'} = $arg;
+  }
+  return $self->{'PSILC_ORTH2_DBNAME'};
+}
+
+sub PSILC_ORTH2_DBHOST{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_ORTH2_DBHOST'} = $arg;
+  }
+  return $self->{'PSILC_ORTH2_DBHOST'};
+}
+
+sub PSILC_ORTH2_DBPORT{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_ORTH2_DBPORT'} = $arg;
+  }
+  return $self->{'PSILC_ORTH2_DBPORT'};
+}
+
+sub PSILC_WORK_DIR{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_WORK_DIR'} = $arg;
+  }
+  return $self->{'PSILC_WORK_DIR'};
+}
+
+sub PS_SPECIES_LIMIT{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_SPECIES_LIMIT'} = $arg;
+  }
+  return $self->{'PS_SPECIES_LIMIT'};
+}
+
+sub PSILC_BLAST_DB{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_BLAST_DB'} = $arg;
+  }
+  return $self->{'PSILC_BLAST_DB'};
+}
+
+sub PSILC_CHUNK{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PSILC_CHUNK'} = $arg;
+  }
+  return $self->{'PSILC_CHUNK'};
+}
+
+sub REP_TRANSCRIPT{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'REP_TRANSCRIPT'} = $arg;
+  }
+  return $self->{'REP_TRANSCRIPT'};
+}
+
+sub BLESSED_BIOTYPES{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'BLESSED_BIOTYPES'} = $arg;
+  }
+  return $self->{'BLESSED_BIOTYPES'};
+}
 
 1;
