@@ -25,11 +25,12 @@ Bio::EnsEMBL::Analysis::RunnableDB::PSILC
 
 package Bio::EnsEMBL::Analysis::Config::Pseudogene;
 use strict;
-use vars qw( %Pseudogene );
+use vars qw( %Config );
 
 # Hash containing config info
-%Pseudogene = (	
- 
+%Config = (	
+ PSEUDOGENE_CONFIG_BY_LOGIC  => {
+    DEFAULT => {
                # you can set the input- and output database - the names should point to 
                # keys in Database.pm 
                PS_INPUT_DATABASE  => 'GENEBUILD_DB',  
@@ -50,13 +51,18 @@ use vars qw( %Pseudogene );
 	       PS_NUM_FRAMESHIFT_INTRONS  => 1,
 	       PS_NUM_REAL_INTRONS  => 1,
 	       # biotype of genes to check
-	       PS_BIOTYPE  => 'protein_coding',  
-
+	       PS_BIOTYPE  => 'ensembl',  
+               
+	       # Blessed genes dont get called pseudogenes
+	       BLESSED_BIOTYPES => {},	
+				    
+				    
                # The default behaviour of pseudogene_DB.pm is to analyse ALL genes in a database 
                # whcih have biotype PS_BIOTYPE ( default : protein_coding ). ALL genes which don't 
-               # match this biotype are not analysed, but will still be written to PS_OUTPUT_DATABASE                # You can switch this default behaviour OFF if you set PS_WRITE_IGNORED_GENES to 0. 
+               # match this biotype are not analysed, but will still be written to PS_OUTPUT_DATABASE 
+	       # You can switch this default behaviour OFF if you set PS_WRITE_IGNORED_GENES to 0. 
 
-               PS_WRITE_IGNORED_GENES => 1, 
+               PS_WRITE_IGNORED_GENES => 0, 
 
 	       # configs for the spliced elsewhere tests
 	       # %ID of a tbalstx of the (presumed) retrotransposed query sequence to its 
@@ -127,15 +133,17 @@ use vars qw( %Pseudogene );
 	       # Only run PSILC over the longest transript in a gene if set to 1
 	       # should speed it up if running over a very large dataset
 	       REP_TRANSCRIPT       => '',
-	       );	
+               },
+	
+	   }
+	);	
 
 sub import {
   my ($callpack) = caller(0); # Name of the calling package
   my $pack = shift; # Need to move package off @_
-  
-  # Get list of variables supplied, or else
-  # all of Pseudogene_config:
-  my @vars = @_ ? @_ : keys( %Pseudogene );
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
   return unless @vars;
   
   # Predeclare global variables in calling package
@@ -145,16 +153,17 @@ sub import {
 
 
     foreach (@vars) {
-	if ( defined $Pseudogene{ $_ } ) {
+	if ( defined $Config{$_} ) {
             no strict 'refs';
 	    # Exporter does a similar job to the following
 	    # statement, but for function names, not
 	    # scalar variables:
-	    *{"${callpack}::$_"} = \$Pseudogene{ $_ };
+	    *{"${callpack}::$_"} = \$Config{ $_ };
 	} else {
-	    die "Error: Pseudogene: $_ not known\n";
+	    die "Error: Config: $_ not known\n";
 	}
     }
 }
+
 
 1;
