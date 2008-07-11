@@ -62,9 +62,10 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(convert_to_genes are_strands_consistent are_phases_consistent 
      is_not_folded has_no_unwanted_evidence all_exons_are_valid 
-     intron_lengths_all_less_than_maximum low_complexity_less_than_maximum 
-     list_evidence evidence_coverage_greater_than_minimum Transcript_info
+     intron_lengths_all_less_than_maximum list_evidence 
+     evidence_coverage_greater_than_minimum Transcript_info
      split_Transcript tidy_split_transcripts evidence_coverage);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ConfigDependent::TranscriptUtils qw(low_complexity_less_than_maximum) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(exon_length_less_than_maximum);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(clone_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string 
