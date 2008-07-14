@@ -4,6 +4,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter;
 
 use strict;
 use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy;
 use Bio::EnsEMBL::SimpleFeature;
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished';
@@ -26,6 +27,7 @@ sub run {
 	my $orig_analysis_name = $params{ori_analysis};
 	my $hit_db = $params{hit_db};
 	my $mode = $params{mode};
+	my $taxon_id = $params{taxon};
 
 	# Get the blast db version from the raw analysis and save it
 	my $analysis_adaptor = $self->db->get_AnalysisAdaptor();
@@ -36,7 +38,7 @@ sub run {
 
     my $slice = $self->query();
 
-	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db,$mode);
+	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db,$mode,$taxon_id);
 
 	my ( $filtered_features, $saturated_zones) =
         $self->depth_filter($orig_features, $slice, $max_coverage, $percentid_cutoff);
@@ -45,7 +47,7 @@ sub run {
 }
 
 sub get_original_features {
-	my ($self,$slice,$analysis,$hit_db,$mode) = @_;
+	my ($self,$slice,$analysis,$hit_db,$mode,$taxon_id) = @_;
 	my $hit_db_features = [];
     my $prot_feat_a = $self->db->get_ProteinAlignFeatureAdaptor;
     my $dna_feat_a  = $self->db->get_DnaAlignFeatureAdaptor;
@@ -86,13 +88,25 @@ sub get_original_features {
 		map ( push(@$orig_features,@$_) , values %$single_hash);
 	}
 
-    if($hit_db){
-    	print STDERR "DepthFilter: hit db is $hit_db\n";
+    if($hit_db || $taxon_id){
+    	print STDERR "DepthFilter: hit db is $hit_db\n" if $hit_db;
+    	my $taxon_ids;
+    	if ($taxon_id){
+    		print STDERR "DepthFilter: taxonomy id is $taxon_id\n";
+    		my $taxon = Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy->new();
+    		$taxon_ids = $taxon->get_all_children_id($taxon_id);
+    		push @$taxon_ids, $taxon_id;
+    	}
+
     	my $hit_hash = {map {$_->hseqname, undef} @$orig_features};
 	    $hit_desc_a->fetch_HitDescriptions_into_hash($hit_hash);
+
 	    foreach my $feat (@$orig_features) {
 	        if (my $desc = $hit_hash->{$feat->hseqname}) {
-	            push @$hit_db_features, $feat if($desc->db_name eq $hit_db);
+	        	my $hit_taxon_id = $desc->taxon_id;
+	            push @$hit_db_features, $feat
+	            	if( ($hit_db && $desc->db_name eq $hit_db) ||
+	            	   ($taxon_id && grep(/$hit_taxon_id/,@$taxon_ids)) );
 	        }
 	    }
 	    print STDERR "DepthFilter: use ".scalar(@$hit_db_features)." features out of ".scalar(@$orig_features)."\n";
