@@ -106,7 +106,7 @@ sub get_original_features {
 	        	my $hit_taxon_id = $desc->taxon_id;
 	            push @$hit_db_features, $feat
 	            	if( ($hit_db && $desc->db_name eq $hit_db) ||
-	            	   ($taxon_id && grep(/$hit_taxon_id/,@$taxon_ids)) );
+	            	    ($taxon_id && grep(/^$hit_taxon_id$/,@$taxon_ids)) );
 	        }
 	    }
 	    print STDERR "DepthFilter: use ".scalar(@$hit_db_features)." features out of ".scalar(@$orig_features)."\n";
