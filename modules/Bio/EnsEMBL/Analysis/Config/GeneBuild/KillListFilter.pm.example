@@ -132,6 +132,20 @@ use vars qw( %Config );
         -for_external_db_ids  => [],
       }
     },
+    cDNA_update => {
+      FILTER_PARAMS    => {
+        -only_mol_type        => 'cDNA',
+        -user_id              => undef,
+        -from_source_species  => undef,
+        -before_date          => undef,
+        -having_status        => undef,
+        -reasons              => [],
+        -for_analyses         => ['cDNA_update'],
+        -for_species          => [],
+        -for_external_db_ids  => [],
+      }
+    },
+
   },
 );
 
