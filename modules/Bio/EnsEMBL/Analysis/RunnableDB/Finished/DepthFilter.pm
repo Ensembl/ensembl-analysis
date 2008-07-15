@@ -90,23 +90,43 @@ sub get_original_features {
 
     if($hit_db || $taxon_id){
     	print STDERR "DepthFilter: hit db is $hit_db\n" if $hit_db;
-    	my $taxon_ids;
+    	my $plus_taxon_ids  = [];
+    	my $minus_taxon_ids = [];
     	if ($taxon_id){
-    		print STDERR "DepthFilter: taxonomy id is $taxon_id\n";
+    		my @ti = split(/\|/,$taxon_id);
+    		print STDERR "DepthFilter: taxonomy ids are ".join(" ",@ti)."\n";
     		my $taxon = Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy->new();
-    		$taxon_ids = $taxon->get_all_children_id($taxon_id);
-    		push @$taxon_ids, $taxon_id;
+    		for my $t (@ti) {
+    			if($t < 0) {
+    				$t = abs($t);
+    				push @$minus_taxon_ids, @{$taxon->get_all_children_id($t)};
+    				push @$minus_taxon_ids, $t;
+    			} else {
+    				push @$plus_taxon_ids, @{$taxon->get_all_children_id($t)};
+    				push @$plus_taxon_ids, $t;
+    			}
+    		}
     	}
 
     	my $hit_hash = {map {$_->hseqname, undef} @$orig_features};
 	    $hit_desc_a->fetch_HitDescriptions_into_hash($hit_hash);
 
 	    foreach my $feat (@$orig_features) {
+	    	my $tag = 1;
 	        if (my $desc = $hit_hash->{$feat->hseqname}) {
 	        	my $hit_taxon_id = $desc->taxon_id;
-	            push @$hit_db_features, $feat
-	            	if( ($hit_db && $desc->db_name eq $hit_db) ||
-	            	    ($taxon_id && grep(/^$hit_taxon_id$/,@$taxon_ids)) );
+
+	            if($hit_db) {
+	            	$tag = 0 if $desc->db_name ne $hit_db;
+	            }
+	            if(@$plus_taxon_ids) {
+	            	$tag *= 0 unless grep(/^$hit_taxon_id$/,@$plus_taxon_ids);
+	            }
+	            if(@$minus_taxon_ids) {
+	            	$tag *= 0 if grep(/^$hit_taxon_id$/,@$minus_taxon_ids);
+	            }
+
+				push(@$hit_db_features, $feat) if $tag;
 	        }
 	    }
 	    print STDERR "DepthFilter: use ".scalar(@$hit_db_features)." features out of ".scalar(@$orig_features)."\n";
