@@ -1,6 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 
 use strict;
+use warnings;
 use Getopt::Long;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -20,12 +21,14 @@ my (
     $verbose,
     $gene_logic_name,
     $sf_logic_name,
-    $load_attributes,
     %ug_feats, 
     %transcripts,
     %attributes,
     @out_genes,
 );
+
+# Load the attributes by default
+my $load_attributes = 1;
 
 &GetOptions(
             'dbname=s'     => \$dbname,
@@ -37,7 +40,8 @@ my (
             'sflogic=s'    => \$sf_logic_name,
             'test'         => \$test,
             'verbose'      => \$verbose,
-            'attributes'   => \$load_attributes,
+            # Use -noattributes if not loading the attributes to the database
+            'attributes!'   => \$load_attributes,
             );
 
 die "You must supply a gene/transcript logic name with -genelogic\n" 
@@ -113,7 +117,7 @@ while(<>) {
     my ($tid, $code, $name, $val, $desc);
     if ($line =~ /transcript=(\S+)/) {
       $tid = $1;
-    }    
+    }
     if ($line =~ /code=(\S+)/) {
       $code = $1;
     }
@@ -126,11 +130,11 @@ while(<>) {
     if ($line =~ /desc=\"([^\"]+)\"/) {
       $desc = $1;
     }
-    
+
     if (defined($tid) and defined($code) and defined($val)) {
       $name = $code if not defined $name;
       $desc = $code if not defined $desc;
-          
+
       push @{$attributes{$tid}}, {
         code => $code,
         value => $val,
@@ -179,7 +183,7 @@ while(<>) {
     my ($exon_id) = $group{exon};
     my ($external_db_id) = $group{external_db_id};
     my ($hcoverage) = $group{hcoverage};
-    
+
     push @{$ug_feats{$exon_id}}, {
       start => $start,
       end   => $end,
@@ -343,7 +347,6 @@ sub cluster_by_exon_overlap {
       CT: foreach my $ct (@$c) {
         my @c_exons = @{$ct->get_all_Exons};
 
-        
         for(my $i=0; $i<@exons; $i++) {
           for(my $j=0; $j < @c_exons; $j++) {
             if ($exons[$i]->strand == $c_exons[$j]->strand and
