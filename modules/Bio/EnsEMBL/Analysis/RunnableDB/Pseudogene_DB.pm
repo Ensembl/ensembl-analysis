@@ -193,6 +193,7 @@ sub make_runnable {
      -BLESSED_BIOTYPES             => $self->BLESSED_BIOTYPES,
      -PS_PSEUDO_TYPE               => $self->PS_PSEUDO_TYPE,
      -PS_BIOTYPE                   => $self->PS_BIOTYPE,
+     -PS_REPEAT_TYPE              => $self->PS_REPEAT_TYPE,
      -DEBUG                        => $self->DEBUG,
     );
   $self->runnable($runnable);
@@ -948,6 +949,14 @@ sub REP_TRANSCRIPT{
   return $self->{'REP_TRANSCRIPT'};
 }
 
+sub PS_REPEAT_TYPE{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'PS_REPEAT_TYPE'} = $arg;
+  }
+  return $self->{'PS_REPEAT_TYPE'};
+}
+						
 sub BLESSED_BIOTYPES{
   my ($self, $arg) = @_;
   if($arg){
