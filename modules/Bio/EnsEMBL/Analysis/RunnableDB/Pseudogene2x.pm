@@ -82,10 +82,26 @@ sub make_runnable {
 
   my $run = Bio::EnsEMBL::Analysis::Runnable::Pseudogene2x->new
       ( 
-        '-analysis' => $self->analysis,
-        '-genes' => $self->genes,
-        '-repeat_features' => $self->repeat_blocks,
-        );
+        -analysis => $self->analysis,
+        -genes => $self->genes,
+        -repeat_features => $self->repeat_blocks,
+        -PS_REPEAT_TYPES              => $self->PS_REPEAT_TYPES,
+		    -PS_FRAMESHIFT_INTRON_LENGTH  => $self->PS_FRAMESHIFT_INTRON_LENGTH,
+				-PS_MAX_INTRON_LENGTH         => $self->PS_MAX_INTRON_LENGTH,
+				-PS_MAX_INTRON_COVERAGE       => $self->PS_MAX_INTRON_COVERAGE,
+				-PS_MAX_EXON_COVERAGE         => $self->PS_MAX_EXON_COVERAGE,
+				-PS_NUM_FRAMESHIFT_INTRONS    => $self->PS_NUM_FRAMESHIFT_INTRONS,
+				-PS_NUM_REAL_INTRONS          => $self->PS_NUM_REAL_INTRONS,
+				-SINGLE_EXON                  => $self->SINGLE_EXON,
+				-INDETERMINATE                => $self->INDETERMINATE,
+				-PS_MIN_EXONS                 => $self->PS_MIN_EXONS,
+				-PS_MULTI_EXON_DIR            => $self->PS_MULTI_EXON_DIR,
+				-BLESSED_BIOTYPES             => $self->BLESSED_BIOTYPES,
+				-PS_PSEUDO_TYPE               => $self->PS_PSEUDO_TYPE,
+				-PS_BIOTYPE                   => $self->PS_BIOTYPE,
+				-DEBUG                        => $self->DEBUG,
+																																					
+      );
   $self->runnable($run);
 }
 
