@@ -72,6 +72,7 @@ use vars qw(@ISA);
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
+
   #SET UP ANY INSTANCE VARIABLES
 
   $self->{'_modified_genes'} =[] ; # array ref to modified genes to write to new db
@@ -88,7 +89,7 @@ sub new {
       $PS_MAX_INTRON_COVERAGE,$PS_MAX_EXON_COVERAGE,
       $PS_NUM_FRAMESHIFT_INTRONS,$PS_NUM_REAL_INTRONS,$SINGLE_EXON,
       $INDETERMINATE,$PS_MIN_EXONS,$PS_MULTI_EXON_DIR,
-      $BLESSED_BIOTYPES,$PS_PSEUDO_TYPE,$PS_BIOTYPE,$DEBUG) = rearrange
+      $BLESSED_BIOTYPES,$PS_PSEUDO_TYPE,$PS_BIOTYPE,$PS_REPEAT_TYPE,$DEBUG) = rearrange
 	([qw(
 	     GENES
 	     REPEAT_FEATURES
@@ -106,7 +107,9 @@ sub new {
 	     BLESSED_BIOTYPES
 	     PS_PSEUDO_TYPE
 	     PS_BIOTYPE
-	     DEBUG )], @args);
+       PS_REPEAT_TYPE
+       DEBUG )], @args);
+
   $self->genes($genes);
   $self->repeats($repeat_features);
   $self->PS_REPEAT_TYPES($PS_REPEAT_TYPES);
@@ -123,6 +126,7 @@ sub new {
   $self->BLESSED_BIOTYPES($BLESSED_BIOTYPES);
   $self->PS_PSEUDO_TYPE($PS_PSEUDO_TYPE);
   $self->PS_BIOTYPE($PS_BIOTYPE);
+	$self->PS_REPEAT_TYPE($PS_REPEAT_TYPE);
   $self->DEBUG($DEBUG);
   return $self;
 }
@@ -1087,6 +1091,13 @@ sub PS_PSEUDO_TYPE{
   return $self->{'PS_PSEUDO_TYPE'};
 }
 
+sub PS_REPEAT_TYPE{
+  my ($self, $arg) = @_;
+	if($arg){
+		$self->{'PS_REPEAT_TYPE'} = $arg;
+	}
+	  return $self->{'PS_REPEAT_TYPE'};
+}					
 
 sub DEBUG{
   my ($self, $arg) = @_;
