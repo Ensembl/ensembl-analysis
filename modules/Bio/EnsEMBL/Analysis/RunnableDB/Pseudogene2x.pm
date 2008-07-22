@@ -99,6 +99,7 @@ sub make_runnable {
 				-BLESSED_BIOTYPES             => $self->BLESSED_BIOTYPES,
 				-PS_PSEUDO_TYPE               => $self->PS_PSEUDO_TYPE,
 				-PS_BIOTYPE                   => $self->PS_BIOTYPE,
+				-PS_REPEAT_TYPE              => $self->PS_REPEAT_TYPE,
 				-DEBUG                        => $self->DEBUG,
 																																					
       );
