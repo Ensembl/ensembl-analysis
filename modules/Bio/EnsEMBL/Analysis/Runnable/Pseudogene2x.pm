@@ -44,10 +44,10 @@ sub transcript_evidence{
 
   # ignore small terminal exons; they are mostly
   # alignment artefacts rather than indicators of pseudogenes
-  while(@exons and $exons[0]->length <= $PS_FRAMESHIFT_INTRON_LENGTH) {
+  while(@exons and $exons[0]->length <= $self->PS_FRAMESHIFT_INTRON_LENGTH()) {
     shift @exons;
   }
-  while(@exons and $exons[-1]->length <= $PS_FRAMESHIFT_INTRON_LENGTH) {
+  while(@exons and $exons[-1]->length <= $self->PS_FRAMESHIFT_INTRON_LENGTH()) {
     pop @exons;
   }
 
@@ -90,7 +90,7 @@ sub transcript_evidence{
       }
 
       if (not $intron_in_gap) {
-        if ($intron->length > $PS_FRAMESHIFT_INTRON_LENGTH) {
+        if ($intron->length > $self->PS_FRAMESHIFT_INTRON_LENGTH()) {
           $n_real_intron++;
           # need to restrict ourselves to parts of intron that are
           # on real sequence
