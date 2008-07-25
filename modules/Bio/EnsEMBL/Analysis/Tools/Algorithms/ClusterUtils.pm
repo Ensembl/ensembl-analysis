@@ -39,7 +39,7 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 
 
 sub cluster_Genes {
-  my ($genes, $types_hash) = @_ ;
+  my ($genes, $types_hash, $check_coding_overlap) = @_ ;
 
   #
   # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton' 
@@ -60,13 +60,13 @@ sub cluster_Genes {
   my @sorted_genes =
           sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$genes;
 
-  print "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;
+  print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;
 
   my $count = 0;
 
   my @active_clusters;
   my @inactive_clusters;
-  GENE: foreach my $gene (@sorted_genes) {
+  TRANSCRIPT: foreach my $gene (@sorted_genes) {
     $count++;
 
     # Every 50 genes divide clusters into an active (ones which could be have this gene added to it) and inactive 
@@ -133,7 +133,7 @@ sub cluster_Genes {
             # and add to cluster  
             #
 
-            if (_compare_Genes( $gene, $cluster_gene)) {
+            if (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap)) {
               push (@matching_clusters, $cluster);
               next CLUSTER;
             }
@@ -205,7 +205,7 @@ sub cluster_Genes {
       push( @new_clusters, $cl );
     }
   }
-  print "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
+  print STDERR "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
   
   return (\@new_clusters, \@unclustered);
 }
@@ -267,6 +267,18 @@ sub _compare_Genes {
   return 0;
 }
 
+sub get_coding_exons_for_gene {
+  my ($gene) = @_;
 
+  my @coding;
 
+  foreach my $trans (@{$gene->get_all_Transcripts}) {
+    next if (!$trans->translation);
+    foreach my $exon (@{$trans->get_all_translateable_Exons}) {
+      push @coding, $exon;
+    }
+  }
+
+  return \@coding; 
+}
 
