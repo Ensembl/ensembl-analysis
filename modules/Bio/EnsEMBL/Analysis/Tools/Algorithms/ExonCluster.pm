@@ -142,10 +142,10 @@ sub _add_new_exon {
   }
   $self->{_exonhash}{"$exon"} = $self->{_internal_index}++;
   #$self->{_exonidhash}{$exon->stable_id} = $exon;
-  if  (exists $self->{_exonidhash}{$exon->dbID.$exon->adaptor->db->dbname}) { 
+  if  (exists $self->{_exonidhash}{$exon->dbID.$exon->adaptor->db->dbc->dbname}) { 
     $self->throw("Error : there seem to be exons with the same dbID and dbname in the databases ".$exon->dbID." ".$exon->adaptor->db->dbname) ; 
   }
-  $self->{_exonidhash}{$exon->dbID.$exon->adaptor->db->dbname} = $exon;
+  $self->{_exonidhash}{$exon->dbID.$exon->adaptor->db->dbc->dbname} = $exon;
   $self->{_all_exons_in_cluster}{$exon}=$exon ; 
 }
 
@@ -203,7 +203,7 @@ sub contains_exon_with_dbid_and_dbname {
   my $exon_duplicate = 0;
 
   foreach my $ex (keys %{$self->{_exonidhash}}) {
-    if ($ex eq "".$exon->dbID.$exon->adaptor->db->dbname) {
+    if ($ex eq "".$exon->dbID.$exon->adaptor->db->dbc->dbname) {
       $exon_duplicate = 1;
     }
   }
