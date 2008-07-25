@@ -628,7 +628,7 @@ sub get_coding_ExonCluster{
         foreach my $clust (@matching_clusters) {
           $merged_cluster->merge($clust);
         }
-        $merged_cluster->add_exon($exon,$trans);
+        $merged_cluster->add_exon_if_not_present($exon,$trans);
         push @new_clusters,$merged_cluster;
 
         # Add back non matching clusters
