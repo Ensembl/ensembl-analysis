@@ -307,7 +307,8 @@ sub make_gene{
      -phase => -1,
      -end_phase => -1
     );
-
+  # dont let it fall of the slice 
+  return if ($exon->start < 1 or $exon->end > $slice->length);
   $exon->add_supporting_features($daf);
   # transcripts
   my $transcript = Bio::EnsEMBL::Transcript->new;

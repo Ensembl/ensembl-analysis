@@ -438,6 +438,8 @@ sub make_gene{
 
     # reject if it falls of the start of the slice
     next if ($exon->start < 1);
+    # reject if it falls of the end of the slice
+    next if ($exon->end > $slice->length);
     # Only allow exons that overlap the origional dna_align_feature and 
     # have a secondary structure that is possible to parse
     last if ($exon->overlaps($daf));
