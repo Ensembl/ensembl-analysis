@@ -144,9 +144,9 @@ sub run {
 
      for my $intron ( values %unique_introns ) {  
 
-      if ( $intron->length < 120 ) {  
+      if ( $intron->length < 150 ) {  
 
-         print "\nINTRON : " . $intron->length . "\n========================================\n";
+         print "\nINTRON : " . $intron->length . "< 150\n========================================\n";
  
          my $aligned_homolog_trans = $self->exonerate_intron_vs_homologs( $intron, $g, $i2t);
 
@@ -200,7 +200,10 @@ sub run {
             print "no hit -  intron did not align\n" ; 
          }
          print "\n\n" ;    
-      } # // length < xxx 
+      } else {  
+       # // length < xxx  
+       #print "intron too long \n" ; 
+      }
     }  # // unique introns  
 
       #
@@ -252,14 +255,14 @@ sub run {
                         && (scalar( @{$intron_is_coding_in_homologues{$false_intron}}) == scalar(@{$self->orthologues_species}) ) )  {  
                       # all FalseIntrons are coding in alternative transcript as well as in both Orthologues  
                       print "marked_for_deletion_alt_coding_and_coding_in_homologues : $f_tsi\n" ;  
-                      $transcripts_marked_for_deletion{coding_in_alt_tr}{$f_tsi}=1;
-                      $delete_recovery_id = 1 ; 
+                      #$transcripts_marked_for_deletion{coding_in_alt_tr}{$f_tsi}=1;
+                      #$delete_recovery_id = 1 ; 
 
                    } elsif ( scalar (  @{$false_transcripts{$f_tsi }} ) == $nr_false_introns_recovered ) {    
                       # all FalseIntrons are recovered in alt trans 
-                      print "marked_for_deletion_alt_coding : $f_tsi\n" ;   
-                      $transcripts_marked_for_deletion{coding_in_alt_tr}{$f_tsi}=1;
-                      $delete_recovery_id = 1 ; 
+                      print "transcript could be marked for deletion as it's coding in alt. trans : $f_tsi\n" ;   
+                      #$transcripts_marked_for_deletion{coding_in_alt_tr}{$f_tsi}=1;
+                      #$delete_recovery_id = 1 ; 
 
                    } else { 
                       foreach my $intron_key ( keys %intron_attributes  )  {    
@@ -412,38 +415,42 @@ sub reformat_input_ids {
     my @components = split /\:/,$id ;       
     my $sf_id = pop  @components ;
     my $hom_stable_id = pop @components ; 
-    print " hom : $hom_stable_id \t sf_id $sf_id \n" ; 
     my $key = join ( ":", @components ) ;  
     push @{$tmp{$key}{$hom_stable_id}}, $sf_id ;    
   }       
    
-  my %sf_id_index ; 
   for my $region_key ( keys %tmp ) {   
-      print "processing region and transcript : \n";  
+      my %sf_id_index ; 
+      print "processing region and transcript : ";  
       print $region_key . "\n" ; 
       my %hom_to_sf_id = %{$tmp{$region_key}} ;  
 
-      
       for my $stable_id ( keys %hom_to_sf_id ) { 
+        print $stable_id . "\t" ; 
         my @sf_ids = @{$hom_to_sf_id{ $stable_id}};
-        for my $sf_id ( @sf_ids ) { 
+        for my $sf_id ( @sf_ids ) {  
+          print "$sf_id\t" ; 
           $sf_id_index{$sf_id} = 1; 
-        }
-      }   
+        } 
+        print "\n" ; 
+      }  
       my $sf_db_id_string = ""; 
       my $counter = 0 ; 
       for my $id ( sort keys %sf_id_index ) {   
         $sf_db_id_string .= $id .",";
-        $sf_id_index{$id}=$counter ; 
+        $sf_id_index{$id}=$counter ;  
+        print $id . " --> " . $counter . "\n" ; 
         $counter++;   
       }  
-      my $sf_string =""; 
       my $hom_string ="";
+      my $sf_string =""; 
       for my $stable_id ( keys %hom_to_sf_id ) {  
         $hom_string .=$stable_id."," ; 
-        for my $sf_id ( sort @{$hom_to_sf_id{ $stable_id}} ) {   
+        for my $sf_id ( sort @{$hom_to_sf_id{ $stable_id}} ) {    
+            print "\t$sf_id\t" ; 
             $sf_string .= $sf_id_index{$sf_id}. ",";
         }
+        print "\n"; 
         $sf_string =~s/,$//; 
         $sf_string .= "_";
       } 
@@ -462,8 +469,12 @@ sub exonerate_intron_vs_homologs {
      my %intron_aligns_in_x_homologues ; 
 
      my %i2t = %{$i2t};  
-     my @aligned_homolog_transcripts ;     
-     HOMOLOG: for my  $homolog_gene ( @{ $self->get_homologues_genes($gene)  } ) {    
+     my @aligned_homolog_transcripts ;    
+     my @homo_genes =  @{ $self->get_homologues_genes($gene) }  ;   
+     if ( scalar(@homo_genes) == 0 ) {  
+        print "no homologs found\n" ; 
+     } 
+     HOMOLOG: for my  $homolog_gene ( @homo_genes  ) {    
 
 
          print $homolog_gene . "\t" . $homolog_gene->stable_id . "\n" ; 
@@ -481,7 +492,8 @@ sub exonerate_intron_vs_homologs {
            my $transcript_of_intron  = $i2t{$intron_to_check};  
            my $intron_id = $transcript_of_intron->stable_id."_".$intron_to_check->prev_Exon->stable_id."_".$intron_to_check->next_Exon->stable_id; 
          
-           my $query_length = exonerate_sequences($intron_to_check, $homology_trans , $intron_id, $transcript_of_intron);   
+           my $query_length = exonerate_sequences($intron_to_check, $homology_trans , $intron_id, $transcript_of_intron);    
+                
             
            if ( $query_length > 0 ) {   
              push @aligned_homolog_transcripts, $homology_trans ; 
@@ -573,17 +585,16 @@ sub intron_aligns_alternative_transcript {
 
 
 sub exonerate_sequences {  
-  my ($intron_to_check , $target, $intron_id, $transcript_of_intron  ) = @_ ;   
+  my ($intron_to_check , $target, $intron_id, $transcript_of_intron,$version) = @_ ;   
     
     unless ( $intron_id) {  
        $intron_id = $intron_to_check->display_id ; 
     } 
-
-    my $f1= $OUTPUT_DIR."/".$intron_id.".query"  ; # intron seq ( short seq )  
-    my $f2= $OUTPUT_DIR."/".$target->stable_id .".target";   # gene seq/ genome seq
-    my $f3= $OUTPUT_DIR."/".$target->stable_id .".exonerate";   
+    my $out_dir = "/tmp" ; 
+    my $f1= $out_dir."/".$intron_id.".query"  ; # intron seq ( short seq )  
+    my $f2= $out_dir."/".$target->stable_id .".target";   # gene seq/ genome seq
+    my $f3= $out_dir."/".$target->stable_id .".exonerate";   
  
-    my @alignment ; 
   
     open (FH,">$f1") || die "Cant write file $f1\n" ;    
        # this was set before in one of the subroutines  
@@ -596,22 +607,41 @@ sub exonerate_sequences {
        print FH ">Intron $intron_id\n" . $seq;  
        close(FH) ;   
 
+
+
        #  write TRANSCRIPT to file
        open (FH,">$f2") || die "Cant write file $f2\n" ;   
            #($seq=$target->seq->seq )=~ s/(.{1,60})/$1\n/g;
            ($seq=$target->translateable_seq )=~ s/(.{1,60})/$1\n/g;
            print FH ">".$target->stable_id . "\n$seq";  
-           close(FH) ;   
-           my $cmd = "/usr/local/ensembl/bin/exonerate-1.0.0 ".
-                      " -q $f1 -t $f2 -m affine:local --bestn 1 > $f3"; 
+       close(FH) ;    
+
+        my @versions = qw ( 1.0.0 ) ;  
+        my @options = ( "   " , " --exhaustive " ) ; 
+
+        my $query_length =0  ;   
+        my $cmd ;
+ 
+        for my $version ( @versions ) {   
+        for my $extra_opt ( @options ) {    
+           my $exonerate_version ; 
+
+           if ( $version =~m/0.7.1/ || $version=~m/1.0.0/) { 
+              $exonerate_version = "/usr/local/ensembl/bin/exonerate-$version" ;      
+           }  else  { 
+              $exonerate_version = "/software/ensembl/bin/exonerate-1.4.0 " ;      
+           }
+           my @alignment ; 
+
+
+           $cmd = $exonerate_version .  " -q $f1 -t $f2 -m affine:local --bestn 1 ";   
+           $cmd .= $extra_opt ; 
+           $cmd.=" > $f3"; 
            system("$cmd") ;   
-           #print "\nCMD : $cmd\n" ; 
            my $hit = 0 ; 
-           my $query_length =0  ;  
            my $raw_score ; 
            open (F,"$f3") || die " can't read $f3\n" ;   
            foreach my $l (<F>){     
-
              $hit = 1 if ($l=~/C4 Alignment:/) ; 
              #$hit = 0 if $l=~/vulgar/;  
              
@@ -632,22 +662,29 @@ sub exonerate_sequences {
           #  print info 
 
           if ( $hit )  {            
-             print "\n$f1 \n $f2 \n $f3\n" ; 
+             #print "\n$f1 \n $f2 \n $f3\n" ; 
+              print "hit_with $version $extra_opt \n$cmd" ; 
              print "\nIntron_exonerate_alignment_OK :  " . $transcript_of_intron->stable_id." [ ".  $intron_to_check->prev_Exon->stable_id." <intron>  "
               .$intron_to_check->next_Exon->stable_id . "]  ALIGNS " . $target->stable_id ." ]  QLEN $query_length iLEN " . $intron_to_check->length."\n\n" ;   
 
              print $intron_id . "aligns perfect \n" if ( $intron_to_check->length == $query_length ); 
 
-             if ( $query_length % 3 == 0 ){ 
-                print "  alignment_length_mod_3\n" ; 
-             }else{ 
-                print "  alignment_frameshift\n"; 
-             }  
+             #if ( $query_length % 3 == 0 ){ 
+               # print "  alignment_length_mod_3\n" ; 
+             #}else{ 
+               # print "  alignment_frameshift\n"; 
+             #}  
         
-             print "\n\n".join("",@alignment) ;    
-
-          }  
-          system("rm $f1"); system("rm $f2"); system("rm $f3");   
+             #print "\n\n".join("",@alignment) ;    
+            system("rm $f1"); system("rm $f2"); system("rm $f3");   
+            return $query_length ; 
+          }    else {  
+           # print "no_hit \n" ; 
+          } 
+          # jhvx 
+      } # next version  
+      } # next option 
+          #system("rm $f1"); system("rm $f2"); system("rm $f3");   
           return $query_length ; 
 }  
 
@@ -660,8 +697,8 @@ sub exonerate_intron_vs_exons {
     unless ( $intron_id) {  
        $intron_id = $intron_to_check->display_id ; 
     } 
-
-    my $f1= $OUTPUT_DIR."/".$intron_id.".query"  ; # intron seq ( short seq )  
+    my $out_dir = "/tmp";
+    my $f1= $out_dir."/".$intron_id.".query"  ; # intron seq ( short seq )  
 
     my @alignment ;  
 
@@ -679,8 +716,8 @@ sub exonerate_intron_vs_exons {
 
     for my $hom_exon ( @homology_exons ) {   
 
-      my $f2= $OUTPUT_DIR."/".$hom_exon->stable_id .".homology_trans";   # gene seq/ genome seq
-      my $f3= $OUTPUT_DIR."/".$hom_exon->stable_id .".exonerate";   
+      my $f2= $out_dir."/".$hom_exon->stable_id .".homology_trans";   # gene seq/ genome seq
+      my $f3= $out_dir."/".$hom_exon->stable_id .".exonerate";   
  
     # write HOMOLOGS CODING EXON seq to file  
     
@@ -688,8 +725,11 @@ sub exonerate_intron_vs_exons {
         ($seq=$hom_exon->seq->seq )=~ s/(.{1,60})/$1\n/g;
         print FH ">".$hom_exon->stable_id . "\n$seq";  
       close(FH) ;    
+      # used for first comparision  
 
-      my $cmd = "/usr/local/ensembl/bin/exonerate-1.0.0  -q $f1 -t $f2 -m affine:local --bestn 1 > $f3"; 
+      my $exonerate_version ="/usr/local/ensembl/bin/exonerate-1.0.0" ; 
+      my $cmd = "$exonerate_version  -q $f1 -t $f2 -m affine:local --bestn 1 ";  
+      $cmd .=" > $f3";   
       system("$cmd") ;   
       
       my $hit = 0 ; 
@@ -721,7 +761,7 @@ sub exonerate_intron_vs_exons {
              " [ ".  $intron_to_check->prev_Exon->stable_id." <intron>  " .$intron_to_check->next_Exon->stable_id . "]  ALIGNS " 
               . $hom_exon->stable_id ." ]  QLEN $query_length iLEN " . $intron_to_check->length."\n\n" ;   
 
-             print "\n\n".join("",@alignment) ;    
+             #print "\n\n".join("",@alignment) ;    
            $aligning_hom_exons{$hom_exon->stable_id} = [ $hom_exon , $query_length] ; 
       }else {  
         print "intron does not match exon " . $hom_exon->stable_id . "\n" ;  
@@ -785,47 +825,16 @@ sub get_recover_ids {
 
   my ($start, $end , $chr ) = get_coords($gene) ;
 
-  print " coord_system of gene : " . $gene->slice->coord_system_name()."\n" ; 
-  print " coord_system of gene : " . $gene->slice->coord_system()."\n" ; 
-  print " coord_system of gene : " . $gene->slice->coord_system->version()."\n" ; 
-  print " coord_system of gene : " . $gene->slice->coord_system->name()."\n" ; 
+  #print " coord_system of gene : " . $gene->slice->coord_system_name()."\n" ; 
+  #print " coord_system of gene : " . $gene->slice->coord_system()."\n" ; 
+  #print " coord_system of gene : " . $gene->slice->coord_system->version()."\n" ; 
+  #print " coord_system of gene : " . $gene->slice->coord_system->name()."\n" ; 
 
-  my $cs = $gene->slice->coord_system->name();  
+  my $cs = $gene->slice->coord_system->name();   
   my $csv = $gene->slice->coord_system->version();   
 
-#
-#
-#
-#  my $csa = $self->db->get_CoordSystemAdaptor(); 
-#  my $cs = $csa->fetch_by_name('chromosome'); 
-#  #my $cs = $csa->fetch_top_level(); 
-#  my $csv ;  
-#
-#  unless ( $cs ) { 
-#
-#    foreach my $cs (@{$csa->fetch_all()}) {
-#      print $cs->name, ' ',  $cs->version, ' ' , $cs->rank ,  "\n";
-#    }
-#
-#
-#      my $cst =  $csa->fetch_by_name('toplevel'); 
-#      unless ( $cst ) {  
-#        throw("Error: Could not fetch top level out of database\n") ; 
-#      }
-#     print "try to get version onw \n" ;   
-#     print $cst . "\n" ; 
-#     print $cst->name . "\n" ; 
-#     print $cst->rank. "\n" ; 
-#     print $cst->version. "\n" ; 
-#     $csv = $cst->version;  
-#  }elsif ( $cs->version ) { 
-#      $csv = $cs->version() ;   
-#  } 
-#      
-#
- 
   unless ( $csv ) {  
-      throw("Error: Could not read default assembly name / coord system version out of db\n");
+      warning("Error: Could not get coord_system_version for coord_system with name : ".$cs ."\n");
   }         
 
   for my $homolog ( @$aref ) { 
@@ -862,7 +871,8 @@ sub get_homologues_genes {
 #   }  
 
    my @hg_2 ; 
-   SPECIES: foreach my $other_species ( @specs_to_check ) {    
+   SPECIES: foreach my $other_species ( @specs_to_check ) {     
+     print "getting homolog for $other_species\n"  ; 
      my $hg =  get_one2one_orth_for_gene_in_other_species($gene, $other_species) ;   
        if ( $hg ) {     
          if ( $hg->biotype=~m/protein_coding/ ) { 
@@ -946,7 +956,8 @@ sub fetch_input {
   print "\n\nChecking introns for the species configured in ".
         " Config/GeneBuild/OrthologEvaluator.pm : $$MAIN_CONFIG{QUERY_SPECIES}\n" ; 
 
-  $self->cmp_species( $$MAIN_CONFIG{QUERY_SPECIES} ); 
+  $self->cmp_species( $$MAIN_CONFIG{QUERY_SPECIES} );  
+  print "getting adaptor from registry ... " . $self->cmp_species . "\n" ; 
   my $ga = Bio::EnsEMBL::Registry->get_adaptor($self->cmp_species,"core","gene");     
   unless ( $ga ) {  
     print " I can't get a gene-adaptor for " . $self->cmp_species . "\n" . 
