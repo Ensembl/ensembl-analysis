@@ -389,7 +389,7 @@ sub get_Sequence {
     }
 
     if ((!defined($seq)) && $@) {
-      warning("Couldn't find sequence for [$id]:\n $@");
+      warning("Couldn't find sequence for [$id]:\n");
     }
 
     return $seq;
@@ -410,7 +410,9 @@ sub get_all_Sequences {
   my ($self,@id) = @_;
 
  SEQ: foreach my $id (@id) {
+	my ($acc,$ver) = $id =~ /(\w+)\.(\d+)/;
     my $seq = $self->get_Sequence($id);
+    $seq = $self->get_Sequence($acc) unless $seq;
     if(defined $seq) {
       $self->{'_seq_cache'}{$id} = $seq;
     }
