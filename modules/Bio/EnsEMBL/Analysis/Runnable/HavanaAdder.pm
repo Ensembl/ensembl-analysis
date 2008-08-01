@@ -18,44 +18,26 @@ Bio::EnsEMBL::Analysis::Runnable::HavanaAdder
 
 # This is the main analysis database
 
-my $db = new Bio::EnsEMBL::DBSQL::Obj(-host   => 'obi-wan',
-				      -user   => 'ensro',
-				      -dbname => 'ens500',
-				      );
+    my $genebuilder = new Bio::EnsEMBL::Analysis::Runnable::HavanaAdder
+      (
+       '-slice'   => $self->query,
+       '-input_id' => $self->input_id,
+      );
 
-# Fetch a clone and its contigs from the database
-my $clone       = $db   ->get_Clone($clone);
-my @contigs     = $clone->get_all_Contigs;
-
-# The genebuilder object will fetch all the features from the contigs
-# and use them to first construct exons, then join those exons into
-# exon pairs.  These exon apris are then made into transcripts and
-# finally all overlapping transcripts are put together into one gene.
-
-
-my $genebuilder = new Bio::EnsEMBL::Pipeline::GeneBuilder
-    (-contigs => \@contigs);
-
-my @genes       = $genebuilder->build_Genes;
-
-# After the genes are built they can be used to order the contigs they
-# are on.
-
-my @contigs     = $genebuilder->order_Contigs;
 
 
 =head1 DESCRIPTION
 
 This module reads your favourite annotations (ensembl, protein_coding,...)
 on the one hand, and manually curated plus features on the other hand. 
-The product of Bio::EnsEMBL::Analysis::Runnable::HavanaAdderr is a combination of
+The product of Bio::EnsEMBL::Analysis::Runnable::HavanaAdder is a combination of
 both annotations where redundant transcripts are eliminated.
 The resulting transcripts are combined into genes. For more details, follow the list of methods called
 by build_Genes() method and the description in each one.
 
 =head1 CONTACT
 
-Describe contact details here
+ensembl-dev@ebi.ac.uk
 
 =head1 APPENDIX
 
@@ -78,7 +60,6 @@ use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Attribute;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
-#use Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
@@ -89,7 +70,10 @@ use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
                                                     GB_ENSEMBL_INPUT_GENETYPE
                                                     GB_HAVANA_INPUT_GENETYPE
                                                     GB_HAVANA_INPUT_TRANSCRIPTTYPES
-                                                    GB_MERGED_TRANSCRIPT_TYPE
+                                                    GB_MERGED_TRANSCRIPT_OUTPUT_TYPE
+                                                    HAVANA_LOGIC_NAME
+                                                    MERGED_GENE_LOGIC_NAME
+                                                    MERGED_TRANSCRIPT_LOGIC_NAME
                                                     );
 
 use vars qw(@ISA);
@@ -104,7 +88,6 @@ sub new {
     my ($class,@args) = @_;
 
     my $self = $class->SUPER::new(@args);
-    #print "IM HERE 1\n";
     my ($slice,$input_id) = $self->_rearrange([qw(SLICE INPUT_ID)],
 					      @args);
 
@@ -191,19 +174,17 @@ sub _merge_redundant_transcripts{
       my $havana_t = 0;
       
       foreach my $htranscript (@{$GB_HAVANA_INPUT_TRANSCRIPTTYPES}){
-        if($transcript->biotype eq  $htranscript){
-          #  print "Im HERE\n";
+        if($transcript->biotype eq  $htranscript."_havana"){
+          print "I'm a havana transcript\n";
           push(@havana, $transcript);
           $havana_t = 1;
         }
       }
       if($havana_t == 0){
-        # print "Im with ENSEMBL\n";
         push(@ensembl, $transcript);
       }
     }
     if (!scalar(@havana)){
-#      print "No havana transcripts to consider\n";
       next GENE;
     }
     
@@ -212,15 +193,17 @@ sub _merge_redundant_transcripts{
 
     # compare each havana transcript to each ensembl one
     foreach my $ht(@havana){
-      print "Deleting havana transcript supporting features\n";
+      #print "Deleting havana transcript supporting features\n";
+      $self->add_havana_attribute($ht,$ht);
       $ht->flush_supporting_features;
+      print "Number of ensembl transcripts: ",scalar(@ensembl),"\n";
       foreach my $et(@ensembl){
         my $delete_t = 0;
         if ($delete_t = $self->are_matched_pair($ht, $et)){
           my @t_pair = ($ht, $et);
           $self->set_transcript_relation($delete_t, @t_pair);
-          $ht->biotype($GB_MERGED_TRANSCRIPT_TYPE);
-          $et->biotype($GB_MERGED_TRANSCRIPT_TYPE);
+          $ht->biotype($GB_MERGED_TRANSCRIPT_OUTPUT_TYPE);
+          $et->biotype($GB_MERGED_TRANSCRIPT_OUTPUT_TYPE);
           if ($et->stable_id && $ht->stable_id){
             my $stable_id = $et->stable_id."_".$ht->stable_id;
             $et->stable_id($stable_id);
@@ -229,10 +212,13 @@ sub _merge_redundant_transcripts{
          
          $self->_remove_transcript_from_gene($gene, $delete_t) unless $delete_t == 1;         
        
+        }else{
+          # If get here if the Havana and the ensembl transcript are not the same at all
+          #print "Should I really be here???\n";
+          # If I should actually be here uncomment the following line
+          # $self->add_havana_attribute($ht,$ht);
         }
-        #print "Ens tsid: ",$et->stable_id,"\n";
       }
-      #print "Hav tsid: ",$ht->stable_id,"\n";
     }
   }
 
@@ -248,24 +234,16 @@ sub are_matched_pair {
 
   my @thexons = @{$havana->get_all_translateable_Exons};
   my @teexons = @{$ensembl->get_all_translateable_Exons};
-
-
-#  print "_________________\n";
-  # Fetch only coding exons
-  #$self->clear_coding_exons_cache;
-  #my @thexons = @{get_coding_exons_for_transcript($havana)};
-  #my @teexons = @{get_coding_exons_for_transcript($ensembl)};
-
   
   # Check that the number of exons is the same in both transcripts
   return 0 unless scalar(@hexons) == scalar(@eexons);
 
-
   #print "____________________________________\n";
   #print "HAVANA ID: ",$havana->dbID, " ENSEMBL: ",$ensembl->dbID,"\n";
 
- # Check return 3 different possible values:
- # 0 means keep both transcript
+ # Check return 4 different possible values:
+ # return 0 means keep both transcript as they have different coding region
+ # return 1 means keep both as they have same coding but different UTR exon structire
  # return ($ensembl) means keep havana transcript and remove ensembl 
  # return ($havana) means keep ensembl transcript and remove hanana
 
@@ -276,8 +254,6 @@ sub are_matched_pair {
   return 0 unless($havana->translation->genomic_start == $ensembl->translation->genomic_start);
   return 0 unless($havana->translation->genomic_end   == $ensembl->translation->genomic_end);
 
-
-
   # special case for single exon genes
   if(scalar(@hexons ==1)){
     #print "SINGLE EXONS!\n";
@@ -286,7 +262,7 @@ sub are_matched_pair {
         $hexons[0]->end       == $eexons[0]->end &&
         $hexons[0]->strand    == $eexons[0]->strand
         ){
-      # Both are exactly the same so we delete Ensembl one
+      # Both are exactly the same so we delete Ensembl one unless the Ensembl one is already a merged one
       return $ensembl;
       
     }elsif($hexons[0]->start     <= $eexons[0]->start &&
@@ -422,12 +398,11 @@ sub are_matched_pair {
 sub set_transcript_relation {
   
   my($self, $delete_t, @t_pair) = @_;
-  
-  # print " To delete: ",$delete_t," havana ", $t_pair[0],"\n";
-  
-  # If both share CDS but we keep both as UTR is different in structure and number of exons we link them with an Xref
+    
+  # $t_pair[0] is the havana transcript and $t_pair[1] is the ensembl transcript
+  # If both share CDS and we still keep both, as UTR is different in structure and number of exons, we link them with an Xref
   if ($delete_t == 1){
-    print "IM IN ONE OF THOSE SPECIAL CASES....\n";
+    #print "IM IN ONE OF THOSE SPECIAL CASES....\n";
     # transfer OTT ID and/or ENST
     foreach my $entry(@{ $t_pair[0]->get_all_DBEntries}){
       if ($entry->dbname eq 'Vega_transcript'){
@@ -493,6 +468,9 @@ sub set_transcript_relation {
     #  print "HAPPENING HERE: ", $t_pair[0]->slice->coord_system_name.":".$t_pair[0]->slice->coord_system->version.":"
     #      .$t_pair[0]->slice->seq_region_name.":".$t_pair[0]->start.":".$t_pair[0]->end.":1\n";
     
+    # We add attributes to the havana transcript showing which supporting features where used for the transcript in Havana
+    #$self->add_havana_attribute($t_pair[0],$t_pair[0]);
+
   }
   
   # If transcript to delete is Havana we create an xref for the entry say that the transcript is CDS equal to ENSEMBL
@@ -548,6 +526,11 @@ sub set_transcript_relation {
         }
       }
     }
+    
+    # We add attributes to the havana transcript showing which supporting features where used for the transcript in Havana
+    #$self->add_havana_attribute($t_pair[0],$t_pair[1]);
+    
+
   }elsif ($delete_t == $t_pair[1]){
     # If the transcript to delete is ENSEMBL we add an xref entry say that both transcripts are exact matches (including UTR)
     foreach my $entry(@{ $t_pair[0]->get_all_DBEntries}){
@@ -568,9 +551,39 @@ sub set_transcript_relation {
         $t_pair[0]->add_DBEntry($enstentry);
       }
     } 
-    # Transfer the supporting features both for transccript and exon of the transcript to delete to the transcript we keep
+    # Transfer the supporting features both for transcript and exon of the transcript to delete to the transcript we keep
     $self->transfer_supporting_features($delete_t,$t_pair[0]);
+   
+    # We add attributes to the havana transcript showing which supporting features where used for the transcript in Havana
+    #$self->add_havana_attribute($t_pair[0],$t_pair[0]);
+
+
   }
+}
+
+sub add_havana_attribute{
+  my ($self, $transcript, $trans_to_add_attrib) = @_;
+
+  my %evidence;
+
+  foreach my $exon (@{$transcript->get_all_Exons}){ 
+    foreach my $sf (@{$exon->get_all_supporting_features}){
+      $evidence{$sf->hseqname} = 1;
+    }
+  }
+
+  foreach my $ev_key (keys %evidence){
+    #print "Adding special attrib\n";
+    my $attribute = Bio::EnsEMBL::Attribute->new
+        (-CODE => 'otter_support',
+         -NAME => 'otter support',
+         -DESCRIPTION => 'Evidence ID that was used as supporting feature for building a gene in Vega',
+         -VALUE => $ev_key);
+    
+    $trans_to_add_attrib->add_Attributes($attribute);
+    
+  }
+  
 }
 
 sub transfer_supporting_features{
@@ -669,30 +682,95 @@ sub _make_shared_exons_unique{
 sub get_Genes {
   my ($self) = @_;
   my @transcripts;
- 
+  my @genes;
   my $ensemblslice = $self->fetch_sequence($self->input_id, $self->ensembl_db);
   my $havanaslice = $self->fetch_sequence($self->input_id, $self->havana_db);
   print STDERR "Fetching ensembl genes\n";  
-  my @genes = @{$ensemblslice->get_all_Genes_by_type($GB_ENSEMBL_INPUT_GENETYPE)};
+  EGENE: 
+  foreach my $egene (@{$ensemblslice->get_all_Genes_by_type($GB_ENSEMBL_INPUT_GENETYPE)}){
+    if ($egene->analysis->logic_name() eq $HAVANA_LOGIC_NAME){
+      next EGENE;
+    }else{
+      push (@genes,$egene);
+    } 
+  }
+
+
   print STDERR "Retrieved ".scalar(@genes)." genes of type ".$GB_ENSEMBL_INPUT_GENETYPE."\n";
   print STDERR "Fetching havana genes\n";  
   my @hgenes = @{$havanaslice->get_all_Genes_by_type($GB_HAVANA_INPUT_GENETYPE)};
     print STDERR "Retrieved ".scalar(@hgenes)." genes of type ".$GB_HAVANA_INPUT_GENETYPE."\n";
+
+  foreach my $hgene(@hgenes){
+    my $biotype = $hgene->biotype."_havana";
+    $hgene->biotype($biotype);
+    foreach my $htran (@{$hgene->get_all_Transcripts}) {
+      my $tbiotype = $htran->biotype."_havana";
+      $htran->biotype($tbiotype);
+    }
+  }
 
   push(@genes, @hgenes);
 
   foreach my $gene(@genes){
   TRANSCRIPT:
     foreach my $tran (@{$gene->get_all_Transcripts}) {
+
+      if($gene->analysis->logic_name() eq $MERGED_GENE_LOGIC_NAME &&
+         $tran->analysis->logic_name() eq $HAVANA_LOGIC_NAME){
+        next TRANSCRIPT;
+      }elsif($tran->analysis->logic_name() eq $MERGED_TRANSCRIPT_LOGIC_NAME){
+        my @dbentries = @{ $tran->get_all_DBEntries };
+        foreach my $dbentry (@dbentries){
+          if ($dbentry->dbname eq "shares_CDS_with_ENST"){
+            next TRANSCRIPT;
+          }
+          if ($dbentry->dbname eq "shares_CDS_with_OTTT" || $dbentry->dbname eq "shares_CDS_and_UTR_with_OTTT"){
+          #print "XREFS before prune: ",$dbentry->dbname,"\n";
+          $self->flush_xref($tran, $dbentry->dbname);
+          }
+
+        }
+
+      }else{
+        my @dbentries = @{ $tran->get_all_DBEntries };
+        foreach my $dbentry (@dbentries){
+     #     print "XREFS before prune: ",$dbentry->dbname,"\n";
+          if ($dbentry->dbname eq "shares_CDS_and_UTR_with_OTTT"){
+            #print "XREFS before prune: ",$dbentry->dbname,"\n";
+            $self->flush_xref($tran, $dbentry->dbname);
+          }
+        }
+      }
+
+      #my @dbentries = @{ $tran->get_all_DBEntries };
+      #foreach my $tran_object (keys %{$tran}){
+      #  if ($tran_object->isa("Bio::EnsEMBL::DBEntry")){
+      #    
+      #    print "XREFS after prune: ",$tran_object->display_xref->dbname,"\n";
+      #  }
+      #}
       push(@transcripts, $tran);
+      
     }
   }
-
-
+  
+  
   print STDERR "Finished fetching genes\n";
   $self->combined_Transcripts(@transcripts);
 }
 
+sub flush_xref{
+  my ($self, $transcript, $dbname) = @_;
+
+  foreach my $tran_object (keys %{$transcript}){
+    if ($tran_object->isa("Bio::EnsEMBL::DBEntry")){
+      if ($tran_object->display_xref->dbname eq $dbname){
+        %{$tran_object->display_xref} = ();
+      }
+    }
+  }
+}
 
 ###########################################################c
 
