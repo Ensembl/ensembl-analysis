@@ -50,13 +50,21 @@ use vars qw( %GeneBuilder );
 	        GB_HAVANA_INPUT_GENETYPE => 'havana', 
 
                 # Biotype of Havana transcripts
-                GB_HAVANA_INPUT_TRANSCRIPTTYPES => ['Coding','Known_CDS','Novel_CDS','Putative_CDS'],
+                GB_HAVANA_INPUT_TRANSCRIPTTYPES => ['protein_coding'],
 
                 # Output Biotype for Genes
                 GB_GENE_OUTPUT_BIOTYPE => 'ensemblHA',
 
                 # Output Biotype for merged transcripts
-                GB_MERGED_TRANSCRIPT_TYPE => 'havana_ensembl',
+                GB_MERGED_TRANSCRIPT_OUTPUT_TYPE => 'merged_havana_ensembl',
+
+                # For the Havana_merge update, leave the default values if running the Merge for the first time
+                # Beware the transcript logic_name in the havana database have to be different that the logic_name of the 
+                # havana transcripts in the ensembl database
+                HAVANA_LOGIC_NAME => 'havana',
+                MERGED_GENE_LOGIC_NAME => 'ensembl_havana_gene',
+                MERGED_TRANSCRIPT_LOGIC_NAME => 'ensembl_havana_transcript',
+
 	       );
 
 sub import {
