@@ -46,7 +46,6 @@ use vars qw(@ISA);
 use strict;
 
 # Object preamble
-#use Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::HavanaAdder;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
@@ -56,9 +55,6 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
 							       GB_INPUTID_REGEX
 							      );
-#use Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder qw (
-#							       GB_VCONTIG
-#							      );
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
                                                                GB_GENE_OUTPUT_BIOTYPE
                                                               );
@@ -91,17 +87,8 @@ use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
 sub new {
     my ($class,@args) = @_;
 
-    #print  join ('  ',@args);
     my $self = $class->SUPER::new(@args);    
            
-    #my( $use_vcontig) = $self->rearrange([qw(VCONTIG)], @args);
-       
-    #if (! defined $use_vcontig) {
-    #  $use_vcontig = 1;#$GB_VCONTIG;
-    #}  
-   
-    #$self->use_vcontig($use_vcontig);
-
     return $self;
 }
 
