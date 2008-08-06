@@ -45,16 +45,41 @@ use vars qw(%Config);
     (
      CONFIG => {
          DEFAULT => {
-             PROGRAM           => $ENV{PROGRAM},
-             PROGRAM_FILE      => $ENV{PROGRAM_FILE},
-             VERSION           => $ENV{VERSION},
-             PARAMETERS        => $ENV{PARAMETERS},
-             EXPERIMENT        => $ENV{EXPERIMENT},
-             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
-             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-             DATASET_NAME      => $ENV{DATASET_NAME},
-             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
-         }
+             EFGDB => {
+                 -dbname => $ENV{'DBNAME'},
+                 -host => $ENV{'DBHOST'},
+                 -port => $ENV{'DBPORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => 'ensadmin',
+                 -pass => 'XXXX',
+             },
+             MODULE            => 'ACME',
+             PROGRAM           => 'R[ACME]',
+             PROGRAM_FILE      => 'R-2.7.0',
+             VERSION           => '1.6.0',
+             NORM_METHOD       => 'VSN_GLOG',
+             RESULT_SET_REGEXP => '_IMPORT',
+             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{DBNAME}",
+         },
+         'ACME_1e-01' => {
+             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-01",
+         },
+         'ACME_1e-02' => {
+             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-02",
+         },
+         'ACME_1e-05' => {
+             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-05",
+         },
+         'ACME_1e-10' => {
+             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-10",
+         },
+         'ACME_1e-15' => {
+             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-15",
+         },
+         'ACME_1e-20' => {
+             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-20",
+         },
+
      });
 
 sub import {
