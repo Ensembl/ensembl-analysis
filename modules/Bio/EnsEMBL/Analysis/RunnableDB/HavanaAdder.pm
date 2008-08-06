@@ -56,7 +56,11 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
 							       GB_INPUTID_REGEX
 							      );
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
-                                                               GB_GENE_OUTPUT_BIOTYPE
+                                                               GB_ENSEMBL_INPUT_GENETYPE
+                                                               HAVANA_GENE_OUTPUT_BIOTYPE
+                                                               MERGED_GENE_OUTPUT_BIOTYPE
+                                                               ENSEMBL_GENE_OUTPUT_BIOTYPE
+                                                               MERGED_TRANSCRIPT_OUTPUT_TYPE
                                                               );
 
 
@@ -144,11 +148,13 @@ sub write_output {
     my @newgenes;
     
     foreach my $gene (@genes) { 
+      my %trans_types;
       $gene->analysis($analysis);
-      $gene->type($GB_GENE_OUTPUT_BIOTYPE);
+      #$gene->type($GB_GENE_OUTPUT_BIOTYPE);
       # poke the caches
       my %s_pfhash;
       foreach my $tran (@{$gene->get_all_Transcripts}) {
+        $trans_types{$tran->biotype} = 1;
         #$tran->stable_id(undef);
         my @tsf = @{$tran->get_all_supporting_features};
                
@@ -160,7 +166,20 @@ sub write_output {
           my @esf = @{$exon->get_all_supporting_features};
           #$exon->{'stable_id'} = undef;
         }
-      }  
+      }
+      my @total_biotypes;
+      foreach my $t_biotype (keys %trans_types){
+        push (@total_biotypes, $t_biotype);
+      }
+      if (scalar(@total_biotypes)>1 || (scalar(@total_biotypes) == 1 &&
+             $total_biotypes[0] eq $MERGED_TRANSCRIPT_OUTPUT_TYPE)){
+        $gene->biotype($MERGED_GENE_OUTPUT_BIOTYPE);
+      }elsif(scalar(@total_biotypes) == 1 && 
+            $total_biotypes[0] eq $GB_ENSEMBL_INPUT_GENETYPE){
+        $gene->biotype($ENSEMBL_GENE_OUTPUT_BIOTYPE);
+      }else{
+        $gene->biotype($HAVANA_GENE_OUTPUT_BIOTYPE);
+      }
       # store
       eval {
         $gene_adaptor->store($gene);
@@ -194,6 +213,11 @@ sub fetch_input {
     $self->throw("No input id") unless defined($self->input_id);
     
     $self->fetch_sequence();
+
+    my $discarded_db = $self->get_dbadaptor("DISCARDED_DB");
+
+    print "DISCARDED GENE DB: ", $discarded_db->dbname,"\n";
+
     # database where the genebuild produced genes are
     my $ensembl_db = $self->get_dbadaptor("PSEUDO_DB") ;
 
@@ -219,9 +243,10 @@ sub fetch_input {
        '-slice'   => $self->query,
        '-input_id' => $self->input_id,
       );
+    $genebuilder->discarded_db($discarded_db);
     $genebuilder->ensembl_db($ensembl_db);
     $genebuilder->havana_db($havana_db);
-    
+     
     # store the object and the piece of genomic where it will run
     $self->addgenebuilder($genebuilder,$self->query);
     
