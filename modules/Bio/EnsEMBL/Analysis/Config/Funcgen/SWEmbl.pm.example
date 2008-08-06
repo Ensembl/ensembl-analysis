@@ -1,0 +1,103 @@
+# Ensembl module for Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl
+#
+# Copyright (c) 2008 Ensembl
+#
+
+=head1 NAME
+
+  Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl
+
+=head1 SYNOPSIS
+
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl;
+  
+  use Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl qw(CONFIG);
+
+=head1 DESCRIPTION
+
+This is a module needed to provide configuration for the
+SWEmbl RunnableDBs.
+
+CONFIG is an hash of hashes which contains analysis specific
+settings and is keyed on logic_name
+
+=head1 LICENCE
+
+This code is distributed under an Apache style licence. Please see
+http://www.ensembl.org/info/about/code_licence.html for details.
+
+=head1 AUTHOR
+
+Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org/
+
+=head1 CONTACT
+
+Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+
+=cut
+
+package Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl;
+use Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
+use strict;
+use vars qw(%Config);
+
+%Config = 
+    (
+     CONFIG => {
+         DEFAULT => {
+             DNADB => {
+                 -dbname => $ENV{'DNADBNAME'},
+                 -host => $ENV{'DNADBHOST'},
+                 -port => $ENV{'DNADBPORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => 'ensro',
+             },
+             EFGDB => {
+                 -dbname => $ENV{'DBNAME'},
+                 -host => $ENV{'DBHOST'},
+                 -port => $ENV{'DBPORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => 'ensadmin',
+                 -pass => 'XXXXXX',
+             },
+             MODULE            => 'SWEmbl',
+             PROGRAM           => 'SWEmbl',
+             PROGRAM_FILE      => 'SWEmbl',
+             VERSION           => '2008-08-03',
+             NORM_METHOD       => 'VSN_GLOG',
+             RESULT_SET_REGEXP => '_IMPORT',
+             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{DBNAME}",
+         },
+         'SWEmbl_default' => {
+             PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
+         },
+     });
+
+sub import {
+    my ($callpack) = caller(0); # Name of the calling package
+    my $pack = shift; # Need to move package off @_
+    
+    # Get list of variables supplied, or else all
+    my @vars = @_ ? @_ : keys(%Config);
+    return unless @vars;
+    
+    # Predeclare global variables in calling package
+    eval "package $callpack; use vars qw("
+        . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+    
+    
+    foreach (@vars) {
+        if (defined $Config{ $_ }) {
+            no strict 'refs';
+            # Exporter does a similar job to the following
+            # statement, but for function names, not
+            # scalar variables:
+            *{"${callpack}::$_"} = \$Config{ $_ };
+        } else {
+            die "Error: Config: $_ not known\n";
+        }
+    }
+}
+
+1;
