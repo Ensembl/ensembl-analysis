@@ -95,15 +95,30 @@ sub read_and_check_config {
     # like RESULT_SET_REGEXP)
     
     # Make sure we have the correct DB adaptors!!!
-    #$self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
-    $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(%{ $self->EFGDB })); 
+    $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(%{ $self->EFGDB }));
+
+    # In the production case we might need to make sure we have also the right DNAdb
+    # that is comfigured in the config file
+    $self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
+    $self->efgdb->dnadb($self->dnadb);
     #print Dumper ($self->dnadb, $self->efgdb);
 
     # Set analysis
     my $efg_analysis = new Bio::EnsEMBL::Analysis( -logic_name => $self->analysis->logic_name );
     $self->efg_analysis($efg_analysis);
 
-    # exrtact experiment name and query slice from input_id
+    # Set experiment
+    $self->check_Experiment;
+
+}
+
+sub check_Experiment {
+
+    print "Analysis::RunnableDB::Funcgen::check_Experiment\n";
+
+    my ($self) = @_;
+
+    # extract experiment name and query slice from input_id
     warn("INPUT_ID:\t".$self->input_id);
     my @input = split(':', $self->input_id);
 
@@ -258,7 +273,7 @@ sub check_Sets {
         
         warn("Storing new feature set \'$set_name\'");
         eval { 
-            $fset = ${$fsa->store($fset)}[0];
+            ($fset) = @{$fsa->store($fset)};
         };
         throw("Coudn't store feature set \'$set_name\': $!") if ($@);
 
@@ -286,8 +301,10 @@ sub check_Sets {
              );
         #print Dumper $dset;
 
-        warn("Storing new feature set \'$set_name\'");
-        eval { $dset = ${$dsa->store($dset)}[0] };
+        warn("Storing new data set \'$set_name\'");
+        eval { 
+            ($dset) = @{$dsa->store($dset)} 
+        };
         throw("Coudn't store data set \'$set_name\': $!") if ($@);
 
     } else {
@@ -583,7 +600,6 @@ sub write_output{
 
     my $fset = $self->feature_set;	
     my $fs_id = $fset->dbID();
-    my $constraint = qq( af.feature_set_id = $fs_id );
     
     my $af = $self->efgdb->get_AnnotatedFeatureAdaptor->fetch_all_by_Slice_FeatureSet
         ($self->query, $fset, $self->efg_analysis->logic_name);
@@ -721,29 +737,29 @@ sub SCORE_FACTOR {
 
 ### 
 
-#=head2 dnadb
-#
-#  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-#  Arg [2]   : Bio::EnsEMBL::DBSQL::DBAdaptor
-#  Function  : container for dbadaptor
-#  Returntype: Bio::EnsEMBL::DBSQL::DBAdaptor
-#  Exceptions: throws if not passed a Bio::EnsEMBL::DBSQL::DBConnection
-#    object
-#  Example   : 
-#
-#=cut
-#
-#
-#sub dnadb{
-#  my ($self, $db) = @_;
-#  if($db){
-#      throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor ".
-#            "not a ".$db) 
-#          unless($db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
-#      $self->{'dnadb'} = $db;
-#  }
-#  return $self->{'dnadb'};
-#}
+=head2 dnadb
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : Bio::EnsEMBL::DBSQL::DBAdaptor
+  Function  : container for dbadaptor
+  Returntype: Bio::EnsEMBL::DBSQL::DBAdaptor
+  Exceptions: throws if not passed a Bio::EnsEMBL::DBSQL::DBConnection
+    object
+  Example   : 
+
+=cut
+
+
+sub dnadb{
+  my ($self, $db) = @_;
+  if($db){
+      throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor ".
+            "not a ".$db) 
+          unless($db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
+      $self->{'dnadb'} = $db;
+  }
+  return $self->{'dnadb'};
+}
 
 =head2 efgdb
 
@@ -908,19 +924,19 @@ sub EFGDB {
   }
 }
 
-#sub DNADB {
-#  my ( $self, $value ) = @_;
-#
-#  if ( defined $value ) {
-#    $self->{'_CONFIG_DNADB'} = $value;
-#  }
-#
-#  if ( exists( $self->{'_CONFIG_DNADB'} ) ) {
-#    return $self->{'_CONFIG_DNADB'};
-#  } else {
-#    return undef;
-#  }
-#}
+sub DNADB {
+  my ( $self, $value ) = @_;
+
+  if ( defined $value ) {
+    $self->{'_CONFIG_DNADB'} = $value;
+  }
+
+  if ( exists( $self->{'_CONFIG_DNADB'} ) ) {
+    return $self->{'_CONFIG_DNADB'};
+  } else {
+    return undef;
+  }
+}
 
 
 

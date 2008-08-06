@@ -71,6 +71,7 @@ sub new {
     #warn('RESULT_FEATURES: '.$self->result_features);
 
     #warn('OPTIONS:  '.$self->options);
+    #warn('OPTIONS:  '.$options);
     #warn('A_PARAMS: '.$self->analysis->parameters);
 
     return $self;
