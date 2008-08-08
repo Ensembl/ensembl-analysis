@@ -1,17 +1,18 @@
-#!/usr/local/bin/perl
+#!/usr/local/ensembl/bin/perl
 
 # call 
 #
 # perl ./genebuild/prepare_proteome.pl 
-#  -pmatch_output_file pmatch_output_file.fa 
-#  -file_info protein_input_file='(\S+)' 
+#  -proteome_file proteome_output_file.fa 
+#  -file_info protein_input_file.fa='(\S+)' 
 #
 # use regex '/(\S+)/' if header format of your fasta is 
-# >ABC234.1 
-# >ABC234.1 
+# >ABC234.1
+# >ABC234.1
 #
 
 use strict;
+use warnings;
 use Bio::EnsEMBL::KillList::KillList;
 use Bio::EnsEMBL::KillList::DBSQL::DBAdaptor;
 use Bio::SeqIO;
@@ -26,13 +27,11 @@ my $use_killlist = 1;
 my $skip_xps = 1;
 my $logger_verbosity = "NONE";
 
-&GetOptions(
-            "proteome_file:s" => \$output_file,
-            "file_info:s@" => \@file_info,
-            "skip_xs:s" => \$skip_xs,
-            "use_killlist!" => \$use_killlist,
-            "logger_verbosity:s" => \$logger_verbosity,
-           );
+&GetOptions( "proteome_file:s"    => \$output_file,
+             "file_info:s@"       => \@file_info,
+             "skip_xs:s"          => \$skip_xs,
+             "use_killlist!"      => \$use_killlist,
+             "logger_verbosity:s" => \$logger_verbosity, );
 
 logger_verbosity($logger_verbosity);
 my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new(-TYPE => 'PROTEIN');
@@ -40,50 +39,53 @@ my %kill_list = %{$kill_list_object->get_kill_list()};
 
 my %files;
 my %refseq;
-foreach my $file_info(@file_info){
+
+foreach my $file_info (@file_info) {
   #print "Have file info ".$file_info."\n";
-  my ($file, $regex, $other) = split /\=/, $file_info;
+  my ( $file, $regex, $other ) = split /\=/, $file_info;
   #print "HAVE FILE ".$file." and regex ".$regex."\n";
-  throw("Need both a file ".$file." and a regex ".$regex) if(!$file || !$regex);
+  throw( "Need both a file " . $file . " and a regex " . $regex )
+    if ( !$file || !$regex );
   $files{$file} = $regex;
-  if($other && $other =~ /^refseq$/i){
+  if ( $other && $other =~ /^refseq$/i ) {
     $refseq{$file} = 1;
   }
 }
 
 
 if(-e $output_file){
-  print "Protein file ".$output_file." already exists, these ".
-    "entries will be appended to the end of the file\n";
-  print "Do you want this? answer y/n or delete\n";
+  print "\nProtein file '" . $output_file . "' already exists, these ".
+    "entries will be appended to the end of the file.\n";
+  print "Do you want this? Answer y/n or d to delete the file: ";
   my $reply = get_input_arg();
-  if($reply =~ m/n/i){
-    print "You must delete or rename ".$output_file." before you continue\n";
-  }elsif($reply =~ m/delete/i){
-    print "Running rm -f $output_file\n";
-    system("rm -f $output_file"); 
-    print "file $output_file deleted\n";
-  }else{
-    print "Will append new entries to ".$output_file."\n";
+  if($reply =~ m/n/i) {
+    print "\nYou must delete or rename '" . $output_file . "' before you continue.\n";
+    exit;
+  } elsif($reply =~ m/d/i) {
+    print "\nRunning rm -f '$output_file'\n";
+    system("rm -f $output_file");
+    print "File '$output_file' deleted.\n";
+  } else {
+    print "\nWill append new entries to '" . $output_file . "'.\n";
   }
 }
-my $output_io =  Bio::SeqIO->new(
-                                 -format => 'fasta',
-                                 -file   => ">>".$output_file,
-                                );
+
+my $output_io = Bio::SeqIO->new( -format => 'fasta',
+                                 -file   => ">>" . $output_file, );
+
 my %ids;
-foreach my $file(keys(%files)){
+foreach my $file(keys(%files)) {
   my $refseq = $refseq{$file};
   my $regex = $files{$file};
-  print "On file ".$file." with ".$regex."\n";
+  print "\nFile '" . $file . "' with regex: '" . $regex . "' was specified.\n\n";
   my $x_string;
   if($skip_xs){
     $x_string = "X" x $skip_xs;
   }
-  my $io =  Bio::SeqIO->new(
-                            -format => 'fasta',
-                            -file   => $file,
-                           );
+
+  my $io = Bio::SeqIO->new( -format => 'fasta',
+                            -file   => $file, );
+
  SEQ:while(my $seq = $io->next_seq){
     my $parseable_string = $seq->id." ".$seq->desc;
     my ($id) = $parseable_string =~ /$regex/;
@@ -126,9 +128,9 @@ foreach my $file(keys(%files)){
   }
 }
 
-sub get_input_arg{
-  my $line;
-  print "Getting input arg\n";
+sub get_input_arg {
+  #my $line;
+  #print "Getting input arg\n";
   my $line = <>;
   return $line;
 }
