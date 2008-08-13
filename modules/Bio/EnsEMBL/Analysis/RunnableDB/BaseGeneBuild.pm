@@ -78,7 +78,7 @@ sub get_dbadaptor{
       }
       $self->database_hash($name, $db);
     } else {
-      throw("No entry in Config/GeneBuild/Databases.pm hash for $name");
+      throw("No entry in Config/Databases.pm hash for $name");
     }
   }else{
     $db = $hash->{$name};
