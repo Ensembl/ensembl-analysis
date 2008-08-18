@@ -393,7 +393,7 @@ sub run {
     OLD_EX: for my $oe ( @{$old_tr->get_all_Exons} ) {    
       
       push @tsf, @{$oe->transcript->get_all_supporting_features} ;   
-      print "have " . scalar ( @tsf ) . " tsf for exon exon \n" ; 
+      print "have " . scalar ( @tsf ) . " tsf for exon ".$oe->dbID." \n" ; 
       my $ne = new Bio::EnsEMBL::Exon( 
                                      -START =>$oe->start, 
                                      -END =>$oe->end, 
@@ -433,8 +433,11 @@ sub add_translation_and_trans_supp_features_to_transcripts  {
         
      TRANSCRIPT :for my $tr (@$trans) {         
         my $new_tr = compute_translation($tr)  ; 
-
-        my $tr_length = $new_tr->length . "\n" ; 
+        unless ( $new_tr->translation ) {  
+          print "skipping transcript - no translation !! \n" ;
+          next TRANSCRIPT ; 
+        } 
+        my $tr_length = $new_tr->length ; #   . "\n" ; 
         my $tl_length = $new_tr->translate->length ;  
 
         my $ratio = ( (3*$tl_length) / $tr_length)*100 ;  
