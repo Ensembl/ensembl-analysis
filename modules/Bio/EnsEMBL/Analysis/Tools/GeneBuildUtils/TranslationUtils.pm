@@ -452,7 +452,10 @@ sub run_translate{
     $entries[5] =~/(\d+)\.\.(\d+)/;
     my $orf_start = $1;
     my $orf_end   = $2;
-    next ORF if $orf_start>=$orf_end;
+    if ($orf_start>=$orf_end ) {  
+      # print "can't compute translation for this transcript as translation start >= translation end : $orf_start >= $orf_end \n " ;  
+      next ORF  ; 
+    } 
 
     # Check if there's a stop codon and add it
     if ($orf_end + 3 <= $seq->length) {
