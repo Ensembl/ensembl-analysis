@@ -116,8 +116,17 @@ sub run {
 
   throw("Runnable module not set") unless ($self->runnable());
 
+  my $db;
+  if ($self->GENEDB) {
+    $db = $self->get_dbadaptor($self->GENEDB);
+  } else {
+    $db =$self->db;
+  }
+
+  $db->dbc->disconnect_when_inactive(1);
   my ($run) = @{$self->runnable};
   $run->run($dir);
+  $db->dbc->disconnect_when_inactive(0);
 
   $self->output($run->output);
 }
