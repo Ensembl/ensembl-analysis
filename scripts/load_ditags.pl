@@ -46,7 +46,7 @@ use Bio::EnsEMBL::Pipeline::DBSQL::AnalysisAdaptor;
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::ExonerateTags;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;
+use Bio::EnsEMBL::Analysis::Config::Databases;
 use Getopt::Long;
 
 my ($tagtype, $help);
@@ -70,7 +70,7 @@ if($help or !$tagtype){
 }
 
 my $db = setup();
-print STDERR "\nReading from Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases && ".
+print STDERR "\nReading from Bio::EnsEMBL::Analysis::Config::Databases && ".
              "Bio::EnsEMBL::Analysis::Config::ExonerateTags.\nLooking at database " .
                $$DATABASES{'REFERENCE_DB'}{'-dbname'}.":".
                $$DATABASES{'REFERENCE_DB'}{'-host'}.":".
