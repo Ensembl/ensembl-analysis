@@ -1044,9 +1044,9 @@ sub PAF_LOGICNAMES{
   return $self->{PAF_LOGICNAMES}
 }
 
-sub PAF_MIN_SCORE_THRESHOLD{
+sub PAF_MIN_SCORE_THRESHOLD {
   my ($self, $arg) = @_;
-  if($arg){
+  if( defined($arg) ) {
     $self->{PAF_MIN_SCORE_THRESHOLD} = $arg;
   }
   return $self->{PAF_MIN_SCORE_THRESHOLD}
