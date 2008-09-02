@@ -360,7 +360,7 @@ sub filter_genes{
       my $acceptable_transcripts = tidy_split_transcripts($transcripts[0], $split_transcripts);
       my $genes = convert_to_genes($acceptable_transcripts, $accepted->analysis, $accepted->biotype);
       foreach my $gene(@$genes){
-        my $attrib = $self->get_Attribute("split_transcript");
+        my $attrib = $self->get_Attribute("split_tscript");
         foreach my $transcript(@{$gene->get_all_Transcripts}){
           $transcript->add_Attributes($attrib);
         }
