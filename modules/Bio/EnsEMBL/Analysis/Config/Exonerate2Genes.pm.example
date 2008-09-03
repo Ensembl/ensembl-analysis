@@ -71,6 +71,8 @@ use vars qw( %Config );
                OPTIONS             => undef,
 	       #comment out or set to undef if non-reference regions (eg DR52 in human) should NOT be fetched, ie should be ignored:
                NONREF_REGIONS      => 1,
+               # if program not defined, will look in program_file of analysis table. Or will take default 0.8.3 if neither is defined.
+               PROGRAM             => undef, # /usr/local/ensembl/bin/exonerate-
              },
 
              EST_logicname => {
