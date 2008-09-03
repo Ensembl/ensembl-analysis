@@ -214,11 +214,17 @@ sub fetch_input {
     $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
   }
 
+  if (defined $self->PROGRAM && defined $self->analysis->program_file) {
+    if ($self->PROGRAM ne $self->analysis->program_file) {
+      throw("CONFLICT: You have defined -program in your config file and ".
+            "-program_file in your analysis table.");
+    }
+  }
 
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
         ->new(
-              -program  => $self->analysis->program_file,
+              -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
               -analysis => $self->analysis,
               -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
@@ -273,6 +279,7 @@ sub write_output{
   my $fails = 0;
   my $total = 0;
   foreach my $gene (@output){
+
     eval {
       $gene_adaptor->store($gene);
     };    
