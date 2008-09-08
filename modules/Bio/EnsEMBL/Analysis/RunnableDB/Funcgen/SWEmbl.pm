@@ -111,11 +111,26 @@ sub check_Experiment {
         my $exp = Bio::EnsEMBL::Funcgen::Experiment->new
             (
              -NAME => $experiment,
-             -GROUP => 'efg',
+             -GROUP => "$ENV{EFG_GROUP}",
              -DATE => join('-', @date),
              -PRIMARY_DESIGN_TYPE => 'binding_site_identification',
              -ADAPTOR => $ea,
              );
+
+        my ($g_dbid) = $self->efgdb->fetch_group_details($exp->group());
+
+        if (! $g_dbid) {
+            
+            warn("Group specified does, not exist. Importing (group, location, contact)");
+            my $sql = "INSERT INTO experimental_group (name, location, contact) ".
+                "values ('$ENV{EFG_GROUP}','$ENV{EFG_LOCATION}','$ENV{EFG_CONTACT}')";
+            eval {
+                $self->efgdb->dbc->do($sql);
+            };
+            throw("Couldn't import group information. Double-check that the environment variables ".
+                  "EFG_GROUP, EFG_LOCATION, and EFG_CONTACT are set.") if ($@);
+            
+        }
 
         ($e) =  @{$ea->store($exp)};
 
@@ -126,7 +141,7 @@ sub check_Experiment {
     #print Dumper $self->experiment;
 
 }
-    
+   
 sub check_Sets {
 
     warn("Analysis::RunnableDB::Funcgen::SWEmbl::check_Experiment");
@@ -135,7 +150,9 @@ sub check_Sets {
 
     my $set_name = $self->experiment->name();
     my ($ct_name, $ft_name) = split(/_/, $set_name);
+    ###
     #### Hack to import LMI methylation data again ####
+    ###
     $set_name .= '_e'.$ENV{VERSION};
 
     my $feature_type = $self->efgdb->get_FeatureTypeAdaptor()->fetch_by_name($ft_name)
@@ -245,7 +262,7 @@ sub check_Sets {
 sub fetch_input {
     
     my ($self) = @_;
-    print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Swembl::fetch_input\n";
+    #warn ("Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl::fetch_input");
  
     # make sure the cache directory exists
     my $cachedir = $self->ANALYSIS_WORK_DIR.'/cache';
@@ -254,7 +271,31 @@ sub fetch_input {
         throw("Couldn't create cache directory $cachedir") unless ($retval == 0);
     }
 
-    print Dumper $self->query;
+    warn('infile: '.$self->query);
+
+    ### Checking for gzip and bed format has been moved to create_input_id stage!!!
+    #my $open = ($self->is_gzip($self->query))? 'gzip -dc' : 'cat';
+    #my $cmd = $open.' '.$self->query.' |';
+    #warn $cmd;
+    ### bed file format ?
+    #open(INFILE, "$cmd")
+    #    or throw("Can't open gzipped infile ".$self->query);
+    #while (<INFILE>) {
+    #
+    #    my @line = split("\t");
+    #    throw("Infile does not have 6 or more columns. We expect bed format: CHROM START END NAME SCORE STRAND.") 
+    #        if scalar @line < 6;
+    #    
+    #    throw ("1st column must contain name of seq_region (e.g. chr1 or 1)")
+    #        unless ($line[0] =~ m/^(chr[MTXY\d]+)$/);
+    #    throw ("2nd and 3rd column must contain start and end respectively")
+    #        unless ($line[1] =~ m/^\d+$/ && $line[2] =~ m/^\d+$/);
+    #    throw ("6th column must define strand (either '+' or '-')")
+    #        unless ($line[5] =~ m/^[+-]$/);
+    #    last;
+    #}
+    #close INFILE;
+    
     (my $cachefile = $self->query) =~ s,.*/([^/]+)$,$1,;
     my $datfile = $cachedir.'/'.$cachefile;
     warn('datafile: '.$datfile);

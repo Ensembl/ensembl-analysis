@@ -547,6 +547,32 @@ sub fetch_input {
     
 }
 
+=head2 is_gzip
+
+  Arg [1]     : file
+  Description : check whether a file is gzipped or ASCII
+  Returns     : boolean
+  Exceptions  : none
+  Example     : 
+
+=cut
+
+sub is_gzip {
+    
+    my ($self, $file) = @_;
+
+    warn "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::is_gzip";
+
+    open(FILE, "file -L $file |")
+        or throw("Can't execute command 'file' on '$file'");
+    my $retval = <FILE>;
+    close FILE;
+
+    return ($retval =~ m/gzip compressed data/) ? 1 : 0;
+    
+}
+
+
 =head2 write_output
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::Chipotle
