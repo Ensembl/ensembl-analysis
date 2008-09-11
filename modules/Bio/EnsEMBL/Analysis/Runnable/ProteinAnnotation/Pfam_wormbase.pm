@@ -40,8 +40,8 @@ sub run_analysis {
 	      $self->queryfile;
     print STDERR "$cmd\n";   
 
-    $PATH .= ':/software/worm/iprscan/bin/binaries/'; #for hmmpfam
-    $PATH .= ':/software/worm/iprscan/bin/binaries/blast/'; #for blastall
+    $PATH = '/software/worm/bin/hmmer/:/software/worm/iprscan/bin/binaries/:'.$PATH; #for hmmpfam
+    $PATH = '/software/worm/iprscan/bin/binaries/blast/:'.$PATH; #for blastall
 
     $self->throw ("Error running Pfam_wormbase ".$self->program." on ".$self->queryfile) 
      unless ((system ($cmd)) == 0);
@@ -83,14 +83,19 @@ sub parse_results {
 #2345   279  319 PF00400.23     1   38    13.7     0.008  WD40
 #2345   323  361 PF00400.23     1   38    22.0    0.0023  WD40
 
+# now
+# 12311     49   288 PF00149.20      1   124 ls    90.9   4.4e-24       Metallophos         
+# 12311    294   517 PF04152.6       1   240 ls   310.9   2.6e-90    Mre11_DNA_bind
 
+# 11845      1   167 PF06653.3       1   160 ls   -12.3   0.00016           DUF1164 
+ 
     my $id;
     while (<CPGOUT>) {
       chomp;
 
       print "$_\n";
 
-      if (my ($id, $start, $end, $hid, $hstart, $hend, $score, $evalue) = /^(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)/) {
+      if (my ($id, $start, $end, $hid, $hstart, $hend, $skipit,$score, $evalue) = /^(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(ls)*\s+([\d\.\-\+]+)\s+(\S+)\s+(\S+)/) {
 
 	print "matched\n";
 	my $percentIdentity = 0;
