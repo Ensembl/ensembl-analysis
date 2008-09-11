@@ -93,8 +93,8 @@ sub check_Experiment {
     my ($experiment, $file) = split(':', $self->input_id);
 
     
-    my $infile = $self->ANALYSIS_WORK_DIR.'/infiles/'.$file;
-    warn('INFILE: '.$self->ANALYSIS_WORK_DIR.'/infiles/'.$file);
+    my $infile = $self->ANALYSIS_WORK_DIR.'/infiles/'.$self->input_id;
+    warn('INFILE: '.$self->ANALYSIS_WORK_DIR.'/infiles/'.$self->input_id);
     $self->query($infile);
 
     my $ea = $self->efgdb->get_ExperimentAdaptor();
@@ -153,7 +153,7 @@ sub check_Sets {
     ###
     #### Hack to import LMI methylation data again ####
     ###
-    $set_name .= '_e'.$ENV{VERSION};
+    #$set_name .= '_e'.$ENV{VERSION};
 
     my $feature_type = $self->efgdb->get_FeatureTypeAdaptor()->fetch_by_name($ft_name)
         or throw("Feature type $ft_name does not exit");
