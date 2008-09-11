@@ -46,18 +46,18 @@ use vars qw(%Config);
      CONFIG => {
          DEFAULT => {
              DNADB => {
-                 -dbname => $ENV{'DNADBNAME'},
-                 -host => $ENV{'DNADBHOST'},
-                 -port => $ENV{'DNADBPORT'} || 3306,
+                 -dbname => $ENV{'CORE_DBNAME'},
+                 -host => $ENV{'CORE_HOST'},
+                 -port => $ENV{'CORE_PORT'} || 3306,
                  -species => $ENV{'SPECIES'},
-                 -user => 'ensro',
+                 -user => $ENV{'CORE_USER'},
              },
              EFGDB => {
-                 -dbname => $ENV{'DBNAME'},
-                 -host => $ENV{'DBHOST'},
-                 -port => $ENV{'DBPORT'} || 3306,
+                 -dbname => $ENV{'EFG_DBNAME'},
+                 -host => $ENV{'EFG_HOST'},
+                 -port => $ENV{'EFG_PORT'} || 3306,
                  -species => $ENV{'SPECIES'},
-                 -user => 'ensadmin',
+                 -user => $ENV{'EFG_WRITE_USER'},
                  -pass => 'XXXXXX',
              },
              MODULE            => 'SWEmbl',
@@ -66,7 +66,7 @@ use vars qw(%Config);
              VERSION           => '2008-08-03',
              NORM_METHOD       => 'VSN_GLOG',
              RESULT_SET_REGEXP => '_IMPORT',
-             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{DBNAME}",
+             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{EFG_DBNAME}",
          },
          'SWEmbl_default' => {
              PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
