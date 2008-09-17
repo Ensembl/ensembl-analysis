@@ -72,7 +72,12 @@ sub get_initial_geneset {
 
   my ( $self, $species_alias,$biotypes) = @_ ; 
 
-  my $dba = Bio::EnsEMBL::Registry->get_DBAdaptor($species_alias,'core') ; 
+  my $dba = Bio::EnsEMBL::Registry->get_DBAdaptor($species_alias,'core') ;  
+
+  unless ( $dba )  {
+    throw("could not get database adaptor for species : $species_alias ") ;  
+  } 
+
   my $sa = $dba->get_SliceAdaptor() ;
 
   print "Fetching genes out of ". $dba->dbname . " @ " . $dba->host ." : " . $dba->port ." : " . $self->slice_name .  "\n" ;
