@@ -50,6 +50,7 @@ use vars qw (@ISA  @EXPORT);
              Gene_info
              prune_Exons
              get_one2one_orth_for_gene_in_other_species
+             get_one2one_homology_for_gene_in_other_species 
              get_transcript_with_longest_CDS
              attach_Slice_to_Gene
              attach_Analysis_to_Gene
@@ -310,7 +311,7 @@ sub get_one2one_orth_for_gene_in_other_species {
 
     foreach my $homolog_to_check  ( @{ $gene->get_all_homologous_Genes()} ) {
        my ($check_homg, $check_homology, $check_species ) = @$homolog_to_check ;
-
+ 
         unless ( exists $orthology_dict{$check_homology->description}){ 
           throw("The homology-description : ".$check_homology->description. " is an unknow, probably new description. This".
                 " is probably due to changes in compara. Please add the new description to the \@orthology_description_dictionary ".
@@ -355,9 +356,66 @@ sub get_one2one_orth_for_gene_in_other_species {
 #         print "\t" .  $homology->description ."\t" . $homolog->stable_id . "\n" ; 
 #      } 
 #      print "\n" ;   
-#    } 
+#    }  
     return $one2one_homologue_in_other_species;
 }
+
+
+
+sub get_one2one_homology_for_gene_in_other_species {
+    my ($gene, $other_species) = @_ ;
+
+   print "using method get_one2one_homology_for_gene_in_other_species analysis_2008_01_21   \n" ; 
+
+    my $one2one_homologue_gene_in_other_species = undef;
+    my $homology = undef ;
+    my $more_than_one = undef ;
+    my @ortholog_one2one;
+
+    # problem with the old routine is that it only works with old compara 
+    # versions ( like with versions where there are homology-classes like 
+    # UBRH, MBRH etc. ) - if we use the new, tree-based compara pipeline we 
+    # get other homology descriptions. 
+
+
+    foreach my $homolog_to_check  ( @{ $gene->get_all_homologous_Genes()} ) {
+       my ($check_homologue_gene, $check_homology, $check_species ) = @$homolog_to_check ;
+
+       if ($check_species eq $other_species) {
+
+        print "homology_key\t$other_species\t".$check_homology->description."\t" .
+        $gene->stable_id  . "\t" .  $check_homologue_gene->stable_id  ."\n" ;
+
+
+
+        if ( $check_homology->description =~m/ortholog_one2one/ ||
+             $check_homology->description =~m/apparent_ortholog_one2one/)  {
+          push @ortholog_one2one, $check_homology ;
+        }
+
+        if ( $one2one_homologue_gene_in_other_species ) {
+          $one2one_homologue_gene_in_other_species = undef;
+          $more_than_one = 1 ;
+        }
+        $one2one_homologue_gene_in_other_species = $check_homologue_gene ;
+        $homology = $check_homology ;
+      }
+    }
+
+    if ( $more_than_one ) {
+      if ( scalar(@ortholog_one2one) eq 1 && $ortholog_one2one[0]){
+        return $ortholog_one2one[0] ;
+      } elsif ( scalar(@ortholog_one2one) > 1) {
+        throw("weird more than one ortholog_one2one found\n");
+      } else {
+        #print "no orthologue_one2one found\n" ;         
+        $homology = undef ;
+      }
+    }
+    return $homology;
+}
+
+
 
 
 
