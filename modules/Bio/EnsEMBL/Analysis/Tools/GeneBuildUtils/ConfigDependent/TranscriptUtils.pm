@@ -44,6 +44,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw( print_pe
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use Bio::EnsEMBL::Analysis;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw( id );
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
 use Bio::SeqIO;
 
