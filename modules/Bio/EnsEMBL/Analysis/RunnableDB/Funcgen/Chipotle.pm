@@ -69,7 +69,7 @@ sub new {
     my ($class,@args) = @_;
 
     my $self = $class->SUPER::new(@args);
-    
+
     $self->read_and_check_config($CONFIG);
 
     # add some runnable/program special params to analysis here

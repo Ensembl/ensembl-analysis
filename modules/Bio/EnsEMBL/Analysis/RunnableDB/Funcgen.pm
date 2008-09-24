@@ -83,10 +83,15 @@ sub read_and_check_config {
     my ($self, $config) = @_;
 
     # get config for logic_name
+    warn("MODULE:  \t".$self->analysis->module);
     warn("LOGIC_NAME:\t".$self->analysis->logic_name);
+    warn("INPUT_ID:\t".$self->input_id);
+    warn("INPUT_ID_TYPE:\t".$self->analysis->input_id_type);
+
     warn("Reading config for '".$self->analysis->logic_name."'");
     parse_config($self, $config, $self->analysis->logic_name);
     #print Dumper $self;
+
 
     # first get default and eFG analysis config
     #warn("Reading config for '$logic_name'");
@@ -107,53 +112,15 @@ sub read_and_check_config {
     my $efg_analysis = new Bio::EnsEMBL::Analysis( -logic_name => $self->analysis->logic_name );
     $self->efg_analysis($efg_analysis);
 
-    # Set experiment
-    $self->check_Experiment;
+    # extract experiment name from input_id
 
-}
-
-sub check_Experiment {
-
-    print "Analysis::RunnableDB::Funcgen::check_Experiment\n";
-
-    my ($self) = @_;
-
-    # extract experiment name and query slice from input_id
-    warn("INPUT_ID:\t".$self->input_id);
-    my @input = split(':', $self->input_id);
-
-    # Set experiment
-    my $experiment = shift @input;
-    my $e = $self->efgdb->get_ExperimentAdaptor->fetch_by_name($experiment);
-    $self->experiment($e) 
-        or throw("Can't fetch experiment with name ".$experiment);
-    #print Dumper $self->experiment;
-    warn("EXPERIMENT:\t".$self->experiment);
-
-    # detect depletion
-    if ($experiment =~ m/H3-Core|H3K9me2/) {
-        $self->SCORE_FACTOR(-1);
-    } else {
-        $self->SCORE_FACTOR(1);
-    }
-
-    # Set query slice
-    my $slice = $self->efgdb->get_SliceAdaptor->fetch_by_name(join(':', @input));
-    throw("Can't fetch slice ".$self->input_id) if (!$slice);
-    $self->query($slice);
-    warn("QUERY:\t".$self->query->name);
-
-
-    #my ($logic_name, $experiment) = split(':', $self->analysis->logic_name);
-    #warn(join (' : ', $self->input_id, $logic_name, $experiment));
+    # Set experiment and query
+    $self->check_InputId();
 
     # Make sure we deal with the correct analysis object!!!
+    # -- moved to child's news method --
     #$self->analysis->logic_name($logic_name);
 
-    # Now read and check analysis config hash
-    #$self->SUPER::read_and_check_config($config);
-    #print Dumper $config;
-    
 
     # Set normalization method
     my $m = $self->efgdb->get_AnalysisAdaptor->fetch_by_logic_name($self->NORM_METHOD);
@@ -161,9 +128,62 @@ sub check_Experiment {
         or throw("Can't fetch analysis object for norm method ".$self->NORM_METHOD);
     #print Dumper $self->norm_method;
 
+
     # make sure we have valid feature and data set objects incl. supporting sets
+    # -- moved to child's news method --
     #$self->check_Sets();
     
+
+    # set score factor (hack to detect depletion)
+    #if ($self->experiment->name =~ m/H3-Core|H3K9me2/) {
+    #    $self->SCORE_FACTOR(-1);
+    #} else {
+        $self->SCORE_FACTOR(1);
+    #}
+
+}
+
+sub check_InputId {
+
+    print "Analysis::RunnableDB::Funcgen::check_InputId\n";
+
+    my ($self) = @_;
+    my @input = split(':', $self->input_id);
+
+    # set experiment
+    my $ename = shift @input;
+    my $e = $self->efgdb->get_ExperimentAdaptor->fetch_by_name($ename);
+    $self->experiment($e) 
+        or throw("Can't fetch experiment with name ".$ename);
+    #print Dumper $self->experiment;
+    warn("EXPERIMENT:\t".$self->experiment->name);
+
+    # set query
+    my $input_id_type = $self->analysis->input_id_type();
+
+    my $sa = $self->efgdb->get_SliceAdaptor;
+
+    my @slices = ();
+    if ($input_id_type eq 'Slice') {
+
+        @slices = ( $sa->fetch_by_name(join(':', @input)) );
+        throw("Can't fetch slice with name ".join(':', @input)) 
+            unless (@slices);
+        
+    } elsif ($input_id_type eq 'Array') {
+
+        @slices = @{$sa->fetch_all('toplevel')};
+        throw("Can't fetch toplevel slices")
+            unless (@slices);
+        
+    } else {
+
+        throw("Input_id type '$input_id_type' not implemented.");
+
+    }
+
+    $self->query(\@slices);
+
 }
 
 sub check_Analysis {
@@ -397,6 +417,7 @@ sub fetch_ResultSets
 ### end of config
 ################################################################################
 
+
 =head2 fetch_input
 
   Arg [1]     : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen
@@ -421,15 +442,41 @@ sub fetch_input {
     my $cachedir = $self->ANALYSIS_WORK_DIR.'/cache';
     if ( ! -d $cachedir) {
         my $retval = system("mkdir -p $cachedir");
-        throw("Couldn't create cache directory $cachedir") unless ($retval == 0);
+        throw("Couldn't create cache directory $cachedir") 
+            unless ($retval == 0);
     }
+
+
+    warn("INPUT_ID_TYPE: ". $self->analysis->input_id_type);
+    
+    my $input_id_type = $self->analysis->input_id_type;
+    my $query_name;
 
     foreach my $rset (@{$self->ResultSets}) {
 
         print join(" ", $rset->dbID, $rset->name), "\n";
 
+        if ($input_id_type eq 'Slice') {
+            
+            $query_name = $self->query->[0]->name();
 
-        my $datfile = $cachedir.'/'.$self->query->name.'.'.$rset->name.'.dat';
+        } elsif ($input_id_type eq 'Array') {
+            
+            my @echips = @{$rset->get_ExperimentalChips()};
+            warn("WARNING: Result set '".$rset->name."' comprises more than one experimental chip, ".
+                 "which will result in very large datafiles!")
+                if (scalar @echips > 1);
+            $query_name = 'ec_' . join (':', map { $_->unique_id } @echips);
+
+        } else {
+
+            throw("No idea how to deal with input_id type ".$input_id_type);
+
+        }
+
+
+
+        my $datfile = $cachedir.'/'.$query_name.'.'.$rset->name.'.dat';
         warn('datafile: '.$datfile);
 
         my @result_features = ();
@@ -437,49 +484,52 @@ sub fetch_input {
         warn("SCORE_FACTOR: ".$self->SCORE_FACTOR);
 
         unless ( -e $datfile ) { # dat file already dumped; skipping sql
+
+            foreach my $slice ( @{$self->query} ) {
             
-            #my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE',1);
-            #my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE');
-            my $result_features = $rset->get_ResultFeatures_by_Slice($self->query());
+                #my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE',1);
+                #my $result_features = $rset->get_ResultFeatures_by_Slice($self->query(),'DISPLAYABLE');
+                my $result_features = $rset->get_ResultFeatures_by_Slice($slice);
 
-            print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
+                print "No. of ResultFeatures_by_Slice:\t", scalar(@$result_features), "\n";
         
-            if (scalar(@$result_features) == 0) {
-                warn("No result_features on slice ".$self->query()->name());
-                next;
-            }
+                if (scalar(@$result_features) == 0) {
+                    warn("No result_features on slice ".$slice->name());
+                    next;
+                }
 
-            my $ft_cnt = 1;
-
-            foreach my $prb_ft (sort {$a->start <=> $b->start} @{$result_features}) {
-                #print '<', join("><", 
-                #           $self->query()->seq_region_name, 
-                #           $prb_ft->start, 
-                #           $prb_ft->end, 
-                #           $prb_ft->score*($self->SCORE_FACTOR), 
-                #           $prb_ft->probe->get_probename), ">\n";
-                push (@result_features, 
-                      [ 
-                        $self->query()->seq_region_name,
-                        $prb_ft->start, 
-                        $prb_ft->end, 
-                        $prb_ft->score*$self->SCORE_FACTOR,
-                        $ft_cnt++,
-                        #$prb_ft->probe->get_probename,
-                        ]
-                      );
+                my $ft_cnt = 1;
+                
+                foreach my $rft (sort {$a->start <=> $b->start} @{$result_features}) {
+                    #print '<', join("><", 
+                    #           $self->query()->seq_region_name, 
+                    #           $rft->start, 
+                    #           $rft->end, 
+                    #           $rft->score*($self->SCORE_FACTOR), 
+                    #           $rft->probe->get_probename), ">\n";
+                    push (@result_features, 
+                          [ 
+                            $slice->seq_region_name,
+                            $rft->start, 
+                            $rft->end, 
+                            $rft->score*$self->SCORE_FACTOR,
+                            $ft_cnt++,
+                            #$rft->probe->get_probename,
+                            ]
+                          );
+                }
             }
 
             open(RF, "> $datfile")
                 or throw("Can't open file $datfile");
-
-                map {
-                    print RF join("\t", @$_),"\n";
-                  } @result_features;
-
+            
+            map {
+                print RF join("\t", @$_),"\n";
+            } @result_features;
+            
             close RF
                 or throw("Can't close file $datfile");
-
+            
         } else {
 
             print "Using cached ResultFeatures:\t", $datfile, "\n";
@@ -534,7 +584,7 @@ sub fetch_input {
         .$self->efg_analysis->module;
     $runnable = $runnable->new
         (
-         -query => $self->query,
+         #-query => $self->query,
          -program => $self->efg_analysis->program_file,
          -analysis => $self->efg_analysis,
          -workdir => $self->ANALYSIS_WORK_DIR,
@@ -605,52 +655,71 @@ sub write_output{
     }
     
     ### annotated features
-    
-    my ($transfer, $slice);
-    if($self->query->start != 1 || $self->query->strand != 1) {
-        my $sa = $self->efgdb->get_SliceAdaptor;
-        $slice = $sa->fetch_by_region($self->query->coord_system->name(),
-                                      $self->query->seq_region_name(),
-                                      undef, #start
-                                      undef, #end
-                                      undef, #strand
-                                      $self->query->coord_system->version());
-        $transfer = 1;
-        warn('TRANSFER: 1');
-    } else {
-        $slice = $self->query;
-    }
-    
+
     #my $af = $self->adaptor('AnnotatedFeature')->fetch_all_by_Slice_FeatureSet
     #    ($self->query, $fset);
 
     my $fset = $self->feature_set;	
     my $fs_id = $fset->dbID();
-    
-    my $af = $self->efgdb->get_AnnotatedFeatureAdaptor->fetch_all_by_Slice_FeatureSet
-        ($self->query, $fset, $self->efg_analysis->logic_name);
-    
-    warn('No. of annotated features already stored: '.scalar(@$af).' ('.$self->query->name.' '.$fset->name.')');
-    warn('No. of annotated features to be stored: '.scalar(@{$self->output}).' ('.$self->query->name.')');
-    
-   if (@$af) {
-       
-       warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice ".
-            $self->query->name." already contains ".scalar(@$af).
-            " annotated features of feature set ".$fset->dbID.".");
-       return 1;
-       
-   } else {
-        my @af;
+
+    my @stored_af = ();
+    foreach my $s (@{$self->query}) {
+
+        push @stored_af, 
+        @{$self->efgdb->get_AnnotatedFeatureAdaptor->fetch_all_by_Slice_FeatureSets($s, [$fset])};
+
+    }
+
+    warn('No. of annotated features already stored: '.scalar(@stored_af));
+    warn('No. of annotated features to be stored:  '.scalar(@{$self->output}));
+
+    if (@stored_af) {
+        
+        warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! Slice(s) ".
+             join (', ', map {$_->name} @{$self->query})." already contains ".scalar(@stored_af).
+             " annotated features of feature set '".$fset->name."' (dbId ".$fset->dbID.').');
+        return 1;
+        
+    } else {
+        
+        # we need to transfer annotated features onto the toplevel slice, if the input
+        # input slice is not a toplevel slice (starting with 1). This applies only if 
+        # the input id is of type 'Slice'.
+        
+        my ($transfer, $slice, $tl_slice);
+        my $input_id_type = $self->analysis->input_id_type;
+        
+        if ($input_id_type eq 'Slice' && 
+            ($self->query->[0]->start != 1 || $self->query->[0]->strand != 1)) {
+            my $sa = $self->efgdb->get_SliceAdaptor;
+            $tl_slice = $sa->fetch_by_region($self->query->[0]->coord_system->name(),
+                                             $self->query->[0]->seq_region_name(),
+                                             undef, #start
+                                             undef, #end
+                                             undef, #strand
+                                             $self->query->[0]->coord_system->version());
+            $transfer = 1;
+            warn('TRANSFER: 1');
+        }
+        
+        my %af_slice = ();
+        
+        if ($input_id_type eq 'Array') {
+            map { $af_slice{$_->seq_region_name} = $_ } @{$self->query};
+        }
+        
+        my @af = ();
         foreach my $ft (@{$self->output}){
             
             #print Dumper $ft;
-            my ($seqid, $start, $end, $score) = @{$ft};
-                
-            #print Dumper ($seqid, $start, $end, $score);
+            my ($sr_name, $start, $end, $score) = @{$ft};
+            
+            $slice = $input_id_type eq 'Slice' ? $self->query->[0] : $af_slice{"$sr_name"};
+            
+            #print Dumper ($sr_name, $start, $end, $score);
             my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
                 (
-                 -slice         => $self->query,
+                 -slice         => $slice,
                  -start         => $start,
                  -end           => $end,
                  -strand        => 0,
@@ -662,12 +731,12 @@ sub write_output{
             # make sure feature coords are relative to start of entire seq_region
             if ($transfer) {
                 #warn("original af:\t", join("\t", $af->start, $af->end), "\n");
-                $af = $af->transfer($slice);
+                $af = $af->transfer($tl_slice);
                 #warn("remapped af:\t", join("\t", $af->start, $af->end), "\n");
             }
             push(@af, $af);
         }
-
+        
         $self->efgdb->get_AnnotatedFeatureAdaptor->store(@af);
     }
     return 1;
@@ -821,6 +890,27 @@ sub efg_analysis {
     return $self->{'efg_analysis'};
 }
 
+sub query {
+
+    my ($self, $query) = @_;
+
+    if ( $query ) {
+        
+        throw("Must pass RunnableDB:Funcgen:query a array ref not a ".
+              ref($query)) unless (ref($query) eq 'ARRAY');
+
+        map { 
+            throw($_->name . " is not a Bio::EnsEMBL::Slice")
+                unless ($_->isa("Bio::EnsEMBL::Slice"));
+        } @$query;
+
+        $self->{'query'} = $query;
+    }
+
+    return $self->{'query'};
+
+}
+
 sub experiment {
     my ($self, $e) = @_;
     if ($e) {
@@ -834,7 +924,7 @@ sub experiment {
 sub norm_method {
     my ($self, $m) = @_;
     if ($m) {
-      throw("Must pass a Bio::EnsEMBL::Ananlysis not a ".$m)
+      throw("Must pass a Bio::EnsEMBL::Ananysis not a ".$m)
           unless($m->isa('Bio::EnsEMBL::Analysis'));         
       $self->{'norm_method'} = $m;
     }
