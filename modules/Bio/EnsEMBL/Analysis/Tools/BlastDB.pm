@@ -111,17 +111,27 @@ sub temp_dir{
     $self->{temp_dir} = $arg;
   }
   if(!$self->{temp_dir}){
-    my $blastdb_dir = $self->output_dir . "/tempblast." . $$ . "/";
+    
+    my $id_num = $$;
+    my $blastdb_dir;
+    do { 
+      $blastdb_dir = $self->output_dir . "/tempblast." . $id_num . "/";
+      $id_num++;
+    } while ( -d $blastdb_dir);
+       
     mkdir $blastdb_dir;
     $self->{temp_dir} = $blastdb_dir;
   }
   return $self->{temp_dir};
 }
 
+
 sub create_blastdb{
   my ($self, $seq_file, $format_command) = @_;
 
+
   $seq_file = $self->sequence_file if(!$seq_file);
+
   if(! -e $seq_file){
     throw("Your seqfile ".$seq_file." does not exist you must have some ".
           "seq objects defined to dump in it") unless($self->sequences);
