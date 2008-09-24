@@ -45,40 +45,47 @@ use vars qw(%Config);
     (
      CONFIG => {
          DEFAULT => {
-             EFGDB => {
-                 -dbname => $ENV{'DBNAME'},
-                 -host => $ENV{'DBHOST'},
-                 -port => $ENV{'DBPORT'} || 3306,
+             DNADB => {
+                 -dbname => $ENV{'CORE_DBNAME'},
+                 -host => $ENV{'CORE_HOST'},
+                 -port => $ENV{'CORE_PORT'} || 3306,
                  -species => $ENV{'SPECIES'},
-                 -user => 'ensadmin',
-                 -pass => 'XXXX',
+                 -user => $ENV{'CORE_USER'},
+             },
+             EFGDB => {
+                 -dbname => $ENV{'EFG_DBNAME'},
+                 -host => $ENV{'EFG_HOST'},
+                 -port => $ENV{'EFG_PORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => $ENV{'EFG_WRITE_USER'},
+                 -pass => $ENV{'PASS'},
              },
              MODULE            => 'ACME',
              PROGRAM           => 'R[ACME]',
-             PROGRAM_FILE      => 'R-2.7.0',
+             PROGRAM_FILE      => $ENV{'R_PATH'},
              VERSION           => '1.6.0',
-             NORM_METHOD       => 'VSN_GLOG',
+             NORM_METHOD       => $ENV{'NORM_METHOD'},
              RESULT_SET_REGEXP => '_IMPORT',
-             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{DBNAME}",
+             ANALYSIS_WORK_DIR => $ENV{'ANALYSIS_WORK_DIR'},
          },
-         'ACME_1e-01' => {
-             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-01",
-         },
-         'ACME_1e-02' => {
-             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-02",
-         },
-         'ACME_1e-05' => {
-             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-05",
-         },
-         'ACME_1e-10' => {
-             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-10",
-         },
-         'ACME_1e-15' => {
-             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-15",
-         },
-         'ACME_1e-20' => {
-             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-20",
-         },
+#         'ACME_1e-01' => {
+#             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-01",
+#         },
+#         'ACME_1e-02' => {
+#             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-02",
+#         },
+#         'ACME_1e-05' => {
+#             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-05",
+#         },
+#         'ACME_1e-10' => {
+#             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-10",
+#         },
+#         'ACME_1e-15' => {
+#             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-15",
+#         },
+#         'ACME_1e-20' => {
+#             PARAMETERS        => "WINDOW=500 THRESHOLD=0.95 PVALUE=1e-20",
+#         },
 
      });
 

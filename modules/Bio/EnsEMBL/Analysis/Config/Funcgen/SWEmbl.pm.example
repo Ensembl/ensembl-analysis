@@ -58,19 +58,20 @@ use vars qw(%Config);
                  -port => $ENV{'EFG_PORT'} || 3306,
                  -species => $ENV{'SPECIES'},
                  -user => $ENV{'EFG_WRITE_USER'},
-                 -pass => 'XXXXXX',
+                 -pass => $ENV{'PASS'},
              },
              MODULE            => 'SWEmbl',
              PROGRAM           => 'SWEmbl',
              PROGRAM_FILE      => 'SWEmbl',
              VERSION           => '2008-08-03',
-             NORM_METHOD       => 'VSN_GLOG',
+             #PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
+             NORM_METHOD       => $ENV{'NORM_METHOD'},
              RESULT_SET_REGEXP => '_IMPORT',
-             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{EFG_DBNAME}",
+             ANALYSIS_WORK_DIR => $ENV{'ANALYSIS_WORK_DIR'},
          },
-         'SWEmbl_default' => {
-             PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
-         },
+#         'SWEmbl_default' => {
+#             PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
+#         },
      });
 
 sub import {

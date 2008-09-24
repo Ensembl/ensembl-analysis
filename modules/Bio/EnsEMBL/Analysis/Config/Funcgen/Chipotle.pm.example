@@ -45,16 +45,61 @@ use vars qw(%Config);
     (
      CONFIG => {
          DEFAULT => {
-             PROGRAM           => $ENV{PROGRAM},
-             PROGRAM_FILE      => $ENV{PROGRAM_FILE},
-             VERSION           => $ENV{VERSION},
-             PARAMETERS        => $ENV{PARAMETERS},
-             EXPERIMENT        => $ENV{EXPERIMENT},
-             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
-             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-             DATASET_NAME      => $ENV{DATASET_NAME},
-             ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
-         }
+             DNADB => {
+                 -dbname => $ENV{'CORE_DBNAME'},
+                 -host => $ENV{'CORE_HOST'},
+                 -port => $ENV{'CORE_PORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => $ENV{'CORE_USER'},
+             },
+             EFGDB => {
+                 -dbname => $ENV{'EFG_DBNAME'},
+                 -host => $ENV{'EFG_HOST'},
+                 -port => $ENV{'EFG_PORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => $ENV{'EFG_WRITE_USER'},
+                 -pass => $ENV{'PASS'},
+             },
+             MODULE            => 'Chipotle',
+             PROGRAM           => 'ChIPOTle',
+             PROGRAM_FILE      => '/nfs/acari/graef/src/chipotle/chipotle',
+             VERSION           => '2.0',
+             #PARAMETERS        => $ENV{PARAMETERS},
+             NORM_METHOD       => $ENV{NORM_METHOD}, 
+             RESULT_SET_REGEXP => '_IMPORT', 
+             SCORE_FACTOR      => 1,
+             ANALYSIS_WORK_DIR => $ENV{'ANALYSIS_WORK_DIR'},
+         },
+#         'Chipotle_BH_1e-01' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BH alpha=1e-1',
+#         },
+#         'Chipotle_BH_1e-05' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BH alpha=1e-5',
+#         },
+#         'Chipotle_BH_1e-10' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BH alpha=1e-10',
+#         },
+#         'Chipotle_BH_1e-15' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BH alpha=1e-15',
+#         },
+#         'Chipotle_BH_1e-25' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BH alpha=1e-25',
+#         },
+#         'Chipotle_BON_1e-01' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BON alpha=1e-1',
+#         },
+#         'Chipotle_BON_1e-05' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BON alpha=1e-5',
+#         },
+#         'Chipotle_BON_1e-10' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BON alpha=1e-10',
+#         },
+#         'Chipotle_BON_1e-15' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BON alpha=1e-15',
+#         },
+#         'Chipotle_BON_1e-25' => {
+#             PARAMETERS        => 'windowSize=400 stepSize=60 adjustPvalue=BON alpha=1e-25',
+#         },
      });
 
 sub import {

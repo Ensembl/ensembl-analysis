@@ -37,7 +37,6 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 =cut
 
 package Bio::EnsEMBL::Analysis::Config::Funcgen::Splitter;
-
 use strict;
 use vars qw(%Config);
 
@@ -45,16 +44,33 @@ use vars qw(%Config);
     (
      CONFIG => {
          DEFAULT => {
-             PROGRAM           => $ENV{PROGRAM},
-             PROGRAM_FILE      => $ENV{PROGRAM_FILE},
-             VERSION           => $ENV{VERSION},
-             PARAMETERS        => $ENV{PARAMETERS},
-             EXPERIMENT        => $ENV{EXPERIMENT},
-             NORM_ANALYSIS     => $ENV{NORM_ANALYSIS},
-             RESULT_SET_REGEXP => $ENV{RESULT_SET_REGEXP},
-             DATASET_NAME      => $ENV{DATASET_NAME},
+             DNADB => {
+                 -dbname => $ENV{'CORE_DBNAME'},
+                 -host => $ENV{'CORE_HOST'},
+                 -port => $ENV{'CORE_PORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => $ENV{'CORE_USER'},
+             },
+             EFGDB => {
+                 -dbname => $ENV{'EFG_DBNAME'},
+                 -host => $ENV{'EFG_HOST'},
+                 -port => $ENV{'EFG_PORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => $ENV{'EFG_WRITE_USER'},
+                 -pass => $ENV{'PASS'},
+             },
+             MODULE            => 'SWEmbl',
+             PROGRAM           => 'Splitter',
+             PROGRAM_FILE      => 'splitter.cgi',
+             VERSION           => '0.1',
+             #PARAMETERS        => "'norm=none' 'combine=median' 'cutoff=2sd' 'maxgap=100' 'minrun=4'",
+             NORM_METHOD       => $ENV{NORM_METHOD},
+             RESULT_SET_REGEXP => '_IMPORT',
              ANALYSIS_WORK_DIR => $ENV{ANALYSIS_WORK_DIR},
-         }
+         },
+#         Splitter_default => {
+#             PARAMETERS        => "'norm=none' 'combine=median' 'cutoff=2sd' 'maxgap=100' 'minrun=4'",
+#         }
      });
 
 sub import {

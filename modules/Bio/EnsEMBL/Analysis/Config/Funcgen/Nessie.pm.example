@@ -41,13 +41,20 @@ use vars qw(%Config);
     (
      CONFIG => {
          DEFAULT => {
-             EFGDB => {
-                 -dbname => $ENV{'DBNAME'},
-                 -host => $ENV{'DBHOST'},
-                 -port => $ENV{'DBPORT'} || 3306,
+             DNADB => {
+                 -dbname => $ENV{'CORE_DBNAME'},
+                 -host => $ENV{'CORE_HOST'},
+                 -port => $ENV{'CORE_PORT'} || 3306,
                  -species => $ENV{'SPECIES'},
-                 -user => 'ensadmin',
-                 -pass => 'ensembl',
+                 -user => $ENV{'CORE_USER'},
+             },
+             EFGDB => {
+                 -dbname => $ENV{'EFG_DBNAME'},
+                 -host => $ENV{'EFG_HOST'},
+                 -port => $ENV{'EFG_PORT'} || 3306,
+                 -species => $ENV{'SPECIES'},
+                 -user => $ENV{'EFG_WRITE_USER'},
+                 -pass => $ENV{'PASS'},
              },
              MODULE            => 'Nessie',
              PROGRAM           => 'nessie',
@@ -56,32 +63,31 @@ use vars qw(%Config);
              #PARAMETERS        => undef,
              TRAIN_PARAMETERS  => " --onestep=$ENV{HOME}/bin/train_state.para",
              #PEAK_PARAMETERS   => " --bridge --gap 500 --split 2500 --mindist 400 --minpost 0.99",
-             NORM_METHOD       => 'VSN_GLOG', 
+             NORM_METHOD       => $ENV{NORM_METHOD}, 
              RESULT_SET_REGEXP => 'BR._TR.', 
              SCORE_FACTOR      => 1,
-             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{DBNAME}",
+             ANALYSIS_WORK_DIR => $ENV{'ANALYSIS_WORK_DIR'},
          },
 
-         #--replicates=2 --onestep="/nfs/acari/graef/bin/train_state.para"
-
-         # NimbleGen data
-         # (recommended for standard ChIP-chip fragment length ~300-600)
-         'Nessie_NG' => {
-             PARAMETERS => ' --distribution="weibull" --fit-method="slope"',
-             PEAK_PARAMETERS   => " --bridge --gap 500 --split 2500 --mindist 400 --minpost 0.99",
-         },
-
-         # PCR array based data
-         'Nessie_PCR' => {
-             PARAMETERS => ' --distribution="normal" --fit-method="full"',
-         },
-
-         # Affymetrix data and NimbleGen
-         # (use with very short fragments hybridised to arrays ~200bp)
-         'Nessie_200' => {
-             PARAMETERS => ' --distribution="normal" --fit-method="slope" ',
-         },
-
+          # NimbleGen data
+          # (recommended for standard ChIP-chip fragment length ~300-600)
+#          'Nessie_NG' => {
+#              PARAMETERS => ' --distribution="weibull" --fit-method="slope"',
+#              PEAK_PARAMETERS   => " --bridge --gap 500 --split 2500 --mindist 400 --minpost 0.99",
+#          },
+ 
+          # PCR array based data
+#          'Nessie_PCR' => {
+#              PARAMETERS => ' --distribution="normal" --fit-method="full"',
+#              PEAK_PARAMETERS   => " --bridge --gap 500 --split 2500 --mindist 400 --minpost 0.99",
+#          },
+ 
+          # Affymetrix data and NimbleGen
+          # (use with very short fragments hybridised to arrays ~200bp)
+#          'Nessie_200' => {
+#              PARAMETERS => ' --distribution="normal" --fit-method="slope" ',
+#              PEAK_PARAMETERS   => " --bridge --gap 500 --split 2500 --mindist 400 --minpost 0.99",
+#          }
      });
 
 sub import {
