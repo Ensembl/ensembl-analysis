@@ -132,10 +132,10 @@ sub write_infile {
     foreach my $rset_name (sort keys %{$self->result_features})
     {
 
-        #print Dumper $self->query->name, $rset_name, $filename;
+        #print Dumper $self->query->[0]->name, $rset_name, $filename;
         #print $self->result_features->{$rset_name}, "\n";
 
-        my $datafile = $self->workdir.'/cache/'.$self->query->name.'.'.$rset_name.'.dat';
+        my $datafile = $self->workdir.'/cache/'.$self->query->[0]->name.'.'.$rset_name.'.dat';
         warn("datafile: ".$datafile);
             
         unless ( -e $datafile ) {

@@ -59,7 +59,7 @@ use vars qw(%Config);
                  -user => $ENV{'EFG_WRITE_USER'},
                  -pass => $ENV{'PASS'},
              },
-             MODULE            => 'SWEmbl',
+             MODULE            => 'Splitter',
              PROGRAM           => 'Splitter',
              PROGRAM_FILE      => 'splitter.cgi',
              VERSION           => '0.1',

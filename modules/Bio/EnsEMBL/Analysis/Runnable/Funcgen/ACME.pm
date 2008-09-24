@@ -125,9 +125,9 @@ sub write_infile {
 
 	my $pvalue = $param->{PVALUE};
 
-	my $chrom = $self->query()->seq_region_name;
-	my $start = $self->query()->start, 
-	my $end = $self->query()->end;
+	#my $chrom = $self->query()->seq_region_name;
+	#my $start = $self->query()->start, 
+	#my $end = $self->query()->end;
 	
 	open(R, ">".$Rfile)
 		or throw("Can't open file $Rfile.");
@@ -146,16 +146,17 @@ sub write_infile {
 				file="$resultsfile", sep="\\t", 
 				row.names = FALSE, col.names = FALSE)
 
+EOR
+
     #f=file('${resultsfile}.bed','w')
     #writeLines('track name="ACME findRegions $pvalue" description="$pvalue"',con=f)
     #regions\$Chromosome <- paste('chr',regions\$Chromosome,sep="")
     #write.table(regions[regions\$TF==TRUE,c('Chromosome','Start','End')],f,sep="\t",col.names=F,row.names=F,quote=F)
 
+	#pdf("$PDFfile", height = 10, width = 15);
+	#plot(aGFFCalc, chrom = "$chrom", sample = 1)
+    #dev.off()
 
-	pdf("$PDFfile", height = 10, width = 15);
-	plot(aGFFCalc, chrom = "$chrom", sample = 1)
-    dev.off()
-EOR
 
 	close R;
 

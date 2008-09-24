@@ -134,6 +134,25 @@ sub write_infile {
 ### One shot (all in one)
 # ./splitter.cgi "id=SplitterJob.TEST" 'submit=One shot' 'signalfile=samplesplittersignal' 'sorted=yes' 'norm=none' 'combine=median' 'splitterstep=10' 'splitterratio=2' 'cutoff=2.5sd' 'maxgap=100' 'minrun=5'
 
+#available Splitter parameters (for details see http://zlab.bu.edu/splitter)
+# -Input already sorted by genomic positions of probes
+#  'sorted=yes|no'
+# -Perform normalization between replicates
+#  'norm=none|qnorm|rnorm'
+# -Combine replicates
+#  'combine=mean|median'
+# -Signal cutoff for the combined intensities>=
+#  'cutoff=splitter|5pct|1pct|2sd|2.5sd'
+#   'splitterfrom='
+#   'splitterto='
+#   'splitterstep=10'
+#   'splitterratio=2'
+# -Determine how the probes are clustered
+#  Gap (Maxgap) <= n base pairs
+#   'maxgap=100'
+#  Clustering (Minrun) >= n probes
+#   'minrun=4'
+
 sub run_analysis {
         
     my ($self, $program) = @_;

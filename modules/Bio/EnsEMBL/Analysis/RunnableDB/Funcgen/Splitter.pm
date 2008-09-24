@@ -79,6 +79,14 @@ sub new {
 
     $self->read_and_check_config($CONFIG);
 
+    # add some runnable/program special params to analysis here
+
+    # make sure we have the correct analysis object
+    $self->check_Analysis();
+
+    # make sure we can store the correct feature_set, data_sets, and result_sets
+    $self->check_Sets();
+
     return $self;
 	
 }

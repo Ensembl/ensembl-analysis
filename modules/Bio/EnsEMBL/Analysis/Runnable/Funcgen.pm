@@ -58,7 +58,7 @@ sub new {
     my ($class,@args) = @_;
     #print Dumper @args;
     my $self = $class->SUPER::new(@args);
-    #print Dumper $self;
+    #warn $self;
 
     my ($result_features, $options, $workdir) = rearrange
         (['RESULT_FEATURES', 'OPTIONS', 'WORKDIR'], @args);
@@ -66,6 +66,7 @@ sub new {
     $self->result_features($result_features);
     $self->workdir($workdir);
     $self->checkdir();
+
     warn("workdir ".$self->workdir()." OK!");
 
     #warn('RESULT_FEATURES: '.$self->result_features);
@@ -257,7 +258,7 @@ sub parse_results{
     my @output = ();
     
     while (<F>) {
-        s/\"//;
+        s/\"//g;
         s/^chr//;
         next unless (/^[0-9XYM]+\s/);
         
@@ -275,8 +276,25 @@ sub parse_results{
     
 }
 
+sub query {
 
+    my ($self, $query) = @_;
 
+    if ( $query ) {
+        
+        throw("Must pass RunnableDB:Funcgen:query a array ref not a ".
+              ref($query)) unless (ref($query) eq 'ARRAY');
 
+        map { 
+            throw($_->name . " is not a Bio::EnsEMBL::Slice")
+                unless ($_->isa("Bio::EnsEMBL::Slice"));
+        } @$query;
+
+        $self->{'query'} = $query;
+    }
+
+    return $self->{'query'};
+
+}
 
 1;

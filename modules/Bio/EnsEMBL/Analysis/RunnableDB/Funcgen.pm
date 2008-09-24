@@ -584,7 +584,7 @@ sub fetch_input {
         .$self->efg_analysis->module;
     $runnable = $runnable->new
         (
-         #-query => $self->query,
+         -query => $self->query,
          -program => $self->efg_analysis->program_file,
          -analysis => $self->efg_analysis,
          -workdir => $self->ANALYSIS_WORK_DIR,
