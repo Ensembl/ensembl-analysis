@@ -47,7 +47,7 @@ use Bio::EnsEMBL::Analysis::Runnable::Funcgen::SWEmbl;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl;
 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use vars qw(@ISA); 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Funcgen);
@@ -69,7 +69,6 @@ sub new {
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
-
     $self->read_and_check_config($CONFIG);
 
     # make sure we have the correct analysis object
@@ -82,23 +81,16 @@ sub new {
 	
 }
 
-sub check_Experiment {
+sub check_InputId {
 
-    warn("Analysis::RunnableDB::Funcgen::SWEmbl::check_Experiment");
+    warn("Analysis::RunnableDB::Funcgen::SWEmbl::check_InputId");
 
     my ($self) = @_;
+    my ($ename, $file) = split(':', $self->input_id);
 
-    # extract experiment name and query file from input_id
-    warn("INPUT_ID:\t".$self->input_id);
-    my ($experiment, $file) = split(':', $self->input_id);
-
-    
-    my $infile = $self->ANALYSIS_WORK_DIR.'/infiles/'.$self->input_id;
-    warn('INFILE: '.$self->ANALYSIS_WORK_DIR.'/infiles/'.$self->input_id);
-    $self->query($infile);
-
-    my $ea = $self->efgdb->get_ExperimentAdaptor();
-    my $e = $ea->fetch_by_name($experiment);
+    # set experiment
+    my $ea = $self->efgdb->get_ExperimentAdaptor;
+    my $e = $ea->fetch_by_name($ename);
 
     my @date = (localtime)[5,4,3];
     $date[0] += 1900; $date[1]++;
@@ -110,7 +102,7 @@ sub check_Experiment {
 
         my $exp = Bio::EnsEMBL::Funcgen::Experiment->new
             (
-             -NAME => $experiment,
+             -NAME => $ename,
              -GROUP => "$ENV{EFG_GROUP}",
              -DATE => join('-', @date),
              -PRIMARY_DESIGN_TYPE => 'binding_site_identification',
@@ -137,8 +129,12 @@ sub check_Experiment {
     }
 
     $self->experiment($e) 
-        or throw("Can't fetch experiment with name ".$experiment);
+        or throw("Can't fetch experiment with name ".$ename);
     #print Dumper $self->experiment;
+
+    my $infile = $self->ANALYSIS_WORK_DIR.'/infiles/'.$self->input_id;
+    warn('INFILE: '.$infile);
+    $self->query($infile);
 
 }
    

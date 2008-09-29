@@ -92,7 +92,6 @@ sub read_and_check_config {
     parse_config($self, $config, $self->analysis->logic_name);
     #print Dumper $self;
 
-
     # first get default and eFG analysis config
     #warn("Reading config for '$logic_name'");
     #parse_config($self, $config, $logic_name);
@@ -121,13 +120,13 @@ sub read_and_check_config {
     # -- moved to child's news method --
     #$self->analysis->logic_name($logic_name);
 
-
-    # Set normalization method
-    my $m = $self->efgdb->get_AnalysisAdaptor->fetch_by_logic_name($self->NORM_METHOD);
-    $self->norm_method($m) 
-        or throw("Can't fetch analysis object for norm method ".$self->NORM_METHOD);
-    #print Dumper $self->norm_method;
-
+    # Set normalization method (only for ChIP-chip on slices)
+    unless ($self->analysis->input_id_type eq "file") {
+        my $m = $self->efgdb->get_AnalysisAdaptor->fetch_by_logic_name($self->NORM_METHOD);
+        $self->norm_method($m) 
+            or throw("Can't fetch analysis object for norm method ".$self->NORM_METHOD);
+        #print Dumper $self->norm_method;
+    }
 
     # make sure we have valid feature and data set objects incl. supporting sets
     # -- moved to child's news method --
