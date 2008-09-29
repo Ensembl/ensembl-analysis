@@ -155,7 +155,7 @@ foreach my $db (@dbas) {
   foreach my $domain (keys %$domains) {
     push @genes , @{sql("SELECT DISTINCT(transcript.gene_id)
     FROM protein_feature, transcript, translation
-    WHERE hit_id = \'$domain\'
+    WHERE hit_name = \'$domain\'
     AND protein_feature.translation_id = translation.translation_id
     AND translation.transcript_id = transcript.transcript_id", $db)};
   }
