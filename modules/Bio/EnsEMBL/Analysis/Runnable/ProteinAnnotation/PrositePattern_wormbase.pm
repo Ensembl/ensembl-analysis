@@ -37,7 +37,7 @@ sub run_analysis {
 	        $self->queryfile.' '.
 		'> ' . $self->resultsfile;
     print STDERR "$cmd\n";   
-    $self->throw ("Error running PrositePattern_wormbase ".$self->program." on ".$self->filename) 
+    $self->throw ("Error running PrositePattern_wormbase ".$self->program." on ".$self->queryfile) 
      unless ((system ($cmd)) == 0);
     
 }
@@ -74,36 +74,39 @@ sub parse_results {
 
 
  # Example output:
-#CE20125        PS00031 NUCLEAR_RECEPTOR        30      56      T
+        #sp|Q9BQN2|MT1P3_HUMAN   ps_scan|v1.57   PS00203 13      31      .       .       .       Name "METALLOTHIONEIN_VRT" ; LevelTag "(0)" ; Sequence "CtCAgsCkCkeCkCtsCkK" ; SequenceDescription "sp|Q9BQN2|MT1P3_HUMAN Putative metallothionein MT1P3 OS=Homo sapiens GN=MT1P3 PE=5 SV=1" ; KnownFalsePos 0
+        #sp|A0RXF8|HEM1_CENSY    ps_scan|v1.57   PS00436 4       15      .       .       .       Name "PEROXIDASE_2" ; LevelTag "(-1)" ; Sequence "GLinARVtFHNS" ; SequenceDescription "sp|A0RXF8|HEM1_CENSY Glutamyl-tRNA reductase OS=Cenarchaeum symbiosumGN=hemA PE=3 SV=1" ; KnownFalsePos 13
+        #sp|A0RXF8|HEM1_CENSY    ps_scan|v1.57   PS00747 97      120     .       .       .       Name "GLUTR" ; LevelTag "(0)"; Sequence "HLlrLTSGLDSmVVGEeQILGQVK" ; SequenceDescription "sp|A0RXF8|HEM1_CENSY Glutamyl-tRNA reductase OS=Cenarchaeum symbiosum GN=hemA PE=3 SV=1" ; KnownFalsePos 0
+        ###  etc.
 
-   my $id;
+
+    my $id;
     while (<CPGOUT>) {
       chomp;
 
       print "$_\n";
-      if (my ($id, $hid, $start, $end, $status) = /^(\S+)\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+(\S+)/) {
+      my $score = 0;
+      my $hstart = 1;
+      my $hend = -1;
 
-	my $evalue;
-	my $score = 0;
-	my $hstart = 0;
-	my $hend = 0;
+      
+      my ($id, $hid, $start, $end ) = /\s*(\S+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+\S+\s+\S+\s+\S+/;
 
-	if ($status eq 'T') {
-	  $evalue = '8e-5';
-	} else {
-# what evalue should we give to the hits with status = '?'
-	  $evalue = '0.01';
-	}
+#Calculate the length of the match using the values given for the sequence.
+      $hend = $end - $start + 1;
 
-	print "matched\n";
-	my $percentIdentity = 0;
-
-	my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
-	push @fps, $fp;
-      }
+      print "matched\n";
+      my $evalue = 0.01;
+      my $percentIdentity = 0;
+      
+      my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
+      push @fps, $fp;
     }
     close (CPGOUT); 
     $self->output(\@fps);
 }
 
 1;
+
+
+

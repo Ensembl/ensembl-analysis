@@ -89,13 +89,13 @@ sub parse_results {
       my $hend = -1;
 
       # is the first column the sequence ID or the file name? - check this
-      my ($id, $hid, $start, $end ) = /\s*(\S+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+\S+\s+\S+\s+\S+/;
+      my ($id, $hid, $start, $end, $evalue ) = /\s*(\S+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+([\d\.\-\e]+)\s+\S+\s+\S+/;
 
 #Calculate the length of the match using the values given for the sequence.
       $hend = $end - $start + 1;
 
       print "matched\n";
-      my $evalue = 0.01;
+#      my $evalue = 0.01;
       my $percentIdentity = 0;
       
       my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
