@@ -35,6 +35,7 @@ use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use Data::Dumper;
 
 use vars qw (@ISA);
 
@@ -70,10 +71,30 @@ sub new{
   #SETTING THE DEFAULTS#
   ######################
 
-  $self->min_coverage($min_coverage) if defined $min_coverage;
-  $self->min_percent($min_percent) if defined $min_percent;
-  $self->best_in_genome($best_in_genome) if defined $best_in_genome;
-  $self->reject_processed_pseudos($rpp) if defined $rpp;
+  if (defined ($min_coverage)) {
+    $self->min_coverage($min_coverage);
+  } elsif ( !defined($self->min_coverage) ) {
+    warn("\n\tmin_coverage not set, setting it to zero (0)!\n\n$!");
+    $self->min_coverage(0);
+  }
+  if (defined ($min_percent)) {
+    $self->min_percent($min_percent);
+  } elsif (!defined($self->min_percent)) {
+    warn("\n\tmin_percent not set, setting it to zero (0)!\n\n$!");
+    $self->min_percent(0);
+  }
+  if (defined ($best_in_genome)) {
+    $self->best_in_genome($best_in_genome);
+  } elsif (!defined($self->best_in_genome)) {
+    warn("\n\tbest_in_genome not set, setting it to one (1)!\n\n$!");
+    $self->best_in_genome(1);
+  }
+  if (defined ($rpp)) {
+    $self->reject_processed_pseudos($rpp);
+  } elsif (!defined($self->reject_processed_pseudos)) {
+    warn("\n\treject_processed_pseudos, setting it to one (1)!\n\n$!");
+    $self->reject_processed_pseudos(1);
+  }
 
   return $self;
 }
@@ -173,7 +194,7 @@ TRAN:
       }
 
       unless ($max_coverage){
-	$max_coverage = $coverage;
+        $max_coverage = $coverage;
       }
       unless ( $perc_id_of_best ){
 	$perc_id_of_best = $percent_id;
@@ -188,11 +209,11 @@ TRAN:
       } else{
 	$label = $count;
       }
-      
+
       if ( $count == 1 && $is_spliced ){
 	$splices_elsewhere = 1;
       }
-      
+
       if ( $self->best_in_genome ){
         # we keep the hit with the best coverage...
 	if ($coverage == $max_coverage &&
@@ -206,7 +227,6 @@ TRAN:
              # minimum
              ($coverage   >= (1 + 5/100) * $self->min_coverage &&
               $percent_id >= (1 - 3/100) * $self->min_percent))) { 
-          
 	  if ( $self->reject_processed_pseudos
 	       && $count > 1 
 	       && $splices_elsewhere 
