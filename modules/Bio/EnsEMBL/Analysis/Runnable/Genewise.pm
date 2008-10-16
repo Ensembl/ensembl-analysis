@@ -120,7 +120,11 @@ sub run{
   }
   $self->resultsfile($self->create_filename("results", "out"));
   $self->files_to_delete($self->resultsfile);
-  $self->run_analysis;
+  $self->run_analysis; 
+   # Warning ! 
+   # you can't run Genewise.pm straight away, like Bio::EnsEMBL::Genewise->run() , as it has dependecies 
+   # about Featuretypes / FeaturePairs - run BlastMiniGenewise or Minigenewise first ! 
+   #
   $self->parse_results;
   $self->delete_files;
 }
