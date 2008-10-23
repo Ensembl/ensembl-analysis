@@ -396,7 +396,14 @@ sub run {
       }  
       if ( $store_rule ) {  
         $ra->store($rule) ; 
-      }
+      }  
+
+    Bio::EnsEMBL::Registry->load_all($$MAIN_CONFIG{LOCATION_OF_COMPARA_REGISTRY_FILE},1,1);
+    my @dba = @{Bio::EnsEMBL::Registry->get_all_DBAdaptors()}; 
+    for ( @dba ) {  
+        $_->disconnect_when_inactive(1);
+    } 
+
 }  
 
 
@@ -917,7 +924,11 @@ sub read_and_check_config {
        for ( keys %tmp ) {
          print "schema $_:\n". join("\n" , @{$tmp{$_}} ) . "\n\n"  ;
        }
+    } 
+    for my $a ( @dba ) {  
+        $a->disconnect_when_inactive(1); 
     }
+   
 } 
 
 
