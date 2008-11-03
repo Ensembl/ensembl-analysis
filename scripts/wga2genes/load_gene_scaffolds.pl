@@ -168,7 +168,7 @@ foreach my $gs_id (keys %agps) {
                $comp->from->end,
                $comp->to->start,
                $comp->to->end,
-               $comp->to->strand);
+               $comp->ori);
       } else {
         $ass_sth->execute($seq_region_id,
                           $db->get_SliceAdaptor->get_seq_region_id($comp_slices{$comp->to->id}),
@@ -192,9 +192,9 @@ $verbose and print STDERR "Removing toplevel from used...\n";
 foreach my $sl_id (keys %comp_slices) {
   my $sl = $comp_slices{$sl_id};
   if ($test) {
-    printf "Removed toplevel from slice %s\n", $sl->seq_region_name;
+    printf "Removed toplevel from slice %s sid %d\n", $sl->seq_region_name, $sl->get_seq_region_id;
   } else {
-    $aa->remove_from_Slice($sl, $tl_type_id);
+    $aa->remove_from_Slice($sl, $TOPLEVEL_ATTR_CODE);
   }
 }
 
