@@ -6,6 +6,7 @@ use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Mapper;
 
+$| = 1;
 
 my ($dbname, 
     $dbuser,
@@ -729,6 +730,11 @@ sub _generate_sub_lists {
     my ($first, @rest) = @list;
 
     my @s_lists = &_generate_sub_lists(@rest);
+
+    if (scalar(@s_lists) > 50_000) {
+      print "!!!! Bailing out of combinatorial explosion !!!!!\n";
+      return @s_lists;
+    }
 
     my @new_s_lists;
     foreach my $sl (@s_lists) {
