@@ -144,19 +144,17 @@ sub check_Sets {
 
     my ($self) = @_;
 
-    my $set_name = $self->experiment->name();
-    my ($ct_name, $ft_name) = split(/_/, $set_name);
-    ###
-    #### Hack to import LMI methylation data again ####
-    ###
-    #$set_name .= '_e'.$ENV{VERSION};
+    my $set_name = $self->analysis->logic_name.'_'.$self->experiment->name();
+    warn("SetName: $set_name");
+
+    my ($ct_name, $ft_name) = split(/_/, $self->experiment->name());
 
     my $feature_type = $self->efgdb->get_FeatureTypeAdaptor()->fetch_by_name($ft_name)
-        or throw("Feature type $ft_name does not exit");
+        or throw("Feature type '$ft_name' does not exist");
     $self->feature_type($feature_type);
 
     my $cell_type = $self->efgdb->get_CellTypeAdaptor()->fetch_by_name($ct_name)
-        or throw("Cell type $ct_name does not exit");
+        or throw("Cell type '$ct_name' does not exist");
     $self->cell_type($cell_type);
 
     my $esa = $self->efgdb->get_ExperimentalSetAdaptor();
@@ -366,7 +364,7 @@ sub write_output{
     my $fset = $self->feature_set;	
     my $fs_id = $fset->dbID();
     
-    my $af = $self->efgdb->get_AnnotatedFeatureAdaptor->fetch_all_by_FeatureSets(($fset));
+    my $af = $self->efgdb->get_AnnotatedFeatureAdaptor->fetch_all_by_FeatureSets([$fset]);
     
     warn('No. of annotated features already stored: '.scalar(@$af).' ('.$self->query.' '.$fset->name.')');
     warn('No. of annotated features to be stored: '.scalar(@{$self->output}).' ('.$self->query.')');

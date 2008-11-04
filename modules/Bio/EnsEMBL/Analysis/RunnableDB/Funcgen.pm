@@ -121,7 +121,7 @@ sub read_and_check_config {
     #$self->analysis->logic_name($logic_name);
 
     # Set normalization method (only for ChIP-chip on slices)
-    unless ($self->analysis->input_id_type eq "file") {
+    unless ($self->analysis->input_id_type eq "File") {
         my $m = $self->efgdb->get_AnalysisAdaptor->fetch_by_logic_name($self->NORM_METHOD);
         $self->norm_method($m) 
             or throw("Can't fetch analysis object for norm method ".$self->NORM_METHOD);
