@@ -27,7 +27,7 @@ my $use_killlist = 1;
 my $skip_xps = 1;
 my $logger_verbosity = "NONE";
 
-&GetOptions( "proteome_file:s"    => \$output_file,
+&GetOptions( "proteome_file|pmatch_output_file:s"    => \$output_file,
              "file_info:s@"       => \@file_info,
              "skip_xs:s"          => \$skip_xs,
              "use_killlist!"      => \$use_killlist,
