@@ -86,9 +86,13 @@ foreach my $file(keys(%files)) {
   my $io = Bio::SeqIO->new( -format => 'fasta',
                             -file   => $file, );
 
- SEQ:while(my $seq = $io->next_seq){
-    my $parseable_string = $seq->id." ".$seq->desc;
-    my ($id) = $parseable_string =~ /$regex/;
+ SEQ:while(my $seq = $io->next_seq){  
+
+    my $parseable_string = $seq->id; 
+    $parseable_string.=" ".$seq->desc if $seq->desc() ;  
+
+    my ($id) = $parseable_string =~ /$regex/; 
+
     if($id =~ m/^1$/){
       print "got ".$id." from ".$parseable_string."\n";
       die;
