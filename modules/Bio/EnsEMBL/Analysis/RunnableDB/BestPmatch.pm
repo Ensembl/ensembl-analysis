@@ -20,19 +20,28 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
+  print "\nReading config : Bio/EnsEMBL/Analysis/Config/GeneBuild/Pmatch.pm\n\n" ; 
   $self->read_and_check_config($BESTPMATCH_BY_LOGIC);
-
   return $self;
 }
 
 
 sub fetch_input{
   my ($self) = @_;
-  my $pafa = $self->get_dbadaptor($self->INPUT_DB)->get_ProteinAlignFeatureAdaptor;
-  my $features = $pafa->fetch_all_by_logic_name($self->PMATCH_LOGIC_NAME);
-  print "Have fetched ".@$features." with ".$self->PMATCH_LOGIC_NAME." from ".
-    " ".$pafa->dbc->dbname."\n";
-  $self->pmatch_features($features);
+  my $pafa = $self->get_dbadaptor($self->INPUT_DB)->get_ProteinAlignFeatureAdaptor;  
+  my @features ;
+   
+  if ( ref($self->PMATCH_LOGIC_NAME)=~m/ARRAY/ ) {   
+     for my  $logic_name  (@{ $self->PMATCH_LOGIC_NAME}) {   
+        my @f = @{$pafa->fetch_all_by_logic_name($logic_name)} ; 
+        print "Have fetched ".@f." with logic_name : $logic_name from ".$pafa->dbc->dbname."\n"; 
+        push @features, @f ;  
+     }  
+  } else {  
+    @features = @{$pafa->fetch_all_by_logic_name($self->PMATCH_LOGIC_NAME)} ; 
+    print "Have fetched ".@features." with logic_name : ".$self->PMATCH_LOGIC_NAME." from ".$pafa->dbc->dbname."\n";
+  }  
+  $self->pmatch_features(\@features);
 }
 
 sub run{
