@@ -1,3 +1,40 @@
+=pod
+
+=head1 NAME
+  
+Bio::EnsEMBL::Analysis::RunnableDB::Pmatch - aligns protein sequence  to genomic sequence
+
+=head1 DESCRIPTION
+
+
+Pmatch is a fast alignment program written by Richard Durbin we used
+to align species specific proteins to the genome, (We also use it to
+align very closely related species proteins sets e.g Mouse to Rat or
+Fugu to Tetraodon).
+
+The pmatch binary itself is available from the
+sanger cvs respository in module rd-utils,
+(http://cvs.sanger.ac.uk/cgi-bin/viewcvs.cgi/rd-utils/).
+The code to run this process in the ensembl code
+base can be found in 2 RunnableDBs and a config
+file. Bio::EnsEMBL::Analysis::RunnableDB::Pmatch,
+Bio::EnsEMBL::Analysis::RunnableDB::BestPmatch and
+Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch
+
+
+=head1 CONTACT
+
+Email ensembl-dev@ebi.ac.uk for questions. 
+
+
+=head1 APPENDIX
+
+The rest of the documentation details each of the object methods. Internal methods are usually preceded with a _
+
+=cut
+
+
+
 package Bio::EnsEMBL::Analysis::RunnableDB::Pmatch;
 
 use vars qw(@ISA);
