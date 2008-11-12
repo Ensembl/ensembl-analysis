@@ -13,12 +13,12 @@ Bio::EnsEMBL::Analysis::Config::General
 
 =head1 DESCRIPTION
 
-General pipeline configuration.
+General analysis configuration.
 
 It imports and sets a number of standard global variables into the
 calling package. Without arguments all the standard variables are set,
 and with a list, only those variables whose names are provided are set.
-The module will die if a variable which doesn\'t appear in its
+The module will die if a variable which doesn't appear in its
 C<%Config> hash is asked to be set.
 
 The variables can also be references to arrays or hashes.
@@ -49,8 +49,12 @@ use vars qw(%Config);
            # Path where the parser and parameter files for FirstEF program are allocated
            PARAMETERS_DIR => '/vol/software/linux-i386/farm/lib/firstef/parameters/',
            PARSE_SCRIPT => '/vol/software/linux-i386/farm/lib/firstef/FirstEF_parser.pl',
+           
+           # The default directory the Runnable runs its analysis in
            ANALYSIS_WORK_DIR => '/tmp',
+
            ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
+ 
            CORE_VERBOSITY => 'WARNING',
            LOGGER_VERBOSITY => 'OFF',
            
