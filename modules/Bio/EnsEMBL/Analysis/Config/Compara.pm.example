@@ -47,6 +47,7 @@ use vars qw(%Config);
     SEMPHY => '/software/ensembl/compara/semphy-1.0.b1',
 #    SEMPHY => '/software/ensembl/compara/semphy',
     ORTHEUS => '/software/ensembl/compara/OrtheusC/Ortheus.py',
+    TREEBEST => '/software/ensembl/compara/bin/treebest',
 
 );
 
