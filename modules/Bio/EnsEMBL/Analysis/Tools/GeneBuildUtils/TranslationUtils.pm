@@ -107,6 +107,7 @@ sub print_peptide{
 
 sub Translation_info{
   my ($transcript, $indent) = @_;
+  $indent = '' if(!$indent);
   my $translation = $transcript->translation;
   my $id = id($translation);
   my $start_id = id($translation->start_Exon);
