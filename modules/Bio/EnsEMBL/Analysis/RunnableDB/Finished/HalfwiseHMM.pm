@@ -350,7 +350,7 @@ sub write_output {
 	eval {
 		GENE: foreach my $gene (@genes)
 		{
-			$gene_adaptor->store($gene);
+			$gene_adaptor->store($gene,0);
 		}
 		$dbh->commit;
 	};
