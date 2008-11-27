@@ -15,7 +15,7 @@ generally from UniSTS the file format is expected to be
 
 numeric id  name chromosome position 
 
-with any other lines marked by a #
+with any other lines (header info) started by a #
 
 =head1 OPTIONS
 
@@ -33,6 +33,8 @@ with any other lines marked by a #
 
     -map_name  Name of map
 
+    -write     writes data into the marker_map_location table
+ 
     -help      prints out the perl docs
 
 =head1 EXAMPLES
