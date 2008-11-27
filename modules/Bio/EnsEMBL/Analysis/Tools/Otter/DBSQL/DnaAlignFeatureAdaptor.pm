@@ -46,7 +46,8 @@ sub fetch_all_by_Slice_attach_daf_history {
   # need to modify this method so that we fetch the dna_align_feature_history too
   my ($self, $slice, $logic_name) = @_;
   #fetch by constraint with empty constraint
-    return $self->fetch_all_by_Slice_constraint($slice, '', $logic_name);
+   
+  return $self->SUPER::fetch_all_by_Slice_constraint($slice, '', $logic_name);
 }
 
 =head2 _objs_from_sth
@@ -191,31 +192,33 @@ sub _objs_from_sth {
     }
 
     # Finally, create the new DnaAlignFeature.
-    #print STDERR "Creating daf on slice ".$slice->name." with hstart ".$hit_start." and hend ".$hit_end." and dna_align_feature_history_id ".$dna_align_feature_history->dbID."\n";
+    # not that we can't use create_fast
+    # and also we must write our keys as eg. -slice and not as eg. 'slice'
+    # or it will confuse Feature.pm and pass incorrect values
     push( @features,
-          $self->_create_feature_fast(
+          $self->_create_feature(
                                   'Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeature', {
-                                    'slice'           => $slice,
-                                    'start'           => $seq_region_start,
-                                    'end'             => $seq_region_end,
-                                    'strand'          => $seq_region_strand,
-                                    'hseqname'        => $hit_name,
-                                    'hstart'          => $hit_start,
-                                    'hend'            => $hit_end,
-                                    'hstrand'         => $hit_strand,
-                                    'score'           => $score,
-                                    'p_value'         => $evalue,
-                                    'percent_id'      => $perc_ident,
-                                    'cigar_string'    => $cigar_line,
-                                    'analysis'        => $analysis,
-                                    'adaptor'         => $self,
-                                    'dbID'            => $dna_align_feature_id,
-                                    'external_db_id'  => $external_db_id,
-                                    'hcoverage'       => $hcoverage,
-                                    'extra_data'      => $extra_data ? $self->get_dumped_data($extra_data) : '',
-                                    'dbname'          => $external_db_name,
-                                    'db_display_name' => $external_display_db_name,
-                                    'dna_align_feature_history' => $dna_align_feature_history
+                                    -slice           => $slice,
+                                    -start           => $seq_region_start,
+                                    -end             => $seq_region_end,
+                                    -strand          => $seq_region_strand,
+                                    -hseqname        => $hit_name,
+                                    -hstart          => $hit_start,
+                                    -hend            => $hit_end,
+                                    -hstrand         => $hit_strand,
+                                    -score           => $score,
+                                    -p_value         => $evalue,
+                                    -percent_id      => $perc_ident,
+                                    -cigar_string    => $cigar_line,
+                                    -analysis        => $analysis,
+                                    -adaptor         => $self,
+                                    -dbID            => $dna_align_feature_id,
+                                    -external_db_id  => $external_db_id,
+                                    -hcoverage       => $hcoverage,
+                                    -extra_data      => $extra_data ? $self->get_dumped_data($extra_data) : '',
+                                    -dbname          => $external_db_name,
+                                    -db_display_name => $external_display_db_name,
+                                    -dna_align_feature_history => $dna_align_feature_history,
                                   } ) );
 
   }
