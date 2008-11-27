@@ -36,22 +36,10 @@ use strict;
 
 @ISA = qw( Bio::EnsEMBL::DBSQL::BaseAdaptor);
 
-my $DAFH_CACHE_SIZE = 100;
-
 sub new {
   my ($class, $db) = @_;
 
-  #my $class = ref($caller) || $caller;
   my $self = $class->SUPER::new($db);
-
-  if (defined $self->db->no_cache && $self->db->no_cache){
-      warning("You are using the API without caching most recent features. Performance might be affected.");
-  } else {
-    #initialize an LRU cache
-    my %cache;
-    tie(%cache, 'Bio::EnsEMBL::Utils::Cache', $DAFH_CACHE_SIZE);
-    $self->{'_dafh_cache'} = \%cache;
-  }
 
   return $self;
 }
@@ -62,8 +50,6 @@ sub fetch_all_by_seq_region {
 
   my ($daf_history, $dbID);
   my $rowHashRef;
-
-#  $self->{_dafh_cache} = {};
 
   my $sth = $self->prepare(
             "SELECT align_feature_history_id, ".
