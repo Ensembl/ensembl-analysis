@@ -28,6 +28,7 @@ use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::DnaDnaAlignFeature;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 @ISA = qw( Bio::EnsEMBL::DnaDnaAlignFeature );
 
@@ -56,21 +57,27 @@ sub new {
 
   my ($dna_align_feature_history) = rearrange([qw(DNA_ALIGN_FEATURE_HISTORY)], @_);
 
-  if (defined $dna_align_feature_history){
-      $self->{'dna_align_feature_history'} = $dna_align_feature_history;
+  # get/set the dna_align_feature_history
+  if (!defined $dna_align_feature_history){
+    throw("dna_align_feature_history not defined");
   }
+  $self->dna_align_feature_history($dna_align_feature_history);
+
   return $self;
 }
 
 sub dna_align_feature_history{
-    my ($self, $arg) = @_;
+  my $self = shift;
 
-    if (defined($arg) && (!ref($arg) || $arg->isa('Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeatureHistory'))){
+  if (@_) {
+    my $dafh = shift;
+    if (defined $dafh && (!ref $dafh || ! $dafh->isa("Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeatureHistory"))) {
       throw("dna_align_feature_history argument must be a Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeatureHistory");
-    } 
-    $self->{dna_align_feature_history} = $arg;
+    }
+    $self->{'dna_align_feature_history'} = $dafh;
+  }
 
-    return $self->{dna_align_feature_history};
+  return $self->{'dna_align_feature_history'};
 }
 
 1;
