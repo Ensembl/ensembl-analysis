@@ -37,14 +37,14 @@ Internal methods are usually preceded with a _
 
 # Let the code begin...
 
-package Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeProjection;
+package Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeMapper;
 
 use vars qw(@ISA);
 use strict;
 
 # Object preamble
 use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Analysis::Runnable::HaplotypeProjection;
+use Bio::EnsEMBL::Analysis::Runnable::HaplotypeMapper;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
@@ -112,78 +112,21 @@ sub input_id {
     
     
 sub write_output {
-  my($self,@genes) = @_;
+  my($self,@mappings) = @_;
   
-  my $db = $self->get_dbadaptor("REFERENCE_DB") ;
-  # sort out analysis
-  
-  my $analysis = $self->analysis;
-  unless ($analysis){
-    $self->throw("an analysis logic name must be defined in the command line");
-  }
-  
-  #my %contighash;
-  my $gene_adaptor = $db->get_GeneAdaptor;
-  
-    
-  @genes = $self->output;
-    
-  foreach my $gene (@genes) { 
-    my $before = scalar(@{$gene->get_all_Transcripts});
-    unless (scalar(@{$gene->get_all_Transcripts})){
-      warning("GENE DOES NOT HAVE TRANSCRIPTS:\n");
-      next;
-    }
-    my %trans_types;
-    $gene->analysis($analysis);
-    $gene->{'stable_id'} = '';
-    # poke the caches
-    my %s_pfhash;
-    foreach my $tran (@{$gene->get_all_Transcripts}) {
-      $tran->{'stable_id'} = '';
-      my @tsf = @{$tran->get_all_supporting_features};
-      
-      my @exons= @{$tran->get_all_Exons};
-      my $tln = $tran->translation;
-      if ($tln){
-        $tln->{'stable_id'} = '';
-      }
-      
-      foreach my $exon (@exons) {
-        #$exon->{'dbID'} = '';
-        if ($tran->seq_region_name != $exon->seq_region_name){
-          print "NO EXON WAS NOT TRANSFORMED BEFORE STORAGE\n";
-          
-          #$texon->transform("chromosome", $query_name);
-        }else{
-          print "TRANSFORMED transcript: ",$tran->seq_region_name , " exon: ", $exon->seq_region_name,"\n";
-        }
-        $exon->{'stable_id'} = '';
-        my @esf = @{$exon->get_all_supporting_features};
-      }
-    }
-    
-    # store
-   # eval {
-      #print "Right before storing this gene has ",scalar(@{$gene->get_all_Transcripts})," transcripts\n";
-    if ($before > scalar(@{$gene->get_all_Transcripts})){
-      print "MISSING TRANSCRIPTS IN WRITTING\n";
-    }
-      $gene_adaptor->store($gene);
-      #print STDERR "wrote gene " . $gene->dbID . " to database ".$gene->adaptor->db->dbname."\n";
-   # }; 
-   # if( $@ ) {
-   #   warning("UNABLE TO WRITE GENE:\n$@");
-   # }
-  }
-  
+  #my $db = $self->get_dbadaptor("REFERENCE_DB") ;
+  @mappings = $self->output;
+
+  print "REACH TEST 2 position\n";
+  print "now I have mappings: ",@mappings,"\n";
   my $genebuilders = $self->get_genebuilders;
   
   foreach my $target (keys %{ $genebuilders } ) {
     foreach my $query (keys %{$genebuilders->{$target}}){
-      $genebuilders->{$target}->{$query}->clean_tables;
-    }   
-  } 
+      
+      $genebuilders->{$target}->{$query}->load_tables(@mappings);
+    }
+  }
   
   return 1;   
 }
@@ -220,7 +163,7 @@ sub fetch_input {
 
     my @input_id = split(/:/,$self->input_id);
 
-    my $hap_slice = $ref_db->get_SliceAdaptor->fetch_by_region($input_id[0],$input_id[2],$input_id[3],$input_id[4],1,$input_id[2]);
+    my $hap_slice = $ref_db->get_SliceAdaptor->fetch_by_region($input_id[0],$input_id[2],$input_id[3],$input_id[4],1,$input_id[1]);
     my $slice = $ref_db->get_SliceAdaptor->fetch_by_region($input_id[5],$input_id[7],$input_id[8],$input_id[9],1,$input_id[6]);
 
     #$self->fetch_sequence();
@@ -234,7 +177,7 @@ sub fetch_input {
     print "QUERY: ",$self->query->seq_region_name,"\n";
     print "TARGET: ",$self->target->seq_region_name,"\n";
 
-    my $genebuilder = new Bio::EnsEMBL::Analysis::Runnable::HaplotypeProjection
+    my $genebuilder = new Bio::EnsEMBL::Analysis::Runnable::HaplotypeMapper
       (
        '-hap_slice' => $self->query,
        '-slice'   => $self->target,
@@ -274,20 +217,26 @@ sub get_genebuilders {
 sub run {
   my ($self) = @_;
   
-  my @genes;
+  my @mapping;
 
   # get a hash, with keys = contig/slice and value = genebuilder object
   my $genebuilders = $self->get_genebuilders;
   
+  #my @genes;
   foreach my $target (keys %{ $genebuilders } ) {
     foreach my $query (keys %{$genebuilders->{$target}}){
+        
+      $genebuilders->{$target}->{$query}->create_alignment;
 
-      @genes = $genebuilders->{$target}->{$query}->project_genes;
+      $genebuilders->{$target}->{$query}->filter_alignment;
 
+      @mapping = $genebuilders->{$target}->{$query}->make_map_regions;
+
+      print "I got mappings: ",@mapping,"\n";
     }
   }
   
-  $self->output( @genes );
+  $self->output( @mapping );
 }
 
 ############################################################
@@ -295,12 +244,12 @@ sub run {
 # override the evil RunnableDB output method:
 
 sub output{
-    my ($self, @genes ) = @_;
+    my ($self, @output ) = @_;
     unless ( $self->{_output} ){
 	$self->{_output} = [];
     }
-    if (@genes){
-	push( @{$self->{_output}}, @genes );
+    if (@output){
+	push( @{$self->{_output}}, @output );
     }
     return @{$self->{_output}};
 }
