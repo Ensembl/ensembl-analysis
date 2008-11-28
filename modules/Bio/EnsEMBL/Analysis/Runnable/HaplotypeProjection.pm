@@ -57,6 +57,7 @@ use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Attribute;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
+use Bio::EnsEMBL::Analysis::Runnable::Blastz;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 
 use Bio::EnsEMBL::Analysis::Config::HaplotypeProjection qw (
@@ -110,52 +111,6 @@ sub input_id {
   }
   return $self->{_input_id};
 }
-############################################################
-
-
-=head2 create_alignment
-
- Description: retrieves ensembl and havana gene annotations with supporting evidence. 
- ReturnType : none, but $self->combined_Transcripts is filled
- Args       : none
-
-=cut
-
-sub create_alignment {
-my $target_slice = $self->target;
-my $query_slice =  $self->query;
-
-}
-
-############################################################
-
-
-=head2 filter_alignment
-
- Description: retrieves ensembl and havana gene annotations with supporting evidence. 
- ReturnType : none, but $self->combined_Transcripts is filled
- Args       : none
-
-=cut
-
-sub filter_alignment {
-
-}
-
-############################################################
-
-
-=head2 make_map_regions
-
- Description: retrieves ensembl and havana gene annotations with supporting evidence. 
- ReturnType : none, but $self->combined_Transcripts is filled
- Args       : none
-
-=cut
-
-sub make_map_regions {
-
-} 
 
 ############################################################
 
@@ -169,100 +124,546 @@ sub make_map_regions {
 =cut
 
 sub project_genes {
-
+  my($self) = @_;
 # Call get genes on target slice to get the genes to project.
 
-}
-############################################################
+  my @projected_genes;
+  my $target_slice =  $self->target;
+  my $query_slice =  $self->query;
+  
+  my $full_query_slice = $self->ensembl_db->get_SliceAdaptor->fetch_by_region($query_slice->coord_system->name,
+                                                                              $query_slice->seq_region_name,
+                                                                              undef,
+                                                                              undef,
+                                                                              undef,
+                                                                              $query_slice->seq_region_name);
+  
+  
+  my $tl_slice = $self->ensembl_db->get_SliceAdaptor->fetch_by_region($target_slice->coord_system->name,
+                                                                      $target_slice->seq_region_name);
 
+  print "About to start fetching genes in reference sequence\n";
+  my @genes = @{$target_slice->get_all_Genes(undef,undef,1)};
+  @genes = map { $_->transfer($tl_slice) } @genes;
+  @genes = sort { $a->start <=> $b->start } @genes;
 
-=head2 get_Genes
-
- Description: retrieves ensembl and havana gene annotations with supporting evidence. 
- ReturnType : none, but $self->combined_Transcripts is filled
- Args       : none
-
-=cut
-
-sub get_Genes {
-  my ($self) = @_;
-  my @transcripts;
-  my @genes;
-  my $ensemblslice = $self->fetch_sequence($self->input_id, $self->ensembl_db);
-  my $havanaslice = $self->fetch_sequence($self->input_id, $self->havana_db);
-  print STDERR "Fetching ensembl genes\n";  
-  EGENE: 
-  foreach my $egene (@{$ensemblslice->get_all_Genes_by_type($GB_ENSEMBL_INPUT_GENETYPE)}){
-    # Don't add those genes that contain only transcripts imported from HAVANA (this is important during a merge update)
-    if ($egene->analysis->logic_name() eq $HAVANA_LOGIC_NAME){
-      next EGENE;
-    }else{
-      push (@genes,$egene);
-    } 
-  }
-
-
-  print STDERR "Retrieved ".scalar(@genes)." genes of type ".$GB_ENSEMBL_INPUT_GENETYPE."\n";
-  print STDERR "Fetching havana genes\n";  
-  my @hgenes = @{$havanaslice->get_all_Genes_by_type($GB_HAVANA_INPUT_GENETYPE)};
-  print STDERR "Retrieved ".scalar(@hgenes)." genes of type ".$GB_HAVANA_INPUT_GENETYPE."\n";
-
-  # We change the biotype of the havana genes/transcripts as it could happend to be the same as the ensembl ones
-  foreach my $hgene(@hgenes){
-    my $biotype = $hgene->biotype."_havana";
-    $hgene->biotype($biotype);
-    foreach my $htran (@{$hgene->get_all_Transcripts}) {
-      my $tbiotype = $htran->biotype."_havana";
-      $htran->biotype($tbiotype);
+  
+# fully load genes
+  foreach my $g (@genes) {
+    #print "Your genes has: ",scalar(@{$g->get_all_Transcripts})," transcripts\n";
+    foreach my $t (@{$g->get_all_Transcripts}) {
+      $t->translation;
+      #$t->get_all_supporting_features;
+      foreach my $e (@{$t->get_all_Exons}) {
+        ; #$e->get_all_supporting_features;
+      }
     }
   }
 
-  push(@genes, @hgenes);
+  my $projected = 0;
+  my $not_projected = 0;
 
-  foreach my $gene(@genes){
-  TRANSCRIPT:
-    foreach my $tran (@{$gene->get_all_Transcripts}) {
-      #First we remove HAVANA only transcripts that are present in merged genes
-      if($gene->analysis->logic_name() eq $MERGED_GENE_LOGIC_NAME &&
-         $tran->analysis->logic_name() eq $HAVANA_LOGIC_NAME){
-        next TRANSCRIPT;
-      }elsif($tran->analysis->logic_name() eq $MERGED_TRANSCRIPT_LOGIC_NAME){
-        # In case of a merged transcript we want to distinguish the ones that came from HAVANA that have same CDS 
-        # but different UTR structure as we want to remove then. This is important for a merge update to avoid 
-        # then been wrongly identified as share CDS and UTR 
-        my $share_enst = 0;
-        my $share_cds_and_utr = 0;
-        my @dbentries = @{ $tran->get_all_DBEntries };
-        foreach my $dbentry (@dbentries){
-          if ($dbentry->dbname eq "shares_CDS_with_ENST"){
-            #print "On transcript: ",$tran->dbID," This is a HAVANA shares ENST\n";
-            #next TRANSCRIPT;
-            $share_enst = 1;
+  my $query_version = $full_query_slice->coord_system->version;
+  my $query_name = $full_query_slice->seq_region_name;
+
+  print "Processing $query_name...\n";
+  
+  foreach my $g (@genes) {
+    my $tg = Bio::EnsEMBL::Gene->new;
+    $tg->analysis($g->analysis);
+    $tg->biotype($g->biotype);
+    $tg->status($g->status);
+    #$tg->stable_id($g->stable_id);
+
+    printf("Transferring gene %s %s %d %d\n", 
+           $g->stable_id,
+           $g->biotype,
+           $g->start,
+           $g->end);
+
+    my @proj_trans;
+
+    #print "Number of transcripts before projection: ",scalar(@{$g->get_all_Transcripts}),"\n";
+    my $before = scalar(@{$g->get_all_Transcripts});
+    foreach my $t (@{$g->get_all_Transcripts}) {
+      my $complete_t = $self->get_complete_transcript($t);
+      my $tt = $complete_t->transform("chromosome", $query_name);      
+
+      if (defined $tt) {
+ 
+        push @proj_trans, $tt;
+
+        printf(" %s %s %d %d transferred successfully:\n", 
+               $t->stable_id,
+               $t->biotype,
+               $t->start,
+               $t->end);
+        #$tt->status("CLEAN_TRANSFER");
+        #$self->log_compare_transcripts($t, $tt);    
+      } else {
+        if ($self->transcript_is_missed($t, $query_name)) {
+         } else {
+          if ($complete_t->translation) {
+            my $cds_t = $self->get_coding_part_of_transcript($complete_t);
+            
+            my $tt = $cds_t->transform("chromosome", $query_name);
+            
+            if (defined $tt) {
+              
+            #  $tt->status("CLEAN_CDS_ONLY_TRANSFER");
+              push @proj_trans, $tt;
+             
+            #  $self->log_compare_transcripts($cds_t, $tt);
+            } else {
+
+              my $new_t = $self->project_transcript_the_hard_way($complete_t, $query_name, $full_query_slice);
+              if ($new_t){
+                push @proj_trans, $new_t;
+              }
+              #  $new_t->status("COMPLEX_CODING_WITHOUT_CDS");
+               # $self->log_summarise_projection_by_exon($cds_t, $query_name);
+            }
+          } else {
+            # can project the transcript ignoring CDS
+            my $new_t = $self->project_transcript_the_hard_way($complete_t, $query_name, $full_query_slice);    
+            if ($new_t){
+              push @proj_trans, $new_t;
+              
+            }
+            
+            #$new_t->status("COMPLEX_NON_CODING");
+            # $self->log_summarise_projection_by_exon($t, $query_name);
           }
-          if ($dbentry->dbname eq "shares_CDS_and_UTR_with_OTTT"){
-            $share_cds_and_utr = 1;
-            #print "On transcript: ",$tran->dbID," This is a HAVANA shares CDS and UTR\n";
-          }
-        }
-        if ($share_enst == 1 && $share_cds_and_utr == 0){
-          next TRANSCRIPT;
         }
       }
+    }
+
+    if (@proj_trans) {
+      foreach my $proj_t (@proj_trans){
+        if ($proj_t->translation){
+          $self->check_translation($proj_t);
+        }
+      }
+
+      map { $tg->add_Transcript($_) } @proj_trans;
+      #print "Number of transcripts after projection: ",scalar(@{$tg->get_all_Transcripts}),"\n";
+      if($before > scalar(@{$tg->get_all_Transcripts})){
+        print "MISSING TRANSCRIPTS\n";
+      }
+      push(@projected_genes, $tg);
+    }
+
+  #  printf("Summary for %s : %d out of %d transcripts transferred\n", 
+  #         $g->stable_id, 
+  #         scalar(@proj_trans),
+  #         scalar(@{$g->get_all_Transcripts}));
+  }
+
+  print "Gene projection Finished\n";
+  return @projected_genes;
+
+}
+
+sub clean_tables {
+
+  my ($self) = @_;
+
+  my $target_slice =  $self->target;
+  my $query_slice =  $self->query;
+
+  print "Cleaning meta table\n";
+  my $meta_q = "DELETE from meta where meta_key=\"assembly.mapping\" and meta_value like \"%".$query_slice->seq_region_name."\%\"";
+
+  print "CHECK $meta_q\n";
+  my $clean_meta = $self->ensembl_db->dbc->prepare($meta_q);
+  $clean_meta->execute();
+  $clean_meta->finish;
+  
+  print "Cleaning meta_coord table\n";
+  my $meta_coord = $self->ensembl_db->dbc->prepare("DELETE mt.* from meta_coord mt, coord_system cs where mt.coord_system_id = cs.coord_system_id and cs.version = ?"); 
+
+  $meta_coord->execute($query_slice->seq_region_name);
+  $meta_coord->finish;
+
+  print "Cleaning coord_system table\n";
+  my $clean_coord_system = $self->ensembl_db->dbc->prepare("DELETE from coord_system where version = ?");
+  $clean_coord_system->execute($query_slice->seq_region_name);
+  $clean_coord_system->finish;
+
+  my $sr_id = $self->ensembl_db->dbc->prepare("SELECT seq_region_id from seq_region where name =?");
+  $sr_id->execute($query_slice->seq_region_name);
+  my @hap_sr = $sr_id->fetchrow_array;
+
+  $sr_id->execute($target_slice->seq_region_name);
+  my @chr_sr = $sr_id->fetchrow_array;
+
+  $sr_id->finish;
+
+  print "Cleaning assembly table\n";
+  my $clean_assembly = $self->ensembl_db->dbc->prepare("DELETE from assembly where asm_seq_region_id = ? and cmp_seq_region_id = ?");
+  $clean_assembly->execute($hap_sr[0],$chr_sr[0]);
+  $clean_assembly->finish;
+
+  my $old_sr = $self->ensembl_db->dbc->prepare("SELECT coord_system_id from seq_region where name =?");
+  $old_sr->execute($target_slice->seq_region_name);
+  my @old_coord = $old_sr->fetchrow_array;
+
+  $old_sr->finish;
+
+  print "Cleaning seq_region table\n";
+  my $clean_seq_req = $self->ensembl_db->dbc->prepare("UPDATE seq_region set coord_system_id = ? where name = ?");
+
+  $clean_seq_req->execute($old_coord[0],$query_slice->seq_region_name);
+  $clean_seq_req->finish;
+
+  print "Table clean up done\n";
+}
+
+sub transcript_is_missed {
+  my ($self, $t, $hapname) = @_;
+
+  my $found_part = 0;
+  foreach my $e (@{$t->get_all_Exons}) {
+    my @bits = @{$e->project("chromosome", $hapname)};
+
+    if (@bits) {
+      $found_part = 1;
+      last;
+    }
+  }
+  
+  return not $found_part;
+}
+
+sub get_complete_transcript {
+  my ($self, $t) = @_;
+
+  my @exons = @{$t->get_all_Exons};
+  
+  my $full_t = Bio::EnsEMBL::Transcript->new();
+  for(my $i=0; $i < @exons; $i++) {
+    $exons[$i]->get_all_supporting_features();
+    $full_t->add_Exon($exons[$i]);
+  }
+
+  $full_t->analysis($t->analysis);
+  $full_t->biotype($t->biotype);
+  $full_t->slice($t->slice);
+  $full_t->status($t->status);
+
+  if($t->translation){
+    my @tr_exons = @{$t->get_all_translateable_Exons};
+            
+    my $tr = Bio::EnsEMBL::Translation->new;
+    $tr->start($t->translation->start);
+    $tr->end($t->translation->end);
+    
+    for(my $i=0; $i < @exons; $i++) {
       
-      $self->flush_xref($tran);
-      
-      #Check if a transcript is in the discarded genes database before adding it to the merging list.
-      if($self->check_transcript_in_discarded_db($tran) != 0){
-        #print "Transcript added\n";
-        push(@transcripts, $tran);
-        
+      if ($tr_exons[0]->dbID eq $exons[$i]->dbID){
+        $tr->start_Exon($exons[$i]);
+      }
+      if ($tr_exons[-1]->dbID eq $exons[$i]->dbID){
+        $tr->end_Exon($exons[$i]);
+      }
+    }
+       
+    $full_t->translation($tr);
+  }
+
+  for(my $i=0; $i < @exons; $i++) {
+    $exons[$i]->{'adaptor'} = '';
+    $exons[$i]->{'dbID'} = '';
+   }
+  return $full_t;
+}
+
+
+sub get_coding_part_of_transcript {
+  my ($self, $t) = @_;
+
+  my @cds = @{$t->get_all_translateable_Exons};
+  
+  my $cds_t = Bio::EnsEMBL::Transcript->new();
+  for(my $i=0; $i < @cds; $i++) {
+    $cds_t->add_Exon($cds[$i]);
+  }
+  
+  $cds_t->analysis($t->analysis);
+  $cds_t->biotype($t->biotype);
+  $cds_t->slice($t->slice);
+  $cds_t->status($t->status);
+  my $tr = Bio::EnsEMBL::Translation->new;
+  $tr->start_Exon($cds[0]);
+  $tr->start(1);
+  $tr->end_Exon($cds[-1]);
+  $tr->end($tr->end_Exon->length);
+  $cds_t->translation($tr);
+  
+  #$cds_t->stable_id($t->stable_id . "_CDS");
+
+  return $cds_t;
+}
+
+
+sub project_transcript_the_hard_way {
+  my ($self, $t, $hapname, $hap_slice) = @_;
+
+  my $new_t = Bio::EnsEMBL::Transcript->new();
+  $new_t->analysis($t->analysis);
+  #$new_t->stable_id($t->stable_id);
+  $new_t->biotype($t->biotype);
+  $new_t->status($t->status);
+            
+  my @new_e;
+
+  my @exons;
+  if($t->translation){
+    @exons = @{$t->get_all_translateable_Exons};
+  }else{
+    @exons = @{$t->get_all_Exons};
+  }
+
+  foreach my $e (@exons) {
+    my $te = $e->transform("chromosome", $hapname);
+    
+    if (defined $te) {
+      push @new_e, $te;
+    } else {
+      my @bits = @{$e->project("chromosome",
+                               $hapname)};
+      if (@bits) {
+        # need to make a new exon from the bits
+        my ($ex_st, $ex_en, $strand);
+        foreach my $bit (@bits) {
+          if (not defined $ex_st or $bit->to_Slice->start < $ex_st) {
+            $ex_st = $bit->to_Slice->start;
+          }
+          if (not defined $ex_en or $bit->to_Slice->end > $ex_en) {
+            $ex_en = $bit->to_Slice->end;
+          }
+          if (not defined $strand) {
+            $strand = $bit->to_Slice->strand;
+          }
+        }
+        if (defined $ex_st and defined $ex_en) {
+          my $new_e = Bio::EnsEMBL::Exon->new;
+          $new_e->start($ex_st);
+          $new_e->end($ex_en);
+          $new_e->strand($strand);
+          $new_e->phase(-1);
+          $new_e->end_phase(-1);
+          $new_e->slice($hap_slice);
+          #$new_e->stable_id($e->stable_id);
+          push @new_e, $new_e;
+        }
+      }
+    }
+  }          
+  if($t->translation && scalar(@new_e) > 0){
+    
+    my $tr = Bio::EnsEMBL::Translation->new;
+    $tr->start(1);
+    $tr->end($new_e[-1]->seq->length);
+    $tr->start_Exon($new_e[0]);
+    $tr->end_Exon($new_e[-1]);
+    
+    #print "START: ",$tr->start ," END: ",$tr->end , " EXON1: ",$tr->start_Exon," EXON2: ",$tr->end_Exon,"\n";
+    
+    $new_t->translation($tr);
+    
+  }
+  
+  #$cds_t->stable_id($t->stable_id . "_CDS");
+  
+  if (scalar(@new_e) > 0){
+    
+    map { $new_t->add_Exon($_) } @new_e;
+    
+    if($new_t->translation){
+      $self->fix_coding_phases($new_t);
+    }
+    return $new_t;
+    
+  }else{
+    
+    return 0;
+  }
+}
+
+sub check_translation {
+  my ($self, $trans) = @_;
+
+  my $tseq = $trans->translate();
+  if ( $tseq->seq =~ /\*/ ) {
+    $trans->{'translation'} = undef;
+    $trans->biotype("processed_transcript");
+  }
+}
+
+sub fix_coding_phases {
+  my ($self, $trans) = @_;
+
+  #print "TRANSCRIPT: ", %{$trans},"\n";
+  
+  if (defined($trans->translation)) {
+    my @exons = @{$trans->get_all_translateable_Exons};
+    
+    my $prev_exon = $exons[0];
+    my $start_phase = $exons[0]->phase;
+    
+    if ($start_phase == -1) {
+      $start_phase = 0;
+    }
+
+    my @calc_phases;
+    my $phase = $start_phase;
+    for (my $i=0; $i<scalar(@exons);$i++) {
+      push @calc_phases, $phase;
+      $phase = (($exons[$i]->length + $phase) % 3);
+    }
+
+    for (my $i=0; $i<scalar(@exons);$i++) {
+      my $exon=$exons[$i];
+
+      if ($exon->phase != $calc_phases[$i] && $i != 0) {
+        print "Had to fix coding exon phase in exon \n";# . $exon->dbID . " in trans " . $trans->dbID . "\n";
+
+        $exon->phase($calc_phases[$i]);
+
+        # Note this condition is here because get_all_translateable_Exons may have made a temporary start or end exon 
+        if ($i == $#exons) {
+          $trans->translation->end_Exon->phase($calc_phases[$i]);
+        }
+      }
+
+      my $calc_endphase = (($exon->length + $calc_phases[$i]) % 3);
+      if ($exon->end_phase != $calc_endphase && $i != $#exons) {
+        print "Had to fix coding exon end_phase in exon\n ";# . $exon->dbID . " in trans " . $trans->dbID . "\n";
+
+        $exon->end_phase($calc_endphase);
+
+        # Note this condition is here because get_all_translateable_Exons may have made a temporary start or end exon 
+        if ($i == 0) {
+          $trans->translation->start_Exon->end_phase($calc_endphase);
+        }
+      }
+
+      # Now should be consistent with one another - check
+      if ($exon->phase != $prev_exon->end_phase && $i != 0) {
+        die "EndPhase/Phase mismatch \n";#(" . $prev_exon->end_phase . " and " . $exon->phase .
+                         #") between exons " .  $prev_exon->dbID . " and " . $exon->dbID . "\n";
+      }
+
+      $prev_exon = $exon;
+    }
+  }
+}
+
+
+
+
+sub log_summarise_projection_by_exon {
+  my ($self, $t, $hapname) = @_;
+
+  my $exons_total = 0;
+  my $exons_transferred = 0;
+  my $exons_missed = 0;
+  my $exons_part_missed = 0;
+  my $exons_over_indel = 0;
+  
+  foreach my $e (@{$t->get_all_Exons}) {
+    $exons_total++;
+
+    my $te = $e->transform("chromosome",
+                           $hapname);
+    
+    if (defined $te) {
+      $exons_transferred++;
+    } else {
+      my @bits = @{$e->project("chromosome",
+                               $hapname)};
+
+      if (not @bits) {
+        $exons_missed++;
+      } elsif ($bits[0]->from_start != 1 or
+               $bits[-1]->from_end != $e->length) {
+        $exons_part_missed++;
+      } else {
+        $exons_over_indel++;
       }
     }
   }
   
-  print STDERR "Finished fetching genes\n";
-  $self->combined_Transcripts(@transcripts);
+  printf(" %d exons; %d transferred, %d missed, %d part missed, %d over indel\n",
+         $exons_total, 
+         $exons_transferred, 
+         $exons_missed,
+         $exons_part_missed,
+         $exons_over_indel);
 }
+  
+sub log_compare_transcripts {
+  my ($self, $old, $new) = @_;
+
+  my $cdnaseq_old = $old->spliced_seq;
+  my $cdnaseq_new = $new->spliced_seq;
+
+  my @exons_old = @{$old->get_all_Exons};
+  my @exons_new = @{$new->get_all_Exons};
+
+  my ($pepseq_old, $pepseq_new);
+  if ($old->translation) {
+    $pepseq_old = $old->translate;
+  }
+  if ($new->translation) {
+    $pepseq_new = $new->translate;
+  }
+
+  if ($cdnaseq_old eq $cdnaseq_new) {
+    print "  transfer to identical DNA\n";
+  } else {
+    my $cdna_diffs = $self->compare_seqs($cdnaseq_old, $cdnaseq_new);
+    print "  transfer to $cdna_diffs cDNA diffs";
+    
+    #print $logfh "\nOLD:", $cdnaseq_old, "\n";
+    #print $logfh "NEW:", $cdnaseq_new, "\n";
+    if (defined $pepseq_old and defined $pepseq_new) {
+      #print $logfh "OLD:", $pepseq_old->seq, "\n";
+      #print $logfh "NEW:", $pepseq_new->seq, "\n";
+      my $prot_diffs = $self->compare_seqs($pepseq_old->seq, $pepseq_new->seq);
+      print " and $prot_diffs protein diffs";
+      my $stop_count = $pepseq_new->seq =~ tr/\*/\*/;
+      if ($stop_count) {
+        print " ($stop_count STOPS)";
+      }
+    }
+    print "\n";
+  }
+
+}
+
+sub compare_seqs {
+  my ($self, $seq1, $seq2) = @_;
+
+  my @seq1 = split(//, $seq1);
+  my @seq2 = split(//, $seq2);
+
+  my $total = 0;
+  my $diffs = 0;
+
+  for(my $i=0; $i < @seq1; $i++) {
+    if ($seq1[$i] ne $seq2[$i]) {
+      $diffs++;
+    }
+    $total++;
+  }
+
+  return $diffs;
+}
+
+############################################################
+
 
 sub check_transcript_in_discarded_db{
   my ($self, $tran) = @_;
@@ -302,139 +703,6 @@ sub check_transcript_in_discarded_db{
   return 1;
 }
 
-###########################################################c
-
-=head2 cluster_Transcripts
-
- Description : It separates transcripts according to strand and then clusters 
-               each set of transcripts by calling _cluster_Transcripts_by_genomic_range()
-  Args       : Array of Bio::EnsEMBL::Transcript
-  Return     : Array of Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster
-
-=cut
-
-
-############################################################
-
-=head2 cluster_into_Genes
-
-    Example :   my @genes = $self->cluster_into_Genes(@transcripts);
-Description :   it clusters transcripts into genes according to exon overlap.
-                It will take care of difficult cases like transcripts within introns.
-                It also unify exons that are shared among transcripts.
-    Returns :   a beautiful list of geen objects
-    Args    :   a list of transcript objects
-
-=cut
-
-sub cluster_into_Genes{
-  my ($self, @transcripts_unsorted) = @_;
-  
-  my $num_trans = scalar(@transcripts_unsorted);
-
-  # First clean the coding exon cache in case it has any exons stored from previous called to the cluster_into_Genes function.
-  $self->clear_coding_exons_cache;
-
-  my @transcripts_unsorted_translation;
-
-  foreach my $tran(@transcripts_unsorted){
-    if ($tran->translation){
-      push (@transcripts_unsorted_translation, $tran);
-    }
-  }
-
-  my @transcripts = sort { $a->coding_region_start <=> $b->coding_region_start ? $a->coding_region_start <=> $b->coding_region_start  : $b->coding_region_end <=> $a->coding_region_end } @transcripts_unsorted_translation;
-  my @clusters;
-
-  # clusters transcripts by whether or not any coding exon overlaps with a coding exon in 
-  # another transcript (came from original prune in GeneBuilder)
-  foreach my $tran (@transcripts) {
-  # First clean the coding exon cache in case it has any exons stored from previous called to the cluster_into_Genes function.
- # $self->clear_coding_exons_cache;
-
-    my @matching_clusters;
-  CLUSTER: 
-    foreach my $cluster (@clusters) {
-      
-     # $self->clear_coding_exons_cache;
-
-     #print "Transcript: ",$tran->stable_id," has coding region start: ",$tran->coding_region_start,"\n";
-
-      foreach my $cluster_transcript (@$cluster) {
-        if ($tran->coding_region_end  >= $cluster_transcript->coding_region_start &&
-            $tran->coding_region_start <= $cluster_transcript->coding_region_end) {
-          
-          # foreach my $exon1 (@{$tran->get_all_Exons}) {
-          # foreach my $cluster_exon (@{$cluster_transcript->get_all_Exons}) {
-          my $exons1 = get_coding_exons_for_transcript($tran);
-          my $cluster_exons = get_coding_exons_for_transcript($cluster_transcript);
-
-          foreach my $exon1 (@{$exons1}) {
-            foreach my $cluster_exon (@{$cluster_exons}) {
-              
-              if ($exon1->overlaps($cluster_exon) && $exon1->strand == $cluster_exon->strand) {
-                push (@matching_clusters, $cluster);
-                next CLUSTER;
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    if (scalar(@matching_clusters) == 0) {
-      my @newcluster;
-      push(@newcluster,$tran);
-      push(@clusters,\@newcluster);
-    } 
-    elsif (scalar(@matching_clusters) == 1) {
-      push @{$matching_clusters[0]}, $tran;
-      
-    } 
-    else {
-      # Merge the matching clusters into a single cluster
-      my @new_clusters;
-      my @merged_cluster;
-      foreach my $clust (@matching_clusters) {
-        push @merged_cluster, @$clust;
-      }
-      push @merged_cluster, $tran;
-      push @new_clusters,\@merged_cluster;
-      # Add back non matching clusters
-      foreach my $clust (@clusters) {
-        my $found = 0;
-      MATCHING: 
-	foreach my $m_clust (@matching_clusters) {
-          if ($clust == $m_clust) {
-            $found = 1;
-            last MATCHING;
-          }
-        }
-        if (!$found) {
-          push @new_clusters,$clust;
-        }
-      }
-      @clusters =  @new_clusters;
-    }
-  }
-  
-  # safety and sanity checks
-  $self->check_Clusters(scalar(@transcripts), \@clusters);
-  
-  # make and store genes
-  #print STDERR scalar(@clusters)." created, turning them into genes...\n";
-  my @genes;
-  foreach my $cluster(@clusters){
-    my $count = 0;
-    my $gene = new Bio::EnsEMBL::Gene;
-    foreach my $transcript (@$cluster){
-      #print "Transcript Stable ID: ",$transcript->dbID,"\n";
-      $gene->add_Transcript($transcript);
-    }
-    push( @genes, $gene );
-  }
-  return @genes;
-}
 
 ############################################################
 #
@@ -444,7 +712,7 @@ sub cluster_into_Genes{
 
 # get/set method holding a reference to the db with genewise and combined genes,
 # havana genes and discarded genes
-# this reference is set in Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder
+# this reference is set in Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeProjection
 
 sub ensembl_db{
  my ($self,$ensembl_db) = @_;
@@ -454,6 +722,17 @@ sub ensembl_db{
  
  return $self->{_ensembl_db};
 }
+
+sub output_db{
+ my ($self,$output_db) = @_;
+
+ if ( $output_db ){
+   $self->{_output_db} = $output_db;
+ }
+ 
+ return $self->{_output_db};
+}
+
 
 sub discarded_db{
   my ($self, $discarded_db) = @_;
@@ -515,6 +794,31 @@ sub target {
     $self->{_target} = $slice;
   }
   return $self->{_target};
+}
+
+sub hits {
+  my ($self,@hits) = @_;
+  
+  #print "My hits reach this: ",@hits,"\n";
+
+  #if (!defined($self->{_hits})){
+  #  $self->{_hits} = [];
+  #}
+  if (@hits) {
+    push (@{$self->{_hits}}, @hits);
+  }
+
+  return @{$self->{_hits}};
+}
+
+sub clean_queries {
+  my ($self,$sql_q) = @_;
+  
+  if ($sql_q) {
+    push (@{$self->{_clean_queries}}, $sql_q);
+  }
+
+  return $self->{_clean_queries};
 }
 
 #fetches sequence from appropriate database
