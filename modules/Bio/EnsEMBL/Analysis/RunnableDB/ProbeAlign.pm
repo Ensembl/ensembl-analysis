@@ -393,7 +393,7 @@ sub get_display_name_by_stable_id{
   
   if(! exists $self->{'display_name_cache'}->{$stable_id}){
 	warn "Generating $type display_name cache\n";
-	($self->{'display_name_cache'}->{$stable_id}) = $self->db->dnadb->dbc->db_handle->selectrow_array("SELECT x.display_label FROM ${type}_stable_id s, $type t, xref x where t.display_xref_id=x.xref_id and s.${type}_id=t.gene_id and s.stable_id='${stable_id}'");
+	($self->{'display_name_cache'}->{$stable_id}) = $self->outdb->dnadb->dbc->db_handle->selectrow_array("SELECT x.display_label FROM ${type}_stable_id s, $type t, xref x where t.display_xref_id=x.xref_id and s.${type}_id=t.gene_id and s.stable_id='${stable_id}'");
   }
 
   return $self->{'display_name_cache'}->{$stable_id};
