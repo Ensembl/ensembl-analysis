@@ -50,6 +50,11 @@ use vars qw( %Config );
 
 %Config = 
   (
+
+   #This entire hash is exported as the global $ARRAY_CONFIG var
+   #each key will be exported as $ARRAY_CONFIG->{'_CONFIG_'.$key}
+   #Dependant on logic name of RunnableDB
+
    ARRAY_CONFIG => 
    {
 	DEFAULT => 
@@ -69,138 +74,155 @@ use vars qw( %Config );
 			   -port   => $ENV{'DB_PORT'},
 			   -user   => $ENV{'DB_USER'},
 			   -pass   => $ENV{'DB_PASS'},
+			   -species => $ENV{'SPECIES'},#Only here until we fix the DBAadptor new method
 			  },
 
+
 	 #Optional, must define if dnadb is not on ensembldb
+	 #Not used, but will fail if dnadb autoguessing fails
 	 DNADB => {
 			   -dbname => $ENV{'DNADB_NAME'},
 			   -host   => $ENV{'DNADB_HOST'},
 			   -port   => $ENV{'DNADB_PORT'},
 			   -user   => $ENV{'DNADB_USER'},
 			   -pass   => $ENV{'DNADB_USER'},
+			   -species => $ENV{'SPECIES'},
 			  },
 	 
-	 #The ImportArray.conf file for this instance of the RunnableDB
-	 ARRAY_FORMAT_FILE => $ENV{'ARRAY_FORMAT_FILE'},
-
 	 #Used for building the format specific NR fasta file
-	 DB_HOME           => $ENV{'DB_HOME'},
+	 OUTPUT_DIR           => $ENV{'WORK_DIR'},
 
 
 	 #This defines how to parse the file headers
-	 IIDREGEXP => {
-				   AFFY      => '^>probe:(\S+):(\S+):(\S+:\S+;).*$',
-				   #AFFY_ST => 
-				   #ILLUMINA  =>
-
-				   #if(/^>probe:([^:]+):([^:]+):([0-9:]+;).*$/){#hacked affy,  one o
-				   #  if(/^>probe:(\S+):(\S+).*$/){   #NATH hack to get non probe_set arrays to work   
-				  },
-
+	 IIDREGEXP =>  '^>probe:(\S+):(\S+):(\S+:\S+;).*$',#AFFY
+				  
 	 #We also need a has to define the input field order
 	 #This will be used to set the relevant hash values
 	 IFIELDORDER => {
-					 AFFY => {
-							  -name       => 2,
-							  -array_chip => 0,
-							  -probeset   => 1,#This is not using a class yet? How will this impact on the collapsing?
-							 }
-
+					 #do we need to add fields for class to enable skipping on control probes
+					 #here and in regexp
+					 #We duplicate the field 0 between array.name and array_chip.design_id
+					 #-name       => 2,
+					 #-array      => 0,
+					 #-array_chip => 0,
+					 #-probeset   => 1,
 					},
 
-	 #This is used to store Arrays
+	 #ISKIPLIST/REGEX
+	 #ISKIPFIELD
+
+
+
+	 
+
 	 ARRAY_PARAMS => {
-					  'MG-U74Cv2' => {
-									  -name => 'MG-U74Cv2',
-									  -vendor => 'AFFY',
-									  #-setsize => undef,
-									  -format  => 'EXPRESSION',#? UTR?
-									  -type    => 'OLIGO',
-									  #-description => '',
-									  
-									 },
+					  #'MG-U74Cv2' => {
+					#				  -name => 'MG-U74Cv2',
+					#				  -vendor => 'AFFY',
+					#				  #-setsize => undef,
+					#				  -format  => 'EXPRESSION',
+					#				  -type    => 'OLIGO',
+					#				  #-description => '',
+					#				 },
+
+					 # 'MoGene-1_0-st-v1' => {
+					#						 -name => 'MoGene-1_0-st-v1',
+					#						 -vendor => 'AFFY',
+					#						 #-setsize => undef,
+					#						 -format  => 'EXPRESSION',
+					#						 -type    => 'OLIGO',
+					#						 #-description => '',
+					#						},
+
 
 					 },
 
-	 #Used to call the correct run method
-	 INPUT_FORMAT => {
-					  AFFY        => 'FASTA',
-					  AFFY_ST     => 'FASTA',
-					  #ILLUMINA
-					  #ILLUMINA_V1
-					  #ILLUMINA_V2
-					  #CODELINK
-					  #AGILENT
-					  #?
-					 },
 	 
 	},
 
 
-	IMPORTARRAYS => 
+	IMPORT_AFFY_ARRAYS => 
 	{
-	 OUTDB => {
-			   -dbname => $ENV{'DB_NAME'},
-			   -host   => $ENV{'DB_HOST'},
-			   -port   => $ENV{'DB_PORT'},
-			   -user   => $ENV{'DB_USER'},
-			   -pass   => $ENV{'DB_PASS'},
-			  },
+	 IIDREGEXP => '^>probe:(\S+):(\S+):(\S+:\S+;).*$',
 	 
-	 DNADB => {
-			   -dbname => $ENV{'DNADB_NAME'},
-			   -host   => $ENV{'DNADB_HOST'},
-			   -port   => $ENV{'DNADB_PORT'},
-			   -user   => $ENV{'DNADB_USER'},
-			   -pass   => $ENV{'DNADB_USER'},
-			  },
-
-	 ARRAY_FORMAT_FILE => $ENV{'ARRAY_FORMAT_FILE'},
-	 DB_HOME           => $ENV{'DB_HOME'},
-
-	 IIDREGEXP => {
-				   AFFY      => '^>probe:(\S+):(\S+):(\S+:\S+;).*$',
-				   #AFFY_ST => 
-				   #ILLUMINA  =>
-
-				   #if(/^>probe:([^:]+):([^:]+):([0-9:]+;).*$/){#hacked affy,  one o
-				   #  if(/^>probe:(\S+):(\S+).*$/){   #NATH hack to get non probe_set arrays to work   
-				  },
-
 	 IFIELDORDER => {
-					 AFFY => {
-							  -name       => 2,
-							  -array_chip => 0,
-							  -probeset   => 1,
-							 }
-
+					 -name       => 2,
+					 -array_chip => 0,
+					 -array      => 0,
+					 -probeset   => 1,
 					},
+	 
+	 #Can we remove name from these hashes?
 
-	 ARRAY_PARAMS => {
-					  'MG-U74Cv2' => {
-									  -name => 'MG-U74Cv2',
-									  -vendor => 'AFFY',
-									  #-setsize => undef,
-									  -format  => 'EXPRESSION',#? UTR?
-									  -type    => 'OLIGO',
-									  #-description => '',
-									  
-									 },
-
+	 ARRAY_PARAMS => 
+	 {
+	  'MG-U74Cv2' => {
+					  -name => 'MG-U74Cv2',
+					  -vendor => 'AFFY',
+					  #-setsize => undef,
+					  -format  => 'EXPRESSION',#? UTR?
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  
+					 },
+	
+	  'HT_MG-430A' => {
+					   -name => 'HT_MG-430A',
+					  -vendor => 'AFFY',
+					  #-setsize => undef,
+					  -format  => 'EXPRESSION',#? UTR?
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  
 					 },
 
-	 INPUT_FORMAT => {
-					  AFFY        => 'FASTA',
-					  AFFY_ST     => 'FASTA',
-					  #ILLUMINA
-					  #ILLUMINA_V1
-					  #ILLUMINA_V2
-					  #CODELINK
-					  #AGILENT
-					  #?
-					 },
-
+	  
+	 },
+	 
+	 INPUT_FORMAT => 'FASTA',
 	},
+
+	IMPORT_AFFY_ST_ARRAYS => 
+	{
+	 IIDREGEXP => '^>probe:(\S+):(\S+);\S+:\S+;.*[TranscriptCluster|ProbeSet]ID=([0-9]+);.*$',
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 -probeset   => 2,
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  
+					  'MoGene-1_0-st-v1' => {
+											 -name => 'MoGene-1_0-st-v1',
+											 -vendor => 'AFFY',
+											 #-setsize => undef,
+											 -format  => 'EXPRESSION',
+											 -type    => 'OLIGO',
+											 #-description => '',
+											},
+										   },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
+
+	#ILLUMINA
+	#ILLUMINA_V1
+	#ILLUMINA_V2
+	#CODELINK
+	#AGILENT
+	#?
+   
+#Human
+
+#ftp://ftp.phalanxbiotech.com/pub/probe_sequences/hoa
+
+#Mouse
+
+#ftp://ftp.phalanxbiotech.com/pub/probe_sequences/moa
+
    }
   );
 
