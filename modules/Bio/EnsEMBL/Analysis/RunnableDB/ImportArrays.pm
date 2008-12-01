@@ -8,18 +8,15 @@ Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 =head1 SYNOPSIS
 
-my $affy = 
+my $importer = 
   Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays->new(
-    -db         => $refdb,
-    -analysis   => $analysis_obj,
-    -database   => $EST_GENOMIC,
-    -query_seqs => \@sequences,
+
   );
 
-$affy->fetch_input();
-$affy->run();
-$affy->output();
-$affy->write_output(); #writes to DB and a big fasta file
+$importer->fetch_input();
+$importer->run();
+$importer->output();
+$importer->write_output(); #writes to DB and a big fasta file
 
 =head1 DESCRIPTION
 
@@ -60,6 +57,13 @@ Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =cut
 
+# TO DO
+# Add IMPORTED status for each array_chip?
+# We can't do the same rollback with the probes on these array_chip
+# as they may exist on another array.
+# Write fasta file to db fasta cache?
+
+
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 use strict;
@@ -71,21 +75,50 @@ use Bio::EnsEMBL::Funcgen::Array;
 use Bio::EnsEMBL::Funcgen::ArrayChip;
 use Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Funcgen::Utils::Helper;
 
 use Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
 use vars qw(@ISA);
 
+$|=1;
+
+#How do we get this to print warnings or to STDERR, it's getting caught somewhere!!!
+#
+
+
 @ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
 
 ############################################################
+
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
   $self->read_and_check_config;
   
+  #Set up and check DBs before we do the mapping
+  $self->outdb->dbc->db_handle;
+
+  #array names hash so we can print out a list of the actual names
+  #i.e. not the names in the filename which can be formated differently.
+  $self->{'_array_names'} = {};
+
+  #Have to set Helper here as it doesn't use the same param names
+  #This is for checking the import status of the arrays and rolling back if required
+  #This should enable failed imports to be picked
+
+  $self->{'_helper'} = Bio::EnsEMBL::Funcgen::Utils::Helper->new( no_log => 1 );
+
+
+  my $db = $self->db;
+
   return $self;
+}
+
+
+sub helper{
+  return $_[0]->{'_helper'};
 }
 
 sub fetch_input {
@@ -97,6 +130,7 @@ sub fetch_input {
 
   my $query = $self->QUERYSEQS;
 
+ 
   if ( -e $query and -d $query ) {
     throw "I need to have all affy probes input in one big file\n";
   } elsif ( -e $query and -s $query ) {
@@ -108,7 +142,7 @@ sub fetch_input {
 
 
   #Why do we bother setting this?  Why don't we just use the config methods directly?
-  $self->non_redundant_probe_seqs($self->NON_REDUNDANT_PROBE_SEQS);
+  #$self->non_redundant_probe_seqs($self->NON_REDUNDANT_PROBE_SEQS);
 }
 
 
@@ -119,11 +153,15 @@ sub run{
   #If not then we need to write a different parse method for the input format
   #Need INPUT_FORMAT in config?
 
-  my $method = 'run_'.$self->get_INPUT_FORMAT;
+  my $method = 'run_'.$self->INPUT_FORMAT;#remove get from this method
 
   $self->$method;
 }
 
+
+#The idea is that we could handle other formats here.
+#This overlaps with the idea of Parsers, so need to merge these at some point
+#Fastas are not design files, parsers handle design files.
 
 sub run_FASTA{
   my ($self) = @_;
@@ -139,6 +177,9 @@ sub run_FASTA{
   #Don't actually use 4 and 5 here, but here just in case config regexps are extended
   my @match_refs = (\$1, \$2, \$3, \$4, \$5);
   #or is there a special array to hold these?
+
+  warn "We need to count and report the number of probes imported, else throw if none imported\n".
+	"or if it doesn't match half the wc of the input file";
   
   open( PROBES, "<".$self->query_file);
  
@@ -146,7 +187,7 @@ sub run_FASTA{
     chomp;
    
     if(/$header_regex$/){
-	
+
       if($current_sequence){
 
         if(! $current_array_chip){
@@ -185,7 +226,7 @@ sub run_FASTA{
       }
 
 
-	  #set probe attrs using field order config
+	  #Set probe attrs using field order config
 	  #Do not use map as this is slow
 	  foreach my $field(keys %field_order){
 		$probe_attrs{$field} = ${$match_refs[$field_order{$field}]};
@@ -195,8 +236,8 @@ sub run_FASTA{
       $current_array_chip = $array_chips{$probe_attrs{-array_chip}};
 
 	  #Create new array chip
-      if(! $current_array_chip){
-        $current_array_chip = $self->create_new_array_chip($probe_attrs{-array_chip});
+      if(! $current_array_chip){		
+        $current_array_chip = $self->create_new_array_chip($probe_attrs{-array}, $probe_attrs{-array_chip});
         $array_chips{$probe_attrs{-array_chip}} = $current_array_chip;
       }
 
@@ -205,7 +246,7 @@ sub run_FASTA{
       $sequence_fragment = $_;
 
       if($current_sequence){
-        $current_sequence = $current_sequence . $sequence_fragment;
+        $current_sequence = $current_sequence.$sequence_fragment;
       }
 	  else{
         $current_sequence = $sequence_fragment;
@@ -256,7 +297,7 @@ sub add_array_chip_to_existing_probe{#_probe_set{
     );
   }
 
-  $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->get_Array);
+  $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->Array);
 }
 
 #can we replace these var with $_[n] for speed?
@@ -275,9 +316,13 @@ sub create_new_probe {
   #return Bio::EnsEMBL::Funcgen::Probe->_new_fast(%{$probe_attrs});
 }
 
-sub create_new_array_chip {
-  my($self, $array_name) = @_;
 
+sub create_new_array_chip {
+  my($self, $array_name, $design_id) = @_;
+
+  if(! ($array_name && $design_id)){
+	throw('Need to pass an Array name and an ArrayChip design ID');
+  }
 
   
   #Let's make the assumption that related arrays will have the same format header
@@ -300,28 +345,42 @@ sub create_new_array_chip {
 
 
   my $array_adaptor = $self->outdb->get_ArrayAdaptor;
+  my $achip_adaptor = $self->outdb->get_ArrayChipAdaptor;
   my $array_params = $self->get_ARRAY_PARAMS_by_array_name($array_name);
+  my $array = $array_adaptor->fetch_by_name_vendor($array_name, $array_params->{'-vendor'});
+  my $array_chip;
 
-  if($array_adaptor->fetch_by_name_vendor($array_name, $array_params->{'-vendor'})){
-
-	#Could test for status here and rollback or skip?
-	#return no array_chip if it is already fully import
-
-	throw("Array $array_name already exists in the DB, please remove from DB before attempting import");
+  if(! defined $array){
+	$array = Bio::EnsEMBL::Funcgen::Array->new(%{$array_params});
+	($array) = @{$self->outdb->get_ArrayAdaptor->store($array)};
+  }
+  
+  
+  if(! exists $self->{'_array_names'}->{$array_name}){
+	$self->{'_array_names'}->{$array->name} = undef;
+	
   }
 
-  my $array = Bio::EnsEMBL::Funcgen::Array->new(%{$array_params});
-  ($array) = @{$self->outdb->get_ArrayAdaptor->store($array)};
 
-  my $array_chip = Bio::EnsEMBL::Funcgen::ArrayChip->new
-	(
-	 -name => $array->name,
-	 -design_id => $array->name,#This is a placeholder as we don't have the real ArrayChip details
-	 -array_id  => $array->dbID,
-	);
+  if($array_chip = $achip_adaptor->fetch_by_array_design_ids($array->dbID, $design_id)){
 
-
-  ($array_chip) = @{$self->outdb->get_ArrayChipAdaptor->store($array_chip)};
+	if($array_chip->has_status('IMPORTED')){
+	  throw("$array_name ArrayChip has already been IMPORTED. Please rollback_ArrayChip and/or recompile your ".$self->ARRAY_FORMAT.' fasta file');
+	}
+	else{#Rollback
+	  $self->helper->rollback_ArrayChip($array_chip);
+	}
+  }
+  else{
+	$array_chip = Bio::EnsEMBL::Funcgen::ArrayChip->new
+	  (
+	   -name => $array->name,
+	   -design_id => $design_id,#This is a placeholder as we don't have the real ArrayChip details
+	   -array_id  => $array->dbID,
+	  );
+	
+	($array_chip) = @{$self->outdb->get_ArrayChipAdaptor->store($array_chip)};
+  }
 
   return $array_chip;
 }
@@ -331,7 +390,7 @@ sub write_output {
   my ( $self, @output ) = @_;
 
   my $outdb = $self->outdb;
-  my $outfile = $self->non_redundant_probe_seqs;
+  my $outfile = $self->NON_REDUNDANT_PROBE_SEQS;
   my $probe_adaptor = $outdb->get_ProbeAdaptor;
   my $probeset_adaptor = $outdb->get_ProbeSetAdaptor;
   
@@ -368,42 +427,64 @@ sub write_output {
   }
 
   close(OUTFILE);
+
+
+  #And now the array names
+  $outfile = $self->NAMES_FILE;
+  open (OUTFILE, ">".$outfile) || throw("Failed to open ouput file:\t".$outfile);
+  print join("\n", keys %{$self->{'_array_names'}})."\n";
+  close(OUTFILE);
+
+  return;
 }
 
 ############################################################
 
+#problem here is that the super new is callign this before we get a chance to define it here
+#rename method
+#is db is super pipeline db?
+
 sub outdb {
   my ($self) = @_;
 
-  my ($outdb, $dnadb);
+  #Don't need DNADB for collapse
+
+  my ($outdb);
+
+
 
   #Where are db and dnadb methods coming from?
   #Is this defaulting to the pipeline DB?
 
   if(! defined $self->{'_outdb'}){
 
-	if( my $dnadb_params =  $self->DNADB ){
+	#if( my $dnadb_params =  $self->DNADB ){
 	  #Need to test if they have been defined
 	  #Just test dbname
 	  #All blank env vars are defined as the null string '';
 	  
-	  if($dnadb_params->{-dbname}){
-		$dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$dnadb_params});
-	  }
-	}  #else will use default ensembldb dnadb, this may fail for oddly named dbs
+	#  if($dnadb_params->{-dbname}){
+	#	$dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$dnadb_params});
+	#  }
+	#}  #else will use default ensembldb dnadb, this may fail for oddly named dbs
 	
 	
-	if ( my $outdb_params = $self->OUTDB ) {
+	#if ( my $outdb_params = $self->OUTDB ) {
 	  #We need to set the dnadb here if we are dealing with a pre release DB, i.e. dnadb is not on ensembldb
-	  $outdb = Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new( %{ $outdb_params }, -dnadb => $dnadb);
-	} 
-	else {
-	  #This is the pipeline DBAdaptor?
-	  $outdb = $self->db;
-	  $outdb->dnadb($dnadb) if $dnadb;
-	}
+	#$self->{'_outdb'} = Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new( %{ $outdb_params });#, -dnadb => $dnadb);
+	#}
+	#We are now forcing the use of OUTDB config
+	#else {
+	#  #This is the pipeline DBAdaptor?
+	#  $outdb = $self->db;
+	#  $outdb->dnadb($dnadb) if $dnadb;
+	#}
 
-	$self->{'_outdb'} = $outdb;
+	#$self->{'_outdb'} = $outdb;
+
+
+	$self->{'_outdb'} = Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new( %{$self->OUTDB});#$outdb_params });	
+	
   }
 
   return $self->{'_outdb'};
@@ -429,23 +510,6 @@ sub query_file {
 
 #############################################################
 
-
-sub non_redundant_probe_seqs {
-  my ( $self, $value ) = @_;
-
-  if ( defined $value ) {
-    $self->{'_non_redudant_probe_seqs'} = $value;
-  }
-
-  if ( exists( $self->{'_non_redudant_probe_seqs'} ) ) {
-    return $self->{'_non_redudant_probe_seqs'};
-  } else {
-    return undef;
-  }
-}
-
-
-#############################################################
 
 sub probes {
   my ( $self, $value ) = @_;
@@ -477,48 +541,46 @@ sub read_and_check_config {
   ##########
   my $logic = $self->analysis->logic_name;
 
+  my ($array_format) = split/\:/, $self->input_id;
+  $self->ARRAY_FORMAT($array_format);#Do we even need this now?
+
+
   # check that compulsory options have values
+  #removed  ARRAY_FORMAT_FILE
   foreach my $config_var (
-    qw(
-	   OUTDB
-	   DB_HOME
-	   IIDREGEXP
-	   ARRAY_FORMAT_FILE
-	   INPUT_FORMAT
-	   IFIELDORDER
-	  )
-  ){
-    if ( ! defined $self->$config_var ){
+						  qw(
+							 OUTDB
+							 OUTPUT_DIR
+							 IIDREGEXP
+							 INPUT_FORMAT
+							 IFIELDORDER
+							 IIDREGEXP
+							 IFIELDORDER
+							 INPUT_FORMAT
+							)
+						 ){
+
+	if ( ! defined $self->$config_var ){
       throw("You must define $config_var in config for logic '$logic'");
     }
   }
 
   
-  open(ARRAY_FORMAT_CONFIG, '<'.$self->ARRAY_FORMAT_FILE) || throw("Could not open ARRAY_FORMAT_FILE:\t"..$self->ARRAY_FORMAT_FILE);
-
-  my @config = <ARRAY_FORMAT_CONFIG>;
-  my $input_id = $self->input_id;
-  my ($array_config) = grep(/^$input_id/, @config);
-  my (undef, $array_format, $raw_fasta) = split/\s+/, $array_config;
-  $self->ARRAY_FORMAT($array_format);
-  $self->QUERYSEQS($raw_fasta);
-  $self->NON_REDUNDANT_PROBE_SEQS($self->DB_HOME."/arrays_nr.${array_format}.fasta");
+  $self->QUERYSEQS($self->OUTPUT_DIR."/arrays.${array_format}.fasta");
+  $self->NON_REDUNDANT_PROBE_SEQS($self->OUTPUT_DIR."/arrays_nr.${array_format}.fasta");
+  $self->NAMES_FILE($self->OUTPUT_DIR."/arrays.${array_format}.names");
  
-  #NON_REDUNDANT_PROBE_SEQS is now a format specific file which will need cating after we have finished importing
-  #This should be built from the DB_HOME and the ARRAY_FORMAT.
-  
-  #ARRAY_FORMAT QUERYSEQS(RAW_FASTA) are retrieved from the IportArrays.config file
-  #Key is input_id
 
 
+  #Now defined as separate logic name config in ImportArrays config
   #now check for ARRAY_FORMAT defined config
   #we could set this here too
-  foreach my $config_var ('IIDREGEXP', 'IFIELDORDER', 'INPUT_FORMAT'){
+  #foreach my $config_var ('IIDREGEXP', 'IFIELDORDER', 'INPUT_FORMAT'){
 	
-	if ( ! defined $self->{"_CONFIG_${config_var}"}{$self->ARRAY_FORMAT}){
-	  throw('You must define a '.$self->ARRAY_FORMAT." entry in the $config_var config for logic '$logic'");
-	}
-  }
+#	if ( ! defined $self->{"_CONFIG_${config_var}"}{$self->ARRAY_FORMAT}){
+#	  throw('You must define a '.$self->ARRAY_FORMAT." entry in the $config_var config for logic '$logic'");
+#	}
+#  }
 
 
   #Why does ouput DB not have to be defined? We are actually checking for it above
@@ -526,15 +588,15 @@ sub read_and_check_config {
   
   #remove?
   # output db does not have to be defined, but if it is, it should be a hash
-  if ( ref( $self->OUTDB ) ne "HASH" ) {
+  if ( ref( $self->OUTDB ) ne "HASH"  || ! defined $self->OUTDB->{-dbname}) {
     throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.");
   }
 
-  #Test for DNADB here and warn?
 
 }
 
 ### Dynamic config
+#Now built from input id
 
 sub ARRAY_FORMAT {
   my ( $self, $value ) = @_;
@@ -542,16 +604,6 @@ sub ARRAY_FORMAT {
   $self->{'_ARRAY_FORMAT'} = $value if defined $value;
   return $self->{'_ARRAY_FORMAT'};
 }
-
-sub QUERYSEQS{
-  my ( $self, $value ) = @_;
-
-  $self->{'_QUERYSEQS'} = $value if defined $value;
-  return $self->{'_QUERYSEQS'};
-}
-
-
-# This is now format specific file, which will need cating after the individual Imports have completed
 
 sub NON_REDUNDANT_PROBE_SEQS {
   my ( $self, $value ) = @_;
@@ -561,11 +613,21 @@ sub NON_REDUNDANT_PROBE_SEQS {
 }
 
 
+sub QUERYSEQS{
+  my ( $self, $value ) = @_;
 
-### Config from ImportArrays
+  $self->{'_QUERYSEQS'} = $value if defined $value;
+  return $self->{'_QUERYSEQS'};
+}
 
-#Why are we prefixing everything with config?
+sub NAMES_FILE{
+  my ( $self, $value ) = @_;
 
+  $self->{'_NAMES_FILE'} = $value if defined $value;
+  return $self->{'_NAMES_FILE'};
+}
+
+### Config from ImportArrays ##
 
 sub INPUT_FORMAT{
   my ( $self, $value ) = @_;
@@ -573,21 +635,6 @@ sub INPUT_FORMAT{
   $self->{'_CONFIG_INPUT_FORMAT'} = $value  if defined $value ;
   
   return $self->{'_CONFIG_INPUT_FORMAT'};
-}
-
-sub get_INPUT_FORMAT{
-  my $self = shift;
-
-  return $self->{'_CONFIG_INPUT_FORMAT'}{$self->ARRAY_FORMAT};
-}
-
-
-sub ARRAY_FORMAT_FILE {
-  my ( $self, $value ) = @_;
-
-  $self->{'_CONFIG_ARRAY_FORMAT_FILE'} = $value  if defined $value ;
-  
-  return $self->{'_CONFIG_ARRAY_FORMAT_FILE'};
 }
 
 
@@ -632,13 +679,13 @@ sub IIDREGEXP {
 sub get_IIDREGEXP{
   my $self = shift;
 
-  return $self->{'_CONFIG_IIDREGEXP'}{$self->ARRAY_FORMAT};
+  return $self->{'_CONFIG_IIDREGEXP'};
 }
 
 sub get_IFIELDORDER{
   my $self = shift;
 
-  return $self->{'_CONFIG_IFIELDORDER'}{$self->ARRAY_FORMAT};
+  return $self->{'_CONFIG_IFIELDORDER'};
 }
 
 
@@ -653,24 +700,28 @@ sub IFIELDORDER {
 sub OUTDB {
   my ( $self, $value ) = @_;
 
+
   $self->{'_CONFIG_OUTDB'} = $value  if defined $value;
   return $self->{'_CONFIG_OUTDB'};
 }
 
+sub OUTPUT_DIR {
+  my ( $self, $value ) = @_;
 
+  $self->{'_CONFIG_OUTPUT_DIR'} = $value  if defined $value;
+  return $self->{'_CONFIG_OUTPUT_DIR'};
+}
+
+#Only used to define dnadb if not on ensembldb
+#else dnadb autoguessing will fail
 sub DNADB {
   my ( $self, $value ) = @_;
+
 
   $self->{'_CONFIG_DNADB'} = $value  if defined $value;
   return $self->{'_CONFIG_DNADB'};
 }
 
-sub DB_HOME {
-  my ( $self, $value ) = @_;
-
-  $self->{'_CONFIG_DB_HOME'} = $value  if defined $value;
-  return $self->{'_CONFIG_DB_HOME'};
-}
 
 
 ###############################################
