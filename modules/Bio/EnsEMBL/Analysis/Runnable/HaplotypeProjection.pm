@@ -341,6 +341,8 @@ sub get_complete_transcript {
   my @exons = @{$t->get_all_Exons};
   
   my $full_t = Bio::EnsEMBL::Transcript->new();
+  $full_t->add_supporting_features(@{$t->get_all_supporting_features});
+
   for(my $i=0; $i < @exons; $i++) {
     $exons[$i]->get_all_supporting_features();
     $full_t->add_Exon($exons[$i]);
@@ -386,6 +388,7 @@ sub get_coding_part_of_transcript {
   
   my $cds_t = Bio::EnsEMBL::Transcript->new();
   for(my $i=0; $i < @cds; $i++) {
+    $cds[$i]->get_all_supporting_features();
     $cds_t->add_Exon($cds[$i]);
   }
   
@@ -400,8 +403,6 @@ sub get_coding_part_of_transcript {
   $tr->end($tr->end_Exon->length);
   $cds_t->translation($tr);
   
-  #$cds_t->stable_id($t->stable_id . "_CDS");
-
   return $cds_t;
 }
 
@@ -411,7 +412,6 @@ sub project_transcript_the_hard_way {
 
   my $new_t = Bio::EnsEMBL::Transcript->new();
   $new_t->analysis($t->analysis);
-  #$new_t->stable_id($t->stable_id);
   $new_t->biotype($t->biotype);
   $new_t->status($t->status);
             
@@ -425,6 +425,7 @@ sub project_transcript_the_hard_way {
   }
 
   foreach my $e (@exons) {
+    $e->get_all_supporting_features();
     my $te = $e->transform("chromosome", $hapname);
     
     if (defined $te) {
@@ -454,7 +455,6 @@ sub project_transcript_the_hard_way {
           $new_e->phase(-1);
           $new_e->end_phase(-1);
           $new_e->slice($hap_slice);
-          #$new_e->stable_id($e->stable_id);
           push @new_e, $new_e;
         }
       }
@@ -473,9 +473,7 @@ sub project_transcript_the_hard_way {
     $new_t->translation($tr);
     
   }
-  
-  #$cds_t->stable_id($t->stable_id . "_CDS");
-  
+    
   if (scalar(@new_e) > 0){
     
     map { $new_t->add_Exon($_) } @new_e;
