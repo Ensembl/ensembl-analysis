@@ -49,9 +49,9 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 
-use Bio::EnsEMBL::Analysis::Config::HaplotypeProjection    qw (
+#use Bio::EnsEMBL::Analysis::Config::HaplotypeProjection    qw (
                                                              
-                                                              );
+#                                                              );
 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
