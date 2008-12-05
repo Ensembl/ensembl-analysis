@@ -109,10 +109,10 @@ sub fetch_by_DnaAlignFeature_info {
   #will only use feature_cache if hasn't been no_cache attribute set
   if (!defined $self->db->no_cache || !$self->db->no_cache){
     if (exists($self->{'_dafh_cache'}->{$key}) && defined $self->{'_dafh_cache'}->{$key}) {
-      print STDERR "  Found $key in cache\n";
+      #print STDERR "  Found $key in cache\n";
       return $self->{'_dafh_cache'}->{$key};
     } else {
-      print STDERR "Not found $key , load cache\n";
+      #print STDERR "Not found $key , load cache\n";
     }
   }
 
@@ -130,7 +130,7 @@ sub fetch_by_DnaAlignFeature_info {
     foreach my $num ($dafh->align_feature_id_start .. $dafh->align_feature_id_end) {
       my $k =  uc(join(':', $seq_region_id,$analysis_id,$num));
       if (!exists $self->{'_dafh_cache'}->{$k} || !defined $self->{'_dafh_cache'}->{$k}) {
-      print STDERR "  created key $k... size hash is ".scalar(keys %{$self->{'_dafh_cache'}})."\n";
+        #print STDERR "  created key $k... size hash is ".scalar(keys %{$self->{'_dafh_cache'}})."\n";
         $self->{'_dafh_cache'}->{$k} = $dafh;
       }
     }

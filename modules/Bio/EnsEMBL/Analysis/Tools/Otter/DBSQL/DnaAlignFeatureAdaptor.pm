@@ -45,10 +45,9 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 sub fetch_all_by_Slice_attach_daf_history {
   # need to modify this method so that we fetch the dna_align_feature_history too
   my ($self, $slice, $logic_name) = @_;
-  #fetch by constraint with empty constraint
-   
-  return $self->SUPER::fetch_all_by_Slice_constraint($slice, '', $logic_name);
+  return $self->fetch_all_by_Slice($slice, $logic_name);
 }
+
 
 =head2 _objs_from_sth
 
