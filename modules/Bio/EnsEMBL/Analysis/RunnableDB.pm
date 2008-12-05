@@ -118,7 +118,16 @@ sub new{
           $db." an analysis object ".$analysis.
           " or an input_id ".$input_id);
   }
-  
+ 
+
+  #Clone analysis to prevent analysis reference problem when
+  #using separate pipeline and output DBs
+  #Do not use adaptor here as caching returns same reference
+  my $cloned_analysis;
+  %{$cloned_analysis} = %{$analysis};
+  $analysis =  bless $cloned_analysis, ref ($analysis);
+
+
   $self->db($db);
   $self->analysis($analysis);
   $self->input_id($input_id);
@@ -379,6 +388,7 @@ sub fetch_sequence{
 
 sub parameters_hash{
   my ($self, $string) = @_;
+
   if(!$string){
     $string = $self->analysis->parameters;
   }
@@ -447,10 +457,12 @@ sub run{
 sub write_output{
   my ($self) = @_;
   my $adaptor = $self->get_adaptor;
+
   foreach my $feature(@{$self->output}){
     $feature->analysis($self->analysis);
     $feature->slice($self->query) if(!$feature->slice);
     $self->feature_factory->validate($feature);
+
     eval{
       $adaptor->store($feature);
     };
