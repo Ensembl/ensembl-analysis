@@ -88,8 +88,51 @@ sub new {
 
  
   my $logic = $self->analysis->logic_name;
-  my $mapping_type = ($logic =~ /Transcript/) ? 'transcript' : 'genomic';
-  $self->{'mapping_type'} = $mapping_type;
+
+  if($logic =~ /Transcript/){
+	 $self->{'mapping_type'} = 'transcript';
+	 
+	 #We need to check for ensembl_Core_Transcript external db here
+	 #This should also be linked to the release
+	 #Should we store here? May over-write each other?
+	 #No problem if it fails once as the pipeline will resubmit the job
+	 
+	 #Will this cause problems with maintaining a master external_dbs file
+	 #As this may will grow *3 for every release.
+	 
+	 #But once we allow GENE, TRANSCRIPT, PROTEIN in xref.info_type
+	 #Then this would only be one extra db per release
+	 
+	 #Would be DBEntry::ADaptor->get_all_external_dbs_by_name
+
+	 #This is tricky as we may be aligning against an old DB
+	 #i.e. if there was a new array but not a new build
+	 #Current DBEntry queries are naive to external_db version
+
+	 my $schema_build = $self->outdb->_get_schema_build($self->outdb->dnadb);
+	 my $db_name      = 'ensembl_core_Transcript';
+	 my $display_name = 'EnsemblTranscript';
+
+	 my $sql = "select db_name, db_release from external_db where db_name='$db_name'";
+	 $sql .= " and db_release='$schema_build'" if $schema_build;
+
+	 my @name_version_refs = @{$self->outdb->db_handle->selectall_arrayref($sql)};
+	 
+	 if(! @name_version_refs){
+	   warn "No external_db found for transcript mapping, inserting $db_name $schema_build";
+
+	   #status is dubious here as this should really be on object_xref
+	   $sql = 'INSERT into external_db(db_name, db_release, status, dbprimary_acc_linkable, priority, db_display_name, type)'.
+		 " values('$db_name', '$schema_build', 'KNOWNXREF', 1, 5, '$display_name', 'MISC')";
+
+	   $self->outdb->db_handle->do($sql);
+
+	 }
+  }
+  else{
+	 $self->{'mapping_type'} = 'genomic';
+  }
+
 
   return $self;
 }
@@ -228,15 +271,12 @@ sub write_output {
   #Add analysis, slices to features, and make
   #sure they're pointing at the persistent array / probe instances
   #instead of the fake arrays & probes they were created with
-
-
   $self->set_probe_and_slice($self->features);
 
  
   #Now set correct output
   $self->output($self->features);
-
-
+  
   foreach my $feature (@{$self->features}){
 
 	if(! defined $feature->slice()){
@@ -249,7 +289,6 @@ sub write_output {
       $self->throw('Unable to store ProbeFeature for probe '.$feature->probe_id." !\n $@");
     }
   }
-
 }
 
 ############################################################
@@ -262,7 +301,13 @@ sub filter_features {
   my $logic_name   = $analysis->logic_name;
   my $mapping_type = $self->mapping_type;
   my $max_hits     = $self->HIT_SATURATION_LEVEL;#default is 100
-  my $uo_adaptor   = $self->outdb->dnadb->get_UnmappedObjectAdaptor;
+  my $uo_adaptor   = $self->outdb->get_UnmappedObjectAdaptor;
+
+  #We don't really want one for every logic name, 
+  #so let's simplify this to just ProbeAlign and ProbeTranscriptAlign
+  my $uo_type;
+  ($uo_type = $logic_name) =~ s/^.*_//;
+
 
 
   #This is tricky
@@ -329,9 +374,10 @@ sub filter_features {
 		#push @{$self->unmapped_objects}, 
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
-							-type       => $logic_name,
+							-type       => $uo_type,
 							-analysis   => $analysis,
 							-identifier => $probe_id,
+							-ensembl_object_type => 'Probe',
 							-summary    => 'Promiscuous probe',
 							-full_desc  => "Probe exceeded maximum allowed number of $mapping_type mappings(${num_hits}/${max_hits})"
 						   ));
@@ -346,9 +392,10 @@ sub filter_features {
 	  #push @{$self->unmapped_objects},	
 	  $uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						 (
-						  -type       => $logic_name,
+						  -type       => $uo_type,
 						  -analysis   => $analysis,
 						  -identifier => $probe_id,
+						  -ensembl_object_type => 'Probe',
 						  -summary    => 'Unmapped probe',
 						  -full_desc  => "Probe has no $mapping_type mappings",
 						 ));
@@ -392,7 +439,7 @@ sub get_display_name_by_stable_id{
   }
   
   if(! exists $self->{'display_name_cache'}->{$stable_id}){
-	warn "Generating $type display_name cache\n";
+	#warn "Generating $type display_name cache\n";
 	($self->{'display_name_cache'}->{$stable_id}) = $self->outdb->dnadb->dbc->db_handle->selectrow_array("SELECT x.display_label FROM ${type}_stable_id s, $type t, xref x where t.display_xref_id=x.xref_id and s.${type}_id=t.gene_id and s.stable_id='${stable_id}'");
   }
 
@@ -409,17 +456,15 @@ sub set_probe_and_slice {
   my $trans_adaptor = $db->dnadb->get_TranscriptAdaptor;
   my $mapping_type  = $self->mapping_type;
   my $gene_adaptor  = $db->dnadb->get_GeneAdaptor;
-  my $dbe_adaptor   = $db->dnadb->get_DBEntryAdaptor;
+  my $dbe_adaptor   = $db->get_DBEntryAdaptor;
   my $analysis      = $self->analysis;
 
-  my (%slices, $slice_id, $transcript, $trans_mapper, $align_type, $align_length, @tmp, $gap_length);
+  my (%slices, $slice_id, $trans_mapper, $align_type, $align_length, @tmp, $gap_length);
   my (@trans_cigar_line, @genomic_blocks, $genomic_start, $genomic_end, $cigar_line, $gap_start, $block_end);
   my ($block_start, $slice, @gaps, @features, %gene_hits, $gene, @stranded_cigar_line, $gene_sid, $id_xref);
-  my ($query_perc, $display_name, $gene_hit_key);
+  my ($query_perc, $display_name, $gene_hit_key, %transcript_cache);
 
   foreach my $feature (@$features) {
-    #$feature->analysis( $analysis );
-
     # get the slice based on the seqname stamped on in the runnable
     my $seq_id = $feature->seqname;
 	my $probe_id = $feature->probe_id;
@@ -427,11 +472,15 @@ sub set_probe_and_slice {
 
 	#Get the slice
 	if($mapping_type eq 'transcript'){
-	  $transcript = $trans_adaptor->fetch_by_stable_id($seq_id);
-	  $slice_id   = $transcript->seq_region_name;
+
+	  if(! exists $transcript_cache{$seq_id}){
+		$transcript_cache{$seq_id} = $trans_adaptor->fetch_by_stable_id($seq_id);
+	  }
+
+	  $slice_id   = 	$transcript_cache{$seq_id}->seq_region_name;
 
 	  if ( not exists $slices{$slice_id} ) {
-		$slices{$slice_id} = $transcript->slice;
+		$slices{$slice_id} = 	$transcript_cache{$seq_id}->slice;
 	  }
 	}
 	else{
@@ -453,18 +502,32 @@ sub set_probe_and_slice {
 	  #and insert D's the size of introns
 	  #reject id no D's found as we will already have this as genomic mapping.
 
-	  $trans_mapper = Bio::EnsEMBL::TranscriptMapper->new($transcript);
-	  @genomic_blocks = $trans_mapper->cdna2genomic($feature->start, $feature->end);
+	  #The cigar line should always be displayed with reference to the +ve strand of the
+	  #target feature i.e. the -ve strand if the transcript is on the -ve strand
+	  #These are local stranded start and ends with respect to transcript strand
+	  my $transcript_start  = $feature->start;
+	  my $transcript_end    = $feature->end;
+	  my $transcript_strand = $transcript_cache{$seq_id}->strand;
+	  #This should always be the correct strand as the 
+	  #feature slice will always be +ve when fetched by stable_id
+
+	  #warn "trans($seq_id) start end strand $transcript_start $transcript_end $transcript_strand" if $warn;
+
+
+	  $trans_mapper = Bio::EnsEMBL::TranscriptMapper->new($transcript_cache{$seq_id});
+	  @genomic_blocks = $trans_mapper->cdna2genomic($transcript_start, $transcript_end);
 	
 
-	  #Next feature is this is an ungapped alignment
-	  next if(scalar(@genomic_blocks) == 1);
+	  #Next feature is this is an ungapped alignment (1 block)
+	  #or just representing a flank seq overhang
+	  #which will have been caught by the genomic mapping (2 blocks)
+
+	  next if(! (scalar(@genomic_blocks) >2));
+ 
 	  #else alter the start stop values and rebuild the cigarline
 	  my $cigar_line = '';
 	  @trans_cigar_line = split/:/, $feature->cigar_line;
-	  my $transcript_strand = $genomic_blocks[0]->strand;
-
-
+		 
 	  if($transcript_strand == -1){
 		#Always report start end and cigar line wrt the +ve strand of the target seq.
 		#Even if the match is against the -ve strand. This is what we do in compara.
@@ -481,13 +544,30 @@ sub set_probe_and_slice {
 
 	  $genomic_start = $genomic_blocks[0]->start;
 	  $genomic_end   = $genomic_blocks[$#genomic_blocks]->end;
-	  #warn "genomic $genomic_start $genomic_end $transcript_strand";
+	  #genomic end is sometimes returning the loci of a gap in transcript coords
+	  #This should not be possible for the last block as this would denote a mismatch, but we are
+	  #mapping cdna, so it should not have a gap at the end, only in the middle?
+	  #Is this because we are actually have a flank seq mismatch
+	  #So we actually want the number of genomic blocks to be 3!
+	  #warn "genomic $genomic_start $genomic_end $transcript_strand" if $warn;
 
+	  #Only reports match coordinate blocks
+	  #And gaps as gaps with reference to transcript
+	  #i.e. overhangs of cDNA
+	  #Very unlikely to have a Gap at the start or end but we need
+	  #to model this in the case of very short exons, where a probe
+	  #may span an extire 5' or 3' exon, part of a neighbouring exon 
+	  #and also overhang the cDNA
+	  
+	  #There is no way of knowing whether this overhang is a seq match 
+	  #against the corresponding dna seq, so we can't build an accurate 
+	  #genomic cigar line for these
+
+	  
 
 	  #Generate start and length values for gaps
 	  foreach my $block(@genomic_blocks){
-		#Only reports match coordinate blocks
-		#warn $block.' '.$block->start.' '.$block->end.' '.$block->strand;
+		#warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
 
 		#So calculate gap coordinates
 		if(@gaps){
@@ -511,12 +591,17 @@ sub set_probe_and_slice {
 	  my $match_count    = 0;
 	  my $mismatch_count = 0;
 	  my $score          = 0;
+	  my $q_length       = 0;
+
+
 
 
 	  foreach my $block(@stranded_cigar_line){
 		@tmp = split//, $block;
 		$align_type = pop @tmp;
 		($align_length = $block) =~ s/$align_type//;
+
+		$q_length += $align_length;
 
 		if($align_type eq 'M'){
 		  $match_count += $align_length;
@@ -567,10 +652,11 @@ sub set_probe_and_slice {
 		$cigar_line .= $block;
 	  }
 
+	  #We could assign the start end directly
 	  $feature->start($genomic_start);
 	  $feature->end($genomic_end);
 	  $feature->cigar_line($cigar_line);
-	  #warn "Final Feature $genomic_start $genomic_end $cigar_line" if $cigar_line =~ /m/;
+	  #warn "Final Feature $genomic_start $genomic_end $cigar_line" if $warn;
 
 
 	  #Test if we have already seen this alignment
@@ -607,17 +693,18 @@ sub set_probe_and_slice {
 		 -SCORE => $score,
 		 #-EVALUE => 12,
 		 -CIGAR_LINE => join('', @trans_cigar_line),
-		 -QUERY_START => 1,
-		 -QUERY_END => 68,
-		 -TRANSLATION_START => 10,
-		 -TRANSLATION_END => 77,
+		 -QUERY_START => 1,#We are currently padding with mismatches to full length of query
+		 -QUERY_END => $q_length,
+		 -TRANSLATION_START => $transcript_start,#target/hit_start
+		 -TRANSLATION_END => $transcript_end,#target/hit_end
 		 -ANALYSIS => $analysis,
-		 #-ADAPTOR => $adaptor,
 		 -PRIMARY_ID => $seq_id,
 		 -DISPLAY_LABEL => $display_name,
-		 -DBNAME => 'ensembl_core_Gene',
+		 -DBNAME => 'ensembl_core_Transcript',
 		);
-	  
+	  #No strand here! Always +ve?!
+
+
 	  $dbe_adaptor->store($id_xref, $probe_id, 'Probe', 1);#Do we need ignore release flag here?
 	}
 	else{#No introns - reformat cigar line
