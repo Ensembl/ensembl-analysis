@@ -208,6 +208,65 @@ use vars qw( %Config );
 	 INPUT_FORMAT => 'FASTA',
 	},
 
+	IMPORT_ILLUMINA_ARRAYS => 
+	{
+	 IIDREGEXP => '^>(\S+):(\S+) ".*"$',
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 #-probeset   => 2,#This could be annotation
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  
+					  'Mouse-WG-6_V1' => {
+										 -name => 'Mouse-WG-6_V1',
+										 -vendor => 'ILLUMINA',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										},
+					  
+					  
+					  'Mouse-WG-6_V2' => {
+										 -name => 'Mouse-WG-6_V2',
+										 -vendor => 'ILLUMINA',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										},
+					  
+					  'Human-WG-6_V1' => {
+										 -name => 'Human-WG-6_V1',
+										 -vendor => 'ILLUMINA',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										},
+
+					  'Human-WG-6_V2' => {
+										 -name => 'Human-WG-6_V2',
+										 -vendor => 'ILLUMINA',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										},
+					  
+
+					 },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
+
+
+	
+
 	#ILLUMINA
 	#ILLUMINA_V1
 	#ILLUMINA_V2
