@@ -36,6 +36,8 @@ source_NUM to differentiate from the symbols
 
     -source    name of database markers have come from
 
+    -write     write data into the marker and marker_synonym tables
+
     -help      prints out the perl docs
 
 =head1 EXAMPLES
