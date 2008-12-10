@@ -197,10 +197,10 @@ MARKER: while (<FP>) {
         "get an id\n";
     exit;
   }
-  if($dis_syn_id == $mid && $write){
-    print "Display synonym id and marker id are both the same:  $dis_syn_id:$mid\n";
-    exit;
-  }
+#  if($dis_syn_id == $mid && $write){
+#    print "Display synonym id and marker id are both the same:  $dis_syn_id:$mid\n";
+#    exit;
+#  }
   $disp_sth->execute($dis_syn_id, $mid) if($write);
   
 }
