@@ -184,6 +184,7 @@ sub parse_results {
 	 $t_id, $t_start, $t_end, $t_strand, $score, 
 	 $perc_id, $q_length, $t_length, $mismatch_count, $scores) = split;
 	
+
 	#$gene_orientation always .?
 	#, $match_type, $query_match_length, $target_match_length, @rest_of_vulgar #vulgar blocks	
 	#query strand should always be +?
@@ -274,8 +275,10 @@ sub parse_results {
 	  $t_start = ($t_strand eq '+') ? ($t_start - $q_start) : ($t_end + $q_start);
 	}
 
+
 	#mismatches
-	if($mismatch_count){
+	#if($mismatch_count){
+	if($total_mismatches){
 	  my @scores = split/:/, $scores;
 	  #remove scores:0
 	  shift @scores;
@@ -304,6 +307,8 @@ sub parse_results {
 	  push @soft_cigar_line, $tmp;
 	}
 
+
+
 	#3' unaligned
 	if($align_mismatch != $q_start){
 	  #Add end mismatch if
@@ -316,8 +321,6 @@ sub parse_results {
 	}
 
 
-
-	
 
 	#Do we need to account for this?!!
 	#i.e. do we need to swap the t_start t_end?
