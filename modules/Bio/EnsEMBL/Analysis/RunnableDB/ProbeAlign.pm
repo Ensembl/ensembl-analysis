@@ -692,7 +692,7 @@ sub set_probe_and_slice {
 		 #-TARGET_IDENTITY => 90.1,
 		 -SCORE => $score,
 		 #-EVALUE => 12,
-		 -CIGAR_LINE => join('', @trans_cigar_line),
+		 -CIGAR_LINE => $cigar_line,
 		 -QUERY_START => 1,#We are currently padding with mismatches to full length of query
 		 -QUERY_END => $q_length,
 		 -TRANSLATION_START => $transcript_start,#target/hit_start
