@@ -376,7 +376,16 @@ sub get_complete_transcript {
   for(my $i=0; $i < @exons; $i++) {
     $exons[$i]->{'adaptor'} = '';
     $exons[$i]->{'dbID'} = '';
-   }
+  }
+  
+  my $attribute = Bio::EnsEMBL::Attribute->new
+      (-CODE => 'SourceTran',
+       -NAME => 'source transcript',
+       -DESCRIPTION => 'source transcript',
+       -VALUE => $t->stable_id);
+  
+  $full_t->add_Attributes($attribute);
+  
   return $full_t;
 }
 
