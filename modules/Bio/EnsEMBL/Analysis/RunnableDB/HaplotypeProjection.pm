@@ -122,7 +122,6 @@ sub write_output {
     $self->throw("an analysis logic name must be defined in the command line");
   }
   
-  #my %contighash;
   my $gene_adaptor = $db->get_GeneAdaptor;
   
     
@@ -142,7 +141,6 @@ sub write_output {
     foreach my $tran (@{$gene->get_all_Transcripts}) {
       $tran->{'stable_id'} = '';
       my @tsf = @{$tran->get_all_supporting_features};
-      
       my @exons= @{$tran->get_all_Exons};
       my $tln = $tran->translation;
       if ($tln){
@@ -150,11 +148,9 @@ sub write_output {
       }
       
       foreach my $exon (@exons) {
-        #$exon->{'dbID'} = '';
         if ($tran->seq_region_name != $exon->seq_region_name){
           print "NO EXON WAS NOT TRANSFORMED BEFORE STORAGE\n";
           
-          #$texon->transform("chromosome", $query_name);
         }else{
           print "TRANSFORMED transcript: ",$tran->seq_region_name , " exon: ", $exon->seq_region_name,"\n";
         }
@@ -165,7 +161,6 @@ sub write_output {
     
     # store
    # eval {
-      #print "Right before storing this gene has ",scalar(@{$gene->get_all_Transcripts})," transcripts\n";
     if ($before > scalar(@{$gene->get_all_Transcripts})){
       print "MISSING TRANSCRIPTS IN WRITTING\n";
     }
