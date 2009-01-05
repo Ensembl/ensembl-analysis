@@ -252,8 +252,11 @@ sub clone_Translation{
   my $attribs = $translation->get_all_Attributes();
   $newtranslation->add_Attributes(@$attribs);
   $newtranslation->dbID($translation->dbID);
-  $newtranslation->stable_id($translation->stable_id);
+  $newtranslation->stable_id($translation->stable_id); 
+
   $newtranslation->version($translation->version);
+  $newtranslation->created_date($translation->created_date); 
+  $newtranslation->modified_date($translation->modified_date); 
   if ($clone_xrefs){
     foreach my $DBEntry (@{$translation->get_all_DBEntries}){
       $newtranslation->add_DBEntry($DBEntry);
