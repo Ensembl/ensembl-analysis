@@ -190,13 +190,13 @@ sub process_features {
     # get the slice based on the seqname stamped on in the runnable
     my $slice_id = $f->seqname;
 
-    if ( not exists $genome_slices{$slice_id} ) {
+     if ( not exists $genome_slices{$slice_id} ) {
       # assumes genome seqs were named in the Ensembl API Slice naming
       # convention, i.e. coord_syst:version:seq_reg_id:start:end:strand
       $genome_slices{$slice_id} = $slice_adaptor->fetch_by_name($slice_id);
-    }
+   }
     my $slice = $genome_slices{$slice_id};
-
+ 
     $f->slice($slice);  
   }
 

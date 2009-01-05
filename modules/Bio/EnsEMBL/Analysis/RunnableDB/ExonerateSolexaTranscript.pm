@@ -61,30 +61,21 @@ sub fetch_input {
   # then get all the transcripts and exons
 
   my $trans_db = $self->get_dbadaptor($self->TRANSDB);
-  my @genes;
+  my $trans_adaptor = $trans_db->get_TranscriptAdaptor;
   my %trans_by_id;
   my $biotype = $self->BIOTYPE;
-  my @slices = @{$trans_db->get_SliceAdaptor->fetch_all('toplevel')};
-  foreach my $slice (@slices){
-    # fetch genes, transcripts and exons
-    if ( $biotype ){
-      push @genes , @{$slice->get_all_Genes_by_type($biotype,undef,1)};
-    } else {
-      push @genes , @{$slice->get_all_Genes(undef,undef,1)};
-    }
-
+  my @trans;
+  # fetch genes, transcripts
+  if ( $biotype ){
+    push @trans , @{$trans_adaptor->generic_fetch("biotype = \"$biotype\"")};
+  } else {
+    push @trans , @{$trans_adaptor->fetch_all(undef,undef,undef)};
   }
-
-  # store them in a hash so they can be retreived quickly
-
-  if (scalar(@genes) > 0 ){
-    foreach my $gene ( @genes ) {
-      foreach my $trans ( @{$gene->get_all_Transcripts} ) {
-	$trans_by_id{$trans->display_id} = $trans;
-      }
-    }
-    $self->transcripts(\%trans_by_id);
+  
+  foreach my $trans ( @trans ) {
+    $trans_by_id{$trans->display_id} = $trans;
   }
+  $self->transcripts(\%trans_by_id);
   return ;
 }
 
@@ -103,7 +94,13 @@ sub run {
     $features = $self->filter->filter_results($features);
   }
 
+  # Pair features together if they come from paired end reads
+  if ( $self->PAIREDEND ) {
+    $features = $self->pair_features($features);
+  }
+
   my $genomic_features = $self->process_features($features);
+
   $self->output($genomic_features);
 }
 
@@ -121,12 +118,25 @@ sub run {
 sub process_features {
   my ( $self, $flist ) = @_;
 
+  # first do all the standard processing, adding a slice and analysis etc.
+  # unless we are projecting in which case we dont really nead a slice 
+  unless ($self->PROJECT) {
+    $self->SUPER::process_features($flist);
+  }
+
   my $slice_adaptor = $self->db->get_SliceAdaptor;
   my @dafs;
 
 FEATURE:  foreach my $f (@$flist) {
+    
+    my $trans_id;
+    my $accept = 0;
 
-    my $trans_id = $f->seqname;
+    if ($f->seqname =~ /\S+\:\S+\:(\S+)\:\d+\:\d+:\d+/ ) {
+      $trans_id = $1;
+    } else {
+      $trans_id = $f->seqname;
+    }
 
     if ( not exists $self->transcripts->{$trans_id} ) {
       $self->throw("Transcript $trans_id not found\n");
@@ -159,74 +169,86 @@ FEATURE:  foreach my $f (@$flist) {
 	# next exon start position within the feature
 	$es = $i - $f->start if $self->exon_starts($trans->display_id)->{$i};
       }
-      next FEATURE unless ( $es && $ee && $ee >= $self->INTRON_OVERLAP 
-			    && $es <= $f->length - $self->INTRON_OVERLAP );
+      # allow reads covering introns
+      $accept = 1 if ( $es && $ee && $ee >= $self->INTRON_OVERLAP 
+		       && $es <= $f->length - $self->INTRON_OVERLAP );
+
+      # disallow unspliced reads spanning introns  unless the intron is size 0
+      # then allow the unspliced alignment to  bridge the gap
+      # also allow any spliced modles even if they dont lie in an intron
+      
+      if ( $self->INTRON_MODELS ) {
+	unless ( $f->{"_intron"} or ( $es && $ee && ($es - $ee == 1) ) ) {
+	  $accept = 0;
+	}
+      }
     }
 
-    my @mapper_objs;
-    my @features;
-    my $start = 1;
-    my $end = $f->length;
-    my $out_slice = $slice_adaptor->fetch_by_name($trans->slice->name);
-    # get as ungapped features
-    foreach my $ugf ( $f->ungapped_features ) {
-      # Project onto the genome
-      push @mapper_objs,$trans->cdna2genomic($ugf->start, $ugf->end);
+    # restrict just to splice models where read is within an exon
+    if ( $self->INTRON_MODELS ) {
+      $accept = 1 if $f->{"_intron"};
     }
 
-    # Convert all these mapper objects into a dna_align_feature on the new coord system
-    foreach my $obj ( sort { $a->start <=> $b->start }@mapper_objs ){
-      if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
-	# make into feature pairs?
-	my $fp;
-	if ( $f->hstrand ==  1 ){
+    next FEATURE unless $accept;
+
+    if ( $self->PROJECT ) {
+      my @mapper_objs;
+      my @features;
+      my $start = 1;
+      my $end = $f->length;
+      my $out_slice = $slice_adaptor->fetch_by_name($trans->slice->name);
+#      print $f->hseqname ." " .$f->start ." " . $f->end . " " . $f->cigar_string ."\n";
+      # get as ungapped features
+      foreach my $ugf ( $f->ungapped_features ) {
+#	print $ugf->start ." " . $ugf->end . " ";
+	# Project onto the genome
+	push @mapper_objs,$trans->cdna2genomic($ugf->start, $ugf->end);
+      }
+#      print "\n";
+      
+      # Convert all these mapper objects into a dna_align_feature on the new coord system
+      foreach my $obj ( sort { $a->start <=> $b->start }@mapper_objs ){
+	if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
+	  # make into feature pairs?
+	  my $qstrand = $f->strand  * $trans->strand;
+	  my $hstrand = $f->hstrand * $trans->strand;
+
+	  my $fp;
 	  $fp = Bio::EnsEMBL::FeaturePair->new
 	    (-start    => $obj->start,
 	     -end      => $obj->end,
-	     -strand   => 1,
+	     -strand   => $qstrand,
 	     -slice    => $trans->slice,
 	     -hstart   => $start,
 	     -hend     => $start+$obj->length-1,
-	     -hstrand  => $f->hstrand,
+	     -hstrand  => $hstrand,
 	     -percent_id => $f->percent_id,
 	     -score    => $f->score,
 	     -hseqname => $f->hseqname,
 	     -hcoverage => $f->hcoverage,
 	     -p_value   => $f->p_value,
 	    );
-	  $start += $obj->length;
-	} else {
-	  $fp = Bio::EnsEMBL::FeaturePair->new
-	    (-start    => $obj->start,
-	     -end      => $obj->end,
-	     -strand   => 1,
-	     -slice    => $trans->slice,
-	     -hstart   => $end-$obj->length+1,
-	     -hend     => $end,
-	     -hstrand  => $f->hstrand,
-	     -percent_id => $f->percent_id,
-	     -score    => $f->score,
-	     -hseqname => $f->hseqname,
-	     -hcoverage => $f->hcoverage,
-	     -p_value   => $f->p_value,
-	    );
-	  $end -= $obj->length;
+	  push @features, $fp->transfer($out_slice);
 	}
-	push @features, $fp->transfer($out_slice);
       }
-    }
-    my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
-    $feat->analysis($self->analysis);
-    # dont store the same feature twice because it aligns to a different transcript in the same gene.
-    my $unique_id = $feat->seq_region_name .":" .
-      $feat->start .":" .
-	$feat->end .":" .	
-	  $feat->strand .":" .
-	    $feat->hseqname;
-    unless ($self->stored_features($unique_id)){
-      push @dafs,$feat;
-      # keep tabs on it so you don't store it again.
-      $self->stored_features($unique_id,1);
+      my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
+      $feat->analysis($self->analysis);
+      # dont store the same feature twice because it aligns to a different transcript in the same gene.
+      my $unique_id = $feat->seq_region_name .":" .
+	$feat->start .":" .
+	  $feat->end .":" .	
+	    $feat->strand .":" .
+	      $feat->hseqname;
+      unless ($self->stored_features($unique_id)){
+	push @dafs,$feat;
+	# keep tabs on it so you don't store it again.
+	$self->stored_features($unique_id,1);
+      }
+    } else {
+      # just write the features on the transcript coord system 
+      # assming there is one ( useful for writing reads that support introns 
+      # on the transcrtipt coord system
+      push @dafs,$f;
     }
   }
   return \@dafs;

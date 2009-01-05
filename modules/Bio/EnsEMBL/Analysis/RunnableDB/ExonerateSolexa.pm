@@ -56,6 +56,235 @@ sub new {
   return $self;
 }
 
+
+sub run {
+  my ($self) = @_;
+ # do all the normal stuff
+  $self->SUPER::run();
+  # filter the results carefully to only allow strict matches
+  my $filtered_features = $self->filter_solexa($self->output);
+  # Pair features together if they come from paired end reads
+  if ( $self->PAIREDEND ) {
+    my $paired_features = $self->pair_features($filtered_features);
+    # clear the output array to load in the modified features
+    $self->{'output'} = [];
+    $self->output($paired_features);
+  }
+}
+
+sub filter_solexa {
+  my ($self,$features_ref) = @_;
+  my @features = @$features_ref;
+  my @filtered_features;
+  # allow no more than MISSMATCH missmatches and
+  # dont allow gapping...
+  foreach my $feat ( @features ) {
+    # dont allow gapping
+    if ( $feat->cigar_string =~ /[ID]/ ) {
+      # gapped reject it
+      next
+    }
+#    print $feat->hseqname . " " .
+#      $feat->seqname . " " .
+#	$feat->start . " " .
+#	  $feat->end . " " .
+#	    $feat->score  . " " .
+#	      $feat->hstart . " " . 
+#		$feat->hend . " " .
+#		  $feat->cigar_string . " " .
+#		    $feat->seq ."\n";
+   push @filtered_features, $feat;
+  }
+  return \@filtered_features;
+}
+
+
+sub pair_features {
+  my ($self,$features_ref) = @_;
+  my @features = @$features_ref;
+  my $paired_features;
+  my @selected_reads;
+  foreach my $feat ( @features ) {
+  #  print $feat->hseqname . " " .
+  #    $feat->seqname . " " .
+  #  	$feat->start . " " .
+  #  	  $feat->end . " " .
+	#    $feat->strand ." " .
+	#      $feat->hstrand . " " .
+	#	$feat->score  . " " .
+	#	  $feat->hstart . " " . 
+	#	    $feat->hend . " " .
+	#	      $feat->cigar_string . " " .
+	#		$feat->seq ."\n";
+    if ( $feat->hseqname =~ /(\S+):([a,b,A,B])$/ ) {
+      my $suffix = lc($2);
+      push @{$paired_features->{$1}->{$suffix}},$feat;
+    } else {
+      $self->throw("Read name not recognised " . $feat->hseqname . "\n");
+    }
+  }
+  #  print "\n";
+  foreach my $pair ( keys %$paired_features ) {
+    my ( @as, @bs ) ;
+    @as =  @{$paired_features->{$pair}->{'a'}} if $paired_features->{$pair}->{'a'};
+    @bs =  @{$paired_features->{$pair}->{'b'}} if $paired_features->{$pair}->{'b'};
+    my @potential_pairs;
+    # Pick the potential paired reads bases on chr positon
+    foreach my $afeat ( @as ) {
+    READ:  foreach my $bfeat ( @bs ) {
+	if ( $afeat->seqname eq $bfeat->seqname ) {
+	  # They lie on the same chr within PAIREDGAP bases of each other
+	  # but they don't overlap
+	  if ( ( $afeat->start > $bfeat->end && 
+		 $afeat->start - $bfeat->end <= $self->PAIREDGAP ) or 
+	       ( $bfeat->start > $afeat->end && 
+		 $bfeat->start - $afeat->end <= $self->PAIREDGAP ) ) {
+	    # they should be oriented pointing towards each other on
+	    # opposite strands...
+	    if ( $afeat->strand == 1 && $bfeat->strand == 1
+	       && $afeat->hstrand != $bfeat->hstrand ) {
+	      # are they in the right order
+	      # on the forward strand a should come before b
+	      # and vice versa
+	      next READ unless 
+		( 
+		 ($afeat->hstrand == 1 && $afeat->end < $bfeat->start) or 
+		 ($afeat->hstrand == -1 && $bfeat->end < $afeat->start) 
+		);
+	    }
+	    # storing the pair using the score as the index
+	    # so I can easily pull out the highest scoring pair
+	    # if they score the SAME then choose the pair that is
+	    # closest together 
+	    my $combined_score = $afeat->score + $bfeat->score;
+	    # work out the lengths the pairs are separated by
+	    if ( $potential_pairs[$combined_score] ) {
+	      my $new_length;
+	      my $old_length;
+	      my $old_afeat = $potential_pairs[$combined_score]->[0];
+	      my $old_bfeat = $potential_pairs[$combined_score]->[1];
+	      if ( $afeat->start > $bfeat->end ) {
+		$new_length = $afeat->start - $bfeat->end;
+	      } else {
+		$new_length = $bfeat->start - $afeat->end;
+	      }
+	      if ( $old_afeat->start > $old_bfeat->end ) {
+		$old_length = $old_afeat->start - $old_bfeat->end;
+	      } else {
+		$old_length = $old_bfeat->start - $old_afeat->end;
+	      }
+	      # only replace the pair if the new pair with the same combined score
+	      # are closer together ( hopefully this might stop clusters getting
+	      # tangled up
+	      if ( $old_length > $new_length ) {
+		$potential_pairs[$combined_score] = [($afeat,$bfeat)] ;
+	      }
+	    } else {
+	      $potential_pairs[$combined_score] = [($afeat,$bfeat)] ;
+	    }
+	  }
+	}
+      }
+    }
+    if ( scalar(@potential_pairs) >= 1 ){
+      # lets join together the highest scoring pair of reads to make one new feature
+      push @selected_reads, @{$self->merge_pair(pop @potential_pairs)} if scalar(@potential_pairs) >= 1;
+    } else {
+      if ( scalar(@as) >= 1 ) {
+	@as = sort { $a->score <=> $b->score } @as ;
+	my $selected = pop @as;
+	if ( $selected->hseqname =~ /(\S+):([A])$/ ) {
+	  $selected->hseqname($1 .":a3p");
+	}
+	push @selected_reads, $selected;
+      }
+      if ( scalar(@bs) >= 1 ) {    
+	@bs = sort { $a->score <=> $b->score } @bs ;
+	my $selected = pop @bs;
+	if ( $selected->hseqname =~ /(\S+):([B])$/ ) {
+	  $selected->hseqname($1 .":b3p");
+	}
+	push @selected_reads, $selected;
+      }
+    }
+  }
+  
+# print "\nSELECTED:\n";
+#  foreach my $feat( @selected_reads ) {
+#    print $feat->hseqname . " " .
+#      $feat->seqname . " " .
+#	$feat->start . " " .
+#	  $feat->end . " " .
+#	    $feat->score  . "\n";
+#  }
+  return \@selected_reads;
+}
+
+sub merge_pair {
+  my ( $self, $read_pair) = @_;
+  my @ugfs;
+  my @features;
+  if ( $self->PAIR ) {
+    # Use the combined scores and identity  of the reads for the new read
+    my $score = $read_pair->[0]->score +  $read_pair->[1]->score;
+    my $pid = ( $read_pair->[0]->percent_id + $read_pair->[1]->percent_id ) /2;
+    
+    # Because the features are split you can get the second half of
+    # the read aligning before the first which can screw up the 
+    # hit start ends as you might expect
+    # I am  going to flip a and b over
+    if ( $read_pair->[1]->end <= $read_pair->[0]->start ) {
+      my $tmp = $read_pair->[0];
+      $read_pair->[0] = $read_pair->[1];
+      $read_pair->[1] = $tmp;
+      
+    }
+    
+    for ( my $i = 0 ; $i <=1 ; $i++ ) {
+      my $read = $read_pair->[$i];
+     if ( $read->hseqname =~ /(\S+):([a,b])$/ ) {
+     	$read->hseqname($1);
+     }
+      if ( $read->hseqname =~ /(\S+):([A,B])$/ ) {
+     	$read->hseqname($1 .":3p");
+     }    
+      foreach my $ugf ( $read->ungapped_features ) {
+	# need to modify the 'b' read hit starts ends to make it
+	# appear to come from one long read
+	# neeed to flip it onto the forward strand or else 
+	# the dna align feature will fall over
+	my $hstart = $ugf->hstart ;
+	my $hend   = $ugf->hend ;
+	if ( $i == 1 ) {
+	  if ( $ugf->hstrand == 1 ) {
+	    $ugf->hstart( $hstart + 35 ) ;
+	    $ugf->hend  ( $hend   + 35 ) ;
+	  } else {
+	    $ugf->hstart( 71 - $hend    ) ;
+	    $ugf->hend  ( 71 - $hstart ) ;
+	    $ugf->hstrand(1);
+	  }
+	} else {
+	  $ugf->hstrand(1) if $ugf->hstrand == -1;
+	}
+	$ugf->score($score);
+	$ugf->percent_id($pid);
+	push @ugfs, $ugf;
+      }
+    }
+    my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@ugfs);
+    $feat->analysis($self->analysis);
+    push @features,$feat;
+  } else {  
+    $read_pair->[0]->hseqname($read_pair->[0]->hseqname . ":aa");
+    $read_pair->[1]->hseqname($read_pair->[1]->hseqname . ":bb");
+    push @features,($read_pair->[0],$read_pair->[1]);
+  }
+  # Otherwise leave them as they are but change the a and b suffix to indictate that they have
+  # been paired but are not joined together.
+  return \@features;
+}
+
 =head2 write_output
 
   Arg [1]   : array ref of Bio::EnsEMBL::DnaDnaAlignFeature
@@ -95,6 +324,20 @@ sub write_output {
 
 ###########################################################
 # containers
+
+sub INTRON_MODELS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_INTRON_MODELS'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_INTRON_MODELS'})) {
+    return $self->{'_CONFIG_INTRON_MODELS'};
+  } else {
+    return undef;
+  }
+}
 
 sub INTRON_OVERLAP {
   my ($self,$value) = @_;
@@ -166,7 +409,61 @@ sub COMPRESSION {
   }
 }
 
+sub PAIREDEND {
+  my ($self,$value) = @_;
 
+  if (defined $value) {
+    $self->{'_CONFIG_PAIREDEND'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_PAIREDEND'})) {
+    return $self->{'_CONFIG_PAIREDEND'};
+  } else {
+    return undef;
+  }
+}
+
+sub PAIR {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PAIR'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_PAIR'})) {
+    return $self->{'_CONFIG_PAIR'};
+  } else {
+    return undef;
+  }
+}
+
+sub PROJECT {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PROJECT'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_PROJECT'})) {
+    return $self->{'_CONFIG_PROJECT'};
+  } else {
+    return undef;
+  }
+}
+
+sub PAIREDGAP {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PAIREDGAP'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_PAIREDGAP'})) {
+    return $self->{'_CONFIG_PAIREDGAP'};
+  } else {
+    return undef;
+  }
+}
 
 
 1;

@@ -73,6 +73,7 @@ sub parse_results {
       @vulgar_blocks, $total_match_length
     ) = split;
 
+
     my $cigar_string='';  
     while (@vulgar_blocks){
       throw("Something funny has happened to the input vulgar string." .
@@ -80,6 +81,21 @@ sub parse_results {
 		 scalar @vulgar_blocks . "] items left to process.")
       unless scalar @vulgar_blocks >= 3;
 
+      # check for introns if we are using exonerate2genes model
+      my $str = join(',',@vulgar_blocks);
+#      print "$str\n";
+      if ( $str =~ /^3,(\d+),(\d+),I,(\d+),(\d+),5,(\d+),(\d+)/ or
+	   $str =~ /^5,(\d+),(\d+),I,(\d+),(\d+),3,(\d+),(\d+)/ ) {
+	
+	splice(@vulgar_blocks,0,9);
+	my $query_match_length = $2+$4+$6 - ( $1+$3+$5 );
+	my $match_type = 'I';
+	$cigar_string .= $query_match_length.$match_type;
+#	print "INTRON $1 $2 $3 $4 $5 $6\n";
+      }
+
+      $str = join(',',@vulgar_blocks);
+#      print "$str\n";
       my $match_type          = shift @vulgar_blocks;
       my $query_match_length  = shift @vulgar_blocks;
       my $target_match_length = shift @vulgar_blocks;
@@ -96,11 +112,12 @@ sub parse_results {
       $cigar_string .= $query_match_length.$match_type;     
     }
     my $hcoverage = $total_match_length / $q_length * 100;
+
     my $feature = 
       $self->make_feature(
         $q_id, $q_length, $q_start, $q_end, $q_strand, 
         $t_id, $t_length, $t_start, $t_end, $t_strand, 
-        $score, $perc_id, $cigar_string, $hcoverage
+        $score, $perc_id, $cigar_string, $hcoverage , $gene_orientation
       );
 
     if($feature){
@@ -120,7 +137,7 @@ sub make_feature{
   my ($self,
       $q_id, $q_len, $q_start, $q_end, $q_strand,
       $t_id, $t_len, $t_start, $t_end, $t_strand,
-      $score, $perc_id, $cigar_string, $hcoverage) = @_;
+      $score, $perc_id, $cigar_string, $hcoverage, $gene_orientation) = @_;
  
   if($q_strand eq '+'){
     $q_strand = 1;
@@ -138,7 +155,12 @@ sub make_feature{
     throw "unrecognised target strand symbol: $t_strand\n";
   }
 
-  
+  if ($t_start > $t_end) {
+    ($t_start, $t_end) = ($t_end, $t_start);
+  } elsif ($t_strand < 0) {
+    ($t_start, $t_end) = ($t_len - $t_end, $t_len - $t_start);
+  }
+
   # for reverse strand matches, Exonerate reports end => start 
   if ($q_start > $q_end) {
     ($q_start, $q_end) = ($q_end, $q_start);
@@ -147,10 +169,16 @@ sub make_feature{
     ($q_start, $q_end) = ($q_len - $q_end, $q_len - $q_start);
   }
 
-  if ($t_start > $t_end) {
-    ($t_start, $t_end) = ($t_end, $t_start);
-  } elsif ($t_strand < 0) {
-    ($t_start, $t_end) = ($t_len - $t_end, $t_len - $t_start);
+  if ($gene_orientation eq '-') {
+    $t_strand *= -1;
+    $q_strand *= -1;
+    # need to reverse the cigar string
+    my @numbers = split(/\D+/,$cigar_string);
+    my @letters = split(/\d+/,$cigar_string);
+    $cigar_string = '';
+    for (my $i = $#numbers ; $i >= 0 ; $i-- ) {
+      $cigar_string .= $numbers[$i] . $letters[$i+1];
+    }
   }
 
   # correct for exonerate half-open coords
@@ -176,7 +204,8 @@ sub make_feature{
       -cigar_string => $cigar_string,
       -hcoverage    => $hcoverage,
     );
-  
+
+  $feature->{"_intron"} = 1 unless $gene_orientation eq '.';
   return $feature;
 }
 
