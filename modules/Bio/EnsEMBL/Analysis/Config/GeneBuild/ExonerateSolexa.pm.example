@@ -35,26 +35,37 @@ use vars qw( %Config );
 
 %Config = (
   EXONERATE_SOLEXA_CONFIG_BY_LOGIC =>  {
-	    DEFAULT =>  {
-	     # The database connections used are defined in 
-	     # Bio::EnsEMBL::Analysis::Config::Databases
+            DEFAULT =>  {
+             # The database connections used are defined in 
+             # Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+             # Database to write the output features into
+             OUT_DB   => '',
 
-	     # Database to write the output features into
-	     OUT_DB   => '',
+             # Compress identical dna align features
+             COMPRESSION => '0',
 
-	     # Compress identical dna align features
-	     COMPRESSION => '1',
-
-	     # Specific config for ExonerateSolexaTranscript
-	     ##############################################
-
-	     # Database to fetch the trancripts from
-	     TRANSDB => 'GENEBUILD_DB',
-	     # Biotype of the transcripts to fetch ( if left blank all transcripts are fetched )
-	     BIOTYPE => 'protein_coding',
-	     # If set to 1 only reads supporting introns will be written to the database 
-	     INTRON_OVERLAP => '0',
-	     },
+             # Solexa reads are paired end reads
+             PAIREDEND => '',
+             
+             # pair the features if they are paired end
+             PAIR => '',
+              
+             # If we are pairing features what is the maximum sized gap between them
+             PAIREDGAP => '200000',
+	                 
+             # Specific config for ExonerateSolexaTranscript
+             ##############################################
+             # Project onto the genome ( generally this is kind of the point )
+             PROJECT => '1',
+             # Database to fetch the trancripts from
+             TRANSDB => '',
+             # Biotype of the transcripts to fetch ( if left blank all transcripts are fetched )
+             BIOTYPE => 'protein_coding',
+             # If set to 1 only reads supporting introns will be written to the database 
+             INTRON_MODELS => '1',
+	     # Reads must cross an intron bounday by at least this many bases
+	     INTRON_OVERLAP => '9',
+       	     },
      }
 );
 
