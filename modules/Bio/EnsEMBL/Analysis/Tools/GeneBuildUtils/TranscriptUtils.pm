@@ -289,7 +289,8 @@ sub print_Transcript_evidence{
 
 
 sub clone_Transcript{
-  my ($transcript, $clone_xrefs) = @_;
+  my ($transcript, $clone_xrefs) = @_; 
+
   $clone_xrefs = 1 if(!defined($clone_xrefs));
   my $newtranscript = new Bio::EnsEMBL::Transcript();
   foreach my $exon(@{$transcript->get_all_Exons}){
@@ -318,7 +319,8 @@ sub clone_Transcript{
   if ($clone_xrefs){
     foreach my $DBEntry (@{$transcript->get_all_DBEntries}){
       $newtranscript->add_DBEntry($DBEntry);
-    }
+    } 
+   $newtranscript->display_xref($transcript->display_xref); 
   } 
   
   return $newtranscript;
