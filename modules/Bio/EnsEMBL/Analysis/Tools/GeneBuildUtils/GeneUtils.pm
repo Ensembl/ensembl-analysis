@@ -118,7 +118,8 @@ sub print_Gene_Transcript_and_Exons{
 
 
 sub clone_Gene{
-  my ($gene, $clone_xrefs) = @_;
+  my ($gene, $clone_xrefs) = @_; 
+
   $clone_xrefs = 1 if(!defined($clone_xrefs));
   my $newgene = Bio::EnsEMBL::Gene->new();
   $newgene->dbID($gene->dbID);
@@ -129,7 +130,8 @@ sub clone_Gene{
   if ($clone_xrefs){
     foreach my $DBEntry (@{$gene->get_all_DBEntries}){
       $newgene->add_DBEntry($DBEntry);
-    }
+    } 
+    $newgene->display_xref($gene->display_xref) ; 
   }  
   foreach my $transcript(@{$gene->get_all_Transcripts}){
     my $newtranscript = clone_Transcript($transcript, $clone_xrefs);
@@ -182,9 +184,9 @@ sub prune_Exons{
   my @unique_exons;
   # keep track of all unique exons found so far to avoid making 
   # duplicates need to be very careful about 
-  # translation->start_Exon and translation->end_Exon
-  
-  my $cloned_gene = clone_Gene($gene);
+  # translation->start_Exon and translation->end_Exon 
+  #  
+  my $cloned_gene = clone_Gene($gene); 
   foreach my $tran (@{$cloned_gene->get_all_Transcripts}) {
     my @newexons;
     foreach my $exon (@{$tran->get_all_Exons}) {
