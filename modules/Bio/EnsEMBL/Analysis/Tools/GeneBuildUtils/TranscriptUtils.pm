@@ -1269,7 +1269,8 @@ sub replace_stops_with_introns{
           my @sfs = @{$exon->get_all_supporting_features};
           my (@ug_left, @ug_right);
           foreach my $f (@sfs) {
-            foreach my $ug ($f->ungapped_features) {
+            foreach my $ug ($f->ungapped_features) {  
+              my $orignial_analysis = $ug->analysis; 
               if ($ug->start >= $exon_left->start and 
                   $ug->end <= $exon_left->end) {
                 #completely within the left-side of the split
@@ -1293,7 +1294,8 @@ sub replace_stops_with_introns{
                 $fp_left->end       ($stop->start - 1);
                 $fp_left->external_db_id($ug->external_db_id);
                 $fp_left->hcoverage($ug->hcoverage);
-                
+                $fp_left->analysis($orignial_analysis) ;           
+
                 my $fp_right = Bio::EnsEMBL::FeaturePair->new();
                 if ($ug->slice) {
                   $fp_right->slice($ug->slice);
@@ -1307,6 +1309,7 @@ sub replace_stops_with_introns{
                 $fp_right->end       ($ug->end);
                 $fp_right->external_db_id($ug->external_db_id);
                 $fp_right->hcoverage($ug->hcoverage);
+                $fp_right->analysis($orignial_analysis) ;           
                 
                 if ($exon->strand > 0) {
                   $fp_left->hstart($ug->hstart);
