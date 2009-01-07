@@ -105,17 +105,17 @@ sub pair_features {
   my $paired_features;
   my @selected_reads;
   foreach my $feat ( @features ) {
-  #  print $feat->hseqname . " " .
-  #    $feat->seqname . " " .
-  #  	$feat->start . " " .
-  #  	  $feat->end . " " .
-	#    $feat->strand ." " .
-	#      $feat->hstrand . " " .
-	#	$feat->score  . " " .
-	#	  $feat->hstart . " " . 
-	#	    $feat->hend . " " .
-	#	      $feat->cigar_string . " " .
-	#		$feat->seq ."\n";
+#    print $feat->hseqname . " " .
+#      $feat->seqname . " " .
+#    	$feat->start . " " .
+#    	  $feat->end . " " .
+#	    $feat->strand ." " .
+#	      $feat->hstrand . " " .
+#		$feat->score  . " " .
+#		  $feat->hstart . " " . 
+#		    $feat->hend . " " .
+#		      $feat->cigar_string . " " .
+#			$feat->seq ."\n";
     if ( $feat->hseqname =~ /(\S+):([a,b,A,B])$/ ) {
       my $suffix = lc($2);
       push @{$paired_features->{$1}->{$suffix}},$feat;

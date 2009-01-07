@@ -197,41 +197,37 @@ FEATURE:  foreach my $f (@$flist) {
       my $start = 1;
       my $end = $f->length;
       my $out_slice = $slice_adaptor->fetch_by_name($trans->slice->name);
-#      print $f->hseqname ." " .$f->start ." " . $f->end . " " . $f->cigar_string ."\n";
-      # get as ungapped features
+        # get as ungapped features
       foreach my $ugf ( $f->ungapped_features ) {
-#	print $ugf->start ." " . $ugf->end . " ";
 	# Project onto the genome
-	push @mapper_objs,$trans->cdna2genomic($ugf->start, $ugf->end);
-      }
-#      print "\n";
-      
-      # Convert all these mapper objects into a dna_align_feature on the new coord system
-      foreach my $obj ( sort { $a->start <=> $b->start }@mapper_objs ){
-	if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
-	  # make into feature pairs?
-	  my $qstrand = $f->strand  * $trans->strand;
-	  my $hstrand = $f->hstrand * $trans->strand;
-
-	  my $fp;
-	  $fp = Bio::EnsEMBL::FeaturePair->new
-	    (-start    => $obj->start,
-	     -end      => $obj->end,
-	     -strand   => $qstrand,
-	     -slice    => $trans->slice,
-	     -hstart   => $start,
-	     -hend     => $start+$obj->length-1,
-	     -hstrand  => $hstrand,
-	     -percent_id => $f->percent_id,
-	     -score    => $f->score,
-	     -hseqname => $f->hseqname,
-	     -hcoverage => $f->hcoverage,
-	     -p_value   => $f->p_value,
-	    );
-	  push @features, $fp->transfer($out_slice);
+	foreach my $obj ($trans->cdna2genomic($ugf->start, $ugf->end)){
+	  if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
+	    # make into feature pairs?
+	    my $qstrand = $f->strand  * $trans->strand;
+	    my $hstrand = $f->hstrand * $trans->strand;
+	    my $fp;
+	    $fp = Bio::EnsEMBL::FeaturePair->new
+	      (-start    => $obj->start,
+	       -end      => $obj->end,
+	       -strand   => $qstrand,
+	       -slice    => $trans->slice,
+	       -hstart   => 1,
+	       -hend     => $obj->length,
+	       -hstrand  => $hstrand,
+	       -percent_id => $f->percent_id,
+	       -score    => $f->score,
+	       -hseqname => $f->hseqname,
+	       -hcoverage => $f->hcoverage,
+	       -p_value   => $f->p_value,
+	      );
+	    push @features, $fp->transfer($out_slice);
+	  }
 	}
       }
       my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
+      # corect for hstart end bug
+      $feat->hstart($f->hstart);
+      $feat->hend($f->hend);
       $feat->analysis($self->analysis);
       # dont store the same feature twice because it aligns to a different transcript in the same gene.
       my $unique_id = $feat->seq_region_name .":" .
