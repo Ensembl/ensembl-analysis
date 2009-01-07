@@ -51,6 +51,7 @@ my $split = 0;
             'dbname:s'      => \$dbname,
             'dbport:n'        => \$port,
             'in_config_name:s' => \$in_config_name,
+            'out_config_name:s' => \$out_config_name,
             'outhost:s'     => \$outhost,
             'outuser:s'     => \$outuser,
             'outpass:s'     => \$outpass,
@@ -73,6 +74,7 @@ if($in_config_name){
                                            -dbname => $dbname
                                           );
 }
+
 
 
 
