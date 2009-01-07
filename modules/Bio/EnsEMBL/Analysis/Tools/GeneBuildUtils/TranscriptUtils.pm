@@ -1379,17 +1379,23 @@ sub replace_stops_with_introns{
     }
   }
   
-  $newtranscript->flush_Exons;
+  $newtranscript->flush_Exons; 
   foreach my $exon (@exons) {
     $newtranscript->add_Exon($exon);
-  }
+  } 
+
   my $translation = Bio::EnsEMBL::Translation->new();
   $translation->start_Exon($exons[0]);
   $translation->end_Exon($exons[-1]);
   $translation->start(1);
   $translation->end($exons[-1]->end - $exons[-1]->start + 1);
-  $newtranscript->translation($translation);
+  $newtranscript->translation($translation); 
 
+  my $old_translation = $transcript->translation  ;  
+
+  foreach my $DBEntry (@{$old_translation->get_all_DBEntries}){
+     $translation->add_DBEntry($DBEntry);
+  }
   return $newtranscript;
 }
 
@@ -1451,7 +1457,8 @@ sub remove_initial_or_terminal_short_exons{
           }
           last FIVE_PRIME_END;
         }
-      }else{
+      }else {
+        print id($exon)." is being trimmed  - it is too short\n"; 
         my $warn = id($exon)." is being trimmed ".
           "it is too short\n".Exon_info($exon);
         logger_info($warn);
@@ -1481,6 +1488,7 @@ sub remove_initial_or_terminal_short_exons{
         }
         last THREE_PRIME_END;
       }else{
+        print id($exon)." is being trimmed  - it is too short\n"; 
         my $warn = id($exon)." is being trimmed ".
           "it is too short\n".Exon_info($exon);
         logger_info($warn);
