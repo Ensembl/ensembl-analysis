@@ -1266,9 +1266,9 @@ sub replace_stops_with_introns{
                   -phase     => $exon->strand < 0 ? $exon->phase : 0,
                   -end_phase => $exon->strand < 0 ? 0 : $exon->end_phase);
           # need to split the supporting features between the two
-          my @sfs = @{$exon->get_all_supporting_features};
+          my @sfs = @{$exon->get_all_supporting_features}; 
           my (@ug_left, @ug_right);
-          foreach my $f (@sfs) {
+          foreach my $f (@sfs) { 
             foreach my $ug ($f->ungapped_features) {  
               my $orignial_analysis = $ug->analysis; 
               if ($ug->start >= $exon_left->start and 
@@ -1341,19 +1341,27 @@ sub replace_stops_with_introns{
                 }
               }
             }
-          }
-          
-          if (@ug_left) {
-            my $f = Bio::EnsEMBL::DnaPepAlignFeature->
-                new(-features => \@ug_left);
-            $exon_left->add_supporting_features($f);
-          }
-          if (@ug_right) {
-            my $f = Bio::EnsEMBL::DnaPepAlignFeature->
-                new(-features => \@ug_right);
-            $exon_right->add_supporting_features($f);
-          }
-          
+          } 
+
+          sub add_dna_align_features_by_hitname_and_analysis {   
+             my ( $ug_ref, $exon ) = @_ ;  
+             my %group_features_by_hitname_and_analysis ; 
+             for my $ug ( @$ug_ref ) {  
+                push @{$group_features_by_hitname_and_analysis{$ug->analysis->logic_name}{$ug->hseqname }} , $ug ; 
+             }  
+             for my $logic_name ( keys %group_features_by_hitname_and_analysis  ) {  
+                for my $hseqname  ( keys  %{$group_features_by_hitname_and_analysis{$logic_name}}) {  
+                   my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}}; 
+                   my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features); 
+                   $exon->add_supporting_features($f);  
+                } 
+             }  
+             return $exon ; 
+          }   
+
+          $exon_left = add_dna_align_features_by_hitname_and_analysis(\@ug_left,$exon_left) ; 
+          $exon_right =add_dna_align_features_by_hitname_and_analysis(\@ug_right,$exon_right) ;  
+
           if ($exon->strand < 0) {
             if ($exon_right->end >= $exon_right->start) {
               push @new_exons, $exon_right;
