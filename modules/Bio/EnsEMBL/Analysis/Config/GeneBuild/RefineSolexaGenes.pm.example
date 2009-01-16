@@ -17,7 +17,7 @@ use vars qw( %Config );
 # Hash containing config info
 %Config = (
 
-         REFINESOLEXAGENSES_CONFIG_BY_LOGIC => 
+         REFINESOLEXAGENES_CONFIG_BY_LOGIC => 
            {
             DEFAULT => {
 	    		# databases are defined as hash keys from Bio::EnsEMBL::Analysis::Config::Databases
