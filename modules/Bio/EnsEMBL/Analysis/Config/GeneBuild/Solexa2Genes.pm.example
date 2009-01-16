@@ -1,0 +1,70 @@
+# Bio::EnsEMBL::Analysis::Config::GeneBuild::Solexa2Genes;
+# 
+# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+#
+# Copyright GRL & EBI
+#
+# You may distribute this module under the same terms as perl itself
+
+# POD documentation - main docs before the code
+
+
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::Solexa2Genes;
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+
+SOLEXA2GENES_CONFIG_BY_LOGIC => 
+     {
+      DEFAULT => {
+                  # databases are defined as hash keys from Bio::EnsEMBL::Analysis::Config::Databases
+                  OUTDB    => '',
+	          ALIGNMENT_DB => '',
+		  
+                  # options for filtering out small gene models
+                  MIN_LENGTH => 100,
+                  MIN_EXONS  =>   2,
+                  # 'span' = genomic extent / cdna length
+                  MIN_SPAN   =>   2,
+                  # number of read pairs needed to confirm an end exon
+		  END_EXON_COVERAGE => 2,
+                  # exclude exons where the coverage is lower than 
+		  # *percentage* of the *average* exon coverage for the transcript
+		  # ie a value of 10 means remove all exon pairings where the
+		  # coverage is < 10% of the average 
+		  EXCLUDE_EXONS => 5,
+                  },
+     }
+);
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
