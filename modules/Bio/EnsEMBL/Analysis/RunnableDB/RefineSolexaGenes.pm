@@ -451,7 +451,8 @@ sub refine_genes {
       unless ($self->ABINITIO_INTRONS) {
 	# if we are not using fake exons compare the introns to 
 	# how many there are in the (merged) rough model
-	$tran->{'_fake_introns'} = $exon_count-1 - $intron_count;	
+	$tran->{'_fake_introns'} = $exon_count-1 - $intron_count;
+	$intron_count = $exon_count -1;
       }
       $tran->{'_intron_count'} = $intron_count;
       $tran->{'_proportion_real_introns'} = int((($tran->{'_intron_count'} - $tran->{'_fake_introns'}) /$tran->{'_intron_count'}) *100);
