@@ -64,7 +64,7 @@ sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  $self->read_and_check_config($REFINESOLEXAGENSES_CONFIG_BY_LOGIC);
+  $self->read_and_check_config($REFINESOLEXAGENES_CONFIG_BY_LOGIC);
   # Hard limit to the number of possible paths to explore
   $self->recursive_limit(50000);
   # initialise intron feature cash
@@ -158,7 +158,7 @@ sub refine_genes {
 
     my $most_real_introns = 0;
     my $highest_score = 0;
-    
+   # print STDERR $gene->stable_id. " : " . . $gene->start . " " . $gene->end . ":\n";
     # merge exons to remove little artifactual introns
     my @exons =  @{$self->merge_exons($gene)};
     my $exon_count =  $#exons;
@@ -205,7 +205,7 @@ sub refine_genes {
 	# an exon
 	$self->exon_mask($exon,$intron);
         next if $intron_count{$intron->display_label} &&  $intron_count{$intron->display_label} > 2;
-	#print STDERR "USING " . $intron->display_label . "\n";
+	#print STDERR "USING intron " . $intron->display_label . "\n";
 	#print STDERR "E-I\n"  if $intron->end > $exon->end;
 	#print STDERR "I-E\n"  if $intron->start < $exon->start;
 	# exon_intron links exons to the intron on their right ignoring strand
@@ -448,6 +448,11 @@ sub refine_genes {
       $tran->biotype('modified');
       $tran->{'_score'} =  $intron_score;
       $tran->{'_fake_introns'} =  $fake_introns ;
+      unless ($self->ABINITIO_INTRONS) {
+	# if we are not using fake exons compare the introns to 
+	# how many there are in the (merged) rough model
+	$tran->{'_fake_introns'} = $exon_count-1 - $intron_count;	
+      }
       $tran->{'_intron_count'} = $intron_count;
       $tran->{'_proportion_real_introns'} = int((($tran->{'_intron_count'} - $tran->{'_fake_introns'}) /$tran->{'_intron_count'}) *100);
       # make note of best scores and best introns
