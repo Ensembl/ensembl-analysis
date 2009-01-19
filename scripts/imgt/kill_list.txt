@@ -1,0 +1,8 @@
+AF062232        human; heavy chain orphon (chr15) not annotated as such
+AF062120        human; heavy chain orphon (chr15) not annotated as such
+HSIGHZF         human; heavy chain orphon (chr15) not annotated as such
+HSIGVH441       human; heavy chain orphon (chr15) not annotated as such
+HSIGHXX27       human; heavy chain orphon (chr15) not annotated as such
+HSIGV79         human; heavy chain orphon (chr15) not annotated as such
+HSIGLC16        human; light chain orphon (chr22, distal). Probable pseudo
+MM07554         mouse; C-REGION contains J-REGION
