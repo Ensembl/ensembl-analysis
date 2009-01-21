@@ -832,6 +832,16 @@ sub merge_transcripts {
                     -percent_id  => 0  ,  
                     ) ; 
 
+   # jhv 
+   #
+   #   # we should decide here if we want to create dnadna or dnapep align feature ...
+   #     if ( ref($merge_exon) =~m/Bio::EnsEMBL::DnaPepAlignFeature/ ) {
+   #     }elsif ( ref($merge_exon) =~m/Bio::EnsEMBL::DnaDnaAlignFeature/ ) {
+   #     }
+   #
+   #
+
+
   my $dna_align_feat = Bio::EnsEMBL::DnaDnaAlignFeature->new (-features =>[$feat_pair] , 
                                                               -analysis => $merge_exon->analysis ) ; 
                     
