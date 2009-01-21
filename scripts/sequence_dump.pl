@@ -17,6 +17,7 @@ can be specified. The sequence can also be masked for repeats in either
 normal uppercase Ns or with softmasking
 
 =head1 OPTIONS
+
     -dbhost    host name for database (gets put as host= in locator)
 
     -dbport    For RDBs, what port to connect to (port= in locator)
@@ -27,6 +28,8 @@ normal uppercase Ns or with softmasking
 
     -dbpass    For RDBs, what password to use (pass= in locator)
 
+    -species   Species name/alias.  Only required for multispecies dna DBs
+
     -coord_system_name the name of the coordinate system you want to dump
 
     -output_dir the directory to dump the files too
@@ -35,6 +38,8 @@ normal uppercase Ns or with softmasking
 
     -sequence_level to indicate you want to dump the sequence level seq
                    regions
+    -nonref to indicate you want available non-reference regions
+
     -format the format you want your sequence dumped in. As standard this is
             fasta format and this can be any format Bio::SeqIO can dump
 
@@ -90,11 +95,13 @@ my $port   = '';
 my $dbname = '';
 my $dbuser = '';
 my $dbpass = '';
+my ($species, $filename);
 my $coord_system_name;
 my $output_dir;
 my $onefile;
 my $top_level;
 my $seq_level;
+my $non_ref;
 my $format = 'fasta';
 my @logic_names;
 my $mask;
@@ -107,18 +114,22 @@ my $help;
             'dbname:s'   => \$dbname,
             'dbuser:s'   => \$dbuser,
             'dbpass:s'   => \$dbpass,
+			'species=s'  => \$species,
             'coord_system_name:s' => \$coord_system_name,
             'output_dir:s' => \$output_dir,
             'extension:s' => \$extension,
             'toplevel!' => \$top_level,
             'seqlevel!' => \$seq_level,
+			'nonref!' => \$non_ref,
             'format!' => \$format,
             'mask!' => \$mask,
             'mask_repeat:s@' => \@logic_names,
             'softmask!' => \$softmask,
             'onefile!' => \$onefile,
+			'filename=s' => \$filename,
             'help!' => \$help,
            ) or ($help = 1);
+
 
 
 if ($help) {
@@ -130,12 +141,14 @@ if(!$host || !$dbname || !$dbuser){
         " use -help for docs");
 }
 
-my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
-    -dbname => $dbname,
-    -host   => $host,
-    -user   => $dbuser,
-    -port   => $port,
-    -pass   => $dbpass
+my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new
+  (
+   -dbname => $dbname,
+   -host   => $host,
+   -user   => $dbuser,
+   -port   => $port,
+    -pass   => $dbpass,
+   -species => $species,
 );
 
 
@@ -149,7 +162,7 @@ if($top_level && $seq_level){
         "other see -help for docs"); 
 }
 
-if(!$output_dir || ! -e $output_dir){
+if(! $filename && (!$output_dir || ! -e $output_dir)){
   throw("Can't dump sequence into ".$output_dir." it doesn't exist ".
         "use -help for docs");
 }
@@ -161,31 +174,40 @@ if($seq_level){
   $coord_system_name = 'seqlevel';
 }
 
+
+warn "filename is $filename";
+
 my $oneout;
-if($onefile){
-  my $filename = $output_dir."/".$coord_system_name.".".$extension;  
+if($onefile || $filename){
+  $filename ||= $output_dir."/".$coord_system_name.".".$extension;  
   $oneout = Bio::SeqIO->new(
                             -file => ">".$filename,
                             -format => $format,
                            );
 }
 
+
+
+
 my $sa = $db->get_SliceAdaptor;
 
-my $slices = $sa->fetch_all($coord_system_name);
+my $slices = $sa->fetch_all($coord_system_name, undef, $non_ref);
 
 foreach my $slice(@$slices){
   my $seq;
+
   if($mask){
     $seq = $slice->get_repeatmasked_seq(\@logic_names, $softmask);
   }else{
     $seq = $slice;
   }
-  my $filename = $output_dir."/".$slice->seq_region_name.".".$extension;
+
   my $seqout;
-  if($onefile){
+  if($filename){
     $seqout = $oneout;
   }else{
+
+	my $filename = $output_dir."/".$slice->seq_region_name.".".$extension;
     $seqout = Bio::SeqIO->new(
                               -file => ">".$filename,
                               -format => $format,
