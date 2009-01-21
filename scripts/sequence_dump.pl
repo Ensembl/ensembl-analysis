@@ -179,8 +179,6 @@ if($seq_level){
 }
 
 
-warn "filename is $filename";
-
 my $oneout;
 if($onefile || $filename){
   $filename ||= $output_dir."/".$coord_system_name.".".$extension;  
