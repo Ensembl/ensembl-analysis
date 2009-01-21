@@ -30,6 +30,8 @@ normal uppercase Ns or with softmasking
 
     -species   Species name/alias.  Only required for multispecies dna DBs
 
+    -multi_species Boolean for multi-species DBs
+
     -coord_system_name the name of the coordinate system you want to dump
 
     -output_dir the directory to dump the files too
@@ -95,7 +97,7 @@ my $port   = '';
 my $dbname = '';
 my $dbuser = '';
 my $dbpass = '';
-my ($species, $filename);
+my ($species, $filename, $multi_species);
 my $coord_system_name;
 my $output_dir;
 my $onefile;
@@ -115,7 +117,8 @@ my $help;
             'dbuser:s'   => \$dbuser,
             'dbpass:s'   => \$dbpass,
 			'species=s'  => \$species,
-            'coord_system_name:s' => \$coord_system_name,
+			'multi_species'  => \$multi_species,
+			'coord_system_name:s' => \$coord_system_name,
             'output_dir:s' => \$output_dir,
             'extension:s' => \$extension,
             'toplevel!' => \$top_level,
@@ -149,6 +152,7 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new
    -port   => $port,
     -pass   => $dbpass,
    -species => $species,
+   -is_multispecies => $multi_species
 );
 
 
