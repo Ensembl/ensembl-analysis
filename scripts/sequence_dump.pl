@@ -150,9 +150,9 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new
    -host   => $host,
    -user   => $dbuser,
    -port   => $port,
-    -pass   => $dbpass,
+   -pass   => $dbpass,
    -species => $species,
-   -is_multispecies => $multi_species
+   -multispecies_db => $multi_species
 );
 
 
