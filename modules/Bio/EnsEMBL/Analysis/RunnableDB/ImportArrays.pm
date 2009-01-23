@@ -40,11 +40,6 @@ Note that probes are defined as redundant when they share the same
 - probeset 
 
 
-To do:
-
-- Write run methods for other import formats e.g. CSV?
-- Add recover and rollback functionality so we can skip Arrays which have been fully imported and rollback ones where we fell over half way through.
-
 
 =head1 AUTHOR
 
@@ -58,11 +53,12 @@ Post general queries to B<ensembl-dev@ebi.ac.uk>
 =cut
 
 # TO DO
+# Write run methods for other import formats e.g. CSV?
 # Add IMPORTED status for each array_chip?
 # We can't do the same rollback with the probes on these array_chip
 # as they may exist on another array.
 # Write fasta file to db fasta cache?
-
+# Add mode to recreate nr_fasta if already imported?
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
@@ -186,8 +182,9 @@ sub run_FASTA{
   while(<PROBES>){
     chomp;
    
-    if(/$header_regex$/){
 
+    if(/$header_regex$/){
+	
       if($current_sequence){
 
         if(! $current_array_chip){
@@ -199,12 +196,13 @@ sub run_FASTA{
 		$probeset = (exists $probe_attrs{'-probeset'}) ? $probe_attrs{'-probeset'} : 'NO_PROBE_SET';
         $existing_probe = $probes_by_sequence{$probeset}{$current_sequence};
 
+
+		
+
         if(! $existing_probe){
 
           $existing_probe = $self->create_new_probe(
 													$current_array_chip, 
-													#$probeset, 
-													#$probe_name, 
 													\%probe_attrs,
 													length($current_sequence),
 												   );
@@ -213,13 +211,14 @@ sub run_FASTA{
         }
 		else{
         
-		  $self->add_array_to_existing_probe(
-											 $existing_probe, 
-											 $current_array_chip, 
-											 #$probeset,
-											 #$probe_name ,
-											 \%probe_attrs,
-											);
+		  $self->add_array_chip_to_existing_probe
+			(
+			 $existing_probe, 
+			 $current_array_chip, 
+			 $probe_attrs{'-probeset'},
+			 $probe_attrs{'-name'},
+			 #\%probe_attrs,
+			);
         }
 
         $current_sequence = undef;
@@ -242,7 +241,7 @@ sub run_FASTA{
       }
 
     }
-	else{#build sequence
+	elsif(/^[atgcuATGCU]+$/){#build sequence
       $sequence_fragment = $_;
 
       if($current_sequence){
@@ -252,6 +251,9 @@ sub run_FASTA{
         $current_sequence = $sequence_fragment;
       }
     }
+	else{
+	  throw('Found header which does not match '.$self->INPUT_FORMAT." regex($header_regex):\n$_");
+	}
   }
 
   #deal with last entry
@@ -262,8 +264,6 @@ sub run_FASTA{
   if(! $existing_probe){
     $existing_probe =  $self->create_new_probe(
 											   $current_array_chip, 
-											   #$probeset, 
-											   #$probe_name, 
 											   \%probe_attrs,
 											   length($current_sequence),
 											  );
@@ -271,13 +271,14 @@ sub run_FASTA{
     $probes_by_sequence{$probeset}{$current_sequence} = $existing_probe;
   }
   else{
-    $self->add_arraychip_to_existing_probe(
-									   $existing_probe, 
-									   $current_array_chip, 
-									   #$probeset,
-									   #$probe_name,
-									   \%probe_attrs,
-									  );
+    $self->add_array_chip_to_existing_probe
+	  (
+	   $existing_probe, 
+	   $current_array_chip, 
+	   $probe_attrs{'-probeset'},
+	   $probe_attrs{'-name'},
+	   #\%probe_attrs,
+	  );
   }  
 
   $self->probes(\%probes_by_sequence);
@@ -285,19 +286,23 @@ sub run_FASTA{
   return;
 }
 
-sub add_array_chip_to_existing_probe{#_probe_set{
+sub add_array_chip_to_existing_probe{
   my ($self, $probe, $array_chip, $probeset, $probename) = @_;
 
+
+  #We can have non-unique probes on a non-probeset array with different IDs
+  #This should never happen, but it does.
+
   my @all_probenames = @{$probe->get_all_probenames};
-      
-  if(!($probe->probeset eq $probeset)){
+  
+  if($probeset && !($probe->probeset eq $probeset)){
     throw (
-      "Inconsistency: have found a probe ".$array_chip->name.":$probeset:$probename with ".
-      "identical sequence but different probeset to another one: ".$probe->probeset."\n"
+		   "Inconsistency: have found a probe ".$array_chip->name.":${probeset}:${probename} with ".
+		   "identical sequence but different probeset to another one: ".$probe->probeset."\n"
     );
   }
 
-  $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->Array);
+  $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->get_Array);
 }
 
 #can we replace these var with $_[n] for speed?
@@ -427,6 +432,12 @@ sub write_output {
   }
 
   close(OUTFILE);
+
+
+  #No we record imported as we need the nr_fasta dump?
+  #Or are we going to allow this to run if already import
+  #and just create the nr_fasta by querying the db for probe dbID
+  #and using the sequence from the input file?
 
 
   #And now the array names
