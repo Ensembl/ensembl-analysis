@@ -613,7 +613,36 @@ sub add_havana_attribute{
   my ($self, $transcript, $trans_to_add_attrib) = @_;
 
   my %evidence;
+  my %t_evidence;
 
+  foreach my $tsf (@{$transcript->get_all_supporting_features}){
+    $t_evidence{$tsf->hseqname} = 1;
+  }
+
+  foreach my $te_key (keys %t_evidence){
+    #print "Adding special attrib\n";
+    if($te_key->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
+      my $attribute = Bio::EnsEMBL::Attribute->new
+          (-CODE => 'tp_otter_support',
+           -NAME => 'tp otter support',
+           -DESCRIPTION => 'Evidence ID that was used as protein transcript supporting feature for building a gene in Vega',
+           -VALUE => $ev_key);
+      
+      $trans_to_add_attrib->add_Attributes($attribute);
+      
+    }
+    if($te_key->isa("Bio::EnsEMBL::DnaDnaAlignFeature")){
+      my $attribute = Bio::EnsEMBL::Attribute->new
+          (-CODE => 'td_otter_support',
+           -NAME => 'td otter support',
+           -DESCRIPTION => 'Evidence ID that was used as cdna transcript supporting feature for building a gene in Vega',
+           -VALUE => $ev_key);
+      
+      $trans_to_add_attrib->add_Attributes($attribute);
+      
+    }
+  }
+  
   foreach my $exon (@{$transcript->get_all_Exons}){ 
     foreach my $sf (@{$exon->get_all_supporting_features}){
       $evidence{$sf->hseqname} = 1;
@@ -622,18 +651,27 @@ sub add_havana_attribute{
 
   foreach my $ev_key (keys %evidence){
     #print "Adding special attrib\n";
-    my $attribute = Bio::EnsEMBL::Attribute->new
-        (-CODE => 'otter_support',
-         -NAME => 'otter support',
-         -DESCRIPTION => 'Evidence ID that was used as supporting feature for building a gene in Vega',
-         -VALUE => $ev_key);
-    
-    $trans_to_add_attrib->add_Attributes($attribute);
-    
-  }
-  
+    if($ev_key->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
+      my $attribute = Bio::EnsEMBL::Attribute->new
+          (-CODE => 'ep_otter_support',
+           -NAME => 'ep otter support',
+           -DESCRIPTION => 'Evidence ID that was used as protein exon supporting feature for building a gene in Vega',
+           -VALUE => $ev_key);
+      
+      $trans_to_add_attrib->add_Attributes($attribute);
+    }
+    if($ev_key->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
+      my $attribute = Bio::EnsEMBL::Attribute->new
+          (-CODE => 'ed_otter_support',
+           -NAME => 'ed otter support',
+           -DESCRIPTION => 'Evidence ID that was used as cdna exon supporting feature for building a gene in Vega',
+           -VALUE => $ev_key);
+      
+      $trans_to_add_attrib->add_Attributes($attribute);    
+    } 
+  } 
 }
-
+  
 sub transfer_supporting_features{
   my ($self, $delete_t, $transcript) = @_;
   
