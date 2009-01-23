@@ -168,16 +168,23 @@ use vars qw( %Config );
 	#mismatches.
 
 	#Define QUERYSEQS here instead of in Runnable to prevent convolution 
-	#of RunnableDB and environment, i.e. we can still run ProbeAlign so long as we change this
-	#config
+	#of RunnableDB and environment, 
+	#i.e. we can still run ProbeAlign so long as we change this config
+	#The only downfall is lack of validation of QUERYSEQS files
+	#WARNING CHECK YOUR QUERYSEQS!
 
-	AFFY_PROBEALIGN => 
+	AFFY_UTR_PROBEALIGN => 
 	{
 	 MAX_MISMATCHES       => 1,
 	 TARGETSEQS           => $ENV{'GENOMICSEQS'},
-	 QUERYSEQS            => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY.fasta',
-	 #25 mers 
-	 OPTIONS              => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
+	 QUERYSEQS            => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY_UTR.fasta',
+	 #at least 25 mers allowing 1bp mismatch
+	 #this will still work in the worst case where the mismatch is at the centre of a 25bp probe
+	 
+	 OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
+	 
+
+	 #OPTIONS              => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
 	 HIT_SATURATION_LEVEL => 100,
 	},
 	
@@ -187,7 +194,8 @@ use vars qw( %Config );
 	 TARGETSEQS           => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS            => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY_ST.fasta',
 	 #25 mers 
-	 OPTIONS              => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
+	 #OPTIONS              => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
+	 OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
 	 HIT_SATURATION_LEVEL => 100,
 	 MAX_MISMATCHES       => 1,
 	},
@@ -199,19 +207,44 @@ use vars qw( %Config );
 	 
 	 #Need to define this dynamically based on oligo length (40-60mers)
 	 #50mers
+	 #Can we up the dnaword limit 10 50 here if we only want unique matches?
 	 OPTIONS => ' --bestn 2 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 50 --dnawordlimit 11 ',
 	 HIT_SATURATION_LEVEL => 2, #We only want unique mappings for tiling probes
-	 #FILTER_METHOD => 'filter_mismatches',
 	 MAX_MISMATCHES => 0, #Unique mappings for tiling probes
+	},		  
+
+
+	#ILLUMINA_WG are 51mers. These settings allow for at least 1bp mismatch
+	ILLUMINA_WG_PROBEALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.ILLUMINA_WG.fasta',
+	 #Need to define this dynamically based on oligo length (40-60mers)
+	 #50mers
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	},		  
+
+	ILLUMINA_WG_PROBETRANSCRIPTALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.ILLUMINA_WG.fasta',
+	 #Need to define this dynamically based on oligo length (40-60mers)
+	 #50mers
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
 	},		  
 	
 
-	AFFY_PROBETRANSCRIPTALIGN => 
+	AFFY_UTR_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
-	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY.fasta',
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY_UTR.fasta',
 	 #25 mers 
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
+	 OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
 	 #HIT_SATURATION_LEVEL => 100,#I don't think we want this for the transcript mappings
 	 #Defaults to 100 anyway, but not used
 	 #FILTER_METHOD => 'filter_mismatches',#Would need to add another method to Runnable::Exonerate
@@ -225,9 +258,9 @@ use vars qw( %Config );
 	 TARGETSEQS         =>  $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS      => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY_ST.fasta',
 	 #25 mers 
+	 #OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
 	 OPTIONS => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
 	 #HIT_SATURATION_LEVEL => 100,
-	 #FILTER_METHOD => 'filter_mismatches',#Would need to add another method to Runnable::Exonerate
 	 MAX_MISMATCHES => 1,
 	}, 
    }
