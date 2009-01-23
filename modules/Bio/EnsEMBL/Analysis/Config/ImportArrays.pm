@@ -121,7 +121,8 @@ use vars qw( %Config );
 					#				  -vendor => 'AFFY',
 					#				  #-setsize => undef,
 					#				  -format  => 'EXPRESSION',
-					#				  -type    => 'OLIGO',
+					#				  -type    => 'OLIGO', 
+					  #  -class => 'AFFY_ST',
 					#				  #-description => '',
 					#				 },
 
@@ -132,6 +133,7 @@ use vars qw( %Config );
 					#						 -format  => 'EXPRESSION',
 					#						 -type    => 'OLIGO',
 					#						 #-description => '',
+					  #  -class => 'AFFY_ST',
 					#						},
 
 
@@ -141,7 +143,7 @@ use vars qw( %Config );
 	},
 
 
-	IMPORT_AFFY_ARRAYS => 
+	IMPORT_AFFY_UTR_ARRAYS => 
 	{
 	 IIDREGEXP => '^>probe:(\S+):(\S+):(\S+:\S+;).*$',
 	 
@@ -159,10 +161,10 @@ use vars qw( %Config );
 	  'MG-U74Cv2' => {
 					  -name => 'MG-U74Cv2',
 					  -vendor => 'AFFY',
-					  #-setsize => undef,
-					  -format  => 'EXPRESSION',#? UTR?
+					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
 					  #-description => '',
+					  -class   => 'AFFY_UTR',
 					  
 					 },
 	
@@ -173,7 +175,7 @@ use vars qw( %Config );
 					  -format  => 'EXPRESSION',#? UTR?
 					  -type    => 'OLIGO',
 					  #-description => '',
-					  
+					   -class   => 'AFFY_UTR',
 					 },
 
 	  
@@ -202,15 +204,16 @@ use vars qw( %Config );
 											 -format  => 'EXPRESSION',
 											 -type    => 'OLIGO',
 											 #-description => '',
+											 -class   => 'AFFY_ST',
 											},
 										   },
 	 
 	 INPUT_FORMAT => 'FASTA',
 	},
 
-	IMPORT_ILLUMINA_ARRAYS => 
+	IMPORT_ILLUMINA_WG_ARRAYS => 
 	{
-	 IIDREGEXP => '^>(\S+):(\S+) ".*"$',
+	 IIDREGEXP => '^>(\S+):(\S+).*$',
 	 
 	 IFIELDORDER => {
 					 -name       => 1,
@@ -221,41 +224,45 @@ use vars qw( %Config );
 	 	 
 	 ARRAY_PARAMS => {
 					  
-					  'Mouse-WG-6_V1' => {
-										 -name => 'Mouse-WG-6_V1',
+					  'MouseWG_6_V1' => {
+										 -name => 'MouseWG_6_V1',
 										 -vendor => 'ILLUMINA',
 										 #-setsize => undef,
 										 -format  => 'EXPRESSION',
 										 -type    => 'OLIGO',
 										 #-description => '',
+										  -class   => 'ILLUMINA_WG',
 										},
 					  
 					  
-					  'Mouse-WG-6_V2' => {
-										 -name => 'Mouse-WG-6_V2',
+					  'MouseWG_6_V2' => {
+										 -name => 'MouseWG_6_V2',
 										 -vendor => 'ILLUMINA',
 										 #-setsize => undef,
 										 -format  => 'EXPRESSION',
 										 -type    => 'OLIGO',
 										 #-description => '',
+										  -class   => 'ILLUMINA_WG',
 										},
 					  
-					  'Human-WG-6_V1' => {
-										 -name => 'Human-WG-6_V1',
+					  'HumanWG_6_V1' => {
+										 -name => 'HumanWG_6_V1',
 										 -vendor => 'ILLUMINA',
 										 #-setsize => undef,
 										 -format  => 'EXPRESSION',
 										 -type    => 'OLIGO',
 										 #-description => '',
+										  -class   => 'ILLUMINA_WG',
 										},
 
-					  'Human-WG-6_V2' => {
-										 -name => 'Human-WG-6_V2',
+					  'HumanWG_6_V2' => {
+										 -name => 'HumanWG_6_V2',
 										 -vendor => 'ILLUMINA',
 										 #-setsize => undef,
 										 -format  => 'EXPRESSION',
 										 -type    => 'OLIGO',
 										 #-description => '',
+										  -class   => 'ILLUMINA_WG',
 										},
 					  
 
