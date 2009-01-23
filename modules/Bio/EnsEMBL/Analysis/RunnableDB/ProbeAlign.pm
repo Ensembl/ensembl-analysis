@@ -376,7 +376,7 @@ sub filter_features {
 						   (
 							-type       => $uo_type,
 							-analysis   => $analysis,
-							-identifier => $probe_id,
+							-ensembl_id => $probe_id,
 							-ensembl_object_type => 'Probe',
 							-summary    => 'Promiscuous probe',
 							-full_desc  => "Probe exceeded maximum allowed number of $mapping_type mappings(${num_hits}/${max_hits})"
@@ -394,7 +394,7 @@ sub filter_features {
 						 (
 						  -type       => $uo_type,
 						  -analysis   => $analysis,
-						  -identifier => $probe_id,
+						  -ensembl_id => $probe_id,
 						  -ensembl_object_type => 'Probe',
 						  -summary    => 'Unmapped probe',
 						  -full_desc  => "Probe has no $mapping_type mappings",
@@ -458,6 +458,10 @@ sub set_probe_and_slice {
   my $gene_adaptor  = $db->dnadb->get_GeneAdaptor;
   my $dbe_adaptor   = $db->get_DBEntryAdaptor;
   my $analysis      = $self->analysis;
+  my $schema_build  = $self->outdb->_get_schema_build($self->outdb->dnadb);
+  my $edb_name      = $self->outdb->species.'_core_Transcript';
+
+	
 
   my (%slices, $slice_id, $trans_mapper, $align_type, $align_length, @tmp, $gap_length);
   my (@trans_cigar_line, @genomic_blocks, $genomic_start, $genomic_end, $cigar_line, $gap_start, $block_end);
@@ -688,22 +692,45 @@ sub set_probe_and_slice {
 	  $display_name = $self->get_display_name_by_stable_id($seq_id, 'transcript');
 
 	  $id_xref = Bio::EnsEMBL::IdentityXref->new
-		(-QUERY_IDENTITY => $query_perc,
+	  #$xref = Bio::EnsEMBL::DBEntry->
+		(
+		 -XREF_IDENTITY => $query_perc,
 		 #-TARGET_IDENTITY => 90.1,
 		 -SCORE => $score,
 		 #-EVALUE => 12,
 		 -CIGAR_LINE => $cigar_line,
-		 -QUERY_START => 1,#We are currently padding with mismatches to full length of query
-		 -QUERY_END => $q_length,
-		 -TRANSLATION_START => $transcript_start,#target/hit_start
-		 -TRANSLATION_END => $transcript_end,#target/hit_end
+		 -XREF_START => 1,#We are currently padding with mismatches to full length of query
+		 -XREF_END => $q_length,
+		 -ENSEMBL_START => $transcript_start,#target/hit_start
+		 -ENSEMBL_END => $transcript_end,#target/hit_end
 		 -ANALYSIS => $analysis,
 		 -PRIMARY_ID => $seq_id,
-		 -DISPLAY_LABEL => $display_name,
-		 -DBNAME => 'ensembl_core_Transcript',
+		 -DISPLAY_ID => $display_name,
+		 -DBNAME  => $edb_name,
+		 -release => $schema_build,
+		 -info_type => 'Transcript',
+		 -linkage_annotation => 'ProbeTranscriptAlign',
+		 #-info_text => , #? What is this for?
+		 #-version => , #version of transcript sid?
+
 		);
 	  #No strand here! Always +ve?!
+	  #$dbe_adaptor->store($id_xref, $probe_id, 'Probe', 1);#Do we need ignore release flag here?
 
+
+	  ###This cannot be done until we have ox.analysis_id in place v54?
+	  #No store this as a ProbeFeature DBEntry in line with how the individual probe xrefs
+	  #are stored in probe2transcript
+	  #we don't really need this extra translation and score info here
+	  #and we are storing the cigar_line as part of the probe_feature
+	  #so we can reconstitute the alignment if required
+
+	  #This will mean we can separate the individual feature xrefs from the Probe/ProbeSet level full xref annotation
+	  #Will mean some duplication for single probe arrays
+	  #But will allow different sets of rules between ProbeAlign and probe2transcript
+	  #i.e. we could relax the mapping rules but keep the xreffin rules more stringent
+
+	  #We don't know what the ProbeFeature dbID is yet so we will have to pass this to store with the feature
 
 	  $dbe_adaptor->store($id_xref, $probe_id, 'Probe', 1);#Do we need ignore release flag here?
 	}
