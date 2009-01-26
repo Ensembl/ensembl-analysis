@@ -128,7 +128,7 @@ sub new {
   
 
 
-  my ($extdb_id) = @{$self->outdb->db_handle->selectrow_array($sql)};
+  my ($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
 	 
   if(! $extdb_id){
 	warn 'No external_db found for '.$self->{'_mapping_type'}." mapping, inserting $db_name $schema_build";
@@ -143,7 +143,6 @@ sub new {
 
 
   $self->{'_external_db_id'} = $extdb_id;
-
 
   return $self;
 }
