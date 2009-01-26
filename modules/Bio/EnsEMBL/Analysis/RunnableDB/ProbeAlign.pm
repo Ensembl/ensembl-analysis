@@ -48,9 +48,6 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::UnmappedObject;
 use Bio::EnsEMBL::IdentityXref;
 
-
-
-
 use Bio::EnsEMBL::Analysis::Config::ProbeAlign;
 
 use vars qw(@ISA);
@@ -88,6 +85,11 @@ sub new {
 
  
   my $logic = $self->analysis->logic_name;
+  my $schema_build = $self->outdb->_get_schema_build($self->outdb->dnadb);
+  my $species = $self->outdb->species;
+  throw('Must provide a -species to the OUTDB in Bio::EnsEMBL::Analysis::Config::ProbeAlign') if ! $species;
+	 
+  my ($db_name, $display_name);
 
   if($logic =~ /Transcript/){
 	 $self->{'mapping_type'} = 'transcript';
@@ -109,29 +111,38 @@ sub new {
 	 #i.e. if there was a new array but not a new build
 	 #Current DBEntry queries are naive to external_db version
 
-	 my $schema_build = $self->outdb->_get_schema_build($self->outdb->dnadb);
-	 my $db_name      = 'ensembl_core_Transcript';
-	 my $display_name = 'EnsemblTranscript';
-
-	 my $sql = "select db_name, db_release from external_db where db_name='$db_name'";
-	 $sql .= " and db_release='$schema_build'" if $schema_build;
-
-	 my @name_version_refs = @{$self->outdb->db_handle->selectall_arrayref($sql)};
-	 
-	 if(! @name_version_refs){
-	   warn "No external_db found for transcript mapping, inserting $db_name $schema_build";
-
-	   #status is dubious here as this should really be on object_xref
-	   $sql = 'INSERT into external_db(db_name, db_release, status, dbprimary_acc_linkable, priority, db_display_name, type)'.
-		 " values('$db_name', '$schema_build', 'KNOWNXREF', 1, 5, '$display_name', 'MISC')";
-
-	   $self->outdb->db_handle->do($sql);
-
-	 }
+	 $db_name      = $species.'_core_Transcript';
+	 $display_name = 'EnsemblTranscript';
   }
   else{
 	 $self->{'mapping_type'} = 'genomic';
+	 $db_name      = $species.'_core_Genome';
+	 $display_name = 'EnsemblGenome';	 
+
+	 #This is really just a place holder for UnmappedObjects against the entire genome
+	 #Should we redo this as EnsemblSpecies and actually have xref entries for each species name?
   }
+
+
+  my $sql = "select external_db_id from external_db where db_name='$db_name' and db_release='$schema_build'";
+  
+
+
+  my ($extdb_id) = @{$self->outdb->db_handle->selectrow_array($sql)};
+	 
+  if(! $extdb_id){
+	warn 'No external_db found for '.$self->{'_mapping_type'}." mapping, inserting $db_name $schema_build";
+	
+	#status is dubious here as this should really be on object_xref
+	my $insert_sql = 'INSERT into external_db(db_name, db_release, status, dbprimary_acc_linkable, priority, db_display_name, type)'.
+	  " values('$db_name', '$schema_build', 'KNOWNXREF', 1, 5, '$display_name', 'MISC')";
+	
+	$self->outdb->db_handle->do($sql);	
+	($extdb_id) = @{$self->outdb->db_handle->selectrow_array($sql)};
+  }
+
+
+  $self->{'_external_db_id'} = $extdb_id;
 
 
   return $self;
@@ -310,6 +321,7 @@ sub filter_features {
 
 
 
+
   #This is tricky
   #We may map something >100 times to the genome but only a few times to transcripts.
   #Do we need a clean up step which removes all transcript mapping if we have an 
@@ -378,6 +390,8 @@ sub filter_features {
 							-analysis   => $analysis,
 							-ensembl_id => $probe_id,
 							-ensembl_object_type => 'Probe',
+							-external_db_id => $self->{'_external_db_id'},
+							-identifier     => $mapping_type
 							-summary    => 'Promiscuous probe',
 							-full_desc  => "Probe exceeded maximum allowed number of $mapping_type mappings(${num_hits}/${max_hits})"
 						   ));
@@ -390,12 +404,19 @@ sub filter_features {
  
 	  #Very unlikely, and probably only ProbeTranscriptAlign
 	  #push @{$self->unmapped_objects},	
+
+	  #We want to an external_db_id here for if this is Trancsript
+	  #What about genomic mapping?
+	  #Yes we need to reimplement species DB?
+
 	  $uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						 (
 						  -type       => $uo_type,
 						  -analysis   => $analysis,
 						  -ensembl_id => $probe_id,
 						  -ensembl_object_type => 'Probe',
+						  -external_db_id => $self->{'_external_db_id'},
+						  -identifier     => $mapping_type,
 						  -summary    => 'Unmapped probe',
 						  -full_desc  => "Probe has no $mapping_type mappings",
 						 ));
