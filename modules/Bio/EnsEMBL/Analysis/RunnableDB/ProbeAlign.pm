@@ -131,14 +131,14 @@ sub new {
   my ($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
 	 
   if(! $extdb_id){
-	warn 'No external_db found for '.$self->{'_mapping_type'}." mapping, inserting $db_name $schema_build";
+	warn 'No external_db found for '.$self->{'mapping_type'}." mapping, inserting $db_name $schema_build";
 	
 	#status is dubious here as this should really be on object_xref
 	my $insert_sql = 'INSERT into external_db(db_name, db_release, status, dbprimary_acc_linkable, priority, db_display_name, type)'.
 	  " values('$db_name', '$schema_build', 'KNOWNXREF', 1, 5, '$display_name', 'MISC')";
 	
 	$self->outdb->db_handle->do($sql);	
-	($extdb_id) = @{$self->outdb->db_handle->selectrow_array($sql)};
+	($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
   }
 
 
@@ -295,7 +295,10 @@ sub write_output {
 	}
 
     eval{ $feature_adaptor->store($feature) };
+
     if ($@) {
+
+	  warn $feature->slice->name;
       $self->throw('Unable to store ProbeFeature for probe '.$feature->probe_id." !\n $@");
     }
   }
@@ -382,7 +385,9 @@ sub filter_features {
 		#This means yet another call for each unmapped probe
 		
 
-		#push @{$self->unmapped_objects}, 
+		#push @{$self->unmapped_objects},
+
+	
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
 							-type       => $uo_type,
@@ -390,7 +395,7 @@ sub filter_features {
 							-ensembl_id => $probe_id,
 							-ensembl_object_type => 'Probe',
 							-external_db_id => $self->{'_external_db_id'},
-							-identifier     => $mapping_type
+							-identifier     => $mapping_type,
 							-summary    => 'Promiscuous probe',
 							-full_desc  => "Probe exceeded maximum allowed number of $mapping_type mappings(${num_hits}/${max_hits})"
 						   ));
@@ -498,10 +503,12 @@ sub set_probe_and_slice {
 	if($mapping_type eq 'transcript'){
 
 	  if(! exists $transcript_cache{$seq_id}){
+		warn "Setting cache slice for seq_id:\t$seq_id";
 		$transcript_cache{$seq_id} = $trans_adaptor->fetch_by_stable_id($seq_id);
 	  }
 
-	  $slice_id   = 	$transcript_cache{$seq_id}->seq_region_name;
+	  
+	  $slice_id  =  $transcript_cache{$seq_id}->seq_region_name;
 
 	  if ( not exists $slices{$slice_id} ) {
 		$slices{$slice_id} = 	$transcript_cache{$seq_id}->slice;
@@ -760,6 +767,27 @@ sub set_probe_and_slice {
 
 
 	if($load_feature){
+
+	  #Reset start ends for non-ref slices
+
+	  if($slice->start != 1){
+
+		#Need to reslice, but we don't want to affect
+		#the slice in the cahse as this will screw up
+		#further feature start/end tranforms
+
+		my ($level, undef, $name) = split /:/, $slice->name;
+
+		warn "Resetting slice for ".$slice->name;
+		my $start = $feature->start + $slice->start - 1;
+		my $end   = $feature->end   + $slice->start - 1;
+		$feature->start($start);
+		$feature->end($end);
+		$slice = $slice_adaptor->fetch_by_region($level, $name, 1, $end);
+	  }
+
+	  
+
 	  $feature->slice($slice);
 
 	  # Recover the probe from the cache or DB
