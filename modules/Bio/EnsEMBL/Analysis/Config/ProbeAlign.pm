@@ -45,7 +45,7 @@ use vars qw( %Config );
 
 
 
-%Config = 
+%Config =
   (
 
    #This entire hash is exported as the global $PROBE_CONFIG var
@@ -69,7 +69,7 @@ use vars qw( %Config );
 	 # in the config-file ensembl-analysis/Config/CollapseAffyProbes.pm	 
 	 #QUERYSEQS           => $ENV{'NR_FASTA'},
 	 #Removed this now as we want to run different analyses at the same time so we have to hardcode below
-
+	 
 
 	 
 	 # must supply one, since the queryseqs MUST be a single file
@@ -228,7 +228,7 @@ use vars qw( %Config );
 
 	ILLUMINA_WG_PROBETRANSCRIPTALIGN => 
 	{
-	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.ILLUMINA_WG.fasta',
 	 #Need to define this dynamically based on oligo length (40-60mers)
 	 #50mers
