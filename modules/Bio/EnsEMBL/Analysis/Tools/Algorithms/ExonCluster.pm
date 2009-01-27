@@ -114,7 +114,8 @@ sub add_exon_if_not_present {
     $self->_add_new_exon($exon);
     # print "Added exon " . $exon->dbID . "\n";
   } else {
-    return;
+    # do not return here or you will not add
+    # the transcript_reference to _transcripthash
   }
   $self->_add_transcript_reference($exon,$transcript);
   $self->_add_exon_biotype($exon,$transcript) ;
@@ -289,7 +290,7 @@ sub transcripts_containing_exon {
 }
 
 
-sub get_transcripts_which_have_exon_in_ExonCluster {
+sub get_transcripts_having_this_Exon_in_ExonCluster {
   my ($self,$exon) = @_;
   # self = exoncluster, exon = exon
   my @transcripts;
@@ -303,7 +304,7 @@ sub get_transcripts_which_have_exon_in_ExonCluster {
       # we only processs "real" transcripts, no predictionTranscripts from ab-initio
       foreach my $ex_to_test (@{$transhash{$trans}}) {
         #print " testing exon: start: " . $ex_to_test->start . "\t" . $ex_to_test->end ."\n";
-        if($ex_to_test->start >= $self->start &&  $ex_to_test->end <= $self->end){
+        if($ex_to_test->stable_id eq $exon->stable_id){
           #print "  pushing \t".$self->transcript_from_ref($trans)->dbID."\n";
           push @transcripts, $self->transcript_from_ref($trans); 
           next TRANS;
