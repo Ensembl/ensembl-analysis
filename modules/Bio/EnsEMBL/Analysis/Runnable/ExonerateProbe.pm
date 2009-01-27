@@ -179,6 +179,7 @@ sub parse_results {
 	#So we use %em or %V to figure out if we don't have a perfect match, than we use %em or %V and the info string to figure out where the mismatches are
 	#< 25M effectively means mismatches at the start of end of a query sequence
 
+	#print $_."\n";
 
     ($tag, $probe_id, $q_start, $q_end, $q_strand, 
 	 $t_id, $t_start, $t_end, $t_strand, $score, 
@@ -320,6 +321,7 @@ sub parse_results {
 	  $t_end = ($t_strand eq '+') ? ($t_end + $three_mismatch) : ($t_start - $three_mismatch);
 	}
 
+	#print "@soft_cigar_line\n";
 
 
 	#Do we need to account for this?!!
@@ -368,6 +370,8 @@ sub parse_results {
 	  }else{    
 		throw "unrecognised query strand symbol: $q_strand\n";
 	  }
+
+	  #print "Creating ProbeFeature \n";
 
 	  push @features, new Bio::EnsEMBL::Funcgen::ProbeFeature
 		(
