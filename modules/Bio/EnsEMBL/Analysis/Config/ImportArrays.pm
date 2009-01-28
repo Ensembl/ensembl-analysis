@@ -85,7 +85,7 @@ use vars qw( %Config );
 			   -host   => $ENV{'DNADB_HOST'},
 			   -port   => $ENV{'DNADB_PORT'},
 			   -user   => $ENV{'DNADB_USER'},
-			   -pass   => $ENV{'DNADB_USER'},
+			   -pass   => $ENV{'DNADB_PASS'},
 			   -species => $ENV{'SPECIES'},
 			  },
 	 
@@ -178,7 +178,15 @@ use vars qw( %Config );
 					   -class   => 'AFFY_UTR',
 					 },
 
-	  
+	  'S_aureus' => {
+					 -name => 'S_aureus',
+					 -vendor => 'AFFY',
+					 #-setsize => undef,
+					 -format  => 'EXPRESSION',#? UTR?
+					 -type    => 'OLIGO',
+					 #-description => '',
+					 -class   => 'AFFY_UTR',
+					},
 	 },
 	 
 	 INPUT_FORMAT => 'FASTA',
@@ -264,6 +272,17 @@ use vars qw( %Config );
 										 #-description => '',
 										  -class   => 'ILLUMINA_WG',
 										},
+
+					  'HumanWG_6_V3' => {
+										 -name => 'HumanWG_6_V3',
+										 -vendor => 'ILLUMINA',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'ILLUMINA_WG',
+										},
+					  
 					  
 
 					 },
