@@ -289,7 +289,6 @@ sub run_FASTA{
 sub add_array_chip_to_existing_probe{
   my ($self, $probe, $array_chip, $probeset, $probename) = @_;
 
-
   #We can have non-unique probes on a non-probeset array with different IDs
   #This should never happen, but it does.
 
@@ -459,6 +458,7 @@ sub outdb {
   my ($self) = @_;
 
   #Don't need DNADB for collapse
+  #But need to define as will try and find a default on ensembldb which may not exist?
 
   my ($outdb);
 
@@ -466,35 +466,26 @@ sub outdb {
 
   #Where are db and dnadb methods coming from?
   #Is this defaulting to the pipeline DB?
-
+ 
   if(! defined $self->{'_outdb'}){
 
-	#if( my $dnadb_params =  $self->DNADB ){
-	  #Need to test if they have been defined
-	  #Just test dbname
-	  #All blank env vars are defined as the null string '';
-	  
-	#  if($dnadb_params->{-dbname}){
-	#	$dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$dnadb_params});
-	#  }
-	#}  #else will use default ensembldb dnadb, this may fail for oddly named dbs
-	
-	
-	#if ( my $outdb_params = $self->OUTDB ) {
-	  #We need to set the dnadb here if we are dealing with a pre release DB, i.e. dnadb is not on ensembldb
-	#$self->{'_outdb'} = Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new( %{ $outdb_params });#, -dnadb => $dnadb);
-	#}
-	#We are now forcing the use of OUTDB config
-	#else {
-	#  #This is the pipeline DBAdaptor?
-	#  $outdb = $self->db;
-	#  $outdb->dnadb($dnadb) if $dnadb;
-	#}
+	#This DNADB testing is a work around to avoid having to edit Config::ProbeAlign
+	my $dnadb;
 
-	#$self->{'_outdb'} = $outdb;
+	#not defined as an empty env var will give the defined null string
+	if($self->DNADB->{-dbname}){
+	  $dnadb =  new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->DNADB });
+	}
 
-
-	$self->{'_outdb'} = Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new( %{$self->OUTDB});#$outdb_params });	
+	$self->{'_outdb'} = Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new
+	  (
+	   %{ $self->OUTDB }, 
+	   -dnadb => $dnadb,
+	  );
+   
+	if(! $self->DNADB->{-dbname}){
+	  print "WARNING: Using default DNADB ". $self->{'_outdb'}->dnadb->dbname."\n";
+	}
 	
   }
 
