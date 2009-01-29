@@ -256,12 +256,7 @@ sub merge_pair {
 	my $hstart = $ugf->hstart ;
 	my $hend   = $ugf->hend ;
 	if ( $i == 1 ) {
-	  if ( $ugf->hstrand == 1 ) {
-	    $ugf->hstart( $hstart + 35 ) ;
-	    $ugf->hend  ( $hend   + 35 ) ;
-	  } else {
-	    $ugf->hstart( 71 - $hend    ) ;
-	    $ugf->hend  ( 71 - $hstart ) ;
+	  if ( $ugf->hstrand == -1 ) {
 	    $ugf->hstrand(1);
 	  }
 	} else {
@@ -274,6 +269,8 @@ sub merge_pair {
     }
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@ugfs);
     $feat->analysis($self->analysis);
+    $feat->hstart($read_pair->[0]->hstart);
+    $feat->hend($read_pair->[0]->hend+$read_pair->[1]->hend);
     push @features,$feat;
   } else {  
     $read_pair->[0]->hseqname($read_pair->[0]->hseqname . ":aa");
