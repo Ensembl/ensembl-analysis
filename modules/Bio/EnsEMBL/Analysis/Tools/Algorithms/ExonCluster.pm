@@ -88,6 +88,18 @@ sub merge {
   $self->{'_type'} = undef;
 }
 
+sub merge_new_exon {
+  my ($self,$cluster) = @_;
+
+  my %transhash =  $cluster->each_transcripts_exons;
+  foreach my $transref (keys %transhash) {
+    foreach my $exon (@{$transhash{$transref}}) {
+      $self->add_exon_if_not_present($exon,$cluster->transcript_from_ref($transref));
+    }
+  }
+  $self->{'_type'} = undef;
+}
+
 sub add_exon {
   my ($self,$exon,$transcript) = @_;
 

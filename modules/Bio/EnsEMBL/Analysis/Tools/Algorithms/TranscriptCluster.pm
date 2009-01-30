@@ -626,7 +626,7 @@ sub get_coding_ExonCluster{
         my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
         foreach my $clust (@matching_clusters) {
-          $merged_cluster->merge($clust);
+          $merged_cluster->merge_new_exon($clust);
         }
         $merged_cluster->add_exon_if_not_present($exon,$trans);
         push @new_clusters,$merged_cluster;
