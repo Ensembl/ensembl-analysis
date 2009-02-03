@@ -174,8 +174,8 @@ sub run_FASTA{
   my @match_refs = (\$1, \$2, \$3, \$4, \$5);
   #or is there a special array to hold these?
 
-  warn "We need to count and report the number of probes imported, else throw if none imported\n".
-	"or if it doesn't match half the wc of the input file";
+#  warn "We need to count and report the number of probes imported, else throw if none imported\n".
+  #"or if it doesn't match half the wc of the input file";
   
   open( PROBES, "<".$self->query_file);
  
@@ -360,12 +360,6 @@ sub create_new_array_chip {
   }
   
   
-  if(! exists $self->{'_array_names'}->{$array_name}){
-	$self->{'_array_names'}->{$array->name} = undef;
-	
-  }
-
-
   if($array_chip = $achip_adaptor->fetch_by_array_design_ids($array->dbID, $design_id)){
 
 	if($array_chip->has_status('IMPORTED')){
@@ -385,6 +379,12 @@ sub create_new_array_chip {
 	
 	($array_chip) = @{$self->outdb->get_ArrayChipAdaptor->store($array_chip)};
   }
+
+  if(! exists $self->{'_array_names'}->{$array_name}){
+	$self->{'_array_names'}->{$array->name} = $array_chip;
+  }
+
+
 
   return $array_chip;
 }
@@ -439,10 +439,16 @@ sub write_output {
   #and using the sequence from the input file?
 
 
-  #And now the array names
+  #And now the array names and states
   $outfile = $self->NAMES_FILE;
   open (OUTFILE, ">".$outfile) || throw("Failed to open ouput file:\t".$outfile);
-  print join("\n", keys %{$self->{'_array_names'}})."\n";
+
+  foreach my $aname(keys %{$self->{'_array_names'}}){
+	print OUTFILE $aname."\n";
+	$self->{'_array_names'}->{$aname}->add_status('IMPORTED');
+	$self->{'_array_names'}->{$aname}->adaptor->store_states($self->{'_array_names'}->{$aname});
+  }
+
   close(OUTFILE);
 
   return;
