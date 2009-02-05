@@ -101,7 +101,7 @@ sub depth_filter {
 	
 	my $self = shift;
 	
-	my ( $orig_features, $slice, $max_coverage, $percentid_cutoff ) = @_;
+	my ( $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep ) = @_;
 	
 	my $chrom_slice = $slice->project('chromosome');
 	
@@ -109,7 +109,7 @@ sub depth_filter {
 		return $self->SUPER::depth_filter(@_);
 	}
 
-	print STDERR "ClusterDepthFilter: MaxCoverage=$max_coverage\n";
+	print STDERR "ClusterDepthFilter: NodesToKeep=$nodes_to_keep\n";
 	print STDERR "ClusterDepthFilter: PercentIdCutoff=$percentid_cutoff\n";
 	print STDERR "ClusterDepthFilter: "
 	  . scalar(@$orig_features)
@@ -317,10 +317,10 @@ sub depth_filter {
 			  || ( $b->{avg_percentid} <=> $a->{avg_percentid} )
 		  } @{ $cluster->{nodes} };
 
-		# and add the features of the $max_coverage best hits to
+		# and add the features of the $nodes_to_keep best hits to
 		# the list of filtered features
 
-		my $limit = $#sorted < $max_coverage ? $#sorted : $max_coverage - 1;
+		my $limit = $#sorted < $nodes_to_keep ? $#sorted : $nodes_to_keep - 1;
 
 		for my $node_to_keep ( @sorted[ 0 .. $limit ] ) {
 			
