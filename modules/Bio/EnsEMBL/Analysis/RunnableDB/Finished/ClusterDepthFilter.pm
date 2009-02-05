@@ -102,12 +102,6 @@ sub depth_filter {
 	my $self = shift;
 	
 	my ( $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep ) = @_;
-	
-	my $chrom_slice = $slice->project('chromosome');
-	
-	if ($chrom_slice->[0]->to_Slice->seq_region_name ne 'chr7-03') {
-		return $self->SUPER::depth_filter(@_);
-	}
 
 	print STDERR "ClusterDepthFilter: NodesToKeep=$nodes_to_keep\n";
 	print STDERR "ClusterDepthFilter: PercentIdCutoff=$percentid_cutoff\n";
