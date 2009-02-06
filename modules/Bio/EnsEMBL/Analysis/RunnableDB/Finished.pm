@@ -62,7 +62,7 @@ sub write_output {
 		    # get rid of the old ones in the db (for dephtfilter features only)
 		    my $all = 0;
 	        if ($is_align) {
-	            $all = 1 if($self->analysis->module eq 'DepthFilter' );
+	            $all = 1 if($self->analysis->module =~ /DepthFilter/ );
 	            $self->remove_stored_AlignFeatures($adaptor, $output, $all);
 	            $self->write_descriptions($output) unless ( $all || $self->analysis->logic_name =~ /refseq/);
 	        } else {# Remove all SimpleFeatures
