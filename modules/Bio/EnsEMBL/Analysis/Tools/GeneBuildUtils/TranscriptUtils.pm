@@ -46,6 +46,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
+use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
