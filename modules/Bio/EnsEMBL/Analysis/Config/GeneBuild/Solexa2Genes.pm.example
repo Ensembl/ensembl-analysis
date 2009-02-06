@@ -21,7 +21,7 @@ SOLEXA2GENES_CONFIG_BY_LOGIC =>
      {
       DEFAULT => {
                   # databases are defined as hash keys from Bio::EnsEMBL::Analysis::Config::Databases
-                  OUTDB    => '',
+                  OUTPUT_DB    => '',
 	          ALIGNMENT_DB => '',
 		  
                   # options for filtering out small gene models
