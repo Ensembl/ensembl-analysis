@@ -1265,6 +1265,14 @@ sub SOFTMASKING{
 }
 
 
+sub MAKE_SIMGW_INPUT_ID_PARMAMS {
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{MAKE_SIMGW_INPUT_ID_PARMAMS} = $arg;
+  }
+  return $self->{MAKE_SIMGW_INPUT_ID_PARMAMS}
+}
+
 =head2 group_genes_by_id
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
