@@ -46,7 +46,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe;
 use Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::UnmappedObject;
-use Bio::EnsEMBL::IdentityXref;
+use Bio::EnsEMBL::DBEntry;
 
 use Bio::EnsEMBL::Analysis::Config::ProbeAlign;
 
@@ -277,30 +277,43 @@ sub write_output {
   my $outdb           = $self->outdb;
   my $probe_adaptor   = $outdb->get_ProbeAdaptor;
   my $feature_adaptor = $outdb->get_ProbeFeatureAdaptor;
-
+  my $dbe_adaptor     = $outdb->get_DBEntryAdaptor;
+  
   #Add analysis, slices to features, and make
   #sure they're pointing at the persistent array / probe instances
   #instead of the fake arrays & probes they were created with
-  $self->set_probe_and_slice($self->features);
+  my $features = $self->set_probe_and_slice($self->features);
 
- 
   #Now set correct output
-  $self->output($self->features);
+  #This is only used to report the number of features
+  $self->output($features);#$self->features);
   
-  foreach my $feature (@{$self->features}){
+  foreach my $feature_xref(@{$features}){
+	my ($feature, $xref) = @$feature_xref;
+
 
 	if(! defined $feature->slice()){
 	  warn "Skipping feature storage for Probe, no slice available for ".$feature->seqname();
 	  next;
 	}
 
-    eval{ $feature_adaptor->store($feature) };
+    eval{ $feature_adaptor->store($feature)};
 
     if ($@) {
 
 	  warn $feature->slice->name;
       $self->throw('Unable to store ProbeFeature for probe '.$feature->probe_id." !\n $@");
     }
+
+	if($xref){
+
+	  #Do we need this ignore release flag?
+	  eval{ $dbe_adaptor->store($xref, $feature->dbID, 'ProbeFeature', 1) };
+
+	  if ($@) {
+		$self->throw('Unable to store ProbeFeature DBEntry for probe '.$feature->dbID." !\n $@");
+	  }
+	}
   }
 }
 
@@ -481,7 +494,7 @@ sub set_probe_and_slice {
   my $trans_adaptor = $db->dnadb->get_TranscriptAdaptor;
   my $mapping_type  = $self->mapping_type;
   my $gene_adaptor  = $db->dnadb->get_GeneAdaptor;
-  my $dbe_adaptor   = $db->get_DBEntryAdaptor;
+  #my $dbe_adaptor   = $db->get_DBEntryAdaptor;
   my $analysis      = $self->analysis;
   my $schema_build  = $self->outdb->_get_schema_build($self->outdb->dnadb);
   my $edb_name      = $self->outdb->species.'_core_Transcript';
@@ -490,7 +503,7 @@ sub set_probe_and_slice {
 
   my (%slices, $slice_id, $trans_mapper, $align_type, $align_length, @tmp, $gap_length);
   my (@trans_cigar_line, @genomic_blocks, $genomic_start, $genomic_end, $cigar_line, $gap_start, $block_end);
-  my ($block_start, $slice, @gaps, @features, %gene_hits, $gene, @stranded_cigar_line, $gene_sid, $id_xref);
+  my ($block_start, $slice, @gaps, @features, %gene_hits, $gene, @stranded_cigar_line, $gene_sid);
   my ($query_perc, $display_name, $gene_hit_key, %transcript_cache);
 
   foreach my $feature (@$features) {
@@ -498,12 +511,12 @@ sub set_probe_and_slice {
     my $seq_id = $feature->seqname;
 	my $probe_id = $feature->probe_id;
 	my $load_feature = 1;
+	my $xref;
 
 	#Get the slice
 	if($mapping_type eq 'transcript'){
 
 	  if(! exists $transcript_cache{$seq_id}){
-		warn "Setting cache slice for seq_id:\t$seq_id";
 		$transcript_cache{$seq_id} = $trans_adaptor->fetch_by_stable_id($seq_id);
 	  }
 
@@ -718,26 +731,26 @@ sub set_probe_and_slice {
 	  $query_perc = ($match_count/($match_count + $mismatch_count)) * 100;
 	  $display_name = $self->get_display_name_by_stable_id($seq_id, 'transcript');
 
-	  $id_xref = Bio::EnsEMBL::IdentityXref->new
-	  #$xref = Bio::EnsEMBL::DBEntry->
+	  #$id_xref = Bio::EnsEMBL::IdentityXref->new
+	  $xref = Bio::EnsEMBL::DBEntry->new
 		(
-		 -XREF_IDENTITY => $query_perc,
+		 #-XREF_IDENTITY => $query_perc,
 		 #-TARGET_IDENTITY => 90.1,
-		 -SCORE => $score,
+		 #-SCORE => $score,
 		 #-EVALUE => 12,
-		 -CIGAR_LINE => $cigar_line,
-		 -XREF_START => 1,#We are currently padding with mismatches to full length of query
-		 -XREF_END => $q_length,
-		 -ENSEMBL_START => $transcript_start,#target/hit_start
-		 -ENSEMBL_END => $transcript_end,#target/hit_end
-		 -ANALYSIS => $analysis,
+		 #-CIGAR_LINE => $cigar_line,
+		 #-XREF_START => 1,#We are currently padding with mismatches to full length of query
+		 #-XREF_END => $q_length,
+		 #-ENSEMBL_START => $transcript_start,#target/hit_start
+		 #-ENSEMBL_END => $transcript_end,#target/hit_end
+		 #-ANALYSIS => $analysis,
 		 -PRIMARY_ID => $seq_id,
 		 -DISPLAY_ID => $display_name,
 		 -DBNAME  => $edb_name,
 		 -release => $schema_build,
 		 -info_type => 'Transcript',
-		 -linkage_annotation => 'ProbeTranscriptAlign',
-		 #-info_text => , #? What is this for?
+		 -linkage_annotation => "ProbeTranscriptAlign",#Add query_perc here when we have analysis
+		 #-info_text => , #? What is this for? Is used in unique key so we get duplicated if null!!!
 		 #-version => , #version of transcript sid?
 
 		);
@@ -746,6 +759,9 @@ sub set_probe_and_slice {
 
 
 	  ###This cannot be done until we have ox.analysis_id in place v54?
+	  #Yes we can, just use the linkage_annotation for now!
+
+
 	  #No store this as a ProbeFeature DBEntry in line with how the individual probe xrefs
 	  #are stored in probe2transcript
 	  #we don't really need this extra translation and score info here
@@ -759,7 +775,7 @@ sub set_probe_and_slice {
 
 	  #We don't know what the ProbeFeature dbID is yet so we will have to pass this to store with the feature
 
-	  $dbe_adaptor->store($id_xref, $probe_id, 'Probe', 1);#Do we need ignore release flag here?
+	  #$dbe_adaptor->store($xref, $probe_id, 'Probe', 1);#Do we need ignore release flag here?
 	}
 	else{#No introns - reformat cigar line
 	  $feature->cigar_line(join('', (split/:/, $feature->cigar_line)));
@@ -778,7 +794,7 @@ sub set_probe_and_slice {
 
 		my ($level, undef, $name) = split /:/, $slice->name;
 
-		warn "Resetting slice for ".$slice->name;
+		#warn "Resetting slice for ".$slice->name;
 		my $start = $feature->start + $slice->start - 1;
 		my $end   = $feature->end   + $slice->start - 1;
 		$feature->start($start);
@@ -805,7 +821,7 @@ sub set_probe_and_slice {
 
 	  $feature->probe($real_probe);
 	  $feature->analysis($analysis);
-	  push @features, $feature;
+	  push @features, [ $feature, $xref ];
 	}
   }
 
@@ -829,6 +845,7 @@ sub outdb {
 	my $dnadb;
 
 	#not defined as an empty env var will give the defined null string
+
 	if($self->DNADB->{-dbname}){
 	  $dnadb =  new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->DNADB });
 	}
