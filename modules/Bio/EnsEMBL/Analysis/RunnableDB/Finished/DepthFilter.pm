@@ -42,8 +42,8 @@ sub run {
 	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db,$mode,$taxon_id);
 
 	my ( $filtered_features, $saturated_zones) =
-        $self->depth_filter($orig_features, $slice, $max_coverage, 
-        					$percentid_cutoff, $nodes_to_keep);
+        $self->depth_filter($orig_features, $slice, $max_coverage,
+        					$percentid_cutoff, $nodes_to_keep, $hit_db);
 
 	$self->output($filtered_features, $saturated_zones);
 }
@@ -141,13 +141,15 @@ sub get_original_features {
 
 
 sub depth_filter {
-	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff) = @_;
+	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep, $hit_db) = @_;
 
 	print STDERR "DepthFilter: MaxCoverage=$max_coverage\n";
 	print STDERR "DepthFilter: PercentIdCutoff=$percentid_cutoff\n";
 	print STDERR "DepthFilter: ".scalar(@$orig_features)." features before filtering\n";
 
     my %grouped_byname = ();
+    my %is_kept_by_name = ();
+	my %is_kept_by_acc = ();
 
     for my $af (@$orig_features) {
         my ($score, $percentid) = ($af->score(), $af->percent_id());
@@ -179,14 +181,17 @@ sub depth_filter {
 
     for my $node (@bisorted) {
         my $keep_node = 0;
+        my $hit_name;
         for my $af (sort {$a->start() <=> $b->start()} @{$node->{features}}) {
             for my $position ($af->start()..$af->end()) {
                 my $depth = $coverage_map[$position] ||= 0;
                 if($depth < $max_coverage) {
                     $keep_node = 1;
+
                 }
                 $coverage_map[$position]++;
             }
+            $hit_name = $af->hseqname;
         }
         if($keep_node) {
             for my $af (@{$node->{features}}) {
@@ -195,7 +200,30 @@ sub depth_filter {
                 $af->{adaptor} = undef;
                 push @filtered_features, $af;
             }
+            $is_kept_by_name{$hit_name} = 1;
+            # trim off the splice variant number (if any) and version number
+            $hit_name =~ s/(-\d+)?\.\d+$//;
+            $is_kept_by_acc{$hit_name} = 1;
         }
+    }
+
+	# free up some memory ?
+    %grouped_byname = undef;
+
+    # recover discarded Swissprot variants that should be shown
+    if( $hit_db eq 'Swissprot' ) {
+    	foreach my $f (@$orig_features) {
+    		my $hit_name = $f->hseqname();
+    		next unless !$is_kept_by_name{$hit_name};
+    		$hit_name =~ s/(-\d+)?\.\d+$//;
+			if($is_kept_by_acc{$hit_name}){
+				print STDERR "DepthFilter: recover SW hit ".$f->hseqname."\n";
+				$f->analysis( $self->analysis );
+                $f->dbID(0);
+                $f->{adaptor} = undef;
+                push @filtered_features, $f;
+			}
+    	}
     }
 
 	print STDERR "DepthFilter: ".scalar(@filtered_features)." features after filtering\n";
