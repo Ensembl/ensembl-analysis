@@ -3,6 +3,7 @@
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter;
 
 use strict;
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy;
 use Bio::EnsEMBL::SimpleFeature;
@@ -113,6 +114,8 @@ sub get_original_features {
     	my $hit_hash = {map {$_->hseqname, undef} @$orig_features};
 	    $hit_desc_a->fetch_HitDescriptions_into_hash($hit_hash);
 
+	    my $error;
+
 	    foreach my $feat (@$orig_features) {
 	    	my $tag = 1;
 	        if (my $desc = $hit_hash->{$feat->hseqname}) {
@@ -129,9 +132,14 @@ sub get_original_features {
 	            }
 
 				push(@$hit_db_features, $feat) if $tag;
+	        } else {
+	        	$error->{$feat->hseqname} = 1;
 	        }
 	    }
-	    print STDERR "DepthFilter: use ".scalar(@$hit_db_features)." features out of ".scalar(@$orig_features)."\n";
+
+		throw("Missing hit_description entry for the following sequence(s):\n".join(',',keys %$error)) if keys %$error;
+
+		print STDERR "DepthFilter: use ".scalar(@$hit_db_features)." features out of ".scalar(@$orig_features)."\n";
     } else {
     	return $orig_features;
     }
