@@ -5,6 +5,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Finished::ClusterDepthFilter;
 use strict;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::SimpleFeature;
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter';
 
@@ -143,6 +144,12 @@ sub depth_filter {
 		$new_node->{avg_percentid} = $last->percent_id;
 		
 		for my $af (@features[1 .. $#features]) {
+			
+			if ($last->hstart == $af->hstart && $last->hend == $af->hend) {
+				throw("Found duplicate align feature for hit ".
+					  $af->hseqname." (coords: ".$af->hstart."-".$af->hend.
+					  ", slice: ".$slice->name.")");
+			}
 			
 			my $delta = $af->hstrand == -1 ?
 							($last->hstart - $af->hend) :
