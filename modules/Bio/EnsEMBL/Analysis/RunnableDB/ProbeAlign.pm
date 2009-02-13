@@ -748,7 +748,8 @@ sub set_probe_and_slice {
 		 -DISPLAY_ID => $display_name,
 		 -DBNAME  => $edb_name,
 		 -release => $schema_build,
-		 -info_type => 'Transcript',
+		 -info_type => 'MISC',
+		 -info_text => 'TRANSCRIPT',
 		 -linkage_annotation => "ProbeTranscriptAlign",#Add query_perc here when we have analysis
 		 #-info_text => , #? What is this for? Is used in unique key so we get duplicated if null!!!
 		 #-version => , #version of transcript sid?
