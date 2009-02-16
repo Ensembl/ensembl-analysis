@@ -334,7 +334,7 @@ sub get_taxon_id_child {
 	my ( $self, $taxon_id ) = @_;
 	$self->{taxonomy} ||= Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy->new();
 	if(!$self->{_taxon}->{$taxon_id}) {
-		$self->{_taxon}->{$taxon_id} = $self->{taxonomy}->get_all_children_id($t);
+		$self->{_taxon}->{$taxon_id} = $self->{taxonomy}->get_all_children_id($taxon_id);
 	}
 
 	return $self->{_taxon}->{$taxon_id};
