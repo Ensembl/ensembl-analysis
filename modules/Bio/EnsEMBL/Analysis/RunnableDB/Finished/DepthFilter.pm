@@ -110,6 +110,7 @@ sub get_original_features {
     		}
     	}
 
+
     	my $hit_hash = {map {$_->hseqname, undef} @$orig_features};
     	$self->get_hit_description($hit_hash);
 
@@ -148,6 +149,7 @@ sub get_original_features {
 
 
 sub depth_filter {
+
 	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep,$no_filter, $hit_db) = @_;
 
 	print STDERR "DepthFilter: MaxCoverage=$max_coverage\n";
@@ -328,12 +330,11 @@ sub get_hit_description {
 	return $self->{_hit_desc}->{$hit};
 }
 
-my $taxon;
 sub get_taxon_id_child {
 	my ( $self, $taxon_id ) = @_;
-	$taxon ||= Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy->new();
+	$self->{taxonomy} ||= Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy->new();
 	if(!$self->{_taxon}->{$taxon_id}) {
-		$self->{_taxon}->{$taxon_id} = $taxon->get_all_children_id($t);
+		$self->{_taxon}->{$taxon_id} = $self->{taxonomy}->get_all_children_id($t);
 	}
 
 	return $self->{_taxon}->{$taxon_id};
