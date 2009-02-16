@@ -97,7 +97,7 @@ use Bio::EnsEMBL::KillList::DBSQL::DBAdaptor;
 #CONFIG FILES
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::UTR_Builder;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
-use Bio::EnsEMBL::Pipeline::Config::GeneBuild::KillListFilter;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::KillListFilter;
 
 @ISA = qw ( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild );
 
