@@ -210,7 +210,7 @@ sub depth_filter {
         # add code to keep the hits with "no_filter" taxon_id
 		$keep_node = 1 if $no_filter && grep(
 								/^$node->{taxon_id}$/,
-								@{$self->get_taxon_id_child($no_filter)}
+								@{$self->get_taxon_id_child($no_filter)},$no_filter
 		);
 
         if($keep_node) {
