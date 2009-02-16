@@ -30,6 +30,7 @@ sub run {
 	my $hit_db = $params{hit_db};
 	my $mode = $params{mode};
 	my $taxon_id = $params{taxon};
+	my $no_filter = $params{no_filter};
 
 	# Get the blast db version from the raw analysis and save it
 	my $analysis_adaptor = $self->db->get_AnalysisAdaptor();
@@ -40,21 +41,20 @@ sub run {
 
     my $slice = $self->query();
 
-	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db,$mode,$taxon_id);
+	my $orig_features = $self->get_original_features($slice,$orig_analysis_name,$hit_db,$mode,$taxon_id, $no_filter);
 
 	my ( $filtered_features, $saturated_zones) =
         $self->depth_filter($orig_features, $slice, $max_coverage,
-        					$percentid_cutoff, $nodes_to_keep, $hit_db);
+        					$percentid_cutoff, $nodes_to_keep, $no_filter, $hit_db);
 
 	$self->output($filtered_features, $saturated_zones);
 }
 
 sub get_original_features {
-	my ($self,$slice,$analysis,$hit_db,$mode,$taxon_id) = @_;
+	my ($self,$slice,$analysis,$hit_db,$mode,$taxon_id, $no_filter) = @_;
 	my $hit_db_features = [];
     my $prot_feat_a = $self->db->get_ProteinAlignFeatureAdaptor;
     my $dna_feat_a  = $self->db->get_DnaAlignFeatureAdaptor;
-    my $hit_desc_a = $self->db->get_HitDescriptionAdaptor;
 
     my $orig_features = $dna_feat_a->fetch_all_by_Slice( $slice, $analysis );
 	$orig_features = $prot_feat_a->fetch_all_by_Slice( $slice, $analysis ) if (!(@$orig_features));
@@ -91,34 +91,33 @@ sub get_original_features {
 		map ( push(@$orig_features,@$_) , values %$single_hash);
 	}
 
-    if($hit_db || $taxon_id){
+    if($hit_db || $taxon_id || $no_filter){
     	print STDERR "DepthFilter: hit db is $hit_db\n" if $hit_db;
     	my $plus_taxon_ids  = [];
     	my $minus_taxon_ids = [];
     	if ($taxon_id){
     		my @ti = split(/\|/,$taxon_id);
     		print STDERR "DepthFilter: taxonomy ids are ".join(" ",@ti)."\n";
-    		my $taxon = Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy->new();
     		for my $t (@ti) {
     			if($t < 0) {
     				$t = abs($t);
-    				push @$minus_taxon_ids, @{$taxon->get_all_children_id($t)};
+    				push @$minus_taxon_ids, @{$self->get_taxon_id_child($t)};
     				push @$minus_taxon_ids, $t;
     			} else {
-    				push @$plus_taxon_ids, @{$taxon->get_all_children_id($t)};
+    				push @$plus_taxon_ids, @{$self->get_taxon_id_child($t)};
     				push @$plus_taxon_ids, $t;
     			}
     		}
     	}
 
     	my $hit_hash = {map {$_->hseqname, undef} @$orig_features};
-	    $hit_desc_a->fetch_HitDescriptions_into_hash($hit_hash);
+    	$self->get_hit_description($hit_hash);
 
 	    my $error;
 
 	    foreach my $feat (@$orig_features) {
 	    	my $tag = 1;
-	        if (my $desc = $hit_hash->{$feat->hseqname}) {
+	        if (my $desc = $self->get_hit_description($feat->hseqname)) {
 	        	my $hit_taxon_id = $desc->taxon_id;
 
 	            if($hit_db) {
@@ -149,7 +148,7 @@ sub get_original_features {
 
 
 sub depth_filter {
-	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep, $hit_db) = @_;
+	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep,$no_filter, $hit_db) = @_;
 
 	print STDERR "DepthFilter: MaxCoverage=$max_coverage\n";
 	print STDERR "DepthFilter: PercentIdCutoff=$percentid_cutoff\n";
@@ -174,6 +173,10 @@ sub depth_filter {
             $node->{max_score} = $score;
             $node->{max_percentid} = $percentid;
         }
+        if($self->get_hit_description($af->hseqname())) {
+			$node->{taxon_id} = $self->get_hit_description($af->hseqname())->taxon_id;
+        }
+
         push @{$node->{features}}, $af;
     }
 
@@ -201,6 +204,13 @@ sub depth_filter {
             }
             $hit_name = $af->hseqname;
         }
+
+        # add code to keep the hits with "no_filter" taxon_id
+		$keep_node = 1 if $no_filter && grep(
+								/^$node->{taxon_id}$/,
+								@{$self->get_taxon_id_child($no_filter)}
+		);
+
         if($keep_node) {
             for my $af (@{$node->{features}}) {
                 $af->analysis( $self->analysis );
@@ -303,6 +313,30 @@ sub db_version_searched {
 	$self->{'_db_version_searched'} = $arg if $arg;
 	return $self->{'_db_version_searched'};
 
+}
+
+sub get_hit_description {
+	my ($self,$hit) = @_;
+	if(ref($hit) eq 'HASH') {
+		$self->{_hit_desc} = $hit;
+		my $hit_desc_a = $self->db->get_HitDescriptionAdaptor;
+		$hit_desc_a->fetch_HitDescriptions_into_hash($hit);
+
+		return 1;
+	}
+
+	return $self->{_hit_desc}->{$hit};
+}
+
+my $taxon;
+sub get_taxon_id_child {
+	my ( $self, $taxon_id ) = @_;
+	$taxon ||= Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy->new();
+	if(!$self->{_taxon}->{$taxon_id}) {
+		$self->{_taxon}->{$taxon_id} = $taxon->get_all_children_id($t);
+	}
+
+	return $self->{_taxon}->{$taxon_id};
 }
 
 1;
