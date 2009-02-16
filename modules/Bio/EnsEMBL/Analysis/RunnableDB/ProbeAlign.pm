@@ -136,11 +136,10 @@ sub new {
 	#status is dubious here as this should really be on object_xref
 	my $insert_sql = 'INSERT into external_db(db_name, db_release, status, dbprimary_acc_linkable, priority, db_display_name, type)'.
 	  " values('$db_name', '$schema_build', 'KNOWNXREF', 1, 5, '$display_name', 'MISC')";
-	
-	$self->outdb->db_handle->do($sql);	
+
+	$self->outdb->db_handle->do($insert_sql);	
 	($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
   }
-
 
   $self->{'_external_db_id'} = $extdb_id;
 
@@ -403,7 +402,7 @@ sub filter_features {
 	
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
-							-type       => $uo_type,
+							-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript
 							-analysis   => $analysis,
 							-ensembl_id => $probe_id,
 							-ensembl_object_type => 'Probe',
@@ -428,7 +427,7 @@ sub filter_features {
 
 	  $uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						 (
-						  -type       => $uo_type,
+						  -type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript
 						  -analysis   => $analysis,
 						  -ensembl_id => $probe_id,
 						  -ensembl_object_type => 'Probe',
