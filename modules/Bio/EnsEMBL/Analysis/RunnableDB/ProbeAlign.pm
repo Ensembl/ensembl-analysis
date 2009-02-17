@@ -550,10 +550,8 @@ sub set_probe_and_slice {
 	  #These are local stranded start and ends with respect to transcript strand
 	  my $transcript_start  = $feature->start;
 	  my $transcript_end    = $feature->end;
-	  my $transcript_strand = $transcript_cache{$seq_id}->strand;
-	  #This should always be the correct strand as the 
-	  #feature slice will always be +ve when fetched by stable_id
-
+	  my $transcript_strand = $transcript_cache{$seq_id}->feature_Slice->strand;
+	
 	  #warn "trans($seq_id) start end strand $transcript_start $transcript_end $transcript_strand" if $warn;
 
 
@@ -565,8 +563,22 @@ sub set_probe_and_slice {
 	  #or just representing a flank seq overhang
 	  #which will have been caught by the genomic mapping (2 blocks)
 
+	  #print "Found genomic blocks @genomic_blocks\n";
+
 	  next if(! (scalar(@genomic_blocks) >2));
  
+
+
+	  #So these appear to be 1bp shorter than they should be?
+	  #But M add up to 50, is this just and partial intron match?
+	  #And also in reverse for -ve strand genes
+	  #Are these being reversed incorrectly by the ExonerateProbe
+	  #module?
+	  #This all depends on what sequence is dumped for the transcript?
+	  #Surely this should be feature slice?
+	  
+
+
 	  #else alter the start stop values and rebuild the cigarline
 	  my $cigar_line = '';
 	  @trans_cigar_line = split/:/, $feature->cigar_line;
@@ -580,6 +592,10 @@ sub set_probe_and_slice {
 		#Normally returns lowest start first wrt to +ve strand even if you use a -ve strand slice, no?
 		@genomic_blocks      = reverse(@genomic_blocks);
 		@stranded_cigar_line = reverse(@trans_cigar_line);
+
+		#This only makes a difference if there are any m's (seq mismatches)
+		#print "Transcript is -ve strand so reverse cigar is @stranded_cigar_line\n";
+
 	  }
 	  else{
 		@stranded_cigar_line = @trans_cigar_line;
@@ -693,11 +709,16 @@ sub set_probe_and_slice {
 		}
 
 		$cigar_line .= $block;
+
+
+		#print "Epxanded cigarline is $cigar_line\n";
+
 	  }
 
 	  #We could assign the start end directly
 	  $feature->start($genomic_start);
 	  $feature->end($genomic_end);
+	  $feature->strand($transcript_strand);
 	  $feature->cigar_line($cigar_line);
 	  #warn "Final Feature $genomic_start $genomic_end $cigar_line" if $warn;
 
