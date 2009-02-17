@@ -6,6 +6,9 @@ use strict;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::SimpleFeature;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
+use Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy;
+
+use Data::Dumper;
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter';
 
@@ -15,7 +18,7 @@ sub overlap {
 
 	my ( $f1_start, $f1_end, $f2_start, $f2_end ) = @_;
 
-	return ( ( $f1_start > $f2_start  && $f1_start < $f2_end )
+	return ( ( $f1_start > $f2_start && $f1_start < $f2_end )
 		  || ( $f1_end > $f2_start    && $f1_end < $f2_end )
 		  || ( $f1_start <= $f2_start && $f1_end >= $f2_end ) );
 }
@@ -26,7 +29,7 @@ sub is_consistent {
 
 	my $node    = shift;
 	my $cluster = shift;
-
+	
 	# check if any of the new node's exons encroach on any
 	# of the cluster's introns
 
@@ -83,131 +86,165 @@ sub find_new_introns {
 
 sub node_str {
 	my $node = shift;
-	my $s = '';
-	map {$s .= $_->start."-".$_->end.","} @{ $node->{features} };
+	my $s    = '';
+	map { $s .= $_->start . "-" . $_->end . "," } @{ $node->{features} };
 	return $s;
 }
 
 sub cluster_str {
 	my $cluster = shift;
-	my $s = $cluster->{start}."-";
-	map {$s .= $_->[0].",".$_->[1]."-"} @{ $cluster->{introns} };
+	my $s       = $cluster->{start} . "-";
+	map { $s .= $_->[0] . "," . $_->[1] . "-" } @{ $cluster->{introns} };
 	$s .= $cluster->{end};
 	return $s;
 }
 
 sub depth_filter {
-	
+
 	my $DEBUG = 0;
-	
+
 	my $self = shift;
-	
-	my ( $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep ) = @_;
+
+	my ( $orig_features, $slice, $max_coverage, $percentid_cutoff,
+		$nodes_to_keep, $no_filter, $hit_db )
+	  = @_;
 
 	print STDERR "ClusterDepthFilter: NodesToKeep=$nodes_to_keep\n";
 	print STDERR "ClusterDepthFilter: PercentIdCutoff=$percentid_cutoff\n";
+	print STDERR "ClusterDepthFilter: NoFilter=$no_filter\n" if $no_filter;
 	print STDERR "ClusterDepthFilter: "
 	  . scalar(@$orig_features)
 	  . " features before filtering\n";
 
-	my %grouped_byname = ();
+	# features from these taxa should be retained
+	
+	my @matching_taxa = ();
+	
+	# (though only fill in this list if we'll actually use it)
 
+	if ($no_filter) {
+		@matching_taxa = @{ $self->get_taxon_id_child($no_filter) };
+		push @matching_taxa, $no_filter;
+	}
+
+	my %grouped_byname = ();
+	
 	for my $af (@$orig_features) {
 		my ( $score, $percentid ) = ( $af->score(), $af->percent_id() );
 		if ( $percentid < $percentid_cutoff ) {
 			next;
 		}
 
-		my $node = $grouped_byname{ $af->hseqname() } ||= {};		
+		my $node = $grouped_byname{ $af->hseqname() } ||= {};
 		push @{ $node->{features} }, $af;
+		
+		if($no_filter && $self->get_hit_description($af->hseqname())) {
+			$node->{taxon_id} = $self->get_hit_description($af->hseqname())->taxon_id;
+        }
 	}
-
+	
 	print STDERR "ClusterDepthFilter: "
 	  . scalar( keys %grouped_byname )
 	  . " unique hitnames\n";
 
 	# identify clusters of nodes
 
-	my @nodes = ();	
+	my @nodes = ();
 
 	# first break apart any nodes that contain discontinuous hits
 
-	for my $node (values %grouped_byname) {
-		
+	for my $node ( values %grouped_byname ) {
+
 		my @features = sort { $a->start <=> $b->start } @{ $node->{features} };
-		
+
 		my $last = $features[0];
-			
-		my $new_node = {};
-		$new_node->{features} = [$last];
-		$new_node->{tot_score} = $last->score;
+
+		my $new_node               = {};
+		$new_node->{features}      = [$last];
+		$new_node->{tot_score}     = $last->score;
 		$new_node->{avg_percentid} = $last->percent_id;
-		
-		for my $af (@features[1 .. $#features]) {
-			
+		$new_node->{taxon_id}	   = $node->{taxon_id} if $no_filter;
+
+		print STDERR "ClusterDepthFilter: Processing hit: ", $last->hseqname,
+		  "\n"
+		  if $DEBUG;
+
+		for my $af ( @features[ 1 .. $#features ] ) {
+
 			if ($last->hstart == $af->hstart && $last->hend == $af->hend) {
 				throw("Found duplicate align feature for hit ".
 					  $af->hseqname." (coords: ".$af->hstart."-".$af->hend.
 					  ", slice: ".$slice->name.")");
 			}
-			
-			my $delta = $af->hstrand == -1 ?
-							($last->hstart - $af->hend) :
-							($af->hstart - $last->hend);
-			
-			if ($delta != 1) {
-				
+
+			my $delta =
+			  $af->hstrand == -1
+			  ? ( $last->hstart - $af->hend )
+			  : ( $af->hstart - $last->hend );
+
+			if ( $delta != 1 ) {
+
 				# found a discontinuity
-				
-				print STDERR "ClusterDepthFilter: creating new node: last->hend: ",
-					$last->hend," af->hstart: ", $af->hstart, "\n" if $DEBUG;
-				
-				# we've finished the current node, so add it to the list 
-				
-				$new_node->{avg_percentid} /= scalar( @{ $new_node->{features} });
+
+				print STDERR
+				  "ClusterDepthFilter: creating new node: hstrand: ",
+				  $af->hstrand," last: ",$last->hstart,
+				  "-",$last->hend," (",$last->start,"-",$last->end,") af: ", 
+				  $af->hstart, "-",$af->hend," (",$af->start,"-",$af->end,")\n"
+				  if $DEBUG;
+
+				# we've finished the current node, so add it to the list
+
+				$new_node->{avg_percentid} /=
+				  scalar( @{ $new_node->{features} } );
 				push @nodes, $new_node;
-				
+
 				# and start a new node
-				
-				$new_node = {};
-				$new_node->{features} = [$af];
-				$new_node->{tot_score} = $af->score;
+
+				$new_node                  = {};
+				$new_node->{features}      = [$af];
+				$new_node->{tot_score}     = $af->score;
 				$new_node->{avg_percentid} = $af->percent_id;
+				$new_node->{taxon_id}	   = $node->{taxon_id} if $no_filter;
 			}
 			else {
-				print STDERR "ClusterDepthFilter: continuing node: last->hend: ",
-					$last->hend," af->hstart: ", $af->hstart, "\n" if $DEBUG;
-				
+				print STDERR
+				  "ClusterDepthFilter: continuing node: hstrand: ",
+				  $af->hstrand," last: ",$last->hstart,
+				  "-",$last->hend," (",$last->start,"-",$last->end,") af: ", 
+				  $af->hstart, "-",$af->hend," (",$af->start,"-",$af->end,")\n"
+				  if $DEBUG;
+
 				# continue the same node
-				
+
 				push @{ $new_node->{features} }, $af;
-				$new_node->{tot_score} += $af->score;
+				$new_node->{tot_score}     += $af->score;
 				$new_node->{avg_percentid} += $af->percent_id;
 			}
-			
+
 			$last = $af;
 		}
-		
+
 		# add the final node to the list
-		
+
 		$new_node->{avg_percentid} /= scalar( @{ $new_node->{features} } );
 		push @nodes, $new_node;
 	}
 
 	print STDERR "ClusterDepthFilter: "
-	  . scalar( @nodes )
+	  . scalar(@nodes)
 	  . " nodes after processing discontinuities\n";
 
 	# sort the nodes so they are arranged sequentially against the
-	# genomic sequence, with the longest sequence first for nodes 
-	# with identical starts (this allows us to find all overlaps in 
+	# genomic sequence, with the longest sequence first for nodes
+	# with identical starts (this allows us to find all overlaps in
 	# one pass)
 
-	@nodes = sort { 
-			($a->{features}->[0]->start <=> $b->{features}->[0]->start) ||
-	  		($b->{features}->[-1]->end <=> $a->{features}->[-1]->end) 
-		} @nodes;
-	  	
+	@nodes = sort {
+		     ( $a->{features}->[0]->start <=> $b->{features}->[0]->start )
+		  || ( $b->{features}->[-1]->end <=> $a->{features}->[-1]->end )
+	} @nodes;
+
 	# try to cluster nodes according to overlaps and introns
 
 	my @clusters = ();
@@ -218,9 +255,10 @@ sub depth_filter {
 
 		$node->{start} = $afs[0]->start;
 		$node->{end}   = $afs[-1]->end;
-		
-		print STDERR "ClusterDepthFilter: looking at node: ",
-			node_str($node),"\n" if $DEBUG;
+
+		print STDERR "ClusterDepthFilter: looking at node: ", node_str($node),
+		  "\n"
+		  if $DEBUG;
 
 		my @introns = ();
 
@@ -245,15 +283,17 @@ sub depth_filter {
 		my $added = 0;
 
 		for my $cluster (@clusters) {
-			if ( $node->{start} >= $cluster->{start} &&
-			     $node->{end} <= $cluster->{end} &&
-			     is_consistent($node, $cluster) ) {                                                                       
+			if (   $node->{start} >= $cluster->{start}
+				&& $node->{end} <= $cluster->{end}
+				&& is_consistent( $node, $cluster ) )
+			{
 
-				# this node is subsumed by the cluster and its 
+				# this node is subsumed by the cluster and its
 				# introns are consistent, so we can add it
 
 				print STDERR "ClusterDepthFilter: adding node to cluster: ",
-					cluster_str($cluster),"\n" if $DEBUG;
+				  cluster_str($cluster), "\n"
+				  if $DEBUG;
 
 				push @{ $cluster->{nodes} }, $node;
 
@@ -261,20 +301,16 @@ sub depth_filter {
 
 				last;
 			}
-			elsif ( $node->{start} <= $cluster->{start} &&
-				    $node->{end} >= $cluster->{end} &&
-				    is_consistent($node, $cluster) ) {
-				die "Error: this should never happen - investigate";
-			}
 			else {
 				print STDERR "ClusterDepthFilter: can't add node to cluster: ",
-					cluster_str($cluster),"\n" if $DEBUG;
+				  cluster_str($cluster), "\n"
+				  if $DEBUG;
 			}
 		}
 
 		# if we didn't find a matching cluster, start a new one
 		if ( !$added ) {
-			
+
 			my $cluster = {
 				start   => $node->{start},
 				end     => $node->{end},
@@ -282,34 +318,37 @@ sub depth_filter {
 				nodes   => [$node]
 			};
 			push @clusters, $cluster;
-			
+
 			print STDERR "ClusterDepthFilter: creating new cluster: ",
-					cluster_str($cluster),"\n" if $DEBUG;
+			  cluster_str($cluster), "\n"
+			  if $DEBUG;
 		}
 	}
-
+	
 	print STDERR "ClusterDepthFilter: grouped "
 	  . scalar(@nodes)
 	  . " nodes into "
 	  . scalar(@clusters)
 	  . " clusters";
-	  
-	print STDERR sprintf(" (average of %.2f nodes per cluster)",
-	  ( scalar(@nodes) / scalar(@clusters) )) if @clusters > 0;
-	
+
+	print STDERR sprintf( " (average of %.2f nodes per cluster)",
+		( scalar(@nodes) / scalar(@clusters) ) )
+	  if @clusters > 0;
+
 	print STDERR "\n";
 
-	map {print STDERR cluster_str($_),"\n"} @clusters if $DEBUG;
+	map { print STDERR cluster_str($_), "\n" } @clusters if $DEBUG;
 
 	# now actually identify the features we want to include
 
 	my @filtered_features = ();
-
 	my @summary_features = ();
+	
+	my $retained = 0;
 
 	for my $cluster (@clusters) {
 
-		# sort the nodes in this cluster by tot_score, breaking ties 
+		# sort the nodes in this cluster by tot_score, breaking ties
 		# according to avg_percentid
 
 		my @sorted =
@@ -324,16 +363,24 @@ sub depth_filter {
 		my $limit = $#sorted < $nodes_to_keep ? $#sorted : $nodes_to_keep - 1;
 
 		for my $node_to_keep ( @sorted[ 0 .. $limit ] ) {
-			
-			print STDERR "ClusterDepthFilter: adding features of ",$limit,
-				"/",$#sorted," nodes of cluster: ",
-				$cluster->{start},"-",$cluster->{end},"\n" if $DEBUG;
-			
+
+			print STDERR "ClusterDepthFilter: adding features of ", $limit, "/",
+			  $#sorted, " nodes of cluster: ", $cluster->{start}, "-",
+			  $cluster->{end}, "\n"
+			  if $DEBUG;
+
 			for my $af ( @{ $node_to_keep->{features} } ) {
-				
-				print STDERR "ClusterDepthFilter: adding feature: ",
-					$af->start,"-",$af->end,"\n" if $DEBUG;
-				
+
+				if ($af->analysis == $self->analysis) {
+					print STDERR "ClusterDepthFilter: ignoring previously added feature\n"
+						if $DEBUG;
+					next;
+				}
+	
+				print STDERR "ClusterDepthFilter: adding feature: ", $af->start,
+				  "-", $af->end, "\n"
+				  if $DEBUG;
+
 				$af->analysis( $self->analysis );
 				$af->dbID(0);
 				$af->{adaptor} = undef;
@@ -349,63 +396,100 @@ sub depth_filter {
 			# establish the start, end, introns list and score of
 			# the summary feature
 
-			my $first = $sorted[ $limit + 1 ];
+			my ($start, $end, $score, $introns);
 
-			my $start   = $first->{features}->[0]->start;
-			my $end     = $first->{features}->[-1]->end;
-			my $score   = $first->{tot_score};
-			my $introns = $first->{introns};
-
-			for my $node ( @sorted[ ( $limit + 2 ) .. $#sorted ] ) {
+			for my $node ( @sorted[ ($limit + 1) .. $#sorted ] ) {
 				
-				my $s = $node->{features}->[0]->start;
-				$start = $s if $s < $start;
+				if ($no_filter) {
+			
+					# keep all features from hits from matching taxa
+			
+					if (grep { /^$node->{taxon_id}$/ } @matching_taxa) {
+						
+						for my $af ( @{$node->{features}} ) {
+							print STDERR "ClusterDepthFilter: retaining feature: ", $af->start,
+				  				"-", $af->end, "\n" if $DEBUG;
+				  				
+							$af->analysis( $self->analysis );
+							$af->dbID(0);
+							$af->{adaptor} = undef;
+							push @filtered_features, $af;
+							$retained++;
+						}
+						
+						# skip to the next node, as these features have been included 
+						# now and should not contribute to the summary features
+						next;
+					}
+				}
+		
+				if (defined $start) {
+					
+					# check if this node extends the summary feature
+					
+					my $s = $node->{features}->[0]->start;
+					$start = $s if $s < $start;
 
-				my $e = $node->{features}->[-1]->end;
-				$end = $e if $e > $end;
+					my $e = $node->{features}->[-1]->end;
+					$end = $e if $e > $end;
 
-				my $ms = $node->{tot_score};
-				$score = $ms if $ms > $score;
+					my $ms = $node->{tot_score};
+					$score = $ms if $ms > $score;
 
-				my $new_introns =
-				  find_new_introns( $introns, $node->{introns} );
-				push @$introns, map { [@$_] } @$new_introns;
-				$introns = [ sort { $a->[0] <=> $b->[0] } @$introns ];
+					my $new_introns =
+				  		find_new_introns( $introns, $node->{introns} );
+					push @$introns, map { [@$_] } @$new_introns;
+					$introns = [ sort { $a->[0] <=> $b->[0] } @$introns ];
+				}
+				else {
+					
+					# initialise the summary feature data
+			
+					$start = $node->{features}->[0]->start;
+					$end = $node->{features}->[-1]->end;
+					$score = $node->{tot_score};
+					$introns = $node->{introns};
+				}
 			}
+			
+			if (defined $start) {
+				
+				# create our summary features with the maximal set of
+				# introns
 
-			# create our summary features with the maximal set of
-			# introns
+				for my $intron (@$introns) {
 
-			for my $intron (@$introns) {
+					my $summary = Bio::EnsEMBL::SimpleFeature->new(
+						-start         => $start,
+						-end           => $intron->[0],
+						-strand        => 0,              # we mix both strands here
+						-score         => $score,
+						-display_label =>
+					  		sprintf( "summary feature from %d redundant nodes",
+								$#sorted - $limit ),
+						-analysis => $self->analysis()
+					);
+					push @summary_features, $summary;
+
+					$start = $intron->[1];
+				}
 
 				my $summary = Bio::EnsEMBL::SimpleFeature->new(
 					-start         => $start,
-					-end           => $intron->[0],
-					-strand        => 0,              # we mix both strands here
+					-end           => $end,
+					-strand        => 0,        # we mix both strands here
 					-score         => $score,
 					-display_label =>
-					  sprintf( "summary feature from %d redundant nodes",
+				  	sprintf( "summary feature from %d redundant nodes",
 						$#sorted - $limit ),
 					-analysis => $self->analysis()
 				);
 				push @summary_features, $summary;
-
-				$start = $intron->[1];
 			}
-
-			my $summary = Bio::EnsEMBL::SimpleFeature->new(
-				-start         => $start,
-				-end           => $end,
-				-strand        => 0,        # we mix both strands here
-				-score         => $score,
-				-display_label =>
-				  sprintf( "summary feature from %d redundant nodes",
-					$#sorted - $limit ),
-				-analysis => $self->analysis()
-			);
-			push @summary_features, $summary;
 		}
 	}
+
+	print STDERR "ClusterDepthFilter: $retained features retained from matching taxa\n";
 
 	print STDERR "ClusterDepthFilter: "
 	  . scalar(@summary_features)
