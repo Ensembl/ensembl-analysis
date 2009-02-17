@@ -125,11 +125,9 @@ sub new {
 
 
   my $sql = "select external_db_id from external_db where db_name='$db_name' and db_release='$schema_build'";
-  
-
-
   my ($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
-	 
+	
+ 
   if(! $extdb_id){
 	warn 'No external_db found for '.$self->{'mapping_type'}." mapping, inserting $db_name $schema_build";
 	
@@ -306,8 +304,8 @@ sub write_output {
 
 	if($xref){
 
-	  #Do we need this ignore release flag?
-	  eval{ $dbe_adaptor->store($xref, $feature->dbID, 'ProbeFeature', 1) };
+	  #Remove ignore release flag so we store on the correct schema build
+	  eval{ $dbe_adaptor->store($xref, $feature->dbID, 'ProbeFeature') };
 
 	  if ($@) {
 		$self->throw('Unable to store ProbeFeature DBEntry for probe '.$feature->dbID." !\n $@");
