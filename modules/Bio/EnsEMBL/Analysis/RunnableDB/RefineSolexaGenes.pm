@@ -158,7 +158,7 @@ sub refine_genes {
 
     my $most_real_introns = 0;
     my $highest_score = 0;
-   # print STDERR $gene->stable_id. " : " . . $gene->start . " " . $gene->end . ":\n";
+    print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
     # merge exons to remove little artifactual introns
     my @exons =  @{$self->merge_exons($gene)};
     my $exon_count =  $#exons;
@@ -171,7 +171,7 @@ sub refine_genes {
       my $right_introns = 0;
       $exon->{'left_mask'} = 0;
       $exon->{'right_mask'} = $exon->length;
-      #print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
+      print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
       # make intron features by collapsing the dna_align_features
       my @introns = @{$self->dna_2_simple_features($exon->seq_region_start,$exon->seq_region_end)};
       my @filtered_introns;
@@ -193,7 +193,7 @@ sub refine_genes {
       }
       
     INTRON:  foreach my $intron ( @filtered_introns ) {
-	#print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . "\n";
+	print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . "\n";
 	# becasue we make a new exons where we have a reatained intron to 
 	# stop circular references we need to allow the final 
 	# intron splicing out of the exon to be used more than once
@@ -438,6 +438,11 @@ sub refine_genes {
 	   $self->chr_slice,
 	  );
       }
+      if ( $strand == 1 ) {
+	@modified_exons = sort { $a->start <=> $b->start } @modified_exons;
+      } else {
+	@modified_exons = sort { $b->start <=> $a->start } @modified_exons;
+      }
       # make it into a gene
       my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
       # add a translation 
@@ -451,9 +456,10 @@ sub refine_genes {
       unless ($self->ABINITIO_INTRONS) {
 	# if we are not using fake exons compare the introns to 
 	# how many there are in the (merged) rough model
-	$tran->{'_fake_introns'} = $exon_count-1 - $intron_count;
-	$intron_count = $exon_count -1;
+	$tran->{'_fake_introns'} = $exon_count - $intron_count;
+	$intron_count = $exon_count ;
       }
+      print STDERR " EXON count $exon_count\n";
       $tran->{'_intron_count'} = $intron_count;
       $tran->{'_proportion_real_introns'} = int((($tran->{'_intron_count'} - $tran->{'_fake_introns'}) /$tran->{'_intron_count'}) *100);
       # make note of best scores and best introns

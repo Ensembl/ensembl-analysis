@@ -206,6 +206,7 @@ sub exon_cluster {
         # Expand the exon_cluster
         $exon_cluster->start($ugf->start) if $ugf->start < $exon_cluster->start;
         $exon_cluster->end($ugf->end)     if $ugf->end   > $exon_cluster->end;    
+	$exon_cluster->score($exon_cluster->score + 1);
         $clustered = 1;
         $cluster_data->{$ugf->hseqname}->{$i} = 1;
       }
@@ -213,6 +214,7 @@ sub exon_cluster {
     # start a new cluster if there is no overlap
     unless ( $clustered  ) {
       $cluster_data->{$ugf->hseqname}->{$exon_cluster_num} = 1 ;
+      $ugf->score(1);
       push @exon_clusters, $ugf;
       $exon_cluster_num++;
     }
@@ -277,13 +279,13 @@ sub exon_cluster {
     }
     # is it a well supported left end exon?
     if ( $clean_cluster_hash->{$key}->{'left'}  && 
-	 $clean_cluster_hash->{$key}->{'left'} > $self->END_EXON_COVERAGE) {
+	 $clean_cluster_hash->{$key}->{'left'} >= $self->END_EXON_COVERAGE) {
       $clean_exon_clusters->{$key} =  1 ;
       next;
     }
     # is it a well supported right end exon?
     if ( $clean_cluster_hash->{$key}->{'right'} && 
-	 $clean_cluster_hash->{$key}->{'right'} > $self->END_EXON_COVERAGE ) {
+	 $clean_cluster_hash->{$key}->{'right'} >= $self->END_EXON_COVERAGE ) {
       $clean_exon_clusters->{$key} = 1 ;
       next;
     }
@@ -352,11 +354,12 @@ sub exon_cluster {
 =cut
 
 sub pad_exons {
-  my ($self,$exon_clusters) = @_;
+  my ($self,$exon_cluster_ref) = @_;
 
   my @padded_exons;
+  my @exon_clusters = sort { $a->start <=> $b->start } @$exon_cluster_ref;
   # make a padded exon array
-  foreach my $exon ( @$exon_clusters ){
+  foreach my $exon ( @exon_clusters ){
     my $padded_exon =  create_Exon
       (
        $exon->start - 20,
@@ -373,6 +376,22 @@ sub pad_exons {
     $padded_exon->start(1) if $padded_exon->start <= 0;
     $padded_exon->end($self->chr_slice->length - 1) 
       if $padded_exon->end >= $self->chr_slice->length;
+
+    my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature
+      (-slice    => $exon->slice,
+       -start    => $padded_exon->start,
+       -end      => $padded_exon->end,
+       -strand   => -1,
+       -hseqname => $exon->display_id,
+       -hstart   => 1,
+       -hstrand  => 1,
+       -hend     => $padded_exon->length,
+       -analysis => $exon->analysis,
+       -score    => $exon->score,
+       -cigar_string => $padded_exon->length.'M');
+    my @feats;
+    push @feats,$feat;
+    $padded_exon->add_supporting_features(@feats);
     push @padded_exons, $padded_exon;
   }
 
@@ -439,8 +458,10 @@ sub gene_cluster {
 =cut
 
 sub make_gene {
-  my ($self,$exons) = @_;
-  my $tran =  new Bio::EnsEMBL::Transcript(-EXONS => $exons);
+  my ($self,$exon_ref) = @_;
+  # we are making reverse strand genes so the exons need to be in the reverse order
+  my @exons = sort { $b->start <=>  $a->start } @$exon_ref;
+  my $tran =  new Bio::EnsEMBL::Transcript(-EXONS => \@exons);
   $tran->analysis($self->analysis);
  return @{convert_to_genes(($tran),$self->analysis)};
 }
