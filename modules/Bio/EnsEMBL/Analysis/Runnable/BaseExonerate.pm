@@ -61,7 +61,7 @@ sub new {
     (
      $query_type, $query_seqs, $query_file, $q_chunk_num, $q_chunk_total,
      $target_seqs, $target_file, $t_chunk_num, $t_chunk_total, 
-     $annotation_features, $annotation_file, $verbose
+     $annotation_features, $annotation_file, $verbose, $basic_options
     ) =
     rearrange(
       [
@@ -78,6 +78,7 @@ sub new {
           ANNOTATION_FEATURES
           ANNOTATION_FILE
           VERBOSE
+		  BASIC_OPTIONS
         )
       ], 
       @args
@@ -125,13 +126,15 @@ sub new {
   }
 
   if (not $self->program) {
-    $self->program('/usr/local/ensembl/bin/exonerate-0.8.3');
+    $self->program('/software/ensembl/bin/exonerate-1.4.0');
   }
 
+ 
   #
   # These are what drives how we gather up the output
-  my $basic_options = "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" ";
+  $basic_options ||= "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" ";
   
+
   if (defined $q_chunk_num and defined $q_chunk_total) {
     $basic_options .= "--querychunkid $q_chunk_num --querychunktotal $q_chunk_total ";
   }
@@ -145,8 +148,6 @@ sub new {
   }
   
   $self->options($basic_options);
-
-
 
   return $self;
 }
