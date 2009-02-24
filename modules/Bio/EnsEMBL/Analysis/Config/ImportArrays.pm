@@ -143,17 +143,17 @@ use vars qw( %Config );
 	},
 
 
+	#%{$Config::ArrayMapping::import_arrays},
+
 	IMPORT_AFFY_UTR_ARRAYS => 
 	{
 	 IIDREGEXP => '^>probe:(\S+):(\S+):(\S+:\S+;).*$',
 	 
 	 IFIELDORDER => {
-					 -name       => 2,
-					 -array_chip => 0,
-					 -array      => 0,
-					 -probeset   => 1,
+					 -name       => 2, -array_chip => 0,
+					 -array      => 0, -probeset   => 1
 					},
-	 
+ 	 
 	 #Can we remove name from these hashes?
 
 	 ARRAY_PARAMS => 
@@ -165,8 +165,134 @@ use vars qw( %Config );
 					  -type    => 'OLIGO',
 					  #-description => '',
 					  -class   => 'AFFY_UTR',
+					 },
+
+
+	   'MG-U74A' => {
+					  -name => 'MG-U74A',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
 					  
 					 },
+	  
+	  'MG-U74Av2' => {
+					  -name => 'MG-U74Av2',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					 },
+	  
+
+
+	   'MG-U74B' => {
+					  -name => 'MG-U74B',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+	  
+	  'MG-U74Bv2' => {
+					  -name => 'MG-U74Bv2',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+	  
+
+ 'MG-U74C' => {
+					  -name => 'MG-U74C',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+
+	   'MOE-430A' => {
+					  -name => 'MOE-430A',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+
+ 'MOE-430B' => {
+					  -name => 'MOE-430B',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+
+	   'MOE-430A_2' => {
+					  -name => 'MOE-430A_2',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+
+	  
+  'MOE-430_2' => {
+					  -name => 'MOE-430_2',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+
+
+
+	    'Mu11KsubA' => {
+					  -name => 'Mu11LsubA',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+   'Mu11KsubB' => {
+					  -name => 'Mu11LsubB',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					},
+
+	  'MoGene-1_0-st-v1' => {
+					  -name => 'MoGene-1_0-st-v1',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_ST',
+							},
+
+	  'MoEx-1_0-st-v1' => {
+					  -name => 'MoEx-1_0-st-v1',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_ST',
+						  },
+
+
+
 	
 	  'HT_MG-430A' => {
 					   -name => 'HT_MG-430A',
@@ -187,6 +313,11 @@ use vars qw( %Config );
 					 #-description => '',
 					 -class   => 'AFFY_UTR',
 					},
+
+	  #Then add user defined/custom ones here?
+	  #values %{$ArrayConfig->{ARRAY_PARAMS}}
+	  #Could write this automatically from env or script?
+
 	 },
 	 
 	 INPUT_FORMAT => 'FASTA',
