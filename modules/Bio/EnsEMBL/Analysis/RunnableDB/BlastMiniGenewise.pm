@@ -140,32 +140,35 @@ sub new {
 
 sub fetch_input{
   my ($self) = @_;
-
   $self->parse_input_id;
   $self->query($self->gene_slice);
-  my %kill_list = %{$self->kill_list} if($self->USE_KILL_LIST);
   my %hit_list;
 
   my $killed_count = 0;
   my $feature_count = 0;
   my %protein_count;
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
-    #print "LOGIC NAME : ",$logic_name,"\n";
-my $features = $self->paf_slice->get_all_ProteinAlignFeatures
-      ($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
+    #print "LOGIC NAME : ",$logic_name,"\n"; 
+     my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
     my %unique;
-    foreach my $feature(@$features){
+    foreach my $feature(@$features){ 
       $unique{$feature->hseqname} = 1;
     }
-   # print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
+    #print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
     logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
     $feature_count += scalar(@$features);
     my %ids_to_ignore = %{$self->generate_ids_to_ignore($features)};
     #print "HAVE ".keys(%ids_to_ignore)." ids to ignore\n";
-    logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore");
+    logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore"); 
+
+     my %kill_list ;
+     if ( scalar(@$features) > 0 ) {  
+       %kill_list = %{$self->kill_list} if($self->USE_KILL_LIST);
+     } 
+
   FEATURE:foreach my $feature(@$features){
   	
-	#print $feature->hseqname." is in this ID with paf_id ".$feature->dbID."\n" if($feature->hseqname=~m/Q2PHF0.1/);
+      #print $feature->hseqname." is in this ID with paf_id ".$feature->dbID."\n"; 
       
       $protein_count{$feature->hseqname} = 1;
       my $temp_id = $feature->hseqname;
@@ -185,7 +188,7 @@ my $features = $self->paf_slice->get_all_ProteinAlignFeatures
            $ids_to_ignore{$feature->hseqname}) ;
       next FEATURE if($self->PRE_GENEWISE_MASK && 
                       $ids_to_ignore{$feature->hseqname});
-      if($self->use_id){
+      if($self->use_id){ 
         if($feature->hseqname eq $self->use_id){
           push(@{$hit_list{$feature->hseqname}}, $feature);
         }
@@ -224,7 +227,7 @@ my $features = $self->paf_slice->get_all_ProteinAlignFeatures
     warning("RunnableDB:BlastMiniGenewise not all ids were killed but you ".
             "still have NO IDS TO RUN with");
     return;
-  }
+  } 
   $self->create_bmg_runnables(\%hit_list);
   return 1;
 }
@@ -379,8 +382,8 @@ sub parse_input_id{
       }
       
     }else{
-      #assumimg this is a protein id and a logic name
-      $self->PAF_LOGICNAMES([$first]);
+      #assumimg this is a protein id and a logic name 
+      $self->PAF_LOGICNAMES([$first]); 
       $self->use_id($second);
       
     }
