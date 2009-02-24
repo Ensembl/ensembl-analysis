@@ -92,9 +92,17 @@ use vars qw(%Config);
 
       # add the logic names of your targetted genes here. 
       # Note that you'll have to add to your protein index all protein_seqs for any 
-      # transcripts made from cdna2genome
-      BIOTYPES                           => ['TargettedGenewise', 'cdna2genome', 'TargettedExonerate'],
+      # transcripts made from cdna2genome  
 
+      # fetch genes of differnt biotypes from different databases. use the key out of 
+      # Databases.pm to define the databases you like to fetch data from. 
+      # if you don't fetch data from i.e. EST_CDNA_DB jsut delete the key and no 
+      # connection to the db is made. 
+      INPUT_DATA_FROM_DBS  => {
+                         GENEWISE_DB => ['targetted'] ,
+                         EST_CDNA_DB => ['cdna2genome'] ,
+                     }  ,
+ 
       # db where we read genes from
       DB_NAME                            => 'GENEWISE_DB',
 
@@ -102,7 +110,7 @@ use vars qw(%Config);
       OUT_DB_NAME                        => 'GENEWISE_DB',
 
       # version of exonerate used
-      EXONERATE_PROGRAM                  => '/usr/local/ensembl/bin/exonerate-1.0.0',
+      EXONERATE_PROGRAM                  => '/usr/local/ensembl/bin/exonerate-0.9.0',
     },
     #BESTTARGETTED => {},
   }
