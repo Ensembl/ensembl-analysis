@@ -87,11 +87,32 @@ sub fetch_input{
   
   my $slice = $self->fetch_sequence($self->input_id, $db);
   $self->query($slice);
-  
-  my @genes;
-  foreach my $biotype (@{$self->BIOTYPES}) {
-    push @genes, @{ $slice->get_all_Genes_by_type($biotype) }  ;
-  }
+ 
+  my @genes; 
+  my @all_bt_for_clustering;  
+
+  # fetch genes from different databases  
+  foreach my $db_alias ( keys  %{ $self->INPUT_DATA_FROM_DBS } ) { 
+     print "fetching out of DB : " . $db_alias ." : " ;  
+     my @biotypes_to_fetch = @{${$self->INPUT_DATA_FROM_DBS }{$db_alias}};
+     for ( @biotypes_to_fetch ) { 
+       print $_ . " " ;  
+     }
+     print "\n";  
+     # get db adaptor for db 
+     my $input_db = $self->get_dbadaptor($db_alias) ;
+     # get slice 
+     my $input_slice = $self->fetch_sequence($self->input_id, $input_db);
+     # get biotypes  
+     #
+     for my $bt ( @biotypes_to_fetch ) {  
+        my @genes_fetched = @{ $input_slice->get_all_Genes_by_type($bt) }  ; 
+        print "-> $bt    ".scalar(@genes_fetched) . " genes fetched \n" ;  
+        push @genes, @genes_fetched; 
+        push @all_bt_for_clustering , $bt ; 
+     }
+  } 
+  $self->BIOTYPES(\@all_bt_for_clustering) ;  
   print "\nGot ".scalar(@genes)." genes\n";
   $self->genes(\@genes);
 #  my @genes = @{ $slice->get_all_Genes($self->PRIMARY_LOGICNAME) }  ;
@@ -113,7 +134,7 @@ sub run {
     (
      -query             => $self->query,
      -analysis          => $self->analysis,
-     -seqfetcher        => $self->seqfetcher,
+     -seqfetcher        => $self->seqfetcher, 
      -biotypes          => $self->BIOTYPES,
      -program           => $self->EXONERATE_PROGRAM,
      -verbose           => $self->VERBOSE,
@@ -284,6 +305,17 @@ sub BIOTYPES {
   }
   return $self->{_biotypes};
 }
+
+
+sub INPUT_DATA_FROM_DBS  {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{_input_data_from_dbs} = $value;
+  }
+  return $self->{_input_data_from_dbs};
+}
+
 
 
 sub SEQFETCHER_DIR {
