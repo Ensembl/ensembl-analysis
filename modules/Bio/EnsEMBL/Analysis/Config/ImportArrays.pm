@@ -273,25 +273,6 @@ use vars qw( %Config );
 					  -class   => 'AFFY_UTR',
 					},
 
-	  'MoGene-1_0-st-v1' => {
-					  -name => 'MoGene-1_0-st-v1',
-					  -vendor => 'AFFY',
-					  -format  => 'EXPRESSION',
-					  -type    => 'OLIGO',
-					  #-description => '',
-					  -class   => 'AFFY_ST',
-							},
-
-	  'MoEx-1_0-st-v1' => {
-					  -name => 'MoEx-1_0-st-v1',
-					  -vendor => 'AFFY',
-					  -format  => 'EXPRESSION',
-					  -type    => 'OLIGO',
-					  #-description => '',
-					  -class   => 'AFFY_ST',
-						  },
-
-
 
 	
 	  'HT_MG-430A' => {
@@ -345,6 +326,19 @@ use vars qw( %Config );
 											 #-description => '',
 											 -class   => 'AFFY_ST',
 											},
+
+
+					  'MoEx-1_0-st-v1' => {
+										   -name => 'MoEx-1_0-st-v1',
+										   -vendor => 'AFFY',
+										   -format  => 'EXPRESSION',
+										   -type    => 'OLIGO',
+										   #-description => '',
+										   -class   => 'AFFY_ST',
+										  },
+					  
+
+
 										   },
 	 
 	 INPUT_FORMAT => 'FASTA',
