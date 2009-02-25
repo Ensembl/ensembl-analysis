@@ -162,12 +162,27 @@ sub run{
 sub run_FASTA{
   my ($self) = @_;
  
-  my (%probes_by_sequence, %array_chips, %probe_attrs, $probeset);
+  my (%probes_by_sequence, %array_chips, %probe_attrs, $probe_set);
   my ($current_array_chip, $existing_probe, $current_sequence, $sequence_fragment);
-
+  
   #These get_CONFIGFIELD methods use the ARRAY_FORMAT to retrieve the correct config
   my $header_regex = $self->get_IIDREGEXP;
+  my %valid_fields = (
+				-probe_set => undef,
+				-name       => undef,
+				-array      => undef,
+				-array_chip => undef,
+			   );
   my %field_order = %{$self->get_IFIELDORDER};
+
+  #Validate field
+  foreach my $config_field(keys(%field_order)){
+
+	if(! exists $valid_fields{$config_field}){
+	  throw("Found invalid field on ImportArrays.pm config:\t$config_field\n".
+			"IFIELDORDER must only contain keys:\t".join("\t", keys %valid_fields));
+	}
+  }
 
   #This is done so we can dynamically assign fields using their match order
   #Don't actually use 4 and 5 here, but here just in case config regexps are extended
@@ -181,23 +196,20 @@ sub run_FASTA{
  
   while(<PROBES>){
     chomp;
-   
-
+	
     if(/$header_regex$/){
 	
       if($current_sequence){
-
+		
         if(! $current_array_chip){
           throw ("Have sequence $current_sequence but no current array chip!\n");
         }
 
 		#You can only place the probe into the hash at this point, because
         #it's only at this point that you know you have the full sequence
-		$probeset = (exists $probe_attrs{'-probeset'}) ? $probe_attrs{'-probeset'} : 'NO_PROBE_SET';
-        $existing_probe = $probes_by_sequence{$probeset}{$current_sequence};
-
-
-		
+		#Set probeset here as we delete from hash when creating probe
+		$probe_set = (exists $probe_attrs{'-probe_set'}) ?  $probe_attrs{'-probe_set'} : undef;
+        $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
         if(! $existing_probe){
 
@@ -207,7 +219,7 @@ sub run_FASTA{
 													length($current_sequence),
 												   );
 
-          $probes_by_sequence{$probeset}{$current_sequence} = $existing_probe;
+          $probes_by_sequence{$probe_set}{$current_sequence} = $existing_probe;
         }
 		else{
         
@@ -215,9 +227,8 @@ sub run_FASTA{
 			(
 			 $existing_probe, 
 			 $current_array_chip, 
-			 $probe_attrs{'-probeset'},
+			 $probe_set,
 			 $probe_attrs{'-name'},
-			 #\%probe_attrs,
 			);
         }
 
@@ -258,8 +269,8 @@ sub run_FASTA{
 
   #deal with last entry
   $array_chips{$probe_attrs{-array_chip}} = $current_array_chip;
-  $probeset = (exists $probe_attrs{'-probeset'}) ? $probe_attrs{'-probeset'} : 'NO_PROBE_SET';
-  $existing_probe = $probes_by_sequence{$probeset}{$current_sequence};
+$probe_set = (exists $probe_attrs{'-probe_set'}) ? $probe_attrs{'-probe_set'} : undef;
+  $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
   if(! $existing_probe){
     $existing_probe =  $self->create_new_probe(
@@ -268,16 +279,15 @@ sub run_FASTA{
 											   length($current_sequence),
 											  );
 
-    $probes_by_sequence{$probeset}{$current_sequence} = $existing_probe;
+    $probes_by_sequence{$probe_set}{$current_sequence} = $existing_probe;
   }
   else{
     $self->add_array_chip_to_existing_probe
 	  (
 	   $existing_probe, 
 	   $current_array_chip, 
-	   $probe_attrs{'-probeset'},
+	   $probe_set,
 	   $probe_attrs{'-name'},
-	   #\%probe_attrs,
 	  );
   }  
 
@@ -289,16 +299,25 @@ sub run_FASTA{
 sub add_array_chip_to_existing_probe{
   my ($self, $probe, $array_chip, $probeset, $probename) = @_;
 
-  #We can have non-unique probes on a non-probeset array with different IDs
-  #This should never happen, but it does.
+  #We can have non-unique probes on a non-probe_set array with different IDs
+  #This should "never" happen, but it does. On plate duplicates or simply bas probe design
 
-  my @all_probenames = @{$probe->get_all_probenames};
-  
-  if($probeset && !($probe->probeset eq $probeset)){
-    throw (
-		   "Inconsistency: have found a probe ".$array_chip->name.":${probeset}:${probename} with ".
-		   "identical sequence but different probeset to another one: ".$probe->probeset."\n"
-    );
+  #We really want to test to see if we already have a name for this probe on this array
+  #my @all_probenames = @{$probe->get_all_probenames};
+
+  #Is this not all done by Probe::add_array_chip_probename?
+
+  my $name = $probe->get_probename($array_chip->get_Array->name);
+
+  if($name){
+
+	if($name eq $probename){
+	  throw("Found duplicate fasta records for:\y".$array_chip->get_Array->name.':'.$probe->probe_set->name.':'.$name);
+	}
+	else{
+	  throw('Found probeset('.$probe->probe_set->name.") with duplicate probe sequence for probes $probename and $name\n".
+			'Need to alter probe to allow probe duplicates or create separate probes in ImportArrays?');
+	}
   }
 
   $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->get_Array);
@@ -313,11 +332,10 @@ sub create_new_probe {
   $probe_hash->{'-class'}  = 'EXPERIMENTAL';#Will they all be experimental?
   $probe_hash->{'-array_chip_id'} = $array_chip->dbID;
   $probe_hash->{'-array'}  = $array_chip->get_Array;
-
+  #remove probeset as this is not ProbeSet yet
+  delete $probe_hash->{-probe_set};
+ 
   return Bio::EnsEMBL::Funcgen::Probe->new(%{$probe_hash});
-
-  #This causes problem as the params names are not the same as the attr fields
-  #return Bio::EnsEMBL::Funcgen::Probe->_new_fast(%{$probe_attrs});
 }
 
 
@@ -363,10 +381,15 @@ sub create_new_array_chip {
   if($array_chip = $achip_adaptor->fetch_by_array_design_ids($array->dbID, $design_id)){
 
 	if($array_chip->has_status('IMPORTED')){
-	  throw("$array_name ArrayChip has already been IMPORTED. Please rollback_ArrayChip and/or recompile your ".$self->ARRAY_FORMAT.' fasta file');
+	  throw("$array_name ArrayChip has already been IMPORTED. Please rollback_ArrayChip or recreate your arrays_nr".$self->ARRAY_FORMAT.'.fasta file for alignment');
 	}
 	else{#Rollback
-	  $self->helper->rollback_ArrayChip($array_chip);
+	  $self->helper->rollback_ArrayChip($array_chip, 'probe');#, 'force');
+	  #should we force roll back here?
+	  #If not we may have to manually remove probe2transcript xrefs first
+	  #Forcing here will mean that we are silently deleting the probe2transcript xrefs
+	  #before we have a chance to back up
+	  #should we env var this?
 	}
   }
   else{
@@ -405,7 +428,8 @@ sub write_output {
 	
 	my %probes = %{$self->probes->{$probeset}};
 
-	if($probeset ne 'NO_PROBE_SET'){
+
+	if($probeset){
 	  $probeset = Bio::EnsEMBL::Funcgen::ProbeSet->new
 		(
 		 -name => $probeset,
