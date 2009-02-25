@@ -571,7 +571,7 @@ sub get_TranscriptCluster {
         }
         # assure that transcript has same biotype as gene 
         $trans->biotype($gene->biotype) ;
-        $trans->sort;
+        #$trans->sort;
         print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
         $tc->put_Transcripts($trans);
         $tc->register_biotype($gene->biotype) ;
