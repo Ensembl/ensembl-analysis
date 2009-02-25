@@ -105,7 +105,7 @@ use vars qw( %Config );
 					 #-name       => 2,
 					 #-array      => 0,
 					 #-array_chip => 0,
-					 #-probeset   => 1,
+					 #-probe_set   => 1,
 					},
 
 	 #ISKIPLIST/REGEX
@@ -151,7 +151,7 @@ use vars qw( %Config );
 	 
 	 IFIELDORDER => {
 					 -name       => 2, -array_chip => 0,
-					 -array      => 0, -probeset   => 1
+					 -array      => 0, -probe_set   => 1
 					},
  	 
 	 #Can we remove name from these hashes?
@@ -217,8 +217,8 @@ use vars qw( %Config );
 					  -class   => 'AFFY_UTR',
 					},
 
-	   'MOE-430A' => {
-					  -name => 'MOE-430A',
+	   'MOE430A' => {
+					  -name => 'MOE430A',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
@@ -226,8 +226,8 @@ use vars qw( %Config );
 					  -class   => 'AFFY_UTR',
 					},
 
- 'MOE-430B' => {
-					  -name => 'MOE-430B',
+ 'MOE430B' => {
+					  -name => 'MOE430B',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
@@ -235,8 +235,8 @@ use vars qw( %Config );
 					  -class   => 'AFFY_UTR',
 					},
 
-	   'MOE-430A_2' => {
-					  -name => 'MOE-430A_2',
+	   'MOE430A_2' => {
+					  -name => 'MOE430A_2',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
@@ -245,8 +245,8 @@ use vars qw( %Config );
 					},
 
 	  
-  'MOE-430_2' => {
-					  -name => 'MOE-430_2',
+  'MOE430_2' => {
+					  -name => 'MOE430_2',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
@@ -312,7 +312,7 @@ use vars qw( %Config );
 					 -name       => 1,
 					 -array_chip => 0,
 					 -array      => 0,
-					 -probeset   => 2,
+					 -probe_set   => 2,
 					},
 	 	 
 	 ARRAY_PARAMS => {
@@ -352,7 +352,7 @@ use vars qw( %Config );
 					 -name       => 1,
 					 -array_chip => 0,
 					 -array      => 0,
-					 #-probeset   => 2,#This could be annotation
+					 #-probe_set   => 2,#This could be annotation
 					},
 	 	 
 	 ARRAY_PARAMS => {
