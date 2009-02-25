@@ -235,8 +235,8 @@ use vars qw( %Config );
 					  -class   => 'AFFY_UTR',
 					},
 
-	   'MOE430A_2' => {
-					  -name => 'MOE430A_2',
+	   'Mouse430A_2' => {
+					  -name => 'Mouse430A_2',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
@@ -245,8 +245,8 @@ use vars qw( %Config );
 					},
 
 	  
-  'MOE430_2' => {
-					  -name => 'MOE430_2',
+  'Mouse430_2' => {
+					  -name => 'Mouse430_2',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
