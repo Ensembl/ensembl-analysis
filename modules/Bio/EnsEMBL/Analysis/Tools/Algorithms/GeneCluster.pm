@@ -492,7 +492,7 @@ sub get_exon_clustering_from_gene_cluster {
   #my $tc = genes_to_Transcript_Cluster(\@clg);
   my $tc = $self->get_TranscriptCluster ; 
 
-  my @exon_clusters = $tc->get_ExonCluster() ; 
+  my @exon_clusters = $tc->get_ExonCluster_using_all_Exons() ; 
 
   if ($tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
