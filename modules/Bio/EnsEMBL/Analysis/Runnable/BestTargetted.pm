@@ -125,7 +125,7 @@ sub run {
   # get all genes using both logic names on slice and cluster them
   my %logic_hash;
   foreach my $logic (@{$self->biotypes}) {
-    #print STDERR "got $logic\n";
+    print STDERR "got $logic\n";
     $logic_hash{$logic} = [$logic];
   }
  
@@ -184,9 +184,9 @@ sub run {
            print "storing single_set_cluster_gene ".$gene_id ." ".$inc_sets[0]."\n";
          }
         $outgenes{$gene} = make_outgenes($self->analysis, $gene);
-      } # end of foreach my $gene ($cluster->get_Genes_by_Set($inc_sets[0])) {
-    } # end of if (scalar @inc_sets >= 2) { 
-  } #end of foreach my $cluster (@$clusters) {
+      } # end of foreach my $gene ($cluster->get_Genes_by_Set($inc_sets[0]))
+    } # end of if (scalar @inc_sets >= 2) 
+  } #end of foreach my $cluster (@$clusters) 
   
   print "Got " . scalar(@twoways) . " twoways\n";
 
@@ -202,35 +202,51 @@ sub run {
     my $protein_clusters = cluster_by_protein($self, $cluster);    
     my $filtered = filter_transcripts($protein_clusters);
 
-    foreach my $protein (keys %{$protein_clusters}) {
-      if ($self->seqfetcher->get_Seq_by_acc($protein)) {
-        my $pep;
-        print "  * can seqfetcher->get_Seq_by_acc for protein '$protein'\n";
-        $pep = $self->seqfetcher->get_Seq_by_acc($protein)->seq;
-        print "Comparing transcripts made from protein $protein with seq $pep\n";
-        if (!$pep) {
-          throw("Unable to fetch peptide sequence for protein $protein");
-        }
-  
-        # filter the genes
-        my @best_genes = @{$self->get_best_gene($protein, $self->biotypes, $filtered)};
-        foreach my $best_gene (@best_genes) {
-          if (! exists $outgenes{$best_gene}){
-            $outgenes{$best_gene} = make_outgenes($self->analysis, $best_gene);
-          }
-        }
-      } else {
-        throw("SeqFetcher cannot get_Seq_by_acc for protein '$protein'");
+    foreach my $protein (keys %{$protein_clusters}) {  
+
+      print "fetching protein from index : $protein \n" ;    
+      my $fetched_protein;  
+
+      #   
+      # Seqfetcher does NOT throw just returns undef so we have to use eval block here to  
+      # make the job die - otherwise job dies quietly which is BAD as it will be recorded successfully 
+      #    
+      
+      eval { 
+            $fetched_protein = $self->seqfetcher->get_Seq_by_acc($protein) ;     
+           }; 
+
+      if ($@) {    
+         throw ( " Could not get sequence for protein $protein \nfrom index ". $self->seqfetcher->index_name . 
+                 " \nIf you use OBDA Index : Maybe your keys are redundant ? \n\n$@ " ) ; 
+      }   
+
+      unless ( $fetched_protein ) { 
+        throw("SeqFetcher cannot get_Seq_by_acc for protein '$protein' in indexfile : ".  $self->seqfetcher->index_name );
+      }  
+
+      my $pep = $fetched_protein->seq; 
+      print "Comparing transcripts made from protein $protein with seq $pep\n";
+      if (!$pep) {
+        throw("Unable to fetch peptide sequence for protein $protein");
       }
-    } #foreach my $prot (keys %protein_clusters) {
-  } # oreach my $cluster (@twoways) {
+  
+      # filter the genes
+      my @best_genes = @{$self->get_best_gene($protein, $self->biotypes, $filtered)};
+      foreach my $best_gene (@best_genes) {
+        if (! exists $outgenes{$best_gene}){
+          $outgenes{$best_gene} = make_outgenes($self->analysis, $best_gene);
+        }
+      } 
+    } #foreach my $prot (keys %protein_clusters) 
+  } # oreach my $cluster (@twoways) 
   my @outgenes;
   foreach my $gene ( keys %outgenes ) {
     push @outgenes, $outgenes{$gene};
   }
   $self->output(\@outgenes);
 
-  return ;
+  #return ;
 }
 
 
@@ -411,14 +427,14 @@ sub get_best_gene {
             if ($perc_id > $max_perc_id) {
               $max_perc_id = $perc_id;
             }
-          } # reach my $transcript (@{$gene->get_all_Transcripts}) {
-        } # foreach my $gene (@$genes) {
+          } # reach my $transcript (@{$gene->get_all_Transcripts}) 
+        } # foreach my $gene (@$genes) 
       }
-    } # foreach my $biotype (@$biotypes) {
+    } # foreach my $biotype (@$biotypes) 
 
     # ok, we have all info that we need. Now 
     # see what we're dealing with. Are there doubles 
-    # or can we just take the gene with the highest score?
+    # or can we just take the gene with the highest score? 
     my %allowed_doubles;
     if (scalar(@doubles) == 0) {
       print "No doubles, Checking the ratio\n";
@@ -446,7 +462,7 @@ sub get_best_gene {
             print "  Not acceptable: gene $gid has score ".$scores{$dbl_biotype}{$gid}{'score'}." which is too low\n";
           } #if
         } # gid
-      } # foreach my $dbl_biotype (@$doubles) { 
+      } # foreach my $dbl_biotype (@$doubles)  
     
       # choose the one with the max score
       # note that if 2 biotypes have the same max score, then there is no
@@ -482,7 +498,7 @@ sub get_best_gene {
               "<90 (start ".$b->start." end ".$b->end.")\n";
       }
     }
-  } #if (defined $exonerate) {
+  } #if (defined $exonerate)  
   return \@best;
 }
 
@@ -830,7 +846,7 @@ sub check_gene {
       #  $secondary_header_id = $2;
         $protein_acc = $2;
       } else {
-        throw("Entry has unusual header $entry_obj1");
+        throw("Entry has unusual header : \"$entry_obj1\" - hit_name \"$hit_name\"");
       }
 
       #if ($secondary_header_id) {
