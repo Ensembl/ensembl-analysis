@@ -58,7 +58,17 @@ use vars qw(@ISA);
 
 
 #TO DO
-#1. We need a sanity check somewhere that we have loaded the transcript coordinate system.
+#1. Account for 5'/3' hanging alignment mismatches
+# These may be a sequence match or mismatch, but are currently being reported as an alignment M
+# Which implies a sequence match. This is simple is we don't have long overhangs
+# but would get more complicated (i.e. performing alignment) with longer overhangs
+# Can we not just report the shorter alignment?  This will cause problems when trying 
+# to identify which bp of the probe a particular mismatch is on i.e.13th for AFFY MM probe?
+# Can we substitute M for E(nd) or U(nknown)? This would have to be done in ExonerateProbe
+# Is potentially a source for problems if a probe were to overhand the 3' end and this were not
+# caught by the genomic mapping due to an intron being present at the very end of the transcript.
+# e.g. ENSMUST00000097969
+# To capture this we must perform 5'/3' extension on the alignment against the genome!
 
 sub new {
   my ( $class, @args ) = @_;
@@ -499,7 +509,7 @@ sub set_probe_and_slice {
 	
 
   my (%slices, $slice_id, $trans_mapper, $align_type, $align_length, @tmp, $gap_length);
-  my (@trans_cigar_line, @genomic_blocks, $genomic_start, $genomic_end, $cigar_line, $gap_start, $block_end);
+  my (@trans_cigar_line, @genomic_blocks, $cigar_line, $gap_start, $block_end);
   my ($block_start, $slice, @gaps, @features, %gene_hits, $gene, @stranded_cigar_line, $gene_sid);
   my ($query_perc, $display_name, $gene_hit_key, %transcript_cache);
 
@@ -509,6 +519,7 @@ sub set_probe_and_slice {
 	my $probe_id = $feature->probe_id;
 	my $load_feature = 1;
 	my $xref;
+	my ($genomic_start, $genomic_end);
 
 	#Get the slice
 	if($mapping_type eq 'transcript'){
@@ -564,18 +575,14 @@ sub set_probe_and_slice {
 	  #print "Found genomic blocks @genomic_blocks\n";
 
 	  next if(! (scalar(@genomic_blocks) >2));
+
+	  #Coordinate object returned are genomic coords
+	  #Introns(ProbeFeature deletions) are only represented by absent Coordindate blocks
+	  #5'/3' overhangs(Genomic deletions) are represented by Gap objects
  
-
-
-	  #So these appear to be 1bp shorter than they should be?
-	  #But M add up to 50, is this just and partial intron match?
-	  #And also in reverse for -ve strand genes
-	  #Are these being reversed incorrectly by the ExonerateProbe
-	  #module?
-	  #This all depends on what sequence is dumped for the transcript?
-	  #Surely this should be feature slice?
+	  #We are not accounting for 5'/3' hanging alignment mismatches
+	  #Which may actually be a sequence match or mismatch to the genomic sequence!
 	  
-
 
 	  #else alter the start stop values and rebuild the cigarline
 	  my $cigar_line = '';
@@ -599,34 +606,45 @@ sub set_probe_and_slice {
 		@stranded_cigar_line = @trans_cigar_line;
 	  }
 
-	  $genomic_start = $genomic_blocks[0]->start;
-	  $genomic_end   = $genomic_blocks[$#genomic_blocks]->end;
-	  #genomic end is sometimes returning the loci of a gap in transcript coords
-	  #This should not be possible for the last block as this would denote a mismatch, but we are
-	  #mapping cdna, so it should not have a gap at the end, only in the middle?
-	  #Is this because we are actually have a flank seq mismatch
-	  #So we actually want the number of genomic blocks to be 3!
-	  #warn "genomic $genomic_start $genomic_end $transcript_strand" if $warn;
 
-	  #Only reports match coordinate blocks
-	  #And gaps as gaps with reference to transcript
-	  #i.e. overhangs of cDNA
-	  #Very unlikely to have a Gap at the start or end but we need
-	  #to model this in the case of very short exons, where a probe
-	  #may span an extire 5' or 3' exon, part of a neighbouring exon 
-	  #and also overhang the cDNA
-	  
-	  #There is no way of knowing whether this overhang is a seq match 
-	  #against the corresponding dna seq, so we can't build an accurate 
-	  #genomic cigar line for these
+	  #Account for 5'/3' overhanging gaps here
+	  my $gap_length;
 
-	  
-
-	  #Generate start and length values for gaps
 	  foreach my $block(@genomic_blocks){
 		#warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
 
+		if(! $genomic_start){
+		  
+		  if($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){#Set genomic_start
+			
+			 if($gap_length){#We have seen a gap
+			   $genomic_start = $block->start - $gap_length;
+			   undef $gap_length;
+			 }
+			 else{#Just set to first start
+			   $genomic_start = $block->start;
+			 }
+		   }
+		  else{#Must be 5' Gap
+			$gap_length = $block->length
+		  }
+		}
+		elsif(! $genomic_end){
+
+		  if($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){
+			$genomic_end = $block->end;
+		  }
+		  else{#Must be 3' Gap
+			$genomic_end += $block->length;
+		  }
+		}
+
+
 		#So calculate gap coordinates
+		#We want to skip and Gap objects
+		#as these will have already been inserted into the cigarline by ExonerateProbe
+		next if $block->isa('Bio::EnsEMBL::Mapper::Gap');
+
 		if(@gaps){
 		  push @gaps, ($block->start - $gaps[$#gaps]);
 		}
@@ -707,11 +725,8 @@ sub set_probe_and_slice {
 		}
 
 		$cigar_line .= $block;
-
-
-		#print "Epxanded cigarline is $cigar_line\n";
-
 	  }
+
 
 	  #We could assign the start end directly
 	  $feature->start($genomic_start);
