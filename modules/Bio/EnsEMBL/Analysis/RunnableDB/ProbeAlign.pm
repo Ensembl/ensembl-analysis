@@ -59,9 +59,10 @@ use vars qw(@ISA);
 
 #TO DO
 #1. Account for 5'/3' hanging alignment mismatches
-# These may be a sequence match or mismatch, but are currently being reported as an alignment M
-# Which implies a sequence match. This is simple is we don't have long overhangs
-# but would get more complicated (i.e. performing alignment) with longer overhangs
+# These may be a sequence match or mismatch, but are currently being reported as an alignment 'm'
+# Which implies a sequence mis-match. This is simple as we don't generally have long overhangs
+# due to restrictive mismatch rules in ExonerateProbe
+# But would get more complicated (i.e. performing alignment) with longer overhangs
 # Can we not just report the shorter alignment?  This will cause problems when trying 
 # to identify which bp of the probe a particular mismatch is on i.e.13th for AFFY MM probe?
 # Can we substitute M for E(nd) or U(nknown)? This would have to be done in ExonerateProbe
@@ -69,6 +70,9 @@ use vars qw(@ISA);
 # caught by the genomic mapping due to an intron being present at the very end of the transcript.
 # e.g. ENSMUST00000097969
 # To capture this we must perform 5'/3' extension on the alignment against the genome!
+# Would need to get the query sequence from ExonerateProbe or directly from the fasta
+# Change to U(nknown not exonerate standard nomenclature) or N(on-equivalenced region), the
+# later is normally used for large regions on low conservation in protein alignments e.g. loops
 
 sub new {
   my ( $class, @args ) = @_;
@@ -608,7 +612,10 @@ sub set_probe_and_slice {
 
 
 	  #Account for 5'/3' overhanging gaps here
-	  my $gap_length;
+	  my %gap_lengths = (
+						 5 => undef,
+						 3 => undef,
+						);
 
 	  foreach my $block(@genomic_blocks){
 		#warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
@@ -617,28 +624,25 @@ sub set_probe_and_slice {
 		  
 		  if($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){#Set genomic_start
 			
-			 if($gap_length){#We have seen a gap
+			 if($gap_lengths{5}){#We have seen a gap
 			   $genomic_start = $block->start - $gap_length;
-			   undef $gap_length;
 			 }
 			 else{#Just set to first start
 			   $genomic_start = $block->start;
 			 }
 		   }
 		  else{#Must be 5' Gap
-			$gap_length = $block->length
+			$gap_lengths{5} = $block->length;
 		  }
 		}
-		elsif(! $genomic_end){
-
-		  if($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){
-			$genomic_end = $block->end;
-		  }
-		  else{#Must be 3' Gap
-			$genomic_end += $block->length;
-		  }
+		elsif($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){
+		  $genomic_end = $block->end;
 		}
-
+		else{#Must be 3' Gap
+		  $gap_lengths{3}  = $block->length;
+		  $genomic_end    += $gap_lengths{3};
+		}
+		
 
 		#So calculate gap coordinates
 		#We want to skip and Gap objects
@@ -669,6 +673,57 @@ sub set_probe_and_slice {
 	  my $q_length       = 0;
 
 
+	  #Account for 5'/3' overhangs here by simple bp matching
+	  #We need to account for Gap length as we may get 2m
+	  #Which might actually be 1m1M, where the 1M is an overhang Gap
+	  my ($gap_block);
+
+	  foreach my $end(keys %gap_lengths){
+		
+		if($gap_lengths{$end}){
+		  
+
+		  if($end == 5){
+			$gap_block = shift @stranded_cigar_line;
+		  }
+		  else{
+			$gap_block = pop @stranded_cigar_line;
+		  }
+		  
+		  @tmp = split//, $gap_block;
+		  $align_type = pop @tmp;
+		  ($align_length = $gap_block) =~ s/$align_type//;
+
+		  if($align_type ne 'm' ||
+			 $align_length > $gap_lengths{$end}){
+			throw("Found unexpected alignment block($gap_block) when handling ${end}' overhanging Gap");
+		  }
+		  
+		  #Now match against genomic sequence???
+		  #No way of doing this as we don't have the probe sequence!!!!
+		  #Change this to U?
+		  #Can we get the query seq from ExonerateProbe?
+		  $gap_block = $gap_lengths{$end}.'U';
+
+
+		  $align_length -= $gap_lengths{$end};
+
+		  if($align_length){
+			
+			if($end == 5 ){
+			  $gap_block .= $align_length.$align_type;
+			}else{
+			  $gap_block  = $align_length.$align_type.$gap_block;
+			}
+		  }
+
+		  if($end == 5){
+			unshift @stranded_cigar_line, $gap_block;
+		  }else{
+			push @stranded_cigar_line, $gap_block;
+		  }
+		}
+	  }
 
 
 	  foreach my $block(@stranded_cigar_line){
@@ -682,7 +737,7 @@ sub set_probe_and_slice {
 		  $match_count += $align_length;
 		  $score       += ($align_length * 5);
 		}
-		else{# 'm'  mismatch
+		else{# 'm' or U  mismatch
 		  $mismatch_count += $align_length;
 		  $score          -= ($align_length * 4);
 		}
@@ -727,6 +782,8 @@ sub set_probe_and_slice {
 		$cigar_line .= $block;
 	  }
 
+
+	  warn "$genomic_start $genomic_end $cigar_line";
 
 	  #We could assign the start end directly
 	  $feature->start($genomic_start);
