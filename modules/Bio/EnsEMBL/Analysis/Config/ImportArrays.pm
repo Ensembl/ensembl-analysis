@@ -158,6 +158,120 @@ use vars qw( %Config );
 
 	 ARRAY_PARAMS => 
 	 {
+
+	  #Remove all the redundant values and set them in ImportArrays?
+
+	  #Human
+	
+	   'HC-G110' => {
+					   -name => 'HC-G110',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+
+	   'U133_X3P' => {
+					   -name => 'U133_X3P',
+					   -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+	  
+	  'HuGeneFL' => {-name => 'HuGeneFL',
+					 -vendor => 'AFFY',
+					 -format  => 'EXPRESSION',
+					 -type    => 'OLIGO',
+					 #-description => '',
+					 -class   => 'AFFY_UTR'},
+
+	  'HG_U95A' => {-name => 'HG_U95A',
+					-vendor => 'AFFY',
+					-format  => 'EXPRESSION',
+					-type    => 'OLIGO',
+					#-description => '',
+					-class   => 'AFFY_UTR'},
+
+	  'HG-U95E' => {-name => 'HG-U95E',
+					-vendor => 'AFFY',
+					-format  => 'EXPRESSION',
+					-type    => 'OLIGO',
+					#-description => '',
+					-class   => 'AFFY_UTR'},
+
+	  'HG-U95D' => {-name => 'HG-U95D',
+					-vendor => 'AFFY',
+					-format  => 'EXPRESSION',
+					-type    => 'OLIGO',
+					#-description => '',
+					-class   => 'AFFY_UTR'},
+
+	  'HG-U95C' => {-name => 'HG-U95C',
+					-vendor => 'AFFY',
+					-format  => 'EXPRESSION',
+					-type    => 'OLIGO',
+					#-description => '',
+					-class   => 'AFFY_UTR'},
+
+	  'HG-U95B' => {-name => 'HG-U95B',
+					-vendor => 'AFFY',
+					-format  => 'EXPRESSION',
+					-type    => 'OLIGO',
+					#-description => '',
+					-class   => 'AFFY_UTR'},
+	  
+	  'HG-U95Av2' => {-name => 'HG-U95Av2',
+					-vendor => 'AFFY',
+					-format  => 'EXPRESSION',
+					-type    => 'OLIGO',
+					#-description => '',
+					-class   => 'AFFY_UTR'},
+
+	  'HG-U133_Plus_2' => {-name => 'HG-U133_Plus_2',
+						   -vendor => 'AFFY',
+						   -format  => 'EXPRESSION',
+						   -type    => 'OLIGO',
+						   #-description => '',
+						   -class   => 'AFFY_UTR'},
+
+	  'HG-U133B' => {-name => 'HG-U133B',
+						   -vendor => 'AFFY',
+						   -format  => 'EXPRESSION',
+						   -type    => 'OLIGO',
+						   #-description => '',
+						   -class   => 'AFFY_UTR'},
+
+	  'HG-U133A' => {-name => 'HG-U133A',
+					 -vendor => 'AFFY',
+					 -format  => 'EXPRESSION',
+					 -type    => 'OLIGO',
+					 #-description => '',
+					 -class   => 'AFFY_UTR'},
+
+	  'HG-U133A_2' => {-name => 'HG-U133A_2',
+						   -vendor => 'AFFY',
+						   -format  => 'EXPRESSION',
+						   -type    => 'OLIGO',
+						   #-description => '',
+						   -class   => 'AFFY_UTR'},
+
+	  'HG-Focus' => {-name => 'HG-Focus',
+					 -vendor => 'AFFY',
+					 -format  => 'EXPRESSION',
+					 -type    => 'OLIGO',
+					 #-description => '',
+					 -class   => 'AFFY_UTR'},
+
+
+
+
+
+	  #Mouse
 	  'MG-U74Cv2' => {
 					  -name => 'MG-U74Cv2',
 					  -vendor => 'AFFY',
@@ -272,19 +386,20 @@ use vars qw( %Config );
 					  #-description => '',
 					  -class   => 'AFFY_UTR',
 					},
-
-
-	
+	  
+	  #Custom mouse?
 	  'HT_MG-430A' => {
 					   -name => 'HT_MG-430A',
-					  -vendor => 'AFFY',
-					  #-setsize => undef,
-					  -format  => 'EXPRESSION',#? UTR?
-					  -type    => 'OLIGO',
-					  #-description => '',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
 					   -class   => 'AFFY_UTR',
-					 },
+					  },
 
+	
+	
+	  #Yeast
 	  'S_aureus' => {
 					 -name => 'S_aureus',
 					 -vendor => 'AFFY',
@@ -316,7 +431,29 @@ use vars qw( %Config );
 					},
 	 	 
 	 ARRAY_PARAMS => {
-					  
+					  #Human
+					   'HuGene-1_0-st-v1' => {
+											 -name => 'HuGene-1_0-st-v1',
+											 -vendor => 'AFFY',
+											 #-setsize => undef,
+											 -format  => 'EXPRESSION',
+											 -type    => 'OLIGO',
+											 #-description => '',
+											 -class   => 'AFFY_ST',
+											},
+
+
+					  'HuEx-1_0-st-v2' => {
+										   -name => 'HuEx-1_0-st-v2',
+										   -vendor => 'AFFY',
+										   -format  => 'EXPRESSION',
+										   -type    => 'OLIGO',
+										   #-description => '',
+										   -class   => 'AFFY_ST',
+										  }, 
+
+
+					  #Mouse
 					  'MoGene-1_0-st-v1' => {
 											 -name => 'MoGene-1_0-st-v1',
 											 -vendor => 'AFFY',
@@ -377,7 +514,7 @@ use vars qw( %Config );
 										 #-description => '',
 										  -class   => 'ILLUMINA_WG',
 										},
-					  
+					  #No longer accesible via website?
 					  'HumanWG_6_V1' => {
 										 -name => 'HumanWG_6_V1',
 										 -vendor => 'ILLUMINA',
