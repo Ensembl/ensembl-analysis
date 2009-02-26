@@ -45,7 +45,6 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
-#use Bio::EnsEMBL::Funcgen::Array;
 use Bio::EnsEMBL::Funcgen::Probe;
 use Bio::EnsEMBL::Funcgen::ProbeFeature;
 use Bio::EnsEMBL::Utils::Exception qw( throw warning );
@@ -71,7 +70,8 @@ sub new {
 	#parse result depends on the output format options
 	#only override if you intend overload or rewrite the parse_results method.
 	#Now let's reset the default BaseExonerate options to remove vulgar and add scores
-	#RESULT: 9382225 0 25 + ENSMUST00000060050 1076 1051 - 116 96.00 25 1215 . 1 scores:0:5:5:5:-4:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0:
+	#RESULT: 3020922 0 50 + ENSMUST00000111559 964 1014 + 250 100.00 50 3184 0 scores:0:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0:
+
 	$basic_opts{'-basic_options'} = "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %em scores:{%Ps:}\\n\" ";
   }
 
@@ -148,11 +148,7 @@ sub parse_results {
     next unless /^RESULT:/;
     chomp;
     
-	#--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\"	
-	#--bestn 100 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 
-	
 	#Vulgar blocks are also report in in-between coords! So need to add 1(only to start???)
-	
 	#Shows  the  alignments  in "vulgar" format.  Vulgar is Verbose Useful Labelled Gapped Alignment Report, This format also starts with the same 9 fields as sugar output (see above), and is followed by a series of <label, query_length, target_length> triplets.  The label may be one of the following:
 
 #              M      Match
@@ -168,23 +164,22 @@ sub parse_results {
 
 	#Can we have a way of dynamically linking the ryo string to a particular method?
 	#We shouldn't need different formats!!!
-
-	#"RESULT: %S %pi %ql %tl %g %em scores:{%Ps:} %V \n"
-	#RESULT: 9380677 0 25 + ENSMUST00000095075 3120 3145 + 125 100.00 25 4006 . 0 M 25 25  :0:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0
-
-	#RESULT: 9380676 0 25 + ENSMUST00000095075 3047 3072 + 116 96.00 25 4006 . 1 M 25 25  :0:5:5:5:5:-4:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0
-
-	#we don't have a M 24 24 here, but that would be the other possibility.
-
-	#So we use %em or %V to figure out if we don't have a perfect match, than we use %em or %V and the info string to figure out where the mismatches are
+	#RESULT: %S %pi %ql %tl %em scores:{%Ps:}\n
+	#RESULT: 3020922 0 50 + ENSMUST00000111559 964 1014 + 250 100.00 50 3184 0 scores:0:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0:
+	
+	#So we use %em to figure out if we don't have a perfect match, then we use %em the info string to figure out where the mismatches are
 	#< 25M effectively means mismatches at the start of end of a query sequence
+	
+	print $_."\n";
 
-	#print $_."\n";
-
-    ($tag, $probe_id, $q_start, $q_end, $q_strand, 
+    (undef, $probe_id, $q_start, $q_end, $q_strand, 
 	 $t_id, $t_start, $t_end, $t_strand, $score, 
 	 $perc_id, $q_length, $t_length, $mismatch_count, $scores) = split;
+
+	#Let's validate output formats somehow?
+
 	
+
 
 	#$gene_orientation always .?
 	#, $match_type, $query_match_length, $target_match_length, @rest_of_vulgar #vulgar blocks	
@@ -264,7 +259,6 @@ sub parse_results {
 	#to enable storage of query % ID
 	#Leave for now as we have no way of passing the query start stop to ProbeAlign
 	#hence we would lose where the flanking mismatch was.
-
 	$total_mismatches = $mismatch_count + $align_mismatch;
 	my @soft_cigar_line;
 	
@@ -321,7 +315,7 @@ sub parse_results {
 	  $t_end = ($t_strand eq '+') ? ($t_end + $three_mismatch) : ($t_start - $three_mismatch);
 	}
 
-	#print "@soft_cigar_line\n";
+
 
 
 	#Do we need to account for this?!!
@@ -337,20 +331,25 @@ sub parse_results {
 	  if($q_strand eq '+'){
 		if($t_strand eq '+'){
 		  $t_strand = 1;
-
 		  #Alter start/end if we have flanking mismatches here or above?
-
-
-		}elsif($t_strand eq '-'){
+		}
+		elsif($t_strand eq '-'){
 		  $t_strand = -1;
+
+		  #Do we really want to do this?
+		  #Are we interested in -ve strand exon hits?
+		  #Isn't -ve strand transcription normally intronic?
+
+		  #Yes but we may have an ST type array so we don't want to through these away.
+
 		  ($t_start, $t_end) = reverse($t_start, $t_end);
 
 		  #Reverse the cigar line
 		  #As match scores are reported wrt to strand of hit
 		  #And we want cigar line wrt to +ve strand of hit
 		  @soft_cigar_line = reverse(@soft_cigar_line);
-
-		}else{
+		}
+		else{
 		  throw "Unrecognised target strand symbol: $t_strand\n";
 		}
 	  }
