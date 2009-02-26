@@ -257,7 +257,7 @@ use vars qw( %Config );
 
 
 	    'Mu11KsubA' => {
-					  -name => 'Mu11LsubA',
+					  -name => 'Mu11KsubA',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
@@ -265,7 +265,7 @@ use vars qw( %Config );
 					  -class   => 'AFFY_UTR',
 					},
    'Mu11KsubB' => {
-					  -name => 'Mu11LsubB',
+					  -name => 'Mu11KsubB',
 					  -vendor => 'AFFY',
 					  -format  => 'EXPRESSION',
 					  -type    => 'OLIGO',
