@@ -225,7 +225,7 @@ use vars qw( %Config );
 					#-description => '',
 					-class   => 'AFFY_UTR'},
 	  
-	  'HG-U95Av2' => {-name => 'HG-U95Av2',
+	  'HG_U95Av2' => {-name => 'HG_U95Av2',
 					-vendor => 'AFFY',
 					-format  => 'EXPRESSION',
 					-type    => 'OLIGO',
@@ -387,18 +387,22 @@ use vars qw( %Config );
 					  -class   => 'AFFY_UTR',
 					},
 	  
-	  #Custom mouse?
-	  'HT_MG-430A' => {
-					   -name => 'HT_MG-430A',
-					   -vendor => 'AFFY',
-					   -format  => 'EXPRESSION',
-					   -type    => 'OLIGO',
-					   #-description => '',
-					   -class   => 'AFFY_UTR',
-					  },
+	  #Drosophila
+	  'DrosGenome1' => {-name => 'DrosGenome1',
+						-vendor => 'AFFY',
+						-format  => 'EXPRESSION',
+						-type    => 'OLIGO',
+						#-description => '',
+						-class   => 'AFFY_UTR'},
+	  
+	  'Drosophila_2' => {-name => 'Drosophila_2',
+						-vendor => 'AFFY',
+						-format  => 'EXPRESSION',
+						-type    => 'OLIGO',
+						#-description => '',
+						-class   => 'AFFY_UTR'},
+	  	
 
-	
-	
 	  #Yeast
 	  'S_aureus' => {
 					 -name => 'S_aureus',
