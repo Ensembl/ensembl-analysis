@@ -161,6 +161,83 @@ use vars qw( %Config );
 
 	  #Remove all the redundant values and set them in ImportArrays?
 
+	  #Rat
+
+	     'RAE230A' => {
+					   -name => 'RAE230A',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+
+	     'RAE230B' => {
+					   -name => 'RAE230B',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+     'Rat230_2' => {
+					   -name => 'Rat230_2',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+
+
+	     'RG-U34A' => {
+					   -name => 'RG-U34A',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+   'RG-U34B' => {
+					   -name => 'RG-U34B',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+   'RG-U34C' => {
+					   -name => 'RG-U34C',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+	     'RN-U34' => {
+					   -name => 'RN-U34',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+
+	     'RT-U34' => {
+					   -name => 'RT-U34',
+					   -vendor => 'AFFY',
+					   -format  => 'EXPRESSION',
+					   -type    => 'OLIGO',
+					   #-description => '',
+					   -class   => 'AFFY_UTR',
+					 },
+
+
 	  #Human
 	
 	   'HC-G110' => {
