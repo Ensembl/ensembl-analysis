@@ -367,17 +367,17 @@ sub filter_features {
   foreach my $probe_id (keys %hits_by_probe) {
     my @hits = @{$hits_by_probe{$probe_id}};
 	my $num_hits = scalar(@hits);
+	my $all_hits = $num_hits;
 	
 	if ($num_hits > $max_hits) {
 	  @hits = grep { $_->mismatchcount == 0 } @hits;
 	  $num_hits = scalar(@hits);
-	  
+  
 	  if ($num_hits <= $max_hits) {
-		warn "Keeping only perfect matches to $probe_id\n";
+		warn "Keeping only perfect matches($num_hits/$all_hits) to $probe_id. Do we need to capture this in UnmappedObject?\n";
 	  } 
 	  else {
-		warn "Too many hits to $probe_id so rejecting all hits\n";
-		$num_hits = 0;	
+		warn "Too many hits($num_hits|$all_hits/$max_hits) to $probe_id so rejecting all hits\n";
 		#So we have issues with what we consider for transcript mapping.
 		#If it has failed genomic mapping then we currently do not consider if for xrefing.
 		#But it may only map to one transcript, but all over the genome
@@ -390,7 +390,8 @@ sub filter_features {
 		#This is true for affy but maybe not for other arrays
 		#The simple way to do this is to pull back the array names using the probe_id and direct sql
 		#This means yet another call for each unmapped probe
-		#push @{$self->unmapped_objects},	
+		#push @{$self->unmapped_objects},
+
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
 							-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript
@@ -402,6 +403,9 @@ sub filter_features {
 							-summary    => 'Promiscuous probe',
 							-full_desc  => "Probe exceeded maximum allowed number of $mapping_type mappings(${num_hits}/${max_hits})"
 						   ));
+
+		
+		$num_hits = 0;
 	  }
 	} 
 	elsif($num_hits == 0){#Both ProbeAlign and ProbeTranscriptAlign
@@ -425,6 +429,7 @@ sub filter_features {
 	}
 
 	if($num_hits) {
+	  warn "Pushing $num_hits";
       push @kept_hits, @hits;
     }
   }
