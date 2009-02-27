@@ -267,16 +267,12 @@ sub run {
   throw("Can't run - no runnable objects") unless ( $self->runnable );
 
   my $runnable = @{ $self->runnable }[0];
-  
   $runnable->run;
-
-  my $features = $self->filter_features($runnable->output);
-
-  #Why are we setting this in two attrs?
+  
   #These must be used in the rule_manager.pl
   #Which is where write_output must also be called ffrom
   #$self->output($features);#Moved this after filter/set_probe so we get the write output reported
-  $self->features($features);
+  $self->features($self->filter_features($runnable->output));
 }
 
 ############################################################
@@ -339,14 +335,10 @@ sub filter_features {
   my $mapping_type = $self->mapping_type;
   my $max_hits     = $self->HIT_SATURATION_LEVEL;#default is 100
   my $uo_adaptor   = $self->outdb->get_UnmappedObjectAdaptor;
-
   #We don't really want one for every logic name, 
   #so let's simplify this to just ProbeAlign and ProbeTranscriptAlign
   my $uo_type;
   ($uo_type = $logic_name) =~ s/^.*_//;
-
-
-
 
   #This is tricky
   #We may map something >100 times to the genome but only a few times to transcripts.
@@ -367,11 +359,8 @@ sub filter_features {
   
 
   foreach my $hit (@$features) {
-
-
 	#we need to capture first an dlast transcript ID's to
 	#enable cleaning of potential duplicates
-
 	push @{$hits_by_probe{$hit->probe_id}}, $hit;
   }
 
@@ -379,39 +368,29 @@ sub filter_features {
     my @hits = @{$hits_by_probe{$probe_id}};
 	my $num_hits = scalar(@hits);
 	
-	#if($logic_name eq 'ProbeAlign'){
-	#Only ProbeAlign as we do no use HIT_SATURATION_LEVEL for ProbeTranscriptAlign
-
-	if (scalar(@hits) > $max_hits) {
+	if ($num_hits > $max_hits) {
 	  @hits = grep { $_->mismatchcount == 0 } @hits;
-
 	  $num_hits = scalar(@hits);
 	  
-	  if (scalar(@hits) <= $max_hits) {
+	  if ($num_hits <= $max_hits) {
 		warn "Keeping only perfect matches to $probe_id\n";
-		push @kept_hits, @hits;
-	  } else {
+	  } 
+	  else {
 		warn "Too many hits to $probe_id so rejecting all hits\n";
-			
+		$num_hits = 0;	
 		#So we have issues with what we consider for transcript mapping.
 		#If it has failed genomic mapping then we currently do not consider if for xrefing.
 		#But it may only map to one transcript, but all over the genome
 		#We don't store the genomic mappings, but maybe we should store the transcript mapping which we can then warn against using the unmapped object info from the genomic mapping.
 		#Okay, so now we don't have interdepedancy of the mapping steps
 		
-		
-
 		#We need to grab the external_db_id here if there is only one
 		#Leave blank if this exists in multiple DBs e.g. affy 3' UTR designs
 		#This assumes that the same ID in two different DBs are the same entity
 		#This is true for affy but maybe not for other arrays
 		#The simple way to do this is to pull back the array names using the probe_id and direct sql
 		#This means yet another call for each unmapped probe
-		
-
-		#push @{$self->unmapped_objects},
-
-	
+		#push @{$self->unmapped_objects},	
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
 							-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript
@@ -425,14 +404,9 @@ sub filter_features {
 						   ));
 	  }
 	} 
-	#}
-	
-	#Both ProbeAlign and ProbeTranscriptAlign
-	if($num_hits == 0){
- 
-	  #Very unlikely, and probably only ProbeTranscriptAlign
+	elsif($num_hits == 0){#Both ProbeAlign and ProbeTranscriptAlign
+ 	  #Very unlikely, and probably only ProbeTranscriptAlign
 	  #push @{$self->unmapped_objects},	
-
 	  #We want to an external_db_id here for if this is Trancsript
 	  #What about genomic mapping?
 	  #Yes we need to reimplement species DB?
@@ -449,7 +423,8 @@ sub filter_features {
 						  -full_desc  => "Probe has no $mapping_type mappings",
 						 ));
 	}
-	else {
+
+	if($num_hits) {
       push @kept_hits, @hits;
     }
   }
