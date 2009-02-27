@@ -512,6 +512,30 @@ use vars qw( %Config );
 					},
 	 	 
 	 ARRAY_PARAMS => {
+
+					  #Rat
+					  'RaEx-1_0-st-v1' => {
+										   -name => 'RaEx-1_0-st-v1',
+										   -vendor => 'AFFY',
+											 #-setsize => undef,
+											 -format  => 'EXPRESSION',
+											 -type    => 'OLIGO',
+											 #-description => '',
+											 -class   => 'AFFY_ST',
+											},
+
+					  
+					  'RaGene-1_0-st-v1' => {
+											 -name => 'RaGene-1_0-st-v1',
+											 -vendor => 'AFFY',
+											 #-setsize => undef,
+											 -format  => 'EXPRESSION',
+											 -type    => 'OLIGO',
+											 #-description => '',
+											 -class   => 'AFFY_ST',
+											},
+
+
 					  #Human
 					   'HuGene-1_0-st-v1' => {
 											 -name => 'HuGene-1_0-st-v1',
