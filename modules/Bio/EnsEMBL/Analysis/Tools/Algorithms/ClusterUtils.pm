@@ -39,7 +39,7 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 
 
 sub cluster_Genes {
-  my ($genes, $types_hash, $check_coding_overlap) = @_ ;
+  my ($genes, $types_hash, $check_coding_overlap, $ignore_strand) = @_ ;
 
   #
   # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton' 
@@ -133,7 +133,7 @@ sub cluster_Genes {
             # and add to cluster  
             #
 
-            if (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap)) {
+            if (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand)) {
               push (@matching_clusters, $cluster);
               next CLUSTER;
             }
@@ -152,23 +152,23 @@ sub cluster_Genes {
     # 
 
     if (scalar(@matching_clusters) == 0) {
-      my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
+      my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new($ignore_strand);
       foreach my $set_name (keys %$types_hash) {
         $newcluster->gene_Types($set_name,$types_hash->{$set_name});
       }
-      $newcluster->put_Genes($gene);
+      $newcluster->put_Genes($ignore_strand, $gene);
       push(@active_clusters,$newcluster);
 
       #
       # if above was found ONE matching cluster
       #
     } elsif (scalar(@matching_clusters) == 1) {
-      $matching_clusters[0]->put_Genes($gene);
+      $matching_clusters[0]->put_Genes($ignore_strand, $gene);
 
     } else {
       # Merge the matching clusters into a single cluster
       my @new_clusters;
-      my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
+      my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new($ignore_strand);
 
       foreach my $set_name (keys %$types_hash) {
         $merged_cluster->gene_Types($set_name,$types_hash->{$set_name});
@@ -176,10 +176,10 @@ sub cluster_Genes {
 
       my %match_cluster_hash;
       foreach my $clust (@matching_clusters) {
-        $merged_cluster->put_Genes($clust->get_Genes);
+        $merged_cluster->put_Genes($ignore_strand, $clust->get_Genes);
         $match_cluster_hash{$clust} = $clust;
       }
-      $merged_cluster->put_Genes($gene);
+      $merged_cluster->put_Genes($ignore_strand, $gene);
       push @new_clusters,$merged_cluster;
 
       # Add back non matching clusters
@@ -222,7 +222,7 @@ Source : Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison;
 
 
 sub _compare_Genes {
-  my ($gene1,$gene2,$translate) = @_;
+  my ($gene1,$gene2,$translate, $ignore_strand) = @_;
   # quit if genes do not have genomic overlap 
   #
   # start-------gene1------end   start--------gene2----------end
@@ -244,9 +244,16 @@ sub _compare_Genes {
     my $exons2 = get_coding_exons_for_gene($gene2);
     foreach my $exon1 (@$exons1) {
       foreach my $exon2 (@$exons2) {
-        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
-          #print "Passed CDS overlap check - returning 1\n";
-          return 1;
+        if (!$ignore_strand) {
+          if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+            #print "Passed CDS overlap check - returning 1\n";
+            return 1;
+          }
+        } else {
+          # we ignore strand
+          if ($exon1->overlaps($exon2)){
+            return 1;
+          }
         }
       }
     }
@@ -256,9 +263,17 @@ sub _compare_Genes {
     #
     foreach my $exon1 (@{$gene1->get_all_Exons}){
       foreach my $exon2 (@{$gene2->get_all_Exons}){
-        if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
-          #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
-          return 1;
+        if (!$ignore_strand) {
+          if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+            #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
+            return 1;
+          }
+        } else {
+          # we ignore strand
+          if ($exon1->overlaps($exon2)){
+            #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
+            return 1;
+          }
         }
       }
     }
