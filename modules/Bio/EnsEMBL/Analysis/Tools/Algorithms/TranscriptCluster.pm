@@ -147,6 +147,7 @@ sub length{
   Function: get/set the strand of the transcripts in the cluster.
             The strand is set in put_Transcripts when the first transcript is added to the cluster, in that
             that method there is also a check for strand consistency everytime a new transcript is added
+            Returns 0/undef when strand not set
   Returns : the strandidness (-1, 0, +1)
   Args    : optionaly allows the strand to be set
         
@@ -242,7 +243,7 @@ want them to return a new TranscriptCluster object.
 =cut
 
 sub intersection{
-  my ($self, $cluster) = @_;
+  my ($self, $cluster, $ignore_strand) = @_;
 
   # if either is empty, return an empty cluster
   if ( scalar( $self->get_Transcripts) == 0 ){
@@ -272,7 +273,7 @@ sub intersection{
   my ($start1,$end1) = ($self->start   ,   $self->end);
   my ($start2,$end2) = ($cluster->start,$cluster->end);
 
-  my $strand = $cluster->strand;
+  # my $strand = $cluster->strand;
 
   # if clusters overlap, calculate the intersection
   if ( $self->overlaps( $cluster ) ){
@@ -293,7 +294,7 @@ sub intersection{
   foreach my $transcript ( @transcripts ){
     my ($start,$end) = $self->_get_start_end($transcript);
     if ($start >= $inter_start && $end <= $inter_end ){
-       $inter_cluster->put_Transcripts( $transcript );
+       $inter_cluster->put_Transcripts( $ignore_strand, $transcript );
     }
   }
 
@@ -319,7 +320,7 @@ sub intersection{
 =cut
 
 sub union{
-my ($self,@clusters) = @_;
+my ($self,@clusters, $ignore_strand) = @_;
 
 if ( ref($self) ){
  unshift @clusters, $self;
@@ -335,7 +336,7 @@ foreach my $cluster (@clusters){
  unless ( $cluster->strand == $union_strand){
   warning("You're making the union of clusters in opposite strands");
  }
- $union_cluster->put_Transcripts($cluster->get_Transcripts);
+ $union_cluster->put_Transcripts($ignore_strand, $cluster->get_Transcripts);
 }
 
 return $union_cluster;
@@ -353,7 +354,7 @@ return $union_cluster;
 =cut
 
 sub put_Transcripts {
-  my ($self, @new_transcripts)= @_;
+  my ($self, $ignore_strand, @new_transcripts)= @_;
   throw("Can't add no transcripts to ".$self) if(!@new_transcripts || !$new_transcripts[0]);
   if ( !$new_transcripts[0]->isa('Bio::EnsEMBL::Transcript') ){
     throw( "Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
@@ -363,6 +364,7 @@ sub put_Transcripts {
   my $min_start = undef;
   my $max_end   = undef;
   foreach my $transcript (@new_transcripts) {
+    print "got transcript ".$transcript->stable_id."\n";
     my ($start, $end) = $self->_get_start_end($transcript);
     if (!defined($min_start) || $start < $min_start) {
       $min_start = $start;
@@ -374,12 +376,16 @@ sub put_Transcripts {
 
   # check strand consistency among transcripts
   foreach my $transcript (@new_transcripts){
-    my @exons = @{$transcript->get_all_Exons};
-    unless ( $self->strand ){
-      $self->strand( $exons[0]->strand );
-    }
-    if ( $self->strand != $exons[0]->strand ){
-      warning( "You're trying to put $transcript in a cluster of opposite strand");
+    if (!$ignore_strand) {
+      my @exons = @{$transcript->get_all_Exons};
+      unless ( $self->strand ){
+        $self->strand( $exons[0]->strand );
+      }
+      if ( $self->strand != $exons[0]->strand ){
+        warning( "You're trying to put $transcript in a cluster of opposite strand");
+      }
+    } else {
+      # we can ignore the strand, and do nothing
     }
   }
 
@@ -503,7 +509,7 @@ sub get_biotypes_included {
 
 
 sub get_ExonCluster {
-  my ( $self ) = @_;
+  my ( $self , $ignore_strand) = @_;
   my @clusters;
 
   foreach my $trans (@{$self->get_Transcripts}) {
@@ -534,12 +540,12 @@ sub get_ExonCluster {
 
         my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
-        $newcluster->add_exon($exon,$trans);
+        $newcluster->add_exon($exon,$trans,$ignore_strand);
         push(@clusters,$newcluster);
 
       } elsif (scalar(@matching_clusters) == 1) {
          #print STDERR "Adding to cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
-        $matching_clusters[0]->add_exon($exon,$trans);
+        $matching_clusters[0]->add_exon($exon,$trans, $ignore_strand);
       } else {
          # Merge the matching clusters into a single cluster
         print STDERR "Merging clusters for " . $exon->dbID ."\n";
@@ -547,9 +553,9 @@ sub get_ExonCluster {
         my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
         foreach my $clust (@matching_clusters) {
-          $merged_cluster->merge($clust);
+          $merged_cluster->merge($clust, $ignore_strand);
         }
-        $merged_cluster->add_exon($exon,$trans);
+        $merged_cluster->add_exon($exon,$trans, $ignore_strand);
         push @new_clusters,$merged_cluster;
 
         # Add back non matching clusters
@@ -581,7 +587,7 @@ sub get_ExonCluster {
 }
 
 sub get_ExonCluster_using_all_Exons{
-  my ( $self ) = @_;
+  my ( $self, $ignore_strand) = @_;
   my @clusters;
 
   foreach my $trans (@{$self->get_Transcripts}) {
@@ -598,10 +604,15 @@ sub get_ExonCluster_using_all_Exons{
          $cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\t";
         if (!($exon->start >= $cluster->end ||
               $exon->end <= $cluster->start)) {
-           if ($cluster->strand eq $exon->strand ){
-              push (@matching_clusters, $cluster);
-              #print "cl. matches " .$cluster->strand ."\t" .$exon->strand . "\t" .$trans->strand ."\n" ;
-           }
+          if (!$ignore_strand) {
+             if ($cluster->strand eq $exon->strand ){
+                push (@matching_clusters, $cluster);
+                #print "cl. matches " .$cluster->strand ."\t" .$exon->strand . "\t" .$trans->strand ."\n" ;
+             }
+          } else {
+            # ignore strand; do nothing
+            push (@matching_clusters, $cluster);
+          }
         }
         #print "\n";
       }
@@ -612,13 +623,13 @@ sub get_ExonCluster_using_all_Exons{
 
         my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
-        $newcluster->add_exon($exon,$trans);
+        $newcluster->add_exon($exon,$trans, $ignore_strand);
         push(@clusters,$newcluster);
 
       } elsif (scalar(@matching_clusters) == 1) {
         # print STDERR "Adding to cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
         #$matching_clusters[0]->add_exon($exon,$trans);
-        $matching_clusters[0]->add_exon_if_not_present($exon,$trans);
+        $matching_clusters[0]->add_exon_if_not_present($exon,$trans, $ignore_strand);
       } else {
          # Merge the matching clusters into a single cluster
         print STDERR "Merging clusters for " . $exon->dbID ."\n";
@@ -626,9 +637,9 @@ sub get_ExonCluster_using_all_Exons{
         my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
         foreach my $clust (@matching_clusters) {
-          $merged_cluster->merge_new_exon($clust);
+          $merged_cluster->merge_new_exon($clust, $ignore_strand);
         }
-        $merged_cluster->add_exon_if_not_present($exon,$trans);
+        $merged_cluster->add_exon_if_not_present($exon,$trans, $ignore_strand);
         push @new_clusters,$merged_cluster;
 
         # Add back non matching clusters
@@ -652,7 +663,7 @@ sub get_ExonCluster_using_all_Exons{
   return @clusters;
 }
 sub get_coding_ExonCluster{
-  my ( $self ) = @_;
+  my ( $self, $ignore_strand ) = @_;
   my @clusters;
 
   foreach my $trans (@{$self->get_Transcripts}) {
@@ -666,13 +677,18 @@ sub get_coding_ExonCluster{
 
       CLUSTER: foreach my $cluster (@clusters) {
         # print "Testing against cluster with limits " . 
-         $cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\t";
+         # $cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\t";
         if (!($exon->start >= $cluster->end ||
               $exon->end <= $cluster->start)) {
-           if ($cluster->strand eq $exon->strand ){
-              push (@matching_clusters, $cluster);
-              #print "cl. matches " .$cluster->strand ."\t" .$exon->strand . "\t" .$trans->strand ."\n" ;
-           }
+           if (!$ignore_strand) {
+             if ($cluster->strand eq $exon->strand ){
+                push (@matching_clusters, $cluster);
+                #print "cl. matches " .$cluster->strand ."\t" .$exon->strand . "\t" .$trans->strand ."\n" ;
+             }
+          } else {
+            # we don't care if exons are on different strands
+            push (@matching_clusters, $cluster);
+          }
         }
         #print "\n";
       }
@@ -683,13 +699,13 @@ sub get_coding_ExonCluster{
 
         my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
-        $newcluster->add_exon($exon,$trans);
+        $newcluster->add_exon($exon,$trans, $ignore_strand);
         push(@clusters,$newcluster);
 
       } elsif (scalar(@matching_clusters) == 1) {
         # print STDERR "Adding to cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
         #$matching_clusters[0]->add_exon($exon,$trans);
-        $matching_clusters[0]->add_exon_if_not_present($exon,$trans);
+        $matching_clusters[0]->add_exon_if_not_present($exon,$trans, $ignore_strand);
       } else {
          # Merge the matching clusters into a single cluster
         print STDERR "Merging clusters for " . $exon->dbID ."\n";
@@ -697,9 +713,9 @@ sub get_coding_ExonCluster{
         my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
         foreach my $clust (@matching_clusters) {
-          $merged_cluster->merge_new_exon($clust);
+          $merged_cluster->merge_new_exon($clust, $ignore_strand);
         }
-        $merged_cluster->add_exon_if_not_present($exon,$trans);
+        $merged_cluster->add_exon_if_not_present($exon,$trans, $ignore_strand);
         push @new_clusters,$merged_cluster;
 
         # Add back non matching clusters
@@ -724,7 +740,7 @@ sub get_coding_ExonCluster{
 }
 
 sub get_IntronClusters {
-  my ( $self ) = @_;
+  my ( $self , $ignore_strand) = @_;
   my @clusters;
 
   foreach my $trans (@{$self->get_Transcripts}) {
@@ -745,10 +761,14 @@ sub get_IntronClusters {
         # print "Testing against cluster with limits " . 
         # $cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\n";
         if ($intron->start == $cluster->start && $intron->end == $cluster->end) {
-           if ($cluster->strand eq $intron->strand ){
-              push (@matching_clusters, $cluster);
-              #print "cl. matches " .$cluster->strand ."\t" .$intron_strand . "\t" .$trans->strand ."\n" ;
-           }
+          if (!$ignore_strand) {
+             if ($cluster->strand eq $intron->strand ){
+                push (@matching_clusters, $cluster);
+                #print "cl. matches " .$cluster->strand ."\t" .$intron_strand . "\t" .$trans->strand ."\n" ;
+             }
+          } else {
+            push (@matching_clusters, $cluster);
+          }
         }
         #print "\n";
       }
