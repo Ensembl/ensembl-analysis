@@ -53,13 +53,15 @@ $self->{'_prediction_genes'}
 =cut
 
 sub new {
-  my ($class,$whatever)=@_;
+  my ($class,$ignore_strand, $whatever)=@_;
 
   if (ref($class)){
     $class = ref($class);
   }
   my $self = {};
   bless($self,$class);
+
+  $self->{_ignore_strand} = $ignore_strand;
 
   if ($whatever){
     throw( "Can't pass an object to new() method. Use put_Genes() to include Bio::EnsEMBL::Gene in cluster");
@@ -68,6 +70,7 @@ sub new {
   $self->{_cached_start}  = undef;
   $self->{_cached_end}    = undef;
   $self->{_cached_strand} = undef;
+  
   $self->{v} = 0 ; # verbosity 
   return $self;
 }
@@ -82,15 +85,14 @@ sub new {
 =cut
 
 sub put_Genes {
-  my ($self, @new_genes)= @_;
+  my ($self, $ignore_strand, @new_genes)= @_;
   if ( !defined( $self->{'_types_sets'} ) ){
     throw( "Cluster lacks references to gene-types, unable to put the gene");
   }
 
-
  GENE:
   foreach my $gene (@new_genes){
-    throw("undef for gene") if (!$gene);
+    throw("undef for gene. Cannot put_Genes") if (!$gene);
 
     my $gene_biotype = $gene->biotype;
 
@@ -114,10 +116,13 @@ sub put_Genes {
               $self->{_cached_end} = $gene_end;
             }
           }
-          if (defined($self->{_cached_strand})) {
-            my $gene_strand = $gene->start;
-            if ($gene_strand != $self->{_cached_strand}) {
-              throw("You have a cluster with genes on opposite strands");
+          if (!$self->{_ignore_strand}) {
+          #if (!$ignore_strand) {
+            if (defined($self->{_cached_strand})) {
+              my $gene_strand = $gene->start;
+              if ($gene_strand != $self->{_cached_strand}) {
+                throw("You have a cluster with genes on opposite strands");
+              }
             }
           }
           next GENE; 
@@ -205,6 +210,11 @@ sub get_all_Exons {
 
 sub strand{
   my $self = shift;
+
+  if ($self->{_ignore_strand}) {
+    print "Strand called, but ignoring\n";
+    return 0;
+  }
 
   if (!defined($self->{_cached_strand})) {
     my @genes = $self->get_Genes;
@@ -304,7 +314,7 @@ sub get_Genes_by_Set() {
   } 
   if (!defined($self->{'_gene_sets'}{$set})) {
     # throw("No genes of set name $set");
-    warning("No genes of set name $set in cluster");
+    #warning("No genes of set name $set in cluster");
   }else{
     push @selected_genes, @{$self->{'_gene_sets'}{$set}};
   }
@@ -484,20 +494,25 @@ sub end{
 =cut
 
 sub get_exon_clustering_from_gene_cluster {
-  my ($self) = @_ ;
+  my ($self, $ignore_strand) = @_ ;
 
   my @clg  = sort {$a->start <=> $b->start} $self->get_Genes ;
 
   # building Transcript-Cluster 
   #my $tc = genes_to_Transcript_Cluster(\@clg);
-  my $tc = $self->get_TranscriptCluster ; 
+  my $tc = $self->get_TranscriptCluster ($ignore_strand); 
 
-  my @exon_clusters = $tc->get_ExonCluster_using_all_Exons() ; 
+  my @exon_clusters = $tc->get_ExonCluster_using_all_Exons($ignore_strand) ; 
 
-  if ($tc->strand eq '1') {
+  if (defined $tc->strand && $tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
-  } else {
+  } elsif (defined $tc->strand && $tc->strand eq '-1') {
     @exon_clusters = sort { $b->start <=> $a->start } @exon_clusters ;
+  } else {
+    # for cases where TranscriptCluster does not have strand defined
+    # then cluster as for (+) strand
+    warning("TranscriptCluster's strand is not defined. Are you ignoring strand?");
+    @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
   }
   return \@exon_clusters ;
 }
@@ -515,20 +530,25 @@ sub get_exon_clustering_from_gene_cluster {
 =cut
 
 sub get_coding_exon_clustering_from_gene_cluster {
-  my ($self) = @_ ;
+  my ($self, $ignore_strand) = @_ ;
 
   my @clg  = sort {$a->start <=> $b->start} $self->get_Genes ;
 
   # building Transcript-Cluster 
   #my $tc = genes_to_Transcript_Cluster(\@clg);
-  my $tc = $self->get_coding_TranscriptCluster ; 
+  my $tc = $self->get_coding_TranscriptCluster ($ignore_strand); 
 
-  my @exon_clusters = $tc->get_coding_ExonCluster() ; 
+  my @exon_clusters = $tc->get_coding_ExonCluster($ignore_strand) ; 
 
-  if ($tc->strand eq '1') {
+  if (defined $tc->strand && $tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
-  } else {
+  } elsif (defined $tc->strand && $tc->strand eq '-1') {
     @exon_clusters = sort { $b->start <=> $a->start } @exon_clusters ;
+  } else {
+    # for cases where TranscriptCluster does not have strand defined
+    # then cluster as for (+) strand
+    warning("TranscriptCluster's strand is not defined. Are you ignoring strand?");
+    @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
   }
   return \@exon_clusters ;
 }
@@ -546,7 +566,7 @@ sub get_coding_exon_clustering_from_gene_cluster {
 =cut
 
 sub get_TranscriptCluster {
-  my ($self) = @_;
+  my ($self, $ignore_strand) = @_;
   #my ($genes_or_predTrans) = @_;
 
   my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
@@ -573,21 +593,21 @@ sub get_TranscriptCluster {
         $trans->biotype($gene->biotype) ;
         #$trans->sort;
         print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
-        $tc->put_Transcripts($trans);
+        $tc->put_Transcripts($ignore_strand, $trans);
         $tc->register_biotype($gene->biotype) ;
       }
     } else {
       # is not a Bio::EnsEMBL::Gene  
       warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
       $gene->sort ;
-      $tc->put_Transcripts($gene) ;
+      $tc->put_Transcripts($ignore_strand, $gene) ;
     }
   }
   return $tc;
 }
 
 sub get_coding_TranscriptCluster {
-  my ($self) = @_;
+  my ($self, $ignore_strand) = @_;
   #my ($genes_or_predTrans) = @_;
 
   my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
@@ -616,14 +636,14 @@ sub get_coding_TranscriptCluster {
         print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
         # keep the type sets
         $tc->{'_types_sets'} = $self->{'_types_sets'};
-        $tc->put_Transcripts($trans);
+        $tc->put_Transcripts($ignore_strand, $trans);
         $tc->register_biotype($gene->biotype) ;
       }
     } else {
       # is not a Bio::EnsEMBL::Gene  
       warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
       $gene->sort ;
-      $tc->put_Transcripts($gene) ;
+      $tc->put_Transcripts($ignore_strand, $gene) ;
     }
   }
   return $tc;
