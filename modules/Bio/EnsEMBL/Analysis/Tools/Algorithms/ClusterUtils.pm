@@ -60,8 +60,14 @@ sub cluster_Genes {
   my @sorted_genes =
           sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$genes;
 
-  print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;
-
+  print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;  
+  # select count(*) , g.biotype from gene g left join transcript t on g.gene_id = t.gene_id where isnull(t.gene_id ) group by g.biotype  ;
+  for ( @sorted_genes ) {  
+     my $tr = scalar ( @{$_->get_all_Transcripts} ) ;   
+    if ( $tr == 0 ) {
+      throw("data error - gene with gene_id " . $_->dbID ." biotype " . $_->biotype .  " does not have any associated transcripts \n") ;  
+    }
+  } 
   my $count = 0;
 
   my @active_clusters;
