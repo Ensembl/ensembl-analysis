@@ -75,7 +75,7 @@ sub new {
 =cut
 
 sub put_Introns {
-  my ($self, $new_introns, $transcript)= @_;
+  my ($self, $new_introns, $transcript, $ignore_strand)= @_;
   if ( !defined( $self->{'_types_sets'} ) ){
     throw( "Cluster lacks references to intron-types, unable to put the intron");
   }
@@ -106,9 +106,11 @@ sub put_Introns {
               throw("Failed putting intron: end");
             }
           }
-          if (defined($self->{_cached_strand})) {
-            if ($intron->strand != $self->{_cached_strand}) {
-              throw("Failed putting intron: strand");
+          if (!$ignore_strand) {
+            if (defined($self->{_cached_strand})) {
+              if ($intron->strand != $self->{_cached_strand}) {
+                throw("Failed putting intron: strand");
+              }
             }
           }
           next INTRON; 
