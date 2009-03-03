@@ -151,6 +151,15 @@ sub new {
 
 	$self->outdb->db_handle->do($insert_sql);	
 	($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
+
+	#Now test again just to make sure the db_name fits!
+	
+	($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
+
+	if(! $extdb_id){
+	  throw("Failed to store external_db properly:\t$db_name $schema_build");
+	}
+
   }
 
   $self->{'_external_db_id'} = $extdb_id;
@@ -268,6 +277,21 @@ sub run {
 
   my $runnable = @{ $self->runnable }[0];
   $runnable->run;
+
+
+  #Can we rollback individual chunk output here
+  #so we never duplicate output
+  #If job fails we currently don't know whether it failed before storing any unmapped objects
+  #Can we do this optionally by setting an env var?
+  #We would set this in SubmitAlign via a parameter
+  #We need to set this in the config to maintain decoupling between the environment and the RunnableDB
+  #Could we record a status in the eFG DB to track this?
+  #Don't need both?
+  #does not fit with efg status as is not a table, but could be hijacked quite easily?
+  #Let's just set this manually. You will have to reset the jobs, so we could add a warning here to use the appropriate flag?
+  
+
+
   
   #These must be used in the rule_manager.pl
   #Which is where write_output must also be called ffrom
@@ -429,8 +453,7 @@ sub filter_features {
 	}
 
 	if($num_hits) {
-	  warn "Pushing $num_hits";
-      push @kept_hits, @hits;
+	  push @kept_hits, @hits;
     }
   }
 
