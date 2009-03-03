@@ -131,6 +131,8 @@ FEATURE:  foreach my $f (@$flist) {
     
     my $trans_id;
     my $accept = 0;
+    
+    $accept = 1 unless  $self->INTRON_OVERLAP or $self->INTRON_MODELS ;
 
     if ($f->seqname =~ /\S+\:\S+\:(\S+)\:\d+\:\d+:\d+/ ) {
       $trans_id = $1;
@@ -150,7 +152,7 @@ FEATURE:  foreach my $f (@$flist) {
       # make a hash with the positions of the exon boundaries
       # check first if you have already stored it though, no need to 
       # make more than is needed
-      unless ( $self->exon_starts($trans->display_id) && $self->exon_ends($trans->display_id) ){
+	unless ( $self->exon_starts($trans->display_id) && $self->exon_ends($trans->display_id) ){
 	my %exon_starts;
 	my %exon_ends;
 	foreach my $e ( @{$trans->get_all_Exons} ) {
@@ -163,7 +165,7 @@ FEATURE:  foreach my $f (@$flist) {
       my $ee = undef;
       my $es = undef;
       # scan along the read and look for overlaps with the exon boundaries
-      for ( my $ i = $f->start ; $i <= $f->end ; $i++ ){
+      for ( my $i = $f->start ; $i <= $f->end ; $i++ ){
 	# exon end position within the feature;
 	$ee = $i - $f->start if $self->exon_ends($trans->display_id)->{$i};
 	# next exon start position within the feature
@@ -224,6 +226,7 @@ FEATURE:  foreach my $f (@$flist) {
 	  }
 	}
       }
+      @features = sort { $a->start <=> $b->start } @features;
       my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
       # corect for hstart end bug
       $feat->hstart($f->hstart);
