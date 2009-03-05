@@ -238,6 +238,28 @@ use vars qw( %Config );
 	},		  
 	
 
+
+	#CODELINK are 30mers
+	CODELINK_WG_PROBEALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CODELINK.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 15 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	},		  
+
+	CODELINK_WG_PROBETRANSCRIPTALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CODELINK.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 15 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	},	
+
+
+
 	AFFY_UTR_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},

@@ -658,12 +658,39 @@ use vars qw( %Config );
 	},
 
 
-	
-
-	#ILLUMINA
-	#ILLUMINA_V1
-	#ILLUMINA_V2
 	#CODELINK
+
+		IMPORT_ILLUMINA_WG_ARRAYS => 
+	{
+	 IIDREGEXP => '^>(\S+):(\S+).*$',
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 #-probe_set   => 2,#This could be annotation
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  
+					  'CODELINK' => {
+										 -name => 'CODELINK',
+										 -vendor => 'CODELINK',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'CODELINK',
+										},
+					  
+					 },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
+
+
+
+
 	#AGILENT
 	#?
    
