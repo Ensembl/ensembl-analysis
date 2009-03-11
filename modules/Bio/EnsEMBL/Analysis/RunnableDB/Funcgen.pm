@@ -98,15 +98,21 @@ sub read_and_check_config {
     # then get config for pipeline analysis (individual experiment settings,
     # like RESULT_SET_REGEXP)
     
+
+	#NJ Must define dnadb first and pass to efgdb during creation
+	#This is to avoid errors when autoguessing the dnadb from ensembldb
+	if($self->DNADB->{-dbname}){
+	  $self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
+	}
+
     # Make sure we have the correct DB adaptors!!!
-    $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(%{ $self->EFGDB }));
+    $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new
+				 (
+				  %{ $self->EFGDB },
+				  -dnadb => $self->dnadb,
+				 ));
 
-    # In the production case we might need to make sure we have also the right DNAdb
-    # that is comfigured in the config file
-    $self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
-    $self->efgdb->dnadb($self->dnadb);
-    #print Dumper ($self->dnadb, $self->efgdb);
-
+   
     # Set analysis
     my $efg_analysis = new Bio::EnsEMBL::Analysis( -logic_name => $self->analysis->logic_name );
     $self->efg_analysis($efg_analysis);
