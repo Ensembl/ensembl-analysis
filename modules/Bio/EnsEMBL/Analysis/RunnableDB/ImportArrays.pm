@@ -307,19 +307,20 @@ sub add_array_chip_to_existing_probe{
 
   #Is this not all done by Probe::add_array_chip_probename?
 
-  my $name = $probe->get_probename($array_chip->get_Array->name);
+  #my $name = $probe->get_probename($array_chip->get_Array->name);
 
-  if($name){
+  #if($name){
 
-	if($name eq $probename){
-	  throw("Found duplicate fasta records for:\y".$array_chip->get_Array->name.':'.$probe->probe_set->name.':'.$name);
-	}
-	else{
-	  throw('Found probeset('.$probe->probe_set->name.") with duplicate probe sequence for probes $probename and $name\n".
-			'Need to alter probe to allow probe duplicates or create separate probes in ImportArrays?');
-	}
-  }
-
+#	if($name eq $probename){
+#	  throw("Found duplicate fasta records for:\y".$array_chip->get_Array->name.':'.$probeset.':'.$name);
+#	}
+#	else{
+#	  throw('Found probeset('.$probeset.")  on Array(".$array_chip->get_Array->name.
+#			") with duplicate probe sequence for probes $probename and $name\n".
+#			'Need to alter Probe/Adaptor to allow probe duplicates or create separate probes in ImportArrays?');
+#	}
+#  }
+# #MSG: Found probeset(AF012129_at)  on Array(Mu11LsubA) with duplicate probe sequence for probes 251:249; and 241:249;
   $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->get_Array);
 }
 
@@ -424,10 +425,8 @@ sub write_output {
   open (OUTFILE, ">".$outfile) || throw("Failed to open ouput file:\t".$outfile);
     
   #Store all probes
-  foreach my $probeset(keys %{$self->probes}){
-	
+  foreach my $probeset(keys %{$self->probes}){	
 	my %probes = %{$self->probes->{$probeset}};
-
 
 	if($probeset){
 	  $probeset = Bio::EnsEMBL::Funcgen::ProbeSet->new
@@ -437,16 +436,12 @@ sub write_output {
 		 #-array_chip => #do we need to add array_chip_id to the probeset table?
 		 #-family => ?,
 		);
-
 	  ($probeset) = @{$probeset_adaptor->store($probeset)};
-	}
-	else{
-	  undef $probeset;
 	}
 
 	foreach my $sequence(keys %probes){
 	  my $probe = $probes{$sequence};
-	  $probe->probeset($probeset);
+	  $probe->probeset($probeset) if $probeset;
 	  
 	  ($probe) = @{$probe_adaptor->store($probe)};
 
