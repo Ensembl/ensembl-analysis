@@ -376,7 +376,6 @@ sub run {
         my $net_blocks = flatten_chains($subset_chains, 1);
 
         my $gs_name = $subset_generecs->[0]->gene->stable_id . "-0";
-        
         my $gene_scaffold = $self->make_gene_scaffold_and_project_genes($net_blocks,
                                                                         $subset_generecs,
                                                                         $gs_name,
@@ -592,9 +591,16 @@ sub make_gene_scaffold_and_project_genes {
     $res_gene->name($name . "." . $res_gene->gene->stable_id);
     
     foreach my $tran (@{$res_gene->source_transcripts}) {
-      my $proj_trans = 
-          $gene_scaffold->place_transcript($tran, 1, $external_db_id);
-      
+      my $proj_trans = $gene_scaffold->place_transcript($tran, 1, $external_db_id); 
+
+     if ( $tran->analysis) { 
+        $proj_trans->analysis($tran->analysis);     
+        for my $e( @{$proj_trans->get_all_Exons } ) {  
+            for my $sf ( @{ $e->get_all_supporting_features } ) {  
+                 $sf->analysis($tran->analysis); 
+             } 
+        }
+     } 
       $proj_trans = 
           $self->process_transcript($proj_trans, 
                                     $max_stops,
