@@ -52,6 +52,10 @@ use vars qw( %Config );
               
              # If we are pairing features what is the maximum sized gap between them
              PAIREDGAP => '200000',
+	     
+	     # dont allow more then X % missmatches ie a number of 6%  = 2 missmatches on a 35 bp read
+	     # and 4 missmatches on a 75 bp read etc..
+	     MISSMATCH => 6,
 	                 
              # Specific config for ExonerateSolexaTranscript
              ##############################################
