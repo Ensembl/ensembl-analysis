@@ -172,9 +172,12 @@ sub depth_filter {
 		for my $af ( @features[ 1 .. $#features ] ) {
 
 			if ($last->hstart == $af->hstart && $last->hend == $af->hend) {
-				throw("Found duplicate align feature for hit ".
+				
+				print STDERR "Found duplicate align feature for hit ".
 					  $af->hseqname." (coords: ".$af->hstart."-".$af->hend.
-					  ", slice: ".$slice->name.")");
+					  ", slice: ".$slice->name.")";
+				
+				next;
 			}
 
 			my $delta =
@@ -418,7 +421,7 @@ sub depth_filter {
 						}
 						
 						# skip to the next node, as these features have been included 
-						# now and should not contribute to the summary features
+						# now and should not contribute to the summary feature
 						next;
 					}
 				}
