@@ -73,7 +73,11 @@ sub new{
 sub fetch_input {
   my ($self) = @_;
 
+  # store some adaptors
+  $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
   $self->feature_slice_adaptor($self->get_dbadaptor($self->ALIGNMENT_DB)->get_SliceAdaptor);
+  $self->repeat_slice_adaptor($self->db->get_SliceAdaptor);
+  
 
   my $id = $self->input_id;
   my $slice = $self->fetch_sequence($id);
@@ -90,7 +94,7 @@ sub fetch_input {
   $self->chr_slice($chr_slice);
   my @features = @{$feature_slice->get_all_DnaAlignFeatures};
   my %reads;
-  
+   
   while ( scalar(@features) > 0 )  {
     my $read = pop(@features);
     $reads{$read->hseqname} = $read->transfer($chr_slice);
@@ -128,7 +132,13 @@ sub run {
       push @genes , $self->make_gene($padded_exons) if $padded_exons ;
     }
   }
-  $self->output(\@genes);
+  # merge genes separated by long repeats
+  if ( $self->MERGE_GENES ) {
+    my $merged_genes = $self->merge_genes(\@genes);
+    $self->output($merged_genes);
+  } else {
+    $self->output(\@genes);
+  }
 }
 
 
@@ -466,6 +476,81 @@ sub make_gene {
  return @{convert_to_genes(($tran),$self->analysis)};
 }
 
+=head2 merge_genes
+    Title        :   merge_genes
+    Usage        :   $self->make_genes($genes)
+    Returns      :   Array ref of Bio::EnsEMBL::Gene objects
+    Args         :   Array ref of Bio::EnsEMBL::Gene objects
+    Description  :   Merges gene models when they are separated
+                 :   by a gap of <= MERGE_GENES and the gap is 100%
+                 :   covered by repeats
+=cut
+
+sub merge_genes { 
+  my ($self, $genes_ref) = @_;
+  my @merged_genes;
+  # join together neighbouring genes separated by a gap of X
+  # where the gap is 100% filled by a repeat
+  # get rid of nested genes first
+  my @genes = sort {$a->start <=> $b->start} @$genes_ref;
+  for ( my $i = 1 ; $i <= $#genes ; $i++ ) {
+    if ( $genes[$i-1]->start < $genes[$i]->start && 
+	 $genes[$i-1]->end > $genes[$i]->end ) {
+      print "NESTED : " .  $genes[$i]->start ." " .  $genes[$i]->end ." vs ".
+	 $genes[$i-1]->start ." " .  $genes[$i-1]->end ."\n".
+      push @merged_genes, splice (@genes,$i,1);
+    }
+  }
+  print "Here are the nested ones\n";
+  foreach my $g ( @merged_genes ) {
+    print $g->start ." " .$g->end ."\n";
+  }
+  # just being paraniod here 
+
+  my @genes = sort {$a->start <=> $b->start} @$genes_ref;
+  # is the gap between the genes short enough?
+  for ( my $i = 1 ; $i <= $#genes ; $i++ ) {
+    my $left_gene = $genes[$i-1];
+    my $right_gene = $genes[$i];
+    my $gap = $right_gene->start - $left_gene->start;
+    if ($gap <= $self->MERGE_GENES && $left_gene->end < $right_gene->start) {
+      # is it covered by repeats?
+      my $repeat_slice = $self->repeat_slice_adaptor->fetch_by_region
+	('toplevel',
+	 $left_gene->slice->seq_region_name,
+	 $left_gene->end,
+	 $right_gene->start,
+	);
+
+      # is the gap covered by a repeat?
+      my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
+      # merge repeat blocks
+      for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
+	if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
+	  $repeats[$j-1]->end($repeats[$j]->end) if  $repeats[$j]->end > $repeats[$j-1]->end ;
+	  splice(@repeats,$j,1);
+	  $j--;
+	}
+      }
+      my $repeat_coverage = 0;
+      # so the repeats are now non-overlapping blocks ( if there is more than one )
+      foreach my $repeat ( @repeats ) {
+	$repeat->start(0) if  $repeat->start < 0;
+	$repeat->end($repeat_slice->length) if $repeat->end > $repeat_slice->length;
+	$repeat_coverage+= $repeat->end - $repeat->start;
+      }  
+      $repeat_coverage /= $repeat_slice->length;
+      # merge the genes together where repeat coverage is 100%
+      if ($repeat_coverage >= 0.95   ) {
+	print "Do some merging\n";
+	print "Repeat Coverage = $repeat_coverage \n";
+	print $repeat_slice->name ."\n";
+      }
+    }
+  }
+  return \@merged_genes;
+}
+
 ###########################################
 # Containers
 
@@ -488,6 +573,25 @@ sub feature_slice_adaptor {
   return $self->{_fsa};
 }
 
+sub repeat_slice_adaptor {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_rsa} = $val;
+  }
+
+  return $self->{_rsa};
+}
+
+sub repeat_feature_adaptor {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_rfa} = $val;
+  }
+
+  return $self->{_rfa};
+}
 
 sub chr_slice {
   my ($self, $val) = @_;
@@ -600,6 +704,20 @@ sub OUTPUT_DB {
   }
 }
 
+
+sub MERGE_GENES {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MERGE_GENES'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MERGE_GENES'})) {
+    return $self->{'_CONFIG_MERGE_GENES'};
+  } else {
+    return 0;
+  }
+}
 
 
 
