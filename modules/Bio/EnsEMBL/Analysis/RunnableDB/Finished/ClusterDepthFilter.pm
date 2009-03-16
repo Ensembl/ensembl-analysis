@@ -173,9 +173,9 @@ sub depth_filter {
 
 			if ($last->hstart == $af->hstart && $last->hend == $af->hend) {
 				
-				print STDERR "Found duplicate align feature for hit ".
-					  $af->hseqname." (coords: ".$af->hstart."-".$af->hend.
-					  ", slice: ".$slice->name.")";
+				print STDERR "ClusterDepthFilter: Found duplicate align ".
+					  "feature for hit ".$af->hseqname." (coords: ".$af->hstart.
+					  "-".$af->hend.", slice: ".$slice->name.")\n";
 				
 				next;
 			}
