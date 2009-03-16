@@ -42,6 +42,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExonerateSolexa;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
+
 use vars qw(@ISA);
 
 @ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature);
@@ -84,15 +85,19 @@ sub filter_solexa {
       # gapped reject it
       next
     }
-#    print $feat->hseqname . " " .
-#      $feat->seqname . " " .
-#	$feat->start . " " .
-#	  $feat->end . " " .
-#	    $feat->score  . " " .
-#	      $feat->hstart . " " . 
-#		$feat->hend . " " .
-#		  $feat->cigar_string . " " .
-#		    $feat->seq ."\n";
+   # check missmatches
+    if ( $self->MISSMATCH ) {
+      my $aligned_length = abs($feat->hend - $feat->hstart) +1;
+      #print $feat->hseqname ." ";
+      #print $feat->percent_id . " " ;
+      #print " aligned length = $aligned_length ";
+      my $matches = $aligned_length *  $feat->percent_id / 100;
+      #print " matches $matches  ";
+      my $missmatches = ( $aligned_length - $matches) / $aligned_length * 100;
+      #print " missmatches $missmatches \n";
+      next if $missmatches > $self->MISSMATCH;
+      #print "accepting\n";
+    }
    push @filtered_features, $feat;
   }
   return \@filtered_features;
@@ -105,17 +110,6 @@ sub pair_features {
   my $paired_features;
   my @selected_reads;
   foreach my $feat ( @features ) {
-#    print $feat->hseqname . " " .
-#      $feat->seqname . " " .
-#    	$feat->start . " " .
-#    	  $feat->end . " " .
-#	    $feat->strand ." " .
-#	      $feat->hstrand . " " .
-#		$feat->score  . " " .
-#		  $feat->hstart . " " . 
-#		    $feat->hend . " " .
-#		      $feat->cigar_string . " " .
-#			$feat->seq ."\n";
     if ( $feat->hseqname =~ /(\S+):([a,b,A,B])$/ ) {
       my $suffix = lc($2);
       push @{$paired_features->{$1}->{$suffix}},$feat;
@@ -123,7 +117,7 @@ sub pair_features {
       $self->throw("Read name not recognised " . $feat->hseqname . "\n");
     }
   }
-  #  print "\n";
+
   foreach my $pair ( keys %$paired_features ) {
     my ( @as, @bs ) ;
     @as =  @{$paired_features->{$pair}->{'a'}} if $paired_features->{$pair}->{'a'};
@@ -208,15 +202,6 @@ sub pair_features {
       }
     }
   }
-  
-# print "\nSELECTED:\n";
-#  foreach my $feat( @selected_reads ) {
-#    print $feat->hseqname . " " .
-#      $feat->seqname . " " .
-#	$feat->start . " " .
-#	  $feat->end . " " .
-#	    $feat->score  . "\n";
-#  }
   return \@selected_reads;
 }
 
@@ -462,5 +447,18 @@ sub PAIREDGAP {
   }
 }
 
+sub MISSMATCH {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MISSMATCH'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MISSMATCH'})) {
+    return $self->{'_CONFIG_MISSMATCH'};
+  } else {
+    return undef;
+  }
+}
 
 1;
