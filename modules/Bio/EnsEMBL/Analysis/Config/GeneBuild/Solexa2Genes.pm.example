@@ -36,6 +36,9 @@ SOLEXA2GENES_CONFIG_BY_LOGIC =>
 		  # ie a value of 10 means remove all exon pairings where the
 		  # coverage is < 10% of the average 
 		  EXCLUDE_EXONS => 5,
+		  # Merge genes that are seperated by a gap of max length X
+		  # Where the gap is 100% covered by a repeat
+		  MERGE_GENES  => 1000,
                   },
      }
 );
