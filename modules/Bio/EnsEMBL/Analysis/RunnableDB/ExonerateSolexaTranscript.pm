@@ -59,7 +59,6 @@ sub fetch_input {
   # do all the normal stuff
   $self->SUPER::fetch_input();
   # then get all the transcripts and exons
-
   my $trans_db = $self->get_dbadaptor($self->TRANSDB);
   my $trans_adaptor = $trans_db->get_TranscriptAdaptor;
   my %trans_by_id;
@@ -80,6 +79,31 @@ sub fetch_input {
 }
 
 
+sub filter_solexa {
+  my ($self,$features_ref) = @_;
+  my @features = @$features_ref;
+  my @filtered_features;
+  # allow no more than MISSMATCH missmatches and
+  foreach my $feat ( @features ) {
+   # check missmatches
+    if ( $self->MISSMATCH ) {
+      my $aligned_length = abs($feat->hend - $feat->hstart) +1;
+      #print $feat->hseqname ." ";
+      #print $feat->percent_id . " " ;
+      #print " aligned length = $aligned_length ";
+      my $matches = $aligned_length *  $feat->percent_id / 100;
+      #print " matches $matches  ";
+      my $missmatches = ( $aligned_length - $matches) / $aligned_length * 100;
+      #print " missmatches $missmatches \n";
+      next if $missmatches > $self->MISSMATCH;
+      #print "accepting\n";
+      
+    }
+    push @filtered_features, $feat;
+  }
+  return \@filtered_features;
+}
+
 sub run {
   my ($self) = @_;
 
@@ -90,8 +114,8 @@ sub run {
   $runnable->run;
   my $features = $runnable->output;
 
-  if ($self->filter) {
-    $features = $self->filter->filter_results($features);
+  if ($self->MISSMATCH) {
+    $features = $self->filter_solexa($features);
   }
 
   # Pair features together if they come from paired end reads
@@ -197,9 +221,10 @@ FEATURE:  foreach my $f (@$flist) {
       my @mapper_objs;
       my @features;
       my $start = 1;
+      my $cannonical = 1;
       my $end = $f->length;
       my $out_slice = $slice_adaptor->fetch_by_name($trans->slice->name);
-        # get as ungapped features
+      # get as ungapped features
       foreach my $ugf ( $f->ungapped_features ) {
 	# Project onto the genome
 	foreach my $obj ($trans->cdna2genomic($ugf->start, $ugf->end)){
@@ -227,11 +252,58 @@ FEATURE:  foreach my $f (@$flist) {
 	}
       }
       @features = sort { $a->start <=> $b->start } @features;
+      # if we have a spliced alignment check to see if it's non-cannonical
+      # if so tag it so we can tell later on
+
+      if ( $f->{'_intron'} ) {
+	print $f->hseqname . "  ";
+	if ( scalar(@features) == 2 ) {
+	  my $left_splice = $slice_adaptor->fetch_by_region('toplevel',
+							    $out_slice->seq_region_name,
+							    $features[0]->end+1,
+							    $features[0]->end+2,
+							    $features[0]->strand
+							   );
+	  my $right_splice = $slice_adaptor->fetch_by_region('toplevel',
+							     $out_slice->seq_region_name,
+							     $features[1]->start-2,
+							     $features[1]->start-1,
+							     $features[0]->strand
+							    );	
+	  if ( $left_splice->seq eq 'NN' && $right_splice->seq eq 'NN' ) {
+	    warn("Cannot find dna sequence for " . $f->display_id .
+		 " this is used in detetcting non cannonical splices\n");
+	  } else {
+	    # is it cannonical
+	    if ( $features[0]->strand  == 1 ) {
+	      print "Splice type " . $left_splice->seq ."- ".  $right_splice->seq ." ";
+	      # is it GTAG?
+	      unless ( $left_splice->seq eq 'GT' && $right_splice->seq eq 'AG' ) {
+		$cannonical = 0;
+	      }
+	    } else {
+	      print "Splice type " . $right_splice->seq ."- ".  $left_splice->seq ." ";
+	      # is it GTAG?
+	      unless ( $right_splice->seq eq 'GT' && $left_splice->seq eq 'AG' ) {
+		$cannonical = 0;
+	      }
+	    }
+	  }
+	}
+      }
+      
       my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
       # corect for hstart end bug
       $feat->hstart($f->hstart);
       $feat->hend($f->hend);
       $feat->analysis($self->analysis);
+      unless ( $cannonical ) {
+	print "Non cannonical \n";
+	# mark it as non cannonical splice
+	$feat->hseqname($feat->hseqname.":NC");
+      } else {
+	print "Cannonical \n";
+      }
       # dont store the same feature twice because it aligns to a different transcript in the same gene.
       my $unique_id = $feat->seq_region_name .":" .
 	$feat->start .":" .
