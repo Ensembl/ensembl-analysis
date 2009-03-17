@@ -77,6 +77,10 @@ while(<>){
   #$sth->execute;
   eval{
     my $gene = $gene_adaptor->fetch_by_dbID($gene_id);
+
+    # it seems that some xrefs might not be deleted when using this method
+    # Coud it be because the gene is lazy-loaded?
+
     $gene_adaptor->remove($gene);
     print STDERR "Deleted $gene_id\n";
   };
