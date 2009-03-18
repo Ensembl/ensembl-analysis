@@ -259,6 +259,25 @@ use vars qw( %Config );
 	},	
 
 
+	#PHALANX are 60mers
+	PHALANX_WG_PROBEALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.PHALANX.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	},		  
+
+	PHALANX_WG_PROBETRANSCRIPTALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.PHALANX.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	},	
+
 
 	AFFY_UTR_PROBETRANSCRIPTALIGN => 
 	{
@@ -280,11 +299,51 @@ use vars qw( %Config );
 	 TARGETSEQS         =>  $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS      => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY_ST.fasta',
 	 #25 mers 
-	 #OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
+	 OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
 	 #HIT_SATURATION_LEVEL => 100,
 	 MAX_MISMATCHES => 1,
-	}, 
+	},
+
+
+	#AGILENT 60 mers
+	AGILENT_PROBEALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AGILENT.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, 
+	},		  
+
+	AGILENT_PROBETRANSCRIPTALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AGILENT.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, 
+	},	
+
+	#LEIDEN 50 mers
+	LEIDEN_PROBEALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.LEIDEN.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, 
+	},		  
+
+	LEIDEN_PROBETRANSCRIPTALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.LEIDEN.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 1, 
+	},	
+
    }
   );
 
