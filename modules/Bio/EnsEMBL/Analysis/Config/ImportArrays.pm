@@ -161,6 +161,17 @@ use vars qw( %Config );
 
 	  #Remove all the redundant values and set them in ImportArrays?
 
+	  #Zebra fish
+	  'Zebrafish' => {
+					  -name => 'Zebrafish',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					 },
+
+
 	  #Rat
 
 	     'RAE230A' => {
@@ -660,7 +671,7 @@ use vars qw( %Config );
 
 	#CODELINK
 
-		IMPORT_ILLUMINA_WG_ARRAYS => 
+	IMPORT_CODELINK_ARRAYS => 
 	{
 	 IIDREGEXP => '^>(\S+):(\S+).*$',
 	 
@@ -688,19 +699,129 @@ use vars qw( %Config );
 	 INPUT_FORMAT => 'FASTA',
 	},
 
-
-
-
 	#AGILENT
+
+	IMPORT_AGILENT_ARRAYS => 
+	{
+	 IIDREGEXP => '^>(\S+):(\S+).*$',
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 #-probe_set   => 2,#This could be annotation
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  #Danio
+					  'G2518A' => {
+										 -name => 'G2518A',
+										 -vendor => 'AGILENT',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'AGILENT',
+										},
+					   'G2519F' => {
+										 -name => 'G2519F',
+										 -vendor => 'AGILENT',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'AGILENT',
+										},
+					 },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
+
+	
+
+
+
+
+	#PHALANX
+	#Human
+	#ftp://ftp.phalanxbiotech.com/pub/probe_sequences/hoa
+	#Mouse
+	#ftp://ftp.phalanxbiotech.com/pub/probe_sequences/moa
+	IMPORT_PHALANX_ARRAYS => 
+	{
+	 IIDREGEXP => '^>(\S+):(\S+).*$',
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 #-probe_set   => 2,#This could be annotation
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  
+					  'OneArray' => {
+										 -name => 'OneArray',
+										 -vendor => 'PHALANX',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'PHALANX',
+										},
+					  
+					 },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
+
+
+	#LEIDEN
+
+	IMPORT_LEIDEN_ARRAYS => 
+	{
+	 IIDREGEXP => '^>(\S+):(\S+).*$',
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 #-probe_set   => 2,#This could be annotation
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  #Danio
+					  'LEIDEN2' => {
+										 -name => 'LEIDEN2',
+										 -vendor => 'LEIDEN',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'LEIDEN',
+										},
+
+					  
+					   'LEIDEN3' => {
+										 -name => 'LEIDEN3',
+										 -vendor => 'LEIDEN',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'LEIDEN',
+										},
+
+					  
+					 },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
+
+
 	#?
    
-#Human
 
-#ftp://ftp.phalanxbiotech.com/pub/probe_sequences/hoa
-
-#Mouse
-
-#ftp://ftp.phalanxbiotech.com/pub/probe_sequences/moa
 
    }
   );
