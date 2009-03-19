@@ -81,7 +81,7 @@ SEQ: while(my $seq = $seqio->next_seq) {
   }
   
   my @keywords = split(/\s*;\s*/, $seq->description);
-  push @keywords, $seq->get_keywords;
+  push @keywords, $seq->keywords;
   @keywords = map { $_ =~ s/\.\s*$//; lc($_) } @keywords;
 
   my $entry_is_pseudo = 0;
