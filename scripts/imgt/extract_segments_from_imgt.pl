@@ -4,7 +4,6 @@ use strict;
 use Getopt::Long;
 use Bio::SeqIO;
 
-
 my (@good_tax_strings,
     @bad_tax_strings,
     @moltype,
@@ -106,9 +105,10 @@ SEQ: while(my $seq = $seqio->next_seq) {
   }
   
   my @keywords = split(/\s*;\s*/, $seq->description);
-  push @keywords, $seq->get_keywords;
+  #push @keywords, $seq->get_keywords;
+  push @keywords, $seq->keywords;
   @keywords = map { $_ =~ s/\.\s*$//; lc($_) } @keywords;
-
+  
   my $entry_is_pseudo = 0;
   #if (grep { $_ eq 'pseudogene' or $_ eq 'functionality pseudogene' } @keywords) {
   #  $entry_is_pseudo = 1;
@@ -504,8 +504,11 @@ SEQ: while(my $seq = $seqio->next_seq) {
       push @this_desc, "cds=$tr_start-$tr_end";
     }
     $newseq->description(join("; ", @this_desc));
-
     if ($translate) {
+		  unless ($newseq->seq =~ /^[AGCTagct]+$/){
+		  next SEQ;
+			}
+			#print "SEQUENCE: ",$newseq->seq,"\n";
       my $pepseq = &translate($newseq, $frame);
       # we optionally allow stop-containing translations if the
       # stops are within the given distance of the terminus; these
