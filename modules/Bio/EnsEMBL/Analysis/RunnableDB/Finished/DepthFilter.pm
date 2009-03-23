@@ -24,7 +24,7 @@ sub run {
 
     my %params = %{ $self->parameters_hash() };
     my $max_coverage     = $params{max_coverage} || 10;
-    my $nodes_to_keep     = $params{nodes_to_keep} || 10;
+    my $nodes_to_keep     = $params{nodes_to_keep} || 3;
     my $percentid_cutoff = $params{percentid_cutoff} || 0.0;
 	my $orig_analysis_name = $params{ori_analysis};
 	my $hit_db = $params{hit_db};
