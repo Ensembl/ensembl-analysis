@@ -125,7 +125,7 @@ sub run {
     # them so we can make our fake transcripts
     print STDERR "Found " . scalar(@$exon_clusters) . " transcripts \n";
     foreach my $exon_cluster ( @$exon_clusters ) {
-      print  STDERR scalar(@$exon_cluster) ." exon clusters\n";
+      #print  STDERR scalar(@$exon_cluster) ." exon clusters\n";
       next unless scalar(@$exon_cluster) > 0;
       # make the dna align feature
       my $padded_exons = $self->pad_exons($exon_cluster);
@@ -157,10 +157,19 @@ sub write_output{
     $gene->source($self->analysis->logic_name);
     $gene->biotype('rough');
     my $tran = $gene->get_all_Transcripts->[0];
+    print "FILTERING " . $tran->start ." " , $tran->end ." ";
     # Filter models before writing them
-    next unless scalar(@{$tran->get_all_Exons}) >= $self->MIN_EXONS ;
-    next unless ( $tran->end - $tran->start ) / $tran->length > $self->MIN_SPAN ;
-    next unless $tran->length > $self->MIN_LENGTH ;
+    if ( scalar(@{$tran->get_all_Exons}) < $self->MIN_EXONS ) {
+      print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
+      next;
+    }
+    if( ( $tran->end - $tran->start ) / $tran->length <= $self->MIN_SPAN ) {
+      print "Rejecting because of span " . ( $tran->end - $tran->start ) / $tran->length ."\n";
+      next;
+    }
+    if (  $tran->length > $self->MIN_LENGTH ){
+      print "Rejecting because of length " . $tran->length ."\n";
+    }
     eval {
       $gene_adaptor->store($gene);
     };    
@@ -174,6 +183,7 @@ sub write_output{
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
+  print STDERR "$total genes written after filtering\n";
 }
 
 =head2 exon_cluster
@@ -205,6 +215,7 @@ sub exon_cluster {
   my @ungapped_features = sort { $a->start <=> $b->start } @ugfs;
   my $cluster_data;
   my $cluster_hash;
+  my $pairs;
 
   # make exon clusters and store the names of the reads and associated cluster number
   foreach my $ugf ( @ungapped_features ) {
@@ -230,7 +241,13 @@ sub exon_cluster {
     }
   }
 
-  return unless scalar(@exon_clusters) > 1;
+  if ( scalar(@exon_clusters) == 1 ) {
+    # just keep single exon clusters for now - might be useful later
+    my $exon =  $exon_clusters[0];
+    push @transcripts, [$exon];
+    return \@transcripts;
+  }
+
   
   print STDERR scalar(@exon_clusters) . " Exons\n";
 
@@ -262,10 +279,14 @@ sub exon_cluster {
       $clean_cluster_hash->{$key}->{'right'}+= $read_count ;
       $clean_cluster_hash->{$key2}->{'left'}+= $read_count ;
       $average_read_depth += $read_count;
+      print "READ DEPTH $key $key2 $read_count\n";
+      # dont count single coverage pairs when
+      # working out averages
+      $pairs++ if $read_count >1;
     }
   }
   # whats the average coverage of the exons?
-  $average_read_depth /=  scalar(keys %{$cluster_hash}) if scalar(keys %{$cluster_hash});
+  $average_read_depth /=   $pairs if $pairs;
   print STDERR "Average READ DEPTH $average_read_depth \n";
 
   # Filter out pairings with very litte support
@@ -280,7 +301,8 @@ sub exon_cluster {
 
   # now lets  cycle through our exon_clusters removing end exons 
   # with little support  all other exons go forward to the next stage
-
+  # add in single exon genes might be useful later
+  
   foreach my $key ( sort keys %{$clean_cluster_hash} ) {
     # keep them if they are supported on both sides 
     if ( $clean_cluster_hash->{$key}->{'left'} && $clean_cluster_hash->{$key}->{'right'} ) {
@@ -306,7 +328,7 @@ sub exon_cluster {
   # do a reclustering based on which exons are connected to each other
   
   my @clean_clusters =  keys %$clean_exon_clusters;
-  return unless scalar(@clean_clusters) > 0;
+  return unless ( scalar(@clean_clusters) > 0) ;
 
   # put one exon into the first cluster
   my @temp;
@@ -459,9 +481,9 @@ sub gene_cluster {
   return \@clusters;
 }
 
-=head2 make_genes
-    Title        :   make_genes
-    Usage        :   $self->make_genes($exons)
+=head2 make_gene
+    Title        :   make_gene
+    Usage        :   $self->make_gene($exons)
     Returns      :   Array ref of Bio::EnsEMBL::Gene objects
     Args         :   Array ref of Bio::EnsEMBL::Exon objects
     Description  :   Builds gene models from an array of exons
@@ -493,26 +515,21 @@ sub merge_genes {
   # where the gap is 100% filled by a repeat
   # get rid of nested genes first
   my @genes = sort {$a->start <=> $b->start} @$genes_ref;
+  print " Got ". scalar(@genes) ."\n";
   for ( my $i = 1 ; $i <= $#genes ; $i++ ) {
+
     if ( $genes[$i-1]->start < $genes[$i]->start && 
 	 $genes[$i-1]->end > $genes[$i]->end ) {
-      print "NESTED : " .  $genes[$i]->start ." " .  $genes[$i]->end ." vs ".
-	 $genes[$i-1]->start ." " .  $genes[$i-1]->end ."\n".
       push @merged_genes, splice (@genes,$i,1);
+      $i--;
     }
   }
-  print "Here are the nested ones\n";
-  foreach my $g ( @merged_genes ) {
-    print $g->start ." " .$g->end ."\n";
-  }
-  # just being paraniod here 
 
-  my @genes = sort {$a->start <=> $b->start} @$genes_ref;
   # is the gap between the genes short enough?
-  for ( my $i = 1 ; $i <= $#genes ; $i++ ) {
+ GENE:  for ( my $i = 1 ; $i <= $#genes ; $i++ ) {
     my $left_gene = $genes[$i-1];
     my $right_gene = $genes[$i];
-    my $gap = $right_gene->start - $left_gene->start;
+    my $gap = $right_gene->start - $left_gene->end;
     if ($gap <= $self->MERGE_GENES && $left_gene->end < $right_gene->start) {
       # is it covered by repeats?
       my $repeat_slice = $self->repeat_slice_adaptor->fetch_by_region
@@ -521,10 +538,11 @@ sub merge_genes {
 	 $left_gene->end,
 	 $right_gene->start,
 	);
-
+      #print "looking at " . $repeat_slice->name ."\n";
       # is the gap covered by a repeat?
       my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
       # merge repeat blocks
+      #print scalar(@repeats) . " repeats found \n";
       for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
 	if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
 	  $repeats[$j-1]->end($repeats[$j]->end) if  $repeats[$j]->end > $repeats[$j-1]->end ;
@@ -545,9 +563,36 @@ sub merge_genes {
 	print "Do some merging\n";
 	print "Repeat Coverage = $repeat_coverage \n";
 	print $repeat_slice->name ."\n";
+	# to do the merge do we just link the genes or do we join them with a long exon?
+	# how about we keep it as 2 exons but bring them together so they abut each other
+	# if there is evidene of splicing they will get separated in the refine genes code
+	# otherwise they will stay merged, given that we are looking at areas covered by repeat
+	# it seems likely that the exons should read right through.
+	# so we want to extend the last exon of the left gene to finish at the end
+	# of the first exon of the right gene, we also want to lose the first right
+	# gene exon
+	my @merged_exons;
+	my @left_exons = sort { $a->start <=> $b->start } @{$left_gene->get_all_Exons};
+	my @right_exons = sort { $a->start <=> $b->start } @{$right_gene->get_all_Exons};	
+	my $merged_exon = pop(@left_exons);
+	my $disgarded_exon = shift(@right_exons);
+	$merged_exon->end($disgarded_exon->end);
+	push @merged_exons,@left_exons;
+	push @merged_exons,$merged_exon;
+	push @merged_exons,@right_exons;
+	my @new_genes = $self->make_gene(\@merged_exons);
+	my $new_gene = $new_genes[0];
+	print "NEW GENE " . $new_gene->start ." ". $new_gene->end ."\n";
+	# take them out of the array and carry on
+	splice (@genes,$i-1,2,$new_gene);
+	$i-= 1;
+	print "Merged 1 successfully\n";
       }
     }
   }
+  # add whatever is left to the return array
+  push @merged_genes, @genes;
+  print "Returning " . scalar (@merged_genes) . "\n";
   return \@merged_genes;
 }
 
