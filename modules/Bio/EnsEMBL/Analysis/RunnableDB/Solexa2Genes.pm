@@ -435,7 +435,7 @@ sub pad_exons {
       # trim the exons so they dont overlap
       my $trim = int(($exon->start - $last_exon->end) /2);
       $last_exon->end(   $last_exon->end  + ($trim) -1 );
-      $exon->start( $exon->start - ($trim) );
+      $exon->start( $exon->start - ($trim)+1 );
     }
   }
   return \@padded_exons
