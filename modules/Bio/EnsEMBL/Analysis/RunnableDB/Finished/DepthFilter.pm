@@ -24,7 +24,8 @@ sub run {
 
     my %params = %{ $self->parameters_hash() };
     my $max_coverage     = $params{max_coverage} || 10;
-    my $nodes_to_keep     = $params{nodes_to_keep} || 3;
+    my $hits_to_keep     = $params{hits_to_keep} || 3;
+    my $max_hits_per_meta_cluster = $params{max_hits_per_meta_cluster} || 40;
     my $percentid_cutoff = $params{percentid_cutoff} || 0.0;
 	my $orig_analysis_name = $params{ori_analysis};
 	my $hit_db = $params{hit_db};
@@ -45,7 +46,8 @@ sub run {
 
 	my ( $filtered_features, $saturated_zones) =
         $self->depth_filter($orig_features, $slice, $max_coverage,
-        					$percentid_cutoff, $nodes_to_keep, $no_filter, $hit_db);
+        					$percentid_cutoff, $hits_to_keep, $no_filter, 
+        					$max_hits_per_meta_cluster, $hit_db);
 
 	$self->output($filtered_features, $saturated_zones);
 }
@@ -150,7 +152,8 @@ sub get_original_features {
 
 sub depth_filter {
 
-	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff, $nodes_to_keep,$no_filter, $hit_db) = @_;
+	my ($self, $orig_features, $slice, $max_coverage, $percentid_cutoff, $hits_to_keep,
+	$no_filter, $max_hits_per_meta_cluster, $hit_db) = @_;
 
 	print STDERR "DepthFilter: MaxCoverage=$max_coverage\n";
 	print STDERR "DepthFilter: PercentIdCutoff=$percentid_cutoff\n";
