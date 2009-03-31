@@ -447,7 +447,7 @@ sub build_summary_features {
 					my $summary = Bio::EnsEMBL::SimpleFeature->new(
 						-start  => $start,
 						-end    => $intron->[0],
-						-strand => 0,              # we mix both strands here
+						-strand => $cluster->{strand},
 						-score  => $score,
 						-display_label =>
 						  sprintf( "summary feature from %d redundant hits",
@@ -463,7 +463,7 @@ sub build_summary_features {
 				my $summary = Bio::EnsEMBL::SimpleFeature->new(
 					-start         => $start,
 					-end           => $end,
-					-strand        => 0,        # we mix both strands here
+					-strand        => $cluster->{strand},
 					-score         => $score,
 					-display_label =>
 					  sprintf( "summary feature from %d redundant hits",
