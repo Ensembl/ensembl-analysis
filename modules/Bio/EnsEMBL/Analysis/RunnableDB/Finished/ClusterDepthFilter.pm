@@ -515,7 +515,7 @@ sub filter_features {
 
 			my $added = 0;
 
-			while ( $added < $hits_to_keep && $cluster->{hits} ) {
+			while ( $added < $hits_to_keep && @{ $cluster->{hits} } ) {
 
 				my $hit_to_keep = shift @{ $cluster->{hits} };
 
