@@ -87,7 +87,7 @@ sub write_output {
 	        	$adaptor->db_version($self->db_version_searched);
 	        }
 	        # Store features in the database
-	        print STDOUT "Finished: Writting ".scalar(@$output)." new ".ref($feat)." in the database\n";
+	        print STDOUT "Finished: Writing ".scalar(@$output)." new ".ref($feat)." in the database\n";
 	        $adaptor->store(@$output) unless !@$output;
 
 	    }
