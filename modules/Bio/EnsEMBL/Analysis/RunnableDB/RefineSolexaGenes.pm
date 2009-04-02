@@ -24,6 +24,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::RefineSolexaGenes
   $refine_genes->write_output(); #writes to DB
 
 
+
 =head1 DESCRIPTION
 
 This module takes intron spanning dna_align_features and combines them with 
@@ -103,8 +104,16 @@ sub fetch_input {
      $slice->seq_region_name,
      $slice->start,
      $slice->end,
+     1
     );
-     
+  my $repeat_slice = $self->intron_slice_adaptor->fetch_by_region
+    ('toplevel',
+     $slice->seq_region_name,
+     $slice->start,
+     $slice->end,
+     1
+    );
+  
   my $chr_slice = $self->db->get_SliceAdaptor->fetch_by_region
     (
      'toplevel',
@@ -112,6 +121,13 @@ sub fetch_input {
     );
   $self->chr_slice($chr_slice);
 
+  my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
+  # put on chromosome coords
+  foreach my $repeat ( @repeats ) {
+    $repeat = $repeat->transfer($chr_slice);
+  }
+  $self->repeats($self->make_repeat_blocks(\@repeats));
+  
   # we want to fetch and store all the rough transcripts at the beginning - speeds things up
   # also we want to take out tiny introns - merge them into longer structures
   my @prelim_genes;
@@ -174,6 +190,10 @@ sub refine_genes {
       print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
       # make intron features by collapsing the dna_align_features
       my @introns = @{$self->dna_2_simple_features($exon->seq_region_start,$exon->seq_region_end)};
+      my @left_c_introns;
+      my @right_c_introns;
+      my @left_nc_introns;
+      my @right_nc_introns;
       my @filtered_introns;
       my $intron_overlap;
     INTRON: foreach my $intron ( @introns ){
@@ -189,9 +209,39 @@ sub refine_genes {
 	  $retained_intron = 1;
 	  $exon->{'retained'} =1;
 	}
-	push @filtered_introns, $intron;
+	# we need to know how many consensus introns we have to the 
+	# left and  right in order to determine whether to put in 
+	# a non consensus intron
+	if ( $intron->end <= $exon->end ) {
+	  if ( $intron->display_label =~ /non-consensus/ ) {
+	    push @left_nc_introns, $intron; 
+	  } else {
+	    push @left_c_introns, $intron;
+	  }
+	}
+	if ( $intron->start >= $exon->start ) {
+	  if ( $intron->display_label =~ /non-consensus/ ) {
+	    push @right_nc_introns, $intron; 
+	  } else {
+	    push @right_c_introns, $intron;
+	  }
+	}	
       }
-      
+
+      # add non consensus introns only where there are no consensus introns
+      push @filtered_introns, @left_c_introns;
+      push @filtered_introns, @right_c_introns;
+      push @filtered_introns, @left_nc_introns  if scalar(@left_c_introns)  == 0;
+      push @filtered_introns, @right_nc_introns if scalar(@right_c_introns) == 0; ;
+      print "Got " , scalar(@left_nc_introns ) + scalar(@right_nc_introns ) . 
+	" non consensus introns \n";
+      if ( scalar(@left_c_introns)  == 0 && scalar(@left_nc_introns)  > 0) {
+	print "using " . scalar(@left_nc_introns) . " NC left \n";
+      } 
+      if ( scalar(@right_c_introns)  == 0 && scalar(@right_nc_introns)  > 0 ) {
+	print "using " . scalar(@right_nc_introns) . " NC right \n";
+      } 
+
     INTRON:  foreach my $intron ( @filtered_introns ) {
 	print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . "\n";
 	# becasue we make a new exons where we have a reatained intron to 
@@ -219,6 +269,8 @@ sub refine_genes {
 
 	# intron is within the exon - this is not a true exon but a retained intron
 	if (  $intron->start > $exon->start && $intron->end < $exon->end && $intron->length > 50 ) {
+	  # dont use NC introns here - dont trust them enough
+	  next if $intron->display_label  =~ /non-consensus/;
 	  #print STDERR  "retained " . $intron->start ." " . $exon->start ." ". $intron->end ." ". $exon->end ."\n";
 	  # dont have circular references to exons or the paths
 	  # will be infinite so clone this exon instead
@@ -382,12 +434,17 @@ sub refine_genes {
  MODEL:  foreach my $model ( @models ) {
       my $intron_count = 0;
       my $intron_score = 0;
+      my $exon_score = 0;
       my $fake_introns = 0;
       my @new_exons;
       # make an array containing cloned exons
       for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
 	unless ( $model->[$i]->isa("Bio::EnsEMBL::SimpleFeature") ) {	
 	  my $new_exon = clone_Exon($model->[$i]);
+	  # add in exon coverage scores from supporting features
+	  foreach my $daf ( @{$model->[$i]->get_all_supporting_features} ) {
+	    $exon_score += $daf->score;
+	  }
 	  $new_exon->strand($strand);
 	  push @new_exons,$new_exon;
 	} else {
@@ -425,18 +482,7 @@ sub refine_genes {
 	  next MODEL;
 	}
 	
-	push @modified_exons, create_Exon
-	  (
-	   $exon->start,
-	   $exon->end,
-	   -1,
-	   -1,
-	   $strand,
-	   $exon->analysis,
-	   undef,
-	   undef,
-	   $self->chr_slice,
-	  );
+	push @modified_exons, clone_Exon($exon);
       }
       if ( $strand == 1 ) {
 	@modified_exons = sort { $a->start <=> $b->start } @modified_exons;
@@ -451,7 +497,7 @@ sub refine_genes {
       $tran->analysis($self->analysis);
       $tran->version(1);
       $tran->biotype('modified');
-      $tran->{'_score'} =  $intron_score;
+      $tran->{'_score'} =  $intron_score + $exon_score;
       $tran->{'_fake_introns'} =  $fake_introns ;
       unless ($self->ABINITIO_INTRONS) {
 	# if we are not using fake exons compare the introns to 
@@ -459,7 +505,7 @@ sub refine_genes {
 	$tran->{'_fake_introns'} = $exon_count - $intron_count;
 	$intron_count = $exon_count ;
       }
-      print STDERR " EXON count $exon_count\n";
+      #print STDERR " EXON count $exon_count\n";
       $tran->{'_intron_count'} = $intron_count;
       $tran->{'_proportion_real_introns'} = int((($tran->{'_intron_count'} - $tran->{'_fake_introns'}) /$tran->{'_intron_count'}) *100);
       # make note of best scores and best introns
@@ -817,9 +863,12 @@ sub load_matrix {
 sub merge_exons {
   my ( $self, $gene) = @_;
   my @exons;
-  foreach my $exon ( sort { $a->start <=> $b->start } @{$gene->get_all_Transcripts->[0]->get_all_Exons} ) {
+  next unless $gene->get_all_Transcripts->[0];
+  foreach my $exon ( @{$gene->get_all_Transcripts->[0]->get_all_Exons} ) {
     push @exons, clone_Exon($exon);
   }
+  @exons =  sort { $a->start <=> $b->start } @exons;
+
   for ( my $i = 1 ; $i <= $#exons ; $i ++ ) {
     my $exon = $exons[$i];
     my $prev_exon = $exons[$i-1];
@@ -837,47 +886,42 @@ sub merge_exons {
       }
     }
     # is it covered by repeats?
-    my $repeat_slice = $self->intron_slice_adaptor->fetch_by_region
-      ('toplevel',
-       $gene->slice->seq_region_name,
-       $prev_exon->end,
-       $exon->start,
-      );
-    
-    if ( $repeat_slice->length <= 20  && $intron_count == 0)   {
+    # remove very small introns if there is no direct evidence for them
+    if ( $exon->start - $prev_exon->end <= 20  && $intron_count == 0)   {
       $exon->start($prev_exon->start);
       splice(@exons,$i-1,1);
       $i--;
       next;
     }
     # dont merge long introns even if they are covered with repeats
-    next if $repeat_slice->length > 200 ;
+    # next if $repeat_slice->length > 200 ;
     # dont merge introns if there is evidence for splicing
     next if $intron_count;
     # is the intron covered by a repeat?
-    my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
+    my @repeats = @{$self->repeats};
 
-    # merge repeat blocks
-    for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
-      if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
-	$repeats[$j-1]->end($repeats[$j]->end) if  $repeats[$j]->end > $repeats[$j-1]->end ;
-	splice(@repeats,$j,1);
-	$j--;
-      }
-    }
 
     my $repeat_coverage = 0;
     # so the repeats are now non-overlapping blocks ( if there is more than one )
     foreach my $repeat ( @repeats ) {
-      $repeat->start(0) if  $repeat->start < 0;
-      $repeat->end($repeat_slice->length) if $repeat->end > $repeat_slice->length;
+      next unless $repeat->start <= $exon->start && $repeat->end >= $prev_exon->end;
+      last if $repeat->start > $exon->start;
+      $repeat->start($prev_exon->end) if  $repeat->start < $prev_exon->end;
+      $repeat->end($exon->start) if $repeat->end > $exon->start;
       $repeat_coverage+= $repeat->end - $repeat->start;
+ #     print  $exon->start ." " .  $prev_exon->end . " " .$repeat->start ." " .  $repeat->end .
+	# "  $repeat_coverage\n";
     }
-    
-    $repeat_coverage /= $repeat_slice->length;
+    $repeat_coverage /= ($exon->start - $prev_exon->end ) ;
+#    print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
     # splice the exons together where repeat coverage is > 95%
     if ($repeat_coverage > 0.95   ) {
+      print "MERGING EXONS Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
       $exon->start($prev_exon->start);
+      # combine the exon scores when we merge the exons
+      $exon->get_all_supporting_features->[0]->score
+	($exon->get_all_supporting_features->[0]->score + $prev_exon->get_all_supporting_features->[0]->score) if 
+	  $exon->get_all_supporting_features->[0] && $prev_exon->get_all_supporting_features->[0];
       splice(@exons,$i-1,1);
       $i--;
     }
@@ -965,18 +1009,7 @@ sub strand_separation {
       # left half
       for ( my $e = 0;  $e <= $switch_strand{'start'}  ; $e ++ ) {
 	my $exon = $exons[$e];
-	push @modified_exons,  create_Exon
-	  (
-	   $exon->start,
-	   $exon->end,
-	   -1,
-	   -1,
-	   -1,
-	   $exon->analysis,
-	   undef,
-	   undef,
-	   $gene->slice,
-	  );
+	push @modified_exons,  clone_Exon($exon);
       }
       my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
       my ( $new_gene ) = @{convert_to_genes(($t),$gene->analysis)};
@@ -988,18 +1021,7 @@ sub strand_separation {
       # right half
       for ( my $e = $switch_strand{'end'} -1  ;  $e <= $#exons ; $e ++ ) {
 	my $exon = $exons[$e];
-	push @modified_right_exons,  create_Exon
-	  (
-	   $exon->start,
-	     $exon->end,
-	   -1,
-	   -1,
-	   -1,
-	   $exon->analysis,
-	   undef,
-	   undef,
-	   $gene->slice,
-	  );
+	push @modified_right_exons,  clone_Exon($exon);
       }
       $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_right_exons);
       my ( $new_gene2 ) = @{convert_to_genes(($t),$gene->analysis)};
@@ -1070,7 +1092,13 @@ sub dna_2_simple_features {
      $end,
     );
   # featch all the dna_align_features for this slice by logic name
-  foreach my $read ( @{$intron_slice->get_all_DnaAlignFeatures($self->LOGICNAME)} ) {
+  my @reads;
+  foreach my $logic_name ( @{$self->LOGICNAME} ) {
+    push @reads, @{$intron_slice->get_all_DnaAlignFeatures($logic_name)}; 
+  }
+  foreach my $read ( @reads ) {
+    my $type = 'consensus';
+    $type = 'non-consensus' if ( $read->hseqname =~ /\:NC$/ ) ;
     $read = $read->transfer($self->chr_slice);
     my @ugfs = $read->ungapped_features;
     next unless ( scalar(@ugfs) == 2 );
@@ -1080,7 +1108,7 @@ sub dna_2_simple_features {
       $ugfs[1]->start . ":" .
 	$ugfs[0]->end . ":" . 
 	  $read->strand .":" . 
-	    $self->LOGICNAME;
+	    $self->LOGICNAME .":$type";
     $id_list{$unique_id} ++;
  }
   # collapse them down and make them into simple features
@@ -1103,6 +1131,24 @@ sub dna_2_simple_features {
     push @sfs , $sf;
   }
   return \@sfs;
+}
+
+sub make_repeat_blocks {
+  my ($self,$repeats_ref) = @_;
+  my @repeats = sort { $a->start <=> $b->start }@$repeats_ref;
+ # print " got " . scalar(@repeats) . " repeat blocks initially\n";
+  # merge repeat blocks
+  for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
+    if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
+     # print "merging repeat $j " . $repeats[$j]->start . "-"  . $repeats[$j]->end. " " . $repeats[$j-1]->start ."-" . $repeats[$j-1]->end ."\n";
+      $repeats[$j-1]->end($repeats[$j]->end) if  $repeats[$j]->end > $repeats[$j-1]->end ;
+      splice(@repeats,$j,1);
+      $j--;
+    }
+   # print "REPEAT $j " . $repeats[$j]->start . "-"  . $repeats[$j]->end. " " . $repeats[$j]->display_id ."\n";
+  }  
+  print " got " . scalar(@repeats) . " repeat blocks after merging\n";
+  return \@repeats;
 }
 
 ##################################################################
@@ -1195,6 +1241,16 @@ sub prelim_genes {
   }
 
   return $self->{_prelim_genes};
+}
+
+sub repeats {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_repeats} = $val;
+  }
+
+  return $self->{_repeats};
 }
 
 

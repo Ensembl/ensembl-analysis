@@ -88,15 +88,15 @@ sub filter_solexa {
    # check missmatches
     if ( $self->MISSMATCH ) {
       my $aligned_length = abs($feat->hend - $feat->hstart) +1;
-      #print $feat->hseqname ." ";
-      #print $feat->percent_id . " " ;
-      #print " aligned length = $aligned_length ";
+     # print $feat->hseqname ." ";
+     # print $feat->percent_id . " " ;
+     # print " aligned length = $aligned_length ";
       my $matches = $aligned_length *  $feat->percent_id / 100;
-      #print " matches $matches  ";
+     # print " matches $matches  ";
       my $missmatches = ( $aligned_length - $matches) / $aligned_length * 100;
-      #print " missmatches $missmatches \n";
+     # print " missmatches $missmatches \n";
       next if $missmatches > $self->MISSMATCH;
-      #print "accepting\n";
+     # print "accepting\n";
     }
    push @filtered_features, $feat;
   }

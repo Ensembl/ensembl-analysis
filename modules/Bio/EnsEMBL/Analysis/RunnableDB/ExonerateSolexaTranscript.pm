@@ -291,7 +291,7 @@ FEATURE:  foreach my $f (@$flist) {
 	  }
 	}
       }
-      
+      print "Making feat " . $f->hseqname . "\n";
       my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
       # corect for hstart end bug
       $feat->hstart($f->hstart);
