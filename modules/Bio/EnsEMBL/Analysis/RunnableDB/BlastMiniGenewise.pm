@@ -493,10 +493,11 @@ sub create_mask_list{
 
   my (@mask_gene_regions, @mask_exon_regions);
   foreach my $biotype(@{$self->BIOTYPES_TO_MASK}){
-    foreach my $gene(@{$slice->get_all_Genes_by_type($biotype)}){
-      my @mask_exons = grep { $_->seqname eq $slice->id } 
+    GENE:foreach my $gene(@{$slice->get_all_Genes_by_type($biotype)}){
+			my @mask_exons = grep { $_->seqname eq $slice->id } 
         (sort {$a->start <=> $b->start} @{$gene->get_all_Exons});
-      push @mask_gene_regions, { start => $mask_exons[0]->start, 
+      next GENE unless (@mask_exons && scalar(@mask_exons) > 0);
+			push @mask_gene_regions, { start => $mask_exons[0]->start, 
                                  end   => $mask_exons[-1]->end };
 
       foreach my $mask_exon (@mask_exons) {
