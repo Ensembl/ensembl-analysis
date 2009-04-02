@@ -176,7 +176,7 @@ sub cluster_Transcripts_by_genomic_range{
   my @cluster_ends;
   
   my $cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new();
-  $cluster->put_Transcripts($transcripts[0]);
+  $cluster->put_Transcripts(0, $transcripts[0]);
 
   $cluster_starts[$cluster_count] = $transcripts[0]->start;
   $cluster_ends[$cluster_count] = $transcripts[0]->end;
@@ -189,7 +189,7 @@ sub cluster_Transcripts_by_genomic_range{
     #readjust the coords
     if ( !( $transcripts[$c]->end < $cluster_starts[$cluster_count] ||
 	    $transcripts[$c]->start > $cluster_ends[$cluster_count] ) ){
-      $cluster->put_Transcripts( $transcripts[$c] );
+      $cluster->put_Transcripts(0, $transcripts[$c] );
       
       # re-adjust size of cluster
       if ($transcripts[$c]->start < $cluster_starts[$cluster_count]) {
@@ -204,7 +204,7 @@ sub cluster_Transcripts_by_genomic_range{
       #and setting up new cluster start and ends
       $cluster_count++;
       $cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new();
-      $cluster->put_Transcripts( $transcripts[$c] );
+      $cluster->put_Transcripts(0, $transcripts[$c] );
       $cluster_starts[$cluster_count] = $transcripts[$c]->start;
       $cluster_ends[$cluster_count]   = $transcripts[$c]->end;
       
