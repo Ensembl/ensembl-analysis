@@ -116,20 +116,20 @@ my $help;
             'dbname:s'   => \$dbname,
             'dbuser:s'   => \$dbuser,
             'dbpass:s'   => \$dbpass,
-			'species=s'  => \$species,
-			'multi_species'  => \$multi_species,
-			'coord_system_name:s' => \$coord_system_name,
+            'species=s'  => \$species,
+            'multi_species'  => \$multi_species,
+                        'coord_system_name:s' => \$coord_system_name,
             'output_dir:s' => \$output_dir,
             'extension:s' => \$extension,
             'toplevel!' => \$top_level,
             'seqlevel!' => \$seq_level,
-			'nonref!' => \$non_ref,
+             'nonref!' => \$non_ref,
             'format!' => \$format,
             'mask!' => \$mask,
             'mask_repeat:s@' => \@logic_names,
             'softmask!' => \$softmask,
             'onefile!' => \$onefile,
-			'filename=s' => \$filename,
+                        'filename=s' => \$filename,
             'help!' => \$help,
            ) or ($help = 1);
 
@@ -209,7 +209,7 @@ foreach my $slice(@$slices){
     $seqout = $oneout;
   }else{
 
-	my $filename = $output_dir."/".$slice->seq_region_name.".".$extension;
+        my $filename = $output_dir."/".$slice->seq_region_name.".".$extension;
     $seqout = Bio::SeqIO->new(
                               -file => ">".$filename,
                               -format => $format,
