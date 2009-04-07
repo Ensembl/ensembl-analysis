@@ -280,14 +280,20 @@ sub merge_pair {
 sub write_output {
   my ( $self, @output ) = @_;
   # Flag set to 1 = return a pipeline adaptor
-  my $outdb = $self->get_dbadaptor($self->OUT_DB,1);
+  my $outdb; 
 
   my $fa;
   if ( $self->COMPRESSION ) {
+    # Flag set to 1 = return a pipeline adaptor 
+    # Remember you need to have the pipeline_tables in your OUT_DB if you like to use compression 
+    $outdb = $self->get_dbadaptor($self->OUT_DB,1);
     $fa = $outdb->get_CompressedDnaAlignFeatureAdaptor;
-  } else {
+  } else { 
+    # return a NORMAL adaptor NOT a pipeline adaptor ...
+    $outdb = $self->get_dbadaptor($self->OUT_DB);
     $fa = $outdb->get_DnaAlignFeatureAdaptor;
-  }
+  } 
+
   
   foreach my $f (@{$self->output}){
     # calculate the hcoverage and use the evalue feild to store the
