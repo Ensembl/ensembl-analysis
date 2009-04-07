@@ -126,7 +126,7 @@ sub new {
   }
 
   if (not $self->program) {
-    $self->program('/software/ensembl/bin/exonerate-1.4.0');
+    $self->program('/usr/local/ensembl/bin/exonerate-0.8.3'); 
   }
 
  
