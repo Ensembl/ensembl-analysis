@@ -54,6 +54,7 @@ my $write      = 0;
 my $delete     = undef;
 my $option     = "";
 my $logic_name = "SubmitDitag";
+my $analysis;
 my %config;
 
 GetOptions(
@@ -61,6 +62,8 @@ GetOptions(
 	   'option:s'  => \$option,
 	   'write!'    => \$write,
 	   'delete!'   => \$delete,
+           'logic_name=s'=> \$logic_name,
+           'analysis=s'  => \$analysis,
 	   'help!'     => \$help,
 	  );
 
@@ -94,7 +97,7 @@ sub setup {
   foreach my $config_var (keys %{$default_entry}) {
     $config{$config_var} = $default_entry->{$config_var};
   }
-  $default_entry = $DITAG_CONFIG->{EXONERATETAGS};
+  $default_entry = $DITAG_CONFIG->{$analysis};
   foreach my $config_var (keys %{$default_entry}) {
     $config{$config_var} = $default_entry->{$config_var};
   }
