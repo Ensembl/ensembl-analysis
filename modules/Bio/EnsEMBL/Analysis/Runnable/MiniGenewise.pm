@@ -287,8 +287,7 @@ sub run_Genewise{
     $gw->run;
   };
   if($@){
-    warning("Failed ".$gw." run $@");
-    return "FAILED";
+    throw("Failed ".$gw." run $@"); # warning changed to throw() to prevent silent failing
   }
   my @output = @{$gw->output};
 
