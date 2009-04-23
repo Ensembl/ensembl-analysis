@@ -10,30 +10,29 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
 
 =head1 SYNOPSIS
 
-my $affy = 
-  Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign->new(
-    -db         => $refdb,
-    -analysis   => $analysis_obj,
-    -database   => $EST_GENOMIC,
-    -query_seqs => \@sequences,
-  );
+  my $affy = Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign->new
+    (-db         => $refdb,
+     -analysis   => $analysis_obj,
+     -database   => $EST_GENOMIC,
+     -query_seqs => \@sequences,
+     );
 
-$affy->fetch_input();
-$affy->run();
-$affy->write_output(); #writes to DB
+  $affy->fetch_input();
+  $affy->run();
+  $affy->write_output(); #writes to DB
 
 =head1 DESCRIPTION
 
-This object maps probes to a genome,
-and writing the results as Funcgen::ProbeFeatures. You must FIRST
-have created and persisted all the necessary Arrays and Probe
-objects using the ImportArrays module.
+This object maps probes to a genomic and transcript sequence, writing the results as 
+Bio::EnsEMBL::Funcgen::ProbeFeatures. UnmappedObjects are also written for those probes
+which either do not map at all or exceed the maximum mapping threshold defined by HIT_SATURATION_LEVEL.
+You must FIRST have created and imported all the necessary Arrays and Probe objects using the ImportArrays module.
 
 =head1 CONTACT
 
 Post general queries to B<ensembl-dev@ebi.ac.uk>
 
-=head1 APPENDIX
+=head1 METHODS
 
 =cut
 
@@ -58,21 +57,28 @@ use vars qw(@ISA);
 
 
 #TO DO
-#1. Account for 5'/3' hanging alignment mismatches
-# These may be a sequence match or mismatch, but are currently being reported as an alignment 'm'
-# Which implies a sequence mis-match. This is simple as we don't generally have long overhangs
-# due to restrictive mismatch rules in ExonerateProbe
-# But would get more complicated (i.e. performing alignment) with longer overhangs
-# Can we not just report the shorter alignment?  This will cause problems when trying 
-# to identify which bp of the probe a particular mismatch is on i.e.13th for AFFY MM probe?
-# Can we substitute M for E(nd) or U(nknown)? This would have to be done in ExonerateProbe
-# Is potentially a source for problems if a probe were to overhand the 3' end and this were not
-# caught by the genomic mapping due to an intron being present at the very end of the transcript.
-# e.g. ENSMUST00000097969
-# To capture this we must perform 5'/3' extension on the alignment against the genome!
-# Would need to get the query sequence from ExonerateProbe or directly from the fasta
-# Change to U(nknown not exonerate standard nomenclature) or N(on-equivalenced region), the
-# later is normally used for large regions on low conservation in protein alignments e.g. loops
+# 1. Account for 5'/3' hanging alignment mismatches
+#    These may be a sequence match or mismatch, but are currently being reported as an alignment 'm'
+#    Which implies a sequence mis-match. This is simple as we don't generally have long overhangs
+#    due to restrictive mismatch rules in ExonerateProbe
+#    But would get more complicated (i.e. performing alignment) with longer overhangs
+#    Can we not just report the shorter alignment?  This will cause problems when trying 
+#    to identify which bp of the probe a particular mismatch is on i.e.13th for AFFY MM probe?
+#    Can we substitute M for E(nd) or U(nknown)? This would have to be done in ExonerateProbe
+#    Is potentially a source for problems if a probe were to overhand the 3' end and this were not
+#    caught by the genomic mapping due to an intron being present at the very end of the transcript.
+#    e.g. ENSMUST00000097969
+#    To capture this we must perform 5'/3' extension on the alignment against the genome!
+#    Would need to get the query sequence from ExonerateProbe or directly from the fasta
+#    Change to U(nknown not exonerate standard nomenclature) or N(on-equivalenced region), the
+#    later is normally used for large regions on low conservation in protein alignments e.g. loops
+#    THIS IS NOW SET TO U IN set_probe_and_slice
+#
+# 2. Delay writes of unmapped objects so we don't write anything unless -w is specified when testing
+#    Also prevents having to rollback if job failed hlafway through filter
+#
+# 3. Enable rollback by chunk.  This should skip the run
+
 
 sub new {
   my ( $class, @args ) = @_;
@@ -398,10 +404,10 @@ sub filter_features {
 	  $num_hits = scalar(@hits);
   
 	  if ($num_hits <= $max_hits) {
-		warn "Keeping only perfect matches($num_hits/$all_hits) to $probe_id. Do we need to capture this in UnmappedObject?\n";
+		warn "Keeping only perfect matches($num_hits/$all_hits) to $probe_id. Do we need to keep this in an UnmappedObject?\n";
 	  } 
 	  else {
-		warn "Too many hits($num_hits|$all_hits/$max_hits) to $probe_id so rejecting all hits\n";
+		warn "UnmappedObject:\tToo many hits($num_hits|$all_hits/$max_hits) to $probe_id so rejecting all hits\n";
 		#So we have issues with what we consider for transcript mapping.
 		#If it has failed genomic mapping then we currently do not consider if for xrefing.
 		#But it may only map to one transcript, but all over the genome
@@ -438,6 +444,7 @@ sub filter_features {
 	  #We want to an external_db_id here for if this is Trancsript
 	  #What about genomic mapping?
 	  #Yes we need to reimplement species DB?
+	  warn "UnmappedObject:\t$probe_id has no $mapping_type mappings\n";
 
 	  $uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						 (
