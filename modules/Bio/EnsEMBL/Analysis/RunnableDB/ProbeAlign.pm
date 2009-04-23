@@ -325,6 +325,8 @@ sub write_output {
   #This is only used to report the number of features
   $self->output($features);#$self->features);
   
+  warn "Writing ProbeFeatures\n";
+
   foreach my $feature_xref(@{$features}){
 	my ($feature, $xref) = @$feature_xref;
 
