@@ -82,21 +82,25 @@ use vars qw( %Config );
 	 #e.g. new release on staging
 	 #Add species and group here?
 	 DNADB => {
-			   -dbname => $ENV{'DNADB_NAME'},
-			   -host   => $ENV{'DNADB_HOST'},
-			   -port   => $ENV{'DNADB_PORT'},
-			   -user   => $ENV{'DNADB_USER'},
-			   -pass   => $ENV{'DNADB_PASS'},
-			   
+			   -dbname          => $ENV{'DNADB_NAME'},
+			   -host            => $ENV{'DNADB_HOST'},
+			   -port            => $ENV{'DNADB_PORT'},
+			   -user            => $ENV{'DNADB_USER'},
+			   -pass            => $ENV{'DNADB_PASS'},
+			   -species         => $ENV{'SPECIES'},
+			   -multispecies_db => $ENV{'DNADB_MULTISPECIES_DB'},
+			   -species_id      => $ENV{'DNADB_SPECIES_ID'}
 			  },
 	 
 	 OUTDB => {
-			   -dbname  => $ENV{'DB_NAME'},
-			   -host    => $ENV{'DB_HOST'},
-			   -port    => $ENV{'DB_PORT'},
-			   -user    => $ENV{'DB_USER'},
-			   -pass    => $ENV{'DB_PASS'},
-			   -species => $ENV{'SPECIES'},#required for auto generation fo DNADB
+			   -dbname          => $ENV{'DB_NAME'},
+			   -host            => $ENV{'DB_HOST'},
+			   -port            => $ENV{'DB_PORT'},
+			   -user            => $ENV{'DB_USER'},
+			   -pass            => $ENV{'DB_PASS'},
+			   -species         => $ENV{'SPECIES'},#required for auto generation fo DNADB
+			   -multispecies_db => $ENV{'MULTISPECIES_DB'},
+			   -species_id      => $ENV{'SPECIES_ID'}
 			  },
 	 
 	 

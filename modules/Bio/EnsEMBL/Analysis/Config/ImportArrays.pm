@@ -69,24 +69,28 @@ use vars qw( %Config );
 	 
 	 # DB containing all affy_arrays, affy_probes and (next step) affy_features
 	 OUTDB => {
-			   -dbname => $ENV{'DB_NAME'},
-			   -host   => $ENV{'DB_HOST'},
-			   -port   => $ENV{'DB_PORT'},
-			   -user   => $ENV{'DB_USER'},
-			   -pass   => $ENV{'DB_PASS'},
-			   -species => $ENV{'SPECIES'},#Only here until we fix the DBAadptor new method
+			   -dbname          => $ENV{'DB_NAME'},
+			   -host            => $ENV{'DB_HOST'},
+			   -port            => $ENV{'DB_PORT'},
+			   -user            => $ENV{'DB_USER'},
+			   -pass            => $ENV{'DB_PASS'},
+			   -species         => $ENV{'SPECIES'},#Only here until we fix the DBAadptor new method
+			   -multispecies_db => $ENV{'MULTISPECIES_DB'},
+			   -species_id      => $ENV{'SPECIES_ID'}
 			  },
 
 
 	 #Optional, must define if dnadb is not on ensembldb
 	 #Not used, but will fail if dnadb autoguessing fails
 	 DNADB => {
-			   -dbname => $ENV{'DNADB_NAME'},
-			   -host   => $ENV{'DNADB_HOST'},
-			   -port   => $ENV{'DNADB_PORT'},
-			   -user   => $ENV{'DNADB_USER'},
-			   -pass   => $ENV{'DNADB_PASS'},
-			   -species => $ENV{'SPECIES'},
+			   -dbname          => $ENV{'DNADB_NAME'},
+			   -host            => $ENV{'DNADB_HOST'},
+			   -port            => $ENV{'DNADB_PORT'},
+			   -user            => $ENV{'DNADB_USER'},
+			   -pass            => $ENV{'DNADB_PASS'},
+			   -species         => $ENV{'SPECIES'},
+			   -multispecies_db => $ENV{'DNADB_MULTISPECIES_DB'},
+			   -species_id      => $ENV{'DNADB_SPECIES_ID'}
 			  },
 	 
 	 #Used for building the format specific NR fasta file
@@ -500,6 +504,15 @@ use vars qw( %Config );
 					 -type    => 'OLIGO',
 					 #-description => '',
 					 -class   => 'AFFY_UTR',
+					},
+					
+		#EColi
+		'E_coli_2' => {
+					-name => 'E_coli_2',
+					-vendor=>'AFFY',
+					-format => 'EXPRESSION',
+					-type=>'OLIGO',
+					-class=>'AFFY_UTR'
 					},
 
 	  #Then add user defined/custom ones here?
