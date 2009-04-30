@@ -12,9 +12,9 @@ to align species specific proteins to the genome, (We also use it to
 align very closely related species proteins sets e.g Mouse to Rat or
 Fugu to Tetraodon).
 
-The pmatch binary itself is available from the
+The pmatch source code is available from the
 sanger cvs respository in module rd-utils,
-(http://cvs.sanger.ac.uk/cgi-bin/viewcvs.cgi/rd-utils/).
+(http://cvs.sanger.ac.uk/cgi-bin/viewvc.cgi/rd-utils/?root=ensembl).
 The code to run this process in the ensembl code
 base can be found in 2 RunnableDBs and a config
 file. Bio::EnsEMBL::Analysis::RunnableDB::Pmatch,
