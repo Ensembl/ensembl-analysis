@@ -566,7 +566,8 @@ sub run{
       $runnable->run;
     };
     if($@){
-      warning("Running ".$runnable." failed error:$@");
+      # jhv - warning changed to throw() to prevent silent failing  
+      throw("Running ".$runnable." failed error:$@"); 
     }else{
       $output =  $runnable->output;
     }
