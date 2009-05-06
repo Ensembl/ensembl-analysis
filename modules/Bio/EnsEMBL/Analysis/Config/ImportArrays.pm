@@ -165,6 +165,84 @@ use vars qw( %Config );
 
 	  #Remove all the redundant values and set them in ImportArrays?
 
+	  #Frog
+	  'X_tropicalis' => {
+					 -name => 'X_tropicalis',
+					 -vendor => 'AFFY',
+					 -format  => 'EXPRESSION',
+					 -type    => 'OLIGO',
+					 #-description => '',
+					 -class   => 'AFFY_UTR',
+				  },
+
+
+
+	  #Dog
+	  'Canine_2' => {
+				   -name => 'Canine_2',
+				   -vendor => 'AFFY',
+				   -format  => 'EXPRESSION',
+				   -type    => 'OLIGO',
+				   #-description => '',
+				   -class   => 'AFFY_UTR',
+				  },
+
+
+	  #Macaque
+	  'Rhesus' => {
+				   -name => 'Rhesus',
+				   -vendor => 'AFFY',
+				   -format  => 'EXPRESSION',
+				   -type    => 'OLIGO',
+				   #-description => '',
+				   -class   => 'AFFY_UTR',
+				  },
+
+	  #C intestinalis
+	  'CINT06a520380F' => {
+				   -name => 'CINT06a520380F',
+				   -vendor => 'AFFY',
+				   -format  => 'EXPRESSION',
+				   -type    => 'OLIGO',
+				   #-description => '',
+				   -class   => 'AFFY_UTR',
+				  },
+
+	  #Cow
+	  'Bovine' => {
+				   -name => 'Bovine',
+				   -vendor => 'AFFY',
+				   -format  => 'EXPRESSION',
+				   -type    => 'OLIGO',
+				   #-description => '',
+				   -class   => 'AFFY_UTR',
+				  },
+
+
+
+	  #Chicken
+	  'Chicken' => {
+					  -name => 'Chicken',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					 },
+
+
+	  #C_elegans
+
+	  'C_elegans' => {
+					  -name => 'C_elegans',
+					  -vendor => 'AFFY',
+					  -format  => 'EXPRESSION',
+					  -type    => 'OLIGO',
+					  #-description => '',
+					  -class   => 'AFFY_UTR',
+					 },
+
+
 	  #Zebra fish
 	  'Zebrafish' => {
 					  -name => 'Zebrafish',
@@ -496,8 +574,8 @@ use vars qw( %Config );
 	  	
 
 	  #Yeast
-	  'S_aureus' => {
-					 -name => 'S_aureus',
+	  'Yeast_2' => {
+					 -name => 'Yeast_2',
 					 -vendor => 'AFFY',
 					 #-setsize => undef,
 					 -format  => 'EXPRESSION',#? UTR?
@@ -514,6 +592,18 @@ use vars qw( %Config );
 					-type=>'OLIGO',
 					-class=>'AFFY_UTR'
 					},
+
+	  'YG-S98' => {
+				   -name => 'YG-S98',
+				   -vendor => 'AFFY',
+				   #-setsize => undef,
+				   -format  => 'EXPRESSION',#? UTR?
+				   -type    => 'OLIGO',
+				   #-description => '',
+				   -class   => 'AFFY_UTR',
+				  },
+	  
+
 
 	  #Then add user defined/custom ones here?
 	  #values %{$ArrayConfig->{ARRAY_PARAMS}}
@@ -536,6 +626,19 @@ use vars qw( %Config );
 					},
 	 	 
 	 ARRAY_PARAMS => {
+
+					  #Platypus
+					  #'RaEx-1_0-st-v1' => {
+					#					   -name => 'RaEx-1_0-st-v1',
+					#					   -vendor => 'AFFY',
+					#					   #-setsize => undef,
+					#					   -format  => 'EXPRESSION',
+					#					   -type    => 'OLIGO',
+					#					   #-description => '',
+					#					   -class   => 'AFFY_ST',
+					#					  },
+					  
+
 
 					  #Rat
 					  'RaEx-1_0-st-v1' => {
