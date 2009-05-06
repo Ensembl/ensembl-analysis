@@ -583,15 +583,6 @@ use vars qw( %Config );
 					 #-description => '',
 					 -class   => 'AFFY_UTR',
 					},
-					
-		#EColi
-		'E_coli_2' => {
-					-name => 'E_coli_2',
-					-vendor=>'AFFY',
-					-format => 'EXPRESSION',
-					-type=>'OLIGO',
-					-class=>'AFFY_UTR'
-					},
 
 	  'YG-S98' => {
 				   -name => 'YG-S98',
@@ -602,7 +593,17 @@ use vars qw( %Config );
 				   #-description => '',
 				   -class   => 'AFFY_UTR',
 				  },
-	  
+
+
+					
+		#EColi
+		'E_coli_2' => {
+					-name => 'E_coli_2',
+					-vendor=>'AFFY',
+					-format => 'EXPRESSION',
+					-type=>'OLIGO',
+					-class=>'AFFY_UTR'
+					},	  
 
 
 	  #Then add user defined/custom ones here?
