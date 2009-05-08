@@ -252,7 +252,7 @@ sub run_FASTA{
       }
 
     }
-	elsif(/^[atgcuATGCU]+$/){#build sequence
+	elsif(/^[atgcunNATGCU]+$/){#build sequence
       $sequence_fragment = $_;
 
       if($current_sequence){
@@ -315,7 +315,7 @@ sub add_array_chip_to_existing_probe{
 #	  throw("Found duplicate fasta records for:\y".$array_chip->get_Array->name.':'.$probeset.':'.$name);
 #	}
 #	else{
-#	  throw('Found probeset('.$probeset.")  on Array(".$array_chip->get_Array->name.
+  #	  throw('Found probeset('.$probeset.")  on Array(".$array_chip->get_Array->name.
 #			") with duplicate probe sequence for probes $probename and $name\n".
 #			'Need to alter Probe/Adaptor to allow probe duplicates or create separate probes in ImportArrays?');
 #	}
