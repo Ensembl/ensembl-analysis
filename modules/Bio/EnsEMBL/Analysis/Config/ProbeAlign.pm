@@ -244,7 +244,7 @@ use vars qw( %Config );
 
 
 	#CODELINK are 30mers
-	CODELINK_WG_PROBEALIGN => 
+	CODELINK_PROBEALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CODELINK.fasta',
@@ -253,7 +253,7 @@ use vars qw( %Config );
 	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
 	},		  
 
-	CODELINK_WG_PROBETRANSCRIPTALIGN => 
+	CODELINK_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CODELINK.fasta',
@@ -264,7 +264,7 @@ use vars qw( %Config );
 
 
 	#PHALANX are 60mers
-	PHALANX_WG_PROBEALIGN => 
+	PHALANX_PROBEALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.PHALANX.fasta',
@@ -273,7 +273,7 @@ use vars qw( %Config );
 	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
 	},		  
 
-	PHALANX_WG_PROBETRANSCRIPTALIGN => 
+	PHALANX_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.PHALANX.fasta',
