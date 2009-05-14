@@ -51,9 +51,9 @@ use Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
 use Bio::SeqIO;
 use Getopt::Long;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Mole::DBXref;
-use Bio::EnsEMBL::Mole::Entry;
-use Bio::EnsEMBL::Mole::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::ExternalData::Mole::DBXref;
+use Bio::EnsEMBL::ExternalData::Mole::Entry;
+use Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor;
 
 $| = 1; # disable buffering
 
@@ -68,8 +68,7 @@ my $window_size = 3;
 my $dbuser = 'genero';
 my $dbhost = 'cbi3';
 my $dbport = 3306;
-
-@dbnames = ('embl_91','refseq_23', 'refseq_24', 'embl_90', 'embl_89');
+my $min_length = 0;
 
 &GetOptions(
         'dbnames=s'              => \@dbnames,
@@ -81,6 +80,7 @@ my $dbport = 3306;
         'annotation=s'           => \$annotation_file,
         'buffer=s'               => \$buffer,
         'window=s'               => \$window_size,
+        'min_length:s'           => \$min_length,
 );
 
 # check commandline
@@ -92,14 +92,12 @@ if (!defined($infile) || !defined($annotation_file) || !defined($outfile)) {
   throw ("Please enter a file name to read (-infile), a file name to write to (-outfile) and a file name for annotation (-annotation). The infile must contain a list of accessions whose CDS coordinates you want to find");
 }
 
-if (scalar(@dbnames)) {
-  @dbnames = split(/,/,join(',',@dbnames));
-}
+@dbnames = split(/,/,join(',',@dbnames));
 
 # connect to databases
 my @dbs;
 foreach my $dbname (@dbnames) {
-  my $db = Bio::EnsEMBL::Mole::DBSQL::DBAdaptor->new(
+  my $db = Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor->new(
         '-dbname' => $dbname,
         '-host'   => $dbhost,
         '-user'   => $dbuser,
@@ -120,27 +118,31 @@ my $seqout = new Bio::SeqIO( -file   => ">$outfile",
 SEQFETCH:
 while ( my $cdna = $seqin->next_seq ) {
   my ($clipped, $clip_end, $num_bases_removed) = clip_if_necessary($cdna, $buffer, $window_size);
-  my $id = $clipped->id;
-  #  next unless in_mole;
-  # check whether in Mole
+  if (defined $clipped) {    # $clipped would have been returned undefined if the entire sequence seems to be polyA/T tail/head
+    my $id = $clipped->id;
+    #  next unless in_mole;
+    # check whether in Mole
 
-  my ($found, $substr) = in_mole($id, $clip_end, $num_bases_removed, $clipped->length);
-  if ($substr) {
-    # the clipping cut off too much. We must get it back.
-    if ($clip_end eq "head") {
-      $clipped->seq(substr($cdna->seq, $substr));
-    } elsif ($clip_end eq "tail") {
-      $clipped->seq(substr($cdna->seq, 0, $substr));
+    my ($found, $substr) = in_mole($id, $clip_end, $num_bases_removed, $clipped->length);
+    if ($substr) {
+      # the clipping cut off too much. We must get it back.
+      if ($clip_end eq "head") {
+        $clipped->seq(substr($cdna->seq, $substr));
+      } elsif ($clip_end eq "tail") {
+        $clipped->seq(substr($cdna->seq, 0, $substr));
+      }
+    }
+    if ($found) {
+      if (length($clipped->seq) >= $min_length) {
+        $seqout->write_seq($clipped);
+      } else {
+      print STDERR "Clipped sequence for $id is shorter than $min_length bp and is excluded from output.\n";
+      }
+    } else {
+      warning ("Not in Mole $id.");
     }
   }
-  if ($found) {  
-    $seqout->write_seq($clipped);
-  } else {
-   # warning("Not in Mole $id.");
-  }
 }
-
-
 =head2 in_mole 
 
   Arg [1]   : String - accession of cDNA, with version 
