@@ -36,6 +36,14 @@ Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =cut
 
+#To do
+#1 Enable rollback based on the probe IDs for this chunk
+#2 Delay Unmapped object write? 
+#This won't be necessary if we enable rollback and will reduce mem usage
+#If we can write features immediately too.
+#3 Report Unmapped object count in output
+#4 Re/move all unnecessary warns
+
 package Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
 
 use strict;
@@ -149,7 +157,7 @@ sub new {
 	
  
   if(! $extdb_id){
-	warn 'No external_db found for '.$self->{'mapping_type'}." mapping, inserting $db_name $schema_build";
+	print 'No external_db found for '.$self->{'mapping_type'}." mapping, inserting $db_name $schema_build";
 	
 	#status is dubious here as this should really be on object_xref
 	my $insert_sql = 'INSERT into external_db(db_name, db_release, status, dbprimary_acc_linkable, priority, db_display_name, type)'.
@@ -190,9 +198,9 @@ sub fetch_input {
 
   if ( -e $target ){
     if(-d $target ) {
-      warn ("Target $target is a directory of files\n");
+      print ("Target $target is a directory of files\n");
     }elsif (-s $target){
-      warn ("Target $target is a whole-genome file\n");
+      print ("Target $target is a whole-genome file\n");
     }else{
       throw("'$target' isn't a file or a directory?");
     }
@@ -325,7 +333,7 @@ sub write_output {
   #This is only used to report the number of features
   $self->output($features);#$self->features);
   
-  warn "Writing ProbeFeatures\n";
+  print 'Writing '.scalar(@{$features})." ProbeFeatures\n";
 
   foreach my $feature_xref(@{$features}){
 	my ($feature, $xref) = @$feature_xref;
@@ -339,9 +347,7 @@ sub write_output {
     eval{ $feature_adaptor->store($feature)};
 
     if ($@) {
-
-	  warn $feature->slice->name;
-      $self->throw('Unable to store ProbeFeature for probe '.$feature->probe_id." !\n $@");
+      $self->throw('Unable to store ProbeFeature for probe '.$feature->probe_id." on slice:\t".$feature->slice->name."\n$@");
     }
 
 	if($xref){
@@ -350,7 +356,7 @@ sub write_output {
 	  eval{ $dbe_adaptor->store($xref, $feature->dbID, 'ProbeFeature') };
 
 	  if ($@) {
-		$self->throw('Unable to store ProbeFeature DBEntry for probe '.$feature->dbID." !\n $@");
+		$self->throw('Unable to store ProbeFeature DBEntry for probe '.$feature->dbID." !\n$@");
 	  }
 	}
   }
@@ -409,7 +415,7 @@ sub filter_features {
 		warn "Keeping only perfect matches($num_hits/$all_hits) to $probe_id. Do we need to keep this in an UnmappedObject?\n";
 	  } 
 	  else {
-		warn "UnmappedObject:\tToo many hits($num_hits|$all_hits/$max_hits) to $probe_id so rejecting all hits\n";
+		#warn "UnmappedObject:\tToo many hits($num_hits|$all_hits/$max_hits) to $probe_id so rejecting all hits\n";
 		#So we have issues with what we consider for transcript mapping.
 		#If it has failed genomic mapping then we currently do not consider if for xrefing.
 		#But it may only map to one transcript, but all over the genome
@@ -446,7 +452,7 @@ sub filter_features {
 	  #We want to an external_db_id here for if this is Trancsript
 	  #What about genomic mapping?
 	  #Yes we need to reimplement species DB?
-	  warn "UnmappedObject:\t$probe_id has no $mapping_type mappings\n";
+	  #warn "UnmappedObject:\t$probe_id has no $mapping_type mappings\n";
 
 	  $uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						 (
@@ -795,7 +801,7 @@ sub set_probe_and_slice {
 	  }
 
 
-	  warn "$genomic_start $genomic_end $cigar_line";
+	  #warn "$genomic_start $genomic_end $cigar_line";
 
 	  #We could assign the start end directly
 	  $feature->start($genomic_start);
@@ -845,7 +851,7 @@ sub set_probe_and_slice {
 		 #-XREF_END => $q_length,
 		 #-ENSEMBL_START => $transcript_start,#target/hit_start
 		 #-ENSEMBL_END => $transcript_end,#target/hit_end
-		 #-ANALYSIS => $analysis,
+		 -ANALYSIS => $analysis,
 		 -PRIMARY_ID => $seq_id,
 		 -DISPLAY_ID => $display_name,
 		 -DBNAME  => $edb_name,
