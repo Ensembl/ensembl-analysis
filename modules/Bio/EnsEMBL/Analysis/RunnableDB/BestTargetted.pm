@@ -106,7 +106,7 @@ sub fetch_input{
      # get biotypes  
      #
      for my $bt ( @biotypes_to_fetch ) {  
-        my @genes_fetched = @{ $input_slice->get_all_Genes_by_type($bt) }  ; 
+        my @genes_fetched = @{ $input_slice->get_all_Genes_by_type($bt,undef,1) }  ; 
         print "-> $bt    ".scalar(@genes_fetched) . " genes fetched \n" ;  
         push @genes, @genes_fetched; 
         push @all_bt_for_clustering , $bt ; 
