@@ -1,4 +1,7 @@
+#!/usr/local/ensembl/bin/perl
+
 use strict;
+use warnings;
 
 =head1 NAME
 
@@ -88,8 +91,12 @@ if (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames)) {
   throw ("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
 }
 
-if (!defined($infile) || !defined($annotation_file) || !defined($outfile)) {
-  throw ("Please enter a file name to read (-infile), a file name to write to (-outfile) and a file name for annotation (-annotation). The infile must contain a list of accessions whose CDS coordinates you want to find");
+if ( !defined($infile) || !defined($annotation_file) || !defined($outfile) ) {
+  throw( "Please enter a file name to read (-infile), "
+       . "a file name to write to (-outfile) "
+       . "and a file name for annotation (-annotation). "
+       . "The infile must contain a list of accessions "
+       . "whose CDS coordinates you want to find" );
 }
 
 @dbnames = split(/,/,join(',',@dbnames));
@@ -177,24 +184,27 @@ sub in_mole {
     if (defined $strand && defined $start && defined $end && defined $coords) {
       my $cdslength = $end - $start + 1;
       my $string = "$id\t$strand\t$start\t$cdslength";
-      if ($clip_end eq "tail") {
-        if ($length < $end) {
-          warning("Clipped off too many bases from the tail: $id");
-          $do_substr = $end;
-          $string .= "\t| $clip_end | $end | substr_tail";
-        } else {
-          $string .= "\t| $clip_end | $num_bases_removed | do_nothing";
-        }
-      } elsif ($clip_end eq "head") {
-        if ($start-$num_bases_removed < 0) {
-          warning("Clipped off too many bases from the head: $id");
-          $do_substr = $start-1;
-          $string = "$id\t$strand\t1\t$cdslength"; 
-          $string .= "\t| $clip_end | oldstart $start oldend $end | substr_head";
-        } else {
-          $string = "$id\t$strand\t".($start-$num_bases_removed)."\t$cdslength";
-          $string .= "\t| $clip_end | $num_bases_removed | oldstart $start oldend $end";
-          #eg. AF067164.1      +       1075    2946    | head | 12 | oldstart 1087 oldend 2958
+
+      if ( defined $clip_end ) {
+        if ( $clip_end eq "tail" ) {
+          if ( $length < $end ) {
+            warning("Clipped off too many bases from the tail: $id");
+            $do_substr = $end;
+            $string .= "\t| $clip_end | $end | substr_tail";
+          } else {
+            $string .= "\t| $clip_end | $num_bases_removed | do_nothing";
+          }
+        } elsif ( $clip_end eq "head" ) {
+          if ( $start - $num_bases_removed < 0 ) {
+            warning("Clipped off too many bases from the head: $id");
+            $do_substr = $start - 1;
+            $string    = "$id\t$strand\t1\t$cdslength";
+            $string   .= "\t| $clip_end | oldstart $start oldend $end | substr_head";
+          } else {
+            $string  = "$id\t$strand\t" . ( $start - $num_bases_removed ) . "\t$cdslength";
+            $string .= "\t| $clip_end | $num_bases_removed | oldstart $start oldend $end";
+            #eg. AF067164.1      +       1075    2946    | head | 12 | oldstart 1087 oldend 2958
+          }
         }
       }
       open (ANNOTATION, ">>$annotation_file") or die "Cannot open $annotation_file\n";
@@ -202,7 +212,7 @@ sub in_mole {
       close ANNOTATION;
       $write_cdna = 1;
     } else {
-      print STDERR "Parse_problem $id ($strand\t$start\t$end\t$coords) db ".$in_db->dbc->dbname." \n";
+      print STDERR "Parse_problem $id in db ".$in_db->dbc->dbname." \n";
     } 
   } else {
     print STDERR "Not_in_mole $id\n";
