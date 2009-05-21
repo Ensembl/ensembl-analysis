@@ -73,7 +73,7 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript identical_Transcripts);
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 
@@ -204,7 +204,6 @@ sub run {
 
     foreach my $protein (keys %{$protein_clusters}) {  
 
-      print "fetching protein from index : $protein \n" ;    
       my $fetched_protein;  
 
       #   
@@ -566,7 +565,6 @@ sub cluster_by_protein {
   # is the second accession in the header line)
   GENE: foreach my $gene ($cluster->get_Genes()) {
     my ($gene_ok, $protein) = check_gene($self, $gene);
-    
     if (!$gene_ok) {
       warning("Gene check failed for gene ".$gene->dbID." (in cluster with 2 or more Sets) - removed from analysis");
       next GENE;
@@ -828,7 +826,7 @@ sub check_gene {
   foreach my $transcript (@transcripts) {
     my @tsfs = @{$transcript->get_all_supporting_features};
     if (scalar(@tsfs) == 1) {
-      $hit_name = $tsfs[0]->hseqname;
+      $hit_name = $tsfs[0]->hseqname; 
       my $entry_obj1 = $self->seqfetcher->get_entry_by_acc($hit_name);
       #print "PRIMARY primary $hit_name ".$entry_obj1."\n";
 
@@ -837,12 +835,14 @@ sub check_gene {
      #   foreach my $sn (@namesp) {
      #     print "Namespace '$sn'\n";
      #   }
-     # }
-
+     # } 
+     
       #my $secondary_header_id;
-      if ($entry_obj1 =~ m/^\>(\S+)\n/) {
-        $protein_acc = $1;
-      } elsif ($entry_obj1 =~ m/^\>(\S+)\s+(\S+)\n/) {
+      if ($entry_obj1 =~m/^\>(\S+)\n/) { 
+        $protein_acc = $1; 
+      } elsif ($entry_obj1 =~m/^\>(\S+\.\d+)\s+\n/) { 
+        $protein_acc = $1; 
+      } elsif ($entry_obj1 =~m/^\>(\S+)\s+(\S+)\n/) {
       #  $secondary_header_id = $2;
         $protein_acc = $2;
       } else {
