@@ -848,7 +848,9 @@ sub check_gene {
       } else {
         throw("Entry has unusual header : \"$entry_obj1\" - hit_name \"$hit_name\"");
       }
-
+      if ( length($protein_acc) > 50 ) {  
+        warning("unusally long acc-number. are you sure this is an acc : $protein_acc ??? \n") ; 
+      } 
       #if ($secondary_header_id) {
       #  print STDERR "fetching secondary seq with 'ID' and acc $secondary_header_id\n\n";
       #  my @seq_objs = $self->seqfetcher->get_Seq_by_secondary('ID', $secondary_header_id);
