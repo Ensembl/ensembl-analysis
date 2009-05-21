@@ -30,6 +30,7 @@ Edit C<%HavanaAdder> to add or alter variables.
 All the variables are in capitals, so that they resemble environment
 variables.
 
+
 =head1 CONTACT
 
 =cut
@@ -42,31 +43,49 @@ use vars qw( %GeneBuilder );
 
 # Hash containing config info
 %GeneBuilder = (
-
-                # Biotype of Ensembl Genes
-	        			GB_ENSEMBL_INPUT_GENETYPE => 'ensembl', 
+                ##################
+                # INPUT BIOTYPES #
+                ##################
+                # CODING
+                #
+                # Biotype of Ensembl Coding Genes
+	        GB_ENSEMBL_INPUT_GENETYPE => ['protein_coding'], 
 	
-                # Biotype of Havana Genes
-	              GB_HAVANA_INPUT_GENETYPE => 'havana', 
+                # Biotype of Havana Coding Genes
+	        GB_HAVANA_INPUT_GENETYPE => ['protein_coding','processed_transcript'], 
 
                 # Biotype of Havana transcripts
-                GB_HAVANA_INPUT_TRANSCRIPTTYPES => ['protein_coding'],
+                GB_HAVANA_INPUT_TRANSCRIPTTYPES => ['protein_coding','processed_transcript'],
 
-                # Output Biotype for Genes
+                # PSEUDOGENES
+                #
+                # Biotype of Ensembl PseudoGenes
+                GB_ENSEMBL_PSEUDO_GENETYPE => ['pseudogene','retrotransposed'],
+                # Biotype of Havana Pseudogenes
+                GB_HAVANA_PSEUDO_GENETYPE => ['pseudogene','IG_pseudogene','processed_pseudogene','transcribed_pseudogene'],
+
+                ##################
+                # OUTPUT BIOTYPES#
+                ##################
                 # Genes with Havana transcripts only
-								HAVANA_GENE_OUTPUT_BIOTYPE => 'merged_Hav',
+	        HAVANA_GENE_OUTPUT_BIOTYPE => 'merged_Hav',
 
-								# Genes with Havana and Ensembl transcripts
-								MERGED_GENE_OUTPUT_BIOTYPE => 'merged_Ens_Hav',
+		# Genes with Havana and Ensembl transcripts
+		MERGED_GENE_OUTPUT_BIOTYPE => 'merged_Ens_Hav',
 
-								# Genes with Ensembl transcripts only
-								ENSEMBL_GENE_OUTPUT_BIOTYPE => 'merged_Ens',
+	        # Genes with Ensembl transcripts only
+	        ENSEMBL_GENE_OUTPUT_BIOTYPE => 'merged_Ens',
 
                 # Output Biotype for merged transcripts
                 MERGED_TRANSCRIPT_OUTPUT_TYPE => 'merged_havana_ensembl',
 
-                # For the Havana_merge update, leave the default values if running the Merge for the first time
-                # Beware the transcript logic_name in the havana database have to be different that the logic_name of the 
+                ###############
+                # LOGIC NAMES #
+                ###############
+                # For the Havana_merge update, leave the default values if 
+                # running the Merge for the first time
+                # Beware the transcript logic_name in the havana database 
+                # have to be different that the logic_name of the 
                 # havana transcripts in the ensembl database
                 HAVANA_LOGIC_NAME => 'havana',
                 MERGED_GENE_LOGIC_NAME => 'ensembl_havana_gene',
