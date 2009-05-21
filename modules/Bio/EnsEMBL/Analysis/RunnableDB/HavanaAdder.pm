@@ -52,9 +52,9 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
-							       GB_INPUTID_REGEX
-							      );
+#use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
+#							       GB_INPUTID_REGEX
+#							      );
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
                                                                GB_ENSEMBL_INPUT_GENETYPE
                                                                HAVANA_GENE_OUTPUT_BIOTYPE
@@ -123,11 +123,13 @@ sub input_id {
     
 sub write_output {
   my($self,@genes) = @_;
-  
+  print "I will start the write output process now \n";  
   # write genes out to a different database from the one we read genewise genes from.
   my $db = $self->get_dbadaptor("GENEBUILD_DB") ;
+
+  #print "WRITE DB IS:",%$db->dbc->dbname,"\n";
+
   # sort out analysis
-  
   my $analysis = $self->analysis;
   unless ($analysis){
     $self->throw("an analysis logic name must be defined in the command line");
@@ -136,6 +138,7 @@ sub write_output {
   my %contighash;
   my $gene_adaptor = $db->get_GeneAdaptor;
   
+
   # this now assummes that we are building on a single VC.
   my $genebuilders = $self->get_genebuilders;
     
@@ -143,48 +146,18 @@ sub write_output {
     my $vc = $genebuilders->{$contig}->query;
       
     @genes = $genebuilders->{$contig}->final_genes;
+    print "I have " ,scalar(@genes), "genes\n";
+ 
+   return unless ($#genes >= 0);
+    #my @newgenes;
     
-    return unless ($#genes >= 0);
-    my @newgenes;
-    
+
     foreach my $gene (@genes) { 
-      my %trans_types;
       $gene->analysis($analysis);
-      #$gene->type($GB_GENE_OUTPUT_BIOTYPE);
-      # poke the caches
-      my %s_pfhash;
-      foreach my $tran (@{$gene->get_all_Transcripts}) {
-        $trans_types{$tran->biotype} = 1;
-        #$tran->stable_id(undef);
-        my @tsf = @{$tran->get_all_supporting_features};
-               
-        my @exons= @{$tran->get_all_Exons};
-        my $tln = $tran->translation;
-        $tln->{'stable_id'} = undef;
-        
-        foreach my $exon (@exons) {
-          my @esf = @{$exon->get_all_supporting_features};
-          #$exon->{'stable_id'} = undef;
-        }
-      }
-      my @total_biotypes;
-      foreach my $t_biotype (keys %trans_types){
-        push (@total_biotypes, $t_biotype);
-      }
-      if (scalar(@total_biotypes)>1 || (scalar(@total_biotypes) == 1 &&
-             $total_biotypes[0] eq $MERGED_TRANSCRIPT_OUTPUT_TYPE)){
-        $gene->biotype($MERGED_GENE_OUTPUT_BIOTYPE);
-      }elsif(scalar(@total_biotypes) == 1 && 
-            $total_biotypes[0] eq $GB_ENSEMBL_INPUT_GENETYPE){
-        $gene->biotype($ENSEMBL_GENE_OUTPUT_BIOTYPE);
-      }else{
-        $gene->biotype($HAVANA_GENE_OUTPUT_BIOTYPE);
-      }
       # store
       eval {
         $gene_adaptor->store($gene);
-        #print STDERR "wrote gene " . $gene->dbID . " to database ".
-        #   $gene->adaptor->db->dbname."\n";
+        print STDERR "wrote gene " . $gene->dbID . " to database\n";
       }; 
       if( $@ ) {
         warning("UNABLE TO WRITE GENE:\n$@");
@@ -250,6 +223,8 @@ sub fetch_input {
     # store the object and the piece of genomic where it will run
     $self->addgenebuilder($genebuilder,$self->query);
     
+    print "I finished fetching the database adaptors\n";
+
 }
 
 ############################################################
@@ -278,20 +253,25 @@ sub get_genebuilders {
 sub run {
     my ($self) = @_;
     
+    print "I'm really ready to start running the analysis\n";
+
     # get a hash, with keys = contig/slice and value = genebuilder object
     my $genebuilders = $self->get_genebuilders;
     
+    print "Getting Gene adaptors again\n";
     my @genes;
     foreach my $contig (keys %{ $genebuilders } ) {
+      print "Starting to get some genes\n";
       my $query = $genebuilders->{$contig}->query;
       
-      #print(STDERR "GeneBuilding for $contig\n");
+      print "GeneBuilding for $contig\n";
       
       $genebuilders->{$contig}->build_Genes;
       
+      print "Genes build now getting the final set\n";
       @genes = $genebuilders->{$contig}->final_genes;
     }
-    
+    print "OK now I have my genes, just need to write them\n";
     $self->output( @genes );
 }
 
