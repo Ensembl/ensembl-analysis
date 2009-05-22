@@ -129,11 +129,15 @@ close INFILE;
 sub get_protein_from_mole {
   my ($id)  = @_;
   my ($in_db, $entry, $protein_id, $protein_seq);
-
+  my $tmp_id = $id ;
   if ($id =~ m/\.\d/) {
     #accession has a version
     foreach my $db (@dbs) { 
       $entry = $db->get_EntryAdaptor->fetch_by_accession_version($id);
+      $in_db = $db;
+      last if defined $entry;
+      $tmp_id =~ s/\..// ;
+      $entry = $db->get_EntryAdaptor->fetch_by_accession_noversion($tmp_id);
       $in_db = $db;
       last if defined $entry;
     }
