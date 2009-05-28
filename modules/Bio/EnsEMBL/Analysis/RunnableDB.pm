@@ -110,9 +110,10 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  my $self = bless {},$class;
-  my ($db, $input_id, $analysis) = rearrange
-    (['DB', 'INPUT_ID', 'ANALYSIS'], @args);
+  my $self = bless {},$class; 
+
+  my ($db, $input_id, $analysis,$ignore_config_file) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE'], @args);
+
   if(!$db || !$analysis || !$input_id){
     throw("Can't create a RunnableDB without a dbadaptor ".
           $db." an analysis object ".$analysis.
@@ -130,7 +131,9 @@ sub new{
 
   $self->db($db);
   $self->analysis($analysis);
-  $self->input_id($input_id);
+  $self->input_id($input_id); 
+  $self->ignore_config_file($ignore_config_file) ;
+
   verbose($CORE_VERBOSITY);
   logger_verbosity($LOGGER_VERBOSITY);
   return $self;
@@ -540,5 +543,23 @@ sub require_module{
   throw("Couldn't require ".$class." Blast:require_module $@") if($@);
   return $module;
 }
+
+=head2 ignore_config_file   
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : string  ( 1 or 0 ) 
+  Function  : Getter/Setter for value if the configuration file for the module should 
+              be ignored or not. Default is to not ignore ( =read / use ) the config file.
+  Returntype: 1 or 0 
+
+=cut
+
+sub ignore_config_file {
+  my $self = shift;
+  $self->{'ignore_config'} = shift if(@_);
+  return $self->{'ignore_config'};
+}
+
+
 
 1;
