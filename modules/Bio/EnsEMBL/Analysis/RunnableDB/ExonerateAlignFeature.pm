@@ -149,7 +149,9 @@ sub run {
 
   if ($self->filter) {
     $features = $self->filter->filter_results($features);
-  }
+  
+  my $output_db = $self->create_output_db;
+  $self->output_db($output_db) ;  
 
   $self->process_features($features);
   $self->output($features);
@@ -160,7 +162,7 @@ sub run {
 sub write_output {
   my ( $self, @output ) = @_;
 
-  my $outdb = $self->create_output_db;
+  my $outdb = $self->output_db; 
   my $fa = $outdb->get_DnaAlignFeatureAdaptor;
 
   foreach my $f (@{$self->output}){  
@@ -176,10 +178,9 @@ sub write_output {
 ############################################################
 
 sub process_features {
-  my ( $self, $flist ) = @_;
+  my ( $self, $flist,$output_db  ) = @_;
 
-  my $db = $self->create_output_db;
-  my $slice_adaptor = $db->get_SliceAdaptor;
+  my $slice_adaptor = $output_db->get_SliceAdaptor;
 
   my %genome_slices;
 
@@ -212,10 +213,21 @@ sub create_output_db {
     $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
   } else {
     $outdb = $self->db;
-  }
-
+  } 
+  $self->db->disconnect_when_inactive(1); 
   return $outdb;
 }
+
+
+sub output_db {
+ my ( $self,$arg ) = @_ ; 
+  
+ if ( defined $arg && $arg->isa("Bio::EnsEMBL::DBSQL::DBAdaptor")) {  
+   $self->{'output_db'} = $arg ; 
+ } 
+ return $self->{'output_db'} ; 
+} 
+
 
 
 sub filter {
