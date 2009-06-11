@@ -13,8 +13,8 @@ use Scalar::Util 'weaken';
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter';
 
-my $DEBUG                = 1;
-my $SANITY_CHECK_STRANDS = 1;
+my $DEBUG                = 0;
+my $SANITY_CHECK_STRANDS = 0;
 
 # NB: not a method
 sub overlap {
