@@ -13,8 +13,8 @@ use Scalar::Util 'weaken';
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter';
 
-my $DEBUG                = 0;
-my $SANITY_CHECK_STRANDS = 0;
+my $DEBUG                = 1;
+my $SANITY_CHECK_STRANDS = 1;
 
 # NB: not a method
 sub overlap {
@@ -178,10 +178,20 @@ sub break_discontinuities {
 				next;
 			}
 
-			my $delta =
-			  $af->hstrand == -1
-			  ? ( $last->hstart - $af->hend )
-			  : ( $af->hstart - $last->hend );
+			my $delta;
+		
+			if ($af->strand == -1) {
+				$delta =
+			  		$af->hstrand == -1
+			  		? ( $af->hstart - $last->hend ) 
+			  		: ( $last->hstart - $af->hend );
+			}
+			else {
+				$delta =
+			  		$af->hstrand == -1
+			  		? ( $last->hstart - $af->hend )
+			  		: ( $af->hstart - $last->hend );
+			}
 
 			if ( $delta != 1 ) {
 
