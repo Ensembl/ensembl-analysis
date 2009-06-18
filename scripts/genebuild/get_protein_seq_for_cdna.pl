@@ -14,10 +14,14 @@ use strict;
   fasta sequences, with the corresponding cDNA accession
   followed by the protein accession in the header, e.g.
   
-  >NM_XXXXXX.1  NP_XXXXXX.1
+  >NM_XXXXXX.1 NP_XXXXXX.1
   MSALPGSKLSERVRTVGWQISRPYFCHFFPIRITAPPATCSANKGFPELEHARPCPKRCP
   GSISQAIHVGKMAAVQVAASLPCEQPREAPRELSLEQNNGFRRLSARLRALQPDDSTVSR
   ......
+
+  The two accession numbers in the same header will be separated
+  by a whitespace, to be compatible with protein indexnig 
+  programs like indicate.
 
   The output sequence file is often used at the BestTargetted
   step in genebuild when gene models from Exonerate cdna2genome 
@@ -107,7 +111,7 @@ while (<INFILE>) {
   my $acc = $_;
   my ($protein_id,$protein_seq) = get_protein_from_mole($acc);
   if ($protein_id && $protein_seq) {
-    my $to_print = new Bio::Seq(-id => "$acc\t$protein_id", -seq => "$protein_seq");
+    my $to_print = new Bio::Seq(-id => "$acc $protein_id", -seq => "$protein_seq");  # mRNA acc and protein acc are separated by a space
     $seqout->write_seq($to_print);
   } else {
     print STDERR "Unable to find corresponding protein seq for cDNA $acc\n";
