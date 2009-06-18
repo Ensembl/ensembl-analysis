@@ -385,7 +385,7 @@ sub create_new_array_chip {
 	  throw("$array_name ArrayChip has already been IMPORTED. Please rollback_ArrayChip or recreate your arrays_nr".$self->ARRAY_FORMAT.'.fasta file for alignment');
 	}
 	else{#Rollback
-	  $self->helper->rollback_ArrayChip($array_chip, 'probe');#, 'force');
+	  $self->helper->rollback_ArrayChips([$array_chip], 'probe');#, 'force');
 	  #should we force roll back here?
 	  #If not we may have to manually remove probe2transcript xrefs first
 	  #Forcing here will mean that we are silently deleting the probe2transcript xrefs
@@ -394,10 +394,15 @@ sub create_new_array_chip {
 	}
   }
   else{
+	#override design_id name default if we actually have a design_id in the config
+	if($array_params->{'-design_id'}){
+	  $design_id = $array_params->{'-design_id'};
+	}
+
 	$array_chip = Bio::EnsEMBL::Funcgen::ArrayChip->new
 	  (
 	   -name => $array->name,
-	   -design_id => $design_id,#This is a placeholder as we don't have the real ArrayChip details
+	   -design_id => $design_id,#This is a placeholder as we may have the real ArrayChip details
 	   -array_id  => $array->dbID,
 	  );
 	
