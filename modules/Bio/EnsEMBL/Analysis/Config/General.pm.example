@@ -56,7 +56,7 @@ use vars qw(%Config);
            ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
  
            CORE_VERBOSITY => 'WARNING',
-           LOGGER_VERBOSITY => 'OFF',
+           LOGGER_VERBOSITY => 'OFF', # allowed : OFF, INFO, INFO_STACK_TRACE for logger_info subroutine 
            
            #the two versbosity values control when commands like warning or logger_info
            #print to screen The current settings give you most of what you want but 
