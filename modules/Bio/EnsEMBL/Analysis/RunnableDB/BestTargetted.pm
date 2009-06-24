@@ -140,7 +140,7 @@ sub run {
      -verbose           => $self->VERBOSE,
      -keep_single_analysis => $self->KEEP_SINGLE_ANALYSIS,
      -genes             => $self->genes,
-     
+     -cluster_on_coding_exons => $self->CLUSTER_ON_CODING_EXONS, 
     );
 
   eval{
@@ -383,6 +383,15 @@ sub KEEP_SINGLE_ANALYSIS {
     $self->{_keep_single_analysis} = $value;
   }
   return $self->{_keep_single_analysis};
+}
+
+sub CLUSTER_ON_CODING_EXONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{_cluster_on_coding_exons} = $value;
+  }
+  return $self->{_cluster_on_coding_exons};
 }
 
 1;

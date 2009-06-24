@@ -87,13 +87,14 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
     
-  my( $biotypes, $seqfetcher, $verbose, $genes, $keep_single_analysis ) = 
+  my( $biotypes, $seqfetcher, $verbose, $genes, $keep_single_analysis, $cluster_on_coding_exons ) = 
       rearrange([qw(
                      BIOTYPES 
                      SEQFETCHER
                      VERBOSE
                      GENES
                      KEEP_SINGLE_ANALYSIS
+                     CLUSTER_ON_CODING_EXONS
                     )], @args);
 
   $self->seqfetcher($seqfetcher) if defined $seqfetcher;
@@ -101,6 +102,7 @@ sub new {
   $self->verbose($verbose) if defined $verbose;
   $self->all_genes($genes) if defined $genes;
   $self->keep_single_analysis($keep_single_analysis) if defined $keep_single_analysis;
+  $self->cluster_on_coding_exons($cluster_on_coding_exons) if defined $cluster_on_coding_exons;
 
   return $self ; 
 }
@@ -135,7 +137,12 @@ sub run {
 
  
   # do clustering
-  my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, \%logic_hash ) ; 
+  if ($self->cluster_on_coding_exons) {
+    print "Clustering on coding exons only\n";
+  } else {
+    print "Clustering on coding AND non-coding exons\n";
+  }
+  my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, \%logic_hash , $self->cluster_on_coding_exons) ; 
   if ($self->verbose){
     print @$non_clusters ." non_clusters and ".@$clusters ." clusters\n";
   }
@@ -1049,7 +1056,15 @@ sub keep_single_analysis {
   return $self->{_bt_keep_single_analysis};
 }
 
+sub cluster_on_coding_exons {
+  my ($self, $val) = @_;
 
+  if (defined $val) {
+    $self->{_bt_cluster_on_coding_exons} = $val;
+  }
+
+  return $self->{_bt_cluster_on_coding_exons};
+}
 
 ##########################################
 ### local class

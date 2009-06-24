@@ -111,6 +111,10 @@ use vars qw(%Config);
 
       # version of exonerate used
       EXONERATE_PROGRAM                  => '/usr/local/ensembl/bin/exonerate-0.9.0',
+
+      # cluster using only translateable exons
+      # set to '0' if you'd like to cluster using all exons (incl. UTR)
+      CLUSTER_ON_CODING_EXONS    => 1,
     },
     #BESTTARGETTED => {},
   }
