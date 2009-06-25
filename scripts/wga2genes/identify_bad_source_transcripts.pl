@@ -22,6 +22,7 @@ my (
     $dbport,
     $dbpass, 
     $look_for_dodgy,
+    $print_gsi , 
 );
 
 $dbuser = 'ensro';
@@ -33,6 +34,7 @@ $dbuser = 'ensro';
 	'dbport=s' => \$dbport,
 	'dbpass=s' => \$dbpass,
         'dodgy'    => \$look_for_dodgy,
+        'print_gsi' => \$print_gsi ,   # prints gene stable id of rejected genes
 );
 
 my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
@@ -42,7 +44,6 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 	'-port' => $dbport,
 	'-pass' => $dbpass
 );
-
 my @slices;
 if (@ARGV) {
   foreach my $sid (@ARGV) {
@@ -54,6 +55,7 @@ if (@ARGV) {
 
 
 my %reject;
+my @rejected_g; 
 
 foreach my $sl (sort { $a->length <=> $b->length } @slices) {
   my @orig_genes = @{$sl->get_all_Genes_by_type('protein_coding')};
@@ -62,11 +64,17 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
   # Reject Mitochondrial genes
   #
   if ($sl->seq_region_name eq 'MT') {
-    map { $reject{$_->stable_id} =  "Mitochondrial protein" } @orig_genes;
+    map { $reject{$_->stable_id} =  "Mitochondrial protein" } @orig_genes;   
+
+    for my $g ( @orig_genes ) { 
+      push @rejected_g, $g->stable_id;  
+    } 
+
     next;
   }
 
   my @genes;
+
 
   foreach my $g (@orig_genes) {
     my ($gst, $gen);
@@ -74,10 +82,25 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
     my @trans;
     foreach my $t (@{$g->get_all_Transcripts}) {
 
+      if ( $t->translation ) {  
+        my $x_tr = $t->translateable_seq ; 
+        my $x_tl = $t->translation->seq ;  
+  
+        my $ratio = length($x_tr) / length($x_tl ) ;    
+          if ( $x_tl=~m/^X/ ) { 
+             $reject{$t->stable_id} = "Partial start-codon ( Translation starts with X )" ;  
+             push @rejected_g, $g->stable_id;  
+          } 
+        }
+        
+       
+
       if (length($t->translateable_seq) % 3 != 0) {
         $reject{$t->stable_id} = "Non modulo-3 coding length";
+        push @rejected_g, $g->stable_id;  
       } elsif ($t->biotype ne 'protein_coding') {
         $reject{$t->stable_id} = "Non-coding transcript in protein_coding gene";
+        push @rejected_g, $g->stable_id;
       } else {
         if ($look_for_dodgy) {
           my ($cst, $cen);
@@ -110,6 +133,8 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
       }
     }
   }
+
+
 
   @genes = sort { $a->{start} <=> $b->{start} } @genes;
 
@@ -177,7 +202,14 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
       }
     }
   }
-}
+} 
+
+   my %tmp ; 
+   @tmp{ @rejected_g }=1; 
+  if ($print_gsi) {   
+    print join ("\n",  keys %tmp ) ;  
+    exit(0); 
+  } 
 
 my %reasons;
 foreach my $id (keys %reject) {
