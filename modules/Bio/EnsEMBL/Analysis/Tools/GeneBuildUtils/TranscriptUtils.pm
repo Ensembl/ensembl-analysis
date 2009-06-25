@@ -1237,6 +1237,7 @@ sub replace_stops_with_introns{
 
   $transcript->sort;
   my $newtranscript = clone_Transcript($transcript);
+
   my @exons = @{$newtranscript->get_all_Exons};
   my $pep = $newtranscript->translate->seq;
 
@@ -1271,13 +1272,15 @@ sub replace_stops_with_introns{
           my (@ug_left, @ug_right);
           foreach my $f (@sfs) { 
             foreach my $ug ($f->ungapped_features) {  
-              my $orignial_analysis = $ug->analysis; 
+              $ug->analysis($newtranscript->analysis);
+              my $orignial_analysis = $ug->analysis;
               if ($ug->start >= $exon_left->start and 
                   $ug->end <= $exon_left->end) {
                 #completely within the left-side of the split
                 push @ug_left, $ug;
               } elsif ($ug->start >= $exon_right->start and 
                        $ug->end <= $exon_right->end) {
+                 
                 #completely within the right-side of the split
                 push @ug_right, $ug;
               } else {
