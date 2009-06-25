@@ -284,14 +284,13 @@ sub place_transcript {
       if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
          #print "GAP PRESENT START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
 
-        if (@proc_coords and 
-            $proc_coords[-1]->isa("Bio::EnsEMBL::Mapper::Gap")) {
+
+        if (@proc_coords and $proc_coords[-1]->isa("Bio::EnsEMBL::Mapper::Gap")) {
           $proc_coords[-1]->end( $proc_coords[-1]->end + $c->length );
           #print "Extending existing GAP\n";
         } else {
           #print "ADDing new GAP with length ",$c->length ,"\n";
-          push @proc_coords, Bio::EnsEMBL::Mapper::Gap->new(1, 
-                                                            $c->length);
+          push @proc_coords, Bio::EnsEMBL::Mapper::Gap->new(1, $c->length);
           push @gap_indices, scalar(@proc_coords) - 1;
         }
       } else {
@@ -303,7 +302,7 @@ sub place_transcript {
       #print "I have to handle a GAP\n";
       my $gap = $proc_coords[$idx];
       my $frameshift = $gap->length % 3;
-      
+     
       if ($frameshift) {
         #print "!!! Have a frameshift at " . $gap->start . "\n";
         my $bases_to_remove = 3 - $frameshift;      
@@ -605,7 +604,8 @@ sub place_transcript {
     }
   }
     
-  my $proj_tran = Bio::EnsEMBL::Transcript->new();
+  my $proj_tran = Bio::EnsEMBL::Transcript->new(-analysis => $tran->analysis);
+  
   map { $proj_tran->add_Exon($_) } @merged_exons;
   
 
@@ -762,12 +762,10 @@ sub place_transcript {
   if ($add_attributes) {
     $proj_tran->add_Attributes(@attributes);
   }
-  
   if ($self->direct_target_slice and
       $self->direct_target_slice->strand < 0) {
     $proj_tran = $proj_tran->transfer($self->direct_target_slice->invert);
   }
-
   return $proj_tran;
 }
 
