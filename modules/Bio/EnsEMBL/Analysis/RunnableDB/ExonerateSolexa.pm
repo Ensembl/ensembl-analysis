@@ -286,7 +286,7 @@ sub write_output {
   if ( $self->COMPRESSION ) {
     # Flag set to 1 = return a pipeline adaptor 
     # Remember you need to have the pipeline_tables in your OUT_DB if you like to use compression 
-    $outdb = $self->get_dbadaptor($self->OUT_DB,1);
+    $outdb = $self->get_dbadaptor($self->OUT_DB, 'pipeline');
     $fa = $outdb->get_CompressedDnaAlignFeatureAdaptor;
   } else { 
     # return a NORMAL adaptor NOT a pipeline adaptor ...
