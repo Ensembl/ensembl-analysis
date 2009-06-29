@@ -170,7 +170,7 @@ sub parse_results {
 	#So we use %em to figure out if we don't have a perfect match, then we use %em the info string to figure out where the mismatches are
 	#< 25M effectively means mismatches at the start of end of a query sequence
 	
-	print $_."\n";
+	#print $_."\n";
 
     (undef, $probe_id, $q_start, $q_end, $q_strand, 
 	 $t_id, $t_start, $t_end, $t_strand, $score, 
@@ -380,7 +380,7 @@ sub parse_results {
 		 -end => $t_end,
 		 -strand => $t_strand,
 		 -mismatchcount => $total_mismatches,
-		 -cigar_line => join(':', @soft_cigar_line) || $match_length.'M',
+		 -cigar_string => join(':', @soft_cigar_line) || $match_length.'M',
 		 -seqname => $t_id,
 		);
 
@@ -466,146 +466,6 @@ sub filter_method{
   return $self->{'filter_method'};
 }
 
-#
-# Create affy features attached to 'fake' affy array's and affy probe
-# objects: these are identified by name only, and are then persisted by
-# runnabledb: the runnabledb can sort out whether the attached probe/array
-# is valid (exists in the db).
-#
-sub make_feature{
-  my ($self, @args) = @_;
- 
-  #huh? Isn't this assign self to $tag?
- 
-  my (
-    $tag, $q_id, $q_start, $q_end, $q_strand, 
-    $t_id, $t_start, $t_end, $t_strand, $score, 
-    $q_length, $query_match_length
-  ) = @_;
-
-
-  #because of the 'in-between' coordinates.???
-  $t_start += 1;
-  #What about t_end and q_start/end?
-
-
-  my $probe_internal_id = $q_id;
-  my $mismatch_count;
-  
-  if(!($probe_internal_id =~ /\d+/)){
-    throw "Probe headers MUST be the internal db ids of the Probes for this parser to work!\n";
-  }
-  
-
-
-  #we need to full unmatched query length to calculat the mismatches!
-  #Can't assume will always be
-
-  #=pod
-
-  #If we miss by more than one, don't create the feature.
-  #This is based on 25mers
-  #we need to be able to adapt this for a % hit
-
-  #This should be calculated based on % id?
-  #score is + 5 for a match -4 for mismatch: hence -9 from total score for one mismatch.
-
-  #if($query_match_length == $q_length){
- 
-
-    #if($score == 125){#25mers
-#    if($score == 250){ #50mers
-  #    $mismatch_count = 0;
-    #}elsif ($score == 116) {
-      #}elsif ($score == 241) {#50mer 98%
-    #  $mismatch_count = 1;
-      #}elsif ($score == 232) {#50mer 96%
-      #  $mismatch_count = 2;  
-    #} else {
- #     return undef;
-    #}
-  #}elsif($query_match_length == $q_length -1){
-  #  if ($score == 120) {
-      #if ($score == 245) {#50mer 100% over 49 bases
-  #    $mismatch_count = 1;
-      #}elsif ($score == 236) {#50mer just under 98% over 49 bases
-      #  $mismatch_count = 2;  
-  #  }
-  #  else {
-  #    return undef;
-  #  }
-  #}
-    #elsif($query_match_length == $q_length -2){#50mers only!
-    #  if($score == 240){
-    #    $mismatch_count=2;
-    #  }
-    #}else{
-    #  return undef;
-    #}
-
-  #=cut
-
-  ##NATH HACK
-    #100% ID for tiling arrays
-    if(($query_match_length == $q_length) && $score == 250){
-      $mismatch_count = 0;
-    } else {
-      return undef;
-    }
-  #98 % =  241 for 50 mers
-  
-  
-  
-  #Create a dummy probe object to pass out. It must be checked and
-  #replaced by the parent runnabledb before being stored.
-
-  #my $probe = 
-  #  new Bio::EnsEMBL::Funcgen::Probe(
-  #    -dbID =>$q_id,
-  #    -name => "replace this probe name",
-  #    -arrayname => "replace this array name",
-  #  );
-   
-  # Everything is 'flipped' into the forward strand of the probe -
-  # so a hit on the reverse strand of the probe (q_strand = '-1')
-  # is altered:  q_strand = '+1' and t_strand => -1 x t_strand. 
-  if($q_strand eq '+'){
-    if($t_strand eq '+'){
-      $t_strand = 1;
-    }elsif($t_strand eq '-'){
-      $t_strand = -1;
-    }else{
-      throw "unrecognised target strand symbol: $t_strand\n";
-    }
-  }elsif($q_strand eq '-'){
-    if($t_strand eq '-'){
-      $t_strand = 1;
-    }elsif($t_strand eq '+'){
-      $t_strand = -1;
-    }else{
-      throw "unrecognised target strand symbol: $t_strand\n";
-    }
-  }else{    
-      throw "unrecognised query strand symbol: $q_strand\n";
-  }
-  
-
-  my $feature =
-    new Bio::EnsEMBL::Funcgen::ProbeFeature(
-											#-probe => $probe,
-											-probe_id => $q_id,
-											-start => $t_start,
-											-end => $t_end,
-											-strand => $t_strand,
-											-mismatchcount => $mismatch_count,
-										   );
-
-  # attach the slice name onto the feature: let the runnabledb
-  # sort out whether it's valid.
-  $feature->seqname($t_id);
-  
-  return $feature;
-}
 
 
 1;

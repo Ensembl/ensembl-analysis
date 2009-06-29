@@ -608,7 +608,7 @@ sub set_probe_and_slice {
 
 	  #else alter the start stop values and rebuild the cigarline
 	  my $cigar_line = '';
-	  @trans_cigar_line = split/:/, $feature->cigar_line;
+	  @trans_cigar_line = split/:/, $feature->cigar_string;
 		 
 	  if($transcript_strand == -1){
 		#Always report start end and cigar line wrt the +ve strand of the target seq.
@@ -807,7 +807,7 @@ sub set_probe_and_slice {
 	  $feature->start($genomic_start);
 	  $feature->end($genomic_end);
 	  $feature->strand($transcript_strand);
-	  $feature->cigar_line($cigar_line);
+	  $feature->cigar_string($cigar_line);
 	  #warn "Final Feature $genomic_start $genomic_end $cigar_line" if $warn;
 
 
@@ -887,7 +887,7 @@ sub set_probe_and_slice {
 	  #$dbe_adaptor->store($xref, $probe_id, 'Probe', 1);#Do we need ignore release flag here?
 	}
 	else{#No introns - reformat cigar line
-	  $feature->cigar_line(join('', (split/:/, $feature->cigar_line)));
+	  $feature->cigar_string(join('', (split/:/, $feature->cigar_string)));
 	}
 
 
