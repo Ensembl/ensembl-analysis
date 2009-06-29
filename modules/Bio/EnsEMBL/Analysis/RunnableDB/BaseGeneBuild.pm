@@ -9,6 +9,7 @@ use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info); 
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
 use Bio::EnsEMBL::Analysis::RunnableDB;
@@ -47,7 +48,7 @@ sub database_hash{
 =cut
 
 sub get_dbadaptor{
-  my ($self, $name, $use_pipeline_adaptor) = @_;
+  my ($self, $name, $use_pipeline_adaptor, $not_use_dna_database) = @_;
   my $hash = $self->database_hash;
   my $db;
   if(!$hash->{$name}){
@@ -56,22 +57,32 @@ sub get_dbadaptor{
 
       foreach my $arg ( qw ( -user -port -host -dbname) ) {  
         unless ( $$constructor_args{$arg}){ 
-          throw ("Database-connection-details not properly configured : Arguemnt : $arg missing in Databases.pm\n") ; 
+          throw ("Database-connection-details not properly configured : Argument : $arg missing in Databases.pm\n") ; 
         }
       }
       if ( $use_pipeline_adaptor ) {
-	$db = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new(
+         if ( $use_pipeline_adaptor == 1 || $use_pipeline_adaptor eq "pipeline") {
+            $db = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new(
 							    %$constructor_args,
-							   );
+	  						   );
+         } elsif ( $use_pipeline_adaptor == 2 || $use_pipeline_adaptor eq "compara" ) {
+            $db = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+                                                            %$constructor_args,
+                                                              );
+         }
       } else {
 	$db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 						  %$constructor_args,
 						 );
       }
       if($name ne $DNA_DBNAME ){
-        if (length($DNA_DBNAME) ne 0 ){
-          my $dnadb = $self->get_dbadaptor($DNA_DBNAME);
-          $db->dnadb($dnadb);
+        if (length($DNA_DBNAME) ne 0 ){  
+          if ( $not_use_dna_database ) {
+# if two different species are considered, the not_use_dna_database is set to 1 to avoid adding the second species to the first one 
+          } else { 
+           my $dnadb = $self->get_dbadaptor($DNA_DBNAME); 
+           $db->dnadb($dnadb); 
+         } 
         }else{
           warning("You haven't defined a DNA_DBNAME in Config/Databases.pm");
         }
