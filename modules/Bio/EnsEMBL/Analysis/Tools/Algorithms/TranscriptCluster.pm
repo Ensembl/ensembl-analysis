@@ -364,7 +364,11 @@ sub put_Transcripts {
   my $min_start = undef;
   my $max_end   = undef;
   foreach my $transcript (@new_transcripts) {
-    print "got transcript ".$transcript->stable_id."\n";
+    if ($transcript->stable_id) {
+        print "got transcript " . $transcript->stable_id . "\n" ;
+    } else {
+        print "got transcript " . $transcript->display_id . "\n";
+    }
     my ($start, $end) = $self->_get_start_end($transcript);
     if (!defined($min_start) || $start < $min_start) {
       $min_start = $start;
