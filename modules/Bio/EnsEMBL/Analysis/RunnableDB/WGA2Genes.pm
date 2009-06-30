@@ -36,6 +36,7 @@ use strict;
 
 use warnings;
 use Data::Dumper;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -62,7 +63,7 @@ use Bio::SeqIO;
 use DBI qw(:sql_types);
 use DBD::mysql;
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB 
-          Exporter);
+          Exporter Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 @EXPORT = (@{$DBI::EXPORT_TAGS{'sql_types'}});
 
 
@@ -91,12 +92,10 @@ sub fetch_input {
   my $input_id = $self->input_id;  
   throw("No input id") unless defined($input_id);
 
-  my $q_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
-      new(%{$self->QUERY_CORE_DB});
-  my $t_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
-      new(%{$self->TARGET_CORE_DB});
-  my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->
-      new(%{$self->COMPARA_DB});
+
+  my $t_dbh = $self->get_dbadaptor($self->TARGET_CORE_DB) ;
+  my $q_dbh = $self->get_dbadaptor($self->QUERY_CORE_DB, '', 1) ;
+  my $compara_dbh = $self->get_dbadaptor($self->COMPARA_DB, 'compara') ;
   
   my $query_species = 
       $q_dbh->get_MetaContainerAdaptor->get_Species->binomial;
@@ -152,6 +151,7 @@ sub fetch_input {
 
   if ($input_id =~ /:/) {
     # assume slice name
+
 
     my $slice = $sa->fetch_by_name($input_id);
     $reg_start = $slice->start;
@@ -1514,8 +1514,7 @@ sub KILL_LIST {
 sub get_external_db_id {
   my ($self) = @_;
 
-  my $query_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
-      new(%{$self->QUERY_CORE_DB});
+  my $query_db = $self->get_dbadaptor($self->QUERY_CORE_DB, '', 1) ;
   my $external_dbname = $self->TARGET_SPECIES_EXTERNAL_DBNAME;
 
   my $sth = $query_db->prepare(

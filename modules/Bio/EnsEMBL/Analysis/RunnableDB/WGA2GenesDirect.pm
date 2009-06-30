@@ -36,6 +36,8 @@ use strict;
 use Bio::SeqIO;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
+
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
@@ -48,12 +50,12 @@ use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
 
 #use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
-use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffoldDirect;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
     qw(replace_stops_with_introns);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB 
+            Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 ############################################################
@@ -83,12 +85,10 @@ sub fetch_input {
 
   print "YOUR INPUT ID:",$input_id,"\n";
 
-  my $q_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
-      new(%{$self->QUERY_CORE_DB});
-  my $t_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
-      new(%{$self->TARGET_CORE_DB});
-  my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->
-      new(%{$self->COMPARA_DB});
+
+  my $q_dbh = $self->get_dbadaptor($self->QUERY_CORE_DB, '', 1);
+  my $t_dbh = $self->get_dbadaptor($self->TARGET_CORE_DB);
+  my $compara_dbh = $self->get_dbadaptor($self->COMPARA_DB, 'compara');
   
   my $query_species = 
       $q_dbh->get_MetaContainerAdaptor->get_Species->binomial;
@@ -264,8 +264,8 @@ sub write_output {
   
   my $trans_count = 0;
 
-  my $t_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
-      new(%{$self->TARGET_CORE_DB});
+
+  my $t_dbh = $self->get_dbadaptor($self->TARGET_CORE_DB, '', 1);
 
   my $t_gene_adaptor = $t_dbh->get_GeneAdaptor();
  
