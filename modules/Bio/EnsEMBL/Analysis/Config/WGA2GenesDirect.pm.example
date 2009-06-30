@@ -41,26 +41,13 @@ use vars qw( %Config );
            WGA2GENES_CONFIG_BY_LOGIC => {
              DEFAULT => {
 
-               TARGET_CORE_DB => {
-                 -dbname => '',
-                 -user   => '',
-                 -pass   => '',
-                 -host   => '',
-                 -port   => '',
-               },
-               QUERY_CORE_DB => {
-                 -dbname => '',
-                 -user   => '',
-                 -host   => '',
-                 -port   => '',
-               },
-               COMPARA_DB => {
-                 -dbname => '',
-                 -host   => '',
-                 -user   => '',
-                 -port   => '',
-               },
-
+               TARGET_CORE_DB => 'TARGET_CORE_DB',
+               
+               QUERY_CORE_DB => 'QUERY_CORE_DB',
+               COMPARA_DB => 'COMPARA_DB',
+               
+               # method to use in the projection
+               # can be blastz_net, hive_chain or contig_aware_net
                INPUT_METHOD_LINK_TYPE => 'BLASTZ_NET',
 
                #############################
@@ -84,6 +71,9 @@ use vars qw( %Config );
                          },
 
              },
+           
+           # specifiy the logic_name of the analysis to run
+           WGA2GenesDirect => {},
            },
 
            );

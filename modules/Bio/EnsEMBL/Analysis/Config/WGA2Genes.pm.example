@@ -41,24 +41,9 @@ use vars qw( %Config );
            WGA2GENES_CONFIG_BY_LOGIC => {
              DEFAULT => {
 
-               TARGET_CORE_DB => {
-                 -dbname => 'klh_cow_31_1',
-                 -user   => 'ensro',
-                 -host   => 'ecs2',
-                 -port   => '3366',
-               },
-               QUERY_CORE_DB => {
-                 -dbname => 'homo_sapiens_core_31_35d',
-                 -user   => 'ensro',
-                 -host   => 'ecs2',
-                 -port   => '3365',
-               },
-               COMPARA_DB => {
-                 -dbname => 'klh_compara_human_cow_blastz_27',
-                 -host   => 'ia64f',
-                 -user   => 'ensro',
-                 -port   => '3306',
-               },
+               TARGET_CORE_DB => 'TARGET_CORE_DB',
+               QUERY_CORE_DB => 'QUERY_CORE_DB',
+               COMPARA_DB => 'COMPARA_DB',
 
                # reference (TARGET) species external db
                TARGET_SPECIES_EXTERNAL_DBNAME => 'Ens_Hs_translation', # or Ens_Mm_translation
@@ -128,7 +113,7 @@ use vars qw( %Config );
                MIN_NON_GAP  => 50.0,
 
                # Output directory for the output files
-               OUTPUT_DIR => undeef,
+               OUTPUT_DIR => undef,
 
              },
              WGA2Genes => {
