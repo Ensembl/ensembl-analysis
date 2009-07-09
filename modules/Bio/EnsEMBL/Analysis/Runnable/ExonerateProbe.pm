@@ -40,7 +40,6 @@ ensembl-dev@ebi.ac.uk
 
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe;
 
-use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable;
@@ -50,6 +49,7 @@ use Bio::EnsEMBL::Funcgen::ProbeFeature;
 use Bio::EnsEMBL::Utils::Exception qw( throw warning );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseExonerate);
 
 sub new {
@@ -179,38 +179,31 @@ sub parse_results {
 	#Let's validate output formats somehow?
 
 	
-
-
-	#$gene_orientation always .?
-	#, $match_type, $query_match_length, $target_match_length, @rest_of_vulgar #vulgar blocks	
-	#query strand should always be +?
-	
-	#Do we really need vulgar? 
-	#We never get anything than M N N for ungapped alignments?
-	
-	#if(@rest_of_vulgar){
-	#  throw ("There is more than a simple match ('M') vulgar output:\n".
-	#		 "$match_type $query_match_length $target_match_length @rest_of_vulgar\n".
-	#		 "for affy tag $probe_id mapped to region $t_id \n");
-	#}
-	
-	#if(!($match_type eq 'M')){
-	#  throw "I have received a starting Vulgar symbol $match_type which is not a match!"; 
-	#}
-  
-
-
 	#1 25 + ENSMUST00000115314 1593 1617 + 120 100.00 25 3173 . 0 M 24 24
 	#0 25 + ENSMUST00000109902 2318 2343 + 116 96.00 25 2449 . 1 M 25 25 
 
 	#because of the 'in-between' coordinates.???
-	$t_start += 1;	
-	#What about t_end?
-	#Not all seem to be inbetween:
-	#0 25 -represents 1-25 of a 25mer
-	#Only seems to affect start!
-	#what about query? We also need to add to query if we were using it.
-	
+	#$t_start += 1;	
+	#Has only ever been done to t_start previously!!!
+	#How can this be right for -ve strand hits?
+	#How has this workd in the past??????
+	#This is because the start ends where previously always output smallest first
+	#Where as now is output with repect to 5' end of alignment	
+	#How has the format changed? %S is the culprit? Must have changed between releases of exonerate?
+	#Or something else?
+
+	#because of the 'in-between' coordinates.???
+	#Need to do this here due to cigarline calcs
+	#We should really combine this will the start end flip and 
+	#rework cigarline calc appropriately...another day
+
+	if($t_strand eq '+'){
+	  $t_start += 1;	
+	}
+	else{
+	  $t_end +=1;
+	}
+
 	
 	if(!($probe_id =~ /\d+/)){
 	  throw "Probe headers MUST be the internal db ids of the Probes for this parser to work!\n";
@@ -220,7 +213,7 @@ sub parse_results {
 
 	#We could filter here for -ve strand on transcripts, unless we want to capture this infor for antisense transcription?
 	#But this may not follow cdna, so genomic alignment is fine for this.
-	#Would -ve to -ve alignments be valid? Yes, but they will never be report over +ve to +ve?
+	#Would -ve to -ve alignments be valid? Yes, but they will never be reported over +ve to +ve?
 	#SHouldn't this be filtered in the RunnableDB ProbeAlign and leave this to be generic?
 
 	if($mapping_type eq 'transcript' && $t_strand eq '-'){
@@ -238,7 +231,6 @@ sub parse_results {
 
 
 	#filter_emthod is FILTER_METHOD coderef set in the RunnableDB analysis config hash
-
 	#We don't need this filter method any more as we can simply us the query length - match_length + mismatch count!!!
 	#Will query start end always have full query length?
 	#How will we know full query length if we have different sized probes?
@@ -317,15 +309,6 @@ sub parse_results {
 
 
 
-
-	#Do we need to account for this?!!
-	#i.e. do we need to swap the t_start t_end?
-	#9381894 0 25 + ENSMUST00000039541 2799 2774 - 
-	#We don't want -ve strand matches from transcripts?!
-	#Only valid -ve strand matches will be not cross introns
-	#So we are not interested in them for transcript mapping.
-	#Only for genomic mapping
-
 	if($total_mismatches <= $max_mismatches){
 
 	  if($q_strand eq '+'){
@@ -340,7 +323,7 @@ sub parse_results {
 		  #Are we interested in -ve strand exon hits?
 		  #Isn't -ve strand transcription normally intronic?
 
-		  #Yes but we may have an ST type array so we don't want to through these away.
+		  #Yes but we may have an ST type array so don't discard these away.
 
 		  ($t_start, $t_end) = reverse($t_start, $t_end);
 
@@ -370,7 +353,8 @@ sub parse_results {
 		throw "unrecognised query strand symbol: $q_strand\n";
 	  }
 
-	  #print "Creating ProbeFeature \n";
+	  
+
 
 	  push @features, new Bio::EnsEMBL::Funcgen::ProbeFeature
 		(
@@ -384,6 +368,7 @@ sub parse_results {
 		 -seqname => $t_id,
 		);
 
+	  	warn "After strand $t_start $t_end ";
 	  # attach the slice name onto the feature: let the runnabledb
 	  # sort out whether it's valid.
 	  #$feature->seqname($t_id);
