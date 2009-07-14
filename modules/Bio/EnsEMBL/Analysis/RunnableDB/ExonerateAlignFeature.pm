@@ -149,6 +149,7 @@ sub run {
 
   if ($self->filter) {
     $features = $self->filter->filter_results($features);
+  }
   
   my $output_db = $self->create_output_db;
   $self->output_db($output_db) ;  
