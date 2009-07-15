@@ -55,10 +55,10 @@ use base 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper';
   Arg [THRESHOLD_TYPE]  : string, threshold_type defined in config file
   Arg [THRESHOLD]       : integer, threshold defined in config file
   Arg [DISCARD_OVERLAPS]: flag, 1 or 0 defined in config file
-  Function  : 
-  Returntype: 
-  Exceptions: 
-  Example   : 
+  Function  :
+  Returntype:
+  Exceptions:
+  Example   :
 
 =cut
 
@@ -67,8 +67,8 @@ sub new{
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
-  my ($regex, $query, $target, $analysis,$coverage,$threshold_type,$threshold,$discard_overlaps) = 
-    rearrange(['REGEX', 'QUERY_TYPE', 'DATABASE_TYPE',
+  my ($regex, $skip_name, $query, $target, $analysis,$coverage,$threshold_type,$threshold,$discard_overlaps) =
+    rearrange(['REGEX', 'SKIP_NAME', 'QUERY_TYPE', 'DATABASE_TYPE',
                'ANALYSIS','COVERAGE','THRESHOLD_TYPE','THRESHOLD','DISCARD_OVERLAPS'], @args);
   ######################
   #SETTING THE DEFAULTS#
@@ -76,6 +76,7 @@ sub new{
   $self->regex('(\w+)\s+');
   ######################
   $self->regex($regex) if(defined $regex);
+  $self->skip_name($skip_name) if(defined $skip_name);
   $self->query_type($query) if($query);
   $self->database_type($target) if($target);
   $self->analysis($analysis);
@@ -86,6 +87,23 @@ sub new{
   return $self;
 }
 
+=head2 skip_name
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
+  Arg [2]   : string, regex
+  Function  : skip entry name that matches regex
+  Returntype: string, regex
+  Exceptions:
+  Example   :
+
+=cut
+
+
+sub skip_name{
+  my $self = shift;
+  $self->{'skip_name'} = shift if(@_);
+  return $self->{'skip_name'};
+}
 
 
 =head2 threshold_type
@@ -95,13 +113,13 @@ sub new{
   Function  : container
   Returntype: string
   Exceptions: throws if string is not either PVALUE or PID
-  Example   : 
+  Example   :
 
 =cut
 
 sub threshold_type{
 
-  my ($self, $ttype) = @_; 
+  my ($self, $ttype) = @_;
   if ( $ttype ) {
       throw ("Threshold_type should be either PVALUE or PID") unless ($ttype eq 'PVALUE' || $ttype eq 'PID');
       $self->{'threshold_type'} = $ttype;
@@ -112,15 +130,15 @@ sub threshold_type{
 =head2 threshold
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::Finished::BPliteWrapper
-  Arg [2]   : integer, threshold 
+  Arg [2]   : integer, threshold
   Function  : container
   Returntype: integer
-  Example   : 
+  Example   :
 
 =cut
 
 sub threshold{
-  my ($self, $tvalue) = @_; 
+  my ($self, $tvalue) = @_;
   if ( $tvalue ) {
       $self->{'threshold'} = $tvalue;
   }
@@ -134,12 +152,12 @@ sub threshold{
   Function  : container
   Returntype: integer
   Exceptions: throws if string is not >= 0 or <= 255
-  Example   : 
+  Example   :
 
 =cut
 
 sub coverage{
-  my ($self, $coverage) = @_; 
+  my ($self, $coverage) = @_;
   if ( $coverage ) {
       throw ("Coverage set should be between 0 and 255") unless ($coverage >= 0 || $coverage <= 255 );
       $self->{'coverage'} = $coverage;
@@ -153,12 +171,12 @@ sub coverage{
   Arg [2]   : string, discard_overlap
   Function  : container
   Returntype: string
-  Example   : 
+  Example   :
 
 =cut
 
 sub discard_overlaps{
-  my ($self, $dtype) = @_; 
+  my ($self, $dtype) = @_;
   if ( $dtype ) {
       $self->{'discard_overlaps'} = $dtype;
   }
@@ -173,7 +191,7 @@ sub discard_overlaps{
   Function  : using BPlite to parse the blast output
   Returntype: arrayref
   Exceptions: throws if file does not exist
-  Example   : 
+  Example   :
 
 =cut
 
@@ -199,7 +217,7 @@ sub parse_files{
   Function  : opens file using Filehandle and passes filehandle to BPlite
   Returntype: Bio::EnsEMBL::Analysis::Tools::BPlite
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
@@ -216,7 +234,7 @@ sub get_parsers {
     $fh->open("<".$file);
     my $parser = Bio::EnsEMBL::Analysis::Tools::BPlite->new('-fh' => $fh);
     push(@parsers,$parser);
-  } 
+  }
 
   return \@parsers;
 }
@@ -229,7 +247,7 @@ sub get_parsers {
   Function  : get the hsps from bplite and return the best hits
   Returntype: none
   Exceptions: throws if regex does not produce a result
-  Example   : 
+  Example   :
 
 =cut
 
@@ -238,8 +256,9 @@ sub get_best_hits{
 
   my ($self, $parsers,$thresh_type,$threshold) = @_;
   my $regex = $self->regex;
+  my $skip_name = $self->skip_name;
   my $best_hits = {};
-  
+
   PARSER:
   foreach my $parser(@$parsers){
 
@@ -249,12 +268,15 @@ sub get_best_hits{
 	  my ($name) = $sbjct->name =~ /$regex/;
 	  throw("Error parsing name from ".$sbjct->name." check your ".
             "blast setup and blast headers") unless($name);
+	  # ignore blast db entries like...
+ 	  next HIT if $skip_name && $name =~ /$skip_name/;
+
 	  my $hsps=[];
 	  my $above_thresh=0;
 	  my $best_value=1e6;
 	  my $top_score = 0;
 
-	  HSP: 
+	  HSP:
 	  while (my $hsp = $sbjct->nextHSP) {
 
 	      push(@$hsps, $hsp);
@@ -268,11 +290,11 @@ sub get_best_hits{
 		}
 		if ( $p < $best_value ) {
 		  $best_value = $p;
-		}    
+		}
 	      }
 	      elsif ( $thresh_type eq 'PID' ) {
 
-		$best_value = 0;	      
+		$best_value = 0;
 		if ( $pc >= $threshold ) {
 		  $above_thresh = 1;
 		}
@@ -372,10 +394,10 @@ sub _apply_coverage_filter {
 
 		# Make FeaturePairs if we want to keep this hit
 		if ($keep_hit || $max_coverage == 0) {
-		    foreach my $hsp (@hsps) {                            
+		    foreach my $hsp (@hsps) {
 			push (@output,$self->split_hsp( $hsp, $name, $ana ));
 		    }
-		} 
+		}
 
 	    }
 	}
