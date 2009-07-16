@@ -149,20 +149,25 @@ sub build_Genes{
   # get all genes of type defined in gene_types() on this slice
   $self->get_Genes;
 
-  my @all_coding_transcripts = $self->combined_Transcripts;
-  my @all_processed_transcripts = $self->combined_Processed_Transcripts;
-  my @all_pseudo_transcripts = $self->combined_PseudoTranscripts;
+  my @ensembl_coding_transcripts = $self->combined_Transcripts;
+  my @ensembl_processed_transcripts = $self->combined_Processed_Transcripts;
+  my @ensembl_pseudo_transcripts = $self->combined_PseudoTranscripts;
+
+  my @havana_coding_genes = $self->havana_Coding_Genes;
+  my @havana_processed_transcript_genes = $self->havana_Processed_Transcript_Genes;
+  my @havana_pseudogene_Genes = $self->havana_Pseudogene_Genes;
+
 
   # do a preliminary clustering
-  my @preliminary_coding_genes = $self->cluster_into_Genes(@all_coding_transcripts);
+  my @preliminary_coding_genes = $self->cluster_into_Genes(\@ensembl_coding_transcripts,\@havana_coding_genes);
 
   print "Coding gene clusters: ",scalar(@preliminary_coding_genes),"\n";
 
-  my @preliminary_processed_genes = $self->cluster_into_PseudoGenes(@all_processed_transcripts);
+  my @preliminary_processed_genes = $self->cluster_into_PseudoGenes(\@ensembl_processed_transcripts,\@havana_processed_transcript_genes);
 
   print "Processed transcript genes clusters: ",scalar(@preliminary_processed_genes),"\n";
 
-  my @preliminary_pseudo_genes = $self->cluster_into_PseudoGenes(@all_pseudo_transcripts);
+  my @preliminary_pseudo_genes = $self->cluster_into_PseudoGenes(\@ensembl_pseudo_transcripts,\@havana_pseudogene_Genes);
 
   print "Pseudogene clusters: ",scalar(@preliminary_pseudo_genes),"\n";
 
@@ -178,7 +183,7 @@ sub build_Genes{
 
   # make shared exons unique objects
   my @genes =  $self->_make_shared_exons_unique( @clustered_gene_set );
-  
+ 
   print STDERR scalar(@genes)." genes built\n";
   
   $self->update_biotypes(@genes);
@@ -213,7 +218,9 @@ sub _merge_redundant_transcripts{
     if (!scalar(@havana)){
       next GENE;
     }
-    
+    if (!scalar(@ensembl)){
+      next GENE;
+    } 
     #print "havana tran: ",scalar(@havana),"\n";
     #print "ensembl tran: ",scalar(@ensembl),"\n";
 
@@ -319,6 +326,7 @@ sub are_matched_pair {
   if ($non_coding_h == 1 && $non_coding_e == 1){
     # We check two non coding transcripts. If they have the same structure we keep the one from havana 
     # but if the have same exon strucutre but one is slightly longer we take the longest one of the pair.
+    #print "CASE TYPE ONE\n";
     unless ($self->check_internal_exon_structure(\@eexons,\@hexons)){
       #print "BOTH selected\n";
       # CASE 0: the two transcripts have different internal exon structure
@@ -341,11 +349,12 @@ sub are_matched_pair {
     
     # If Havana is coding and ensembl is non coding
     if ($non_coding_h == 0){
-      
-      unless ($self->check_internal_exon_structure(\@eexons,\@thexons)){
+      #print "CASE TYPE TWO\n";
+      #return 0 unless (scalar(@eexons) == scalar(@thexons));
+      unless ((scalar(@eexons) == scalar(@thexons)) && $self->check_internal_exon_structure(\@eexons,\@thexons)){
         # CASE 0: the two transcripts have different internal exon structure
         return 0;
-				#Here we may consider removing the Ensembl transcript and keep only the havana coding.
+	#Here we may consider removing the Ensembl transcript and keep only the havana coding.
       }
       # CASE 1: If the internal structure is the same we then keep the Havana one.
       return $ensembl;
@@ -353,9 +362,13 @@ sub are_matched_pair {
 
     # If ensembl is coding and havana is non coding
     if ($non_coding_e == 0){
+      # Keep both if they don't have the same coding exon structure 
+      return 0 unless scalar(@thexons) == scalar(@teexons);
+
       # May want to remove the translation and keep ensembl
       # First check if the internal structure of the whole transcripts is conserved
       if(scalar(@hexons) > 1){
+        #print "CASE TYPE THREE\n";
         unless ($self->check_internal_exon_structure(\@hexons,\@eexons)){
           # CASE 0: the two transcripts have different internal exon structure we keep both
           return 0;       
@@ -364,13 +377,14 @@ sub are_matched_pair {
       # Now we check if the coding bit is longer than the whole non coding transcript
       # CASE 1: The ensembl transcript is longer or equal so we remove the havana transcript 
       if ($self->check_terminal_exon_structure(\@hexons,\@teexons)){
-        print "CASE CONTROL \n";
+        #print "CASE CONTROL \n";
+        # PRINT SOMETHING USEFULL HERE TO HELP REVIEW
         $ensembl->{translation} = undef;
         $ensembl->biotype($havana->biotype."_e");
         return $havana;
       }else{
       # CASE 2: The havana transcripts is longer in both ends so we remove the ensembl transcript
-        print "CASE CONTROL 2: ",$ensembl,"\n";
+        #print "CASE CONTROL 2: ",$ensembl,"\n";
         #$ensembl->{_translation_array} = [];
         #$ensembl->biotype($havana->biotype."_e");
         return $ensembl;
@@ -379,7 +393,8 @@ sub are_matched_pair {
     
   }elsif($non_coding_h == 0 && $non_coding_e == 0){
     
-    return 0 unless($havana->translation->genomic_start == $ensembl->translation->genomic_start &&
+    return 0 unless((scalar(@teexons) == scalar(@thexons)) && 
+                    $havana->translation->genomic_start == $ensembl->translation->genomic_start &&
                     $havana->translation->genomic_end   == $ensembl->translation->genomic_end);
     
     # special case for single exon genes
@@ -392,7 +407,7 @@ sub are_matched_pair {
           $thexons[0]->coding_region_start($havana) == $teexons[0]->coding_region_start($ensembl) &&
           $thexons[0]->coding_region_end($havana) == $teexons[0]->coding_region_end($ensembl)
           ){
-        # Both are exactly the same so we delete the Ensembl one unless the Ensembl one is already a merged one
+        # Both are exactly the same so we delete the Ensembl one unless the Ensembl one is already a merged one <-???? IS not doing this here
         return $ensembl;
         
       }elsif($hexons[0]->start     <= $eexons[0]->start &&
@@ -434,16 +449,21 @@ sub are_matched_pair {
       }
       #print "INTERNAL CODING EXONS ARE OK \n";
       
-      #  now check the rest of the internal exons that are not coding.
+      #  now check the rest of the internal exons that are not coding. This is to find if the UTR exon structure is the same
       for(my $i=1; $i<=($#hexons-1); $i++){
-        return 1 unless ($hexons[$i]->start     == $eexons[$i]->start &&
-                         $hexons[$i]->end       == $eexons[$i]->end &&
-                         $hexons[$i]->strand    == $eexons[$i]->strand 
-                         );
+        if($hexons[$i]->start     != $eexons[$i]->start ||
+           $hexons[$i]->end       != $eexons[$i]->end ||
+           $hexons[$i]->strand    != $eexons[$i]->strand 
+                         ){
+          print "CASE WITH SAME CDS BUT DIFFERENT UTR STRUCTURE\n";
+          print "HAVANA DIFF UTR BOUNDARIES: ".$havana->seq_region_name." - ".$havana->seq_region_start. " - ".$havana->seq_region_end."\n";
+          print "ENSEMBL DIFF UTR BOUNDARIES: ".$ensembl->seq_region_name." - ".$ensembl->seq_region_start. " - ".$ensembl->seq_region_end."\n";    
+          return 1;
+        }
       }
       #print "INTERNAL UTR EXONS ARE OK \n";
       
-      # Then check if the first an last exon are the same in both transcripts. If just start and end of UTR are different keep ensembl one
+      # Then check if the first an last exon are the same in both transcripts. If just start and end of UTR are different keep havana one
       # CASE 1: Both coding and UTR are the same, keep Havana and delete Ensembl
       if ($hexons[0]->start     == $eexons[0]->start &&
           $hexons[0]->end       == $eexons[0]->end &&
@@ -469,7 +489,7 @@ sub are_matched_pair {
         #print "MULTIEXON DELETE ENSEMBL\n";      
         return $ensembl;
         
-      }elsif (# CASE 3: BOTH ENSEMBL AND HAVANA HAVE UTR BUT WITH DIFFERENT START/END, KEEP ENSEMBL. Forward strand
+      }elsif (# CASE 3: BOTH ENSEMBL AND HAVANA HAVE UTR BUT WITH DIFFERENT START/END, KEEP Havana. Forward strand
               $hexons[0]->strand == 1 &&
               $hexons[0]->end       == $eexons[0]->end &&
               $hexons[0]->strand    == $eexons[0]->strand &&
@@ -480,8 +500,11 @@ sub are_matched_pair {
               ($hexons[-1]->end     != $eexons[-1]->end ||
                $hexons[0]->start     != $eexons[0]->start)
               ){
-        #print "MULTIEXON DELETE HAVANA\n";      
-        return $havana;
+        #print "MULTIEXON DELETE ENSEMBL\n";
+        print "CASE WITH DIFFERENT TERMINAL EXON BOUNDARIES\n";
+        print "HAVANA BOUNDARIES: ".$havana->seq_region_name." - ".$havana->seq_region_start. " - ".$havana->seq_region_end."\n";
+        print "ENSEMBL BOUNDARIES: ".$ensembl->seq_region_name." - ".$ensembl->seq_region_start. " - ".$ensembl->seq_region_end."\n";   
+        return $ensembl;
         
       }elsif (# CASE 4: Same as case 2 but in reverse strand
               $hexons[0]->strand == -1 &&
@@ -510,8 +533,11 @@ sub are_matched_pair {
                $hexons[-1]->start   != $eexons[-1]->start)
               
               ){
-        #print "MULTIEXON DELETE HAVANA\n";      
-        return $havana;
+        #print "MULTIEXON DELETE HAVANA\n";  
+        print "CASE WITH DIFFERENT TERMINAL EXON BOUNDARIES\n";
+        print "HAVANA BOUNDARIES: ".$havana->seq_region_name." - ".$havana->seq_region_start. " - ".$havana->seq_region_end."\n";
+        print "ENSEMBL BOUNDARIES: ".$ensembl->seq_region_name." - ".$ensembl->seq_region_start. " - ".$ensembl->seq_region_end."\n";    
+        return $ensembl;
         
       }else{
         #print "Should I be here?\n";
@@ -537,6 +563,11 @@ sub check_internal_exon_structure {
 
   my @exons1 = @{$firstexons};
   my @exons2 = @{$secondexons};
+
+  if (scalar(@exons1) != scalar(@exons2)){
+    print "NOOOOOOOOO WHAT HAPPENED HERE?\n";
+    print scalar(@exons1), "  vs. ",scalar(@exons2),"\n";
+  }
 
   # We check if the transcript has more than two exon as otherwise we will be checking 
   #only the coordinates in the last/second exon which may produce wrong results 
@@ -635,6 +666,29 @@ sub add_ottt_xref{
    }
  }
 }
+
+sub add_ottg_xref{
+ my($self, $hg, $ottg) = @_;
+ 
+  print "I am adding an OTTG xref to the transcript\n";
+ print "OTTG TO ADD: ",$ottg,"\n";#$entry->primary_id,"\n";
+ my $xref_ottg = new Bio::EnsEMBL::DBEntry
+     (
+      -primary_id =>$ottg,#$entry->primary_id,
+      -display_id =>$ottg,#$hg->display_id,
+      -priority => 1,
+      -xref_priority => 0,
+      -version => 1,
+      -release => 1,
+      -dbname => 'OTTG'
+      );
+ 
+ $xref_ottg->status("XREF");
+ 
+ $hg->add_DBEntry($xref_ottg);
+ 
+}
+
 
 sub set_transcript_relation {
   # $t_pair[0] is the havana transcript and $t_pair[1] is the ensembl transcript
@@ -901,7 +955,12 @@ sub transfer_supporting_features{
 
 sub _remove_transcript_from_gene {
   my ($self, $gene, $trans_to_del)  = @_;
-  
+     
+#  print "HEY I AAAAAMMMMMMMMMMMMMMMM HEEEEEEEEEEEEEEERRRRRRRRREEEEEEEEEEEEEEE\n";
+#  foreach my $entry(@{ $gene->get_all_DBEntries}){
+#   print "ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
+#  }
+
   my @newtrans;
   foreach my $trans (@{$gene->get_all_Transcripts}) {
     if ($trans != $trans_to_del) {
@@ -926,13 +985,23 @@ sub _make_shared_exons_unique{
   my ( $self, @genes ) = @_;
   my @pruned_genes;
   foreach my $gene ( @genes ){
-    
+    #TEST
+ #   print "HEY I AAAAAMMMMMMMMMMMMMMMM HEEEEEEEEEEEEEEERRRRRRRRREEEEEEEEEEEEEEE\n";
+ #   foreach my $entry(@{ $gene->get_all_DBEntries}){
+ #    print "ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
+ #   }
+
     # make different exon objects that are shared between transcripts 
     # ( regarding attributes: start, end, etc )
     # into unique exon objects 
     my $new_gene = $self->prune_Exons($gene);
+#    foreach my $entry(@{ $new_gene->get_all_DBEntries}){
+#      print "ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
+#    }
+
     push( @pruned_genes, $new_gene );
   }
+#  exit;
   return @pruned_genes;
 }
 
@@ -1007,6 +1076,7 @@ sub get_Genes {
   print STDERR "Retrieved ".scalar(@pseudogenes)." pseudogenes of types: ".join(", ",@{$GB_ENSEMBL_PSEUDO_GENETYPE})."\n";
 
   #Fetch Havana genes
+
   print STDERR "Fetching havana genes\n";  
   foreach my $hbiotype (@{$GB_HAVANA_INPUT_GENETYPE}){
     foreach my $hgene (@{$havanaslice->get_all_Genes_by_type($hbiotype)}){
@@ -1056,14 +1126,17 @@ sub get_Genes {
   print STDERR "Retrieved ".scalar(@hprocessedgenes)." 'processed transcript' genes of types: ".join(", ",@{$GB_HAVANA_PROCESSED_GENETYPE})."\n";
   print STDERR "Retrieved ".scalar(@hpseudogenes)." pseudogenes of types: ".join(", ",@{$GB_HAVANA_PSEUDO_GENETYPE})."\n";
 
-  # Join all the gene set together
-  #push(@genes, @pseudogenes);
-  #push(@hgenes, @hpseudogenes);
+  # We want to keep the HAVANA genes as they are as they asked us to keep their gene clustering untouched
+  $self->havana_Coding_Genes(@hgenes);
+  $self->havana_Processed_Transcript_Genes(@hprocessedgenes);
+  $self->havana_Pseudogene_Genes(@hpseudogenes);
 
-  push(@genes, @hgenes);
-  push(@processedgenes, @hprocessedgenes);
-  push(@pseudogenes, @hpseudogenes);
+  #push(@genes, @hgenes);
+  #push(@processedgenes, @hprocessedgenes);
+  #push(@pseudogenes, @hpseudogenes);
 
+  # We processed the ensembl genes to remove any trace of previous transcript merges in case 
+  # you are running a merge update instead of a fresh clean merge
   @transcripts = $self->check_merge_transcript_status(@genes);
   @processedtranscripts = $self->check_merge_transcript_status(@processedgenes);
   @pseudotranscripts = $self->check_merge_transcript_status(@pseudogenes);
@@ -1171,9 +1244,11 @@ sub flush_xref{
   #print "THIS IS WHAT NEED EMPTYING: ",$transcript->get_all_DBEntries,"\n";
   foreach my $tran_xref (@{$transcript->get_all_DBEntries}){
     if ($tran_xref->dbname ne "shares_CDS_and_UTR_with_OTTT" &&
-        $tran_xref->dbname ne  "shares_CDS_with_OTTT" &&
+        $tran_xref->dbname ne "shares_CDS_with_OTTT" &&
         $tran_xref->dbname ne "shares_CDS_with_ENST" &&
-        $tran_xref->dbname ne "OTTT"){
+        $tran_xref->dbname ne "OTTT" &&
+        $tran_xref->dbname ne "OTTP" &&
+        $tran_xref->dbname ne "OTTG"){
       push (@newxrefs, $tran_xref);
     }
   }
@@ -1308,7 +1383,7 @@ sub _cluster_Transcripts_by_genomic_range{
 =head2 cluster_into_Genes
 
     Example :   my @genes = $self->cluster_into_Genes(@transcripts);
-Description :   it clusters transcripts into genes according to exon overlap.
+Description :   it clusters ensembl transcripts and havana genes according to exon overlap.
                 It will take care of difficult cases like transcripts within introns.
                 It also unify exons that are shared among transcripts.
     Returns :   a beautiful list of geen objects
@@ -1317,49 +1392,78 @@ Description :   it clusters transcripts into genes according to exon overlap.
 =cut
 
 sub cluster_into_Genes{
-  my ($self, @transcripts_unsorted) = @_;
+  my ($self, $transcripts_unsorted, $havana_genes) = @_;
   
-  my $num_trans = scalar(@transcripts_unsorted);
+  my %ottg_xref;
+
+  my $num_trans = scalar(@{$transcripts_unsorted});
 
   # First clean the coding exon cache in case it has any exons stored from previous called to the cluster_into_Genes function.
   $self->clear_coding_exons_cache;
 
   my @transcripts_unsorted_translation;
 
-  foreach my $tran(@transcripts_unsorted){
+  foreach my $tran(@{$transcripts_unsorted}){
     if ($tran->translation){
       push (@transcripts_unsorted_translation, $tran);
     }
   }
 
   my @transcripts = sort { $a->coding_region_start <=> $b->coding_region_start ? $a->coding_region_start <=> $b->coding_region_start  : $b->coding_region_end <=> $a->coding_region_end } @transcripts_unsorted_translation;
+
+  # We are going to set the havana genes as initial clusters as we want to keep their structure
   my @clusters;
 
+  foreach my $hav_gene(@{$havana_genes}){
+    my $ottg_key;
+    foreach my $entry(@{ $hav_gene->get_all_DBEntries}){
+      #print "ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
+      if ($entry->dbname eq 'Vega_gene'){
+        if($entry->primary_id eq $entry->display_id){
+          $ottg_key = $entry->primary_id;
+        } 
+      }
+    }
+
+    my @h_clust;
+    foreach my $hav_trans(@{$hav_gene->get_all_Transcripts}){
+    $ottg_xref{$hav_trans} = $ottg_key;
+
+      push (@h_clust,$hav_trans);
+    }
+    push(@clusters,\@h_clust);
+  }
+  #my @clusters = @{$havana_genes};
+
   # clusters transcripts by whether or not any coding exon overlaps with a coding exon in 
-  # another transcript (came from original prune in GeneBuilder)
+  # another transcript. We will use the set of Havana
   foreach my $tran (@transcripts) {
     
     my @matching_clusters;
-    CLUSTER: 
+  CLUSTER: 
     foreach my $cluster (@clusters) {
       
-     #print "Transcript: ",$tran->stable_id," has coding region start: ",$tran->coding_region_start,"\n";
-
+      #print "Transcript: ",$tran->stable_id," has coding region start: ",$tran->coding_region_start,"\n";
+      #print "CLUSTER: ",$cluster,"\n";
+      #foreach my $cluster_transcript (@{$cluster->get_all_Transcripts}) {
       foreach my $cluster_transcript (@$cluster) {
-        if ($tran->coding_region_end  >= $cluster_transcript->coding_region_start &&
-            $tran->coding_region_start <= $cluster_transcript->coding_region_end) {
-          
-          # foreach my $exon1 (@{$tran->get_all_Exons}) {
-          # foreach my $cluster_exon (@{$cluster_transcript->get_all_Exons}) {
-          my $exons1 = $self->get_coding_exons_for_transcript($tran);
-          my $cluster_exons = $self->get_coding_exons_for_transcript($cluster_transcript);
-
-          foreach my $exon1 (@{$exons1}) {
-            foreach my $cluster_exon (@{$cluster_exons}) {
-              
-              if ($exon1->overlaps($cluster_exon) && $exon1->strand == $cluster_exon->strand) {
-                push (@matching_clusters, $cluster);
-                next CLUSTER;
+        #print $cluster_transcript,"\n";
+        if ($cluster_transcript->translation){
+          if ($tran->coding_region_end  >= $cluster_transcript->coding_region_start &&
+              $tran->coding_region_start <= $cluster_transcript->coding_region_end) {
+            
+            # foreach my $exon1 (@{$tran->get_all_Exons}) {
+            # foreach my $cluster_exon (@{$cluster_transcript->get_all_Exons}) {
+            my $exons1 = $self->get_coding_exons_for_transcript($tran);
+            my $cluster_exons = $self->get_coding_exons_for_transcript($cluster_transcript);
+            
+            foreach my $exon1 (@{$exons1}) {
+              foreach my $cluster_exon (@{$cluster_exons}) {
+                
+                if ($exon1->overlaps($cluster_exon) && $exon1->strand == $cluster_exon->strand) {
+                  push (@matching_clusters, $cluster);
+                  next CLUSTER;
+                }
               }
             }
           }
@@ -1371,33 +1475,98 @@ sub cluster_into_Genes{
       my @newcluster;
       push(@newcluster,$tran);
       push(@clusters,\@newcluster);
+   
     } 
     elsif (scalar(@matching_clusters) == 1) {
+      #print "transcript_id ",$matching_clusters[0]->[0]->dbID,"\n";
+      #print "transcript_id db ",$tran->dbID,"\n";
       push @{$matching_clusters[0]}, $tran;
-      
+  
     } 
     else {
+      print "BEWARE YOU ARE HERE MERGING CLUSTERS\n";
+      
       # Merge the matching clusters into a single cluster
       my @new_clusters;
       my @merged_cluster;
-      foreach my $clust (@matching_clusters) {
-        push @merged_cluster, @$clust;
-      }
-      push @merged_cluster, $tran;
-      push @new_clusters,\@merged_cluster;
-      # Add back non matching clusters
-      foreach my $clust (@clusters) {
-        my $found = 0;
-      MATCHING: 
-	foreach my $m_clust (@matching_clusters) {
-          if ($clust == $m_clust) {
-            $found = 1;
-            last MATCHING;
+      my $hav_gene_counter = 0;
+      
+      # Check how many havana genes are in the cluster
+      CLUST:foreach my $clust (@matching_clusters) {
+        foreach my $clust_trans (@{$clust}){
+          #print "Cluster ", $clust_trans,"\n";
+          if ($clust_trans->biotype =~ /havana/){
+            my $hav_gene_counter++;
+            next CLUST;
           }
         }
-        if (!$found) {
-          push @new_clusters,$clust;
+      }
+      
+      # Merge all clustered genes in case there is only one or none havana genes.
+      if ($hav_gene_counter <= 1){
+        foreach my $clust (@matching_clusters) {
+          #print "THIS GENE COUNTER ",$clust,"\n";
+          push @merged_cluster, @$clust;
         }
+        push @merged_cluster, $tran; 
+
+        # ADD SOME NICE PRINT OUTPUT
+        print "MERGING CLUSTER COVERED BY TRANSCRIPT IN: ",$tran->seq_region_name," - ",$tran->seq_region_start," - ",$tran->seq_region_end,"\n";
+
+        #print "content: ",join(' - ',@merged_cluster),"\n";
+
+      }else{
+      
+        # If there is more than one Havana gene we check which one has a better overlap on the merger transcript
+        # and we also check if the havana genes are partial and need to be merged.
+        #NEED TO SORT CLUSTER
+
+        @matching_clusters = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @matching_clusters;
+        
+        # IF MANY CLUSTs equally good then merge all of them
+        my @clust2merge;
+        my $cluster_ref = 0;
+        my $best_cluster = 0;
+        my $best_match = 0;
+        my $tran_length = $tran->translate->length;
+        foreach my $clust (@matching_clusters) {
+          print "More than one Havana gene overlaps. Scoring the best cluster \n";
+          #exit;
+          my $match_percent = $self->gene_overlap_percent($clust,$tran);
+          if ($match_percent > 100){
+            push (@clust2merge, $clust);
+            next;
+          }
+          if ($match_percent > $best_match){
+            $best_match = $match_percent;
+            $best_cluster = $cluster_ref;
+          }
+          $cluster_ref++;
+        }
+        if (scalar(@clust2merge) >= 1){  
+          print "Have a perfect overlap with a Havana gene\n";
+          push (@merged_cluster, @clust2merge);
+        }else{
+          print "Only one havana gene gave the best overlap\n";
+          push (@merged_cluster, $matching_clusters[$best_cluster]);
+        }
+        push (@merged_cluster, $tran);
+      }
+      
+      push @new_clusters,\@merged_cluster;
+      # Add back non matching clusters
+    MATCHING:
+      foreach my $clust (@clusters) {
+        
+        foreach my $tran_clust (@$clust){
+          foreach my $m_clust (@merged_cluster) {
+#	foreach my $m_clust (@matching_clusters) {
+            if ($tran_clust == $m_clust) {
+              next MATCHING;
+            }
+          }
+        }
+        push @new_clusters,$clust;
       }
       @clusters =  @new_clusters;
     }
@@ -1406,23 +1575,31 @@ sub cluster_into_Genes{
   # safety and sanity checks
   $self->check_Clusters(scalar(@transcripts), \@clusters);
   
+  # Merge the clustered ensembl transcript with the Havana genes.
   # make and store genes
   #print STDERR scalar(@clusters)." created, turning them into genes...\n";
   my @genes;
   foreach my $cluster(@clusters){
     my $count = 0;
+    my $ottg_added = "";
     my $gene = new Bio::EnsEMBL::Gene;
     foreach my $transcript (@$cluster){
       #print "Transcript Stable ID: ",$transcript->dbID,"\n";
       $gene->add_Transcript($transcript);
+      if ($ottg_xref{$transcript} && ($ottg_added ne $ottg_xref{$transcript})){
+        $self->add_ottg_xref($gene,$ottg_xref{$transcript});
+        $ottg_added = $ottg_xref{$transcript};
+      }
+ 
     }
     push( @genes, $gene );
   }
+
   return @genes;
 }
 
 ############################################################
-=head2 cluster_into_Genes
+=head2 cluster_into_PseudoGenes
 
     Example :   my @genes = $self->cluster_into_Genes(@transcripts);
 Description :   it clusters transcripts into genes according to exon overlap.
@@ -1434,12 +1611,39 @@ Description :   it clusters transcripts into genes according to exon overlap.
 =cut
 
 sub cluster_into_PseudoGenes{
-  my ($self, @transcripts_unsorted) = @_;
-  
-  my $num_trans = scalar(@transcripts_unsorted);
+  my ($self, $transcripts_unsorted, $havana_non_coding) = @_;
 
-  my @transcripts = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end } @transcripts_unsorted;
+  my %ottg_xref;
+
+  my $num_trans = scalar(@{$transcripts_unsorted});
+
+  my @transcripts = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end } @{$transcripts_unsorted};
+
+  # I set the havana non coding transcripts as the initial set of cluster
   my @clusters;
+
+  foreach my $hav_gene(@{$havana_non_coding}){
+
+    my $ottg_key;
+
+    foreach my $entry(@{ $hav_gene->get_all_DBEntries}){
+      #print "ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
+      if ($entry->dbname eq 'Vega_gene'){
+        if($entry->primary_id eq $entry->display_id){
+          $ottg_key = $entry->primary_id;
+        } 
+      }
+    }
+
+    my @h_clust;
+    foreach my $hav_trans(@{$hav_gene->get_all_Transcripts}){
+      $ottg_xref{$hav_trans} = $ottg_key;
+      push (@h_clust,$hav_trans);
+    }
+    push(@clusters,\@h_clust);
+  }
+
+  # my @clusters = @{$havana_non_coding};
 
   foreach my $tran (@transcripts) {
     
@@ -1449,6 +1653,7 @@ sub cluster_into_PseudoGenes{
       
      #print "Transcript: ",$tran->stable_id," has start: ",$tran->start,"\n";
 
+     # foreach my $cluster_transcript (@{$cluster->get_all_Transcripts}) {
       foreach my $cluster_transcript (@$cluster) {
         if ($tran->end  >= $cluster_transcript->start &&
             $tran->start <= $cluster_transcript->end) {
@@ -1481,32 +1686,73 @@ sub cluster_into_PseudoGenes{
       
     } 
     else {
+      print "BEWARE YOU ARE HERE MERGING CLUSTERS\n";      
       # Merge the matching clusters into a single cluster
       my @new_clusters;
       my @merged_cluster;
-      foreach my $clust (@matching_clusters) {
-        push @merged_cluster, @$clust;
-      }
-      push @merged_cluster, $tran;
-      push @new_clusters,\@merged_cluster;
-      # Add back non matching clusters
-      foreach my $clust (@clusters) {
-        my $found = 0;
-      MATCHING: 
-	foreach my $m_clust (@matching_clusters) {
-          if ($clust == $m_clust) {
-            $found = 1;
-            last MATCHING;
+      my $hav_gene_counter = 0;
+
+
+      # Check how many havana genes are in the cluster
+      CLUST:foreach my $clust (@matching_clusters) {
+        foreach my $clust_trans (@{$clust}){
+          print "Cluster ", $clust_trans,"\n";
+          if ($clust_trans->biotype =~ /havana/){
+            my $hav_gene_counter++;
+            next CLUST;
           }
         }
-        if (!$found) {
-          push @new_clusters,$clust;
+      }
+      
+      # Merge all clustered genes in case there is only one or none havana genes.
+      if ($hav_gene_counter <= 1){
+        foreach my $clust (@matching_clusters) {
+          push @merged_cluster, @$clust;
         }
+        push @merged_cluster, $tran; 
+      }else{
+        # If there is more than one Havana gene we check which one has a better overlap on the merger transcript
+        # and we also check if the havana genes are partial and need to be merged.
+        #NEED TO SORT CLUsTER
+        @matching_clusters = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @matching_clusters;
+        
+        # IF MANY CLUSTs equally good then merge??? I HAVE TO IMPLEMENT THIS BIT.
+        
+        my $cluster_ref = 0;
+        my $best_cluster = 0;
+        my $best_match = 0;
+        my $tran_length = $tran->length;
+        foreach my $clust (@matching_clusters) {
+          my $match_percent = $self->gene_overlap_percent($clust,$tran);
+          if ($match_percent > $best_match){
+            $best_match = $match_percent;
+            $best_cluster = $cluster_ref;
+          }
+          $cluster_ref++;
+        }
+        
+        push (@merged_cluster, $matching_clusters[$best_cluster]);
+        push (@merged_cluster, $tran);
+      }
+      
+      push @new_clusters,\@merged_cluster;
+      # Add back non matching clusters
+    MATCHING:
+      foreach my $clust (@clusters) {
+        
+        foreach my $tran_clust (@$clust){
+          foreach my $m_clust (@merged_cluster) {
+            if ($tran_clust == $m_clust) {
+              next MATCHING;
+            }
+          }
+        }
+        push @new_clusters,$clust;
       }
       @clusters =  @new_clusters;
     }
   }
-  
+
   # safety and sanity checks
   $self->check_Clusters(scalar(@transcripts), \@clusters);
   
@@ -1515,10 +1761,15 @@ sub cluster_into_PseudoGenes{
   my @genes;
   foreach my $cluster(@clusters){
     my $count = 0;
+    my $ottg_added = "";
     my $gene = new Bio::EnsEMBL::Gene;
     foreach my $transcript (@$cluster){
       #print "Transcript Stable ID: ",$transcript->dbID,"\n";
       $gene->add_Transcript($transcript);
+      if ($ottg_xref{$transcript} && ($ottg_added ne $ottg_xref{$transcript})){
+        $self->add_ottg_xref($gene,$ottg_xref{$transcript});
+        $ottg_added = $ottg_xref{$transcript};
+      }
     }
     push( @genes, $gene );
   }
@@ -1536,6 +1787,10 @@ sub combine_gene_clusters {
      
   CLUSTER:
   foreach my $pseudo_gene(@pseudo_genes){
+    if ($pseudo_gene->biotype =~/havana/){
+      push(@unclestered_pseudos,$pseudo_gene);
+      next CLUSTER;
+    }
     my $pseudo_status = 0;
     OVERLAP:
     foreach my $coding_gene (@coding_genes){
@@ -1590,6 +1845,77 @@ sub get_coding_length {
   }
   return $length;
 }
+
+sub gene_overlap_percent {
+
+  my ($self, $gene,$transcript) = @_;
+  
+  print "GENE CLUST: ",$gene,"\n";
+
+  my $trans_length;
+  my @t_exons;
+  if ($transcript->translate){
+    $trans_length = $transcript->translate->length;
+    @t_exons = @{$transcript->get_all_translateable_Exons};
+  }else{
+    @t_exons = @{$transcript->get_all_Exons};
+    $trans_length = $transcript->length;
+  }
+  
+  my $max_overlap = 0;
+  my $min_g_t_overlap = 100;
+  foreach my $g_trans (@{$gene->get_all_transcripts}){
+    my $percent = 0;
+    my $g_t_length = $g_trans->length;
+    my $g_t_percent = 0;
+    foreach my $g_exon (@{g_trans->get_all_Exons}){
+      
+      foreach my $t_exon (@t_exons){
+        if($g_exon->start < $t_exon->end &&
+           $g_exon->end   > $t_exon->start){
+          
+          my $low = 0;
+          my $high = 0;
+          
+          if ($g_exon->start >= $t_exon->start){
+            $low = $g_exon->start;
+          }else{
+            $low = $t_exon->start;
+          }
+          if ($g_exon->end <= $t_exon->end){
+            $high = $g_exon->end;
+          }else{
+            $high = $t_exon->end;
+          }
+          
+          my $overlap_length = $high-$low;
+          $g_t_percent += ($overlap_length/$g_t_length)*100;
+          $percent += ($overlap_length/$trans_length)*100;
+        }
+      }
+    }
+    # First we check what is the minimun coverage of the havana transcripts in the gene cluster
+    # If this value is close to 100% we consider that the ensembl transcript and the gene should
+    # be merged no matter what. This is usefull if there are a few partial genes from havana that
+    # overlap a transcript in Ensembl
+    if ($g_t_percent <$min_g_t_overlap){
+      $min_g_t_overlap = $g_t_percent;
+    }
+
+    # We also what to know which gene from havana has the best coverage over the ensembl transcript
+    # We will use this value in case we have to Havana genes that we don't want to merge and we want
+    # to decide which one should merge with the ensembl transcript
+    if ($percent >$max_overlap){
+      $max_overlap = $percent;
+    } 
+  }
+  if ($min_g_t_overlap > 98){
+    return 1000;# WE want to merge these two no matter what
+  }else{ 
+    return $max_overlap;
+  }
+}
+
 
 sub overlap_percent {
 
@@ -1712,7 +2038,7 @@ sub check_Clusters{
       $self->throw("Empty cluster");
     }
   }
-  if ($ntrans != $num_transcripts) {
+  if ($ntrans < $num_transcripts) {
     $self->throw("Not all transcripts have been added into clusters $ntrans and " . $num_transcripts. " \n");
   } 
   #end safety checks
@@ -1943,6 +2269,48 @@ sub discarded_db{
 }
 
 ############################################################
+
+sub havana_Coding_Genes {
+    my ($self,@genes) = @_;
+
+    if (!defined($self->{_havana_Coding_Genes})) {
+        $self->{_havana_Coding_Genes} = [];
+    }
+
+    if (scalar @genes > 0) {
+	push(@{$self->{_havana_Coding_Genes}},@genes);
+    }
+
+    return @{$self->{_havana_Coding_Genes}};
+}
+
+sub havana_Processed_Transcript_Genes {
+    my ($self,@genes) = @_;
+
+    if (!defined($self->{_havana_Processed_Transcript_Genes})) {
+        $self->{_havana_Processed_Transcript_Genes} = [];
+    }
+
+    if (scalar @genes > 0) {
+	push(@{$self->{_havana_Processed_Transcript_Genes}},@genes);
+    }
+
+    return @{$self->{_havana_Processed_Transcript_Genes}};
+}
+
+sub havana_Pseudogene_Genes {
+    my ($self,@genes) = @_;
+
+    if (!defined($self->{_havana_Pseudogene_Genes})) {
+        $self->{_havana_Pseudogene_Genes} = [];
+    }
+
+    if (scalar @genes > 0) {
+	push(@{$self->{_havana_Pseudogene_Genes}},@genes);
+    }
+
+    return @{$self->{_havana_Pseudogene_Genes}};
+}
 
 sub combined_Transcripts {
     my ($self,@transcripts) = @_;
