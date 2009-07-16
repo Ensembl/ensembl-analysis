@@ -627,7 +627,13 @@ sub make_transcripts {
 	foreach my $trans (@transcripts) {
 	  # only want est transcripts
 	  next unless $trans->ev_set eq 'est' ;
-	  push @start_utr, $trans if $ADD_UTR;
+          if ($ADD_UTR ) {  
+            unless ( $trans->translation) { 
+	      push @start_utr, $trans ;  
+            } else { 
+              throw("You can't add UTR with non-EST data");   
+	    } 
+	  } 
 	}
       }
       # end UTR
@@ -641,7 +647,13 @@ sub make_transcripts {
 	foreach my $trans (@transcripts) {
 	  # only want est transcripts
 	  next unless $trans->ev_set eq 'est' ;
-	  push @end_utr, $trans if $ADD_UTR;
+          if ($ADD_UTR ) {  
+            unless ( $trans->translation) { 
+	      push @start_utr, $trans ;  
+            } else {  
+              throw("You can't add UTR with non-EST data"); 
+            } 
+	  }
 	}
       }
 
