@@ -96,6 +96,7 @@ sub hit_str {
 	my $hit = shift;
 	my $s   = '';
 	map { $s .= $_->start . "-" . $_->end . "," } @{ $hit->{features} };
+	$s .= " (".$hit->{taxon_id}.")";
 	return $s;
 }
 
@@ -178,20 +179,10 @@ sub break_discontinuities {
 				next;
 			}
 
-			my $delta;
-		
-			if ($af->strand == -1) {
-				$delta =
-			  		$af->hstrand == -1
+			my $delta =
+			  		  $af->hstrand == $af->strand
 			  		? ( $af->hstart - $last->hend ) 
 			  		: ( $last->hstart - $af->hend );
-			}
-			else {
-				$delta =
-			  		$af->hstrand == -1
-			  		? ( $last->hstart - $af->hend )
-			  		: ( $af->hstart - $last->hend );
-			}
 
 			if ( $delta != 1 ) {
 
@@ -525,14 +516,18 @@ sub filter_features {
 
 			my $added = 0;
 
+			print STDERR "ClusterDepthFilter: adding features of cluster: ",
+			  $cluster->{start}, "-", $cluster->{end}, "\n"
+			  if $DEBUG;
+
 			while ( $added < $hits_to_keep && @{ $cluster->{hits} } ) {
 
 				my $hit_to_keep = shift @{ $cluster->{hits} };
 
 				$added++;
 
-				print STDERR "ClusterDepthFilter: adding features of cluster: ",
-				  $cluster->{start}, "-", $cluster->{end}, "\n"
+				print STDERR "ClusterDepthFilter: adding features of hit: ",
+				  $hit_to_keep->{start}, "-", $hit_to_keep->{end}, "\n"
 				  if $DEBUG;
 
 				for my $af ( @{ $hit_to_keep->{features} } ) {
@@ -547,8 +542,11 @@ sub filter_features {
 				}
 			}
 
-			$meta_cluster->{hits_added} += $hits_to_keep;
+			$meta_cluster->{hits_added} += $added;
 		}
+
+		print STDERR "ClusterDepthFilter: meta-cluster hits added: ".
+			$meta_cluster->{hits_added}."\n" if $DEBUG;
 
 		if (   $no_filter
 			&& $max_hits_per_meta_cluster
@@ -561,8 +559,10 @@ sub filter_features {
 
 			for my $cluster (@clusters) {
 				for my $hit ( @{ $cluster->{hits} } ) {
+					print STDERR "ClusterDepthFilter: candidate hit taxon_id: ".hit_str($hit)." ".$hit->{taxon_id}."\n" if $DEBUG;
 					if ( grep { /^$hit->{taxon_id}$/ } @$matching_taxa ) {
 						push @candidates, $hit;
+						print STDERR "ClusterDepthFilter: candidate hit: ".hit_str($hit)."\n" if $DEBUG;
 					}
 				}
 			}
