@@ -91,10 +91,12 @@ sub fetch_input {
   my $chr_slice = $self->feature_slice_adaptor->fetch_by_region('toplevel',
 								$slice->seq_region_name,
 							       );
+
   $self->chr_slice($chr_slice);
   my @features = @{$feature_slice->get_all_DnaAlignFeatures};
   my %reads;
    
+
   while ( scalar(@features) > 0 )  {
     my $read = pop(@features);
     $reads{$read->hseqname} = $read->transfer($chr_slice);
@@ -167,8 +169,9 @@ sub write_output{
       print "Rejecting because of span " . ( $tran->end - $tran->start ) / $tran->length ."\n";
       next;
     }
-    if (  $tran->length > $self->MIN_LENGTH ){
+    if (  $tran->length < $self->MIN_LENGTH ){
       print "Rejecting because of length " . $tran->length ."\n";
+      next;
     }
     eval {
       $gene_adaptor->store($gene);
