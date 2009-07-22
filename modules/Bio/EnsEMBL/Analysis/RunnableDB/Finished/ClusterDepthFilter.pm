@@ -19,13 +19,14 @@ my $SANITY_CHECK_STRANDS = 0;
 # NB: not a method
 sub overlap {
 
-	# check if feature f1 overlaps feature f2
+	# check if feature s1-e1 overlaps feature s2-e2
+	
+	my ( $s1, $e1, $s2, $e2 ) = @_;
 
-	my ( $f1_start, $f1_end, $f2_start, $f2_end ) = @_;
+    my $s_max = $s1 > $s2 ? $s1 : $s2;
+    my $e_min = $e1 < $e2 ? $e1 : $e2;
 
-	return ( ( $f1_start > $f2_start && $f1_start < $f2_end )
-		  || ( $f1_end > $f2_start    && $f1_end < $f2_end )
-		  || ( $f1_start <= $f2_start && $f1_end >= $f2_end ) );
+    return ($e_min - $s_max) >= 0;
 }
 
 # NB: not a method
