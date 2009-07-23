@@ -24,9 +24,13 @@ SOLEXA2GENES_CONFIG_BY_LOGIC =>
                   OUTPUT_DB    => '',
 	          ALIGNMENT_DB => '',
 		  
+                  # logic_names for dna_align_features to be fetched out of ALIGNMENT_DB
+                  LOGIC_NAMES  => [],
+
                   # options for filtering out small gene models
                   MIN_LENGTH => 100,
                   MIN_EXONS  =>   2,
+                  MIN_EXON_LENGTH => 100,
                   # 'span' = genomic extent / cdna length
                   MIN_SPAN   =>   2,
                   # number of read pairs needed to confirm an end exon
