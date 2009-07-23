@@ -180,20 +180,24 @@ sub fetch_input{
     warn("NOT using any cDNAs!?\n");
   }
   else{
-    my $cdna_vc = $self->CDNA_DB->get_SliceAdaptor->fetch_by_name($self->input_id);
-    $self->_cdna_slice($cdna_vc);
-    foreach my $cdna_type (@{$self->cDNA_GENETYPE}){
+    foreach my $dbname (@{$self->CDNA_DB}) {
+       my $dbh = $self->get_dbadaptor($dbname) ;
+       my $cdna_vc = $dbh->get_SliceAdaptor->fetch_by_name($self->input_id);
+       $self->_cdna_slice($cdna_vc);
+       foreach my $cdna_type (@{$self->cDNA_GENETYPE}){
     #my @cdna_genes = @{$cdna_vc->get_all_Genes_by_type($cdna_type)};
-      my @cdna_genes = @{$self->_cdna_slice->get_all_Genes_by_type($cdna_type)};
-      print STDERR "got ".scalar(@cdna_genes)." ".$cdna_type." cDNAs.\n" if $self->VERBOSE;
-      $self->CDNA_DB->dbc->disconnect_when_inactive(1);
-      
+          my @cdna_genes = @{$self->_cdna_slice->get_all_Genes_by_type($cdna_type)};
+          print STDERR "got ".scalar(@cdna_genes)." ".$cdna_type." cDNAs.\n" if $self->VERBOSE;
+          $dbh->dbc->disconnect_when_inactive(1);
+
       # filter cdnas
-      my $filtered_cdna = $self->_filter_cdnas(\@cdna_genes, 0);
+          my $filtered_cdna = $self->_filter_cdnas(\@cdna_genes, 0);
       
-      $self->cdna_genes($filtered_cdna);
-      print STDERR "got " . scalar(@{$filtered_cdna}) . " cdnas after filtering.\n" if $self->VERBOSE;
+          $self->cdna_genes($filtered_cdna);
+          print STDERR "got " . scalar(@{$filtered_cdna}) . " cdnas after filtering.\n" if $self->VERBOSE;
+       }
     }
+    print STDERR "got " . scalar(@{$self->cdna_genes}) . " cdnas accross all databases.\n" if $self->VERBOSE;
   }
 
   # get ESTs
@@ -235,8 +239,12 @@ sub fetch_input{
 
   # db disconnections
   $self->INPUT_DB->dbc->disconnect_when_inactive(1);
-  $self->CDNA_DB->dbc->disconnect_when_inactive(1)
-    if($self->CDNA_DB);
+  if ($self->CDNA_DB) {
+    foreach my $dbname (@{$self->CDNA_DB}) {
+       my $dbh = $self->get_dbadaptor($dbname) ;
+       $dbh->dbc->disconnect_when_inactive(1) ;
+    }
+  }
   $self->EST_DB->dbc->disconnect_when_inactive(1)
     if($self->EST_DB);
   $self->BLESSED_DB->dbc->disconnect_when_inactive(1)
@@ -4140,13 +4148,13 @@ sub _known_pairs {
 =cut
 
 sub CDNA_DB {
-  my( $self, $cdna_db ) = @_;
+  my( $self, $val ) = @_;
 
-  if ($cdna_db){
-    $self->{_cdna_db} = get_db_adaptor_by_string($cdna_db,1);
+  if ($val){
+     $self->{_cdna_dbs} = $val;
   }
 
-  return $self->{_cdna_db};
+  return $self->{_cdna_dbs};
 }
 
 =head2 EST_DB
