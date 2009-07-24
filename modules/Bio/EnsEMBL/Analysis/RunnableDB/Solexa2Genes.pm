@@ -93,7 +93,20 @@ sub fetch_input {
 							       );
 
   $self->chr_slice($chr_slice);
-  my @features = @{$feature_slice->get_all_DnaAlignFeatures};
+
+  my @features;
+  if (scalar(@{$self->LOGIC_NAMES}) < 1) {
+    # no logic names have been specified in config file
+    # so just load all DAFs
+    @features = @{$feature_slice->get_all_DnaAlignFeatures};
+  } else {
+    # config file specifies at least one logic name
+    foreach my $logic_name (@{$self->LOGIC_NAMES}){
+      my @tmp_features = @{$feature_slice->get_all_DnaAlignFeatures($logic_name)};
+      print STDERR "Fetched ".scalar(@tmp_features)." for $logic_name\n";
+      push @features, @tmp_features;
+    }
+  }
   my %reads;
    
 
@@ -165,8 +178,8 @@ sub write_output{
       print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
       next;
     }
-    if( ( $tran->end - $tran->start ) / $tran->length <= $self->MIN_SPAN ) {
-      print "Rejecting because of span " . ( $tran->end - $tran->start ) / $tran->length ."\n";
+    if( ( $tran->end - $tran->start +1 ) / $tran->length < ($self->MIN_SPAN) ) {
+      print "Rejecting because of span " . ( $tran->end - $tran->start +1 ) / $tran->length ."\n";
       next;
     }
     if (  $tran->length < $self->MIN_LENGTH ){
@@ -767,6 +780,18 @@ sub MERGE_GENES {
   }
 }
 
+sub LOGIC_NAMES {
+  my ($self,$value) = @_;
 
+  if (defined $value) {
+    $self->{'_CONFIG_LOGIC_NAMES'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_LOGIC_NAMES'})) {
+    return $self->{'_CONFIG_LOGIC_NAMES'};
+  } else {
+    return [];
+  }
+}
 
 1;
