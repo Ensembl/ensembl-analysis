@@ -145,6 +145,8 @@ sub parse_results {
 
   while (<$fh>){
     #print STDERR $_ if $self->_verbose;
+	#print "\n".$_;
+
     next unless /^RESULT:/;
     chomp;
     
@@ -170,7 +172,6 @@ sub parse_results {
 	#So we use %em to figure out if we don't have a perfect match, then we use %em the info string to figure out where the mismatches are
 	#< 25M effectively means mismatches at the start of end of a query sequence
 	
-	#print $_."\n";
 
     (undef, $probe_id, $q_start, $q_end, $q_strand, 
 	 $t_id, $t_start, $t_end, $t_strand, $score, 
@@ -181,6 +182,7 @@ sub parse_results {
 	
 	#1 25 + ENSMUST00000115314 1593 1617 + 120 100.00 25 3173 . 0 M 24 24
 	#0 25 + ENSMUST00000109902 2318 2343 + 116 96.00 25 2449 . 1 M 25 25 
+	more ar
 
 	#because of the 'in-between' coordinates.???
 	#$t_start += 1;	
@@ -192,19 +194,26 @@ sub parse_results {
 	#How has the format changed? %S is the culprit? Must have changed between releases of exonerate?
 	#Or something else?
 
-	#because of the 'in-between' coordinates.???
+	#because of the half open coordinates.
 	#Need to do this here due to cigarline calcs
 	#We should really combine this will the start end flip and 
 	#rework cigarline calc appropriately...another day
+
+
+	#Account for half open coords	
 
 	if($t_strand eq '+'){
 	  $t_start += 1;	
 	}
 	else{
+	  #Is actually ensembl start
 	  $t_end +=1;
 	}
 
 	
+	#warn "after coord correction $t_start $t_end";
+
+
 	if(!($probe_id =~ /\d+/)){
 	  throw "Probe headers MUST be the internal db ids of the Probes for this parser to work!\n";
 	}
@@ -228,7 +237,7 @@ sub parse_results {
 
 
 	#RESULT: 9379131 0 25 + chromosome:NCBIM37:16:1:98319150:1 33212985 33213010 + 116 96.00 25 98319150 1 scores:0:5:5:5:5:5:5:5:5:5:5:-4:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0: at /nfs/acari/nj1/src/ensembl-analysi
-
+	#RESULT: 586508 1 25 + scaffold:JGI4.1:scaffold_3390:1:12044:1 1790 1766 - 120 100.00 25 12044 0 scores:0:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0:
 
 	#filter_emthod is FILTER_METHOD coderef set in the RunnableDB analysis config hash
 	#We don't need this filter method any more as we can simply us the query length - match_length + mismatch count!!!
@@ -259,10 +268,17 @@ sub parse_results {
 	  push @soft_cigar_line, $q_start.'m' if $q_start;#set this to the value of start if not 0
 	  #We want to subtract from start if +ve hit
 	  #else we want to add to end if -ve strand, end is actually start in ensembl terms
-	  $t_start = ($t_strand eq '+') ? ($t_start - $q_start) : ($t_end + $q_start);
+
+	  #warn "($t_start - $q_start) : ($t_end + $q_start)";
+
+	  #As we have not swapped the t_start/end around yet, this is true for both strands?
+
+	  $t_start = ($t_start - $q_start);
+	  #$t_start = ($t_strand eq '+') ? ($t_start - $q_start) : ($t_start - $q_start);
 	}
 
-
+	#warn "after 5' unaligned start end $t_start $t_end";
+	
 	#mismatches
 	#if($mismatch_count){
 	if($total_mismatches){
@@ -294,6 +310,7 @@ sub parse_results {
 	  push @soft_cigar_line, $tmp;
 	}
 
+	#warn "after mismatches unaligned start end $t_start $t_end";
 
 
 	#3' unaligned
@@ -303,11 +320,15 @@ sub parse_results {
 	  my $three_mismatch = ($q_length - $q_end);
 	  push @soft_cigar_line, $three_mismatch.'m';
 
-	  #Either add to end for +ve or subtract from ensembl start(which is end) for -ve
-	  $t_end = ($t_strand eq '+') ? ($t_end + $three_mismatch) : ($t_start - $three_mismatch);
+
+	  $t_end = ($t_end + $three_mismatch);
+
+		#Either add to end for +ve or subtract from ensembl start(which is end) for -ve
+	  #$t_end = ($t_strand eq '+') ? ($t_end + $three_mismatch) : ($t_end + $three_mismatch);
 	}
 
-
+	
+	#warn "after 3' unaligned start end $t_start $t_end";
 
 	if($total_mismatches <= $max_mismatches){
 
@@ -368,7 +389,7 @@ sub parse_results {
 		 -seqname => $t_id,
 		);
 
-	  	warn "After strand $t_start $t_end ";
+	  #warn "After strand $t_start $t_end ";
 	  # attach the slice name onto the feature: let the runnabledb
 	  # sort out whether it's valid.
 	  #$feature->seqname($t_id);
