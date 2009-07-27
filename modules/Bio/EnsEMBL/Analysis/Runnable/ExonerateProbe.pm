@@ -146,13 +146,13 @@ sub parse_results {
   while (<$fh>){
     #print STDERR $_ if $self->_verbose;
 	#print "\n".$_;
-
+	
     next unless /^RESULT:/;
     chomp;
     
 	#Vulgar blocks are also report in in-between coords! So need to add 1(only to start???)
 	#Shows  the  alignments  in "vulgar" format.  Vulgar is Verbose Useful Labelled Gapped Alignment Report, This format also starts with the same 9 fields as sugar output (see above), and is followed by a series of <label, query_length, target_length> triplets.  The label may be one of the following:
-
+	
 #              M      Match
 #              G      Gap
 #              N      Non-equivalenced region
@@ -172,18 +172,17 @@ sub parse_results {
 	#So we use %em to figure out if we don't have a perfect match, then we use %em the info string to figure out where the mismatches are
 	#< 25M effectively means mismatches at the start of end of a query sequence
 	
-
+	
     (undef, $probe_id, $q_start, $q_end, $q_strand, 
 	 $t_id, $t_start, $t_end, $t_strand, $score, 
 	 $perc_id, $q_length, $t_length, $mismatch_count, $scores) = split;
-
+	
 	#Let's validate output formats somehow?
 
 	
 	#1 25 + ENSMUST00000115314 1593 1617 + 120 100.00 25 3173 . 0 M 24 24
 	#0 25 + ENSMUST00000109902 2318 2343 + 116 96.00 25 2449 . 1 M 25 25 
-	more ar
-
+	
 	#because of the 'in-between' coordinates.???
 	#$t_start += 1;	
 	#Has only ever been done to t_start previously!!!
