@@ -76,7 +76,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 
 
-$! = 1;
+$| = 1;
 
 my $dbhost;
 my $dbuser;
