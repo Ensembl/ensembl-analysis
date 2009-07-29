@@ -145,7 +145,7 @@ sub parse_results {
 
   while (<$fh>){
     #print STDERR $_ if $self->_verbose;
-	#print "\n".$_;
+	print "\n".$_;
 	
     next unless /^RESULT:/;
     chomp;
@@ -210,7 +210,7 @@ sub parse_results {
 	}
 
 	
-	#warn "after coord correction $t_start $t_end";
+	warn "after coord correction $t_start $t_end";
 
 
 	if(!($probe_id =~ /\d+/)){
@@ -263,17 +263,15 @@ sub parse_results {
 	my @soft_cigar_line;
 	
 	#5' unaligned
-	if($align_mismatch){
+	#1 25
+	if($align_mismatch && 
+	  ($q_length == $q_end)){
 	  push @soft_cigar_line, $q_start.'m' if $q_start;#set this to the value of start if not 0
 	  #We want to subtract from start if +ve hit
 	  #else we want to add to end if -ve strand, end is actually start in ensembl terms
 
-	  #warn "($t_start - $q_start) : ($t_end + $q_start)";
-
-	  #As we have not swapped the t_start/end around yet, this is true for both strands?
-
-	  $t_start = ($t_start - $q_start);
-	  #$t_start = ($t_strand eq '+') ? ($t_start - $q_start) : ($t_start - $q_start);
+	  #warn "$t_strand  + ($t_start - $q_start) : - ($t_start + $q_start)";
+	  $t_start = ($t_strand eq '+') ? ($t_start - $q_start) : ($t_start + $q_start);
 	}
 
 	#warn "after 5' unaligned start end $t_start $t_end";
@@ -313,6 +311,7 @@ sub parse_results {
 
 
 	#3' unaligned
+	#0 24
 	if($align_mismatch != $q_start){
 	  #Add end mismatch if
 	  #not accounted for by 5' mismatch
@@ -320,10 +319,9 @@ sub parse_results {
 	  push @soft_cigar_line, $three_mismatch.'m';
 
 
-	  $t_end = ($t_end + $three_mismatch);
+	  #warn "+ ($t_end + $three_mismatch) - ($t_end - $three_mismatch)";
 
-		#Either add to end for +ve or subtract from ensembl start(which is end) for -ve
-	  #$t_end = ($t_strand eq '+') ? ($t_end + $three_mismatch) : ($t_end + $three_mismatch);
+	  $t_end = ($t_strand eq '+') ? ($t_end + $three_mismatch) : ($t_end - $three_mismatch);
 	}
 
 	
