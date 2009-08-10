@@ -554,9 +554,12 @@ sub are_matched_pair {
 }
 
 =head2 check_internal_exon_structure
+
   Description: check if the start and end of internal exon pairs in two sets of exons is the same
   Return: Returns 0 if they are the same, returns 1 if they are differents
+
 =cut
+
 sub check_internal_exon_structure {
 
   my ($self, $firstexons, $secondexons) = @_;
@@ -1517,13 +1520,13 @@ sub cluster_into_Genes{
 
       }else{
       
-        # If there is more than one Havana gene we check which one has a better overlap on the merger transcript
+        # If there is more than one Havana gene we check which one has a better overlap on the merged transcript
         # and we also check if the havana genes are partial and need to be merged.
         #NEED TO SORT CLUSTER
 
         @matching_clusters = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @matching_clusters;
         
-        # IF MANY CLUSTs equally good then merge all of them
+        # IF MANY CLUSTs equally good then merge all of them. NOPE THIS IS NOT ALLOWED ANY MORE
         my @clust2merge;
         my $cluster_ref = 0;
         my $best_cluster = 0;
@@ -1533,23 +1536,24 @@ sub cluster_into_Genes{
           print "More than one Havana gene overlaps. Scoring the best cluster \n";
           #exit;
           my $match_percent = $self->gene_overlap_percent($clust,$tran);
-          if ($match_percent > 100){
-            push (@clust2merge, $clust);
-            next;
-          }
+          ## THIS WAS THE BIT TO MERGE TWO HAVANAS 
+          #if ($match_percent > 100){
+          #  push (@clust2merge, $clust);
+          #  next;
+          #}
           if ($match_percent > $best_match){
             $best_match = $match_percent;
             $best_cluster = $cluster_ref;
           }
           $cluster_ref++;
         }
-        if (scalar(@clust2merge) >= 1){  
-          print "Have a perfect overlap with a Havana gene\n";
-          push (@merged_cluster, @clust2merge);
-        }else{
+        #if (scalar(@clust2merge) >= 1){  
+        #  print "Have a perfect overlap with a Havana gene\n";
+        #  push (@merged_cluster, @clust2merge);
+        #}else{
           print "Only one havana gene gave the best overlap\n";
           push (@merged_cluster, $matching_clusters[$best_cluster]);
-        }
+        #}
         push (@merged_cluster, $tran);
       }
       
@@ -1716,8 +1720,6 @@ sub cluster_into_PseudoGenes{
         #NEED TO SORT CLUsTER
         @matching_clusters = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @matching_clusters;
         
-        # IF MANY CLUSTs equally good then merge??? I HAVE TO IMPLEMENT THIS BIT.
-        
         my $cluster_ref = 0;
         my $best_cluster = 0;
         my $best_match = 0;
@@ -1871,21 +1873,21 @@ sub gene_overlap_percent {
     foreach my $g_exon (@{g_trans->get_all_Exons}){
       
       foreach my $t_exon (@t_exons){
-        if($g_exon->start < $t_exon->end &&
-           $g_exon->end   > $t_exon->start){
+        if($g_exon->seq_region_start < $t_exon->seq_region_end &&
+           $g_exon->seq_region_end   > $t_exon->seq_region_start){
           
           my $low = 0;
           my $high = 0;
           
-          if ($g_exon->start >= $t_exon->start){
-            $low = $g_exon->start;
+          if ($g_exon->seq_region_start >= $t_exon->seq_region_start){
+            $low = $g_exon->seq_region_start;
           }else{
-            $low = $t_exon->start;
+            $low = $t_exon->seq_region_start;
           }
-          if ($g_exon->end <= $t_exon->end){
-            $high = $g_exon->end;
+          if ($g_exon->seq_region_end <= $t_exon->seq_region_end){
+            $high = $g_exon->seq_region_end;
           }else{
-            $high = $t_exon->end;
+            $high = $t_exon->seq_region_end;
           }
           
           my $overlap_length = $high-$low;
@@ -1909,11 +1911,13 @@ sub gene_overlap_percent {
       $max_overlap = $percent;
     } 
   }
-  if ($min_g_t_overlap > 98){
-    return 1000;# WE want to merge these two no matter what
-  }else{ 
+
+## This bit of code was to merge havana transcripts that are completely covered by a ensembl transcript. This is not allowed anymore
+#  if ($min_g_t_overlap > 98){
+#    return 1000;# WE want to merge these two no matter what
+#  }else{ 
     return $max_overlap;
-  }
+#  }
 }
 
 
@@ -1923,15 +1927,15 @@ sub overlap_percent {
   my $low = 0;
   my $high = 0;
 
-  if ($cg_exon->start >= $pg_exon->start){
-    $low = $cg_exon->start;
+  if ($cg_exon->seq_region_start >= $pg_exon->seq_region_start){
+    $low = $cg_exon->seq_region_start;
   }else{
-    $low = $pg_exon->start;
+    $low = $pg_exon->seq_region_start;
   }
-  if ($cg_exon->end <= $pg_exon->end){
-    $high = $cg_exon->end;
+  if ($cg_exon->seq_region_end <= $pg_exon->seq_region_end){
+    $high = $cg_exon->seq_region_end;
   }else{
-    $high = $pg_exon->end;
+    $high = $pg_exon->seq_region_end;
   }
 
   my $overlap_length = $high-$low;
