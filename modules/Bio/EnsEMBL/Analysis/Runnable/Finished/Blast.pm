@@ -10,6 +10,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 
 $ENV{BLASTMAT} 		= $MAT_DIR;
+$ENV{WUBLASTMAT}	= $MAT_DIR;
 $ENV{BLASTFILTER} 	= $BIN_DIR;
 $ENV{BLASTDB} 		= $BLAST_DIR;
 
