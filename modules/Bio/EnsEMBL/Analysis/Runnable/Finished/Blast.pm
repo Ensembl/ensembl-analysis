@@ -12,6 +12,7 @@ use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 $ENV{BLASTMAT} 		= $MAT_DIR;
 $ENV{WUBLASTMAT}	= $MAT_DIR;
 $ENV{BLASTFILTER} 	= $BIN_DIR;
+$ENV{WUBLASTFILTER} 	= $BIN_DIR;
 $ENV{BLASTDB} 		= $BLAST_DIR;
 
 BEGIN {
