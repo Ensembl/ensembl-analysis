@@ -82,10 +82,8 @@ sub fetch_input{
   $self->throw("No input id") unless defined($self->input_id);
   
   my $dnadb = $self->get_dbadaptor('REFERENCE_DB');
-  my $db = $self->get_dbadaptor($self->DB_NAME);
-  $db->dnadb($dnadb);
   
-  my $slice = $self->fetch_sequence($self->input_id, $db);
+  my $slice = $self->fetch_sequence($self->input_id, $dnadb);
   $self->query($slice);
  
   my @genes; 
@@ -240,9 +238,7 @@ sub read_and_check_config {
  
   my $logic = $self->analysis->logic_name;
 
-  foreach my $var (qw(BIOTYPES 
-                      DB_NAME
-                      SEQFETCHER_DIR
+  foreach my $var (qw(SEQFETCHER_DIR
                       SEQFETCHER_OBJECT)) {
 
     throw("You must define $var in config for logic '$logic'" . 
