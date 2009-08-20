@@ -181,7 +181,7 @@ sub write_output {
 sub process_features {
   my ( $self, $flist,$output_db  ) = @_;
 
-  my $slice_adaptor = $output_db->get_SliceAdaptor;
+  my $slice_adaptor = $self->output_db->get_SliceAdaptor;
 
   my %genome_slices;
 
