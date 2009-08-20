@@ -110,7 +110,7 @@ sub pair_features {
   my $paired_features;
   my @selected_reads;
   foreach my $feat ( @features ) {
-    if ( $feat->hseqname =~ /(\S+):([a,b,A,B])$/ ) {
+    if ( $feat->hseqname =~ /(\S+):([a,b,A,B,HA,HB])$/ ) {
       my $suffix = lc($2);
       push @{$paired_features->{$1}->{$suffix}},$feat;
     } else {
@@ -190,6 +190,9 @@ sub pair_features {
 	if ( $selected->hseqname =~ /(\S+):([A])$/ ) {
 	  $selected->hseqname($1 .":a3p");
 	}
+	if ( $selected->hseqname =~ /(\S+):([HA])$/ ) {
+	  $selected->hseqname($1 .":ha3p");
+	}	
 	push @selected_reads, $selected;
       }
       if ( scalar(@bs) >= 1 ) {    
@@ -197,6 +200,9 @@ sub pair_features {
 	my $selected = pop @bs;
 	if ( $selected->hseqname =~ /(\S+):([B])$/ ) {
 	  $selected->hseqname($1 .":b3p");
+	}
+	if ( $selected->hseqname =~ /(\S+):([HB])$/ ) {
+	  $selected->hseqname($1 .":hb3p");
 	}
 	push @selected_reads, $selected;
       }
@@ -233,7 +239,10 @@ sub merge_pair {
       if ( $read->hseqname =~ /(\S+):([A,B])$/ ) {
      	$read->hseqname($1 .":3p");
      }    
-      foreach my $ugf ( $read->ungapped_features ) {
+      if ( $read->hseqname =~ /(\S+):([HA,HB])$/ ) {
+     	$read->hseqname($1 .":h3p");
+     }
+     foreach my $ugf ( $read->ungapped_features ) {
 	# need to modify the 'b' read hit starts ends to make it
 	# appear to come from one long read
 	# neeed to flip it onto the forward strand or else 
