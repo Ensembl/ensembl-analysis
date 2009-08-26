@@ -81,6 +81,7 @@ sub new {
 
     $self->throw("Must input a reference slice and a haplotype slice to HaplotypeProjection") unless (defined($slice) && defined($hap_slice));
     $self->{_final_genes} = [];
+    $self->{_projected_genes} = [];
     $self->{_gene_types}  = [];
 
     $self->query($hap_slice);
@@ -144,6 +145,8 @@ sub project_genes {
 
   print "About to start fetching genes in reference sequence\n";
   my @genes = @{$target_slice->get_all_Genes(undef,undef,1)};
+#  my @genes = @{$target_slice->get_all_Genes()};
+
   @genes = map { $_->transfer($tl_slice) } @genes;
   @genes = sort { $a->start <=> $b->start } @genes;
 
@@ -152,10 +155,12 @@ sub project_genes {
   foreach my $g (@genes) {
     #print "Your genes has: ",scalar(@{$g->get_all_Transcripts})," transcripts\n";
     foreach my $t (@{$g->get_all_Transcripts}) {
-      $t->translation;
+      if($t->translation){
+        $t->translation;
+      }
       #$t->get_all_supporting_features;
       foreach my $e (@{$t->get_all_Exons}) {
-        ; #$e->get_all_supporting_features;
+       #$e->get_all_supporting_features;
       }
     }
   }
@@ -260,9 +265,289 @@ sub project_genes {
   }
 
   print "Gene projection Finished\n";
+ # $self->projected_genes( @projected_genes );
   return @projected_genes;
 
 }
+
+=head2 merge_genes
+
+=cut
+
+sub merge_genes{
+  my ($self) = @_;
+
+  my $query_slice =  $self->query;
+  
+  print "NAME: ",$query_slice->seq_region_name," - ",$query_slice->start," - ",$query_slice->end,"\n";
+
+
+
+  my $gene_query_slice = $self->ensembl_db->get_SliceAdaptor->fetch_by_region("toplevel",
+                                                                              $query_slice->seq_region_name,
+                                                                              $query_slice->start,
+                                                                              $query_slice->end,	
+                                                                              );
+
+  my $output_query_slice = $self->output_db->get_SliceAdaptor->fetch_by_region("toplevel",
+                                                                              $query_slice->seq_region_name,
+                                                                              $query_slice->start,
+                                                                              $query_slice->end,	
+                                                                              );
+
+
+  my $gene_adaptor = $self->ensembl_db->get_GeneAdaptor;
+  
+  my $output_ga = $self->output_db->get_GeneAdaptor;
+  
+  my @haplo_genes;
+
+  my @total_genes = @{$gene_query_slice->get_all_Genes(undef,undef,1)};
+  
+  my @projected_genes;
+  
+  
+  foreach my $total_g (@total_genes){
+    if($total_g->biotype =~/proj/){
+      push(@projected_genes, $total_g);
+    }else{
+      push(@haplo_genes, $total_g);
+    }
+    
+  }
+  
+  print "NUMBER OF GENES1: ",scalar(@haplo_genes),"\n";
+  
+  print "Number of PROJ GENES: ",scalar(@projected_genes),"\n";
+
+  my $analysis;
+
+  my %gene_status;
+
+  my %has_been_added;  
+
+  foreach my $status_gene (@haplo_genes){
+    $gene_status{$status_gene->dbID}=$status_gene;
+    $has_been_added{$status_gene->dbID}=0
+
+  }
+
+
+  #my @genes_to_remove;
+  my @genes_to_add;
+
+  P_GENE:foreach my $p_gene(@projected_genes){
+    $analysis = $p_gene->analysis;
+    my @p_exons = @{$p_gene->get_all_Exons};
+    my $match = 0;
+    my $matched_gene;
+    my $best_match = 0;
+
+    #print "P GENE: start: ", $p_gene->seq_region_start, " end: ", $p_gene->seq_region_end, " strand: ",$p_gene->strand,"\n";
+
+    H_GENE:foreach my $h_gene (@haplo_genes){
+      #next H_GENE unless $has_been_added{$h_gene->dbID}==0;
+      #print "H GENE: start: ", $h_gene->seq_region_start, " end: ", $h_gene->seq_region_end, " strand: ",$h_gene->strand,"\n";
+
+      if ($p_gene->strand == $h_gene->strand &&
+          $p_gene->seq_region_start < $h_gene->seq_region_end &&
+          $p_gene->seq_region_end > $h_gene->seq_region_start){
+
+        print "THIS GENE IS OVERLAPPING\n";
+        #print "NUM OF EXONS: ",scalar(@p_exons),"\n";
+
+        my @h_exons = @{$h_gene->get_all_Exons};
+        #print "NUM OF H EXONS ",scalar(@h_exons),"\n";
+
+        EXON:foreach my $p_exon(@p_exons){
+          foreach my $h_exon(@h_exons){
+            #print "P EXON START: ",$p_exon->seq_region_start," - END: ",$p_exon->seq_region_end,"\n";
+            #print "H EXON START: ",$h_exon->seq_region_start," - END: ",$h_exon->seq_region_end,"\n";
+
+            if($p_exon->seq_region_start < $h_exon->seq_region_end &&
+               $p_exon->seq_region_end > $h_exon->seq_region_start){
+              #WE HAVE A MATCH
+              $match = 1;
+              last EXON;
+            }
+          }
+        }
+        if($match == 1){
+          my $match_score = &gene_overlap_percent($p_gene,$h_gene);
+          if( $match_score > $best_match){
+            print "MATCH GENE BEING UPDATED \n";
+            $matched_gene = $h_gene;
+            $best_match = $match_score;
+          }
+        }
+      }
+    }
+    if($match == 1){
+      # First we need to check that this matched gene was not already added.
+      next P_GENE unless $has_been_added{$matched_gene->dbID}==0;
+      # If it's the first time we use the matched gene then we set the status to 1 so we don't use it again.
+  #    push(@genes_to_remove, $p_gene);
+      $has_been_added{$matched_gene->dbID}=1;
+      my $gene = new Bio::EnsEMBL::Gene;
+      $gene->biotype($matched_gene->biotype);
+    TRANS: foreach my $p_trans(@{$p_gene->get_all_Transcripts}){
+        my $p_match = 0;
+        my @p_t_exons;
+        if ($p_trans->translation){
+          @p_t_exons = @{$p_trans->get_all_translateable_Exons};
+        }else{
+          @p_t_exons = @{$p_trans->get_all_Exons};
+        }
+        
+        foreach my $h_trans(@{$matched_gene->get_all_Transcripts}){
+          my @h_t_exons;
+          if($h_trans->translation){
+            @h_t_exons = @{$h_trans->get_all_translateable_Exons};
+          }else{
+            @h_t_exons = @{$h_trans->get_all_Exons};
+          }
+          if(scalar(@p_t_exons) == scalar(@h_t_exons)){
+          EXON: for(my $i=0; $i<(scalar(@p_t_exons)); $i++){
+            if($p_t_exons[$i]->seq_region_start   == $h_t_exons[$i]->seq_region_start &&
+               $p_t_exons[$i]->seq_region_end     == $h_t_exons[$i]->seq_region_end &&
+               $p_t_exons[$i]->seq_region_strand  == $h_t_exons[$i]->seq_region_strand){
+              next EXON;
+            }else{
+              $p_match = 0;
+            }
+          }
+            $p_match = 1;
+            print "THIS TRANSCRIPT ALREADY EXISTS\n";
+            next TRANS;
+          }
+        }
+        if($p_match == 0){
+          print "ADDING A NEW TRANSCRIPT TO EXISTING GENE\n";
+          print "TRANSCRIPT DBID IS:",$p_trans->dbID,"\n";
+          $gene->analysis($analysis);
+          $gene->add_Transcript($p_trans);
+
+
+        }
+      }
+      foreach my $tran (@{$matched_gene->get_all_Transcripts}){
+        $tran->get_all_Exons;
+        $gene->add_Transcript($tran);
+        
+      }
+      $gene->analysis($analysis);
+
+      print "GENE WITH ADDED TRANSCRIPT: ",$matched_gene->dbID," : ",$matched_gene->seq_region_start," - ",$matched_gene->seq_region_end,"\n";
+
+      $output_ga->store($gene);
+      
+      
+    }else{
+
+      print "KEEPING EXTRA PROJECTED GENE\n";
+      #$p_gene->transfer($output_query_slice);
+      push (@genes_to_add, $p_gene);
+    }
+    
+  } 
+  
+  foreach my $gene_stat(keys %has_been_added){
+    if ($has_been_added{$gene_stat} == 0){
+      print "ADDING PRE_EXISTING GENE\n";
+      push (@genes_to_add,$gene_status{$gene_stat});
+    }else{
+      print "GENE PREVIOUSLY ADDED \n";
+    }
+  }
+
+  foreach my $add_gene(@genes_to_add){
+
+    my $store_gene = new Bio::EnsEMBL::Gene;
+    $store_gene->analysis($analysis);
+    $store_gene->biotype($add_gene->biotype);
+    foreach my $tran (@{$add_gene->get_all_Transcripts}){
+      $tran->get_all_Exons;
+      $store_gene->add_Transcript($tran);
+      
+    }
+    
+    print "Adding gene with id> ",$add_gene->dbID,"\n";
+    $output_ga->store($store_gene);
+  }
+
+}
+
+
+sub gene_overlap_percent {
+  
+  my ($p_gene,$h_gene) = @_;
+  
+  my $max_overlap = 0;
+  
+  my $p_gene_length = $p_gene->length;
+  
+  foreach my $p_exon (@{$p_gene->get_all_Exons}){
+    
+    foreach my $h_exon (@{$h_gene->get_all_Exons}){
+      if($p_exon->seq_region_start < $h_exon->seq_region_end &&
+         $p_exon->seq_region_end   > $h_exon->seq_region_start){
+        
+        my $low = 0;
+        my $high = 0;
+        
+        if ($p_exon->seq_region_start >= $h_exon->seq_region_start){
+          $low = $p_exon->seq_region_start;
+        }else{
+          $low = $h_exon->seq_region_start;
+        }
+        if ($p_exon->seq_region_end <= $h_exon->seq_region_end){
+          $high = $p_exon->seq_region_end;
+        }else{
+          $high = $h_exon->seq_region_end;
+        }
+        
+        my $overlap_length = $high-$low;
+        $max_overlap += ($overlap_length/$p_gene_length)*100;
+      }
+    }
+  }
+  
+  return $max_overlap;
+}
+
+
+=head2 projected_genes
+
+ Descripton: this holds/returns the genes produced after projecting transcripts from the reference sequence to the haplotype
+
+=cut
+
+sub projected_genes{
+  my ($self, @genes) = @_;
+  
+  if ( @genes ){
+    push( @{$self->{_projected_genes}}, @genes );
+  }
+  return @{$self->{_projected_genes}};
+}
+
+
+
+=head2 final_genes
+
+ Descripton: this holds/returns the final genes produced after clustering transcripts and sharing common exons
+
+=cut
+
+sub final_genes{
+  my ($self, @genes) = @_;
+  
+  if ( @genes ){
+    push( @{$self->{_final_genes}}, @genes );
+  }
+  return @{$self->{_final_genes}};
+}
+
 
 sub clean_tables {
 
@@ -415,7 +700,6 @@ sub get_coding_part_of_transcript {
   return $cds_t;
 }
 
-
 sub project_transcript_the_hard_way {
   my ($self, $t, $hapname, $hap_slice) = @_;
 
@@ -566,9 +850,6 @@ sub fix_coding_phases {
     }
   }
 }
-
-
-
 
 sub log_summarise_projection_by_exon {
   my ($self, $t, $hapname) = @_;

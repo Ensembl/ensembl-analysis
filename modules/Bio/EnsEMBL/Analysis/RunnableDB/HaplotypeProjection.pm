@@ -128,6 +128,7 @@ sub write_output {
   @genes = $self->output;
     
   foreach my $gene (@genes) { 
+    $gene->biotype($gene->biotype."_proj");
     my $before = scalar(@{$gene->get_all_Transcripts});
     unless (scalar(@{$gene->get_all_Transcripts})){
       warning("GENE DOES NOT HAVE TRANSCRIPTS:\n");
@@ -135,41 +136,45 @@ sub write_output {
     }
     my %trans_types;
     $gene->analysis($analysis);
-    $gene->{'stable_id'} = '';
+    $gene->{'stable_id'} = undef;
     # poke the caches
     my %s_pfhash;
     foreach my $tran (@{$gene->get_all_Transcripts}) {
-      $tran->{'stable_id'} = '';
+		  $tran->biotype($tran->biotype."_proj");
+      $tran->{'stable_id'} = undef;
       my @tsf = @{$tran->get_all_supporting_features};
       my @exons= @{$tran->get_all_Exons};
       my $tln = $tran->translation;
       if ($tln){
-        $tln->{'stable_id'} = '';
+        $tln->{'stable_id'} = undef;
       }
       
       foreach my $exon (@exons) {
-        if ($tran->seq_region_name != $exon->seq_region_name){
-          print "NO EXON WAS NOT TRANSFORMED BEFORE STORAGE\n";
+        if ($tran->seq_region_name ne $exon->seq_region_name){
+          print "EXON WAS NOT TRANSFORMED BEFORE STORAGE\n";
           
         }else{
           print "TRANSFORMED transcript: ",$tran->seq_region_name , " exon: ", $exon->seq_region_name,"\n";
         }
-        $exon->{'stable_id'} = '';
+        $exon->{'stable_id'} = undef;
         my @esf = @{$exon->get_all_supporting_features};
       }
     }
     
     # store
-   # eval {
+    # eval {
     if ($before > scalar(@{$gene->get_all_Transcripts})){
       print "MISSING TRANSCRIPTS IN WRITTING\n";
     }
-      $gene_adaptor->store($gene);
-      #print STDERR "wrote gene " . $gene->dbID . " to database ".$gene->adaptor->db->dbname."\n";
-   # }; 
-   # if( $@ ) {
-   #   warning("UNABLE TO WRITE GENE:\n$@");
-   # }
+    
+    
+    $gene_adaptor->store($gene);
+
+    #print STDERR "wrote gene " . $gene->dbID . " to database ".$gene->adaptor->db->dbname."\n";
+    # }; 
+    # if( $@ ) {
+    #   warning("UNABLE TO WRITE GENE:\n$@");
+    # }
   }
   
   my $genebuilders = $self->get_genebuilders;
@@ -177,6 +182,10 @@ sub write_output {
   foreach my $target (keys %{ $genebuilders } ) {
     foreach my $query (keys %{$genebuilders->{$target}}){
       $genebuilders->{$target}->{$query}->clean_tables;
+
+      $genebuilders->{$target}->{$query}->merge_genes;
+
+
     }   
   } 
   
@@ -206,17 +215,25 @@ sub fetch_input {
 
     print "DISCARDED GENE DB: ", $discarded_db->dbname,"\n";
 
-    # database where the genebuild produced genes are
+    # database where the genebuild produced genes are.
+    # the final projection will be stored here
     
-    my $ref_db = $self->get_dbadaptor("REFERENCE_DB");
-    print "ENSEMBL DB : ",  $ref_db->dbname,"\n";
+    my $out_db = $self->get_dbadaptor("HAP_PROJECTION_DB");
+    print "OUTPUT DB : ",  $out_db->dbname,"\n";
+
+ 
+    # database where the temporary projections will be stored
+    
+    my $hap_proj_db = $self->get_dbadaptor("REFERENCE_DB");
+    print "HAP_PROJECTION DB : ",  $hap_proj_db->dbname,"\n";
+
 
     print $self->input_id,"\n";
 
     my @input_id = split(/:/,$self->input_id);
 
-    my $hap_slice = $ref_db->get_SliceAdaptor->fetch_by_region($input_id[0],$input_id[2],$input_id[3],$input_id[4],1,$input_id[2]);
-    my $slice = $ref_db->get_SliceAdaptor->fetch_by_region($input_id[5],$input_id[7],$input_id[8],$input_id[9],1,$input_id[6]);
+    my $hap_slice = $hap_proj_db->get_SliceAdaptor->fetch_by_region($input_id[0],$input_id[2],$input_id[3],$input_id[4],1,$input_id[2]);
+    my $slice = $hap_proj_db->get_SliceAdaptor->fetch_by_region($input_id[5],$input_id[7],$input_id[8],$input_id[9],1,$input_id[6]);
 
     #$self->fetch_sequence();
 
@@ -236,7 +253,8 @@ sub fetch_input {
        '-input_id' => $self->input_id,
       );
     $genebuilder->discarded_db($discarded_db);
-    $genebuilder->ensembl_db($ref_db);
+    $genebuilder->ensembl_db($hap_proj_db);
+    $genebuilder->output_db($out_db);
      
     # store the object and the piece of genomic where it will run
     $self->addgenebuilder($genebuilder,$self->target,$self->query);
@@ -277,11 +295,14 @@ sub run {
   foreach my $target (keys %{ $genebuilders } ) {
     foreach my $query (keys %{$genebuilders->{$target}}){
 
+      #@projected_genes = $genebuilders->{$target}->{$query}->project_genes;
       @genes = $genebuilders->{$target}->{$query}->project_genes;
-
+   #   $genebuilders->{$target}->{$query}->merge_genes;
+   #   @genes = $genebuilders->{$target}->{$query}->final_genes;
     }
   }
   
+
   $self->output( @genes );
 }
 
