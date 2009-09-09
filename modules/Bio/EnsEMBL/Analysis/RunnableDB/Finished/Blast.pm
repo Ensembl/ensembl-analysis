@@ -2,7 +2,7 @@
 #
 # POD documentation - main docs before the code
 
-=pod 
+=pod
 
 =head1 NAME
 
@@ -11,7 +11,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::Finished::Blast
 =head1 SYNOPSIS
 
 my $db      = Bio::EnsEMBL::DBLoader->new($locator);
-my $blast   = Bio::EnsEMBL::Analysis::RunnableDB::Blast->new ( 
+my $blast   = Bio::EnsEMBL::Analysis::RunnableDB::Blast->new (
                                                     -db         => $db,
                                                     -input_id   => $input_id
                                                     -analysis   => $analysis );
@@ -34,7 +34,7 @@ Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
 
 =head1 APPENDIX
 
-The rest of the documentation details each of the object methods. 
+The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _
 
 =cut
@@ -64,6 +64,41 @@ sub fetch_input {
 	if ( $self->BLAST_FILTER ) {
 		$filter = $self->make_filter;
 	}
+
+	# Incremental updating of the embl blast db analysis
+	# The embl blast dbs are made up of release files embl_*
+	# and update files emnew_*. This block of code makes
+	# sure that the analysis is only run against new version of either
+	# of these files.
+
+	my @files = split(",", $self->analysis->db_file);
+	my @patches;
+	if($files[-1] =~ /^embl_/){
+		my $search_only_patch = 0;
+		my $sic = $self->db->get_StateInfoContainer;
+		my $db_version_saved = $sic->fetch_db_version($self->input_id, $self->analysis);
+		my $db_version_current = $self->analysis->db_version;
+		if($db_version_saved) {
+			# split the embl blast db version "12-Mar-06 (85)" to
+			# patch version "12-Mar-06" and release version "85"
+			my ($patch_sv,$release_sv) = $db_version_saved =~ /^(\S+)\s+\((\d+)\)$/;
+			my ($patch_cv,$release_cv) = $db_version_current =~ /^(\S+)\s+\((\d+)\)$/;
+			if($release_sv eq $release_cv){
+				$search_only_patch = 1;
+				print STDOUT "blast db files [ @files ] version $release_sv already searched\n";
+				# Just to make sure that nothing is going wrong with the incremental updating...
+				throw("Problem with the embl blast db incremental updating, saved and current version identical !\n
+				   saved [$db_version_saved] = current [$db_version_current]\n") unless($patch_sv ne $patch_cv)
+			}
+		}
+	    foreach my $file (@files) {
+	    	my $patch_file = $file;
+	    	$patch_file =~ s/^embl_/emnew_/g;
+	    	$search_only_patch ? $file = $patch_file : push @patches,$patch_file;
+	    }
+	}
+	$self->analysis->db_file(join(",",@files,@patches));
+
 	my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new(
 		-query    => $self->query,
 		-program  => $self->analysis->program,
