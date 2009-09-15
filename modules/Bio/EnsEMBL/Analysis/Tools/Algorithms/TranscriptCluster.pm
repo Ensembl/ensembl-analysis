@@ -594,7 +594,17 @@ sub get_ExonCluster_using_all_Exons{
   my ( $self, $ignore_strand) = @_;
   my @clusters;
 
-  foreach my $trans (@{$self->get_Transcripts}) {
+  my @transcripts;
+  if (ref($self) eq 'Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster') {
+    @transcripts = @{$self->get_Transcripts};
+  } elsif (ref($self) eq 'ARRAY' && $self->[0]->isa('Bio::EnsEMBL::Transcript')) {
+    @transcripts = @{$self};
+  } else {
+    throw("Not allowed");
+  }
+
+
+  foreach my $trans (@transcripts) {
     my $tr_biotype = $trans->biotype;
 
     foreach my $exon (@{$trans->get_all_Exons}) {
