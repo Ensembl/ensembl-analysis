@@ -149,7 +149,23 @@ sub get_hsps{
       if($self->filter && !($ids->{$sbjct->name})){
         next NAME;
       }
-      my ($name) = $sbjct->name =~ /$regex/;
+
+      # Input IDs which are longer than 78 characters would be printed
+      # over two rows (80 chars per row) in the BLAST temporary output 
+      # (to be parsed into Ensembl DB). (78 chars is the threshold, 
+      # allowing for space for "> ".) Therefore, a single whitespace 
+      # would be introduced after the 78th character of long input_IDs
+      # ($sbjct->name). This is bad because with an extra whitespace, 
+      # the name won't be parsed.  Therefore, a new variable 
+      # $name_may_need_fix was introduced to fix the name by subsituting 
+      # the whitespace away. For input IDs which are shorter than 78 
+      # characters, the substitution has no effect.
+
+      # print "subject name which may need fixing is ".$sbjct->name."\n";
+      my $name_may_need_fix = $sbjct->name;
+      $name_may_need_fix =~ s/\s//;
+      my ($name) = $name_may_need_fix =~ /$regex/;
+      # print "After regex matching and fixing, the name is $name\n";
       throw("Error parsing name from ".$sbjct->name." check your ".
             "blast setup and blast headers") unless($name);
     HSP: while (my $hsp = $sbjct->nextHSP) {
