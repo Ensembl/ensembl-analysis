@@ -25,29 +25,39 @@ use vars qw( %Config );
 			INTRON_DB => '',
 			MODEL_DB  => '',
 			
-			# txt files containing a scoring matricies for spice sites
-			DONOR_MATRIX => '',
-			ACCEPTOR_MATRIX => '',
+			# maximum number of times to loop when building all possible paths through the transcript
+			MAX_RECURSIONS => 10000000,
 			
+						
 			# analysis logic_name for the dna_align_features to fetch from the INTRON_DB
 			# If left blank all features will be fetched
-			LOGICNAME => '',
+			LOGICNAME => [],
 			
-			# Guess at splice sites for exons joined in the rough models but where there is no intron evidence to join them
-			ABINITIO_INTRONS => '0',
+			# logic name of the gene models to fetch
+			MODEL_LN  => '',
+			
+			# penalty for removing a retined intron
+			RETAINED_INTRON_PENALTY => 2,
 			
 			# minimum size for an intron
 			MIN_INTRON_SIZE  => 30,   
 			
 			# biotypes to give gene models if left blank these models will not get written to the output database
 			# best score - model with most supporting intron features
-			BEST_SCORE => 'best_score', 
-			# models with the most 'real' introns ie: not ab initio
-			BEST_INTRONS => '',
+			BEST_SCORE => 'best', 
 			# all other possible models
-			OTHER_ISOFORMS => '',
-                    },
-            }
+			OTHER_ISOFORMS => 'other',
+                        # max number of other models to make - blank = all 
+			OTHER_NUM      => '5',
+			
+                        # max number of other models to process - blank = all ( this may take a long time and use a lot of memory 100 is recomended)
+			MAX_NUM      => '100',
+			
+			# biotype to label bad models ( otherwise they are not written )
+			BAD_MODELS     => '',
+                   },
+	    }
+	    
 );
 
 sub import {
