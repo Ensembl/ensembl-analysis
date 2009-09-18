@@ -67,7 +67,7 @@ sub new{
 
   $self->read_and_check_config($REFINESOLEXAGENES_CONFIG_BY_LOGIC);
   # Hard limit to the number of possible paths to explore
-  $self->recursive_limit(50000);
+  $self->recursive_limit(10000);
   # initialise intron feature cash
   my %feature_hash;
   $self->feature_cash(\%feature_hash);
@@ -88,13 +88,8 @@ sub fetch_input {
   my $logic = $self->analysis->logic_name;
   # fetch adaptors and store them for use later
   $self->intron_slice_adaptor($self->get_dbadaptor($self->INTRON_DB)->get_SliceAdaptor);
-  $self->prediction_exon_adaptor($self->db->get_PredictionExonAdaptor);
   $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
   $self->gene_slice_adaptor($self->get_dbadaptor($self->MODEL_DB)->get_SliceAdaptor);
-
-  # fetch splice matricies for making ab-initio introns where we have no intron support
-  $self->donor_matrix($self->load_matrix($self->DONOR_MATRIX));
-  $self->acceptor_matrix($self->load_matrix($self->ACCEPTOR_MATRIX));
 
   # want a slice and a full chromsome to keep everything on in the same coords
   my $slice = $self->fetch_sequence($self->input_id);
@@ -127,20 +122,27 @@ sub fetch_input {
     $repeat = $repeat->transfer($chr_slice);
   }
   $self->repeats($self->make_repeat_blocks(\@repeats));
-  
+  # pre fetch all the intron features
+  $self->dna_2_simple_features($slice->start,$slice->end);
+
   # we want to fetch and store all the rough transcripts at the beginning - speeds things up
   # also we want to take out tiny introns - merge them into longer structures
   my @prelim_genes;
-  foreach my $gene ( @{$gene_slice->get_all_Genes} ) {
+  my @genes;
+  if ( $self->MODEL_LN ) {
+    @genes = @{$gene_slice->get_all_Genes_by_type( undef,$self->MODEL_LN )};
+    print STDERR "Got " .  scalar(@genes) . " genes with logic name " . $self->MODEL_LN ."\n";
+  } else {
+    @genes = @{$gene_slice->get_all_Genes};
+    print STDERR "Got " .  scalar(@genes) . "  genes  \n"; 
+  }
+  foreach my $gene ( @genes ) {
     # put them on the chromosome
     $gene = $gene->transfer($chr_slice);
-    push @prelim_genes,$gene;
+    push @prelim_genes,$gene ;
   }
-  print STDERR scalar(@prelim_genes) . " genes found \n";
   # deterine strandedness ( including splitting merged genes )
-  my @genes = @{$self->strand_separation(\@prelim_genes)};
-  print STDERR scalar(@genes) . " genes once they have been separated by strand \n";
-  $self->prelim_genes(\@genes);
+  $self->prelim_genes(\@prelim_genes);
 }
 
 sub run {
@@ -162,393 +164,529 @@ sub run {
 sub refine_genes {
   my ($self) = @_;
  GENE:  foreach my $gene ( @{$self->prelim_genes} ) {
-    
-    my %intron_count;
-    my %intron_hash;
-    my @exon_intron;
-    my @exon_prev_intron;
-    my %intron_exon;
-    my $variants;
-    my $strand = $gene->strand;
-    my @trans;
-
-    my $most_real_introns = 0;
-    my $highest_score = 0;
-    print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
-    # merge exons to remove little artifactual introns
-    my @exons =  @{$self->merge_exons($gene)};
-    my $exon_count =  $#exons;
-    my @fake_introns;
-    
- EXON:   for ( my $i = 0 ; $i <= $exon_count ; $i ++ ) {
-      my $exon = $exons[$i];
-      my $retained_intron;
-      my $left_introns = 0;
-      my $right_introns = 0;
-      $exon->{'left_mask'} = 0;
-      $exon->{'right_mask'} = $exon->length;
-      print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
-      # make intron features by collapsing the dna_align_features
-      my @introns = @{$self->dna_2_simple_features($exon->seq_region_start,$exon->seq_region_end)};
-      my @left_c_introns;
-      my @right_c_introns;
-      my @left_nc_introns;
-      my @right_nc_introns;
-      my @filtered_introns;
-      my $intron_overlap;
-    INTRON: foreach my $intron ( @introns ){
-	next unless $intron->strand == $strand;
-	next unless $intron->length > $self->MIN_INTRON_SIZE;
-	# disguard introns that splice over our exon
-	if ( $intron->start< $exon->start && $intron->end > $exon->end ) {
-	  $intron_overlap++;
-	  next;
-	}
-	# check to see if this exon contains a retained intron
-	if (  $intron->start > $exon->start && $intron->end < $exon->end ) {
-	  $retained_intron = 1;
-	  $exon->{'retained'} =1;
-	}
-	# we need to know how many consensus introns we have to the 
-	# left and  right in order to determine whether to put in 
-	# a non consensus intron
-	if ( $intron->end <= $exon->end ) {
-	  if ( $intron->display_label =~ /non-consensus/ ) {
-	    push @left_nc_introns, $intron; 
-	  } else {
-	    push @left_c_introns, $intron;
+    my @models;
+    # first run on the fwd strand then on the reverse
+  STRAND: for ( my $strand = -1 ; $strand <=1 ; $strand+= 2 ) {
+      if ( $self->recursive_limit > 10000 ) {
+	# mset recursion to 10000 in case it was raised for a tricky gene
+	$self->recursive_limit(10000);
+	warn("lowering recursive limit after complex gene\n");
+      }
+      print STDERR "Running on strand $strand \n";
+      my %intron_count;
+      my @exon_intron;
+      my %intron_hash;
+      my @exon_prev_intron;
+      my %intron_exon;
+      my $most_real_introns = 0;
+      my $highest_score = 0;
+      print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
+      # merge exons to remove little artifactual introns
+      my @exons =  @{$self->merge_exons($gene)};
+      my $exon_count = $#exons;
+      my @fake_introns;
+      my %known_exons; 
+    EXON:   for ( my $i = 0 ; $i <= $exon_count ; $i ++ ) {
+	my $exon = $exons[$i];
+	my $retained_intron;
+	my $left_introns = 0;
+	my $right_introns = 0;
+	$exon->{'left_mask'} = 0;
+	$exon->{'right_mask'} = $exon->length;
+	print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
+	# make intron features by collapsing the dna_align_features
+	my @introns = @{$self->fetch_intron_features($exon->seq_region_start,$exon->seq_region_end)};
+	my @left_c_introns;
+	my @right_c_introns;
+	my @left_nc_introns;
+	my @right_nc_introns;
+	my @filtered_introns;
+	my $intron_overlap;
+	my @retained_introns;
+      INTRON: foreach my $intron ( @introns ){
+	  next unless $intron->strand == $strand;
+	  next unless $intron->length > $self->MIN_INTRON_SIZE;
+	  # disguard introns that splice over our exon
+	  if ( $intron->start< $exon->start && $intron->end > $exon->end ) {
+	    $intron_overlap++;
+	    next;
 	  }
-	}
-	if ( $intron->start >= $exon->start ) {
-	  if ( $intron->display_label =~ /non-consensus/ ) {
-	    push @right_nc_introns, $intron; 
+	  # check to see if this exon contains a retained intron
+	  if (  $intron->start > $exon->start && $intron->end < $exon->end ) {
+	    $retained_intron = 1;
+	    $exon->{'retained'} =1;
+	    push @retained_introns, $intron;
 	  } else {
-	    push @right_c_introns, $intron;
+	    # we need to know how many consensus introns we have to the 
+	    # left and  right in order to determine whether to put in 
+	    # a non consensus intron
+	    if ( $intron->end <= $exon->end ) {
+	      if ( $intron->display_label =~ /non-consensus/ ) {
+		push @left_nc_introns, $intron if $intron->score > 1;
+	      } else {
+		push @left_c_introns, $intron;
+	      }
+	    }
+	    if ( $intron->start >= $exon->start ) {
+	      if ( $intron->display_label =~ /non-consensus/ ) {
+		push @right_nc_introns, $intron if $intron->score > 1;
+	      } else {
+		push @right_c_introns, $intron;
+	      }
+	    }
 	  }
 	}	
-      }
-
-      # add non consensus introns only where there are no consensus introns
-      push @filtered_introns, @left_c_introns;
-      push @filtered_introns, @right_c_introns;
-      push @filtered_introns, @left_nc_introns  if scalar(@left_c_introns)  == 0;
-      push @filtered_introns, @right_nc_introns if scalar(@right_c_introns) == 0; ;
-      print "Got " , scalar(@left_nc_introns ) + scalar(@right_nc_introns ) . 
-	" non consensus introns \n";
-      if ( scalar(@left_c_introns)  == 0 && scalar(@left_nc_introns)  > 0) {
-	print "using " . scalar(@left_nc_introns) . " NC left \n";
-      } 
-      if ( scalar(@right_c_introns)  == 0 && scalar(@right_nc_introns)  > 0 ) {
-	print "using " . scalar(@right_nc_introns) . " NC right \n";
-      } 
-
-    INTRON:  foreach my $intron ( @filtered_introns ) {
-	print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . "\n";
-	# becasue we make a new exons where we have a reatained intron to 
-	# stop circular references we need to allow the final 
-	# intron splicing out of the exon to be used more than once
-	# by each new exon in fact
-	$intron_count{$intron->display_label}++ unless $retained_intron;
-
-	$intron_hash{$intron->display_label} = $intron;
-	# only use each intron twice once at the end and once at the start of
-	# an exon
-	$self->exon_mask($exon,$intron);
-        next if $intron_count{$intron->display_label} &&  $intron_count{$intron->display_label} > 2;
-	#print STDERR "USING intron " . $intron->display_label . "\n";
-	#print STDERR "E-I\n"  if $intron->end > $exon->end;
-	#print STDERR "I-E\n"  if $intron->start < $exon->start;
-	# exon_intron links exons to the intron on their right ignoring strand
-	push @{ $exon_intron[$i]}  , $intron if $intron->end > $exon->end;
-	# intron exon links introns to exons on their right ignoring strand
-	if ( $intron->start < $exon->start ) {
-	  push @{$intron_exon{$intron->display_label}} , $i;
-	  # exon_prev_intron links exons to introns on their left ignoring strand
-	  push @{ $exon_prev_intron[$i]}  , $intron ;
-	}
-
-	# intron is within the exon - this is not a true exon but a retained intron
-	if (  $intron->start > $exon->start && $intron->end < $exon->end && $intron->length > 50 ) {
-	  # dont use NC introns here - dont trust them enough
-	  next if $intron->display_label  =~ /non-consensus/;
-	  #print STDERR  "retained " . $intron->start ." " . $exon->start ." ". $intron->end ." ". $exon->end ."\n";
-	  # dont have circular references to exons or the paths
-	  # will be infinite so clone this exon instead
-	  my $new_exon = clone_Exon( $exon );
-	  # chop it up a bit so it no longer overlaps the other introns
-	  #print STDERR  "TRIMMING EXON \n";
-	  $exon->end($intron->start + 10 );
-	  $new_exon->start( $intron->end -10 );
-	  # split the exon into 2 new exons and replace the old retained exon with the 2 new ones
-	  my @replacements = ( $exon, $new_exon);
-	  splice( @exons,$i,1,@replacements) ;
-	  $exon_count++;
-	  $i--;
-	  next EXON;
-	}
-      }
-    }
-
-    # if we have no intron support we can guess at introns 
-    if ( $self->ABINITIO_INTRONS ) {
-    EXON:   for ( my $i = 1 ; $i <= $exon_count ; $i ++ ) {
-
-	my $left_exon = $exons[$i-1];
-	my $exon = $exons[$i];
-	my $right_exon = $exon;
-	my $intron_start = 0;
-	my $intron_end = 0;
 	
-	# we may already know the splice sites for the left exon even if the intron 
-	# that splices it doesnt join onto this gene...
-	if ($exon_intron[$i-1]){
-	  my $prev_intron = $exon_intron[$i-1][0];
-	  $intron_start = $prev_intron->start;
-	}
+	# add non consensus introns only where there are no consensus introns
+	push @filtered_introns, @left_c_introns;
+	push @filtered_introns, @right_c_introns;
+	push @filtered_introns, @left_nc_introns  if scalar(@left_c_introns)  == 0;
+	push @filtered_introns, @right_nc_introns if scalar(@right_c_introns) == 0; ;
 
-	# likewise right intron
-	if ($exon_prev_intron[$i]){
-	  # just pick the first one, lets not get carried away 
-	  my $prev_intron = $exon_prev_intron[$i][0];
-	  $intron_end = $prev_intron->end;
-	}
-
-	next if $intron_start && $intron_end;
-	#print STDERR "FOUND intron start $intron_start and intron end $intron_end \n";
-	# otherwise one is missing lets fake the intron
-	# lets find the splice sites using a variety of cunning techniques
-	if ($strand == 1) {
-	  $intron_start =  $self->find_splice_sites( $left_exon,  $strand,'donor') unless $intron_start;
-	  $intron_end   =  $self->find_splice_sites( $right_exon, $strand,'acceptor') unless $intron_end;
-	} else {
-	  $intron_start =  $self->find_splice_sites( $left_exon,  $strand,'acceptor') unless $intron_start;
-	  $intron_end   =  $self->find_splice_sites( $right_exon, $strand,'donor') unless $intron_end;
-	}
-	# check for problems with introns 
-	if ( $intron_end <= $intron_start ) {
-	  warn("coudnt get splices for this intron\n");
-	  $intron_start = $left_exon->end;
-	  $intron_end = $right_exon->start;
-	}
-	# catch other problems
-	if ( $intron_start <= $left_exon->start or 
-	     $intron_end   >= $right_exon->end ) {
-	  warn("This intron would result with an exon start > end $intron_start $intron_end \n");
-	  $intron_start = $left_exon->end;
-	  $intron_end = $right_exon->start;
+	if ( scalar(@left_c_introns)  == 0 && scalar(@left_nc_introns)  > 0) {
+	  print STDERR "using " . scalar(@left_nc_introns) . " NC left \n";
+	} 
+	if ( scalar(@right_c_introns)  == 0 && scalar(@right_nc_introns)  > 0 ) {
+	  print STDERR "using " . scalar(@right_nc_introns) . " NC right \n";
 	}
 	
-	# use existing values if you cannot find a splice site
-	$intron_start = $left_exon->end unless  $intron_start;
-	$intron_end = $right_exon->start unless $intron_end;
-	# make the fake intron
-	my $fake_intron = Bio::EnsEMBL::SimpleFeature->new 
-	  (-start => $intron_start ,
-	   -end => $intron_end  ,
-	   -strand => $strand,
-	   -slice => $self->chr_slice,
-	   -analysis => $self->analysis,
-	   -score => 0
-	  ); 
+	# we dont want to allow left and right introns to overlap - 
+	# it leads to -ve length exons
 	
-	# add the fake intron into the hash structure
-	my $key =  $fake_intron->start . ":" . $fake_intron->end . ":" . $fake_intron->strand;
-	#print STDERR "INTRON $key\n";
-	$fake_intron->display_label("INTRON-FAKE-$key");
-	$intron_hash{$fake_intron->display_label} = $fake_intron;
-	push @{ $exon_intron[$i-1]}  , $fake_intron if $fake_intron->end > $left_exon->end;
-	push @{$intron_exon{$fake_intron->display_label}} , $i  if $fake_intron->start < $exon->start;
-	$self->exon_mask($left_exon,$fake_intron);
-	$self->exon_mask($right_exon,$fake_intron);
-	
-	if (  $exons[$i]->{'left_mask'} >=  $exons[$i]->{'right_mask'} ) {
-	  print STDERR  "Problem gene " . $gene->stable_id ." Exon $i has overlapping introns skipping this gene\n";
-	  next GENE;
+	# we put all the retained introns in at the end we want to do all the 
+	# entrances and exits to each exon before we look at whether its 
+	# retained or not
+	@retained_introns = sort { $b->start <=> $a->start } @retained_introns;
+	# push @filtered_introns, @retained_introns;
+      INTRON:  foreach my $intron ( @filtered_introns ) {
+	  print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . " " . $intron->score . "\n";
+	  # becasue we make a new exons where we have a reatained intron to 
+	  # stop circular references we need to allow the final 
+	  # intron splicing out of the exon to be used more than once
+	  # by each new exon in fact
+	  $intron_count{$intron->display_label}++ unless $retained_intron;
+	  
+	  $intron_hash{$intron->display_label} = $intron;
+	  # only use each intron twice once at the end and once at the start of
+	  # an exon
+	  # exon_intron links exons to the intron on their right ignoring strand
+	  push @{ $exon_intron[$i]}  , $intron if $intron->end > $exon->end;
+	  # intron exon links introns to exons on their right ignoring strand
+	  if ( $intron->start < $exon->start ) {
+	    push @{$intron_exon{$intron->display_label}} , $i;
+	    # exon_prev_intron links exons to introns on their left ignoring strand
+	    push @{ $exon_prev_intron[$i]}  , $intron ;
+	  }
 	}
-      }
-    }
-
-    next unless @exon_intron;
-
-    # now lets make a hash of hashes holding which exons connect to which
-    for ( my $i = 0 ; $i < scalar(@exons) ; $i ++ ) {
-	if ( $exon_intron[$i] ) {
-	foreach my $intron ( @{$exon_intron[$i]} ) {	
-	  # only allow each intron to connect to 1 exon
-	  foreach my $exon ( @{$intron_exon{$intron->display_label}} ) {
-	    if ( $intron->end > $exons[$exon]->end ) {
-	      next ;
+	if ( scalar( @retained_introns ) ) {
+	  print STDERR "Dealing with " . scalar( @retained_introns ) . " retained introns \n";
+	  my @new_exons;
+	  push @new_exons,  $exon  ;
+	  # sort first by start then by end where start is the same
+	  @retained_introns =  sort {$a->start <=> $b->start } @retained_introns;
+	  for ( my $i = 0; $i < $#retained_introns ; $i++ ) {
+	    if ( $retained_introns[$i]->start ==  $retained_introns[$i+1]->start &&
+		 $retained_introns[$i]->end >  $retained_introns[$i+1]->end ) {
+	      # reverse the order
+	      my $temp =  $retained_introns[$i];
+	      $retained_introns[$i] = $retained_introns[$i+1];
+	      $retained_introns[$i+1] = $temp;
 	    }
-	    # store the possible paths as a hash (splice)variants
-	    $variants->{$i}->{$intron->display_label} = 1;
-	    $variants->{$intron->display_label}->{$exon} = 1;
-	    # check 
-	    if ( $intron->end > $exons[$exon]->end ) {
-	      throw(" exon $i start end " . $intron->end ." - " . $exons[$exon]->start );
+	  }
+	  # now lets deal with any retained introns we have
+	RETAINED: foreach my $intron ( @retained_introns ) {
+	    # we dont need to make all new exons for each alternate splice
+	    # check the intron is still retained given the new exons
+	    my $retained = 1;
+	    foreach my $new_exon ( @new_exons ) {
+	      if  (  $intron->start > $new_exon->start && $intron->end < $new_exon->end ) {
+	      } else {
+		$retained = 0;
+	      }
+	      next RETAINED unless $retained;
 	    }
+	    my $reject_score = 0;
+	    # intron is within the exon - this is not a true exon but a retained intron
+	    if (  $intron->start > $exon->start && $intron->end < $exon->end && $intron->length > 50 ) {
+	      # we are going to make a new exon and chop it up
+	      # add intron penalty
+	      print STDERR "RETAINED INTRON PENALTY for " . $intron->display_id ." before " . $intron->score . " ";
+	      $reject_score = $intron->score - $self->RETAINED_INTRON_PENALTY;
+	      # intron penalty is doubled for nc introns 
+	      if ( $intron->display_label  =~ /non-consensus/ ) {
+		$reject_score = $reject_score - $self->RETAINED_INTRON_PENALTY;
+	      }
+	      print STDERR " after " . $reject_score ."\n";
+	      next unless ( $reject_score >= 1 ) ;
+	      print STDERR  "Exon " . $exon->start ."\t". $exon->end . " has retained intron:\n     " . $intron->start ."\t" .  $intron->end ." "."\n";
+	      # dont have circular references to exons or the paths
+	      # will be infinite so clone this exon instead
+	      # I guess we also want to keep the original exon too?
+	      my $new_exon1 = clone_Exon( $exon );
+	      my $new_exon2 = clone_Exon( $exon );
+	      # chop it up a bit so it no longer overlaps the other introns
+	      print STDERR  "TRIMMING EXON \n";
+	      my $length = $intron->end - $intron->start;
+	      $new_exon1->end( $intron->start + int( $length / 2 ) - 2 );
+	      $new_exon2->start( $intron->end - int( $length / 2 ) + 2 );
+	      
+	      push @new_exons,$new_exon1 unless $known_exons{$new_exon1->start."-".$new_exon1->end."-".$new_exon1->strand} ;
+	      push @new_exons,$new_exon2 unless $known_exons{$new_exon2->start."-".$new_exon2->end."-".$new_exon2->strand};
+	      
+	      $known_exons{$new_exon1->start."-".$new_exon1->end."-".$new_exon1->strand} = 1;
+	      $known_exons{$new_exon2->start."-".$new_exon2->end."-".$new_exon2->strand} = 1;
+	    }
+	  }
+	  if ( scalar (@new_exons > 1 ) ) {
+	    # we want to split the score equally across the new exons
+	    foreach my $e ( @new_exons ) {
+	      foreach my $d ( @{$e->get_all_supporting_features} ) {
+		$d->score($d->score / scalar(@new_exons));
+	      }
+	    }
+	    
+	    splice( @exons,$i,1,@new_exons);
+	    for ( my $i = 0 ; $i<= $#exons ; $i++ ) {
+	      my $e = $exons[$i];
+	    }
+	    print "ADDED " . scalar( @new_exons) . " new exons\n";
+	    $exon_count+= $#new_exons;
 	  }
 	}
       }
-    }
-    
-    # work out all the possible paths given the features we have
-    my @paths;
-  CLUSTER: for ( my $i = 0 ; $i < scalar(@exons) ; $i ++ ) {
-      $limit = 0;
-      my $result;
-      $result = $self->ProcessTree($variants,$i);
-      if ($result eq "ERROR"){
-	print STDERR ("Could not process cluster\n");
-	next GENE;
-      }
-      push( @paths, (keys %$result));
-    }
-    @paths = sort { length($a) <=> length($b) } @paths;
-    
-    # lets collapse redundant paths
-    foreach ( my $i = scalar(@paths)-1 ; $i >= 0  ; $i-- ) {
-      foreach my $pathb ( @paths ) {
-	next if  $pathb eq $paths[$i]  ;
-	next unless $paths[$i];
-	if ( $pathb =~ /$paths[$i]/ ) {
-	  splice(@paths,$i,1);
-	}
-      }
-    }
-    # paths are stored as text - turn them into arrays of features "models"
-    my @models;
-    foreach my $path ( @paths ) {
-      my @model;
-      foreach my $feature ( split(/\./,$path ) ) {
-	if ( $feature =~ /INTRON/ ) {
-	  push @model, $intron_hash{$feature};
-	} else {
-	  push @model, $exons[$feature];
-	}
-      }
-      push @models,\@model;
-    }
-
-    # Now we cycle through all the models and turn them into genes
-
- MODEL:  foreach my $model ( @models ) {
-      my $intron_count = 0;
-      my $intron_score = 0;
-      my $exon_score = 0;
-      my $fake_introns = 0;
-      my @new_exons;
-      # make an array containing cloned exons
-      for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
-	unless ( $model->[$i]->isa("Bio::EnsEMBL::SimpleFeature") ) {	
-	  my $new_exon = clone_Exon($model->[$i]);
-	  # add in exon coverage scores from supporting features
-	  foreach my $daf ( @{$model->[$i]->get_all_supporting_features} ) {
-	    $exon_score += $daf->score;
-	  }
-	  $new_exon->strand($strand);
-	  push @new_exons,$new_exon;
-	} else {
-	  push @new_exons, $model->[$i];
-	}
-      }
-      # trim the exons using the intron features to get the splice sites correct
-      for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
-     if ( $model->[$i]->isa("Bio::EnsEMBL::SimpleFeature") ) {
-	  my $intron = $model->[$i];
-	  next unless $intron->strand == $strand;
-	  next unless $new_exons[$i-1] && $new_exons[$i+1];
-	  # its an intron trim the exons accordingly
-	  $new_exons[$i-1]->end( $intron->start );
-	  $new_exons[$i+1]->start( $intron->end );
-	  $intron_count++;
-	  $intron_score+= $intron->score;
-	  # keep tabs on how many fake introns we have
-	  $fake_introns++ if $intron->display_label =~ /FAKE/;
-	}
-      } 
-      next MODEL unless $intron_count;
-
-      # trim padding from the start and end exons
-      $new_exons[0]->start($new_exons[0]->start + 20) if $new_exons[0]->length  > 20;
-      $new_exons[-1]->end ($new_exons[-1]->end  - 20) if $new_exons[-1]->length > 20;
-
-      # make it into a gene
-      my @modified_exons;
-      foreach my $exon ( @new_exons ) {
-	next if $exon->isa("Bio::EnsEMBL::SimpleFeature");
-	# check it works
-	if ( $exon->start > $exon->end ) {
-	  warn("Exons start > exon end " . $exon->start . " " . $exon->end ."\n");
-	  next MODEL;
-	}
-	
-	push @modified_exons, clone_Exon($exon);
-      }
-      if ( $strand == 1 ) {
-	@modified_exons = sort { $a->start <=> $b->start } @modified_exons;
-      } else {
-	@modified_exons = sort { $b->start <=> $a->start } @modified_exons;
-      }
-      # make it into a gene
-      my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
-      # add a translation 
-      my $tran = compute_translation(clone_Transcript($t));
-      # keep track of the scores for this transcript
-      $tran->analysis($self->analysis);
-      $tran->version(1);
-      $tran->biotype('modified');
-      $tran->{'_score'} =  $intron_score + $exon_score;
-      $tran->{'_fake_introns'} =  $fake_introns ;
-      unless ($self->ABINITIO_INTRONS) {
-	# if we are not using fake exons compare the introns to 
-	# how many there are in the (merged) rough model
-	$tran->{'_fake_introns'} = $exon_count - $intron_count;
-	$intron_count = $exon_count ;
-      }
-      #print STDERR " EXON count $exon_count\n";
-      $tran->{'_intron_count'} = $intron_count;
-      $tran->{'_proportion_real_introns'} = int((($tran->{'_intron_count'} - $tran->{'_fake_introns'}) /$tran->{'_intron_count'}) *100);
-      # make note of best scores and best introns
-      if ( $tran->{'_proportion_real_introns'} > $most_real_introns ) {
-	$most_real_introns = $tran->{'_proportion_real_introns'}
-      }
-      if ( $tran->{'_score'} > $highest_score ) {
-	$highest_score = $tran->{'_score'}
-      }
-      push @trans, $tran;
-    }
-    # cluster on peptides to get the trans with the least exons where the 
-    # peptides are identical - ie less UTR exons
-    my @cluster = @{$self->peptide_cluster(\@trans)};
-    next unless scalar(@cluster) > 0;
-    # label by score / introns
-    foreach my $tran ( @cluster ) {
-      my ( $new_gene ) = @{convert_to_genes(($tran),$gene->analysis)};
-      $new_gene->biotype('disguard');
-      $new_gene->stable_id($gene->stable_id . "-" .
-			   $tran->{'_score'} ."-" .
-			   $tran->{'_fake_introns'} . "/" .
-			   $tran->{'_intron_count'} . "-" .
-			   $tran->{'_proportion_real_introns'});
-      # add the biotypes depending on the scores
-      $new_gene->biotype($self->OTHER_ISOFORMS) if $self->OTHER_ISOFORMS;
       
-      if ( $self->BEST_INTRONS && $tran->{'_proportion_real_introns'} == $most_real_introns) {
-	$new_gene->biotype($self->BEST_INTRONS);
+      next unless @exon_intron;
+      # Loop around the path generation, 
+      # if there are too many paths to process return undef
+      # then re-run the path processing but with increasing strictness
+      # where strictness = elimianating alternate low scoring introns
+      my $paths;
+      my $strict = 0;
+      while ( !$paths ) {
+	$paths = $self->process_paths( \@exons, \@exon_intron, \%intron_exon, $strict );
+	next GENE if $paths && $paths eq 'Give up';
+	$strict++;
+      }  
+      print STDERR "STRAND $strand BEFORE COLLAPSING  PATHS  = " . scalar( keys %$paths ) . "\n";
+      # lets collapse redundant paths
+      foreach my $path ( sort keys %$paths ) {
+	#  print "PATHS $path\n";
+	my @array = split ( /\./,$path);
+	my ($start,$end,$middle);
+	for ( my $j = 0 ; $j < scalar( @array ) ; $j++ )  {
+	  $start .= $array[$j] ."."  unless $j < 2;
+	  $middle .= $array[$j] ."." unless $j < 2  or $j >= $#array-1 ;
+	  $end .= $array[$j] . "." unless $j >= $#array-1;
+	}
+	# remove redunancy from the array
+	delete $paths->{$start} if $start && $paths->{$start};
+	delete $paths->{$end} if $end && $paths->{$end};
+	delete $paths->{$middle} if $middle && $paths->{$middle};
       }
-      if ( $self->BEST_SCORE && $tran->{'_score'} == $highest_score) {
-	$new_gene->biotype($self->BEST_SCORE);
+      
+      print STDERR "AFTER COLLAPSING  PATHS  = " . scalar( keys %$paths ) . "\n";
+      push @models, @{$self->make_models($paths,$strand, \@exons,$gene,\%intron_hash )};
+      print STDERR "Now have " . scalar ( @models ) ." models \n";
+    }
+    $self->filter_models(\@models);
+  }
+}
+
+=head2 filter_models
+
+    Title        :   filter_models
+    Usage        :   $self->filter_models(\@models);
+    Returns      :   nothing
+    Args         :   Array ref of array references of Bio::EnsEMBL::Transcript
+    Description  :   Labels or removes models overlapping better scoring models on the 
+                     opposite strand
+=cut
+
+sub filter_models {
+  my ( $self, $models )= @_;
+  my @clusters = @{$models};
+  my @fwd;
+  my @rev;
+  my @models;
+  foreach my $cluster ( @clusters ) {
+    next unless $cluster->{'final_models'};
+    push @fwd, $cluster if $cluster->{'strand'} == 1;
+    push @rev, $cluster if $cluster->{'strand'} == -1;
+    push @models, $cluster;
+  }
+  # overlaps
+  foreach my $fc ( @fwd ) {
+    foreach my $rc ( @rev ) {
+      # one is within the other  or they are the same
+      if ( ( $fc->{'start'} >= $rc->{'start'} && 
+	     $fc->{'end'} <= $rc->{'end'} ) or 
+	   ( $rc->{'start'} >= $fc->{'start'} && 
+	     $rc->{'end'} <= $fc->{'end'}  ) )  {
+	# which has the lower score?
+	my @fg = @{$fc->{'final_models'}};
+	my @rg = @{$rc->{'final_models'}};
+
+	if ( $fg[0]->get_all_Transcripts->[0]->{'_score'} > 
+	     $rg[0]->get_all_Transcripts->[0]->{'_score'} ) {
+	  # get rid of / label the reverse genes 
+	  foreach my $gene ( @rg ) {
+	    $gene->biotype('bad');
+	  }
+	}
+
+	if ( $fg[0]->get_all_Transcripts->[0]->{'_score'} < 
+	     $rg[0]->get_all_Transcripts->[0]->{'_score'} ) {
+	  # get rid of / label the forward genes
+	  foreach my $gene ( @fg ) {
+	    $gene->biotype('bad');
+	  }
+	}
+	# or else they overlap and the antisense model is 2 exon with a cds < 100 AA
+	if (  $fc->{'start'} <= $rc->{'end'} && 
+	      $fc->{'end'} >=  $rc->{'start'} )  {
+	  if ( scalar($fg[0]->get_all_Exons) == 2 && 
+	       scalar($rg[0]->get_all_Exons) > 2 && 
+	       length($fg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
+	    foreach my $gene ( @fg ) {
+	      $gene->biotype('bad');
+	    }
+	  }
+	  if ( scalar($rg[0]->get_all_Exons) == 2 && 
+	       scalar($fg[0]->get_all_Exons) > 2 && 
+	       length($rg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
+	    foreach my $gene ( @rg ) {
+	      $gene->biotype('bad');
+	    }
+	  }
+	}
       }
-      push@{$self->output} , $new_gene unless $new_gene->biotype eq 'disguard';
+    }
+  }
+
+  foreach my $cluster ( @models ) {
+    my %exon_use_hash;
+    my %exon_starts;
+    my %exon_ends;
+    my $count = 0;
+    foreach my $gene ( @{$cluster->{'final_models'}} ) {
+      my $exon_use = $gene->get_all_Transcripts->[0]->{'_exon_use'};
+     # if ( $gene->biotype eq $self->OTHER_ISOFORMS ) {
+	if ( $exon_use_hash{$exon_use}  ) {
+	  $gene->biotype('bad');
+	}
+    #  }
+      $exon_use_hash{$exon_use} = 1 ;
+      my $es = 0;
+      my $ee = 0;
+      foreach my $exon ( @{$gene->get_all_Exons} ) {
+	$es++ if $exon_starts{$exon->start};
+	$ee++ if $exon_ends{$exon->end};
+	$exon_starts{$exon->start} = 1;
+	$exon_ends{$exon->end} = 1;
+      }
+      if ( $ee == scalar(  @{$gene->get_all_Exons} ) &&
+	   $es == scalar(  @{$gene->get_all_Exons} ) ) {
+	# seen it before - or something very much like it
+	$gene->biotype('bad') ;
+      }
+      if ( $gene->biotype eq 'bad' ) {
+	# change type to  a bad model if it is bad 
+	# store it on output array if the bad type is defined
+	if ( $self->BAD_MODELS ) {
+	  $gene->biotype( $self->BAD_MODELS ) ;
+	  push @{$self->output} , $gene if $count <= $self->OTHER_NUM +1;
+	}
+      } else {
+	push @{$self->output} , $gene if $count <= $self->OTHER_NUM +1;
+      }
+      $count++ if $gene->biotype eq $self->OTHER_ISOFORMS ;
+      $count++ if $gene->biotype eq $self->BEST_SCORE ;
     }
   }
 }
+
+
+=head2 make_models
+
+    Title        :   
+    Usage        :   $self->make_models($paths, $strand ,$exons,$gene, $intron_hash);
+    Returns      :   Array ref of array references of Bio::EnsEMBL::Transcript
+    Description  :   Turns abstract paths into Bio::EnsEMBL::Gene models. Paths are
+                     clustered and sorted by score - only the top X models for 
+                     each cluster of paths get built ( X is defined in config )
+
+=cut
+
+sub make_models {
+  my ( $self, $paths, $strand ,$exons,$gene, $intron_hash) = @_;
+ 
+  # paths are stored as text - turn them into arrays of features "models"
+  my @clusters;
+  my @models;
+  my @genes;
+
+  foreach my $path ( keys %$paths ) {
+    my $exon_use;
+    my @model;
+    my $exon_score = 0;
+    my $intron_score = 0;
+    foreach my $feature ( split(/\./,$path ) ) {
+      if ( $feature =~ /^INTRON/ ) {
+	push @model, $intron_hash->{$feature};
+	$intron_score+= $intron_hash->{$feature}->score;
+      } else {
+	$exon_use.= "$feature,";
+	push @model, $exons->[$feature];
+	foreach my $daf ( @{$exons->[$feature]->get_all_supporting_features} ) {
+	  $exon_score += $daf->score;
+	}
+      }
+    }
+    my $total_score = int($exon_score)/100 + $intron_score;
+    # last elements are the strand and score
+    push @model, $exon_use;
+    push @model, $total_score;
+    push @models,\@model;
+  }
+  # now lets cluster the models so that they are non overlapping
+  # and return the clusters arranged by score
+  my @model_clusters = @{$self->model_cluster(\@models,$strand)};
+  
+  # Now we cycle through all the models and turn them into genes
+  # we start with the highest scoring modes and work backwards
+  # until we have enough 
+  my $cluster_count = 0;
+  foreach my $cluster ( @model_clusters ) {
+    $cluster_count++;
+    my @trans;
+    my $version = 0 ;
+    my $strand = $cluster->{'strand'};
+    # we want the array in the reverse order, highest scoring first
+    my @models_by_score = @{$cluster->{'models'}};
+    # all the models with a particualar score highest first
+  SCORES:   for ( my $s = $#models_by_score ; $s >=0; $s-- ) {
+      next unless $models_by_score[$s];
+      my $models = $models_by_score[$s];
+    MODEL: foreach my $model (  @$models ) {
+	# list of the rough exons used in the model
+	my $exon_use = pop(@{$model});
+	my $intron_count = 0;
+	my $intron_score = 0;
+	my $exon_score = 0;
+	my $non_con_introns = 0;
+	my @new_exons;
+	# make an array containing cloned exons
+	for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
+	  unless ( $model->[$i]->isa("Bio::EnsEMBL::SimpleFeature") ) {	
+	    my $new_exon = clone_Exon($model->[$i]);
+	    # add in exon coverage scores from supporting features
+	    foreach my $daf ( @{$model->[$i]->get_all_supporting_features} ) {
+	      $exon_score += $daf->score;
+	    }
+	    $new_exon->strand($strand);
+	    push @new_exons,$new_exon;
+	  } else {
+	    push @new_exons, $model->[$i];
+	  }
+	}
+	# trim the exons using the intron features to get the splice sites correct
+	for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
+	  if ( $model->[$i]->isa("Bio::EnsEMBL::SimpleFeature") ) {
+	    my $intron = $model->[$i];
+	    next unless $intron->strand == $strand;
+	    next unless $new_exons[$i-1] && $new_exons[$i+1];
+	    # its an intron trim the exons accordingly
+	    $new_exons[$i-1]->end( $intron->start );
+	    $new_exons[$i+1]->start( $intron->end );
+	    if ( $new_exons[$i-1]->start >=  $new_exons[$i-1] ->end ) {
+	   #   warn("Problem with intron $i\nINTRON:" . $intron->start ."-" . $intron->end ."\n");
+	   #   warn("EXONS " . $new_exons[$i-1]->start ."-" . $new_exons[$i-1] ->end ." " .( $new_exons[$i-1] ->end -$new_exons[$i-1]->start ) ."bp\n" );
+	   #   warn("EXONS " . $new_exons[$i+1]->start ."-" .  $new_exons[$i+1] ->end ."\n");
+	   #   warn("This model is not going to work, moving on to the next one\n");
+	      next MODEL;
+	    }
+	    $intron_count++;
+	    $intron_score+= $intron->score;
+	    #  print "Adding INTRON " . $intron->display_id ." total score now $intron_score \n";
+	    # keep tabs on how many fake introns we have
+	    $non_con_introns++ if $intron->display_label =~ /non-consensus/;
+	  }
+	}
+	next MODEL unless $intron_count;
+	
+	# trim padding from the start and end exons
+	$new_exons[0]->start($new_exons[0]->start + 20) if $new_exons[0]->length  > 20;
+	$new_exons[-1]->end ($new_exons[-1]->end  - 20) if $new_exons[-1]->length > 20;
+	
+	# make it into a gene
+	my @modified_exons;
+	foreach my $exon ( @new_exons ) {
+	  next if $exon->isa("Bio::EnsEMBL::SimpleFeature");
+	  push @modified_exons, clone_Exon($exon);
+	}
+	if ( $strand == 1 ) {
+	  @modified_exons = sort { $a->start <=> $b->start } @modified_exons;
+	} else {
+	  @modified_exons = sort { $b->start <=> $a->start } @modified_exons;
+	}
+	# make it into a gene
+	my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
+	# add a translation 
+	my $tran = compute_translation(clone_Transcript($t));
+	# keep track of the scores for this transcript
+	$tran->analysis($self->analysis);
+	$tran->version(1);
+	$tran->{'_score'} =  ( $intron_score + int($exon_score / 100 ));
+	$tran->{'_depth'} =  ( $intron_score + $exon_score );
+	$tran->{'_NC_introns'} =  $non_con_introns ;
+	$tran->{'_exon_use'} = $exon_use;
+	#print STDERR " EXON count $exon_count\n";
+	$tran->{'_intron_count'} = $intron_count;
+	push @trans, $tran;
+      }
+      # we only want one model if its best score only
+      if ( $self->BEST_SCORE and not   $self->OTHER_ISOFORMS  ) {
+	last SCORES if scalar(@trans)  > 0 ;
+      }
+      # we want X number of models
+      if ( $self->BEST_SCORE &&  $self->OTHER_ISOFORMS && $self->MAX_NUM  ) {
+	last SCORES if scalar(@trans)  >= ( $self->MAX_NUM +1 )  ;
+      }
+    }
+    my $best;
+    foreach my $tran ( @trans ) {
+      my ( $new_gene ) = @{convert_to_genes(($tran),$gene->analysis)};
+      $version++;
+      $new_gene->biotype($self->OTHER_ISOFORMS);
+      if ( $version == 1 ) {
+	$new_gene->biotype($self->BEST_SCORE);
+	$best = $tran;
+      } else {
+	if ( $tran->translateable_seq && $best->translateable_seq && length($tran->translate->seq) > length($best->translate->seq) ) {
+	  # not just longer peptide but at least as long span
+	  next unless ( $tran->translateable_seq && $best->translateable_seq &&
+			$tran->translation->genomic_end >= $best->translation->genomic_end &&
+			$tran->translation->genomic_start <= $best->translation->genomic_start ) ;
+	  $new_gene->biotype($self->BEST_SCORE);
+	}
+      }
+      $new_gene->stable_id($gene->stable_id . "-v$cluster_count.$version-" .
+			   int($tran->{'_score'}) ."-" .
+			   int($tran->{'_depth'}) ."-" .  
+			   $tran->{'_intron_count'} ."-NC-" . 
+			   $tran->{'_NC_introns'} );
+      push @{$cluster->{'final_models'}} , $new_gene;
+    }
+  }
+  return \@model_clusters;
+}
+
 
 sub write_output{
   my ($self) = @_;
 
   my $outdb = $self->get_dbadaptor($self->OUTPUT_DB);
-  my $gene_adaptor = $outdb->get_GeneAdaptor;  
+  my $gene_adaptor = $outdb->get_GeneAdaptor; 
   
   my @output = @{$self->output};
   
@@ -582,7 +720,7 @@ sub write_output{
                  :   String containing keys used up to this point
                  :   String containing the paths under construction
     Description  :   Recursive method that creates paths that explore all possible
-                 :   routes through a hashref, has a hard limit of 500,000 recursions
+                 :   routes through a hashref, uses a configurable recursion limit 
                  :   to prevent it running out of memory if the paths cannot be solved
                  :   or are too large to be practical
 
@@ -599,257 +737,185 @@ sub ProcessTree {
   $sofar.= "$index.";
   foreach my $child (@node){
     $limit++;
-    $paths = $self->ProcessTree($hashref,$child,$sofar,$paths);
-    if ( $paths eq "ERROR" ) {
+     my $result =  $self->ProcessTree($hashref,$child,$sofar,$paths);
+    if ( $result eq "ERROR" ) {
       $limit = 0;
-      return $paths; 
+      return "ERROR"; 
     }
+   # $result->{$sofar} = 1;
   }
-  push @{$paths->{$sofar}}, split(/\./,$sofar) if scalar(@node == 0);
+  if ( scalar(@node == 0) ) {
+   # print "$sofar\n";
+    $paths->{$sofar} = 1;
+  }
   return $paths;
 }
 
-=head2 peptide_cluster
-    Title        :   peptide_cluster
-    Usage        :   $self->peptide_cluster(\@array);
-    Returns      :   Array ref of Bio::EnsEMBL::Transcript
-    Args         :   Array ref of Bio::EnsEMBL::Transcript
-    Description  :   Collapses transcripts that have identical coding
-                 :   sequences and exons, picks the one with the fewest UTR exons
+=head2 ProcessTree
+
+    Title        :   ProcessTree
+    Usage        :   $self->process_paths
+    Returns      :   String containing paths through the gene
+    Args         :   A hash reference contianing the possible intron exons
+                 :   Integer key for the hashref
+                 :   String containing keys used up to this point
+                 :   Integer flag indicating filtering should take place
+    Description  :   Filters paths to remove the lowest scoring intron
+                 :   for a given pair of exons where more than one intron
+                 :   is possible. Filters progressivley if the paths cannot be
+                 :   made for the model until the paths can be created or the 
+                 :   model cannot be filtered any more, in this case the number
+                 :   of recursions can be raised and the process repeated
+                 :   untill the max_recursions limit is reached
+
 =cut
 
-
-sub peptide_cluster {
-  my ($self,$array_ref) = @_;
-  my @clusters;
-  my @chosen;
-  my %exon_hash;
-  foreach my $tran ( @$array_ref ) {
-    my $key = '';
-    my @exons = @{$tran->get_all_translateable_Exons};
-    unless ( scalar(@exons > 0 ))  {
-      print ($tran->start." ". $tran->end ." has no translateable exons \n");
-      return \@chosen;
-    }
-    for ( my $i = 1 ; $i <=$#exons ; $i++ ) {
-      $key .= $exons[$i-1]->end . ":" . $exons[$i]->start . ":" ;
-    }
-    push @{$exon_hash{$key}} , $tran;
-  }
-
-  foreach my $key ( keys %exon_hash ) {
-    my @trans =  sort {  scalar(@{$a->get_all_Exons}) <=> (@{$b->get_all_Exons}) } @{$exon_hash{$key}};
-    foreach my $tran ( @{$exon_hash{$key}} ) {
-    }
-    push @chosen, @trans;
-  }
-  return \@chosen;
-}
-
-=head2 find_splice_sites
-    Title        :   find_splice_sites
-    Usage        :   $self->find_splice_sites($exon,$strand,$matrix_type);
-    Returns      :   None
-    Args         :   Bio::EnsEMBL::Exon
-                 :   Integer ( strand of the gene )
-                 :   String descibing the type of matrix to use (acceptor or donor)
-    Description  :   Attempts to define splice sites for exons when no other data is
-                 :   availibale. Uses a position specific weight matrix to score
-                 :   potential splice sites, also looks for any overlapping genscan
-                 :   exons that might have correct splice sites
-=cut
-
-
-
-sub find_splice_sites {
-  my ( $self, $exon,  $strand, $matrix_type  ) = @_;
-
-  my $pea = $self->prediction_exon_adaptor;
-  my $matrix; 
-  if ( $matrix_type eq 'donor' ) {
-    $matrix =  $self->donor_matrix;
-  } else {
-    $matrix =  $self->acceptor_matrix;
-  }
-  
-  # which end of the exon do we wish to trim - just do one
-
-  print "GOT EXON " . $exon->seq_region_name . " " .  $exon->start . " "  . $exon->end ." $strand \n";
-  print " looking for a splice - $matrix_type \n";
-
-  my $genomic_slice;
-  if ($strand == 1 ) {
-    $genomic_slice = $self->db->get_SliceAdaptor->fetch_by_region('toplevel',
-					   $exon->seq_region_name,
-					   $exon->start,
-					   $exon->end,
-					   1);
-  } else {
-    $genomic_slice = $self->db->get_SliceAdaptor->fetch_by_region('toplevel',
-					   $exon->seq_region_name,
-					   $exon->start,
-					   $exon->end,
-					   -1);
-  }
-
-  my $highest_donor;
-  my $highest_acceptor;
-  # first work out the coverage and the max coverage
-
-  # lets see if we have any genscan exons to help us with our splice sites
-  my @genscan_exons = @{$pea->fetch_all_by_Slice_constraint($genomic_slice,"seq_region_strand = $strand") };
-  my $genscan_exon;
-
-  if ( scalar(@genscan_exons) == 1) {
-    $genscan_exon = $genscan_exons[0];
-  }
-  # get the dna sequence so we can score it against the splice matrix
-  my $dna = $genomic_slice->seq;
-  my @dna = split(//,$dna);
-  
-  # donor
-  my $scores = $self->score_pssm($exon,$matrix,\@dna,$matrix_type);
-  
-  my %best_scores;
-  if ( $genscan_exon ) {
-    if ( $matrix_type eq 'donor') {
-    } else {
-      $scores->[$genscan_exon->start - 2] += .9 if $genscan_exon->start > 0;
-    }
-  }
-
-  for ( my $i = 0 ; $i <= $#dna ; $i++ ) {
-    #store them
-    # how about we weight scores by virtue of their closeness to the expected position ?
-    # adding 3 to the ends of the masking to prevent <=0 bp exons 
-    if ($strand == 1){
-      $scores->[$i] = -1 if $i < ($exon->{'left_mask'}+1) or $i > ($exon->{'right_mask'}-1);
-    } else {
-      $scores->[$i] = -1 if $i < ($exon->length - ($exon->{'right_mask'}-1)-1) or $i > ( $exon->length - ($exon->{'left_mask'}+1) -1);
-    }
- 
-    my $factor;
-    if ( $matrix_type eq 'acceptor' ) {
-      # thats .25 off the score for every base 4 bases = 1 poimt 
-      $factor = abs($i -20) / 100 ;
-    } else {
-      $factor = abs(($#dna - $i) -20 ) / 100;
-    }
-    $factor = .99 if $factor > .99;
-
-    $scores->[$i] -= $factor if $scores->[$i] && $scores->[$i] > -1;
-
-    $best_scores{$i} = $scores->[$i] if $scores->[$i] && $scores->[$i] > -1;
-  }
-
-  my $count;
-  my $pick;
-  # pick the best scoring splice site
-  foreach my $position ( keys %best_scores ) {
-    if ( $pick ) {
-      $pick = $position if $best_scores{$position} > $best_scores{$pick};
-    } else {
-      $pick = $position;
-    }
-
-  }
-
-  unless ($pick ) {
-    return;
-  }
-
-  # the rough models are always -ve strand rememer
-  if ( $strand == -1 && $matrix_type eq 'donor' ) {
-    return $exon->end - $pick +1;
-  }
-  if ( $strand == 1 && $matrix_type eq 'donor' ) {
-    return $exon->start+ $pick-1 ;
-  }
-  if ( $strand == 1 && $matrix_type eq 'acceptor' ) {
-    return $exon->start+$pick+1 ;
-  }
-  if ( $strand == -1 && $matrix_type eq 'acceptor' ) {
-    return $exon->end-$pick-1 ;
-  }
- 
-  return;
-}
-
-=head2 score_pssm
-    Title        :   score_pssm
-    Usage        :   $self->score_pssm($exon,$matrix,$dna,$type)
-    Returns      :   Array ref of scores
-    Args         :   Bio::EnsEMBL::Exon
-                 :   Array ref containing scoring matrix
-                 :   Array ref containing dna 
-                 :   String describing the type of matrix ( acceptor or donor )
-    Description  :   Scores a DNA sequence against a PSWM to identify possible 
-                 :   splice sites. Returns an array of scores
-=cut
-
-
-sub score_pssm {
-  my ( $self,$exon,$matrix,$dna,$type) = @_;
-  my $scores;
-  my $adjust;
-  $adjust = 3 if $type eq 'donor';
-  $adjust = 13 if $type eq 'acceptor';
-  throw("Matrix not recognised\n") unless $matrix;
-  # calculate the score for all the points in the exon 
-  for ( my $i = 0 ; $i <= $exon->length - ( scalar(keys %{$matrix} ) ) ; $i++ ) {
-    my $offset = 0;
-    my $index = $i+$adjust;
-    foreach my $key (sort { $a <=> $b }   keys %{$matrix} ) {
-      $scores->[$index] += ($matrix->{$key}->{$dna->[$i+$offset]} / 100 );
-      $offset++;
-    }
-    # adjust for length of matrix
-    $scores->[$index] /=  scalar(keys %{$matrix} );
-    # make sure it has a GT if its a donor or an AG if its an acceptor
-    if ($type eq 'donor' ) {
-      $scores->[$index] = 0 unless $dna->[$index] eq 'G';
-      $scores->[$index] = 0 unless $dna->[$index+1] eq 'T';
-    }
-    if ($type eq 'acceptor' ) {
-      $scores->[$index] = 0 unless $dna->[$index-1] eq 'A';
-      $scores->[$index] = 0 unless $dna->[$index] eq 'G';
-    }
-  }
-  return $scores;
-}
-
-=head2 load_matrix
-    Title        :   load_matrix
-    Usage        :   $self->load_matrix($file)
-    Returns      :   Array ref - score matrix
-    Args         :   File handle
-    Description  :   Parses a tet file containing a scoring matrix and
-                 :   loads it into a multidimensional  array ref
-=cut
-
-
-sub load_matrix {
-  my ( $self,$file ) = @_;
-  my $matrix;
-  my @columns;
-  open(FILE,$file) or $self->throw("cannot find matrix file $file \n");
-  while (<FILE>) {
-    chomp;
-    next if $_ =~ /^#/;
-    $_ =~ s/ //g;
-    my @array = split(/\t/,$_);
-    unless ( scalar(@columns) > 0 ) {
-      @columns = @array;
-    } else {
-      for ( my $i = 1 ; $i <= $#columns ; $i++ ) {
-	$matrix->{$array[0]}->{$columns[$i]} = $array[$i];
+sub process_paths{
+  my ( $self, $exons, $exon_intron, $intron_exon, $strict ) = @_;
+  my $variants;
+  my $removed;
+  # now lets make a hash of hashes holding which exons connect to which
+  for ( my $i = 0 ; $i < scalar(@{$exons}) ; $i ++ ) {
+    if ( $exon_intron->[$i] ) {
+      if ( $strict ) {
+	# group all the introns by exon pairs
+	# they all join to left exon 
+	# so lets group them by right exon
+	my %intron_groups;
+	foreach my $intron ( @{$exon_intron->[$i]} ) {
+	  foreach my $right_exon ( @{$intron_exon->{$intron->display_label}} ) { 
+	    push @{$intron_groups{$right_exon}}, $intron;
+	  }	
+	}
+	# now lets sort these groups by score
+	foreach my $group ( keys %intron_groups ) {
+	  @{$intron_groups{$group}}  = sort {$b->score <=> $a->score} @{$intron_groups{$group}};
+	}
+	# now lets see what they look like
+	print "EXON $i:". $exons->[$i]->start ." - ". 
+	  $exons->[$i]->end ." - ". 
+	    $exons->[$i]->strand ."\n";
+	foreach my $group ( keys %intron_groups ) {
+	  foreach my $intron ( @{$intron_groups{$group}} ) {
+	    print "$group " . $intron->display_label . " " . $intron->score ."\n";
+	  }
+	  if ( scalar( @{$intron_groups{$group}} ) > 1 ) {
+	    #  remove the lowest scoring one
+	    my $intron = pop( @{$intron_groups{$group}} ) ;
+	    print "Eliminating " . $intron->display_label . " " .
+	      $intron->score . "\n";
+	    unless (  $intron->display_label =~ /REMOVED/ ) {
+	      $intron->display_label($intron->display_label."-REMOVED") ;
+	      $removed++;
+	    }
+	  }	
+	}
+      }
+      
+      foreach my $intron ( @{$exon_intron->[$i]} ) {
+	# only allow each intron to connect to 1 exon
+	foreach my $exon ( @{$intron_exon->{$intron->display_label}} ) {
+	  if ( $intron->end > $exons->[$exon]->end ) {
+	    next ;
+	  }
+	  # store the possible paths as a hash (splice)variants
+	  $variants->{$i}->{$intron->display_label} = 1;
+	  $variants->{$intron->display_label}->{$exon} = 1;
+	  # check 
+	  if ( $intron->end > $exons->[$exon]->end ) {
+	    throw(" exon $i start end " . $intron->end ." - " . $exons->[$exon]->start );
+	  }
+	}
       }
     }
   }
-  return $matrix;
-} 
+  
+  if ($strict &! $removed ) {
+    warn ( "Cannot simplify this gene any more ".
+	   "EXON 0:". $exons->[0]->start ." - ". 
+	   $exons->[0]->end ." - ". 
+	   $exons->[0]->strand ."\n" );
+    if ( $self->recursive_limit < $self->MAX_RECURSIONS ) {
+      $self->recursive_limit ( $self->recursive_limit * 10 ) ; 
+      warn('Upping recursive limit to ' . $self->recursive_limit . ' see if it helps');
+    } else {
+      warn("Giving up on " .
+	   "EXON 0:".  $exons->[0]->seq_region_name ." - ". 
+	   $exons->[0]->start ." - ". 
+	   $exons->[0]->end ." - ". 
+	   $exons->[0]->strand ."\n" );
+      return "Give up";
+    }
+  }
+  
+  # work out all the possible paths given the features we have
+  my $result;
+  my %paths;
+  for ( my $i = 0 ; $i < scalar(@$exons) ; $i ++ ) {
+    $limit = 0;
+    $result = $self->ProcessTree($variants,$i,undef,\%paths );
+    if ($result eq "ERROR"){
+      warn("Could not process  cluster $i trying again with simpler cluster\n");
+      return undef;
+    }
+  }
+  return $result;
+}
+
+=head2 model_cluster
+
+    Title        :   model_cluster
+    Usage        :   $self->model_cluster($models,$strand);
+    Returns      :   2D array ref of exons and intron features
+    Args         :   Array ref of  exons and intron features
+                 :   Integer indicating strand
+    Description  :   Clusters the initial models by start end
+                 :   orders the models in each cluster by score
+=cut
+
+sub model_cluster {
+  my ($self,$models,$strand) = @_;
+  my @clusters;
+  # sort them by the start of the fist exon ( the first array element )
+  my @models = sort { $a->[0]->start <=> $b->[0]->start }  @$models ;
+  # $model->[0] = 1st exon 
+  # $model->[-2] = last exon once the score has been popped off
+  # the clusters have an array of features where each feature 
+  # is stored at an index = score, makes it easy to pull out the 
+  # highest scoring models in each non overlapping cluster
+  
+  foreach my $model ( @models ) {
+    # get the score ( last array element ) 
+    my $score  = pop(@$model);
+     my $clustered = 0;
+    foreach my $cluster ( @clusters ) {
+      # do they overlap?
+      if ( $model->[0]->start <= $cluster->{'end'} 
+	   &&  $model->[-2]->end >= $cluster->{'start'}) {
+	# Expand the cluster
+	$cluster->{'start'} = $model->[0]->start 
+	  if $model->[0]->start < $cluster->{'start'};
+	$cluster->{'end'} = $model->[-2]->end
+	  if $model->[-2]->end   > $cluster->{'end'}; 
+	push @{$cluster->{'models'}->[$score]}, $model;
+	$clustered = 1;
+      }
+    }
+    unless ($clustered) {
+      my $cluster;
+      push @{$cluster->{'models'}->[$score]}, $model;
+      $cluster->{'start'} = $model->[0]->start;
+      $cluster->{'end'}   = $model->[-2]->end;
+      $cluster->{'strand'} = $strand;
+      push @clusters, $cluster;
+    }
+  }
+  return \@clusters;
+}
+
 
 =head2 merge_exons
+
     Title        :   merge_exons
     Usage        :   $self->merge_exons($gene)
     Returns      :   Array ref of Bio::EnsEMBL::Exon
@@ -874,13 +940,14 @@ sub merge_exons {
     my $prev_exon = $exons[$i-1];
     my $intron_count = 0;
     # is the intron tiny?
-    my @introns = @{$self->dna_2_simple_features($prev_exon->start,$exon->end)};
+    my @introns = @{$self->fetch_intron_features($prev_exon->end,$exon->start)};
     
-     # it must lie across the boundary and be within the two exons
+     # we know it lies across the boundary does it lie within the 2 exons?
     foreach my $intron ( @introns ) {
-      if (  $intron->start > 0 && $intron->end < ( $exon->end - $prev_exon->start) &&
-	    $intron->start < $prev_exon->length &&
-	    $intron->end >  $prev_exon->length &&
+      # ignore non consensus introns at this point
+      next if $intron->display_label =~ /non-consensus/ ;
+      if (   $intron->start > $prev_exon->start &&
+	    $intron->end <  $exon->end &&
 	    $intron->strand == $gene->strand) {
 	$intron_count++;
       }
@@ -909,13 +976,11 @@ sub merge_exons {
       $repeat->start($prev_exon->end) if  $repeat->start < $prev_exon->end;
       $repeat->end($exon->start) if $repeat->end > $exon->start;
       $repeat_coverage+= $repeat->end - $repeat->start;
- #     print  $exon->start ." " .  $prev_exon->end . " " .$repeat->start ." " .  $repeat->end .
-	# "  $repeat_coverage\n";
     }
     $repeat_coverage /= ($exon->start - $prev_exon->end ) ;
-#    print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
-    # splice the exons together where repeat coverage is > 95%
-    if ($repeat_coverage > 0.95   ) {
+    # print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
+    # splice the exons together where repeat coverage is > 99%
+    if ($repeat_coverage >= 0.99   ) {
       print "MERGING EXONS Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
       $exon->start($prev_exon->start);
       # combine the exon scores when we merge the exons
@@ -929,156 +994,17 @@ sub merge_exons {
   
   return \@exons;
 }
-=head2 strand_separation
-    Title        :   strand_separation
-    Usage        :   $self->strand_separation(\@genes)
-    Returns      :   Array ref of Bio::EnsEMBL::Gene
-    Args         :   Array ref of Bio::EnsEMBL::Gene
-    Description  :   Examines a gene model with repect to overlapping intron alignments.
-                 :   Looks for places where the intron alignments switch strand
-                 :   indicating that the model is in fact 2 genes on opposite
-                 :   strands with overlapping UTR. It then splits the gene into 2
-=cut
-
-
-sub strand_separation {
-  my ( $self,$genes ) = @_;
-  my @separated_genes;
-  my $strand;
- GENE: foreach ( my $i = 0 ; $i< scalar(@$genes) ; $i++ ) {
-    my $total_strand;
-    my $gene = $genes->[$i];
-    my @intron_strand;
-    # examine strand on an exon by exon basis
-    my @exons =   @{$self->merge_exons($gene)};
-    for ( my $e =1 ; $e <= $#exons ; $e ++ ) {
-      my $exon = $exons[$e];
-      $intron_strand[$e] = 0;
-	my $prev_exon = $exons[$e-1];
-	# do we have an intron between these exons;
-	my @introns = @{$self->dna_2_simple_features($prev_exon->start,$exon->end)};
-	# here is where we figure out how to split the joined genes...
-	foreach my $intron ( @introns ) {
-	  # intron has to actually join the 2 exons
-	  next unless ( ( $intron->start > $prev_exon->start && 
-			  $intron->start <= $prev_exon->end)  or
-			( $intron->end >= $exon->start && 
-			  $intron->end <  $exon->end));
-	  # add the intron scores 
-	  if ( $intron->score ) {
-	    $intron_strand[$e] += $intron->strand * $intron->score;
-	    $total_strand+= $intron->strand * $intron->score;
-	  }
-	}
-    }
-    # do we have *any* introns at all - only continue if we do
-    unless ( $total_strand ) {
-      print STDERR "No strand data to go on - skipping " . $gene->display_id ."\n";
-      next GENE;
-    }
-    my $last_intron_score = 0;
-    my $last_intron_position = 0;
-    my %switch_strand;
-    
-    # ok do we have a clearly defined strandedness or do we have a split?
-    for ( my $e = 1 ; $e <= $#exons ; $e ++ ) {
-      if ($last_intron_score && ( $intron_strand[$e] > 1 && $last_intron_score < -1 ) 
-	  or  ( $intron_strand[$e] < -1 && $last_intron_score > 1 ) ) {
-	$switch_strand{'score'}++;
-	$switch_strand{'start'} = $last_intron_position;
-	$switch_strand{'end'} = $e;
-	$switch_strand{'strand'} = 1 if $last_intron_score > 0;
-	$switch_strand{'strand'} = -1 if $last_intron_score < 0;	  
-      } 
-      if ( $intron_strand[$e] ) {
-	$last_intron_score = $intron_strand[$e];
-	$last_intron_position = $e;
-      }
-    }
-    
-    
-    if ($switch_strand{'score'} && $switch_strand{'score'} == 1 ) {
-      print STDERR "We have a strand switch between " . $switch_strand{'start'} ." and " .   $switch_strand{'end'} ."\n";
-      # lets make 2 copies of this transcript
-      # one with introns 1 to switch_strand end -1
-      # one with switch_strand start +1  to end
-      # then delete the merged one
-      my @modified_exons;
-      my $strand = $switch_strand{'strand'} ;
-      
-      # left half
-      for ( my $e = 0;  $e <= $switch_strand{'start'}  ; $e ++ ) {
-	my $exon = $exons[$e];
-	push @modified_exons,  clone_Exon($exon);
-      }
-      my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
-      my ( $new_gene ) = @{convert_to_genes(($t),$gene->analysis)};
-      $new_gene->strand($strand);
-      $new_gene->stable_id($gene->stable_id."A");
-      push @separated_genes,$new_gene;
-      
-      my @modified_right_exons;
-      # right half
-      for ( my $e = $switch_strand{'end'} -1  ;  $e <= $#exons ; $e ++ ) {
-	my $exon = $exons[$e];
-	push @modified_right_exons,  clone_Exon($exon);
-      }
-      $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_right_exons);
-      my ( $new_gene2 ) = @{convert_to_genes(($t),$gene->analysis)};
-      $new_gene2->strand(-$strand);
-      $new_gene2->stable_id($gene->stable_id."B");
-      push @separated_genes,$new_gene2;
-    }
-    
-    if ( $switch_strand{'score'} &&  $switch_strand{'score'} > 1 ) {	
-      print STDERR "Strand is ambiguous, lets go with majority rule\n";
-      $gene->strand(1) if $total_strand > 0;
-      $gene->strand(-1) if $total_strand < 0;
-      push @separated_genes,$gene;
-    }
-    
-    unless ( $switch_strand{'score'}  ) {	
-      $gene->strand(1) if $total_strand > 0;
-      $gene->strand(-1) if $total_strand < 0;
-      push @separated_genes,$gene;
-    }
-  }
-  return \@separated_genes;
-}
-
-=head2 exon_mask
-    Title        :   exon_mask
-    Usage        :   $self->exon_mask($exon,$intron)
-    Returns      :   None
-    Args         :   Bio::EnsEMBL::Exon
-                 :   Bio::EnsEMBL::SimpleFeature
-    Description  :   records positions of the slice donor and acceptor to 
-                 :   prevent overlapping introns resulting in an exon with
-                 :   start < end
-=cut
-
-
-sub exon_mask {
-  my ( $self,$exon,$intron ) = @_;
-  if ( $intron->end >= $exon->start &&  $intron->start < $exon->start ) {
-    $exon->{'left_mask'} = $intron->end - $exon->start if  $exon->{'left_mask'} < $intron->end - $exon->start;
-  }
-  if ( $intron->end > $exon->end &&  $intron->start <= $exon->end ) {
-    $exon->{'right_mask'} = $intron->start - $exon->start if   $exon->{'right_mask'} > $intron->start - $exon->start;
-  }
-  return ;
-}
 
 =head2 dna_2_simple_features
     Title        :   dna_2_simple_features
     Usage        :   $self->dna_2_simple_features($start,$end)
-    Returns      :   Array ref of Bio::EnsEMBL::SimpleFeature
+    Returns      :   None
     Args         :   Int start
                  :   Int end
     Description  :   Fetches all dna_align_features from the intron db that lie within
                  :   the range determined by start and end, collapses them down into a 
                  :   non redundant set and builds a Bio::EnsEMBL::SimpleFeature to 
-                 :   represent it
+                 :   represent it, then stores it in $self->intron_features
 =cut
 
 sub dna_2_simple_features {
@@ -1093,10 +1019,19 @@ sub dna_2_simple_features {
     );
   # featch all the dna_align_features for this slice by logic name
   my @reads;
+  print STDERR  "Fetching reads with logic names: ";
   foreach my $logic_name ( @{$self->LOGICNAME} ) {
+    print STDERR "$logic_name ";
     push @reads, @{$intron_slice->get_all_DnaAlignFeatures($logic_name)}; 
   }
-  foreach my $read ( @reads ) {
+  print STDERR "\n";
+  # fetch them all if no logic name is Supplied
+  if (scalar( @{$self->LOGICNAME} ) == 0 ) {
+    @reads =  @{$intron_slice->get_all_DnaAlignFeatures()}; 
+  }
+  print STDERR "Got " . scalar(@reads) . " reads\n";
+  while ( scalar @reads > 0 ) {
+    my $read = pop(@reads);
     my $type = 'consensus';
     $type = 'non-consensus' if ( $read->hseqname =~ /\:NC$/ ) ;
     $read = $read->transfer($self->chr_slice);
@@ -1105,38 +1040,89 @@ sub dna_2_simple_features {
     @ugfs = sort { $a->start <=> $b->start } @ugfs;
     # cache them by internal boundaries
     my $unique_id = $read->seq_region_name . ":" . 
-      $ugfs[1]->start . ":" .
-	$ugfs[0]->end . ":" . 
-	  $read->strand .":" . 
-	    $self->LOGICNAME .":$type";
+      $ugfs[0]->end . ":" .
+	$ugfs[1]->start . ":" . 
+	  $read->strand .":$type";
     $id_list{$unique_id} ++;
  }
+  print STDERR "Got " . scalar( keys %id_list ) . " collapsed introns\n";
   # collapse them down and make them into simple features
   foreach my $key ( keys %id_list ) {
-    my $sf = $self->feature_cash->{$key};
-    unless($sf) {
-      my @data = split(/:/,$key) ;
-      $sf = Bio::EnsEMBL::SimpleFeature->new
-	(-start => $data[2],
-	 -end => $data[1],
-	 -strand => $data[3],
-	 -slice => $self->chr_slice,
-	 -analysis => $self->analysis,
-	 -score =>  0,
-	 -display_label => "INTRON-" .$key . "-". scalar( keys %{$self->feature_cash} ),
-	);
-      $self->feature_cash->{$key} = $sf;
-    }
+    my @data = split(/:/,$key) ;
+    my $sf = Bio::EnsEMBL::SimpleFeature->new
+      (-start => $data[1],
+       -end => $data[2],
+       -strand => $data[3],
+       -slice => $self->chr_slice,
+       -analysis => $self->analysis,
+       -score =>  0,
+       -display_label => "INTRON-" .$key,
+      );
     $sf->score($id_list{$key});
     push @sfs , $sf;
   }
-  return \@sfs;
+  # sort them
+  @sfs = sort {$a->start <=> $b->start} @sfs;
+  $self->intron_features(\@sfs);
+  print STDERR "Got " . scalar(@sfs) . " simple features\n";
+  return;
 }
+
+=head2 fetch_intron_features
+
+    Title        :   fetch_intron_features
+    Usage        :   $self->fetch_intron_features($start,$end)
+    Returns      :   Array ref of Bio::EnsEMBL::SimpleFeature
+    Args         :   Int start
+                 :   Int end
+    Description  :   Accesses the pre computed simple features representing introns
+                 :   Filters out non consensus models that overlap consensus models
+=cut
+
+sub fetch_intron_features {
+  my ($self,$start,$end) = @_;
+  my @chosen_sf;
+  my @filtered_introns;
+  my @sfs =  @{$self->intron_features};
+  # sfs is a sorted array
+  foreach my $intron ( @sfs ) {
+    next unless $intron->start <= $end && $intron->end >= $start;
+    last if $intron->start > $end;
+    push @chosen_sf, $intron;
+  }
+  INTRON: foreach my $intron ( @chosen_sf) {
+    if ($intron->display_label =~ /non-consensus/ ) {
+      # check it has no overlap with any consensus introns
+      # unless it out scores a consensus intron
+      foreach my $i ( @chosen_sf) {
+	unless ($i->display_label =~ /non-consensus/ ) {
+	  if ($intron->end > $i->start && $intron->start < $i->end && $intron->strand == $i->strand ) {
+	    next INTRON if $intron->score <= $i->score;
+	  }
+	}
+      }
+      push @filtered_introns, $intron;
+    } else {
+      push @filtered_introns, $intron;
+    }
+  }
+  return \@filtered_introns;
+}
+
+
+=head2 make_repeat_blocks
+    Title        :   make_repeat_blocks
+    Usage        :   $self->($repeats)
+    Returns      :   Array ref of merged Bio::EnsEMBL::Repeat_Feature
+    Args         :   Array ref of Bio::EnsEMBL::Repeat_Feature
+    Description  :   Merges adjacent repeat features
+
+=cut
+
 
 sub make_repeat_blocks {
   my ($self,$repeats_ref) = @_;
   my @repeats = sort { $a->start <=> $b->start }@$repeats_ref;
- # print " got " . scalar(@repeats) . " repeat blocks initially\n";
   # merge repeat blocks
   for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
     if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
@@ -1145,9 +1131,8 @@ sub make_repeat_blocks {
       splice(@repeats,$j,1);
       $j--;
     }
-   # print "REPEAT $j " . $repeats[$j]->start . "-"  . $repeats[$j]->end. " " . $repeats[$j]->display_id ."\n";
   }  
-  print " got " . scalar(@repeats) . " repeat blocks after merging\n";
+  print STDERR " got " . scalar(@repeats) . " repeat blocks after merging\n";
   return \@repeats;
 }
 
@@ -1162,35 +1147,6 @@ sub recursive_limit {
   }
 
   return $self->{_recursive_limit};
-}
-
-sub donor_matrix {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_donor_matrix} = $val;
-  }
-
-  return $self->{_donor_matrix};
-}
-
-sub acceptor_matrix {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_acceptor_matrix} = $val;
-  }
-
-  return $self->{_acceptor_matrix};
-}
-
-sub prediction_exon_adaptor {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_pea} = $val;
-  }
-  return $self->{_pea};
 }
 
 sub repeat_feature_adaptor {
@@ -1264,6 +1220,16 @@ sub chr_slice {
   return $self->{_chr_slice};
 }
 
+sub intron_features {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_introns} = $val;
+  }
+
+  return $self->{_introns};
+}
+
 ####################################
 # config variable holders
 ####################################
@@ -1312,36 +1278,6 @@ sub MODEL_DB {
 }
 
 
-sub DONOR_MATRIX {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_DONOR_MATRIX'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_DONOR_MATRIX'})) {
-    return $self->{'_CONFIG_DONOR_MATRIX'};
-  } else {
-    return undef;
-  }
-}
-
-
-sub ACCEPTOR_MATRIX {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_ACCEPTOR_MATRIX'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_ACCEPTOR_MATRIX'})) {
-    return $self->{'_CONFIG_ACCEPTOR_MATRIX'};
-  } else {
-    return undef;
-  }
-}
-
-
 sub LOGICNAME {
   my ($self,$value) = @_;
 
@@ -1356,21 +1292,19 @@ sub LOGICNAME {
   }
 }
 
-sub ABINITIO_INTRONS {
+sub RETAINED_INTRON_PENALTY {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_CONFIG_ABINITIO_INTRONS'} = $value;
+    $self->{'_CONFIG_RETAINED_INTRON_PENALTY'} = $value;
   }
   
-  if (exists($self->{'_CONFIG_ABINITIO_INTRONS'})) {
-    return $self->{'_CONFIG_ABINITIO_INTRONS'};
+  if (exists($self->{'_CONFIG_RETAINED_INTRON_PENALTY'})) {
+    return $self->{'_CONFIG_RETAINED_INTRON_PENALTY'};
   } else {
     return undef;
   }
 }
-
-
 
 
 sub MIN_INTRON_SIZE {
@@ -1403,15 +1337,15 @@ sub BEST_SCORE {
 }
 
 
-sub BEST_INTRONS {
+sub OTHER_NUM {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_CONFIG_BEST_INTRONS'} = $value;
+    $self->{'_CONFIG_OTHER_NUM'} = $value;
   }
   
-  if (exists($self->{'_CONFIG_BEST_INTRONS'})) {
-    return $self->{'_CONFIG_BEST_INTRONS'};
+  if (exists($self->{'_CONFIG_OTHER_NUM'})) {
+    return $self->{'_CONFIG_OTHER_NUM'};
   } else {
     return undef;
   }
@@ -1430,4 +1364,59 @@ sub OTHER_ISOFORMS {
     return undef;
   }
 }
-1;
+
+sub MODEL_LN {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MODEL_LN'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MODEL_LN'})) {
+    return $self->{'_CONFIG_MODEL_LN'};
+  } else {
+    return undef;
+  }
+}
+
+sub BAD_MODELS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_BAD_MODELS'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_BAD_MODELS'})) {
+    return $self->{'_CONFIG_BAD_MODELS'};
+  } else {
+    return undef;
+  }
+}
+
+sub MAX_NUM {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_NUM'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_NUM'})) {
+    return $self->{'_CONFIG_MAX_NUM'};
+  } else {
+    return undef;
+  }
+}
+
+sub MAX_RECURSIONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_RECURSIONS'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_RECURSIONS'})) {
+    return $self->{'_CONFIG_MAX_RECURSIONS'};
+  } else {
+    return undef;
+  }
+}1;
