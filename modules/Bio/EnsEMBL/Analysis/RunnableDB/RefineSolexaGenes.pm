@@ -182,7 +182,7 @@ sub refine_genes {
       my $highest_score = 0;
       print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
       # merge exons to remove little artifactual introns
-      my @exons =  @{$self->merge_exons($gene)};
+      my @exons =  @{$self->merge_exons($gene,$strand)};
       my $exon_count = $#exons;
       my @fake_introns;
       my %known_exons; 
@@ -871,6 +871,7 @@ sub process_paths{
                  :   Integer indicating strand
     Description  :   Clusters the initial models by start end
                  :   orders the models in each cluster by score
+
 =cut
 
 sub model_cluster {
@@ -922,12 +923,13 @@ sub model_cluster {
     Args         :   Bio::EnsEMBL::Gene
     Description  :   Merges adjacent exons where the intron is covered by repeats or
                  :   is very small
+
 =cut
 
 
 # lets us merge exons with tiny  introns between them  unless they contain an intron
 sub merge_exons {
-  my ( $self, $gene) = @_;
+  my ( $self, $gene,$strand) = @_;
   my @exons;
   next unless $gene->get_all_Transcripts->[0];
   foreach my $exon ( @{$gene->get_all_Transcripts->[0]->get_all_Exons} ) {
@@ -939,16 +941,17 @@ sub merge_exons {
     my $exon = $exons[$i];
     my $prev_exon = $exons[$i-1];
     my $intron_count = 0;
-    # is the intron tiny?
+    # is the intron tiny?    
     my @introns = @{$self->fetch_intron_features($prev_exon->end,$exon->start)};
     
      # we know it lies across the boundary does it lie within the 2 exons?
     foreach my $intron ( @introns ) {
+      print "INTRON " . $intron->start . " " . $intron->end . " " , $intron->strand ." " , $intron->score ."\n";
       # ignore non consensus introns at this point
       next if $intron->display_label =~ /non-consensus/ ;
       if (   $intron->start > $prev_exon->start &&
 	    $intron->end <  $exon->end &&
-	    $intron->strand == $gene->strand) {
+	    $intron->strand == $strand) {
 	$intron_count++;
       }
     }
@@ -978,7 +981,7 @@ sub merge_exons {
       $repeat_coverage+= $repeat->end - $repeat->start;
     }
     $repeat_coverage /= ($exon->start - $prev_exon->end ) ;
-    # print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
+     print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
     # splice the exons together where repeat coverage is > 99%
     if ($repeat_coverage >= 0.99   ) {
       print "MERGING EXONS Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
@@ -1005,6 +1008,7 @@ sub merge_exons {
                  :   the range determined by start and end, collapses them down into a 
                  :   non redundant set and builds a Bio::EnsEMBL::SimpleFeature to 
                  :   represent it, then stores it in $self->intron_features
+
 =cut
 
 sub dna_2_simple_features {
@@ -1036,15 +1040,18 @@ sub dna_2_simple_features {
     $type = 'non-consensus' if ( $read->hseqname =~ /\:NC$/ ) ;
     $read = $read->transfer($self->chr_slice);
     my @ugfs = $read->ungapped_features;
-    next unless ( scalar(@ugfs) == 2 );
     @ugfs = sort { $a->start <=> $b->start } @ugfs;
-    # cache them by internal boundaries
-    my $unique_id = $read->seq_region_name . ":" . 
-      $ugfs[0]->end . ":" .
-	$ugfs[1]->start . ":" . 
-	  $read->strand .":$type";
-    $id_list{$unique_id} ++;
- }
+    next if ( scalar(@ugfs) == 0 ) ;
+    for ( my $i = 0 ; $i < scalar(@ugfs) - 1 ; $i++ ) {
+      # one read can span several exons so make all the features 
+      # cache them by internal boundaries
+      my $unique_id = $read->seq_region_name . ":" . 
+	$ugfs[$i]->end . ":" .
+	  $ugfs[$i+1]->start . ":" . 
+	    $read->strand .":$type";
+      $id_list{$unique_id} ++;
+    }
+  }
   print STDERR "Got " . scalar( keys %id_list ) . " collapsed introns\n";
   # collapse them down and make them into simple features
   foreach my $key ( keys %id_list ) {
@@ -1077,6 +1084,7 @@ sub dna_2_simple_features {
                  :   Int end
     Description  :   Accesses the pre computed simple features representing introns
                  :   Filters out non consensus models that overlap consensus models
+
 =cut
 
 sub fetch_intron_features {
