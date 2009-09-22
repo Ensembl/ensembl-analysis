@@ -9,24 +9,21 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Pipeline::Tools::MM_Taxonomy;
 
 use Data::Dumper;
-use Scalar::Util 'weaken';
+#use Scalar::Util 'weaken';
 
 use base 'Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter';
 
-my $DEBUG                = 0;
+my $DEBUG                = 1;
 my $SANITY_CHECK_STRANDS = 0;
 
 # NB: not a method
 sub overlap {
 
-	# check if feature s1-e1 overlaps feature s2-e2
-	
-	my ( $s1, $e1, $s2, $e2 ) = @_;
+    # check if feature f1 overlaps feature f2
 
-    my $s_max = $s1 > $s2 ? $s1 : $s2;
-    my $e_min = $e1 < $e2 ? $e1 : $e2;
-
-    return ($e_min - $s_max) >= 0;
+    my ( $f1_start, $f1_end, $f2_start, $f2_end ) = @_;
+    
+    return ($f1_end >= $f2_start and $f1_start <= $f2_end);
 }
 
 # NB: not a method
@@ -55,7 +52,7 @@ sub is_consistent {
 
 	for my $cluster_intron ( @{ $cluster->{introns} } ) {
 
-		my $end = $cluster_intron->[0];
+		my $end = $cluster_intron->[0]-1;
 
 		for my $intron ( @{ $hit->{introns} } ) {
 			if ( overlap( $start, $end, $intron->[0], $intron->[1] ) ) {
@@ -63,7 +60,7 @@ sub is_consistent {
 			}
 		}
 
-		$start = $cluster_intron->[1];
+		$start = $cluster_intron->[1]+1;
 	}
 
 	my $end = $cluster->{end};
@@ -273,11 +270,11 @@ sub cluster_hits {
 			my $start = $afs[0]->end;
 			for my $af ( @afs[ 1 .. $#afs - 1 ] ) {
 				my $end = $af->start;
-				push @introns, [ $start, $end ];
+				push @introns, [ $start+1, $end-1 ];
 				$start = $af->end;
 			}
 			my $end = $afs[-1]->start;
-			push @introns, [ $start, $end ];
+			push @introns, [ $start+1, $end-1 ];
 		}
 
 		$hit->{introns} = [@introns];
@@ -306,7 +303,6 @@ sub cluster_hits {
 
 				last;
 			}
-
 			else {
 				print STDERR "ClusterDepthFilter: can't add hit to cluster: ",
 				  cluster_str($cluster), "\n"
@@ -333,6 +329,118 @@ sub cluster_hits {
 	}
 
 	return \@clusters;
+}
+
+sub compute_vulgar_strings {
+	my $hits = shift;
+
+	for my $hit (@$hits) {
+		
+		my @afs = @{ $hit->{features} };
+		
+		my $vs = '';
+		
+		my $last;
+		
+		for my $af (@afs) {
+			if ($last) {
+				$vs .= '5 0 2 ';
+				$vs .= 'I 0 '.($af->start - $last - 4).' ';
+				$vs .= '3 0 2 ';
+			}
+			$vs .= 'M '.$af->length.' '.$af->length.' ';
+			$last = $af->end;
+		}
+		
+		$hit->{vulgar_string} = $vs;
+		
+		#print STDERR hit_str($hit), "\n\n";
+		#print STDERR $vs, "\n\n";
+	}
+}
+
+sub is_consistent_by_vulgar_string {
+	my ($hit, $cluster) = @_;
+	
+	return 1 unless ($hit->{vulgar_string} =~ /I/ || $cluster->{vulgar_string} =~ /I/);
+	
+	my $vs = $hit->{vulgar_string};
+	$vs =~ s/^M \d+ \d+ 5 0 2 //;
+	$vs =~ s/ 3 0 2 M \d+ \d+ $//;
+	
+	if ($cluster->{vulgar_string} =~ /$vs/) {
+		if ($vs ne $hit->{vulgar_string}) {
+			print STDERR "orig   : ", $hit->{vulgar_string}, "\n";
+			print STDERR "trimmed: ", $vs, "\n";
+		}
+		print STDERR "MATCH:\n";
+		print STDERR $vs, "\n";
+		print STDERR $cluster->{vulgar_string}, "\n";
+		return 1;	
+	}
+	else {
+		print STDERR "NO MATCH:\n";
+		print STDERR $vs, "\n";
+		print STDERR $cluster->{vulgar_string}, "\n";
+		return 0;
+	}
+}
+
+sub cluster_hits_by_strings {
+	
+	my $self = shift;
+	
+	my $hits = shift;
+	
+	compute_vulgar_strings($hits);
+	
+	my @hits = sort {
+		     ( $a->{features}->[0]->start <=> $b->{features}->[0]->start )
+		  || ( $b->{features}->[-1]->end <=> $a->{features}->[-1]->end )
+	} @$hits;
+	
+	my @clusters = ();
+	
+	for my $hit (@hits) {
+		
+		my $added = 0;
+		
+		for my $cluster (@clusters) {
+			
+			if (   $hit->{strand} == $cluster->{strand}
+				&& $hit->{start} >= $cluster->{start}
+				&& $hit->{end} <= $cluster->{end}
+				&& is_consistent_by_vulgar_string( $hit, $cluster ) )
+			{
+				push @{ $cluster->{hits} }, $hit;
+
+				$added = 1;
+
+				last;
+			}
+		}
+		
+		# if we didn't find a matching cluster, start a new one
+		if ( !$added ) {
+
+			my $cluster = {
+				start   => $hit->{start},
+				end     => $hit->{end},
+				vulgar_string => $hit->{vulgar_string},
+				hits    => [$hit],
+				strand  => $hit->{strand}
+			};
+			push @clusters, $cluster;
+
+			print STDERR "ClusterDepthFilter: creating new cluster: ",
+			  cluster_str($cluster), "\n"
+			  if $DEBUG;
+		}
+	}
+	
+	print "Created ",scalar(@clusters), " clusters using vulgar strings\n";
+	
+	return @clusters;
 }
 
 sub cluster_clusters {
@@ -608,6 +716,12 @@ sub filter_features {
 	return ( \@retained_features, $summary_features );
 }
 
+sub _sneaky_new {
+	my ($class) = @_;
+  	my $self = bless {},$class;
+  	return $self; 
+}
+
 sub depth_filter {
 
 	my $self = shift;
@@ -666,12 +780,18 @@ sub depth_filter {
 	# identify clusters of hits
 
 	my $clusters = $self->cluster_hits($hits);
+	
+	#my $clusters2 = $self->cluster_hits_by_strings($hits);
 
 	print STDERR "ClusterDepthFilter: grouped "
 	  . scalar(@$hits)
 	  . " hits into "
 	  . scalar(@$clusters)
 	  . " clusters";
+
+	print "\n\n";
+
+	#die;
 
 	if ($SANITY_CHECK_STRANDS) {
 		for my $cluster ( @$clusters ) {
