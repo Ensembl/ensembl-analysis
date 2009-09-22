@@ -22,27 +22,39 @@ SOLEXA2GENES_CONFIG_BY_LOGIC =>
       DEFAULT => {
                   # databases are defined as hash keys from Bio::EnsEMBL::Analysis::Config::Databases
                   OUTPUT_DB    => '',
-	          ALIGNMENT_DB => '',
+		  # can use alignments from more than one database if needed
+	          ALIGNMENT_DB => [''],
 		  
-                  # logic_names for dna_align_features to be fetched out of ALIGNMENT_DB
+		  
+                  # logic_names for dna_align_features to be fetched out of ALIGNMENT_DB(s)
                   LOGIC_NAMES  => [],
 
                   # options for filtering out small gene models
                   MIN_LENGTH => 100,
-                  MIN_EXONS  =>   2,
-                  MIN_EXON_LENGTH => 100,
+                  MIN_EXONS  =>   1,
+		  
+		  # genes with a span < MIN_SPAN will also be considered single exon
+		  MIN_SINGLE_EXON_LENGTH => 1000,
+		  
                   # 'span' = genomic extent / cdna length
-                  MIN_SPAN   =>   2,
+                  MIN_SPAN   =>   1.5,
+		  
                   # number of read pairs needed to confirm an end exon
 		  END_EXON_COVERAGE => 2,
+		  
                   # exclude exons where the coverage is lower than 
 		  # *percentage* of the *average* exon coverage for the transcript
 		  # ie a value of 10 means remove all exon pairings where the
 		  # coverage is < 10% of the average 
-		  EXCLUDE_EXONS => 5,
+		  EXCLUDE_EXONS => 2,
+		  
 		  # Merge genes that are seperated by a gap of max length X
 		  # Where the gap is 100% covered by a repeat
 		  MERGE_GENES  => 1000,
+		  
+		  # min length for a pair to be considered
+		  # spanning an intron
+		  INTRON_PAIR  => 400,
                   },
      }
 );
