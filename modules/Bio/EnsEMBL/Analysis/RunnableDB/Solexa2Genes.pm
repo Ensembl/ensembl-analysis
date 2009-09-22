@@ -75,41 +75,68 @@ sub fetch_input {
 
   # store some adaptors
   $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
-  $self->feature_slice_adaptor($self->get_dbadaptor($self->ALIGNMENT_DB)->get_SliceAdaptor);
+  #$self->feature_slice_adaptor($self->get_dbadaptor($self->ALIGNMENT_DB)->get_SliceAdaptor);
   $self->repeat_slice_adaptor($self->db->get_SliceAdaptor);
   
-
   my $id = $self->input_id;
-  my $slice = $self->fetch_sequence($id);
-  my $feature_slice =  $self->feature_slice_adaptor->fetch_by_region
-    ( 
-     'toplevel',
+  my $slice = $self->fetch_sequence($id); 
+  my $chr_slice;
+  #hack to use more than 1 input db for alignments 
+  my @features; 
+  $chr_slice = $self->repeat_slice_adaptor->fetch_by_region('toplevel',
+						       $slice->seq_region_name,
+						      );
+    
+    $self->chr_slice($chr_slice);
+  my $repeat_slice = $self->repeat_slice_adaptor->fetch_by_region
+    ('toplevel',
      $slice->seq_region_name,
      $slice->start,
      $slice->end,
+     1
     );
-  my $chr_slice = $self->feature_slice_adaptor->fetch_by_region('toplevel',
-								$slice->seq_region_name,
-							       );
-
-  $self->chr_slice($chr_slice);
-
-  my @features;
-  if (scalar(@{$self->LOGIC_NAMES}) < 1) {
-    # no logic names have been specified in config file
-    # so just load all DAFs
-    @features = @{$feature_slice->get_all_DnaAlignFeatures};
-  } else {
-    # config file specifies at least one logic name
-    foreach my $logic_name (@{$self->LOGIC_NAMES}){
-      my @tmp_features = @{$feature_slice->get_all_DnaAlignFeatures($logic_name)};
-      print STDERR "Fetched ".scalar(@tmp_features)." for $logic_name\n";
-      push @features, @tmp_features;
+  my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
+  # put on chromosome coords
+  foreach my $repeat ( @repeats ) {
+    $repeat = $repeat->transfer($chr_slice);
+  }
+  $self->repeats($self->make_repeat_blocks(\@repeats));
+  foreach my $DB ( @{$self->ALIGNMENT_DB} ) {
+    print "Fetching dafs from $DB \n";
+    my $feature_slice_adaptor = $self->get_dbadaptor($DB)->get_SliceAdaptor;
+    
+    my $id = $self->input_id;
+    my $slice = $self->fetch_sequence($id);
+    my $feature_slice =  $feature_slice_adaptor->fetch_by_region
+      ( 
+       'toplevel',
+       $slice->seq_region_name,
+       $slice->start,
+       $slice->end,
+      );
+    $chr_slice = $feature_slice_adaptor->fetch_by_region('toplevel',
+							 $slice->seq_region_name,
+							);
+    
+    $self->chr_slice($chr_slice);
+    
+    if (scalar(@{$self->LOGIC_NAMES}) < 1) {
+      # no logic names have been specified in config file
+      # so just load all DAFs
+      push @features , @{$feature_slice->get_all_DnaAlignFeatures};
+      print STDERR "Fetched ".scalar(@features)." \n";
+    } else {
+      # config file specifies at least one logic name
+      foreach my $logic_name (@{$self->LOGIC_NAMES}){
+	my @tmp_features = @{$feature_slice->get_all_DnaAlignFeatures($logic_name)};
+	print STDERR "Fetched ".scalar(@tmp_features)." for $logic_name\n";
+	push @features, @tmp_features;
+      }
     }
   }
   my %reads;
-   
-
+  
+  
   while ( scalar(@features) > 0 )  {
     my $read = pop(@features);
     $reads{$read->hseqname} = $read->transfer($chr_slice);
@@ -178,13 +205,23 @@ sub write_output{
       print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
       next;
     }
-    if( ( $tran->end - $tran->start +1 ) / $tran->length < ($self->MIN_SPAN) ) {
-      print "Rejecting because of span " . ( $tran->end - $tran->start +1 ) / $tran->length ."\n";
-      next;
-    }
     if (  $tran->length < $self->MIN_LENGTH ){
       print "Rejecting because of length " . $tran->length ."\n";
       next;
+    }
+    if ( scalar(@{$gene->get_all_Exons}) == 1){
+      if ( $tran->length <  $self->MIN_SINGLE_EXON_LENGTH ){
+	print "Rejecting single exon transcript because of length " . $tran->length ."\n";
+	next;
+      }
+    } else {
+      # filter span on multiexon genes
+      if( ( $tran->end - $tran->start +1 ) / $tran->length < ($self->MIN_SPAN) ) {
+	if ( $tran->length <  $self->MIN_SINGLE_EXON_LENGTH ){
+	  print "Rejecting because of span " . ( $tran->end - $tran->start +1 ) / $tran->length ."\n";
+	  next;
+	}
+      }
     }
     eval {
       $gene_adaptor->store($gene);
@@ -214,49 +251,194 @@ sub write_output{
 
 sub exon_cluster {
   my ($self,$gene_cluster) = @_;
-  my @gapped_reads =  @{$gene_cluster->{'features'}};
+  print STDERR "EXON CLUSTER \n";
+  #my @gapped_reads =  @{$gene_cluster->{'features'}};
+  print STDERR scalar(@{$gene_cluster->{'features'}}) . " gapped reads\n";
   my @ugfs;
-  # get the ungapped features ( corresponds to individual reads
-  foreach my $read ( @gapped_reads ) {
-    foreach my $ugf ($read->ungapped_features) {
-      push @ugfs, $ugf;
+  # get the ungapped features ( corresponds to individual reads )
+  while ( scalar ( @{$gene_cluster->{'features'}} ) > 0 ){
+    my $read = pop(@{$gene_cluster->{'features'}});
+    my @ungapped_features = sort { $a->start <=> $b->start } $read->ungapped_features;
+    if ( scalar(@ungapped_features) > 2 ) {
+      warn ( $read->hseqname ." is odd has more than 2 un gapped features\n");
+      next;
     }
+    if ( scalar(@ungapped_features) == 1 ) {
+      my $single = $ungapped_features[0];
+      $single->{'pair_length'}  = $read->length;
+      $single->{'position'}  = 'single';
+      push @ugfs, $single;
+      next;
+    }
+    my $left = $ungapped_features[0];
+    my $right = $ungapped_features[1];
+    $left->{'position'}  = 'left';
+    $right->{'position'} = 'right';
+    $left->{'pair_length'}  = $read->length;
+    $right->{'pair_length'} = $read->length;
+    push @ugfs, $left;
+    push @ugfs, $right;
   }
+  
+  print STDERR scalar(@ugfs) . " ungapped reads\n";
+
   my $reads = $self->reads;
   my @exon_clusters;
-  my $exon_cluster_num = 0;
   my $clean_exon_clusters;
   my @final_exon_clusters;
   my @transcripts;
   my @ungapped_features = sort { $a->start <=> $b->start } @ugfs;
-  my $cluster_data;
+  my $feature_count = scalar(@ungapped_features);
   my $cluster_hash;
   my $pairs;
+  my @cleaned_features;
+  print STDERR "Clustering\n";
+  my ( $cluster_data, $ec )  = $self->make_exon_cluster( \@ungapped_features ) ;
+  @exon_clusters = @$ec;
+ 
+  print STDERR "Processing Clusters\n";
+  # remove retained introns by looking for evidence of splicing within the clusters
+  # then remove reads corresponding to retained intron and re-cluster
+#  foreach my $exon ( @exon_clusters ) {
+#    print "EXON " .$exon->start ." " .$exon->end . " ";
+#    # average is realtive to the exon  start
+#    # boundaries is in absolute coords
+#    my @average;
+#    for ( my $i = 0 ; $i <= $exon->length ; $i++  ) {
+#      $average[$i] = 0;
+#    }
+#    for ( my $i = $exon->start+5 ; $i <= $exon->end-5 ; $i++  ) {
+#      # average over a sliding window
+#      my $score;
+#      for  ( my $j = $i-5 ; $j <= $i+5 ; $j++  ) {
+#	$score += $exon->{'boundaries'}->{$j} if $exon->{'boundaries'}->{$j};
+#      }
+#      $average[$i-$exon->start] =  $score/10 if $score;
+#    }
+#    # process what we have
+#      my $positive = 0;
+#      my $negative = 0;
+#    for ( my $i = 0 ; $i <= $exon->length ; $i++  ) {
+#      my $score =  $average[$i];
+#      # hard coded cut off!!
+#      if ( $score == 0 && $negative <= -1  ) {
+#	$average[$i] = 'RIGHT';
+#      }
+#      if ( $score < 0 ) {
+#	$negative = $score if $score < $negative;
+#      }
+#      if ( $score == 0 ) {
+#	$negative = 0;
+#      }
+#    }
+#    for ( my $i = $exon->length ; $i >= 0 ; $i--  ) {
+#      my $score =  $average[$i];
+#      next if $score eq 'RIGHT';
+#      if ( $score == 0 && $positive >= 1) {
+#	$average[$i] = 'LEFT';
+#      }
 
-  # make exon clusters and store the names of the reads and associated cluster number
-  foreach my $ugf ( @ungapped_features ) {
-    my $clustered = 0;
-    foreach (my $i = 0 ; $i < scalar(@exon_clusters) ; $i++ )  {
-      my $exon_cluster = $exon_clusters[$i];
-      # do they overlap?
-      if ( $ugf->start <= $exon_cluster->end+1 &&  $ugf->end >= $exon_cluster->start-1 ) {
-        # Expand the exon_cluster
-        $exon_cluster->start($ugf->start) if $ugf->start < $exon_cluster->start;
-        $exon_cluster->end($ugf->end)     if $ugf->end   > $exon_cluster->end;    
-	$exon_cluster->score($exon_cluster->score + 1);
-        $clustered = 1;
-        $cluster_data->{$ugf->hseqname}->{$i} = 1;
-      }
-    }
-    # start a new cluster if there is no overlap
-    unless ( $clustered  ) {
-      $cluster_data->{$ugf->hseqname}->{$exon_cluster_num} = 1 ;
-      $ugf->score(1);
-      push @exon_clusters, $ugf;
-      $exon_cluster_num++;
-    }
-  }
+#      if ( $score > 0 ) {
+#	$positive = $score if $score > $positive;
+#      }
+#      if ( $score == 0 ) {
+#	$positive = 0;
+#      }
+#    }
+#   # for ( my $i = 0 ; $i <= $exon->length ; $i++  ) {
+#   #   print $average[$i].",";
+#   # }
+#   # print "\n";
+#   # print "EXON depth " . $exon->score / $exon->length ." rpb\n";
+#    # now lets check the clusters to see if they are consistant
+#    my @new_clusters;
+#    my $last;
+#    my $fail;
+#    my $start = $exon->start;
+#    for ( my $i = 0 ; $i <= $exon->length ; $i++  ) {
+#      my $score =  $average[$i];
+#      if (  $last && $last eq $score ) {
+#	# give up we have conflicting start ends
+#	warn ( "Cannot split cluster " . $exon->start ." " , $exon->end . " conflicting internal start and stop positions\n") ;
+#	$fail = 1;
+#	last ;
+#      }
+#      if (  $score eq 'RIGHT' &! $last ) {
+#	my $new;
+#	$new->{'start'} = $exon->start;
+#	$new->{'end'} = $exon->start + $i;
+#	push @new_clusters, $new;
+#	$last = $score;
+#      }
+#      if (  $score eq 'RIGHT' && $last eq 'LEFT' ) {
+#	my $new;
+#	$new->{'start'} = $start;
+#	$new->{'end'} = $exon->start + $i;
+#	push @new_clusters, $new;
+#	$last = $score;
+#      }
+#      if (  $score eq 'LEFT'  ) {
+#	$start = $exon->start + $i;
+#	$last = $score;
+#      }
+#    }
+#    # catch last possibility
+#    if (  $last && $last eq 'LEFT' ) {
+#      my $new;
+#      $new->{'start'} = $start;
+#      $new->{'end'} = $exon->end;
+#      push @new_clusters, $new;
+#    }
+#    print "NOW WE HAVE " . scalar(@new_clusters) ." new exons :\n";
+#    if ( scalar(@new_clusters) > 0 &&  !$fail ) {
+#      # add the reads from my new exons
+#      my @disguarded_features;
+#      foreach my $new_exon ( @new_clusters ) {
+#	print "\t" . $new_exon->{'start'} ." " . $new_exon->{'end'} ."\n";
+#	# put the new features in
+#	for ( my $i =0 ; $i <= $#ungapped_features; $i++ ) {
+#	  next if $ungapped_features[$i]->end < $new_exon->{'start'};
+#	  last if $ungapped_features[$i]->start > $new_exon->{'end'};
+#	  push @cleaned_features,  splice(@ungapped_features,$i,1);
+#	$i--;
+##	  print "GAIN " . $ungapped_features[$i]->start ." " . 
+##	    $ungapped_features[$i]->end ." ".
+##	      $ungapped_features[$i]->hseqname ."\n";	  
+#	}
+#      }
+#    } else {
+#      # add the reads from my old exons 
 
+#      for ( my $i =0 ; $i <= $#ungapped_features; $i++ ) {
+# 	next if $ungapped_features[$i]->end < $exon->start;
+#	last if $ungapped_features[$i]->start > $exon->end;
+##	print "GAIN " . $ungapped_features[$i]->start ." " . 
+##	$ungapped_features[$i]->end ." ".
+##	  $ungapped_features[$i]->hseqname ."\n"; 
+#	push @cleaned_features, splice(@ungapped_features,$i,1);
+#	$i--
+#      }
+#    }
+#    print "now " .  scalar(@cleaned_features) ."\n";
+#  #  @ungapped_features = sort { $a->start <=> $b->start } @ungapped_features;
+#  }
+
+
+#  # if we have modified our reads to remove retained introns rerun the clustering
+#  if ( $feature_count > scalar( @cleaned_features ) ) {
+#    print "Reclustering - before " . scalar(@exon_clusters) . " exons \n";
+#    @cleaned_features = sort { $a->start <=> $b->start } @cleaned_features;
+#    my ( $new_cluster_data, $new_ec )  = $self->make_exon_cluster( \@cleaned_features ) ;
+#    @exon_clusters = @$new_ec;
+#    $cluster_data = $new_cluster_data;
+#  }
+#  print "After reclutering " . scalar(@exon_clusters) . " exons \n";
+  
+ # print STDERR scalar(@exon_clusters) . " Exons\n";
+ # foreach my $e ( @exon_clusters ) {
+ #   print "Exon " . $e->start ." " . $e->end ."\n";
+ # }
+ 
   if ( scalar(@exon_clusters) == 1 ) {
     # just keep single exon clusters for now - might be useful later
     my $exon =  $exon_clusters[0];
@@ -264,8 +446,6 @@ sub exon_cluster {
     return \@transcripts;
   }
 
-  
-  print STDERR scalar(@exon_clusters) . " Exons\n";
 
   # make the exon pairings store them in cluster hash
   foreach my $read ( keys %{$cluster_data} ) {
@@ -279,7 +459,6 @@ sub exon_cluster {
 	unless $clusters[0] == $cluster;
     }
   }
-
   # join the exon_clusters so that terminal exons get penalised
   # but put in all the other exons
 
@@ -303,7 +482,7 @@ sub exon_cluster {
   }
   # whats the average coverage of the exons?
   $average_read_depth /=   $pairs if $pairs;
-  print STDERR "Average READ DEPTH $average_read_depth \n";
+ # print STDERR "Average READ DEPTH $average_read_depth \n";
 
   # Filter out pairings with very litte support
   foreach my $key ( sort keys %{$cluster_hash} ) {
@@ -328,18 +507,19 @@ sub exon_cluster {
     # is it a well supported left end exon?
     if ( $clean_cluster_hash->{$key}->{'left'}  && 
 	 $clean_cluster_hash->{$key}->{'left'} >= $self->END_EXON_COVERAGE) {
-      $clean_exon_clusters->{$key} =  1 ;
-      next;
-    }
-    # is it a well supported right end exon?
-    if ( $clean_cluster_hash->{$key}->{'right'} && 
-	 $clean_cluster_hash->{$key}->{'right'} >= $self->END_EXON_COVERAGE ) {
-      $clean_exon_clusters->{$key} = 1 ;
-      next;
-    }
+	 $clean_exon_clusters->{$key} =  1 ;
+	 next;
+      }
+      # is it a well supported right end exon?
+      if ( $clean_cluster_hash->{$key}->{'right'} && 
+	   $clean_cluster_hash->{$key}->{'right'} >= $self->END_EXON_COVERAGE ) {
+	$clean_exon_clusters->{$key} = 1 ;
+	next;
+      }
     # othwise ignore it
+    print "Ignoring $key\n";
   }
-
+  
   # now need to find little clusters sitting in introns that are not connected to the transcript
   # do a reclustering based on which exons are connected to each other
   
@@ -391,6 +571,75 @@ sub exon_cluster {
   }
   return \@transcripts;
 }
+
+
+sub make_exon_cluster {
+  my ($self, $ungapped_features ) = @_;
+  my $cluster_data;
+  my @exon_clusters;
+  my $exon_cluster_num = 0;
+  # make exon clusters and store the names of the reads and associated cluster number
+  # also store where the long intron spanning paired reads are within the exon to try
+  # and roughly pin down the exon boundaries especially where we have retained intron 
+
+  foreach my $ugf ( @$ungapped_features ) {
+    #print "UGF " . $ugf->start . " " , $ugf->end ."\n";
+    my $clustered = 0;
+    foreach (my $i = 0 ; $i < scalar(@exon_clusters) ; $i++ )  {
+      my $exon_cluster = $exon_clusters[$i];
+      # do they overlap?
+      if ( $ugf->start <= $exon_cluster->end+1 &&  $ugf->end >= $exon_cluster->start-1 ) {
+        # Expand the exon_cluster
+        $exon_cluster->start($ugf->start) if $ugf->start < $exon_cluster->start;
+        $exon_cluster->end($ugf->end)     if $ugf->end   > $exon_cluster->end;    
+	$exon_cluster->score($exon_cluster->score + 1);
+        $clustered = 1;
+        $cluster_data->{$ugf->hseqname}->{$i} = 1;
+	if ( $ugf->{'pair_length'} >= $self->INTRON_PAIR ) {
+	  if ( $ugf->{'position'} eq 'left' ) {
+	    $exon_cluster->{'boundaries'}->{$ugf->end}--;
+	  }
+	  if ( $ugf->{'position'} eq 'right' ) {
+	    $exon_cluster->{'boundaries'}->{$ugf->start}++;
+	  }
+	}
+      }
+    }
+    # start a new cluster if there is no overlap
+    unless ( $clustered  ) {
+      $cluster_data->{$ugf->hseqname}->{$exon_cluster_num} = 1 ;
+      $ugf->score(1);
+      # make a feature representing the cluster
+      my $feat = Bio::EnsEMBL::FeaturePair->new
+	(
+	 -start      => $ugf->start,
+	 -end        => $ugf->end,
+	 -strand     => $ugf->strand,
+	 -slice      => $ugf->slice,
+	 -hstart     => $ugf->hstart,
+	 -hend       => $ugf->hend,
+	 -hstrand    => $ugf->hstrand,
+	 -score      => $ugf->score,
+	 -percent_id => $ugf->percent_id,
+	 -hseqname   => "cluster $exon_cluster_num",
+	 -analysis   => $ugf->analysis,
+	);
+      push @exon_clusters,$feat;
+      
+      $exon_cluster_num++;
+      if ( $ugf->{'pair_length'} >= $self->INTRON_PAIR ) {
+	if ( $ugf->{'position'} eq 'left' ) {
+	  $ugf->{'boundaries'}->{$ugf->end}--;
+	}
+	if ( $ugf->{'position'} eq 'right' ) {
+	  $ugf->{'boundaries'}->{$ugf->start}++;
+	}
+      }
+    }
+  }
+  return ( $cluster_data, \@exon_clusters);
+}
+
 
 =head2 pad_exons
     Title        :   pad_exons
@@ -548,37 +797,37 @@ sub merge_genes {
     my $gap = $right_gene->start - $left_gene->end;
     if ($gap <= $self->MERGE_GENES && $left_gene->end < $right_gene->start) {
       # is it covered by repeats?
-      my $repeat_slice = $self->repeat_slice_adaptor->fetch_by_region
-	('toplevel',
-	 $left_gene->slice->seq_region_name,
-	 $left_gene->end,
-	 $right_gene->start,
-	);
-      #print "looking at " . $repeat_slice->name ."\n";
       # is the gap covered by a repeat?
-      my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
+      my @repeats = @{$self->repeats};
       # merge repeat blocks
-      #print scalar(@repeats) . " repeats found \n";
-      for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
-	if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
-	  $repeats[$j-1]->end($repeats[$j]->end) if  $repeats[$j]->end > $repeats[$j-1]->end ;
-	  splice(@repeats,$j,1);
-	  $j--;
-	}
-      }
-      my $repeat_coverage = 0;
-      # so the repeats are now non-overlapping blocks ( if there is more than one )
+      print scalar(@repeats) . " repeats found \n";
+       my $repeat_coverage = 0;
+      # so the repeats are  non-overlapping blocks
       foreach my $repeat ( @repeats ) {
-	$repeat->start(0) if  $repeat->start < 0;
-	$repeat->end($repeat_slice->length) if $repeat->end > $repeat_slice->length;
+      next if $repeat->end < $left_gene->end;
+      last if $repeat->start > $right_gene->start;
+      # repeat is bigger than gap
+      if ( $repeat->start < $left_gene->end && 
+	   $repeat->end > $right_gene->start ) {
+ 	$repeat_coverage+= $right_gene->start  - $left_gene->end;
+	next;
+      } elsif ( $repeat->start < $left_gene->end ){
+	# repeat overlaps to left
+	$repeat_coverage+= $repeat->end  - $left_gene->end;
+	next;
+      } elsif ( $repeat->end > $right_gene->start ){
+	# repeat overlaps to right
+	$repeat_coverage+= $right_gene->start - $repeat->start;
+	next;
+      } else  {
 	$repeat_coverage+= $repeat->end - $repeat->start;
-      }  
-      $repeat_coverage /= $repeat_slice->length;
+      }
+    }  
+      $repeat_coverage /= ($right_gene->start - $left_gene->end);
       # merge the genes together where repeat coverage is 100%
       if ($repeat_coverage >= 0.95   ) {
 	print "Do some merging\n";
 	print "Repeat Coverage = $repeat_coverage \n";
-	print $repeat_slice->name ."\n";
 	# to do the merge do we just link the genes or do we join them with a long exon?
 	# how about we keep it as 2 exons but bring them together so they abut each other
 	# if there is evidene of splicing they will get separated in the refine genes code
@@ -612,6 +861,25 @@ sub merge_genes {
   return \@merged_genes;
 }
 
+
+sub make_repeat_blocks {
+  my ($self,$repeats_ref) = @_;
+  my @repeats = sort { $a->start <=> $b->start }@$repeats_ref;
+  print " got " . scalar(@repeats) . " repeat blocks initially\n";
+  # merge repeat blocks
+  for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
+    if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
+     # print "merging repeat $j " . $repeats[$j]->start . "-"  . $repeats[$j]->end. " " . $repeats[$j-1]->start ."-" . $repeats[$j-1]->end ."\n";
+      $repeats[$j-1]->end($repeats[$j]->end) if  $repeats[$j]->end > $repeats[$j-1]->end ;
+      splice(@repeats,$j,1);
+      $j--;
+    }
+   # print "REPEAT $j " . $repeats[$j]->start . "-"  . $repeats[$j]->end. " " . $repeats[$j]->display_id ."\n";
+  }  
+  print STDERR " got " . scalar(@repeats) . " repeat blocks after merging\n";
+  return \@repeats;
+}
+
 ###########################################
 # Containers
 
@@ -642,6 +910,16 @@ sub repeat_slice_adaptor {
   }
 
   return $self->{_rsa};
+}
+
+sub repeats {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_repeats} = $val;
+  }
+
+  return $self->{_repeats};
 }
 
 sub repeat_feature_adaptor {
@@ -680,6 +958,7 @@ sub ALIGNMENT_DB {
   }
 }
 
+
 sub  MIN_LENGTH{
   my ($self,$value) = @_;
 
@@ -689,6 +968,20 @@ sub  MIN_LENGTH{
   
   if (exists($self->{'_CONFIG_MIN_LENGTH'})) {
     return $self->{'_CONFIG_MIN_LENGTH'};
+  } else {
+    return 0;
+  }
+}
+
+sub  MIN_SINGLE_EXON_LENGTH{
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MIN_SINGLE_EXON_LENGTH'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MIN_SINGLE_EXON_LENGTH'})) {
+    return $self->{'_CONFIG_MIN_SINGLE_EXON_LENGTH'};
   } else {
     return 0;
   }
@@ -775,6 +1068,20 @@ sub MERGE_GENES {
   
   if (exists($self->{'_CONFIG_MERGE_GENES'})) {
     return $self->{'_CONFIG_MERGE_GENES'};
+  } else {
+    return 0;
+  }
+}
+
+sub INTRON_PAIR {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_INTRON_PAIR'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_INTRON_PAIR'})) {
+    return $self->{'_CONFIG_INTRON_PAIR'};
   } else {
     return 0;
   }
