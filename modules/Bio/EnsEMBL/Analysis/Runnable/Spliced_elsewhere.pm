@@ -117,7 +117,16 @@ sub  run_blast{
   my %output_hash;
   foreach my $trans (@{$gene->get_all_Transcripts}){ 
     next unless ($trans->translateable_seq);
-    my $query = $trans->feature_Slice->expand(1000,1000)->get_repeatmasked_seq;
+# Default expand is 1000
+# But if the transcript start is too close to the start of the region, need to reduce the expand
+# Also needs to be the same value on both sides
+    my $start_expand = 1000 ;
+    my $end_expand = 1000 ;
+    if ( $trans->start < 1000 ) {
+      $start_expand = $trans->start - 1 ;
+      $end_expand = $start_expand ; 
+    }
+    my $query = $trans->feature_Slice->expand($start_expand, $end_expand)->get_repeatmasked_seq;
     my $test = $trans->feature_Slice->get_repeatmasked_seq->seq;
   #  print "BEFORE  Ns have gone " . length($test) . "\n"; 
     $test =~ s/N//g;
