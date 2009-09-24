@@ -419,7 +419,7 @@ sub exon_lengths_all_less_than_maximum{
 sub intron_lengths_all_less_than_maximum{
   my ($transcript, $max_length) = @_;
 
-  $transcript->sort;
+  #$transcript->sort;
   foreach my $intron(@{$transcript->get_all_Introns}){
     if(!intron_length_less_than_maximum($intron, 
                                         $max_length)){
@@ -513,7 +513,7 @@ sub are_phases_consistent{
 sub calculate_exon_phases {
   my ($transcript, $start_phase) = @_;
 
-  $transcript->sort;
+  #$transcript->sort; Commented out as it has been deprecated. Transcript are now sorted by default.
   foreach my $e (@{$transcript->get_all_Exons}) {
     $e->phase(-1);
     $e->end_phase(-1);
@@ -554,8 +554,6 @@ sub calculate_exon_phases {
   }
 }
 
-
-
 =head2 is_not_folded
 
   Arg [1]   : Bio::EnsEMBL::Transcript
@@ -572,7 +570,7 @@ sub calculate_exon_phases {
 sub is_not_folded{
   my ($transcript) = @_;
 
-  $transcript->sort;
+  #$transcript->sort;
   my $exons = $transcript->get_all_Exons;
   if(@$exons == 1){
     my $warn = "is_not_folded ".
