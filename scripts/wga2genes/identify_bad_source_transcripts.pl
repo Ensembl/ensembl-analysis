@@ -59,6 +59,7 @@ my @rejected_g;
 
 foreach my $sl (sort { $a->length <=> $b->length } @slices) {
   my @orig_genes = @{$sl->get_all_Genes_by_type('protein_coding')};
+  my @usable_genes;
 
   #
   # Reject Mitochondrial genes
@@ -75,8 +76,29 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
 
   my @genes;
 
+  #
+  # Reject protein_coding genes which contain not even a single protein-coding transcript. Sometimes
+  # this happens in the human gene set when inconsistencies arise during the Ensembl-Havana merge.
+  #
 
-  foreach my $g (@orig_genes) {
+  foreach my $gene (@orig_genes) {
+    my $coding_transcript_cnt = 0;
+    my @transcripts = @{$gene->get_all_Transcripts};
+    foreach my $tr(@transcripts) {
+      if ($tr->biotype eq 'protein_coding') {
+         $coding_transcript_cnt ++;
+      }
+    }
+    if ($coding_transcript_cnt == 0) {
+       # print STDERR "gene ".$gene->stable_id." contains ".scalar(@transcripts)." transcripts but none of them are protein_coding.\n";
+       push @rejected_g, $gene->stable_id;
+    } else {
+       push (@usable_genes, $gene);
+    }
+  }
+
+
+  foreach my $g (@usable_genes) {
     my ($gst, $gen);
 
     my @trans;
@@ -93,14 +115,9 @@ foreach my $sl (sort { $a->length <=> $b->length } @slices) {
           } 
         }
         
-       
-
       if (length($t->translateable_seq) % 3 != 0) {
         $reject{$t->stable_id} = "Non modulo-3 coding length";
         push @rejected_g, $g->stable_id;  
-      } elsif ($t->biotype ne 'protein_coding') {
-        $reject{$t->stable_id} = "Non-coding transcript in protein_coding gene";
-        push @rejected_g, $g->stable_id;
       } else {
         if ($look_for_dodgy) {
           my ($cst, $cen);
