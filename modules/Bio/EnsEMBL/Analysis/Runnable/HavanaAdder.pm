@@ -864,17 +864,20 @@ sub add_havana_attribute{
 
   foreach my $tsf (@{$transcript->get_all_supporting_features}){
     $t_evidence{$tsf->hseqname} = 1;
+		#$t_evidence{$tsf->hseqname} = $tsf;
   }
 
   foreach my $te_key (keys %t_evidence){
     #print "Adding special attrib\n";
+		#if($t_evidence{{$te_key}->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
     if($te_key->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
       my $attribute = Bio::EnsEMBL::Attribute->new
           (-CODE => 'tp_otter_support',
            -NAME => 'tp otter support',
            -DESCRIPTION => 'Evidence ID that was used as protein transcript supporting feature for building a gene in Vega',
            -VALUE => $te_key);
-      
+           # -VALUE => $te_key."\t".$t_evidence{{$te_key}->analysis_id);
+
       $trans_to_add_attrib->add_Attributes($attribute);
       
     }
