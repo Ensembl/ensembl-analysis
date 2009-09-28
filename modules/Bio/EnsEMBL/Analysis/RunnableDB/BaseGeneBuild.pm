@@ -56,7 +56,7 @@ sub get_dbadaptor{
 
       foreach my $arg ( qw ( -user -port -host -dbname) ) {
         unless ( $$constructor_args{$arg}){
-          throw ("Database-connection-details not properly configured : Argument : $arg missing in Databases.pm\n") ;
+          throw ("Database-connection-details not properly configured : Argument : $arg missing in Databases.pm for $name \n") ;
         }
       }
       if ( $use_pipeline_adaptor ) {
@@ -67,6 +67,11 @@ sub get_dbadaptor{
          } elsif ( $use_pipeline_adaptor == 2 || $use_pipeline_adaptor eq "compara" ) {
          	require Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
             $db = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+                                                            %$constructor_args,
+                                                              );
+         } elsif ( $use_pipeline_adaptor == 3 || $use_pipeline_adaptor =~m/functgenomics/i || $use_pipeline_adaptor =~m/funcgen/i) {
+         	require Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
+            $db = Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new(
                                                             %$constructor_args,
                                                               );
          }
