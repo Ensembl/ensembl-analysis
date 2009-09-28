@@ -46,6 +46,7 @@ use Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use base (
 	'Bio::EnsEMBL::Analysis::RunnableDB::Blast',
 	'Bio::EnsEMBL::Analysis::RunnableDB::Finished'
