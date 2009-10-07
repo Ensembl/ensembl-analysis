@@ -170,7 +170,7 @@ sub run_analysis{
   logger_info($command);
   print "MMG COMMAND for ".$self->protein->id." ".$self->query->id." ".
   $command."\n";
-  system($command) == 0 or throw("FAILED to run ".$command);
+  system($command) == 0 or throw("FAILED to run protein " . $self->protein->id . " : $command "); 
 }
 
 
