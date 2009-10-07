@@ -9,6 +9,7 @@ use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (parse_config);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::KillList::KillList;
+use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor; 
 use vars qw (@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
@@ -17,22 +18,45 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   my ($output_logicname, $protein_count, $bmg_logicname) = rearrange
-    (['OUTPUT_LOGICNAME', 'PROTEIN_COUNT', 'BMG_LOGICNAME'], @args);
-  #output logicname
-  #protein count
-  #bmg logicname
+    (['OUTPUT_LOGICNAME', 'PROTEIN_COUNT', 'BMG_LOGICNAME'], @args); 
 
-  #####
-  #setting a default
-  #####
-  $self->protein_count(20);
-  #####
-  
+  # output logicname
+  # protein count
+  # bmg logicname
+
+   my $create_analysis =  ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{creation_analysis};
+   my $s_regex = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{submission_logic_name};
+   my $bmg_regex = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{bmg_logic_name};
+   my $def_protein_count = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{protein_count} ; 
+
+   if ( $self->analysis->logic_name =~m/$create_analysis/i ) {     
+
+     my $submission_logic_name = $self->analysis->logic_name;   
+     $submission_logic_name =~m/$s_regex/i; 
+     $submission_logic_name = $1 ; 
+     $submission_logic_name="Submit_".$submission_logic_name ; 
+
+     my $bmg  = $self->analysis->logic_name;   
+     $bmg =~m/$bmg_regex/i; 
+     $bmg = $1 ;  
+
+     print "BlastMiniGenewise - logic name : $bmg\n" ; 
+     print "SUBMISSION ANAL   - logic name : $submission_logic_name\n" ;  
+
+     $self->bmg_logicname($bmg);
+     $self->output_logicname($submission_logic_name);  
+ 
+     if ($def_protein_count) { 
+       $self->protein_count($def_protein_count); 
+     }
+  } 
+
+ 
   ### Defaults are over-ridden by parameters given in analysis table...
   my $ph = $self->parameters_hash;
-  $self->protein_count($ph->{-protein_count});
-  $self->output_logicname($ph->{-output_logicname});
-  $self->bmg_logicname($ph->{-bmg_logicname});
+  $self->protein_count($ph->{-protein_count}) if $ph->{-protein_count};
+  $self->output_logicname($ph->{-output_logicname}) if $ph->{-output_logicname} ; ;
+  $self->bmg_logicname($ph->{-bmg_logicname}) if $ph->{-bmg_logicname};
 
   ### ...which are over-ridden by constructor arguments. 
   $self->protein_count($protein_count);
@@ -44,7 +68,6 @@ sub new {
                                             !$self->bmg_logicname);
 
   parse_config($self, $GENEWISE_CONFIG_BY_LOGIC, $self->bmg_logicname);
-
   return $self;
 }
 
@@ -52,13 +75,23 @@ sub new {
 sub fetch_input{
   my ($self) = @_;
   print "\n\n***Fetching sequence from ".$self->db->dbname."***\n\n";
-  $self->query($self->fetch_sequence($self->input_id, $self->db, $self->REPEATMASKING));
-  my $output_analysis = $self->db->get_AnalysisAdaptor->
-    fetch_by_logic_name($self->output_logicname);
-  throw("Failed to find an analysis with the logic_name ".
-        $self->output_logicname." Cannot continue") 
-    if(!$output_analysis);
-  $self->output_analysis($output_analysis);
+  $self->query($self->fetch_sequence($self->input_id, $self->db, $self->REPEATMASKING)); 
+
+  
+  my $dba_pip = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new( 
+                                                      -host => $self->db->host , 
+                                                      -dbname => $self->db->dbname , 
+                                                      -user => $self->db->username , 
+                                                      -pass => $self->db->password , 
+                                                      -port => $self->db->port ,  
+                                                       );      
+  $self->pipeline_adaptor($dba_pip); 
+  my $output_analysis = $dba_pip->get_AnalysisAdaptor->fetch_by_logic_name($self->output_logicname); 
+
+  if(!$output_analysis) { 
+    throw("Failed to find an analysis with the logic_name ". $self->output_logicname." Cannot continue") ; 
+  }
+  $self->output_analysis($output_analysis); 
 }
 
 sub run{
@@ -67,7 +100,8 @@ sub run{
   my @mask_exons;
   my @iids;
   # remove masked and killed hits as will be done in the build itself
-  foreach my $type ( @{$self->BIOTYPES_TO_MASK} ) {
+  foreach my $type ( @{$self->BIOTYPES_TO_MASK} ) {  
+    print "\nmasking Gene-type : $type\n\n" ; 
     foreach my $mask_genes ( @{ $self->gene_slice->get_all_Genes_by_type($type) } ) {
       foreach my $mask_exon ( @{ $mask_genes->get_all_Exons } ) {
         if ( $mask_exon->seqname eq $self->gene_slice->id ) {
@@ -87,13 +121,15 @@ sub run{
       push @mask_regions, { start => $mask_exon->start, end => $mask_exon->end }
 
     }
-  }
-  my $num_seeds = 0;
+  }  
+
+
+  my $num_seeds = 0;  
   foreach my $logicname(@{$self->PAF_LOGICNAMES}) {
     my %features;
-    print "FETCHING FEATURES FOR ".$logicname."\n";
+    print "FETCHING FEATURES FOR :".$logicname."\n";
     my @features = @{$self->paf_slice->get_all_ProteinAlignFeatures($logicname)};
-    print "HAVE ".@features." features\n";
+    print "HAVE ".@features." protein-align-features\n";
       FEATURE:foreach my $f(@features){
         next FEATURE if($self->PAF_MIN_SCORE_THRESHOLD && $f->score < $self->PAF_MIN_SCORE_THRESHOLD);
         next FEATURE if($self->PAF_UPPER_SCORE_THRESHOLD && $f->score > $self->PAF_UPPER_SCORE_THRESHOLD);
@@ -114,22 +150,22 @@ sub run{
           
           #printf STDERR " Mask exon %d %d\n", $mask_exon->{'start'}, $mask_exon->{'end'};
           if ( $mask_exon->{'start'} > $f->end ) {
-            
+            print "no exons will overlap this feature \n" ;  
             # no exons will overlap this feature
             next FEAT;
           } elsif ( $mask_exon->{'end'} >= $f->start ) {
             
             # overlap
             push @ids_to_ignore, $f->hseqname;
-            
-            #printf STDERR "Ignoring %s\n", $f->hseqname;
+            print "Ignoring : " . $f->hseqname . "\n" ;  
             next SEQID;
           } else {
             $ex_idx++;
           }
         }
       }
-    }
+    } 
+
     print "Ignoring ".@ids_to_ignore." features\n";
     foreach my $dud_id ( @ids_to_ignore, keys %kill_list ) {
       if ( exists $features{$dud_id} ) {
@@ -152,14 +188,30 @@ sub run{
     my $new_iid = $self->query->name . ":$num_chunks:$x";
     push @iids, $new_iid;
   }
-  print "HAVE ".@iids." to write to the ref database\n";
+  print "HAVE ".@iids." to write to the ref database\n"; 
+  for ( @iids ) {  
+      print "$_\n" ; 
+  } 
   $self->output(\@iids);
 }
 
 sub write_output{
-  my ($self) = @_;
-  my $sic = $self->db->get_StateInfoContainer;
-  foreach my $iid(@{$self->output}){
+  my ($self) = @_;  
+
+  my $sic = $self->pipeline_adaptor->get_StateInfoContainer;  
+
+#  my $dba_pip = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new( 
+#                                                      -host => $self->db->host , 
+#                                                      -dbname => $self->db->dbname , 
+#                                                      -user => $self->db->username , 
+#                                                      -pass => $self->db->password , 
+#                                                      -port => $self->db->port ,  
+#                                                       );    
+#  my $sic = $dba_pip->get_StateInfoContainer; 
+
+  print "output analysis is : " . $self->output_analysis."\n" ;
+  foreach my $iid(@{$self->output}){ 
+    print "try to store input_id : $iid\n" ; 
     eval{
       $sic->store_input_id_analysis($iid, 
                                     $self->output_analysis, 
@@ -193,6 +245,15 @@ sub output_analysis{
     $self->{output_analysis} = $value;
   }
   return $self->{'output_analysis'};
+} 
+
+sub pipeline_adaptor{
+  my ($self, $value) = @_;
+  if($value && 
+     $value->isa('Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor')){
+    $self->{pipeline_adaptor} = $value;
+  }
+  return $self->{'pipeline_adaptor'};
 }
 
 sub protein_count{
@@ -226,9 +287,7 @@ sub paf_slice{
     $self->{paf_slice} = $slice;
   }
   if(!$self->{paf_slice}){
-    print "FETCHING SEQUENCE FROM ".$self->paf_source_db->dbc->dbname."\n";
-    my $slice = $self->fetch_sequence($self->input_id, $self->paf_source_db,
-                                      $self->REPEATMASKING);
+    my $slice = $self->fetch_sequence($self->input_id, $self->paf_source_db, $self->REPEATMASKING);
     $self->{paf_slice} = $slice;
   }
   return $self->{paf_slice};
@@ -241,8 +300,7 @@ sub gene_slice{
     $self->{gene_slice} = $slice;
   }
   if(!$self->{gene_slice}){
-    my $slice = $self->fetch_sequence($self->input_id, $self->gene_source_db,
-                                      $self->REPEATMASKING);
+    my $slice = $self->fetch_sequence($self->input_id, $self->gene_source_db, $self->REPEATMASKING);
     $self->{gene_slice} = $slice;
   }
   return $self->{gene_slice};
@@ -528,5 +586,11 @@ sub EXONERATE_PARAMETERS{
   return $self->{EXONERATE_PARAMETERS}
 }
 
-
+sub MAKE_SIMGW_INPUT_ID_PARMAMS { 
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{MAKE_SIMGW_INPUT_ID_PARMAMS} = $arg;
+  }
+  return $self->{MAKE_SIMGW_INPUT_ID_PARMAMS}
+}   
 1;
