@@ -53,11 +53,22 @@ use vars qw( %Config );
            {
             DEFAULT =>
             {
+                     MAKE_SIMGW_INPUT_ID_PARMAMS => {
+                       # regex which should match the logic-name of your analysis you use to 
+                       # create the simgw input_ids ( for MakeSimiliartyInputIDS runnable ) 
+                       creation_analysis => 'create_',
+                       # pattern - $1 should match the logic_name of the submission analysis for your BlastMiniGenewise runs 
+                       submission_logic_name => "create_(.*)",
+                       # pattern - $1 should match the name of your bmg -logic name 
+                       bmg_logic_name =>"create_(.*)",
+                       protein_count => 20,
+                     },
+
              PAF_LOGICNAMES => [], #an array of logic names found in the 
              #protein align feature table,
              PAF_MIN_SCORE_THRESHOLD => 0,
-             PAF_UPPER_SCORE_THRESHOLD => undef,
-             PAF_SOURCE_DB => 'GENEWISE_DB',
+             PAF_UPPER_SCORE_THRESHOLD => undef, 
+             PAF_SOURCE_DB => 'REFERENCE_DB', 
              GENE_SOURCE_DB => 'GENEWISE_DB',
              OUTPUT_DB => 'GENEWISE_DB',
              OUTPUT_BIOTYPE => '',
@@ -136,7 +147,7 @@ use vars qw( %Config );
              OUTPUT_BIOTYPE => 'similarity',
              BIOTYPES_TO_MASK => ['targetted'],
              SEQFETCHER_PARAMS => {
-                                   -db => ['/path/to/index/file']
+                                   -db => ['/data/blastdb/Ensembl/uniprot_index']
                                   },
              PAF_MIN_SCORE_THRESHOLD => 200,
              FILTER_PARAMS => {
