@@ -119,8 +119,8 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   print "In BlastMiniGenewise constructor - read and check\n";
-  $self->read_and_check_config($GENEWISE_CONFIG_BY_LOGIC);
-  return $self;
+  $self->read_and_check_config($GENEWISE_CONFIG_BY_LOGIC);  
+  return $self; 
 }
 
 
@@ -431,7 +431,7 @@ sub create_bmg_runnables{
                     $self->query->seq_region_name.":".
                     $start.":".$end.":".
                     $self->query->strand);
-        my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);
+        my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB); 
         my $query = $self->fetch_sequence($name, $db, $self->REPEATMASKING, $self->SOFTMASKING);
         logger_info("Creating BlastMiniGenewise Runnable over a limited range with ".$id." and ".$seqfetcher." to run on ".$query->name);
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise->
@@ -803,7 +803,10 @@ sub paf_source_db{
     $self->{paf_source_db} = $db;
   }
   if(!$self->{paf_source_db}){
-    my $db = $self->get_dbadaptor($self->PAF_SOURCE_DB);
+    my $db = $self->get_dbadaptor($self->PAF_SOURCE_DB); 
+    if ( $db->dnadb ) {  
+       $db->dnadb->disconnect_when_inactive(1);  
+    } 
     $self->{paf_source_db} = $db;
   }
   return $self->{paf_source_db};
@@ -815,7 +818,10 @@ sub gene_source_db{
     $self->{gene_source_db} = $db;
   }
   if(!$self->{gene_source_db}){
-    my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);
+    my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);  
+    if ( $db->dnadb ) {  
+       $db->dnadb->disconnect_when_inactive(1); 
+    } 
     $self->{gene_source_db} = $db;
   }
   return $self->{gene_source_db};
