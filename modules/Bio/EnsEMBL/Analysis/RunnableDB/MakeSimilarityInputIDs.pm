@@ -31,15 +31,20 @@ sub new {
 
    if ( $self->analysis->logic_name =~m/$create_analysis/i ) {     
 
-     my $submission_logic_name = $self->analysis->logic_name;   
-     $submission_logic_name =~m/$s_regex/i; 
-     $submission_logic_name = $1 ; 
-     $submission_logic_name="Submit_".$submission_logic_name ; 
+     my $submission_logic_name = $self->analysis->logic_name;  # Create_simgw_vert_other 
+     $submission_logic_name =~m/$s_regex/i;                    # 'Create_' 
+     $submission_logic_name = $1 ;                             # simgw_vert_other 
+     $submission_logic_name="Submit_".$submission_logic_name ; # Submission will be : Submit_simgw_vert_other  
 
-     my $bmg  = $self->analysis->logic_name;   
-     $bmg =~m/$bmg_regex/i; 
-     $bmg = $1 ;  
-
+     my $bmg  = $self->analysis->logic_name;   # Create_simgw_vert_other 
+     $bmg =~m/$bmg_regex/i;                    # simgw_vert_other 
+     $bmg = $1 ;                    
+   
+     # 
+     # Create_simgw_vert_other is running MakeSimilarityInputIDS and will create input_ids for analysis Submit_simgw_vert_mammal 
+     # thes will then run simgw_vert_mammal 
+     # 
+     
      print "BlastMiniGenewise - logic name : $bmg\n" ; 
      print "SUBMISSION ANAL   - logic name : $submission_logic_name\n" ;  
 
