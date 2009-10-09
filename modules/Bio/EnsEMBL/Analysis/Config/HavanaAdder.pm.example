@@ -43,63 +43,76 @@ use vars qw( %GeneBuilder );
 
 # Hash containing config info
 %GeneBuilder = (
-                ##################
-                # INPUT BIOTYPES #
-                ##################
-                # CODING
-                #
-                # Biotype of Ensembl Coding Genes and transcripts
-	        GB_ENSEMBL_INPUT_GENETYPE => ['protein_coding'], 
-	
-                # Biotype of Havana Coding Genes and transcripts
-	        GB_HAVANA_INPUT_GENETYPE => ['IG_gene','protein_coding','polymorphic_pseudogene','nonsense_mediated_decay'], 
+  ##################
+  # INPUT BIOTYPES #
+  ##################
+  # CODING
+  #
+  # Biotype of Ensembl Coding Genes and transcripts
+  GB_ENSEMBL_INPUT_GENETYPE => ['protein_coding'],
 
-                # Biotype of Havana transcripts
-                #GB_HAVANA_INPUT_TRANSCRIPTTYPES => ['protein_coding'],
+  # Biotype of Havana Coding Genes and transcripts
+  # NOTE! We don't want the IG genes in here!
+  GB_HAVANA_INPUT_GENETYPE =>
+    [ 'protein_coding', 'polymorphic_pseudogene', 'nonsense_mediated_decay' ],
 
-                #Processed transcripts
-                #
-                # Biotype of "processed transcripts" in Ensembl and transcripts
-                GB_ENSEMBL_PROCESSED_GENETYPE => ['processed_transcript'],
-                # Biotype of "processed transcripts" genes  and transcripts in Havana
-                GB_HAVANA_PROCESSED_GENETYPE => ['processed_transcript','ambiguous_orf','non_coding','artifact','retained_intron','antisense'],
+  # Biotype of Havana transcripts
+  #GB_HAVANA_INPUT_TRANSCRIPTTYPES => ['protein_coding'],
 
-                # PSEUDOGENES
-                #
-                # Biotype of Ensembl PseudoGenes and pseudotranscripts
-                GB_ENSEMBL_PSEUDO_GENETYPE => ['pseudogene','retrotransposed'],
-                # Biotype of Havana Pseudogenes and pseudotranscripts
-                GB_HAVANA_PSEUDO_GENETYPE => ['pseudogene','IG_pseudogene','processed_pseudogene','transcribed_pseudogene','transcribed_processed_pseudogene','transcribed_unprocessed_pseudogene','unitary_pseudogene','unprocessed_pseudogene'],
+  #Processed transcripts
+  #
+  # Biotype of "processed transcripts" in Ensembl and transcripts
+  GB_ENSEMBL_PROCESSED_GENETYPE => ['processed_transcript'],
+  # Biotype of "processed transcripts" genes  and transcripts in Havana
+  GB_HAVANA_PROCESSED_GENETYPE => [ 'processed_transcript', 'ambiguous_orf',
+                                    'non_coding',           'artifact',
+                                    'retained_intron',      'antisense'
+  ],
 
-                ##################
-                # OUTPUT BIOTYPES#
-                ##################
-                # Here you select the suffix that you want to be added to the biotype of your genes and transcripts
-                # Genes with Havana transcripts only
-	        HAVANA_GENE_OUTPUT_BIOTYPE => '_Hav',
+  # PSEUDOGENES
+  #
+  # Biotype of Ensembl PseudoGenes and pseudotranscripts
+  GB_ENSEMBL_PSEUDO_GENETYPE => [ 'pseudogene', 'retrotransposed' ],
+  # Biotype of Havana Pseudogenes and pseudotranscripts
+  GB_HAVANA_PSEUDO_GENETYPE => [ 'pseudogene',
+                                 'IG_pseudogene',
+                                 'processed_pseudogene',
+                                 'transcribed_pseudogene',
+                                 'transcribed_processed_pseudogene',
+                                 'transcribed_unprocessed_pseudogene',
+                                 'unitary_pseudogene',
+                                 'unprocessed_pseudogene'
+  ],
 
-		# Genes with Havana and Ensembl transcripts
-		MERGED_GENE_OUTPUT_BIOTYPE => '_Ens_Hav',
+  ##################
+  # OUTPUT BIOTYPES#
+  ##################
+# Here you select the suffix that you want to be added to the biotype of your genes and transcripts
+# Genes with Havana transcripts only
+  HAVANA_GENE_OUTPUT_BIOTYPE => '_Hav',
 
-	        # Genes with Ensembl transcripts only
-	        ENSEMBL_GENE_OUTPUT_BIOTYPE => '_Ens',
+  # Genes with Havana and Ensembl transcripts
+  MERGED_GENE_OUTPUT_BIOTYPE => '_Ens_Hav',
 
-                # Output Biotype for merged transcripts
-                MERGED_TRANSCRIPT_OUTPUT_TYPE => '_merged',
+  # Genes with Ensembl transcripts only
+  ENSEMBL_GENE_OUTPUT_BIOTYPE => '_Ens',
 
-                ###############
-                # LOGIC NAMES #
-                ###############
-                # For the Havana_merge update, leave the default values if 
-                # running the Merge for the first time
-                # Beware the transcript logic_name in the havana database 
-                # have to be different that the logic_name of the 
-                # havana transcripts in the ensembl database
-                HAVANA_LOGIC_NAME => 'havana',
-                MERGED_GENE_LOGIC_NAME => 'ensembl_havana_gene',
-                MERGED_TRANSCRIPT_LOGIC_NAME => 'ensembl_havana_transcript',
+  # Output Biotype for merged transcripts
+  MERGED_TRANSCRIPT_OUTPUT_TYPE => '_merged',
 
-	       );
+  ###############
+  # LOGIC NAMES #
+  ###############
+  # For the Havana_merge update, leave the default values if
+  # running the Merge for the first time
+  # Beware the transcript logic_name in the havana database
+  # have to be different that the logic_name of the
+  # havana transcripts in the ensembl database
+  HAVANA_LOGIC_NAME            => 'havana',
+  MERGED_GENE_LOGIC_NAME       => 'ensembl_havana_gene',
+  MERGED_TRANSCRIPT_LOGIC_NAME => 'ensembl_havana_transcript',
+
+);
 
 sub import {
   my ($callpack) = caller(0); # Name of the calling package
