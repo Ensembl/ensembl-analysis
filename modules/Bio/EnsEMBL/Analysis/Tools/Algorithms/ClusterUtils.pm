@@ -12,8 +12,192 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster ;
 use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ; 
 @ISA=qw(Exporter);
 
-@EXPORT=qw( cluster_Genes ) ; 
+@EXPORT=qw( 
+            cluster_Genes 
+            get_twoway_cluster 
+            get_single_clusters 
+            get_twoway_clusters 
+            get_twoway_clustering_genes_of_set 
+            get_oneway_clustering_genes_of_set  
+            make_types_hash
+            make_types_hash_with_genes
+          ) ; 
 
+
+
+sub make_types_hash {
+    my ( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) = @_;
+
+    my (%types_hash,%types_1, %types_2 ) ;
+
+    unless ( $gene_set1_name ) {
+      $gene_set1_name = "gene_biotypes_set1" ;
+    }
+
+    unless ( $gene_set2_name ) {
+      $gene_set2_name = "gene_biotypes_set2" ;
+    }
+
+    @types_1{ map { $_->biotype } @{ $gene_set1 } } = 1 ;
+    $types_hash{$gene_set1_name} = [ keys %types_1 ]  ;
+
+    @types_2{ map { $_->biotype } @{ $gene_set2 } } = 1 ;
+    $types_hash{$gene_set2_name} = [ keys %types_2 ]  ;
+
+    my @intersection ;
+    for ( keys %types_1 ) {
+       if ( exists $types_2{$_} ) {
+         push @intersection, $_ ;
+       }
+    }
+    if ( @intersection > 0 ) {
+      throw ( " there are biotypes you try to cluster wich are in both gene sets - this is unhealthy ....\n")  ;
+    }
+    return \%types_hash;
+}
+
+
+sub make_types_hash_with_genes { 
+    my ( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) = @_;
+  
+   my $types_ref_hash = make_types_hash( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) ; 
+   my @all_genes_combined = ( @$gene_set1, @$gene_set2);
+   return [ $types_ref_hash, \@all_genes_combined ]; 
+}
+
+
+
+=head2 get_single_clusters 
+
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
+
+   Function  : Filters out all clusters of the array which are twoway-clusters [ which contain set1 and set2 ] 
+               This means all clusters, which contain genes of set 1 and set 2 , are not returned. 
+               
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2, 
+               or both. 
+ 
+
+=cut
+
+sub get_single_clusters {  
+  my ( $cluster_ref ) = @_ ; 
+ 
+  my @single_type_cluster;   
+
+   check_cluster_ref($cluster_ref) ; 
+
+   for my $c ( @$cluster_ref ) { 
+     unless ( $c->is_twoway_cluster ) {  
+        push @single_type_cluster , $c ; 
+     }    
+   } 
+   return \@single_type_cluster ; 
+} 
+
+
+
+=head2 get_twoway_clusters 
+
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
+
+   Function  : Out of a given array of GeneCluster objects, only those ones are returned which 
+               contain genes of type set1 AND set2. 
+               
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster 
+ 
+
+=cut
+
+
+sub get_twoway_clusters {  
+   my ($cluster_ref ) = @_ ;   
+
+   check_cluster_ref($cluster_ref) ; 
+   my @tw;  
+
+
+   for my $c ( @$cluster_ref ) { 
+     if ( $c->is_twoway_cluster ) {  
+        push @tw, $c ; 
+     }    
+   }
+   return \@tw; 
+} 
+
+
+
+
+sub get_twoway_clustering_genes_of_set {  
+   my ($cluster_ref,$target_set_name ) = @_ ;    
+
+   check_cluster_ref($cluster_ref) ;  
+   my @twoway_clustering_genes ; 
+
+   for my $twoway_cluster (@{ get_twoway_clusters($cluster_ref)} ) {   
+       push @twoway_clustering_genes, $twoway_cluster->get_Genes_by_Set($target_set_name);  
+   }  
+   if ( scalar(@twoway_clustering_genes) == 0 ) {  
+     warning (" no gene of set-type \"$target_set_name\" found - i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
+   }  
+   return \@twoway_clustering_genes; 
+} 
+
+
+=head2 get_oneway_clustering_genes_of_set 
+
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
+
+   Function  : Out of the given array of Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster object, 
+               clusters which are two-way-cluster ( the contain genes of set 1 and set 2 ) are filtered out. 
+               Then, only genes of the specified set Arg[1] are returned. 
+
+   Returnval : Arrayreference of Bio::EnsEMBL::Gene objects which belog to set $target_set_name and are single_set_clusters. 
+
+
+=cut
+
+
+sub get_oneway_clustering_genes_of_set {  
+   my ($cluster_ref,$target_set_name ) = @_ ;    
+
+   check_cluster_ref($cluster_ref) ;  
+   my @single_clustering_genes ; 
+   my $cnt;
+   for my $single_type_cluster (@{ get_single_clusters($cluster_ref)} ) {   
+       push @single_clustering_genes, $single_type_cluster->get_Genes_by_Set($target_set_name);  
+      $cnt++; 
+   }  
+ 
+   if ( scalar(@single_clustering_genes) == 0 ) {  
+     warning (" no gene of set-type \"$target_set_name\" found in $cnt out of " . @$cluster_ref . " clusters }- i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
+   }  
+
+   return \@single_clustering_genes; 
+} 
+
+
+
+sub get_sets_included {  
+   my ($cluster_ref)  = @_ ;     
+   my %tmp ; 
+   for my $c ( @$cluster_ref) {  
+      @tmp{ @{$c->get_sets_included} } = 1 ; 
+   }
+   return [ keys %tmp ] ; 
+}
+
+
+
+sub check_cluster_ref {   
+  my ( $cluster_ref ) = @_ ;  
+  print $cluster_ref . "\n" ; 
+  unless ( ref($cluster_ref) =~m/ARRAY/ ) { 
+     throw "Need to hand over array-ref" ; 
+  }  
+} 
 
 
 
@@ -155,13 +339,12 @@ sub cluster_Genes {
     #
     # if above was found NO matching cluster
     # than make a new one 
-    # 
-
+    #  
     if (scalar(@matching_clusters) == 0) {
       my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new($ignore_strand);
-      foreach my $set_name (keys %$types_hash) {
+      foreach my $set_name (keys %$types_hash) { 
         $newcluster->gene_Types($set_name,$types_hash->{$set_name});
-      }
+      } 
       $newcluster->put_Genes($ignore_strand, $gene);
       push(@active_clusters,$newcluster);
 
@@ -287,6 +470,7 @@ sub _compare_Genes {
    #print "Failed overlap check (translate = $translate) - returning 0\n";
   return 0;
 }
+
 
 sub get_coding_exons_for_gene {
   my ($gene) = @_;
