@@ -96,11 +96,11 @@ sub put_Genes {
 
     my $gene_biotype = $gene->biotype;
 
-    foreach my $set_name ( keys %{$self->{'_types_sets'}}) {
+    foreach my $set_name ( keys %{$self->{'_types_sets'}}) { 
 
-      my $set = $self->{'_types_sets'}{$set_name};
+      my $set = $self->{'_types_sets'}{$set_name}; 
+
       foreach my $type ( @{$set} ){
-
         if ($gene_biotype eq $type) {
           push ( @{ $self->{'_gene_sets'}{$set_name} }, $gene );
 
@@ -270,8 +270,6 @@ sub get_Gene_Count {
 sub gene_Types {
   my ($self, $set_name, $types) = @_;
   $self->{'_types_sets'}{$set_name} = $types;
-  
-
   return $self->{'_types_sets'}{$set_name};
 }
 
@@ -605,6 +603,19 @@ sub get_TranscriptCluster {
   }
   return $tc;
 }
+
+
+
+sub is_twoway_cluster { 
+  my ($self ) = @_;   
+   
+  if ( scalar(@{ $self->get_sets_included } ) == 2 ){ 
+    return 1 ; 
+  }
+  return 0;  
+}
+
+
 
 sub get_coding_TranscriptCluster {
   my ($self, $ignore_strand) = @_;
