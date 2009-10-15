@@ -280,6 +280,7 @@ sub _merge_redundant_transcripts{
 
       }
     }
+    $gene->recalculate_coordinates;
   }
 }
 
