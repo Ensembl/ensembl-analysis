@@ -1822,7 +1822,9 @@ sub combine_gene_clusters {
                   $coding_gene->add_Transcript($p_transcript);
                 }
                 $pseudo_status = 1;
-                next OVERLAP;
+                #SMJS Need to look closer at this (used to be next OVERLAP;)
+                print " !!!!!!!!!!!!!!!!!!!!!  Done noncoding-coding merge - jumping to next noncoding gene\n";
+                next CLUSTER;
               }
             }
           }
