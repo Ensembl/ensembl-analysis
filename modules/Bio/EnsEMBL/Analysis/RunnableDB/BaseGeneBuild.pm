@@ -64,8 +64,11 @@ sub get_dbadaptor{
             $db = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new(
 							    %$constructor_args,
 	  						   );
-         } elsif ( $use_pipeline_adaptor == 2 || $use_pipeline_adaptor eq "compara" ) {
-         	require Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
+         } elsif ( $use_pipeline_adaptor == 2 || $use_pipeline_adaptor =~m/compara/ ) {
+         	require Bio::EnsEMBL::Compara::DBSQL::DBAdaptor; 
+            unless ( $$constructor_args{'-species'}){  
+               throw("need species !\n"); 
+            } 
             $db = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
                                                             %$constructor_args,
                                                               );
@@ -83,10 +86,35 @@ sub get_dbadaptor{
       if($name ne $DNA_DBNAME ){
         if (length($DNA_DBNAME) ne 0 ){
           if ( $not_use_dna_database ) {
-# if two different species are considered, the not_use_dna_database is set to 1 to avoid adding the second species to the first one
-          } else {
-           my $dnadb = $self->get_dbadaptor($DNA_DBNAME);
-           $db->dnadb($dnadb);
+            # if two different species are considered, the not_use_dna_database is set to 1 to avoid adding the second species to the first one
+          } else { 
+           # there's a little danger if we have multiple diffent species in our "Databases.pm" file. 
+           # We need to avoid that the wrong dna db is attached, ie a mouse core with a human dna db. 
+         
+
+           my $dnadb = $self->get_dbadaptor($DNA_DBNAME);  
+
+           # get species name for DNA_DBNAME and OTHER db 
+           my $core_db_species = $db->get_MetaContainer->get_Species->binomial();
+           my $dna_db_species = $dnadb->get_MetaContainer()->get_Species->binomial(); 
+
+
+           # get default asm for DNA_DBNAME and OTHER db 
+           my $core_db_asm = $db->get_MetaContainer->get_default_assembly();   
+           my $dna_db_asm = $dnadb->get_MetaContainer->get_default_assembly();     
+
+           unless ( $core_db_asm eq $dna_db_asm ) { 
+               throw("you try to add  a DNA_DB with assembly $dna_db_asm to a core/cdna/otherfeatures DB with assembly $core_db_asm ...\n\t".
+                    "that's incompatbile. try to not use any DNA_DATABASE name in Analysis/Config/Databases.pm\n" ); 
+           }   
+
+           unless ( $core_db_species eq $dna_db_species ) { 
+               throw("you try to add  a DNA_DB with species $dna_db_species to a core database with speices : $core_db_species - this does not work\n\t".
+                     "that's incompatbile. try to not use any DNA_DATABASE name in Analysis/Config/Databases.pm\n"); 
+           }  
+
+           $db->dnadb($dnadb); 
+           
          }
         }else{
           warning("You haven't defined a DNA_DBNAME in Config/Databases.pm");
