@@ -29,6 +29,7 @@ use vars qw (@ISA  @EXPORT);
              compute_translation
              return_translation
              validate_Translation_coords
+             add_ORF_to_transcript
             );
 
 
@@ -307,6 +308,7 @@ sub compute_translation{
   my @nomet_predictions = @{run_translate 
                               ($transcript)};
 
+  # choosing the best ORF 
   my $orf;
   if(@met_predictions && @nomet_predictions){
     my $met_best = $met_predictions[0];
@@ -323,10 +325,22 @@ sub compute_translation{
   }else{
     warning(id($transcript)." has no translations ");
     return $transcript;
-  }
+  } 
+
+  # add ORF to transcript  
   #Here we take the best prediction with a methionine unless 
   #there aren't any of the best prediction without a 
-  #methoinine is more than twice the length
+  #methoinine is more than twice the length 
+  
+  $transcript = add_ORF_to_transcript($orf,$transcript) ;  
+
+  return $transcript;
+}
+
+
+
+sub add_ORF_to_transcript{
+  my  ($orf,$transcript) = @_; 
 
   my $orf_start = $orf->[1];
   my $orf_end = $orf->[2];
@@ -413,6 +427,137 @@ sub compute_translation{
   }
   return $transcript;
 }
+=head2 compute_6frame_translations
+
+  Arg [1]   : Bio::EnsEMBL::Gene 
+  Function  : computes all possible 6-frame-translations for all transcripts of a gene 
+              and returns a new Bio::EnsEMBL::Gene object with one Transcript added for each 
+              translation found; used to check if ncRNA's can be translated + contain protein_domains ...  
+  Returntype: Bio::EnsEMBL::Gene
+  Exceptions: Warns in unable to create translation
+  Example   : $new_gene = compute_6frame_translations($old_gene) ; 
+
+=cut
+
+
+
+sub compute_6frame_translations{
+  my ($gene ) = @_;
+
+  my @tr = @{ $gene->get_all_Transcripts};   
+
+  my @new_transcripts ;  
+
+  TRANSCRIPTS: for my $transcript ( @tr ) {  
+
+    my @met_predictions = @{run_translate ($transcript, 1)};
+    my @nomet_predictions = @{run_translate ($transcript)};
+
+    my @ne_exons = @{$transcript->get_all_Exons} ;  
+
+
+ 
+    ORF: for my $orf ( @met_predictions, @nomet_predictions ) { 
+      # create new transcript for every ORF 
+      my $nt = new Bio::EnsEMBL::Transcript( -EXONS => \@ne_exons );
+  
+    #Here we take the best prediction with a methionine unless 
+    #there aren't any of the best prediction without a 
+    #methoinine is more than twice the length
+  
+    my $orf_start = $orf->[1];
+    my $orf_end = $orf->[2];
+    my $translation = Bio::EnsEMBL::Translation->new();
+  
+    my ($translation_start, $translation_end, $translation_start_Exon, $translation_end_Exon);
+     my $exon_count = 0;
+    my $pos = 1;
+    foreach my $exon(@{$nt->get_all_Exons}){
+      $exon_count++;
+      logger_info("exon:$exon_count exon_length:".$exon->length." pos:$pos orf_start:$orf_start orf_end:$orf_end pos+:".($pos + $exon->length - 1));
+      if ( $orf_start >= $pos && $orf_start <= $pos 
+           + $exon->length - 1 ){
+        $translation_start = $orf_start - $pos+1;
+        $translation_start_Exon = $exon;
+      }
+      if($orf_end >= $pos && $orf_end <= $pos 
+         + $exon->length - 1){
+        $translation_end = $orf_end - $pos + 1;
+        $translation_end_Exon = $exon;
+      }
+      $pos += $exon->length;
+    }
+    if(!$translation_start || !$translation_end || !$translation_start_Exon || !$translation_end_Exon){
+      warning("problems making the translation ".  "for ".id($nt));
+      push @new_transcripts, $nt ; 
+    }else{
+      $translation->start($translation_start);
+      $translation->end($translation_end);
+      $translation->start_Exon($translation_start_Exon);
+      $translation->end_Exon($translation_end_Exon);
+      $nt->translation($translation);
+    }
+  
+    my $found_start = 0;
+    my $found_end = 0;
+    my $last_end_phase;
+    my $first_exon = 1;
+    # print "Setting phases on transcript after adding translation\n";
+    foreach my $exon(@{$nt->get_all_Exons}){
+      $exon->phase(-1);
+      $exon->end_phase(-1);
+  
+      # print "  Have exon " . $exon->start . " " . $exon->end . "\n";
+      if($translation->start_Exon == $exon){
+        if($translation->start == 1 && $first_exon){
+          $exon->phase(0);
+          # print "   setting start phase on it to 0 (tstart = 1 and is start_Exon)\n";
+        }
+        $found_start = 1;
+      }elsif($found_start and not $found_end){
+        $exon->phase($last_end_phase);
+        # print "   setting start phase on it to last_end_phase ($last_end_phase)\n";
+      }
+      my $end_phase;
+      if($exon == $translation->start_Exon){
+        $end_phase = ($exon->end - ($exon->start + 
+                                    $translation->start 
+                                    - 1) +1 ) %3;
+        # print "   start_Exon end phase calculated ($end_phase)\n";
+      }else{
+        $end_phase = (($exon->length + $exon->phase) %3);
+        # print "   end phase calculated ($end_phase)\n";
+      }
+      if(($exon == $translation->end_Exon && $exon->length == $translation->end)){
+        # print "   setting end phase to $end_phase (end exon condition)\n";
+        $exon->end_phase($end_phase);
+      }
+  
+      $found_end = 1 if($exon == $translation->end_Exon);
+  
+      if (($found_start and !$found_end)) {
+        # print "   setting end phase to $end_phase (found_start and not found_end condition)\n";
+        $exon->end_phase($end_phase);
+      }
+  
+      $last_end_phase = $exon->end_phase;
+      $first_exon = 0;
+    } 
+    push @new_transcripts, $nt ;  
+    # make one gene with mult transcripts with 6 open-reading 
+    #my $new_gene = Bio::EnsEMBL::Gene->new(); 
+    #$new_gene->add_Transcript($nt) ; 
+   } # ORF  
+ } # next transcript 
+   
+ my $new_gene = Bio::EnsEMBL::Gene->new();  
+ $new_gene->biotype("");  
+
+ for my $nt ( @new_transcripts ) {  
+   $new_gene->add_Transcript($nt) ; 
+ }  
+  return $new_gene ; 
+}
 
 =head2 run_translate
 
@@ -432,15 +577,15 @@ sub compute_translation{
 sub run_translate{
   my ($trans,$met) = @_;
 
+  my $seq = $trans->seq; 
   my $trans_id = id($trans);
-  my $seq = $trans->seq;
   $seq->display_id($trans_id);
 
   my $file = write_seqfile($seq);
   my $command = "/software/ensembl/bin/translate";
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
-  logger_info($command);
+  #logger_info($command);
   open ( ORF, $command ) || throw( "Error running translate" );
   
   my @orf_predictions;
