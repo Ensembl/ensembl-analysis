@@ -1,4 +1,4 @@
-#!//usr/local/ensembl/bin/perl
+#!//usr/local/ensembl/bin/perl-w
 
 #this script takes database options and a file of gene ids and copies them between two 
 #databases. It can if asked split multi transcript genes into single genes
@@ -43,6 +43,7 @@ my $in_config_name;
 my $out_config_name;
 
 my $split = 0;
+my $infile;
 
 &GetOptions(
             'dbhost:s'        => \$host,
@@ -58,6 +59,7 @@ my $split = 0;
             'outdbname:s'   => \$outdbname,
             'outport:n'     => \$outport,
             'split!' => \$split,
+            'file:s' => \$infile,
            );
 
 
@@ -84,13 +86,17 @@ my $ga = $db->get_GeneAdaptor;
 my @genes;
 my @copy_genes;
 
-while(<>){
+open(INFILE, "<$infile") or die ("Can't read $infile $! \n");
+
+while(<INFILE>){
+  #print "$_";
   chomp;
   my $gene_id= $_;
   my $gene = $ga->fetch_by_dbID($gene_id);
   empty_Gene($gene);
   push(@copy_genes, $gene);
 }
+close(INFILE);
 
 my $outdb;
 if($out_config_name){
@@ -112,6 +118,7 @@ if($split){
 }else{
   @genes = @copy_genes;
 }
+print STDERR "Fetched ".scalar(@genes)." genes\n";
 
 my $outga = $outdb->get_GeneAdaptor;
 
