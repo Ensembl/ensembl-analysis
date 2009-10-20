@@ -34,7 +34,7 @@ modules in this directory
   -dnadbname name for dna database
 
   These settings by default are taken from:
-  Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases
+  Bio::EnsEMBL::Analysis::Config::Databases
 
   -ignorewarnings flag to specify whether to ignore the warnings in the 
                   code
@@ -75,12 +75,12 @@ specified on the commandline
 
 =head1 NOTES
 
-Note this script uses several settings from the 
-Bio::EnsEMBL::Pipeline::Config::GeneBuild::GeneBuilder
+Note this script uses several settings from the
+Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder
 
-Also this scripts uses several modules which can be found in this directory
-so you need to make sure you run the script in this directory or 
-alternatively put this directory in your PERL5LIB
+Also this scripts uses several modules which can be found in this
+directory so you need to make sure you run the script in this
+directory or alternatively put this directory in your PERL5LIB
 
 =cut
 
