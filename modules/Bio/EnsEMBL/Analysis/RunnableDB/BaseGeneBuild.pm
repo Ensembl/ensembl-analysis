@@ -141,4 +141,45 @@ sub get_dbadaptor{
 
 
 
+# parses a config section like this : 
+#   VALIDATION_DBS => {
+#                      HUMAN_DB => ['protein_coding','processed_transcript'],
+#                     }                                                                                                 },
+# -> gets DBAdaptor for HUAM_DB ( connection details defined in Databaess.pm ) and then 
+# gets gene_adaptor to fetch the genes of the biotypes specified.  Only genes on input_d are fetched 
+# 
+
+sub get_genes_of_biotypes_by_db_hash_ref { 
+  my ($self,$href ) = @_;
+
+  my %dbnames_2_biotypes = %$href ;  
+
+  my @genes_to_fetch; 
+  print "\n" if $self->verbose ; 
+  foreach my $db_hash_key ( keys %dbnames_2_biotypes )  {
+
+    my @biotypes_to_fetch = @{$dbnames_2_biotypes{$db_hash_key}};  
+
+    foreach my $biotype  ( @biotypes_to_fetch ) {  
+       my $set_db = $self->get_dbadaptor($db_hash_key);
+       $set_db->disconnect_when_inactive(1); 
+       my $slice = $self->fetch_sequence($self->input_id, $set_db)  ;
+
+       my $genes = $slice->get_all_Genes_by_type($biotype,undef,1);
+       if ( @$genes == 0 ) {
+         warning("No genes of biotype $biotype found in $set_db\n");
+       } 
+       if ( $self->verbose ) { 
+         print "$db_hash_key [ " .$set_db->dbname  . " ] Retrieved ".@$genes." of type ".$biotype."\n";
+       }
+       push @genes_to_fetch, @$genes;
+
+    }  
+  } 
+  return \@genes_to_fetch;
+}
+
+
+
+
 1;
