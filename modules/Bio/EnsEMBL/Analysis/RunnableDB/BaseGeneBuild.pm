@@ -16,8 +16,8 @@ use vars qw(@ISA);
 
 @ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
 
-#first of all we just need methods to get databases from the
-#database config
+# first of all we just need methods to get databases from the
+# database config
 
 
 sub database_hash{
@@ -31,10 +31,14 @@ sub database_hash{
   return $self->{'db_hash'};
 }
 
+
 =head2 get_dbadaptor
 
+  Arg [0]   : Bio::EnsEMBL::Analysis::RunnableDB
   Arg [1]   : String - key of database hash
-  Arg [2]   : return a pipeline db adaptor flag
+  Arg [2]   : return a pipeline db adaptor flag 
+  Arg [3]   : flag to attch dna_db nor not 
+
   Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given hash key.
               or a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor if requested
               Requires proper configuration of
@@ -150,6 +154,19 @@ sub get_dbadaptor{
 # gets gene_adaptor to fetch the genes of the biotypes specified.  Only genes on input_d are fetched 
 # 
 
+=head2 get_genes_of_biotypes_by_db_hash_ref
+
+  Arg [0]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [1]   : Hashref. where the keys represent keys in the Databases-Hash, 
+              with a reference to an array where the values represent gene-biotypes 
+  Function  : Loops through the keys of the hash, builds a DB-connection to each DB specified by the key
+              and fetches all genes of the biotypes specified 
+
+  Returntype: Returns an Array-reference to Bio::EnsEMBL::Gene objects which are located on the slice
+
+=cut
+
+
 sub get_genes_of_biotypes_by_db_hash_ref { 
   my ($self,$href ) = @_;
 
@@ -181,8 +198,8 @@ sub get_genes_of_biotypes_by_db_hash_ref {
          }  
          foreach ( keys %tmp ) {  
            print "found $_ $tmp{$_}\n" ; 
-         } 
-         print scalar(@genes_to_fetch) . " genees fetched \n" ; 
+         }  
+         print scalar(@genes_to_fetch) . " genees fetched in total\n" ; 
     } else { 
       foreach my $biotype  ( @biotypes_to_fetch ) {  
          my $genes = $slice->get_all_Genes_by_type($biotype,undef,1);
