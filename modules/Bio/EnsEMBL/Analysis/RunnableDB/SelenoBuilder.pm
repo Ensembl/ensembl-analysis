@@ -390,6 +390,8 @@ sub filter_redundant_transcript{
     }
   }
 
+  @all_transcripts = sort { $b->length <=> $a->length} @all_transcripts;
+
   foreach my $transcript (@all_transcripts){
     my $transcript_exists = 0;
 
@@ -417,21 +419,42 @@ sub filter_redundant_transcript{
         # Non we want to check that the rest of the non-coding exons are the same apart from the terminal exons
 
         next NEW unless (scalar(@exons) == scalar(@new_exons));
-        
-        next NEW unless(#$exons[0]->start == $new_exons[0]->start &&
-                        $exons[0]->end == $new_exons[0]->end &&
-                        $exons[0]->strand == $new_exons[0]->strand &&
-                        $exons[-1]->start == $new_exons[-1]->start &&
-                        #$exons[-1]->end == $new_exons[-1]->end &&
-                        $exons[-1]->strand == $new_exons[-1]->strand);
-        
-        for (my $i = 1; $i < scalar(@exons)-1; $i++){
-          next NEW unless ($exons[$i]->start == $new_exons[$i]->start &&
-                           $exons[$i]->end == $new_exons[$i]->end &&
-                           $exons[$i]->strand == $new_exons[$i]->strand);
+        print "YOUR EXON STRAND: ",$exons[0]->strand,"\n";
+
+        if($exons[0]->strand == 1){
+
+          next NEW unless(#$exons[0]->start == $new_exons[0]->start &&
+                          $exons[0]->end == $new_exons[0]->end &&
+                          $exons[0]->strand == $new_exons[0]->strand &&
+                          $exons[-1]->start == $new_exons[-1]->start &&
+                          #$exons[-1]->end == $new_exons[-1]->end &&
+                          $exons[-1]->strand == $new_exons[-1]->strand);
           
+          if (scalar(@exons) > 2){
+            for (my $i = 1; $i < scalar(@exons)-1; $i++){
+              next NEW unless ($exons[$i]->start == $new_exons[$i]->start &&
+                               $exons[$i]->end == $new_exons[$i]->end &&
+                               $exons[$i]->strand == $new_exons[$i]->strand);
+              
+            }
+          } 
+        }else{
+          next NEW unless($exons[0]->start == $new_exons[0]->start &&
+                          #$exons[0]->end == $new_exons[0]->end &&
+                          $exons[0]->strand == $new_exons[0]->strand &&
+                          #$exons[-1]->start == $new_exons[-1]->start &&
+                          $exons[-1]->end == $new_exons[-1]->end &&
+                          $exons[-1]->strand == $new_exons[-1]->strand);
+          
+          if (scalar(@exons) > 2){
+            for (my $i = 1; $i < scalar(@exons)-1; $i++){
+              next NEW unless ($exons[$i]->start == $new_exons[$i]->start &&
+                               $exons[$i]->end == $new_exons[$i]->end &&
+                               $exons[$i]->strand == $new_exons[$i]->strand);
+              
+            }
+          } 
         }
-     
         # If you reach here it means that both your transcripts share the same coding structure
         $transcript_exists = 1;
 
