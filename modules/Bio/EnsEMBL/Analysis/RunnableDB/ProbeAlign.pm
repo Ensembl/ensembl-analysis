@@ -432,7 +432,11 @@ sub filter_features {
 
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
-							-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript
+							#-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript?
+							#This is really redundant as we have the analysis_id
+							#But we should put something with specifies how the analysis_id was used
+							#e.g.
+							-type       => 'array_mapping',#?
 							-analysis   => $analysis,
 							-ensembl_id => $probe_id,
 							-ensembl_object_type => 'Probe',
@@ -544,6 +548,9 @@ sub set_probe_and_slice {
 	my ($genomic_start, $genomic_end);
 
 	#Get the slice
+
+	#warn "cigar is ".$feature->cigar_string;
+
 	if($mapping_type eq 'transcript'){
 
 	  if(! exists $transcript_cache{$seq_id}){
@@ -908,10 +915,11 @@ sub set_probe_and_slice {
 		my $end   = $feature->end   + $slice->start - 1;
 		$feature->start($start);
 		$feature->end($end);
+		
 		$slice = $slice_adaptor->fetch_by_region($level, $name, 1, $end);
 	  }
 
-	  
+	  #warn "Final start stop ".$feature->start.' '.$feature->end;
 
 	  $feature->slice($slice);
 
