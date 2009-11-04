@@ -51,10 +51,6 @@ use Bio::EnsEMBL::Analysis::Runnable::HavanaAdder;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-
-#use Bio::EnsEMBL::Analysis::Config::GeneBuild::General     qw (
-#							       GB_INPUTID_REGEX
-#							      );
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
                                                                GB_ENSEMBL_INPUT_GENETYPE
                                                                HAVANA_GENE_OUTPUT_BIOTYPE
@@ -83,9 +79,7 @@ use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
                 -input_id:   Contig input id (required), 
                 -seqfetcher: A Sequence Fetcher Object,
                 -analysis:   A Bio::EnsEMBL::Analysis (optional) 
-                -extend:     determines the extension of the virtual contig
-                             note: not implemented yet!
-                -golden_path: determines the name of the golden path to use
+
 =cut
 
 sub new {
@@ -115,7 +109,7 @@ sub input_id {
     Title   :   write_output
     Usage   :   $self->write_output
     Function:   Writes output data to db
-    Returns :   array of exons (with start and end)
+    Returns :   nothing
     Args    :   none
 
 =cut
@@ -123,7 +117,9 @@ sub input_id {
     
 sub write_output {
   my($self,@genes) = @_;
-  print "I will start the write output process now \n";  
+
+  print "Starting the write output process now \n";  
+
   # write genes out to a different database from the one we read genewise genes from.
   my $db = $self->get_dbadaptor("GENEBUILD_DB") ;
 
@@ -135,23 +131,21 @@ sub write_output {
     $self->throw("an analysis logic name must be defined in the command line");
   }
   
-  my %contighash;
+#  my %contighash;
   my $gene_adaptor = $db->get_GeneAdaptor;
   
 
   # this now assummes that we are building on a single VC.
   my $genebuilders = $self->get_genebuilders;
     
-  foreach my $contig ( keys %$genebuilders ){
-    my $vc = $genebuilders->{$contig}->query;
-      
-    @genes = $genebuilders->{$contig}->final_genes;
-    print "I have " ,scalar(@genes), "genes\n";
- 
-   return unless ($#genes >= 0);
-    #my @newgenes;
+  foreach my $genesbuilt ( keys %$genebuilders ){
+#    my $vc = $genebuilders->{$contig}->query;
     
-
+    @genes = $genebuilders->{$genesbuilt}->final_genes;
+    print "I have " ,scalar(@genes), "genes\n";
+    
+    return unless ($#genes >= 0);
+    
     foreach my $gene (@genes) { 
       $gene->analysis($analysis);
       # store
@@ -173,7 +167,7 @@ sub write_output {
 
     Function:   It fetches the slice or contig according to the input_id, 
                 and it defines the database where the
-                previous annotations are stored and create a Bio::EnsEMBL::Pipeline::GeneBuilder
+                previous annotations are stored and create a Bio::EnsEMBL::Analysis::Runnable::HavanaAdder
                 object for that genomic, input_id and db
     Returns :   nothing
     Args    :   none
@@ -187,19 +181,23 @@ sub fetch_input {
     
     $self->fetch_sequence();
 
+    # Database with a number of genes which where identified as wrong structures
+    # so if we build something similar we want to remove it
     my $discarded_db = $self->get_dbadaptor("DISCARDED_DB");
 
     print "DISCARDED GENE DB: ", $discarded_db->dbname,"\n";
 
-    # database where the genebuild produced genes are
+    # database where the ensembl genebuild genes are located
     my $ensembl_db = $self->get_dbadaptor("PSEUDO_DB") ;
 
     print "ENSEMBL DB : ",  $ensembl_db->dbname,"\n";
 
+    # database with the Havana Vega genes to import 
     my $havana_db = $self->get_dbadaptor("HAVANA_DB") ;
      
     print "HAVANA DB : ",  $havana_db->dbname,"\n";
-    
+
+    # Database that contains the DNA sequence
     my $ref_db = $self->get_dbadaptor("REFERENCE_DB");
 
     print $self->input_id,"\n";
@@ -253,23 +251,23 @@ sub get_genebuilders {
 sub run {
     my ($self) = @_;
     
-    print "I'm really ready to start running the analysis\n";
+    print "Now running the analysis\n";
 
     # get a hash, with keys = contig/slice and value = genebuilder object
     my $genebuilders = $self->get_genebuilders;
     
     print "Getting Gene adaptors again\n";
     my @genes;
-    foreach my $contig (keys %{ $genebuilders } ) {
+    foreach my $region (keys %{ $genebuilders } ) {
       print "Starting to get some genes\n";
-      my $query = $genebuilders->{$contig}->query;
+      my $query = $genebuilders->{$region}->query;
       
-      print "GeneBuilding for $contig\n";
-      
-      $genebuilders->{$contig}->build_Genes;
+      print "GeneBuilding for $region\n";
+     
+      $genebuilders->{$region}->build_Genes;
       
       print "Genes build now getting the final set\n";
-      @genes = $genebuilders->{$contig}->final_genes;
+      @genes = $genebuilders->{$region}->final_genes;
     }
     print "OK now I have my genes, just need to write them\n";
     $self->output( @genes );
