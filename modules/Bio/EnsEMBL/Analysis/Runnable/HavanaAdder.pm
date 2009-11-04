@@ -887,8 +887,8 @@ sub add_havana_attribute{
     #if($t_evidence{{$te_key}->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
     if($te_key->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
       my $attribute = Bio::EnsEMBL::Attribute->new
-          (-CODE => 'tp_otter_support',
-           -NAME => 'tp otter support',
+          (-CODE => 'tp_ott_support',
+           -NAME => 'otter protein transcript support',
            -DESCRIPTION => 'Evidence ID that was used as protein transcript supporting feature for building a gene in Vega',
            -VALUE => $te_key);
            # -VALUE => $te_key."\t".$t_evidence{{$te_key}->analysis_id);
@@ -898,8 +898,8 @@ sub add_havana_attribute{
     }
     if($te_key->isa("Bio::EnsEMBL::DnaDnaAlignFeature")){
       my $attribute = Bio::EnsEMBL::Attribute->new
-          (-CODE => 'td_otter_support',
-           -NAME => 'td otter support',
+          (-CODE => 'td_ott_support',
+           -NAME => 'otter dna transcript support',
            -DESCRIPTION => 'Evidence ID that was used as cdna transcript supporting feature for building a gene in Vega',
            -VALUE => $te_key);
       
@@ -918,8 +918,8 @@ sub add_havana_attribute{
     #print "Adding special attrib\n";
     if($ev_key->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
       my $attribute = Bio::EnsEMBL::Attribute->new
-          (-CODE => 'ep_otter_support',
-           -NAME => 'ep otter support',
+          (-CODE => 'ep_ott_support',
+           -NAME => 'otter protein exon support',
            -DESCRIPTION => 'Evidence ID that was used as protein exon supporting feature for building a gene in Vega',
            -VALUE => $ev_key);
       
@@ -927,8 +927,8 @@ sub add_havana_attribute{
     }
     if($ev_key->isa("Bio::EnsEMBL::DnaPepAlignFeature")){
       my $attribute = Bio::EnsEMBL::Attribute->new
-          (-CODE => 'ed_otter_support',
-           -NAME => 'ed otter support',
+          (-CODE => 'ed_ott_support',
+           -NAME => 'otter dna exon support',
            -DESCRIPTION => 'Evidence ID that was used as cdna exon supporting feature for building a gene in Vega',
            -VALUE => $ev_key);
       
