@@ -85,7 +85,7 @@ sub new {
 =cut
 
 sub put_Genes {
-  my ($self, $ignore_strand, @new_genes)= @_;
+  my ($self, @new_genes, $ignore_strand)= @_;
   if ( !defined( $self->{'_types_sets'} ) ){
     throw( "Cluster lacks references to gene-types, unable to put the gene");
   }
