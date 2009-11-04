@@ -345,14 +345,14 @@ sub cluster_Genes {
       foreach my $set_name (keys %$types_hash) { 
         $newcluster->gene_Types($set_name,$types_hash->{$set_name});
       } 
-      $newcluster->put_Genes($ignore_strand, $gene);
+      $newcluster->put_Genes($gene, $ignore_strand);
       push(@active_clusters,$newcluster);
 
       #
       # if above was found ONE matching cluster
       #
     } elsif (scalar(@matching_clusters) == 1) {
-      $matching_clusters[0]->put_Genes($ignore_strand, $gene);
+      $matching_clusters[0]->put_Genes($gene, $ignore_strand);
 
     } else {
       # Merge the matching clusters into a single cluster
@@ -365,10 +365,10 @@ sub cluster_Genes {
 
       my %match_cluster_hash;
       foreach my $clust (@matching_clusters) {
-        $merged_cluster->put_Genes($ignore_strand, $clust->get_Genes);
+        $merged_cluster->put_Genes ($clust->get_Genes, $ignore_strand);
         $match_cluster_hash{$clust} = $clust;
       }
-      $merged_cluster->put_Genes($ignore_strand, $gene);
+      $merged_cluster->put_Genes($gene, $ignore_strand);
       push @new_clusters,$merged_cluster;
 
       # Add back non matching clusters
