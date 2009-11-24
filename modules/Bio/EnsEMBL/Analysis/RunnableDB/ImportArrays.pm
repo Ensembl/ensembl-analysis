@@ -382,7 +382,7 @@ sub create_new_array_chip {
   if($array_chip = $achip_adaptor->fetch_by_array_design_ids($array->dbID, $design_id)){
 
 	if($array_chip->has_status('IMPORTED')){
-	  throw("$array_name ArrayChip has already been IMPORTED. Please rollback_ArrayChip or recreate your arrays_nr".$self->ARRAY_FORMAT.'.fasta file for alignment');
+	  throw("$array_name ArrayChip has already been IMPORTED. Please rollback_ArrayChip or recreate your arrays_nr.".$self->ARRAY_FORMAT.'.fasta file for alignment');
 	}
 	else{#Rollback
 	  $self->helper->rollback_ArrayChips([$array_chip], 'probe');#, 'force');
