@@ -24,13 +24,23 @@ Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl
 This module provides an interface between the ensembl functional genomics 
 database and the Runnable SWEmbl which wraps the ChIP-Seq peak caller SWEmbl.
 
-=head1 AUTHOR
+=head1 LICENSE
 
-Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org/
+  Copyright (c) 1999-2009 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+  Please email comments or questions to the public Ensembl
+  developers list at <ensembl-dev@ebi.ac.uk>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
 
 =cut
 
@@ -297,6 +307,10 @@ sub fetch_input {
     unless (-e $datfile) { # dat file already dumped sorted; skipping dump
 
         # make sure reads are dumped in sorted order
+	  #Explain this sort key?
+	  #Change this to simply pipe the gzip sort as the input file for SWEmbl
+	  #Need to check is compressed also
+	  #Implement Bed(other) parser here!!!
         my $sort = "gzip -dc ".$self->query.
             " | sort -k1,1 -k2,2n -k3,3n | gzip -c > $datfile |";
         warn("Executing  $sort");
@@ -385,10 +399,16 @@ sub write_output{
         foreach my $ft (@{$self->output}){
             
             #print Dumper $ft;
-            my ($seqid, $start, $end, $score) = @{$ft};
+            my ($seqid, $start, $end, $score, $summit) = @{$ft};
             #print Dumper ($seqid, $start, $end, $score);
             
+
+			#Could filter here based on score, score not very useful otherwise
+
+			$summit = int($summit);#Round up
+
             # skip mito calls
+			#remove this when we have pre-processing step to filter alignments using blacklist
             next if ($seqid =~ m/^M/);
 
             unless (exists $slice{"$seqid"}) {
@@ -403,8 +423,8 @@ sub write_output{
                  -start         => $start,
                  -end           => $end,
                  -strand        => 0,
-                 -display_label => $self->efg_analysis->logic_name,
-                 -score         => $score,
+                 #-display_label => $score,#
+                 -score         => $summit,#$score,
                  -feature_set   => $fset,
                  );
             
