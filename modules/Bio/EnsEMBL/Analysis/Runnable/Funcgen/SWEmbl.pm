@@ -1,7 +1,4 @@
 # Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Funcgen::SWEmbl
-#
-# Copyright (c) 2007 Ensembl
-#
 
 =head1 NAME
 
@@ -23,18 +20,23 @@ Bio::EnsEMBL::Analysis::Runnable::Funcgen::SWEmbl
 SWEmbl expects bed or maq mapview files as input and predicts features which 
 can be stored in the annotated_feature table in the eFG database
 
-=head1 LICENCE
+=head1 LICENSE
 
-This code is distributed under an Apache style licence. Please see
-http://www.ensembl.org/info/about/code_licence.html for details.
+  Copyright (c) 1999-2009 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
 
-=head1 AUTHOR
+  This software is distributed under a modified Apache license.
+  For license details, please see
 
-Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org
+    http://www.ensembl.org/info/about/code_licence.html
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+  Please email comments or questions to the public Ensembl
+  developers list at <ensembl-dev@ebi.ac.uk>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
 
 =cut
 
@@ -97,10 +99,10 @@ sub run_analysis {
     if(!$program){
         $program = $self->program;
     }
-    throw($program." is not executable SWEmble::run_analysis ") 
-        unless($program && -x $program);
 
-    my @fields = (0..2,5);
+    throw($program." is not executable") if(! ($program && -x $program));
+
+    my @fields = (0..2,5,9);
     $self->output_fields(\@fields);
 
     (my $resultsfile = $self->infile());
@@ -116,34 +118,6 @@ sub run_analysis {
     throw("FAILED to run $command: ", $@) if ($@);
 
 }
-
-#=head2 infile
-#
-#  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::SWEmble
-#  Arg [2]     : filename (string)
-#  Description : will hold a given filename or if one is requested but none
-#  defined it will use the create_filename method to create a filename
-#  Returntype  : string, filename
-#  Exceptions  : none
-#  Example     : 
-#
-#=cut
-#
-#
-#sub infile{
-#
-#  my ($self, $filename) = @_;
-#
-#  if($filename){
-#    $self->{'infile'} = $filename;
-#  }
-#  if(!$self->{'infile'}){
-#    $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
-#  }
-#
-#  return $self->{'infile'};
-#
-#}
 
 
 sub query{
