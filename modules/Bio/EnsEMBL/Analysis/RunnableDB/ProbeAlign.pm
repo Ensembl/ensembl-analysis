@@ -215,7 +215,7 @@ sub fetch_input {
   my ($query_file, $chunk_number, $chunk_total);
 
   my $query = $self->QUERYSEQS;
-
+  
   if ( -e $query and -s $query ) {
 
     # query seqs is a single file; input id will correspond to a chunk number
@@ -310,7 +310,7 @@ sub run {
   #These must be used in the rule_manager.pl
   #Which is where write_output must also be called ffrom
   #$self->output($features);#Moved this after filter/set_probe so we get the write output reported
-  $self->features($self->filter_features($runnable->output));
+  $self->filter_features($runnable->output);
 }
 
 ############################################################
@@ -327,11 +327,13 @@ sub write_output {
   #Add analysis, slices to features, and make
   #sure they're pointing at the persistent array / probe instances
   #instead of the fake arrays & probes they were created with
-  my $features = $self->set_probe_and_slice($self->features);
+  #Can we not do this in filter as we are not writing here?
+  #my $features = $self->set_probe_and_slice($self->features);
 
   #Now set correct output
   #This is only used to report the number of features
-  $self->output($features);#$self->features);
+  my $features = $self->features;
+  $self->output($features);
   
   print 'Writing '.scalar(@{$features})." ProbeFeatures\n";
 
@@ -476,6 +478,9 @@ sub filter_features {
     }
   }
 
+
+  $self->set_probe_and_slice(\@kept_hits);
+
   return \@kept_hits;
 }
 
@@ -600,18 +605,14 @@ sub set_probe_and_slice {
 	  #Next feature is this is an ungapped alignment (1 block)
 	  #or just representing a flank seq overhang
 	  #which will have been caught by the genomic mapping (2 blocks)
-
-	  #print "Found genomic blocks @genomic_blocks\n";
-
-	  next if(! (scalar(@genomic_blocks) >2));
-
+	  next if(! scalar(grep{$_->isa("Bio::EnsEMBL::Mapper::Coordinate")} @genomic_blocks) >= 2);
+	  
 	  #Coordinate object returned are genomic coords
 	  #Introns(ProbeFeature deletions) are only represented by absent Coordindate blocks
 	  #5'/3' overhangs(Genomic deletions) are represented by Gap objects
  
 	  #We are not accounting for 5'/3' hanging alignment mismatches
 	  #Which may actually be a sequence match or mismatch to the genomic sequence!
-	  
 
 	  #else alter the start stop values and rebuild the cigarline
 	  my $cigar_line = '';
