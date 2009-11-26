@@ -145,7 +145,7 @@ sub parse_results {
 
   while (<$fh>){
     #print STDERR $_ if $self->_verbose;
-	print "\n".$_;
+	#print "\n".$_;
 	
     next unless /^RESULT:/;
     chomp;
@@ -210,7 +210,7 @@ sub parse_results {
 	}
 
 	
-	warn "after coord correction $t_start $t_end";
+	#warn "after coord correction $t_start $t_end";
 
 
 	if(!($probe_id =~ /\d+/)){
