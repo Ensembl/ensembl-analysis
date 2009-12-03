@@ -69,7 +69,7 @@ use vars qw(%Config);
              #PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
              NORM_METHOD       => $ENV{'NORM_METHOD'},
              RESULT_SET_REGEXP => '_IMPORT',
-             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{EFG_DBNAME}",
+             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/",
          },
          'SWEmbl_default' => {
              PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
