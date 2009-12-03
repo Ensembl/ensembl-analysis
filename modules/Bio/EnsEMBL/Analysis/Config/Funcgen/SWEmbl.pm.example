@@ -63,15 +63,18 @@ use vars qw(%Config);
              MODULE            => 'SWEmbl',
              PROGRAM           => 'SWEmbl',
              PROGRAM_FILE      => 'SWEmbl',
+			 	 DISPLAY_LABEL     => 'SWEmbl',
+					 #DESCRIPTION       => '';
              VERSION           => '2008-08-03',
              #PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
              NORM_METHOD       => $ENV{'NORM_METHOD'},
              RESULT_SET_REGEXP => '_IMPORT',
-             ANALYSIS_WORK_DIR => $ENV{'ANALYSIS_WORK_DIR'},
+             ANALYSIS_WORK_DIR => "$ENV{ANALYSIS_WORK_DIR}/$ENV{EFG_DBNAME}",
          },
-#         'SWEmbl_default' => {
-#             PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
-#         },
+         'SWEmbl_default' => {
+             PARAMETERS        => "-f 150 -m 8 -p 0.04 -P 0.5 -d 70",
+
+			          },
      });
 
 sub import {
