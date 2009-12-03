@@ -194,11 +194,15 @@ sub run_FASTA{
   
   open( PROBES, "<".$self->query_file);
  
+  my $cnt    = 0;
+  my $nr_cnt = 0;
+
   while(<PROBES>){
     chomp;
 	
     if(/$header_regex$/){
-	
+	  $cnt++;
+
       if($current_sequence){
 		
         if(! $current_array_chip){
@@ -212,7 +216,7 @@ sub run_FASTA{
         $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
         if(! $existing_probe){
-
+		  $nr_cnt++;
           $existing_probe = $self->create_new_probe(
 													$current_array_chip, 
 													\%probe_attrs,
@@ -273,6 +277,7 @@ $probe_set = (exists $probe_attrs{'-probe_set'}) ? $probe_attrs{'-probe_set'} : 
   $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
   if(! $existing_probe){
+	$nr_cnt++;
     $existing_probe =  $self->create_new_probe(
 											   $current_array_chip, 
 											   \%probe_attrs,
@@ -290,6 +295,13 @@ $probe_set = (exists $probe_attrs{'-probe_set'}) ? $probe_attrs{'-probe_set'} : 
 	   $probe_attrs{'-name'},
 	  );
   }  
+
+  print "Seen $cnt fasta records\n";
+  print "Created $nr_cnt probes\n";
+
+
+  throw('No probes stored! Maybe you need to tweak your IIDREGEXP config for this format') if($nr_cnt == 0);
+
 
   $self->probes(\%probes_by_sequence);
 
