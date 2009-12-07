@@ -110,9 +110,11 @@ sub pair_features {
   my $paired_features;
   my @selected_reads;
   foreach my $feat ( @features ) {
-    if ( $feat->hseqname =~ /(\S+):([a,b,A,B,HA,HB])$/ ) {
+    if ( $feat->hseqname =~ /(\S+):((a|b|A|B|HA|HB))$/ ) {
+      my $id = $1;
       my $suffix = lc($2);
-      push @{$paired_features->{$1}->{$suffix}},$feat;
+      $suffix =~ s/^h//;
+      push @{$paired_features->{$id}->{$suffix}},$feat;
     } else {
       $self->throw("Read name not recognised " . $feat->hseqname . "\n");
     }
@@ -187,10 +189,10 @@ sub pair_features {
       if ( scalar(@as) >= 1 ) {
 	@as = sort { $a->score <=> $b->score } @as ;
 	my $selected = pop @as;
-	if ( $selected->hseqname =~ /(\S+):([A])$/ ) {
+	if ( $selected->hseqname =~ /(\S+):A$/ ) {
 	  $selected->hseqname($1 .":a3p");
 	}
-	if ( $selected->hseqname =~ /(\S+):([HA])$/ ) {
+	if ( $selected->hseqname =~ /(\S+):HA$/ ) {
 	  $selected->hseqname($1 .":ha3p");
 	}	
 	push @selected_reads, $selected;
@@ -198,10 +200,10 @@ sub pair_features {
       if ( scalar(@bs) >= 1 ) {    
 	@bs = sort { $a->score <=> $b->score } @bs ;
 	my $selected = pop @bs;
-	if ( $selected->hseqname =~ /(\S+):([B])$/ ) {
+	if ( $selected->hseqname =~ /(\S+):B$/ ) {
 	  $selected->hseqname($1 .":b3p");
 	}
-	if ( $selected->hseqname =~ /(\S+):([HB])$/ ) {
+	if ( $selected->hseqname =~ /(\S+):HB$/ ) {
 	  $selected->hseqname($1 .":hb3p");
 	}
 	push @selected_reads, $selected;
@@ -230,18 +232,29 @@ sub merge_pair {
       $read_pair->[1] = $tmp;
       
     }
-    
+    # sort out the hit names so they are consistant
+    # we need a 3 prime read to be labeled on 
+    # both reads or the merging code will
+    # fall over with inconsistant hit names
     for ( my $i = 0 ; $i <=1 ; $i++ ) {
       my $read = $read_pair->[$i];
-     if ( $read->hseqname =~ /(\S+):([a,b])$/ ) {
+     if ( $read->hseqname =~ /(\S+):((a|b))$/ ) {
      	$read->hseqname($1);
      }
-      if ( $read->hseqname =~ /(\S+):([A,B])$/ ) {
-     	$read->hseqname($1 .":3p");
+      if ( $read->hseqname =~ /(\S+):(A|B)$/ ) {
+     	$read_pair->[0]->hseqname($1 .":3p");
+     	$read_pair->[1]->hseqname($1 .":3p");
+        $read = $read_pair->[$i];
      }    
-      if ( $read->hseqname =~ /(\S+):([HA,HB])$/ ) {
-     	$read->hseqname($1 .":h3p");
+      if ( $read->hseqname =~ /(\S+):(HA|HB)$/ ) {
+     	$read_pair->[0]->hseqname($1 .":h3p");
+     	$read_pair->[1]->hseqname($1 .":h3p");
+        $read = $read_pair->[$i];
      }
+   }
+   
+   for ( my $i = 0 ; $i <=1 ; $i++ ) {
+      my $read = $read_pair->[$i];
      foreach my $ugf ( $read->ungapped_features ) {
 	# need to modify the 'b' read hit starts ends to make it
 	# appear to come from one long read
