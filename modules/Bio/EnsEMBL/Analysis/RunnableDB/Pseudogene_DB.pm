@@ -709,14 +709,6 @@ sub PS_PSEUDO_TYPE{
 }
 
 
-sub PS_REPEAT_TYPE{
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{'PS_REPEAT_TYPE'} = $arg;
-  }
-  return $self->{'PS_REPEAT_TYPE'};
-}
-
 
 sub SINGLE_EXON{
   my ($self, $arg) = @_;
