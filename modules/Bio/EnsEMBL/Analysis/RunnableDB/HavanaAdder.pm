@@ -285,7 +285,8 @@ sub output{
     if (@genes){
 	push( @{$self->{_output}}, @genes );
     }
-    return @{$self->{_output}};
+    #return @{$self->{_output}};
+    return $self->{_output};
 }
 
 ############################################################
