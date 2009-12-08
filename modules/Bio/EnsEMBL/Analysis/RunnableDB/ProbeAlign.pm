@@ -119,6 +119,11 @@ sub new {
 	 
   my ($db_name, $display_name);
 
+
+  #Check imported status of arrays
+
+
+
   if($logic =~ /Transcript/){
 	 $self->{'mapping_type'} = 'transcript';
 	 
@@ -595,7 +600,7 @@ sub set_probe_and_slice {
 	  my $transcript_end    = $feature->end;
 	  my $transcript_strand = $transcript_cache{$seq_id}->feature_Slice->strand;
 	
-	  #warn "trans($seq_id) start end strand $transcript_start $transcript_end $transcript_strand" if $warn;
+	  #warn "\n\n\ntrans($seq_id) start end strand $transcript_start $transcript_end $transcript_strand";
 
 
 	  $trans_mapper = Bio::EnsEMBL::TranscriptMapper->new($transcript_cache{$seq_id});
@@ -605,7 +610,8 @@ sub set_probe_and_slice {
 	  #Next feature is this is an ungapped alignment (1 block)
 	  #or just representing a flank seq overhang
 	  #which will have been caught by the genomic mapping (2 blocks)
-	  next if(! scalar(grep{$_->isa("Bio::EnsEMBL::Mapper::Coordinate")} @genomic_blocks) >= 2);
+
+	  next if(scalar(grep{$_->isa("Bio::EnsEMBL::Mapper::Coordinate")} @genomic_blocks) < 2);
 	  
 	  #Coordinate object returned are genomic coords
 	  #Introns(ProbeFeature deletions) are only represented by absent Coordindate blocks
@@ -631,13 +637,17 @@ sub set_probe_and_slice {
 		#This only makes a difference if there are any m's (seq mismatches)
 		#print "Transcript is -ve strand so reverse cigar is @stranded_cigar_line\n";
 
+
+		#This would be an anti-sense transcript hit???
+
 	  }
 	  else{
 		@stranded_cigar_line = @trans_cigar_line;
 	  }
 
 
-	  #Account for 5'/3' overhanging gaps here
+	  #Account for 5'/3' overhanging gaps here?
+   
 	  my %gap_lengths = (
 						 5 => undef,
 						 3 => undef,
@@ -645,7 +655,7 @@ sub set_probe_and_slice {
 
 	  foreach my $block(@genomic_blocks){
 		#warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
-
+		
 		if(! $genomic_start){
 		  
 		  if($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){#Set genomic_start
@@ -672,7 +682,8 @@ sub set_probe_and_slice {
 
 		#So calculate gap coordinates
 		#We want to skip and Gap objects
-		#as these will have already been inserted into the cigarline by ExonerateProbe
+		#as these will have already been inserted into the cigarline by ExonerateProbe???
+		#These are 5'/3' overhangs
 		next if $block->isa('Bio::EnsEMBL::Mapper::Gap');
 
 		if(@gaps){
@@ -684,6 +695,7 @@ sub set_probe_and_slice {
 
 	  #remove last value as this is the end of the match and not a gap start
 	  pop @gaps;
+
 	  
 	  #Insert intron gaps into cDNA cigarline
 	  $gap_start  = shift @gaps;
@@ -774,6 +786,8 @@ sub set_probe_and_slice {
 		$block_start = ($block_end + 1);
 		$block_end += $align_length;
 
+		#warn "block end and gap_start $block_end - $gap_start"; 
+
 		if($block_end >= $gap_start){
 
 		  #Could have multiple deletions
@@ -786,6 +800,7 @@ sub set_probe_and_slice {
 			$cigar_line .= $gap_length.'D';
 
 			#Now redefine start and end values
+			#warn "block_start += $align_length + $gap_length";
 			$block_start += $align_length + $gap_length;
 			$block_end   += $gap_length;
 		
