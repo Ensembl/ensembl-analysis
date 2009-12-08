@@ -145,7 +145,7 @@ sub parse_results {
 
   while (<$fh>){
     #print STDERR $_ if $self->_verbose;
-	#print "\n".$_;
+	#warn "\n".$_;
 	
     next unless /^RESULT:/;
     chomp;
@@ -183,6 +183,7 @@ sub parse_results {
 	#1 25 + ENSMUST00000115314 1593 1617 + 120 100.00 25 3173 . 0 M 24 24
 	#0 25 + ENSMUST00000109902 2318 2343 + 116 96.00 25 2449 . 1 M 25 25 
 	
+	
 	#because of the 'in-between' coordinates.???
 	#$t_start += 1;	
 	#Has only ever been done to t_start previously!!!
@@ -210,9 +211,6 @@ sub parse_results {
 	}
 
 	
-	#warn "after coord correction $t_start $t_end";
-
-
 	if(!($probe_id =~ /\d+/)){
 	  throw "Probe headers MUST be the internal db ids of the Probes for this parser to work!\n";
 	}
@@ -274,8 +272,6 @@ sub parse_results {
 	  $t_start = ($t_strand eq '+') ? ($t_start - $q_start) : ($t_start + $q_start);
 	}
 
-	#warn "after 5' unaligned start end $t_start $t_end";
-	
 	#mismatches
 	#if($mismatch_count){
 	if($total_mismatches){
@@ -307,7 +303,9 @@ sub parse_results {
 	  push @soft_cigar_line, $tmp;
 	}
 
-	#warn "after mismatches unaligned start end $t_start $t_end";
+	#if(! $t_end || $t_end < $t_start){
+	#  throw("GRRR");
+	#}
 
 
 	#3' unaligned
@@ -372,7 +370,7 @@ sub parse_results {
 	  }
 
 	  
-
+	  #warn "final $t_start $t_end ".join(':', @soft_cigar_line) || $match_length.'M';
 
 	  push @features, new Bio::EnsEMBL::Funcgen::ProbeFeature
 		(
