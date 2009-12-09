@@ -51,6 +51,9 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Exception; 
+use Bio::EnsEMBL::Transcript; 
+use Bio::EnsEMBL::Gene ;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -330,21 +333,27 @@ sub test_genes{
 	  $gene->biotype($self->PS_PSEUDO_TYPE);
 	  my @pseudo_trans = @{$trans_type{'pseudo'}};
 	  @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
-	  my $only_transcript_to_keep = pop  @pseudo_trans;
-	  $self->transcript_to_keep($only_transcript_to_keep);
+	  my $only_transcript_to_keep = pop  @pseudo_trans;  
+	  $only_transcript_to_keep = $self->transcript_to_keep($only_transcript_to_keep);
+
 	  foreach my $pseudo_transcript (@pseudo_trans) {
 	    my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
 	    if ( $blessed ) {
 	      print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
 		" is a pseudo transcript \n";
 	    }
-	  }
+	  } 
+          my $new_gene = Bio::EnsEMBL::Gene->new(); 
+          $new_gene->analysis($self->analysis) ; 
+          $new_gene->biotype($self->PS_PSEUDO_TYPE); 
+          $only_transcript_to_keep->biotype($self->PS_PSEUDO_TYPE); 
+          $new_gene->add_Transcript($only_transcript_to_keep) ;
+          $gene = $new_gene ;
 	  $self->modified_genes($gene);
 	  $self->pseudogenes(1);
 	  next GENE;
 	}
       }
-
     ##################################################
     # gene is indeterminate, if it has no real 
     # transcripts - all either pseudo or indeterminate
@@ -403,8 +412,11 @@ sub test_genes{
       if ($self->PS_REPEAT_TYPE) {
 	my @pseudo_trans = @{$gene->get_all_Transcripts};
 	@pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
-	my $only_transcript_to_keep = pop  @pseudo_trans;
-	$self->transcript_to_keep($only_transcript_to_keep);
+	my $only_transcript_to_keep = pop  @pseudo_trans; 
+
+        $only_transcript_to_keep = $self->transcript_to_keep($only_transcript_to_keep);
+
+#	$self->transcript_to_keep($only_transcript_to_keep);
 	foreach my $pseudo_transcript (@pseudo_trans) {
 	  my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
 	  if ( $blessed ) {
@@ -684,9 +696,14 @@ sub _remove_transcript_from_gene {
 
 sub transcript_to_keep {
   my ($self, $trans_to_keep)  = @_;
-  return if  $self->BLESSED_BIOTYPES->{$trans_to_keep->biotype};
-  $trans_to_keep->translation(undef);
-  return;
+   if  (  $self->BLESSED_BIOTYPES->{$trans_to_keep->biotype} ) {   
+    print " TRANSCRIPT IS BLESSED .............WAHHH \n" ; 
+    return ;   
+  }else { 
+   print " HAHA ! i will eat your translation now .... \n" ; 
+   my $tr= Bio::EnsEMBL::Transcript->new( -EXONS => $trans_to_keep->get_all_Exons ) ;  
+   return $tr;
+  }
 }
 
 =head2 intersection
@@ -734,6 +751,16 @@ Arg [none] :
 
 sub output {
   my ($self) = @_;
+  for my $g ( @{ $self->modified_genes } ) {   
+     my @t =@{ $g->get_all_Transcripts} ; 
+     for my $t ( @t ) {  
+       if ( $g->biotype eq $self->PS_PSEUDO_TYPE ) {  
+         if ( defined ( $t->translation ) ) {  
+            throw ("pseudogene cant have tranlation. game over \n") ; 
+         } 
+      } 
+    }   
+  }   
   return $self->modified_genes;
 }
 
