@@ -685,27 +685,31 @@ sub add_ottt_xref{
  }
 }
 
-sub add_ottg_xref{
- my($self, $hg, $ottg) = @_;
- 
- print "I am adding an OTTG xref to the transcript or Gene\n";
- print "OTTG TO ADD: ",$ottg,"\n";
- my $xref_ottg = new Bio::EnsEMBL::DBEntry
-     (
-      -primary_id =>$ottg,
-      -display_id =>$ottg,
-      -priority => 1,
-      -xref_priority => 0,
-      -version => 1,
-      -release => 1,
-      -dbname => 'OTTG'
-      );
- 
- $xref_ottg->status("XREF");
- 
- $hg->add_DBEntry($xref_ottg);
- 
-}
+sub add_ottg_xref {
+  my ( $self, $hg, $ottg ) = @_;
+
+  print "I am adding an OTTG xref to the transcript or Gene\n";
+
+  # Don't want to save the OTTG xref twice so check if it's already stored.
+  foreach my $entry ( @{ $hg->get_all_DBEntries } ) {
+    if ( $entry->dbname eq 'OTTG' && ( $entry->primary_id eq $ottg ) ) {
+      return 0;
+    }
+  }
+  print "OTTG TO ADD: ", $ottg, "\n";
+  my $xref_ottg =
+    new Bio::EnsEMBL::DBEntry( -primary_id    => $ottg,
+                               -display_id    => $ottg,
+                               -priority      => 1,
+                               -xref_priority => 0,
+                               -version       => 1,
+                               -release       => 1,
+                               -dbname        => 'OTTG' );
+
+  $xref_ottg->status("XREF");
+
+  $hg->add_DBEntry($xref_ottg);
+} ## end sub add_ottg_xref
 
 
 sub set_transcript_relation {
@@ -1612,6 +1616,11 @@ sub cluster_into_Genes{
       #print "Transcript Stable ID: ",$transcript->dbID,"\n";
       $gene->add_Transcript($transcript);
       if ($ottg_xref{$transcript} && ($ottg_added ne $ottg_xref{$transcript})){
+
+        # Need to add the OTTG as the gene stable_id otherwise it will
+        # be undef.
+        $gene->stable_id($ottg_xref{$transcript});
+
         $self->add_ottg_xref($gene,$ottg_xref{$transcript});
         $ottg_added = $ottg_xref{$transcript};
       }
@@ -1637,7 +1646,7 @@ Description :   it clusters transcripts into genes according to exon overlap.
 
 =cut
 
-sub cluster_into_PseudoGenes{
+sub cluster_into_PseudoGenes {
   my ($self, $transcripts_unsorted, $havana_non_coding) = @_;
 
   my %ottg_xref;
@@ -1797,6 +1806,9 @@ sub cluster_into_PseudoGenes{
       print "This is the transcript_biotype ",$transcript->biotype,"\n";
       $gene->add_Transcript($transcript);
       if ($ottg_xref{$transcript} && ($ottg_added ne $ottg_xref{$transcript})){
+        # Need to add the OTTG as the gene stable_id otherwise it will be
+        # undef.
+        $gene->stable_id($ottg_xref{$transcript});
         $self->add_ottg_xref($gene,$ottg_xref{$transcript});
         $ottg_added = $ottg_xref{$transcript};
       }
@@ -1882,7 +1894,7 @@ sub combine_gene_clusters {
 
   foreach my $coding(@coding_genes){
     if($coding){
-      print "YOUR CODING:", $coding,"\n";
+      #print "YOUR CODING:", $coding,"\n";
       push(@final_clustered_genes,$coding);
     }
   }
