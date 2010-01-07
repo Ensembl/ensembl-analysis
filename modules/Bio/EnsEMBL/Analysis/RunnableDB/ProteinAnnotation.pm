@@ -51,7 +51,10 @@ sub fetch_input {
   } else {
     $db = $self->db;
   }
-
+  if ( $self->DNA_DB ) {  
+     my $m_dna_db = $self->get_dbadaptor($self->DNA_DB);
+     $db->dnadb($m_dna_db);
+  } 
   my $error = "For logic " . $self->analysis->logic_name . ", Input id must be:\n";
   $error .= "(a) a valid translation dbID; or\n";
   $error .= "(b) the fully qualified directory/name of a fasta peptide file; or\n";
@@ -221,6 +224,23 @@ sub GENEDB {
   } else {
     return $self->{_gene_db};
   }
+} 
+
+
+sub DNA_DB {
+  my ($self, $val) = @_;
+
+
+  if (defined $val) {
+    $self->{_dna_db} = $val;
+  }
+
+  if (not exists $self->{_dna_db}) {
+    return undef;
+  } else {
+    return $self->{_dna_db};
+  }
 }
+
 
 1;
