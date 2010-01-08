@@ -52,7 +52,9 @@ sub fetch_input {
     $db = $self->db;
   }
   if ( $self->DNA_DB ) {  
-     my $m_dna_db = $self->get_dbadaptor($self->DNA_DB);
+     my $m_dna_db = $self->get_dbadaptor($self->DNA_DB); 
+     $m_dna_db->disconnect_when_inactive(1); 
+     $db->dnadb($m_dna_db);
      $db->dnadb($m_dna_db);
   } 
   my $error = "For logic " . $self->analysis->logic_name . ", Input id must be:\n";
