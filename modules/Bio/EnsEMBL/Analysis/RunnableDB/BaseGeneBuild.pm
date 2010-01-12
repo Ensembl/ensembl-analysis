@@ -158,8 +158,7 @@ sub get_dbadaptor {
         } ## end else [ if ($not_use_dna_database)
       } else {
         if ( $name eq $DNA_DBNAME ) {
-          print "\nDNA_DB and REFEREE_DB are the same"
-              . " no need to attach the DNA_DB...\n";
+          print "\nNot attaching DNA_DB to $name ...\n" ; 
         } else {
           warning("You haven't defined a DNA_DBNAME in Config/Databases.pm ");
         }
