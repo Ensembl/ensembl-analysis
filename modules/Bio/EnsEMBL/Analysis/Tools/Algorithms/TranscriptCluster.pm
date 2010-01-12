@@ -674,8 +674,18 @@ sub get_ExonCluster_using_all_Exons{
     }
   }
 
+  # setting exon/cluster relationship
+  for my $c (@clusters) {
+    for my $e(@{ $c->get_all_Exons_in_ExonCluster} ) {
+      # exon has to be Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object 
+      $e->cluster($c) ;
+    }
+  }
+
   return @clusters;
 }
+
+
 sub get_coding_ExonCluster{
   my ( $self, $ignore_strand ) = @_;
   my @clusters;
