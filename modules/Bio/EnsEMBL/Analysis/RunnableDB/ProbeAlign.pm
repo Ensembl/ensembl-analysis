@@ -733,7 +733,7 @@ sub set_probe_and_slice {
 		  $align_type = pop @tmp;
 		  ($align_length = $gap_block) =~ s/$align_type//;
 
-		  if($align_type ne 'm' ||
+		  if($align_type ne 'X' ||
 			 $align_length > $gap_lengths{$end}){
 			throw("Found unexpected alignment block($gap_block) when handling ${end}' overhanging Gap");
 		  }
