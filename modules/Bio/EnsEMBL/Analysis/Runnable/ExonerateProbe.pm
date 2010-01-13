@@ -264,7 +264,7 @@ sub parse_results {
 	#1 25
 	if($align_mismatch && 
 	  ($q_length == $q_end)){
-	  push @soft_cigar_line, $q_start.'m' if $q_start;#set this to the value of start if not 0
+	  push @soft_cigar_line, $q_start.'X' if $q_start;#set this to the value of start if not 0
 	  #We want to subtract from start if +ve hit
 	  #else we want to add to end if -ve strand, end is actually start in ensembl terms
 
@@ -291,7 +291,7 @@ sub parse_results {
 		if($tscore == $prev_score){
 		  $cnt += 1;
 		}else{
-		  $tmp = ($prev_score == 5) ?  $cnt.'M' :  $cnt.'m';
+		  $tmp = ($prev_score == 5) ?  $cnt.'=' :  $cnt.'X';
 		  push @soft_cigar_line, $tmp;
 		  $cnt = 1;
 		  $prev_score       = $tscore;
@@ -299,7 +299,7 @@ sub parse_results {
 	  }
 
 	  #handle last align length
-	  $tmp = ($prev_score == 5) ? $cnt.'M' : $cnt.'m';
+	  $tmp = ($prev_score == 5) ? $cnt.'=' : $cnt.'X';
 	  push @soft_cigar_line, $tmp;
 	}
 
@@ -314,7 +314,7 @@ sub parse_results {
 	  #Add end mismatch if
 	  #not accounted for by 5' mismatch
 	  my $three_mismatch = ($q_length - $q_end);
-	  push @soft_cigar_line, $three_mismatch.'m';
+	  push @soft_cigar_line, $three_mismatch.'X';
 
 
 	  #warn "+ ($t_end + $three_mismatch) - ($t_end - $three_mismatch)";
@@ -380,7 +380,7 @@ sub parse_results {
 		 -end => $t_end,
 		 -strand => $t_strand,
 		 -mismatchcount => $total_mismatches,
-		 -cigar_string => join(':', @soft_cigar_line) || $match_length.'M',
+		 -cigar_string => join(':', @soft_cigar_line) || $match_length.'=',
 		 -seqname => $t_id,
 		);
 
