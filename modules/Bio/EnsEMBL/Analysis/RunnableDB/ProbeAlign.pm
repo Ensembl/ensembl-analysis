@@ -117,11 +117,12 @@ sub new {
   my $species = $self->outdb->species;
   throw('Must provide a -species to the OUTDB in Bio::EnsEMBL::Analysis::Config::ProbeAlign') if ! $species;
 	 
-  my ($db_name, $display_name);
-
+  my ($db_name, $display_name, $array_class);
+  print "logic_name is $logic\n";
 
   #Check imported status of arrays
-
+  ($array_class = $logic) =~ s/_Probe.*Align$//;
+  $self->outdb->get_ArrayAdaptor->check_status_by_class('IMPORTED', $class);
 
 
   if($logic =~ /Transcript/){
@@ -771,11 +772,11 @@ sub set_probe_and_slice {
 
 		$q_length += $align_length;
 
-		if($align_type eq 'M'){
+		if($align_type eq '='){
 		  $match_count += $align_length;
 		  $score       += ($align_length * 5);
 		}
-		else{# 'm' or U  mismatch
+		else{# 'X' or U  mismatch
 		  $mismatch_count += $align_length;
 		  $score          -= ($align_length * 4);
 		}
