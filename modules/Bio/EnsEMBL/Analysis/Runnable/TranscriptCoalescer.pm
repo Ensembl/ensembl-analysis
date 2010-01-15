@@ -248,7 +248,7 @@ sub run {
     if ( exists $sets_in_gene_cluster{est_merged} ) { 
       # try to do recursive merge with simgw / abinitio, begin with clustering (Transcripts & Exons) 
       my @tr_merged = 
-       map {@{$_->get_all_Transcripts}} $gene_cluster->get_Genes_by_Set ( 'est_merged' ); 
+       map {@{$_->get_all_Transcripts}} @{ $gene_cluster->get_Genes_by_Set ( 'est_merged' ) } ; 
       my $exon_clusters = $gene_cluster->get_exon_clustering_from_gene_cluster(); 
       print "exon_clustering finished\n" if $self->{v};
 

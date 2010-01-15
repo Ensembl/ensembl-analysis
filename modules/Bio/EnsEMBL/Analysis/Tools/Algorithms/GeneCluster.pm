@@ -88,8 +88,11 @@ sub put_Genes {
   my ($self, $genes, $ignore_strand)= @_;
   if ( !defined( $self->{'_types_sets'} ) ){
     throw( "Cluster lacks references to gene-types, unable to put the gene");
-  }
-my @new_genes = $genes ;
+  } 
+  unless( ref($genes)=~m/ARRAY/) {   
+    throw("Only take array ref !\n") ; 
+  } 
+my @new_genes = @$genes ;
 
  GENE:
   foreach my $gene (@new_genes){
@@ -170,7 +173,7 @@ sub get_Genes {
     push( @genes, @{ $self->{'_gene_sets'}{$set_name} } );
   }
 
-  return @genes;
+  return \@genes;
 }
 
 sub get_Genes_ref {
@@ -218,7 +221,7 @@ sub strand{
   }
 
   if (!defined($self->{_cached_strand})) {
-    my @genes = $self->get_Genes;
+    my @genes = @{$self->get_Genes};
     unless (@genes){
       $self->warning("cannot retrieve the strand in a cluster with no genes");
     }
@@ -261,7 +264,7 @@ sub strand{
 sub get_Gene_Count {
   my $self = shift @_;
 
-  my @genes = $self->get_Genes;
+  my @genes = @{$self->get_Genes} ; 
   return scalar(@genes);
 }
 
@@ -291,10 +294,10 @@ sub get_Genes_of_Type() {
     throw( "must provide a type");
   }
 
-  my @genes = $self->get_Genes;  # this should give them in order, but we check anyway
+  my @genes = @{ $self->get_Genes} ;  # this should give them in order, but we check anyway
   my @selected_genes;
   push ( @selected_genes, grep { $_->biotype eq $type } @genes );
-  return @selected_genes;
+  return \@selected_genes;
 }
 
 
@@ -317,7 +320,7 @@ sub get_Genes_by_Set() {
   }else{
     push @selected_genes, @{$self->{'_gene_sets'}{$set}};
   }
-  return @selected_genes;
+  return \@selected_genes;
 }
 #########################################################################
 
@@ -333,12 +336,12 @@ sub get_Genes_by_Type() {
   unless ($types){
     throw( "must provide a type");
   }
-  my @genes = $self->get_Genes;  # this should give them in order, but we check anyway
+  my @genes = @{$self->get_Genes};  # this should give them in order, but we check anyway
   my @selected_genes;
   foreach my $type ( @{ $types } ){
     push ( @selected_genes, grep { $_->biotype eq $type } @genes );
   }
-  return @selected_genes;
+  return \@selected_genes;
 }
 
 #########################################################################
@@ -355,7 +358,7 @@ sub get_Genes_by_Type() {
 sub to_String {
   my $self = shift @_;
   my $data='';
-  foreach my $gene ( $self->get_Genes ){
+  foreach my $gene ( @{$self->get_Genes} ){
     my @exons = @{ $gene->get_all_Exons };
      
     $data .= sprintf "Id: %-16s"      , $gene->stable_id;
@@ -442,7 +445,7 @@ sub start{
   if (!defined($self->{_cached_start})) {
     my $start;
 
-    foreach my $gene ($self->get_Genes) {
+    foreach my $gene (@{$self->get_Genes}) {
       my $this_start = $gene->start;
       unless ( $start ){
         $start = $this_start;
@@ -465,7 +468,7 @@ sub end{
   if (!defined($self->{_cached_end})) {
     my $end;
 
-    foreach my $gene ($self->get_Genes) {
+    foreach my $gene (@{$self->get_Genes}) {
       my $this_end = $gene->end;
       unless ( $end ){
         $end = $this_end;
@@ -495,13 +498,13 @@ sub end{
 sub get_exon_clustering_from_gene_cluster {
   my ($self, $ignore_strand) = @_ ;
 
-  my @clg  = sort {$a->start <=> $b->start} $self->get_Genes ;
+  my @clg  = sort {$a->start <=> $b->start} @{$self->get_Genes} ;
 
   # building Transcript-Cluster 
   #my $tc = genes_to_Transcript_Cluster(\@clg);
   my $tc = $self->get_TranscriptCluster ($ignore_strand); 
 
-  my @exon_clusters = $tc->get_ExonCluster_using_all_Exons($ignore_strand) ; 
+  my @exon_clusters = @{$tc->get_ExonCluster_using_all_Exons($ignore_strand)} ; 
 
   if (defined $tc->strand && $tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
@@ -531,13 +534,13 @@ sub get_exon_clustering_from_gene_cluster {
 sub get_coding_exon_clustering_from_gene_cluster {
   my ($self, $ignore_strand) = @_ ;
 
-  my @clg  = sort {$a->start <=> $b->start} $self->get_Genes ;
+  my @clg  = sort {$a->start <=> $b->start} @{$self->get_Genes};
 
   # building Transcript-Cluster 
   #my $tc = genes_to_Transcript_Cluster(\@clg);
   my $tc = $self->get_coding_TranscriptCluster ($ignore_strand); 
 
-  my @exon_clusters = $tc->get_coding_ExonCluster($ignore_strand) ; 
+  my @exon_clusters = @{$tc->get_coding_ExonCluster($ignore_strand)} ; 
 
   if (defined $tc->strand && $tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
@@ -571,7 +574,7 @@ sub get_TranscriptCluster {
   my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
   print "building new TranscriptCluster\n"  if $self->{v};
     
-  foreach my $gene ( $self->get_Genes ) { 
+  foreach my $gene ( @{$self->get_Genes} ) { 
   #foreach my $gene (@$genes_or_predTrans) {
 
     if( ref($gene)=~m/Gene/){
@@ -592,21 +595,22 @@ sub get_TranscriptCluster {
         $trans->biotype($gene->biotype) ;
         #$trans->sort;
         print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
-        $tc->put_Transcripts($ignore_strand, $trans);
+        $tc->put_Transcripts($ignore_strand, [$trans]);
         $tc->register_biotype($gene->biotype) ;
       }
     } else {
       # is not a Bio::EnsEMBL::Gene  
       warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
       $gene->sort ;
-      $tc->put_Transcripts($ignore_strand, $gene) ;
+      $tc->put_Transcripts($ignore_strand, [$gene]) ;
     }
   }
   return $tc;
 }
 
 
-
+# returns true if a cluster contains two sets 
+#
 sub is_twoway_cluster { 
   my ($self ) = @_;   
    
@@ -625,7 +629,7 @@ sub get_coding_TranscriptCluster {
   my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
   print "building new TranscriptCluster using only coding Exons\n"  if $self->{v};
     
-  foreach my $gene ( $self->get_Genes ) { 
+  foreach my $gene ( @{$self->get_Genes} ) { 
 
     if( ref($gene)=~m/Gene/){
       # is a Bio::EnsEMBL::Gene 
@@ -648,14 +652,14 @@ sub get_coding_TranscriptCluster {
         print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
         # keep the type sets
         $tc->{'_types_sets'} = $self->{'_types_sets'};
-        $tc->put_Transcripts($ignore_strand, $trans);
+        $tc->put_Transcripts($ignore_strand, [$trans]);
         $tc->register_biotype($gene->biotype) ;
       }
     } else {
       # is not a Bio::EnsEMBL::Gene  
       warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
       $gene->sort ;
-      $tc->put_Transcripts($ignore_strand, $gene) ;
+      $tc->put_Transcripts($ignore_strand, [$gene]) ;
     }
   }
   return $tc;

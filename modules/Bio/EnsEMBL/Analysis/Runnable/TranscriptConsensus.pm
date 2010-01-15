@@ -107,7 +107,7 @@ sub run {
      # my $new_gene = $gene->transform("toplevel");
      # print Gene_info($new_gene)."\n"; #if($gene->start == 6633986 && $gene->end == 6649904);
     #}
-    next unless $cluster->get_Genes_by_Set('simgw');
+    next unless @{ $cluster->get_Genes_by_Set('simgw') };
     
     print "\nCluster $count\n" if $VERBOSE;
     print $cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $VERBOSE;

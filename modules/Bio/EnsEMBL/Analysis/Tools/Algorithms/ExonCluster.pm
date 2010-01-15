@@ -79,7 +79,7 @@ sub type {
 sub merge {
   my ($self,$cluster, $ignore_strand) = @_;
 
-  my %transhash =  $cluster->each_transcripts_exons;
+  my %transhash =  %{ $cluster->each_transcripts_exons } ; 
   foreach my $transref (keys %transhash) {
     foreach my $exon (@{$transhash{$transref}}) {
       $self->add_exon($exon,$cluster->transcript_from_ref($transref), $ignore_strand);
@@ -91,7 +91,7 @@ sub merge {
 sub merge_new_exon {
   my ($self,$cluster, $ignore_strand) = @_;
 
-  my %transhash =  $cluster->each_transcripts_exons;
+  my %transhash =  %{ $cluster->each_transcripts_exons };  
   foreach my $transref (keys %transhash) {
     foreach my $exon (@{$transhash{$transref}}) {
       $self->add_exon_if_not_present($exon,$cluster->transcript_from_ref($transref), $ignore_strand);
@@ -276,7 +276,7 @@ sub get_all_Exons_of_EvidenceSet{
 sub get_all_Exons {
   my $self =shift;
   # return array of exons in cluster stored by their id 
-  return values %{$self->{_exonidhash}};
+  return [values %{$self->{_exonidhash}} ] ; 
 }
 
 
@@ -290,7 +290,7 @@ sub contains_transcript {
 sub transcripts_containing_exon {
   my ($self,$exon) = @_;
   my @transcripts;
-  my %transhash =  $self->each_transcripts_exons;
+  my %transhash =  %{ $self->each_transcripts_exons } ; 
  TRANS:
   foreach my $trans (keys %transhash) {
     foreach my $e (@{$transhash{$trans}}) {
@@ -300,7 +300,7 @@ sub transcripts_containing_exon {
       }
     }
   }
-  return @transcripts;
+  return \@transcripts;
 }
 
 
@@ -308,7 +308,7 @@ sub get_transcripts_having_this_Exon_in_ExonCluster {
   my ($self,$exon) = @_;
   # self = exoncluster, exon = exon
   my @transcripts;
-  my %transhash =  $self->each_transcripts_exons;
+  my %transhash =  %{ $self->each_transcripts_exons }  ;
  
   #print "\n\nEC-start: ".$self->start."\tEC-end: " .$self->end . "\n" ;
  TRANS:foreach my $trans (keys %transhash) {
@@ -326,7 +326,7 @@ sub get_transcripts_having_this_Exon_in_ExonCluster {
       }
     }
   }
-  return @transcripts;
+  return \@transcripts;
 }
 
 
@@ -334,7 +334,7 @@ sub get_prediction_transcripts_which_have_exon_in_ExonCluster {
   my ($self,$exon) = @_;
   # self = exoncluster, exon = exon
   my @transcripts;
-  my %transhash =  $self->each_transcripts_exons;
+  my %transhash =  %{ $self->each_transcripts_exons } ; 
  
   #print "\n\nEC-start: ".$self->start."\tEC-end: " .$self->end . "\n" ;
  TRANS:foreach my $trans (keys %transhash) {
@@ -351,7 +351,7 @@ sub get_prediction_transcripts_which_have_exon_in_ExonCluster {
       }
     }
   }
-  return @transcripts;
+  return \@transcripts;
 }
 
 
@@ -361,7 +361,7 @@ sub check_if_ExonCluster_has_est_evidence {
   my @est_bioytpes  = @{ $$ev_sets{'est'} }; 
   my %est_bt ; 
   @est_bt{@est_bioytpes} = () ;  
-  my %transhash =  $self->each_transcripts_exons;
+  my %transhash =  %{ $self->each_transcripts_exons } ; 
   my $cluster_has_real_evidence = 0 ; 
   my @rank_of_trans ; 
 
@@ -388,7 +388,7 @@ sub unique_exon_combinations {
 
   my %unique_combs;
 
-  my %transhash =  $self->each_transcripts_exons;
+  my %transhash =  %{ $self->each_transcripts_exons } ; 
   foreach my $trans (keys %transhash) {
     my $keystr;
     if (!$ignore_strand) {
@@ -405,19 +405,19 @@ sub unique_exon_combinations {
     } 
     push @{$unique_combs{$keystr}{transcripts}}, $self->transcript_from_ref($trans); 
   }
-  return values %unique_combs;
+  return [values %unique_combs]; 
 }
 
 sub each_transcripts_exons {
   my $self = shift;
 
-  return %{$self->{_transcripthash}};
+  return $self->{_transcripthash};
 }
 
 sub _determine_type {
   my ($self, $ignore_strand) = @_;
 
-  my @combs = $self->unique_exon_combinations($ignore_strand);
+  my @combs = @{ $self->unique_exon_combinations($ignore_strand) } ; 
   
   if (scalar(@combs) == 1) {
     $self->{'_type'} = 0;

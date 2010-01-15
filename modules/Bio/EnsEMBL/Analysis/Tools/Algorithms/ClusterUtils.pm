@@ -14,9 +14,9 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 
 @EXPORT=qw( 
             cluster_Genes 
-            get_twoway_cluster 
             get_single_clusters 
             get_twoway_clusters 
+            get_twoway_clustering_genes_both_sets
             get_twoway_clustering_genes_of_set 
             get_oneway_clustering_genes_of_set  
             make_types_hash
@@ -30,7 +30,7 @@ sub make_types_hash {
 
     my (%types_hash,%types_1, %types_2 ) ;
 
-    unless ( $gene_set1_name ) {
+    unless ( $gene_set1_name ) { 
       $gene_set1_name = "gene_biotypes_set1" ;
     }
 
@@ -42,7 +42,12 @@ sub make_types_hash {
     $types_hash{$gene_set1_name} = [ keys %types_1 ]  ;
 
     @types_2{ map { $_->biotype } @{ $gene_set2 } } = 1 ;
-    $types_hash{$gene_set2_name} = [ keys %types_2 ]  ;
+    $types_hash{$gene_set2_name} = [ keys %types_2 ]  ; 
+
+    #my @tmp  = map { $_->biotype } @{ $gene_set2 };  
+    #for ( @tmp ) { 
+    #  print join("\n", $_ ) ; 
+    #}
 
     my @intersection ;
     for ( keys %types_1 ) {
@@ -104,11 +109,9 @@ sub get_single_clusters {
 
    Function  : Out of a given array of GeneCluster objects, only those ones are returned which 
                contain genes of type set1 AND set2. 
-               
 
    Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster 
  
-
 =cut
 
 
@@ -125,24 +128,54 @@ sub get_twoway_clusters {
      }    
    }
    return \@tw; 
-} 
+}  
+
+
+
+sub get_twoway_clustering_genes_of_set {
+   my ($cluster_ref,$target_set_name ) = @_ ;
+
+   check_cluster_ref($cluster_ref) ;
+   my @twoway_clustering_genes ;
+
+   for my $twoway_cluster (@{ get_twoway_clusters($cluster_ref)} ) {
+       push @twoway_clustering_genes, @{ $twoway_cluster->get_Genes_by_Set($target_set_name)};
+   }
+   if ( scalar(@twoway_clustering_genes) == 0 ) {
+     warning (" no gene of set-type \"$target_set_name\" found - i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
+   }
+   return \@twoway_clustering_genes;
+}
 
 
 
 
-sub get_twoway_clustering_genes_of_set {  
+
+=head2  get_all_twoway_clustering_genes_both_sets
+
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
+
+   Function  : Out of a given array of GeneCluster objects, only Bio::EnsEMBL::Gene objects are returned 
+               which are clustering with other set_1 and set_2 genes 
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Gene objects
+
+=cut
+
+
+sub get_twoway_clustering_genes_both_sets {  
    my ($cluster_ref,$target_set_name ) = @_ ;    
 
    check_cluster_ref($cluster_ref) ;  
-   my @twoway_clustering_genes ; 
+   my @twoway_clustering_genes_from_both_sets  ; 
 
    for my $twoway_cluster (@{ get_twoway_clusters($cluster_ref)} ) {   
-       push @twoway_clustering_genes, $twoway_cluster->get_Genes_by_Set($target_set_name);  
+       push @twoway_clustering_genes_from_both_sets, @{ $twoway_cluster->get_Genes_by_Set($target_set_name)} ; 
    }  
-   if ( scalar(@twoway_clustering_genes) == 0 ) {  
+   if ( scalar(@twoway_clustering_genes_from_both_sets) == 0 ) {  
      warning (" no gene of set-type \"$target_set_name\" found - i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
    }  
-   return \@twoway_clustering_genes; 
+   return \@twoway_clustering_genes_from_both_sets; 
 } 
 
 
@@ -165,15 +198,22 @@ sub get_oneway_clustering_genes_of_set {
 
    check_cluster_ref($cluster_ref) ;  
    my @single_clustering_genes ; 
-   my $cnt;
+   my $cnt=0;
    for my $single_type_cluster (@{ get_single_clusters($cluster_ref)} ) {   
-       push @single_clustering_genes, $single_type_cluster->get_Genes_by_Set($target_set_name);  
+       push @single_clustering_genes, @{ $single_type_cluster->get_Genes_by_Set($target_set_name) }; 
       $cnt++; 
    }  
  
    if ( scalar(@single_clustering_genes) == 0 ) {  
      warning (" no gene of set-type \"$target_set_name\" found in $cnt out of " . @$cluster_ref . " clusters }- i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
-   }  
+    my %all_set; 
+    for my $cr ( @$cluster_ref ) {  
+       @all_set{@{ $cr->get_sets_included($cr)}}=1;
+    }  
+    for ( keys %all_set ) {  
+      print "set : $_\n" ; 
+    } 
+   }   
 
    return \@single_clustering_genes; 
 } 
@@ -193,7 +233,6 @@ sub get_sets_included {
 
 sub check_cluster_ref {   
   my ( $cluster_ref ) = @_ ;  
-  print $cluster_ref . "\n" ; 
   unless ( ref($cluster_ref) =~m/ARRAY/ ) { 
      throw "Need to hand over array-ref" ; 
   }  
@@ -210,6 +249,11 @@ sub check_cluster_ref {
    Arg[2]    : ref to hash which builds up an Evidence-Set to biotype-relation :
                $hash{ cdna } = ['cdna_kyoto', 'cdna_other' ] 
                $hash{ simg } = ['simgw_100','simgw_200'] 
+   Arg[3]    : flag if you want to cluster by overlap of protein_coding exons only
+               ( 1 = clusteing my overlap of protein_coding exons only )  
+
+   Arg[4]    : flag if you want to cluster without strand information 
+               ( if you ignore the strand, overlapping genes on diff strand will end up in same cluster )  
 
    Function  : clusters all genes in Arg[1] according to their genomic extent and 
               sets the type according to their sets
@@ -224,6 +268,9 @@ sub check_cluster_ref {
 
 sub cluster_Genes {
   my ($genes, $types_hash, $check_coding_overlap, $ignore_strand) = @_ ;
+
+
+  print "GOT " . scalar(@$genes ) . " GENEES tocluster \n" ; sleep(2) ; 
 
   #
   # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton' 
@@ -241,8 +288,7 @@ sub cluster_Genes {
   return ([],[]) if (!scalar(@$genes));
 
   # sorting of ALL genes
-  my @sorted_genes =
-          sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$genes;
+  my @sorted_genes = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$genes;
 
   print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;  
   # select count(*) , g.biotype from gene g left join transcript t on g.gene_id = t.gene_id where isnull(t.gene_id ) group by g.biotype  ;
@@ -296,7 +342,7 @@ sub cluster_Genes {
 
         # search for a gene in the cluster which overlaps the new gene, 
 
-        foreach my $cluster_gene ($cluster->get_Genes){
+        foreach my $cluster_gene (@{ $cluster->get_Genes} ){
 
         # check if clustered gene overlaps 
 
@@ -344,15 +390,15 @@ sub cluster_Genes {
       my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new($ignore_strand);
       foreach my $set_name (keys %$types_hash) { 
         $newcluster->gene_Types($set_name,$types_hash->{$set_name});
-      } 
-      $newcluster->put_Genes($gene, $ignore_strand);
+      }  
+      $newcluster->put_Genes([$gene], $ignore_strand); # xx
       push(@active_clusters,$newcluster);
 
       #
       # if above was found ONE matching cluster
       #
     } elsif (scalar(@matching_clusters) == 1) {
-      $matching_clusters[0]->put_Genes($gene, $ignore_strand);
+      $matching_clusters[0]->put_Genes([$gene], $ignore_strand);
 
     } else {
       # Merge the matching clusters into a single cluster
@@ -368,7 +414,7 @@ sub cluster_Genes {
         $merged_cluster->put_Genes ($clust->get_Genes, $ignore_strand);
         $match_cluster_hash{$clust} = $clust;
       }
-      $merged_cluster->put_Genes($gene, $ignore_strand);
+      $merged_cluster->put_Genes([$gene], $ignore_strand);
       push @new_clusters,$merged_cluster;
 
       # Add back non matching clusters
@@ -428,6 +474,7 @@ sub _compare_Genes {
   # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
 
   if ($translate) {
+    print "clusteing by overlap of coding exons only\n"; 
     # exon-overlap only on coding exons !
     my $exons1 = get_coding_exons_for_gene($gene1);
     my $exons2 = get_coding_exons_for_gene($gene2);

@@ -6,7 +6,8 @@ use vars   qw(@ISA);
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Argument qw( rearrange ); 
+
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_supporting_evidence Exon_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info print_Transcript_and_Exons);
@@ -176,7 +177,7 @@ sub cluster_Transcripts_by_genomic_range{
   my @cluster_ends;
   
   my $cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new();
-  $cluster->put_Transcripts(0, $transcripts[0]);
+  $cluster->put_Transcripts(0, [$transcripts[0]]);
 
   $cluster_starts[$cluster_count] = $transcripts[0]->start;
   $cluster_ends[$cluster_count] = $transcripts[0]->end;
@@ -188,15 +189,15 @@ sub cluster_Transcripts_by_genomic_range{
     #add the current transcript to the current cluster
     #readjust the coords
     if ( !( $transcripts[$c]->end < $cluster_starts[$cluster_count] ||
-	    $transcripts[$c]->start > $cluster_ends[$cluster_count] ) ){
-      $cluster->put_Transcripts(0, $transcripts[$c] );
+            $transcripts[$c]->start > $cluster_ends[$cluster_count] ) ){
+      $cluster->put_Transcripts(0, [$transcripts[$c]] );
       
       # re-adjust size of cluster
       if ($transcripts[$c]->start < $cluster_starts[$cluster_count]) {
-	$cluster_starts[$cluster_count] = $transcripts[$c]->start;
+        $cluster_starts[$cluster_count] = $transcripts[$c]->start;
       }
       if ( $transcripts[$c]->end > $cluster_ends[$cluster_count]) {
-	$cluster_ends[$cluster_count] =  $transcripts[$c]->end;
+        $cluster_ends[$cluster_count] =  $transcripts[$c]->end;
       }
     }else{
       #here the transcripts don't overlap so a new cluster is created
@@ -204,7 +205,7 @@ sub cluster_Transcripts_by_genomic_range{
       #and setting up new cluster start and ends
       $cluster_count++;
       $cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new();
-      $cluster->put_Transcripts(0, $transcripts[$c] );
+      $cluster->put_Transcripts(0, [$transcripts[$c]] );
       $cluster_starts[$cluster_count] = $transcripts[$c]->start;
       $cluster_ends[$cluster_count]   = $transcripts[$c]->end;
       
@@ -253,7 +254,7 @@ sub prune_Transcripts {
     my $maxexon_number = 0;
     foreach my $t (@transcripts){
       if ( scalar(@{$t->get_all_Exons}) > $maxexon_number ){
-	$maxexon_number = scalar(@{$t->get_all_Exons});
+        $maxexon_number = scalar(@{$t->get_all_Exons});
       }
     }
     if ($maxexon_number == 1){
@@ -264,15 +265,15 @@ sub prune_Transcripts {
       my @es = @{$tran->get_all_Exons};
       my $e  = $es[0];
       foreach my $transcript (@transcripts){
-	# make sure we keep it if it's blessed
-	if(exists $blessed_genetypes{$transcript->type}){
-	  push(@newtran, $transcript);
-	}
-	else{
-	  foreach my $exon ( @{$transcript->get_all_Exons} ){
+        # make sure we keep it if it's blessed
+        if(exists $blessed_genetypes{$transcript->type}){
+          push(@newtran, $transcript);
+        }
+        else{
+          foreach my $exon ( @{$transcript->get_all_Exons} ){
             transfer_supporting_evidence($exon, $e);
-	  }
-	}
+          }
+        }
       }
       next CLUSTER;
     }
@@ -321,92 +322,92 @@ sub prune_Transcripts {
 
     EXONS:
       for ($i = 0; $i < $#exons; $i++) {
-	my $foundpair = 0;
-	my $exon1 = $exons[$i];
-	my $exon2 = $exons[$i+1];
-		
-	# Only count introns > 50 bp as real introns
-	my $intron;
-	if ($exon1->strand == 1) {
-	  $intron = abs($exon2->start - $exon1->end - 1);
-	}
-	else {
-	  $intron = abs($exon1->start - $exon2->end - 1);
-	}
-	
-	if ($intron < $self->max_short_intron_len && 
+        my $foundpair = 0;
+        my $exon1 = $exons[$i];
+        my $exon2 = $exons[$i+1];
+                
+        # Only count introns > 50 bp as real introns
+        my $intron;
+        if ($exon1->strand == 1) {
+          $intron = abs($exon2->start - $exon1->end - 1);
+        }
+        else {
+          $intron = abs($exon1->start - $exon2->end - 1);
+        }
+        
+        if ($intron < $self->max_short_intron_len && 
             $intron > $self->min_short_intron_len ) {
-	  print STDERR "Intron too short: $intron bp. Transcript will be rejected\n";
-	  $foundpair = 1;	
+          print STDERR "Intron too short: $intron bp. Transcript will be rejected\n";
+          $foundpair = 1;       
           # this pair will not be compared with other transcripts
-	} else {
-	  # go through the exon pairs already stored in %pairhash. 
-	  # If there is a pair whose exon1 overlaps this exon1, and 
-	  # whose exon2 overlaps this exon2, then these two transcripts are paired
+        } else {
+          # go through the exon pairs already stored in %pairhash. 
+          # If there is a pair whose exon1 overlaps this exon1, and 
+          # whose exon2 overlaps this exon2, then these two transcripts are paired
           
-	  foreach my $first_exon_id (keys %pairhash) {
+          foreach my $first_exon_id (keys %pairhash) {
             my $first_exon = $exonhash{$first_exon_id};
             foreach my $second_exon_id (keys %{$pairhash{$first_exon}}) {
-	      my $second_exon = $exonhash{$second_exon_id};
+              my $second_exon = $exonhash{$second_exon_id};
               if ( $exon1->overlaps($first_exon) && $exon2->overlaps($second_exon) ) {
-		$foundpair = 1;
+                $foundpair = 1;
                 # eae: this method allows a transcript to be covered by exon pairs
-		# from different transcripts, rejecting possible
-		# splicing variants. Needs rethinking
-		
-		# we put first the exon from the transcript being tested:
-		push( @evidence_pairs, [ $exon1 , $first_exon  ] );
-		push( @evidence_pairs, [ $exon2 , $second_exon ] );
-		
-		transfer_supporting_evidence($exon1, $first_exon);
-		transfer_supporting_evidence($first_exon, $exon1);
-		transfer_supporting_evidence($exon2, $second_exon);
-		transfer_supporting_evidence($second_exon, $exon2);
-	      }
-	    }
-	  }
-	}
-	if ($foundpair == 0) {	
+                # from different transcripts, rejecting possible
+                # splicing variants. Needs rethinking
+                
+                # we put first the exon from the transcript being tested:
+                push( @evidence_pairs, [ $exon1 , $first_exon  ] );
+                push( @evidence_pairs, [ $exon2 , $second_exon ] );
+                
+                transfer_supporting_evidence($exon1, $first_exon);
+                transfer_supporting_evidence($first_exon, $exon1);
+                transfer_supporting_evidence($exon2, $second_exon);
+                transfer_supporting_evidence($second_exon, $exon2);
+              }
+            }
+          }
+        }
+        if ($foundpair == 0) {  
           # ie this exon pair does not overlap with a pair yet found in another 
           # transcript
-	  $found = 0;		
+          $found = 0;           
           # ie currently this transcript is not paired with another
-	  # store the exons so they can be retrieved by id
-	  $exonhash{$exon1} = $exon1;
-	  $exonhash{$exon2} = $exon2;
-	  # store the pairing between these 2 exons
-	  $pairhash{$exon1}{$exon2} = 1;
+          # store the exons so they can be retrieved by id
+          $exonhash{$exon1} = $exon1;
+          $exonhash{$exon2} = $exon2;
+          # store the pairing between these 2 exons
+          $pairhash{$exon1}{$exon2} = 1;
         }
-      }				# end of EXONS
+      }                         # end of EXONS
 
       # decide whether this is a new transcript or whether it has already been seen
       # if it's blessed, we keep it and there's nothing more to do
       if(exists $blessed_genetypes{$tran->type}){
-	push (@newtran, $tran);
+        push (@newtran, $tran);
       }
       elsif ($found == 0) {
-	push(@newtran,$tran);
-	@evidence_pairs = ();
+        push(@newtran,$tran);
+        @evidence_pairs = ();
       } elsif ($found == 1 && $#exons == 0){
-	# save the transcript and check though at the end to see if we can transfer 
+        # save the transcript and check though at the end to see if we can transfer 
         # supporting evidence; if we try it now we may not (yet) have any exons that 
         # overlap in %exonhash
         $single_exon_rejects{$tran} = $tran;
       } else {
         if ( $tran == $transcripts[0] ){
-	  print STDERR "Strange, this is the first transcript in the cluster!\n";
-	}
-		
-	## transfer supporting feature data. We transfer it to exons
-	foreach my $pair ( @evidence_pairs ){
-	  my @pair = @$pair;
-	
-	  # first in the pair is the 'already seen' exon
-	  my $source_exon = $pair[0];
-	  my $target_exon = $pair[1];
-	
+          print STDERR "Strange, this is the first transcript in the cluster!\n";
+        }
+                
+        ## transfer supporting feature data. We transfer it to exons
+        foreach my $pair ( @evidence_pairs ){
+          my @pair = @$pair;
+        
+          # first in the pair is the 'already seen' exon
+          my $source_exon = $pair[0];
+          my $target_exon = $pair[1];
+        
           transfer_supporting_evidence($source_exon, $target_exon)
-	}
+        }
       }
     } # end of this transcript
 
@@ -418,18 +419,18 @@ sub prune_Transcripts {
       my @sf = @{$exons[0]->get_all_supporting_features};
 
       foreach my $stored_exon(values %exonhash){
-   	if($exons[0]->overlaps($stored_exon)){
-	  # note that we could end up with bizarre situations of a single exon 
+        if($exons[0]->overlaps($stored_exon)){
+          # note that we could end up with bizarre situations of a single exon 
           # transcript overlapping two exons in a multi exon transcript, so the 
           # supporting evidence would be transferred in entirety to both exons.
-	  transfer_supporting_evidence($exons[0], $stored_exon);
-	
-	}
+          transfer_supporting_evidence($exons[0], $stored_exon);
+        
+        }
       }
     }
   } #end CLUSTER
   return \@newtran;
-}
+} 
 
 
 sub cluster_into_Genes{
@@ -480,7 +481,7 @@ sub cluster_into_Genes{
       foreach my $clust (@clusters) {
         my $found = 0;
       MATCHING: 
-	foreach my $m_clust (@matching_clusters) {
+        foreach my $m_clust (@matching_clusters) {
           if ($clust == $m_clust) {
             $found = 1;
             last MATCHING;
@@ -577,9 +578,15 @@ sub bin_sort_transcripts{
   my $numbins = 4;
   my $currbin = 1;
 
-  foreach my $orflength(@orflengths){
-    last if $currbin > $numbins;
-    my $percid = ($orflength*100)/$orflengths[0];
+  ORF: foreach my $orflength(@orflengths){
+    last if $currbin > $numbins;  
+
+    if ( $orflengths[0] == 0 ) { 
+        push(@{$orflength_bin{$currbin}}, @{$orfhash{$orflength}});
+       # $orflengths[0] =1 ; 
+       next ORF ; 
+    }
+    my $percid = ($orflength*100)/$orflengths[0]; 
     if ($percid > 100) { 
       $percid = 100; 
     }
@@ -588,7 +595,7 @@ sub bin_sort_transcripts{
 
     if($percid <$currthreshold) { 
       $currbin++; 
-    }
+    } 
     my @tmp = @{$orfhash{$orflength}};
     push(@{$orflength_bin{$currbin}}, @{$orfhash{$orflength}});
   }
@@ -600,7 +607,7 @@ sub bin_sort_transcripts{
     if(!defined $orflength_bin{$currbin} ){
       $currbin++;
       next EXONLENGTH_SORT;
-    }	
+    }   
     my @sorted_transcripts = sort { $sizehash{$b} <=> $sizehash{$a} } 
       @{$orflength_bin{$currbin}};
     push(@transcripts, @sorted_transcripts);
@@ -666,7 +673,7 @@ sub prune_redundant_CDS {
           push @trans_with_utrs, $trans;
         }
       } else {
-        $self->warn("No translation for transcript");
+        warning("No translation for transcript");
       }
     }
     
@@ -837,7 +844,7 @@ sub select_best_transcripts{
     foreach my $transcript( @$sorted_transcripts ){
       $count++;
       unless (exists $blessed_genetypes{$transcript->biotype}){
-	next TRAN if ($count > $self->max_transcript_number);
+        next TRAN if ($count > $self->max_transcript_number);
       }
       push ( @selected_transcripts, $transcript );
     }
@@ -865,27 +872,29 @@ sub prune_Exons{
       my $found;
       #always empty
     UNI:foreach my $uni (@unique_Exons) {
-	if ($uni->start  == $exon->start  &&
-	    $uni->end    == $exon->end    &&
-	    $uni->strand == $exon->strand &&
-	    $uni->phase  == $exon->phase  &&
-	    $uni->end_phase == $exon->end_phase
-	   ) {
-	  $found = $uni;
-	  last UNI;
-	}
+        if ($uni->start  == $exon->start  &&
+            $uni->end    == $exon->end    &&
+            $uni->strand == $exon->strand &&
+            $uni->phase  == $exon->phase  &&
+            $uni->end_phase == $exon->end_phase
+           ) {
+          $found = $uni;
+          last UNI;
+        }
       }
       if (defined($found)) {
-	push(@newexons,$found);
-	if ($exon == $tran->translation->start_Exon){
-	  $tran->translation->start_Exon($found);
-	}
-	if ($exon == $tran->translation->end_Exon){
-	  $tran->translation->end_Exon($found);
-	}
+        push(@newexons,$found); 
+        if ( $tran->translation ) { 
+          if ($exon == $tran->translation->start_Exon){
+            $tran->translation->start_Exon($found);
+          }
+          if ($exon == $tran->translation->end_Exon){
+            $tran->translation->end_Exon($found);
+          } 
+        }
       } else {
-	push(@newexons,$exon);
-	push(@unique_Exons, $exon);
+        push(@newexons,$exon);
+        push(@unique_Exons, $exon);
       }
     }          
     $tran->flush_Exons;

@@ -141,7 +141,7 @@ sub write_output {
   foreach my $genesbuilt ( keys %$genebuilders ) {
     # my $vc = $genebuilders->{$contig}->query;
 
-    @genes = $genebuilders->{$genesbuilt}->final_genes;
+    @genes = @{ $genebuilders->{$genesbuilt}->final_genes } ; 
     print "I have ", scalar(@genes), " genes\n";
 
     return unless ( $#genes >= 0 );
@@ -266,7 +266,7 @@ sub run {
     $genebuilders->{$region}->build_Genes;
 
     print "Genes build now getting the final set\n";
-    @genes = $genebuilders->{$region}->final_genes;
+    @genes = @{ $genebuilders->{$region}->final_genes } ; 
   }
   print "OK now I have my genes, just need to write them\n";
   $self->output(@genes);

@@ -246,21 +246,20 @@ sub intersection{
   my ($self, $cluster, $ignore_strand) = @_;
 
   # if either is empty, return an empty cluster
-  if ( scalar( $self->get_Transcripts) == 0 ){
+  if ( scalar( @{$self->get_Transcripts}) == 0 ){
     warning( "cluster $self is empty, returning an empty TranscriptCluster");
-    my $empty_cluster = Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new();
+    my $empty_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
     return $empty_cluster;
   }
 
-  if ( scalar( $cluster->get_Transcripts ) == 0 ){
+  if ( scalar( @{$cluster->get_Transcripts} ) == 0 ){
     warning( "cluster $cluster is empty, returning an empty TranscriptCluster");
-    # my $empty_cluster = Bio::EnsEMBL::Utils::TranscriptCluster->new();
-    my $empty_cluster =Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new(); 
+    my $empty_cluster= Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
     return $empty_cluster;
   }
 
-  my @transcripts = $self->get_Transcripts;
-  push( @transcripts, $cluster->get_Transcripts);
+  my @transcripts = @{$self->get_Transcripts} ; 
+  push( @transcripts, @{$cluster->get_Transcripts} );
 
   # make an unique list of transcripts, in case they are repeated
   my %list;
@@ -282,23 +281,22 @@ sub intersection{
   }
   else{
     warning( "clusters $self and $cluster do not intersect range-wise, returning an empty TranscriptCluster");
-    my $empty_cluster =Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new(); 
-    #my $empty_cluster = Bio::EnsEMBL::Utils::TranscriptCluster->new();
+    my $empty_cluster =Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new(); 
     return $empty_cluster;
   }
 
-  my $inter_cluster =Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new() ;  
+  my $inter_cluster =Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new(); 
   my @inter_transcripts;
 
   # see whether any transcript falls within this intersection
   foreach my $transcript ( @transcripts ){
     my ($start,$end) = $self->_get_start_end($transcript);
     if ($start >= $inter_start && $end <= $inter_end ){
-       $inter_cluster->put_Transcripts( $ignore_strand, $transcript );
+       $inter_cluster->put_Transcripts( $ignore_strand, [$transcript] );
     }
   }
 
-  if ( scalar( $inter_cluster->get_Transcripts ) == 0 ){
+  if ( scalar( @{$inter_cluster->get_Transcripts} ) == 0 ){
      warning( "cluster $inter_cluster is empty, returning an empty TranscriptCluster");
      return $inter_cluster;
   }
@@ -326,7 +324,7 @@ if ( ref($self) ){
  unshift @clusters, $self;
 }
 
-my $union_cluster = Bio::EnsEMBL::Analysis::Runnable::Condense_EST::TranscriptCluster->new() ;
+my $union_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
 my $union_strand;
 
 foreach my $cluster (@clusters){
@@ -354,7 +352,13 @@ return $union_cluster;
 =cut
 
 sub put_Transcripts {
-  my ($self, $ignore_strand, @new_transcripts)= @_;
+  my ($self, $ignore_strand, $trans_array_ref )= @_; 
+ unless( ref($trans_array_ref)=~m/ARRAY/) {
+    throw("Only take array ref $trans_array_ref!\n") ;
+  }
+
+  my @new_transcripts = @$trans_array_ref ; 
+
   throw("Can't add no transcripts to ".$self) if(!@new_transcripts || !$new_transcripts[0]);
   if ( !$new_transcripts[0]->isa('Bio::EnsEMBL::Transcript') ){
     throw( "Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
@@ -365,9 +369,9 @@ sub put_Transcripts {
   my $max_end   = undef;
   foreach my $transcript (@new_transcripts) {
     if ($transcript->stable_id) {
-        print "got transcript " . $transcript->stable_id . "\n" ;
+        #print "got transcript " . $transcript->stable_id . "\n" ;
     } else {
-        print "got transcript " . $transcript->display_id . "\n";
+        #print "got transcript " . $transcript->display_id . "\n";
     }
     my ($start, $end) = $self->_get_start_end($transcript);
     if (!defined($min_start) || $start < $min_start) {
@@ -587,7 +591,7 @@ sub get_ExonCluster {
       $e->cluster($c) ;
     }
   }
-  return @clusters;
+  return \@clusters;
 }
 
 sub get_ExonCluster_using_all_Exons{
@@ -598,7 +602,7 @@ sub get_ExonCluster_using_all_Exons{
   if (ref($self) eq 'Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster') {
     @transcripts = @{$self->get_Transcripts};
   } elsif (ref($self) eq 'ARRAY' && $self->[0]->isa('Bio::EnsEMBL::Transcript')) {
-    @transcripts = @{$self};
+    throw "get_ExonCluster_using_all_Exons called with not allowed argument !\n" ; 
   } else {
     throw("Not allowed");
   }
@@ -682,7 +686,7 @@ sub get_ExonCluster_using_all_Exons{
     }
   }
 
-  return @clusters;
+  return \@clusters;
 }
 
 
@@ -760,7 +764,7 @@ sub get_coding_ExonCluster{
     }
   }
 
-  return @clusters;
+  return \@clusters;
 }
 
 sub get_IntronClusters {
@@ -818,7 +822,7 @@ sub get_IntronClusters {
     }
   }
 
-  return @clusters;
+  return \@clusters;
 }
 
 sub get_all_Introns_between_translateable_Exons {

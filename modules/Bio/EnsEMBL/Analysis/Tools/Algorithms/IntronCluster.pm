@@ -124,7 +124,7 @@ sub put_Introns {
 =head2
 
   Arg[1]      : None
-  Example     : foreach my $intron ($self->get_Introns) { 
+  Example     : foreach my $intron (@{ $self->get_Introns} ) { 
   Description : Gets all introns in an intron cluster
   Return type : Bio::EnsEMBL::Intron
 

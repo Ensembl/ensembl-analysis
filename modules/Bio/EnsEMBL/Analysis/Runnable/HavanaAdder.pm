@@ -145,31 +145,31 @@ sub build_Genes{
   # get all genes of type defined in gene_types() on this slice
   $self->get_Genes;
 
-  my @ensembl_coding_transcripts = $self->combined_Transcripts;
-  my @ensembl_processed_transcripts = $self->combined_Processed_Transcripts;
+  my @ensembl_coding_transcripts = @{$self->combined_Transcripts };
+  my @ensembl_processed_transcripts = @{ $self->combined_Processed_Transcripts } ; 
   my @ensembl_pseudo_transcripts = $self->combined_PseudoTranscripts;
 
-  my @havana_coding_genes = $self->havana_Coding_Genes;
-  my @havana_processed_transcript_genes = $self->havana_Processed_Transcript_Genes;
-  my @havana_pseudogene_Genes = $self->havana_Pseudogene_Genes;
+  my @havana_coding_genes = @{$self->havana_Coding_Genes};
+  my @havana_processed_transcript_genes = @{$self->havana_Processed_Transcript_Genes};
+  my @havana_pseudogene_Genes = @{ $self->havana_Pseudogene_Genes };
 
 
   # do a preliminary clustering
-  my @preliminary_coding_genes = $self->cluster_into_Genes(\@ensembl_coding_transcripts,\@havana_coding_genes);
+  my @preliminary_coding_genes = @{$self->cluster_into_Genes(\@ensembl_coding_transcripts,\@havana_coding_genes)};
 
   print "Coding gene clusters: ",scalar(@preliminary_coding_genes),"\n";
 
-  my @preliminary_processed_genes = $self->cluster_into_PseudoGenes(\@ensembl_processed_transcripts,\@havana_processed_transcript_genes);
+  my @preliminary_processed_genes = @{$self->cluster_into_PseudoGenes(\@ensembl_processed_transcripts,\@havana_processed_transcript_genes)};
 
   print "Processed transcript genes clusters: ",scalar(@preliminary_processed_genes),"\n";
 
-  my @preliminary_pseudo_genes = $self->cluster_into_PseudoGenes(\@ensembl_pseudo_transcripts,\@havana_pseudogene_Genes);
+  my @preliminary_pseudo_genes = @{$self->cluster_into_PseudoGenes(\@ensembl_pseudo_transcripts,\@havana_pseudogene_Genes)};
 
   print "Pseudogene clusters: ",scalar(@preliminary_pseudo_genes),"\n";
 
   push (@preliminary_pseudo_genes,@preliminary_processed_genes);
 
-  my @clustered_gene_set = $self->combine_gene_clusters(\@preliminary_coding_genes,\@preliminary_pseudo_genes);
+  my @clustered_gene_set = @{$self->combine_gene_clusters(\@preliminary_coding_genes,\@preliminary_pseudo_genes)};
 
   print "Total clusters: ",scalar(@clustered_gene_set),"\n";
 
@@ -177,13 +177,13 @@ sub build_Genes{
   $self->_merge_redundant_transcripts(\@clustered_gene_set);
 
   # make shared exons unique objects
-  my @genes =  $self->_make_shared_exons_unique( @clustered_gene_set );
+  my @genes =  @{ $self->_make_shared_exons_unique( \@clustered_gene_set  ) };
  
   print STDERR scalar(@genes)." genes built\n";
   
   $self->update_biotypes(@genes);
 
-  $self->final_genes( @genes );
+  $self->final_genes( \@genes );
 }
 
 
@@ -1006,9 +1006,9 @@ sub _remove_transcript_from_gene {
 ############################################################
 
 sub _make_shared_exons_unique{
-  my ( $self, @genes ) = @_;
+  my ( $self, $genes ) = @_;
   my @pruned_genes;
-  foreach my $gene ( @genes ){
+  foreach my $gene ( @$genes ){
  #   foreach my $entry(@{ $gene->get_all_DBEntries}){
  #    print "ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
  #   }
@@ -1023,7 +1023,7 @@ sub _make_shared_exons_unique{
 
     push( @pruned_genes, $new_gene );
   }
-  return @pruned_genes;
+  return \@pruned_genes;
 }
 
 ############################################################
@@ -1149,9 +1149,9 @@ sub get_Genes {
   print STDERR "Retrieved ".scalar(@hpseudogenes)." pseudogenes of types: ".join(", ",@{$GB_HAVANA_PSEUDO_GENETYPE})."\n";
 
   # We want to keep the HAVANA genes as they are as they asked us to keep their gene clustering untouched
-  $self->havana_Coding_Genes(@hgenes);
-  $self->havana_Processed_Transcript_Genes(@hprocessedgenes);
-  $self->havana_Pseudogene_Genes(@hpseudogenes);
+  $self->havana_Coding_Genes(\@hgenes);
+  $self->havana_Processed_Transcript_Genes(\@hprocessedgenes);
+  $self->havana_Pseudogene_Genes(\@hpseudogenes);
 
   #push(@genes, @hgenes);
   #push(@processedgenes, @hprocessedgenes);
@@ -1159,25 +1159,25 @@ sub get_Genes {
 
   # We processed the ensembl genes to remove any trace of previous transcript merges in case 
   # you are running a merge update instead of a fresh clean merge
-  @transcripts = $self->check_merge_transcript_status(@genes);
-  @processedtranscripts = $self->check_merge_transcript_status(@processedgenes);
-  @pseudotranscripts = $self->check_merge_transcript_status(@pseudogenes);
+  @transcripts = @{ $self->check_merge_transcript_status(\@genes) } ; 
+  @processedtranscripts = @{ $self->check_merge_transcript_status(\@processedgenes) } ;
+  @pseudotranscripts = @{ $self->check_merge_transcript_status(\@pseudogenes) } ;
 
   # Join all the gene set together
   
   print STDERR "Finished fetching genes\n";
-  $self->combined_Transcripts(@transcripts);
-  $self->combined_Processed_Transcripts(@processedtranscripts);
-  $self->combined_PseudoTranscripts(@pseudotranscripts);
+  $self->combined_Transcripts(\@transcripts);
+  $self->combined_Processed_Transcripts(\@processedtranscripts);
+  $self->combined_PseudoTranscripts(\@pseudotranscripts);
 }
 
 sub check_merge_transcript_status{
-  my ($self, @genes) = @_;
+  my ($self, $genes) = @_;
 
   print "Checking premerge gene status\n";
 
   my @transcripts;
-  foreach my $gene(@genes){
+  foreach my $gene(@$genes){
   TRANSCRIPT:
     foreach my $tran (@{$gene->get_all_Transcripts}) {
       #First we remove HAVANA only transcripts that are present in merged genes
@@ -1217,7 +1217,7 @@ sub check_merge_transcript_status{
       }
     }
   }
-  return @transcripts;
+  return \@transcripts;
 }
 
 sub check_transcript_in_discarded_db{
@@ -1299,12 +1299,12 @@ sub flush_xref{
 =cut
 
 sub cluster_Transcripts {
-  my ($self,@transcripts) = @_;
+  my ($self,$transcripts) = @_;
  
   my @forward_transcripts;
   my @reverse_transcripts;
  
-  foreach my $transcript (@transcripts){
+  foreach my $transcript (@$transcripts){
     my @exons = @{ $transcript->get_all_Exons };
     if ( $exons[0]->strand == 1 ){
       push( @forward_transcripts, $transcript );
@@ -1318,10 +1318,10 @@ sub cluster_Transcripts {
   my @reverse_clusters;
   
   if ( @forward_transcripts ){
-    @forward_clusters = $self->_cluster_Transcripts_by_genomic_range( @forward_transcripts );
+    @forward_clusters = @{$self->_cluster_Transcripts_by_genomic_range( \@forward_transcripts )};
   }
   if ( @reverse_transcripts ){
-    @reverse_clusters = $self->_cluster_Transcripts_by_genomic_range( @reverse_transcripts );
+    @reverse_clusters = @{$self->_cluster_Transcripts_by_genomic_range( \@reverse_transcripts )};
   }
   my @clusters;
   if ( @forward_clusters ){
@@ -1330,7 +1330,7 @@ sub cluster_Transcripts {
   if ( @reverse_clusters ){
     push( @clusters, @reverse_clusters);
   }
-  return @clusters;
+  return \@clusters;
 }
 
 ############################################################
@@ -1344,10 +1344,10 @@ sub cluster_Transcripts {
 =cut
 
 sub _cluster_Transcripts_by_genomic_range{
-  my ($self,@mytranscripts) = @_;
+  my ($self,$mytranscripts) = @_;
   # first sort the transcripts
 
-  my @transcripts = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @mytranscripts;
+  my @transcripts = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @$mytranscripts;
 
 
   # create a new cluster 
@@ -1358,7 +1358,7 @@ sub _cluster_Transcripts_by_genomic_range{
   my @clusters;
   
   # put the first transcript into these cluster
-  $cluster->put_Transcripts( $transcripts[0] );
+  $cluster->put_Transcripts( [$transcripts[0] ] );
 
   $cluster_starts[$count] = $transcripts[0]->start;
   $cluster_ends[$count]   = $transcripts[0]->end;
@@ -1376,7 +1376,7 @@ sub _cluster_Transcripts_by_genomic_range{
     
     if ( !( $transcripts[$c]->end < $cluster_starts[$count] ||
 	    $transcripts[$c]->start > $cluster_ends[$count] ) ){
-      $cluster->put_Transcripts( $transcripts[$c] );
+      $cluster->put_Transcripts( [$transcripts[$c]] );
       
       # re-adjust size of cluster
       if ($transcripts[$c]->start < $cluster_starts[$count]) {
@@ -1390,7 +1390,7 @@ sub _cluster_Transcripts_by_genomic_range{
       # else, create a new cluster with this feature
       $count++;
       $cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new();
-      $cluster->put_Transcripts( $transcripts[$c] );
+      $cluster->put_Transcripts( [$transcripts[$c]] );
       $cluster_starts[$count] = $transcripts[$c]->start;
       $cluster_ends[$count]   = $transcripts[$c]->end;
       
@@ -1398,14 +1398,14 @@ sub _cluster_Transcripts_by_genomic_range{
       push(@clusters,$cluster);
     }
   }
-  return @clusters;
+  return \@clusters;
 }
 
 ############################################################
 
 =head2 cluster_into_Genes
 
-    Example :   my @genes = $self->cluster_into_Genes(@transcripts);
+    Example :   my @genes = @{ $self->cluster_into_Genes(@transcripts) };
 Description :   it clusters ensembl transcripts and havana genes according to exon overlap.
                 It will take care of difficult cases like transcripts within introns.
                 It also unify exons that are shared among transcripts.
@@ -1513,7 +1513,7 @@ sub cluster_into_Genes{
       # Check how many havana genes are in the cluster
       CLUST:foreach my $clust (@matching_clusters) {
         foreach my $clust_trans (@{$clust}){
-          #print "Cluster ", $clust_trans,"\n";
+          warning("using hardcoded biotype for havana-genes ! : \"havana\"" );
           if ($clust_trans->biotype =~ /havana/){
             my $hav_gene_counter++;
             next CLUST;
@@ -1630,14 +1630,14 @@ sub cluster_into_Genes{
     push( @genes, $gene );
   }
 
-  return @genes;
+  return \@genes;
 }
 
 
 ############################################################
 =head2 cluster_into_PseudoGenes
 
-    Example :   my @genes = $self->cluster_into_Genes(@transcripts);
+    Example :   my @genes = @{ $self->cluster_into_Genes(@transcripts) };
 Description :   it clusters transcripts into genes according to exon overlap.
                 It will take care of difficult cases like transcripts within introns.
                 It also unify exons that are shared among transcripts.
@@ -1817,8 +1817,10 @@ sub cluster_into_PseudoGenes {
     #print "THIS IS THE GENE BIOTYPE: ",$gene->biotype,"\n";
     push( @genes, $gene );
   }
-  return @genes;
-}
+  return \@genes;
+} 
+
+
 
 sub combine_gene_clusters {
   my ($self,$preliminary_coding_genes,$preliminary_pseudo_genes) = @_;
@@ -1901,7 +1903,7 @@ sub combine_gene_clusters {
 
   push(@final_clustered_genes, @unclestered_pseudos);
 
-  return @final_clustered_genes; 
+  return \@final_clustered_genes; 
 }
 
 sub get_coding_length {
@@ -1920,7 +1922,6 @@ sub get_coding_length {
 }
 
 sub gene_overlap_percent {
-
   my ($self, $gene,$transcript) = @_;
   
   print "GENE CLUST: ",$gene,"\n";
@@ -2228,7 +2229,7 @@ sub prune_features {
 	    }
 	}
     }
-    return @pruned;
+    return \@pruned;
 }
 ############################################################
 
@@ -2444,8 +2445,9 @@ sub discarded_db{
 ############################################################
 
 sub havana_Coding_Genes {
-  my ($self,@genes) = @_;
-  
+  my ($self,$g ) = @_; 
+  my @genes = @$g;  
+
   if (!defined($self->{_havana_Coding_Genes})) {
     $self->{_havana_Coding_Genes} = [];
   }
@@ -2454,11 +2456,12 @@ sub havana_Coding_Genes {
     push(@{$self->{_havana_Coding_Genes}},@genes);
   }
   
-  return @{$self->{_havana_Coding_Genes}};
+  return $self->{_havana_Coding_Genes};
 }
 
 sub havana_Processed_Transcript_Genes {
-  my ($self,@genes) = @_;
+  my ($self,$g ) = @_; 
+  my @genes = @$g;  
   
   if (!defined($self->{_havana_Processed_Transcript_Genes})) {
     $self->{_havana_Processed_Transcript_Genes} = [];
@@ -2468,11 +2471,12 @@ sub havana_Processed_Transcript_Genes {
     push(@{$self->{_havana_Processed_Transcript_Genes}},@genes);
   }
 
-  return @{$self->{_havana_Processed_Transcript_Genes}};
+  return $self->{_havana_Processed_Transcript_Genes};
 }
 
 sub havana_Pseudogene_Genes {
-  my ($self,@genes) = @_;
+  my ($self,$g ) = @_; 
+  my @genes = @$g;  
   
   if (!defined($self->{_havana_Pseudogene_Genes})) {
     $self->{_havana_Pseudogene_Genes} = [];
@@ -2482,12 +2486,13 @@ sub havana_Pseudogene_Genes {
     push(@{$self->{_havana_Pseudogene_Genes}},@genes);
   }
   
-  return @{$self->{_havana_Pseudogene_Genes}};
+  return $self->{_havana_Pseudogene_Genes};
 }
 
 sub combined_Transcripts {
-  my ($self,@transcripts) = @_;
-  
+  my ($self,$t) = @_;
+  my @transcripts = @$t ;  
+
   if (!defined($self->{_coding_transcripts})) {
     $self->{_coding_transcripts} = [];
   }
@@ -2496,11 +2501,12 @@ sub combined_Transcripts {
     push(@{$self->{_coding_transcripts}},@transcripts);
   }
   
-  return @{$self->{_coding_transcripts}};
+  return $self->{_coding_transcripts};
 }
 
 sub combined_Processed_Transcripts {
-  my ($self,@transcripts) = @_;
+  my ($self,$t) = @_;
+  my @transcripts = @$t ;  
   
   if (!defined($self->{_processed_transcripts})) {
     $self->{_processed_transcripts} = [];
@@ -2510,12 +2516,13 @@ sub combined_Processed_Transcripts {
     push(@{$self->{_processed_transcripts}},@transcripts);
   }
   
-  return @{$self->{_processed_transcripts}};
+  return $self->{_processed_transcripts};
 }
 
 
-sub combined_PseudoTranscripts {
-  my ($self,@pseudotranscripts) = @_;
+sub combined_PseudoTranscripts { 
+  my ($self,$pt) = @_; 
+  my @pseudotranscripts = @$pt ; 
   
   if (!defined($self->{_pseudo_transcripts})) {
     $self->{_pseudo_transcripts} = [];
@@ -2525,7 +2532,7 @@ sub combined_PseudoTranscripts {
     push(@{$self->{_pseudo_transcripts}},@pseudotranscripts);
   }
   
-  return @{$self->{_pseudo_transcripts}};
+  return $self->{_pseudo_transcripts};
 }
 
 
@@ -2536,12 +2543,13 @@ sub combined_PseudoTranscripts {
 =cut
 
 sub final_genes{
-  my ($self, @genes) = @_;
+  my ($self, $g) = @_; 
+  my @genes = @$g ; 
   
   if ( @genes ){
     push( @{$self->{_final_genes}}, @genes );
   }
-  return @{$self->{_final_genes}};
+  return $self->{_final_genes};
 }
 
 ############################################################
@@ -2560,21 +2568,22 @@ sub gene_types {
      push(@{$self->{_gene_types}},$type);
   }
 
-  return @{$self->{_gene_types}};
+  return $self->{_gene_types};
 }
 
 ############################################################
 
 sub features {
-  my ($self,@features) = @_;
-  
+  my ($self,$f) = @_;
+  my @features = @$f ;   
+
   if (!defined($self->{_feature})) {
     $self->{_feature} = [];
   }
   if ( scalar @features ) {
     push(@{$self->{_feature}},@features);
   }
-  return @{$self->{_feature}};
+  return $self->{_feature};
 }
 
 ############################################################

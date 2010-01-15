@@ -152,7 +152,7 @@ sub run {
   # loop thru non-clusters (single genes)
   # # #
   foreach my $non_cluster ( @$non_clusters ) {
-    my @genes = $non_cluster->get_Genes();
+    my @genes = @{ $non_cluster->get_Genes() };
     GENE: foreach my $gene (@genes){
       # need to check that they have a tln
       my ($gene_ok, $protein) = check_gene($self, $gene);
@@ -179,7 +179,7 @@ sub run {
     if (scalar @inc_sets >= 2) {
       push @twoways, $cluster;
     } elsif (scalar @inc_sets == 1) { 
-      GENE: foreach my $gene ($cluster->get_Genes_by_Set($inc_sets[0])) {
+      GENE: foreach my $gene (@{ $cluster->get_Genes_by_Set($inc_sets[0]) }) {
         # need to check that they have a tln
         my ($gene_ok, $protein) = check_gene($self, $gene);
         if (!$gene_ok) {
@@ -570,7 +570,7 @@ sub cluster_by_protein {
   # for this method, we want to use the actual protein
   # so, for cdna2genome, we use the protein id (which
   # is the second accession in the header line)
-  GENE: foreach my $gene ($cluster->get_Genes()) {
+  GENE: foreach my $gene (@{ $cluster->get_Genes()} ) {
     my ($gene_ok, $protein) = check_gene($self, $gene);
     if (!$gene_ok) {
       warning("Gene check failed for gene ".$gene->dbID." (in cluster with 2 or more Sets) - removed from analysis");
@@ -624,9 +624,7 @@ sub get_alternate_transcripts {
   my %alternates;
   my %seen;
 
-  #print "\n\nStarting new cluster with ".scalar($cluster->get_Genes())." genes:\n";
-  
-  GENE: foreach my $gene ($cluster->get_Genes()) {
+  GENE: foreach my $gene (@{ $cluster->get_Genes() }) {
     #print "Doing GENE ".$gene->dbID."...";
     if (exists $seen{$gene->dbID}) {
       #print "Already seen. Skipping...\n";
@@ -646,7 +644,7 @@ sub get_alternate_transcripts {
     $seen{$gene->dbID} = 1;
     my $exon_string = make_exon_string(@{$gene->get_all_Transcripts}[0]);
 
-    INNER: foreach my $inner_gene ($cluster->get_Genes()) {
+    INNER: foreach my $inner_gene (@{ $cluster->get_Genes() }) {
       #print "Doing INNER gene ".$inner_gene->dbID."...";
       if (exists $seen{$inner_gene->dbID}) {
         #print "Already seen. Skipping...\n";
