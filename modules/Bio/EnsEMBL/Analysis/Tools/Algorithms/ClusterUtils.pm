@@ -21,7 +21,6 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
             get_oneway_clustering_genes_of_set  
             make_types_hash
             make_types_hash_with_genes
-            multitrans_to_singletrans_gene
           ) ; 
 
 
@@ -535,25 +534,4 @@ sub get_coding_exons_for_gene {
   return \@coding; 
 }
 
-sub multitrans_to_singletrans_gene {
-  my ($multitrans_genes) = @_;
-
-  my @singletrans_genes;
-
-  foreach my $gene (@$multitrans_genes) {
-    foreach my $trans (@{$gene->get_all_Transcripts}) {
-      my $newgene = Bio::EnsEMBL::Gene->new();
-
-      $newgene->add_Transcript($trans);
-      $newgene->biotype($gene->biotype);
-      #$newgene->biotype($outtype);
-      #$newgene->analysis(get_Analysis_by_type($outdb,$outlogic));
-      push @singletrans_genes,$newgene;
-    }
-  }
-
-
-  return \@singletrans_genes;
-  }
-                    
 
