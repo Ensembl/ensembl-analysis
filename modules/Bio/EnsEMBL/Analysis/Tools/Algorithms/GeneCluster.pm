@@ -92,10 +92,9 @@ sub put_Genes {
   unless( ref($genes)=~m/ARRAY/) {   
     throw("Only take array ref !\n") ; 
   } 
-my @new_genes = @$genes ;
 
  GENE:
-  foreach my $gene (@new_genes){
+  foreach my $gene (@$genes){
     throw("undef for gene. Cannot put_Genes") if (!$gene);
 
     my $gene_biotype = $gene->biotype;
@@ -595,14 +594,14 @@ sub get_TranscriptCluster {
         $trans->biotype($gene->biotype) ;
         #$trans->sort;
         print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
-        $tc->put_Transcripts($ignore_strand, [$trans]);
+        $tc->put_Transcripts( [$trans], $ignore_strand );
         $tc->register_biotype($gene->biotype) ;
       }
     } else {
       # is not a Bio::EnsEMBL::Gene  
       warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
       $gene->sort ;
-      $tc->put_Transcripts($ignore_strand, [$gene]) ;
+      $tc->put_Transcripts( [$gene], $ignore_strand) ;
     }
   }
   return $tc;
@@ -652,14 +651,14 @@ sub get_coding_TranscriptCluster {
         print "Adding transcript " . $trans->stable_id . "\n" if $self->{v};
         # keep the type sets
         $tc->{'_types_sets'} = $self->{'_types_sets'};
-        $tc->put_Transcripts($ignore_strand, [$trans]);
+        $tc->put_Transcripts( [$trans], $ignore_strand );
         $tc->register_biotype($gene->biotype) ;
       }
     } else {
       # is not a Bio::EnsEMBL::Gene  
       warning("Not having a Bio::EnsEMBL::Gene-object : clustering $gene\n") ;
       $gene->sort ;
-      $tc->put_Transcripts($ignore_strand, [$gene]) ;
+      $tc->put_Transcripts( [$gene], $ignore_strand ) ;
     }
   }
   return $tc;

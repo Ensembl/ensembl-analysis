@@ -292,7 +292,7 @@ sub intersection{
   foreach my $transcript ( @transcripts ){
     my ($start,$end) = $self->_get_start_end($transcript);
     if ($start >= $inter_start && $end <= $inter_end ){
-       $inter_cluster->put_Transcripts( $ignore_strand, [$transcript] );
+       $inter_cluster->put_Transcripts( [$transcript],  $ignore_strand );
     }
   }
 
@@ -334,7 +334,7 @@ foreach my $cluster (@clusters){
  unless ( $cluster->strand == $union_strand){
   warning("You're making the union of clusters in opposite strands");
  }
- $union_cluster->put_Transcripts($ignore_strand, $cluster->get_Transcripts);
+ $union_cluster->put_Transcripts( $cluster->get_Transcripts, $ignore_strand );
 }
 
 return $union_cluster;
@@ -352,7 +352,7 @@ return $union_cluster;
 =cut
 
 sub put_Transcripts {
-  my ($self, $ignore_strand, $trans_array_ref )= @_; 
+  my ($self, $trans_array_ref, $ignore_strand )= @_; 
  unless( ref($trans_array_ref)=~m/ARRAY/) {
     throw("Only take array ref $trans_array_ref!\n") ;
   }
