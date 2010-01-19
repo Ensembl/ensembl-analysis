@@ -81,9 +81,9 @@ sub run {
     my @tmp;
     my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
     foreach my $cluster(@$clusters, @$non_clusters){
-      my @genes = $cluster->get_Genes;
-      @genes = @{$self->filter_genes(\@genes)};
-      push(@tmp, @genes);
+      my $genes = $cluster->get_Genes;
+      $genes = @{$self->filter_genes(@$genes)};
+      push(@tmp, $genes);
     }
     @allgenes = @tmp;
   }
@@ -102,7 +102,7 @@ sub run {
   foreach my $cluster (@$clusters){
     my $simgw;
     # cluster has to contain at least one similarity gene to be worth continuing with
-    my @genes = $cluster->get_Genes;
+    my $genes = $cluster->get_Genes;
     #foreach my $gene(@genes){
      # my $new_gene = $gene->transform("toplevel");
      # print Gene_info($new_gene)."\n"; #if($gene->start == 6633986 && $gene->end == 6649904);
@@ -137,11 +137,11 @@ sub run {
 
 sub collapse_cluster{
   my ($self,$cluster,$genes_by_strand) = @_;
-  my @genes = $cluster->get_Genes;
+  my $genes = $cluster->get_Genes;
   my @exon_clusters = @{$cluster->get_exon_clustering_from_gene_cluster};
   my $collapsed_cluster = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster->new();
 
-  foreach my $gene (@genes){
+  foreach my $gene (@$genes){
     foreach my $trans (@{$gene->get_all_Transcripts}){
       my @exons = sort {$a->start <=> $b->start } @{$trans->get_all_Exons};
       for (my $i =0 ; $i < scalar(@exons) ; $i++){
@@ -173,7 +173,7 @@ sub collapse_cluster{
   # once we have added all of them into a nice non-redundant set
   # we need to assign them a score
   foreach my $exon (@{$collapsed_cluster->get_all_exons}){
-    my $score = $self->score($collapsed_cluster,$exon,\@genes,'exon');
+    my $score = $self->score($collapsed_cluster,$exon,$genes,'exon');
     $collapsed_cluster->exon_score($exon,$score);
   }
 
@@ -612,8 +612,8 @@ sub weight_scores_by_cdna_length {
 sub add_single_exon_genes {
   my ($self,$cluster,$collapsed_cluster) = @_;
   my @single_exon_genes;
-  my @genes = $cluster->get_Genes;
-  foreach my $gene (@genes){
+  my $genes = $cluster->get_Genes;
+  foreach my $gene (@$genes){
     next unless (scalar(@{$gene->get_all_Exons}) == 1);
     my $trans = $gene->get_all_Transcripts->[0];
     next unless $trans->ev_set eq 'simgw';
@@ -643,12 +643,12 @@ sub add_single_exon_genes {
 
 sub make_transcripts {
   my ($self,$cluster,$collapsed_cluster) = @_;
-  my @genes = $cluster->get_Genes;
+  my $genes = $cluster->get_Genes;
   my @est_genes;
   my @similarity_genes;
   my $longest_similarity = 0;
   my @all_transcripts;
-  foreach my $gene (@genes){ 
+  foreach my $gene (@$genes){ 
     push @est_genes, $gene if  $gene->get_all_Transcripts->[0]->ev_set eq 'est';
     push @similarity_genes, $gene if $gene->get_all_Transcripts->[0]->ev_set  eq 'simgw';
   }
