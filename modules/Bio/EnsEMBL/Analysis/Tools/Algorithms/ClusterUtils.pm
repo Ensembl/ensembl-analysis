@@ -21,6 +21,7 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
             get_oneway_clustering_genes_of_set  
             make_types_hash
             make_types_hash_with_genes
+            multitrans_to_singletrans_gene
           ) ; 
 
 
@@ -250,7 +251,7 @@ sub check_cluster_ref {
                $hash{ cdna } = ['cdna_kyoto', 'cdna_other' ] 
                $hash{ simg } = ['simgw_100','simgw_200'] 
    Arg[3]    : flag if you want to cluster by overlap of protein_coding exons only
-               ( 1 = clusteing my overlap of protein_coding exons only )  
+               ( 1 = clustering my overlap of protein_coding exons only )  
 
    Arg[4]    : flag if you want to cluster without strand information 
                ( if you ignore the strand, overlapping genes on diff strand will end up in same cluster )  
@@ -270,7 +271,7 @@ sub cluster_Genes {
   my ($genes, $types_hash, $check_coding_overlap, $ignore_strand) = @_ ;
 
 
-  print "GOT " . scalar(@$genes ) . " GENEES tocluster \n" ; sleep(2) ; 
+  print "GOT " . scalar(@$genes ) . " GENES tocluster \n" ; sleep(2) ; 
 
   #
   # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton' 
@@ -474,7 +475,7 @@ sub _compare_Genes {
   # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
 
   if ($translate) {
-    print "clusteing by overlap of coding exons only\n"; 
+    print "clustering by overlap of coding exons only\n"; 
     # exon-overlap only on coding exons !
     my $exons1 = get_coding_exons_for_gene($gene1);
     my $exons2 = get_coding_exons_for_gene($gene2);
@@ -533,4 +534,26 @@ sub get_coding_exons_for_gene {
 
   return \@coding; 
 }
+
+sub multitrans_to_singletrans_gene {
+  my ($multitrans_genes) = @_;
+
+  my @singletrans_genes;
+
+  foreach my $gene (@$multitrans_genes) {
+    foreach my $trans (@{$gene->get_all_Transcripts}) {
+      my $newgene = Bio::EnsEMBL::Gene->new();
+
+      $newgene->add_Transcript($trans);
+      $newgene->biotype($gene->biotype);
+      #$newgene->biotype($outtype);
+      #$newgene->analysis(get_Analysis_by_type($outdb,$outlogic));
+      push @singletrans_genes,$newgene;
+    }
+  }
+
+
+  return \@singletrans_genes;
+  }
+                    
 
