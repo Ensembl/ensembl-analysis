@@ -66,45 +66,45 @@ sub strand{
 }
 
 sub type {
-  my ($self,$ignore_strand, @args) = @_;
+  my ($self,@args) = @_;
   if (@args){
     $self->throw("type is a get only method");
   }
   if (!defined($self->{'_type'})) {
-    $self->_determine_type($ignore_strand);
+    $self->_determine_type;
   }
   return $self->{'_type'};
 }
 
 sub merge {
-  my ($self,$cluster, $ignore_strand) = @_;
+  my ($self,$cluster) = @_;
 
   my %transhash =  $cluster->each_transcripts_exons;
   foreach my $transref (keys %transhash) {
     foreach my $exon (@{$transhash{$transref}}) {
-      $self->add_exon($exon,$cluster->transcript_from_ref($transref), $ignore_strand);
+      $self->add_exon($exon,$cluster->transcript_from_ref($transref));
     }
   }
   $self->{'_type'} = undef;
 }
 
 sub merge_new_exon {
-  my ($self,$cluster, $ignore_strand) = @_;
+  my ($self,$cluster) = @_;
 
   my %transhash =  $cluster->each_transcripts_exons;
   foreach my $transref (keys %transhash) {
     foreach my $exon (@{$transhash{$transref}}) {
-      $self->add_exon_if_not_present($exon,$cluster->transcript_from_ref($transref), $ignore_strand);
+      $self->add_exon_if_not_present($exon,$cluster->transcript_from_ref($transref));
     }
   }
   $self->{'_type'} = undef;
 }
 
 sub add_exon {
-  my ($self,$exon,$transcript, $ignore_strand) = @_;
+  my ($self,$exon,$transcript) = @_;
 
   if (!$self->contains_exon($exon)) {
-    $self->_add_new_exon($exon, $ignore_strand);
+    $self->_add_new_exon($exon);
     # print "Added exon " . $exon->dbID . "\n";
   }
   $self->_add_transcript_reference($exon,$transcript);
@@ -120,10 +120,10 @@ sub add_exon {
 # calls contains_exon_with_dbid_and_dbname
 # instead of contains_exon
 sub add_exon_if_not_present {
-  my ($self,$exon,$transcript, $ignore_strand) = @_;
+  my ($self,$exon,$transcript) = @_;
 
   if (!$self->contains_exon_with_dbid_and_dbname($exon)) {
-    $self->_add_new_exon($exon,$ignore_strand);
+    $self->_add_new_exon($exon);
     # print "Added exon " . $exon->dbID . "\n";
   } else {
     # do not return here or you will not add
@@ -139,7 +139,7 @@ sub add_exon_if_not_present {
 }
 
 sub _add_new_exon {
-  my ($self,$exon, $ignore_strand) = @_;
+  my ($self,$exon) = @_;
 
   if (!defined($self->start) || $exon->start < $self->start) {
     $self->start($exon->start);
@@ -147,13 +147,11 @@ sub _add_new_exon {
   if (!defined($self->end) || $exon->end > $self->end) {
     $self->end($exon->end);
   }
-  if (!$ignore_strand) {
-    if (!defined($self->strand)) {
-      $self->strand($exon->strand);
-    } elsif ($self->strand != $exon->strand) {
-    #  confess("Trying to add exon with strand ". $exon->strand . " to cluster with strand " . $self->strand);
-      carp("Trying to add exon with strand ". $exon->strand . " to cluster with strand " . $self->strand);
-    }
+  if (!defined($self->strand)) {
+    $self->strand($exon->strand);
+  } elsif ($self->strand != $exon->strand) {
+  #  confess("Trying to add exon with strand ". $exon->strand . " to cluster with strand " . $self->strand);
+    carp("Trying to add exon with strand ". $exon->strand . " to cluster with strand " . $self->strand);
   }
   $self->{_exonhash}{"$exon"} = $self->{_internal_index}++;
   #$self->{_exonidhash}{$exon->stable_id} = $exon;
@@ -384,19 +382,14 @@ sub check_if_ExonCluster_has_est_evidence {
 
 sub unique_exon_combinations {
   my $self = shift;
-  my $ignore_strand = shift;
 
   my %unique_combs;
 
   my %transhash =  $self->each_transcripts_exons;
   foreach my $trans (keys %transhash) {
     my $keystr;
-    if (!$ignore_strand) {
-      @{$transhash{$trans}} = sort _by_stranded_start @{$transhash{$trans}};
-    } else {
-      @{$transhash{$trans}} = sort _sort_by_forward_start @{$transhash{$trans}};
-    }
-
+    @{$transhash{$trans}} = sort _by_stranded_start @{$transhash{$trans}};
+    
     foreach my $exon (@{$transhash{$trans}}) {
       $keystr .= ":" . $self->{_exonhash}{$exon};
     }
@@ -415,9 +408,9 @@ sub each_transcripts_exons {
 }
 
 sub _determine_type {
-  my ($self, $ignore_strand) = @_;
+  my ($self) = @_;
 
-  my @combs = $self->unique_exon_combinations($ignore_strand);
+  my @combs = $self->unique_exon_combinations;
   
   if (scalar(@combs) == 1) {
     $self->{'_type'} = 0;
@@ -542,9 +535,6 @@ sub _determine_type {
 # Other clusters has single (possibly) longer exon which has splice side
 # boundary conserved. It may have extra exons to non spliced side
   if ($maxexoncount == 1) {
-    if ($ignore_strand) {
-      throw("This method is not designed to handle cases where we ignore strand");
-    }
     my @allterminal;
     my @notallterminal;
 
@@ -706,25 +696,6 @@ sub print_clust_summary {
     print ": "; 
   }
   print "\n";
-}
-
-sub _sort_by_forward_start {
-  my $alow;
-  my $blow;
-  my $ahigh;
-  my $bhigh;
-
-  # we ignore strand
-  $alow = $a->start;
-  $ahigh = $a->end;
-  $blow = $b->start;
-  $bhigh = $b->end;
-
-  if ($alow != $blow) {
-    return $alow <=> $blow;
-  } else {
-    return $ahigh <=> $bhigh;
-  }
 }
 
 sub _by_stranded_start {

@@ -407,8 +407,16 @@ sub make_genes{
 	if ($exon->start <= $cds_end && $exon->end >= $cds_end){
 	  # translation stop is in this exon
 	  $translation->end_Exon($exon);
+
 	  $translation->end($cds_end - $exon->start+1);
-	  $exon->end_phase( -1 ) 	if $exon->end > $cds_end;
+
+	  if ( $exon->end_phase > 0) {
+	    $translation->end($translation->end - $exon->end_phase);
+          }
+
+	  if ( $exon->end > $cds_end ||  $exon->end_phase > 0) {
+	    $exon->end_phase( -1 );
+          }
 	}
 	# find the utr exon that shares the internal boundary with the first simgw exon
 	if ($exon->end == $similarity_exons[0]->end){
@@ -489,13 +497,22 @@ sub make_genes{
     $gene->analysis($transcript->analysis);
     push @genes,$gene;
   }
+
+
   # add the models of the single exon genes 
   push @genes, @{$self->add_single_exon_genes($cluster,$collapsed_cluster)};
+
+  # SMJS Test length scaling
+  $self->weight_scores_by_cdna_length(\@genes);
+
   @genes = sort { $b->get_all_Transcripts->[0]->score <=> $a->get_all_Transcripts->[0]->score } @genes;
   my $top_score = $genes[0]->get_all_Transcripts->[0]->score;
   my $bottom_score = $genes[-1]->get_all_Transcripts->[0]->score;
   # prevent the whole division by zero thing
   $bottom_score-= 0.0001 if $bottom_score == 0;
+
+  my $score_range = ($top_score - $bottom_score);
+
   foreach my $gene (@genes){
     foreach my $transcript ( @{$gene->get_all_Transcripts}){
       # sort out exon phases - transfer them from the similarity gene
@@ -504,8 +521,7 @@ sub make_genes{
       # how about if we include the top 5% of the gene scores
       if ($GOOD_PERCENT){
         my $top = ($transcript->score - $bottom_score );
-        my $bottom = ($top_score - $bottom_score);
-	if ($bottom && (($top/$bottom) * 100 >= 100 - $GOOD_PERCENT)){
+	if ($score_range && (($top/$score_range) * 100 >= 100 - $GOOD_PERCENT)){
 	  $biotype = $GOOD_BIOTYPE;
 	}
       } else {
@@ -541,6 +557,44 @@ sub make_genes{
   }
   $self->output(\@final_genes);
   return;
+}
+
+sub weight_scores_by_cdna_length {
+  my ($self,$genes) = @_;
+
+  my @score_sorted_genes = sort { $b->get_all_Transcripts->[0]->score <=> $a->get_all_Transcripts->[0]->score } @$genes;
+  my $top_score = $score_sorted_genes[0]->get_all_Transcripts->[0]->score;
+  my $bottom_score = $score_sorted_genes[-1]->get_all_Transcripts->[0]->score;
+  # prevent the whole division by zero thing
+
+  my $score_range = ($top_score - $bottom_score);
+
+  my @length_sorted_genes = sort { $a->get_all_Transcripts->[0]->length <=> $b->get_all_Transcripts->[0]->length } @$genes;
+  my $minlen = $length_sorted_genes[0]->get_all_Transcripts->[0]->length;
+  my $maxlen = $length_sorted_genes[-1]->get_all_Transcripts->[0]->length;
+
+  my $len_range = $maxlen-$minlen;
+
+  if (!$len_range) { return };
+
+  #if ($len_range/$maxlen < 0.7 ) { 
+  #  print "!!!!!!! Returning on range limit\n"; 
+  #  return; 
+  #}
+
+  my $scale_factor = $score_range/1;
+
+  foreach my $gene (@$genes) {
+    my $trans = $gene->get_all_Transcripts->[0];
+    my $length =  $trans->length;
+
+    my $factor = ($length - $minlen) / $len_range;
+
+     print "factor = $factor length = $length minlen = $minlen len_range = $len_range scale_factor = $scale_factor\n";
+     print "Changed score for " . $gene->analysis->logic_name . " gene from " . $trans->score;
+    $trans->score( $trans->score + $factor*$scale_factor);
+     print " to " . $trans->score . "\n";
+  }
 }
 
 =head2 add_single_exon_genes
@@ -627,13 +681,7 @@ sub make_transcripts {
 	foreach my $trans (@transcripts) {
 	  # only want est transcripts
 	  next unless $trans->ev_set eq 'est' ;
-          if ($ADD_UTR ) {  
-            unless ( $trans->translation) { 
-	      push @start_utr, $trans ;  
-            } else { 
-              throw("You can't add UTR with non-EST data");   
-	    } 
-	  } 
+	  push @start_utr, $trans if $ADD_UTR;
 	}
       }
       # end UTR
@@ -647,13 +695,7 @@ sub make_transcripts {
 	foreach my $trans (@transcripts) {
 	  # only want est transcripts
 	  next unless $trans->ev_set eq 'est' ;
-          if ($ADD_UTR ) {  
-            unless ( $trans->translation) { 
-	      push @start_utr, $trans ;  
-            } else {  
-              throw("You can't add UTR with non-EST data"); 
-            } 
-	  }
+	  push @end_utr, $trans if $ADD_UTR;
 	}
       }
 
