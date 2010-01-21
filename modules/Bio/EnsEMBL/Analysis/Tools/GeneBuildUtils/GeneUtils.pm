@@ -58,6 +58,7 @@ use vars qw (@ISA  @EXPORT);
              fully_load_Gene
              empty_Gene
              compute_6frame_translations
+             convert_to_single_transcript_gene
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -554,3 +555,21 @@ sub compute_6frame_translations{
 
 
 1;
+
+
+sub convert_to_single_transcript_gene {
+  my ($multitrans_gene) = @_;
+
+  my @singletrans_gene ;
+
+  foreach my $trans ( @{ $multitrans_gene->get_all_Transcripts } ) {
+  my $newgene = Bio::EnsEMBL::Gene->new();
+
+  $newgene->add_Transcript($trans) ;
+  $newgene->biotype($multitrans_gene->biotype) ;
+
+  push @singletrans_gene, $newgene;
+  }
+
+return @singletrans_gene ;
+}
