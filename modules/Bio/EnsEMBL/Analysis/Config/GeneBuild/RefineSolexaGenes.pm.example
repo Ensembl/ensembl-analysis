@@ -26,8 +26,7 @@ use vars qw( %Config );
 			MODEL_DB  => '',
 			
 			# maximum number of times to loop when building all possible paths through the transcript
-			MAX_RECURSIONS => 10000000,
-			
+			MAX_RECURSIONS => 100000,
 						
 			# analysis logic_name for the dna_align_features to fetch from the INTRON_DB
 			# If left blank all features will be fetched
@@ -42,16 +41,33 @@ use vars qw( %Config );
 			# minimum size for an intron
 			MIN_INTRON_SIZE  => 30,   
 			
+			# biotype to give to single exon models if left blank single exons are ignored
+			SINGLE_EXON_MODEL => 'single_exon',
+		
+			# minimum single exon size (bp)
+			MIN_SINGLE_EXON => 1000,
+		
+			# minimum percentage of single exon length that is coding
+			SINGLE_EXON_CDS => 66,
+			
+			# Intron with most support determines the splice sites for an internal exon
+			# lower scoring introns with different splice sites are rejected
+			
+			STRICT_INTERNAL_SPLICE_SITES => 1,
+			
+			# In some species alternate splice sites for end exons seem to be common
+			STRICT_INTERNAL_END_EXON_SPLICE_SITES => 1,
+			
 			# biotypes to give gene models if left blank these models will not get written to the output database
 			# best score - model with most supporting intron features
-			BEST_SCORE => 'best', 
+			BEST_SCORE => '', 
 			# all other possible models
-			OTHER_ISOFORMS => 'other',
+			OTHER_ISOFORMS => '',
                         # max number of other models to make - blank = all 
-			OTHER_NUM      => '5',
+			OTHER_NUM      => '',
 			
-                        # max number of other models to process - blank = all ( this may take a long time and use a lot of memory 100 is recomended)
-			MAX_NUM      => '100',
+                        # max number of other models to process - blank = all 
+			MAX_NUM      => '1000',
 			
 			# biotype to label bad models ( otherwise they are not written )
 			BAD_MODELS     => '',
