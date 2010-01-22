@@ -165,6 +165,7 @@ sub refine_genes {
   my ($self) = @_;
  GENE:  foreach my $gene ( @{$self->prelim_genes} ) {
     my @models;
+    my $single_exon = 0;
     # first run on the fwd strand then on the reverse
   STRAND: for ( my $strand = -1 ; $strand <=1 ; $strand+= 2 ) {
       if ( $self->recursive_limit > 10000 ) {
@@ -181,13 +182,12 @@ sub refine_genes {
       my $most_real_introns = 0;
       my $highest_score = 0;
       print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
-      # merge exons to remove little artifactual introns
       my @exons =  @{$self->merge_exons($gene,$strand)};
       my $exon_count = $#exons;
       my @fake_introns;
       my %known_exons; 
     EXON:   for ( my $i = 0 ; $i <= $exon_count ; $i ++ ) {
-	my $exon = $exons[$i];
+	my $exon = clone_Exon($exons[$i]);
 	my $retained_intron;
 	my $left_introns = 0;
 	my $right_introns = 0;
@@ -237,17 +237,68 @@ sub refine_genes {
 	  }
 	}	
 	
-	# add non consensus introns only where there are no consensus introns
-	push @filtered_introns, @left_c_introns;
-	push @filtered_introns, @right_c_introns;
-	push @filtered_introns, @left_nc_introns  if scalar(@left_c_introns)  == 0;
-	push @filtered_introns, @right_nc_introns if scalar(@right_c_introns) == 0; ;
+	# Restrict internal exons splice sites to most common
+	# that way our alt splices will all share the same boundaries
+	# but have different combinations of exons
+	if ( $self->STRICT_INTERNAL_SPLICE_SITES && 
+	     # either we apply it equeally to all exons
+	     ( $self->STRICT_INTERNAL_END_EXON_SPLICE_SITES or
+	       # only apply to internal exons, leave out end exons
+	       ( !$self->STRICT_INTERNAL_END_EXON_SPLICE_SITES && 
+		 ( scalar(@left_c_introns)  + scalar(@left_nc_introns) ) > 0 &&
+		 ( scalar(@right_c_introns) + scalar(@right_nc_introns)) > 0 ))){
+	  # pick best left splice
+	  my $best_left_splice;
+	  my $best_left_score = 0;
+	  my @all_left_introns =  @left_c_introns;
+	  push @all_left_introns, @left_nc_introns;
+	  foreach my $i ( @all_left_introns ) {
+	    if ( $best_left_score < $i->score ) {
+	      $best_left_score = $i->score;
+	      $best_left_splice = $i->end;
+	    }
+	  }
+	  
+	  # pick best right  splice
+	  my $best_right_splice;
+	  my $best_right_score = 0;
+	  my @all_right_introns =  @right_c_introns;
+	  push @all_right_introns, @right_nc_introns;
+	  foreach my $i ( @all_right_introns ) {
+	    if ( $best_right_score < $i->score ) {
+	      $best_right_score = $i->score;
+	      $best_right_splice = $i->start;
+	    }
+	  }
+	  # filter out introns that pick other splice sites
+	  foreach my $i ( @all_left_introns ) {
+	    push @filtered_introns, $i if $i->end == $best_left_splice;
+	  }
+
+	  foreach my $i ( @all_right_introns ) {
+	    push @filtered_introns, $i if $i->start == $best_right_splice;
+	  }
+	  
+	} else {
+	  
+	  # add non consensus introns only where there are no consensus introns
+	  push @filtered_introns, @left_c_introns;
+	  push @filtered_introns, @right_c_introns;
+	  push @filtered_introns, @left_nc_introns  if scalar(@left_c_introns)  == 0;
+	  push @filtered_introns, @right_nc_introns if scalar(@right_c_introns) == 0; ;
+	}
 
 	if ( scalar(@left_c_introns)  == 0 && scalar(@left_nc_introns)  > 0) {
 	  print STDERR "using " . scalar(@left_nc_introns) . " NC left \n";
 	} 
 	if ( scalar(@right_c_introns)  == 0 && scalar(@right_nc_introns)  > 0 ) {
 	  print STDERR "using " . scalar(@right_nc_introns) . " NC right \n";
+	}
+	
+	# single exon models are a special case
+	if ( scalar(@exons) == 1 &&  scalar(@filtered_introns)  == 0 &&  scalar(@retained_introns == 0 )) {
+	  # at least on this strand this model looks like a single exon
+	  $single_exon += 1;
 	}
 	
 	# we dont want to allow left and right introns to overlap - 
@@ -265,7 +316,6 @@ sub refine_genes {
 	  # intron splicing out of the exon to be used more than once
 	  # by each new exon in fact
 	  $intron_count{$intron->display_label}++ unless $retained_intron;
-	  
 	  $intron_hash{$intron->display_label} = $intron;
 	  # only use each intron twice once at the end and once at the start of
 	  # an exon
@@ -307,7 +357,7 @@ sub refine_genes {
 	    }
 	    my $reject_score = 0;
 	    # intron is within the exon - this is not a true exon but a retained intron
-	    if (  $intron->start > $exon->start && $intron->end < $exon->end && $intron->length > 50 ) {
+	    if (  $intron->start > $exon->start && $intron->end < $exon->end && $intron->length > $self->MIN_INTRON_SIZE ) {
 	      # we are going to make a new exon and chop it up
 	      # add intron penalty
 	      print STDERR "RETAINED INTRON PENALTY for " . $intron->display_id ." before " . $intron->score . " ";
@@ -317,7 +367,14 @@ sub refine_genes {
 		$reject_score = $reject_score - $self->RETAINED_INTRON_PENALTY;
 	      }
 	      print STDERR " after " . $reject_score ."\n";
-	      next unless ( $reject_score >= 1 ) ;
+	      if ( $reject_score < 1 ) {
+		# treat as single exon
+		if ( scalar(@exons) == 1 ) {
+		  # at least on this strand this model looks like a single exon
+		  $single_exon += 1;
+		}
+		next;
+	      }
 	      print STDERR  "Exon " . $exon->start ."\t". $exon->end . " has retained intron:\n     " . $intron->start ."\t" .  $intron->end ." "."\n";
 	      # dont have circular references to exons or the paths
 	      # will be infinite so clone this exon instead
@@ -389,6 +446,54 @@ sub refine_genes {
       print STDERR "Now have " . scalar ( @models ) ." models \n";
     }
     $self->filter_models(\@models);
+    
+
+    # process single exon models
+    # if it has no introns on either strand
+    if ( $self->SINGLE_EXON_MODEL && $single_exon == 2 ) {
+      my $exon = $self->merge_exons($gene,1)->[0];
+      my $single_exon_model;
+      #print STDERR " Single exon = $single_exon\n";
+      next unless $exon->length+40 >= $self->MIN_SINGLE_EXON;
+      #print STDERR "Passed length filter " . $exon->length ."\n";
+      # trim padding 
+      $exon->start($exon->start + 20);
+      $exon->end  ($exon->end   - 20);
+      # get the cds
+      my $fwd_exon =  clone_Exon($exon);
+      $fwd_exon->strand(1);
+      my $rev_exon = clone_Exon($exon);
+      my $fwd_t =  new Bio::EnsEMBL::Transcript(-EXONS => [$fwd_exon]);
+      my $fwd_tran = compute_translation(clone_Transcript($fwd_t));
+      my $fwd_t_len = $fwd_tran->translation->genomic_end - $fwd_tran->translation->genomic_start;
+      #print STDERR "FWD t length $fwd_t_len\n";
+      my $rev_t =  new Bio::EnsEMBL::Transcript(-EXONS => [$rev_exon]);
+      my $rev_tran = compute_translation(clone_Transcript($rev_t));
+      my $rev_t_len = $rev_tran->translation->genomic_end - $rev_tran->translation->genomic_start;
+      #print STDERR "REV t length $rev_t_len\n";
+      if ( $fwd_tran->translateable_seq &&  
+	   ( $fwd_t_len / $fwd_tran->length )* 100 >= $self->SINGLE_EXON_CDS &&
+	   $fwd_t_len >  $rev_t_len ) {
+	# keep this one
+	$single_exon_model =  $fwd_tran;
+      }
+      if ( $rev_tran->translateable_seq &&  
+	   ( $rev_t_len / $rev_tran->length )* 100 >= $self->SINGLE_EXON_CDS &&
+	   $rev_t_len >  $fwd_t_len ) {
+	# keep this one
+	$single_exon_model = $rev_tran;
+      }
+      if ( $single_exon_model ) {
+	$single_exon_model->analysis($self->analysis);
+	$single_exon_model->version(1);
+	my ( $new_gene ) = @{convert_to_genes(($single_exon_model),$gene->analysis)};
+	$new_gene->biotype($self->SINGLE_EXON_MODEL); 
+	# score comes from exon supporting feature;
+	my $score =  $exon->get_all_supporting_features->[0]->score;
+	$new_gene->stable_id($gene->stable_id . "-v1-" . int($score) );
+	push @{$self->output} , $new_gene;
+      }
+    }
   }
 }
 
@@ -400,6 +505,7 @@ sub refine_genes {
     Args         :   Array ref of array references of Bio::EnsEMBL::Transcript
     Description  :   Labels or removes models overlapping better scoring models on the 
                      opposite strand
+
 =cut
 
 sub filter_models {
@@ -418,47 +524,67 @@ sub filter_models {
   foreach my $fc ( @fwd ) {
     foreach my $rc ( @rev ) {
       # one is within the other  or they are the same
+      # they proably need to be rejected on the basis of coding overlap
       if ( ( $fc->{'start'} >= $rc->{'start'} && 
 	     $fc->{'end'} <= $rc->{'end'} ) or 
 	   ( $rc->{'start'} >= $fc->{'start'} && 
 	     $rc->{'end'} <= $fc->{'end'}  ) )  {
-	# which has the lower score?
+	
+	# do they have coding overlap?
 	my @fg = @{$fc->{'final_models'}};
 	my @rg = @{$rc->{'final_models'}};
-
-	if ( $fg[0]->get_all_Transcripts->[0]->{'_score'} > 
-	     $rg[0]->get_all_Transcripts->[0]->{'_score'} ) {
-	  # get rid of / label the reverse genes 
-	  foreach my $gene ( @rg ) {
-	    $gene->biotype('bad');
+	
+	# do they have coding overlap?
+      FG: foreach my $fg ( @fg ) {
+	  my $ft = $fg->get_all_Transcripts->[0];
+	  next unless $ft->translateable_seq;
+	  if (  length($ft->translate->seq) <=  100 ) {
+	    $fg->biotype('bad');
+	    next FG;
 	  }
-	}
-
-	if ( $fg[0]->get_all_Transcripts->[0]->{'_score'} < 
-	     $rg[0]->get_all_Transcripts->[0]->{'_score'} ) {
-	  # get rid of / label the forward genes
-	  foreach my $gene ( @fg ) {
-	    $gene->biotype('bad');
-	  }
-	}
-	# or else they overlap and the antisense model is 2 exon with a cds < 100 AA
-	if (  $fc->{'start'} <= $rc->{'end'} && 
-	      $fc->{'end'} >=  $rc->{'start'} )  {
-	  if ( scalar($fg[0]->get_all_Exons) == 2 && 
-	       scalar($rg[0]->get_all_Exons) > 2 && 
-	       length($fg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
-	    foreach my $gene ( @fg ) {
-	      $gene->biotype('bad');
+	  foreach my $fe ( @{$ft->get_all_translateable_Exons} ) {
+	  RG: foreach my $rg ( @rg ) {
+	      my $rt = $rg->get_all_Transcripts->[0];
+	      next unless $rt->translateable_seq;
+	      if (  length($rt->translate->seq) <=  100 ) {
+		$rg->biotype('bad');
+		next RG;
+	      }
+	      foreach my $re ( @{$rt->get_all_translateable_Exons} ) {
+		if ( $fe->{'start'} <= $re->{'end'} && 
+		     $fe->{'end'}  >=  $re->{'start'}) {
+		  # coding overlap	
+		  if ( $ft->{'_score'} <  $rt->{'_score'} ) {
+		    # get rid of / label the reverse genes 
+		    $fg->biotype('bad');
+		  } else {
+		    $rg->biotype('bad');
+		  }
+		  next FG;
+		}
+	      }
 	    }
 	  }
-	  if ( scalar($rg[0]->get_all_Exons) == 2 && 
-	       scalar($fg[0]->get_all_Exons) > 2 && 
-	       length($rg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
-	    foreach my $gene ( @rg ) {
-	      $gene->biotype('bad');
-	    }
-	  }
 	}
+	
+#	# or else they overlap and the antisense model is 2 exon with a cds < 100 AA
+#	if (  $fc->{'start'} <= $rc->{'end'} && 
+#	      $fc->{'end'} >=  $rc->{'start'} )  {
+#	  if ( scalar($fg[0]->get_all_Exons) == 2 && 
+#	       scalar($rg[0]->get_all_Exons) > 2 && 
+#	       length($fg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
+#	    foreach my $gene ( @fg ) {
+#	      $gene->biotype('bad');
+#	    }
+#	  }
+#	  if ( scalar($rg[0]->get_all_Exons) == 2 && 
+#	       scalar($fg[0]->get_all_Exons) > 2 && 
+#	       length($rg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
+#	    foreach my $gene ( @rg ) {
+#	      $gene->biotype('bad');
+#	    }
+#	  }
+#	}
       }
     }
   }
@@ -467,18 +593,34 @@ sub filter_models {
     my %exon_use_hash;
     my %exon_starts;
     my %exon_ends;
+    my %exon_pattern;
     my $count = 0;
+    my $translation_start = 1000000000000;
+    my $translation_end = 0;
     foreach my $gene ( @{$cluster->{'final_models'}} ) {
-      my $exon_use = $gene->get_all_Transcripts->[0]->{'_exon_use'};
-     # if ( $gene->biotype eq $self->OTHER_ISOFORMS ) {
-	if ( $exon_use_hash{$exon_use}  ) {
-	  $gene->biotype('bad');
+      my $transcript =  $gene->get_all_Transcripts->[0];
+      if ( $transcript->translateable_seq ) {
+	if (  $transcript->coding_region_start < $translation_start ) {
+	  $translation_start =  $transcript->coding_region_start;
 	}
-    #  }
+	if (  $transcript->coding_region_end > $translation_end ) {
+	  $translation_end =  $transcript->coding_region_end;
+	}
+      }
+      my $exon_use = $transcript->{'_exon_use'};
+      # if ( $gene->biotype eq $self->OTHER_ISOFORMS ) {
+      if ( $exon_use_hash{$exon_use}  ) {
+	$gene->biotype('bad');
+      }
+      #  }
       $exon_use_hash{$exon_use} = 1 ;
+      #  print "TRANSCRIPT " . $gene->get_all_Transcripts->[0]->{'_depth'} .
+      #" Exon use $exon_use Biotype " . $gene->biotype ."\n";
       my $es = 0;
       my $ee = 0;
+      my $pattern;
       foreach my $exon ( @{$gene->get_all_Exons} ) {
+	$pattern .= $exon->start.":".$exon->end.":";
 	$es++ if $exon_starts{$exon->start};
 	$ee++ if $exon_ends{$exon->end};
 	$exon_starts{$exon->start} = 1;
@@ -488,16 +630,53 @@ sub filter_models {
 	   $es == scalar(  @{$gene->get_all_Exons} ) ) {
 	# seen it before - or something very much like it
 	$gene->biotype('bad') ;
+	#	print "CALLING it bad\n";
       }
+      if ( $exon_pattern{$pattern} ) {
+	# seen it before - or something very much like it
+	$gene->biotype('duplicate') ;
+	#	print "CALLING it bad\n";
+      }
+      $exon_pattern{$pattern} = 1;
+    }
+    # promote "bad" models that have a cds as long as the best cds to 
+    # alt isoforms
+    my @final_models = @{$cluster->{'final_models'}};
+    my $best_cds = 0;
+    for (  my $g = 0; $g < scalar(@final_models) ; $g++ ) {
+      my $gene = $final_models[$g];
+        my $transcript =  $gene->get_all_Transcripts->[0];
+      print "$g - " . $transcript->{'_score'} ." tran length " .
+	( $transcript->cdna_coding_end - $transcript->cdna_coding_start ) ."\n";
+      if ( $g == 0 ) {
+	# best scoring model 
+	if  ( $transcript->translateable_seq ) {
+	  $best_cds =  $transcript->cdna_coding_end - $transcript->cdna_coding_start;
+	}
+      }
+      my $transcript =  $gene->get_all_Transcripts->[0];
+      if ( $transcript->translateable_seq ) {
+	if ( $gene->biotype eq 'bad' && 
+	     $transcript->coding_region_start == $translation_start &&
+	     $transcript->coding_region_end == $translation_end ) {
+	  $gene->biotype( $self->OTHER_ISOFORMS );
+	}
+	if ($gene->biotype eq 'bad' && 
+	    $transcript->cdna_coding_end - $transcript->cdna_coding_start  > $best_cds ) {
+	  $gene->biotype( $self->OTHER_ISOFORMS );
+	}
+      } 
       if ( $gene->biotype eq 'bad' ) {
 	# change type to  a bad model if it is bad 
 	# store it on output array if the bad type is defined
 	if ( $self->BAD_MODELS ) {
 	  $gene->biotype( $self->BAD_MODELS ) ;
-	  push @{$self->output} , $gene if $count <= $self->OTHER_NUM +1;
+	  push @{$self->output} , $gene if $count <= $self->OTHER_NUM ;
 	}
       } else {
-	push @{$self->output} , $gene if $count <= $self->OTHER_NUM +1;
+	unless ( $gene->biotype eq 'duplicate' ) {
+	  push @{$self->output} , $gene if $count <= $self->OTHER_NUM ;
+	}
       }
       $count++ if $gene->biotype eq $self->OTHER_ISOFORMS ;
       $count++ if $gene->biotype eq $self->BEST_SCORE ;
@@ -636,8 +815,25 @@ sub make_models {
 	# keep track of the scores for this transcript
 	$tran->analysis($self->analysis);
 	$tran->version(1);
-	$tran->{'_score'} =  ( $intron_score + int($exon_score / 100 ));
+	# favor longer cds by adding doubling the score for coding exons
+	# only use exons that are completely coding otherwise you also 
+	# end up adding in score which is really UTR for long terminal exons
+	# that have a bit of coding in them
+	my $coding_bonus = 0;
+	my $coding_exons =0;
+	if ( $tran->translateable_seq ) {
+	  foreach my $ce ( @{$tran->get_all_Exons} ) {
+	    unless ( $ce->phase == -1 or $ce->end_phase == -1 ) {
+	      $coding_bonus += $ce->get_all_supporting_features->[0]->score;
+	      $coding_exons++;
+	    }
+	  }
+	}
+#	print "Coding Bonus of $coding_bonus from $coding_exons completely coding exons \n";
+	$tran->{'_score'} =  ( (int ( $intron_score + $exon_score ) / 10 ) + $coding_bonus  );
+#	print "Final score = $intron_score + int( $exon_score / 100 ) + $coding_bonus = " . $tran->{'_score'} ;
 	$tran->{'_depth'} =  ( $intron_score + $exon_score );
+#	print " for tran " .$tran->{'_depth'} . "\n";
 	$tran->{'_NC_introns'} =  $non_con_introns ;
 	$tran->{'_exon_use'} = $exon_use;
 	#print STDERR " EXON count $exon_count\n";
@@ -653,6 +849,8 @@ sub make_models {
 	last SCORES if scalar(@trans)  >= ( $self->MAX_NUM +1 )  ;
       }
     }
+    # re-sort the transcripts to take account of the revised scores
+    @trans = sort { $b->{'_score'} <=> $a->{'_score'} } @trans;
     my $best;
     foreach my $tran ( @trans ) {
       my ( $new_gene ) = @{convert_to_genes(($tran),$gene->analysis)};
@@ -674,7 +872,7 @@ sub make_models {
 			   int($tran->{'_score'}) ."-" .
 			   int($tran->{'_depth'}) ."-" .  
 			   $tran->{'_intron_count'} ."-NC-" . 
-			   $tran->{'_NC_introns'} );
+			   $tran->{'_NC_introns'} . "-" . $tran->strand );
       push @{$cluster->{'final_models'}} , $new_gene;
     }
   }
@@ -929,7 +1127,7 @@ sub model_cluster {
 
 # lets us merge exons with tiny  introns between them  unless they contain an intron
 sub merge_exons {
-  my ( $self, $gene,$strand) = @_;
+  my ( $self, $gene, $strand) = @_;
   my @exons;
   next unless $gene->get_all_Transcripts->[0];
   foreach my $exon ( @{$gene->get_all_Transcripts->[0]->get_all_Exons} ) {
@@ -950,8 +1148,8 @@ sub merge_exons {
       # ignore non consensus introns at this point
       next if $intron->display_label =~ /non-consensus/ ;
       if (   $intron->start > $prev_exon->start &&
-	    $intron->end <  $exon->end &&
-	    $intron->strand == $strand) {
+	    $intron->end <  $exon->end && 
+	 $intron->strand == $strand ){
 	$intron_count++;
       }
     }
@@ -1045,7 +1243,10 @@ sub dna_2_simple_features {
     for ( my $i = 0 ; $i < scalar(@ugfs) - 1 ; $i++ ) {
       # one read can span several exons so make all the features 
       # cache them by internal boundaries
-      my $unique_id = $read->seq_region_name . ":" . 
+      # we use . to deliminate entries in our paths so dont allow them in the seq_region_name or it wont work
+      my $name = $read->seq_region_name;
+      $name =~ s/\./*/g;
+      my $unique_id = $name . ":" . 
 	$ugfs[$i]->end . ":" .
 	  $ugfs[$i+1]->start . ":" . 
 	    $read->strand .":$type";
@@ -1427,4 +1628,77 @@ sub MAX_RECURSIONS {
   } else {
     return undef;
   }
-}1;
+}
+
+sub MIN_SINGLE_EXON {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MIN_SINGLE_EXON'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MIN_SINGLE_EXON'})) {
+    return $self->{'_CONFIG_MIN_SINGLE_EXON'};
+  } else {
+    return undef;
+  }
+}
+
+sub SINGLE_EXON_CDS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_SINGLE_EXON_CDS'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_SINGLE_EXON_CDS'})) {
+    return $self->{'_CONFIG_SINGLE_EXON_CDS'};
+  } else {
+    return undef;
+  }
+}
+
+sub SINGLE_EXON_MODEL {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_SINGLE_EXON_MODEL'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_SINGLE_EXON_MODEL'})) {
+    return $self->{'_CONFIG_SINGLE_EXON_MODEL'};
+  } else {
+    return undef;
+  }
+}
+
+sub STRICT_INTERNAL_SPLICE_SITES{
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_STRICT_INTERNAL_SPLICE_SITES'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_STRICT_INTERNAL_SPLICE_SITES'})) {
+    return $self->{'_CONFIG_STRICT_INTERNAL_SPLICE_SITES'};
+  } else {
+    return undef;
+  }
+}
+
+sub STRICT_INTERNAL_END_EXON_SPLICE_SITES {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_STRICT_INTERNAL_END_EXON_SPLICE_SITES'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_STRICT_INTERNAL_END_EXON_SPLICE_SITES'})) {
+    return $self->{'_CONFIG_STRICT_INTERNAL_END_EXON_SPLICE_SITES'};
+  } else {
+    return undef;
+  }
+}
+
+
+1;
