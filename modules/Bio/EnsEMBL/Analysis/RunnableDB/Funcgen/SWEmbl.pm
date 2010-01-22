@@ -167,14 +167,14 @@ sub check_Sets {
         or throw("Cell type '$ct_name' does not exist");
     $self->cell_type($cell_type);
 
-    my $esa = $self->efgdb->get_ExperimentalSetAdaptor();
-    my $eset = $esa->fetch_by_name($set_name);
+    my $isa = $self->efgdb->get_InputSetAdaptor();
+    my $iset = $isa->fetch_by_name($set_name);
     
-    if (! defined $eset){
+    if (! defined $iset){
 
-        warn("ExperimentalSet NOT defined");
+        warn("InputSet NOT defined");
 
-        $eset = Bio::EnsEMBL::Funcgen::ExperimentalSet->new
+        $iset = Bio::EnsEMBL::Funcgen::InputSet->new
             (
              -name         => $set_name,
              -experiment   => $self->experiment(),
@@ -187,9 +187,9 @@ sub check_Sets {
         
         warn("Storing new experimental set \'$set_name\'");
         eval { 
-            ($eset)  = @{$esa->store($eset)};
+            ($iset)  = @{$isa->store($iset)};
         };
-        throw("Coudn't store experimental set \'$set_name\': $!") if ($@);
+        throw("Coudn't store input set \'$set_name\': $!") if ($@);
     }
 
     my $fsa = $self->efgdb->get_FeatureSetAdaptor();
@@ -230,7 +230,7 @@ sub check_Sets {
 
         $dset = Bio::EnsEMBL::Funcgen::DataSet->new
             (
-             -SUPPORTING_SETS     => [$eset],
+             -SUPPORTING_SETS     => [$iset],
              -FEATURE_SET         => $fset,
              -DISPLAYABLE         => 1,
              -NAME                => $set_name,
@@ -255,7 +255,7 @@ sub check_Sets {
 
         my %ssets_dbIDs = ();
         map { $ssets_dbIDs{$_->dbID}='' } (@{$ssets});
-        $dset->add_supporting_sets([ $eset ]) if (! exists $ssets_dbIDs{$eset->dbID}); 
+        $dset->add_supporting_sets([ $iset ]) if (! exists $ssets_dbIDs{$iset->dbID}); 
 
     }
     # save DataSet
