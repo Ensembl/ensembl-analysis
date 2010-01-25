@@ -118,11 +118,14 @@ sub new {
   throw('Must provide a -species to the OUTDB in Bio::EnsEMBL::Analysis::Config::ProbeAlign') if ! $species;
 	 
   my ($db_name, $display_name, $array_class);
-  print "logic_name is $logic\n";
 
   #Check imported status of arrays
   ($array_class = $logic) =~ s/_Probe.*Align$//;
-  $self->outdb->get_ArrayAdaptor->check_status_by_class('IMPORTED', $class);
+
+
+
+
+  $self->outdb->get_ArrayAdaptor->check_status_by_class('IMPORTED', $array_class);
 
 
   if($logic =~ /Transcript/){
@@ -381,6 +384,7 @@ sub filter_features {
   my $mapping_type = $self->mapping_type;
   my $max_hits     = $self->HIT_SATURATION_LEVEL;#default is 100
   my $uo_adaptor   = $self->outdb->get_UnmappedObjectAdaptor;
+  my $pf_adaptor   = $self->outdb->get_ProbeFeatureAdaptor;
   #We don't really want one for every logic name, 
   #so let's simplify this to just ProbeAlign and ProbeTranscriptAlign
   my $uo_type;
@@ -403,6 +407,8 @@ sub filter_features {
   #but only once gapped...but we're stil matching transcripts rather than the whole genome
   #here so this is still valid.
   
+  my $transcript_mapping;
+  $transcript_mapping = 1 if $self->mapping_type eq 'transcript';
 
   foreach my $hit (@$features) {
 	#we need to capture first an dlast transcript ID's to
@@ -414,30 +420,97 @@ sub filter_features {
     my @hits = @{$hits_by_probe{$probe_id}};
 	my $num_hits = scalar(@hits);
 	my $all_hits = $num_hits;
+	my ($promiscuous, $only_perfect);
+
+	#Account for genomic hits
+	#How can we tell wether we only have perfect genomic matches
+	#Or whether we just didn't get any mismatched alignments?
+	#This could potentially cause loss of transcript alignments
+	#which cross an exon boundary but overhang the end of a transcript?
+	#S(oft clippings) are not counted as mimatches
+	#So this won't occur unless there is a true mismatch
 	
-	if ($num_hits > $max_hits) {
-	  @hits = grep { $_->mismatchcount == 0 } @hits;
-	  $num_hits = scalar(@hits);
-  
-	  if ($num_hits <= $max_hits) {
-		warn "Keeping only perfect matches($num_hits/$all_hits) to $probe_id. Do we need to keep this in an UnmappedObject?\n";
-	  } 
-	  else {
-		#warn "UnmappedObject:\tToo many hits($num_hits|$all_hits/$max_hits) to $probe_id so rejecting all hits\n";
-		#So we have issues with what we consider for transcript mapping.
-		#If it has failed genomic mapping then we currently do not consider if for xrefing.
-		#But it may only map to one transcript, but all over the genome
-		#We don't store the genomic mappings, but maybe we should store the transcript mapping which we can then warn against using the unmapped object info from the genomic mapping.
-		#Okay, so now we don't have interdepedancy of the mapping steps
+	if($transcript_mapping){
+	  #Simply count the number of genomic alignments
+	  #already generated from the genomic ProbeAlign job
+	  #Should use ProbeAdaptor for this
+
+	  #Need to see if this Probe has already failed mismatched alignment
+	  #i.e. we only used perfect genomic hits
+	  my @uos = @{$uo_adaptor->fetch_all_by_object_type_id('Probe', $probe_id)};
+	  my ($promiscuous, $only_perfect);
+	  	  
+	  foreach my $uo(@uos){
 		
-		#We need to grab the external_db_id here if there is only one
-		#Leave blank if this exists in multiple DBs e.g. affy 3' UTR designs
-		#This assumes that the same ID in two different DBs are the same entity
-		#This is true for affy but maybe not for other arrays
-		#The simple way to do this is to pull back the array names using the probe_id and direct sql
-		#This means yet another call for each unmapped probe
+		if($uo->summary eq 'Promiscuous probe'){
+		  $promiscuous = 1;
+		  next;
+		}
+		
+		#if($uo->reason eq 'Promiscuous probe(mismatched alignments dicarded)'){
+		#$only_perfect = 1;
+		#next;
+		#}
+	  }
+	}
+
+
+	#Need to restructure this block to account for $promiscuous
+	#Also restructure such that we don't store all UnmappedObjects?
+
+	if ($promiscuous ||
+		($num_hits > $max_hits) ){
+	
+	  # Removed 'keep only perfect hits' rule for v57
+	  #
+	  #	if (($num_hits > $max_hits) || ($only_perfect)){
+	  #	  @hits = grep { $_->mismatchcount == 0 } @hits;
+	  #	  $num_hits = scalar(@hits);
+	  #  
+	  #	  if ($num_hits <= $max_hits) {
+	  #		#This means our limit can change dependant on whether we keep all hits 
+	  #		#or just clean hits for both transcript and genomic alignment
+	  #		#Also longer probes will be more resilient to mismatches
+	  #		#So maybe we should allow more in the alignment, so we can more easily filter out spurious probes here?
+	  #
+	  #		#Get rid of this 'only clean' alignments completely
+	  #		#OR...
+	  #		#When we exceed this for the transcript job, also remove all genomic probe_features with mismatches
+	  #		#and record an UnmappedObject such that we have a record that we only stored the perfect match hits
+	  #		#We may have to remove this if it is ultimately called unampped because of too many perfect matches?
+	  #
+	  #		
+	  #		#Or maybe we do always want the all transcript alignments despite
+	  #		#whether it has previously been called promiscuous?
+	  #		#This would require us to keep those ungapped alignments which are normally thrown away 
+	  #		#by ProbeTranscriptAlign as they are captured by ProbeAlign
+	  #
+	  #
+	  #		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
+	  #						   (
+	  #							#-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2tratscript?
+	  #							#This is really redundant as we have the analysis_id
+	  #							#But we should put something with specifies how the analysis_id was used
+	  #							#e.g.
+	  #							-type       => 'array_mapping',#?
+	  #							-analysis   => $analysis,
+	  #							-ensembl_id => $probe_id,
+	  #							-ensembl_object_type => 'Probe',
+	  #							-external_db_id => $self->{'_external_db_id'},
+	  #							-identifier     => $mapping_type,
+	  #							-summary    => 'Promiscuous probe(mismatched alignments discarded)',
+	  #							-full_desc  => "Keeping only perfect match alignments as exceeded maximum allowed number of $mapping_type mappings(${all_hits}/${max_hits})"
+	  #						   ));
+	  #
+	  #
+	  #
+	  #	  } 
+	  #else {
+			
 		#push @{$self->unmapped_objects},
 
+	  if(! $promiscuous){
+		
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
 							#-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript?
@@ -453,10 +526,10 @@ sub filter_features {
 							-summary    => 'Promiscuous probe',
 							-full_desc  => "Probe exceeded maximum allowed number of $mapping_type mappings(${num_hits}/${max_hits})"
 						   ));
-
+	  }
 		
 		$num_hits = 0;
-	  }
+		#	  }
 	} 
 	elsif($num_hits == 0){#Both ProbeAlign and ProbeTranscriptAlign
  	  #Very unlikely, and probably only ProbeTranscriptAlign
@@ -740,9 +813,9 @@ sub set_probe_and_slice {
 		  
 		  #Now match against genomic sequence???
 		  #No way of doing this as we don't have the probe sequence!!!!
-		  #Change this to U?
+		  #Change this to S?
 		  #Can we get the query seq from ExonerateProbe?
-		  $gap_block = $gap_lengths{$end}.'U';
+		  $gap_block = $gap_lengths{$end}.'S';
 
 
 		  $align_length -= $gap_lengths{$end};
