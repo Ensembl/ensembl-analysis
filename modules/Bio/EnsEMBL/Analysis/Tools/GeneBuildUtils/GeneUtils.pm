@@ -571,5 +571,5 @@ sub convert_to_single_transcript_gene {
   push @singletrans_gene, $newgene;
   }
 
-return @singletrans_gene ;
+return \@singletrans_gene ;
 }
