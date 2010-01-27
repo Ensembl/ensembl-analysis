@@ -182,6 +182,7 @@ sub check_Sets {
              -cell_type    => $cell_type,
              -vendor       => 'SOLEXA',
              -format       => 'SEQUENCING',
+	     -feature_class => 'annotated'
              #-analysis     => $self->feature_analysis,
              );
         
@@ -204,7 +205,7 @@ sub check_Sets {
              -feature_type => $self->feature_type,
              -cell_type => $self->cell_type,
              -name => $set_name,
-             -type => 'annotated'
+             -feature_class => 'annotated'
              );
         #print Dumper $fset;
         
