@@ -242,10 +242,10 @@ sub run {
 	{
 		my $genOutput =
 		  Bio::SeqIO->new( -file => ">$genfile", '-format' => 'Fasta' )
-		  or throw("Can't create new Bio::SeqIO from $genfile '$' : $!");
+		  or throw("Can't create new Bio::SeqIO from $genfile : $!");
 		my $estOutput =
 		  Bio::SeqIO->new( -file => ">$estfile", '-format' => 'Fasta' )
-		  or throw("Can't create new Bio::SeqIO from $estfile '$' : $!");
+		  or throw("Can't create new Bio::SeqIO from $estfile : $!");
 
 		#fill inputs
 		$genOutput->write_seq( $genomicseq );
