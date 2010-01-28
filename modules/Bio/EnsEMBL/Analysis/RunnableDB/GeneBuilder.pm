@@ -277,7 +277,7 @@ sub read_and_check_config{
 
 sub INPUT_GENES{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'INPUT_GENES'} = $arg;
   }
   return $self->{'INPUT_GENES'};
@@ -285,7 +285,7 @@ sub INPUT_GENES{
 
 sub OUTPUT_DB{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'OUTPUT_DB'} = $arg;
   }
   return $self->{'OUTPUT_DB'};
@@ -293,7 +293,7 @@ sub OUTPUT_DB{
 
 sub OUTPUT_BIOTYPE{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'OUTPUT_BIOTYPE'} = $arg;
   }
   return $self->{'OUTPUT_BIOTYPE'};
@@ -301,7 +301,7 @@ sub OUTPUT_BIOTYPE{
 
 sub MAX_TRANSCRIPTS_PER_CLUSTER{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'MAX_TRANSCRIPTS_PER_CLUSTER'} = $arg;
   }
   return $self->{'MAX_TRANSCRIPTS_PER_CLUSTER'};
@@ -309,7 +309,7 @@ sub MAX_TRANSCRIPTS_PER_CLUSTER{
 
 sub MIN_SHORT_INTRON_LEN{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'MIN_SHORT_INTRON_LEN'} = $arg;
   }
   return $self->{'MIN_SHORT_INTRON_LEN'};
@@ -317,14 +317,14 @@ sub MIN_SHORT_INTRON_LEN{
 
 sub MAX_SHORT_INTRON_LEN{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'MAX_SHORT_INTRON_LEN'} = $arg;
   }
   return $self->{'MAX_SHORT_INTRON_LEN'};
 } 
 sub BLESSED_BIOTYPES{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'BLESSED_BIOTYPES'} = $arg;
   }
   return $self->{'BLESSED_BIOTYPES'};
@@ -334,7 +334,7 @@ sub BLESSED_BIOTYPES{
 
 sub MAX_EXON_LENGTH{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'MAX_EXON_LENGTH'} = $arg;
   }
   return $self->{'MAX_EXON_LENGTH'};
