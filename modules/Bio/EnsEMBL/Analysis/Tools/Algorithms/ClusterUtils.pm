@@ -465,7 +465,7 @@ sub _compare_Genes {
   
   if ($gene1->end < $gene2->start || $gene1->start > $gene2->end) {
     print "Gene 1  " . $gene1->start . " " . $gene1->end . " \n";
-    print "Gene 2  " . $gene1->start . " " . $gene1->end . " \n";
+    print "Gene 2  " . $gene2->start . " " . $gene2->end . " \n";
     print "Failed extents check - returning 0\n";
     return 0;
   }
