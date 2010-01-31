@@ -2,6 +2,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder;
 
 use vars qw(@ISA);
 use strict;
+use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder 
@@ -174,8 +175,9 @@ sub filter_genes{
   return \@filtered;
 }
 
-sub validate_Transcript{
+sub validate_Transcript {
   my ($self, $transcript) = @_;
+
   my $slice = $self->query;
   $slice = $transcript->slice if(!$slice);
   my $is_valid = 0;
@@ -197,11 +199,14 @@ sub validate_Transcript{
       last EXON;
     }
   }
-  if(contains_internal_stops($transcript)){
-    $is_valid++;
-  }
-  unless(validate_Translation_coords($transcript)){
-    $is_valid++;
+
+  if ( defined($transcript->translation) ) {
+    if(contains_internal_stops($transcript)){
+      $is_valid++;
+    }
+    if ( !validate_Translation_coords($transcript) ){
+      $is_valid++;
+    }
   }
   return 0 if($is_valid >= 1);
   return 1;
