@@ -697,7 +697,6 @@ sub _remove_transcript_from_gene {
 sub transcript_to_keep {
   my ($self, $trans_to_keep)  = @_;
    if  (  $self->BLESSED_BIOTYPES->{$trans_to_keep->biotype} ) {   
-    print " TRANSCRIPT IS BLESSED .............WAHHH \n" ; 
     return ;   
   }else { 
    my $tr= Bio::EnsEMBL::Transcript->new( -EXONS => $trans_to_keep->get_all_Exons ) ;  
