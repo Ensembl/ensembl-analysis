@@ -700,7 +700,6 @@ sub transcript_to_keep {
     print " TRANSCRIPT IS BLESSED .............WAHHH \n" ; 
     return ;   
   }else { 
-   print " HAHA ! i will eat your translation now .... \n" ; 
    my $tr= Bio::EnsEMBL::Transcript->new( -EXONS => $trans_to_keep->get_all_Exons ) ;  
    return $tr;
   }
