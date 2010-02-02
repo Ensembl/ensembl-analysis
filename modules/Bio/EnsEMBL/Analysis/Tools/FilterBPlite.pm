@@ -161,13 +161,20 @@ sub get_hsps{
       # the whitespace away. For input IDs which are shorter than 78 
       # characters, the substitution has no effect.
 
-      # print "subject name which may need fixing is ".$sbjct->name."\n";
-      my $name_may_need_fix = $sbjct->name;
-      $name_may_need_fix =~ s/\s//;
-      my ($name) = $name_may_need_fix =~ /$regex/;
-      # print "After regex matching and fixing, the name is $name\n";
-      throw("Error parsing name from ".$sbjct->name." check your ".
-            "blast setup and blast headers") unless($name);
+      my $headers_in_blast_db_are_longer_78_char = 0 ;  
+
+      if ( $headers_in_blast_db_are_longer_78_char ) { 
+        my $name_may_need_fix = $sbjct->name; 
+        $name_may_need_fix =~ s/\s//; 
+      } 
+        my ($name) = $name_may_need_fix =~ /$regex/;  
+
+      unless($name) { 
+         throw("Error parsing name from ".$sbjct->name." check your ".
+            "blast setup and blast headers - if your identifiers in ".
+            " the blast database are > 78 chars, you have to edit FilterBPLite.pm and set " . 
+            " \$headers_in_blast_db_are_longer_78_char = 1 ( see comment above ) ") 
+      }
     HSP: while (my $hsp = $sbjct->nextHSP) {
         if($self->is_hsp_valid($hsp)){     
           push(@output, $self->split_hsp($hsp, $name));
