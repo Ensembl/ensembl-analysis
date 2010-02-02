@@ -159,21 +159,23 @@ sub get_hsps{
       # the name won't be parsed.  Therefore, a new variable 
       # $name_may_need_fix was introduced to fix the name by subsituting 
       # the whitespace away. For input IDs which are shorter than 78 
-      # characters, the substitution has no effect.
-
-      my $headers_in_blast_db_are_longer_78_char = 0 ;  
-
-      if ( $headers_in_blast_db_are_longer_78_char ) { 
-        my $name_may_need_fix = $sbjct->name; 
-        $name_may_need_fix =~ s/\s//; 
-      } 
-        my ($name) = $name_may_need_fix =~ /$regex/;  
+      # characters, the substitution has no effect. 
+      # 
+      # This heaeder-reformatting ( insertion of white spaces + linebreaks ) 
+      # done by wublast can't be undone and the original heder can't be restored. 
+      #
+      my $name_may_need_fix = $sbjct->name;  
+      #print "BEFORE FIXING NAME : $name_may_need_fix \n" ; 
+      # $name_may_need_fix =~ s/\s//; 
+      #print "AFTER  FIXING NAME : $name_may_need_fix \n" ; 
+      
+      my ($name) = $name_may_need_fix =~ /$regex/;   
 
       unless($name) { 
-         throw("Error parsing name from ".$sbjct->name." check your ".
-            "blast setup and blast headers - if your identifiers in ".
-            " the blast database are > 78 chars, you have to edit FilterBPLite.pm and set " . 
-            " \$headers_in_blast_db_are_longer_78_char = 1 ( see comment above ) ") 
+         throw("Error parsing name from ".$sbjct->name."\nCheck your ".
+            "blast setup and blast headers ( your regex in your Blast config file)\n\t".
+            "If your identifiers in the blast database are > 78 chars, you have to \n\t".
+            "edit FilterBPLite.pm manually \n"); 
       }
     HSP: while (my $hsp = $sbjct->nextHSP) {
         if($self->is_hsp_valid($hsp)){     
