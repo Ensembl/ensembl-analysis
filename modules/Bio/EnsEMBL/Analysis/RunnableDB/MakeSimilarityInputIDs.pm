@@ -19,10 +19,11 @@ sub new {
   my $self = $class->SUPER::new(@args);
   my ($output_logicname, $protein_count, $bmg_logicname) = rearrange
     (['OUTPUT_LOGICNAME', 'PROTEIN_COUNT', 'BMG_LOGICNAME'], @args); 
-
-  # output logicname
-  # protein count
-  # bmg logicname
+  
+  # The constructor arg like output_logicname, protein_count and bmg_logicname 
+  # can be retrieved from analysis.parameters column in compara-style-format, ie.
+  # " -protein_count => 10 , -output_logicname => bla, -bmg_logicname => bla
+  #
 
    my $create_analysis =  ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{creation_analysis};
    my $s_regex = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{submission_logic_name};
