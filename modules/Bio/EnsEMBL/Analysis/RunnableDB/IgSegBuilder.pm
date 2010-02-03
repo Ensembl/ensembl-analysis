@@ -53,8 +53,12 @@ sub fetch_input {
   my $trandb = $self->get_dbadaptor($self->TRANDB_DATABASES_NAME);
 
   my $slice = $trandb->get_SliceAdaptor->fetch_by_name($self->input_id);
-  my $tlslice = $trandb->get_SliceAdaptor->fetch_by_region('toplevel',
-                                                           $slice->seq_region_name);
+  my $tlslice = $trandb->get_SliceAdaptor->fetch_by_region($self->COORD_SYSTEM_NAME,
+                                                           $slice->seq_region_name,
+                                                           undef, undef, undef, 
+                                                           $self->COORD_SYSTEM_VERSION
+                                                           );
+
   $self->query($tlslice);
 
   my (@lv, @d, @j, @c);
@@ -75,7 +79,6 @@ sub fetch_input {
         foreach my $t (@{$slice->get_all_Transcripts(1, $logic)}) {
           map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
           $t = $t->transfer($tlslice);
-
 
           if ($t->coding_region_start > $t->start or $t->coding_region_end < $t->end) {
             my @e = @{$t->get_all_translateable_Exons};
@@ -1089,5 +1092,24 @@ sub D_J_PROXIMITY_THRESHOLD {
 
 }
 
+sub COORD_SYSTEM_NAME {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_coord_system_name} = $val;
+  }
+
+  return $self->{_coord_system_name};
+}
+
+sub COORD_SYSTEM_VERSION {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_coord_system_version} = $val;
+  }
+
+  return $self->{_coord_system_version};
+}
 
 1;
