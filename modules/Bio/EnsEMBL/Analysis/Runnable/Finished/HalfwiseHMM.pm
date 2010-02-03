@@ -154,6 +154,7 @@ sub pfam_ls_version{
     my ($self) = @_;
     unless($self->{'_pfam_ls_version'}){
 	my $ver = BlastableVersion->new($self->hmmdb);
+	$ver->set_hostname('farm2');
 #	$self->{'_pfam_ls_version'} = $ver->version();
 	$self->{'_pfam_ls_version'} = $ver->get_version($self->hmmdb);
 

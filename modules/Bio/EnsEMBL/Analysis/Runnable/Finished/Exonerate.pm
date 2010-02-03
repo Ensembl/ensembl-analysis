@@ -169,6 +169,7 @@ sub get_db_version {
 
 			my $ver = eval {
 				my $blast_ver = BlastableVersion->new();
+				$blast_ver->set_hostname('farm2');
 				$blast_ver->force_dbi($force_dbi);    # if set will be SLOW.
 				$blast_ver->get_version($db);
 				$blast_ver;
