@@ -11,7 +11,7 @@ Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome
 
     my $obj = Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome->new('-genomic'    => $genseq,
 								    '-features'   => $features,
-								    '-seqfetcher' => $seqfetcher,
+								    '-seqcache' => $seqcache,
 								    '-analysis'   => $analysis,
 								   )
 
@@ -47,6 +47,7 @@ use Bio::PrimarySeqI;
 use Bio::SeqIO;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
+
 use base 'Bio::EnsEMBL::Analysis::Runnable';
 
 sub new {
@@ -55,9 +56,9 @@ sub new {
 
   $self->{'_fplist'} = []; #create key to an array of feature pairs
 
-  my( $genomic, $features, $seqfetcher, $analysis ) = rearrange([qw(GENOMIC
+  my( $genomic, $features, $seqcache, $analysis ) = rearrange([qw(GENOMIC
 								 FEATURES
-								 SEQFETCHER
+								 SEQCACHE
 								 ANALYSIS)], @args);
 
   $self->throw("No genomic sequence input")
@@ -66,11 +67,9 @@ sub new {
     unless $genomic->isa("Bio::PrimarySeqI");
   $self->genomic_sequence($genomic) if defined($genomic);
 
-  $self->throw("No seqfetcher provided")
-    unless defined($seqfetcher);
-  $self->throw("[$seqfetcher] is not a Bio::DB::RandomAccessI")
-    unless $seqfetcher->isa("Bio::DB::RandomAccessI");
-  $self->seqfetcher($seqfetcher) if defined($seqfetcher);
+  $self->throw("No seqcache provided")
+    unless defined($seqcache);
+  $self->seq_cache($seqcache) if defined($seqcache);
   $self->analysis($analysis) if defined $analysis;
 
   if (defined($features)) {
@@ -357,68 +356,6 @@ sub print_FeaturePair {
 }
 
 
-=head2 get_Sequence
-
-  Title   : get_Sequence
-  Usage   : my $seq = get_Sequence($id)
-  Function: Fetches sequences with id $id
-  Returns : Bio::PrimarySeq
-  Args    : none
-
-=cut
-
-sub get_Sequence {
-    my ($self,$id) = @_;
-    my $seqfetcher = $self->seqfetcher;
-
-    if (defined($self->{'_seq_cache'}{$id})) {
-      return $self->{'_seq_cache'}{$id};
-    }
-
-    my $seq;
-    eval {
-      $seq = $seqfetcher->get_Seq_by_acc($id);
-    };
-
-    # if we didn't get it by accession, try by id
-    # get_Seq_by_id method not in Pfetch.pm module
-    if(!defined $seq){
-      eval{
-	$seq = $seqfetcher->get_Seq_by_id($id) unless defined $seq;
-      };
-    }
-
-    if ((!defined($seq)) && $@) {
-      warning("Couldn't find sequence for [$id]:\n");
-    }
-
-    return $seq;
-
-}
-
-=head2 get_all_Sequences
-
-  Title   : get_all_Sequences
-  Usage   : my $seq = get_all_Sequences(@id)
-  Function: Fetches sequences with ids in @id
-  Returns : nothing, but $self->{'_seq_cache'}{$id} has a Bio::PrimarySeq for each $id in @id
-  Args    : array of ids
-
-=cut
-
-sub get_all_Sequences {
-  my ($self,@id) = @_;
-
- SEQ: foreach my $id (@id) {
-	my ($acc,$ver) = $id =~ /(\w+)\.(\d+)/;
-    my $seq = $self->get_Sequence($id);
-    $seq = $self->get_Sequence($acc) unless $seq;
-    if(defined $seq) {
-      $self->{'_seq_cache'}{$id} = $seq;
-    }
-  }
-}
-
 
 
 =head2 run_blaste2g
@@ -435,7 +372,7 @@ sub run_blaste2g {
     my ( $self, $est, $features,$analysis ) = @_;
     my $count = @$features;
     my $miniseq = $self->make_miniseq(@$features);
-    my $hseq    = $self->get_Sequence($est) or throw("Can't fetch sequence for id '$est'");
+    my $hseq    = $self->seq_cache->{$est} or throw("Can't find sequence id '$est' in seq_cache");
 	my $g = $miniseq->get_cDNA_sequence;
 
     my $eg = new Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome(
@@ -500,24 +437,22 @@ sub genomic_sequence {
     return $self->{'_genomic_sequence'};
 }
 
-=head2 seqfetcher
+=head2 seq_cache
 
-    Title   :   seqfetcher
-    Usage   :   $self->seqfetcher($seqfetcher)
-    Function:   Get/set method for SeqFetcher
-    Returns :   Bio::DB::RandomAccessI object
-    Args    :   Bio::DB::RandomAccessI object
+    Title   :   seq_cache
+    Usage   :   $self->seq_cache($hash)
+    Function:   Get/set method for Seq Cache
+    Returns :   HASH
+    Args    :   HASH
 
 =cut
 
-sub seqfetcher {
-    my( $self, $value ) = @_;
-    if ($value) {
-        #need to check if passed sequence is Bio::DB::RandomAccessI object
-        $value->isa("Bio::DB::RandomAccessI") || throw("Input isn't a Bio::DB::RandomAccessI");
-        $self->{'_seqfetcher'} = $value;
+sub seq_cache {
+    my( $self, $hash ) = @_;
+    if ($hash) {
+        $self->{'_seq_cache'} = $hash;
     }
-    return $self->{'_seqfetcher'};
+    return $self->{'_seq_cache'};
 }
 
 =head2 analysis
@@ -603,7 +538,6 @@ sub run {
     my ($self) = @_;
     my ($esthash) = $self->get_all_FeaturesById;
     my @ests    = keys %$esthash;
-    $self->get_all_Sequences(@ests);
     my $number_of_errors = 0;
 
     foreach my $est (@ests) {

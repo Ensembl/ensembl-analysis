@@ -65,7 +65,7 @@ sub write_output {
 	            $all = 1 if($self->analysis->module =~ /DepthFilter/ ||
 	            			$self->analysis->logic_name =~ /refseq/ );
 	            $self->remove_stored_AlignFeatures($adaptor, $output, $all);
-	            $self->write_descriptions($output) unless ( $all || $self->analysis->logic_name =~ /refseq/);
+	            $self->write_descriptions($output) unless $all;
 	        } else {# Remove all SimpleFeatures
 	        	$self->remove_all_features($adaptor);
 	        }

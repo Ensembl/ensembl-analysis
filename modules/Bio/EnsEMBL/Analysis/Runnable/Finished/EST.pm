@@ -13,8 +13,10 @@ use Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
+use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_xdget;
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Storable;
 use base 'Bio::EnsEMBL::Analysis::Runnable';
 
 
@@ -23,6 +25,7 @@ use base 'Bio::EnsEMBL::Analysis::Runnable';
 
 use vars qw($verbose);
 $verbose = 0;
+my $debug = 0;
 
 sub new {
     my ( $class, @args ) = @_;
@@ -44,10 +47,12 @@ sub new {
     $self->unmasked($unmasked);
     $self->analysis($analysis);
 
-    # this should make a OBDAIndexSeqFetcher, but will default to Pfetch
-    my $indices = [ split(",", $self->analysis->db) ];
-    $seqfetcher = $self->_make_seqfetcher($indices);
-    $self->seqfetcher($seqfetcher);
+    # this should make a Finished_xdget SeqFetcher, but will default to Pfetch
+    my $indices;
+	$indices = [ split(",", $self->analysis->db) ] if($self->analysis->db);
+	$seqfetcher = $self->_make_seqfetcher($indices);
+	$self->seqfetcher($seqfetcher);
+
     return $self;
 }
 
@@ -82,6 +87,14 @@ sub seqfetcher {
     return $self->{'_seqfetcher'};
 }
 
+sub seq_cache {
+    my ( $self, $seq_cache ) = @_;
+    if ($seq_cache) {
+        $self->{'_seq_cache'} = $seq_cache;
+    }
+    return $self->{'_seq_cache'};
+}
+
 sub analysis {
     my ( $self, $analysis ) = @_;
     if ($analysis) {
@@ -96,6 +109,7 @@ sub run {
     my $parser = shift;
     my $filter = shift;
     my $blastcon = shift;
+    
 
     my $blast = Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new(
      -query => $self->query,
@@ -116,6 +130,7 @@ sub run {
 
     foreach my $db_file (sort @$db_files) {
     	print STDOUT "database file $db_file\n";
+    	print STDOUT "DEBUG ".localtime().": Running blast against $db_file\n" if $debug;
     	$blast->clean_output();
     	$blast->clean_results_files();
     	$blast->clean_databases();
@@ -125,15 +140,34 @@ sub run {
 
 		if (!$self->analysis->db)
 		{
-			print STDOUT "indice file $db_file\n";
 			my $seqfetcher = $self->_make_seqfetcher([$db_file]);
 	    	$self->seqfetcher($seqfetcher);
 		}
+		# Fetch all the hit sequences from the blast db using xdget
+		my %acc_hash = map{ $_->hseqname => 1 } @$features;
+		my @accessions = keys %acc_hash;
+		print STDOUT "DEBUG ".localtime().": Fetching ".scalar(@accessions)." sequences\n" if $debug;
+		$self->seq_cache($self->seqfetcher->get_Seq_by_accs(\@accessions));
+		print STDOUT "DEBUG ".localtime().": Storing ".scalar(@accessions)." sequences in /tmp/$$.desc\n" if $debug;
+		# Store the sequence descriptions and lengths in a hash
+		# then serialize it for subsequent use by Finished.pm
+	  	# Advantage: Call xdget once => Keep Lustre FS load low => Everybody happy :-)
+	  	my %descriptions = ();
+	  	my $persistent = "/tmp/$$.desc";
+	  	if(-e "$persistent") {
+	  		my $hash = retrieve "$persistent";
+	  		@descriptions{ keys %$hash } = values %$hash;
+	  	}
+		foreach(@accessions) {
+			next unless $self->seq_cache->{$_};
+			$descriptions{$_}{description} = $self->seq_cache->{$_}->description();
+	    	$descriptions{$_}{length} = $self->seq_cache->{$_}->length();
+		}
+	  	store \%descriptions, "$persistent";
 
-	    print STDERR "\nPlus strand est_genome\n" if $verbose;
+		print STDOUT "DEBUG ".localtime().": Running Est2Genome on Plus strand\n" if $debug;
 	    $self->run_est_genome_on_strand( 1, $features );
-
-	    print STDERR "\nMinus strand est_genome\n" if $verbose;
+		print STDOUT "DEBUG ".localtime().": Running Est2Genome on Minus strand\n" if $debug;
 	    $self->run_est_genome_on_strand( -1, $features)
     }
 }
@@ -163,6 +197,8 @@ sub run_est_genome_on_strand {
             return $x->hend >= $y->hend;
         };
     }
+
+
     while ( my ( $hid, $flist ) = each %$hit_features ) {
 
         print STDERR "$hid\n" if $verbose;
@@ -221,7 +257,7 @@ sub do_mini_est_genome {
     my $e2g = new Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome(
         '-genomic'    => $self->unmasked,
         '-features'   => $linear,
-        '-seqfetcher' => $self->seqfetcher,
+        '-seqcache' => $self->seq_cache,
 	'-analysis'   => $self->analysis,
     );
 
@@ -252,7 +288,7 @@ sub _make_seqfetcher {
     my ( $self, $indices ) = @_;
     my $seqfetcher;
     if ( ref($indices) eq "ARRAY"){
-        $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::xdget->new(-db => $indices,
+        $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_xdget->new(-db => $indices,
         															 -executable => '/software/farm/bin/xdget');
     }
     else{
