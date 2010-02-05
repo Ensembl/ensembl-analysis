@@ -53,12 +53,8 @@ sub fetch_input {
   my $trandb = $self->get_dbadaptor($self->TRANDB_DATABASES_NAME);
 
   my $slice = $trandb->get_SliceAdaptor->fetch_by_name($self->input_id);
-  my $tlslice = $trandb->get_SliceAdaptor->fetch_by_region($self->COORD_SYSTEM_NAME,
-                                                           $slice->seq_region_name,
-                                                           undef, undef, undef, 
-                                                           $self->COORD_SYSTEM_VERSION
-                                                           );
-
+  my $tlslice = $trandb->get_SliceAdaptor->fetch_by_region('toplevel',
+                                                           $slice->seq_region_name);
   $self->query($tlslice);
 
   my (@lv, @d, @j, @c);
@@ -80,12 +76,13 @@ sub fetch_input {
           map { $_->get_all_supporting_features } ($t, @{$t->get_all_Exons});
           $t = $t->transfer($tlslice);
 
+
           if ($t->coding_region_start > $t->start or $t->coding_region_end < $t->end) {
             my @e = @{$t->get_all_translateable_Exons};
             my $tr = Bio::EnsEMBL::Translation->new(-start_Exon => $e[0],
                                                     -end_Exon => $e[-1],
-                                                    -seq_start => 1,
-                                                    -seq_end => $e[-1]->length);
+                                                    -start => 1,
+                                                    -end => $e[-1]->length);
             my @sfs = @{$t->get_all_supporting_features};
             $t = Bio::EnsEMBL::Transcript
                 ->new(-analysis => $t->analysis,
@@ -337,7 +334,6 @@ sub transfer_to_local_slices {
     
     my $local_slice = $self->get_dbadaptor($self->TRANDB_DATABASES_NAME)->
         get_SliceAdaptor->fetch_by_region($self->query->coord_system->name,
-                                          $self->query->coord_system->version,
                                           $self->query->seq_region_name,
                                           $gstart,
                                           $gend,
@@ -619,12 +615,21 @@ sub prune_D_J_transcripts {
   my ($self, $gene) = @_;
 
   my ($best, @others) = sort _by_total_exon_length @{$gene->get_all_Transcripts};
+  my $keep = new Bio::EnsEMBL::Transcript;
+  $keep->analysis($best->analysis);
+  $keep->slice($best->slice);
 
   if (scalar(@{$best->get_all_Exons}) > 1) {
-    my ($exon, $min, $max);
+    my ($min, $max);
+    my $exon; 
     foreach my $e (@{$best->get_all_Exons}) {
       if (not defined $exon) {
-        $exon = $e;
+        $exon = new Bio::EnsEMBL::Exon(
+                                       -start => $e->start,
+                                       -end => $e->end,
+                                       -strand => $e->strand,
+                                       -slice => $e->slice,
+                                      ); 
         $min = $e->start;
         $max = $e->end;
       } else {
@@ -635,18 +640,27 @@ sub prune_D_J_transcripts {
     $exon->start($min);
     $exon->end($max);
 
-    $best->flush_Exons;
-    $best->add_Exon($exon);
+    $keep->add_Exon($exon);
+  } else {
+    my $exon = new Bio::EnsEMBL::Exon(
+                                      -start => $best->get_all_Exons->[0]->start,
+                                      -end => $best->get_all_Exons->[0]->end,
+                                      -strand => $best->get_all_Exons->[0]->strand,
+                                      -slice => $best->get_all_Exons->[0]->slice,
+                                     );
+
+    $keep->add_Exon($exon);
   }
+
   
   # remove translation
-  $best->translation(undef);
-  $best->recalculate_coordinates;
-  map { $_->phase(-1); $_->end_phase(-1) } @{$best->get_all_Exons};
+  $keep->translation(undef);
+  $keep->recalculate_coordinates;
+  map { $_->phase(-1); $_->end_phase(-1) } @{$keep->get_all_Exons};
     
-  $self->transfer_exon_supporting_features(\@others, [$best]);
+  $self->transfer_exon_supporting_features(\@others, [$keep]);
 
-  return Bio::EnsEMBL::Gene->new(-transcripts => [$best]);
+  return Bio::EnsEMBL::Gene->new(-transcripts => [$keep]);
 }
 
 
@@ -1091,26 +1105,6 @@ sub D_J_PROXIMITY_THRESHOLD {
 
   return $self->{_dj_prox};
 
-}
-
-sub COORD_SYSTEM_NAME {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_coord_system_name} = $val;
-  }
-
-  return $self->{_coord_system_name};
-}
-
-sub COORD_SYSTEM_VERSION {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_coord_system_version} = $val;
-  }
-
-  return $self->{_coord_system_version};
 }
 
 1;
