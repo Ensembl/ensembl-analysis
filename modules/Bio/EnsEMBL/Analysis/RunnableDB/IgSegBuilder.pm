@@ -84,8 +84,8 @@ sub fetch_input {
             my @e = @{$t->get_all_translateable_Exons};
             my $tr = Bio::EnsEMBL::Translation->new(-start_Exon => $e[0],
                                                     -end_Exon => $e[-1],
-                                                    -start => 1,
-                                                    -end => $e[-1]->length);
+                                                    -seq_start => 1,
+                                                    -seq_end => $e[-1]->length);
             my @sfs = @{$t->get_all_supporting_features};
             $t = Bio::EnsEMBL::Transcript
                 ->new(-analysis => $t->analysis,
@@ -337,6 +337,7 @@ sub transfer_to_local_slices {
     
     my $local_slice = $self->get_dbadaptor($self->TRANDB_DATABASES_NAME)->
         get_SliceAdaptor->fetch_by_region($self->query->coord_system->name,
+                                          $self->query->coord_system->version,
                                           $self->query->seq_region_name,
                                           $gstart,
                                           $gend,
