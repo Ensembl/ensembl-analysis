@@ -1513,7 +1513,7 @@ sub cluster_into_Genes{
       # Check how many havana genes are in the cluster
       CLUST:foreach my $clust (@matching_clusters) {
         foreach my $clust_trans ( @{ $clust } ) {
-          warning("using hardcoded biotype for havana-genes ! : \"havana\"" );
+          warn("using hardcoded biotype for havana-genes ! : \"havana\"" );
           if ($clust_trans->biotype =~ /havana/){
             my $hav_gene_counter++;
             next CLUST;
@@ -2253,7 +2253,7 @@ sub transfer_supporting_evidence{
   my %hold_evidence;
 
  SOURCE_FEAT:
-  foreach my $feat ( @{ $source_exon->get_all_supporting_featuresi } ) {
+  foreach my $feat ( @{ $source_exon->get_all_supporting_features } ) {
     next SOURCE_FEAT unless $feat->isa("Bio::EnsEMBL::FeaturePair");
     
     # skip duplicated evidence objects
