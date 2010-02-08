@@ -10,7 +10,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_supporting_evidence Exon_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info print_Transcript_and_Exons);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(compute_6frame_translations) ; 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(compute_6frame_translations create_single_transcript_genes ) ; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info);
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
@@ -216,29 +216,29 @@ sub result_set{
   return $self->{'result_set'};
 }
 
-
-sub set_1_cdna_genes{
-  my ($self, $arg) = @_;
-  if($arg){
-    for my $g  ( @$arg ) { 
-      $g->biotype($g->biotype."_set1") ;   
-    } 
-    $self->{'set_1_genes'} = $arg; 
-  }
-  return $self->{'set_1_genes'};
-}
-
-
-sub set_2_prot_genes{
-  my ($self, $arg) = @_;
-  if($arg){
-    for my $g  ( @$arg ) { 
-      $g->biotype($g->biotype."_set2") ;   
-    } 
-    $self->{'set_2_genes'} = $arg;
-  }
-  return $self->{'set_2_genes'};
-}  
+#sub set_1_cdna_genes{
+#  my ($self, $arg) = @_;
+#  if($arg){
+#    for my $g  ( @$arg ) {  
+#      $g->biotype($g->biotype."_set1") ;    
+#    } 
+#    $self->{'set_1_genes'} = $arg; 
+#  }
+#  return $self->{'set_1_genes'};
+#}
+#
+#
+#sub set_2_prot_genes{
+#  my ($self, $arg) = @_;
+#  if($arg){
+#    for my $g  ( @$arg ) { 
+#      $g->biotype($g->biotype."_set2") ;   
+#    } 
+#    $self->{'set_2_genes'} = $arg;
+#  }
+#  return $self->{'set_2_genes'};
+#}  
+# 
 
 sub update_efg_feature_genes {  
   my ($self,  $aref , $analysis ) = @_;  

@@ -13,6 +13,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils  qw(create_single_transcript_genes) ;
 
 
 @ISA = qw (
@@ -39,36 +40,45 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args); 
 
-  $self->read_and_check_config($LINCRNA_CONFIG_BY_LOGIC);  
-  $self->{_all_gene_sets}={};  
+  $self->read_and_check_config($LINCRNA_CONFIG_BY_LOGIC);    
+  $self->OUTPUT_BIOTYPE($self->analysis->logic_name) if(!$self->OUTPUT_BIOTYPE); 
+
   return $self;
 }
 
 
 
 sub fetch_input{
-  my ($self) = @_;
-  #fetch sequence/slice 
+  my ($self) = @_; 
+
   $self->query($self->fetch_sequence); 
 
-  #fetch genes
-  $self->get_gene_sets; 
+  my (@single_transcript_cdnas, @single_trans_pc);
+ 
+  # get cdnas and convert them to single transcript genes  
+  my $new_cdna = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_1_CDNA);   
+  push @single_transcript_cdnas,  map { @{create_single_transcript_genes($_)}  }  @$new_cdna ;
 
+  # get protein_coding genes and convert them to single transcript genes  
+  my $new_set_prot = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_2_PROT);
+  push @single_trans_pc,  map { @{create_single_transcript_genes($_)}  }  @$new_set_prot;  
 
-  my @efg_sf = @{$self->get_efg_simple_features()} ;  
-
+  # create runnable  
+  
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder->new(
         -query => $self->query,
         -analysis => $self->analysis,
      );  
+  # add / provide values. quicker than using constructors...
+  $runnable->set_1_cdna_genes(\@single_transcript_cdnas);  
+  $runnable->set_2_prot_genes(\@single_trans_pc);  
 
-  $runnable->set_1_cdna_genes($self->all_gene_sets("SET_1_CDNA"));
-  $runnable->set_2_prot_genes($self->all_gene_sets("SET_2_PROT"));  
-  $runnable->efg_simple_feature_genes( \@efg_sf ); 
+  $runnable->efg_simple_feature_genes($self->get_efg_simple_features); 
   $runnable->efg_clustering_with_cdna_analysis($self->create_analysis_object($self->DEBUG_LG_EFG_CLUSTERING_WITH_CDNA)); 
   $runnable->unclustered_efg_analysis( $self->create_analysis_object($self->DEBUG_LG_EFG_UNCLUSTERED));  
   $runnable->maxium_translation_length_ratio($self->MAXIMUM_TRANSLATION_LENGTH_RATIO); 
-  $self->runnable($runnable); 
+  $self->runnable($runnable);  
+
 };
 
 
@@ -247,101 +257,6 @@ sub convert_simple_features {
 
 
   
-
-
-
-
-
-
-
-sub get_gene_sets {
-  my ($self) = @_;
-  my @genes; 
-
-   my %sets_to_cluster = %{$self->CLUSTERING_INPUT_GENES};  
-
-    if ( keys %sets_to_cluster != 2 ) { 
-        throw ("you should only have 2 sets to cluster against - you can't cluster against more sets \n" ); 
-    } 
- 
-  # check if hash-key name is correct : 
-  unless ( exists $sets_to_cluster{"SET_1_CDNA"} && exists $sets_to_cluster{"SET_2_PROT"}) {  
-        throw( " configuration error - I expect to get 2 sets of genes with names \"SET_1_CDNA\" \n". 
-               " and \"SET_2_PROT\" - check your config - you can't change these names!!!! \n" ) ; 
-  }  
- 
-  foreach my $set ( keys %sets_to_cluster) { 
-    my %this_set = %{$sets_to_cluster{$set}};      
-    my @genes_in_set; 
-    foreach my $database_db_name ( keys ( %this_set)) {   
-       print "fetching $database_db_name\n" ; 
-       my $set_db = $self->get_dbadaptor($database_db_name);
-       #$set_db->disconnect_when_inactive(1);  
-       my $slice = $self->fetch_sequence($self->input_id, $set_db);  
-       my @biotypes = @{$this_set{$database_db_name}}; 
-       for my $biotype  ( @biotypes ) { 
-          my $genes = $slice->get_all_Genes_by_type($biotype,undef,1);
-          if ( @$genes == 0 ) {  
-            warning("No genes of biotype $biotype found in $set_db\n"); 
-          } 
-          print "Retrieved ".@$genes." of type ".$biotype."\n";
-          push @genes_in_set, @$genes; 
-      }  
-    } 
-    my @single_transcript_genes = @{$self->create_single_transcript_genes(\@genes_in_set)};
-   $self->all_gene_sets($set,\@single_transcript_genes); 
-  }    
-
-  for ( keys  %{$self->all_gene_sets} ) { 
-    print "$_  : "  . scalar (@{${$self->all_gene_sets}{$_}}) . " genes found\n";  
-  }    
-}
-
-
-#
-#  method to store all retrieved gene sets 
-# 
-
-sub all_gene_sets { 
-  my ( $self, $set_name, $genes ) =  @_ ; 
-
-  if ( $set_name && $genes ) {     
-     ${$self->{_all_gene_sets}}{$set_name} = $genes ;  
-     # return array with genes of set name 
-     return ${$self->{_all_gene_sets}}{$set_name} ; 
-  }elsif ( $set_name ) {   
-     # return array with genes of set name 
-     return ${$self->{_all_gene_sets}}{$set_name} ; 
-  }  
-  # return hash 
-  return $self->{_all_gene_sets}; 
-} 
-
-
-sub create_single_transcript_genes{
-  my ($self, $genes) = @_; 
-
-  print "Creating single_transcript genes ....\n" ;
-  my @single_transcript_genes; 
-
- GENE:foreach my $gene(@$genes){ 
-    my @tr = @{$gene->get_all_Transcripts}; 
-    if ( @tr == 1 ) {  
-      push @single_transcript_genes, $gene ; 
-    } else { 
-      foreach my $transcript(@tr ) { 
-        my $ng = Bio::EnsEMBL::Gene->new();  
-        $ng->add_Transcript($transcript); 
-        push @single_transcript_genes, $ng ; 
-      }
-    }
-  }
-  return \@single_transcript_genes; 
-}
-
-#CONFIG METHODS
-
-
 =head2 read_and_check_config
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder
@@ -361,25 +276,11 @@ sub read_and_check_config{
   #######
   #CHECKS
   #######
-  foreach my $var(qw(CLUSTERING_INPUT_GENES OUTPUT_DB OUTPUT_BIOTYPE EFG_FEATURE_NAMES EXTEND_EFG_FEATURES )){
+  foreach my $var(qw(NEW_SET_1_CDNA NEW_SET_2_PROT OUTPUT_DB OUTPUT_BIOTYPE EFG_FEATURE_NAMES EXTEND_EFG_FEATURES )){
     throw("RunnableDB::lincRNAFinder $var config variable is not defined") 
       unless($self->$var);
-  }
-  my @keys = keys(%{$self->CLUSTERING_INPUT_GENES});
-  throw("RunnableDB::lincRNAFinder CLUSTERING_INPUT_GENES has needs to contain values") if(!@keys);
-  my %unique;
-  foreach my $key(@keys){
-    my $hashref_of_sets  = $self->CLUSTERING_INPUT_GENES->{$key};
-    foreach my $set (%$hashref_of_sets ){
-      if(!$unique{$set}){
-        $unique{$set} = $key;
-      }else{
-          warning($set ." appears twice in your listing, make sure this ".
-                  "isn't for the same database otherwise it will cause issue");
-      }
-    }
-  }
-  $self->OUTPUT_BIOTYPE($self->analysis->logic_name) if(!$self->OUTPUT_BIOTYPE);
+  } 
+
 }
 
 
@@ -401,6 +302,22 @@ sub CLUSTERING_INPUT_GENES {
     $self->{'CLUSTERING_INPUT_GENES'} = $arg;
   }
   return $self->{'CLUSTERING_INPUT_GENES'};
+}
+
+sub NEW_SET_1_CDNA {
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'NEW_SET_1_CDNA'} = $arg;
+  }
+  return $self->{'NEW_SET_1_CDNA'};
+} 
+
+sub NEW_SET_2_PROT{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{'NEW_SET_2_PROT'} = $arg;
+  }
+  return $self->{'NEW_SET_2_PROT'};
 }
 
 
