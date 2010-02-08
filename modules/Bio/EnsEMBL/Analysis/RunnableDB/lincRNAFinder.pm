@@ -53,15 +53,16 @@ sub fetch_input{
 
   $self->query($self->fetch_sequence); 
 
-  my (@single_transcript_cdnas, @single_trans_pc);
  
   # get cdnas and convert them to single transcript genes  
   my $new_cdna = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_1_CDNA);   
-  push @single_transcript_cdnas,  map { @{convert_to_single_transcript_gene($_)}  }  @$new_cdna ;
+  my  @single_transcript_cdnas =  map { @{convert_to_single_transcript_gene($_)}  }  @$new_cdna ;
+
+  print "i got " . scalar(@single_transcript_cdnas) . " transcripts\n" ; exit(0);
 
   # get protein_coding genes and convert them to single transcript genes  
   my $new_set_prot = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_2_PROT);
-  push @single_trans_pc,  map { @{convert_to_single_transcript_gene($_)}  }  @$new_set_prot;  
+  my @single_trans_pc = map { @{convert_to_single_transcript_gene($_)}  }  @$new_set_prot;  
 
   # create runnable  
   
