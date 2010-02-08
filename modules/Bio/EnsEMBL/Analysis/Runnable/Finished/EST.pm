@@ -109,7 +109,7 @@ sub run {
     my $parser = shift;
     my $filter = shift;
     my $blastcon = shift;
-    
+
 
     my $blast = Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new(
      -query => $self->query,
@@ -128,7 +128,7 @@ sub run {
     print "using $dbv\n";
     $self->get_db_version($dbv);
 
-    foreach my $db_file (sort @$db_files) {
+    DB_FILE: foreach my $db_file (sort @$db_files) {
     	print STDOUT "database file $db_file\n";
     	print STDOUT "DEBUG ".localtime().": Running blast against $db_file\n" if $debug;
     	$blast->clean_output();
@@ -143,6 +143,9 @@ sub run {
 			my $seqfetcher = $self->_make_seqfetcher([$db_file]);
 	    	$self->seqfetcher($seqfetcher);
 		}
+
+		next DB_FILE unless @$features;
+
 		# Fetch all the hit sequences from the blast db using xdget
 		my %acc_hash = map{ $_->hseqname => 1 } @$features;
 		my @accessions = keys %acc_hash;
