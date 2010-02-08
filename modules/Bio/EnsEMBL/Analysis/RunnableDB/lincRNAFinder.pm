@@ -13,7 +13,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils  qw(create_single_transcript_genes) ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils ;
 
 
 @ISA = qw (
@@ -57,11 +57,11 @@ sub fetch_input{
  
   # get cdnas and convert them to single transcript genes  
   my $new_cdna = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_1_CDNA);   
-  push @single_transcript_cdnas,  map { @{create_single_transcript_genes($_)}  }  @$new_cdna ;
+  push @single_transcript_cdnas,  map { @{convert_to_single_transcript_gene($_)}  }  @$new_cdna ;
 
   # get protein_coding genes and convert them to single transcript genes  
   my $new_set_prot = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_2_PROT);
-  push @single_trans_pc,  map { @{create_single_transcript_genes($_)}  }  @$new_set_prot;  
+  push @single_trans_pc,  map { @{convert_to_single_transcript_gene($_)}  }  @$new_set_prot;  
 
   # create runnable  
   
