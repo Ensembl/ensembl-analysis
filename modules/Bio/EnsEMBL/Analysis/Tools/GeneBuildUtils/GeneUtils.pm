@@ -554,22 +554,37 @@ sub compute_6frame_translations{
 }
 
 
-1;
 
+=head2 convert_to_single_transcript_gene 
 
-sub convert_to_single_transcript_gene {
-  my ($multitrans_gene) = @_;
+  Arg [1]   : Bio::EnsEMBL::Gene 
+  Function  : converts all Transcripts of a Gene into new Bio::EnsEMBL::Gene objects and 
+              returns them as array reference 
+  Returntype: arraryref of Bio::EnsEMBL::Gene
+  Exceptions: 
+  Example   : @single_transcript_genes = @{ convert_to_single_transcript_gene($gene)} 
 
-  my @singletrans_gene ;
+=cut
 
-  foreach my $trans ( @{ $multitrans_gene->get_all_Transcripts } ) {
-  my $newgene = Bio::EnsEMBL::Gene->new();
+sub convert_to_single_transcript_gene { 
+  my ($gene) = @_; 
 
-  $newgene->add_Transcript($trans) ;
-  $newgene->biotype($multitrans_gene->biotype) ;
+  my @single_transcript_genes;
 
-  push @singletrans_gene, $newgene;
+  my @tr = @{$gene->get_all_Transcripts};
+  if ( scalar(@tr) == 1 ) {
+     push @single_transcript_genes, $gene ;
+  } else {
+     foreach my $transcript(@tr) {
+       my $ng = Bio::EnsEMBL::Gene->new();
+       $ng->add_Transcript($transcript);
+       $ng->biotype($gene->biotype) ; 
+       push @single_transcript_genes, $ng ;     
+     }
   }
-
-return \@singletrans_gene ;
+  return \@single_transcript_genes;
 }
+
+
+
+1; 
