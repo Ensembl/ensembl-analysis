@@ -166,66 +166,15 @@ sub run{
   #}  
  
  
-  # check length of translation computed ( ratio )   
-  my ($genes_with_short_translations , $long_genes ) = @{ $self->find_short_translations($self->result_set)}  ; 
-
-  print " got " . scalar ( @$genes_with_short_translations ) . " and " . scalar(@$long_genes) . "long genes \n" ;  
-
-  my $aref = $genes_with_short_translations;
-  print scalar(@$aref) . " genes identfied \n" ; 
-
-  my @out_genes ;  
-  for my $rg( @$aref ) {   
-    push @out_genes , compute_6frame_translations($rg) ; 
+  my @genes_with_translations ;  
+  for my $rg( @{$self->result_set}  ) {   
+    push @genes_with_translations, compute_6frame_translations($rg); 
   }
-  print scalar(@out_genes) . " genes with 6-frame-translations found\n" ;    
+  print scalar(@genes_with_translations) . " genes with 6-frame-translations found\n" ;    
 
-  # flag genes where translation length-to-transcript-length longer than certain ratio 
-  my ($genes_with_short_translations , $long_genes ) = @{ $self->find_short_translations(\@out_genes);  
-  print scalar(@$genes_with_short_translations ) . " genes with 6-frame-translations found\n" ;    
-  push @out_genes, @$long_genes ; 
-  $self->output(\@out_genes); 
+  $self->output(\@genes_with_translations); 
 }    
 
-
-
-sub find_short_translations { 
-   my ($self, $genes) = @_ ; 
-
-   my $max_translation_ratio = $self->maxium_translation_length_ratio;  
-   my @g = @$genes; 
-   my %result ; 
-   my @genes_with_long_translations ; 
-   for my $g (@g) {   
-      for my $t ( @{$g->get_all_Transcripts} )  {   
-        my @translation_data  = @{ run_translate($t) }   ;    
-
-        if (  @translation_data > 0 ) { 
-          my $data = pop @translation_data ;         
-          my ( $l,$s,$e ) = @$data ;    
-          my $max_aa =  sprintf('%.0f',$t->seq->length/3) ;  
-          my $ratio = sprintf('%.0f', ( $l / $max_aa ) * 100) ;  
-          if ( $ratio < $max_translation_ratio ) { 
-             #print "translation length is quite short. flagging gene for blastx\n" ; 
-             #print "CHECK :  max = $max_aa    found_lengh = $l     $l / $max_aa =  $ratio \% \n" ;     
-             $result{$g}=$g;
-          } else {  
-            print "translation of gene " . $g->dbID." ".$g->biotype." is too long > $max_translation_ratio % ".
-            " of transcript length - not using this gene for ncRNA\n" ;   
-            $g->biotype("transl_longer_than_ratio") ; 
-            push @genes_with_long_translations , $g ; 
-          } 
-        } else {  
-           print "SKIPPING gene - no sensible translation found for gene with id : " . $g->dbID . " ".$g->biotype . "  "  . $t->seq->seq . "\n" ;  
-           $g->biotype("nonsense_translation") ; 
-           push @genes_with_long_translations , $g ; 
-        } 
-      }   
-   }    
-   print scalar ( keys %result ) . " transcripts found with short translations < $max_translation_ratio % " ;  
-   my @short_genes = values %result ; 
-   return [ \@short_genes , \@genes_with_long_translations ] ; 
-} 
 
 
 sub separate_efg_features_by_logic_name {  
