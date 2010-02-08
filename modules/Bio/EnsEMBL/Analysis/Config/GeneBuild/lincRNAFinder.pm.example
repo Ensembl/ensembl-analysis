@@ -74,10 +74,6 @@ use vars qw( %Config );
                                                                          
                           EXTEND_EFG_FEATURES => 350 ,                   # +-padding around the domains in bp
 
-                          MAXIMUM_TRANSLATION_LENGTH_RATIO => 30,  # maxium percentage translation-length for a cDNA to be to be still 
-                                                                   # considered as non-coding  
-                            
-                         
  
                           # The configuration options below are for development / debugging purposees only; 
                           # you don't have to configure this unless you want to change names etc.
