@@ -619,6 +619,12 @@ sub prune_D_J_transcripts {
   $keep->analysis($best->analysis);
   $keep->slice($best->slice);
 
+  # check that Keep has sfs
+  my @best_tsfs =  @{ $best->get_all_supporting_features };
+  foreach my $sf (@best_tsfs) {
+    print STDERR "BEST_SF: is a ".ref($sf)." start ".$sf->start." end ".$sf->end." strand ".$sf->strand."\n";
+  }
+
   if (scalar(@{$best->get_all_Exons}) > 1) {
     my ($min, $max);
     my $exon; 
@@ -636,6 +642,7 @@ sub prune_D_J_transcripts {
         $min = $e->start if $e->start < $min;
         $max = $e->end   if $e->end > $max;
       }
+      $exon->add_supporting_features(@{ $e->get_all_supporting_features });
     }
     $exon->start($min);
     $exon->end($max);
@@ -649,9 +656,18 @@ sub prune_D_J_transcripts {
                                       -slice => $best->get_all_Exons->[0]->slice,
                                      );
 
+    $exon->add_supporting_features(@{ $best->get_all_Exons->[0]->get_all_supporting_features });
     $keep->add_Exon($exon);
   }
+  my @tsfs = @{ $best->get_all_supporting_features };
+  $keep->add_supporting_features(@tsfs);
 
+  if (scalar(@{ $keep->get_all_supporting_features }) < 1) {
+    throw("No supporting features for transcript - fix please");
+  }
+  foreach my $sf (@{ $keep->get_all_supporting_features }) {
+    print STDERR "TRANSCRIPT SF: is a ".ref($sf)." start ".$sf->start." end ".$sf->end." strand ".$sf->strand."\n";
+  }
   
   # remove translation
   $keep->translation(undef);
@@ -659,6 +675,15 @@ sub prune_D_J_transcripts {
   map { $_->phase(-1); $_->end_phase(-1) } @{$keep->get_all_Exons};
     
   $self->transfer_exon_supporting_features(\@others, [$keep]);
+  foreach my $e (@{$keep->get_all_Exons}) {
+    if (scalar(@{ $e->get_all_supporting_features }) < 1) {
+      throw("No supporting features for exon - fix please");
+    }
+    foreach my $sf (@{$e->get_all_supporting_features}) {
+      print STDERR "EXON SF: is a ".ref($sf)." start ".$sf->start." end ".$sf->end." strand ".$sf->strand."\n";
+    }
+  }
+
 
   return Bio::EnsEMBL::Gene->new(-transcripts => [$keep]);
 }
