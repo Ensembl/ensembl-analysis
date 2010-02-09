@@ -104,8 +104,8 @@ use vars qw( %Config );
              REJECTED_BIOTYPE => 'rejected',
             }, 
 
-            TargettedGenewise => 
-            {
+            TargettedGenewise => { 
+
              PAF_LOGICNAMES => ['Best_Pmatch'],
              OUTPUT_BIOTYPE => ' targetted',
              GENEWISE_PARAMETERS => { 
@@ -139,9 +139,30 @@ use vars qw( %Config );
              BLASTMINIGENEWISE_PARAMETERS => {},        
              LIMIT_TO_FEATURE_RANGE => 1,
              FEATURE_RANGE_PADDING => 20000,
-            },
-            Similarity => 
-            {
+            },  
+
+            simgw_vert_mammal => {
+             PAF_LOGICNAMES => ['uniprot_vert_mammal'],
+             PAF_SOURCE_DB => 'REFERENCE_DB',
+             OUTPUT_BIOTYPE => 'simgw_vert_mammal',
+             BIOTYPES_TO_MASK => ['targetted'],
+             SEQFETCHER_PARAMS => {
+                                   -db => ['/data/blastdb/Supported/uniprot_index']
+                                  },
+             PAF_MIN_SCORE_THRESHOLD => 200,
+             FILTER_PARAMS => {
+                               -max_exon_length => '20000',
+                               -multi_exon_min_coverage => '70',
+                               -single_exon_min_coverage => '90',
+                               -max_intron_length => '100000',
+                               -min_split_coverage => '90',
+                               -max_low_complexity => '60',
+                              },
+             REPEATMASKING => ['RepeatMask'],
+            }, 
+
+
+            Similarity => {
              PAF_LOGICNAMES => ['Uniprot'],
              PAF_SOURCE_DB => 'REFERENCE_DB',
              OUTPUT_BIOTYPE => 'similarity',
@@ -159,9 +180,10 @@ use vars qw( %Config );
                                -max_low_complexity => '60',
                               },
              REPEATMASKING => ['RepeatMask'],
-            },
-            TargettedExonerate 
-            => {
+            }, 
+
+            TargettedExonerate => { 
+
                 PAF_LOGICNAMES => ['Best_Pmatch'], 
                 OUTPUT_BIOTYPE => 'new_exonerate',
                 EXONERATE_PARAMETERS => {
