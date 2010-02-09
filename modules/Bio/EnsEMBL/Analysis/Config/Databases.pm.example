@@ -80,7 +80,8 @@ use vars qw(%Config);
     # repeats and features from raw computes (e.g. ab-inito
     # predictions, dna- or protein alignments )
 
-    REFERENCE_DB => { -dbname => '',
+    REFERENCE_DB => { 
+                      -dbname => '',
                       -host   => '',
                       -port   => '',
                       -user   => '',
@@ -91,7 +92,8 @@ use vars qw(%Config);
     # FPC_BlastMiniGenewise (TGE_gw or similarity_genewise - genes ) (
     # formerly GB_GW_DB )
 
-    GENEWISE_DB => { -dbname => '',
+    GENEWISE_DB => { 
+                     -dbname => '',
                      -host   => '',
                      -port   => '',
                      -user   => '',
@@ -101,7 +103,8 @@ use vars qw(%Config);
     # The EXONERATE_DB ( formerly GB_cDNA ) holds alignments to cDNA's
     # or EST's gene-structtures made by exonerate (Exonerate2Genes.pm)
 
-    EXONERATE_DB => { -dbname => '',
+    EXONERATE_DB => {
+                      -dbname => '',
                       -host   => '',
                       -port   => '',
                       -user   => '',
@@ -111,7 +114,8 @@ use vars qw(%Config);
     # The BLESSED_DB (formerly GB_BLESSED) holds the 'blessed'
     # gene-set ( if there is one )
 
-    BLESSED_DB => { -dbname => '',
+    BLESSED_DB => { 
+                    -dbname => '',
                     -host   => '',
                     -port   => '',
                     -user   => '',
@@ -121,7 +125,8 @@ use vars qw(%Config);
     # The UTR_DB (formerly GB_COMB) holds genes made by the
     # UTR-addtion-run Combine_Genewises_and_E2Gs.pm writes to UTR_DB
 
-    UTR_DB => { -dbname => '',
+    UTR_DB => { 
+                -dbname => '',
                 -host   => '',
                 -port   => '',
                 -user   => '',
@@ -132,7 +137,8 @@ use vars qw(%Config);
     # GeneBuilder.pm writes its results to this database and
     # The Pseudogene-code READS from this database
 
-    GENEBUILD_DB => { -dbname => '',
+    GENEBUILD_DB => { 
+                      -dbname => '',
                       -host   => '',
                       -port   => '',
                       -user   => '',
@@ -141,7 +147,8 @@ use vars qw(%Config);
 
     # PSEUDO_DB holds the pseudo-genes
 
-    PSEUDO_DB => { -dbname => '',
+    PSEUDO_DB => { 
+                   -dbname => '',
                    -host   => '',
                    -port   => '',
                    -user   => '',
@@ -151,7 +158,8 @@ use vars qw(%Config);
     # COALESCER_DB is the DB where TranscriptCoalescer writes its
     # results to
 
-    COALESCER_DB => { -dbname => '',
+    COALESCER_DB => { 
+                      -dbname => '',
                       -host   => '',
                       -port   => '',
                       -user   => '',
@@ -161,7 +169,8 @@ use vars qw(%Config);
     # OrthologueEvalutor, FindMissingGenes, etc. write it's results into
     # ORTHOLOGUE_DB
 
-    ORTHOLOGUE_DB => { -dbname => '',
+    ORTHOLOGUE_DB => { 
+                       -dbname => '',
                        -host   => '',
                        -port   => '',
                        -user   => '',
@@ -171,7 +180,8 @@ use vars qw(%Config);
     # This database is use mainly with human an mouse for merging the
     # havana get set with the ensembl genebuild
 
-    HAVANA_DB => { -dbname => '',
+    HAVANA_DB => { 
+                   -dbname => '',
                    -host   => '',
                    -port   => '',
                    -user   => '',
@@ -180,7 +190,8 @@ use vars qw(%Config);
 
     # This database is use mainly with human variation genewise alignments
 
-    VARIATION_DB => { -dbname => '',
+    VARIATION_DB => {
+                      -dbname => '',
                       -host   => '',
                       -port   => '',
                       -user   => '',
@@ -189,7 +200,8 @@ use vars qw(%Config);
 
     # Database which stores the ditags...
 
-    DITAG_DB => { -dbname => '',
+    DITAG_DB => {
+                  -dbname => '',
                   -host   => '',
                   -port   => '',
                   -user   => '',
@@ -200,21 +212,24 @@ use vars qw(%Config);
     ### Databases for RunnableDB/CopyGenes.pm
     #############
 
-    COPY_SOURCE_DB => { -dbname => '',
+    COPY_SOURCE_DB => { 
+                        -dbname => '',
                         -host   => '',
                         -port   => '',
                         -user   => '',
                         -pass   => '',
     },
 
-    COPY_TARGET_DB => { -dbname => '',
+    COPY_TARGET_DB => {
+                        -dbname => '',
                         -host   => '',
                         -port   => '',
                         -user   => '',
                         -pass   => '',
     },
 
-    KILL_LIST_DB => { -dbname => 'ba1_ensembl_kill_list',
+    KILL_LIST_DB => { 
+                      -dbname => 'ba1_ensembl_kill_list',
                       -host   => 'genebuild6',
                       -port   => '3306',
                       -user   => 'ensro',
