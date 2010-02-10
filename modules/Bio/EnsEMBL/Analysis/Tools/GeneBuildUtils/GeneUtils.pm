@@ -63,7 +63,7 @@ use vars qw (@ISA  @EXPORT);
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript attach_Analysis_to_Transcript attach_Analysis_to_Transcript_no_support print_Transcript_and_Exons);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(run_translate add_ORF_to_transcript ); 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(run_translate add_ORF_to_transcript compute_6frame_translations_for_transcript); 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
 use Bio::EnsEMBL::Gene;
@@ -532,20 +532,11 @@ sub compute_6frame_translations{
   my @new_transcripts ;
 
   TRANSCRIPTS: for my $transcript ( @tr ) {
-
-    my @met_predictions = @{run_translate ($transcript, 1)};
-    my @nomet_predictions = @{run_translate ($transcript)};
-
-    ORF: for my $orf ( @met_predictions, @nomet_predictions ) {
-      # create new transcript for every ORF 
-      my $nt = new Bio::EnsEMBL::Transcript( -EXONS => $transcript->get_all_Exons) ; 
-      $nt = add_ORF_to_transcript($orf, $nt) ;  
-      push @new_transcripts, $nt ;  
-    } 
- }
+    push @new_transcripts, @{compute_6frame_translations_for_transcript($transcript)}; 
+  } 
     
- my $new_gene = Bio::EnsEMBL::Gene->new();
- $new_gene->biotype("");
+  my $new_gene = Bio::EnsEMBL::Gene->new();
+  $new_gene->biotype($gene->biotype);
  
  for my $nt ( @new_transcripts ) { 
    $new_gene->add_Transcript($nt) ;
