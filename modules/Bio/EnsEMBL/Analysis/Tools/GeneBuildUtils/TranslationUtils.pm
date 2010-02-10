@@ -347,15 +347,14 @@ sub add_ORF_to_transcript{
   my $orf_start = $orf->[1];
   my $orf_end = $orf->[2];
   my $translation = Bio::EnsEMBL::Translation->new();
-  logger_info("Best orf for ".id($transcript)." ".$orf->[0].
-              " long ".$orf_start." to ".$orf_end);
+  logger_info ("Best orf for ".id($transcript)." ".$orf->[0] ." long ".$orf_start." to ".$orf_end);
   my ($translation_start, $translation_end, 
       $translation_start_Exon, $translation_end_Exon);
   my $exon_count = 0;
   my $pos = 1;
-  foreach my $exon(@{$transcript->get_all_Exons}){
+  foreach my $exon(@{$transcript->get_all_Exons}){ 
     $exon_count++;
-    logger_info("exon:$exon_count exon_length:".$exon->length." pos:$pos orf_start:$orf_start orf_end:$orf_end pos+:".($pos + $exon->length - 1));
+    logger_info("exon:$exon_count exon_length:".$exon->length." pos:$pos orf_start:$orf_start orf_end:$orf_end pos+:".($pos + $exon->length - 1)); 
     if ( $orf_start >= $pos && $orf_start <= $pos 
          + $exon->length - 1 ){
       $translation_start = $orf_start - $pos+1;
@@ -379,9 +378,8 @@ sub add_ORF_to_transcript{
     $translation->end($translation_end);
     $translation->start_Exon($translation_start_Exon);
     $translation->end_Exon($translation_end_Exon);
-    $transcript->translation($translation);
+    $transcript->translation($translation); 
   }
-
   my $found_start = 0;
   my $found_end = 0;
   my $last_end_phase;
@@ -449,17 +447,15 @@ sub add_ORF_to_transcript{
 sub compute_6frame_translations_for_transcript{
   my ($transcript) = @_;
 
-  my @new_transcripts ;  
   my @met_predictions = @{run_translate ($transcript, 1)};
   my @nomet_predictions = @{run_translate ($transcript)}; 
 
   my %translations; 
   foreach my $orf ( @met_predictions, @nomet_predictions ) {  
-
-    my $nt = new Bio::EnsEMBL::Transcript( -EXONS => $transcript->get_all_Exons) ;  
+    my $nt = new Bio::EnsEMBL::Transcript( -EXONS => $transcript->get_all_Exons  ) ; 
     $nt->biotype($transcript->biotype);  
-    $nt= add_ORF_to_transcript($orf,$transcript) ;     
-    $translations{$nt->translate->seq} = $nt; 
+    $nt= add_ORF_to_transcript($orf,$nt);
+    $translations{$nt->translate->seq} = $nt;  
   }   
   return [values %translations] ;
 }
@@ -491,7 +487,7 @@ sub run_translate{
   my $command = "/software/ensembl/bin/translate";
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
-  #logger_info($command);
+  logger_info($command);
   open ( ORF, $command ) || throw( "Error running translate" );
   
   my @orf_predictions;
