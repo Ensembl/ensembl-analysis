@@ -450,7 +450,6 @@ sub compute_6frame_translations_for_transcript{
   my ($transcript) = @_;
 
   my @new_transcripts ;  
-  print "trans-utils : $transcript\n"; 
   my @met_predictions = @{run_translate ($transcript, 1)};
   my @nomet_predictions = @{run_translate ($transcript)}; 
 
