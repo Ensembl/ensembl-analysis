@@ -9,8 +9,6 @@
 
 # POD documentation - main docs before the code
 
-
-
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAFinder
@@ -21,12 +19,8 @@ Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAFinder
 
 =head1 DESCRIPTION
 
-    Provides configurable options for the lincRNAFinder.pm module. 
-
 
 =head1 CONTACT
-
-     EnsEMBL ensembl-dev@ebi.ac.uk
 
 =cut
 
@@ -36,6 +30,7 @@ package Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAFinder;
 use strict;
 use vars qw( %Config );
 
+# Hash containing config info
 %Config = (
 
            LINCRNA_CONFIG_BY_LOGIC => 
@@ -45,49 +40,42 @@ use vars qw( %Config );
                           # i need to change this part some day to use the same as we use for VAILDATION_DB 
                           #  ( get rid of clustering_input_genees and just have set_name{dbname} [ biotypes ]  
                           #    
-                          CLUSTERING_INPUT_GENES => {  
-                                                      SET_1_CDNA => {   # DO NOT change the set name SET_1_CDNA 
+                          NEW_SET_1_CDNA => { 
+                                                 SOURCE_CDNA_UPDATE_DB    => ['cDNA_update'],   
+                                            }, 
 
-                                                                      # Ifyou want to fetch genes out of multiple databases, 
-                                                                      # add Databases.pm key + bioootypes to fetch   
-                                                                      
-                                                                      SOURCE_CDNA_UPDATE_DB    => ['cDNA_update'],   
-                                                                      # SOLEXA_MODEL_DB          => [ 'best','other'],   
+                          NEW_SET_2_PROT  => {  
+                                                 SOURCE_PROTEIN_CODING_DB => ['protein_coding'],  
+                                             }, 
 
-                                                                    },  
-                                                      SET_2_PROT  => {  # DO NOT change the set name SET_2_PROT
-
-                                                                      # If you want to fetch genes out of multiple databases, 
-                                                                      # add the Databases.pm key + the biotypes to fetch in this hash
-                                                                      
-                                                                      SOURCE_PROTEIN_CODING_DB => ['protein_coding'],  
-                                                                     }, 
-                                                     },   
-
-                          # where output will be written to (potential lincRNAs) 
+                          # where output will be written to (genes and cdnas) 
                           OUTPUT_DB => 'LINCRNA_OUTPUT_DB', 
                           OUTPUT_BIOTYPE => 'lincRNA_finder',  
 
-                          EFG_FEATURE_DB    => 'REFERENCE_DB',           # where the efg domains, converted into simple features are 
-                          EFG_FEATURE_NAMES => ['H3K4me3','H3K36me3'],   # logic names of simple features in EFG_FEATURE_DB 
-                                                                         #( these should be the K4/K36 domains )  
-                                                                         
-                          EXTEND_EFG_FEATURES => 350 ,                   # +-padding around the domains in bp
+                          EFG_FEATURE_DB    => 'REFERENCE_DB', 
+                          EFG_FEATURE_NAMES => ['H3K4me3','H3K36me3'],   # logic names of simple features in EFG_FEATURE_DB ( these should be the K4/K36 domains ) 
+                          EXTEND_EFG_FEATURES => 350 ,   # sol_cdna with 100 bp 
 
- 
+                          MAXIMUM_TRANSLATION_LENGTH_RATIO => 35 , # maxium percentage translation-length for a cDNA to be to be still 
+                                                                   # considered as non-coding  
+                            
+                          MAX_TRANSLATIONS_PER_GENE =>10           # the module computes all possible open reading frames for a transcript; it's wise to limit them, 
+                                                                   # to the ten longest translations per gene ( you can end up with 200 translations / gene and pfam 
+                                                                   #  analysis will tage ages. 
+                                                                   #
                           # The configuration options below are for development / debugging purposees only; 
                           # you don't have to configure this unless you want to change names etc.
                           DEBUG_WRITE_CLUSTERED_GENES => 0,  
                            DEBUG_OUTPUT_DB    => 'LINCRNA_OUTPUT_DB', 
                                                                                         # The analyses below will be created automatically :
-                           DEBUG_LG_EFG_CLUSTERING_WITH_CDNA => 'efg_cdna_cluster',     # logic_name for efg-features which cluster 
+                           DEBUG_LG_EFG_CLUSTERING_WITH_CDNA => 'efg_cdna_cluster_new', # logic_name for efg-features which cluster 
                                                                                         # with cDHA ( but not with protein coding ) 
-                                                                                        #
-                           DEBUG_LG_EFG_UNCLUSTERED  => 'efg_NO_cdna_update',           # logic_name for efg-features which do NOT cluster
+                           DEBUG_LG_EFG_UNCLUSTERED  => 'efg_NO_cdna_update_new',       # logic_name for efg-features which do NOT cluster
                                                                                         # with cdna or protein_coding genes;  
+                                                                                        #
                                                                                         #    
                         }, 
-               # add your logic name for the analysis here, and specific analysis options : 
+
                lincrna => {},
             }
          );
