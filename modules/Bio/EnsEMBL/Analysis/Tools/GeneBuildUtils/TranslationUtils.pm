@@ -436,7 +436,7 @@ sub add_ORF_to_transcript{
 
   Arg [1]   : Bio::EnsEMBL::Gene 
   Function  : computes all possible 6-frame-translations for all transcripts of a gene 
-              and returns a new Bio::EnsEMBL::Gene object with one Transcript added for each 
+              and returns a new Bio::EnsEMBL::Gene object with one Transcript added for each unique
               translation found; used to check if ncRNA's can be translated + contain protein_domains ...  
   Returntype: Bio::EnsEMBL::Transcript 
   Exceptions: Warns in unable to create translation
@@ -453,14 +453,15 @@ sub compute_6frame_translations_for_transcript{
   my @met_predictions = @{run_translate ($transcript, 1)};
   my @nomet_predictions = @{run_translate ($transcript)}; 
 
+  my %translations; 
   foreach my $orf ( @met_predictions, @nomet_predictions ) {  
 
     my $nt = new Bio::EnsEMBL::Transcript( -EXONS => $transcript->get_all_Exons) ;  
-    $nt->biotype($transcript->biotype); 
-    $nt= add_ORF_to_transcript($orf,$transcript) ;  
-    push @new_transcripts, $nt ; 
-  } 
-  return \@new_transcripts; 
+    $nt->biotype($transcript->biotype);  
+    $nt= add_ORF_to_transcript($orf,$transcript) ;     
+    $translations{$nt->translate->seq} = $nt; 
+  }   
+  return [values %translations] ;
 }
 
 
