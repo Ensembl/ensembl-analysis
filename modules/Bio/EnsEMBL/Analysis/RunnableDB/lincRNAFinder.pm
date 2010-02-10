@@ -58,8 +58,6 @@ sub fetch_input{
   my $new_cdna = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_1_CDNA);   
   my  @single_transcript_cdnas =  map { @{convert_to_single_transcript_gene($_)}  }  @$new_cdna ;
 
-  print "i got " . scalar(@single_transcript_cdnas) . " transcripts\n" ; exit(0);
-
   # get protein_coding genes and convert them to single transcript genes  
   my $new_set_prot = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_2_PROT);
   my @single_trans_pc = map { @{convert_to_single_transcript_gene($_)}  }  @$new_set_prot;  
@@ -78,6 +76,7 @@ sub fetch_input{
   $runnable->efg_clustering_with_cdna_analysis($self->create_analysis_object($self->DEBUG_LG_EFG_CLUSTERING_WITH_CDNA)); 
   $runnable->unclustered_efg_analysis( $self->create_analysis_object($self->DEBUG_LG_EFG_UNCLUSTERED));  
   $runnable->maxium_translation_length_ratio($self->MAXIMUM_TRANSLATION_LENGTH_RATIO); 
+  $runnable->max_translations_stored_per_gene($self->MAX_TRANSLATIONS_PER_GENE) ; 
   $self->runnable($runnable);  
 
 };
@@ -114,7 +113,6 @@ sub update_efg_and_cdna_db {
         $gfa->store($cdna); 
       } 
     }
-    my %sets_to_cluster = %{$self->CLUSTERING_INPUT_GENES};    
 } 
 
 
@@ -133,7 +131,7 @@ sub write_output{
        throw (" gene does not have any transcripts ....\n" ) ; 
    }
  
-    my @tr = @{ $gene->get_all_Transcripts }; 
+    my @tr = @{ $gene->get_all_Transcripts };  
     my $max_ex = 0;  
 
     for ( @tr ) { 
@@ -154,7 +152,7 @@ sub write_output{
     }else{
       $sucessful_count++;
       logger_info("STORED LINCRNA GENE ".$gene->dbID);
-      print "STORED LINCRNA GENE ".$gene->dbID . " " . $gene->biotype . " " .  $self->output_db->dbname . " @ ".$self->output_db->host . "\n"  ; 
+      print "STORED LINCRNA GENE ".$gene->dbID . " " . $gene->biotype . " " .  $self->output_db->dbname . " @ ".$self->output_db->host . " ".scalar(@tr) . " transcripts\n"  ; 
     }
   } 
      print $sucessful_count ." genes written to " . $self->output_db->dbname . " @ ".
@@ -297,14 +295,6 @@ sub read_and_check_config{
 =cut
 
 
-sub CLUSTERING_INPUT_GENES {
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{'CLUSTERING_INPUT_GENES'} = $arg;
-  }
-  return $self->{'CLUSTERING_INPUT_GENES'};
-}
-
 sub NEW_SET_1_CDNA {
   my ($self, $arg) = @_;
   if($arg){
@@ -378,7 +368,15 @@ sub DEBUG_LG_EFG_CLUSTERING_WITH_CDNA{
     $self->{'DEBUG_LG_EFG_CLUSTERING_WITH_CDNA'} = $arg;
   }
   return $self->{'DEBUG_LG_EFG_CLUSTERING_WITH_CDNA'};
-}   
+}    
+
+sub MAX_TRANSLATIONS_PER_GENE { 
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'MAX_TRANSLATIONS_PER_GENE'} = $arg;
+  }
+  return $self->{'MAX_TRANSLATIONS_PER_GENE'};
+}
 
 sub MAXIMUM_TRANSLATION_LENGTH_RATIO {
   my ($self, $arg) = @_;

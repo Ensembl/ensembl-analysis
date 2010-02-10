@@ -168,12 +168,94 @@ sub run{
  
   my @genes_with_translations ;  
   for my $rg( @{$self->result_set}  ) {   
-    push @genes_with_translations, compute_6frame_translations($rg); 
+    my $new_gene = compute_6frame_translations($rg);  
+    push @genes_with_translations, $new_gene ; 
+    print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for tgene \n"; 
   }
-  print scalar(@genes_with_translations) . " genes with 6-frame-translations found\n" ;    
+  print scalar(@genes_with_translations) . " genes with 6-frame-translations found\n" ;     
+  # cap the number of transcripts per gene according to config 
+  my $capped_genes = $self->cap_number_of_translations_per_gene(\@genes_with_translations) ;  
+  my ($short, $long ) = $self->filter_genes_with_long_translations($capped_genes); 
 
-  $self->output(\@genes_with_translations); 
+  $self->output($short) ; 
 }    
+
+
+sub cap_number_of_translations_per_gene { 
+  my ( $self, $genes_with_6f_translations ) = @_ ;   
+
+    my @capped_longest_genes;  
+    # only store the first xxx longest translations of a gene 
+    GENES: for my $g ( @$genes_with_6f_translations ) {    
+      my %longest_translations ; 
+      for my $t ( @{$g->get_all_Transcripts } ) {  
+        my $tl_length = $t->translate->length * 3 ; 
+        push @{ $longest_translations{$tl_length}}, $t;
+      } 
+      # now get the 10 transcripts with the longest translations of the gene ... 
+      my @tl_length = sort { $b <=> $a } keys %longest_translations ;   
+      # override the config value  
+      my $max_translations_stored_per_gene; 
+      if ( defined $self->max_translations_stored_per_gene ) {  
+        $max_translations_stored_per_gene = $self->max_translations_stored_per_gene ; 
+      } else { 
+        $max_translations_stored_per_gene = scalar(@tl_length);   
+      } 
+      @tl_length = splice @tl_length,  0, $max_translations_stored_per_gene ;  
+      my $mgt = new Bio::EnsEMBL::Gene(); 
+      $mgt->biotype($g->biotype);  
+      for my $length  ( @tl_length ) { 
+         for my $lt ( @{ $longest_translations{$length} } ) {  
+           $mgt->add_Transcript($lt);  
+         }
+      }
+     push @capped_longest_genes , $mgt ;   
+   }   
+  return \@capped_longest_genes; 
+} 
+
+
+sub filter_genes_with_long_translations {  
+  my ( $self, $capped_longest_genes ) = @_ ; 
+
+  my $max_trans_length_ratio;
+   if ( defined $self->maxium_translation_length_ratio ){  
+     if ( $self->maxium_translation_length_ratio < 101 ) {  
+       $max_trans_length_ratio =  $self->maxium_translation_length_ratio; 
+     } else {  
+       throw("translation-length-to-transcript length ratio > 100 does not make sense.\n"); 
+     } 
+   }else { 
+     $max_trans_length_ratio = 100 ; 
+   }   
+
+  # if a gene has a transcript with a translation > 30 % of the transcript we will change biotype 
+  my (@long_genes, @short_genes );  
+
+  GENES: for my $g ( @$capped_longest_genes ) { 
+    for my $t ( @{$g->get_all_Transcripts } ) {   
+
+       my $tl_length = $t->translate->length * 3 ; 
+       my $tr_length = $t->length ;    
+       my $ratio = sprintf('%.1f',$tl_length*100 /  $tr_length);
+
+       if ( $ratio > $max_trans_length_ratio ) { 
+         warning("Translation-length to transcript-length ratio is higher than max. val allowed in config (is: $ratio - max.allowed : $max_trans_length_ratio". 
+          " altering biotype to long_translation\n");   
+         $g->biotype("long_translation"); 
+         push @long_genes, $g; 
+         next GENES; 
+       }  
+    }     
+    push @short_genes , $g ; 
+  }
+  return ( \@short_genes, \@long_genes );  
+} 
+
+
+
+# we only want to inspect the first 10 longest translations for a gene 
+
 
 
 
