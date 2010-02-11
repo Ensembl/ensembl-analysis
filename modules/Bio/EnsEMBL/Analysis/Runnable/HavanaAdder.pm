@@ -61,6 +61,7 @@ use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Attribute;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
                                                     GB_ENSEMBL_INPUT_GENETYPE
@@ -233,6 +234,7 @@ sub _merge_redundant_transcripts{
       # We add an attribute to the havana transcripts that show which supporting features have
       # been used to build the Exons. This will allow us to distinguish them when it comes to the
       # web display
+      print ">>> adding attributes to havana transcript " . $ht->dbID . "\n";
       $self->add_havana_attribute($ht,$ht);
 
       #print "Deleting havana transcript supporting features\n";
@@ -349,8 +351,8 @@ sub are_matched_pair {
       return $ensembl;
     }else{
       # CASE 2: EnsEMBL is longer than Havana
-      #print "We keep Ensembl\n";
-      return $havana;
+      print ">>> Ensembl is longer but we keep Havana\n";
+      return $ensembl;
     }
 
 
@@ -394,9 +396,11 @@ sub are_matched_pair {
       if ($self->check_terminal_exon_structure(\@hexons,\@teexons)){
         #print "CASE CONTROL \n";
         # PRINT SOMETHING USEFULL HERE TO HELP REVIEW
-        $ensembl->{translation} = undef;
-        $ensembl->biotype($havana->biotype."_e");
-        return $havana;
+        #$ensembl->{translation} = undef;
+        #$ensembl->biotype($havana->biotype."_e");
+        #return $havana;
+        print ">>> Ensembl is longer or equal but we keep Havana\n";
+        return $ensembl;
       }else{
       # CASE 2: The havana transcripts is longer in both ends so we remove the ensembl transcript
         #print "CASE CONTROL 2: ",$ensembl,"\n";
@@ -688,7 +692,7 @@ sub add_ottt_xref{
 sub add_ottg_xref {
   my ( $self, $hg, $ottg ) = @_;
 
-  print "I am adding an OTTG xref to the transcript or Gene\n";
+  #print "I am adding an OTTG xref to the transcript or Gene\n";
 
   # Don't want to save the OTTG xref twice so check if it's already stored.
   foreach my $entry ( @{ $hg->get_all_DBEntries } ) {
@@ -816,7 +820,7 @@ sub set_transcript_relation {
     # We add a transcript attribute to the ensembl transcript with the start and end coords of the Havana transcript that we will delete
     my $attrib_value = $t_pair[0]->slice->coord_system_name.":".$t_pair[0]->slice->coord_system->version.":".$t_pair[0]->slice->seq_region_name.":".
         $t_pair[0]->start.":".$t_pair[0]->end.":1";
-    # print "ATTRIB VALUE:---------- ",$attrib_value,"\n";
+    print "ATTRIB VALUE:---------- ",$attrib_value,"\n";
     my $attribute = Bio::EnsEMBL::Attribute->new
         (-CODE => 'TranscriptEdge',
          -NAME => 'Transcript Edge',
@@ -1513,7 +1517,10 @@ sub cluster_into_Genes{
       # Check how many havana genes are in the cluster
       CLUST:foreach my $clust (@matching_clusters) {
         foreach my $clust_trans ( @{ $clust } ) {
-          warn("using hardcoded biotype for havana-genes ! : \"havana\"" );
+          #warning("using hardcoded biotype for havana-genes ! : \"havana\"" );
+          print "\tCoding cluster - transcript dbID: "
+            . $clust_trans->dbID . " ("
+            . $clust_trans->biotype . ")\n";
           if ($clust_trans->biotype =~ /havana/){
             my $hav_gene_counter++;
             next CLUST;
@@ -1729,7 +1736,9 @@ sub cluster_into_PseudoGenes {
       # Check how many havana genes are in the cluster
       CLUST:foreach my $clust (@matching_clusters) {
         foreach my $clust_trans ( @{ $clust } ) {
-          print "Cluster ", $clust_trans,"\n";
+          print "\tPseudogene cluster -  transcript dbID: "
+            . $clust_trans->dbID . " ("
+            . $clust_trans->biotype . ")\n";
           if ($clust_trans->biotype =~ /havana/){
             my $hav_gene_counter++;
             next CLUST;
@@ -1803,7 +1812,10 @@ sub cluster_into_PseudoGenes {
         $gene_biotype = $transcript->biotype;
       }
       #print "Transcript Stable ID: ",$transcript->dbID,"\n";
-      print "This is the transcript_biotype ",$transcript->biotype,"\n";
+      #print "This is the transcript_biotype ",$transcript->biotype,"\n";
+      print "Transcript dbID: "
+        . $transcript->dbID . "\t("
+        . $transcript->biotype . ")\n";
       $gene->add_Transcript($transcript);
       if ($ottg_xref{$transcript} && ($ottg_added ne $ottg_xref{$transcript})){
         # Need to add the OTTG as the gene stable_id otherwise it will be
