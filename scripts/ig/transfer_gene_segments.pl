@@ -1,29 +1,18 @@
-#!/usr/local/bin/perl
+#!/usr/local/ensembl/bin/perl
 
 use strict;
+use warnings;
 use Getopt::Long;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Digest::MD5 qw(md5_hex);
 
-my (
-    $dbname,
-    $dbhost,
-    $dbuser,
-    $dbport,
-    $dbpass,
-    $tgdbname,
-    $tgdbhost,
-    $tgdbuser,
-    $tgdbport,
-    $tgdbpass,
-    @tg_biotypes, %tg_biotypes,
-    $patch,
-    $old_db_name,
-    $new_db_name,
-    $new_mapping_session_id,
-    $verbose,
-);
+my ( $dbname,      $dbhost,                 $dbuser,
+     $dbport,      $dbpass,                 $tgdbname,
+     $tgdbhost,    $tgdbuser,               $tgdbport,
+     $tgdbpass,    @tg_biotypes,            %tg_biotypes,
+     $tg_biotypes, $patch,                  $old_db_name,
+     $new_db_name, $new_mapping_session_id, $verbose, );
 
 $dbuser = 'ensro';
 $tgdbuser = 'ensro';
@@ -31,27 +20,28 @@ $tgdbuser = 'ensro';
 $dbport = 3306;
 $tgdbport = 3306;
 
-&GetOptions(
-            'qydbname=s' => \$dbname,
-            'qydbuser=s' => \$dbuser,
-            'qydbhost=s' => \$dbhost,
-            'qydbport=s' => \$dbport,
-            'qydbpass=s' => \$dbpass,
-            'tgdbname=s' => \$tgdbname,
-            'tgdbuser=s' => \$tgdbuser,
-            'tgdbhost=s' => \$tgdbhost,
-            'tgdbport=s' => \$tgdbport,
-            'tgdbpass=s' => \$tgdbpass,
-            'tgbiotype=s@' => \@tg_biotypes,
-            'patch'    => \$patch,
-            'old_db_name=s' => \$old_db_name,
-            'new_db_name=s' => \$new_db_name,
+my $sub_biotypes;
+
+GetOptions( 'qydbname=s'       => \$dbname,
+            'qydbuser=s'       => \$dbuser,
+            'qydbhost=s'       => \$dbhost,
+            'qydbport=s'       => \$dbport,
+            'qydbpass=s'       => \$dbpass,
+            'tgdbname=s'       => \$tgdbname,
+            'tgdbuser=s'       => \$tgdbuser,
+            'tgdbhost=s'       => \$tgdbhost,
+            'tgdbport=s'       => \$tgdbport,
+            'tgdbpass=s'       => \$tgdbpass,
+            'tgbiotype=s'      => \$tg_biotypes,
+            'patch'            => \$patch,
+            'old_db_name=s'    => \$old_db_name,
+            'new_db_name=s'    => \$new_db_name,
             'new_session_id=s' => \$new_mapping_session_id,
-            'verbose'   => \$verbose,
-            );
+            'sub_biotypes'     => \$sub_biotypes,
+            'verbose'          => \$verbose, );
 
 if ($patch) {
-  die "You must provide and old_db_name and a new_db_name"
+  die "You must provide an old_db_name and a new_db_name"
       if not defined $old_db_name or not defined $new_db_name;
 }
 
@@ -73,14 +63,18 @@ my $tg_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
         '-pass' => $tgdbpass
         );
 
-if (@tg_biotypes) {
+if ($tg_biotypes) {
+  @tg_biotypes = split (",",$tg_biotypes);
+	print "This is your array: ",join(" - ",@tg_biotypes),"\n";
   map { $tg_biotypes{$_} = 1 } @tg_biotypes;
 } else {
   map { $tg_biotypes{$_} = 1 } ('protein_coding', 'pseudogene');
 }
 
 
-$verbose and print STDERR "Current target db gene summary:\n" . &gene_stats_string . "\n";
+
+
+$verbose and print STDERR "Current target db gene summary:\n" . gene_stats_string . "\n";
 
 my (@genes, %genes_by_slice);
 
@@ -104,28 +98,34 @@ if (@ARGV) {
 #########################################################
 # Assign stable ids to new genes and copy them over
 #########################################################
-my ($new_sid_hash);
+my ($new_sid_hash, $pep_feat_hash);
 
 $verbose and print STDERR "Fully loading genes...\n";
-&fully_load_genes(\@genes);
+$pep_feat_hash = fully_load_genes(\@genes);
 
 if ($patch) {
   $verbose and print STDERR "Setting up new stable ids...\n";
-  &set_stable_ids(\@genes);
+  set_stable_ids(\@genes);
 }
 
 ########################################################
 # Find relationships between new genes and old geneset
 ########################################################
 $verbose and print STDERR "Comparing new genes to current...\n";
-my ($genes_to_delete_hash, $stable_id_event_hash) = 
-    &compare_new_genes_with_current_genes(\@genes);
+my ($genes_to_delete_hash, $stable_id_event_hash);
 
+if ($sub_biotypes){
+  ($genes_to_delete_hash, $stable_id_event_hash) = 
+    compare_new_genes_with_current_genes(\@genes, 1);
+}else{
+  ($genes_to_delete_hash, $stable_id_event_hash) =
+    compare_new_genes_with_current_genes(\@genes, 0);
+}
 ######################################################################
 # remove old genes and store new ones
 ######################################################################
 $verbose and print STDERR "Storing new genes...\n";
-@genes = @{&store_genes(\@genes)};
+@genes = @{store_genes($pep_feat_hash, \@genes)};
 
 $verbose and print "Removing interfering old genes...\n";
 foreach my $g (values %$genes_to_delete_hash) {
@@ -138,7 +138,7 @@ if ($patch) {
   # update relevant stable id tables with relationships
   ######################################################################
   $verbose and print STDERR "Populating the stable_id_event table...\n";
-  my $map_session_id = &populate_stable_id_event([values %$genes_to_delete_hash],
+  my $map_session_id = populate_stable_id_event([values %$genes_to_delete_hash],
                                                  \@genes,
                                                  $stable_id_event_hash);
   
@@ -147,7 +147,7 @@ if ($patch) {
   # peptide/gene archive
   ######################################################################
   $verbose and print STDERR "Populating the peptide/gene archive tables...\n";
-  &populate_gene_archive([values %$genes_to_delete_hash], 
+  populate_gene_archive([values %$genes_to_delete_hash], 
                          \@genes,
                          $map_session_id);
 }
@@ -156,7 +156,7 @@ if ($patch) {
 $verbose and printf(STDERR "Done (%s removed, %d added)\n%s\n",
                     scalar(keys %$genes_to_delete_hash),
                     scalar(@genes),
-                    &gene_stats_string);
+                    gene_stats_string);
 
 
 ######################################################################
@@ -164,15 +164,29 @@ $verbose and printf(STDERR "Done (%s removed, %d added)\n%s\n",
 sub fully_load_genes {
   my $glist = shift;
   
+  my $prot_feat_hash = {};
+
   foreach my $g (@$glist) {
     foreach my $t (@{$g->get_all_Transcripts}) {
       foreach my $e (@{$t->get_all_Exons}) {
         $e->get_all_supporting_features;
       }
       my $tr = $t->translation;
+      if (defined $tr) {
+        # adaptor cascade for gene does not handle protein
+        # features. In order to do that here, we have to keep
+        # the the translation object so that we can obtain
+        # its new dbID after storage
+        $prot_feat_hash->{$tr->dbID} = [$tr];
+        foreach my $pf (@{$tr->get_all_ProteinFeatures}) {
+          push @{$prot_feat_hash->{$tr->dbID}}, $pf;
+        }
+      }
       $t->get_all_supporting_features;
     }
   }
+
+  return $prot_feat_hash;
 }
 
 ######################################################################
@@ -231,11 +245,11 @@ sub set_stable_ids {
     }
     $st->finish;
 
-    $sids{$tb} = &increment_stable_id($sids{$tb});
+    $sids{$tb} = increment_stable_id($sids{$tb});
   }
 
   foreach my $g (@$glist) {
-    my $gid = $sids{gene}; $sids{gene} = &increment_stable_id($gid);
+    my $gid = $sids{gene}; $sids{gene} = increment_stable_id($gid);
     $g->stable_id($gid); 
     $g->created_date($tm);
     $g->modified_date($tm);
@@ -243,11 +257,11 @@ sub set_stable_ids {
 
     my %exon_ids; 
     foreach my $e (@{$g->get_all_Exons}) {
-      my $eid = $sids{exon}; $sids{exon} = &increment_stable_id($eid);
+      my $eid = $sids{exon}; $sids{exon} = increment_stable_id($eid);
       $exon_ids{$e->dbID} = $eid;      
     }
     foreach my $t (@{$g->get_all_Transcripts}) {
-      my $tid = $sids{transcript}; $sids{transcript} = &increment_stable_id($tid);
+      my $tid = $sids{transcript}; $sids{transcript} = increment_stable_id($tid);
       $t->stable_id($tid);
       $t->created_date($tm);
       $t->modified_date($tm);
@@ -260,7 +274,7 @@ sub set_stable_ids {
       }
       if ($t->translation) {
         my $tr = $t->translation;
-        my $trid = $sids{translation}; $sids{translation} = &increment_stable_id($trid);
+        my $trid = $sids{translation}; $sids{translation} = increment_stable_id($trid);
         $tr->stable_id($trid);
         $tr->created_date($tm);
         $tr->modified_date($tm);
@@ -273,7 +287,20 @@ sub set_stable_ids {
 ######################################################################
 
 sub store_genes {
-  my ($glist) = @_;
+  my ($prot_feat_hash, $glist) = @_;
+
+  #foreach my $g (@g) {
+  #  printf "GENE %d = %s\n", $g->dbID, $g->stable_id;
+  #  foreach my $t (@{$g->get_all_Transcripts}) {
+  #    printf " TRANSCRIPT = %d = %s\n", $t->dbID, $t->stable_id;
+  #    foreach my $e (@{$t->get_all_Exons}) {
+  #      printf "  EXON %d = %s\n", $e->dbID, $e->stable_id;
+  #    }
+  #    if ($t->translation) {
+  #      printf " TRANSLATION %d = %s\n", $t->translation->dbID, $t->translation->stable_id;
+  #    }
+  #  }
+  #}
 
   my $g_adap = $tg_db->get_GeneAdaptor;
   my $p_adap = $tg_db->get_ProteinFeatureAdaptor;
@@ -282,34 +309,41 @@ sub store_genes {
     $g_adap->store($g);
   }
 
+  # At this point, all translations should have new dbIDs.
+  # We can now store the protein features
+  foreach my $old_dbid (keys %$prot_feat_hash) {
+    my ($trn, @feats) = @{$prot_feat_hash->{$old_dbid}};
+
+    my $new_dbid = $trn->dbID;
+    foreach my $f (@feats) {
+      $p_adap->store($f, $new_dbid);
+    }
+  }
+
   # finally, refetch the stored genes from the target database
   # so that they we are working exclusively with target databases
-  # adaptors from here on in; only relevant for patch mode
-  if ($patch) {
-    my @tg_genes;
-
-    foreach my $g (@$glist) {
-      my $ng = $g_adap->fetch_by_stable_id($g->stable_id);
-      foreach my $t (@{$ng->get_all_Transcripts}) {
-        $t->get_all_supporting_features;
-        $t->translation;
-        foreach my $e (@{$t->get_all_Exons}) {
-          $e->get_all_supporting_features;
-        }
+  # adaptors from here on in
+  my @tg_genes;
+  foreach my $g (@$glist) {
+    my $ng = $g_adap->fetch_by_dbID($g->dbID);
+    
+    foreach my $t (@{$ng->get_all_Transcripts}) {
+      $t->get_all_supporting_features;
+      $t->translation;
+      foreach my $e (@{$t->get_all_Exons}) {
+        $e->get_all_supporting_features;
       }
-      push @tg_genes, $ng;
     }
-
-    return \@tg_genes;    
-  } else {
-    return $glist;
+    push @tg_genes, $ng;
   }
+
+  return \@tg_genes;
 }
 
 ######################################################################
 
 sub compare_new_genes_with_current_genes {
-  my $glist = shift;
+  my ($glist, $sub_biotypes) = @_;
 
   my (%by_slice, %genes_to_remove, %stable_id_event);
   
@@ -330,7 +364,7 @@ sub compare_new_genes_with_current_genes {
       
       my @ogenes = map { $_->transfer($tg_tl_slice) } @{$oslice->get_all_Genes};
       @ogenes = grep { exists($tg_biotypes{$_->biotype}) } @ogenes;
-      
+      #print "YOUR HAVE THIS ORIGINAL GTENES: ",scalar(@ogenes),"\n";
       if (@ogenes) {
         foreach my $t (@{$g->get_all_Transcripts}) {
           my @exons = @{$g->get_all_Exons};
@@ -355,7 +389,12 @@ sub compare_new_genes_with_current_genes {
                 #   delete gene $og (and all transcripts)
                 #   map $og to $g
                 #   map $ot to $t
-                #   map $ot->translation to $t->translation
+                #   map $ot->translation to $t->translationi
+								if ($sub_biotypes == 1){
+								  if ($og->biotype =~/IG/){
+                    $g->biotype($og->biotype);
+								  }
+								}
                 if ($patch) {
                   $genes_to_remove{$og->stable_id} = $og;
                   $stable_id_event{gene}->{$og->stable_id}->{$g->stable_id} = 1;
@@ -382,15 +421,15 @@ sub compare_new_genes_with_current_genes {
 sub populate_stable_id_event {
   my ($del_genes, $new_genes, $stable_id_event) = @_;
 
-  my ($prev_session_id, $this_session_id) = &create_new_mapping_session;
+  my ($prev_session_id, $this_session_id) = create_new_mapping_session;
 
   # add the deleted genes/transcripts/translations to the peptide/gene archive
   # add (NULL, new id) entries to stable_id_event for each new gene
   # add (id, id) entries to stable_event for each unaffected gene
   # add (deleted_id, new_id) entries to stable_id_event for old2new relationships
 
-  my $deleted_id_hash = &record_stable_ids($del_genes);
-  my $new_id_hash = &record_stable_ids($new_genes);
+  my $deleted_id_hash = record_stable_ids($del_genes);
+  my $new_id_hash = record_stable_ids($new_genes);
 
 
   my $sql = "SELECT new_stable_id, new_version, type ";
