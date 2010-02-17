@@ -504,7 +504,7 @@ sub prune_CDS {
     my @unpruned_genes;
 
     #check for multi-transcript genes
-    foreach my $unpruned_gene ($gene_cluster->get_Genes){
+    foreach my $unpruned_gene (@{ $gene_cluster->get_Genes }){
       if(scalar(@{$unpruned_gene->get_all_Transcripts}) > 1){
         throw($unpruned_gene->dbID . " has >1 transcript - can't handle it yet \n");
       }
@@ -777,8 +777,8 @@ sub run_matching{
       foreach my $cluster (@cluster_to_use){
 	print STDERR "CLUSTER: ".$cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $self->VERBOSE;
 	my $collapsed_cluster = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->collapse_cluster($cluster, $genes_by_strand);
-	my @potential_genes = $cluster->get_Genes;
-	foreach my $potential_gene (@potential_genes){
+	my $potential_genes = $cluster->get_Genes;
+	foreach my $potential_gene ( @$potential_genes ){
 	  foreach my $potential_trans (@{$potential_gene->get_all_Transcripts}) {
 
 	    #create an extended transcript (with scores)
