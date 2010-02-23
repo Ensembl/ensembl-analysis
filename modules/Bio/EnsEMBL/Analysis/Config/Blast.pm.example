@@ -20,7 +20,18 @@ blast RunnableDBs. This informs the various blast runnabledbs what
 Parser and Filter objects they should instantiate and also of any
 constructor arguments which should go to the Blast Runnable note any
 Blast constructor arguments will be overridden by the same key in
-analysis table parameters column
+analysis table parameters column. If you like to submit options to 
+the blastp / blastall program, use the parameters-colum in the analysis-table. 
+Format of options submitted should be :
+ 
+    -hitdist => 40 , -score => 20 , -cpu => 40 
+
+
+If you are intending to use NCBI blast / blastall, the program to use is choosen by the 
+arguments supplied in the query-type and database-type parameters in the 
+PARSER_PARAMS section. ( -query_type => 'pep' and -database_type =>'pep' will 
+result in using blastp.
+
 
 BLAST_CONFIG is an hash of hashes which contains analysis specific
 settings and is keyed on logic_name
@@ -101,6 +112,25 @@ use vars qw(%Config);
 #             BLAST_PARAMS => {
 #                              -unknown_error_string => 'FAILED',
 #                              -type => 'wu',
+#                             },
+#    ########  Example-configuration for a 'standard' Uniprot run which uses
+#    ########  the program blastall ( ncbi blast ) and the module BlastGenscanPep.pm   
+#
+#    Uniprot_ncbiblast =>
+#            {
+#             BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+#             PARSER_PARAMS => {
+#                               -regex => '(^\w+\W\d+)',    # Modify if seq ID format changes in Uniprot DB
+#                               -query_type => 'pep',       # see PARSER_PARAMS-table
+#                               -database_type => 'pep',    # see PARSER_PARAMS-table
+#                               -threshold_type => 'PVALUE',
+#                               -threshold => 0.01,
+#                              },
+#             BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+#             FILTER_PARAMS => { },
+#             BLAST_PARAMS => {
+#                              -unknown_error_string => 'FAILED',
+#                              -type => 'ncbi',
 #                             },
 
 
