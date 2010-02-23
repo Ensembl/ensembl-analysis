@@ -69,7 +69,29 @@ sub fetch_input{
   my $filter;
   if($self->BLAST_FILTER){
     $filter = $self->make_filter;
-  }
+  }  
+
+  # submit blast module to use via analysis_parameters column of analysis table 
+  my $options_string ;  
+  my %options = %{$self->PARSER_PARAMS};  
+
+  if ( $options{-query_type}=~m/pep/ ) {  
+    if ( $options{-database_type}=~m/pep/ ) {  
+       $options_string = '-p blastp' ; 
+    } elsif ( $options{-database_type}=~m/dna/ ) {  
+       $options_string = '-p tblastn' ; 
+    } 
+  }   
+
+  if ( $options{-query_type}=~m/dna/ ) {  
+    if ( $options{-database_type}=~m/dna/ ) {  
+       $options_string = '-p blastn' ; 
+    }elsif ( $options{-database_type}=~m/pep/ ) {  
+       $options_string = '-p blastx' ; 
+    }
+  }   
+
+
   foreach my $t(@$pts){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->
       new(
@@ -79,11 +101,14 @@ sub fetch_input{
           -parser => $parser,
           -filter => $filter,
           -database => $self->analysis->db_file,
-          -analysis => $self->analysis,
+          -analysis => $self->analysis,   
+          -options => $options_string, 
           %blast,
          );
     $self->runnable($runnable);
   }
 }
+
+
 
 
