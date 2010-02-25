@@ -80,7 +80,7 @@ sub run_analysis {
     $self->resultsfile($resultsfile);
     $self->files_to_delete($resultsfile);
 
-    my @fields = (0..3);
+    my @fields = (1..3);
     $self->output_fields(\@fields);
 
     my $command = join(' ', $self->program, 'get_peaks', '0', '0', 

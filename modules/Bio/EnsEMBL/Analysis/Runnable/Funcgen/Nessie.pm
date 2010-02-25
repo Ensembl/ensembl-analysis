@@ -74,7 +74,7 @@ sub run_analysis {
         unless($program && -x $program);
     
     (my $outfile = $self->infile()) =~ s/\.dat$/.out/;
-    my @fields = (0..2,4);
+    my @fields = (1..2,4);
     $self->output_fields(\@fields);
 
     (my $resultsfile = $self->infile()) =~ s/\.dat$/_peaks.out/;

@@ -158,7 +158,7 @@ EOT
     $self->resultsfile($bedfile);
 
     # set columns (fields) for output
-    my @fields = (0..2,4); # bed
+    my @fields = (1..2,4); # bed
 
     $self->output_fields(\@fields);
 

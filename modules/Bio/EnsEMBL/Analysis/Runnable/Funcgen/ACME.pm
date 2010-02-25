@@ -161,7 +161,7 @@ EOR
 	close R;
 
 	# set columns (fields) for output
-	my @fields = (0..3); # mean
+	my @fields = (1..3); # mean
 	#my @fields = (0..2,4); # median
 	$self->output_fields(\@fields);
 
