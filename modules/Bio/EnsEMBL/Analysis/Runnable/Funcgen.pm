@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2007 Ensembl
 #
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::Fungen
@@ -37,6 +38,8 @@ use Bio::EnsEMBL::Analysis::Runnable;
 
 use Bio::EnsEMBL::Utils::Exception qw( throw warning stack_trace_dump );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Funcgen::Utils::EFGUtils qw (get_file_format);
+
 
 use vars qw( @ISA );
 @ISA = qw( Bio::EnsEMBL::Analysis::Runnable );
@@ -67,8 +70,6 @@ sub new {
     $self->workdir($workdir);
     $self->checkdir();
 
-    warn("workdir ".$self->workdir()." OK!");
-
     #warn('RESULT_FEATURES: '.$self->result_features);
 
     #warn('OPTIONS:  '.$self->options);
@@ -94,30 +95,15 @@ sub new {
 =cut
 
 sub run {
-
-    print "Bio::EnsEMBL::Analysis::Runnable::Funcgen::run\n";
     my ($self, $dir) = @_;
-  
-    #print Dumper $self->options;
-
-    #throw("Can't run ".$self." without result features") 
-    #    unless($self->result_features);
-    #print Dumper $self->probe_features;
-   
+     
     $self->write_infile();
-
-    warn("infile: ".$self->infile);
-
+    print "Infile:\t".$self->infile."\n";
     throw("Input file ".$self->infile." is empty.") if (-z $self->infile);
     $self->files_to_delete($self->infile);
 	
     $self->run_analysis();
-
-    #print "Parsing results ... ";
     $self->parse_results();
-    #print "done!\n";
-
-    #$self->delete_files;
     return 1;
 }
 
@@ -169,8 +155,15 @@ sub infile{
 
   my ($self, $filename) = @_;
 
+
+  #This is a bit random!
+  warn "Can we not name the files after the feature_sets?";
+
   if($filename){
     $self->{'infile'} = $filename;
+	#Need to checkdir here?
+
+
   }
   if(!$self->{'infile'}){
     $self->{'infile'} = $self->create_filename
@@ -229,8 +222,7 @@ sub output_fields {
 
 =head2 parse_results
 
-  Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Funcgen
-  Arg [2]     : filename (string)
+  Arg [1]     : filename (string)
   Decription  : open and parse resultsfile
   Returntype  : none
   Exceptions  : throws 
@@ -257,14 +249,46 @@ sub parse_results{
     
     my @output = ();
     
+	#What format is this generic parse method expecting?
+	#Getting failure for SWEmbl here as this expects seq_region_name, not slice name!
+	#Which for SWEmbl is entirely dpendant on on the input
+	#bed -> seq_region_name
+	#sam -> slice name
+
+	#Will this cause failure of other Runnables?
+	
+	#These regexs should be put in file parsers!
+	my $regex;
+	#warn "input_format to ".$self->{'input_format'}." $self";;
+	#This is not the same instance of the Runnable which submitted the job
+	#hence, we won't have set the input_format
+	
+	my $file_format = &get_file_format($self->query);
+	warn "got file format $file_format from ".$self->query;
+
+
+	#Changed seq_region match to handle all words here rather than just [0-9XYM]
+
+	if($file_format eq 'sam'){
+	  $regex = '^(\w+):[A-Za-z0-9]+:(\w+):[0-9]+:[0-9]+:[01]\s';
+	}
+	elsif($file_format eq 'bed'){
+	  #defaulting to seq_region name
+	  $regex = '^(chr|)([\w+])+\s';
+	}
+	else{#Should have already caught this during submission
+	  throw("$file_format file format not supported");
+	}
+
+
     while (<F>) {
-        s/\"//g;
-        s/^chr//;
-        next unless (/^[0-9XYM]+\s/);
+	  s/\"//;
+	  next if($_ !~ /$regex/o);
         
-        chomp;
-        my @ft = split;
-        push(@output, [ @ft[@{$self->output_fields()}] ]);
+	  chomp;
+	  my @ft = split;
+	  #This would be quicker doing string selwction directly from the regex match(as with seq_region_name)
+	  push(@output, [ $2, @ft[@{$self->output_fields()}] ]);
         
     }
     
