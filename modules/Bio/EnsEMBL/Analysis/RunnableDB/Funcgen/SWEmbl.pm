@@ -57,10 +57,16 @@ use Bio::EnsEMBL::Analysis::Runnable::Funcgen::SWEmbl;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl;
 
+use Bio::EnsEMBL::Funcgen::Utils::EFGUtils qw( is_gzipped get_file_format );
+
 use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use vars qw(@ISA); 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Funcgen);
+
+# To do
+# 1 Handle sam/bam files properly i.e. do not need sort them and create dat files or cache them?
+
 
 =head2 new
 
@@ -74,8 +80,6 @@ use vars qw(@ISA);
 =cut
 
 sub new {
-
-    print "Analysis::RunnableDB::Funcgen::SWEmbl::new\n";
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
@@ -92,9 +96,6 @@ sub new {
 }
 
 sub check_InputId {
-
-    warn("Analysis::RunnableDB::Funcgen::SWEmbl::check_InputId");
-
     my ($self) = @_;
     my ($ename, $file) = split(':', $self->input_id);
 
@@ -104,7 +105,6 @@ sub check_InputId {
 
     my @date = (localtime)[5,4,3];
     $date[0] += 1900; $date[1]++;
-    #print Dumper @date;
     
     if (! defined $e) {
 
@@ -120,7 +120,7 @@ sub check_InputId {
              );
 
         my ($g_dbid) = $self->efgdb->fetch_group_details($exp->group());
-
+		
         if (! $g_dbid) {
             
             warn("Group specified does, not exist. Importing (group, location, contact)");
@@ -140,7 +140,6 @@ sub check_InputId {
 
     $self->experiment($e) 
         or throw("Can't fetch experiment with name ".$ename);
-    #print Dumper $self->experiment;
 
     my $infile = $self->ANALYSIS_WORK_DIR.'/infiles/'.$self->input_id;
     warn('INFILE: '.$infile);
@@ -150,14 +149,22 @@ sub check_InputId {
    
 sub check_Sets {
 
-    warn("Analysis::RunnableDB::Funcgen::SWEmbl::check_Experiment");
+    warn("Analysis::RunnableDB::Funcgen::SWEmbl::check_Experiment - should use EFGUtils::define_and_validate_sets");
+	#Also, resolve wrt to Funcgen::check_Sets
 
-    my ($self) = @_;
+    my $self = shift;
 
-    my $set_name = $self->analysis->logic_name.'_'.$self->experiment->name();
-    warn("SetName: $set_name");
+	my $iset_name = $self->experiment->name;
+    my $set_name  = $iset_name.'_'.$self->analysis->logic_name;
+	#Remove logic name from set_name?
+	#If we need to discrimate between different analysis runs then we should
+	#Or at least move to end of name?
+	#Set a different exp_suffix via CreateAlignIDs
+	#Will this fail or overwrite if it is already found?
+	#Using define_and_validate_set will allow rollback of previously called features(given an env var in the config)
 
-    my ($ct_name, $ft_name) = split(/_/, $self->experiment->name());
+
+    my ($ct_name, $ft_name) = split(/_/, $iset_name);
 
     my $feature_type = $self->efgdb->get_FeatureTypeAdaptor()->fetch_by_name($ft_name)
         or throw("Feature type '$ft_name' does not exist");
@@ -167,180 +174,185 @@ sub check_Sets {
         or throw("Cell type '$ct_name' does not exist");
     $self->cell_type($cell_type);
 
-    my $isa = $self->efgdb->get_InputSetAdaptor();
+	my $isa = $self->efgdb->get_InputSetAdaptor();
     my $iset = $isa->fetch_by_name($set_name);
     
     if (! defined $iset){
 
-        warn("InputSet NOT defined");
-
-        $iset = Bio::EnsEMBL::Funcgen::InputSet->new
+	  warn "Need to add subset support here!";
+	  
+	  $iset = Bio::EnsEMBL::Funcgen::InputSet->new
             (
-             -name         => $set_name,
+             -name         => $iset_name,
              -experiment   => $self->experiment(),
              -feature_type => $feature_type,
              -cell_type    => $cell_type,
              -vendor       => 'SOLEXA',
              -format       => 'SEQUENCING',
-	     -feature_class => 'annotated'
+			 -feature_class => 'result'
              #-analysis     => $self->feature_analysis,
-             );
-        
-        warn("Storing new experimental set \'$set_name\'");
-        eval { 
-            ($iset)  = @{$isa->store($iset)};
-        };
-        throw("Coudn't store input set \'$set_name\': $!") if ($@);
-    }
+			);
+	  
+	  print "Storing new InputSet:\t$iset_name\n";
+	  ($iset)  = @{$isa->store($iset)};
+
+	}
+	else{
+	  print "InputSet already exists:\t$iset_name\n";
+	  warn "Need to validate InputSubsets here";
+	}
 
     my $fsa = $self->efgdb->get_FeatureSetAdaptor();
     my $fset = $fsa->fetch_by_name($set_name);
-    #print Dumper $fset;
+
 
     if ( ! defined $fset ) {
 
         $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
             (
-             -analysis => $self->efg_analysis,
-             -feature_type => $self->feature_type,
-             -cell_type => $self->cell_type,
-             -name => $set_name,
+             -analysis      => $self->efg_analysis,
+             -feature_type  => $self->feature_type,
+             -cell_type     => $self->cell_type,
+             -name          => $set_name,
              -feature_class => 'annotated'
              );
-        #print Dumper $fset;
-        
-        warn("Storing new feature set \'$set_name\'");
-        eval { 
-            ($fset) = @{$fsa->store($fset)};
-        };
-        throw("Coudn't store feature set \'$set_name\': $!") if ($@);
 
-    } else {
-
-        warn("Feature set with name $set_name already exists.");
-
+		print "Storing new FeatureSet:\t$set_name\n";
+		($fset) = @{$fsa->store($fset)};
+		
+    } 
+	else {
+	  print "FeatureSet already exists:\t$set_name\n";
     }
     # save FeatureSet
     $self->feature_set($fset);
 
     my $dsa = $self->efgdb->get_DataSetAdaptor;
     my $dset = $dsa->fetch_by_name($set_name);
-    #print Dumper $dset;
+
 
     if ( ! defined $dset ) {
 
-        $dset = Bio::EnsEMBL::Funcgen::DataSet->new
-            (
-             -SUPPORTING_SETS     => [$iset],
-             -FEATURE_SET         => $fset,
-             -DISPLAYABLE         => 1,
-             -NAME                => $set_name,
-             -SUPPORTING_SET_TYPE => 'experimental',
-             );
-        #print Dumper $dset;
+	  $dset = Bio::EnsEMBL::Funcgen::DataSet->new
+		(
+		 -SUPPORTING_SETS     => [$iset],
+		 -FEATURE_SET         => $fset,
+		 -DISPLAYABLE         => 1,
+		 -NAME                => $set_name,
+             -SUPPORTING_SET_TYPE => 'input',
+		);
+	  
+	  print "Storing new DataSet:\t$set_name\n";
+	  ($dset) = @{$dsa->store($dset)}
+	} 
+	else {
 
-        warn("Storing new data set \'$set_name\'");
-        eval { 
-            ($dset) = @{$dsa->store($dset)}
-           };
-        throw("Coudn't store data set \'$set_name\': $!") if ($@);
+	  print "DataSet already exists:\t$set_name\n";
+	  
+	  # need to check whether InputSets and supporting_sets are the same and 
+	  # possibly add InputSet to supporting_sets
 
-    } else {
+	  my $ssets = $dset->get_supporting_sets();
 
-        warn("Data set with name $set_name already exists.");
-
-        # need to check whether ExperimentalSets and supporting_sets are the same and 
-        # possibly add ExperimentalSet to supporting_sets
-
-        my $ssets = $dset->get_supporting_sets();
-
-        my %ssets_dbIDs = ();
-        map { $ssets_dbIDs{$_->dbID}='' } (@{$ssets});
-        $dset->add_supporting_sets([ $iset ]) if (! exists $ssets_dbIDs{$iset->dbID}); 
-
+	  my %ssets_dbIDs = ();
+	  map { $ssets_dbIDs{$_->dbID}='' } (@{$ssets});
+	  $dset->add_supporting_sets([ $iset ]) if (! exists $ssets_dbIDs{$iset->dbID}); 
+	  
     }
-    # save DataSet
+ 
     $self->data_set($dset);
-
 }
 
 sub fetch_input {
-    
-    my ($self) = @_;
-    #warn ("Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl::fetch_input");
- 
-    # make sure the cache directory exists
-    my $cachedir = $self->ANALYSIS_WORK_DIR.'/cache';
-    if ( ! -d $cachedir) {
-        my $retval = system("mkdir -p $cachedir");
-        throw("Couldn't create cache directory $cachedir") unless ($retval == 0);
-    }
-
-    warn('infile: '.$self->query);
-
-    ### Checking for gzip and bed format has been moved to create_input_id stage!!!
-    #my $open = ($self->is_gzip($self->query))? 'gzip -dc' : 'cat';
-    #my $cmd = $open.' '.$self->query.' |';
-    #warn $cmd;
-    ### bed file format ?
-    #open(INFILE, "$cmd")
-    #    or throw("Can't open gzipped infile ".$self->query);
-    #while (<INFILE>) {
-    #
-    #    my @line = split("\t");
-    #    throw("Infile does not have 6 or more columns. We expect bed format: CHROM START END NAME SCORE STRAND.") 
-    #        if scalar @line < 6;
-    #    
-    #    throw ("1st column must contain name of seq_region (e.g. chr1 or 1)")
-    #        unless ($line[0] =~ m/^(chr[MTXY\d]+)$/);
-    #    throw ("2nd and 3rd column must contain start and end respectively")
-    #        unless ($line[1] =~ m/^\d+$/ && $line[2] =~ m/^\d+$/);
-    #    throw ("6th column must define strand (either '+' or '-')")
-    #        unless ($line[5] =~ m/^[+-]$/);
-    #    last;
-    #}
-    #close INFILE;
-    
-    (my $cachefile = $self->query) =~ s,.*/([^/]+)$,$1,;
-    my $datfile = $cachedir.'/'.$cachefile;
-    warn('datafile: '.$datfile);
-    
-    unless (-e $datfile) { # dat file already dumped sorted; skipping dump
-
-        # make sure reads are dumped in sorted order
-	  #Explain this sort key?
-	  #Change this to simply pipe the gzip sort as the input file for SWEmbl
-	  #Need to check is compressed also
-	  #Implement Bed(other) parser here!!!
-        my $sort = "gzip -dc ".$self->query.
-            " | sort -k1,1 -k2,2n -k3,3n | gzip -c > $datfile |";
-        warn("Executing  $sort");
-        open(SORT, "$sort")
-            or throw("Can't open and sort gzipped file ".$self->query);
-        while (<SORT>) {warn($_)}
-        close SORT;
-        
-    }
-
-    $self->query($datfile);
-
-    my %parameters_hash = %{$self->parameters_hash($self->efg_analysis->parameters)};
-
-    my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'
-        .$self->efg_analysis->module;
-    $runnable = $runnable->new
-        (
-         -query => $self->query,
-         -program => $self->efg_analysis->program_file,
-         -analysis => $self->efg_analysis,
-         -workdir => $self->ANALYSIS_WORK_DIR,
-         %parameters_hash
-         );
-    
-    $self->runnable($runnable);
-    
-    return 1;
+  my ($self) = @_;
    
+  # make sure the cache directory exists
+  my $cachedir = $self->ANALYSIS_WORK_DIR.'/cache';
+
+  if ( ! -d $cachedir) {
+	system("mkdir -p $cachedir") && throw("Couldn't create cache directory $cachedir");
+  }
+
+  print "Input file:\t".$self->query."\n";
+    
+  (my $cachefile = $self->query) =~ s,.*/([^/]+)$,$1,;
+  $cachefile = $cachedir.'/'.$cachefile;
+  print "Filtered file:\t".$cachefile."\n";
+  
+
+  
+
+  
+
+  #Should really set file format here, so we don't have to test in the Runnable
+  #Also required in the default Runnable::Funcgen::parse_results
+  #This should beset in the file parser!
+  my $file_format = &get_file_format($self->query);
+  $self->{'input_format'} =  $file_format;#HACK!!!!! Write input_format method in RunnableDB::Funcgen.pm?
+  my $sort;
+
+
+  unless (-e $cachefile) { # dat file already dumped sorted; skipping dump
+	#What if file is incomplete??? We need an md5 here!
+
+	# make sure reads are dumped in sorted order
+	#Explain this sort key?
+	#Change this to simply pipe the gzip sort as the input file for SWEmbl
+	#Need to check is compressed also
+	#Implement Bed(other) parser here?
+	#Why bother dumping, why don't we just use this as this sort as the input file handle?
+	
+	#These sorts should be in the Bed/Sam file parsers
+	#Implement file parsers in Runnables(Need to separate parsers from importer functions first)
+	#Or wait and use BioPerl? Then just have simple wrappers to include our our config/methods sat on top 
+	#of the BioPerl parsers
+
+	if($file_format eq 'bed'){
+	  $sort = "gzip -dc ".$self->query.
+		" | sort -k1,1 -k2,2n -k3,3n | gzip -c > $cachefile |";
+	}
+	elsif($file_format eq 'sam'){
+	  #We need to preserve the header line beginning with @
+	  #But remove and unmapped reads with bitwise flag of 4 as 2nd field
+
+	  #Quick fix is to just rmeove the headers for now
+	  #Could really do with removing them, then sorting and adding back in.
+
+
+	  warn("This does not sort sam by end position! Hence will not work for paired ends reads. Need to implement samtools sort on bam files");
+	  #No other bits set for unmapped?
+	  #Not necessarily true!
+	  #Need to bitwise and this value!
+	  $sort = "gzip -dc ".$self->query.' | grep -vE \'^@\' | grep -vE "[^[:space:]]+[[:blank:]]4[[:blank:]].*$" | sort -k3,3 -k4,4n | gzip -c > '.$cachefile.' |';
+	}
+	else{
+	  throw("$file_format file format not supported");
+	}
+
+
+
+	warn("Executing  $sort");
+	open(SORT, "$sort") or throw("Can't open and sort gzipped file ".$self->query);
+	while (<SORT>) {warn($_)}
+	close SORT;
+  }
+
+  $self->query($cachefile);
+  my %parameters_hash = %{$self->parameters_hash($self->efg_analysis->parameters)};
+
+  my $runnable = 'Bio::EnsEMBL::Analysis::Runnable::Funcgen::'.$self->efg_analysis->module;
+  $runnable = $runnable->new(
+							 -query      => $self->query,
+							 -program    => $self->efg_analysis->program_file,
+							 -analysis   => $self->efg_analysis,
+							 -workdir    => $self->ANALYSIS_WORK_DIR,
+							 #-input_format => '$file_format',#? WOuld need to add to Runnable::Funcgen.pm
+							 %parameters_hash
+							);
+    
+  $self->runnable($runnable);
+    
+  return;   
 }
 
 sub query {
@@ -358,8 +370,15 @@ sub write_output{
     print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl::write_output\n";
     my ($self) = @_;
 
+	#Where is this getting set?
+
+	#The following warns should be throws!
+	#But we need to up the retry count so that we don't run the job again.
+
+
     if (scalar(@{$self->output}) == 0) {
-        warn("No features to annotate on slice ".$self->query.
+	  #Surely this should be throw?
+        warn("No features called from ".$self->query.
              " for experiment ".$self->experiment->name()."!");
         return 1;
     }
@@ -384,8 +403,13 @@ sub write_output{
     warn('No. of annotated features already stored: '.scalar(@$af).' ('.$self->query.' '.$fset->name.')');
     warn('No. of annotated features to be stored: '.scalar(@{$self->output}).' ('.$self->query.')');
 
+	#??!!! Why is this done here and not before SWEmbl is actually run?
+	#Maybe so we can rerun with different params without storing?
+	#This should be done with different logic name and specify a no write env var(or pipeline opt)?
+
+
     if (@$af) {
-        
+        #Surely this should be throw?
         warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! File ".
              $self->query." already has been processed; contains ".scalar(@$af).
              " annotated features of feature set ".$fset->dbID.".");
@@ -398,25 +422,25 @@ sub write_output{
         my %slice;
         
         foreach my $ft (@{$self->output}){
-            
-            #print Dumper $ft;
-            my ($seqid, $start, $end, $score, $summit) = @{$ft};
-            #print Dumper ($seqid, $start, $end, $score);
-            
+		  my ($seqid, $start, $end, $score, $summit) = @{$ft};
+		  #Could filter here based on score, score not very useful otherwise
+		  $summit = int($summit);#Round up?
+													   
+		  # skip mito calls
+		  #remove this when we have pre-processing step to filter alignments using blacklist?
+		  next if ($seqid =~ m/^M/);
 
-			#Could filter here based on score, score not very useful otherwise
-
-			$summit = int($summit);#Round up
-
-            # skip mito calls
-			#remove this when we have pre-processing step to filter alignments using blacklist
-            next if ($seqid =~ m/^M/);
-
-            unless (exists $slice{"$seqid"}) {
+		  unless (exists $slice{"$seqid"}) {
+           
+			#if($self->{'input_format'} eq 'sam'){
+			  #$slice{"$seqid"} = $sa->fetch_by_name($seqid);
+			#}else{
+			  #$slice{"$seqid"} = $sa->fetch_by_region('chromosome', $seqid);
+			  $slice{"$seqid"} = $sa->fetch_by_region(undef, $seqid);
+			  
+			#}
                 
-                $slice{"$seqid"} = $sa->fetch_by_region('chromosome', $seqid);
-                
-            }
+		  }
      
             my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
                 (
