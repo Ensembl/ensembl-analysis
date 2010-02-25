@@ -14,18 +14,23 @@ This module is the base class for the Fungen Runnabledbs that act as an
 interface between the functional genomics database and the Funcgen Runnables 
 both fetching input data and writing data back to the databases.
 
-=head1 LICENCE
+=head1 LICENSE
 
-This code is distributed under an Apache style licence. Please see
-http://www.ensembl.org/info/about/code_licence.html for details.
+  Copyright (c) 1999-2009 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
 
-=head1 AUTHOR
+  This software is distributed under a modified Apache license.
+  For license details, please see
 
-Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org
+    http://www.ensembl.org/info/about/code_licence.html
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+  Please email comments or questions to the public Ensembl
+  developers list at <ensembl-dev@ebi.ac.uk>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
 
 =cut
 
@@ -45,6 +50,10 @@ use Bio::EnsEMBL::Utils::Exception qw( throw warning stack_trace_dump );
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
+
+
+# To do
+# 1 Done Remove all the ucfirst input_id_types, lc all! This has also been changed in the env 
 
 =head2 new
 
@@ -105,6 +114,7 @@ sub read_and_check_config {
 	  $self->dnadb(Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{ $self->DNADB })); 
 	}
 
+
     # Make sure we have the correct DB adaptors!!!
     $self->efgdb(Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor->new
 				 (
@@ -127,7 +137,7 @@ sub read_and_check_config {
     #$self->analysis->logic_name($logic_name);
 
     # Set normalization method (only for ChIP-chip on slices)
-    unless ($self->analysis->input_id_type eq "File") {
+    unless ($self->analysis->input_id_type eq "file") {
         my $m = $self->efgdb->get_AnalysisAdaptor->fetch_by_logic_name($self->NORM_METHOD);
         $self->norm_method($m) 
             or throw("Can't fetch analysis object for norm method ".$self->NORM_METHOD);
@@ -169,13 +179,13 @@ sub check_InputId {
     my $sa = $self->efgdb->get_SliceAdaptor;
 
     my @slices = ();
-    if ($input_id_type eq 'Slice') {
+    if ($input_id_type eq 'slice') {
 
         @slices = ( $sa->fetch_by_name(join(':', @input)) );
         throw("Can't fetch slice with name ".join(':', @input)) 
             unless (@slices);
         
-    } elsif ($input_id_type eq 'Array') {
+    } elsif ($input_id_type eq 'array') {
 
         @slices = @{$sa->fetch_all('toplevel')};
         throw("Can't fetch toplevel slices")
@@ -239,10 +249,11 @@ sub check_Analysis {
     }
 
     $self->efg_analysis($aa->fetch_by_logic_name($logic_name));
-
+	
 }
 
 sub check_Sets {
+  #This should use Utils::Helper::define_and_validate_sets
 
     my ($self) = @_;
 
@@ -288,11 +299,11 @@ sub check_Sets {
 
         $fset = Bio::EnsEMBL::Funcgen::FeatureSet->new
             (
-             -analysis => $self->efg_analysis,
-             -feature_type => $self->feature_type,
-             -cell_type => $self->cell_type,
-             -name => $set_name,
-             -type => 'annotated'
+             -analysis      => $self->efg_analysis,
+             -feature_type  => $self->feature_type,
+             -cell_type     => $self->cell_type,
+             -name          => $set_name,
+             -feature_class => 'annotated'
              );
         #print Dumper $fset;
         
@@ -461,11 +472,11 @@ sub fetch_input {
 
         print join(" ", $rset->dbID, $rset->name), "\n";
 
-        if ($input_id_type eq 'Slice') {
+        if ($input_id_type eq 'slice') {
             
             $query_name = $self->query->[0]->name();
 
-        } elsif ($input_id_type eq 'Array') {
+        } elsif ($input_id_type eq 'array') {
             
             my @echips = @{$rset->get_ExperimentalChips()};
             warn("WARNING: Result set '".$rset->name."' comprises more than one experimental chip, ".
@@ -602,30 +613,7 @@ sub fetch_input {
     
 }
 
-=head2 is_gzip
 
-  Arg [1]     : file
-  Description : check whether a file is gzipped or ASCII
-  Returns     : boolean
-  Exceptions  : none
-  Example     : 
-
-=cut
-
-sub is_gzip {
-    
-    my ($self, $file) = @_;
-
-    warn "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::is_gzip";
-
-    open(FILE, "file -L $file |")
-        or throw("Can't execute command 'file' on '$file'");
-    my $retval = <FILE>;
-    close FILE;
-
-    return ($retval =~ m/gzip compressed data/) ? 1 : 0;
-    
-}
 
 
 =head2 write_output
@@ -694,7 +682,7 @@ sub write_output{
         my ($transfer, $slice, $tl_slice);
         my $input_id_type = $self->analysis->input_id_type;
         
-        if ($input_id_type eq 'Slice' && 
+        if ($input_id_type eq 'slice' && 
             ($self->query->[0]->start != 1 || $self->query->[0]->strand != 1)) {
             my $sa = $self->efgdb->get_SliceAdaptor;
             $tl_slice = $sa->fetch_by_region($self->query->[0]->coord_system->name(),
@@ -709,7 +697,7 @@ sub write_output{
         
         my %af_slice = ();
         
-        if ($input_id_type eq 'Array') {
+        if ($input_id_type eq 'array') {
             map { $af_slice{$_->seq_region_name} = $_ } @{$self->query};
         }
         
@@ -719,7 +707,7 @@ sub write_output{
             #print Dumper $ft;
             my ($sr_name, $start, $end, $score) = @{$ft};
             
-            $slice = $input_id_type eq 'Slice' ? $self->query->[0] : $af_slice{"$sr_name"};
+            $slice = $input_id_type eq 'slice' ? $self->query->[0] : $af_slice{"$sr_name"};
             
             #print Dumper ($sr_name, $start, $end, $score);
             my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
