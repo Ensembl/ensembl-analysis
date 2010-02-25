@@ -397,7 +397,8 @@ sub get_output_db {
   } else {
     $outdb = $self->db;
   }
-
+  $self->db->dbc->disconnect_when_inactive(1) ;
+  $outdb->dbc->disconnect_when_inactive(1) ;
   return $outdb;
 }
 
