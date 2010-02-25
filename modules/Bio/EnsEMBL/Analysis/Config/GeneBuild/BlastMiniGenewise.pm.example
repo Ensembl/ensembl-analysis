@@ -78,7 +78,7 @@ use vars qw( %Config );
              BLASTMINIGENEWISE_PARAMETERS => {
                                               -fullseq => 1,
                                              },
-             EXONERATE_PARAMETERS => {},
+             EXONERATE_PARAMETERS => {},  # for ExonerateForGenewise / TargettedExonerate 
              #example exonerate parameters => {
              #                                 -options => '--model protein2genome 
              #                                              --bestn 1
