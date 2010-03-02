@@ -137,18 +137,19 @@ sub run {
     	$blast->databases($db_file);
 	    $blast->run();
 	    my $features =  $blast->output ;
+	    next DB_FILE unless @$features;
+	    my %acc_hash = map{ $_->hseqname => 1 } @$features;
+		my @accessions = keys %acc_hash;
 
 		if (!$self->analysis->db)
 		{
+			# read the blast file and the wu-blast indexes to pre-warm disk cache
+			system("cat $db_file ${db_file}.x* > /dev/null");
 			my $seqfetcher = $self->_make_seqfetcher([$db_file]);
 	    	$self->seqfetcher($seqfetcher);
 		}
 
-		next DB_FILE unless @$features;
-
 		# Fetch all the hit sequences from the blast db using xdget
-		my %acc_hash = map{ $_->hseqname => 1 } @$features;
-		my @accessions = keys %acc_hash;
 		print STDOUT "DEBUG ".localtime().": Fetching ".scalar(@accessions)." sequences\n" if $debug;
 		$self->seq_cache($self->seqfetcher->get_Seq_by_accs(\@accessions));
 		print STDOUT "DEBUG ".localtime().": Storing ".scalar(@accessions)." sequences in /tmp/$$.desc\n" if $debug;
