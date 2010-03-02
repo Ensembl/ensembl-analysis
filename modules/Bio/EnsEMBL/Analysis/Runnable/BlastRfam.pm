@@ -103,14 +103,9 @@ sub run{
     unless($self->query);
   $self->checkdir();
   eval {
-  my $low_copy_db = $self->params->{'lowcopy'};
-  $self->throw("DATABASE NOT FOUND $low_copy_db") unless -e $low_copy_db;
   my $filename = $self->write_seq_file();
   $self->files_to_delete($filename);
   $self->files_to_delete($self->resultsfile);
-  $self->run_ncbi_analysis;
-  $self->parse_results(20);
-  $self->{'results_files'} = ();
   $self->run_analysis;
   $self->parse_results($coverage);
   $self->delete_files;
@@ -149,8 +144,8 @@ sub parse_results{
 	   if ($coverage_cutoff){
 	     next unless($coverage > $coverage_cutoff);
 	   }
-	   $subject->name =~ /^(\S+)\/\S+\s+(\w+);\w+/;
-	   my $name = $2."-".$1;
+	   $subject->name =~ /^(\S+);\S+;(\S+)/;
+	   my $name = $1."-".$2;
 	   push @daf_results, $self->parser->split_hsp($hsp,$name);
 	   # add coverage into daf score?
 	   foreach my $daf(@daf_results){
@@ -227,9 +222,9 @@ sub cluster{
 sub run_ncbi_analysis {
   my ($self) = @_;
   # had coded options used in SGJs Rfam scan
-  my $database = $self->params->{'lowcopy'};
-  my $options  = "-W7 -F F -b 1000000 -v 1000000 ";
-  my $command  = "/software/bin/blastall";
+  my $database = $self->databases->[0];
+  my $options  = "-W9 -F F -b 1000000 -v 1000000 ";
+  my $command  =  $self->program;
   my $filename = $self->queryfile;
   my $results_file = $self->create_filename("Infernal", 'blast.out');
   $self->files_to_delete($results_file);

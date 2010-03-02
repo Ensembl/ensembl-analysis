@@ -72,7 +72,7 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($self->input_id, $self->db,['Dust']);
   $self->query($slice);
   my %blast = %{$self->BLAST_PARAMS};
-   my $parser = $self->make_parser;
+  my $parser = $self->make_parser;
   my $filter;
   if($self->BLAST_FILTER){
     $filter = $self->make_filter;
@@ -86,7 +86,7 @@ sub fetch_input{
      -filter   => $filter,
      -database => $self->analysis->db_file,
      -analysis => $self->analysis,
-     -params   => \%blast,
+     %blast,
     );
   $self->runnable($runnable);
   return 1;

@@ -44,6 +44,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Analysis::Runnable::RNAFold;
+use IO::File;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -66,7 +67,7 @@ sub new {
   my $self = $class->SUPER::new(@args);
   my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
   $self->queries($queries);
-  $self->get_thresholds;
+#  $self->get_thresholds;
  return $self;
 }
 
@@ -86,24 +87,29 @@ sub run{
   my $queries = $self->queries;
   my @attributes;
   my $descriptions = $self->get_descriptions;
+  my $cmfh = IO::File->new( $self->analysis->db_file."/Rfam.cm"  ) or $self->throw("can't file the Rfam.cm file"); 
+  my $cm = $self->read_cm_library($cmfh);
   foreach my $query (@$queries){
-    $self->query($self->get_sequence($query));
+    $self->query($self->get_sequence($query,$cm));
     $self->throw("Can't run ".$self." without a query sequence") 
       unless($self->query);
     $self->checkdir();
     # write the seq file
     my $filename = $self->write_seq_file();
+    # write the cm file
+    my $cmfile   = $self->write_cm_file($cm,$cmfh);
+    $self->files_to_delete($cm);
     $self->files_to_delete($filename);
     $self->files_to_delete($self->resultsfile);
     # run cmsearch
-    $self->run_analysis();
+    $self->run_analysis($cmfile,$cm);
     # parse the cmsearch results file - make a hash containing all 
     # the results ordered by score;
-    my $results = $self->parse_results($query);
+    my $results = $self->parse_results($query,$cm);
     next unless($results);
     # make the gene object out of the highest scoring result that
     # overlaps the blast hit
-    my $gene = $self->make_gene($results,$query,$descriptions);
+    my $gene = $self->make_gene($results,$query,$descriptions,$cm);
     $self->output($gene) if $gene;
   }
   $self->delete_files;
@@ -123,20 +129,19 @@ sub run{
 =cut
 
 sub run_analysis{
-  my ($self) = @_;
-  my $db =  $self->analysis->db_file."/".$self->query->display_id.".cm";
+  my ($self,$cmfile, $cm) = @_;
   my $command  =  $self->program;
-  my %thresholds = %{$self->thresholds};
+  my %thresholds;# = %{$self->thresholds};
   my $domain = $self->query->display_id;
   my $filename = $self->queryfile;
   my $results_file = $self->create_filename("Infernal.$domain.out");
+  my $options = " --ga " . $cm->{$domain}->{-options};
+  print "OPTIONS $options\n";
+  $options =~ s/\-\-toponly//;
+  
   $self->files_to_delete($results_file);
   $self->resultsfile($results_file);
-  $command .= " -W ".$thresholds{$domain}{'win'};
-  if ($thresholds{$domain}{'mode'} =~ /local/) {
-    $command .= " --local";
-  }
-  $command .= " $db  $filename > $results_file";
+  $command .= "   $options $cmfile $filename > $results_file ";
   print STDOUT "Running infernal ".$command."\n" if $verbose;
   open(my $fh, "$command |") || 
     $self->throw("Error opening Infernal cmd <$command>." .
@@ -171,27 +176,27 @@ sub run_analysis{
 =cut
 
 sub parse_results{
-  my ($self, $daf) = @_;
+  my ($self, $daf,$cm) = @_;
   my @dafs;
   my $align;
   my $line =0;
   my $domain = substr($daf->hseqname,0,7);
-  my %thresholds = %{$self->thresholds};
-  my $threshold = $thresholds{$domain}{'thr'};
+  my $threshold = $cm->{$domain}->{-threshold};
   print STDERR "Domain $domain has threshold $threshold\n" if $verbose;
   my $results = $self->resultsfile;
   my $ff = $self->feature_factory;
   if(!-e $results){
     $self->throw("Can't parse a  results file that dosen't exist ".$results.
-          " Infernal:parse_results");
+		 " Infernal:parse_results");
   }
   my @results;
-  my ($hit,$start,$end,$score,$strand,$str) =0;
+  my ($hit,$start,$end,$hstart,$hend,$score,$evalue,$strand,$str) =0;
+
   open(INFERNAL, $results) or $self->throw("FAILED to open ".$results.
-				    " INFERNAL:parse_results");
+					   " INFERNAL:parse_results");
  LINE: while(<INFERNAL>){
-    chomp;
-    if ($_ =~ /^hit/){
+   chomp;     
+    if ($_ =~ /results:/){
       if ($score &&  $threshold && $score > $threshold && $align->{'name'}){
 	$str = $self->parse_structure($align);
 	print STDERR "positve result at ".$daf->seq_region_name.":".$daf->seq_region_start."-".$daf->seq_region_end." strand ".
@@ -200,16 +205,19 @@ sub parse_results{
 			score => $score,
 			start => $start,
 			end   => $end,
+			hstart => $hstart,
+			hend => $hend,
+			evalue => $evalue,
 			strand=> $strand};		
       }	
       $align = {};
       $align->{'name'} = $domain ;
       $line = -1;
     }
-    if ($_ =~ /^CPU/){
+    if ($_ =~ /^#/){
       $line = -1;
     }
-    print STDERR "$line\t$_\n"if $verbose;
+    print STDERR "$_\t$line\n"if $verbose;
     if ($score && $score >= $threshold && $line >= 0){
       # parsing goes in 5 lines
       # split the lines and store each element in a anonymous hash array
@@ -224,29 +232,35 @@ sub parse_results{
 	$line =0;
       }
     }
-    if ($_ =~ /^hit\s+(\d+)\s+:\s+(\d+)\s+(\d+)\s+(\d+).(\d+)\s+bits/){
-      $hit = $1;
-      $start = $2;
-      $end = $3;
-      $score = $4+$5/100;
-      print STDERR "hit - $hit\nscore - $score\n" if $verbose;;
-      if ($score >= $threshold){
-	if ($end < $start){
-	  $strand = -1;
-	  my $temp = $end;
-	  $end = $start;
-	  $start = $temp;
-	}
-	else {
-	  $strand =1;
-	}
-	$line = 0;
-      }
-      else{
-	$line = -1;
-      }
-    }
-  }
+   if ($_ =~ />(RF\d+)/ ) {
+     $hit = $1;
+   }
+   if ($_ =~ / Query =\s+(\d+)\s+-\s+(\d+),\s+Target =\s+(\d+)\s+-\s+(\d+)/) {
+     $start = $3;
+     $end = $4;
+     $hstart = $1;
+     $hend = $2;
+   }
+   if ($start && $end && $hstart && $hend && $_ =~ / Score =\s+(\S+),\s+E =\s+(\S+),/) {
+     $score = $1;
+     $evalue = $2;
+     if ($score >= $threshold){
+       if ($end < $start){
+	 $strand = -1;
+	 my $temp = $end;
+	 $end = $start;
+	 $start = $temp;
+       }
+       else {
+	 $strand =1;
+       }
+       $line = 0;
+     }
+     else{
+       $line = -1;
+     }
+   }
+ }
   if ($align->{'name'} && $score > $threshold){
     print STDERR "positve result at ".$daf->seq_region_name.":".$daf->seq_region_start."-".$daf->seq_region_end." strand ".
       $daf->strand."\n" if $verbose;
@@ -290,8 +304,9 @@ sub parse_structure{
   my @matches;
   my $big_gap=0;
   my @attributes;
+
   # Brace matching
-  # push open braces on to the stack    
+  # push open braces on to the stack
   for (my $i=0 ; $i< scalar(@{$align->{'str'}}); $i++){
     if ($align->{'str'}[$i] eq '(' or
 	$align->{'str'}[$i] eq '<' or
@@ -343,8 +358,7 @@ sub parse_structure{
       next;
     }
     # skip over if you have a missmatch
-    if ($align->{'match'}[$i] eq ' ' or
-	$align->{'match'}[$i] eq ':'){
+    if ($align->{'match'}[$i] eq ' ') {
       $matches[$i] = '.';
       next;
     }
@@ -402,16 +416,16 @@ sub parse_structure{
 =cut
 
 sub make_gene{
-  my ($self,$results,$daf,$descriptions) = @_;
+  my ($self,$results,$daf,$descriptions,$cm) = @_;
   my $domain = substr($daf->hseqname,0,7);
   my $description = $descriptions->{$domain}->{'description'};
   my $name = $descriptions->{$domain}->{'name'};
-  my %thresholds = %{$self->thresholds};
-  my $padding = $thresholds{$domain}{'win'};
+  my $padding =  $cm->{$domain}->{-length};
+  my $type = $descriptions->{$domain}->{'type'};
   my %gene_hash;
   my $slice = $daf->slice;
   my @attributes;
-  my ($start,$end,$strand,$str,$score,$exon);
+  my ($start,$end,$str,$score,$exon);
   # step through all the results in order of score, highest first until
   # you find a model that overlapping the blast hit
   foreach my $result (@$results){
@@ -422,6 +436,7 @@ sub make_gene{
       $start = $daf->end + $padding - $result->{'end'}   + 1 ;
       $end   = $daf->end + $padding - $result->{'start'} + 1;
     }
+ 
     $str = $result->{'str'};
     $score = $result->{'score'};
     # exons
@@ -435,7 +450,6 @@ sub make_gene{
        -phase => -1,
        -end_phase => -1
       );
-
     # reject if it falls of the start of the slice
     next if ($exon->start < 1);
     # reject if it falls of the end of the slice
@@ -457,10 +471,9 @@ sub make_gene{
   my $gene = Bio::EnsEMBL::Gene->new;
   #Biotypes
   $gene->biotype("misc_RNA");
-  $gene->biotype("snRNA")  if($description =~ /uclear/ or 
-			   $description =~ /pliceosomal/ );
-  $gene->biotype("snoRNA") if($description =~ /ucleolar/);
-  $gene->biotype("rRNA")   if($description =~ /ibosomal/);
+  $gene->biotype("snRNA")  if($type =~ /^snRNA;/ );
+  $gene->biotype("snoRNA") if($type =~ /^snRNA; snoRNA;/);
+  $gene->biotype("rRNA")   if($type =~ /rRNA;/);
   $gene->confidence("NOVEL");
   $gene->description($description." [Source: RFAM ".$self->analysis->db_version."]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
@@ -507,7 +520,7 @@ sub make_gene{
   $gene_hash{'attrib'} = \@attributes;
   $gene_hash{'gene'} = $gene;
   $gene_hash{'xref'} = $xref;
-  print "Chosen hit and structure constraint : $start $end $strand $description $name\n$str\n";
+  print "Chosen hit and structure constraint : $start $end " . $gene->strand ." $description $name\n$str\n";
   return \%gene_hash;
 }
 
@@ -526,11 +539,10 @@ sub make_gene{
 =cut
 
 sub get_sequence{
-  my ($self,$daf)=@_;
+  my ($self,$daf,$cm)=@_;
   my $domain = substr($daf->hseqname,0,7);
-  my %thresholds = %{$self->thresholds};
   my $slice = $daf->slice;
-  my $padding = $thresholds{$domain}{'win'};
+  my $padding = $cm->{$domain}->{-length};
   my $old_start = $daf->start;
   my $old_end = $daf->end;
   print STDERR "Using padding of $padding\t"if $verbose;
@@ -549,32 +561,6 @@ sub get_sequence{
   return $seq;
 }
 
-=head2 get_thresholds
-
-  Title      : get_thresholds
-  Usage      : $runnable->get_thresholds
-  Function   : Fetches and stores predefined thresholds set for each RFAM familly
-             : in the /data/blastdb/Rfam/Rfam.thr file
-  Returns    : None
-  Exceptions : Throws if it cannot open the thresholds file
-  Args       : Bio::EnsEMBL::DnaDnaAlignFeature
-
-=cut
-
-sub get_thresholds{
-  my($self)= @_;
-  # read threshold file
-  my %thr;
-  # full thresholds
-  open( T,$self->analysis->db_file."/Rfam.thr"  ) or $self->throw("can't file the Rfam.thr file");
-  while(<T>) {
-    if( /^(RF\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\S+)\s*$/ ) {
-      $thr{ $1 } = { 'id' => $2, 'thr' => $3, 'win' => $4, 'mode' => $5 };
-    }
-  }
-  close T;
-  $self->thresholds(\%thr);
-}
 
 =head2 get_descriptions
 
@@ -608,11 +594,60 @@ sub get_descriptions{
     if ($_ =~ /^\#=GF ID   (.+)/){
       $descriptions{$domain}{'name'} = $1;      
     }
+    if ($_ =~ /^\#=GF TP   Gene; (.+)/){
+      $descriptions{$domain}{'type'} = $1;      
+    }
   }
   close T;
   return \%descriptions if scalar(keys %descriptions > 0);
   $self->throw("Unable to find descriptions");
   return undef;
+}
+
+sub read_cm_library {
+  # rfam cm file is now one big file with lots of entries this code is from rfam scan.pl and is
+  # used to parse the large file
+  my ( $self,$fh) = @_;
+ 
+  my $off = 0;
+  my %cm;
+  my $name;
+  while(<$fh>) {
+    if( /^ACCESSION\s+(\S+)/ ) {
+      $name = $1;
+      $cm{$name}->{-accession} = $1; #RF number
+      $cm{$name}->{-offset} = $off;
+    }
+    if( /^CLEN\s+(\d+)/ ) {
+      $cm{$name}->{-length} = $1;
+    }
+    if( /^ACCESSION\s+(\S+)/ ) {
+      $cm{$name}->{-accession} = $1; #RF number
+    }
+    if( /^SCOM\s+cmsearch\s+\-Z.*\s+(\-\-toponly.*)\s+CM/ ) {
+      $cm{$name}->{-options} = $1;
+    }
+    if( /^GA\s+(\d+)/ ) {
+      $cm{$name}->{-threshold} = $1;
+    }  
+    if( /^\/\// ) {
+      $off = tell($fh);
+    }
+  }
+  return \%cm;
+}
+
+sub write_cm_file {
+  my ($self,$cm,$cmfh) =@_;
+  my $id = $self->query->display_id;
+  my $outfile = $self->create_filename($id,'.cm');
+  seek($cmfh,$cm->{$id}->{-offset},0);
+  open( F, ">$outfile" ) or die "FATAL: Failed to retrieve CM [$id] from handle [$cm]\n";
+  while(<$cmfh>) {
+    print F $_;
+    last if( /^\/\// );
+  }
+  return $outfile;
 }
 
 #################################################################
