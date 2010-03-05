@@ -59,7 +59,7 @@ use vars qw( %Config );
                           MAXIMUM_TRANSLATION_LENGTH_RATIO => 35 , # maxium percentage translation-length for a cDNA to be to be still 
                                                                    # considered as non-coding  
                             
-                          MAX_TRANSLATIONS_PER_GENE =>10           # the module computes all possible open reading frames for a transcript; it's wise to limit them, 
+                          MAX_TRANSLATIONS_PER_GENE =>10,         # the module computes all possible open reading frames for a transcript; it's wise to limit them, 
                                                                    # to the ten longest translations per gene ( you can end up with 200 translations / gene and pfam 
                                                                    #  analysis will tage ages. 
                                                                    #
