@@ -215,14 +215,7 @@ sub contains_exon {
 # gone out of scope.
 sub contains_exon_with_dbid_and_dbname {
   my ($self,$exon) = @_;
-  my $exon_duplicate = 0;
-
-  foreach my $ex (keys %{$self->{_exonidhash}}) {
-    if ($ex eq "".$exon->dbID.$exon->adaptor->db->dbc->dbname) {
-      $exon_duplicate = 1;
-    }
-  }
-  return $exon_duplicate;
+  return (exists $self->{_exonidhash}{"".$exon->dbID.$exon->adaptor->db->dbc->dbname});
 }
 
 =head2 
