@@ -78,6 +78,7 @@ require "$ENV{'WORK_DIR'}/runnable_config.pm";
              #NORM_METHOD       => $ENV{'NORM_METHOD'},
              RESULT_SET_REGEXP => '_IMPORT',
              ANALYSIS_WORK_DIR =>  $ENV{PIPELINE_OUT},
+	     HAS_CONTROL => 0,
          },
          
 		 #'SWEmbl_default' => {
