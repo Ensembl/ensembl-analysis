@@ -23,7 +23,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl
 
 This module provides an interface between the ensembl functional genomics 
 database and the Runnable SWEmbl which wraps the ChIP-Seq peak caller SWEmbl.
-
+1
 =head1 LICENSE
 
   Copyright (c) 1999-2009 The European Bioinformatics Institute and
@@ -403,18 +403,18 @@ sub write_output{
     warn('No. of annotated features already stored: '.scalar(@$af).' ('.$self->query.' '.$fset->name.')');
     warn('No. of annotated features to be stored: '.scalar(@{$self->output}).' ('.$self->query.')');
 
-	#??!!! Why is this done here and not before SWEmbl is actually run?
-	#Maybe so we can rerun with different params without storing?
-	#This should be done with different logic name and specify a no write env var(or pipeline opt)?
-
+    #??!!! Why is this done here and not before SWEmbl is actually run?
+    #Maybe so we can rerun with different params without storing?
+    #This should be done with different logic name and specify a no write env var(or pipeline opt)?
+    
 
     if (@$af) {
-        #Surely this should be throw?
-        warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! File ".
-             $self->query." already has been processed; contains ".scalar(@$af).
-             " annotated features of feature set ".$fset->dbID.".");
-        return 1;
-        
+      #Surely this should be throw?
+      warn("NOT IMPORTING ".scalar(@{$self->output})." annotated features! File ".
+	   $self->query." already has been processed; contains ".scalar(@$af).
+	   " annotated features of feature set ".$fset->dbID.".");
+      return 1;
+      
     } else {
         my @af;
 
@@ -422,39 +422,52 @@ sub write_output{
         my %slice;
         
         foreach my $ft (@{$self->output}){
-		  my ($seqid, $start, $end, $score, $summit) = @{$ft};
-		  #Could filter here based on score, score not very useful otherwise
-		  $summit = int($summit);#Round up?
-													   
-		  # skip mito calls
-		  #remove this when we have pre-processing step to filter alignments using blacklist?
-		  next if ($seqid =~ m/^M/);
+	  my ($seqid, $start, $end, $score, $summit) = @{$ft};
 
-		  unless (exists $slice{"$seqid"}) {
-           
-			#if($self->{'input_format'} eq 'sam'){
-			  #$slice{"$seqid"} = $sa->fetch_by_name($seqid);
-			#}else{
-			  #$slice{"$seqid"} = $sa->fetch_by_region('chromosome', $seqid);
-			  $slice{"$seqid"} = $sa->fetch_by_region(undef, $seqid);
-			  
-			#}
-                
-		  }
-     
-            my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
-                (
-                 -slice         => $slice{"$seqid"},
-                 -start         => $start,
-                 -end           => $end,
-                 -strand        => 0,
-                 #-display_label => $score,#
-                 -score         => $summit,#$score,
-                 -feature_set   => $fset,
-                 );
-            
-            push(@af, $af);
+	  #Hack mostly to ignore header (should be in parse output somewhere?)
+	  if(! (($start =~ /^-?\d+$/) && ($end =~ /^\d+$/))){  
+	    warn "Feature being ignored: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
+	    next;
+	  }
 
+	  #Could filter here based on score, score not very useful otherwise
+	  $summit = int($summit);#Round up?
+	  
+	  # skip mito calls
+	  #remove this when we have pre-processing step to filter alignments using blacklist?
+	  next if ($seqid =~ m/^M/);
+	  
+	  unless (exists $slice{"$seqid"}) {
+	    
+	    #if($self->{'input_format'} eq 'sam'){
+	    #$slice{"$seqid"} = $sa->fetch_by_name($seqid);
+		    #}else{
+	    #$slice{"$seqid"} = $sa->fetch_by_region('chromosome', $seqid);
+	    $slice{"$seqid"} = $sa->fetch_by_region(undef, $seqid);
+	    
+	    #}
+	    
+	  }
+
+	  #Sometimes there are naming issues with the slices... e.g. special contigs... which are not "valid" slices in ENSEMBL
+	  if(!$slice{"$seqid"}){
+	    warn "Feature being ignored: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
+	    next;
+	  }
+	  
+	  my $af = Bio::EnsEMBL::Funcgen::AnnotatedFeature->new
+	    (
+	     -slice         => $slice{"$seqid"},
+	     -start         => $start,
+	     -end           => $end,
+	     -strand        => 0,
+	     #-display_label => $score,#
+	     -score         => $summit,#$score,
+	     -feature_set   => $fset,
+	    );
+	  
+	  push(@af, $af);
+	  
         }
         
         $self->efgdb->get_AnnotatedFeatureAdaptor->store(@af);
@@ -463,5 +476,37 @@ sub write_output{
     
 }
 
+
+#=head2 run
+#  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl
+#  Function  : overrides the general RunnableDB run just to pass an extra info to the runnable(s)... 
+#  Returntype: array ref
+#  Exceptions: none
+#=cut
+
+sub run{
+  my ($self) = @_;
+  foreach my $runnable(@{$self->runnable}){
+    $runnable->has_control($self->HAS_CONTROL);
+    $runnable->run;
+    $self->output($runnable->output);
+  }
+  return $self->{'output'};
+}
+
+#Maybe pass it to more generic Funcgen? (other runnables may need this)
+sub HAS_CONTROL {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_HAS_CONTROL'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_HAS_CONTROL'} ) ) {
+        return $self->{'_CONFIG_HAS_CONTROL'};
+    } else {
+        return undef;
+    }
+}
 
 1;
