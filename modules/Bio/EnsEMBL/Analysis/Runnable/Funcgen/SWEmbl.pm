@@ -155,11 +155,25 @@ sub run_analysis {
 	throw("Could not identify valid SWEmbl input format") if(! $format_switch);
 	
     my $command = $self->program . " $format_switch $zip_switch -i " . $self->query . ' ' . 
-        $self->options . ' -o ' . $results_file;
+      $self->options . ' -o ' . $results_file;
+
+    if($self->has_control){ 
+      #Identify the file name of the control based on the query name...
+      #This assuming the control was added to the cache folder and conforms to the naming policy...
+      if($self->query =~ /^(.*\/[^_]+)_[^_]+_(.+):.*$/){ 
+	my $control_file = $1."_control_".$2.".samse.".&get_file_format($self->query).".gz";
+	if(!(-e $control_file)){ throw("Could not find control file ".$control_file); }
+	$command = $command." -r ".$control_file;
+      } else {
+	throw("Could not infer the name of the control file: Check the naming policy on ".$self->query);
+      }
+    }
     
     print "Running analysis:\t$command\n";
     system($command) && throw("FAILED to run $command: ", $@);
 	print "Finished analysis:\t$command\n";
+
+    # Here maybe post-process the output file to be sure it's ok for the following steps??
 	
 }
 
@@ -179,5 +193,20 @@ sub config_file {
     $self->{'config_file'} = shift if(@_);
     return $self->{'config_file'};
 }
+
+sub has_control {
+    my ( $self, $value ) = @_;
+
+    if ( defined $value ) {
+        $self->{'_CONFIG_HAS_CONTROL'} = $value;
+    }
+
+    if ( exists( $self->{'_CONFIG_HAS_CONTROL'} ) ) {
+        return $self->{'_CONFIG_HAS_CONTROL'};
+    } else {
+        return undef;
+    }
+}
+
 
 1;
