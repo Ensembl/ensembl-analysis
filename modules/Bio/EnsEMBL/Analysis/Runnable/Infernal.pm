@@ -419,7 +419,7 @@ sub make_gene{
   my ($self,$results,$daf,$descriptions,$cm) = @_;
   my $domain = substr($daf->hseqname,0,7);
   my $description = $descriptions->{$domain}->{'description'};
-  my $name = $descriptions->{$domain}->{'name'};
+  my $name =     $descriptions->{$domain}->{'name'};
   my $padding =  $cm->{$domain}->{-length};
   my $type = $descriptions->{$domain}->{'type'};
   my %gene_hash;
@@ -475,7 +475,7 @@ sub make_gene{
   $gene->biotype("snoRNA") if($type =~ /^snRNA; snoRNA;/);
   $gene->biotype("rRNA")   if($type =~ /rRNA;/);
   $gene->confidence("NOVEL");
-  $gene->description($description." [Source: RFAM ".$self->analysis->db_version."]");
+  $gene->description($description." [Source: RFAM;Acc:$domain]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
@@ -483,12 +483,12 @@ sub make_gene{
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (
-     -primary_id => substr($daf->hseqname,0,7),
+     -primary_id => $domain,
      -display_id => $name,
      -dbname => 'RFAM',
      -release => 1,
      -version => 0,
-     -description => $description." [Source: RFAM ".$self->analysis->db_version."]",
+     -description => $description." [Source: RFAM;Acc:$domain]",
     );
   # Use RNA fold to tidy up the structure parsed from cmsearch results
   my $seq = Bio::PrimarySeq->new(
