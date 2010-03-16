@@ -1,0 +1,100 @@
+#
+# package Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAEvaluator 
+# 
+# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+#
+# Copyright GRL & EBI
+#
+# You may distribute this module under the same terms as perl itself
+
+# POD documentation - main docs before the code
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAEvaluator
+
+=head1 SYNOPSIS
+
+    use Bio::EnsEMBL::Analysis::Config::GeneBuild:lincRNAEvaluator 
+
+=head1 DESCRIPTION
+
+
+=head1 CONTACT
+
+=cut
+
+
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAEvaluator; 
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+
+           LINCRNA_EVAL_CONFIG_BY_LOGIC => 
+           {
+              DEFAULT => { 
+                          LINCRNA_DB => { 
+                                           # specify gene-biotypes which you want to fetch out of the database where lincRNAFinder has written it's output to  
+                                           # you have to fetch all lincRNA genes also the ones with protein features ( pfam / tigfam ) as we use them for 
+                                           # clustering in this Evaluation step
+                                           LINCRNA_OUTPUT_DB => ['lincRNA_finder','prot_feat'],  
+                                        },
+
+                          VALIDATION_DBS => { 
+                                              SOURCE_PROTEIN_CODING_DB => ['fetch_all_biotypes'] , # db with genes to cluseter in second run lincEvaluator 
+                                            },  
+
+
+                          FINAL_OUTPUT_BIOTYPE => "lincRNA", 
+                          FINAL_OUTPUT_DB      => 'LINCRNA_FINAL',   
+
+                          # configure if you want to update the analysis of all processed_transcripts which 
+                          # cluster with identified lincRNAs. Useful if you want to copy your lincRNAs into 
+                          # an already 'ready-to-go' core on ens-staging. Make sure the analysis with ENSEMBL_HAVANA_LOGIC_NAME
+                          # exist in the db. 
+                          PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB => 1,  
+                          UPDATE_SOURCE_PROTEIN_CODING_DB => 'SOURCE_PROTEIN_CODING_DB',    # the db to update 
+                          ENSEMBL_HAVANA_LOGIC_NAME => 'ensembl_havana_gene',               # logic_name of the analysis you will assign
+
+                          # configure if you want to write additional gene models which did NOT pass the evaluation step
+                          WRITE_REJECTED_NCRNAS => 0,  
+                          WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS => 0,
+
+                        },  
+                        
+                        lincrna_eval => {} ,
+                        lincrna  => {} ,
+            },  
+         );
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
