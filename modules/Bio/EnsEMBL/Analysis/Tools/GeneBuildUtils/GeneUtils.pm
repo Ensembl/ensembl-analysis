@@ -44,21 +44,24 @@ use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
-             print_Gene 
-             print_Gene_Transcript_and_Exons
-             clone_Gene 
-             Gene_info
-             prune_Exons
-             get_one2one_orth_for_gene_in_other_species
-             get_one2one_homology_for_gene_in_other_species 
-             get_transcript_with_longest_CDS
              attach_Slice_to_Gene
              attach_Analysis_to_Gene
              attach_Analysis_to_Gene_no_support
-             fully_load_Gene
-             empty_Gene
+             clone_Gene 
              compute_6frame_translations
              convert_to_single_transcript_gene
+             empty_Gene 
+             filter_Genes_by_Exon_count
+             fully_load_Gene
+             get_one2one_orth_for_gene_in_other_species
+             get_one2one_homology_for_gene_in_other_species  
+             get_single_Exon_Genes 
+             get_multi_Exon_Genes
+             get_transcript_with_longest_CDS
+             Gene_info
+             print_Gene 
+             print_Gene_Transcript_and_Exons
+             prune_Exons
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -68,6 +71,56 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id coord_string empty_Obje
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
 use Bio::EnsEMBL::Gene;
 
+
+
+=head2 filter_Genes_by_Exon_count 
+
+  Arg [1]   : Arrayref of Bio::EnsEMBL::Gene objects with 1 or more transcripts 
+  Function  : filters Genes into 2 subsets - genes which only 'have' single-exon-transcripts and 
+              Genes with transcripts with more than one exon. 
+  Returntype: n/a
+  Exceptions: n/a
+  Example   : my ( $single_exon_genes, $multi_exon_genes ) = filter_Genes_by_Exon_count(\@genes);
+
+=cut
+
+
+sub filter_Genes_by_Exon_count {
+  my ($genes ) = @_;
+
+  my (@single_exon_genes,@multi_exon_genes) ;
+
+  for my $g ( @$genes ) {
+    my $max_nr_exons = 0 ;
+    for my $t ( @{$g->get_all_Transcripts} ) {
+      my $exons = scalar( @{$t->get_all_Exons} );
+      if ( $max_nr_exons < $exons ) {
+        $max_nr_exons = $exons;
+      }
+    }
+    if ( $max_nr_exons == 1 ) {
+      push @single_exon_genes, $g ;
+    } elsif ( $max_nr_exons > 1 ) {
+      push @multi_exon_genes, $g;
+    } else {
+      throw (" Gene ".$g->dbID. " does not have any exons !");
+    }
+  }
+  return ( \@single_exon_genes , \@multi_exon_genes ) ;
+}
+
+
+sub get_single_Exon_Genes {
+  my ($genes ) = @_;
+  my ($single_exon_genes , $multi) = filter_Genes_by_Exon_count($genes);  
+  return $single_exon_genes ; 
+} 
+
+sub get_multi_Exon_Genes {
+  my ($genes ) = @_;
+  my ($single, $multi_exon_genes ) = filter_Genes_by_Exon_count($genes); 
+  return $multi_exon_genes ;  
+}
 
 
 =head2 print_Gene
