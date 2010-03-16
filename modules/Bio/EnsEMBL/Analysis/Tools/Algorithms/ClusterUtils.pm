@@ -14,6 +14,8 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 
 @EXPORT=qw( 
             cluster_Genes 
+            cluster_Genes_without_strand 
+            cluster_Genes_by_coding_exon_overlap 
             get_single_clusters 
             get_twoway_clusters 
             get_twoway_clustering_genes_both_sets
@@ -22,6 +24,9 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
             make_types_hash
             make_types_hash_with_genes
           ) ; 
+
+
+
 
 
 
@@ -239,8 +244,16 @@ sub check_cluster_ref {
 } 
 
 
+sub cluster_Genes_by_coding_exon_overlap {  
+  my ($genes, $types_hash ) = @_ ;
+  return cluster_Genes($genes,$types_hash,1); 
+}
 
 
+sub cluster_Genes_without_strand {  
+  my ($genes, $types_hash ) = @_; 
+  return cluster_Genes($genes,$types_hash,0,1); 
+}
 
 
 =head2 cluster_Genes 
