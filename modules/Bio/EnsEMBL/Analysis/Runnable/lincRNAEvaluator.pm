@@ -182,11 +182,12 @@ sub run{
        if ( $e_biotypes[0]=~m/processed_transcript/ ) {     # lincRNA clustes only with ensembl gene of biotype 'processed_transcript'
           for my $ncrna_gene ( @ncrnas_in_cluster ) {  
             for my $e ( @e_genes ) {  
-              push @genes_to_update, $e ; 
-              print "this_processed_transcript_clusters_with_one_of_my_ncRNAs\t" . $e->stable_id . "\n" ;  
-              print "update gene g, analysis a , gene_stable_id gsi set g.analysis_id = a.analysis_id ".
-                     "where a.logic_name =\"".$self->ensembl_havana_analysis->logic_name ."\" and g.gene_id = " . $e->dbID .
-                      " and g.gene_id = gsi.gene_id and stable_id =\"".$e->stable_id.";\n";
+              push @genes_to_update, $e ;
+              # don't need the print below as the genes get automatically updated ...  
+              print "INFO : processed_transcript_clusters_with_linccRNA:\t" . $e->stable_id . "\t" . $e->analysis->logic_name . "\n" ;  
+              #print "update gene g, analysis a , gene_stable_id gsi set g.analysis_id = a.analysis_id ".
+              #       "where a.logic_name =\"".$self->ensembl_havana_analysis->logic_name ."\" and g.gene_id = " . $e->dbID .
+              #        " and g.gene_id = gsi.gene_id and stable_id =\"".$e->stable_id.";\n";
             }
             push @ncrna_clusters_with_processed_transcript, $ncrna_gene; 
            }  
@@ -206,15 +207,12 @@ sub run{
   $self->ncrna_clusters_with_processed_transcript(\@ncrna_clusters_with_processed_transcript);   
   $self->genes_to_update(\@genes_to_update); 
 
-  print "XX I am not using some genes : " . scalar(@ncrna_clusters_with_multiple_biotypes). " genes as they cluster with multiple biotypes\n" ;     
-  print "XX I am not using some genes : " . scalar(@genes_with_prot_domain) . " genes as they cluster with genes with protein domains\n" ;     
-
   # rejected data 
   $self->ncrna_clusters_with_multiple_biotypes(\@ncrna_clusters_with_multiple_biotypes);  
   $self->ncrna_clusters_with_protein_domain(\@genes_with_prot_domain);  
 
-  print "YY I am not using some genes : " . scalar(@{$self->ncrna_clusters_with_multiple_biotypes}). " genes as they cluster with multiple biotypes\n" ;     
-  print "YY I am not using some genes : " . scalar(@{$self->ncrna_clusters_with_protein_domain}) . " genes as they cluster with genes with protein domains\n" ;     
+  print "I am ingoring genes : " . scalar(@{$self->ncrna_clusters_with_multiple_biotypes}). " genes as they cluster with multiple biotypes\n" ;     
+  print "I am ignoring genes : " . scalar(@{$self->ncrna_clusters_with_protein_domain}) . " genes as they cluster with genes with protein domains\n" ;     
   
   # I know want to identify the ensembl gene which clusters with this gene.  
   # genes which have the same exons as ensembl will get biotype 'same as ensembl' 

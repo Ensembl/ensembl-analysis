@@ -64,7 +64,8 @@ sub fetch_input{
   
   unless ( defined $update_analysis && ref($update_analysis)=~m/Bio::EnsEMBL::Analysis/ ) {  
    throw ( " Analysis with logic_name " . $self->ENSEMBL_HAVANA_LOGIC_NAME . " can't be found in " . $db->dbname . "\@".$db->host . "\n" );
-  }  
+  }    
+
   $self->update_analysis($update_analysis); 
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator->new(
@@ -160,8 +161,15 @@ sub run {
           -max_short_intron_len => 15,
           -blessed_biotypes => {} , 
          );
-   $gb->run(); 
-   push @output_clustered, @{$gb->output()} ;  
+   $gb->run();  
+   my @output_genes = @{$gb->output()};
+   for my $og ( @output_genes ) {   
+     for my $ot ( @{ $og->get_all_Transcripts } ) {  
+       $ot->biotype($self->FINAL_OUTPUT_BIOTYPE);
+     }
+   } 
+   push @output_clustered, @output_genes ;  
+
    print " GB returned  " .@output_clustered . " unclustered genes for genebuilder run\n" ;   
 
 
@@ -171,7 +179,9 @@ sub run {
   # 
 
   if ( $self->WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS == 1 ) { 
-     print "Got " . scalar(@{$self->single_runnable->ncrna_clusters_with_processed_transcript}). " lincRNAs for Genebuilder which cluster with processed transcript\n" ; 
+     print "Got " . scalar(@{$self->single_runnable->ncrna_clusters_with_processed_transcript}). 
+      " lincRNAs for Genebuilder which cluster with processed transcript\n" ; 
+
      $gb = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
             -query => $self->query,
             -analysis => $self->analysis,
@@ -186,7 +196,6 @@ sub run {
      push @output_clustered, @{$gb->output()} ;   
    }
    print " GB returned  " .@output_clustered . " genes in total\n" ;  
-
    $self->genes_to_write( \@output_clustered );
 }
 
@@ -201,10 +210,18 @@ sub write_output{
   if ( $self->PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB == 1  ) { 
     my $ga = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB)->get_GeneAdaptor();
     
-    for my $ug ( @genes_to_update ) {    
-      $ug->analysis($self->update_analysis); 
-      $ga->update($ug);  
-      print "updated gene " . $ug->dbID . "\n"; 
+    for my $ug ( @genes_to_update ) {      
+      # before we update the analysis we check if the analysis of gene processed_transcript
+      # is 'havana' ..  
+      
+      if ( $ug->analysis->logic_name =~m/$self->havana_old_analysis/ ) { 
+          $ug->analysis($self->update_analysis); 
+          $ga->update($ug);  
+          print "updated gene " . $ug->dbID . "\n";  
+      }else {  
+        warning("not updating gene " . $ug->biotype . " with dbID " . $ug->dbID . " as it has the wrong analysis " 
+        . $ug->analysis->logic_name . " ( to update, it should be of analysis " . $self->HAVANA_LOGIC_NAME . ")"); 
+      } 
     }
   }
 
@@ -350,8 +367,6 @@ sub read_and_check_config{
   foreach my $var(qw(LINCRNA_DB FINAL_OUTPUT_DB FINAL_OUTPUT_BIOTYPE VALIDATION_DBS WRITE_REJECTED_NCRNAS )){ 
     throw("RunnableDB::lincRNAEvaluator $var config variable is not defined") if (!defined $self->$var ) ; 
   }
-  #$self->FINAL_OUTPUT_BIOTYPE($self->analysis->logic_name) if(!$self->OUTPUT_BIOTYPE);
-  #$self->FINAL_OUTPUT_BIOTYPE($FINAL_OUTPUT_BIOTYPE);
 }
 
 
@@ -443,6 +458,15 @@ sub ENSEMBL_HAVANA_LOGIC_NAME{
     $self->{'ENSEMBL_HAVANA_LOGIC_NAME'} = $arg;
   }
   return $self->{'ENSEMBL_HAVANA_LOGIC_NAME'};
+} 
+
+
+sub HAVANA_LOGIC_NAME{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'HAVANA_LOGIC_NAME'} = $arg;
+  }
+  return $self->{'HAVANA_LOGIC_NAME'};
 } 
 
 
