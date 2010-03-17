@@ -167,6 +167,7 @@ sub fetch_input {
 			'-query'    => $maskedslice,
 			'-features' => $fps,
 			'-pfamdb'   => $self->getPfamDB(),
+			'-hmmdb'	=> $self->analysis->db_file,
 			'-options'  => $self->analysis->parameters(),
 			'-program'  => $self->analysis->program(),
 			'-analysis' => $self->analysis
@@ -250,6 +251,7 @@ sub get_db_version {
 			my $ver = eval {
 				my $blast_ver = BlastableVersion->new();
 				$blast_ver->force_dbi($force_dbi);    # if set will be SLOW.
+				$blast_ver->set_hostname('farm2');
 				$blast_ver->get_version($db);
 				$blast_ver;
 			};

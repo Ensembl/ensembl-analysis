@@ -83,9 +83,10 @@ sub new {
     $self->{'_errorfile'} = undef; #file to store any errors hmmfetch throw
     $self->{'_dbm_file'} = undef;
     #print STDERR "args = @args\n";
-    my ($genomic, $features, $hmmfetch, $hmmdb, $pfamdb, $memory, $options, $analysis,$program) = rearrange([qw(QUERY
+    my ($genomic, $features, $hmmfetch,$hmmconvert, $hmmdb, $pfamdb, $memory, $options, $analysis,$program) = rearrange([qw(QUERY
 											   FEATURES
 											   HMMFETCH
+											   HMMCONVERT
 											   HMMDB
 											   PFAMDB
 											   MEMORY
@@ -100,17 +101,22 @@ sub new {
     $self->pfamDB($pfamdb);
     $self->options($options);
     $self->program($program);
-    throw("No genomic sequence input") unless defined($analysis);
+    throw("No analysis") unless defined($analysis);
     $self->analysis($analysis);
     if ($hmmfetch){
 	$self->hmmfetch($hmmfetch);
     } else {
-	$self->hmmfetch('/usr/local/ensembl/bin/hmmfetch');
+	$self->hmmfetch('/software/pubseq/bin/hmmer/hmmfetch');
+    }
+    if ($hmmconvert){
+	$self->hmmconvert($hmmconvert);
+    } else {
+	$self->hmmconvert('/software/pubseq/bin/hmmer/hmmconvert');
     }
     if($hmmdb){
 	$self->hmmdb($hmmdb);
     } else {
-	$self->hmmdb('/data/blastdb/Finished/Pfam_ls');
+	$self->hmmdb('/data/blastdb/Finished/Pfam-A.hmm');
 
     }
     $self->memory ($memory)    if (defined($memory));
@@ -244,6 +250,24 @@ sub hmmfetch {
     return $self->{'_hmmfetch'};
 }
 
+=head2 hmmconvert
+
+    Arg      : location of hmmconvert program
+    Function : gets/sets location of hmmfconvert program
+    Exception: none
+    Caller   :
+
+=cut
+
+sub hmmconvert {
+    my ($self, $args) =@_;
+
+    if (defined($args)){
+	$self->{'_hmmconvert'} = $args;
+    }
+    return $self->{'_hmmconvert'};
+}
+
 =head2 hmmdb
 
     Arg      : location of hmmdb
@@ -279,6 +303,26 @@ sub hmmfilename {
     }
 
     return $self->{'_hmmfilename'};
+
+}
+
+sub hmm3filename {
+    my ($self, $args) = @_;
+    if (defined ($args)){
+	$self->{'_hmm3filename'} = $args;
+    }
+
+    return $self->{'_hmm3filename'};
+
+}
+
+sub hmm2filename {
+    my ($self, $args) = @_;
+    if (defined ($args)){
+	$self->{'_hmm2filename'} = $args;
+    }
+
+    return $self->{'_hmm2filename'};
 
 }
 =head2 dbm_file
@@ -317,7 +361,7 @@ sub memory {
 	$self->{'_memory'} = $arg;
     }
 
-    return $self->{'_memory'} || 400000;
+    return $self->{'_memory'} || 1000000;
 }
 
 ##########
@@ -395,18 +439,15 @@ sub get_pfam_hmm {
 	my $sql = "SELECT
 	    			DISTINCT(CONCAT(a.pfamA_acc,'.',a.version)),
 	    			a.pfamA_id,
-	    			a.description,
-	    			ls.hmm_ls
+	    			a.description
 				FROM
 				    pfamA_reg_full_significant f,
 				    pfamseq p,
-				    pfamA a,
-				    pfamA_HMM_ls ls
+				    pfamA a
 				WHERE
 				    f.auto_pfamseq = p.auto_pfamseq AND
 				    f.in_full = 1 AND
 				    a.auto_pfamA = f.auto_pfamA AND
-				    ls.auto_pfamA = f.auto_pfamA AND
 				    p.pfamseq_acc IN ";
 
     my @accessions = keys(%$uniprot_ids);
@@ -419,23 +460,18 @@ sub get_pfam_hmm {
 
 	#print STDOUT $sql."\n";
 
-	# create the hmm file
-    $self->hmmfilename("halfwise.$$.hmmdb");
-    open (HMMFILE, ">".$self->hmmfilename) or die "couldn't create hmm file ".$self->hmmfilename." $!";
-	#print STDOUT "HMM file is ".$self->hmmfilename."\n";
-
 	my $sth = $db->prepare($sql);
     $sth->execute();
-    my ($pfam_acc, $pfam_id, $description, $hmm_ls);
-    $sth->bind_columns(\($pfam_acc, $pfam_id, $description, $hmm_ls));
+    my ($pfam_acc, $pfam_id, $description);
+    $sth->bind_columns(\($pfam_acc, $pfam_id, $description));
 
     while(my $row = $sth->fetchrow_arrayref()){
     	$pfam_lookup->{$pfam_id}	= [$pfam_acc, $description];
     	$pfam_accs->{$pfam_acc}		= 1;
-    	print HMMFILE $hmm_ls;
     }
     $sth->finish();
-	close HMMFILE;
+
+	$self->get_hmmdb($pfam_lookup);
 	$self->pfam_lookup($pfam_lookup);
 
     return $pfam_accs;
@@ -593,8 +629,9 @@ sub create_genewisehmm_complete{
     print STDERR "doing the hmm for ids: ". join(" ", keys(%$pfam_ids)) . "\n"; ##########
 
     $self->run_genewisehmm(0);
-    print STDERR "removing hmmfile: ".$self->hmmfilename()."\n"; ##########
-    unlink $self->hmmfilename();
+    print STDERR "removing hmm files:\n"; ##########
+    unlink $self->hmm3filename();
+    unlink $self->hmm2filename();
 
     return undef;
 }
@@ -637,13 +674,14 @@ sub get_GenewiseHMM{
   $ENV{WISECONFIGDIR} = "/usr/local/ensembl/data/wisecfg/";
 
   my $genewisehmm =
-    Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm->new('-query'    => $self->query(),
-                                                                '-memory'   => $memory,
-                                                                '-hmmfile'  => $self->hmmfilename(),
-                                                                '-reverse'  => $reverse,
-                                                                '-genewise' => $self->program(),
-                                                                '-options'  => $self->options(),
-								 '-analysis' => $self->analysis(),
+    Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm->new(
+    							'-query'    => $self->query(),
+                                '-memory'   => $memory,
+                                '-hmmfile'  => $self->hmm2filename(),
+                                '-reverse'  => $reverse,
+                                '-genewise' => $self->program(),
+                                '-options'  => $self->options(),
+								'-analysis' => $self->analysis(),
     );
   return $genewisehmm;
 
@@ -692,22 +730,22 @@ sub get_hmmdb{
     my ($self, $pfam_ids) = @_;
     my @pfamIds = keys(%$pfam_ids);
     print STDERR "getting the hmms for ids: ". join(" ", @pfamIds) . "\n"; ##########
-    my $filename = substr(join("_", @pfamIds),0,20);
-    $self->hmmfilename("$filename.$$.hmmdb");
+    $self->hmm3filename("halfwise.$$.hmmdb3");
+    $self->hmm2filename("halfwise.$$.hmmdb2");
 
     foreach my $id(@pfamIds){
         print "getting hmm for id ".$id."\n";
-        my $command =  $self->hmmfetch." ".$self->hmmdb." ".$id." >> ".$self->hmmfilename;
+        my $command =  $self->hmmfetch." ".$self->hmmdb." ".$id." >> ".$self->hmm3filename;
         eval{
           system($command);
         };
         if($@){
           warning("hmmfetch threw error : $@\n");
         }
-        if (-z $self->hmmfilename){
+        if (-z $self->hmm3filename){
           warning("hmm file not created :$!");
-        }elsif(-e $self->hmmfilename){
-          open(ERROR, $self->hmmfilename) or die "couldn't open error file : $!";
+        }elsif(-e $self->hmm3filename){
+          open(ERROR, $self->hmm3filename) or die "couldn't open error file : $!";
           while(<ERROR>){
             if(/no such hmm/i){
               print STDERR "error message : ".$_."\n";
@@ -716,6 +754,18 @@ sub get_hmmdb{
           close(ERROR) or die "couldn't close error file : $!";
         }
     }
+    # convert the hmm file from HMMER3 to HMMER2 format for genewise
+    my $command = $self->hmmconvert." -2 ".$self->hmm3filename." > ".$self->hmm2filename;
+ 	print STDERR "$command\n";
+    eval{
+          system($command);
+    };
+    if($@){
+          warning("hmmconvert threw error : $@\n");
+    }
+
+
+
 }
 =head2 add_output_features
 
