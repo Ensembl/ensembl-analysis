@@ -58,6 +58,7 @@ use vars qw( %Config );
                           PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB => 1,  
                           UPDATE_SOURCE_PROTEIN_CODING_DB => 'SOURCE_PROTEIN_CODING_DB',    # the db to update 
                           ENSEMBL_HAVANA_LOGIC_NAME => 'ensembl_havana_gene',               # logic_name of the analysis you will assign
+                          HAVANA_LOGIC_NAME => 'havana',                                    # gene-logic_name of the processed_transcript predicted by havana 
 
                           # configure if you want to write additional gene models which did NOT pass the evaluation step
                           WRITE_REJECTED_NCRNAS => 0,  
