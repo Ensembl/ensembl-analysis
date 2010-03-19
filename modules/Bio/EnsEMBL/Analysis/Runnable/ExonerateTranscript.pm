@@ -119,7 +119,7 @@ sub parse_results {
     $gene_orientation = $strand_lookup{$gene_orientation};
 
     # Read vulgar information and extract exon regions.
-    my $exons = $self->_parse_vulgar_block($t_start,
+    my ($exons, %flag) = $self->_parse_vulgar_block($t_start,
                                            $t_end,
                                            $t_strand,
                                            $t_length,
@@ -160,7 +160,16 @@ sub parse_results {
         $cds_end_exon, $cds_end);
 
     foreach my $proto_exon (@$exons){
-      
+      if ($flag{$proto_exon}) {
+        my $link_attrib = Bio::EnsEMBL::Attribute->new
+            ( -CODE => 'lost_frameshift',
+              -NAME => 'lost_frameshift',
+              -DESCRIPTION => 'Frameshift on the query sequence is lost in the target sequence',
+              -VALUE => "internal frameshift exon $flag{$proto_exon}",
+            ) ;
+        $transcript->add_Attributes($link_attrib) ;
+      }
+ 
       # Build our exon and set its key values.
       my $exon = Bio::EnsEMBL::Exon->new();
       
@@ -279,6 +288,7 @@ sub _parse_vulgar_block {
 
   my @exons;
   my $exon_number = 0;
+  my %flag ;
 
   # We sometimes need to increment all our start coordinates. Exonerate 
   # has a coordinate scheme that counts _between_ nucleotides at the start.
@@ -367,6 +377,12 @@ sub _parse_vulgar_block {
     elsif ($type eq "I" or
            $type eq "F") {
 
+
+      # if the intron or frameshift is only on the query sequence, 
+      # the target sequence will have only one exon for the region
+      # instead of two on the query sequence
+      if ($target_match_length > 0) {
+
       # in protein mode, any insertion on the genomic side should be treated as 
       # an intron to ensure that the result translates. However, we allow for
       # codon insertions in the genomic sequence with respect to the protein. 
@@ -374,8 +390,13 @@ sub _parse_vulgar_block {
       # think "introning over" these insertions is appropriate here. 
 
       # if we see a gap/intron immediately after an intron, the current exon is "empty"
-      if ($exons[$exon_number]) {
-        $exon_number++;
+        if ($exons[$exon_number]) {
+          $exon_number++;
+        }
+      } elsif ($type eq "I") {
+          throw("Really odd case here, with lost intron !!\n") ;
+      } else {
+          $flag{$exons[$exon_number]} = $exon_number ;
       }
     }
 
@@ -479,7 +500,7 @@ sub _parse_vulgar_block {
     $ex->{sf} = \@ex_sf;
   }
 
-  return \@exons;
+  return \@exons, %flag ;
 }
 
 
