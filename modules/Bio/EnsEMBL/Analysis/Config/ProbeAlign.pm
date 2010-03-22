@@ -1,21 +1,11 @@
-#
-# package Bio::EnsEMBL::Analysis::Config::Funcgen::ProbeAlign?
-# 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-
-# POD documentation - main docs before the code
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Config::Funcgen::ProbeAlign?
+Bio::EnsEMBL::Analysis::Config::ProbeAlign
 
 =head1 SYNOPSIS
 
-    use Bio::EnsEMBL::Analysis::Config::Funcgen::ProbeAlign;
+    use Bio::EnsEMBL::Analysis::Config::ProbeAlign;
 
 =head1 DESCRIPTION
 
@@ -33,7 +23,23 @@ There are genomic and transcript based logic names and config
 hashes for each discrete format of array.
 
 
+=head1 LICENSE
+
+  Copyright (c) 1999-2009 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
 =head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <ensembl-dev@ebi.ac.uk>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
 
 =cut
 
@@ -177,6 +183,9 @@ use vars qw( %Config );
 	#The only downfall is lack of validation of QUERYSEQS files
 	#WARNING CHECK YOUR QUERYSEQS!
 
+	#Remember: Exonerate scoring is +5 for match -4 for mismatch
+
+
 	AFFY_UTR_PROBEALIGN => 
 	{
 	 MAX_MISMATCHES       => 1,
@@ -218,27 +227,25 @@ use vars qw( %Config );
 	},		  
 
 
-	#ILLUMINA_WG are 51mers. These settings allow for at least 1bp mismatch
+	#ILLUMINA_WG are 50mers. These settings allow for at least 1bp mismatch
 	ILLUMINA_WG_PROBEALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.ILLUMINA_WG.fasta',
-	 #Need to define this dynamically based on oligo length (40-60mers)
 	 #50mers
 	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	 MAX_MISMATCHES => 1, 
 	},		  
 
 	ILLUMINA_WG_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.ILLUMINA_WG.fasta',
-	 #Need to define this dynamically based on oligo length (40-60mers)
 	 #50mers
 	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	 MAX_MISMATCHES => 1, 
 	},		  
 	
 
@@ -248,18 +255,18 @@ use vars qw( %Config );
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CODELINK.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 15 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 141 --fsmmemory 256 --dnawordlen 15 --seedrepeat 2 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	 MAX_MISMATCHES => 1, 
 	},		  
 
 	CODELINK_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CODELINK.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 15 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 141 --fsmmemory 256 --dnawordlen 15 --seedrepeat 2 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	 MAX_MISMATCHES => 1, 
 	},	
 
 
@@ -268,18 +275,18 @@ use vars qw( %Config );
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.PHALANX.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	 MAX_MISMATCHES => 1, 
 	},		  
 
 	PHALANX_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.PHALANX.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, #Unique mappings for tiling probes
+	 MAX_MISMATCHES => 1, 
 	},	
 
 
@@ -310,42 +317,66 @@ use vars qw( %Config );
 	},
 
 
+
+
 	#AGILENT 60 mers
 	AGILENT_PROBEALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AGILENT.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, 
+	 MAX_MISMATCHES => 1,
+
+	 #Danio Zv7 params
+	 #Do we need a way of setting these in env so we don't have to edit here?
+	 #Can we do a $ENV{'PARAM'} || ref self default?
+	 #These would have to be set before this hash by reading ini into hash?
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 15 --seedrepeat 4 --dnawordlimit 0 ',
+	 #MAX_MISMATCHES => 3,
+
 	},		  
 
 	AGILENT_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AGILENT.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 30 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, 
+	 MAX_MISMATCHES => 1,
+
+	 #Danio Zv7 params
+	 #Do we need a way of setting these in env so we don't have to edit here?
+	 #Can we do a $ENV{'PARAM'} || ref self default?
+	 #These would have to be set before this hash by reading ini into hash?
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 15 --seedrepeat 4 --dnawordlimit 0 ',
+	 #MAX_MISMATCHES => 3,
+	 
+
 	},	
 
 	#LEIDEN 50 mers
+	#Actually some are 50 some are 60.
+	#dnahspthreshold should be 246 no?
+	#3 mismatches for Zv7 due to low quality assembly
 	LEIDEN_PROBEALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.LEIDEN.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 13 --seedrepeat 4 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, 
+	 MAX_MISMATCHES => 3, 
 	},		  
 
 	LEIDEN_PROBETRANSCRIPTALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.LEIDEN.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 13 --seedrepeat 4 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1, 
+	 MAX_MISMATCHES =>31, 
 	},	
 
    }
