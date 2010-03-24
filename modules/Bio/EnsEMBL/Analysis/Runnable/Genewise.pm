@@ -197,9 +197,9 @@ sub parse_results{
     $results = $self->resultsfile;
   }
   open(GW, $results) or throw("Failed to open ".$results);
-  my @genesf_exons = $self->parse_genewise_output(\*GW);
+  my $genesf_exons = $self->parse_genewise_output(\*GW);
   close(GW) or throw("Failed to close ".$results);
-  my $transcript = $self->make_transcript(\@genesf_exons);
+  my $transcript = $self->make_transcript($genesf_exons);
   if(defined $transcript){
     $self->output([$transcript]);
   }else{
@@ -371,7 +371,7 @@ sub parse_genewise_output {
     }
   }
     
-  return @exons;
+  return \@exons;
 }
 =head2 make_transcript
 
