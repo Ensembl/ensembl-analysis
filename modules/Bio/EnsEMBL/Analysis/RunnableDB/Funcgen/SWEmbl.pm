@@ -175,7 +175,8 @@ sub check_Sets {
     $self->cell_type($cell_type);
 
 	my $isa = $self->efgdb->get_InputSetAdaptor();
-    my $iset = $isa->fetch_by_name($set_name);
+    my $iset = $isa->fetch_by_name($iset_name);
+
     
     if (! defined $iset){
 
@@ -366,7 +367,11 @@ sub query {
 }
 
 sub write_output{
-    
+  #Is this not the same as Funcgen::write_output?
+  #There is only one way to write AnnotatedFeatures!
+
+
+  
     print "Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl::write_output\n";
     my ($self) = @_;
 
@@ -422,13 +427,15 @@ sub write_output{
         my %slice;
         
         foreach my $ft (@{$self->output}){
-	  my ($seqid, $start, $end, $score, $summit) = @{$ft};
 
-	  #Hack mostly to ignore header (should be in parse output somewhere?)
-	  if(! (($start =~ /^-?\d+$/) && ($end =~ /^\d+$/))){  
-	    warn "Feature being ignored: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
+		  my ($seqid, $start, $end, $score, $summit) = @{$ft};
+		  
+		  #Hack mostly to ignore header (should be in parse output somewhere?)
+		  if(! (($start =~ /^-?\d+$/) && ($end =~ /^\d+$/))){  
+			warn "Feature being ignored: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
 	    next;
 	  }
+		  
 
 	  #Could filter here based on score, score not very useful otherwise
 	  $summit = int($summit);#Round up?
@@ -438,15 +445,7 @@ sub write_output{
 	  next if ($seqid =~ m/^M/);
 	  
 	  unless (exists $slice{"$seqid"}) {
-	    
-	    #if($self->{'input_format'} eq 'sam'){
-	    #$slice{"$seqid"} = $sa->fetch_by_name($seqid);
-		    #}else{
-	    #$slice{"$seqid"} = $sa->fetch_by_region('chromosome', $seqid);
 	    $slice{"$seqid"} = $sa->fetch_by_region(undef, $seqid);
-	    
-	    #}
-	    
 	  }
 
 	  #Sometimes there are naming issues with the slices... e.g. special contigs... which are not "valid" slices in ENSEMBL
@@ -468,10 +467,32 @@ sub write_output{
 	  
 	  push(@af, $af);
 	  
-        }
+	}
         
         $self->efgdb->get_AnnotatedFeatureAdaptor->store(@af);
     }
+
+	#This should all be done in Funcgen.pm?
+	#For all RunnableDBs
+
+	$fset->adaptor->set_imported_states_by_Set($fset);
+	#Question about whether we need an imported status on the Input(Sub)Set here too?
+	#We need to idnetify which subsets have been imported as we lose this info once
+	#a file has been imported
+	#however, what defines imported?
+	#on which assembly
+	#using which analysis
+
+	#IMPORTED status only denotes that some import has been completed succesfully
+	#IMPORTED_CSVERSION denotes which assembly
+	#So IMPORTED is only appropriate for none CS related data i.e. array designs
+	#where as IMPORTED_CSVERSION should be used for all coord dependant data
+	#This does not account for analysis specific imports
+	#i.e. want to reimport an inputset using a different analysis
+	#Will the current code just ignore files which have been imported on another analysis?
+	
+
+
     return 1;
     
 }
