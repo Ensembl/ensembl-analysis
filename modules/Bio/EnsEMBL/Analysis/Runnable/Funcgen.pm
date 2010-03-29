@@ -274,7 +274,7 @@ sub parse_results{
 	}
 	elsif($file_format eq 'bed'){
 	  #defaulting to seq_region name
-	  $regex = '^(chr|)([\w+])+\s';
+	  $regex = '^(chr|)(\w+)\s';
 	}
 	else{#Should have already caught this during submission
 	  throw("$file_format file format not supported");
