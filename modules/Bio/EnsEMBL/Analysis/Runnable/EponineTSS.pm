@@ -51,7 +51,7 @@ use vars qw(@ISA);
   Function  : create a new Bio::EnsEMBL::Analysis::Runnable::EponineTSS
   Returntype: Bio::EnsEMBL::Analysis::Runnable::EponineTSS
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
@@ -75,7 +75,7 @@ sub new {
 
   $self->epojar($epojar) if($epojar);
   $self->threshold($threshold) if($threshold);
-  
+
   return $self;
 }
 
@@ -88,7 +88,7 @@ sub new {
   Function  : container
   Returntype: string
   Exceptions: none (find file will throw if it cant locate the file)
-  Example   : 
+  Example   :
 
 =cut
 
@@ -114,8 +114,8 @@ sub  epojar{
   Arg [2]   : int, threshold
   Function  : container
   Returntype: int
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
@@ -134,9 +134,9 @@ sub  threshold{
   Arg [2]   : string, program name
   Function  : construct and open commandline for running
   eponine
-  Returntype: none 
+  Returntype: none
   Exceptions: throws if fail to run program
-  Example   : 
+  Example   :
 
 =cut
 
@@ -147,9 +147,11 @@ sub run_analysis{
   if(!$program){
     $program = $self->program;
   }
-  throw($program." is not executable EponineTSS::run_analysis ") 
+  throw($program." is not executable EponineTSS::run_analysis ")
     unless($program && -x $program);
-  my $command = $program." -jar ".$self->epojar." -seq ".$self->queryfile.
+  my $command = $program." ";
+  $command .= $self->options." " if($self->options);
+  $command .= "-jar ".$self->epojar." -seq ".$self->queryfile.
     " -threshold ".$self->threshold." > ".$self->resultsfile;
   print "Running analysis ".$command."\n";
   system($command) == 0 or throw("FAILED to run ".$command);
@@ -163,7 +165,7 @@ sub run_analysis{
   Returntype: none
   Exceptions: throws on failure to open or close the results file
   or if the results file doesnt exist
-  Example   : 
+  Example   :
 
 =cut
 
@@ -195,7 +197,7 @@ sub parse_results{
       }
       $score = $self->trunc_float_3($score);
       my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
-                                          '', $name, $self->query); 
+                                          '', $name, $self->query);
       push(@output, $sf);
     }
   }
@@ -211,9 +213,9 @@ sub parse_results{
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::EponineTSS
   Arg [2]   : int, number to be truncated
   Function  : truncate a floating point number to three decimal places
-  Returntype: 
-  Exceptions: 
-  Example   : 
+  Returntype:
+  Exceptions:
+  Example   :
 
 =cut
 
