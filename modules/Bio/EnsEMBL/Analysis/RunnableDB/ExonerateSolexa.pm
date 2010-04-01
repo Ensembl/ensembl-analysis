@@ -110,6 +110,7 @@ sub pair_features {
   my $paired_features;
   my @selected_reads;
   foreach my $feat ( @features ) {
+     
     if ( $feat->hseqname =~ /(\S+):((a|b|A|B|HA|HB))$/ ) {
       my $id = $1;
       my $suffix = lc($2);
@@ -130,11 +131,14 @@ sub pair_features {
     READ:  foreach my $bfeat ( @bs ) {
 	if ( $afeat->seqname eq $bfeat->seqname ) {
 	  # They lie on the same chr within PAIREDGAP bases of each other
-	  # but they don't overlap
-	  if ( ( $afeat->start > $bfeat->end && 
+	  # allow them to overlap
+	  if ( ( $afeat->end   > $bfeat->start && 
 		 $afeat->start - $bfeat->end <= $self->PAIREDGAP ) or 
-	       ( $bfeat->start > $afeat->end && 
-		 $bfeat->start - $afeat->end <= $self->PAIREDGAP ) ) {
+	       ( $bfeat->end   > $afeat->start && 
+		 $bfeat->start - $afeat->end <= $self->PAIREDGAP ) or
+	       # they overlap
+	       ( $afeat->start   <= $bfeat->end && 
+		 $bfeat->end >= $afeat->start )) {
 	    # they should be oriented pointing towards each other on
 	    # opposite strands...
 	    if ( $afeat->strand == 1 && $bfeat->strand == 1
@@ -144,10 +148,11 @@ sub pair_features {
 	      # and vice versa
 	      next READ unless 
 		( 
-		 ($afeat->hstrand == 1 && $afeat->end < $bfeat->start) or 
-		 ($afeat->hstrand == -1 && $bfeat->end < $afeat->start) 
+		 ($afeat->hstrand == 1  && $afeat->start < $bfeat->start) or 
+		 ($afeat->hstrand == -1 && $bfeat->start < $afeat->start) 
 		);
 	    }
+
 	    # storing the pair using the score as the index
 	    # so I can easily pull out the highest scoring pair
 	    # if they score the SAME then choose the pair that is
@@ -221,7 +226,8 @@ sub merge_pair {
     # Use the combined scores and identity  of the reads for the new read
     my $score = $read_pair->[0]->score +  $read_pair->[1]->score;
     my $pid = ( $read_pair->[0]->percent_id + $read_pair->[1]->percent_id ) /2;
-    
+  #  print "SELECTED "  . $read_pair->[0]->seq_region_name , " " .       $read_pair->[0]->start . " " .	$read_pair->[0]->end ." " .	  $read_pair->[0]->strand . " " .	    $read_pair->[0]->hseqname ."\n";
+  #  print "SELECTED "  . $read_pair->[1]->seq_region_name , " " .       $read_pair->[1]->start . " " .	$read_pair->[1]->end ." " .	  $read_pair->[1]->strand . " " .	    $read_pair->[1]->hseqname ."\n";   
     # Because the features are split you can get the second half of
     # the read aligning before the first which can screw up the 
     # hit start ends as you might expect
@@ -274,10 +280,19 @@ sub merge_pair {
 	push @ugfs, $ugf;
       }
     }
+    # if they overlap just make 1 feature that combines the two reads
+    @ugfs = sort { $a->start <=> $b->start } @ugfs;
+    # they overlap - merge them
+    if (  $ugfs[0]->end >  $ugfs[1]->start ) {
+     # print $ugfs[0]->hseqname ."\n";
+      $ugfs[1]->start($ugfs[0]->start);
+      $ugfs[1]->hstart( 1);
+      $ugfs[1]->hend( ($ugfs[1]->end -$ugfs[1]->start )+1 );
+     # remove the first read just let through the modified read
+      shift(@ugfs);
+    }
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@ugfs);
     $feat->analysis($self->analysis);
-    $feat->hstart($read_pair->[0]->hstart);
-    $feat->hend($read_pair->[0]->hend+$read_pair->[1]->hend);
     push @features,$feat;
   } else {  
     $read_pair->[0]->hseqname($read_pair->[0]->hseqname . ":aa");
@@ -310,11 +325,23 @@ sub write_output {
     # Remember you need to have the pipeline_tables in your OUT_DB if you like to use compression 
     $outdb = $self->get_dbadaptor($self->OUT_DB, 'pipeline');
     $fa = $outdb->get_CompressedDnaAlignFeatureAdaptor;
-  } else { 
-    # return a NORMAL adaptor NOT a pipeline adaptor ...
-    $outdb = $self->get_dbadaptor($self->OUT_DB);
-    $fa = $outdb->get_DnaAlignFeatureAdaptor;
-  } 
+  } else {
+    if ( scalar @{$self->OUT_DBS} > 0 ) {
+      # randomly pick an output db from an array of possible dbs
+      my @dbs =  @{$self->OUT_DBS};
+      my $number = int(rand(scalar(@dbs))) ;
+      # dont let it fall off the end of the array
+      $number-- if $number == scalar(@dbs) ;
+      $outdb = $self->get_dbadaptor($dbs[$number]);
+      print STDERR "Picking db  " . $outdb->dbc->dbname ." out of ". scalar(@dbs) . " possible output databases\n";
+
+      $fa = $outdb->get_DnaAlignFeatureAdaptor;
+    } else {
+      # return a NORMAL adaptor NOT a pipeline adaptor ...
+      $outdb = $self->get_dbadaptor($self->OUT_DB);
+      $fa = $outdb->get_DnaAlignFeatureAdaptor;
+    } 
+  }
 
   
   foreach my $f (@{$self->output}){
@@ -484,6 +511,20 @@ sub MISSMATCH {
   
   if (exists($self->{'_CONFIG_MISSMATCH'})) {
     return $self->{'_CONFIG_MISSMATCH'};
+  } else {
+    return undef;
+  }
+}
+
+sub OUT_DBS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_OUT_DBS'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_OUT_DBS'})) {
+    return $self->{'_CONFIG_OUT_DBS'};
   } else {
     return undef;
   }
