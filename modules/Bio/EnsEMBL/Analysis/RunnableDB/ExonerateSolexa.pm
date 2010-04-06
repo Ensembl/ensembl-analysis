@@ -281,16 +281,29 @@ sub merge_pair {
       }
     }
     # if they overlap just make 1 feature that combines the two reads
-    @ugfs = sort { $a->start <=> $b->start } @ugfs;
+    # @ugfs = sort { $a->start <=> $b->start } @ugfs;
     # they overlap - merge them
-    if (  $ugfs[0]->end >  $ugfs[1]->start ) {
-     # print $ugfs[0]->hseqname ."\n";
-      $ugfs[1]->start($ugfs[0]->start);
-      $ugfs[1]->hstart( 1);
-      $ugfs[1]->hend( ($ugfs[1]->end -$ugfs[1]->start )+1 );
-     # remove the first read just let through the modified read
-      shift(@ugfs);
+    if ( scalar(@ugfs) == 2 ) {
+      if (  $ugfs[0]->end   >= $ugfs[1]->start && 
+	    $ugfs[0]->start <= $ugfs[1]->end ) {
+	$ugfs[0]->start($ugfs[1]->start) if
+	  $ugfs[1]->start < $ugfs[0]->start;
+	$ugfs[0]->end($ugfs[1]->end) if
+	  $ugfs[1]->end > $ugfs[0]->end;
+	$ugfs[0]->hstart( 1);
+	$ugfs[0]->hend( ($ugfs[0]->end -$ugfs[0]->start )+1);
+	# remove the last read just let through the modified read
+	pop(@ugfs);
+      }
+    } else {
+      # dont try to merge complex pairs where there is a 
+      # difficult cigar line
+      $read_pair->[0]->hseqname($read_pair->[0]->hseqname . ":aa");
+      $read_pair->[1]->hseqname($read_pair->[1]->hseqname . ":bb");
+      push @features,($read_pair->[0],$read_pair->[1]);   
+      return \@features;
     }
+    
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@ugfs);
     $feat->analysis($self->analysis);
     push @features,$feat;
