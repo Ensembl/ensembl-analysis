@@ -30,7 +30,7 @@ sub new{
 
   ########################
   ###SETTING DEFAULTS#####
-  $self->max_transcript_number(10);
+  #$self->max_transcript_number(10);
   #$self->min_short_intron_len(7);
   #$self->max_short_intron_len(15);
   $self->output_biotype($self->analysis->logic_name);
