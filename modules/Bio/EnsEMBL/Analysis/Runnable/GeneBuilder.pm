@@ -23,7 +23,7 @@ sub new{
   my $self = $class->SUPER::new(@args);
   my($genes, $blessed_biotypes, $max_transcript_number,
      $min_short_intron_len, $max_short_intron_len,$output_biotype) = 
-    rearrange([qw(GENES BLESSED_BIOTYPES MAX_TRANSCRIPT_PER_CLUSTER
+    rearrange([qw(GENES BLESSED_BIOTYPES MAX_TRANSCRIPTS_PER_CLUSTER
                   MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE)], @args);
   print "HERE ARE THE ARGS: ", join("  ",@args),"\n";
   print "HERE I AM: ", $min_short_intron_len,"\t", $max_short_intron_len,"\n";
@@ -50,7 +50,7 @@ sub new{
   return $self;
 }
 
-sub input_genes{
+sub input_genes {
   my ($self, $arg) = @_;
   if($arg){
     $self->{'input_genes'} = $arg;
@@ -58,7 +58,7 @@ sub input_genes{
   return $self->{'input_genes'};
 }
 
-sub blessed_biotypes{
+sub blessed_biotypes {
   my ($self, $arg) = @_;
   if($arg){
     $self->{'blessed_biotypes'} = $arg;
@@ -66,7 +66,7 @@ sub blessed_biotypes{
   return $self->{'blessed_biotypes'};
 }
 
-sub max_transcript_number{
+sub max_transcript_number {
   my ($self, $arg) = @_;
   if(defined $arg){
     $self->{'max_transcript_number'} = $arg;
@@ -74,7 +74,7 @@ sub max_transcript_number{
   return $self->{'max_transcript_number'};
 }
 
-sub min_short_intron_len{
+sub min_short_intron_len {
   my ($self, $arg) = @_;
   if(defined $arg){
     $self->{'min_short_intron'} = $arg;
@@ -82,7 +82,7 @@ sub min_short_intron_len{
   return $self->{'min_short_intron'};
 }
 
-sub max_short_intron_len{
+sub max_short_intron_len {
   my ($self, $arg) = @_;
   if(defined $arg){
     $self->{'max_short_intron'} = $arg;
@@ -90,7 +90,7 @@ sub max_short_intron_len{
   return $self->{'max_short_intron'};
 }
 
-sub output_biotype{
+sub output_biotype {
   my ($self, $arg) = @_;
   if($arg){
     $self->{'output_biotype'} = $arg;
@@ -98,7 +98,7 @@ sub output_biotype{
   return $self->{'output_biotype'};
 }
 
-sub run{
+sub run {
   my ($self) = @_;
   my $transcripts = $self->get_Transcripts;
   if(!$transcripts || @$transcripts == 0){
@@ -130,7 +130,7 @@ sub run{
   #return output
 }
 
-sub get_Transcripts{
+sub get_Transcripts {
   my ($self, $transcripts) = @_;
   if($transcripts){
     $self->{'transcripts'} = $transcripts;
@@ -145,7 +145,7 @@ sub get_Transcripts{
   return $self->{'transcripts'};
 }
 
-sub cluster_Transcripts{
+sub cluster_Transcripts {
   my ($self, $transcripts) = @_;
   my @forward;
   my @reverse;
@@ -164,7 +164,7 @@ sub cluster_Transcripts{
   return \@clusters;
 }
 
-sub cluster_Transcripts_by_genomic_range{
+sub cluster_Transcripts_by_genomic_range {
   my ($self, $transcripts) = @_;
   if(!$transcripts || @$transcripts == 0){
     return undef;
@@ -433,7 +433,7 @@ sub prune_Transcripts {
 } 
 
 
-sub cluster_into_Genes{
+sub cluster_into_Genes {
   my ($self, $transcripts_unsorted) = @_;
   my $num_trans = scalar(@$transcripts_unsorted);
   my @transcripts = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end } @$transcripts_unsorted;
@@ -512,7 +512,7 @@ sub cluster_into_Genes{
 }
 
 
-sub bin_sort_transcripts{
+sub bin_sort_transcripts {
 
   my ($self,$transcripts) = @_;
 
@@ -617,7 +617,7 @@ sub bin_sort_transcripts{
   return \@transcripts;
 }
 
-sub check_Clusters{
+sub check_Clusters {
   my ($self, $num_transcripts, $clusters) = @_;
   #Safety checks
   my $ntrans = 0;
@@ -827,7 +827,7 @@ sub prune_redundant_transcripts {
   }
 }
 
-sub select_best_transcripts{
+sub select_best_transcripts {
   my ( $self, $genes ) = @_;
   my @selected_transcripts;
 
@@ -853,7 +853,7 @@ sub select_best_transcripts{
 }
 
 
-sub make_shared_exons_unique{
+sub make_shared_exons_unique {
   my ($self, $genes) = @_;
   my @pruned;
   foreach my $gene(@$genes){
@@ -863,7 +863,7 @@ sub make_shared_exons_unique{
   return \@pruned;
 }
 
-sub prune_Exons{
+sub prune_Exons {
   my ($self, $gene) = @_;
   my @unique_Exons;
   foreach my $tran (@{$gene->get_all_Transcripts}) {
