@@ -17,14 +17,14 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (Gene_info);
 
 
 
-sub new{
+sub new {
   my ($class,@args) = @_;
   #print "In GeneBuilder constructor with super class" . ref($class) . "\n";
   my $self = $class->SUPER::new(@args);
   my($genes, $blessed_biotypes, $max_transcript_number,
-     $min_short_intron_len, $max_short_intron_len,$output_biotype) = 
+     $min_short_intron_len, $max_short_intron_len,$output_biotype, $coding_only) = 
     rearrange([qw(GENES BLESSED_BIOTYPES MAX_TRANSCRIPTS_PER_CLUSTER
-                  MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE)], @args);
+                  MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE CODING_ONLY)], @args);
   print "HERE ARE THE ARGS: ", join("  ",@args),"\n";
   print "HERE I AM: ", $min_short_intron_len,"\t", $max_short_intron_len,"\n";
 
@@ -42,6 +42,7 @@ sub new{
   $self->min_short_intron_len($min_short_intron_len);
   $self->max_short_intron_len($max_short_intron_len);
   $self->output_biotype($output_biotype);
+  $self->coding_only($coding_only) ;
 
   #data sanity
   warning("Strange running the Genebuilder without any genes") 
@@ -98,9 +99,18 @@ sub output_biotype {
   return $self->{'output_biotype'};
 }
 
+sub coding_only {
+  my ($self, $arg) = @_ ;
+  if ($arg) {
+    $self->{'coding_only'} = $arg ;
+  }
+  return $self->{'coding_only'} ;
+}
+
 sub run {
   my ($self) = @_;
   my $transcripts = $self->get_Transcripts;
+  my $coding_only = $self->coding_only ;
   if(!$transcripts || @$transcripts == 0){
     print "GeneBuilder seems to have no transcripts to cluster\n";
     return;
@@ -113,7 +123,7 @@ sub run {
   my $pruned_transcripts = $self->prune_Transcripts($transcript_clusters);
   #print "Have ".@$pruned_transcripts." pruned transcripts\n";
   #first gene cluster
-  my $initial_genes = $self->cluster_into_Genes($pruned_transcripts);
+  my $initial_genes = $self->cluster_into_Genes($pruned_transcripts, $coding_only);
   #print "Have ".@$initial_genes." initial gene structures\n";
   #prune redundant cds
   $self->prune_redundant_CDS($initial_genes);
@@ -123,7 +133,7 @@ sub run {
   my $best_transcripts = $self->select_best_transcripts($initial_genes);
   #print "Have ".@$best_transcripts." best transcripts\n";
   #final cluster of genes
-  my $final_genes = $self->cluster_into_Genes($best_transcripts);
+  my $final_genes = $self->cluster_into_Genes($best_transcripts, $coding_only);
   my $pruned_genes = $self->make_shared_exons_unique($final_genes);
   $self->output($pruned_genes);
   #print "Have ".@$final_genes." final gene clusters\n";
@@ -434,7 +444,7 @@ sub prune_Transcripts {
 
 
 sub cluster_into_Genes {
-  my ($self, $transcripts_unsorted) = @_;
+  my ($self, $transcripts_unsorted, $coding_only) = @_;
   my $num_trans = scalar(@$transcripts_unsorted);
   my @transcripts = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end } @$transcripts_unsorted;
 
@@ -448,19 +458,27 @@ sub cluster_into_Genes {
       foreach my $cluster_transcript (@$cluster) {
         if ($tran->end  >= $cluster_transcript->start &&
             $tran->start <= $cluster_transcript->end) {
-          
-          foreach my $exon1 (@{$tran->get_all_Exons}) {
-            foreach my $cluster_exon (@{$cluster_transcript->get_all_Exons}) {
-              if ($exon1->overlaps($cluster_exon) 
+          my @exons1 ;
+          my @exons2 ;
+          if ($coding_only) {
+            @exons1 = @{ $tran->get_all_translateable_Exons } ;
+            @exons2 = @{ $cluster_transcript->get_all_translateable_Exons } ;
+          } else {
+            @exons1 = @{ $tran->get_all_Exons } ;
+            @exons2 = @{ $cluster_transcript->get_all_Exons } ;
+          }
+          foreach my $exon1 (@exons1) {
+            foreach my $cluster_exon (@exons2) {
+               if ($exon1->overlaps($cluster_exon) 
                   && $exon1->strand == $cluster_exon->strand) {
-                push (@matching_clusters, $cluster);
-                next CLUSTER;
+                  push (@matching_clusters, $cluster);
+                  next CLUSTER;
+                }
               }
             }
           }
         }
       }
-    }
 
     if (scalar(@matching_clusters) == 0) {
       my @newcluster;
