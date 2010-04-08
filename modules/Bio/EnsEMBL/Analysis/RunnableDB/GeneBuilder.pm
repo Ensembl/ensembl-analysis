@@ -2,7 +2,6 @@ package Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder;
 
 use vars qw(@ISA);
 use strict;
-use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder 
@@ -52,7 +51,7 @@ sub new {
 sub fetch_input{
   my ($self) = @_;
   #fetch sequence
-  $self->query($self->fetch_sequence);
+  $self->query($self->fetch_sequence); 
   #fetch genes
   $self->get_Genes;
   #print "Have ".@{$self->input_genes}." genes to cluster\n";
@@ -71,7 +70,9 @@ sub fetch_input{
           -min_short_intron_len => $self->MIN_SHORT_INTRON_LEN,
           -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
           -blessed_biotypes => $self->BLESSED_BIOTYPES,
-         );
+          -coding_only => $self->CODING_ONLY,
+         );  
+
   $self->runnable($runnable);
   
 };
@@ -175,9 +176,8 @@ sub filter_genes{
   return \@filtered;
 }
 
-sub validate_Transcript {
+sub validate_Transcript{
   my ($self, $transcript) = @_;
-
   my $slice = $self->query;
   $slice = $transcript->slice if(!$slice);
   my $is_valid = 0;
@@ -199,14 +199,11 @@ sub validate_Transcript {
       last EXON;
     }
   }
-
-  if ( defined($transcript->translation) ) {
-    if(contains_internal_stops($transcript)){
-      $is_valid++;
-    }
-    if ( !validate_Translation_coords($transcript) ){
-      $is_valid++;
-    }
+  if(contains_internal_stops($transcript)){
+    $is_valid++;
+  }
+  unless(validate_Translation_coords($transcript)){
+    $is_valid++;
   }
   return 0 if($is_valid >= 1);
   return 1;
@@ -344,6 +341,15 @@ sub MAX_EXON_LENGTH{
   }
   return $self->{'MAX_EXON_LENGTH'};
 }
+
+sub CODING_ONLY{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'CODING_ONLY'} = $arg;
+  }
+  return $self->{'CODING_ONLY'};
+}
+
 
 
 1;
