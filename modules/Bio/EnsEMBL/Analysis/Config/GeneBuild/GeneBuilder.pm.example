@@ -69,6 +69,7 @@ use vars qw( %Config );
                                             },
                         #the biotypes of the best genes always to be kept
                         MAX_EXON_LENGTH => 20000,
+                        CODING_ONLY => 0,
                        },
             ensembl => {},
             }
