@@ -54,18 +54,25 @@ _end
 =cut
 
 sub new {
-  my ($class,$whatever)=@_;
+  my ($class, $ignore_strand, $whatever) = @_ ;
 
   if (ref($class)){
     $class = ref($class);
   }
   my $self = {};
   bless($self,$class);
+
+  $self->{_ignore_strand} = $ignore_strand;
   
-  if ($whatever){
-    throw( "Can't pass an object to new() method. Use put_Genes() to include Bio::EnsEMBL::Gene in cluster");
+  if ($whatever) {
+    throw( "Can't pass an object to new() method. Use put_Transcript() to include Bio::EnsEMBL::Transcript in cluster") ;
   }
-  $self->{_biotype}={} ; 
+
+  $self->{_start}  = undef;
+  $self->{_end}    = undef;
+  $self->{_strand} = undef;
+
+  $self->{v} = 0 ; # verbosity
   return $self;
 }
 #########################################################################
@@ -86,13 +93,29 @@ and geometrical methods for a range.
 
 =cut
 
-sub start{
-  my ($self,$start) = @_;
-  if ($start){
+sub start {
+  my ($self,$start) = @_ ;
+
+  if ($start) {
     throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
-    $self->{'_start'} = $start;
+    $self->{_start} = $start;
   }
-  return $self->{'_start'};
+
+  if (!defined($self->{_start})) {
+    my $start;
+
+    foreach my $transcript (@{$self->get_Transcripts}) {
+      my $this_start = $transcript->start;
+      unless ( $start ){
+        $start = $this_start;
+      }
+      if ( $this_start < $start ){
+        $start = $this_start;
+      }
+    }
+    $self->{_start} = $start;
+  }
+  return $self->{_start};
 }
 
 ############################################################
@@ -108,13 +131,30 @@ sub start{
           : using $range->end($end
 =cut
 
-sub end{
-  my ($self,$end) = @_;
-  if ($end){
+sub end {
+  my ($self, $end) = @_ ;
+
+  if ($end) {
     throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
-    $self->{'_end'} = $end;
+    $self->{_end} = $end;
   }
-  return $self->{'_end'};
+
+  if (!defined($self->{_end})) {
+    my $end;
+
+    foreach my $transcript (@{$self->get_Transcripts}) {
+      my $this_end = $transcript->end;
+      unless ( $end ){
+        $end = $this_end;
+      }
+      if ( $this_end > $end ){
+        $end = $this_end;
+      }
+    }
+    $self->{_end} = $end;
+  }
+
+  return $self->{_end};
 }
 
 ############################################################
@@ -130,12 +170,12 @@ sub end{
 
 =cut
 
-sub length{
-  my $self = shift @_;
-  if (@_){
-    $self->confess( ref($self)."->length() is read-only");
+sub length {
+  my $self = shift @_ ;
+  if (@_) {
+    $self->confess( ref($self)."->length() is read-only") ;
   }
-  return ( $self->{'_end'} - $self->{'_start'} + 1 );
+  return ( $self->{_end} - $self->{_start} + 1 ) ;
 }
 
 ############################################################
@@ -153,12 +193,45 @@ sub length{
         
 =cut
 
-sub strand{
-  my ($self,$strand) = @_;
-  if ($strand){
-    $self->{'_strand'} = $strand;
+sub strand {
+  my ($self, $strand) = @_ ;
+
+  if ( $self->{_strand} ) {
+    print "Strand called, but ignoring\n";
+    return 0;
   }
-  return $self->{'_strand'};
+
+  if ($strand) {
+    $self->{_strand} = $strand ;
+  }
+
+  if (!defined($self->{_strand})) {
+    my @transcripts = @{ $self->get_Transcripts } ;
+    unless (@transcripts) {
+      $self->warning("cannot retrieve the strand in a cluster with no transcripts");
+    }
+    my $strand;
+    foreach my $transcript (@transcripts) {
+      if (ref($transcript) =~ m/Transcript/) {
+        unless (defined($strand)) {
+          $strand = $transcript->start_Exon->strand ;
+          next ;
+        }
+        if ( $transcript->start_Exon->strand != $strand ) {
+          throw("You have a cluster with transcripts on opposite strands") ;
+        }
+      } else {
+        unless (defined($strand)) {
+         $strand = $transcript->start_Exon->strand ;
+        }
+        if ( $transcript->start_Exon->strand != $strand ) {
+           throw("You have a cluster with transcripts on opposite strands") ;
+        }
+      }
+    }
+    $self->{_strand} = $strand ;
+  }
+  return $self->{_strand} ;
 }
 
 
@@ -352,70 +425,45 @@ return $union_cluster;
 =cut
 
 sub put_Transcripts {
-  my ($self, $trans_array_ref, $ignore_strand )= @_; 
- unless( ref($trans_array_ref)=~m/ARRAY/) {
+  my ($self, $trans_array_ref, $ignore_strand )= @_ ; 
+
+  unless( ref($trans_array_ref) =~ m/ARRAY/ ) {
     throw("Only take array ref $trans_array_ref!\n") ;
   }
 
-  my @new_transcripts = @$trans_array_ref ; 
+  my $new_transcript = @{ $trans_array_ref }[0] ;
 
-  throw("Can't add no transcripts to ".$self) if(!@new_transcripts || !$new_transcripts[0]);
-  if ( !$new_transcripts[0]->isa('Bio::EnsEMBL::Transcript') ){
-    throw( "Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
+  throw("Can't add no transcripts to " . $self) if (!$trans_array_ref || !$new_transcript) ;
+  if ( !$new_transcript->isa('Bio::EnsEMBL::Transcript') ){
+    throw( "Can't accept a [ $new_transcript ] instead of a Bio::EnsEMBL::Transcript");
   }
 
   #Get bounds of new transcripts
-  my $min_start = undef;
-  my $max_end   = undef;
-  foreach my $transcript (@new_transcripts) {
-    if ($transcript->stable_id) {
-        #print "got transcript " . $transcript->stable_id . "\n" ;
-    } else {
-        #print "got transcript " . $transcript->display_id . "\n";
+
+  foreach my $transcript (@$trans_array_ref) {
+    if ( !defined ($self->{_start}) || $transcript->start < $self->start ) {
+      $self->start ( $transcript->start ) ;
     }
-    my ($start, $end) = $self->_get_start_end($transcript);
-    if (!defined($min_start) || $start < $min_start) {
-      $min_start = $start;
-    }
-    if (!defined($max_end) || $end > $max_end) {
-      $max_end = $end;
+    if ( !defined ($self->{_end}) || $transcript->end > $self->end ) {
+      $self->end ( $transcript->end ) ;
     }
   }
 
   # check strand consistency among transcripts
-  foreach my $transcript (@new_transcripts){
+
+  foreach my $transcript (@$trans_array_ref) {
     if (!$ignore_strand) {
-      my @exons = @{$transcript->get_all_Exons};
-      unless ( $self->strand ){
-        $self->strand( $exons[0]->strand );
-      }
-      if ( $self->strand != $exons[0]->strand ){
-        warning( "You're trying to put $transcript in a cluster of opposite strand");
+      if ( defined ($self->{_strand}) ) {
+        if ( $self->strand != $transcript->strand ) {
+          warning( "You're trying to put $transcript in a cluster of opposite strand");
+        }
       }
     } else {
       # we can ignore the strand, and do nothing
     }
   }
 
-  # if start is not defined, set it
-  unless ( $self->start ){
-    $self->start( $min_start );
-  }
-
-  # if end is not defined, set it
-  unless ( $self->end ){
-    $self->end( $max_end);
-  }
-  
-  # extend start and end if necessary as we include more transcripts
-  if ($min_start < $self->start ){
-    $self->start( $min_start );
-  }
-  if ( $max_end > $self->end ){
-    $self->end( $max_end );
-  }
-
-  push ( @{ $self->{'_transcript_array'} }, @new_transcripts );
+  push ( @{ $self->{'_transcript_array'} }, @{ $trans_array_ref } );
 
 }
 
@@ -423,7 +471,7 @@ sub put_Transcripts {
 
 =head2 get_Transcripts()
 
-  it returns the array of transcripts in the GeneCluster object
+  it returns the array of transcripts in the TranscriptCluster object
 
 =cut
 
@@ -441,26 +489,24 @@ sub get_Transcripts {
 =cut
 
 sub to_String {
-  my $self = shift @_;
-  my $data='';
-  foreach my $tran ( @{ $self->{'_transcript_array'} } ){
-    my @exons = @{$tran->get_all_Exons};
-    my $id;
-    if ( $tran->stable_id ){
-      $id = $tran->stable_id;
-    }
-    else{
-      $id = $tran->dbID;
+  my $self = shift @_ ;
+  my $data = '' ;
+  foreach my $tran ( @{ $self->get_Transcripts } ){
+    my @exons = @{ $tran->get_all_Exons } ;
+    my $id ;
+    if ( $tran->stable_id ) {
+      $id = $tran->stable_id ;
+    } else {
+      $id = $tran->dbID ;
     }
  
-    $data .= sprintf "Id: %-16s"             , $id;
-    $data .= sprintf "Contig: %-21s"         , $exons[0]->contig->id;
-    $data .= sprintf "Exons: %-3d"           , scalar(@exons);
-    my ($start, $end) = $self->_get_start_end($tran);
-    $data .= sprintf "Start: %-9d"           , $start;
-    $data .= sprintf "End: %-9d"             , $end;
-    $data .= sprintf "Strand: %-3d"          , $exons[0]->strand;
-    $data .= sprintf "Exon-density: %3.2f\n", $self->exon_Density($tran);
+    $data .= sprintf "Id: %-16s"             , $id ;
+    $data .= sprintf "Contig: %-21s"         , $exons[0]->contig->id ;
+    $data .= sprintf "Exons: %-3d"           , scalar(@exons) ;
+    $data .= sprintf "Start: %-9d"           , $self->start ;
+    $data .= sprintf "End: %-9d"             , $self->end ;
+    $data .= sprintf "Strand: %-3d"          , $exons[0]->strand ;
+    $data .= sprintf "Exon-density: %3.2f\n" , $self->exon_Density($tran) ;
   }
   return $data;
 }
@@ -594,9 +640,9 @@ sub get_ExonCluster {
   return \@clusters;
 }
 
-sub get_ExonCluster_using_all_Exons{
-  my ( $self, $ignore_strand) = @_;
-  my @clusters;
+sub get_ExonCluster_using_all_Exons {
+  my ( $self, $ignore_strand) = @_ ;
+  my @clusters ;
 
   my @transcripts;
   if (ref($self) eq 'Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster') {

@@ -45,15 +45,13 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 new() initializes the attributes:
 
-$self->{'_benchmark_types'}
-$self->{'_prediction_types'}
 $self->{'_benchmark_genes'}
 $self->{'_prediction_genes'}
 
 =cut
 
 sub new {
-  my ($class,$ignore_strand, $whatever)=@_;
+  my ($class, $ignore_strand, $whatever) =@_ ;
 
   if (ref($class)){
     $class = ref($class);
@@ -75,6 +73,179 @@ sub new {
   return $self;
 }
 
+
+=head1 Range-like methods
+
+Methods start and end are typical for a range. We also implement the boolean
+and geometrical methods for a range.
+
+=head2 start()
+
+  Title   : start
+  Usage   : $start = $gene_cluster->end();
+  Function: get/set the start of the range covered by the cluster. This is re-calculated and set everytime
+            a new gene is added to the cluster
+  Returns : a number
+  Args    : optionaly allows the start to be set
+
+=cut
+
+# method to get the start of the cluster, which we take to be the left_most exon_coordinate
+# i.e. the start coordinate of the first exon ordered as { $a->start <=> $b->start }, regardless of the strand
+
+sub start {
+  my ($self, $start) = @_ ;
+
+  if ($start) {
+    throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
+    $self->{_cached_start} = $start;
+  }
+
+  if (!defined($self->{_cached_start})) {
+    my $start;
+
+    foreach my $gene (@{$self->get_Genes}) {
+      my $this_start = $gene->start;
+      unless ( $start ){
+        $start = $this_start;
+      }
+      if ( $this_start < $start ){
+        $start = $this_start;
+      }
+    }
+    $self->{_cached_start} = $start;
+  }
+  return $self->{_cached_start};
+}
+
+
+############################################################
+
+=head2 end()
+
+  Title   : end
+  Usage   : $end = $gene_cluster->end();
+  Function: get/set the end of the range covered by the cluster. This is re-calculated and set everytime
+            a new gene is added to the cluster
+  Returns : the end of this range
+  Args    : optionaly allows the end to be set
+          : using $range->end($end
+=cut
+
+
+# method to get the end of the cluster, which we take to be the right_most exon_coordinate
+# this being the end coordinate of the first exon ordered as { $b->end <=> $a->end }, regardless of the strand
+
+sub end {
+  my ($self, $end) = @_ ;
+
+  if ($end) {
+    throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
+    $self->{_cached_end} = $end;
+  }
+
+  if (!defined($self->{_cached_end})) {
+    my $end;
+
+    foreach my $gene (@{$self->get_Genes}) {
+      my $this_end = $gene->end;
+      unless ( $end ){
+        $end = $this_end;
+      }
+      if ( $this_end > $end ){
+        $end = $this_end;
+      }
+    }
+    $self->{_cached_end} = $end;
+  }
+  return $self->{_cached_end};
+}
+
+
+############################################################
+
+=head2 length
+
+  Title   : length
+  Usage   : $length = $range->length();
+  Function: get/set the length of this range
+  Returns : the length of this range
+  Args    : optionaly allows the length to be set
+          : using $range->length($length)
+
+=cut
+
+sub length {
+  my $self = shift @_ ;
+  if (@_) {
+    $self->confess( ref($self)."->length() is read-only") ;
+  }
+  return ( $self->{_cached_end} - $self->{_cached_start} + 1 ) ;
+}
+
+
+#########################################################################
+
+=head2 strand
+
+  Title   : strand
+  Usage   : $strand = $gene->strand();
+  Function: get/set the strand of the genes in the cluster.
+            The strand is set in put_Genes when the first gene is added to the cluster
+            in this method there is also a check for strand consistency everytime a new gene is added
+            Returns 0/undef when strand not set
+  Returns : the strandidness (-1, 0, +1)
+  Args    : optionaly allows the strand to be set
+
+=cut
+
+
+sub strand {
+  my ($self, $strand) = shift;
+
+  if ( $self->{_cached_strand} ) {
+    print "Strand called, but ignoring\n";
+    return 0;
+  }
+
+  if ($strand) {
+    $self->{_cached_strand} = $strand ;
+  }
+
+  if (!defined($self->{_cached_strand})) {
+    my @genes = @{ $self->get_Genes } ;
+    unless (@genes) {
+      $self->warning("cannot retrieve the strand in a cluster with no genes");
+    }
+    my $strand;
+    foreach my $gene (@genes) {
+      if (ref($gene) =~ m/Gene/) {
+        foreach my $transcript (@{$gene->get_all_Transcripts}) {
+          unless (defined($strand)) {
+            $strand = $transcript->start_Exon->strand ;
+            next ;
+          }
+          if ( $transcript->start_Exon->strand != $strand ) {
+           throw("You have a cluster with genes on opposite strands") ;
+          }
+        }
+      } else {
+        unless (defined($strand)) {
+         $strand = $gene->start_Exon->strand ;
+        }
+        if ( $gene->start_Exon->strand != $strand ) {
+           throw("You have a cluster with genes on opposite strands") ;
+        }
+      }
+    }
+    $self->{_cached_strand} = $strand ;
+  }
+  return $self->{_cached_strand};
+}
+
+
+
+
 #########################################################################
 
 =head2 put_Genes()
@@ -85,49 +256,51 @@ sub new {
 =cut
 
 sub put_Genes {
-  my ($self, $genes, $ignore_strand)= @_;
+  my ($self, $genes, $ignore_strand)= @_ ;
+
   if ( !defined( $self->{'_types_sets'} ) ){
     throw( "Cluster lacks references to gene-types, unable to put the gene");
   } 
-  unless( ref($genes)=~m/ARRAY/) {   
+
+  unless ( ref($genes) =~ m/ARRAY/ ) {   
     throw("Only take array ref !\n") ; 
-  } 
+  }
+
+# Adjust cluster boundaries with new added genes
+
+  foreach my $gene (@$genes) {
+    if ( !defined ($self->{_cached_start}) || $gene->start < $self->start ) {
+      $self->start ( $gene->start ) ;
+    }
+    if ( !defined ($self->{_cached_end}) || $gene->end > $self->end ) {
+      $self->end ( $gene->end );
+    }
+  }
+
+# Check strand consistency
+
+  foreach my $gene (@$genes) {
+    if (!$ignore_strand) {
+      if ( defined ($self->{_cached_strand} ) ) {
+        if ( $self->strand != $gene->strand ) {
+          warning( "You're trying to put $gene in a cluster of opposite strand");
+        }
+      }
+    } else {
+  # we can ignore the strand, and do nothing
+    }
+  }
+ 
 
  GENE:
-  foreach my $gene (@$genes){
-    throw("undef for gene. Cannot put_Genes") if (!$gene);
-
-    my $gene_biotype = $gene->biotype;
-
+  foreach my $gene (@$genes) {
+    throw("undef for gene. Cannot put_Genes") if (!$gene) ;
+    my $gene_biotype = $gene->biotype ;
     foreach my $set_name ( keys %{$self->{'_types_sets'}}) { 
-
-      my $set = $self->{'_types_sets'}{$set_name}; 
-
-      foreach my $type ( @{$set} ){
+      my $set = $self->{'_types_sets'}{$set_name} ; 
+      foreach my $type ( @{$set} ) {
         if ($gene_biotype eq $type) {
-          push ( @{ $self->{'_gene_sets'}{$set_name} }, $gene );
-
-          if (defined($self->{_cached_start})) {
-            my $gene_start = $gene->start;
-            if ($gene_start < $self->{_cached_start}) {
-              $self->{_cached_start} = $gene_start;
-            }
-          }
-          if (defined($self->{_cached_end})) {
-            my $gene_end = $gene->end;
-            if ($gene_end > $self->{_cached_end}) {
-              $self->{_cached_end} = $gene_end;
-            }
-          }
-          if (!$self->{_ignore_strand}) {
-          #if (!$ignore_strand) {
-            if (defined($self->{_cached_strand})) {
-              my $gene_strand = $gene->start;
-              if ($gene_strand != $self->{_cached_strand}) {
-                throw("You have a cluster with genes on opposite strands");
-              }
-            }
-          }
+          push ( @{ $self->{'_gene_sets'}{$set_name} }, $gene ) ;
           next GENE; 
         }
       }
@@ -160,32 +333,32 @@ sub get_sets_included {
 =cut
 
 sub get_Genes {
-  my $self = shift @_;
+  my $self = shift @_ ;
 
-  my @genes;
+  my @genes ;
   if (!defined( $self->{'_gene_sets'} ) ) {
-    $self->warning("The gene array you try to retrieve is empty");
-    @genes = ();
+    $self->warning("The gene array you try to retrieve is empty") ;
+    @genes = () ;
   }
 
   foreach my $set_name (keys %{$self->{'_gene_sets'}}) {
-    push( @genes, @{ $self->{'_gene_sets'}{$set_name} } );
+    push( @genes, @{ $self->{'_gene_sets'}{$set_name} } ) ;
   }
 
   return \@genes;
 }
 
 sub get_Genes_ref {
-  my $self = shift @_;
+  my $self = shift @_ ;
 
-  my @genes;
+  my @genes ;
   if (!defined( $self->{'_gene_sets'} ) ) {
-    $self->warning("The gene array you try to retrieve is empty");
-    @genes = ();
+    $self->warning("The gene array you try to retrieve is empty") ;
+    @genes = () ;
   }
 
   foreach my $set_name (keys %{$self->{'_gene_sets'}}) {
-    push( @genes, @{ $self->{'_gene_sets'}{$set_name} } );
+    push( @genes, @{ $self->{'_gene_sets'}{$set_name} } ) ;
   }
 
   return \@genes;
@@ -207,48 +380,6 @@ sub get_all_Exons {
   }
 
   return \@exons;
-}
-
-############################################################
-
-sub strand{
-  my $self = shift;
-
-  if ($self->{_ignore_strand}) {
-    print "Strand called, but ignoring\n";
-    return 0;
-  }
-
-  if (!defined($self->{_cached_strand})) {
-    my @genes = @{$self->get_Genes};
-    unless (@genes){
-      $self->warning("cannot retrieve the strand in a cluster with no genes");
-    }
-    my $strand;
-    foreach my $gene (@genes){
-      if (ref($gene)=~m/Gene/) {
-        foreach my $transcript (@{$gene->get_all_Transcripts}){
-          unless (defined($strand)) {
-            $strand = $transcript->start_Exon->strand;
-            next;
-          }
-          if ( $transcript->start_Exon->strand != $strand ){
-           throw("You have a cluster with genes on opposite strands");
-          }
-        }
-      }else {
-       # prediction transcript
-        unless (defined($strand)) {
-         $strand = $gene->start_Exon->strand;
-        }
-        if ( $gene->start_Exon->strand != $strand ){
-           throw("You have a cluster with genes on opposite strands");
-        }
-      }
-    }
-    $self->{_cached_strand} = $strand;
-  }
-  return $self->{_cached_strand};
 }
 
 #########################################################################
@@ -355,19 +486,42 @@ sub get_Genes_by_Type() {
 =cut
 
 sub to_String {
-  my $self = shift @_;
-  my $data='';
-  foreach my $gene ( @{$self->get_Genes} ){
-    my @exons = @{ $gene->get_all_Exons };
+  my $self = shift @_ ;
+  my $data = '' ;
+  foreach my $gene ( @{$self->get_Genes} ) {
+    my @exons = @{ $gene->get_all_Exons } ;
+    my $id ;
+    if ( $gene->stable_id ) {
+      $id = $gene->stable_id ;
+    } else {
+      $id = $gene->dbID ;
+    }
      
-    $data .= sprintf "Id: %-16s"      , $gene->stable_id;
-    $data .= sprintf "Contig: %-20s"  , $exons[0]->contig->id;
-    $data .= sprintf "Exons: %-3d"    , scalar(@exons);
-    $data .= sprintf "Start: %-9d"    , $self->_get_start($gene);
-    $data .= sprintf "End: %-9d"      , $self->_get_end  ($gene);
-    $data .= sprintf "Strand: %-2d\n" , $exons[0]->strand;
+    $data .= sprintf "Id: %-16s"             , $id ;
+    $data .= sprintf "Contig: %-20s"         , $exons[0]->contig->id ;
+    $data .= sprintf "Exons: %-3d"           , scalar(@exons) ;
+    $data .= sprintf "Start: %-9d"           , $self->_get_start($gene) ;
+    $data .= sprintf "End: %-9d"             , $self->_get_end  ($gene) ;
+    $data .= sprintf "Strand: %-2d\n"        , $exons[0]->strand ;
+    $data .= sprintf "Exon-density : %3.2f\n", $self->exon_Density($gene) ;
   }
   return $data;
+}
+
+#########################################################################
+
+sub exon_Density{
+  my ($self, $gene) = @_ ;
+  my $density ;
+  my $exon_span ;
+  my @exons = @{$gene->get_all_Exons} ;
+  @exons = sort { $a->start <=> $b->start } @exons ;
+  my $gene_length = $exons[$#exons]->end - $exons[0]->start ;
+  foreach my $exon ( @exons ) {
+    $exon_span += $exon->length ;
+  }
+  $density = $exon_span/$gene_length ;
+  return $density ;
 }
 
 #########################################################################
@@ -434,53 +588,6 @@ sub _translateable_exon_length {
   }
   return $length;
 }
-
-# method to get the start of the cluster, which we take to be the left_most exon_coordinate 
-# i.e. the start coordinate of the first exon ordered as { $a->start <=> $b->start }, regardless of the strand
-
-sub start{
-  my ($self) = @_;
-
-  if (!defined($self->{_cached_start})) {
-    my $start;
-
-    foreach my $gene (@{$self->get_Genes}) {
-      my $this_start = $gene->start;
-      unless ( $start ){
-        $start = $this_start;
-      }
-      if ( $this_start < $start ){
-        $start = $this_start;
-      }
-    }
-    $self->{_cached_start} = $start;
-  }
-  return $self->{_cached_start};
-}
-      
-# method to get the end of the cluster, which we take to be the right_most exon_coordinate
-# this being the end coordinate of the first exon ordered as { $b->end <=> $a->end }, regardless of the strand
-
-sub end{
-  my ($self) = @_;
-
-  if (!defined($self->{_cached_end})) {
-    my $end;
-
-    foreach my $gene (@{$self->get_Genes}) {
-      my $this_end = $gene->end;
-      unless ( $end ){
-        $end = $this_end;
-      }
-      if ( $this_end > $end ){
-        $end = $this_end;
-      }
-    }
-    $self->{_cached_end} = $end;
-  }
-  return $self->{_cached_end};
-}
-
 
 
 =head2 get_exon_clustering_from_gene_cluster 
@@ -632,7 +739,7 @@ sub get_coding_TranscriptCluster {
 
     if( ref($gene)=~m/Gene/){
       # is a Bio::EnsEMBL::Gene 
-      # loop though transcripts to get clusters
+      # loop through transcripts to get clusters
       foreach my $trans (@{$gene->get_all_Transcripts}) {
         if ($gene->strand ne $trans->strand ) {
           throw("Weird - gene is on other strand than transcript\n") ;
