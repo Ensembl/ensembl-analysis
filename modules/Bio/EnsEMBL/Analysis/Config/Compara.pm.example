@@ -43,7 +43,7 @@ use vars qw(%Config);
 
     PYTHON  => 'python2.4',
     JAVA => '/software/farm/java/bin/java',
-    EXONERATE => 'exonerate-1.0.0',
+    EXONERATE => '/software/ensembl/compara/exonerate/exonerate',
     SEMPHY => '/software/ensembl/compara/semphy-1.0.b1',
 #    SEMPHY => '/software/ensembl/compara/semphy',
     ORTHEUS => '/software/ensembl/compara/OrtheusC/Ortheus.py',
