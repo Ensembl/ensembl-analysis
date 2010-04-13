@@ -58,7 +58,6 @@ use vars qw( %Config );
                   PARAMETERS => {},              
                 },
 
-      }
     },
   }
 );
