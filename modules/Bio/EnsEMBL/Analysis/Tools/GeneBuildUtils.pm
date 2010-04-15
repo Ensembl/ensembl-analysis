@@ -58,8 +58,8 @@ use vars qw (@ISA  @EXPORT);
 =head2 coord_string
 
   Arg [1]   : Bio::EnsEMBL::Feature
-  Function  : returns a string with the start, end, strand
-  and slice name that the feature is on delimited by spaces
+  Function  : Returns a string with the start, end, strand
+              and slice name that the feature is on delimited by spaces
   Returntype: string
   Exceptions: throws if no feature is passed in
   Example   : 
@@ -82,8 +82,8 @@ sub coord_string{
 =head2 id
 
   Arg [1]   : Bio::EnsEMBL::Feature
-  Function  : returns a string containing an appropriate label
-  for the feature
+  Function  : Returns a string containing an appropriate label
+              for the feature
   Returntype: string
   Exceptions: none
   Example   : 
@@ -139,14 +139,12 @@ sub empty_Object{
 
   Arg [1]   : Bio::EnsEMBL::Feature
   Arg [2]   : Bio::EnsEMBL::Slice
-  Function  : ensures the transcript within the slice, 
-  completely on the lower end, it can overhang the upper end
-  Returntype: boolean, 1 for pass 0 for fail ie(lies outside
-                                                    of slice or
-                                                    across lower 
-                                                    boundary)
+  Function  : Ensures the transcript within the slice, completely on
+              the lower end, it can overhang the upper end.
+  Returntype: Boolean, 1 for pass, 0 for fail, i.e. lies outside of slice
+              or across lower boundary
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
