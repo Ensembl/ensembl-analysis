@@ -123,6 +123,7 @@ sub check_InputId {
 		
         if (! $g_dbid) {
             
+	    #This is causing concurrency issues... move this to a InnoDB table?... create GroupAdaptor class??
             warn("Group specified does, not exist. Importing (group, location, contact)");
             my $sql = "INSERT INTO experimental_group (name, location, contact) ".
                 "values ('$ENV{EFG_GROUP}','$ENV{EFG_LOCATION}','$ENV{EFG_CONTACT}')";
@@ -324,7 +325,7 @@ sub fetch_input {
 	  #No other bits set for unmapped?
 	  #Not necessarily true!
 	  #Need to bitwise and this value!
-	  $sort = "gzip -dc ".$self->query.' | grep -vE \'^@\' | grep -vE "[^[:space:]]+[[:blank:]]4[[:blank:]].*$" | sort -k3,3 -k4,4n | gzip -c > '.$cachefile.' |';
+	  $sort = "gzip -dc ".$self->query.' | grep -vE \'^@\' | grep -vE "^[^[:space:]]+[[:blank:]]4[[:blank:]].*$" | sort -k3,3 -k4,4n | gzip -c > '.$cachefile.' |';
 	}
 	else{
 	  throw("$file_format file format not supported");
@@ -391,6 +392,8 @@ sub write_output{
     # store analysis, feature set and data set
     # analysis was alredy been stored while checking config in read_and_check_config
     #$self->adaptor('Analysis')->store($self->analysis());
+
+    #This seems to be causing conflict... 
     if (! defined $self->feature_set->dbID) {
         $self->efgdb->get_FeatureSetAdaptor->store($self->feature_set());
     }
@@ -428,11 +431,14 @@ sub write_output{
         
         foreach my $ft (@{$self->output}){
 
-		  my ($seqid, $start, $end, $score, $summit) = @{$ft};
-		  
-		  #Hack mostly to ignore header (should be in parse output somewhere?)
-		  if(! (($start =~ /^-?\d+$/) && ($end =~ /^\d+$/))){  
-			warn "Feature being ignored: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
+	  my ($seqid, $start, $end, $score, $summit) = @{$ft};
+
+	  #warn "Debugging Region: ".$seqid." Start: ".$start." End: ".$end." Score: ".$score." Summit: ".$summit."\n";
+	  
+	  #Hack mostly to ignore header (should be in parse output somewhere?)
+	  if(! (($start =~ /^-?\d+$/) && ($end =~ /^\d+$/))){  
+	    warn "Feature being ignored due to incorect positions: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
+	    
 	    next;
 	  }
 		  
@@ -450,7 +456,7 @@ sub write_output{
 
 	  #Sometimes there are naming issues with the slices... e.g. special contigs... which are not "valid" slices in ENSEMBL
 	  if(!$slice{"$seqid"}){
-	    warn "Feature being ignored: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
+	    warn "Feature being ignored due to inexistent slice: Region:".$seqid." Start:".$start." End:".$end." Score:".$score." Summit:".$summit."\n";
 	    next;
 	  }
 	  
