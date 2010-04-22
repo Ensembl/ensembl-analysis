@@ -1,10 +1,10 @@
-=pod
+#!/usr/local/ensembl/bin/perl
 
-NAME
+=head1 NAME
 
   copy_genes.pl
 
-DESCRIPTION
+=head1 DESCRIPTION
 
  This script takes database options and a file of gene ids and copies
  them between two databases. It can if asked split multi transcript
@@ -14,7 +14,7 @@ DESCRIPTION
  it reads the equivalent database from the
  Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases file.
 
-EXAMPLE
+=head1 EXAMPLE
 
  perl copy_genes.pl -in_config_name COALESCER_DB -out_config_name UTR_DB \
    -file gene_ids_to_copy
@@ -24,10 +24,7 @@ EXAMPLE
  perl copy_genes.pl -dbhost host -dbuser ensro -dbname est_db -outhost host1 \
    -outuser ensadmin -outpass ensembl -outdbname utr_db -file gene_ids_to_copy
 
-
 =cut
-
-#!/usr/local/ensembl/bin/perl
 
 use strict;
 use warnings;
