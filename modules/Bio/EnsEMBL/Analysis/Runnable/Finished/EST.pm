@@ -283,12 +283,6 @@ sub add_output {
     my ( $self, $f ) = @_;
     my $ana = $self->analysis;
     $f->analysis($ana);
-    # swap strands here to fix Est2genome output
-    my $hit_strand = $f->hstrand();
-    my $sr_strand  = $f->strand();
-    $f->hstrand($sr_strand);
-    $f->strand($hit_strand);
-    
     $self->{'output'} ||= [];
     push ( @{ $self->{'output'} }, $f );
 
