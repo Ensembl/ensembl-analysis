@@ -22,7 +22,7 @@
  or
 
  perl copy_genes.pl -dbhost host -dbuser ensro -dbname est_db -outhost host1 \
-   -outuser ensadmin -outpass ensembl -outdbname utr_db -file gene_ids_to_copy
+   -outuser user -outpass **** -outdbname utr_db -file gene_ids_to_copy
 
 =cut
 
