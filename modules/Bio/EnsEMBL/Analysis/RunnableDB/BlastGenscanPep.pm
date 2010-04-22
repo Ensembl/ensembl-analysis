@@ -75,26 +75,23 @@ sub fetch_input{
   my $options_string ;  
   my %options = %{$self->PARSER_PARAMS};  
 
-  if ( $options{-query_type}=~m/pep/ ) {  
-    if ( $options{-database_type}=~m/pep/ && $options{-type} =~m/ncbi/ ) { 
-         $options_string = '-p blastp' ;  
-    } elsif ( $options{-database_type}=~m/dna/ && $options{-type}=~m/ncbi/ ) {   
-       $options_string = '-p tblastn' ; 
-    } 
-  }   
-
-  if ( $options{-query_type}=~m/dna/ ) {  
-    if ( $options{-database_type}=~m/dna/ ) {  
-       if ( $options{-type} =~m/ncbi/ ) {  
-         $options_string = '-p blastn' ;  
-       } 
-    }elsif ( $options{-database_type}=~m/pep/ ) {   
-       if ( $options{-type} =~m/ncbi/ ) {  
-         $options_string = '-p blastx' ;  
-       }
-    }
-  }   
-
+  if ( $blast{-type}=~m/ncbi/ ) { 
+    if ( $options{-query_type}=~m/pep/ ) {  
+      if ( $options{-database_type}=~m/pep/ ) { 
+           $options_string = '-p blastp' ;  
+      } elsif ( $options{-database_type}=~m/dna/ ) { 
+         $options_string = '-p tblastn' ; 
+      } 
+    }   
+  
+    if ( $options{-query_type}=~m/dna/ ) {  
+      if ( $options{-database_type}=~m/dna/ ) {  
+           $options_string = '-p blastn' ;  
+      }elsif ( $options{-database_type}=~m/pep/ ) {   
+           $options_string = '-p blastx' ;  
+      }
+    }   
+  }
 
 
   foreach my $t(@$pts){
