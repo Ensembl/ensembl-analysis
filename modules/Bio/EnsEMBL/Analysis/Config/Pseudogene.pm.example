@@ -134,6 +134,8 @@ use vars qw( %Config );
 	       # should speed it up if running over a very large dataset
 	       REP_TRANSCRIPT       => '',
                },
+               Pseudogene => {},
+               spliced_elsewhere => {} , 
 	
 	   }
 	);	
