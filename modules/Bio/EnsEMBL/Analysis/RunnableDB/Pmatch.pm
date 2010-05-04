@@ -78,6 +78,7 @@ sub fetch_input{
           -protein_file => $self->PROTEIN_FILE,
           -max_intron_length => $self->MAX_INTRON_LENGTH,
           -min_coverage => $self->MIN_COVERAGE,
+          -options => $self->OPTIONS,
          );
   $self->runnable($runnable);
 }
@@ -134,6 +135,20 @@ sub REPEAT_MASKING{
     $self->{'REPEAT_MASKING'} = $arg;
   }
   return $self->{'REPEAT_MASKING'};
+}
+
+sub OPTIONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_OPTIONS'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_OPTIONS'})) {
+    return $self->{'_CONFIG_OPTIONS'};
+  } else {
+    return undef;
+  }
 }
 
 
