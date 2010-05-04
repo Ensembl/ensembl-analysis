@@ -33,6 +33,7 @@ use vars qw( %Config );
                        REPEAT_MASKING => [],
                        MAX_INTRON_LENGTH => 50000,
                        OUTPUT_DB => 'GENEWISE_DB',
+                       OPTIONS => '-T 20', # set threshold to 14 for more sensitive search 
                       },
 
             PMATCH =>{
@@ -42,6 +43,7 @@ use vars qw( %Config );
                        REPEAT_MASKING => [],
                        MAX_INTRON_LENGTH => 50000,
                        OUTPUT_DB => 'GENEWISE_DB',
+                       OPTIONS => '-T 20', # set threshold to 14 for more sensitive search 
                       },
            },
 
