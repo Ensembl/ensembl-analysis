@@ -183,6 +183,21 @@ sub refine_genes {
       my $highest_score = 0;
       print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
       my @exons =  @{$self->merge_exons($gene,$strand)};
+      foreach my $exon ( @exons ) {
+	print STDERR "EXTRAEXON: " . 
+	  $exon->seq_region_name ." " .
+	    ($exon->start +20) ." " .
+	      ($exon->end -20)." " .
+		( $exon->end - $exon->start -40)  ."\n"
+		  if $exon->{"_extra"} ;
+      }
+      foreach my $exon ( @{$self->extra_exons} ) {
+	print STDERR "OTHEREXON: " . 
+	  $exon->seq_region_name ." " .
+	    ($exon->start +20) ." " .
+	      ($exon->end -20)." " .
+		( $exon->end - $exon->start -40)  ."\n";
+      }
       my $exon_count = $#exons;
       my @fake_introns;
       my %known_exons; 
@@ -654,7 +669,6 @@ sub filter_models {
 	  $best_cds =  $transcript->cdna_coding_end - $transcript->cdna_coding_start;
 	}
       }
-      my $transcript =  $gene->get_all_Transcripts->[0];
       if ( $transcript->translateable_seq ) {
 	if ( $gene->biotype eq 'bad' && 
 	     $transcript->coding_region_start == $translation_start &&
@@ -976,31 +990,32 @@ sub process_paths{
   for ( my $i = 0 ; $i < scalar(@{$exons}) ; $i ++ ) {
     if ( $exon_intron->[$i] ) {
       if ( $strict ) {
+	# Throw out exons that have retained introns for a start
+	next if  $exons->[$i]->{'retained'};
+      }
+      if ( $strict > 1 ) {
 	# group all the introns by exon pairs
-	# they all join to left exon 
-	# so lets group them by right exon
 	my %intron_groups;
 	foreach my $intron ( @{$exon_intron->[$i]} ) {
-	  foreach my $right_exon ( @{$intron_exon->{$intron->display_label}} ) { 
-	    push @{$intron_groups{$right_exon}}, $intron;
-	  }	
+	  next if  $intron->display_label =~ /REMOVED/  ;
+	  push @{$intron_groups{$i}}, $intron;
 	}
 	# now lets sort these groups by score
 	foreach my $group ( keys %intron_groups ) {
 	  @{$intron_groups{$group}}  = sort {$b->score <=> $a->score} @{$intron_groups{$group}};
 	}
 	# now lets see what they look like
-	print "EXON $i:". $exons->[$i]->start ." - ". 
+	print STDERR "EXON $i:". $exons->[$i]->start ." - ". 
 	  $exons->[$i]->end ." - ". 
 	    $exons->[$i]->strand ."\n";
 	foreach my $group ( keys %intron_groups ) {
 	  foreach my $intron ( @{$intron_groups{$group}} ) {
-	    print "$group " . $intron->display_label . " " . $intron->score ."\n";
+	    print STDERR "$group " . $intron->display_label . " " . $intron->score ."\n";
 	  }
 	  if ( scalar( @{$intron_groups{$group}} ) > 1 ) {
 	    #  remove the lowest scoring one
 	    my $intron = pop( @{$intron_groups{$group}} ) ;
-	    print "Eliminating " . $intron->display_label . " " .
+	    print STDERR "Eliminating " . $intron->display_label . " " .
 	      $intron->score . "\n";
 	    unless (  $intron->display_label =~ /REMOVED/ ) {
 	      $intron->display_label($intron->display_label."-REMOVED") ;
@@ -1133,7 +1148,36 @@ sub merge_exons {
   foreach my $exon ( @{$gene->get_all_Transcripts->[0]->get_all_Exons} ) {
     push @exons, clone_Exon($exon);
   }
+  my $ec = scalar(@exons) ;
+  push @exons, @{$self->extra_exons};
   @exons =  sort { $a->start <=> $b->start } @exons;
+  # want to get rid of any overlapping exons
+  while  ( $ec != scalar(@exons) ) {
+    $ec = scalar(@exons);
+    for ( my $i = 1 ; $i < scalar(@exons) ; $i++ ) {
+      my $left_exon = $exons[$i-1];
+      my $right_exon = $exons[$i];
+      # do they overlap 
+      if ( $left_exon->start <= $right_exon->end && 
+	   $left_exon->end >= $right_exon->start ) {
+	# merge them 
+	$left_exon->start($right_exon->start) 
+	  if $right_exon->start < $left_exon->start;
+	$left_exon->end($right_exon->end) 
+	  if $right_exon->end > $left_exon->end;
+	if (   $right_exon->end <= $left_exon->end &&
+	      $right_exon->start >= $left_exon->start ){
+	    $left_exon->{"_extra"} = 0;
+	}
+	# get rid of right exon
+	splice(@exons,$i,1);
+	$i-- ;
+	@exons =  sort { $a->start <=> $b->start } @exons;
+      }
+    }
+  }
+
+  
 
   for ( my $i = 1 ; $i <= $#exons ; $i ++ ) {
     my $exon = $exons[$i];
@@ -1206,6 +1250,8 @@ sub merge_exons {
                  :   the range determined by start and end, collapses them down into a 
                  :   non redundant set and builds a Bio::EnsEMBL::SimpleFeature to 
                  :   represent it, then stores it in $self->intron_features
+                 :   also checks for small exons defined by a single read splicing at least twice
+                 :   stores any additional exons found this way in $self->extra_exons
 
 =cut
 
@@ -1213,6 +1259,7 @@ sub dna_2_simple_features {
   my ($self,$start,$end) = @_;
   my @sfs;
   my %id_list;
+  my %exon_list;
   my $intron_slice = $self->intron_slice_adaptor->fetch_by_region
     ('toplevel',
      $self->chr_slice->seq_region_name,
@@ -1251,9 +1298,25 @@ sub dna_2_simple_features {
 	  $ugfs[$i+1]->start . ":" . 
 	    $read->strand .":$type";
       $id_list{$unique_id} ++;
+      if  ( $i > 0 && $i < scalar(@ugfs) - 1 ) {
+	# if the read splices into and out of an exon, store that exon in case it is not 
+	# found in the rough model but is an extra short exon determined by ExonerateSolexaLocalAlignment
+	# check that it is introns on both sides and not inserts, need to be bigger than the min intron length
+	next unless $ugfs[$i+1]->start - $ugfs[$i]->end > $self->MIN_INTRON_SIZE;
+	next unless $ugfs[$i]->start - $ugfs[$i-1]->end > $self->MIN_INTRON_SIZE;
+	my $name = $read->seq_region_name;
+	$name =~ s/\./*/g;
+	my $unique_id = $name . ":" . 
+	  $ugfs[$i]->start . ":" .
+	    $ugfs[$i]->end . ":" . 
+	      $read->strand .":$type";
+	$exon_list{$unique_id} = $ugfs[$i];	
+      }
     }
   }
   print STDERR "Got " . scalar( keys %id_list ) . " collapsed introns\n";
+  print STDERR "Got " . scalar( keys %exon_list ) . " possibly novel exons\n";
+
   # collapse them down and make them into simple features
   foreach my $key ( keys %id_list ) {
     my @data = split(/:/,$key) ;
@@ -1273,6 +1336,16 @@ sub dna_2_simple_features {
   @sfs = sort {$a->start <=> $b->start} @sfs;
   $self->intron_features(\@sfs);
   print STDERR "Got " . scalar(@sfs) . " simple features\n";
+  # make the exon features
+  my @extra_exons;
+  foreach my $key ( keys %exon_list ) {
+    my $extra_exon = $self->make_exon($exon_list{$key});
+    $extra_exon->{"_extra"} = 1;
+    push @extra_exons, $extra_exon;
+  }
+    print STDERR "Got " . scalar(@extra_exons) . " extra exons\n";
+  # make the exon features
+  $self->extra_exons(\@extra_exons);
   return;
 }
 
@@ -1345,6 +1418,54 @@ sub make_repeat_blocks {
   return \@repeats;
 }
 
+
+=head2 make_exon
+    Title        :   pad_exons
+    Usage        :   $self->($ungapped_feature)
+    Returns      :   Bio::EnsEMBL::Exon
+    Args         :   Bio::EnsEMBL::FeaturePair 
+    Description  :   Takes an ungapped feature, pads it and builds a 
+                 :   Exon from it 
+=cut
+
+sub make_exon {
+  my ($self,$ugf) = @_;
+  my $padded_exon =  create_Exon
+    (
+     $ugf->start - 20,
+     $ugf->end + 20 ,
+     -1,
+     -1,
+     -1,
+     $ugf->analysis,
+     undef,
+     undef,
+     $self->chr_slice,
+    );
+  # dont let it fall of the slice because of padding
+  $padded_exon->start(1) if $padded_exon->start <= 0;
+  $padded_exon->end($self->chr_slice->length - 1) 
+    if $padded_exon->end >= $self->chr_slice->length;
+  
+  my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature
+    (-slice    => $ugf->slice,
+     -start    => $padded_exon->start,
+     -end      => $padded_exon->end,
+     -strand   => -1,
+     -hseqname => $ugf->display_id,
+     -hstart   => 1,
+     -hstrand  => 1,
+     -hend     => $padded_exon->length,
+     -analysis => $ugf->analysis,
+     -score    => $ugf->score,
+     -cigar_string => $padded_exon->length.'M');
+  my @feats;
+  push @feats,$feat;
+  $padded_exon->add_supporting_features(@feats);
+  return $padded_exon;
+}
+
+ 
 ##################################################################
 # Containers
 
@@ -1437,6 +1558,16 @@ sub intron_features {
   }
 
   return $self->{_introns};
+}
+
+sub extra_exons {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_extra_exons} = $val;
+  }
+
+  return $self->{_extra_exons};
 }
 
 ####################################
