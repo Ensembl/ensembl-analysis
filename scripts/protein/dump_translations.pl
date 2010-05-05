@@ -1,23 +1,46 @@
-#!/usr/local/bin/perl
+#!/usr/local/ensembl/bin/perl
 
 =head1 NAME
 
   dump_translations.pl
 
-=head1 SYNOPSIS
- 
-  dump_translations.pl
-
 =head1 DESCRIPTION
 
-dump_translations.pl dumps out the translations of all the genes in a database specified in GeneConf.pm
-It\'s a stripped down version of gene2flat.
+  It's a stripped down version of gene2flat. The script dumps out the
+  translations for all protein coding transcripts in a database. Note
+  that sequences are identified by their transcript identifiers and
+  not their translation identifiers.
 
-=head1 OPTIONS
+=head1 SYNOPSIS
+
+  dump_translations.pl
+
+  Required arguments:
+
+    -dbname       Database name
+    -dbhost       Database server host
+    -dbport       Database server port
+    -dbuser       Database user
+    -dbpass       User password
+    -stable_id    Outputs sequences identified with their stable IDs
+    -db_id        Outputs sequences identified with their internal identifier.
+                  The db_id and stable_id flags are mutually exclusive.
+
+  Optional arguments:
+
+    -file         File to write the results to (default: STDOUT)
+    -slicename    Retrieve sequences from this slice
+    -dnadbname    DNA database name
+    -dnadbhost    DNA database server host
+    -dnadbport    DNA database server port
+    -dnadbuser    DNA database user
+    -dnadbpass    DNA user password
+    -verbose      Verbose logging (default: false)
 
 =cut
 
 use strict;
+use warnings;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::SeqIO;
@@ -41,23 +64,22 @@ my $file;
 my $slicename;
 my $verbose;
 
-GetOptions(
-	   'dbhost=s'    => \$dbhost,
-	   'dbname=s'    => \$dbname,
-	   'dbuser=s'    => \$dbuser,
-	   'dbpass=s'    => \$dbpass,
-	   'dbport=s'    => \$dbport,
-	   'dnadbhost=s' => \$dnadbhost,
-	   'dnadbname=s' => \$dnadbname,
-	   'dnadbuser=s' => \$dnadbuser,
-	   'dnadbport=s' => \$dnadbport,
-	   'dnadbpass=s' => \$dnadbpass,
-	   'stable_id!'  => \$stable_id,
-	   'db_id!'      => \$db_id,
-	   'file=s'      => \$file,
-           'slicename=s' => \$slicename,
-           'verbose'     => \$verbose,
-) or die ("Couldn't get options");
+GetOptions( 'dbhost=s'    => \$dbhost,
+            'dbname=s'    => \$dbname,
+            'dbuser=s'    => \$dbuser,
+            'dbpass=s'    => \$dbpass,
+            'dbport=s'    => \$dbport,
+            'dnadbhost=s' => \$dnadbhost,
+            'dnadbname=s' => \$dnadbname,
+            'dnadbuser=s' => \$dnadbuser,
+            'dnadbport=s' => \$dnadbport,
+            'dnadbpass=s' => \$dnadbpass,
+            'stable_id!'  => \$stable_id,
+            'db_id!'      => \$db_id,
+            'file=s'      => \$file,
+            'slicename=s' => \$slicename,
+            'verbose'     => \$verbose,
+) or die("Couldn't get options");
 
 die ("need to pass database settings in on the commandline -dbhost -dbuser -dbname -dbpass")
     if not $dbhost or not $dbname;
