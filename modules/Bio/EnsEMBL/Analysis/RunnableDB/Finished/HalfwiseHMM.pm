@@ -347,10 +347,19 @@ sub write_output {
 	my @genes        = $self->output();
 	my $db           = $self->db();
 	my $gene_adaptor = $db->get_GeneAdaptor;
+	my $sliceid      = $self->input_id;
+    my $sa           = $self->db->get_SliceAdaptor();
+    my $slice        = $sa->fetch_by_name($sliceid);
 	my $dbh          = $db->dbc->db_handle;
 	$dbh->begin_work;
 	eval {
-		GENE: foreach my $gene (@genes)
+		# delete old genes first
+		foreach my $gene (@{$slice->get_all_Genes($self->analysis->logic_name)})
+        {
+            $gene_adaptor->remove($gene);
+        }
+		# now save new genes 
+		foreach my $gene (@genes)
 		{
 			$gene_adaptor->store($gene,0);
 		}
