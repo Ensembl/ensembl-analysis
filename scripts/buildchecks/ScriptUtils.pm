@@ -21,6 +21,7 @@ sub get_chrlengths_v20 {
   my $db   = shift;
   my $type = shift;
   my $coordsystem = shift;
+  my $ignore_haplotypes = shift;
 
   my %chrhash;
 
@@ -32,7 +33,10 @@ sub get_chrlengths_v20 {
     my $query = "select seq_region.name, seq_region.length as mce from seq_region,coord_system where" .
                 " seq_region.coord_system_id=coord_system.coord_system_id and" .
                 " coord_system.version = '" . $type . "' and coord_system.name='$coordsystem'";
-  
+    if ($ignore_haplotypes) {    
+      $query .= " and seq_region.seq_region_id not in (select seq_region_id from assembly_exception where exc_type = 'HAP')";
+    }
+
     my $sth = $db->dbc->prepare($query);
   
     $sth->execute;
