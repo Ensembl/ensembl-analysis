@@ -124,6 +124,10 @@ my $seqout = new Bio::SeqIO( -file   => ">$outfile",
  
 SEQFETCH:
 while ( my $cdna = $seqin->next_seq ) {
+  if ($cdna->display_id =~ /^gi\|\d+\|ref\|(XM_.+)\|/ ) { # if cDNA is XM_ RefSeq (predicted), we don't even bother clipping.
+    print "XM RefSeq mRNA, skipped: $1.\n";
+    next;
+  }
   my ($clipped, $clip_end, $num_bases_removed) = clip_if_necessary($cdna, $buffer, $window_size);
   if (defined $clipped) {    # $clipped would have been returned undefined if the entire sequence seems to be polyA/T tail/head
     my $id = $clipped->id;
