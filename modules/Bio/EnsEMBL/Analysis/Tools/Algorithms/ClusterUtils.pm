@@ -1,5 +1,108 @@
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
+
+
+=head1 NAME
+
+  Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
+
+
+  This pacakage contains methods to make the GeneClusster easier to use.  
+
+
+=head1 DEFINITIONS  
+
+
+
+ Here's some ASCII art to understand this module better : 
+ 
+   We will refer to 2 types of clusters in this module :  
+
+    'one_way clusters' - a cluster of genes [= genes which have overlapping exons ]
+                         which contain only genees of one set 
+
+
+    'two_way clusters'    - a cluster of genes [= genes which have overlapping exons ]
+                            which contains genes of boths sets, 
+
+    'get_single_clusters' - these clusters contain geenes which don't overlap any other gene 
+                            in the same set, or in any other set. These genes are also known as 
+                             non-clustering genes ( see also get_non_clustering_genes_of_set )
+
+
+  May be the best would have been to call them one-set clussters and two-set clusters 
+
+ =head2  Example 1 :  
+
+  This is a two-way cluster ( two-set cluster ) 
+    - genes of 2 different sets overlap 
+
+  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA       
+  SET 1        BBBBBBBB------------------------BBBB 
+  SET 2 :    ZZZZZZZZZZZ-----------------------------------------------ZZZZZZZZZZZZ
+
+
+
+=head2  Example 2: 
+
+  Below you see 2 one-way clustering clusters  (2-set-clusters)
+    - both clusters are called 'one-way clustering clusteres' - they only cluster 'one way'  - they are homogenous clusters...
+    - no cluster contains a gene which belongs to a different set 
+      method : #  get_oneway_clustering_genes_of_set($clustered,"transformed")
+
+  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA       
+  SET 1 :       BBBBBBBB------------------------BBBB 
+  SET 2 :                                                                  ZZZZZZZZZZZZZ----------------ZZZZZZZZZZZZZ
+  SET 2 :                                                                      YYYYYYYYYYYY
+
+
+=head2   Example 3 : 
+
+  All the genes below form one tow-way cluster because the exons overlap : 
+
+  SET 1 :          AAAAAA--------------------------------AAAAAAAAAAAA       
+  SET 1 :       BBBBB                                                                                    BBBBBBBBBBBB-----------BBBBBBB
+  SET 2 :                                                   ZZZZZZZZZZZZZZZZ--------------ZZZZZZZZZZZZZZZZZZ 
+
+
+
+=head2 Example 4 : 
+
+  The genes below are one-way-clustering : ( one set cluster ) 
+      method : #  get_oneway_clustering_genes_of_set($clustered,"transformed")
+
+  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA       
+  SET 1 :       BBBBBBBB------------------------BBBB 
+
+
+
+
+=head2  Example 5 : 
+
+ This gene is 'on-its-own and is not clustering with any other gene. 
+  method :      get_non_clustering_genes_of_set
+  SET 1 :          AAAAAAAAAAAA---------------------AAAAAAAAAA       
+
+
+
+=head2  Some definitions : 
+
+
+    one-way clustering means : 
+        - genes only have exon overlap within the same set, they only cluster among each other ('homogenous clusters')
+          ( see Example 4 and Example 2 ) 
+           methods get_twoway_clustering_genes_both_sets
+
+    two-way clustering means (=two set cluster )
+       - the cluster contains genes of set A and set B, and the genes have exon overlap 
+       -  example 1 and 3 
+
+
+
+=cut
+
+
+
 use Exporter;
 use vars qw(@ISA @EXPORT);
 use strict;
@@ -13,6 +116,7 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 @ISA=qw(Exporter);
 
 @EXPORT=qw( 
+            simple_cluster_Genes 
             cluster_Genes 
             cluster_Genes_without_strand 
             cluster_Genes_by_coding_exon_overlap 
@@ -23,8 +127,8 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
             get_oneway_clustering_genes_of_set  
             make_types_hash
             make_types_hash_with_genes
+            get_non_clustering_genes_of_set
           ) ; 
-
 
 
 
@@ -64,7 +168,40 @@ sub make_types_hash {
       throw ( " there are biotypes you try to cluster wich are in both gene sets - this is unhealthy ....\n")  ;
     }
     return \%types_hash;
-}
+} 
+
+
+
+sub simple_cluster_Genes { 
+  my ( $gene_set1,$gene_set1_name,  $gene_set2, $gene_set2_name ) = @_;
+
+  my ($types_hash,$all_genes) = @{make_types_hash_with_genes($gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name)}; 
+  my ($clustered,$unclustered) = cluster_Genes($all_genes, $types_hash);  
+
+  return [ $clustered, $unclustered ];
+} 
+
+
+
+
+
+=head2 make_types_hash_with_genes 
+
+   Arg[1]    : Array ref. to gene set 1 
+   Arg[2]    : Array ref. to gene set 2 
+   Arg[3]    : Name of gene set 1 
+   Arg[4]    : Name of gene set 2 
+
+   Function  : Filters out all clusters of the array which are twoway-clusters [ which contain set1 and set2 ] 
+               This means all clusters, which contain genes of set 1 and set 2 , are not returned. 
+               
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2, 
+               or both. 
+ 
+
+=cut
+
 
 
 sub make_types_hash_with_genes { 
@@ -83,13 +220,15 @@ sub make_types_hash_with_genes {
 
    Function  : Filters out all clusters of the array which are twoway-clusters [ which contain set1 and set2 ] 
                This means all clusters, which contain genes of set 1 and set 2 , are not returned. 
-               
+               Only clusters are returned which contain only one type of set, either set1 or set2          
 
    Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2, 
                or both. 
  
 
 =cut
+
+
 
 sub get_single_clusters {  
   my ( $cluster_ref ) = @_ ; 
@@ -155,6 +294,44 @@ sub get_twoway_clustering_genes_of_set {
 
 
 
+=head2  get_non_clustering_genes_of_set   
+
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
+
+   Function  : All genes are returned which do not cluster with any other set, or overlap any other gene. 
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Gene objects 
+
+   Example   :  
+
+             my ($clustered,$unclustered) = @{simple_cluster_Genes(\@projected_genes,"projected",\@transformed_genes,"transformed")}; 
+
+             my @genes = @{get_non_clustering_genes_of_set($unclustered,"transformed")}; 
+
+              for ( @genes ) {  
+                 print "this gene is on-its-own and does not cluster with any other set\n" ;
+             } 
+
+=cut
+
+
+
+
+sub get_non_clustering_genes_of_set {  
+   my ($cluster_ref,$target_set_name ) = @_ ;
+ 
+   check_cluster_ref($cluster_ref) ; 
+
+   my @single_clustering_genes_of_specified_set;  
+
+   for my $c ( @$cluster_ref ) { 
+     push @single_clustering_genes_of_specified_set, @{$c->get_Genes_by_Set($target_set_name)};
+   } 
+   return \@single_clustering_genes_of_specified_set;  
+} 
+
+
+
 
 =head2  get_all_twoway_clustering_genes_both_sets
 
@@ -166,6 +343,7 @@ sub get_twoway_clustering_genes_of_set {
    Returnval : Arrayreferenc of  Bio::EnsEMBL::Gene objects
 
 =cut
+
 
 
 sub get_twoway_clustering_genes_both_sets {  
@@ -215,9 +393,6 @@ sub get_oneway_clustering_genes_of_set {
     for my $cr ( @$cluster_ref ) {  
        @all_set{@{ $cr->get_sets_included($cr)}}=1;
     }  
-    for ( keys %all_set ) {  
-      print "set : $_\n" ; 
-    } 
    }   
 
    return \@single_clustering_genes; 
@@ -283,7 +458,7 @@ sub cluster_Genes {
   my ($genes, $types_hash, $check_coding_overlap, $ignore_strand) = @_ ;
 
 
-  print "GOT " . scalar(@$genes ) . " GENES tocluster \n" ; sleep(2) ; 
+  #print "GOT " . scalar(@$genes ) . " GENES tocluster \n" ; sleep(2) ; 
 
   #
   # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton' 
@@ -303,7 +478,7 @@ sub cluster_Genes {
   # sorting of ALL genes
   my @sorted_genes = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$genes;
 
-  print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;  
+  #print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;  
   # select count(*) , g.biotype from gene g left join transcript t on g.gene_id = t.gene_id where isnull(t.gene_id ) group by g.biotype  ;
   for ( @sorted_genes ) {  
      my $tr = scalar ( @{$_->get_all_Transcripts} ) ;   
@@ -453,20 +628,23 @@ sub cluster_Genes {
       push( @new_clusters, $cl );
     }
   }
-  print STDERR "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
+ # print STDERR "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
   
   return (\@new_clusters, \@unclustered);
 }
 
 
 
-=head2 _compare_Genes()
+=head2  _compare_Genes()
 
-Title: _compare_Genes
-Usage: this internal function compares the exons of two genes on overlap
-Source : Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison; 
+
+  Title  :  _compare_Genes
+  Usage  :   this internal function compares the exons of two genes on overlap
+  Source :  Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison; 
+
 
 =cut
+
 
 
 sub _compare_Genes {
