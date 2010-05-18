@@ -38,8 +38,10 @@ use vars qw( %Config );
             DEFAULT =>  {
              # The database connections used are defined in 
              # Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
-             # Database to write the output features into
+             # Single Database to write the output features into
              OUT_DB   => '',
+	     # Alternately an array of databases to write into, saves the individual databases getting too slow
+             OUT_DBS   =>  => [''],
 
              # Compress identical dna align features
              COMPRESSION => '0',
