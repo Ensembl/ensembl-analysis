@@ -171,8 +171,14 @@ sub prepare_seq {
     my $tmp = $unclipped->display_id;
     $tmp =~ s/\>//;
     my $id;
-    if ($tmp =~ m/^gi.+ref\|(N[MR]_.+)\|/) {
+    if ($tmp =~ m/^gi\|\d+\|ref\|(N[MR]_.+)\|/) {   #RefSeq partially curated entries
       $id = $1;
+    } elsif ($tmp =~ m/^gi\|\d+\|gb\|(\w+\.\d)\|/) {  #Genbank entries
+      $id = $1;
+    } elsif ($tmp =~ m/^gi\|\d+\|dbj\|(\w+\.\d)\|/) {  #DDBJ entries
+      $id = $1;
+    } elsif ($tmp =~ m/^gi\|\d+\|emb\|(\w+\.\d)\|/) {  #EMBL entries
+      $id = $1;   
     } elsif ($tmp =~ m/^[\w\d]+\s([\w\.\d]+)\s.+\n{1}?/) {
       $id = $1;
     } elsif ($tmp =~m/^[\w\.\d]+\s.+\n{1}?/) {
@@ -180,6 +186,7 @@ sub prepare_seq {
       $id = $tmp;
     } elsif ($tmp =~ m/[\w\.\d]+/) {
       $id = $tmp;
+      print STDERR "Generic matched id is $id.\n";
     } else {
       throw("Cannot extract the input id from: \n".$unclipped->id."\nTry making your file so that the first line of each entry ".
             "only contains the id, eg: \n>BC000830.1\n");
