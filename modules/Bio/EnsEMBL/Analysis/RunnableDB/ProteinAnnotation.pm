@@ -60,7 +60,7 @@ sub fetch_input {
   my $error = "For logic " . $self->analysis->logic_name . ", Input id must be:\n";
   $error .= "(a) a valid translation dbID; or\n";
   $error .= "(b) the fully qualified directory/name of a fasta peptide file; or\n";
-  $error .= "(c) the name only of a peptide fasta file (with BASE_DIR defined)\n";
+  $error .= "(c) the name only of a peptide fasta file (with BASE_DIR defined) in Config/ProteinAnnotation.pm\n";
   $error .= $self->input_id . " is none of these\n";
 
   if ($self->input_id =~ /^(\d+)$/)  {
