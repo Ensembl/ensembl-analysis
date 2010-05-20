@@ -96,13 +96,12 @@ sub fetch_input{
   my $ga = $genes_db->get_GeneAdaptor;
   my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
   my $ids = $fa->fetch_by_analysis($self->analysis);
-  $self->throw("No flags found for analysis " .
-	       $self->SPLICED_ELSEWHERE_LOGIC_NAME ."\n")  unless (scalar(@{$ids}>0));
+  $self->throw("No flags found for analysis " .  $self->SPLICED_ELSEWHERE_LOGIC_NAME ."\n")  unless (scalar(@{$ids}>0));
   if ($self->input_id =~ /(\d+):(\d+)/) {
     $start = $1;
     $end = $2;
   } else {
-    $self->throw("Input id not recognised\n");
+    $self->throw("Input id not recognised - input_id should be in format \d:\d   -input_id 112:200 \n");
   }
   # get ids
   foreach my $flag (@{$ids}) {
