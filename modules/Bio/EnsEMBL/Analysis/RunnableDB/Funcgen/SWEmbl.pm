@@ -60,7 +60,7 @@ use Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl;
 use Bio::EnsEMBL::Funcgen::Utils::EFGUtils qw( is_gzipped get_file_format );
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
-use vars qw(@ISA); 
+use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Funcgen);
 
@@ -82,6 +82,10 @@ use vars qw(@ISA);
 sub new {
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
+
+	#my $file = '/nfs/users/nfs_n/nj1/scratch/peaks/rfbug_homo_sapiens_funcgen_58_37c/peaks_out/SWEmbl_DNase/CD4_DNase1_*';
+	#my @tmp = `ls $file`;
+	#throw("FOUND @tmp") if @tmp;
 
     $self->read_and_check_config($CONFIG);
 
@@ -181,8 +185,6 @@ sub check_Sets {
     
     if (! defined $iset){
 
-	  warn "Need to add subset support here!";
-	  
 	  $iset = Bio::EnsEMBL::Funcgen::InputSet->new
             (
              -name         => $iset_name,
@@ -195,13 +197,28 @@ sub check_Sets {
              #-analysis     => $self->feature_analysis,
 			);
 	  
+	  $iset->add_new_subset($self->input_id);
+
 	  print "Storing new InputSet:\t$iset_name\n";
 	  ($iset)  = @{$isa->store($iset)};
 
 	}
 	else{
+	  #We only expect one subset here
+	  #And it should be named as this input_id
 	  print "InputSet already exists:\t$iset_name\n";
-	  warn "Need to validate InputSubsets here";
+	  my @issets = @{$iset->get_InputSubsets};
+
+	  if(scalar(@issets) > 1){
+		throw("InputSet $iset_name has more than one InputSubset:\t".join("\t", (map $_->name, @issets)));
+	  }
+	  elsif((scalar(@issets) == 1) &&
+			($issets[0]->name ne $self->input_id)){
+		throw("InputSet $iset_name already has an InputSubset(".$issets[0]->name.") which does not match ".$self->input_id);
+	  }
+	  else{#we can just add this InputSubset
+		$iset->add_new_subset($self->input_id);
+	  }
 	}
 
     my $fsa = $self->efgdb->get_FeatureSetAdaptor();
@@ -513,6 +530,7 @@ sub write_output{
 
 sub run{
   my ($self) = @_;
+
   foreach my $runnable(@{$self->runnable}){
     $runnable->has_control($self->HAS_CONTROL);
     $runnable->run;
