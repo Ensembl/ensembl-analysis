@@ -69,7 +69,7 @@ sub fetch_input {
   ##########################################
 
   my $target = $self->GENOMICSEQS;
-  my $query =  $self->QUERYSEQS;
+  my $query =  $self->QUERYSEQS; 
 
   if ( -e $target ){
     if(-d $target ) {
@@ -82,17 +82,32 @@ sub fetch_input {
   } else {
     throw("'$target' could not be found");
   }
-  
-  my ($chunk_number, $chunk_total);
+
+  my $input_id ; 
+  if ( $self->input_id =~m/::/) { 
+    # the input_id consistrs of 2 parts : input_id and db suffix . 
+    # this is to divert the input into diffeent databases.  
+    ( $input_id, my $output_db_hkey ) = split/\:\:/,$self->input_id ;     
+    $self->OUT_DB($output_db_hkey) ;  
+    warning("Using input_id-method to set output-database :$input_id::$output_db_hkey.Output will be written to : $output_db_hkey\n"); 
+  }else { 
+    $input_id = $self->input_id;
+  }  
+
+  my ($chunk_number, $chunk_total); 
+
+  if ( defined $self->EXTEND_QUERYSEQS_DIR_WITH_LOGIC_NAME && $self->EXTEND_QUERYSEQS_DIR_WITH_LOGIC_NAME  == 1 ) {  
+        $query=~s/\/$//;
+        $query.="/".$self->analysis->logic_name;
+  }  
 
   if (-e $query and -d $query) {
     # query seqs is a directory; input id will be a file in that directory
-    $query = "$query/" . $self->input_id;
+    $query = "$query/" . $input_id;
     if (not -e $query) {
       throw( "Query file '$query' does not exist'\n");
     }
-  }
-  elsif (-e $query and -s $query) {
+  } elsif (-e $query and -s $query) {
     # query seqs is a single file; input id will correspond to a chunk number
     my $iid_regexp = $self->IIDREGEXP;
     
@@ -100,7 +115,7 @@ sub fetch_input {
           "IIDREGEXP in config to enable inference of chunk number and total")
         if not defined $iid_regexp;
     
-    ($chunk_number, $chunk_total) = $self->input_id =~ /$iid_regexp/;
+    ($chunk_number, $chunk_total) = $input_id =~ /$iid_regexp/;
   } else {
     throw("'$query' refers to something that could not be made sense of\n");
   }
@@ -139,7 +154,6 @@ sub fetch_input {
 
 sub run {
   my ($self) = @_;
-
   throw("Can't run - no runnable objects") unless ( $self->runnable );
 
   my ($runnable) = @{$self->runnable};
@@ -150,12 +164,10 @@ sub run {
   if ($self->filter) {
     $features = $self->filter->filter_results($features);
   }
-  
   my $output_db = $self->create_output_db;
   $self->output_db($output_db) ;  
-
-  $self->process_features($features);
-  $self->output($features);
+  $self->process_features($features); # needs output db 
+  $self->output($features); 
 }
 
 ############################################################
@@ -163,9 +175,9 @@ sub run {
 sub write_output {
   my ( $self, @output ) = @_;
 
-  my $outdb = $self->output_db; 
+  my $outdb = $self->output_db;  
   my $fa = $outdb->get_DnaAlignFeatureAdaptor;
-
+  $outdb->disconnect_when_inactive(0); 
   foreach my $f (@{$self->output}){  
     eval{ 
       $fa->store($f);
@@ -174,6 +186,7 @@ sub write_output {
       $self->throw("Unable to store clone feature!\n $@");
     }
   }
+  $outdb->disconnect_when_inactive(1); 
 }
 
 ############################################################
@@ -184,6 +197,7 @@ sub process_features {
   my $slice_adaptor = $self->output_db->get_SliceAdaptor;
 
   my %genome_slices;
+  $self->output_db->disconnect_when_inactive(0); 
 
   foreach my $f (@$flist) {
 
@@ -191,31 +205,31 @@ sub process_features {
 
     # get the slice based on the seqname stamped on in the runnable
     my $slice_id = $f->seqname;
-
      if ( not exists $genome_slices{$slice_id} ) {
       # assumes genome seqs were named in the Ensembl API Slice naming
       # convention, i.e. coord_syst:version:seq_reg_id:start:end:strand
       $genome_slices{$slice_id} = $slice_adaptor->fetch_by_name($slice_id);
    }
     my $slice = $genome_slices{$slice_id};
- 
     $f->slice($slice);  
   }
-
+  $self->output_db->disconnect_when_inactive(1);
 }
 
 sub create_output_db {
   my ($self) = @_;
 
   my $outdb;
-  my $dnadb;
+  my $dnadb; 
 
-  if ( $self->OUTDB) {
-    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
+
+  if ( $self->OUTDB ) {
+     $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB });  
+     $outdb->disconnect_when_inactive(1);  # jhv removed 
   } else {
     $outdb = $self->db;
   } 
-  $self->db->disconnect_when_inactive(1); 
+  $self->db->disconnect_when_inactive(1);  # jhv removed 
   return $outdb;
 }
 
@@ -256,13 +270,7 @@ sub read_and_check_config {
   my $logic = $self->analysis->logic_name;
 
   # check that compulsory options have values
-  foreach my $config_var (
-    qw(
-      QUERYSEQS
-      QUERYTYPE
-      GENOMICSEQS      
-    )
-  ){
+  foreach my $config_var ( qw( QUERYSEQS QUERYTYPE GENOMICSEQS  )){
     if ( not defined $self->$config_var ){
       throw("You must define $config_var in config for logic '$logic'");
     }
@@ -270,7 +278,7 @@ sub read_and_check_config {
 
   # output db does not have to be defined, but if it is, it should be a hash
   if ($self->OUTDB && ref( $self->OUTDB ) ne "HASH") {
-    throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.");
+    warning("OUTDB in config for '$logic' must be a hash ref of db connection pars.");
   }
 
   if ($self->FILTER) {
@@ -307,6 +315,20 @@ sub QUERYSEQS {
 
   if ( exists( $self->{'_CONFIG_QUERYSEQS'} ) ) {
     return $self->{'_CONFIG_QUERYSEQS'};
+  } else {
+    return undef;
+  }
+} 
+
+sub EXTEND_QUERYSEQS_DIR_WITH_LOGIC_NAME {
+  my ( $self, $value ) = @_;
+
+  if ( defined $value ) {
+    $self->{'_CONFIG_EXTEND_QUERYSEQS_DIR_WITH_LOGIC_NAME'} = $value;
+  }
+
+  if ( exists( $self->{'_CONFIG_EXTEND_QUERYSEQS_DIR_WITH_LOGIC_NAME'} ) ) {
+    return $self->{'_CONFIG_EXTEND_QUERYSEQS_DIR_WITH_LOGIC_NAME'};
   } else {
     return undef;
   }
@@ -382,7 +404,8 @@ sub OUTDB {
   } else {
     return undef;
   }
-}
+} 
+
 
 sub OPTIONS {
   my ( $self, $value ) = @_;
@@ -418,5 +441,4 @@ sub PROGRAM {
 ###############################################
 ###     end of config
 ###############################################
-
 1;
