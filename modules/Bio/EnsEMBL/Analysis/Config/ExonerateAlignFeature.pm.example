@@ -44,7 +44,12 @@ use vars qw( %Config );
       
       GENOMICSEQS => '/path/to/genome/file/or/dir',
       QUERYTYPE   => 'dna',
-      QUERYSEQS   => '/path/to/query/file/or/dir',
+      QUERYSEQS   => '/path/to/query/file/or/dir', 
+
+      EXTEND_QUERYSEQS_DIR_WITH_LOGIC_NAME   => '0', # useful if you set up a lot of runs; QUERYSEQS will be used as root dir 
+                                                     # and extended with logic_name : $QUERYSEQS/$analysis->logic_name/chunk23.fa
+                                                     # This saves you adding QUERYSEQ dirs for ann logica names you're running,
+                                                     # if your chunk dir name equals your logic name.. 
 
       # the following is only needed if using chunking
       IIDREGEXP   => '(\d+):(\d+)',
