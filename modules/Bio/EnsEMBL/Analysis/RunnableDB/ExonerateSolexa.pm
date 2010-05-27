@@ -52,16 +52,18 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  $self->read_and_check_config($EXONERATE_SOLEXA_CONFIG_BY_LOGIC);
+  $self->read_and_check_config($EXONERATE_SOLEXA_CONFIG_BY_LOGIC);  
 
+  $self->db->disconnect_when_inactive(1);
   return $self;
 }
 
 
 sub run {
   my ($self) = @_;
- # do all the normal stuff
-  $self->SUPER::run();
+ # do all the normal stuff 
+ 
+  $self->SUPER::run(); 
   # filter the results carefully to only allow strict matches
   my $filtered_features = $self->filter_solexa($self->output);
   # Pair features together if they come from paired end reads
@@ -332,14 +334,17 @@ sub write_output {
   # Flag set to 1 = return a pipeline adaptor
   my $outdb; 
 
+   
   my $fa;
   if ( $self->COMPRESSION ) {
     # Flag set to 1 = return a pipeline adaptor 
-    # Remember you need to have the pipeline_tables in your OUT_DB if you like to use compression 
+    # Remember you need to have the pipeline_tables in your OUT_DB if you like to use compression  
     $outdb = $self->get_dbadaptor($self->OUT_DB, 'pipeline');
+    $outdb->disconnect_when_inactive(1);
     $fa = $outdb->get_CompressedDnaAlignFeatureAdaptor;
   } else {
-    if ( scalar @{$self->OUT_DBS} > 0 ) {
+    if ( defined $self->OUT_DBS && scalar @{$self->OUT_DBS} > 0 ) { 
+       
       # randomly pick an output db from an array of possible dbs
       my @dbs =  @{$self->OUT_DBS};
       my $number = int(rand(scalar(@dbs))) ;
@@ -348,12 +353,12 @@ sub write_output {
       $outdb = $self->get_dbadaptor($dbs[$number]);
       print STDERR "Picking db  " . $outdb->dbc->dbname ." out of ". scalar(@dbs) . " possible output databases\n";
 
-      $fa = $outdb->get_DnaAlignFeatureAdaptor;
     } else {
-      # return a NORMAL adaptor NOT a pipeline adaptor ...
-      $outdb = $self->get_dbadaptor($self->OUT_DB);
-      $fa = $outdb->get_DnaAlignFeatureAdaptor;
+      # return a NORMAL adaptor NOT a pipeline adaptor and dno not attach dna_db 
+      $outdb = $self->get_dbadaptor($self->OUT_DB,undef,1);  
     } 
+    $outdb->disconnect_when_inactive(1);
+    $fa = $outdb->get_DnaAlignFeatureAdaptor;
   }
 
   
@@ -443,7 +448,7 @@ sub OUT_DB {
   } else {
     return undef;
   }
-}
+} 
 
 sub COMPRESSION {
   my ($self,$value) = @_;
