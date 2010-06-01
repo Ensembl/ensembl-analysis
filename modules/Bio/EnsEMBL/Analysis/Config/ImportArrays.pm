@@ -152,7 +152,7 @@ use vars qw( %Config );
 	IMPORT_AFFY_UTR_ARRAYS => 
 	{
 	 IIDREGEXP => '^>probe:(\S+):(\S+):(\S+:\S+;).*$',
-	 
+	
 	 IFIELDORDER => {
 					 -name       => 2, -array_chip => 0,
 					 -array      => 0, -probe_set   => 1
@@ -164,6 +164,37 @@ use vars qw( %Config );
 	 {
 
 	  #Remove all the redundant values and set them in ImportArrays?
+
+	  Porcine =>  {
+						  -name => 'Porcine',
+						   -vendor => 'AFFY',
+						   #-setsize => undef,
+						   -format  => 'EXPRESSION',
+						   -type    => 'OLIGO',
+						   #-description => '',
+						   -class   => 'AFFY_UTR',
+						  },
+
+
+
+	  #Platypus
+	  #NOTE: This is not actually AFFY_UTR, but a custom array 
+	  #which we are treating the same. Remember to manually change
+	  #array.vendor/class to CUSTOM after RunTranscriptXrefs!
+
+	  #IIDREGEXP => '^>probe:(\S+):(\S+):(\S+);.*$',
+	  'platypus_exon' => {
+						  -name => 'platypus_exon',
+						   -vendor => 'CUSTOM',
+						   #-setsize => undef,
+						   -format  => 'EXPRESSION',
+						   -type    => 'OLIGO',
+						   #-description => '',
+						   -class   => 'CUSTOM',
+						  },
+					  
+
+
 
 	  #Frog
 	  'X_tropicalis' => {
@@ -628,18 +659,7 @@ use vars qw( %Config );
 	 	 
 	 ARRAY_PARAMS => {
 
-					  #Platypus
-					  #'RaEx-1_0-st-v1' => {
-					#					   -name => 'RaEx-1_0-st-v1',
-					#					   -vendor => 'AFFY',
-					#					   #-setsize => undef,
-					#					   -format  => 'EXPRESSION',
-					#					   -type    => 'OLIGO',
-					#					   #-description => '',
-					#					   -class   => 'AFFY_ST',
-					#					  },
-					  
-
+				
 
 					  #Rat
 					  'RaEx-1_0-st-v1' => {
@@ -747,7 +767,8 @@ use vars qw( %Config );
 										 #-description => '',
 										  -class   => 'ILLUMINA_WG',
 										},
-					  #No longer accesible via website?
+					  #V1 is no longer accesible via website?
+					  #Only on ftp site
 					  'HumanWG_6_V1' => {
 										 -name => 'HumanWG_6_V1',
 										 -vendor => 'ILLUMINA',
@@ -757,6 +778,19 @@ use vars qw( %Config );
 										 #-description => '',
 										  -class   => 'ILLUMINA_WG',
 										},
+
+					  'HumanHT-12' => {
+										 -name => 'HumanHT-12',
+										 -vendor => 'ILLUMINA',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'ILLUMINA_WG',
+										},
+
+
+
 
 					  'HumanWG_6_V2' => {
 										 -name => 'HumanWG_6_V2',
@@ -820,7 +854,8 @@ use vars qw( %Config );
 
 	IMPORT_AGILENT_ARRAYS => 
 	{
-	 IIDREGEXP => '^>(\S+):(\S+).*$',
+	 IIDREGEXP => '^>(\S+):(\S+).*$', #ORIG
+	 #IIDREGEXP => '^>(AgilentTiling):(.*)$', #HOLLY HACK
 	 
 	 IFIELDORDER => {
 					 -name       => 1,
@@ -830,6 +865,20 @@ use vars qw( %Config );
 					},
 	 	 
 	 ARRAY_PARAMS => {
+
+					  #Mouse Holly
+					  'AgilentTiling' => {
+									-name => 'AgilentTiling',
+									-vendor => 'AGILENT',
+									#-setsize => undef,
+									-format  => 'EXPRESSION',
+									-type    => 'OLIGO',
+									#-description => '',
+									-class   => 'AGILENT',
+								   },
+					  
+
+
 					  #Danio
 					  'G2518A' => {
 										 -name => 'G2518A',
@@ -849,6 +898,43 @@ use vars qw( %Config );
 										 #-description => '',
 										  -class   => 'AGILENT',
 										},
+					  #human/mouse/rat
+					  'WholeGenome' => {
+										 -name => 'WholeGenome',
+										 -vendor => 'AGILENT',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'AGILENT',	
+									   },
+
+					  #human
+					  #Change this to CGH?
+					  'CGH_44b' => {
+										-name => 'CGH_44b',
+										-vendor => 'AGILENT',
+										#-setsize => undef,
+										-format  => 'CGH',
+										-type    => 'OLIGO',
+										#-description => '',
+										-class   => 'AGILENT',	
+									   },
+
+					  #Celegans
+					  #This is mixed array and array_chip config
+					  'OligoArray_012795' => {
+											  -name => 'OligoArray',
+											  -vendor => 'AGILENT',
+											  #-setsize => undef,
+											  -format  => 'EXPRESSION',
+											  -type    => 'OLIGO',
+											  #-description => '',
+											  -class   => 'AGILENT',
+											  -design_id => '012795',#array_chip maybe this shoudl just be integrated into the name?
+											 },
+
+
 					 },
 	 
 	 INPUT_FORMAT => 'FASTA',
@@ -900,9 +986,10 @@ use vars qw( %Config );
 	 IIDREGEXP => '^>(\S+):(\S+).*$',
 	 
 	 IFIELDORDER => {
-					 -name       => 1,
-					 -array_chip => 0,
-					 -array      => 0,
+					 -name        => 1,
+					 -array_chip  => 0,
+					 -array       => 0,
+					 -description => 2,
 					 #-probe_set   => 2,#This could be annotation
 					},
 	 	 
@@ -935,8 +1022,47 @@ use vars qw( %Config );
 	 INPUT_FORMAT => 'FASTA',
 	},
 
+	#STEMPLE
 
-	#?
+	IMPORT_STEMPLE_LAB_SANGER_ARRAYS => 
+	{
+	 IIDREGEXP => '^>(\S+):(\S+).*$',#Need to add desc field here
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 #-probe_set   => 2,#This could be annotation
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  #Danio
+					  'MattArray1' => {
+									   -name => 'MattArray1',
+									   -vendor => 'STEMPLE_LAB_SANGER',
+									   #-setsize => undef,
+									   -format  => 'EXPRESSION',
+									   -type    => 'OLIGO',
+									   #-description => '',
+									   -class   => 'STEMPLE',
+										},
+					  
+					  
+					  'MattArray2' => {
+									   -name => 'MattArray2',
+									   -vendor => 'STEMPLE_LAB_SANGER',
+									   #-setsize => undef,
+									   -format  => 'EXPRESSION',
+									   -type    => 'OLIGO',
+									   #-description => '',
+									   -class   => 'STEMPLE',
+									  },
+					  
+					  
+					 },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
    
 
 
