@@ -483,8 +483,8 @@ sub write_output{
 	     -start         => $start,
 	     -end           => $end,
 	     -strand        => 0,
-	     #-display_label => $score,#
-	     -score         => $summit,#$score,
+	     -score         => $score,
+		 -summit        => $summit
 	     -feature_set   => $fset,
 	    );
 	  
