@@ -58,6 +58,8 @@ use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Funcgen::SWEmbl;
 
 use Bio::EnsEMBL::Funcgen::Utils::EFGUtils qw( is_gzipped get_file_format );
+use Bio::EnsEMBL::Funcgen::InputSet;
+use Bio::EnsEMBL::Funcgen::FeatureSet;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use vars qw(@ISA);
@@ -196,13 +198,11 @@ sub check_Sets {
 			 -feature_class => 'result'
              #-analysis     => $self->feature_analysis,
 			);
-	  
-	  $iset->add_new_subset($self->input_id);
-
 	  print "Storing new InputSet:\t$iset_name\n";
 	  ($iset)  = @{$isa->store($iset)};
-
-	}
+	  $iset->add_new_subset($self->input_id);
+	  $iset->adaptor->store_InputSubsets($iset->get_InputSubsets);
+  }
 	else{
 	  #We only expect one subset here
 	  #And it should be named as this input_id
@@ -216,10 +216,13 @@ sub check_Sets {
 			($issets[0]->name ne $self->input_id)){
 		throw("InputSet $iset_name already has an InputSubset(".$issets[0]->name.") which does not match ".$self->input_id);
 	  }
-	  else{#we can just add this InputSubset
+	  elsif(scalar(@issets) == 0){#we can just add this InputSubset
 		$iset->add_new_subset($self->input_id);
+		$iset->adaptor->store_InputSubsets($iset->get_InputSubsets);
 	  }
 	}
+
+
 
     my $fsa = $self->efgdb->get_FeatureSetAdaptor();
     my $fset = $fsa->fetch_by_name($set_name);
