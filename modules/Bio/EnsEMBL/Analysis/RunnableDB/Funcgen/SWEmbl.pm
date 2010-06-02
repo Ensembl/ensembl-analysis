@@ -487,7 +487,7 @@ sub write_output{
 	     -end           => $end,
 	     -strand        => 0,
 	     -score         => $score,
-		 -summit        => $summit
+		 -summit        => $summit,
 	     -feature_set   => $fset,
 	    );
 	  
