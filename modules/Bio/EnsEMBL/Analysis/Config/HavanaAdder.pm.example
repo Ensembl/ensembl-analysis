@@ -72,7 +72,6 @@ use vars qw( %GeneBuilder );
   GB_ENSEMBL_PSEUDO_GENETYPE => [ 'pseudogene', 'retrotransposed' ],
   # Biotype of Havana Pseudogenes and pseudotranscripts
   GB_HAVANA_PSEUDO_GENETYPE => [ 'pseudogene',
-                                 'IG_pseudogene',
                                  'processed_pseudogene',
                                  'transcribed_pseudogene',
                                  'transcribed_processed_pseudogene',
