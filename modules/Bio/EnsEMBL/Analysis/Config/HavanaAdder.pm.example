@@ -56,9 +56,6 @@ use vars qw( %GeneBuilder );
   GB_HAVANA_INPUT_GENETYPE =>
     [ 'protein_coding', 'polymorphic_pseudogene', 'nonsense_mediated_decay' ],
 
-  # Biotype of Havana transcripts
-  #GB_HAVANA_INPUT_TRANSCRIPTTYPES => ['protein_coding'],
-
   #Processed transcripts
   #
   # Biotype of "processed transcripts" in Ensembl and transcripts
