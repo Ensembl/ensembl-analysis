@@ -73,8 +73,6 @@ use vars qw( %ProteinAnnotation );
      },
      Prints => {
      },
-     scanprosite => {
-     },
      pfscan => {
      },
      Pfam => {
