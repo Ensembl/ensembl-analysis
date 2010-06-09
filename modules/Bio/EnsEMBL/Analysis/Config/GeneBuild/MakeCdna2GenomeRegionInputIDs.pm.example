@@ -1,0 +1,63 @@
+#
+#Additional config for creating the input IDs for running Exonerate2Genes 
+#to align cDNA to genomic regions using the cDNA2Genome model and location 
+#information from the latest cDNA update db
+#
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::MakeCdna2GenomeRegionInputIDs;
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+
+  CDNA2GENOME_REGION_CONFIG_BY_LOGIC => {
+
+    #Specifies the extra config needed for making the input IDs
+    #Other details to be completed in Exonerate2Genes.pm
+    #i.e. location of annotation file, directories sequence files
+    #will be written to here and read from when running Exonerate
+    DEFAULT => {
+      PIPE_DB               => undef,# HASH-key out of Databases.pm
+      GENE_DB               => undef,# HASH-key out of Databases.pm
+      SUBMIT_LOGIC_NAME     => undef,#logic name supplied as condition for running exonerate and output for input IDs
+      EXPANSION             => 2000,
+    },
+
+    Create_submit_exonerate => {
+      PIPE_DB               => "REFERENCE_DB",# HASH-key out of Databases.pm
+      GENE_DB               => "CDNA_DB",# HASH-key out of Databases.pm
+      SUBMIT_LOGIC_NAME     => 'Submit_exonerate',#logic name supplied as condition for running exonerate and output for input IDs
+    },
+
+  }
+);
+
+sub import {
+  my ($callpack) = caller(0);    # Name of the calling package
+  my $pack = shift;              # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys(%Config);
+  return unless @vars;
+
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join( ' ', map { '$' . $_ } @vars ) . ")";
+  die $@ if $@;
+
+  foreach (@vars) {
+    if ( defined $Config{$_} ) {
+      no strict 'refs';
+      # Exporter does a similar job to the following
+      # statement, but for function names, not
+      # scalar variables:
+      *{"${callpack}::$_"} = \$Config{$_};
+    } else {
+      die "Error: Config: $_ not known\n";
+    }
+  }
+} ## end sub import
+
+1;
+
