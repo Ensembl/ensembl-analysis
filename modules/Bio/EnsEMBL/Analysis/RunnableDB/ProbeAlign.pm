@@ -163,23 +163,23 @@ sub new {
   my ($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
 	
  
+  #This is causing redundant edb entries as parallel job store the same entry, which is not constrained by unique key.
+  #Need to store this before hand and fail here
+
   if(! $extdb_id){
-	print 'No external_db found for '.$self->{'mapping_type'}." mapping, inserting $db_name $schema_build";
-	
 	#status is dubious here as this should really be on object_xref
 	my $insert_sql = 'INSERT into external_db(db_name, db_release, status, dbprimary_acc_linkable, priority, db_display_name, type)'.
 	  " values('$db_name', '$schema_build', 'KNOWNXREF', 1, 5, '$display_name', 'MISC')";
+	throw("Failed to fetch external_db_id for $db_name $schema_build\nPlease add this record using the following sql:\n$insert_sql");
 
-	$self->outdb->db_handle->do($insert_sql);	
-	($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
 
-	#Now test again just to make sure the db_name fits!
-	
-	($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
-
-	if(! $extdb_id){
-	  throw("Failed to store external_db properly:\t$db_name $schema_build");
-	}
+	#print 'No external_db found for '.$self->{'mapping_type'}." mapping, inserting $db_name $schema_build";
+	#$self->outdb->db_handle->do($insert_sql);	
+	##Now test again just to make sure the db_name fits!
+	#($extdb_id) = $self->outdb->db_handle->selectrow_array($sql);
+	#if(! $extdb_id){
+	#  throw("Failed to store external_db properly:\t$db_name $schema_build");
+	#}
 
   }
 
