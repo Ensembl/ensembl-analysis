@@ -16,8 +16,8 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($submit_logic_name, $gene_db, $pipe_db, $expansion, $max_query) = rearrange(['SUBMIT_LOGIC_NAME', 'GENE_DB','PIPE_DB',
-  'EXPANSION','MAX_QUERY'], @args);
+  my ($submit_logic_name, $gene_db, $pipe_db, $expansion) = rearrange(['SUBMIT_LOGIC_NAME', 'GENE_DB','PIPE_DB',
+  'EXPANSION'], @args);
 
   #read default config entries
   #actually will read default twice by giving default as logic_name but also does some nice checking
@@ -30,14 +30,12 @@ sub new {
   $self->GENE_DB($ph->{-gene_db}) if $ph->{-gene_db};
   $self->PIPE_DB($ph->{-pipe_db}) if $ph->{-pipe_db};
   $self->EXPANSION($ph->{-expansion}) if $ph->{-expansion};
-  $self->MAX_QUERY($ph->{-max_query}) if $ph->{-max_query};
 
   #...which are over-ridden by constructor arguments. 
   $self->SUBMIT_LOGIC_NAME($submit_logic_name);
   $self->GENE_DB($gene_db);
   $self->PIPE_DB($pipe_db);
   $self->EXPANSION($expansion);
-  $self->MAX_QUERY($max_query);
 
   #Finally, analysis specific config
   #use uc as parse_config call above switches logic name to upper case
@@ -45,11 +43,10 @@ sub new {
   $self->GENE_DB(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{GENE_DB});
   $self->PIPE_DB(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{PIPE_DB});
   $self->EXPANSION(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{EXPANSION});
-  $self->MAX_QUERY(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{MAX_QUERY});
 
   #throw if something vital is missing
-  throw("Need to specify SUBMIT_LOGIC_NAME, GENE_DB, PIPE_DB, MAX_QUERY and EXPANSION.")
-  if(!$self->SUBMIT_LOGIC_NAME || !$self->GENE_DB || !$self->PIPE_DB || !$self->EXPANSION || !$self->MAX_QUERY);
+  throw("Need to specify SUBMIT_LOGIC_NAME, GENE_DB, PIPE_DB and EXPANSION.")
+  if(!$self->SUBMIT_LOGIC_NAME || !$self->GENE_DB || !$self->PIPE_DB || !$self->EXPANSION);
 
   return $self;
 }
@@ -156,14 +153,6 @@ sub get_pipe_dba{
     }
   }
   return $pipedba;
-}
-
-sub MAX_QUERY{
-  my ($self, $value) = @_;
-  if($value){
-    $self->{'MAX_QUERY'} = $value;
-  }
-  return $self->{'MAX_QUERY'};
 }
 
 sub EXPANSION{
