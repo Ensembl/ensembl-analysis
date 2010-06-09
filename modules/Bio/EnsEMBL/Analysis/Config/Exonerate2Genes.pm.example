@@ -66,9 +66,15 @@ use vars qw( %Config );
         # and files; new versions should therefore be listed in
         # the first directory.
         #
+        # If using Exonerate2GenesRegion.pm, you don't need to 
+        # specify anything as the genomic sequence
+        # corresponding to the slice name in the input id will 
+        # be retrieved from the pipeline/ref db.
+        #
         # format: A. '/your/soft/masked/genome.fa'
         #      or B. '/your/soft/masked/genomeDIR'
         #      or C. ['/your/soft/masked/genomeDIR_1', '/your/soft/masked/genomeDIR_2']
+        #      or D. Isn't read if using Exonerate2GenesRegion.pm, which will get seq from ref/pipeline db
         GENOMICSEQS         => '/your/soft/masked/genome.fa',
 
         QUERYTYPE           => undef,
@@ -87,6 +93,21 @@ use vars qw( %Config );
         # If program not defined, will look in program_file of analysis
         # table. Or will take default 0.8.3 if neither is defined.
         PROGRAM => undef,    # /usr/local/ensembl/bin/exonerate
+
+        #For use with Exonerate2GenesRegion 
+        #For specifying query seq index, such as indicate index
+        #indicate -d /dir/containing/seq -f seq_file_name 
+        #-i /path/to/dir/containing/index -p singleWordParser
+        #Note: if QUERYSEQS is defined and it is a directory containing a 
+        #file whose name matches the second half of the input ID (after ::), 
+        #it will use that file, not the specified index
+        SEQFETCHER_OBJECT     => 'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+        SEQFETCHER_PARAMS     => {
+          -db => ['/path/to/dir/containing/index/'],
+        },
+        #Which repeats to use for softmasking if getting genomic seq from db
+        SOFT_MASKED_REPEATS   => ['RepeatMask','Dust'],
+
       },
 
       EST_logicname => {
