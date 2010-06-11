@@ -102,7 +102,7 @@ sub run_analysis {
 
     throw($program." is not executable") if(! ($program && -x $program));
 
-    my @fields = (1,2,5,9);
+    my @fields = (1,2,6,9);
 	#removed seq_region_name 0 as this is now matched by the regex 
 	#in Runnable::Funcgen dependant no the input format
 	#Could infact just extend the regex to do the output field assignment instead of the split
@@ -134,9 +134,6 @@ sub run_analysis {
 	  #This will stop us overwriting
 	  throw("Results file already exists, please move away before running:\t$results_file");
 	}
-
-	
-
 
 
     $self->resultsfile($results_file);
