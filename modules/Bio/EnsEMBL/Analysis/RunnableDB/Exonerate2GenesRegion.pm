@@ -503,8 +503,25 @@ sub read_and_check_config {
   throw "Need to define SEQFETCHER_PARAMS -db dir or QUERYSEQS dir (with query seq file name 
   or acc in input id after ::).\n" if (not -d $index_params{-db}->[0]) and (not -d $self->QUERYSEQS);
 
-  throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
-      if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
+  #check that, if specified, query annotation is readable and contains an entry for the
+  #current query seq. If it tries to use annotation and there isn't an entry, Exonerate 
+  #may produce models on both strands.
+  if($self->QUERYANNOTATION and not -e $self->QUERYANNOTATION){
+    throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable");
+  }
+  elsif($self->QUERYANNOTATION){
+    my $acc = $self->query_acc;
+    open F, $self->QUERYANNOTATION or throw("Could not open supplied annotation file for reading");
+    my $unmatched = 1;
+    LINE: while(<F>) {
+      my @fields = split;
+      $unmatched = 0 if $fields[0] eq $acc;
+      last LINE if !$unmatched;
+    }
+    close(F);
+    throw ("No entry for ".$self->query_acc." in supplied query annotation 
+    file:".$self->QUERYANNOTATION."\n") if $unmatched;
+  }
 
   # filter does not have to be defined, but if it is, it should
   # give details of an object and its parameters
