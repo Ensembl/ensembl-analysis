@@ -16,8 +16,8 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($submit_logic_name, $gene_db, $pipe_db, $expansion) = rearrange(['SUBMIT_LOGIC_NAME', 'GENE_DB','PIPE_DB',
-  'EXPANSION'], @args);
+  my ($submit_logic_name, $gene_db, $pipe_db, $expansion, $annotation) = rearrange(['SUBMIT_LOGIC_NAME', 
+  'GENE_DB','PIPE_DB','EXPANSION','ANNOTATION'], @args);
 
   #read default config entries
   #actually will read default twice by giving default as logic_name but also does some nice checking
@@ -30,12 +30,14 @@ sub new {
   $self->GENE_DB($ph->{-gene_db}) if $ph->{-gene_db};
   $self->PIPE_DB($ph->{-pipe_db}) if $ph->{-pipe_db};
   $self->EXPANSION($ph->{-expansion}) if $ph->{-expansion};
+  $self->ANNOTATION($ph->{-annotation}) if $ph->{-annotation};
 
   #...which are over-ridden by constructor arguments. 
   $self->SUBMIT_LOGIC_NAME($submit_logic_name);
   $self->GENE_DB($gene_db);
   $self->PIPE_DB($pipe_db);
   $self->EXPANSION($expansion);
+  $self->ANNOTATION($annotation);
 
   #Finally, analysis specific config
   #use uc as parse_config call above switches logic name to upper case
@@ -43,10 +45,15 @@ sub new {
   $self->GENE_DB(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{GENE_DB});
   $self->PIPE_DB(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{PIPE_DB});
   $self->EXPANSION(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{EXPANSION});
+  $self->ANNOTATION(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{ANNOTATION});
 
   #throw if something vital is missing
   throw("Need to specify SUBMIT_LOGIC_NAME, GENE_DB, PIPE_DB and EXPANSION.")
   if(!$self->SUBMIT_LOGIC_NAME || !$self->GENE_DB || !$self->PIPE_DB || !$self->EXPANSION);
+
+  print "Annotation file is:".$self->ANNOTATION."\n";
+
+  throw("Annotation file ".$self->ANNOTATION." is not readable.") if (defined $self->ANNOTATION and not -e $self->ANNOTATION);
 
   return $self;
 }
@@ -75,7 +82,7 @@ sub run{
   my $expansion = $self->EXPANSION;
   my @iids;
 
-  foreach my $gene (@{$self->genes}){
+  GENE: foreach my $gene (@{$self->genes}){
     #Check that there is only one piece of supporting evidence per gene
     my @transcripts = @{ $gene->get_all_Transcripts };
     throw "Multi-transcript gene." if(scalar(@transcripts)>1);
@@ -86,7 +93,18 @@ sub run{
 
     #query
     my $hit_name = $evidence[0]->hseqname();
-
+    if($self->ANNOTATION){
+      open F, $self->ANNOTATION or throw("Could not open supplied annotation file for reading");
+      my $unmatched = 1;
+      LINE: while(<F>) {
+        my @fields = split;
+        $unmatched = 0 if $hit_name eq $fields[0];
+        last LINE if !$unmatched;
+      }
+      close(F);
+      print "WARNING: ".$hit_name." had no entry in annotation file.\n" if $unmatched;
+      next GENE if $unmatched;
+    } 
     #genomic
     my $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_transcript_id($transcript->dbID,$expansion);
 
@@ -101,7 +119,6 @@ sub run{
   @unique_ids{@iids} = ();
   @iids = keys %unique_ids;
   print "WARNING: ".scalar(@iids)." unique ids from ".$num_ids." generated ids.\n" if scalar(@iids)<$num_ids;
-
   $self->output(\@iids);
 }
 
@@ -170,6 +187,15 @@ sub SUBMIT_LOGIC_NAME{
   }
   return $self->{'SUBMIT_LOGIC_NAME'};
 }
+
+sub ANNOTATION{
+  my ($self, $value) = @_;
+  if($value){
+    $self->{'ANNOTATION'} = $value;
+  }
+  return $self->{'ANNOTATION'};
+}
+
 
 sub GENE_DB{
   my ($self, $value) = @_;
