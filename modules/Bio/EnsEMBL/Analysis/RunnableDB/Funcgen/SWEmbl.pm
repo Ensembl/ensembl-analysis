@@ -181,7 +181,7 @@ sub check_Sets {
         or throw("Cell type '$ct_name' does not exist");
     $self->cell_type($cell_type);
 
-	my $isa = $self->efgdb->get_InputSetAdaptor();
+    my $isa = $self->efgdb->get_InputSetAdaptor();
     my $iset = $isa->fetch_by_name($iset_name);
 
     
@@ -331,7 +331,7 @@ sub fetch_input {
 
 	if($file_format eq 'bed'){
 	  $sort = "gzip -dc ".$self->query.
-		" | sort -k1,1 -k2,2n -k3,3n | gzip -c > $cachefile |";
+		' | grep -vE "^MT" | sort -k1,1 -k2,2n -k3,3n | gzip -c > '.$cachefile.' |';
 	}
 	elsif($file_format eq 'sam'){
 	  #We need to preserve the header line beginning with @
@@ -345,13 +345,11 @@ sub fetch_input {
 	  #No other bits set for unmapped?
 	  #Not necessarily true!
 	  #Need to bitwise and this value!
-	  $sort = "gzip -dc ".$self->query.' | grep -vE \'^@\' | grep -vE "^[^[:space:]]+[[:blank:]]4[[:blank:]].*$" | sort -k3,3 -k4,4n | gzip -c > '.$cachefile.' |';
+	  $sort = "gzip -dc ".$self->query.' | grep -vE \'^@\' | grep -vE "^[^[:space:]]+[[:blank:]]4[[:blank:]].*$" | grep -vE "^[^[:space:]]+[[:blank:]][^[:space:]]+[[:blank:]][^[:space:]]+\:[^[:space:]]+\:MT\:" |sort -k3,3 -k4,4n | gzip -c > '.$cachefile.' |';
 	}
 	else{
 	  throw("$file_format file format not supported");
 	}
-
-
 
 	warn("Executing  $sort");
 	open(SORT, "$sort") or throw("Can't open and sort gzipped file ".$self->query);
