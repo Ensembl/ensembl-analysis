@@ -479,11 +479,14 @@ sub write_output {
   $outfile = $self->NAMES_FILE;
   open (OUTFILE, ">".$outfile) || throw("Failed to open ouput file:\t".$outfile);
 
+  #Should this be on the Array level?
+
   foreach my $aname(keys %{$self->{'_array_names'}}){
-	print OUTFILE $aname."\n";
 	$self->{'_array_names'}->{$aname}->add_status('IMPORTED');
+	$self->{'_array_names'}->{$aname}->add_status('DISPLAYABLE');
 	$self->{'_array_names'}->{$aname}->adaptor->store_states($self->{'_array_names'}->{$aname});
   }
+
 
   close(OUTFILE);
 
