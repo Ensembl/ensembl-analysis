@@ -184,6 +184,11 @@ sub check_Sets {
     my $isa = $self->efgdb->get_InputSetAdaptor();
     my $iset = $isa->fetch_by_name($iset_name);
 
+	#Strip the Experiment name off the input_id to give the
+	#file name for the input_subset.name
+	my $file_name;
+	($file_name = $self->input_id) =~ s/.*://;
+	
     
     if (! defined $iset){
 
@@ -200,12 +205,11 @@ sub check_Sets {
 			);
 	  print "Storing new InputSet:\t$iset_name\n";
 	  ($iset)  = @{$isa->store($iset)};
-	  $iset->add_new_subset($self->input_id);
+	  $iset->add_new_subset($file_name);
 	  $iset->adaptor->store_InputSubsets($iset->get_InputSubsets);
-  }
+	}
 	else{
 	  #We only expect one subset here
-	  #And it should be named as this input_id
 	  print "InputSet already exists:\t$iset_name\n";
 	  my @issets = @{$iset->get_InputSubsets};
 
@@ -213,11 +217,11 @@ sub check_Sets {
 		throw("InputSet $iset_name has more than one InputSubset:\t".join("\t", (map $_->name, @issets)));
 	  }
 	  elsif((scalar(@issets) == 1) &&
-			($issets[0]->name ne $self->input_id)){
-		throw("InputSet $iset_name already has an InputSubset(".$issets[0]->name.") which does not match ".$self->input_id);
+			($issets[0]->name ne $file_name)){
+		throw("InputSet $iset_name already has an InputSubset(".$issets[0]->name.") which does not match ".$file_name);
 	  }
 	  elsif(scalar(@issets) == 0){#we can just add this InputSubset
-		$iset->add_new_subset($self->input_id);
+		$iset->add_new_subset($file_name);
 		$iset->adaptor->store_InputSubsets($iset->get_InputSubsets);
 	  }
 	}
@@ -461,8 +465,7 @@ sub write_output{
 	  }
 		  
 
-	  #Could filter here based on score, score not very useful otherwise
-	  $summit = int($summit);#Round up?
+	  $summit = int($summit);#Round down
 	  
 	  # skip mito calls
 	  #remove this when we have pre-processing step to filter alignments using blacklist?
