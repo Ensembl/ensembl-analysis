@@ -14,6 +14,22 @@
  it reads the equivalent database from the
  Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases file.
 
+-all
+  This option will copy all genes from $sourcedbname to the output database
+
+-split 
+  This option will split multi-transcript genes into single-transcript genes
+
+- logic
+  This option will change the analysis of the genes being written to the 
+  output database to an analysis with the specified logic_name
+
+-remove_xrefs
+  Using this flag will remove stable IDs from genes/transcripts/translations
+
+-remove_stable_ids
+  Using this flag will remove stable_ids from genes/transcripts/translations/exons
+
 =head1 EXAMPLE
 
  perl copy_genes.pl -in_config_name COALESCER_DB -out_config_name UTR_DB \
@@ -21,7 +37,7 @@
 
  or
 
- perl copy_genes.pl -dbhost host -dbuser ensro -dbname est_db -outhost host1 \
+ perl copy_genes.pl -sourcehost host -sourceuser ensro -sourcedbname est_db -outhost host1 \
    -outuser user -outpass **** -outdbname utr_db -file gene_ids_to_copy
 
 =cut
@@ -30,17 +46,17 @@ use strict;
 use warnings;
 use Carp;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Utils::Exception qw ( throw warning ) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use Getopt::Long;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
-my $host      = '';
-my $user      = '';
-my $pass      = undef;
-my $dbname    = '';
-my $port      = 3306;
+my $sourcehost      = '';
+my $sourceuser      = '';
+my $sourcedbname    = '';
+my $sourceport      = 3306;
 
 my $outhost   = '';
 my $outuser   = '';
@@ -53,18 +69,21 @@ my $dnauser   = 'ensro';
 my $dnapass   = '';
 my $dnadbname = undef;
 my $dnaport   = 3306;
+
 my $in_config_name;
 my $out_config_name;
 
 my $logic;
 my $split = 0;
 my $infile;
+my $all;
+my $remove_xrefs;
+my $remove_stable_ids;
 
-GetOptions( 'dbhost:s'          => \$host,
-            'dbuser:s'          => \$user,
-            'dbpass:s'          => \$pass,
-            'dbname:s'          => \$dbname,
-            'dbport:n'          => \$port,
+GetOptions( 'sourcehost:s'      => \$sourcehost,
+            'sourceuser:s'      => \$sourceuser,
+            'sourcedbname:s'    => \$sourcedbname,
+            'sourceport:n'      => \$sourceport,
             'in_config_name:s'  => \$in_config_name,
             'out_config_name:s' => \$out_config_name,
             'outhost:s'         => \$outhost,
@@ -78,26 +97,34 @@ GetOptions( 'dbhost:s'          => \$host,
             'dnaport:n'         => \$dnaport,
             'logic:s'           => \$logic,
             'split!'            => \$split,
+            'all'               => \$all,
+            'remove_xrefs'      => \$remove_xrefs,
+            'remove_stable_ids' => \$remove_stable_ids,
             'file:s'            => \$infile );
 
-#print "Connecting to ".$dbname." at ".$host." ".$user."\n";
-my $db;
+if ($all && $infile) {
+  throw("Specify either -all or -infile");
+} elsif (!$all && !$infile) {
+  throw("Specify -all (to copy all genes from $sourcedbname) or -infile (to copy a list of gene_ids)");
+}
+
+#print "Connecting to ".$sourcedbname." at ".$sourcehost." ".$sourceuser."\n";
+my $sourcedb;
 if ($in_config_name) {
-  $db = get_db_adaptor_by_string($in_config_name);
+  $sourcedb = get_db_adaptor_by_string($in_config_name);
 } else {
 
-  $db =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
-                                        -user   => $user,
-                                        -pass   => $pass,
-                                        -port   => $port,
-                                        -dbname => $dbname );
+  $sourcedb =
+    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $sourcehost,
+                                        -user   => $sourceuser,
+                                        -port   => $sourceport,
+                                        -dbname => $sourcedbname );
 }
 
 my $dnadb;
 if ( !$dnadbname ) {
   my $dna_query = q(SELECT count(1) FROM dna);
-  my $dna_sth = $db->dbc->prepare($dna_query);
+  my $dna_sth = $sourcedb->dbc->prepare($dna_query);
   $dna_sth->execute();
   my $dna_count = $dna_sth->fetchrow;
 
@@ -112,26 +139,42 @@ if ( !$dnadbname ) {
                                         -port   => $dnaport,
                                         -dbname => $dnadbname );
 
-  $db->dnadb($dnadb);
+  $sourcedb->dnadb($dnadb);
 }
 
-
-my $ga = $db->get_GeneAdaptor;
+my $ga = $sourcedb->get_GeneAdaptor;
 
 my @genes;
 my @copy_genes;
 
-open(INFILE, "<$infile") or die ("Can't read $infile $! \n");
-
-while(<INFILE>){
-  #print "$_";
-  chomp;
-  my $gene_id = $_;
-  my $gene    = $ga->fetch_by_dbID($gene_id);
-  empty_Gene($gene);
-  push( @copy_genes, $gene );
+if ($remove_xrefs && $remove_stable_ids) {
+  print STDERR "Fetching genes, removing xrefs and stable ids. (Adaptors and dbIDs also removed.)\n";
+} elsif ($remove_xrefs) {
+  print STDERR "Fetching genes, removing xrefs, keeping stable ids. (Adaptors and dbIDs also removed.)\n";
+} elsif ($remove_stable_ids) {
+  print STDERR "Fetching genes, removing stable ids, keeping xrefs. (Adaptors and dbIDs also removed.)\n";
+} else {
+  print STDERR "Fetching genes, keeping xrefs and stable IDs. (Adaptors and dbIDs removed.)\n";
 }
-close(INFILE);
+
+if ($infile) {
+  open(INFILE, "<$infile") or die ("Can't read $infile $! \n");
+  
+  while(<INFILE>){
+    #print "$_";
+    chomp;
+    my $gene_id = $_;
+    my $gene    = $ga->fetch_by_dbID($gene_id);
+    empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
+    push( @copy_genes, $gene );
+  }
+  close(INFILE);
+} elsif ($all) {
+  foreach my $gene (@{$ga->fetch_all()}) {
+    empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
+    push( @copy_genes, $gene );
+  }
+}
 
 my $outdb;
 if ($out_config_name) {
@@ -179,6 +222,6 @@ if (defined $logic) {
 
 foreach my $gene (@genes) {
   fully_load_Gene($gene);
-  empty_Gene($gene);
+  empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
   $outga->store($gene);
 }
