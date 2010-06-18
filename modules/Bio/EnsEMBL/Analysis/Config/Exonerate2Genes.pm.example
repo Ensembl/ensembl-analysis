@@ -80,6 +80,18 @@ use vars qw( %Config );
         QUERYTYPE           => undef,
         QUERYSEQS           => undef,
         QUERYANNOTATION     => undef,
+
+        # If your query sequences have not been checked against the 
+        # Ensembl kill_list,  bad sequences (e.g. chimeric cDNAs) might be
+        # present in the query file. You can exclude the bad sequences from 
+        # analysis by setting USE_KILL_LIST to "1" and specifying the
+        # molecular type of the queries to be killed ("cDNA" or "protein").
+        # A kill_list check will be done for the specified molecular type 
+        # before Exonerate is run.  
+        
+        USE_KILL_LIST       => 0,
+        KILL_TYPE           => undef,    # only "cDNA", "EST" or "protein" accepted here.
+        
         IIDREGEXP           => undef,
         OUTDB               => undef,
         FILTER              => undef,
@@ -118,6 +130,12 @@ use vars qw( %Config );
         QUERYTYPE => 'dna',
         QUERYSEQS => '/directory/with/EST/chunks',
 
+        # As of 17 Jun 2010, there are no killed ESTs in the kill_list DB.
+        # Therefore it's not necessary to do the kill_list check unless
+        # new EST entries will be added to the kill_list DB.
+        USE_KILL_LIST => 0,
+        KILL_TYPE => undef,  # set this to "EST" if "USE_KILL_LIST" is set to 1
+
         # CHANGE! You can now either submit all db-connection parameters
         # for OUTDB (old method ) - or you can just supply a string. The string
         # must be assigned to a database-connection in Databases.pm
@@ -145,6 +163,8 @@ use vars qw( %Config );
 
         QUERYTYPE => 'dna',
         QUERYSEQS => '/directory/with/cdna/chunks',
+        USE_KILL_LIST => 0,
+        KILL_TYPE => undef,  # set this to "cDNA" if USE_KILL_LIST is set to 1
 
         OUTDB => { -dbname => '',
                   -host   => '',
@@ -175,6 +195,9 @@ use vars qw( %Config );
 
         # QUERYSEQ can be a directory as well
         QUERYSEQS => '/file/containing/all/proteins.fa',
+
+        USE_KILL_LIST => 0,
+        KILL_TYPE => undef,  # set this to "protein" if USE_KILL_LIST is set to 1
 
         # Input id is a chunk id and chunk total
         IIDREGEXP => '(\d+):(\d+)',
