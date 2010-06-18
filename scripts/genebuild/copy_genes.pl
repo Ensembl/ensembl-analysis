@@ -56,6 +56,7 @@ my $dnaport   = 3306;
 my $in_config_name;
 my $out_config_name;
 
+my $logic;
 my $split = 0;
 my $infile;
 
@@ -75,6 +76,7 @@ GetOptions( 'dbhost:s'          => \$host,
             'dnauser:s'         => \$dnauser,
             'dnadbname:s'       => \$dnadbname,
             'dnaport:n'         => \$dnaport,
+            'logic:s'           => \$logic,
             'split!'            => \$split,
             'file:s'            => \$infile );
 
@@ -83,6 +85,7 @@ my $db;
 if ($in_config_name) {
   $db = get_db_adaptor_by_string($in_config_name);
 } else {
+
   $db =
     new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
                                         -user   => $user,
@@ -156,10 +159,26 @@ print STDERR "Fetched ".scalar(@genes)." genes\n";
 
 my $outga = $outdb->get_GeneAdaptor;
 
+if (defined $logic) {
+  my $analysis; 
+  $analysis = $outdb->get_AnalysisAdaptor->fetch_by_logic_name($logic);
+  if (!defined $analysis) {
+    $analysis = Bio::EnsEMBL::Analysis->new(
+                  -logic_name  => $logic,
+                                           ); 
+  }
+
+
+  foreach my $g (@genes) {
+    $g->analysis($analysis);
+    foreach my $t (@{$g->get_all_Transcripts}) {
+      $t->analysis($analysis);
+    }
+  }
+}
+
 foreach my $gene (@genes) {
-  eval {
-    fully_load_Gene($gene);
-    empty_Gene($gene);
-    $outga->store($gene);
-  };
+  fully_load_Gene($gene);
+  empty_Gene($gene);
+  $outga->store($gene);
 }
