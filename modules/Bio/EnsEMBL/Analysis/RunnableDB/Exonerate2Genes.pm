@@ -48,7 +48,8 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
-
+use Bio::EnsEMBL::KillList::KillList;
+use Bio::SeqIO;
 use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;
 
 use vars qw(@ISA);
@@ -180,6 +181,10 @@ sub fetch_input {
     if (not -e $query_file) {
       throw( "Query file '$query_file' does not exist'\n");
     }
+    if ($self->USE_KILL_LIST) {
+      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE, $self->input_id);
+      $self->filtered_query_file($query_file);
+    }  
   }
   elsif (-e $query and -s $query) {
     # query seqs is a single file; input id will correspond to a chunk number
@@ -191,6 +196,13 @@ sub fetch_input {
         if not defined $iid_regexp;
 
     ($chunk_number, $chunk_total) = $self->input_id =~ /$iid_regexp/;
+
+    ###
+    ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
+    ###
+    if ($self->USE_KILL_LIST) {
+      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE);
+    }
   } else {
     throw("'$query' refers to something that could not be made sense of\n");
   }
@@ -252,7 +264,10 @@ sub run{
     $runnable->run;     
     push ( @results, @{$runnable->output} );
   }
-
+  if ($self->USE_KILL_LIST) {
+    unlink $self->filtered_query_file;
+    # print "Removed temporary query file ".$self->filtered_query_file."\n";
+  }
   if ($self->filter) {
     my $filtered_transcripts = $self->filter->filter_results(\@results);
     @results = @$filtered_transcripts;
@@ -455,6 +470,15 @@ sub filter {
   return $self->{_transcript_filter};
 }
 
+############################################################
+
+sub filtered_query_file {
+  my ($self, $val) = @_;
+  if ($val) { 
+    $self->{_filtered_query_file} = $val;
+  }
+  return $self->{_filtered_query_file};
+}
 
 #############################################################
 # Declare and set up config variables
@@ -505,7 +529,6 @@ sub read_and_check_config {
       $self->filter($module->new(%{$pars}));
     }
   }
-
 }
 
 sub QUERYSEQS {
@@ -668,12 +691,79 @@ sub PROGRAM {
   }
 }
 
+sub USE_KILL_LIST {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_USE_KILL_LIST'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_USE_KILL_LIST'})) {
+    return $self->{'_CONFIG_USE_KILL_LIST'};
+  } else {
+    return undef;
+  }
+}
+
+sub KILL_TYPE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_KILL_TYPE'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_KILL_TYPE'})) {
+    return $self->{'_CONFIG_KILL_TYPE'};
+  } else {
+    return undef;
+  }
+}
+
+
+
 
 ###############################################
 ###     end of config
 ###############################################
 
+sub filter_killed_entries {
+  my ($orig_query_filename, $mol_type, $inputID) = @_;
+  my $kill_list_object = Bio::EnsEMBL::KillList::KillList
+      ->new(-TYPE => $mol_type);
+  my %kill_list = %{ $kill_list_object->get_kill_list() };
 
+  my $seqin  = new Bio::SeqIO(-file   => "<$orig_query_filename",
+                            -format => "Fasta",
+                          );
 
+  my $filtered_seqout_filename = "/tmp/$inputID"."_filtered";
+  print "Filename for my filtered sequence: $filtered_seqout_filename.\n";
+
+  my $seqout = new Bio::SeqIO(-file   => ">$filtered_seqout_filename",
+                              -format => "Fasta"
+                           );
+
+  while( my $query_entry = $seqin->next_seq ){
+    my $display_id  = $query_entry->display_id;
+    my $no_ver_id;
+    # Depending on the display ID's format, strip off the
+    # version number because the kill_list hash keys are
+    # without version numbers
+  
+    if ($display_id =~/\w+\.\d/) {
+      ($no_ver_id) = $display_id =~/(\w+)\.\d/;
+    } elsif ($display_id =~/\w+\-\d/) {
+      ($no_ver_id) = $display_id =~/(\w+)\-\d/;
+    } elsif ($display_id =~/\w+/ ) {
+      ($no_ver_id) = $display_id;
+    }
+    if ( !$kill_list{$no_ver_id} ) {
+      $seqout->write_seq($query_entry);
+    } elsif ( $kill_list{$no_ver_id} ) {
+      print "$mol_type $display_id is in the kill_list. Discarded from analysis.\n";
+    }
+  }
+  return $filtered_seqout_filename; 
+}    
 
 1;
