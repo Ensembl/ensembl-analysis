@@ -22,12 +22,14 @@ use vars qw( %Config );
       GENE_DB               => undef,# HASH-key out of Databases.pm
       SUBMIT_LOGIC_NAME     => undef,#logic name supplied as condition for running exonerate and output for input IDs
       EXPANSION             => 2000,
+      ANNOTATION            => undef,#path to annotation file
     },
 
     Create_submit_exonerate => {
       PIPE_DB               => "REFERENCE_DB",# HASH-key out of Databases.pm
       GENE_DB               => "CDNA_DB",# HASH-key out of Databases.pm
       SUBMIT_LOGIC_NAME     => 'Submit_exonerate',#logic name supplied as condition for running exonerate and output for input IDs
+      ANNOTATION            => '/path/to/file/with/cdna/annotation/if/using/cdna2genome',
     },
 
   }
