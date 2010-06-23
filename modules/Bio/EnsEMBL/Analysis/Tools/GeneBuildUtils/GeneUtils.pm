@@ -557,7 +557,12 @@ sub empty_Gene{
   foreach my $t(@{$gene->get_all_Transcripts}){
     empty_Transcript($t, $remove_stable_id, $remove_xrefs);
   }
-  $gene->display_xref(undef) if($remove_xrefs);
+  if ($remove_xrefs) {
+    $gene->display_xref(undef);
+    # It is naughty to go into the gene object
+    # but we have no API method to do this:
+    $gene->{'dbentries'} = [];
+  }
   empty_Object($gene, $remove_stable_id);
   return $gene;
 }
