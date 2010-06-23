@@ -95,7 +95,6 @@ use vars qw (@ISA @EXPORT);
              get_downstream_Intron_from_Exon
              get_upstream_splice_sites
              get_downstream_splice_sites
-             empty_Transcript
              fully_load_Transcript
              all_exons_are_valid
              print_Transcript
@@ -1823,7 +1822,13 @@ sub empty_Transcript{
     }
     empty_Object($e, $remove_stable_id);
   }
-  $transcript->display_xref(undef) if($remove_xrefs);
+  if($remove_xrefs) {
+    $transcript->display_xref(undef);
+    # It is naughty to go into the transcript & translation object
+    # but we have no API method to do this:
+    $transcript->{'dbentries'} = [];
+    $transcript->translation->{'dbentries'} = [];
+  }
   empty_Object($transcript, $remove_stable_id);
   return $transcript;
 }
