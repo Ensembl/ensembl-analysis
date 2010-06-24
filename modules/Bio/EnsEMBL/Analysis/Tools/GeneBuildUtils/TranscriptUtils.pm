@@ -1787,6 +1787,7 @@ sub fully_load_Transcript{
   $keep_xrefs = 1 if(!defined($keep_xrefs));
 
   if ($transcript->translation) {
+    $transcript->get_all_alternative_translations();
     $transcript->translate;
     $transcript->translation->get_all_Attributes;
     $transcript->translation->get_all_DBEntries if($keep_xrefs);
