@@ -203,12 +203,12 @@ sub length {
 sub strand {
   my ($self, $strand) = shift;
 
-  if ( $self->{_cached_strand} ) {
-    print "Strand called, but ignoring\n";
-    return 0;
-  }
-
   if ($strand) {
+    if ( $self->{_cached_strand} ) {
+      print "Strand called, but ignoring\n";
+      return 0;
+    }
+
     $self->{_cached_strand} = $strand ;
   }
 
@@ -609,9 +609,7 @@ sub get_exon_clustering_from_gene_cluster {
   # building Transcript-Cluster 
   #my $tc = genes_to_Transcript_Cluster(\@clg);
   my $tc = $self->get_TranscriptCluster ($ignore_strand); 
-
   my @exon_clusters = @{$tc->get_ExonCluster_using_all_Exons($ignore_strand)} ; 
-
   if (defined $tc->strand && $tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
   } elsif (defined $tc->strand && $tc->strand eq '-1') {
@@ -676,7 +674,6 @@ sub get_coding_exon_clustering_from_gene_cluster {
 sub get_TranscriptCluster {
   my ($self, $ignore_strand) = @_;
   #my ($genes_or_predTrans) = @_;
-
   my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
   print "building new TranscriptCluster\n"  if $self->{v};
     

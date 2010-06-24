@@ -196,12 +196,12 @@ sub length {
 sub strand {
   my ($self, $strand) = @_ ;
 
-  if ( $self->{_strand} ) {
-    print "Strand called, but ignoring\n";
-    return 0;
-  }
-
   if ($strand) {
+    if ( $self->{_strand} ) {
+      print "Strand called, but ignoring\n";
+      return 0;
+    }
+
     $self->{_strand} = $strand ;
   }
 
