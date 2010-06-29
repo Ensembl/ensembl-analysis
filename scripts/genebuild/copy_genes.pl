@@ -79,28 +79,30 @@ my $infile;
 my $all;
 my $remove_xrefs;
 my $remove_stable_ids;
+my $with_transform_to;
 
-GetOptions( 'sourcehost:s'      => \$sourcehost,
-            'sourceuser:s'      => \$sourceuser,
-            'sourcedbname:s'    => \$sourcedbname,
-            'sourceport:n'      => \$sourceport,
-            'in_config_name:s'  => \$in_config_name,
-            'out_config_name:s' => \$out_config_name,
-            'outhost:s'         => \$outhost,
-            'outuser:s'         => \$outuser,
-            'outpass:s'         => \$outpass,
-            'outdbname:s'       => \$outdbname,
-            'outport:n'         => \$outport,
-            'dnahost:s'         => \$dnahost,
-            'dnauser:s'         => \$dnauser,
-            'dnadbname:s'       => \$dnadbname,
-            'dnaport:n'         => \$dnaport,
-            'logic:s'           => \$logic,
-            'split!'            => \$split,
-            'all'               => \$all,
-            'remove_xrefs'      => \$remove_xrefs,
-            'remove_stable_ids' => \$remove_stable_ids,
-            'file:s'            => \$infile );
+GetOptions( 'sourcehost:s'        => \$sourcehost,
+            'sourceuser:s'        => \$sourceuser,
+            'sourcedbname:s'      => \$sourcedbname,
+            'sourceport:n'        => \$sourceport,
+            'in_config_name:s'    => \$in_config_name,
+            'out_config_name:s'   => \$out_config_name,
+            'outhost:s'           => \$outhost,
+            'outuser:s'           => \$outuser,
+            'outpass:s'           => \$outpass,
+            'outdbname:s'         => \$outdbname,
+            'outport:n'           => \$outport,
+            'dnahost:s'           => \$dnahost,
+            'dnauser:s'           => \$dnauser,
+            'dnadbname:s'         => \$dnadbname,
+            'dnaport:n'           => \$dnaport,
+            'logic:s'             => \$logic,
+            'split!'              => \$split,
+            'all'                 => \$all,
+            'remove_xrefs'        => \$remove_xrefs,
+            'remove_stable_ids'   => \$remove_stable_ids,
+            'with_transform_to:s' => \$with_transform_to,
+            'file:s'              => \$infile );
 
 if ($all && $infile) {
   throw("Specify either -all or -infile");
@@ -222,6 +224,10 @@ if (defined $logic) {
 
 foreach my $gene (@genes) {
   fully_load_Gene($gene);
+  if ($with_transform_to) {
+    my $transformed_gene = $gene->transform( 'chromosome', $with_transform_to );
+    $gene = $transformed_gene ;
+  }
   empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
   $outga->store($gene);
 }
