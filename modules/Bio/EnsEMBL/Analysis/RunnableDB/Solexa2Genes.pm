@@ -71,7 +71,7 @@ sub new{
 =cut
 
 sub fetch_input {
-  my ($self) = @_;
+  my ($self) = @_; 
 
   # store some adaptors
   $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
@@ -196,8 +196,15 @@ sub write_output{
   
   foreach my $gene ( @genes ) {
     $gene->analysis($self->analysis);
-    $gene->source($self->analysis->logic_name);
-    $gene->biotype('rough');
+    $gene->source($self->analysis->logic_name);  
+
+    if ( $self->USE_ANALYSIS_LOGIC_NAME_AS_DEFAULT_GENE_OUTPUT_BIOTYPE == 1 ) {  
+      print "using logic_name : " . $self->analysis->logic_name . " as biotype for gene\n"; 
+      $gene->biotype($self->analysis->logic_name);
+    }else { 
+      $gene->biotype('rough');
+    }  
+
     my $tran = $gene->get_all_Transcripts->[0];
     print "FILTERING " . $tran->start ." " , $tran->end ." ";
     # Filter models before writing them
@@ -985,7 +992,21 @@ sub  MIN_SINGLE_EXON_LENGTH{
   } else {
     return 0;
   }
-}
+} 
+
+
+sub USE_ANALYSIS_LOGIC_NAME_AS_DEFAULT_GENE_OUTPUT_BIOTYPE {  
+  my ($self,$value) = @_;
+
+  if ( defined $value ) {  
+     $self->{'_CONFIG_USE_ANALYSIS_LOGIC_NAME_AS_DEFAULT_GENE_OUTPUT_BIOTYPE'} = $value;
+  }  
+  if (exists($self->{'_CONFIG_USE_ANALYSIS_LOGIC_NAME_AS_DEFAULT_GENE_OUTPUT_BIOTYPE'})) {
+    return $self->{'_CONFIG_USE_ANALYSIS_LOGIC_NAME_AS_DEFAULT_GENE_OUTPUT_BIOTYPE'};
+  } else {
+    return 0;
+  }
+} 
 
 sub MIN_EXONS {
   my ($self,$value) = @_;
