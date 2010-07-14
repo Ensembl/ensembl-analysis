@@ -33,6 +33,7 @@ Performs various checks on a Bio::EnsEMBL::Transcript object. These include:
  10. ATG immediately after 5' UTR (warning)
  11. There are supporting features for every exon (warning)
  12. The translation is not all X
+ 13. Transcript with no transcript_supporting_features
 
 This class does not use stable_ids but instead dbIDs because stable_ids are
 not set until after the gene build.
@@ -413,6 +414,11 @@ sub check {
   }
 
   $self->check_Supporting_Evidence(\@sortedexons);
+
+  # check transcript supporting evidence
+  if (!scalar(@{$transcript->get_all_supporting_features})) {
+    $self->add_Error("No supporting evidence for transcript ".$transcript->dbID ."\n",'nosupport');
+  }
 }
 
 sub check_Phases {
