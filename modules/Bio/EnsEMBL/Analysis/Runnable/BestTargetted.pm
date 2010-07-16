@@ -307,7 +307,7 @@ sub get_best_gene {
   print "Finding best gene for protein $protein...\n";
 
   if (scalar(@doubles) > 0) {
-    print "We ave doubles so let's just use them\n";
+    print "We have doubles so let's just use them\n";
     OUTER: foreach my $biotype (@$biotypes) {
       INNER: foreach my $type (@doubles) {
         if ($biotype eq $type) {
@@ -363,13 +363,13 @@ sub get_best_gene {
     @best = ( $match_pep[0] );
 
   } elsif (scalar(@match_pep > 1)) {
-    print "More than one exact match to protein.\n"; 
+    print "Have ". scalar(@match_pep) ." exact matches to protein.\n"; 
     if (scalar(@doubles) > 0) {
       print "Have doubles and more than one match to the protein.\n";
       $exonerate = 1;
     } else {
       print "Keeping first gene ".$match_pep[0]->dbID.
-            " from array as we prefer it's analysis (".$match_pep[0]->biotype.")\n";
+            " from array as we prefer its analysis (".$match_pep[0]->biotype.")\n";
       @best = ( $match_pep[0] );
     }
 
@@ -380,7 +380,7 @@ sub get_best_gene {
     # take the first gene if they're all the same
     if (($num_genes > 1) && (scalar(keys %tln_groups) == 1) && (scalar(@doubles < 1))) {
       print "All transcripts have the same translated sequence. \nKeeping first gene ".$tln_groups{$tln_seq}->[0]->dbID.
-            " from array as we prefer it's analysis (".$tln_groups{$tln_seq}->[0]->biotype.")\n";
+            " from array as we prefer its analysis (".$tln_groups{$tln_seq}->[0]->biotype.")\n";
       print "*** Maybe we should exonerate or look at exon structure to decide what to choose?\n";
       @best = ( $tln_groups{$tln_seq}->[0] );
     } else {
