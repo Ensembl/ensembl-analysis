@@ -36,7 +36,7 @@ sub database_hash{
 
   Arg [0]   : Bio::EnsEMBL::Analysis::RunnableDB
   Arg [1]   : String - key of database hash
-  Arg [2]   : return a pipeline db adaptor flag 
+  Arg [2]   : return a non-standard adaptor [ valie values : 'pipeline' 'compara' 'functgenomics' or undef ] 
   Arg [3]   : flag to attch dna_db nor not 
 
   Function  : Returns a Bio::EnsEMBL::DBSQL::DBAdaptor for a given hash key.
@@ -66,13 +66,10 @@ sub get_dbadaptor {
                  . "Argument : $arg missing in Databases.pm for $name \n" );
         }
       }
-      if ( defined $non_standard_db_adaptor ) {
-        if (    $non_standard_db_adaptor =~ m/1/
-             || $non_standard_db_adaptor eq "pipeline" )
-        {
+      if ( defined $non_standard_db_adaptor ) { # value of 
+        if (    $non_standard_db_adaptor =~ m/1/ || $non_standard_db_adaptor eq "pipeline" ) {
           require Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
-          $db =
-            Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new( %$constructor_args );
+          $db = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new( %$constructor_args );
 
         } elsif ( $non_standard_db_adaptor =~ m/compara/ ) {
           require Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
@@ -117,7 +114,10 @@ sub get_dbadaptor {
           # species in our "Databases.pm" file. We need to avoid that the wrong
           # dna db is attached, ie a mouse core with a human dna db.
 
-          print "\nAttaching DNA_DB to $name...\n";
+          print "\nAttaching DNA_DB $DNA_DBNAME to $name...\n"; 
+          if ( length ( $DNA_DBNAME ) == 0 ) {  
+            throw("you're using an empty string as dna_dbname in your Databases.pm config"); 
+          } 
           my $dnadb = $self->get_dbadaptor($DNA_DBNAME);
 
           # try to get default asm+ species name for OTHER db - does not work
