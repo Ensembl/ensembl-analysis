@@ -59,7 +59,7 @@ sub fetch_input {
   # do all the normal stuff
   $self->SUPER::fetch_input();
   # then get all the transcripts and exons
-  my $trans_db = $self->get_dbadaptor($self->TRANSDB);
+  my $trans_db = $self->get_dbadaptor($self->TRANSDB); 
   my $trans_adaptor = $trans_db->get_TranscriptAdaptor;
   my %trans_by_id;
   my $biotype = $self->BIOTYPE;
@@ -70,6 +70,7 @@ sub fetch_input {
   } else {
     push @trans , @{$trans_adaptor->fetch_all(undef,undef,undef)};
   }
+  $trans_db->disconnect_when_inactive(1);
   
   foreach my $trans ( @trans ) {
     $trans_by_id{$trans->display_id} = $trans;
