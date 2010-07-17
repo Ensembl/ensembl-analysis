@@ -39,7 +39,7 @@ use vars qw( %Config );
              # The database connections used are defined in 
              # Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
              # Single Database to write the output features into
-             OUT_DB   => '',
+             OUT_DB   => '',  # SOLEXA_STAGE_3
 	     # Alternately an array of databases to write into, saves the individual databases getting too slow
              OUT_DBS   =>  => [''],
 
@@ -66,12 +66,18 @@ use vars qw( %Config );
              # Database to fetch the trancripts from
              TRANSDB => '',
              # Biotype of the transcripts to fetch ( if left blank all transcripts are fetched )
-             BIOTYPE => 'protein_coding',
+              TRANSCRIPT_BIOTYPE => 'protein_coding' , 
              # If set to 1 only reads supporting introns will be written to the database 
              INTRON_MODELS => '1',
 	     # Reads must cross an intron bounday by at least this many bases
 	     INTRON_OVERLAP => '9',
        	     },
+
+             lane1_rough_intron => {
+                                    PAIR      =>  '0',
+                                    TRANSCRIPT_BIOTYPE   =>  'lane1_rough', # biotype of the transcripts in the TRANSDB database 
+                                   },
+
      }
 );
 
