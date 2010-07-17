@@ -60,18 +60,22 @@ sub fetch_input {
   $self->SUPER::fetch_input();
   # then get all the transcripts and exons
   my $trans_db = $self->get_dbadaptor($self->TRANSDB); 
+  $trans_db->disconnect_when_inactive(1);
   my $trans_adaptor = $trans_db->get_TranscriptAdaptor;
   my %trans_by_id;
-  my $biotype = $self->BIOTYPE;
+  my $biotype = $self->TRANSCRIPT_BIOTYPE;
   my @trans;
-  # fetch genes, transcripts
-  if ( $biotype ){
+  # fetch genes, transcripts 
+  if ( $biotype ){ 
+    print "MSG: fetching transcripts of biotype $biotype !\n"; 
     push @trans , @{$trans_adaptor->generic_fetch("biotype = \"$biotype\"")};
   } else {
     push @trans , @{$trans_adaptor->fetch_all(undef,undef,undef)};
   }
-  $trans_db->disconnect_when_inactive(1);
-  
+  $self->db->dnadb()->disconnect_when_inactive(1); 
+ 
+  print scalar(@trans) . " transcripts fetched \n";   
+
   foreach my $trans ( @trans ) {
     $trans_by_id{$trans->display_id} = $trans;
   }
