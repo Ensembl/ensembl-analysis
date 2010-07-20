@@ -277,6 +277,8 @@ GENE:
         # one that shares CDS and UTR. This was added so only the best
         # matching havana/ensembl pair is chosen and to avoid a one
         # to many link
+
+        # TODO: have a closer look at the code here.
         if ($delete_t) {
           if ( $delete_t == $et ) {
             print "--->>> I'm deleting matching transcript: " . $delete_t . "\n";
@@ -342,6 +344,7 @@ sub are_matched_pair {
 
   my $non_coding_h = 0;
 
+  # Keep track if the havana transcript is coding or not via its exons
   my @thexons = @{ $havana->get_all_translateable_Exons };
   if ( !@thexons || @thexons == 0 ) {
     $non_coding_h = 1;
@@ -354,7 +357,6 @@ sub are_matched_pair {
   print "____________________________________\n";
   print "HAVANA ID: ",$havana->dbID, " ENSEMBL: ",$ensembl->dbID,"\n";
   print "HAVANA ID: ",$havana->stable_id, " ENSEMBL: ",$ensembl->stable_id,"\n";
-
 
   print "\nEnsembl trans dbID: " . $ensembl->dbID . "\tbiotype: " . $ensembl->biotype. "\n";
   print "no. of exons: " . scalar(@{ $ensembl->get_all_Exons }) . "\n";
@@ -433,6 +435,19 @@ sub are_matched_pair {
       return $ensembl;
     }
   } elsif ( $non_coding_h != $non_coding_e ) {
+    if ( $non_coding_e == 2 ) {
+      print "===>>> incomplete ensembl models, will not be merged\n";
+      # Any transcript coming here should be deleted as we don't want to have
+      # to have them in the merge set.
+
+      print "Not full_length ensembl transcript, will be deleted: " . $ensembl->dbID . "\n";
+      print "\tFull-length: $full_length_cdnas\n"
+        . "\t5' complete: $complete_5\n"
+        . "\tIncomplete: $incomplete\n";
+
+      return $ensembl;
+    }
+
     print "\n===>>> coding and non-coding overlap <<<===\n";
     # This is a case of a pseudogene overlapping a coding gene so by
     # now we keep both.
@@ -535,19 +550,6 @@ sub are_matched_pair {
         return $ensembl;
       }
     } ## end if ( $non_coding_e == ...
-
-    if ( $non_coding_e == 2 ) {
-      print "===>>> incomplete ensembl models, will not be merged\n";
-      # Any transcript coming here should be deleted as we don't want to have
-      # to have them in the merge set.
-
-      print "Not full_length ensembl transcript, will be deleted: " . $ensembl->dbID . "\n";
-      print "\tFull-length: $full_length_cdnas\n"
-        . "\t5' complete: $complete_5\n"
-        . "\tIncomplete: $incomplete\n";
-
-      return $ensembl;
-    }
 
   } elsif ( $non_coding_h == 0 && $non_coding_e == 0 ) {
 
