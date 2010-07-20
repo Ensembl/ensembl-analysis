@@ -281,7 +281,7 @@ GENE:
         # TODO: have a closer look at the code here.
         if ($delete_t) {
           if ( $delete_t == $et ) {
-            print "--->>> I'm deleting matching transcript: " . $delete_t . "\n";
+            print "--->>> I'm deleting matching transcript: " .  $delete_t->dbID . "\n";
             $delete_trans = $delete_t;
             @t_pair = ( $ht, $et );
           } elsif ( $delete_trans != $et && $delete_t == $ht ) {
