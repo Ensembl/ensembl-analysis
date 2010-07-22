@@ -168,7 +168,7 @@ use vars qw( %Config );
              OUTPUT_BIOTYPE => 'similarity',
              BIOTYPES_TO_MASK => ['targetted'],
              SEQFETCHER_PARAMS => {
-                                   -db => ['/data/blastdb/Ensembl/uniprot_index']
+                                   -db => ['/data/blastdb/Supported/uniprot_index']
                                   },
              PAF_MIN_SCORE_THRESHOLD => 200,
              FILTER_PARAMS => {
