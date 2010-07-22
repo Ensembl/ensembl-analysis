@@ -1,7 +1,6 @@
 #
 # Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
 #
-# written by Michele Clamp
 #
 # You may distribute this module under the same terms as perl itself
 #
