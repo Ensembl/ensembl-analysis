@@ -14,10 +14,9 @@ Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder
 
 =head1 SYNOPSIS
 
-    my $obj = Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder->new(
-								    -db        => $db,
-								    -input_id  => $id,
-								    );
+    my $obj = Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder->new( -db       => $db,
+                                                                    -input_id => $id,
+      );
     $obj->fetch_input
     $obj->run
 
@@ -32,7 +31,7 @@ Describe contact details here
 
 =head1 APPENDIX
 
-The rest of the documentation details each of the object methods. 
+The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _
 
 =cut
@@ -50,13 +49,13 @@ use Bio::EnsEMBL::Analysis::Runnable::HavanaAdder;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-use Bio::EnsEMBL::Analysis::Config::HavanaAdder            qw (
-                                                               GB_ENSEMBL_INPUT_GENETYPE
-                                                               HAVANA_GENE_OUTPUT_BIOTYPE
-                                                               MERGED_GENE_OUTPUT_BIOTYPE
-                                                               ENSEMBL_GENE_OUTPUT_BIOTYPE
-                                                               MERGED_TRANSCRIPT_OUTPUT_TYPE
-                                                              );
+use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
+  GB_ENSEMBL_INPUT_GENETYPE
+  HAVANA_GENE_OUTPUT_BIOTYPE
+  MERGED_GENE_OUTPUT_BIOTYPE
+  ENSEMBL_GENE_OUTPUT_BIOTYPE
+  MERGED_TRANSCRIPT_OUTPUT_TYPE
+);
 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
@@ -189,12 +188,17 @@ sub fetch_input {
   # database where the ensembl genebuild genes are located
   my $ensembl_db = $self->get_dbadaptor("PSEUDO_DB");
 
-  print "ENSEMBL DB : ", $ensembl_db->dbname, "\n";
+  print "ENSEMBL DB: ", $ensembl_db->dbname, "\n";
 
   # database with the Havana Vega genes to import
   my $havana_db = $self->get_dbadaptor("HAVANA_DB");
 
-  print "HAVANA DB : ", $havana_db->dbname, "\n";
+  print "HAVANA DB: ", $havana_db->dbname, "\n";
+
+  # Database with the CCDS models
+  my $ccds_db = $self->get_dbadaptor("CCDS_DB");
+
+  print "CCDS DB: " . $ccds_db->dbname . "\n";
 
   # Database that contains the DNA sequence
   my $ref_db = $self->get_dbadaptor("REFERENCE_DB");
@@ -216,6 +220,7 @@ sub fetch_input {
   $genebuilder->discarded_db($discarded_db);
   $genebuilder->ensembl_db($ensembl_db);
   $genebuilder->havana_db($havana_db);
+  $genebuilder->ccds_db($ccds_db);
 
   # store the object and the piece of genomic where it will run
   $self->addgenebuilder( $genebuilder, $self->query );
