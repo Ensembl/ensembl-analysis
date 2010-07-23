@@ -140,7 +140,7 @@ sub pair_features {
 		 $bfeat->start - $afeat->end <= $self->PAIREDGAP ) or
 	       # they overlap
 	       ( $afeat->start   <= $bfeat->end && 
-		 $bfeat->end >= $afeat->start )) {
+		 $afeat->end     >= $bfeat->start )) {
 	    # they should be oriented pointing towards each other on
 	    # opposite strands...
 	    if ( $afeat->strand == 1 && $bfeat->strand == 1
