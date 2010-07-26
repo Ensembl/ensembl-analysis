@@ -6,39 +6,47 @@
 
 =head1 DESCRIPTION
 
- This script takes database options and a file of gene ids and copies
- them between two databases. It can if asked split multi transcript
- genes into single genes.
+ This script takes database options and a file of gene ids or
+ stable_ids and copies them between two databases. It can, if asked,
+ split multi-transcript genes into single genes.
 
  When using the in and out_config_name options
  it reads the equivalent database from the
  Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases file.
 
--all
-  This option will copy all genes from $sourcedbname to the output database
+=head1 OPTIONS
 
--split 
-  This option will split multi-transcript genes into single-transcript genes
+  -all               This option will copy all genes from $sourcedbname to the
+                     output database
 
-- logic
-  This option will change the analysis of the genes being written to the 
-  output database to an analysis with the specified logic_name
+  -split             This option will split multi-transcript genes into
+                     single-transcript genes
 
--remove_xrefs
-  Using this flag will remove stable IDs from genes/transcripts/translations
+  -logic             This option will change the analysis of the genes being
+                     written to the output database to an analysis
+                     with the specified logic_name
 
--remove_stable_ids
-  Using this flag will remove stable_ids from genes/transcripts/translations/exons
+  -remove_xrefs      Using this flag will remove stable IDs from
+                     genes/transcripts/translations
+
+  -remove_stable_ids Using this flag will remove stable_ids from
+                     genes/transcripts/translations/exons
+
+  -transform_to      Transforms the genes from one coordinate system to the
+                     given one
+
+  -stable_id         Flag for indicating that input file contains stable IDs and
+                     not gene IDs
 
 =head1 EXAMPLE
 
- perl copy_genes.pl -in_config_name COALESCER_DB -out_config_name UTR_DB \
-   -file gene_ids_to_copy
+  perl copy_genes.pl -in_config_name COALESCER_DB -out_config_name UTR_DB \
+    -file gene_ids_to_copy
 
- or
+  or
 
- perl copy_genes.pl -sourcehost host -sourceuser ensro -sourcedbname est_db -outhost host1 \
-   -outuser user -outpass **** -outdbname utr_db -file gene_ids_to_copy
+  perl copy_genes.pl -sourcehost host -sourceuser ensro -sourcedbname est_db -outhost host1 \
+    -outuser user -outpass **** -outdbname utr_db -file gene_ids_to_copy -stable_id
 
 =cut
 
@@ -79,7 +87,8 @@ my $infile;
 my $all;
 my $remove_xrefs;
 my $remove_stable_ids;
-my $with_transform_to;
+my $transform_to;
+my $stable_id;
 
 GetOptions( 'sourcehost:s'        => \$sourcehost,
             'sourceuser:s'        => \$sourceuser,
@@ -101,7 +110,8 @@ GetOptions( 'sourcehost:s'        => \$sourcehost,
             'all'                 => \$all,
             'remove_xrefs'        => \$remove_xrefs,
             'remove_stable_ids'   => \$remove_stable_ids,
-            'with_transform_to:s' => \$with_transform_to,
+            'transform_to:s'      => \$transform_to,
+            'stable_id'           => \$stable_id,
             'file:s'              => \$infile );
 
 if ($all && $infile) {
@@ -161,12 +171,19 @@ if ($remove_xrefs && $remove_stable_ids) {
 
 if ($infile) {
   open(INFILE, "<$infile") or die ("Can't read $infile $! \n");
-  
+
   while(<INFILE>){
-    #print "$_";
     chomp;
+
     my $gene_id = $_;
-    my $gene    = $ga->fetch_by_dbID($gene_id);
+    my $gene;
+
+    if ($stable_id) {
+      $gene = $ga->fetch_by_stable_id($gene_id);
+    } else {
+      $gene = $ga->fetch_by_dbID($gene_id);
+    }
+
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
     push( @copy_genes, $gene );
   }
@@ -207,10 +224,8 @@ my $outga = $outdb->get_GeneAdaptor;
 if (defined $logic) {
   my $analysis; 
   $analysis = $outdb->get_AnalysisAdaptor->fetch_by_logic_name($logic);
-  if (!defined $analysis) {
-    $analysis = Bio::EnsEMBL::Analysis->new(
-                  -logic_name  => $logic,
-                                           ); 
+  if ( !defined $analysis ) {
+    $analysis = Bio::EnsEMBL::Analysis->new( -logic_name => $logic, );
   }
 
 
@@ -224,8 +239,8 @@ if (defined $logic) {
 
 foreach my $gene (@genes) {
   fully_load_Gene($gene);
-  if ($with_transform_to) {
-    my $transformed_gene = $gene->transform( 'chromosome', $with_transform_to );
+  if ($transform_to) {
+    my $transformed_gene = $gene->transform( 'chromosome', $transform_to );
     $gene = $transformed_gene ;
   }
   empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
