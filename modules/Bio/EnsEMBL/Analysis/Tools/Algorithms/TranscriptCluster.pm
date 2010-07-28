@@ -194,17 +194,17 @@ sub length {
 =cut
 
 sub strand {
-  my ($self, $strand) = @_ ;
+  my ($self, $strand) = @_ ; 
 
-  if ($strand) {
-    if ( $self->{_strand} ) {
-      print "Strand called, but ignoring\n";
+  if (defined  $self->{_ignore_strand} ) { 
+      print "Strand called, but returning \"0\" as ignore_strand() is set\n"; 
       return 0;
-    }
-
+  } 
+  if (defined $strand) {
     $self->{_strand} = $strand ;
   }
 
+  # setting strand of transcript cluster 
   if (!defined($self->{_strand})) {
     my @transcripts = @{ $self->get_Transcripts } ;
     unless (@transcripts) {
@@ -244,7 +244,8 @@ not defined. They are implemented in Bio::RangeI.
 
  $cluster->overlaps($other_cluster) && print "Clusters overlap\n";
 
-=head2 overlaps
+=head2 overlap:wq
+s
 
   Title   : overlaps
   Usage   : if($cluster1->overlaps($cluster)) { do stuff }
