@@ -484,6 +484,7 @@ sub write_output {
   foreach my $aname(keys %{$self->{'_array_names'}}){
 	$self->{'_array_names'}->{$aname}->add_status('IMPORTED');
 	$self->{'_array_names'}->{$aname}->add_status('DISPLAYABLE');
+	$self->{'_array_names'}->{$aname}->add_status('MART_DISPLAYABLE');
 	$self->{'_array_names'}->{$aname}->adaptor->store_states($self->{'_array_names'}->{$aname});
   }
 
