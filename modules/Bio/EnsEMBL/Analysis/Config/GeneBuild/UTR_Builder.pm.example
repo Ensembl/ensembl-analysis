@@ -93,12 +93,15 @@ use vars qw(%Config);
 	          #filtering the ESTs like the cDNAs; removes most, but is cleaner
 	          FILTER_ESTS          => 0,
 
-	          #try to find predefined pairing (between protein & cDNA) as the first step
+	          #try to find predefined pairing (between protein & cDNA) as the first step 
+	          # reads GenBank seq. file which link NP proteins to a specific NM cDNA 
+	          # source : ftp://ftp.ncbi.nlm.nih.gov/refseq/M_musculus/mRNA_Prot/mouse.protein.gpff.gz
 	          LOOK_FOR_KNOWN       => 0,
 		  KNOWNUTR_FILE        => '/tmp/human.protein.gpff',
 
-                  # Ditags can be use ditags to add additional weights on alternative models
-	          # format: ['SHC012', 'SHC013'],
+                  # Ditags can be used to add additional weights on alternative models.
+	          # format: ['SHC012', 'SHC013'].
+	          # If no type names are specified, Ditags will not be used.
 	          DITAG_TYPE_NAMES     => [],
 
                   # size of window (basepairs)in which ditags are considered for a given cDNA position.
