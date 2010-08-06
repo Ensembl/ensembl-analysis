@@ -688,10 +688,11 @@ sub run_matching{
       if(defined $predef_match){
 
 	$combined_transcript = $self->combine_genes($cds, $predef_match);
-	$combined_transcript->sort;
+        if (defined $combined_transcript) {
+          $combined_transcript->sort;
 
-	# just check combined transcript works before throwing away the original  transcript
-	if (  $combined_transcript
+          # just check combined transcript works before throwing away the original  transcript
+	  if (  $combined_transcript
 	      && is_Transcript_sane($combined_transcript)
 	      && all_exons_are_valid($combined_transcript, $self->MAX_EXON_LENGTH, 1)
 	      && intron_lengths_all_less_than_maximum($combined_transcript, $self->MAX_INTRON_LENGTH)
@@ -701,20 +702,25 @@ sub run_matching{
 	      && has_no_unwanted_evidence($combined_transcript) ){
 
 	  # make sure combined transcript doesn't misjoin any genewise clusters
-	  if($self->find_cluster_joiners($combined_transcript)){
-	    print STDERR "Found a cluster_joiner!\n" if $self->VERBOSE;
-	    print STDERR $combined_transcript->seq_region_start."/".$combined_transcript->seq_region_end."\n" if $self->VERBOSE;
-	    #dont use this one
+	    if($self->find_cluster_joiners($combined_transcript)){
+	      print STDERR "Found a cluster_joiner!\n" if $self->VERBOSE;
+	      print STDERR $combined_transcript->seq_region_start."/".$combined_transcript->seq_region_end."\n" if $self->VERBOSE;
+	      #dont use this one
+	      $combined_transcript = undef;
+	    }
+          }
+	  else {
+	    print STDERR "Did not pass tests.\n" if $self->VERBOSE;
 	    $combined_transcript = undef;
-	  }
-	}
-	else{
-	  print SDERR "Did not pass tests.\n" if $self->VERBOSE;
-	  $combined_transcript = undef;
-	}
+          }
+        }
+        else {
+            print STDERR "Predefined cDNA was found but can't be used as there were problems combining it with protein-coding region. ".
+                         "Will fall back to more generic evidence.\n";
+        }
       }
     }
-
+    
     if($predef_match && $combined_transcript){
       #use this cDNA
       print STDERR "Using predefined cDNA!\n" if $self->VERBOSE;
