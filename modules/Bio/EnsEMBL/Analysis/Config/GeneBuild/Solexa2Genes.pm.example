@@ -19,20 +19,18 @@ use vars qw( %Config );
 
 SOLEXA2GENES_CONFIG_BY_LOGIC => 
      {
+    
       DEFAULT => {
                   # databases are defined as hash keys from Bio::EnsEMBL::Analysis::Config::Databases
                   OUTPUT_DB    => '',
-		  # can use alignments from more than one database if needed
-	          ALIGNMENT_DB => [''],
+	          ALIGNMENT_DB => '',
 		  
 		  
-                  # logic_names for dna_align_features to be fetched out of ALIGNMENT_DB(s)
+                  # logic_names for dna_align_features to be fetched out of ALIGNMENT_DB
                   LOGIC_NAMES  => [],
-
-                  # you can use the logic name as biotype for your gene if you set the value below to '1'; otherwise, 
-                  # all written genes will have biotype 'rough'  
-                  USE_ANALYSIS_LOGIC_NAME_AS_DEFAULT_GENE_OUTPUT_BIOTYPE => '1',
-                  
+		  
+		  # logic_name for repeats will be used to merge exons separated by repeats 
+                  REPEAT_LN  => 'RepeatMask',	
 
                   # options for filtering out small gene models
                   MIN_LENGTH => 100,
@@ -51,15 +49,12 @@ SOLEXA2GENES_CONFIG_BY_LOGIC =>
 		  # *percentage* of the *average* exon coverage for the transcript
 		  # ie a value of 10 means remove all exon pairings where the
 		  # coverage is < 10% of the average 
-		  EXCLUDE_EXONS => 2,
-		  
-		  # Merge genes that are seperated by a gap of max length X
-		  # Where the gap is 100% covered by a repeat
-		  MERGE_GENES  => 1000,
-		  
-		  # min length for a pair to be considered
-		  # spanning an intron
-		  INTRON_PAIR  => 400,
+		  EXCLUDE_EXONS => 0.1,
+		
+		  # Maximum number of reads to process at a time
+		  # slows down the processing but uses less memory
+		  # fetches all reads if left blank
+		  BATCH_FETCH  => ,
                   },
      }
 );
