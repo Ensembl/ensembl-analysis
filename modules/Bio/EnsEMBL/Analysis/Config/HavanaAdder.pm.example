@@ -54,13 +54,15 @@ use vars qw( %GeneBuilder );
   # Biotype of Havana Coding Genes and transcripts
   # NOTE! We don't want the IG genes in here!
   GB_HAVANA_INPUT_GENETYPE =>
-    [ 'protein_coding', 'polymorphic_pseudogene', 'nonsense_mediated_decay' ],
+    [ 'protein_coding', 'polymorphic_pseudogene', 'nonsense_mediated_decay', 'polymorphic' ],
 
   #Processed transcripts
   #
-  # Biotype of "processed transcripts" in Ensembl and transcripts
+  # Biotype of "processed transcripts" in Ensembl and transcripts. If there
+  # are ensembl non_coding genes they go here to.
   GB_ENSEMBL_PROCESSED_GENETYPE => ['processed_transcript'],
-  # Biotype of "processed transcripts" genes  and transcripts in Havana
+
+  # Biotype of "processed transcripts" genes and transcripts in Havana
   GB_HAVANA_PROCESSED_GENETYPE => [ 'processed_transcript', 'ambiguous_orf',
                                     'non_coding',           'artifact',
                                     'retained_intron',      'antisense'
@@ -76,8 +78,9 @@ use vars qw( %GeneBuilder );
                                  'transcribed_pseudogene',
                                  'transcribed_processed_pseudogene',
                                  'transcribed_unprocessed_pseudogene',
+                                 'transcribed_unitary_pseudogene'
                                  'unitary_pseudogene',
-                                 'unprocessed_pseudogene'
+                                 'unprocessed_pseudogene',
   ],
 
   ##################
