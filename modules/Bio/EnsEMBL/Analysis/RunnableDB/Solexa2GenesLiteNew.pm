@@ -82,9 +82,9 @@ sub fetch_input {
     throw(" multiple alignment db support not implemented yet\n") ;
   } 
     
-  print "using output db " . $self->OUTPUT_DB . "\n";
+  #print "using output db " . $self->OUTPUT_DB . "\n";
 
-  print "\n\nthis is a bit of a hacky script - we assume that you only have data for one species in your dna align feature table \n"; 
+  #print "\n\nthis is a bit of a hacky script - we assume that you only have data for one species in your dna align feature table \n"; 
   #$self->feature_slice_adaptor($self->get_dbadaptor(${$self->ALIGNMENT_DB}[0])->get_SliceAdaptor);
   #$self->repeat_slice_adaptor($self->db->get_SliceAdaptor);
 
@@ -113,13 +113,13 @@ sub fetch_input {
   my $chr_slice = $self->feature_slice_adaptor->fetch_by_region('toplevel', $slice->seq_region_name );
   $self->chr_slice($chr_slice);  
 
-  print "fetching daf \n";
+  #print "fetching daf \n";
   #my $fetched_daf_features = $self->get_dna_align_features_from_databases($slice);   
 # begin simons old code 
   my @reads;
   my $seq_id =  $self->sql( "SELECT seq_region_id from seq_region WHERE name = '" .  $slice->seq_region_name . "'",$self->db)->[0] ; 
   foreach my $DB ( @{$self->ALIGNMENT_DB} ) {
-    print "processing $DB\n";
+    #print "processing $DB\n";
     # assumption here we have only  one lane per database; 
   my $handle =  $self->sql_array( "SELECT dna_align_feature_id, seq_region_id, seq_region_start, seq_region_end, cigar_line from dna_align_feature where seq_region_id = $seq_id and seq_region_end >= " . $slice->start .  " and seq_region_start <= " .$slice->end . " ;" ,$self->get_dbadaptor($DB));
 
@@ -127,13 +127,13 @@ sub fetch_input {
     push @reads, \@read;
   }
  }
-  print "Got " . scalar(@reads) . " features \n";
+#  print "Got " . scalar(@reads) . " features \n";
   @reads = sort { $a->[2] <=> $b->[2] } @reads;
   # store the reads internally
   $self->reads(\@reads);
 
 
-  print "fetching repeat features \n" ; 
+  #print "fetching repeat features \n" ; 
   my $rfa = $self->db->get_RepeatFeatureAdaptor();
   my @repeats = sort { $a->start <=> $b->start } @{$rfa->fetch_all_by_Slice($feature_slice)} ;
   foreach my $repeat ( @repeats ) {
@@ -176,26 +176,26 @@ sub run {
   # Do an intial clustering to group together the read pairs
   # should roughly correspond to genes
   my $gene_clusters = $self->gene_cluster;
-  print STDERR "Found " . scalar(@$gene_clusters) . " clusters\n";
+  #print STDERR "Found " . scalar(@$gene_clusters) . " clusters\n";
   # take one cluster of reads at a time
   foreach my $gene_cluster ( @$gene_clusters ) {
     # break the gene clusters down into exon clusters 
     # linked by the pair information 
-    print STDERR "processing gene cluster\n"; 
+    #print STDERR "processing gene cluster\n"; 
     my ($exon_clusters)  = $self->exon_cluster($gene_cluster);
     next unless ( $exon_clusters );
 
     # Now we have collapsed our reads we need to make sure we keep the connections between
     # them so we can make our fake transcripts
-    print STDERR "Found " . scalar(@$exon_clusters) . " transcripts \n";
+    #print STDERR "Found " . scalar(@$exon_clusters) . " transcripts \n";
     foreach my $exon_cluster ( @$exon_clusters ) {
       #print  STDERR scalar(@$exon_cluster) ." exon clusters\n";
       next unless scalar(@$exon_cluster) > 0;
       # make the dna align feature
       my $padded_exons = $self->pad_exons($exon_cluster); 
-      print STDERR "exons padded\n"; 
+      #print STDERR "exons padded\n"; 
       push @genes , $self->make_gene($padded_exons) if $padded_exons ;
-      print STDERR "gene made\n"; 
+      #print STDERR "gene made\n"; 
     }
   }
   # merge genes separated by long repeats
@@ -205,7 +205,7 @@ sub run {
   } else {
    $self->output(\@genes);
   } 
-  print "TIME : " . (gettimeofday() - $t1 ) . "\n";
+  #print "TIME : " . (gettimeofday() - $t1 ) . "\n";
 }
 
 
@@ -220,9 +220,9 @@ sub write_output{
   my $total = 0; 
 
   if ( $self->USE_ANALYSIS_LOGIC_NAME_AS_DEFAULT_GENE_OUTPUT_BIOTYPE == 1 ) {
-    print "using logic_name : " . $self->analysis->logic_name . " as biotype for genes and transcripts\n";
+    #print "using logic_name : " . $self->analysis->logic_name . " as biotype for genes and transcripts\n";
   } else { 
-    print "using generic biotype \"rough\" for genes and transcripts\n"; 
+    #print "using generic biotype \"rough\" for genes and transcripts\n"; 
   } 
   foreach my $gene ( @genes ) {
     $gene->analysis($self->analysis);
@@ -235,19 +235,19 @@ sub write_output{
     }
 
     my $tran = $gene->get_all_Transcripts->[0];
-    print "FILTERING " . $tran->start ." " , $tran->end ." ";
+    #print "FILTERING " . $tran->start ." " , $tran->end ." ";
     $tran->biotype($self->analysis->logic_name); # this is important for step3 
     # Filter models before writing them
     if ( scalar(@{$tran->get_all_Exons}) < $self->MIN_EXONS ) {
-      print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
+      #print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
       next;
     }
     if( ( $tran->end - $tran->start ) / $tran->length <= $self->MIN_SPAN ) {
-      print "Rejecting because of span " . ( $tran->end - $tran->start ) / $tran->length ."\n";
+      #print "Rejecting because of span " . ( $tran->end - $tran->start ) / $tran->length ."\n";
       next;
     }
     if (  $tran->length < $self->MIN_LENGTH ){
-      print "Rejecting because of length " . $tran->length ."\n";
+      #print "Rejecting because of length " . $tran->length ."\n";
       next;
     }
     eval {
@@ -263,7 +263,7 @@ sub write_output{
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
-  print STDERR "$total genes written after filtering\n";
+  #print STDERR "$total genes written after filtering\n";
 }
 
 =head2 exon_cluster
@@ -280,14 +280,14 @@ sub exon_cluster {
   my ($self,$gene_cluster) = @_;
   my @gapped_reads =  @{$gene_cluster->{'features'}};
   my @ugfs;
-  print "got " .scalar(@gapped_reads) ." gapped reads\n";
+  #print "got " .scalar(@gapped_reads) ." gapped reads\n";
   # get the ungapped features ( corresponds to individual reads
   foreach my $read ( @gapped_reads ) {
     foreach my $ugf (@{$self->ungapped_features($read)}) {
       push @ugfs, $ugf;
     }
   }
-  print "got " .scalar(@ugfs) ." ugfs\n";
+  #print "got " .scalar(@ugfs) ." ugfs\n";
 
   my @exon_clusters;
   my $exon_cluster_num = 0;
@@ -305,7 +305,7 @@ sub exon_cluster {
   foreach my $ugf ( @ungapped_features ) { 
     $jhv_cnt++;  #jhv
     if ( ($jhv_cnt % 500) == 0 ) {   #jhv
-      print "$jhv_cnt ungapped feat. processed - " . scalar(@exon_clusters) . " exon clusters\n"; #jhv
+      #print "$jhv_cnt ungapped feat. processed - " . scalar(@exon_clusters) . " exon clusters\n"; #jhv
     } #jhv 
     my $clustered = 0; 
     
@@ -357,7 +357,7 @@ sub exon_cluster {
       $exon_cluster_num++;
     }
   }
-  print "processed ungapped features \n";  
+  #print "processed ungapped features \n";  
   # check they dont overlap
   @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters; 
 
@@ -365,7 +365,7 @@ sub exon_cluster {
     my $exon = $exon_clusters[$i];
     my $prev_exon = $exon_clusters[$i-1];
     if ( $prev_exon->end >= $exon->start ) {
-      print "OVERLAP at clustering" .  $prev_exon->end . " " .  $exon->start ."\n";
+      #print "OVERLAP at clustering" .  $prev_exon->end . " " .  $exon->start ."\n";
     }
   }
 
@@ -468,7 +468,7 @@ sub exon_cluster {
 #    }
 #  }
 
-  print "\ncycling trough exon_clusters " . scalar(keys %{$clean_cluster_hash}) . " clusters \n"; 
+  #print "\ncycling trough exon_clusters " . scalar(keys %{$clean_cluster_hash}) . " clusters \n"; 
   # now lets  cycle through our exon_clusters removing end exons 
   # with little support  all other exons go forward to the next stage
   # add in single exon genes might be useful later
@@ -493,7 +493,7 @@ sub exon_cluster {
     }
     # othwise ignore it
   }
-  print "\ndone cycling\n"; 
+  #print "\ndone cycling\n"; 
   # now lets  cycle through our exon_clusters removing end exons 
 
   # now need to find little clusters sitting in introns that are not connected to the transcript
@@ -558,11 +558,11 @@ LOOP:  while ( scalar(@clean_clusters) > 0 ) {
     my $clustered;
     my $final_exon_cluster = $final_exon_clusters[$trans_count];  
 
-print "final_exon_cluster  [$trans_count] : " . join(" ", @$final_exon_cluster) . " (".scalar(@final_exon_clusters) . " elements in array)\n"; 
-print "trans-count : $trans_count\n"; 
+#print "final_exon_cluster  [$trans_count] : " . join(" ", @$final_exon_cluster) . " (".scalar(@final_exon_clusters) . " elements in array)\n"; 
+#print "trans-count : $trans_count\n"; 
 
     my $c1jhv=0;
-    print "STARTING outer loop - will loop over " . scalar( @{$final_exon_cluster} )  . " elements\n";  
+    #print "STARTING outer loop - will loop over " . scalar( @{$final_exon_cluster} )  . " elements\n";  
 
     OUTER: foreach my $cluster_num ( @{$final_exon_cluster} ) {
       $c1jhv++;
@@ -571,24 +571,24 @@ print "trans-count : $trans_count\n";
       INNER: for ( my $i =0  ; $i <= $#clean_clusters; $i++ )  {  
   	my $index = $clean_clusters[$i];
         
-        print "OUTER: jhv cluster_nr: $c1jhv / " . scalar(@{$final_exon_cluster}) . "   " . $i . " / ".scalar(@clean_clusters) . "\t";
-        print "cluster_num $cluster_num -  index: $index   - i  = $i\n";  
+        #print "OUTER: jhv cluster_nr: $c1jhv / " . scalar(@{$final_exon_cluster}) . "   " . $i . " / ".scalar(@clean_clusters) . "\t";
+        #print "cluster_num $cluster_num -  index: $index   - i  = $i\n";  
 
  	# is the current exon attached to any exon in our cluster? 
  	if ( $cluster_hash->{$index}->{$cluster_num} or $cluster_hash->{$cluster_num}->{$index}) { 
           # extending the outer loop  
  	  push @{$final_exon_cluster}, $index; 
-          print "extension of outer loop - will loop over ". scalar(@{$final_exon_cluster}) . " elements now\n";
+          #print "extension of outer loop - will loop over ". scalar(@{$final_exon_cluster}) . " elements now\n";
  	  # chop it out 
- 	  print "removing element $i from clean_clusters array \n";
+ 	  #print "removing element $i from clean_clusters array \n";
  	  splice(@clean_clusters,$i,1);
  	  $i--;
  	  $clustered = 1;
  	}
        } 
-       print "next OUTER loop\n";
+       #print "next OUTER loop\n";
     } 
-    print "OUTER loops finished;\n";   
+    #print "OUTER loops finished;\n";   
     # - If both loops ran through clean and clustered is set = 0 then we take the last elemenet of the the clean_clusters, 
     #   -> and we add it to final_exon_clusters; 
     #      we increment the trans_count   
@@ -605,8 +605,8 @@ print "trans-count : $trans_count\n";
 
 #  timetick("while-end "); 
 
- print "WHILE : " .  (gettimeofday() - $tx) . "\n"; 
-  print "\ndone while looping\n"; 
+ #print "WHILE : " .  (gettimeofday() - $tx) . "\n"; 
+  #print "\ndone while looping\n"; 
 
   # So far we have just dealt with array indecies
   # now store the actual features
@@ -620,7 +620,7 @@ print "trans-count : $trans_count\n";
     push @transcripts, \@transcript;
   } 
 
-  print "\nreturning transcripts\n"; 
+  #print "\nreturning transcripts\n"; 
   return \@transcripts;
 }
 
@@ -692,9 +692,9 @@ sub pad_exons {
       $exon->start( $last_exon->end+1 );
     }
     # check they dont overlap
-    if ( $last_exon->end >= $exon->start ) {
-      print "OVERLAP at padding" .  $last_exon->end . " " .  $exon->start ."\n";
-    }
+    #if ( $last_exon->end >= $exon->start ) {
+      #print "OVERLAP at padding" .  $last_exon->end . " " .  $exon->start ."\n";
+    #}
   }
   return \@padded_exons
 }
@@ -772,7 +772,7 @@ sub merge_genes {
   # where the gap is 100% filled by a repeat
   # get rid of nested genes first
   my @genes = sort {$a->start <=> $b->start} @$genes_ref;
-  print " Got ". scalar(@genes) ."\n";
+  #print " Got ". scalar(@genes) ."\n";
   for ( my $i = 1 ; $i <= $#genes ; $i++ ) {
 
     if ( $genes[$i-1]->start < $genes[$i]->start && 
@@ -790,7 +790,7 @@ sub merge_genes {
     if ($gap <= $self->MERGE_GENES && $left_gene->end < $right_gene->start) {
       # is it covered by repeats?
 
-      print "merging between " .$left_gene->end ." and ".  $right_gene->start  ."\n";
+      #print "merging between " .$left_gene->end ." and ".  $right_gene->start  ."\n";
       # is the gap covered by a repeat?
       my @repeats = sort { $a->start <=> $b->start } @{$self->repeats} ;
       my $repeat_coverage = 0;
@@ -805,9 +805,9 @@ sub merge_genes {
       $repeat_coverage /= $gap;
       # merge the genes together where repeat coverage is 100%
       if ($repeat_coverage >= 0.95   ) {
-	print "Do some merging\n";
-	print "Repeat Coverage = $repeat_coverage \n";
-	print $left_gene->slice->name ."\n";
+	#print "Do some merging\n";
+	#print "Repeat Coverage = $repeat_coverage \n";
+	#print $left_gene->slice->name ."\n";
 	# to do the merge do we just link the genes or do we join them with a long exon?
 	# how about we keep it as 2 exons but bring them together so they abut each other
 	# if there is evidene of splicing they will get separated in the refine genes code
@@ -827,17 +827,17 @@ sub merge_genes {
 	push @merged_exons,@right_exons;
 	my @new_genes = $self->make_gene(\@merged_exons);
 	my $new_gene = $new_genes[0];
-	print "NEW GENE " . $new_gene->start ." ". $new_gene->end ."\n";
+	#print "NEW GENE " . $new_gene->start ." ". $new_gene->end ."\n";
 	# take them out of the array and carry on
 	splice (@genes,$i-1,2,$new_gene);
 	$i-= 1;
-	print "Merged 1 successfully\n";
+	#print "Merged 1 successfully\n";
       }
     }
   }
   # add whatever is left to the return array
   push @merged_genes, @genes;
-  print "Returning " . scalar (@merged_genes) . "\n";
+  #print "Returning " . scalar (@merged_genes) . "\n";
   return \@merged_genes;
 }
 
@@ -921,7 +921,7 @@ sub make_repeat_blocks {
     }
    # print "REPEAT $j " . $repeats[$j]->start . "-"  . $repeats[$j]->end. " " . $repeats[$j]->display_id ."\n";
   }  
-  print " got " . scalar(@repeats) . " repeat blocks after merging\n";
+  #print " got " . scalar(@repeats) . " repeat blocks after merging\n";
   return \@repeats;
 }
 
@@ -1165,7 +1165,7 @@ sub get_dna_align_features_from_databases  {
   my @all_fetched_daf_reads;  
 
   foreach my $db_hash_key ( keys %dbnames_2_logicnames )  {
-     print "querying $db_hash_key\n";
+     #rint "querying $db_hash_key\n";
      # get standard  DBAdaptor ('core') with no dna-database attached 
      my $set_db = $self->get_dbadaptor($db_hash_key,undef,0);
      $set_db->disconnect_when_inactive(0);
@@ -1215,7 +1215,7 @@ sub get_dna_align_features_from_databases  {
          }
      }
 
-     print "\n\nSQL $sql\n\n"; 
+     #print "\n\nSQL $sql\n\n"; 
      
     my $handle =  $self->sql_array( $sql, $set_db); 
     my @fetched_daf_reads; 
@@ -1231,7 +1231,7 @@ sub get_dna_align_features_from_databases  {
     push @all_fetched_daf_reads, @fetched_daf_reads;
   }
   @all_fetched_daf_reads = sort { $a->[2] <=> $b->[2] } @all_fetched_daf_reads;
-  print "Got " . scalar(@all_fetched_daf_reads) . " in total \n"; 
+  #print "Got " . scalar(@all_fetched_daf_reads) . " in total \n"; 
   return \@all_fetched_daf_reads;
 }
 
