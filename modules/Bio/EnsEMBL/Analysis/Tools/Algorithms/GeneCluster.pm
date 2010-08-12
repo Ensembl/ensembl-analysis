@@ -617,7 +617,7 @@ sub get_exon_clustering_from_gene_cluster {
   } else {
     # for cases where TranscriptCluster does not have strand defined
     # then cluster as for (+) strand
-    warning("TranscriptCluster's strand is not defined. Are you ignoring strand?");
+    warning("TranscriptCluster's strand is not defined. Are you ignoring strand?  Assumed that you want clustering on + strand.");
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
   }
   return \@exon_clusters ;
