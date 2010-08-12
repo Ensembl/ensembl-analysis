@@ -197,7 +197,7 @@ sub strand {
   my ($self, $strand) = @_ ; 
 
   if (defined  $self->{_ignore_strand} ) { 
-      print "Strand called, but returning \"0\" as ignore_strand() is set\n"; 
+      print "Strand of transcript (within a transcript cluster) called, but returning \"0\" as ignore_strand() is set\n"; 
       return 0;
   } 
   if (defined $strand) {
