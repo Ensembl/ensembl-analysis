@@ -171,13 +171,13 @@ sub fetch_input{
 
   # are there any genes here at all?
   if(!scalar @{$self->gw_genes} and !scalar @{$self->blessed_genes}){
-    print STDERR "\nNo genes found here.\n\n";
+    warn ("No genewise or blessed genes fetched from database(s). Something's wrong! Can't proceed!\n");
     return 0;
   }
 
   # get cdnas
   if(!(defined($self->cDNA_GENETYPE) and $self->CDNA_DB)){
-    warn("NOT using any cDNAs!?\n");
+    warn("cDNA_GENETYPE and CDNA_DB are both undefined in your config. Are you sure you are not using any cDNAs as UTR evidence!?\n");
   }
   else{
     foreach my $dbname (@{$self->CDNA_DB}) {
@@ -185,7 +185,6 @@ sub fetch_input{
        my $cdna_vc = $dbh->get_SliceAdaptor->fetch_by_name($self->input_id);
        $self->_cdna_slice($cdna_vc);
        foreach my $cdna_type (@{$self->cDNA_GENETYPE}){
-    #my @cdna_genes = @{$cdna_vc->get_all_Genes_by_type($cdna_type)};
           my @cdna_genes = @{$self->_cdna_slice->get_all_Genes_by_type($cdna_type)};
           print STDERR "got ".scalar(@cdna_genes)." ".$cdna_type." cDNAs.\n" if $self->VERBOSE;
           $dbh->dbc->disconnect_when_inactive(1);
@@ -194,10 +193,10 @@ sub fetch_input{
           my $filtered_cdna = $self->_filter_cdnas(\@cdna_genes, 0);
       
           $self->cdna_genes($filtered_cdna);
-          print STDERR "got " . scalar(@{$filtered_cdna}) . " cdnas after filtering.\n" if $self->VERBOSE;
+          print STDERR "got " . scalar(@{$filtered_cdna}) . " cDNAs after filtering.\n" if $self->VERBOSE;
        }
     }
-    print STDERR "got " . scalar(@{$self->cdna_genes}) . " cdnas accross all databases.\n" if $self->VERBOSE;
+    print STDERR "got " . scalar(@{$self->cdna_genes}) . " filtered cDNAs accross all databases.\n";
   }
 
   # get ESTs
@@ -212,7 +211,7 @@ sub fetch_input{
     else{
       $self->ests(\@est_genes);
     }
-    print STDERR "got " . scalar(@{$self->ests}) . " ESTs after filtering.\n" if $self->VERBOSE;
+    print STDERR "got " . scalar(@{$self->ests}) . " filtered ESTs.\n";
   }
 
   # get ditags
@@ -231,7 +230,7 @@ sub fetch_input{
   if(scalar @ditags){
     @ditags = sort {($a->{'start'} <=> $b->{'start'}) or ($a->{'end'} <=> $b->{'end'})} @ditags;
     $self->ditags(\@ditags);
-    print STDERR "got " . scalar(@ditags) ." ditags.\n";
+    print STDERR "got " . scalar(@ditags) ." sorted ditags of all specified types.\n";
   }
   else{
     print STDERR "not using Ditags.\n";
@@ -297,28 +296,34 @@ sub run {
   # filter the genewise predictions to remove fragments.
   # Make sure we keep the fragments to let the
   # genebuilder do the final sorting out, but don't add UTRs to them.
-  print "TOTAL GENES IN: ".(scalar @{$self->gw_genes} + scalar @{$self->blessed_genes})."\n";
+  print STDERR "\nTOTAL GENES IN: ".(scalar @{$self->gw_genes} + scalar @{$self->blessed_genes})."\n";
   my $ininumber = scalar @{$self->gw_genes};
   my $filtered_genes = $self->filter_genes($self->gw_genes);
-  print STDERR "filtered from $ininumber to ".(scalar @$filtered_genes). " genes.\n" if $self->VERBOSE && $filtered_genes;
+  print STDERR "filtered unblessed (presumably genewise) from $ininumber to ".(scalar @$filtered_genes). " genes.\n" if $filtered_genes;
 
   #for blessed genes, only check region and existing UTR
   $ininumber = scalar @{$self->blessed_genes};
   my $filtered_blessed_genes = $self->filter_genes($self->blessed_genes, 1);
-  print STDERR "filtered blessed from $ininumber to ".(scalar @$filtered_blessed_genes). " genes.\n"
-    if $self->VERBOSE && $filtered_blessed_genes;
+  print STDERR "filtered blessed from $ininumber to ".(scalar @$filtered_blessed_genes). " genes.\n" if $filtered_blessed_genes;
 
-  # match gene-model to cDNAs/ESTs for blessed & other genes
-  $self->run_matching($filtered_blessed_genes, $self->BLESSED_UTR_GENETYPE,  1);
-  $self->run_matching($filtered_genes,         $self->UTR_GENETYPE, 0);
+  # match gene-model to cDNAs/ESTs for genewise genes by calling run_matching.
+  # run_matching is called for blessed genes only if there are blessed genes in the first place.
 
-  print STDERR "Have ".(scalar @{$self->combined_genes})." combined_genes & ".
-               (scalar @{$self->unmatched_genes})." unmatched_genes.\n" if $self->VERBOSE;
+  $self->run_matching($filtered_genes, $self->UTR_GENETYPE, 0);
+
+  if (scalar @$filtered_blessed_genes) {
+    $self->run_matching($filtered_blessed_genes, $self->BLESSED_UTR_GENETYPE,  1);
+  }
+
+  print STDERR "\n\n### Have altogether ".(scalar @{$self->combined_genes})." +UTR genes & ".
+               (scalar @{$self->unmatched_genes})." noUTR genes for final output.\n";
 
   # check translation, start and stop
   my @remapped;
   push( @remapped, @{$self->remap_genes( $self->combined_genes,  undef )} );
+  print STDERR "Remapped genes which have UTRs added.\n";
   push( @remapped, @{$self->remap_genes( $self->unmatched_genes, $self->EXTEND_BIOTYPE_OF_UNCHANGED_GENES )} );
+  print STDERR "Remapped genes which can't have UTRs added.\n";
 
   #results are stored in "output"
   $self->output(@remapped);
@@ -369,40 +374,57 @@ sub filter_genes {
 	next GENES;
       }
 
+      # We test if the transcript is fully contained in the slice and also check transcript's sanity.
+      # The treatment of blessed and unblessed models differ in the sanity checks.
+      # Blessed models get a less stringent sanity checks (i.e. we don't test exon/intron lengths)
+      # they're allowed to have sometimes weird structures.
+
+      # Models which fall off a slice will be picked up by another slice, so they'll be accounted
+      # for somehow. There's no need to push them into the unmatched_genes hash.
+
+      # Models which didn't pass the sanity check test will be captured in the unmatched_genes hash.  No UTRs
+      # will be added to them and they'll be written to the output DB as they were.
+      
+
       if($blessed){
-	#for blessed genes only check the region
 	if($test_transcript->start < 1 && $test_transcript->end > 1){
-	  print STDERR "ignoring blessed gene: falls off the slice by its lower end\n" if $self->VERBOSE;
-	}
-	else{
-	  push(@tested_genes, $test_gene);
-	}
-      }
-      else{
-	if( is_Transcript_sane($test_transcript)
+	  print STDERR "ignoring blessed gene at seq_region/chr ".$test_transcript->seq_region_name . " (" . 
+                       $test_transcript->seq_region_start . "-" . $test_transcript->seq_region_end . 
+                       ") as it falls off the slice by its lower end\n" if $self->VERBOSE;
+	} 
+	elsif ( is_Transcript_sane($test_transcript)
+            && ($test_transcript->start < $self->query->length)
+            && ($test_transcript->end > 1)
+            && has_no_unwanted_evidence($test_transcript) ){
+
+ 	  push(@tested_genes, $test_gene);  # test_gene not falling off slice + is sane.
+	} else {
+          $self->unmatched_genes($test_gene); # test_gene doesn't fall off slice but isn't sane
+        }
+      } # end if $blessed
+
+      elsif (!$blessed) {
+        if($test_transcript->start < 1 && $test_transcript->end > 1){
+          print STDERR "ignoring unblessed gene at seq_region/chr ".$test_transcript->seq_region_name . " (" . 
+                        $test_transcript->seq_region_start . "-" . $test_transcript->seq_region_end . 
+                        ") as it falls off the slice by its lower end\n" if $self->VERBOSE;
+	}        
+	elsif( is_Transcript_sane($test_transcript)
 	    && all_exons_are_valid($test_transcript, $self->MAX_EXON_LENGTH)
 	    && intron_lengths_all_less_than_maximum($test_transcript, $self->MAX_INTRON_LENGTH)
 	    && ($test_transcript->start < $self->query->length)
 	    && ($test_transcript->end > 1)
 	    && has_no_unwanted_evidence($test_transcript) ) {
 
-	  push(@tested_genes, $test_gene);
+	  push(@tested_genes, $test_gene);  # test_gene not falling off slice + is sane.
+	} else{
+	  $self->unmatched_genes($test_gene);  # test_gene doesn't fall off slice but isn't sane
+	}
+      } # end if !$blessed
+    }  # end test_gene/GENES block
 
-	}
-	else{
-	  #test if it falls off the slice on the left, these will be picked up by another job
-	  if($test_transcript->start < 1 && $test_transcript->end > 1){
-	    print STDERR "ignoring gene: falls off the slice by its lower end\n" if $self->VERBOSE;
-	  }
-	  else{
-	    #keep them in the set
-	    $self->unmatched_genes($test_gene);
-	  }
-	}
-      }
-    }
     else{
-      throw "\nERROR: Cant check genes!\n\n";
+      throw "\nERROR: No genes passed to the filter_genes method from the run method via genesref(?). Got no genes to filter!!\n\n";
     }
   }
   $genesref = \@tested_genes;
@@ -412,7 +434,7 @@ sub filter_genes {
     # all the genes are single transcript at this stage, cluster them
     my $clustered_genes = $self->cluster_CDS($genesref);
 
-    #pruning if desired
+    #puning if desired
     if($self->prune){
       $genesref = $self->prune_CDS($clustered_genes);
     }
@@ -640,10 +662,11 @@ sub run_matching{
   my @merged_genes = ();
 
   #maybe we should not do merging with blessed genes at all?!
-  @merged_genes = $self->_merge_genes($genesref);
-
-  print STDERR "\n --- \ngot " . scalar(@merged_genes) . " merged " . $combined_genetype . " genes\n" if $self->VERBOSE;
-
+  @merged_genes = $self->_merge_genes($genesref, $blessed);
+    
+  print STDERR "\n### Got ". scalar(@merged_genes) . " blessed genes which have been filtered and frameshift-exon-merged. " if ($blessed);
+  print STDERR "\n### Got ". scalar(@merged_genes) . " unblessed genes which have been filtered and frameshift-exon-merged. " if (!$blessed);
+  print STDERR "Working on them one by one ...\n";
   # sort genewises by exonic length and genomic length
   @merged_genes = sort {
                          my $result = ( ($b->get_all_Transcripts->[0]->end - $b->get_all_Transcripts->[0]->start + 1) <=>
@@ -660,7 +683,7 @@ sub run_matching{
  CDS:
   foreach my $cds (@merged_genes){
 
-    print STDERR "--next cds: ".$cds->seq_region_start."-".$cds->seq_region_end." --\n" if $self->VERBOSE;
+    print STDERR "\n-------------- next cds: ".$cds->seq_region_start."-".$cds->seq_region_end." ---------------\n";
 
     # should be only 1 transcript
     my @cds_tran  = @{$cds->get_all_Transcripts};			
@@ -677,7 +700,10 @@ sub run_matching{
       next CDS;
     }
 
-    #look for a pre-defined pairing between a protein and a cDNA the gene was build from
+    #Look for a pre-defined pairing between a protein and a cDNA the gene was build from.
+    #for a genewise model, look for pre-defined pairing in the KNOWN_UTR gpff file.
+    #for a blessed model, look for pre-defined pairing via the NM_* xrefs in the xref table of BLESSED_DB
+
     my $predef_match = undef;
     my $combined_transcript = undef;
 
@@ -687,12 +713,37 @@ sub run_matching{
 
       if(defined $predef_match){
 
-	$combined_transcript = $self->combine_genes($cds, $predef_match);
+	$combined_transcript = $self->combine_genes($cds, $predef_match, $blessed);
         if (defined $combined_transcript) {
           $combined_transcript->sort;
 
-          # just check combined transcript works before throwing away the original  transcript
-	  if (  $combined_transcript
+          # just check combined transcript works before throwing away the original transcript
+          if ($blessed) {
+            if (  $combined_transcript
+	      && is_Transcript_sane($combined_transcript)
+	      && validate_Translation_coords($combined_transcript, 1)
+	      && !contains_internal_stops($combined_transcript)
+	      && $combined_transcript->translate
+	      && has_no_unwanted_evidence($combined_transcript) ){
+
+	    # make sure combined transcript doesn't misjoin any genewise clusters
+	      if($self->find_cluster_joiners($combined_transcript)){
+                print STDERR "Found a cluster_joiner! Can't use this blessed combined transcript although it's made from predefined cDNA: " 
+                              if $self->VERBOSE;
+                print STDERR " start " . $combined_transcript->seq_region_start. " end ".$combined_transcript->seq_region_end."\n\n" if $self->VERBOSE;
+	        $combined_transcript = undef;   # combined_transcript not used
+ 	      } else {
+                print STDERR "Blessed combined transcript with predefined cDNA is sane and isn't cluster_joiner.\n" if $self->VERBOSE; 
+              }
+            } else {
+              print STDERR "Blessed combined transcript at seq_region/chr ". $combined_transcript->seq_region_name . " " . $combined_transcript->start .
+                           "-" . $combined_transcript->end . " did not pass sanity check.\n\n" if $self->VERBOSE;
+              $combined_transcript = undef;
+            }
+          } # end if ($blessed), checking blessed combined transcript
+
+          elsif (!$blessed) {
+            if (  $combined_transcript
 	      && is_Transcript_sane($combined_transcript)
 	      && all_exons_are_valid($combined_transcript, $self->MAX_EXON_LENGTH, 1)
 	      && intron_lengths_all_less_than_maximum($combined_transcript, $self->MAX_INTRON_LENGTH)
@@ -701,18 +752,22 @@ sub run_matching{
 	      && $combined_transcript->translate
 	      && has_no_unwanted_evidence($combined_transcript) ){
 
-	  # make sure combined transcript doesn't misjoin any genewise clusters
-	    if($self->find_cluster_joiners($combined_transcript)){
-	      print STDERR "Found a cluster_joiner!\n" if $self->VERBOSE;
-	      print STDERR $combined_transcript->seq_region_start."/".$combined_transcript->seq_region_end."\n" if $self->VERBOSE;
-	      #dont use this one
+	    # make sure combined transcript doesn't misjoin any genewise clusters
+	      if($self->find_cluster_joiners($combined_transcript)){
+                print STDERR "Found a cluster_joiner! Can't use this unblessed combined transcript although it's made from predefined cDNA: " 
+                             if $self->VERBOSE;
+                print STDERR " start " . $combined_transcript->seq_region_start. " end ".$combined_transcript->seq_region_end."\n\n" if $self->VERBOSE;
+                $combined_transcript = undef;
+	      } else {
+                print STDERR "Unblessed combined transcript with predefined cDNA is sane and isn't cluster_joiner.\n" if $self->VERBOSE;
+              }
+            }
+	    else {
+	      print STDERR "Unblessed combined transcript at seq_region/chr". $combined_transcript->seq_region_name . " " . $combined_transcript->start .
+                           "-" . $combined_transcript->end . " did not pass sanity check.\n\n" if $self->VERBOSE;
 	      $combined_transcript = undef;
-	    }
-          }
-	  else {
-	    print STDERR "Did not pass tests.\n" if $self->VERBOSE;
-	    $combined_transcript = undef;
-          }
+            }
+          } 
         }
         else {
             print STDERR "Predefined cDNA was found but can't be used as there were problems combining it with protein-coding region. ".
@@ -720,38 +775,47 @@ sub run_matching{
         }
       }
     }
-    
+   
+    # If at this point a pre-defined cDNA gene model is found for the coding model
+    # and a combined transcript is successfully made, we move on to the next coding
+    # model. Otherwise, we need to look at my generic evidence (other cDNAs or ESTs
+    # in the vicinity of the coding model) and score the evidence to choose the best UTR
+    # evidence.
+ 
     if($predef_match && $combined_transcript){
-      #use this cDNA
-      print STDERR "Using predefined cDNA!\n" if $self->VERBOSE;
+      print STDERR "Used predefined cDNA successfully!\n" if $self->VERBOSE;
       $cdna_match = $predef_match;
       $usingKnown = 1;
     }
     else{
+
       # find matching cdnas using scoring of all evidence available
       my ($matching_cdnas, $utr_length_hash, $UTR_side_indicator_hash) = $self->match_protein_to_cdna($cds, 0);
-
-      #we probably dont need any of this UTR stuff anymore!?
-      my %utr_length_hash = %$utr_length_hash;
+      # Note: $utr_length_hash is never used once returned.
 
       if(!(scalar @$matching_cdnas)){
-
-	warn("Could not identify any matching cDNA!\n");
-	#try to use ESTs instead
-	#we could use coalescer code to produce joined ESTs (find longest path, etc.)?
-	($matching_cdnas, $utr_length_hash, $UTR_side_indicator_hash) = $self->match_protein_to_cdna($cds, 1);
-	%utr_length_hash                    = %$utr_length_hash;
-	if(!(scalar @$matching_cdnas)){
-
-	  my $unmerged_cds = $self->retrieve_unmerged_gene($cds);
-	  warn("Could not identify any matching ESTs either!\n");
-
-	  $self->unmatched_genes($unmerged_cds);
-	  next CDS;
-	}
+	warn("Could not identify any matching cDNA!\n");        
+        my $unmerged_cds;
+        # try to use ESTs instead only if EST_DB is defined
+	if ($self->EST_DB) {
+	  #we could use coalescer code to produce joined ESTs (find longest path, etc.)?  Not implemented yet.
+	  ($matching_cdnas, $utr_length_hash, $UTR_side_indicator_hash) = $self->match_protein_to_cdna($cds, 1);
+	  if(!(scalar @$matching_cdnas)){
+            $unmerged_cds = $self->retrieve_unmerged_gene($cds);
+	    warn("Could not identify any matching ESTs either!\n");
+            $self->unmatched_genes($unmerged_cds);
+	    next CDS;
+          }
+        } else {
+          $unmerged_cds = $self->retrieve_unmerged_gene($cds);
+          $self->unmatched_genes($unmerged_cds);
+          next CDS;
+        }
       }
 
       ## scoring code...
+
+      print STDERR "Now clustering UTR evidence and scoring them using TranscriptConsensus.\n";
 
       #convert genes to extended objects
       my $matching_extended_cdnas = $self->convert_to_extended_genes($matching_cdnas);
@@ -781,7 +845,7 @@ sub run_matching{
       }
 
       foreach my $cluster (@cluster_to_use){
-	print STDERR "CLUSTER: ".$cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $self->VERBOSE;
+	print STDERR "EVIDENCE SET CLUSTER: ".$cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $self->VERBOSE;
 	my $collapsed_cluster = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->collapse_cluster($cluster, $genes_by_strand);
 	my $potential_genes = $cluster->get_Genes;
 	foreach my $potential_gene ( @$potential_genes ){
@@ -796,7 +860,7 @@ sub run_matching{
             $new_transcript->add_supporting_features(@{$potential_trans->get_all_supporting_features});
 
 	    #add a ditag score
-	    print STDERR "new_transcript score :".$new_transcript->score()."\n" if $self->VERBOSE;
+	    print STDERR "new collapsed transcript score :".$new_transcript->score()."\n" if $self->VERBOSE;
 	    my ($ditag_score, $index) = $self->score_ditags($self->ditags, $new_transcript, 0);
 	    $new_transcript->score($new_transcript->score() + $ditag_score);
 
@@ -809,81 +873,84 @@ sub run_matching{
 	}
       } #clusters
 
-      #get the highest scoring transcript, that survives tests
+      #get the highest-scoring transcripts that survived collapsing and scoring
+
       @possible_transcripts = sort { $a->score <=> $b->score } @possible_transcripts if @possible_transcripts;
+      print STDERR "\nGot ". scalar@possible_transcripts . " possible transcripts as UTR evidence after clustering and TranscriptConsensus collapsing.\n";
 
       my ($cdnaname, $genename);
       my $round = 0;
     POS:
       while(my $chosen_transcript = pop @possible_transcripts){
 
+        print STDERR "Checking individual possible cDNA/EST transcript as UTR evidence ..... \n" if $self->VERBOSE;
         my $chosen_feats = $chosen_transcript->get_all_supporting_features;
 
-	#make a gene from this
+	#make a gene from the candidate cDNA (survivied TranscriptConsensus)
 	$cdna_match = Bio::EnsEMBL::Gene->new;
 	$cdna_match->slice($chosen_transcript->slice);
 	$cdna_match->add_Transcript($chosen_transcript);
 	$cdna_match->analysis($chosen_transcript->analysis);
         $cdna_match->get_all_Transcripts->[0]->add_supporting_features(@$chosen_feats);
+	#combine (not predefined) candidate cDNA gene object with the cds gene object
 
-	#combine it with the cds gene
-	$combined_transcript = $self->combine_genes($cds, $cdna_match);
+	$combined_transcript = $self->combine_genes($cds, $cdna_match, $blessed);
 
-	# just check combined transcript works before throwing away the original  transcript
+	# Check combined transcript for sanity and non-cluster-joiners before throwing away the original transcript
+	
 	if ( defined($combined_transcript)){
 	  $combined_transcript->sort;
-	  if(is_Transcript_sane($combined_transcript)
-	     && all_exons_are_valid($combined_transcript, $self->MAX_EXON_LENGTH, 1)
-	     && intron_lengths_all_less_than_maximum($combined_transcript, $self->MAX_INTRON_LENGTH)
-	     && has_no_unwanted_evidence($combined_transcript)
-	   ){
-
-	    # make sure combined transcript doesn't misjoin any genewise clusters
-	    if($self->find_cluster_joiners($combined_transcript)){
-	      print STDERR "Found a cluster_joiner!\n" if $self->VERBOSE;
-	      print STDERR $combined_transcript->seq_region_start."/".$combined_transcript->seq_region_end."\n" if $self->VERBOSE;
-	      #dont use this one
-	      $combined_transcript = undef;
+          if ($blessed) {
+            if( is_Transcript_sane($combined_transcript) && has_no_unwanted_evidence($combined_transcript) ){
+              # make sure combined transcript doesn't misjoin any genewise clusters
+	      if($self->find_cluster_joiners($combined_transcript)){
+	        print STDERR "Found a cluster_joiner! Can't use this blessed combined transcript: ";
+	        print STDERR " start " . $combined_transcript->seq_region_start. " end ".$combined_transcript->seq_region_end."\n\n";
+  	        #dont use this one
+	        $combined_transcript = undef;
+	      } else {
+                print STDERR "Blessed combined transcript is sane and isn't cluster_joiner.\n";
+              }
+            } else{
+              print STDERR "Blessed combined transcript at seq_region/chr". $combined_transcript->seq_region_name . " " . 
+                           $combined_transcript->seq_region_start . "-" . $combined_transcript->seq_region_end . " did not pass sanity check.\n\n";
+              $combined_transcript = undef;
 	    }
-	  }
-	  else{
-	    print STDERR "Didn't pass checks.\n" if $self->VERBOSE;
-	    $combined_transcript = undef;
-	  }
-	}
-	else{
-	  $combined_transcript = undef;
-	}
+          }
+          elsif (!$blessed) {
+            if(is_Transcript_sane($combined_transcript)
+              && all_exons_are_valid($combined_transcript, $self->MAX_EXON_LENGTH, 1)
+              && intron_lengths_all_less_than_maximum($combined_transcript, $self->MAX_INTRON_LENGTH)
+              && has_no_unwanted_evidence($combined_transcript)
+             ){
+              if($self->find_cluster_joiners($combined_transcript)){
+                print STDERR "Found a cluster_joiner! Can't use this unblessed combined transcript: ";
+                print STDERR " start ". $combined_transcript->seq_region_start. " end ".$combined_transcript->seq_region_end."\n\n";
+                #dont use this one
+                $combined_transcript = undef;
+              } else {
+                print STDERR "Unblessed combined transcript is sane and isn't a cluster_joiner.\n";
+              }
+            } else{
+              print STDERR "Unblessed combined transcript at seq_region/chr". $combined_transcript->seq_region_name . " " . 
+                            $combined_transcript->seq_region_start . "-" . $combined_transcript->seq_region_end . " did not pass sanity check.\n\n";
+              $combined_transcript = undef;
+            }
+          }
+	} # close if (defined $combined_transcript) loop that throws away insane transcripts or cluster joiners
+
 
 	if(defined $combined_transcript){
-	  #leave the loop
+	  #leave the loop if $combined_transcript survived sanity and cluster-join check
 	  last POS;
-	}
-
+	} 
       }
-
-    } #find match
-
+    } # end  POS find match
+    
     if (defined $combined_transcript){
       #transfer evidence
-
+      print "Combined transcript checked to be OK. Now transferring evidence onto it.......\n";
       $combined_transcript = $self->_transfer_evidence($combined_transcript, $cdna_match);
-
-#      #make the new gene with UTR
-#      my $genetype;
-#      if($usingKnown){
-#         $genetype = $self->KNOWN_UTR_GENETYPE;
-#      } else{
-#         if ( $self->EXTEND_ORIGINAL_BIOTYPE && (length($self->EXTEND_ORIGINAL_BIOTYPE)>0)) {
-#           my $sep = "";
-#           $sep = "_"  unless ( $self->UTR_GENETYPE =~ m/^_/ );
-#           $genetype = $combined_transcript->biotype. $sep. $self->UTR_GENETYPE ;
-#         } else {
-#           $genetype = $combined_genetype;
-#         }
-#      }
-
-
 
       #set biotype
       my $genetype;
@@ -910,22 +977,26 @@ sub run_matching{
 
       #print STDERR "MAKING_GENE FROM ".." AND ".$cdna_match->hit_name."\n";
 
-      my $combined_genes = $self->make_gene($genetype, $combined_transcript);
+      print "Combined transcript has supporting features added to it.  Now making combined gene from combined transcript....\n";
+
+      # my $combined_genes = $self->make_gene($genetype, $combined_transcript, $blessed);  # this line of code messed up passing of $blessed!
+      my $combined_genes = $self->make_gene($genetype, [$combined_transcript], $blessed);  # make_gene method is expecting an array of transcript refs!
+
+      my $combined_gene;
 
       #check phases, etc.- if it is not a blessed gene
-      my $combined_gene;
       if(!$blessed){
 	$combined_gene = $self->look_for_both($combined_genes->[0]);
-	my $combined_transcript = $combined_gene->get_all_Transcripts->[0];
-	$combined_transcript->sort;
+	my $combined_transcript2 = $combined_gene->get_all_Transcripts->[0];
+	$combined_transcript2->sort;
 
-	 if(! (is_Transcript_sane($combined_transcript)
-	       && all_exons_are_valid($combined_transcript, $self->MAX_EXON_LENGTH, 1)
-	       && intron_lengths_all_less_than_maximum($combined_transcript, $self->MAX_INTRON_LENGTH)
-	       && validate_Translation_coords($combined_transcript, 1)
-	       && !contains_internal_stops($combined_transcript)
-	       && $combined_transcript->translate
-	       && has_no_unwanted_evidence($combined_transcript) )
+	 if(! (is_Transcript_sane($combined_transcript2)
+	       && all_exons_are_valid($combined_transcript2, $self->MAX_EXON_LENGTH, 1)
+	       && intron_lengths_all_less_than_maximum($combined_transcript2, $self->MAX_INTRON_LENGTH)
+	       && validate_Translation_coords($combined_transcript2, 1)
+	       && !contains_internal_stops($combined_transcript2)
+	       && $combined_transcript2->translate
+	       && has_no_unwanted_evidence($combined_transcript2) )
 	   ){
 
 	   #revert to previous version if tests failed
@@ -935,6 +1006,7 @@ sub run_matching{
       else{
 	#use blessed genes without modifications
 	$combined_gene = $combined_genes->[0];
+  
       }
 
       #store as combined
@@ -953,8 +1025,11 @@ sub run_matching{
 
   }
 
-  print STDERR "At the end of the matching I have ".(scalar @{$self->combined_genes})." combined_genes genes".
-        " and ".(scalar @{$self->unmatched_genes})." unmatched_genes\n" if $self->VERBOSE;
+  print STDERR "\n### At the end of the matching unblessed (presumably genewise) genes with cDNAs/ESTs, I can add UTR to ".
+        (scalar @{$self->combined_genes})." gene(s). ". (scalar @{$self->unmatched_genes})." gene(s) are without UTRs.\n" if !$blessed;
+  print STDERR "\n### At the end of the matching blessed genes with cDNAs/ESTs, including the unblessed genes I can add UTR to ".
+        (scalar @{$self->combined_genes})." gene(s). ".  (scalar @{$self->unmatched_genes})." gene(s) are without UTRs.\n" if $blessed;
+
 
   if(!$blessed && ($self->{'remove_redundant'})){
     #remove redundatant models from the umatched group
@@ -1043,7 +1118,7 @@ sub score_ditags{
       last;
     }
   }
-  print STDERR " returning ditagscore $ditag_score.\n" if $self->VERBOSE;
+  print STDERR " returning ditag score $ditag_score.\n" if $self->VERBOSE;
 
   return($ditag_score, $index);
 }
@@ -1088,42 +1163,49 @@ sub check_for_predefined_pairing {
     $protein_id = 'blessed';
     my @xrefs = @{$gene->get_all_DBLinks()};
 
+    print STDERR "Blessed gene has " . (scalar(@xrefs)) . " xrefs of all sorts. Now checking for useful NM_ xrefs...\n" if $self->VERBOSE;
+
     if(scalar @xrefs){
       foreach my $xref (@xrefs){
 	if($xref->display_id =~ "^NM_"){
 	  $cdna_id = $xref->display_id;
 	  $cdna_id =~ s/\.\S+$//;
-	  print STDERR "have xref $cdna_id\n" if $self->VERBOSE;
+	  print STDERR "have xref $cdna_id for blessed gene\n";
 	  last;
 	}
       }
     }
-    else{ print STDERR "no suitable xref\n" if $self->VERBOSE; }
+    else{ print STDERR "no NM_ xrefs for this blessed gene\n"; }
   }
   else{
     if (!defined $protein_id || $protein_id eq ''){
-      print STDERR "no protein_id for gene.\n" if $self->VERBOSE;
+      print STDERR "Couldn't find protein accession for unblessed gene.\n";
       return undef;
     }
 
-    # Using the protein id of the targetted gene, determine the
+    # Using the protein accession of the targetted gene, determine the
     # corresponding cDNA id from the pre-loaded hash.
-    #remove version info
+    # The matching won't work if (i) the protein accession is not from RefSeq NP*
+    # but Uniprot or (ii) the NP protein accession doesn't exist in the
+    # pre-loaded hash (e.g. the protein has been suppressed by NCBI).
+    
+    # Protein version info is removed before looking up the pre-loaded hash
+
     $protein_id =~ s/\.\S+$//;
     $cdna_id = $self->get_cdna_id_from_protein_id($protein_id);
   }
 
   if (!defined $cdna_id || $cdna_id eq ''){
-    print STDERR "no predefined cDNA found.\n" if $self->VERBOSE;
+    print STDERR "No predefined cDNA found for $protein_id.\n";
     return undef;
   }
   else{
-    print STDERR "found predefined cDNA $cdna_id for $protein_id\n" if $self->VERBOSE;
+    print STDERR "Found predefined cDNA $cdna_id for $protein_id\n";
   }
 
   #make sure it's not on the kill list
   if(defined ($self->kill_list()->{$cdna_id})){
-    print STDERR "skipping " . $cdna_id . " present in kill list\n";
+    print STDERR "Skipping cDNA " . $cdna_id . " as it's present in kill list\n";
     return undef;
   }
 
@@ -1132,7 +1214,7 @@ sub check_for_predefined_pairing {
 
   #check if they really are overlapping to avoid disappointment when combining
   if($cdna_gene){
-    if($self->VERBOSE){ print STDERR "found cdna gene $cdna_gene / $cdna_id.\n" }
+    if($self->VERBOSE){ print STDERR "Found cDNA gene object for $cdna_id among the filtered cDNAs.\n" }
     if( !(($gene->seq_region_name  eq $cdna_gene->seq_region_name)
 	  && ($gene->strand  == $cdna_gene->strand)
 	  && ($gene->seq_region_start  < $cdna_gene->seq_region_end)
@@ -1140,12 +1222,12 @@ sub check_for_predefined_pairing {
 	  && ($gene->get_all_Transcripts->[0]->get_all_Exons->[0]->strand 
 	          == $cdna_gene->get_all_Transcripts->[0]->get_all_Exons->[0]->strand)) ){
 
-      print STDERR "not overlapping properly, not using." if $self->VERBOSE;
+      print STDERR "cDNA not overlapping unblessed coding model properly, can't use cDNA.";
       $cdna_gene = undef;
     }
   }
   else {
-    print STDERR "Unable to fetch cDNA gene [$cdna_id].\n";
+    print STDERR "Unable to fetch cDNA gene object for $cdna_id. Maybe the cDNA alignment is not present in one of the input databases.\n";
     return undef;
   }
 
@@ -1186,7 +1268,7 @@ sub get_cdna_id_from_protein_id {
 sub create_predefined_pairing {
   my ($self, $known_utr_file) = @_;
 
-  print STDERR "Parsing GenBank file $known_utr_file for KnowUTR pairing.\n" if $self->VERBOSE;
+  print STDERR "\nParsing GenBank file $known_utr_file for KnowUTR pairing.\n" if $self->VERBOSE;
 
   open(REFSEQ, "<$known_utr_file") or die "Can't open ".$known_utr_file.": $@\n";
 
@@ -1273,12 +1355,11 @@ sub find_cluster_joiners{
     $transcript_end = $transcript->start_Exon->end;
   }
 
-  print STDERR "transcript spans $transcript_start - $transcript_end ".
-        $transcript->seq_region_start." - ".$transcript->seq_region_end."\n".
-        "clusters span: \n" if $self->VERBOSE;
-
+  print STDERR "Checking transcript for cluster joining: seq_region/chr ". $transcript->seq_region_name . ", ".
+        $transcript->seq_region_start. "-". $transcript->seq_region_end. ".\n" if $self->VERBOSE;
+ 
   if(!scalar(@clusters)){
-    print STDERR "Odd, no clusters\n" if $self->VERBOSE;
+    print STDERR "Odd, not even a single cluster of combined_transcript!? Should be at least one even if there are no cluster-joiners.\n" if $self->VERBOSE;
     return 0;
   }
 
@@ -1288,7 +1369,7 @@ sub find_cluster_joiners{
       $matching_clusters++;
     }
     if($matching_clusters>1){
-      print STDERRR "transcript joins clusters - discard it\n" if $self->VERBOSE;
+      print STDERR "transcript joins clusters - you should discard it\n" if $self->VERBOSE;
       return 1;
     }
   }
@@ -1511,8 +1592,8 @@ sub convert_to_extended_genes {
 
 =head2 make_gene
 
-  Arg [1]    : string representing genetyoe to be associated with genes
-  Arg [2]    : array of Bio::EnsEMBL::Transcript
+  Arg [1]    : string representing genetype to be associated with genes
+  Arg [2]    : an array of Bio::EnsEMBL::Transcript
   Description: Constructs Bio::EnsEMBL::Gene objects from UTR-modified transcripts
   Returntype : none; new genes are stored in self->combined_genes
   Exceptions : throws when missing genetype or analysis
@@ -1520,8 +1601,8 @@ sub convert_to_extended_genes {
 =cut
 
 sub make_gene{
-  my ($self, $genetype, @transcripts) = @_;
-
+  my ($self, $genetype, $transcripts, $blessed) = @_;
+  
   unless ( $genetype ){
     throw("You must define UTR_GENETYPE in Bio::EnsEMBL::Analysis::Conf::GeneBuild::UTR_Builder");
   }
@@ -1535,17 +1616,23 @@ sub make_gene{
   my @genes;
   my $count=0;
 
-  foreach my $trans(@transcripts){
+  foreach my $trans(@$transcripts){
     $trans->sort;
-
-    unless ( is_Transcript_sane($trans)
-	     && intron_lengths_all_less_than_maximum($trans, $self->MAX_INTRON_LENGTH)
+    if (!$blessed) {
+      unless ( is_Transcript_sane($trans)
+  	     && intron_lengths_all_less_than_maximum($trans, $self->MAX_INTRON_LENGTH)
 	     && all_exons_are_valid($trans, $self->MAX_EXON_LENGTH, 1)
 	     && has_no_unwanted_evidence($trans) ){
-      print STDERR "\nrejecting transcript\n";
-      return;
+        print STDERR "\nUnblessed transcript rejected when trying to make combined_gene from combined_transcript.\n";
+        return;
+      }
+    } elsif ($blessed) {
+      unless ( is_Transcript_sane($trans)
+             && has_no_unwanted_evidence($trans) ){
+        print STDERR "\nBlessed transcript rejected when trying to make combined_gene from combined_transcript.\n";
+        return;
+      }
     }
-
     my $gene = new Bio::EnsEMBL::Gene;
     $gene->biotype($genetype);
     $trans->biotype($genetype);
@@ -1602,7 +1689,7 @@ sub match_protein_to_cdna{
   my $strand   = $gw_exons[0]->strand;
   if($gw_exons[$#gw_exons]->strand != $strand){
     warn("first and last gw exons have different strands ".
-		"- can't make a sensible combined gene\n with ".$gw_tran[0]->dbId );
+		"- eventually can't make a sensible combined gene (gw dbID ".$gw_tran[0]->dbId .")" );
       return undef;
   }
   if ( @gw_exons ){
@@ -1638,7 +1725,7 @@ sub match_protein_to_cdna{
 
     $strand   = $eg_exons[0]->strand;
     if($eg_exons[$#eg_exons]->strand != $strand){
-	warn("first and last e2g exons have different strands - skipping transcript ".$egtran[0]->dbID);
+	warn( "first and last e2g exons have different strands - skipping e2g transcript (dbID " .$egtran[0]->dbID . ")" );
 	next cDNA;
     }
     if ($strand == 1 ){
@@ -1757,17 +1844,19 @@ sub match_protein_to_cdna{
       if(($cds_length * 10) > $UTR_diff){
 	$UTR_hash{$e2g} = $UTR_length;
 	$UTR_side_indicator_hash{$e2g} = 1;
-	print STDERR "considering cDNA ".$e2g->seq_region_start."-".$e2g->seq_region_end."[".($cds_length * 10)." > ".$UTR_diff."]\n";
+	print STDERR "considering cDNA ".$e2g->seq_region_start."-".$e2g->seq_region_end."[cds_len*10 ".
+                     ($cds_length * 10)." vs UTR_diff ".$UTR_diff."]\n" if $self->VERBOSE;
 	push(@matching_e2g, $e2g);
       }
       else{
-	print STDERR "didnt pass UTR length check [".($cds_length * 10)." > ".$UTR_diff."]: ".$e2g->seq_region_start."-".$e2g->seq_region_end."\n" if $self->VERBOSE;
+	print STDERR "didnt pass UTR length check [cds_len*10".($cds_length * 10)." vs UTR_diff ".$UTR_diff."]: ".
+                     $e2g->seq_region_start."-".$e2g->seq_region_end."\n" if $self->VERBOSE;
       }
     }
 
   }
 
-  print STDERR "returning ".(scalar @matching_e2g)." candidates.\n";
+  print STDERR "\nmatch_protein_to_cdna is returning ".(scalar @matching_e2g)." UTR evidence candidates.\n";
   return (\@matching_e2g,\%UTR_hash, \%UTR_side_indicator_hash);
 }
 
@@ -1832,19 +1921,24 @@ sub _compute_UTRlength{
 =cut
 
 sub _merge_genes {
-  my ($self, $genesref) = @_;
+  my ($self, $genesref, $blessed) = @_;
   my @merged;
   my $count = 1;
 
  UNMERGED_GENE:
   foreach my $unmerged (@{$genesref}){
-
     my $gene = new Bio::EnsEMBL::Gene;
     $gene->dbID($unmerged->dbID);
+    foreach my $dblink (@{$unmerged->get_all_DBLinks()}){
+    # print STDERR "Adding xref ". $dblink->display_d . " from unmerged to merged gene......\n";
+    $gene->add_DBEntry($dblink);
+    }
+
     my @pred_exons;
     my $ecount = 0;
 
     # order is crucial
+    
     my @trans = @{$unmerged->get_all_Transcripts};
     if(scalar(@trans) != 1) { 
       throw("Gene with dbID " . $unmerged->dbID .
@@ -1852,18 +1946,18 @@ sub _merge_genes {
 		   " Check preceding analysis \n");
     }
     $trans[0]->sort;
-    # check the sanity of the transcript
-    if( !is_Transcript_sane($trans[0])
-	|| !all_exons_are_valid($trans[0], $self->MAX_EXON_LENGTH, 1)
-        || !has_no_unwanted_evidence($trans[0]) 
-        || !intron_lengths_all_less_than_maximum($trans[0], $self->MAX_INTRON_LENGTH) ){
-      print STDERR "transcript ".$unmerged->dbID."did NOT pass sanity check!\n";
-      print STDERR "found at ".$unmerged->seq_region_name.", ".$unmerged->seq_region_start.", ".$unmerged->seq_region_end."\n";
-      next UNMERGED_GENE;
+    # check the sanity of the transcript only if it's not blessed. (We don't care about long introns etc in blessed models.)
+    if (!$blessed) {
+      if( !is_Transcript_sane($trans[0])
+             || !all_exons_are_valid($trans[0], $self->MAX_EXON_LENGTH, 1)
+             || !has_no_unwanted_evidence($trans[0]) 
+             || !intron_lengths_all_less_than_maximum($trans[0], $self->MAX_INTRON_LENGTH) ){
+        print STDERR "Transcript of gene (dbID ". $unmerged->dbID .") at seq_region/chr ". $unmerged->seq_region_name.", ".
+             $unmerged->seq_region_start." to ".$unmerged->seq_region_end ." did NOT pass sanity check! (See warning above)\n";
+        next UNMERGED_GENE;
+      }
     }
-
     ### we follow here 5' -> 3' orientation ###
-#    $trans[0]->sort;
 
     my $cloned_translation = new Bio::EnsEMBL::Translation;
 
@@ -1906,14 +2000,17 @@ sub _merge_genes {
 	
 	  # the first exon (5'->3' orientation always) is the containing exon,
 	  # which gets expanded and the other exons are added into it
-	  #print STDERR "merging $exon into $previous_exon\n";
-	  #print STDERR $exon->start."-".$exon->end." into ".$previous_exon->start."-".$previous_exon->end."\n";
+      
+          # print STDERR "Merging exon of length " . $exon->length . " with exon of length " . $previous_exon->length ."\n";
 
           if ($strand == 1) {
             $previous_exon->end($exon->end);
           } else {
             $previous_exon->start($exon->start);
           }
+
+          # print STDERR "Addding exon " . $exon->seq_region_start . " " . $exon->seq_region_end . " to previous exon ".
+          #      $previous_exon->seq_region_start . " ". $previous_exon->seq_region_end. " as sub_SeqFeature\n"; 
 
 	  $previous_exon->add_sub_SeqFeature($exon,'');
 	
@@ -1935,8 +2032,14 @@ sub _merge_genes {
 	  next EXON;
 	}
 	else{
+          # This is the majority of cases (no frameshift exons to merge), avoid the print statement below
+
 	  # make a new Exon - clone using Bio::EnsEMBL::Analysis::Tools::GeneB uildUtils::ExonUtils
 	  my $cloned_exon = clone_Exon($exon);
+   
+          # print "No fs exons to merge. Adding exon " . $exon->seq_region_start . " " . $exon->seq_region_end . " as sub_SeqFeature to cloned exon ".
+          #      $cloned_exon->seq_region_start . " ". $cloned_exon->seq_region_end. "\n"; 
+
 	  $cloned_exon->add_sub_SeqFeature($exon,'');
 	
 	  # if this is start/end of translation, keep that info:
@@ -1991,6 +2094,8 @@ sub _merge_genes {
     # and gene
     $gene->add_Transcript($merged_transcript);
     $gene->biotype($unmerged->biotype);
+    # my @merged_gene_xrefs = @{$gene->get_all_DBLinks()};     # Check if fs-merged genes (esp blessed ones) still retain xrefs or not
+    # print "Frameshift-merged gene has ".scalar(@merged_gene_xrefs). " xrefs.\n";
     push(@merged, $gene);
     $count++;
 
@@ -2013,14 +2118,14 @@ sub _merge_genes {
 =cut
 
 sub combine_genes{
-  my ($self, $gw, $e2g) = @_; 
-
+  my ($self, $gw, $e2g, $blessed) = @_; 
   my $modified_peptide = 0;
   my @combined_transcripts = ();
 
   # should be only 1 transcript
   my @gw_tran   = @{$gw->get_all_Transcripts};
   $gw_tran[0]->sort;
+
   my @gw_exons  = @{$gw_tran[0]->get_all_Exons}; # ordered array of exons
 
   my @egtran    = @{$e2g->get_all_Transcripts};
@@ -2036,6 +2141,15 @@ sub combine_genes{
   }
   foreach my $exon(@gw_exons){
     my $new_exon = clone_Exon($exon);
+    if($exon->sub_SeqFeature && scalar($exon->sub_SeqFeature) > 1 ){
+      my @sf    = sort {$a->start <=> $b->start} $exon->sub_SeqFeature;
+      foreach my $sf (@sf) {
+        my $cloned_sf = clone_Exon($sf);
+        # print STDERR "Adding subsf ". $cloned_sf->seq_region_start . "-" . $cloned_sf->seq_region_end . " to cloned Exon of length " . 
+        #       $exon->length . " (" . $exon->seq_region_start . "-" . $exon->seq_region_end. ") before cds and UTR evid are combined.\n";
+        $new_exon->add_sub_SeqFeature($cloned_sf,'');
+      }
+    }
     $newtranscript->add_Exon($new_exon);
   }
 
@@ -2082,17 +2196,15 @@ sub combine_genes{
 
       # check strands are consistent
       if ($ee->strand != $gw_exons[0]->strand){
-	  warn("gw and e2g exons have different strands - can't combine genes\n") ;
+	  warn("coding (gw or blessed) and e2g exons have different strands - can't combine genes\n") ;
 	  return undef;
       }
 
       # single exon genewise prediction?
       if(scalar(@gw_exons) == 1) {
-	
 	  ($newtranscript, $modified_peptide_flag) = $self->transcript_from_single_exon_genewise( $ee,
 												  $gw_exons[0],
 												  $newtranscript,
-												  $translation,
 												  $eecount,
 												  @e2g_exons);
       }
@@ -2105,6 +2217,8 @@ sub combine_genes{
 												$gw,
 												$e2g)
 	  }
+
+
       if ( $modified_peptide_flag ){
 	$modified_peptide = 1;
       }
@@ -2113,6 +2227,10 @@ sub combine_genes{
       $eecount++;
 
   } # end of EACH_E2G_EXON
+
+  print STDERR "Combined transcript just created in combine_genes method has ".  scalar@{$newtranscript->get_all_Exons()}  . " exon(s), translation length "
+               . $newtranscript->translation->length()."\n";
+               
 
   #don't modify translation of blessed genes
   my $biotype = $gw->biotype;
@@ -2133,9 +2251,12 @@ sub combine_genes{
 
     foreach my $ex (@{$newtranscript->get_all_Exons}){
 
+      # print STDERR "Looking at exon of length " . $ex->length . "\n";
       if($ex->sub_SeqFeature && scalar($ex->sub_SeqFeature) > 1 ){
 	my @sf    = sort {$a->start <=> $b->start} $ex->sub_SeqFeature;
-
+        print STDERR "Unpacking a merged exon of length ". $ex->length . " at seq_region/chr ". $ex->seq_region_name . 
+                     " (" . $ex->seq_region_start . "-" . $ex->seq_region_end .")\n" if $self->VERBOSE;
+ 
 	my $first = shift(@sf);
 
 	$ex->end($first->end);
@@ -2150,20 +2271,29 @@ sub combine_genes{
       }
     }
 
-    # check that the resulting transcript
-    unless( is_Transcript_sane($newtranscript)
-	    && all_exons_are_valid($newtranscript, $self->MAX_EXON_LENGTH, 1)
+    # check that the resulting transcript:
+
+    if (!$blessed) {
+      unless( is_Transcript_sane($newtranscript)
+  	    && all_exons_are_valid($newtranscript, $self->MAX_EXON_LENGTH, 1)
 	    && intron_lengths_all_less_than_maximum($newtranscript, $self->MAX_INTRON_LENGTH)
 	    && has_no_unwanted_evidence($newtranscript) ){
-      print STDERR "problems with this combined transcript, return undef\n";
-      return undef;
+        print STDERR "problems with this unblessed combined_transcript inside combine_genes method (no predefined cDNA), return undef\n";
+        return undef;
+      }
+    } elsif ($blessed) {
+      unless( is_Transcript_sane($newtranscript)
+            && has_no_unwanted_evidence($newtranscript) ){
+        print STDERR "problems with this blessed combined_transcript inside combine_genes method (no predefined cDNA), return undef\n";
+        return undef;
+      }   
     }
+
     #check the translation
     unless( validate_Translation_coords($newtranscript, 1)
-	    && validate_Translation_coords($newtranscript, 1)
 	    && !contains_internal_stops($newtranscript)
 	    && $newtranscript->translate){
-      print STDERR "problems with this combined translation, return undef\n";
+      print STDERR "problems with this translation from the combined_transcript inside combine_genes method, return undef\n";
       return undef;
     }
 
@@ -2185,20 +2315,19 @@ sub combine_genes{
 	      && all_exons_are_valid($newtrans, $self->MAX_EXON_LENGTH, 1)
 	      && intron_lengths_all_less_than_maximum($newtrans, $self->MAX_INTRON_LENGTH) ){
 	print STDERR "problems with this genomewise alternative model, returning original transript.\n";
-	$newtrans = $newtranscript
+	$newtrans = $newtranscript;
       }
     }
     else{
       $newtrans = $newtranscript;
     }
     return $newtrans;
-  }
+  }  # if defined $newtranscript
   else{
-    warn("No combination could be built\n");
+    warn("No combination could be built from coding model and designated cDNA/EST evidence.\n");
     return undef;
   }
 }
-
 
 =head2 transcript_from_single_exon_genewise
 
@@ -2214,7 +2343,32 @@ sub combine_genes{
 =cut
 
 sub transcript_from_single_exon_genewise {
-  my ($self, $eg_exon, $gw_exon, $transcript, $translation, $exoncount, @e2g_exons) = @_;
+  my ($self, $eg_exon, $gw_exon, $orig_transcript, $exoncount, @e2g_exons) = @_;
+
+  # clone the orig_transcript which just got passed in. It clones the translation too!
+  # Will work on this cloned transcript (and its underlying cloned translation) throughout this method.
+  # While cloning transcript, we manually cloned the sub_SeqFeatures, because whie clone_Transcript
+  # calls clone_Exon, clone_Exon method doesn't handle sub_SeqFeatures.
+
+  my $transcript = clone_Transcript($orig_transcript);
+  foreach my $orig_exon(@{$orig_transcript->get_all_Exons()}){
+    foreach my $new_exon(@{$transcript->get_all_Exons()}){
+      if ( ($orig_exon->start == $new_exon->start) && ($orig_exon->end == $new_exon->end) ) {
+        if($orig_exon->sub_SeqFeature && scalar($orig_exon->sub_SeqFeature) > 1 ){
+          my @orig_sf    = sort {$a->start <=> $b->start} $orig_exon->sub_SeqFeature;
+          foreach my $orig_sf (@orig_sf) {
+          my $cloned_sf=clone_Exon($orig_sf);
+          # print STDERR "Adding subsf ". $orig_sf->seq_region_start . "-" . $orig_sf->seq_region_end . " to cloned Exon of length " . 
+          #    $new_exon->length . " (" . $new_exon->seq_region_start . "-" . $new_exon->seq_region_end. ") in transcript_from_single_exon_genewise.\n";
+              $new_exon->add_sub_SeqFeature($cloned_sf,'');
+          }
+        }
+      }  # close if (exon start and end matches)
+    } # close foreach new exon
+  }  # close foreach original exon
+
+  # Note that $translation is from the cloned transcript, not the transcript we originally passed into this method
+  my $translation = $transcript->translation;
 
   # save out current translation end - we will need this if we have to unmerge frameshifted exons later
   my $orig_tend = $translation->end;
@@ -2233,7 +2387,7 @@ sub transcript_from_single_exon_genewise {
 	
     $ex->start($eg_exon->start);
     $ex->end($eg_exon->end);
-	
+    
     # need to explicitly set the translation start & end exons here.
     $translation->start_Exon($ex);
 	
@@ -2285,43 +2439,67 @@ sub transcript_from_single_exon_genewise {
 	
     # expand frameshifted single exon genewises back from one exon to multiple exons
     if(defined($ex->sub_SeqFeature) && (scalar($ex->sub_SeqFeature) > 1)){
-      #print STDERR "frameshift in a single exon genewise\n";
+      print STDERR "frameshift in a single exon genewise\n";
       my @sf = $ex->sub_SeqFeature;
-	
-      # save current start and end of modified exon
+
+      # save the "current" start and end of frameshift(fs)-merged exon before we bring back (unpack) the individual fs exons
+      # NOTE: $ex is the first exon (well, only exon, the fs-merged exon) of the cloned transcript we made at the beginning of this method
+
       my $cstart = $ex->start;
       my $cend   = $ex->end;
       my $exlength = $ex->length;
+      # print STDERR "Current start and end of fs-merged exon are: " . $ex->seq_region_start . " " . $ex->seq_region_end. "\n";
+
+      # Bring back the first exon by modifying the end position of the merged exon
+      # (which is already part of the cloned transcript):
+
+      my $first_sf = shift(@sf);
+      $ex->end($first_sf->end);
+      $transcript->translation->start_Exon($ex);
+      # print STDERR "End of first unpacked exon is ". $first_sf->seq_region_end . " (genomic).\n ";
+
+      # Bring back the last exon by engineering a new exon from the last sub_SeqFeature
+      # and then adding this new exon to the cloned transcript:
+
+      my $last_sf = pop(@sf);
+      $last_sf->end($cend);
+      $transcript->add_Exon($last_sf);
+      $transcript->translation->end_Exon($last_sf); 
+      $transcript->translation->end($orig_tend);  # Putting translation end_Exon isn't enough. we need to say where the translation should end. 
+
+      # print STDERR "End of last unpacked exon is ". $last_sf->seq_region_end ." (genomic).\n";
+      # print STDERR "tln end exon end is ".$translation->end_Exon->end."\n";
 	
-      # get first exon - this has same id as $ex
-      my $first = shift(@sf);
-      $ex->end($first->end); # NB end has changed!!!
-      # don't touch start.
-      # no need to modify translation start
-	
-      # get last exon
-      my $last = pop(@sf);
-      $last->end($cend);
-      $transcript->add_Exon($last);
-      # and adjust translation end - the end is still relative to the merged gw exon
-      $translation->end_Exon($last);
-      # put back the original end translation
-      $translation->end($orig_tend);
-	
-      # get any remaining exons
+      # If there are more than two frameshift exons, what we had done above is to
+      # deal with the start and end exons only.  Need to get any remaining exons:
       foreach my $s(@sf){
+        print STDERR "Adding unpacked exon to a coding+UTR combined transcript: ". $s->seq_region_start . " " . $s->seq_region_end . "\n" if $self->VERBOSE;
         $transcript->add_Exon($s);
       }
+      
       $transcript->sort;
       # flush the sub_SeqFeatures
       $ex->flush_sub_SeqFeature;
+
+      if(defined($ex->sub_SeqFeature)){
+        my @sf_after = $ex->sub_SeqFeature;
+        foreach my $sf_after (@sf_after) {
+          print STDERR "BAD!! subseqfeature remained with combined transcript after flush: ". $sf_after->seq_region_start . " " . $sf_after->seq_region_end."\n" if $self->VERBOSE;
+        }
+      }
     }
-	
-    # need to add back exons, both 5' and 3'
+
+    # After unpacking all frameshift-merged exons, the transcript only contains its
+    # original exons, where terminal exons could have been extended by bits of UTRs.
+    # Still, if the coding model contained 3 exons to start with, it still contains
+    # 3 exons at this point.
+    # But the UTR can be much longer, i.e. beyond the terminal exons of the coding
+    # model. So we need to add back E2G exons, both at 5' and 3':
+
     $self->add_5prime_exons($transcript, $exoncount, @e2g_exons);
     $self->add_3prime_exons($transcript, $exoncount, @e2g_exons);
   }
-  return ($transcript,0);
+  return ($transcript,0); 
 }
 
 
@@ -2824,7 +3002,7 @@ sub add_5prime_exons {
       #print STDERR $sf->start."-".$sf->end."  ".$sf->hstart."-".$sf->hend."  ".$sf->hseqname."\n";
       $newexon->add_supporting_features($sf);
     }
-    #	print STDERR "Adding 5prime exon " . $newexon->start . " " . $newexon->end . "\n";
+    print STDERR "Adding 5prime UTR exon " . $newexon->start . " " . $newexon->end . "\n" if $self->VERBOSE;
     $transcript->add_Exon($newexon);
     $modified = 1;
     $c++;
@@ -2917,7 +3095,7 @@ sub add_3prime_exons {
     $newexon->phase(-1);
     $newexon->end_phase(-1);
     $newexon->slice($oldexon->slice);
-    #print STDERR "adding evidence in 3':\n";
+    print STDERR "adding evidence in 3':\n" if $self->VERBOSE;
     my %evidence_hash;
     foreach my $sf( @{$oldexon->get_all_supporting_features }){
       if ( $evidence_hash{$sf->hseqname}{$sf->hstart}{$sf->hend}{$sf->start}{$sf->end} ){
@@ -2927,7 +3105,7 @@ sub add_3prime_exons {
       #print STDERR $sf->start."-".$sf->end."  ".$sf->hstart."-".$sf->hend."  ".$sf->hseqname."\n";
       $newexon->add_supporting_features($sf);
     }
-    #	print STDERR "Adding 3prime exon " . $newexon->start . " " . $newexon->end . "\n";
+    print STDERR "Adding 3prime UTR exon " . $newexon->start . " " . $newexon->end . "\n" if $self->VERBOSE;
     $transcript->add_Exon($newexon);
     $modified = 1;
     $c--;
@@ -3057,7 +3235,7 @@ sub _recalculate_translation {
   unless(validate_Translation_coords($mytranscript, 1)
 	 && contains_internal_stops($mytranscript)
 	 && $mytranscript->translate){
-    print STDERR "problem with the translation. Returning the original transcript\n";
+    print STDERR "Problem with the translation as it didn't pass sanity check. Returning the original transcript\n";
     return $this_is_my_transcript;
   }
   return $mytranscript;
@@ -3156,7 +3334,7 @@ sub look_for_both {
       print STDERR "Pep genomic location = " . $pepgenstart . " " . $pepgenend . "\n" if $self->VERBOSE;
       
       my $startseq= substr($cdna_seq,$coding_start-1,3);
-      print "cdna seq for pep start = " . $startseq . "\n";
+      print STDERR "cdna seq for pep start = " . $startseq . "\n" if $self->VERBOSE;
       if ($startseq ne "ATG") {
 	if ($coding_start > 3) {
 	  my $had_stop = 0;
@@ -3169,10 +3347,9 @@ sub look_for_both {
 	      my $new_start;
 	      my $new_end;
 	      if(scalar(@coords) > 2) {
-		print STDERR "Shouldn't happen - new start does not map cleanly - I'm out of here\n";
-		next;
+		throw "Shouldn't happen - new coding start maps to >2 locations in genome - I'm out of here\n";
 	      } elsif (scalar(@coords) == 2) {
-		print STDERR "WOW ISN'T NATURE HORRIBLE: new start crosses intron\n";
+		print STDERR "WOW ISN'T NATURE HORRIBLE: new coding start crosses intron\n";
 		print STDERR "coord[0] = " . $coords[0]->start . " " . $coords[0]->end ."\n";
 		print STDERR "coord[1] = " . $coords[1]->start . " " . $coords[1]->end ."\n";
 		if ($gene->strand == 1) {
@@ -3324,7 +3501,8 @@ sub look_for_both {
 	    }
 	  }
 	} else {
-	  print STDERR "Not enough bases upstream - NOT looking into genomic\n"if $self->VERBOSE;
+	  print STDERR "Coding region starts between the 1st and 3rd base of the transcript.  Coding start codon isn't ATG ".
+                       "but a max of 3 bases upstream is not enough to search for the next nearest ATG. NOT looking into genomic\n"if $self->VERBOSE;
 	}
       }
       
@@ -3380,7 +3558,6 @@ sub look_for_both {
 		my $new_end;
 		if(scalar(@coords) > 2) {
 		  throw("new end does not map cleanly\n");
-		  next;
 		} elsif (scalar(@coords) == 2) {
 		  print STDERR "WOW ISN'T NATURE HORRIBLE: new end crosses intron\n";
 		  print STDERR "coord[0] = " . $coords[0]->start . " " . $coords[0]->end ."\n";
@@ -3542,6 +3719,9 @@ sub look_for_both {
 	      $coding_end += 3;
 	    }
 	  } else {
+            print STDERR "Coding region ends between the 3rd last to the last base of the transcript.  Stop codon isn't TGG, TGA or TAG ".
+                       "but a max of 3 bases downstream is not enough to search for the next nearest stop codon. NOT looking into genomic\n"if $self->VERBOSE;
+
 	    print STDERR "Not enough bases downstream - NOT looking into genomic\n" if $self->VERBOSE;
 	  }
 	}
@@ -3760,11 +3940,13 @@ sub blessed_genes {
 	# make a new gene
 	my $newgene = new Bio::EnsEMBL::Gene;
 	$newgene->biotype($gene->biotype);
-	#preserve the xref of the blessed genes!
+	#preserve the xref and dbID of the blessed genes!
 	foreach my $dblink (@{$gene->get_all_DBLinks()}){
-	  #print STDERR "Adding xref ".$dblink->display_id."\n";
+	  # print STDERR "Adding xref: ".$dblink->display_id." from blessed to cloned-blessed gene.....\n";
 	  $newgene->add_DBEntry($dblink);
 	}
+        $newgene->dbID($gene->dbID);
+
 	# clone transcript
 	my $newtranscript = new Bio::EnsEMBL::Transcript;
 	$newtranscript->slice($slice);
