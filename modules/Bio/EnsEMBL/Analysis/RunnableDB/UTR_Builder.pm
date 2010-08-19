@@ -171,7 +171,7 @@ sub fetch_input{
 
   # are there any genes here at all?
   if(!scalar @{$self->gw_genes} and !scalar @{$self->blessed_genes}){
-    warn ("No genewise or blessed genes fetched from database(s). Something's wrong! Can't proceed!\n");
+    warn ("No genewise or blessed genes fetched from database(s). Are you sure there should no genes?\n");
     return 0;
   }
 
