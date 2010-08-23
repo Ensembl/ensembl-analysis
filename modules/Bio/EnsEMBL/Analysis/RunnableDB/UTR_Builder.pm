@@ -883,8 +883,13 @@ sub run_matching{
     POS:
       while(my $chosen_transcript = pop @possible_transcripts){
 
-        print STDERR "Checking individual possible cDNA/EST transcript as UTR evidence ..... \n" if $self->VERBOSE;
+        print STDERR "Checking individual possible cDNA/EST transcript as UTR evidence: ".
+                     ${$chosen_transcript->get_all_supporting_features}[0]-> hseqname ."..... \n" if $self->VERBOSE;
         my $chosen_feats = $chosen_transcript->get_all_supporting_features;
+
+        foreach my $feature (@$chosen_feats) {
+          print $feature->hseqname."\n";
+        }
 
 	#make a gene from the candidate cDNA (survivied TranscriptConsensus)
 	$cdna_match = Bio::EnsEMBL::Gene->new;
@@ -1721,6 +1726,17 @@ sub match_protein_to_cdna{
   foreach my $e2g(@genes){
 
     my @egtran  = @{$e2g->get_all_Transcripts};
+
+   # if the cDNA or EST ($egtran[0]) is on the kill list, we skip it
+   
+    my $egtran_hitname = ${$egtran[0]->get_all_supporting_features}[0]->hseqname;
+    $egtran_hitname =~s/\.\d//;
+
+    if(defined ($self->kill_list()->{$egtran_hitname})){
+      print STDERR "Skipping cDNA " . $egtran_hitname . " as it's present in kill list\n";
+      next cDNA;
+    }
+ 
     my @eg_exons = @{$egtran[0]->get_all_Exons};
 
     $strand   = $eg_exons[0]->strand;
