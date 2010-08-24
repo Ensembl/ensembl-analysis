@@ -51,10 +51,9 @@ use vars qw(@ISA);
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-
+  $self->db->disconnect_when_inactive(1); 
   $self->read_and_check_config($EXONERATE_SOLEXA_CONFIG_BY_LOGIC);  
-
-  $self->db->disconnect_when_inactive(1);
+  $self->db->disconnect_when_inactive(1); 
   return $self;
 }
 
@@ -63,9 +62,13 @@ sub run {
   my ($self) = @_;
  # do all the normal stuff 
  
-  $self->SUPER::run(); 
+  $self->db->disconnect_when_inactive(1);  
+  $self->SUPER::run();  
+  print "run finished 1 \n"; 
+  $self->db->disconnect_when_inactive(1);  
   # filter the results carefully to only allow strict matches
   my $filtered_features = $self->filter_solexa($self->output);
+  $self->db->disconnect_when_inactive(1);  
   # Pair features together if they come from paired end reads
   if ( $self->PAIREDEND ) {
     my $paired_features = $self->pair_features($filtered_features);
@@ -73,6 +76,7 @@ sub run {
     $self->{'output'} = [];
     $self->output($paired_features);
   }
+  $self->db->disconnect_when_inactive(1);  
 }
 
 sub filter_solexa {
@@ -361,20 +365,30 @@ sub write_output {
     $fa = $outdb->get_DnaAlignFeatureAdaptor;
   }
 
-  
-  foreach my $f (@{$self->output}){
+    print "writing output\n";  
     # calculate the hcoverage and use the evalue feild to store the
     # depth of the features
     
-    $f->p_value(1) if $self->COMPRESSION;
-
-    eval{
-      $fa->store($f);
-    };
-    if ($@) {
-      $self->throw("Unable to store DnaAlignFeature\n $@");
-    }
+   if ( $self->COMPRESSION ) { 
+     foreach my $f (@{$self->output}){
+      $f->p_value(1) ;
+      eval{
+        $fa->store($f);
+      };
+      if ($@) {
+        $self->throw("Unable to store DnaAlignFeature\n $@");
+      }
+     }
+   } else { 
+      print "no compression\n";  
+      eval{
+        $fa->store(@{$self->output});
+      };
+      if ($@) {
+       $self->throw("Unable to store DnaAlignFeature\n $@");
+     }
   }
+  #$outdb->disconnect_if_idle();
 }
 
 ###########################################################
@@ -408,15 +422,15 @@ sub INTRON_OVERLAP {
   }
 }
 
-sub BIOTYPE {
+sub TRANSCRIPT_BIOTYPE {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_CONFIG_BIOTYPE'} = $value;
+    $self->{'_CONFIG_TRANS_BIOTYPE'} = $value;
   }
   
-  if (exists($self->{'_CONFIG_BIOTYPE'})) {
-    return $self->{'_CONFIG_BIOTYPE'};
+  if (exists($self->{'_CONFIG_TRANS_BIOTYPE'})) {
+    return $self->{'_CONFIG_TRANS_BIOTYPE'};
   } else {
     return undef;
   }
