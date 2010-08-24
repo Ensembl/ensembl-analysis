@@ -170,10 +170,12 @@ while ( my $cdna = $seqin->next_seq ) {
   my ($clipped, $clip_end, $num_bases_removed) = clip_if_necessary($cdna, $buffer, $window_size);
   if (defined $clipped) {  # $clipped would have been returned undef if the entire cDNA seq seems to be polyA/T tail/head
     my $id = $clipped->id;
+    my $id_with_version = $id;
+    $id =~ s/\.\d//;  # strip off the version number or else the ID will never match any accession in kill_list
     # next SEQFETCH unless in_mole;
     # check whether in Mole
     if ($kill_list{$id}) {
-      print STDERR "$id is in kill list, discarded.\n";
+      print STDERR "$id_with_version is in kill list, discarded.\n";
       $killed_count ++;
       next SEQFETCH;
     }
