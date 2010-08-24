@@ -749,7 +749,7 @@ sub tidy_up {
         my $inner_transc = $inner->get_all_Transcripts->[0];
         #my $outer_transc_seq = $outer->get_all_Transcripts->[0]->translateable_seq;
         #my $inner_transc_seq = $inner->get_all_Transcripts->[0]->translateable_seq;
-        my $exact_match;
+        my $exact_match = 0;
         for (my $i=0; $i< scalar(@{$outer_transc->get_all_Exons}); $i++) {
           for (my $j=0; $j<scalar(@{$inner_transc->get_all_Exons}); $j++) {
             if ($outer_transc->get_all_Exons->[$i]->start == $inner_transc->get_all_Exons->[$j]->start &&
