@@ -110,7 +110,7 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  my $self = bless {},$class; 
+  my $self = bless {},$class;  
 
   my ($db, $input_id, $analysis,$ignore_config_file) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE'], @args);
 
@@ -514,7 +514,11 @@ sub fetch_input{
 
 
 sub read_and_check_config{
-  my ($self, $var_hash) = @_;
+  my ($self, $var_hash, $label ) = @_; 
+  
+  if ( defined $label ) { 
+    print "READING CONFIG  : $label\n" ; 
+  }
   parse_config($self, $var_hash, $self->analysis->logic_name);
 }
 
