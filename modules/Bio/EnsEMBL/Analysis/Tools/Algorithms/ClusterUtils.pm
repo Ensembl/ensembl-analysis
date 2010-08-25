@@ -91,7 +91,6 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
     one-way clustering means : 
         - genes only have exon overlap within the same set, they only cluster among each other ('homogenous clusters')
           ( see Example 4 and Example 2 ) 
-           methods get_twoway_clustering_genes_both_sets
 
     two-way clustering means (=two set cluster )
        - the cluster contains genes of set A and set B, and the genes have exon overlap 
@@ -116,13 +115,13 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 @ISA=qw(Exporter);
 
 @EXPORT=qw( 
+            _compare_Genes
             simple_cluster_Genes 
             cluster_Genes 
             cluster_Genes_without_strand 
             cluster_Genes_by_coding_exon_overlap 
             get_single_clusters 
             get_twoway_clusters 
-            get_twoway_clustering_genes_both_sets
             get_twoway_clustering_genes_of_set 
             get_oneway_clustering_genes_of_set  
             make_types_hash
@@ -332,36 +331,6 @@ sub get_non_clustering_genes_of_set {
 
 
 
-
-=head2  get_all_twoway_clustering_genes_both_sets
-
-   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
-
-   Function  : Out of a given array of GeneCluster objects, only Bio::EnsEMBL::Gene objects are returned 
-               which are clustering with other set_1 and set_2 genes 
-
-   Returnval : Arrayreferenc of  Bio::EnsEMBL::Gene objects
-
-=cut
-
-
-
-sub get_twoway_clustering_genes_both_sets {  
-   my ($cluster_ref,$target_set_name ) = @_ ;    
-
-   check_cluster_ref($cluster_ref) ;  
-   my @twoway_clustering_genes_from_both_sets  ; 
-
-   for my $twoway_cluster (@{ get_twoway_clusters($cluster_ref)} ) {   
-       push @twoway_clustering_genes_from_both_sets, @{ $twoway_cluster->get_Genes_by_Set($target_set_name)} ; 
-   }  
-   if ( scalar(@twoway_clustering_genes_from_both_sets) == 0 ) {  
-     warning (" no gene of set-type \"$target_set_name\" found - i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
-   }  
-   return \@twoway_clustering_genes_from_both_sets; 
-} 
-
-
 =head2 get_oneway_clustering_genes_of_set 
 
    Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
@@ -429,7 +398,6 @@ sub cluster_Genes_without_strand {
   my ($genes, $types_hash ) = @_; 
   return cluster_Genes($genes,$types_hash,0,1); 
 }
-
 
 =head2 cluster_Genes 
 
