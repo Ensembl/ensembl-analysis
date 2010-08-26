@@ -18,19 +18,23 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
  
    We will refer to 2 types of clusters in this module :  
 
-    'one_way clusters' - a cluster of genes [= genes which have overlapping exons ]
-                         which contain only genees of one set 
-
+    'one_way clusters'    - a cluster of genes [= genes which have overlapping exons ]
+                            which contain only genees of one set 
+                            use get_single_clusters method
 
     'two_way clusters'    - a cluster of genes [= genes which have overlapping exons ]
                             which contains genes of boths sets, 
-
-    'get_single_clusters' - these clusters contain geenes which don't overlap any other gene 
-                            in the same set, or in any other set. These genes are also known as 
-                             non-clustering genes ( see also get_non_clustering_genes_of_set )
-
+                            use get_twoway_clusters method
 
   May be the best would have been to call them one-set clussters and two-set clusters 
+
+
+
+  'unclustered'         - these clusters contain genes which don't overlap any other gene 
+                          in the same set, or in any other set. These genes are also known as 
+                          non-clustering genes 
+
+
 
  =head2  Example 1 :  
 
@@ -46,7 +50,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 =head2  Example 2: 
 
   Below you see 2 one-way clustering clusters  (2-set-clusters)
-    - both clusters are called 'one-way clustering clusteres' - they only cluster 'one way'  - they are homogenous clusters...
+    - both clusters are called 'one-way clustering clusters' - they only cluster 'one way'  - they are homogenous clusters...
     - no cluster contains a gene which belongs to a different set 
       method : #  get_oneway_clustering_genes_of_set($clustered,"transformed")
 
@@ -58,7 +62,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 =head2   Example 3 : 
 
-  All the genes below form one tow-way cluster because the exons overlap : 
+  All the genes below form one two-way cluster because the exons overlap : 
 
   SET 1 :          AAAAAA--------------------------------AAAAAAAAAAAA       
   SET 1 :       BBBBB                                                                                    BBBBBBBBBBBB-----------BBBBBBB
@@ -74,14 +78,6 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
   SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA       
   SET 1 :       BBBBBBBB------------------------BBBB 
 
-
-
-
-=head2  Example 5 : 
-
- This gene is 'on-its-own and is not clustering with any other gene. 
-  method :      get_non_clustering_genes_of_set
-  SET 1 :          AAAAAAAAAAAA---------------------AAAAAAAAAA       
 
 
 
@@ -115,7 +111,6 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 @ISA=qw(Exporter);
 
 @EXPORT=qw( 
-            _compare_Genes
             simple_cluster_Genes 
             cluster_Genes 
             cluster_Genes_without_strand 
@@ -126,11 +121,23 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
             get_oneway_clustering_genes_of_set  
             make_types_hash
             make_types_hash_with_genes
-            get_non_clustering_genes_of_set
           ) ; 
 
 
 
+=head2 make_types_hash_with_genes 
+
+   Arg[1]    : Array ref. to gene set 1 
+   Arg[2]    : Array ref. to gene set 2 
+   Arg[3]    : Name of gene set 1 
+   Arg[4]    : Name of gene set 2 
+
+   Function  : Creates a type hash to contain the names of the two sets
+
+   Returnval : Hashreference of types to be used
+ 
+
+=cut
 
 
 sub make_types_hash {
@@ -171,18 +178,6 @@ sub make_types_hash {
 
 
 
-sub simple_cluster_Genes { 
-  my ( $gene_set1,$gene_set1_name,  $gene_set2, $gene_set2_name ) = @_;
-
-  my ($types_hash,$all_genes) = @{make_types_hash_with_genes($gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name)}; 
-  my ($clustered,$unclustered) = cluster_Genes($all_genes, $types_hash);  
-
-  return [ $clustered, $unclustered ];
-} 
-
-
-
-
 
 =head2 make_types_hash_with_genes 
 
@@ -191,12 +186,9 @@ sub simple_cluster_Genes {
    Arg[3]    : Name of gene set 1 
    Arg[4]    : Name of gene set 2 
 
-   Function  : Filters out all clusters of the array which are twoway-clusters [ which contain set1 and set2 ] 
-               This means all clusters, which contain genes of set 1 and set 2 , are not returned. 
-               
+   Function  : Creates a type hash to contain the names of the two sets, along with an arrayreference of the genes
 
-   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2, 
-               or both. 
+   Returnval : Hashreference of types used and Arrayreference of gene objects
  
 
 =cut
@@ -212,8 +204,36 @@ sub make_types_hash_with_genes {
 }
 
 
+=head2 simple_cluster_Genes 
 
-=head2 get_single_clusters 
+   Arg[1]    : Array ref. to gene set 1 
+   Arg[2]    : Name of gene set 1 
+   Arg[3]    : Array ref. to gene set 2 
+   Arg[4]    : Name of gene set 2 
+
+   Function  : Simply clusters two sets of genes 
+               
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2, 
+               or both. 
+ 
+
+=cut
+
+
+sub simple_cluster_Genes {
+  my ( $gene_set1, $gene_set1_name, $gene_set2, $gene_set2_name ) = @_;
+
+  my ($types_hash,$all_genes) = @{make_types_hash_with_genes($gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name)};
+  my ($clustered,$unclustered) = cluster_Genes($all_genes, $types_hash);
+
+  return [ $clustered, $unclustered ];
+}
+
+
+
+
+=head2 get_single_clusters ( should be called get_oneway_clusters ) 
 
    Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
 
@@ -221,8 +241,8 @@ sub make_types_hash_with_genes {
                This means all clusters, which contain genes of set 1 and set 2 , are not returned. 
                Only clusters are returned which contain only one type of set, either set1 or set2          
 
-   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2, 
-               or both. 
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1,
+               or set2, or both. 
  
 
 =cut
@@ -253,7 +273,7 @@ sub get_single_clusters {
    Function  : Out of a given array of GeneCluster objects, only those ones are returned which 
                contain genes of type set1 AND set2. 
 
-   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster 
+   Returnval : Arrayreference of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which are twoway
  
 =cut
 
@@ -272,6 +292,19 @@ sub get_twoway_clusters {
    }
    return \@tw; 
 }  
+
+
+=head2 get_twoway_clustering_genes_of_set
+
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects and a set name 
+
+   Function  : Out of a given array of GeneCluster objects, clusters which are twoways are selected.
+               Then, only genes of the specified target_set_name are returned. 
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Gene objects which belong to target set name and are in twoway clusters
+ 
+=cut
+
 
 
 
@@ -293,53 +326,15 @@ sub get_twoway_clustering_genes_of_set {
 
 
 
-=head2  get_non_clustering_genes_of_set   
-
-   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
-
-   Function  : All genes are returned which do not cluster with any other set, or overlap any other gene. 
-
-   Returnval : Arrayreferenc of  Bio::EnsEMBL::Gene objects 
-
-   Example   :  
-
-             my ($clustered,$unclustered) = @{simple_cluster_Genes(\@projected_genes,"projected",\@transformed_genes,"transformed")}; 
-
-             my @genes = @{get_non_clustering_genes_of_set($unclustered,"transformed")}; 
-
-              for ( @genes ) {  
-                 print "this gene is on-its-own and does not cluster with any other set\n" ;
-             } 
-
-=cut
-
-
-
-
-sub get_non_clustering_genes_of_set {  
-   my ($cluster_ref,$target_set_name ) = @_ ;
- 
-   check_cluster_ref($cluster_ref) ; 
-
-   my @single_clustering_genes_of_specified_set;  
-
-   for my $c ( @$cluster_ref ) { 
-     push @single_clustering_genes_of_specified_set, @{$c->get_Genes_by_Set($target_set_name)};
-   } 
-   return \@single_clustering_genes_of_specified_set;  
-} 
-
-
-
 =head2 get_oneway_clustering_genes_of_set 
 
    Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
 
    Function  : Out of the given array of Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster object, 
-               clusters which are two-way-cluster ( the contain genes of set 1 and set 2 ) are filtered out. 
-               Then, only genes of the specified set Arg[1] are returned. 
+               clusters which are two-way-cluster ( they contain genes of set 1 AND set 2 ) are excluded. 
+               Then, only genes of the specified target_set_name are returned. 
 
-   Returnval : Arrayreference of Bio::EnsEMBL::Gene objects which belog to set $target_set_name and are single_set_clusters. 
+   Returnval : Arrayreference of Bio::EnsEMBL::Gene objects which belong to set $target_set_name and are in oneway_clusters. 
 
 
 =cut
@@ -369,6 +364,8 @@ sub get_oneway_clustering_genes_of_set {
 
 
 
+
+
 sub get_sets_included {  
    my ($cluster_ref)  = @_ ;     
    my %tmp ; 
@@ -388,16 +385,56 @@ sub check_cluster_ref {
 } 
 
 
+
+
+=head2 cluster_Genes_by_coding_exon_overlap
+
+   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects 
+   Arg[2]    : ref to hash which builds up an Evidence-Set to biotype-relation :
+
+   Function  : clusters all genes in Arg[1] according to their coding exon extent and 
+              sets the type according to their sets
+              Uses the cluster_Genes method but clusters genes together only if there is coding exon overlap
+
+   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which 
+               have been clustered together, second ref holds an array of genes 
+               which were not clustered.   
+
+=cut
+
+
+
 sub cluster_Genes_by_coding_exon_overlap {  
   my ($genes, $types_hash ) = @_ ;
   return cluster_Genes($genes,$types_hash,1); 
 }
 
 
+
+
+=head2 cluster_Genes_without_strand
+
+   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects 
+   Arg[2]    : ref to hash which builds up an Evidence-Set to biotype-relation :
+
+   Function  : clusters all genes in Arg[1] according to their genomic extent and 
+              sets the type according to their sets
+              Uses the cluster_Genes method but genes cluster together even if there are on different strands
+
+   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which 
+               have been clustered together, second ref holds an array of genes 
+               which were not clustered.   
+
+=cut
+
+
+
 sub cluster_Genes_without_strand {  
   my ($genes, $types_hash ) = @_; 
   return cluster_Genes($genes,$types_hash,0,1); 
 }
+
+
 
 =head2 cluster_Genes 
 
