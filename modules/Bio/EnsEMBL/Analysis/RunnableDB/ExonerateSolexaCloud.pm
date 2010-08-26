@@ -66,17 +66,27 @@ sub new {
   $self->db->disconnect_when_inactive(1);    
   # input_id for S3 :     chunk_1453.fa::OUTPUT_DB::LANE_XYZ
 
+  # skeletal@chunk_1453.fa::OUTPUT_DB::LANE_XYZ
   # chunk234.fa: 'file' with chunked sequence in S3 
   # LANE_XYZ   : key in CloudConfig.pm   
   # OUTPUT_DB  : key in Databases.pm  
 
-  my ($chunk,$output_db_key,$s3_sequence_data_key) = split "::",$self->input_id;  
+  my $input_id = $self->input_id; 
+  my ($base_batch, $rest ) = split "@",$self->input_id;  
+  $self->input_id($rest) ;  
+  my ($chunk,$output_db_key,$s3_sequence_data_key) = split "::",$rest; 
   $self->chunk($chunk); 
   $self->output_db_key($output_db_key); 
-  $self->s3_sequence_data_key($s3_sequence_data_key); 
+  $self->s3_sequence_data_key($s3_sequence_data_key);  
+  $self->base_batch($base_batch);  
+
+  # I will batch analyses togther by basebatch name, ie tissue or so to have an easer config handling later
   # set output db for write_output()     
   return $self;
 }
+
+
+
 
 
 sub get_file_from_s3 {  
