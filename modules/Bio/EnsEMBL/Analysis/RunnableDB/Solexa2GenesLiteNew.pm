@@ -38,6 +38,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Solexa2GenesLiteNew;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Solexa2GenesLiteNew;
@@ -57,9 +58,13 @@ use vars qw(@ISA);
 
 sub new{
   my ($class,@args) = @_; 
-  #timetick("new"); 
-my $self = $class->SUPER::new(@args);
-  $self->read_and_check_config($SOLEXA2GENES_CONFIG_BY_LOGIC);
+  my $self = $class->SUPER::new(@args);    
+
+  my ($ignore_config_file) = rearrange (['IGNORE_CONFIG_FILE'], @args);
+
+  if ( $ignore_config_file != 1 ) {  
+    $self->read_and_check_config($SOLEXA2GENES_CONFIG_BY_LOGIC); 
+  } 
   return $self;
 }
 
@@ -77,9 +82,11 @@ sub fetch_input {
   #timetick("fetch_input start"); 
 
   # store some adaptors
- 
-  if ( scalar(@{$self->ALIGNMENT_DB})>1) {  
-    throw(" multiple alignment db support not implemented yet\n") ;
+
+  if ( ref($self->ALIGNMENT_DB =~m/ARRAY/ )) {  
+    if ( scalar(@{$self->ALIGNMENT_DB})>1)   {
+      throw(" multiple alignment db support not implemented yet\n") ;
+    } 
   } 
     
   #print "using output db " . $self->OUTPUT_DB . "\n";
@@ -117,8 +124,13 @@ sub fetch_input {
   #my $fetched_daf_features = $self->get_dna_align_features_from_databases($slice);   
 # begin simons old code 
   my @reads;
-  my $seq_id =  $self->sql( "SELECT seq_region_id from seq_region WHERE name = '" .  $slice->seq_region_name . "'",$self->db)->[0] ; 
-  foreach my $DB ( @{$self->ALIGNMENT_DB} ) {
+  my $seq_id =  $self->sql( "SELECT seq_region_id from seq_region WHERE name = '" .  $slice->seq_region_name . "'",$self->db)->[0] ;   
+   
+  my @alignment_dbs; 
+  if (! ref($self->ALIGNMENT_DB)=~m/ARRAY/){ 
+     push @alignment_dbs, $self->ALIGNMENT_DB;
+  } 
+  foreach my $DB ( @alignment_dbs){ 
     #print "processing $DB\n";
     # assumption here we have only  one lane per database; 
   my $handle =  $self->sql_array( "SELECT dna_align_feature_id, seq_region_id, seq_region_start, seq_region_end, cigar_line from dna_align_feature where seq_region_id = $seq_id and seq_region_end >= " . $slice->start .  " and seq_region_start <= " .$slice->end . " ;" ,$self->get_dbadaptor($DB));
@@ -141,7 +153,7 @@ sub fetch_input {
   }
   $self->repeats($self->make_repeat_blocks(\@repeats));
 
-
+  print scalar(@repeats) . " REPEATS fetched \n"; 
 #
 #  my $seq_id =  $self->sql( "SELECT seq_region_id from seq_region WHERE name = '" .  $slice->seq_region_name . "'",$self->db)->[0] ;
 #
