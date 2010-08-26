@@ -192,6 +192,7 @@ sub make_runnable {
      -PS_MULTI_EXON_DIR            => $self->PS_MULTI_EXON_DIR,
      -BLESSED_BIOTYPES             => $self->BLESSED_BIOTYPES,
      -PS_PSEUDO_TYPE               => $self->PS_PSEUDO_TYPE,
+     -KEEP_TRANS_BIOTYPE           => $self->KEEP_TRANS_BIOTYPE,
      -PS_BIOTYPE                   => $self->PS_BIOTYPE,
      -PS_REPEAT_TYPE              => $self->PS_REPEAT_TYPE,
      -DEBUG                        => $self->DEBUG,
@@ -258,7 +259,7 @@ sub get_all_repeat_blocks {
 sub write_output {
 my($self) = @_;
   my $genes = $self->output; 
-  if ( $self->PS_WRITE_IGNORED_GENES == 1 ) {  
+  if (defined $self->PS_WRITE_IGNORED_GENES &&  $self->PS_WRITE_IGNORED_GENES == 1 ) {  
     print "writing ignored genes\n" ; 
     push @{$genes},@{$self->ignored_genes} if $self->ignored_genes;  
   }  
@@ -955,6 +956,13 @@ sub BLESSED_BIOTYPES{
     $self->{'BLESSED_BIOTYPES'} = $arg;
   }
   return $self->{'BLESSED_BIOTYPES'};
+}
+sub KEEP_TRANS_BIOTYPE{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'KEEP_TRANS_BIOTYPE'} = $arg;
+  }
+  return $self->{'KEEP_TRANS_BIOTYPE'};
 }
 
 1;
