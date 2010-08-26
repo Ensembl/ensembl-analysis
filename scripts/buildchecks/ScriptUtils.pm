@@ -34,9 +34,10 @@ sub get_chrlengths_v20 {
                 " seq_region.coord_system_id=coord_system.coord_system_id and" .
                 " coord_system.version = '" . $type . "' and coord_system.name='$coordsystem'";
     if ($ignore_haplotypes) {    
-      $query .= " and seq_region.seq_region_id not in (select seq_region_id from assembly_exception where exc_type = 'HAP')";
+      $query .= " and seq_region.seq_region_id not in (select seq_region_id from assembly_exception where exc_type in ('HAP','PATCH_NOVEL','PATCH_FIX'))";
     }
 
+    #print "query $query\n";
     my $sth = $db->dbc->prepare($query);
   
     $sth->execute;
@@ -45,7 +46,7 @@ sub get_chrlengths_v20 {
     my $hashref;
     while (($hashref = $sth->fetchrow_hashref) && defined($hashref)) {
       $chrhash{$hashref->{'name'}} = $hashref->{mce};
-      # print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
+       #print $hashref->{'name'} . " " . $hashref->{'mce'} . "\n";
     }
   } else {
     my $sa = $db->get_SliceAdaptor;
