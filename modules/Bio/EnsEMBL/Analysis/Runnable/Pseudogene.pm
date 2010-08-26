@@ -54,6 +54,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Utils::Exception; 
 use Bio::EnsEMBL::Transcript; 
 use Bio::EnsEMBL::Gene ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils; 
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -92,7 +93,7 @@ sub new {
       $PS_MAX_INTRON_COVERAGE,$PS_MAX_EXON_COVERAGE,
       $PS_NUM_FRAMESHIFT_INTRONS,$PS_NUM_REAL_INTRONS,$SINGLE_EXON,
       $INDETERMINATE,$PS_MIN_EXONS,$PS_MULTI_EXON_DIR,
-      $BLESSED_BIOTYPES,$PS_PSEUDO_TYPE,$PS_BIOTYPE,$PS_REPEAT_TYPE,$DEBUG) = rearrange
+      $BLESSED_BIOTYPES,$PS_PSEUDO_TYPE,$PS_BIOTYPE,$KEEP_TRANS_BIOTYPE,$PS_REPEAT_TYPE,$DEBUG) = rearrange
 	([qw(
 	     GENES
 	     REPEAT_FEATURES
@@ -110,6 +111,7 @@ sub new {
 	     BLESSED_BIOTYPES
 	     PS_PSEUDO_TYPE
 	     PS_BIOTYPE
+             KEEP_TRANS_BIOTYPE
        PS_REPEAT_TYPE
        DEBUG )], @args);
 
@@ -128,6 +130,7 @@ sub new {
   $self->PS_MULTI_EXON_DIR($PS_MULTI_EXON_DIR);
   $self->BLESSED_BIOTYPES($BLESSED_BIOTYPES);
   $self->PS_PSEUDO_TYPE($PS_PSEUDO_TYPE);
+  $self->KEEP_TRANS_BIOTYPE($KEEP_TRANS_BIOTYPE);
   $self->PS_BIOTYPE($PS_BIOTYPE);
 	$self->PS_REPEAT_TYPE($PS_REPEAT_TYPE);
   $self->DEBUG($DEBUG);
@@ -174,7 +177,7 @@ sub summary {
   if ( $self->discarded_transcripts){print STDERR   scalar(@{$self->discarded_transcripts})." pseudotranscripts to be chucked \n";}
   
   foreach my $transcript (@{$self->discarded_transcripts}) {
-    print STDERR   $transcript->dbID."\n";
+    print STDERR "Chucked transcript dbID ".  $transcript->dbID."\n";
   }
   if ($self->overlooked_genes){
     print STDERR "Overlooked genes\n";
@@ -197,7 +200,8 @@ sub summary {
 =head2 test_genes
 
 Arg [none] :
-  Description: Check genes one transcript at at a time pushes test result for each transcript onto an array, tests array to make final decision  genes are classed as pseudogenes if the following criteria are met:
+  Description: Check genes one transcript at a time, pushes test result for each transcript onto an array, tests array to make final decision.
+  Genes are classed as pseudogenes if the following criteria are met:
 1. At least 80% of the introns are covered with repeats and the total intron length is smaller than 5kb and the gene has a least 1 real and 1 frameshifted intron (default values).
 2. All of the introns are short frameshifted introns
 3. A two exon gene with intron covered with a protein feature
@@ -281,8 +285,8 @@ sub test_genes{
 	}
       }
 
-      # Tests for situation where 2 exon gene has a protein feasture
-      # covering intron, ie it has spliced around somthing bad...
+      # Tests for situation where 2 exon gene has a protein feature
+      # covering intron, ie it has spliced around somthing bad... 
 
       if ($evidence->{'real_introns'} == 1) {
 	my $judgement = $self->protein_covered_intron($transcript,$gene);
@@ -290,13 +294,13 @@ sub test_genes{
 	  push @{$trans_type{'pseudo'}}, $transcript;
 	  next TRANS;
 	}	
-      }
+      } 
 
       # transcript passes all tests, it is real
       push @{$trans_type{'real'}}, $transcript;
       push @{$trans_type{'not_multi_exon'}}, $transcript 
 	if scalar @{$transcript->get_all_Exons} < $self->PS_MIN_EXONS;
-    }
+    } # END TRANS-LOOP 
 
     #########################################
     # gene tests
@@ -335,6 +339,7 @@ sub test_genes{
 	  @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
 	  my $only_transcript_to_keep = pop  @pseudo_trans;  
 	  $only_transcript_to_keep = $self->transcript_to_keep($only_transcript_to_keep);
+          # transcript_to_keep returns a blank value if the transcript has blessed status.
 
 	  foreach my $pseudo_transcript (@pseudo_trans) {
 	    my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
@@ -344,9 +349,16 @@ sub test_genes{
 	    }
 	  } 
           my $new_gene = Bio::EnsEMBL::Gene->new(); 
-          $new_gene->analysis($self->analysis) ; 
-          $new_gene->biotype($self->PS_PSEUDO_TYPE); 
-          $only_transcript_to_keep->biotype($self->PS_PSEUDO_TYPE); 
+          $new_gene->analysis($self->analysis) ;   
+          $new_gene->biotype($self->PS_PSEUDO_TYPE);  
+          if ( defined $only_transcript_to_keep ) {
+            if ( defined $self->KEEP_TRANS_BIOTYPE && $self->KEEP_TRANS_BIOTYPE == 1 ) {  
+              warning("keeping original transcript biotype " . $only_transcript_to_keep->biotype(). 
+               " instead of setting it to " . $self->PS_PSEUDO_TYPE . "\n");   
+            }else { 
+              $only_transcript_to_keep->biotype($self->PS_PSEUDO_TYPE);  
+            }
+          }
           $new_gene->add_Transcript($only_transcript_to_keep) ;
           $gene = $new_gene ;
 	  $self->modified_genes($gene);
@@ -698,9 +710,17 @@ sub transcript_to_keep {
   my ($self, $trans_to_keep)  = @_;
    if  (  $self->BLESSED_BIOTYPES->{$trans_to_keep->biotype} ) {   
     return ;   
-  }else { 
-   my $tr= Bio::EnsEMBL::Transcript->new( -EXONS => $trans_to_keep->get_all_Exons ) ;  
-   return $tr;
+  }else {
+   $trans_to_keep->translation(undef);  
+   my $ntr = clone_Transcript($trans_to_keep,0 ) ;   
+   warning("removing translation from transcript\n");  
+   # nasty - hopefully there will be a remove_translation method for $tr soon 
+   $ntr->{translation}=undef; 
+
+   if ( defined $ntr->translation()) {  
+      throw("TRANSLATION is still in ntr present !!!\n"); 
+   } 
+   return $ntr;
   }
 }
 
@@ -1003,7 +1023,7 @@ sub overlooked_genes{
 
 sub PS_FRAMESHIFT_INTRON_LENGTH{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_FRAMESHIFT_INTRON_LENGTH'} = $arg;
   }
   return $self->{'PS_FRAMESHIFT_INTRON_LENGTH'};
@@ -1011,7 +1031,7 @@ sub PS_FRAMESHIFT_INTRON_LENGTH{
 
 sub PS_MAX_INTRON_LENGTH{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_MAX_INTRON_LENGTH'} = $arg;
   }
   return $self->{'PS_MAX_INTRON_LENGTH'};
@@ -1019,7 +1039,7 @@ sub PS_MAX_INTRON_LENGTH{
 
 sub PS_REPEAT_TYPES{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_REPEAT_TYPES'} = $arg;
   }
   return $self->{'PS_REPEAT_TYPES'};
@@ -1027,7 +1047,7 @@ sub PS_REPEAT_TYPES{
 
 sub PS_MAX_INTRON_COVERAGE{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_MAX_INTRON_COVERAGE'} = $arg;
   }
   return $self->{'PS_MAX_INTRON_COVERAGE'};
@@ -1036,7 +1056,7 @@ sub PS_MAX_INTRON_COVERAGE{
 
 sub PS_MAX_EXON_COVERAGE{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_MAX_EXON_COVERAGE'} = $arg;
   }
   return $self->{'PS_MAX_EXON_COVERAGE'};
@@ -1044,7 +1064,7 @@ sub PS_MAX_EXON_COVERAGE{
 
 sub PS_NUM_FRAMESHIFT_INTRONS {
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_NUM_FRAMESHIFT_INTRONS'} = $arg;
   }
   return $self->{'PS_NUM_FRAMESHIFT_INTRONS'};
@@ -1052,7 +1072,7 @@ sub PS_NUM_FRAMESHIFT_INTRONS {
 
 sub PS_NUM_REAL_INTRONS{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_NUM_REAL_INTRONS'} = $arg;
   }
   return $self->{'PS_NUM_REAL_INTRONS'};
@@ -1061,7 +1081,7 @@ sub PS_NUM_REAL_INTRONS{
 
 sub SINGLE_EXON{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'SINGLE_EXON'} = $arg;
   }
   return $self->{'SINGLE_EXON'};
@@ -1070,7 +1090,7 @@ sub SINGLE_EXON{
 
 sub INDETERMINATE{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'INDETERMINATE'} = $arg;
   }
   return $self->{'INDETERMINATE'};
@@ -1078,15 +1098,15 @@ sub INDETERMINATE{
 
 sub PS_MIN_EXONS{
   my ($self, $arg) = @_;
-  if($arg){
-    $self->{'PS_MIN_EXONS'} = $arg;
-  }
+  if(defined $arg){
+    $self->{'PS_MIN_EXONS'} = $arg; 
+   }
   return $self->{'PS_MIN_EXONS'};
 }
 
 sub PS_MULTI_EXON_DIR{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_MULTI_EXON_DIR'} = $arg;
   }
   return $self->{'PS_MULTI_EXON_DIR'};
@@ -1094,7 +1114,7 @@ sub PS_MULTI_EXON_DIR{
 
 sub BLESSED_BIOTYPES{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'BLESSED_BIOTYPES'} = $arg;
   }
   return $self->{'BLESSED_BIOTYPES'};
@@ -1102,7 +1122,7 @@ sub BLESSED_BIOTYPES{
 
 sub PS_BIOTYPE{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_BIOTYPE'} = $arg;
   }
   return $self->{'PS_BIOTYPE'};
@@ -1110,15 +1130,23 @@ sub PS_BIOTYPE{
 
 sub PS_PSEUDO_TYPE{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'PS_PSEUDO_TYPE'} = $arg;
   }
   return $self->{'PS_PSEUDO_TYPE'};
+} 
+
+sub KEEP_TRANS_BIOTYPE{
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'KEEP_TRANS_BIOTYPE'} = $arg;
+  }
+  return $self->{'KEEP_TRANS_BIOTYPE'};
 }
 
 sub PS_REPEAT_TYPE{
   my ($self, $arg) = @_;
-	if($arg){
+	if(defined $arg){
 		$self->{'PS_REPEAT_TYPE'} = $arg;
 	}
 	  return $self->{'PS_REPEAT_TYPE'};
@@ -1131,5 +1159,4 @@ sub DEBUG{
   }
   return $self->{'DEBUG'};
 }
-
 1;
