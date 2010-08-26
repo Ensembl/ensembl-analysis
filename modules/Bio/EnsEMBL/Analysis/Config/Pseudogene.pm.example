@@ -55,8 +55,7 @@ use vars qw( %Config );
                
 	       # Blessed genes dont get called pseudogenes
 	       BLESSED_BIOTYPES => {},	
-				    
-				    
+				      
                # The default behaviour of pseudogene_DB.pm is to analyse ALL genes in a database 
                # whcih have biotype PS_BIOTYPE ( default : protein_coding ). ALL genes which don't 
                # match this biotype are not analysed, but will still be written to PS_OUTPUT_DATABASE 
@@ -74,8 +73,16 @@ use vars qw( %Config );
 	       PS_ALIGNED_GENOMIC  => 100,
 	       # logic name to give to pseudogenes
                PS_PSEUDO_TYPE      => 'pseudogene',
-	       # logic name to give genes with exons covered by repeats 
 
+               # if a gene is found to be a pseudogene, its gene biotype will be changed to
+               # PS_PSEUDO_TYPE. By default, the biotype of its transcript will also be changed
+               # to PS_PSEUDO_TYPE.  If you want to keep the original transcript biotype
+               # instead (so you can keep track of what type of models actually got turned into a
+               # pseudogene), set KEEP_TRANS_BIOTYPE to 1.
+
+               KEEP_TRANS_BIOTYPE  => 0,
+
+	       # logic name to give genes with exons covered by repeats 
 	       # if left blank they will just get deleted (recommended)
                PS_REPEAT_TYPE      => '',
 
@@ -134,6 +141,10 @@ use vars qw( %Config );
 	       # should speed it up if running over a very large dataset
 	       REP_TRANSCRIPT       => '',
                },
+
+               # Hashes for individual analyses must be present (even if left empty)
+               # or else the code will throw
+
                Pseudogene => {},
                spliced_elsewhere => {} , 
 	
