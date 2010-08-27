@@ -714,8 +714,7 @@ sub transcript_to_keep {
    $trans_to_keep->translation(undef);  
    my $ntr = clone_Transcript($trans_to_keep,0 ) ;   
    warning("removing translation from transcript\n");  
-   # nasty - hopefully there will be a remove_translation method for $tr soon 
-   $ntr->{translation}=undef; 
+   $ntr->translation(undef); 
 
    if ( defined $ntr->translation()) {  
       throw("TRANSLATION is still in ntr present !!!\n"); 
