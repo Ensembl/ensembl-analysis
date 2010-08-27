@@ -47,6 +47,7 @@ use vars qw (@ISA  @EXPORT);
 
 @EXPORT = qw( shuffle
               parse_config
+              parse_config_mini
               create_file_name
               write_seqfile
               merge_config_details
@@ -181,8 +182,10 @@ sub get_input_arg {
 
 
 sub parse_config{
-  my ($obj, $var_hash, $label) = @_;
-  throw("Can't parse the ".$var_hash." hash for object ".$obj." if we are give no label") if(!$label);
+  my ($obj, $var_hash, $label, $ignore_throw) = @_; 
+
+  throw("Can't parse the ".$var_hash." hash for object ".$obj." if we are give no label") if(!$label); 
+
   my $DEFAULT_ENTRY_KEY = 'DEFAULT';
   if(!$var_hash || ref($var_hash) ne 'HASH'){
     my $err = "Must pass read_and_check_config a hashref with the config ".
@@ -242,11 +245,52 @@ sub parse_config{
         throw("no method defined in Utilities for config variable '$config_var'");
       }
     }
-  }else{
-    throw("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".
-          $var_hash);
+  }else{ 
+    if ( defined $ignore_throw && $ignore_throw== 1 ){ 
+      warning("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".  $var_hash);  
+    }else{
+      throw("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".  $var_hash); 
+    }
   }
 }
+
+
+sub parse_config_mini{
+  my ($obj, $var_hash, ) = @_; 
+
+
+  if(!$var_hash || ref($var_hash) ne 'HASH'){
+    my $err = "Must pass read_and_check_config a hashref with the config ".
+      "in ";
+    $err .= " not a ".$var_hash if($var_hash);
+    $err .= " Utilities::read_and_and_check_config";
+    throw($err);
+  }
+
+  my %check;
+  foreach my $k (keys %$var_hash) {
+    my $uc_key = uc($k);
+    if (exists $check{$uc_key}) {
+      throw("You have two entries in your config with the same name (ignoring case)\n");
+    }
+    $check{$uc_key} = $k;
+  }
+
+  #########################################################
+  # read values of config variables for this logic name into object methods which are defined in the class
+  #########################################################
+
+  foreach my $config_var (keys %{$var_hash}) { 
+    if ($obj->can($config_var)) {
+      $obj->$config_var($$var_hash{$config_var}); 
+    } else {
+      throw("no method defined in Utilities for config variable '$config_var'");
+    }
+  } 
+}
+
+
+
 
 
 =head2 create_file_name
