@@ -249,6 +249,16 @@ sub in_mole {
       last if defined $entry;
     }
   }
+  if (!defined $entry) {
+    $id =~ s/\.\d//;
+    #accession has a version
+    foreach my $db (@dbs) { 
+      $entry = $db->get_EntryAdaptor->fetch_by_name($id);
+      $in_db = $db;
+      last if defined $entry;
+    }
+  }
+
   if (defined $entry) {
     my ($strand, $start, $end, $coords) = fetch_coords($entry, $in_db); 
     if (defined $strand && defined $start && defined $end && defined $coords) {
