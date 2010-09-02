@@ -167,11 +167,13 @@ sub run_FASTA{
   
   #These get_CONFIGFIELD methods use the ARRAY_FORMAT to retrieve the correct config
   my $header_regex = $self->get_IIDREGEXP;
-  my %valid_fields = (
-				-probe_set => undef,
-				-name       => undef,
-				-array      => undef,
-				-array_chip => undef,
+  my %valid_fields = 
+	(
+	 -probe_set   => undef,
+	 -name        => undef,
+	 -array       => undef,
+	 -array_chip  => undef,
+	 -description => undef,
 			   );
   my %field_order = %{$self->get_IFIELDORDER};
 
