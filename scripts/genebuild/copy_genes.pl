@@ -89,7 +89,7 @@ my $remove_xrefs;
 my $remove_stable_ids;
 my $transform_to;
 my $stable_id;
-
+my $verbose ; 
 GetOptions( 'sourcehost:s'        => \$sourcehost,
             'sourceuser:s'        => \$sourceuser,
             'sourcedbname:s'      => \$sourcedbname,
@@ -111,6 +111,7 @@ GetOptions( 'sourcehost:s'        => \$sourcehost,
             'remove_xrefs'        => \$remove_xrefs,
             'remove_stable_ids'   => \$remove_stable_ids,
             'transform_to:s'      => \$transform_to,
+            'verbose '            => \$verbose,
             'stable_id'           => \$stable_id,
             'file:s'              => \$infile );
 
@@ -119,7 +120,6 @@ my $transform_to_version;
 if ( $transform_to=~m/:/) { 
   ( $transform_to,  $transform_to_version ) = split /:/,$transform_to ; 
 }
-print $transform_to_version . "\n";   
 
 if ($all && $infile) {
   throw("Specify either -all or -infile");
@@ -179,9 +179,10 @@ if ($remove_xrefs && $remove_stable_ids) {
 if ($infile) {
   open(INFILE, "<$infile") or die ("Can't read $infile $! \n");
 
+  my $i = 0 ; 
   while(<INFILE>){
     chomp;
-
+    $i++;
     my $gene_id = $_;
     my $gene;
 
@@ -190,14 +191,17 @@ if ($infile) {
     } else {
       $gene = $ga->fetch_by_dbID($gene_id);
     }
-
+    print "fetched $i genes\n" if $verbose ;
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
     push( @copy_genes, $gene );
   }
   close(INFILE);
 } elsif ($all) {
-  my @genes = @{$ga->fetch_all()};  
-  foreach my $gene (@genes ) { 
+  my @genes = @{$ga->fetch_all()};   
+  my $i = 0 ; 
+  foreach my $gene (@genes ) {  
+    $i++;
+    print "fetched $i / " . scalar(@genes) . " \n" if $verbose ; 
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
     push( @copy_genes, $gene );
   }
@@ -225,7 +229,7 @@ if ($split) {
 } else {
   @genes = @copy_genes;
 }
-print STDERR "Fetched ".scalar(@genes)." genes\n";
+print STDERR "Fetched ".scalar(@genes)." genes\n" if $verbose ; 
 
 my $outga = $outdb->get_GeneAdaptor;
 
@@ -245,12 +249,21 @@ if (defined $logic) {
   }
 }
 
-foreach my $gene (@genes) {
+my $si = 0 ; 
+foreach my $gene (@genes) { 
+  $si++; 
+  my $old_stable_id = $gene->stable_id ; 
+  print "transforming $old_stable_id\n" if $verbose ; 
   fully_load_Gene($gene);
   if ($transform_to) {
     my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
     $gene = $transformed_gene ;
-  }
-  empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
-  $outga->store($gene);
+  } 
+  if ( $gene ) { 
+    empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
+    $outga->store($gene);   
+    print "stored $si / " . scalar(@genes) . " \n" if $verbose ; 
+  } else { 
+     print STDERR "gene $old_stable_id did not tranform\n";
+  } 
 }
