@@ -32,8 +32,8 @@
   -remove_stable_ids Using this flag will remove stable_ids from
                      genes/transcripts/translations/exons
 
-  -transform_to      Transforms the genes from one coordinate system to the
-                     given one
+  -transform_to      Transforms the genes from one coordinate system to the given one
+                     cooord_system_name:version 
 
   -stable_id         Flag for indicating that input file contains stable IDs and
                      not gene IDs
@@ -114,6 +114,13 @@ GetOptions( 'sourcehost:s'        => \$sourcehost,
             'stable_id'           => \$stable_id,
             'file:s'              => \$infile );
 
+
+my $transform_to_version; 
+if ( $transform_to=~m/:/) { 
+  ( $transform_to,  $transform_to_version ) = split /:/,$transform_to ; 
+}
+print $transform_to_version . "\n";   
+
 if ($all && $infile) {
   throw("Specify either -all or -infile");
 } elsif (!$all && !$infile) {
@@ -189,7 +196,8 @@ if ($infile) {
   }
   close(INFILE);
 } elsif ($all) {
-  foreach my $gene (@{$ga->fetch_all()}) {
+  my @genes = @{$ga->fetch_all()};  
+  foreach my $gene (@genes ) { 
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
     push( @copy_genes, $gene );
   }
@@ -240,7 +248,7 @@ if (defined $logic) {
 foreach my $gene (@genes) {
   fully_load_Gene($gene);
   if ($transform_to) {
-    my $transformed_gene = $gene->transform( 'chromosome', $transform_to );
+    my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
     $gene = $transformed_gene ;
   }
   empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
