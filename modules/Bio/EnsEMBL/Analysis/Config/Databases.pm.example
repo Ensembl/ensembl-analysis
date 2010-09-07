@@ -237,6 +237,19 @@ use vars qw(%Config);
     },
   },
   DNA_DBNAME => "REFERENCE_DB",
+  MAIN_REFERENCE_DB => "REFERENCE_DB",
+  VITAL_TABLES => ("analysis",
+                   "analysis_description",
+                   "assembly",
+                   "assembly_exception",
+                   "attrib_type",
+                   "coord_system",
+                   "external_db",
+                   "meta meta_coord",
+                   "seq_region",
+                   "seq_region_attrib",
+                   "seq_region",
+                  ),
 
 );
 
