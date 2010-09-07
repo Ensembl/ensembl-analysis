@@ -1,4 +1,4 @@
-#This is to be a baseclass for the genebuild code to have various
+##This is to be a baseclass for the genebuild code to have various
 #object like methods which genebuild modules want. GeneBuild code
 #should ideally inherit from this
 
@@ -6,10 +6,12 @@
 package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use strict;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose);
+use Data::Dumper;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
+use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME MAIN_REFERENCE_DB VITAL_TABLES);
+use Bio::EnsEMBL::Analysis::Config::General qw(BIN_DIR ANALYSIS_WORK_DIR);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 
 use vars qw(@ISA);
@@ -20,7 +22,7 @@ use vars qw(@ISA);
 # database config
 
 
-sub database_hash{
+sub database_hash {
   my ($self, $name, $db) = @_;
   if(!$self->{'db_hash'}){
     $self->{'db_hash'} = {};
@@ -198,7 +200,7 @@ sub get_dbadaptor {
 
 
 sub get_genes_of_biotypes_by_db_hash_ref { 
-  my ($self,$href ) = @_;
+  my ($self, $href) = @_;
 
   my %dbnames_2_biotypes = %$href ;  
 
@@ -229,7 +231,7 @@ sub get_genes_of_biotypes_by_db_hash_ref {
          foreach ( keys %tmp ) {  
            print "found $_ $tmp{$_}\n" ; 
          }  
-         print scalar(@genes_to_fetch) . " genees fetched in total\n" ; 
+         print scalar(@genes_to_fetch) . " genes fetched in total\n" ; 
     } else { 
       foreach my $biotype  ( @biotypes_to_fetch ) {  
          my $genes = $slice->get_all_Genes_by_type($biotype,undef,1);
@@ -246,7 +248,156 @@ sub get_genes_of_biotypes_by_db_hash_ref {
   return \@genes_to_fetch;
 }
 
+=head2 main_reference_db
+
+    Function  : Return the value of MAIN_REFERENCE_DB from the Databases.pm file
+                It point to the DB that should be THE reference
+    Returntype: Returns a string
+
+=cut
+
+sub main_reference_db {
+    my $self = shift;
+    return $MAIN_REFERENCE_DB;
+}
+
+=head2 vital_tables()
+
+   Function  : Return the values of VITAL_TABLES from the Databases.pm file
+               It is all the vital tables from the schema that should be
+               used to create a new database with a reference
+   Returntype: Returns a reference of array of strings 
+
+=cut
+
+sub vital_tables {
+    my $self = shift;
+    return $VITAL_TABLES;
+}
 
 
+=head2 create_new_database
+
+    Arg [0]   : the hash key of the reference database
+    Arg [1]   : the hash key of the new database
+    Function  : It create a new database using a reference, usually the MAIN_REFERENCE_DB,
+                it import the values in the vital tables (VITAL_TABLES found in Databases.pm)
+    ReturnType: None
+
+=cut
+
+sub create_new_database {
+    my ($self, $old_db_key, $new_db_key) = @_;
+
+    if (!db_exists($new_db_key)) {
+        my $template_dump = $self->dump_template_db($old_db_key);
+        my %h_new_db = %{$$DATABASES{$new_db_key}};
+
+        print "creating new database ".$h_new_db{-dbname}." \@ ".$h_new_db{-host}." ".$template_dump."\n"; 
+        my $create_cmd = 'mysql -h '.$h_new_db{-host}.' -u '.$h_new_db{-user}.' -p'.$h_new_db{-pass}.' -P'.$h_new_db{-port}.' -e" create database  '.$h_new_db{-dbname}.'"';
+        system($create_cmd); 
+        $create_cmd = 'mysql -h '.$h_new_db{-host}.' -u '.$h_new_db{-user}.' -p'.$h_new_db{-pass}.' -P'.$h_new_db{-port}.' -D '.$h_new_db{-dbname}.' < '.$template_dump; 
+        system($create_cmd);  
+        return $template_dump;
+    }
+    else {
+        throw($new_db_key." already exists!");
+    }
+}
+
+
+=head2 dump_template_db
+
+    Arg [0]   : the hash key of the database to dump
+    Function  : Dump the template database given in parameters. A file is created,
+                containing all the tables without data and all the vital tables
+                (VITAL_TABLES from Databases.pm) and their data are append after
+    Returntype: Returns the path to the file
+
+=cut
+
+sub dump_template_db {
+   my ($self, $db_key) = @_ ;  
+
+#    throw("Database parameters are not properly configured for $db_key") unless (check_db_params($db_key));
+    my $dbn = $self->get_dbadaptor($db_key);
+    my $dbname = $dbn->dbname();
+    my $host = $dbn->host();
+    my $port = $dbn->port();
+    my $file = $db_key."_".$dbname."_".$host."_".$port."_".$$.".dump.sql"; 
+    my $dir = $ANALYSIS_WORK_DIR;  
+
+    if ( defined $ENV{BASE} ) {  
+        if ( -e "$ENV{BASE}/sql" ) {  
+          $dir = "$ENV{BASE}/sql";
+        } 
+    }   
+
+    my $file_name = "$dir/$file" ; 
+    my $cmd = -x $BIN_DIR.'/mysqldump' ? $BIN_DIR."/mysqldump" : "mysqldump";
+
+    $cmd .= ' -h '.$dbn->host.' -u '.$dbn->username.' -P'.$dbn->port;  
+
+    if ( $dbn->password ne '' ) { 
+        if ( length($dbn->password) > 0) {  
+         $cmd .= ' -p'.$dbn->password; 
+        }
+    } 
+    # print dump create table statements first ...  
+    my $cmd1 = "$cmd --no-data ".$dbn->dbname." > $file_name "; 
+    info("CMD 1 : $cmd1\n");
+    print "dumping data to $file_name\n" ; 
+    system($cmd1);
+    throw("Could not dump empty tables from ".$dbn->dbname." in file $file_name") if $@;
+
+    # now dump some tables with data ...
+    $cmd .= " --add-drop-table ".$dbn->dbname." ".join(' ', @{$self->vital_tables}) ." >> $file_name ";  
+    info("CMD 2 : $cmd\n");
+    system($cmd); 
+    throw("Could not dump vital tables from ".$dbn->dbname." in file $file_name") if $@;
+    return $file_name ; 
+}
+
+#sub check_db_params {
+#  my ($db_key) = @_ ;
+#  my %href = %{$$DATABASES{$db_key}}; 
+#
+#  for my $arg (qw( -dbname -user -host  -port ) ) { 
+#    if ( !defined $href{$arg}  || length($href{$arg}) == 0 ) {  
+#        if ( $arg !~ m/-dbname/) {  
+#         warning(" Database parameters are not properly configured for $db_key - argument $arg s missing, SKIPPING creation of $db_key \n");   
+#        }
+#        return 0 ; 
+#    } 
+#  }  
+#  return 1;
+#} 
+
+
+=head2 db_exists
+
+    Arg [0]   : the hash key of a database
+    Function  : Check if the database already exists
+    Returntype: Returns 1 if the database exists, otherwise undef
+
+=cut
+
+sub db_exists {  
+  my $db_key = shift;
+  $db_key = shift if ($db_key =~ /Bio::EnsEMBL/);
+  my %href = %{$$DATABASES{$db_key}};  
+  $href{'-dbname'} = "mysql" ; 
+  my $dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%href); 
+  my $sth=$dba->prepare('show databases like "'.$$DATABASES{$db_key}{-dbname}.'"' )  ; 
+  $sth->execute;  
+  my $result = $sth->fetchall_arrayref(); 
+  for my $arg ( @$result ) {    
+     my $db_name_on_server = $$arg[0];   
+     if ( $db_name_on_server eq $$DATABASES{$db_key}{-dbname} ) { 
+       return 1;
+     } 
+  }   
+  return undef ;
+} 
 
 1;
