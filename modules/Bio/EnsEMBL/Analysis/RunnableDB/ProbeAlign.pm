@@ -106,6 +106,14 @@ sub new {
   $self->outdb->dbc->db_handle;
   $self->outdb->dnadb->dbc->db_handle;
 
+
+  #We need to change to InnoDB in the set up step
+
+
+  #Set session server mode to prevent truncated cigar_lines
+  $self->outdb->dbc->disconnect_when_inactive(0);
+  $self->outdb->dbc->db_handle->do('set SESSION sql_mode="STRICT_ALL_TABLES"');
+
   $self->arrays({});
   $self->probes({});
   #$self->features({});#??
@@ -376,6 +384,8 @@ sub write_output {
 sub filter_features {
   my ($self, $features) = @_;
 
+  print "Filtering features";
+
   my (%hits_by_probe, @kept_hits);
   my $analysis     = $self->analysis;
   my $logic_name   = $analysis->logic_name;
@@ -434,6 +444,7 @@ sub filter_features {
 	
 	  #Need to see if this Probe has already failed mismatched alignment
 	  #i.e. we only used perfect genomic hits
+
 	  my @uos = @{$uo_adaptor->fetch_all_by_object_type_id('Probe', $probe_id)};
 	  my ($promiscuous, $only_perfect);
 	  	  
@@ -502,7 +513,7 @@ sub filter_features {
 		#push @{$self->unmapped_objects},
 
 	  if(! $promiscuous){
-		
+	
 		$uo_adaptor->store(Bio::EnsEMBL::UnmappedObject->new
 						   (
 							#-type       => $uo_type,#Currently get's set to NULL as can only have xref or probe2transcript?
@@ -599,6 +610,8 @@ sub get_display_name_by_stable_id{
 sub set_probe_and_slice {
   my ( $self, $features ) = @_;
 
+  print "Setting probe and slice objects\n";
+
   my $db = $self->outdb;
   my $slice_adaptor = $db->get_SliceAdaptor;
   my $probe_adaptor = $db->get_ProbeAdaptor;
@@ -638,7 +651,7 @@ sub set_probe_and_slice {
 	  
 	  $slice_id  =  $transcript_cache{$seq_id}->seq_region_name;
 
-	  if ( not exists $slices{$slice_id} ) {
+	  if (! exists $slices{$slice_id} ) {
 		$slices{$slice_id} = 	$transcript_cache{$seq_id}->slice;
 	  }
 	}
@@ -831,7 +844,6 @@ sub set_probe_and_slice {
 		}
 	  }
 
-
 	  foreach my $block(@stranded_cigar_line){
 		@tmp = split//, $block;
 		$align_type = pop @tmp;
@@ -981,7 +993,6 @@ sub set_probe_and_slice {
 	  $feature->cigar_string(join('', (split/:/, $feature->cigar_string)));
 	}
 
-
 	if($load_feature){
 
 	  #Reset start ends for non-ref slices
@@ -999,7 +1010,9 @@ sub set_probe_and_slice {
 		my $end   = $feature->end   + $slice->start - 1;
 		$feature->start($start);
 		$feature->end($end);
-		
+	
+		warn "fetching slice $level,  $name, 1, $end"; 
+	
 		$slice = $slice_adaptor->fetch_by_region($level, $name, 1, $end);
 	  }
 
@@ -1011,6 +1024,8 @@ sub set_probe_and_slice {
 	  my $real_probe = $self->probes->{$probe_id};
 	  
 	  if(!$real_probe){
+
+		warn "fetching probe $probe_id";
 		$real_probe = $probe_adaptor->fetch_by_dbID($probe_id);
       
 		if (!$real_probe){
@@ -1025,6 +1040,9 @@ sub set_probe_and_slice {
 	  push @features, [ $feature, $xref ];
 	}
   }
+
+
+  print "Finished set_probe_and_slice\n";
 
   return $self->features(\@features);
 }
