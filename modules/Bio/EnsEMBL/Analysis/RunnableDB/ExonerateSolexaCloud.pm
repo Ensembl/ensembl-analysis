@@ -16,7 +16,7 @@ my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa->new(
   );
 
 $runnableDB->fetch_input();
-$runnableDB->run();
+arunnableDB->run();
 $runnableDB->write_output(); #writes to DB
 
 =head1 DESCRIPTION
@@ -56,29 +56,64 @@ use vars qw(@ISA);
 sub new {
   my ( $class, @args ) = @_;  
 
+  push @args, ("-no_config_exception" , 1 );  
 
-  my $self = $class->SUPER::new(@args);  
+  my $self = $class->SUPER::new(@args);   
+
+  # check input_id is in correct format  
+
+  my @ids = split "@",$self->input_id;   
+  
+  if (scalar(@ids) !=2 ){ 
+     throw("Input_id format is wrong - it should be : BASE_BATCH\@chunk1.fa.gz\n");
+  } 
+
+
+  $self->original_input_id($self->input_id); 
 
   $self->S3_SEQUENCE_DATA($S3_SEQUENCE_DATA);   
 
   $self->S3_GENOMIC_FASTA_SEQUENCE($S3_GENOMIC_FASTA_SEQUENCE);  
+  $self->ANALYSIS_BASE_BATCH_CONFIG($ANALYSIS_BASE_BATCH_CONFIG); 
 
-  $self->db->disconnect_when_inactive(1);    
-  # input_id for S3 :     chunk_1453.fa::OUTPUT_DB::LANE_XYZ
+  $self->db->disconnect_when_inactive(1);     
 
-  # skeletal@chunk_1453.fa::OUTPUT_DB::LANE_XYZ
+  # input_id for S3 :    BLOOD @ chunk_1453.fa :: OUTPUT_DB :: 1-1000
+  # input_id for S3 :    BLOOD @ chunk_1453.fa :: OUTPUT_DB :: 1001-2000
+
+  # BLOOD      : S3 key which groups input data together, also S3_CHUNK_LOC key  
   # chunk234.fa: 'file' with chunked sequence in S3 
-  # LANE_XYZ   : key in CloudConfig.pm   
   # OUTPUT_DB  : key in Databases.pm  
+  # range      - only take seq nr 1...1000 out of chunk file. optional.
+  # -avids to split and upload sequences again 
+  # gives aibility to run on smaller chunks without changing chunks
+  #  
 
-  my $input_id = $self->input_id; 
-  my ($base_batch, $rest ) = split "@",$self->input_id;  
+  my $input_id = $self->original_input_id; 
+  my ($base_batch, $rest ) = split "@",$self->original_input_id;   
+
+
   $self->input_id($rest) ;  
-  my ($chunk,$output_db_key,$s3_sequence_data_key) = split "::",$rest; 
+  my ($chunk,$output_db_key,$range) = split "::",$rest;  
+
+  if ( defined $range ) { 
+     my ($nr_start_seq, $nr_end_seq) = split "-",$range; 
+     $self->nr_start_seq($nr_start_seq);
+     $self->nr_end_seq($nr_end_seq);
+  } else {  
+     warning("will run on whole chunk as no range has been supplied in input_id. To ".
+             " supply a range use format :  BLOOD\@chunkXXX.fa::OUT_DB_KEY::1-1000 \n");
+  } 
   $self->chunk($chunk); 
-  $self->output_db_key($output_db_key); 
-  $self->s3_sequence_data_key($s3_sequence_data_key);  
-  $self->base_batch($base_batch);  
+  $self->output_db_key($output_db_key);  
+  $self->base_batch($base_batch);     
+
+
+  if ( !defined $self->s3_sequence_data_key) {  
+    throw "your batch key does not point to an s3_sequence_data_key \n";
+  } 
+  #print "setting bas batch to : $base_batch\n";  
+  #print $self->base_batch ."\n\n";  
 
   # I will batch analyses togther by basebatch name, ie tissue or so to have an easer config handling later
   # set output db for write_output()     
@@ -91,6 +126,9 @@ sub new {
 
 sub get_file_from_s3 {  
   my ($self,$file_name,$bucket_name) = @_;
+
+
+  print "Fetching file $file_name from $bucket_name \n"; 
 
   # check if this file is the genomic file - we want to treat this file different  
   my $analysis_work_dir = $ANALYSIS_WORK_DIR ?  $ANALYSIS_WORK_DIR : "/tmp";   
@@ -108,7 +146,7 @@ sub get_file_from_s3 {
     } 
   }
 
-
+print "TEST\n";
   my $no_secret_key ; 
   my $no_access_key ;  
 
@@ -118,8 +156,6 @@ sub get_file_from_s3 {
   if (!defined $self->aws_access_key_id ||  length($self->aws_access_key_id) == 0 ){ 
     $no_access_key= 1; 
   }   
-
-
 
   if ( $no_access_key == 1 && $no_secret_key == 1 ) {  
      # data seems to be public;  
@@ -157,10 +193,12 @@ sub fetch_input {
   my ($self) = @_;
 
   # get chunk1.fa.gz from S3   - security credentials in CloudConfig if needed
-  my $path_to_chunk_file = $self->get_file_from_s3($self->chunk,$self->chunk_bucket_name); 
+
+  my $path_to_chunk_file = $self->get_file_from_s3($self->chunk,$self->chunk_bucket_name);  
   $self->QUERYSEQS($path_to_chunk_file);  
 
-  # get softmasked genome sequence out of S3 - security credentials in CloudConfig if needed
+  # get softmasked genome sequence out of S3 - security credentials in CloudConfig if needed 
+
   my $path_to_genomic_file = $self->get_file_from_s3($self->genomic_file_name, $self->genomic_bucket_name);  
   $self->GENOMICSEQS($path_to_genomic_file); 
   $self->SUPER::fetch_input(); 
@@ -180,6 +218,7 @@ sub write_output {
 
 sub chunk_bucket_name {  
   my ($self) = shift; 
+  print "xxx xxx " . $self->s3_sequence_data_key."\n"; 
   return ${$self->S3_SEQUENCE_DATA}{$self->s3_sequence_data_key}{"bucket_name"}; 
 }  
 
@@ -223,7 +262,13 @@ sub genomic_bucket_name {
 sub genomic_file_name {  
   my ($self) = shift; 
   return ${$self->S3_GENOMIC_FASTA_SEQUENCE}{"file_name"} ;
-}
+} 
+
+sub s3_sequence_data_key  {  
+  my ($self) = shift;  
+  #print "BASE BATCH IS : " . $self->base_batch ."\n\n";
+  return ${$self->ANALYSIS_BASE_BATCH_CONFIG}{$self->base_batch}{S3_CHUNK_LOC}; 
+} 
 
 
 
