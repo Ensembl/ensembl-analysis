@@ -78,20 +78,20 @@ sub new {
 
   $self->db->disconnect_when_inactive(1);     
 
-  # input_id for S3 :    BLOOD @ chunk_1453.fa :: OUTPUT_DB :: 1-1000
-  # input_id for S3 :    BLOOD @ chunk_1453.fa :: OUTPUT_DB :: 1001-2000
+  # input_id for S3 :    BLOOD = chunk_1453.fa :: OUTPUT_DB :: 1-1000
+  # input_id for S3 :    BLOOD = chunk_1453.fa :: OUTPUT_DB :: 1001-2000
 
   # BLOOD      : S3 key which groups input data together, also S3_CHUNK_LOC key  
   # chunk234.fa: 'file' with chunked sequence in S3 
   # OUTPUT_DB  : key in Databases.pm  
   # range      - only take seq nr 1...1000 out of chunk file. optional.
-  # -avids to split and upload sequences again 
-  # gives aibility to run on smaller chunks without changing chunks
-  #  
 
   my $input_id = $self->original_input_id; 
-  my ($base_batch, $rest ) = split "@",$self->original_input_id;   
+  my ($base_batch, $rest ) = split "=",$self->original_input_id;   
 
+  if ( !defined $base_batch && !defined $rest ) {  
+    throw("input_id in wrong format. correct format : BLOOD = chunk_1453.fa :: OUTPUT_DB :: 1-1000");
+  }  
 
   $self->input_id($rest) ;  
   my ($chunk,$output_db_key,$range) = split "::",$rest;  
@@ -146,7 +146,6 @@ sub get_file_from_s3 {
     } 
   }
 
-print "TEST\n";
   my $no_secret_key ; 
   my $no_access_key ;  
 
@@ -194,8 +193,17 @@ sub fetch_input {
 
   # get chunk1.fa.gz from S3   - security credentials in CloudConfig if needed
 
-  my $path_to_chunk_file = $self->get_file_from_s3($self->chunk,$self->chunk_bucket_name);  
-  $self->QUERYSEQS($path_to_chunk_file);  
+  my $path_to_chunk_file = $self->get_file_from_s3($self->chunk,$self->chunk_bucket_name);    
+
+  if ( defined $self->nr_start_seq && defined $self->nr_end_seq) {  
+    # range given, so we have to extract a range out of the fasta file  
+    my $new_chunk_file_name = $self->extract_range_out_of_fasta($path_to_chunk_file); 
+    $self->QUERYSEQS($new_chunk_file_name ) ;  
+    unlink($path_to_chunk_file); 
+  }else {   
+   # no range given 
+   $self->QUERYSEQS($path_to_chunk_file);   
+  }
 
   # get softmasked genome sequence out of S3 - security credentials in CloudConfig if needed 
 
