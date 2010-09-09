@@ -88,8 +88,8 @@ sub fetch_input {
     # the input_id consistrs of 2 parts : input_id and db suffix . 
     # this is to divert the input into diffeent databases.  
     ( $input_id, my $output_db_hkey ) = split/\:\:/,$self->input_id ;     
-    $self->OUT_DB($output_db_hkey) ;  
-    warning("Using input_id-method to set output-database :$input_id::$output_db_hkey.Output will be written to : $output_db_hkey\n"); 
+    $self->OUT_DB($output_db_hkey) ;   
+    warning("Using input_id-method to set output-database " . $self->input_id(). " Output will be written to : $output_db_hkey\n"); 
   }else { 
     $input_id = $self->input_id;
   }  
