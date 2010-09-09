@@ -39,9 +39,9 @@ use vars qw( %Config );
              # The database connections used are defined in 
              # Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
              # Single Database to write the output features into
-             OUT_DB   => '',  # SOLEXA_STAGE_3
+             OUT_DB   => undef,  # SOLEXA_STAGE_3
 	     # Alternately an array of databases to write into, saves the individual databases getting too slow
-             OUT_DBS   =>  => [''],
+             OUT_DBS   =>  => [],
 
              # Compress identical dna align features
              COMPRESSION => '0',
