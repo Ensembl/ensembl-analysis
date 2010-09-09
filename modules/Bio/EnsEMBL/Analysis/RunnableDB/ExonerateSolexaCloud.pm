@@ -43,6 +43,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Analysis::Config::ExonerateSolexaCloudConfig;                 # for S3 details CHUNK seq + GENOMIC seq
 use Bio::EnsEMBL::Analysis::Config::General qw(ANALYSIS_WORK_DIR);
+use Bio::SeqIO;
 
 # this module also uses Bio::EnsEMBL::Analysis::Config::GeneBuild::ExonerateSolexa 
 #                       Bio::EnsEMBL::Analysis::Config::ExonerateAlignFeature       ( genomic query sequence + chunks )
@@ -59,17 +60,23 @@ sub new {
   push @args, ("-no_config_exception" , 1 );  
 
   my $self = $class->SUPER::new(@args);   
+  $self->original_input_id($self->input_id); 
 
-  # check input_id is in correct format  
 
-  my @ids = split "@",$self->input_id;   
+  my @ids = split "=",$self->input_id;   
   
   if (scalar(@ids) !=2 ){ 
-     throw("Input_id format is wrong - it should be : BASE_BATCH\@chunk1.fa.gz\n");
-  } 
+     throw("Input_id format is wrong - it should be : BASE_BATCH\=chunk1.fa.gz::OUT_DB::1-100\n");
+  }else {  
+     # THIS runnable takes input_id format BATCH=chunk1.fa.gz::OUTPUT_DB::1-100 
+     # other runnable ( ExonerateAlignFeature take   chunk1.fa.gz::OUTPUT_DB 
+     # need to re-set input_id  
+
+      my ( $chunk,$out_db,$range ) = split /::/,$ids[1]; 
+      $self->input_id($chunk."::".$out_db) ;  
+  }  
 
 
-  $self->original_input_id($self->input_id); 
 
   $self->S3_SEQUENCE_DATA($S3_SEQUENCE_DATA);   
 
@@ -93,7 +100,6 @@ sub new {
     throw("input_id in wrong format. correct format : BLOOD = chunk_1453.fa :: OUTPUT_DB :: 1-1000");
   }  
 
-  $self->input_id($rest) ;  
   my ($chunk,$output_db_key,$range) = split "::",$rest;  
 
   if ( defined $range ) { 
@@ -167,7 +173,8 @@ sub get_file_from_s3 {
        throw("output file $out_file exists already - can't download file aos other file would be overw-ritten \n");
      } 
      system($command);  
-     if ( (defined $self->gzip_compression && $self->gzip_compression==1)||  $out_file =~m/\.gz$/) {  
+     if ( (defined $self->gzip_compression && $self->gzip_compression==1)||  $file_name =~m/\.gz$/) {   
+
         # file is compressed; let's un-compress it  
         my $cmd = "gunzip -fc $out_file > $out_file.part.tmp "; 
         system($cmd);    
@@ -187,6 +194,33 @@ sub get_file_from_s3 {
   return $out_file; 
 } 
 
+sub extract_range_out_of_fasta {  
+  my ( $self,$path_to_chunk_file  ) = @_;   
+
+  my $inseq = Bio::SeqIO->new(-file=>"<$path_to_chunk_file", -format =>'fasta');  
+
+  my $out_file_name = $path_to_chunk_file."extract"; 
+  
+  my $outseq = Bio::SeqIO->new(-file=>">$out_file_name" , -format =>'fasta'); 
+  
+  my $nr_start = $self->nr_start_seq; 
+  my $nr_end = $self->nr_end_seq; 
+
+  my $seq_counter = 1; 
+  my @all_seq; 
+  SEQ: while ( my $seq = $inseq->next_seq ) {   
+     if ( $seq_counter >= $nr_start && $seq_counter <=$nr_end ) {  
+       print "extracting $seq_counter\n";  
+       push @all_seq, $seq; 
+     }   
+     $seq_counter++;
+  }
+  for my $seq ( @all_seq) {  
+    $outseq->write_seq($seq);
+  }   
+  print scalar(@all_seq) . " seqs written \n";  
+  return $out_file_name ; 
+} 
 
 sub fetch_input {
   my ($self) = @_;
@@ -284,7 +318,7 @@ use vars '$AUTOLOAD';
 sub AUTOLOAD {  
  my ($self,$val) = @_;
  (my $routine_name=$AUTOLOAD)=~s/.*:://; #trim package name
- $self->{$routine_name}=$val if $val ; 
+ $self->{$routine_name}=$val if defined $val ; 
  return $self->{$routine_name} ; 
 }
 sub DESTROY {} # required due to AUTOLOAD
