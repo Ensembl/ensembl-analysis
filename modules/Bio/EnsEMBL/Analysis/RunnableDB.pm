@@ -82,7 +82,7 @@ use warnings;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_config);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_config parse_config_mini);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info logger_verbosity);
 use Bio::EnsEMBL::Analysis::Config::General qw(CORE_VERBOSITY
                                                LOGGER_VERBOSITY);
@@ -112,7 +112,7 @@ sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;  
 
-  my ($db, $input_id, $analysis,$ignore_config_file) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE'], @args);
+  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION'], @args);
 
   if(!$db || !$analysis || !$input_id){
     throw("Can't create a RunnableDB without a dbadaptor ".
@@ -133,6 +133,7 @@ sub new{
   $self->analysis($analysis);
   $self->input_id($input_id); 
   $self->ignore_config_file($ignore_config_file) ;
+  $self->no_config_exception($no_config_exception) ;
 
   verbose($CORE_VERBOSITY);
   logger_verbosity($LOGGER_VERBOSITY);
@@ -501,8 +502,11 @@ sub fetch_input{
 =head2 read_and_check_config
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Arg [2]   : hashref, should be the hashref from which ever config file
-  you are reading
+  Arg [2]   : hashref, should be the hashref from which ever config file you are reading 
+  Arg [3]   : label - the name of the config varible you're reading - useful for debugging
+  Arg [4]   : flag (1/0 ) to throw or not throw if logic_name is missing from config. 
+              ( useful for auto-setup in cloud ) 
+
   Function  : to on the basis of the entries of the hash in your specific
   config file set up instance variables first for the default values then for
   any values specific to you logic name
@@ -515,13 +519,23 @@ sub fetch_input{
 
 sub read_and_check_config{
   my ($self, $var_hash, $label ) = @_; 
-  
+ 
   if ( defined $label ) { 
     print "READING CONFIG  : $label\n" ; 
-  }
-  parse_config($self, $var_hash, $self->analysis->logic_name);
+  } 
+  parse_config($self, $var_hash, $self->analysis->logic_name,$self->no_config_exception);
 }
 
+
+
+sub read_and_check_config_mini{
+  my ($self, $var_hash, $label ) = @_; 
+ 
+  if ( defined $label ) { 
+    print "READING CONFIG  : $label\n" ; 
+  } 
+  parse_config_mini($self, $var_hash); 
+}
 
 =head2 require_module
 
@@ -562,6 +576,22 @@ sub ignore_config_file {
   my $self = shift;
   $self->{'ignore_config'} = shift if(@_);
   return $self->{'ignore_config'};
+} 
+
+=head2 no_config_exception 
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : string  ( 1 or 0 ) 
+  Function  : 
+              
+  Returntype: 1 or 0 
+
+=cut
+
+sub no_config_exception{
+  my $self = shift;
+  $self->{'no_config_exception'} = shift if(@_);
+  return $self->{'no_config_exception'};
 }
 
 
