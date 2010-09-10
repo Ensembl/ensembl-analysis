@@ -811,6 +811,17 @@ use vars qw( %Config );
 										 #-description => '',
 										  -class   => 'ILLUMINA_WG',
 										},
+
+					  'RatRef-12' => {
+										 -name => 'RatRef-12',
+										 -vendor => 'ILLUMINA',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'ILLUMINA_WG',
+										},
+
 					  
 					  
 
