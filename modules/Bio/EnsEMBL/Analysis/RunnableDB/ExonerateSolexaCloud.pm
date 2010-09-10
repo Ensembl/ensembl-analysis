@@ -77,7 +77,7 @@ sub new {
   }  
 
 
-
+  $self->{_files_to_delete} = []; 
   $self->S3_SEQUENCE_DATA($S3_SEQUENCE_DATA);   
 
   $self->S3_GENOMIC_FASTA_SEQUENCE($S3_GENOMIC_FASTA_SEQUENCE);  
@@ -177,14 +177,16 @@ sub get_file_from_s3 {
 
         # file is compressed; let's un-compress it  
         my $cmd = "gunzip -fc $out_file > $out_file.part.tmp "; 
-        system($cmd);    
-        system("unlink $out_file");
+        system($cmd);     
+        if ( -e $out_file ) { 
+            system("unlink $out_file"); 
+        } 
         my $of = $out_file; 
         $out_file =~s/\.gz$//; 
         $cmd="mv $of.part.tmp $out_file" ;  
         system($cmd);  
         if (!defined $is_genomic_file ) { 
-           $self->file_to_delete($out_file); 
+           $self->files_to_delete($out_file); 
         } 
      }   
   }else {   
@@ -199,7 +201,7 @@ sub extract_range_out_of_fasta {
 
   my $inseq = Bio::SeqIO->new(-file=>"<$path_to_chunk_file", -format =>'fasta');  
 
-  my $out_file_name = $path_to_chunk_file."extract"; 
+  my $out_file_name = $path_to_chunk_file.".extract"; 
   
   my $outseq = Bio::SeqIO->new(-file=>">$out_file_name" , -format =>'fasta'); 
   
@@ -218,7 +220,8 @@ sub extract_range_out_of_fasta {
   for my $seq ( @all_seq) {  
     $outseq->write_seq($seq);
   }   
-  print scalar(@all_seq) . " seqs written \n";  
+  print scalar(@all_seq) . " seqs written \n";   
+  $self->files_to_delete($out_file_name); 
   return $out_file_name ; 
 } 
 
@@ -231,9 +234,11 @@ sub fetch_input {
 
   if ( defined $self->nr_start_seq && defined $self->nr_end_seq) {  
     # range given, so we have to extract a range out of the fasta file  
-    my $new_chunk_file_name = $self->extract_range_out_of_fasta($path_to_chunk_file); 
-    $self->QUERYSEQS($new_chunk_file_name ) ;  
-    unlink($path_to_chunk_file); 
+    my $new_chunk_file_name = $self->extract_range_out_of_fasta($path_to_chunk_file);  
+    $self->QUERYSEQS($new_chunk_file_name ) ;   
+    if ( -e $path_to_chunk_file ) { 
+      unlink($path_to_chunk_file);  
+    }
   }else {   
    # no range given 
    $self->QUERYSEQS($path_to_chunk_file);   
@@ -243,15 +248,20 @@ sub fetch_input {
 
   my $path_to_genomic_file = $self->get_file_from_s3($self->genomic_file_name, $self->genomic_bucket_name);  
   $self->GENOMICSEQS($path_to_genomic_file); 
-  $self->SUPER::fetch_input(); 
+  $self->SUPER::fetch_input();  
 }
 
 
 sub write_output {  
   my ($self) = @_; 
-
-  my $cmd = "unlink ".$self->file_to_delete();  
-  system($cmd); 
+  print "writing otuput \n"; 
+  for my $file ( @{ $self->{_files_to_delete}} ) {   
+    print "UNLINK $file\n"; 
+    if ( -e $file) {  
+     my $cmd = "unlink $file"; 
+     system($cmd);  
+    } 
+  } 
   $self->SUPER::write_output(); 
 } 
 
@@ -313,6 +323,15 @@ sub s3_sequence_data_key  {
 } 
 
 
+sub files_to_delete { 
+  my ($self,$val) = shift;   
+ 
+  if (defined  $val ) { 
+    push @{$self->{_files_to_delete}},$val; 
+  }   
+  return $self->{_files_to_delete}; 
+}  
+
 
 use vars '$AUTOLOAD';
 sub AUTOLOAD {  
@@ -322,7 +341,6 @@ sub AUTOLOAD {
  return $self->{$routine_name} ; 
 }
 sub DESTROY {} # required due to AUTOLOAD
-
 
 
 1;
