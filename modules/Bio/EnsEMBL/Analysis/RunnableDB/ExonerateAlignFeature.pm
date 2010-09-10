@@ -176,16 +176,19 @@ sub write_output {
   my ( $self, @output ) = @_;
 
   my $outdb = $self->output_db;  
-  my $fa = $outdb->get_DnaAlignFeatureAdaptor;
+  my $fa = $outdb->get_DnaAlignFeatureAdaptor; 
+  my $nr_feat = 0; 
   $outdb->disconnect_when_inactive(0); 
-  foreach my $f (@{$self->output}){  
+  foreach my $f (@{$self->output}){   
+    $nr_feat++;
     eval{ 
       $fa->store($f);
     };
     if ($@) {
       $self->throw("Unable to store clone feature!\n $@");
     }
-  }
+  } 
+  print "$nr_feat features written to " . $outdb->dbname . "\@" . $outdb->host()."\n";  
   $outdb->disconnect_when_inactive(1); 
 }
 
