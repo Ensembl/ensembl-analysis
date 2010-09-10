@@ -174,7 +174,7 @@ sub get_file_from_s3 {
      } 
      system($command);  
      if ( (defined $self->gzip_compression && $self->gzip_compression==1)||  $file_name =~m/\.gz$/) {   
-
+        print "un-compressing file\n";
         # file is compressed; let's un-compress it  
         my $cmd = "gunzip -fc $out_file > $out_file.part.tmp "; 
         system($cmd);     
@@ -220,7 +220,8 @@ sub extract_range_out_of_fasta {
   for my $seq ( @all_seq) {  
     $outseq->write_seq($seq);
   }   
-  print scalar(@all_seq) . " seqs written \n";   
+  print scalar(@all_seq) . " seqs written \n";    
+  print "adding $out_file_name to list of files to deleete\n";  
   $self->files_to_delete($out_file_name); 
   return $out_file_name ; 
 } 
@@ -253,10 +254,9 @@ sub fetch_input {
 
 
 sub write_output {  
-  my ($self) = @_; 
-  print "writing otuput \n"; 
-  for my $file ( @{ $self->{_files_to_delete}} ) {   
-    print "UNLINK $file\n"; 
+  my ($self) = @_;  
+
+  for my $file ( @{ $self->files_to_delete } ) { 
     if ( -e $file) {  
      my $cmd = "unlink $file"; 
      system($cmd);  
@@ -324,8 +324,8 @@ sub s3_sequence_data_key  {
 
 
 sub files_to_delete { 
-  my ($self,$val) = shift;   
- 
+  my ($self,$val) = @_; 
+
   if (defined  $val ) { 
     push @{$self->{_files_to_delete}},$val; 
   }   
