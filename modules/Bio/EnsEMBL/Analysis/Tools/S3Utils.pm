@@ -40,40 +40,101 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 
 use Bio::EnsEMBL::Analysis::Config::S3Config; 
 use Bio::EnsEMBL::Analysis::Config::General; 
-
+use Digest::MD5; 
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ; 
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(get_file_from_s3) ; 
+@EXPORT = qw(
+             get_file_from_s3
+             get_file_from_s3_and_gunzip
+            ) ; 
 
 
-sub get_file_from_s3 { 
-  my ( $s3_bucket,$s3_file,$local_file ,$s3_config_file, $check) = @_ ;  
 
-  if (!defined $s3_config_file ) { 
-    $s3_config_file = $S3_CONFIG_FILE; 
+# mini routine to overwrite config vars. if direct value passed in, direct value used, 
+# if not standard val in S3Conf used, if set no config ( ie $HOME/.s3cfg ) will be used 
+
+sub s3_conf_para {   
+  my ( $s3_config_file ) = @_; 
+  my $s3_conf; 
+  if (defined $s3_config_file ) { 
+      $s3_conf = $s3_config_file; 
+  }elsif ( defined $S3_CONFIG_FILE ) {  
+      $s3_conf =$S3_CONFIG_FILE;
   }  
-  check_config_file ($s3_config_file); 
-
-  my $cmd = "s3cmd -c $s3_config_file get $s3_bucket/$s3_file $local_file";
-  system($cmd);  
-
-  if ( $check ==1 ) {    
-     my @lines = @{ get_md5sum($s3_bucket,$s3_file,$s3_config_file) } ;  
-     for ( @lines ) {  
-       print $_ . "\n"; 
-     } 
-     my $cmd = "s3cmd -c $s3_config_file ls --list-md5sum get $s3_bucket/$s3_file $md5sum_file";
-    
+  my $use_config = "";
+  if ( defined $s3_conf ) { 
+    check_config_file($s3_conf);  
+    $use_config = " -c $s3_conf ";
   } 
+  return $use_config;
+} 
+
+
+
+sub get_file_from_s3_and_gunzip { 
+  my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file ) = @_ ; 
+
+  my $lf =  get_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file);  
+  my $lfz = $lf."gz";
+  system("mv $lf $lfz");
+  my $outf = $lf.".$$.gunzip"; 
+   
+  gunzip $lfz=> $outf or throw(" Gunzip failed : $GunzipError");
+  return $outf; 
 }
 
 
-sub get_md5sum {  
-  my ( $s3_bucket,$s3_file,$s3_config_file ) = @_ ;  
+sub get_file_from_s3 { 
+  my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file ) = @_ ;  
 
-  my $tmp_file;  
-  my $cmd = "s3cmd -c $s3_config_file ls --list-md5 $s3_bucket/$s3_file > $tmp_file "; 
+  my $use_config = s3_conf_para($s3_config_file); 
+
+  my $local_file = $local_dir ."/".$s3_file.".$$";
+  my $cmd = "s3cmd --force $use_config get $s3_bucket/$s3_file $local_file"; 
+  system($cmd);  
+
+  if (defined $check && $check ==1 ) {     
+     my $md5;
+     my @lines = @{ get_md5sum($s3_bucket,$s3_file,$s3_config_file) } ;  
+     for my $l ( @lines ) {  
+       my @item = split /\s+/,$l; 
+       if ( $item[4]=~m/$s3_file/) { 
+         $md5=$item[3]; 
+       }
+     }  
+     if ( check_file_vs_md5 ($md5,$local_file) ) {  
+       return $local_file; 
+     } else {  
+       throw("md5sums for downloded file and local file do not match \n"); 
+     } 
+  }  
+  return $local_file;
+}
+
+
+
+sub check_file_vs_md5{ 
+  my ( $md5,$local_file) = @_  ;  
+
+  my $ctx = Digest::MD5->new;
+  open(F,$local_file); 
+  $ctx->addfile(*F); 
+  my $ms = $ctx->hexdigest;   
+  if ( $ms eq $md5 ){  
+    return 1;
+  } 
+  return 0 ; 
+} 
+
+sub get_md5sum {  
+  my ( $s3_bucket,$s3_file,$s3_config_file ) = @_ ;   
+
+  my $use_config = s3_conf_para($s3_config_file); 
+
+  my @all;
+  my $cmd = "s3cmd $use_config ls --list-md5 $s3_bucket/$s3_file"; 
   local *SCMD;
   open(SCMD, "$cmd 2>&1 |") or throw("couldn't open pipe s3cmd");
   while(my $line = <SCMD>){ 
