@@ -261,7 +261,7 @@ sub get_uncompressed_file_from_s3 {
   # this assures that the download went OK   
 
   if (defined $check && $check ==1 ) {
-     print "checking md5sum of downloaded file vs. automatic S3 md5sum\n";
+     print "checking md5sum of downloaded file vs. automaticly generated S3 md5sum\n";
      my $md5;
      my @lines = @{ get_s3_stored_md5sum($s3_bucket,$s3_file,$s3_config_file) } ;  
 
@@ -269,7 +269,8 @@ sub get_uncompressed_file_from_s3 {
      # ie md5.sum     md5.sum.gz      md5.sumgz   
 
      LINES: for my $line ( @lines ) {
-       my ( $date, $time, $size, $md5string, $s3_location ) = split /\s+/,$line;  
+       my ( $date, $time, $size, $md5string, $s3_location ) = split /\s+/,$line;   
+       print "line $line\n"; 
        #2010-09-08 00:52    151635   a509fd9c8b41944d73552c36728a1b68  s3://ensembl-cloud-chunks/md5.sum 
        #print "LOC $s3_location\n"; 
        $s3_location =~s/s3:\/\///;
@@ -280,8 +281,10 @@ sub get_uncompressed_file_from_s3 {
          $md5 = $md5string ;  
          last LINES;
        } 
+     }  
+     if ( ! defined $md5 ) {  
+        throw("md5 for file $s3_file not found\n");
      } 
-
      if ( check_md5_downloaded_file_vs_md5_from_s3 ($md5,$tmp_local_file) ) {   
        print "file downloaded correctly as s3-automatic md5sum match with downloaded file : $tmp_local_file\n"; 
         #   if ( ! -e $s3_file ) {  
@@ -316,7 +319,8 @@ sub create_md5sum_for_local_file {
 sub check_md5_downloaded_file_vs_md5_from_s3 { 
   my ( $md5,$local_file) = @_  ;  
 
-  my $md5_local = create_md5sum_for_local_file( $local_file);
+  my $md5_local = create_md5sum_for_local_file( $local_file); 
+   print "md5 of local file ( $local_file : $md5_local ) \n";
   if ( $md5_local  eq $md5 ){   
     return 1;
   } 
@@ -329,7 +333,8 @@ sub get_s3_stored_md5sum {
   my $use_config = s3_conf_para($s3_config_file); 
 
   my @all;
-  my $cmd = "s3cmd $use_config ls --list-md5 $s3_bucket/$s3_file"; 
+  my $cmd = "s3cmd $use_config ls --list-md5 $s3_bucket/$s3_file";  
+  print "CMD: $cmd\n";
   local *SCMD;
   open(SCMD, "$cmd 2>&1 |") or throw("couldn't open pipe s3cmd");
   while(my $line = <SCMD>){ 
