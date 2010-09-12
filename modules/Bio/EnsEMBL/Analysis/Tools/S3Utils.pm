@@ -74,61 +74,180 @@ sub s3_conf_para {
 
 
 sub get_file_from_s3_and_gunzip { 
-  my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file ) = @_ ; 
+  my ( $s3_bucket,$s3_file,$local_dir ,$check, $md5sum_uncompressed, $s3_config_file) = @_ ; 
 
-  my $lf =  get_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file);  
+  # check if uncompressed file exsts 
+  my $original_file_name;  
+  if ( $s3_file =~m/\.gz/ ) { 
+     (my $original_file_name = $s3_file)=~s/\.gz//g;    
+     my $odir_local = $local_dir."/".$original_file_name;  
+     if ( -e $odir_local) {  
+        # get uploaded,uncompressed md5sum
+        print "un-compressed  file exists!!! $odir_local\n";  
+        my $md5_uncompressed_uploaded = get_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);   
+        print "file with uploaded md5-sums : $md5_uncompressed_uploaded\n";  
+        # now compare md5sum of uploaded file with uncompressed md5sums with md5sum of local \nfile 
+         my $md5_local = create_md5sum_for_local_file($odir_local);
+         print "local md5: $md5_local for $s3_file\n"; 
+        if ( compare_md5_sums ( $md5_uncompressed_uploaded,$s3_file,$md5_local) == 1 ){   
+          print "uncompressed file exits, has same md5 as uploaed md5 with uncompressed sums \n";  
+          print "returning $odir_local\n"; 
+          return $odir_local; 
+        } 
+     } else { 
+        print "uncompressed file does not exist : $odir_local\n"; 
+     } 
+  }  
+  print "NOW fetching $s3_file\n"; 
+  my $lf =  get_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file);    
+  # file has been  downloaded correctly and automatic S3 md5sum has been checked 
+  # now we have to gunzip the file 
+
   my $lfz = $lf."gz";
   system("mv $lf $lfz");
   my $outf = $lf.".$$.gunzip"; 
    
-  gunzip $lfz=> $outf or throw(" Gunzip failed : $GunzipError");
+  gunzip $lfz=> $outf or throw(" Gunzip failed : $GunzipError");   
+
+  print "file gunziped to $outf\n";   
+
+  #system("mv $outf $lf"); 
+
+  if ( defined $md5sum_uncompressed ) {   
+    print "WOW have also md5sum uncompressed\n";
+    # user has uploaded md5sum file for the uncompressed data. we can now check against that. 
+    my $md5_local = create_md5sum_for_local_file($outf);    
+    my $md5_uploaded_file = get_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);
+
+    # file names are different in uploaded md5sum file and original file  
+    print "downloaded 2 files - need to compare uncompressed md5sum for file with ungzipped md5sum\n"; 
+    print "md5 uploaded : $md5_uploaded_file\n";  
+    my $compare_md5_sums = compare_md5_sums ( $md5_uploaded_file,$s3_file,$md5_local);
+    if ( defined $compare_md5_sums && $compare_md5_sums == 1 ) {   
+      print "all OK - md5sums match\n";  
+       
+    } 
+  }
+  if ( $s3_file =~m/\.gz/){  
+      ($original_file_name = $s3_file)=~s/\.gz//g; 
+      my $new_name = "$local_dir/$original_file_name"; 
+      if ( ! -e $new_name ) { 
+         print "RENAME: $outf $new_name\n"; 
+         system("mv $outf $new_name");  
+      }
+      return $new_name;  
+  }
   return $outf; 
 }
+
+
+sub compare_md5_sums {  
+  my ( $md5_uploaded_file,$s3_file,$md5_local)= @_;
+
+  print "md5_uploaded : $md5_uploaded_file \n"; 
+  print "s3  file     : $s3_file\n";  
+  print "md5 local    : $md5_local\n";
+  
+  print "file with uploaded md5-sums: $md5_uploaded_file\n";  
+
+  open(F,"$md5_uploaded_file")  || die "can't open file $md5_uploaded_file\n";    
+  my $match ; 
+  FILE: while (my $line=<F>){     
+     chomp($line); 
+     my ( $md5sum_uploaded,$file_name) = split /\s+/,$line;
+     if ( $md5sum_uploaded=~m/$md5_local/ ) { 
+       print "MATCH :  $md5sum_uploaded    VS  $md5_local \n";   
+       $match = 1; 
+       last FILE; # md5sums match 
+     }
+  } 
+  close(F);  
+  return $match ; 
+  # s3_file ' chunk0.fa.gz 
+  # fn = chunk0.fa 
+} 
 
 
 sub get_file_from_s3 { 
   my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file ) = @_ ;  
 
-  my $use_config = s3_conf_para($s3_config_file); 
+  print "fetching file from s3 : $s3_file\n";  
 
-  my $local_file = $local_dir ."/".$s3_file.".$$";
-  my $cmd = "s3cmd --force $use_config get $s3_bucket/$s3_file $local_file"; 
+  my $use_config = s3_conf_para($s3_config_file); 
+  
+  my $tmp_local_file = $local_dir ."/".$s3_file.".$$"; 
+  # dowload file to xxx.$$
+  my $cmd = "s3cmd --force $use_config get $s3_bucket/$s3_file $tmp_local_file";   
+
   system($cmd);  
 
-  if (defined $check && $check ==1 ) {     
+  print "data downloaded and saved to $tmp_local_file\n";  
+
+  # check integrity of downloaded file vs S3 automatically stored md5sum
+  # this assures that the download went OK   
+
+  if (defined $check && $check ==1 ) {
+     print "checking md5sum of downloaded file vs. automatic S3 md5sum\n";
      my $md5;
-     my @lines = @{ get_md5sum($s3_bucket,$s3_file,$s3_config_file) } ;  
-     for my $l ( @lines ) {  
-       my @item = split /\s+/,$l; 
-       if ( $item[4]=~m/$s3_file/) { 
-         $md5=$item[3]; 
-       }
-     }  
-     if ( check_file_vs_md5 ($md5,$local_file) ) {  
-       return $local_file; 
-     } else {  
-       throw("md5sums for downloded file and local file do not match \n"); 
+     my @lines = @{ get_s3_stored_md5sum($s3_bucket,$s3_file,$s3_config_file) } ;  
+
+     # problem : routine returns all lines matching, 
+     # ie md5.sum     md5.sum.gz      md5.sumgz   
+
+     LINES: for my $line ( @lines ) {
+       my ( $date, $time, $size, $md5string, $s3_location ) = split /\s+/,$line;  
+       #2010-09-08 00:52    151635   a509fd9c8b41944d73552c36728a1b68  s3://ensembl-cloud-chunks/md5.sum 
+       #print "LOC $s3_location\n"; 
+       $s3_location =~s/s3:\/\///;
+       my @location_string = split /\//,$s3_location; 
+       my $file_name = pop @location_string ;  
+       print "-$file_name-\n";  
+       if ( $file_name eq $s3_file ) { 
+         $md5 = $md5string ;  
+         last LINES;
+       } 
      } 
-  }  
-  return $local_file;
+
+     if ( check_md5_downloaded_file_vs_md5_from_s3 ($md5,$tmp_local_file) ) {   
+       print "file downloaded correctly as s3-automatic md5sum match with downloaded file : $tmp_local_file\n"; 
+        #   if ( ! -e $s3_file ) {  
+        #    system("mv $tmp_local_file $s3_file");  
+        #    print "moving $tmp_local_file $s3_file \n";
+        #    exit(0); 
+        return $tmp_local_file; 
+     } else {  
+       throw("md5sums for downloded file does not match the md5sum stored automatically in S3: $md5 - $tmp_local_file \n"); 
+     } 
+  } else { 
+    print " not checking file \n" ;  
+  }
+   return $tmp_local_file;
 }
 
 
-
-sub check_file_vs_md5{ 
-  my ( $md5,$local_file) = @_  ;  
+sub create_md5sum_for_local_file { 
+  my ($local_file) = @_  ;  
 
   my $ctx = Digest::MD5->new;
   open(F,$local_file); 
   $ctx->addfile(*F); 
-  my $ms = $ctx->hexdigest;   
-  if ( $ms eq $md5 ){  
+  my $ms = $ctx->hexdigest;    
+  return $ms; 
+} 
+
+
+
+sub check_md5_downloaded_file_vs_md5_from_s3 { 
+  my ( $md5,$local_file) = @_  ;  
+
+  my $md5_local = create_md5sum_for_local_file( $local_file);
+  if ( $md5_local  eq $md5 ){   
     return 1;
   } 
   return 0 ; 
 } 
 
-sub get_md5sum {  
+sub get_s3_stored_md5sum {  
   my ( $s3_bucket,$s3_file,$s3_config_file ) = @_ ;   
 
   my $use_config = s3_conf_para($s3_config_file); 
@@ -240,4 +359,4 @@ sub lies_inside_of_slice{
 }
 
 
-1;
+\1;
