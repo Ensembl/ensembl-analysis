@@ -6,8 +6,7 @@
 
 =head1 SYNOPSIS
 
-  Bio::EnsEMBL::Analysis::Tools::S3Utils qw(get_file_from_s3) 
-
+  Bio::EnsEMBL::Analysis::Tools::S3Utils qw(get_uncompressed_file_from_s3) 
 
   Bio::EnsEMBL::Analysis::Tools::S3Utils 
 
@@ -45,36 +44,27 @@ use IO::Uncompress::Gunzip qw(gunzip $GunzipError) ;
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(
+@EXPORT = qw( 
              get_file_from_s3
-             get_file_from_s3_and_gunzip
+             get_uncompressed_file_from_s3
+             get_gzipped_compressed_file_from_s3
             ) ; 
 
 
+sub get_file_from_s3 { 
+  my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed) = @_ ;  
 
-# mini routine to overwrite config vars. if direct value passed in, direct value used, 
-# if not standard val in S3Conf used, if set no config ( ie $HOME/.s3cfg ) will be used 
+  if ( $s3_file =~m/gz/ ) { 
+    return get_gzipped_compressed_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed);
+  }else {   
+    return get_uncompressed_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file); 
+    # get_uncompressed_file_from_s3 - this does not need $md5sum_uncompressed as it's stored automatically in S3 
+  }
+}
 
-sub s3_conf_para {   
-  my ( $s3_config_file ) = @_; 
-  my $s3_conf; 
-  if (defined $s3_config_file ) { 
-      $s3_conf = $s3_config_file; 
-  }elsif ( defined $S3_CONFIG_FILE ) {  
-      $s3_conf =$S3_CONFIG_FILE;
-  }  
-  my $use_config = "";
-  if ( defined $s3_conf ) { 
-    check_config_file($s3_conf);  
-    $use_config = " -c $s3_conf ";
-  } 
-  return $use_config;
-} 
+sub get_gzipped_compressed_file_from_s3 { 
+  my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed) = @_ ;  
 
-
-
-sub get_file_from_s3_and_gunzip { 
-  my ( $s3_bucket,$s3_file,$local_dir ,$check, $md5sum_uncompressed, $s3_config_file) = @_ ; 
 
   # check if uncompressed file exsts 
   my $original_file_name;  
@@ -84,7 +74,7 @@ sub get_file_from_s3_and_gunzip {
      if ( -e $odir_local) {  
         # get uploaded,uncompressed md5sum
         print "un-compressed  file exists!!! $odir_local\n";  
-        my $md5_uncompressed_uploaded = get_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);  
+        my $md5_uncompressed_uploaded = get_uncompressed_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);  
         print "file with uploaded md5-sums : $md5_uncompressed_uploaded\n";  
         # now compare md5sum of uploaded file with uncompressed md5sums with md5sum of local \nfile 
         my $md5_local = create_md5sum_for_local_file($odir_local);
@@ -100,7 +90,7 @@ sub get_file_from_s3_and_gunzip {
      } 
   }  
   print "NOW fetching $s3_file\n"; 
-  my $lf =  get_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file);    
+  my $lf =  get_uncompressed_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file);    
   # file has been  downloaded correctly and automatic S3 md5sum has been checked 
   # now we have to gunzip the file 
 
@@ -119,7 +109,7 @@ sub get_file_from_s3_and_gunzip {
     print "WOW have also md5sum uncompressed\n";
     # user has uploaded md5sum file for the uncompressed data. we can now check against that. 
     my $md5_local = create_md5sum_for_local_file($outf);    
-    my $md5_uploaded_file = get_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);
+    my $md5_uploaded_file = get_uncompressed_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);
 
     # file names are different in uploaded md5sum file and original file  
     print "downloaded 2 files - need to compare uncompressed md5sum for file with ungzipped md5sum\n"; 
@@ -170,7 +160,7 @@ sub compare_md5_sums {
 } 
 
 
-sub get_file_from_s3 { 
+sub get_uncompressed_file_from_s3 { 
   my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file ) = @_ ;  
 
   print "fetching file from s3 : $s3_file\n";  
@@ -178,9 +168,7 @@ sub get_file_from_s3 {
   my $use_config = s3_conf_para($s3_config_file); 
   
   my $tmp_local_file = $local_dir ."/".$s3_file.".$$"; 
-  # dowload file to xxx.$$
   my $cmd = "s3cmd --force $use_config get $s3_bucket/$s3_file $tmp_local_file";   
-
   system($cmd);  
 
   print "data downloaded and saved to $tmp_local_file\n";  
@@ -358,7 +346,28 @@ sub lies_inside_of_slice{
     return 0;
   }
   return 1;
-}
+} 
+
+# mini routine to overwrite config vars. if direct value passed in, direct value used, 
+# if not standard val in S3Conf used, if set no config ( ie $HOME/.s3cfg ) will be used 
+
+sub s3_conf_para {   
+  my ( $s3_config_file ) = @_; 
+  my $s3_conf; 
+  if (defined $s3_config_file ) { 
+      $s3_conf = $s3_config_file; 
+  }elsif ( defined $S3_CONFIG_FILE ) {  
+      $s3_conf =$S3_CONFIG_FILE;
+  }  
+  my $use_config = "";
+  if ( defined $s3_conf ) { 
+    check_config_file($s3_conf);  
+    $use_config = " -c $s3_conf ";
+  } 
+  return $use_config;
+} 
 
 
-\1;
+
+
+1;

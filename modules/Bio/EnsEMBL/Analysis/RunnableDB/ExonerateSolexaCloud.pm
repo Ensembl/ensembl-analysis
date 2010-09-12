@@ -3,14 +3,12 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa
-
-
+Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaCloud
 
 
 =head1 SYNOPSIS
 
-my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa->new(
+my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaCloud->new(
     -db         => $refdb,
     -analysis   => $analysis_obj,
   );
@@ -87,7 +85,7 @@ sub new {
 
   # input_id for S3 :    BLOOD = chunk_1453.fa :: OUTPUT_DB :: 1-1000
   # input_id for S3 :    BLOOD = chunk_1453.fa :: OUTPUT_DB :: 1001-2000
-
+  #
   # BLOOD      : S3 key which groups input data together, also S3_CHUNK_LOC key  
   # chunk234.fa: 'file' with chunked sequence in S3 
   # OUTPUT_DB  : key in Databases.pm  
@@ -130,8 +128,32 @@ sub new {
 
 
 
+sub md5sum_file_check_ok {  
+   my ($file, $md5sum_file ) = @_;  
+
+   if (defined $md5sum_file ) { 
+     my $md_out = "$md5sum_file.out.$$";
+     system("md5sum -c $md5sum_file > $md_out"); 
+     print "md5sum written to $md_out\n";  
+     open(I,"<$md_out") || throw(" The md5sum calculation did not work \n") ; 
+     while (my $line=<I>) {   
+       my ( $filename, $status ) = split /\s+/,$line; 
+       $filename=~s/:$//g;
+       if ($filename eq $file && $status eq "OK" ) {  
+          print "MD5SUM test passed\n";  
+          return 1; 
+       } elsif ( $filename eq $file && $status eq "FAILED" ) {  
+         throw("MD5SUM check for $file && $md5sum_file failed\n");
+       } 
+     } 
+   }  
+   return 0; 
+} 
+
+
+
 sub get_file_from_s3 {  
-  my ($self,$file_name,$bucket_name) = @_;
+  my ($self,$file_name,$bucket_name,$md5sum_file) = @_;
 
 
   print "Fetching file $file_name from $bucket_name \n"; 
@@ -145,13 +167,16 @@ sub get_file_from_s3 {
     $is_genomic_file = 1; 
     if ( $out_file =~m/\.gz$/ ) {
       (my $tmp_out_file_name = $out_file) =~s/\.gz$//g; 
-      if ( -e $tmp_out_file_name ) {    
-          # this could cause trouble depending how the un-zipping goes
-          return $tmp_out_file_name; 
+      if ( -e $tmp_out_file_name ) {     
+          # outfile could have been unzipped already partially  
+          # this could cause trouble depending how the un-zipping goes 
+          if ( md5sum_file_check_ok($tmp_out_file_name,$analysis_work_dir."/".$md5sum_file){ ;
+            return $tmp_out_file_name; 
+          }
       }  
     } 
   }
-
+  # either the md5sum check failed ( ie checksums are different or the file has not been downloaded now 
   my $no_secret_key ; 
   my $no_access_key ;  
 
@@ -162,16 +187,21 @@ sub get_file_from_s3 {
     $no_access_key= 1; 
   }   
 
+  my $rename_file_name = $out_file ;
+
   if ( $no_access_key == 1 && $no_secret_key == 1 ) {  
      # data seems to be public;  
-     my $url = $bucket_name . ".S3.amazonaws.com/". $file_name;  
-     if (! defined $is_genomic_file ) {  
+     my $url = $bucket_name . ".S3.amazonaws.com/". $file_name;   
+
+#     if (! defined $is_genomic_file ) {  
         $out_file = $out_file.".".$$;
-     } 
-     my $command = "wget $url -O $out_file"; 
+#     } 
+     my $command = "wget $url -O $out_file";  
+
      if ( -e $out_file ) {  
-       throw("output file $out_file exists already - can't download file aos other file would be overw-ritten \n");
-     } 
+       throw("output file $out_file exists already - can't download file as other file would be overwritten \n");
+     }  
+     
      system($command);  
      if ( (defined $self->gzip_compression && $self->gzip_compression==1)||  $file_name =~m/\.gz$/) {   
         print "un-compressing file\n";
@@ -185,6 +215,9 @@ sub get_file_from_s3 {
         $out_file =~s/\.gz$//; 
         $cmd="mv $of.part.tmp $out_file" ;  
         system($cmd);  
+        if ( md5sum_file_check_ok($tmp_out_file_name,$analysis_work_dir."/".$md5sum_file){  
+            print "md5sum check OK\n";
+        }
         if (!defined $is_genomic_file ) { 
            $self->files_to_delete($out_file); 
         } 
@@ -231,6 +264,7 @@ sub fetch_input {
 
   # get chunk1.fa.gz from S3   - security credentials in CloudConfig if needed
 
+  # get_file_from_s3 ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed); 
   my $path_to_chunk_file = $self->get_file_from_s3($self->chunk,$self->chunk_bucket_name);    
 
   if ( defined $self->nr_start_seq && defined $self->nr_end_seq) {  
@@ -247,7 +281,7 @@ sub fetch_input {
 
   # get softmasked genome sequence out of S3 - security credentials in CloudConfig if needed 
 
-  my $path_to_genomic_file = $self->get_file_from_s3($self->genomic_file_name, $self->genomic_bucket_name);  
+  my $path_to_genomic_file = $self->get_file_from_s3($self->genomic_file_name, $self->genomic_bucket_name,$self->md5sum_genomic_file);  
   $self->GENOMICSEQS($path_to_genomic_file); 
   $self->SUPER::fetch_input();  
 }
@@ -315,6 +349,12 @@ sub genomic_file_name {
   my ($self) = shift; 
   return ${$self->S3_GENOMIC_FASTA_SEQUENCE}{"file_name"} ;
 } 
+
+sub md5sum_genomic_file {  
+  my ($self) = shift; 
+  return ${$self->S3_GENOMIC_FASTA_SEQUENCE}{"md5sum_file_name"} ;
+} 
+
 
 sub s3_sequence_data_key  {  
   my ($self) = shift;  
