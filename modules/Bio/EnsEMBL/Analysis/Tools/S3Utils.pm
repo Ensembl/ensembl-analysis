@@ -47,22 +47,84 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw( 
              get_file_from_s3
              get_uncompressed_file_from_s3
-             get_gzipped_compressed_file_from_s3
+             get_gzip_compressed_file_from_s3
             ) ; 
 
 
+=head2 get_file_from_s3 
+
+  Arg [1]   : name of S3 bucket ( String ) 
+  Arg [2]   : name of file in S3 
+  Arg [3]   : local directory where to store the downloaded file 
+  Arg [4]   : flag if downloade file should be checked vs automatic md5sum in amazon S3 storage 
+  Arg [5]   : location of S3 config file ( Set in Config/S3Config.pm  ) 
+  Arg [6]   : md5sum of uncompressed file  
+
+  Function  : Fetches a file from Amazon Simple Storage Service S3 with s3cmd. 
+              Requires that the program s3cmd is properly set up ( see s3cmd --help, 
+              s3cmd --configure  
+              If no config file is given, it defaults to $HOME/.s3cfg 
+  Returntype: Boolean, 1 for pass, 0 for fail, i.e. lies outside of slice
+              or across lower boundary
+  Exceptions: none
+  Example   :  get_file_from_s3("s3://ensembl-cloud-cvs","test.fa","1","/home/ensembl/.s3cfg",'');
+
+=cut
+
 sub get_file_from_s3 { 
-  my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed) = @_ ;  
+  my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed_file) = @_ ;  
+
+  if ( $s3_bucket !~m/^s3:\/\//){ 
+   throw("Your s3-bucket name is incorrect - EXAMPLE : s3://ensembl-cvs-bucket ");
+  }  
 
   if ( $s3_file =~m/gz/ ) { 
-    return get_gzipped_compressed_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed);
+    return get_gzip_compressed_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, 
+                                            $md5sum_uncompressed_file);
   }else {   
+    # get_uncompressed_file_from_s3 does not need $md5sum_uncompressed_file as we can directly compare 
+    # vs automatically stored md5sum in amazon s3 
     return get_uncompressed_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file); 
-    # get_uncompressed_file_from_s3 - this does not need $md5sum_uncompressed as it's stored automatically in S3 
   }
 }
 
-sub get_gzipped_compressed_file_from_s3 { 
+
+
+=head2 get_gzip_compressed_file_from_s3
+
+  Arg [1]   : name of S3 bucket ( String ) 
+  Arg [2]   : name of file in S3 
+  Arg [3]   : local directory where to store the downloaded file 
+  Arg [4]   : flag if downloade file should be checked vs automatic md5sum in amazon S3 storage 
+  Arg [5]   : location of S3 config file ( Set in Config/S3Config.pm 
+  Arg [6]   : Name of file in S3 which contains the md5sums of the uncompressed files in the bucket. 
+
+  Function  : Fetches a file from Amazon Simple Storage Service S3 with s3cmd. 
+              Requires that the program s3cmd is properly set up ( see s3cmd --help, 
+              s3cmd --configure  
+              If no config file is given, it defaults to $HOME/.s3cfg  
+
+              Arg[6] is needed to check if the gunzipped / uncompressed file is identical with the 
+              uploaded, compresssed file. Sometimes un-compressing can fail so this assures that data is 
+              consistent
+
+  Returntype: String describing path to downloaded file 
+              or across lower boundary
+  Exceptions: none
+  Example   :  get_gzip_compresssed_file_from_s3(
+                      "s3://ensembl-cloud-cvs",
+                      "test.fa", 
+                      "/tmp/",
+                      "1",
+                      "/home/ensembl/.s3cfg",
+                      'file_with_md5sums_of_uncompressed_file_in_s3_bucket'
+                     );
+
+=cut
+
+
+
+sub get_gzip_compressed_file_from_s3 { 
   my ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed) = @_ ;  
 
 
@@ -73,18 +135,33 @@ sub get_gzipped_compressed_file_from_s3 {
      my $odir_local = $local_dir."/".$original_file_name;  
      if ( -e $odir_local) {  
         # get uploaded,uncompressed md5sum
-        print "un-compressed  file exists!!! $odir_local\n";  
-        my $md5_uncompressed_uploaded = get_uncompressed_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);  
-        print "file with uploaded md5-sums : $md5_uncompressed_uploaded\n";  
-        # now compare md5sum of uploaded file with uncompressed md5sums with md5sum of local \nfile 
-        my $md5_local = create_md5sum_for_local_file($odir_local);
-        print "local md5: $md5_local for $s3_file\n"; 
-        if ( compare_md5_sums ( $md5_uncompressed_uploaded,$s3_file,$md5_local) == 1 ){   
-          print "uncompressed file exits, has same md5 as uploaed md5 with uncompressed sums \n";  
-          print "returning $odir_local\n";  
-          unlink($md5_uncompressed_uploaded);
-          return $odir_local; 
-        } 
+        print "\n\nun-compressed  file exists!!! $odir_local\n\n";   
+
+       if ( defined $md5sum_uncompressed ) {  
+         # the stuff below is to be able to compare the checksum of the uncompressed files vs the original file
+         # to be be sure the the compression/un-compression went OK 
+         print "\ngetting file with md5sums of uncompressed fasta files\n"; 
+         my $md5_uncompressed_uploaded = 
+            get_uncompressed_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);   
+
+         print "\n\nfile with uncompressed md5-sums : $md5_uncompressed_uploaded\n\n";   
+
+         # now compare md5sum of uploaded file with uncompressed md5sums with md5sum of local \nfile 
+         my $md5_local = create_md5sum_for_local_file($odir_local); 
+         
+         print "local md5: $md5_local for $s3_file\n";   
+
+         
+         my  $md5sums_match = compare_md5_sums ( $md5_uncompressed_uploaded,$s3_file,$md5_local) ;
+ 
+         unlink($md5_uncompressed_uploaded);
+         if ( $md5sums_match == 1 ) { 
+           return $odir_local; 
+         }else{  
+           warning("md5sum of downloaded,uncompressed file $odir_local does not match md5sum of uploaded file - Will re-download file");
+           unlink($odir_local); 
+         } 
+       }
      } else { 
         print "uncompressed file does not exist : $odir_local\n"; 
      } 
@@ -104,7 +181,6 @@ sub get_gzipped_compressed_file_from_s3 {
   print "file gunziped to $outf\n";   
   system("unlink $lfz");
   #system("mv $outf $lf"); 
-
   if ( defined $md5sum_uncompressed ) {   
     print "WOW have also md5sum uncompressed\n";
     # user has uploaded md5sum file for the uncompressed data. we can now check against that. 
@@ -113,12 +189,16 @@ sub get_gzipped_compressed_file_from_s3 {
 
     # file names are different in uploaded md5sum file and original file  
     print "downloaded 2 files - need to compare uncompressed md5sum for file with ungzipped md5sum\n"; 
-    print "md5 uploaded : $md5_uploaded_file\n";  
-    my $compare_md5_sums = compare_md5_sums ( $md5_uploaded_file,$s3_file,$md5_local);
-    if ( defined $compare_md5_sums && $compare_md5_sums == 1 ) {   
+    print "md5 uploaded : $md5_uploaded_file\n";   
+
+    my $compare_md5_sums= compare_md5_sums ( $md5_uploaded_file,$s3_file,$md5_local);
+
+    unlink($md5_uploaded_file);  
+
+    if ( $compare_md5_sums == 1 ) {   
       print "all OK - md5sums match\n";  
-      unlink($md5_uploaded_file); 
-    } 
+    }  
+    
   }
   if ( $s3_file =~m/\.gz/){  
       ($original_file_name = $s3_file)=~s/\.gz//g; 
@@ -136,28 +216,32 @@ sub get_gzipped_compressed_file_from_s3 {
 sub compare_md5_sums {  
   my ( $md5_uploaded_file,$s3_file,$md5_local)= @_;
 
-  print "md5_uploaded : $md5_uploaded_file \n"; 
-  print "s3  file     : $s3_file\n";  
-  print "md5 local    : $md5_local\n";
+  print "CMP md5 : md5_uploaded : $md5_uploaded_file \n"; 
+  print "CMP md5 : s3  file     : $s3_file\n";  
+  print "CMP md5 : md5 local    : $md5_local\n";
   
   print "file with uploaded md5-sums: $md5_uploaded_file\n";  
 
-  open(F,"$md5_uploaded_file")  || die "can't open file $md5_uploaded_file\n";    
-  my $match ; 
+  open(F,"$md5_uploaded_file")  || throw ("can't open file $md5_uploaded_file\n"); 
+  my $match =0; 
   FILE: while (my $line=<F>){     
-     chomp($line); 
+     chomp($line);  
+     print "MD5-file-line: $line\n";
      my ( $md5sum_uploaded,$file_name) = split /\s+/,$line;
+       print "COMPARE :  $md5sum_uploaded    VS  $md5_local \n";   
      if ( $md5sum_uploaded=~m/$md5_local/ ) { 
-       print "MATCH :  $md5sum_uploaded    VS  $md5_local \n";   
+       print "MATCH :  $md5sum_uploaded    VS  $md5_local for $file_name \n";   
        $match = 1; 
        last FILE; # md5sums match 
      }
   } 
-  close(F);  
-  return $match ; 
+  close(F);   
+  return  $match ;
   # s3_file ' chunk0.fa.gz 
   # fn = chunk0.fa 
 } 
+
+
 
 
 sub get_uncompressed_file_from_s3 { 
@@ -218,10 +302,12 @@ sub get_uncompressed_file_from_s3 {
 sub create_md5sum_for_local_file { 
   my ($local_file) = @_  ;  
 
+  print "Creating md5sum for $local_file ...\n"; 
   my $ctx = Digest::MD5->new;
   open(F,$local_file); 
   $ctx->addfile(*F); 
   my $ms = $ctx->hexdigest;    
+  print "$local_file ==> $ms\n"; 
   return $ms; 
 } 
 
@@ -262,94 +348,20 @@ sub check_config_file {
 } 
 
 
-=head2 id
 
-  Arg [1]   : Bio::EnsEMBL::Feature
-  Function  : Returns a string containing an appropriate label
-              for the feature
-  Returntype: string
-  Exceptions: none
-  Example   : 
+=head2 s3_conf_para 
 
-=cut
-
-
-
-sub id {
-  my $feature = shift;
-  my $id;
-
-  if($feature->can('stable_id') && $feature->stable_id){
-    $id = $feature->stable_id;
-  }elsif($feature->can('dbID') && $feature->dbID) {
-    $id = $feature->dbID;
-  }else{ 
-    $id = 'no-id';
-  }
-  if($feature->can('biotype') && $feature->biotype){
-    $id .= "_".$feature->biotype;
-  }
-  return $id;
-}
-
-
-
-=head2 empty_Object
-
-  Arg [1]   : Bio::EnsEMBL::Storeable or an object which inherits from it
-  Arg [2]   : Boolean, whether to remove the stable id from the given object
-  Function  : remove the dbID, adaptor and if appropriate the stable id
-  Returntype: Bio::EnsEMBL::Storeable
-  Exceptions: n/a
-  Example   : empty_Object($object);
+  Arg [1]   : String, path to config file ie "/home/ensembl/.s3cfg" 
+  Function  : overwrite config vars for S3_CONFIG_FILE 
+              If a value is directly passed into this methods, this value will be used.
+              If S3_CONFIG_FILE set to undef in S3Config.pm, the default value ( ie $HOME/.s3cfg ) 
+              will be used 
+  Returntype: String or undef  
 
 =cut
 
 
 
-sub empty_Object{
-  my ($object, $include_stable_id) = @_;
-  $object->adaptor(undef);
-  $object->dbID(undef);
-  $object->stable_id(undef) if($object->can("stable_id") && 
-                               $include_stable_id);
-  return $object;
-}
-
-
-
-=head2 lies_inside_of_slice
-
-  Arg [1]   : Bio::EnsEMBL::Feature
-  Arg [2]   : Bio::EnsEMBL::Slice
-  Function  : Ensures the transcript within the slice, completely on
-              the lower end, it can overhang the upper end.
-  Returntype: Boolean, 1 for pass, 0 for fail, i.e. lies outside of slice
-              or across lower boundary
-  Exceptions: none
-  Example   :
-
-=cut
-
-
-sub lies_inside_of_slice{
-  my ($feature, $slice) = @_;
-  if($feature->start > $slice->length || 
-     $feature->end < 1){
-    warning(id($feature)." lies off edge if slice ".
-            $slice->name);
-    return 0;
-  }
-  if($feature->start < 1 && $feature->end > 1){
-    warning(id($feature)." lies over lower boundary".
-            " of slice ".$slice->name);
-    return 0;
-  }
-  return 1;
-} 
-
-# mini routine to overwrite config vars. if direct value passed in, direct value used, 
-# if not standard val in S3Conf used, if set no config ( ie $HOME/.s3cfg ) will be used 
 
 sub s3_conf_para {   
   my ( $s3_config_file ) = @_; 
