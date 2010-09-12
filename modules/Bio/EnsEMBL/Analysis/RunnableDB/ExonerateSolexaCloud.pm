@@ -304,8 +304,6 @@ sub fetch_input {
                                                     $self->md5sum_genomic_file, 
                                            );    
 
-
-  #my $path_to_genomic_file = $self->get_file_from_s3($self->genomic_file_name, $self->genomic_bucket_name,$self->md5sum_genomic_file);  
   $self->GENOMICSEQS($path_to_genomic_file); 
   $self->SUPER::fetch_input();  
 }
