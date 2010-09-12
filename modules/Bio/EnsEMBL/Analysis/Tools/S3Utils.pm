@@ -84,14 +84,15 @@ sub get_file_from_s3_and_gunzip {
      if ( -e $odir_local) {  
         # get uploaded,uncompressed md5sum
         print "un-compressed  file exists!!! $odir_local\n";  
-        my $md5_uncompressed_uploaded = get_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);   
+        my $md5_uncompressed_uploaded = get_file_from_s3($s3_bucket,$md5sum_uncompressed,$local_dir ,1, $s3_config_file);  
         print "file with uploaded md5-sums : $md5_uncompressed_uploaded\n";  
         # now compare md5sum of uploaded file with uncompressed md5sums with md5sum of local \nfile 
-         my $md5_local = create_md5sum_for_local_file($odir_local);
-         print "local md5: $md5_local for $s3_file\n"; 
+        my $md5_local = create_md5sum_for_local_file($odir_local);
+        print "local md5: $md5_local for $s3_file\n"; 
         if ( compare_md5_sums ( $md5_uncompressed_uploaded,$s3_file,$md5_local) == 1 ){   
           print "uncompressed file exits, has same md5 as uploaed md5 with uncompressed sums \n";  
-          print "returning $odir_local\n"; 
+          print "returning $odir_local\n";  
+          unlink($md5_uncompressed_uploaded);
           return $odir_local; 
         } 
      } else { 
@@ -105,12 +106,13 @@ sub get_file_from_s3_and_gunzip {
 
   my $lfz = $lf."gz";
   system("mv $lf $lfz");
+
   my $outf = $lf.".$$.gunzip"; 
    
   gunzip $lfz=> $outf or throw(" Gunzip failed : $GunzipError");   
 
   print "file gunziped to $outf\n";   
-
+  system("unlink $lfz");
   #system("mv $outf $lf"); 
 
   if ( defined $md5sum_uncompressed ) {   
@@ -125,7 +127,7 @@ sub get_file_from_s3_and_gunzip {
     my $compare_md5_sums = compare_md5_sums ( $md5_uploaded_file,$s3_file,$md5_local);
     if ( defined $compare_md5_sums && $compare_md5_sums == 1 ) {   
       print "all OK - md5sums match\n";  
-       
+      unlink($md5_uploaded_file); 
     } 
   }
   if ( $s3_file =~m/\.gz/){  
