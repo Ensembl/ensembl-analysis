@@ -238,7 +238,7 @@ sub extract_range_out_of_fasta {
 
   my $inseq = Bio::SeqIO->new(-file=>"<$path_to_chunk_file", -format =>'fasta');  
 
-  my $out_file_name = $path_to_chunk_file.".extract"; 
+  my $out_file_name = $path_to_chunk_file.".$$.extract"; 
   
   my $outseq = Bio::SeqIO->new(-file=>">$out_file_name" , -format =>'fasta'); 
   
@@ -249,7 +249,7 @@ sub extract_range_out_of_fasta {
   my @all_seq; 
   SEQ: while ( my $seq = $inseq->next_seq ) {   
      if ( $seq_counter >= $nr_start && $seq_counter <=$nr_end ) {  
-       print "extracting $seq_counter\n";  
+      # print "extracting $seq_counter\n";  
        push @all_seq, $seq; 
      }   
      $seq_counter++;
@@ -257,32 +257,28 @@ sub extract_range_out_of_fasta {
   for my $seq ( @all_seq) {  
     $outseq->write_seq($seq);
   }   
-  print scalar(@all_seq) . " seqs written \n";    
-  print "adding $out_file_name to list of files to deleete\n";  
   $self->files_to_delete($out_file_name); 
   return $out_file_name ; 
 } 
+
+
 
 sub fetch_input {
   my ($self) = @_;
 
   # get chunk1.fa.gz from S3   - security credentials in CloudConfig if needed 
 
-#buckt file local_dir check config_file md5sum_uncompressed    
   my $analysis_work_dir = $ANALYSIS_WORK_DIR ?  $ANALYSIS_WORK_DIR : "/tmp";    
 
+  # method gets a chunk-name.if chunk-name ends .gz file will be un-compressed with gzip
   my $path_to_chunk_file = get_file_from_s3(
-                                                    $self->chunk_bucket_name,
-                                                    $self->chunk,
-                                                    $analysis_work_dir,
-                                                    1,
-                                                    undef,    # config file set as environment var or in S3Config.pm
-                                                    $self->md5sum_chunk_file,
-                               
+                                              $self->chunk_bucket_name,
+                                              $self->chunk,
+                                              $analysis_work_dir,
+                                              1,
+                                              undef,    # config file set as environment var or in S3Config.pm
+                                              $self->md5sum_chunk_file,
   );    
-
-  # get_file_from_s3 ( $s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, $md5sum_uncompressed); 
-  #my $path_to_chunk_file = $self->get_file_from_s3($self->chunk,$self->chunk_bucket_name);    
 
   if ( defined $self->nr_start_seq && defined $self->nr_end_seq) {  
     # range given, so we have to extract a range out of the fasta file  
