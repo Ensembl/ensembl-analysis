@@ -78,7 +78,7 @@ sub get_file_from_s3 {
    throw("Your s3-bucket name is incorrect - EXAMPLE : s3://ensembl-cvs-bucket ");
   }  
 
-  if ( $s3_file =~m/gz/ ) { 
+  if ( $s3_file =~m/\.gz/ ) { 
     return get_gzip_compressed_file_from_s3($s3_bucket,$s3_file,$local_dir ,$check, $s3_config_file, 
                                             $md5sum_uncompressed_file);
   }else {   
@@ -191,16 +191,23 @@ sub get_gzip_compressed_file_from_s3 {
   }  
 
   # dangerous ! two processes could have same file names ... 
+  # 2 cases : downloading 2 files which are the same with diff. processes 
+  #  - for genomic files 
+  # downloading 2 files with same name but different content. ? 
+  # 
 
   if ( $s3_file =~m/\.gz/){  
       ($original_file_name = $s3_file)=~s/\.gz//g; 
       my $new_name = "$local_dir/$original_file_name"; 
-      if ( ! -e $new_name ) { 
-         print "RENAME: $outf $new_name\n"; 
+      if ( ! -e $new_name ) {  
+         # this is the case for toplevel sequence ...
+        # a file with the same name does not exist 
          system("mv $outf $new_name");  
+         print "RENAMED: $outf $new_name as no same file existed\n"; 
          return $new_name;  
       } else {  
-        # a file with the same name already exists 
+        # a file with the same name already exists ( ie chunk01.fa from lane x and we run lane y so 
+        # files will be different !  
         # compare md5sums of both files 
         my $md5_existing_file = create_md5sum_for_local_file($new_name);    
         my $md5_uncompressed_file = create_md5sum_for_local_file($outf);     
@@ -212,7 +219,8 @@ sub get_gzip_compressed_file_from_s3 {
            return $new_name;  
         }
       } 
-  }
+  } 
+  print "RETURNING $outf\n"; 
   return $outf; 
 }
 
