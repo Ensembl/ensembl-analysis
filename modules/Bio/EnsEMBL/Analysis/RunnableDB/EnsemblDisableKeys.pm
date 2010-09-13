@@ -39,24 +39,22 @@ Post general queries to B<ensembl-dev@ebi.ac.uk>
 package Bio::EnsEMBL::Analysis::RunnableDB::EnsemblDisableKeys;
 
 use strict;
-use Data::Dumper;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
-#use Bio::EnsEMBL::Utils::Argument qw(rearrange); 
 #use Bio::EnsEMBL::Analysis::RunnableDB;
-#use Bio::EnsEMBL::Analysis::Config::EnsemblAnalysesAndRulesConfig;
-use Bio::EnsEMBL::Analysis::Config::General qw(BIN_DIR ANALYSIS_WORK_DIR);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-#use Bio::EnsEMBL::Analysis::Config::Databases; 
-#use Bio::EnsEMBL::Analysis::Tools::Utilities;
+use Bio::EnsEMBL::Analysis::Config::General qw(BIN_DIR ANALYSIS_WORK_DIR);
 
 use vars qw(@ISA);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild); 
-
-# The prefix of the backup table if a new database has not been added in the input_id
-my $prefix_sorted_table = '_nonsorted';
-
 #This class inhertis from BaseGeneBuild and BGB inhertis from RunnableDB.pm  
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild); 
+
+## Constants
+# The suffix of the backup table if a new database has not been added in the input_id
+my $suffix_sorted_table = '_nonsorted';
+# The suffix of the sorted dumped file
+my $suffix_sorted = '.sorted';
+
 
 sub new {
   my ( $class, @args ) = @_; 
@@ -95,7 +93,7 @@ sub run {
       $self->sort_and_dump_table($ref_db, $temp_dir);
   }
   else {
-      throw("We do not know this input id: ".$self->MODIFIER."\n");
+      throw("We do not know this input id: ".$self->input_id()."\n");
   }
 }
 
@@ -201,12 +199,12 @@ sub sort_and_dump_table {
     $self->sort_table($file_name);
     if (defined $self->NEW_DB_KEY) {
         $self->create_new_database($self->main_reference_db, $self->NEW_DB_KEY );
-        $self->load_sorted_table($self->get_dbadaptor($self->NEW_DB_KEY), $file_name.'.sorted');
+        $self->load_sorted_table($self->get_dbadaptor($self->NEW_DB_KEY), $file_name.$suffix_sorted);
         $self->check_new_table($ref_db, $self->get_dbadaptor($self->NEW_DB_KEY));
     }
     else {
         $self->backup_table($ref_db); 
-        $self->load_sorted_table($ref_db, $file_name.'.sorted');
+        $self->load_sorted_table($ref_db, $file_name.$suffix_sorted);
         $self->check_new_table($ref_db);
     }
 }
@@ -244,9 +242,8 @@ sub dump_table {
     print "Dumping data from ".$self->DB_HKEY." : $dbname\@$host\n" ; 
 
     $cmd .= " -D$dbname  -e\"select * from ".$self->TABLE_NAME;
-# Works only with dna_align_feature table
-#  $cmd .= "\" | cut -f2- > $dump_file_name " ;   
-    $cmd .= " \" > $dump_file_name " ;   
+    # Works only with dna_align_feature table
+    $cmd .= "\" | cut -f2- > $dump_file_name " ;   
     info("cmd : $cmd\n");
     system($cmd) == 0 or throw("ERROR - can't continue. command failed :\" $cmd \"\n");
     print $self->TABLE_NAME." dumped to file :  $dump_file_name\n" ; 
@@ -265,8 +262,8 @@ sub dump_table {
 sub sort_table {   
     my ($self, $file) = @_;  
 
-    my $cmd ="sort -u $file | sort -n -k2 -n -k3 -n -k4 > $file\.sorted" ;
-    print $cmd . "\n" ;   
+    my $cmd ="sort -u $file | sort -n -k1 -n -k2 -n -k3 |sed 's/^/\\N\t/' > ".$file.$suffix_sorted;
+    info($cmd . "\n");   
     system($cmd) == 0 or throw("ERROR - can't continue. command failed :\" $cmd \"\n");
 }
 
@@ -283,11 +280,11 @@ sub backup_table {
     my ($self, $ref_db) = @_;
 
     #check if backup table already exists
-    my $sth = $ref_db->prepare('show tables like "'.$self->TABLE_NAME.$prefix_sorted_table.'"');
+    my $sth = $ref_db->prepare('show tables like "'.$self->TABLE_NAME.$suffix_sorted_table.'"');
     $sth->execute();
-    throw("The table ".$self->TABLE_NAME.$prefix_sorted_table." already exists!") if (scalar(@{$sth->fetchall_arrayref}));
+    throw("The table ".$self->TABLE_NAME.$suffix_sorted_table." already exists!") if (scalar(@{$sth->fetchall_arrayref}));
 
-    $sth = $ref_db->prepare('create table '.$self->TABLE_NAME.$prefix_sorted_table.' select * from '.$self->TABLE_NAME);
+    $sth = $ref_db->prepare('create table '.$self->TABLE_NAME.$suffix_sorted_table.' select * from '.$self->TABLE_NAME);
     $sth->execute();
 
     $sth->finish();
@@ -312,7 +309,7 @@ sub load_sorted_table {
     $sth->execute();
 
     unlink $file;
-    $file =~ s/\.sorted//;
+    $file =~ s/$suffix_sorted//;
     unlink $file;
 }
 
@@ -338,7 +335,7 @@ sub check_new_table {
         ($sorted_count) = @{$sth->fetchall_arrayref->[0]};
     }
     else {
-        $sth = $old_db->prepare('select count(*) from '.$self->TABLE_NAME.$prefix_sorted_table);
+        $sth = $old_db->prepare('select count(*) from '.$self->TABLE_NAME.$suffix_sorted_table);
         $sth->execute();
         ($sorted_count) = @{$sth->fetchall_arrayref->[0]};
     }
@@ -348,6 +345,4 @@ sub check_new_table {
 
 
 1; 
-
-
 
