@@ -266,7 +266,7 @@ sub main_reference_db {
    Function  : Return the values of VITAL_TABLES from the Databases.pm file
                It is all the vital tables from the schema that should be
                used to create a new database with a reference
-   Returntype: Returns a reference of array of strings 
+   Returntype: Returns a reference on an array of strings 
 
 =cut
 
@@ -283,6 +283,7 @@ sub vital_tables {
     Function  : It create a new database using a reference, usually the MAIN_REFERENCE_DB,
                 it import the values in the vital tables (VITAL_TABLES found in Databases.pm)
     ReturnType: None
+    Exception : throw if the new database already exists
 
 =cut
 
@@ -313,6 +314,7 @@ sub create_new_database {
                 containing all the tables without data and all the vital tables
                 (VITAL_TABLES from Databases.pm) and their data are append after
     Returntype: Returns the path to the file
+    Exception : throw if the dumping of the table fails
 
 =cut
 
