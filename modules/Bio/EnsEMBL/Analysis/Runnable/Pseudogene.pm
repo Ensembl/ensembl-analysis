@@ -35,7 +35,7 @@ Calls it a pseudo gene if:
 
 Pseudogene takes a Bio::EnsEMBL::Slice object and assesses genes and transcripts for evidence of retrotransposition.
 In the case of genes being identified as pseudogenes, the gene objects have their type set to pseudogene and all but the longest transcripts and translations are deleted.
-If the gene has 1 or more pseudo transcripts but has other transcritps that are valid the dubious transcripts are removed The resulting gene objects are returned in an array.
+If the gene has 1 or more pseudo transcripts but has other transcritps that are valid, the dubious transcripts are removed. The resulting gene objects are returned in an array.
 
 =head1 CONTACT
 
@@ -87,13 +87,13 @@ sub new {
   $self->{'_pseudogenes'} = 0;	#scalar number of pseudogenes identified
   $self->{'_indeterminate_genes'} = [];	#array of indeterminategenes dbIDs identified
   $self->{'_single_exon_genes'} = [];	#array of single exon  gene dbIDs identified
-  $self->{'_multi_exon_genes'} = [];	#array of multiple exon  gene to make into a blast database for spliced elsewhere 
+  $self->{'_multi_exon_genes'} = [];	#array of multiple exon  gene to make into a blast database for spliced elsewhere
  
   my( $genes,$repeat_features,$PS_REPEAT_TYPES,$PS_FRAMESHIFT_INTRON_LENGTH,$PS_MAX_INTRON_LENGTH,
       $PS_MAX_INTRON_COVERAGE,$PS_MAX_EXON_COVERAGE,
       $PS_NUM_FRAMESHIFT_INTRONS,$PS_NUM_REAL_INTRONS,$SINGLE_EXON,
       $INDETERMINATE,$PS_MIN_EXONS,$PS_MULTI_EXON_DIR,
-      $BLESSED_BIOTYPES,$PS_PSEUDO_TYPE,$PS_BIOTYPE,$KEEP_TRANS_BIOTYPE,$PS_REPEAT_TYPE,$DEBUG) = rearrange
+      $BLESSED_BIOTYPES,$PS_PSEUDO_TYPE,$PS_BIOTYPE,$KEEP_TRANS_BIOTYPE,$PS_REPEAT_TYPE,$DEBUG, $IGNORED_GENES) = rearrange
 	([qw(
 	     GENES
 	     REPEAT_FEATURES
@@ -112,8 +112,9 @@ sub new {
 	     PS_PSEUDO_TYPE
 	     PS_BIOTYPE
              KEEP_TRANS_BIOTYPE
-       PS_REPEAT_TYPE
-       DEBUG )], @args);
+             PS_REPEAT_TYPE
+             DEBUG 
+             IGNORED_GENES)], @args);
 
   $self->genes($genes);
   $self->repeats($repeat_features);
@@ -132,8 +133,9 @@ sub new {
   $self->PS_PSEUDO_TYPE($PS_PSEUDO_TYPE);
   $self->KEEP_TRANS_BIOTYPE($KEEP_TRANS_BIOTYPE);
   $self->PS_BIOTYPE($PS_BIOTYPE);
-	$self->PS_REPEAT_TYPE($PS_REPEAT_TYPE);
+  $self->PS_REPEAT_TYPE($PS_REPEAT_TYPE);
   $self->DEBUG($DEBUG);
+  $self->IGNORED_GENES($IGNORED_GENES);
   return $self;
 }
 
@@ -152,9 +154,37 @@ sub run {
   $self->test_genes;
   $self->summary;
   if ($self->SINGLE_EXON){
-    # Write out multiple exon genes for making into blast db for Spliced elsewhere
+    # Write out multiple exon genes for making into blast db for Spliced_elsewhere
     my $filename = $self->create_filename('multi_exon_seq','fasta',$self->PS_MULTI_EXON_DIR);
     $self->write_seq_array($self->multi_exon_genes,$filename);
+
+    # If "ignored genes" have been passed from the RunnableDB (these will be "protected" genes, 
+    # e.g. CCDS models which were "ignored" in the process of hunting for pseudogenes), we still 
+    # want to include them in the blast db for Spliced_elsewhere analysis later as long as they're 
+    # multi-exon. 
+    # For each "ignored gene", if at least one of its transcripts passes the "PS_MIN_EXONS" threshold,
+    # the "ignored gene" will be included in the blastdb.
+
+    my @multi_exon_ignored_genes;
+    if (defined $self->IGNORED_GENES) {
+      IGNORED_GENE: foreach my $ignored_gene (@{$self->IGNORED_GENES}) {
+        my $contains_useful_retrotrans_input = 0;
+        my @ignored_transcripts = @{$ignored_gene->get_all_Transcripts()};
+        foreach my $ignored_trans(@ignored_transcripts) {
+          my $exon_cnt = scalar@{$ignored_trans->get_all_Exons()};
+          if ($exon_cnt < $self->PS_MIN_EXONS) {
+             $contains_useful_retrotrans_input = 0;
+          } else {
+             $contains_useful_retrotrans_input = 1;
+          }
+        }
+        if ($contains_useful_retrotrans_input  == 1) { 
+          push (@multi_exon_ignored_genes, $ignored_gene);
+        }
+      }
+     print "Writing multi-exon ignored genes into blastdb for retrotranposed analysis later.\n";
+     $self->write_seq_array(\@multi_exon_ignored_genes, $filename); 
+    }
   }
   return 0;
 }
@@ -713,12 +743,26 @@ sub transcript_to_keep {
   }else {
    $trans_to_keep->translation(undef);  
    my $ntr = clone_Transcript($trans_to_keep,0 ) ;   
-   warning("removing translation from transcript\n");  
-   $ntr->translation(undef); 
 
-   if ( defined $ntr->translation()) {  
-      throw("TRANSLATION is still in ntr present !!!\n"); 
-   } 
+   # $ntr at this stage should have no translation because at the time
+   # the transcript was cloned from $trans_to_keep, $trans_to_keep
+   # has lost the translation.
+   
+   # Remember *not* to add a sanity check here like:
+   # if (defined $trans_to_keep->translation)
+   # because the code will fetch the translation for the transcript
+   # object once again from the *DB*! The if statement will always be
+   # evaluated as "true".  This kind of sanity check would only have 
+   # worked if the transcript object was not originally fetched from a DB.
+
+   # An extra paranoid step here to make sure $ntr really has no
+   # more translation:
+
+   warning("removing translation from cloned transcript\n");  
+   $ntr->translation(undef);
+   if (defined $ntr->translation) {
+     throw "Cloned transcript has kept its translation in method 'transcript_to_keep'.\n";
+   }
    return $ntr;
   }
 }
@@ -768,12 +812,18 @@ Arg [none] :
 
 sub output {
   my ($self) = @_;
-  for my $g ( @{ $self->modified_genes } ) {   
+  for my $g ( @{ $self->modified_genes } ) {
+
+
      my @t =@{ $g->get_all_Transcripts} ; 
      for my $t ( @t ) {  
        if ( $g->biotype eq $self->PS_PSEUDO_TYPE ) {  
          if ( defined ( $t->translation ) ) {  
-            throw ("pseudogene cant have tranlation. game over \n") ; 
+           # This sanity check is OK because the $t object (and its associated
+           # gene $g) was not fetched directly from a DB. 
+           # Therefore, if the transcript really has no translations attached to it,
+           # the API code would not attempt to look for its translation in a DB.
+             throw ("pseudogene cannot have translation. game over \n") ; 
          } 
       } 
     }   
@@ -1153,9 +1203,18 @@ sub PS_REPEAT_TYPE{
 
 sub DEBUG{
   my ($self, $arg) = @_;
-  if($arg){
+  if(defined $arg){
     $self->{'DEBUG'} = $arg;
   }
   return $self->{'DEBUG'};
 }
+
+sub IGNORED_GENES {
+  my ($self, $arg) = @_;
+  if (defined $arg){
+    $self->{'IGNORED_GENES'} = $arg;
+  }
+  return $self->{'IGNORED_GENES'};
+}
+
 1;
