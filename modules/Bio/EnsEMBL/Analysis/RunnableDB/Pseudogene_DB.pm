@@ -29,22 +29,22 @@ Opens connections to 2 dbs:
 1 for repeat sequences (GB_DB)
 1 for fetching genes from (GB_FINAL)
 
-fetches all the genes on the slice, all the repeats associtaed with each gene and 
+fetches all the genes on the slice, all the repeats associated with each gene and 
 collects alignment feature evidence for single exon genes and passes them to the 
 runnable.
 
-This module forms the base class of the pseudogene analysis for the gene build,
-it will identify obvious pseudogenes but will also flag genes that look
+This module forms the base class of the pseudogene analysis for the gene build.
+It will identify obvious pseudogenes but will also flag genes that look
 interesting for analysis by either:
 Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere or
 Bio::EnsEMBL::Analysis::RunnableDB::PSILC
 PSILC will work on any gene with a PFAM domain and will attempt to predict if
 it is a pseudogene - it underpredicts pseudogenes but is useful for sequences
-that look  dodgy but have no overt evidence of being pseudogenes.
+that look dodgy but have no overt evidence of being pseudogenes.
 Spliced_elsewhere tests for retrotransposition and tends to be run over single
 exon genes.
 Configuration for all three of these modules is here:
-zBio::EnsEMBL::Analysis::Config::Pseudogene
+Bio::EnsEMBL::Analysis::Config::Pseudogene
 
 
 =head1 CONTACT
@@ -194,8 +194,9 @@ sub make_runnable {
      -PS_PSEUDO_TYPE               => $self->PS_PSEUDO_TYPE,
      -KEEP_TRANS_BIOTYPE           => $self->KEEP_TRANS_BIOTYPE,
      -PS_BIOTYPE                   => $self->PS_BIOTYPE,
-     -PS_REPEAT_TYPE              => $self->PS_REPEAT_TYPE,
+     -PS_REPEAT_TYPE               => $self->PS_REPEAT_TYPE,
      -DEBUG                        => $self->DEBUG,
+     -IGNORED_GENES                => $self->ignored_genes,
     );
   $self->runnable($runnable);
 }
@@ -260,7 +261,7 @@ sub write_output {
 my($self) = @_;
   my $genes = $self->output; 
   if (defined $self->PS_WRITE_IGNORED_GENES &&  $self->PS_WRITE_IGNORED_GENES == 1 ) {  
-    print "writing ignored genes\n" ; 
+    print "Going to write 'ignored' genes as you have set PS_WRITE_IGNORED_GENES option to 1 in your Pseudogene.pm config file\n" ; 
     push @{$genes},@{$self->ignored_genes} if $self->ignored_genes;  
   }  
   
@@ -285,7 +286,7 @@ my($self) = @_;
       $gene_adaptor->store($self->lazy_load($gene));
     };
     if ( $@ ) {
-      warning("UNABLE TO WRITE GENE:\n$@");
+      warning ("UNABLE TO WRITE GENE:\n$@");
     }
   }
 
