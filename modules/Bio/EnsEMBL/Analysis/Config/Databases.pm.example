@@ -245,10 +245,10 @@ use vars qw(%Config);
                    "attrib_type",
                    "coord_system",
                    "external_db",
-                   "meta meta_coord",
+                   "meta",
+                   "meta_coord",
                    "seq_region",
                    "seq_region_attrib",
-                   "seq_region",
                   ),
 
 );
