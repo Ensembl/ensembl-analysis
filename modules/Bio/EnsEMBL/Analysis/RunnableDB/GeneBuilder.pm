@@ -183,26 +183,32 @@ sub validate_Transcript{
   my $is_valid = 0;
   #basic transcript validation
   unless(are_strands_consistent($transcript)){
+    print "Transcript has inconsistent strands. ";   
     $is_valid++;
   }
   unless(are_phases_consistent($transcript)){
+    print "Transcript has inconsistent exon phases. ";
     $is_valid++;
   }
   unless(is_not_folded($transcript)){
+    print "Transcript seems to be folded (with secondary structure). ";   
     $is_valid++;
   }
  EXON:foreach my $exon(@{$transcript->get_all_Exons}){
     if(exon_length_less_than_maximum($exon, $self->MAX_EXON_LENGTH)){
       next EXON;
     }else{
+      print "Exon in transcript exceeds max length. ";  
       $is_valid++;
       last EXON;
     }
   }
   if(contains_internal_stops($transcript)){
+    print "Transcript contains internal stops. ";  
     $is_valid++;
   }
   unless(validate_Translation_coords($transcript)){
+    print "Transcript contains invalid translation coords. ";   
     $is_valid++;
   }
   return 0 if($is_valid >= 1);
