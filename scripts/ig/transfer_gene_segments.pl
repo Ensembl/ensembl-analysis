@@ -1,59 +1,128 @@
-#!/usr/local/bin/perl
+=pod
+=head1 NAME 
+
+transfer_ig_genes.pl
+
+=head1 DESCRIPTION
+
+This script transfers IG gene segments from a source ("query") DB to an output 
+("target") DB. In the process, if the "query" gene segment overlaps at the exon
+level with a gene (of a specified biotype) in the target DB, the "query" gene will
+*overwrite" the "target" one. 
+
+Note: the script expects the query DB to contain *no other gene types* except 
+Ig gene segments.
+
+
+=head1 OPTIONS
+
+=head2 DB connection:
+
+=head3 DB containing query (source) Ig gene segments
+
+        -qydbuser        Read-only username to connect to query DB
+                        
+        -qydbhost        Where the query DB is
+
+        -qydbname        query DB name
+
+        -qydbport        Port to connect to query DB
+
+
+=head3 DB containing target (output) genes (some of them to be overwritten by "query" genes)
+
+        -tgdbuser        Username to connect to target DB with write permissions
+
+        -tgdbpass        Password to connect to target DB
+
+        -tgdbhost        Where the target DB is
+
+        -tgdbname        target DB name
+ 
+        -tgdbport        Port to connect to target DB
+
+
+=head3 DB containing DNA sequences. You must provide such details if your query
+       and/or target DB contains no DNA sequence.
+
+        -dnadbuser       Read-only username to connect to DNA DB
+ 
+        -dnadbhost       Where the DNA DB is
+
+        -dnadbname       DNA DB name
+
+        -dnadbport       Port to connect to DNA DB
+
+        -path            The version of the assembly you want to fetch DNA sequences
+                         from (e.g "GRCh37", "NCBIM37")
+
+        -----------------------------------------------------------------------
+
+=head2 Analysis and output options:
+
+        -tgbiotypes     A list of biotypes of target genes which should be compared
+                        against query genes *and* can be replaced by query genes if 
+                        substantial exon overlap is found between the query and target. 
+
+                        The list should be comma-separated with no whitespace, 
+                        e.g."protein_coding,pseudogene"
+ 
+        -sub_biotypes   Optional. A boolean flag to indicate whether a biotype 
+                        substitution check needs to be done. Switched off by default. 
+
+                        The check mainly concerns copying  Ig gene segments from 
+                        Vega DB (query DB) to a target DB which already contains some
+                        Ig gene segments from Ensembl. Vega Ig gene segments always 
+                        have priority over Ensembl ones, so Vega Ig models will 
+                        overwrite Ensembl ones. However, Ensembl Ig models 
+                        sometimes have more detailed biotypes (e.g. "IG_V_gene"
+                        instead of simply "IG_gene"), and we want to keep the more
+                        elaborate biotypes.  Therefore, the script can check if the 
+                        target gene has a biotype starting with "IG*", and if yes, 
+                        the script will assign the original target's biotype onto
+                        the overwriting Vega Ig model.
+                        
+        -verbose        A boolean option to get more print statements to follow
+                        the script.  Set to 0 (not verbose) by default.
+
+
+=cut
+
+
+#!/usr/local/ensembl/bin/perl
 
 use strict;
+use warnings;
 use Getopt::Long;
-
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Digest::MD5 qw(md5_hex);
 
-my (
-    $dbname,
-    $dbhost,
-    $dbuser,
-    $dbport,
-    $dbpass,
-    $tgdbname,
-    $tgdbhost,
-    $tgdbuser,
-    $tgdbport,
-    $tgdbpass,
-    @tg_biotypes, %tg_biotypes,
-    $patch,
-    $old_db_name,
-    $new_db_name,
-    $new_mapping_session_id,
-    $verbose,
-);
+my ( $dbname,     $dbhost,      $dbuser,      $dbport, 
+     $tgdbname,   $tgdbhost,    $tgdbuser,    $tgdbport,    $tgdbpass,
+     $path,       @tg_biotypes, %tg_biotypes, $tg_biotypes,
+     $dna_dbuser, $dna_dbhost, $dna_dbname, $dna_dbport );
 
-$dbuser = 'ensro';
-$tgdbuser = 'ensro';
+my $sub_biotypes = 0;
+my $verbose = 0;
 
-$dbport = 3306;
-$tgdbport = 3306;
-
-&GetOptions(
-            'qydbname=s' => \$dbname,
-            'qydbuser=s' => \$dbuser,
-            'qydbhost=s' => \$dbhost,
-            'qydbport=s' => \$dbport,
-            'qydbpass=s' => \$dbpass,
-            'tgdbname=s' => \$tgdbname,
-            'tgdbuser=s' => \$tgdbuser,
-            'tgdbhost=s' => \$tgdbhost,
-            'tgdbport=s' => \$tgdbport,
-            'tgdbpass=s' => \$tgdbpass,
-            'tgbiotype=s@' => \@tg_biotypes,
-            'patch'    => \$patch,
-            'old_db_name=s' => \$old_db_name,
-            'new_db_name=s' => \$new_db_name,
-            'new_session_id=s' => \$new_mapping_session_id,
-            'verbose'   => \$verbose,
-            );
-
-if ($patch) {
-  die "You must provide and old_db_name and a new_db_name"
-      if not defined $old_db_name or not defined $new_db_name;
-}
+GetOptions( 'qydbname=s'   => \$dbname,
+            'qydbuser=s'   => \$dbuser,
+            'qydbhost=s'   => \$dbhost,
+            'qydbport=s'   => \$dbport,
+            'tgdbname=s'   => \$tgdbname,
+            'tgdbuser=s'   => \$tgdbuser,
+            'tgdbhost=s'   => \$tgdbhost,
+            'tgdbport=s'   => \$tgdbport,
+            'tgdbpass=s'   => \$tgdbpass,
+            'tgbiotypes=s' => \$tg_biotypes,
+            'dnadbuser:s'  => \$dna_dbuser,
+            'dnadbhost:s'  => \$dna_dbhost,
+            'dnadbname:s'  => \$dna_dbname,
+            'dnadbport:s'  => \$dna_dbport,
+            'sub_biotypes!'=> \$sub_biotypes,
+            'verbose!'      => \$verbose,
+            'path=s'       => \$path );
 
 my $qy_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
     new(
@@ -61,7 +130,6 @@ my $qy_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
         '-host' => $dbhost,
         '-user' => $dbuser,
         '-port' => $dbport,
-        '-pass' => $dbpass
         );
 
 my $tg_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
@@ -73,14 +141,44 @@ my $tg_db = Bio::EnsEMBL::DBSQL::DBAdaptor->
         '-pass' => $tgdbpass
         );
 
-if (@tg_biotypes) {
+my $qyDB_has_DNA = check_if_DB_contains_DNA($qy_db);
+my $tgDB_has_DNA = check_if_DB_contains_DNA($tg_db);
+
+if ($qyDB_has_DNA == 0 || $tgDB_has_DNA == 0) {
+  if (!defined $dna_dbname || !defined $dna_dbhost) {
+  throw ("You must provide both -dnadbname and -dnadbhost on the commandline to connect to ".
+         "DNA_DB or else the code will die when trying to fully load genes.");
+  }
+
+  my $dnadb = Bio::EnsEMBL::DBSQL::DBAdaptor->
+    new( -dbname => $dna_dbname,
+         -host   => $dna_dbhost,
+         -user   => $dna_dbuser,
+         -port   => $dna_dbport,
+         -path   => $path
+        );
+
+  if ($qyDB_has_DNA == 0) {
+    print "Attaching DNA_DB to " . $qy_db->dbc->dbname . "\n";
+    $qy_db->dnadb($dnadb);
+  }
+  if ($tgDB_has_DNA ==0) {
+    print "Attaching DNA_DB to " . $tg_db->dbc->dbname . "\n";
+    $tg_db->dnadb($dnadb);
+  }
+}
+
+print "\n";
+
+if ($tg_biotypes) {
+  @tg_biotypes = split (",",$tg_biotypes);
+	print "This is your array of transcript biotypes which can be overwritten by Ig models should there be exon overlap : ",join(" - ",@tg_biotypes),"\n";
   map { $tg_biotypes{$_} = 1 } @tg_biotypes;
 } else {
   map { $tg_biotypes{$_} = 1 } ('protein_coding', 'pseudogene');
 }
 
-
-$verbose and print STDERR "Current target db gene summary:\n" . &gene_stats_string . "\n";
+$verbose and print STDERR "\nCurrent target db gene summary:\n" . &gene_stats_string . "\n";
 
 my (@genes, %genes_by_slice);
 
@@ -91,7 +189,6 @@ if (@ARGV) {
     my $sl = $qy_db->get_SliceAdaptor->fetch_by_name($slid);
     my $tl_sl = $qy_db->get_SliceAdaptor->fetch_by_region('toplevel',
                                                        $sl->seq_region_name);
-
     my @genes = @{$sl->get_all_Genes};
     @genes = map { $_->transfer($tl_sl) } @genes;
     push @{$genes_by_slice{$sl->seq_region_name}}, @genes;
@@ -102,54 +199,36 @@ if (@ARGV) {
 }
 
 #########################################################
-# Assign stable ids to new genes and copy them over
+# Fully load query DB (source) Ig genes to keep their 
+# protein annotation features  
 #########################################################
-my ($new_sid_hash);
+my ($new_sid_hash, $pep_feat_hash);
 
 $verbose and print STDERR "Fully loading genes...\n";
-&fully_load_genes(\@genes);
-
-if ($patch) {
-  $verbose and print STDERR "Setting up new stable ids...\n";
-  &set_stable_ids(\@genes);
-}
+$pep_feat_hash = &fully_load_genes(\@genes);
 
 ########################################################
 # Find relationships between new genes and old geneset
 ########################################################
 $verbose and print STDERR "Comparing new genes to current...\n";
-my ($genes_to_delete_hash, $stable_id_event_hash) = 
-    &compare_new_genes_with_current_genes(\@genes);
+my ($genes_to_delete_hash, $stable_id_event_hash);
 
-######################################################################
+if ($sub_biotypes){
+  ($genes_to_delete_hash, $stable_id_event_hash) = 
+    &compare_new_genes_with_current_genes(\@genes, 1);
+}else{
+  ($genes_to_delete_hash, $stable_id_event_hash) =
+    &compare_new_genes_with_current_genes(\@genes, 0);
+}
+########################################################
 # remove old genes and store new ones
-######################################################################
+########################################################
 $verbose and print STDERR "Storing new genes...\n";
-@genes = @{&store_genes(\@genes)};
+@genes = @{&store_genes($pep_feat_hash, \@genes)};
 
 $verbose and print "Removing interfering old genes...\n";
 foreach my $g (values %$genes_to_delete_hash) {
   $tg_db->get_GeneAdaptor->remove($g);
-}
-
-
-if ($patch) {
-  ######################################################################
-  # update relevant stable id tables with relationships
-  ######################################################################
-  $verbose and print STDERR "Populating the stable_id_event table...\n";
-  my $map_session_id = &populate_stable_id_event([values %$genes_to_delete_hash],
-                                                 \@genes,
-                                                 $stable_id_event_hash);
-  
-  ######################################################################
-  # for translations no longer present in the database, add to
-  # peptide/gene archive
-  ######################################################################
-  $verbose and print STDERR "Populating the peptide/gene archive tables...\n";
-  &populate_gene_archive([values %$genes_to_delete_hash], 
-                         \@genes,
-                         $map_session_id);
 }
 
 
@@ -159,157 +238,86 @@ $verbose and printf(STDERR "Done (%s removed, %d added)\n%s\n",
                     &gene_stats_string);
 
 
-######################################################################
+##############################################################
 
 sub fully_load_genes {
   my $glist = shift;
   
+  my $prot_feat_hash = {};
+
   foreach my $g (@$glist) {
     foreach my $t (@{$g->get_all_Transcripts}) {
       foreach my $e (@{$t->get_all_Exons}) {
         $e->get_all_supporting_features;
       }
       my $tr = $t->translation;
+      if (defined $tr) {
+        # adaptor cascade for gene does not handle protein
+        # features. In order to do that here, we have to keep
+        # the the translation object so that we can obtain
+        # its new dbID after storage
+        $prot_feat_hash->{$tr->dbID} = [$tr];
+        foreach my $pf (@{$tr->get_all_ProteinFeatures}) {
+          push @{$prot_feat_hash->{$tr->dbID}}, $pf;
+        }
+      }
       $t->get_all_supporting_features;
     }
   }
+
+  return $prot_feat_hash;
 }
 
 ######################################################################
-
-sub record_stable_ids {
-  my $glist = shift;
-
-  my %stable_ids;
-
-  foreach my $g (@$glist) {
-    $stable_ids{$g->stable_id} = 'gene';
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      $stable_ids{$t->stable_id} = 'transcript';
-      if ($t->translation) {
-        $stable_ids{$t->translation->stable_id} = 'translation';
-      }
-    }
-  }
-
-  return \%stable_ids;
-}
-
-######################################################################
-
-sub set_stable_ids {
-  my $glist = shift;
-
-  sub increment_stable_id {
-    my $sid = shift;
-    
-    my ($prefix,$suffix) = $sid =~ /([a-zA-Z]+)([0-9]+)/;
-    return sprintf "%s%011d", $prefix, $suffix+1;
-  }
-  
-  my $tm = time;
-
-  my (%sids);
-
-  my $archive_sql = "select type, max(old_stable_id) from stable_id_event group by type";
-
-  my $st = $tg_db->dbc->prepare($archive_sql);
-  $st->execute;
-  while(my ($type, $max) = $st->fetchrow_array) {
-    $sids{$type} = $max;
-  }
-  $st->finish;
-
-  foreach my $tb ('gene', 'transcript', 'translation', 'exon') {
-    my $sql = "select max(stable_id) from " . $tb . "_stable_id";
-    $st = $tg_db->dbc->prepare($sql);
-    $st->execute;
-    while(my ($max) = $st->fetchrow_array) {
-      if (not exists $sids{$tb} or ($max gt $sids{$tb})) {
-        $sids{$tb} = $max;
-      }
-    }
-    $st->finish;
-
-    $sids{$tb} = &increment_stable_id($sids{$tb});
-  }
-
-  foreach my $g (@$glist) {
-    my $gid = $sids{gene}; $sids{gene} = &increment_stable_id($gid);
-    $g->stable_id($gid); 
-    $g->created_date($tm);
-    $g->modified_date($tm);
-    $g->version(1);
-
-    my %exon_ids; 
-    foreach my $e (@{$g->get_all_Exons}) {
-      my $eid = $sids{exon}; $sids{exon} = &increment_stable_id($eid);
-      $exon_ids{$e->dbID} = $eid;      
-    }
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      my $tid = $sids{transcript}; $sids{transcript} = &increment_stable_id($tid);
-      $t->stable_id($tid);
-      $t->created_date($tm);
-      $t->modified_date($tm);
-      $t->version(1);
-      foreach my $e (@{$t->get_all_Exons}) {
-        $e->stable_id($exon_ids{$e->dbID});
-        $e->created_date($tm);
-        $e->modified_date($tm);
-        $e->version(1);
-      }
-      if ($t->translation) {
-        my $tr = $t->translation;
-        my $trid = $sids{translation}; $sids{translation} = &increment_stable_id($trid);
-        $tr->stable_id($trid);
-        $tr->created_date($tm);
-        $tr->modified_date($tm);
-        $tr->version(1);
-      }
-    }
-  }
-}
 
 ######################################################################
 
 sub store_genes {
-  my ($glist) = @_;
+  my ($prot_feat_hash, $glist) = @_;
 
   my $g_adap = $tg_db->get_GeneAdaptor;
   my $p_adap = $tg_db->get_ProteinFeatureAdaptor;
+  my $dbea   = $tg_db->get_DBEntryAdaptor;
 
   foreach my $g (@$glist) {
     $g_adap->store($g);
   }
 
+  # At this point, all translations should have new dbIDs.
+  # We can now store the protein features
+  foreach my $old_dbid (keys %$prot_feat_hash) {
+    my ($trn, @feats) = @{$prot_feat_hash->{$old_dbid}};
+
+    my $new_dbid = $trn->dbID;
+    foreach my $f (@feats) {
+      $p_adap->store($f, $new_dbid);
+    }
+  }
+
   # finally, refetch the stored genes from the target database
   # so that they we are working exclusively with target databases
-  # adaptors from here on in; only relevant for patch mode
-  if ($patch) {
-    my @tg_genes;
-
-    foreach my $g (@$glist) {
-      my $ng = $g_adap->fetch_by_stable_id($g->stable_id);
-      foreach my $t (@{$ng->get_all_Transcripts}) {
-        $t->get_all_supporting_features;
-        $t->translation;
-        foreach my $e (@{$t->get_all_Exons}) {
-          $e->get_all_supporting_features;
-        }
+  # adaptors from here on in
+  my @tg_genes;
+  foreach my $g (@$glist) {
+    my $ng = $g_adap->fetch_by_dbID($g->dbID);
+    
+    foreach my $t (@{$ng->get_all_Transcripts}) {
+      $t->get_all_supporting_features;
+      $t->translation;
+      foreach my $e (@{$t->get_all_Exons}) {
+        $e->get_all_supporting_features;
       }
-      push @tg_genes, $ng;
     }
-
-    return \@tg_genes;    
-  } else {
-    return $glist;
+    push @tg_genes, $ng;
   }
+
+  return \@tg_genes;
 }
 
 ######################################################################
 
 sub compare_new_genes_with_current_genes {
-  my $glist = shift;
+  my ($glist, $sub_biotypes) = @_;
 
   my (%by_slice, %genes_to_remove, %stable_id_event);
   
@@ -319,23 +327,27 @@ sub compare_new_genes_with_current_genes {
     my @g = sort { $a->start <=> $b->start } @{$by_slice{$sr_id}};
     
     my $tg_tl_slice = $tg_db->get_SliceAdaptor->fetch_by_region('toplevel',
-                                                                $sr_id);
-    
-    
+                                                                 $sr_id);
+     
     foreach my $g (@g) {
+      # Need to fully load the genes
+      $g->load();
       my $oslice = $tg_db->get_SliceAdaptor->fetch_by_region('toplevel',
                                                              $sr_id,
                                                              $g->start,
                                                              $g->end);
-      
+
       my @ogenes = map { $_->transfer($tg_tl_slice) } @{$oslice->get_all_Genes};
       @ogenes = grep { exists($tg_biotypes{$_->biotype}) } @ogenes;
-      
+      # print "YOUR HAVE THIS ORIGINAL GENES: ",scalar(@ogenes),"\n"; 
       if (@ogenes) {
         foreach my $t (@{$g->get_all_Transcripts}) {
           my @exons = @{$g->get_all_Exons};
           
           foreach my $og (@ogenes) {
+            # Fully load the genes
+            $og->load();
+
             foreach my $ot (@{$og->get_all_Transcripts}) {
               my $has_exon_overlap = 0;
               
@@ -356,16 +368,22 @@ sub compare_new_genes_with_current_genes {
                 #   map $og to $g
                 #   map $ot to $t
                 #   map $ot->translation to $t->translation
-                if ($patch) {
-                  $genes_to_remove{$og->stable_id} = $og;
-                  $stable_id_event{gene}->{$og->stable_id}->{$g->stable_id} = 1;
-                  $stable_id_event{transcript}->{$ot->stable_id}->{$t->stable_id} = 1;
-                  if ($t->translation and $ot->translation) {
-                    $stable_id_event{translation}->{$ot->translation->stable_id}->{$t->translation->stable_id} = 1;
+
+                # Do a biotype check here if "sub_biotypes" flag
+                # is set to 1.
+                # If the original/target gene (to be replaced) has 
+                # an "IG*" biotype, we keep the target biotype as 
+                # it's already quite specific.
+                # i.e. we do replace the target gene *model* with 
+                # the query *model* but the replaced gene will
+                # retain its original biotype.
+
+                if ($sub_biotypes == 1){
+                  if ($og->biotype =~/IG/){
+                    $g->biotype($og->biotype)
                   }
-                } else {
-                  $genes_to_remove{$og->dbID} = $og;
                 }
+                $genes_to_remove{$og->dbID} = $og;
               }
             }
           }
@@ -375,226 +393,6 @@ sub compare_new_genes_with_current_genes {
   }
 
   return (\%genes_to_remove, \%stable_id_event);
-}
-
-######################################################################
-
-sub populate_stable_id_event {
-  my ($del_genes, $new_genes, $stable_id_event) = @_;
-
-  my ($prev_session_id, $this_session_id) = &create_new_mapping_session;
-
-  # add the deleted genes/transcripts/translations to the peptide/gene archive
-  # add (NULL, new id) entries to stable_id_event for each new gene
-  # add (id, id) entries to stable_event for each unaffected gene
-  # add (deleted_id, new_id) entries to stable_id_event for old2new relationships
-
-  my $deleted_id_hash = &record_stable_ids($del_genes);
-  my $new_id_hash = &record_stable_ids($new_genes);
-
-
-  my $sql = "SELECT new_stable_id, new_version, type ";
-  $sql .= "FROM stable_id_event ";
-  $sql .= "WHERE mapping_session_id = $prev_session_id ";
-  $sql .= "AND new_stable_id IS NOT NULL";
-
-  my %current;
-
-  my $st = $tg_db->dbc->prepare($sql);
-  $st->execute;
-  while (my ($cur_id, $cur_ver, $type) = $st->fetchrow_array) {
-    if (not exists $current{$cur_id}) {
-      $current{$cur_id} = {
-        type => $type,
-        version => $cur_ver,
-      };
-    } else {
-      if ($cur_ver > $current{$cur_id}->{version}) {
-        $current{$cur_id}->{version} = $cur_ver;
-      }
-    }
-  }
-  $st->finish;
-
-  $sql = "INSERT into stable_id_event VALUES(?,?,?,?,?,?,?)";
-  $st = $tg_db->dbc->prepare($sql);
-
-  #
-  # first, catalog which new ids have been mapped to
-  #
-  my %mapped_new;
-  foreach my $tp (keys %$stable_id_event) {
-    foreach my $oid (keys %{$stable_id_event->{$tp}}) {
-      foreach my $nid (keys %{$stable_id_event->{$tp}->{$oid}}) {
-        $mapped_new{$nid} = 1;
-      }
-    }
-  }
-
-  #
-  # now add (null, id) entries for new ids that do not map to old
-  #
-  foreach my $id (keys %$new_id_hash) {
-    if (not exists $mapped_new{$id}) {
-      my $tp = $new_id_hash->{$id};
-      $st->execute(undef, 0, $id, 1, $this_session_id, $tp, 0);
-    }
-  }
-
-  #
-  # now add records for the mapped ids, existing and new
-  #
-  foreach my $id (keys %current) {
-    my ($tp, $ver) = ($current{$id}->{type}, $current{$id}->{version});
-
-    # Two cases
-    # 1. the id has not been deleted: add entry ($id, $id)
-    # 2. the gene has been deleted:
-    #   - if mapped, add entry ($id, null) to represent deletion
-    #   - otherwise, add entry ($id, $other)
-
-    if (not exists $deleted_id_hash->{$id}) {
-      $st->execute($id, $ver, $id, $ver, $this_session_id, $tp, 1);
-    } else {
-      if (exists $stable_id_event->{$tp}->{$id}) {
-        foreach my $nid (keys %{$stable_id_event->{$tp}->{$id}}) {
-          $st->execute($id, $ver, $nid, 1, $this_session_id, $tp, 1);
-        }
-      } else {
-        $st->execute($id, $ver, undef, 0, $this_session_id, $tp, 0);
-      }
-    }
-  }
-  $st->finish;
-
-  return $this_session_id;
-}
-
-######################################################################
-
-sub populate_gene_archive {
-  my ($deleted_genes, $new_genes, $mapping_session_id) = @_;
-
-  my %new_digests;
-
-  foreach my $g (@$new_genes) {
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      if ($t->translation) {
-        $new_digests{md5_hex($t->translate->seq)} = 1;
-      }
-    }
-  }
-  
-  my %archive;
-
-  foreach my $g (@$deleted_genes) {
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      if ($t->translation) {
-        my $md5 = md5_hex($t->translate->seq);
-        if (not exists $new_digests{$md5}) {
-          if (not exists $archive{$md5}) {
-            $archive{$md5}->{peptide} = $t->translate->seq;
-          }
-          push @{$archive{$md5}->{gene_archive}}, {
-            gid => $g->stable_id,
-            gid_ver => $g->version,
-            tid => $t->stable_id,
-            tid_ver => $t->version,
-            trid => $t->translation->stable_id,
-            trid_ver => $t->translation->version,
-          };
-        }
-      }
-    }
-  }
-
-  my $sql1 = "SELECT peptide_archive_id FROM peptide_archive WHERE md5_checksum = ?";
-  my $sql2 = "INSERT into peptide_archive(md5_checksum, peptide_seq) VALUES(?,?)";
-
-  my $st1 = $tg_db->dbc->prepare($sql1);
-  my $st2 = $tg_db->dbc->prepare($sql2);
-  foreach my $md5 (keys %archive) {
-    $st1->execute($md5);
-    while(my ($pid) = $st1->fetchrow_array) {
-      $archive{$md5}->{peptide_archive_id} = $pid;
-    }
-    if (not exists $archive{$md5}->{peptide_archive_id}) {
-      $st2->execute($md5, $archive{$md5}->{peptide});
-      $archive{$md5}->{peptide_archive_id} = $st2->{mysql_insertid};
-    }
-  }
-  $st1->finish;
-  $st2->finish;
-
-  $sql1 = "INSERT into gene_archive VALUES(?,?,?,?,?,?,?,?)";
-  $st1 = $tg_db->dbc->prepare($sql1);
-  foreach my $md5 (keys %archive) {
-    foreach my $en (@{$archive{$md5}->{gene_archive}}) {
-      $st1->execute($en->{gid},
-                   $en->{gid_ver},
-                   $en->{tid},
-                   $en->{tid_ver},
-                   $en->{trid},
-                   $en->{trid_ver},
-                   $archive{$md5}->{peptide_archive_id},
-                   $mapping_session_id)
-    }
-  }
-  $st1->finish;
-}
-
-######################################################################
-
-sub create_new_mapping_session {
-
-  my ($last_session_id, 
-      $last_session_rel, 
-      $last_session_ass,
-      $new_session_id);
-
-  my $sql = "select mapping_session_id, new_release, new_assembly from mapping_session";
-  my $st = $tg_db->dbc->prepare($sql);
-  $st->execute;
-  while (my ($id, $rel_num, $ass) = $st->fetchrow_array) {
-    if ($rel_num =~ /^\s*(\d+)\s*$/) {
-      my $rel = $1;
-      if (not defined $last_session_rel or
-          $rel > $last_session_rel) {
-        $last_session_id = $id;
-        $last_session_rel = $rel;
-        $last_session_ass = $ass;
-      }
-    }
-  }
-  $st->finish;
-
-  if (defined $new_mapping_session_id) {
-    $sql = "insert into mapping_session ";
-    $sql .= " values(?,?,?,?,?,?,?, now())";
-    $st = $tg_db->dbc->prepare($sql);
-    $st->execute($new_mapping_session_id,
-                 $old_db_name, 
-                 $new_db_name, 
-                 $last_session_rel,
-                 $last_session_rel + 1,
-                 $last_session_ass,
-                 $last_session_ass);
-    $new_session_id = $new_mapping_session_id;
-  } else {
-    $sql = "insert into mapping_session ";
-    $sql .= "(old_db_name, new_db_name, old_release, new_release, old_assembly, new_assembly, created)";
-    $sql .= " values(?,?,?,?,?,? now())";
-    $st = $tg_db->dbc->prepare($sql);
-    $st->execute($old_db_name, 
-                 $new_db_name, 
-                 $last_session_rel,
-                 $last_session_rel + 1,
-                 $last_session_ass,
-                 $last_session_ass);
-    $new_session_id = $st->{mysql_insertid}; 
-  }    
-
-  return ($last_session_id, $new_session_id);
 }
 
 ######################################################################
@@ -612,3 +410,23 @@ sub gene_stats_string {
 
   return $summary_string;
 }
+
+#######################################################################
+
+sub check_if_DB_contains_DNA {
+  my ($db) = @_;
+  my $sql_command = "select count(*) from dna";
+  my $sth = $db->dbc->prepare($sql_command);
+  $sth->execute();
+  my @dna_array = $sth->fetchrow_array;
+  if ($dna_array[0] > 0) {
+    print "Your DB ". $db->dbc->dbname ." contains DNA sequences. No need to attach a ". 
+          "DNA_DB to it.\n" if ($verbose);
+    return 1;
+  } else { 
+    print "Your DB ". $db->dbc->dbname ." does not contain DNA sequences.\n"
+          if ($verbose);
+    return 0;
+  }
+}
+
