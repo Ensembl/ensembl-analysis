@@ -89,7 +89,7 @@ my $remove_xrefs;
 my $remove_stable_ids;
 my $transform_to;
 my $stable_id;
-my $verbose ; 
+my $verbose; 
 GetOptions( 'sourcehost:s'        => \$sourcehost,
             'sourceuser:s'        => \$sourceuser,
             'sourcedbname:s'      => \$sourcedbname,
@@ -111,14 +111,16 @@ GetOptions( 'sourcehost:s'        => \$sourcehost,
             'remove_xrefs'        => \$remove_xrefs,
             'remove_stable_ids'   => \$remove_stable_ids,
             'transform_to:s'      => \$transform_to,
-            'verbose '            => \$verbose,
+            'verbose'            => \$verbose,
             'stable_id'           => \$stable_id,
             'file:s'              => \$infile );
 
 
-my $transform_to_version; 
-if ( $transform_to=~m/:/) { 
-  ( $transform_to,  $transform_to_version ) = split /:/,$transform_to ; 
+my $transform_to_version;
+if($transform_to){ 
+  if ( $transform_to=~m/:/) { 
+    ( $transform_to,  $transform_to_version ) = split /:/,$transform_to ; 
+  }
 }
 
 if ($all && $infile) {
@@ -188,8 +190,10 @@ if ($infile) {
 
     if ($stable_id) {
       $gene = $ga->fetch_by_stable_id($gene_id);
+      $gene->load();
     } else {
       $gene = $ga->fetch_by_dbID($gene_id);
+      $gene->load();
     }
     print "fetched $i genes\n" if $verbose ;
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
@@ -200,6 +204,7 @@ if ($infile) {
   my @genes = @{$ga->fetch_all()};   
   my $i = 0 ; 
   foreach my $gene (@genes ) {  
+    $gene->load();
     $i++;
     print "fetched $i / " . scalar(@genes) . " \n" if $verbose ; 
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
@@ -254,7 +259,7 @@ foreach my $gene (@genes) {
   $si++; 
   my $old_stable_id = $gene->stable_id ; 
   print "transforming $old_stable_id\n" if $verbose ; 
-  fully_load_Gene($gene);
+  $gene->load();#fully_load_Gene($gene);
   if ($transform_to) {
     my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
     $gene = $transformed_gene ;
