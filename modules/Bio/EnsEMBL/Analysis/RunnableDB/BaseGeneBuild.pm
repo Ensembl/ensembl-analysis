@@ -10,7 +10,7 @@ use Data::Dumper;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME MAIN_REFERENCE_DB VITAL_TABLES);
+use Bio::EnsEMBL::Analysis::Config::Databases; 
 use Bio::EnsEMBL::Analysis::Config::General qw(BIN_DIR ANALYSIS_WORK_DIR);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 
@@ -34,6 +34,42 @@ sub database_hash {
 }
 
 
+=head2 select_random_db 
+
+  Arg       : String - HashKey pointing to an entry in Databases.pm - 
+              Either this key points to a key in the hash %DATABASES or in %DISTRIBUTED_DBS 
+
+  Fuction   : The fuction reads the 2 hashes %DATABASES and %DISTRIBUTED_DBS which are exported by 
+              Databases.pm. If the Argument is found in  %DATABASES, the name is returned. 
+              if the Argument points to an entry in %DISTRIBUTED_DBS and %DISTRIBUTED_DBS{$arg} is 
+              an array reference, an element is randomly picked out of this array and returned. 
+
+              This function is basically used to spread the load over different db servers randomly. 
+              with the $DISTRIBUTED_DBS array in Databases.pm 
+ 
+  Returntype: String 
+
+=cut
+
+
+sub select_random_db {  
+  my (  $name ) = @_; 
+ 
+  my $tmp;    
+  if (exists $DATABASES->{$name} && ref($DATABASES->{$name}) =~m/AREF/  ) { 
+    $tmp = $DATABASES ; 
+  } elsif ( exists  $DISTRIBUTED_DBS->{$name} && ref($DISTRIBUTED_DBS->{$name}) =~m/ARRAY/   ) {  
+    $tmp = $DISTRIBUTED_DBS; 
+  } 
+  if ( defined $tmp ) { 
+     my @array = @{ $tmp->{$name} };   
+     my $randomIndex = rand(@array);  
+     $name = $array[$randomIndex]; 
+     print "Random database selected : $name \n"; 
+  }
+  return $name ; 
+}
+
 =head2 get_dbadaptor
 
   Arg [0]   : Bio::EnsEMBL::Analysis::RunnableDB
@@ -51,23 +87,30 @@ sub database_hash {
 
 =cut
 
+
+
 sub get_dbadaptor {
   my ( $self, $name, $non_standard_db_adaptor, $not_use_dna_database ) = @_;
 
   my ( $db, $try_to_attach_dna_db );
   my $hash = $self->database_hash;
 
-  if ( !$hash->{$name} ) {
-    if ( exists $DATABASES->{$name} ) {
-      my $constructor_args = $DATABASES->{$name};
+  $name = select_random_db($name);  
 
+
+  if ( !$hash->{$name} ) {   # if we don't already have an entry for this ...
+    if ( exists $DATABASES->{$name} ) { 
+
+      my $constructor_args = $DATABASES->{$name};
       # check if we got all arguments
       foreach my $arg (qw ( -user -port -host -dbname)) {
         unless ( $$constructor_args{$arg} ) {
           throw(   "Database-connection-details not properly configured : "
                  . "Argument : $arg missing in Databases.pm for $name \n" );
         }
-      }
+      } 
+
+
       if ( defined $non_standard_db_adaptor ) { # value of 
         if (    $non_standard_db_adaptor =~ m/1/ || $non_standard_db_adaptor eq "pipeline" ) {
           require Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
