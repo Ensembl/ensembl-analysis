@@ -670,7 +670,7 @@ sub _compare_Genes {
   # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
 
   if ($translate) {
-    print "clustering by overlap of coding exons only\n"; 
+    #print "clustering by overlap of coding exons only\n"; 
     # exon-overlap only on coding exons !
     my $exons1 = get_coding_exons_for_gene($gene1);
     my $exons2 = get_coding_exons_for_gene($gene2);
