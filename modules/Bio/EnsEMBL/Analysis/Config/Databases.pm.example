@@ -36,16 +36,25 @@
         use Bio::EnsEMBL::Analysis::Tools::Utilities qw( get_db_adaptor_by_string );
         get_db_adaptor_by_string("GENEBUILD_DB");
 
-    The variables can also be references to arrays or hashes.
-
-    Edit C<%Config> to add or alter variables.
+    The variables can be references to arrays or hashes.
 
     All the variables are in capitals, so that they resemble
     environment variables.
 
-    Databases is a pure ripoff of humConf written by James Gilbert.
-    humConf is based upon ideas from the standard perl Env environment
-    module.
+    A new key, DISTRIBUTED_DBS has been introduced in 09/2010. This key references an array of Strings, 
+    which point to different databases/keys in the $DATABASES hash. If you've got a database-intensive 
+    analysis, you can use DISTRIBUTED_DBS to select a database out of DISTRIBUTED_DBS randomly -  ie 
+    if you usually read from KILL_LIST_DB extensively, you an distrubute the db over multiple servers, 
+    configure them in DATABASES and add the entres to DISTRIBUTED_DBS.  Remember to remove / rename the
+    original KILL_LIST_DB entry in DATABASES otherwise this one gets picked up. 
+    
+    
+    DISTRIBUTED_DBS => {
+                          KILL_LIST_DB => [ "KILL_LIST_DB_1", "KILL_LIST_DB_2" ],
+                        },
+
+
+
 
 =head1 LICENSE
 
@@ -235,8 +244,23 @@ use vars qw(%Config);
                       -user   => 'ensro',
                       -pass   => '',
     },
-  },
-  DNA_DBNAME => "REFERENCE_DB",
+  },  
+
+  #
+  # database with dna + repeat feature and repeat consensus table 
+  # 
+
+  DNA_DBNAME => "REFERENCE_DB", 
+
+  # 
+  # Arrayref. to distributed dbs ( see POD on top of file )   
+  #  
+
+    DISTRIBUTED_DBS => {
+                         DITAG_DB_DIST => [ "DB_COPY_1","DB_COPY_2"],
+                       },
+
+
   MAIN_REFERENCE_DB => "REFERENCE_DB",
   VITAL_TABLES => ["analysis",
                    "analysis_description",
