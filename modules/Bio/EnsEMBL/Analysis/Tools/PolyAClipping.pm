@@ -1,6 +1,4 @@
-#!/usr/local/ensembl/bin/perl -w
-use strict;
-use warnings;
+#!/usr/local/ensembl/bin/perl
 
 =pod
 
@@ -9,7 +7,7 @@ use warnings;
 polA-clipping.pl
 
 =head1 DESCRIPTION
-         
+
 script to parse a fasta file and identify sequences with polyA/T tails/heads
 these are then clipped and stored in a file 
 
@@ -31,6 +29,8 @@ perl new_polyA_clipping.pl sequences.fasta polyat_clipped.out
 
 package Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
 
+use strict;
+use warnings;
 use Bio::Seq;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Exporter;
@@ -38,7 +38,7 @@ use vars qw(@ISA @EXPORT);
 
 @ISA = qw(Exporter);
 
-@EXPORT = qw(clip_if_necessary);
+@EXPORT = qw(clip_if_necessary prepare_seq);
 
 
 =head2 clip_if_necessary 
@@ -48,7 +48,6 @@ use vars qw(@ISA @EXPORT);
   Arg [3]    : Int - window_size  (optional)
   Example    : my ($clipped, $clip_end, $num_bases_removed) = clip_if_necessary($cdna,$buffer,$window) 
   Description: Decides whether a cDNA needs to be clipped
-                
   Returntype : String - the clipped sequence - or undef
   Exceptions : none
 
@@ -154,10 +153,10 @@ sub clip_if_necessary {
 
 =head2 prepare_seq
 
-  Arg [1]    : Bio::Seq 
-  Example    :  my $prepared = prepare_seq($unprepared)
+  Arg [1]    : Bio::Seq
+  Example    : my $prepared = prepare_seq($unprepared)
   Description: Checks the display_id is OK
-               Makes all sequence uppercase                
+               Makes all sequence uppercase
   Returntype : Bio::Seq
   Exceptions : Can't read id
 
@@ -178,7 +177,7 @@ sub prepare_seq {
     } elsif ($tmp =~ m/^gi\|\d+\|dbj\|(\w+\.\d)\|/) {  #DDBJ entries
       $id = $1;
     } elsif ($tmp =~ m/^gi\|\d+\|emb\|(\w+\.\d)\|/) {  #EMBL entries
-      $id = $1;   
+      $id = $1;
     } elsif ($tmp =~ m/^[\w\d]+\s([\w\.\d]+)\s.+\n{1}?/) {
       $id = $1;
     } elsif ($tmp =~m/^[\w\.\d]+\s.+\n{1}?/) {
@@ -190,17 +189,17 @@ sub prepare_seq {
     } else {
       throw("Cannot extract the input id from: \n".$unclipped->id."\nTry making your file so that the first line of each entry ".
             "only contains the id, eg: \n>BC000830.1\n");
-    } 
-    
-    # make a new clipped cdna 
+    }
+
+    # make a new clipped cdna
     $prepared->display_id($id);
 
     # change seq to uppercase (as pattern matching later on is case-sensitive)
     my $seq = $unclipped->seq;
     $seq =~ tr/a-z/A-Z/;
     $prepared->seq($seq);
-  
-  return $prepared;
+
+    return $prepared;
 }
 
 
@@ -220,14 +219,14 @@ sub prepare_seq {
 
 sub clip_polya {
   my ($seq, $end, $buffer, $window_size, $end_region) = @_;  
-  
+
   my @seq = split//, $seq;
   my $length = length $seq;
   my $a_count = 0;
   my $t_count = 0;
-  
+
   my $clipped_seq = $seq;
-  
+
   # # #
   # Count the number of consecutive A's or T's
   # # #
@@ -256,13 +255,13 @@ sub clip_polya {
     #moving through seq starting from end - allow for buffer region:
     for (my $i = ($length - 1); $i > ($length - $buffer); $i--) {
       my $match = 0;
-      for (my $j = $i; $j > ($i - $window_size); $j--) { #check a window 
+      for (my $j = $i; $j > ($i - $window_size); $j--) { #check a window
         if ($seq[$j] eq 'A') { 
           $match++;
         }
       }
 
-      if ($match > 1) { #if (2+)/3 = A - looks like a polyA tail   
+      if ($match > 1) { #if (2+)/3 = A - looks like a polyA tail
         #in a polyA region - want to see how far this extends:
         my $pos = $i;
         while ($pos > ($window_size - 1)) {
@@ -273,7 +272,7 @@ sub clip_polya {
           if (ord($seq[$pos - $window_size]) == 65) {
             $match++;
           }
-          
+
           if ($match < 2) { 
             #at end of the polyA region:
             #find length of polyA region: polya_len = (seq length - non-tail length - post-tail buffer length)
@@ -290,19 +289,18 @@ sub clip_polya {
                   last;
                 }
               }
-              
               $clipped_seq = substr($seq, 0, $len);
-              
+
               #now, it might be that the sequence look something like ....AAAAACGAAAAA
               #in which case the newly clipped ....AAAAACG can be reexamined
               $clipped_seq = clip_polya($clipped_seq, $end, $buffer, $window_size, $end_region);
-              
-            } # end of  if ($polya_len > ($length - $i)) {              
+
+            } # end of  if ($polya_len > ($length - $i)) {
             $pos = 0; #break out of while loop
           } # end of if ($match < 2) {
-          $pos--;            
+          $pos--;
         } # end of while ($pos > ($window_size - 1)) {
-        
+
         if ($match > 1) {
           #then the while loop was finished whilst still on a polyA-tail
           $clipped_seq = undef;
@@ -311,7 +309,7 @@ sub clip_polya {
         last; #move onto a new sequence
       } # end of if ($match > 1) {
     } # close the forlopp [i]
- 
+
   # # #
   # now look at the heads
   # looking only for polyT head - use moving window looking for strings of 2/3 T's
@@ -325,7 +323,7 @@ sub clip_polya {
           $match++;
         }
       }
-      
+
       if ($match > 1) { #if (2+)/3 = T - looks like a polyT head 
         my $pos = $i;
         #in a polyT region - want to see how far this extends:
@@ -337,7 +335,7 @@ sub clip_polya {
           if (ord($seq[$pos + $window_size]) == 84) {
             $match++;
           }
-          
+
           if ($match < 2) { 
             #at end of polyT region:
             #find length of polyT region: polyt_len = (head length - pre-head buffer length)
@@ -362,9 +360,9 @@ sub clip_polya {
             } # end of if ($match < 2) {             
             $pos = $length; #break out of while loop
           } # end of while ($pos < ($length - $window_size)) {
-          $pos++;            
+          $pos++;
         } # end of while ($pos < ($length - $window_size)) { 
-        
+
         if ($match > 1) {
           #then the while loop was finished whilst still on a polyA-tail
           $clipped_seq = undef;
