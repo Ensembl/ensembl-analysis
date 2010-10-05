@@ -94,7 +94,7 @@ sub new {
   parse_config($self, $EXONERATE_CONFIG_BY_LOGIC, 'DEFAULT');
 
   #parse input ID
-  my($genomic_slice_name, $query_acc) = split /::/,$self->input_id;
+  my($genomic_slice_name, $query_acc) = split /:_:/,$self->input_id;
   throw "Must have genomic slice as first half of input_id split by ::" if not defined $genomic_slice_name;
   throw "Must have query acc or file name as second half of input_id split by ::" if not defined $query_acc;
   $self->genomic_slice_name($genomic_slice_name);
