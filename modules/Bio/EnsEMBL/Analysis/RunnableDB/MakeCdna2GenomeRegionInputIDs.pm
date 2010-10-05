@@ -139,7 +139,12 @@ GENE: foreach my $gene ( @{ $self->genes } ) {
                                                             $transcript->dbID,
                                                             $expansion );
 
-    my $id = $genomic_slice->name . '::' . $hit_name;
+    # input id - the supercontigs may not have a assembly namel (e.g.
+    # GRCh37), introducing '_' will avoid problems with input_ids
+    # like:
+    # supercontig::GL000191.1:1:106433:1
+    my $id = $genomic_slice->name . ':_:' . $hit_name;
+
     push @iids, $id;
   } ## end foreach my $gene ( @{ $self...
 
