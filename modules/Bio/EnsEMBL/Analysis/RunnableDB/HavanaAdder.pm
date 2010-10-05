@@ -50,7 +50,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
-  GB_ENSEMBL_INPUT_GENETYPE
+  ENSEMBL_INPUT_CODING_TYPE
   HAVANA_GENE_OUTPUT_BIOTYPE
   MERGED_GENE_OUTPUT_BIOTYPE
   ENSEMBL_GENE_OUTPUT_BIOTYPE
