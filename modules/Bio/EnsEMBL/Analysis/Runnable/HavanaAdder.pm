@@ -64,12 +64,12 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
-  GB_ENSEMBL_INPUT_GENETYPE
-  GB_HAVANA_INPUT_GENETYPE
-  GB_ENSEMBL_PROCESSED_GENETYPE
-  GB_HAVANA_PROCESSED_GENETYPE
-  GB_ENSEMBL_PSEUDO_GENETYPE
-  GB_HAVANA_PSEUDO_GENETYPE
+  ENSEMBL_INPUT_CODING_TYPE
+  HAVANA_INPUT_CODING_TYPE
+  ENSEMBL_INPUT_PROCESSED_TYPE
+  HAVANA_INPUT_PROCESSED_TYPE
+  ENSEMBL_INPUT_PSEUDO_TYPE
+  HAVANA_INPUT_PSEUDO_TYPE
   MERGED_TRANSCRIPT_OUTPUT_TYPE
   HAVANA_LOGIC_NAME
   MERGED_GENE_LOGIC_NAME
@@ -100,8 +100,8 @@ sub new {
   $self->{_gene_types}  = [];
 
   $self->query($slice);
-  $self->gene_types($GB_ENSEMBL_INPUT_GENETYPE);
-  $self->gene_types($GB_HAVANA_INPUT_GENETYPE);
+  $self->gene_types($ENSEMBL_INPUT_CODING_TYPE);
+  $self->gene_types($HAVANA_INPUT_CODING_TYPE);
 
   $self->input_id($input_id);
 
@@ -1237,7 +1237,7 @@ sub get_Genes {
   # Fetch Ensembl genes
   print STDERR "Fetching ensembl genes\n";
 
-  foreach my $ebiotype ( @{$GB_ENSEMBL_INPUT_GENETYPE} ) {
+  foreach my $ebiotype ( @{$ENSEMBL_INPUT_CODING_TYPE} ) {
   EGENE:
     foreach my $egene ( @{ $ensemblslice->get_all_Genes_by_type($ebiotype,undef,1) } ) {
       $egene->load();
@@ -1254,7 +1254,7 @@ sub get_Genes {
   }
 
   # Fetch Ensembl Processed transcripts
-  foreach my $eprocessedbt ( @{$GB_ENSEMBL_PROCESSED_GENETYPE} ) {
+  foreach my $eprocessedbt ( @{$ENSEMBL_INPUT_PROCESSED_TYPE} ) {
   PROCESSED:
     foreach my $eprocessedgene ( @{ $ensemblslice->get_all_Genes_by_type($eprocessedbt,undef,1) } ) {
       $eprocessedgene->load();
@@ -1270,7 +1270,7 @@ sub get_Genes {
   }
 
   # Fetch Ensembl pseudogenes
-  foreach my $epseudobt ( @{$GB_ENSEMBL_PSEUDO_GENETYPE} ) {
+  foreach my $epseudobt ( @{$ENSEMBL_INPUT_PSEUDO_TYPE} ) {
   EPSEUDOGENE:
     foreach my $epseudogene ( @{ $ensemblslice->get_all_Genes_by_type($epseudobt,undef,1) } ) {
       $epseudogene->load();
@@ -1288,21 +1288,21 @@ sub get_Genes {
   print STDERR "Retrieved "
     . scalar(@genes)
     . " genes of types: "
-    . join( ", ", @{$GB_ENSEMBL_INPUT_GENETYPE} ) . "\n";
+    . join( ", ", @{$ENSEMBL_INPUT_CODING_TYPE} ) . "\n";
 
   print STDERR "Retrieved "
     . scalar(@processedgenes)
     . " 'processed transcript' genes of types: "
-    . join( ", ", @{$GB_ENSEMBL_PROCESSED_GENETYPE} ) . "\n";
+    . join( ", ", @{$ENSEMBL_INPUT_PROCESSED_TYPE} ) . "\n";
 
   print STDERR "Retrieved "
     . scalar(@pseudogenes)
     . " pseudogenes of types: "
-    . join( ", ", @{$GB_ENSEMBL_PSEUDO_GENETYPE} ) . "\n";
+    . join( ", ", @{$ENSEMBL_INPUT_PSEUDO_TYPE} ) . "\n";
 
   # Fetch Havana genes
   print STDERR "Fetching havana genes\n";
-  foreach my $hbiotype ( @{$GB_HAVANA_INPUT_GENETYPE} ) {
+  foreach my $hbiotype ( @{$HAVANA_INPUT_CODING_TYPE} ) {
     foreach my $hgene ( @{ $havanaslice->get_all_Genes_by_type($hbiotype,undef,1) } ) {
       $hgene->load();
       # We change the biotype of the havana genes/transcripts as it
@@ -1318,7 +1318,7 @@ sub get_Genes {
   }
 
   print STDERR "Fetching havana 'processed transcript' genes\n";
-  foreach my $hprocessedbiotype ( @{$GB_HAVANA_PROCESSED_GENETYPE} ) {
+  foreach my $hprocessedbiotype ( @{$HAVANA_INPUT_PROCESSED_TYPE} ) {
     foreach my $hprocessedgene ( @{ $havanaslice->get_all_Genes_by_type($hprocessedbiotype,undef,1) } ) {
       $hprocessedgene->load();
       # We change the biotype of the havana genes/transcripts as it
@@ -1338,7 +1338,7 @@ sub get_Genes {
 
   #Fetch Havana pseudogenes
   print STDERR "Fetching havana pseudogenes\n";
-  foreach my $hpseudobt ( @{$GB_HAVANA_PSEUDO_GENETYPE} ) {
+  foreach my $hpseudobt ( @{$HAVANA_INPUT_PSEUDO_TYPE} ) {
     foreach my $hpseudogene ( @{ $havanaslice->get_all_Genes_by_type($hpseudobt,undef,1) } ) {
       $hpseudogene->load();
       # We change the biotype of the havana genes/transcripts as it
@@ -1356,17 +1356,17 @@ sub get_Genes {
   print STDERR "Retrieved "
     . scalar(@hgenes)
     . " genes of types: "
-    . join( ", ", @{$GB_HAVANA_INPUT_GENETYPE} ) . "\n";
+    . join( ", ", @{$HAVANA_INPUT_CODING_TYPE} ) . "\n";
 
   print STDERR "Retrieved "
     . scalar(@hprocessedgenes)
     . " 'processed transcript' genes of types: "
-    . join( ", ", @{$GB_HAVANA_PROCESSED_GENETYPE} ) . "\n";
+    . join( ", ", @{$HAVANA_INPUT_PROCESSED_TYPE} ) . "\n";
 
   print STDERR "Retrieved "
     . scalar(@hpseudogenes)
     . " pseudogenes of types: "
-    . join( ", ", @{$GB_HAVANA_PSEUDO_GENETYPE} ) . "\n";
+    . join( ", ", @{$HAVANA_INPUT_PSEUDO_TYPE} ) . "\n";
 
   # We want to keep the HAVANA genes as they are as they asked us to
   # keep their gene clustering untouched
@@ -2240,23 +2240,23 @@ sub update_biotypes {
   my %processedbiotypes;
   my %coding_biotypes;
 
-  foreach my $epb ( @{$GB_ENSEMBL_PSEUDO_GENETYPE} ) {
+  foreach my $epb ( @{$ENSEMBL_INPUT_PSEUDO_TYPE} ) {
     $pseudobiotypes{$epb} = 1;
   }
-  foreach my $hpb ( @{$GB_HAVANA_PSEUDO_GENETYPE} ) {
+  foreach my $hpb ( @{$HAVANA_INPUT_PSEUDO_TYPE} ) {
     $pseudobiotypes{ $hpb . "_hav" } = 1;
   }
-  foreach my $epb ( @{$GB_ENSEMBL_PROCESSED_GENETYPE} ) {
+  foreach my $epb ( @{$ENSEMBL_INPUT_PROCESSED_TYPE} ) {
     $processedbiotypes{$epb} = 1;
   }
-  foreach my $hpb ( @{$GB_HAVANA_PROCESSED_GENETYPE} ) {
+  foreach my $hpb ( @{$HAVANA_INPUT_PROCESSED_TYPE} ) {
     $processedbiotypes{ $hpb . "_hav" } = 1;
   }
 
-  foreach my $ecb ( @{$GB_ENSEMBL_INPUT_GENETYPE} ) {
+  foreach my $ecb ( @{$ENSEMBL_INPUT_CODING_TYPE} ) {
     $coding_biotypes{$ecb} = 1;
   }
-  foreach my $hcb ( @{$GB_HAVANA_INPUT_GENETYPE} ) {
+  foreach my $hcb ( @{$HAVANA_INPUT_CODING_TYPE} ) {
     $coding_biotypes{ $hcb . "_hav" } = 1;
   }
 
