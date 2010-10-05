@@ -43,51 +43,102 @@ use vars qw( %GeneBuilder );
 
 # Hash containing config info
 %GeneBuilder = (
+
   ##################
   # INPUT BIOTYPES #
   ##################
-  # CODING
+
+  ## All hash-keys which start with "ENSEMBL" refer to gene AND transcript
+  ## biotypes which are present in the ensembl core DB. This core DB is most
+  ## likely to be an ensembl-only genebuild/core DB (i.e. containing no data 
+  ## whatsoever from previous Ensembl-Havana merges), although in some cases 
+  ## it can be an ensembl DB from a previous merge if a "clean" ensembl-only 
+  ## DB is not available.
+
+  ## All hash-keys which start with "HAVANA" refer to gene AND transcript 
+  ## biotypes which are present in the ensembl-vega DB (also known as the 
+  ## "HAVANA DB").
+  ##
+  ## The order of biotypes in the hash-value array does not matter.
+  ## 
+  ## If using "ENSEMBL" database from a previous merge, use only genes and
+  ## transcripts with *logic names* like "ensembl" or "ensembl-havana". 
+  ## (Do not rely on the "source" attribute of the gene because 
+  ## sometimes the "source" isn't set correctly).  Ignore genes/transcripts
+  ## (and their biotypes) which came solely from Havana.
+  ## ---------------------------------------------------------------------------
+
+  # (I) CODING ENSEMBL GENES AND HAVANA TRANSCRIPTS
   #
-  # Biotype of Ensembl Coding Genes and transcripts
-  GB_ENSEMBL_INPUT_GENETYPE => ['protein_coding'],
-
-  # Biotype of Havana Coding Genes and transcripts
-  # NOTE! We don't want the IG genes in here!
-  GB_HAVANA_INPUT_GENETYPE =>
-    [ 'protein_coding', 'polymorphic_pseudogene', 'nonsense_mediated_decay', 'polymorphic' ],
-
-  #Processed transcripts
+  # This category covers genes which contain translateable transcripts and 
+  # transcripts which are translateable (coding).  The most obvious biotype
+  # in this category is "protein_coding".  Biotypes such as "polymorphic_
+  # pseudogene" (for genes) and "nonsense_mediated_decay" (for transcripts)
+  # should also be included because "polymorphic_pseudogene" contains both
+  # coding and non-coding transcripts, whereas a "nonsense_mediated_decay"
+  # transcript often has translation in the DB.
   #
-  # Biotype of "processed transcripts" in Ensembl and transcripts. If there
-  # are ensembl non_coding genes they go here to.
-  GB_ENSEMBL_PROCESSED_GENETYPE => ['processed_transcript'],
+  # Note: Ig-related gene/transcript types are not included in any hashes
+  #       because they'll be dealt with separately after HavanaAdder is run.
 
-  # Biotype of "processed transcripts" genes and transcripts in Havana
-  GB_HAVANA_PROCESSED_GENETYPE => [ 'processed_transcript', 'ambiguous_orf',
+  ENSEMBL_INPUT_CODING_TYPE => ['protein_coding'],
+
+  HAVANA_INPUT_CODING_TYPE =>
+    [ 'protein_coding', 'polymorphic_pseudogene', 'nonsense_mediated_decay' ],
+
+
+  # (II) ALL PSEUDOGENE-RELATED GENE AND TRANSCRIPT BIOTYPES
+  #
+  # This category covers genes and transcripts which are pseudogenic.
+  # As a rule-of-thumb, any biotype containing the string "pseudogene" or
+  # "retrotransposed" falls into this category.
+
+  ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'retrotransposed' ],
+
+  HAVANA_INPUT_PSEUDO_TYPE => [ 'pseudogene',
+                                'IG_pseudogene',
+                                'processed_pseudogene',
+                                'transcribed_pseudogene',
+                                'transcribed_processed_pseudogene',
+                                'transcribed_unprocessed_pseudogene',
+                                'unitary_pseudogene',
+                                'unprocessed_pseudogene'
+                               ],
+
+
+  # (III) "PROCESSED_TRANSCRIPT" GENE AND TRANSCRIPT BIOTYPES
+  # 
+  # This category covers biotypes of non-coding genes/transcripts which are neither 
+  # protein_coding/translateable (category I above) nor pseudogenic (category II).  
+  # The most common biotype in this category is "processed_transcript" (which serves
+  # as both gene and transcript biotype ).
+
+  # There are usually no Ensembl "processed_transcript" genes or transcripts to be
+  # fetched from the ENSEMBL database. The biotype is included under 
+  # "ENSEMBL_INPUT_PROCESSED_TYPE" only to capture the few rare cases which might 
+  # slip through the net.
+
+  ENSEMBL_INPUT_PROCESSED_TYPE => ['processed_transcript'],
+
+  HAVANA_INPUT_PROCESSED_TYPE => [ 'processed_transcript', 'ambiguous_orf',
                                     'non_coding',           'artifact',
                                     'retained_intron',      'antisense'
   ],
 
-  # PSEUDOGENES
-  #
-  # Biotype of Ensembl PseudoGenes and pseudotranscripts
-  GB_ENSEMBL_PSEUDO_GENETYPE => [ 'pseudogene', 'retrotransposed' ],
-  # Biotype of Havana Pseudogenes and pseudotranscripts
-  GB_HAVANA_PSEUDO_GENETYPE => [ 'pseudogene',
-                                 'processed_pseudogene',
-                                 'transcribed_pseudogene',
-                                 'transcribed_processed_pseudogene',
-                                 'transcribed_unprocessed_pseudogene',
-                                 'transcribed_unitary_pseudogene'
-                                 'unitary_pseudogene',
-                                 'unprocessed_pseudogene',
-  ],
 
   ##################
   # OUTPUT BIOTYPES#
   ##################
-# Here you select the suffix that you want to be added to the biotype of your genes and transcripts
-# Genes with Havana transcripts only
+
+  # Here you select the suffix that you want to be added to the biotype of your 
+  # output genes and transcripts.
+  # Transcripts which aren't merged, regardless of DB origin, will retain their 
+  # original biotype.
+  # All havana transcripts, both merged and unmerged, will gain a "_hav" suffix
+  # to indicate whether they came from Havana. This is hardcoded within the HavanaAdder 
+  # Runnable code.
+
+  # Genes with Havana transcripts only
   HAVANA_GENE_OUTPUT_BIOTYPE => '_Hav',
 
   # Genes with Havana and Ensembl transcripts
@@ -97,16 +148,30 @@ use vars qw( %GeneBuilder );
   ENSEMBL_GENE_OUTPUT_BIOTYPE => '_Ens',
 
   # Output Biotype for merged transcripts
-  MERGED_TRANSCRIPT_OUTPUT_TYPE => '_merged',
+  MERGED_TRANSCRIPT_OUTPUT_TYPE => '_m',
+
 
   ###############
   # LOGIC NAMES #
   ###############
-  # For the Havana_merge update, leave the default values if
-  # running the Merge for the first time
-  # Beware the transcript logic_name in the havana database
-  # have to be different that the logic_name of the
-  # havana transcripts in the ensembl database
+
+  # These are mainly for the Havana_merge update, when an Ensembl-Havana (previously) 
+  # merged DB is used as "ENSEMBL" source DB at the start of your merge project.
+  # Enter the logic_name as the hash keys suggest.
+  #
+  # The HavanaAdder Runnable code relies on these logic_names to judge whether a gene/
+  # transcript originated from Ensembl or Havana at the beginning of the previous
+  # merge. The code will then select for genes/transcripts which originally came from
+  # Ensembl and use them in the current merge project as "Ensembl" input models.
+
+  # Beware the transcript logic_name in the HAVANA source database (e.g. "otter")
+  # has to be different that the logic_name of the havana transcripts in the ENSEMBL
+  # database (e.g. "havana").
+  
+  # If you are using a "clean, ensembl-only DB as the starting point of the current 
+  # merge project, the logic_names are not really relevant to you. Just leave the default
+  # values.
+
   HAVANA_LOGIC_NAME            => 'havana',
   MERGED_GENE_LOGIC_NAME       => 'ensembl_havana_gene',
   MERGED_TRANSCRIPT_LOGIC_NAME => 'ensembl_havana_transcript',
