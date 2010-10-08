@@ -96,7 +96,6 @@ use vars qw( %GeneBuilder );
   ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'retrotransposed' ],
 
   HAVANA_INPUT_PSEUDO_TYPE => [ 'pseudogene',
-                                'IG_pseudogene',
                                 'processed_pseudogene',
                                 'transcribed_pseudogene',
                                 'transcribed_processed_pseudogene',
