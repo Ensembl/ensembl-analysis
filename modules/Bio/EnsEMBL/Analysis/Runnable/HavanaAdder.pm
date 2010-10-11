@@ -247,7 +247,7 @@ GENE:
 
     # Compare each havana transcript to each ensembl one
     foreach my $ht (@havana) {
-      print "looking at havana trans: " . $ht->dbID . "\n";
+      print "\n===> Looking at havana trans: " . $ht->dbID . "\n";
 
       # We add an attribute to the havana transcripts that shows which
       # supporting features have been used to build the Exons. This
@@ -269,7 +269,7 @@ GENE:
       my @t_pair;
 
       foreach my $et (@ensembl) {
-        print "looking at ensembl trans: " . $et->dbID . "\n";
+        print "\n===> Looking at ensembl trans: " . $et->dbID . "\n";
 
         my $delete_t = $self->are_matched_pair( $ht, $et );
 
@@ -280,8 +280,9 @@ GENE:
 
         # TODO: have a closer look at the code here.
         if ($delete_t) {
+          #print "DEBUG: start of if-statement: \$delete_t = " . $delete_t . "\n";
           if ( $delete_t == $et ) {
-            print "--->>> I'm deleting matching transcript: " .  $delete_t->dbID . "\n";
+            print "--->>> I'm deleting matching transcript: " . $delete_t->dbID . "\n";
             $delete_trans = $delete_t;
             @t_pair = ( $ht, $et );
           } elsif ( $delete_trans != $et && $delete_t == $ht ) {
@@ -292,9 +293,21 @@ GENE:
             $delete_trans = $delete_t;
             print "the other case, keeping both? " . $et->dbID . " and " .  $ht->dbID . "\n";
             @t_pair = ( $ht, $et );
+          } else {
+            #print "DEBUG (_merge_redundant_transcripts): the fourth case: "
+            #    . "what am I? del_t vs del_trans: " . $delete_t . " vs $delete_trans \n";
           }
+        } else {
+          #print "In the else of the strange if\n\$delete_t = $delete_t\t";
+          #if ($delete_trans == 0 || $delete_trans == 1) {
+          #  print "\$delete_trans = $delete_trans\n";
+          #} else {
+          #  print "\$delete_trans = " . $delete_trans->dbID . "\n";
+          #}
         }
-      }
+      } # TODO: Looping over ensemvl transcripts ends here but I
+        # wonder if it should include the below if-statement too. See
+        # LOOP below.
 
       if ( $delete_trans && $delete_trans != 0 ) {
         my $new_bt_0;    #biotype
@@ -321,6 +334,9 @@ GENE:
       } else {
         $self->add_ottt_xref($ht);
       }
+      #} # LOOP: Should the loop over all ensembl transcripts finish
+         # here instead?
+
     } ## end foreach my $ht (@havana)
 
     $gene->recalculate_coordinates;
@@ -341,6 +357,20 @@ sub are_matched_pair {
   # Fetch all exons in each transcript
   my @hexons = @{ $havana->get_all_Exons };
   my @eexons = @{ $ensembl->get_all_Exons };
+
+######## DEBUGGING TESTS ############
+#  my $ens_sf = 0;
+#  foreach my $ens_e (@eexons) {
+#    print "DEBUG (are_matched_pair): " . $ens_e->dbID . " :: "
+#        . scalar( @{ $ens_e->get_all_supporting_features } ) . "\n";
+#    $ens_sf += scalar(@{ $ens_e->get_all_supporting_features } );
+#  }
+#
+#  my $hav_sf = 0;
+#  foreach my $hav_e (@hexons) {
+#    $hav_sf += scalar(@{ $hav_e->get_all_supporting_features } );
+#  }
+######## DEBUGGING TESTS ############
 
   my $non_coding_h = 0;
 
@@ -365,6 +395,9 @@ sub are_matched_pair {
   print "\nHavana trans dbID: " . $havana->dbID . "\tbiotype: " .  $havana->biotype . "\n";
   print "no. of exons: " . scalar(@{ $havana->get_all_Exons }) . "\n";
   print "no. of coding exons: " . scalar(@{ $havana->get_all_translateable_Exons }) . "\n";
+
+#  print "no. of ens_esf: " . $ens_sf . "\n";
+#  print "no. of hav_esf: " . $hav_sf . "\n";
 
   my $complete_5        = 0;
   my $incomplete        = 0;
@@ -407,7 +440,6 @@ sub are_matched_pair {
     print "et and ht don't have same number of exons, skipping the comparison\n";
     return 0;
   }
-  #return 0 unless scalar(@hexons) == scalar(@eexons);
 
   if ( $non_coding_h == 1 && $non_coding_e == 1 ) {
     print "\n===>>> ensembl and havana are both non-coding <<<===\n";
@@ -556,28 +588,28 @@ sub are_matched_pair {
     return 0
       unless ( ( scalar(@teexons) == scalar(@thexons) )
                && $havana->translation->genomic_start == $ensembl->translation->genomic_start
-               && $havana->translation->genomic_end == $ensembl->translation->genomic_end );
+               && $havana->translation->genomic_end   == $ensembl->translation->genomic_end );
 
     # Special case for single exon genes
     if ( scalar(@hexons) == 1 ) {
       #print "SINGLE EXONS!\n";
 
-      if (    $hexons[0]->start == $eexons[0]->start
-           && $hexons[0]->end == $eexons[0]->end
+      if (    $hexons[0]->start  == $eexons[0]->start
+           && $hexons[0]->end    == $eexons[0]->end
            && $hexons[0]->strand == $eexons[0]->strand
            && $thexons[0]->coding_region_start($havana) == $teexons[0]->coding_region_start($ensembl)
-           && $thexons[0]->coding_region_end($havana) == $teexons[0]->coding_region_end($ensembl) )
+           && $thexons[0]->coding_region_end($havana)   == $teexons[0]->coding_region_end($ensembl) )
       {
         # Both are exactly the same so we delete the Ensembl one
         # unless the Ensembl one is already a merged one <-???? IS not doing
         # this here.
         return $ensembl;
 
-      } elsif ($hexons[0]->start <= $eexons[0]->start
-            && $hexons[0]->end >= $eexons[0]->end
+      } elsif ($hexons[0]->start  <= $eexons[0]->start
+            && $hexons[0]->end    >= $eexons[0]->end
             && $hexons[0]->strand == $eexons[0]->strand
-            && $eexons[0]->start == $teexons[0]->coding_region_start($ensembl)
-            && $eexons[0]->end == $teexons[0]->coding_region_end($ensembl) )
+            && $eexons[0]->start  == $teexons[0]->coding_region_start($ensembl)
+            && $eexons[0]->end    == $teexons[0]->coding_region_end($ensembl) )
       {
         # Ensembl gene don't have UTR and Havana has then delete Ensembl one
         return $ensembl;
@@ -585,10 +617,10 @@ sub are_matched_pair {
       }
       elsif ( ( (
                  $hexons[0]->start != $eexons[0]->start
-              || $hexons[0]->end != $eexons[0]->end )
-            && $hexons[0]->strand == $eexons[0]->strand )
-          && ( $eexons[0]->start != $teexons[0]->coding_region_start($ensembl)
-              || $eexons[0]->end != $teexons[0]->coding_region_end($ensembl) )
+              || $hexons[0]->end   != $eexons[0]->end )
+            && $hexons[0]->strand  == $eexons[0]->strand )
+          && ( $eexons[0]->start   != $teexons[0]->coding_region_start($ensembl)
+              || $eexons[0]->end   != $teexons[0]->coding_region_end($ensembl) )
         )
       {
         # Both contain UTR keep ENSEMBL
@@ -898,6 +930,8 @@ sub set_transcript_relation {
   # If both share CDS and UTR is different in structure and number of
   # exons we still keep both, and we link them via Xref.
   if ( $delete_t == 1 ) {
+    #print "DEBUG (set_transcript_relation) we're keeping both transcripts. "
+    #    . "transferring only the xrefs inbtw\n";
 
     # transfer OTTT ID and/or ENST
     foreach my $entry ( @{ $t_pair[0]->get_all_DBEntries } ) {
@@ -967,6 +1001,9 @@ sub set_transcript_relation {
   # If transcript to delete is havana we create an xref for the entry
   # saying that the transcript is CDS equal to ensembl.
   elsif ( $delete_t == $t_pair[0] ) {
+    #print "DEBUG (set_transcript_relation) del trans is havana: "
+    #    . $delete_t->dbID . "\n";
+    
     # transfer OTTT ID and/or ENST
     foreach my $entry ( @{ $t_pair[0]->get_all_DBEntries } ) {
       if ( $entry->dbname eq 'Vega_transcript' ) {
@@ -1006,24 +1043,16 @@ sub set_transcript_relation {
 
     # When we delete a Havana transcript we want to transfer the exon
     # supporting features to the transcript we keep
-    my @delete_e = @{ $delete_t->get_all_Exons };
-    my @exons    = @{ $t_pair[1]->get_all_Exons };
-
-    if ( scalar(@delete_e) == scalar(@exons) ) {
-
-      my $e;
-      for ( $e = 0, $e < scalar(@delete_e), $e++ ) {
-        if ( $delete_e[$e] && $exons[$e] ) {
-          $self->transfer_supporting_evidence( $delete_e[$e], $exons[$e] );
-        }
-      }
-    }
+    $self->transfer_exon_support($delete_t, $t_pair[1]);
 
     # We add attributes to the havana transcript showing which
     # supporting features where used for the transcript in Havana
     $self->add_havana_attribute( $t_pair[0], $t_pair[1] );
 
   } elsif ( $delete_t == $t_pair[1] ) {
+    #print "DEBUG (set_transcript_relation) del trans is ensembl: "
+    #    . $delete_t->dbID . "\n";
+
     # If the transcript to delete is ENSEMBL we add an xref entry say
     # that both transcripts are exact matches (including UTR)
     foreach my $entry ( @{ $t_pair[0]->get_all_DBEntries } ) {
@@ -1132,8 +1161,6 @@ sub add_havana_attribute {
 sub transfer_supporting_features {
   my ( $self, $delete_t, $transcript ) = @_;
 
-  #print "TRANSCRIPT IS :  ", $transcript,"\n";
-
   my @exon_features;
 
   # Delete all the supporting features for the Havana Transcript
@@ -1142,28 +1169,21 @@ sub transfer_supporting_features {
   my @delete_tsf = @{ $delete_t->get_all_supporting_features };
   #my @transcript_sf = @{ $transcript->get_all_supporting_features };
 
-  # print "NUMBER OF TRANSCRIPT SF: ",scalar(@transcript_sf),"\n";
-  # print " AND DELETE TSF: ", scalar(@delete_tsf),"\n";
-DTSF: foreach my $dtsf (@delete_tsf) {
-    next DTSF unless $dtsf->isa("Bio::EnsEMBL::FeaturePair");
+  #print "DEBUG (transfer_supporting_features) \# of tsf bfr addition: ",scalar(@transcript_sf),"\n";
+  #print "DEBUG (transfer_supporting_features) and delete tsf: ", scalar(@delete_tsf),"\n";
 
+DTSF: foreach my $dtsf (@delete_tsf) {
+    if ( !$dtsf->isa("Bio::EnsEMBL::FeaturePair") ) {
+      next DTSF;
+    }
     $transcript->add_supporting_features($dtsf);
   }
 
-  my @delete_e = @{ $delete_t->get_all_Exons };
-  my @exons    = @{ $transcript->get_all_Exons };
+  #print "DEBUG (transfer_supporting_features) about to transfer exon sf\n";
+  $self->transfer_exon_support($delete_t, $transcript);
 
-  if ( scalar(@delete_e) == scalar(@exons) ) {
-
-    my $e;
-    for ( $e = 0, $e < scalar(@delete_e), $e++ ) {
-      if ( $delete_e[$e] && $exons[$e] ) {
-        $self->transfer_supporting_evidence( $delete_e[$e], $exons[$e] );
-      }
-    }
-  }
-
-  # print "NUMBER AFT ADDITTION: ", scalar(@{ $transcript->get_all_supporting_features }),"\n";
+  print "no. tsf aft addition: "
+      . scalar(@{ $transcript->get_all_supporting_features }) . "\n";
 } ## end sub transfer_supporting_features
 
 sub _remove_transcript_from_gene {
@@ -2184,47 +2204,53 @@ sub transfer_supporting_evidence {
   my %unique_evidence;
   my %hold_evidence;
 
+#  print "DEBUG (transfer_supporting_evidence): bfr "
+#      . "source exon sf: " . scalar( @{ $source_exon->get_all_supporting_features } )
+#      . " vs target exon sf: " . scalar( @{ $target_exon->get_all_supporting_features } ) . "\n";
+
 SOURCE_FEAT:
   foreach my $feat ( @{ $source_exon->get_all_supporting_features } ) {
-    next SOURCE_FEAT unless $feat->isa("Bio::EnsEMBL::FeaturePair");
-
-    # skip duplicated evidence objects
-    next SOURCE_FEAT if ( $unique_evidence{$feat} );
-
-    # skip duplicated evidence
-    if ( $hold_evidence{ $feat->hseqname }{ $feat->start }{ $feat->end }
-         { $feat->hstart }{ $feat->hend } )
-    {
-      #print STDERR "Skipping duplicated evidence\n";
+    if ( !$feat->isa("Bio::EnsEMBL::FeaturePair") ) {
       next SOURCE_FEAT;
     }
 
-    #$self->print_FeaturePair($feat);
+    # Skip duplicated evidence objects
+    next SOURCE_FEAT if ( $unique_evidence{$feat} );
+
+    # Skip duplicated evidence
+    if ( $hold_evidence{ $feat->hseqname }{ $feat->start }{ $feat->end }
+         { $feat->hstart }{ $feat->hend } )
+    {
+      # Skipping duplicated evidence
+      next SOURCE_FEAT;
+    }
 
   TARGET_FEAT:
     foreach my $tsf (@target_sf) {
       next TARGET_FEAT unless $tsf->isa("Bio::EnsEMBL::FeaturePair");
 
-      if (    $feat->start == $tsf->start
-           && $feat->end == $tsf->end
-           && $feat->strand == $tsf->strand
+      if (    $feat->start    == $tsf->start
+           && $feat->end      == $tsf->end
+           && $feat->strand   == $tsf->strand
            && $feat->hseqname eq $tsf->hseqname
-           && $feat->hstart == $tsf->hstart
-           && $feat->hend == $tsf->hend )
+           && $feat->hstart   == $tsf->hstart
+           && $feat->hend     == $tsf->hend )
       {
-
-        #print STDERR "feature already in target exon\n";
         next SOURCE_FEAT;
       }
     }
-    #print STDERR "from ".$source_exon->dbID." to ".$target_exon->dbID."\n";
-    #$self->print_FeaturePair($feat);
-    # I may need to add a paranoid check to see that no exons longer than the current one are transferred
+#    print "DEBUG (transfer_supporting_evidence): from ".$source_exon->dbID." to ".$target_exon->dbID."\n";
+
+    # I may need to add a paranoid check to see that no exons longer
+    # than the current one are transferred
     $target_exon->add_supporting_features($feat);
     $unique_evidence{$feat} = 1;
     $hold_evidence{ $feat->hseqname }{ $feat->start }{ $feat->end }
       { $feat->hstart }{ $feat->hend } = 1;
   } ## end foreach my $feat ( @{ $source_exon...
+
+#  print "no. of target exon afr: "
+#      . scalar( @{ $target_exon->get_all_supporting_features } ) . "\n";
 } ## end sub transfer_supporting_evidence
 
 =head2 update_biotypes
@@ -3006,5 +3032,39 @@ sub sort_transcripts {
   return \@transcripts;
 } ## end sub sort_transcripts
 
+sub transfer_exon_support {
+  my ( $self, $trans_to_delete, $trans_to_keep ) = @_;
+
+  my @delete_e = @{ $trans_to_delete->get_all_Exons };
+  my @exons    = @{ $trans_to_keep-> get_all_Exons };
+
+############# DEBUGGING TESTS #########
+#
+#  my ( $del_sf, $trans_sf ) = (0, 0);
+#  foreach my $del_e ( @{ $trans_to_delete->get_all_Exons } ) {
+#    print "DEBUG (transfer_exon_support): " . $del_e->dbID . " :: "
+#        . scalar( @{ $del_e->get_all_supporting_features } ) . "\n";
+#    $del_sf += scalar( @{ $del_e->get_all_supporting_features } );
+#  }
+#
+#  foreach my $trans_e ( @{ $trans_to_keep->get_all_Exons } ) {
+#    print "DEBUG (transfer_exon_support): " . $trans_e->dbID . " :: "
+#      . scalar( @{ $trans_e->get_all_supporting_features } ) . "\n";
+#     $trans_sf += scalar( @{ $trans_e->get_all_supporting_features } );
+#  }
+#  print "DEBUG (transfer_exon_support): \$del_sf: $del_sf\n";
+#  print "DEBUG (transfer_exon_support): \$trans_sf: $trans_sf\n";
+#
+############# DEBUGGING TESTS #########
+
+  if ( scalar(@delete_e) == scalar(@exons) ) {
+    for ( my $e = 0; $e < scalar(@delete_e); $e++ ) {
+      $self->transfer_supporting_evidence( $delete_e[$e], $exons[$e] );
+    }
+  } else {
+#    print "DEBUG (transfer_exon_support): number of exons don't match, not doing anything.\n";
+  }
+
+} ## end sub transfer_exon_support
 
 1;
