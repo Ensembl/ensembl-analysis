@@ -445,7 +445,7 @@ sub are_matched_pair {
     print "\n===>>> ensembl and havana are both non-coding <<<===\n";
     # We check two non coding transcripts. If they have the same
     # structure we keep the one from havana but if the have same exon
-    # strucutre but one is slightly longer we take the longest one of
+    # structure but one is slightly longer we take the longest one of
     # the pair.
 
     if ( !$self->check_internal_exon_structure( \@eexons, \@hexons ) ) {
@@ -469,7 +469,7 @@ sub are_matched_pair {
   } elsif ( $non_coding_h != $non_coding_e ) {
     if ( $non_coding_e == 2 ) {
       print "===>>> incomplete ensembl models, will not be merged\n";
-      # Any transcript coming here should be deleted as we don't want to have
+      # Any transcript coming here should be deleted as we don't want
       # to have them in the merge set.
 
       print "Not full_length ensembl transcript, will be deleted: " . $ensembl->dbID . "\n";
@@ -514,8 +514,6 @@ sub are_matched_pair {
       return $ensembl;
     }
 
-    # If ensembl is coding and havana is non coding, the ensembl
-    # transcript is turned to non-coding.
     if ( $non_coding_e == 0 ) {
 
       print "===>>> ensembl is coding, havana is non-coding <<<===\n";
@@ -523,62 +521,66 @@ sub are_matched_pair {
       # Keep both if they don't have the same coding exon structure
       return 0 unless scalar(@hexons) == scalar(@eexons);
 
-      # Check that the ensembl transcript is not a CCDS model, if so, don't
+      # Check that the ensembl transcript is not a CCDS model.
+
+      # CASE 0: Ensembl transcript belongs to CCDS set, don't
       # make it to non-coding and keep both transcripts.
 
+      # TO_DO: In the future, this CCDS check should refer to an internal
+      # flagging system in this module, instead of referring to the 
+      # CCDS DB
+
       if ( $self->check_transcript_in_external_db('ccds', $ensembl ) == 0 ) {
-        print "ENS CODING vs HAV NON-CODING CASE 2 - keeping ensembl regardless\n";
-        print "The Ensembl model " . $ensembl->dbID . " is a CCDS transcript, "
+        print "ENS CODING vs HAV NON-CODING CASE 0 - keeping ensembl regardless because\n";
+        print "the Ensembl model " . $ensembl->dbID . " is a CCDS transcript, "
             . "will not convert it to non-coding.\n";
         return 0;
       }
 
-      # May want to remove the translation and keep ensembl?
-      #
+      # If Ensembl model is not CCDS...
+      
       # First check if the internal structure of the whole
       # transcripts is conserved.
       if ( scalar(@hexons) > 1 ) {
         unless ( $self->check_internal_exon_structure( \@hexons, \@eexons ) )
         {
-          # CASE 0: The two transcripts have different internal exon
+          # CASE 1: The two transcripts have different internal exon
           #         structure we keep both
-          print "ENS CODING vs HAV NON-COSDING CASE 3 - "
+          print "ENS CODING vs HAV NON-CODING CASE 1 - "
               . "different internal exon structure, both selected\n";
           return 0;
         }
       }
+
       # Now we check if the coding bit is longer than the whole non
       # coding transcript.
 
-      # CASE 1: The ensembl transcript is longer or equal so we remove
-      #         the havana transcript. This is not true any more, we
-      #         keep the havana transcript regardless of length. Since the
-      #         ensembl model is deleted, there's no need to change its
-      #         biotype or remove its translation.
+      # CASE 2: The ensembl transcript is longer or equal but we still
+      #         discard the Ensembl model. We keep the havana transcript
+      #         regardless of length. Since the ensembl model is deleted, 
+      #         there's *no* need to turn it into a non-coding model by
+      #         changing its biotype or remove its translation.
+
       if ( $self->check_terminal_exon_structure( \@hexons, \@teexons ) ) {
-        print "ENS CODING vs HAV NON-COSDING CASE 4 - "
+        print "ENS CODING vs HAV NON-CODING CASE 2 - "
             . "removing ensembl model as it is equal or longer "
             . "than the Havana model but Havana models are prioritised.\n";
 
         #print "making ensembl model " . $ensembl->dbID . " to non-coding\n";
 
-        # Do we need to do this? NO!
-        #$ensembl->{translation} = undef;
-        #$ensembl->biotype($havana->biotype."_e");
         return $ensembl;
 
       } else {
-        # CASE 2: The havana transcripts is longer in both ends so we
-        #         remove the ensembl transcript. Again, there's no need to
-        #         change the biotype of the model or remove its translation.
 
-        print "ENS CODING vs HAV NON-COSDING CASE 5 - "
+      # CASE 3: The havana transcript is longer at both ends so we
+      #         remove the ensembl transcript. Again, there's no need to
+      #         change the biotype of the model or remove its translation.
+
+        print "ENS CODING vs HAV NON-CODING CASE 3 - "
             . "havana transcript is longer in both ends, "
             . "removing ensembl: " . $ensembl->dbID . "\n";
         #print "changing the biotype from: " $ensembl->biotype . " to " .  $havana->biotype . "_e\n";
 
-        #$ensembl->{_translation_array} = [];
-        #$ensembl->biotype($havana->biotype."_e");
         return $ensembl;
       }
     } ## end if ( $non_coding_e == ...
@@ -1768,6 +1770,12 @@ CLUSTER:
         #print "checking if trans " . $trans->dbID . " is CCDS\n";
         if ( $self->check_transcript_in_external_db('ccds', $trans) == 0 ) {
           print "Keeping ensembl transcript as it is CCDS " . $trans->dbID . "\n";
+          # TO_DO: 
+          # can add a flag here to keep track of the Ensembl transcript that needs to be saved
+          # The flagging system can be used later in the are_matched_pair method when Ensembl CCDS
+          # transcripts needs "protection" again.  Currently the are_matched_pair method checks
+          # against the CCDS DB to confirm the protection status of models.  Using the internal
+          # system should speed things up.
           next OVERLAP;
         }
       }
