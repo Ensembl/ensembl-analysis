@@ -92,6 +92,8 @@ use vars qw( %GeneBuilder );
   # This category covers genes and transcripts which are pseudogenic.
   # As a rule-of-thumb, any biotype containing the string "pseudogene" or
   # "retrotransposed" falls into this category.
+  # Ig pseudogenes are excluded here, just like how we exclude Ig genes/
+  # transcripts in coding category (I).
 
   ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'retrotransposed' ],
 
@@ -125,9 +127,9 @@ use vars qw( %GeneBuilder );
   ],
 
 
-  ##################
-  # OUTPUT BIOTYPES#
-  ##################
+  ###################
+  # OUTPUT BIOTYPES #
+  ###################
 
   # Here you select the suffix that you want to be added to the biotype of your 
   # output genes and transcripts.
@@ -147,7 +149,12 @@ use vars qw( %GeneBuilder );
   ENSEMBL_GENE_OUTPUT_BIOTYPE => '_Ens',
 
   # Output Biotype for merged transcripts
-  MERGED_TRANSCRIPT_OUTPUT_TYPE => '_m',
+  # Don't use "_m" as it matches "nonsense_mediated_decay" too, which means
+  # the HavanaAdder code will always consider an NMD transcript as merged!
+  # Choose a suffix which won't match any of your gene and transcript
+  # biotypes.
+  #
+  MERGED_TRANSCRIPT_OUTPUT_TYPE => '_mrgd',
 
 
   ###############
