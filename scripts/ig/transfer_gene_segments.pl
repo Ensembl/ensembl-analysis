@@ -8,7 +8,7 @@ transfer_ig_genes.pl
 This script transfers IG gene segments from a source ("query") DB to an output 
 ("target") DB. In the process, if the "query" gene segment overlaps at the exon
 level with a gene (of a specified biotype) in the target DB, the "query" gene will
-*overwrite" the "target" one. 
+*overwrite* the "target" one. 
 
 Note: the script expects the query DB to contain *no other gene types* except 
 Ig gene segments.
@@ -380,7 +380,8 @@ sub compare_new_genes_with_current_genes {
 
                 if ($sub_biotypes == 1){
                   if ($og->biotype =~/IG/){
-                    $g->biotype($og->biotype)
+                    $g->biotype($og->biotype);
+                    $t->biotype($ot->biotype);
                   }
                 }
                 $genes_to_remove{$og->dbID} = $og;
