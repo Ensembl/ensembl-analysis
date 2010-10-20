@@ -36,7 +36,10 @@
                      cooord_system_name:version 
 
   -stable_id         Flag for indicating that input file contains stable IDs and
-                     not gene IDs
+                     not gene IDs 
+
+  -file              read gene dbIDs out of a supplied file and only copy these genes 
+  
 
 =head1 EXAMPLE
 
