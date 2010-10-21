@@ -26,7 +26,7 @@
                      written to the output database to an analysis
                      with the specified logic_name
 
-  -remove_xrefs      Using this flag will remove stable IDs from
+  -remove_xrefs      Using this flag will remove xrefs from
                      genes/transcripts/translations
 
   -remove_stable_ids Using this flag will remove stable_ids from
@@ -261,9 +261,9 @@ my $si = 0 ;
 foreach my $gene (@genes) { 
   $si++; 
   my $old_stable_id = $gene->stable_id ; 
-  print "transforming $old_stable_id\n" if $verbose ; 
   $gene->load();#fully_load_Gene($gene);
   if ($transform_to) {
+    print "transforming $old_stable_id\n" if $verbose ; 
     my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
     $gene = $transformed_gene ;
   } 
