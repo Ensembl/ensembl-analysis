@@ -1828,7 +1828,9 @@ sub empty_Transcript{
     # It is naughty to go into the transcript & translation object
     # but we have no API method to do this:
     $transcript->{'dbentries'} = [];
-    $transcript->translation->{'dbentries'} = [];
+    if ($transcript->translation) {
+      $transcript->translation->{'dbentries'} = [];
+    }
   }
   empty_Object($transcript, $remove_stable_id);
   return $transcript;
