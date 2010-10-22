@@ -258,8 +258,12 @@ sub run_analysis {
     $command .= $self->options. ' 2>&1 > '.$results_file;
     
     print "Running blast ".$command."\n";
-    info("Running blast ".$command);
-     
+    info("Running blast ".$command); 
+
+    if ( ! -e $ENV{BLASTMAT} && ! -e $ENV{WUBLASTMAT}) {  
+      throw(" your environment variable \$BLASTMAT is not set !!! ". 
+            " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n") ;
+    } 
     open(my $fh, "$command |") || 
       throw("Error opening Blast cmd <$command>." .
             " Returned error $? BLAST EXIT: '" . 
