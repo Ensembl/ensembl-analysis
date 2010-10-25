@@ -2,6 +2,9 @@
 #Additional config for creating the input IDs for running Exonerate2Genes 
 #to align cDNA to genomic regions using the cDNA2Genome model and location 
 #information from the latest cDNA update db
+#Creates input IDs of a slice paired with an accession based on the input genes.
+#Based on input genes having a single piece of supporting evidence
+#IDs are written to the pipeline db
 #
 package Bio::EnsEMBL::Analysis::Config::GeneBuild::MakeCdna2GenomeRegionInputIDs;
 
@@ -14,14 +17,11 @@ use vars qw( %Config );
   CDNA2GENOME_REGION_CONFIG_BY_LOGIC => {
 
     #Specifies the extra config needed for making the input IDs
-    #Other details to be completed in Exonerate2Genes.pm
-    #i.e. location of annotation file, directories sequence files
-    #will be written to here and read from when running Exonerate
     DEFAULT => {
       PIPE_DB               => undef,# HASH-key out of Databases.pm
       GENE_DB               => undef,# HASH-key out of Databases.pm
       SUBMIT_LOGIC_NAME     => undef,#logic name supplied as condition for running exonerate and output for input IDs
-      EXPANSION             => 2000,
+      EXPANSION             => 2000,#expand slice around gene by this amount
       ANNOTATION            => undef,#path to annotation file
     },
 
