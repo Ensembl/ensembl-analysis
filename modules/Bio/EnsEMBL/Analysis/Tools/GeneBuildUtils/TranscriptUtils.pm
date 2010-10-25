@@ -1792,6 +1792,7 @@ sub fully_load_Transcript{
     $transcript->translation->get_all_Attributes;
     $transcript->translation->get_all_DBEntries if($keep_xrefs);
     $transcript->translation->get_all_ProteinFeatures;
+    $transcript->translation->get_all_SeqEdits;
   }
 
  EXON:foreach my $e(@{$transcript->get_all_Exons}){
@@ -1805,6 +1806,8 @@ sub fully_load_Transcript{
   $transcript->get_all_Attributes;
   $transcript->get_all_DBEntries if($keep_xrefs);
   $transcript->get_all_supporting_features;
+  $transcript->get_all_alternative_translations();
+  $transcript->get_all_SeqEdits();
 
   return $transcript;
 }

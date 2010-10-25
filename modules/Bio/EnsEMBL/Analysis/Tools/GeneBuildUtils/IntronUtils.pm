@@ -113,6 +113,11 @@ sub print_Intron{
 sub get_splice_sites{
   my ($intron) = @_;
   my $intron_slice = $intron->feature_Slice;
+  if (defined $intron_slice) {
+    print STDERR "Intron slice defined for intron with next exon id ".$intron->next_Exon->dbID." and pre exon id ".$intron->prev_Exon->dbID."\n";
+  } else {
+    print STDERR "Intron slice NOT defined for intron with next exon id ".$intron->next_Exon->dbID." and pre exon id ".$intron->prev_Exon->dbID."\n";
+  }
   my $donor_seq    = uc($intron_slice->subseq(1,2));
   my $acceptor_seq = uc($intron_slice->subseq($intron->length-1,$intron->length));
   return $donor_seq, $acceptor_seq;

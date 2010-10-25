@@ -533,6 +533,13 @@ sub fully_load_Gene{
   $gene->get_all_DBEntries if($keep_xrefs);
   $gene->get_all_Attributes;
   $gene->stable_id;
+
+  # and more!
+  $gene->canonical_transcript();
+  #$gene->canonical_annotation();
+  #$gene->get_all_alt_alleles();
+  # etc
+
   return $gene;
 }
 
