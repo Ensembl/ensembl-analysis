@@ -202,7 +202,7 @@ sub run_FASTA{
   while(<PROBES>){
     chomp;
 	
-    if(/$header_regex$/){
+    if(/$header_regex$/){#This places header values into @match_refs
 	  $cnt++;
 
       if($current_sequence){
@@ -243,9 +243,10 @@ sub run_FASTA{
 
 
 	  #Set probe attrs using field order config
-	  #Do not use map as this is slow
 	  foreach my $field(keys %field_order){
-		$probe_attrs{$field} = ${$match_refs[$field_order{$field}]};
+
+		#Skip empty string as we prefer NULLs in the DB
+		$probe_attrs{$field} = ${$match_refs[$field_order{$field}]} if(${$match_refs[$field_order{$field}]} ne '');
 	  }
 
 	  #Set current array chip
@@ -484,6 +485,7 @@ sub write_output {
   #Should this be on the Array level?
 
   foreach my $aname(keys %{$self->{'_array_names'}}){
+	print OUTFILE $aname."\n";
 	$self->{'_array_names'}->{$aname}->add_status('IMPORTED');
 	$self->{'_array_names'}->{$aname}->add_status('DISPLAYABLE');
 	$self->{'_array_names'}->{$aname}->add_status('MART_DISPLAYABLE');
