@@ -36,6 +36,8 @@ normal uppercase Ns or with softmasking
 
     -coord_system_name the name of the coordinate system you want to dump
 
+    -coord_system_version the version of the coordinate system you want to dump
+
     -output_dir the directory to dump the files too
 
     -toplevel to indicate you want to dump the top level seq regions
@@ -102,6 +104,7 @@ my $dbpass = '';
 my ($species, $filename, $multi_species);
 my $species_id = 1;
 my $coord_system_name;
+my $coord_system_version;
 my $output_dir;
 my $onefile;
 my $top_level;
@@ -123,6 +126,7 @@ my $help;
             'multi_species'  => \$multi_species,
             'species_id=i' => \$species_id,
             'coord_system_name:s' => \$coord_system_name,
+            'coord_system_version:s' => \$coord_system_version,
             'output_dir:s' => \$output_dir,
             'extension:s' => \$extension,
             'toplevel!' => \$top_level,
@@ -193,12 +197,12 @@ if($onefile || $filename){
                            );
 }
 
-
-
-
+# get slice adaptor
 my $sa = $db->get_SliceAdaptor;
-
-my $slices = $sa->fetch_all($coord_system_name, undef, $non_ref);
+# fetch slices where args are eg:
+# '('toplevel','GRCh37',1,undef,undef)
+# will toplevel chromosomes and the unique regions of haplotypes and Y but no LRG
+my $slices = $sa->fetch_all($coord_system_name, $coord_system_version, $non_ref, undef, undef);
 
 foreach my $slice(@$slices){
   my $seq;
@@ -210,11 +214,10 @@ foreach my $slice(@$slices){
   }
 
   my $seqout;
-  if($filename){
+  if ($filename) { 
     $seqout = $oneout;
-  }else{
-
-        my $filename = $output_dir."/".$slice->seq_region_name.".".$extension;
+  } else {
+    my $filename = $output_dir."/".$slice->seq_region_name.".".$extension;
     $seqout = Bio::SeqIO->new(
                               -file => ">".$filename,
                               -format => $format,
@@ -222,6 +225,3 @@ foreach my $slice(@$slices){
   }
   $seqout->write_seq($seq);
 }
-
-
-
