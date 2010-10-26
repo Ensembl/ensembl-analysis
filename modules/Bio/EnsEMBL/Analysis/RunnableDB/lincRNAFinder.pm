@@ -89,8 +89,8 @@ sub run {
   if ( $self->DEBUG_WRITE_CLUSTERED_GENES ) {
     $self->update_efg_and_cdna_db() ;  
   }
-  $self->write_output();  
 }
+
 
 
 sub update_efg_and_cdna_db { 
