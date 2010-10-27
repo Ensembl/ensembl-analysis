@@ -305,7 +305,7 @@ GENE:
           #  print "\$delete_trans = " . $delete_trans->dbID . "\n";
           #}
         }
-      } # TODO: Looping over ensemvl transcripts ends here but I
+      } # TODO: Looping over ensembl transcripts ends here but I
         # wonder if it should include the below if-statement too. See
         # LOOP below.
 
@@ -316,6 +316,7 @@ GENE:
 
         # We flag the transcript biotype to show that one of the
         # transcripts is a merged one.
+
         unless ( $t_pair[0]->biotype =~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE/ ) {
           $new_bt_0 = $t_pair[0]->biotype . $MERGED_TRANSCRIPT_OUTPUT_TYPE;
         }
@@ -1431,7 +1432,7 @@ sub check_merge_transcript_status {
         next TRANSCRIPT;
       } elsif (
               $tran->analysis->logic_name() eq $MERGED_TRANSCRIPT_LOGIC_NAME )
-      {
+      { 
         # In case of a merged transcript we want to distinguish the
         # ones that came from HAVANA that have same CDS but different
         # UTR structure as we want to remove them. This is important
@@ -1461,10 +1462,12 @@ sub check_merge_transcript_status {
 
       # Check if a transcript is in the discarded genes database
       # before adding it to the merging list.
-      if ( $self->check_transcript_in_external_db('discarded', $tran) != 0 ) {
+      if ( $self->check_transcript_in_external_db('discarded', $tran) == 0 ) {
+        print "Transcript present in discarded DB: ". $tran->stable_id. ". Parent gene: ". $gene->stable_id . ". Transcript not used in merge!\n";
+      } elsif ( $self->check_transcript_in_external_db('discarded', $tran) != 0 ) {
+        #print "Transcript is not in discarded DB: ". $tran->stable_id. "\n";
         #print "Transcript added\n";
         push( @transcripts, $tran );
-
       }
     } ## end foreach my $tran ( @{ $gene...
   } ## end foreach my $gene (@$genes)
@@ -1499,6 +1502,8 @@ EXT_GENE:
   EXT_TRANS:
     foreach my $ext_trans ( @{ $ext_gene->get_all_Transcripts } ) {
       my @ext_exons = @{ $ext_trans->get_all_Exons };
+      my @ext_t_exons = @{ $ext_trans->get_all_translateable_Exons };
+
       if ( $dbname =~ /discarded/ ) {
         if ( scalar(@exons) == scalar(@ext_exons) ) {
           #print "Number of exons: ",scalar(@exons),"\n";
@@ -1508,20 +1513,64 @@ EXT_GENE:
               || $exons[$i]->strand != $ext_exons[$i]->strand
               || $exons[$i]->seq_region_end != $ext_exons[$i]->seq_region_end )
             {
-              # If you enter here means that these two transcripts are
-              # not the same.
+              # If you enter here means that these two transcripts have
+              # the same number of exons but the exon coordinates are not
+              # identical. The tested transcript can be kept.
 
-              #print "transcript exon coordinates are different\n";
+              #print "Tested transcript ". $trans->stable_id . " and discarded model (dbID ". $ext_gene->dbID . ", biotype ".
+              #      $ext_gene->biotype . ") have the same number of exons (incl. UTRs) but exon boundaries differed.\n";
               next EXT_TRANS;
+            } 
+          }
+        } else {
+          # print "Tested transcript ". $trans->stable_id . " and discarded model (dbID ". $ext_gene->dbID . ", biotype ". 
+          #      $ext_gene->biotype . ") have different number of exons (incl. UTRs).\n";
+          next EXT_TRANS;
+        }
+    
+        # If you enter here, it means all exon boundaries matched 
+        # between the tested transcript and the "discarded" model
+        # (that's including UTRs).  
+        # Now checking if their coding structures are the same. 
+        # If yes, then the tested transcript is bad.
+ 
+        if ( scalar(@t_exons) == scalar(@ext_t_exons) ) {
+          for ( my $j = 0 ; $j < scalar(@t_exons) ; $j++ ) {
+            # print "Tested exon start: " . $t_exons[$j]->seq_region_start . " Discarded exon start: ". $ext_t_exons[$j]->seq_region_start."\n";
+            # print "Tested exon end: " . $t_exons[$j]->seq_region_end . " Discarded exon end: ". $ext_t_exons[$j]->seq_region_end."\n";
+ 
+            if ( $t_exons[$j]->seq_region_start != $ext_t_exons[$j]->seq_region_start
+                 || $t_exons[$j]->strand != $ext_t_exons[$j]->strand
+                 || $t_exons[$j]->seq_region_end != $ext_t_exons[$j]->seq_region_end ) 
+            {
+            # Overall exon-intron structure matched between tested
+            # and discarded model but the coding structures differed.
+            # Tested transcript can be kept. 
+            print "Tested transcript ". $trans->stable_id . " matched a discarded model at all exon ".
+                  "boundaries and they share the same number of coding exons, but coding exon coordinates ".
+                  "differed. Tested transcript is spared.\n";
+            next EXT_TRANS;
             }
           }
-          #print "transcript found in discarded db\n";
-          return 0;
+  
+          # If you enter here, it means the tested model matched
+          # the discarded model both in overall exon-intron structure
+          # as well as in the coding structure (taking UTRs into account).
+          # The tested model is definitely bad and will not be allowed
+          # to participate in the merge.
+                
+          print "Tested transcript ". $trans->stable_id . " matched model ". $ext_gene->dbID . " (biotype ". 
+                $ext_gene->biotype . ") in discarded DB!!!\n";
+          return 0;        
         } else {
-          #print "discarded db: number of exons is different\n";
-          next EXT_GENE;
+          print "Tested transcript ". $trans->stable_id . " and discarded model (dbID ". $ext_gene->dbID . ", biotype ".
+                $ext_gene->biotype . ") matched at all exon boundaries but differed in the number of coding exons. ".
+                "Tested transcript is spared.\n";
+          next EXT_TRANS;
         }
-      } else {
+      } # End of if ($dbname =~/discarded/). The "else" clause below is for CCDS DB
+         
+      else {
         #print "comparing ccds: " . $ext_trans->stable_id() . " vs trans: " .  $trans->dbID . " (" . $trans->stable_id() . ")\n";
         if (@t_exons) {
           #print "--->>> ccds exons: " . scalar(@ext_exons) . "\n";
@@ -1770,6 +1819,7 @@ CLUSTER:
         #print "checking if trans " . $trans->dbID . " is CCDS\n";
         if ( $self->check_transcript_in_external_db('ccds', $trans) == 0 ) {
           print "Keeping ensembl transcript as it is CCDS " . $trans->dbID . "\n";
+          
           # TO_DO: 
           # can add a flag here to keep track of the Ensembl transcript that needs to be saved
           # The flagging system can be used later in the are_matched_pair method when Ensembl CCDS
