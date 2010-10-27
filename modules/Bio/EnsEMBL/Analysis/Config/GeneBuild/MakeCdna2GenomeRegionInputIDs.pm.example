@@ -21,8 +21,20 @@ use vars qw( %Config );
       PIPE_DB               => undef,# HASH-key out of Databases.pm
       GENE_DB               => undef,# HASH-key out of Databases.pm
       SUBMIT_LOGIC_NAME     => undef,#logic name supplied as condition for running exonerate and output for input IDs
-      EXPANSION             => 2000,#expand slice around gene by this amount
+      EXPANSION             => 2000, #expand slice around gene by this amount
       ANNOTATION            => undef,#path to annotation file
+      #if specified will check that the accession's sequence can be found in the index
+      #if accession is not present in index, no input ID will be created
+      SEQFETCHER_OBJECT     => 'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+      SEQFETCHER_PARAMS     => {
+        -db => ['/path/to/dir/containing/index/'],
+      },
+      #can specify which genes to use by type and logic
+      #if both biotype and logic name are specified 
+      #genes need to match a biotype AND a logic name
+      #if not specified all genes will be used
+      GENE_BIOTYPES         => [''],
+      GENE_LOGIC_NAMES      => [''],
     },
 
     Create_submit_exonerate => {
