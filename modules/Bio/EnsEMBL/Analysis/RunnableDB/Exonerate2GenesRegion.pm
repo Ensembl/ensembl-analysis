@@ -77,7 +77,8 @@ sub new {
        $queryannotation,   $iidregexp,           $outdb,
        $filter,            $coverage_by_aligned, $options,
        $nonref_regions,    $program,             $seqfetcher_object,
-       $seqfetcher_params, $soft_masked_repeats ) =
+       $seqfetcher_params, $soft_masked_repeats, $use_kill_list,
+       $kill_type ) =
 
       rearrange( [ 'GENOMICSEQS',       'QUERYTYPE',
                    'QUERYSEQS',         'QUERYANNOTATION',
@@ -85,7 +86,8 @@ sub new {
                    'FILTER',            'COVERAGE_BY_ALIGNED',
                    'OPTIONS',           'NONREF_REGIONS',
                    'PROGRAM',           'SEQFETCHER_OBJECT',
-                   'SEQFETCHER_PARAMS', 'SOFT_MASKED_REPEATS'
+                   'SEQFETCHER_PARAMS', 'SOFT_MASKED_REPEATS',
+                   'USE_KILL_LIST',     'KILL_TYPE'  
                  ],
                  @args );
 
@@ -116,6 +118,8 @@ sub new {
   $self->SEQFETCHER_OBJECT($ph->{-seqfetcher_object})       if $ph->{-seqfetcher_object};
   $self->SEQFETCHER_PARAMS($ph->{-seqfetcher_params})       if $ph->{-seqfetcher_params};
   $self->SOFT_MASKED_REPEATS($ph->{-soft_masked_repeats})   if $ph->{-soft_masked_repeats};
+  $self->USE_KILL_LIST($ph->{-use_kill_list})               if $ph->{-use_kill_list};
+  $self->KILL_TYPE($ph->{-kill_type})                       if $ph->{-kill_type};
 
   #...which are over-ridden by constructor arguments.
   $self->GENOMICSEQS($genomicseqs);
@@ -132,39 +136,35 @@ sub new {
   $self->SEQFETCHER_OBJECT($seqfetcher_object);
   $self->SEQFETCHER_PARAMS($seqfetcher_params);
   $self->SOFT_MASKED_REPEATS($soft_masked_repeats);
+  $self->USE_KILL_LIST($use_kill_list);
+  $self->KILL_TYPE($kill_type);
 
   #Finally, analysis specific config
   #use uc as parse_config call above switches logic name to upper case
   $self->GENOMICSEQS(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{GENOMICSEQS});
-
   $self->QUERYTYPE(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{QUERYTYPE});
-
   $self->QUERYSEQS(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{QUERYSEQS});
-
   $self->QUERYANNOTATION(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{QUERYANNOTATION});
-
   $self->IIDREGEXP(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{IIDREGEXP});
-
   $self->OUTDB(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{OUTDB});
-
   $self->FILTER(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{FILTER});
-
   $self->COVERAGE_BY_ALIGNED(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{COVERAGE_BY_ALIGNED});
-
   $self->OPTIONS(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{OPTIONS});
-
   $self->NONREF_REGIONS(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{NONREF_REGIONS});
-
   $self->PROGRAM(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{PROGRAM});
-
   $self->SEQFETCHER_OBJECT(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{SEQFETCHER_OBJECT});
-
   $self->SEQFETCHER_PARAMS(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{SEQFETCHER_PARAMS});
-
   $self->SOFT_MASKED_REPEATS(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{SOFT_MASKED_REPEATS});
-
+  $self->USE_KILL_LIST(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{USE_KILL_LIST});
+  $self->KILL_TYPE(${$EXONERATE_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{KILL_TYPE});
 
   $self->read_and_check_config($EXONERATE_CONFIG_BY_LOGIC);
+
+  #NOTE: use of kill list is not currently implemented in this module
+  #the parameters are read from the config file but are not used
+  if($self->USE_KILL_LIST or $self->KILL_TYPE){
+    throw("Use of kill list not implemented in this module.\n");
+  } 
 
   return $self;
 }
@@ -217,6 +217,9 @@ sub fetch_input {
   else{
     my $seqfetcher = $self->seqfetcher;
     my $query_seq  = $seqfetcher->get_Seq_by_acc( $self->query_acc );
+    if(!$query_seq){
+      throw("No entry in sequence index for ".$self->query_acc."\n");
+    }
     $query_file    = create_file_name( "query_", "fa", $self->ANALYSIS_WORK_DIR );
 
     write_seqfile($query_seq, $query_file, 'fasta');
@@ -757,6 +760,34 @@ sub PROGRAM {
 
   if (exists($self->{'_CONFIG_PROGRAM'})) {
     return $self->{'_CONFIG_PROGRAM'};
+  } else {
+    return undef;
+  }
+}
+
+sub USE_KILL_LIST {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_USE_KILL_LIST'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_USE_KILL_LIST'})) {
+    return $self->{'_CONFIG_USE_KILL_LIST'};
+  } else {
+    return undef;
+  }
+}
+
+sub KILL_TYPE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_KILL_TYPE'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_KILL_TYPE'})) {
+    return $self->{'_CONFIG_KILL_TYPE'};
   } else {
     return undef;
   }
