@@ -46,8 +46,8 @@ sub run{
   #  - both sets of genes [ set1 + set 2 ] , a 'twoway-cluster' 
   #  - only one set of genes [ set1 ] OR set2, a 'oneway-cluster'  
   # 
-  #  2) unclustered genes : a cluster with only one gene, which does not clustere with anything 
-  #    - not even with other genees of it's own type. 
+  #  2) unclustered genes : a cluster with only one gene, which does not cluster with anything 
+  #    - not even with other genes of it's own type. 
   #     unclustered 'clusters' only contain ONE gene.   
   
   print "1a) 1st clustering of cdna_update-multi-exon-genes  vs protein_coding\n"; 
@@ -55,7 +55,7 @@ sub run{
   my ($step1_clusters, $step1_unclustered) = cluster_Genes( [@{$multi_exon_cdna_genes},@{$self->set_2_prot_genes}] , \%types_hash ) ;  
 
 
-  # I am lookign for cdna's which cluster with protein_coding genes - I only want the cdna's  
+  # I am looking for cdna's which cluster with protein_coding genes - I only want the cdna's  
   # find genes which cluster with protein_coding and cdna  
   
   my @cdna_gene_clusters_with_pc =  @{ get_twoway_clustering_genes_of_set($step1_clusters,"SET_1_CDNA") } ;
@@ -98,7 +98,7 @@ sub run{
   
   my %logicname_2_efgfeat = %{ separate_efg_features_by_logic_name ( \@unclustered_efg_genes ) } ; 
 
-  # get mult-and single exon cDNA unclustered ( does not cluster with protein_coding ) 
+  # get multi-and single exon cDNA unclustered ( does not cluster with protein_coding ) 
   my @unclustered_cdna_genes = ( 
                                  @{get_oneway_clustering_genes_of_set($step1_clusters,"SET_1_CDNA")},  
                                  @{get_oneway_clustering_genes_of_set($step1_unclustered,"SET_1_CDNA")},
@@ -167,8 +167,13 @@ sub run{
  
  
   my @genes_with_translations ;  
-  for my $rg( @{$self->result_set}  ) {   
-    my $new_gene = compute_6frame_translations($rg);  
+  RG: for my $rg( @{$self->result_set}  ) {   
+    my $new_gene = compute_6frame_translations($rg);
+    if (!defined $new_gene->get_all_Transcripts) {
+      print "Could not compute translation for cDNA: gene dbID ". $rg->dbID . " " . $rg->seq_region_name . " " . 
+             $rg->seq_region_start . " " . $rg->seq_region_end ."\n";
+      next RG;
+    }     
     push @genes_with_translations, $new_gene ; 
     print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for tgene \n"; 
   }
