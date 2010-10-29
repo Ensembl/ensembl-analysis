@@ -236,8 +236,18 @@ sub write_output{
     logger_info("Writing rejected genes\n"); 
     print "mutliple bt " . scalar(@{$self->single_runnable->ncrna_clusters_with_multiple_biotypes}) . " genes \n";
     print "protein dom " . scalar(@{$self->single_runnable->ncrna_clusters_with_protein_domain}) . " genes \n";
-    push @genes_to_write, @{$self->single_runnable->ncrna_clusters_with_multiple_biotypes}; 
-    push @genes_to_write, @{$self->single_runnable->ncrna_clusters_with_protein_domain};
+    my @tmp_genes =  @{$self->single_runnable->ncrna_clusters_with_multiple_biotypes};  
+    for (@tmp_genes ) {  
+      $_->biotype($_->biotype."_reject_mult"); 
+    } 
+    push @genes_to_write, @tmp_genes;  
+
+    @tmp_genes = @{$self->single_runnable->ncrna_clusters_with_protein_domain};
+    for (@tmp_genes ) {  
+      $_->biotype($_->biotype."_reject_single"); 
+    } 
+    push @genes_to_write, @tmp_genes;  
+
   }  
 
   logger_info("Have ".@genes_to_write." genes to write in total");  
