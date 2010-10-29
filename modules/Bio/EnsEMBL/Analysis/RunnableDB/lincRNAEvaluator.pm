@@ -203,8 +203,10 @@ sub run {
 sub write_output{
   my ($self) = @_; 
 
-  # update genes in the source db which cluster with processed_transcripts 
-  my @genes_to_update = @{ $self->single_runnable->genes_to_update} ;   
+  # update genes in the source db which cluster with processed_transcripts  
+
+  my @genes_to_update = @{ $self->single_runnable->genes_to_update} ;    
+
   print " have " .scalar(@genes_to_update ) . " genes_to_update \n" ;  
 
   if ( $self->PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB == 1  ) { 
@@ -214,7 +216,7 @@ sub write_output{
       # before we update the analysis we check if the analysis of gene processed_transcript
       # is 'havana' ..  
       
-      if ( $ug->analysis->logic_name =~m/$self->havana_old_analysis/ ) { 
+      if ( $ug->analysis->logic_name =~m/$self->HAVANA_LOGIC_NAME/ ) { 
           $ug->analysis($self->update_analysis); 
           $ga->update($ug);  
           print "updated gene " . $ug->dbID . "\n";  
