@@ -385,13 +385,13 @@ sub get_oneway_clustering_genes_of_set {
 =cut
 
 sub get_non_clustering_genes_of_set {
-   my ($cluster_ref,$target_set_name ) = @_ ;
+   my ($cluster_ref,$target_set_name ) = @_;
 
-   check_cluster_ref($cluster_ref) ;
+   check_cluster_ref($cluster_ref);
 
-   my @single_clustering_genes_of_specified_set
+   my @single_clustering_genes_of_specified_set;
 
-   for my $c ( @$cluster_ref ) {
+   for my $c ( @{$cluster_ref} ) {
      push @single_clustering_genes_of_specified_set, @{$c->get_Genes_by_Set($target_set_name)};
    }
    return \@single_clustering_genes_of_specified_set;
