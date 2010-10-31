@@ -110,18 +110,19 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster ;
 use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ; 
 @ISA=qw(Exporter);
 
-@EXPORT=qw( 
-            simple_cluster_Genes 
-            cluster_Genes 
-            cluster_Genes_without_strand 
-            cluster_Genes_by_coding_exon_overlap 
-            get_single_clusters 
-            get_twoway_clusters 
-            get_twoway_clustering_genes_of_set 
-            get_oneway_clustering_genes_of_set  
-            make_types_hash
-            make_types_hash_with_genes
-          ) ; 
+@EXPORT = qw(
+  simple_cluster_Genes
+  cluster_Genes
+  cluster_Genes_without_strand
+  cluster_Genes_by_coding_exon_overlap
+  get_single_clusters
+  get_twoway_clusters
+  get_twoway_clustering_genes_of_set
+  get_oneway_clustering_genes_of_set
+  make_types_hash
+  make_types_hash_with_genes
+  get_non_clustering_genes_of_set
+);
 
 
 
@@ -363,6 +364,38 @@ sub get_oneway_clustering_genes_of_set {
 } 
 
 
+=head2  get_non_clustering_genes_of_set
+
+   Arg[1]    : Array reference to Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects
+
+   Function  : All genes are returned which do not cluster with any other set, or overlap any other gene.
+
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Gene objects
+
+   Example   :
+
+             my ($clustered,$unclustered) = @{simple_cluster_Genes(\@projected_genes,"projected",\@transformed_genes,"transformed")};
+
+             my @genes = @{get_non_clustering_genes_of_set($unclustered,"transformed")};
+
+             for ( @genes )
+                 print "this gene is on-its-own and does not cluster with any other set\n" ;
+             }
+
+=cut
+
+sub get_non_clustering_genes_of_set {
+   my ($cluster_ref,$target_set_name ) = @_ ;
+
+   check_cluster_ref($cluster_ref) ;
+
+   my @single_clustering_genes_of_specified_set
+
+   for my $c ( @$cluster_ref ) {
+     push @single_clustering_genes_of_specified_set, @{$c->get_Genes_by_Set($target_set_name)};
+   }
+   return \@single_clustering_genes_of_specified_set;
+}
 
 
 
