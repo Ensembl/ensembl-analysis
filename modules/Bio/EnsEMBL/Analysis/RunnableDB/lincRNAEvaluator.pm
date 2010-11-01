@@ -196,13 +196,13 @@ sub run {
      push @output_clustered, @{$gb->output()} ;   
    }
    print " GB returned  " .@output_clustered . " genes in total\n" ;  
-   $self->genes_to_write( \@output_clustered );
+   $self->genes_to_write( \@output_clustered );  # The write_output method takes lincRNA genes from $self->genes_to_write
+   $self->output( \@output_clustered );  #  This is just to store the lincRNA genes so test_RunnableDB script can find them.
 }
 
 
 sub write_output{
   my ($self) = @_; 
-
   # update genes in the source db which cluster with processed_transcripts  
 
   my @genes_to_update = @{ $self->single_runnable->genes_to_update} ;    
@@ -215,8 +215,8 @@ sub write_output{
     for my $ug ( @genes_to_update ) {      
       # before we update the analysis we check if the analysis of gene processed_transcript
       # is 'havana' ..  
-      
-      if ( $ug->analysis->logic_name =~m/$self->HAVANA_LOGIC_NAME/ ) { 
+      my $hav_logic_name_to_match = $self->HAVANA_LOGIC_NAME;
+      if ( $ug->analysis->logic_name =~m/$hav_logic_name_to_match/ ) {
           $ug->analysis($self->update_analysis); 
           $ga->update($ug);  
           print "updated gene " . $ug->dbID . "\n";  
@@ -230,7 +230,7 @@ sub write_output{
 
   my $lincrna_ga = $self->output_db->get_GeneAdaptor;
 
-  my @genes_to_write = @{$self->genes_to_write}; 
+  my @genes_to_write = @{$self->genes_to_write};
 
   if ( $self->WRITE_REJECTED_NCRNAS == 1 ) {   
     logger_info("Writing rejected genes\n"); 
