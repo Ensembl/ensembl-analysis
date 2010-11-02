@@ -9,6 +9,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw(clone_Evidence);
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
@@ -432,13 +433,12 @@ sub add_ORF_to_transcript{
 
 =head2 compute_6frame_translations_for_transcript
 
-  Arg [1]   : Bio::EnsEMBL::Gene 
-  Function  : computes all possible 6-frame-translations for all transcripts of a gene 
-              and returns a new Bio::EnsEMBL::Gene object with one Transcript added for each unique
-              translation found; used to check if ncRNA's can be translated + contain protein_domains ...  
-  Returntype: Bio::EnsEMBL::Transcript 
-  Exceptions: Warns in unable to create translation
-  Example   : @transcripts  = @{ compute_6frame_translations($transcript) } ; 
+  Arg [1]   : Bio::EnsEMBL::Transcript 
+  Function  : computes all possible 6-frame-translations for a transcript 
+              and returns the reference to an array of new Bio::EnsEMBL::Transcript objects. 
+              The array contains one "new" transcript created for each unique translation (peptide) sequence
+  Returntype: An array of Bio::EnsEMBL::Transcript objects
+  Example   : @new_transcripts  = @{ compute_6frame_translations_for_transcript($transcript) } ; 
 
 =cut
 
@@ -446,16 +446,18 @@ sub add_ORF_to_transcript{
 
 sub compute_6frame_translations_for_transcript{
   my ($transcript) = @_;
-
   my @met_predictions = @{run_translate ($transcript, 1)};
   my @nomet_predictions = @{run_translate ($transcript)}; 
-
   my %translations; 
   foreach my $orf ( @met_predictions, @nomet_predictions ) {  
     my $nt = new Bio::EnsEMBL::Transcript( -EXONS => $transcript->get_all_Exons  ) ; 
     $nt->biotype($transcript->biotype);  
     $nt= add_ORF_to_transcript($orf,$nt);
     $translations{$nt->translate->seq} = $nt;  
+    foreach my $tsf(@{$transcript->get_all_supporting_features}) {
+      my $cloned_tsf = clone_Evidence($tsf);
+      $nt->add_supporting_features($cloned_tsf);
+    }
   }   
   return [values %translations] ;
 }
@@ -504,7 +506,7 @@ sub run_translate{
     my $orf_start = $1;
     my $orf_end   = $2;
     if ($orf_start>=$orf_end ) {  
-      # print "can't compute translation for this transcript as translation start >= translation end : $orf_start >= $orf_end \n " ;  
+      # print "can't compute translation for this transcript as translation start >= translation end : $orf_start >= $orf_end \n " ;
       next ORF  ; 
     } 
 
