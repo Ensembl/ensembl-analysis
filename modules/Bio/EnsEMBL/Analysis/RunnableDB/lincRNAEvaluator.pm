@@ -217,7 +217,8 @@ sub write_output{
       # is 'havana' ..  
       my $hav_logic_name_to_match = $self->HAVANA_LOGIC_NAME;
       if ( $ug->analysis->logic_name =~m/$hav_logic_name_to_match/ ) {
-          $ug->analysis($self->update_analysis); 
+          $ug->analysis($self->update_analysis);
+          $ug->biotype('proc_trans_turned_lincRNA'); 
           $ga->update($ug);  
           print "updated gene " . $ug->dbID . "\n";  
       }else {  
