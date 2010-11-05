@@ -2396,7 +2396,13 @@ sub update_biotypes {
     }
 
     foreach my $t_biotype ( keys %trans_types ) {
-      if ( $t_biotype =~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE/ ) {
+      # Be careful with merged transcript as they can have either $MERGED_TRANSCRIPT_OUTPUT_TYPE
+      # suffix or hard-coded "_ens_merged" suffix. The latter comes from special cases where an
+      # Ensembl coding gene overlaps with a Havana non-coding gene, and at least 10% of the longest 
+      # transcript of the Ensembl gene overlaps with the Havana one, we turn the Ensembl  
+      # coding gene into pseudogene, keep the longest Ensembl transcript, strip off the Ensembl
+      # transcript's translation and then add "_ens_merged" to transcript.
+      if ( $t_biotype =~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE/ || $t_biotype =~ /_ens_merged/ ) {
         $has_merged = 1;
       } elsif ( $t_biotype =~ /_hav/ ) {
         $has_havana = 1;
