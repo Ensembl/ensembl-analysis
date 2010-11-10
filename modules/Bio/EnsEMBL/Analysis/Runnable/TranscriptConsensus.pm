@@ -72,54 +72,69 @@ sub run {
   my ($self) = @_ ; 
   my $count =1;
   my $genes_by_strand;
-
-  my @allgenes = @{ $self->get_genes_by_evidence_set('simgw') }  ;
-  push @allgenes , @{ $self->get_genes_by_evidence_set('est') }  ;
+  #$VERBOSE = 1;
+  # first we want to cluster on protein coding genes only then cluster 
+  # them with ESTs afterwards
+  my @coding = @{ $self->get_genes_by_evidence_set('simgw') }  ;
+  my @non_coding = sort { $a->start <=> $b->start } @{ $self->get_genes_by_evidence_set('est') }  ;
   
-  if ($FILTER_SINGLETONS or   $FILTER_NON_CONSENSUS){
-    #@allgenes = @{$self->filter_genes(\@allgenes)};
-    my @tmp;
-    my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
-    foreach my $cluster(@$clusters, @$non_clusters){
-      my $genes = $cluster->get_Genes;
-      $genes = @{$self->filter_genes(@$genes)};
-      push(@tmp, $genes);
+  # cluster the coding genes first
+  my ($coding_clusters, $coding_non_clusters) = cluster_Genes(\@coding, $self->get_all_evidence_sets ) ;
+  push @$coding_clusters,@$coding_non_clusters if (scalar(@$coding_non_clusters) > 0 ) ;
+  foreach my $coding_cluster (  @{$coding_clusters} ) {
+    my @allgenes = @{$coding_cluster->get_Genes()};
+    # add overlapping non_coding genes
+    print "CLUSTER " . $coding_cluster->start . " " .  $coding_cluster->end ."\n" if $VERBOSE;
+    foreach my $ncgene ( @non_coding ) {
+      next if $ncgene->end < $coding_cluster->start;
+      next unless  $ncgene->strand == $coding_cluster->strand;
+      push @allgenes, $ncgene;
+      print "Adding EST " . 	$ncgene->start ." " .  $ncgene->end . " " . $ncgene->analysis->logic_name ."\n"if $VERBOSE;
+      last if $ncgene->start > $coding_cluster->end;
     }
-    @allgenes = @tmp;
-  }
-
-  my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
-  
-  # create a hash of genes by strand to use when looking for overlapping genes
-  # useful to look at ALL genes not just those in the cluster to prevent cluster joining
-  foreach my $gene (@allgenes){
-    push @{$genes_by_strand->{$gene->strand}}, $gene;
-  }
-
-  push @$clusters, @$non_clusters if (scalar(@$non_clusters) > 0 ) ;
-  my $found;
-  $count = 0;
-  foreach my $cluster (@$clusters){
-    my $simgw;
-    # cluster has to contain at least one similarity gene to be worth continuing with
-    my $genes = $cluster->get_Genes;
-    #foreach my $gene(@genes){
-     # my $new_gene = $gene->transform("toplevel");
-     # print Gene_info($new_gene)."\n"; #if($gene->start == 6633986 && $gene->end == 6649904);
-    #}
-    next unless @{ $cluster->get_Genes_by_Set('simgw') };
     
-    print "\nCluster $count\n" if $VERBOSE;
-    print $cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $VERBOSE;
-    $count++;
-    # collapse the cluster down to make a non redundat set of introns and exons with scores
-    my $collapsed_cluster = $self->collapse_cluster($cluster,$genes_by_strand);
-
-    # add UTR to the similarity transcripts and make scores for the transcripts
-    my $transcripts = $self->make_transcripts($cluster,$collapsed_cluster);
-
-    # sort the scored transcripts by score and make gene objects out of the best ones
-    $self->make_genes($transcripts,$cluster,$collapsed_cluster);
+    if ($FILTER_SINGLETONS or   $FILTER_NON_CONSENSUS){
+      #@allgenes = @{$self->filter_genes(\@allgenes)};
+      my @tmp;
+      my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
+      foreach my $cluster(@$clusters, @$non_clusters){
+	my $genes = $cluster->get_Genes;
+	$genes = @{$self->filter_genes(@$genes)};
+	push(@tmp, $genes);
+      }
+      @allgenes = @tmp;
+    }
+    
+    my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
+    
+    # create a hash of genes by strand to use when looking for overlapping genes
+    # useful to look at ALL genes not just those in the cluster to prevent cluster joining
+    foreach my $gene (@allgenes){
+      push @{$genes_by_strand->{$gene->strand}}, $gene;
+    }
+    
+    push @$clusters, @$non_clusters if (scalar(@$non_clusters) > 0 ) ;
+    my $found;
+    $count = 0;
+    foreach my $cluster (@$clusters){
+      my $simgw;
+      # cluster has to contain at least one similarity gene to be worth continuing with
+      my $genes = $cluster->get_Genes;
+      
+      next unless @{ $cluster->get_Genes_by_Set('simgw') };
+      
+      print "\nCluster $count\n" if $VERBOSE;
+      print $cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $VERBOSE;
+      $count++;
+      # collapse the cluster down to make a non redundat set of introns and exons with scores
+      my $collapsed_cluster = $self->collapse_cluster($cluster,$genes_by_strand);
+      
+      # add UTR to the similarity transcripts and make scores for the transcripts
+      my $transcripts = $self->make_transcripts($cluster,$collapsed_cluster);
+      
+      # sort the scored transcripts by score and make gene objects out of the best ones
+      $self->make_genes($transcripts,$cluster,$collapsed_cluster);
+    }
   }
 }
 
@@ -512,7 +527,7 @@ sub make_genes{
   $bottom_score-= 0.0001 if $bottom_score == 0;
 
   my $score_range = ($top_score - $bottom_score);
-
+  print "SCORE RANGE $top_score - $bottom_score =  $score_range\n";
   foreach my $gene (@genes){
     foreach my $transcript ( @{$gene->get_all_Transcripts}){
       # sort out exon phases - transfer them from the similarity gene
