@@ -663,7 +663,9 @@ sub get_coding_exon_clustering_from_gene_cluster {
 =head2 get_TranscriptCluster 
 
    Name      : $self->get_TranscriptCluster() 
-   Arg[0]    : Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster 
+   Arg[0]    : Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster
+   Arg[1]    : A boolean flag (0 or 1) indicating whether strandedness/transcript orientation
+               should be ignored when clusters are made.
    Function  : gets a GeneCluster and converts it by building a TranscriptCluster, than 
                clusters the exons of all Transcripts and returns an array-ref to 
                Bio::EnsEMBL::ExonCluster-objects 
@@ -674,7 +676,7 @@ sub get_coding_exon_clustering_from_gene_cluster {
 sub get_TranscriptCluster {
   my ($self, $ignore_strand) = @_;
   #my ($genes_or_predTrans) = @_;
-  my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new() ;
+  my $tc = Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster->new($ignore_strand) ;
   print "building new TranscriptCluster\n"  if $self->{v};
     
   foreach my $gene ( @{$self->get_Genes} ) { 
