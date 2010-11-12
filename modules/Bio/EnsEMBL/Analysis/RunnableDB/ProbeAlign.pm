@@ -1025,7 +1025,6 @@ sub set_probe_and_slice {
 	  
 	  if(!$real_probe){
 
-		warn "fetching probe $probe_id";
 		$real_probe = $probe_adaptor->fetch_by_dbID($probe_id);
       
 		if (!$real_probe){
