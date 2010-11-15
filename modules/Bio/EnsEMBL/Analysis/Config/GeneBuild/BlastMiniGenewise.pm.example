@@ -107,7 +107,7 @@ use vars qw( %Config );
             TargettedGenewise => { 
 
              PAF_LOGICNAMES => ['Best_Pmatch'],
-             OUTPUT_BIOTYPE => ' targetted',
+             OUTPUT_BIOTYPE => 'targetted',
              GENEWISE_PARAMETERS => { 
                                      # pass parameters go genewise here, i.e. -program =>"/usr/local/ensembl/bin/genewiseXXX"
                                      # for more options which can be passed see Runnable/Genewise.pm 
