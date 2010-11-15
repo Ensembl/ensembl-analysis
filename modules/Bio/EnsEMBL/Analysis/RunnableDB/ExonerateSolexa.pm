@@ -347,7 +347,7 @@ sub write_output {
     $outdb->disconnect_when_inactive(1);
     $fa = $outdb->get_CompressedDnaAlignFeatureAdaptor;
   } else {
-    if ( defined $self->OUT_DBS && scalar @{$self->OUT_DBS} > 0 ) { 
+    if ( defined $self->OUT_DBS ) { 
        
       # randomly pick an output db from an array of possible dbs
       my @dbs =  @{$self->OUT_DBS};
@@ -555,7 +555,7 @@ sub OUT_DBS {
     $self->{'_CONFIG_OUT_DBS'} = $value;
   }
   
-  if (exists($self->{'_CONFIG_OUT_DBS'})) {
+  if (exists($self->{'_CONFIG_OUT_DBS'}) and join(@{$self->{'_CONFIG_OUT_DBS'}}) ne '') {
     return $self->{'_CONFIG_OUT_DBS'};
   } else {
     return undef;
