@@ -10,6 +10,11 @@
  stable_ids and copies them between two databases. It can, if asked,
  split multi-transcript genes into single genes.
 
+ The source DB (from which you copy genes FROM) must contain DNA,
+ or else the script will throw.  If your source DB does not contain
+ DNA, then provide details of a DNA_DB using -dnauser, -dnahost,
+ -dnadbname etc options.
+
  When using the in and out_config_name options
  it reads the equivalent database from the
  Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases file.
@@ -153,7 +158,7 @@ if ( !$dnadbname ) {
   my $dna_count = $dna_sth->fetchrow;
 
   if ( !$dna_count ) {
-    croak( "\nYour database does not contain DNA. "
+    croak( "\nYour source database does not contain DNA. "
          . "Please provide a database with genomic sequences.\n");
   }
 } else {
