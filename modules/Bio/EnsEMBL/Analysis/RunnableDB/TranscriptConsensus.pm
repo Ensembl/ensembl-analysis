@@ -92,7 +92,7 @@ sub fetch_input{
     # have no configuration in TranscriptCoalescer.pm
     # Unless its the solexa db in the trascript consensus config
 
-    if ($SOLEXA && exists $$TRANSCRIPT_CONSENSUS_DB_CONFIG{$database_class}) {
+    if ( ( $SOLEXA == 1 ) && (exists $$TRANSCRIPT_CONSENSUS_DB_CONFIG{$database_class}) ) {
       my $dba = $self->get_connection($database_class,\%databases);
 
       # attach refdb as dnadb  
@@ -183,7 +183,7 @@ sub fetch_input{
         push @{$biotypes_to_genes{$biotype} } , @multi_exon_genes ; 
       }
     }
-  # 
+    # 
     # PREDICTION TRANSCRIPT PROCESSING 
     #
     # get all PredictionTranscripts by their logic_name 
@@ -198,8 +198,7 @@ sub fetch_input{
      # get ev-set 
      my $result_set_name  = $self->_get_evidence_set( $logic_name_becomes_biotype ) ; 
 
-     my $ab_initio_genes = convert_prediction_transcripts_to_genes(
-                            $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
+     my $ab_initio_genes = $self->convert_prediction_transcripts_to_genes( $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
 
      info ( scalar (@{$ab_initio_genes}) . "\t$logic_name_becomes_biotype-genes\n") ; 
 
