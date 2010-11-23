@@ -222,8 +222,7 @@ sub fetch_input{
      # get ev-set 
      my $result_set_name  = $self->_get_evidence_set( $logic_name_becomes_biotype ) ; 
 
-     my $ab_initio_genes = convert_prediction_transcripts_to_genes(
-                            $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
+     my $ab_initio_genes = $self->convert_prediction_transcripts_to_genes( $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
 
      info ( scalar (@{$ab_initio_genes}) . "\t$logic_name_becomes_biotype-genes\n") ; 
 
@@ -302,7 +301,7 @@ sub write_output{
 
 
 sub  convert_prediction_transcripts_to_genes {
-  my ($pt,$logic_name_becomes_biotype,$ev_set_name ) = @_ ; 
+  my ($self,$pt,$logic_name_becomes_biotype,$ev_set_name ) = @_ ; 
   my @new_genes ;  
   for my $pt (@$pt) { 
     # conversion 
