@@ -80,16 +80,16 @@ sub merge_config_details {
 
   # loop through all hrefs which are passed as input
 
-  foreach my $config_file ( @config_hashes ) {
+  foreach my $config_file ( @config_hashes ) { 
+    print "processing $config_file\n"; 
     my %file = %$config_file ;
-
     foreach my $db_class ( keys %file ) {
-
+      print "dbclass $db_class\n";  
       # process Exonerate2Genes.pm config (has section --> OUTDB)
 
       if ( exists ${$file{$db_class}}{OUTDB} ) {
 
-       if ( ref(${$file{$db_class}}{OUTDB}) !~m/HASH/) {
+       if ( ref(${$file{$db_class}}{OUTDB}) !~m/HASH/ && defined ${$file{$db_class}}{OUTDB}) { 
          # section in Exonerate2Genes is not a HREF which defines details for
          # database-connection - it's a hash-key pointing to Databases.pm
 
@@ -464,13 +464,15 @@ sub get_database_connection_parameters_by_string {
    my ($string) = @_ ;
 
 
+   
    require "Bio/EnsEMBL/Analysis/Config/Databases.pm" ;
    no strict ;
    Bio::EnsEMBL::Analysis::Config::Databases->import("DATABASES");
    Bio::EnsEMBL::Analysis::Config::Databases->import("DNA_DBNAME");
 
    unless ( ${$DATABASES}{$string} ) {
-     print "WARNING : Database parameters undefined - skipping \n" ;
+     print "WARNING : Database parameters undefined - skipping \n" ; 
+     print stack_trace_dump() ; 
      return undef ;
    }
 
