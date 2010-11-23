@@ -40,7 +40,6 @@ module is defined in Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGene
 package Bio::EnsEMBL::Analysis::RunnableDB::RefineSolexaGenes;
 
 use vars qw(@ISA);
-use Time::HiRes qw(gettimeofday) ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
@@ -56,7 +55,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
-$|=1;
+
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
@@ -71,9 +70,7 @@ sub new{
   $self->recursive_limit(10000);
   # initialise intron feature cash
   my %feature_hash;
-  $self->feature_cash(\%feature_hash); 
-
-
+  $self->feature_cash(\%feature_hash);
   return $self;
 }
 
@@ -87,15 +84,11 @@ sub new{
 =cut
 
 sub fetch_input {
-  my( $self) = @_; 
-
-   
-  $self->db->dnadb($self->get_dna_dbadaptor); 
-  $self->db->dnadb->disconnect_when_inactive(0); 
-
+  my( $self) = @_;
   my $logic = $self->analysis->logic_name;
   # fetch adaptors and store them for use later
   $self->intron_slice_adaptor($self->get_dbadaptor($self->INTRON_DB)->get_SliceAdaptor);
+  $self->small_intron_slice_adaptor($self->get_dbadaptor($self->SMALL_INTRON_DB)->get_SliceAdaptor) if $self->SMALL_INTRON_DB;
   $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
   $self->gene_slice_adaptor($self->get_dbadaptor($self->MODEL_DB)->get_SliceAdaptor);
 
@@ -124,25 +117,19 @@ sub fetch_input {
     );
   $self->chr_slice($chr_slice);
 
-  my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ; 
+  my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
   # put on chromosome coords
   foreach my $repeat ( @repeats ) {
     $repeat = $repeat->transfer($chr_slice);
   }
-  my @sorted_repeat_blocks = @{ $self->make_repeat_blocks(\@repeats)};  
-  @sorted_repeat_blocks = sort { $a->end <=> $b->end } @sorted_repeat_blocks; 
-  $self->repeats(\@sorted_repeat_blocks);  
+  $self->repeats($self->make_repeat_blocks(\@repeats));
 
-  # pre fetch all the intron features
-  $self->db->disconnect_when_inactive(1);
-  $self->dna_2_simple_features($slice->start,$slice->end);
-  $self->db->dnadb->disconnect_when_inactive(1);
   # we want to fetch and store all the rough transcripts at the beginning - speeds things up
   # also we want to take out tiny introns - merge them into longer structures
   my @prelim_genes;
   my @genes;
   if ( $self->MODEL_LN ) {
-    @genes = @{$gene_slice->get_all_Genes_by_type( $self->MODEL_LN, undef, 1  )};
+    @genes = @{$gene_slice->get_all_Genes_by_type( undef,$self->MODEL_LN )};
     print STDERR "Got " .  scalar(@genes) . " genes with logic name " . $self->MODEL_LN ."\n";
   } else {
     @genes = @{$gene_slice->get_all_Genes};
@@ -155,16 +142,13 @@ sub fetch_input {
   }
   # deterine strandedness ( including splitting merged genes )
   $self->prelim_genes(\@prelim_genes);
-  print "done fetching input\n"; 
+  # pre fetch all the intron features
+  $self->dna_2_simple_features($slice->start,$slice->end);
 }
 
 sub run {
   my ($self) = @_;
-  $self->db->dnadb->disconnect_when_inactive(0);
-  $self->db->disconnect_when_inactive(0);
   $self->refine_genes;
-  $self->db->disconnect_when_inactive(1);
-  $self->db->dnadb->disconnect_when_inactive(1);
 }
 
 =head2 refine_genes
@@ -179,14 +163,8 @@ sub run {
 =cut
 
 sub refine_genes {
-  my ($self) = @_; 
-
- print scalar(@{$self->prelim_genes} ) . " genes to process\n"; 
-
- my $jhvc = 0 ; 
- GENE:  foreach my $gene ( @{$self->prelim_genes} ) { 
-    $jhvc++;
-    print "processing $jhvc / " . scalar(@{$self->prelim_genes}) . " gene\n";
+  my ($self) = @_;
+ GENE:  foreach my $gene ( @{$self->prelim_genes} ) {
     my @models;
     my $single_exon = 0;
     # first run on the fwd strand then on the reverse
@@ -204,20 +182,28 @@ sub refine_genes {
       my %intron_exon;
       my $most_real_introns = 0;
       my $highest_score = 0;
-      print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n"; 
-      my $t1 = gettimeofday(); 
+      print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
       my @exons =  @{$self->merge_exons($gene,$strand)};
-      print "merge time: " . ( gettimeofday() - $t1 ) . "\n"; 
-      #foreach my $exon ( @exons ) {
-	#print STDERR "EXTRAEXON: " .  $exon->seq_region_name ." " .  ($exon->start +20) ." " .  ($exon->end -20)." " .  ( $exon->end - $exon->start -40)  ."\n" if $exon->{"_extra"} ;
-      #}
-      #foreach my $exon ( @{$self->extra_exons} ) {
-	#print STDERR "OTHEREXON: " .  $exon->seq_region_name ." " .  ($exon->start +20) ." " .  ($exon->end -20)." " .  ( $exon->end - $exon->start -40)  ."\n";
-      #}
+      foreach my $exon ( @exons ) {
+	print STDERR "EXTRAEXON: " . 
+	  $exon->seq_region_name ." " .
+	    ($exon->start +20) ." " .
+	      ($exon->end -20)." " .
+		( $exon->end - $exon->start -40)  ."\n"
+		  if $exon->{"_extra"} ;
+      }
+      if ( $self->extra_exons ) {
+	foreach my $exon ( @{$self->extra_exons} ) {
+	  print STDERR "OTHEREXON: " . 
+	    $exon->seq_region_name ." " .
+	      ($exon->start +20) ." " .
+		($exon->end -20)." " .
+		  ( $exon->end - $exon->start -40)  ."\n";
+	}
+      }
       my $exon_count = $#exons;
       my @fake_introns;
       my %known_exons; 
-      my $t2 = gettimeofday(); 
     EXON:   for ( my $i = 0 ; $i <= $exon_count ; $i ++ ) {
 	my $exon = clone_Exon($exons[$i]);
 	my $retained_intron;
@@ -225,7 +211,7 @@ sub refine_genes {
 	my $right_introns = 0;
 	$exon->{'left_mask'} = 0;
 	$exon->{'right_mask'} = $exon->length;
-#	print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
+	print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
 	# make intron features by collapsing the dna_align_features
 	my @introns = @{$self->fetch_intron_features($exon->seq_region_start,$exon->seq_region_end)};
 	my @left_c_introns;
@@ -234,26 +220,24 @@ sub refine_genes {
 	my @right_nc_introns;
 	my @filtered_introns;
 	my $intron_overlap;
-	my @retained_introns; 
+	my @retained_introns;
       INTRON: foreach my $intron ( @introns ){
 	  next unless $intron->strand == $strand;
 	  next unless $intron->length > $self->MIN_INTRON_SIZE;
 	  # disguard introns that splice over our exon
-	  if ( $intron->start< $exon->start && $intron->end > $exon->end ) { 
-            # intron 'overlaps' exon
+	  if ( $intron->start< $exon->start && $intron->end > $exon->end ) {
 	    $intron_overlap++;
 	    next;
 	  }
 	  # check to see if this exon contains a retained intron
-	  if (  $intron->start > $exon->start && $intron->end < $exon->end ) { 
-            # intron 'within' exon 
+	  if (  $intron->start > $exon->start && $intron->end < $exon->end ) {
 	    $retained_intron = 1;
 	    $exon->{'retained'} =1;
 	    push @retained_introns, $intron;
-	  } else { 
+	  } else {
 	    # we need to know how many consensus introns we have to the 
 	    # left and  right in order to determine whether to put in 
-	    # a non consensus intron
+	    # a non consensus intron
 	    if ( $intron->end <= $exon->end ) {
 	      if ( $intron->display_label =~ /non-consensus/ ) {
 		push @left_nc_introns, $intron if $intron->score > 1;
@@ -270,6 +254,7 @@ sub refine_genes {
 	    }
 	  }
 	}	
+	
 	# Restrict internal exons splice sites to most common
 	# that way our alt splices will all share the same boundaries
 	# but have different combinations of exons
@@ -341,9 +326,9 @@ sub refine_genes {
 	# entrances and exits to each exon before we look at whether its 
 	# retained or not
 	@retained_introns = sort { $b->start <=> $a->start } @retained_introns;
-	# push @filtered_introns, @retained_introns; 
+	# push @filtered_introns, @retained_introns;
       INTRON:  foreach my $intron ( @filtered_introns ) {
-	  #print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . " " . $intron->score . "\n";
+	  print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . " " . $intron->score . "\n";
 	  # becasue we make a new exons where we have a reatained intron to 
 	  # stop circular references we need to allow the final 
 	  # intron splicing out of the exon to be used more than once
@@ -366,8 +351,7 @@ sub refine_genes {
 	  my @new_exons;
 	  push @new_exons,  $exon  ;
 	  # sort first by start then by end where start is the same
-	  @retained_introns =  sort {$a->start <=> $b->start } @retained_introns; 
-
+	  @retained_introns =  sort {$a->start <=> $b->start } @retained_introns;
 	  for ( my $i = 0; $i < $#retained_introns ; $i++ ) {
 	    if ( $retained_introns[$i]->start ==  $retained_introns[$i+1]->start &&
 		 $retained_introns[$i]->end >  $retained_introns[$i+1]->end ) {
@@ -377,16 +361,11 @@ sub refine_genes {
 	      $retained_introns[$i+1] = $temp;
 	    }
 	  }
-	  # now lets deal with any retained introns we have 
-	print scalar(@retained_introns) . " retained introns\n";
-        my $cj = 0  ; 
+	  # now lets deal with any retained introns we have
 	RETAINED: foreach my $intron ( @retained_introns ) {
-            $cj++; 
-            print "intron $cj\n"; 
 	    # we dont need to make all new exons for each alternate splice
 	    # check the intron is still retained given the new exons
-	    my $retained = 1; 
-            print scalar(@new_exons) . " new exons\n" ; 
+	    my $retained = 1;
 	    foreach my $new_exon ( @new_exons ) {
 	      if  (  $intron->start > $new_exon->start && $intron->end < $new_exon->end ) {
 	      } else {
@@ -432,8 +411,7 @@ sub refine_genes {
 	      $known_exons{$new_exon1->start."-".$new_exon1->end."-".$new_exon1->strand} = 1;
 	      $known_exons{$new_exon2->start."-".$new_exon2->end."-".$new_exon2->strand} = 1;
 	    }
-	  } 
-          print "dealt. retained\n" ; 
+	  }
 	  if ( scalar (@new_exons > 1 ) ) {
 	    # we want to split the score equally across the new exons
 	    foreach my $e ( @new_exons ) {
@@ -451,8 +429,6 @@ sub refine_genes {
 	  }
 	}
       }
-      print "time intron: " . ( gettimeofday() - $t2 ) . "\n"; 
-      my $t3 = gettimeofday(); 
       
       next unless @exon_intron;
       # Loop around the path generation, 
@@ -484,19 +460,12 @@ sub refine_genes {
       }
       
       print STDERR "AFTER COLLAPSING  PATHS  = " . scalar( keys %$paths ) . "\n";
-      print "time t3: " . ( gettimeofday() - $t3 ) . "\n";   
-      my $t4 = gettimeofday(); 
-      print "making models\n"; 
       push @models, @{$self->make_models($paths,$strand, \@exons,$gene,\%intron_hash )};
       print STDERR "Now have " . scalar ( @models ) ." models \n";
-      print "time make_models : " . ( gettimeofday() - $t4 ) . "\n";  
-    } 
-    print "filtering models\n"; 
-    my $t5 = gettimeofday(); 
+    }
     $self->filter_models(\@models);
-    print "time filtering : " . ( gettimeofday() - $t5 ) . "\n";   
     
-    
+
     # process single exon models
     # if it has no introns on either strand
     if ( $self->SINGLE_EXON_MODEL && $single_exon == 2 ) {
@@ -514,11 +483,15 @@ sub refine_genes {
       my $rev_exon = clone_Exon($exon);
       my $fwd_t =  new Bio::EnsEMBL::Transcript(-EXONS => [$fwd_exon]);
       my $fwd_tran = compute_translation(clone_Transcript($fwd_t));
-      my $fwd_t_len = $fwd_tran->translation->genomic_end - $fwd_tran->translation->genomic_start;
+      my $fwd_t_len;
+      $fwd_t_len = $fwd_tran->translation->genomic_end - $fwd_tran->translation->genomic_start 
+	if $fwd_tran->translateable_seq;
       #print STDERR "FWD t length $fwd_t_len\n";
       my $rev_t =  new Bio::EnsEMBL::Transcript(-EXONS => [$rev_exon]);
       my $rev_tran = compute_translation(clone_Transcript($rev_t));
-      my $rev_t_len = $rev_tran->translation->genomic_end - $rev_tran->translation->genomic_start;
+      my $rev_t_len;
+      $rev_t_len = $rev_tran->translation->genomic_end - $rev_tran->translation->genomic_start
+	if $rev_tran->translateable_seq;;
       #print STDERR "REV t length $rev_t_len\n";
       if ( $fwd_tran->translateable_seq &&  
 	   ( $fwd_t_len / $fwd_tran->length )* 100 >= $self->SINGLE_EXON_CDS &&
@@ -694,8 +667,9 @@ sub filter_models {
     my $best_cds = 0;
     for (  my $g = 0; $g < scalar(@final_models) ; $g++ ) {
       my $gene = $final_models[$g];
-      my $transcript =  $gene->get_all_Transcripts->[0];
-      #print "$g - " . $transcript->{'_score'} ." tran length " .  ( $transcript->cdna_coding_end - $transcript->cdna_coding_start ) ."\n";
+        my $transcript =  $gene->get_all_Transcripts->[0];
+      print "$g - " . $transcript->{'_score'} ." tran length " .
+	( $transcript->cdna_coding_end - $transcript->cdna_coding_start ) ."\n";
       if ( $g == 0 ) {
 	# best scoring model 
 	if  ( $transcript->translateable_seq ) {
@@ -722,7 +696,6 @@ sub filter_models {
 	}
       } else {
 	unless ( $gene->biotype eq 'duplicate' ) {
-         #print "count $count - other " . $self->OTHER_NUM . "\n"; 
 	  push @{$self->output} , $gene if $count <= $self->OTHER_NUM ;
 	}
       }
@@ -1174,8 +1147,7 @@ sub model_cluster {
 =cut
 
 
-# lets us merge exons with tiny  introns between them  unless they contain an intron 
-
+# lets us merge exons with tiny  introns between them  unless they contain an intron
 sub merge_exons {
   my ( $self, $gene, $strand) = @_;
   my @exons;
@@ -1184,7 +1156,11 @@ sub merge_exons {
     push @exons, clone_Exon($exon);
   }
   my $ec = scalar(@exons) ;
-  push @exons, @{$self->extra_exons};
+  push my @tmp, @{$self->extra_exons} if $self->extra_exons;
+  foreach my  $e ( @tmp ) {
+    print $gene->stable_id . " " . $e->{"_model"} ."\n";
+    push @exons,$e if $e->{"_model"} eq $gene->stable_id;
+  }
   @exons =  sort { $a->start <=> $b->start } @exons;
   # want to get rid of any overlapping exons
   while  ( $ec != scalar(@exons) ) {
@@ -1212,20 +1188,18 @@ sub merge_exons {
     }
   }
 
-  print "processing exons " . scalar(@exons) . "\n";   
+  
 
-  #my $tx = gettimeofday();  
-
-  for ( my $i = 1 ; $i <= $#exons ; $i ++ ) { 
-    #print "exon $i / " . scalar(@exons) . "\n"; 
+  for ( my $i = 1 ; $i <= $#exons ; $i ++ ) {
     my $exon = $exons[$i];
     my $prev_exon = $exons[$i-1];
     my $intron_count = 0;
-    # is the intron tiny?     
-     # we know it lies across the boundary does it lie within the 2 exons?
+    # is the intron tiny?    
     my @introns = @{$self->fetch_intron_features($prev_exon->end,$exon->start)};
+    
+     # we know it lies across the boundary does it lie within the 2 exons?
     foreach my $intron ( @introns ) {
-  #    print "INTRON " . $intron->start . " " . $intron->end . " " , $intron->strand ." " , $intron->score ."\n";
+      print "INTRON " . $intron->start . " " . $intron->end . " " , $intron->strand ." " , $intron->score ."\n";
       # ignore non consensus introns at this point
       next if $intron->display_label =~ /non-consensus/ ;
       if (   $intron->start > $prev_exon->start &&
@@ -1234,61 +1208,33 @@ sub merge_exons {
 	$intron_count++;
       }
     }
-
     # is it covered by repeats?
     # remove very small introns if there is no direct evidence for them
     if ( $exon->start - $prev_exon->end <= 20  && $intron_count == 0)   {
       $exon->start($prev_exon->start);
       splice(@exons,$i-1,1);
-      $i--; 
-     #print "next\n"; 
+      $i--;
       next;
     }
     # dont merge long introns even if they are covered with repeats
     # next if $repeat_slice->length > 200 ;
     # dont merge introns if there is evidence for splicing
     next if $intron_count;
-    # is the intron covered by a repeat? 
-    #print "first part time x: " . ( gettimeofday() - $tx ) . "\n";   
-    #my $ty = gettimeofday();
- 
-    #my @repeats = @{$self->repeats}; 
-    
+    # is the intron covered by a repeat?
+    my @repeats = @{$self->repeats};
+
+
     my $repeat_coverage = 0;
-    # so the repeats are now non-overlapping blocks ( if there is more than one )  
-    my $repeats = $self->repeats; 
-    my $start_index = binary_search($repeats, $prev_exon->end);   
-    #print "start_index : $start_index\n"; 
-
-    #foreach my $repeat ( @repeats ) {  
-    REPEAT: for ( my $i = $start_index ; $i < @$repeats; $i++ ) { 
-      my $repeat = $$repeats[$i];         
-     # print "repeat : " . $repeat->start . " - " . $repeat->end . "\texon: ". $exon->start." - " . $exon->end . "\tprev_exon: " . $prev_exon->start . " - " . $prev_exon->end ."\t";  
-     # print "index : $start_index sid : " . $repeats[$start_index]->start . " i=$i ";  
-
-      if ( $repeat->start > $exon->start ) { 
-     #   print " in exon - last()\n"; 
-        last REPEAT;
-      }  
-
-      unless ( $repeat->start <= $exon->start && $repeat->end >= $prev_exon->end ) { 
-     #   print "no overlap \n" ; 
-        next REPEAT; 
-      } 
-     # print " overlap - adjusting " ; 
+    # so the repeats are now non-overlapping blocks ( if there is more than one )
+    foreach my $repeat ( @repeats ) {
+      next unless $repeat->start <= $exon->start && $repeat->end >= $prev_exon->end;
+      last if $repeat->start > $exon->start;
       $repeat->start($prev_exon->end) if  $repeat->start < $prev_exon->end;
       $repeat->end($exon->start) if $repeat->end > $exon->start;
-      $repeat_coverage+= $repeat->end - $repeat->start; 
-      #print "repeat_cov $repeat_coverage\n"; 
+      $repeat_coverage+= $repeat->end - $repeat->start;
     }
-    #print "time y : " . ( gettimeofday() - $ty ) . "\n";   
-
-
-    # the code below runs very quick 
-    #my $tz = gettimeofday(); 
     $repeat_coverage /= ($exon->start - $prev_exon->end ) ;
-    #print "repeat_cov adjusted : $repeat_coverage\n"; 
-     #print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
+     print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
     # splice the exons together where repeat coverage is > 99%
     if ($repeat_coverage >= 0.99   ) {
       print "MERGING EXONS Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
@@ -1300,58 +1246,10 @@ sub merge_exons {
       splice(@exons,$i-1,1);
       $i--;
     }
-    #print "time z : " . ( gettimeofday() - $tz ) . "\n";  
   }
-  #print "   SUM : " . ( gettimeofday() - $tx ) . "\n";  
+  
   return \@exons;
 }
-
-
-# finds the index of the first element in $array where $array_element->end > $start  
-
-=head2 binary_search  
-
-    Title        :   binary_search 
-    Usage        :   binary_search($array_ref, $end_point ) ; 
-    Returns      :   Index of the array element where $element->end < $end_point 
-
-=cut
-
-
-sub binary_search {
-    my ($array, $prev_exon_end) = @_; 
-
-    my $low = 0;
-    my $high = @$array - 1;
-    if ( scalar(@$array) == 0 ) {
-       return 0 ;
-    }
-    while ( $low <= $high ) {
-        my $try = int( ($low+$high) / 2 ); 
-
-        if ( $array->[$try]->end < $prev_exon_end ) { 
-           $low  = $try+1; 
-           next; 
-        } 
-        if ($array->[$try]->end > $prev_exon_end ) { 
-          $high = $try-1;  
-          next ; 
-        } 
-        # print "found : repeat->end " . $array->[$try]->end . " VS " . $prev_exon_end . " index = $try\n" ; 
-        return $try;
-    }
-    if ( $array->[$high]->end >= $prev_exon_end ) { 
-     # print "did not find anything where repeat_end > prev_exon_end ( $prev_exon_end ) - so it'll be the first element!\n"; 
-      $high = 0;
-    }
-    return $high;
-}
-
-
-
-
-
-
 
 =head2 dna_2_simple_features
     Title        :   dna_2_simple_features
@@ -1372,6 +1270,7 @@ sub dna_2_simple_features {
   my ($self,$start,$end) = @_;
   my @sfs;
   my %id_list;
+  my $rough_genes = $self->prelim_genes;
   my %exon_list;
   my $intron_slice = $self->intron_slice_adaptor->fetch_by_region
     ('toplevel',
@@ -1381,6 +1280,7 @@ sub dna_2_simple_features {
     );
   # featch all the dna_align_features for this slice by logic name
   my @reads;
+  my @extra_reads;
   print STDERR  "Fetching reads with logic names: ";
   foreach my $logic_name ( @{$self->LOGICNAME} ) {
     print STDERR "$logic_name ";
@@ -1391,8 +1291,27 @@ sub dna_2_simple_features {
   if (scalar( @{$self->LOGICNAME} ) == 0 ) {
     @reads =  @{$intron_slice->get_all_DnaAlignFeatures()}; 
   }
-  print STDERR "Got " . scalar(@reads) . " reads\n"; 
-
+  # look for extra introns from ESLA
+  if ( $self->SMALL_INTRON_DB ) {
+    my $small_intron_slice = $self->small_intron_slice_adaptor->fetch_by_region
+      ('toplevel',
+       $self->chr_slice->seq_region_name,
+       $start,
+       $end,
+      );  
+    print STDERR  "Fetching ESLA reads with logic names: ";
+    foreach my $logic_name ( @{$self->LOGICNAME} ) {
+      print STDERR "$logic_name ";
+      push @extra_reads, @{$small_intron_slice->get_all_DnaAlignFeatures($logic_name)}; 
+    }
+    print STDERR "\n";
+    # fetch them all if no logic name is Suplied
+    if (scalar( @{$self->LOGICNAME} ) == 0 ) {
+      push @extra_reads ,  @{$small_intron_slice->get_all_DnaAlignFeatures()}; 
+    }
+  }
+  print STDERR "Got " . scalar(@reads) . " reads\n";
+  print STDERR "Got " . scalar(@extra_reads) . " extra  reads\n";
   while ( scalar @reads > 0 ) {
     my $read = pop(@reads);
     my $type = 'consensus';
@@ -1412,22 +1331,66 @@ sub dna_2_simple_features {
 	  $ugfs[$i+1]->start . ":" . 
 	    $read->strand .":$type";
       $id_list{$unique_id} ++;
+    }
+  }
+  # process extra reads and assign them to rough models
+  while ( scalar @extra_reads > 0 ) {    
+    my $read = pop(@extra_reads);
+    my $type = 'consensus';
+    my $roughid;
+    $type = 'non-consensus' if ( $read->hseqname =~ /\:NC$/ ) ;
+    $read = $read->transfer($self->chr_slice);
+    # assign a rough model to the reads
+    my @ugfs = $read->ungapped_features;
+    @ugfs = sort { $a->start <=> $b->start } @ugfs;
+    next if ( scalar(@ugfs) == 0 ) ;
+    # first and or last ugf should overlap an exon
+  ROUGH:  foreach my $rough ( @$rough_genes ) {
+      foreach my $exon ( @{$rough->get_all_Exons} ) {
+	if( ( $exon->start <= $ugfs[0]->end &&  $exon->end >= $ugfs[0]->start ) or 
+	    ( $exon->start <= $ugfs[-1]->end &&  $exon->end >= $ugfs[-1]->start ) ) {
+	  #ONLY USE THIS READ WITH THIS MODEL
+	  $roughid = $rough->stable_id;
+	  last ROUGH;
+	}
+      }
+    }
+    unless ( $roughid ) {
+      print STDERR "Ignoring read " . $read->hseqname . " cannot pair it with a rough model\n";
+    }
+    for ( my $i = 0 ; $i < scalar(@ugfs) - 1 ; $i++ ) {
+      # one read can span several exons so make all the features 
+      # cache them by internal boundaries
+      # we use . to deliminate entries in our paths so dont allow them in the seq_region_name or it wont work
+      my $name = $read->seq_region_name;
+      $name =~ s/\./*/g;
+      my $unique_id = $name . ":" . 
+	$ugfs[$i]->end . ":" .
+	  $ugfs[$i+1]->start . ":" . 
+	    $read->strand .":$type";
+      $id_list{$unique_id} ++;
       if  ( $i > 0 && $i < scalar(@ugfs) - 1 ) {
 	# if the read splices into and out of an exon, store that exon in case it is not 
 	# found in the rough model but is an extra short exon determined by ExonerateSolexaLocalAlignment
 	# check that it is introns on both sides and not inserts, need to be bigger than the min intron length
 	next unless $ugfs[$i+1]->start - $ugfs[$i]->end > $self->MIN_INTRON_SIZE;
 	next unless $ugfs[$i]->start - $ugfs[$i-1]->end > $self->MIN_INTRON_SIZE;
+	# reject exons longer than 25 bp
+	#if (  $ugfs[$i]->end - $ugfs[$i]->start > 25 ) {
+	#  print STDERR "Extra exon rejected on length " .   $ugfs[$i]->end - $ugfs[$i]->start . "\n";
+	#  next;
+	#}
 	my $name = $read->seq_region_name;
 	$name =~ s/\./*/g;
 	my $unique_id = $name . ":" . 
 	  $ugfs[$i]->start . ":" .
 	    $ugfs[$i]->end . ":" . 
 	      $read->strand .":$type";
-	$exon_list{$unique_id} = $ugfs[$i];	
+	$exon_list{$roughid}{$unique_id} = $ugfs[$i];	
       }
     }
   }
+
   print STDERR "Got " . scalar( keys %id_list ) . " collapsed introns\n";
   print STDERR "Got " . scalar( keys %exon_list ) . " possibly novel exons\n";
 
@@ -1452,12 +1415,15 @@ sub dna_2_simple_features {
   print STDERR "Got " . scalar(@sfs) . " simple features\n";
   # make the exon features
   my @extra_exons;
-  foreach my $key ( keys %exon_list ) {
-    my $extra_exon = $self->make_exon($exon_list{$key});
-    $extra_exon->{"_extra"} = 1;
-    push @extra_exons, $extra_exon;
+  foreach my $rough ( keys %exon_list ) {
+    foreach my $key ( keys %{$exon_list{$rough}} ) {
+      my $extra_exon = $self->make_exon($exon_list{$rough}{$key});
+      $extra_exon->{"_extra"} = 1;
+      $extra_exon->{"_model"} = $rough;
+      push @extra_exons, $extra_exon;
+    }
   }
-    print STDERR "Got " . scalar(@extra_exons) . " extra exons\n";
+  print STDERR "Got " . scalar(@extra_exons) . " extra exons\n";
   # make the exon features
   $self->extra_exons(\@extra_exons);
   return;
@@ -1479,14 +1445,13 @@ sub fetch_intron_features {
   my ($self,$start,$end) = @_;
   my @chosen_sf;
   my @filtered_introns;
-  my @sfs =  @{$self->intron_features}; 
+  my @sfs =  @{$self->intron_features};
   # sfs is a sorted array
-  
   foreach my $intron ( @sfs ) {
     next unless $intron->start <= $end && $intron->end >= $start;
     last if $intron->start > $end;
     push @chosen_sf, $intron;
-  } 
+  }
   INTRON: foreach my $intron ( @chosen_sf) {
     if ($intron->display_label =~ /non-consensus/ ) {
       # check it has no overlap with any consensus introns
@@ -1502,7 +1467,7 @@ sub fetch_intron_features {
     } else {
       push @filtered_introns, $intron;
     }
-  } 
+  }
   return \@filtered_introns;
 }
 
@@ -1624,6 +1589,16 @@ sub intron_slice_adaptor {
   return $self->{_isa};
 }
 
+sub small_intron_slice_adaptor {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_sisa} = $val;
+  }
+
+  return $self->{_sisa};
+}
+
 sub feature_cash {
   my ($self, $val) = @_;
 
@@ -1698,6 +1673,20 @@ sub INTRON_DB {
   
   if (exists($self->{'_CONFIG_INTRON_DB'})) {
     return $self->{'_CONFIG_INTRON_DB'};
+  } else {
+    return undef;
+  }
+}
+
+sub SMALL_INTRON_DB {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_SMALL_INTRON_DB'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_SMALL_INTRON_DB'})) {
+    return $self->{'_CONFIG_SMALL_INTRON_DB'};
   } else {
     return undef;
   }
@@ -1795,10 +1784,7 @@ sub BEST_SCORE {
 sub OTHER_NUM {
   my ($self,$value) = @_;
 
-  if (defined $value) { 
-    if ( length($value) == 0 && $value eq "") {  
-       $value = 10000000000; 
-    } 
+  if (defined $value) {
     $self->{'_CONFIG_OTHER_NUM'} = $value;
   }
   
