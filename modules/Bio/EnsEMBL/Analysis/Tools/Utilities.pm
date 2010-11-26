@@ -81,10 +81,8 @@ sub merge_config_details {
   # loop through all hrefs which are passed as input
 
   foreach my $config_file ( @config_hashes ) { 
-    print "processing $config_file\n"; 
     my %file = %$config_file ;
     foreach my $db_class ( keys %file ) {
-      print "dbclass $db_class\n";  
       # process Exonerate2Genes.pm config (has section --> OUTDB)
 
       if ( exists ${$file{$db_class}}{OUTDB} ) {
