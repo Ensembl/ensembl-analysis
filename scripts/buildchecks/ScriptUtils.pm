@@ -58,7 +58,9 @@ sub get_chrlengths_v20 {
       if ($slice->coord_system->version eq $type) {
         $chrhash{$slice->seq_region_name} = $slice->length;
       } else {
-        print STDERR "WARNING: " . $slice->seq_region_name . " " . $slice->length . " " . $slice->coord_system->version . " NOT on requested assembly version but is toplevel\n";
+        print STDERR "WARNING: " . $slice->seq_region_name . " " .
+        $slice->length . " " . $slice->coord_system->version
+        . " is NOT on requested assembly version but is toplevel, will skip it!\n";
       }
     }
   }
