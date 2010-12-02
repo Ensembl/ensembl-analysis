@@ -1,4 +1,4 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/local/ensembl/bin/perl
 
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 
@@ -85,6 +85,7 @@ directory or alternatively put this directory in your PERL5LIB
 =cut
 
 use strict;
+use warnings;
 use Getopt::Long;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -170,7 +171,7 @@ my $coordsystem = 'chromosome';
 my $help;
 my @genetypes;
 
-&GetOptions(
+GetOptions(
             'dbhost|host:s'    => \$host,
             'dbuser|user:s'    => \$user,
             'dbpass|pass:s'    => \$pass,
@@ -238,6 +239,12 @@ if($gene_database_name){
 }
 
 my $sa = $db->get_SliceAdaptor();
+my $csa = $db->get_CoordSystemAdaptor();
+
+if (!defined($path)) {
+  $path = $csa->fetch_by_name($coordsystem);
+}
+
 
 #Not practical to do any other way
 if ($exon_dup_check) {
@@ -265,10 +272,6 @@ my $total_transcripts_with_errors = 0;
 my $total_genes_with_errors = 0;
 my $total_genes = 0;
 my $total_transcripts = 0;
-
-if (!defined($path)) {
-  $path = $db->assembly_type;
-}
 
 # Begin testing genes
 foreach my $chr (@{sort_chr_names($chrhash)}) {
