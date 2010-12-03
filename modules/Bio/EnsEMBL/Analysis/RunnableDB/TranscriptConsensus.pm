@@ -506,6 +506,14 @@ sub SOLEXA_SCORE_CUTOFF {
   return $self->{'SOLEXA_SCORE_CUTOFF'} ;
 }
 
+sub SOLEXA_DB {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SOLEXA_DB'} = $arg ;
+  }
+  return $self->{'SOLEXA_DB'} ;
+}
+
 
 
 1;
