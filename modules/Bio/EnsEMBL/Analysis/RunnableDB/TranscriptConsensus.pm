@@ -31,23 +31,47 @@ package Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus;
 
 use strict;
 use warnings;
-use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes; 
-use Bio::EnsEMBL::Analysis::Config::Databases;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer;
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
-use Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
+
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw ( merge_config_details get_evidence_set convert_prediction_transcripts_to_genes ) ;
+
 use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
+
+
+
+
+=head2 new
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
+  Function  : instatiates a TranscriptConsensus object and reads and checks the config
+  file
+  Returntype: Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
+  Exceptions: 
+  Example   : 
+
+=cut
+
+
+sub new {
+  my ($class,@args) = @_ ;
+  my $self = $class->SUPER::new(@args) ;
+  $self->read_and_check_config($TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC) ;
+
+  return $self ;
+  print STDERR " TC-db : new runnable created\n" ;
+}
 
 
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
   Function  : fetch input (gene-objects) out of different databases specified
-              in the TranscriptCoalescer config.
+              in the TranscriptConsensus config.
   Returntype: 1
   Exceptions: none
   Example   : 
@@ -56,64 +80,49 @@ use vars qw(@ISA);
 
 
 
-sub fetch_input{
-  my ($self) = @_;
+sub fetch_input {
+  my ($self) = @_ ;
 
-  $self->throw("No input id") unless defined($self->input_id);
+  $self->throw("No input id") unless defined($self->input_id) ;
 
-  my $slice = $self->fetch_sequence($self->input_id, $self->db );
-  my $solexa_slice;
-  my (%est_genes, %simgw_genes, %pred_transcripts )  ;  
+  my $slice = $self->fetch_sequence($self->input_id, $self->db ) ;
+  my $solexa_slice ;
 
   $self->query($slice);
-
-
-  # the config for TranscriptCoalescer.pm is distributed over 3 files 
-  #    
-  # - Databases.pm 
-  # - Exonerate2Genes.pm
-  # - TranscriptCoalescer.pm 
-  #
-  # we merge the configs such that we have all in one hash $database 
-  #
+  $self->{evidence_sets} = {
+           'est'      => $self->EST_SETS,
+           'simgw'    => $self->SIMGW_SETS,
+           'abinitio' => $self->ABINITIO_SETS,
+  };
   
-  my %databases = %{$self->merge_config_details( $DATABASES, $EXONERATE_CONFIG_BY_LOGIC, $TRANSCRIPT_COALESCER_DB_CONFIG)} ;   
+  my %databases = %{$self->INPUT_GENES} ;
 
   # check if every biotype/logic_name belongs to an EVIDENCE set
-  _check_config(\%databases, $TRANSCRIPT_COALESCER_DB_CONFIG, $self->{evidence_sets} ) ; 
+  $self->_check_config() ; 
  
-  # now looping through all keys of %databases definend in the (merged) configs 
+  # now looping through all keys of %databases defined in the config 
 
   my %biotypes_to_genes ; 
-  
-  for my $database_class (keys %databases ) { 
-  
-    # skip all databases out of Exonerate2Genes.pm & Databases.pm which
-    # have no configuration in TranscriptCoalescer.pm
-    # Unless its the solexa db in the trascript consensus config
+  for my $db (keys %databases) {
 
-    if ( ( $SOLEXA == 1 ) && (exists $$TRANSCRIPT_CONSENSUS_DB_CONFIG{$database_class}) ) {
-      my $dba = $self->get_connection($database_class,\%databases);
+    # Slice is different if it is a solexa database
 
-      # attach refdb as dnadb  
+    if ( ( $self->SOLEXA == 1 ) && (exists $databases{$db}) ) {
+      my $dba = $self->get_dbadaptor($db) ;
       $dba->dnadb($self->db) ; 
       $solexa_slice = $self->fetch_sequence($self->input_id, $dba );
      }
 
-    next unless (exists $$TRANSCRIPT_COALESCER_DB_CONFIG{$database_class}) ;  
+    next unless (exists $databases{$db}) ;  
 
-
-    my $dba = $self->get_connection($database_class,\%databases);
-    # attach refdb as dnadb  
+    my $dba = $self->get_dbadaptor($db) ;
     $dba->dnadb($self->db) ; 
-    
     my $slice = $self->fetch_sequence($self->input_id, $dba );
-    # 
+
     # organise genes into "EVIDENCE_SETS" depending on their underlying source 
-    # these sets are specified in the config file TranscriptCoalescer.pm 
-    #
-    #   
-    for my $biotype ( @{$databases{$database_class}{BIOTYPES} }) {
+    # these sets are specified in the config file TranscriptConsensus.pm 
+
+    for my $biotype ( @{$databases{$db} }) {
       my $genes = $slice->get_all_Genes_by_type($biotype) ; 
       # lazy load 
       foreach my $gene (@$genes){
@@ -127,15 +136,7 @@ sub fetch_input{
 	  $exon->get_all_supporting_features;
 	}
       }
-      my ( $set ) = $self->_get_evidence_set ( $biotype ) ;
-
-      my $db_used = "${$databases{$database_class}}{db}{-dbname}\@".
-        "${$databases{$database_class}}{db}{-host}::".
-          "${$databases{$database_class}}{db}{-port}"; 
-      info( "$db_used :" ); 
-      info(scalar (@{$genes}) . "\t$biotype-genes fetched \n") ;
-
-
+      my ( $set ) = $self->get_evidence_set ( $biotype ) ;
 
       if (scalar( @{$genes} ) > 0 ) { 
         # store genes of specific biotype in hash which holds them in an array 
@@ -163,7 +164,6 @@ sub fetch_input{
               $e->biotype($g->biotype) ;
               $e->ev_set($set) ;
               $e->transcript($t) ; 
-
               $e->analysis($g->analysis) ; 
 
               # setting pointer to previous exon
@@ -183,54 +183,82 @@ sub fetch_input{
         push @{$biotypes_to_genes{$biotype} } , @multi_exon_genes ; 
       }
     }
-    # 
+
     # PREDICTION TRANSCRIPT PROCESSING 
     #
     # get all PredictionTranscripts by their logic_name 
     # these transcripts are converted to Genes with biotype eq logicname of analysis 
-    #  
 
-    for my $logic_name_becomes_biotype ( @{$databases{$database_class}{AB_INITIO_LOGICNAMES} }) { 
+    for my $logic_name_becomes_biotype ( @{ $self->AB_INITIO_LOGICNAMES }) { 
 
      # get all PredictionTranscripts and convert them to Genes, set biotype to logic_name  
      my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype ) ;  
      
      # get ev-set 
-     my $result_set_name  = $self->_get_evidence_set( $logic_name_becomes_biotype ) ; 
-
+     my $result_set_name  = $self->get_evidence_set( $logic_name_becomes_biotype ) ; 
      my $ab_initio_genes = $self->convert_prediction_transcripts_to_genes( $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
-
      info ( scalar (@{$ab_initio_genes}) . "\t$logic_name_becomes_biotype-genes\n") ; 
-
      if ( scalar(@$ab_initio_genes)>0){ 
        push @{$biotypes_to_genes{$logic_name_becomes_biotype} } , @{$ab_initio_genes} ;
      }
    }
   } 
-  
+
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->new
     (
-     -query    => $self->query,
-     -solexa   => $solexa_slice,
-     -analysis => $self->analysis,
-     -all_genes   => \%biotypes_to_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
-     -evidence_sets   => $self->{evidence_sets} , 
-     -dnadb => $self->db , 
-     -utils_verbosity => $self->{utils_verbosity}, 
+     -query                => $self->query,
+     -solexa               => $solexa_slice,
+     -analysis             => $self->analysis,
+     -all_genes            => \%biotypes_to_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
+     -evidence_sets        => $self->{evidence_sets} , 
+     -verbose              => $self->VERBOSE,
+     -filter_singletons    => $self->FILTER_SINGLETONS,
+     -filter_non_consensus => $self->FILTER_NON_CONSENSUS,
+     -filter_ests          => $self->FILTER_ESTS,
+     -add_utr              => $self->ADD_UTR,
+     -min_consensus        => $self->MIN_CONSENSUS,
+     -utr_penalty          => $self->UTR_PENALTY,
+     -end_exon_penalty     => $self->END_EXON_PENALTY,
+     -est_overlap_penalty  => $self->EST_OVERLAP_PENALTY,
+     -short_intron_penalty => $self->SHORT_INTRON_PENALTY,
+     -short_exon_penalty   => $self->SHORT_EXON_PENALTY,
+     -good_percent         => $self->GOOD_PERCENT,
+     -good_biotype         => $self->GOOD_BIOTYPE,
+     -small_biotype        => $self->SMALL_BIOTYPE,
+     -bad_biotype          => $self->BAD_BIOTYPE,
+     -solexa_bin           => $self->SOLEXA,
     );
-  $runnable->solexa_slice($solexa_slice) if ($SOLEXA && $solexa_slice);
+  $runnable->solexa_slice($solexa_slice) if ($self->SOLEXA && $solexa_slice);
   $self->runnable($runnable);
-
-
 
   return 1;
 }
 
 
+sub write_output {
+  my ($self) = @_;
+  my $out_dba = $self->get_dbadaptor($self->OUTPUT_DATABASE) ;
+  my $gene_a = $out_dba->get_GeneAdaptor() ; 
+  info ("trying to write output") ;  
+
+  foreach my $gene (@{$self->output}) {
+    info("STORED GENE $gene" ) ;
+    eval {
+      $gene_a->store($gene) ;
+    } ;
+    if($@) {
+      warning("Failed to write gene ". $@) ;
+    }
+  }  
+  return ;
+}
+
+
+
 
 =head2  _check_config
 
-   Arg[0] : Hash-reference to $TRANSCRIPT_COALESCER_DB_CONFIG-Hash out of TranscriptCoalescer.pm 
+   Arg[0] : Hash-reference to $TRANSCRIPT_CONSENSUS_BY_LOGIC - Hash out of TranscriptConsensus.pm 
    Arg[1] : href with evidence sets 
    Func   : Checks if every logic_name / biotype of gene belongs to an
          Evidence set 
@@ -238,32 +266,20 @@ sub fetch_input{
  
 =cut  
 
-sub _check_config{ 
-  my ( $databases, $TRANSCRIPT_COALESCER_DB_CONFIG, $ev_sets) = @_ ; 
-
-  # check TranscriptCoalescer.pm:  
-  for my $db_class (keys %{$TRANSCRIPT_COALESCER_DB_CONFIG}) { 
-    # check that each db_class (like REFERENCE_DB ...) in TranscriptCoalescer.pm has 
-    # also a database in Databases.pm / Exonerate2Genes.pm 
-    throw ( "\n\tConfig-Error: There is configuration for \"$db_class\" in Analysis/Config/GeneBuild/TranscriptCoalescer.pm " .
-     "but no Database defined in Exonerate2Genes.pm or Databases.pm") 
-     unless exists $$databases{$db_class} ; 
-  }
-
+sub _check_config { 
+  my ( $self ) = @_ ; 
+  my $ev_sets = $self->{evidence_sets} ;
 
   # check that every biotype / logic_name in TranscriptCoalescer.pm 
   # belongs to an ev-set 
-  
   my %database_definition ; 
-  for my $db_class (keys %{$TRANSCRIPT_COALESCER_DB_CONFIG}) {
-    for my $key ( keys %{ $$TRANSCRIPT_COALESCER_DB_CONFIG{$db_class} } ) { 
-       map $database_definition{$_}=(),@{ ${$$TRANSCRIPT_COALESCER_DB_CONFIG{$db_class}}{$key}};  
-    }
+  for my $db_class (keys %{$self->INPUT_GENES}) {
+    map $database_definition{$_}=(),@{${$self->INPUT_GENES}{$db_class}} ;
   }
    
   my %ev_set_definitions; 
 
-  for my $set_name (keys %{ $ev_sets} ) { 
+  for my $set_name (keys %{ $ev_sets } ) { 
     map $ev_set_definitions{$_}=(), @{$$ev_sets{$set_name}} ; 
   }
 
@@ -280,25 +296,216 @@ sub _check_config{
   } 
 
   # check if every ev-set has an entry in the db-section as well 
-  #
   
   for my $ln ( keys %database_definition) { 
     throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptCoalescer.pm\n". 
            "\tType $ln has an entry in a database-section but there's NO evidence-set defined in Config TranscriptCoalescer.pm for this type : $ln \n" )
             unless ( exists $ev_set_definitions{$ln} ) ; 
-     
   } 
   return 1 ;
 }
 
 
-sub get_connection {
-  my ($self,$database_class,$d) = @_;
-  my %databases = %$d;
-#  print "Connection  " . $database_class ."\n";
-  unless ( $self->{_db_conn}{$database_class} ) {
-    $self->{_db_conn}{$database_class} = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ ${$databases{$database_class}}{db}} ) ; 
+
+=head2 CONFIG_ACCESSOR_METHODS
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
+  Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
+  Function  : Getter/Setter for config variables
+  Returntype: again varies
+  Exceptions: 
+  Example   : 
+
+=cut
+
+#Note the function of these variables is better described in the
+#config file itself Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus
+
+
+sub INPUT_GENES {
+  my ($self, $arg) = @_ ;
+  if (defined $arg) {
+    $self->{'INPUT_GENES'} = $arg ;
   }
-  return $self->{_db_conn}{$database_class};
+  return $self->{'INPUT_GENES'} ;
 }
+
+sub ABINITIO_SETS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'ABINITIO_SETS'} = $arg ;
+  }
+  return $self->{'ABINITIO_SETS'} ;
+}
+
+sub SIMGW_SETS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SIMGW_SETS'} = $arg ;
+  }
+  return $self->{'SIMGW_SETS'} ;
+}
+
+sub EST_SETS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'EST_SETS'} = $arg ;
+  }
+  return $self->{'EST_SETS'} ;
+}
+
+sub AB_INITIO_LOGICNAMES {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'AB_INITIO_LOGICNAMES'} = $arg ;
+  }
+  return $self->{'AB_INITIO_LOGICNAMES'} ;
+}
+
+sub VERBOSE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'VERBOSE'} = $arg ;
+  }
+  return $self->{'VERBOSE'} ;
+}
+
+sub OUTPUT_DATABASE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'OUTPUT_DATABASE'} = $arg ;
+  }
+  return $self->{'OUTPUT_DATABASE'} ;
+}
+
+sub FILTER_SINGLETONS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'FILTER_SINGLETONS'} = $arg ;
+  }
+  return $self->{'FILTER_SINGLETONS'} ;
+}
+
+sub FILTER_NON_CONSENSUS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'FILTER_NON_CONSENSUS'} = $arg ;
+  }
+  return $self->{'FILTER_NON_CONSENSUS'} ;
+}
+
+sub FILTER_ESTS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'FILTER_ESTS'} = $arg ;
+  }
+  return $self->{'FILTER_ESTS'} ;
+}
+
+sub ADD_UTR {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'ADD_UTR'} = $arg ;
+  }
+  return $self->{'ADD_UTR'} ;
+}
+
+sub MIN_CONSENSUS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'MIN_CONSENSUS'} = $arg ;
+  }
+  return $self->{'MIN_CONSENSUS'} ;
+}
+
+sub UTR_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'UTR_PENALTY'} = $arg ;
+  }
+  return $self->{'UTR_PENALTY'} ;
+}
+
+sub END_EXON_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'END_EXON_PENALTY'} = $arg ;
+  }
+  return $self->{'END_EXON_PENALTY'} ;
+}
+
+sub EST_OVERLAP_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'EST_OVERLAP_PENALTY'} = $arg ;
+  }
+  return $self->{'EST_OVERLAP_PENALTY'} ;
+}
+
+sub SHORT_INTRON_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SHORT_INTRON_PENALTY'} = $arg ;
+  }
+  return $self->{'SHORT_INTRON_PENALTY'} ;
+}
+
+sub SHORT_EXON_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SHORT_EXON_PENALTY'} = $arg ;
+  }
+  return $self->{'SHORT_EXON_PENALTY'} ;
+}
+
+sub GOOD_PERCENT {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'GOOD_PERCENT'} = $arg ;
+  }
+  return $self->{'GOOD_PERCENT'} ;
+}
+
+sub GOOD_BIOTYPE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'GOOD_BIOTYPE'} = $arg ;
+  }
+  return $self->{'GOOD_BIOTYPE'} ;
+}
+
+sub BAD_BIOTYPE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'BAD_BIOTYPE'} = $arg ;
+  }
+  return $self->{'BAD_BIOTYPE'} ;
+}
+
+sub SMALL_BIOTYPE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SMALL_BIOTYPE'} = $arg ;
+  }
+  return $self->{'SMALL_BIOTYPE'} ;
+}
+
+sub SOLEXA {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SOLEXA'} = $arg ;
+  }
+  return $self->{'SOLEXA'} ;
+}
+
+sub SOLEXA_SCORE_CUTOFF {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SOLEXA_SCORE_CUTOFF'} = $arg ;
+  }
+  return $self->{'SOLEXA_SCORE_CUTOFF'} ;
+}
+
+
+
 1;
