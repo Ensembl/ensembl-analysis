@@ -323,7 +323,7 @@ sub score {
     # Fetch the features
     $solexa_score = scalar(@{$sub_slice->get_all_DnaAlignFeatures
 			       (
-				$$TRANSCRIPT_CONSENSUS_DB_CONFIG{"SOLEXA_DB"}->{"BIOTYPE"}[0],
+				$$TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC{"SOLEXA_DB"}->{"BIOTYPE"}[0],
 				$solexa_score_cutoff)}
 			  );
     print  "Solexa reads = $solexa_score\n" if $verbose;
