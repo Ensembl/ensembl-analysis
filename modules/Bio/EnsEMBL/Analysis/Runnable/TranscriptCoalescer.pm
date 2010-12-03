@@ -1666,57 +1666,6 @@ sub print_object {
 }
 
 
-
-
-sub _compare_Genes {         
-  my ($gene1,$gene2,$translate) = @_;
-  # quit if genes do not have genomic overlap 
-  #
-  # start-------gene1------end   start--------gene2----------end
-  #  
-  
-  if ($gene1->end < $gene2->start || $gene1->start > $gene2->end) {
-    print "Gene 1  " . $gene1->start . " " . $gene1->end . " \n";
-    print "Gene 2  " . $gene1->start . " " . $gene1->end . " \n";
-    print "Failed extents check - returning 0\n";
-    return 0;
-  }
-  
-  
-  # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
-  
-  if ($translate) {
-    # exon-overlap only on coding exons !
-    my $exons1 = get_coding_exons_for_gene($gene1);
-    my $exons2 = get_coding_exons_for_gene($gene2);
-    foreach my $exon1a (@$exons1) {
-      foreach my $exon2a (@$exons2) {
-        if ( ($exon1a->overlaps($exon2a)) && ($exon1a->strand == $exon2a->strand) ){
-          #print "Passed CDS overlap check - returning 1\n";
-          return 1;
-        }
-      }
-    }
-  } else {
-    #
-    # overlap check based on all (noncoding + coding) Exons 
-    #
-    foreach my $exon1a (@{$gene1->get_all_Exons}){
-      foreach my $exon2a (@{$gene2->get_all_Exons}){
-        if ( ($exon1a->overlaps($exon2a)) && ($exon1a->strand == $exon2a->strand) ){
-          #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
-          return 1;
-        }
-      }
-    }
-  } 
-   #print "Failed overlap check (translate = $translate) - returning 0\n";
-  return 0;
-}      
-#########################################################################
-
-
-
 sub print_cluster_info{
   my ($slice,$cluster) = @_; 
   my $name = "GENE-CLUSTER : ";
