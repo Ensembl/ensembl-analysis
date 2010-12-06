@@ -60,50 +60,71 @@ use vars qw(%Config);
 
 %Config= 
  (
-  # filter out genes with >= x singleton exons or non cannonical splice sites
-  FILTER_SINGLETONS => 0,
-  FILTER_NON_CONSENSUS => 0,
-  # do you want to include ests in the filtering 1 / 0
-  FILTER_ESTS       => 0,
-  # Do you want to use your est sets to add UTR?
-  ADD_UTR => 0,
-  # How many transcripts must be present before you take the consensus
-  MIN_CONSENSUS => 4,
-  # makes UTR addition more conservative 0 = neutral 1 = rarely add UTR
-  UTR_PENALTY => 0.1,
-  # penalty to stop "spindly" exons
-  END_EXON_PENALTY => 0.3,
-  # penalty for overlapping an est but not sharing any exons 
-  EST_OVERLAP_PENALTY => 0.1,
-  # penalise exons shorter than this (bases)
-  SHORT_INTRON_PENALTY => 10,  
-  # penalise introns shorter than this (bases)
-  SHORT_EXON_PENALTY => 10,     
-  # Percent of genes to class as good ie: 2 = top 2%
-  # 0 = the model / models with the highest score
-  GOOD_PERCENT  => 0,
-  # biotype of good genes
-  GOOD_BIOTYPE => 'good',
-  # biotype of the bad genes - leave blank and they will not be written
-  BAD_BIOTYPE => 'bad', 
-  # biotype of the genes if the cluster is too small to use - leave blank and they will not be written
-  SMALL_BIOTYPE => 'small',
-  
-  # Solexa data
-  ##############
-  
-  # Set flag to 1 if you want to use solexa data
-  SOLEXA => 0,
-  # only fetch solexa reads scoring >= this...
-  SOLEXA_SCORE_CUTOFF => 150,
-  # define the db to fetch solexa data from 
-  TRANSCRIPT_CONSENSUS_DB_CONFIG => {
-  	# Database hash from Bio::EnsEMBL::Analysis::Config::Databases
-          SOLEXA_DB => { 
-	  	         # biotype of the features to fetch
-        	         BIOTYPE => ['solexa_exonerate'],    
-                        }, 
-	},
+
+  TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC => {
+
+                DEFAULT => {
+
+                      # filter out genes with >= x singleton exons or non cannonical splice sites
+                      FILTER_SINGLETONS => 0,
+                      FILTER_NON_CONSENSUS => 0,
+
+                      # do you want to include ests in the filtering 1 / 0
+                      FILTER_ESTS       => 0,
+
+                      # Do you want to use your est sets to add UTR?
+                      ADD_UTR => 0,
+
+                      # How many transcripts must be present before you take the consensus
+                      MIN_CONSENSUS => 4,
+
+                      # makes UTR addition more conservative 0 = neutral 1 = rarely add UTR
+                      UTR_PENALTY => 0.1,
+
+                      # penalty to stop "spindly" exons
+                      END_EXON_PENALTY => 0.3,
+                      # penalty for overlapping an est but not sharing any exons 
+                      EST_OVERLAP_PENALTY => 0.1,
+                      # penalise exons shorter than this (bases)
+                      SHORT_INTRON_PENALTY => 10,  
+                      # penalise introns shorter than this (bases)
+                      SHORT_EXON_PENALTY => 10,     
+
+                      # Percent of genes to class as good ie: 2 = top 2%
+                      # 0 = the model / models with the highest score
+                      GOOD_PERCENT  => 0,
+
+                      # biotype of good genes
+                      GOOD_BIOTYPE => 'good',
+                      # biotype of the bad genes - leave blank and they will not be written
+                      BAD_BIOTYPE => 'bad', 
+                      # biotype of the genes if the cluster is too small to use - leave blank and they will not be written
+                      SMALL_BIOTYPE => 'small',
+
+                      INPUT_GENES => {
+                           GENEWISE_DB => ['simgw'],
+                           EXONERATE_DB => ['est_all'],
+                      },
+                      AB_INITIO_LOGICNAMES => [],
+                      EST_SETS      =>['est_all'],
+                      SIMGW_SETS    =>['simgw'],
+                      ABINITIO_SETS =>[],
+
+                      # Set flag to 1 if you want to use solexa data
+                      SOLEXA => 0,
+                      # only fetch solexa reads scoring >= this...
+                      SOLEXA_SCORE_CUTOFF => 150,
+
+                      SOLEXA_DB => {
+                           # biotype of the features to fetch
+                           BIOTYPE => ['solexa_exonerate'],
+                      },
+                },
+                SIM_CONSENSUS => {},
+       }
+
+
+
   );
 
 
