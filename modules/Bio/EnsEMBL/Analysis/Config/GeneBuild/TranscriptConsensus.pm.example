@@ -101,6 +101,8 @@ use vars qw(%Config);
                       # biotype of the genes if the cluster is too small to use - leave blank and they will not be written
                       SMALL_BIOTYPE => 'small',
 
+                      OUTPUT_DATABASE => "COALESCER_DB",
+
                       INPUT_GENES => {
                            GENEWISE_DB => ['simgw'],
                            EXONERATE_DB => ['est_all'],
