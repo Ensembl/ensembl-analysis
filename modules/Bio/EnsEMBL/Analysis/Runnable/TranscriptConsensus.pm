@@ -1377,14 +1377,6 @@ sub solexa_score_cutoff {
   return $self->{'solexa_score_cutoff'} ;
 }
 
-sub solexa_slice {
-  my ($self, $slice) = @_ ;
-  if  (defined($slice)) {
-    $self->{_solexa} = $slice;
-  }
-  return $self->{_solexa} ;
-}
-
 
 
 1;
