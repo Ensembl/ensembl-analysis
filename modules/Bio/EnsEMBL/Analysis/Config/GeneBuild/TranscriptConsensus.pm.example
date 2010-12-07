@@ -64,6 +64,8 @@ use vars qw(%Config);
   TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC => {
 
                 DEFAULT => {
+                      # set the verbosity level
+                      VERBOSE => 0,
 
                       # filter out genes with >= x singleton exons or non cannonical splice sites
                       FILTER_SINGLETONS => 0,
