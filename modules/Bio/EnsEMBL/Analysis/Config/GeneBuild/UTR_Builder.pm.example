@@ -107,8 +107,6 @@ use vars qw(%Config);
                   # size of window (basepairs)in which ditags are considered for a given cDNA position.
                   DITAG_WINDOW         => 30,
 
-                  #output verbosity
-	          VERBOSE              => 1,
              },
 
 
