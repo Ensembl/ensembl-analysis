@@ -259,8 +259,8 @@ sub run_FASTA{
       }
 
     }
-	elsif(/^[atgcunNATGCU]+$/){#build sequence
-      $sequence_fragment = $_;
+    elsif(/^[NSWRYKMBDHVATGCU]+$/i){#build sequence
+	$sequence_fragment = $_;
 
       if($current_sequence){
         $current_sequence = $current_sequence.$sequence_fragment;
