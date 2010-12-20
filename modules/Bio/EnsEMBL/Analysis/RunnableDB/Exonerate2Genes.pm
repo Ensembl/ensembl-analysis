@@ -719,7 +719,47 @@ sub KILL_TYPE {
   }
 }
 
+sub SOFT_MASKED_REPEATS {
+  my ($self,$value) = @_;
 
+  if (defined $value) {
+    $self->{'_SOFT_MASKED_REPEATS'} = $value;
+  }
+
+  if (exists($self->{'_SOFT_MASKED_REPEATS'})) {
+    return $self->{'_SOFT_MASKED_REPEATS'};
+  } else {
+    return undef;
+  }
+}
+
+sub SEQFETCHER_PARAMS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_SEQFETCHER_PARAMS'} = $value;
+  }
+
+  if (exists($self->{'_SEQFETCHER_PARAMS'})) {
+    return $self->{'_SEQFETCHER_PARAMS'};
+  } else {
+    return undef;
+  }
+}
+
+sub SEQFETCHER_OBJECT {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_SEQFETCHER_OBJECT'} = $value;
+  }
+
+  if (exists($self->{'_SEQFETCHER_OBJECT'})) { 
+    return $self->{'_SEQFETCHER_OBJECT'};
+  } else {
+    return undef;
+  }
+}
 
 
 ###############################################
