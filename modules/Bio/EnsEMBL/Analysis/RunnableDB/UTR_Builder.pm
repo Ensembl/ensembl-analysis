@@ -125,16 +125,23 @@ my $totalgenes = 0;
 sub fetch_input{
   my ($self) = @_;
 
-  my $slice = $self->fetch_sequence(undef, $self->INPUT_DB);
+  my $slice = $self->fetch_sequence(undef, $self->db);
   if(!$slice){ throw "can't fetch input slice!\n" }
   $self->query($slice);
 
+  my @databases = @{ $self->INPUT_DBS } ;
   # fetch all general input genes
-  foreach my $input_genetype (@{$self->INPUT_GENETYPES}) {
-    my $input_genes = $self->query->get_all_Genes_by_type($input_genetype);
-    print STDERR "got " . scalar(@{$input_genes}) . " $input_genetype genes [ ".
-    $self->INPUT_DB->dbname() . "@" . $self->INPUT_DB->host ." ]\n";
-    $self->gw_genes( $input_genes );
+
+  foreach my $db ( @databases) {
+    my $dba = $self->get_dbadaptor($db) ;
+    $dba->dnadb($self->db) ;
+    my $slice = $self->fetch_sequence($self->input_id, $dba ) ;
+    foreach my $input_genetype (@{ $self->INPUT_GENETYPES }) {
+      my $input_genes = $slice->get_all_Genes_by_type($input_genetype);
+      print STDERR "got " . scalar(@{$input_genes}) . " $input_genetype genes [ ".
+      $dba->dbname() . "@" . $dba->host . " ]\n";
+      $self->gw_genes( $input_genes );
+    }
   }
 
   # get blessed genes
@@ -228,9 +235,13 @@ sub fetch_input{
   else{
     print STDERR "not using Ditags.\n";
   }
-
   # db disconnections
-  $self->INPUT_DB->dbc->disconnect_when_inactive(1);
+  foreach my $db ( @databases ) {
+     my $dba = $self->get_dbadaptor($db) ;
+     $dba->dnadb($self->db) ;
+     $dba->dbc->disconnect_when_inactive(1) ;
+  }
+
   if ($self->CDNA_DB) {
     foreach my $dbname (@{$self->CDNA_DB}) {
        my $dbh = $self->get_dbadaptor($dbname) ;
@@ -4320,28 +4331,6 @@ sub DITAG_DB {
     return $self->{_ditag_db};
 }
 
-=head2 INPUT_DB
-
-  Arg [1]    : optional Bio::EnsEMBL::DBSQL::DBAdaptor
-  Description: get/set for db to read input genes from
-  Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
-  Exeptions  : Throws if input isn't DBAdaptor or db parameters haven't been defined
-
-=cut
-
-sub INPUT_DB {
-    my( $self, $input_db ) = @_;
-
-    if ($input_db){
-      $self->{_input_db} = get_db_adaptor_by_string($input_db,1);
-    }
-    if(!$self->{_input_db}){
-      throw("Please define database parameters for input db.\n");
-    }
-
-    return $self->{_input_db};
-}
-
 =head2 blessed_db
 
   Arg [1]    : optional Bio::EnsEMBL::DBSQL::DBAdaptor
@@ -4732,6 +4721,13 @@ sub SOLEXA_DB {
   return $self->{'SOLEXA_DB'} ;
 }
 
+sub INPUT_DBS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'INPUT_DBS'} = $arg ;
+  }
+  return $self->{'INPUT_DBS'} ;
+}
 
 
 1;
