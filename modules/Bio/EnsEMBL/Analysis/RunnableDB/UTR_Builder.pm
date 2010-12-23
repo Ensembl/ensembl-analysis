@@ -855,6 +855,7 @@ sub run_matching{
         $tc->{end_exon_penalty} = $self->END_EXON_PENALTY ;
         $tc->{est_overlap_penalty} = $self->EST_OVERLAP_PENALTY ;
         $tc->{short_intron_penalty} = $self->SHORT_INTRON_PENALTY ;
+        $tc->{short_exon_penalty} = $self->SHORT_EXON_PENALTY ;
         $tc->{solexa} = $self->SOLEXA ;
         $tc->{solexa_score_cutoff} = $self->SOLEXA_SCORE_CUTOFF ;
         $tc->{verbose} = $self->VERBOSE ;
