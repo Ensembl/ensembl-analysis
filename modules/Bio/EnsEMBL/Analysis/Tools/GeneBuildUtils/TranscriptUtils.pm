@@ -38,8 +38,7 @@ use strict;
 use warnings;
 use Exporter;
 
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
-                                      stack_trace_dump);
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites validate_Exon_coords);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
@@ -1223,8 +1222,13 @@ sub trim_cds_to_whole_codons {
   Function  : replace any inframe stops with
   introns
   Returntype: Bio::EnsEMBL::Transcript 
-  Exceptions: 
-  Example   : 
+  Exceptions: method returns zero if translation contains stop codon adjacent to gap. 
+  Example   :  
+      my $new_tr = replace_stops_with_introns($tr);
+      if ($new_tr == 0) {
+        print STDERR "Skipping transcript with internal stop codon next to gapped sequence: ".$tr->dbID."\n";
+        next;
+      }
   Notes     : Needs extension to deal with transcript_supporting_feats
 
 =cut
@@ -1238,6 +1242,9 @@ sub replace_stops_with_introns{
   my @exons = @{$newtranscript->get_all_Exons};
   my $pep = $newtranscript->translate->seq;
 
+  # gaps adjacent to internal stop codons - skip
+  return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
+
   while($pep =~ /\*/g) {
     my $position = pos($pep);
 
@@ -1247,9 +1254,10 @@ sub replace_stops_with_introns{
       # locate the exon that this stop lies in
       my @new_exons;
       foreach my $exon (@exons) {
-        if ($stop->start >= $exon->start and $stop->end <= $exon->end) {
-          # this stop lies completely within an exon. We split the exon
-          # into two
+        
+        if (($stop->start > ($exon->start + 2)) && ($stop->end < $exon->end - 2)) {
+          # this stop lies _completely_ within an exon and not on it's
+          # boundary. We therefore can split the exon into two 
           my $exon_left = Bio::EnsEMBL::Exon->
               new(-slice     => $exon->slice,
                   -start     => $exon->start,
@@ -1264,120 +1272,173 @@ sub replace_stops_with_introns{
                   -strand    => $exon->strand,
                   -phase     => $exon->strand < 0 ? $exon->phase : 0,
                   -end_phase => $exon->strand < 0 ? 0 : $exon->end_phase);
-          # need to split the supporting features between the two
-          my @sfs = @{$exon->get_all_supporting_features}; 
-          my (@ug_left, @ug_right);
-          foreach my $f (@sfs) { 
-            foreach my $ug ($f->ungapped_features) {  
-              $ug->analysis($newtranscript->analysis);
-              my $orignial_analysis = $ug->analysis;
-              if ($ug->start >= $exon_left->start and 
-                  $ug->end <= $exon_left->end) {
-                #completely within the left-side of the split
-                push @ug_left, $ug;
-              } elsif ($ug->start >= $exon_right->start and 
-                       $ug->end <= $exon_right->end) {
-                 
-                #completely within the right-side of the split
-                push @ug_right, $ug;
-              } else {
-                # this ug must span the split
-                my $fp_left = Bio::EnsEMBL::FeaturePair->new();
-                if ($ug->slice) {
-                  $fp_left->slice($ug->slice);
-                }
-                $fp_left->seqname   ($ug->seqname);
-                $fp_left->strand    ($ug->strand);
-                $fp_left->hseqname  ($ug->hseqname);
-                $fp_left->score     ($ug->score);
-                $fp_left->percent_id($ug->percent_id);
-                $fp_left->start     ($ug->start);
-                $fp_left->end       ($stop->start - 1);
-                $fp_left->external_db_id($ug->external_db_id);
-                $fp_left->hcoverage($ug->hcoverage);
-                $fp_left->analysis($orignial_analysis) ;           
 
-                my $fp_right = Bio::EnsEMBL::FeaturePair->new();
-                if ($ug->slice) {
-                  $fp_right->slice($ug->slice);
-                }
-                $fp_right->seqname   ($ug->seqname);
-                $fp_right->strand    ($ug->strand);
-                $fp_right->hseqname  ($ug->hseqname);
-                $fp_right->score     ($ug->score);
-                $fp_right->percent_id($ug->percent_id);
-                $fp_right->start     ($stop->end + 1);
-                $fp_right->end       ($ug->end);
-                $fp_right->external_db_id($ug->external_db_id);
-                $fp_right->hcoverage($ug->hcoverage);
-                $fp_right->analysis($orignial_analysis) ;           
-                
-                if ($exon->strand > 0) {
-                  $fp_left->hstart($ug->hstart);
-                  $fp_left->hend($fp_left->hstart +
-                                 ($fp_left->length / 3) - 
-                                 1);
-                  
-                  $fp_right->hend ($ug->hend);
-                  $fp_right->hstart($ug->hend - 
-                                    ($fp_right->length / 3) + 
-                                    1);
+          # if either of the exons are exactly 3bp long, do not
+          # span the gap with an intron, instead prune the tiny exon and intron
+
+          # check we don't have a triplet
+          if (($exon_left->length >= 3) && ($exon_right->length >= 3)) {
+            # both exons are >3bp in length
+            # need to split the supporting features between the two
+            my @sfs = @{$exon->get_all_supporting_features}; 
+            my (@ug_left, @ug_right);
+
+            foreach my $f (@sfs) { 
+              foreach my $ug ($f->ungapped_features) {  
+                $ug->analysis($newtranscript->analysis);
+                my $orignial_analysis = $ug->analysis;
+                if (($ug->start == $exon_left->start && $ug->end == $exon_left->end) ||
+                  ($ug->start == $exon_right->start && $ug->end == $exon_right->end)) {
+                  print STDERR "There's one base in it - cannot split due to out of phase error\n";
+                  last;
+                } elsif (($ug->start + 2 > $exon_left->start) || ($ug->end < $exon_left->end -2)) {
+                 print STDERR "There's two bases in it - cannot split due to out of phase error\n";
+                 last;
+                } elsif ($ug->start >= $exon_left->start && 
+                    $ug->end <= $exon_left->end) {
+                  # completely within the left-side of the split
+                  push @ug_left, $ug;
+
+                } elsif ($ug->start >= $exon_right->start && 
+                         $ug->end <= $exon_right->end) {
+                 
+                  # completely within the right-side of the split
+                  push @ug_right, $ug;
                 } else {
-                  $fp_left->hend ($ug->hend);
-                  $fp_left->hstart($ug->hend - 
-                                   ($fp_left->length / 3) + 
+                  # this ug must span the split
+                  my $fp_left = Bio::EnsEMBL::FeaturePair->new();
+                  if ($ug->slice) {
+                    $fp_left->slice($ug->slice);
+                  }
+                 $fp_left->seqname   ($ug->seqname);
+                 $fp_left->strand    ($ug->strand);
+                 $fp_left->hseqname  ($ug->hseqname);
+                 $fp_left->score     ($ug->score);
+                 $fp_left->percent_id($ug->percent_id);
+                 $fp_left->start     ($ug->start);
+                 $fp_left->end       ($stop->start - 1);
+                 $fp_left->external_db_id($ug->external_db_id);
+                 $fp_left->hcoverage($ug->hcoverage);
+                 $fp_left->analysis($orignial_analysis) ;           
+
+                 my $fp_right = Bio::EnsEMBL::FeaturePair->new();
+                 if ($ug->slice) {
+                   $fp_right->slice($ug->slice);
+                  }
+                 $fp_right->seqname   ($ug->seqname);
+                 $fp_right->strand    ($ug->strand);
+                 $fp_right->hseqname  ($ug->hseqname);
+                 $fp_right->score     ($ug->score);
+                 $fp_right->percent_id($ug->percent_id);
+                 $fp_right->start     ($stop->end + 1);
+                 $fp_right->end       ($ug->end);
+                 $fp_right->external_db_id($ug->external_db_id);
+                 $fp_right->hcoverage($ug->hcoverage);
+                 $fp_right->analysis($orignial_analysis) ;           
+                
+                  # here's the state of play:
+                  #
+                  #                        fp_left          fp_right
+                  #                         s    e        s          e
+                  #                         ======        ============
+                  #          1 >---------------------------------------------> strand
+                  # 
+                  #                         s                        e
+                  #             un gapped   ==========================
+                  #
+                  #         -1 <---------------------------------------------< strand
+                  #                         ======        ============
+                  #                         s    e        s          e
+                  #                        fp_right         fp_left
+                  #
+                
+                  if ($exon->strand > 0) {
+                    $fp_left->hstart($ug->hstart);
+                    $fp_left->hend($fp_left->hstart +
+                                   ($fp_left->length / 3) - 
                                    1);
                   
-                  $fp_right->hstart($ug->hstart);
-                  $fp_right->hend($fp_right->hstart +
-                                  ($fp_right->length / 3) - 
-                                  1);
-                }
+                    $fp_right->hend ($ug->hend);
+                    $fp_right->hstart($ug->hend - 
+                                      ($fp_right->length / 3) + 
+                                      1);
+                  } else {
+                    # we are on the other strand
+                    $fp_left->hend ($ug->hend);
+                    $fp_left->hstart($ug->hend - 
+                                     ($fp_left->length / 3) + 
+                                     1);
+                 
+                    $fp_right->hstart($ug->hstart);
+                    $fp_right->hend($fp_right->hstart +
+                                   ($fp_right->length / 3) - 
+                                   1);
+                 }
                 
-                if ($fp_left->end >= $fp_left->start) { 
-                  push @ug_left, $fp_left;
-                }
-                if ($fp_right->end >= $fp_right->start) {
-                  push @ug_right, $fp_right;
-                }
-              }
-            }
-          } 
+                 if ($fp_left->end >= $fp_left->start) { 
+                    push @ug_left, $fp_left;
+                 }
+                 if ($fp_right->end >= $fp_right->start) {
+                    push @ug_right, $fp_right;
+                 }
+               }
+             }
+           } 
 
-          sub add_dna_align_features_by_hitname_and_analysis {   
-             my ( $ug_ref, $exon ) = @_ ;  
-             my %group_features_by_hitname_and_analysis ; 
-             for my $ug ( @$ug_ref ) {  
-                push @{$group_features_by_hitname_and_analysis{$ug->analysis->logic_name}{$ug->hseqname }} , $ug ; 
-             }  
-             for my $logic_name ( keys %group_features_by_hitname_and_analysis  ) {  
-                for my $hseqname  ( keys  %{$group_features_by_hitname_and_analysis{$logic_name}}) {  
-                   my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}}; 
-                   my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features); 
-                   $exon->add_supporting_features($f);  
-                } 
-             }  
-             return $exon ; 
-          }   
+           sub add_dna_align_features_by_hitname_and_analysis {   
+              my ( $ug_ref, $exon ) = @_ ;  
+              my %group_features_by_hitname_and_analysis ; 
+              for my $ug ( @$ug_ref ) {  
+                 push @{$group_features_by_hitname_and_analysis{$ug->analysis->logic_name}{$ug->hseqname }} , $ug ; 
+              }  
+              for my $logic_name ( keys %group_features_by_hitname_and_analysis  ) {  
+                 for my $hseqname  ( keys  %{$group_features_by_hitname_and_analysis{$logic_name}}) {  
+                    my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}}; 
+                    my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features); 
+                    $exon->add_supporting_features($f);  
+                 } 
+              }  
+              return $exon ; 
+            }   
 
-          $exon_left = add_dna_align_features_by_hitname_and_analysis(\@ug_left,$exon_left) ; 
-          $exon_right =add_dna_align_features_by_hitname_and_analysis(\@ug_right,$exon_right) ;  
+           $exon_left = add_dna_align_features_by_hitname_and_analysis(\@ug_left,$exon_left) ; 
+           $exon_right =add_dna_align_features_by_hitname_and_analysis(\@ug_right,$exon_right) ;  
 
-          if ($exon->strand < 0) {
-            if ($exon_right->end >= $exon_right->start) {
-              push @new_exons, $exon_right;
+           if ($exon->strand < 0) {
+             if ($exon_right->end >= $exon_right->start) {
+               push @new_exons, $exon_right;
+             }
+             if ($exon_left->end >= $exon_left->start) {
+               push @new_exons, $exon_left;
+             }
+           } else {
+             if ($exon_left->end >= $exon_left->start) {
+               push @new_exons, $exon_left;
+             }
+             if ($exon_right->end >= $exon_right->start) {
+                push @new_exons, $exon_right;
+              } 
             }
-            if ($exon_left->end >= $exon_left->start) {
-              push @new_exons, $exon_left;
-            }
+          } elsif ($exon_left->length == 3) {
+            # Need to prune a tiny left exon
+            push @new_exons, $exon_right;
+
+          } elsif ($exon_right->length == 3) {
+            # Need to prune a tiny right exon
+            push @new_exons, $exon_left;
           } else {
-            if ($exon_left->end >= $exon_left->start) {
-              push @new_exons, $exon_left;
-            }
-            if ($exon_right->end >= $exon_right->start) {
-              push @new_exons, $exon_right;
-            } 
+            verbose("new Exon must have length that is =3bp. There's nothing we can do to fix this stop codon.");
+            push @new_exons, $exon;
           }
+        } elsif ($stop->start == $exon->start -1) {
+          # stop lies at the start of the exon
+          $exon->start($exon->start + 3); 
+          push @new_exons, $exon;
+          die;
+        } elsif ($stop->end == $exon->end ) {
+          # stop lies at the end of the exon
+          $exon->end($exon->end - 3); 
+          push @new_exons, $exon;
         } else {
           # this exon is unaffected by this stop
           push @new_exons, $exon;
