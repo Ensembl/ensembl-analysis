@@ -355,6 +355,52 @@ use vars qw( %Config );
 
 	},	
 
+
+        CATMA_PROBEALIGN =>
+        {
+         TARGETSEQS         => $ENV{'GENOMICSEQS'},
+         QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CATMA.fasta',
+         OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 59 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
+         HIT_SATURATION_LEVEL => 100,
+         MAX_MISMATCHES => 1,
+
+
+        },
+
+        CATMA_PROBETRANSCRIPTALIGN =>
+        {
+         TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+         QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.CATMA.fasta',
+         OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 59 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
+         HIT_SATURATION_LEVEL => 100,
+         MAX_MISMATCHES => 1,
+
+        },
+	
+     NSF_PROBEALIGN =>
+        {
+         TARGETSEQS         => $ENV{'GENOMICSEQS'},
+         QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.NSF.fasta',
+         OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
+         HIT_SATURATION_LEVEL => 100,
+         MAX_MISMATCHES => 1,
+
+
+        },
+
+        NSF_PROBETRANSCRIPTALIGN =>
+        {
+         TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+         QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.NSF.fasta',
+         OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
+         HIT_SATURATION_LEVEL => 100,
+         MAX_MISMATCHES => 1,
+
+        },
+
+
+
+
 	#LEIDEN 50 mers
 	#Actually some are 50 some are 60.
 	#dnahspthreshold should be 246 no?

@@ -220,7 +220,7 @@ GENE:
         next TRANSCRIPT;
       }
 
-      print "\t\tin _merge_redundant_transcripts: "
+      print "\n\n\t\tin _merge_redundant_transcripts: "
         . "adding this transcript to ensembl array: "
         . $transcript->dbID . " ("
         . $transcript->biotype . ")\n";
@@ -246,7 +246,7 @@ GENE:
     print "Ensembl tran: ", scalar(@ensembl), "\n";
 
     # Compare each havana transcript to each ensembl one
-    foreach my $ht (@havana) {
+    HAVANA_TRANS: foreach my $ht (@havana) {
       print "\n===> Looking at havana trans: " . $ht->dbID . "\n";
 
       # We add an attribute to the havana transcripts that shows which
@@ -265,94 +265,118 @@ GENE:
       $ht->flush_supporting_features;
 
       print "\nNumber of ensembl transcripts: ", scalar(@ensembl),"\n";
-      my $delete_trans = 0;
-      my @t_pair;
+
+      # my $delete_trans;
+      # my @t_pair;
 
       foreach my $et (@ensembl) {
+
         print "\n===> Looking at ensembl trans: " . $et->dbID . "\n";
 
         my $delete_t = $self->are_matched_pair( $ht, $et );
+
+        my @t_pair;
+        my $delete_trans = 0;
 
         # We check all possible match pairs and give preference to the
         # one that shares CDS and UTR. This was added so only the best
         # matching havana/ensembl pair is chosen and to avoid a one
         # to many link
+ 
+        # delete_t can be 0 (don't merge, trans completely different), 1 (don't merge, UTR structures different), $et (delete Ens trans) or $ht (delete Hav trans)
 
-        # TODO: have a closer look at the code here.
-        if ($delete_t) {
-          #print "DEBUG: start of if-statement: \$delete_t = " . $delete_t . "\n";
+        # print "\tdelete_t was $delete_t when just returned from are_matched_pair.\n"; 
+
+        if ($delete_t) { # if delete_t is 1 (don't merge), et, ht or 2 (Ens is incomplete, remove)
           if ( $delete_t == $et ) {
-            print "--->>> I'm deleting matching transcript: " . $delete_t->dbID . "\n";
-            $delete_trans = $delete_t;
+            print "--->>> are_matched_pair returned Ens trans " . $et->dbID . 
+                  " which will be merged to the Hav trans and then deleted.\n";
+            $delete_trans = $et;
             @t_pair = ( $ht, $et );
-          } elsif ( $delete_trans != $et && $delete_t == $ht ) {
-            print "deleted_trans != et but == ht " . $delete_t->dbID . "\n";
-            $delete_trans = $delete_t;
+          } elsif ( $delete_t == $ht ) {
+            print "--->>> are_matched_pair returned Hav trans " . $ht->dbID .
+                  " which will be merged to the Ens trans and then deleted.\n";
+            $delete_trans = $ht;
             @t_pair = ( $ht, $et );
-          } elsif ( $delete_trans == 0 ) {
+          } elsif ( $delete_t == 2) {
+            print "--->>> are_matched_pair returned value 2, Ens trans ". $et->dbID .
+                  " is incomplete and will be deleted without merging with Hav trans.\n";
+            $delete_trans = $et;
+          } else {    # We get here when $delete_t = 1 (et and ht differ in UTR structure) 
+            print "--->>> are_matched_pair returned value 1, Ens trans and Hav trans differ in ".
+                  "UTR structure, not merging.\n";
             $delete_trans = $delete_t;
-            print "the other case, keeping both? " . $et->dbID . " and " .  $ht->dbID . "\n";
-            @t_pair = ( $ht, $et );
-          } else {
-            #print "DEBUG (_merge_redundant_transcripts): the fourth case: "
-            #    . "what am I? del_t vs del_trans: " . $delete_t . " vs $delete_trans \n";
           }
-        } else {
-          #print "In the else of the strange if\n\$delete_t = $delete_t\t";
-          #if ($delete_trans == 0 || $delete_trans == 1) {
-          #  print "\$delete_trans = $delete_trans\n";
-          #} else {
-          #  print "\$delete_trans = " . $delete_trans->dbID . "\n";
-          #}
+        } else {  
+          print "are_matched_pair returned value 0, Ens trans and Hav trans are ".
+                "completely different, not merging.\n";
+          $delete_trans = $delete_t;        
         }
-      } # TODO: Looping over ensembl transcripts ends here but I
-        # wonder if it should include the below if-statement too. See
-        # LOOP below.
 
-      if ( $delete_trans && $delete_trans != 0 ) {
-        my $new_bt_0;    #biotype
-        my $new_bt_1;    #biotype
-        $self->set_transcript_relation( $delete_trans, @t_pair );
+        if ( $delete_trans && $delete_trans !=1 && $delete_t !=2) { 
 
-        # We flag the transcript biotype to show that one of the
-        # transcripts is a merged one.
+          # When delete_t is NOT 0, 1, or 2, i.e. it is either et or ht, we want to merge sth)
 
-        unless ( $t_pair[0]->biotype =~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE/ ) {
-          $new_bt_0 = $t_pair[0]->biotype . $MERGED_TRANSCRIPT_OUTPUT_TYPE;
-        }
-        unless ( $t_pair[1]->biotype =~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE/ ) {
-          $new_bt_1 = $t_pair[1]->biotype . $MERGED_TRANSCRIPT_OUTPUT_TYPE;
-        }
-        $t_pair[0]->biotype($new_bt_0);
-        $t_pair[1]->biotype($new_bt_1);
+          # For each pair of Ens + Hav transcripts we merge, we need to:
 
-        # We want to remove the redundant transcript unless both share
-        # CDS but have different UTR structure as in that case we
-        # annotate both transcripts.
-        $self->_remove_transcript_from_gene( $gene, $delete_trans )
-          unless $delete_trans == 1;
+          # (1) transfer supporting features from the to-be-delete trans onto the kept trans
+          #     using the "set_transcript_relation" method;
+          # (2) add a biotype suffix to merged transcripts to mark them as merged;
+          # (3) finally delete the Ens trans OR Hav trans from the pair as appropriate;
 
-      } else {
-        $self->add_ottt_xref($ht);
-      }
-      #} # LOOP: Should the loop over all ensembl transcripts finish
-         # here instead?
+          # 1. Transfer supporting features:
 
+          $self->set_transcript_relation( $delete_trans, @t_pair );
+
+          # 2. Flag merged transcripts with biotype suffix if they haven't got any yet:
+          
+          my $new_bt_0;    #new biotype string for merged Hav trans
+          my $new_bt_1;    #new biotype string for merged Ens trans
+
+          if ( $t_pair[0]->biotype !~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE$/ ) {  ## biotype suffix for Hav
+            print "I'm HERE!!! Adding _mrgd suffix to Havana trans!!!\n";
+            $new_bt_0 = $t_pair[0]->biotype . $MERGED_TRANSCRIPT_OUTPUT_TYPE;
+            $t_pair[0]->biotype($new_bt_0);
+          }
+          if ( $t_pair[1]->biotype !~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE$/ ) {  ## biotype suffix for Ens
+            print "I'm HERE!!! Adding _mrgd suffix to Ens trans!!!\n";
+            $new_bt_1 = $t_pair[1]->biotype . $MERGED_TRANSCRIPT_OUTPUT_TYPE;
+            $t_pair[1]->biotype($new_bt_1);      
+          }
+
+          # 3. Finally remove the Ens or Hav transcript which has been merged into its counterpart:
+
+          $self->_remove_transcript_from_gene( $gene, $delete_trans )
+            unless $delete_trans == 1;
+        } 
+        else {
+          # When delete_t is 0, 1, or 2, there is nothing we want to merge
+          # For all three cases, we add OTTT xref to the Havanna transcript.
+
+          # delete_t = 0 or 1 means Ens and Hav trans are different, hence no merge.
+          # delete_t = 2 means we need to remove Ens trans because its CDS is incomplete
+
+          if ($delete_t == 2) {
+            $self->_remove_transcript_from_gene( $gene, $et );
+          }
+          $self->add_ottt_xref($ht);
+        } 
+      } 
     } ## end foreach my $ht (@havana)
-
     $gene->recalculate_coordinates;
-
   } ## end foreach my $gene (@$genes)
 } ## end sub _merge_redundant_transcripts
 
-# are_matched_pair check return 4 different possible values:
-# return 0 means keep both transcripts as they have different coding region
-#          or different exon structure
-# return 1 means keep both as they have same coding but different UTR exon structure
-# return ($ensembl) means keep havana transcript and remove ensembl 
-# return ($havana) means keep ensembl transcript and remove hanana
 
 sub are_matched_pair {
+
+  # This method checks pairs of Ens + Hav transcripts and returns 4 different possible values:
+  # return 0 means keep both transcripts as they have different coding region
+  #          or different exon structure
+  # return 1 means keep both as they have same coding but different UTR exon structure
+  # return ($ensembl) means keep havana transcript and remove ensembl 
+  # return ($havana) means keep ensembl transcript and remove hanana
+
   my ( $self, $havana, $ensembl ) = @_;
 
   # Fetch all exons in each transcript
@@ -478,7 +502,7 @@ sub are_matched_pair {
         . "\t5' complete: $complete_5\n"
         . "\tIncomplete: $incomplete\n";
 
-      return $ensembl;
+      return 2;
     }
 
     print "\n===>>> coding and non-coding overlap <<<===\n";
@@ -2402,7 +2426,7 @@ sub update_biotypes {
       # transcript of the Ensembl gene overlaps with the Havana one, we turn the Ensembl  
       # coding gene into pseudogene, keep the longest Ensembl transcript, strip off the Ensembl
       # transcript's translation and then add "_ens_merged" to transcript.
-      if ( $t_biotype =~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE/ || $t_biotype =~ /_ens_merged/ ) {
+      if ( $t_biotype =~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE$/ || $t_biotype =~ /_ens_merged$/ ) {
         $has_merged = 1;
       } elsif ( $t_biotype =~ /_hav/ ) {
         $has_havana = 1;

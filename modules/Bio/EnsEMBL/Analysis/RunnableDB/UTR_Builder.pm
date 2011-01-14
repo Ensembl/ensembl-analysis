@@ -58,10 +58,6 @@ use strict;
 use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw( throw warning verbose);
 use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Gene;
-use Bio::EnsEMBL::Transcript;
-use Bio::EnsEMBL::Translation;
-use Bio::EnsEMBL::Exon;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(
 								clone_Exon
@@ -84,15 +80,11 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(
 								       print_Translation
 								      );
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use Bio::EnsEMBL::KillList::KillList;
-use Bio::EnsEMBL::KillList::DBSQL::DBAdaptor;
 
 #CONFIG FILES
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::UTR_Builder;
@@ -114,7 +106,8 @@ sub new {
   my ($class, @args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  $self->read_and_check_config($UTR_BUILDER_CONFIG_BY_LOGIC);
+  $self->read_and_check_config($UTR_BUILDER_CONFIG_BY_LOGIC) ;
+  $self->read_and_check_config($TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC) ;
 
   return $self;
 }
@@ -132,16 +125,23 @@ my $totalgenes = 0;
 sub fetch_input{
   my ($self) = @_;
 
-  my $slice = $self->fetch_sequence(undef, $self->INPUT_DB);
+  my $slice = $self->fetch_sequence(undef, $self->db);
   if(!$slice){ throw "can't fetch input slice!\n" }
   $self->query($slice);
 
+  my @databases = @{ $self->INPUT_DBS } ;
   # fetch all general input genes
-  foreach my $input_genetype (@{$self->INPUT_GENETYPES}) {
-    my $input_genes = $self->query->get_all_Genes_by_type($input_genetype);
-    print STDERR "got " . scalar(@{$input_genes}) . " $input_genetype genes [ ".
-    $self->INPUT_DB->dbname() . "@" . $self->INPUT_DB->host ." ]\n";
-    $self->gw_genes( $input_genes );
+
+  foreach my $db ( @databases) {
+    my $dba = $self->get_dbadaptor($db) ;
+    $dba->dnadb($self->db) ;
+    my $slice = $self->fetch_sequence($self->input_id, $dba ) ;
+    foreach my $input_genetype (@{ $self->INPUT_GENETYPES }) {
+      my $input_genes = $slice->get_all_Genes_by_type($input_genetype);
+      print STDERR "got " . scalar(@{$input_genes}) . " $input_genetype genes [ ".
+      $dba->dbname() . "@" . $dba->host . " ]\n";
+      $self->gw_genes( $input_genes );
+    }
   }
 
   # get blessed genes
@@ -235,9 +235,13 @@ sub fetch_input{
   else{
     print STDERR "not using Ditags.\n";
   }
-
   # db disconnections
-  $self->INPUT_DB->dbc->disconnect_when_inactive(1);
+  foreach my $db ( @databases ) {
+     my $dba = $self->get_dbadaptor($db) ;
+     $dba->dnadb($self->db) ;
+     $dba->dbc->disconnect_when_inactive(1) ;
+  }
+
   if ($self->CDNA_DB) {
     foreach my $dbname (@{$self->CDNA_DB}) {
        my $dbh = $self->get_dbadaptor($dbname) ;
@@ -846,15 +850,25 @@ sub run_matching{
 
       foreach my $cluster (@cluster_to_use){
 	print STDERR "EVIDENCE SET CLUSTER: ".$cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $self->VERBOSE;
-	my $collapsed_cluster = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->collapse_cluster($cluster, $genes_by_strand);
+	my $tc = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->new (-analysis => $self->analysis) ;
+        $tc->{min_consensus} = $self->MIN_CONSENSUS ;
+        $tc->{end_exon_penalty} = $self->END_EXON_PENALTY ;
+        $tc->{est_overlap_penalty} = $self->EST_OVERLAP_PENALTY ;
+        $tc->{short_intron_penalty} = $self->SHORT_INTRON_PENALTY ;
+        $tc->{short_exon_penalty} = $self->SHORT_EXON_PENALTY ;
+        $tc->{utr_penalty} = $self->UTR_PENALTY ;
+        $tc->{solexa} = $self->SOLEXA ;
+        $tc->{solexa_score_cutoff} = $self->SOLEXA_SCORE_CUTOFF ;
+        $tc->{verbose} = $self->VERBOSE ;
+
+        my $collapsed_cluster = $tc->collapse_cluster($cluster, $genes_by_strand);
 	my $potential_genes = $cluster->get_Genes;
 	foreach my $potential_gene ( @$potential_genes ){
 	  foreach my $potential_trans (@{$potential_gene->get_all_Transcripts}) {
 
 	    #create an extended transcript (with scores)
 	    my @exon_array = ( @{$potential_trans->get_all_Exons} );
-	    my $new_transcript = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->transcript_from_exons(
-								       \@exon_array, undef, $collapsed_cluster);
+	    my $new_transcript = $tc->transcript_from_exons(\@exon_array, undef, $collapsed_cluster) ;
 
             #add supporting features
             $new_transcript->add_supporting_features(@{$potential_trans->get_all_supporting_features});
@@ -1539,7 +1553,7 @@ sub convert_to_extended_genes {
   for my $g (@$genes){ 
     #my $st  = _get_evidence_set( $g->biotype );
     #my $set = $g->biotype;
-    my ( $set ) = $self->_get_evidence_set ( $g->biotype ) ;
+    my ( $set ) = $self->get_evidence_set ( $g->biotype ) ;
     for my $t (@{$g->get_all_Transcripts}){
       throw ("gene has more than one trancript - only processing 1-gene-1-transcript-genes")
 	if (@{$g->get_all_Transcripts}>1);
@@ -4202,90 +4216,6 @@ sub output{
   return $self->{'_output'};
 }
 
-###############################################
-
-=head2 _get_evidence_set ($logic_name_or_biotype)
-
-  Name     : get_evidence_set( $logic_name_or_biotype )
-  Arg      : String 
-  Func     : returns the name of the evidence_set of a genee / PredictionTranscript 
-  Returnval: String describing evidence_set_name
-
-=cut
-
-sub _get_evidence_set {
-  my ($self, $logic_name_or_biotype) = @_ ;
-
-  my %ev_sets = %{ $self->{evidence_sets} } ;
-  my $result_set_name;
-  for my $set_name (keys %ev_sets){
-    my @logic_names = @{$ev_sets{$set_name}} ;
-    for my $ln (@logic_names ) {
-       if ($ln eq $logic_name_or_biotype){
-         $result_set_name = $set_name ;
-       }
-    }
-  }
-
-  return $result_set_name;
-}
-
-
-#=head2 make_seqfetcher
-
-# Title   : make_seqfetcher
-# Usage   :
-# Description: for the KnownUTR module
-# Example :
-# Returns : Bio::DB::RandomAccessI
-# Args    :
-
-#=cut
-
-#sub make_seqfetcher{
-#  my ( $self, $index, $seqfetcher_class  ) = @_;
-#  my $seqfetcher;
-
-#  (my $class = $seqfetcher_class) =~ s/::/\//g;
-#  eval{
-#    require "$class.pm";
-#  };
-#  if($@){ warn("Could not require seqfetcher class.\n") }
-#  print "using index $index \n" if $self->VERBOSE;
-
-#  if(defined $index && $index ne ''){
-#    my @db = ( $index );
-
-#    # make sure that your class is compatible with the index type
-#    $seqfetcher = "$seqfetcher_class"->new('-db' => \@db, );
-#  }
-#  else{
-#    throw("can't make seqfetcher\n");
-#  }
-
-#  return $seqfetcher;
-
-#}
-
-
-#=head2 _cdna_seqfetcher
-
-#  Arg [1]    : 
-#  Description: 
-#  Returntype : 
-
-#=cut
-
-#sub _cdna_seqfetcher{
-#  my ($self, $seqfetcher) = @_;
-
-#  if($seqfetcher){
-#    $self->{'_cdna_seqfetcher'} = $seqfetcher;
-#  }
-
-#  return $self->{'_cdna_seqfetcher'};
-#}
-
 
 =head2 _cdna_slice
 
@@ -4401,28 +4331,6 @@ sub DITAG_DB {
       throw("You have defined DITAG_TYPE_NAMES, but no DITAG_DB parameters.\n");
     }
     return $self->{_ditag_db};
-}
-
-=head2 INPUT_DB
-
-  Arg [1]    : optional Bio::EnsEMBL::DBSQL::DBAdaptor
-  Description: get/set for db to read input genes from
-  Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
-  Exeptions  : Throws if input isn't DBAdaptor or db parameters haven't been defined
-
-=cut
-
-sub INPUT_DB {
-    my( $self, $input_db ) = @_;
-
-    if ($input_db){
-      $self->{_input_db} = get_db_adaptor_by_string($input_db,1);
-    }
-    if(!$self->{_input_db}){
-      throw("Please define database parameters for input db.\n");
-    }
-
-    return $self->{_input_db};
 }
 
 =head2 blessed_db
@@ -4637,6 +4545,190 @@ sub KNOWNUTR_FILE {
     $self->{_knownutr_file} = $value;
   }
   return $self->{_knownutr_file};
+}
+
+sub INPUT_GENES {
+  my ($self, $arg) = @_ ;
+  if (defined $arg) {
+    $self->{'INPUT_GENES'} = $arg ;
+  }
+  return $self->{'INPUT_GENES'} ;
+}
+
+sub ABINITIO_SETS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'ABINITIO_SETS'} = $arg ;
+  }
+  return $self->{'ABINITIO_SETS'} ;
+}
+
+sub SIMGW_SETS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SIMGW_SETS'} = $arg ;
+  }
+  return $self->{'SIMGW_SETS'} ;
+}
+
+sub EST_SETS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'EST_SETS'} = $arg ;
+  }
+  return $self->{'EST_SETS'} ;
+}
+
+sub AB_INITIO_LOGICNAMES {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'AB_INITIO_LOGICNAMES'} = $arg ;
+  }
+  return $self->{'AB_INITIO_LOGICNAMES'} ;
+}
+
+sub OUTPUT_DATABASE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'OUTPUT_DATABASE'} = $arg ;
+  }
+  return $self->{'OUTPUT_DATABASE'} ;
+}
+
+sub FILTER_SINGLETONS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'FILTER_SINGLETONS'} = $arg ;
+  }
+  return $self->{'FILTER_SINGLETONS'} ;
+}
+
+sub FILTER_NON_CONSENSUS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'FILTER_NON_CONSENSUS'} = $arg ;
+  }
+  return $self->{'FILTER_NON_CONSENSUS'} ;
+}
+
+sub ADD_UTR {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'ADD_UTR'} = $arg ;
+  }
+  return $self->{'ADD_UTR'} ;
+}
+
+sub MIN_CONSENSUS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'MIN_CONSENSUS'} = $arg ;
+  }
+  return $self->{'MIN_CONSENSUS'} ;
+}
+
+sub UTR_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'UTR_PENALTY'} = $arg ;
+  }
+  return $self->{'UTR_PENALTY'} ;
+}
+
+sub END_EXON_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'END_EXON_PENALTY'} = $arg ;
+  }
+  return $self->{'END_EXON_PENALTY'} ;
+}
+
+sub EST_OVERLAP_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'EST_OVERLAP_PENALTY'} = $arg ;
+  }
+  return $self->{'EST_OVERLAP_PENALTY'} ;
+}
+
+sub SHORT_INTRON_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SHORT_INTRON_PENALTY'} = $arg ;
+  }
+  return $self->{'SHORT_INTRON_PENALTY'} ;
+}
+
+sub SHORT_EXON_PENALTY {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SHORT_EXON_PENALTY'} = $arg ;
+  }
+  return $self->{'SHORT_EXON_PENALTY'} ;
+}
+
+sub GOOD_PERCENT {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'GOOD_PERCENT'} = $arg ;
+  }
+  return $self->{'GOOD_PERCENT'} ;
+}
+
+sub GOOD_BIOTYPE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'GOOD_BIOTYPE'} = $arg ;
+  }
+  return $self->{'GOOD_BIOTYPE'} ;
+}
+
+sub BAD_BIOTYPE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'BAD_BIOTYPE'} = $arg ;
+  }
+  return $self->{'BAD_BIOTYPE'} ;
+}
+
+sub SMALL_BIOTYPE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SMALL_BIOTYPE'} = $arg ;
+  }
+  return $self->{'SMALL_BIOTYPE'} ;
+}
+
+sub SOLEXA {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SOLEXA'} = $arg ;
+  }
+  return $self->{'SOLEXA'} ;
+}
+
+sub SOLEXA_SCORE_CUTOFF {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SOLEXA_SCORE_CUTOFF'} = $arg ;
+  }
+  return $self->{'SOLEXA_SCORE_CUTOFF'} ;
+}
+
+sub SOLEXA_DB {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'SOLEXA_DB'} = $arg ;
+  }
+  return $self->{'SOLEXA_DB'} ;
+}
+
+sub INPUT_DBS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'INPUT_DBS'} = $arg ;
+  }
+  return $self->{'INPUT_DBS'} ;
 }
 
 

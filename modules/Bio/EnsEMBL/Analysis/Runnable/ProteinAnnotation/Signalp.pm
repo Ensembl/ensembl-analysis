@@ -109,13 +109,23 @@ sub parse_results {
     }
     elsif (/mean\s+S\s+(\S+)\s+\S+\s+\S+\s+(\S+)/) {
       $fact2 = $2;
+      
       if ($fact1 eq "YES" && $fact2 eq "YES") {
-        my $line = <$fh>;
+	# signalp 2 output, expecting to parse the next line
+	my $line = <$fh>;
         if ($line =~ /Most likely cleavage site between pos\.\s+(\d+)/) {
-          $end = $1;
+	    $end = $1;
         }
         else {
-          $self->throw ("parsing problem in ".$self->program);
+          # otherwise signalp3 output, expecting to parse the line after
+	  my $line = <$fh>;
+	  if ($line =~ /Most likely cleavage site between pos\.\s+(\d+)/) {
+	      $end = $1;
+	  }
+	  else {
+	      # otherwise throw an exception
+	      $self->throw ("parsing problem in ".$self->program);
+	  }
         }
         my $fp = $self->create_protein_feature(1, $end, 0, $id, 0, 0,
                                                'Sigp', $self->analysis,

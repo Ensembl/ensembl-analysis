@@ -200,7 +200,8 @@ sub ends_with_stop{
 sub contains_internal_stops{
   my ($transcript) = @_;
   my $pep = $transcript->translate->seq;
-  my $num = $pep =~ /\*/;
+  my $num = ($pep =~ s/\*/\*/g);   
+  $num = 0 unless $num > 0;
   logger_info(Translation_info($transcript)." contains internal stops ".$pep)
     if($num);
   return $num;

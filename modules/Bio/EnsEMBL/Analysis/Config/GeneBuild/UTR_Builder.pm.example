@@ -36,7 +36,7 @@ use vars qw(%Config);
              DEFAULT => {
 	
                 #DATABASES
-                  INPUT_DB   =>'GENEWISE_DB',      # db with genes which have NO utr
+                  INPUT_DBS   => ['GENEWISE_DB', 'EXONERATE_DB'],      # db with genes which have NO utr
                   OUTPUT_DB  =>'UTR_DB',           # write processed genes to this DB
 
                   # From which databases should we get the additional data from?
@@ -107,8 +107,6 @@ use vars qw(%Config);
                   # size of window (basepairs)in which ditags are considered for a given cDNA position.
                   DITAG_WINDOW         => 30,
 
-                  #output verbosity
-	          VERBOSE              => 1,
              },
 
 

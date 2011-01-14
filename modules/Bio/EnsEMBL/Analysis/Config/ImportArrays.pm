@@ -636,6 +636,57 @@ use vars qw( %Config );
 					-class=>'AFFY_UTR'
 					},	  
 
+						'E_coli_Antisense' => {
+							-name => 'E_coli_Antisense',
+							-vendor => 'AFFY',
+							-format => 'EXPRESSION',
+							-type => 'OLIGO',
+							-class => 'AFFY_UTR'
+						},
+		#S_aureus
+
+		               'S_aureus' => {
+                                        -name => 'S_aureus',
+                                        -vendor=>'AFFY',
+                                        -format => 'EXPRESSION',
+                                        -type=>'OLIGO',
+                                        -class=>'AFFY_UTR'
+                                        },
+					    
+		# plants
+
+			       'ATH1-121501' => {
+				   -name => 'ATH1-121501',
+				   -vendor=>'AFFY',
+				   -format => 'EXPRESSION',
+				   -type=>'OLIGO',
+				   -class=>'AFFY_UTR'
+			       },
+ 
+                               'Rice' => {
+				   -name => 'Rice',
+				   -vendor=>'AFFY',
+				   -format => 'EXPRESSION',
+				   -type=>'OLIGO',
+				   -class=>'AFFY_UTR'
+			       },
+
+                               'Poplar' => {
+				   -name => 'Poplar',
+				   -vendor=>'AFFY',
+				   -format => 'EXPRESSION',
+				   -type=>'OLIGO',
+				   -class=>'AFFY_UTR'
+			       },
+
+                               'Vitis_Vinifera' => {
+				   -name => 'Vitis_Vinifera',
+				   -vendor=>'AFFY',
+				   -format => 'EXPRESSION',
+				   -type=>'OLIGO',
+				   -class=>'AFFY_UTR'
+			       },				     
+
 
 	  #Then add user defined/custom ones here?
 	  #values %{$ArrayConfig->{ARRAY_PARAMS}}
@@ -867,7 +918,8 @@ use vars qw( %Config );
 	{
 	 IIDREGEXP => '^>(\S+):(\S+).*$', #ORIG
 	 #IIDREGEXP => '^>(AgilentTiling):(.*)$', #HOLLY HACK
-	 
+	 #IIDREGEXP => '^>(\S+):(.+)', #EG HACK
+
 	 IFIELDORDER => {
 					 -name       => 1,
 					 -array_chip => 0,
@@ -887,9 +939,7 @@ use vars qw( %Config );
 									#-description => '',
 									-class   => 'AGILENT',
 								   },
-					  
-
-
+		
 					  #Danio
 					  'G2518A' => {
 										 -name => 'G2518A',
@@ -909,6 +959,59 @@ use vars qw( %Config );
 										 #-description => '',
 										  -class   => 'AGILENT',
 										},
+
+
+
+			  
+
+
+					  #plant - ara
+					  'G2519F-015059' => {
+										 -name => 'G2519F-015059',
+										 -vendor => 'AGILENT',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'AGILENT',
+										},
+					   'G2519F-021169' => {
+										 -name => 'G2519F-021169',
+										 -vendor => 'AGILENT',
+										 #-setsize => undef,
+										 -format  => 'EXPRESSION',
+										 -type    => 'OLIGO',
+										 #-description => '',
+										  -class   => 'AGILENT',
+										},
+
+
+
+						#plant - Rice 
+
+                                         'G2519F-015241' => {
+                                                                                 -name => 'G2519F-015241',
+                                                                                 -vendor => 'AGILENT',
+                                                                                 #-setsize => undef,
+                                                                                 -format  => 'EXPRESSION',
+                                                                                 -type    => 'OLIGO',
+                                                                                 #-description => '',
+                                                                                  -class   => 'AGILENT',
+                                                                                },
+                                           'G4138A-012106' => {
+                                                                                 -name => 'G4138A-012106',
+                                                                                 -vendor => 'AGILENT',
+                                                                                 #-setsize => undef,
+                                                                                 -format  => 'EXPRESSION',
+                                                                                 -type    => 'OLIGO',
+                                                                                 #-description => '',
+                                                                                  -class   => 'AGILENT',
+                                                                                },
+
+
+					
+
+				
 					  #human/mouse/rat
 					  'WholeGenome' => {
 										 -name => 'WholeGenome',
@@ -1074,8 +1177,84 @@ use vars qw( %Config );
 	 
 	 INPUT_FORMAT => 'FASTA',
 	},
-   
 
+        IMPORT_CATMA_ARRAYS =>
+        {
+         IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
+
+         IFIELDORDER => {
+                                         -name       => 1,
+                                         -array_chip => 0,
+                                         -array      => 0,
+			 },
+
+	 ARRAY_PARAMS => {
+            'CATMA' => {
+                              -name => 'CATMA',
+                              -vendor => 'CATMA',
+	 			 #-setsize => undef,
+	 			-format  => 'EXPRESSION',
+				-type    => 'OLIGO',
+				 #-description => '',
+				 -class   => 'CATMA',
+				 },
+	},
+  INPUT_FORMAT => 'FASTA',
+	},
+
+
+
+
+
+       IMPORT_NSF_ARRAYS =>
+        {
+         IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
+
+         IFIELDORDER => {
+                                         -name       => 1,
+                                         -array_chip => 0,
+                                         -array      => 0,
+                         },
+
+         ARRAY_PARAMS => {
+
+            'BGIYale' => {
+                              -name => 'BGIYale',
+                              -vendor => 'NSF',
+                                 #-setsize => undef,
+                                -format  => 'EXPRESSION',
+                                -type    => 'OLIGO',
+                                 #-description => '',
+                                 -class   => 'NSF',
+                                 },
+
+
+		   'NSF20K' => {
+                              -name => 'NSF20K',
+                              -vendor => 'NSF',
+                                 #-setsize => undef,
+                                -format  => 'EXPRESSION',
+                                -type    => 'OLIGO',
+                                 #-description => '',
+                                 -class   => 'NSF',
+                                 },
+
+		   'NSF45K' => {
+	                         -name => 'NSF45K',
+                              -vendor => 'NSF',
+                                 #-setsize => undef,
+                                -format  => 'EXPRESSION',
+                                -type    => 'OLIGO',
+                                 #-description => '',
+                                 -class   => 'NSF',
+                                 },
+
+
+
+
+        },
+  INPUT_FORMAT => 'FASTA',
+        },
 
    }
   );

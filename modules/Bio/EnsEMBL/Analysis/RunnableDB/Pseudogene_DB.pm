@@ -60,6 +60,7 @@ Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 package Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 
 use strict;
+use warnings;
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
@@ -94,42 +95,41 @@ sub new {
 =cut
 
 sub fetch_input {
-  my( $self) = @_;
-  throw("No input id") unless defined($self->input_id);
+  my ($self) = @_;
+  throw("No input id") unless defined( $self->input_id );
 
-  my $results = [];		# array ref to store the output
+  my $results = [];    # array ref to store the output
   my %repeat_blocks;
   my %homolog_hash;
   my @transferred_genes;
 
   print "Loading reference database : REFERENCE_DB.\n";
-  my $rep_db = $self->get_dbadaptor("REFERENCE_DB") ; 
- 
+  my $rep_db = $self->get_dbadaptor("REFERENCE_DB");
+
   #store repeat db internally
   $self->rep_db($rep_db);
   my $rsa = $rep_db->get_SliceAdaptor;
 
-
-  print "Loading genes database : PS_INPUT_DATABASE => ". $self->PS_INPUT_DATABASE." ( defined in Databases.pm ) \n";
-  my $genes_db = $self->get_dbadaptor($self->PS_INPUT_DATABASE) ; 
+  print "Loading genes database : PS_INPUT_DATABASE => "
+      . $self->PS_INPUT_DATABASE . " ( defined in Databases.pm ) \n";
+  my $genes_db = $self->get_dbadaptor( $self->PS_INPUT_DATABASE );
 
   $self->gene_db($genes_db);
   #genes are written to the pseudogene database
   # genes_slice holds all genes on input id slice
- 
-  my $genedb_sa = $self->gene_db->get_SliceAdaptor; 
-  print  "DB NAME: ".$self->db->dbc->dbname."\n";
-  my $genes_slice = $genedb_sa->fetch_by_name($self->input_id);
+
+  my $genedb_sa = $self->gene_db->get_SliceAdaptor;
+  print "DB NAME: " . $self->db->dbc->dbname . "\n";
+  my $genes_slice = $genedb_sa->fetch_by_name( $self->input_id );
   $self->query($genes_slice);
 
   my $genes = $genes_slice->get_all_Genes;
-  print  $genes_slice->name."\t".
-    $genes_slice->start."\n"; 
-  GENE: foreach my $gene (@{$genes}) { 
-    # Ignore all other biotypes of genes that are not protein_coding 
-    # these genes will still be written to PS_OUTPUT_DATABASE - unless you set 
-    # PS_DO_NOT_WRITE_IGNORED_GENES  = 0 
-    # 
+  print $genes_slice->name . "\t" . $genes_slice->start . "\n";
+GENE: foreach my $gene ( @{$genes} ) {
+    # Ignore all other biotypes of genes that are not protein_coding
+    # these genes will still be written to PS_OUTPUT_DATABASE - unless you set
+    # PS_DO_NOT_WRITE_IGNORED_GENES  = 0
+    #
     unless ( $gene->biotype eq $self->PS_BIOTYPE ) {
       $self->ignored_genes($gene);
       next GENE;
@@ -137,69 +137,64 @@ sub fetch_input {
 
     ############################################################################
     # transfer gene coordinates to entire chromosome to prevent problems arising
-    # due to offset with repeat features 
-    my $chromosome_slice = $rsa->fetch_by_region(
-						 'toplevel',
-						 $genes_slice->chr_name,
-						);
+    # due to offset with repeat features
+    my $chromosome_slice =
+      $rsa->fetch_by_region( 'toplevel', $genes_slice->chr_name, );
 
     my $transferred_gene = $gene->transfer($chromosome_slice);
     $self->lazy_load($transferred_gene);
-    push @transferred_genes,$transferred_gene;
+    push @transferred_genes, $transferred_gene;
 
     # repeats come from core database
     # repeat slice only covers gene to avoid sorting repeats unnecessarily
-    my $rep_gene_slice = $rsa->fetch_by_region(
-					       'toplevel',
-					       $genes_slice->chr_name,
-					       $transferred_gene->start,
-					       $transferred_gene->end,
-					      );
+    my $rep_gene_slice =
+      $rsa->fetch_by_region( 'toplevel', $genes_slice->chr_name,
+                             $transferred_gene->start, $transferred_gene->end,
+      );
     # get repeat blocks
-    my @feats = @{$rep_gene_slice->get_all_RepeatFeatures};
+    my @feats = @{ $rep_gene_slice->get_all_RepeatFeatures };
     @feats = map { $_->transfer($chromosome_slice) } @feats;
-    my $blocks = $self->get_all_repeat_blocks(\@feats);
+    my $blocks = $self->get_all_repeat_blocks( \@feats );
     # make hash of repeat blocks using the gene as the key
     $repeat_blocks{$transferred_gene} = $blocks;
-  }
+  } ## end foreach my $gene ( @{$genes...
 
-  $self->genes(\@transferred_genes);
-  $self->repeat_blocks(\%repeat_blocks);
+  $self->genes( \@transferred_genes );
+  $self->repeat_blocks( \%repeat_blocks );
   $self->make_runnable;
 
   return 1;
-}
+} ## end sub fetch_input
 
 
 sub make_runnable {
   my ($self) = @_;
-      
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Pseudogene->new
-    ( 
-     -analysis                     => $self->analysis,
-     -genes                        => $self->genes,
-     -repeat_features              => $self->repeat_blocks,
-     -PS_REPEAT_TYPES              => $self->PS_REPEAT_TYPES,
-     -PS_FRAMESHIFT_INTRON_LENGTH  => $self->PS_FRAMESHIFT_INTRON_LENGTH,
-     -PS_MAX_INTRON_LENGTH         => $self->PS_MAX_INTRON_LENGTH,
-     -PS_MAX_INTRON_COVERAGE       => $self->PS_MAX_INTRON_COVERAGE,
-     -PS_MAX_EXON_COVERAGE         => $self->PS_MAX_EXON_COVERAGE,
-     -PS_NUM_FRAMESHIFT_INTRONS    => $self->PS_NUM_FRAMESHIFT_INTRONS,
-     -PS_NUM_REAL_INTRONS          => $self->PS_NUM_REAL_INTRONS,
-     -SINGLE_EXON                  => $self->SINGLE_EXON,
-     -INDETERMINATE                => $self->INDETERMINATE,
-     -PS_MIN_EXONS                 => $self->PS_MIN_EXONS,
-     -PS_MULTI_EXON_DIR            => $self->PS_MULTI_EXON_DIR,
-     -BLESSED_BIOTYPES             => $self->BLESSED_BIOTYPES,
-     -PS_PSEUDO_TYPE               => $self->PS_PSEUDO_TYPE,
-     -KEEP_TRANS_BIOTYPE           => $self->KEEP_TRANS_BIOTYPE,
-     -PS_BIOTYPE                   => $self->PS_BIOTYPE,
-     -PS_REPEAT_TYPE               => $self->PS_REPEAT_TYPE,
-     -DEBUG                        => $self->DEBUG,
-     -IGNORED_GENES                => $self->ignored_genes,
-    );
+
+  my $runnable =
+    Bio::EnsEMBL::Analysis::Runnable::Pseudogene->new(
+           -analysis                    => $self->analysis,
+           -genes                       => $self->genes,
+           -repeat_features             => $self->repeat_blocks,
+           -PS_REPEAT_TYPES             => $self->PS_REPEAT_TYPES,
+           -PS_FRAMESHIFT_INTRON_LENGTH => $self->PS_FRAMESHIFT_INTRON_LENGTH,
+           -PS_MAX_INTRON_LENGTH        => $self->PS_MAX_INTRON_LENGTH,
+           -PS_MAX_INTRON_COVERAGE      => $self->PS_MAX_INTRON_COVERAGE,
+           -PS_MAX_EXON_COVERAGE        => $self->PS_MAX_EXON_COVERAGE,
+           -PS_NUM_FRAMESHIFT_INTRONS   => $self->PS_NUM_FRAMESHIFT_INTRONS,
+           -PS_NUM_REAL_INTRONS         => $self->PS_NUM_REAL_INTRONS,
+           -SINGLE_EXON                 => $self->SINGLE_EXON,
+           -INDETERMINATE               => $self->INDETERMINATE,
+           -PS_MIN_EXONS                => $self->PS_MIN_EXONS,
+           -PS_MULTI_EXON_DIR           => $self->PS_MULTI_EXON_DIR,
+           -BLESSED_BIOTYPES            => $self->BLESSED_BIOTYPES,
+           -PS_PSEUDO_TYPE              => $self->PS_PSEUDO_TYPE,
+           -KEEP_TRANS_BIOTYPE          => $self->KEEP_TRANS_BIOTYPE,
+           -PS_BIOTYPE                  => $self->PS_BIOTYPE,
+           -PS_REPEAT_TYPE              => $self->PS_REPEAT_TYPE,
+           -DEBUG                       => $self->DEBUG,
+           -IGNORED_GENES               => $self->ignored_genes, );
   $self->runnable($runnable);
-}
+} ## end sub make_runnable
 
 
 =head2 get_all_repeat_blocks
@@ -211,41 +206,40 @@ sub make_runnable {
 =cut 
 
 sub get_all_repeat_blocks {
-  my ($self,$repeat_ref) = @_;
+  my ( $self, $repeat_ref ) = @_;
   my @repeat_blocks;
   my @repeats = @{$repeat_ref};
-  @repeats = sort {$a->start <=> $b->start} @repeats;
+  @repeats = sort { $a->start <=> $b->start } @repeats;
   my $curblock = undef;
 
- REPLOOP: foreach my $repeat (@repeats) {
-    my $rc = $repeat->repeat_consensus;
+REPLOOP: foreach my $repeat (@repeats) {
+    my $rc  = $repeat->repeat_consensus;
     my $use = 0;
-    foreach my $type (@{$self->PS_REPEAT_TYPES}){
-      if ($rc->repeat_class =~ /$type/) {
-	$use = 1;
-	last;
+    foreach my $type ( @{ $self->PS_REPEAT_TYPES } ) {
+      if ( $rc->repeat_class =~ /$type/ ) {
+        $use = 1;
+        last;
       }
     }
     next REPLOOP unless $use;
-    if ($repeat->start <= 0) { 
-      $repeat->start(1); 
+    if ( $repeat->start <= 0 ) {
+      $repeat->start(1);
     }
-    if (defined($curblock) && $curblock->end >= $repeat->start) {
-      if ($repeat->end > $curblock->end) { 
-	$curblock->end($repeat->end); 
+    if ( defined($curblock) && $curblock->end >= $repeat->start ) {
+      if ( $repeat->end > $curblock->end ) {
+        $curblock->end( $repeat->end );
       }
     } else {
-      $curblock = Bio::EnsEMBL::Feature->new(
-						-START => $repeat->start,
-						-END => $repeat->end, 
-						-STRAND => $repeat->strand
-					    );
-      push (@repeat_blocks,$curblock);
+      $curblock =
+        Bio::EnsEMBL::Feature->new( -START  => $repeat->start,
+                                    -END    => $repeat->end,
+                                    -STRAND => $repeat->strand );
+      push( @repeat_blocks, $curblock );
     }
-  }
-    @repeat_blocks = sort {$a->start <=> $b->start} @repeat_blocks;
-  return\@repeat_blocks;
-}
+  } ## end foreach my $repeat (@repeats)
+  @repeat_blocks = sort { $a->start <=> $b->start } @repeat_blocks;
+  return \@repeat_blocks;
+} ## end sub get_all_repeat_blocks
 
 =head2 write_output
 
@@ -258,40 +252,41 @@ sub get_all_repeat_blocks {
 
 
 sub write_output {
-my($self) = @_;
-  my $genes = $self->output; 
-  if (defined $self->PS_WRITE_IGNORED_GENES &&  $self->PS_WRITE_IGNORED_GENES == 1 ) {  
-    print "Going to write 'ignored' genes as you have set PS_WRITE_IGNORED_GENES option to 1 in your Pseudogene.pm config file\n" ; 
-    push @{$genes},@{$self->ignored_genes} if $self->ignored_genes;  
-  }  
-  
-    my %feature_hash;
+  my ($self) = @_;
+  my $genes = $self->output;
+  if ( defined $self->PS_WRITE_IGNORED_GENES
+       && $self->PS_WRITE_IGNORED_GENES == 1 )
+  {
+    print "Going to write 'ignored' genes as you have set "
+        . "PS_WRITE_IGNORED_GENES option to 1 in your Pseudogene.pm config file\n";
+    push @{$genes}, @{ $self->ignored_genes } if $self->ignored_genes;
+  }
+
+  my %feature_hash;
   #  empty_Analysis_cache();
   # write genes out to a different database from the one we read genes from.
-  my $db = $self->get_dbadaptor($self->PS_OUTPUT_DATABASE) ; 
+  my $db = $self->get_dbadaptor( $self->PS_OUTPUT_DATABASE );
 
   #now using Analysis:Databases
-  print "Writing to database PS_OUTPUT_DATABASE : " . $self->PS_OUTPUT_DATABASE . "\n"; 
-
+  print "Writing to database PS_OUTPUT_DATABASE : "
+      . $self->PS_OUTPUT_DATABASE . "\n";
 
   # sort out analysis
   my $analysis = $self->analysis;
-  unless ($analysis){
+  unless ($analysis) {
     throw("an analysis logic name must be defined in the command line");
   }
   my $gene_adaptor = $db->get_GeneAdaptor;
-  foreach my $gene (@{$genes}) {
+  foreach my $gene ( @{$genes} ) {
     # store gene
-    eval {
-      $gene_adaptor->store($self->lazy_load($gene));
-    };
-    if ( $@ ) {
-      warning ("UNABLE TO WRITE GENE:\n$@");
+    eval { $gene_adaptor->store( $self->lazy_load($gene) ); };
+    if ($@) {
+      warning("UNABLE TO WRITE GENE:\n$@");
     }
   }
 
   return 1;
-} 
+} ## end sub write_output
 
 
 =head2 run
@@ -303,17 +298,18 @@ before runnning the runnable
 
 =cut 
 
-sub run  {
+sub run {
   my ($self) = @_;
-  foreach my $runnable (@{$self->runnable}) {
-    throw("Runnable module not set") unless ($runnable->isa("Bio::EnsEMBL::Analysis::Runnable"));
+  foreach my $runnable ( @{ $self->runnable } ) {
+    throw("Runnable module not set")
+      unless ( $runnable->isa("Bio::EnsEMBL::Analysis::Runnable") );
     $runnable->run();
-    $self->output($runnable->output);
-    if ($self->SINGLE_EXON){
-      $self->store_ids($runnable->single_exon_genes,$self->SPLICED_ELSEWHERE_LOGIC_NAME);
-    }    
-    if ($self->INDETERMINATE){
-      $self->store_ids($runnable->indeterminate_genes,$self->PSILC_LOGIC_NAME);
+    $self->output( $runnable->output );
+    if ( $self->SINGLE_EXON ) {
+      $self->store_ids( $runnable->single_exon_genes, $self->SPLICED_ELSEWHERE_LOGIC_NAME );
+    }
+    if ( $self->INDETERMINATE ) {
+      $self->store_ids( $runnable->indeterminate_genes, $self->PSILC_LOGIC_NAME );
     }
   }
   return 0;
