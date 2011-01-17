@@ -1,4 +1,3 @@
-
 #
 # BioPerl module for GeneBuilder
 #
@@ -192,7 +191,7 @@ sub build_Genes {
 
   print STDERR scalar(@genes) . " genes built\n";
 
-  $self->update_biotypes(@genes);
+  $self->update_gene_biotypes(@genes);
 
   $self->final_genes( \@genes );
 } ## end sub build_Genes
@@ -249,25 +248,7 @@ GENE:
     HAVANA_TRANS: foreach my $ht (@havana) {
       print "\n===> Looking at havana trans: " . $ht->dbID . "\n";
 
-      # We add an attribute to the havana transcripts that shows which
-      # supporting features have been used to build the Exons. This
-      # will allow us to distinguish them when it comes to the web
-      # display.
-      print "\nAdding attributes to havana transcript " . $ht->dbID . "\n";
-      $self->add_havana_attribute( $ht, $ht );
-
-      #print "Deleting havana transcript supporting features\n";
-
-      # Original supporting features in havana transcripts are removed
-      # as Havana build transcripts based on exon supporting features
-      # so the transcripts supporting features are artificial features
-      # that are not accurate.
-      $ht->flush_supporting_features;
-
       print "\nNumber of ensembl transcripts: ", scalar(@ensembl),"\n";
-
-      # my $delete_trans;
-      # my @t_pair;
 
       foreach my $et (@ensembl) {
 
@@ -283,7 +264,10 @@ GENE:
         # matching havana/ensembl pair is chosen and to avoid a one
         # to many link
  
-        # delete_t can be 0 (don't merge, trans completely different), 1 (don't merge, UTR structures different), $et (delete Ens trans) or $ht (delete Hav trans)
+        # delete_t can be 0 (don't merge, trans completely different), 
+        #                 1 (don't merge, UTR structures different), 
+        #               $et (delete Ens trans) or 
+        #               $ht (delete Hav trans)
 
         # print "\tdelete_t was $delete_t when just returned from are_matched_pair.\n"; 
 
@@ -334,12 +318,10 @@ GENE:
           my $new_bt_1;    #new biotype string for merged Ens trans
 
           if ( $t_pair[0]->biotype !~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE$/ ) {  ## biotype suffix for Hav
-            print "I'm HERE!!! Adding _mrgd suffix to Havana trans!!!\n";
             $new_bt_0 = $t_pair[0]->biotype . $MERGED_TRANSCRIPT_OUTPUT_TYPE;
             $t_pair[0]->biotype($new_bt_0);
           }
           if ( $t_pair[1]->biotype !~ /$MERGED_TRANSCRIPT_OUTPUT_TYPE$/ ) {  ## biotype suffix for Ens
-            print "I'm HERE!!! Adding _mrgd suffix to Ens trans!!!\n";
             $new_bt_1 = $t_pair[1]->biotype . $MERGED_TRANSCRIPT_OUTPUT_TYPE;
             $t_pair[1]->biotype($new_bt_1);      
           }
@@ -952,6 +934,13 @@ sub add_ottg_xref {
 
 sub set_transcript_relation {
   # $t_pair[0] is the havana transcript and $t_pair[1] is the ensembl transcript
+  # $delete_t here is passed from $delete_trans in _merge_redundant_transcripts.
+
+  # $delete_t here can be $et (delete Ens trans), 
+  #                       $ht (delete Hav trans),
+  #                         0 (keep both as structure completely different), 
+  #                         1 (keep both as CDS is the same but UTR structures differ)
+
   my ( $self, $delete_t, @t_pair ) = @_;
 
   # If both share CDS and UTR is different in structure and number of
@@ -1023,10 +1012,11 @@ sub set_transcript_relation {
 
     #print "OTTT TO ADD: ",$t_pair[0]->stable_id,"\n";
 
-  } ## end if ( $delete_t == 1 )
+  } ## end if ( $delete_t == 1 ), where Ens and Hav trans share CDS but differ in UTR structure
 
   # If transcript to delete is havana we create an xref for the entry
   # saying that the transcript is CDS equal to ensembl.
+
   elsif ( $delete_t == $t_pair[0] ) {
     #print "DEBUG (set_transcript_relation) del trans is havana: "
     #    . $delete_t->dbID . "\n";
@@ -1072,11 +1062,9 @@ sub set_transcript_relation {
     # supporting features to the transcript we keep
     $self->transfer_exon_support($delete_t, $t_pair[1]);
 
-    # We add attributes to the havana transcript showing which
-    # supporting features where used for the transcript in Havana
-    $self->add_havana_attribute( $t_pair[0], $t_pair[1] );
-
-  } elsif ( $delete_t == $t_pair[1] ) {
+  } # end else ( $delete_t == $tpair[0]), i.e. deleting Havana transcript
+ 
+  elsif ( $delete_t == $t_pair[1] ) {
     #print "DEBUG (set_transcript_relation) del trans is ensembl: "
     #    . $delete_t->dbID . "\n";
 
@@ -1103,115 +1091,36 @@ sub set_transcript_relation {
         }
       }
     }
+
     # Transfer the supporting features both for transcript and exon of
     # the transcript to delete to the transcript we keep
-    $self->transfer_supporting_features( $delete_t, $t_pair[0] );
+    $self->transfer_transcript_and_exon_supporting_features( $delete_t, $t_pair[0] );
 
-    # We add attributes to the havana transcript showing which
-    # supporting features where used for the transcript in Havana
-    #
-    #$self->add_havana_attribute($t_pair[0],$t_pair[0]);
-
-  } ## end elsif ( $delete_t == $t_pair...
+  } ## end elsif ( $delete_t == $t_pair[1] ), i.e. deleting Ensembl transcript
 } ## end sub set_transcript_relation
 
-sub add_havana_attribute {
-  my ( $self, $transcript, $trans_to_add_attrib ) = @_;
 
-  my %evidence;
-  my %t_evidence;
-
-  foreach my $tsf ( @{ $transcript->get_all_supporting_features } ) {
-    $t_evidence{ $tsf->hseqname } = 1;
-  }
-
-  foreach my $te_key ( keys %t_evidence ) {
-    #print "Adding special attrib\n";
-
-    if ( $te_key->isa("Bio::EnsEMBL::DnaPepAlignFeature") ) {
-      my $attribute =
-        Bio::EnsEMBL::Attribute->new(
-        -CODE => 'tp_ott_support',
-        -NAME => 'otter protein transcript support',
-        -DESCRIPTION => 'Evidence ID that was used as protein transcript supporting feature for building a gene in Vega',
-        -VALUE => $te_key );
-
-      $trans_to_add_attrib->add_Attributes($attribute);
-
-    }
-
-    if ( $te_key->isa("Bio::EnsEMBL::DnaDnaAlignFeature") ) {
-      my $attribute =
-        Bio::EnsEMBL::Attribute->new(
-        -CODE => 'td_ott_support',
-        -NAME => 'otter dna transcript support',
-        -DESCRIPTION => 'Evidence ID that was used as cdna transcript supporting feature for building a gene in Vega',
-        -VALUE => $te_key );
-
-      $trans_to_add_attrib->add_Attributes($attribute);
-
-    }
-  } ## end foreach my $te_key ( keys %t_evidence)
-
-  foreach my $exon ( @{ $transcript->get_all_Exons } ) {
-    foreach my $sf ( @{ $exon->get_all_supporting_features } ) {
-      $evidence{ $sf->hseqname } = 1;
-    }
-  }
-
-  foreach my $ev_key ( keys %evidence ) {
-    #print "Adding special attrib\n";
-    if ( $ev_key->isa("Bio::EnsEMBL::DnaPepAlignFeature") ) {
-      my $attribute =
-        Bio::EnsEMBL::Attribute->new(
-        -CODE => 'ep_ott_support',
-        -NAME => 'otter protein exon support',
-        -DESCRIPTION => 'Evidence ID that was used as protein exon supporting feature for building a gene in Vega',
-        -VALUE => $ev_key );
-
-      $trans_to_add_attrib->add_Attributes($attribute);
-    }
-
-    if ( $ev_key->isa("Bio::EnsEMBL::DnaPepAlignFeature") ) {
-      my $attribute =
-        Bio::EnsEMBL::Attribute->new(
-        -CODE => 'ed_ott_support',
-        -NAME => 'otter dna exon support',
-        -DESCRIPTION => 'Evidence ID that was used as cdna exon supporting feature for building a gene in Vega',
-        -VALUE => $ev_key );
-
-      $trans_to_add_attrib->add_Attributes($attribute);
-    }
-  } ## end foreach my $ev_key ( keys %evidence)
-} ## end sub add_havana_attribute
-
-sub transfer_supporting_features {
+sub transfer_transcript_and_exon_supporting_features {
   my ( $self, $delete_t, $transcript ) = @_;
 
   my @exon_features;
 
-  # Delete all the supporting features for the Havana Transcript
-  #$transcript->flush_supporting_features;
-
   my @delete_tsf = @{ $delete_t->get_all_supporting_features };
-  #my @transcript_sf = @{ $transcript->get_all_supporting_features };
 
-  #print "DEBUG (transfer_supporting_features) \# of tsf bfr addition: ",scalar(@transcript_sf),"\n";
-  #print "DEBUG (transfer_supporting_features) and delete tsf: ", scalar(@delete_tsf),"\n";
+  #print "DEBUG (transfer_transcript_and_exon_supporting_features) \# of tsf bfr addition: ",scalar(@transcript_sf),"\n";
+  #print "DEBUG (transfer_transcript_and_exon_supporting_features) and delete tsf: ", scalar(@delete_tsf),"\n";
 
-DTSF: foreach my $dtsf (@delete_tsf) {
+  DTSF: foreach my $dtsf (@delete_tsf) {
     if ( !$dtsf->isa("Bio::EnsEMBL::FeaturePair") ) {
       next DTSF;
     }
     $transcript->add_supporting_features($dtsf);
   }
 
-  #print "DEBUG (transfer_supporting_features) about to transfer exon sf\n";
+  #print "DEBUG (transfer_transcript_and_exon_supporting_features) about to transfer exon sf\n";
   $self->transfer_exon_support($delete_t, $transcript);
 
-  print "no. tsf aft addition: "
-      . scalar(@{ $transcript->get_all_supporting_features }) . "\n";
-} ## end sub transfer_supporting_features
+} ## end sub transfer_transcript_and_exon_supporting_features
 
 sub _remove_transcript_from_gene {
   my ( $self, $gene, $trans_to_del ) = @_;
@@ -2091,6 +2000,9 @@ Description :   It returns the coding exons of a transcript and stores
   }
 }
 
+
+##################################################################
+
 =head2 get_coding_exons_for_gene
 
     Example :    my $exons1 = $self->get_coding_exons_for_gene($gene);
@@ -2265,19 +2177,21 @@ ID:
   } ## end foreach my $id ( keys %{$feature_hash...
   return \@pruned;
 } ## end sub prune_features
+
+
 ############################################################
 
-=head2 transfer_supporting_evidence
+=head2 transfer_supporting_evidence_between_exons
 
- Title   : transfer_supporting_evidence
- Usage   : $self->transfer_supporting_evidence($source_exon, $target_exon)
+ Title   : transfer_supporting_evidence_between_exons
+ Usage   : $self->transfer_supporting_evidence_between_exons($source_exon, $target_exon)
  Function: Transfers supporting evidence from source_exon to target_exon, 
            after checking the coordinates are sane and that the evidence is not already in place.
  Returns : nothing, but $target_exon has additional supporting evidence
 
 =cut
 
-sub transfer_supporting_evidence {
+sub transfer_supporting_evidence_between_exons {
   my ( $self, $source_exon, $target_exon ) = @_;
 
   my @target_sf = @{ $target_exon->get_all_supporting_features };
@@ -2286,7 +2200,7 @@ sub transfer_supporting_evidence {
   my %unique_evidence;
   my %hold_evidence;
 
-#  print "DEBUG (transfer_supporting_evidence): bfr "
+#  print "DEBUG (transfer_supporting_evidence_between_exons): bfr "
 #      . "source exon sf: " . scalar( @{ $source_exon->get_all_supporting_features } )
 #      . " vs target exon sf: " . scalar( @{ $target_exon->get_all_supporting_features } ) . "\n";
 
@@ -2309,8 +2223,14 @@ SOURCE_FEAT:
 
   TARGET_FEAT:
     foreach my $tsf (@target_sf) {
+
+      # Skip comparison between source and target features if the target one isn't a daf or paf feature pair
       next TARGET_FEAT unless $tsf->isa("Bio::EnsEMBL::FeaturePair");
 
+      # If supp feat in source exon is identical to existing supp feat in the target exon, we don't want to
+      # transfer source feat onto target exon and there's no need to check other existing supp feat in the
+      # target exon.
+ 
       if (    $feat->start    == $tsf->start
            && $feat->end      == $tsf->end
            && $feat->strand   == $tsf->strand
@@ -2321,10 +2241,11 @@ SOURCE_FEAT:
         next SOURCE_FEAT;
       }
     }
-#    print "DEBUG (transfer_supporting_evidence): from ".$source_exon->dbID." to ".$target_exon->dbID."\n";
+#    print "DEBUG (transfer_supporting_evidence_between_exons): from ".$source_exon->dbID." to ".$target_exon->dbID."\n";
 
     # I may need to add a paranoid check to see that no exons longer
     # than the current one are transferred
+
     $target_exon->add_supporting_features($feat);
     $unique_evidence{$feat} = 1;
     $hold_evidence{ $feat->hseqname }{ $feat->start }{ $feat->end }
@@ -2333,15 +2254,23 @@ SOURCE_FEAT:
 
 #  print "no. of target exon afr: "
 #      . scalar( @{ $target_exon->get_all_supporting_features } ) . "\n";
-} ## end sub transfer_supporting_evidence
+} ## end sub transfer_supporting_evidence_between_exons
 
-=head2 update_biotypes
+############################################################################
 
-  Description: This check the biotypes of the merged transcript and genes and updates then to reflect the merge
+=head2 update_gene_biotypes
+
+ Title   : update_gene_biotypes
+ Usage   : $self->update_gene_biotypes(@genes)
+ Function: For each gene, it checks the biotypes of its associated merged 
+           transcript(s) and then set the gene biotype to reflect the
+           combination of transcript biotypes.
+ Returns : nothing, but each gene object in the @genes array will have its
+           biotype attribute set.
 
 =cut
 
-sub update_biotypes {
+sub update_gene_biotypes {
   my ( $self, @genes ) = @_;
 
   my %pseudobiotypes;
@@ -2449,7 +2378,7 @@ sub update_biotypes {
       $gene->biotype($newbiotype);
     }
   } ## end foreach my $gene (@genes)
-} ## end sub update_biotypes
+} ## end sub update_gene_biotypes
 
 ############################################################
 
@@ -3120,6 +3049,21 @@ sub sort_transcripts {
   return \@transcripts;
 } ## end sub sort_transcripts
 
+
+#########################################################################
+
+=head2 transfer_exon_support
+
+ Title   : transfer_exon_support
+ Usage   : $self->transfer_exon_support($source_transcript, $recipient_transcript)
+ Function: Transfers supporting evidence from the source transcript's exons to
+           the recipient transcript's exons.
+ Returns : Nothing, but the recipient transcript will have new exon-level supporting
+           evidence added to its exons from the source transcript's exons.
+
+=cut
+
+
 sub transfer_exon_support {
   my ( $self, $trans_to_delete, $trans_to_keep ) = @_;
 
@@ -3147,8 +3091,8 @@ sub transfer_exon_support {
 
   if ( scalar(@delete_e) == scalar(@exons) ) {
     for ( my $e = 0; $e < scalar(@delete_e); $e++ ) {
-      $self->transfer_supporting_evidence( $delete_e[$e], $exons[$e] );
-    }
+      $self->transfer_supporting_evidence_between_exons( $delete_e[$e], $exons[$e] );
+    }                                                                
   } else {
 #    print "DEBUG (transfer_exon_support): number of exons don't match, not doing anything.\n";
   }
