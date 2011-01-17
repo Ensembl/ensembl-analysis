@@ -204,7 +204,7 @@ sub convert_simple_features {
   for my $sf ( @simple_features ) { 
     for my $lg ( @{ $self->EFG_FEATURE_NAMES } ) { 
       if ( $sf->analysis ) {  
-         if ( $sf->analysis->logic_name =~m/$lg/) {
+         if ( $sf->analysis->logic_name =~m/^$lg$/) {
            push @filtered_sf, $sf ; 
          } 
       } else {  
