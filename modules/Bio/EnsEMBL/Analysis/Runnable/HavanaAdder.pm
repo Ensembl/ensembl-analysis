@@ -456,7 +456,7 @@ sub are_matched_pair {
     # the pair.
 
     if ( !$self->check_internal_exon_structure( \@eexons, \@hexons ) ) {
-      print "value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
+      #print "value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
       print "NON-CODING CASE 0 - BOTH selected\n";
 
       # CASE 0: the two transcripts have different internal exon structure
@@ -465,7 +465,7 @@ sub are_matched_pair {
     # CASE 1: Havana is longer or both are exactly the same
     print "NON-CODING CASE 1 - Havana longer or both are the same length\n";
     if ( $self->check_terminal_exon_structure( \@hexons, \@eexons ) ) {
-      print "value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
+      #print "value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
       print "We keep Havana - havana longer\n";
       return $ensembl;
     } else {
@@ -507,7 +507,7 @@ sub are_matched_pair {
         print "HAV CODING vs ENS NON-CODING CASE 0 - "
             . "different internal exon structure, both selected\n";
 
-        print "value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
+        #print "value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
         return 0;
       }
       # Here we may consider removing the Ensembl transcript and keep
