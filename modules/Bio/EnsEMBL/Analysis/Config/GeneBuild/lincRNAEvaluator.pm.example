@@ -37,29 +37,53 @@ use vars qw( %Config );
            {
               DEFAULT => { 
                           LINCRNA_DB => { 
-                                           # specify gene-biotypes which you want to fetch out of the database where lincRNAFinder has written it's output to  
-                                           # you have to fetch all lincRNA genes also the ones with protein features ( pfam / tigfam ) as we use them for 
-                                           # clustering in this Evaluation step
+                                           # specify gene-biotypes which you want to fetch out of the database where lincRNAFinder has written its output to.
+                                           # you have to fetch all lincRNA genes, i.e. you do not need to pre-filter the lincRNAFinder output to remove lincRNA candidates
+                                           # which contain protein features ( pfam / tigfam ), because the Evaluator code will do the filtering later.
+
                                            LINCRNA_OUTPUT_DB => ['lincRNA_finder','prot_feat'],  
                                         },
 
                           VALIDATION_DBS => { 
-                                              SOURCE_PROTEIN_CODING_DB => ['fetch_all_biotypes'] , # db with genes to cluseter in second run lincEvaluator 
+                                            # SOURCE_PROTEIN_CODING_DB is the database with the latest Ensembl core gene set.  Specify the biotype of core genes to be fetched here.
+                                            # In the 2nd clustering stage in the runnable, the fetched core genes will be clustered against lincRNA candidates which do not contain 
+                                            # protein domains. The aim is to identify lincRNA candidates which do not contain protein domains and do not overlap with existing core genes.
+
+                                              SOURCE_PROTEIN_CODING_DB => ['fetch_all_biotypes'] , # "fetch_all_biotypes" is an alias accepted by BaseGeneBuild RunnableDB.
                                             },  
 
 
                           FINAL_OUTPUT_BIOTYPE => "lincRNA", 
                           FINAL_OUTPUT_DB      => 'LINCRNA_FINAL',   
 
-                          # configure if you want to update the analysis of all processed_transcripts which 
-                          # cluster with identified lincRNAs. Useful if you want to copy your lincRNAs into 
-                          # an already 'ready-to-go' core on ens-staging. Make sure the analysis with ENSEMBL_HAVANA_LOGIC_NAME
-                          # exist in the db. 
-                          PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB => 1,  
-                          UPDATE_SOURCE_PROTEIN_CODING_DB => 'SOURCE_PROTEIN_CODING_DB',    # the db to update 
-                          ENSEMBL_HAVANA_LOGIC_NAME => 'ensembl_havana_gene',               # logic_name of the analysis you will assign
-                          HAVANA_LOGIC_NAME => 'havana',                                    # gene-logic_name of the processed_transcript predicted by havana 
+                          # The next four hash keys allow you to configure if you want to update the *gene* analysis AND biotype 
+                          # of all processed_transcripts which cluster with identified lincRNAs. 
 
+                          # The analysis logic_name will be updated to what's defined in 'ENSEMBL_HAVANA_LOGIC_NAME' and the
+                          # biotype is hard-coded to be 'proc_trans_turned_lincRNA'.
+
+                          # This is useful if you want to copy your lincRNAs into an already 'ready-to-go' core on ens-staging.
+                          # If you've turned on 'PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB', make sure the logic_name specified in
+                          # 'ENSEMBL_HAVANA_LOGIC_NAME' exist in the 'UPDATE_SOURCE_PROTEIN_CODING_DB'.
+
+                          PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB => 1,  
+                          UPDATE_SOURCE_PROTEIN_CODING_DB => 'SOURCE_PROTEIN_CODING_DB',    # the DB where the analysis and biotype update is performed.
+                          ENSEMBL_HAVANA_LOGIC_NAME => 'ensembl_havana_gene',               # the analysis logic_name you will assign to the proc_trans *genes* which overlap with identified lincRNAs
+                          HAVANA_LOGIC_NAME => 'havana',                                    # gene logic_name of the processed_transcripts 
+
+                          # Sometimes the SOURCE_PROTEIN_CODING_DB contains lincRNAs already from previous work.
+                          # The lincRNAs identified in this analysis may overlap with existing lincRNAs.
+                          # Turn on the MARK_EXISTING_LINCRNA_IN_VALIDATION flag if you want to change the biotype of
+                          # existing lincRNAs which overlap with the new ones to "lincRNA_common"
+
+                          # Turn on 'WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS' if you want to write the
+                          # "common" lincRNAs identified in your run into the output DB although they already exist.
+                          # The lincRNAs written will have biotype "ncRNA_clusters_with_existing_lincRNA" and analysis 
+                          # logic_name taken from 'ENSEMBL_HAVANA_LOGIC_NAME' above.
+
+                          MARK_EXISTING_LINCRNA_IN_VALIDATION => 1,
+                          WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS => 1,
+ 
                           # configure if you want to write additional gene models which did NOT pass the evaluation step
                           WRITE_REJECTED_NCRNAS => 0,  
                           WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS => 0,
