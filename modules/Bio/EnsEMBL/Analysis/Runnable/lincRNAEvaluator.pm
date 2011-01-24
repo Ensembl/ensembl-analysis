@@ -29,12 +29,11 @@ sub new{
   
   my $self = $class->SUPER::new(@args); 
 
-  my($linc_rna_genes, $ensembl_genes , $ensembl_havana_analysis ) = rearrange([qw(linc_rna_genes ensembl_genes ensembl_havana_analysis )], @args); 
+  my($linc_rna_genes, $ensembl_genes ) = 
+    rearrange([qw(linc_rna_genes ensembl_genes )], @args); 
 
   $self->linc_rna_genes($linc_rna_genes); 
   $self->ensembl_genes($ensembl_genes); 
-  $self->ensembl_havana_analysis($ensembl_havana_analysis);
-
   return $self;
 } 
 
@@ -112,7 +111,6 @@ sub run{
   my @genes_with_prot_domain = ( 
                                   @{get_oneway_clustering_genes_of_set($step1_clusters,"GENES_W_PROT_DOM")},   # clusters with set-genes of 1 type only (prot) 
                                   @{get_oneway_clustering_genes_of_set($step1_unclustered,"GENES_W_PROT_DOM")},# clusters with one-gene of type 1 only  (prot) 
-                                  @{get_twoway_clustering_genes_of_set($step1_clusters,'GENES_W_PROT_DOM')},   # twoway-cluster type GENES_W_PROT_DOM
                                   @{get_twoway_clustering_genes_of_set($step1_clusters,'NO_PROT_DOM')},        # twoway-cluster type NO_PROT_DOM 
                                );
   print scalar(@genes_with_prot_domain) . " genes found which cluster somehow with protein domain \n" ;     
@@ -121,7 +119,7 @@ sub run{
   # 2nd clustering - cluster ncRNAs without protein_domain with with human gene set  
   # 
   
-  print "2nd clustering... ensembl-genes vs my ncrna's which don't have prot_domains\n"; 
+  print "2nd clustering... ensembl-genes vs my ncrna's which don't have prot_domains\n";
   print "INPUT : " . scalar(@{$self->ensembl_genes}) . " ENSEMBL genes\n" ;    
   print "INPUT : " . scalar(@no_prot_domain_genes). " genes with NO protein_domain\n" ;      
 
@@ -157,61 +155,88 @@ sub run{
   # ensembl genes which cluster twoway with my lincRNAs (the lincrnas  which don't have a prot_dom and dont cluster with prot_dom ) 
   my @ensembl  =  @{ get_twoway_clustering_genes_of_set($step2_clusters,'ENSEMBL_SET')};
   print "RESULT : " . scalar(@ensembl). " ENSEMBL genes found which cluster with lincRNA genes\n" ;    
+  print "\n*** Going to look at each two-way cluster from the 2nd round clustering now. Each cluster contains lincRNA candidates w/o protein domain and Ensembl core genes....\n\n";
 
-  # filter out lincRNA which cluster with different biotypes than processed_transcript 
- 
-  my @unclustered_lincrna_overlaps_processd_trans; 
-  my (@use, @not_use) ;   
-
+  # filter out lincRNA which cluster with different biotypes than processed_transcript and existing lincRNAs 
   # process genes cluster-by-cluster  
 
+  # my (@use, @not_use) ;    # only used in some hashed-out code later
   my @ncrna_clusters_with_processed_transcript;
+  my @ncrna_clusters_with_existing_lincRNAs;
   my @ncrna_clusters_with_multiple_biotypes; 
-  my @genes_to_update ; 
+
+  my %tmp_proc_trans_hash;
+  my @proc_tran_genes_to_update; 
+  my %tmp_old_lincRNA_hash;
+  my @old_lincRNA_genes_to_update;
 
   CLUSTER: for my $cl ( @{ get_twoway_clusters($step2_clusters)} ) {  
     my @e_genes = @{ $cl->get_Genes_by_Set('ENSEMBL_SET' )};    
     my @ncrnas_in_cluster = @{ $cl->get_Genes_by_Set('NO_PROT_DOM')};
-      print "have " .scalar(@e_genes)  . " ensembl genes \n" ; 
-      print "have " .scalar(@ncrnas_in_cluster)  . " ensembl which don't cluster with any protein domain \n" ; 
+      print "Looking at a two_way cluster from the 2nd clustering which contains " .scalar(@e_genes)  . " ensembl genes and " .
+             scalar(@ncrnas_in_cluster)  . " lincRNA candidates without any protein domain \n" ; 
 
     my @e_biotypes = @{ get_biotypes_of_ensembl_genes(\@e_genes) }; 
 
 
     if ( scalar(@e_biotypes) == 1 ) {                       # gene clusters only with one ensembl biotype 
-       if ( $e_biotypes[0]=~m/processed_transcript/ ) {     # lincRNA clustes only with ensembl gene of biotype 'processed_transcript'
-          for my $ncrna_gene ( @ncrnas_in_cluster ) {  
-            for my $e ( @e_genes ) {  
-              push @genes_to_update, $e ;
-              # don't need the print below as the genes get automatically updated ...  
-              print "INFO : processed_transcript_clusters_with_linccRNA:\t" . $e->stable_id . "\t" . $e->analysis->logic_name . "\n" ;  
-              #print "update gene g, analysis a , gene_stable_id gsi set g.analysis_id = a.analysis_id ".
-              #       "where a.logic_name =\"".$self->ensembl_havana_analysis->logic_name ."\" and g.gene_id = " . $e->dbID .
-              #        " and g.gene_id = gsi.gene_id and stable_id =\"".$e->stable_id.";\n";
+      if ( $e_biotypes[0]=~m/^processed_transcript$/ ) {     # lincRNA clustes only with ensembl gene of biotype 'processed_transcript'
+        for my $ncrna_gene ( @ncrnas_in_cluster ) {  
+          E_GENE: for my $e ( @e_genes ) {
+            if ($tmp_proc_trans_hash{$e->stable_id}) {
+              next E_GENE;
+            } else {
+              push (@proc_tran_genes_to_update, $e); 
+              $tmp_proc_trans_hash{$e->stable_id} = 1;
             }
-            push @ncrna_clusters_with_processed_transcript, $ncrna_gene; 
-           }  
-         push @use, @ncrnas_in_cluster ;  
-       }
+          }
+          push @ncrna_clusters_with_processed_transcript, $ncrna_gene; 
+        }  
+      } elsif ( $e_biotypes[0]=~m/^lincRNA$/) {
+        for my $ncrna_gene ( @ncrnas_in_cluster ) {  
+          L_GENE: for my $e ( @e_genes ) {  
+            if ($tmp_old_lincRNA_hash{$e->stable_id}) {
+              next L_GENE;
+            } else {
+              push (@old_lincRNA_genes_to_update, $e);
+              $tmp_old_lincRNA_hash{$e->stable_id} = 1;
+            }
+          }
+          push @ncrna_clusters_with_existing_lincRNAs, $ncrna_gene;  
+        }
+      }
     } elsif ( scalar(@e_biotypes) > 1 ) {  # lincRNA clusters with more than one biotype - we don't use it
       push @ncrna_clusters_with_multiple_biotypes, @ncrnas_in_cluster ; 
     } else {    
       throw("gene clusteres with NO other biotype. this should not happen"); 
     }  
-    print "\n\n";
+    print "\n";
   }  
 
+  foreach my $pt_gene(@proc_tran_genes_to_update) {
+    print "INFO : This processed_transcript gene clusters with lincRNA: ".  $pt_gene->stable_id . "\t" . $pt_gene->analysis->logic_name . " " . 
+          $pt_gene->seq_region_start . "\t" . $pt_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
+  }
+  
+  foreach my $ol_gene(@old_lincRNA_genes_to_update) {
+   print "INFO : This existing lincRNA gene clusters with newly-identified lincRNA: ".  $ol_gene->stable_id . "\t" . $ol_gene->analysis->logic_name . " " .
+          $ol_gene->seq_region_start . "\t" . $ol_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
+  }
+
+  print "\n";
 
   # data which will be used for output 
   $self->unclustered_ncrnas(\@lincrna_unclustered); 
   $self->ncrna_clusters_with_processed_transcript(\@ncrna_clusters_with_processed_transcript);   
-  $self->genes_to_update(\@genes_to_update); 
+  $self->ncrna_clusters_with_existing_lincRNAs(\@ncrna_clusters_with_existing_lincRNAs);   
+  $self->proc_tran_genes_to_update(\@proc_tran_genes_to_update); 
+  $self->old_lincRNA_genes_to_update(\@old_lincRNA_genes_to_update);
 
   # rejected data 
   $self->ncrna_clusters_with_multiple_biotypes(\@ncrna_clusters_with_multiple_biotypes);  
   $self->ncrna_clusters_with_protein_domain(\@genes_with_prot_domain);  
 
-  print "I am ingoring genes : " . scalar(@{$self->ncrna_clusters_with_multiple_biotypes}). " genes as they cluster with multiple biotypes\n" ;     
+  print "I am ignoring genes : " . scalar(@{$self->ncrna_clusters_with_multiple_biotypes}). " genes as they cluster with multiple biotypes\n" ;     
   print "I am ignoring genes : " . scalar(@{$self->ncrna_clusters_with_protein_domain}) . " genes as they cluster with genes with protein domains\n" ;     
   
   # I know want to identify the ensembl gene which clusters with this gene.  
@@ -242,9 +267,9 @@ sub get_biotypes_of_ensembl_genes {
       $h{$g->biotype}++; 
     }
   }   
-  for my $k ( keys %h ) {  
-    print "btx $k $h{$k}\n";
-  } 
+  # for my $k ( keys %h ) {  
+  #  print "DEBUG: biotype of ensembl gene: $k, count = $h{$k}\n";
+  # } 
   return [keys %h];
 } 
 
@@ -307,8 +332,8 @@ sub compare_lincrna_vs_ensembl {
         print "changing biotype to same_as_ensembl for $trans_to_change{$mltr}\n";   
         $mltr->stable_id($trans_to_change{$mltr});
         $mltr->version("0"); 
-        $mltr->biotype("same_as_ensembl");  # DONT change biotyep it's used in RunnableDB 
-        $mlg->biotype("same_as_ensembl");   # dont change biotype it's used in RUNNABLEDB  
+        $mltr->biotype("same_as_ensembl");  # Don't change biotype as it's used in RunnableDB 
+        $mlg->biotype("same_as_ensembl");   # Don't change biotype as it's used in RunnableDB
       }
     }
   }  
