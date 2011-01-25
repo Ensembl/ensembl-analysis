@@ -183,11 +183,11 @@ sub run{
       if ( $e_biotypes[0]=~m/^processed_transcript$/ ) {     # lincRNA clustes only with ensembl gene of biotype 'processed_transcript'
         for my $ncrna_gene ( @ncrnas_in_cluster ) {  
           E_GENE: for my $e ( @e_genes ) {
-            if ($tmp_proc_trans_hash{$e->stable_id}) {
+            if ($tmp_proc_trans_hash{$e}) {
               next E_GENE;
             } else {
               push (@proc_tran_genes_to_update, $e); 
-              $tmp_proc_trans_hash{$e->stable_id} = 1;
+              $tmp_proc_trans_hash{$e} = 1;
             }
           }
           push @ncrna_clusters_with_processed_transcript, $ncrna_gene; 
@@ -195,11 +195,11 @@ sub run{
       } elsif ( $e_biotypes[0]=~m/^lincRNA$/) {
         for my $ncrna_gene ( @ncrnas_in_cluster ) {  
           L_GENE: for my $e ( @e_genes ) {  
-            if ($tmp_old_lincRNA_hash{$e->stable_id}) {
+            if ($tmp_old_lincRNA_hash{$e}) {
               next L_GENE;
             } else {
               push (@old_lincRNA_genes_to_update, $e);
-              $tmp_old_lincRNA_hash{$e->stable_id} = 1;
+              $tmp_old_lincRNA_hash{$e} = 1;
             }
           }
           push @ncrna_clusters_with_existing_lincRNAs, $ncrna_gene;  
@@ -214,12 +214,12 @@ sub run{
   }  
 
   foreach my $pt_gene(@proc_tran_genes_to_update) {
-    print "INFO : This processed_transcript gene clusters with lincRNA: ".  $pt_gene->stable_id . "\t" . $pt_gene->analysis->logic_name . " " . 
+    print "INFO : This processed_transcript gene clusters with lincRNA: ".  $pt_gene->dbID . "\t" . $pt_gene->analysis->logic_name . " " . 
           $pt_gene->seq_region_start . "\t" . $pt_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
   }
   
   foreach my $ol_gene(@old_lincRNA_genes_to_update) {
-   print "INFO : This existing lincRNA gene clusters with newly-identified lincRNA: ".  $ol_gene->stable_id . "\t" . $ol_gene->analysis->logic_name . " " .
+   print "INFO : This existing lincRNA gene clusters with newly-identified lincRNA: ".  $ol_gene->dbID . "\t" . $ol_gene->analysis->logic_name . " " .
           $ol_gene->seq_region_start . "\t" . $ol_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
   }
 
