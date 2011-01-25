@@ -153,14 +153,9 @@ sub run {
           -blessed_biotypes => {} , 
          );
    $gb->run(); 
-
-    
-   my @output_genes = @{$gb->output()};
-   push @output_clustered, @output_genes ;  
-
-   print " GB returned  " .@output_clustered . " unclustered genes for genebuilder run\n" ;   
-
-
+   push @output_clustered, @{$gb->output()} ;  
+   print "GeneBuilder returned ". scalar(@output_clustered) . " lincRNA genes which do not overlap with any other gene\n";
+   print "(e.g. not proc_tran genes, not existing lincRNAs, not protein_coding genes in the core DB).\n";
   # 
   # OPTIONAL: second genebuilder run with lincRNAs which cluster with processed transcript  
   # 
@@ -179,7 +174,9 @@ sub run {
             -max_short_intron_len => 15,
             -blessed_biotypes => {} , 
            );
-     $gb->run(); 
+     $gb->run();
+ 
+     print "GeneBuilder returned ". scalar( @{$gb->output()} ) . " lincRNA genes which overlapped with processed_transcript genes.\n";
      push @output_clustered, @{$gb->output()} ;   
    }
 
@@ -203,10 +200,11 @@ sub run {
             -blessed_biotypes => {} ,
            );
      $gb->run();
+     print "GeneBuilder returned ". scalar( @{$gb->output()} ) . " lincRNA genes which overlapped with existing lincRNA genes.\n";
      push @output_clustered, @{$gb->output()} ;
    }
 
-   print " GB returned  " .@output_clustered . " genes in total\n" ;  
+   print "GeneBuilder returned  " .@output_clustered . " lincRNA genes in total for writing. The types of lincRNA genes written depend on the lincRNAEvaulator config settings.\n" ;  
    $self->genes_to_write( \@output_clustered );  # The write_output method takes lincRNA genes from $self->genes_to_write
    $self->output( \@output_clustered );  #  This is just to store the lincRNA genes so test_RunnableDB script can find them.
 }
@@ -231,8 +229,13 @@ sub write_output{
     }
 
     for my $ug ( @proc_tran_genes_to_update ) {      
+
       # before we update the analysis we check if the analysis of gene processed_transcript
-      # is 'havana' ..  
+      # is 'havana' or 'ensembl_havana_gene'.  (We check 'ensembl_havana_gene' logic_name
+      # too because these genes originated from merge cases between coding Ens models and
+      # Hav processed_transcripts. The regex below is designed to match the string "havana"
+      # and doesn't require an exact string match.
+
       my $hav_logic_name_to_match = $self->HAVANA_LOGIC_NAME;
       if ( $ug->analysis->logic_name =~m/$hav_logic_name_to_match/ ) {
           $ug->analysis($update_analysis);
@@ -241,7 +244,7 @@ sub write_output{
           print "updated gene " . $ug->dbID . "\n";  
       }else {  
         warning("not updating gene " . $ug->biotype . " with dbID " . $ug->dbID . " as it has the wrong analysis " 
-        . $ug->analysis->logic_name . " ( to update, it should be of analysis " . $self->HAVANA_LOGIC_NAME . ")"); 
+        . $ug->analysis->logic_name . " ( to update, the logic_name should contain the string " . $self->HAVANA_LOGIC_NAME . ")"); 
       } 
     }
   }
@@ -253,17 +256,13 @@ sub write_output{
     print " have " .scalar(@existing_lincRNA_genes_to_update ) . " genes_to_update \n" ;
     my $db = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB);
     my $ga = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB)->get_GeneAdaptor();
-    my $update_analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($self->ENSEMBL_HAVANA_LOGIC_NAME);
-    unless ( defined $update_analysis && ref($update_analysis)=~m/Bio::EnsEMBL::Analysis/ ) {
-      throw ( " Analysis with logic_name " . $self->ENSEMBL_HAVANA_LOGIC_NAME . " can't be found in " . $db->dbname . "\@".$db->host . "\n" );
-    }
 
     OLD_G: for my $old_g ( @existing_lincRNA_genes_to_update ) {
       # All "old" lincRNA genes would have had logic_name "ensembl" or "ensembl_havana_merge". None of them should
       # have logic_name "havana" because Havana does not annotate lincRNAs at the gene level (they only do it at
       # the transcript level)
       my $hav_logic_name_to_match = $self->HAVANA_LOGIC_NAME;
-      if ( $old_g->analysis->logic_name =~m/$hav_logic_name_to_match/ ) {
+      if ( $old_g->analysis->logic_name =~m/^$hav_logic_name_to_match$/ ) {
         print "Existing lincRNA gene ". $old_g->stable_id . " has logic_name $hav_logic_name_to_match. " .
               "This is odd. Not updating the existing lincRNA gene's biotype or analysis logic_name.\n";
         next OLD_G;
