@@ -57,7 +57,10 @@ use vars qw( %Config );
                           FINAL_OUTPUT_DB      => 'LINCRNA_FINAL',   
 
                           # The next four hash keys allow you to configure if you want to update the *gene* analysis AND biotype 
-                          # of all processed_transcripts which cluster with identified lincRNAs. 
+                          # of all processed_transcripts which cluster with identified lincRNAs. In theory, all processed_transcripts
+                          # will be of "havana" or "ensembl_havana_gene" logic_name (i.e. none of the proc_trans genes should be "ensembl"
+                          # as analysis logic_name), therefore the lincRNAEvaluator RunnableDB code will look for the string "havana" 
+                          # to confirm the sanity of processed_transcript genes before we modify them.
 
                           # The analysis logic_name will be updated to what's defined in 'ENSEMBL_HAVANA_LOGIC_NAME' and the
                           # biotype is hard-coded to be 'proc_trans_turned_lincRNA'.
@@ -69,12 +72,14 @@ use vars qw( %Config );
                           PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB => 1,  
                           UPDATE_SOURCE_PROTEIN_CODING_DB => 'SOURCE_PROTEIN_CODING_DB',    # the DB where the analysis and biotype update is performed.
                           ENSEMBL_HAVANA_LOGIC_NAME => 'ensembl_havana_gene',               # the analysis logic_name you will assign to the proc_trans *genes* which overlap with identified lincRNAs
-                          HAVANA_LOGIC_NAME => 'havana',                                    # gene logic_name of the processed_transcripts 
+                          HAVANA_LOGIC_NAME => 'havana',                                    # a string to match for the logic_name of the processed_transcripts 
 
                           # Sometimes the SOURCE_PROTEIN_CODING_DB contains lincRNAs already from previous work.
                           # The lincRNAs identified in this analysis may overlap with existing lincRNAs.
+                          
                           # Turn on the MARK_EXISTING_LINCRNA_IN_VALIDATION flag if you want to change the biotype of
-                          # existing lincRNAs which overlap with the new ones to "lincRNA_common"
+                          # existing lincRNAs which overlap with the new ones to "lincRNA_common". Analysis logic_name
+                          # of existing lincRNAs will not be changed.
 
                           # Turn on 'WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS' if you want to write the
                           # "common" lincRNAs identified in your run into the output DB although they already exist.
