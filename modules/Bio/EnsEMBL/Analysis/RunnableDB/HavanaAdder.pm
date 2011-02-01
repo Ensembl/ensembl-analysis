@@ -1,38 +1,37 @@
-#
-# Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
-#
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
+=head1 LICENSE
 
-=pod 
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited. All rights reserved.
 
-=head1 NAME
+  This software is distributed under a modified Apache license.
+  For license details, please see
 
-Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder
-
-=head1 SYNOPSIS
-
-    my $obj = Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder->new( -db       => $db,
-                                                                    -input_id => $id,
-      );
-    $obj->fetch_input
-    $obj->run
-
-    my @newfeatures = $obj->output;
-
-
-=head1 DESCRIPTION
+  http://www.ensembl.org/info/about/code_licence.html
 
 =head1 CONTACT
 
-Describe contact details here
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
 
-=head1 APPENDIX
+  Questions may also be sent to the Ensembl help desk
+  at <helpdesk@ensembl.org>.
 
-The rest of the documentation details each of the object methods.
-Internal methods are usually preceded with a _
+=cut
+
+=head1 NAME
+
+  Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder
+
+=head1 SYNOPSIS
+
+  my $obj =
+    Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder->new( -db       => $db,
+                                                          -input_id => $id,
+    );
+  $obj->fetch_input;
+  $obj->run;
+
+  my @newfeatures = $obj->output;
 
 =cut
 
@@ -64,18 +63,18 @@ use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
 
 =head2 new
 
-    Usage   :   $self->new(-DBOBJ       => $db,
-                           -INPUT_ID    => $id,
-                           -SEQFETCHER  => $sf,
-                           -ANALYSIS    => $analysis,
-                          );
+  Usage      :   $self->new(-DBOBJ       => $db,
+                          -INPUT_ID    => $id,
+                          -SEQFETCHER  => $sf,
+                          -ANALYSIS    => $analysis,
+                        );
+  Description: Creates a Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder object
+  Returns    : A Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder object
+  Args       : -dbobj:      A Bio::EnsEMBL::DBSQL::DBAdaptor (required),
+               -input_id:   Contig input id (required),
+               -seqfetcher: A Sequence Fetcher Object,
+               -analysis:   A Bio::EnsEMBL::Analysis (optional)
 
-    Function:   creates a Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder object
-    Returns :   A Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder object
-    Args    :   -dbobj:      A Bio::EnsEMBL::DBSQL::DBAdaptor (required), 
-                -input_id:   Contig input id (required), 
-                -seqfetcher: A Sequence Fetcher Object,
-                -analysis:   A Bio::EnsEMBL::Analysis (optional) 
 
 =cut
 
@@ -103,11 +102,10 @@ sub input_id {
 
 =head2 write_output
 
-    Title   :   write_output
-    Usage   :   $self->write_output
-    Function:   Writes output data to db
-    Returns :   nothing
-    Args    :   none
+  Usage      : $self->write_output
+  Description: Writes output data to db
+  Returns    : Nothing
+  Args       : None
 
 =cut
 
@@ -163,12 +161,13 @@ sub write_output {
 
 =head2 fetch_input
 
-    Function:   It fetches the slice or contig according to the input_id, 
-                and it defines the database where the
-                previous annotations are stored and create a Bio::EnsEMBL::Analysis::Runnable::HavanaAdder
-                object for that genomic, input_id and db
-    Returns :   nothing
-    Args    :   none
+  Description: It fetches the slice or contig according
+               to the input_id, and it defines the database where
+               the previous annotations are stored and create a
+               Bio::EnsEMBL::Analysis::Runnable::HavanaAdder object
+               for that genomic, input_id and db
+  Returns    : Nothing
+  Args       : None
 
 =cut
 
