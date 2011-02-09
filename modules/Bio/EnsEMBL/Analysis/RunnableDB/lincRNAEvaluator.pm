@@ -204,7 +204,7 @@ sub run {
      push @output_clustered, @{$gb->output()} ;
    }
 
-   print "GeneBuilder returned  " .@output_clustered . " lincRNA genes in total for writing. The types of lincRNA genes written depend on the lincRNAEvaulator config settings.\n" ;  
+   print "GeneBuilder returned " .@output_clustered . " lincRNA genes in total for writing. The types of lincRNA genes written depend on the lincRNAEvaulator config settings.\n" ;  
    $self->genes_to_write( \@output_clustered );  # The write_output method takes lincRNA genes from $self->genes_to_write
    $self->output( \@output_clustered );  #  This is just to store the lincRNA genes so test_RunnableDB script can find them.
 }
@@ -230,11 +230,11 @@ sub write_output{
 
     for my $ug ( @proc_tran_genes_to_update ) {      
 
-      # before we update the analysis we check if the analysis of gene processed_transcript
-      # is 'havana' or 'ensembl_havana_gene'.  (We check 'ensembl_havana_gene' logic_name
-      # too because these genes originated from merge cases between coding Ens models and
-      # Hav processed_transcripts. The regex below is designed to match the string "havana"
-      # and doesn't require an exact string match.
+      # before we update the analysis logic_name and gene biotype, we check if the analysis 
+      # of gene processed_transcript is 'havana' or 'ensembl_havana_gene'.  
+      # (We check 'ensembl_havana_gene' logic_name too because these genes originated from
+      # merge cases between coding Ens models and Hav processed_transcripts. The regex below
+      # is designed to match the string "havana" and doesn't require an exact string match.
 
       my $hav_logic_name_to_match = $self->HAVANA_LOGIC_NAME;
       if ( $ug->analysis->logic_name =~m/$hav_logic_name_to_match/ ) {
@@ -243,7 +243,7 @@ sub write_output{
           $ga->update($ug);  
           print "updated gene " . $ug->dbID . "\n";  
       }else {  
-        warning("not updating gene " . $ug->biotype . " with dbID " . $ug->dbID . " as it has the wrong analysis " 
+        warning("not updating gene " . $ug->biotype . " with dbID " . $ug->dbID . " as it has the wrong analysis logic_name: " 
         . $ug->analysis->logic_name . " ( to update, the logic_name should contain the string " . $self->HAVANA_LOGIC_NAME . ")"); 
       } 
     }
@@ -261,16 +261,9 @@ sub write_output{
       # All "old" lincRNA genes would have had logic_name "ensembl" or "ensembl_havana_merge". None of them should
       # have logic_name "havana" because Havana does not annotate lincRNAs at the gene level (they only do it at
       # the transcript level)
-      my $hav_logic_name_to_match = $self->HAVANA_LOGIC_NAME;
-      if ( $old_g->analysis->logic_name =~m/^$hav_logic_name_to_match$/ ) {
-        print "Existing lincRNA gene ". $old_g->stable_id . " has logic_name $hav_logic_name_to_match. " .
-              "This is odd. Not updating the existing lincRNA gene's biotype or analysis logic_name.\n";
-        next OLD_G;
-      } else {
-        $old_g->biotype('lincRNA_common');
-        $ga->update($old_g);
-        print "updated gene " . $old_g->dbID . "\n";
-      }
+      $old_g->biotype('lincRNA_common');
+      $ga->update($old_g);
+      print "updated gene " . $old_g->dbID . "\n";
     }
   }
  
