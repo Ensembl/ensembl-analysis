@@ -192,7 +192,7 @@ sub run{
           }
           push @ncrna_clusters_with_processed_transcript, $ncrna_gene; 
         }  
-      } elsif ( $e_biotypes[0]=~m/^lincRNA$/) {
+      } elsif ( $e_biotypes[0]=~m/^lincRNA$/i) {
         for my $ncrna_gene ( @ncrnas_in_cluster ) {  
           L_GENE: for my $e ( @e_genes ) {  
             if ($tmp_old_lincRNA_hash{$e}) {
