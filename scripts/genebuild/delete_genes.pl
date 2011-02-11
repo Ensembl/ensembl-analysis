@@ -6,25 +6,31 @@
 
 =head1 DESCRIPTION
 
-  Given a list of gene_ids, deletes the genes from the specified
-  database. If config_dbname is provided reads the database details
-  from the Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+  Given a list of gene_ids or stable_ids, deletes the genes from the 
+  specified database. If config_dbname is provided, the script reads
+  database details from the Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
   configuration.
 
 =head1 OPTIONS
 
-  -dbhost   host name for database (gets put as host= in locator)
-  -dbport   For RDBs, what port to connect to (port= in locator)
-  -dbname   For RDBs, what name to connect to (dbname= in locator)
-  -dbuser   For RDBs, what username to connect as (dbuser= in locator)
-  -dbpass   For RDBs, what password to use (dbpass= in locator)
-  -idfile   File with internal gene ids to be deleted
-  -help     Summary of options
+  -dbhost     host name for database (gets put as host= in locator)
+  -dbport     For RDBs, what port to connect to (port= in locator)
+  -dbname     For RDBs, what name to connect to (dbname= in locator)
+  -dbuser     For RDBs, what username to connect as (dbuser= in locator)
+  -dbpass     For RDBs, what password to use (dbpass= in locator)
+  -idfile     File with internal gene ids or stable IDs to be deleted
+  -stable_id  A boolean flag to indicate that the file specified in
+              -idfile contains gene stable IDs.
 
 =head1 EXAMPLES
 
-  perl delete_genes.pl -dbhost ecs2b -dbuser ensadmin -dbpass **** \
-    -dbname rat_Jun03_mk2 -idfile genes_to_delete
+  perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
+    -dbname rat_Jun03_mk2 -idfile genes_to_delete.dbIDs
+
+  or
+
+  perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
+    -dbname some_database -idfile my_ENSG_IDs.txt -stable_id
 
   or
 
@@ -44,6 +50,7 @@ my $dbname;
 my $user;
 my $pass;
 my $idfile;
+my $stable_id = 0;
 my $config_dbname;
 
 
@@ -53,6 +60,7 @@ GetOptions( 'dbhost:s'        => \$host,
             'dbuser:s'        => \$user,
             'dbpass:s'        => \$pass,
             'idfile:s'        => \$idfile,
+            'stable_id!'      => \$stable_id,
             'config_dbname:s' => \$config_dbname, );
 
 
@@ -81,10 +89,15 @@ while (<INFILE>) {
   my $gene_id = $_;
 
   eval{
-    my $gene = $gene_adaptor->fetch_by_dbID($gene_id);
+    my $gene;
+    if ($stable_id) {
+      $gene = $gene_adaptor->fetch_by_stable_id($gene_id);
+    } else {
+      $gene = $gene_adaptor->fetch_by_dbID($gene_id);
+    }
 
     # it seems that some xrefs might not be deleted when using this method
-    # Coud it be because the gene is lazy-loaded?
+    # Could it be because the gene is lazy-loaded?
 
     $gene_adaptor->remove($gene);
     print STDERR "Deleted $gene_id\n";
