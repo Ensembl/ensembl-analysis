@@ -308,6 +308,7 @@ GENE:
             print "DEBUG: --->>> are_matched_pair returned value 1, "
                 . "Ens trans and Hav trans differ in UTR structure, not merging.\n";
             $delete_trans = $delete_t;
+            @t_pair = ( $ht, $et ); 
           }
         } else {
           print "DEBUG: --->>> are_matched_pair returned value 0, "
@@ -321,13 +322,13 @@ GENE:
               . " in the tricky if: delete_t: " . $delete_t
               . "\tdelete_trans: " . $delete_trans . "\n";
 
-          # When delete_t is NOT 0, 1, or 2, i.e. it is either et or
+          # When delete_t is NOT 0, 1 or 2, i.e. it is either et or
           # ht, we want to merge sth)
 
           # For each pair of Ens + Hav transcripts we merge, we need to:
           #
           # (1) transfer supporting features from the to-be-delete trans onto the kept trans
-          #     using the "set_transcript_relation" method;
+          #     and setting correct xrefs using the "set_transcript_relation" method;
           # (2) add a biotype suffix to merged transcripts to mark them as merged;
           # (3) finally delete the Ens trans OR Hav trans from the pair as appropriate;
 
@@ -361,17 +362,30 @@ GENE:
           #    . "in the tricky else: delete_t: " . $delete_t
           #    . "\tdelete_trans: " . $delete_trans . "\n";
 
-          # When delete_t is 0, 1, or 2, there is nothing we want to
-          # merge. For all three cases, we add OTTT xref to the Havanna
-          # transcript.
-
-          # delete_t = 0 or 1 means Ens and Hav trans are different, hence no merge.
+          # delete_t = 0 means Ens and Hav trans are completely different, hence no merge.
+          # delete_t = 1 means Ens and Hav trans share the same CDS but differ in UTRs
           # delete_t = 2 means we need to remove Ens trans because its CDS is incomplete
 
+          # When delete_t is 0, 1, or 2, we do not merge transcripts. 
+
+          # For all three cases, we add OTTT xref to the Havanna
+          # transcript. And we do nothing else for delete_t = 0.
+
+          # If delete_t = 1, we wnat to set xref connections between the Ens and
+          # Hav transcripts by calling set_transcript_relation to show they share 
+          # the same coding region.
+ 
+          # If delete_t = 2, we do not merge but we ned to delete Ens
+          # transcript.
+
+          $self->add_ottt_xref($ht);
+
+          if ($delete_t == 1) {
+            $self->set_transcript_relation( $delete_t, @t_pair );
+          } 
           if ($delete_t == 2) {
             $self->_remove_transcript_from_gene( $gene, $et );
           }
-          $self->add_ottt_xref($ht);
         }
       }
     } ## end foreach my $ht (@havana)
@@ -990,14 +1004,13 @@ sub add_ottg_xref {
 
 sub set_transcript_relation {
   # $t_pair[0] is the havana transcript and $t_pair[1] is the ensembl transcript
-  # $delete_t here is passed from $delete_trans in _merge_redundant_transcripts.
+  # $delete_t here is passed from $delete_t or $delete_trans from _merge_redundant_transcripts.
 
   # $delete_t here can be $et (delete Ens trans), 
   #                       $ht (delete Hav trans),
-  #                         0 (keep both as structure completely different), 
   #                         1 (keep both as CDS is the same but UTR structures differ)
 
-  #print "DEBUG (set_transcript_relation)\n";
+  # print "DEBUG (set_transcript_relation)\n";
   my ( $self, $delete_t, @t_pair ) = @_;
 
   # If both share CDS and UTR is different in structure and number of
@@ -1033,7 +1046,7 @@ sub set_transcript_relation {
                                        -release       => 1,
                                        -dbname        => 'OTTT' );
 
-          #print "DEBUG: OTTT xref to be added here\n";
+          # print "DEBUG: OTTT xref to be added here\n";
 
           $xref_ottt->status("XREF");
 
@@ -1043,6 +1056,7 @@ sub set_transcript_relation {
         } ## end if ( $entry->primary_id...
       } ## end if ( $entry->dbname eq...
     } ## end foreach my $entry ( @{ $t_pair...
+
 
     my $link_attrib =
       Bio::EnsEMBL::Attribute->new(
@@ -1066,7 +1080,7 @@ sub set_transcript_relation {
 
     $t_pair[0]->add_DBEntry($xref_entry);
 
-    #print "DEBUG: OTTT TO ADD: ",$t_pair[0]->stable_id,"\n";
+    # print "DEBUG: OTTT TO ADD: ",$t_pair[0]->stable_id,"\n";
 
   } ## end if ( $delete_t == 1 ), where Ens and Hav trans share CDS but differ in UTR structure
 
