@@ -139,7 +139,6 @@ foreach my $g (@genes) {
         $t_dbens{$src_t_id} = Bio::EnsEMBL::DBEntry->new(-primary_id => $src_t_id,
                                                          -version => $src_t_ver,
                                                          -dbname => 'Ens_Hs_transcript',
-                                                         -release => 1,
                                                          -display_id => $src_t_id);
       }          
       
@@ -147,7 +146,6 @@ foreach my $g (@genes) {
         $g_dbens{$src_g_id} = Bio::EnsEMBL::DBEntry->new(-primary_id => $src_g_id,
                                                          -version => $src_g_ver,
                                                          -dbname => 'Ens_Hs_gene',
-                                                         -release => 1,
                                                          -display_id => $src_g_id);
       }
         
@@ -156,7 +154,6 @@ foreach my $g (@genes) {
         my $tr_dben = Bio::EnsEMBL::DBEntry->new(-primary_id => $src_p_id,
                                                  -version => $src_p_ver,
                                                  -dbname => 'Ens_Hs_translation',
-                                                 -release => 1,
                                                  -display_id => $src_p_id);
           printf(STDERR "Writing xref %s for translation %s (%d)\n", 
                  $tr_dben->primary_id, $tr->stable_id, $tr->dbID) 
