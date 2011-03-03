@@ -11,7 +11,6 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange); 
 use Bio::EnsEMBL::Analysis::RunnableDB; 
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils ;
 
@@ -53,10 +52,9 @@ sub fetch_input{
 
   $self->query($self->fetch_sequence); 
 
- 
   # get cdnas and convert them to single transcript genes  
   my $new_cdna = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_1_CDNA);   
-  my  @single_transcript_cdnas =  map { @{convert_to_single_transcript_gene($_)}  }  @$new_cdna ;
+  my @single_transcript_cdnas =  map { @{convert_to_single_transcript_gene($_)}  }  @$new_cdna ;
 
   # get protein_coding genes and convert them to single transcript genes  
   my $new_set_prot = $self->get_genes_of_biotypes_by_db_hash_ref($self->NEW_SET_2_PROT);
@@ -68,28 +66,38 @@ sub fetch_input{
         -query => $self->query,
         -analysis => $self->analysis,
      );  
+
   # add / provide values. quicker than using constructors...
-  $runnable->set_1_cdna_genes(\@single_transcript_cdnas);  
+  # the methods (hash keys) below are not explicitly defined in the lincRNAFinder runnable 
+  # (nor in SUPER classes of the runnable), but created "on the fly" by auto-vivification.
+
+  $runnable->set_1_cdna_genes(\@single_transcript_cdnas);
   $runnable->set_2_prot_genes(\@single_trans_pc);  
-
   $runnable->efg_simple_feature_genes($self->get_efg_simple_features); 
-  $runnable->efg_clustering_with_cdna_analysis($self->create_analysis_object($self->DEBUG_LG_EFG_CLUSTERING_WITH_CDNA)); 
-  $runnable->unclustered_efg_analysis( $self->create_analysis_object($self->DEBUG_LG_EFG_UNCLUSTERED));  
-  $runnable->maxium_translation_length_ratio($self->MAXIMUM_TRANSLATION_LENGTH_RATIO); 
-  $runnable->max_translations_stored_per_gene($self->MAX_TRANSLATIONS_PER_GENE) ; 
-  $self->runnable($runnable);  
+  
+  $runnable->ignore_strand($self->CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND);
+  $runnable->find_single_exon_candidates($self->FIND_SINGLE_EXON_LINCRNA_CANDIDATES);
+  
+  $runnable->check_cdna_overlap_with_both_K4_K36($self->CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36);
 
+  $runnable->maximum_translation_length_ratio($self->MAXIMUM_TRANSLATION_LENGTH_RATIO); 
+  $runnable->max_translations_stored_per_gene($self->MAX_TRANSLATIONS_PER_GENE) ;
+  
+  $runnable->efg_clustering_with_cdna_analysis($self->create_analysis_object($self->DEBUG_LG_EFG_CLUSTERING_WITH_CDNA)) ; 
+  $runnable->unclustered_efg_analysis( $self->create_analysis_object($self->DEBUG_LG_EFG_UNCLUSTERED));
+
+  $self->runnable($runnable);  
 };
 
 
-sub run {
-  my ($self) = @_;  
+#sub run {
+ # my ($self) = @_;  
 
-  $self->SUPER::run();
-  if ( $self->DEBUG_WRITE_CLUSTERED_GENES ) {
-    $self->update_efg_and_cdna_db() ;  
-  }
-}
+ # $self->SUPER::run();
+ # if ( $self->WRITE_DEBUG_OUTPUT ) {
+ #   $self->update_efg_and_cdna_db() ;  
+ # }
+# }
 
 
 
@@ -97,27 +105,33 @@ sub update_efg_and_cdna_db {
   my ($self) = @_;   
 
   # update efg features and change their analysis according to their clustering  
-    print "Writing simple features which have been converted to genes ...\n" ;  
-    for my $rb ( @{ $self->runnable() } ) {  
-      my @efg_genes  = @{ $rb->updated_efg_genes } ;    
-      my $gfa = $self->get_dbadaptor($self->DEBUG_OUTPUT_DB)->get_GeneAdaptor() ; 
-      for my $e ( @efg_genes ) {  
-        $gfa->store($e) ; 
-      }  
-    } 
-    print "updated database " . $self->DEBUG_OUTPUT_DB . " - efg features, converted into genes, have been written...\n" ;  
+  print "Going to write simple features which have been converted to genes ...\n" ;  
+  for my $rb ( @{ $self->runnable() } ) {  
+  my @efg_genes  = @{ $rb->updated_efg_genes } ;    
+    my $gfa = $self->get_dbadaptor($self->DEBUG_OUTPUT_DB)->get_GeneAdaptor() ; 
+    for my $e ( @efg_genes ) { 
+      $gfa->store($e) ; 
+    }  
+  } 
+  print "Updated database " . $self->DEBUG_OUTPUT_DB . " with efg features 'genes'.\n" ;  
 
-    for my $rb ( @{ $self->runnable() } ) {   
-      my $gfa = $self->get_dbadaptor($self->DEBUG_OUTPUT_DB)->get_GeneAdaptor() ; 
-      for my $cdna (@{$rb->updated_cdnas}) {
-        $gfa->store($cdna); 
-      } 
-    }
+  for my $rb ( @{ $self->runnable() } ) {   
+    print "Going to write cDNA genes for debugging ...\n";
+    my $gfa = $self->get_dbadaptor($self->DEBUG_OUTPUT_DB)->get_GeneAdaptor() ; 
+    for my $cdna (@{$rb->updated_cdnas}) {
+      $gfa->store($cdna); 
+    } 
+  }
+  print "Updated database " . $self->DEBUG_OUTPUT_DB . " with debugging cDNA 'genes'.\n" ;  
 } 
 
 
 sub write_output{
   my ($self) = @_; 
+
+  if ( $self->WRITE_DEBUG_OUTPUT ) {
+    $self->update_efg_and_cdna_db() ;
+  }
 
   my $ga = $self->output_db->get_GeneAdaptor;
 
@@ -258,12 +272,12 @@ sub convert_simple_features {
   
 =head2 read_and_check_config
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::lincRNAFinder
   Arg [2]   : hashref from config file
   Function  : call the superclass method to set all the varibles and carry
   out some sanity checking
   Returntype: N/A
-  Exceptions: throws if certain variables arent set properlu
+  Exceptions: throws if certain key variables aren't set properly
   Example   : 
 
 =cut
@@ -394,13 +408,40 @@ sub DEBUG_LG_EFG_UNCLUSTERED{
   return $self->{'DEBUG_LG_EFG_UNCLUSTERED'};
 }   
 
-sub DEBUG_WRITE_CLUSTERED_GENES {
+sub WRITE_DEBUG_OUTPUT {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{'DEBUG_WRITE_CLUSTERED_GENES'} = $arg;
+    $self->{'WRITE_DEBUG_OUTPUT'} = $arg;
   }
-  return $self->{'DEBUG_WRITE_CLUSTERED_GENES'};
+  return $self->{'WRITE_DEBUG_OUTPUT'};
 }  
+
+sub CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND'} = $arg;
+  }
+  return $self->{'CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND'};
+}
+
+
+sub CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36 {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36'} = $arg;
+  }
+  return $self->{'CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36'};
+}
+
+
+sub FIND_SINGLE_EXON_LINCRNA_CANDIDATES {
+  my ($self, $arg) = @_;
+  if (defined $arg){
+    $self->{'FIND_SINGLE_EXON_LINCRNA_CANDIDATES'} = $arg;
+  }
+  return $self->{'FIND_SINGLE_EXON_LINCRNA_CANDIDATES'};
+}
+
 
 sub create_analysis_object { 
   my ($self,$logic_name ) = @_ ;   
