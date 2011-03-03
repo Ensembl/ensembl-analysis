@@ -67,9 +67,7 @@ sub fetch_input{
         -analysis => $self->analysis,
      );  
 
-  # add / provide values. quicker than using constructors...
-  # the methods (hash keys) below are not explicitly defined in the lincRNAFinder runnable 
-  # (nor in SUPER classes of the runnable), but created "on the fly" by auto-vivification.
+  # add hash-keys and hash-values directly to the $runnable hashref. quicker than using constructors...
 
   $runnable->set_1_cdna_genes(\@single_transcript_cdnas);
   $runnable->set_2_prot_genes(\@single_trans_pc);  
@@ -88,17 +86,6 @@ sub fetch_input{
 
   $self->runnable($runnable);  
 };
-
-
-#sub run {
- # my ($self) = @_;  
-
- # $self->SUPER::run();
- # if ( $self->WRITE_DEBUG_OUTPUT ) {
- #   $self->update_efg_and_cdna_db() ;  
- # }
-# }
-
 
 
 sub update_efg_and_cdna_db { 
