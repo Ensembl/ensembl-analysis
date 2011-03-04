@@ -25,8 +25,8 @@ sub new {
      $min_short_intron_len, $max_short_intron_len,$output_biotype, $coding_only) = 
     rearrange([qw(GENES BLESSED_BIOTYPES MAX_TRANSCRIPTS_PER_CLUSTER
                   MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE CODING_ONLY)], @args);
-  print "HERE ARE THE ARGS: ", join("  ",@args),"\n";
-  print "HERE I AM: ", $min_short_intron_len,"\t", $max_short_intron_len,"\n";
+  # print "HERE ARE THE ARGS: ", join("  ",@args),"\n";
+  # print "HERE I AM: ", $min_short_intron_len,"\t", $max_short_intron_len,"\n";
 
   ########################
   ###SETTING DEFAULTS#####
