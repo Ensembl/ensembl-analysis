@@ -445,6 +445,9 @@ sub cluster_Genes_without_strand {
    Arg[4]    : flag if you want to cluster without strand information 
                ( if you ignore the strand, overlapping genes on diff strand will end up in same cluster )  
 
+   Arg[5]    : flag if you want to cluster without exon information 
+               ( if you ignore the exon, it only take the start and end of the gene)  
+
    Function  : clusters all genes in Arg[1] according to their genomic extent and 
               sets the type according to their sets
 
@@ -457,7 +460,7 @@ sub cluster_Genes_without_strand {
 
 
 sub cluster_Genes {
-  my ($genes, $types_hash, $check_coding_overlap, $ignore_strand) = @_ ;
+  my ($genes, $types_hash, $check_coding_overlap, $ignore_strand, $ignore_exon_overlap) = @_ ;
 
 
   #print "GOT " . scalar(@$genes ) . " GENES tocluster \n" ; sleep(2) ; 
@@ -560,6 +563,10 @@ sub cluster_Genes {
             #
 
             if (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand)) {
+              push (@matching_clusters, $cluster);
+              next CLUSTER;
+            }
+            elsif ($ignore_exon_overlap) {
               push (@matching_clusters, $cluster);
               next CLUSTER;
             }
