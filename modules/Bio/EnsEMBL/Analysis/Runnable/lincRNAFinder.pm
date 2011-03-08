@@ -174,7 +174,8 @@ sub run{
     $self->update_efg_feature_genes ( $efg_clustering_with_cdna_but_not_prot_cod ,$self->efg_clustering_with_cdna_analysis ) ;   # H3 FEAT DEBUG
   
     # Preliminary set of cDNAs which overlap with H3 features:
-    @cdnas_clustering_with_efg_only = @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")};
+    push (@cdnas_clustering_with_efg_only , @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")} );
+   
       
     # Now keeping track of the cDNA which overlapped with a certain type of feature for filtering later if required:
     foreach my $cdna(@cdnas_clustering_with_efg_only) { 
@@ -185,7 +186,7 @@ sub run{
       }
     }
   }  # end foreach my $lg...
-
+  
   print "\nStage 3b) count how many cDNAs overlap with only one type or with both types of H3 features...\n" ;
 
   my @cdnas_overlapping_with_both_K4_and_K36;
