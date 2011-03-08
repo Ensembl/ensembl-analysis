@@ -62,6 +62,8 @@ use vars qw( %Config );
                        # pattern - $1 should match the name of your bmg -logic name 
                        bmg_logic_name =>"create_(.*)",
                        protein_count => 20,
+                       max_padding => 50000,
+                       max_intron_size => 1000000,
                      },
 
              PAF_LOGICNAMES => [], #an array of logic names found in the 
@@ -102,6 +104,7 @@ use vars qw( %Config );
              FEATURE_RANGE_PADDING => 0,
              WRITE_REJECTED => 0,
              REJECTED_BIOTYPE => 'rejected',
+             OPTIMAL_LENGTH => 1000000,
             }, 
 
             TargettedGenewise => { 
