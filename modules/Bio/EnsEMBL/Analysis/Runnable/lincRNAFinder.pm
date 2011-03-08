@@ -174,7 +174,7 @@ sub run{
     $self->update_efg_feature_genes ( $efg_clustering_with_cdna_but_not_prot_cod ,$self->efg_clustering_with_cdna_analysis ) ;   # H3 FEAT DEBUG
   
     # Preliminary set of cDNAs which overlap with H3 features:
-    push (@cdnas_clustering_with_efg_only , @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")} );
+    @cdnas_clustering_with_efg_only = @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")};
    
       
     # Now keeping track of the cDNA which overlapped with a certain type of feature for filtering later if required:
@@ -193,22 +193,31 @@ sub run{
   my @cdnas_overlapping_with_only_K4;
   my @cdnas_overlapping_with_only_K36;
 
-  foreach my $cdna(@cdnas_clustering_with_efg_only) {
-    if ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna->dbID}) && 
-         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna->dbID}) ) {
+  my @cDNA_IDs = keys%{$check_which_feature_cdna_clusters_with{"H3K4"}};
+  push (@cDNA_IDs, keys%{$check_which_feature_cdna_clusters_with{"H3K436"}} );
+
+  my %non_redun_cdnas_clustering_with_efg_only;
+
+  foreach my $ID (@cDNA_IDs) {
+    $non_redun_cdnas_clustering_with_efg_only{$ID} = 1;
+  }
+
+  foreach my $cdna(keys%non_redun_cdnas_clustering_with_efg_only) {
+    if ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna}) && 
+         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna}) ) {
       push(@cdnas_overlapping_with_both_K4_and_K36, $cdna);
-    } elsif ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna->dbID}) &&
-         (!$check_which_feature_cdna_clusters_with{"H3K36"}{$cdna->dbID}) ) {
+    } elsif ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna}) &&
+         (!$check_which_feature_cdna_clusters_with{"H3K36"}{$cdna}) ) {
       push(@cdnas_overlapping_with_only_K4, $cdna);
-    } elsif ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna->dbID}) &&
-         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna->dbID}) ) {
+    } elsif ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna}) &&
+         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna}) ) {
       push(@cdnas_overlapping_with_only_K36, $cdna);
     } else {
       throw("cDNA ". $cdna->dbID . " overlaps with neither H3K4 nor H3K36 features? Something is wrong!");
     }
   }
 
-  print "\nThere are altogether ". scalar(@cdnas_clustering_with_efg_only)." cDNAs clustering with H3K4me3 and/or H3K36me3.\n";
+  print "\nThere are altogether ". scalar(keys%non_redun_cdnas_clustering_with_efg_only)." cDNAs clustering with H3K4me3 and/or H3K36me3.\n";
   print "  ".scalar(@cdnas_overlapping_with_only_K4)." cDNAs overlap with only H3K4me3 features.\n";
   print "  ".scalar(@cdnas_overlapping_with_only_K36)." cDNAs overlap with only H3K36me3 features.\n";
   print "  ".scalar(@cdnas_overlapping_with_both_K4_and_K36)." cDNAs overlap with both H3K4me3 and H3K36me3 features.\n";
