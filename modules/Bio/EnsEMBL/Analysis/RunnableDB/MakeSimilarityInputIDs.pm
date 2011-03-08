@@ -8,6 +8,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (parse_config);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::KillList::KillList;
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor; 
 use vars qw (@ISA);
@@ -16,9 +17,10 @@ use vars qw (@ISA);
 
 sub new {
   my ($class,@args) = @_;
+
   my $self = $class->SUPER::new(@args);
-  my ($output_logicname, $protein_count, $bmg_logicname) = rearrange
-    (['OUTPUT_LOGICNAME', 'PROTEIN_COUNT', 'BMG_LOGICNAME'], @args); 
+  my ($output_logicname, $protein_count, $bmg_logicname, $optimal_length) = rearrange
+    (['OUTPUT_LOGICNAME', 'PROTEIN_COUNT', 'BMG_LOGICNAME', 'OPTIMAL_LENGTH'], @args); 
   
   # The constructor arg like output_logicname, protein_count and bmg_logicname 
   # can be retrieved from analysis.parameters column in compara-style-format, ie.
@@ -29,6 +31,8 @@ sub new {
    my $s_regex = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{submission_logic_name};
    my $bmg_regex = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{bmg_logic_name};
    my $def_protein_count = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{protein_count} ; 
+   my $max_padding = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{max_padding} ; 
+   my $max_intron_size = ${$GENEWISE_CONFIG_BY_LOGIC}{DEFAULT}{MAKE_SIMGW_INPUT_ID_PARMAMS}{max_intron_size} ; 
 
    if ( $self->analysis->logic_name =~m/$create_analysis/i ) {     
 
@@ -60,26 +64,33 @@ sub new {
  
   ### Defaults are over-ridden by parameters given in analysis table...
   my $ph = $self->parameters_hash;
-  $self->protein_count($ph->{-protein_count}) if $ph->{-protein_count};
-  $self->output_logicname($ph->{-output_logicname}) if $ph->{-output_logicname} ; ;
-  $self->bmg_logicname($ph->{-bmg_logicname}) if $ph->{-bmg_logicname};
+  $self->protein_count($ph->{-protein_count}) if(exists $ph->{-protein_count});
+  $self->output_logicname($ph->{-output_logicname}) if(exists $ph->{-output_logicname});
+  $self->bmg_logicname($ph->{-bmg_logicname}) if(exists $ph->{-bmg_logicname});
+  $self->max_padding($ph->{-max_padding}) if(exists $ph->{-max_padding});
+  $self->max_intron_size($ph->{-max_intron_size}) if(exists $ph->{-max_intron_size});
 
   ### ...which are over-ridden by constructor arguments. 
   $self->protein_count($protein_count);
   $self->output_logicname($output_logicname);
   $self->bmg_logicname($bmg_logicname);
+  $self->max_padding($max_padding);
+  $self->max_intron_size($max_intron_size);
 
   throw("Need an output logicname ".$self->output_logicname." and a bmg logicname ".
         $self->bmg_logicname." defined") if(!$self->output_logicname ||
                                             !$self->bmg_logicname);
 
   parse_config($self, $GENEWISE_CONFIG_BY_LOGIC, $self->bmg_logicname);
+  $self->optimal_length($self->OPTIMAL_LENGTH);
+
   return $self;
 }
 
 
 sub fetch_input{
   my ($self) = @_;
+
   print "\n\n***Fetching sequence from ".$self->db->dbname."***\n\n";
   $self->query($self->fetch_sequence($self->input_id, $self->db, $self->REPEATMASKING)); 
 
@@ -102,9 +113,11 @@ sub fetch_input{
 
 sub run{
   my ($self) = @_;
+
   my %kill_list =  %{$self->kill_list} if($self->USE_KILL_LIST);
   my @mask_exons;
-  my @iids;
+  my @a_iids;
+
   # remove masked and killed hits as will be done in the build itself
   foreach my $type ( @{$self->BIOTYPES_TO_MASK} ) {  
     print "\nmasking Gene-type : $type\n\n" ; 
@@ -116,6 +129,7 @@ sub run{
       }
     }
   }
+
   # make the mask list non-redundant. Much faster when checking against features
   my @mask_regions;
   foreach my $mask_exon ( sort { $a->start <=> $b->start } @mask_exons ) {
@@ -129,77 +143,255 @@ sub run{
     }
   }  
 
-
   my $num_seeds = 0;  
-  foreach my $logicname(@{$self->PAF_LOGICNAMES}) {
-    my %features;
-    print "FETCHING FEATURES FOR :".$logicname."\n";
-    my @features = @{$self->paf_slice->get_all_ProteinAlignFeatures($logicname)};
-    print "HAVE ".@features." protein-align-features\n";
-      FEATURE:foreach my $f(@features){
-        next FEATURE if($self->PAF_MIN_SCORE_THRESHOLD && $f->score < $self->PAF_MIN_SCORE_THRESHOLD);
-        next FEATURE if($self->PAF_UPPER_SCORE_THRESHOLD && $f->score > $self->PAF_UPPER_SCORE_THRESHOLD);
-        push(@{$features{$f->hseqname}}, $f);
-    }
-    
-    my @ids_to_ignore;
-  SEQID: foreach my $sid ( keys %features ) {
-      my $ex_idx = 0;
-      my $count  = 0;
-      
-      #print STDERR "Looking at $sid\n";
-    FEAT: foreach my $f ( sort { $a->start <=> $b->start } @{ $features{$sid} } ) {
-        
-        #printf STDERR "Feature: %d %d\n", $f->start, $f->end;
-        for ( ; $ex_idx < @mask_regions ; ) {
-          my $mask_exon = $mask_regions[$ex_idx];
-          
-          #printf STDERR " Mask exon %d %d\n", $mask_exon->{'start'}, $mask_exon->{'end'};
-          if ( $mask_exon->{'start'} > $f->end ) {
-            print "no exons will overlap this feature \n" ;  
-            # no exons will overlap this feature
-            next FEAT;
-          } elsif ( $mask_exon->{'end'} >= $f->start ) {
-            
-            # overlap
-            push @ids_to_ignore, $f->hseqname;
-            print "Ignoring : " . $f->hseqname . "\n" ;  
-            next SEQID;
-          } else {
-            $ex_idx++;
+  print STDERR 'masked : ' , scalar(@mask_regions), "\n";
+  # If the length of the query is smaller than the length wanted, we use the "old" method
+  if ($self->optimal_length >= $self->query->length) {
+
+      foreach my $logicname(@{$self->PAF_LOGICNAMES}) {
+          print 'FETCHING FEATURES FOR :'.$logicname."\n";
+          my %features = %{$self->get_good_features($logicname, \@mask_regions, \%kill_list)};
+          $num_seeds += scalar( keys %features );
+      }
+
+      # rule of thumb; split data so that each job constitutes one piece of
+      # genomic DNA against ~20 proteins.
+      #
+      return () if($num_seeds == 0);
+      @a_iids = @{$self->create_input_ids(undef, $num_seeds, $self->query->name)};
+  }
+  else {
+      my @a_genes;
+
+      foreach my $logicname(@{$self->PAF_LOGICNAMES}) {
+          print 'FETCHING FEATURES FOR :'.$logicname."\n";
+          my %features = %{$self->get_good_features($logicname, \@mask_regions, \%kill_list)};
+          push @a_genes, @{$self->features2genes(\%features)};
+      }
+
+      return () unless (scalar(@a_genes));
+      my %h_types;
+      $h_types{'good'} = ['protein_coding'];
+      # We cluster without taking the strand into account and without checking the exons
+      my ($ra_clustered, $ra_unclustered) = cluster_Genes(\@a_genes, \%h_types, 0, 1, 1);
+      my @a_sorted_genes = sort {$a->end <=> $b->end} (@$ra_clustered, @$ra_unclustered);
+      my $optimal_length = $self->optimal_length;
+      my $max_padding = $self->max_padding;
+      my $range_start = 1;
+      my @a_input_genes;
+
+      for (my $index = $optimal_length; ($index-$optimal_length) <= $self->query->length; $index += $optimal_length) {
+          while (my $gene = shift @a_sorted_genes) {
+              if ($gene->end <= $index) {
+                  push @a_input_genes, $gene;
+              }
+              else {
+                  my $range_end;
+                  if (scalar(@a_input_genes) == 0) {
+                      if ($gene->start < $index) {
+                          $range_end = $gene->end+$max_padding;
+                      }
+                      else {
+                          @a_input_genes = ($gene);
+                          $range_start = $gene->start-$max_padding+1;
+                          $range_start = 1 if ($range_start < 1);
+                          $num_seeds = 0;
+                          last;
+                      }
+                  }
+                  else {
+                      $range_end = $a_input_genes[$#a_input_genes]->end+$max_padding;
+                      my ($query_name, $strand) = $self->query->name =~ /(.*):\d+:\d+:(.+)$/;
+                      $query_name .= ':'.$range_start.':'.$range_end.':'.$strand;
+                      push(@a_iids, @{$self->create_input_ids(\@a_input_genes, $num_seeds, $query_name)});
+                  }
+                  @a_input_genes = ($gene);
+                  $range_start = $gene->start-$max_padding+1;
+                  $range_start = 1 if ($range_start < 1);
+                  $num_seeds = 0;
+                  if ($gene->start > $index) {
+                      $index = int($gene->start/$optimal_length)*$optimal_length;
+                  }
+                  last;
+              }
           }
-        }
       }
-    } 
-
-    print "Ignoring ".@ids_to_ignore." features\n";
-    foreach my $dud_id ( @ids_to_ignore, keys %kill_list ) {
-      if ( exists $features{$dud_id} ) {
-        delete $features{$dud_id};
-      }
-    }
-    
-    $num_seeds += scalar( keys %features );
+print STDERR "empty\n" unless @a_input_genes;
+      my ($query_name, $range_end, $strand) = $self->query->name =~ /(.*):\d+:(\d+):(.+)$/;
+      $range_end = $a_input_genes[$#a_input_genes]->end+$max_padding unless ($range_end < $a_input_genes[$#a_input_genes]->end+$max_padding);
+      $query_name .= ':'.$range_start.':'.$range_end.':'.$strand;
+      push(@a_iids, @{$self->create_input_ids(\@a_input_genes, $num_seeds, $query_name)});
   }
-  # rule of thumb; split data so that each job constitutes one piece of
-  # genomic DNA against ~20 proteins.
-  #
-  return () if($num_seeds == 0);
-
-  my $num_chunks = int( $num_seeds / $self->protein_count ) 
-    + 1;
-  for ( my $x = 1 ; $x <= $num_chunks ; $x++ ) {
-    
-    #generate input id : $chr_name.1-$chr_length:$num_chunks:$x
-    my $new_iid = $self->query->name . ":$num_chunks:$x";
-    push @iids, $new_iid;
-  }
-  print "HAVE ".@iids." to write to the ref database\n"; 
-  for ( @iids ) {  
-      print "$_\n" ; 
-  } 
-  $self->output(\@iids);
+  $self->output(\@a_iids);
 }
+
+sub create_input_ids {
+      my ($self, $ra_input_genes, $num_seeds, $query_name) = @_;
+
+      my @a_iids;
+      print STDOUT "Inside\n";
+
+      foreach my $gene (@{$ra_input_genes}) {
+          $num_seeds += $gene->get_Gene_Count;
+          foreach my $g (@{$gene->get_Genes}) {
+              print 'cluster: ', $g->display_id,"\t",'start: ',$g->start."\t".'end: ',$g->end,"\n";
+          }
+      }
+
+      my $num_chunks = int( $num_seeds / $self->protein_count ) + 1;
+
+      for ( my $x = 1 ; $x <= $num_chunks ; $x++ ) {
+
+          #generate input id : $chr_name.1-$chr_length:$num_chunks:$x
+          my $new_iid = $query_name . ":$num_chunks:$x";
+          push @a_iids, $new_iid;
+      }
+
+      print "HAVE ".@a_iids." to write to the ref database\n"; 
+
+      for ( @a_iids ) {  
+          print "$_\n" ; 
+      } 
+
+      return \@a_iids;
+ }
+
+sub get_good_features {
+    my ($self, $logicname, $ra_mask_regions, $kill_list) = @_;
+
+    my @a_features = @{$self->paf_slice->get_all_ProteinAlignFeatures($logicname, $self->PAF_MIN_SCORE_THRESHOLD-1)};
+    print 'HAVE '.@a_features.' protein-align-features for ',$logicname,"\n";
+    my %h_features;
+
+    foreach my $f(@a_features){
+#        next if($self->PAF_MIN_SCORE_THRESHOLD && $f->score < $self->PAF_MIN_SCORE_THRESHOLD);
+        next if($self->PAF_UPPER_SCORE_THRESHOLD && $f->score > $self->PAF_UPPER_SCORE_THRESHOLD);
+        push(@{$h_features{$f->hseqname}}, $f);
+    }
+
+    my @a_ids_to_ignore;
+    if ($ra_mask_regions) {
+#        print STDERR "entering masking\n";
+
+SEQID:  foreach my $sid ( keys %h_features ) {
+            my $ex_idx = 0;
+            print STDERR "Looking at $sid\n";
+FEAT:       foreach my $f ( sort { $a->start <=> $b->start } @{ $h_features{$sid} } ) {
+#               printf STDERR "Feature: %d %d\n", $f->start, $f->end;
+                for ( ; $ex_idx < @{$ra_mask_regions} ; ) {
+                    my $mask_exon = $ra_mask_regions->[$ex_idx];
+#                   printf STDERR " Mask exon %d %d\n", $mask_exon->{'start'}, $mask_exon->{'end'};
+                    if ( $mask_exon->{'start'} > $f->end ) {
+                        print "no exons will overlap this feature \n" ;  
+                        # no exons will overlap this feature
+                        next FEAT;
+                    }
+                    elsif ( $mask_exon->{'end'} >= $f->start ) {
+                        # overlap
+                        push @a_ids_to_ignore, $f->hseqname;
+                        print 'Ignoring : ' . $f->hseqname . "\n" ;  
+                        next SEQID;
+                    }
+                    else {
+                        $ex_idx++;
+                    }
+                }
+            }
+        } 
+
+    } 
+    print 'Ignoring '.@a_ids_to_ignore." features\n";
+
+    foreach my $dud_id ( @a_ids_to_ignore, keys %$kill_list ) {
+        if ( exists $h_features{$dud_id} ) {
+            delete $h_features{$dud_id};
+        }
+    }
+
+    return \%h_features;
+}
+
+sub features2genes {
+    my ($self, $rh_features) = @_;
+
+    my @a_genes;
+    my $transcripts_count = 1;
+
+    foreach my $feature (keys %$rh_features) {
+        my @plus = grep {$_->strand == 1} @{$rh_features->{$feature}};
+        my @minus = grep {$_->strand == -1} @{$rh_features->{$feature}};
+        if (@plus) {
+            push @a_genes, @{$self->create_gene_from_feature(\@plus)};
+        }
+        if (@minus) {
+            push @a_genes, @{$self->create_gene_from_feature(\@minus)};
+        }
+        ++$transcripts_count;
+    }
+
+    undef $rh_features;
+
+    return \@a_genes;
+}
+
+sub create_gene_from_feature {
+    my ($self, $r_features) = @_;
+
+    my @a_sorted_features = sort { $a->end <=> $b->end }  @{$r_features};
+    my $end = $a_sorted_features[$#a_sorted_features]->end;
+    @a_sorted_features = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @{$r_features};
+    my $start = $a_sorted_features[0]->start;
+    my @a_exons;
+    my $last_end = $start-1;
+
+    my $index = 0;
+    foreach my $feature (@a_sorted_features) {
+        my $exon = Bio::EnsEMBL::Exon->new(
+            -START  => $feature->start,
+            -END    => $feature->end,
+            -STRAND => $feature->strand,
+            -SLICE  => $self->paf_slice,
+            -PHASE  => 0,
+            -END_PHASE => 0,
+            );
+        if($last_end < $exon->start) {
+            ++$index if ($exon->start-$last_end > $self->max_intron_size);
+            push(@{$a_exons[$index]}, $exon);
+        }
+        elsif ($last_end < $exon->end) {
+            $a_exons[$index][-1]->end($exon->end);
+        }
+        elsif ($last_end >= $exon->end) {
+        }
+        else {
+            warning('This shouldn\'t happen');
+        }
+        $last_end = $a_exons[$index][-1]->end;
+    }
+
+    my @a_genes;
+    foreach my $ra_exons (@a_exons) {
+        my $transcript = Bio::EnsEMBL::Transcript->new(
+                -START  => $start,
+                -END    => $end,
+                -STRAND => $a_sorted_features[0]->strand,
+                -SLICE  => $self->paf_slice,
+                -EXONS  => $ra_exons,
+                );
+        my $gene = Bio::EnsEMBL::Gene->new(
+                -START => $start,
+                -END => $end,
+                -SLICE => $self->paf_slice,
+                -DBID => $a_sorted_features[0]->hseqname,
+                );
+        $gene->add_Transcript($transcript);
+        push (@a_genes, $gene);
+    }
+
+    return \@a_genes;
+}
+
+
 
 sub write_output{
   my ($self) = @_;  
@@ -276,6 +468,30 @@ sub output_logicname{
     $self->{'output_logicname'} = $value;
   }
   return $self->{'output_logicname'};
+}
+
+sub optimal_length{
+  my ($self, $value) = @_;
+  if($value){
+    $self->{'optimal_length'} = $value;
+  }
+  return $self->{'optimal_length'};
+}
+
+sub max_padding{
+  my ($self, $value) = @_;
+  if($value){
+    $self->{'max_padding'} = $value;
+  }
+  return $self->{'max_padding'};
+}
+
+sub max_intron_size{
+  my ($self, $value) = @_;
+  if($value){
+    $self->{'max_intron_size'} = $value;
+  }
+  return $self->{'max_intron_size'};
 }
 
 sub bmg_logicname{
@@ -598,5 +814,13 @@ sub MAKE_SIMGW_INPUT_ID_PARMAMS {
     $self->{MAKE_SIMGW_INPUT_ID_PARMAMS} = $arg;
   }
   return $self->{MAKE_SIMGW_INPUT_ID_PARMAMS}
+}   
+
+sub OPTIMAL_LENGTH { 
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{OPTIMAL_LENGTH} = $arg;
+  }
+  return $self->{OPTIMAL_LENGTH}
 }   
 1;
