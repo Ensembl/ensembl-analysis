@@ -128,8 +128,8 @@ sub run{
     push(@unclustered_cdna_genes, @{get_oneway_clustering_genes_of_set($single_exon_unclustered,"SET_1_CDNA")} );
   }
 
+  my @redun_cdnas_cluster_with_K4_and_or_K36;
   my %check_which_feature_cdna_clusters_with;
-  my @cdnas_clustering_with_efg_only;
 
   foreach my $lg ( keys %logicname_2_efgfeat ) {
   
@@ -174,8 +174,8 @@ sub run{
     $self->update_efg_feature_genes ( $efg_clustering_with_cdna_but_not_prot_cod ,$self->efg_clustering_with_cdna_analysis ) ;   # H3 FEAT DEBUG
   
     # Preliminary set of cDNAs which overlap with H3 features:
-    @cdnas_clustering_with_efg_only = @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")};
-   
+    my @cdnas_clustering_with_efg_only = @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")};
+    push (@redun_cdnas_cluster_with_K4_and_or_K36,  @cdnas_clustering_with_efg_only);
       
     # Now keeping track of the cDNA which overlapped with a certain type of feature for filtering later if required:
     foreach my $cdna(@cdnas_clustering_with_efg_only) { 
@@ -193,27 +193,25 @@ sub run{
   my @cdnas_overlapping_with_only_K4;
   my @cdnas_overlapping_with_only_K36;
 
-  my @cDNA_IDs = keys%{$check_which_feature_cdna_clusters_with{"H3K4"}};
-  push (@cDNA_IDs, keys%{$check_which_feature_cdna_clusters_with{"H3K436"}} );
 
   my %non_redun_cdnas_clustering_with_efg_only;
-
-  foreach my $ID (@cDNA_IDs) {
-    $non_redun_cdnas_clustering_with_efg_only{$ID} = 1;
+  foreach my $cdna (@redun_cdnas_cluster_with_K4_and_or_K36) {
+    $non_redun_cdnas_clustering_with_efg_only{$cdna->dbID} = $cdna;
   }
 
-  foreach my $cdna(keys%non_redun_cdnas_clustering_with_efg_only) {
-    if ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna}) && 
-         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna}) ) {
-      push(@cdnas_overlapping_with_both_K4_and_K36, $cdna);
-    } elsif ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna}) &&
-         (!$check_which_feature_cdna_clusters_with{"H3K36"}{$cdna}) ) {
-      push(@cdnas_overlapping_with_only_K4, $cdna);
-    } elsif ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna}) &&
-         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna}) ) {
-      push(@cdnas_overlapping_with_only_K36, $cdna);
+  foreach my $cdna_dbID(keys%non_redun_cdnas_clustering_with_efg_only) {
+    my $cdna_to_check =  $non_redun_cdnas_clustering_with_efg_only{$cdna_dbID};
+    if ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) && 
+         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
+      push(@cdnas_overlapping_with_both_K4_and_K36, $cdna_to_check);
+    } elsif ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
+         (!$check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
+      push(@cdnas_overlapping_with_only_K4, $cdna_to_check);
+    } elsif ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
+         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
+      push(@cdnas_overlapping_with_only_K36, $cdna_to_check);
     } else {
-      throw("cDNA ". $cdna->dbID . " overlaps with neither H3K4 nor H3K36 features? Something is wrong!");
+      throw("cDNA ". $cdna_to_check->dbID . " overlaps with neither H3K4 nor H3K36 features? Something is wrong!");
     }
   }
 
@@ -228,8 +226,9 @@ sub run{
     $self->result_set(\@cdnas_overlapping_with_both_K4_and_K36);
   } else {
     print "\ncDNAs overlapping with H3K4me3 and/or H3K36me3 features will be considered as lincRNA candidates.\n\n";
-    $self->update_and_copy_cdna(\@cdnas_clustering_with_efg_only, 'cdna_overlap_H3_not_pc');  # cDNA DEBUG
-    $self->result_set(\@cdnas_clustering_with_efg_only);
+    my @cdnas_overlapping_some_H3 = values %non_redun_cdnas_clustering_with_efg_only;
+    $self->update_and_copy_cdna(\@cdnas_overlapping_some_H3, 'cdna_overlap_H3_not_pc');  # cDNA DEBUG
+    $self->result_set(\@cdnas_overlapping_some_H3);
   }                                                       
  
   print "Stage 4) check for 6-frame translations in lincRNA candidates...\n";
