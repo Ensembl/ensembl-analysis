@@ -44,8 +44,6 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-
-use Bio::EnsEMBL::SimpleFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
@@ -55,6 +53,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Bio::DB::Sam;
 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
@@ -142,8 +141,25 @@ sub fetch_input {
   }
   # deterine strandedness ( including splitting merged genes )
   $self->prelim_genes(\@prelim_genes);
-  # pre fetch all the intron features
-  $self->dna_2_simple_features($slice->start,$slice->end);
+  # fetch any extra exons 
+  $self->dna_2_extra_exons($slice->start,$slice->end) 
+    if $self->SMALL_INTRON_DB;
+  if ( $self->INTRON_BAM_FILE ) {
+    my $sam = Bio::DB::Sam->new(   -bam => $self->INTRON_BAM_FILE,
+				   -autoindex => 1,
+				   -expand_flags => 1,
+			       );
+    $self->throw("Bam file " . $self->INTRON_BAM_FILE . "  not found \n") unless $sam; 
+    my $count = 0;
+    my $segment = $sam->segment($slice->seq_region_name,$slice->start,$slice->end);
+    $self->throw("Bam file segment not found for slice " .  $slice->name . "\n")
+      unless $segment;
+    # need to seamlessly merge here with the dna2simplefeatures code
+    $self->bam_2_intron_features($segment);
+  } else {
+    # pre fetch all the intron features
+    $self->dna_2_intron_features($slice->start,$slice->end);
+  }
 }
 
 sub run {
@@ -165,6 +181,8 @@ sub run {
 sub refine_genes {
   my ($self) = @_;
  GENE:  foreach my $gene ( @{$self->prelim_genes} ) {
+    # hack taking out weeny models
+    next GENE if $gene->get_all_Transcripts->[0]->length < 300;
     my @models;
     my $single_exon = 0;
     # first run on the fwd strand then on the reverse
@@ -239,14 +257,14 @@ sub refine_genes {
 	    # left and  right in order to determine whether to put in 
 	    # a non consensus intron
 	    if ( $intron->end <= $exon->end ) {
-	      if ( $intron->display_label =~ /non-consensus/ ) {
+	      if ( $intron->hseqname =~ /non canonical/ ) {
 		push @left_nc_introns, $intron if $intron->score > 1;
 	      } else {
 		push @left_c_introns, $intron;
 	      }
 	    }
 	    if ( $intron->start >= $exon->start ) {
-	      if ( $intron->display_label =~ /non-consensus/ ) {
+	      if ( $intron->hseqname =~ /non canonical/ ) {
 		push @right_nc_introns, $intron if $intron->score > 1;
 	      } else {
 		push @right_c_introns, $intron;
@@ -328,20 +346,20 @@ sub refine_genes {
 	@retained_introns = sort { $b->start <=> $a->start } @retained_introns;
 	# push @filtered_introns, @retained_introns;
       INTRON:  foreach my $intron ( @filtered_introns ) {
-	  print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->display_label . " " . $intron->score . "\n";
+	  print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->hseqname . " " . $intron->score . "\n";
 	  # becasue we make a new exons where we have a reatained intron to 
 	  # stop circular references we need to allow the final 
 	  # intron splicing out of the exon to be used more than once
 	  # by each new exon in fact
-	  $intron_count{$intron->display_label}++ unless $retained_intron;
-	  $intron_hash{$intron->display_label} = $intron;
+	  $intron_count{$intron->hseqname}++ unless $retained_intron;
+	  $intron_hash{$intron->hseqname} = $intron;
 	  # only use each intron twice once at the end and once at the start of
 	  # an exon
 	  # exon_intron links exons to the intron on their right ignoring strand
 	  push @{ $exon_intron[$i]}  , $intron if $intron->end > $exon->end;
 	  # intron exon links introns to exons on their right ignoring strand
 	  if ( $intron->start < $exon->start ) {
-	    push @{$intron_exon{$intron->display_label}} , $i;
+	    push @{$intron_exon{$intron->hseqname}} , $i;
 	    # exon_prev_intron links exons to introns on their left ignoring strand
 	    push @{ $exon_prev_intron[$i]}  , $intron ;
 	  }
@@ -381,7 +399,7 @@ sub refine_genes {
 	      print STDERR "RETAINED INTRON PENALTY for " . $intron->display_id ." before " . $intron->score . " ";
 	      $reject_score = $intron->score - $self->RETAINED_INTRON_PENALTY;
 	      # intron penalty is doubled for nc introns 
-	      if ( $intron->display_label  =~ /non-consensus/ ) {
+	      if ( $intron->hseqname  =~ /non canonical/ ) {
 		$reject_score = $reject_score - $self->RETAINED_INTRON_PENALTY;
 	      }
 	      print STDERR " after " . $reject_score ."\n";
@@ -588,25 +606,6 @@ sub filter_models {
 	    }
 	  }
 	}
-	
-#	# or else they overlap and the antisense model is 2 exon with a cds < 100 AA
-#	if (  $fc->{'start'} <= $rc->{'end'} && 
-#	      $fc->{'end'} >=  $rc->{'start'} )  {
-#	  if ( scalar($fg[0]->get_all_Exons) == 2 && 
-#	       scalar($rg[0]->get_all_Exons) > 2 && 
-#	       length($fg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
-#	    foreach my $gene ( @fg ) {
-#	      $gene->biotype('bad');
-#	    }
-#	  }
-#	  if ( scalar($rg[0]->get_all_Exons) == 2 && 
-#	       scalar($fg[0]->get_all_Exons) > 2 && 
-#	       length($rg[0]->get_all_Transcripts->[0]->translate->seq) <=  100 ) {
-#	    foreach my $gene ( @rg ) {
-#	      $gene->biotype('bad');
-#	    }
-#	  }
-#	}
       }
     }
   }
@@ -630,11 +629,9 @@ sub filter_models {
 	}
       }
       my $exon_use = $transcript->{'_exon_use'};
-      # if ( $gene->biotype eq $self->OTHER_ISOFORMS ) {
       if ( $exon_use_hash{$exon_use}  ) {
 	$gene->biotype('bad');
       }
-      #  }
       $exon_use_hash{$exon_use} = 1 ;
       #  print "TRANSCRIPT " . $gene->get_all_Transcripts->[0]->{'_depth'} .
       #" Exon use $exon_use Biotype " . $gene->biotype ."\n";
@@ -731,7 +728,7 @@ sub make_models {
     my $exon_score = 0;
     my $intron_score = 0;
     foreach my $feature ( split(/\./,$path ) ) {
-      if ( $feature =~ /^INTRON/ ) {
+      if ( $feature =~ /canonical$/ ) {
 	push @model, $intron_hash->{$feature};
 	$intron_score+= $intron_hash->{$feature}->score;
       } else {
@@ -777,7 +774,7 @@ sub make_models {
 	my @new_exons;
 	# make an array containing cloned exons
 	for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
-	  unless ( $model->[$i]->isa("Bio::EnsEMBL::SimpleFeature") ) {	
+	  unless ( $model->[$i]->isa("Bio::EnsEMBL::DnaDnaAlignFeature") ) {	
 	    my $new_exon = clone_Exon($model->[$i]);
 	    # add in exon coverage scores from supporting features
 	    foreach my $daf ( @{$model->[$i]->get_all_supporting_features} ) {
@@ -791,7 +788,7 @@ sub make_models {
 	}
 	# trim the exons using the intron features to get the splice sites correct
 	for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
-	  if ( $model->[$i]->isa("Bio::EnsEMBL::SimpleFeature") ) {
+	  if ( $model->[$i]->isa("Bio::EnsEMBL::DnaDnaAlignFeature") ) {
 	    my $intron = $model->[$i];
 	    next unless $intron->strand == $strand;
 	    next unless $new_exons[$i-1] && $new_exons[$i+1];
@@ -807,9 +804,9 @@ sub make_models {
 	    }
 	    $intron_count++;
 	    $intron_score+= $intron->score;
-	    #  print "Adding INTRON " . $intron->display_id ." total score now $intron_score \n";
+	    print "Adding INTRON " . $intron->hseqname ." total score now $intron_score \n";
 	    # keep tabs on how many fake introns we have
-	    $non_con_introns++ if $intron->display_label =~ /non-consensus/;
+	    $non_con_introns++ if $intron->hseqname =~ /non canonical/;
 	  }
 	}
 	next MODEL unless $intron_count;
@@ -821,7 +818,7 @@ sub make_models {
 	# make it into a gene
 	my @modified_exons;
 	foreach my $exon ( @new_exons ) {
-	  next if $exon->isa("Bio::EnsEMBL::SimpleFeature");
+	  next if $exon->isa("Bio::EnsEMBL::DnaDnaAlignFeature");
 	  push @modified_exons, clone_Exon($exon);
 	}
 	if ( $strand == 1 ) {
@@ -905,8 +902,8 @@ sub write_output{
   my ($self) = @_;
 
   my $outdb = $self->get_dbadaptor($self->OUTPUT_DB);
-  my $gene_adaptor = $outdb->get_GeneAdaptor; 
-  
+  my $gene_adaptor = $outdb->get_GeneAdaptor;
+  my $intron_adaptor = $outdb->get_DnaAlignFeatureAdaptor;
   my @output = @{$self->output};
   
   my $fails = 0;
@@ -927,7 +924,32 @@ sub write_output{
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
+  # store the intron features too
+  if ( $self->WRITE_INTRONS ) {
+    my $introns = $self->intron_features;
+    my $fails = 0;
+    my $total = 0;
+    print "Writing " . scalar( @$introns ) ." introns\n";
+    foreach my $intron ( @$introns ) {
+      # make the introns so they dont overlap the exons
+      $intron->start($intron->start+1);
+      $intron->end($intron->end-1);
+      eval {
+	$intron_adaptor->store($intron);
+      };    
+      if ($@){
+	warning("Unable to store intron!!\n$@");
+	$fails++;
+      }
+      $total++;
+    }
+    if ($fails > 0) {
+      throw("Not all introns could be written successfully " .
+	    "($fails fails out of $total)");
+    }
+  }
 }
+
 
 =head2 ProcessTree
 
@@ -1004,7 +1026,7 @@ sub process_paths{
 	# group all the introns by exon pairs
 	my %intron_groups;
 	foreach my $intron ( @{$exon_intron->[$i]} ) {
-	  next if  $intron->display_label =~ /REMOVED/  ;
+	  next if  $intron->hseqname =~ /REMOVED/  ;
 	  push @{$intron_groups{$i}}, $intron;
 	}
 	# now lets sort these groups by score
@@ -1017,15 +1039,15 @@ sub process_paths{
 	    $exons->[$i]->strand ."\n";
 	foreach my $group ( keys %intron_groups ) {
 	  foreach my $intron ( @{$intron_groups{$group}} ) {
-	    print STDERR "$group " . $intron->display_label . " " . $intron->score ."\n";
+	    print STDERR "$group " . $intron->hseqname . " " . $intron->score ."\n";
 	  }
 	  if ( scalar( @{$intron_groups{$group}} ) > 1 ) {
 	    #  remove the lowest scoring one
 	    my $intron = pop( @{$intron_groups{$group}} ) ;
-	    print STDERR "Eliminating " . $intron->display_label . " " .
+	    print STDERR "Eliminating " . $intron->hseqname . " " .
 	      $intron->score . "\n";
-	    unless (  $intron->display_label =~ /REMOVED/ ) {
-	      $intron->display_label($intron->display_label."-REMOVED") ;
+	    unless (  $intron->hseqname =~ /REMOVED/ ) {
+	      $intron->hseqname($intron->hseqname."-REMOVED") ;
 	      $removed++;
 	    }
 	  }	
@@ -1034,13 +1056,13 @@ sub process_paths{
       
       foreach my $intron ( @{$exon_intron->[$i]} ) {
 	# only allow each intron to connect to 1 exon
-	foreach my $exon ( @{$intron_exon->{$intron->display_label}} ) {
+	foreach my $exon ( @{$intron_exon->{$intron->hseqname}} ) {
 	  if ( $intron->end > $exons->[$exon]->end ) {
 	    next ;
 	  }
 	  # store the possible paths as a hash (splice)variants
-	  $variants->{$i}->{$intron->display_label} = 1;
-	  $variants->{$intron->display_label}->{$exon} = 1;
+	  $variants->{$i}->{$intron->hseqname} = 1;
+	  $variants->{$intron->hseqname}->{$exon} = 1;
 	  # check 
 	  if ( $intron->end > $exons->[$exon]->end ) {
 	    throw(" exon $i start end " . $intron->end ." - " . $exons->[$exon]->start );
@@ -1201,7 +1223,7 @@ sub merge_exons {
     foreach my $intron ( @introns ) {
       print "INTRON " . $intron->start . " " . $intron->end . " " , $intron->strand ." " , $intron->score ."\n";
       # ignore non consensus introns at this point
-      next if $intron->display_label =~ /non-consensus/ ;
+      next if $intron->hseqname =~ /non canonical/ ;
       if (   $intron->start > $prev_exon->start &&
 	    $intron->end <  $exon->end && 
 	 $intron->strand == $strand ){
@@ -1251,94 +1273,229 @@ sub merge_exons {
   return \@exons;
 }
 
-=head2 dna_2_simple_features
-    Title        :   dna_2_simple_features
-    Usage        :   $self->dna_2_simple_features($start,$end)
+=head2 bam_2_intron_features
+    Title        :   bam_2_intron_features
+    Usage        :   $self->bam_2_intron_features($segment)
     Returns      :   None
-    Args         :   Int start
-                 :   Int end
-    Description  :   Fetches all dna_align_features from the intron db that lie within
-                 :   the range determined by start and end, collapses them down into a 
-                 :   non redundant set and builds a Bio::EnsEMBL::SimpleFeature to 
+    Args         :   Bam file segement
+    Description  :   Fetches all alignments from the bam file segment, collapses them down into a 
+                 :   non redundant set and builds a Bio::EnsEMBL::DnaDnaAlignFeature to 
                  :   represent it, then stores it in $self->intron_features
-                 :   also checks for small exons defined by a single read splicing at least twice
+                 :   analyses splice sites for consensus and non consensus splices as this data is 
+                 :   not stored in the BAM.
+                 :   Also checks for small exons defined by a single read splicing at least twice
                  :   stores any additional exons found this way in $self->extra_exons
 
 =cut
 
-sub dna_2_simple_features {
-  my ($self,$start,$end) = @_;
-  my @sfs;
+sub bam_2_intron_features {
+  my ($self,$segment) = @_;
+  my $slice_adaptor = $self->gene_slice_adaptor;
+  # add any extra intron features in early
+  my $extra_introns = $self->intron_features;
+  my @ifs;
+  push @ifs, @$extra_introns if $extra_introns;
   my %id_list;
+  my $iterator = $segment->features(-iterator=>1);
+ READ:  while (my $read = $iterator->next_seq) {
+    # need to recreate the ungapped features code as the
+    # auto splitting code does not seem to work with > 2 features
+    my @mates = sort { $a->[2] <=> $b->[2] } @{$self->ungapped_features($read)};
+    
+    my $strand = $read->target->strand;
+   # print "\nREAD " . $read->cigar_str;
+    my $offset;
+    for ( my $i = 0 ; $i <= $#mates  ; $i++ ) {
+   #   print "\n";
+      # intron reads should be split according to the CIGAR line
+      # the default split function seems to ad
+      # we want the ungapped features to make our introns
+      my $name   = $read->query->name;
+      my $start  = $mates[$i]->[2];
+      my $end    = $mates[$i]->[3];
+      my $cigar  = $mates[$i]->[4];
+      my $hstrand = $read->strand;
+   #   print "$name $start $end $strand $hstrand $cigar\t";
+   #   print $read->get_tag_values('FIRST_MATE') ."\t";
+      next if $i == $#mates;
+      my $unique_id = $read->seq_id . ":" . 
+	$mates[$i]->[3] . ":" .
+	  $mates[$i+1]->[2] . ":" . 
+	    $strand ;
+      $id_list{$unique_id} ++;
+   #   print "$unique_id";
+    }
+   # print "\n";
+  }
+  # collapse them down and make them into simple features
+  foreach my $key ( keys %id_list ) {
+    my @data = split(/:/,$key) ;
+    my $length =  $data[2] - $data[1] -1;
+    next unless $length > 0 ;
+    my $name = $self->chr_slice->seq_region_name . ":" . ($data[1]+1) . ":" . ($data[2] -1) .":" . $data[3] .":";
+    my $if = Bio::EnsEMBL::DnaDnaAlignFeature->new
+      (
+       -start => $data[1],
+       -end => $data[2],
+       -strand => $data[3],
+       -hstart => 1,
+       -hend => $length,
+       -hstrand => 1,
+       -slice => $self->chr_slice,
+       -analysis => $self->analysis,
+       -score =>  $id_list{$key},
+       -hseqname => "$name",
+       -cigar_string => $length ."M",
+      );
+    my $canonical = 1;
+    # figure out if its cannonical or not
+    my $left_splice = $slice_adaptor->fetch_by_region('toplevel',
+						      $if->seq_region_name,
+						      $if->start+1,
+						      $if->start+2,
+						      $if->strand
+						     );
+    my $right_splice = $slice_adaptor->fetch_by_region('toplevel',
+						       $if->seq_region_name,
+						       $if->end-2,
+						       $if->end-1,
+						       $if->strand
+						      );
+    #  print "KEY $key " . $if->score ."\n";;
+    #  print "LEFT  " . $left_splice->start ." " . $left_splice->end  ." " . $left_splice->strand ." " . $left_splice->seq . "\n";
+    #  print "RIGHT " . $right_splice->start ." " . $right_splice->end  ." " . $right_splice->strand  ." " . $right_splice->seq ."\n\n";
+    
+    
+    if ( $left_splice->seq eq 'NN' && $right_splice->seq eq 'NN' ) {
+      warn("Cannot find dna sequence for " . $key .
+	   " this is used in detetcting non cannonical splices\n");
+    } else {
+      # is it cannonical
+      if ( $if->strand  == 1 ) {
+	#	print "Splice type " . $left_splice->seq ."-".  $right_splice->seq ." ";
+	# is it GTAG?
+	unless ( $left_splice->seq eq 'GT' && $right_splice->seq eq 'AG' ) {
+	  $canonical = 0;
+	}
+      } else {
+	#	print "Splice type " . $right_splice->seq ."-".  $left_splice->seq ." ";
+	# is it GTAG?
+	unless ( $right_splice->seq eq 'GT' && $left_splice->seq eq 'AG' ) {
+	  $canonical = 0;
+	}
+      }
+    }
+    if ( $canonical ) {
+       $if->hseqname($if->hseqname."canonical");
+    } else {
+      $if->hseqname($if->hseqname."non canonical");
+    }
+     push @ifs , $if;
+  }
+  # sort them
+  @ifs = sort {$a->start <=> $b->start} @ifs;
+  $self->intron_features(\@ifs);
+  print STDERR "Got " . scalar(@ifs) . " unique introns from " . $self->INTRON_BAM_FILE . "\n";
+  return;
+}
+
+sub ungapped_features {
+  my ($self,$read) = @_;
+  my @ugfs;
+  
+  my $string = $read->cigar_str;
+  my $start = $read->start;
+  my $end = $read->end;
+ # print "THINGS $start $end $string\n";
+  my @pieces = ( $string =~ /(\d*[MDN])/g );
+  foreach my $piece (@pieces) {
+    my ($length) = ( $piece =~ /^(\d*)/ );
+    if( $length eq "" ) { $length = 1 }
+    if( $piece =~ /M$/ ) {
+      #
+      # MATCH
+      #
+      my ( $qstart, $qend);
+      $qstart = $start;
+      $qend = $start + $length - 1;
+      $start = $qend + 1;
+      
+      my $ugf;
+      $ugf->[0] = $read->query->name;
+      $ugf->[1] = $read->seq_id;
+      $ugf->[2] = $qstart;
+      $ugf->[3] = $qend;
+      $ugf->[4] = $length."M";
+      push @ugfs, $ugf;
+#      print "UNGAPPED " .$ugf->[2] .
+#	" " . $ugf->[3] . " " . $ugf->[4] ."\n";
+    } elsif( $piece =~ /N$/ ) {
+      #
+      # INSERT
+      #
+      $start += $length;
+    } elsif( $piece =~ /D$/ ) {
+      #
+      # DELETION
+      #
+      $start += $length;
+      
+    } else {
+      throw( "Illegal cigar line $string!" );
+    }
+  }
+  return \@ugfs;
+}
+
+=head2 dna_2_extra_exons
+    Title        :   dna_2_extra_exons
+    Usage        :   $self->dna_2_extra_exons($start,$end)
+    Returns      :   None
+    Args         :   Int start
+                 :   Int end
+    Description  :   Fetches all dna_align_features from the small intron db that lie within
+                 :   the range determined by start and end, collapses them down into a 
+                 :   non redundant set and builds extra exons to account for short exons
+                 :   missed by genomic alignemnt of reads
+
+=cut
+
+sub dna_2_extra_exons {
+  my ($self,$start,$end) = @_;
+  my $extra_introns = $self->intron_features;
+  my @ifs;
+  push @ifs, @$extra_introns if $extra_introns;
   my $rough_genes = $self->prelim_genes;
   my %exon_list;
-  my $intron_slice = $self->intron_slice_adaptor->fetch_by_region
+  my %id_list;
+  
+  # fetch all the dna_align_features for this slice by logic name
+  my @extra_reads;
+  # look for extra introns from ESLA
+  my $small_intron_slice = $self->small_intron_slice_adaptor->fetch_by_region
     ('toplevel',
      $self->chr_slice->seq_region_name,
      $start,
      $end,
-    );
-  # featch all the dna_align_features for this slice by logic name
-  my @reads;
-  my @extra_reads;
-  print STDERR  "Fetching reads with logic names: ";
+    );  
+  print STDERR  "Fetching ESLA reads with logic names: ";
   foreach my $logic_name ( @{$self->LOGICNAME} ) {
     print STDERR "$logic_name ";
-    push @reads, @{$intron_slice->get_all_DnaAlignFeatures($logic_name)}; 
+    push @extra_reads, @{$small_intron_slice->get_all_DnaAlignFeatures($logic_name)}; 
   }
   print STDERR "\n";
-  # fetch them all if no logic name is Supplied
+  # fetch them all if no logic name is Suplied
   if (scalar( @{$self->LOGICNAME} ) == 0 ) {
-    @reads =  @{$intron_slice->get_all_DnaAlignFeatures()}; 
+    push @extra_reads ,  @{$small_intron_slice->get_all_DnaAlignFeatures()}; 
   }
-  # look for extra introns from ESLA
-  if ( $self->SMALL_INTRON_DB ) {
-    my $small_intron_slice = $self->small_intron_slice_adaptor->fetch_by_region
-      ('toplevel',
-       $self->chr_slice->seq_region_name,
-       $start,
-       $end,
-      );  
-    print STDERR  "Fetching ESLA reads with logic names: ";
-    foreach my $logic_name ( @{$self->LOGICNAME} ) {
-      print STDERR "$logic_name ";
-      push @extra_reads, @{$small_intron_slice->get_all_DnaAlignFeatures($logic_name)}; 
-    }
-    print STDERR "\n";
-    # fetch them all if no logic name is Suplied
-    if (scalar( @{$self->LOGICNAME} ) == 0 ) {
-      push @extra_reads ,  @{$small_intron_slice->get_all_DnaAlignFeatures()}; 
-    }
-  }
-  print STDERR "Got " . scalar(@reads) . " reads\n";
+  
   print STDERR "Got " . scalar(@extra_reads) . " extra  reads\n";
-  while ( scalar @reads > 0 ) {
-    my $read = pop(@reads);
-    my $type = 'consensus';
-    $type = 'non-consensus' if ( $read->hseqname =~ /\:NC$/ ) ;
-    $read = $read->transfer($self->chr_slice);
-    my @ugfs = $read->ungapped_features;
-    @ugfs = sort { $a->start <=> $b->start } @ugfs;
-    next if ( scalar(@ugfs) == 0 ) ;
-    for ( my $i = 0 ; $i < scalar(@ugfs) - 1 ; $i++ ) {
-      # one read can span several exons so make all the features 
-      # cache them by internal boundaries
-      # we use . to deliminate entries in our paths so dont allow them in the seq_region_name or it wont work
-      my $name = $read->seq_region_name;
-      $name =~ s/\./*/g;
-      my $unique_id = $name . ":" . 
-	$ugfs[$i]->end . ":" .
-	  $ugfs[$i+1]->start . ":" . 
-	    $read->strand .":$type";
-      $id_list{$unique_id} ++;
-    }
-  }
   # process extra reads and assign them to rough models
-  while ( scalar @extra_reads > 0 ) {    
+  while ( scalar @extra_reads > 0 ) {
     my $read = pop(@extra_reads);
-    my $type = 'consensus';
+    my $type = 'canonical';
     my $roughid;
-    $type = 'non-consensus' if ( $read->hseqname =~ /\:NC$/ ) ;
+    $type = 'non canonical' if ( $read->hseqname =~ /\:NC$/ ) ;
     $read = $read->transfer($self->chr_slice);
     # assign a rough model to the reads
     my @ugfs = $read->ungapped_features;
@@ -1375,11 +1532,6 @@ sub dna_2_simple_features {
 	# check that it is introns on both sides and not inserts, need to be bigger than the min intron length
 	next unless $ugfs[$i+1]->start - $ugfs[$i]->end > $self->MIN_INTRON_SIZE;
 	next unless $ugfs[$i]->start - $ugfs[$i-1]->end > $self->MIN_INTRON_SIZE;
-	# reject exons longer than 25 bp
-	#if (  $ugfs[$i]->end - $ugfs[$i]->start > 25 ) {
-	#  print STDERR "Extra exon rejected on length " .   $ugfs[$i]->end - $ugfs[$i]->start . "\n";
-	#  next;
-	#}
 	my $name = $read->seq_region_name;
 	$name =~ s/\./*/g;
 	my $unique_id = $name . ":" . 
@@ -1390,29 +1542,34 @@ sub dna_2_simple_features {
       }
     }
   }
-
-  print STDERR "Got " . scalar( keys %id_list ) . " collapsed introns\n";
-  print STDERR "Got " . scalar( keys %exon_list ) . " possibly novel exons\n";
-
-  # collapse them down and make them into simple features
+  
+  # collapse down the intron feaures and make them into simple features
   foreach my $key ( keys %id_list ) {
+   # print "KEY $key\n";
     my @data = split(/:/,$key) ;
-    my $sf = Bio::EnsEMBL::SimpleFeature->new
-      (-start => $data[1],
+    my $length =  $data[2] - $data[1] -1;
+    next unless $length > 0 ;
+    my $name = $self->chr_slice->seq_region_name . ":" . ($data[1]+1) . ":" . ($data[2] -1) .":" . $data[3] .":".$data[4];
+    my $if = Bio::EnsEMBL::DnaDnaAlignFeature->new
+      (
+       -start => $data[1],
        -end => $data[2],
        -strand => $data[3],
+       -hstart => 1,
+       -hend => $length,
+       -hstrand => 1,
        -slice => $self->chr_slice,
        -analysis => $self->analysis,
-       -score =>  0,
-       -display_label => "INTRON-" .$key,
+       -score =>  $id_list{$key},
+       -hseqname => $name,
+       -cigar_string => $length ."M",
       );
-    $sf->score($id_list{$key});
-    push @sfs , $sf;
+    push @ifs , $if;
   }
   # sort them
-  @sfs = sort {$a->start <=> $b->start} @sfs;
-  $self->intron_features(\@sfs);
-  print STDERR "Got " . scalar(@sfs) . " simple features\n";
+  @ifs = sort {$a->start <=> $b->start} @ifs;
+  $self->intron_features(\@ifs);
+  print STDERR "Got " . scalar(@ifs) . " intron features\n";
   # make the exon features
   my @extra_exons;
   foreach my $rough ( keys %exon_list ) {
@@ -1429,11 +1586,103 @@ sub dna_2_simple_features {
   return;
 }
 
+
+=head2 dna_2_intron_features
+    Title        :   dna_2_intron_features
+    Usage        :   $self->dna_2_intron_features($start,$end)
+    Returns      :   None
+    Args         :   Int start
+                 :   Int end
+    Description  :   Fetches all dna_align_features from the intron db that lie within
+                 :   the range determined by start and end, collapses them down into a 
+                 :   non redundant set and builds a Bio::EnsEMBL::DnaAlignFeature to 
+                 :   represent it, then stores it in $self->intron_features
+                 :   also checks for small exons defined by a single read splicing at least twice
+                 :   stores any additional exons found this way in $self->extra_exons
+
+=cut
+
+sub dna_2_intron_features {
+  my ($self,$start,$end) = @_;
+  my @ifs;
+  my %id_list;
+  my $rough_genes = $self->prelim_genes;
+  my $intron_slice = $self->intron_slice_adaptor->fetch_by_region
+    ('toplevel',
+     $self->chr_slice->seq_region_name,
+     $start,
+     $end,
+    );
+  # featch all the dna_align_features for this slice by logic name
+  my @reads;
+  print STDERR  "Fetching reads with logic names: ";
+  foreach my $logic_name ( @{$self->LOGICNAME} ) {
+    print STDERR "$logic_name ";
+    push @reads, @{$intron_slice->get_all_DnaAlignFeatures($logic_name)}; 
+  }
+  print STDERR "\n";
+  # fetch them all if no logic name is Supplied
+  if (scalar( @{$self->LOGICNAME} ) == 0 ) {
+    @reads =  @{$intron_slice->get_all_DnaAlignFeatures()}; 
+  }
+  print STDERR "Got " . scalar(@reads) . " reads\n";
+
+  while ( scalar @reads > 0 ) {
+    my $read = pop(@reads);
+    my $type = 'canonical';
+    $type = 'non canonical' if ( $read->hseqname =~ /\:NC$/ ) ;
+    $read = $read->transfer($self->chr_slice);
+    my @ugfs = $read->ungapped_features;
+    @ugfs = sort { $a->start <=> $b->start } @ugfs;
+    next if ( scalar(@ugfs) == 0 ) ;
+    for ( my $i = 0 ; $i < scalar(@ugfs) - 1 ; $i++ ) {
+      # one read can span several exons so make all the features 
+      # cache them by internal boundaries
+      # we use . to deliminate entries in our paths so dont allow them in the seq_region_name or it wont work
+      my $name = $read->seq_region_name;
+      $name =~ s/\./*/g;
+      my $unique_id = $name . ":" . 
+	$ugfs[$i]->end . ":" .
+	  $ugfs[$i+1]->start . ":" . 
+	    $read->strand .":$type";
+      $id_list{$unique_id} ++;
+    }
+  }
+  print STDERR "Got " . scalar( keys %id_list ) . " collapsed introns\n";
+  # collapse them down and make them into simple features
+  foreach my $key ( keys %id_list ) {
+    my @data = split(/:/,$key) ;
+    my $length =  $data[2] - $data[1] -1;
+    next unless $length > 0;
+    my $name = $self->chr_slice->seq_region_name . ":" . ($data[1]+1) . ":" . ($data[2] -1) .":" . $data[3] .":".$data[4];
+    my $if = Bio::EnsEMBL::DnaDnaAlignFeature->new
+      (
+       -start => $data[1],
+       -end => $data[2],
+       -strand => $data[3],
+       -hstart => 1,
+       -hend => $length,
+       -hstrand => 1,
+       -slice => $self->chr_slice,
+       -analysis => $self->analysis,
+       -score =>  $id_list{$key},
+       -hseqname => $name,
+       -cigar_string => $length ."M",
+      );
+    push @ifs , $if;
+  }
+  # sort them
+  @ifs = sort {$a->start <=> $b->start} @ifs;
+  $self->intron_features(\@ifs);
+  print STDERR "Got " . scalar(@ifs) . " intron features\n";
+  return;
+}
+
 =head2 fetch_intron_features
 
     Title        :   fetch_intron_features
     Usage        :   $self->fetch_intron_features($start,$end)
-    Returns      :   Array ref of Bio::EnsEMBL::SimpleFeature
+    Returns      :   Array ref of Bio::EnsEMBL::DnaAlignFeature
     Args         :   Int start
                  :   Int end
     Description  :   Accesses the pre computed simple features representing introns
@@ -1453,11 +1702,11 @@ sub fetch_intron_features {
     push @chosen_sf, $intron;
   }
   INTRON: foreach my $intron ( @chosen_sf) {
-    if ($intron->display_label =~ /non-consensus/ ) {
+    if ($intron->hseqname =~ /non canonical/ ) {
       # check it has no overlap with any consensus introns
       # unless it out scores a consensus intron
       foreach my $i ( @chosen_sf) {
-	unless ($i->display_label =~ /non-consensus/ ) {
+	unless ($i->hseqname =~ /non canonical/ ) {
 	  if ($intron->end > $i->start && $intron->start < $i->end && $intron->strand == $i->strand ) {
 	    next INTRON if $intron->score <= $i->score;
 	  }
@@ -1930,6 +2179,35 @@ sub STRICT_INTERNAL_END_EXON_SPLICE_SITES {
   
   if (exists($self->{'_CONFIG_STRICT_INTERNAL_END_EXON_SPLICE_SITES'})) {
     return $self->{'_CONFIG_STRICT_INTERNAL_END_EXON_SPLICE_SITES'};
+  } else {
+    return undef;
+  }
+}
+
+sub INTRON_BAM_FILE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_INTRON_BAM_FILE'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_INTRON_BAM_FILE'})) {
+    return $self->{'_CONFIG_INTRON_BAM_FILE'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub WRITE_INTRONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_WRITE_INTRONS'} = $value;
+  }
+  
+  if (exists($self->{'_WRITE_INTRONS'})) {
+    return $self->{'_WRITE_INTRONS'};
   } else {
     return undef;
   }
