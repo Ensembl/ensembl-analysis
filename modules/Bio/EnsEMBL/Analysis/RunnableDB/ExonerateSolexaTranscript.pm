@@ -42,6 +42,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature;
 use Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExonerateSolexa;
 use Bio::EnsEMBL::FeaturePair;
+use Bio::SeqIO;
 use vars qw(@ISA);
 
 @ISA =  ("Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa");
@@ -59,11 +60,10 @@ sub fetch_input {
   # do all the normal stuff
   $self->SUPER::fetch_input();
   # then get all the transcripts and exons
-  my $trans_db = $self->get_dbadaptor($self->TRANSDB); 
-  $trans_db->disconnect_when_inactive(1);
+  my $trans_db = $self->get_dbadaptor($self->TRANSDB);
   my $trans_adaptor = $trans_db->get_TranscriptAdaptor;
   my %trans_by_id;
-  my $biotype = $self->TRANSCRIPT_BIOTYPE;
+  my $biotype = $self->BIOTYPE;
   my @trans;
   # fetch genes, transcripts 
   if ( $biotype ){ 
@@ -72,17 +72,34 @@ sub fetch_input {
   } else {
     push @trans , @{$trans_adaptor->fetch_all(undef,undef,undef)};
   }
-  $self->db->dnadb()->disconnect_when_inactive(1); 
- 
   print scalar(@trans) . " transcripts fetched \n";   
 
   foreach my $trans ( @trans ) {
     $trans_by_id{$trans->display_id} = $trans;
   }
   $self->transcripts(\%trans_by_id);
+
+  # fetch the sequence of the query seqs if we want to write them as SAM format
+  if ( defined $self->OUT_SAM_DIR ) {
+    #open the file and read the sequences into a hash
+    my $query_seqs = Bio::SeqIO->new( -file => $self->QUERYSEQS."/".$self->input_id,
+				      -format => 'fasta'
+				    );
+    $self->throw("Cannot open " .  $self->QUERYSEQS ."/" .$self->input_id  . 
+		 " for reading querys into hash \n") unless $query_seqs;
+    while ( my $seq = $query_seqs->next_seq ) {
+      my $id = $seq->display_id;
+      $id =~ s/:A$/:a/;
+      $id =~ s/:B$/:b/;
+      $self->seq_hash($id,$seq);
+    }
+  }
+  # close unused connections to transcript db
+  $self->get_dbadaptor($self->TRANSDB)->disconnect_when_inactive(1);
+  $self->get_dbadaptor($self->main_reference_db)->disconnect_when_inactive(1);
+  $self->get_dbadaptor($self->main_reference_db,'pipeline')->disconnect_when_inactive(1);
   return ;
 }
-
 
 sub filter_solexa {
   my ($self,$features_ref) = @_;
@@ -90,19 +107,16 @@ sub filter_solexa {
   my @filtered_features;
   # allow no more than MISSMATCH missmatches and
   foreach my $feat ( @features ) {
-   # check missmatches
+    # restrict just to splice models where read is within an exon
+    if ( $self->INTRON_MODELS ) {
+      next unless $feat->{"_intron"};
+    }
+    # check missmatches
     if ( $self->MISSMATCH ) {
       my $aligned_length = abs($feat->hend - $feat->hstart) +1;
-      #print $feat->hseqname ." ";
-      #print $feat->percent_id . " " ;
-      #print " aligned length = $aligned_length ";
       my $matches = $aligned_length *  $feat->percent_id / 100;
-      #print " matches $matches  ";
       my $missmatches = ( $aligned_length - $matches) / $aligned_length * 100;
-      #print " missmatches $missmatches \n";
-      next if $missmatches > $self->MISSMATCH;
-      #print "accepting\n";
-      
+      next if $missmatches > $self->MISSMATCH;      
     }
     push @filtered_features, $feat;
   }
@@ -118,19 +132,197 @@ sub run {
 
   $runnable->run;
   my $features = $runnable->output;
-
-  if ($self->MISSMATCH) {
+  # force a recconect so we can get the dna and write output
+  $self->get_dbadaptor($self->main_reference_db)->dbc->connect 
+    unless  $self->get_dbadaptor($self->main_reference_db)->dbc->connected;
+  $self->get_dbadaptor($self->main_reference_db,'pipeline')->dbc->connect
+    unless  $self->get_dbadaptor($self->main_reference_db,'pipeline')->dbc->connected;
+  $self->get_dbadaptor($self->TRANSDB)->disconnect_when_inactive(0);
+  $self->get_dbadaptor($self->main_reference_db)->disconnect_when_inactive(0);
+  if ($self->MISSMATCH or  $self->INTRON_MODELS ) {
     $features = $self->filter_solexa($features);
   }
 
   # Pair features together if they come from paired end reads
-  if ( $self->PAIREDEND ) {
+  # dont pair intron reads as the strands get screwed up
+  if ( $self->PAIREDEND && !$self->INTRON_MODELS ) {
     $features = $self->pair_features($features);
   }
 
   my $genomic_features = $self->process_features($features);
-
   $self->output($genomic_features);
+}
+
+# overide write output if BAm files are to be used
+
+=head2 write_output
+
+  Arg [1]   : array ref of Bio::EnsEMBL::DnaDnaAlignFeature
+  Function  : Overrides the write_output method from the superclass
+              to allow Writing in SAM format
+  Returntype: 1
+  Exceptions: Throws if the feature cannot be stored
+
+=cut
+
+sub write_output {
+  my ( $self ) = @_;
+  my @output = @{$self->output};
+  print "Got " .  scalar(@output) ." genomic features \n";
+  unless (  $self->OUT_SAM_DIR ) {
+    # write to the db
+    $self->SUPER::write_output();
+    return;
+  } else {
+    # write to file
+    my $filename = $self->input_id;
+    $filename =~ s/.fa$//;
+    open ( SAM ,">".$self->OUT_SAM_DIR."/$filename.sam" ) or
+      $self->throw("Cannot open file for writing " . $self->OUT_SAM_DIR."./$filename.sam\n");
+    # write header
+    my $refdb = $self->get_dbadaptor("REFERENCE_DB");
+    my $sa = $refdb->get_SliceAdaptor;
+    print SAM "\@HD\tVN:1.0\n";
+    foreach my $slice ( @{$sa->fetch_all('toplevel')} ) {
+      print SAM "\@SQ\tSN:" . $slice->seq_region_name ."\tLN:" . $slice->length ."\n"; 
+    }
+    foreach my $feature ( @output ) {
+      my $line = $self->convert_to_sam($feature);
+      print SAM $line if $line;
+    }
+  }
+}
+
+sub convert_to_sam {
+  my ( $self,$feature ) = @_;
+  my $line;
+  # I have a feeling the hit strands are all backwards in the db
+  # I will have a go at reversing them 
+  #$feature->hstrand($feature->hstrand * -1);
+  # strip off the :NC of the end of the seq names
+  my $tmp = $feature->hseqname;
+  $tmp   =~ s/:NC$//;
+  $feature->hseqname($tmp);
+  my $seq = "*";
+  my $type;
+  my $flag = 1;
+  my $paired = 1;
+  # reverses cigar line if feature is reversed
+  $feature = $self->check_cigar($feature);
+  my $cigar = $feature->cigar_string;
+  # N isued to represent splicing in sam format
+  $cigar =~ s/I/N/g;
+  # is the feature paired in the alignment
+  if ( $feature->hseqname =~ /(\S+):(a:aa|b:bb|A:aa|B:bb)/ ) {
+    # paired but not joined
+    $paired = 0;	 
+    $feature->hseqname($1);
+    $flag +=2 ;
+    if ( $2 =~ /a/ ) {
+      $flag += 64;
+      $type = "a";
+    } elsif ( $2 =~ /b/ ) {
+      $type = "b";
+      $flag += 128;
+    }
+  } elsif ( $feature->hseqname =~ /(\S+):(a|b|A|B|a3p|b3p)/ ) { 
+    $paired = 0;
+    $feature->hseqname($1);
+    if ( $2 =~ /(a|A)/ ) {
+      $flag += 64;
+      $type = "a";
+    } elsif ( $2 =~ /(b|B)/ ) {
+      $type = "b";
+      $flag += 128;
+    }
+  } else {
+    $flag =3 ;
+  }
+  # strand wrt the reference
+  # do we know the strand?
+  my $strand = $feature->strand ;
+  if ( $strand == -1 ) {
+    $flag +=16;
+  }
+  # strand of the mate = -1 so we add nothing
+  my $feature_seq = $self->seq_hash($feature->hseqname.":$type");
+#  print "SEQ " . $feature->hseqname . " " . $feature_seq->seq ,"\n";
+  $self->throw("cannot find sequence for " . $feature->hseqname .":$type\n")
+    unless $feature_seq;
+  my $length = length($feature_seq->seq);
+  # add soft clip info to the cigar
+  # cigar reversed if the hit strand is -1;
+  if ( ( $feature->hstrand == -1 &&  $feature->strand == -1) or ( $feature->hstrand == 1 &&  $feature->strand == 1 ) ) {
+    $cigar = $cigar . ($feature->hstart - 1) ."S"	if  $feature->hstart > 1;
+    $cigar = ( $length - $feature->hend ) ."S$cigar"	if  $feature->hend < $length;
+  } else {
+    $cigar = ( $feature->hstart -1 ) ."S$cigar"	if  $feature->hstart > 1;
+    $cigar = $cigar . ( $length - $feature->hend ) ."S"	if  $feature->hend < $length;
+  }
+  my $check = $self->check_cigar_length($cigar);
+  if ( $check != $length ) {
+    print STDERR "Losing " .  $feature->hseqname . " ($type) I get cigar length $check rather than $length, $cigar\n";
+    return ;
+  }
+  if ( $feature->hstrand == 1 &&  $feature->strand == 1 ) {
+    # need the reverse compliment
+    $seq = $feature_seq->revcom->seq;
+  } elsif( $feature->strand == -1 &&  $feature->hstrand == -1 )   {
+    # need the reverse compliment
+    $seq = $feature_seq->revcom->seq;   
+  }else {
+    $seq = $feature_seq->seq;
+  }
+  # if the feature is aligned to the -ve strand we want the complement of he sequence as well
+  if ( $feature->strand == -1 ) {
+    $seq =~ tr/ACGTacgt/TGCAtgca/;
+  }
+
+  # strand of the mate = -1 so we add nothing
+  $line .= $feature->hseqname ."\t"; 
+  $line .= "$flag\t";
+ # $line .= $feature->hstrand . "\t" . $feature->strand . "\t";
+  $line .= $feature->seq_region_name ."\t";
+  $line .=  $feature->start ."\t";
+  $line .= "0\t";
+  $line .=  "$cigar\t";
+  if ( $paired ) {
+    # what is the position of the other pair?
+    $line .= $feature->seq_region_name ."\t" . $feature->hstart ."\t" . $feature->hend . "\t$seq\t*\n";
+  } else {
+    $line .= "*\t0\t0\t$seq\t*\n";
+  }
+  return $line;
+}
+
+sub check_cigar {
+  my ($self,$feat) = @_;
+  my @ugfs;
+  my $string = $feat->cigar_string;
+  my @pieces = ( $string =~ /(\d*[MDI])/g );
+  # if  strand is -1 strand cigar line is reversed
+  @pieces = reverse @pieces if     $feat->strand == -1 ;
+  my $cigar;
+  foreach my $piece (@pieces) {
+    my ($length,$match) = ( $piece =~ /^(\d*)(M|I|D)/ );
+    if( $length eq "" ) { $length = 1 }
+    $cigar.= $length;
+    $cigar.= $match;
+  }
+  $feat->cigar_string($cigar);
+  return $feat;
+}
+
+sub check_cigar_length{
+  my ($self,$cigar) = @_;
+  my @pieces = ( $cigar =~ /(\d*[SMDN])/g );
+  my $total_length;
+  foreach my $piece (@pieces) {
+    my ($length,$match) = ( $piece =~ /^(\d*)(S|M|D|N)/ );
+    if( $length eq "" ) { $length = 1 };
+    $total_length += $length unless $match eq "N";
+  }
+  return $total_length;
 }
 
 =head2 process_features
@@ -157,7 +349,7 @@ sub process_features {
   my @dafs;
 
 FEATURE:  foreach my $f (@$flist) {
-    
+    print "FEATURE " . $f->hseqname ."\n";
     my $trans_id;
     my $accept = 0;
     
@@ -175,7 +367,7 @@ FEATURE:  foreach my $f (@$flist) {
 
     my $trans = $self->transcripts->{$trans_id};
 
-    if ( $self->INTRON_OVERLAP ) {
+    if ( $self->INTRON_OVERLAP && !$self->INTRON_MODELS ) {
       # only consider introns overlapping exons by at least x base pairs 
       # on both sides of the intron
       # make a hash with the positions of the exon boundaries
@@ -203,22 +395,13 @@ FEATURE:  foreach my $f (@$flist) {
       # allow reads covering introns
       $accept = 1 if ( $es && $ee && $ee >= $self->INTRON_OVERLAP 
 		       && $es <= $f->length - $self->INTRON_OVERLAP );
-
-      # disallow unspliced reads spanning introns  unless the intron is size 0
-      # then allow the unspliced alignment to  bridge the gap
-      # also allow any spliced modles even if they dont lie in an intron
-      
-      if ( $self->INTRON_MODELS ) {
-	unless ( $f->{"_intron"} or ( $es && $ee && ($es - $ee == 1) ) ) {
-	  $accept = 0;
-	}
-      }
     }
 
-    # restrict just to splice models where read is within an exon
     if ( $self->INTRON_MODELS ) {
-      $accept = 1 if $f->{"_intron"};
+      #we have already filtered everything else out
+      $accept = 1;
     }
+
 
     next FEATURE unless $accept;
 
@@ -258,9 +441,9 @@ FEATURE:  foreach my $f (@$flist) {
       }
       @features = sort { $a->start <=> $b->start } @features;
       # if we have a spliced alignment check to see if it's non-cannonical
-      # if so tag it so we can tell later on
-
-      if ( $f->{'_intron'} ) {
+      # if so tag it so we can tell later on (only if you are writing to db)
+      # if we are writing to SAM we cannot store the info in the same way
+      if ( $f->{'_intron'} and not $self->OUT_SAM_DIR) {
 	print $f->hseqname . "  ";
 	if ( scalar(@features) == 2 ) {
 	  my $left_splice = $slice_adaptor->fetch_by_region('toplevel',
@@ -391,6 +574,22 @@ sub stored_features {
 
   if (exists($self->{'_stored_features'}{$key})) {
     return $self->{'_stored_features'}{$key};
+  } else {
+    return undef;
+  }
+}
+
+sub seq_hash {
+  my ($self,$key,$value) = @_;
+
+  return undef unless defined ($key);
+
+  if (defined $value) {
+    $self->{'_seq_hash'}{$key} = $value;
+  }
+
+  if (exists($self->{'_seq_hash'}{$key})) {
+    return $self->{'_seq_hash'}{$key};
   } else {
     return undef;
   }
