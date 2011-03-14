@@ -97,6 +97,12 @@ use vars qw( %Config );
                   CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36 => 0,
 
 
+                  # Used in conjunction with "CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36", set "CHECK_CDNA_OVERLAP_WITH_MULTI_K36" to "1" if you
+                  # also allow cDNA/RNASeq model overlapping wtih multiple H3K36me3 features but no H3K4me3 features to be considered as a 
+                  # lincRNA candidate.
+
+                  CHECK_CDNA_OVERLAP_WITH_MULTI_K36 => 0,
+
 
                   # Check protein-coding potential in lincRNA candidates after clustering
                   # ----------------------------------------------------------------------
