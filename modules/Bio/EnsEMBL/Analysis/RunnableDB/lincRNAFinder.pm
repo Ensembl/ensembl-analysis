@@ -77,6 +77,7 @@ sub fetch_input{
   $runnable->find_single_exon_candidates($self->FIND_SINGLE_EXON_LINCRNA_CANDIDATES);
   
   $runnable->check_cdna_overlap_with_both_K4_K36($self->CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36);
+  $runnable->check_cdna_overlap_with_multiple_K36($self->CHECK_CDNA_OVERLAP_WITH_MULTI_K36);
 
   $runnable->maximum_translation_length_ratio($self->MAXIMUM_TRANSLATION_LENGTH_RATIO); 
   $runnable->max_translations_stored_per_gene($self->MAX_TRANSLATIONS_PER_GENE) ;
@@ -419,6 +420,16 @@ sub CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36 {
   }
   return $self->{'CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36'};
 }
+
+
+sub CHECK_CDNA_OVERLAP_WITH_MULTI_K36 {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'CHECK_CDNA_OVERLAP_WITH_MULTI_K36'} = $arg;
+  }
+  return $self->{'CHECK_CDNA_OVERLAP_WITH_MULTI_K36'};
+}
+
 
 
 sub FIND_SINGLE_EXON_LINCRNA_CANDIDATES {
