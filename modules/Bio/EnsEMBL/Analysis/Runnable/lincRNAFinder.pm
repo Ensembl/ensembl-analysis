@@ -185,6 +185,24 @@ sub run{
         $check_which_feature_cdna_clusters_with{"H3K36"}{$cdna->dbID} = 1;
       }
     }
+
+    if ( ($lg =~ /H3K36/) &&  ($self->check_cdna_overlap_with_multiple_K36) ) {
+      my @twoway_clusters = @{get_twoway_clusters($step3_clusters)};
+      foreach my $twoway_cluster (@twoway_clusters) {
+        my @K36_genes = @{$twoway_cluster->get_Genes_by_Set('unclust_efg')};
+        my @cdna_genes = @{$twoway_cluster->get_Genes_by_Set('unclust_cdna_update')};
+        # if there are more than one H3K36me3 feature in the cluster, check (by running clustering) to find out whether 
+        # the features all pile up in one location or are distributed across a genomic region. We want "multi K36s" which
+        # are distributed.
+        if (scalar(@K36_genes) > 1) { 
+          print "\n  There are more than one K36 feature overlapping with cDNA(s).  Now checking if cDNA(s) overlap with multiple K36 features distributed across a genomic region...\n";
+          my (@passed_cdnas_dbIDs) = $self->score_cdna_overlap_with_multi_K36(\@K36_genes, \@cdna_genes);
+          foreach my $cdna_dbID(@passed_cdnas_dbIDs) {
+            $check_which_feature_cdna_clusters_with{"H3K36_multi"}{$cdna_dbID} ++;
+          }
+        }
+      }
+    } # end if $lg =~ /H3K36/ && $self->check_cdna_overlap_with_multiple_K36
   }  # end foreach my $lg...
   
   print "\nStage 3b) count how many cDNAs overlap with only one type or with both types of H3 features...\n" ;
@@ -192,6 +210,7 @@ sub run{
   my @cdnas_overlapping_with_both_K4_and_K36;
   my @cdnas_overlapping_with_only_K4;
   my @cdnas_overlapping_with_only_K36;
+  my @cdnas_overlapping_with_multiple_K36;
 
 
   my %non_redun_cdnas_clustering_with_efg_only;
@@ -207,7 +226,10 @@ sub run{
     } elsif ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
          (!$check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
       push(@cdnas_overlapping_with_only_K4, $cdna_to_check);
-    } elsif ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
+    } elsif  ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
+        ($check_which_feature_cdna_clusters_with{"H3K36_multi"}{$cdna_to_check->dbID}) ) {
+      push(@cdnas_overlapping_with_multiple_K36, $cdna_to_check);
+    } elsif  ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
          ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
       push(@cdnas_overlapping_with_only_K36, $cdna_to_check);
     } else {
@@ -218,12 +240,21 @@ sub run{
   print "\nThere are altogether ". scalar(keys%non_redun_cdnas_clustering_with_efg_only)." cDNAs clustering with H3K4me3 and/or H3K36me3.\n";
   print "  ".scalar(@cdnas_overlapping_with_only_K4)." cDNAs overlap with only H3K4me3 features.\n";
   print "  ".scalar(@cdnas_overlapping_with_only_K36)." cDNAs overlap with only H3K36me3 features.\n";
+  print "  ".scalar(@cdnas_overlapping_with_multiple_K36)." cDNAs overlap with multiple H3K36me3 features but not H3K4me3 features.\n";
   print "  ".scalar(@cdnas_overlapping_with_both_K4_and_K36)." cDNAs overlap with both H3K4me3 and H3K36me3 features.\n";
 
   if ($self->check_cdna_overlap_with_both_K4_K36) {
-    print "\nOnly cDNAs overlapping with both H3K4me3 and H3K36me3 features will be considered as lincRNA candidates.\n\n";
-    $self->update_and_copy_cdna(\@cdnas_overlapping_with_both_K4_and_K36, 'cdna_both_K4_K36');  # cDNA DEBUG
-    $self->result_set(\@cdnas_overlapping_with_both_K4_and_K36);
+    if ($self->check_cdna_overlap_with_multiple_K36) {
+      print "\ncDNAs overlapping with multiple H3K36me3 (but no H3K4me3) OR overlapping with H3K4me3 + H3K36me3 will be considered as lincRNA candidates.\n\n";
+      $self->update_and_copy_cdna(\@cdnas_overlapping_with_multiple_K36, 'cdna_multi_K36');  # cDNA DEBUG
+      $self->update_and_copy_cdna(\@cdnas_overlapping_with_both_K4_and_K36, 'cdna_both_K4_K36');  # cDNA DEBUG
+      my @tmp_result_set = (@cdnas_overlapping_with_multiple_K36, @cdnas_overlapping_with_both_K4_and_K36);
+      $self->result_set(\@tmp_result_set);
+    } else {
+      print "\nOnly cDNAs overlapping with both H3K4me3 and H3K36me3 features will be considered as lincRNA candidates.\n\n";
+      $self->update_and_copy_cdna(\@cdnas_overlapping_with_both_K4_and_K36, 'cdna_both_K4_K36');  # cDNA DEBUG
+      $self->result_set(\@cdnas_overlapping_with_both_K4_and_K36);
+    }
   } else {
     print "\ncDNAs overlapping with H3K4me3 and/or H3K36me3 features will be considered as lincRNA candidates.\n\n";
     my @cdnas_overlapping_some_H3 = values %non_redun_cdnas_clustering_with_efg_only;
@@ -451,6 +482,53 @@ sub filter_cdna_genes_by_exon_count {
   return ( \@single_exon, \@multi_exon );
 } 
 
+
+=head2 score_cdna_overlap_with_K36
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder
+  Arg [2]   : Reference to an array of H3K36me3 gene objects
+  Arg [3]   : Reference to an array of cDNA gene objects
+  Function  : Selects for cDNA gene objects which overlap with multiple
+              H3K36me3 features distributed across a genomic region.
+              cDNA genes overlapping with multiple H3K36me3 features
+              piling up in the same genomic region will not be 
+              selected.
+  Returntype: An array dbIDs (integers) of cDNAs which have been
+              selected.
+  Example   : $self->score_cdna_overlap_with_multi_K36(\@K36_genes, \@cdna_genes);
+
+=cut
+
+sub score_cdna_overlap_with_multi_K36 {
+  my ($self, $K36_genes, $cdna_genes) = @_;
+  my @dummy_set2_models;   # blank
+  my ($clustered, $unclustered) = @{simple_cluster_Genes($K36_genes, "K36" , \@dummy_set2_models, "dummy")};
+  my @K36_regions = (@$clustered, @$unclustered);
+  my $K36_cluster_cnt = scalar(@K36_regions);
+  print "    Got a total of $K36_cluster_cnt clusters after local clustering, ". scalar@$clustered . " of which are K36 clusters and " . scalar@$unclustered . " are K36 singletons.\n";
+
+  my @cdna_overlapping_multi_K36;
+  my %scoring;
+  
+  if ($K36_cluster_cnt > 1) { # i.e. the H3K36me3 feats don't fall into the same genomic location but distributed across exons
+    foreach my $cdna(@$cdna_genes) {
+      my $curr_sr_start = $self->query->start;
+      my $curr_sr_end = $self->query->end;
+      foreach my $K36_region(@K36_regions) {
+        my $K36_clust_start = $curr_sr_start + $K36_region->start;
+        my $K36_clust_end = $curr_sr_start + $K36_region->end;
+        print "    NEW LOCAL CLUSTER REGION: " . $self->query->seq_region_name . ",  $K36_clust_start - $K36_clust_end.\n";
+       if ($cdna->seq_region_end >= $K36_clust_start && $cdna->seq_region_start <= $K36_clust_end) {   # overlap
+          print "    FOUND MATCH in this region for cDNA: " .$cdna->seq_region_start . " -  " . $cdna->seq_region_end . " (dbID " . $cdna->dbID.")\n";
+          $scoring{$cdna->dbID} ++;
+        }
+      }
+    }
+  } else {
+    print "    This means only one block of H3K36me3 features are overlapping with cDNA(s).\n"
+  }
+  return keys%scoring;
+}
 
 use vars '$AUTOLOAD';
 sub AUTOLOAD {
