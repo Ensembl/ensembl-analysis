@@ -3,7 +3,6 @@ package Bio::EnsEMBL::Analysis::RunnableDB::lincRNAEvaluator;
 use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::RunnableDB::lincRNAFinder; 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAEvaluator; 
 use Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator; 
@@ -46,19 +45,23 @@ sub new {
 
 sub fetch_input{
   my ($self) = @_;
-  #fetch sequence/slice 
+
+  # Fetch sequence/slice 
+
   $self->query($self->fetch_sequence); 
+
+  # Get lincRNA candidate genes and break each of them down into single-transcript genes:
 
   my $lincrna_genes = $self->get_genes_of_biotypes_by_db_hash_ref($self->LINCRNA_DB);
   
   my @single_transcript_lincrna_genes = @{$self->create_single_transcript_genes($lincrna_genes)}; 
-  print scalar(@single_transcript_lincrna_genes) . " single_transcript genes\n" ;  
+  print "Made ". scalar(@single_transcript_lincrna_genes) . " single_transcript genes, broken down from " . scalar(@$lincrna_genes) .
+        " multi_transcript lincRNA candidates from lincRNAFinder stage.\n" ;  
 
-  # get ensembl human genes to validate and check overlap  
+  # Get ensembl genes as the validation set  
   
   my $validation_genes = $self->get_genes_of_biotypes_by_db_hash_ref($self->VALIDATION_DBS);  
-
-  my $db = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB);   
+  print "\nFetched ". scalar(@$validation_genes) . " Ensembl genes as the validation set.\n";
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator->new(
           -query => $self->query,
@@ -66,117 +69,69 @@ sub fetch_input{
           -linc_rna_genes => \@single_transcript_lincrna_genes , 
           -ensembl_genes => $validation_genes,  
            );
-  $self->single_runnable($runnable); 
-};
+
+  $runnable->max_frameshift_intron_len($self->MAX_FRAMESHIFT_INTRON_LEN); #### at6 added 4 Mar
+  $runnable->exclude_single_exon_lincRNAs($self->EXCLUDE_SINGLE_EXON_LINCRNAS);  #####at6 added 3 Mar
+  $runnable->exclude_artefact_two_exon_lincRNAs($self->EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS);  ####at6 added 3 Mar
+
+  $self->single_runnable($runnable);     
+  # not using RunnableDB SUPER class method "runnable" as the method stores runnable objects in an array.
+  # the SUPER "run" method in RunnableDB then loops through the runnables.  As we are implementing the
+  # 'run' method specifically for lincRNAEvaluator anyway, we might as well skip the array looping. 
+}
 
 
 sub run {
   my ($self) = @_;  
-  #$self->SUPER::run();
-  $self->single_runnable->run();  # don't inherit as we don't want to collect all data ..
-
-  #my @genes_to_ignore = @{$self->runnable->genes_to_ignore} ; 
-
-
-
-  #my @result = @{$self->output} ;  
-  #my (@genes_to_ignore, @genes_for_build,@clust_proctrans) ;  
-
-  #my @genes_to_ignore = @{$self->genes_to_ignore} ; 
-#  my @clust_proctrans = @{$self->runnable->clusters_with_processed_transcript};
-
-  
-#  for my $g ( @result ) {  
-    #if ( $g->biotype=~m/clusters_with_prot_dom/ ) {
-        #push @genes_to_ignore, $g;
-#    } elsif ( $g->biotype=~m/clusters_proc_trans/ ) {
-#        push @clust_proctrans, $g; 
-    #} elsif ( $g->biotype=~m/clusters_w_ensembl/ ) {
-    #    push @genes_to_ignore, $g; 
-    #} elsif ( $g->biotype=~m/clusters_with_diff_biotypes/ ) {
-    #    push @genes_to_ignore, $g; 
-    #} elsif ( $g->biotype=~m/same_as_ensembl/ ) {
-    #    push @genes_to_ignore, $g; 
-#    } else { 
-#        print "adding gene for genebiulder run : " . $g->biotype . "\n" ; 
-#        push @genes_for_build, $g; # self->runnable->unclustered_ncrnas
-#   } 
-#  } 
-
-#  print " got " .@genes_for_build . " gens for genebuilder\n" ;  
-#  print " got " .@genes_to_ignore. "  genes to ignore\n"; 
-
-  # we only want genes of certain biotype first 
-
-
-
-  # I hacked GeneBuilderos i don't need to filter translations for now.    
-  
-  # NOW filter out genes which don't have translations   
- # my ( $g_with_transl, $no_transl_g ) = @{ filter_genes_by_translation(\@genes_for_build) } ;  
-
- # for ( @$no_transl_g ) {  
- #    $_->biotype($_->biotype()."_nt"); 
- # }   
-  # cluster them again and vs the other set and only use the oness which are unclustered  
- # my %types_hash = %{ make_types_hash($g_with_transl, $no_transl_g,  'TRANSLATION','NO_TRANSL')} ;
-  #my ($step1_clusters, $step1_unclustered) = cluster_Genes( [@$g_with_transl, @$no_transl_g] , \%types_hash ) ;
-
-  # I am looking for gene which do not cluster with any translation-genes 
-  #my @unclust_no_translation = (  
-  #                              @{get_oneway_clustering_genes_of_set($step1_clusters,"NO_TRANSL")},
-  #                              @{get_oneway_clustering_genes_of_set($step1_unclustered,"NO_TRANSL")}
-  #                             );
-  #for ( @unclust_no_translation ) {  
-  #   $_->biotype($_->biotype()."_uncl"); 
-  #}   
-# for ( @genes_for_build) {  
-   #print scalar(@{$_->get_all_Transcripts}) . " transcripts \n";
-#  }  
-
-  my @output_clustered;  
+  $self->single_runnable->run(); 
+ 
+  print "\nCOLLAPSING SINGLE-TRANSCRIPT lincRNA 'GENES' BY GENEBUILDER TO CREATE FINAL lincRNA GENES.\n";
 
   #
-  # First genebuilder run with unclustered lincRNAs 
+  # First genebuilder run with unclustered lincRNAs
   #
-  print "Got " . scalar(@{$self->single_runnable->unclustered_ncrnas}). " unclustered lincRNAs for Genebuilder \n" ;  
+
+  print "\nRunning GeneBuilder for " . scalar(@{$self->single_runnable->unclustered_ncrnas}). " unclustered lincRNAs...\n" ;  
 
   my $gb = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
           -query => $self->query,
           -analysis => $self->analysis,
-          #-genes => $g_with_transl, 
           -genes => $self->single_runnable->unclustered_ncrnas, #  \@genes_for_build, 
           -output_biotype => $self->FINAL_OUTPUT_BIOTYPE, 
-          -max_transcripts_per_cluster => 3, 
+          -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER, 
           -min_short_intron_len => 1,
           -max_short_intron_len => 15,
           -blessed_biotypes => {} , 
          );
-   $gb->run(); 
+   $gb->run();
+
+   my @output_clustered; 
+
    push @output_clustered, @{$gb->output()} ;  
-   print "GeneBuilder returned ". scalar(@output_clustered) . " lincRNA genes which do not overlap with any other gene\n";
-   print "(e.g. not proc_tran genes, not existing lincRNAs, not protein_coding genes in the core DB).\n";
+   print "  GeneBuilder returned ". scalar(@output_clustered) . " lincRNA genes which do not overlap with any other gene ";
+   print "(e.g. not proc_tran, existing lincRNAs or protein_coding genes).\n";
+
   # 
   # OPTIONAL: second genebuilder run with lincRNAs which cluster with processed transcript  
   # 
 
-  if ( $self->WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS == 1 ) { 
-     print "Got " . scalar(@{$self->single_runnable->ncrna_clusters_with_processed_transcript}). 
-      " lincRNAs for Genebuilder which cluster with processed transcript\n" ; 
+  if ( $self->WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS == 1 ) { 
+     print "\nRunning GeneBuilder for " . scalar(@{$self->single_runnable->ncrna_clusters_with_processed_transcript}). 
+      " lincRNAs which cluster with processed transcript...\n" ; 
 
      $gb = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
             -query => $self->query,
             -analysis => $self->analysis,
-            -genes => $self->single_runnable->ncrna_clusters_with_processed_transcript, # @clust_proctrans, 
-            -output_biotype => "lincRNA_clusters_with_processed_transcript", 
-            -max_transcripts_per_cluster => 3, 
+            -genes => $self->single_runnable->ncrna_clusters_with_processed_transcript,
+            -output_biotype => "lincRNA_clusters_with_proc_trans", 
+            -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER, 
             -min_short_intron_len => 1,
             -max_short_intron_len => 15,
             -blessed_biotypes => {} , 
            );
      $gb->run();
  
-     print "GeneBuilder returned ". scalar( @{$gb->output()} ) . " lincRNA genes which overlapped with processed_transcript genes.\n";
+     print "  GeneBuilder returned ". scalar( @{$gb->output()} ) . " lincRNA genes which overlapped with processed_transcript genes.\n";
      push @output_clustered, @{$gb->output()} ;   
    }
 
@@ -185,26 +140,25 @@ sub run {
   # 
 
 
-  if ( $self->WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS == 1 ) {
-     print "Got " . scalar(@{$self->single_runnable->ncrna_clusters_with_existing_lincRNAs}).
-      " lincRNAs for Genebuilder which cluster with existing lincRNAs\n" ;
-
+  if ( $self->WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS == 1 ) {
+     print "\nRunning GeneBuilder for " . scalar(@{$self->single_runnable->ncrna_clusters_with_existing_lincRNAs}).
+      " lincRNAs which cluster with existing lincRNAs...\n" ;
      $gb = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
             -query => $self->query,
             -analysis => $self->analysis,
-            -genes => $self->single_runnable->ncrna_clusters_with_existing_lincRNAs, # @clust_proctrans, 
+            -genes => $self->single_runnable->ncrna_clusters_with_existing_lincRNAs,
             -output_biotype => "lincRNA_clusters_with_existing_lincRNA",
-            -max_transcripts_per_cluster => 3,
+            -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER,
             -min_short_intron_len => 1,
             -max_short_intron_len => 15,
             -blessed_biotypes => {} ,
            );
      $gb->run();
-     print "GeneBuilder returned ". scalar( @{$gb->output()} ) . " lincRNA genes which overlapped with existing lincRNA genes.\n";
+     print "  GeneBuilder returned ". scalar( @{$gb->output()} ) . " lincRNA genes which overlapped with existing lincRNA genes.\n";
      push @output_clustered, @{$gb->output()} ;
    }
 
-   print "GeneBuilder returned " .@output_clustered . " lincRNA genes in total for writing. The types of lincRNA genes written depend on the lincRNAEvaulator config settings.\n" ;  
+   print "\nGENEBUILDER RETURNED " .@output_clustered . " lincRNA GENES FOR WRITING (THIS DOES NOT INCLUDE REJECTED lincRNAs). THE TYPES OF lincRNA GENES WRITTEN DEPEND ON THE lincRNAEvaluator CONFIG SETTINGS.\n" ;  
    $self->genes_to_write( \@output_clustered );  # The write_output method takes lincRNA genes from $self->genes_to_write
    $self->output( \@output_clustered );  #  This is just to store the lincRNA genes so test_RunnableDB script can find them.
 }
@@ -213,57 +167,60 @@ sub run {
 sub write_output{
   my ($self) = @_; 
 
+  print "\nWRITING RESULTS IN OUTPUT DB and/or VALIDATION DB...\n";
+
   # update genes in the source db which cluster with processed_transcripts or lincRNAs
   # (if requested in the config file)
 
-  if ( $self->PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB == 1  ) { 
+  if ( $self->MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB == 1  ) { 
 
     my @proc_tran_genes_to_update = @{ $self->single_runnable->proc_tran_genes_to_update} ;    
-    print " have " .scalar(@proc_tran_genes_to_update ) . " processed_transcript genes_to_update \n" ;  
+    print "  have " .scalar(@proc_tran_genes_to_update ) . " processed_transcript genes to update in VALIDATION DB\n" ;  
   
-    my $ga = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB)->get_GeneAdaptor();
-    my $db = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB);    
-    my $update_analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($self->ENSEMBL_HAVANA_LOGIC_NAME);     
+    my $ga = $self->get_dbadaptor($self->UPDATE_SOURCE_DB)->get_GeneAdaptor();
+    my $db = $self->get_dbadaptor($self->UPDATE_SOURCE_DB);    
+    my $update_analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($self->OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME);     
     unless ( defined $update_analysis && ref($update_analysis)=~m/Bio::EnsEMBL::Analysis/ ) {  
-      throw ( " Analysis with logic_name " . $self->ENSEMBL_HAVANA_LOGIC_NAME . " can't be found in " . $db->dbname . "\@".$db->host . "\n" );
+      throw ( " Analysis with logic_name " . $self->OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME . " can't be found in " . $db->dbname . "\@".$db->host . "\n" );
     }
 
     for my $ug ( @proc_tran_genes_to_update ) {      
 
       # before we update the analysis logic_name and gene biotype, we check if the analysis 
-      # of gene processed_transcript is 'havana' or 'ensembl_havana_gene'.  
-      # (We check 'ensembl_havana_gene' logic_name too because these genes originated from
-      # merge cases between coding Ens models and Hav processed_transcripts. The regex below
-      # is designed to match the string "havana" and doesn't require an exact string match.
+      # of gene processed_transcript is 'havana' or 'ensembl_havana_gene' to make sure no
+      # Ensembl-only proc_trans genes slipped through the net (there shouldn't be any in
+      # the first place!).
 
-      my $hav_logic_name_to_match = $self->HAVANA_LOGIC_NAME;
+      my $hav_logic_name_to_match = $self->PROC_TRANS_HAVANA_LOGIC_NAME_STRING;
       if ( $ug->analysis->logic_name =~m/$hav_logic_name_to_match/ ) {
           $ug->analysis($update_analysis);
           $ug->biotype('proc_trans_turned_lincRNA'); 
           $ga->update($ug);  
-          print "updated gene " . $ug->dbID . "\n";  
+          print "  updated gene " . $ug->dbID . "\n";  
       }else {  
         warning("not updating gene " . $ug->biotype . " with dbID " . $ug->dbID . " as it has the wrong analysis logic_name: " 
-        . $ug->analysis->logic_name . " ( to update, the logic_name should contain the string " . $self->HAVANA_LOGIC_NAME . ")"); 
+        . $ug->analysis->logic_name . " ( to update, the logic_name should contain the string " . $self->PROC_TRANS_HAVANA_LOGIC_NAME_STRING . ")"); 
       } 
     }
   }
 
 
-  if ( $self->MARK_EXISTING_LINCRNA_IN_VALIDATION == 1  ) {
+  if ( $self->MARK_EXISTING_LINCRNA_IN_VALIDATION_DB == 1  ) {
 
     my @existing_lincRNA_genes_to_update = @{ $self->single_runnable->old_lincRNA_genes_to_update } ;
-    print " have " .scalar(@existing_lincRNA_genes_to_update ) . " genes_to_update \n" ;
-    my $db = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB);
-    my $ga = $self->get_dbadaptor($self->UPDATE_SOURCE_PROTEIN_CODING_DB)->get_GeneAdaptor();
+    print "  have " .scalar(@existing_lincRNA_genes_to_update ) . " existing lincRNA genes to update in VALIDATION DB\n" ;
+    my $db = $self->get_dbadaptor($self->UPDATE_SOURCE_DB);
+    my $ga = $self->get_dbadaptor($self->UPDATE_SOURCE_DB)->get_GeneAdaptor();
+    my $update_analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($self->OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME);
 
     OLD_G: for my $old_g ( @existing_lincRNA_genes_to_update ) {
-      # All "old" lincRNA genes would have had logic_name "ensembl" or "ensembl_havana_merge". None of them should
-      # have logic_name "havana" because Havana does not annotate lincRNAs at the gene level (they only do it at
-      # the transcript level)
+      # No need to check sanity of analysis logic_name here because all "old" (existing) lincRNA genes would have
+      # had logic_name "ensembl" or "ensembl_havana_merge". None of them should have logic_name "havana" because 
+      # Havana does not annotate lincRNAs at the gene level (but only at the transcript level)
       $old_g->biotype('lincRNA_common');
+      $old_g->analysis($update_analysis);
       $ga->update($old_g);
-      print "updated gene " . $old_g->dbID . "\n";
+      print "  updated gene " . $old_g->dbID . "\n";
     }
   }
  
@@ -272,30 +229,23 @@ sub write_output{
   my @genes_to_write = @{$self->genes_to_write};
 
   if ( $self->WRITE_REJECTED_NCRNAS == 1 ) {   
-    logger_info("Writing rejected genes\n"); 
-    print "mutliple bt " . scalar(@{$self->single_runnable->ncrna_clusters_with_multiple_biotypes}) . " genes \n";
-    print "protein dom " . scalar(@{$self->single_runnable->ncrna_clusters_with_protein_domain}) . " genes \n";
-    my @tmp_genes =  @{$self->single_runnable->ncrna_clusters_with_multiple_biotypes};  
-    for (@tmp_genes ) {  
-      $_->biotype($_->biotype."_reject_mult"); 
-    } 
-    push @genes_to_write, @tmp_genes;  
-
-    @tmp_genes = @{$self->single_runnable->ncrna_clusters_with_protein_domain};
-    for (@tmp_genes ) {  
-      $_->biotype($_->biotype."_reject_single"); 
-    } 
-    push @genes_to_write, @tmp_genes;  
-
+    print "Writing rejected genes. They have not been collapsed by GeneBuilder so are still in one-gene-one-transcript format, as generated by lincRNAFinder.\n"; 
+    print "  mutliple-biotype rejects: " . scalar(@{$self->single_runnable->ncrna_clusters_with_multiple_ens_biotypes}) . " genes \n";
+    print "  protein-domain rejects: " . scalar(@{$self->single_runnable->ncrna_clusters_with_protein_domain}) . " genes \n";
+    print "  single-biotype rejects " . scalar(@{$self->single_runnable->ncrna_clusters_with_single_ens_biotype}) . " genes \n";
+   
+    push ( @genes_to_write, @{$self->single_runnable->ncrna_clusters_with_single_ens_biotype} );
+    push ( @genes_to_write, @{$self->single_runnable->ncrna_clusters_with_multiple_ens_biotypes} );
+    push ( @genes_to_write, @{$self->single_runnable->ncrna_clusters_with_protein_domain} );
   }  
 
-  logger_info("Have ".@genes_to_write." genes to write in total");  
+  print "***HAVE ". scalar(@genes_to_write) ." GENES TO WRITE IN TOTAL (INCLUDING VALID AND REJECTED lincRNAs).\n";  
 
   my $sucessful_count = 0 ; 
   foreach my $gene(@genes_to_write){  
-    for ( @{$gene->get_all_Transcripts} ) {  
-       print "$_ : ".$_->seq_region_start . " " . $_->biotype . "\n"; 
-    }
+    # for ( @{$gene->get_all_Transcripts} ) {  
+    #   print "$_ : ".$_->seq_region_start . " " . $_->biotype . "\n"; 
+    # }
     $gene->status(undef); 
     $gene->analysis($self->analysis);   
     eval{
@@ -305,11 +255,12 @@ sub write_output{
       warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
     }else{
       $sucessful_count++;
-      logger_info("STORED LINCRNA GENE ".$gene->dbID);
+      # print "STORED LINCRNA GENE ".$gene->dbID."\n";
     }
   } 
-     print $sucessful_count ." genes written to " . $self->output_db->dbname . " @ ".
-     $self->output_db->host . "\n"  ;   
+
+  print $sucessful_count ." genes written to " . $self->output_db->dbname . " @ ".
+  $self->output_db->host . "\n"  ;   
 
   if($sucessful_count != @genes_to_write ) { 
     throw("Failed to write some genes");
@@ -375,7 +326,7 @@ sub get_gene_sets {
 sub create_single_transcript_genes{
   my ($self, $genes) = @_; 
 
-  print "Creating single_transcript genes ....\n" ;
+  print "\nCreating single_transcript genes ....\n" ;
   my @single_transcript_genes; 
 
  GENE:foreach my $gene(@$genes){ 
@@ -400,10 +351,10 @@ sub create_single_transcript_genes{
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder
   Arg [2]   : hashref from config file
-  Function  : call the superclass method to set all the varibles and carry
+  Function  : call the superclass method to set all the variables and carry
   out some sanity checking
   Returntype: N/A
-  Exceptions: throws if certain variables arent set properlu
+  Exceptions: throws if certain variables arent set properly
   Example   : 
 
 =cut
@@ -415,7 +366,7 @@ sub read_and_check_config{
   #######
   #CHECKS
   ####### 
-  foreach my $var(qw(LINCRNA_DB FINAL_OUTPUT_DB FINAL_OUTPUT_BIOTYPE VALIDATION_DBS WRITE_REJECTED_NCRNAS MARK_EXISTING_LINCRNA_IN_VALIDATION)){ 
+  foreach my $var(qw(LINCRNA_DB FINAL_OUTPUT_DB FINAL_OUTPUT_BIOTYPE VALIDATION_DBS WRITE_REJECTED_NCRNAS MARK_EXISTING_LINCRNA_IN_VALIDATION_DB)){ 
     throw("RunnableDB::lincRNAEvaluator $var config variable is not defined") if (!defined $self->$var ) ; 
   }
 }
@@ -423,7 +374,7 @@ sub read_and_check_config{
 
 =head2 CONFIG_ACCESSOR_METHODS
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::lincRNAEvaluator
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
   Function  : Getter/Setter for config variables
   Returntype: again varies
@@ -433,7 +384,7 @@ sub read_and_check_config{
 =cut
 
 #Note the function of these variables is better described in the
-#config file itself Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder
+#config file itself Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAEvaluator
 
 sub FINAL_OUTPUT_DB{
   my ($self, $arg) = @_;
@@ -462,12 +413,46 @@ sub VALIDATION_DBS{
 } 
 
 
-sub MARK_EXISTING_LINCRNA_IN_VALIDATION{
+sub EXCLUDE_SINGLE_EXON_LINCRNAS {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'EXCLUDE_SINGLE_EXON_LINCRNAS'} = $arg;
+  }
+  return $self->{'EXCLUDE_SINGLE_EXON_LINCRNAS'};
+
+}
+
+sub MAX_FRAMESHIFT_INTRON_LEN {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'MAX_FRAMESHIFT_INTRON_LEN'} = $arg;
+  }
+  return $self->{'MAX_FRAMESHIFT_INTRON_LEN'};
+
+}
+
+sub EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS'} = $arg;
+  }
+  return $self->{'EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS'};
+}
+
+sub MAX_TRANSCRIPTS_PER_CLUSTER {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'MAX_TRANSCRIPTS_PER_CLUSTER'} = $arg;
+  }
+  return $self->{'MAX_TRANSCRIPTS_PER_CLUSTER'};
+}
+
+sub MARK_EXISTING_LINCRNA_IN_VALIDATION_DB{
   my ($self, $arg) = @_;
   if (defined $arg) {
-    $self->{'MARK_EXISTING_LINCRNA_IN_VALIDATION'} = $arg;
+    $self->{'MARK_EXISTING_LINCRNA_IN_VALIDATION_DB'} = $arg;
   }
-  return $self->{'MARK_EXISTING_LINCRNA_IN_VALIDATION'};
+  return $self->{'MARK_EXISTING_LINCRNA_IN_VALIDATION_DB'};
 }
 
 
@@ -480,37 +465,37 @@ sub WRITE_REJECTED_NCRNAS{
 }  
 
 
-sub UPDATE_SOURCE_PROTEIN_CODING_DB{
+sub UPDATE_SOURCE_DB{
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{'UPDATE_SOURCE_PROTEIN_CODING_DB'} = $arg;
+    $self->{'UPDATE_SOURCE_DB'} = $arg;
   }
-  return $self->{'UPDATE_SOURCE_PROTEIN_CODING_DB'};
+  return $self->{'UPDATE_SOURCE_DB'};
 } 
 
-sub WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS{
+sub WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS{
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{'WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS'} = $arg;
+    $self->{'WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS'} = $arg;
   }
-  return $self->{'WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS'};
+  return $self->{'WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS'};
 } 
 
-sub WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS {
+sub WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{'WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS'} = $arg;
+    $self->{'WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS'} = $arg;
   }
-  return $self->{'WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS'};
+  return $self->{'WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS'};
 }
 
 
-sub PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB{
+sub MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{'PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB'} = $arg;
+    $self->{'MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB'} = $arg;
   }
-  return $self->{'PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB'};
+  return $self->{'MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB'};
 } 
 
 
@@ -522,21 +507,21 @@ sub LINCRNA_DB{
   return $self->{'LINCRNA_DB'};
 }  
 
-sub ENSEMBL_HAVANA_LOGIC_NAME{
+sub OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME{
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{'ENSEMBL_HAVANA_LOGIC_NAME'} = $arg;
+    $self->{'OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME'} = $arg;
   }
-  return $self->{'ENSEMBL_HAVANA_LOGIC_NAME'};
+  return $self->{'OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME'};
 } 
 
 
-sub HAVANA_LOGIC_NAME{
+sub PROC_TRANS_HAVANA_LOGIC_NAME_STRING{
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{'HAVANA_LOGIC_NAME'} = $arg;
+    $self->{'PROC_TRANS_HAVANA_LOGIC_NAME_STRING'} = $arg;
   }
-  return $self->{'HAVANA_LOGIC_NAME'};
+  return $self->{'PROC_TRANS_HAVANA_LOGIC_NAME_STRING'};
 } 
 
 
