@@ -35,68 +35,157 @@ use vars qw( %Config );
 
            LINCRNA_EVAL_CONFIG_BY_LOGIC => 
            {
-              DEFAULT => { 
-                          LINCRNA_DB => { 
-                                           # specify gene-biotypes which you want to fetch out of the database where lincRNAFinder has written its output to.
-                                           # you have to fetch all lincRNA genes, i.e. you do not need to pre-filter the lincRNAFinder output to remove lincRNA candidates
-                                           # which contain protein features ( pfam / tigfam ), because the Evaluator code will do the filtering later.
-
-                                           LINCRNA_OUTPUT_DB => ['lincRNA_finder','prot_feat'],  
-                                        },
-
-                          VALIDATION_DBS => { 
-                                            # SOURCE_PROTEIN_CODING_DB is the database with the latest Ensembl core gene set.  Specify the biotype of core genes to be fetched here.
-                                            # In the 2nd clustering stage in the runnable, the fetched core genes will be clustered against lincRNA candidates which do not contain 
-                                            # protein domains. The aim is to identify lincRNA candidates which do not contain protein domains and do not overlap with existing core genes.
-
-                                              SOURCE_PROTEIN_CODING_DB => ['fetch_all_biotypes'] , # "fetch_all_biotypes" is an alias accepted by BaseGeneBuild RunnableDB.
-                                            },  
-
-
-                          FINAL_OUTPUT_BIOTYPE => "lincRNA", 
-                          FINAL_OUTPUT_DB      => 'LINCRNA_FINAL',   
-
-                          # The next four hash keys allow you to configure if you want to update the *gene* analysis AND biotype 
-                          # of all processed_transcripts which cluster with identified lincRNAs. In theory, all processed_transcripts
-                          # will be of "havana" or "ensembl_havana_gene" logic_name (i.e. none of the proc_trans genes should be "ensembl"
-                          # as analysis logic_name), therefore the lincRNAEvaluator RunnableDB code will look for the string "havana" 
-                          # to confirm the sanity of processed_transcript genes before we modify them.
-
-                          # The analysis logic_name will be updated to what's defined in 'ENSEMBL_HAVANA_LOGIC_NAME' and the
-                          # biotype is hard-coded to be 'proc_trans_turned_lincRNA'.
-
-                          # This is useful if you want to copy your lincRNAs into an already 'ready-to-go' core on ens-staging.
-                          # If you've turned on 'PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB', make sure the logic_name specified in
-                          # 'ENSEMBL_HAVANA_LOGIC_NAME' exist in the 'UPDATE_SOURCE_PROTEIN_CODING_DB'.
-
-                          PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB => 1,  
-                          UPDATE_SOURCE_PROTEIN_CODING_DB => 'SOURCE_PROTEIN_CODING_DB',    # the DB where the analysis and biotype update is performed.
-                          ENSEMBL_HAVANA_LOGIC_NAME => 'ensembl_havana_gene',               # the analysis logic_name you will assign to the proc_trans *genes* which overlap with identified lincRNAs
-                          HAVANA_LOGIC_NAME => 'havana',                                    # a string to match for the logic_name of the processed_transcripts 
-
-                          # Sometimes the SOURCE_PROTEIN_CODING_DB contains lincRNAs already from previous work.
-                          # The lincRNAs identified in this analysis may overlap with existing lincRNAs.
-                          
-                          # Turn on the MARK_EXISTING_LINCRNA_IN_VALIDATION flag if you want to change the biotype of
-                          # existing lincRNAs which overlap with the new ones to "lincRNA_common". Analysis logic_name
-                          # of existing lincRNAs will not be changed.
-
-                          # Turn on 'WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS' if you want to write the
-                          # "common" lincRNAs identified in your run into the output DB although they already exist.
-                          # The lincRNAs written will have biotype "ncRNA_clusters_with_existing_lincRNA" and analysis 
-                          # logic_name taken from 'ENSEMBL_HAVANA_LOGIC_NAME' above.
-
-                          MARK_EXISTING_LINCRNA_IN_VALIDATION => 1,
-                          WRITE_NCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS => 1,
+              DEFAULT => {
  
-                          # configure if you want to write additional gene models which did NOT pass the evaluation step
-                          WRITE_REJECTED_NCRNAS => 0,  
-                          WRITE_NCRNAS_WHICH_CLUSTER_WITH_PROCESSED_TRANSCRIPTS => 0,
+                  # WHERE AND WHAT TO FETCH FOR lincRNA CANDIDATES AND VALIDATION GENES
+                  #----------------------------------------------------------------------
+ 
+                  LINCRNA_DB => { 
+                                   # Format: database_alias => ['biotype_1', 'biotype_2']
 
-                        },  
-                        
-                        lincrna_eval => {} ,
-                        lincrna  => {} ,
+                                   # Specify biotypes of genes to be fetched out of the lincRNAFinder output database.
+                                   # You have to fetch *all* lincRNA genes, i.e. there is no need to pre-filter the lincRNAFinder output
+                                   # to remove lincRNA candidates which contain protein features (pfam/tigfam), because the Evaluator code
+                                   # will do the filtering.
+
+                                   LINCRNA_OUTPUT_DB => ['lincRNA_finder','prot_feat'],  
+                                },
+
+                  VALIDATION_DBS => { 
+
+                                   # Format: database_alias_1 => ['biotype_1', 'biotype_2'],
+                                   #         databass_alias_2 => ['biotype_3', 'biotype_4'],
+
+                                   # lincRNAs are "validated" if they do not overlap with Ensembl genes.
+
+                                   # There is usually just one validation DB, and it will be the one with alias "SOURCE_PROTEIN_CODING_DB" 
+                                   # (containing Ensembl core genes), which was also used in the lincRNAFinder stage.
+                                   # Specify the biotype of Ensembl genes to be fetched here.  If all genes are to be fetched from the
+                                   # validation DB, put down "fetch_all_biotypes" as the biotype, for it is an alias accepted by BaseGeneBuild
+                                   # RunnableDB.
+
+                                   SOURCE_PROTEIN_CODING_DB => ['fetch_all_biotypes'] ,
+                                 },  
+
+
+                  # OPTIONAL EVALUATION CRITERIA 
+                  #------------------------------
+
+                  # If your lincRNAFinder output contains single-exon lincRNA candidates and you want to remove
+                  # them from analysis after all, turn on 'EXCLUDE_SINGLE_EXON_LINCRNAS'
+
+                  EXCLUDE_SINGLE_EXON_LINCRNAS => 1,
+
+                  # Some single-exon lincRNA candidates are disguised as two-exon ones containing short frameshift
+                  # introns.  You can remove these candidates by turning on 'EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS'.
+                  # Any introns of length longer than 'MAX_FRAMESHIFT_INTRON_LEN' will be regarded as non-frameshift/sane.
+                
+                  MAX_FRAMESHIFT_INTRON_LEN => 9,
+                  EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS => 1,
+
+
+                  # OUTPUT SETTINGS
+                  #-----------------
+ 
+                  # At the end of the lincRNA pipeline, there is a GeneBuilder step where all lincRNA "genes" (one-gene-
+                  # one-transcript) are collapsed into proper Ensembl genes. You can control how many alternative
+                  # spliceforms are allowed by changing "MAX_TRANSCRIPTS_PER_CLUSTER". The default value is 3, which is
+                  # considerably lower than what's used for a conventional genebuild (set at 15).
+
+                  MAX_TRANSCRIPTS_PER_CLUSTER => 3,
+
+                  FINAL_OUTPUT_BIOTYPE => "lincRNA", 
+                  FINAL_OUTPUT_DB      => 'LINCRNA_FINAL',   
+
+
+                  # DEALING WITH lincRNAs WHICH OVERLAP WITH EXISTING PROCESSED_TRANSCRIPT GENES
+                  # ------------------------------------------------------------------------------
+
+                  # Possible actions are:
+                  # (1) update the *gene* analysis AND biotype of all processed_transcripts which cluster with newly-identified lincRNAs.
+                  #     This is useful if you want to copy your lincRNAs into a 'ready-to-go' core DB where all other types of genes
+                  #     are properly annotated (i.e. gene and transcript biotypes and anlaysis logic_names standardised for public release).
+                  # AND/OR
+                  # (2) write the newly-identified lincRNAs into FINAL_OUTPUT_DB even when they overlap with processed_transcripts
+                  #     This is useful for debugging purposes.
+                  #                  
+                  # For (1):
+                  #
+                  # Turn on 'MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB'.  The overlapped proc_trans genes are expected to be in
+                  # what's defined by 'UPDATE_SOURCE_DB'.
+                  #
+                  # Before the update is performed, the code checks that the sanity of processed_transcript genes and requires they 
+                  # have analysis logic_names containing the string specified in 'PROC_TRANS_HAVANA_LOGIC_NAME_STRING' (usually "havana")
+                  # because processed_transcript genes should only be from "havana" or "ensembl_havana_gene" analyses. 
+
+                  # The analysis logic_name will be updated to what's defined in 'OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME'. 
+                  # Make sure this analysis already exists in the DB defined by UPDATE_SOURCE_DB.
+                  # The biotype will be updated to 'proc_trans_turned_lincRNA (hard-coded)'.
+                
+                  MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB => 1,
+
+                  PROC_TRANS_HAVANA_LOGIC_NAME_STRING => 'havana',
+
+                  OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME => 'ensembl_havana_gene',
+                
+                  UPDATE_SOURCE_DB => 'SOURCE_PROTEIN_CODING_DB',
+
+                  # For (2):
+                  #
+                  # Turn on 'WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS'.
+                  #
+                  # The lincRNAs written will have analysis logic_name just like any other lincRNAs generated by lincRNAEvaluator.
+                  # The biotype will be hard-coded as 'lincRNA_clusters_with_proc_trans'.
+
+                  WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS => 0,
+
+
+                  # DEALING WITH lincRNAs WHICH OVERLAP WITH EXISTING lincRNA GENES
+                  # ----------------------------------------------------------------
+
+                  # Sometimes the VALIDATION DB contains existing lincRNAs from previous work.
+                  # The lincRNAs identified in this analysis may overlap with existing lincRNAs. (They do not have to be
+                  # identical.)
+                  
+                  # Possible actions are:
+                  # (1) update the *gene* analysis AND biotype of all existing lincRNA genes which cluster with newly-identified lincRNAs;
+                  # AND/OR
+                  # (2) write the newly-identified lincRNAs into FINAL_OUTPUT_DB even when they overlap with existing lincRNAs
+
+                  # For (1):
+                  #
+                  # Turn on 'MARK_EXISTING_LINCRNA_IN_VALIDATION_DB'. The overlapped existing lincRNA genes are expected to be in
+                  # 'UPDATE_SOURCE_DB' (shared with proc_tran settings).
+                  # The analysis logic_name will be updated to what's defined in "OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME" above.
+                  # (Make sure this analysis already exists in the DB defined by "UPDATE_SOURCE_DB".)
+                  # The biotype will be changed to "lincRNA_common" (hard-coded).
+
+                  MARK_EXISTING_LINCRNA_IN_VALIDATION_DB => 1,
+
+                  # For (2):
+                  #
+                  # Turn on 'WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS'
+                  # The lincRNAs written will have analysis logic_name just like any other lincRNAs generated by lincRNAEvaluator.
+                  # The biotype will be hard-coded as "ncRNA_clusters_with_existing_lincRNA".
+
+                  WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS => 1,
+
+   
+                  # DEBUG OUTPUT WITH REJECTED lincRNAS
+                  # ------------------------------------
+                  # Turning on this option will write three categories of rejected lincRNAs into the FINAL_OUTPUT_DB:
+                  #
+                  #   (i) lincRNA candidates which are somehow assoicated with protein domains. They will be given biotype suffix "_reject_prot_dom";
+                  #  (ii) lincRNAs which don't associate with protein domains but overlap with Ensembl gene of single biotype. They will be
+                  #       given biotype suffix "_reject_single";
+                  # (iii) lincRNAs which don't associate with protein domains but overlap with Ensembl genes of multiple biotypes. They will
+                  #       be given biotype suffix "_reject_mult".
+                
+                  WRITE_REJECTED_NCRNAS => 0,  
+
+                },  
+                
+                lincrna_evaluator => {} ,
             },  
          );
 
