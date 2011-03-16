@@ -38,6 +38,265 @@ sub new{
 } 
 
 
+
+sub run{
+  my ($self) = @_; 
+
+  # NOTES ON cluster_Genes method:
+ 
+  # cluster_Genes returns 2 types of clusters / 4 types of data :
+  # 
+  #  1) a genonmic region with more than one gene [ a set ] which can contain : 
+  #  - both sets of genes [ set1 + set 2 ] , a 'twoway-cluster' 
+  #  - only one set of genes [ set1 ] OR set2, a 'oneway-cluster'  
+  # 
+  #  2) unclustered genes : a cluster with only one gene, which does not cluster with anything - 
+  #     not even with other genes of its own type. Each unclustered 'cluster' only contains ONE gene,
+  #     which can be a set1 gene or a set2 gene.   
+ 
+
+
+  # STAGE 1: Sort lincRNA candidate genes into two groups: those with protein domains and those without.
+  #          The candidate genes have already been broken down into single-transcript genes
+  #          when fetched by the RunnableDB. 
+  #          Next, cluster genes in the two groups against each other.  
+  #          The idea is to pick lincRNA candidates which (i) do not contain protein features
+  #          themselves, and (ii) do not overlap with other candidates which do contain
+  #          protein features.
+
+  print "\n";
+  print "Stage 1) Sort lincRNA candidate genes into two groups: those with protein domains and those without,";
+  print " then cluster the groups against each other.\n";
+
+  my ( $prot_feat_genes, $other ) = $self->sort_linc_rna_genes;  
+
+  print "  Found " . scalar(@$other) . " lincRNA candidate genes without protein domains\n" ;    
+  print "  Found " . scalar(@$prot_feat_genes) . " lincRNA candidate genes with protein domains\n\n" ;     
+
+  print "  Stage1_set1_input: ". scalar(@$prot_feat_genes) . " genes with domains.\n";
+  print "  Stage1_set2_input: ". scalar(@$other) . " genes without domains.\n\n";
+
+  my %types_hash = %{ make_types_hash($prot_feat_genes, $other ,  'GENES_W_PROT_DOM','NO_PROT_DOM')} ; 
+  my ($step1_clusters, $step1_unclustered) = cluster_Genes( [@$prot_feat_genes, @$other] , \%types_hash ) ;  
+
+  my @no_prot_domain_genes = (  # lincRNA candidate genes which DO NOT cluster with any genes with a protein domain 
+                                @{get_oneway_clustering_genes_of_set($step1_clusters,"NO_PROT_DOM")},  
+                                @{get_oneway_clustering_genes_of_set($step1_unclustered,"NO_PROT_DOM")}
+                               );  
+
+  print "  Found ". scalar(@no_prot_domain_genes ) . " lincRNA candidate genes which do not contain protein domains ".
+        " and do not cluster with any candidates which have protein domains.\n" ;    
+
+  
+  my @genes_with_prot_domain = ( # rejected lincRNA candidate genes which contain protein domains, or cluster with
+                                 # protein-domain containing candidates 
+                                  @{get_oneway_clustering_genes_of_set($step1_clusters,"GENES_W_PROT_DOM")},
+                                  @{get_oneway_clustering_genes_of_set($step1_unclustered,"GENES_W_PROT_DOM")},
+                                  @{get_twoway_clustering_genes_of_set($step1_clusters,"GENES_W_PROT_DOM")},
+                                  @{get_twoway_clustering_genes_of_set($step1_clusters,'NO_PROT_DOM')},        
+                               );
+
+  print "  Found ". scalar(@genes_with_prot_domain) . " rejected lincRNA candidate genes which are somehow associated with protein domains.\n"; ##  cDNA DEBUG
+
+
+  # STAGE 2: Cluster no-protein-domain lincRNA candidates from stage 1 vs Ensembl genes (the validation set).
+  #          The idea is to find candidates which do not overlap with Ensembl genes
+  #          (except for those with special gene biotypes, see stage 3) 
+  #  
+  #          Filtering of single-exon lincRNAs and artefactual two-exon lincRNAs (containing frameshift introns)
+  #          happens at this stage if required.
+  
+  
+  my $multi_exon_genes  = get_multi_Exon_Genes(\@no_prot_domain_genes) ;     
+  my $single_exon_genes  = get_single_Exon_Genes(\@no_prot_domain_genes) ;     
+
+  print "  Up to this stage, out of all lincRNA candidates, " . scalar(@$multi_exon_genes) . " is multi-exon and " . scalar(@$single_exon_genes) . " is single-exon.\n";
+  
+  my $artefactual_2ex_gene_cnt = 0;
+  my @multi_exon_genes_passed;
+
+  # Each of the multi_exon_genes below is a single-transcript gene
+
+  MULTI_EX_GENE: foreach my $gene(@$multi_exon_genes) {
+    my $transcript = ${$gene->get_all_Transcripts()}[0];
+    my $exon_cnt = scalar(@{$transcript->get_all_Exons}); 
+    if ($exon_cnt == 2) {
+      my $intron = ${$transcript->get_all_Introns()}[0];
+      if ($intron->length < ($self->max_frameshift_intron_len) ) {
+        $artefactual_2ex_gene_cnt ++;
+        next MULTI_EX_GENE;
+      } else {
+        push (@multi_exon_genes_passed, $gene);
+        next MULTI_EX_GENE;
+      }
+    } else {  # more than 2 exons, automatic pass
+      push (@multi_exon_genes_passed, $gene);
+    }
+  }
+
+  my @filtered_no_prot_domain_genes;
+
+  if ($self->exclude_single_exon_lincRNAs && $self->exclude_artefact_two_exon_lincRNAs) {
+    print "  *** Excluding all single-exon and artefactual two-exon lincRNA candidates (contain frameshift introns)...\n"; 
+    print "     " . scalar(@$single_exon_genes) . " single-exon lincRNA candidates discarded.\n" ;  
+    print "     $artefactual_2ex_gene_cnt two-exon lincRNA candidates discarded.\n";
+    print "     Only " . scalar(@multi_exon_genes_passed) . " multi-exon lincRNA candidates will proceed to stage 2 clustering.\n" ;  
+    @filtered_no_prot_domain_genes = @multi_exon_genes_passed;  
+  } elsif ($self->exclude_single_exon_lincRNAs && !$self->exclude_artefact_two_exon_lincRNAs) {
+    print "  *** Excluding all single-exon lincRNA candidates...\n";
+    print "     " . scalar(@$single_exon_genes) . " single-exon lincRNA candidates discarded.\n" ;
+    print "     " . scalar(@$multi_exon_genes) . " multi-exon lincRNA candidates will proceed to stage 2 clustering.\n";
+    @filtered_no_prot_domain_genes = @$multi_exon_genes;
+  } elsif (!$self->exclude_single_exon_lincRNAs && $self->exclude_artefact_two_exon_lincRNAs) {
+    print "  *** Excluding artefactual two-exon lincRNA candidates (contain frameshift introns)...\n";
+    print "     $artefactual_2ex_gene_cnt two-exon lincRNA candidates discarded.\n";
+    print "     " . scalar(@{$single_exon_genes}) . " single-exon and ". scalar(@multi_exon_genes_passed) . " multi-exon lincRNA candidates will proceed to stage 2 clustering.\n";
+    @filtered_no_prot_domain_genes = (@{$single_exon_genes}, @multi_exon_genes_passed);
+  } elsif (!$self->exclude_single_exon_lincRNAs && !$self->exclude_artefact_two_exon_lincRNAs) {
+    print "     " . scalar(@{$single_exon_genes}) . " single-exon and ". scalar(@{$multi_exon_genes}) . " multi-exon lincRNA candidates will proceed to stage 2 clustering.\n";
+    @filtered_no_prot_domain_genes = @no_prot_domain_genes;  # no modifications
+  }
+   
+  print "\n"; 
+  print "\nStage 2) Cluster lincRNA candidates (not associated with protein domains) vs Ensembl core genes...\n";
+  print "  Stage2_set1_input: " . scalar(@{$self->ensembl_genes}) . " Ensembl core 'validation' genes.\n" ;    
+  print "  Stage2_set2_input: " . scalar(@filtered_no_prot_domain_genes). " genes with NO protein_domain.\n" ;      
+
+  my %types_hash2 = %{ make_types_hash($self->ensembl_genes, \@filtered_no_prot_domain_genes, 'ENSEMBL_SET', 'NO_PROT_DOM')} ;   
+
+  my ($step2_clusters, $step2_unclustered) = cluster_Genes( [@{$self->ensembl_genes}, @filtered_no_prot_domain_genes] , \%types_hash2 ) ;  
+
+  my @lincrna_unclustered = ( 
+                                @{get_oneway_clustering_genes_of_set($step2_clusters,"NO_PROT_DOM")},  
+                                @{get_oneway_clustering_genes_of_set($step2_unclustered,"NO_PROT_DOM")}
+                            ); 
+  print "\n";
+
+  print "  Found " . scalar(@lincrna_unclustered). " lincRNAs which don't contain protein domains AND don't cluster with any Ensembl genes.\n" ;    
+                                    
+  my @clustered_lincrna  =  @{ get_twoway_clustering_genes_of_set($step2_clusters,'NO_PROT_DOM')};
+  my @ensembl  =  @{ get_twoway_clustering_genes_of_set($step2_clusters,'ENSEMBL_SET')};
+
+  print "  Found " . scalar(@clustered_lincrna). " lincRNAs which don't contain protein domains but cluster with Ensembl genes.\n" ;    
+  print "  Found " . scalar(@ensembl). " Ensembl genes which cluster with lincRNA genes.\n" ;    
+
+
+  # STAGE 3: For no-protein-domain lincRNA candidates which cluster with Ensembl genes in stage 2,
+  #          look for special cases where the Ensembl genes involved are of "processed_transcript" or 
+  #          "lincRNA" biotypes (the latter are existing lincRNAs already in the Ensembl DB).
+  #
+  #          lincRNA candidates which overlap with anything other than "processed_transcript" genes
+  #          or existing "lincRNA" genes will be rejected.
+
+  print "\nStage 3) Check stage 2 two-way clusters for cases where no-protein-domain lincRNAs overlap with Ensembl processed_transcript or existing lincRNA genes...\n";
+
+  my @ncrna_clusters_with_processed_transcript;
+  my @ncrna_clusters_with_existing_lincRNAs;
+  my @ncrna_clusters_with_single_biotype;
+  my @ncrna_clusters_with_multiple_biotypes; 
+
+  # the tmp hashes help to keep track of proc_tran or lincRNA Ens genes which have already been matched
+  # because one Ens gene can overlap with multiple single-transcript lincRNA "genes" in a given cluster.
+
+  my %tmp_proc_trans_hash;
+  my @proc_tran_genes_to_update; 
+  my %tmp_old_lincRNA_hash;
+  my @old_lincRNA_genes_to_update;
+
+  CLUSTER: for my $cl ( @{ get_twoway_clusters($step2_clusters)} ) {  
+    my @ens_genes = @{ $cl->get_Genes_by_Set('ENSEMBL_SET' )};    
+    my @ncrnas_in_cluster = @{ $cl->get_Genes_by_Set('NO_PROT_DOM')};
+      print "  Looking at a two_way cluster which contains " .scalar(@ens_genes)  . " Ensembl genes and " .
+             scalar(@ncrnas_in_cluster)  . " lincRNA candidates without any protein domain \n" ; 
+
+    my @ens_biotypes = @{ get_biotypes_of_ensembl_genes(\@ens_genes) }; 
+
+    if ( scalar(@ens_biotypes) == 1 ) {
+      if ( $ens_biotypes[0]=~m/^processed_transcript$/ ) {
+        for my $ncrna_gene ( @ncrnas_in_cluster ) {  
+          E_GENE: for my $ens ( @ens_genes ) {
+            if ($tmp_proc_trans_hash{$ens}) {
+              next E_GENE;
+            } else {
+              push (@proc_tran_genes_to_update, $ens); 
+              $tmp_proc_trans_hash{$ens} = 1;
+            }
+          }
+          push @ncrna_clusters_with_processed_transcript, $ncrna_gene; 
+        }  
+      } elsif ( $ens_biotypes[0]=~m/^lincRNA$/i) {
+        for my $ncrna_gene ( @ncrnas_in_cluster ) {  
+          L_GENE: for my $ens ( @ens_genes ) {  
+            if ($tmp_old_lincRNA_hash{$ens}) {
+              next L_GENE;
+            } else {
+              push (@old_lincRNA_genes_to_update, $ens);
+              $tmp_old_lincRNA_hash{$ens} = 1;
+            }
+          }
+          push (@ncrna_clusters_with_existing_lincRNAs, $ncrna_gene);  
+        }
+      } else {
+        push (@ncrna_clusters_with_single_biotype, @ncrnas_in_cluster);
+      }
+    } elsif ( scalar(@ens_biotypes) > 1 ) {
+      push (@ncrna_clusters_with_multiple_biotypes, @ncrnas_in_cluster) ; 
+    } else {    
+      throw("Gene clusters with Ensembl gene of NO biotype? This should not happen."); 
+    }  
+  }  # End foreach $cl
+
+  foreach my $pt_gene(@proc_tran_genes_to_update) {
+    print "    INFO : This processed_transcript gene clusters with lincRNA: ".  $pt_gene->dbID . "\t" . $pt_gene->analysis->logic_name . " " . 
+          $pt_gene->seq_region_start . "\t" . $pt_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
+  }
+  
+  foreach my $ol_gene(@old_lincRNA_genes_to_update) {
+   print "    INFO : This existing lincRNA gene clusters with newly-identified lincRNA: ".  $ol_gene->dbID . "\t" . $ol_gene->analysis->logic_name . " " .
+          $ol_gene->seq_region_start . "\t" . $ol_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
+  }
+
+  print "\n";
+
+  # Rejected data
+  
+  $self->ncrna_clusters_with_protein_domain(\@genes_with_prot_domain);  # rejected at stage 1 
+  $self->ncrna_clusters_with_single_ens_biotype(\@ncrna_clusters_with_single_biotype);  # rejected at stage 3
+  $self->ncrna_clusters_with_multiple_ens_biotypes(\@ncrna_clusters_with_multiple_biotypes);  # rejected at stage 3
+
+  print "FINAL TALLY OF REJECTED lincNRAs:\n";
+  print "  " . scalar(@{$self->ncrna_clusters_with_protein_domain}) . " rejected as they cluster with genes with protein domains\n" ;     
+  print "  " . scalar(@{$self->ncrna_clusters_with_single_ens_biotype}). " rejected as they cluster with Ensembl gene of single biotype (other than proc_trans and lincRNA).\n";
+  print "  " . scalar(@{$self->ncrna_clusters_with_multiple_ens_biotypes}). " rejected as they cluster with Ensembl genes of multiple biotypes (other than proc_trans and lincRNA).\n" ;     
+
+
+  # data which will be used for output 
+ 
+  $self->unclustered_ncrnas(\@lincrna_unclustered); 
+  $self->ncrna_clusters_with_processed_transcript(\@ncrna_clusters_with_processed_transcript);   
+  $self->ncrna_clusters_with_existing_lincRNAs(\@ncrna_clusters_with_existing_lincRNAs);   
+  $self->proc_tran_genes_to_update(\@proc_tran_genes_to_update); 
+  $self->old_lincRNA_genes_to_update(\@old_lincRNA_genes_to_update);
+
+
+  
+  # I know want to identify the ensembl gene which clusters with this gene.  
+  # genes which have the same exons as ensembl will get biotype 'same as ensembl' 
+  #@use= @{ compare_lincrna_vs_ensembl(\@ncrna_clusters_with_processed_transcript, \@ensembl) } ; 
+  #
+
+  #for ( @lincrna_unclustered ) {  
+  #  $_->biotype("UN_clustered");  # DONT CHANGE BIOTYPE - used in RunnableDB  
+  #} 
+
+  #for ( @genes_with_prot_domain ) { 
+  #  $_->biotype("clusters_with_prot_dom") ;  # DONT CHANGE BIOTYPE - used in RunnableDB  
+  #} 
+  #$self->output([@use ,@lincrna_unclustered,@genes_with_prot_domain,@not_use]);
+}    
+
+
+
 #  
 # this routine sorts the potential lincrna genes into 2 subsets : 
 # - genes which have a translation and a protein_domain annotation
@@ -50,7 +309,7 @@ sub sort_linc_rna_genes {
   my ($self) = @_;  
 
   my @genes_to_sort = @{$self->linc_rna_genes } ;  
-  print "sorting " . @genes_to_sort . " genes by protein domains\n";  
+  print "  Sorting " . @genes_to_sort . " genes by protein domains\n";  
    my ( @genes_w_pf, @no_pf ) ;  
 
    for my $g ( @genes_to_sort ) {   
@@ -72,190 +331,6 @@ sub sort_linc_rna_genes {
   }
   return ( \@genes_w_pf, \@no_pf ) ; 
 } 
-
-sub run{
-  my ($self) = @_; 
-
-  # sorting genes into genes with protein_feature and w/o protein_feature 
-  
-  my ( $prot_feat_genes, $other ) = $self->sort_linc_rna_genes;  
-
-  my %types_hash = %{ make_types_hash($prot_feat_genes, $other ,  'GENES_W_PROT_DOM','NO_PROT_DOM')} ; 
-
-  # cluster_Genes returns 2 types of clusters / 4 types of data :
-  # 
-  #  1) a genonmic region with more than one gene [ a set ] which can contain : 
-  #  - both sets of genes [ set1 + set 2 ] , a 'twoway-cluster' 
-  #  - only one set of genes [ set1 ] OR set2, a 'oneway-cluster'  
-  # 
-  #  2) unclustered genes : a cluster with only one gene, which does not clustere with anything - not even with other genees of it's own type. 
-  #     unclustered 'clusters' only contain ONE gene.   
-  
-  print "1st clustering... genes with protein_domain vs genes wo protein-domain \n";  
-  print "INPUT : " . scalar(@$other) . " genes without protein-domain found\n" ;    
-  print "INPUT : " . scalar(@$prot_feat_genes) . " genes WITH protein_domain found\n" ;     
-
-  my ($step1_clusters, $step1_unclustered) = cluster_Genes( [@$prot_feat_genes, @$other] , \%types_hash ) ;  
-
-
-  # I am looking for genes which DO NOT cluster with any genes with a protein domain  
-
-  my @no_prot_domain_genes = ( 
-                                @{get_oneway_clustering_genes_of_set($step1_clusters,"NO_PROT_DOM")},  
-                                @{get_oneway_clustering_genes_of_set($step1_unclustered,"NO_PROT_DOM")}
-                               );  
-  print scalar(@no_prot_domain_genes ) . " genes found which do not cluster with any genes which have a protein domain \n" ;    
-
-  # genes which cluster with a gene with protein domain, even if they don't have any protein domain.  
-  
-  my @genes_with_prot_domain = ( 
-                                  @{get_oneway_clustering_genes_of_set($step1_clusters,"GENES_W_PROT_DOM")},   # clusters with set-genes of 1 type only (prot) 
-                                  @{get_oneway_clustering_genes_of_set($step1_unclustered,"GENES_W_PROT_DOM")},# clusters with one-gene of type 1 only  (prot) 
-                                  @{get_twoway_clustering_genes_of_set($step1_clusters,'NO_PROT_DOM')},        # twoway-cluster type NO_PROT_DOM 
-                               );
-  print scalar(@genes_with_prot_domain) . " genes found which cluster somehow with protein domain \n" ;     
-
-  #
-  # 2nd clustering - cluster ncRNAs without protein_domain with with human gene set  
-  # 
-  
-  print "2nd clustering... ensembl-genes vs my ncrna's which don't have prot_domains\n";
-  print "INPUT : " . scalar(@{$self->ensembl_genes}) . " ENSEMBL genes\n" ;    
-  print "INPUT : " . scalar(@no_prot_domain_genes). " genes with NO protein_domain\n" ;      
-
-  # 
-  # filter out all single-exon genes ...
-  #   
-  print "Ignoring all all single-exon gene ...\n"; 
-  my $multi_exon_genes  = get_multi_Exon_Genes(\@no_prot_domain_genes) ;     
-  my $single_exon_genes  = get_single_Exon_Genes(\@no_prot_domain_genes) ;     
-  print scalar(@$multi_exon_genes ) . " multi-exon genes found ! \n" ;  
-  print scalar(@$single_exon_genes ) . " single-exon genes ignored ... \n" ;   
-
-  @no_prot_domain_genes = @$multi_exon_genes ;  
-
-  my %sec_types_hash = %{ make_types_hash($self->ensembl_genes, \@no_prot_domain_genes, 'ENSEMBL_SET', 'NO_PROT_DOM')} ;   
-
-  my ($step2_clusters, $step2_unclustered) = cluster_Genes( [@{$self->ensembl_genes}, @no_prot_domain_genes] , \%sec_types_hash ) ;  
-
-  # these genes are my new ones which do not cluster with ensembl genes  (... and they have no prot_feat )   
-  my @lincrna_unclustered = ( 
-                                @{get_oneway_clustering_genes_of_set($step2_clusters,"NO_PROT_DOM")},  
-                                @{get_oneway_clustering_genes_of_set($step2_unclustered,"NO_PROT_DOM")}
-                            ); 
-  print "RESULT : " . scalar(@lincrna_unclustered). " unclustered lincRNAs (don't cluster with ENSEMBL genes)\n" ;    
-                                    
-  # these genes cluster with an ensembl gene : 
-  # lincRNA genes which :  
-  #                       -  do not cluster with a lincRNA with a protein domain, 
-  #                       -  but which cluster twoway with ensembl genes  
-  my @clustered_lincrna  =  @{ get_twoway_clustering_genes_of_set($step2_clusters,'NO_PROT_DOM')};
-  print "RESULT : " . scalar(@clustered_lincrna). " lincRNA genes found which cluster with ENSEMBL genes\n" ;    
-
-  # ensembl genes which cluster twoway with my lincRNAs (the lincrnas  which don't have a prot_dom and dont cluster with prot_dom ) 
-  my @ensembl  =  @{ get_twoway_clustering_genes_of_set($step2_clusters,'ENSEMBL_SET')};
-  print "RESULT : " . scalar(@ensembl). " ENSEMBL genes found which cluster with lincRNA genes\n" ;    
-  print "\n*** Going to look at each two-way cluster from the 2nd round clustering now. Each cluster contains lincRNA candidates w/o protein domain and Ensembl core genes....\n\n";
-
-  # filter out lincRNA which cluster with different biotypes than processed_transcript and existing lincRNAs 
-  # process genes cluster-by-cluster  
-
-  # my (@use, @not_use) ;    # only used in some hashed-out code later
-  my @ncrna_clusters_with_processed_transcript;
-  my @ncrna_clusters_with_existing_lincRNAs;
-  my @ncrna_clusters_with_multiple_biotypes; 
-
-  my %tmp_proc_trans_hash;
-  my @proc_tran_genes_to_update; 
-  my %tmp_old_lincRNA_hash;
-  my @old_lincRNA_genes_to_update;
-
-  CLUSTER: for my $cl ( @{ get_twoway_clusters($step2_clusters)} ) {  
-    my @e_genes = @{ $cl->get_Genes_by_Set('ENSEMBL_SET' )};    
-    my @ncrnas_in_cluster = @{ $cl->get_Genes_by_Set('NO_PROT_DOM')};
-      print "Looking at a two_way cluster from the 2nd clustering which contains " .scalar(@e_genes)  . " ensembl genes and " .
-             scalar(@ncrnas_in_cluster)  . " lincRNA candidates without any protein domain \n" ; 
-
-    my @e_biotypes = @{ get_biotypes_of_ensembl_genes(\@e_genes) }; 
-
-
-    if ( scalar(@e_biotypes) == 1 ) {                       # gene clusters only with one ensembl biotype 
-      if ( $e_biotypes[0]=~m/^processed_transcript$/ ) {     # lincRNA clustes only with ensembl gene of biotype 'processed_transcript'
-        for my $ncrna_gene ( @ncrnas_in_cluster ) {  
-          E_GENE: for my $e ( @e_genes ) {
-            if ($tmp_proc_trans_hash{$e}) {
-              next E_GENE;
-            } else {
-              push (@proc_tran_genes_to_update, $e); 
-              $tmp_proc_trans_hash{$e} = 1;
-            }
-          }
-          push @ncrna_clusters_with_processed_transcript, $ncrna_gene; 
-        }  
-      } elsif ( $e_biotypes[0]=~m/^lincRNA$/i) {
-        for my $ncrna_gene ( @ncrnas_in_cluster ) {  
-          L_GENE: for my $e ( @e_genes ) {  
-            if ($tmp_old_lincRNA_hash{$e}) {
-              next L_GENE;
-            } else {
-              push (@old_lincRNA_genes_to_update, $e);
-              $tmp_old_lincRNA_hash{$e} = 1;
-            }
-          }
-          push @ncrna_clusters_with_existing_lincRNAs, $ncrna_gene;  
-        }
-      }
-    } elsif ( scalar(@e_biotypes) > 1 ) {  # lincRNA clusters with more than one biotype - we don't use it
-      push @ncrna_clusters_with_multiple_biotypes, @ncrnas_in_cluster ; 
-    } else {    
-      throw("gene clusteres with NO other biotype. this should not happen"); 
-    }  
-    print "\n";
-  }  
-
-  foreach my $pt_gene(@proc_tran_genes_to_update) {
-    print "INFO : This processed_transcript gene clusters with lincRNA: ".  $pt_gene->dbID . "\t" . $pt_gene->analysis->logic_name . " " . 
-          $pt_gene->seq_region_start . "\t" . $pt_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
-  }
-  
-  foreach my $ol_gene(@old_lincRNA_genes_to_update) {
-   print "INFO : This existing lincRNA gene clusters with newly-identified lincRNA: ".  $ol_gene->dbID . "\t" . $ol_gene->analysis->logic_name . " " .
-          $ol_gene->seq_region_start . "\t" . $ol_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
-  }
-
-  print "\n";
-
-  # data which will be used for output 
-  $self->unclustered_ncrnas(\@lincrna_unclustered); 
-  $self->ncrna_clusters_with_processed_transcript(\@ncrna_clusters_with_processed_transcript);   
-  $self->ncrna_clusters_with_existing_lincRNAs(\@ncrna_clusters_with_existing_lincRNAs);   
-  $self->proc_tran_genes_to_update(\@proc_tran_genes_to_update); 
-  $self->old_lincRNA_genes_to_update(\@old_lincRNA_genes_to_update);
-
-  # rejected data 
-  $self->ncrna_clusters_with_multiple_biotypes(\@ncrna_clusters_with_multiple_biotypes);  
-  $self->ncrna_clusters_with_protein_domain(\@genes_with_prot_domain);  
-
-  print "I am ignoring genes : " . scalar(@{$self->ncrna_clusters_with_multiple_biotypes}). " genes as they cluster with multiple biotypes\n" ;     
-  print "I am ignoring genes : " . scalar(@{$self->ncrna_clusters_with_protein_domain}) . " genes as they cluster with genes with protein domains\n" ;     
-  
-  # I know want to identify the ensembl gene which clusters with this gene.  
-  # genes which have the same exons as ensembl will get biotype 'same as ensembl' 
-  #@use= @{ compare_lincrna_vs_ensembl(\@ncrna_clusters_with_processed_transcript, \@ensembl) } ; 
-  #
-
-  #for ( @lincrna_unclustered ) {  
-  #  $_->biotype("UN_clustered");  # DONT CHANGE BIOTYPE - used in RunnableDB  
-  #} 
-
-  #for ( @genes_with_prot_domain ) { 
-  #  $_->biotype("clusters_with_prot_dom") ;  # DONT CHANGE BIOTYPE - used in RunnableDB  
-  #} 
-  #$self->output([@use ,@lincrna_unclustered,@genes_with_prot_domain,@not_use]);
-}    
-
-
-
 
 
 sub get_biotypes_of_ensembl_genes { 
@@ -1024,29 +1099,47 @@ sub filter_align_slices {
 }
 
 
-sub ncrna_clusters_with_multiple_biotypes { 
+sub ncrna_clusters_with_multiple_ens_biotypes { 
   my ( $self, $genes ) = @_; 
 
   if ( defined $genes ) { 
     for my $g ( @$genes ) {   
-      $g->biotype("ncrna_clusters_with_multiple_biotypes");
+      $g->biotype($g->biotype."_reject_mult");
       for my $t( @{$g->get_all_Transcripts } ) { 
-        $t->biotype("ncrna_clusters_with_multiple_biotypes");
+        $t->biotype($g->biotype);
       } 
     } 
-    $self->{ncrna_clusters_with_multiple_biotypes}=$genes ;
+    $self->{ncrna_clusters_with_multiple_ens_biotypes}=$genes ;
   }
-  return $self->{ncrna_clusters_with_multiple_biotypes};  
+  return $self->{ncrna_clusters_with_multiple_ens_biotypes};  
 }   
+
+
+sub ncrna_clusters_with_single_ens_biotype {
+  my ( $self, $genes ) = @_;
+
+  if ( defined $genes ) {
+    for my $g ( @$genes ) {
+      $g->biotype($g->biotype."_reject_single");
+      for my $t( @{$g->get_all_Transcripts } ) {
+        $t->biotype($g->biotype);
+      }
+    }
+    $self->{ncrna_clusters_with_single_ens_biotype}=$genes ;
+  }
+  return $self->{ncrna_clusters_with_single_ens_biotype};
+}
+
+
 
 sub ncrna_clusters_with_protein_domain { 
   my ( $self, $genes ) = @_;  
 
   if ( defined $genes ) { 
     for my $g ( @$genes ) {  
-      $g->biotype("ncrna_clusters_with_protein_domain");
+      $g->biotype($g->biotype."_reject_prot_dom");
       for my $t( @{$g->get_all_Transcripts } ) { 
-        $t->biotype("ncrna_clusters_with_protein_domain");
+        $t->biotype($g->biotype);
       } 
     } 
     $self->{ncrna_clusters_with_protein_domain}=$genes;
