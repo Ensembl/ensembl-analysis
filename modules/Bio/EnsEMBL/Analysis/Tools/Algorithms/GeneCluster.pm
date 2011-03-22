@@ -602,14 +602,16 @@ sub _translateable_exon_length {
 =cut
 
 sub get_exon_clustering_from_gene_cluster {
-  my ($self, $ignore_strand) = @_ ;
+  my ($self, $ignore_strand, $use_normal_exons) = @_ ;
 
   my @clg  = sort {$a->start <=> $b->start} @{$self->get_Genes} ;
 
   # building Transcript-Cluster 
   #my $tc = genes_to_Transcript_Cluster(\@clg);
   my $tc = $self->get_TranscriptCluster ($ignore_strand); 
-  my @exon_clusters = @{$tc->get_ExonCluster_using_all_Exons($ignore_strand)} ; 
+
+  my @exon_clusters = @{$tc->get_ExonCluster_using_all_Exons($ignore_strand, $use_normal_exons)} ; 
+ 
   if (defined $tc->strand && $tc->strand eq '1') {
     @exon_clusters = sort { $a->start <=> $b->start } @exon_clusters ;
   } elsif (defined $tc->strand && $tc->strand eq '-1') {

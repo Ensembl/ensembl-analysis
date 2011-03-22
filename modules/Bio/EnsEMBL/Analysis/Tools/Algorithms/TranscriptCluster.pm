@@ -642,7 +642,7 @@ sub get_ExonCluster {
 }
 
 sub get_ExonCluster_using_all_Exons {
-  my ( $self, $ignore_strand) = @_ ;
+  my ( $self, $ignore_strand, $use_normal_exons) = @_ ;
   my @clusters ;
 
   my @transcripts;
@@ -725,14 +725,15 @@ sub get_ExonCluster_using_all_Exons {
     }
   }
 
-  # setting exon/cluster relationship
-  for my $c (@clusters) {
-    for my $e(@{ $c->get_all_Exons_in_ExonCluster} ) {
-      # exon has to be Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object 
-      $e->cluster($c) ;
+  if (!$use_normal_exons) {
+    # setting exon/cluster relationship
+    for my $c (@clusters) {
+      for my $e(@{ $c->get_all_Exons_in_ExonCluster} ) {
+        # exon has to be Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object 
+        $e->cluster($c) ;
+      }
     }
   }
-
   return \@clusters;
 }
 
