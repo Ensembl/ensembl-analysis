@@ -56,6 +56,7 @@ use vars qw (@ISA  @EXPORT);
               get_input_arg
               get_db_adaptor_by_string read_config
               import_var
+              is_canonical_splice
               get_database_connection_parameters_by_string ) ;
 
 
@@ -661,4 +662,77 @@ sub import_var {
         }
     }
 }
+
+# this method copied from sw4's ensembl-analysis/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateSolexaTranscript.pm
+sub is_canonical_splice {
+  my ($intron, $slice_adaptor, $slice) = @_;
+
+  my $prev_Exon = $intron->prev_Exon;
+  my $next_Exon = $intron->next_Exon;
+
+  my $canonical;
+  my $donor;
+  my $acceptor;
+
+  if ( $prev_Exon && $next_Exon) {
+    my $donor_splice;
+    my $acceptor_splice;
+    if ($prev_Exon->strand  == 1 ) {
+      # we are working on the forward strand
+      $donor_splice = $slice_adaptor->fetch_by_region('toplevel',
+                                                        $slice->seq_region_name,
+                                                        $prev_Exon->end+1,
+                                                        $prev_Exon->end+2,
+                                                        $prev_Exon->strand
+                                                       );
+      $acceptor_splice = $slice_adaptor->fetch_by_region('toplevel',
+                                                         $slice->seq_region_name,
+                                                         $next_Exon->start-2,
+                                                         $next_Exon->start-1,
+                                                         $prev_Exon->strand
+                                                        );
+    } else {
+      # we are working on the reverse strand
+      $donor_splice = $slice_adaptor->fetch_by_region('toplevel',
+                                                        $slice->seq_region_name,
+                                                        $prev_Exon->start-2,
+                                                        $prev_Exon->start-1,
+                                                        $prev_Exon->strand
+                                                       );
+      $acceptor_splice = $slice_adaptor->fetch_by_region('toplevel',
+                                                         $slice->seq_region_name,
+                                                         $next_Exon->end+1,
+                                                         $next_Exon->end+2,
+                                                         $prev_Exon->strand
+                                                        );
+    }
+    if ( $donor_splice->seq eq 'NN' && $acceptor_splice->seq eq 'NN' ) {
+      warn("Cannot find dna sequence for prev_Exon " . $prev_Exon->stable_id . " next_Exon ".$next_Exon->stable_id.
+           " this is used in detetcting non canonical splices\n");
+    } else {
+
+      #print "Splice type " . $acceptor_splice->seq ."- ".  $donor_splice->seq ."\n";
+      #is it GTAG?
+      $donor = $donor_splice->seq;
+      $acceptor = $acceptor_splice->seq;
+      if ( $acceptor_splice->seq eq 'AG' && ($donor_splice->seq eq 'GT' || $donor_splice->seq eq 'GC')) {
+        # these combinations are canonical according to the HAVANA
+        # annotation guidelines published on 18 June 2010
+        $canonical = 1;
+      } elsif ($donor_splice->seq eq 'AT' && $acceptor_splice->seq eq 'AC') {
+        # this rare splcie site is canonical according to the HAVANA
+        # annotation guidelines published on 18 June 2010
+        $canonical = 1;
+        print STDERR "Found AT-AC\n";
+      } else {
+        $canonical = 0;
+      }
+    }
+
+  } else {
+    throw("Cannot find previous or next exon");
+  }
+  return ($canonical, $donor, $acceptor);
+}
+
 1;
