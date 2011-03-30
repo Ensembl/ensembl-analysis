@@ -40,47 +40,44 @@ my $user;
 my $pass;
 my $config_dbname;
 
-&GetOptions( 
-            'dbhost:s'      => \$host,
-            'dbport:n'      => \$port,
-            'dbname:s'    => \$dbname,
-            'dbuser:s'    => \$user,
-            'dbpass:s'      => \$pass,
-            'config_dbname:s' => \$config_dbname,
-           );
+GetOptions( 'dbhost:s'        => \$host,
+            'dbport:n'        => \$port,
+            'dbname:s'        => \$dbname,
+            'dbuser:s'        => \$user,
+            'dbpass:s'        => \$pass,
+            'config_dbname:s' => \$config_dbname, );
 
 
 my $db;
 
-if($config_dbname){
+if ($config_dbname) {
   $db = get_db_adaptor_by_string($config_dbname);
-}elsif($dbname && $host){
-  $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                            -host   => $host,
-                                            -user   => $user,
-                                            -port   => $port,
-                                            -dbname => $dbname,
-                                            -pass => $pass,
-                                           );
-}else{
-  throw("Need to pass either -dbhost $host and -dbname $dbname or ".
-        "-config_dbname $config_dbname for the script to work");
+} elsif ( $dbname && $host ) {
+  $db =
+    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
+                                        -user   => $user,
+                                        -port   => $port,
+                                        -dbname => $dbname,
+                                        -pass   => $pass, );
+} else {
+  throw(   "Need to pass either -dbhost $host and -dbname $dbname or "
+         . "-config_dbname $config_dbname for the script to work" );
 }
 
 my $transcript_adaptor = $db->get_TranscriptAdaptor;
 
-while(<>){
+while (<>) {
   chomp;
-  my $transcript_id= $_;
-  
-  #my $sth = $db->prepare("delete from transcript where transcript_id = $transcript_id");
-  #$sth->execute;
-  eval{
+  my $transcript_id = $_;
+
+#my $sth = $db->prepare("delete from transcript where transcript_id = $transcript_id");
+#$sth->execute;
+  eval {
     my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
     $transcript_adaptor->remove($transcript);
     print STDERR "Deleted $transcript_id\n";
   };
-  if($@){
+  if ($@) {
     print "Couldn't remove transcript $transcript_id ($@)\n";
   }
 }
