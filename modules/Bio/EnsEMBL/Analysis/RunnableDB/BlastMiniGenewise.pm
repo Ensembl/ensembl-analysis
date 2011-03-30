@@ -1314,4 +1314,12 @@ sub group_genes_by_id{
   return \%hash;
 }
 
+sub OPTIMAL_LENGTH {
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{OPTIMAL_LENGTH} = $arg;
+  }
+  return $self->{OPTIMAL_LENGTH}
+}
+
 1;
