@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -w
+#!/usr/local/ensembl/bin/perl
 =head1 NAME
 
   delete_transcripts.pl
@@ -38,6 +38,7 @@ my $port;
 my $dbname;
 my $user;
 my $pass;
+my $stable_id;
 my $config_dbname;
 
 GetOptions( 'dbhost:s'        => \$host,
@@ -45,7 +46,8 @@ GetOptions( 'dbhost:s'        => \$host,
             'dbname:s'        => \$dbname,
             'dbuser:s'        => \$user,
             'dbpass:s'        => \$pass,
-            'config_dbname:s' => \$config_dbname, );
+            'stable_id!'      => \$stable_id,
+            'config_dbname:s' => \$config_dbname );
 
 
 my $db;
@@ -70,10 +72,13 @@ while (<>) {
   chomp;
   my $transcript_id = $_;
 
-#my $sth = $db->prepare("delete from transcript where transcript_id = $transcript_id");
-#$sth->execute;
   eval {
-    my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
+    my $transcript;
+    if ($stable_id) {
+      $transcript = $transcript_adaptor->fetch_by_stable_id($transcript_id);
+    } else {
+      $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
+    }
     $transcript_adaptor->remove($transcript);
     print STDERR "Deleted $transcript_id\n";
   };
