@@ -449,15 +449,23 @@ sub are_matched_pair {
   print "no. of exons: " . scalar(@{ $havana->get_all_Exons }) . "\n";
   print "no. of coding exons: " . scalar(@{ $havana->get_all_translateable_Exons }) . "\n";
 
-#  print "no. of ens_esf: " . $ens_sf . "\n";
-#  print "no. of hav_esf: " . $hav_sf . "\n";
+  #  print "no. of ens_esf: " . $ens_sf . "\n";
+  #  print "no. of hav_esf: " . $hav_sf . "\n";
+
+  ###
+  ### Before we start comparing each pair of Ensembl and Havana transcripts,
+  ### we tag Ensembl models which are (1) non-coding ($non_coding_e = 1) and
+  ### (2) non-CCDS and incomplete ($non_coding_e = 2). 
+  ### All other Ensembl transcripts will have $non_coding_e set at "0".
+  ###
 
   my $complete_5        = 0;
   my $incomplete        = 0;
   my $full_length_cdnas = 0;
 
-  if ( @{ $ensembl->get_all_translateable_Exons } ) {
+  my $ccds_check_result =  $self->check_transcript_in_external_db('ccds', $ensembl );
 
+  if ( @{ $ensembl->get_all_translateable_Exons } &&  $ccds_check_result == 1 ) {
     my $cdna         = $ensembl->spliced_seq;
     my $coding_start = $ensembl->cdna_coding_start;
     my $coding_end   = $ensembl->cdna_coding_end;
@@ -473,7 +481,6 @@ sub are_matched_pair {
         @teexons = @{ $ensembl->get_all_translateable_Exons };
       } else {
         # Flag the transcripts with start but no end for later deletion.
-
         $non_coding_e = 2;
         $complete_5++;
         #print "DEBUG: Have a MET but not a stop:  " .  $ensembl->dbID . "\n";
@@ -483,10 +490,17 @@ sub are_matched_pair {
       $incomplete++;
       #print "DEBUG: Not full-length transcript to delete: " . $ensembl->dbID . "\n";
     }
+  } elsif ( @{ $ensembl->get_all_translateable_Exons } && $ccds_check_result == 0 ) {
+    print "\nEnsembl transcript is coding and is part of CCDS. Not checking cds completeness.\n";
+    @teexons = @{ $ensembl->get_all_translateable_Exons };
   } else {
     $non_coding_e = 1;
     print "\nNon-coding ensembl trans id " . $ensembl->dbID . "\n";
   }
+
+  ###
+  ### Now check the pairs!
+  ###
 
   # Check that the number of exons is the same in both transcripts
   if (scalar(@hexons) != scalar(@eexons)) {
@@ -1595,32 +1609,54 @@ EXT_GENE:
       } # End of if ($dbname =~/discarded/). The "else" clause below is for CCDS DB
 
       else {
-        #print "DEBUG: comparing ccds: " . $ext_trans->stable_id()
-        #    . " vs trans: " . $trans->dbID . " ("
-        #    . $trans->stable_id() . ")\n";
+        print "DEBUG: comparing ccds: " . $ext_trans->stable_id()
+            . " vs trans: " . $trans->dbID . " ("
+            . $trans->stable_id() . ")\n";
         if (@t_exons) {
-          #print "DEBUG: --->>> ccds exons: " . scalar(@ext_exons) . "\n";
-          #print "DEBUG: --->>> trans t_exons: " . scalar(@t_exons) . "\n";
+          print "DEBUG: --->>> ccds exons: " . scalar(@ext_exons) . "\n";
+          print "DEBUG: --->>> trans t_exons: " . scalar(@t_exons) . "\n";
 
           if ( scalar(@t_exons) == scalar(@ext_exons) ) {
-            #print "DEBUG: " . $trans->dbID . " :: " . $trans->stable_id() . "\n";
+            print "DEBUG: " . $trans->dbID . " :: " . $trans->stable_id() . "\n";
             for ( my $i = 0 ; $i < scalar(@t_exons) ; $i++ ) {
-              #print "DEBUG: te start: " . $t_exons[$i]->coding_region_start($trans)
-              #  . " te_end: " . $t_exons[$i]->coding_region_end($trans) . "\n";
+
+              # Work out Ens coding exon start and end positions and convert
+              # them to genomic coords to compare to external (CCDS) transcript
+
+              my $exon_start_in_cds = $t_exons[$i]->coding_region_start($trans);
+              my $exon_end_in_cds = $t_exons[$i]->coding_region_end($trans);
+              my @genomic_coords = $trans->cdna2genomic( $exon_start_in_cds, $exon_end_in_cds );
+
+              #print "DEBUG: te_start in slice: " . $t_exons[$i]->coding_region_start($trans)
+              #  . " te_end in slice: " . $t_exons[$i]->coding_region_end($trans) . "\n";
+              #print "DEBUG te_start in seq_region: " . $genomic_coords[0]->start
+              #  . " te_end in seq_region: " . $genomic_coords[0]->end ."\n";
               #print "DEBUG: ext exon start: " . $ext_exons[$i]->seq_region_start
               #  . " ext exon end: " . $ext_exons[$i]->seq_region_end . "\n";
 
-              if ( $t_exons[$i]->coding_region_start($trans) != $ext_exons[$i]->seq_region_start
+              ### CAUTION!!! THE FOLLOWING COMPARISON ONLY WORKS IF HavanaAdder
+              ### IS RUN ON A WHOLE CHROMOSOME, OR ELSE "coding_region_start/end"
+              ### WILL NEVER BE THE SAME AS seq_region_start/end!
+
+              
+          #    if ( $t_exons[$i]->coding_region_start($trans) != $ext_exons[$i]->seq_region_start
+          #         || $t_exons[$i]->strand != $ext_exons[$i]->strand
+          #         || $t_exons[$i]->coding_region_end($trans) != $ext_exons[$i]->seq_region_end )
+
+              if ( $genomic_coords[0]->start != $ext_exons[$i]->seq_region_start
                    || $t_exons[$i]->strand != $ext_exons[$i]->strand
-                   || $t_exons[$i]->coding_region_end($trans) != $ext_exons[$i]->seq_region_end )
+                   || $genomic_coords[0]->end != $ext_exons[$i]->seq_region_end )
+
               {
-                next EXT_TRANS;
+                # print "DEBUG: number of translateable exons matched but not all exon boundaries matched.  Check next CCDS model...\n";
+                next EXT_GENE;  # CCDS is one-gene-one-transcript. "next EXT_GENE" is equivalent to "next EXT_TRANS"
               }
             }
-            #print "DEBUG: \t--->>> transcript found in ccds db\n";
+            print "DEBUG: \t--->>> transcript found in ccds db\n";
             return 0;
           } else {
-            #print "DEBUG: ccds db: number of (translatable) exons is different\n";
+            print "DEBUG: ccds db: number of (translatable) exons is different between ".  $ext_trans->stable_id() . 
+                  " and ". $trans->stable_id . "\n";
             next EXT_GENE;
           }
         } else {
