@@ -102,6 +102,7 @@ use vars qw(%Config);
                          GENEWISE_DB => ['targetted'] ,
                          EST_CDNA_DB => ['cdna2genome'] ,
                      }  ,
+      BIOTYPES                        => ['targetted', 'cdna2genome'],
 
       # db that we write genes to
       OUT_DB_NAME                        => 'GENEWISE_DB',
