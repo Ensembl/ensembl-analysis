@@ -110,7 +110,6 @@ sub fetch_input{
         push @all_bt_for_clustering , $bt ; 
      }
   } 
-  $self->BIOTYPES(\@all_bt_for_clustering) ;  
   print "\nGot ".scalar(@genes)." genes\n";
   $self->genes(\@genes);
 #  my @genes = @{ $slice->get_all_Genes($self->PRIMARY_LOGICNAME) }  ;
