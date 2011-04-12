@@ -1,4 +1,4 @@
-# $Id: Sbjct.pm,v 1.2 2005-12-19 09:50:07 ba1 Exp $
+# $Id: Sbjct.pm,v 1.3 2011-04-12 16:01:18 mg13 Exp $
 ###############################################################################
 # Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct
 ###############################################################################
@@ -11,6 +11,8 @@
 package Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct;
 
 use strict;
+
+use Scalar::Util qw(looks_like_number);
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -107,6 +109,11 @@ sub nextHSP {
   $positive = $match if not defined $positive;
   my ($p)        = $scoreline =~ /[Sum ]*P[\(\d+\)]* = ([^\,\s]+)/;
   if (not defined $p) {(undef, $p) = $scoreline =~ /Expect(\(\d+\))? =\s+([^\,\s]+)/}
+  $p = 0 if $p eq '0.';         # (DBD::)MySQL doesn't like '0.' for zero. 0.0 or 0 is fine though.
+  if (defined($p) and not looks_like_number($p)) {
+      my $name = $self->name;
+      throw("Hit '$name': P value [$p] not numeric in '$scoreline'");
+  }
   throw("Unable to parse '$scoreline'") if not defined $score;
   
   #######################
