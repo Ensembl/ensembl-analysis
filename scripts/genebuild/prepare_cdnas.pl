@@ -81,7 +81,7 @@ my (
 my $buffer      = 10;
 my $window_size = 3;
 my $dbuser      = 'genero';
-my $dbhost      = 'cbi3';
+my $dbhost      = 'cbi5d';
 my $dbport      = 3306;
 my $min_length  = 0;
 
