@@ -44,6 +44,9 @@ use strict;
   -outfile
    path to the fasta file
 
+  -bin_location
+   path to the pfetch binary (including the last slash)
+
 =cut
 
 use Bio::SeqIO;
@@ -59,6 +62,7 @@ my (
         @dbnames,
         $infile,
         $outfile,
+        $bin_location,
 );
 my $dbuser;
 my $dbhost;
@@ -72,6 +76,7 @@ my $dbport;
         'dbport=s'               => \$dbport,
         'infile=s'               => \$infile,
         'outfile=s'              => \$outfile,
+        'bin_location=s'         => \$bin_location,
 );
 
 # check commandline
@@ -190,7 +195,7 @@ sub fetch_protein_info {
   if ($primary_id eq '-') {
     # we can't get the protein id from mole
     # maybe we can get it by doing a full pfetch
-    my $command = "pfetch -F ".$entry->accession_version;
+    my $command =  $bin_location."pfetch -F ".$entry->accession_version;
     open (OUTFILE, $command." | ") or die "couldn't open ".$command;
     while(<OUTFILE>){
       chomp;
@@ -211,7 +216,7 @@ sub fetch_protein_info {
 
 sub pfetch_seq {
   my ($id) = @_;
-  my $command = "pfetch -q ".$id;
+  my $command = $bin_location."pfetch -q ".$id;
   my $seq;
   open (OUTFILE, $command." | ") or die "couldn't open ".$command;
   while(<OUTFILE>){
