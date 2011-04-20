@@ -112,6 +112,9 @@ foreach my $file(keys(%files)) {
       logger_info($id." isn't an NP so skipping");
       next SEQ;
     }
+    if ($seq->seq =~/(B|Z|J)/) {
+      warn("AMBIGUITY CODE FOUND!!! $id contains at least one residue of code $1. May interfere with Pmatch.");
+    }
     my $no_version_id = $id;
     $no_version_id =~ s/\.\d+//;
     if($use_killlist && exists $kill_list{$no_version_id}){
