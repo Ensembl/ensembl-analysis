@@ -61,10 +61,14 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($self->input_id, $self->db);
   $self->query($slice);
   my %blast = %{$self->BLAST_PARAMS};
-  my $logic_name = $BLAST_AB_INITIO_LOGICNAME;
-  $logic_name = 'Genscan' if(!$logic_name);
   my $pta = $self->db->get_PredictionTranscriptAdaptor;
-  my $pts = $pta->fetch_all_by_Slice($self->query, $logic_name);
+  my $logic_names = $BLAST_AB_INITIO_LOGICNAME;
+  $logic_names = ['Genscan'] if(!$logic_names);
+  my @pts ;
+  foreach my $logic_name (@$logic_names) {
+    my $pt = $pta->fetch_all_by_Slice($self->query, $logic_name);
+    push @pts, @$pt ;
+  }
   my $parser = $self->make_parser;
   my $filter;
   if($self->BLAST_FILTER){
@@ -94,7 +98,7 @@ sub fetch_input{
   }
 
 
-  foreach my $t(@$pts){
+  foreach my $t(@pts){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->
       new(
           -transcript => $t,
