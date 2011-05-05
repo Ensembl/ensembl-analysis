@@ -275,6 +275,9 @@ sub get_db_version {
 			# try <rm -f /var/tmp/blast_versions>
 		}
 	}
+        printf STDERR "B:E:A:Runnable::Finished::Blast::get_db_version '%s' => '%s'\n",
+                      $db, $self->{'_db_version_searched'};
+
 	return $self->{'_db_version_searched'};
 }
 
