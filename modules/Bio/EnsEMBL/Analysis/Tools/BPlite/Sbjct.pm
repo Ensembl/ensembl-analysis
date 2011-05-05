@@ -1,4 +1,4 @@
-# $Id: Sbjct.pm,v 1.3 2011-04-12 16:01:18 mg13 Exp $
+# $Id: Sbjct.pm,v 1.4 2011-05-05 11:11:01 mg13 Exp $
 ###############################################################################
 # Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct
 ###############################################################################
@@ -110,6 +110,7 @@ sub nextHSP {
   my ($p)        = $scoreline =~ /[Sum ]*P[\(\d+\)]* = ([^\,\s]+)/;
   if (not defined $p) {(undef, $p) = $scoreline =~ /Expect(\(\d+\))? =\s+([^\,\s]+)/}
   $p = 0 if $p eq '0.';         # (DBD::)MySQL doesn't like '0.' for zero. 0.0 or 0 is fine though.
+  $p = "1$p" if $p =~ /^(e-?\d+)$/; # e-169 => 1e-169
   if (defined($p) and not looks_like_number($p)) {
       my $name = $self->name;
       throw("Hit '$name': P value [$p] not numeric in '$scoreline'");
