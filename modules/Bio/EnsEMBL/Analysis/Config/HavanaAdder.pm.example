@@ -119,12 +119,14 @@ use vars qw( %GeneBuilder );
   # "ENSEMBL_INPUT_PROCESSED_TYPE" only to capture the few rare cases which might 
   # slip through the net.
 
-  ENSEMBL_INPUT_PROCESSED_TYPE => ['processed_transcript'],
+  ENSEMBL_INPUT_PROCESSED_TYPE => [''],
 
-  HAVANA_INPUT_PROCESSED_TYPE => [ 'processed_transcript', 'ambiguous_orf',
-                                    'non_coding',           'artifact',
-                                    'retained_intron',      'antisense'
-  ],
+  HAVANA_INPUT_PROCESSED_TYPE => [ 'processed_transcript',
+                                   'ambiguous_orf',
+                                   'non_coding',
+                                   'retained_intron',
+                                   'antisense'
+    ],
 
 
   ###################
@@ -173,7 +175,7 @@ use vars qw( %GeneBuilder );
   # Beware the transcript logic_name in the HAVANA source database (e.g. "otter")
   # has to be different that the logic_name of the havana transcripts in the ENSEMBL
   # database (e.g. "havana").
-  
+
   # If you are using a "clean, ensembl-only DB as the starting point of the current 
   # merge project, the logic_names are not really relevant to you. Just leave the default
   # values.
@@ -187,12 +189,12 @@ use vars qw( %GeneBuilder );
 sub import {
   my ($callpack) = caller(0); # Name of the calling package
   my $pack = shift; # Need to move package off @_
-  
+
   # Get list of variables supplied, or else
   # all of GeneBuilder:
   my @vars = @_ ? @_ : keys( %GeneBuilder );
   return unless @vars;
-  
+
   # Predeclare global variables in calling package
   eval "package $callpack; use vars qw("
     . join(' ', map { '$'.$_ } @vars) . ")";
@@ -200,15 +202,15 @@ sub import {
 
 
     foreach (@vars) {
-	if ( defined $GeneBuilder{ $_ } ) {
-            no strict 'refs';
-	    # Exporter does a similar job to the following
-	    # statement, but for function names, not
-	    # scalar variables:
-	    *{"${callpack}::$_"} = \$GeneBuilder{ $_ };
-	} else {
-	    die "Error: GeneBuilder: $_ not known\n";
-	}
+      if ( defined $GeneBuilder{$_} ) {
+        no strict 'refs';
+        # Exporter does a similar job to the following
+        # statement, but for function names, not
+        # scalar variables:
+        *{"${callpack}::$_"} = \$GeneBuilder{$_};
+      } else {
+        die "Error: GeneBuilder: $_ not known\n";
+      }
     }
 }
 
