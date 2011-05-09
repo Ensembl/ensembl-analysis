@@ -146,9 +146,22 @@ sub break_discontinuities {
 
 	for my $hit ( values %$hits_by_name ) {
 
-		my @features = sort { $a->start <=> $b->start } @{ $hit->{features} };
+            print STDERR "ClusterDepthFilter: Processing hit: ", $hit->{features}->[0]->hseqname,
+            "\n"
+                if $DEBUG;
 
-		my $last = $features[0];
+            my @remaining_features = sort { $a->hstrand <=> $b->hstrand 
+                                                        ||
+                                            $a->start   <=> $b->start
+                                                        ||
+                                            $a->hstart  <=> $b->hstart } @{ $hit->{features} };
+
+            while (@remaining_features) {
+
+		my @features = @remaining_features;
+                @remaining_features = ();
+
+		my $last = shift @features;
 
 		my $new_hit = {};
 		$new_hit->{features}      = [$last];
@@ -157,24 +170,27 @@ sub break_discontinuities {
 		$new_hit->{strand}        = $last->hstrand;
 		$new_hit->{taxon_id}      = $hit->{taxon_id} if $no_filter;
 
-		print STDERR "ClusterDepthFilter: Processing hit: ", $last->hseqname,
-		  "\n"
-		  if $DEBUG;
+                print STDERR "ClusterDepthFilter: starting new hit: hstrand: ",
+                $last->hstrand, " af: ", $last->hstart, "-", $last->hend,
+                " (", $last->start, "-", $last->end, ")\n"
+                    if $DEBUG;
 
-		for my $af ( @features[ 1 .. $#features ] ) {
+              FEAT: for my $af ( @features ) {
 
-			if ( $last->hstart == $af->hstart && $last->hend == $af->hend ) {
+			if (    $last->hstrand == $af->hstrand
+                             && $last->hstart  == $af->hstart
+                             && $last->hend    == $af->hend
+                             && $last->start   == $af->start
+                             && $last->end     == $af->end      ) {
 
 				print STDERR "ClusterDepthFilter: Found duplicate align "
-				  . "feature for hit "
-				  . $af->hseqname
-				  . " (coords: "
-				  . $af->hstart . "-"
-				  . $af->hend
+				  . "feature for hit " . $af->hseqname
+				  . " [coords: " . $af->hstart . "-" . $af->hend
+                                  . " (" . $af->start . "-" . $af->end . ")"
 				  . ", slice: "
-				  . $slice->name . ")\n";
+				  . $slice->name . "]\n";
 
-				next;
+				next FEAT;
 			}
 
 			my $delta =
@@ -182,30 +198,30 @@ sub break_discontinuities {
 			  		? ( $af->hstart - $last->hend ) 
 			  		: ( $last->hstart - $af->hend );
 
-			if ( $delta != 1 ) {
+                        if ( $af->hstrand == $last->hstrand && $af->start <= $last->end ) {
 
-				# found a discontinuity
-
-				print STDERR "ClusterDepthFilter: creating new hit: hstrand: ",
+                                # found an overlap - bump for reprocessing
+				print STDERR "ClusterDepthFilter: found overlap: hstrand: ",
 				  $af->hstrand, " last: ", $last->hstart, "-", $last->hend,
 				  " (", $last->start, "-", $last->end, ") af: ", $af->hstart,
 				  "-", $af->hend, " (", $af->start, "-", $af->end, ")\n"
 				  if $DEBUG;
 
-				# we've finished the current hit, so add it to the list
+                                push @remaining_features, $af;
+                                next FEAT;
+                        }
+			elsif ( $last->hstrand != $af->hstrand || $delta != 1 ) {
 
-				$new_hit->{avg_percentid} /=
-				  scalar( @{ $new_hit->{features} } );
-				push @hits, $new_hit;
+				# found a discontinuity - it might belong to stuff on remaining features
 
-				# and start a new hit
+				print STDERR "ClusterDepthFilter: discontinuity: hstrand: ",
+				  $af->hstrand, " last: ", $last->hstart, "-", $last->hend,
+				  " (", $last->start, "-", $last->end, ") af: ", $af->hstart,
+				  "-", $af->hend, " (", $af->start, "-", $af->end, ")\n"
+				  if $DEBUG;
 
-				$new_hit                  = {};
-				$new_hit->{features}      = [$af];
-				$new_hit->{tot_score}     = $af->score;
-				$new_hit->{avg_percentid} = $af->percent_id;
-				$new_hit->{strand}        = $af->hstrand;
-				$new_hit->{taxon_id} = $hit->{taxon_id} if $no_filter;
+                                push @remaining_features, $af;
+                                next FEAT;
 			}
 			else {
 				print STDERR "ClusterDepthFilter: continuing hit: hstrand: ",
@@ -224,10 +240,16 @@ sub break_discontinuities {
 			$last = $af;
 		}
 
-		# add the final hit to the list
+		# add the hit to the list
 
 		$new_hit->{avg_percentid} /= scalar( @{ $new_hit->{features} } );
 		push @hits, $new_hit;
+
+                if (@remaining_features) {
+                    print STDERR "ClusterDepthFilter: rescanning\n" if $DEBUG;
+                }
+
+            } # @remaining_features 
 	}
 
 	return \@hits;
@@ -767,7 +789,8 @@ sub depth_filter {
 		for my $hit (@$hits) {
 			for my $af ( @{ $hit->{features} } ) {
 				if ( $af->hstrand != $hit->{strand} ) {
-					die "mismatching strands in hit groups\n";
+                                        my $af_name  = $af->hseqname;
+					die "mismatching strands in hit group '$af_name'\n";
 				}
 			}
 		}
