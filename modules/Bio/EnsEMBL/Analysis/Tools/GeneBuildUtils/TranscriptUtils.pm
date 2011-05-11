@@ -621,7 +621,6 @@ sub low_complexity_less_than_maximum{
   my ($transcript, $complexity_threshold) = @_;
   my $peptide = $transcript->translate;
   my $hit_name = ${$transcript->get_all_supporting_features}[0]->hseqname;
-  print "In TranscriptUtils, hit_name is $hit_name.\n";
   my $seg = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg->new
     (
      -query => $peptide,
