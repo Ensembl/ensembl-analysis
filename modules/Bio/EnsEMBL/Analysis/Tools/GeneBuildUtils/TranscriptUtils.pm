@@ -42,7 +42,7 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites validate_Exon_coords);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id empty_Object);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(seq_region_coord_string id empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
 use Bio::EnsEMBL::Gene;
@@ -242,7 +242,7 @@ sub print_Transcript_and_Exons{
 sub Transcript_info{
   my ($transcript, $indent) = @_;
   $indent = '' if(!$indent);
-  my $coord_string = coord_string($transcript); 
+  my $coord_string = seq_region_coord_string($transcript); 
   my $id = id($transcript);
   return $indent."TRANSCRIPT: ".$id." ".$coord_string;
 }
@@ -620,6 +620,8 @@ sub is_not_folded{
 sub low_complexity_less_than_maximum{
   my ($transcript, $complexity_threshold) = @_;
   my $peptide = $transcript->translate;
+  my $hit_name = ${$transcript->get_all_supporting_features}[0]->hseqname;
+  print "In TranscriptUtils, hit_name is $hit_name.\n";
   my $seg = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg->new
     (
      -query => $peptide,
@@ -631,13 +633,13 @@ sub low_complexity_less_than_maximum{
     );
   $seg->run;
   my $low_complexity = $seg->get_low_complexity_length;
-  logger_info(id($transcript)." has ".$low_complexity.
+  logger_info(id($transcript)." ($hit_name) has ".$low_complexity.
               " low complexity sequence");
   #print_peptide($transcript);
   #print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
   #  " ".$complexity_threshold."\n";
   if($low_complexity >= $complexity_threshold){
-    warn(id($transcript)."'s low ".
+    warn(id($transcript)."($hit_name)'s low ".
             "complexity (".$low_complexity.") is above ".
             "the threshold ".$complexity_threshold.
             "\n");
