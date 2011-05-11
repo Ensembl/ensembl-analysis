@@ -68,7 +68,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ConfigDependent::TranscriptUtils qw(low_complexity_less_than_maximum) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(exon_length_less_than_maximum);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(clone_Gene);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id seq_region_coord_string 
                                                      lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils 
   qw(validate_Translation_coords contains_internal_stops print_Translation print_peptide);
@@ -336,11 +336,12 @@ sub filter_genes{
       next GENE;
     }
     my $is_valid = $self->validate_Transcript($transcripts[0]);
+    my $hit_name = ${$transcripts[0]->get_all_supporting_features}[0]->hseqname;
     if($is_valid){
-      logger_info("Have accepted ".id($gene)." ".coord_string($gene));
+      logger_info("Have accepted ".id($gene)." $hit_name ".seq_region_coord_string($gene));
       push(@accepted, $gene);
     }else{
-      logger_info("Have rejected ".id($gene)." ".coord_string($gene));
+      logger_info("Have rejected ".id($gene)." $hit_name ".seq_region_coord_string($gene));
       $self->rejected_genes($gene);
     }
   }
@@ -386,6 +387,7 @@ sub filter_genes{
 
 sub validate_Transcript{
   my ($self, $transcript) = @_;
+  my $hit_name = ${$transcript->get_all_supporting_features}[0]->hseqname;
   #print "VALIDATING ".Transcript_info($transcript)."\n";
   my $slice = $self->slice;
   $slice = $transcript->slice if(!$slice);
@@ -431,7 +433,7 @@ sub validate_Transcript{
   #basic translation validation
   #print_peptide($transcript);
   if(contains_internal_stops($transcript)){
-    warning(Transcript_info($transcript)." contains internal stop codons");
+    warning(Transcript_info($transcript)." $hit_name contains internal stop codons");
     $is_valid++;
     my $attrib = $self->get_Attribute("contains_stops");
     $transcript->add_Attributes($attrib);          
@@ -481,7 +483,7 @@ sub validate_Transcript{
     }
   }
   #print "IS VALID is ".$is_valid." after evidence coverage check\n";
-  warning(Transcript_info($transcript)." failed ".$is_valid." tests out of 9 ".
+  warning(Transcript_info($transcript)." $hit_name failed ".$is_valid." tests out of 9 ".
           "returning 0") if($is_valid >= 1);
   return 0 if($is_valid >= 1);
   return 1;
