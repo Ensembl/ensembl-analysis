@@ -41,7 +41,7 @@ use Exporter;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(seq_region_coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw(print_Evidence clone_Evidence);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(get_splice_sites);
 use Bio::EnsEMBL::Exon;
@@ -111,7 +111,7 @@ sub Exon_info{
   my ($exon, $indent) = @_;
   throw("Must be passed an exon") if(!$exon);
   $indent = '' if(!$indent);
-  my $coord_string = coord_string($exon);
+  my $coord_string = seq_region_coord_string($exon);
   my $id = id($exon);
   return $indent."EXON: ".$id." ".$coord_string."  ".
     $exon->phase." ".$exon->end_phase." ".

@@ -40,7 +40,7 @@ use Exporter;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(seq_region_coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use vars qw (@ISA @EXPORT);
@@ -69,7 +69,7 @@ sub Intron_info{
   my ($intron, $indent) = @_;
   throw("Must be passed an intron") if(!$intron);
   $indent = '' if(!$indent);
-  my $coord_string = coord_string($intron);
+  my $coord_string = seq_region_coord_string($intron);
   my $id = id($intron);
   return $indent."INTRON: ".$coord_string;
 }
