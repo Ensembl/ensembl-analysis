@@ -77,6 +77,7 @@ use vars qw (@ISA @EXPORT);
 sub low_complexity_less_than_maximum{
   my ($transcript, $complexity_threshold) = @_;
   my $peptide = $transcript->translate;
+  my $hit_name = ${$transcript->get_all_supporting_features}[0]->hseqname;
   my $seg = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg->new
     (
      -query => $peptide,
@@ -88,13 +89,13 @@ sub low_complexity_less_than_maximum{
     );
   $seg->run;
   my $low_complexity = $seg->get_low_complexity_length;
-  logger_info(id($transcript)." has ".$low_complexity.
+  logger_info(id($transcript)." ($hit_name) has ".$low_complexity.
               " low complexity sequence");
   #print_peptide($transcript);
   #print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
   #  " ".$complexity_threshold."\n";
   if($low_complexity >= $complexity_threshold){
-    warn(id($transcript)."'s low ".
+    warn(id($transcript)."($hit_name)'s low ".
             "complexity (".$low_complexity.") is above ".
             "the threshold ".$complexity_threshold.
             "\n");
