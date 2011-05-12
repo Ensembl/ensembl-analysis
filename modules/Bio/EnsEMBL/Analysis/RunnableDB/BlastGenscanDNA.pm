@@ -67,7 +67,7 @@ sub fetch_input{
   my $logic_names = $BLAST_AB_INITIO_LOGICNAME;
   my @pts ;
   my $pta = $self->db->get_PredictionTranscriptAdaptor;
-  $logic_names = ['Genscan'] if(!$logic_names);
+  $logic_names = ['Genscan'] if(scalar(@$logic_names) == 0);
   foreach my $logic_name (@$logic_names) {
     my $pt = $pta->fetch_all_by_Slice($self->query, $logic_name);
     push @pts, @$pt ;
