@@ -52,17 +52,19 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
 use vars qw (@ISA  @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT = qw(coord_string id empty_Object lies_inside_of_slice);
+@EXPORT = qw(coord_string seq_region_coord_string id empty_Object lies_inside_of_slice);
 
 
 =head2 coord_string
 
   Arg [1]   : Bio::EnsEMBL::Feature
   Function  : Returns a string with the start, end, strand
-              and slice name that the feature is on delimited by spaces
+              and slice name that the feature is on, delimited by spaces.
+              Coord positions printed will be relative to the start of
+              the slice
   Returntype: string
   Exceptions: throws if no feature is passed in
-  Example   : 
+  Example   : my $coord_string = coord_string($transcript);
 
 =cut
 
@@ -77,6 +79,26 @@ sub coord_string{
 }
 
 
+=head2 seq_region_coord_string
+
+  Arg [1]   : Bio::EnsEMBL::Feature
+  Function  : Returns a string with the seq_region_start, seq_region_end, strand
+              and slice name that the feature is on, delimited by spaces
+  Returntype: string
+  Exceptions: throws if no feature is passed in
+  Example   : my $coord_string = seq_region_coord_string($transcript);
+
+=cut
+
+
+
+sub seq_region_coord_string{
+  my $feature = shift;
+  my ($p, $f, $l) = caller;
+  throw("Must be passed a feature") if(!$feature);
+  my $string = $feature->seq_region_start."\t".$feature->seq_region_end."\t".$feature->strand."\t".$feature->slice->seq_region_name;
+  return $string;
+}
 
 
 =head2 id
