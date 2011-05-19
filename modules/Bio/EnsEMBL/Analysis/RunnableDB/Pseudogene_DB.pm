@@ -233,7 +233,8 @@ REPLOOP: foreach my $repeat (@repeats) {
       $curblock =
         Bio::EnsEMBL::Feature->new( -START  => $repeat->start,
                                     -END    => $repeat->end,
-                                    -STRAND => $repeat->strand );
+                                    -STRAND => $repeat->strand,
+                                    -SLICE => $repeat->slice );
       push( @repeat_blocks, $curblock );
     }
   } ## end foreach my $repeat (@repeats)
