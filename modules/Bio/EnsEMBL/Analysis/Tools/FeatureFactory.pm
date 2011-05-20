@@ -204,7 +204,7 @@ sub create_repeat_feature{
 sub create_feature_pair {
     my ($self, $start, $end, $strand, $score, $hstart, $hend, 
         $hstrand, $hseqname, $percent_id, $p_value, $seqname,
-        $slice, $analysis, $positive_matches, $identical_matches) = @_;
+        $slice, $analysis, $positive_matches, $identical_matches, $coverage) = @_;
     my $fp = Bio::EnsEMBL::FeaturePair->new(
                                             -start    => $start,
                                             -end      => $end,
@@ -223,6 +223,7 @@ sub create_feature_pair {
     $fp->slice($slice);
     $fp->positive_matches($positive_matches);
     $fp->identical_matches($identical_matches);
+    $fp->coverage($coverage);
     return $fp;
 }
 
