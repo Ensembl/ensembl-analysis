@@ -34,8 +34,8 @@ use warnings;
 use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Attribute;
 
-use Data::Dumper;
 
 use vars qw (@ISA);
 
@@ -123,6 +123,7 @@ sub filter_results{
   # results are Bio::EnsEMBL::Transcripts with exons and supp_features
   
   my @good_matches;
+  my @bad_matches;
 
   my %matches;
 
@@ -216,77 +217,90 @@ TRAN:
 
       if ( $self->best_in_genome ){
         # we keep the hit with the best coverage...
-	if ($coverage == $max_coverage &&
+          if ($coverage == $max_coverage &&
             # as long as it has coverage/percent_id above limits or...
-            (($coverage >= $self->min_coverage && 
-              $percent_id >= $self->min_percent)
-             ||
-             # ...if coverage is significanly greater than the
-             # specified minimum, then we are willing to accept
-             # hits that have a percent_id just below the specified
-             # minimum
-             ($coverage   >= (1 + 5/100) * $self->min_coverage &&
-              $percent_id >= (1 - 3/100) * $self->min_percent))) { 
-	  if ( $self->reject_processed_pseudos
-	       && $count > 1 
-	       && $splices_elsewhere 
-	       && ! $is_spliced) {
-	    $accept = 'NO';
-	  }
-          # ... if one transcript with lower quality completely overlaps
-          # the best one don't accept the lower quality one.
-          elsif ($best_slice eq $transcript_slice &&
-                 $best_start > $transcript->start &&
-                 $best_end   < $transcript->end){
-            $accept = 'NO';
+              (($coverage >= $self->min_coverage && 
+                $percent_id >= $self->min_percent)
+                   ||
+                # ...if coverage is significanly greater than the
+                # specified minimum, then we are willing to accept
+                # hits that have a percent_id just below the specified
+                # minimum
+               ($coverage   >= (1 + 5/100) * $self->min_coverage &&
+                $percent_id >= (1 - 3/100) * $self->min_percent))) { 
+              if ( $self->reject_processed_pseudos
+                      && $count > 1 
+                      && $splices_elsewhere 
+                      && ! $is_spliced) {
+                  my $attribut = $self->get_Attribute('pseudo');
+                  $attribut->value($hit->seqname);
+                  $transcript->add_Attributes($attribut);
+                  push( @bad_matches, $transcript);
+              }
+             # ... if one transcript with lower quality completely overlaps
+             # the best one don't accept the lower quality one.
+              elsif ($best_slice eq $transcript_slice &&
+                      $best_start > $transcript->start &&
+                      $best_end   < $transcript->end){
+                  my $attribut = $self->get_Attribute('overlap');
+                  $attribut->value($hit->seqname);
+                  $transcript->add_Attributes($attribut);
+                  push( @bad_matches, $transcript);
+              }
+              else {
+                  push( @good_matches, $transcript);
+              }
           }
-	  else {
-	    $accept = 'YES';
-	    push( @good_matches, $transcript);
-	  }
-	}
-	else{
-	  $accept = 'NO';
-	}
-	
+          else{
+              my $attribut = $self->get_Attribute('lower');
+              $attribut->value($hit->seqname);
+              $transcript->add_Attributes($attribut);
+              push( @bad_matches, $transcript);
+          }
+
       }
       else{
-        # we keep anything which is within the 2% of the best score...
-	if ($coverage >= (0.98 * $max_coverage) && 
-            # as long as it has coverage/percent_id above limits or...
-            (($coverage >= $self->min_coverage && 
-              $percent_id >= $self->min_percent)
-             ||              
-             # ...if coverage is significanly greater than the
-             # specified minimum, then we are willing to accept
-             # hits that have a percent_id just below the specified
-             # minimum
-             ($coverage   >= (1 + 5/100) * $self->min_coverage &&
-              $percent_id >= (1 - 3/100) * $self->min_percent))) {
-          
-          
-	  ############################################################
-	  # non-best matches are kept only if they are not unspliced with the
-	  # best match being spliced - otherwise they could be processed pseudogenes
-	  if ( $self->reject_processed_pseudos &&
-	       $count > 1 &&
-	       $splices_elsewhere &&
-	       ! $is_spliced) {
-	    $accept = 'NO';
-	  }
-	  else{
-	    $accept = 'YES';
-	    push( @good_matches, $transcript);
-	  }
-	}
-	else{
-	  $accept = 'NO';
-	}
+          # we keep anything which is within the 2% of the best score...
+          if ($coverage >= (0.98 * $max_coverage) && 
+               # as long as it has coverage/percent_id above limits or...
+                  (($coverage >= $self->min_coverage && 
+                    $percent_id >= $self->min_percent)
+                   ||              
+                  # ...if coverage is significanly greater than the
+                  # specified minimum, then we are willing to accept
+                  # hits that have a percent_id just below the specified
+                  # minimum
+                   ($coverage   >= (1 + 5/100) * $self->min_coverage &&
+                    $percent_id >= (1 - 3/100) * $self->min_percent))) {
+
+
+              ############################################################
+              # non-best matches are kept only if they are not unspliced with the
+              # best match being spliced - otherwise they could be processed pseudogenes
+              if ( $self->reject_processed_pseudos &&
+                      $count > 1 &&
+                      $splices_elsewhere &&
+                      ! $is_spliced) {
+                  my $attribut = $self->get_Attribute('pseudo');
+                  $attribut->value($hit->seqname);
+                  $transcript->add_Attributes($attribut);
+                  push( @bad_matches, $transcript);
+              }
+              else{
+                  push( @good_matches, $transcript);
+              }
+          }
+          else{
+              my $attribut = $self->get_Attribute('lower');
+              $attribut->value($hit->seqname);
+              $transcript->add_Attributes($attribut);
+              push( @bad_matches, $transcript);
+          }
       }
     }
   }
   
-  return \@good_matches;
+  return \@good_matches, \@bad_matches;
 
 }
  
@@ -393,5 +407,30 @@ sub reject_processed_pseudos {
 }
 
 
+sub create_Attribute{
+  my ($self, $reason, $description) = @_;
+  $description = $reason if(!$description);
+  my $attrib = Bio::EnsEMBL::Attribute->new(
+                                            -code => $reason,
+                                            -name => $reason,
+                                            -description => $description,
+                                            -value => $description,
+                                           );
+  return $attrib;
+}
+
+sub get_Attribute{
+  my ($self, $code, $description) = @_;
+  if(!$self->{'attribute_hash'}){
+    $self->{'attribute_hash'} = {};
+  }
+#  my $attrib = $self->{'attribute_hash'}->{$code};
+#  if(!$attrib){
+#    $attrib = $self->create_Attribute($code, $description);
+    my $attrib = $self->create_Attribute($code, $description);
+    $self->{'attribute_hash'}->{$code} = $attrib;
+#  }
+  return $attrib;
+}
 
 1;

@@ -82,21 +82,20 @@ package Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise;
 use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastMiniGenewise 
-  qw(GENEWISE_CONFIG_BY_LOGIC);
-use Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise;
+use Data::Dumper;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes Transcript_info set_start_codon set_stop_codon list_evidence attach_Slice_to_Transcript);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_Gene attach_Analysis_to_Gene);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::KillList::KillList;
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
+use Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise;
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastMiniGenewise qw(GENEWISE_CONFIG_BY_LOGIC);
+use Bio::EnsEMBL::Analysis::Tools::Logger;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_Gene attach_Analysis_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes Transcript_info set_start_codon set_stop_codon list_evidence attach_Slice_to_Transcript);
+use Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           );
+@ISA = qw( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild );
 
 
 
@@ -115,14 +114,13 @@ use Bio::EnsEMBL::KillList::KillList;
 
 sub new {
   my ($class,@args) = @_;
-  print "In BlastMiniGenewise constructor with super class" . ref($class) . "\n";
+  logger_info("In BlastMiniGenewise constructor with super class" . ref($class));
   my $self = $class->SUPER::new(@args);
 
-  print "In BlastMiniGenewise constructor - read and check\n";
+  logger_info("In BlastMiniGenewise constructor - read and check");
   $self->read_and_check_config($GENEWISE_CONFIG_BY_LOGIC);  
   return $self; 
 }
-
 
 =head2 fetch_input
 
@@ -138,64 +136,67 @@ sub new {
 
 
 
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
+
   $self->parse_input_id;
   $self->query($self->gene_slice);
+
   my %hit_list;
-
-  my $killed_count = 0;
-  my $feature_count = 0;
   my %protein_count;
+  my $killed_count  = 0;
+  my $feature_count = 0;
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
-    #print "LOGIC NAME : ",$logic_name,"\n"; 
-     my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
-    my %unique;
-    foreach my $feature(@$features){ 
-      $unique{$feature->hseqname} = 1;
-    }
-    #print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
-    logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
-    $feature_count += scalar(@$features);
-    my %ids_to_ignore = %{$self->generate_ids_to_ignore($features)};
-    #print "HAVE ".keys(%ids_to_ignore)." ids to ignore\n";
-    logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore"); 
+#      print "LOGIC NAME : ",$logic_name,"\n"; 
+      my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
+      my %unique = map { $_->hseqname => 1 } @$features;
+      my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+        -runnabledb     => $self,
+        -evidence_names => [keys %unique],
+        -disabled       => $self->TRACKING
+      );
+      logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
+      $feature_count += scalar(@$features);
+      my %ids_to_ignore = %{$self->generate_ids_to_ignore($features)};
+      logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore"); 
 
-     my %kill_list ;
-     if ( scalar(@$features) > 0 ) {  
-       %kill_list = %{$self->kill_list} if($self->USE_KILL_LIST);
-     } 
+      my %kill_list ;
+      %kill_list = %{$self->kill_list} if ((scalar(@$features) > 0) and $self->USE_KILL_LIST);
 
-  FEATURE:foreach my $feature(@$features){
-  	
-      #print $feature->hseqname." is in this ID with paf_id ".$feature->dbID."\n"; 
-      
-      $protein_count{$feature->hseqname} = 1;
-      my $temp_id = $feature->hseqname;
-      $temp_id =~ s/\.\d+//;
-      next FEATURE if($self->overlaps_fiveprime_end_of_slice($feature, $self->query));
-      $killed_count++ if($kill_list{$temp_id});
-      logger_info("SKIPPING ".$feature->hseqname." on kill list") 
-        if ($kill_list{$temp_id});
-      next FEATURE if($kill_list{$temp_id});
-      logger_info("SKIPPING ".$feature->hseqname." as greater than upper threshold")
-        if($self->PAF_UPPER_SCORE_THRESHOLD and
-           $feature->score < $self->PAF_UPPER_SCORE_THRESHOLD);
-      next FEATURE if($self->PAF_UPPER_SCORE_THRESHOLD and
-                      $feature->score < $self->PAF_UPPER_SCORE_THRESHOLD);
-      logger_info("SKIPPING ".$feature->hseqname." on the mask list")
-        if($self->PRE_GENEWISE_MASK && 
-           $ids_to_ignore{$feature->hseqname}) ;
-      next FEATURE if($self->PRE_GENEWISE_MASK && 
-                      $ids_to_ignore{$feature->hseqname});
-      if($self->use_id){ 
-        if($feature->hseqname eq $self->use_id){
-          push(@{$hit_list{$feature->hseqname}}, $feature);
-        }
-      }else{
-        push(@{$hit_list{$feature->hseqname}}, $feature);
+      foreach my $feature(@$features){
+
+#         print $feature->hseqname." is in this ID with paf_id ".$feature->dbID."\n"; 
+
+          $protein_count{$feature->hseqname} = 1;
+          my $temp_id = $feature->hseqname;
+          $temp_id =~ s/\.\d+//;
+          if ($self->overlaps_fiveprime_end_of_slice($feature, $self->query)) {
+              $track->update($feature, 118);
+          }
+          elsif ($kill_list{$temp_id}) {
+              $killed_count++;
+              $track->update($feature, 115);
+              logger_info("SKIPPING ".$feature->hseqname." on kill list") ;
+          }
+          elsif ($self->PAF_UPPER_SCORE_THRESHOLD and
+                  $feature->score < $self->PAF_UPPER_SCORE_THRESHOLD) {
+              $track->update($feature, 116);
+              logger_info("SKIPPING ".$feature->hseqname." as greater than upper threshold");
+          }
+          elsif ($self->PRE_GENEWISE_MASK && 
+                  $ids_to_ignore{$feature->hseqname}) {
+              $track->update($feature, 117);
+              logger_info("SKIPPING ".$feature->hseqname." on the mask list");
+          }
+          elsif ($self->use_id) { 
+              if($feature->hseqname eq $self->use_id){
+                  push(@{$hit_list{$feature->hseqname}}, $feature);
+              }
+          }
+          else {
+              push(@{$hit_list{$feature->hseqname}}, $feature);
+          }
       }
-    }
   }
   if($self->use_id && !(keys(%hit_list))){
     my $feature = $self->feature_factory->create_feature_pair($self->query->start, 
@@ -203,18 +204,27 @@ sub fetch_input{
                                                               1, 1, 1, 1, 1, 
                                                               $self->use_id);
     $hit_list{$self->use_id} = [$feature];
+    my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+      -runnabledb     => $self,
+      -evidence_names => [$self->use_id],
+      -disabled       => $self->TRACKING
+    );
   }
   logger_info("HAVE ".keys(%protein_count)." unique protein ids");
-  logger_info("HAVE ".$self->id_pool_bin." and ".$self->id_pool_index) if($self->id_pool_bin && $self->id_pool_index);
   if($self->id_pool_bin and $self->id_pool_index){
-    my @local_ids = keys %hit_list;
-    @local_ids = sort {$a cmp $b} @local_ids;
+    logger_info("HAVE ".$self->id_pool_bin." and ".$self->id_pool_index);
+    my @local_ids = sort {$a cmp $b} keys %hit_list;
     my (@restricted_list);
     for (my $i = $self->id_pool_index - 1;
          $i < @local_ids; $i += $self->id_pool_bin) {
       push @restricted_list, $local_ids[$i];
     }
     %hit_list = map { $_ => $hit_list{$_} } @restricted_list;
+      my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+        -runnabledb     => $self,
+        -evidence_names => [keys %hit_list],
+        -disabled       => $self->TRACKING
+      );
     #print "Hit name in list\n" if(exists $hit_list{'Q2PHF0.1'});
     
   }
@@ -321,6 +331,7 @@ sub post_mask{
         elsif ( $mask_reg->{'end'} >= $f->{'start'}) {
           # overlap			
           $keep_gene = 0;
+          $self->track->update($f, 117);
           last FEAT;
         }			
         else {
@@ -617,7 +628,7 @@ sub filter_genes{
   my ($self, $genes) = @_;
   if($self->filter_object){
     my ($filtered_set, $rejected_set) = 
-      $self->filter_object->filter_genes($genes);
+      $self->filter_object->filter_genes($genes, $self->track);
     $self->output($filtered_set);
     $self->rejected_set($rejected_set);
   }else{
@@ -701,6 +712,7 @@ sub write_output{
   if($sucessful_count != @{$self->output}){
     throw("Failed to write some genes");
   }
+  $self->track->write_tracks;
   if($self->WRITE_REJECTED){
     $sucessful_count = 0;
     my $biotype = $self->REJECTED_BIOTYPE;
@@ -718,7 +730,7 @@ sub write_output{
       $gene->biotype($biotype);
       
       eval{
-        $ga->store($gene);
+        $ga->store($gene) if ($self->WRITE_REJECTED);
       };
       if($@){
         warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
@@ -732,7 +744,6 @@ sub write_output{
   }
   return 1;
 }
-
 
 
 =head2 accessor methods
@@ -994,6 +1005,36 @@ sub overlaps_fiveprime_end_of_slice{
     return 1;
   }
   return 0;
+}
+
+=head2 group_genes_by_id
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
+  Arg [2]   : Arrayref of Bio::EnsEMBL::Genes
+  Function  : groups the genes on the basis of transcript supporting features
+  Returntype: hashref
+  Exceptions: throws if a transcript has no supporting features
+  Example   : 
+
+=cut
+
+
+sub group_genes_by_id{
+  my ($self, $genes) = @_;
+  my %hash;
+  foreach my $gene(@$genes){
+    my $transcripts = $gene->get_all_Transcripts;
+    my $transcript = $transcripts->[0];
+    my $sfs = $transcript->get_all_supporting_features;
+    throw(id($transcript)." appears to have no supporting features") if(!@$sfs);
+    my $id = $sfs->[0]->hseqname;
+    if(!$hash{$id}){
+      $hash{$id} = 1;
+    }else{
+      $hash{$id}++;
+    }
+  }
+  return \%hash;
 }
 
 #CONFIG METHODS
@@ -1284,42 +1325,20 @@ sub MAKE_SIMGW_INPUT_ID_PARMAMS {
   return $self->{MAKE_SIMGW_INPUT_ID_PARMAMS}
 }
 
-=head2 group_genes_by_id
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
-  Arg [2]   : Arrayref of Bio::EnsEMBL::Genes
-  Function  : groups the genes on the basis of transcript supporting features
-  Returntype: hashref
-  Exceptions: throws if a transcript has no supporting features
-  Example   : 
-
-=cut
-
-
-sub group_genes_by_id{
-  my ($self, $genes) = @_;
-  my %hash;
-  foreach my $gene(@$genes){
-    my $transcripts = $gene->get_all_Transcripts;
-    my $transcript = $transcripts->[0];
-    my $sfs = $transcript->get_all_supporting_features;
-    throw(id($transcript)." appears to have no supporting features") if(!@$sfs);
-    my $id = $sfs->[0]->hseqname;
-    if(!$hash{$id}){
-      $hash{$id} = 1;
-    }else{
-      $hash{$id}++;
-    }
-  }
-  return \%hash;
-}
-
 sub OPTIMAL_LENGTH {
   my ($self, $arg) = @_;
   if($arg){
     $self->{OPTIMAL_LENGTH} = $arg;
   }
   return $self->{OPTIMAL_LENGTH}
+}
+
+sub TRACKING {
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->{TRACKING} = $arg;
+  }
+  return $self->{TRACKING}
 }
 
 1;

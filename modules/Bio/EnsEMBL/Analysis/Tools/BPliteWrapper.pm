@@ -395,6 +395,11 @@ sub split_hsp {
       $hend   = $hsp->subject->end;
     }
 
+# I don't know if $hsp->subject->length is always set...
+# but it's not a problem if $hcoverage is undefined
+    my $hcoverage;
+    $hcoverage = abs((($hend-$hstart+1)*100)/$hsp->subject->length()) if (defined $hsp->subject->length()); # ditto
+
     my $count = 0; # counter for the bases in the alignment
     my $found = 0; # flag saying whether we have a feature pair
 
@@ -433,7 +438,8 @@ sub split_hsp {
                                                  $hsp->score, 
                                                  $hsp->percent, $hsp->P,
                                                  $hsp->positive, 
-                                                 $hsp->match);
+                                                 $hsp->match,
+                                                 $hcoverage);
           push(@tmpf,$fp);
         }
 
@@ -599,6 +605,7 @@ sub convert_to_featurepair{
     $tmphstart = $tmphend;
     $tmphend   = $tmp;
   }
+  my $coverage = abs((($tmphend-$tmphstart+1)*100)/($tmpqend-$tmpqstart+1));
   my $fp = $self->feature_factory->create_feature_pair($tmpqstart, 
                                                        $tmpqend, $qstrand,
                                                        $score, $tmphstart,
@@ -608,7 +615,8 @@ sub convert_to_featurepair{
                                                        undef, 
                                                        $self->analysis, 
                                                        $positive, 
-                                                       $matches);
+                                                       $matches,
+                                                       $coverage);
 
   return $fp;
 

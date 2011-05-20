@@ -1,6 +1,6 @@
 # Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
 #
-# Copyright (c) 2004 Ensembl
+# Copyright (c) 2011 Ensembl
 #
 
 =head1 NAME
@@ -79,6 +79,11 @@ package Bio::EnsEMBL::Analysis::RunnableDB;
 use strict;
 use warnings;
 
+use Data::Dumper;
+use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack;
+use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
+use Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
@@ -112,7 +117,7 @@ sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;  
 
-  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION'], @args);
+  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception, $is_tracking) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION', 'IS_TRACKING'], @args);
 
   if(!$db || !$analysis || !$input_id){
     throw("Can't create a RunnableDB without a dbadaptor ".
@@ -120,6 +125,7 @@ sub new{
           " or an input_id ".$input_id);
   }
  
+ print 'RunnableDB ', ref $db, "\n";
 
   #Clone analysis to prevent analysis reference problem when
   #using separate pipeline and output DBs
@@ -134,6 +140,8 @@ sub new{
   $self->input_id($input_id); 
   $self->ignore_config_file($ignore_config_file) ;
   $self->no_config_exception($no_config_exception) ;
+  $self->is_tracking($is_tracking) ;
+
 
   verbose($CORE_VERBOSITY);
   logger_verbosity($LOGGER_VERBOSITY);
@@ -474,10 +482,10 @@ sub write_output{
       throw("RunnableDB:store failed, failed to write ".$feature." to ".
             "the database ".$adaptor->dbc->dbname." $@");
     }
+    $self->track_evidence($feature);
   }
   return 1;
 }
-
 
 
 =head2 fetch_input
@@ -526,6 +534,15 @@ sub read_and_check_config{
   parse_config($self, $var_hash, $self->analysis->logic_name,$self->no_config_exception);
 }
 
+
+sub rejected_set{
+  my ($self, $arg) = @_;
+  $self->{rejected_set} = [] unless(exists $self->{rejected_set});
+  if($arg){
+    $self->{rejected_set} = $arg;
+  }
+  return $self->{rejected_set};
+}
 
 
 sub read_and_check_config_mini{
@@ -594,6 +611,65 @@ sub no_config_exception{
   return $self->{'no_config_exception'};
 }
 
+=head2 is_tracking 
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : string  ( 1 or 0 ) 
+  Function  : 
+              
+  Returntype: 1 or 0 
+
+=cut
+
+sub is_tracking{
+  my $self = shift;
+  $self->{'is_tracking'} = shift if(@_);
+  return $self->{'is_tracking'};
+}
+
+
+
+###################
+# TRACKING SYSTEM #
+###################
+
+=head2 evidences
+
+ Example    : $self->evidences;
+ Description: Get the hashref of all evidences for the current input id
+ Returntype : hashref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object
+
+
+=cut
+
+sub track {
+    my $self = shift;
+    $self->{'track'} = shift if (@_);
+
+    return $self->{'track'};
+}
+
+
+=head2 evidencetracking_db
+
+ Example    : $self->evidencetracking_db;
+ Description: Get the DBAdaptor for the evidence tracking system
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor object
+
+
+=cut
+
+sub evidencetracking_db {
+    my $self = shift;
+
+    if ( !exists $self->{'_evidencetracking_db'}) {
+        my $evidencetracking_db = new Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor (
+            -dbconn => $self->db->dbc
+            );
+        $self->{'_evidencetracking_db'} = $evidencetracking_db;
+    }
+    return $self->{'_evidencetracking_db'};
+}
 
 
 1;
