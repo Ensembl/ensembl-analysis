@@ -1,14 +1,22 @@
-##
-#
-# Cared for by Ensembl  <ensembl-dev@ebi.ac.uk>
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
+=head1 LICENSE
 
-=pod 
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
@@ -39,9 +47,9 @@ The limits of these variables are defined in the constructure
 The filter method then return 2 sets of genes, the first is the accepted set
 the second is the rejected set
 
-=head1 CONTACT
+=head1 METHODS
 
-ensembl-dev@ebi.ac.uk
+=cut
 
 =head1 APPENDIX
 
@@ -56,6 +64,8 @@ package Bio::EnsEMBL::Analysis::Tools::Filter::BlastMiniGenewise;
 
 use strict;
 use warnings;
+
+use Data::Dumper;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -320,10 +330,10 @@ sub split_genes{
 
 
 sub filter_genes{
-  my ($self, $genes) = @_;
+  my ($self, $genes, $track) = @_;
 
   my @accepted;
- GENE:foreach my $gene(@$genes, @{$self->split_genes}){
+ GENE:foreach my $gene (@$genes, @{$self->split_genes}){
     my @transcripts = @{$gene->get_all_Transcripts};
     if(@transcripts > 1){
       my $cloned_gene = clone_gene($gene);
@@ -335,7 +345,7 @@ sub filter_genes{
       $self->split_genes($gene);
       next GENE;
     }
-    my $is_valid = $self->validate_Transcript($transcripts[0]);
+    my $is_valid = $self->validate_Transcript($transcripts[0], $track);
     my $hit_name = ${$transcripts[0]->get_all_supporting_features}[0]->hseqname;
     if($is_valid){
       logger_info("Have accepted ".id($gene)." $hit_name ".seq_region_coord_string($gene));
@@ -350,9 +360,11 @@ sub filter_genes{
       my $evidence = $self->get_Transcript_supporting_evidence($transcripts[0]);
       if(evidence_coverage_greater_than_minimum($transcripts[0], $evidence, ($self->min_split_coverage -1))){
         $self->accepted_genes($accepted);
+        $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 4);
         next ACCEPTED;
       }
       if(@{$transcripts[0]->get_all_Exons} == 1){
+    $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 11);
         $self->accepted_genes($accepted);
         next ACCEPTED;
       }  
@@ -363,9 +375,11 @@ sub filter_genes{
       foreach my $gene(@$genes){
         my $attrib = $self->get_Attribute("split_tscript");
         foreach my $transcript(@{$gene->get_all_Transcripts}){
+    $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 12);
           $transcript->add_Attributes($attrib);
         }
         $self->accepted_genes($gene);
+        $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 5);
       }
     }
   return $self->accepted_genes, $self->rejected_genes;
@@ -386,7 +400,7 @@ sub filter_genes{
 
 
 sub validate_Transcript{
-  my ($self, $transcript) = @_;
+  my ($self, $transcript, $track) = @_;
   my $hit_name = ${$transcript->get_all_supporting_features}[0]->hseqname;
   #print "VALIDATING ".Transcript_info($transcript)."\n";
   my $slice = $self->slice;
@@ -395,27 +409,23 @@ sub validate_Transcript{
   #basic transcript validation
   unless(are_strands_consistent($transcript)){
     $is_valid++;
-    my $attrib = $self->get_Attribute("incons_strands");
-    $transcript->add_Attributes($attrib);
+    $track->update(@{$transcript->get_all_supporting_features}[0], 106);
   }
   #print "IS VALID is ".$is_valid." after strand consistency\n";
   unless(are_phases_consistent($transcript)){
     $is_valid++;
-    my $attrib = $self->get_Attribute("incons_phases");
-    $transcript->add_Attributes($attrib);
+    $track->update(@{$transcript->get_all_supporting_features}[0], 107);
   }
   #print "IS VALID is ".$is_valid." phase consistency\n";
   unless(is_not_folded($transcript)){
     $is_valid++;
-    my $attrib = $self->get_Attribute("is_folded");
-    $transcript->add_Attributes($attrib);
+    $track->update(@{$transcript->get_all_supporting_features}[0], 108);
   }
   #print "IS VALID is ".$is_valid." folded \n";
   unless(has_no_unwanted_evidence($transcript, 
                                   $self->unwanted_evidence)){
     $is_valid++;
-    my $attrib = $self->get_Attribute("unwanted_evidence");
-    $transcript->add_Attributes($attrib);
+    $track->update(@{$transcript->get_all_supporting_features}[0], 109);
   }
   #print "IS VALID is ".$is_valid." after unwanted evidence\n";
   #$is_valid++ unless(all_exons_are_valid($transcript, $self->max_exon_length));
@@ -424,9 +434,8 @@ sub validate_Transcript{
       next EXON;
     }else{
       $is_valid++;
+    $track->update(@{$transcript->get_all_supporting_features}[0], 110);
       last EXON;
-      my $attrib = $self->get_Attribute("exon_too_long");
-      $transcript->add_Attributes($attrib);
     }
   }
   #print "IS VALID is ".$is_valid." after exon validation\n";
@@ -435,14 +444,12 @@ sub validate_Transcript{
   if(contains_internal_stops($transcript)){
     warning(Transcript_info($transcript)." $hit_name contains internal stop codons");
     $is_valid++;
-    my $attrib = $self->get_Attribute("contains_stops");
-    $transcript->add_Attributes($attrib);          
+    $track->update(@{$transcript->get_all_supporting_features}[0], 100);
   }
   #print "IS VALID is ".$is_valid." after contains internal stops\n";
   unless(validate_Translation_coords($transcript)){
     $is_valid++;
-    my $attrib = $self->get_Attribute("borked_coords");
-    $transcript->add_Attributes($attrib);          
+    $track->update(@{$transcript->get_all_supporting_features}[0], 111);
   }
   #print "IS VALID is ".$is_valid." after translation coord validation\n";
   #intron checks
@@ -454,8 +461,7 @@ sub validate_Transcript{
   unless(low_complexity_less_than_maximum($transcript, 
                                           $self->max_low_complexity)){
     $is_valid++;
-    my $attrib = $self->get_Attribute("low_complex");
-    $transcript->add_Attributes($attrib)
+    $track->update(@{$transcript->get_all_supporting_features}[0], 104);
   }
   #print "IS VALID is ".$is_valid." low complexity check\n";
   #evidence coverage
@@ -470,22 +476,22 @@ sub validate_Transcript{
     unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
                                                   ($self->min_coverage - 1))){
       $is_valid++;
-      my $attrib = $self->get_Attribute("evi_coverage");
-      $transcript->add_Attributes($attrib);          
+    $track->update(@{$transcript->get_all_supporting_features}[0], 105);
     }
   }else{
     unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
                                                   ($self->single_exon_min_coverage
                                                    -1))){
       $is_valid++;
-      my $attrib = $self->get_Attribute("evi_coverage");
-      $transcript->add_Attributes($attrib);          
+    $track->update(@{$transcript->get_all_supporting_features}[0], 105);
     }
   }
   #print "IS VALID is ".$is_valid." after evidence coverage check\n";
-  warning(Transcript_info($transcript)." $hit_name failed ".$is_valid." tests out of 9 ".
-          "returning 0") if($is_valid >= 1);
-  return 0 if($is_valid >= 1);
+  if($is_valid >= 1) {
+      warning(Transcript_info($transcript)." failed ".$is_valid." tests out of 9 ".
+          "returning 0");
+      return 0;
+  }
   return 1;
 }
 
@@ -521,11 +527,12 @@ sub get_Attribute{
   if(!$self->{'attribute_hash'}){
     $self->{'attribute_hash'} = {};
   }
-  my $attrib = $self->{'attribute_hash'}->{$code};
-  if(!$attrib){
-    $attrib = $self->create_Attribute($code, $description);
+#  my $attrib = $self->{'attribute_hash'}->{$code};
+#  if(!$attrib){
+#    $attrib = $self->create_Attribute($code, $description);
+    my $attrib = $self->create_Attribute($code, $description);
     $self->{'attribute_hash'}->{$code} = $attrib;
-  }
+#  }
   return $attrib;
 }
 
