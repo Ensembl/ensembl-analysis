@@ -1,18 +1,26 @@
-##
-#
-# Cared for by Ensembl  <ensembl-dev@ebi.ac.uk>
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
+=head1 LICENSE
 
-=pod 
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
+Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise - 
 
 =head1 SYNOPSIS
 
@@ -63,9 +71,9 @@ e.g 5:2
 
 This would mean the 2nd of each group of 5 ids should be taken
 
-=head1 CONTACT
+=head1 METHODS
 
-ensembl-dev@ebi.ac.uk
+=cut
 
 =head1 APPENDIX
 
@@ -146,14 +154,15 @@ sub fetch_input {
   my %protein_count;
   my $killed_count  = 0;
   my $feature_count = 0;
+  my $track;
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
 #      print "LOGIC NAME : ",$logic_name,"\n"; 
       my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
       my %unique = map { $_->hseqname => 1 } @$features;
-      my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+      $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
         -runnabledb     => $self,
         -evidence_names => [keys %unique],
-        -disabled       => $self->TRACKING
+        -tracking       => $self->TRACKING
       );
       logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
       $feature_count += scalar(@$features);
@@ -204,10 +213,10 @@ sub fetch_input {
                                                               1, 1, 1, 1, 1, 
                                                               $self->use_id);
     $hit_list{$self->use_id} = [$feature];
-    my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+    $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
       -runnabledb     => $self,
       -evidence_names => [$self->use_id],
-      -disabled       => $self->TRACKING
+      -tracking       => $self->TRACKING
     );
   }
   logger_info("HAVE ".keys(%protein_count)." unique protein ids");
@@ -220,10 +229,10 @@ sub fetch_input {
       push @restricted_list, $local_ids[$i];
     }
     %hit_list = map { $_ => $hit_list{$_} } @restricted_list;
-      my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+      $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
         -runnabledb     => $self,
         -evidence_names => [keys %hit_list],
-        -disabled       => $self->TRACKING
+        -tracking       => $self->TRACKING
       );
     #print "Hit name in list\n" if(exists $hit_list{'Q2PHF0.1'});
     
@@ -238,6 +247,7 @@ sub fetch_input {
             "still have NO IDS TO RUN with");
     return;
   } 
+  $self->track($track);
   $self->create_bmg_runnables(\%hit_list);
   return 1;
 }
@@ -682,6 +692,7 @@ sub write_output{
   my ($self) = @_;
   my $ga = $self->get_adaptor;
   my $sucessful_count = 0;
+  print STDERR Dumper($self);
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
  
   foreach my $gene(@{$self->output}){
@@ -712,6 +723,7 @@ sub write_output{
   if($sucessful_count != @{$self->output}){
     throw("Failed to write some genes");
   }
+  print STDERR Dumper($self);
   $self->track->write_tracks;
   if($self->WRITE_REJECTED){
     $sucessful_count = 0;

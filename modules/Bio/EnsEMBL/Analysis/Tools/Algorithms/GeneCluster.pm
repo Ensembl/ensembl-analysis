@@ -1,6 +1,32 @@
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 AUTHORS
+
+  eae@sanger.ac.uk
+
+=cut
+
 =head1 NAME
 
-GeneCluster
+Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster - 
 
 =head1 SYNOPSIS
 
@@ -14,9 +40,15 @@ Each GeneCluster object holds the IDs of the genes clustered and the beginning a
 of each one (taken from the start and end coordinates of the first and last exon in the correspondig
 get_all_Exons array)
 
-=head1 CONTACT
+=head1 METHODS
 
-eae@sanger.ac.uk
+=cut
+
+=head1 NAME
+
+GeneCluster
+
+
 
 =cut
 

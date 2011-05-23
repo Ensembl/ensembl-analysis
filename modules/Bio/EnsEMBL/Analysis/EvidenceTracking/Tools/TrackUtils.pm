@@ -1,3 +1,37 @@
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils - 
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+
+=head1 METHODS
+
+=cut
+
 package Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils;
 
 use strict;
@@ -139,14 +173,17 @@ sub get_date {
 sub setup_pipeline {
     my ($db, $default_runnabledb_path, $queue_config, $ra_analyses_to_run) = @_;
 
+    print STDERR "In setup\n";
     my $track_db = Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor->new(
             -dbconn   => $db->dbc
             );
 
+    print STDERR "Adaptor created\n";
     my $analysisrun_adaptor = $track_db->get_AnalysisRunAdaptor;
     my $runnable_path = $default_runnabledb_path;
     $runnable_path =~ s'/'::'g;
     foreach my $analysis (@{$ra_analyses_to_run}) {
+        print STDERR "foreach...\n";
         my $module_name = $analysis->module;
         my $logic_name = $analysis->logic_name;
         if (! $module_name) {
@@ -168,30 +205,19 @@ sub setup_pipeline {
                 -analysis => $analysis,
                 -input_id => 'input_id'
                 );
+        print STDERR "get databases...\n";
         my @a_input_dbs = qw(PAF_SOURCE_DB GENE_SOURCE_DB);
         my $ra_input_db_id = get_databases($module, \@a_input_dbs, $track_db);
         my @a_output_dbs = qw(OUTPUT_DB TARGET_DB);
         my $ra_output_db_id = get_databases($module, \@a_output_dbs, $track_db);
+        print STDERR "Create AnalysisRun\n";
         my $current_analysis = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
                 -analysis_id => $analysis->dbID,
                 -input_db_id => join(':', @{$ra_input_db_id}),
                 -output_db_id => join(':', @{$ra_output_db_id})
                 );
+        print STDERR Dumper($current_analysis);
         $analysisrun_adaptor->store($current_analysis);
-#        my $output = ' Analysis '. $logic_name. ' has been set'. "\n".
-#            '  Run: '. $current_analysis->dbID. "\n".
-#            '  Input database(s): ';
-#        foreach my $data (@{$ra_input_db_id}) {
-#            my $db = $database_adaptor->fetch_by_dbID($data);
-#            $output .= $db->db_name. ' on '. $db->instance. "\n  ";
-#        }
-#        $output .= 'Output database: ';
-#        foreach my $data (@{$ra_output_db_id}) {
-#            my $db = $database_adaptor->fetch_by_dbID($data);
-#            $output .= $db->db_name. ' on '. $db->instance. "\n  ";
-#        }
-#        $output =~ s/  $//m;
-#        print STDOUT $output;
     }
 }
 

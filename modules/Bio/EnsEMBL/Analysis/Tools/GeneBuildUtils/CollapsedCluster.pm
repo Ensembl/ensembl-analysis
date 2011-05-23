@@ -1,7 +1,26 @@
+=head1 LICENSE
 
-=pod 
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
 
-=head1 NAME Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster - 
 
 =head1 SYNOPSIS
 
@@ -38,11 +57,10 @@ Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended objects into a non re
 set. It stores supporting features and provides a number of convenience methods for
 assessing the cluster.
 
-=head1 CONTACT
-
-Post questions to the EnsEMBL developer list: <ensembl-dev@ebi.ac.uk>
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster;
 

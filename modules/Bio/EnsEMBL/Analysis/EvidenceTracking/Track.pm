@@ -1,3 +1,37 @@
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::EvidenceTracking::Track - 
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+
+=head1 METHODS
+
+=cut
+
 package Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 
 use vars qw(@ISA);
@@ -34,10 +68,11 @@ sub new {
   my ($runnabledb, $tracking, $ra_evidence_names) =
           rearrange([qw(RUNNABLEDB TRACKING EVIDENCE_NAMES)],@args);
 
-  if ($tracking) {
-      $self->tracking(1);
+  if (!$tracking) {
+      $self->tracking(0);
       return $self;
   }
+  $self->tracking(1);
 
   return undef unless $self->tracking;
   $self->db($runnabledb->db);
@@ -173,12 +208,12 @@ sub write_tracks {
     my $self = shift;
 
     return undef unless $self->tracking;
-    my $evidence_adaptor     = $self->db->get_EvidenceAdaptor;
-    my $trackevidence_adaptor = $self->db->get_EvidenceTrackAdaptor;
     if (! $self->evidences) {
         warning("No tracking data!");
         return;
     }
+    my $evidence_adaptor     = $self->db->get_EvidenceAdaptor;
+    my $trackevidence_adaptor = $self->db->get_EvidenceTrackAdaptor;
     foreach my $evidence (values %{$self->evidences}) {
         $evidence_adaptor->store($evidence) unless ($evidence->is_stored($self->db));
         $evidence->get_tracks->[0]->evidence_id($evidence->dbID);
@@ -285,9 +320,8 @@ sub has_evidences {
 
 sub tracking {
     my $self = shift;
-    my $tracking = shift;
 
-    $self->{'tracking'} = $tracking || 0;
+    $self->{'tracking'} = shift if (@_);
     return exists $self->{'tracking'};
 }
 

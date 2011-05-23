@@ -1,6 +1,40 @@
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Tools::ReadBaseDataFromGff - 
+
+=head1 SYNOPSIS
 
 
-package ReadBaseDataFromGff; 
+=head1 DESCRIPTION
+
+
+=head1 METHODS
+
+=cut
+
+
+
+package Bio::EnsEMBL::Analysis::Tools::ReadBaseDataFromGff; 
 
 use strict;
 use Bio::EnsEMBL::Gene;
@@ -9,8 +43,6 @@ use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Utils::Exception qw( throw warning ); 
 use Bio::EnsEMBL::Utils::Argument qw( rearrange ) ;
-
-use Getopt::Long;
 
 
 

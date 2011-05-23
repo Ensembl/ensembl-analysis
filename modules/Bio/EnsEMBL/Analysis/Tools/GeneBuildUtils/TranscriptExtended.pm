@@ -1,16 +1,32 @@
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable
-#
-# Copyright (c) 2006 Ensembl
-#
-# written by Jan-Hinnerk Vogel 
-#
-#
+=head1 LICENSE
 
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 AUTHORS
+
+Jan-Hinnerk Vogel
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::TranscriptExtended; 
+Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended - 
 
 =head1 SYNOPSIS 
 
@@ -34,12 +50,9 @@ This module extends a Bio::EnsEMBL::Transcript with smoe other
 methods. You have to re-bless your Bio::EnsEMBL::Transcript objects 
 to use it. 
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
-
 
 
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended; 

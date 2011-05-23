@@ -1,21 +1,34 @@
-#
-# BioPerl module for PairAlign object
-#
-# Cared for by Ewan Birney <birney@sanger.ac.uk>
-#
-# Copyright Ewan Birney
-#
-# You may distribute this module under the same terms as perl itself
+=head1 LICENSE
 
-# POD documentation - main docs before the code
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 AUTHORS
+
+Ewan Birney <birney@sanger.ac.uk>
 
 =head1 NAME
 
-PairAlign - Dna pairwise alignment module
+Bio::EnsEMBL::Analysis::Tools::PairAlign - 
 
 =head1 SYNOPSIS
 
-Give standard usage here
+
 
 =head1 DESCRIPTION
 
@@ -44,9 +57,9 @@ To convert between coordinates :
     my $cdna_coord = $pair->genomic2cDNA($gen_coord);
     my $gen_coord  = $pair->cDNA2genomic($cdna_coord);
 
-=head1 CONTACT
+=head1 METHODS
 
-Describe contact details here
+=cut
 
 =head1 APPENDIX
 

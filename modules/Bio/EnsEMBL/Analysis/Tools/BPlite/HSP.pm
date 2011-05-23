@@ -1,12 +1,43 @@
-###############################################################################
-# Bio::EnsEMBL::Analysis::Tools::BPlite::HSP
-###############################################################################
-# HSP = High Scoring Pair (to all non-experts as I am)
-#
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
 # The original BPlite.pm module has been written by Ian Korf !
 # see http://sapiens.wustl.edu/~ikorf
 #
 # You may distribute this module under the same terms as perl itself
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Tools::BPlite::HSP - 
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+  HSP = High Scoring Pair (to all non-experts as I am)
+
+=head1 METHODS
+
+=cut
+
 
 package Bio::EnsEMBL::Analysis::Tools::BPlite::HSP;
 

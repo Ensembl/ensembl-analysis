@@ -1,18 +1,43 @@
-# $Id: BPlite.pm,v 1.5 2005-12-16 11:52:32 ba1 Exp $
-##############################################################################
-# Bioperl module Bio::Tools::BPlite
-##############################################################################
-#
-# The original BPlite.pm module has been written by Ian Korf !
-# see http://sapiens.wustl.edu/~ikorf
-#
-# You may distribute this module under the same terms as perl itself
+=head1 LICENSE
 
-# this is a port of BPlite from bioperl 0.7 into ensembl
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Copyright (C) 1999 Ian Korf. All Rights Reserved.
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 AUTHORS
+
+Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
+Lorenz Pollak (lorenz@ist.org, bioperl port)
+
+=head1 ACKNOWLEDGEMENTS
+
+This software was developed at the Genome Sequencing Center at Washington
+Univeristy, St. Louis, MO.
+
+=head1 DISCLAIMER
+
+This software is provided "as is" without warranty of any kind.
+
+=cut
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Tools::BPlite - Lightweight BLAST parser
+Bio::EnsEMBL::Analysis::Tools::BPlite
 
 =head1 SYNOPSIS
 
@@ -58,6 +83,12 @@ Bio::EnsEMBL::Analysis::Tools::BPlite - Lightweight BLAST parser
 
 =head1 DESCRIPTION
 
+# The original BPlite.pm module has been written by Ian Korf !
+# see http://sapiens.wustl.edu/~ikorf
+#
+# You may distribute this module under the same terms as perl itself
+
+# this is a port of BPlite from bioperl 0.7 into ensembl
 BPlite is a package for parsing BLAST reports. The BLAST programs are a family
 of widely used algorithms for sequence database searches. The reports are
 non-trivial to parse, and there are differences in the formats of the various
@@ -156,27 +187,11 @@ The output of such code might look like this:
      265..290 22.1
 
 
-=head1 AUTHORS
-
-Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
-Lorenz Pollak (lorenz@ist.org, bioperl port)
-
-=head1 ACKNOWLEDGEMENTS
-
-This software was developed at the Genome Sequencing Center at Washington
-Univeristy, St. Louis, MO.
-
-=head1 COPYRIGHT
-
-Copyright (C) 1999 Ian Korf. All Rights Reserved.
-
-=head1 DISCLAIMER
-
-This software is provided "as is" without warranty of any kind.
+=head1 METHODS
 
 =cut
 
-#'
+
 package Bio::EnsEMBL::Analysis::Tools::BPlite;
 
 use strict;

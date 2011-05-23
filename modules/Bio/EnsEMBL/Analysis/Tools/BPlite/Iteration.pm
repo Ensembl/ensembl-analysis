@@ -1,15 +1,29 @@
-# $Id: Iteration.pm,v 1.2 2005-12-19 09:51:30 ba1 Exp $
-# Bioperl module Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration
-#	based closely on the Bio::EnsEMBL::Analysis::Tools::BPlite modules
-#	Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
-#	Lorenz Pollak (lorenz@ist.org, bioperl port)
-#
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+BPlite.pm is copyright (C) 1999 by Ian Korf. 
 # Copyright Peter Schattner
-#
 # You may distribute this module under the same terms as perl itself
-# _history
-# October 20, 2000
-# POD documentation - main docs before the code
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 AUTHORS
+
+  Peter Schattner - schattner@alum.mit.edu
 
 =head1 NAME
 
@@ -41,19 +55,15 @@ of a PSIBLAST report
 See the documentation for BPpsilite.pm for a description of the
 Iteration.pm module.
 
-=head1 AUTHORS - Peter Schattner
+=head1 METHODS
 
-Email: schattner@alum.mit.edu
+=cut
 
 =head1 ACKNOWLEDGEMENTS
 
 Based on work of:
 Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
 Lorenz Pollak (lorenz@ist.org, bioperl port)
-
-=head1 COPYRIGHT
-
-BPlite.pm is copyright (C) 1999 by Ian Korf. 
 
 =head1 DISCLAIMER
 

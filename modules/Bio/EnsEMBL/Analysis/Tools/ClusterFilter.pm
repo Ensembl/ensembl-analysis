@@ -1,7 +1,22 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter
-#
-# Copyright (c) 2004 Ensembl
-#
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
@@ -23,6 +38,10 @@
 This is the standard module used for filtering WGA2GenesDirect transcripts. It takes all the transcript alignments riginated from one gene
 and cluster them together by location, it then selects the best cluster based in coverage and percent id of the transcripts within each cluster.
 It was originally used to avoid transcript from one gene to be allocated in different chromosomes in the projection process (which would have no sense).
+
+=cut
+
+=head1 METHODS
 
 =cut
 

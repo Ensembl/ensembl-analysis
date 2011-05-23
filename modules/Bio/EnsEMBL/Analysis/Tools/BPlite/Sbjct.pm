@@ -1,12 +1,40 @@
-# $Id: Sbjct.pm,v 1.4 2011-05-05 11:11:01 mg13 Exp $
-###############################################################################
-# Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct
-###############################################################################
-#
+=head1 LICENSE
+
+  Copyright (c) 1999-2011 The European Bioinformatics Institute and
 # The original BPlite.pm module has been written by Ian Korf !
 # see http://sapiens.wustl.edu/~ikorf
-#
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
 # You may distribute this module under the same terms as perl itself
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct - 
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+
+=head1 METHODS
+
+=cut
+
 
 package Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct;
 
