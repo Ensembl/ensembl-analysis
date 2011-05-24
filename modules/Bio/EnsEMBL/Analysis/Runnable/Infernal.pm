@@ -520,7 +520,7 @@ sub make_gene{
      -primary_id => $domain,
      -display_id => $name,
      -dbname => 'RFAM',
-     -release => 1,
+     -release => 'NULL',
      -version => 0,
      -description => $description." [Source: RFAM;Acc:$domain]",
     );
