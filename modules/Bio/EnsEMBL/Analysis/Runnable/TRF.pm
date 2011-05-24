@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::TRF -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::TRF
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::TRF
-
-=head1 SYNOPSIS
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TRF->
   new(
       -query => $slice,
@@ -57,10 +38,7 @@ TRF expects to run the program trf
 and produce RepeatFeatures which can be stored in the repeat_feature
 and repeat_consensus tables in the core database
 
-
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

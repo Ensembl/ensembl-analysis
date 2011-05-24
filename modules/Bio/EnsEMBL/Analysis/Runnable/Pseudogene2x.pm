@@ -20,7 +20,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Pseudogene2x - 
+Bio::EnsEMBL::Analysis::Runnable::Pseudogene2x - Adaptation of Pseudogene calling code for 2x genomes
 
 =head1 SYNOPSIS
 
@@ -32,17 +32,6 @@ Bio::EnsEMBL::Analysis::Runnable::Pseudogene2x -
 
 =cut
 
-#
-# You may distribute this module under the same terms as perl itself
-#
-
-=pod
-
-=head1 NAME
-
-Adaptation of Pseudogene calling code for 2x genomes
-
-=cut
 
 package Bio::EnsEMBL::Analysis::Runnable::Pseudogene2x;
 

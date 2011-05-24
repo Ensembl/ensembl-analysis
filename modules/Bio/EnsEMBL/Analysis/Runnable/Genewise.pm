@@ -19,22 +19,6 @@
 =cut
 
 =head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Genewise - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-=pod
-
-=head1 NAME
   
 Bio::EnsEMBL::Pipeline::Runnable::GeneWise - aligns protein hits to genomic sequence
 
@@ -53,9 +37,9 @@ Bio::EnsEMBL::Pipeline::Runnable::GeneWise - aligns protein hits to genomic sequ
 =head1 DESCRIPTION
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Describe contact details here
+=cut
 
 =head1 APPENDIX
 

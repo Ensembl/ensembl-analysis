@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Dust -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Dust
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Dust
-
-=head1 SYNOPSIS
-
   my $dust = Bio::EnsEMBL::Analysis::Runnable::Dust->
   new(
       -query => $slice,
@@ -56,9 +37,7 @@ Bio::EnsEMBL::Analysis::Runnable::Dust
 Dust is a wrapper for the tcdust program which runs the dust algorithm
 to identify and mask simple repeats
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

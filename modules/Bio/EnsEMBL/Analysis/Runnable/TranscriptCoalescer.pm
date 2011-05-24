@@ -18,33 +18,13 @@
 
 =cut
 
+=head1 AUTHORS
+
+Jan-Hinnerk Vogel
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer
-#
-# Copyright (c) 2006 Ensembl
-#
-# written by Jan-Hinnerk Vogel 
-#
-#
-#
-#
-=head1 NAME 
-
-Bio::EnsEMBL::Analysis::Runnable::TranscriptCoealescer
 
 =head1 SYNOPSIS
 
@@ -61,12 +41,9 @@ my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer->new(
 TranscriptCoalescer combines gene-structures from different evidence-sets 
 to longer predictions and adds translations to these predictions. 
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
-
 
 
 package Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;

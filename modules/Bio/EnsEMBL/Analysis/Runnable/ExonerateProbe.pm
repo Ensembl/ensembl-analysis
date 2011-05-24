@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe
-
-=head1 SYNOPSIS
-
   my $runnable = 
     Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe->new(
      -query_seqs     => \@q_seqs,
@@ -66,11 +49,10 @@ to load other arrays e.g. Nimblegen or Sanger.
 This runnable just creates fake Probes in order to create reasonable-looking
 affy features???????
 
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe;
 

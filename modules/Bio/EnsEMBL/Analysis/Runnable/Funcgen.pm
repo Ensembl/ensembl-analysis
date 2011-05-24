@@ -18,6 +18,10 @@
 
 =cut
 
+=head1 AUTHOR
+
+Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::Funcgen - 
@@ -27,40 +31,12 @@ Bio::EnsEMBL::Analysis::Runnable::Funcgen -
 
 =head1 DESCRIPTION
 
+This module is the base class for Fungen Runnables.
 
 =head1 METHODS
 
 =cut
 
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Funcgen
-#
-# Copyright (c) 2007 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Fungen
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-
-This module is the base class for Fungen Runnables.
-
-=head1 LICENCE
-
-This code is distributed under an Apache style licence. Please see
-http://www.ensembl.org/info/about/code_licence.html for details.
-
-=head1 AUTHOR
-
-Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org
-
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
-
-=cut
 
 package Bio::EnsEMBL::Analysis::Runnable::Funcgen;
 

@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::BaseExonerate -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
-
-=head1 SYNOPSIS
-
   Do NOT instantiate this class directly: must be instantiated
   from a subclass (see ExonerateTranscript, for instance).
 
@@ -57,9 +40,9 @@ It does NOT provide the parser to convert the exonerate output
 into Transcripts or AffyFeatures etc. That is the job of the
 subclasses, which MUST implement the parse_results method.
 
-=head1 CONTACT
+=head1 METHODS
 
-ensembl-dev@ebi.ac.uk
+=cut
 
 =head1 APPENDIX
 

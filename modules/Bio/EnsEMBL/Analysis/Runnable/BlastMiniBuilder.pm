@@ -18,6 +18,10 @@
 
 =cut
 
+=head1 AUTHORS
+
+Dan Andrews <dta@sanger.ac.uk>
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder - 
@@ -31,25 +35,6 @@ Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder -
 =head1 METHODS
 
 =cut
-
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder;
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-
-=head1 CONTACT
-
-Dan Andrews <dta@sanger.ac.uk>
 
 =head1 APPENDIX
 

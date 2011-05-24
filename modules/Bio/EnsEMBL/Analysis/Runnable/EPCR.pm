@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::EPCR -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::EPCR
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::EPCR
-
-=head1 SYNOPSIS
-
 my $runnable = Bio::EnsEMBL::Analysis::Runnable::EPCR->new(
       -query => $slice,
       -program => $self->analysis->dbfile,
@@ -56,11 +37,10 @@ my $runnable = Bio::EnsEMBL::Analysis::Runnable::EPCR->new(
 
 Wrapper to run EPCR and parse the results into marker features
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::EPCR;
 

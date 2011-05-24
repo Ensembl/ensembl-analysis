@@ -18,33 +18,13 @@
 
 =cut
 
+=head1 AUTHORS
+
+Abel Ureta-Vidal <abel@ebi.ac.uk>
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::Lastz - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Cared for by Abel Ureta-Vidal <abel@ebi.ac.uk>
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Lastz
 
 =head1 SYNOPSIS
 
@@ -81,14 +61,10 @@ Bio::EnsEMBL::Analysis::Runnable::Parser::Lastz and stored as Bio::EnsEMBL::DnaD
 
 Other options can be passed to the lastz program using the -options method
 
-=head1 CONTACT
-
-Describe contact details here
-
-=head1 APPENDIX
-
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::Lastz;
 

@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Lagan -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Mavid
-#
-# Copyright (c) 2005 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Mlagan
-
-=head1 SYNOPSIS
-
   my $runnable = new Bio::EnsEMBL::Analysis::Runnable::Lagan
      (-workdir => $workdir,
       -fasta_files => $fasta_files,
@@ -55,12 +36,10 @@ Bio::EnsEMBL::Analysis::Runnable::Mlagan
 Lagan expects to run the program lagan.pl, a global pairwise aligner,
 using a couple of fasta files. The output (multiple alignment) is parsed
 and returned as a Bio::EnsEMBL::Compara::GenomicAlignBlock object.
-
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 
 package Bio::EnsEMBL::Analysis::Runnable::Lagan;

@@ -24,27 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::BestTargetted -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Cared for by Ensembl
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-=head1 NAME 
-
-Bio::EnsEMBL::Analysis::Runnable::BestTargetted
-
-=head1 SYNOPSIS
-
 my $runnable = Bio::EnsEMBL::Analysis::Runnable::BestTargetted->new(
       -query => $slice,
      );
@@ -87,10 +66,7 @@ NOTES
   original protein. (Often a bad alignment has been produced.) Flag if the 
   exonerate results indicate that we may have a dodgy alignmennt.
 
-
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

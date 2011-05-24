@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
-
-=head1 SYNOPSIS
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
 								 -query_seqs     => \@q_seqs,
                                                              [or -query_file     => $q_file]   
@@ -62,9 +45,9 @@ of a 'transcribed' sequence (EST, cDNA or protein). The results is a set of
 Bio::EnsEMBL::Transcript objects
 
 
-=head1 CONTACT
+=head1 METHODS
 
-ensembl-dev@ebi.ac.uk
+=cut
 
 =head1 APPENDIX
 

@@ -18,28 +18,13 @@
 
 =cut
 
+=head1 AUTHORS
+
+Benedict Paten bjp@ebi.ac.uk
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::Ortheus - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Ortheus
-#
-# Copyright (c) 2007 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Ortheus
 
 =head1 SYNOPSIS
 
@@ -60,12 +45,7 @@ ancestral sequences. Ortheus is based upon a probabilistic transducer model and 
 the evolution of both substitutions, insertions and deletions.
 
 
-=head1 CONTACT
-
-Ortheus was developed by Benedict Paten in the group of Ewan Birney at the EBI. You contact
-him at bjp (AT) ebi (DOT) ac (DOT) uk.
-
-Questions regarding this module should be addressed to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

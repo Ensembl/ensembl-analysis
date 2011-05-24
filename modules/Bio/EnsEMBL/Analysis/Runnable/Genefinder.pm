@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Genefinder -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Genefinder
-#
-# Copyright (c) 2005 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Genefinder
-
-=head1 SYNOPSIS
-
 my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genefinder->new(
       -query => $slice,
       -program => 'genefinder',
@@ -56,11 +37,10 @@ my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genefinder->new(
 Wrapper to run the genefinder gene predictor and then parse the results
 into prediction transcripts
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::Genefinder;
 

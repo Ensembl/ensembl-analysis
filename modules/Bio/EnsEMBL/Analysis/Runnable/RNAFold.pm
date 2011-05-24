@@ -20,25 +20,6 @@
 
 =head1 NAME
 
- - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::RNAfold
-#
-# Copyright (c) 2005 Ensembl
-#
-
-=head1 NAME
-
   Bio::EnsEMBL::Analysis::Runnable::RNAfold
 
 =head1 SYNOPSIS
@@ -59,9 +40,7 @@ If a structure is provided it uses the structure to constrain the folding
 prediction (RNAFold -C).
 The resulting structure string is run-length encoded.
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

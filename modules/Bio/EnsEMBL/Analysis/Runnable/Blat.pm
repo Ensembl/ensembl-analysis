@@ -18,35 +18,13 @@
 
 =cut
 
+=head1 AUTHORS
+
+Kathryn Beal
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::Blat - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# Written by Kathryn Beal
-# Based on the module in Bio::EnsEMBL::Pipeline::Runnable::Blat
-# 
-# Copyright GRL/EBI 2007
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Blat
 
 =head1 SYNOPSIS
 
@@ -70,9 +48,7 @@ Blat takes a Bio::Seq (or Bio::PrimarySeq) object and runs Blat
 against a set of sequences.  The resulting output file is parsed
 to produce a set of features.
 
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =head1 APPENDIX
 

@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Mavid -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Mavid
-#
-# Copyright (c) 2005 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Mavid
-
-=head1 SYNOPSIS
-
   my $runnable = new Bio::EnsEMBL::Analysis::Runnable::Mavid
      (-input_dir => $input_dir,
       -output_dir => $output_dir,
@@ -57,9 +38,7 @@ Mavid expects to run the program mavid, a global multiple aligner for large geno
 using a fasta file and a tree file (Newick format), and eventually a constraints file.
 The output (multiple alignment) is parsed and return as a Bio::EnsEMBL::Compara::GenomicAlignBlock object.
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::PSILC;
-
-=head1 SYNOPSIS
-
   my $blast = Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP->new 
     (
      '-trans'    => $transcript,
@@ -60,11 +40,10 @@ BLASTP runnable for Bio::EnsEMBL::Analysis::RunnableDB::PSILC
 Runs BLASTP for the supplied transcript against a multi species blast database.
 Filters the results and returns a hash ref of homologous transcript identifiers
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP;
 use strict;

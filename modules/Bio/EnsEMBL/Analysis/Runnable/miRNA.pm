@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::miRNA -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::miRNA
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::Runnable:miRNA
-
-=head1 SYNOPSIS
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::miRNA->new
     (
      -queries => \%families,
@@ -65,12 +45,10 @@ a score < -20 it is classed as a miRNA.
 Single exon gene objects are made and the  DnaDnaAlignFeature is added as supporting evidence.
 The predicted structure and coordinates of the mature sequence are added to the transcript as
 transcript attributes
-
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 
 package Bio::EnsEMBL::Analysis::Runnable::miRNA;

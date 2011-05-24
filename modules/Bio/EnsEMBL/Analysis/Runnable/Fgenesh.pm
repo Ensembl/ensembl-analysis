@@ -24,29 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Fgenesh -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-package Bio::EnsEMBL::Analysis::Runnable::Fgenesh;
-
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Fgenes
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Fgenes
-
-=head1 SYNOPSIS
-
 my $runnable = Bio::EnsEMBL::Analysis::Runnable::Fgenes->new
   (
    -query => $slice,
@@ -66,11 +43,14 @@ into prediction transcripts
 this is a bare bones module which inherits most of its functionality from
 Bio::EnsEMBL::Analysis::Runnable::Genscan
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
+
+package Bio::EnsEMBL::Analysis::Runnable::Fgenesh;
+
+
 
 use vars qw(@ISA);
 use strict;

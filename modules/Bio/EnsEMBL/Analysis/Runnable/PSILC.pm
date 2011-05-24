@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::PSILC -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::PSILC;
-
-=head1 SYNOPSIS
-
   my $PSILC = Bio::EnsEMBL::Analysis::Runnable::PSILC->new 
     (
      '-trans'     => $transcript,
@@ -62,11 +42,10 @@ $runnabledb->write_output();
 
 Runnable for PSILC
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::PSILC;
 

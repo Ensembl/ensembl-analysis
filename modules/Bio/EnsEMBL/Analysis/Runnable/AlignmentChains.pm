@@ -32,25 +32,6 @@ Bio::EnsEMBL::Analysis::Runnable::AlignmentChains -
 
 =cut
 
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Pipeline::Runnable::AlignmentChains
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-
-=head1 CONTACT
-
-Describe contact details here
-
 =head1 APPENDIX
 
 The rest of the documentation details each of the object methods. 

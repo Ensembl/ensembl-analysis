@@ -74,7 +74,6 @@ sub new {
   }
   $self->tracking(1);
 
-  return undef unless $self->tracking;
   $self->db($runnabledb->db);
   my $analysisrun_adaptor = $self->db->get_AnalysisRunAdaptor;
   my $analysis = $runnabledb->analysis;
@@ -97,6 +96,7 @@ sub new {
       $evidence->add_track($self->default_track);
       $self->update($evidence);
   }
+  print STDERR Dumper($self);
   return $self; # success - we hope!
 }
 
@@ -343,6 +343,7 @@ sub default_track {
   return undef unless $self->tracking;
   $self->{'default_track'} = shift if ( @_ );
 
+  print SDTERR Dumper($self);
   throw('Not a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack object')
     unless $self->{'default_track'}->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack');
   return $self->{'default_track'}->clone;

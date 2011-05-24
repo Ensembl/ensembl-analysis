@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Genscan -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Genscan
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Genscan
-
-=head1 SYNOPSIS
-
 my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new(
       -query => $slice,
       -program => 'genscan',
@@ -57,11 +38,10 @@ my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new(
 Wrapper to run the genscan gene predictor and then parse the results
 into prediction transcripts
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::Genscan;
 

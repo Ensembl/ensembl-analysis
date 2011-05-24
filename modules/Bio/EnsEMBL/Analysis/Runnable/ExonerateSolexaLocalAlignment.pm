@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateSolexaLocalAlignment -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::ExonerateSolexaLocalAlignment
-
-=head1 SYNOPSIS
-
   my $runnable = 
     Bio::EnsEMBL::Analysis::Runnable::ExonerateSolexaLocalAlignment->new(
      -query_seqs     => \@q_seqs,
@@ -58,11 +41,10 @@ This module handles a specific use of the Exonerate (G. Slater) program,
 to realign RNA-Seq reads with a splice model and a short word length over
 a small slice of DNA
 
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateSolexaLocalAlignment;
 

@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-
-=head1 SYNOPSIS
-
   my $blast = Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->
   new(
       -transcript => $transcript,
@@ -65,10 +46,7 @@ the Bio::Seq of the transcript translation as the query sequence. This
 module expects all the same arguments as a standard blast with the 
 exception or a query sequence as these must be passed into the blast 
 runnable it instantiates
-
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

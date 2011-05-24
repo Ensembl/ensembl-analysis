@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Blast -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Blast
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::Runnable::Blast
-
-=head1 SYNOPSIS
-
   my $blast = Bio::EnsEMBL::Analysis::Runnable::Blast->
   new(
       -query => $slice,
@@ -71,9 +52,7 @@ Bio::EnsEMBL::Analysis::Runnable::Blast -
   objects and a filter object look in Bio::EnsEMBL::Analysis::Tools for
   BPliteWrapper, FilterBPlite and FeatureFilter
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

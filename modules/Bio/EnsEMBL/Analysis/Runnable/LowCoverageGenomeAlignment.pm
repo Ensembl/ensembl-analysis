@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::LowCoverageGenomeAlignment -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::LowCoverageGenomeAlignment
-#
-# Copyright (c) 2007 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::LowCoverageGenomeAlignment
-
-=head1 SYNOPSIS
-
   my $runnable = new Bio::EnsEMBL::Analysis::Runnable::LowCoverageGenomeAlignment
      (-workdir => $workdir,
       -multi_fasta_file => "/path/to/mfa/file",
@@ -58,9 +39,7 @@ Bio::EnsEMBL::Analysis::Runnable::LowCoverageGenomeAlignment
 This module creates a new tree for those alignments which contain a segmental duplication. The module will runs treeBest where there are more than 3 sequences in an alignment, otherwise it will run semphy. This module is still under development.
 
 
-=head1 CONTACT
-
-Questions regarding this module should be addressed to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

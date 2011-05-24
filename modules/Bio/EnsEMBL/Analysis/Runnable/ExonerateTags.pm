@@ -24,30 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateTags -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# package Bio::EnsEMBL::Analysis::Runnable::ExonerateTags
-#
-# Copyright EMBL-EBI/Wellcome Trust Sanger Center 2006
-#
-# You may distribute this module under the same terms as perl itself
-#
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::ExonerateTags
-
-=head1 SYNOPSIS
-
  my $runnable = 
     Bio::EnsEMBL::Analysis::Runnable::ExonerateTags->new(
      -QUERYFILE     => $ditag_file,
@@ -67,11 +43,10 @@ to align CAGE, GIS/GSC ditags to genomic sequences.
 When removing duplicates from the input sequences, this should be
 added to the tag_count of the remaining ditags.
 
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateTags;
 

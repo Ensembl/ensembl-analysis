@@ -24,32 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::HaplotypeMapper -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-#
-# BioPerl module for GeneBuilder
-#
-# Cared for by EnsEMBL <ensembl-dev@ebi.ac.uk>
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::HaplotypeProjection
-
-=head1 SYNOPSIS
-
 # This is the main analysis database
 
     my $genebuilder = new Bio::EnsEMBL::Analysis::Runnable::HaplotypeProjection
@@ -66,12 +40,11 @@ Bio::EnsEMBL::Analysis::Runnable::HaplotypeProjection
 This module aligned the genomic sequence of a haplotype region and the corresponding
 reference chromosome region and projects the gene annotations
 
-=head1 CONTACT
+=head1 METHODS
 
-ensembl-dev@ebi.ac.uk
+=cut
 
 =head1 APPENDIX
-
 
 The rest of the documentation details each of the object
 methods. Internal methods are usually preceded with a _

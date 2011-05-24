@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::CPG -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::CPG
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::CPG
-
-=head1 SYNOPSIS
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::CPG->new
   (
    -query => $slice,
@@ -57,11 +38,10 @@ CPG expects to run the program cpg and produces SimpleFeature which can be
 stored in the simple_feature table in the core database
 
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::CPG;
 

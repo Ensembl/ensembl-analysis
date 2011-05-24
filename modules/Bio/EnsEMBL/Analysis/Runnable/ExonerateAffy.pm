@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy
-
-=head1 SYNOPSIS
-
   my $runnable = 
     Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy->new(
      -query_seqs     => \@q_seqs,
@@ -65,11 +48,10 @@ be pre-loaded into the ensembl db: there are separate RunnableDB
 just creates fake affy probes in order to create reasonable-looking
 affy features.
 
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy;
 

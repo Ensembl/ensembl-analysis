@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::BlastRfam -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Blast
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::Runnable::BlastRfam
-
-=head1 SYNOPSIS
-
   my $blast = Bio::EnsEMBL::Analysis::Runnable::BlastRfam->
   new(
       -query => $slice,
@@ -64,10 +45,7 @@ Keeps the coverage in the dna_align_feature score field.
 Also clusters overlapping hits and picks the one with the lowest 
 evalue to represent that cluster.
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
-
+=head1 METHODS
 
 =cut
 

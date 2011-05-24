@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
-
-=head1 SYNOPSIS
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere ->new
   (
    '-genes' => \@genes_array_ref,
@@ -59,11 +39,10 @@ Does the blast analysis and returns the results to the runnable_db for
 parsing.
 Uses Bio::EnsEMBL::Analysis::Config::Pseudogene for config
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 

@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Infernal -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Infernal
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::Runnable::Infernal
-
-=head1 SYNOPSIS
-
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::Infernal->new
             (
             '-queries'  => \@array_ref_of_dna_align_features,
@@ -59,9 +40,7 @@ Parses results to build non-coding gene objects and a representation
 of secondary structure which is string length encoded and stored as a 
 transcript attribute
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

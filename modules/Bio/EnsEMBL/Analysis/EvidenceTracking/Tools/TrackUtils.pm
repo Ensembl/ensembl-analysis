@@ -171,7 +171,7 @@ sub get_date {
 =cut
 
 sub setup_pipeline {
-    my ($db, $default_runnabledb_path, $queue_config, $ra_analyses_to_run) = @_;
+    my ($db, $default_runnabledb_path, $queue_config, $ra_analyses_to_run, $rh_to_keep) = @_;
 
     print STDERR "In setup\n";
     my $track_db = Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor->new(
@@ -183,6 +183,13 @@ sub setup_pipeline {
     my $runnable_path = $default_runnabledb_path;
     $runnable_path =~ s'/'::'g;
     foreach my $analysis (@{$ra_analyses_to_run}) {
+    print STDERR 'meta fill', "\n";
+        print STDERR $analysis->logic_name, "\n";
+        if (exists $rh_to_keep->{$analysis}) {
+            next if ($track_db->has_meta_value_by_key('tracking.analysis', $analysis->dbID));
+        }
+        print STDERR "Store meta key\n";
+        $track_db->store_meta_key_value('tracking.analysis', $analysis->dbID);
         print STDERR "foreach...\n";
         my $module_name = $analysis->module;
         my $logic_name = $analysis->logic_name;
@@ -246,6 +253,31 @@ sub get_databases {
     }
     my @a_ids = keys %h_ids;
     return \@a_ids;
+}
+
+=head2 
+
+ Arg [1]    : 
+ Example    : $;
+ Description: 
+ Returntype : 
+ Exceptions : 
+
+
+=cut
+
+sub cleanup_meta_tracking {
+    my $db = shift;
+
+    my $dba = Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor->new(
+        -dbcon => $db->dbc
+        );
+    my @meta_keys = $dba->get_meta_values_by_key('tracking.analysis');
+    while (my $meta_value = shift @meta_keys) {
+        if(!@{$db->get_StateInfoContainer->list_input_ids_by_analysis($meta_value)}) {
+            $dba->update_meta_key_by_value('tracking.analysis', 'tracking.done', $meta_value);
+        }
+    }
 }
 
 1;

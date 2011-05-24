@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::Pseudogene -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# You may distribute this module under the same terms as perl itself
-#
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Pseudogene
-
-=head1 SYNOPSIS
-
  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Pseudogene->new
       ( 
        '-genes' => \@_genes,
@@ -71,11 +51,10 @@ Pseudogene takes a Bio::EnsEMBL::Slice object and assesses genes and transcripts
 In the case of genes being identified as pseudogenes, the gene objects have their type set to pseudogene and all but the longest transcripts and translations are deleted.
 If the gene has 1 or more pseudo transcripts but has other transcritps that are valid, the dubious transcripts are removed. The resulting gene objects are returned in an array.
 
-=head1 CONTACT
-
-Mail to B<ensembl-dev@ebi.ac.uk>
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
 

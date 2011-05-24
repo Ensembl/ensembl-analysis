@@ -94,10 +94,6 @@ use strict;
 use warnings;
 
 use Data::Dumper;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
@@ -625,23 +621,6 @@ sub no_config_exception{
   return $self->{'no_config_exception'};
 }
 
-=head2 is_tracking 
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Arg [2]   : string  ( 1 or 0 ) 
-  Function  : 
-              
-  Returntype: 1 or 0 
-
-=cut
-
-sub is_tracking{
-  my $self = shift;
-  $self->{'is_tracking'} = shift if(@_);
-  return $self->{'is_tracking'};
-}
-
-
 
 ###################
 # TRACKING SYSTEM #
@@ -663,26 +642,20 @@ sub track {
     return $self->{'track'};
 }
 
+=head2 is_tracking 
 
-=head2 evidencetracking_db
-
- Example    : $self->evidencetracking_db;
- Description: Get the DBAdaptor for the evidence tracking system
- Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor object
-
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
+  Arg [2]   : string  ( 1 or 0 ) 
+  Function  : 
+              
+  Returntype: 1 or 0 
 
 =cut
 
-sub evidencetracking_db {
-    my $self = shift;
-
-    if ( !exists $self->{'_evidencetracking_db'}) {
-        my $evidencetracking_db = new Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor (
-            -dbconn => $self->db->dbc
-            );
-        $self->{'_evidencetracking_db'} = $evidencetracking_db;
-    }
-    return $self->{'_evidencetracking_db'};
+sub is_tracking{
+  my $self = shift;
+  $self->{'is_tracking'} = shift if(@_);
+  return $self->{'is_tracking'};
 }
 
 

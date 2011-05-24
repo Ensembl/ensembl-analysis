@@ -24,27 +24,6 @@ Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise
-
-=head1 SYNOPSIS
-
     my $obj = Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise->new(-genomic  => $genseq,
 								  -features => $features)
 
@@ -55,9 +34,10 @@ Bio::EnsEMBL::Analysis::Runnable::MultiMiniGenewise
 
 =head1 DESCRIPTION
 
-=head1 CONTACT
 
-Describe contact details here
+=head1 METHODS
+
+=cut
 
 =head1 APPENDIX
 
