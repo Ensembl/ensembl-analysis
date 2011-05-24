@@ -42,7 +42,6 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes;
 use Bio::EnsEMBL::SimpleFeature;
-use Bio::SeqFeature::Lite;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
@@ -83,27 +82,27 @@ sub fetch_input {
   my $id = $self->input_id;
   my $slice = $self->fetch_sequence($id); 
   my $chr_slice;
-  #hack to use more than 1 input db for alignments 
   my @features; 
   $chr_slice = $self->repeat_slice_adaptor->fetch_by_region('toplevel',
-						       $slice->seq_region_name,
+	  					       $slice->seq_region_name,
 						      );
     
-    $self->chr_slice($chr_slice);
-  my $repeat_slice = $self->repeat_slice_adaptor->fetch_by_region
-    ('toplevel',
-     $slice->seq_region_name,
-     $slice->start,
-     $slice->end,
-     1
-    );
-  my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice,$self->REPEAT_LN)} ;
-  # put on chromosome coords
-  foreach my $repeat ( @repeats ) {
-    $repeat = $repeat->transfer($chr_slice);
-  }
-  $self->repeats($self->make_repeat_blocks(\@repeats));
   $self->chr_slice($chr_slice);
+  if ( $self->REPEAT_LN ) {
+    my $repeat_slice = $self->repeat_slice_adaptor->fetch_by_region
+      ('toplevel',
+       $slice->seq_region_name,
+       $slice->start,
+       $slice->end,
+       1
+      );
+    my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice,$self->REPEAT_LN)} ;
+    # put on chromosome coords
+    foreach my $repeat ( @repeats ) {
+      $repeat = $repeat->transfer($chr_slice);
+    }
+    $self->repeats($self->make_repeat_blocks(\@repeats));
+  }
   
   
   my $sam = Bio::DB::Sam->new(   -bam => $self->ALIGNMENT_BAM_FILE,
@@ -308,6 +307,7 @@ sub exon_cluster {
   my $cluster_data;
   my $cluster_count = 0;
   my $read_count = 0;
+  my $regex = $self->PAIRING_REGEX;
   print STDERR "Clustering\n";
  READ:  while (my $a = $iterator->next_seq) {
     $read_count++;
@@ -319,6 +319,9 @@ sub exon_cluster {
     my $fm = 0;
     my $sm = 0;
     my $paired = $a->get_tag_values('MAP_PAIR');
+    if ( $regex && $name =~ /(\S+)($regex)$/ ) {
+       $name = $1;
+    }
     # make exon clusters and store the names of the reads and associated cluster number
     my $clustered = 0;
     foreach my $exon_cluster ( values %exon_clusters ) {
@@ -568,6 +571,21 @@ sub ALIGNMENT_BAM_FILE {
   
   if (exists($self->{'_CONFIG_ALIGNMENT_BAM_FILE'})) {
     return $self->{'_CONFIG_ALIGNMENT_BAM_FILE'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub PAIRING_REGEX {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PAIRING_REGEX'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_PAIRING_REGEX'})) {
+    return $self->{'_CONFIG_PAIRING_REGEX'};
   } else {
     return undef;
   }

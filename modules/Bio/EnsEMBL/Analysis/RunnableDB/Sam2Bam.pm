@@ -74,7 +74,10 @@ sub run {
   $runnable->run;
 }
 
-
+# override write output as we have nothing for the db
+sub write_output {
+  my ($self) = @_;
+}
 
 #Containers
 #=================================================================
