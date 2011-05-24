@@ -22,15 +22,12 @@ use vars qw( %Config );
             DEFAULT => {
 	    		# databases are defined as hash keys from Bio::EnsEMBL::Analysis::Config::Databases
                         OUTPUT_DB => '',
+			# intron db is not needed if you are using BAM files
 			INTRON_DB => '',
 			MODEL_DB  => '',
 			
-			# database with alignments made by ExonerateSolexaLocalAlign
-			# trying to identify missing short exons 
-			SMALL_INTRON_DB => '',
-			
 			# Using bam file to fetch intron features overrides the INTRON_DB
-                	INTRON_BAM_FILE => '',
+                	INTRON_BAM_FILE => '/path/to/my/sorted/indexed/bam_file.bam',
 
 			# write the intron features into the OUTPUT_DB along with the models
 			WRITE_INTRONS => 1,
@@ -70,11 +67,11 @@ use vars qw( %Config );
 			
 			# biotypes to give gene models if left blank these models will not get written to the output database
 			# best score - model with most supporting intron features
-			BEST_SCORE => '', 
+			BEST_SCORE => 'best', 
 			# all other possible models
 			OTHER_ISOFORMS => '',
                         # max number of other models to make - blank = all 
-			OTHER_NUM      => '',
+			OTHER_NUM      => '10',
 			
                         # max number of other models to process - blank = all 
 			MAX_NUM      => '1000',
@@ -82,7 +79,7 @@ use vars qw( %Config );
 			# biotype to label bad models ( otherwise they are not written )
 			BAD_MODELS     => '',
                    },
-	    }
+	   }
 	    
 );
 

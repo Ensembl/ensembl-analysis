@@ -36,15 +36,19 @@ use vars qw( %Config );
   SAM2BAM_CONFIG_BY_LOGIC =>  {
             DEFAULT =>  {
 	      # directory containg the sam file(s)
-	      SAM_DIR => '/path/to/my/dir/',
+	      SAM_DIR => '/path/to/directory',
+	      
 	      # path to the bam file to produce as output
-	      BAMFILE => '/path/to/my/file.bam',
+	      BAMFILE => '/path/to/my/SAM/file/introns.sam',
+	      
 	      # regex to identify which SAM files to merge
 	      REGEX => '.sam',
+	      
 	      # path to dumped genome file used for the alignment
 	      # it will make an index for it if one does not already exist
-	      GENOMEFILE => '/path/to/my/genome.fa',
+	      GENOMEFILE => '/path/to/my/genome/file.fa',  
             },	
+	 }
 );
 
 sub import {
