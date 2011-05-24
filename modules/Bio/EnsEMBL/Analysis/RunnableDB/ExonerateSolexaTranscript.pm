@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaTranscript -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaTranscript
-
-
-
-
-=head1 SYNOPSIS
-
 my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaTranscript->new(
     -db         => $refdb,
     -analysis   => $analysis_obj,
@@ -59,9 +39,8 @@ Extends Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa to allow
 reads to be aligned against transcript sequences and then projected
 onto the genome
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

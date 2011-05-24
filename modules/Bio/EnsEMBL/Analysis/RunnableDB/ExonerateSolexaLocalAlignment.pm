@@ -24,24 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaLocalAlignment -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaLocalAlignment
-
-
-=head1 SYNOPSIS
-
 my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaLocalAlignment->new(
     -db         => $refdb,
     -analysis   => $analysis_obj,
@@ -56,9 +38,8 @@ $runnableDB->write_output(); #writes to DB
 Extends Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexa to allow
 reads to be realigned against a small piece of genomic with high sensitivity
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

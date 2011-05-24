@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons
-
-
-
-=head1 SYNOPSIS
-
   my $fs = Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons->new(
 			      -analysis   => $analysis_obj,
 #			     );
@@ -72,9 +53,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons -
 
             chromosome:BROADD2:3:30434100:30529400:1
 
-=head1 CONTACT
+=head1 METHODS
 
- Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

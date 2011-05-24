@@ -24,24 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::FilterGenes -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::FilterGenes;
-
-
-=head1 SYNOPSIS
-
 my $filtergenes = Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes->new(
                               -db         => $refdb,
 			      -analysis   => $analysis_obj,
@@ -63,9 +45,8 @@ first the accepted gene objects, the 2nd the rejected gene objects
 These genes are then relabelled as described in the Config file and stored in
 the output database
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

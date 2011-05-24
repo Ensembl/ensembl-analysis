@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateRefineCloneEnds -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
-
-
-
-
-=head1 SYNOPSIS
-
 my $clone = 
   Bio::EnsEMBL::Analysis::RunnableDB::ExonerateConeEnds->new(
     -db         => $refdb,
@@ -61,9 +41,8 @@ $clone->write_output(); #writes to DB
 This object maps clone sequences to a genome,
 and writing the results as Features. 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

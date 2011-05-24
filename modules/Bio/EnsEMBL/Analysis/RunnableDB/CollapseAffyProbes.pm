@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::CollapseAffyProbes -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
-
-
-
-
-=head1 SYNOPSIS
-
 my $affy = 
   Bio::EnsEMBL::Analysis::RunnableDB::CollapseAffyProbes->new(
     -db         => $refdb,
@@ -71,9 +51,8 @@ Note that probes are defined as redundant when they share the same
 - sequence and 
 - probeset 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

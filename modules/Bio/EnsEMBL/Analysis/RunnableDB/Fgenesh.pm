@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Fgenesh -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Fgenesh
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-=head1 SYNOPSIS
-
   my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::Fgenesh->
   new(
       -input_id => 'contig::AL805961.22.1.166258:1:166258:1',
@@ -58,11 +41,10 @@ fetches sequence data from database an instantiates and runs the
 fgenesh runnable, this inherits from the Genscan runnableDB an as such doesnt
 implement much itself
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Fgenesh;

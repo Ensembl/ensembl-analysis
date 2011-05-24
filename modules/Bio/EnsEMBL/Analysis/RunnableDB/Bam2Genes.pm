@@ -24,30 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Bam2Genes -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Cared for by Ensembl
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Solexa2Genes
-
-=head1 SYNOPSIS
-
   my $db      = Bio::EnsEMBL::DBAdaptor->new($locator);
   my $refine_genes = Bio::EnsEMBL::Analysis::RunnableDB::Solexa2Genes->new (
                                                     -db      => $db,
@@ -65,7 +41,10 @@ The databases containing the various features to combine is defined in
 Bio::EnsEMBL::Analysis::Config::Databases and the configuration for the 
 module is defined in Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes
 
+=head1 METHODS
+
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Bam2Genes;
 

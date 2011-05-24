@@ -32,20 +32,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::IgSegBuilder -
 
 =cut
 
-#
-# Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::IgSegBuilder
-
-=cut
 
 # Let the code begin...
 

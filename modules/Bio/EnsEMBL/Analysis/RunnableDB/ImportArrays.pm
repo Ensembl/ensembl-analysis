@@ -18,27 +18,13 @@
 
 =cut
 
+=head1 AUTHOR
+
+This module was written by Nathan Johnson, based on the CollapseAffy/Oligo code.
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
-
 
 =head1 SYNOPSIS
 
@@ -74,17 +60,11 @@ Note that probes are defined as redundant when they share the same
 - probeset 
 
 
-
-=head1 AUTHOR
-
-This module was written by Nathan Johnson, based on the CollapseAffy/Oligo code.
-
-=head1 CONTACT
-
-Post general queries to B<ensembl-dev@ebi.ac.uk>
-
+=head1 METHODS
 
 =cut
+
+
 
 # TO DO
 # Write run methods for other import formats e.g. CSV?

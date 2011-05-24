@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptPep -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptPep
-
-=head1 SYNOPSIS
-
 my $db          = Bio::EnsEMBL::DBAdaptor->new($locator);
 my $btpep     = Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptPep->new ( 
                                                     -dbobj      => $db,
@@ -61,9 +44,7 @@ DnaPepAlignFeature's.
 The appropriate Bio::EnsEMBL::Analysis object must be passed for
 extraction of appropriate parameters.
 
-=head1 CONTACT
-
-Describe contact details here
+=head1 METHODS
 
 =head1 APPENDIX
 
@@ -71,6 +52,7 @@ The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _'
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptPep;
 

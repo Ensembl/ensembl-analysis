@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
-#
-# Copyright (c) 2008 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise 
-
-=head1 SYNOPSIS
-
   my $EFG = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise->new()
   $EFG->fetch_input;
   $EFG->run;
@@ -53,7 +33,10 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise
 
 This module replaces Bio::EnsEMBL::Pipeline::RunnableDB::TargettedExonerate
 
+=head1 METHODS
+
 =cut
+
 
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise;

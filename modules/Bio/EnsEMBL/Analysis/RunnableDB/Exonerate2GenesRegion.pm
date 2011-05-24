@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2GenesRegion -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2GenesRegion;
-
-
-
-
-=head1 SYNOPSIS
-
 my $exonerate2genes = Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2GenesRegion->new(
                               -db         => $refdb,
 			      -analysis   => $analysis_obj,
@@ -70,9 +50,8 @@ Example input ID: chromosome:GRCh37:10:100005443:100030007:1::NM_032211.6
 Reads config from Config/Exonerate2Genes.pm
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

@@ -24,30 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::AlignmentNets -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Cared for by Ensembl
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::AlignmentNets
-
-=head1 SYNOPSIS
-
   my $db      = Bio::EnsEMBL::DBAdaptor->new($locator);
   my $genscan = Bio::EnsEMBL::Analysis::RunnableDB::AlignmentNets->new (
                                                     -db      => $db,
@@ -67,9 +43,11 @@ an alignment net from the chains and writes the result
 back to the database. 
 
 This module (at least for now) relies heavily on Jim Kent\'s Axt tools.
-
+=head1 METHODS
 
 =cut
+
+
 package Bio::EnsEMBL::Analysis::RunnableDB::AlignmentNets;
 
 use vars qw(@ISA);

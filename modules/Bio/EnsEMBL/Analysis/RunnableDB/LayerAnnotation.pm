@@ -33,20 +33,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation -
 =cut
 
 
-=head1 NAME
-
-LayerAnnotation - DESCRIPTION of Object
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
-
-=cut
-
 package Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation;
 
 use vars qw(@ISA);

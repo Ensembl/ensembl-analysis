@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Accumulator -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Accumulator
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Accumulator
-
-=head1 SYNOPSIS
-
   my $accumulator = Bio::EnsEMBL::Analysis::RunnableDB::Accumulator->
   new(
       -input_id => 'ACCUMULATOR',
@@ -58,9 +39,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::Accumulator
 This is a simple place holder module to allow the accumulator wait for all
 stages in the pipeline to work. It does nothing just
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

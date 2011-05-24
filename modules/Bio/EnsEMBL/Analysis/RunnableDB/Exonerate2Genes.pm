@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
-
-
-
-
-=head1 SYNOPSIS
-
 my $exonerate2genes = Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes->new(
                               -db         => $refdb,
 			      -analysis   => $analysis_obj,
@@ -64,9 +44,8 @@ we do not cluster transcripts into genes and only write one transcript per gene.
 we then create a dbadaptor for the target database.
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

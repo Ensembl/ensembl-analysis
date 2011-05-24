@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Genes;
-
-
-
-
-=head1 SYNOPSIS
-
 Should not be used directly. Might be called from MapCloneEnds.pm
 
 my $clone = 
@@ -62,9 +42,8 @@ $clone->write_output(); #writes to DB
 This object maps clone sequences to a genome,and 
 write the resulting alignments as DNA align Features. 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

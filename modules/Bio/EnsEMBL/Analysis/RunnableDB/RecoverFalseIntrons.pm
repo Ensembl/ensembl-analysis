@@ -24,24 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-=pod
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons; 
-
-
-
-=head1 SYNOPSIS
-
   my $fs = Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons->new(
 			      -analysis   => $analysis_obj,
 			     );
@@ -94,9 +76,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons -
        ENST00000361371 _0_ 2190659   - only simple feature 2190659 should be overlapped 
 
 
-=head1 CONTACT
-
- Post general queries to B<ensembl-dev@ebi.ac.uk>
+=head1 METHODS
 
 =head1 APPENDIX
 

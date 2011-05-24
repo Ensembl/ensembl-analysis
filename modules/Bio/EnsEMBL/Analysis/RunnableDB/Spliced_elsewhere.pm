@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;
-
-=head1 SYNOPSIS
-
 my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere->new
   (			
    -db => $dbadaptor,
@@ -76,11 +56,10 @@ Bio::EnsEMBL::Analysis::Config::Databases;
 Runs as a part of the larger pseudogene analysis. Uses flagged single exon genes
 identified by Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;

@@ -24,32 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2Array -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-#
-# Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Pipeline::RunnableDB::Exonerate2Array
-
-=head1 SYNOPSIS
-
     my $obj = Bio::EnsEMBL::Pipeline::RunnableDB::Exonerate2Array->new(
 					     -dbobj     => $db,
 					     -input_id  => $id,
@@ -64,9 +38,9 @@ Bio::EnsEMBL::Pipeline::RunnableDB::Exonerate2Array
 
 =head1 DESCRIPTION
 
-=head1 CONTACT
 
-Describe contact details here
+=head1 METHODS
+
 
 =head1 APPENDIX
 

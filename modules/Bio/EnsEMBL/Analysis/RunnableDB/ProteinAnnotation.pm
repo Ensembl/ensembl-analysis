@@ -32,23 +32,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation -
 
 =cut
 
-
-=head1 NAME
-
-ProteinAnnotation.pm - DESCRIPTION of Object
-
-=head1 SYNOPSIS
-
-this is the base class for the ProteinAnnotation runnabledbs
-
-=head1 DESCRIPTION
-
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
-
-=cut
-
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation;
 use vars qw(@ISA);
 use strict;

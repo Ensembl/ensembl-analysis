@@ -24,24 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaCloud -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaCloud
-
-
-=head1 SYNOPSIS
-
 my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaCloud->new(
     -db         => $refdb,
     -analysis   => $analysis_obj,
@@ -57,9 +39,8 @@ Extends Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature to allow
 use of compressed dna align features, useful when aligning millions of short 
 Solexa reads
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

@@ -24,35 +24,15 @@ Bio::EnsEMBL::Analysis::RunnableDB::AlignmentFilter -
 
 =head1 SYNOPSIS
 
+Abstract base class of AlignmentChains and AlignmentNets
 
 =head1 DESCRIPTION
-
 
 =head1 METHODS
 
 =cut
 
-# Cared for by Ensembl
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
 
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::AlignmentFilter
-
-=head1 SYNOPSIS
-
-Abstract base class of AlignmentChains and AlignmentNets
-
-=head1 DESCRIPTION
-
-=cut
 package Bio::EnsEMBL::Analysis::RunnableDB::AlignmentFilter;
 
 use vars qw(@ISA);

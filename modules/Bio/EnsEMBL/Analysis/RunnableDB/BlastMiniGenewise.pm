@@ -248,6 +248,7 @@ sub fetch_input {
     return;
   } 
   $self->track($track);
+  print STDERR Dumper($self->track);
   $self->create_bmg_runnables(\%hit_list);
   return 1;
 }

@@ -24,22 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds;
-
-=head1 SYNOPSIS
-
 my $clonemap = 
   Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds->new(
     -db         => $refdb,
@@ -73,9 +57,9 @@ where each id should be in the format:
 Clone_ID,length_of_clone,standard_deviation_of_length,Clone_end_ID,Direction_of_Clone
 (i.e. CH243-307D10,184000.0,36800.0,1098421033278,F).
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries, or on how to get chunker.pl, to <ensembl-dev@ebi.ac.uk>
+=cut
 
 =head1 APPENDIX
 

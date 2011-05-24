@@ -22,29 +22,7 @@
 
 Bio::EnsEMBL::Analysis::RunnableDB::PSILC - 
 
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::PSILC;
-
-
-=head1 SYNOPSIS
-
+=head1 SYNOPSIS 
 my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::PSILC->new
 (
 -db => $db_adaptor,
@@ -86,10 +64,7 @@ which will prepare the blast databases to use from the 3 species.
 The module is configured through:
 Bio::EnsEMBL::Analysis::Config::Pseudogene.pm
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
-
+=head1 METHODS
 
 =cut
 

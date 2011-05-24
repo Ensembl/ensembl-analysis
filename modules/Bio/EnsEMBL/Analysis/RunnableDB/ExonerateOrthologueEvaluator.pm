@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateOrthologueEvaluator -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateOrthologueEvaluator;
-
-
-
-
-=head1 SYNOPSIS
-
 my $exonerate2genes = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateOrthologueEvaluator->new(
                               -db         => $refdb,
 			      -analysis   => $analysis_obj,
@@ -65,9 +45,8 @@ it checks if these structures already exists in either core or the ORTHOLOGUE_DB
 itself. 
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

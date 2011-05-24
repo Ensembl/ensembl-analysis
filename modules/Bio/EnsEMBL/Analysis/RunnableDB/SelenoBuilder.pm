@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::SelenoBuilder -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForSelenos;
-
-
-
-
-=head1 SYNOPSIS
-
 my $exonerate4selenos = Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForSelenos->new(
                               -db         => $refdb,
 			      -analysis   => $analysis_obj,
@@ -65,9 +45,8 @@ write one transcript per gene.
 we then create a dbadaptor for the target database.
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

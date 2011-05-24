@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE
-
-=head1 SYNOPSIS
-
   my $runnable = Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE->
   new(
       -input_id => 'contig::AL805961.22.1.166258:1:166258:1',
@@ -62,11 +43,10 @@ This module can fetch appropriate input from the database
 pass it to the runnable then write the results back to the database
 in the simple_feature table
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE;
 

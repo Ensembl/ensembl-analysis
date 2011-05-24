@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
-
-
-
-
-=head1 SYNOPSIS
-
   my $affy = Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign->new
     (-db         => $refdb,
      -analysis   => $analysis_obj,
@@ -62,9 +42,9 @@ Bio::EnsEMBL::Funcgen::ProbeFeatures. UnmappedObjects are also written for those
 which either do not map at all or exceed the maximum mapping threshold defined by HIT_SATURATION_LEVEL.
 You must FIRST have created and imported all the necessary Arrays and Probe objects using the ImportArrays module.
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
+=cut
 
 =head1 METHODS
 

@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::FindPartialGenes -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::FindPartialGenes ; 
-
-
-
-
-=head1 SYNOPSIS
-
 my $orthologueanalysis = Bio::EnsEMBL::Analysis::RunnableDB::FindPartialGenes->new ( 
 			      -analysis   => $analysis_obj,
 			     );
@@ -62,9 +42,8 @@ used to fetch the input from different databases as well as writing results
 the results to the database.a
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

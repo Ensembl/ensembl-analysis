@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Sam2Bam -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Sam2Bam
-
-
-
-
-=head1 SYNOPSIS
-
 my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::Sam2Bam->new( );
 
 $runnableDB->fetch_input();
@@ -54,9 +34,8 @@ $runnableDB->run();
 This module uses samtools to convert a directory containing SAM
 files into a single sorted indexed merged BAM file
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

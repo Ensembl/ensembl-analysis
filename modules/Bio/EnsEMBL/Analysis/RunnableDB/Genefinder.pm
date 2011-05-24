@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Genefinder -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Genefinder
-#
-# Copyright (c) 2005 Ensembl
-#
-
-=head1 NAME
-
-=head1 SYNOPSIS
-
   my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::Genefinder->
   new(
       -input_id => 'contig::AL805961.22.1.166258:1:166258:1',
@@ -58,11 +41,10 @@ fetches sequence data from database an instantiates and runs the
 genefinder runnable
 
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Genefinder;
 

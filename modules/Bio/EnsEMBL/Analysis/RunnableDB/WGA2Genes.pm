@@ -24,30 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# cARED For by Ensembl
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes
-
-=head1 SYNOPSIS
-
   my $db      = Bio::EnsEMBL::DBAdaptor->new($locator);
   my $genscan = Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes
     ->new (-db         => $pipelinedb,
@@ -61,7 +37,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes
 =head1 DESCRIPTION
 
 
+=head1 METHODS
+
 =cut
+
+
 package Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes;
 
 require Exporter;

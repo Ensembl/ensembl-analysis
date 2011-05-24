@@ -24,31 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder
-#
-# Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
-#
-# Copyright GRL and EBI
-#
-# You may distribute this module under the same terms as perl itself
-
-# POD documentation - main docs before the code
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder
-
-=head1 SYNOPSIS
-
 my $utrbuilder_runnable = new Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder(
   -db        => $db,
   -input_id  => $input_id
@@ -74,9 +49,8 @@ Config files to set-up are
    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus (just a copy of the example file)
    Bio::EnsEMBL::Analysis::Config::GeneBuild::KillListFilter
 
-=head1 CONTACT
+=head1 METHODS
 
-Ensembl - ensembl-dev@ebi.ac.uk
 
 =head1 APPENDIX
 

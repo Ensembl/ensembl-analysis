@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::miRNA -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-## Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::miRNA
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::RunnableDB::miRNA
-
-=head1 SYNOPSIS
-
      my $runnableDB = Bio::EnsEMBL::Analysis::RunnableDB::miRNA->new(
             	-db       => $db_adaptor,
 		-input_id => 'analysis logic name',
@@ -62,9 +43,7 @@ It then groups the dna align features by miRNA families and ignores families wit
 members as there is a high probability that these are hitting repetitive sequences.
 Creates and runs the miRNA runnable.
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

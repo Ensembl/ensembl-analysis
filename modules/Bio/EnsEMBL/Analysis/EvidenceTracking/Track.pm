@@ -322,7 +322,7 @@ sub tracking {
     my $self = shift;
 
     $self->{'tracking'} = shift if (@_);
-    return exists $self->{'tracking'};
+    return $self->{'tracking'};
 }
 
 =head2 default_track
@@ -343,7 +343,7 @@ sub default_track {
   return undef unless $self->tracking;
   $self->{'default_track'} = shift if ( @_ );
 
-  print SDTERR Dumper($self);
+  print STDERR Dumper($self);
   throw('Not a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack object')
     unless $self->{'default_track'}->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack');
   return $self->{'default_track'}->clone;

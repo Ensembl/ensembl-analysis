@@ -24,27 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Infernal -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Infernal;
-
-
-=head1 SYNOPSIS
-
     my $runnableDB = Bio::EnsEMBL::Analysis::RunnableDB::Infernal->new(
             	-db       => $db_adaptor,
 		-input_id => $flag_id,		
@@ -70,11 +49,10 @@ file. The dna align feature representing the initial blast hit is added as a sup
 and the RNA secondary structure predicted by Infernal is added as a transcript attribute
 in a length encoded string form to take up less room in the db.
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Infernal;
 

@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::EnsemblDisableKeys -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::EnsemblDisableKeys
-
-
-
-
-=head1 SYNOPSIS
-
 my $runnableDB =  Bio::EnsEMBL::Analysis::RunnableDB::EnsemblDisableKeys->new(
     -db         => $refdb,
     -analysis   => $analysis_obj,
@@ -62,9 +42,8 @@ This module has 2 functions:
    and stores the sorted table in the "normal" table
 
   
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

@@ -24,29 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::BestTargetted -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Cared for by Ensembl
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::RunnableDB::BestTargetted
-
-=head1 SYNOPSIS
-
   my $db      = Bio::EnsEMBL::DBAdaptor->new($locator);
   my $cond = Bio::EnsEMBL::Analysis::RunnableDB::BestTargetted
     ->new (-db         => $pipelinedb,
@@ -66,11 +43,10 @@ Bio::EnsEMBL::Analysis::RunnableDB::BestTargetted -
   object to setup the runnable and then write the results back to the 
   database specified in the config file.
 
-=head1 CONTACT
-
-  Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::BestTargetted;
 

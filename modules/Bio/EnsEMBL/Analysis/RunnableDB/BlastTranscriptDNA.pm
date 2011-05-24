@@ -24,23 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptDNA -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptDNA
-
-=head1 SYNOPSIS
-
 my $btdna     = Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptDNA->new ( 
                                                     -db         => $db,
 			                            -input_id   => $input_id
@@ -58,9 +41,7 @@ the region, against a DNA database. The resulting blast hits are
 written back as DnaDnaAlignFeature's.
 
 
-=head1 CONTACT
-
-B<ensembl-dev@ebi.ac.uk>
+=head1 METHODS
 
 =head1 APPENDIX
 
@@ -68,6 +49,7 @@ The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptDNA;
 

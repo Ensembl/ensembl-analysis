@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeProjection -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
-#
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeProjection
-
-=head1 SYNOPSIS
-
     my $obj = Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeProjection->new(
 								    -db        => $db,
 								    -input_id  => $id,
@@ -58,9 +38,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeProjection
 
 This method is used to get project the genes annotated in the reference chromosome into the Haplotype regions.
 
-=head1 CONTACT
+=head1 METHODS
 
-Describe contact details here
 
 =head1 APPENDIX
 

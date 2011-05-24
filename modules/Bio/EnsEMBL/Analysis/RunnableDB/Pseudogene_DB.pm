@@ -24,26 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
-
-=head1 SYNOPSIS
-
 my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB->new(
 						-db => $db_adaptor,
 						-input_id => $slice_id,		
@@ -81,12 +61,10 @@ Configuration for all three of these modules is here:
 Bio::EnsEMBL::Analysis::Config::Pseudogene
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
 
 =head1 APPENDIX
-
 
 
 =cut

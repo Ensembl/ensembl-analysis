@@ -24,20 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-=pod
-
-=head1 NAME Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus
-
-=head1 SYNOPSIS
-
   my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus->new
      (
      -query            => $query,
@@ -55,9 +41,7 @@ a score by summing the individual exon and intron scores.
 The transcripts are sorted by score and the highest scoring models are made into
 gene objets and written to the TranscriptCoalescer database.
 
-=head1 CONTACT
-
-Post questions to the EnsEMBL developer list: <ensembl-dev@ebi.ac.uk>
+=head1 METHODS
 
 =cut
 

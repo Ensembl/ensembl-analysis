@@ -18,33 +18,13 @@
 
 =cut
 
+=head1 AUTHORS
+
+Jan-Hinnerl Vogel
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer - 
-
-=head1 SYNOPSIS
-
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
-#
-# Copyright (c) 2006 Ensembl
-#
-# written by Jan-Hinnerk Vogel 
-#
-#
-
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
 
 =head1 SYNOPSIS
 
@@ -65,11 +45,10 @@ Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer -
   object to setup the runnable and then write the results back to the 
   database specified in the config file.
 
-=head1 CONTACT
-
-  Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer;
 

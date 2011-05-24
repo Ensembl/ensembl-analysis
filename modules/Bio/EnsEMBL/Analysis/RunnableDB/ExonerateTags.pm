@@ -24,30 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags
-#
-# Copyright EMBL-EBI/Wellcome Trust Sanger Center 2006
-#
-# You may distribute this module under the same terms as perl itself
-#
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
-
-=pod
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags
-
-=head1 SYNOPSIS
-
 my $analysis_obj = $db->get_AnalysisAdaptor->fetch_by_logic_name("Exonerate_Tags");
 my $runnabledb =
     Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags->new( -db          => $db,
@@ -62,11 +38,10 @@ RunnnableDB module for the Ditag analysis. Fetches Ditag sequences from database
 tries to align them to the genome with the Runnable and stores DitagFeatures
 after filtering the hits.
 
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags;
 

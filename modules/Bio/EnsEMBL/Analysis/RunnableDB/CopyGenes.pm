@@ -24,6 +24,9 @@ Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes -
 
 =head1 SYNOPSIS
 
+RunnableDB for copying genes from a source database to a target
+database. By default all the genes in the database COPY_SOURCE_DB are copied into
+the database COPY_TARGET_DB
 
 =head1 DESCRIPTION
 
@@ -32,24 +35,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes -
 
 =cut
 
-
-=head1 NAME
-
-ProteinAnnotation.pm - DESCRIPTION of Object
-
-=head1 SYNOPSIS
-
-RunnableDB for copying genes from a source database to a target
-database. By default all the genes in the database COPY_SOURCE_DB are copied into
-the database COPY_TARGET_DB
-
-=head1 DESCRIPTION
-
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
-
-=cut
 
 package Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes;
 

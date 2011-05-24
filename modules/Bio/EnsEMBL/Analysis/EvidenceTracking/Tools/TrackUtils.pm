@@ -270,7 +270,7 @@ sub cleanup_meta_tracking {
     my $db = shift;
 
     my $dba = Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor->new(
-        -dbcon => $db->dbc
+        -dbconn => $db->dbc
         );
     my @meta_keys = $dba->get_meta_values_by_key('tracking.analysis');
     while (my $meta_value = shift @meta_keys) {

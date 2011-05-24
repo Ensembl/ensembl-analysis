@@ -27,14 +27,14 @@ Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild -
 
 =head1 DESCRIPTION
 
+This is to be a baseclass for the genebuild code to have various
+object like methods which genebuild modules want. GeneBuild code
+should ideally inherit from this
 
 =head1 METHODS
 
 =cut
 
-##This is to be a baseclass for the genebuild code to have various
-#object like methods which genebuild modules want. GeneBuild code
-#should ideally inherit from this
 
 
 package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;

@@ -24,25 +24,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanDNA -
 
 =head1 SYNOPSIS
 
-
-=head1 DESCRIPTION
-
-
-=head1 METHODS
-
-=cut
-
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanDNA
-#
-# Copyright (c) 2004 Ensembl
-#
-
-=head1 NAME
-
-  Bio::EnsEMBL::Analysis::RunnableDB::Blast
-
-=head1 SYNOPSIS
-
   my $blast = Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanDNA->
   new(
       -analysis => $analysis,
@@ -58,11 +39,10 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanDNA -
  This module inherits from the Blast runnable and instantiates 
  BlastTranscriptDNA passing in prediction transcript
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
+
 
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanDNA;
 

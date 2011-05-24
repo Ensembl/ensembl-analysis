@@ -27,46 +27,14 @@ Bio::EnsEMBL::Analysis::RunnableDB::Funcgen -
 
 =head1 DESCRIPTION
 
+This module is the base class for the Fungen Runnabledbs that act as an 
+interface between the functional genomics database and the Funcgen Runnables 
+both fetching input data and writing data back to the databases.
 
 =head1 METHODS
 
 =cut
 
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::Funcgen
-#
-# Copyright (c) 2007 Ensembl
-#
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::RunnableDB::Fungen
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-
-This module is the base class for the Fungen Runnabledbs that act as an 
-interface between the functional genomics database and the Funcgen Runnables 
-both fetching input data and writing data back to the databases.
-
-=head1 LICENSE
-
-  Copyright (c) 1999-2009 The European Bioinformatics Institute and
-  Genome Research Limited.  All rights reserved.
-
-  This software is distributed under a modified Apache license.
-  For license details, please see
-
-    http://www.ensembl.org/info/about/code_licence.html
-
-=head1 CONTACT
-
-  Please email comments or questions to the public Ensembl
-  developers list at <ensembl-dev@ebi.ac.uk>.
-
-  Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
-
-=cut
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Funcgen;
 
