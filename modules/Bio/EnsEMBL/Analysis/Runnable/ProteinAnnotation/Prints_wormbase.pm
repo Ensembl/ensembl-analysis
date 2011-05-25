@@ -12,6 +12,13 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
+sub multiprotein{
+  my ($self) = @_;
+  return 1;
+}
+
+
+
 =head2 run_program
 
  Title    : run_program
@@ -202,7 +209,6 @@ sub parse_results {
 	my $feat = "$print,$start,$end,$percentageIdentity,$profileScore,$evalue{$fingerprintName}";
 	print STDERR "features= $feat\n";
 	
-	print "matched\n";
 	my $hstart = 0;
 	my $hend = 0;
 	my $evalue = $evalue{$fingerprintName};

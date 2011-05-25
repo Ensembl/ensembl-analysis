@@ -14,6 +14,15 @@ use Env qw(PATH);
 # analysis methods
 ###################
 
+
+sub multiprotein{
+  my ($self) = @_;
+  return 1;
+}
+
+
+
+
 =head2 run_program
 
  Title    : run_program
@@ -37,6 +46,7 @@ sub run_analysis {
     my $cmd = $self->program .' '.
 	      $self->analysis->parameters .' '.
 	      '-o ' . $self->resultsfile .' '.
+              $self->database . ' ' .
 	      $self->queryfile;
     print STDERR "$cmd\n";   
 
@@ -89,13 +99,22 @@ sub parse_results {
 
 # 11845      1   167 PF06653.3       1   160 ls   -12.3   0.00016           DUF1164 
  
-    my $id;
+    my $id ;
+    my $hid ;
     while (<CPGOUT>) {
       chomp;
 
       print "$_\n";
+ 
+      if (/^Query:\s+(\S+)/) {
+        $id = $1;
+      }
 
-      if (my ($id, $start, $end, $hid, $hstart, $hend, $skipit,$score, $evalue) = /^(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(ls)*\s+([\d\.\-\+]+)\s+(\S+)\s+(\S+)/) {
+      if (/^>> (\S+)/) {
+        $hid = $1 ;
+      }
+
+      if (my ($score, $evalue, $hstart, $hend, $start, $end) = /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
 
 	print "matched\n";
 	my $percentIdentity = 0;

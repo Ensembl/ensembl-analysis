@@ -12,6 +12,15 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
+
+sub multiprotein{
+  my ($self) = @_;
+  return 1;
+}
+
+
+
+
 =head2 run_program
 
  Title    : run_program
@@ -76,7 +85,8 @@ sub parse_results {
 
 
 
-    my $id;
+    my $id ;
+    my $hid ;
     while (<CPGOUT>) {
       chomp;
 
@@ -84,12 +94,14 @@ sub parse_results {
 
       last if /^Alignments of top-scoring domains/;
       next if (/^Model/ || /^\-/ || /^$/);
-      if (/^Query sequence:\s+(\S+)/) {
+      if (/^Query:\s+(\S+)/) {
 	$id = $1;
       }
+      if (/^>> (\S+)/) { 
+        $hid = $1 ; 
+      }
 
-      if (my ($hid, $start, $end, $hstart, $hend, $score, $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
-
+      if (my ($score, $evalue, $hstart, $hend, $start, $end) = /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
 
 	print "matched\n";
 	$evalue = sprintf ("%.3e", $evalue);
