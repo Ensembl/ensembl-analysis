@@ -24,20 +24,35 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 
 =cut
 
+sub multiprotein{
+  my ($self) = @_;
+  return 1;
+}
+
+
+
 sub run_analysis {
     my ($self) = @_;
 
     # run program
     print STDERR "running ".$self->program." against ".$self->database."\n";
     print STDERR "FILENAME: ".$self->queryfile."\n";
- 
-    my $cmd = $self->program .' '.
-	        $self->analysis->parameters .' '.
-	        '-i ' . $self->queryfile.' '.
-		'> ' . $self->resultsfile;
-    print STDERR "$cmd\n";   
-    $self->throw ("Error running PIRSF_wormbase ".$self->program." on ".$self->queryfile) 
-     unless ((system ($cmd)) == 0);
+
+    $self->resultsfile() ;
+    my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                                -file   => $self->queryfile);
+    while (my $seq = $seqio->next_seq) {
+      my $filename = $self->create_filename($seq->id, 'fa') ;
+      $filename = $self->write_seq_file($seq, $filename) ;
+      my $cmd = $self->program .' '.
+  	        $self->analysis->parameters .' '.
+  	        '-i ' . $filename.' '.
+  		'>> ' . $self->resultsfile;
+      print STDERR "$cmd\n";   
+      $self->throw ("Error running PIRSF_wormbase ".$self->program." on ".$self->queryfile) 
+       unless ((system ($cmd)) == 0);
+
+    }
     
 }
 
