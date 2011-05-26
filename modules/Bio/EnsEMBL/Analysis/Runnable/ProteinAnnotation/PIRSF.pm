@@ -43,27 +43,6 @@ sub multiprotein{
   return 1;
 }
 
-sub new {
-  my ($class, @args) = @_;
-
-  my $self = $class->SUPER::new(@args);
-  
-  my ($threshold_file) = rearrange(['THRESHOLDS'], @args);
-
-  if (not defined $threshold_file) {
-    throw("You must supply a threshold file for PIRSF");
-  } elsif (not -e $threshold_file) {
-    throw("Threshold file '$threshold_file' could not be found");
-  }
-
-  $self->thresholds($threshold_file);
-
-  throw("You must supply this runnable with a sequence object")
-      if not ref($self->query) or not $self->query->isa("Bio::PrimarySeqI");
-
-  return $self;
-}
-
 
 ###############################
 sub run_analysis {
@@ -129,6 +108,15 @@ sub filter_main {
 
   my @pass_hits;
 
+  my %seqlengths;
+
+  my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                              -file   => $self->queryfile);
+  while (my $seq = $seqio->next_seq) {
+    $seqlengths{$seq->id} = $seq->length;
+  }
+  $seqio->close;
+
   foreach my $hit (@$hits) {
     my $this_dat = $dat->{$hit->hseqname};
     
@@ -139,8 +127,8 @@ sub filter_main {
       next;
     }
 
-    my $len_prop = $hit->length / $self->query->length;
-    my $len_diff = abs($self->query->length - $this_dat->{mean_length});
+    my $len_prop = $hit->length / $seqlengths{$hit->seqname};
+    my $len_diff = abs($seqlengths{$hit->seqname} - $this_dat->{mean_length});
     my $score_diff = $hit->score - $this_dat->{mean_score};
 
     if ($len_prop >= 0.8 and
@@ -219,12 +207,3 @@ sub process_thresholds_file {
 }
 
 
-sub thresholds {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_thresholds} = $val;
-  }
-
-  return $self->{_thresholds};
-}
