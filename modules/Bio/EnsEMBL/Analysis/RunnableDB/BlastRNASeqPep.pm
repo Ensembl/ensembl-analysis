@@ -202,7 +202,7 @@ sub add_supporting_features {
     foreach my $key ( sort { $a <=> $b }  keys %feature_hash ) {
       foreach my $score ( sort { $b <=> $a } keys %{$feature_hash{$key}} ) {
 	foreach my $name (keys %{$feature_hash{$key}{$score}} ) {
-	  print "$name $score $key\n";
+	  print "$name $score $key\n"; 
 	  push @sorted_alignments, $feature_hash{$key}{$score}{$name};
 	}
       }
@@ -248,40 +248,24 @@ sub add_supporting_features {
       # using the highest scoring alignment and computing the peptide coverage
       print STDERR "Best hit\n";
       my $hlen= 0;
-      my $last_hend = 0;
       my @filtered_best;
-      foreach my $f (@best ) {
-	print  $f->seq_region_name ." " .
-	  $f->start ." " .
-	    $f->end ." " .
-	      $f->strand ." " .
-		$f->hstart ." " .
-		  $f->hend ." " .
-		    $f->score ." " .
-		      $f->p_value ." " .
-			$f->percent_id . " " .
-			  $f->hseqname ."\n";	
-	my $flen = $f->hend - $f->hstart + 1 ;
-	my $elen = $f->end - $f->start +1 ;
-	$hlen +=  $flen ;
-	print STDERR "$elen $flen ratio " . ( $elen / $flen ) . "\n";
-	if (  $elen / $flen != 3 ) {
-	  # force them to = 3 to make it work
-	  $f->hstart($last_hend+1);
-	  $f->hend($f->hstart +(  $elen /3 )-1 );	
-	  print STDERR "Changed to:\n" . $f->seq_region_name ." " .
-	  $f->start ." " .
-	    $f->end ." " .
-	      $f->strand ." " .
-		$f->hstart ." " .
-		  $f->hend ." " .
-		    $f->score ." " .
-		      $f->p_value ." " .
-			$f->percent_id . " " .
-			  $f->hseqname ."\n";
+      foreach my $gf (@best ) {
+	#need to break them back into ungapped features to get them to work consistantly
+	foreach my $f ($gf->ungapped_features) {
+	  print  $f->seq_region_name ." " .
+	    $f->start ." " .
+	      $f->end ." " .
+		$f->strand ." " .
+		  $f->hstart ." " .
+		    $f->hend ." " .
+		      $f->score ." " .
+			$f->p_value ." " .
+			  $f->percent_id . " " .
+			      $f->hseqname ."\n";	
+	  my $flen = $f->hend - $f->hstart + 1 ;
+	  $hlen +=  $flen ;
+	  push @filtered_best,$f;
 	}
-	$last_hend = $f->hend;
-	push @filtered_best,$f;
       }
       # make a transcript supporting feature
       my $coverage = sprintf("%.3f",( $hlen / length($tran->translation->seq) ) * 100);
