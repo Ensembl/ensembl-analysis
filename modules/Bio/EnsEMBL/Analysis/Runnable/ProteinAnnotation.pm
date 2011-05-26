@@ -21,6 +21,10 @@ sub new {
     $database = $self->analysis->db_file;
   }
   $self->database($database);
+
+  my ($threshold_file) = rearrange(['THRESHOLDS'], @args);
+  $self->thresholds($threshold_file);
+
   
   if(!$self->query){
     throw("need to have a query defined in order to run protein ".
@@ -197,6 +201,16 @@ sub multiprotein{
   throw($self->program. "'s module must implement this method to define ".
         " if it can handle multi sequence fasta files or needs to take ".
         " one protein at once");
+}
+
+sub thresholds {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_thresholds} = $val;
+  }
+
+  return $self->{_thresholds};
 }
 
 
