@@ -550,6 +550,30 @@ sub add_intron_count{
   return;
 }
 
+
+=head2 add_intron_weight
+
+   Name       : add_intron_weight
+   Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
+   Function   : Adds extra weight to RNAseq introns that represent a collapsed stack of introns
+   Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
+   Returnval  : none
+
+=cut
+
+sub add_intron_weight{
+  my ($self,$feature,$num) = @_;
+  # we will already have a weight of 1 for this feature
+  $num--;
+  if (defined($feature)) {    
+    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+      unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
+    my $key = $self->_get_key_from_feature($feature);
+    $self->{_introncount}{$key}+= $num;
+  }
+  return;
+}
+
 =head2 get_intron_count
 
    Name       : get_intron_count
@@ -663,6 +687,36 @@ sub make_intron_from_exons{
        -strand  => $exon1->strand,
        -slice   => $exon1->slice,
        -analysis=> $exon1->transcript->analysis,
+      );
+    return $intron;
+  }
+  return;
+}
+
+=head2 make_intron_from_rnaseq
+
+   Name       : make_intron_from_rnaseq
+   Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
+   Arg[1]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
+   Function   : Given 2 rnaseq it makes an intron object that joins them together
+   Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
+              : Throws unless ARG[1] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
+   Returnval  : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended
+
+=cut
+
+sub make_intron_from_rnaseq{
+  my ($self,$feature) = @_;
+  if (defined($feature)) {
+    $self->throw("feature must be a Bio::EnsEMBL::DnaDnaAlignFeature not a ".ref($feature)."\n")
+      unless $feature->isa("Bio::EnsEMBL::DnaDnaAlignFeature");
+    my $intron = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended->new
+      (
+       -start   => $feature->start -1,
+       -end     => $feature->end +1,
+       -strand  => $feature->strand,
+       -slice   => $feature->slice,
+       -analysis=> $feature->analysis,
       );
     return $intron;
   }
