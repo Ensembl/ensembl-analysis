@@ -79,15 +79,16 @@ sub run_analysis {
 
     print STDERR "FILENAME: ".$self->queryfile."\n";
  
-    my $cmd = $self->program .' '.
-	        '--acc -E 59.5 -A 100 '.
-	        $self->options .' '.
-	        $dbfiles[0]      .' '.
-	        $self->queryfile.' > '.
-		$self->resultsfile;
+# /software/worm/iprscan/bin/binaries/hmmer3/hmmscan --domE 1 -Z 100000 /data/blastdb/Worms/interpro_scan/iprscan/data/gene3d.lib inputfile > resultsfile
+
+    my $cmd = $self->program .' '. 
+	$self->analysis->parameters .' '.
+	  $self->database .' '.
+	    $self->queryfile.' > '.
+	      $self->resultsfile;
     print STDERR "$cmd\n";   
-    $self->throw ("Error running ".$self->program." on ".$self->filename." against ".$dbfiles[0]) 
-     unless ((system ($cmd)) == 0);
+    $self->throw ("Error running ".$self->program." on ".$self->queryfile." against ".$dbfiles[0]) 
+      unless ((system ($cmd)) == 0);
     
 }
 
@@ -105,42 +106,77 @@ sub run_analysis {
 =cut
 
 sub parse_results {
-    my ($self) = @_;
-
-    my $filehandle;
-    my $resfile = $self->resultsfile();
-    my @fps;
-		
-
-    if (-e $resfile) {
-	if (-z $resfile) {  
-	    print STDERR "Genes3D didn't find any hits\n";
-	    return; }       
-	else {
-	    open (CPGOUT, "<$resfile") or $self->throw("Error opening ", $resfile, " \n");#
-	    }
+  my ($self) = @_;
+  
+  my $filehandle;
+  my $resfile = $self->resultsfile();
+  my @fps;
+  
+  
+  if (-e $resfile) {
+    if (-z $resfile) {  
+      print STDERR "Genes3D didn't find any hits\n";
+      return; }       
+    else {
+      open (CPGOUT, "<$resfile") or $self->throw("Error opening ", $resfile, " \n");#
     }
+  }
 
    
+  my %seen_before;
+
+
+
+
+#Domain annotation for each model (and alignments):
+#>> 1ukxA00
+#   #    score  bias  c-Evalue  i-Evalue hmmfrom  hmm to    alifrom  ali to    envfrom  env to     acc
+# ---   ------ ----- --------- --------- ------- -------    ------- -------    ------- -------    ----
+#   1 ?   10.5   0.0   2.1e-05       2.1      46      81 ..      23      58 ..      20      88 .. 0.90
+#   2 ?   -2.7   0.0      0.24   2.4e+04      67      83 ..     136     152 ..     108     168 .. 0.77
+#
+#  Alignments for each domain:
+#  == domain 1    score: 10.5 bits;  conditional E-value: 2.1e-05
+#                 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX RF
+#      1ukxA00 46 sfkikikpesdeeeeqkvsltLqvelpetYPdeaPe 81
+#                  fk+++++  de++ + + + L+++l ++ Pde+P
+#  temp_gene_1 23 AFKFHLSTLVDEDDPTPFDFALSFQLKPELPDELPA 58
+#                 5999999999************************96 PP
+#
+#  == domain 2    score: -2.7 bits;  conditional E-value: 0.24
+#                  XXXXXXXXXXXXXXXXX RF
+#      1ukxA00  67 LqvelpetYPdeaPeie 83
+#                  + +  +  YPd+   ++
+#  temp_gene_1 136 MLIYKTRYYPDTKCLVK 152
+#                  55556677888887765 PP
+
+
+
+
 
 
 #First parse what comes from the ls mode matches. Every match in that case is taken
-    my $id;
-    while (<CPGOUT>) {
-	chomp;
-        last if /^Alignments of top-scoring domains/;
-        next if (/^Model/ || /^\-/ || /^$/);
-        if (/^Query sequence:\s+(\S+)/) {
-            $id = $1;
-	}
-	
-        if (my ($hid, $start, $end, $hstart, $hend, $score, $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
-	   my $fp= $self->create_protein_feature($start,$end,$score,$id,$hstart,$hend,$hid,$self->analysis, sprintf("%.3e", $evalue),0);
-	   push @fps,$fp;
-	}
+  my $id;
+  my $hid;
+  while (my $line = <CPGOUT>) {
+    chomp;
+    if ($line =~ /Query:\s+(\S+)/) {$id = $1}
+    if ($line =~ />>\s+(\S+)/) {$hid = $1} 
+#   1 ?   10.5   0.0   2.1e-05       2.1      46      81 ..      23      58 ..      20      88 .. 0.90
+    if (my ($evalue, $hstart, $hend, $start, $end) = ($line =~ /^\s+\d+\s+\?\s+\S+\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\.\.\s+(\d+)\s+(\d+)/)) {
+      $evalue *= 1;           # force evalue to be a float not a string
+      my $score = 0;
+      my $percentIdentity = 0;
+      my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
+
+      push @fps,$fp;      
     }
-    close (CPGOUT); 
-    $self->output(\@fps);
+	
+
+  }
+  close (CPGOUT); 
+  $self->output(\@fps);
+
 }
 
 1;

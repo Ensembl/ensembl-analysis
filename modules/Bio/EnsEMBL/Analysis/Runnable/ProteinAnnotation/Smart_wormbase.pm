@@ -12,14 +12,6 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
-
-sub multiprotein{
-  my ($self) = @_;
-  return 1;
-}
-
-
-
 =head2 run_program
 
  Title    : run_program
@@ -90,6 +82,7 @@ sub parse_results {
 
     print "$_\n";
 
+    last if /^Alignments of top-scoring domains/;
     next if (/^Model/ || /^\-/ || /^$/);
     if (/^Query sequence:\s+(\S+)/) {
       $id = $1;

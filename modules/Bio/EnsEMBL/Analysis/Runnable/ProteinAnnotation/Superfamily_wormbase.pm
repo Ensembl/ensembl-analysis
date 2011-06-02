@@ -12,14 +12,6 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
-
-sub multiprotein{
-  my ($self) = @_;
-  return 1;
-}
-
-
-
 =head2 run_program
 
  Title    : run_program
@@ -45,7 +37,7 @@ sub run_analysis {
 	        '-i ' . $self->queryfile.' '.
 		'-o ' . $self->resultsfile;
     print STDERR "$cmd\n";   
-    $self->throw ("Error running Superfamily_wormbase ".$self->program." on ".$self->filename) 
+    $self->throw ("Error running Superfamily_wormbase ".$self->program." on ".$self->queryfile) 
      unless ((system ($cmd)) == 0);
     
 }

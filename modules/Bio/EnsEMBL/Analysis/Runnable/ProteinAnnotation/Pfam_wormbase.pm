@@ -5,23 +5,12 @@ use strict;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
-use Env qw(PATH);
-
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
 
 ###################
 # analysis methods
 ###################
-
-
-sub multiprotein{
-  my ($self) = @_;
-  return 1;
-}
-
-
-
 
 =head2 run_program
 
@@ -45,13 +34,10 @@ sub run_analysis {
  
     my $cmd = $self->program .' '.
 	      $self->analysis->parameters .' '.
-	      '-o ' . $self->resultsfile .' '.
-              $self->database . ' ' .
-	      $self->queryfile;
+	      $self->database .' '.
+	      $self->queryfile .' '.
+              '> ' . $self->resultsfile;
     print STDERR "$cmd\n";   
-
-    $PATH = '/software/worm/bin/hmmer/:/software/worm/iprscan/bin/binaries/:'.$PATH; #for hmmpfam
-    $PATH = '/software/worm/iprscan/bin/binaries/blast/:'.$PATH; #for blastall
 
     $self->throw ("Error running Pfam_wormbase ".$self->program." on ".$self->queryfile) 
      unless ((system ($cmd)) == 0);
@@ -89,39 +75,100 @@ sub parse_results {
     }
 
 
- # Example output for sequence ID 2345:
-#2345   279  319 PF00400.23     1   38    13.7     0.008  WD40
-#2345   323  361 PF00400.23     1   38    22.0    0.0023  WD40
 
-# now
-# 12311     49   288 PF00149.20      1   124 ls    90.9   4.4e-24       Metallophos         
-# 12311    294   517 PF04152.6       1   240 ls   310.9   2.6e-90    Mre11_DNA_bind
+    my %seen_before;
 
-# 11845      1   167 PF06653.3       1   160 ls   -12.3   0.00016           DUF1164 
- 
-    my $id ;
-    my $hid ;
+#    my $id;
+#    while (<CPGOUT>) {
+#      chomp;
+
+#      print "$_\n";
+
+#      last if /^Alignments of top-scoring domains/;
+#      next if (/^Model/ || /^\-/ || /^$/);
+#      if (/^Query sequence:\s+(\S+)/) {
+#	$id = $1;
+#      }
+
+#      if (my ($hid, $start, $end, $hstart, $hend, $score, $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
+
+#	# remove .fs or .ls at end of Pfam ID
+#	$hid =~ s/\.fs$//;
+#	$hid =~ s/\.ls$//;
+
+#	print "matched\n";
+#	$evalue = sprintf ("%.3e", $evalue);
+#	my $percentIdentity = 0;
+      
+#	# only output the unique hits
+#	if (!exists $seen_before{"${hid}_${start}_${end}"}) {
+#	  my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
+#	  push @fps, $fp;
+#	  $seen_before{"${hid}_${start}_${end}"} = 1;
+#	  print "Outputting: $hid $start $end $evalue\n";
+#	}
+#      }
+#    }
+#    close (CPGOUT); 
+#    $self->output(\@fps);
+
+
+    my $mstatdir = $_[0];
+    my $cutoff   = $_[1];
+    my $pre      = $_[2];
+    my $model;
+    my $seqid;
+    my $start;
+    my $end;
+    my $score;
+    my $E;
+    my $evalue;
+    my $hid;
+    my $hstart;
+    my $hend;
+      
+
+
+    my $id;
     while (<CPGOUT>) {
-      chomp;
 
-      print "$_\n";
- 
-      if (/^Query:\s+(\S+)/) {
-        $id = $1;
+      last if /^Internal pipeline statistics summary/;
+
+      if(/^Query\:\s+(\S+)/) {
+	#Query:       C13D9.8
+	$id = $1;
       }
 
-      if (/^>> (\S+)/) {
-        $hid = $1 ;
+      if (/^>>\s+(\S+)\./) {
+	$hid = $1;
       }
 
-      if (my ($score, $evalue, $hstart, $hend, $start, $end) = /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
+      #Domain annotation for each model:
+      #>> PF01699.17  Sodium/calcium exchanger protein
+      #   #    score  bias  c-Evalue  i-Evalue hmmfrom  hmm to    alifrom  ali to    envfrom  env to     acc
+      # ---   ------ ----- --------- --------- ------- -------    ------- -------    ------- -------    ----
+      #   1 !   82.8   6.0   1.1e-27   1.3e-23       1     138 [.      67     200 ..      67     201 .. 0.96
+      #   2 !   75.8  10.1   1.6e-25   1.9e-21       1     138 [.     502     639 ..     502     640 .. 0.88
 
-	print "matched\n";
-	my $percentIdentity = 0;
 	
-	my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
-	push @fps, $fp;
-      }
+      if (/^\s*\d+\s+\!\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\.\.\s+\d+\s+\d+\s+\.\.\s+\S+/) {
+	$score    = $1;
+	$evalue   = $2;
+	$hstart   = $3;
+	$hend     = $4;
+	$start    = $5;
+	$end      = $6;
+
+	$evalue = sprintf ("%.3e", $evalue);
+	my $percentIdentity = 0;
+	  
+	  # only output the unique hits
+	  if (!exists $seen_before{"${hid}_${start}_${end}"}) {
+	    my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
+	    push @fps, $fp;
+	    $seen_before{"${hid}_${start}_${end}"} = 1;
+	  }
+	}
     }
     close (CPGOUT); 
     $self->output(\@fps);

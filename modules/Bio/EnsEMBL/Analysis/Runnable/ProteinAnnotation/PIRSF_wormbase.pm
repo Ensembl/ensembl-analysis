@@ -24,35 +24,20 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 
 =cut
 
-sub multiprotein{
-  my ($self) = @_;
-  return 1;
-}
-
-
-
 sub run_analysis {
     my ($self) = @_;
 
     # run program
     print STDERR "running ".$self->program." against ".$self->database."\n";
     print STDERR "FILENAME: ".$self->queryfile."\n";
-
-    $self->resultsfile() ;
-    my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                -file   => $self->queryfile);
-    while (my $seq = $seqio->next_seq) {
-      my $filename = $self->create_filename($seq->id, 'fa') ;
-      $filename = $self->write_seq_file($seq, $filename) ;
-      my $cmd = $self->program .' '.
-  	        $self->analysis->parameters .' '.
-  	        '-i ' . $filename.' '.
-  		'>> ' . $self->resultsfile;
-      print STDERR "$cmd\n";   
-      $self->throw ("Error running PIRSF_wormbase ".$self->program." on ".$self->queryfile) 
-       unless ((system ($cmd)) == 0);
-
-    }
+ 
+    my $cmd = $self->program .' '.
+	        $self->analysis->parameters .' '.
+	        '-i ' . $self->queryfile.' '.
+		'> ' . $self->resultsfile;
+    print STDERR "$cmd\n";   
+    $self->throw ("Error running PIRSF_wormbase ".$self->program." on ".$self->queryfile) 
+     unless ((system ($cmd)) == 0);
     
 }
 
@@ -98,11 +83,11 @@ sub parse_results {
    my $id;
     while (<CPGOUT>) {
       chomp;
+      print "$_\n";
       if (/^Query sequence:\s+(\S+)/) {
 	$id = $1;
       }
 
-      print "$_\n";
       if (my ($hid, $start, $end, $hstart, $hend, $score, $evalue) = /(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
 
 	print "matched\n";
