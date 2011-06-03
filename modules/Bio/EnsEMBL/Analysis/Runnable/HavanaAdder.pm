@@ -242,6 +242,8 @@ GENE:
 
       push( @ensembl, $transcript );
     }
+    print "DEBUG: in _merge_redundant_transcripts: "
+        . "bfr checking the array size: " . scalar(@ensembl) . "\n";
     if ( !scalar(@havana) ) {
       next GENE;
     }
@@ -732,15 +734,15 @@ sub are_matched_pair {
              || $hexons[$i]->end != $eexons[$i]->end
              || $hexons[$i]->strand != $eexons[$i]->strand )
         {
-          #print "DEBUG: CASE WITH SAME CDS BUT DIFFERENT UTR STRUCTURE\n";
-          #print "DEBUG: HAVANA DIFF UTR BOUNDARIES: "
-          #  . $havana->seq_region_name . " - "
-          #  . $havana->seq_region_start . " - "
-          #  . $havana->seq_region_end . "\n";
-          #print "DEBUG: ENSEMBL DIFF UTR BOUNDARIES: "
-          #  . $ensembl->seq_region_name . " - "
-          #  . $ensembl->seq_region_start . " - "
-          #  . $ensembl->seq_region_end . "\n";
+          print "DEBUG: CASE WITH SAME CDS BUT DIFFERENT UTR STRUCTURE\n";
+          print "DEBUG: HAVANA DIFF UTR BOUNDARIES: "
+            . $havana->seq_region_name . " - "
+            . $havana->seq_region_start . " - "
+            . $havana->seq_region_end . "\n";
+          print "DEBUG: ENSEMBL DIFF UTR BOUNDARIES: "
+            . $ensembl->seq_region_name . " - "
+            . $ensembl->seq_region_start . " - "
+            . $ensembl->seq_region_end . "\n";
           return 1;
         }
       }
@@ -791,7 +793,7 @@ sub are_matched_pair {
         && (    $hexons[-1]->end != $eexons[-1]->end
              || $hexons[0]->start != $eexons[0]->start ) )
       {
-        #print "DEBUG: MULTIEXON DELETE ENSEMBL\n";
+        print "DEBUG: Case 3: MULTIEXON DELETE ENSEMBL\n";
         #print "DEBUG: CASE WITH DIFFERENT TERMINAL EXON BOUNDARIES\n";
         #print "DEBUG: HAVANA BOUNDARIES: ".$havana->seq_region_name." - ".$havana->seq_region_start. " - ".$havana->seq_region_end."\n";
         #print "DEBUG: ENSEMBL BOUNDARIES: ".$ensembl->seq_region_name." - ".$ensembl->seq_region_start. " - ".$ensembl->seq_region_end."\n";
@@ -810,7 +812,7 @@ sub are_matched_pair {
 
         )
       {
-        #print "DEBUG: MULTIEXON DELETE ENSEMBL\n";
+        print "DEBUG: Case 4: MULTIEXON DELETE ENSEMBL\n";
         return $ensembl;
 
       } elsif (    # CASE 5: Same as case 3 but in reverse strand
@@ -826,7 +828,7 @@ sub are_matched_pair {
 
         )
       {
-        #print "DEBUG: Case with different terminal exon boundaries\n";
+        print "DEBUG: Case 5: different terminal exon boundaries, delete ens\n";
         #print "DEBUG: Havana boundaries: "
         #  . $havana->seq_region_name . " - "
         #  . $havana->seq_region_start . " - "
@@ -838,20 +840,20 @@ sub are_matched_pair {
         return $ensembl;
 
       } else {
-        #print "DEBUG: \tShould I be here?\n";
-        #print "DEBUG: \tKeep multiexon both: havana "
-        #  . $havana->dbID
-        #  . " and ensembl: "
-        #  . $ensembl->dbID . "\n";
-        #print "DEBUG: \tHavana boundaries: "
-        #  . $havana->seq_region_name . " - "
-        #  . $havana->seq_region_start . " - "
-        #  . $havana->seq_region_end . "\n";
-        #print "DEBUG: \tEnsembl boundaries: "
-        #  . $ensembl->seq_region_name . " - "
-        #  . $ensembl->seq_region_start . " - "
-        #  . $ensembl->seq_region_end . "\n";
-        #print "\n";
+        print "DEBUG: \tShould I be here?\n";
+        print "DEBUG: \tKeep multiexon both: havana "
+          . $havana->dbID
+          . " and ensembl: "
+          . $ensembl->dbID . "\n";
+        print "DEBUG: \tHavana boundaries: "
+          . $havana->seq_region_name . " - "
+          . $havana->seq_region_start . " - "
+          . $havana->seq_region_end . "\n";
+        print "DEBUG: \tEnsembl boundaries: "
+          . $ensembl->seq_region_name . " - "
+          . $ensembl->seq_region_start . " - "
+          . $ensembl->seq_region_end . "\n";
+        print "\n";
         return 1;
       }
 
@@ -2829,7 +2831,7 @@ sub cluster_into_Genes {
 
   print "There are " . scalar(@clusters) . " havana clusters\n";
   print "There are " . scalar(@transcripts) . " ensembl transcripts\n";
- 
+
 
   # Clusters transcripts by whether or not any coding exon overlaps
   # with a coding exon in another transcript. We will use the set of
@@ -2844,45 +2846,50 @@ sub cluster_into_Genes {
         $readthru_lookup_hash{$tran->stable_id} = 1;
       }
     }
-  } 
+  }
 
 
 
   foreach my $tran (@transcripts) {
-  
+
     print "\n==========\nLooking at Ensembl transcript: ", $tran->stable_id, " biotype ", $tran->biotype, "\n";
     my @matching_clusters;
 
     CLUSTER: foreach my $cluster (@clusters) {
 
-      # print "DEBUG: havana transcript: ", $cluster->[0]->stable_id, "\t" 
-      #     . "dbID: ", $cluster->[0]->dbID, "\n";
+      print "DEBUG: cluster transcript: ", $cluster->[0]->stable_id, "\t" 
+          . "dbID: ", $cluster->[0]->dbID, "\n";
 
       if ($coding) {
-      CLUSTER_TRANS_CODING:
+#      CLUSTER_TRANS_CODING:
         foreach my $cluster_transcript (@$cluster) {
            # print "DEBUG: \$cluster_transcript->stable_id "
            # . $cluster_transcript->stable_id
            # . "\t\$cluster_transcript->biotype "
            # . $cluster_transcript->biotype . "\n";
 
-          if ( $readthru_lookup_hash{$tran->stable_id} && !$readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-            # print "DEBUG: Coding Ens " . $tran->stable_id . " readthrough, Hav " . $cluster_transcript->stable_id . " not readthrough, I'm getting out of here!!!\n";
-            next CLUSTER_TRANS_CODING;
-          }
-          if ( !$readthru_lookup_hash{$tran->stable_id} && $readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-            # print "DEBUG: Coding Ens " . $tran->stable_id . " isn't readthrough, but Hav " . $cluster_transcript->stable_id . " is, I'm getting out of here!!!\n";
-            next CLUSTER_TRANS_CODING;
-          }
-            
+#          if ( $readthru_lookup_hash{$tran->stable_id} && !$readthru_lookup_hash{$cluster_transcript->stable_id} ) {
+#            print "DEBUG: Coding Ens " . $tran->stable_id
+#              . " readthrough, Hav " . $cluster_transcript->stable_id
+#              . " not readthrough, I'm getting out of here!!!\n";
+#            next CLUSTER_TRANS_CODING;
+#          }
+#          if ( !$readthru_lookup_hash{$tran->stable_id} && $readthru_lookup_hash{$cluster_transcript->stable_id} ) {
+#            print "DEBUG: Coding Ens " . $tran->stable_id
+#              . " isn't readthrough, but Hav " . $cluster_transcript->stable_id
+#              . " is, I'm getting out of here!!!\n";
+#            next CLUSTER_TRANS_CODING;
+#          }
 
           if ( $cluster_transcript->translation ) { 
+            print "DEBUG: cluster trans has translation\n";
             if ( $tran->coding_region_end >=
                     $cluster_transcript->coding_region_start
                  && $tran->coding_region_start <=
                  $cluster_transcript->coding_region_end )
             {
 
+              print "DEBUG: we have overlap of coding trans!\n";
               my $exons1 = $self->get_coding_exons_for_transcript($tran);
               my $cluster_exons =
                 $self->get_coding_exons_for_transcript($cluster_transcript);
@@ -2893,6 +2900,8 @@ sub cluster_into_Genes {
                   if (    $exon1->overlaps($cluster_exon)
                        && $exon1->strand == $cluster_exon->strand )
                   {
+                    print "DEBUG: we have overlap of coding exons, adding "
+                        . "the whole cluster to matching clusters\n";
                     push( @matching_clusters, $cluster );
                     next CLUSTER;
                   }
@@ -2904,19 +2913,24 @@ sub cluster_into_Genes {
       } else {
         # If clustering pseudogenes or processed transcripts
 
-        CLUSTER_TRANS_NC: foreach my $cluster_transcript (@$cluster) {
+#        CLUSTER_TRANS_NC:
+          foreach my $cluster_transcript (@$cluster) {
           #print "DEBUG: \$cluster_transcript->dbID " . $cluster_transcript->dbID
           #    . "\t\$cluster_transcript->biotype " . $cluster_transcript->biotype . "\n";
 
 
-          if  ( $readthru_lookup_hash{$tran->stable_id} && !$readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-            # print "DEBUG: Coding Ens " . $tran->stable_id . " readthrough, Hav " . $cluster_transcript->stable_id . " not readthrough, I'm getting out of here!!!\n";
-            next CLUSTER_TRANS_NC;
-          }
-          if ( !$readthru_lookup_hash{$tran->stable_id} && $readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-            # print "DEBUG: Coding Ens " . $tran->stable_id . " isn't readthrough, but Hav " . $cluster_transcript->stable_id . " is, I'm getting out of here!!!\n";
-            next CLUSTER_TRANS_NC;
-          }
+#          if  ( $readthru_lookup_hash{$tran->stable_id} && !$readthru_lookup_hash{$cluster_transcript->stable_id} ) {
+#            print "DEBUG: Coding Ens " . $tran->stable_id
+#              . " readthrough, Hav " . $cluster_transcript->stable_id
+#              . " not readthrough, I'm getting out of here!!!\n";
+#            next CLUSTER_TRANS_NC;
+#          }
+#          if ( !$readthru_lookup_hash{$tran->stable_id} && $readthru_lookup_hash{$cluster_transcript->stable_id} ) {
+#            print "DEBUG: Coding Ens " . $tran->stable_id
+#              . " isn't readthrough, but Hav " . $cluster_transcript->stable_id
+#              . " is, I'm getting out of here!!!\n";
+#            next CLUSTER_TRANS_NC;
+#          }
           if (    $tran->end >= $cluster_transcript->start
                && $tran->start <= $cluster_transcript->end )
           {
