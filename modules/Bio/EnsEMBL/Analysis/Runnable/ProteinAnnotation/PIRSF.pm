@@ -52,42 +52,46 @@ sub run_analysis {
 
   my ($main_hmm, $sf_hmm) = split(/;/, $self->database);
 
-  my $main_run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam->
-      new(-query => $self->query,
+  my $out = [] ;
+  my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                              -file   => $self->queryfile);
+  while (my $seq = $seqio->next_seq) {
+    my $main_run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam->
+      new(-query => $seq,
           -analysis => $self->analysis,
           -database => $main_hmm,
           -options  => $self->options);
-  $main_run->run;
+    $main_run->run;
+    my $best_hit = $self->filter_main($main_run->output, $dat, $seq);
 
-  my $best_hit = $self->filter_main($main_run->output, $dat);
-
-  if (defined $best_hit and exists($dat->{$best_hit->hseqname}->{children})) {
-    my $sf_run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam->
-        new(-query => $self->query,
+    if (defined $best_hit and exists($dat->{$best_hit->hseqname}->{children})) {
+      my $sf_run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam->
+        new(-query => $seq,
             -analysis => $self->analysis,
             -database => $sf_hmm,
             -options  => $self->options);
-    $sf_run->run;
+      $sf_run->run;
 
-    my @relevant_hits;
-    foreach my $hit (@{$sf_run->output}) {
-      if ($dat->{$best_hit->hseqname}->{children}->{$hit->hseqname}) {
-        push @relevant_hits, $hit;
+      my @relevant_hits;
+      foreach my $hit (@{$sf_run->output}) {
+        if ($dat->{$best_hit->hseqname}->{children}->{$hit->hseqname}) {
+          push @relevant_hits, $hit;
+        }
+      }
+
+      if (@relevant_hits) {
+        my $best_sf_hit = $self->filter_sub_family(\@relevant_hits, $dat);
+        if (defined $best_sf_hit) {
+          $best_hit = $best_sf_hit;
+        }
       }
     }
 
-    if (@relevant_hits) {
-      my $best_sf_hit = $self->filter_sub_family(\@relevant_hits, $dat);
-      if (defined $best_sf_hit) {
-        $best_hit = $best_sf_hit;
-      }
+    if (defined $best_hit) {
+      push @$out, $best_hit;
     }
   }
-
-  my $out = [];
-  if (defined $best_hit) {
-    push @$out, $best_hit;
-  }
+  $seqio->close;
 
   $self->output($out);
 }
@@ -104,18 +108,9 @@ sub parse_results {
 
 ###############################
 sub filter_main {
-  my ($self, $hits, $dat) = @_;
+  my ($self, $hits, $dat, $seq) = @_;
 
   my @pass_hits;
-
-  my %seqlengths;
-
-  my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                              -file   => $self->queryfile);
-  while (my $seq = $seqio->next_seq) {
-    $seqlengths{$seq->id} = $seq->length;
-  }
-  $seqio->close;
 
   foreach my $hit (@$hits) {
     my $this_dat = $dat->{$hit->hseqname};
@@ -127,8 +122,8 @@ sub filter_main {
       next;
     }
 
-    my $len_prop = $hit->length / $seqlengths{$hit->seqname};
-    my $len_diff = abs($seqlengths{$hit->seqname} - $this_dat->{mean_length});
+    my $len_prop = $hit->length / $seq->length ;
+    my $len_diff = abs($seq->length - $this_dat->{mean_length});
     my $score_diff = $hit->score - $this_dat->{mean_score};
 
     if ($len_prop >= 0.8 and
@@ -136,7 +131,7 @@ sub filter_main {
          ($hit->score >= $this_dat->{min_score} and 
           $score_diff >= -2.5 * $this_dat->{std_score})) and
         ($len_diff < 3.5 * $this_dat->{std_length})) {
-      push @pass_hits, $hit;
+      push @pass_hits, $hit ;
     }
   }
 
