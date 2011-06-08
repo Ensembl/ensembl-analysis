@@ -197,10 +197,7 @@ sub database {
 ##################################
 sub multiprotein{
   my ($self) = @_;
-  
-  throw($self->program. "'s module must implement this method to define ".
-        " if it can handle multi sequence fasta files or needs to take ".
-        " one protein at once");
+  return 1;
 }
 
 sub thresholds {
