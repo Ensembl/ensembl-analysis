@@ -20,13 +20,22 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun - 
+Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun - Object with all the information about the run
 
 =head1 SYNOPSIS
 
+  use Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun;
+
+  my $analysis_run = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
+     -analysis_id  => $analysis->dbID,
+     -input_db_id  => $in_databases,
+     -output_db_id => $out_databases
+    );
 
 =head1 DESCRIPTION
 
+  This module stores the current of the analysis, its goal is to provide a way
+  to differenciate between several runs of one analysis.
 
 =head1 METHODS
 
@@ -44,6 +53,26 @@ use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 
 @ISA = qw(Bio::EnsEMBL::Storable);
 
+
+=head2 new
+
+ Arg [1]    : $dbid, int
+ Arg [2]    : $analysis_id, int
+ Arg [3]    : $input_db_id, string. An integer or a string of number separated with :, 2:4
+ Arg [4]    : $output_db_id, string. An integer or a string of number separated with :, 5
+ Arg [5]    : $run_date, when the object is stored it's set with the MySQL now()
+ Arg [6]    : $adaptor, Bio::EnsEMBL::Analysis::DBSQL::AnalysisRunAdaptor object
+ Example    : $analysis_run = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
+              -analysis_id  => $analysis->dbID,
+              -input_db_id  => $in_databases,
+              -output_db_id => $out_databases
+            );
+ Description: Constructor
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun
+ Exceptions : 
+
+
+=cut
 
 sub new {
   my($class,@args) = @_;
@@ -68,6 +97,16 @@ sub new {
   return $self; # success - we hope!
 }
 
+=head2 analysis_id
+
+ Arg [1]    : $analysis_id, int [optional]
+ Example    : $analysis_run->analysis_id($analysis_id);
+ Description: Getter/Setter for the analysis id
+ Returntype : integer, the analysis id
+ Exceptions : 
+
+
+=cut
 
 sub analysis_id {
   my $self = shift;
@@ -75,11 +114,35 @@ sub analysis_id {
   return $self->{'analysis_id'};
 }
 
+=head2 input_db_id
+
+ Arg [1]    : $input_db_id, string [optional]
+ Example    : $analysis_run->input_db_id($input_db_id);
+ Description: Getter/Setter for the databases used as input
+              It's either a number or a strin of number like 1:2
+ Returntype : string, the input db ids
+ Exceptions : 
+
+
+=cut
+
 sub input_db_id {
   my $self = shift;
   $self->{'input_db_id'} = shift if ( @_ );
   return $self->{'input_db_id'};
 }
+
+=head2 output_db_id
+
+ Arg [1]    : $output_db_id, string [optional]
+ Example    : $analysis_run->output_db_id($output_db_id);
+ Description: Getter/Setter for the databases used as output
+              It's either a number or a strin of number like 1:2
+ Returntype : string, the output db ids
+ Exceptions : 
+
+
+=cut
 
 sub output_db_id {
   my $self = shift;
@@ -87,11 +150,33 @@ sub output_db_id {
   return $self->{'output_db_id'};
 }
 
+=head2 run_date
+
+ Arg [1]    : $run_date, int [optional]
+ Example    : $analysis_run->run_date($run_date);
+ Description: Getter/Setter for the analysis id
+ Returntype : integer, the analysis id
+ Exceptions : 
+
+
+=cut
+
 sub run_date {
   my $self = shift;
   $self->{'run_date'} = shift if ( @_ );
   return $self->{'run_date'};
 }
+
+=head2 is_stored
+
+ Arg [1]    : $analysisrun_adaptor, a Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::AnalysisRunAdaptor object
+ Example    : $analysis_run->is_stored($analysisrun_adaptor);
+ Description: Test if the object is alreday stored
+ Returntype : boolean
+ Exceptions : 
+
+
+=cut
 
 sub is_stored {
   my $self = shift;

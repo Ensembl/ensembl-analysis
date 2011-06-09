@@ -20,13 +20,22 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::EvidenceTracking::Reason - 
+Bio::EnsEMBL::Analysis::EvidenceTracking::Reason - Store the reason why we kept/dismissed the sequence
 
 =head1 SYNOPSIS
 
+  use Bio::EnsEMBL::Analysis::EvidenceTracking::Reason;
+
+  my $reason = Bio::EnsEMBL::Analysis::EvidenceTracking::Reason->new(
+    -info => 'internal stop codon'
+    );
 
 =head1 DESCRIPTION
 
+  Store the reason why we kept/dismissed the sequence.
+  If we kept the sequence the code will be lower than 100.
+  If we dismissed it the code will be 100 or higher.
+  If the code is 0, it means we don't know what happened.
 
 =head1 METHODS
 
@@ -46,6 +55,21 @@ use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::ReasonAdaptor;
 @ISA = qw(Bio::EnsEMBL::Storable);
 
 
+=head2 new
+
+ Arg [1]    : $dbid, int
+ Arg [2]    : $info, string
+ Arg [6]    : $adaptor, Bio::EnsEMBL::Analysis::DBSQL::AnalysisRunAdaptor object
+ Example    : $reason = ->new(
+              -info => 'internal stop codon'
+            );
+ Description: Constructor
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun
+ Exceptions : 
+
+
+=cut
+
 sub new {
   my($class,@args) = @_;
 
@@ -58,6 +82,16 @@ sub new {
   return $self; # success - we hope!
 }
 
+=head2 info
+
+ Arg [1]    : $info, string [optional]
+ Example    : $reason->info($info);
+ Description: Getter/Setter for the reason
+ Returntype : string, the reason
+ Exceptions : 
+
+
+=cut
 
 sub info {
   my $self = shift;

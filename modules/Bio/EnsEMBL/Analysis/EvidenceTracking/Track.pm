@@ -20,13 +20,41 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::EvidenceTracking::Track - 
+Bio::EnsEMBL::Analysis::EvidenceTracking::Track - Tracking system
 
 =head1 SYNOPSIS
 
+  use Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
+
+  sub fetch_input{
+      ...
+      my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+                -runnabledb     => $blastminigenewise,
+                -tracking       => 1,
+                -evidence_names => $ra_evidences);
+      ...
+      $self->track($track);
+  }
+
+  sub run {
+      ...
+      $self->track->update($supporting_evidence);
+      ...
+  }
+
+  sub write_output {
+      ...
+      $self->track->write_tracks;
+      ...
+  }
 
 =head1 DESCRIPTION
-
+  
+  The track module should be instanciated in the fetch_input method of
+  the RunnableDB. It will populate the evidence set with the sequence
+  that will be fetch. Then update the evidence set whenever you like.
+  Finally, write the tracks during the write_output method of the
+  RunnableDB.
 
 =head1 METHODS
 
@@ -34,9 +62,7 @@ Bio::EnsEMBL::Analysis::EvidenceTracking::Track -
 
 package Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 
-use vars qw(@ISA);
 use strict;
-
 
 use Data::Dumper;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -45,16 +71,18 @@ use Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
 
-#@ISA = qw(Bio::EnsEMBL::Storable);
-
 
 =head2 new
 
- Arg [1]    : $default_track, a 
- Arg [2]    : $ra_evidences, listref of 
- Example    : $track = ->new(-default_track => $default_track);
- Description: 
- Returntype : 
+ Arg [1]    : $runnabledb, a Bio::EnsEMBL::Analysis::RunnableDB object
+ Arg [2]    : $default_track, a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack object
+ Arg [3]    : $ra_evidences, listref of string
+ Example    : $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+                -runnabledb     => $blastminigenewise,
+                -tracking       => 1,
+                -evidence_names => $ra_evidences);
+ Description: Constructor
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::Track
  Exceptions : 
 
 
@@ -96,7 +124,6 @@ sub new {
       $evidence->add_track($self->default_track);
       $self->update($evidence);
   }
-  print STDERR Dumper($self);
   return $self; # success - we hope!
 }
 
@@ -111,9 +138,10 @@ sub new {
 
 sub db {
     my $self = shift;
-    my $db = shift;
+    my $db = shift if (@_);
 
     if ( !exists $self->{'db'}) {
+        throw('Not a object!') unless ($db and $db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
         my $evidencetracking_db = new Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor (
             -dbconn => $db->dbc
             );
@@ -121,6 +149,7 @@ sub db {
     }
     return $self->{'db'};
 }
+
 =head2 update
 
  Arg [1]    : $support, supporting evidence
@@ -227,7 +256,8 @@ sub write_tracks {
  Example    : my $evidence = $self->get_evidence($name);
  Description: Return the evidence given the specific key, $name or
               $name.$seq_region_name.$seq_region_start.$seq_region_end.$seq_region_strand
- Returntype : undef if it does not exists
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object,
+              undef if it does not exists or if the tracking system is off
  Exceptions : 
 
 
@@ -246,7 +276,7 @@ sub get_evidence {
 
  Arg [1]    : $evidence, a Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence
  Example    : $self->add_evidence($evidence);
- Description: Add the evidence to the 
+ Description: Add the evidence to the set of evidences
  Returntype : 
  Exceptions : if not given a Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object 
 
@@ -343,7 +373,6 @@ sub default_track {
   return undef unless $self->tracking;
   $self->{'default_track'} = shift if ( @_ );
 
-  print STDERR Dumper($self);
   throw('Not a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack object')
     unless $self->{'default_track'}->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack');
   return $self->{'default_track'}->clone;
