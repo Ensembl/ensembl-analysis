@@ -38,32 +38,12 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
 
 
-sub multiprotein{
-  my ($self) = @_;
-  return 1;
-}
-
-
 
 sub run_analysis {
   my ($self) = @_;
   
-  my $options = "";
-  if (defined($self->parameters)) {
-    $options = $self->parameters ;
-  }
-  if (defined($self->options)) {
-    $options .= $self->options;
-  }
-  if ($options !~ /\-\-acc/) {
-    $options .= ' --acc';
-  }
-  if ($options !~ /\-\-cpu/) {
-    $options .= ' --cpu 1';
-  }
-
   my $cmd = $self->program 
-      . ' ' . $options
+      . ' ' . $self->analysis->parameters
       . ' ' . $self->database 
       . ' ' . $self->queryfile 
       .' > '. $self->resultsfile;
@@ -91,22 +71,29 @@ sub run_analysis {
 sub parse_results {
   my ($self) = @_;
 
-  my (@hits, $id, $hid);
+  my $resfile = $self->resultsfile();
+  my @hits;
 
-  my $f = $self->resultsfile;
+  if (-e $resfile) {
+    if (-z $resfile) {
+      print STDERR "Tigrfam didn't find any hits\n";
+      return;
+    } else {
+      open (CPGOUT, "<$resfile") or $self->throw("Error opening ", $resfile, " \n"); # 
+    }
+  }
 
-  if (-e $f and not -z $f) {
-    my $fh;
-    open ($fh, "<$f") or throw ("Error opening $f");
-    
-    while (<$fh>) {
+  my $id;
+  my $hid;
+
+  while (<CPGOUT>) {
       chomp;
-      #last if /^Alignments of top-scoring domains/;
-      #next if (/^Model/ || /^\-/ || /^$/);
+
       if (/^Query:\s+(\S+)/) {
         $id = $1;
         next;
       }
+
       if (/^>> (\S+)/) {
         $hid = $1 ;
       }
@@ -118,9 +105,8 @@ sub parse_results {
               $start,
               $end) = /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
 
-        my $percentIdentity = 0;
         $evalue = sprintf ("%.3e", $evalue);
-
+        my $percentIdentity = 0;
 
         my $fp = $self->create_protein_feature($start, 
                                                $end, 
@@ -134,8 +120,8 @@ sub parse_results {
                                                $percentIdentity);
         push @hits, $fp;
       }
-    }
   }
+  close (CPGOUT);
   $self->output(\@hits);
 }
 
