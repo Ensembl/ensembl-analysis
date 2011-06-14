@@ -1,133 +1,132 @@
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Protein::Hmmpfam
-
-=head1 SYNOPSIS
-
-  # something like this
-  my $query = new Bio::Seq(-file   => $queryfile,
-			   -format => 'Fasta');
-
-  my $hmm =  Bio::EnsEMBL::Pipeline::Runnable::ProteinAnnotation::Pfam->new 
-    ('-query'          => $query,
-     '-program'        => 'hmmpfam' or '/usr/local/pubseq/bin/hmmpfam',
-     '-database'       => '/data/Pfam_ls;/data/Pfam_fs');
-  $hmm->run;
-  my @results = @{$hmm->output};
-
-=head1 DESCRIPTION
-
-=head1 APPENDIX
-
-=cut
-
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam;
 
 use vars qw(@ISA);
 use strict;
 
-# Object preamble - inherits from Bio::EnsEMBL::Root;
-
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam;
+use Env qw(PATH);
+
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
 
+###################
+# analysis methods
+###################
 
 
-sub multiprotein{
-  my ($self) = @_;
-  return 1;
-}
+=head2 run_program
 
+ Title    : run_program
+ Usage    : $self->program
+ Function : makes the system call to program
+ Example  :
+ Returns  : 
+ Args     :
+ Throws   :
 
-##################################
+=cut
+
 sub run_analysis {
-  my ($self) = @_;
+    my ($self) = @_;
 
-  my @other_runnables;
-  foreach my $db_file (split(/;/, $self->analysis->db_file)) {
-    my $run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam->
-        new(-query => $self->query,
-            -analysis => $self->analysis,
-            -database => $db_file,
-            -options  => $self->options);
-    $run->run;
-    push @other_runnables, $run;
-  }
+    # run program
+    print STDERR "running ".$self->program." against ".$self->database."\n";
+
+    print STDERR "FILENAME: ".$self->queryfile."\n";
+ 
+    my $cmd = $self->program .' '.
+	      $self->analysis->parameters .' '.
+	      '-o ' . $self->resultsfile .' '.
+              $self->database . ' ' .
+	      $self->queryfile;
+    print STDERR "$cmd\n";   
+
+    $PATH = '/software/worm/bin/hmmer/:/software/worm/iprscan/bin/binaries/:'.$PATH; #for hmmpfam
+    $PATH = '/software/worm/iprscan/bin/binaries/blast/:'.$PATH; #for blastall
+
+    $self->throw ("Error running Pfam ".$self->program." on ".$self->queryfile) 
+     unless ((system ($cmd)) == 0);
     
-  $self->runnables_by_priority(\@other_runnables);
 }
 
 
-#################################
+=head2 parse_results
+
+ Title    :  parse_results
+ Usage    :  $self->parse_results ($filename)
+ Function :  parses program output to give a set of features
+ Example  :
+ Returns  : 
+ Args     : filename (optional, can be filename, filehandle or pipe, not implemented)
+ Throws   :
+
+=cut
+
 sub parse_results {
-  my ($self) = @_;
+    my ($self) = @_;
 
-  # the filter gets rid "secondary tier" hits (e.g. from
-  # fs matches) that overlap with "primary tier" matches.
-  
-  my (%all_hits_by_seqid, @all_hits);
+    my $filehandle;
+    my $resfile = $self->resultsfile();
+    my @fps;
+		
 
-  foreach my $run (@{$self->runnables_by_priority}) {
-    my %these_hits_by_seqid;
-
-    foreach my $hit (@{$run->output}) {
-      push @{$these_hits_by_seqid{$hit->seqname}}, $hit;
+    if (-e $resfile) {
+      if (-z $resfile) {  
+	print STDERR "Pfam didn't find any hits\n";
+	return; 
+      } else {
+	open (CPGOUT, "<$resfile") or $self->throw("Error opening ", $resfile, " \n"); # 
+      }
     }
 
-    foreach my $seqid (keys %these_hits_by_seqid) {
-      my @kept_hits;
 
-      foreach my $hit (@{$these_hits_by_seqid{$seqid}}) {
-        my $overlap = 0;
-        if (exists($all_hits_by_seqid{$seqid})) {
-          foreach my $ohit (@{$all_hits_by_seqid{$seqid}}) {
-            if ($hit->start <= $ohit->end and $hit->end >= $ohit->start) {
-              $overlap = 1;
-              last;
-            }
-          }
-        }
+ # Example output for sequence ID 2345:
+#2345   279  319 PF00400.23     1   38    13.7     0.008  WD40
+#2345   323  361 PF00400.23     1   38    22.0    0.0023  WD40
 
-        if (not $overlap) {
-          push @kept_hits, $hit;
-        }
+# now
+# 12311     49   288 PF00149.20      1   124 ls    90.9   4.4e-24       Metallophos         
+# 12311    294   517 PF04152.6       1   240 ls   310.9   2.6e-90    Mre11_DNA_bind
+
+# 11845      1   167 PF06653.3       1   160 ls   -12.3   0.00016           DUF1164 
+ 
+    my $id ;
+    my $hid ;
+    while (<CPGOUT>) {
+      chomp;
+
+      if (/^Query:\s+(\S+)/) {
+        $id = $1;
       }
 
-      push @{$all_hits_by_seqid{$seqid}}, @kept_hits;
+      if (/^>> (\S+)/) {
+        $hid = $1 ;
+      }
+
+      if (my ($score,
+              $evalue,
+              $hstart,
+              $hend,
+              $start,
+              $end) = /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
+	my $percentIdentity = 0;
+
+        my $fp = $self->create_protein_feature($start,
+                                               $end,
+                                               $score,
+                                               $id,
+                                               $hstart,
+                                               $hend,
+                                               $hid,
+                                               $self->analysis,
+                                               $evalue,
+                                               $percentIdentity);
+	push @fps, $fp;
+      }
     }
-  }
-
-  # finally, strip off those version numbers from the accessions
-  foreach my $seqid (keys %all_hits_by_seqid) {
-    foreach my $hit (@{$all_hits_by_seqid{$seqid}}) {
-      my $acc = $hit->hseqname;
-      $acc =~ s/\.\d+$//;
-      $hit->hseqname($acc);
-
-      push @all_hits, $hit;
-    }
-  }
-
-  $self->output(\@all_hits);
+    close (CPGOUT); 
+    $self->output(\@fps);
 }
-
-
-
-################################
-sub runnables_by_priority {
-  my ($self, $runs) = @_;
-
-  if (defined $runs) {
-    $self->{_runs} = $runs;
-  }
-
-  return $self->{_runs};
-}
-
 
 1;
