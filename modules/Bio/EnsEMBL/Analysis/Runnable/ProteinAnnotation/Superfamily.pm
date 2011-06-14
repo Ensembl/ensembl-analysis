@@ -1,157 +1,128 @@
-
-=pod 
-
-=head1 NAME
-
-Bio::EnsEMBL::Analysis::Runnable::Protein::Hmmpfam
-
-=head1 SYNOPSIS
-
-  # something like this
-  my $query = new Bio::Seq(-file   => $queryfile,
-			   -format => 'Fasta');
-
-  my $hmm =  Bio::EnsEMBL::Pipeline::Runnable::ProteinAnnotation::Superfamily->new 
-    ('-query'          => $query,
-     '-program'        => 'hmmpfam' or '/usr/local/pubseq/bin/hmmpfam',
-     '-database'       => '/superfamily/db');
-  $hmm->run;
-  my @results = @{$hmm->output};
-
-=head1 DESCRIPTION
-
-=head1 APPENDIX
-
-=cut
-
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily;
 
 use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam;
-use Bio::EnsEMBL::Analysis::Tools::ProteinAnnotationFilter;
+@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam);
+###################
+# analysis methods
+###################
 
 
-#################################
-
-sub new {
-  my ($class, @args) = @_;
-
-  my $self = $class->SUPER::new(@args);
-
-  my ($scop_map_file,
-      $evalue) = rearrange(['SCOPMAP',
-                            'EVALUE',
-                            ], @args);
-    
-  $self->scop_map($scop_map_file)
-      if defined $scop_map_file;
-
-  if (defined $evalue) {
-    $self->evalue_cutoff($evalue);
-  } else {
-    # set it to something sensible
-    warning("No evalue cutoff given; defaulting to 0.02");
-    $self->evalue_cutoff("0.02");
-  }
-
-  my $opts = defined($self->options) ? $self->options : "";
-  $opts =~ s/\-E\s+\S+//; 
-  $self->options("$opts -E " . $self->evalue_cutoff);
-  
-  return $self;
+sub multiprotein{
+  my ($self) = @_;
+  return 1;
 }
 
+
+
+=head2 run_program
+
+ Title    : run_program
+ Usage    : $self->program
+ Function : makes the system call to program
+ Example  :
+ Returns  : 
+ Args     :
+ Throws   :
+
+=cut
+
+sub run_analysis {
+    my ($self) = @_;
+
+    # run program
+    print STDERR "running ".$self->program." against ".$self->queryfile."\n";
+
+    print STDERR "FILENAME: ".$self->queryfile."\n";
+ 
+    my $cmd = 	$self->program .' '.
+	        $self->analysis->parameters .' '.
+	        '-i ' . $self->queryfile.' '.
+		'-o ' . $self->resultsfile;
+    print STDERR "$cmd\n";   
+    $self->throw ("Error running Superfamily ".$self->program." on ".$self->filename) 
+     unless ((system ($cmd)) == 0);
+    
+}
+
+
+=head2 parse_results
+
+ Title    :  parse_results
+ Usage    :  $self->parse_results ($filename)
+ Function :  parses program output to give a set of features
+ Example  :
+ Returns  : 
+ Args     : filename (optional, can be filename, filehandle or pipe, not implemented)
+ Throws   :
+
+=cut
 
 sub parse_results {
-  my ($self) = @_;
+    my ($self) = @_;
 
-  $self->SUPER::parse_results;
+    my $filehandle;
+    my $resfile = $self->resultsfile();
+    my @fps;
+		
 
-  # although the search will have been done with the
-  # required evalur cutoff, we have to filter again here
-  # on the basis of per-domain evalue (as opposed to 
-  # whole sequence evalue)
-
-  my @pass_eval;
-  foreach my $hit (@{$self->output}) {
-    if (not defined $self->evalue_cutoff or 
-        $hit->p_value <= $self->evalue_cutoff) {
-      push @pass_eval, $hit;
-    }
-  }
-  
-  my $filter = Bio::EnsEMBL::Analysis::Tools::ProteinAnnotationFilter->new();  
-  my $out = $filter->filter_results(\@pass_eval);
-  #my $out = $self->output;
-
-  # finally, change the names to scop ids if we have the mappings
-  if ($self->scop_map) {
-    foreach my $hit (@$out) {
-      if (exists($self->scop_map->{$hit->hseqname})) {
-        my $scopname = $self->scop_map->{$hit->hseqname};
-        $hit->hseqname( $scopname );
+    if (-e $resfile) {
+      if (-z $resfile) {  
+	print STDERR "Superfamily didn't find any hits\n";
+	return; 
+      } else {
+	open (CPGOUT, "<$resfile") or $self->throw("Error opening ", $resfile, " \n"); # 
       }
     }
-  }
-
-  $self->output($out);
-}
 
 
-sub output {
-  my ($self, $output) = @_;
+# example output lines:
+#R186.4  63882   0019507 9       181     2.6e-37 msssgllkPATLDDVFQKLEDLCKLFpPQEKTVNVTSLkTGRILAEDIITEYDIPAQRTSIVDGFAIIVNQLGTKREIVGLSTAVTPYNAELISNECVRITIGGVVPDGADTVVPIENVALlkEEKCIEVLRKPKEGDNIREVGSEAKTGEILLKDGHHLDTMSITLLHALGISQVEIYKKprvcvlsigsdlnsnkmygsfnrsqllelfqsqgftaidagsstehiteveekirtaasfacvlvtvggaqvirevaktlkfkfeiqdvdstpgnftvstgkidetpvvlsifpeyhvsswiganlfvspilramegqnsetshrfkaeltqpisktsetrflrarsevskgnlistplgcedifgansilevksntcfsagdvvdlrfa      Molybdenum cofactor biosynthesis protein MoeA, N-terminal and linker domains
+#//
+#R186.4  53218   0017938 180     353     3.9e-14 msssgllkpatlddvfqkledlcklfppqektvnvtslktgrilaediiteydipaqrtsivdgfaiivnqlgtkreivglstavtpynaelisnecvritiggvvpdgadtvvpienvallkeekcievlrkpkegdnirevgseaktgeillkdghhldtmsitllhalgisqveiyKKPRVCVLSIGSDLNSNKMYgSFNRSQLLELFQSQGFTAIDAGSSTEHITEVEEKIRTAASFACVLVTVGGAQVIREVAKTLKFKFEIQDVDSTPGNFTVSTGKIDetPVVLSIFPEYHVSSWIGANLFVSPILRAMEGQNSETSHRFKAELTQPISKTSETRFLRARSEVSKGnlistplgcedifgansilevksntcfsagdvvdlrfa      Molybdenum cofactor biosynthesis proteins
+#//
 
-  if (defined $output) {
-    throw("Must pass Runnable:output an arrayref not a ".$output)
-        unless(ref($output) eq 'ARRAY');
-    $self->{output} = $output;
-  }
+    my $id;
+    while (<CPGOUT>) {
+      chomp;
+      next if (/^\/\//);
 
-  if (not exists $self->{output}) {
-    $self->{output} = [];
-  }
+      if (my ($id,
+              $hid,
+              $start,
+              $end,
+              $evalue) = /^(\S+)\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+(\S+)/) {
 
-  return $self->{output};
-}
+	my $score = 0;
+	my $hstart = 0;
+	my $hend = 0;
+	my $hid = "SSF$hid";
+	my $percentIdentity = 0;
+	$evalue *= 1;		# force evalue to be a float not a string
 
-sub scop_map {
-  my ($self, $file) = @_;
-
-  my %scop_map;
-
-  if (defined $file) {
-    open SCOPMAP, $file or throw("Could not open SCOP mapfile '$file'");
-    while(<SCOPMAP>) {
-      /^(\S+)\s+(\S+)/ and $scop_map{$1} = $2;
+        my $fp = $self->create_protein_feature($start,
+                                               $end,
+                                               $score,
+                                               $id,
+                                               $hstart,
+                                               $hend,
+                                               $hid,
+                                               $self->analysis,
+                                               $evalue,
+                                               $percentIdentity);
+	push @fps, $fp;
+      }
     }
-    close(SCOPMAP);
-    
-    $self->{_scop_map} = \%scop_map;
-  }
-
-  return $self->{_scop_map};
+    close (CPGOUT); 
+    $self->output(\@fps);
+    for ( @fps ) {
+       print "value : " . $_->p_value() . "\n" ;  
+    } 
 }
-
-sub evalue_cutoff {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_evalue_cutoff} = $val;
-  }
-
-  if (not exists $self->{_evalue_cutoff}) {
-    return undef;
-  } else {
-    return $self->{_evalue_cutoff};
-  }
-}
-
 
 1;
