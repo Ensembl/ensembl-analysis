@@ -228,7 +228,7 @@ sub parse_results {
         # if we don't have a valid hit for this PRINTS ID, then ignore teh rest
         if (! exists $printsac{$fingerprintName}) {next;}
         my $feat = "$printsac{$fingerprintName},$start,$end,$percentageIdentity,$profileScore,$evalue{$fingerprintName}";
-        print STDERR "features= $feat\n" ;
+#        print STDERR "features= $feat\n" ;
 
         # It's possible that near the ends of the sequence,
         # fragment matches are found. These can result in a 

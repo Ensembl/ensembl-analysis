@@ -89,15 +89,50 @@ sub parse_results {
   while (<CPGOUT>) {
       chomp;
 
+## Query line identifier with Hmmer3
       if (/^Query:\s+(\S+)/) {
         $id = $1;
         next;
       }
 
+## Query line identifier with Hmmer2
+      if (/^Query sequence:\s+(\S+)/) {
+        $id = $1;
+      }
+
+
+# With Hmmer3, hit name is on a separate line
       if (/^>> (\S+)/) {
         $hid = $1 ;
       }
 
+## Result line with Hmmer2
+      if (my ($hid,
+              $start,
+              $end,
+              $hstart,
+              $hend,
+              $score,
+              $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
+
+        $evalue = sprintf ("%.3e", $evalue);
+        my $percentIdentity = 0;
+
+        my $fp = $self->create_protein_feature($start,
+                                               $end,
+                                               $score,
+                                               $id,
+                                               $hstart,
+                                               $hend,
+                                               $hid,
+                                               $self->analysis,
+                                               $evalue,
+                                               $percentIdentity);
+        push @hits, $fp;
+      }
+
+
+## Result line with Hmmer3
       if (my ($score,
               $evalue,
               $hstart,
