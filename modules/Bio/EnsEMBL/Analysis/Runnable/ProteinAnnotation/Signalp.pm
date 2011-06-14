@@ -31,14 +31,6 @@ use Bio::SeqIO;
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
 
 
-
-sub multiprotein{
-  my ($self) = @_;
-  return 0;
-}
-
-
-#
 # we over-ride write_seq_file because Signalp works best
 # if only the first 50 a.a. of the protein is supplied 
 
