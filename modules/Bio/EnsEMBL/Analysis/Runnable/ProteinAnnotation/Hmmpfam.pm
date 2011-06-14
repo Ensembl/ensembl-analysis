@@ -49,6 +49,9 @@ sub run_analysis {
   my ($self) = @_;
   
   my $options = "";
+  if (defined($self->parameters)) {
+    $options = $self->parameters ;
+  }
   if (defined($self->options)) {
     $options .= $self->options;
   }
@@ -88,7 +91,7 @@ sub run_analysis {
 sub parse_results {
   my ($self) = @_;
 
-  my (@hits, $id);
+  my (@hits, $id, $hid);
 
   my $f = $self->resultsfile;
 
@@ -100,21 +103,25 @@ sub parse_results {
       chomp;
       #last if /^Alignments of top-scoring domains/;
       #next if (/^Model/ || /^\-/ || /^$/);
-      if (/^Query sequence:\s+(\S+)/) {
+      if (/^Query:\s+(\S+)/) {
         $id = $1;
         next;
       }
-      
-      if (my ($hid, 
-              $start, 
-              $end, 
-              $hstart, 
-              $hend, 
-              $score, 
-              $evalue) = /^(\S+)\s+\d+\/\d+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
-        
+      if (/^>> (\S+)/) {
+        $hid = $1 ;
+      }
+
+      if (my ($score,
+              $evalue,
+              $hstart,
+              $hend,
+              $start,
+              $end) = /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
+
+        my $percentIdentity = 0;
         $evalue = sprintf ("%.3e", $evalue);
-        
+
+
         my $fp = $self->create_protein_feature($start, 
                                                $end, 
                                                $score, 
@@ -124,7 +131,7 @@ sub parse_results {
                                                $hid,
                                                $self->analysis, 
                                                $evalue,
-                                               0);
+                                               $percentIdentity);
         push @hits, $fp;
       }
     }
