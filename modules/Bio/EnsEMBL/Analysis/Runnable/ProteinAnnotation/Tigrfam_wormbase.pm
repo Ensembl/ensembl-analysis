@@ -76,43 +76,15 @@ sub parse_results {
 
 
 
-#     my $id;
-#     while (<CPGOUT>) {
-#       chomp;
-
-#       print "$_\n";
-
-#       last if /^Alignments of top-scoring domains/;
-#       next if (/^Model/ || /^\-/ || /^$/);
-#       if (/^Query sequence:\s+(\S+)/) {
-# 	$id = $1;
-#       }
-
-#       if (my ($hid, $start, $end, $hstart, $hend, $score, $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
-
-
-# 	print "matched\n";
-# 	$evalue = sprintf ("%.3e", $evalue);
-# 	my $percentIdentity = 0;
-      
-# 	my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
-# 	push @fps, $fp;
-#       }
-#     }
-#     close (CPGOUT); 
-#     $self->output(\@fps);
-
-
   my $id;
   my $hid;
-  while (my $line = <CPGOUT>) {
+  while (<CPGOUT>) {
     chomp;
-    if ($line =~ /Query:\s+(\S+)/) {$id = $1}
-    if ($line =~ />>\s+(\S+)/) {$hid = $1} 
+    if (/Query:\s+(\S+)/) {$id = $1}
+    if (/>>\s+(\S+)/) {$hid = $1} 
 #   1 ?   10.5   0.0   2.1e-05       2.1      46      81 ..      23      58 ..      20      88 .. 0.90
-    if (my ($evalue, $hstart, $hend, $start, $end) = ($line =~ /^\s+\d+\s+\?\s+\S+\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\.\.\s+(\d+)\s+(\d+)/)) {
-      $evalue *= 1;           # force evalue to be a float not a string
-      my $score = 0;
+    if (my ($score, $evalue, $hstart, $hend, $start, $end) = /^\s+\d+\s+\S\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
+      $evalue = sprintf ("%.3e", $evalue);
       my $percentIdentity = 0;
       my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
 
