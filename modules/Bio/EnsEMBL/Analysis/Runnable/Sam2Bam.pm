@@ -80,7 +80,6 @@ sub run {
     }
   }
   print "Found " . scalar(@files) ." files \n";
-  exit;
   my $count = 0;
   my @fails;
   # next make all the sam files into one big sam flie
