@@ -72,10 +72,15 @@ sub run {
     $self->throw("Error finding sam files in $dir\n");
   while (<$fh>){
     if ( $_ =~ m/($regex)/) {
+     if ( $_ =~ /$bamfile\..+/ ) {
+       print STDERR "Looks like output file is in the input directory I won't merge from this file $bamfile\n";
+       next;
+     }
       push @files,$_;
     }
   }
   print "Found " . scalar(@files) ." files \n";
+  exit;
   my $count = 0;
   my @fails;
   # next make all the sam files into one big sam flie
