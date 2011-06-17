@@ -857,8 +857,6 @@ sub run_matching{
         $tc->{short_intron_penalty} = $self->SHORT_INTRON_PENALTY ;
         $tc->{short_exon_penalty} = $self->SHORT_EXON_PENALTY ;
         $tc->{utr_penalty} = $self->UTR_PENALTY ;
-        $tc->{solexa} = $self->SOLEXA ;
-        $tc->{solexa_score_cutoff} = $self->SOLEXA_SCORE_CUTOFF ;
         $tc->{verbose} = $self->VERBOSE ;
 
         my $collapsed_cluster = $tc->collapse_cluster($cluster, $genes_by_strand);
@@ -4699,28 +4697,20 @@ sub SMALL_BIOTYPE {
   return $self->{'SMALL_BIOTYPE'} ;
 }
 
-sub SOLEXA {
+sub RNASEQ_INTRON_NAME {
   my ($self, $arg) = @_ ;
   if(defined $arg) {
-    $self->{'SOLEXA'} = $arg ;
+    $self->{'RNASEQ_INTRON_NAME'} = $arg ;
   }
-  return $self->{'SOLEXA'} ;
+  return $self->{'RNASEQ_INTRON_NAME'} ;
 }
 
-sub SOLEXA_SCORE_CUTOFF {
+sub RNASEQ_INTRON_DB {
   my ($self, $arg) = @_ ;
   if(defined $arg) {
-    $self->{'SOLEXA_SCORE_CUTOFF'} = $arg ;
+    $self->{'RNASEQ_INTRON_DB'} = $arg ;
   }
-  return $self->{'SOLEXA_SCORE_CUTOFF'} ;
-}
-
-sub SOLEXA_DB {
-  my ($self, $arg) = @_ ;
-  if(defined $arg) {
-    $self->{'SOLEXA_DB'} = $arg ;
-  }
-  return $self->{'SOLEXA_DB'} ;
+  return $self->{'RNASEQ_INTRON_DB'} ;
 }
 
 sub INPUT_DBS {
