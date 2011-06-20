@@ -347,6 +347,7 @@ GENE: foreach my $gene (@genes) {
       }
 
       # transcript passes all tests, it is real
+#      print STDERR "Transcript " . $transcript->dbID ." is real \n";
       push @{ $trans_type{'real'} },           $transcript;
       push @{ $trans_type{'not_multi_exon'} }, $transcript
         if scalar @{ $transcript->get_all_Exons } < $self->PS_MIN_EXONS;
@@ -466,7 +467,7 @@ GENE: foreach my $gene (@genes) {
         }
         $self->modified_genes($gene);
         $self->multi_exon_genes($gene) unless $trans_type{'not_multi_exon'};
-        $self->pseudogenes(1);
+        $self->real(1);
         next GENE;
       }
     }
