@@ -149,15 +149,14 @@ sub filter_results{
 
 
 
-=head2 lessthan/greaterthan
+=head2 lessthan
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BasicFilter
   Arg [2]   : object
   Arg [3]   : string which is method to call on object
   Arg [4]   : cutoff object needs to have value greater or
   lesser than
-  Function  : returns object if method returns value greater
-  or lesser than specific cutoff
+  Function  : returns object if method returns value less than specific cutoff
   Returntype: object
   Exceptions: none
   Example   : 
@@ -171,6 +170,20 @@ sub lessthan{
   return $feature if($feature->$method < $cutoff);
 }
 
+=head2 greaterthan
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BasicFilter
+  Arg [2]   : object
+  Arg [3]   : string which is method to call on object
+  Arg [4]   : cutoff object needs to have value greater or
+  lesser than
+  Function  : returns object if method returns value greater
+  than specific cutoff
+  Returntype: object
+  Exceptions: none
+  Example   : 
+
+=cut
 sub greaterthan{
   my ($self, $feature, $method, $cutoff) = @_;
   return $feature if($feature->$method > $cutoff);

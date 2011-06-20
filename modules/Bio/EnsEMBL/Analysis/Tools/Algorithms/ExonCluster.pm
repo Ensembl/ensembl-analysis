@@ -187,7 +187,7 @@ sub _add_transcript_reference {
 
 
 
-=head2
+=head2 transcript_from_ref
 
 Name transcript_from_ref
 Arg :      String "Bio::EnsEMBL::Transcript(HASHXXXXXX)" used as key in _transcriptrefhash
@@ -218,7 +218,7 @@ sub contains_exon_with_dbid_and_dbname {
   return (exists $self->{_exonidhash}{"".$exon->dbID.$exon->adaptor->db->dbc->dbname});
 }
 
-=head2 
+=head2 get_all_Exons_in_ExonCluster
 
 Name      : get_all_Exons_in_ExonCluster () 
 Arg[0]    : Bio::EnsEMBL::Analysis::Runnable::Condense_EST::ExonCluster  
@@ -238,7 +238,7 @@ sub get_all_Exons_in_ExonCluster{
 
 
 
-=head2 
+=head2 get_all_Exons_of_EvidenceSet
 
    Name      : get_all_Exons_of_EvidenceSet
    Arg       : String describing Name of evidence_set

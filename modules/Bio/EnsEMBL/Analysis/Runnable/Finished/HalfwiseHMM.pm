@@ -59,10 +59,11 @@ use Fcntl;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-=head2  new
+=head2 new
 
     Arg      : Bio:Seq obj, reference to array of uniprot features, location of hmmfetch program, location of hmmdb, location of dbm index
     Function : Make a new HalfwiseHMM object defining the above variables
+    Returntype: Bio::EnsEMBL::Analysis::Runnable::Finished::HalfwiseHMM
     Exception: Will throw an exception if no genomic sequence is defined or no features are passed
     Caller   :
     Example  : $halfwise = Bio::EnsEMBL::Analysis::Runnable::HalfwiseHMM->new(genomic => $seq
@@ -418,15 +419,6 @@ sub get_swissprot_ids{
     return $swissprot_ids;
 }
 
-=head2 get_pfam_ids
-
-    Arg      : reference to a hash of swissprotids and stands
-    Function : gets all pfam ids for a particular swissprot id and puts them in a hash along with the strand the swissprot id is found on and returns its
-    Exception: warns if swissprot id has no pfam domains
-    Caller   :
-
-=cut
-
 sub get_pfam_hmm {
 	my ($self, $uniprot_ids, $dir) = @_;
     my $pfam_accs;
@@ -476,6 +468,15 @@ sub get_pfam_hmm {
 
     return $pfam_accs;
 }
+
+=head2 get_pfam_ids
+
+    Arg      : reference to a hash of swissprotids and stands
+    Function : gets all pfam ids for a particular swissprot id and puts them in a hash along with the strand the swissprot id is found on and returns its
+    Exception: warns if swissprot id has no pfam domains
+    Caller   :
+
+=cut
 
 sub get_pfam_ids{
 
@@ -610,7 +611,7 @@ sub create_genewisehmm_individually{
     return undef;
 }
 
-=head2 create_genewisehmm_individually
+=head2 create_genewisehmm_complete
 
     Arg      : reference to pfam_id hash and directory if it is to be set to anything other than temp
     Function : creates a hmm databases of pfam ids, then creates and runs the GenewiseHmm runnable

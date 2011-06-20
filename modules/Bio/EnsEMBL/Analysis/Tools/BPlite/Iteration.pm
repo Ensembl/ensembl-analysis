@@ -1,4 +1,4 @@
-# $Id: Iteration.pm,v 1.2 2005-12-19 09:51:30 ba1 Exp $
+# $Id: Iteration.pm,v 1.3 2011-06-20 16:09:42 kt7 Exp $
 # Bioperl module Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration
 #	based closely on the Bio::EnsEMBL::Analysis::Tools::BPlite modules
 #	Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
@@ -137,7 +137,7 @@ sub qlength  {shift->{'LENGTH'}}
 
 =cut
 
-sub  newhits  {shift->{'NEWHITS'}}
+sub newhits  {shift->{'NEWHITS'}}
 
 =head2 oldhits
 
@@ -150,7 +150,7 @@ sub  newhits  {shift->{'NEWHITS'}}
 
 =cut
 
-sub  oldhits  {shift->{'OLDHITS'}}
+sub oldhits  {shift->{'OLDHITS'}}
 
 
 =head2 nextSbjct

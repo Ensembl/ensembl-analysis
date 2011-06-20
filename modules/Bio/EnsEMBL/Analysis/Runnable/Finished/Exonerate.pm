@@ -1,5 +1,11 @@
 ### Bio::EnsEMBL::Analysis::Runnable::Finished::Exonerate
 
+=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Exonerate
+
+=head1 AUTHOR
+
+Mustapha Larbaoui B<email> ml6@sanger.ac.uk
+=cut
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Exonerate;
 
 use strict;
@@ -587,8 +593,3 @@ sub _parse_vulgar_block {
 
 1;
 
-=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Exonerate
-
-=head1 AUTHOR
-
-Mustapha Larbaoui B<email> ml6@sanger.ac.uk

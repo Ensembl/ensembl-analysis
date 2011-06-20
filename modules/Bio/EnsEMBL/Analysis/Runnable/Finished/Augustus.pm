@@ -51,6 +51,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 =head2 new
 
+  Returntype : Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus
 =cut
 
 

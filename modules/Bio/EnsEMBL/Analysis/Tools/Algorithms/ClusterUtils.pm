@@ -7,10 +7,10 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
   Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
-  This pacakage contains methods to make the GeneClusster easier to use.  
+  This package contains methods to make the GeneClusster easier to use.  
 
 
-=head1 DEFINITIONS  
+=head1 DESCRIPTION  
 
 
 
@@ -36,7 +36,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
 
- =head2  Example 1 :  
+Example 1 :  
 
   This is a two-way cluster ( two-set cluster ) 
     - genes of 2 different sets overlap 
@@ -47,7 +47,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
 
-=head2  Example 2: 
+Example 2: 
 
   Below you see 2 one-way clustering clusters  (2-set-clusters)
     - both clusters are called 'one-way clustering clusters' - they only cluster 'one way'  - they are homogenous clusters...
@@ -60,7 +60,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
   SET 2 :                                                                      YYYYYYYYYYYY
 
 
-=head2   Example 3 : 
+Example 3 : 
 
   All the genes below form one two-way cluster because the exons overlap : 
 
@@ -70,7 +70,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
 
-=head2 Example 4 : 
+Example 4 : 
 
   The genes below are one-way-clustering : ( one set cluster ) 
       method : #  get_oneway_clustering_genes_of_set($clustered,"transformed")
@@ -81,7 +81,7 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
 
-=head2  Some definitions : 
+Some definitions : 
 
 
     one-way clustering means : 
@@ -125,7 +125,7 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 
 
 
-=head2 make_types_hash_with_genes 
+=head2 make_types_hash 
 
    Arg[1]    : Array ref. to gene set 1 
    Arg[2]    : Array ref. to gene set 2 
@@ -644,7 +644,7 @@ sub cluster_Genes {
 
 
 
-=head2  _compare_Genes()
+=head2  _compare_Genes
 
 
   Title  :  _compare_Genes
@@ -734,4 +734,4 @@ sub get_coding_exons_for_gene {
   return \@coding; 
 }
 
-
+1;
