@@ -618,7 +618,7 @@ sub _len_covered {
   my $covered_len = 0;
  RBLOOP: foreach my $repeat_block (@$repeat_blocks_ref) {
     # print STDERR  "RB " . $repeat_block->seq_region_start . " " . $repeat_block->seq_region_end . "\n";
-    if ($repeat_block->overlaps($feat, 'ignore')) {
+    if ($repeat_block->start <= $feat->end && $repeat_block->end >= $feat->start ) {
       my $inter = $self->intersection($feat,$repeat_block);
       $covered_len += $inter->length;
     } elsif ($repeat_block->start > $feat->end) {
