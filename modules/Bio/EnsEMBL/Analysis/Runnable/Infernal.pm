@@ -486,7 +486,6 @@ sub make_gene{
      -primary_id => $domain,
      -display_id => $name,
      -dbname => 'RFAM',
-     -release => 'NULL',
      -version => 0,
      -description => $description." [Source: RFAM;Acc:$domain]",
     );
@@ -664,7 +663,7 @@ sub write_cm_file {
 
 =cut
 
-sub queries {
+sub  queries {
   my ($self, $queries) = @_;
   if ($queries){
     $self->{'_queries'} = $queries;
@@ -683,7 +682,7 @@ sub queries {
 
 =cut
 
-sub thresholds {
+sub  thresholds {
   my ($self, $thresholds) = @_;
   if ($thresholds){
     $self->{'_thresholds'} = $thresholds;
