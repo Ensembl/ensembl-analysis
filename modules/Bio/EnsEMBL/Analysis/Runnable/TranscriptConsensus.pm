@@ -1123,7 +1123,7 @@ sub clone_exon_extended {
 }
 
 
-=head2
+=head2 get_all_evidence_sets
 
 Name : get_all_evidence_sets
 Arg[1] : none
@@ -1141,7 +1141,7 @@ sub get_all_evidence_sets {
 
 
 
-=head2
+=head2 get_genes_by_evidence_set
 
 Name : get_genes_by_evidence_set($evidence_set)
 Arg[1] : String 
@@ -1170,7 +1170,7 @@ sub get_genes_by_evidence_set {
 
 
 
-=head2
+=head2 get_genes_by_biotype
 
 Name : get_genes_by_biotype($arg)  
 Arg[1] : String 
@@ -1185,7 +1185,7 @@ sub get_genes_by_biotype {
 }
 
 
-=head2
+=head2 get_biotypes_of_evidence_set
 
 Name : get_biotypes_of_evidence_set($arg)  
 Arg[1] : String 
@@ -1204,7 +1204,7 @@ sub get_biotypes_of_evidence_set {
 
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 verbose
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
@@ -1219,7 +1219,7 @@ sub get_biotypes_of_evidence_set {
 #config file itself Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus
 
 
-sub verbose  {
+sub verbose {
     my ($self, $arg) = @_ ;
   if($arg) {
     $self->{'verbose'} = $arg ;

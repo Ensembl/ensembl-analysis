@@ -688,7 +688,7 @@ sub pad_exons {
   return \@padded_exons
 }
 
-=head2 simple_cluster
+=head2 gene_cluster
     Title        :   simple_cluster
     Usage        :   $self->($reads)
     Returns      :   Hash ref of clustered reads

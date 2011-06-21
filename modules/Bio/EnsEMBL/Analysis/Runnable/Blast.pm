@@ -110,7 +110,7 @@ sub new {
 
 
 
-=head2 containers
+=head2 databases
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
   Arg [2]   : string/int/object
@@ -171,6 +171,17 @@ sub databases{
 }
 
 
+=head2 parser 
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [2]   : string/int/object
+  Function  : container for given value, this describes the 5 methods
+  below, database, parser, filter, type and unknown_error_string
+  Returntype: string/int/object
+  Exceptions: 
+  Example   : 
+
+=cut
 sub parser{
   my $self = shift;
   $self->{'parser'} = shift if(@_);
@@ -178,18 +189,51 @@ sub parser{
 }
 
 
+=head2 filter
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [2]   : string/int/object
+  Function  : container for given value, this describes the 5 methods
+  below, database, parser, filter, type and unknown_error_string
+  Returntype: string/int/object
+  Exceptions: 
+  Example   : 
+
+=cut
 sub filter{
   my $self = shift;
   $self->{'filter'} = shift if(@_);
   return $self->{'filter'};
 }
 
+=head2 type
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [2]   : string/int/object
+  Function  : container for given value, this describes the 5 methods
+  below, database, parser, filter, type and unknown_error_string
+  Returntype: string/int/object
+  Exceptions: 
+  Example   : 
+
+=cut
 sub type{
   my $self = shift;
   $self->{'type'} = shift if(@_);
   return $self->{'type'};
 }
 
+=head2 unknown_error_string
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [2]   : string/int/object
+  Function  : container for given value, this describes the 5 methods
+  below, database, parser, filter, type and unknown_error_string
+  Returntype: string/int/object
+  Exceptions: 
+  Example   : 
+
+=cut
 sub unknown_error_string{
   my $self = shift;
   $self->{'unknown_error_string'} = shift if(@_);
@@ -197,7 +241,7 @@ sub unknown_error_string{
 }
 
 
-=head2 results_file
+=head2 results_files
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
   Arg [2]   : string, filename

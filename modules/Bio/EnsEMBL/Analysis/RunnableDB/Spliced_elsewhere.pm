@@ -184,7 +184,7 @@ Title   :   parse_results
 
 =cut
 
-sub  parse_results{
+sub parse_results{
   my ($self,$results)=@_;
   my $ta = $self->gene_db->get_TranscriptAdaptor;
   my $ga = $self->gene_db->get_GeneAdaptor;

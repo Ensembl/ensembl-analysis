@@ -375,7 +375,7 @@ sub lazy_load {
   return $gene;
 }
 
-=head2 remove_transcript_from_gene
+=head2 _remove_transcript_from_gene
 
   Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
   Description: steves method for removing unwanted transcripts from genes

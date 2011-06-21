@@ -269,7 +269,7 @@ sub read_and_check_config{
 }
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 INPUT_GENES
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref

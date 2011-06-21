@@ -111,7 +111,7 @@ sub new {
 
 
 
-=head2 containers
+=head2 match
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::CPG
   Arg [2]   : int,

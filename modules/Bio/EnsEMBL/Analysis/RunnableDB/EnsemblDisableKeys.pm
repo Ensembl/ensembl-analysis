@@ -98,9 +98,7 @@ sub run {
 }
 
 
-=head2 GETTERS:
-
-=head3 DB_HKEY
+=head2 DB_HKEY
 
     Getter for the database hash name
 
@@ -112,7 +110,7 @@ sub DB_HKEY {
 }
 
 
-=head3 TABLE_NAME
+=head2 TABLE_NAME
 
     Getter for the name of the table
 
@@ -124,7 +122,7 @@ sub TABLE_NAME {
 }
 
 
-=head3 MODIFIER
+=head2 MODIFIER
 
     Getter for the action to do:
      - enable
@@ -139,7 +137,7 @@ sub MODIFIER {
 }
 
 
-=head3 NEW_DB_KEY
+=head2 NEW_DB_KEY
 
     Getter for the database hash name of the new database when 
     we sort and dump a table
@@ -152,9 +150,9 @@ sub NEW_DB_KEY {
 }
 
 
-=head2 FUNCTIONS:
+# FUNCTIONS:
 
-=head2 toggle_indexation_multkeys()
+=head2 toggle_indexation_multkeys
 
     Enable/disable the indexation of multiple keys for a specific table
     The name of the table and the name of the DB are in the input id
@@ -183,7 +181,7 @@ sub toggle_indexation_multkeys {
 }
 
 
-=head2 sort_and_dump_table()
+=head2 sort_and_dump_table
 
     Dump the table, create a new database based on a refenrence or backup the table
     and load the sorted table in the new DB or the table
@@ -210,7 +208,7 @@ sub sort_and_dump_table {
 }
 
 
-=head2 dump_table()
+=head2 dump_table
 
     Dump the dna align feature table of a database to disk 
     Returns the path to the file
@@ -251,7 +249,7 @@ sub dump_table {
 }
 
 
-=head2 sort_table()
+=head2 sort_table
 
     Sort the file which contains the table previously dumped
 
@@ -268,7 +266,7 @@ sub sort_table {
 }
 
 
-=head2 backup_table()
+=head2 backup_table
 
     Backup the table and rename the table before we load the sorted data
 
@@ -291,7 +289,7 @@ sub backup_table {
 }
 
 
-=head2 load_sorted_table()
+=head2 load_sorted_table
 
     Load the sorted table back in the DB
 
@@ -314,7 +312,7 @@ sub load_sorted_table {
 }
 
 
-=head2 check_new_table()
+=head2 check_new_table
 
     Check if the new table has the same number of rows as the original
 

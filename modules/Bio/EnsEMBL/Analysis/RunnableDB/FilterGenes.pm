@@ -354,7 +354,7 @@ sub read_and_check_config {
 }
 
 
-=head2 CONFIG methods
+=head2 GENE_SET
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::FilterGenes
   Arg [2]   : Here are a variety of things, it is mostly strings but there are

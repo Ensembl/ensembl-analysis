@@ -605,7 +605,7 @@ sub transcript_evidence {
 } ## end sub transcript_evidence
 
 
-=head2 len_covered
+=head2 _len_covered
 
  Args       : Bio::Seq::Feature object, reference to an array of repeat blocks
  Description: measures how much of the seq feature (intron or exon) is covered by repeat blocks
@@ -738,7 +738,7 @@ EXON: for ( my $i = 1 ; $i <= $#all_exons ; $i++ ) {
   return 1;
 } ## end sub protein_covered_intron
 
-=head2 remove_transcript_from_gene
+=head2 _remove_transcript_from_gene
 
   Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
   Description: steves method for removing unwanted transcripts from genes

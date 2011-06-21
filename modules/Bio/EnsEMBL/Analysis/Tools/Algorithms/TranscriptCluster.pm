@@ -18,6 +18,8 @@ It inherits from Bio::EnsEMBL::Root and Bio::RangeI. A TranscriptCluster is a ra
 a defined extent of genomic sequence. It is also possible to check whether two clusters overlap (in range),
 is included into another cluster, etc...
 
+=head1 METHODS
+
 =cut
 
 # Let the code begin ...
@@ -36,9 +38,6 @@ use Bio::EnsEMBL::Utils::Exception qw (throw warning ) ;
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Root Bio::RangeI);
 
-=head1 METHODS
-
-=cut
 
 #########################################################################
 

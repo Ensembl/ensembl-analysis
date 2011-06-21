@@ -93,7 +93,7 @@ sub new {
 =cut
 
 
-sub  epojar{
+sub epojar{
   my $self = shift;
   my $epojar = shift;
   if($epojar){
@@ -120,7 +120,7 @@ sub  epojar{
 =cut
 
 
-sub  threshold{
+sub threshold{
   my $self = shift;
   $self->{'threshold'} = shift if(@_);
   return $self->{'threshold'};

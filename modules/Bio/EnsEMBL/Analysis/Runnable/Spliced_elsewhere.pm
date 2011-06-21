@@ -91,7 +91,7 @@ sub run {
   my @genes = @{$self->genes};
  GENE: foreach my $gene(@genes){
     $self->run_blast($gene);
-    next GENE;
+    next GENE; # redundant much?
   }
   return 1;
 }
@@ -107,7 +107,7 @@ also returns the gene object in the hash for refence
 
 =cut
 
-sub  run_blast{
+sub run_blast{
   my ($self,$gene)=@_;
   my $bplitewrapper = Bio::EnsEMBL::Analysis::Tools::BPliteWrapper-> new
     (

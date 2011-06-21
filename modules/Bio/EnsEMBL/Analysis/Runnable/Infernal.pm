@@ -664,7 +664,7 @@ sub write_cm_file {
 
 =cut
 
-sub  queries {
+sub queries {
   my ($self, $queries) = @_;
   if ($queries){
     $self->{'_queries'} = $queries;
@@ -683,7 +683,7 @@ sub  queries {
 
 =cut
 
-sub  thresholds {
+sub thresholds {
   my ($self, $thresholds) = @_;
   if ($thresholds){
     $self->{'_thresholds'} = $thresholds;

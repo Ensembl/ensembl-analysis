@@ -127,7 +127,7 @@ sub new{
 
 #containers
 
-=head2 container methods
+=head2 min_score 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
   Arg [2]   : variable, generally int or string

@@ -59,7 +59,7 @@ use vars qw (@ISA);
   Arg [DATABASE_TYPE] : string, database sequence type as above
   Arg [ANALYSIS]      : Bio::EnsEMBL::Analysis object
   Function  : 
-  Returntype: 
+  Returntype: Bio::EnsEMBL::Analysis::Tools::BPliteWrapper 
   Exceptions: 
   Example   : 
 

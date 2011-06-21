@@ -249,7 +249,7 @@ sub runnable{
 }
 
 
-=head2 containers
+=head2 input_id 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
   Arg [2]   : string/int

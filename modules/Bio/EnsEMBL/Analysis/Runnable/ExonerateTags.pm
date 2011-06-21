@@ -233,7 +233,7 @@ sub run_previous {
 }
 
 
-=head2 parse_result
+=head2 parse_results
 
   Args       : open file handle with filtered exonerate output lines
   Description: Create temporary feature objects to store exonerate hits

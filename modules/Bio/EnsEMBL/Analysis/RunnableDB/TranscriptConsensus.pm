@@ -307,12 +307,12 @@ sub _check_config {
 
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 INPUT_GENES 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
   Function  : Getter/Setter for config variables
-  Returntype: again varies
+  Returntype:
   Exceptions: 
   Example   : 
 

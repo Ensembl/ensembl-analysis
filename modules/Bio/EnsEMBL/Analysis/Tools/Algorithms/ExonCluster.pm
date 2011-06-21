@@ -165,7 +165,7 @@ sub _add_new_exon {
 }
 
 
-=head 2 
+=head2 _add_transcript_reference
 
 Name : _add_transcript_reference($exon, $transcript) 
 Arg[0] :  Bio::EnsEMBL::Exon

@@ -441,12 +441,12 @@ sub gene_source_db {
 }
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 PAF_LOGICNAMES 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
   Function  : Getter/Setter for config variables
-  Returntype: again varies
+  Returntype: 
   Exceptions:
   Example   :
 

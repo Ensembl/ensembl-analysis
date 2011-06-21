@@ -372,7 +372,7 @@ sub read_and_check_config{
 }
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 FINAL_OUTPUT_DB
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::lincRNAEvaluator
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref

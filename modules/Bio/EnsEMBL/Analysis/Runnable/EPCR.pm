@@ -88,7 +88,7 @@ sub new {
 #containers
 
 
-=head2 containers
+=head2 margin
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::EPCR
   Arg [2]   : int/string variable
@@ -110,18 +110,54 @@ sub margin{
 }
 
 
+=head2 word_size
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::EPCR
+  Arg [2]   : int/string variable
+  Function  : container for the specified variable. This pod
+  refers the the 4 methods below, margin, word_size, min_mistmatch
+  and max_mismatch
+  Returntype: int/string
+  Exceptions: none
+  Example   : 
+
+=cut
 sub word_size{
   my $self = shift;
   $self->{'word_size'} = shift if(@_);
   return $self->{'word_size'};
 }
 
+=head2 min_mismatch
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::EPCR
+  Arg [2]   : int/string variable
+  Function  : container for the specified variable. This pod
+  refers the the 4 methods below, margin, word_size, min_mistmatch
+  and max_mismatch
+  Returntype: int/string
+  Exceptions: none
+  Example   : 
+
+=cut
 sub min_mismatch{
   my $self = shift;
   $self->{'min_mismatch'} = shift if(@_);
   return $self->{'min_mismatch'};
 }
 
+=head2 max_mismatch
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::EPCR
+  Arg [2]   : int/string variable
+  Function  : container for the specified variable. This pod
+  refers the the 4 methods below, margin, word_size, min_mistmatch
+  and max_mismatch
+  Returntype: int/string
+  Exceptions: none
+  Example   : 
+
+=cut
 sub max_mismatch{
   my $self = shift;
   $self->{'max_mismatch'} = shift if(@_);

@@ -422,7 +422,7 @@ sub create_file_name{
 
 
 
-=head2 write_seq_file
+=head2 write_seqfile
 
   Arg [1]   : Bio::Seq
   Arg [2]   : string, filename
@@ -483,10 +483,6 @@ sub write_seqfile{
 
           get_db_adaptor_by_string("SOLEXA_DB" , 1, -do_not_attach_dna_db =>1  ) ;
 =cut
-
-
-
-
 
 sub get_db_adaptor_by_string {
    my ($string, $verbose, $use_pipeline_adaptor,@args) = @_ ;

@@ -20,7 +20,7 @@ use vars qw (@ISA);
 @ISA = qw();
 
 
-=head2
+=head2 new
 
   Arg[1]      :  
   Example     :
@@ -50,7 +50,7 @@ sub new {
   return $self; # success - we hope!
 }
 
-=head2
+=head2 type
 
   Arg[1]      :
   Example     :
@@ -67,7 +67,7 @@ sub type {
   return $self->{'type'};
 }
 
-=head2
+=head2 db_params
 
   Arg[1]      :
   Example     :
@@ -91,7 +91,7 @@ sub db_params {
   return $self->{'db_params'};
 }
 
-=head2
+=head2 filter_params
 
   Arg[1]      :
   Example     :
@@ -115,7 +115,7 @@ sub filter_params {
   return $self->{'filter_params'};
 }
 
-=head2
+=head2 read_and_check_config
 
   Arg[1]      :
   Example     :
@@ -132,7 +132,7 @@ sub read_and_check_config {
   parse_config($self, $var_hash, $self->type);
 }
 
-=head2
+=head2 make_filter
 
   Arg[1]      :
   Example     :
@@ -152,7 +152,7 @@ sub make_filter {
   return $filter;
 }
 
-=head2
+=head2 get_kill_list
 
   Arg[1]      :  $db, the kill_list database 
   Arg[2]      :  $filter_options - an array
@@ -247,7 +247,7 @@ sub get_kill_list {
   return \%kill_object_hash;
 }
 
-=head2
+=head2 update_meta_table
 
   Arg[1]      :  $db, the reference database to be updated
   Example     :

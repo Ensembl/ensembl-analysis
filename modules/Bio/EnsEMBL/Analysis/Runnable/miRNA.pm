@@ -401,7 +401,7 @@ sub display_stuff{
 
 =cut
 
-sub  queries {
+sub queries {
   my ($self, $queries) = @_;
   if ($queries){
     $self->{'_queries'} = $queries;
@@ -421,7 +421,7 @@ sub  queries {
 =cut
 
 
-sub  miRNAs {
+sub miRNAs {
   my ($self, $miRNAs) = @_;
   if ($miRNAs){
     $self->{'_miRNAs'} = $miRNAs;

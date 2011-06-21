@@ -1,5 +1,26 @@
 # Let the code begin...
 
+=head1 DESCRIPTION
+
+Module to provide object-oriented access to Phil Green's B<cross_match>
+Smith-Waterman alignment program.
+
+=head1 SYNOPSIS
+
+	use CrossMatch;
+	
+	# Create a factory object
+	$matcher = CrossMatch::Factory->new( '/nfs/disk2001/this_dir',
+	                                     '/home/jgrg/that_dir' );
+	$matcher->minMatch( 80 );
+
+        # process full crossmatch alignments
+        $matcher->alignments;
+
+	# Match two fasta fomat sequence files, generating
+        # a match object
+	$cm = $matcher->crossMatch( 'dJ334P19.seq', 'cB49C12.aa' );
+=cut
 
 package Bio::EnsEMBL::Analysis::Runnable::CrossMatch;
 use Bio::EnsEMBL::FeaturePair;
@@ -306,19 +327,6 @@ sub add_fp{
   push(@{$self->{'_fp_array'}},@args);
 }
 
-
-=head2 score
-
-  Title   : score
-    Usage   : $obj->score($newval)
-  Function: could set and return the score value
-    Example : 
-    Returns : value of minscore option used by crossmatch
-    Args    : newvalue (optional)
-
-
-=cut
-
 =head2 minmatch
 
   Title   : minmatch
@@ -340,6 +348,17 @@ sub minmatch {
 
 }
 
+=head2 minscore
+
+  Title   : score
+    Usage   : $obj->score($newval)
+  Function: could set and return the score value
+    Example : 
+    Returns : value of minscore option used by crossmatch
+    Args    : newvalue (optional)
+
+
+=cut
 sub minscore {
   my ($obj,$value) = @_;
   if ( defined $value) {

@@ -209,7 +209,7 @@ sub parse_results{
   $self->calculate_phases;
 }
 
-#accessor methods
+# accessor methods
 
 
 
@@ -343,7 +343,7 @@ sub parse_lines{
 
 
 
-=head2 accessor methods
+=head2 tablenamefile
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
   Arg [2]   : string
@@ -365,6 +365,17 @@ sub tablenamefile{
 }
 
 
+=head2 exonpenalty
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Arg [2]   : string
+  Function  : these are all acessor methods for config filenames
+  Returntype: string
+  Exceptions: 
+  Example   : 
+
+=cut
+
 sub exonpenalty{
   my ($self, $arg) = @_;
   if($arg){
@@ -372,6 +383,17 @@ sub exonpenalty{
   }
   return $self->{'exonpenalty'};
 }
+
+=head2 intronpenalty
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genefinder
+  Arg [2]   : string
+  Function  : these are all acessor methods for config filenames
+  Returntype: string
+  Exceptions: 
+  Example   : 
+
+=cut
 
 sub intronpenalty{
   my ($self, $arg) = @_;

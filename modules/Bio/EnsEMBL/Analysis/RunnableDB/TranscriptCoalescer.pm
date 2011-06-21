@@ -300,7 +300,7 @@ sub write_output{
 =cut
 
 
-sub  convert_prediction_transcripts_to_genes {
+sub convert_prediction_transcripts_to_genes {
   my ($self,$pt,$logic_name_becomes_biotype,$ev_set_name ) = @_ ; 
   my @new_genes ;  
   for my $pt (@$pt) { 

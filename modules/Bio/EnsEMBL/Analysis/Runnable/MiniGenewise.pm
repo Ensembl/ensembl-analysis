@@ -89,7 +89,7 @@ sub new {
 #ACCESSOR METHODS
 
 
-=head2 get/set methods
+=head2 genewise_options
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
   Arg [2]   : various things depending on the accessor
@@ -117,6 +117,16 @@ sub genewise_options {
 }
 
 
+=head2 features
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
+  Arg [2]   : various things depending on the accessor
+  Function  : to store the passed in variable
+  Returntype: various
+  Exceptions: methods will throw if the wrong type of variable is passed in
+  Example   : 
+
+=cut
 
 sub features {
   my ($self,$arg) = @_;
@@ -131,6 +141,16 @@ sub features {
 }
 
 
+=head2 minimum_intron
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
+  Arg [2]   : various things depending on the accessor
+  Function  : to store the passed in variable
+  Returntype: various
+  Exceptions: methods will throw if the wrong type of variable is passed in
+  Example   : 
+
+=cut
 sub minimum_intron {
   my ($self,$arg) = @_;
 
@@ -142,6 +162,16 @@ sub minimum_intron {
 }
 
 
+=head2 exon_padding
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
+  Arg [2]   : various things depending on the accessor
+  Function  : to store the passed in variable
+  Returntype: various
+  Exceptions: methods will throw if the wrong type of variable is passed in
+  Example   : 
+
+=cut
 sub exon_padding {
   my ($self,$arg) = @_;
 
@@ -152,6 +182,16 @@ sub exon_padding {
   return $self->{'_padding'};
 }
 
+=head2 terminal_padding
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
+  Arg [2]   : various things depending on the accessor
+  Function  : to store the passed in variable
+  Returntype: various
+  Exceptions: methods will throw if the wrong type of variable is passed in
+  Example   : 
+
+=cut
 sub terminal_padding {
   my ($self,$arg) = @_;
 
@@ -162,6 +202,16 @@ sub terminal_padding {
 }
 
 
+=head2 max_split_iterate_distance
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
+  Arg [2]   : various things depending on the accessor
+  Function  : to store the passed in variable
+  Returntype: various
+  Exceptions: methods will throw if the wrong type of variable is passed in
+  Example   : 
+
+=cut
 sub max_split_iterate_distance {
   my ($self,$arg) = @_;
 
@@ -173,6 +223,16 @@ sub max_split_iterate_distance {
 }
 
 
+=head2 protein_sequence
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
+  Arg [2]   : various things depending on the accessor
+  Function  : to store the passed in variable
+  Returntype: various
+  Exceptions: methods will throw if the wrong type of variable is passed in
+  Example   : 
+
+=cut
 sub protein_sequence {
   my( $self, $value ) = @_;
 
@@ -184,6 +244,16 @@ sub protein_sequence {
   return $self->{'_protein_sequence'};
 }
 
+=head2 miniseq
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::MiniGenewise
+  Arg [2]   : various things depending on the accessor
+  Function  : to store the passed in variable
+  Returntype: various
+  Exceptions: methods will throw if the wrong type of variable is passed in
+  Example   : 
+
+=cut
 sub miniseq{
   my ($self, $value) = @_;
   if($value){

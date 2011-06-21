@@ -207,7 +207,7 @@ sub cluster{
 #####################################################
 
 
-=head2 run_analysis
+=head2 run_ncbi_analysis
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
   Function  : gets a list of databases to run against and constructs

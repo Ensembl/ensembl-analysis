@@ -3319,10 +3319,10 @@ sub _transfer_evidence {
 
 =head2 look_for_both
 
-  Arg [1]    : Bio:EnsEMBL:Gene
+  Arg [1]    : Bio::EnsEMBL::Gene
   Description: a copy of Steve's look_for_both-script,
                checks phases, etc.
-  Returntype : Bio:EnsEMBL:Gene
+  Returntype : Bio::EnsEMBL::Gene
 
 =cut
 
@@ -4255,7 +4255,7 @@ sub _cdna_evidence {
 
   Arg [1]    : optional hash ref
   Description: store the links between NM and NP entries
-  Returntype : has ref
+  Returntype : hashref
 
 =cut
 
@@ -4331,7 +4331,7 @@ sub DITAG_DB {
     return $self->{_ditag_db};
 }
 
-=head2 blessed_db
+=head2 BLESSED_DB
 
   Arg [1]    : optional Bio::EnsEMBL::DBSQL::DBAdaptor
   Description: get/set for db storing blessed gene structures
@@ -4374,7 +4374,7 @@ sub OUTPUT_DB {
 
 ####  other config variable get/set methods  ######
 
-=head2 various_config_variable_methods
+=head2 INPUT_GENETYPES
 
   Arg [1]    : optional parameter
   Description: setter / getter for config vars

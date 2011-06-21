@@ -2106,6 +2106,14 @@ sub overlap_percent {
 
 ############################################################
 
+
+{
+  my %coding_exon_cache;
+
+  sub clear_coding_exons_cache {
+    %coding_exon_cache = ();
+  }
+
 =head2 get_coding_exons_for_transcript
 
   Arg        : Bio::EnsEMBL::Transcript object
@@ -2115,14 +2123,6 @@ sub overlap_percent {
   Example    : my $exons = $self->get_coding_exons_for_transcript($transcript);
 
 =cut
-
-{
-  my %coding_exon_cache;
-
-  sub clear_coding_exons_cache {
-    %coding_exon_cache = ();
-  }
-
   sub get_coding_exons_for_transcript {
     my ( $self, $trans ) = @_;
 

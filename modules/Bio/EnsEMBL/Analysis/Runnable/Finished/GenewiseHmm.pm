@@ -105,9 +105,9 @@ sub new {
 	return $self;
 }
 
-##################
-#accessor methods#
-##################
+####################
+# accessor methods #
+####################
 
 =head2 genewise
 

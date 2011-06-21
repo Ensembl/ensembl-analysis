@@ -13,7 +13,10 @@ This object holds one or more introns which has been clustered
 
 ba1@sanger.ac.uk
 
+=head1 METHODS
+
 =cut
+
 
 # Let the code begin ...
 
@@ -27,11 +30,6 @@ use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 @ISA = qw(Bio::EnsEMBL::Root);
-
-=head1 METHODS
-
-=cut
-
 
 =head2 new
 

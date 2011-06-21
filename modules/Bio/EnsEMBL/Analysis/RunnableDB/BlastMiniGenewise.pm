@@ -735,7 +735,7 @@ sub write_output{
 
 
 
-=head2 accessor methods
+=head2 exon_mask_list
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
   Arg [2]   : various, String, Int, Arrayref
@@ -760,6 +760,18 @@ sub exon_mask_list{
   return $self->{exon_mask_list};
 }
 
+=head2 gene_mask_list
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
+  Arg [2]   : various, String, Int, Arrayref
+  Function  : various accessor methods for holding variables during the
+  run. Some will create and return the approprite object if not already holding
+  it
+  Returntype: as given
+  Exceptions: some thrown if given the wrong type
+  Example   : 
+
+=cut
 sub gene_mask_list{
   my ($self, $arg) = @_;
   if(!$self->{gene_mask_list}){
@@ -1032,7 +1044,7 @@ sub read_and_check_config{
 }
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 PAF_LOGICNAMES
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
