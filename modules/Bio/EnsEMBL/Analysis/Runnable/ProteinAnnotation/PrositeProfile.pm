@@ -24,6 +24,12 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
 
 
+sub multiprotein{
+  my ($self) = @_;
+  return 0;
+}
+
+
 sub run_analysis {
   my ($self) = @_;
   
