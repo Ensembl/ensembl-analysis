@@ -63,7 +63,7 @@ sub run_analysis {
   my ($self) = @_;
   
   throw("Error running ".$self->program." on ".$self->queryfile) 
-      unless ((system($self->program . " -t euk "
+      unless ((system($self->program . " -t euk -trunc 200 "
                       .$self->queryfile 
                       . " > ".$self->resultsfile)) == 0); 
 }
