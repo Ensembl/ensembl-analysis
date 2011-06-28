@@ -140,6 +140,7 @@ my $total_cDNAs          = 0;
 my $X_count              = 0;
 my $killed_count         = 0;
 my $parse_problem        = 0;
+my $partial_cds          = 0;
 my $not_in_mole          = 0;
 my $too_short_after_clip = 0;
 my $AT_only_count        = 0;
@@ -232,7 +233,7 @@ close ANNOTATION;
 
 my $expected_output_nr =
   $total_cDNAs - $X_count - $killed_count - $too_short_after_clip -
-  $AT_only_count - $parse_problem - $not_in_mole - $zero_length;
+  $AT_only_count - $parse_problem - $not_in_mole - $zero_length - $partial_cds;
 
 if ($cdna_written != $expected_output_nr) {
   print "BEWARE, NUMBERS DON'T ADD UP! "
@@ -247,6 +248,7 @@ printf "cDNAs present in kill_list DB:                      %10d\n", $killed_cou
 printf "cDNAs too short after polyA clipped:                %10d\n", $too_short_after_clip;
 printf "Entire cDNA sequence seems to be of polyA or polyT: %10d\n", $AT_only_count;
 printf "Can't parse the head/tail info in EMBL file:        %10d\n", $parse_problem;
+printf "cDNAs with partial cds:                             %10d\n", $partial_cds;
 printf "Can't find the accession in mole DB:                %10d\n", $not_in_mole;
 printf "Number of sequences with zero length:               %10d\n", $zero_length;
 printf "cDNAs written to output:                            %10d\n", $cdna_written;
@@ -296,7 +298,7 @@ sub in_mole {
 
   my $string;
   if ( defined $entry ) {
-    my ( $strand, $start, $end, $coords ) = fetch_coords( $entry, $in_db );
+    my ( $strand, $start, $end, $coords, $partial ) = fetch_coords( $entry, $in_db );
     if (    defined $strand
          && defined $start
          && defined $end
@@ -332,6 +334,10 @@ sub in_mole {
       #print ANNOTATION "$string\n";
       #close ANNOTATION;
       $write_cdna = 1;
+    }
+    elsif ($partial) {
+      print STDERR "Partial cds $display_id id in db " . $in_db->dbc->dbname . " \n";
+      $partial_cds++;
     } else {
       print STDERR "Parse_problem $display_id id in db " . $in_db->dbc->dbname . " \n";
       $parse_problem++;
@@ -359,6 +365,7 @@ sub fetch_coords {
   my $start;
   my $end;
   my $tertiary_id;
+  my $partial = 0;
 
   # Get necessary information...
   my @dbxref_objs =
@@ -379,9 +386,11 @@ sub fetch_coords {
           $strand = "+";
           $start  = $1;
           $end    = $2;
+        } elsif ( $dbxo->tertiary_id =~ m/<?(\d+)\.\.>?(\d+)/ ) {
+            $partial = 1;
         }
       }
     }
   }
-  return ( $strand, $start, $end, $tertiary_id );
+  return ( $strand, $start, $end, $tertiary_id, $partial);
 } ## end sub fetch_coords
