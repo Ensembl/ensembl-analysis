@@ -112,7 +112,7 @@ sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;  
 
-  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION'], @args);
+  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception, $verbosity) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION', 'VERBOSITY'], @args);
 
   if(!$db || !$analysis || !$input_id){
     throw("Can't create a RunnableDB without a dbadaptor ".
@@ -136,7 +136,7 @@ sub new{
   $self->no_config_exception($no_config_exception) ;
 
   verbose($CORE_VERBOSITY);
-  logger_verbosity($LOGGER_VERBOSITY);
+  logger_verbosity($LOGGER_VERBOSITY) unless ($verbosity);
   return $self;
 }
 
