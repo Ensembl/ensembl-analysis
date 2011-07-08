@@ -242,8 +242,8 @@ GENE:
 
       push( @ensembl, $transcript );
     }
-    print "DEBUG: in _merge_redundant_transcripts: "
-        . "bfr checking the array size: " . scalar(@ensembl) . "\n";
+    #print "DEBUG: in _merge_redundant_transcripts: "
+    #    . "bfr checking the array size: " . scalar(@ensembl) . "\n";
     if ( !scalar(@havana) ) {
       next GENE;
     }
@@ -251,7 +251,7 @@ GENE:
     if ( !scalar(@ensembl) ) {
       # As this is a havana only gene I still want to add an OTTT
       # entry to the transcripts and an OTTG to the gene.
-      $self->add_ottg_xref( $gene, $gene->stable_id );
+      $self->add_ottg_xref( $gene, $gene->stable_id, $gene->version );
 
       foreach my $hav_trans (@havana) {
         $self->add_ottt_xref($hav_trans);
@@ -271,6 +271,14 @@ GENE:
         print "\n===> Looking at ensembl trans: " . $et->dbID . "\n";
 
         my $delete_t = $self->are_matched_pair( $ht, $et );
+
+        foreach my $ht_attrib (@{$ht->get_all_Attributes()}) {
+          if ($ht_attrib->code eq 'gene_cluster') {
+            print "hav transcript is in a gene_cluster, "
+                . "will remove the ensembl transcript. delete_t = 2.\n";
+            $delete_t = 2;
+          }
+        }
 
         my @t_pair;
         my $delete_trans = 0;
@@ -302,8 +310,9 @@ GENE:
             $delete_trans = $ht;
             @t_pair = ( $ht, $et );
           } elsif ( $delete_t == 2) {
-            print "DEBUG: --->>> are_matched_pair returned value 2, Ens trans ". $et->dbID .
-                  " is incomplete and will be deleted without merging with Hav trans.\n";
+            print "DEBUG: --->>> are_matched_pair returned value 2, Ens trans " . $et->dbID
+                . " is incomplete or overlapping with a flagged gene cluster."
+                . " It will be deleted without merging with Hav trans.\n";
             $delete_trans = $et;
           } else {
             # We get here when $delete_t = 1 (et and ht differ in UTR structure) 
@@ -980,7 +989,7 @@ sub add_ottt_xref {
                                      -display_id    => $ht->display_id,
                                      -priority      => 1,
                                      -xref_priority => 0,
-                                     -version       => 1,
+                                     -version       => $entry->version,
                                      -release       => 1,
                                      -dbname        => 'OTTT' );
 
@@ -992,9 +1001,9 @@ sub add_ottt_xref {
 } ## end sub add_ottt_xref
 
 sub add_ottg_xref {
-  my ( $self, $hg, $ottg ) = @_;
+  my ( $self, $hg, $ottg, $ottg_version ) = @_;
 
-  #print "DEBUG: I am adding an OTTG xref to the transcript or Gene\n";
+  #print "Creating OTTG: " . $ottg. "  " . $ottg_version. "\n";
 
   # Don't want to save the OTTG xref twice so check if it's already stored.
   foreach my $entry ( @{ $hg->get_all_DBEntries } ) {
@@ -1008,7 +1017,7 @@ sub add_ottg_xref {
                                -display_id    => $ottg,
                                -priority      => 1,
                                -xref_priority => 0,
-                               -version       => 1,
+                               -version       => $ottg_version,
                                -release       => 1,
                                -dbname        => 'OTTG' );
 
@@ -1045,7 +1054,7 @@ sub set_transcript_relation {
                                        -display_id    => $entry->display_id,
                                        -priority      => 1,
                                        -xref_priority => 0,
-                                       -version       => 1,
+                                       -version       => $entry->version,
                                        -release       => 1,
                                        -dbname => 'shares_CDS_with_OTTT' );
 
@@ -1058,7 +1067,7 @@ sub set_transcript_relation {
                                        -display_id    => $entry->display_id,
                                        -priority      => 1,
                                        -xref_priority => 0,
-                                       -version       => 1,
+                                       -version       => $entry->version,
                                        -release       => 1,
                                        -dbname        => 'OTTT' );
 
@@ -1116,7 +1125,7 @@ sub set_transcript_relation {
                                        -display_id    => $entry->display_id,
                                        -priority      => 1,
                                        -xref_priority => 0,
-                                       -version       => 1,
+                                       -version       => $entry->version,
                                        -release       => 1,
                                        -dbname => 'shares_CDS_with_OTTT' );
 
@@ -1164,7 +1173,7 @@ sub set_transcript_relation {
             new Bio::EnsEMBL::DBEntry(
                                      -primary_id    => $entry->primary_id,
                                      -display_id    => $entry->display_id,
-                                     -version       => 1,
+                                     -version       => $entry->version,
                                      -release       => 1,
                                      -priority      => 1,
                                      -xref_priority => 0,
@@ -1640,11 +1649,6 @@ EXT_GENE:
               ### IS RUN ON A WHOLE CHROMOSOME, OR ELSE "coding_region_start/end"
               ### WILL NEVER BE THE SAME AS seq_region_start/end!
 
-              
-          #    if ( $t_exons[$i]->coding_region_start($trans) != $ext_exons[$i]->seq_region_start
-          #         || $t_exons[$i]->strand != $ext_exons[$i]->strand
-          #         || $t_exons[$i]->coding_region_end($trans) != $ext_exons[$i]->seq_region_end )
-
               if ( $genomic_coords[0]->start != $ext_exons[$i]->seq_region_start
                    || $t_exons[$i]->strand != $ext_exons[$i]->strand
                    || $genomic_coords[0]->end != $ext_exons[$i]->seq_region_end )
@@ -1862,8 +1866,8 @@ sub combine_gene_clusters {
 
 CLUSTER:
   foreach my $pseudo_gene (@pseudo_genes) {
-    print "Pseudogene biotype: ", $pseudo_gene->biotype,
-      "\tstart: " . $pseudo_gene->seq_region_start . "\n";
+    #print "Pseudogene biotype: ", $pseudo_gene->biotype,
+    #  "\tstart: " . $pseudo_gene->seq_region_start . "\n";
     if ( $pseudo_gene->biotype =~ /hav/ ) {
       $is_pseudo_havana = 1;
     }
@@ -2106,14 +2110,6 @@ sub overlap_percent {
 
 ############################################################
 
-
-{
-  my %coding_exon_cache;
-
-  sub clear_coding_exons_cache {
-    %coding_exon_cache = ();
-  }
-
 =head2 get_coding_exons_for_transcript
 
   Arg        : Bio::EnsEMBL::Transcript object
@@ -2123,6 +2119,14 @@ sub overlap_percent {
   Example    : my $exons = $self->get_coding_exons_for_transcript($transcript);
 
 =cut
+
+{
+  my %coding_exon_cache;
+
+  sub clear_coding_exons_cache {
+    %coding_exon_cache = ();
+  }
+
   sub get_coding_exons_for_transcript {
     my ( $self, $trans ) = @_;
 
@@ -2789,66 +2793,81 @@ sub cluster_into_Genes {
   # We are going to set the havana genes as initial clusters as we
   # want to keep their structure.
   my @clusters;
-  my %readthru_lookup_hash;
+  my @read_thru_trans;
+  my @pure_read_thru_genes;
 
   print "Havana";
   print " coding" if ($coding); 
   print " non-coding" if (!$coding); 
   print " gene cluster size: "
     . scalar( @{$havana_genes} ) . "\n";
+
   foreach my $hav_gene ( @{$havana_genes} ) {
 
-    #print "DEBUG: \$hav_gene->dbID " . $hav_gene->dbID . "\tbiotype: " . $hav_gene->biotype . " " . $hav_gene->stable_id."\n";
-
-    my $ottg_key;
+    my ($ottg_key, $ottg_version);
     foreach my $entry ( @{ $hav_gene->get_all_DBEntries } ) {
       #print "DEBUG: ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
       if ( $entry->dbname eq 'Vega_gene' ) {
         if ( $entry->primary_id eq $entry->display_id ) {
           $ottg_key = $entry->primary_id;
+          $ottg_version = $entry->version;
         }
       }
     }
 
+    my $read_thru;
+    my $read_through_trans = 0;
+
     foreach my $hav_trans ( @{ $hav_gene->get_all_Transcripts } ) {
       #print "DEBUG: Havana trans id: ". $hav_trans->dbID . "\n";
-      $ottg_xref{$hav_trans} = $ottg_key;
+      $ottg_xref{$hav_trans} = $ottg_key . "_" . $ottg_version;
+      #print "ottg_hav_trans" . $ottg_xref{$hav_trans} . "\n";
 
+      $read_thru = 0;
       my @hav_attrib = @{ $hav_trans->get_all_Attributes() };
       foreach my $attrib (@hav_attrib) {
         if ( $attrib->name eq 'readthrough transcript' ) {
           print "Have a Hav readthrough transcript:  "
             . $hav_trans->stable_id . "\n";
-          $readthru_lookup_hash{$hav_trans->stable_id} = 1;
+          $read_thru = 1;
+          $read_through_trans++;
         }
       }
     }
 
     my @h_clust;
-    push( @h_clust,  @{ $hav_gene->get_all_Transcripts } );
-    push( @clusters, \@h_clust );
+    if ( $read_thru == 1 ) {
+
+      # If the number of transcripts is the same as the read_through
+      # counter then that gene is a pure read_through gene and should
+      # be kept separate from rest of the Havana genes.
+      if (
+        $read_through_trans == scalar( @{ $hav_gene->get_all_Transcripts } ) )
+      {
+        #print "Pushing " . $hav_gene->dbID . " in pure set\n";
+        my @prt_clust = @{ $hav_gene->get_all_Transcripts };
+        push( @pure_read_thru_genes, \@prt_clust );
+      } else {
+        #print "Pushing " . $hav_gene->dbID . " in general set\n";
+        push( @h_clust,  @{ $hav_gene->get_all_Transcripts } );
+        push( @clusters, \@h_clust );
+      }
+    } else {
+      push( @h_clust,  @{ $hav_gene->get_all_Transcripts } );
+      push( @clusters, \@h_clust );
+    }
+
   } ## end foreach my $hav_gene ( @{$havana_genes...
 
   print "There are " . scalar(@clusters) . " havana clusters\n";
   print "There are " . scalar(@transcripts) . " ensembl transcripts\n";
-
+  print "There are "
+    . scalar(@pure_read_thru_genes)
+    . " read_through havana gene clusters\n";
 
   # Clusters transcripts by whether or not any coding exon overlaps
   # with a coding exon in another transcript. We will use the set of
   # Havana.
-
-  foreach my $tran (@transcripts) {
-    my @ens_attrib = @{ $tran->get_all_Attributes() };
-    foreach my $attrib (@ens_attrib) {
-      if ( $attrib->name eq 'readthrough transcript' ) {
-        print "Have an Ens readthrough transcript:  "
-            . $tran->stable_id . "\n";
-        $readthru_lookup_hash{$tran->stable_id} = 1;
-      }
-    }
-  }
-
-
 
   foreach my $tran (@transcripts) {
 
@@ -2857,39 +2876,24 @@ sub cluster_into_Genes {
 
     CLUSTER: foreach my $cluster (@clusters) {
 
-      print "DEBUG: cluster transcript: ", $cluster->[0]->stable_id, "\t" 
-          . "dbID: ", $cluster->[0]->dbID, "\n";
+      #print "DEBUG: cluster transcript: ", $cluster->[0]->stable_id, "\t"
+      #    . "dbID: ", $cluster->[0]->dbID, "\n";
 
       if ($coding) {
-#      CLUSTER_TRANS_CODING:
         foreach my $cluster_transcript (@$cluster) {
            # print "DEBUG: \$cluster_transcript->stable_id "
            # . $cluster_transcript->stable_id
            # . "\t\$cluster_transcript->biotype "
            # . $cluster_transcript->biotype . "\n";
 
-#          if ( $readthru_lookup_hash{$tran->stable_id} && !$readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-#            print "DEBUG: Coding Ens " . $tran->stable_id
-#              . " readthrough, Hav " . $cluster_transcript->stable_id
-#              . " not readthrough, I'm getting out of here!!!\n";
-#            next CLUSTER_TRANS_CODING;
-#          }
-#          if ( !$readthru_lookup_hash{$tran->stable_id} && $readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-#            print "DEBUG: Coding Ens " . $tran->stable_id
-#              . " isn't readthrough, but Hav " . $cluster_transcript->stable_id
-#              . " is, I'm getting out of here!!!\n";
-#            next CLUSTER_TRANS_CODING;
-#          }
-
-          if ( $cluster_transcript->translation ) { 
-            print "DEBUG: cluster trans has translation\n";
+          if ( $cluster_transcript->translation ) {
             if ( $tran->coding_region_end >=
                     $cluster_transcript->coding_region_start
                  && $tran->coding_region_start <=
                  $cluster_transcript->coding_region_end )
             {
 
-              print "DEBUG: we have overlap of coding trans!\n";
+              #print "DEBUG: we have overlap of coding trans!\n";
               my $exons1 = $self->get_coding_exons_for_transcript($tran);
               my $cluster_exons =
                 $self->get_coding_exons_for_transcript($cluster_transcript);
@@ -2900,8 +2904,8 @@ sub cluster_into_Genes {
                   if (    $exon1->overlaps($cluster_exon)
                        && $exon1->strand == $cluster_exon->strand )
                   {
-                    print "DEBUG: we have overlap of coding exons, adding "
-                        . "the whole cluster to matching clusters\n";
+                    #print "DEBUG: we have overlap of coding exons, adding "
+                    #    . "the whole cluster to matching clusters\n";
                     push( @matching_clusters, $cluster );
                     next CLUSTER;
                   }
@@ -2913,24 +2917,10 @@ sub cluster_into_Genes {
       } else {
         # If clustering pseudogenes or processed transcripts
 
-#        CLUSTER_TRANS_NC:
           foreach my $cluster_transcript (@$cluster) {
           #print "DEBUG: \$cluster_transcript->dbID " . $cluster_transcript->dbID
           #    . "\t\$cluster_transcript->biotype " . $cluster_transcript->biotype . "\n";
 
-
-#          if  ( $readthru_lookup_hash{$tran->stable_id} && !$readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-#            print "DEBUG: Coding Ens " . $tran->stable_id
-#              . " readthrough, Hav " . $cluster_transcript->stable_id
-#              . " not readthrough, I'm getting out of here!!!\n";
-#            next CLUSTER_TRANS_NC;
-#          }
-#          if ( !$readthru_lookup_hash{$tran->stable_id} && $readthru_lookup_hash{$cluster_transcript->stable_id} ) {
-#            print "DEBUG: Coding Ens " . $tran->stable_id
-#              . " isn't readthrough, but Hav " . $cluster_transcript->stable_id
-#              . " is, I'm getting out of here!!!\n";
-#            next CLUSTER_TRANS_NC;
-#          }
           if (    $tran->end >= $cluster_transcript->start
                && $tran->start <= $cluster_transcript->end )
           {
@@ -2972,8 +2962,8 @@ sub cluster_into_Genes {
 
       push @{ $matching_clusters[0] }, $tran;
     } else {
-      print "DEBUG: BEWARE YOU ARE HERE MERGING CLUSTERS\n";
-      print "DEBUG: Have >1 trans in the matching clusters:\n";
+      print "DEBUG: BEWARE YOU ARE HERE MERGING CLUSTERS!\n";
+      #print "DEBUG: Have >1 trans in the matching clusters.\n";
 
       # Merge the matching clusters into a single cluster
       my @new_clusters;
@@ -3003,7 +2993,7 @@ sub cluster_into_Genes {
         }
         push @merged_cluster, $tran;
 
-        # ADD SOME NICE PRINT OUTPUT
+        # Add some nice print output
         print "MERGING CLUSTER COVERED BY TRANSCRIPT IN: ",
           $tran->seq_region_name, " - ", $tran->seq_region_start, " - ",
           $tran->seq_region_end, "\n";
@@ -3035,9 +3025,9 @@ sub cluster_into_Genes {
 
         foreach my $overlapping_cluster (@matching_clusters) {
           print "DEBUG: More than one Havana gene overlaps. Scoring the best cluster \n";
-          print "DEBUG: Overlapped Hav transcript is " . ${$overlapping_cluster}[0]->stable_id . " biotype ". ${$overlapping_cluster}[0]->biotype."\n";
-          print "DEBUG: Trans id: " . $tran->dbID
-              . "\tbiotype: " . $tran->biotype . "\n";
+          print "DEBUG: Overlapped Hav transcript is " . ${$overlapping_cluster}[0]->stable_id
+              . " biotype "                            . ${$overlapping_cluster}[0]->biotype . "\n";
+          print "DEBUG: Trans id: " . $tran->dbID      . "\tbiotype: " . $tran->biotype . "\n";
 
           my $match_percent =
             $self->clust_overlap_percent( $overlapping_cluster, $tran );
@@ -3078,6 +3068,13 @@ sub cluster_into_Genes {
 
   #print "DEBUG: size of clusters: " . scalar(@clusters) .  "\n";
 
+  # Adding the read_through genes that we don't want to merge in
+  # to the final cluster.
+  print "size of pure_read_thru_genes: " . scalar(@pure_read_thru_genes) .  "\n";
+  push( @clusters, @pure_read_thru_genes );
+
+  print "size of clusters: " . scalar(@clusters) .  "\n";
+
   # safety and sanity checks
   $self->check_Clusters( scalar(@transcripts), \@clusters );
 
@@ -3103,15 +3100,23 @@ sub cluster_into_Genes {
       #  . "\ttranscript dbID: " . $transcript->dbID
       #  . "\t(" . $transcript->biotype . ")\n";
 
+      my (@ottg_stable_id_array, $ottg_stable_id, $ottg_version);
+      if ( defined($ottg_xref{$transcript})) {
+        @ottg_stable_id_array = split('_', $ottg_xref{$transcript});
+        $ottg_stable_id = $ottg_stable_id_array[0];
+        $ottg_version   = $ottg_stable_id_array[1];
+      }
+
       $gene->add_Transcript($transcript);
-      if ( $ottg_xref{$transcript}
-           && ( $ottg_added ne $ottg_xref{$transcript} ) )
+      if ( $ottg_stable_id
+           && ( $ottg_added ne $ottg_stable_id ) )
       {
         # Need to add the OTTG as the gene stable_id otherwise it will
         # be undef.
-        $gene->stable_id( $ottg_xref{$transcript} );
-        $self->add_ottg_xref( $gene, $ottg_xref{$transcript} );
-        $ottg_added = $ottg_xref{$transcript};
+        $gene->stable_id( $ottg_stable_id );
+        $gene->version( $ottg_version );
+        $self->add_ottg_xref( $gene, $ottg_stable_id, $ottg_version );
+        $ottg_added = $ottg_stable_id;
       }
     }
     $gene->biotype($gene_biotype);
