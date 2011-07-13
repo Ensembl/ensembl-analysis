@@ -58,7 +58,6 @@
 
 use strict;
 use warnings;
-use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
 use Bio::SeqIO;
