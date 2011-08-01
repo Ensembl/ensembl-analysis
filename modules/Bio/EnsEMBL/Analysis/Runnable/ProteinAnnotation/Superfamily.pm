@@ -38,7 +38,7 @@ sub run_analysis {
 	        '-i ' . $self->queryfile.' '.
 		'-o ' . $self->resultsfile;
     print STDERR "$cmd\n";   
-    $self->throw ("Error running Superfamily ".$self->program." on ".$self->filename) 
+    $self->throw ("Error running Superfamily ".$self->program." on ".$self->queryfile) 
      unless ((system ($cmd)) == 0);
     
 }
