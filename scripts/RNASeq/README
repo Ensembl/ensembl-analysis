@@ -1,0 +1,26 @@
+setup_rnaseq_pipeline.pl
+------------------------
+
+This document describes how to automate setting up of a BWA alignment and processing pipeline using a configuration file - setup_rnaseq_pipeline_config.pm and a tab
+delimeted text file that contains the file names of the fastq files to align and associated meta data to be parsed and stored in the final BAM Files.
+In order for the pipeline to run you will need a pipeline database  ( it does not need dna in it ) and an indexed fasta file of the genome sequence that has been cleaned of
+the Ensembl style sequence headers ie:
+>NT_166433  supercontig NT_166433
+rather than 
+>supercontig:NCBIM37:NT_166433:1:83612:1 supercontig NT_166433
+You can clean up the headers using a regex like this:
+more  toplevel.fa| sed ' s/^>.*:NCBIM37:\(.*\):1:.*:1/\>\1 /g' > toplevel_clean.fa 
+and index it like this:
+bsub /software/solexa/bin/bwa index -a bwtsw toplevel_clean.fa
+
+Once you have these things you can parse the txt file to create your analyses rules and config needed to run the pipeline. See setup_rnaseq_pipeline_config.pm for details of
+the configuration.
+
+The script assumes the lanes are arranged in rows with the 1st row being column headers. It assigns different columns to different tags in the BAM file, the column numbers are entered into the config file, comma
+separated if more than one column needs to be associated with a single tag. There are also column numbers associated with paired reads and read length in case these are not
+consistent across your data set. If these are left blank then the default values will be used. Once the configuration file is filed out running the script will give a sample
+output of the 1st row of data in the table for you to check, if you are happy answering 'y' will write the config files if the -write option is used the script will write
+the analyses to the pipeline database, starting the rulemanager should then run the entire pipeline resulting is sorted and indexed bam files in the output directory.
+
+The pipeline has a samtools flagstat test at the end to give you some mapping statistics and will fail if the number of reads in the BAM file is not the same as the number
+of reads in the fastq file to begin with.
