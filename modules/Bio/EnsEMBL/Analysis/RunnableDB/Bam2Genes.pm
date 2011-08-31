@@ -208,7 +208,7 @@ sub process_exon_clusters {
   my $cluster_hash;
   my $pairs;
   # dont use any reads in the processing only clusters and read names
-  print STDERR "Processing Clusters\n";
+  print STDERR "Processing ". scalar(keys %{$exon_clusters} ) ." Clusters\n";
 
   if ( scalar(keys %{$exon_clusters}) == 1 ) {
     # just keep single exon clusters for now - might be useful later
@@ -216,6 +216,33 @@ sub process_exon_clusters {
       my @transcript;
       push @transcript, $cluster;
       push @transcripts, \@transcript;
+    }
+    return \@transcripts;
+  }
+
+  unless ( $self->PAIRED ) {
+    # if we are using unpaired reads then just link clusters separated by <= MAX_INTRON_LENGTH
+    my @clusters = sort { $a->start <=> $b->start } values %{$exon_clusters} ;
+    my @transcript;
+    my @transcripts;
+    for ( my $i = 1 ; $i <= $#clusters ; $i++ ) {
+      my $left = $clusters[$i-1];
+      my $right = $clusters[$i];
+      if ( $right->start <= $left->end + $self->MAX_INTRON_LENGTH ) {
+	push @transcript,$left;
+	push @transcript,$right if $i == $#clusters;
+      } else {
+	#copy it before you store it or else you get reference issues
+	my @tmp_transcript = @transcript;
+	push @transcripts, \@tmp_transcript;
+	# empty the array
+	@transcript = ();
+	pop @transcript;
+	push @transcript,$right if $i == $#clusters;
+      }
+      if ($i == $#clusters ) {
+	push @transcripts, \@transcript;
+      }
     }
     return \@transcripts;
   }
@@ -615,6 +642,34 @@ sub  MIN_SINGLE_EXON_LENGTH{
   
   if (exists($self->{'_CONFIG_MIN_SINGLE_EXON_LENGTH'})) {
     return $self->{'_CONFIG_MIN_SINGLE_EXON_LENGTH'};
+  } else {
+    return 0;
+  }
+}
+
+sub  MAX_INTRON_LENGTH{
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_INTRON_LENGTH'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_INTRON_LENGTH'})) {
+    return $self->{'_CONFIG_MAX_INTRON_LENGTH'};
+  } else {
+    return 0;
+  }
+}
+
+sub  PAIRED{
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PAIRED'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_PAIRED'})) {
+    return $self->{'_CONFIG_PAIRED'};
   } else {
     return 0;
   }
