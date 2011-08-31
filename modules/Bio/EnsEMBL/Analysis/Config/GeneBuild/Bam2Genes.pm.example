@@ -34,17 +34,22 @@ BAM2GENES_CONFIG_BY_LOGIC =>
                   MIN_LENGTH => 300,
                   MIN_EXONS  =>   1,
 		  
-		  # we need to remove the 1 or 2 tag from the end of the paired read names so 
+		  # are you using paired reads?
+		  PAIRED => 0,
+		  # If using paired reads we need to remove the 1 or 2 tag from the end of the paired read names so 
 		  # we can pair them by name, this regex will usually work but if you have
 		  # reads with differently structured headers you may need to tweak it
 		  PAIRING_REGEX => '_\d',
+		  
+		  # if we are using unpaired reads we use the max intron length to 
+		  # join clusters of reads into transcripts
+		  MAX_INTRON_LENGTH => 100000,
 		  
 		  # genes with a span < MIN_SPAN will also be considered single exon
 		  MIN_SINGLE_EXON_LENGTH => 1000,
 		  
                   # 'span' = genomic extent / cdna length
                   MIN_SPAN   =>   1.5,
-		  
                   },
      }
 );
