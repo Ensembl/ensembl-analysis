@@ -15,10 +15,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils ;
 
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           Bio::EnsEMBL::Analysis::RunnableDB
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild Bio::EnsEMBL::Analysis::RunnableDB);
 
 
 

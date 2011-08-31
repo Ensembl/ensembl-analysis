@@ -46,9 +46,7 @@ use Bio::EnsEMBL::Analysis::Runnable::Pmatch;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 sub new {

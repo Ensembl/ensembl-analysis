@@ -38,9 +38,7 @@ use Bio::EnsEMBL::KillList::KillList;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastMiniGenewise qw(GENEWISE_CONFIG_BY_LOGIC);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name write_seqfile);
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise);
 
 
 

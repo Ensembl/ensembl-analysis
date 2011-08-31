@@ -94,9 +94,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::KillList::KillList;
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 

@@ -54,7 +54,7 @@ use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;
 
 use vars qw(@ISA);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 ############################################################

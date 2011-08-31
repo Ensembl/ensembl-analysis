@@ -14,10 +14,7 @@ use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           Bio::EnsEMBL::Analysis::RunnableDB
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild Bio::EnsEMBL::Analysis::RunnableDB);
 
 
 

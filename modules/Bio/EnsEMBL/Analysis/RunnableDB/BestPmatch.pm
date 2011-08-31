@@ -11,9 +11,7 @@ use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(empty_Object);
 use Bio::EnsEMBL::Analysis::Runnable::BestPmatch;
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 sub new {

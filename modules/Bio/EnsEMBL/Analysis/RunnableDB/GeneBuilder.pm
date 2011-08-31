@@ -20,9 +20,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 

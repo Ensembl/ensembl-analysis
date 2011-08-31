@@ -16,7 +16,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 
 use vars qw(@ISA);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
 
 # first of all we just need methods to get databases from the
 # database config
