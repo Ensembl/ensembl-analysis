@@ -118,7 +118,7 @@ use vars qw( %Config );
           -db => ['/path/to/dir/containing/index/'],
         },
         #Which repeats to use for softmasking if getting genomic seq from db
-        SOFT_MASKED_REPEATS   => ['RepeatMask','Dust'],
+        SOFT_MASKED_REPEATS   => ['repeatmask','dust'],
 
       },
 

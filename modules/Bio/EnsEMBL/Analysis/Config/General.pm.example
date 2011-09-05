@@ -53,7 +53,7 @@ use vars qw(%Config);
            # The default directory the Runnable runs its analysis in
            ANALYSIS_WORK_DIR => '/tmp',
 
-           ANALYSIS_REPEAT_MASKING => ['RepeatMask'],
+           ANALYSIS_REPEAT_MASKING => ['repeatmask'],
  
            CORE_VERBOSITY => 'WARNING',
            LOGGER_VERBOSITY => 'OFF', # allowed : OFF, INFO, INFO_STACK_TRACE for logger_info subroutine 
