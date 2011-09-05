@@ -98,7 +98,7 @@ use vars qw(%Config);
                  
                  REFERENCE_DB => { 
                                   BIOTYPES              => [],   
-                                  AB_INITIO_LOGICNAMES  => ['GeneFinder','Genscan','fgenesh'] ,
+                                  AB_INITIO_LOGICNAMES  => ['genefinder','genscan','fgenesh'] ,
                                  }, 
 
 
@@ -142,7 +142,7 @@ use vars qw(%Config);
                   
                   EST_SETS      =>['est_all'], 
                   SIMGW_SETS    =>['simgw_no_miniseq_80'],   
-                  ABINITIO_SETS =>['GeneFinder','Genscan','snap_ciona','fgenesh'] , 
+                  ABINITIO_SETS =>['genefinder','genscan','snap_ciona','fgenesh'] , 
  
              );
 
