@@ -54,7 +54,7 @@ use vars qw( %Config );
                         # if you run multiple analysis to recover missed proteins you should hand over 
                         # the logic names of all recovery-analyses in array 
 
-                        PMATCH_LOGIC_NAME => ['Pmatch'],
+                        PMATCH_LOGIC_NAME => ['pmatch'],
                         MIN_COVERAGE => 25,
                         INPUT_DB => 'GENEWISE_DB',
                         OUTPUT_DB => 'GENEWISE_DB',

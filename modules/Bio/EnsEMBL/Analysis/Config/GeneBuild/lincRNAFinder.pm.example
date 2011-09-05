@@ -49,7 +49,7 @@ use vars qw( %Config );
                   # species.  This database usually is the latest Ensembl core DB available.
 
                   NEW_SET_1_CDNA => { 
-                                         SOURCE_CDNA_UPDATE_DB    => ['cDNA_update'],   
+                                         SOURCE_CDNA_UPDATE_DB    => ['cdna_update'],   
                                     }, 
 
                   NEW_SET_2_PROT  => {  
