@@ -20,13 +20,18 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils - 
+Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils - Utilities
+for the tracking system
 
 =head1 SYNOPSIS
 
+  use Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils qw(is_evidence_stored get_date setup_pipeline cleanup_meta_tracking);
 
 =head1 DESCRIPTION
 
+  Utilities for the tracking system, checking if the input sequence exists
+  in the tracking system, format the date of an entry, setting up the pipeline
+  and cleaning up the pipeline.
 
 =head1 METHODS
 
@@ -36,6 +41,8 @@ package Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils;
 
 use strict;
 use warnings;
+use vars qw(@ISA  @EXPORT_OK);
+
 use constant TREMBL_DB  => 2000;
 use constant SWISS_DB   => 2200;
 use constant REFSEQ_RNA => 1810;
@@ -44,6 +51,7 @@ use constant REFSEQ_AA  => 1810;
 use LWP::Simple;
 use XML::Simple; 
 use Data::Dumper;
+use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
@@ -52,12 +60,20 @@ use Bio::EnsEMBL::Analysis::EvidenceTracking::Database;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_database_connection_parameters_by_string);
 
+@ISA = qw(Exporter);
+
+@EXPORT_OK = qw( is_evidence_stored
+              get_date
+              setup_pipeline
+              cleanup_meta_tracking ) ;
+
 =head2 is_evidence_stored
 
  Arg [1]    : string, name of the hit
  Arg [2]    : Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::InputSeqAdaptor object
  Arg [3]    : string, the molecule type: PROTEIN, MRNA, EST
- Example    : Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils::is_evidence_stored($name, $input_seq_adaptor, $molecule_type);
+ Example    : use Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils qw(is_evidence_stored);
+              is_evidence_stored($name, $input_seq_adaptor, $molecule_type);
  Description: Check if the protein has an entry in the input_seq table, create one if not
  Returntype : int, 1 if the evidence is stored, dbID of the stored object otherwise
  Exceptions : 
@@ -79,13 +95,13 @@ sub is_evidence_stored {
                 open INF, "$cmd |" || die ('Could not execute mfetch');
                 while (<INF>) {
                     if (/(UniProt\S+)/) {
+                        $date = &get_date($_);
                         $db = ($_ =~ /Swiss-Prot/o) ? &SWISS_DB : &TREMBL_DB;
                     }
                     elsif (/sequence version (\d+)/) {
                         $version = $1;
                     }
                     else {
-                        $date = &get_date($_);
                         last;
                     }
                 }
@@ -123,9 +139,9 @@ sub is_evidence_stored {
             );
         return $input_seq_adaptor->store($input_seq);
     }
-#    return $_->dbID;
     return 1;
 }
+
 
 =head2 get_date
 
@@ -156,16 +172,22 @@ sub get_date {
         'NOV' => '11',
         'DEC' => '12',
         );
-    return $year.'-'.$h_months{$month}.'-'.$day;
+    return $year.'-'.$h_months{uc($month)}.'-'.$day;
 }
 
-=head2 
 
- Arg [1]    : 
- Example    : $;
- Description: 
+=head2 setup_pipeline
+
+ Arg [1]    : $db, Bio::EnsEMBL::DBSQL::DBAdaptor
+ Arg [2]    : $default_runnabledb_path, string
+ Arg [3]    : $queue_config, listref from BatchQueue.pm
+ Arg [4]    : $ra_analyses_to_run, listref of Bio::EnsEMBL::Analysis::Analysis
+ Arg [5]    : $rh_to_keep, hashref of string, logic_name of analysis that we want
+               to keep the same analysis run
+ Example    : Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils::setup_pipeline($db, $default_runnabledb_path, $queue_config, $ra_analyses_to_run, $rh_to_keep);
+ Description: Add the meta key 'tracking.analysis' for each analysis we want to track
  Returntype : 
- Exceptions : 
+ Exceptions : throw if not a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor object
 
 
 =cut
@@ -173,30 +195,28 @@ sub get_date {
 sub setup_pipeline {
     my ($db, $default_runnabledb_path, $queue_config, $ra_analyses_to_run, $rh_to_keep) = @_;
 
-    print STDERR "In setup\n";
+    throw('Should be a Bio::EnsEMBL::DBSQL::DBAdaptor object') unless ($db and $db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
     my $track_db = Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor->new(
             -dbconn   => $db->dbc
             );
 
-    print STDERR "Adaptor created\n";
     my $analysisrun_adaptor = $track_db->get_AnalysisRunAdaptor;
     my $runnable_path = $default_runnabledb_path;
-    $runnable_path =~ s'/'::'g;
+    $runnable_path =~ s'\/'::'g;
     foreach my $analysis (@{$ra_analyses_to_run}) {
-    print STDERR 'meta fill', "\n";
-        print STDERR $analysis->logic_name, "\n";
-        if (exists $rh_to_keep->{$analysis}) {
-            next if ($track_db->has_meta_value_by_key('tracking.analysis', $analysis->dbID));
-        }
-        print STDERR "Store meta key\n";
-        $track_db->store_meta_key_value('tracking.analysis', $analysis->dbID);
-        print STDERR "foreach...\n";
         my $module_name = $analysis->module;
         my $logic_name = $analysis->logic_name;
         if (! $module_name) {
-            print STDERR 'It is not a perl module that run this analysis '.$logic_name, "\n";
+            warning('It is not a perl module that run this analysis '.$logic_name);
             next;
         }
+        if (exists $rh_to_keep->{$analysis}) {
+            next if ($track_db->has_meta_value_by_key('tracking.analysis', $analysis->dbID));
+        }
+        if ($track_db->has_meta_value_by_key('tracking.analysis', $analysis->dbID)) {
+            throw('The analysis '.$analysis->logic_name.' is probably already running but you did not ask to keep the run! Are you sure?');
+        }
+        $track_db->store_meta_key_value('tracking.analysis', $analysis->dbID);
         foreach my $anal (@{$queue_config}) {
             if ($anal->{'logic_name'} eq $logic_name) {
                 $runnable_path = $anal->{'runnabledb_path'}
@@ -212,23 +232,34 @@ sub setup_pipeline {
                 -analysis => $analysis,
                 -input_id => 'input_id'
                 );
-        print STDERR "get databases...\n";
         my @a_input_dbs = qw(PAF_SOURCE_DB GENE_SOURCE_DB);
-        my $ra_input_db_id = get_databases($module, \@a_input_dbs, $track_db);
+        my $ra_input_db_id = _get_databases($module, \@a_input_dbs, $track_db);
         my @a_output_dbs = qw(OUTPUT_DB TARGET_DB);
-        my $ra_output_db_id = get_databases($module, \@a_output_dbs, $track_db);
-        print STDERR "Create AnalysisRun\n";
+        my $ra_output_db_id = _get_databases($module, \@a_output_dbs, $track_db);
         my $current_analysis = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
                 -analysis_id => $analysis->dbID,
                 -input_db_id => join(':', @{$ra_input_db_id}),
                 -output_db_id => join(':', @{$ra_output_db_id})
                 );
-        print STDERR Dumper($current_analysis);
         $analysisrun_adaptor->store($current_analysis);
     }
 }
 
-sub get_databases {
+
+=head2 _get_databases
+
+ Arg [1]    : $module, a Bio::EnsEMBL::Analysis::RunnableDB object
+ Arg [2]    : $ra_dbs, a listref of string representing the databases to look for
+ Arg [3]    : $track_db, a Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor object
+ Example    : $ra_input_db_id = _get_databases($module, $ra_dbs, $track_db);
+ Description: Get the database used for the analysis according to the list of possible databases 
+ Returntype : a listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Database
+ Exceptions : 
+
+
+=cut
+
+sub _get_databases {
     my ($module, $ra_dbs, $track_db) = @_;
 
     my %h_ids;
@@ -251,17 +282,27 @@ sub get_databases {
             $h_ids{$edb->dbID} = $edb->dbID;
         }
     }
+    if (! %h_ids) {
+        my %h_database = %{get_database_connection_parameters_by_string('REFERENCE_DB')};
+        my $edb = Bio::EnsEMBL::Analysis::EvidenceTracking::Database->new(
+                -db_name => $h_database{-dbname},
+                -instance => $h_database{-host}
+                );
+        $database_adaptor->store($edb) unless $edb->is_stored($track_db);
+        $h_ids{$edb->dbID} = $edb->dbID;
+    }
     my @a_ids = keys %h_ids;
     return \@a_ids;
 }
 
-=head2 
 
- Arg [1]    : 
- Example    : $;
- Description: 
+=head2 cleanup_meta_tracking
+
+ Arg [1]    : Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor object
+ Example    : Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils::cleanup_meta_tracking($db);
+ Description: Update or remove the tracking.analysis meta_key when the analysis is done
  Returntype : 
- Exceptions : 
+ Exceptions : throw if not a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor object
 
 
 =cut
@@ -269,13 +310,19 @@ sub get_databases {
 sub cleanup_meta_tracking {
     my $db = shift;
 
+    throw('Should be a Bio::EnsEMBL::DBSQL::DBAdaptor object') unless ($db and $db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
     my $dba = Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor->new(
         -dbconn => $db->dbc
         );
     my @meta_keys = $dba->get_meta_values_by_key('tracking.analysis');
     while (my $meta_value = shift @meta_keys) {
-        if(!@{$db->get_StateInfoContainer->list_input_ids_by_analysis($meta_value)}) {
-            $dba->update_meta_key_by_value('tracking.analysis', 'tracking.done', $meta_value);
+        if($dba->is_analysis_done($meta_value)) {
+            if ($dba->has_meta_value_by_key('tracking.done', $meta_value)) {
+                $dba->remove_meta_key('tracking.analysis', $meta_value);
+            }
+            else {
+                $dba->update_meta_key_by_value('tracking.analysis', 'tracking.done', $meta_value) ;
+            }
         }
     }
 }

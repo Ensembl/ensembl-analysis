@@ -96,6 +96,7 @@ sub new {
   my ($runnabledb, $tracking, $ra_evidence_names) =
           rearrange([qw(RUNNABLEDB TRACKING EVIDENCE_NAMES)],@args);
 
+#  print STDERR Dumper(@args);
   if (!$tracking) {
       $self->tracking(0);
       return $self;
@@ -106,9 +107,16 @@ sub new {
   my $analysisrun_adaptor = $self->db->get_AnalysisRunAdaptor;
   my $analysis = $runnabledb->analysis;
   my $analysis_id = $analysis->dbID;
-  my $current_analysis = $analysisrun_adaptor->get_current_analysis_run_by_analysis_id($analysis_id);
+  my $analysis_run_id;
+  eval{
+    my $current_analysis = $analysisrun_adaptor->get_current_analysis_run_by_analysis_id($analysis_id);
+    $analysis_run_id = $current_analysis->dbID;
+    };
+  if ($@) {
+      $analysis_run_id = 0;
+  }
   my $evidence_track = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
-      -analysis_run_id => $current_analysis->dbID,
+      -analysis_run_id => $analysis_run_id,
       -analysis_id     => $analysis_id,
       -reason_id       => 0,
       -is_last         => 1,
@@ -118,8 +126,8 @@ sub new {
   $self->default_track($evidence_track);
   foreach my $name (@{$ra_evidence_names}) {
       my $evidence = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-          -hit_name     => $name,
-          -is_aligned   => 0,
+          -hit_name   => $name,
+          -is_aligned => 'u',
           );
       $evidence->add_track($self->default_track);
       $self->update($evidence);
@@ -171,6 +179,23 @@ sub update {
     my $reason_id = shift;
     
     my $name;
+    if (ref($support) eq '') {
+        $support = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
+            -hit_name          => $support,
+            -is_aligned        => 'n'
+            );
+    }
+    elsif ($support->isa('Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit')) {
+#        print STDERR Dumper($support);
+        $support = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
+            -hit_name          => $support->target,
+#            -seq_region_name   => $support->seq_region_id,
+            -seq_region_start  => $support->qstart,
+            -seq_region_end    => $support->qend,
+            -seq_region_strand => $support->strand,
+            -is_aligned        => 'y'
+            );
+    }
     my $seq_region_id     = $support->seq_region_name;
     my $seq_region_start  = $support->seq_region_start;
     my $seq_region_end    = $support->seq_region_end;
@@ -183,7 +208,7 @@ sub update {
             -seq_region_start  => $seq_region_start,
             -seq_region_end    => $seq_region_end,
             -seq_region_strand => $seq_region_strand,
-            -is_aligned        => 1
+            -is_aligned        => 'y'
             );
     }
     $name = $support->hit_name;
@@ -191,32 +216,33 @@ sub update {
         my $evidencetrack = $self->default_track;
         $support->add_track($evidencetrack);
     }
-    
-    
-    
-    if ($self->get_evidence($name)) {
-        if (defined $seq_region_start) {
-            my $evidence = $self->get_evidence($name);
-            $evidence->seq_region_name($seq_region_id);
-            $evidence->seq_region_start($seq_region_start);
-            $evidence->seq_region_end($seq_region_end);
-            $evidence->seq_region_strand($seq_region_strand);
-            $evidence->is_aligned(1);
-            $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
-            $self->add_evidence($evidence);
-        }
-    }
-    elsif (defined $seq_region_start and $self->get_evidence($name.$seq_region_start.$seq_region_end.$seq_region_strand)) {
+    print STDERR "Starting update $name\n";
+    if (defined $seq_region_start and $self->get_evidence($name.$seq_region_start.$seq_region_end.$seq_region_strand)) {
+        print STDERR "has aligned evidence\n";
         $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
     }
-    else {
+    elsif ($self->get_evidence($name)) {
+        print STDERR "has primary evidence\n";
         if (defined $seq_region_start) {
+            print STDERR "\thas start\n";
+            $self->delete_evidence($name);
             $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
-            $self->add_evidence($support);
         }
         else {
-            $self->add_evidence($support);
+            print STDERR 'ZWRT:has evidence aligned: ', $support->is_aligned, "\t", $self->get_evidence($name)->is_aligned, "\n";
         }
+        $self->add_evidence($support);
+    }
+    else {
+        print STDERR "has no evidence\n";
+        if (defined $seq_region_start) {
+            print STDERR "\thas start\n";
+            $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
+        }
+        else {
+            print STDERR 'XKWZ:Is aligned: ', $support->is_aligned, "\n";
+        }
+        $self->add_evidence($support);
     }
     $self->update_reason($self->get_evidence($name), $reason_id) if ($reason_id);
 }
@@ -241,12 +267,21 @@ sub write_tracks {
         warning("No tracking data!");
         return;
     }
+    print STDERR 'Writing!!!!!', "\n";
     my $evidence_adaptor     = $self->db->get_EvidenceAdaptor;
     my $trackevidence_adaptor = $self->db->get_EvidenceTrackAdaptor;
-    foreach my $evidence (values %{$self->evidences}) {
+    while (my ($key, $evidence)  = each %{$self->evidences}) {
+        if ($key eq $evidence->hit_name and $evidence->is_aligned eq 'y') {
+            print STDERR 'TO DELETE: ', $evidence->hit_name, '  ', $key, "\n";
+            next;
+        }
+        print STDERR 'Storing ', $evidence->hit_name, "\n";
         $evidence_adaptor->store($evidence) unless ($evidence->is_stored($self->db));
+        print STDERR '  Evidence stored', "\n";
         $evidence->get_tracks->[0]->evidence_id($evidence->dbID);
+        print STDERR 'Storing track', "\n";
         $trackevidence_adaptor->store($evidence->get_tracks->[0]);
+        print STDERR '  Track stored', "\n";
     }
 }
 
@@ -270,6 +305,27 @@ sub get_evidence {
 
     return $self->{'_evidences'}->{$name} if (exists $self->{'_evidences'}->{$name});
     return undef;
+}
+
+=head2 delete_evidence
+
+ Arg [1]    : $name, string
+ Example    : my $evidence = $self->delete_evidence($name);
+ Description: Return the evidence given the specific key, $name or
+              $name.$seq_region_name.$seq_region_start.$seq_region_end.$seq_region_strand
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object,
+              undef if it does not exists or if the tracking system is off
+ Exceptions : 
+
+
+=cut
+
+sub delete_evidence {
+    my $self = shift;
+    return undef unless $self->tracking;
+    my $name = shift;
+
+    delete $self->{'_evidences'}->{$name};
 }
 
 =head2 add_evidence

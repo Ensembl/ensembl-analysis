@@ -68,16 +68,6 @@ sub store {
   # make an sql statement
   my $original = $evidence_track;
 
-  # First we unset the current status
-#  my $sth = $self->prepare('UPDATE '.join(' ', $self->_tables).
-#                           ' set te.is_current = 0
-#                            WHERE te.evidence_id = "'.$evidence_track->evidence_id.'"');
-#  $sth->execute();
-#  $sth->finish();
-#
-#  $sth = $self->prepare("INSERT into evidence_track ( evidence_id, analysis_run_id,
-#                            reason_id,input_id, is_current) 
-#                            VALUES ( ?,?,?,?,1)");
   my $sth = $self->prepare('INSERT into track_evidence ( evidence_id, analysis_run_id,
                             reason_id,input_id) 
                             VALUES ( ?,?,?,?)');
@@ -95,7 +85,7 @@ sub store {
   # transfered copy
   $original->adaptor($self);
   $original->dbID($evidence_track_dbID);
-  print STDERR 'Stored evidencetrack object ', "\n";
+  print STDERR 'Stored evidencetrack object ',$evidence_track->evidence_id, "\n";
   return $evidence_track_dbID;
 }
 
@@ -164,13 +154,19 @@ sub fetch_all_by_input_id {
 
 =cut
 
-sub fetch_by_analysis {
+sub fetch_all_by_analysis {
   my $self = shift;
   my $analysis_id = shift;
-#  sub _tables { return (['track_evidence' , 'te'], ['analysis_run', 'ar']); }
-#  sub _left_join { return 'te.analysis_run_id = ar.analysis_run_id';}
       
   my $constraint = 'ar.analysis_id = "'.$analysis_id.'"';
+  return $self->generic_fetch($constraint);
+}
+
+sub fetch_all_by_analysis {
+  my $self = shift;
+  my ($analysis_id, $reason_id) = @_;
+      
+  my $constraint = 'ar.analysis_id = "'.$analysis_id.'" AND te.reason_id = '.$reason_id;
   return $self->generic_fetch($constraint);
 }
 
@@ -188,9 +184,13 @@ sub fetch_by_analysis {
 sub fetch_by_analysis_run_id {
   my $self = shift;
   my $analysis_run_id = shift;
-  my $constraint = 'te.analysis_run_id = "'.$analysis_run_id.'"';
+  my $constraint = 'te.analysis_run_id = '.$analysis_run_id;
   return $self->generic_fetch($constraint);
 }
+
+#@@@@@@@
+# Done @
+#@@@@@@@
 
 =head2 fetch_all_unmapped_evidence
 
@@ -279,7 +279,7 @@ sub _columns {
 =cut
 
 sub _left_join {
-    return 'te.analysis_run_id = ar.analysis_run_id';
+    return ['analysis_run', 'te.analysis_run_id = ar.analysis_run_id'];
 }
 
 =head2 _objs_from_sth
@@ -313,7 +313,7 @@ sub _objs_from_sth {
               );
   }
   my @out = sort {$a->analysis_run_id <=> $b->analysis_run_id} @tmp;
-  $out[-1]->is_last(1);
+  $out[-1]->is_last(1) unless (scalar(@out) == 0);
   return \@out;
 }
 1;

@@ -167,6 +167,7 @@ sub get_meta_values_by_key{
     $sth->execute($key);
     my $row = $sth->fetchrow_arrayref();
     $sth->finish();
+    return 0 unless $row;
     return @{$row};
 }
 sub has_meta_value_by_key {
@@ -198,5 +199,21 @@ sub update_meta_key_by_value {
     });
     $sth->execute($new_key, $old_key, $value);
     $sth->finish();
+}
+
+
+sub is_analysis_done {
+    my $self = shift;
+    my $analysis_id = shift;
+
+    my $sth = $self->prepare(qq{
+        SELECT count(*) 
+        FROM job 
+        WHERE analysis_id = ?
+    });
+    $sth->execute($analysis_id);
+    my $row = $sth->fetchrow_arrayref;
+    return 1 if $row->[0] == 0;
+    return 0;
 }
 1;

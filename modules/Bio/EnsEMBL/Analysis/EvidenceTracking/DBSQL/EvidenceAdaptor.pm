@@ -35,7 +35,7 @@ Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor -
 package Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor; 
 
 use strict;
-use Data::Dumper;
+#use Data::Dumper;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
 use Bio::EnsEMBL::DBSQL::BaseAdaptor;
 use Bio::EnsEMBL::Slice;
@@ -69,7 +69,9 @@ sub store {
   # make an sql statement
   my $original = $evidence;
 
-  my $sth = $self->prepare('INSERT into evidence ( input_seq_id, is_aligned ) VALUES ( (SELECT input_seq_id FROM input_seq where hit_name = ?), ? )');
+  # I can also lock the table but I'm afraid it will just make the analysis longer for not a big deal... So I'm limiting
+  # People will have to remove the duplicates
+  my $sth = $self->prepare('INSERT into evidence ( input_seq_id, is_aligned ) VALUES ( (SELECT input_seq_id FROM input_seq where hit_name = ? LIMIT 1), ? )');
 
   $sth->bind_param( 1, $evidence->hit_name, SQL_VARCHAR );
   $sth->bind_param( 2, $evidence->is_aligned, SQL_VARCHAR );
@@ -83,7 +85,8 @@ sub store {
   $original->adaptor($self);
   $original->dbID($evidence_dbID);
   if ($evidence->is_aligned eq 'y') {
-      $sth = $self->prepare('INSERT INTO evidence_coord (evidence_id, seq_region_id, seq_region_start, seq_region_end, seq_region_strand) VALUES ( ?, (SELECT seq_region_id FROM seq_region where name = ?), ?, ?, ? )');
+      print STDERR 'INSERT: ', $evidence_dbID, ' ', $evidence->seq_region_name, ' ',$evidence->seq_region_start, ' ',$evidence->seq_region_end, ' ',$evidence->seq_region_strand, "\n";
+      $sth = $self->prepare('INSERT INTO evidence_coord (evidence_id, seq_region_id, seq_region_start, seq_region_end, seq_region_strand) VALUES ( ?, (SELECT sr.coord_system_id FROM seq_region sr, seq_region_attrib sra LEFT JOIN attrib_type at ON at.attrib_type_id = sra.attrib_type_id WHERE sr.seq_region_id = sra.seq_region_id AND at.code = "toplevel" AND sr.name = ?), ?, ?, ? )');
       $sth->bind_param( 1, $evidence_dbID, SQL_INTEGER );
       $sth->bind_param( 2, $evidence->seq_region_name, SQL_VARCHAR );
       $sth->bind_param( 3, $evidence->seq_region_start, SQL_INTEGER );
@@ -113,6 +116,41 @@ sub fetch_by_dbID {
   my $constraint = 'e.evidence_id = "'.$evidence_dbID.'"';
   my ($evidence) = @{ $self->generic_fetch($constraint) };
   return $evidence;
+}
+
+=head2 fetch_exact_evidence
+
+ Arg [1]    : $id, integer
+ Example    : $evidence_adaptor->fetch_by_dbID($id);
+ Description: Fetch the evidence by dbID, unique element
+ Returntype : Bio::EnsEMBL::EvidenceTracking::Evidence
+ Exceptions : 
+
+
+=cut
+
+sub is_evidence_exists {
+  my $self = shift;
+  my $evidence = shift;
+  my $query;
+  if ($evidence->is_aligned eq 'y') {
+    $query = 'SELECT e.evidence_id FROM evidence e, input_seq i, evidence_coord ec LEFT JOIN seq_region sr ON sr.seq_region_id = ec.seq_region_id'.
+        ' WHERE ec.evidence_id = e.evidence_id AND ec.seq_region_start = '.$evidence->seq_region_start.
+        ' AND ec.seq_region_end = '.$evidence->seq_region_end.
+        ' AND ec.seq_region_strand = '.$evidence->seq_region_strand.
+        ' AND sr.name = "'.$evidence->seq_region_name.
+        '" AND e.input_seq_id = i.input_seq_id AND i.hit_name = "'.$evidence->hit_name.'"';
+  }
+  else {
+    $query = 'SELECT e.evidence_id FROM evidence e LEFT JOIN input_seq i ON i.input_seq_id = e.input_seq_id'.
+        ' WHERE e.is_aligned = "'.$evidence->is_aligned.'"'.
+        ' AND i.hit_name = "'.$evidence->hit_name.'"';
+  }
+  my $sth = $self->dbc->prepare($query);
+  $sth->execute();
+  my $dbID = $sth->fetch();
+  return @{$dbID}[0] if (defined $dbID);
+  return 0;
 }
 
 =head2 fetch_all_by_slice
@@ -159,6 +197,12 @@ sub fetch_all_by_hit_name {
   return $self->generic_fetch($constraint);
 }
 
+sub fetch_all_unmapped_evidence {
+    my $self = shift;
+
+    my $constraint = 'e.is_aligned = "n"';
+    return $self->generic_fetch($constraint);
+}
 
 #@@@@@@@
 # Done @
@@ -264,6 +308,7 @@ sub _columns {
 sub _left_join {
     return (['evidence', 'e.input_seq_id = i.input_seq_id']);
 }
+
 =head2 _objs_from_sth
 
  Arg [1]    : $sth
@@ -291,6 +336,7 @@ sub _objs_from_sth {
               -is_aligned        => $is_aligned
               );
     if ($out[-1]->is_aligned eq 'y') {
+#        print STDERR $hit_name, ' ', $is_aligned, "\n";
         my $query = 'SELECT sr.name, ec.seq_region_start, ec.seq_region_end, ec.seq_region_strand FROM evidence_coord ec LEFT JOIN seq_region sr ON sr.seq_region_id = ec.seq_region_id WHERE ec.evidence_id = '.$evidence_id;
         my $q2_sth = $self->dbc->prepare($query);
         $q2_sth->execute();

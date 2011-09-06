@@ -109,7 +109,7 @@ sub new {
                         )],@args);
 
   $self->dbID( $id );
-  $self->is_aligned( $is_aligned || 0 );
+  $self->is_aligned( $is_aligned || 'u' );
 #  $self->input_seq_id( $inputseq_id );
   $self->hit_name( $hit_name );
   $self->seq_region_name( $seq_region_id );
@@ -337,25 +337,30 @@ sub is_stored {
 
   # uniquely defined by the evidence_id
   # and the location on the genome
-  my $stored_objs = $db->get_EvidenceAdaptor->fetch_all_by_hit_name($self->hit_name);
-
-  foreach my $stored (@$stored_objs) {
-#    print STDERR "seq_region_id:".$self->seq_region_id.", seq_region_start:".$self->seq_region_start.
-#                 " seq_region_end:".$self->seq_region_end." seq_region_strand:".$self->seq_region_end."\n".
-#                 "seq_region_id:".$stored->seq_region_id.", seq_region_start:".$stored->seq_region_start.
-#                 " seq_region_end:".$stored->seq_region_end." seq_region_strand:".$stored->seq_region_end."\n";
-    if ($self->is_aligned eq $stored->is_aligned) {
-        if ($self->is_aligned eq 'y') {
-            next unless ($self->seq_region_name eq $stored->seq_region_name &&
-                        $self->seq_region_start == $stored->seq_region_start &&
-                        $self->seq_region_end == $stored->seq_region_end &&
-                        $self->seq_region_strand == $stored->seq_region_strand );
-        }
-#      warning("Evidence is_stored: Looking for exact match coordinates. Would you rather look for overlaps?");
-        $self->dbID($stored->dbID);
-      return $stored->dbID;
-    }
+  my $dbID = $db->get_EvidenceAdaptor->is_evidence_exists($self);
+  print STDERR "Obj fetched\n";
+  if ($dbID) {
+      $self->dbID($dbID);
+      return $dbID;
   }
+
+#  foreach my $stored (@$stored_objs) {
+##    print STDERR "seq_region_id:".$self->seq_region_id.", seq_region_start:".$self->seq_region_start.
+##                 " seq_region_end:".$self->seq_region_end." seq_region_strand:".$self->seq_region_end."\n".
+##                 "seq_region_id:".$stored->seq_region_id.", seq_region_start:".$stored->seq_region_start.
+##                 " seq_region_end:".$stored->seq_region_end." seq_region_strand:".$stored->seq_region_end."\n";
+#    if ($self->is_aligned eq $stored->is_aligned) {
+#        if ($self->is_aligned eq 'y') {
+#            next unless ($self->seq_region_name eq $stored->seq_region_name &&
+#                        $self->seq_region_start == $stored->seq_region_start &&
+#                        $self->seq_region_end == $stored->seq_region_end &&
+#                        $self->seq_region_strand == $stored->seq_region_strand );
+#        }
+##      warning("Evidence is_stored: Looking for exact match coordinates. Would you rather look for overlaps?");
+#        $self->dbID($stored->dbID);
+#      return $stored->dbID;
+#    }
+#  }
 
   return 0;
 }
