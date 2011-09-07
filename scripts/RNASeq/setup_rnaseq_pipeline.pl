@@ -299,7 +299,7 @@ foreach my $row ( @rows ) {
   print BWA "           'bwa_" . $row->{ID} ."' => {
                         INDIR   => \"". $input_dir  ."\",
                         OUTDIR  => \"". $output_dir ."\",
-                        OPTIONS => \"-n " . ($length / 2). " -i " . $length  ."\",
+                        OPTIONS => \"-n " . int($length / 2). " -i " . $length  ."\",
                       },\n";
   
   # bwa2bam
