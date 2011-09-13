@@ -666,7 +666,7 @@ sub cluster_Genes {
 sub _compare_Genes {
   my ($gene1,$gene2,$translate, $ignore_strand) = @_;
   
-  if (undef $ignore_strand) {
+  if (!$ignore_strand) {
     $ignore_strand = 0;
   }
 
