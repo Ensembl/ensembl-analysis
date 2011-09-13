@@ -562,11 +562,18 @@ sub cluster_Genes {
             # and add to cluster  
             #
 
-            if (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand)) {
-              push (@matching_clusters, $cluster);
-              next CLUSTER;
+            if ($ignore_exon_overlap) {
+              if (!$ignore_strand) {
+                if ($gene->strand == $cluster_gene->strand) {
+                  push (@matching_clusters, $cluster);
+                  next CLUSTER;
+                }
+              } else {
+                push (@matching_clusters, $cluster);
+                next CLUSTER;
+              }
             }
-            elsif ($ignore_exon_overlap) {
+            elsif (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand)) {
               push (@matching_clusters, $cluster);
               next CLUSTER;
             }
