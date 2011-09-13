@@ -658,6 +658,11 @@ sub cluster_Genes {
 
 sub _compare_Genes {
   my ($gene1,$gene2,$translate, $ignore_strand) = @_;
+  
+  if (undef $ignore_strand) {
+    $ignore_strand = 0;
+  }
+
   # quit if genes do not have genomic overlap 
   #
   # start-------gene1------end   start--------gene2----------end
@@ -680,7 +685,7 @@ sub _compare_Genes {
     my $exons2 = get_coding_exons_for_gene($gene2);
     foreach my $exon1 (@$exons1) {
       foreach my $exon2 (@$exons2) {
-        if (!$ignore_strand) {
+        if ($ignore_strand==0) {
           if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
             #print "Passed CDS overlap check - returning 1\n";
             return 1;
@@ -699,7 +704,7 @@ sub _compare_Genes {
     #
     foreach my $exon1 (@{$gene1->get_all_Exons}){
       foreach my $exon2 (@{$gene2->get_all_Exons}){
-        if (!$ignore_strand) {
+        if ($ignore_strand==0) {
           if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
             #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
