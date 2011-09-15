@@ -98,11 +98,13 @@ GetOptions(
 );
 
 # check commandline
-if (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames)) {
-  throw ("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
+if ($annotation_file) {
+  if (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames)) {
+    throw ("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
+  }
 }
 
-if ( !defined($infile) || !defined($annotation_file) || !defined($outfile) ) {
+if ( !defined($infile) || !defined($outfile) ) {
   throw( "Please enter a file name to read (-infile), "
        . "a file name to write to (-outfile) "
        . "and a file name for annotation (-annotation). "
@@ -153,7 +155,7 @@ my %kill_list = %{ $kill_list_object->get_kill_list() };
 
 # Now work on cDNAs one by one
 
-open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n";
+if ($annotation_file) { open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n"; }
 
 SEQFETCH:
 while ( my $raw_cdna = $seqin->next_seq ) {
@@ -199,29 +201,34 @@ while ( my $raw_cdna = $seqin->next_seq ) {
       next SEQFETCH;
     }
 
-    # check whether in Mole
-    my ( $found, $string, $substr ) =
-      in_mole( $id_w_version, $clip_end, $num_bases_removed, $clipped->length );
-    if ($substr) {
-      # the clipping cut off too much. We must get it back.
-      if ( $clip_end eq "head" ) {
-        $clipped->seq( substr( $cdna->seq, $substr ) );
-      } elsif ( $clip_end eq "tail" ) {
-        $clipped->seq( substr( $cdna->seq, 0, $substr ) );
+   if ($annotation_file) {
+      # check whether in Mole
+      my ( $found, $string, $substr ) =
+        in_mole( $id_w_version, $clip_end, $num_bases_removed, $clipped->length );
+      if ($substr) {
+        # the clipping cut off too much. We must get it back.
+        if ( $clip_end eq "head" ) {
+          $clipped->seq( substr( $cdna->seq, $substr ) );
+        } elsif ( $clip_end eq "tail" ) {
+          $clipped->seq( substr( $cdna->seq, 0, $substr ) );
+        }
       }
-    }
-    if ($found) {
-      if ( length( $clipped->seq ) >= $min_length ) {
-        $cdna_written++;
-        $seqout->write_seq($clipped);
+      if ($found) {
+        if ( length( $clipped->seq ) >= $min_length ) {
+          $cdna_written++;
+          $seqout->write_seq($clipped);
 
-        print ANNOTATION "$string\n";
+          print ANNOTATION "$string\n";
 
-      } else {
-        print STDERR "Clipped sequence for $display_id is shorter "
-                   . "than $min_length bp and is excluded from output.\n";
-        $too_short_after_clip++;
+        } else {
+          print STDERR "Clipped sequence for $display_id is shorter "
+                     . "than $min_length bp and is excluded from output.\n";
+          $too_short_after_clip++;
+        }
       }
+    } else {
+      $cdna_written++ ;
+      $seqout->write_seq($clipped);
     }
   } else {
     $AT_only_count++;
