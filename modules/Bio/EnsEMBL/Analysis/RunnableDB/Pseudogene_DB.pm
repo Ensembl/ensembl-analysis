@@ -123,7 +123,7 @@ sub fetch_input {
   my $genes_slice = $genedb_sa->fetch_by_name( $self->input_id );
   $self->query($genes_slice);
 
-  my $genes = $genes_slice->get_all_Genes;
+  my $genes = $genes_slice->get_all_Genes_by_type( $self->PS_BIOTYPE );
   print $genes_slice->name . "\t" . $genes_slice->start . "\n";
 GENE: foreach my $gene ( @{$genes} ) {
     # Ignore all other biotypes of genes that are not protein_coding
