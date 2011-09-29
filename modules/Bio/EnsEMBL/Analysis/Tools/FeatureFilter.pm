@@ -232,6 +232,7 @@ sub filter_results{
   @$features = sort { $b->score <=> $a->score } @$features;
   
   foreach my $f(@$features){
+#      print STDERR "\t", $f->seqname, "\n";
     if($f->score > $self->min_score){ 
       if(!exists $validhit{$f->hseqname}){
         $validhit{$f->hseqname} = 0;
@@ -351,6 +352,9 @@ sub filter_results{
     @features = @{$self->prune_features(\@features)};
   }
   
+  foreach my $feat (@features) {
+#      print STDERR $feat->seqname, "\n";
+  }
   return \@features;
 }
 

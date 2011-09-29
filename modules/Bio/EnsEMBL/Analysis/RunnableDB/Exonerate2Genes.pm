@@ -194,10 +194,10 @@ sub fetch_input {
     if (not -e $query_file) {
       throw( "Query file '$query_file' does not exist'\n");
     }
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE, $self->input_id);
-      $self->filtered_query_file($query_file);
-    }  
+#    if ($self->USE_KILL_LIST) {
+#      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE, $self->input_id, $track);
+#      $self->filtered_query_file($query_file);
+#    }  
   }
   elsif (-e $query and -s $query) {
     # query seqs is a single file; input id will correspond to a chunk number
@@ -213,12 +213,22 @@ sub fetch_input {
     ###
     ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
     ###
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE);
-    }
+#    if ($self->USE_KILL_LIST) {
+#      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE, $track);
+#    }
   } else {
     throw("'$query' refers to something that could not be made sense of\n");
   }
+  my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+    -runnabledb => $self,
+    -tracking   => $self->is_tracking,
+    -file       => $query_file
+    );
+  if ($self->USE_KILL_LIST) {
+    $query_file = filter_killed_entries($query_file, $self->KILL_TYPE, $self->input_id, $track);
+    $self->filtered_query_file($query_file);
+  }  
+  $self->track($track);
 
   ##########################################
   # Annotation file with CDS positions
@@ -362,7 +372,7 @@ sub make_genes{
       $evi->analysis($self->analysis);
     }
     
-    if (!$slice){
+    if (!$slice) {
         my ($sf);
 
         if (@{$tran->get_all_supporting_features}) {
@@ -371,14 +381,16 @@ sub make_genes{
           my @exons = @{$tran->get_all_Exons};
           ($sf) = @{$exons[0]->get_all_supporting_features};    
         }
-        print $sf->hseqname."\t$slice_id\n";
+
+        throw('Have no slice: '.$sf->hseqname."\t".$slice_id);
     }
  
-    throw("Have no slice") if(!$slice);
     $tran->slice($slice);
     $gene->add_Transcript($tran);
+    $self->track->update($tran->get_all_supporting_features->[0], "Accepted");
     push( @genes, $gene);
   }
+  $self->track->all_to_noalign;
   return @genes;
 }
 
@@ -780,7 +792,7 @@ sub SEQFETCHER_OBJECT {
 ###############################################
 
 sub filter_killed_entries {
-  my ($orig_query_filename, $mol_type, $inputID) = @_;
+  my ($orig_query_filename, $mol_type, $inputID, $track) = @_;
   my $kill_list_object = Bio::EnsEMBL::KillList::KillList
       ->new(-TYPE => $mol_type);
   my %kill_list = %{ $kill_list_object->get_kill_list() };
@@ -814,6 +826,7 @@ sub filter_killed_entries {
       $seqout->write_seq($query_entry);
     } elsif ( $kill_list{$no_ver_id} ) {
       print "$mol_type $display_id is in the kill_list. Discarded from analysis.\n";
+      $track->update($display_id, "KillList");
     }
   }
   return $filtered_seqout_filename; 

@@ -51,11 +51,13 @@ package Bio::EnsEMBL::Analysis::RunnableDB::Blast;
 use strict;
 use warnings;
 
+use Data::Dumper;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
+use Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils qw(is_evidence_stored);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
@@ -179,6 +181,7 @@ sub write_output{
   my $dna_a = $self->db->get_DnaAlignFeatureAdaptor;
   my $protein_a = $self->db->get_ProteinAlignFeatureAdaptor;
   my $ff = $self->feature_factory;
+  my $track = $self->track;
   foreach my $f(@{$self->output}){
     $f->analysis($self->analysis);
     $f->slice($self->query) if(!$f->slice);
@@ -189,14 +192,24 @@ sub write_output{
       };
       throw("Blast:store failed failed to write ".$f." to the database ".
             "$@") if($@);
-    }elsif($f->isa('Bio::EnsEMBL::DnaPepAlignFeature')){
+      if ($self->is_tracking) {
+          is_evidence_stored($f->hseqname, $track->db->get_InputSeqAdaptor, 'MRNA');
+          $track->update($f, "Accepted");
+      }
+    }
+    elsif ($f->isa('Bio::EnsEMBL::DnaPepAlignFeature')){
       eval{
         $protein_a->store($f);
       };
       throw("Blast:store failed failed to write ".$f." to the database ".
             "$@") if($@);
+      if ($self->is_tracking) {
+          is_evidence_stored($f->hseqname, $track->db->get_InputSeqAdaptor, 'PROTEIN');
+          $track->update($f, "Accepted");
+      }
     }
   }
+  $track->write_tracks;
   return ;
 }
 

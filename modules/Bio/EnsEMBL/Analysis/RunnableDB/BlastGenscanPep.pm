@@ -54,6 +54,7 @@ use Bio::EnsEMBL::Analysis::RunnableDB::Blast;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
+use Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Blast);
@@ -74,6 +75,11 @@ sub fetch_input{
   my ($self) = @_;
   my $slice = $self->fetch_sequence($self->input_id, $self->db);
   $self->query($slice);
+  my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+    -runnabledb => $self,
+    -tracking   => $self->is_tracking,
+    );
+  $self->track($track);
   my %blast = %{$self->BLAST_PARAMS};
   my $pta = $self->db->get_PredictionTranscriptAdaptor;
   my $logic_names = $BLAST_AB_INITIO_LOGICNAME;

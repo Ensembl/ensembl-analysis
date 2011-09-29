@@ -93,7 +93,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB;
 use strict;
 use warnings;
 
-use Data::Dumper;
+#use Data::Dumper;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
@@ -101,6 +101,7 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_config parse_config_mini);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info logger_verbosity);
 use Bio::EnsEMBL::Analysis::Config::General qw(CORE_VERBOSITY
                                                LOGGER_VERBOSITY);
+use Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 use vars qw (@ISA);
 
 @ISA = qw();
@@ -127,7 +128,7 @@ sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;  
 
-  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception, $is_tracking) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION', 'IS_TRACKING'], @args);
+  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception, $verbosity, $is_tracking) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION', 'VERBOSITY', 'IS_TRACKING'], @args);
 
   if(!$db || !$analysis || !$input_id){
     throw("Can't create a RunnableDB without a dbadaptor ".
@@ -154,7 +155,7 @@ sub new{
 
 
   verbose($CORE_VERBOSITY);
-  logger_verbosity($LOGGER_VERBOSITY);
+  logger_verbosity($LOGGER_VERBOSITY) unless ($verbosity);
   return $self;
 }
 
@@ -492,7 +493,6 @@ sub write_output{
       throw("RunnableDB:store failed, failed to write ".$feature." to ".
             "the database ".$adaptor->dbc->dbname." $@");
     }
-    $self->track_evidence($feature);
   }
   return 1;
 }

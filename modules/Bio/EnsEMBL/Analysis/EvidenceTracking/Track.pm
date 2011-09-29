@@ -69,6 +69,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
+use Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
 
 
@@ -93,44 +94,54 @@ sub new {
 
   my $self = bless {},$class;
 
-  my ($runnabledb, $tracking, $ra_evidence_names) =
-          rearrange([qw(RUNNABLEDB TRACKING EVIDENCE_NAMES)],@args);
+  my ($runnabledb, $tracking, $ra_evidence_names, $file) =
+          rearrange([qw(RUNNABLEDB TRACKING EVIDENCE_NAMES FILE)],@args);
 
-#  print STDERR Dumper(@args);
   if (!$tracking) {
       $self->tracking(0);
       return $self;
   }
   $self->tracking(1);
+   if ($file) {
+     open(RF, 'grep \> '.$file.' | ') or throw('Could not grep the sequences name for '.$file);
+     my @seq_names = <RF>;
+     close(RF);
+     chomp @seq_names;
+     s/^>(\S+).*$/$1/ for @seq_names;
+     $ra_evidence_names = \@seq_names;
+   }
 
   $self->db($runnabledb->db);
   my $analysisrun_adaptor = $self->db->get_AnalysisRunAdaptor;
+  my $reason_adaptor = $self->db->get_ReasonAdaptor;
+  $self->_reasons($reason_adaptor->fetch_all);
   my $analysis = $runnabledb->analysis;
   my $analysis_id = $analysis->dbID;
-  my $analysis_run_id;
-  eval{
-    my $current_analysis = $analysisrun_adaptor->get_current_analysis_run_by_analysis_id($analysis_id);
-    $analysis_run_id = $current_analysis->dbID;
-    };
-  if ($@) {
-      $analysis_run_id = 0;
+  my $analysis_run;
+  $analysis_run = $analysisrun_adaptor->get_current_analysis_run_by_analysis_id($analysis_id);
+  if (!$analysis_run) {
+      $analysis_run = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
+        -analysis_id => 0,
+        -analysis_run_id => 0
+        );
   }
-  my $evidence_track = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
-      -analysis_run_id => $analysis_run_id,
-      -analysis_id     => $analysis_id,
-      -reason_id       => 0,
-      -is_last         => 1,
-      -input_id        => $runnabledb->input_id
-      );
+  $self->analysis_run($analysis_run);
+  $self->input_id($runnabledb->input_id);
 
-  $self->default_track($evidence_track);
   foreach my $name (@{$ra_evidence_names}) {
+      print STDERR "NAME: $name\n";
+      my $input_seq = $self->get_input_seq($name);
       my $evidence = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-          -hit_name   => $name,
-          -is_aligned => 'u',
+                                  -input_seq  => $input_seq,
+                                  -is_aligned => 'u',
+                                  );
+      my $evidence_track = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
+          -evidence     => $evidence,
+          -analysis_run => $analysis_run,
+          -reason       => $self->get_reason_by_code('Unknown'),
+          -input_id     => $runnabledb->input_id
           );
-      $evidence->add_track($self->default_track);
-      $self->update($evidence);
+      $self->add_track($name, $evidence_track);
   }
   return $self; # success - we hope!
 }
@@ -166,7 +177,7 @@ sub db {
  Description: It update the evidence with the supporting
               evidence provided. Add the position on the slice
               change the reason if it has been provided
- Returntype : 
+ Returntype : void
  Exceptions : 
 
 
@@ -177,21 +188,31 @@ sub update {
     return undef unless $self->tracking;
     my $support = shift;
     my $reason_id = shift;
+    print STDERR "Entry: ", Dumper($support);
     
     my $name;
     if (ref($support) eq '') {
         $support = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-            -hit_name          => $support,
-            -is_aligned        => 'n'
+            -input_seq  => $self->get_input_seq($support),
+            -is_aligned => 'n'
             );
     }
     elsif ($support->isa('Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit')) {
-#        print STDERR Dumper($support);
         $support = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-            -hit_name          => $support->target,
-#            -seq_region_name   => $support->seq_region_id,
+            -input_seq         => $self->get_input_seq($support->target),
+            -seq_region_name   => $support->seq_region_name,
             -seq_region_start  => $support->qstart,
             -seq_region_end    => $support->qend,
+            -seq_region_strand => $support->strand,
+            -is_aligned        => 'y'
+            );
+    }
+    elsif ($support->isa('Bio::EnsEMBL::BaseAlignFeature')) {
+        $support = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
+            -input_seq         => $self->get_input_seq($support->hseqname),
+            -seq_region_name   => $support->seq_region_name,
+            -seq_region_start  => $support->start,
+            -seq_region_end    => $support->end,
             -seq_region_strand => $support->strand,
             -is_aligned        => 'y'
             );
@@ -201,9 +222,8 @@ sub update {
     my $seq_region_end    = $support->seq_region_end;
     my $seq_region_strand = $support->seq_region_strand;
     if ($support->isa('Bio::EnsEMBL::Feature')) {
-        $name = $support->hseqname;
         $support = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-            -hit_name          => $name,
+            -input_seq         => $self->get_input_seq($support->hseqname),
             -seq_region_name   => $seq_region_id,
             -seq_region_start  => $seq_region_start,
             -seq_region_end    => $seq_region_end,
@@ -211,27 +231,22 @@ sub update {
             -is_aligned        => 'y'
             );
     }
-    $name = $support->hit_name;
-    if (! $support->has_tracks) {
-        my $evidencetrack = $self->default_track;
-        $support->add_track($evidencetrack);
-    }
+    $name = $support->input_seq->hit_name;
     print STDERR "Starting update $name\n";
-    if (defined $seq_region_start and $self->get_evidence($name.$seq_region_start.$seq_region_end.$seq_region_strand)) {
+    if (defined $seq_region_start and $self->get_track($name.$seq_region_start.$seq_region_end.$seq_region_strand)) {
         print STDERR "has aligned evidence\n";
         $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
     }
-    elsif ($self->get_evidence($name)) {
+    elsif ($self->get_track($name)) {
         print STDERR "has primary evidence\n";
         if (defined $seq_region_start) {
             print STDERR "\thas start\n";
-            $self->delete_evidence($name);
+            $self->delete_track($name);
             $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
         }
         else {
-            print STDERR 'ZWRT:has evidence aligned: ', $support->is_aligned, "\t", $self->get_evidence($name)->is_aligned, "\n";
+            print STDERR 'ZWRT:has evidence aligned: ', $support->is_aligned, "\t", $self->get_track($name)->evidence->is_aligned, "\n";
         }
-        $self->add_evidence($support);
     }
     else {
         print STDERR "has no evidence\n";
@@ -242,9 +257,14 @@ sub update {
         else {
             print STDERR 'XKWZ:Is aligned: ', $support->is_aligned, "\n";
         }
-        $self->add_evidence($support);
     }
-    $self->update_reason($self->get_evidence($name), $reason_id) if ($reason_id);
+    my $evidence_track = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
+          -evidence     => $support,
+          -analysis_run => $self->analysis_run,
+          -input_id     => $self->input_id
+          );
+    $self->add_track($name, $evidence_track);
+    $self->update_reason($name, $reason_id) if ($reason_id);
 }
 
 =head2 write_tracks
@@ -253,7 +273,7 @@ sub update {
  Example    : $self->write_tracks($dba);
  Description: It write all the tracks in the database. Call it after or before you write
               the gene/transcripts/...
- Returntype : 
+ Returntype : void
  Exceptions : 
 
 
@@ -263,33 +283,41 @@ sub write_tracks {
     my $self = shift;
 
     return undef unless $self->tracking;
-    if (! $self->evidences) {
+    if (! $self->tracks) {
         warning("No tracking data!");
         return;
     }
     print STDERR 'Writing!!!!!', "\n";
-    my $evidence_adaptor     = $self->db->get_EvidenceAdaptor;
-    my $trackevidence_adaptor = $self->db->get_EvidenceTrackAdaptor;
-    while (my ($key, $evidence)  = each %{$self->evidences}) {
-        if ($key eq $evidence->hit_name and $evidence->is_aligned eq 'y') {
-            print STDERR 'TO DELETE: ', $evidence->hit_name, '  ', $key, "\n";
-            next;
-        }
-        print STDERR 'Storing ', $evidence->hit_name, "\n";
-        $evidence_adaptor->store($evidence) unless ($evidence->is_stored($self->db));
-        print STDERR '  Evidence stored', "\n";
-        $evidence->get_tracks->[0]->evidence_id($evidence->dbID);
-        print STDERR 'Storing track', "\n";
-        $trackevidence_adaptor->store($evidence->get_tracks->[0]);
-        print STDERR '  Track stored', "\n";
+    my $evidencetrack_adaptor = $self->db->get_EvidenceTrackAdaptor;
+    foreach my $evidence_track (values %{$self->tracks}) {
+        $evidencetrack_adaptor->store($evidence_track);
     }
 }
 
-=head2 get_evidence
+=head2 all_to_noalign
+
+ Example    : $track->all_to_noalign;
+ Description: Set to non align all the evidence that are marked unknown
+ Returntype : void
+ Exceptions : 
+
+
+=cut
+
+sub all_to_noalign {
+    my $self = shift;
+
+    foreach my $evidence_track (values %{$self->tracks}) {
+        $self->update_reason($evidence_track, "NoAlignment");
+        $evidence_track->evidence->is_aligned('n');
+    }
+}
+
+=head2 get_track
 
  Arg [1]    : $name, string
- Example    : my $evidence = $self->get_evidence($name);
- Description: Return the evidence given the specific key, $name or
+ Example    : my $track = $self->get_track($name);
+ Description: Return the track given the specific key, $name or
               $name.$seq_region_name.$seq_region_start.$seq_region_end.$seq_region_strand
  Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object,
               undef if it does not exists or if the tracking system is off
@@ -298,20 +326,20 @@ sub write_tracks {
 
 =cut
 
-sub get_evidence {
+sub get_track {
     my $self = shift;
     return undef unless $self->tracking;
     my $name = shift;
 
-    return $self->{'_evidences'}->{$name} if (exists $self->{'_evidences'}->{$name});
+    return $self->{'_tracks'}->{$name} if (exists $self->{'_tracks'}->{$name});
     return undef;
 }
 
-=head2 delete_evidence
+=head2 delete_track
 
  Arg [1]    : $name, string
- Example    : my $evidence = $self->delete_evidence($name);
- Description: Return the evidence given the specific key, $name or
+ Example    : my $track = $self->delete_track($name);
+ Description: Return the track given the specific key, $name or
               $name.$seq_region_name.$seq_region_start.$seq_region_end.$seq_region_strand
  Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object,
               undef if it does not exists or if the tracking system is off
@@ -320,40 +348,34 @@ sub get_evidence {
 
 =cut
 
-sub delete_evidence {
+sub delete_track {
     my $self = shift;
     return undef unless $self->tracking;
     my $name = shift;
 
-    delete $self->{'_evidences'}->{$name};
+    delete $self->{'_tracks'}->{$name};
 }
 
-=head2 add_evidence
+=head2 add_track
 
- Arg [1]    : $evidence, a Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence
- Example    : $self->add_evidence($evidence);
- Description: Add the evidence to the set of evidences
- Returntype : 
+ Arg [1]    : $track, a Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence
+ Example    : $self->add_track($track);
+ Description: Add the track to the set of tracks
+ Returntype : void
  Exceptions : if not given a Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object 
 
 
 =cut
 
-sub add_evidence {
+sub add_track {
   my $self = shift;
   return undef unless $self->tracking;
-  my $evidence = shift;
+  my ($name, $track) = @_;
 
-  if ($evidence and !$evidence->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence')) {
-      throw('add_evidence is waiting for a Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object!');
+  if ($track and !$track->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack')) {
+      throw('add_track is waiting for a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack object!');
   }
-  if (defined $evidence->seq_region_start) {
-      $self->{'_evidences'}->{$evidence->hit_name.$evidence->seq_region_start
-                                .$evidence->seq_region_end.$evidence->seq_region_strand} = $evidence;
-  }
-  else {
-      $self->{'_evidences'}->{$evidence->hit_name} = $evidence;
-  }
+  $self->{'_tracks'}->{$name} = $track;
 }
 
 =head2 update_reason
@@ -364,7 +386,7 @@ sub add_evidence {
  Description: Set the reason to the code provided, for now it update
               the first evidence track of the array because in that
               case you are not supposed to have several tracks
- Returntype : 
+ Returntype : void
  Exceptions : 
 
 
@@ -373,32 +395,32 @@ sub add_evidence {
 sub update_reason {
     my $self = shift;
     return undef unless $self->tracking;
-    my ($evidence, $reason_id) = @_;
+    my ($name, $reason_id) = @_;
 
-    $evidence->get_tracks->[0]->reason_id($reason_id);
+    $self->get_track($name)->reason($self->get_reason_by_code($reason_id));
 }
 
-=head2 has_evidences
+=head2 has_tracks
 
- Example    : my $bool = $self->has_evidences;
- Description: Check if the track got evidences
- Returntype : boolean
+ Example    : my $bool = $self->has_tracks;
+ Description: Check if the track got tracks
+ Returntype : Boolean
  Exceptions : 
 
 
 =cut
 
-sub has_evidences {
+sub has_tracks {
     my $self = shift;
     return undef unless $self->tracking;
-    return exists $self->{'_evidences'};
+    return exists $self->{'_tracks'};
 }
 
 =head2 tracking
 
  Example    : my $bool = $self->tracking;
  Description: Check if we use the tracking system
- Returntype : boolean
+ Returntype : Boolean
  Exceptions : 
 
 
@@ -411,35 +433,12 @@ sub tracking {
     return $self->{'tracking'};
 }
 
-=head2 default_track
-
- Arg [1]    : a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack
- Example    : my $evidence_track = $self->default_track;
- Description: Getter/Setter for the default track, generic data like the analysis_run_id
-              is supposed to be set when you add the EvidenceTrack object. Call it whenever
-              you create a new evidence track.
- Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack
- Exceptions : if not given a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack object
-
-
-=cut
-
-sub default_track {
-  my $self = shift;
-  return undef unless $self->tracking;
-  $self->{'default_track'} = shift if ( @_ );
-
-  throw('Not a Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack object')
-    unless $self->{'default_track'}->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack');
-  return $self->{'default_track'}->clone;
-}
-
-=head2  evidences
+=head2  tracks
 
  Arg [1]    : hashref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence
- Example    : $self->evidences($ra_evidences);
- Description: Getter/Setter of the hash of evidences. The key is compose by the name of the
-              evidence if it was not aligned and by the concatenation of the name, seq_region name,
+ Example    : $self->tracks($ra_tracks);
+ Description: Getter/Setter of the hash of tracks. The key is compose by the name of the
+              track if it was not aligned and by the concatenation of the name, seq_region name,
               seq_region start, seq_region end and seq_region strand to have a unique key
  Returntype : hashref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence
  Exceptions : if it's not a listref
@@ -447,15 +446,125 @@ sub default_track {
 
 =cut
 
-sub evidences {
+sub tracks {
   my $self = shift;
   return undef unless $self->tracking;
-  my $ra_evidences = shift;
-  if ( $ra_evidences ) {
-      throw('You should provide a not a reference to an array '.ref($ra_evidences)) unless (ref($ra_evidences) eq 'REF');
-      $self->{'_evidences'} = $ra_evidences;
+  my $ra_tracks = shift;
+  if ( $ra_tracks ) {
+#      throw('You should provide a reference to an array '.ref($ra_tracks)) unless (ref($ra_tracks) eq 'REF');
+      $self->{'_tracks'} = $ra_tracks;
   }
-  return $self->{'_evidences'};
+  return $self->{'_tracks'};
 }
+
+=head2 _reasons
+
+ Arg [1]    : an listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+ Example    : $self->_reasons($reason_adaptor->fetch_all);
+ Description: Store all the possible reasons, to avoid fetching the object for each evidence tracked
+ Returntype : void
+ Exceptions : 
+
+
+=cut
+
+sub _reasons {
+  my $self = shift;
+  return undef unless $self->tracking;
+  my $ra_reasons = shift;
+  if ( $ra_reasons ) {
+#      throw('You should provide a reference to an array '.ref($ra_reasons)) unless (ref($ra_reasons) eq 'REF');
+      foreach my $reason (@{$ra_reasons}) {
+          $self->{'_reasons'}->{$reason->code} = $reason;
+      }
+  }
+}
+
+=head2 get_input_seq
+
+ Arg [1]    : $name, a string
+ Example    : $input_seq = $track->get_input_seq($name);
+ Description: Get the input sequence for an evidence. If it does not already exists, it will
+              be created.
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq object
+ Exceptions : 
+
+
+=cut
+
+sub get_input_seq {
+  my $self = shift;
+  return undef unless $self->tracking;
+  my $name = shift;
+      print STDERR "name: ", $name, "\n";
+  if ($name and !exists $self->{'_input_seq'}->{$name}) {
+      my $input_seq = Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq->new(
+                        -hit_name => $name
+                        );
+      $self->{'_input_seq'}->{$name} = $input_seq;
+  }
+  return $self->{'_input_seq'}->{$name};
+}
+
+=head2 get_reason_by_code
+
+ Arg [1]    : $code, a string like NoAlignment, Accepted, LowCoverage,...
+ Example    : $reason = $track->get_reason_by_code($code);
+ Description: Get a specific reason to set to an evidence by its code. The codes can be 
+              found in the reasons table or in the documentation
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+ Exceptions : 
+
+
+=cut
+
+sub get_reason_by_code {
+  my $self = shift;
+  return undef unless $self->tracking;
+  my $code = shift;
+  return $self->{'_reasons'}->{$code};
+}
+
+=head2 analysis_run
+
+ Arg [1]    : $analysis_run [optional], an Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun object
+ Example    : $track->analysis_run($analysis_run);
+ Description: Getter/Setter for the analysis_run object that represent the run
+ Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun object
+ Exceptions : throw if the object is not of the type Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun
+
+
+=cut
+
+sub analysis_run {
+  my $self = shift;
+  return undef unless $self->tracking;
+  my $analysis_run = shift;
+  if ($analysis_run) {
+      throw('Not a Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun object')
+        unless $analysis_run->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun');
+      $self->{'analysis_run'} = $analysis_run;
+  }
+  return $self->{'analysis_run'};
+}
+
+=head2 input_id
+
+ Arg [1]    : $input_id [optional], a string
+ Example    : $track->input_id($input_id);
+ Description: Getter/Setter for the input_id of the current job
+ Returntype : String
+ Exceptions : 
+
+
+=cut
+
+sub input_id {
+  my $self = shift;
+  return undef unless $self->tracking;
+  $self->{'_input_id'} = shift if ( @_ );
+  return $self->{'_input_id'} if (exists $self->{'_input_id'});
+}
+
 
 1;

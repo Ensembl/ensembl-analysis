@@ -523,6 +523,7 @@ sub run_blast {
           -parser => $self->blast_parser,
           -filter => $self->blast_filter,
           -analysis => $self->analysis,
+          -track => $self->track,
          );
   $run->run;
   my @blast_features;
@@ -601,6 +602,7 @@ sub run_exonerate {
        -target_seqs => ([$self->query]),
        -target_type => 'dna',
        -options     => "-W 7 ". $self->exonerate_options,
+       -track => $self->track,
       );
     eval {
       $exonerate->run;
@@ -620,6 +622,7 @@ sub run_exonerate {
        -target_seqs => ([$self->query]),
        -target_type => 'dna',
        -options     => "-W 5 ". $self->exonerate_options,
+       -track => $self->track,
 	);
       eval {
 	$exonerate->run;

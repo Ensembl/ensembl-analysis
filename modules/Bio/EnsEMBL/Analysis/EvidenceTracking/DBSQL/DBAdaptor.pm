@@ -64,11 +64,12 @@ sub get_available_adaptors {
 
   my $pairs = $self->SUPER::get_available_adaptors();
 
-  $pairs->{'InputSeq'}       = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::InputSeqAdaptor';
-  $pairs->{'AnalysisRun'}    = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::AnalysisRunAdaptor';
-  $pairs->{'EvidenceTrack'}  = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceTrackAdaptor';
-  $pairs->{'Evidence'}       = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor';
-  $pairs->{'Database'}       = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DatabaseAdaptor';
+  $pairs->{'InputSeq'}      = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::InputSeqAdaptor';
+  $pairs->{'AnalysisRun'}   = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::AnalysisRunAdaptor';
+  $pairs->{'EvidenceTrack'} = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceTrackAdaptor';
+  $pairs->{'Evidence'}      = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor';
+  $pairs->{'Database'}      = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DatabaseAdaptor';
+  $pairs->{'Reason'}        = 'Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::ReasonAdaptor';
 
   return $pairs; 
 }

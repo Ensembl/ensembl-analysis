@@ -60,20 +60,16 @@ use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 
 =head2 new
 
- Arg [1]    : $evidence_id, int
- Arg [2]    : $analysis_run_id, int
- Arg [3]    : $analysis_id, int
- Arg [4]    : $reason_id, int
- Arg [5]    : $input_id, int
- Arg [6]    : $last, int
- Arg [7]    : $adaptor, Bio::EnsEMBL::Analysis::DBSQL::EvidenceTrackAdaptor object
+ Arg [1]    : $evidence, Bio::EnsEMBL::Analysis::DBSQL::Evidence object
+ Arg [2]    : $analysis_run, Bio::EnsEMBL::Analysis::DBSQL::AnalysisRun object
+ Arg [3]    : $reason, Bio::EnsEMBL::Analysis::DBSQL::Reason object
+ Arg [4]    : $input_id, int
+ Arg [5]    : $adaptor, Bio::EnsEMBL::Analysis::DBSQL::EvidenceTrackAdaptor object
  Example    : $evidencetrack = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
-    -evidence_id     => $evidence_id,
-    -analysis_run_id => $analysis_run_id,
-    -analysis_id     => $self->anlysis->dbID,
-    -reason_id       => $reason_id,
-    -input_id        => $self->input_id,
-    -is_last         => 1
+    -evidence     => $evidence,
+    -analysis_run => $analysis_run,
+    -reason       => $reason,
+    -input_id     => $input_id,
     );
  Description: Constructor
  Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack
@@ -87,49 +83,20 @@ sub new {
 
   my $self = bless {},$class;
 
-  my ($evidence_id, $analysis_run_id, $analysis_id, $reason_id, $input_id, $is_last, $adaptor) =
-          rearrange([qw(EVIDENCE_ID
-                        ANALYSIS_RUN_ID       
-                        ANALYSIS_ID       
-                        REASON_ID
+  my ($evidence, $analysis_run, $reason, $input_id, $adaptor) =
+          rearrange([qw(EVIDENCE
+                        ANALYSIS_RUN       
+                        REASON
                         INPUT_ID
-                        IS_LAST
                         ADAPTOR
                         )],@args);
 
-  $self->evidence_id( $evidence_id );
-  $self->analysis_run_id ( $analysis_run_id );
-  $self->analysis_id ( $analysis_id );
-  $self->reason_id ( $reason_id );
+  $self->evidence( $evidence);
+  $self->analysis_run( $analysis_run);
+  $self->reason( $reason);
   $self->input_id ( $input_id );
-  $self->is_last ( $is_last );
   $self->adaptor ( $adaptor );
   return $self; # success - we hope!
-}
-
-=head2 clone
-
- Example    : $evidencetrack_clone = $evidencetrack->clone;
- Description: Clone the object
- Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack
- Exceptions : 
-
-
-=cut
-
-sub clone {
-    my $self = shift;
-
-    my $clone = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
-        -evidence_id => $self->evidence_id,
-        -analysis_run_id => $self->analysis_run_id,
-        -analysis_id => $self->analysis_id,
-        -reason_id => $self->reason_id,
-        -input_id => $self->input_id,
-        -is_last => $self->is_last,
-        -adaptor => $self->adaptor
-        );
-    return $clone;
 }
 
 
@@ -144,10 +111,14 @@ sub clone {
 
 =cut
 
-sub evidence_id {
+sub evidence {
   my $self = shift;
-  $self->{'evidence_id'} = shift if ( @_ );
-  return $self->{'evidence_id'};
+  my $evidence = shift;
+  if ($evidence) {
+      throw('Need to pass an Evidence object') unless $evidence->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence');
+      $self->{'evidence'} = $evidence;
+  }
+  return $self->{'evidence'};
 }
 
 =head2 analysis_run_id
@@ -161,27 +132,14 @@ sub evidence_id {
 
 =cut
 
-sub analysis_run_id {
+sub analysis_run {
   my $self = shift;
-  $self->{'analysis_run_id'} = shift if ( @_ );
-  return $self->{'analysis_run_id'};
-}
-
-=head2 analysis_id
-
- Arg [1]    : $analysis_id, int [optional]
- Example    : $evidence->analysis_id($analysis_id);
- Description: Getter/Setter for the analysis id
- Returntype : integer, the analysis id
- Exceptions : 
-
-
-=cut
-
-sub analysis_id {
-  my $self = shift;
-  $self->{'analysis_id'} = shift if ( @_ );
-  return $self->{'analysis_id'};
+  my $analysis_run = shift;
+  if ($analysis_run) {
+      throw('Need to pass an AnalysisRun object') unless $analysis_run->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun');
+      $self->{'analysis_run'} = $analysis_run;
+  }
+  return $self->{'analysis_run'};
 }
 
 =head2 reason_id
@@ -195,10 +153,10 @@ sub analysis_id {
 
 =cut
 
-sub reason_id {
+sub reason {
   my $self = shift;
-  $self->{'reason_id'} = shift if ( @_ );
-  return $self->{'reason_id'};
+  $self->{'reason'} = shift if ( @_ );
+  return $self->{'reason'};
 }
 
 =head2 input_id
@@ -216,23 +174,6 @@ sub input_id {
   my $self = shift;
   $self->{'input_id'} = shift if ( @_ );
   return $self->{'input_id'};
-}
-
-=head2 is_last
-
- Arg [1]    : $is_last, int [optional]
- Example    : $evidence->is_last($is_last);
- Description: Getter/Setter if the evidence track is for the current run
- Returntype : boolean
- Exceptions : 
-
-
-=cut
-
-sub is_last {
-  my $self = shift;
-  $self->{'is_last'} = shift if ( @_ );
-  return $self->{'is_last'};
 }
 
 

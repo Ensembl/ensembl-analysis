@@ -27,12 +27,12 @@ Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence - Store Evidence informations
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
 
 my $evidence = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-    -hit_name => $name,
+    -input_seq => $name,
     -is_aligned => 'n'
     );
 
 my $evidence2 = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-    -hit_name => $other_name,
+    -input_seq => $other_name,
     -is_aligned => 'y',
     -seq_region_id => $seq_region_id,
     -seq_region_start => $seq_region_start,
@@ -70,7 +70,7 @@ use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 =head2 new
 
  Arg [1]    : $dbid, int
- Arg [2]    : $hit_name, string, name of the evidence
+ Arg [2]    : $input_seq, string, name of the evidence
  Arg [3]    : $is_aligned, enum, 'y', 'n' or 'u'
  Arg [4]    : $seq_region_id, int
  Arg [5]    : $seq_region_start, int
@@ -78,7 +78,7 @@ use Bio::EnsEMBL::Utils::Argument qw(rearrange);
  Arg [7]    : $seq_region_strand, int
  Arg [8]    : $adaptor, Bio::EnsEMBL::Analysis::DBSQL::EvidenceAdaptor object
  Example    : $evidence = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-    -hit_name => $other_name,
+    -input_seq => $other_name,
     -is_aligned => 'y',
     -seq_region_id => $seq_region_id,
     -seq_region_start => $seq_region_start,
@@ -97,9 +97,9 @@ sub new {
 
   my $self = bless {},$class;
 
-  my ($id, $hit_name, $is_aligned, $seq_region_id, $seq_region_start,$seq_region_end, $seq_region_strand, $adaptor) =
+  my ($id, $input_seq, $is_aligned, $seq_region_id, $seq_region_start,$seq_region_end, $seq_region_strand, $adaptor) =
           rearrange([qw(DBID
-                        HIT_NAME       
+                        INPUT_SEQ
                         IS_ALIGNED
                         SEQ_REGION_NAME
                         SEQ_REGION_START
@@ -110,8 +110,7 @@ sub new {
 
   $self->dbID( $id );
   $self->is_aligned( $is_aligned || 'u' );
-#  $self->input_seq_id( $inputseq_id );
-  $self->hit_name( $hit_name );
+  $self->input_seq( $input_seq );
   $self->seq_region_name( $seq_region_id );
   $self->seq_region_start( $seq_region_start );
   $self->seq_region_end( $seq_region_end );
@@ -200,39 +199,53 @@ sub fetch_track_by_logic_name {
     return \@a_tracks;
 }
 
+=head2 is_stored
 
-=head2 input_seq_id
-
- Arg [1]    : $input_seq_id, int [optional]
- Example    : $evidence->input_seq_id($input_seq_id);
- Description: Getter/Setter for the input sequence id
- Returntype : integer, the input sequence id
+ Arg [1]    : $evidence_adaptor, a Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor object
+ Example    : $evidence->is_stored($evidence_adaptor);
+ Description: Test if the object is alreday stored
+ Returntype : boolean
  Exceptions : 
 
 
 =cut
 
-sub input_seq_id {
+sub is_stored {
   my $self = shift;
-  $self->{'inputseq_id'} = shift if ( @_ );
-  return $self->{'inputseq_id'};
+  my $db = shift;
+
+  # uniquely defined by the evidence_id
+  # and the location on the genome
+  my $dbID = $db->get_EvidenceAdaptor->is_evidence_exists($self);
+  print STDERR "Evidence tested\n";
+  if ($dbID) {
+      $self->dbID($dbID);
+      return $dbID;
+  }
+  return 0;
 }
 
-=head2 hit_name
 
- Arg [1]    : $hit_name, int [optional]
- Example    : $evidence->hit_name($hit_name);
- Description: Getter/Setter for the hit name
- Returntype : integer, the hit name
+=head2 input_seq
+
+ Arg [1]    : $input_seq, Bio::Ensembl::Analysis::EvidenceTracking::InputSeq object [optional]
+ Example    : $evidence->input_seq($input_seq);
+ Description: Getter/Setter for the input sequence
+ Returntype : a Bio::Ensembl::Analysis::EvidenceTracking::InputSeq object
  Exceptions : 
 
 
 =cut
 
-sub hit_name {
+sub input_seq {
   my $self = shift;
-  $self->{'hit_name'} = shift if ( @_ );
-  return $self->{'hit_name'};
+  my $input_seq = shift if ( @_ );
+  if ($input_seq) {
+      throw('Need to pass an Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq object not a '.ref($input_seq))
+        unless $input_seq->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq');
+      $self->{'input_seq'} = $input_seq;
+  }
+  return $self->{'input_seq'};
 }
 
 =head2 is_aligned
@@ -320,51 +333,5 @@ sub seq_region_strand {
   return $self->{'seq_region_strand'};
 }
 
-=head2 is_stored
-
- Arg [1]    : $evidence_adaptor, a Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor object
- Example    : $evidence->is_stored($evidence_adaptor);
- Description: Test if the object is alreday stored
- Returntype : boolean
- Exceptions : 
-
-
-=cut
-
-sub is_stored {
-  my $self = shift;
-  my $db = shift;
-
-  # uniquely defined by the evidence_id
-  # and the location on the genome
-  my $dbID = $db->get_EvidenceAdaptor->is_evidence_exists($self);
-  print STDERR "Obj fetched\n";
-  if ($dbID) {
-      $self->dbID($dbID);
-      return $dbID;
-  }
-
-#  foreach my $stored (@$stored_objs) {
-##    print STDERR "seq_region_id:".$self->seq_region_id.", seq_region_start:".$self->seq_region_start.
-##                 " seq_region_end:".$self->seq_region_end." seq_region_strand:".$self->seq_region_end."\n".
-##                 "seq_region_id:".$stored->seq_region_id.", seq_region_start:".$stored->seq_region_start.
-##                 " seq_region_end:".$stored->seq_region_end." seq_region_strand:".$stored->seq_region_end."\n";
-#    if ($self->is_aligned eq $stored->is_aligned) {
-#        if ($self->is_aligned eq 'y') {
-#            next unless ($self->seq_region_name eq $stored->seq_region_name &&
-#                        $self->seq_region_start == $stored->seq_region_start &&
-#                        $self->seq_region_end == $stored->seq_region_end &&
-#                        $self->seq_region_strand == $stored->seq_region_strand );
-#        }
-##      warning("Evidence is_stored: Looking for exact match coordinates. Would you rather look for overlaps?");
-#        $self->dbID($stored->dbID);
-#      return $stored->dbID;
-#    }
-#  }
-
-  return 0;
-}
 
 1;
-
-

@@ -90,7 +90,6 @@ package Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise;
 use vars qw(@ISA);
 use strict;
 
-use Data::Dumper;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::KillList::KillList;
@@ -157,14 +156,16 @@ sub fetch_input {
   my $track;
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
 #      print "LOGIC NAME : ",$logic_name,"\n"; 
-      my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
+#      my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
+      my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name);
       my %unique = map { $_->hseqname => 1 } @$features;
       $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
         -runnabledb     => $self,
         -evidence_names => [keys %unique],
-        -tracking       => $self->TRACKING
+        -tracking       => $self->is_tracking
       );
-      logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
+#      logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
+      logger_info("HAVE ".@$features." with ".$logic_name." and min score will be ".$self->PAF_MIN_SCORE_THRESHOLD);
       $feature_count += scalar(@$features);
       my %ids_to_ignore = %{$self->generate_ids_to_ignore($features)};
       logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore"); 
@@ -179,22 +180,25 @@ sub fetch_input {
           $protein_count{$feature->hseqname} = 1;
           my $temp_id = $feature->hseqname;
           $temp_id =~ s/\.\d+//;
-          if ($self->overlaps_fiveprime_end_of_slice($feature, $self->query)) {
-              $track->update($feature, 118);
+          if ($feature->score < $self->PAF_MIN_SCORE_THRESHOLD) {
+              $track->update($feature->hseqname, "InternalStop");
           }
-          elsif ($kill_list{$temp_id}) {
+          elsif ($self->overlaps_fiveprime_end_of_slice($feature, $self->query)) {
+              $track->update($feature->hseqname, "Overlap5End");
+          }
+          elsif (exists $kill_list{$temp_id}) {
               $killed_count++;
-              $track->update($feature, 115);
+              $track->update($feature->hseqname, "KillList");
               logger_info("SKIPPING ".$feature->hseqname." on kill list") ;
           }
           elsif ($self->PAF_UPPER_SCORE_THRESHOLD and
                   $feature->score < $self->PAF_UPPER_SCORE_THRESHOLD) {
-              $track->update($feature, 116);
+              $track->update($feature->hseqname, "AboveThreshold");
               logger_info("SKIPPING ".$feature->hseqname." as greater than upper threshold");
           }
           elsif ($self->PRE_GENEWISE_MASK && 
                   $ids_to_ignore{$feature->hseqname}) {
-              $track->update($feature, 117);
+              $track->update($feature->hseqname, "Masked");
               logger_info("SKIPPING ".$feature->hseqname." on the mask list");
           }
           elsif ($self->use_id) { 
@@ -216,7 +220,7 @@ sub fetch_input {
     $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
       -runnabledb     => $self,
       -evidence_names => [$self->use_id],
-      -tracking       => $self->TRACKING
+      -tracking       => $self->is_tracking
     );
   }
   logger_info("HAVE ".keys(%protein_count)." unique protein ids");
@@ -229,14 +233,16 @@ sub fetch_input {
       push @restricted_list, $local_ids[$i];
     }
     %hit_list = map { $_ => $hit_list{$_} } @restricted_list;
+#    $track->evidences(\\(keys %hit_list));
       $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
         -runnabledb     => $self,
         -evidence_names => [keys %hit_list],
-        -tracking       => $self->TRACKING
+        -tracking       => $self->is_tracking
       );
     #print "Hit name in list\n" if(exists $hit_list{'Q2PHF0.1'});
     
   }
+  $self->track($track);
   if($killed_count && $feature_count && $killed_count == $feature_count){
     warning("RunnableDB:BlastMiniGenewise Killed all the potential ".
             "ids in this run there are NO IDS TO RUN");
@@ -247,8 +253,7 @@ sub fetch_input {
             "still have NO IDS TO RUN with");
     return;
   } 
-  $self->track($track);
-  print STDERR Dumper($self->track);
+  print STDERR keys %hit_list, "\n";
   $self->create_bmg_runnables(\%hit_list);
   return 1;
 }
@@ -342,7 +347,7 @@ sub post_mask{
         elsif ( $mask_reg->{'end'} >= $f->{'start'}) {
           # overlap			
           $keep_gene = 0;
-          $self->track->update($f, 117);
+          $self->track->update($f, "Masked");
           last FEAT;
         }			
         else {
@@ -441,6 +446,7 @@ sub create_bmg_runnables{
   my %params_hash = %{$self->parameters_hash};
   if($self->LIMIT_TO_FEATURE_RANGE){
     foreach my $id(keys(%$hits_hash)){
+      print STDERR 'ID: ', $id, "\n";
       my $features = $hits_hash->{$id};
       foreach my $feature(@$features){
         #This should be made a non overlapping range
@@ -456,6 +462,7 @@ sub create_bmg_runnables{
         my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB); 
         my $query = $self->fetch_sequence($name, $db, $self->REPEATMASKING, $self->SOFTMASKING);
         logger_info("Creating BlastMiniGenewise Runnable over a limited range with ".$id." and ".$seqfetcher." to run on ".$query->name);
+print STDERR "***Creating BlastMiniGenewise Runnable with ".$id." ids and ".$seqfetcher." to run on ".$self->query->name."***\n";
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise->
           new(
               -query => $query,
@@ -465,6 +472,7 @@ sub create_bmg_runnables{
               -genewise_options => $self->GENEWISE_PARAMETERS,
               -multiminigenewise_options => $self->MULTIMINIGENEWISE_PARAMETERS,
               -ids => [$id],
+              -track => $self->track,
               %bmg_params,
               %params_hash,
              );
@@ -473,7 +481,11 @@ sub create_bmg_runnables{
     }
   }else{
     my @ids = sort keys(%$hits_hash);
-    #print "***Creating BlastMiniGenewise Runnable with ".@ids." ids and ".$seqfetcher." to run on ".$self->query->name."***\n";
+    my $t = $,;
+    $, = "\n";
+    print STDERR @ids, "\n";
+    $, = $t;
+print STDERR "***Creating BlastMiniGenewise Runnable with ".@ids." ids and ".$seqfetcher." to run on ".$self->query->name."***\n";
     logger_info("Creating BlastMiniGenewise Runnable with ".@ids." ids and ".$seqfetcher." to run on ".$self->query->name);
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise->
       new(
@@ -484,6 +496,7 @@ sub create_bmg_runnables{
           -genewise_options => $self->GENEWISE_PARAMETERS,
           -multiminigenewise_options => $self->MULTIMINIGENEWISE_PARAMETERS,
           -ids => \@ids,
+          -track => $self->track,
           %bmg_params,
           %params_hash,
          );
@@ -693,7 +706,6 @@ sub write_output{
   my ($self) = @_;
   my $ga = $self->get_adaptor;
   my $sucessful_count = 0;
-  print STDERR Dumper($self);
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
  
   foreach my $gene(@{$self->output}){
@@ -724,7 +736,6 @@ sub write_output{
   if($sucessful_count != @{$self->output}){
     throw("Failed to write some genes");
   }
-  print STDERR Dumper($self);
   $self->track->write_tracks;
   if($self->WRITE_REJECTED){
     $sucessful_count = 0;
@@ -1346,12 +1357,12 @@ sub OPTIMAL_LENGTH {
   return $self->{OPTIMAL_LENGTH}
 }
 
-sub TRACKING {
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{TRACKING} = $arg;
-  }
-  return $self->{TRACKING}
-}
+#sub TRACKING {
+#  my ($self, $arg) = @_;
+#  if($arg){
+#    $self->{TRACKING} = $arg;
+#  }
+#  return $self->{TRACKING}
+#}
 
 1;

@@ -128,10 +128,10 @@ sub new{
   my $self = bless {},$class;
   my ($query, $program, $options,
       $workdir, $bindir, $libdir,
-      $datadir, $analysis) = rearrange
+      $datadir, $analysis, $track) = rearrange
         (['QUERY', 'PROGRAM', 'OPTIONS',
           'WORKDIR', 'BINDIR', 'LIBDIR',
-          'DATADIR', 'ANALYSIS'], @args);
+          'DATADIR', 'ANALYSIS', 'TRACK'], @args);
   if(!$analysis){
     throw("Can't create a Runnable without an analysis object");
   }
@@ -143,6 +143,7 @@ sub new{
   $self->libdir($libdir);
   $self->datadir($datadir);
   $self->analysis($analysis);
+  $self->track($track);
 
   return $self;
 }
@@ -717,7 +718,7 @@ sub run{
   $self->files_to_delete($self->resultsfile);
   $self->run_analysis();
   $self->parse_results;
-  $self->delete_files;
+#  $self->delete_files;
   return 1;
 }
 
@@ -775,5 +776,26 @@ sub parse_results{
         "Runnable won't provide this functionality for you");
 }
 
+=head2 
+
+ Arg [1]    : 
+ Example    : $;
+ Description: 
+ Returntype : 
+ Exceptions : 
+
+
+=cut
+
+sub track {
+    my $self = shift;
+    my $track = shift if @_;
+
+    if (defined $track) {
+        throw('It is not a Track object') unless ($track->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::Track'));
+        $self->{'_track'} = $track;
+    }
+    return $self->{'_track'};
+}
 
 1;

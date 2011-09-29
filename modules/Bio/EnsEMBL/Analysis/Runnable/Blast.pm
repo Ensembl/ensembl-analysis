@@ -357,6 +357,9 @@ sub parse_results{
   my ($self) = @_;
   my $results = $self->results_files;
   my $output = $self->parser->parse_files($results);
+  if (scalar(@$output) == 0) {
+      $self->track->update($self->query->display_id, "NoAlignment");
+  }
   my $filtered_output;
   #print "Have ".@$output." features to filter\n";
   if($self->filter){

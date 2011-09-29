@@ -92,6 +92,7 @@ my $help = 0;
 my $verbose = 0;
 my $module;
 my $analysis;
+my $tracking;
 my $perl_path = 'Bio/EnsEMBL/Analysis/RunnableDB';
 my $utils_verbosity = 'WARNING'; #how verbose do you want the 
 my $logger_verbosity = 'OFF'; #how verbose do you want the 
@@ -109,6 +110,7 @@ my @command_args = @ARGV;
             'logic_name|analysis:s'  => \$logic_name,
             'check'       => \$check,
             'write!' => \$write,
+            'tracking!' => \$tracking,
             'help!' => \$help,
             'verbose!' => \$verbose,
             'module:s'    => \$module,
@@ -195,6 +197,7 @@ $runnable =~ s/\//::/g;
 my $runobj = "$runnable"->new(-db    => $db,
                               -input_id => $input_id,
                               -analysis => $analysis,
+                              -is_tracking => $tracking,
                              );
 print STDERR "Instantiated ".$runnable." runnabledb\n" if($verbose);
 $runobj->fetch_input;
@@ -227,6 +230,10 @@ if($verbose){
       }
       print_feature($out, $name, $logic_name);
     }
+  }
+  if ($tracking) {
+      print "## Tracking objects\n";
+      print_tracks($runobj->track);
   }
 }
 print "There were ".@output." features found\n\n";
@@ -287,6 +294,33 @@ sub print_feature{
   }
   print "\n";
            
+}
+
+sub print_tracks {
+    my ($track) = @_;
+    
+    foreach my $evidencetrack (values %{$track->tracks}) {
+        my $evidence = $evidencetrack->evidence;
+        if ($evidence->is_aligned eq 'y') {
+            printf("%s\t%s\t%s\t%s\t%d\t%d\t%d\n", 
+                $evidence->input_seq->hit_name,
+                $evidencetrack->reason->code,
+                $evidence->is_aligned,
+                $evidence->seq_region_name,
+                $evidence->seq_region_start,
+                $evidence->seq_region_end,
+                $evidence->seq_region_strand);
+        }
+        else {
+            my @split = split(':', $evidencetrack->input_id);
+            my $sr_name = $split[2] || $evidencetrack->input_id;
+            printf("%s\t%s\t%s\t%s\n", 
+                $evidence->input_seq->hit_name,
+                $evidencetrack->reason->code,
+                $evidence->is_aligned,
+                $sr_name);
+        }
+    }
 }
 
 sub usage{

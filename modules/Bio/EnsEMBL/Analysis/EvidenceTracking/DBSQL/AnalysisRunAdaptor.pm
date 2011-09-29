@@ -39,35 +39,11 @@ use Bio::EnsEMBL::DBSQL::BaseAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw( deprecate throw warning stack_trace_dump );
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
+use Data::Dumper;
 
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::DBSQL::BaseAdaptor);
 
-
-=head2 new
-
-  Args       : Bio::EnsEMBL::DBSQL::DBAdaptor
-  Example    : my $aa = new Bio::EnsEMBL::Pipeline::DBSQL::PipelineAdaptor();
-  Description: Creates a new Bio::EnsEMBL::Pipeline::DBSQL::PipelineAdaptor object and
-               internally loads and caches all the Pipeline objects from the 
-               database.
-  Returntype : Bio::EnsEMBL::Pipeline::DBSQL::PipelineAdaptor
-  Exceptions : none
-  Caller     : Bio::EnsEMBL::DBSQL::DBAdaptor
-
-=cut
-
-sub new {
-  my ($class, $db) = @_;
- 
-  my $self = $class->SUPER::new($db);
- 
-  #load and cache all of the Pipeline objects
-#  $self->fetch_all;
-
-  return $self;
-}
 
 =head2 store
 
@@ -88,17 +64,31 @@ sub store {
   }
 
   my $db = $self->db();
+  my $input_db_id = '';
+  my $output_db_id = '';
+  print STDERR Dumper($analysis_run);
+  foreach my $db (@{$analysis_run->input_dbs}) {
+      $input_db_id .= ':'.$db->dbID;
+  }
+  foreach my $db (@{$analysis_run->output_dbs}) {
+      $output_db_id .= ':'.$db->dbID;
+  }
+#  for my $tuple ([$analysis_run->input_dbs, $input_db_id], [$analysis_run->output_dbs, $output_db_id]) {
+#      my @tmp = @{$tuple->[0]};
+#      my $tuple->[1] = shift(@tmp);
+#      while (my $db = shift(@tmp)) {
+#          $tuple->[1] .= ':'.$db->dbID;
+#      }
+#  }
 
   # make an sql statement
-  my $original = $analysis_run;
-
   my $sth = $self->prepare("INSERT INTO analysis_run ( analysis_id,
                             run_date,input_db_id, output_db_id) 
                             VALUES ( ?,NOW(),?,?)");
 
   $sth->bind_param( 1, $analysis_run->analysis_id, SQL_INTEGER );
-  $sth->bind_param( 2, $analysis_run->input_db_id, SQL_VARCHAR );
-  $sth->bind_param( 3, $analysis_run->output_db_id, SQL_VARCHAR );
+  $sth->bind_param( 2, $input_db_id, SQL_VARCHAR );
+  $sth->bind_param( 3, $output_db_id, SQL_VARCHAR );
 
   $sth->execute();
   $sth->finish();
@@ -106,9 +96,9 @@ sub store {
 
   # set the adaptor and dbID on the original passed in analysis_run not the
   # transfered copy
-  $original->adaptor($self);
-  $original->dbID($analysis_run_dbID);
-  print STDERR "Stored AnanlysisRun object ".$original->dbID."\n";
+  $analysis_run->adaptor($self);
+  $analysis_run->dbID($analysis_run_dbID);
+  print STDERR "Stored AnanlysisRun object ".$analysis_run->dbID."\n";
   return $analysis_run_dbID;
 }
 
@@ -120,10 +110,17 @@ sub update {
   }
 
   my $db = $self->db();
+  my $input_db_id;
+  my $output_db_id;
+  for my $tuple ([$analysis_run->input_dbs, $input_db_id], [$analysis_run->output_dbs, $output_db_id]) {
+      my @tmp = @{$tuple->[0]};
+      my $tuple->[1] = shift(@tmp);
+      while (my $db = shift(@tmp)) {
+          $tuple->[1] .= ':'.$db->dbID;
+      }
+  }
 
   # make an sql statement
-  my $original = $analysis_run;
-
   my $sth = $self->prepare("UPDATE analysis_run SET analysis_id = ?,
                             input_db_id = ?, output_db_id = ?) 
                             WHERE analysis_run_id = ?");
@@ -212,10 +209,6 @@ sub get_current_analysis_run_by_analysis_id {
     return $current_analysis->[0];
 }
 
-#@@@@@@@
-# Done @
-#@@@@@@@
-
 =head2 fetch_all_by_evidence
 
  Arg [1]    : $evidence
@@ -230,10 +223,19 @@ sub get_current_analysis_run_by_analysis_id {
 sub fetch_all_by_evidence {
   my $self = shift;
   my $evidence = shift;
-  my $constraint = 'ar.evidence = '.$evidence->dbID;
-  my ($analysis_run) = @{ $self->generic_fetch($constraint) };
-  return $analysis_run;
+  sub _tables {
+    return (['analysis_run' , 'ar'], ['track_evidence', 'te']);
+  }
+  sub _left_join {
+      return ( ['track_evidence', 'te.analysis_run_id = ar.analysis_run_id'] );
+  }
+  my $constraint = 'te.evidence_id = '.$evidence->dbID;
+  return $self->generic_fetch($constraint);
 }
+
+#@@@@@@@
+# Done @
+#@@@@@@@
 
 
 
@@ -252,7 +254,6 @@ sub fetch_all_by_evidence {
 =cut
 
 sub _tables {
-  my $self = shift;
   return (['analysis_run' , 'ar']);
 }
 
@@ -267,7 +268,6 @@ sub _tables {
 =cut
 
 sub _columns {
-  my $self = shift;
   return ( 'ar.analysis_run_id', 'ar.analysis_id', 'ar.run_date',
            'ar.input_db_id', 'ar.output_db_id');
 }
@@ -291,14 +291,22 @@ sub _objs_from_sth {
   my ( $analysis_run_id, $analysis_id, $run_date, $input_db_id, $output_db_id);
   $sth->bind_columns( \$analysis_run_id, \$analysis_id, \$run_date, \$input_db_id, \$output_db_id);
 
+  my @a_db_in;
+  my @a_db_out;
   while($sth->fetch()) {
+    foreach my $db (split(':', $input_db_id)) {
+        push(@a_db_in, $self->db->get_DatabaseAdaptor->fetch_by_dbID($db));
+    }
+    foreach my $db (split(':', $output_db_id)) {
+        push(@a_db_out, $self->db->get_DatabaseAdaptor->fetch_by_dbID($db));
+    }
     push @out, Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
               -dbID         => $analysis_run_id,
               -adaptor      => $self,
               -analysis_id  => $analysis_id,
               -run_date     => $run_date,
-              -input_db_id  => $input_db_id, 
-              -output_db_id => $output_db_id
+              -input_db_id  => \@a_db_in,
+              -output_db_id => \@a_db_out
               );
   }
   return \@out;

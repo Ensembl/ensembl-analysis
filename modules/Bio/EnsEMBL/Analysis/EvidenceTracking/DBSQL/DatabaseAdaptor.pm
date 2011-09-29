@@ -39,35 +39,10 @@ use Bio::EnsEMBL::DBSQL::BaseAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw( deprecate throw warning stack_trace_dump );
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Database;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
 
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::DBSQL::BaseAdaptor);
 
-
-=head2 new
-
-  Args       : Bio::EnsEMBL::DBSQL::DBAdaptor
-  Example    : my $aa = new Bio::EnsEMBL::Pipeline::DBSQL::PipelineAdaptor();
-  Description: Creates a new Bio::EnsEMBL::Pipeline::DBSQL::PipelineAdaptor object and
-               internally loads and caches all the Pipeline objects from the 
-               database.
-  Returntype : Bio::EnsEMBL::Pipeline::DBSQL::PipelineAdaptor
-  Exceptions : none
-  Caller     : Bio::EnsEMBL::DBSQL::DBAdaptor
-
-=cut
-
-sub new {
-  my ($class, $db) = @_;
- 
-  my $self = $class->SUPER::new($db);
- 
-  #load and cache all of the Pipeline objects
-#  $self->fetch_all;
-
-  return $self;
-}
 
 =head2 store
 
@@ -81,16 +56,14 @@ sub new {
 =cut
 
 sub store {
-  my ($self, $database) = @_;
+  my $self = shift;
+  my $database = shift;
 
   if (!ref $database || !$database->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::Database') ) {
-    throw("Must store a Database object, not a $database");
+    throw('Must store a Bio::EnsEMBL::Analysis::EvidenceTracking::Database object, not a '.ref($database));
   }
 
   my $db = $self->db();
-
-  # make an sql statement
-  my $original = $database;
 
   my $sth = $self->prepare("INSERT into dbs ( db_name, instance ) 
                             VALUES ( ?,? )");
@@ -102,13 +75,9 @@ sub store {
   $sth->finish();
   my $database_dbID = $sth->{'mysql_insertid'};
 
-  # set the adaptor and dbID on the original passed in analysis_run not the
-  # transfered copy
-#  $original->adaptor($self);
-#  $original->dbID($database_dbID);
   $database->adaptor($self);
   $database->dbID($database_dbID);
-  print STDERR "Stored inputseq object ".$original->dbID."\n";
+  print STDERR "Stored inputseq object ".$database->dbID."\n";
   return $database_dbID;
 }
 
@@ -151,11 +120,6 @@ sub fetch_DB {
   return $database;
 }
 
-
-
-#@@@@@@@
-# Done @
-#@@@@@@@
 
 
 ###################
@@ -203,7 +167,6 @@ sub _columns {
 
 =cut
 
-
 sub _objs_from_sth {
   my ($self, $sth) = @_;
 
@@ -221,4 +184,6 @@ sub _objs_from_sth {
   }
   return \@out;
 }
+
+
 1;

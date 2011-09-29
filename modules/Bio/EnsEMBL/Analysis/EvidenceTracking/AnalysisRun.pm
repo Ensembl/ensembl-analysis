@@ -28,8 +28,8 @@ Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun - Object with all the info
 
   my $analysis_run = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
      -analysis_id  => $analysis->dbID,
-     -input_db_id  => $in_databases,
-     -output_db_id => $out_databases
+     -input_dbs  => $in_databases,
+     -output_dbs => $out_databases
     );
 
 =head1 DESCRIPTION
@@ -58,14 +58,14 @@ use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 
  Arg [1]    : $dbid, int
  Arg [2]    : $analysis_id, int
- Arg [3]    : $input_db_id, string. An integer or a string of number separated with :, 2:4
- Arg [4]    : $output_db_id, string. An integer or a string of number separated with :, 5
+ Arg [3]    : $input_dbs, string. An integer or a string of number separated with :, 2:4
+ Arg [4]    : $output_dbs, string. An integer or a string of number separated with :, 5
  Arg [5]    : $run_date, when the object is stored it's set with the MySQL now()
  Arg [6]    : $adaptor, Bio::EnsEMBL::Analysis::DBSQL::AnalysisRunAdaptor object
  Example    : $analysis_run = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
               -analysis_id  => $analysis->dbID,
-              -input_db_id  => $in_databases,
-              -output_db_id => $out_databases
+              -input_dbs  => $in_databases,
+              -output_dbs => $out_databases
             );
  Description: Constructor
  Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun
@@ -79,19 +79,19 @@ sub new {
 
   my $self = bless {},$class;
 
-  my ($id, $analysis_id, $input_db_id, $output_db_id, $run_date, $adaptor) =
+  my ($id, $analysis_id, $input_dbs, $output_dbs, $run_date, $adaptor) =
           rearrange([qw(DBID
                         ANALYSIS_ID
-                        INPUT_DB_ID
-                        OUTPUT_DB_ID
+                        INPUT_DBS
+                        OUTPUT_DBS
                         RUN_DATE
                         ADAPTOR
                         )],@args);
 
   $self->dbID      ( $id ) if (defined $id);
   $self->analysis_id ( $analysis_id );
-  $self->input_db_id ( $input_db_id );
-  $self->output_db_id ( $output_db_id );
+  $self->input_dbs ( $input_dbs );
+  $self->output_dbs ( $output_dbs );
   $self->run_date ( $run_date );
   $self->adaptor   ( $adaptor );
   return $self; # success - we hope!
@@ -114,10 +114,10 @@ sub analysis_id {
   return $self->{'analysis_id'};
 }
 
-=head2 input_db_id
+=head2 input_dbs
 
- Arg [1]    : $input_db_id, string [optional]
- Example    : $analysis_run->input_db_id($input_db_id);
+ Arg [1]    : $input_dbs, string [optional]
+ Example    : $analysis_run->input_dbs($input_dbs);
  Description: Getter/Setter for the databases used as input
               It's either a number or a strin of number like 1:2
  Returntype : string, the input db ids
@@ -126,16 +126,16 @@ sub analysis_id {
 
 =cut
 
-sub input_db_id {
+sub input_dbs {
   my $self = shift;
-  $self->{'input_db_id'} = shift if ( @_ );
-  return $self->{'input_db_id'};
+  $self->{'input_dbs'} = shift if ( @_ );
+  return $self->{'input_dbs'};
 }
 
-=head2 output_db_id
+=head2 output_dbs
 
- Arg [1]    : $output_db_id, string [optional]
- Example    : $analysis_run->output_db_id($output_db_id);
+ Arg [1]    : $output_dbs, string [optional]
+ Example    : $analysis_run->output_dbs($output_dbs);
  Description: Getter/Setter for the databases used as output
               It's either a number or a strin of number like 1:2
  Returntype : string, the output db ids
@@ -144,10 +144,10 @@ sub input_db_id {
 
 =cut
 
-sub output_db_id {
+sub output_dbs {
   my $self = shift;
-  $self->{'output_db_id'} = shift if ( @_ );
-  return $self->{'output_db_id'};
+  $self->{'output_dbs'} = shift if ( @_ );
+  return $self->{'output_dbs'};
 }
 
 =head2 run_date

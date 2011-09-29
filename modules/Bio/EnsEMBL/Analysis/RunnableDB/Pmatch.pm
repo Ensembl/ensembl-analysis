@@ -63,11 +63,9 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch qw(PMATCH_BY_LOGIC);
 use Bio::EnsEMBL::Analysis::Runnable::Pmatch;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 sub new {
@@ -89,6 +87,12 @@ sub fetch_input{
   my %parameters = %{$self->parameters_hash};
   my $program = $self->analysis->program_file;
   $program = $self->BINARY_LOCATION if(!$program);
+  my $track = Bio::EnsEMBL::Analysis::EvidenceTracking::Track->new(
+    -runnabledb     => $self,
+    -evidence_names => [],
+    -tracking       => $self->is_tracking
+  );
+  $self->track($track);
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Pmatch
     ->new(
           -query => $self->query,
@@ -98,6 +102,7 @@ sub fetch_input{
           -max_intron_length => $self->MAX_INTRON_LENGTH,
           -min_coverage => $self->MIN_COVERAGE,
           -options => $self->OPTIONS,
+          -track => $track,
          );
   $self->runnable($runnable);
 }
@@ -214,6 +219,7 @@ sub write_output{
       throw("RunnableDB:store failed, failed to write ".$feature." to ".
             "the database ".$adaptor->dbc->dbname." $@");
     }
+    $self->track->write_tracks;
   }
   return 1;
 }

@@ -346,6 +346,7 @@ sub filter_genes{
       next GENE;
     }
     my $is_valid = $self->validate_Transcript($transcripts[0], $track);
+#    print STDERR Dumper($track);
     my $hit_name = ${$transcripts[0]->get_all_supporting_features}[0]->hseqname;
     if($is_valid){
       logger_info("Have accepted ".id($gene)." $hit_name ".seq_region_coord_string($gene));
@@ -360,11 +361,11 @@ sub filter_genes{
       my $evidence = $self->get_Transcript_supporting_evidence($transcripts[0]);
       if(evidence_coverage_greater_than_minimum($transcripts[0], $evidence, ($self->min_split_coverage -1))){
         $self->accepted_genes($accepted);
-        $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 4);
+        $track->update(@{$transcripts[0]->get_all_supporting_features}[0], "HighCoverage");
         next ACCEPTED;
       }
       if(@{$transcripts[0]->get_all_Exons} == 1){
-    $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 11);
+        $track->update(@{$transcripts[0]->get_all_supporting_features}[0], "SingleLowScore");
         $self->accepted_genes($accepted);
         next ACCEPTED;
       }  
@@ -375,13 +376,14 @@ sub filter_genes{
       foreach my $gene(@$genes){
         my $attrib = $self->get_Attribute("split_tscript");
         foreach my $transcript(@{$gene->get_all_Transcripts}){
-    $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 12);
+          $track->update(@{$transcripts[0]->get_all_supporting_features}[0], "SplitLowScore");
           $transcript->add_Attributes($attrib);
         }
         $self->accepted_genes($gene);
-        $track->update(@{$transcripts[0]->get_all_supporting_features}[0], 5);
+        $track->update(@{$transcripts[0]->get_all_supporting_features}[0], "Accepted");
       }
     }
+#    print STDERR Dumper($self);
   return $self->accepted_genes, $self->rejected_genes;
 }
 
@@ -409,23 +411,23 @@ sub validate_Transcript{
   #basic transcript validation
   unless(are_strands_consistent($transcript)){
     $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 106);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "BadStrand");
   }
   #print "IS VALID is ".$is_valid." after strand consistency\n";
   unless(are_phases_consistent($transcript)){
     $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 107);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "BadPhase");
   }
   #print "IS VALID is ".$is_valid." phase consistency\n";
   unless(is_not_folded($transcript)){
     $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 108);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "Folded");
   }
   #print "IS VALID is ".$is_valid." folded \n";
   unless(has_no_unwanted_evidence($transcript, 
                                   $self->unwanted_evidence)){
     $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 109);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "UnwantedEvidence");
   }
   #print "IS VALID is ".$is_valid." after unwanted evidence\n";
   #$is_valid++ unless(all_exons_are_valid($transcript, $self->max_exon_length));
@@ -434,7 +436,7 @@ sub validate_Transcript{
       next EXON;
     }else{
       $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 110);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "LongExon");
       last EXON;
     }
   }
@@ -444,12 +446,12 @@ sub validate_Transcript{
   if(contains_internal_stops($transcript)){
     warning(Transcript_info($transcript)." $hit_name contains internal stop codons");
     $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 100);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "InternalStop");
   }
   #print "IS VALID is ".$is_valid." after contains internal stops\n";
   unless(validate_Translation_coords($transcript)){
     $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 111);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "BadCoordinates");
   }
   #print "IS VALID is ".$is_valid." after translation coord validation\n";
   #intron checks
@@ -461,7 +463,7 @@ sub validate_Transcript{
   unless(low_complexity_less_than_maximum($transcript, 
                                           $self->max_low_complexity)){
     $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 104);
+    $track->update(@{$transcript->get_all_supporting_features}[0], "LowComplexity");
   }
   #print "IS VALID is ".$is_valid." low complexity check\n";
   #evidence coverage
@@ -476,14 +478,14 @@ sub validate_Transcript{
     unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
                                                   ($self->min_coverage - 1))){
       $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 105);
+    $track->update(@{$transcript->get_all_supporting_features}[-1], "LowCoverage");
     }
   }else{
     unless(evidence_coverage_greater_than_minimum($transcript, $evidence, 
                                                   ($self->single_exon_min_coverage
                                                    -1))){
       $is_valid++;
-    $track->update(@{$transcript->get_all_supporting_features}[0], 105);
+    $track->update(@{$transcript->get_all_supporting_features}[-1], "LowCoverage");
     }
   }
   #print "IS VALID is ".$is_valid." after evidence coverage check\n";

@@ -41,6 +41,7 @@ use Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use Data::Dumper;
 @ISA = qw(Bio::Root::Object);
 
 sub new {
@@ -78,7 +79,7 @@ sub new {
 =cut
 
 sub make_coord_pair {
-  my ($self) = @_;
+  my ($self, $track) = @_;
   #print STDERR "Making coord pair with ".$_."\n";
   my @cols = split();
   # clean up the refseq IDs
@@ -140,7 +141,7 @@ sub make_coord_pair {
 =cut
 
 sub merge_hits {
-  my ($self) = @_;
+  my ($self, $track) = @_;
   my @merged;
 
   # merge the hits together.
@@ -149,7 +150,7 @@ sub merge_hits {
   foreach my $p_hit(values %$protref) {
     my @allhits = @{$self->make_mergelist($p_hit)};
     
-    my @chosen = @{$self->prune(\@allhits)};
+    my @chosen = @{$self->prune(\@allhits, $track)};
     #print STDERR "\nNo hits good enough for " . $p_hit->id() . "\n"
     #  unless scalar(@chosen);
     push(@merged,@chosen);
@@ -449,7 +450,7 @@ sub extend_hits {
 =cut
 
 sub prune {
-  my ($self, $all) = @_;
+  my ($self, $all, $track) = @_;
   my @chosen = ();
   # reject hits with < 25% coverage
   my $lower_threshold = $self->min_coverage;
@@ -459,6 +460,8 @@ sub prune {
 
   my $first = shift(@all);
   if($first->coverage < $lower_threshold){
+      print STDERR Dumper($first);
+      $track->update($first->target, "BadCoverage");
     # we're done
     return \@chosen;
   }

@@ -40,7 +40,6 @@ for the tracking system
 package Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils;
 
 use strict;
-use warnings;
 use vars qw(@ISA  @EXPORT_OK);
 
 use constant TREMBL_DB  => 2000;
@@ -50,15 +49,14 @@ use constant REFSEQ_AA  => 1810;
 
 use LWP::Simple;
 use XML::Simple; 
-use Data::Dumper;
 use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Database;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_database_connection_parameters_by_string);
+use Data::Dumper;
 
 @ISA = qw(Exporter);
 
@@ -131,7 +129,7 @@ sub is_evidence_stored {
                 $db = &REFSEQ_RNA;
             }
         }
-        my $input_seq = new Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq (
+        my $input_seq = Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq->new(
             -hit_name        => $name,
             -molecule_type   => $molecule_type,
             -submission_date => $date,
@@ -201,8 +199,6 @@ sub setup_pipeline {
             );
 
     my $analysisrun_adaptor = $track_db->get_AnalysisRunAdaptor;
-    my $runnable_path = $default_runnabledb_path;
-    $runnable_path =~ s'\/'::'g;
     foreach my $analysis (@{$ra_analyses_to_run}) {
         my $module_name = $analysis->module;
         my $logic_name = $analysis->logic_name;
@@ -214,9 +210,10 @@ sub setup_pipeline {
             next if ($track_db->has_meta_value_by_key('tracking.analysis', $analysis->dbID));
         }
         if ($track_db->has_meta_value_by_key('tracking.analysis', $analysis->dbID)) {
-            throw('The analysis '.$analysis->logic_name.' is probably already running but you did not ask to keep the run! Are you sure?');
+            throw('The analysis '.$analysis->logic_name.' is probably already running but you did not ask to keep the run!');
         }
         $track_db->store_meta_key_value('tracking.analysis', $analysis->dbID);
+        my $runnable_path = $default_runnabledb_path;
         foreach my $anal (@{$queue_config}) {
             if ($anal->{'logic_name'} eq $logic_name) {
                 $runnable_path = $anal->{'runnabledb_path'}
@@ -224,27 +221,69 @@ sub setup_pipeline {
                 last;
             }
         }
-        my ($manme) = $module_name =~ /([^:]+)$/;
-        require "$default_runnabledb_path/$module_name.pm";
+        require "$runnable_path/$module_name.pm";
+        $runnable_path =~ s'\/'::'g;
         $module_name = $runnable_path.'::'.$module_name;
         my $module = $module_name->new(
                 -db => $db,
                 -analysis => $analysis,
                 -input_id => 'input_id'
                 );
+#This is hacking!!! depending on the module the name of the input/output DB change...
         my @a_input_dbs = qw(PAF_SOURCE_DB GENE_SOURCE_DB);
-        my $ra_input_db_id = _get_databases($module, \@a_input_dbs, $track_db);
         my @a_output_dbs = qw(OUTPUT_DB TARGET_DB);
-        my $ra_output_db_id = _get_databases($module, \@a_output_dbs, $track_db);
         my $current_analysis = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
                 -analysis_id => $analysis->dbID,
-                -input_db_id => join(':', @{$ra_input_db_id}),
-                -output_db_id => join(':', @{$ra_output_db_id})
+                -input_dbs   => _get_databases($module, \@a_input_dbs, $track_db),
+                -output_dbs  => _get_databases($module, \@a_output_dbs, $track_db)
                 );
         $analysisrun_adaptor->store($current_analysis);
     }
 }
 
+=head2 check_trackevidences
+
+ Arg [1]    : 
+ Example    : $;
+ Description: 
+ Returntype : 
+ Exceptions : 
+
+
+=cut
+
+sub check_trackevidences {
+    my ($rulemanager, $default_runnabledb_path, $queue_config, $ra_analyses_to_run) = @_;
+
+    my $db = $rulemanager->db;
+    foreach my $analysis (@{$ra_analyses_to_run}) {
+        my $logic_name = $analysis->logic_name;
+        foreach my $anal (@{$queue_config}) {
+            if ($anal->{'logic_name'} eq $logic_name) {
+                if (exists $anal->{'check_tracks'}) {
+                    my $runnable_path = exists $anal->{'runnabledb_path'} ? $anal->{'runnabledb_path'} : $default_runnabledb_path;
+                    my $module_name = $anal->{'check_tracks'};
+                    my $module_path = $module_name;
+                    $module_path =~ s'::'/'g;
+                    require $module_path.'.pm';
+                    $analysis->module($module_name);
+                    $logic_name .= '_check';
+                    $analysis->logic_name($logic_name);
+    print STDERR "Analysis: ", Dumper($analysis);
+                    my $module = $module_name->new(
+                            -db => $db,
+                            -analysis => $analysis,
+                            -input_id => 'input_id'
+                            );
+                    my $job = $rulemanager->create_and_store_job($logic_name, $analysis);
+    print STDERR "Job: ", Dumper($job);
+                    $job->batch_runRemote();
+    print STDERR "Job done\n";
+                }
+            }
+        }
+    }
+}
 
 =head2 _get_databases
 
@@ -262,7 +301,7 @@ sub setup_pipeline {
 sub _get_databases {
     my ($module, $ra_dbs, $track_db) = @_;
 
-    my %h_ids;
+    my @a_ids;
     my $database_adaptor = $track_db->get_DatabaseAdaptor;
     foreach my $db (@{$ra_dbs}) {
         my %h_database;
@@ -279,19 +318,18 @@ sub _get_databases {
                     -instance => $h_database{-host}
                     );
             $database_adaptor->store($edb) unless $edb->is_stored($track_db);
-            $h_ids{$edb->dbID} = $edb->dbID;
+            push(@a_ids, $edb);
         }
     }
-    if (! %h_ids) {
+    if (! @a_ids) {
         my %h_database = %{get_database_connection_parameters_by_string('REFERENCE_DB')};
         my $edb = Bio::EnsEMBL::Analysis::EvidenceTracking::Database->new(
                 -db_name => $h_database{-dbname},
                 -instance => $h_database{-host}
                 );
         $database_adaptor->store($edb) unless $edb->is_stored($track_db);
-        $h_ids{$edb->dbID} = $edb->dbID;
+        push(@a_ids, $edb);
     }
-    my @a_ids = keys %h_ids;
     return \@a_ids;
 }
 

@@ -47,10 +47,7 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Storable;
-
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
-use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::ReasonAdaptor;
 
 @ISA = qw(Bio::EnsEMBL::Storable);
 
@@ -75,11 +72,29 @@ sub new {
 
   my $self = bless {},$class;
 
-  my ($id, $info, $adaptor) = rearrange([qw(DBID INFO ADAPTOR)],@args);
+  my ($id, $code, $info, $adaptor) = rearrange([qw(DBID CODE INFO ADAPTOR)],@args);
 
-  $self->dbID    ( $id );
-  $self->info  ( $info );
+  $self->dbID($id);
+  $self->code($code);
+  $self->info($info);
   return $self; # success - we hope!
+}
+
+=head2 code
+
+ Arg [1]    : $code, string [optional]
+ Example    : $reason->code($code);
+ Description: Getter/Setter for the reason
+ Returntype : string, the reason
+ Exceptions : 
+
+
+=cut
+
+sub code {
+  my $self = shift;
+  $self->{'code'} = shift if ( @_ );
+  return $self->{'code'};
 }
 
 =head2 info

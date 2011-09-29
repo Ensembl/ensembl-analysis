@@ -35,7 +35,6 @@ Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor -
 package Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceAdaptor; 
 
 use strict;
-#use Data::Dumper;
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence;
 use Bio::EnsEMBL::DBSQL::BaseAdaptor;
 use Bio::EnsEMBL::Slice;
@@ -73,7 +72,7 @@ sub store {
   # People will have to remove the duplicates
   my $sth = $self->prepare('INSERT into evidence ( input_seq_id, is_aligned ) VALUES ( (SELECT input_seq_id FROM input_seq where hit_name = ? LIMIT 1), ? )');
 
-  $sth->bind_param( 1, $evidence->hit_name, SQL_VARCHAR );
+  $sth->bind_param( 1, $evidence->input_seq->hit_name, SQL_VARCHAR );
   $sth->bind_param( 2, $evidence->is_aligned, SQL_VARCHAR );
 
   $sth->execute();
@@ -139,12 +138,12 @@ sub is_evidence_exists {
         ' AND ec.seq_region_end = '.$evidence->seq_region_end.
         ' AND ec.seq_region_strand = '.$evidence->seq_region_strand.
         ' AND sr.name = "'.$evidence->seq_region_name.
-        '" AND e.input_seq_id = i.input_seq_id AND i.hit_name = "'.$evidence->hit_name.'"';
+        '" AND e.input_seq_id = i.input_seq_id AND i.hit_name = "'.$evidence->input_seq->hit_name.'"';
   }
   else {
     $query = 'SELECT e.evidence_id FROM evidence e LEFT JOIN input_seq i ON i.input_seq_id = e.input_seq_id'.
         ' WHERE e.is_aligned = "'.$evidence->is_aligned.'"'.
-        ' AND i.hit_name = "'.$evidence->hit_name.'"';
+        ' AND i.hit_name = "'.$evidence->input_seq->hit_name.'"';
   }
   my $sth = $self->dbc->prepare($query);
   $sth->execute();
@@ -189,13 +188,20 @@ sub fetch_all_by_hit_name {
   my $self = shift;
   my $hit_name = shift;
 
-#  sub _tables { return (['evidence',' e'], ['input_seq', 'i']); }
-#  sub _columns { return ( 'i.hit_name'); }
-#  sub _left_join { return 'e.input_seq_id = i.input_seq_id'; }
-#  my $constraint = 'i.hit_name = '.$hit_name;
   my $constraint = 'i.hit_name = "'.$hit_name.'"';
   return $self->generic_fetch($constraint);
 }
+
+=head2 fetch_all_unmapped_evidence
+
+ Example    : $evidence_adaptor->fetch_all_unmapped_evidence;
+ Description: Fetch all the evidence that did not aligned on the genome,
+              regardless of the reason or the analysis
+ Returntype : listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object
+ Exceptions : 
+
+
+=cut
 
 sub fetch_all_unmapped_evidence {
     my $self = shift;
@@ -204,9 +210,102 @@ sub fetch_all_unmapped_evidence {
     return $self->generic_fetch($constraint);
 }
 
-#@@@@@@@
-# Done @
-#@@@@@@@
+=head2 fetch_all_unmapped_evidence_by_analysis
+
+ Arg [1]    : $analysis, an Bio::EnsEMBL::Analysis object
+ Example    : $evidence_adaptor->fetch_all_unmapped_evidence_by_analysis($analysis);
+ Description: Fetch all evidences that did not align on the genome for an analysis
+ Returntype : listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object
+ Exceptions : throw if $analysis is not an Bio::EnsEMBL::Analysis object
+
+
+=cut
+
+sub fetch_all_unmapped_evidence_by_analysis {
+    my $self = shift;
+    my $analysis = shift;
+
+    throw('Need a Bio::EnsEMBL::Analysis object for method fetch_all_unmapped_evidence_by_analysis, not a '.ref($analysis))
+        unless $analysis->isa('Bio::EnsEMBL::Analysis');
+    sub _tables {
+      return ( ['evidence' , 'e'], ['input_seq', 'i'], ['evidence_coord', 'ec'], ['seq_region', 'sr'], ['analysis_run', 'ar'], ['track_evidence', 'te'] );
+    }
+    sub _left_join {
+        return (['evidence_coord', 'e.evidence_id = ec.evidence_id'],
+                ['input_seq', 'e.input_seq_id = i.input_seq_id'],
+                ['seq_region', 'sr.seq_region_id = ec.seq_region_id'],
+                ['track_evidence', 'e.evidence_id = te.evidence_id'],
+                ['analysis_run', 'te.analysis_run_id = ar.analysis_run_id']);
+    }
+    my $constraint = 'e.is_aligned = "n" AND ar.analysis_id = '.$analysis->dbID;
+    return $self->generic_fetch($constraint);
+}
+
+=head2 fetch_all_unmapped_evidence_by_reason
+
+ Arg [1]    : $reason, an Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+ Example    : $evidence_adaptor->fetch_all_unmapped_evidence_by_reason($reason);
+ Description: Fetch all evidences that did not align on the genome because of a reason
+ Returntype : listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object
+ Exceptions : throw if $reason is not an Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+
+
+=cut
+
+sub fetch_all_unmapped_evidence_by_reason {
+    my $self = shift;
+    my $reason = shift;
+
+    throw('Need a Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object for method fetch_all_unmapped_evidence_by_reason, not a '.ref($reason))
+        unless $reason->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::Reason');
+    sub _tables {
+      return ( ['evidence' , 'e'], ['input_seq', 'i'], ['evidence_coord', 'ec'], ['seq_region', 'sr'], ['track_evidence', 'te'] );
+    }
+    sub _left_join {
+        return (['evidence_coord', 'e.evidence_id = ec.evidence_id'],
+                ['input_seq', 'e.input_seq_id = i.input_seq_id'],
+                ['seq_region', 'sr.seq_region_id = ec.seq_region_id'],
+                ['track_evidence', 'e.evidence_id = te.evidence_id']);
+    }
+    my $constraint = 'e.is_aligned = "n" AND te.reason_id = '.$reason->dbID;
+    return $self->generic_fetch($constraint);
+}
+
+=head2 fetch_all_unmapped_evidence_by_analysis_and_reason
+
+ Arg [1]    : $analysis, an Bio::EnsEMBL::Analysis object
+ Arg [2]    : $reason, an Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+ Example    : $evidence_adaptor->fetch_all_unmapped_evidence_by_analysis_and_reason($analysis, $reason);
+ Description: Fetch all evidence that did not align on the genome for an analysis and because of
+              a reason
+ Returntype : listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object
+ Exceptions : throw if $reason is not an Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+              or if $analysis is not an Bio::EnsEMBL::Analysis object
+
+
+=cut
+
+sub fetch_all_unmapped_evidence_by_analysis_and_reason {
+    my $self = shift;
+    my ($analysis, $reason) = shift;
+
+    throw('Need a Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object for method fetch_all_unmapped_evidence_by_reason, not a '.ref($reason))
+        unless $reason->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::Reason');
+    throw('Need a Bio::EnsEMBL::Analysis object for method fetch_all_unmapped_evidence_by_analysis, not a '.ref($analysis))
+        unless $analysis->isa('Bio::EnsEMBL::Analysis');
+    sub _tables {
+      return ( ['evidence' , 'e'], ['input_seq', 'i'], ['evidence_coord', 'ec'], ['seq_region', 'sr'], ['track_evidence', 'te'] );
+    }
+    sub _left_join {
+        return (['evidence_coord', 'e.evidence_id = ec.evidence_id'],
+                ['input_seq', 'e.input_seq_id = i.input_seq_id'],
+                ['seq_region', 'sr.seq_region_id = ec.seq_region_id'],
+                ['track_evidence', 'e.evidence_id = te.evidence_id']);
+    }
+    my $constraint = 'e.is_aligned = "n" AND e.evidence_id = te.evidence_id AND te.reason_id = '.$reason->dbID
+                    .' AND te.analysis_run_id = ar.analysis_run_id AND ar.analysis_id = '.$analysis->dbID;
+    return $self->generic_fetch($constraint);
+}
 
 =head2 fetch_all_by_analysis
 
@@ -222,10 +321,23 @@ sub fetch_all_unmapped_evidence {
 =cut
 
 sub fetch_all_by_analysis {
-  my $self = shift;
-  my $analysis_id = shift;
-#  my $constraint = 'e.seq_region_id = '.$slice->get_seq_region_id.' e.seq_region_start > '.($slice->start-1).' e.seq_region_end < '.($slice->end+1);
-#  return $self->generic_fetch($constraint);
+    my $self = shift;
+    my $analysis = shift;
+
+    throw('Need a Bio::EnsEMBL::Analysis object for method fetch_all_unmapped_evidence_by_analysis, not a '.ref($analysis))
+        unless $analysis->isa('Bio::EnsEMBL::Analysis');
+    sub _tables {
+      return ( ['evidence' , 'e'], ['input_seq', 'i'], ['evidence_coord', 'ec'], ['seq_region', 'sr'], ['analysis_run', 'ar'], ['track_evidence', 'te'] );
+    }
+    sub _left_join {
+        return (['evidence_coord', 'e.evidence_id = ec.evidence_id'],
+                ['input_seq', 'e.input_seq_id = i.input_seq_id'],
+                ['seq_region', 'sr.seq_region_id = ec.seq_region_id'],
+                ['track_evidence', 'e.evidence_id = te.evidence_id'],
+                ['analysis_run', 'te.analysis_run_id = ar.analysis_run_id']);
+    }
+    my $constraint = 'e.evidence_id = te.evidence_id AND te.analysis_run_id = ar.analysis_run_id AND ar.analysis_id = '.$analysis->dbID;
+    return $self->generic_fetch($constraint);
 }
 
 =head2 fetch_by_name
@@ -240,21 +352,11 @@ sub fetch_all_by_analysis {
 =cut
 
 sub fetch_by_name {
-}
+    my $self = shift;
+    my $name = shift;
 
-=head2 fetch_all_by_analysis_run
-
- Arg [1]    : $analysis_run_id
- Example    : $evidence_adaptor->fetch_all_by_analysis_run($analysis_run_id);
- Description: Return a list of evidence get for the run $analysis_run_id of
-              the analysis
- Returntype : listref of Bio::EnsEMBL::EvidenceTracking::Evidence
- Exceptions : 
-
-
-=cut
-
-sub fetch_all_by_analysis_run {
+    my $constraint = 'i.hit_name = '.$name;
+    return $self->generic_fetch($constraint);
 }
 
 =head2 fetch_all_after_analysis_run
@@ -269,6 +371,48 @@ sub fetch_all_by_analysis_run {
 =cut
 
 sub fetch_all_after_analysis_run {
+    my $self = shift;
+    my $analysis = shift;
+
+    throw('Need a Bio::EnsEMBL::Analysis object for method fetch_all_unmapped_evidence_by_analysis, not a '.ref($analysis))
+        unless $analysis->isa('Bio::EnsEMBL::Analysis');
+    sub _tables {
+      return ( ['evidence' , 'e'],
+               ['input_seq', 'i'],
+               ['evidence_coord', 'ec'],
+               ['seq_region', 'sr'],
+               ['analysis_run', 'ar'],
+               ['track_evidence', 'te'] );
+    }
+    sub _left_join {
+        return (['evidence_coord', 'e.evidence_id = ec.evidence_id'],
+                ['input_seq', 'e.input_seq_id = i.input_seq_id'],
+                ['seq_region', 'sr.seq_region_id = ec.seq_region_id'],
+                ['track_evidence', 'e.evidence_id = te.evidence_id'],
+                ['analysis_run', 'te.analysis_run_id = ar.analysis_run_id']);
+    }
+    my $constraint = 'ar.analysis_id = '.$analysis->dbID.' AND te.reason_id < 100';
+    return $self->generic_fetch($constraint);
+}
+
+
+#@@@@@@@
+# Done @
+#@@@@@@@
+
+=head2 fetch_all_by_analysis_run
+
+ Arg [1]    : $analysis_run_id
+ Example    : $evidence_adaptor->fetch_all_by_analysis_run($analysis_run_id);
+ Description: Return a list of evidence get for the run $analysis_run_id of
+              the analysis
+ Returntype : listref of Bio::EnsEMBL::EvidenceTracking::Evidence
+ Exceptions : 
+
+
+=cut
+
+sub fetch_all_by_analysis_run {
 }
 
 
@@ -288,7 +432,7 @@ sub fetch_all_after_analysis_run {
 =cut
 
 sub _tables {
-  return ( ['evidence' , 'e'], ['input_seq', 'i'] );
+  return ( ['evidence' , 'e'], ['input_seq', 'i'], ['evidence_coord', 'ec'], ['seq_region', 'sr'] );
 }
 
 =head2 _columns
@@ -302,11 +446,21 @@ sub _tables {
 =cut
 
 sub _columns {
-  return ( 'e.evidence_id', 'i.hit_name', 'e.is_aligned' );
+  return ( 'e.evidence_id', 'i.input_seq_id', 'e.is_aligned', 'sr.name', 'ec.seq_region_start', 'ec.seq_region_end', 'ec.seq_region_strand' );
 }
 
+=head2 
+
+ Example    : $self->_left_join;
+ Description: Return a list of left joins
+ Returntype : a listref of string
+ Exceptions : 
+
+
+=cut
+
 sub _left_join {
-    return (['evidence', 'e.input_seq_id = i.input_seq_id']);
+    return (['evidence_coord', 'e.evidence_id = ec.evidence_id'], ['input_seq', 'e.input_seq_id = i.input_seq_id'], ['seq_region', 'sr.seq_region_id = ec.seq_region_id']);
 }
 
 =head2 _objs_from_sth
@@ -325,22 +479,18 @@ sub _objs_from_sth {
   my ($self, $sth) = @_;
 
   my @out;
-  my ( $evidence_id, $hit_name, $is_aligned);
-  $sth->bind_columns( \$evidence_id, \$hit_name, \$is_aligned);
+  my ( $evidence_id, $input_seq_id, $is_aligned, $seq_region_name, $seq_region_start, $seq_region_end, $seq_region_strand);
+  $sth->bind_columns( \$evidence_id, \$input_seq_id, \$is_aligned, \$seq_region_name, \$seq_region_start, \$seq_region_end, \$seq_region_strand);
 
   while($sth->fetch()) {
+    my $input_seq = $self->db->get_InputSeqAdaptor->fetch_by_dbID($input_seq_id);
     push @out, Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
-              -dbID              => $evidence_id,
-              -adaptor           => $self,
-              -hit_name          => $hit_name,
-              -is_aligned        => $is_aligned
+              -dbID       => $evidence_id,
+              -adaptor    => $self,
+              -input_seq  => $input_seq,
+              -is_aligned => $is_aligned
               );
     if ($out[-1]->is_aligned eq 'y') {
-#        print STDERR $hit_name, ' ', $is_aligned, "\n";
-        my $query = 'SELECT sr.name, ec.seq_region_start, ec.seq_region_end, ec.seq_region_strand FROM evidence_coord ec LEFT JOIN seq_region sr ON sr.seq_region_id = ec.seq_region_id WHERE ec.evidence_id = '.$evidence_id;
-        my $q2_sth = $self->dbc->prepare($query);
-        $q2_sth->execute();
-        my ($seq_region_name, $seq_region_start, $seq_region_end, $seq_region_strand) = @{$q2_sth->fetch()};
         $out[-1]->seq_region_name($seq_region_name);
         $out[-1]->seq_region_start($seq_region_start);
         $out[-1]->seq_region_end($seq_region_end);

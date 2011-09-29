@@ -35,11 +35,10 @@ Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceTrackAdaptor -
 package Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::EvidenceTrackAdaptor; 
 
 use strict;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack;
 use Bio::EnsEMBL::DBSQL::BaseAdaptor;
-use Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw( deprecate throw warning stack_trace_dump );
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
+use Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack;
 
 use vars '@ISA';
 @ISA = qw(Bio::EnsEMBL::DBSQL::BaseAdaptor);
@@ -65,16 +64,20 @@ sub store {
 
   my $db = $self->db();
 
-  # make an sql statement
-  my $original = $evidence_track;
+  my $evidence = $evidence_track->evidence;
+  if ($evidence->dbID eq '') {
+      my $evidence_adaptor = $db->get_EvidenceAdaptor;
+      $evidence_adaptor->store($evidence) unless ($evidence->is_stored($db));
+  }
+
 
   my $sth = $self->prepare('INSERT into track_evidence ( evidence_id, analysis_run_id,
                             reason_id,input_id) 
                             VALUES ( ?,?,?,?)');
 
-  $sth->bind_param( 1, $evidence_track->evidence_id, SQL_INTEGER );
-  $sth->bind_param( 2, $evidence_track->analysis_run_id, SQL_INTEGER );
-  $sth->bind_param( 3, $evidence_track->reason_id, SQL_INTEGER );
+  $sth->bind_param( 1, $evidence->dbID, SQL_INTEGER );
+  $sth->bind_param( 2, $evidence_track->analysis_run->dbID, SQL_INTEGER );
+  $sth->bind_param( 3, $evidence_track->reason->dbID, SQL_INTEGER );
   $sth->bind_param( 4, $evidence_track->input_id, SQL_VARCHAR );
 
   $sth->execute();
@@ -83,9 +86,9 @@ sub store {
 
   # set the adaptor and dbID on the original passed in evidence_track not the
   # transfered copy
-  $original->adaptor($self);
-  $original->dbID($evidence_track_dbID);
-  print STDERR 'Stored evidencetrack object ',$evidence_track->evidence_id, "\n";
+#  $original->adaptor($self);
+#  $original->dbID($evidence_track_dbID);
+  print STDERR 'Stored evidencetrack object ',$evidence_track->evidence->dbID, "\n";
   return $evidence_track_dbID;
 }
 
@@ -162,7 +165,7 @@ sub fetch_all_by_analysis {
   return $self->generic_fetch($constraint);
 }
 
-sub fetch_all_by_analysis {
+sub fetch_all_by_analysis_and_reason {
   my $self = shift;
   my ($analysis_id, $reason_id) = @_;
       
@@ -266,14 +269,14 @@ sub _tables {
 sub _columns {
   my $self = shift;
   return ( 'te.evidence_id', 'te.analysis_run_id', 'te.reason_id',
-           'te.input_id', 'ar.analysis_id');
+           'te.input_id');
 }
 
 =head2 _left_join
 
    Example    : $self->_left_join;
-   Description: Return the left join
-   Returntype : a string
+   Description: Return a list of left joins
+   Returntype : a listref of string
 
 
 =cut
@@ -286,8 +289,8 @@ sub _left_join {
 
  Arg [1]    : $sth
  Example    : $self->_objs_from_sth($sth);
- Description: Put the result of the query in Bio::EnsEMBL::EvidenceTracking::InputSeq objects
- Returntype : listref of Bio::EnsEMBL::EvidenceTracking::InputSeq
+ Description: Put the result of the query in Bio::EnsEMBL::EvidenceTracking::EvidenceTrack objects
+ Returntype : listref of Bio::EnsEMBL::EvidenceTracking::EvidenceTrack
  Exceptions : 
 
 
@@ -297,23 +300,49 @@ sub _left_join {
 sub _objs_from_sth {
   my ($self, $sth) = @_;
 
-  my @tmp;
-  my ( $evidence_id, $analysis_run_id, $reason_id, $input_id, $analysis_id);
-  $sth->bind_columns( \$evidence_id, \$analysis_run_id, \$reason_id, \$input_id, \$analysis_id);
+  my @out;
+  my ( $evidence_id, $analysis_run_id, $reason_id, $input_id);
+  $sth->bind_columns( \$evidence_id, \$analysis_run_id, \$reason_id, \$input_id);
 
+  my $reason_adaptor = $self->db->get_ReasonAdaptor;
+#  my $reason = $reason_adaptor->fetch_by_dbID($reason_id);
+  my %h_reasons;
+  foreach my $reason (@{$reason_adaptor->fetch_all}) {
+    $h_reasons{$reason->dbID} = $reason;
+  }
   while($sth->fetch()) {
-    push @tmp, Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
-              -adaptor         => $self,
-              -evidence_id     => $evidence_id,
-              -analysis_run_id => $analysis_run_id,
-              -reason_id       => $reason_id, 
-              -input_id        => $input_id,
-              -analysis_id     => $analysis_id,
-              -is_last         => 0,
+    my $evidence = $self->_cache_by_evidence_id($evidence_id);
+    my $analysis_run = $self->_cache_by_analysis_run_id($analysis_run_id);
+    
+    push @out, Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
+              -adaptor      => $self,
+              -evidence     => $evidence,
+              -analysis_run => $analysis_run,
+              -reason       => $h_reasons{$reason_id},
+              -input_id     => $input_id,
               );
   }
-  my @out = sort {$a->analysis_run_id <=> $b->analysis_run_id} @tmp;
-  $out[-1]->is_last(1) unless (scalar(@out) == 0);
+#  my @out = sort {$a->analysis_run->dbID <=> $b->analysis_run->dbID} @tmp;
   return \@out;
 }
+
+sub _cache_by_evidence_id {
+    my $self = shift;
+    my $evidence_id = shift;
+
+    $self->{'_evidence_cache'}->{$evidence_id} = $self->db->get_EvidenceAdaptor->fetch_by_dbID($evidence_id)
+        unless (exists $self->{'_evidence_cache'}->{$evidence_id});
+    return $self->{'_evidence_cache'}->{$evidence_id};
+}
+
+sub _cache_by_analysis_run_id {
+    my $self = shift;
+    my $analysis_run_id = shift;
+
+    $self->{'_analysis_run_cache'}->{$analysis_run_id} = $self->db->get_AnalysisRunAdaptor->fetch_by_dbID($analysis_run_id)
+        unless (exists $self->{'_analysis_run_cache'}->{$analysis_run_id});
+    return $self->{'_analysis_run_cache'}->{$analysis_run_id};
+}
+
+
 1;

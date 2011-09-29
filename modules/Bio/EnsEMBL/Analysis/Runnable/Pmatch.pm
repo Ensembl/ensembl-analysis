@@ -187,7 +187,7 @@ sub parse_results {
         $_ = $el->[1];
         $pmf->make_coord_pair($_);
       }
-      my @merged_hits = @{$pmf->merge_hits};
+      my @merged_hits = @{$pmf->merge_hits($self->track)};
 
       push @all_merged_hits, @merged_hits;
     }
@@ -218,6 +218,7 @@ sub parse_results {
                                       $self->query, 
                                       $self->analysis);
     my $paf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [$fp]);
+    $self->track->update($paf, "Accepted");
     $self->output([$paf]);
   }
 }
