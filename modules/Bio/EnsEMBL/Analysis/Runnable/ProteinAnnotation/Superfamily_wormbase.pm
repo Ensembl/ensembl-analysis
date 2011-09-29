@@ -46,7 +46,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
-=head2 run_program
+=head2 run_analysis
 
  Title    : run_program
  Usage    : $self->program
@@ -71,7 +71,7 @@ sub run_analysis {
 	        '-i ' . $self->queryfile.' '.
 		'-o ' . $self->resultsfile;
     print STDERR "$cmd\n";   
-    $self->throw ("Error running Superfamily_wormbase ".$self->program." on ".$self->filename) 
+    $self->throw ("Error running Superfamily_wormbase ".$self->program." on ".$self->queryfile) 
      unless ((system ($cmd)) == 0);
     
 }

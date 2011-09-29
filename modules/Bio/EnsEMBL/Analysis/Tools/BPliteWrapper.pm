@@ -73,14 +73,14 @@ use vars qw (@ISA);
   Arg [DATABASE_TYPE] : string, database sequence type as above
   Arg [ANALYSIS]      : Bio::EnsEMBL::Analysis object
   Function  : 
-  Returntype: 
+  Returntype: Bio::EnsEMBL::Analysis::Tools::BPliteWrapper 
   Exceptions: 
   Example   : 
 
 =cut
 
 
-sub new{
+sub new {
   my ($caller,@args) = @_;
   
   my $class = ref($caller) || $caller;
@@ -175,7 +175,7 @@ sub query_type{
 
 =cut
 
-sub database_type{
+sub database_type {
   my ($self, $dtype) = @_; 
   if($dtype){
     $dtype = lc($dtype);
@@ -200,7 +200,7 @@ sub database_type{
 
 
 
-sub output{
+sub output {
   my ($self, $output) = @_;
   if(!$self->{'output'}){
     $self->{'output'} = [];
@@ -226,7 +226,7 @@ sub output{
 
 
 
-sub clean_output{
+sub clean_output {
   my ($self) = @_;
   $self->{'output'} = [];
 }
@@ -288,7 +288,7 @@ sub analysis{
 
 
 
-=head2 parse_file
+=head2 parse_files
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
   Arg [2]   : string filename
@@ -313,7 +313,7 @@ sub parse_files{
 
 
 
-=head2 get_parser
+=head2 get_parsers
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::BPliteWrapper
   Arg [2]   : string, filename

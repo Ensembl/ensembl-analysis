@@ -34,9 +34,14 @@ Bio::EnsEMBL::Analysis::Runnable::Finished::BlastExonerate -
 
 ### Bio::EnsEMBL::Analysis::Runnable::Finished::BlastExonerate
 
+=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::BlastExonerate
+
+=head1 AUTHOR
+
+Mustapha Larbaoui B<email> ml6@sanger.ac.uk
+=cut
 
 package Bio::EnsEMBL::Analysis::Runnable::Finished::BlastExonerate;
-
 use strict;
 use warnings;
 
@@ -276,8 +281,3 @@ sub get_db_version{
 1;
 
 
-=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::BlastExonerate
-
-=head1 AUTHOR
-
-Mustapha Larbaoui B<email> ml6@sanger.ac.uk

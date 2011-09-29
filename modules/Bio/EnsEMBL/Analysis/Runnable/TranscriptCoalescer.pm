@@ -1336,7 +1336,7 @@ sub new_tr {
 
 
 
-=head2
+=head2 get_all_evidence_sets
 
 Name : get_all_evidence_sets
 Arg[1] : none
@@ -1353,7 +1353,7 @@ sub get_all_evidence_sets {
 
 
 
-=head2
+=head2 get_genes_by_evidence_set
 
 Name : get_genes_by_evidence_set($evidence_set)
 Arg[1] : String 
@@ -1382,7 +1382,7 @@ sub get_genes_by_evidence_set {
 
 
 
-=head2
+=head2 get_genes_by_biotype
 
 Name : get_genes_by_biotype($arg)  
 Arg[1] : String 
@@ -1397,7 +1397,7 @@ sub get_genes_by_biotype {
 }
 
 
-=head2
+=head2 get_biotypes_of_evidence_set
 
 Name : get_biotypes_of_evidence_set($arg)  
 Arg[1] : String 
@@ -1627,7 +1627,7 @@ sub compare {
 }
 
 
-=head2 
+=head2 remove_redundant_transcripts
 
 Arg : Arrayref to array of array of transcripts 
 Function : removes redundant transcripts by comparing their exon-hashkeys 

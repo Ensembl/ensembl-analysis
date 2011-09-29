@@ -93,7 +93,7 @@ sub new {
 
 #container methods
 
-=head2 containers
+=head2 level
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
   Arg [2]   : int for specified value (for more info see tcdust)
@@ -114,12 +114,38 @@ sub level{
   return $self->{'min_length'};
 }
 
+=head2 window_size
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
+  Arg [2]   : int for specified value (for more info see tcdust)
+  Function  : container for specified variable. This pod refers to the
+  three methods below level, window size and word size. These are simple 
+  containers which dont do more than hold and return an given value
+  nothing is defined
+  Returntype: int
+  Exceptions: 
+  Example   : 
+
+=cut
 sub window_size{
   my $self = shift;
   $self->{'min_gc_content'} = shift if(@_);
   return $self->{'min_gc_content'};
 }
 
+=head2 word_size
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
+  Arg [2]   : int for specified value (for more info see tcdust)
+  Function  : container for specified variable. This pod refers to the
+  three methods below level, window size and word size. These are simple 
+  containers which dont do more than hold and return an given value
+  nothing is defined
+  Returntype: int
+  Exceptions: 
+  Example   : 
+
+=cut
 sub word_size{
   my $self = shift;
   $self->{'min_oe'} = shift if(@_);

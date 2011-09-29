@@ -865,8 +865,6 @@ sub run_matching{
         $tc->{short_intron_penalty} = $self->SHORT_INTRON_PENALTY ;
         $tc->{short_exon_penalty} = $self->SHORT_EXON_PENALTY ;
         $tc->{utr_penalty} = $self->UTR_PENALTY ;
-        $tc->{solexa} = $self->SOLEXA ;
-        $tc->{solexa_score_cutoff} = $self->SOLEXA_SCORE_CUTOFF ;
         $tc->{verbose} = $self->VERBOSE ;
 
         my $collapsed_cluster = $tc->collapse_cluster($cluster, $genes_by_strand);
@@ -3329,10 +3327,10 @@ sub _transfer_evidence {
 
 =head2 look_for_both
 
-  Arg [1]    : Bio:EnsEMBL:Gene
+  Arg [1]    : Bio::EnsEMBL::Gene
   Description: a copy of Steve's look_for_both-script,
                checks phases, etc.
-  Returntype : Bio:EnsEMBL:Gene
+  Returntype : Bio::EnsEMBL::Gene
 
 =cut
 
@@ -4265,7 +4263,7 @@ sub _cdna_evidence {
 
   Arg [1]    : optional hash ref
   Description: store the links between NM and NP entries
-  Returntype : has ref
+  Returntype : hashref
 
 =cut
 
@@ -4341,7 +4339,7 @@ sub DITAG_DB {
     return $self->{_ditag_db};
 }
 
-=head2 blessed_db
+=head2 BLESSED_DB
 
   Arg [1]    : optional Bio::EnsEMBL::DBSQL::DBAdaptor
   Description: get/set for db storing blessed gene structures
@@ -4384,7 +4382,7 @@ sub OUTPUT_DB {
 
 ####  other config variable get/set methods  ######
 
-=head2 various_config_variable_methods
+=head2 INPUT_GENETYPES
 
   Arg [1]    : optional parameter
   Description: setter / getter for config vars
@@ -4707,28 +4705,20 @@ sub SMALL_BIOTYPE {
   return $self->{'SMALL_BIOTYPE'} ;
 }
 
-sub SOLEXA {
+sub RNASEQ_INTRON_NAME {
   my ($self, $arg) = @_ ;
   if(defined $arg) {
-    $self->{'SOLEXA'} = $arg ;
+    $self->{'RNASEQ_INTRON_NAME'} = $arg ;
   }
-  return $self->{'SOLEXA'} ;
+  return $self->{'RNASEQ_INTRON_NAME'} ;
 }
 
-sub SOLEXA_SCORE_CUTOFF {
+sub RNASEQ_INTRON_DB {
   my ($self, $arg) = @_ ;
   if(defined $arg) {
-    $self->{'SOLEXA_SCORE_CUTOFF'} = $arg ;
+    $self->{'RNASEQ_INTRON_DB'} = $arg ;
   }
-  return $self->{'SOLEXA_SCORE_CUTOFF'} ;
-}
-
-sub SOLEXA_DB {
-  my ($self, $arg) = @_ ;
-  if(defined $arg) {
-    $self->{'SOLEXA_DB'} = $arg ;
-  }
-  return $self->{'SOLEXA_DB'} ;
+  return $self->{'RNASEQ_INTRON_DB'} ;
 }
 
 sub INPUT_DBS {

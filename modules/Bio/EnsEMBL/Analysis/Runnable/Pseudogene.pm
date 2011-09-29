@@ -360,6 +360,7 @@ GENE: foreach my $gene (@genes) {
       }
 
       # transcript passes all tests, it is real
+#      print STDERR "Transcript " . $transcript->dbID ." is real \n";
       push @{ $trans_type{'real'} },           $transcript;
       push @{ $trans_type{'not_multi_exon'} }, $transcript
         if scalar @{ $transcript->get_all_Exons } < $self->PS_MIN_EXONS;
@@ -479,7 +480,7 @@ GENE: foreach my $gene (@genes) {
         }
         $self->modified_genes($gene);
         $self->multi_exon_genes($gene) unless $trans_type{'not_multi_exon'};
-        $self->pseudogenes(1);
+        $self->real(1);
         next GENE;
       }
     }
@@ -617,7 +618,7 @@ sub transcript_evidence {
 } ## end sub transcript_evidence
 
 
-=head2 len_covered
+=head2 _len_covered
 
  Args       : Bio::Seq::Feature object, reference to an array of repeat blocks
  Description: measures how much of the seq feature (intron or exon) is covered by repeat blocks
@@ -631,7 +632,7 @@ sub _len_covered {
   my $covered_len = 0;
  RBLOOP: foreach my $repeat_block (@$repeat_blocks_ref) {
     # print STDERR  "RB " . $repeat_block->seq_region_start . " " . $repeat_block->seq_region_end . "\n";
-    if ($repeat_block->overlaps($feat, 'ignore')) {
+    if ($repeat_block->start <= $feat->end && $repeat_block->end >= $feat->start ) {
       my $inter = $self->intersection($feat,$repeat_block);
       $covered_len += $inter->length;
     } elsif ($repeat_block->start > $feat->end) {
@@ -750,7 +751,7 @@ EXON: for ( my $i = 1 ; $i <= $#all_exons ; $i++ ) {
   return 1;
 } ## end sub protein_covered_intron
 
-=head2 remove_transcript_from_gene
+=head2 _remove_transcript_from_gene
 
   Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
   Description: steves method for removing unwanted transcripts from genes

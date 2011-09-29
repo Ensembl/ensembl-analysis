@@ -73,7 +73,7 @@ use vars qw (@ISA);
 
 
 
-sub new{
+sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
@@ -120,7 +120,7 @@ sub new{
 
 
 
-sub filter_results{
+sub filter_results {
   my ($self, $transcripts) = @_;
   # results are Bio::EnsEMBL::Transcripts with exons and supp_features
   my @good_matches;  
@@ -356,9 +356,8 @@ TRAN:
 
 ############################################################
 
-sub _get_transcript_coverage{
+sub _get_transcript_coverage {
   my ($self,$tran) = @_;
-
   if (@{$tran->get_all_supporting_features} and
       defined $tran->get_all_supporting_features->[0]->hcoverage) {
     my ($evi) = @{$tran->get_all_supporting_features};
@@ -372,7 +371,7 @@ sub _get_transcript_coverage{
 
 ############################################################
 
-sub _get_transcript_percent_id{
+sub _get_transcript_percent_id {
   my ($self,$tran) = @_;
 
   my ($sf);
@@ -389,7 +388,7 @@ sub _get_transcript_percent_id{
 
 ############################################################
 
-sub _get_transcript_evidence_id{
+sub _get_transcript_evidence_id {
   my ($self,$tran) = @_;
 
   my ($sf);
@@ -427,14 +426,14 @@ sub _transcript_is_spliced {
 
 # containers
 
-sub min_coverage{
+sub min_coverage {
   my $self = shift;
   $self->{'_min_coverage'} = shift if(@_);
 
   return exists($self->{'_min_coverage'}) ? $self->{'_min_coverage'} : undef;
 }
 
-sub min_percent{
+sub min_percent {
   my $self = shift;
   $self->{'_min_percent'} = shift if(@_);
 
@@ -442,7 +441,7 @@ sub min_percent{
 }
 
 
-sub best_in_genome{
+sub best_in_genome {
   my $self = shift;
   $self->{'_best_in_genome'} = shift if(@_);
 

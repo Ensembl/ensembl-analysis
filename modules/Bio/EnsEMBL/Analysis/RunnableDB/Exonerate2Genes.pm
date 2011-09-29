@@ -67,7 +67,7 @@ use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;
 
 use vars qw(@ISA);
 
-@ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 ############################################################
@@ -251,7 +251,8 @@ sub fetch_input {
 
   if (defined $self->PROGRAM && defined $self->analysis->program_file) {
     if ($self->PROGRAM ne $self->analysis->program_file) {
-      throw("CONFLICT: You have defined -program in your config file and ".
+# I'm just warning because for debugging it's easier to change just the PROGRAM parameters...
+      warning("CONFLICT: You have defined -program in your config file and ".
             "-program_file in your analysis table.");
     }
   }

@@ -23,7 +23,7 @@
   Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
-  This pacakage contains methods to make the GeneClusster easier to use.  
+  This package contains methods to make the GeneClusster easier to use.  
 
 =head1 SYNOPSIS
 
@@ -52,7 +52,7 @@
 
 
 
- =head2  Example 1 :  
+Example 1 :  
 
   This is a two-way cluster ( two-set cluster ) 
     - genes of 2 different sets overlap 
@@ -63,7 +63,7 @@
 
 
 
-=head2  Example 2: 
+Example 2: 
 
   Below you see 2 one-way clustering clusters  (2-set-clusters)
     - both clusters are called 'one-way clustering clusters' - they only cluster 'one way'  - they are homogenous clusters...
@@ -76,7 +76,7 @@
   SET 2 :                                                                      YYYYYYYYYYYY
 
 
-=head2   Example 3 : 
+Example 3 : 
 
   All the genes below form one two-way cluster because the exons overlap : 
 
@@ -86,7 +86,7 @@
 
 
 
-=head2 Example 4 : 
+Example 4 : 
 
   The genes below are one-way-clustering : ( one set cluster ) 
       method : #  get_oneway_clustering_genes_of_set($clustered,"transformed")
@@ -97,7 +97,7 @@
 
 
 
-=head2  Some definitions : 
+Some definitions : 
 
 
     one-way clustering means : 
@@ -143,7 +143,7 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
 
 
 
-=head2 make_types_hash_with_genes 
+=head2 make_types_hash 
 
    Arg[1]    : Array ref. to gene set 1 
    Arg[2]    : Array ref. to gene set 2 
@@ -580,11 +580,18 @@ sub cluster_Genes {
             # and add to cluster  
             #
 
-            if (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand)) {
-              push (@matching_clusters, $cluster);
-              next CLUSTER;
+            if ($ignore_exon_overlap) {
+              if (!$ignore_strand) {
+                if ($gene->strand == $cluster_gene->strand) {
+                  push (@matching_clusters, $cluster);
+                  next CLUSTER;
+                }
+              } else {
+                push (@matching_clusters, $cluster);
+                next CLUSTER;
+              }
             }
-            elsif ($ignore_exon_overlap) {
+            elsif (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand)) {
               push (@matching_clusters, $cluster);
               next CLUSTER;
             }
@@ -662,7 +669,7 @@ sub cluster_Genes {
 
 
 
-=head2  _compare_Genes()
+=head2  _compare_Genes
 
 
   Title  :  _compare_Genes
@@ -676,6 +683,11 @@ sub cluster_Genes {
 
 sub _compare_Genes {
   my ($gene1,$gene2,$translate, $ignore_strand) = @_;
+  
+  if (!$ignore_strand) {
+    $ignore_strand = 0;
+  }
+
   # quit if genes do not have genomic overlap 
   #
   # start-------gene1------end   start--------gene2----------end
@@ -698,7 +710,7 @@ sub _compare_Genes {
     my $exons2 = get_coding_exons_for_gene($gene2);
     foreach my $exon1 (@$exons1) {
       foreach my $exon2 (@$exons2) {
-        if (!$ignore_strand) {
+        if ($ignore_strand==0) {
           if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
             #print "Passed CDS overlap check - returning 1\n";
             return 1;
@@ -717,7 +729,7 @@ sub _compare_Genes {
     #
     foreach my $exon1 (@{$gene1->get_all_Exons}){
       foreach my $exon2 (@{$gene2->get_all_Exons}){
-        if (!$ignore_strand) {
+        if ($ignore_strand==0) {
           if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
             #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
@@ -752,4 +764,4 @@ sub get_coding_exons_for_gene {
   return \@coding; 
 }
 
-
+1;

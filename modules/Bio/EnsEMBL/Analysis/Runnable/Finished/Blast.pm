@@ -34,6 +34,71 @@ Bio::EnsEMBL::Analysis::Runnable::Finished::Blast -
 
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 
+=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Blast
+
+=head1 DESCRIPTION
+
+Unlike Bio::EnsEMBL::Analysis::Runnable::Blast,
+this module creates FeaturePairs from HSPs after
+doing any depth filtering to save time and memory
+when searching genomic sequences that generate
+large numbers of blast matches.
+
+=head2 usage of Bio::EnsEMBL::Analysis::Config::Blast with this module
+
+
+BLAST_CONFIG =>
+        {
+            Uniprot =>
+            {
+            BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::Finished::BPliteWrapper',
+            PARSER_PARAMS => {
+                               -regex => '^\w+\s+(\w+)',
+                               -query_type => 'pep',
+                               -database_type => 'pep',
+                               -threshold_type => 'PVALUE',
+                               -threshold => 0.01,
+			       -coverage => 10,
+			       -discard_overlaps => 1,
+
+                              },
+            BLAST_FILTER =>'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+            FILTER_PARAMS => {
+                              -min_score => 200,
+                              -prune => 1,
+                             },
+            BLAST_PARAMS => {
+                             -unknown_error_string => 'FAILED',
+                             -type => 'wu',
+                            },
+            },
+            DEFAULT =>
+            {
+             BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
+             PARSER_PARAMS => {
+                               -regex => '^(\w+)',
+                               -query_type => undef,
+                               -database_type => undef,
+                              },
+             BLAST_FILTER => undef,
+             FILTER_PARAMS => {},
+             BLAST_PARAMS => {
+                              -unknown_error_string => 'FAILED',
+                              -type => 'wu',
+                             }
+            },
+
+           BLAST_AB_INITIO_LOGICNAME => 'Genscan'
+	   }
+
+
+=head1 AUTHOR
+
+James Gilbert B<email> jgrg@sanger.ac.uk
+
+modified by Sindhu K. Pillai B<email>sp1@sanger.ac.uk
+=cut
+
 use strict;
 use warnings;
 use BlastableVersion;
@@ -325,68 +390,4 @@ sub DESTROY
 1;
 
 __END__
-
-=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Blast
-
-=head1 DESCRIPTION
-
-Unlike Bio::EnsEMBL::Analysis::Runnable::Blast,
-this module creates FeaturePairs from HSPs after
-doing any depth filtering to save time and memory
-when searching genomic sequences that generate
-large numbers of blast matches.
-
-=head2 usage of Bio::EnsEMBL::Analysis::Config::Blast with this module
-
-
-BLAST_CONFIG =>
-        {
-            Uniprot =>
-            {
-            BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::Finished::BPliteWrapper',
-            PARSER_PARAMS => {
-                               -regex => '^\w+\s+(\w+)',
-                               -query_type => 'pep',
-                               -database_type => 'pep',
-                               -threshold_type => 'PVALUE',
-                               -threshold => 0.01,
-			       -coverage => 10,
-			       -discard_overlaps => 1,
-
-                              },
-            BLAST_FILTER =>'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
-            FILTER_PARAMS => {
-                              -min_score => 200,
-                              -prune => 1,
-                             },
-            BLAST_PARAMS => {
-                             -unknown_error_string => 'FAILED',
-                             -type => 'wu',
-                            },
-            },
-            DEFAULT =>
-            {
-             BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
-             PARSER_PARAMS => {
-                               -regex => '^(\w+)',
-                               -query_type => undef,
-                               -database_type => undef,
-                              },
-             BLAST_FILTER => undef,
-             FILTER_PARAMS => {},
-             BLAST_PARAMS => {
-                              -unknown_error_string => 'FAILED',
-                              -type => 'wu',
-                             }
-            },
-
-           BLAST_AB_INITIO_LOGICNAME => 'Genscan'
-	   }
-
-
-=head1 AUTHOR
-
-James Gilbert B<email> jgrg@sanger.ac.uk
-
-modified by Sindhu K. Pillai B<email>sp1@sanger.ac.uk
 

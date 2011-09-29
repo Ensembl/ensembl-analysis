@@ -121,7 +121,7 @@ use vars qw(%Config);
       # set to '0' if you'd like to cluster using all exons (incl. UTR)
       CLUSTER_ON_CODING_EXONS    => 1,
     },
-    #BESTTARGETTED => {},
+    BESTTARGETTED => {},
   }
 
  );

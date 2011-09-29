@@ -156,7 +156,7 @@ sub new{
 #accessor methods
 
 
-=head2 accessor methods
+=head2 max_exon_length 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::Filter::BlastMiniGenewise
   Arg [2]   : int/hash ref/array ref/object

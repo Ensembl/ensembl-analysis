@@ -139,16 +139,16 @@ sub new {
 	return $self;
 }
 
-##################
-#accessor methods#
-##################
+####################
+# accessor methods #
+####################
 
-=head2 accessor_methods
+=head2 genewise
 
-  Arg [1]   : varies
-  Function  : set a varible to a particular value
-  Returntype: the variable
-  Exceptions: some throw if not passed the correct arguement
+  Arg [1]   : 
+  Function  : 
+  Returntype: genewise value
+  Exceptions: 
   Caller    : 
   Example   : 
 

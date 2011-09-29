@@ -47,7 +47,7 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile create_file_name);
 
 
-sub new{
+sub new {
   my ($class,@args) = @_;
   
   my $self = bless {},$class;

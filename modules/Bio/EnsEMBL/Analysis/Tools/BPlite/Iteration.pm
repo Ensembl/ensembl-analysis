@@ -147,7 +147,7 @@ sub qlength  {shift->{'LENGTH'}}
 
 =cut
 
-sub  newhits  {shift->{'NEWHITS'}}
+sub newhits  {shift->{'NEWHITS'}}
 
 =head2 oldhits
 
@@ -160,7 +160,7 @@ sub  newhits  {shift->{'NEWHITS'}}
 
 =cut
 
-sub  oldhits  {shift->{'OLDHITS'}}
+sub oldhits  {shift->{'OLDHITS'}}
 
 
 =head2 nextSbjct

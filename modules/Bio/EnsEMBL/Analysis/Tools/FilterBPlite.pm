@@ -96,7 +96,7 @@ sub new{
 }
 
 
-=head2 Container method
+=head2 threshold_type 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FilterBPlite
   Arg [2]   : string/int

@@ -231,7 +231,7 @@ sub fetch_input {
     }elsif (-s $target){
       print ("Target $target is a whole-genome file\n");
     }else{
-      throw("'$target' isn't a file or a directory?");
+      throw("'$target' isn't a non-empty file or a directory");
     }
   } else {
     throw("'$target' could not be found");

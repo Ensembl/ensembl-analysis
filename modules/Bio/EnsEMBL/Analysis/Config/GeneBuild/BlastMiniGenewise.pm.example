@@ -116,9 +116,9 @@ use vars qw( %Config );
              OPTIMAL_LENGTH => 1000000,
             }, 
 
-            TargettedGenewise => { 
+            targettedgenewise => { 
 
-             PAF_LOGICNAMES => ['Best_Pmatch'],
+             PAF_LOGICNAMES => ['best_pmatch'],
              OUTPUT_BIOTYPE => 'targetted',
              GENEWISE_PARAMETERS => { 
                                      # pass parameters go genewise here, i.e. -program =>"/usr/local/ensembl/bin/genewiseXXX"
@@ -170,12 +170,12 @@ use vars qw( %Config );
                                -min_split_coverage => '90',
                                -max_low_complexity => '60',
                               },
-             REPEATMASKING => ['RepeatMask'],
+             REPEATMASKING => ['repeatmask'],
             }, 
 
 
             Similarity => {
-             PAF_LOGICNAMES => ['Uniprot'],
+             PAF_LOGICNAMES => ['uniprot'],
              PAF_SOURCE_DB => 'REFERENCE_DB',
              OUTPUT_BIOTYPE => 'similarity',
              BIOTYPES_TO_MASK => ['targetted'],
@@ -191,12 +191,12 @@ use vars qw( %Config );
                                -min_split_coverage => '90',
                                -max_low_complexity => '60',
                               },
-             REPEATMASKING => ['RepeatMask'],
+             REPEATMASKING => ['repeatmask'],
             }, 
 
-            TargettedExonerate => { 
+            targettedexonerate => { 
 
-                PAF_LOGICNAMES => ['Best_Pmatch'], 
+                PAF_LOGICNAMES => ['best_pmatch'], 
                 OUTPUT_BIOTYPE => 'new_exonerate',
                 EXONERATE_PARAMETERS => {
                                          -options => '--model protein2genome --bestn 1 --maxintron 700000'

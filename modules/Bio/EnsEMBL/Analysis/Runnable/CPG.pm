@@ -96,7 +96,7 @@ sub new {
 
 
 
-=head2 containers
+=head2 min_length
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::CPG
   Arg [2]   : int, minimun value
@@ -117,12 +117,38 @@ sub min_length{
   return $self->{'min_length'};
 }
 
+=head2 min_gc_content
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::CPG
+  Arg [2]   : int, minimun value
+  Function  : container for specified variable. This pod refers to the
+  three methods below min_length, min_gc_content, min_oe. These are simple 
+  containers which dont do more than hold and return an given value
+  nothing is defined
+  Returntype: int
+  Exceptions: 
+  Example   : 
+
+=cut
 sub min_gc_content{
   my $self = shift;
   $self->{'min_gc_content'} = shift if(@_);
   return $self->{'min_gc_content'};
 }
 
+=head2 min_oe
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::CPG
+  Arg [2]   : int, minimun value
+  Function  : container for specified variable. This pod refers to the
+  three methods below min_length, min_gc_content, min_oe. These are simple 
+  containers which dont do more than hold and return an given value
+  nothing is defined
+  Returntype: int
+  Exceptions: 
+  Example   : 
+
+=cut
 sub min_oe{
   my $self = shift;
   $self->{'min_oe'} = shift if(@_);

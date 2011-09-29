@@ -49,7 +49,7 @@ use strict;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
+$| = 1;
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 sub new {
@@ -84,40 +84,61 @@ sub run {
   my $regex = $self->regex;
   my $bamfile = $self->bamfile;
   my $program = $self->program;
-  open  (my $fh,"ls -1 $dir |" ) || 
+  open  (my $fh,"find $dir  |" ) || 
     $self->throw("Error finding sam files in $dir\n");
   while (<$fh>){
     if ( $_ =~ m/($regex)/) {
+     if ( $_ =~ /$bamfile\..+/ ) {
+       print STDERR "Looks like output file is in the input directory I won't merge from this file $bamfile\n";
+       next;
+     }
       push @files,$_;
     }
   }
   print "Found " . scalar(@files) ." files \n";
+  my $count = 0;
+  my @fails;
   # next make all the sam files into one big sam flie
   open (BAM ,">$bamfile.sam" ) or $self->throw("Cannot open sam file for merging $bamfile.sam");
-  my $count = 0;
   foreach my $file ( @files ) {
-    open ( SAM ,"$dir/$file") or $self->throw("Cannot open file $dir/$file\n");
+    my $line;
+    open ( SAM ,"$file") or $self->throw("Cannot open file $file\n");
+    my $line_count = 0;
     while (<SAM>) {
       # 1st file copy the header all the others just copy the data
       chomp;
-      next if $_ =~ /^\@/ && $count > 0;
+      $line = $_;
+      next if $_ =~ /^\@/;
       print BAM "$_\n";
+      $line_count++;
     }
     $count++;
-  } 
+    push @fails,$file  unless ( $line eq '@EOF' or $line_count == 0 );
+    #last if $count >= 100;
+  }
   print "Merged $count files\n";
+  if ( scalar(@fails) > 0 ) {   
+    print "The following sam files failed to complete, you need to run them again\n";
+    foreach my $file (@fails) {
+      print "$file";
+    }
+    $self->throw();
+  }
   # now call sam tools to do the conversion.
   # is the genome file indexed?
   # might want to check if it's already indexed first
   my $command = "$program faidx " . $self->genome ;
-  open  ( $fh,"$command |" ) || 
-    $self->throw("Error indexing fasta file $@\n");
-  # write output
-  while(<$fh>){
-    chomp;
-    print STDERR "INDEX $_";
+  unless ( -e (  $self->genome.".fai" ) ) {
+    print "Indexing genome file\n";
+    open  ( $fh,"$command |" ) || 
+      $self->throw("Error indexing fasta file $@\n");
+    # write output
+    while(<$fh>){
+      chomp;
+      print STDERR "INDEX $_";
+    }
   }
-  $command = "$program import " . $self->genome ." $bamfile.sam  $bamfile.bam ";
+  $command = "$program view  -b -h -S -T " . $self->genome ." $bamfile.sam >  $bamfile.bam ";
   open  ( $fh,"$command |" ) || 
     $self->throw("Error making BAM file $@\n");
   # write output

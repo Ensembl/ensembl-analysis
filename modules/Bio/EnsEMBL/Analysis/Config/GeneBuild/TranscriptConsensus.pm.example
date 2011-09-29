@@ -106,25 +106,19 @@ use vars qw(%Config);
                       OUTPUT_DATABASE => "COALESCER_DB",
 
                       INPUT_GENES => {
-                           GENEWISE_DB => ['simgw'],
-                           EXONERATE_DB => ['est_all'],
+                           GENEWISE_DB => [''],
+                           EXONERATE_DB => [''],
                       },
                       AB_INITIO_LOGICNAMES => [],
-                      EST_SETS      =>['est_all'],
-                      SIMGW_SETS    =>['simgw'],
+                      EST_SETS      =>[''],
+                      SIMGW_SETS    =>[''],
                       ABINITIO_SETS =>[],
 
-                      # Set flag to 1 if you want to use solexa data
-                      SOLEXA => 0,
-                      # only fetch solexa reads scoring >= this...
-                      SOLEXA_SCORE_CUTOFF => 150,
-
-                      SOLEXA_DB => {
-                           # biotype of the features to fetch
-                           BIOTYPE => ['solexa_exonerate'],
-                      },
+                      # Use RNASeq introns from this db to help tidy the genes
+                      RNASEQ_INTRON_DB => '',
+		      # logic name(s) of the intron features to fetch
+                      RNASEQ_INTRON_NAME => [''],
                 },
-                SIM_CONSENSUS => {},
        }
 
 

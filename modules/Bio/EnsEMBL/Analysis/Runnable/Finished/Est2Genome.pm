@@ -107,7 +107,7 @@ $verbose = 0;
                            -ARGS          => $args);
     Function:   creates a
                 Bio::EnsEMBL::Analysis::Runnable::Est2Genome object
-    Returns :   A Bio::EnsEMBL::Analysis::Runnable::Est2Genome object
+    Returns :   Bio::EnsEMBL::Analysis::Runnable::Est2Genome object
     Args    :   -genomic:    Bio::PrimarySeqI object (genomic sequence)
                 -est:        Bio::PrimarySeqI object (est sequence),
                 -e2g:        Path to Est2Genome executable

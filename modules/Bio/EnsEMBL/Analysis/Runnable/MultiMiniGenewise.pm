@@ -179,7 +179,7 @@ sub features {
 
 
 
-=head2 object accessors
+=head2 genomic_sequence
 
   Arg [1]   : Object of correct type
   Function  : get/set object
@@ -426,7 +426,7 @@ sub run_MiniGenewise{
 }
 
 
-=head2 get_all_feature_by_id
+=head2 get_all_features_by_id
 
   Arg [1]   : none
   Function  : arranges all feature into hash keyed by hseqname, each element 

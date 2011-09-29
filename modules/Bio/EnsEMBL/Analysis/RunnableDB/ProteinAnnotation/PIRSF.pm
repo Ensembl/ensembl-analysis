@@ -78,32 +78,13 @@ sub fetch_input {
  
   $self->SUPER::fetch_input;
  
-  # PIRSF needs sequence lengths, so we must create one Runnable
-  # for each input sequence, giving a Bio::PrimarySeq as input
-
-  my @query_seqs;
-  if (ref($self->query) and $self->query->isa("Bio::PrimarySeq")) {
-    push @query_seqs, $self->query;
-  } elsif (-e $self->query) {
-    my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                -file   => $self->query);
-    while(my $seq = $seqio->next_seq) {
-      push @query_seqs, $seq;
-    }
-    $seqio->close;
-  } else {
-    throw($self->query . " is neither an object ref nor a file name\n");
-  }
-
-  foreach my $seq (@query_seqs) {
-    my $run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::PIRSF->
-        new(-query     => $seq,
+  my $run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::PIRSF->
+        new(-query     => $self->query,
             -analysis  => $self->analysis,
             -database  => $self->analysis->db_file,
             %{$self->parameters_hash}
             );
-    $self->runnable($run);
-  }
+  $self->runnable($run);
 }
 
 

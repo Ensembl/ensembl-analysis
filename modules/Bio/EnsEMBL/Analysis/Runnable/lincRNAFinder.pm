@@ -517,7 +517,7 @@ sub filter_cdna_genes_by_exon_count {
 } 
 
 
-=head2 score_cdna_overlap_with_K36
+=head2 score_cdna_overlap_with_multi_K36
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder
   Arg [2]   : Reference to an array of H3K36me3 gene objects

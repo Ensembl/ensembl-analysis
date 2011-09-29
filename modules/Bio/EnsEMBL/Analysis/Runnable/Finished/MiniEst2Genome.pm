@@ -65,6 +65,11 @@ Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
 The rest of the documentation details each of the object methods.
 Internal methods are usually preceded with a _
 
+=head1 AUTHOR
+
+James Gilbert B<email> jgrg@sanger.ac.uk
+
+Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
 =cut
 
 package Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome;
@@ -144,7 +149,7 @@ sub addFeature {
 }
 
 
-=head2 get_all_FeaturesbyId
+=head2 get_all_FeaturesById
 
     Title   :   get_all_FeaturesById
     Usage   :   $hash = $self->get_all_FeaturesById;
@@ -324,7 +329,7 @@ sub make_miniseq {
 }
 
 
-=head2 minimum_introm
+=head2 minimum_intron
 
   Title   : minimum_intron
   Usage   :
@@ -595,10 +600,3 @@ sub add_output{
 
 __END__
 
-=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome
-
-=head1 AUTHOR
-
-James Gilbert B<email> jgrg@sanger.ac.uk
-
-Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk

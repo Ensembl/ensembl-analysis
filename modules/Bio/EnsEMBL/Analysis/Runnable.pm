@@ -152,7 +152,7 @@ sub new{
 #containers
 
 
-=head2 containers
+=head2 options
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : string
@@ -174,12 +174,36 @@ sub options{
 }
 
 
+=head2 binddir
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Arg [2]   : string
+  Function  : container for specified variable. This pod refers to the
+  four methods below options, bindir, libdir and datadir. These are simple 
+  containers which dont do more than hold and return an given value
+  Returntype: string
+  Exceptions: none
+  Example   : my $options = $self->binddir;
+=cut
+
 sub bindir{
   my $self = shift;
   $self->{'bindir'} = shift if(@_);
   return $self->{'bindir'} || $BIN_DIR;
 }
 
+
+=head2 libdir
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Arg [2]   : string
+  Function  : container for specified variable. This pod refers to the
+  four methods below options, bindir, libdir and datadir. These are simple 
+  containers which dont do more than hold and return an given value
+  Returntype: string
+  Exceptions: none
+  Example   : my $options = $self->libdir;
+=cut
 
 sub libdir{
   my $self = shift;

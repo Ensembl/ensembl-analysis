@@ -87,31 +87,33 @@ sub new {
   my ($class,@args) = @_ ;
   my $self = $class->SUPER::new(@args) ;
 
-  my ( $all_genes, $evidence_sets, $filter_singletons, $filter_non_consensus, $filter_ests, $add_utr, $min_consensus, $utr_penalty, $end_exon_penalty, $est_overlap_penalty, $short_intron_penalty, $short_exon_penalty, $good_percent, $good_biotype, $small_biotype, $bad_biotype, $solexa, $solexa_score_cutoff, $verbose) =
-      rearrange([qw(
-                     ALL_GENES
-                     EVIDENCE_SETS
-                     FILTER_SINGLETONS
-                     FILTER_NON_CONSENSUS
-                     FILTER_ESTS
-                     ADD_UTR
-                     MIN_CONSENSUS
-                     UTR_PENALTY
-                     END_EXON_PENALTY
-                     EST_OVERLAP_PENALTY
-                     SHORT_INTRON_PENALTY
-                     SHORT_EXON_PENALTY
-                     GOOD_PERCENT
-                     GOOD_BIOTYPE
-                     SMALL_BIOTYPE
-                     BAD_BIOTYPE
-                     SOLEXA_BIN
-                     SOLEXA_SCORE_CUTOFF
-                     VERBOSE
-                    )], @args);
-
+  my ( $all_genes, $evidence_sets, $filter_singletons, $filter_non_consensus, $filter_ests, 
+       $add_utr, $min_consensus, $utr_penalty, $end_exon_penalty, $est_overlap_penalty, 
+       $short_intron_penalty, $short_exon_penalty, $good_percent, $good_biotype, $small_biotype, 
+       $bad_biotype, $rnaseq_introns, $verbose) =
+	 rearrange([qw(
+		       ALL_GENES
+		       EVIDENCE_SETS
+		       FILTER_SINGLETONS
+		       FILTER_NON_CONSENSUS
+		       FILTER_ESTS
+		       ADD_UTR
+		       MIN_CONSENSUS
+		       UTR_PENALTY
+		       END_EXON_PENALTY
+		       EST_OVERLAP_PENALTY
+		       SHORT_INTRON_PENALTY
+		       SHORT_EXON_PENALTY
+		       GOOD_PERCENT
+		       GOOD_BIOTYPE
+		       SMALL_BIOTYPE
+		       BAD_BIOTYPE
+		       RNASEQ_INTRONS
+		       VERBOSE
+		      )], @args);
+  
   $self->{evidence_sets} = $evidence_sets ;
-  $self->{all_genes_href} = $all_genes ;      # hashref $hash{'biotype'} = \@genes 
+  $self->{all_genes_href} = $all_genes ;  
   $self->{filter_singletons} = $filter_singletons ;
   $self->{filter_non_consensus} = $filter_non_consensus;
   $self->{filter_ests} = $filter_ests ;
@@ -126,8 +128,7 @@ sub new {
   $self->{good_biotype} = $good_biotype ;
   $self->{small_biotype} = $small_biotype ;
   $self->{bad_biotype} = $bad_biotype ;
-  $self->{solexa} = $solexa ;
-  $self->{solexa_score_cutoff} = $solexa_score_cutoff ;
+  $self->{rnaseq_introns} = $rnaseq_introns ;
   $self->{verbose} = $verbose ; # verbose or not 
 
   return $self ;
@@ -267,6 +268,21 @@ sub collapse_cluster{
       }
     }
   }
+  # add any rnaseq
+  if ( $self->rnaseq_introns ) {
+    foreach my $rnaseq_intron ( @{$self->rnaseq_introns} ) {
+      # just ones within this gene
+      next if $rnaseq_intron->end < $cluster->start;
+      last if $rnaseq_intron->start > $cluster->end;
+      my $intron = $collapsed_cluster->make_intron_from_rnaseq($rnaseq_intron);
+      # treat them like ests
+      $intron->ev_set('est');
+      $intron->biotype('intron');
+      $collapsed_cluster->add_intron($intron);
+      # add the extra weight 
+      $collapsed_cluster->add_intron_weight($intron,$rnaseq_intron->score);
+    }
+  }
 
   # once we have added all of them into a nice non-redundant set
   # we need to assign them a score
@@ -310,11 +326,8 @@ sub score {
   my $est_overlap_penalty = $self->{est_overlap_penalty} ;
   my $short_intron_penalty = $self->{short_intron_penalty} ;
   my $short_exon_penalty = $self->{short_exon_penalty} ;
-  my $solexa = $self->{solexa} ;
-  my $solexa_score_cutoff = $self->{solexa_score_cutoff} ;
   my $verbose = $self->{verbose} ;
   my $total_score;
-  my $solexa_score = 0;
   # scores are calculated as the number of exoct matches / the number of overlaps
   # it is complicated by end exons and evidence sets however.
   $total_score = $collapsed_cluster->get_intron_count($feature) if $type eq 'intron';
@@ -325,27 +338,7 @@ sub score {
   # this way we penalise anything with less than exons than the minumum number of overlapping exons
   my $overlap = $min_consensus;
   my $est_trans = $min_consensus;
-  # get solexa data if it's there
-  if ($solexa &&  defined($self->solexa_slice) && $type eq 'exon'){
-    #Fetch the slice from the solexa db that corresponds to the exon
-    #Get all solexa reads with score above the cutoff ( 150 reccomended ) regardless of strand
-    my $sub_slice = $self->solexa_slice->adaptor->fetch_by_region
-      (
-       'toplevel',
-       $self->solexa_slice->seq_region_name,
-       $feature->start + $self->solexa_slice->start,
-       $feature->end + $self->solexa_slice->start,
-       1);
-    $self->throw("Sub slice not found " . $feature->start . " " .  $feature->end . " " .  $feature->strand . "\n")
-      unless $sub_slice;
-    # Fetch the features
-    $solexa_score = scalar(@{$sub_slice->get_all_DnaAlignFeatures
-			       (
-				$$TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC{"SOLEXA_DB"}->{"BIOTYPE"}[0],
-				$solexa_score_cutoff)}
-			  );
-    print  "Solexa reads = $solexa_score\n" if $verbose;
-  }
+  
   
   # the weighted score is:
   # 50% - proportion of exons in the stack that come from ests / number of overlapping est transcripts
@@ -392,16 +385,16 @@ sub score {
     my $weighted_score = 0;
     my $unweighted_score = 0;
     if ($est_trans){
-      $weighted_score = ($est_exons + $solexa_score) / ($est_trans + $solexa_score) ;
+      $weighted_score = $est_exons  / $est_trans ;
       print "weighted score $weighted_score " if $verbose;
     }
     # other componnt of score comes from all the exons
-    $unweighted_score =  ($total_score + $solexa_score) / ($overlap + $solexa_score) ;
+    $unweighted_score =  $total_score  / $overlap  ;
     print "unweighted score $unweighted_score \t" if $verbose;
     $score = ($weighted_score + $unweighted_score) / 2;
   } else {
     # there are no est exons overlaping this feature score is simple identical / non-identical overlaps
-    $score += (($total_score + $solexa_score) / ($overlap + $solexa_score)) ;
+    $score += ($total_score / $overlap ) ;
     # if the feature overlaps an est transcript but not est exons, add a penalty
     if ($est_trans &&  $est_trans > 1.5 ){
       $score -= $est_overlap_penalty;
@@ -452,7 +445,6 @@ sub make_genes{
   my $good_biotype = $self->{good_biotype} ;
   my $small_biotype = $self->{small_biotype} ;
   my $bad_biotype = $self->{bad_biotype} ;
-  my $solexa = $self->{solexa} ;
   my $verbose = $self->{verbose} ;
   my @genes;
   my @final_genes;
@@ -664,10 +656,6 @@ sub make_genes{
 	$tsf->hcoverage($tsf->score);
 	$tsf->score(sprintf("%.4f", $final_score));
       }	
-      print "Transcript ". ($transcript->start + $self->solexa_slice->start -1) .":".
-	($transcript->end  + $self->solexa_slice->start-1) . ":".
-	  $transcript->strand." ".
-	    $final->biotype." " if $verbose && $solexa;
       print "Final score $final_score\n";
     }
   }
@@ -1152,18 +1140,8 @@ sub clone_exon_extended {
   return $newexon;
 }
 
-sub solexa_slice{
-  my ($self,$slice) = @_ ;
-  if  (defined($slice)) {
-    $self->{_solexa} = $slice;
-  }
-  return $self->{_solexa};
-}
 
-
-
-
-=head2
+=head2 get_all_evidence_sets
 
 Name : get_all_evidence_sets
 Arg[1] : none
@@ -1181,7 +1159,7 @@ sub get_all_evidence_sets {
 
 
 
-=head2
+=head2 get_genes_by_evidence_set
 
 Name : get_genes_by_evidence_set($evidence_set)
 Arg[1] : String 
@@ -1210,7 +1188,7 @@ sub get_genes_by_evidence_set {
 
 
 
-=head2
+=head2 get_genes_by_biotype
 
 Name : get_genes_by_biotype($arg)  
 Arg[1] : String 
@@ -1225,7 +1203,7 @@ sub get_genes_by_biotype {
 }
 
 
-=head2
+=head2 get_biotypes_of_evidence_set
 
 Name : get_biotypes_of_evidence_set($arg)  
 Arg[1] : String 
@@ -1244,7 +1222,7 @@ sub get_biotypes_of_evidence_set {
 
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 verbose
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
@@ -1259,7 +1237,7 @@ sub get_biotypes_of_evidence_set {
 #config file itself Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus
 
 
-sub verbose  {
+sub verbose {
     my ($self, $arg) = @_ ;
   if($arg) {
     $self->{'verbose'} = $arg ;
@@ -1379,20 +1357,13 @@ sub bad_biotype {
   return $self->{'bad_biotype'} ;
 }
 
-sub solexa {
-    my ($self, $arg) = @_ ;
-  if($arg) {
-    $self->{'solexa'} = $arg ;
-  }
-  return $self->{'solexa'} ;
-}
 
-sub solexa_score_cutoff {
+sub rnaseq_introns  {
     my ($self, $arg) = @_ ;
   if($arg) {
-    $self->{'solexa_score_cutoff'} = $arg ;
+    $self->{'rnaseq_introns'} = $arg ;
   }
-  return $self->{'solexa_score_cutoff'} ;
+  return $self->{'rnaseq_introns'} ;
 }
 
 

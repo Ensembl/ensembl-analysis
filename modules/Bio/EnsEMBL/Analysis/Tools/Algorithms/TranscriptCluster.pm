@@ -58,14 +58,11 @@ use Bio::EnsEMBL::Utils::Exception qw (throw warning ) ;
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Root Bio::RangeI);
 
-=head1 METHODS
-
-=cut
 
 #########################################################################
 
 
-=head2 new()
+=head2 new
 
 new() initializes the attributes:
 _transcript_array
@@ -104,7 +101,7 @@ sub new {
 Methods start and end are typical for a range. We also implement the boolean
 and geometrical methods for a range.
 
-=head2 start()
+=head2 start
 
   Title   : start
   Usage   : $start = $transcript_cluster->end();
@@ -142,7 +139,7 @@ sub start {
 
 ############################################################
 
-=head2 end()
+=head2 end
 
   Title   : end
   Usage   : $end = $transcript_cluster->end();
@@ -266,7 +263,7 @@ not defined. They are implemented in Bio::RangeI.
 
  $cluster->overlaps($other_cluster) && print "Clusters overlap\n";
 
-=head2 overlap:wq
+=head3 overlap:wq
 s
 
   Title   : overlaps
@@ -279,7 +276,7 @@ s
 
 =cut
 
-=head2 contains
+=head3 contains
 
   Title   : contains
   Usage   : if($cluster1->contains($cluster2) { do stuff }
@@ -291,7 +288,7 @@ s
 
 =cut
 
-=head2 equals
+=head3 equals
 
   Title   : equals
   Usage   : if($cluster1->equals($cluster2))
@@ -309,7 +306,7 @@ Bio::RangeI compliant objects or triplets (start, stop, strand) from
 which new ranges could be built. They are implemented  here and not in Bio::RangeI, since we
 want them to return a new TranscriptCluster object.
 
-=head2 overlap_extent
+=head3 overlap_extent
 
  Title   : overlap_extent
  Usage   : ($a_unique,$common,$b_unique) = $a->overlap_extent($b)
@@ -440,7 +437,7 @@ return $union_cluster;
 
 ############################################################
 
-=head2 put_Transcripts()
+=head2 put_Transcripts
 
   function to include one or more transcripts in the cluster.
   Useful when creating a cluster. It takes as argument an array of transcripts, it returns nothing.
@@ -492,7 +489,7 @@ sub put_Transcripts {
 
 #########################################################################
 
-=head2 get_Transcripts()
+=head2 get_Transcripts
 
   it returns the array of transcripts in the TranscriptCluster object
 
@@ -505,7 +502,7 @@ sub get_Transcripts {
 
 #########################################################################
 
-=head2 to_String()
+=head2 to_String
 
   it returns a string containing the information about the transcripts in the TranscriptCluster object
 
@@ -550,7 +547,7 @@ sub exon_Density{
   return $density;
 }
 
-=head2 _get_start_end()
+=head2 _get_start_end
 
  function to get the start and end positions - written as one method
  for efficiency

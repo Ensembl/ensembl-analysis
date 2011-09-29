@@ -46,7 +46,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
-=head2 run_program
+=head2 run_analysis
 
  Title    : run_program
  Usage    : $self->program
@@ -117,11 +117,11 @@ sub parse_results {
    my $id;
     while (<CPGOUT>) {
       chomp;
+      print "$_\n";
       if (/^Query sequence:\s+(\S+)/) {
 	$id = $1;
       }
 
-      print "$_\n";
       if (my ($hid, $start, $end, $hstart, $hend, $score, $evalue) = /(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
 
 	print "matched\n";

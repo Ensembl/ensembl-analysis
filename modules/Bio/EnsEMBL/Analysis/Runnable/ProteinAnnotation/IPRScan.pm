@@ -82,13 +82,6 @@ sub new{
 
 #################
 
-sub multiprotein{
-  my ($self) = @_;
-  return 1;
-}
-
-
-##################
 
 sub run_analysis{
   my ($self) = @_;

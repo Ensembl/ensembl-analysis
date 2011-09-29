@@ -73,7 +73,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 #########################################################################
 
 
-=head2 new()
+=head2 new
 
 new() initializes the attributes:
 
@@ -111,7 +111,7 @@ sub new {
 Methods start and end are typical for a range. We also implement the boolean
 and geometrical methods for a range.
 
-=head2 start()
+=head2 start
 
   Title   : start
   Usage   : $start = $gene_cluster->end();
@@ -153,7 +153,7 @@ sub start {
 
 ############################################################
 
-=head2 end()
+=head2 end
 
   Title   : end
   Usage   : $end = $gene_cluster->end();
@@ -280,7 +280,7 @@ sub strand {
 
 #########################################################################
 
-=head2 put_Genes()
+=head2 put_Genes
 
   function to include one or more genes in the cluster.
   Useful when creating a cluster. It takes as argument an array of genes, it returns nothing.
@@ -358,7 +358,7 @@ sub get_sets_included {
 
 #########################################################################
 
-=head2 get_Genes()
+=head2 get_Genes
 
   it returns the array of genes in the GeneCluster object
 
@@ -417,7 +417,7 @@ sub get_all_Exons {
 #########################################################################
 
 
-=head2 get_Gene_Count()
+=head2 get_Gene_Count
 
   it returns the number of genes in the GeneCluster object
 
@@ -441,7 +441,7 @@ sub gene_Types {
 
 #########################################################################
 
-=head2 get_Genes_of_Type()
+=head2 get_Genes_of_Type
 
   We can get the genes in each cluster of one type. 
   We pass one string identifying the genetype.
@@ -486,7 +486,7 @@ sub get_Genes_by_Set() {
 }
 #########################################################################
 
-=head2 get_Genes_by_Type()
+=head2 get_Genes_by_Type
 
   We can get the genes in each cluster of a given type. 
   We pass an arrayref containing the types we want to retrieve.
@@ -510,7 +510,7 @@ sub get_Genes_by_Type() {
 
 
 
-=head2 to_String()
+=head2 to_String
 
   it returns a string containing the information about the genes contained in the
   GeneCluster object
@@ -558,7 +558,7 @@ sub exon_Density{
 
 #########################################################################
 
-=head2 _get_start()
+=head2 _get_start
 
  function to get the start position of a gene - it reads the gene object and it returns
  the start position of the first exon
@@ -605,7 +605,7 @@ sub _get_end {
 }
 
 
-=head2 _translateable_exon_length()
+=head2 _translateable_exon_length
 
  internal function that returns the length of the translateable exons 
 
@@ -629,7 +629,7 @@ sub _translateable_exon_length {
    Function  : gets a GeneCluster and converts it by building a TranscriptCluster, than 
                clusters the exons of all Transcripts and returns an array-ref to 
                Bio::EnsEMBL::ExonCluster-objects 
-   Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
+   Returnval : ArrayRef of Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
 
 =cut
 
@@ -665,7 +665,7 @@ sub get_exon_clustering_from_gene_cluster {
                using only coding exons for the clustering. It then clusters the 
                coding exons of all Transcripts and returns an array-ref to
                Bio::EnsEMBL::ExonCluster-objects
-   Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
+   Returnval : ArrayRef of Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster objects
 
 =cut
 
@@ -703,7 +703,7 @@ sub get_coding_exon_clustering_from_gene_cluster {
    Function  : gets a GeneCluster and converts it by building a TranscriptCluster, than 
                clusters the exons of all Transcripts and returns an array-ref to 
                Bio::EnsEMBL::ExonCluster-objects 
-   Returnval :  Aref of  Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster objects
+   Returnval :  ArrayRef of  Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster objects
 
 =cut
 

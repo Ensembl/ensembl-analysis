@@ -46,7 +46,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
-=head2 run_program
+=head2 run_analysis
 
  Title    : run_program
  Usage    : $self->program

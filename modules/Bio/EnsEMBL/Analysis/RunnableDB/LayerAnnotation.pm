@@ -75,12 +75,13 @@ sub fetch_input {
 
     foreach my $layer (@{$self->layers}) {
       foreach my $tp (@{$layer->biotypes}) {
-        foreach my $g (@{$slice->get_all_Genes_by_type($tp)}) {
+        foreach my $g (@{$slice->get_all_Genes_by_type($tp, undef, 1)}) {
           $g = $g->transfer($tlslice);
           push @{$layer->genes}, $g;
         }
       }
     }
+    $dbh->dbc->disconnect_when_inactive(1) ;
   }
 }
 

@@ -178,7 +178,7 @@ sub convert_translateable_exons_to_exon_extended_objects {
 
   Function  : print information about the transcript and its
   children objects, using indent to make the format readable
-  Returntype: n/a
+  Returntype: none
   Exceptions: none
   Example   : print_Transcript($transcript);
 
@@ -215,7 +215,7 @@ sub print_Transcript{
 
   Function  : print information about the transcript and its Exons
               using indent to make the format readable
-  Returntype: n/a
+  Returntype: none
   Exceptions: none
   Examples  : print_Transcript_and_Exons(\@transcript) 
               print_Transcript_and_Exons($transcript) 
@@ -248,7 +248,7 @@ sub print_Transcript_and_Exons{
   Arg [1]   : Bio::EnsEMBL::Transcript
   Arg [2]   : string, indent
   Function  : return string of info about the transcript
-  Returntype: 
+  Returntype: String
   Exceptions: none
   Example   : print_just_Transcript($transcript);
 
@@ -269,7 +269,7 @@ sub Transcript_info{
   Arg [1]   : Bio::EnsEMBL::Transcript
   Arg [2]   : string, an indent
   Function  : print the transcripts supporting evidence
-  Returntype: n/a
+  Returntype: none
   Exceptions: none
   Example   : print_Transcript_evidence($transcript);
 
@@ -574,7 +574,7 @@ sub calculate_exon_phases {
   Arg [1]   : Bio::EnsEMBL::Transcript
   Function  : check if any exons start before the previous exon
   finished
-  Returntype:boolean, 1 for pass, 0 for fail 
+  Returntype: Boolean, 1 for pass, 0 for fail 
   Exceptions: 
   Example   : 
 

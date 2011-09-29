@@ -3,27 +3,36 @@
 
   delete_transcripts.pl
 
-=head1 SYNOPSIS
- 
-  delete_transcripts.pl
-  deletes transcripts from given database whose ids are passed in through STDIN
-
 =head1 DESCRIPTION
 
+  deletes transcripts from given database whose ids are passed in through STDIN as a file
 
 =head1 OPTIONS
 
-    -dbhost      host name for database (gets put as host= in locator)
-    -dbport      For RDBs, what port to connect to (port= in locator)
-    -dbname    For RDBs, what name to connect to (dbname= in locator)
-    -dbuser    For RDBs, what username to connect as (dbuser= in locator)
-    -dbpass    For RDBs, what password to use (dbpass= in locator)
-    -help      summary of options
+=head1 
 
+=head2 DB connection 
 
-=head2 EXAMPLES
+    -dbhost         host name for database (gets put as host= in locator)
+    -dbport         For RDBs, what port to connect to (port= in locator)
+    -dbname         For RDBs, what name to connect to (dbname= in locator)
+    -dbuser         For RDBs, what username to connect as (dbuser= in locator)
+    -dbpass         For RDBs, what password to use (dbpass= in locator)
 
-./delete_transcripts.pl -dbhost ecs2b -dbuser ensadmin -dbpass **** -dbname rat_Jun03_mk2 transcripts_to_delete
+=head2 DB connection (alternative method)
+
+    -config_dbname  the alias for the DB you want to connect to, as defined in 
+                    Bio::EnsEMBL::Analysis::Config::Databases config file.
+                    Use this option or the dbhost/dbport/dbname etc options above,
+                    but not both.
+
+=head2 Other options
+
+    -stable_id      A boolean flag to indicate that the IDs passed in are stable IDs
+
+=head1 EXAMPLES
+
+./delete_transcripts.pl -dbhost ecs2b -dbuser ensadmin -dbpass **** -dbname rat_Jun03_mk2 transcripts_to_delete.ls
 
 =cut
 

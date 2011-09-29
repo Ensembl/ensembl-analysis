@@ -54,7 +54,7 @@ SOLEXA2GENES_CONFIG_BY_LOGIC =>
                   LOGIC_NAMES  => [],
 		  
 		  # logic_name for repeats will be used to merge exons separated by repeats 
-                  REPEAT_LN  => 'RepeatMask',	
+                  REPEAT_LN  => 'repeatmask',	
 
                   # options for filtering out small gene models
                   MIN_LENGTH => 100,

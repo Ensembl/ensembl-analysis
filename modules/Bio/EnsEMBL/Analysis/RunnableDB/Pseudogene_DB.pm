@@ -135,7 +135,7 @@ sub fetch_input {
   my $genes_slice = $genedb_sa->fetch_by_name( $self->input_id );
   $self->query($genes_slice);
 
-  my $genes = $genes_slice->get_all_Genes;
+  my $genes = $genes_slice->get_all_Genes_by_type( $self->PS_BIOTYPE );
   print $genes_slice->name . "\t" . $genes_slice->start . "\n";
 GENE: foreach my $gene ( @{$genes} ) {
     # Ignore all other biotypes of genes that are not protein_coding
@@ -387,7 +387,7 @@ sub lazy_load {
   return $gene;
 }
 
-=head2 remove_transcript_from_gene
+=head2 _remove_transcript_from_gene
 
   Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
   Description: steves method for removing unwanted transcripts from genes

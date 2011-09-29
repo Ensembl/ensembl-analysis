@@ -49,10 +49,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils ;
 
 
-@ISA = qw (
-           Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild
-           Bio::EnsEMBL::Analysis::RunnableDB
-           );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild Bio::EnsEMBL::Analysis::RunnableDB);
 
 
 
@@ -319,7 +316,7 @@ sub read_and_check_config{
 }
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 NEW_SET_1_CDNA 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref

@@ -338,7 +338,7 @@ sub main_reference_db {
     return $MAIN_REFERENCE_DB;
 }
 
-=head2 vital_tables()
+=head2 vital_tables
 
    Function  : Return the values of VITAL_TABLES from the Databases.pm file
                It is all the vital tables from the schema that should be

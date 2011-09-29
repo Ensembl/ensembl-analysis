@@ -37,7 +37,10 @@ This object holds one or more introns which has been clustered
 
 =head1 METHODS
 
+=head1 METHODS
+
 =cut
+
 
 # Let the code begin ...
 
@@ -52,12 +55,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 @ISA = qw(Bio::EnsEMBL::Root);
 
-=head1 METHODS
-
-=cut
-
-
-=head2
+=head2 new
 
   Arg[1]      :
   Example     : my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::IntronCluster->new() ;
@@ -87,7 +85,7 @@ sub new {
   return $self;
 }
 
-=head2
+=head2 put_Introns
 
   Arg[1]      : arrayref of Bio::EnsEMBL::Intron 
   Arg[2]      : Bio::EnsEMBL::Transcript
@@ -145,7 +143,7 @@ sub put_Introns {
   }
 }
 
-=head2
+=head2 get_Introns
 
   Arg[1]      : None
   Example     : foreach my $intron (@{ $self->get_Introns} ) { 
@@ -170,7 +168,7 @@ sub get_Introns {
   return \@introns;
 }
 
-=head2
+=head2 strand
 
   Arg[1]      : None
   Example     : $strand = $intron_cluster->strand
@@ -201,7 +199,7 @@ sub strand{
   return $self->{_cached_strand};
 }
 
-=head2
+=head2 get_Introns_by_Set
 
   Arg[1]      : String (set name) 
   Example     : my @introns = $intron_cluster->get_Introns_by_Set($setname); 
@@ -233,7 +231,7 @@ sub get_Introns_by_Set() {
   return \@selected_introns;
 }                 
 
-=head2
+=head2 start
 
   Arg[1]      : None
   Example     : $start = $intron_cluster->start
@@ -263,7 +261,7 @@ sub start{
   return $self->{_cached_start};
 }
       
-=head2
+=head2 end
 
   Arg[1]      : None
   Example     : $end = $intron_cluster->end
@@ -293,7 +291,7 @@ sub end{
   return $self->{_cached_end};
 }
 
-=head2
+=head2 get_transcripts_having_Intron_in_IntronCluster
 
   Arg[1]      : Bio::EnsEMBL::Intron
   Example     : @transcripts = @{$clust->get_transcripts_having_Intron_in_IntronCluster($intron)}; 
@@ -321,7 +319,7 @@ sub get_transcripts_having_Intron_in_IntronCluster {
   return \@transcript_array;
 }
 
-=head2
+=head2 each_transcripts_introns
 
   Arg[1]      : None
   Example     : my %transhash =  $self->each_transcripts_introns;
@@ -337,7 +335,7 @@ sub each_transcripts_introns {
   return %{$self->{_transcripthash}};
 }
 
-=head2
+=head2 _add_transcript_reference
 
   Arg[1]      : Bio::EnsEMBL::Intron
   Arg[2]      : Bio::EnsEMBL::Transcript
@@ -359,7 +357,7 @@ sub _add_transcript_reference {
   push @{$self->{_transcripthash}{$transcript->adaptor->dbc->dbname."_".$transcript->dbID}{'introns'}}, $intron;
 }
 
-=head2
+=head2 contains_transcript
 
   Arg[1]      : Bio::EnsEMBL::Transcript
   Example     : if (!$self->contains_transcript($transcript)) {

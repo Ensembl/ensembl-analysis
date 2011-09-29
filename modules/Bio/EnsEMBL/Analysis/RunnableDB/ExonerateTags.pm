@@ -474,7 +474,7 @@ sub runnable_path{
 }
 
 
-=head2 helper functions
+=head2 GENOMICSEQS
 
   Arg [1]   : (optional) new value
   Function  : GETTER/SETTER functions for Config values

@@ -104,42 +104,44 @@ sub fetch_input {
   $self->throw("No input id") unless defined($self->input_id) ;
 
   my $slice = $self->fetch_sequence($self->input_id, $self->db ) ;
-  my $solexa_slice ;
+  my $introns ;
 
   $self->query($slice);
+  # fetch any RNASeq introns first
+  if ( $self->RNASEQ_INTRON_DB ) {
+    my $rnaseq_db = $self->get_dbadaptor($self->RNASEQ_INTRON_DB);
+    my $rna_slice = $self->fetch_sequence($self->input_id, $rnaseq_db );
+    foreach my $ln ( @{$self->RNASEQ_INTRON_NAME} ) {
+      push @$introns , @{$rna_slice->get_all_DnaAlignFeatures($ln)};
+    }
+    # make sure they are sorted
+    @$introns = sort {$a->start <=> $b->start} @$introns;
+    print STDERR "Found " . scalar(@$introns) ." unique intron features from the RNASeq db\n";
+  }
+  
   $self->{evidence_sets} = {
-           'est'      => $self->EST_SETS,
-           'simgw'    => $self->SIMGW_SETS,
-           'abinitio' => $self->ABINITIO_SETS,
-  };
+			    'est'      => $self->EST_SETS,
+			    'simgw'    => $self->SIMGW_SETS,
+			    'abinitio' => $self->ABINITIO_SETS,
+			   };
   
   my %databases = %{$self->INPUT_GENES} ;
-
+  
   # check if every biotype/logic_name belongs to an EVIDENCE set
   $self->_check_config() ; 
- 
+  
   # now looping through all keys of %databases defined in the config 
-
   my %biotypes_to_genes ; 
   for my $db (keys %databases) {
-
-    # Slice is different if it is a solexa database
-
-    if ( ( $self->SOLEXA == 1 ) && (exists $databases{$db}) ) {
-      my $dba = $self->get_dbadaptor($db) ;
-      $dba->dnadb($self->db) ; 
-      $solexa_slice = $self->fetch_sequence($self->input_id, $dba );
-     }
-
     next unless (exists $databases{$db}) ;  
-
+    
     my $dba = $self->get_dbadaptor($db) ;
     $dba->dnadb($self->db) ; 
     my $slice = $self->fetch_sequence($self->input_id, $dba );
-
+    
     # organise genes into "EVIDENCE_SETS" depending on their underlying source 
     # these sets are specified in the config file TranscriptConsensus.pm 
-
+    
     for my $biotype ( @{$databases{$db} }) {
       my $genes = $slice->get_all_Genes_by_type($biotype) ; 
       # lazy load 
@@ -155,38 +157,38 @@ sub fetch_input {
 	}
       }
       my ( $set ) = $self->get_evidence_set ( $biotype ) ;
-
+      
       if (scalar( @{$genes} ) > 0 ) { 
         # store genes of specific biotype in hash which holds them in an array 
         # add specific information to exons / re-bless them 
-
+	
         my @multi_exon_genes ;
         for my $g (@$genes){
           my $single_exon_gene ;
-
+	  
           for my $t (@{$g->get_all_Transcripts}){
             throw ("gene has more than one transcript - only processing 1-gene-1-transcript-genes") 
-            if (@{$g->get_all_Transcripts}>1) ; 
-
+	      if (@{$g->get_all_Transcripts}>1) ; 
+	    
             bless $t, "Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended" ; 
 	    $t->ev_set($set);
             my @all_exons = @{ $t->get_all_Exons } ;
-
+	    
             $single_exon_gene = 1 if (@all_exons == 1 ) ; 
-
+	    
             map { bless $_,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended" } @all_exons ; 
-
+	    
             for (my $int=0; $int < @all_exons ; $int++) {
-
+	      
               my $e = $all_exons[$int] ;
               $e->biotype($g->biotype) ;
               $e->ev_set($set) ;
               $e->transcript($t) ; 
               $e->analysis($g->analysis) ; 
-
+	      
               # setting pointer to previous exon
               $e->next_exon($all_exons[$int+1]); 
-
+	      
               # setting pointer to previous exon 
               if ($int == 0 ) { 
                 $e->prev_exon(0); 
@@ -201,31 +203,30 @@ sub fetch_input {
         push @{$biotypes_to_genes{$biotype} } , @multi_exon_genes ; 
       }
     }
-
+    
     # PREDICTION TRANSCRIPT PROCESSING 
     #
     # get all PredictionTranscripts by their logic_name 
     # these transcripts are converted to Genes with biotype eq logicname of analysis 
-
+    
     for my $logic_name_becomes_biotype ( @{ $self->AB_INITIO_LOGICNAMES }) { 
-
-     # get all PredictionTranscripts and convert them to Genes, set biotype to logic_name  
-     my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype ) ;  
-     
-     # get ev-set 
-     my $result_set_name  = $self->get_evidence_set( $logic_name_becomes_biotype ) ; 
-     my $ab_initio_genes = $self->convert_prediction_transcripts_to_genes( $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
-     info ( scalar (@{$ab_initio_genes}) . "\t$logic_name_becomes_biotype-genes\n") ; 
-     if ( scalar(@$ab_initio_genes)>0){ 
-       push @{$biotypes_to_genes{$logic_name_becomes_biotype} } , @{$ab_initio_genes} ;
-     }
-   }
+      
+      # get all PredictionTranscripts and convert them to Genes, set biotype to logic_name  
+      my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype ) ;  
+      
+      # get ev-set 
+      my $result_set_name  = $self->get_evidence_set( $logic_name_becomes_biotype ) ; 
+      my $ab_initio_genes = $self->convert_prediction_transcripts_to_genes( $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
+      info ( scalar (@{$ab_initio_genes}) . "\t$logic_name_becomes_biotype-genes\n") ; 
+      if ( scalar(@$ab_initio_genes)>0){ 
+	push @{$biotypes_to_genes{$logic_name_becomes_biotype} } , @{$ab_initio_genes} ;
+      }
+    }
   } 
-
+  
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->new
     (
      -query                => $self->query,
-     -solexa               => $solexa_slice,
      -analysis             => $self->analysis,
      -all_genes            => \%biotypes_to_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
      -evidence_sets        => $self->{evidence_sets} , 
@@ -244,11 +245,10 @@ sub fetch_input {
      -good_biotype         => $self->GOOD_BIOTYPE,
      -small_biotype        => $self->SMALL_BIOTYPE,
      -bad_biotype          => $self->BAD_BIOTYPE,
-     -solexa_bin           => $self->SOLEXA,
+     -rnaseq_introns       => $introns,
     );
-  $runnable->solexa_slice($solexa_slice) if ($self->SOLEXA && $solexa_slice);
   $self->runnable($runnable);
-
+  
   return 1;
 }
 
@@ -325,12 +325,12 @@ sub _check_config {
 
 
 
-=head2 CONFIG_ACCESSOR_METHODS
+=head2 INPUT_GENES 
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
   Function  : Getter/Setter for config variables
-  Returntype: again varies
+  Returntype:
   Exceptions: 
   Example   : 
 
@@ -508,28 +508,21 @@ sub SMALL_BIOTYPE {
   return $self->{'SMALL_BIOTYPE'} ;
 }
 
-sub SOLEXA {
+sub RNASEQ_INTRON_DB {
   my ($self, $arg) = @_ ;
   if(defined $arg) {
-    $self->{'SOLEXA'} = $arg ;
+    $self->{'RNASEQ_INTRON_DBB'} = $arg ;
   }
-  return $self->{'SOLEXA'} ;
+  return $self->{'RNASEQ_INTRON_DBB'} ;
 }
 
-sub SOLEXA_SCORE_CUTOFF {
-  my ($self, $arg) = @_ ;
-  if(defined $arg) {
-    $self->{'SOLEXA_SCORE_CUTOFF'} = $arg ;
-  }
-  return $self->{'SOLEXA_SCORE_CUTOFF'} ;
-}
 
-sub SOLEXA_DB {
+sub RNASEQ_INTRON_NAME {
   my ($self, $arg) = @_ ;
   if(defined $arg) {
-    $self->{'SOLEXA_DB'} = $arg ;
+    $self->{'RNASEQ_INTRON_NAME'} = $arg ;
   }
-  return $self->{'SOLEXA_DB'} ;
+  return $self->{'RNASEQ_INTRON_NAME'} ;
 }
 
 

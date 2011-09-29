@@ -100,7 +100,6 @@ sub fetch_input {
   my $logic = $self->analysis->logic_name;
   # fetch adaptors and store them for use later
   $self->intron_slice_adaptor($self->get_dbadaptor($self->INTRON_DB)->get_SliceAdaptor);
-  $self->small_intron_slice_adaptor($self->get_dbadaptor($self->SMALL_INTRON_DB)->get_SliceAdaptor) if $self->SMALL_INTRON_DB;
   $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
   $self->gene_slice_adaptor($self->get_dbadaptor($self->MODEL_DB)->get_SliceAdaptor);
 
@@ -114,13 +113,6 @@ sub fetch_input {
      $slice->end,
      1
     );
-  my $repeat_slice = $self->intron_slice_adaptor->fetch_by_region
-    ('toplevel',
-     $slice->seq_region_name,
-     $slice->start,
-     $slice->end,
-     1
-    );
   
   my $chr_slice = $self->db->get_SliceAdaptor->fetch_by_region
     (
@@ -128,13 +120,6 @@ sub fetch_input {
      $slice->seq_region_name
     );
   $self->chr_slice($chr_slice);
-
-  my @repeats = sort { $a->start <=> $b->start } @{$self->repeat_feature_adaptor->fetch_all_by_Slice($repeat_slice)} ;
-  # put on chromosome coords
-  foreach my $repeat ( @repeats ) {
-    $repeat = $repeat->transfer($chr_slice);
-  }
-  $self->repeats($self->make_repeat_blocks(\@repeats));
 
   # we want to fetch and store all the rough transcripts at the beginning - speeds things up
   # also we want to take out tiny introns - merge them into longer structures
@@ -154,10 +139,9 @@ sub fetch_input {
   }
   # deterine strandedness ( including splitting merged genes )
   $self->prelim_genes(\@prelim_genes);
-  # fetch any extra exons 
-  $self->dna_2_extra_exons($slice->start,$slice->end) 
-    if $self->SMALL_INTRON_DB;
+
   if ( $self->INTRON_BAM_FILE ) {
+
     my $sam = Bio::DB::Sam->new(   -bam => $self->INTRON_BAM_FILE,
 				   -autoindex => 1,
 				   -expand_flags => 1,
@@ -223,15 +207,15 @@ sub refine_genes {
 		( $exon->end - $exon->start -40)  ."\n"
 		  if $exon->{"_extra"} ;
       }
-      if ( $self->extra_exons ) {
-	foreach my $exon ( @{$self->extra_exons} ) {
-	  print STDERR "OTHEREXON: " . 
-	    $exon->seq_region_name ." " .
-	      ($exon->start +20) ." " .
-		($exon->end -20)." " .
-		  ( $exon->end - $exon->start -40)  ."\n";
-	}
-      }
+#      if ( $self->extra_exons ) {
+#	foreach my $exon ( @{$self->extra_exons} ) {
+#	  print STDERR "OTHEREXON: " . 
+#	    $exon->seq_region_name ." " .
+#	      ($exon->start +20) ." " .
+#		($exon->end -20)." " .
+#		  ( $exon->end - $exon->start -40)  ."\n";
+#	}
+#      }
       my $exon_count = $#exons;
       my @fake_introns;
       my %known_exons; 
@@ -1191,11 +1175,40 @@ sub merge_exons {
     push @exons, clone_Exon($exon);
   }
   my $ec = scalar(@exons) ;
-  push my @tmp, @{$self->extra_exons} if $self->extra_exons;
-  foreach my  $e ( @tmp ) {
-    print $gene->stable_id . " " . $e->{"_model"} ."\n";
-    push @exons,$e if $e->{"_model"} eq $gene->stable_id;
+  my $extra_exons = $self->extra_exons;
+  # the extra exon is a list of start end coords of the spliced intron sections
+  # ie: end:start:end:start where the 1st and last coords are anchors to tie it 
+  # into our rough model both must match before we can try and add any potentialy 
+  # novel exons in
+  foreach my $key ( keys %$extra_exons ) {
+    my @coords = split(/:/,$key);
+    my $start_anchor = shift(@coords);
+    my $end_anchor = pop(@coords);
+ #   print "START AND END $start_anchor  $end_anchor \n";
+    # do the anchors lie within the model?
+    foreach my $exon ( @exons ) {
+      if ( $start_anchor <= $exon->end && 
+	   $start_anchor >= $exon->start ) {
+	$start_anchor = -1;
+      }
+      if ( $end_anchor <= $exon->end && 
+	   $end_anchor >= $exon->start ) {
+	$end_anchor = -1;
+      }
+    }
+    if ( $start_anchor == -1 && $end_anchor == -1 ) {
+      # now to make new the exon(s)
+      for ( my $i = 0 ; $i <= $#coords ; $i += 2 ) {
+	my $left = $coords[$i];
+	my $right = $coords[$i+1];
+	my $extra = $self->make_exon(undef,$left,$right,$extra_exons->{$key},$key );
+	$extra->{"_extra"} = 1;
+	push @exons,$extra;
+      }
+    }
   }
+  
+  
   @exons =  sort { $a->start <=> $b->start } @exons;
   # want to get rid of any overlapping exons
   while  ( $ec != scalar(@exons) ) {
@@ -1207,14 +1220,14 @@ sub merge_exons {
       if ( $left_exon->start <= $right_exon->end && 
 	   $left_exon->end >= $right_exon->start ) {
 	# merge them 
+	if (   $right_exon->end >= $left_exon->end &&
+	       $right_exon->start <= $left_exon->start ){
+	  $left_exon->{"_extra"} = 0;
+	}
 	$left_exon->start($right_exon->start) 
 	  if $right_exon->start < $left_exon->start;
 	$left_exon->end($right_exon->end) 
 	  if $right_exon->end > $left_exon->end;
-	if (   $right_exon->end <= $left_exon->end &&
-	      $right_exon->start >= $left_exon->start ){
-	    $left_exon->{"_extra"} = 0;
-	}
 	# get rid of right exon
 	splice(@exons,$i,1);
 	$i-- ;
@@ -1222,7 +1235,7 @@ sub merge_exons {
       }
     }
   }
-
+  
   
 
   for ( my $i = 1 ; $i <= $#exons ; $i ++ ) {
@@ -1234,7 +1247,7 @@ sub merge_exons {
     
      # we know it lies across the boundary does it lie within the 2 exons?
     foreach my $intron ( @introns ) {
-      print "INTRON " . $intron->start . " " . $intron->end . " " , $intron->strand ." " , $intron->score ."\n";
+ #     print "INTRON " . $intron->start . " " . $intron->end . " " , $intron->strand ." " , $intron->score ."\n";
       # ignore non consensus introns at this point
       next if $intron->hseqname =~ /non canonical/ ;
       if (   $intron->start > $prev_exon->start &&
@@ -1243,43 +1256,12 @@ sub merge_exons {
 	$intron_count++;
       }
     }
-    # is it covered by repeats?
     # remove very small introns if there is no direct evidence for them
     if ( $exon->start - $prev_exon->end <= 20  && $intron_count == 0)   {
       $exon->start($prev_exon->start);
       splice(@exons,$i-1,1);
       $i--;
       next;
-    }
-    # dont merge long introns even if they are covered with repeats
-    # next if $repeat_slice->length > 200 ;
-    # dont merge introns if there is evidence for splicing
-    next if $intron_count;
-    # is the intron covered by a repeat?
-    my @repeats = @{$self->repeats};
-
-
-    my $repeat_coverage = 0;
-    # so the repeats are now non-overlapping blocks ( if there is more than one )
-    foreach my $repeat ( @repeats ) {
-      next unless $repeat->start <= $exon->start && $repeat->end >= $prev_exon->end;
-      last if $repeat->start > $exon->start;
-      $repeat->start($prev_exon->end) if  $repeat->start < $prev_exon->end;
-      $repeat->end($exon->start) if $repeat->end > $exon->start;
-      $repeat_coverage+= $repeat->end - $repeat->start;
-    }
-    $repeat_coverage /= ($exon->start - $prev_exon->end ) ;
-     print   " Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
-    # splice the exons together where repeat coverage is > 99%
-    if ($repeat_coverage >= 0.99   ) {
-      print "MERGING EXONS Intron " . $exon->start ." " .  $prev_exon->end . " coverage  $repeat_coverage \n";
-      $exon->start($prev_exon->start);
-      # combine the exon scores when we merge the exons
-      $exon->get_all_supporting_features->[0]->score
-	($exon->get_all_supporting_features->[0]->score + $prev_exon->get_all_supporting_features->[0]->score) if 
-	  $exon->get_all_supporting_features->[0] && $prev_exon->get_all_supporting_features->[0];
-      splice(@exons,$i-1,1);
-      $i--;
     }
   }
   
@@ -1304,17 +1286,29 @@ sub merge_exons {
 sub bam_2_intron_features {
   my ($self,$segment) = @_;
   my $slice_adaptor = $self->gene_slice_adaptor;
-  # add any extra intron features in early
-  my $extra_introns = $self->intron_features;
   my @ifs;
-  push @ifs, @$extra_introns if $extra_introns;
+  my $extra_exons;
   my %id_list;
   my $iterator = $segment->features(-iterator=>1);
  READ:  while (my $read = $iterator->next_seq) {
     # need to recreate the ungapped features code as the
     # auto splitting code does not seem to work with > 2 features
     my @mates = sort { $a->[2] <=> $b->[2] } @{$self->ungapped_features($read)};
-    
+    # if mates > 2 then we have a possibility of adding in some extra exons into our rough models
+    # as the read has spliced into and out of an exon
+    # lets make them unique
+    if ( scalar(@mates) > 2 ) {
+      my $string;
+      for ( my $i = 0 ; $i <= $#mates  ; $i++ ) {
+
+	my $start  = $mates[$i]->[2];
+	my $end    = $mates[$i]->[3];
+	my $hstrand = $read->strand;
+	$string .= $start .":" if $i > 0 ;
+	$string .= $end .":" if $i < $#mates ;
+      }
+      $extra_exons->{$string} ++;
+    }
     my $strand = $read->target->strand;
    # print "\nREAD " . $read->cigar_str;
     my $offset;
@@ -1323,7 +1317,9 @@ sub bam_2_intron_features {
       # intron reads should be split according to the CIGAR line
       # the default split function seems to ad
       # we want the ungapped features to make our introns
-      my $name   = $read->query->name;
+      my $name   = $read->seq_id;
+      # we dont allow . in the seq region name as we use them to delimit our paths
+      $name =~ s/\./*/g;   
       my $start  = $mates[$i]->[2];
       my $end    = $mates[$i]->[3];
       my $cigar  = $mates[$i]->[4];
@@ -1331,7 +1327,7 @@ sub bam_2_intron_features {
    #   print "$name $start $end $strand $hstrand $cigar\t";
    #   print $read->get_tag_values('FIRST_MATE') ."\t";
       next if $i == $#mates;
-      my $unique_id = $read->seq_id . ":" . 
+      my $unique_id = $name . ":" . 
 	$mates[$i]->[3] . ":" .
 	  $mates[$i+1]->[2] . ":" . 
 	    $strand ;
@@ -1340,12 +1336,14 @@ sub bam_2_intron_features {
     }
    # print "\n";
   }
+
   # collapse them down and make them into simple features
   foreach my $key ( keys %id_list ) {
     my @data = split(/:/,$key) ;
     my $length =  $data[2] - $data[1] -1;
     next unless $length > 0 ;
-    my $name = $self->chr_slice->seq_region_name . ":" . ($data[1]+1) . ":" . ($data[2] -1) .":" . $data[3] .":";
+    my $name = $data[0]. ":" . ($data[1]+1) . ":" . ($data[2] -1) .":" . $data[3] .":";
+
     my $if = Bio::EnsEMBL::DnaDnaAlignFeature->new
       (
        -start => $data[1],
@@ -1408,7 +1406,9 @@ sub bam_2_intron_features {
   # sort them
   @ifs = sort {$a->start <=> $b->start} @ifs;
   $self->intron_features(\@ifs);
-  print STDERR "Got " . scalar(@ifs) . " unique introns from " . $self->INTRON_BAM_FILE . "\n";
+  $self->extra_exons($extra_exons);
+  print STDERR "Got " . scalar(@ifs)  . " unique introns  " ;
+  print STDERR " and " . scalar(keys %$extra_exons) . " potential novel exons from  from " . $self->INTRON_BAM_FILE . "\n";
   return;
 }
 
@@ -1734,32 +1734,6 @@ sub fetch_intron_features {
 }
 
 
-=head2 make_repeat_blocks
-    Title        :   make_repeat_blocks
-    Usage        :   $self->($repeats)
-    Returns      :   Array ref of merged Bio::EnsEMBL::Repeat_Feature
-    Args         :   Array ref of Bio::EnsEMBL::Repeat_Feature
-    Description  :   Merges adjacent repeat features
-
-=cut
-
-
-sub make_repeat_blocks {
-  my ($self,$repeats_ref) = @_;
-  my @repeats = sort { $a->start <=> $b->start }@$repeats_ref;
-  # merge repeat blocks
-  for ( my $j = 1 ; $j <= $#repeats ; $j ++ ) { 
-    if ( $repeats[$j]->start <= $repeats[$j-1]->end+1 ){
-     # print "merging repeat $j " . $repeats[$j]->start . "-"  . $repeats[$j]->end. " " . $repeats[$j-1]->start ."-" . $repeats[$j-1]->end ."\n";
-      $repeats[$j-1]->end($repeats[$j]->end) if  $repeats[$j]->end > $repeats[$j-1]->end ;
-      splice(@repeats,$j,1);
-      $j--;
-    }
-  }  
-  print STDERR " got " . scalar(@repeats) . " repeat blocks after merging\n";
-  return \@repeats;
-}
-
 
 =head2 make_exon
     Title        :   pad_exons
@@ -1771,15 +1745,21 @@ sub make_repeat_blocks {
 =cut
 
 sub make_exon {
-  my ($self,$ugf) = @_;
+  my ($self,$ugf,$start,$end,$score,$display_id) = @_;
+  if ( $ugf) {
+    $start = $ugf->start;
+    $end = $ugf->end;
+    $display_id = $ugf->display_id;
+    $score = $ugf->score;
+  }
   my $padded_exon =  create_Exon
     (
-     $ugf->start - 20,
-     $ugf->end + 20 ,
+     $start - 20,
+     $end + 20 ,
      -1,
      -1,
      -1,
-     $ugf->analysis,
+     $self->analysis,
      undef,
      undef,
      $self->chr_slice,
@@ -1790,16 +1770,16 @@ sub make_exon {
     if $padded_exon->end >= $self->chr_slice->length;
   
   my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature
-    (-slice    => $ugf->slice,
+    (-slice    => $self->chr_slice,
      -start    => $padded_exon->start,
      -end      => $padded_exon->end,
      -strand   => -1,
-     -hseqname => $ugf->display_id,
+     -hseqname => $display_id,
      -hstart   => 1,
      -hstrand  => 1,
      -hend     => $padded_exon->length,
-     -analysis => $ugf->analysis,
-     -score    => $ugf->score,
+     -analysis => $self->analysis,
+     -score    => $score,
      -cigar_string => $padded_exon->length.'M');
   my @feats;
   push @feats,$feat;
@@ -1881,16 +1861,6 @@ sub prelim_genes {
   return $self->{_prelim_genes};
 }
 
-sub repeats {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_repeats} = $val;
-  }
-
-  return $self->{_repeats};
-}
-
 
 sub chr_slice {
   my ($self, $val) = @_;
@@ -1940,19 +1910,6 @@ sub INTRON_DB {
   }
 }
 
-sub SMALL_INTRON_DB {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_SMALL_INTRON_DB'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_SMALL_INTRON_DB'})) {
-    return $self->{'_CONFIG_SMALL_INTRON_DB'};
-  } else {
-    return undef;
-  }
-}
 
 sub OUTPUT_DB {
   my ($self,$value) = @_;

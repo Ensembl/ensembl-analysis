@@ -152,7 +152,7 @@ sub listfile{
 }
 
 
-=head2 parase_script
+=head2 parse_script
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::FirstEF
   Arg [2]   : string, path to script

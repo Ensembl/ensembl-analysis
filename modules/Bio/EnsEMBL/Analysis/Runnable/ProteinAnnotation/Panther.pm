@@ -107,11 +107,11 @@ sub run_analysis {
 	'-H /software/worm/iprscan/bin/binaries/hmmsearch ' . 
 	'-B /software/worm/iprscan/bin/binaries/blast/blastall ' .
 	'-T /tmp ' .
-	'-D I -z -E 1e-3 ' .
+	'-D I -z -E 1e-11 ' .
 	'-o ' . $self->resultsfile;
 
   print STDERR "$cmd\n";   
-    $self->throw ("Error running ".$self->program." on ".$self->filename." against ".$dbfiles[0]) 
+    $self->throw ("Error running ".$self->program." on ".$self->queryfile." against ".$dbfiles[0]) 
     unless ((system ($cmd)) == 0);
 }
 

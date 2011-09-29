@@ -76,30 +76,30 @@ use vars qw( %ProteinAnnotation );
        BASE_DIR      => '/directory/containing/chunks',
      },
 
-     Seg => {
+     seg => {
        # only specify DIR where the file with all translations lives - 
        # Seg get's the filename out of table input_id_analysis.input_id 
        BASE_DIR      => '/directory/containing/proteme/directory',
      },
-     Signalp => {
+     signalp => {
      },
-     Ncoils => {
+     ncoils => {
      },
-     Tmhmm => {
+     tmhmm => {
      },
-     Prints => {
+     prints => {
      },
      pfscan => {
      },
-     Pfam => {
+     pfam => {
      },
-     Tigrfam => {
+     tigrfam => {
      },
-     Superfamily => {
+     superfamily => {
      },
-     Smart => {
+     smart => {
      },
-     PIRSF => {
+     pirsf => {
      },
    }                      
 );

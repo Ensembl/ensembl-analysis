@@ -58,7 +58,6 @@
 
 use strict;
 use warnings;
-use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
 use Bio::SeqIO;
@@ -99,11 +98,13 @@ GetOptions(
 );
 
 # check commandline
-if (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames)) {
-  throw ("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
+if ($annotation_file) {
+  if (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames)) {
+    throw ("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
+  }
 }
 
-if ( !defined($infile) || !defined($annotation_file) || !defined($outfile) ) {
+if ( !defined($infile) || !defined($outfile) ) {
   throw( "Please enter a file name to read (-infile), "
        . "a file name to write to (-outfile) "
        . "and a file name for annotation (-annotation). "
@@ -140,6 +141,7 @@ my $total_cDNAs          = 0;
 my $X_count              = 0;
 my $killed_count         = 0;
 my $parse_problem        = 0;
+my $partial_cds          = 0;
 my $not_in_mole          = 0;
 my $too_short_after_clip = 0;
 my $AT_only_count        = 0;
@@ -153,7 +155,7 @@ my %kill_list = %{ $kill_list_object->get_kill_list() };
 
 # Now work on cDNAs one by one
 
-open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n";
+if ($annotation_file) { open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n"; }
 
 SEQFETCH:
 while ( my $raw_cdna = $seqin->next_seq ) {
@@ -199,29 +201,34 @@ while ( my $raw_cdna = $seqin->next_seq ) {
       next SEQFETCH;
     }
 
-    # check whether in Mole
-    my ( $found, $string, $substr ) =
-      in_mole( $id_w_version, $clip_end, $num_bases_removed, $clipped->length );
-    if ($substr) {
-      # the clipping cut off too much. We must get it back.
-      if ( $clip_end eq "head" ) {
-        $clipped->seq( substr( $cdna->seq, $substr ) );
-      } elsif ( $clip_end eq "tail" ) {
-        $clipped->seq( substr( $cdna->seq, 0, $substr ) );
+   if ($annotation_file) {
+      # check whether in Mole
+      my ( $found, $string, $substr ) =
+        in_mole( $id_w_version, $clip_end, $num_bases_removed, $clipped->length );
+      if ($substr) {
+        # the clipping cut off too much. We must get it back.
+        if ( $clip_end eq "head" ) {
+          $clipped->seq( substr( $cdna->seq, $substr ) );
+        } elsif ( $clip_end eq "tail" ) {
+          $clipped->seq( substr( $cdna->seq, 0, $substr ) );
+        }
       }
-    }
-    if ($found) {
-      if ( length( $clipped->seq ) >= $min_length ) {
-        $cdna_written++;
-        $seqout->write_seq($clipped);
+      if ($found) {
+        if ( length( $clipped->seq ) >= $min_length ) {
+          $cdna_written++;
+          $seqout->write_seq($clipped);
 
-        print ANNOTATION "$string\n";
+          print ANNOTATION "$string\n";
 
-      } else {
-        print STDERR "Clipped sequence for $display_id is shorter "
-                   . "than $min_length bp and is excluded from output.\n";
-        $too_short_after_clip++;
+        } else {
+          print STDERR "Clipped sequence for $display_id is shorter "
+                     . "than $min_length bp and is excluded from output.\n";
+          $too_short_after_clip++;
+        }
       }
+    } else {
+      $cdna_written++ ;
+      $seqout->write_seq($clipped);
     }
   } else {
     $AT_only_count++;
@@ -232,7 +239,7 @@ close ANNOTATION;
 
 my $expected_output_nr =
   $total_cDNAs - $X_count - $killed_count - $too_short_after_clip -
-  $AT_only_count - $parse_problem - $not_in_mole - $zero_length;
+  $AT_only_count - $parse_problem - $not_in_mole - $zero_length - $partial_cds;
 
 if ($cdna_written != $expected_output_nr) {
   print "BEWARE, NUMBERS DON'T ADD UP! "
@@ -247,6 +254,7 @@ printf "cDNAs present in kill_list DB:                      %10d\n", $killed_cou
 printf "cDNAs too short after polyA clipped:                %10d\n", $too_short_after_clip;
 printf "Entire cDNA sequence seems to be of polyA or polyT: %10d\n", $AT_only_count;
 printf "Can't parse the head/tail info in EMBL file:        %10d\n", $parse_problem;
+printf "cDNAs with partial cds:                             %10d\n", $partial_cds;
 printf "Can't find the accession in mole DB:                %10d\n", $not_in_mole;
 printf "Number of sequences with zero length:               %10d\n", $zero_length;
 printf "cDNAs written to output:                            %10d\n", $cdna_written;
@@ -296,7 +304,7 @@ sub in_mole {
 
   my $string;
   if ( defined $entry ) {
-    my ( $strand, $start, $end, $coords ) = fetch_coords( $entry, $in_db );
+    my ( $strand, $start, $end, $coords, $partial ) = fetch_coords( $entry, $in_db );
     if (    defined $strand
          && defined $start
          && defined $end
@@ -332,6 +340,10 @@ sub in_mole {
       #print ANNOTATION "$string\n";
       #close ANNOTATION;
       $write_cdna = 1;
+    }
+    elsif ($partial) {
+      print STDERR "Partial cds $display_id id in db " . $in_db->dbc->dbname . " \n";
+      $partial_cds++;
     } else {
       print STDERR "Parse_problem $display_id id in db " . $in_db->dbc->dbname . " \n";
       $parse_problem++;
@@ -359,6 +371,7 @@ sub fetch_coords {
   my $start;
   my $end;
   my $tertiary_id;
+  my $partial = 0;
 
   # Get necessary information...
   my @dbxref_objs =
@@ -379,9 +392,11 @@ sub fetch_coords {
           $strand = "+";
           $start  = $1;
           $end    = $2;
+        } elsif ( $dbxo->tertiary_id =~ m/<?(\d+)\.\.>?(\d+)/ ) {
+            $partial = 1;
         }
       }
     }
   }
-  return ( $strand, $start, $end, $tertiary_id );
+  return ( $strand, $start, $end, $tertiary_id, $partial);
 } ## end sub fetch_coords

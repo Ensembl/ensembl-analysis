@@ -34,6 +34,14 @@ Bio::EnsEMBL::Analysis::Runnable::Finished::EST -
 
 ### Bio::EnsEMBL::Analysis::Runnable::Finished::EST
 
+=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished_EST
+
+=head1 AUTHOR
+
+James Gilbert B<email> jgrg@sanger.ac.uk
+
+Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
+=cut
 
 package Bio::EnsEMBL::Analysis::Runnable::Finished::EST;
 
@@ -360,12 +368,4 @@ sub get_db_version{
 }
 1;
 
-__END__
 
-=head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished_EST
-
-=head1 AUTHOR
-
-James Gilbert B<email> jgrg@sanger.ac.uk
-
-Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk

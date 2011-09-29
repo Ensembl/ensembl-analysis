@@ -46,7 +46,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # analysis methods
 ###################
 
-=head2 run_program
+=head2 run_analysis
 
  Title    : run_program
  Usage    : $self->program
@@ -110,31 +110,25 @@ sub parse_results {
 
 
 
-    my $id;
-    while (<CPGOUT>) {
-      chomp;
+  my $id;
+  my $hid;
+  while (<CPGOUT>) {
+    chomp;
+    if (/Query:\s+(\S+)/) {$id = $1}
+    if (/>>\s+(\S+)/) {$hid = $1} 
+#   1 ?   10.5   0.0   2.1e-05       2.1      46      81 ..      23      58 ..      20      88 .. 0.90
+    if (my ($score, $evalue, $hstart, $hend, $start, $end) = /^\s+\d+\s+\S\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
+      $evalue = sprintf ("%.3e", $evalue);
+      my $percentIdentity = 0;
+      my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
 
-      print "$_\n";
-
-      last if /^Alignments of top-scoring domains/;
-      next if (/^Model/ || /^\-/ || /^$/);
-      if (/^Query sequence:\s+(\S+)/) {
-	$id = $1;
-      }
-
-      if (my ($hid, $start, $end, $hstart, $hend, $score, $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
-
-
-	print "matched\n";
-	$evalue = sprintf ("%.3e", $evalue);
-	my $percentIdentity = 0;
-      
-	my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
-	push @fps, $fp;
-      }
+      push @fps,$fp;      
     }
-    close (CPGOUT); 
-    $self->output(\@fps);
+	
+
+  }
+  close (CPGOUT); 
+  $self->output(\@fps);
 }
 
 1;

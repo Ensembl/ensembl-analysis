@@ -65,14 +65,6 @@ use Bio::SeqIO;
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
 
 
-
-sub multiprotein{
-  my ($self) = @_;
-  return 0;
-}
-
-
-#
 # we over-ride write_seq_file because Signalp works best
 # if only the first 50 a.a. of the protein is supplied 
 
@@ -105,7 +97,7 @@ sub run_analysis {
   my ($self) = @_;
   
   throw("Error running ".$self->program." on ".$self->queryfile) 
-      unless ((system($self->program . " -t euk "
+      unless ((system($self->program . " -t euk -trunc 200 "
                       .$self->queryfile 
                       . " > ".$self->resultsfile)) == 0); 
 }
