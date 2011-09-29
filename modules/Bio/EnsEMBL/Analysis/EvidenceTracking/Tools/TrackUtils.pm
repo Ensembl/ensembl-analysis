@@ -63,6 +63,7 @@ use Data::Dumper;
 @EXPORT_OK = qw( is_evidence_stored
               get_date
               setup_pipeline
+              unlock_tracking
               cleanup_meta_tracking ) ;
 
 =head2 is_evidence_stored
@@ -361,6 +362,32 @@ sub cleanup_meta_tracking {
             else {
                 $dba->update_meta_key_by_value('tracking.analysis', 'tracking.done', $meta_value) ;
             }
+        }
+    }
+}
+
+
+=head2 unlock_tracking
+
+ Arg [1]    : Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor object
+ Example    : Bio::EnsEMBL::Analysis::EvidenceTracking::Tools::TrackUtils::unlock_tracking($db);
+ Description: Remove the tracking.analysis meta_key for all analysis
+ Returntype : 
+ Exceptions : throw if not a Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor object
+
+
+=cut
+
+sub unlock_tracking {
+    my $db = shift;
+
+    throw('Should be a Bio::EnsEMBL::DBSQL::DBAdaptor object') unless ($db and $db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
+    my $dba = Bio::EnsEMBL::Analysis::EvidenceTracking::DBSQL::DBAdaptor->new(
+        -dbconn => $db->dbc
+        );
+    my @meta_keys = $dba->get_meta_values_by_key('tracking.analysis');
+    while (my $meta_value = shift @meta_keys) {
+            $dba->remove_meta_key('tracking.analysis', $meta_value);
         }
     }
 }
