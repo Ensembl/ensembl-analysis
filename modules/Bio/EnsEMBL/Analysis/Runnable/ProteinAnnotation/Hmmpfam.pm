@@ -102,7 +102,7 @@ sub parse_results {
 
 
 # With Hmmer3, hit name is on a separate line
-      if (/^>> (\S+)/) {
+      if (/^>> (\w+)/) {
         $hid = $1 ;
       }
 
