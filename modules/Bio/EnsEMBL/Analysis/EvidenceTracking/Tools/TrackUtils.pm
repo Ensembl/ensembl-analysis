@@ -387,8 +387,7 @@ sub unlock_tracking {
         );
     my @meta_keys = $dba->get_meta_values_by_key('tracking.analysis');
     while (my $meta_value = shift @meta_keys) {
-            $dba->remove_meta_key('tracking.analysis', $meta_value);
-        }
+        $dba->remove_meta_key('tracking.analysis', $meta_value);
     }
 }
 
