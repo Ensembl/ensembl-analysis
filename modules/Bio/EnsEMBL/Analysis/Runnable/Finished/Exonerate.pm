@@ -78,10 +78,11 @@ sub run {
 
 	foreach my $q (@query) {
 		# Build exonerate command
+                my $program = $self->program;
 		my $command = join(
 			'  ',
 			(
-				$self->program,
+				"'$program'",
 				$self->options, $self->exo_options,
 				' --querytype ',  $self->query_type,
 				' --targettype ', $self->target_type,
