@@ -24,9 +24,13 @@ Michael Gray B<email> mg13@sanger.ac.uk
 
 use namespace::autoclean;
 use Moose;
+use MooseX::ClassAttribute;
 
 use DBI;
 use File::Basename qw(basename);
+use File::Spec::Link;
+use File::stat;
+use POSIX qw(strftime);
 use Readonly;
 use Try::Tiny;
 
@@ -52,6 +56,8 @@ Readonly my $DEFAULT_BLASTDB_NAME => 'blastdb';
 
     db_host, db_user, db_pass, db_bame - blastdb connection parameters
 
+    fallback_to_file_stat - if set and no blastdb entry, generate version from file mtime
+
 =cut
 
 # new() provided by Moose
@@ -63,6 +69,10 @@ has db_port => ( is => 'ro', isa => 'Maybe[Str]', default => $DEFAULT_BLASTDB_PO
 has db_user => ( is => 'ro', isa => 'Str',        default => $DEFAULT_BLASTDB_USER );
 has db_pass => ( is => 'ro', isa => 'Maybe[Str]', default => $DEFAULT_BLASTDB_PASS );
 has db_name => ( is => 'ro', isa => 'Str',        default => $DEFAULT_BLASTDB_NAME );
+
+has fallback_to_file_stat => ( is => 'ro', isa => 'Bool' );
+
+class_has _Fake_version_for_otf   => ( is => 'rw', isa => 'Bool' );
 
 has _dbh => (
     is       => 'ro',
@@ -117,14 +127,38 @@ sub _prepare_by_filename_sth {
 
 sub by_filename {
     my ($self, $filename) = @_;
+
+    # Resolve all symbolic links in the given filename
+    $filename = File::Spec::Link->resolve_all($filename);
+
     my $sth = $self->_by_filename_sth;
 
     $sth->execute(basename($filename), $self->system);
     my $row = $sth->fetchrow_hashref;
     $sth->finish;
 
-    return unless $row;
-    return Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::Entry->new($row);
+    if ($row) {
+        return Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::Entry->new($row);
+    }
+
+    return unless $self->fallback_to_file_stat;
+
+    return $self->_entry_from_file($filename);
+}
+
+sub _entry_from_file {
+    my ($self, $filename) = @_;
+
+    my $st = stat($filename);
+    throw("Could not stat $filename: $!\n") unless $st;
+
+    return Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::Entry->new({
+        filename     => basename($filename),
+        version      => strftime('%d-%b-%y', localtime($st->mtime)),
+        installation => $st->mtime,
+        count        => -1,
+        from_file    => 1,
+                                   });
 }
 
 =head2 get_db_version_mixin
@@ -146,6 +180,11 @@ sub by_filename {
 
 sub get_db_version_mixin {
     my ($caller, $attrib_key, $db_file ) = @_;
+
+    if (__PACKAGE__->_Fake_version_for_otf) {
+        return "1.0.0";
+    }
+
     unless ( $caller->{$attrib_key} ) {
         if ($db_file) {
 
