@@ -51,6 +51,7 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::Finished::HalfwiseHMM;
+use Bio::EnsEMBL::Analysis::Tools::BlastDBTracking;
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
@@ -66,7 +67,6 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::Similarity qw (
 );
 
 use Data::Dumper;
-use BlastableVersion;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Finished);
 
@@ -230,7 +230,6 @@ sub getPfamDB {
                $obj->get_db_version()
     Function:  Set a blast database version from the supplied path
                Get a blast database version from previously supplied path
-               Uses tjrc''s BlastableVersion module.
     Returns :  String
     Args    :  String (should be a full database path)
     Caller  :  $self::fetch_databases()
@@ -240,45 +239,10 @@ sub getPfamDB {
 
 sub get_db_version {
 	my ( $self, $db ) = @_;
-	my $debug_this = 1;    # this just shows debug info.
-	my $force_dbi  = 1;    # this will force a dbi call SLOW!!!!!!
-	unless ( $self->{'_pfam_db_version'} ) {
-		if ($db) {
-			$BlastableVersion::debug = $debug_this;
-			warning
-			  "BlastableVersion is cvs revision $BlastableVersion::revision \n"
-			  if $debug_this;
-			my $ver = eval {
-				my $blast_ver = BlastableVersion->new();
-				$blast_ver->force_dbi($force_dbi);    # if set will be SLOW.
-				$blast_ver->set_hostname('farm2');
-				$blast_ver->get_version($db);
-				$blast_ver;
-			};
-			throw("I failed to get a BlastableVersion for $db [$@]") if $@;
-			my $dbv  = $ver->version();
-			my $sgv  = $ver->sanger_version();
-			my $name = $ver->name();
-			my $date = $ver->date();
-			unless ($dbv) {
-				throw(  "I know nothing about $db I tried to find out:\n"
-					  . " - name <"
-					  . $name . ">\n"
-					  . " - date <"
-					  . $date . ">\n"
-					  . " - version <"
-					  . $dbv . ">\n"
-					  . " - sanger_version <"
-					  . $sgv
-					  . ">\n" );
-			}
-			$self->{'_pfam_db_version'} = $dbv;
-		}
-		else {
-			throw("Must provide a db file name as argument");
-		}
-	}
-	return $self->{'_pfam_db_version'};
+        my $ver = Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::get_db_version_mixin(
+            $self, '_pfam_db_version', $db,
+            );
+	return $ver;
 }
 
 sub db_version_searched {

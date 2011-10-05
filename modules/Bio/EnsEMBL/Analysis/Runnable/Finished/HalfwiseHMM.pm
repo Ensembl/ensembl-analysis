@@ -43,6 +43,7 @@ use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::SeqFeature;
 use Bio::EnsEMBL::Analysis;
+use Bio::EnsEMBL::Analysis::Tools::BlastDBTracking;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFilter;
 use Bio::PrimarySeq;
 use Bio::Seq;
@@ -53,7 +54,6 @@ use Bio::EnsEMBL::Analysis::Runnable::Blast;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use BlastableVersion;
 #use DB_File;
 use Fcntl;
 
@@ -160,11 +160,9 @@ sub pfam_db_version{
 sub pfam_ls_version{
     my ($self) = @_;
     unless($self->{'_pfam_ls_version'}){
-	my $ver = BlastableVersion->new($self->hmmdb);
-	$ver->set_hostname('farm2');
-#	$self->{'_pfam_ls_version'} = $ver->version();
-	$self->{'_pfam_ls_version'} = $ver->get_version($self->hmmdb);
-
+	my $ver = Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::get_db_version_mixin(
+            $self, '_pfam_ls_version', $self->hmmdb
+            );
     }
     return $self->{'_pfam_ls_version'};
 }
