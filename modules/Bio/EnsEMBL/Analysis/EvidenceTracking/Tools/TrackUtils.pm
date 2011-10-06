@@ -44,7 +44,8 @@ use vars qw(@ISA  @EXPORT_OK);
 
 use constant TREMBL_DB  => 2000;
 use constant SWISS_DB   => 2200;
-use constant REFSEQ_RNA => 1810;
+use constant REFSEQ_DNA => 1800;
+use constant REFSEQ_RNA => 1801;
 use constant REFSEQ_AA  => 1810;
 
 use LWP::Simple;
@@ -64,7 +65,12 @@ use Data::Dumper;
               get_date
               setup_pipeline
               unlock_tracking
-              cleanup_meta_tracking ) ;
+              cleanup_meta_tracking
+              get_id_trembl
+              get_id_swiss
+              get_id_dna
+              get_id_rna
+              get_id_aa );
 
 =head2 is_evidence_stored
 
@@ -232,7 +238,7 @@ sub setup_pipeline {
                 );
 #This is hacking!!! depending on the module the name of the input/output DB change...
         my @a_input_dbs = qw(PAF_SOURCE_DB GENE_SOURCE_DB);
-        my @a_output_dbs = qw(OUTPUT_DB TARGET_DB);
+        my @a_output_dbs = qw(OUTPUT_DB TARGET_DB OUTDB);
         my $current_analysis = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
                 -analysis_id => $analysis->dbID,
                 -input_dbs   => _get_databases($module, \@a_input_dbs, $track_db),
@@ -389,6 +395,26 @@ sub unlock_tracking {
     while (my $meta_value = shift @meta_keys) {
         $dba->remove_meta_key('tracking.analysis', $meta_value);
     }
+}
+
+sub get_id_trembl {
+    return &TREMBL_DB;
+}
+
+sub get_id_swiss {
+    return &SWISS_DB;
+}
+
+sub get_id_dna {
+    return &REFSEQ_DNA;
+}
+
+sub get_id_rna {
+    return &REFSEQ_RNA;
+}
+
+sub get_id_aa {
+    return &REFSEQ_AA;
 }
 
 1;
