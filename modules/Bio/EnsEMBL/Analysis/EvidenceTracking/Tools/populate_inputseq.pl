@@ -87,7 +87,13 @@ while (my $line = <IF>) {
     if ($molecule_type eq 'PROTEIN') {
         if ($id =~ /[A-Z]{2}_\d/) {
             $entry = $rentry_adaptor->fetch_by_accession($id);
-            $date = $entry->last_updated;
+            if (!$entry) {
+                print STDERR 'No Entry for ', $id, "\n";
+                $date = "0000-00-00";
+            }
+            else {
+                $date = $entry->last_updated;
+            }
             $ext_id = &get_id_aa;
         }
         else {
@@ -106,19 +112,27 @@ while (my $line = <IF>) {
     elsif ($molecule_type eq 'MRNA') {
         if ($id =~ /[A-Z]{2}_\d/) {
             $entry = $rentry_adaptor->fetch_by_accession($id);
-            $date = $entry->last_updated;
+            if (!$entry) {
+                print STDERR 'No Entry for ', $id, "\n";
+                $date = "0000-00-00";
+            }
+            else {
+                $date = $entry->last_updated;
+            }
             $ext_id = &get_id_rna;
         }
         else {
             $entry = $eentry_adaptor->fetch_by_accession($id);
             $entry = $nentry_adaptor->fetch_by_accession($id) unless ($entry);
-            $date = $entry->first_submitted;
+            if (!$entry) {
+                print STDERR 'No Entry for ', $id, "\n";
+                $date = "0000-00-00";
+            }
+            else {
+                $date = $entry->first_submitted;
+            }
             $ext_id = &get_id_embl;
         }
-    }
-    if (!$entry) {
-        print STDERR 'No Entry for ', $id, "\n";
-        $date = "0000-00-00";
     }
     my $input_seq = Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq->new(
                 -hit_name        => $accession,
