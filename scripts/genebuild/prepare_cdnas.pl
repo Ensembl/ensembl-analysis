@@ -1,4 +1,4 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/local/ensembl/bin/perl -w
 
 =head1 NAME
 
@@ -67,6 +67,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::ExternalData::Mole::DBXref;
 use Bio::EnsEMBL::ExternalData::Mole::Entry;
 use Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch;
 
 $| = 1; # disable buffering
 
@@ -142,6 +143,7 @@ my $X_count              = 0;
 my $killed_count         = 0;
 my $parse_problem        = 0;
 my $partial_cds          = 0;
+my $pe_low               = 0;
 my $not_in_mole          = 0;
 my $too_short_after_clip = 0;
 my $AT_only_count        = 0;
@@ -239,7 +241,7 @@ close ANNOTATION;
 
 my $expected_output_nr =
   $total_cDNAs - $X_count - $killed_count - $too_short_after_clip -
-  $AT_only_count - $parse_problem - $not_in_mole - $zero_length - $partial_cds;
+  $AT_only_count - $parse_problem - $pe_low - $not_in_mole - $zero_length - $partial_cds;
 
 if ($cdna_written != $expected_output_nr) {
   print "BEWARE, NUMBERS DON'T ADD UP! "
@@ -254,6 +256,7 @@ printf "cDNAs present in kill_list DB:                      %10d\n", $killed_cou
 printf "cDNAs too short after polyA clipped:                %10d\n", $too_short_after_clip;
 printf "Entire cDNA sequence seems to be of polyA or polyT: %10d\n", $AT_only_count;
 printf "Can't parse the head/tail info in EMBL file:        %10d\n", $parse_problem;
+printf "PE level too low 3, 4, 5:                           %10d\n", $pe_low;
 printf "cDNAs with partial cds:                             %10d\n", $partial_cds;
 printf "Can't find the accession in mole DB:                %10d\n", $not_in_mole;
 printf "Number of sequences with zero length:               %10d\n", $zero_length;
@@ -304,7 +307,7 @@ sub in_mole {
 
   my $string;
   if ( defined $entry ) {
-    my ( $strand, $start, $end, $coords, $partial ) = fetch_coords( $entry, $in_db );
+    my ( $strand, $start, $end, $coords, $partial, $low_pe ) = fetch_coords( $entry, $in_db );
     if (    defined $strand
          && defined $start
          && defined $end
@@ -344,6 +347,9 @@ sub in_mole {
     elsif ($partial) {
       print STDERR "Partial cds $display_id id in db " . $in_db->dbc->dbname . " \n";
       $partial_cds++;
+    } elsif ($low_pe) {
+      print STDERR "PE_low $display_id id in db " . $in_db->dbc->dbname . " \n";
+      $pe_low++;
     } else {
       print STDERR "Parse_problem $display_id id in db " . $in_db->dbc->dbname . " \n";
       $parse_problem++;
@@ -372,6 +378,7 @@ sub fetch_coords {
   my $end;
   my $tertiary_id;
   my $partial = 0;
+  my $low_pe = 0;
 
   # Get necessary information...
   my @dbxref_objs =
@@ -395,8 +402,46 @@ sub fetch_coords {
         } elsif ( $dbxo->tertiary_id =~ m/<?(\d+)\.\.>?(\d+)/ ) {
             $partial = 1;
         }
+        # check that the protein sequence is PE 1-2
+        my $mole_dbid;
+        if ($dbxo->database_id eq 'EMBL-CDS') {
+          $mole_dbid = 'uniprot';
+          #$mole_dbid = 'embl';
+        } elsif ($dbxo->database_id eq 'RefSeq-CDS') {
+          $mole_dbid = 'refseq';
+        }
+        my $protein_acc = $dbxo->primary_id;
+        print STDERR "Checking PE level for ".$dbxo->database_id." ".$protein_acc."\n";
+        my $mfetch_obj = Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch->new();
+        my @fields_to_fetch  = qw ( Taxon acc org pe crd ) ;
+        my ($entries, $not_found ) =  @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) } ;
+        if ( scalar(@$not_found) > 0 ) {
+          $entries = undef;
+          $not_found = undef;
+          $protein_acc = $dbxo->secondary_id;
+          ($entries, $not_found ) =  @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) } ;
+        }
+        # hopefully we have the protein now
+        # and we can check the PE level
+        my $pe = 0;
+        foreach my $a (keys %$entries) {
+          if ( exists $entries->{$a}->{'PE'}) {
+            # extract PE level
+             $entries->{$a}->{'PE'} =~ m/(^\d{1}):/;
+             #print  "***".$entries->{$a}->{'PE'}."***\n";
+             $pe = $1;
+          }
+        }
+        if ($pe && $pe > 2) {
+          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry->accession_version." because PE level is low = $pe\n";
+          $low_pe = 1;          
+        } elsif ($pe && $pe == 1 || $pe == 2 )  {
+          print STDERR "Using protein $protein_acc for cDNA ".$entry->accession_version." because PE level is good = $pe\n";
+        } else {
+          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry->accession_version." because no PE level found\n";
+        }
       }
     }
   }
-  return ( $strand, $start, $end, $tertiary_id, $partial);
+  return ( $strand, $start, $end, $tertiary_id, $partial, $low_pe);
 } ## end sub fetch_coords
