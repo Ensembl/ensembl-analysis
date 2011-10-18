@@ -83,9 +83,11 @@ use vars qw( %GeneBuilder );
 
   ENSEMBL_INPUT_CODING_TYPE => ['protein_coding'],
 
-  HAVANA_INPUT_CODING_TYPE =>
-    [ 'protein_coding', 'polymorphic_pseudogene', 'nonsense_mediated_decay' ],
-
+  HAVANA_INPUT_CODING_TYPE => [ 'protein_coding',
+                                'polymorphic_pseudogene',
+                                'nonsense_mediated_decay',
+                                'polymorphic',
+                                'non_stop_decay'
 
   # (II) ALL PSEUDOGENE-RELATED GENE AND TRANSCRIPT BIOTYPES
   #
@@ -114,18 +116,25 @@ use vars qw( %GeneBuilder );
   # The most common biotype in this category is "processed_transcript" (which serves
   # as both gene and transcript biotype ).
 
-  # There are usually no Ensembl "processed_transcript" genes or transcripts to be
-  # fetched from the ENSEMBL database. The biotype is included under 
-  # "ENSEMBL_INPUT_PROCESSED_TYPE" only to capture the few rare cases which might 
-  # slip through the net.
+  HAVANA_INPUT_PROCESSED_TYPE => [ 'processed_transcript'],
 
-  ENSEMBL_INPUT_PROCESSED_TYPE => [''],
+  # (IV) NON-CODING GENE AND TRANSCRIPT BIOTYPES
+  #
+  # This category contains all non-coding genes from Havana. We have
+  # started keeping them separate from the processed_transcript
+  # genes/transcripts as we like to keep the gene biotypes intact.
+  # Note that these biotypes mainly apprea in human but a subset of
+  # them might also be present in mouse and/or zebrafish.
 
-  HAVANA_INPUT_PROCESSED_TYPE => [ 'processed_transcript',
+  HAVANA_INPUT_NONCODING_TYPE => [ '3prime_overlapping_ncrna',
                                    'ambiguous_orf',
+                                   'antisense',
+                                   'lincRNA',
+                                   'ncrna_host',
                                    'non_coding',
                                    'retained_intron',
-                                   'antisense'
+                                   'sense_intronic',
+                                   'sense_overlapping'
     ],
 
 
