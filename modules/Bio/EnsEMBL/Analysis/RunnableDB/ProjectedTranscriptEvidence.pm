@@ -90,62 +90,84 @@ sub fetch_input {
   my $gene_db = $self->get_dbadaptor($self->GENEDB);
   my $outgene_db = $self->get_dbadaptor($self->OUTGENEDB);
 
+  my $out_sa = $outgene_db->get_SliceAdaptor;
+  my $ga = $outgene_db->get_GeneAdaptor;
   my $ta = $gene_db->get_TranscriptAdaptor;
   my $outta = $outgene_db->get_TranscriptAdaptor;
   $self->outta($outta);
 
+  my $patch_slice = $out_sa->fetch_by_name($self->input_id);
+  my @out_genes = @{$ga->fetch_all_by_Slice($patch_slice)};
+  my @out_transcripts;
 
-  #get the transcripts (reference and output from projection)
-  my $ref_transcript = $ta->fetch_by_stable_id($self->input_id);
-  my $out_transcript = $outta->fetch_by_stable_id($self->input_id);
-  $self->out_transcript($out_transcript);
-
-  my $ref_seq = $ref_transcript->seq;
-  my $out_seq = $out_transcript->seq;
-
-  my $ref_seq_file = create_file_name( "refseq_", "fa", $self->ANALYSIS_WORK_DIR );
-  my $out_seq_file = create_file_name( "outseq_", "fa", $self->ANALYSIS_WORK_DIR );
-
-  write_seqfile($ref_seq, $ref_seq_file, 'fasta');
-  write_seqfile($out_seq, $out_seq_file, 'fasta');
-
-  my %parameters;
-
-  if (not exists( $parameters{-options} )
-      and defined $self->OPTIONS) {
-    $parameters{-options} = $self->OPTIONS;
+  #make sure get transcripts outside the patch
+  foreach my $gene(@out_genes){
+    my @trans = @{$gene->get_all_Transcripts};
+    foreach my $t (@trans){
+      push @out_transcripts, $t;
+    }
   }
-  #set up the runnable and add the files to delete
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature->new(
-    -analysis           => $self->analysis,
-    -program            => $self->PROGRAM,
-    -query_type         => 'dna',
-    -query_file         => $ref_seq_file,
-    -query_chunk_number => undef,
-    -query_chunk_total  => undef,
-    -target_file        => $out_seq_file,
-    %parameters,
-  );
 
-  $runnable->files_to_delete($ref_seq_file);
-  $runnable->files_to_delete($out_seq_file);
+  $self->out_transcripts(\@out_transcripts);
+  print "Fetched ".scalar(@out_transcripts)." transcripts\n";
 
-  $self->runnable($runnable);
+  #my @runnables = ();
 
+  foreach my $out_transcript (@out_transcripts){
+    #get the transcripts (reference and output from projection)
+    my $ref_transcript = $ta->fetch_by_stable_id($out_transcript->stable_id);
+
+    my $ref_seq = $ref_transcript->seq;
+    my $out_seq = $out_transcript->seq;
+
+    my $ref_seq_file = create_file_name( "refseq_", "fa", $self->ANALYSIS_WORK_DIR );
+    my $out_seq_file = create_file_name( "outseq_", "fa", $self->ANALYSIS_WORK_DIR );
+
+    write_seqfile($ref_seq, $ref_seq_file, 'fasta');
+    write_seqfile($out_seq, $out_seq_file, 'fasta');
+
+    my %parameters;
+
+    if (not exists( $parameters{-options} )
+        and defined $self->OPTIONS) {
+      $parameters{-options} = $self->OPTIONS;
+    }
+    #set up the runnable and add the files to delete
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature->new(
+      -analysis           => $self->analysis,
+      -program            => $self->PROGRAM,
+      -query_type         => 'dna',
+      -query_file         => $ref_seq_file,
+      -query_chunk_number => undef,
+      -query_chunk_total  => undef,
+      -target_file        => $out_seq_file,
+      %parameters,
+    );
+
+    $runnable->files_to_delete($ref_seq_file);
+    $runnable->files_to_delete($out_seq_file);
+    $self->runnable($runnable);
+  }
 }
 
 sub run {
   my ($self) = @_;
   throw("Can't run - no runnable objects") unless ( $self->runnable );
-  my ($runnable) = @{$self->runnable};
-  $runnable->run;
 
-  my $features = $runnable->output;
-  my @feats = @{$features};
-  
-  my $genomic_features = $self->process_features($features);
+  my @p_transcripts = @{$self->out_transcripts};
+  my $pt_count = 0;
 
-  $self->output($genomic_features);
+  foreach my $runnable (@{$self->runnable}){
+    $runnable->run;
+
+    my $features = $runnable->output;
+    my @feats = @{$features};
+    my $p_transcript = $p_transcripts[$pt_count];
+    my $genomic_features =  $self->process_features($features, $p_transcript);
+
+    $self->output($genomic_features);
+    $pt_count++;
+  }
 }
 
 
@@ -165,14 +187,19 @@ sub run {
 sub write_output {
   my ( $self ) = @_;
   my @output = @{$self->output};
+  my @p_transcripts = @{$self->out_transcripts};
   print "Got " .  scalar(@output) ." genomic features \n";
-  throw("Should only be one dna align feature now.\n") unless  scalar(@output) == 1;
+  throw("Should only be one dna align feature per projected transcript.\n") unless  scalar(@output) == scalar(@p_transcripts);
 
-  my $transcript = $self->out_transcript;
-  my $tsfa = $self->get_dbadaptor($self->OUTGENEDB)->get_TranscriptSupportingFeatureAdaptor;
+  my $out_count = 0;
 
-  my $t_id = $transcript->dbID;
-  $tsfa->store($t_id, \@output);
+  foreach my $transcript (@p_transcripts){
+    my $tsfa = $self->get_dbadaptor($self->OUTGENEDB)->get_TranscriptSupportingFeatureAdaptor;
+    my $t_id = $transcript->dbID;
+    my $gf = $output[$out_count];
+    $tsfa->store($t_id, [$gf]);
+    $out_count++;
+  }
 }
 
 
@@ -188,7 +215,7 @@ sub write_output {
 =cut
 
 sub process_features {
-  my ( $self, $flist ) = @_;
+  my ( $self, $flist, $trans ) = @_;
 
   # first do all the standard processing, adding a slice and analysis etc.
 
@@ -197,7 +224,7 @@ sub process_features {
   my $count = 0;
   FEATURE: foreach my $f (@$flist) {
     $count++;
-    my $trans = $self->out_transcript;
+    #my $trans = $self->out_transcript;
     my @mapper_objs;
     my @features;
     my $start = 1;
@@ -268,6 +295,35 @@ sub out_transcript {
     return undef;
   }
 }
+
+sub out_transcripts {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_out_transcripts'} = $value;
+  }
+
+  if (exists($self->{'_out_transcripts'})) {
+    return $self->{'_out_transcripts'};
+  } else {
+    return undef;
+  }
+}
+
+sub runnables {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_runnabless'} = $value;
+  }
+
+  if (exists($self->{'_runnables'})) {
+    return $self->{'_runnables'};
+  } else {
+    return undef;
+  }
+}
+
 
 #transcript adaptor to output gene db
 sub outta {
