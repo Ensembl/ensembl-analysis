@@ -251,7 +251,7 @@ sub store {
   # transfered copy
   $original->adaptor($self);
   $original->dbID($inputseq_obj_dbID);
-  print STDERR "Stored inputseq object ".$original->dbID."\n";
+#  print STDERR "Stored inputseq object ".$original->dbID."\n";
   return $inputseq_obj_dbID;
 }
 

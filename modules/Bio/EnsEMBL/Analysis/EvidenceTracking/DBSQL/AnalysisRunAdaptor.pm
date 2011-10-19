@@ -64,13 +64,15 @@ sub store {
   }
 
   my $db = $self->db();
-  my $input_db_id = '';
-  my $output_db_id = '';
-  print STDERR Dumper($analysis_run);
-  foreach my $db (@{$analysis_run->input_dbs}) {
+  my @a_input_dbs = @{$analysis_run->input_dbs};
+  my @a_output_dbs = @{$analysis_run->output_dbs};
+  my $input_db_id = shift @a_input_dbs;
+  my $output_db_id = shift @a_output_dbs;
+#  print STDERR Dumper($analysis_run);
+  while (my $db = shift @a_input_dbs) {
       $input_db_id .= ':'.$db->dbID;
   }
-  foreach my $db (@{$analysis_run->output_dbs}) {
+  while (my $db = shift @a_output_dbs) {
       $output_db_id .= ':'.$db->dbID;
   }
 

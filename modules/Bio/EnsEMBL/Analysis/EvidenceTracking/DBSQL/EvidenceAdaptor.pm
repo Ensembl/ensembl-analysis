@@ -271,6 +271,36 @@ sub fetch_all_unmapped_evidence_by_reason {
     return $self->generic_fetch($constraint);
 }
 
+=head2 fetch_all_evidence_by_reason
+
+ Arg [1]    : $reason, an Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+ Example    : $evidence_adaptor->fetch_all_evidence_by_reason($reason);
+ Description: Fetch all evidences on the genome because of a reason
+ Returntype : listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence object
+ Exceptions : throw if $reason is not an Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object
+
+
+=cut
+
+sub fetch_all_evidence_by_reason {
+    my $self = shift;
+    my $reason = shift;
+
+    throw('Need a Bio::EnsEMBL::Analysis::EvidenceTracking::Reason object for method fetch_all_unmapped_evidence_by_reason, not a '.ref($reason))
+        unless $reason->isa('Bio::EnsEMBL::Analysis::EvidenceTracking::Reason');
+    sub _tables {
+      return ( ['evidence' , 'e'], ['input_seq', 'i'], ['evidence_coord', 'ec'], ['seq_region', 'sr'], ['track_evidence', 'te'] );
+    }
+    sub _left_join {
+        return (['evidence_coord', 'e.evidence_id = ec.evidence_id'],
+                ['input_seq', 'e.input_seq_id = i.input_seq_id'],
+                ['seq_region', 'sr.seq_region_id = ec.seq_region_id'],
+                ['track_evidence', 'e.evidence_id = te.evidence_id']);
+    }
+    my $constraint = 'te.reason_id = '.$reason->dbID;
+    return $self->generic_fetch($constraint);
+}
+
 =head2 fetch_all_unmapped_evidence_by_analysis_and_reason
 
  Arg [1]    : $analysis, an Bio::EnsEMBL::Analysis object

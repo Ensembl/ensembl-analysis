@@ -114,7 +114,7 @@ sub fetch_by_dbID {
 sub fetch_by_code {
   my $self = shift;
   my $code = shift;
-  my $constraint = 'r.code = '.$code;
+  my $constraint = 'r.code = "'.$code.'"';
   my ($reason) = @{ $self->generic_fetch($constraint) };
   return $reason;
 }

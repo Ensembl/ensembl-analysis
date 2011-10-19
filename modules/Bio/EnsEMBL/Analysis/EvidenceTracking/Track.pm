@@ -206,9 +206,11 @@ sub update {
             );
     }
     elsif ($support->isa('Bio::EnsEMBL::BaseAlignFeature')) {
+        my $seq_region_name = $support->seq_region_name;
+        ($seq_region_name) = $support->seqname =~ /^[^:]+:[^:]+:([^:]+)/ unless ($seq_region_name);
         $support = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
             -input_seq         => $self->get_input_seq($support->hseqname),
-            -seq_region_name   => $support->seq_region_name,
+            -seq_region_name   => $seq_region_name,
             -seq_region_start  => $support->start,
             -seq_region_end    => $support->end,
             -seq_region_strand => $support->strand,
@@ -234,34 +236,38 @@ sub update {
     if (defined $seq_region_start and $self->get_track($name.$seq_region_start.$seq_region_end.$seq_region_strand)) {
         print STDERR "has aligned evidence\n";
         $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
-    }
-    elsif ($self->get_track($name)) {
-        print STDERR "has primary evidence\n";
-        if (defined $seq_region_start) {
-            print STDERR "\thas start\n";
-            $self->delete_track($name);
-            $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
-        }
-        else {
-            print STDERR 'ZWRT:has evidence aligned: ', $support->is_aligned, "\t", $self->get_track($name)->evidence->is_aligned, "\n";
-        }
+        $self->get_track($name)->evidence($support);
     }
     else {
-        print STDERR "has no evidence\n";
-        if (defined $seq_region_start) {
-            print STDERR "\thas start\n";
-            $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
+        if ($self->get_track($name)) {
+            print STDERR "has primary evidence\n";
+            if (defined $seq_region_start) {
+                print STDERR "\thas start\n";
+                $self->delete_track($name);
+                $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
+            }
+            else {
+                print STDERR 'ZWRT:has evidence aligned: ', $support->is_aligned, "\t", $self->get_track($name)->evidence->is_aligned, "\n";
+            }
         }
         else {
-            print STDERR 'XKWZ:Is aligned: ', $support->is_aligned, "\n";
+            print STDERR "has no evidence\n";
+            if (defined $seq_region_start) {
+                print STDERR "\thas start\n";
+                $name .= $seq_region_start.$seq_region_end.$seq_region_strand;
+            }
+            else {
+                print STDERR 'XKWZ:Is aligned: ', $support->is_aligned, "\n";
+            }
         }
+        my $evidence_track = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
+              -evidence     => $support,
+              -analysis_run => $self->analysis_run,
+              -input_id     => $self->input_id
+              );
+        $self->add_track($name, $evidence_track);
     }
-    my $evidence_track = Bio::EnsEMBL::Analysis::EvidenceTracking::EvidenceTrack->new(
-          -evidence     => $support,
-          -analysis_run => $self->analysis_run,
-          -input_id     => $self->input_id
-          );
-    $self->add_track($name, $evidence_track);
+#    print STDERR "Tracks $reason_id: ", Dumper($self->tracks);
     $self->update_reason($name, $reason_id) if ($reason_id);
     print STDERR "Entry: ", Dumper($self->tracks);
 }
@@ -307,8 +313,10 @@ sub all_to_noalign {
     my $self = shift;
 
     foreach my $evidence_track (values %{$self->tracks}) {
-        $self->update_reason($evidence_track, "NoAlignment");
-        $evidence_track->evidence->is_aligned('n');
+        if ($evidence_track->evidence->is_aligned eq 'u') {
+            $self->update_reason($evidence_track->evidence->input_seq->hit_name, "NoAlignment");
+            $evidence_track->evidence->is_aligned('n');
+        }
     }
 }
 

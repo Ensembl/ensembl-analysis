@@ -293,7 +293,7 @@ sub run{
     # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
   if ($self->filter) {
-    my $filtered_transcripts = $self->filter->filter_results(\@results);
+    my $filtered_transcripts = $self->filter->filter_results(\@results, $self->track);
     @results = @$filtered_transcripts;
   }
 
@@ -328,6 +328,7 @@ sub write_output{
     }
     $total++;
   }
+  $self->track->write_tracks;
   if ($fails > 0) {
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
@@ -347,6 +348,8 @@ sub make_genes{
 
   foreach my $tran ( @transcripts ){
     my $gene = Bio::EnsEMBL::Gene->new();
+    # Just to kill a warning of a deprecated behaviour...
+    $tran->analysis($self->analysis);
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
 
@@ -354,6 +357,7 @@ sub make_genes{
     # put a slice on the transcript
     
     my $slice_id = $tran->start_Exon->seqname;      
+    print STDERR 'slice id: ', $slice_id, "\n";
     if (not exists $genome_slices{$slice_id}) {
       # assumes genome seqs were named in the Ensembl API Slice naming 
       # convention, i.e. coord_syst:version:seq_reg_id:start:end:strand
@@ -388,7 +392,12 @@ sub make_genes{
  
     $tran->slice($slice);
     $gene->add_Transcript($tran);
-    $self->track->update($tran->get_all_supporting_features->[0], "Accepted");
+    if ($self->filter) {
+        $self->track->update($tran->get_all_supporting_features->[0]);
+    }
+    else {
+        $self->track->update($tran->get_all_supporting_features->[0], "Accepted");
+    }
     push( @genes, $gene);
   }
   $self->track->all_to_noalign;

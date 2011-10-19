@@ -121,7 +121,7 @@ sub new {
 
 
 sub filter_results {
-  my ($self, $transcripts) = @_;
+  my ($self, $transcripts, $track) = @_;
   # results are Bio::EnsEMBL::Transcripts with exons and supp_features
   my @good_matches;  
   my %matches;
@@ -265,6 +265,7 @@ TRAN:
 	      $accept = 'NO';
 	      if ($printing){
 		  	 print  "rpp $query_id\n"; 
+             $track->update($transcript->get_all_supporting_features->[0], "Pseudogenes");
 		  }
 		}
 		elsif (($short_intron == 0) && ($num_exons > 1)){
@@ -272,12 +273,14 @@ TRAN:
 			$accept = 'NO';
 			if ($printing){
 			  print "only long introns $query_id\n";
+              $track->update($transcript->get_all_supporting_features->[0], "AllLongIntrons");
 			}
 		}
 		#Only accept long intron hits with very high coverage and percent_id
 		elsif($max_intron > 250000 ){ 
 			if (($coverage >= 98) && ($percent_id >= 98)){
 				$accept = 'YES';
+              $track->update($transcript->get_all_supporting_features->[0], "BHLongIntrons");
 				push( @good_matches, $transcript);
 				
 				#print "accept: intron $max_intron coverage $coverage \%id $percent_id $query_id\n"; 
@@ -298,10 +301,12 @@ TRAN:
 				$accept = 'NO';
 				if ($printing){
 				  print "reject: intron $max_intron coverage $coverage \%id $percent_id $query_id\n";
+                  $track->update($transcript->get_all_supporting_features->[0], "LongIntronsLower");
 				}
 			}	
 		}else{
 	      $accept = 'YES';
+          $track->update($transcript->get_all_supporting_features->[0], "BHAccepted");
 	      push( @good_matches, $transcript);
 
 		}
@@ -310,7 +315,9 @@ TRAN:
 		$accept = 'NO';
  		if ($printing){
 		  print "max_coverage $max_coverage coverage $coverage \%id $percent_id $query_id\n"; 
+          $track->update($transcript->get_all_supporting_features->[0], "Rejected");
 		}
+
 
 	  }
 
@@ -338,14 +345,17 @@ TRAN:
 	       $splices_elsewhere &&
 	       ! $is_spliced) {
 	    $accept = 'NO';
+        $track->update($transcript->get_all_supporting_features->[0], "Pseudogenes");
 	  }
 	  else{
 	    $accept = 'YES';
+        $track->update($transcript->get_all_supporting_features->[0], "Accepted");
 	    push( @good_matches, $transcript);
 	  }
 	}
 	else{
 	  $accept = 'NO';
+      $track->update($transcript->get_all_supporting_features->[0], "Rejected");
 	}
       }
     }
