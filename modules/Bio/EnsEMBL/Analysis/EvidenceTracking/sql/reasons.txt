@@ -1,0 +1,40 @@
+0	Unknown	Unknown
+1	Identity	100% identity
+2	HighScore	Higher than score threshold
+3	HighIdentity	Higher than percentage identity threshold
+4	HighCoverage	Higher than coverage threshold
+5	Accepted	Above thresholds
+6	BHAccepted	Best hit above thresholds
+10	BHLongIntrons	Best hit containing introns longer than 250000bp, coverage or percentage_id is above than 98%
+11	SingleLowScore	Single exon with lower score threshold
+12	SplitLowScore	Split transcript with loer score threshold
+49	L50Identity	Lower than 50% of identity
+50	H50Identity	Higher than 50% of identity
+60	H60Identity	Higher than 60% of identity
+70	H70Identity	Higher than 70% of identity
+80	H80Identity	Higher than 80% of identity
+90	H90Identity	Higher than 90% of identity
+100	InternalStop	Internal codon stop
+101	LowScore	Lower than score threshold
+102	LowIdentity	Lower than percentage identity threshold
+103	NoAlignment	No alignment
+104	LowComplexity	Low complexity sequence
+105	LowCoverage	Low evidence coverage
+106	BadStrand	Strand inconsistency
+107	BadPhase	Phase inconsistency
+108	Folded	Is folded
+109	UnwantedEvidence	has unwanted evidence
+110	LongExon	Too long exon
+111	BadCoordinates	Has bad coordinates
+112	Pseudogenes	Possible pseudogenes
+113	Rejected	Below thresholds
+114	OverlapBestHit	Overlap best hit
+115	KillList	Kill listed
+116	AboveThreshold	Greater than upper threshold
+117	Masked	Masked
+118	Overlap5End	Overlap 5' end
+119	BadCoverage	Coverage inconsistent throughout the transcript
+120	TooShort	Sequence smaller than the threshold
+121	AllLongIntrons	Every intron in these hits is of length 250000-400000bp, we require at least one intron to be shorter than 250000bp
+122	LongIntronsLower	Hits containing introns longer than 250000bp are rejected if coverage or percentage_id is less than 98%
+123	TooManyN	>10% N-strings
