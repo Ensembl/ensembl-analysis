@@ -129,7 +129,6 @@ sub new {
   $self->input_id($runnabledb->input_id);
 
   foreach my $name (@{$ra_evidence_names}) {
-      print STDERR "NAME: $name\n";
       my $input_seq = $self->get_input_seq($name);
       my $evidence = Bio::EnsEMBL::Analysis::EvidenceTracking::Evidence->new(
                                   -input_seq  => $input_seq,
@@ -188,7 +187,6 @@ sub update {
     return undef unless $self->tracking;
     my $support = shift;
     my $reason_id = shift;
-    print STDERR "Entry: ", Dumper($support);
     
     my $name;
     if (ref($support) eq '') {
@@ -265,6 +263,7 @@ sub update {
           );
     $self->add_track($name, $evidence_track);
     $self->update_reason($name, $reason_id) if ($reason_id);
+    print STDERR "Entry: ", Dumper($self->tracks);
 }
 
 =head2 write_tracks
@@ -496,7 +495,6 @@ sub get_input_seq {
   my $self = shift;
   return undef unless $self->tracking;
   my $name = shift;
-      print STDERR "name: ", $name, "\n";
   if ($name and !exists $self->{'_input_seq'}->{$name}) {
       my $input_seq = Bio::EnsEMBL::Analysis::EvidenceTracking::InputSeq->new(
                         -hit_name => $name

@@ -742,7 +742,7 @@ sub run{
   $self->files_to_delete($self->resultsfile);
   $self->run_analysis();
   $self->parse_results;
-#  $self->delete_files;
+  $self->delete_files;
   return 1;
 }
 

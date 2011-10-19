@@ -73,13 +73,6 @@ sub store {
   foreach my $db (@{$analysis_run->output_dbs}) {
       $output_db_id .= ':'.$db->dbID;
   }
-#  for my $tuple ([$analysis_run->input_dbs, $input_db_id], [$analysis_run->output_dbs, $output_db_id]) {
-#      my @tmp = @{$tuple->[0]};
-#      my $tuple->[1] = shift(@tmp);
-#      while (my $db = shift(@tmp)) {
-#          $tuple->[1] .= ':'.$db->dbID;
-#      }
-#  }
 
   # make an sql statement
   my $sth = $self->prepare("INSERT INTO analysis_run ( analysis_id,
@@ -101,6 +94,17 @@ sub store {
   print STDERR "Stored AnanlysisRun object ".$analysis_run->dbID."\n";
   return $analysis_run_dbID;
 }
+
+=head2 update
+
+ Arg [1]    : a Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun object
+ Example    : $analysisrun_adaptor->update($analysis_run);
+ Description: Update the analysis_run table
+ Returntype : void
+ Exceptions : throw if not of the type Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun
+
+
+=cut
 
 sub update {
   my ($self, $analysis_run) = @_;
@@ -277,7 +281,7 @@ sub _columns {
  Arg [1]    : $sth
  Example    : $self->_objs_from_sth($sth);
  Description: Put the result of the query in Bio::EnsEMBL::Pipeline::InputSeq objects
- Returntype : listref of Bio::EnsEMBL::Pipeline::InputSeq
+ Returntype : listref of Bio::EnsEMBL::Pipeline::AnalysisRun object
  Exceptions : 
 
 
@@ -311,4 +315,6 @@ sub _objs_from_sth {
   }
   return \@out;
 }
+
+
 1;

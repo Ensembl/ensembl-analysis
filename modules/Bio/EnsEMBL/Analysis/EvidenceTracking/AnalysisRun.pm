@@ -58,14 +58,14 @@ use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 
  Arg [1]    : $dbid, int
  Arg [2]    : $analysis_id, int
- Arg [3]    : $input_dbs, string. An integer or a string of number separated with :, 2:4
- Arg [4]    : $output_dbs, string. An integer or a string of number separated with :, 5
- Arg [5]    : $run_date, when the object is stored it's set with the MySQL now()
+ Arg [3]    : $input_dbs, listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Database objects
+ Arg [4]    : $output_dbs, listref of Bio::EnsEMBL::Analysis::EvidenceTracking::Database objects
+ Arg [5]    : $run_date, when the object is stored (it's set with the MySQL now() by default)
  Arg [6]    : $adaptor, Bio::EnsEMBL::Analysis::DBSQL::AnalysisRunAdaptor object
  Example    : $analysis_run = Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun->new(
               -analysis_id  => $analysis->dbID,
-              -input_dbs  => $in_databases,
-              -output_dbs => $out_databases
+              -input_dbs  => $ra_in_databases,
+              -output_dbs => $ra_out_databases
             );
  Description: Constructor
  Returntype : Bio::EnsEMBL::Analysis::EvidenceTracking::AnalysisRun
