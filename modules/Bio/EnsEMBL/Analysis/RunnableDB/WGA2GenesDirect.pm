@@ -36,8 +36,6 @@ use strict;
 use Bio::SeqIO;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
@@ -53,9 +51,7 @@ use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
     qw(replace_stops_with_introns);
-
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB 
-            Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
 
 
 ############################################################
@@ -85,10 +81,12 @@ sub fetch_input {
 
   print "YOUR INPUT ID:",$input_id,"\n";
 
-
-  my $q_dbh = $self->get_dbadaptor($self->QUERY_CORE_DB, '', 1);
-  my $t_dbh = $self->get_dbadaptor($self->TARGET_CORE_DB);
-  my $compara_dbh = $self->get_dbadaptor($self->COMPARA_DB, 'compara');
+  my $q_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
+      new(%{$self->QUERY_CORE_DB});
+  my $t_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
+      new(%{$self->TARGET_CORE_DB});
+  my $compara_dbh = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->
+      new(%{$self->COMPARA_DB});
   
   my $query_species = 
       $q_dbh->get_MetaContainerAdaptor->get_Species->binomial;
@@ -219,7 +217,7 @@ sub run {
                                                                                     );
     
     foreach my $tran (@{$self->good_transcripts}) {
-      
+     print STDERR "good transcript: ".$tran->dbID."\n";  
       $tran_stable_id = $tran->stable_id;
       
       my $proj_trans = 
@@ -229,6 +227,7 @@ sub run {
           $gene_scaffold->place_transcript($tran);
       
       if ($proj_trans) {
+        print STDERR "projected transcript: ".$proj_trans->dbID."\n";
         
         push @res_tran, $proj_trans;
       }
@@ -256,7 +255,8 @@ sub run {
 
 ############################################################
 =head2 write_output
-    Title   :   write_output
+    Title   :   write_out
+    put
 =cut
 
 sub write_output {
@@ -264,17 +264,27 @@ sub write_output {
   
   my $trans_count = 0;
 
-
-  my $t_dbh = $self->get_dbadaptor($self->TARGET_CORE_DB, '', 1);
+  my $t_dbh = Bio::EnsEMBL::DBSQL::DBAdaptor->
+      new(%{$self->TARGET_CORE_DB});
 
   my $t_gene_adaptor = $t_dbh->get_GeneAdaptor();
  
  foreach my $t (@{$self->output}) {
+   print $t->translation->length." long\n";
    $t->analysis($self->analysis);
    
     my $gene = Bio::EnsEMBL::Gene->new( -analysis => $self->analysis,
                                         -biotype  => 'protein_coding',);
-    
+    print $t->translation."\n";
+    #my $tr_ad = $t_dbh->get_TranslationAdaptor();
+
+    if ( $t->translation() ) {
+      print( "STABLE_ID............." .$t->translation()->dbID(), "\n" );
+    } else {
+      print("Pseudogene\n");
+    }
+ 
+
     foreach my $tsf ( @{ $t->get_all_supporting_features }){
       $tsf->analysis($self->analysis);
     }
@@ -287,7 +297,7 @@ sub write_output {
       }
     }
 
-    $gene->add_Transcript($t);
+   $gene->add_Transcript($t);
 
     $t_gene_adaptor->store($gene);
     
@@ -297,9 +307,11 @@ sub write_output {
     foreach my $e (@{$t->get_all_Exons}) {
       printf("%s\tEnsembl\tExon\t%d\t%d\t%d\t%d\t%d\n", $e->slice->seq_region_name, $e->start, $e->end, $e->strand, $e->phase, $e->end_phase);
     }
-    my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                -fh => \*STDOUT);
-    $seqio->write_seq($t->translate);
+    #my $seqio = Bio::SeqIO->new(-format => 'fasta',
+    #                            -fh => \*STDOUT);
+    #$seqio->write_seq($t->translate);
+
+
   }
 
   print "For gene " . $self->input_id . " you stored ", $trans_count, " transcripts\n";

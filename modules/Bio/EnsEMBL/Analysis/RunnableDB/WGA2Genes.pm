@@ -161,6 +161,9 @@ sub fetch_input {
                                             $slice->seq_region_name));
 
     foreach my $g (@{$slice->get_all_Genes}) {
+
+      print STDERR "Number of Genes in this slice: ".$#{$slice->get_all_Genes}."\n" ;
+      print STDERR "Name start, end: ".$slice->seq_region_name.", ".  $slice->start.", ".$slice->end."\n";
       next if $g->biotype ne 'protein_coding';
       next if exists $kill_list->{$g->stable_id};
 
@@ -168,7 +171,16 @@ sub fetch_input {
 
       my @good_trans;
 
+      print STDERR "Number of Transcripts: " . $#{$g->get_all_Transcripts}."\n";
+
       foreach my $t (@{$g->get_all_Transcripts}) {
+
+
+
+        print STDERR " Coding region start: ".$t->coding_region_start."\n";
+        print STDERR " Coding region end  : ".$t->coding_region_end."\n";
+        
+
         next if $t->coding_region_start < $slice->start;
         next if $t->coding_region_end   > $slice->end;
         next if exists $kill_list->{$t->stable_id};

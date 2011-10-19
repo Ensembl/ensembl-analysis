@@ -103,7 +103,7 @@ sub new {
 
   return undef if not defined $from_mapper;
 
-#  print "1: ", $direct_target_slice,"\n2: ",$direct_target_slice->length,"\n3: ",length($gs_seq),"\n";
+ # print "1: ", $direct_target_slice,"\n2: ",$direct_target_slice->length,"\n3: ",length($gs_seq),"\n";
 
   my $gs_end = $direct_target_slice 
       ? $direct_target_slice->length
@@ -160,6 +160,8 @@ sub place_transcript {
   if(! $tran->translation){
     print "Transcript ".$tran->stable_id." doesn't have a translation. Not using it in projection.\n"; 
     return undef;             
+  } else {
+    print "Transcript ".$tran->stable_id." DOES have a translation!\n";
   }
    
   my @orig_exons = @{$tran->get_all_translateable_Exons};
@@ -478,7 +480,7 @@ sub place_transcript {
 
           my $gs_p_substr = uc(Bio::PrimarySeq->new(-seq => $gs_reg)->translate->seq);
 
-            #print $p_substr, "\n AND: ",$gs_p_substr,"\n";
+          #print $p_substr, "\n AND: ",$gs_p_substr,"\n";
 
           if (length($p_substr) != length ($gs_p_substr)) {
             #print "Length from source_pep = ", length($p_substr), "\n AND: from genomic translation ",length($gs_p_substr),"\n";
@@ -662,19 +664,27 @@ sub place_transcript {
   # set translation
   #
   my $translation = Bio::EnsEMBL::Translation->new();
+  foreach my $e (@merged_exons) {
+    print $e."\n";
+  }
   $translation->start_Exon($merged_exons[0]);
+
   $translation->start(1);
   $translation->end_Exon($merged_exons[-1]);
   $translation->end($merged_exons[-1]->end - $merged_exons[-1]->start + 1);
-  
   $proj_tran->translation($translation);
+  #print $proj_tran->translate."\n";
+#  print $translation."    is empty UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU\n";
+
+  my $pep = $proj_tran->translation;
   
-  my $pep = $proj_tran->translate;
-  
-  if (not defined $pep) {
+  if ($pep->seq eq "") {
     # this can happen if the transcript comprises a single stop codon only
     return 0;
   }
+
+  print "sequence: ".$pep->seq."\n";
+  print "length  : ".$pep->length."\n";
 
   my $prop_non_gap = 100 - (100 * (($pep->seq =~ tr/X/X/) / $pep->length));
   my $num_stops = $pep->seq =~ tr/\*/\*/;
@@ -893,7 +903,7 @@ sub _check_transcripts {
     throw("Attempt to create GeneScaffold with empty transcript list");
   }
 
-  foreach my $t (@$trans) {
+ foreach my $t (@$trans) {
     if (not $t->translation) {
      # throw("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
 warn("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");

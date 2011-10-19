@@ -181,12 +181,15 @@ sub run {
   ############################## 
   open $fh, ">$lav_file" or 
       throw("could not open lav file '$lav_file' for writing\n");
-  $self->write_lav($fh);
+  
+      
+      $self->write_lav($fh);
   close($fh);
 
   ##############################
   # convert the lav file to axt
   ##############################
+  print "cmd=\n".$self->lavToAxt.", $lav_file, $query_nib_dir, $target_nib_dir, $axt_file\n";
   system($self->lavToAxt, $lav_file, $query_nib_dir, $target_nib_dir, $axt_file)
       and throw("Could not convert $lav_file to Axt format");
   unlink $lav_file;
@@ -211,6 +214,8 @@ sub run {
     # default to medium
     $linearGap_parameter .= "medium";
   }
+
+ print "Here I am : \n$min_parameter, $linearGap_parameter, $axt_file, $query_nib_dir, $target_nib_dir, $chain_file\n";
 
   system($self->axtChain, $min_parameter, $linearGap_parameter, $axt_file, $query_nib_dir, $target_nib_dir, $chain_file)
         and throw("Something went wrong with axtChain\n");
@@ -268,7 +273,7 @@ sub write_lav {
         my $query_strand = ($qstrand == 1) ? 0 : 1;
         my $target_strand = ($tstrand == 1) ? 0 : 1;
         
-        my $target_length = $self->target_slices->{$target}->length;
+        my $target_length = $self->target_slices->{$target}->length +1;
 
         print $fh "#:lav\n";
         print $fh "s {\n";

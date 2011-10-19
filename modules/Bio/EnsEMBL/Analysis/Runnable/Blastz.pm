@@ -125,7 +125,8 @@ sub run_analysis {
 
   my $BlastzParser;
   my $blastz_output_pipe = undef;
-              
+             
+  $feature_pair->percent_id($average_pecent_id);
   if($self->results_to_file) {
     if (not $self->resultsfile) {
       my $resfile = $self->create_filename("blastz", "results");
@@ -135,7 +136,8 @@ sub run_analysis {
 
     $cmd .=  " > ". $self->resultsfile;
     info("Running blastz...\n$cmd\n");
-
+    print "Running blastz...\n$cmd\n";
+    throw("leaving it here...\n");
     throw("Error runing blastz cmd\n$cmd\n." .
                  " Returned error $? BLAST EXIT: '" .
                  ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
