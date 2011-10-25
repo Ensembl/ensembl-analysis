@@ -21,15 +21,15 @@ sub package_stash {
         next if $varName =~m/import/; 
 
         *alias = $globValue;  
-        $result{$varName}=$alias if (defined ($alias)) ; 
-        $result{$varName}=\@alias if (defined (@alias)) ; 
-        $result{$varName}=\%alias if (defined (%alias)) ;  
+        $result{$varName}=$alias  if (defined($alias)) ; 
+        $result{$varName}=\@alias if (*alias{ARRAY}) ; 
+        $result{$varName}=\%alias if (*alias{HASH}) ;  
      }     
 
      if (scalar(keys %result >1) ) {    
        throw("Have more than one item exported from $packageName - you'll run into trouble\n")
      }  
-     my $hash_name = shift @{[(keys %result)]};   
+     my $hash_name = (keys %result)[0];   
      return [$result{$hash_name},$hash_name] ; 
 }
 
