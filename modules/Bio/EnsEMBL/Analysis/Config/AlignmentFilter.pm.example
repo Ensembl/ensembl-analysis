@@ -154,7 +154,8 @@ use vars qw( %Config );
                METHOD => '',
 
              },
-           );
+           },
+         );
 
 sub import {
   my ($callpack) = caller(0); # Name of the calling package
