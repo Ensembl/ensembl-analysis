@@ -88,6 +88,7 @@ use vars qw( %GeneBuilder );
                                 'nonsense_mediated_decay',
                                 'polymorphic',
                                 'non_stop_decay'
+                              ],
 
   # (II) ALL PSEUDOGENE-RELATED GENE AND TRANSCRIPT BIOTYPES
   #
