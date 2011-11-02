@@ -125,8 +125,7 @@ sub run_analysis {
 
   my $BlastzParser;
   my $blastz_output_pipe = undef;
-             
-  $feature_pair->percent_id($average_pecent_id);
+              
   if($self->results_to_file) {
     if (not $self->resultsfile) {
       my $resfile = $self->create_filename("blastz", "results");
@@ -136,8 +135,10 @@ sub run_analysis {
 
     $cmd .=  " > ". $self->resultsfile;
     info("Running blastz...\n$cmd\n");
-    print "Running blastz...\n$cmd\n";
-    throw("leaving it here...\n");
+print "Running blastz...\n$cmd\n";
+throw("leaving here......\n");
+
+
     throw("Error runing blastz cmd\n$cmd\n." .
                  " Returned error $? BLAST EXIT: '" .
                  ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
@@ -149,14 +150,16 @@ sub run_analysis {
   } else {
     info("Running blastz to pipe...\n$cmd\n");
 
-    open($blastz_output_pipe, "$cmd |") ||
+    my $stderr_file = $self->workdir()."/lastz_$$.stderr";
+
+    open($blastz_output_pipe, "$cmd 2>$stderr_file |") ||
       throw("Error opening Blasts cmd <$cmd>." .
                    " Returned error $? BLAST EXIT: '" .
                    ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) .
                    "', There was " . ($? & 128 ? 'a' : 'no') .
                    " core dump");
     $BlastzParser = Bio::EnsEMBL::Analysis::Tools::Blastz->
-        new('-fh' => $blastz_output_pipe);
+        new('-fh' => $blastz_output_pipe) || print_error($stderr_file, "Unable to parse blastz_output_pipe");
   }
 
   my @results;
@@ -169,6 +172,21 @@ sub run_analysis {
   $self->output(\@results);
 }
 
+sub print_error {
+    my ($stderr_file, $text) = @_;
+
+    my $msg;
+    if (-e $stderr_file) {
+	open FH, $stderr_file or die("Unable to open $stderr_file");
+	while (<FH>) {
+	    $msg .= $_;
+	}
+	unlink($stderr_file);
+    }
+    $msg .= $text;
+
+    throw($msg);
+}
 
 #################
 # get/set methods 
