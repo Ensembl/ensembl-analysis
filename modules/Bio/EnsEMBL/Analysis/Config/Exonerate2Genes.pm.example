@@ -166,12 +166,7 @@ use vars qw( %Config );
         USE_KILL_LIST => 0,
         KILL_TYPE => undef,  # set this to "cDNA" if USE_KILL_LIST is set to 1
 
-        OUTDB => { -dbname => '',
-                  -host   => '',
-                  -port   => '',
-                  -user   => '',
-                  -pass   => '',
-        },
+        OUTDB => "EXONERATE_DB",
 
         COVERAGE_BY_ALIGNED => 1,
         FILTER              => {
@@ -202,13 +197,7 @@ use vars qw( %Config );
         # Input id is a chunk id and chunk total
         IIDREGEXP => '(\d+):(\d+)',
 
-        OUTDB     => {
-                  -dbname => '',
-                  -host   => '',
-                  -port   => '',
-                  -user   => '',
-                  -pass   => '',
-        },
+        OUTDB     => "EXONERATE_DB",
 
         # FILTER not set, so no filtering done
         COVERAGE_BY_ALIGNED => 0,
@@ -221,13 +210,7 @@ use vars qw( %Config );
               QUERYTYPE => 'protein',
               QUERYSEQS => "/path/to/where/you/want/your/seq/dumped/by/OrthologueAnalyis",
               IIDREGEXP => '(\d+):(\d+)',
-              OUTDB     => {
-                          -dbname => '',
-                          -host   => '',
-                          -port   => '3306',
-                          -user   => '',
-                          -pass   => '',
-              },
+              OUTDB     => "EXONERATE_DB",
               COVERAGE_BY_ALIGNED => 0,
               OPTIONS => "--model protein2genome --forwardcoordinates FALSE "
                         . " --softmasktarget TRUE --exhaustive FALSE  --bestn 1",
