@@ -105,7 +105,7 @@ sub run  {
   $self->throw("Bam file " . $self->BAM_FILE . "  not found \n") unless $bam; 
   my $count = 0;
   my $batch = 0;
-  my %ids;
+
  EXON: foreach my $exon ( @{$rough->get_all_Exons} ) {
     my $segment = $bam->segment($rough->seq_region_name,$exon->start,$exon->end);
     my $iterator = $segment->features(-iterator=>1);
@@ -117,9 +117,6 @@ sub run  {
       # dont want reads that align perfectly as they won't splice
       my $num_missmatches = $read->get_tag_values('NM') ;
       next READ  unless $num_missmatches >= $self->MISSMATCH;
-      # only use each read once
-      next READ if $ids{$read->name};
-      $ids{$read->name} = 1;
       $batch++;
       next unless $batch > $batch_size * $self->start ;
       $count++;
