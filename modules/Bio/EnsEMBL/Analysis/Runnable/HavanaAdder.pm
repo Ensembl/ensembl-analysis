@@ -976,6 +976,7 @@ sub check_terminal_exon_structure {
 sub add_ottt_xref {
   my ( $self, $ht ) = @_;
 
+  my $found = 0;
   foreach my $entry ( @{ $ht->get_all_DBEntries } ) {
     if ( $entry->dbname eq 'Vega_transcript' ) {
       if ( $entry->primary_id eq $entry->display_id ) {
@@ -993,6 +994,26 @@ sub add_ottt_xref {
 
         $xref_ottt->status("XREF");
         $ht->add_DBEntry($xref_ottt);
+        $found = 1;
+      } else {
+        if (!$found) {
+          my $xref_ottt =
+            new Bio::EnsEMBL::DBEntry( -primary_id    => $entry->primary_id,
+                                      -display_id    => $ht->display_id,
+                                      -priority      => 1,
+                                      -xref_priority => 0,
+                                      -version       => $entry->version,
+                                      -release       => 1,
+                                      -dbname        => 'OTTT' );
+
+          $xref_ottt->status("XREF");
+          $ht->add_DBEntry($xref_ottt);
+          warning("This entry doesn't have a display_id, it's from a patch. "
+            . "Will set entry->primary_id and ht->display_id with "
+            . "corresponding entry version\n"
+            . $entry->primary_id . " version: " . $entry->version . "\n");
+          $found = 1;
+        }
       }
     }
   }
@@ -1043,6 +1064,7 @@ sub set_transcript_relation {
     #    . "transferring only the xrefs inbtw\n";
 
     # transfer OTTT ID and/or ENST
+    my $found = 0;
     foreach my $entry ( @{ $t_pair[0]->get_all_DBEntries } ) {
       if ( $entry->dbname eq 'Vega_transcript' ) {
         if ( $entry->primary_id eq $entry->display_id ) {
@@ -1057,7 +1079,6 @@ sub set_transcript_relation {
                                        -dbname => 'shares_CDS_with_OTTT' );
 
           $newentry->status("XREF");
-
           $t_pair[1]->add_DBEntry($newentry);
 
           my $xref_ottt =
@@ -1072,11 +1093,36 @@ sub set_transcript_relation {
           # print "DEBUG: OTTT xref to be added here\n";
 
           $xref_ottt->status("XREF");
-
           $t_pair[0]->add_DBEntry($xref_ottt);
-          #END of TEST
+          $found = 1;
+        } else {
+          if (!$found) {
+            my $newentry =
+              new Bio::EnsEMBL::DBEntry( -primary_id    => $entry->primary_id,
+                                        -display_id    => $entry->primary_id,,
+                                        -priority      => 1,
+                                        -xref_priority => 0,
+                                        -version       => $entry->version,
+                                        -release       => 1,
+                                        -dbname => 'shares_CDS_with_OTTT' );
 
-        } ## end if ( $entry->primary_id...
+            $newentry->status("XREF");
+            $t_pair[1]->add_DBEntry($newentry);
+
+            my $xref_ottt =
+              new Bio::EnsEMBL::DBEntry( -primary_id    => $entry->primary_id,
+                                        -display_id    => $entry->primary_id,,
+                                        -priority      => 1,
+                                        -xref_priority => 0,
+                                        -version       => $entry->version,
+                                        -release       => 1,
+                                        -dbname        => 'OTTT' );
+
+            $xref_ottt->status("XREF");
+            $t_pair[0]->add_DBEntry($xref_ottt);
+            $found = 1;
+          }
+        }
       } ## end if ( $entry->dbname eq...
     } ## end foreach my $entry ( @{ $t_pair...
 
@@ -1115,6 +1161,7 @@ sub set_transcript_relation {
     #    . $delete_t->dbID . "\n";
 
     # transfer OTTT ID and/or ENST
+    my $found = 0;
     foreach my $entry ( @{ $t_pair[0]->get_all_DBEntries } ) {
       if ( $entry->dbname eq 'Vega_transcript' ) {
         if ( $entry->primary_id eq $entry->display_id ) {
@@ -1128,8 +1175,23 @@ sub set_transcript_relation {
                                        -dbname => 'shares_CDS_with_OTTT' );
 
           $newentry->status("XREF");
-
           $t_pair[1]->add_DBEntry($newentry);
+          $found = 1;
+        } else {
+          if (!$found) {
+            my $newentry =
+              new Bio::EnsEMBL::DBEntry( -primary_id    => $entry->primary_id,
+                                        -display_id    => $entry->primary_id,,
+                                        -priority      => 1,
+                                        -xref_priority => 0,
+                                        -version       => $entry->version,
+                                        -release       => 1,
+                                        -dbname => 'shares_CDS_with_OTTT' );
+
+            $newentry->status("XREF");
+            $t_pair[1]->add_DBEntry($newentry);
+            $found = 1;
+          }
         }
       }
     }
@@ -1163,6 +1225,7 @@ sub set_transcript_relation {
 
     # If the transcript to delete is ENSEMBL we add an xref entry say
     # that both transcripts are exact matches (including UTR)
+    my $found = 0;
     foreach my $entry ( @{ $t_pair[0]->get_all_DBEntries } ) {
       if ( $entry->dbname eq 'Vega_transcript' ) {
         if ( $entry->primary_id eq $entry->display_id ) {
@@ -1177,10 +1240,25 @@ sub set_transcript_relation {
                                      -xref_priority => 0,
                                      -dbname => 'shares_CDS_and_UTR_with_OTTT'
             );
-
           $enstentry->status("XREF");
-
           $t_pair[0]->add_DBEntry($enstentry);
+          $found = 1;
+        } else {
+          if (!$found) {
+            my $enstentry =
+              new Bio::EnsEMBL::DBEntry(
+                                      -primary_id    => $entry->primary_id,
+                                      -display_id    => $entry->display_id,
+                                      -version       => $entry->version,
+                                      -release       => 1,
+                                      -priority      => 1,
+                                      -xref_priority => 0,
+                                      -dbname => 'shares_CDS_and_UTR_with_OTTT'
+              );
+            $enstentry->status("XREF");
+            $t_pair[0]->add_DBEntry($enstentry);
+            $found = 1;
+          }
         }
       }
     }
@@ -2839,7 +2917,7 @@ sub cluster_into_Genes {
 
   print "Havana";
   print " coding" if ($coding); 
-  print " non-coding" if (!$coding); 
+  print " non-coding" if (!$coding);
   print " gene cluster size: "
     . scalar( @{$havana_genes} ) . "\n";
   foreach my $hav_gene ( @{$havana_genes} ) {
@@ -2852,12 +2930,25 @@ sub cluster_into_Genes {
     $ottg_type{$hav_stable_id} = $hav_type;
 
     my ($ottg_key, $ottg_version);
+      my $found = 0;
     foreach my $entry ( @{ $hav_gene->get_all_DBEntries } ) {
       #print "DEBUG: ENTRY: ",$entry->dbname," : ",$entry->primary_id,"\n";
       if ( $entry->dbname eq 'Vega_gene' ) {
+        #print "primary id: " . $entry->primary_id . "\tdisplay_id: "
+        #    . $entry->display_id . "\n";
         if ( $entry->primary_id eq $entry->display_id ) {
           $ottg_key = $entry->primary_id;
           $ottg_version = $entry->version;
+          $found = 1;
+        } else {
+          if (!$found) {
+            $ottg_key = $entry->primary_id;
+            $ottg_version = $entry->version;
+            warning("This entry doesn't have a display_id, it's from a patch. "
+              . "Will set ottg_key = primary_id with corresponding version\n"
+              . $ottg_key . " version: " . $ottg_version . "\n");
+            $found = 1;
+          }
         }
       }
     }
@@ -2868,7 +2959,7 @@ sub cluster_into_Genes {
     foreach my $hav_trans ( @{ $hav_gene->get_all_Transcripts } ) {
       #print "DEBUG: Havana trans id: ". $hav_trans->dbID . "\n";
       $ottg_xref{$hav_trans} = $ottg_key . "_" . $ottg_version;
-      #print "ottg_hav_trans" . $ottg_xref{$hav_trans} . "\n";
+      #print "ottg_hav_trans: " . $ottg_xref{$hav_trans} . "\n";
 
       $read_thru = 0;
       my @hav_attrib = @{ $hav_trans->get_all_Attributes() };
