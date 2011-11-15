@@ -53,14 +53,11 @@ use vars qw( %Config );
 	     BAM_FILE  => '/path/to/my/sorted/indexed/bam_file.bam',
 	     
 	     # Exonerate word length, smaller = more accurate takes longer
-	     WORD_LENGTH => '10 ',
+	     WORD_LENGTH => '10',
 	     
 	     # repeat masks the transcript sequences - quick but you might miss something
 	     MASK => '0',
-	     
-	     # length of the reads to fetch
-	     READ_LENGTH => '',
-	     
+	         
 	     # use the full genomic sequence rather than just the transcript sequence
 	     FULLSEQ   => 1,
 	     

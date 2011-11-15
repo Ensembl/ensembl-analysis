@@ -122,7 +122,6 @@ sub fetch_input {
      -mask         => $self->MASK,
      -out_sam_dir  => $self->OUT_SAM_DIR,
      -bam_file     => $self->BAM_FILE,
-     -read_length  => $self->READ_LENGTH,
      -fullseq      => $fullseq,
      -max_tran     => $self->MAX_TRANSCRIPT,
      -start        => $start,
@@ -549,20 +548,6 @@ sub BAM_FILE {
   
   if (exists($self->{'_CONFIG_BAM_FILE'})) {
     return $self->{'_CONFIG_BAM_FILE'};
-  } else {
-    return undef;
-  }
-}
-
-sub READ_LENGTH {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_READ_LENGTH'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_READ_LENGTH'})) {
-    return $self->{'_CONFIG_READ_LENGTH'};
   } else {
     return undef;
   }
