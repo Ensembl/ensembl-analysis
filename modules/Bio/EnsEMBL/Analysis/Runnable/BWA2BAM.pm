@@ -102,8 +102,7 @@ sub run {
   my @tmp = split(/\//,$fastq);
   $filename = pop @tmp;
   print "Filename $filename\n";
-  @tmp = split(/\./,$filename);
-  $outfile = shift @tmp;
+  ($outfile) = $filename =~ /^(.+)\.[^.]+$/;
   if ( $fastqpair ) {
     my @tmp = split(/\//,$fastqpair);
     $pairfilename = pop @tmp;
