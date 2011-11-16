@@ -44,13 +44,14 @@ use Bio::DB::Sam;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ( $model,$missmatch,$mask,$sam_dir,$bam_file,,$fullseq,$max_tran,$start,$batch_size ) =
-    rearrange( [qw(MODEL MISSMATCH MASK SAM_DIR BAM_FILE  FULLSEQ MAX_TRAN START BATCH_SIZE)],@args );
+  my ( $model,$missmatch,$mask,$sam_dir,$bam_file,$read_length,$fullseq,$max_tran,$start,$batch_size ) =
+    rearrange( [qw(MODEL MISSMATCH MASK SAM_DIR BAM_FILE  READ_LENGTH FULLSEQ MAX_TRAN START BATCH_SIZE)],@args );
   $self->model($model);
   $self->MASK($mask);
   $self->MISSMATCH($missmatch);
   $self->OUT_SAM_DIR($sam_dir);
   $self->BAM_FILE($bam_file);
+  $self->READ_LENGTH($read_length);
   $self->FULLSEQ($fullseq);
   $self->MAX_TRANSCRIPT($max_tran);
   $self->start($start);
@@ -109,11 +110,14 @@ sub run  {
     my $segment = $bam->segment($rough->seq_region_name,$exon->start,$exon->end);
     my $iterator = $segment->features(-iterator=>1);
   READ:  while (my $read = $iterator->next_seq) {
+      # in case you have bam files with mixed length reads
+      # you will need the reads in each batch to be the same
+      # length for the exonerate config to work
+      next unless $read->length == $self->READ_LENGTH;
       # dont want reads that align perfectly as they won't splice
       my $num_missmatches = $read->get_tag_values('NM') ;
       next READ  unless $num_missmatches >= $self->MISSMATCH;
       $batch++;
-      # print "READ " . $read->name ."\n";
       next unless $batch > $batch_size * $self->start ;
       $count++;
       if (  $count <= $batch_size ) {
@@ -263,6 +267,19 @@ sub BAM_FILE {
   }
 }
 
+sub READ_LENGTH {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_READ_LENGTH'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_READ_LENGTH'})) {
+    return $self->{'_CONFIG_READ_LENGTH'};
+  } else {
+    return undef;
+  }
+}
 
 sub MASK {
   my ($self,$value) = @_;
