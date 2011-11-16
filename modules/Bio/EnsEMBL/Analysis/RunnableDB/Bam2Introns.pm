@@ -100,10 +100,11 @@ sub fetch_input {
   my $program = $self->analysis->program_file;
   $program = "exonerate-0.9.0" unless $program;
   # set the score as the read length - the number of allowed missmatches
-  my $allowed_missmatches = 100-$self->MISSMATCH;
+  my $allowed_missmatches = int($self->MISSMATCH / $self->READ_LENGTH * 100);
+  my $score = ($self->READ_LENGTH * 5) - ($allowed_missmatches +1) ;
   my $options =  "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
                  "--model est2genome --forwardcoordinates FALSE ".
-                 "--softmasktarget $mask --exhaustive FALSE --percent $allowed_missmatches  ".
+                 "--softmasktarget $mask --exhaustive FALSE --score $score  ".
                  "--saturatethreshold 100 --dnahspthreshold 60 --minintron 20  --dnawordlen " .
 		   $self->WORD_LENGTH ." -i -12 --bestn 1";
 
@@ -122,6 +123,7 @@ sub fetch_input {
      -mask         => $self->MASK,
      -out_sam_dir  => $self->OUT_SAM_DIR,
      -bam_file     => $self->BAM_FILE,
+     -read_length  => $self->READ_LENGTH,
      -fullseq      => $fullseq,
      -max_tran     => $self->MAX_TRANSCRIPT,
      -start        => $start,
@@ -548,6 +550,20 @@ sub BAM_FILE {
   
   if (exists($self->{'_CONFIG_BAM_FILE'})) {
     return $self->{'_CONFIG_BAM_FILE'};
+  } else {
+    return undef;
+  }
+}
+
+sub READ_LENGTH {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_READ_LENGTH'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_READ_LENGTH'})) {
+    return $self->{'_CONFIG_READ_LENGTH'};
   } else {
     return undef;
   }
