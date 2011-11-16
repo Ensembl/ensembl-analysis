@@ -111,11 +111,12 @@ use vars qw( %GeneBuilder );
 
 
   # (III) "PROCESSED_TRANSCRIPT" GENE AND TRANSCRIPT BIOTYPES
-  # 
-  # This category covers biotypes of non-coding genes/transcripts which are neither 
-  # protein_coding/translateable (category I above) nor pseudogenic (category II).  
-  # The most common biotype in this category is "processed_transcript" (which serves
-  # as both gene and transcript biotype ).
+  #
+  # This category covers biotypes of non-coding genes/transcripts
+  # which are neither protein_coding/translateable (category I above)
+  # nor pseudogenic (category II). The most common biotype in this
+  # category is "processed_transcript" (which serves as both gene and
+  # transcript biotype ).
 
   HAVANA_INPUT_PROCESSED_TYPE => [ 'processed_transcript'],
 
@@ -124,8 +125,12 @@ use vars qw( %GeneBuilder );
   # This category contains all non-coding genes from Havana. We have
   # started keeping them separate from the processed_transcript
   # genes/transcripts as we like to keep the gene biotypes intact.
-  # Note that these biotypes mainly apprea in human but a subset of
-  # them might also be present in mouse and/or zebrafish.
+  # These biotypes mainly appear in human but a subset of them might
+  # also be present in mouse and/or zebrafish.
+  #
+  # NOte: We don't use the TEC type at all so it shouldn't be added to
+  #       the config even if there are genes with this biotype in the Vega
+  #       database.
 
   HAVANA_INPUT_NONCODING_TYPE => [ '3prime_overlapping_ncrna',
                                    'ambiguous_orf',
