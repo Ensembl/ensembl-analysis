@@ -963,15 +963,10 @@ use vars qw( %Config );
 
 	IMPORT_AGILENT_ARRAYS => 
 	{
-<<<<<<< ImportArrays.pm
-	 IIDREGEXP => '^>(\S+):(\S+)\s*(.*)$',
 	 
-=======
-	 IIDREGEXP => '^>(\S+):(\S+).*$', #ORIG
-	 #IIDREGEXP => '^>(AgilentTiling):(.*)$', #HOLLY HACK
+	 IIDREGEXP => '^>(\S+):(\S+)\s*(.*)$',
 	 #IIDREGEXP => '^>(\S+):(.+)', #EG HACK
-
->>>>>>> 1.22
+	 
 	 IFIELDORDER => {
 					 -name       => 1,
 					 -array_chip => 0,
@@ -981,30 +976,21 @@ use vars qw( %Config );
 					},
 	 	 
 	 ARRAY_PARAMS => {
-
-					  #Mouse Holly
-					  'AgilentTiling' => {
-									-name => 'AgilentTiling',
-									-vendor => 'AGILENT',
-									#-setsize => undef,
-									-format  => 'EXPRESSION',
-									-type    => 'OLIGO',
-									#-description => '',
-									-class   => 'AGILENT',
-								   },
-		
+					  
+					  
 					  #Danio
 					  'G2518A' => {
-										 -name => 'G2518A',
-										 -vendor => 'AGILENT',
-										 #-setsize => undef,
-										 -format  => 'EXPRESSION',
-										 -type    => 'OLIGO',
-										 #-description => '',
-										  -class   => 'AGILENT',
-										},
-					   'G2519F' => {
-										 -name => 'G2519F',
+								   -name => 'G2518A',
+								   -vendor => 'AGILENT',
+								   #-setsize => undef,
+								   -format  => 'EXPRESSION',
+								   -type    => 'OLIGO',
+								   #-description => '',
+								   -class   => 'AGILENT',
+								  },
+
+					  'G2519F' => {
+								   -name => 'G2519F',
 										 -vendor => 'AGILENT',
 										 #-setsize => undef,
 										 -format  => 'EXPRESSION',
