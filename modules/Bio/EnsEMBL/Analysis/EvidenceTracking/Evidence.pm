@@ -333,5 +333,20 @@ sub seq_region_strand {
   return $self->{'seq_region_strand'};
 }
 
+=head2 name
+
+ Example    : $name = $evidence->name;
+ Description: Get the name of the input sequence
+ Returntype : String
+ Exceptions : 
+
+
+=cut
+
+sub name {
+    my $self = shift;
+    return $self->input_seq->hit_name;
+}
+
 
 1;

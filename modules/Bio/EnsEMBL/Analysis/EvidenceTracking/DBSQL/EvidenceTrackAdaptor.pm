@@ -165,6 +165,35 @@ sub fetch_all_by_analysis {
   return $self->generic_fetch($constraint);
 }
 
+=head2 fetch_all
+
+ Example    : $evidencetrack_adaptor->fetch_all();
+ Description: Fetch all the evidence tracks.
+             WARNING!! It can take a looooong time...
+ Returntype : listref of Bio::EnsEMBL::EvidenceTracking::EvidenceTrack
+ Exceptions : 
+
+
+=cut
+
+sub fetch_all {
+  my $self = shift;
+      
+  return $self->generic_fetch();
+}
+
+=head2 fetch_all_by_analysis_and_reason
+
+ Arg [1]    : $analysis_id, int
+ Arg [2]    : $reason_id, int
+ Example    : @trackevidence = @{$evidence_adaptor->fetch_all_by_analysis_and_reason($analysis_id, $reason_id)};
+ Description: Fetch all track evidence for an analysis with some kind of reason
+ Returntype : listref of Bio::EnsEMBL::EvidenceTracking::EvidenceTrack objects
+ Exceptions : 
+
+
+=cut
+
 sub fetch_all_by_analysis_and_reason {
   my $self = shift;
   my ($analysis_id, $reason_id) = @_;
@@ -305,7 +334,6 @@ sub _objs_from_sth {
   $sth->bind_columns( \$evidence_id, \$analysis_run_id, \$reason_id, \$input_id);
 
   my $reason_adaptor = $self->db->get_ReasonAdaptor;
-#  my $reason = $reason_adaptor->fetch_by_dbID($reason_id);
   my %h_reasons;
   foreach my $reason (@{$reason_adaptor->fetch_all}) {
     $h_reasons{$reason->dbID} = $reason;

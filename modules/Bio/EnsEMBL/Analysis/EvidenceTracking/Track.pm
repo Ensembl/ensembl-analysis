@@ -269,7 +269,7 @@ sub update {
     }
 #    print STDERR "Tracks $reason_id: ", Dumper($self->tracks);
     $self->update_reason($name, $reason_id) if ($reason_id);
-    print STDERR "Entry: ", Dumper($self->tracks);
+#    print STDERR "Entry: ", Dumper($self->tracks);
 }
 
 =head2 write_tracks
@@ -312,6 +312,8 @@ sub write_tracks {
 sub all_to_noalign {
     my $self = shift;
 
+    return undef unless $self->tracking;
+    return undef unless $self->has_tracks;
     foreach my $evidence_track (values %{$self->tracks}) {
         if ($evidence_track->evidence->is_aligned eq 'u') {
             $self->update_reason($evidence_track->evidence->input_seq->hit_name, "NoAlignment");
@@ -404,6 +406,7 @@ sub update_reason {
     return undef unless $self->tracking;
     my ($name, $reason_id) = @_;
 
+    print STDERR "Updating reason $reason_id for $name\n";
     $self->get_track($name)->reason($self->get_reason_by_code($reason_id));
 }
 

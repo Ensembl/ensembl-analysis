@@ -263,24 +263,24 @@ TRAN:
 	    	 && $splices_elsewhere 
 	    	 && ! $is_spliced) {
 	      $accept = 'NO';
+          $track->update($transcript->get_all_supporting_features->[0], "Pseudogenes");
 	      if ($printing){
 		  	 print  "rpp $query_id\n"; 
-             $track->update($transcript->get_all_supporting_features->[0], "Pseudogenes");
 		  }
 		}
 		elsif (($short_intron == 0) && ($num_exons > 1)){
 			#all long introns
 			$accept = 'NO';
+            $track->update($transcript->get_all_supporting_features->[0], "AllLongIntrons");
 			if ($printing){
 			  print "only long introns $query_id\n";
-              $track->update($transcript->get_all_supporting_features->[0], "AllLongIntrons");
 			}
 		}
 		#Only accept long intron hits with very high coverage and percent_id
 		elsif($max_intron > 250000 ){ 
 			if (($coverage >= 98) && ($percent_id >= 98)){
 				$accept = 'YES';
-              $track->update($transcript->get_all_supporting_features->[0], "BHLongIntrons");
+                $track->update($transcript->get_all_supporting_features->[0], "BHLongIntrons");
 				push( @good_matches, $transcript);
 				
 				#print "accept: intron $max_intron coverage $coverage \%id $percent_id $query_id\n"; 
@@ -299,9 +299,17 @@ TRAN:
 				
 			}else{
 				$accept = 'NO';
+                if ($self->min_coverage > $coverage) {
+                    $track->update($transcript->get_all_supporting_features->[0], "LILowCoverage");
+                }
+                elsif ($self->min_percent > $percent_id) {
+                    $track->update($transcript->get_all_supporting_features->[0], "LILowIdentity");
+                }
+                else {
+                    $track->update($transcript->get_all_supporting_features->[0], "LongIntronsLower");
+                }
 				if ($printing){
 				  print "reject: intron $max_intron coverage $coverage \%id $percent_id $query_id\n";
-                  $track->update($transcript->get_all_supporting_features->[0], "LongIntronsLower");
 				}
 			}	
 		}else{
@@ -313,9 +321,17 @@ TRAN:
 	  }
 	  else{
 		$accept = 'NO';
+        if ($self->min_coverage > $coverage) {
+            $track->update($transcript->get_all_supporting_features->[0], "LowCoverage");
+        }
+        elsif ($self->min_percent > $percent_id) {
+            $track->update($transcript->get_all_supporting_features->[0], "LowIdentity");
+        }
+        else {
+            $track->update($transcript->get_all_supporting_features->[0], "BHRejected");
+        }
  		if ($printing){
 		  print "max_coverage $max_coverage coverage $coverage \%id $percent_id $query_id\n"; 
-          $track->update($transcript->get_all_supporting_features->[0], "Rejected");
 		}
 
 
@@ -345,7 +361,7 @@ TRAN:
 	       $splices_elsewhere &&
 	       ! $is_spliced) {
 	    $accept = 'NO';
-        $track->update($transcript->get_all_supporting_features->[0], "Pseudogenes");
+        $track->update($transcript->get_all_supporting_features->[0], "Rejected");
 	  }
 	  else{
 	    $accept = 'YES';

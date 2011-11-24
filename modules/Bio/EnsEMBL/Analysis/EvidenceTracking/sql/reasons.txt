@@ -36,5 +36,8 @@
 119	BadCoverage	Coverage inconsistent throughout the transcript
 120	TooShort	Sequence smaller than the threshold
 121	AllLongIntrons	Every intron in these hits is of length 250000-400000bp, we require at least one intron to be shorter than 250000bp
-122	LongIntronsLower	Hits containing introns longer than 250000bp are rejected if coverage or percentage_id is less than 98%
+122	LongIntronsLower	Hits containing introns longer than 250000bp are rejected if coverage and percentage_id is less than 98%
 123	TooManyN	>10% N-strings
+124	LILowIdentity	Hits containing introns longer than 250000bp are rejected if percentage_id is less than 98%
+125	LILowCoverage	Hits containing introns longer than 250000bp are rejected if coverage is less than 98%
+126	BHRejected	Best hit below thresholds

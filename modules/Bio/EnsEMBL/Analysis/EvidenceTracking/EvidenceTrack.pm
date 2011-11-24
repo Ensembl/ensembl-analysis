@@ -176,5 +176,37 @@ sub input_id {
   return $self->{'input_id'};
 }
 
+=head2 name
+
+ Example    : $name = $evidencetrack->name;
+ Description: Get the name of the sequence used as supporting evidence
+ Returntype : String
+ Exceptions : 
+
+
+=cut
+
+sub name {
+    my $self = shift;
+
+    return $self->evidence->name;
+}
+
+=head2 code
+
+ Example    : $code = $evidencetrack->code;
+ Description: Get the the reason code for the track
+ Returntype : String
+ Exceptions : 
+
+
+=cut
+
+sub code {
+    my $self = shift;
+
+    return $self->reason->code;
+}
+
 
 1;
