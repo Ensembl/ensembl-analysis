@@ -57,9 +57,10 @@ use vars qw( %Config );
 	     
 	     # repeat masks the transcript sequences - quick but you might miss something
 	     MASK => '0',
-	     
-	     # length of the reads to fetch
-	     READ_LENGTH => '',
+
+	     # Filter the alignments based on percent_id and coverage
+	     PERCENT_ID => 97,
+	     COVERAGE => 90,
 	     
 	     # use the full genomic sequence rather than just the transcript sequence
 	     FULLSEQ   => 1,
