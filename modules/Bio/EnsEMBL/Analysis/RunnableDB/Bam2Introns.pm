@@ -100,10 +100,10 @@ sub fetch_input {
   my $program = $self->analysis->program_file;
   $program = "exonerate-0.9.0" unless $program;
 
-  my $options =  "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
-                 "--model est2genome --forwardcoordinates FALSE ".
-                 "--softmasktarget $mask --exhaustive FALSE --percent 80  ".
-                 "--saturatethreshold 100 --dnahspthreshold 60 --minintron 20  --dnawordlen " .
+  my $options =  "--showsugar F --showvulgar F --showalignment F --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
+                 "--model est2genome --forwardcoordinates F ".
+                 "--softmasktarget $mask --exhaustive F --percent 80 ".
+                 "--saturatethreshold 100 --dnahspthreshold 60 --minintron 20 --dnawordlen " .
 		   $self->WORD_LENGTH ." -i -12 --bestn 1";
 
   # number of missmatches needed before using a read from the bam file
