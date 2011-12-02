@@ -195,6 +195,21 @@ sub run {
     my $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->
     fetch_by_transcript_id($transcript->dbID, $expansion);
 
+    #check expansion hasn't extended slice beyond seq_region
+    if(($genomic_slice->start < 1) or ($genomic_slice->end > $genomic_slice->seq_region_length)){
+
+      if(($genomic_slice->start < 1) and ($genomic_slice->end > $genomic_slice->seq_region_length)){
+        $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_region($genomic_slice->coord_system_name,$genomic_slice->seq_region_name, 1, $genomic_slice->seq_region_length, $genomic_slice->strand);
+      }
+      elsif($genomic_slice->start < 1){
+        $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_region($genomic_slice->coord_system_name,$genomic_slice->seq_region_name, 1, $genomic_slice->end,$genomic_slice->strand);
+      }
+      else{
+        $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_region($genomic_slice->coord_system_name,$genomic_slice->seq_region_name, $genomic_slice->start, $genomic_slice->seq_region_length,$genomic_slice->strand);
+      }
+
+    }
+
     #use :_: to separate the two parts of the output input ID
     my $id = $genomic_slice->name . ':_:' . $hit_name;
 
