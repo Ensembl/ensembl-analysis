@@ -47,6 +47,7 @@ use vars qw( %Config );
 			
 			# minimum size for an intron
 			MIN_INTRON_SIZE  => 30,   
+			MAX_INTRON_SIZE  => 200000,  
 			
 			# biotype to give to single exon models if left blank single exons are ignored
 			SINGLE_EXON_MODEL => 'single_exon',
@@ -78,6 +79,16 @@ use vars qw( %Config );
 			
 			# biotype to label bad models ( otherwise they are not written )
 			BAD_MODELS     => '',
+
+			# do you want to trim UTR
+			TRIM_UTR => 1,
+			# config for trimming UTR
+			MAX_3PRIME_EXONS => 2,
+			MAX_3PRIME_LENGTH => 5000,
+			MAX_5PRIME_EXONS => 3,
+			MAX_5PRIME_LENGTH => 1000,
+			# % of average intron score that a UTR intron must have
+			REJECT_INTRON_CUTOFF => 5,
                    },
 	   }
 	    
