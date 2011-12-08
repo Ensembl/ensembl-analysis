@@ -86,7 +86,8 @@ sub fetch_input {
   my( $self) = @_;
   my $logic = $self->analysis->logic_name;
   # fetch adaptors and store them for use later
-  $self->intron_slice_adaptor($self->get_dbadaptor($self->INTRON_DB)->get_SliceAdaptor);
+  $self->intron_slice_adaptor($self->get_dbadaptor($self->INTRON_DB)->get_SliceAdaptor)
+    if $self->INTRON_DB;
   $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
   $self->gene_slice_adaptor($self->get_dbadaptor($self->MODEL_DB)->get_SliceAdaptor);
 
@@ -225,7 +226,8 @@ sub refine_genes {
 	my @retained_introns;
       INTRON: foreach my $intron ( @introns ){
 	  next unless $intron->strand == $strand;
-	  next unless $intron->length > $self->MIN_INTRON_SIZE;
+	  next unless $intron->length >  $self->MIN_INTRON_SIZE;
+	  next unless $intron->length <= $self->MAX_INTRON_SIZE;
 	  # disguard introns that splice over our exon
 	  if ( $intron->start< $exon->start && $intron->end > $exon->end ) {
 	    $intron_overlap++;
@@ -751,6 +753,7 @@ sub make_models {
     MODEL: foreach my $model (  @$models ) {
 	# list of the rough exons used in the model
 	my $exon_use = pop(@{$model});
+	my @introns;
 	my $intron_count = 0;
 	my $intron_score = 0;
 	my $exon_score = 0;
@@ -776,6 +779,7 @@ sub make_models {
 	    my $intron = $model->[$i];
 	    next unless $intron->strand == $strand;
 	    next unless $new_exons[$i-1] && $new_exons[$i+1];
+	    push @introns,$intron;
 	    # its an intron trim the exons accordingly
 	    $new_exons[$i-1]->end( $intron->start );
 	    $new_exons[$i+1]->start( $intron->end );
@@ -813,7 +817,10 @@ sub make_models {
 	# make it into a gene
 	my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
 	# add a translation 
-	my $tran = compute_translation(clone_Transcript($t));
+	my $initial_tran = compute_translation(clone_Transcript($t));
+	# trim UTR
+	my $tran = $self->prune_UTR($initial_tran,\@introns);
+	
 	# keep track of the scores for this transcript
 	$tran->analysis($self->analysis);
 	$tran->version(1);
@@ -881,6 +888,303 @@ sub make_models {
   return \@model_clusters;
 }
 
+sub prune_UTR {
+  my ($self,$transcript,$introns) = @_;
+  unless ( $self->TRIM_UTR ) {
+    return $transcript;
+  }
+  unless ( $transcript->translateable_seq ) {
+    return $transcript;
+  }
+  # otherwise trim the UTR according to the values set out in the config
+  my %intron_hash;
+  print STDERR "Got " . scalar(@{$introns}) . " introns - hashing...";
+  foreach my $intron ( @{$introns} ) {
+    my $key = $intron->start .":". $intron->end .":". $intron->strand;
+    print "INTRON $key\n";
+    $intron_hash{$key} = $intron;
+  }
+  print STDERR " done \n Got ";
+  my @new_fivep;
+  my @new_threep;
+  my @new_exons;
+  my @features;
+  my @exons = sort {$a->start <=> $b->start }  @{$transcript->get_all_Exons};
+
+  # put everything into the features array
+  push @features, @exons;
+  for ( my $i =0 ; $i < $#exons  ; $i++ ) {
+    my $key = ($exons[$i]->end) .":". ($exons[$i+1]->start ) . ":" . $exons[$i]->strand;
+
+    if ( my $intron = $intron_hash{$key}  ) {
+      push @features, $intron;
+    }
+  }
+  @features = sort { $a->start <=> $b->start } @features;
+  # so now we should have an array of alternating introns and exons
+  print "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+Transcript " . $transcript->stable_id ." " . 
+  $transcript->seq_region_name ." " . 
+    $transcript->start ." " . 
+      $transcript->end ." " . 
+	$transcript->strand ." " . 
+	  scalar(@{$transcript->get_all_Exons}) ."
+
+";
+  throw("Something is wrong we are missing " . scalar(@{$introns}) ." introns " . scalar(@exons) . "  exons " . scalar(@features) . " exons and introns\n")
+    unless scalar(@features) == (scalar(@exons) * 2) -1 ;
+  my $average_intron = 0;
+  my $intron_count = 0;
+  # leave single exon genes alone for now
+  if ( scalar(@features) == 1 or scalar(@{$transcript->get_all_translateable_Exons}) == 1 )  {
+    # lets strip the UTR
+    return  $self->modify_transcript($transcript,$transcript->get_all_translateable_Exons);
+  }
+  # first calculate the average
+  foreach my $f ( @features ) {
+    if ( $f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+      $average_intron += $f->score;
+      $intron_count++;
+    }
+  }
+  $average_intron /= $intron_count;
+
+  foreach my $f ( @features ) {
+    print $f->start . "\t" . $f->end ."\t$f\t";
+    if ( $f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+      print $f->score;
+      if ( $average_intron && ($f->score /  $average_intron) * 100 <= $self->REJECT_INTRON_CUTOFF ) {
+	print " Potentially bad";
+      }
+    }
+    print "\n";
+  }
+  throw("Something is wrong we are missing introns " . scalar(@exons) . "  exons  and $intron_count introns\n")
+    unless $intron_count == scalar(@exons) -1 ;
+  print  "Average intron depth = $average_intron \n";
+  
+  
+  my @fivep;
+  my @threep;
+  my $coding =0 ;
+  # need to account for strand
+  @features = sort { $b->start <=> $a->start } @features if $transcript->strand == -1;
+  
+  for ( my $i = 0 ; $i <=  $#features ; $i += 2  ) {
+    my $e = $features[$i];
+    throw("Got a DNA align feature where I should have an exon\n")
+      unless $e->isa("Bio::EnsEMBL::Exon");
+    if ( $e->coding_region_start($transcript) ) {
+      # first coding exon
+      for ( my $j = 0 ; $j <= $i ; $j++ ) {
+	push @fivep,$features[$j];
+      }
+      last;
+    }
+  }
+  for ( my $i = $#features ; $i >= 0 ;  $i -= 2  ) {
+    my $e = $features[$i];
+    throw("Got a DNA align feature where I should have an exon\n")
+      unless $e->isa("Bio::EnsEMBL::Exon");
+    if ( $e->coding_region_end($transcript) ) {
+	  # first coding exon
+      for ( my $j = $i ; $j <= $#features ; $j++ ) {
+	push @threep,$features[$j];
+      }
+      last;
+    }
+  }
+  
+  # want to start at last coding exon and work outwards so....
+  @fivep = reverse @fivep;
+  # now we should be good
+  print "FIVE P \n";
+  @new_exons = @{$transcript->get_all_translateable_Exons};
+  my $fivep_cds = shift(@new_exons);
+  my $threep_cds = pop(@new_exons);
+  my $fiveplen;
+  my $threeplen;
+  my $fivepc = 0 ;
+  my $threepc = 0 ;
+  my $nmd;
+  
+  # FIVE PRIME RULES
+  
+ FIVEP: for ( my $i = 0 ; $i <= $#fivep ; $i++ ) {
+    my $f =  $fivep[$i];
+    print $f->start . "\t" . $f->end ."\t$f\t";
+    if ( $i == 0 ) {
+      throw("First feature is not an exon \n")
+	unless $f->isa("Bio::EnsEMBL::Exon");
+      # UTR starts in this exon - how long is it?
+      my $cds_start = $f->coding_region_start($transcript);
+      $cds_start = $f->coding_region_end($transcript)  if $transcript->strand == -1;
+      throw("First coding exon has no CDS \n") unless $cds_start;
+      print "CDS START $cds_start\t";
+      $fiveplen = $cds_start - $f->start +1 if $transcript->strand == 1;
+      $fiveplen = $f->end - $cds_start   +1 if $transcript->strand == -1;
+      # is the coding exon too long
+      if ( $fiveplen > $self->MAX_5PRIME_LENGTH ) {
+	# replace it with the cds
+	@new_fivep = ($fivep_cds);
+	print " 5p too long $fiveplen \n";
+	last FIVEP;
+      }
+      push @new_fivep,$f;
+      $fivepc++;
+    } else {
+      if (  $f->isa("Bio::EnsEMBL::Exon") ) {
+	$fivepc++;
+	$fiveplen+= $f->end - $f->start +1;
+	# does it make the UTR too long?
+	if ( $fiveplen > $self->MAX_5PRIME_LENGTH ) {
+	  # dont add it
+	  print " 5p too long $fiveplen \n";
+	  last FIVEP;
+	}
+	# is it too many exons?
+	if ( $fivepc > $self->MAX_5PRIME_EXONS ) {
+	  # dont add it
+	  print " too many 5p  $fivepc cut them all as we are not sure \n";
+	  @new_fivep = ($fivep_cds);
+	  last FIVEP;
+	}
+	push @new_fivep,$f;
+      }
+    }
+    # Does the intron score well enough to include the exon
+    # apply rules and add successful exons into the mix
+    if ( $f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+      print $f->score;
+      if ( $average_intron && ($f->score /  $average_intron) *100 <= $self->REJECT_INTRON_CUTOFF ) {
+	print " Rejecting on score cutoff " . $f->score ." vs  $average_intron\n";
+	# dont add any more 
+	last FIVEP;
+      }
+    }
+    print "\n";
+  }
+  
+  # three P
+  print "THREE P \n";
+ THREEP:   for ( my $i = 0 ; $i <= $#threep ; $i++ ) {
+    my $f = $threep[$i];
+    print $f->start . "\t" . $f->end ."\t$f\t";
+    if ( $i == 0 ) {
+      throw("First feature is not an exon \n")
+	unless $f->isa("Bio::EnsEMBL::Exon");
+      # UTR starts in this exon - how long is it?
+      my $cds_end = $f->coding_region_end($transcript);
+      $cds_end = $f->coding_region_start($transcript)  if $transcript->strand == -1;
+      throw("last coding exon has no CDS \n") unless $cds_end;
+      print "CDS END $cds_end\t";
+      $threeplen = $cds_end - $f->start +1 if $transcript->strand == -1;
+      $threeplen = $f->end - $cds_end   +1 if $transcript->strand == 1;
+      # is the coding exon too long
+      if ( $threeplen > $self->MAX_3PRIME_LENGTH ) {
+	# replace it with the cds
+	@new_threep = ($threep_cds);
+	print " 3p too long $threeplen \n";
+	last THREEP;
+      }
+      push @new_threep,$f;
+      $nmd = $threeplen ;
+      $threepc++;
+    } else {
+      if (  $f->isa("Bio::EnsEMBL::Exon") ) {
+	# does it break the NMD rule?
+	if ( $nmd > 55 ) {
+	  print " splice is after $nmd bp from stop codon - rejected on NMD rule of maximum 55 bp \n";
+	  @new_threep = ($threep_cds);
+	  last THREEP;
+	}
+	$threepc++;
+	$threeplen+= $f->end - $f->start +1;
+	# does it make the UTR too long?
+	if ( $threeplen > $self->MAX_3PRIME_LENGTH ) {
+	  # dont add it
+	  print " 3p too long $threeplen \n";
+	  last THREEP;
+	}
+	# is it too many exons?
+	if ( $threepc > $self->MAX_3PRIME_EXONS ) {
+	  # dont add it
+	  print " too many 3p  $threepc cut them all as we are not sure \n";
+	  @new_threep = ($threep_cds);
+	  last THREEP;
+	}
+	push @new_threep,$f;
+      }
+    }
+    # Does the intron score well enough to include the exon
+    # apply rules and add successful exons into the mix
+    if ( $f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+      print $f->score;
+      if ( $average_intron && ($f->score /  $average_intron) * 100 <= $self->REJECT_INTRON_CUTOFF ) {
+	print " Rejecting on score cutoff " . $f->score ." vs  $average_intron\n";
+	# dont add any more 
+	last THREEP;
+      }
+    }
+    print "\n";
+  }
+  
+  push @new_exons, @new_fivep;
+  push @new_exons, @new_threep;
+  print " New transript has " . scalar(@new_exons) , " exons\n";
+  my @clones;
+  foreach my $e ( @new_exons ) {
+    throw("Not is not an exon " . $e->start ." " . $e->end . " $e\n")
+      unless $e->isa("Bio::EnsEMBL::Exon");
+    push @clones, clone_Exon($e);
+  }
+  @clones = sort { $a->start <=> $b->start } @clones;
+  @clones =  reverse(@clones) if $transcript->strand == -1;
+  return $self->modify_transcript($transcript,\@clones);
+}
+
+
+sub modify_transcript {
+  my ($self,$tran,$exons) = @_;
+  my $cds_start = $tran->coding_region_start;
+  $cds_start = $tran->coding_region_end if $tran->strand == -1;
+  my $cds_end = $tran->coding_region_end;
+  $cds_end = $tran->coding_region_start if $tran->strand == -1;
+  print "CDS START END $cds_start  $cds_end \n";
+  print "PHASE " . $tran->translation->start . " " . $tran->translation->end ."\n";
+  my $t =  new Bio::EnsEMBL::Transcript(-EXONS => $exons);
+  my $se;
+  my $ee;
+  foreach my $e ( @{$t->get_all_Exons} ) {
+    $ee = $e if $e->start <= $cds_end &&  $e->end >= $cds_end;
+    $se = $e if $e->start <= $cds_start &&  $e->end >= $cds_start;
+  }
+  my $ts;
+  my $te;
+  if ( $tran->strand == -1 ) {
+    $ts =  $se->end - $cds_start+ 1;
+    $te =  $ee->end - $cds_end  + 1;
+  } else {
+    $ts =   $cds_start - $se->start+ 1;
+    $te =   $cds_end - $ee->start  + 1;
+  }
+  #  my $start_phase = $se->phase;
+  my $translation =  new Bio::EnsEMBL::Translation->new( 
+							-START_EXON => $se,
+							-END_EXON   => $ee,
+							-SEQ_START  => $ts,
+							-SEQ_END    => $te,
+						       );
+  print "S-E $ts $te \n";#START PHASE $start_phase\n";
+  print "GS " . $translation->genomic_start ." " . $translation->genomic_end ."\n";
+  $t->translation($translation);
+  # calculate_exon_phases($t,$start_phase);
+  unless (  $tran->translation->seq eq $t->translation->seq ) {
+    $self->throw("Translations do not match: Before " . $tran->translation->seq ."\nAfter  " . 	  $t->translation->seq ."\n");
+  }
+  return $t;
+}
 
 sub write_output{
   my ($self) = @_;
@@ -1972,6 +2276,21 @@ sub MIN_INTRON_SIZE {
 }
 
 
+sub MAX_INTRON_SIZE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_INTRON_SIZE'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_INTRON_SIZE'})) {
+    return $self->{'_CONFIG_MAX_INTRON_SIZE'};
+  } else {
+    return undef;
+  }
+}
+
+
 sub BEST_SCORE {
   my ($self,$value) = @_;
 
@@ -2169,6 +2488,98 @@ sub WRITE_INTRONS {
     return undef;
   }
 }
+
+sub TRIM_UTR {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_TRIM_UTR'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_TRIM_UTR'})) {
+    return $self->{'_CONFIG_TRIM_UTR'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub MAX_3PRIME_EXONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_3PRIME_EXONS'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_3PRIME_EXONS'})) {
+    return $self->{'_CONFIG_MAX_3PRIME_EXONS'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub MAX_3PRIME_LENGTH {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_3PRIME_LENGTH'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_3PRIME_LENGTH'})) {
+    return $self->{'_CONFIG_MAX_3PRIME_LENGTH'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub MAX_5PRIME_EXONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_5PRIME_EXONS'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_5PRIME_EXONS'})) {
+    return $self->{'_CONFIG_MAX_5PRIME_EXONS'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub MAX_5PRIME_LENGTH {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MAX_5PRIME_LENGTH'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MAX_5PRIME_LENGTH'})) {
+    return $self->{'_CONFIG_MAX_5PRIME_LENGTH'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub REJECT_INTRON_CUTOFF {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_REJECT_INTRON_CUTOFF'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_REJECT_INTRON_CUTOFF'})) {
+    return $self->{'_CONFIG_REJECT_INTRON_CUTOFF'};
+  } else {
+    return undef;
+  }
+}
+
+
+
 
 
 1;
