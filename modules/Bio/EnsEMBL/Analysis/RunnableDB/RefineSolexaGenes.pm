@@ -900,7 +900,7 @@ sub prune_UTR {
   my %intron_hash;
   print STDERR "Got " . scalar(@{$introns}) . " introns - hashing...";
   foreach my $intron ( @{$introns} ) {
-    my $key = $intron->start .":". $intron->end .":". $intron->strand;
+    my $key = $intron->start  .":". $intron->end .":". $intron->strand;
     print "INTRON $key\n";
     $intron_hash{$key} = $intron;
   }
@@ -953,6 +953,9 @@ Transcript " . $transcript->stable_id ." " .
   foreach my $f ( @features ) {
     print $f->start . "\t" . $f->end ."\t$f\t";
     if ( $f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+      # make the intron features not overlap with the ends of the exons
+      $f->start($f->start+1);
+      $f->end($f->end-1);
       print $f->score;
       if ( $average_intron && ($f->score /  $average_intron) * 100 <= $self->REJECT_INTRON_CUTOFF ) {
 	print " Potentially bad";
@@ -970,7 +973,7 @@ Transcript " . $transcript->stable_id ." " .
   my $coding =0 ;
   # need to account for strand
   @features = sort { $b->start <=> $a->start } @features if $transcript->strand == -1;
-  
+
   for ( my $i = 0 ; $i <=  $#features ; $i += 2  ) {
     my $e = $features[$i];
     throw("Got a DNA align feature where I should have an exon\n")
