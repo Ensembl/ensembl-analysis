@@ -156,6 +156,10 @@ sub parse_results{
           } elsif ($repeatmunge2 eq 'Unknown') {
             print "Unknown repeat name\n";
             $repeat_name = 'Unknown';
+          } elsif ($repeatmunge2 =~ /(LINE\S+)/) {
+            $repeatmunge2 =~ /(LINE\S+)/;
+            $repeat_class = $1;
+            $repeat_name = $repeatmunge;
           } else {
             throw("Can't parse repeatmasker output for line = $_\n");
           }
