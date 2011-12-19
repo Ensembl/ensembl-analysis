@@ -24,6 +24,9 @@ RepeatMasker expects to run the program RepeatMasker
 and produce RepeatFeatures which can be stored in the repeat_feature
 and repeat_consensus tables in the core database
 
+It has optional configuration via C<analysis.parameters> to change
+C<$HOME>, which causes RepeatMasker (v3+) to put C<.RepeatMaskerCache>
+elsewhere.  This can be tied to user and program_version.
 
 =head1 CONTACT
 
@@ -39,6 +42,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -49,6 +53,9 @@ sub new {
   my ($class,@args) = @_;
   
   my $self = $class->SUPER::new(@args);
+
+  my ($sethome) = rearrange(['SETHOME'], @args);
+  $self->sethome($sethome);
 
   ######################
   #SETTING THE DEFAULTS#
@@ -85,6 +92,12 @@ sub run_analysis{
   $cmd .= $self->options." " if($self->options);
   $cmd .= $self->queryfile;
   print "Running analysis ".$cmd."\n";
+
+  # Set HOME before running RepeatMasker, to move the cache directory.
+  # When unconfigured, does nothing.
+  local $ENV{HOME} = $self->moved_home;
+  print "  with HOME=$ENV{HOME} (for the cache)\n";
+
   system($cmd) == 0 or throw("FAILED to run ".$cmd.
                              " RepeatMasker:run_analysis");
   foreach my $file(glob $self->queryfile."*"){
@@ -97,6 +110,58 @@ sub run_analysis{
   }
 }
 
+
+=head2 sethome
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
+  Arg [2]   : value from "-sethome" key in analysis.parameters column
+  Function  : container for configuration string
+  Returntype: string
+  Exceptions: none
+  Example   : 
+
+=cut
+
+sub sethome {
+  my $self = shift;
+  $self->{'sethome'} = shift if(@_);
+  return $self->{'sethome'} || '';
+}
+
+=head2 moved_home
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
+  Function : constructs a value to use for $HOME during the run of
+  program.  Substitutes username and program version into the
+  configured string before returning.
+  Returntype: string
+  Exceptions: none
+  Example   : Set ANALYSIS.PARAMETERS='-options => -low, -sethome => /lustre/scratch101/sanger/USER/RepeatMasker-VERSION'
+
+=cut
+
+sub moved_home {
+    my ($self) = @_;
+
+    my $sethome = $self->sethome;
+    return $ENV{HOME} if $sethome eq '';
+    # from here, it's opt-in
+
+    my $user = (getpwuid($<))[0];
+    my $vsn = $self->analysis->program_version;
+
+    $sethome =~ s/\bUSER\b/$user/;
+    $sethome =~ s/\bVERSION\b/$vsn/;
+
+    if (! -d $sethome) {
+        # Not getting into "mkdir -p" here.  Either we can make it
+        # trivially, or the analysis config is wrong.
+        mkdir $sethome
+          or throw("FAILED to mkdir(HOME=$sethome) for the cache: $!");
+    }
+
+    return $sethome;
+}
 
 
 =head2 parse_results
