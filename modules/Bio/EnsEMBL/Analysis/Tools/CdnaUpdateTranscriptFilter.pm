@@ -299,11 +299,11 @@ TRAN:
 				
 			}else{
 				$accept = 'NO';
-                if ($self->min_coverage > $coverage) {
-                    $track->update($transcript->get_all_supporting_features->[0], "LILowCoverage");
-                }
-                elsif ($self->min_percent > $percent_id) {
+                if ($self->min_percent > $percent_id) {
                     $track->update($transcript->get_all_supporting_features->[0], "LILowIdentity");
+                }
+                elsif ($self->min_coverage > $coverage) {
+                    $track->update($transcript->get_all_supporting_features->[0], "LILowCoverage");
                 }
                 else {
                     $track->update($transcript->get_all_supporting_features->[0], "LongIntronsLower");

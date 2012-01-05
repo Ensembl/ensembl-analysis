@@ -161,7 +161,34 @@ sub fetch_all_by_analysis {
   my $self = shift;
   my $analysis_id = shift;
       
-  my $constraint = 'ar.analysis_id = "'.$analysis_id.'"';
+  my $constraint = 'ar.analysis_id = '.$analysis_id;
+  return $self->generic_fetch($constraint);
+}
+
+=head2 fetch_by_logic_name
+
+ Arg [1]    : $logic_name
+ Example    : $analysisrun_adaptor->fetch_by_logic_name($logic_name);
+ Description: Return all run for the analysis $logic_name
+ Returntype : listref of Bio::EnsEMBL::EvidenceTracking::EvidenceTrack
+ Exceptions : 
+
+
+=cut
+
+sub fetch_by_logic_name {
+  my $self = shift;
+  my $logic_name = shift;
+  sub _tables {
+    my $self = shift;
+    return (['track_evidence' , 'te'], ['analysis_run', 'ar'], ['analysis', 'a']);
+  }
+
+  sub _left_join {
+      return ['analysis_run', 'te.analysis_run_id = ar.analysis_run_id', 'analysis', 'ar.analysis_id = a.analysis_id'];
+  }
+      
+  my $constraint = 'a.logic_name = "'.$logic_name.'"';
   return $self->generic_fetch($constraint);
 }
 
