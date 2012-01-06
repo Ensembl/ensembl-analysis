@@ -99,13 +99,11 @@ sub fetch_input {
   $mask = "FALSE" unless $self->MASK;
   my $program = $self->analysis->program_file;
   $program = "exonerate-0.9.0" unless $program;
-  # set the score as the read length - the number of allowed missmatches
-  my $allowed_missmatches = int($self->MISSMATCH / $self->READ_LENGTH * 100);
-  my $score = ($self->READ_LENGTH * 5) - ($allowed_missmatches +1) ;
-  my $options =  "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
-                 "--model est2genome --forwardcoordinates FALSE ".
-                 "--softmasktarget $mask --exhaustive FALSE --score $score  ".
-                 "--saturatethreshold 100 --dnahspthreshold 60 --minintron 20  --dnawordlen " .
+
+  my $options =  "--showsugar F --showvulgar F --showalignment F --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
+                 "--model est2genome --forwardcoordinates F ".
+                 "--softmasktarget $mask --exhaustive F --percent 80 ".
+                 "--saturatethreshold 100 --dnahspthreshold 60 --minintron 20 --dnawordlen " .
 		   $self->WORD_LENGTH ." -i -12 --bestn 1";
 
   # number of missmatches needed before using a read from the bam file
@@ -123,7 +121,8 @@ sub fetch_input {
      -mask         => $self->MASK,
      -out_sam_dir  => $self->OUT_SAM_DIR,
      -bam_file     => $self->BAM_FILE,
-     -read_length  => $self->READ_LENGTH,
+     -percent_id   => $self->PERCENT_ID,
+     -coverage     => $self->COVERAGE,
      -fullseq      => $fullseq,
      -max_tran     => $self->MAX_TRANSCRIPT,
      -start        => $start,
@@ -555,15 +554,29 @@ sub BAM_FILE {
   }
 }
 
-sub READ_LENGTH {
+sub COVERAGE {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_CONFIG_READ_LENGTH'} = $value;
+    $self->{'_CONFIG_COVERAGE'} = $value;
   }
   
-  if (exists($self->{'_CONFIG_READ_LENGTH'})) {
-    return $self->{'_CONFIG_READ_LENGTH'};
+  if (exists($self->{'_CONFIG_COVERAGE'})) {
+    return $self->{'_CONFIG_COVERAGE'};
+  } else {
+    return undef;
+  }
+}
+
+sub PERCENT_ID {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PERCENT_ID'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_PERCENT_ID'})) {
+    return $self->{'_CONFIG_PERCENT_ID'};
   } else {
     return undef;
   }

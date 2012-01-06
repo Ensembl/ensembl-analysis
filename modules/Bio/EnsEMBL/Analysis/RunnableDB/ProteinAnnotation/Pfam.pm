@@ -68,7 +68,7 @@ use strict;
 use vars qw(@ISA);
 
 use Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation;
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam;
+use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::HmmPfam;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation);
 

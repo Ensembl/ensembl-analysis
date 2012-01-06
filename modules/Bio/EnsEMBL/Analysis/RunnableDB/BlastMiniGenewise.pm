@@ -102,7 +102,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes Transcript_info set_start_codon set_stop_codon list_evidence attach_Slice_to_Transcript);
 use Bio::EnsEMBL::Analysis::EvidenceTracking::Track;
 
-@ISA = qw( Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild );
+@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 
 

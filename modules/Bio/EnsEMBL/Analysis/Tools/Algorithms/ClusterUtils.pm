@@ -23,9 +23,9 @@
   Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
-  This package contains methods to make the GeneClusster easier to use.  
-
 =head1 SYNOPSIS
+
+  This package contains methods to make the GeneClusster easier to use.  
 
 
 =head1 DESCRIPTION

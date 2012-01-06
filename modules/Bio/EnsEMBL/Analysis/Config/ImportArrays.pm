@@ -425,7 +425,7 @@ use vars qw( %Config );
 					 #-description => '',
 					 -class   => 'AFFY_UTR'},
 
-	  'HG_U95A' => {-name => 'HG_U95A',
+	  'HG_U95A' => {-name => 'HG-U95A',
 					-vendor => 'AFFY',
 					-format  => 'EXPRESSION',
 					-type    => 'OLIGO',
@@ -460,7 +460,7 @@ use vars qw( %Config );
 					#-description => '',
 					-class   => 'AFFY_UTR'},
 	  
-	  'HG_U95Av2' => {-name => 'HG_U95Av2',
+	  'HG_U95Av2' => {-name => 'HG-U95Av2',
 					-vendor => 'AFFY',
 					-format  => 'EXPRESSION',
 					-type    => 'OLIGO',
@@ -916,6 +916,52 @@ use vars qw( %Config );
 	},
 
 
+
+	IMPORT_ILLUMINA_INFINIUM_ARRAYS => 
+	{
+
+	 #These are DNA methylation arrays so need a reverse strand mapping?
+	 #Or are SourceSeqs target seqs? So we don't need to do anything?
+
+	 IIDREGEXP => '^>(\S+):(\S+).*$',
+	 
+	 IFIELDORDER => {
+					 -name       => 1,
+					 -array_chip => 0,
+					 -array      => 0,
+					 #-probe_set   => 2,#This could be annotation
+					},
+	 	 
+	 ARRAY_PARAMS => {
+					  
+					  
+					  'HumanMethylation27' => {
+											   -name => 'HumanMethylation27',
+											   -vendor => 'ILLUMINA',
+											   -format  => 'METHYLATION',
+											   -type    => 'OLIGO',
+											   #-description => '',
+											   -class   => 'ILLUMINA_INFINIUM',
+											   #-version => '1.2',
+										},
+
+					  'HumanMethylation450' => {
+												-name => 'HumanMethylation450',
+												-vendor => 'ILLUMINA',
+												-format  => 'METHYLATION',
+												-type    => 'OLIGO',
+												#-description => '',
+												-class   => 'ILLUMINA_INFINIUM',
+												#-version => '1.1',
+											   },
+					  
+					 },
+	 
+	 INPUT_FORMAT => 'FASTA',
+	},
+
+
+
 	#CODELINK
 
 	IMPORT_CODELINK_ARRAYS => 
@@ -926,6 +972,7 @@ use vars qw( %Config );
 					 -name       => 1,
 					 -array_chip => 0,
 					 -array      => 0,
+
 					 #-probe_set   => 2,#This could be annotation
 					},
 	 	 
@@ -950,42 +997,34 @@ use vars qw( %Config );
 
 	IMPORT_AGILENT_ARRAYS => 
 	{
-	 IIDREGEXP => '^>(\S+):(\S+).*$', #ORIG
-	 #IIDREGEXP => '^>(AgilentTiling):(.*)$', #HOLLY HACK
+	 
+	 IIDREGEXP => '^>(\S+):(\S+)\s*(.*)$',
 	 #IIDREGEXP => '^>(\S+):(.+)', #EG HACK
-
+	 
 	 IFIELDORDER => {
 					 -name       => 1,
 					 -array_chip => 0,
 					 -array      => 0,
+					 -description => 2,
 					 #-probe_set   => 2,#This could be annotation
 					},
 	 	 
 	 ARRAY_PARAMS => {
-
-					  #Mouse Holly
-					  'AgilentTiling' => {
-									-name => 'AgilentTiling',
-									-vendor => 'AGILENT',
-									#-setsize => undef,
-									-format  => 'EXPRESSION',
-									-type    => 'OLIGO',
-									#-description => '',
-									-class   => 'AGILENT',
-								   },
-		
+					  
+					  
 					  #Danio
 					  'G2518A' => {
-										 -name => 'G2518A',
-										 -vendor => 'AGILENT',
-										 #-setsize => undef,
-										 -format  => 'EXPRESSION',
-										 -type    => 'OLIGO',
-										 #-description => '',
-										  -class   => 'AGILENT',
-										},
-					   'G2519F' => {
-										 -name => 'G2519F',
+								   -name => 'G2518A',
+								   -vendor => 'AGILENT',
+								   #-setsize => undef,
+								   -format  => 'EXPRESSION',
+								   -type    => 'OLIGO',
+								   #-description => '',
+								   -class   => 'AGILENT',
+								  },
+
+					  'G2519F' => {
+								   -name => 'G2519F',
 										 -vendor => 'AGILENT',
 										 #-setsize => undef,
 										 -format  => 'EXPRESSION',
@@ -1047,18 +1086,49 @@ use vars qw( %Config );
 
 				
 					  #human/mouse/rat
-					  'WholeGenome' => {
-										 -name => 'WholeGenome',
-										 -vendor => 'AGILENT',
-										 #-setsize => undef,
-										 -format  => 'EXPRESSION',
-										 -type    => 'OLIGO',
-										 #-description => '',
-										  -class   => 'AGILENT',	
-									   },
+					  'WholeGenome_44x4k_v1' => {
+												 -name => 'WholeGenome_44x4k_v1',
+												 -vendor => 'AGILENT',
+												 #-setsize => undef,
+												 -format  => 'EXPRESSION',
+												 -type    => 'OLIGO',
+												 #-description => '',
+												 -class   => 'AGILENT',	
+												},
+
+					  'WholeGenome_44x4k_v2' => {
+												 -name => 'WholeGenome_44x4k_v2',
+												 -vendor => 'AGILENT',
+												 #-setsize => undef,
+												 -format  => 'EXPRESSION',
+												 -type    => 'OLIGO',
+												 #-description => '',
+												 -class   => 'AGILENT',	
+												},
+
+
+					  'SurePrint_G3_GE_8x60' => {
+												 -name => 'SurePrint_G3_GE_8x60',
+												 -vendor => 'AGILENT',
+												 #-setsize => undef,
+												 -format  => 'EXPRESSION',
+												 -type    => 'OLIGO',
+												 #-description => '',
+												 -class   => 'AGILENT',	
+												},
+					  
+					  #Rat only
+					  'WholeGenome_44x4k_v3' => {
+												 -name => 'WholeGenome_44x4k_v3',
+												 -vendor => 'AGILENT',
+												 #-setsize => undef,
+												 -format  => 'EXPRESSION',
+												 -type    => 'OLIGO',
+												 #-description => '',
+												 -class   => 'AGILENT',	
+												},
 
 					  #human
-					  #Change this to CGH?
 					  'CGH_44b' => {
 										-name => 'CGH_44b',
 										-vendor => 'AGILENT',
@@ -1131,7 +1201,7 @@ use vars qw( %Config );
 
 	IMPORT_LEIDEN_ARRAYS => 
 	{
-	 IIDREGEXP => '^>(\S+):(\S+).*$',
+	 IIDREGEXP => '^>(\S+):(\S+)\s*(.*)$',
 	 
 	 IFIELDORDER => {
 					 -name        => 1,
@@ -1174,13 +1244,13 @@ use vars qw( %Config );
 
 	IMPORT_STEMPLE_LAB_SANGER_ARRAYS => 
 	{
-	 IIDREGEXP => '^>(\S+):(\S+).*$',#Need to add desc field here
+	 IIDREGEXP => '^>(\S+):(\S+)\s*(.*)$',#Need to add desc field here
 	 
 	 IFIELDORDER => {
 					 -name       => 1,
 					 -array_chip => 0,
 					 -array      => 0,
-					 #-probe_set   => 2,#This could be annotation
+					 -description   => 2,
 					},
 	 	 
 	 ARRAY_PARAMS => {
@@ -1192,7 +1262,7 @@ use vars qw( %Config );
 									   -format  => 'EXPRESSION',
 									   -type    => 'OLIGO',
 									   #-description => '',
-									   -class   => 'STEMPLE',
+									   -class   => 'STEMPLE_LAB_SANGER',
 										},
 					  
 					  
@@ -1203,7 +1273,7 @@ use vars qw( %Config );
 									   -format  => 'EXPRESSION',
 									   -type    => 'OLIGO',
 									   #-description => '',
-									   -class   => 'STEMPLE',
+									   -class   => 'STEMPLE_LAB_SANGER',
 									  },
 					  
 					  

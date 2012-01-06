@@ -39,6 +39,8 @@ This object holds one or more introns which has been clustered
 
 =head1 METHODS
 
+=head1 METHODS
+
 =cut
 
 

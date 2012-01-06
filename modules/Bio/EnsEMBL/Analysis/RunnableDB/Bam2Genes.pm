@@ -344,28 +344,28 @@ sub exon_cluster {
   my $bam = $self->bam;
   my $iterator     = $bam->features(-iterator=>1);
   my %exon_clusters;
+  my @exon_clusters;
   my $cluster_data;
   my $cluster_count = 0;
   my $read_count = 0;
   my $regex = $self->PAIRING_REGEX;
-  print STDERR "Clustering\n";
- READ:  while (my $a = $iterator->next_seq) {
+ READ:  while (my $seq = $iterator->next_seq) {
     $read_count++;
-    my $name = $a->query->name;
-    my $start  = $a->start;
-    my $end    = $a->end;
-    my $hstart = $a->query->start;
-    my $hend   = $a->query->end;
+    my $name = $seq->query->name;
+    my $start  = $seq->start;
+    my $end    = $seq->end;
+    my $hstart = $seq->query->start;
+    my $hend   = $seq->query->end;
     my $fm = 0;
     my $sm = 0;
-    my $paired = $a->get_tag_values('MAP_PAIR');
+    my $paired = $seq->get_tag_values('MAP_PAIR');
     if ( $regex && $name =~ /(\S+)($regex)$/ ) {
        $name = $1;
     }
     # make exon clusters and store the names of the reads and associated cluster number
     my $clustered = 0;
-    foreach my $exon_cluster ( values %exon_clusters ) {
-      # do they overlap?
+    for (my $index = @exon_clusters; $index > 0; $index--) {
+      my $exon_cluster = $exon_clusters[$index-1];
       if ( $start <= $exon_cluster->end+1 &&  $end >= $exon_cluster->start-1 ) {
 	# Expand the exon_cluster
 	$exon_cluster->start($start) if $start < $exon_cluster->start;
@@ -398,7 +398,7 @@ sub exon_cluster {
 	 -analysis   => $self->analysis,
 	);
       # store the clusters in a hash with a unique identifier
-      $exon_clusters{$feat->hseqname} = $feat;
+      push(@exon_clusters, $feat);
       # store the key within the feature
       $cluster_data->{$name}->{$feat->hseqname} = 1 
 	if $paired;
@@ -407,6 +407,7 @@ sub exon_cluster {
   # store the relationships between the clusters
   $self->cluster_data($cluster_data);
   print STDERR "Processed $read_count reads\n";
+  %exon_clusters = map {$_->hseqname => $_} @exon_clusters;
   return  \%exon_clusters;
 }
 

@@ -2,9 +2,6 @@
 
   Copyright (c) 1999-2011 The European Bioinformatics Institute and
 BPlite.pm is copyright (C) 1999 by Ian Korf. 
-# Copyright Peter Schattner
-# You may distribute this module under the same terms as perl itself
-  Genome Research Limited.  All rights reserved.
 
   This software is distributed under a modified Apache license.
   For license details, please see

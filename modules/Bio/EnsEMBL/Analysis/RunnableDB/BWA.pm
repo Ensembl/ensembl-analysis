@@ -89,9 +89,6 @@ sub OUTDIR {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-      $value = $1;
-    }
     $self->{'_OUTDIR'} = $value;
   }
   
@@ -107,9 +104,6 @@ sub INDIR {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-      $value = $1;
-    }
     $self->{'_INDIR'} = $value;
   }
   
@@ -126,8 +120,6 @@ sub GENOMEFILE {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-    }
     $self->{'_GENOMEFILE'} = $value;
   }
   
@@ -142,8 +134,6 @@ sub OPTIONS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-    }
     $self->{'_OPTIONS'} = $value;
   }
   
@@ -159,8 +149,6 @@ sub PAIRED {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-    }
     $self->{'_PAIRED'} = $value;
   }
   
@@ -175,8 +163,6 @@ sub SAMPE_OPTIONS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-    }
     $self->{'_SAMPE_OPTIONS'} = $value;
   }
   
@@ -192,8 +178,6 @@ sub SAMSE_OPTIONS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-    }
     $self->{'_SAMSE_OPTIONS'} = $value;
   }
   
@@ -209,8 +193,6 @@ sub SAMTOOLS_PATH {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-    }
     $self->{'_SAMTOOLS_PATH'} = $value;
   }
   
@@ -225,8 +207,6 @@ sub HEADER {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    if ( $value =~ /(.+)\..+/){
-    }
     $self->{'_HEADER'} = $value;
   }
   

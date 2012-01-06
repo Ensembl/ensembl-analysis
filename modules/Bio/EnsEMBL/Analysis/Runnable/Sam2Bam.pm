@@ -128,40 +128,54 @@ sub run {
   # is the genome file indexed?
   # might want to check if it's already indexed first
   my $command = "$program faidx " . $self->genome ;
+  my $error = 0;
   unless ( -e (  $self->genome.".fai" ) ) {
     print "Indexing genome file\n";
-    open  ( $fh,"$command |" ) || 
-      $self->throw("Error indexing fasta file $@\n");
+    print STDERR "$command \n";
+    system("$command 2> /tmp/sam2bam_index.err");
+    open  ( $fh,"/tmp/sam2bam_index.err" ) or die ("Cannot find STDERR from fasta indexing\n");
     # write output
     while(<$fh>){
-      chomp;
       print STDERR "INDEX $_";
-    }
+      $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ ) 
+     }
+     $self->files_to_delete("/tmp/sam2bam/index.err");
   }
+  
   $command = "$program view  -b -h -S -T " . $self->genome ." $bamfile.sam >  $bamfile.bam ";
-  open  ( $fh,"$command |" ) || 
-    $self->throw("Error making BAM file $@\n");
+  print STDERR "$command \n";
+  system("$command 2> /tmp/sam2bam_view.err");
+  open  ( $fh,"/tmp/sam2bam_view.err" ) or die ("Cannot find STDERR from samtools view\n");
   # write output
   while(<$fh>){
-    chomp;
     print STDERR "IMPORT $_";
+    $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ ) 
   }
+  $self->files_to_delete("/tmp/sam2bam_view.err");
+  
   $command = "$program sort $bamfile.bam ".$bamfile."_sorted";
-  open  ( $fh,"$command |" ) || 
-    $self->throw("Error sorting BAM file $@\n");
+  print STDERR "$command \n";
+  system("$command 2> /tmp/sam2bam_sort.err");
+  open  ( $fh,"/tmp/sam2bam_sort.err" ) or die ("Cannot find STDERR from sorting\n");
   # write output
   while(<$fh>){
-    chomp;
     print STDERR "SORT $_";
+    $error = 1 if ($_ =~ /truncated/ or $_ =~ /invalid/ ) 
   }
+  $self->files_to_delete("/tmp/sam2bam_sort.err");
+  
   $command = "$program index ".$bamfile."_sorted.bam";
-  open  ( $fh,"$command |" ) || 
-    $self->throw("Error sorting BAM file $@\n");
+  print STDERR "$command \n";
+  system("$command 2> /tmp/sam2bam_bamindex.err");
+  open  ( $fh,"/tmp/sam2bam_bamindex.err" ) or die ("Cannot find STDERR from bam indexing\n");
   # write output
   while(<$fh>){
-    chomp;
     print STDERR "INDEXBAM $_";
+    $error = 1 if ($_ =~ /invalid/ or $_ =~ /abort/ ) 
   }
+  $self->files_to_delete("/tmp/sam2bam_bamindex.err");
+  $self->delete_files();
+  $self->throw("Errors while running samtools \n")  if $error;
 }
 
 

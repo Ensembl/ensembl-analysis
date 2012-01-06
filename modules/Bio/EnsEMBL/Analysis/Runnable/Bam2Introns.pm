@@ -44,14 +44,15 @@ use Bio::DB::Sam;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ( $model,$missmatch,$mask,$sam_dir,$bam_file,$read_length,$fullseq,$max_tran,$start,$batch_size ) =
-    rearrange( [qw(MODEL MISSMATCH MASK SAM_DIR BAM_FILE  READ_LENGTH FULLSEQ MAX_TRAN START BATCH_SIZE)],@args );
+  my ( $model,$missmatch,$mask,$sam_dir,$bam_file,$percent_id,$coverage,$fullseq,$max_tran,$start,$batch_size ) =
+    rearrange( [qw(MODEL MISSMATCH MASK SAM_DIR BAM_FILE  PERCENT_ID COVERAGE FULLSEQ MAX_TRAN START BATCH_SIZE)],@args );
   $self->model($model);
   $self->MASK($mask);
   $self->MISSMATCH($missmatch);
   $self->OUT_SAM_DIR($sam_dir);
   $self->BAM_FILE($bam_file);
-  $self->READ_LENGTH($read_length);
+  $self->PERCENT_ID($percent_id);
+  $self->COVERAGE($coverage);
   $self->FULLSEQ($fullseq);
   $self->MAX_TRANSCRIPT($max_tran);
   $self->start($start);
@@ -105,34 +106,35 @@ sub run  {
   $self->throw("Bam file " . $self->BAM_FILE . "  not found \n") unless $bam; 
   my $count = 0;
   my $batch = 0;
-  my %ids;
+
  EXON: foreach my $exon ( @{$rough->get_all_Exons} ) {
     my $segment = $bam->segment($rough->seq_region_name,$exon->start,$exon->end);
     my $iterator = $segment->features(-iterator=>1);
   READ:  while (my $read = $iterator->next_seq) {
-      # in case you have bam files with mixed length reads
-      # you will need the reads in each batch to be the same
-      # length for the exonerate config to work
-      next unless $read->length == $self->READ_LENGTH;
       # dont want reads that align perfectly as they won't splice
       my $num_missmatches = $read->get_tag_values('NM') ;
       next READ  unless $num_missmatches >= $self->MISSMATCH;
-      # only use each read once
-      next READ if $ids{$read->name};
-      $ids{$read->name} = 1;
       $batch++;
       next unless $batch > $batch_size * $self->start ;
       $count++;
       if (  $count <= $batch_size ) {
-	#print ".";
+	my $suffix;
+	# is it the 1st or 2nd read?
+	if ( $read->get_tag_values('FLAGS') =~ /FIRST_MATE/ ) {
+	  $suffix = "/1";
+	}
+	if ( $read->get_tag_values('FLAGS') =~ /SECOND_MATE/ ) {
+	  $suffix = "/2";
+	}
+	my $name = $read->name.$suffix;
 	# write the seq files
 	my $bioseq = Bio::Seq->new( 
 				   -seq => $read->query->dna,
-				   -display_id => $read->name
+				   -display_id => $name
 				  );
 	push @reads, $bioseq;
       # want to store the read sequence for making it into a SAM file later
-      $self->seq_hash($read->name,$bioseq);
+      $self->seq_hash($name,$bioseq);
       } else {
 	last EXON if $self->start;
       }
@@ -165,7 +167,10 @@ sub process_features {
   my $features = $self->output;
   my @new_features;
   foreach my $feat ( @$features ) {
-    my $feature_seq = $self->seq_hash($feat->hseqname);
+    # filter on coverage and percent id
+    next unless $feat->percent_id >= $self->PERCENT_ID;
+    next unless $feat->hcoverage >= $self->COVERAGE;
+     my $feature_seq = $self->seq_hash($feat->hseqname);
     # print $feat->hseqname ." $feature_seq\n";
     $self->throw("cannot find sequence for " . $feat->hseqname ."\n")
     unless $feature_seq;
@@ -173,7 +178,7 @@ sub process_features {
     $feat->{"_feature_seq"} = $feature_seq;
     push @new_features, $feat;
   }
-
+  
   # clear the output arrray
   $self->{'output'} = [];
   $self->output(\@new_features);
@@ -270,15 +275,29 @@ sub BAM_FILE {
   }
 }
 
-sub READ_LENGTH {
+sub PERCENT_ID {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_CONFIG_READ_LENGTH'} = $value;
+    $self->{'_CONFIG_PERCENT_ID'} = $value;
   }
   
-  if (exists($self->{'_CONFIG_READ_LENGTH'})) {
-    return $self->{'_CONFIG_READ_LENGTH'};
+  if (exists($self->{'_CONFIG_PERCENT_ID'})) {
+    return $self->{'_CONFIG_PERCENT_ID'};
+  } else {
+    return undef;
+  }
+}
+
+sub COVERAGE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_COVERAGE'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_COVERAGE'})) {
+    return $self->{'_CONFIG_COVERAGE'};
   } else {
     return undef;
   }

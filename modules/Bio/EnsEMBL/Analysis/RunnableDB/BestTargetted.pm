@@ -58,7 +58,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::BestTargetted;
 
 use Bio::EnsEMBL::Analysis::Runnable::BestTargetted;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
-
+use FileHandle;
 
 
 

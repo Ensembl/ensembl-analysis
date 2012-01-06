@@ -101,10 +101,10 @@ modified by Sindhu K. Pillai B<email>sp1@sanger.ac.uk
 
 use strict;
 use warnings;
-use BlastableVersion;
 use Symbol;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::Config::General;
+use Bio::EnsEMBL::Analysis::Tools::BlastDBTracking;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use base ("Bio::EnsEMBL::Analysis::Runnable::Blast");
 
@@ -322,7 +322,6 @@ sub databases {
                $obj->get_db_version()
     Function:  Set a blast database version from the supplied path
                Get a blast database version from previously supplied path
-               Uses tjrc''s BlastableVersion module.
     Returns :  String
     Args    :  String (should be a full database path)
     Caller  :  $self::fetch_databases()
@@ -332,52 +331,14 @@ sub databases {
 
 sub get_db_version {
 	my ( $self, $db ) = @_;
-	my $debug_this = 0;    # this just shows debug info.
-	my $force_dbi  = 0;    # this will force a dbi call SLOW!!!!!!
-	unless ( $self->{'_db_version_searched'} ) {
-		if ($db) {
-			$BlastableVersion::debug = $debug_this;
-			warning
-			  "BlastableVersion is cvs revision ".$BlastableVersion::revision." \n"
-			  if $debug_this;
+        my $ver = Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::get_db_version_mixin(
+            $self, '_db_version_searched', $db,
+            );
 
-			my $ver = eval {
-				my $blast_ver = BlastableVersion->new();
-				$blast_ver->set_hostname('farm2');
-				$blast_ver->force_dbi($force_dbi);    # if set will be SLOW.
-				$blast_ver->get_version($db);
-				$blast_ver;
-			};
-			throw("I failed to get a BlastableVersion for $db") if $@;
-
-			my $dbv  = $ver->version();
-			my $sgv  = $ver->sanger_version();
-			my $name = $ver->name();
-			my $date = $ver->date();
-			unless ($dbv) {
-				throw(  "I know nothing about $db I tried to find out:\n"
-					  . " - name <". $name . ">\n"
-					  . " - date <". $date . ">\n"
-					  . " - version <". $dbv . ">\n"
-					  . " - sanger_version <". $sgv. ">\n" );
-			}
-			$self->{'_db_version_searched'} = $dbv;
-		}
-		else {
-			throw(  "You've asked about what I searched, but I don't know."
-				  . " It's not set. I need to be called with a database filename first"
-			);
-
-			# The code probably got here because of a problem with the MLDBM
-			# cache file on the machine this was running on.
-			# the cache file is stored @ /var/tmp/blast_versions
-			# try <rm -f /var/tmp/blast_versions>
-		}
-	}
         printf STDERR "B:E:A:Runnable::Finished::Blast::get_db_version '%s' => '%s'\n",
-                      $db, $self->{'_db_version_searched'};
+                      $db || '<read_only>', $ver;
 
-	return $self->{'_db_version_searched'};
+	return $ver;
 }
 
 sub DESTROY

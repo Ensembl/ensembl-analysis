@@ -241,13 +241,20 @@ sub parse_results {
 	if($mapping_type eq 'transcript' && $t_strand eq '-'){
 
 	  if($q_strand eq '-'){
-		warn "Found -ve to -ve mapping for probe $probe_id, need to account for this";
+		#Should never happen
+		throw("Found -ve to -ve mapping for probe $probe_id, need to account for this");
 	  }
 	  else{
+		#count here?
 		next;
 	  }
 	}
 
+	$self->{counts}{total_probe_alignments} ||=0;
+	$self->{counts}{total_probe_alignments}++;
+	$self->{counts}{total_probes}{$probe_id} ||=0;
+	$self->{counts}{total_probes}{$probe_id}++;
+	
 
 	#RESULT: 9379131 0 25 + chromosome:NCBIM37:16:1:98319150:1 33212985 33213010 + 116 96.00 25 98319150 1 scores:0:5:5:5:5:5:5:5:5:5:5:-4:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0: at /nfs/acari/nj1/src/ensembl-analysi
 	#RESULT: 586508 1 25 + scaffold:JGI4.1:scaffold_3390:1:12044:1 1790 1766 - 120 100.00 25 12044 0 scores:0:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:5:0:
@@ -404,13 +411,31 @@ sub parse_results {
 	  # attach the slice name onto the feature: let the runnabledb
 	  # sort out whether it's valid.
 	  #$feature->seqname($t_id);
-  
+	  
+	  $self->{counts}{probe_matches}{$probe_id} ||=0;
+	  $self->{counts}{probe_matches}{$probe_id}++;
 
 	}
 	else{
-      warn "Feature from probe :$probe_id doesnt match well enough\n";
-    }
+      #print "Feature from probe :$probe_id does not match well enough\n";
+	  $self->{counts}{probe_mismatches}{$probe_id} ||=0;
+	  $self->{counts}{probe_mismatches}{$probe_id}++;
+	  $self->{counts}{total_probe_mismatches} ||=0;
+	  $self->{counts}{total_probe_mismatches}++;
+	}
+
+	#Need to replace this with some count we can report at the end of each run.
+
   }
+
+  print "Total alignments Probe/ProbeFeature:\t".
+	(keys (%{$self->{counts}{total_probes}})).'/'.$self->{counts}{total_probe_alignments}."\n";
+  
+  print "Failed alignments Probe/ProbeFeatures:\t".
+	(keys (%{$self->{counts}{probe_mismatches}})).'/'.$self->{counts}{total_probe_mismatches}."\n";
+  
+  print "Parsed unfiltered Probe/ProbeFeatures:\t".
+	(keys (%{$self->{counts}{probe_matches}})).'/'.scalar(@features)."\n";
 
   return \@features;
 }

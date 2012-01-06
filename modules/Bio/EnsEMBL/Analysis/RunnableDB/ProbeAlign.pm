@@ -398,7 +398,7 @@ sub write_output {
 sub filter_features {
   my ($self, $features) = @_;
 
-  print "Filtering features";
+  print 'Filtering '.scalar(@$features)." features\n";
 
   my (%hits_by_probe, @kept_hits);
   my $analysis     = $self->analysis;
@@ -624,7 +624,7 @@ sub get_display_name_by_stable_id{
 sub set_probe_and_slice {
   my ( $self, $features ) = @_;
 
-  print "Setting probe and slice objects\n";
+  print 'Setting '.scalar(@$features)." probe and slice objects\n";
 
   my $db = $self->outdb;
   my $slice_adaptor = $db->get_SliceAdaptor;
@@ -1055,7 +1055,7 @@ sub set_probe_and_slice {
   }
 
 
-  print "Finished set_probe_and_slice\n";
+  print 'Finished set_probe_and_slice with '.scalar(@features)." features\n";
 
   return $self->features(\@features);
 }
