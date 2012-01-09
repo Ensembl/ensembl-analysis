@@ -308,7 +308,18 @@ sub in_mole {
   my $string;
   if ( defined $entry ) {
     my ( $strand, $start, $end, $coords, $partial, $low_pe ) = fetch_coords( $entry, $in_db );
-    if (    defined $strand
+
+    if ($low_pe) {#use elsif so numbers for exclusions add up, although could meet both conditions
+      print STDERR "PE_low $display_id id in db " . $in_db->dbc->dbname . " \n";
+      $pe_low++;
+      $write_cdna = 0;
+    }
+    elsif($partial) {
+      print STDERR "Partial cds $display_id id in db " . $in_db->dbc->dbname . " \n";
+      $partial_cds++;
+      $write_cdna = 0;
+    }
+    elsif (    defined $strand
          && defined $start
          && defined $end
          && defined $coords )
@@ -344,16 +355,11 @@ sub in_mole {
       #close ANNOTATION;
       $write_cdna = 1;
     }
-    elsif ($partial) {
-      print STDERR "Partial cds $display_id id in db " . $in_db->dbc->dbname . " \n";
-      $partial_cds++;
-    } elsif ($low_pe) {
-      print STDERR "PE_low $display_id id in db " . $in_db->dbc->dbname . " \n";
-      $pe_low++;
-    } else {
+    else {
       print STDERR "Parse_problem $display_id id in db " . $in_db->dbc->dbname . " \n";
       $parse_problem++;
     }
+
   } else {
     print STDERR "Not_in_Mole $display_id.\n";
     $not_in_mole++;
