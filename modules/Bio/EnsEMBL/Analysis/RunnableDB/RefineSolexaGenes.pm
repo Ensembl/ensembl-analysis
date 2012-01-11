@@ -86,6 +86,8 @@ sub fetch_input {
   my( $self) = @_;
   my $logic = $self->analysis->logic_name;
   # fetch adaptors and store them for use later
+  # explicitly attach the ref db
+  $self->db($self->get_dbadaptor("REFERENCE_DB"));
   $self->intron_slice_adaptor($self->get_dbadaptor($self->INTRON_DB)->get_SliceAdaptor)
     if $self->INTRON_DB;
   $self->repeat_feature_adaptor($self->db->get_RepeatFeatureAdaptor);
@@ -816,8 +818,17 @@ sub make_models {
 	}
 	# make it into a gene
 	my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
+	# check for dna
+	my $s = $t->seq->seq ;
+	my $Ns =  $s =~  s/N//g;
+	if( length($t->seq->seq) == $Ns ){
+	  $self->throw("There does not appear to be ay DNA in the database, transcript seq is all N's\n");
+	}
+
 	# add a translation 
 	my $initial_tran = compute_translation(clone_Transcript($t));
+
+	
 	# trim UTR
 	my $tran = $self->prune_UTR($initial_tran,\@introns);
 	
