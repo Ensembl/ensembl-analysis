@@ -7,26 +7,23 @@
 # Please, have a look at ensembl-analysis/scripts/RNASeq/README for further information.
 
 # The usage is:
-# create_tissues_metadata_file.pl bam_files_path fastq_files_path description read_length paired output_file
+# create_tissues_metadata_file.pl bam_files_path description read_length paired output_file
 
 # 'desc' will be the string for the DS (description) field
 # 'bam_files_path', path to the directory where all of your bam files are located.
 #       -Note that all of the bam files in this directory will be processed.
-# 'fastq_files_path', path to the directory where all of your fastq files are located.
-# 	-Note that fastq files will not be accessed. This parameter is only used for completing the metadata fields.
 # 'read_length', assumed the same length for every read
 # 'paired' can be either 0 (single end) or 1 (paired end).
 #       -Note that this script only works correctly with paired end reads.
 # 'output_file', path and filename where the text file contents will be written
 #
 # Example:
-# perl $HOME/src/ensembl-analysis/scripts/RNASeq/create_tissues_metadata_file.pl $SCR/RNASeq/data/ $SCR/RNASeq/data/fastq/all/ "Canis Lupus familiaris" 101 1 $SCR/RNASeq/data/all_dog_tissues.txt
+# perl $HOME/src/ensembl-analysis/scripts/RNASeq/create_tissues_metadata_file.pl $SCR/RNASeq/data/ "Canis Lupus familiaris" 101 1 $SCR/RNASeq/data/all_dog_tissues.txt
 
 
 use strict;
 
 my $bam_files_path = shift;
-my $fastq_files_path = shift;
 my $desc = shift;
 my $read_length = shift;
 my $paired = shift;
@@ -34,13 +31,13 @@ my $output_file = shift;
 
 my $SAMTOOLS_PATH = "/software/solexa/bin/samtools";
 
-if (!$bam_files_path | !$fastq_files_path || !$desc || !$read_length || !$paired || !$output_file){
-  print "usage: create_tissues_metadata_file.pl bam_files_path fastq_files_path description read_length paired output_file";
+if (!$bam_files_path || !$desc || !$read_length || !$paired || !$output_file){
+  print "usage: create_tissues_metadata_file.pl bam_files_path description read_length paired output_file";
   exit;
 }
 
 if ($bam_files_path eq '-h' || $bam_files_path eq '-help'){
-  print "usage: create_tissues_metadata_file.pl bam_files_path fastq_files_path description read_length paired output_file";
+  print "usage: create_tissues_metadata_file.pl bam_files_path description read_length paired output_file";
   exit;
 }
 
@@ -88,10 +85,10 @@ foreach my $filename (@bamfilenames) {
     }
 
     # write 2 lines to the output file corresponding to both paired ends
-    my $fastqfilename = $fastq_files_path.$platform_unit."_1.fastq";
+    my $fastqfilename = $platform_unit."_1.fastq";
     print OUTPUT_FILE "$current_line$desc\t$fastqfilename\t$read_length\t$paired\n";
 
-    $fastqfilename = $fastq_files_path.$platform_unit."_2.fastq";
+    $fastqfilename = $platform_unit."_2.fastq";
     print OUTPUT_FILE "$current_line$desc\t$fastqfilename\t$read_length\t$paired\n";
     
     $current_line = "";
