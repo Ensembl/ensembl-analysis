@@ -24,3 +24,19 @@ the analyses to the pipeline database, starting the rulemanager should then run 
 
 The pipeline has a samtools flagstat test at the end to give you some mapping statistics and will fail if the number of reads in the BAM file is not the same as the number
 of reads in the fastq file to begin with.
+
+Please note:
+============
+The fastq files need to have unique filenames that have a fastq or fq type extension at the end and a read 1 or 2 indicator in there that can be parsed by a regexp if they are
+paired end reads. 
+If the files look anything like this:
+File_R1.fqaa    File_R2.fqaa         
+File_R1.fqab    File_R2.fqab
+
+They will not have unique names when the extension is removed and samtools will fail.they will need to be changed to something like:
+File_R1_aa.fq    File_R2_aa.fq         
+File_R1_ab.fq    File_R2_ab.fq
+
+Before the setup script if run.
+
+
