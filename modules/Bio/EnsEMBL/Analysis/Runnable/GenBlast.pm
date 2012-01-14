@@ -100,10 +100,8 @@ sub run{
   throw("Can't run ".$self." without a query sequence") 
     unless($self->query);
   $self->checkdir();
-  $self->files_to_delete($self->resultsfile);
   $self->run_analysis();
   $self->parse_results;
-  $self->delete_files;
   return 1;
 }
 
@@ -144,7 +142,18 @@ sub run_analysis{
   chdir $workdir;
   my $ln_cmd = "ln -s ".$dir."/alignscore.txt alignscore.txt";
   my $value = system($ln_cmd) unless (-e "alignscore.txt"); 
-  
+
+  # genBlast sticks "_1.1c_2.3_s1_0_16_1" on the end of the output
+  # file for some reason - it will probably change in future
+  # versions of genBlast.  
+  my $outfile_suffix = "_1.1c_2.3_s1_0_16_1";
+  my $outfile_glob_prefix = $self->query . $outfile_suffix;
+
+  # if there are old files around, need to get rid of them
+  foreach my $oldfile (glob("${outfile_glob_prefix}*")) {
+    unlink $oldfile;
+  }
+
   my $command = $program .
   ' -p genblastg '.
   ' -q '.$self->query.
@@ -152,13 +161,13 @@ sub run_analysis{
   ' -o '.$self->query.
   ' -cdna -pro   '.$self->options;
 
-  # genBlast sticks "_1.1c_2.3_s1_0_16_1" on the end of the output
-  # file for some reason - it will probably change in future
-  # versions of genBlast.
-  $self->resultsfile($self->query."_1.1c_2.3_s1_0_16_1.gff");
+  $self->resultsfile($self->query. $outfile_suffix. ".gff");
 
   system($command) == 0 or throw("FAILED to run ".$command);
 
+  foreach my $file (glob("${outfile_glob_prefix}*")) {
+    unlink $file;
+  }
 }
 
 =head2 parse_results
