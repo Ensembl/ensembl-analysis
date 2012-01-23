@@ -118,7 +118,7 @@ sub run  {
       next unless $batch > $batch_size * $self->start ;
       $count++;
       if (  $count <= $batch_size ) {
-	my $suffix;
+	my $suffix ="";
 	# is it the 1st or 2nd read?
 	if ( $read->get_tag_values('FLAGS') =~ /FIRST_MATE/ ) {
 	  $suffix = "/1";
