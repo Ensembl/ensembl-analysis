@@ -57,6 +57,7 @@ for my $category (keys %databases ) {
 }
 
 my $dba = $database_hash{$dbname};
+throw("Db $dbname not found in Databases.pm\n") unless $dba;
 my $sa = $dba->get_SliceAdaptor;
 # also need the pipeline adaptor
 my %constructor_args = %{$databases{$dbname}};
@@ -268,10 +269,14 @@ if ( $write ) {
 
 # write the extra information header files
 foreach my $row ( @rows ) {
+  open(ALL ,">$output_dir/all_headers.txt") or die("Cannot open  $output_dir/all_headers.txt for writing\n");
   open(HEAD,">$output_dir/" . $row->{ID} ."_header.txt") or die("Cannot open  $output_dir/" . $row->{ID} ."_header.txt for writing\n");
   print HEAD "\@RG\tID:" . $row->{ID} ."\tPU:" . $row->{PU} . "\tSM:" . $row->{SM} ."\t";
   print HEAD "LB:" . $row->{LB} ."\tDS:" . $row->{DS} . "\tCN:" . $row->{CN} ."\t";
   print HEAD "ST:" . $row->{ST} ."\tPL:" . $row->{PL}  ."\n";
+  print ALL "\@RG\tID:" . $row->{ID} ."\tPU:" . $row->{PU} . "\tSM:" . $row->{SM} ."\t";
+  print ALL "LB:" . $row->{LB} ."\tDS:" . $row->{DS} . "\tCN:" . $row->{CN} ."\t";
+  print ALL "ST:" . $row->{ST} ."\tPL:" . $row->{PL}  ."\n";
 }
 
 print STDERR "Have these config files to modify:\n$analysisconfigdir/Genebuild/BWA.pm\n$pipelineconfigdir/BatchQueue.pm - backing them up\n";
