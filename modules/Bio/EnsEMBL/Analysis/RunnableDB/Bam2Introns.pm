@@ -323,9 +323,9 @@ sub convert_to_sam {
   $line .=  "$cigar\t";
   if ( $paired ) {
     # what is the position of the other pair?
-    $line .= $feature->seq_region_name ."\t" . $feature->hstart ."\t" . $feature->hend . "\t$seq\t*\n";
+    $line .= $feature->seq_region_name ."\t" . $feature->hstart ."\t" . $feature->hend . "\t$seq\t*\tRG:Z:". $feature_seq->desc ."\n";
   } else {
-    $line .= "*\t0\t0\t$seq\t*\n";
+    $line .= "*\t0\t0\t$seq\t*\tRG:Z:". $feature_seq->desc ."\n";
   }
   return $line;
 }

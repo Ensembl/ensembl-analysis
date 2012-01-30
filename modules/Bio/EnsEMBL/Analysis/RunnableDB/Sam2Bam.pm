@@ -56,6 +56,7 @@ sub fetch_input {
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Sam2Bam->new
     (
      -analysis => $self->analysis,
+     -header   => $self->HEADERFILE,
      -program  => $program,
      -regex    => $self->REGEX,
      -samdir   => $self->SAM_DIR,
@@ -138,6 +139,22 @@ sub GENOMEFILE {
   
   if (exists($self->{'_GENOMEFILE'})) {
     return $self->{'_GENOMEFILE'};
+  } else {
+    return undef;
+  }
+}
+
+sub HEADERFILE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    if ( $value =~ /(.+)\..+/){
+    }
+    $self->{'_HEADERFILE'} = $value;
+  }
+  
+  if (exists($self->{'_HEADERFILE'})) {
+    return $self->{'_HEADERFILE'};
   } else {
     return undef;
   }

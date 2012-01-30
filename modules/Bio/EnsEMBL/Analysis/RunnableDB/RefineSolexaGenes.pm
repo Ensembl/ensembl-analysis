@@ -1594,10 +1594,23 @@ sub bam_2_intron_features {
   my @ifs;
   my $extra_exons;
   my %id_list;
+  my %read_groups;
+  if ( $self->GROUPNAME ) {
+    my @groups = @{$self->GROUPNAME};
+    print "Limiting to read groups ";
+    foreach my $group ( @groups ) {
+      print " $group";
+      $read_groups{$group} = 1;
+    }
+    print "\n";
+  }
   my $iterator = $segment->features(-iterator=>1);
  READ:  while (my $read = $iterator->next_seq) {
     # need to recreate the ungapped features code as the
     # auto splitting code does not seem to work with > 2 features
+    if ( $self->GROUPNAME ) {
+      next unless ($read_groups{$read->get_tag_values('RG')}) ;
+    }
     my @mates = sort { $a->[2] <=> $b->[2] } @{$self->ungapped_features($read)};
     # if mates > 2 then we have a possibility of adding in some extra exons into our rough models
     # as the read has spliced into and out of an exon
@@ -2357,6 +2370,20 @@ sub MODEL_LN {
   
   if (exists($self->{'_CONFIG_MODEL_LN'})) {
     return $self->{'_CONFIG_MODEL_LN'};
+  } else {
+    return undef;
+  }
+}
+
+sub GROUPNAME {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_GROUPNAME'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_GROUPNAME'})) {
+    return $self->{'_CONFIG_GROUPNAME'};
   } else {
     return undef;
   }

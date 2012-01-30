@@ -39,9 +39,10 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($regex, $samdir,$bamfile,$genome) = rearrange([qw(REGEX SAMDIR BAMFILE GENOME)],@args);
+  my ($regex,$header, $samdir,$bamfile,$genome) = rearrange([qw(REGEX HEADER SAMDIR BAMFILE GENOME)],@args);
   $self->throw("You must defne a directory with sam files in\n")  unless $samdir ;
   $self->samdir($samdir);
+  $self->headerfile($header);
   $self->throw("You must defne a regex\n")  unless $regex;
   $self->regex($regex);
   $self->throw("You must defne an output file\n")  unless $bamfile;
@@ -136,6 +137,26 @@ sub run {
     $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ ) 
   }
   $self->files_to_delete("/tmp/sam2bam_view.err");
+
+  # add readgroup info if there is any
+  if ( $self->headerfile ) {
+    # dump out the sequence header
+     $command = "$program view  -H   $bamfile.bam > $bamfile.header"; 
+     print STDERR "$command \n";
+     system("$command");
+     $command = " cat " . $self->headerfile ." >>  $bamfile.header  ";
+     print STDERR "$command \n";
+     system("$command");   
+     $command = "$program reheader   $bamfile.header $bamfile.bam > $bamfile.fixed_header.bam";
+     print STDERR "$command \n";
+     system("$command");
+     $self->files_to_delete("/tmp/sam2bam_reheader.err");
+     $command = "mv  $bamfile.fixed_header.bam $bamfile.bam ";
+     print STDERR "$command \n";
+     system("$command");
+  }
+  
+  
   
   $command = "$program sort $bamfile.bam ".$bamfile."_sorted";
   print STDERR "$command \n";
@@ -167,6 +188,23 @@ sub run {
 
 #Containers
 #=================================================================
+
+sub headerfile {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->throw("Cannot find read group header file $value\n")
+      unless (-e $value); 
+    $self->{'_headerfile'} = $value;
+  }
+  
+  if (exists($self->{'_headerfile'})) {
+    return $self->{'_headerfile'};
+  } else {
+    return undef;
+  }
+}
+
 
 sub samdir {
   my ($self,$value) = @_;

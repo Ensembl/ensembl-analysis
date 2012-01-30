@@ -112,7 +112,11 @@ sub run  {
     my $iterator = $segment->features(-iterator=>1);
   READ:  while (my $read = $iterator->next_seq) {
       # dont want reads that align perfectly as they won't splice
-      my $num_missmatches = $read->get_tag_values('NM') ;
+      my $num_missmatches = $read->get_tag_values('NM') ;	
+      my $rg = "*";
+      if ( $read->get_tag_values('RG') ) {
+        $rg = $read->get_tag_values('RG') ;
+      }
       next READ  unless $num_missmatches >= $self->MISSMATCH;
       $batch++;
       next unless $batch > $batch_size * $self->start ;
@@ -127,10 +131,11 @@ sub run  {
 	  $suffix = "/2";
 	}
 	my $name = $read->name.$suffix;
-	# write the seq files
+	# write the seq files - store the read group information in case it is needed later
 	my $bioseq = Bio::Seq->new( 
-				   -seq => $read->query->dna,
-				   -display_id => $name
+				   -seq        => $read->query->dna,
+				   -display_id => $name,
+				   -desc       => $rg
 				  );
 	push @reads, $bioseq;
       # want to store the read sequence for making it into a SAM file later
