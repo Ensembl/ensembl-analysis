@@ -38,7 +38,10 @@ use vars qw( %Config );
 			# analysis logic_name for the dna_align_features to fetch from the INTRON_DB
 			# If left blank all features will be fetched
 			LOGICNAME => [],
-			
+
+			# if using bam files this will return only reads from the specified read groups
+	                GROUPNAME => [],	
+					
 			# logic name of the gene models to fetch
 			MODEL_LN  => '',
 			
