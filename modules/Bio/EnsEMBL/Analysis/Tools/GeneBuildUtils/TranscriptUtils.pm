@@ -58,6 +58,7 @@ use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
+             all_exons_are_valid
              are_phases_consistent
              are_splice_sites_canonical
              are_strands_consistent
@@ -67,49 +68,41 @@ use vars qw (@ISA @EXPORT);
              calculate_exon_phases
              clone_Transcript
              coding_coverage
+             convert_to_genes
+             convert_translateable_exons_to_exon_extended_objects
              count_non_canonical_splice_sites
+             count_real_introns
              dump_cDNA_file
              empty_Transcript
              evidence_coverage
+             evidence_coverage_greater_than_minimum
              exon_lengths_all_less_than_maximum
              exonic_proportion
+             fully_load_Transcript
              get_downstream_Intron_from_Exon
              get_downstream_splice_sites
              get_evidence_ids
-             get_upstream_splice_sites
              get_upstream_Intron_from_Exon
+             get_upstream_splice_sites
              has_no_unwanted_evidence
+             identical_Transcripts
              intron_lengths_all_less_than_maximum
              is_not_folded
+             is_Transcript_sane
              is_spliced
              list_evidence
              low_complexity_less_than_maximum
-             replace_stops_with_introns
-             remove_initial_or_terminal_short_exons
-             get_evidence_ids
-             dump_cDNA_file
-             convert_to_genes
-             evidence_coverage
-             get_upstream_Intron_from_Exon
-             get_downstream_Intron_from_Exon
-             get_upstream_splice_sites
-             get_downstream_splice_sites
-             fully_load_Transcript
-             all_exons_are_valid
              print_Transcript
              print_Transcript_and_Exons
              print_Transcript_evidence
+             remove_initial_or_terminal_short_exons
+             replace_stops_with_introns
+             set_start_codon
+             set_stop_codon
              split_Transcript
              tidy_split_transcripts
              trim_cds_to_whole_codons
              Transcript_info
-             evidence_coverage_greater_than_minimum
-             count_real_introns
-             identical_Transcripts
-             set_start_codon
-             set_stop_codon
-             convert_translateable_exons_to_exon_extended_objects
-             is_Transcript_sane
             );
 
 
