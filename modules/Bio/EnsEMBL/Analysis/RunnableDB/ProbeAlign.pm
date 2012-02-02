@@ -217,11 +217,7 @@ sub fetch_input {
     }elsif (-s $target){
       print ("Target $target is a whole-genome file\n");
     }else{
-<<<<<<< ProbeAlign.pm
       throw("'$target' isn't a non-empty file or a directory?");
-=======
-      throw("'$target' isn't a non-empty file or a directory");
->>>>>>> 1.33
     }
   } else {
     throw("'$target' could not be found");
