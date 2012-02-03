@@ -1,12 +1,26 @@
+=head1 LICENSE
 
-=pod
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2GenesRegion;
-
-
-
+Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2GenesRegion - 
 
 =head1 SYNOPSIS
 
@@ -36,9 +50,8 @@ Example input ID: chromosome:GRCh37:10:100005443:100030007:1::NM_032211.6
 Reads config from Config/Exonerate2Genes.pm
 
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 APPENDIX
 

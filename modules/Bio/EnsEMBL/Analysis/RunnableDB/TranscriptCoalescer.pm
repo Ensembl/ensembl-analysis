@@ -1,16 +1,30 @@
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
-#
-# Copyright (c) 2006 Ensembl
-#
-# written by Jan-Hinnerk Vogel 
-#
-#
+=head1 LICENSE
 
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 AUTHORS
+
+Jan-Hinnerl Vogel
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer
+Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer - 
 
 =head1 SYNOPSIS
 
@@ -31,9 +45,7 @@
   object to setup the runnable and then write the results back to the 
   database specified in the config file.
 
-=head1 CONTACT
-
-  Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

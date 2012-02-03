@@ -1,17 +1,26 @@
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder
-#
-# Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
-#
-# Copyright GRL and EBI
-#
-# You may distribute this module under the same terms as perl itself
+=head1 LICENSE
 
-# POD documentation - main docs before the code
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder
+Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder - 
 
 =head1 SYNOPSIS
 
@@ -40,9 +49,8 @@ Config files to set-up are
    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus (just a copy of the example file)
    Bio::EnsEMBL::Analysis::Config::GeneBuild::KillListFilter
 
-=head1 CONTACT
+=head1 METHODS
 
-Ensembl - ensembl-dev@ebi.ac.uk
 
 =head1 APPENDIX
 

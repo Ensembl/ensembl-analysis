@@ -1,11 +1,26 @@
-## Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::miRNA
-#
-# Copyright (c) 2004 Ensembl
-#
+=head1 LICENSE
+
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-  Bio::EnsEMBL::Analysis::RunnableDB::miRNA
+Bio::EnsEMBL::Analysis::RunnableDB::miRNA - 
 
 =head1 SYNOPSIS
 
@@ -28,9 +43,7 @@ It then groups the dna align features by miRNA families and ignores families wit
 members as there is a high probability that these are hitting repetitive sequences.
 Creates and runs the miRNA runnable.
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

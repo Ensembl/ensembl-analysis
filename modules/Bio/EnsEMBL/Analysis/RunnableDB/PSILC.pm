@@ -1,16 +1,28 @@
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
+=head1 LICENSE
 
-=pod 
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::PSILC;
+Bio::EnsEMBL::Analysis::RunnableDB::PSILC - 
 
-
-=head1 SYNOPSIS
-
+=head1 SYNOPSIS 
 my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::PSILC->new
 (
 -db => $db_adaptor,
@@ -52,10 +64,7 @@ which will prepare the blast databases to use from the 3 species.
 The module is configured through:
 Bio::EnsEMBL::Analysis::Config::Pseudogene.pm
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
-
+=head1 METHODS
 
 =cut
 

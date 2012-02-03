@@ -1,8 +1,26 @@
-=pod
+=head1 LICENSE
+
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds;
+Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds - 
 
 =head1 SYNOPSIS
 
@@ -39,9 +57,9 @@ where each id should be in the format:
 Clone_ID,length_of_clone,standard_deviation_of_length,Clone_end_ID,Direction_of_Clone
 (i.e. CH243-307D10,184000.0,36800.0,1098421033278,F).
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries, or on how to get chunker.pl, to <ensembl-dev@ebi.ac.uk>
+=cut
 
 =head1 APPENDIX
 

@@ -1,12 +1,26 @@
-#
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
-#
-# Copyright (c) 2008 Ensembl
-#
+=head1 LICENSE
+
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise 
+Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise - 
 
 =head1 SYNOPSIS
 
@@ -18,6 +32,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise
 =head1 DESCRIPTION
 
 This module replaces Bio::EnsEMBL::Pipeline::RunnableDB::TargettedExonerate
+
+=head1 METHODS
 
 =cut
 

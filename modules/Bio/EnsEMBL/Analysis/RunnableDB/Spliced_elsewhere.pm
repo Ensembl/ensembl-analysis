@@ -1,12 +1,26 @@
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
+=head1 LICENSE
 
-=pod 
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;
+Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere - 
 
 =head1 SYNOPSIS
 
@@ -42,9 +56,7 @@ Bio::EnsEMBL::Analysis::Config::Databases;
 Runs as a part of the larger pseudogene analysis. Uses flagged single exon genes
 identified by Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
 
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

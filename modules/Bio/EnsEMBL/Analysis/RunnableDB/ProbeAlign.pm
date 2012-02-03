@@ -1,12 +1,26 @@
+=head1 LICENSE
 
-=pod
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
-
-
-
+Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign - 
 
 =head1 SYNOPSIS
 
@@ -28,9 +42,9 @@ Bio::EnsEMBL::Funcgen::ProbeFeatures. UnmappedObjects are also written for those
 which either do not map at all or exceed the maximum mapping threshold defined by HIT_SATURATION_LEVEL.
 You must FIRST have created and imported all the necessary Arrays and Probe objects using the ImportArrays module.
 
-=head1 CONTACT
+=head1 METHODS
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
+=cut
 
 =head1 METHODS
 

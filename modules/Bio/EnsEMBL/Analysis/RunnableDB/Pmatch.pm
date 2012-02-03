@@ -1,8 +1,29 @@
-=pod
+=head1 LICENSE
+
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
-  
-Bio::EnsEMBL::Analysis::RunnableDB::Pmatch - aligns protein sequence  to genomic sequence
+
+Bio::EnsEMBL::Analysis::RunnableDB::Pmatch - 
+
+=head1 SYNOPSIS
+
 
 =head1 DESCRIPTION
 
@@ -22,9 +43,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::BestPmatch and
 Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch
 
 
-=head1 CONTACT
-
-Email ensembl-dev@ebi.ac.uk for questions. 
+=head1 METHODS
 
 
 =head1 APPENDIX
