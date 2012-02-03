@@ -1,12 +1,26 @@
-#
-# You may distribute this module under the same terms as perl itself
-#
+=head1 LICENSE
 
-=pod
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Pseudogene
+Bio::EnsEMBL::Analysis::Runnable::Pseudogene - 
 
 =head1 SYNOPSIS
 
@@ -37,9 +51,7 @@ Pseudogene takes a Bio::EnsEMBL::Slice object and assesses genes and transcripts
 In the case of genes being identified as pseudogenes, the gene objects have their type set to pseudogene and all but the longest transcripts and translations are deleted.
 If the gene has 1 or more pseudo transcripts but has other transcritps that are valid, the dubious transcripts are removed. The resulting gene objects are returned in an array.
 
-=head1 CONTACT
-
-Mail to B<ensembl-dev@ebi.ac.uk>
+=head1 METHODS
 
 =cut
 

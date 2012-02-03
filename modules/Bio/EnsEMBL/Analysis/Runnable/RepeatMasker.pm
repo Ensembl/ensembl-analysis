@@ -1,11 +1,26 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
-#
-# Copyright (c) 2004 Ensembl
-#
+=head1 LICENSE
+
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::RepeatMasker
+Bio::EnsEMBL::Analysis::Runnable::RepeatMasker - 
 
 =head1 SYNOPSIS
 
@@ -24,13 +39,7 @@ RepeatMasker expects to run the program RepeatMasker
 and produce RepeatFeatures which can be stored in the repeat_feature
 and repeat_consensus tables in the core database
 
-It has optional configuration via C<analysis.parameters> to change
-C<$HOME>, which causes RepeatMasker (v3+) to put C<.RepeatMaskerCache>
-elsewhere.  This can be tied to user and program_version.
-
-=head1 CONTACT
-
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+=head1 METHODS
 
 =cut
 

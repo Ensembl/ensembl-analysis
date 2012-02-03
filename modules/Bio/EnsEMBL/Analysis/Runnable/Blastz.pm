@@ -1,16 +1,30 @@
-# Cared for by Abel Ureta-Vidal <abel@ebi.ac.uk>
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
+=head1 LICENSE
 
-=pod 
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 AUTHORS
+
+Abel Ureta-Vidal <abel@ebi.ac.uk>
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Blastz
+Bio::EnsEMBL::Analysis::Runnable::Blastz - 
 
 =head1 SYNOPSIS
 
@@ -47,9 +61,6 @@ Bio::EnsEMBL::Analysis::Runnable::Parser::Blastz and stored as Bio::EnsEMBL::Dna
 
 Other options can be passed to the blast program using the -options method
 
-=head1 CONTACT
-
-Describe contact details here
 
 =head1 APPENDIX
 

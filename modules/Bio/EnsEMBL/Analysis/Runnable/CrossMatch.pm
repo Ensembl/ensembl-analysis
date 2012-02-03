@@ -1,4 +1,26 @@
-# Let the code begin...
+=head1 LICENSE
+
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Runnable::CrossMatch - 
 
 =head1 DESCRIPTION
 
@@ -20,7 +42,11 @@ Smith-Waterman alignment program.
 	# Match two fasta fomat sequence files, generating
         # a match object
 	$cm = $matcher->crossMatch( 'dJ334P19.seq', 'cB49C12.aa' );
+
+=head1 METHODS
+
 =cut
+
 
 package Bio::EnsEMBL::Analysis::Runnable::CrossMatch;
 use Bio::EnsEMBL::FeaturePair;

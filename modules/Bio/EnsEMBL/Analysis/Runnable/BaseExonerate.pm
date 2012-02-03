@@ -1,9 +1,26 @@
+=head1 LICENSE
 
-=pod
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
+Bio::EnsEMBL::Analysis::Runnable::BaseExonerate - 
 
 =head1 SYNOPSIS
 
@@ -23,10 +40,6 @@ It does NOT provide the parser to convert the exonerate output
 into Transcripts or AffyFeatures etc. That is the job of the
 subclasses, which MUST implement the parse_results method.
 
-=head1 CONTACT
-
-ensembl-dev@ebi.ac.uk
-
 =head1 APPENDIX
 
 The rest of the documentation details each of the object methods.
@@ -34,7 +47,7 @@ Internal methods are usually preceded with a _
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
+package Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 
 use vars qw(@ISA);
 use strict;
@@ -255,11 +268,11 @@ sub run {
   print STDERR "Exonerate command : $command\n";
 
   my $exo_fh;
-  open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? $!");
+  open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? : $!");
   
   $self->output($self->parse_results( $exo_fh ));
   
-  close( $exo_fh ) or throw ("Error closing exonerate command: $? $!");
+  close( $exo_fh ) or throw ("Error closing exonerate command: $? : $!");
   $self->delete_files;
 
   return 1;
