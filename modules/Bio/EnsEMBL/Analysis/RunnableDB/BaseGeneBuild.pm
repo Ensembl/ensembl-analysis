@@ -202,12 +202,12 @@ sub get_dbadaptor {
           # for comapra database
           my $core_db_asm = $db->get_MetaContainer->get_default_assembly();
           my $core_db_species =
-            $db->get_MetaContainer->get_Species->binomial();
+            $db->get_MetaContainer->get_common_name();
 
           # get the same for dna-db
           my $dna_db_asm = $dnadb->get_MetaContainer->get_default_assembly();
           my $dna_db_species =
-            $dnadb->get_MetaContainer()->get_Species->binomial();
+            $dnadb->get_MetaContainer()->get_common_name();
 
           my $dna_db_and_core_db_are_compatible = 1;
 
