@@ -47,7 +47,7 @@ Internal methods are usually preceded with a _
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
+package Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
 
 use vars qw(@ISA);
 use strict;
