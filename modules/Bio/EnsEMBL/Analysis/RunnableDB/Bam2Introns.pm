@@ -232,7 +232,14 @@ sub filter_solexa {
 =cut
 
 sub write_output {
-  my ( $self ) = @_;
+  my ( $self, $loop ) = @_;
+  if ( $loop ) {
+    # keep track of how many times we have tried to write this file
+    $self->write_attempts($loop);
+    $self->throw("Failed at writing output file twice - giving up\n")
+      if $self->write_attempts > 1;
+    # otherwise lets give it another try
+  }
   my @output = @{$self->output};
   print "Got " .  scalar(@output) ." genomic features \n";
   return unless  scalar(@output) > 0 ;
@@ -267,10 +274,28 @@ sub write_output {
     }
     # write an end of file marker so we can test that the job didnt die when writing
     print SAM '@EOF';
+    close SAM;
   }; if ( $@ ) {
     print " What happened? \n$@\n";
   }
+  # verify file wrote correctly
+  open ( CHECK , $path."/" . $self->input_id . ".sam" ) or
+    $self->throw("Cannot open file for checking " .$path."/" . $self->input_id . ". sam\n");
+  my $line;
+  my $line_count;
+  while (<CHECK>) {
+    # 1st file copy the header all the others just copy the data
+    chomp;
+    $line = $_;
+    $line_count++;
+  }
+  return if ( $line eq '@EOF' or $line_count == 0 );
+  # file must have been corrupted try and write it again but just once otherwise just fail
+  system("rm  " . $path."/" . $self->input_id . ".sam" );
+  print "Failed to verify file - deleting output and writing again\n";
+  $self->write_output(1);    
 }
+
 
 
 sub convert_to_sam {
@@ -494,6 +519,20 @@ sub fullslice {
 
   if (exists($self->{'_fullslice'})) {
     return $self->{'_fullslice'};
+  } else {
+    return undef;
+  }
+}
+
+sub write_attempts {
+  my ($self,$value) = @_;
+  
+  if (defined $value) {
+    $self->{'_writeattempts'} += $value;
+  }
+
+  if (exists($self->{'_writeattempts'})) {
+    return $self->{'_writeattempts'};
   } else {
     return undef;
   }
