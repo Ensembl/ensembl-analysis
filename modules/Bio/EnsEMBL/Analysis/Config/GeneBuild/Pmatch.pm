@@ -1,0 +1,113 @@
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch;
+
+use strict;
+use vars qw( %Config );
+
+# Hash containing config info
+%Config = (
+
+            #Under each the two keys "PMATCH_BY_LOGIC" and "BESTPMATCH_BY_LOGIC", 
+            #the DEFAULT hash must be present and should contain default settings.
+            #Non-standard settings should be provided in a second hash that follows
+            #the DEFAULT one with the same structure, using the logic_name as the
+            #second hash's key, e.g. "PMATCH".
+ 
+            # ***** WATCH OUT ***** #
+
+            #The second hash (mainly its key) MUST be present EVEN IF there are no 
+            #non-standard settings to be defined. In that case, just leave the second 
+            #hash empty with no values, e.g.
+
+            #PMATCH => {
+            #           },
+
+            #Missing out the DEFAULT and/or the second hash will result in the config
+            #not being read properly and the analysis will fail right from the start.
+
+           PMATCH_BY_LOGIC =>
+           {
+            DEFAULT =>{
+                       PROTEIN_FILE => '/lustre/scratch103/ensembl/rn6/platyfishI/proteome/platyfish_proteome.fa',
+                       MIN_COVERAGE => 25,
+                       BINARY_LOCATION => '/usr/local/ensembl/bin/pmatch',
+                       REPEAT_MASKING => [],
+                       MAX_INTRON_LENGTH => 50000,
+                       OUTPUT_DB => 'GENEWISE_DB',
+                       OPTIONS => '-T 20', # set threshold to 14 for more sensitive search 
+                      },
+
+            PMATCH_14 =>{
+		       PROTEIN_FILE => '/lustre/scratch103/ensembl/rn6/platyfishI/proteome/platyfish_proteome.fa',
+                       MIN_COVERAGE => 25,
+                       BINARY_LOCATION => '/usr/local/ensembl/bin/pmatch',
+                       REPEAT_MASKING => [],
+                       MAX_INTRON_LENGTH => 50000,
+                       OUTPUT_DB => 'GENEWISE_DB',
+                       OPTIONS => '-T 14', 
+                      },
+            PMATCH_20 =>{
+		       PROTEIN_FILE => '/lustre/scratch103/ensembl/rn6/platyfishI/proteome/platyfish_proteome.fa',
+                       MIN_COVERAGE => 25,
+                       BINARY_LOCATION => '/usr/local/ensembl/bin/pmatch',
+                       REPEAT_MASKING => [],
+                       MAX_INTRON_LENGTH => 50000,
+                       OUTPUT_DB => 'GENEWISE_DB',
+                       OPTIONS => '-T 20', 
+                      },
+           },
+
+           BESTPMATCH_BY_LOGIC => 
+           {
+            DEFAULT => { 
+                        # PMATCH_LOGIC_NAME can be string or array 
+                        # if you run multiple analysis to recover missed proteins you should hand over 
+                        # the logic names of all recovery-analyses in array 
+
+                        PMATCH_LOGIC_NAME => ['pmatch'],
+                        MIN_COVERAGE => 25,
+                        INPUT_DB => 'GENEWISE_DB',
+                        OUTPUT_DB => 'GENEWISE_DB',
+                       },
+	    BESTPMATCH_14 => {  # This second hash must be provided even if it's blank
+                        PMATCH_LOGIC_NAME => ['pmatch_14','xratepmatch14'],
+                        MIN_COVERAGE => 25,
+                        INPUT_DB => 'GENEWISE_DB',
+                        OUTPUT_DB => 'GENEWISE_DB',
+                       },
+            BESTPMATCH_20 => { 
+                        PMATCH_LOGIC_NAME => ['pmatch_20','xratepmatch20'],
+                        MIN_COVERAGE => 25,
+                        INPUT_DB => 'GENEWISE_DB',
+                        OUTPUT_DB => 'GENEWISE_DB',
+                       },
+             },
+ );
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
