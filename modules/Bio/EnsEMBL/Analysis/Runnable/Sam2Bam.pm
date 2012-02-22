@@ -61,9 +61,9 @@ sub new {
   $self->headerfile($header);
   $self->throw("You must defne a regex\n")  unless $regex;
   $self->regex($regex);
-  $self->throw("You must define an output file\n")  unless $bamfile;
+  $self->throw("You must defne an output file\n")  unless $bamfile;
   $self->bamfile($bamfile);
-  $self->throw("You must define a genome file\n")  unless $genome;
+  $self->throw("You must defne a genome file\n")  unless $genome;
   $self->genome($genome);
   return $self;
 }
@@ -129,55 +129,74 @@ sub run {
   # is the genome file indexed?
   # might want to check if it's already indexed first
   my $command = "$program faidx " . $self->genome ;
+  my $error = 0;
   unless ( -e (  $self->genome.".fai" ) ) {
     print "Indexing genome file\n";
     print STDERR "$command \n";
-    system($command);
-    if ($?) {
-        throw('Indexing '.$self->genome.' failed: '.$command);
-    }
+    system("$command 2> /tmp/sam2bam_index.err");
+    open  ( $fh,"/tmp/sam2bam_index.err" ) or die ("Cannot find STDERR from fasta indexing\n");
+    # write output
+    while(<$fh>){
+      print STDERR "INDEX $_";
+      $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ ) 
+     }
+     $self->files_to_delete("/tmp/sam2bam/index.err");
   }
   
-  $command = "$program view  -b -h -S -T " . $self->genome ." $bamfile.sam >  $bamfile.bam ";
+  $command = "$program view  -b -h -S -T " . $self->genome ." $bamfile.sam >  $bamfile" . "_unsorted.bam ";
   print STDERR "$command \n";
-  system($command);
-  if ($?) {
-      throw('samtools view failed: '.$command);
+  system("$command 2> /tmp/sam2bam_view.err");
+  open  ( $fh,"/tmp/sam2bam_view.err" ) or die ("Cannot find STDERR from samtools view\n");
+  # write output
+  while(<$fh>){
+    print STDERR "IMPORT $_";
+    $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ ) 
   }
+  $self->files_to_delete("/tmp/sam2bam_view.err");
 
   # add readgroup info if there is any
   if ( $self->headerfile ) {
     # dump out the sequence header
-     $command = "$program view  -H   $bamfile.bam > $bamfile.header"; 
+     $command = "$program view  -H   $bamfile" . "_unsorted.bam > $bamfile.header"; 
      print STDERR "$command \n";
      system("$command");
      $command = " cat " . $self->headerfile ." >>  $bamfile.header  ";
      print STDERR "$command \n";
      system("$command");   
-     $command = "$program reheader   $bamfile.header $bamfile.bam > $bamfile.fixed_header.bam";
+     $command = "$program reheader   $bamfile.header $bamfile" . "_unsorted.bam > $bamfile.fixed_header.bam";
      print STDERR "$command \n";
      system("$command");
      $self->files_to_delete("/tmp/sam2bam_reheader.err");
-     $command = "mv  $bamfile.fixed_header.bam $bamfile.bam ";
+     $command = "mv  $bamfile.fixed_header.bam $bamfile"."_unsorted.bam ";
      print STDERR "$command \n";
      system("$command");
   }
   
   
   
-  $command = "$program sort $bamfile.bam ".$bamfile."_sorted";
+  $command = "$program sort $bamfile"."_unsorted.bam  $bamfile";
   print STDERR "$command \n";
-  system($command);
-  if ($?) {
-      throw('Sorting '.$bamfile.'.bam failed: '.$command);
+  system("$command 2> /tmp/sam2bam_sort.err");
+  open  ( $fh,"/tmp/sam2bam_sort.err" ) or die ("Cannot find STDERR from sorting\n");
+  # write output
+  while(<$fh>){
+    print STDERR "SORT $_";
+    $error = 1 if ($_ =~ /truncated/ or $_ =~ /invalid/ ) 
   }
+  $self->files_to_delete("/tmp/sam2bam_sort.err");
   
-  $command = "$program index ".$bamfile."_sorted.bam";
+  $command = "$program index $bamfile.bam";
   print STDERR "$command \n";
-  system($command);
-  if ($?) {
-      throw('Indexing the bam file failed: '.$command);
+  system("$command 2> /tmp/sam2bam_bamindex.err");
+  open  ( $fh,"/tmp/sam2bam_bamindex.err" ) or die ("Cannot find STDERR from bam indexing\n");
+  # write output
+  while(<$fh>){
+    print STDERR "INDEXBAM $_";
+    $error = 1 if ($_ =~ /invalid/ or $_ =~ /abort/ ) 
   }
+  $self->files_to_delete("/tmp/sam2bam_bamindex.err");
+  $self->delete_files();
+  $self->throw("Errors while running samtools \n")  if $error;
 }
 
 
