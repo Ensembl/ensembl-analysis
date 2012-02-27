@@ -2,7 +2,7 @@ setup_rnaseq_pipeline.pl
 ------------------------
 
 This document describes how to automate setting up of a BWA alignment and processing pipeline using a configuration file - setup_rnaseq_pipeline_config.pm and a tab
-delimeted text file that contains the file names of the fastq files to align and associated meta data to be parsed and stored in the final BAM Files.
+delimited text file that contains the file names of the fastq files to align and associated meta data to be parsed and stored in the final BAM Files.
 In order for the pipeline to run you will need a pipeline database  ( it does not need dna in it ) and an indexed fasta file of the genome sequence that has been cleaned of
 the Ensembl style sequence headers ie:
 >NT_166433  supercontig NT_166433

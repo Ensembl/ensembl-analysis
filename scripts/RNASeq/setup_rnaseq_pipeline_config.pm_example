@@ -12,7 +12,7 @@ use vars qw(%Config);
 			GENOME => "/path/to/my/genome/file/toplevel_clean.fa",
 		      	# use this option to change the delimiter for your text file
 			DELIMITER =>"\t", 
-			# Hash key of your reference db from Datbases.p
+			# Hash key of your reference db from Databases.pm
 			DB => "REFERENCE_DB",    
 			# Path to the directory containing your Bio::Ensembl::Analysis::Config 
 			ANALYSISCONFIG_DIR => "/path/to/modules/Bio/EnsEMBL/Analysis/Config",
