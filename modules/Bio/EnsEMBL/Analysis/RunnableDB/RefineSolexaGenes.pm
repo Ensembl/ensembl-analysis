@@ -1610,7 +1610,7 @@ sub bam_2_intron_features {
   my $extra_exons;
   my %id_list;
   my %read_groups;
-  if ( if $self->GROUPNAME && scalar(@{$self->GROUPNAME} > 0 } ) {
+  if (  $self->GROUPNAME && scalar(@{$self->GROUPNAME} > 0 ) ) {
     my @groups = @{$self->GROUPNAME};
     print "Limiting to read groups ";
     foreach my $group ( @groups ) {
@@ -1623,7 +1623,7 @@ sub bam_2_intron_features {
  READ:  while (my $read = $iterator->next_seq) {
     # need to recreate the ungapped features code as the
     # auto splitting code does not seem to work with > 2 features
-    if ( $self->GROUPNAME ) {
+    if ( $self->GROUPNAME  && scalar(@{$self->GROUPNAME} > 0 )) {
       next unless ($read_groups{$read->get_tag_values('RG')}) ;
     }
     my @mates = sort { $a->[2] <=> $b->[2] } @{$self->ungapped_features($read)};
