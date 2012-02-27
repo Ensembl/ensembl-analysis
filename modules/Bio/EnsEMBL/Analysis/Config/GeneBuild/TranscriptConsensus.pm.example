@@ -114,10 +114,18 @@ use vars qw(%Config);
                       SIMGW_SETS    =>[''],
                       ABINITIO_SETS =>[],
 
-                      # Use RNASeq introns from this db to help tidy the genes
-                      RNASEQ_INTRON_DB => '',
+                      # Use RNASeq introns from these dbs to help tidy the genes
+                      # example:
+                      # RNASEQ_INTRON_DB => ['INTRON_DB_1','INTRON_DB_2'],
+                      RNASEQ_INTRON_DB => [''],
+
 		      # logic name(s) of the intron features to fetch
-                      RNASEQ_INTRON_NAME => [''],
+                      # example:
+                      # RNASEQ_INTRON_NAME => {
+                      #                        #INTRON_DB_1 => ['logic_name1','logic_name2'],
+                      #                        #INTRON_DB_2 => ['logic_name3'],
+                      # },
+                      RNASEQ_INTRON_NAME => {},
                 },
        }
 
