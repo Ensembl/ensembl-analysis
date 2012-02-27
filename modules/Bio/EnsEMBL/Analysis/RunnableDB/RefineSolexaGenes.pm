@@ -1610,7 +1610,7 @@ sub bam_2_intron_features {
   my $extra_exons;
   my %id_list;
   my %read_groups;
-  if ( scalar(@{$self->GROUPNAME} > 0 } ) {
+  if ( if $self->GROUPNAME && scalar(@{$self->GROUPNAME} > 0 } ) {
     my @groups = @{$self->GROUPNAME};
     print "Limiting to read groups ";
     foreach my $group ( @groups ) {
