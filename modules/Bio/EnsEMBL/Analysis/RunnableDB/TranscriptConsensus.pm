@@ -109,11 +109,17 @@ sub fetch_input {
   $self->query($slice);
   # fetch any RNASeq introns first
   if ( $self->RNASEQ_INTRON_DB ) {
-    my $rnaseq_db = $self->get_dbadaptor($self->RNASEQ_INTRON_DB);
-    my $rna_slice = $self->fetch_sequence($self->input_id, $rnaseq_db );
-    foreach my $ln ( @{$self->RNASEQ_INTRON_NAME} ) {
-      push @$introns , @{$rna_slice->get_all_DnaAlignFeatures($ln)};
+    foreach my $intron_db ( @{$self->RNASEQ_INTRON_DB}) {
+      my $rnaseq_db = $self->get_dbadaptor($intron_db);
+      my $rna_slice = $self->fetch_sequence($self->input_id, $rnaseq_db );
+
+      my %intron_name_hash = %{$self->RNASEQ_INTRON_NAME};
+      foreach my $ln ( @{$intron_name_hash{$intron_db}} ) {
+        print STDERR "Found logic name ".$ln." for database ".$intron_db."\n";
+        push @$introns , @{$rna_slice->get_all_DnaAlignFeatures($ln)};
+      }
     }
+
     # make sure they are sorted
     @$introns = sort {$a->start <=> $b->start} @$introns;
     print STDERR "Found " . scalar(@$introns) ." unique intron features from the RNASeq db\n";
@@ -511,11 +517,10 @@ sub SMALL_BIOTYPE {
 sub RNASEQ_INTRON_DB {
   my ($self, $arg) = @_ ;
   if(defined $arg) {
-    $self->{'RNASEQ_INTRON_DBB'} = $arg ;
+    $self->{'RNASEQ_INTRON_DB'} = $arg ;
   }
-  return $self->{'RNASEQ_INTRON_DBB'} ;
+  return $self->{'RNASEQ_INTRON_DB'} ;
 }
-
 
 sub RNASEQ_INTRON_NAME {
   my ($self, $arg) = @_ ;
