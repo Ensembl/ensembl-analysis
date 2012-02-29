@@ -16,6 +16,11 @@ perl check_GBGenes.pl -chromosome 1 -coordsystem chromosome -transcripts
 This will run the transcript checks on chromosome 1 on the final database and
 reference database specified in Bio::EnsEMBL::Pipeline::Config::GeneBuild::Databases
 
+Note: If submitting to LSF you will need to specify memory requiremensts of >100MB
+      For instance, 1GB suffices all human chromosomes:
+
+      bsub -R"select[mem>1000] rusage[mem=1000]" -M1000000 
+
 =head1 DESCRIPTION
 
 This script runs a series of tests on genes in the database it is pointed
