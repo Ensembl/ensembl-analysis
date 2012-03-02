@@ -1,5 +1,7 @@
 setup_rnaseq_pipeline.pl
 ------------------------
+$Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
+$Revision: 1.4 $
 
 This document describes how to automate setting up of a BWA alignment and processing pipeline using a configuration file - setup_rnaseq_pipeline_config.pm and a tab
 delimited text file that contains the file names of the fastq files to align and associated meta data to be parsed and stored in the final BAM Files.
@@ -8,8 +10,12 @@ the Ensembl style sequence headers ie:
 >NT_166433  supercontig NT_166433
 rather than 
 >supercontig:NCBIM37:NT_166433:1:83612:1 supercontig NT_166433
+Only the accession number is essential for this header, the rest of the line will be ignored. i.e.
+>NT_166433
+is the requirement for each header.
+
 You can clean up the headers using a regex like this:
-more  toplevel.fa| sed ' s/^>.*:NCBIM37:\(.*\):1:.*:1/\>\1 /g' > toplevel_clean.fa 
+more  toplevel.fa| sed ' s/^>.*:NCBIM37:\(.*\):1:.*:1/\>\1 /g' > toplevel_clean.fa
 and index it like this:
 bsub /software/solexa/bin/bwa index -a bwtsw toplevel_clean.fa
 
