@@ -153,7 +153,7 @@ sub databases{
     # database name is not an absoloute path
   
     unless ($dbname =~ m!^/!) {
-      $dbname = $ENV{BLASTDB} . "/" . $dbname;
+        $dbname = $Bio::EnsEMBL::Analysis::Runnable::BLASTDB . "/" . $dbname;
     }
   
     # If the expanded database name exists put this in
