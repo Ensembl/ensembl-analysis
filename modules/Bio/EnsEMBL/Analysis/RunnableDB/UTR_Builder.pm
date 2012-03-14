@@ -3341,7 +3341,7 @@ sub look_for_both {
   my $nupdated_start = 0;
   my $nupdated_end = 0;
   my $metcnt = 1;
-  my $maxterdist = 150;
+  my $maxterdist = $self->MAX_CDS_EXTEND;
 
   foreach my $trans (@{$gene->get_all_Transcripts}) {
     if ($trans->translation) {
@@ -3584,9 +3584,10 @@ sub look_for_both {
 	#          } 
 	if ($endseq ne "TGA" and $endseq ne "TAA" and $endseq ne "TAG") {
 	  if (($cdnalen-$coding_end) > 3) {
-	    while (($cdnalen-$coding_end) > 3 && ($coding_end-$orig_coding_end) <= $maxterdist) {
+	    while (($cdnalen-$coding_end) > 0 && ($coding_end-$orig_coding_end) <= $maxterdist) {
 	      my $testseq = substr($cdna_seq,$coding_end,3);
 	      #print "Test seq = $testseq\n" if $self->VERBOSE ; 
+	     
 	      if ($testseq eq "TGA" or $testseq eq "TAA" or $testseq eq "TAG") {
 
 		my @coords = $trans->cdna2genomic($coding_end+1,$coding_end+3,$gene->strand);
@@ -4425,6 +4426,15 @@ sub MAX_EXON_LENGTH {
     $self->{_max_exon_length} = $value;
   }
   return $self->{_max_exon_length};
+}
+
+sub MAX_CDS_EXTEND {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{_max_cds_extend} = $value;
+  }
+  return $self->{_max_cds_extend};
 }
 
 sub DITAG_TYPE_NAMES {
