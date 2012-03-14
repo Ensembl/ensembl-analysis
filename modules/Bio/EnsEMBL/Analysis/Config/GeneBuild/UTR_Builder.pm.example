@@ -87,6 +87,9 @@ use vars qw(%Config);
 
                   MAX_EXON_LENGTH      => 20000,
 
+                  # the maximum length the cds will be extended into the three prime UTR 
+		  MAX_CDS_EXTEND       => 150,
+		  
 	          #prune genes during filtering if desired (not recommended)
 	          PRUNE_GENES          => 0,
 
