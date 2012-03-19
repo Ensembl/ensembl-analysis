@@ -277,6 +277,6 @@ foreach my $gene (@genes) {
     $outga->store($gene);   
     print "stored $si / " . scalar(@genes) . " \n" if $verbose ; 
   } else { 
-     print STDERR "gene $old_stable_id did not tranform\n";
+     print STDERR "gene $old_stable_id did not transform\n";
   } 
 }
