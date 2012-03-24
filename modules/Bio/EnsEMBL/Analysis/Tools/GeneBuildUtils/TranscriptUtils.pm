@@ -121,7 +121,6 @@ use vars qw (@ISA @EXPORT);
 sub convert_translateable_exons_to_exon_extended_objects {
   my ( $transcript ) = @_ ;
 
-  $transcript->sort;
   my $exons = $transcript->get_all_translateable_Exons;
   my @conv_exons ;
 
