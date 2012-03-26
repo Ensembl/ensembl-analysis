@@ -185,13 +185,6 @@ sub add_supporting_features {
       my @score = sort { $b->score   <=> $a->score   } @{$protein};
       print STDERR "$name ";
       print STDERR " highest scoring HSP " . $p_val[0]->p_value . " " . $score[0]->score ."\n";
-      # set the p_val score and %ID to be the same for all hsps or
-      # it will throw when you try to make a protien_align_feature
-      foreach my $p ( @{$protein} ) {
-	$p->percent_id($pid[0]->percent_id);
-	$p->p_value($p_val[0]->p_value);
-	$p->score($score[0]->score);
-      }
       # store all this data protein by highest score - lowest eval
       push @{$feature_hash{$p_val[0]->p_value}{$score[0]->score}{$name}},@{$protein};
     }
@@ -211,19 +204,22 @@ sub add_supporting_features {
   ALIGN:  while ( scalar(@sorted_alignments) > 0 ) {
       my @tmp;
       my @hsps = @{shift(@sorted_alignments)};
-      # make the HSPS non overlapping
+      # make the HSPS non overlapping unless they are full length
       my @contigs;
     HSP:   foreach my $hsp ( sort  { $b->score   <=> $a->score   } @hsps ) {
+        print "HSP " . $hsp->hseqname ." "  . $hsp->hstart . " " . $hsp->hend ."\n";
 	# does it overlap with another HSP
 	foreach my $contig ( @contigs ) {
 	  if ( $hsp->start <= $contig->end && 
 	       $hsp->end >= $contig->start ) {
 	    # reject it
+	    print "REJECT\n";
 	    next HSP;
 	  }
 	  if ( $hsp->hstart <= $contig->hend && 
 	       $hsp->hend >= $contig->hstart ) {
 	    # reject it
+	    print "REJECT\n";
 	    next HSP;
 	  }
 	}
@@ -248,7 +244,17 @@ sub add_supporting_features {
       # using the highest scoring alignment and computing the peptide coverage
       print STDERR "Best hit\n";
       my $hlen= 0;
-      my @filtered_best;
+      my @filtered_best;      
+      # set the p_val score and %ID to be the same for all hsps or
+      # it will throw when you try to make a protien_align_feature
+      my $pval = 10000000 ;
+      my $pid = 0;
+      my $score = 0;
+      foreach my $f (@best ) {     
+        $score = $f->score if $f->score > $score;
+        $pid   = $f->percent_id if $f->percent_id > $pid;	
+        $pval   = $f->p_value if $f->p_value < $pval;	
+      } 
       foreach my $gf (@best ) {
 	#need to break them back into ungapped features to get them to work consistantly
 	foreach my $f ($gf->ungapped_features) {
@@ -264,7 +270,10 @@ sub add_supporting_features {
 			      $f->hseqname ."\n";	
 	  my $flen = $f->hend - $f->hstart + 1 ;
 	  $hlen +=  $flen ;
-	  push @filtered_best,$f;
+	  $f->score($score);
+	  $f->percent_id($pid);
+	  $f->p_value($pval);
+      	  push @filtered_best,$f;
 	}
       }
       # make a transcript supporting feature
