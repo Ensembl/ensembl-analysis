@@ -170,6 +170,19 @@ if ( !$dnadbname ) {
 
   $sourcedb->dnadb($dnadb);
 }
+                          
+my $outdb;
+if ($out_config_name) {
+  $outdb = get_db_adaptor_by_string($out_config_name);
+} else {
+  $outdb =
+    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $outhost,
+                                        -user   => $outuser,
+                                        -pass   => $outpass,
+                                        -port   => $outport,
+                                        -dbname => $outdbname );
+}                  
+
 
 my $ga = $sourcedb->get_GeneAdaptor;
 
@@ -221,18 +234,6 @@ if ($infile) {
   }
 }
 
-my $outdb;
-if ($out_config_name) {
-  $outdb = get_db_adaptor_by_string($out_config_name);
-} else {
-  $outdb =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $outhost,
-                                        -user   => $outuser,
-                                        -pass   => $outpass,
-                                        -port   => $outport,
-                                        -dbname => $outdbname );
-}
-
 if ($split) {
   foreach my $gene (@copy_genes) {
     push( @genes,
@@ -267,11 +268,12 @@ my $si = 0 ;
 foreach my $gene (@genes) { 
   $si++; 
   my $old_stable_id = $gene->stable_id ; 
-  $gene->load();#fully_load_Gene($gene);
+  $gene->load(); # fully_load_Gene($gene);
   if ($transform_to) {
     print "transforming $old_stable_id\n" if $verbose ; 
     my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
-    check_transform($gene, $transformed_gene);
+    # only check transform if transform is successful
+    check_transform($gene, $transformed_gene, $transform_to_version) if defined $transformed_gene;
     $gene = $transformed_gene ;
   } 
   if ( $gene ) { 
@@ -284,7 +286,7 @@ foreach my $gene (@genes) {
 }
 
 sub check_transform {
-  my ($old_gene, $new_gene) = @_;
+  my ($old_gene, $new_gene, $new_assembly_version) = @_;
 
   my $old_transcripts = $old_gene->get_all_Transcripts;
   my $new_transcripts = $new_gene->get_all_Transcripts;
@@ -306,11 +308,15 @@ sub check_transform {
                  (scalar(@{$new_transc->get_all_Exons}))." exons\n";
       }
       # check translation
-      if ($old_transc->translation) {
-        if (!$new_transc->translation || $old_transc->translate ne $new_transc->translate) {
+      if ($old_transc->translation && !defined $new_assembly_version) {
+        # we don't want to do have to deal with this if transforming between assembly _VERSIONS_.
+        my $new_translation = $new_transc->translate->seq() ;
+        my $old_translation = $old_transc->translate->seq();
+        
+        if (!$new_transc->translation || $old_translation ne $new_translation) {
           print "TRANSFORM_CHECK: old translation does not match new translation\n".
-                ">old_".$old_transc->stable_id."\n".$old_transc->translate."\n".
-                ">new_".$new_transc->stable_id."\n".$new_transc->translate."\n";
+                ">old_".$old_transc->stable_id."\n".$old_translation."\n".
+                ">new_".$new_transc->stable_id."\n".$new_translation."\n";
         }
       }
     }
