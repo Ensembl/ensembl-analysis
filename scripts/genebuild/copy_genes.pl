@@ -187,6 +187,7 @@ if ($remove_xrefs && $remove_stable_ids) {
 }
 
 if ($infile) {
+
   open(INFILE, "<$infile") or die ("Can't read $infile $! \n");
 
   my $i = 0 ; 
@@ -270,6 +271,7 @@ foreach my $gene (@genes) {
   if ($transform_to) {
     print "transforming $old_stable_id\n" if $verbose ; 
     my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
+    check_transform($gene, $transformed_gene);
     $gene = $transformed_gene ;
   } 
   if ( $gene ) { 
@@ -279,4 +281,40 @@ foreach my $gene (@genes) {
   } else { 
      print STDERR "gene $old_stable_id did not transform\n";
   } 
+}
+
+sub check_transform {
+  my ($old_gene, $new_gene) = @_;
+
+  my $old_transcripts = $old_gene->get_all_Transcripts;
+  my $new_transcripts = $new_gene->get_all_Transcripts;
+
+  if (scalar(@$old_transcripts) != scalar(@$new_transcripts)) {
+    print STDERR "TRANSFORM_CHECK: old gene ".$old_gene->stable_id." has ".
+                 (scalar(@$old_transcripts))." transcripts but new gene has ".
+                 (scalar(@$new_transcripts))." transcripts\n";
+  }
+
+  # loop through and compare
+  foreach my $old_transc (@$old_transcripts) {
+    foreach my $new_transc (@$new_transcripts) {
+      next if ($old_transc->stable_id ne $new_transc->stable_id);
+      # check number of exons, not sure if this helps
+      if (scalar(@{$old_transc->get_all_Exons}) != scalar(@{$new_transc->get_all_Exons})) {
+        print STDERR "TRANSFORM_CHECK: old transcript ".$old_transc->stable_id." has ".
+                 (scalar(@{$old_transc->get_all_Exons}))." exons but new transcript has ".
+                 (scalar(@{$new_transc->get_all_Exons}))." exons\n";
+      }
+      # check translation
+      if ($old_transc->translation) {
+        if (!$new_transc->translation || $old_transc->translate ne $new_transc->translate) {
+          print "TRANSFORM_CHECK: old translation does not match new translation\n".
+                ">old_".$old_transc->stable_id."\n".$old_transc->translate."\n".
+                ">new_".$new_transc->stable_id."\n".$new_transc->translate."\n";
+        }
+      }
+    }
+  }
+
+  return 1;
 }
