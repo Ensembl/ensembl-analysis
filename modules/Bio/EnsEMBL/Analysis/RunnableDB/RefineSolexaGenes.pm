@@ -801,15 +801,10 @@ sub make_models {
 	    $new_exons[$i-1]->end( $intron->start );
 	    $new_exons[$i+1]->start( $intron->end );
 	    if ( $new_exons[$i-1]->start >=  $new_exons[$i-1] ->end ) {
-#   warn("Problem with intron $i\nINTRON:" . $intron->start ."-" . $intron->end ."\n");
-#   warn("EXONS " . $new_exons[$i-1]->start ."-" . $new_exons[$i-1] ->end ." " .( $new_exons[$i-1] ->end -$new_exons[$i-1]->start ) ."bp\n" );
-#   warn("EXONS " . $new_exons[$i+1]->start ."-" .  $new_exons[$i+1] ->end ."\n");
-#   warn("This model is not going to work, moving on to the next one\n");
 	      next MODEL;
 	    }
 	    $intron_count++;
 	    $intron_score+= $intron->score;
-	    print "Adding INTRON " . $intron->hseqname ." total score now $intron_score \n";
 	    # keep tabs on how many fake introns we have
 	    $non_con_introns++ if $intron->hseqname =~ /non canonical/;
 	  }
@@ -842,11 +837,12 @@ sub make_models {
 
 	# add a translation 
 	my $initial_tran = compute_translation(clone_Transcript($t));
-
+	# stop spam coming from the Exon module
+	$initial_tran->dbID(0) ;	
 	
 	# trim UTR
 	my $tran = $self->prune_UTR($initial_tran,\@introns);
-	
+
 	# keep track of the scores for this transcript
 	$tran->analysis($self->analysis);
 	$tran->version(1);
@@ -927,10 +923,10 @@ sub prune_UTR {
   print STDERR "Got " . scalar(@{$introns}) . " introns - hashing...";
   foreach my $intron ( @{$introns} ) {
     my $key = $intron->start  .":". $intron->end .":". $intron->strand;
-    print "INTRON $key\n";
+
     $intron_hash{$key} = $intron;
   }
-  print STDERR " done \n Got ";
+
   my @new_fivep;
   my @new_threep;
   my @new_exons;
@@ -949,9 +945,8 @@ sub prune_UTR {
   @features = sort { $a->start <=> $b->start } @features;
   # so now we should have an array of alternating introns and exons
   print "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-Transcript " . $transcript->stable_id ." " . 
-  $transcript->seq_region_name ." " . 
+Trimming UTR
+Transcript " .  $transcript->seq_region_name ." " . 
     $transcript->start ." " . 
       $transcript->end ." " . 
 	$transcript->strand ." " . 
@@ -977,17 +972,14 @@ Transcript " . $transcript->stable_id ." " .
   $average_intron /= $intron_count;
 
   foreach my $f ( @features ) {
-    print $f->start . "\t" . $f->end ."\t$f\t";
+   # print $f->start . "\t" . $f->end ."\t$f\t";
     if ( $f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
-      # make the intron features not overlap with the ends of the exons
-      $f->start($f->start+1);
-      $f->end($f->end-1);
-      print $f->score;
+    #  print $f->score;
       if ( $average_intron && ($f->score /  $average_intron) * 100 <= $self->REJECT_INTRON_CUTOFF ) {
 	print " Potentially bad";
       }
     }
-    print "\n";
+#    print "\n";
   }
   throw("Something is wrong we are missing introns " . scalar(@exons) . "  exons  and $intron_count introns\n")
     unless $intron_count == scalar(@exons) -1 ;
