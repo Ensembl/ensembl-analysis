@@ -6,55 +6,68 @@
 
 =head1 DESCRIPTION
 
- This script takes database options and a file of gene ids or
- stable_ids and copies them between two databases. It can, if asked,
- split multi-transcript genes into single genes.
+ This script takes database options and a file of gene ids or stable_ids
+ and copies them between two databases.  It can, if asked, split
+ multi-transcript genes into single genes.
 
- The source DB (from which you copy genes FROM) must contain DNA,
- or else the script will throw.  If your source DB does not contain
- DNA, then provide details of a DNA_DB using -dnauser, -dnahost,
- -dnadbname etc options.
+ The source database (from which you copy genes FROM) must contain
+ DNA, or else the script will throw.  If your source database does not
+ contain DNA, then provide details of a DNA database using the options
+ --dnauser, --dnahost, --dnadbname etc.
 
- When using the in and out_config_name options
- it reads the equivalent database from the
- Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases file.
+ When using the in and out_config_name options it reads the equivalent
+ database from the Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
+ file.
 
 =head1 OPTIONS
 
-  -all               This option will copy all genes from $sourcedbname to the
-                     output database
+  --all                 This option will copy all genes from
+                        $sourcedbname to the output database.
 
-  -split             This option will split multi-transcript genes into
-                     single-transcript genes
+  --split               This option will split multi-transcript genes
+                        into single-transcript genes.
 
-  -logic             This option will change the analysis of the genes being
-                     written to the output database to an analysis
-                     with the specified logic_name
+  --logic               This option will change the analysis of the
+                        genes being written to the output database to an
+                        analysis with the specified logic_name.
 
-  -remove_xrefs      Using this flag will remove xrefs from
-                     genes/transcripts/translations
+  --remove_xrefs        Using this flag will remove xrefs from genes,
+                        transcripts, and from translations.
 
-  -remove_stable_ids Using this flag will remove stable_ids from
-                     genes/transcripts/translations/exons
+  --remove_stable_ids   Using this flag will remove stable IDs from
+                        genes, transcripts, translations, and from
+                        exons.
 
-  -transform_to      Transforms the genes from one coordinate system to the given one
-                     cooord_system_name:version 
+  --transform_to        Transforms the genes from one coordinate system
+                        to the given one.  The value must be on the
+                        format "coord_system_name:version".
 
-  -stable_id         Flag for indicating that input file contains stable IDs and
-                     not gene IDs 
+  --stable_id           Flag for indicating that input file contains
+                        stable IDs and not gene IDs.
 
-  -file              read gene dbIDs out of a supplied file and only copy these genes 
-  
+  --file                Read gene dbIDs out of a supplied file and only
+                        copy these genes.
 
 =head1 EXAMPLE
 
-  perl copy_genes.pl -in_config_name COALESCER_DB -out_config_name UTR_DB \
-    -file gene_ids_to_copy
+  perl copy_genes.pl \
+    --source_config_name=COALESCER_DB \
+    --target_config_name=UTR_DB \
+    --file=gene_ids_to_copy
 
   or
 
-  perl copy_genes.pl -sourcehost host -sourceuser ensro -sourcedbname est_db -outhost host1 \
-    -outuser user -outpass **** -outdbname utr_db -file gene_ids_to_copy -stable_id
+  perl copy_genes.pl \
+    --sourcehost=srchost --sourceuser=ensro \
+    --sourcedbname=est_db \
+    --targethost=trghost --targetuser=user --targetpass=XXX \
+    --targetdbname=utr_db \
+    --file=gene_ids_to_copy --stable_id
+
+
+  In the options, 'source' is synonymous with 'in' (--in_config_name
+  is the same option as --source_config_name etc.) and 'target' is
+  synonymous with 'out' (--targetdbname is the same as --outdbname).
 
 =cut
 
@@ -98,31 +111,30 @@ my $remove_stable_ids;
 my $transform_to;
 my $stable_id;
 my $verbose; 
-GetOptions( 'sourcehost:s'        => \$sourcehost,
-            'sourceuser:s'        => \$sourceuser,
-            'sourcedbname:s'      => \$sourcedbname,
-            'sourceport:n'        => \$sourceport,
-            'in_config_name:s'    => \$in_config_name,
-            'out_config_name:s'   => \$out_config_name,
-            'outhost:s'           => \$outhost,
-            'outuser:s'           => \$outuser,
-            'outpass:s'           => \$outpass,
-            'outdbname:s'         => \$outdbname,
-            'outport:n'           => \$outport,
-            'dnahost:s'           => \$dnahost,
-            'dnauser:s'           => \$dnauser,
-            'dnadbname:s'         => \$dnadbname,
-            'dnaport:n'           => \$dnaport,
-            'logic:s'             => \$logic,
-            'split!'              => \$split,
-            'all'                 => \$all,
-            'remove_xrefs'        => \$remove_xrefs,
-            'remove_stable_ids'   => \$remove_stable_ids,
-            'transform_to:s'      => \$transform_to,
-            'verbose'            => \$verbose,
-            'stable_id'           => \$stable_id,
-            'file:s'              => \$infile );
-
+GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
+            'inuser|sourceuser:s'                  => \$sourceuser,
+            'indbname|sourcedbname:s'              => \$sourcedbname,
+            'inport|sourceport:n'                  => \$sourceport,
+            'in_config_name|source_config_name:s'  => \$in_config_name,
+            'out_config_name|target_config_name:s' => \$out_config_name,
+            'outhost|targethost:s'                 => \$outhost,
+            'outuser|targetuser:s'                 => \$outuser,
+            'outpass|targetpass:s'                 => \$outpass,
+            'outdbname|targetdbname:s'             => \$outdbname,
+            'outport|targetport:n'                 => \$outport,
+            'dnahost:s'                            => \$dnahost,
+            'dnauser:s'                            => \$dnauser,
+            'dnadbname:s'                          => \$dnadbname,
+            'dnaport:n'                            => \$dnaport,
+            'logic:s'                              => \$logic,
+            'split!'                               => \$split,
+            'all!'                                 => \$all,
+            'remove_xrefs!'                        => \$remove_xrefs,
+            'remove_stable_ids!' => \$remove_stable_ids,
+            'transform_to:s'     => \$transform_to,
+            'verbose!'           => \$verbose,
+            'stable_id!'         => \$stable_id,
+            'file:s'             => \$infile );
 
 my $transform_to_version;
 if($transform_to){ 
