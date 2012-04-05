@@ -118,6 +118,10 @@ sub parse_results {
         $evalue = sprintf ("%.3e", $evalue);
         my $percentIdentity = 0;
 
+        # Remove the version at the end of the Pfam accession number if any
+        # e.g. 'PF00001.13' => 'PF00001'
+        $hid =~ s/\.\d+$//;
+
         my $fp = $self->create_protein_feature($start,
                                                $end,
                                                $score,
