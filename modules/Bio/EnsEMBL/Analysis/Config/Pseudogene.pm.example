@@ -54,7 +54,8 @@ use vars qw( %Config );
 	       PS_BIOTYPE  => 'ensembl',  
                
 	       # Blessed genes dont get called pseudogenes
-	       BLESSED_BIOTYPES => {},	
+               # Biotype is a transcript biotype
+	       BLESSED_BIOTYPES => { 'ccds_gene' => 1 },	
 				      
 	       # configs for the spliced elsewhere tests
 	       # %ID of a tbalstx of the (presumed) retrotransposed query sequence to its 
