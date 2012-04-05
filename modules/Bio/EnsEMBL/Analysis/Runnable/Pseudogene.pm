@@ -110,7 +110,7 @@ sub new {
        $PS_MULTI_EXON_DIR,    $BLESSED_BIOTYPES,
        $PS_PSEUDO_TYPE,       $PS_BIOTYPE,
        $KEEP_TRANS_BIOTYPE,   $PS_REPEAT_TYPE,
-       $DEBUG,                $IGNORED_GENES )
+       $DEBUG )
     = rearrange( [ qw(
         GENES
         REPEAT_FEATURES
@@ -130,8 +130,7 @@ sub new {
         PS_BIOTYPE
         KEEP_TRANS_BIOTYPE
         PS_REPEAT_TYPE
-        DEBUG
-        IGNORED_GENES)
+        DEBUG)
     ],
     @args );
 
@@ -154,7 +153,6 @@ sub new {
   $self->PS_BIOTYPE($PS_BIOTYPE);
   $self->PS_REPEAT_TYPE($PS_REPEAT_TYPE);
   $self->DEBUG($DEBUG);
-  $self->IGNORED_GENES($IGNORED_GENES);
   return $self;
 } ## end sub new
 
@@ -177,33 +175,6 @@ sub run {
     my $filename = $self->create_filename('multi_exon_seq','fasta',$self->PS_MULTI_EXON_DIR);
     $self->write_seq_array($self->multi_exon_genes,$filename);
 
-    # If "ignored genes" have been passed from the RunnableDB (these will be "protected" genes, 
-    # e.g. CCDS models which were "ignored" in the process of hunting for pseudogenes), we still 
-    # want to include them in the blast db for Spliced_elsewhere analysis later as long as they're 
-    # multi-exon. 
-    # For each "ignored gene", if at least one of its transcripts passes the "PS_MIN_EXONS" threshold,
-    # the "ignored gene" will be included in the blastdb.
-
-    my @multi_exon_ignored_genes;
-    if (defined $self->IGNORED_GENES) {
-      IGNORED_GENE: foreach my $ignored_gene (@{$self->IGNORED_GENES}) {
-        my $contains_useful_retrotrans_input = 0;
-        my @ignored_transcripts = @{$ignored_gene->get_all_Transcripts()};
-        foreach my $ignored_trans(@ignored_transcripts) {
-          my $exon_cnt = scalar@{$ignored_trans->get_all_Exons()};
-          if ($exon_cnt < $self->PS_MIN_EXONS) {
-             $contains_useful_retrotrans_input = 0;
-          } else {
-             $contains_useful_retrotrans_input = 1;
-          }
-        }
-        if ($contains_useful_retrotrans_input  == 1) { 
-          push (@multi_exon_ignored_genes, $ignored_gene);
-        }
-      }
-     print "Writing multi-exon ignored genes into blastdb for retrotranposed analysis later.\n";
-     $self->write_seq_array(\@multi_exon_ignored_genes, $filename); 
-    }
   }
   return 0;
 }
@@ -279,7 +250,7 @@ GENE: foreach my $gene (@genes) {
       if ( $self->SINGLE_EXON ) {
         if ( scalar( @{ $transcript->get_all_Exons() } ) == 1 ) {
           unless ( $evidence->{'covered_exons'}
-              && $evidence->{'covered_exons'} >= $self->PS_MAX_EXON_COVERAGE )
+              && $evidence->{'covered_exons'} >= $self->PS_MAX_EXON_COVERAGE or $self->BLESSED_BIOTYPES->{$transcript->biotype} )
           {
             push @{ $trans_type{'single_exon'} }, $transcript;
             next TRANS;
@@ -335,7 +306,7 @@ GENE: foreach my $gene (@genes) {
 
         if ( $evidence->{'frameshift_introns'} >=
              $self->PS_NUM_FRAMESHIFT_INTRONS
-          or $evidence->{'covered_introns'} >= $self->PS_MAX_INTRON_COVERAGE )
+          or $evidence->{'covered_introns'} >= $self->PS_MAX_INTRON_COVERAGE && !$self->BLESSED_BIOTYPES->{$transcript->biotype})
         {
           push @{ $trans_type{'indeterminate'} }, $transcript;
           print STDERR $gene->dbID
@@ -420,7 +391,9 @@ GENE: foreach my $gene (@genes) {
         $new_gene->analysis( $self->analysis );
         $new_gene->biotype( $self->PS_PSEUDO_TYPE );
         if ( defined $only_transcript_to_keep ) {
-          if ( defined $self->KEEP_TRANS_BIOTYPE
+          if ($self->BLESSED_BIOTYPES->{ $only_transcript_to_keep->biotype }) {
+             $new_gene->biotype( $only_transcript_to_keep->biotype) ;
+          } elsif ( defined $self->KEEP_TRANS_BIOTYPE
                && $self->KEEP_TRANS_BIOTYPE == 1 )
           {
             warning(   "keeping original transcript biotype "
@@ -434,6 +407,13 @@ GENE: foreach my $gene (@genes) {
         }
         $new_gene->add_Transcript($only_transcript_to_keep);
         $gene = $new_gene;
+        if ($self->BLESSED_BIOTYPES->{ $gene->biotype }) {
+          foreach my $t (@{ $gene->get_all_Transcripts }) {
+            if (!defined $t->translation) {
+              $self->remove_transcript_from_gene( $gene, $t) ;
+            }
+          }
+        }
         $self->modified_genes($gene);
         $self->pseudogenes(1);
         next GENE;
@@ -779,7 +759,7 @@ sub _remove_transcript_from_gene {
     $gene->add_Transcript($trans);
   }
 
-  return;
+  return 0;
 }
 
 =head2 transcript_to_keep
@@ -794,7 +774,7 @@ sub _remove_transcript_from_gene {
 sub transcript_to_keep {
   my ( $self, $trans_to_keep ) = @_;
   if ( $self->BLESSED_BIOTYPES->{ $trans_to_keep->biotype } ) {
-    return;
+    return $trans_to_keep;
   } else {
     $trans_to_keep->translation(undef);
     my $ntr = clone_Transcript( $trans_to_keep, 0 );
@@ -1267,12 +1247,5 @@ sub DEBUG{
   return $self->{'DEBUG'};
 }
 
-sub IGNORED_GENES {
-  my ($self, $arg) = @_;
-  if (defined $arg){
-    $self->{'IGNORED_GENES'} = $arg;
-  }
-  return $self->{'IGNORED_GENES'};
-}
 
 1;
