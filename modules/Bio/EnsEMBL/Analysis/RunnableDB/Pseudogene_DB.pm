@@ -138,14 +138,6 @@ sub fetch_input {
   my $genes = $genes_slice->get_all_Genes_by_type( $self->PS_BIOTYPE );
   print $genes_slice->name . "\t" . $genes_slice->start . "\n";
 GENE: foreach my $gene ( @{$genes} ) {
-    # Ignore all other biotypes of genes that are not protein_coding
-    # these genes will still be written to PS_OUTPUT_DATABASE - unless you set
-    # PS_DO_NOT_WRITE_IGNORED_GENES  = 0
-    #
-    unless ( $gene->biotype eq $self->PS_BIOTYPE ) {
-      $self->ignored_genes($gene);
-      next GENE;
-    }
 
     ############################################################################
     # transfer gene coordinates to entire chromosome to prevent problems arising
@@ -203,8 +195,7 @@ sub make_runnable {
            -KEEP_TRANS_BIOTYPE          => $self->KEEP_TRANS_BIOTYPE,
            -PS_BIOTYPE                  => $self->PS_BIOTYPE,
            -PS_REPEAT_TYPE              => $self->PS_REPEAT_TYPE,
-           -DEBUG                       => $self->DEBUG,
-           -IGNORED_GENES               => $self->ignored_genes, );
+           -DEBUG                       => $self->DEBUG,);
   $self->runnable($runnable);
 } ## end sub make_runnable
 
@@ -267,13 +258,6 @@ REPLOOP: foreach my $repeat (@repeats) {
 sub write_output {
   my ($self) = @_;
   my $genes = $self->output;
-  if ( defined $self->PS_WRITE_IGNORED_GENES
-       && $self->PS_WRITE_IGNORED_GENES == 1 )
-  {
-    print "Going to write 'ignored' genes as you have set "
-        . "PS_WRITE_IGNORED_GENES option to 1 in your Pseudogene.pm config file\n";
-    push @{$genes}, @{ $self->ignored_genes } if $self->ignored_genes;
-  }
 
   my %feature_hash;
   #  empty_Analysis_cache();
@@ -667,13 +651,6 @@ sub PS_BIOTYPE{
   return $self->{'PS_BIOTYPE'};
 }
 
-sub PS_WRITE_IGNORED_GENES{
-  my ($self, $arg) = @_;
-  if($arg){
-    $self->{'PS_WRITE_IGNORED_GENES'} = $arg;
-  }
-  return $self->{'PS_WRITE_IGNORED_GENES'};
-}
 
 sub PS_PERCENT_ID_CUTOFF{
   my ($self, $arg) = @_;

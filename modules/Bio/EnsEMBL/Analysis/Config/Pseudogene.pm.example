@@ -56,13 +56,6 @@ use vars qw( %Config );
 	       # Blessed genes dont get called pseudogenes
 	       BLESSED_BIOTYPES => {},	
 				      
-               # The default behaviour of pseudogene_DB.pm is to analyse ALL genes in a database 
-               # whcih have biotype PS_BIOTYPE ( default : protein_coding ). ALL genes which don't 
-               # match this biotype are not analysed, but will still be written to PS_OUTPUT_DATABASE 
-	       # You can switch this default behaviour OFF if you set PS_WRITE_IGNORED_GENES to 0. 
-
-               PS_WRITE_IGNORED_GENES => 0, 
-
 	       # configs for the spliced elsewhere tests
 	       # %ID of a tbalstx of the (presumed) retrotransposed query sequence to its 
 	       # homolog that is spliced elsewhere in the genome. hits falling below 
