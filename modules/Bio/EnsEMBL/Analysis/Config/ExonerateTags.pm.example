@@ -51,7 +51,7 @@ use vars qw( %Config );
           #max allowed number of repeated bases
           REPEATNUMBER        => 6,
           TMPDIR              => '/tmp',
-          PROGRAM             => '/usr/local/ensembl/bin/exonerate-1.0.0',
+          PROGRAM             => '/usr/local/ensembl/bin/exonerate-0.9.0',
           #adjust "softmasktarget" to masking choice
           OPTIONS             => " -M 256 --softmasktarget FALSE --showsugar false --showvulgar false --showalignment false --forwardcoordinates true --bestn 100 --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" --saturatethreshold 100 ",
        },
