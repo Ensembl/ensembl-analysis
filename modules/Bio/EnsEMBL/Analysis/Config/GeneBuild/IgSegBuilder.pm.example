@@ -48,8 +48,6 @@ use vars qw( %Config );
                # D/J genes that are not closer than the distance
                # below to a V/C gene are rejected               
                D_J_PROXIMITY_THRESHOLD => 200000,
-               COORD_SYSTEM_NAME => 'chromosome',
-               COORD_SYSTEM_VERSION => 'NCBI36',
 
              },
            }
