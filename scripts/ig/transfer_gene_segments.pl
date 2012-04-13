@@ -103,6 +103,12 @@ my ( $dbname,     $dbhost,      $dbuser,      $dbport,
      $path,       @tg_biotypes, %tg_biotypes, $tg_biotypes,
      $dna_dbuser, $dna_dbhost, $dna_dbname, $dna_dbport );
 
+$dbuser = 'ensro' ;
+$dbport = 3306 ;
+$tgdbuser = 'ensro' ;
+$tgdbport = 3306 ;
+$dna_dbuser = 'ensro' ;
+$dna_dbport = 3306 ;
 my $sub_biotypes = 0;
 my $verbose = 0;
 
