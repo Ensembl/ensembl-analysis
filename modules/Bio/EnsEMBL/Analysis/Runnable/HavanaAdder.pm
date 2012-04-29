@@ -1733,9 +1733,8 @@ EXT_GENE:
                 #print "DEBUG: number of translateable exons matched "
                 #    . "but not all exon boundaries matched.  Check next CCDS model...\n";
 
-                # CCDS is one-gene-one-transcript. "next EXT_GENE" is equivalent to |1658
-                # next EXT_GENE;  # CCDS is one-gene-one-transcript. "next
-                # EXT_GENE" is equivalent "next EXT_TRANS"
+                # CCDS is one-gene-one-transcript. "next EXT_GENE" is equivalent to
+                # next EXT_GENE;
                 next EXT_GENE;
               }
             }
@@ -1744,8 +1743,8 @@ EXT_GENE:
             return 0;
           } else {
             # print "DEBUG: ccds db: number of (translatable) exons is "
-            #     . "different "between ".  $ext_trans->stable_id()
-            #     . " and ". $trans->display_id . "\n";
+            #    . "different between " .  $ext_trans->stable_id()
+            #    . " and ". $trans->display_id . "\n";
             next EXT_GENE;
           }
         } else {
@@ -1999,8 +1998,8 @@ CLUSTER:
       }
 
       if ( $is_pseudo_havana == 1 && $coding_gene->biotype =~ /hav/ ) {
-        print "Jumping over havana coding gene! " . $coding_gene->dbID .
-              " biotype: " . $coding_gene->biotype . "\n";
+        #print "Jumping over havana coding gene! " . $coding_gene->dbID .
+        #      " biotype: " . $coding_gene->biotype . "\n";
         next OVERLAP;
       }
 
@@ -2034,9 +2033,9 @@ CLUSTER:
                   # As the pseudogene is Havana I will add the coding
                   # transcripts to the pseudo and remove the translation.
                   foreach my $c_transcript ( @{ $coding_gene->get_all_Transcripts } ) {
-                    print "\nDEBUG (combine_gene_clusters) "
-                      . "changing coding trans to non-coding: "
-                      . $c_transcript->dbID . " (" . $c_transcript->biotype . ")\n";
+                    #print "\nDEBUG (combine_gene_clusters) "
+                    #  . "changing coding trans to non-coding: "
+                    #  . $c_transcript->dbID . " (" . $c_transcript->biotype . ")\n";
 
                     #print "\nDEBUG (combine_gene_clusters) "
                     #  . "removing the translation, adding trans to pseudogene, "
@@ -2549,7 +2548,7 @@ sub update_gene_biotypes {
     } elsif ( $has_processed == 1 && $blessed_biotype) {
       $biotype_status = "processed_transcript";
     } elsif ($blessed_biotype) {
-      print "DEBUG: update_gene_biotype: type to keep: $blessed_biotype\n";
+      #print "DEBUG: update_gene_biotype: type to keep: $blessed_biotype\n";
       $biotype_status = $blessed_biotype;
     } else {
       print "ERROR: I should not really be here for gene biotype checks\n";
@@ -2901,6 +2900,7 @@ sub cluster_into_Genes {
   my $num_trans = scalar( @{$transcripts_unsorted} );
   my %ottg_xref;
   my %ottg_type;
+  my %ncrna_hosts;
 
   my @transcripts;
   if ($coding) {
@@ -2929,6 +2929,15 @@ sub cluster_into_Genes {
     my $hav_type = $hav_gene->biotype();
     $ottg_type{$hav_stable_id} = $hav_type;
 
+    my @hav_gene_attrib = @{ $hav_gene->get_all_Attributes() };
+
+    # Want to transfer the ncrna_host gene attributes from vega gene
+    # to merged gene.
+    foreach my $gene_attrib (@hav_gene_attrib) {
+      if ( $gene_attrib->name() eq 'ncrna_host' ) {
+        $ncrna_hosts{$hav_stable_id} = $gene_attrib;
+      }
+    }
     my ($ottg_key, $ottg_version);
       my $found = 0;
     foreach my $entry ( @{ $hav_gene->get_all_DBEntries } ) {
@@ -3096,7 +3105,10 @@ sub cluster_into_Genes {
         . $tran->stable_id
         . " adding it on to the first cluster in matching_clusters\n";
 
-      print "DEBUG: adding " . $tran->stable_id . " to ". $matching_clusters[0]->[0]->stable_id . " in matching_cluster\n";
+      print "DEBUG: adding "
+        . $tran->stable_id . " to "
+        . $matching_clusters[0]->[0]->stable_id
+        . " in matching_cluster\n";
 
       push @{ $matching_clusters[0] }, $tran;
     } else {
@@ -3274,6 +3286,13 @@ sub cluster_into_Genes {
     } else {
       $gene->biotype($gene_biotype);
     }
+
+    # Keeping the ncrna_host attributes intact
+    if ( exists($ncrna_hosts{$ottg_added} ) ) {
+      my $gene_attrib_to_keep = $ncrna_hosts{$ottg_added};
+      $gene->add_Attributes($gene_attrib_to_keep);
+    }
+
     push( @genes, $gene );
   } ## end foreach my $cluster (@clusters)
 
@@ -3362,7 +3381,7 @@ sub transfer_exon_support {
       $self->transfer_supporting_evidence_between_exons( $delete_e[$e], $exons[$e] );
     }
   } else {
-    print "DEBUG (transfer_exon_support): number of exons don't match, not doing anything.\n";
+    #print "DEBUG (transfer_exon_support): number of exons don't match, not doing anything.\n";
   }
 
 } ## end sub transfer_exon_support
