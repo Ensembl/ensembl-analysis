@@ -7,37 +7,55 @@ use vars qw(%Config);
 %Config = (
 	   RNASEQCONFIG => {
 		   	# delimited text file containing the summary data describing the RNASeq reads and tissues - assumes the first line is column headers
-                      	SUMMARY => "/path/to/my/text/file.txt",
+                      	SUMMARY => "/path/to/my/tab/delimited/config/file",
 			# indexed genome file - (no ensembl style sequence headers)
-			GENOME => "/path/to/my/genome/file/toplevel_clean.fa",
+			GENOME => "/path/to/my/indexed/geneome/fasta/file",
 		      	# use this option to change the delimiter for your text file
 			DELIMITER =>"\t", 
 			# Hash key of your reference db from Databases.pm
 			DB => "REFERENCE_DB",    
+			# Hash key of the database used to store the rough models
+			ROUGHDB => "ROUGH_DB",
+			# Hash key of the database used to store the refined models
+			REFINEDDB => "REFINED_DB",
+			# Hash key of the database used to store the refined models with blast hits
+			BLASTDB => "UNIPROT_DB",
+			
 			# Path to the directory containing your Bio::Ensembl::Analysis::Config 
-			ANALYSISCONFIG_DIR => "/path/to/modules/Bio/EnsEMBL/Analysis/Config",
+			ANALYSISCONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Analysis/Config",
 			# Path to the directory containing your Bio::Ensembl::Pipeline::Config 
-			PIPELINECONFIG_DIR => "/path/to/modules/Bio/EnsEMBL/Pipeline/Config",
+			PIPELINECONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Pipeline/Config",
 			# path to base directory holding your fastq files
-			INPUT_DIR => "/path/to/input/dir",
+			INPUT_DIR => "/path/to/my/fastq",
 			# path to base directory to write out your results	
-			OUTPUT_DIR => "/path/to/output/dir",
+			OUTPUT_DIR => "/path/to/my/output/dir",
+			# path to base directory to merge the bam files - defaults to OUTPUT_DIR
+			# but you can specify a different dir if disk space is an issue	   
+			MERGE_DIR => "/path/to/my/merge/dir",
+			# blast database for comparing the final models too
+			UNIPROTDB => '/path/to/my/UniprotDB',
+			# index for the blast database
+			UNIPROTINDEX => '/path/to/my/Uniprot/index',
     			# read length
-			READ_LENGTH => 75,
+			READ_LENGTH => ,
 			# are all the lanes paired end?
-			ALL_PAIRED => 0,
+			ALL_PAIRED => 1,
+			# If your reads are unpaired you may want to run on slices to avoid making overlong rough models
+			# if you want to do this specify a slice length here otherwise it will default to whole chromosomes
+			SLICE_LENGTH => 10000000,
 			# regexp to allow fastq files to be correctly paired bie:
 			# file_1.fastq and file_2.fastq could be paired using regexp (\S+)_r(\d)\.(\S+)
 			# need to identify all 3 parts in brackets, the name the read number ( 1,2,a,b etc) and the extension
 			PAIRING_REGEX => '(\S+)_r(\d)\.(\S+)', 
-			# max memory to give the jobs
-			MEMORY => "5000000",
+			# Do you want to make models for the each individual sample as well as for the pooled samples (1/0)?
+			SINGLE_TISSUE => 0,
+			
 			# samtools path
 			SAMTOOLS => "/path/to/samtools",
 			
 			
 			# Please assign some / all columns from the summary file to the some / all of the 
-			# following categories multiple values can be separted with commas:
+			# following categories multiple values can be separted with commas - only ID,SM and FILE are required
 			
 			##################################################################################################
 			# this is just an example based on the file snippet shown below it will vary depending on how your 
@@ -47,9 +65,9 @@ use vars qw(%Config);
 			# Unique read group identifier ( needs to be unique used as the logic name for the analysis) *required
 			ID => "1",
 			# Sample - (use pool name where a pool is being sequenced) *required
-			SM => "2",
+			SM => "3",
 			# Library
-			LB => "3",
+			LB => "2",
 			# Description
 			DS => "4,5,6,7,8",
 			# Platform unit (e.g. lane for Illumina or slide for SOLiD); should be a full, unambiguous identifier
@@ -63,7 +81,7 @@ use vars qw(%Config);
 			# Path from INPUT_DIR to the filename of the RNAseq fastq file, comma separated values will be replaced with '/'
 			FILE   => "16",
 			# global read length can be overridden if it is different for different lanes
-			LENGTH => "12",
+			LENGTH => "",
 			# is the read pairing different for different lanes?
 			PAIRED => "11",			
 		}
