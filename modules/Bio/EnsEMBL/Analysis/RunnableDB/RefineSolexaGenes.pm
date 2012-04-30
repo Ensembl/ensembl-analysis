@@ -533,6 +533,7 @@ sub refine_genes {
 	$new_gene->biotype($self->SINGLE_EXON_MODEL); 
 	# score comes from exon supporting feature;
 	my $score =  $exon->get_all_supporting_features->[0]->score;
+	$exon->flush_all_supporting_features;
 	$new_gene->stable_id($gene->stable_id . "-v1-" . int($score) );
 	push @{$self->output} , $new_gene;
       }
@@ -731,7 +732,7 @@ sub make_models {
     my $exon_score = 0;
     my $intron_score = 0;
     foreach my $feature ( split(/\./,$path ) ) {
-      if ( $feature =~ /canonical$/ ) {
+      if ( $feature =~ /canonical/ ) {
 	push @model, $intron_hash->{$feature};
 	$intron_score+= $intron_hash->{$feature}->score;
       } else {
@@ -800,7 +801,7 @@ sub make_models {
 	    # its an intron trim the exons accordingly
 	    $new_exons[$i-1]->end( $intron->start );
 	    $new_exons[$i+1]->start( $intron->end );
-	    if ( $new_exons[$i-1]->start >=  $new_exons[$i-1] ->end ) {
+	    if ( $new_exons[$i-1]->start >=  $new_exons[$i-1]->end ) {
 	      next MODEL;
 	    }
 	    $intron_count++;
@@ -812,9 +813,14 @@ sub make_models {
 	next MODEL unless $intron_count;
 	
 	# trim padding from the start and end exons
-	$new_exons[0]->start($new_exons[0]->start + 20) if $new_exons[0]->length  > 20;
-	$new_exons[-1]->end ($new_exons[-1]->end  - 20) if $new_exons[-1]->length > 20;
-	
+	$new_exons[0]->start($new_exons[0]->start + 20) ;
+	$new_exons[-1]->end ($new_exons[-1]->end  - 20) ;
+	# dont allow 1bp exons
+	foreach my $e ( @new_exons){
+	  if ( $e->end - $e->start <= 0 ) {
+	    next MODEL;
+	  }
+	}
 	# make it into a gene
 	my @modified_exons;
 	foreach my $exon ( @new_exons ) {
@@ -838,7 +844,7 @@ sub make_models {
 	# add a translation 
 	my $initial_tran = compute_translation(clone_Transcript($t));
 	# stop spam coming from the Exon module
-	$initial_tran->dbID(0) ;	
+	#$initial_tran->dbID(0) ;	
 	
 	# trim UTR
 	my $tran = $self->prune_UTR($initial_tran,\@introns);
@@ -859,6 +865,11 @@ sub make_models {
 	      $coding_exons++;
 	    }
 	  }
+	}
+	
+	# remove any supporting features from the exons
+	foreach my $e ( @{$tran->get_all_Exons} ) {
+	  $e->flush_supporting_features;
 	}
 #	print "Coding Bonus of $coding_bonus from $coding_exons completely coding exons \n";
 	$tran->{'_score'} =  ( (int ( $intron_score + $exon_score ) / 10 ) + $coding_bonus  );
@@ -976,10 +987,10 @@ Transcript " .  $transcript->seq_region_name ." " .
     if ( $f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
     #  print $f->score;
       if ( $average_intron && ($f->score /  $average_intron) * 100 <= $self->REJECT_INTRON_CUTOFF ) {
-	print " Potentially bad";
+	print " Potentially bad ";
       }
     }
-#    print "\n";
+  #  print "\n";
   }
   throw("Something is wrong we are missing introns " . scalar(@exons) . "  exons  and $intron_count introns\n")
     unless $intron_count == scalar(@exons) -1 ;
