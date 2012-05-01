@@ -533,7 +533,7 @@ sub refine_genes {
 	$new_gene->biotype($self->SINGLE_EXON_MODEL); 
 	# score comes from exon supporting feature;
 	my $score =  $exon->get_all_supporting_features->[0]->score;
-	$exon->flush_all_supporting_features;
+	$exon->flush_supporting_features;
 	$new_gene->stable_id($gene->stable_id . "-v1-" . int($score) );
 	push @{$self->output} , $new_gene;
       }
