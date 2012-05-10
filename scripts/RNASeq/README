@@ -1,7 +1,7 @@
 setup_rnaseq_pipeline.pl
 ------------------------
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
-$Revision: 1.8 $
+$Revision: 1.9 $
 
 This document describes how to automate setting up of a BWA
 alignment and processing pipeline using a configuration file,
@@ -147,6 +147,8 @@ Files on disk, for FTP site:
 /path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam.bai
 
 Note that each BAM files needs an index file.
+
+NB these files must be set to read-only
 
 
   Gene models
