@@ -1,7 +1,7 @@
 setup_rnaseq_pipeline.pl
 ------------------------
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
-$Revision: 1.7 $
+$Revision: 1.8 $
 
 This document describes how to automate setting up of a BWA
 alignment and processing pipeline using a configuration file,
@@ -103,3 +103,64 @@ setup_rnaseq_pipeline.pl script for a third time once bam2genes has
 finished.  Again, the pipeline is configured automatically and running
 the rulemanager after the script will re-start the pipeline and it
 should then run to completion.
+
+
+
+Adding RNASeq data into an ensembl core-schema database
+========
+Quite often we have data for several tissues, for example heart, brain, 
+kidney, liver. We want to display data from individual tissues and also
+data from all tissues 'merged' together.
+
+  BAM
+For handover for release, we want to display a BAM file track for each 
+tissue and also a BAM file of all the tissues merged. In the above 
+example, we'd have a total of 5 BWA tracks.
+Each of the 5 sets BAM files needs its own analysis_id and 
+logic_name. Each analysis_id links to a unique row in the data_file 
+table.
+
+Example sus_scrofa_rnaseq_67_102
+
+Analysis table: 
+analysis_id     logic_name
+141     pig_bwa_alveolar_macrophage
+142     pig_bwa_whole_blood
+
+The above logic_names are added to the production database with an 
+analysis_description and appropriate web_data.
+
+Data_file table:
+coord_system_id analysis_id     name    file_type
+1       141     alveolar_macrophage_merged_sorted       BAM
+1       142     whole_blood_merged_sorted       BAM
+
+The coord_system_id columns refers to the highest level in the 
+coord_system table, to which the assembly version is attached. In this
+case it is chromosome.
+The 'name' column in data_file refers to the file name on disk.
+
+Files on disk, for FTP site: 
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam.bai
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam.bai
+
+Note that each BAM files needs an index file.
+
+
+  Gene models
+For handover for release, we want to display an RNASeq gene model track
+for each tissue and also one for the tissues merged. In the above
+example, we'd have a total of 5 RNASeq tracks.
+Each of the 5 sets of RNASeq gene models needs its own analysis_id and 
+logic_name. RNASeq models are stored in the gene table.
+
+  Intron features
+For handover for release, we want to display an intron features track
+for each tissue and also one for the tissues merged. In the above
+example, we'd have a total of 5 intron tracks.
+Each of the 5 sets of intron features needs its own analysis_id and 
+logic_name. Intron features are stored in the dna_align_feature table.
+
+
