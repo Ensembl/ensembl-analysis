@@ -166,7 +166,7 @@ sub run_analysis{
   system($command) == 0 or throw("FAILED to run ".$command);
 
   foreach my $file (glob("${outfile_glob_prefix}*")) {
-    unlink $file;
+    $self->files_to_delete($file);
   }
 }
 
