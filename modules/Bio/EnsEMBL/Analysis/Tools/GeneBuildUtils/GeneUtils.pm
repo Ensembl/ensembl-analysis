@@ -214,7 +214,7 @@ sub clone_Gene{
 sub Gene_info{
   my ($gene) = @_;
   my $coord_string = seq_region_coord_string($gene);
-  my $id = id($gene);
+  my $id = $gene->display_id;
   return "GENE: id ".$id." ".$coord_string." biotype ".$gene->biotype;
 }
 
