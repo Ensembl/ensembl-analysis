@@ -484,8 +484,17 @@ sub refine_genes {
       push @models, @{$self->make_models($paths,$strand, \@exons,$gene,\%intron_hash )};
       print STDERR "Now have " . scalar ( @models ) ." models \n";
     }
-    $self->filter_models(\@models);
+
+    # recursively recluster the models to identify 'other' models 
+    # with no overlap to the 'best' model
+    my $model_count = 0;
+    while ( $model_count < scalar(@models) ){
+      $model_count =  scalar(@models);
+      @models = @{$self->recluster_models(\@models)};
+    }
     
+    # filter to identify 'best', 'other' and 'bad' models
+    $self->filter_models(\@models);
 
     # process single exon models
     # if it has no introns on either strand
@@ -540,6 +549,91 @@ sub refine_genes {
     }
   }
 }
+
+=head2 recluster_models
+
+    Title        :   recluster_models
+    Usage        :   $self->recluster_models(\@models);
+    Returns      :   nothing
+    Args         :   Array ref of array references of Bio::EnsEMBL::Transcript
+    Description  :   reclusters 'other' models that have no overlap with 'best' models
+
+=cut
+
+sub recluster_models {
+  my ( $self, $models )= @_;
+  my @clusters = @{$models};
+  my @new_clusters = @clusters;
+  my $new_models = $models;
+  foreach my $cluster ( @clusters ) {
+    next unless $cluster->{'final_models'};
+    my @best;
+    my @genes;
+    my @other_genes;
+    foreach my $gene ( @{$cluster->{'final_models'}} ) {
+      if ($gene->biotype eq $self->BEST_SCORE ) {
+	push @best, $gene if $gene->biotype eq $self->BEST_SCORE;
+	push @genes, $gene;
+      }
+    }
+    # now recluster 
+    OTHER: foreach my $gene ( @{$cluster->{'final_models'}} ) {
+      next if  $gene->biotype eq $self->BEST_SCORE;
+      foreach my $best ( @best ) {
+	# exon overlap with a best model
+	foreach my $be ( @{$best->get_all_Transcripts->[0]->get_all_Exons} ) {
+	  foreach my $oe ( @{$gene->get_all_Transcripts->[0]->get_all_Exons} ) {
+	    # does it have exon overlap with the best model
+	    if (  $be->{'start'} <= $oe->{'end'} && 
+		  $be->{'end'}  >=  $oe->{'start'}) {
+	      # yes - store it and move on 
+	      push @genes,$gene;
+	      next OTHER;
+	    }
+	  }
+	}
+	# other model has no exon overlap with best model it needs to be in a new cluster
+	push @other_genes, $gene;
+      }
+    }
+    # now we need to fix the clusters
+    if ( scalar(@other_genes) > 0 ) {
+      $self->recalculate_cluster($cluster,\@genes);
+      my $new_cluster;
+      $new_cluster = $self->recalculate_cluster($new_cluster,\@other_genes);
+      push @new_clusters, $new_cluster;
+      $new_models = \@clusters;
+    }
+  }
+  return $new_models;
+}
+
+sub recalculate_cluster {
+  my ( $self, $cluster,$genes )= @_;
+  my $start = $genes->[0]->start;
+  my $end = $genes->[0]->end ;
+  my $strand = $genes->[0]->strand ;
+  my $score = 0 ;
+  $cluster->{'final_models'} = $genes;
+  foreach my $g ( @$genes) {
+    $start = $g->start if $g->start < $start;
+    $end = $g->end if $g->end > $end;
+    $score = $g->get_all_Transcripts->[0]->{'_score'} if 
+      $g->get_all_Transcripts->[0]->{'_score'} > $score;
+  }
+  $cluster->{'start'} = $start;
+  $cluster->{'end'}   = $end;
+  $cluster->{'strand'} = $strand;
+  foreach my $g ( @$genes) {
+    if ( $g->get_all_Transcripts->[0]->{'_score'} == $score ) {
+      $g->biotype($self->BEST_SCORE);
+    } else {
+      $g->biotype($self->OTHER_ISOFORMS);
+    }
+  }
+  return $cluster;
+}
+
 
 =head2 filter_models
 
@@ -637,8 +731,7 @@ sub filter_models {
 	$gene->biotype('bad');
       }
       $exon_use_hash{$exon_use} = 1 ;
-      #  print "TRANSCRIPT " . $gene->get_all_Transcripts->[0]->{'_depth'} .
-      #" Exon use $exon_use Biotype " . $gene->biotype ."\n";
+      #print "TRANSCRIPT " . $gene->get_all_Transcripts->[0]->{'_depth'} . 	  " Exon use $exon_use Biotype " . $gene->biotype ."\n";
       my $es = 0;
       my $ee = 0;
       my $pattern;
@@ -661,7 +754,7 @@ sub filter_models {
 	#	print "CALLING it bad\n";
       }
       $exon_pattern{$pattern} = 1;
-    }
+   } 
     # promote "bad" models that have a cds as long as the best cds to 
     # alt isoforms
     my @final_models = @{$cluster->{'final_models'}};
@@ -697,7 +790,12 @@ sub filter_models {
 	}
       } else {
 	unless ( $gene->biotype eq 'duplicate' ) {
-	  push @{$self->output} , $gene if $count <= $self->OTHER_NUM ;
+	  if ( $gene->biotype eq $self->BEST_SCORE ) {
+	    push @{$self->output} , $gene ;
+	  } else {
+	    push @{$self->output} , $gene if $count <= $self->OTHER_NUM 
+	      && $self->OTHER_ISOFORMS;
+	  }
 	}
       }
       $count++ if $gene->biotype eq $self->OTHER_ISOFORMS ;
@@ -844,7 +942,7 @@ sub make_models {
 	# add a translation 
 	my $initial_tran = compute_translation(clone_Transcript($t));
 	# stop spam coming from the Exon module
-	#$initial_tran->dbID(0) ;	
+	$initial_tran->dbID(0) ;	
 	
 	# trim UTR
 	my $tran = $self->prune_UTR($initial_tran,\@introns);
@@ -882,12 +980,8 @@ sub make_models {
 	$tran->{'_intron_count'} = $intron_count;
 	push @trans, $tran;
       }
-      # we only want one model if its best score only
-      if ( $self->BEST_SCORE and not   $self->OTHER_ISOFORMS  ) {
-	last SCORES if scalar(@trans)  > 0 ;
-      }
       # we want X number of models
-      if ( $self->BEST_SCORE &&  $self->OTHER_ISOFORMS && $self->MAX_NUM  ) {
+      if ( $self->BEST_SCORE &&  $self->MAX_NUM  ) {
 	last SCORES if scalar(@trans)  >= ( $self->MAX_NUM +1 )  ;
       }
     }
@@ -904,12 +998,16 @@ sub make_models {
       } else {
 	if ( $tran->translateable_seq && $best->translateable_seq && length($tran->translate->seq) > length($best->translate->seq) ) {
 	  # not just longer peptide but at least as long span
-	  next unless ( $tran->translateable_seq && $best->translateable_seq &&
+	  if ( $tran->translateable_seq && $best->translateable_seq &&
 			$tran->translation->genomic_end >= $best->translation->genomic_end &&
-			$tran->translation->genomic_start <= $best->translation->genomic_start ) ;
-	  $new_gene->biotype($self->BEST_SCORE);
+	       $tran->translation->genomic_start <= $best->translation->genomic_start ) {
+	    $new_gene->biotype($self->BEST_SCORE);
+	  }
 	}
       }
+      print "NEW GENE " . $new_gene->biotype ." " . 
+	$new_gene->start ." " . 
+	  $new_gene->end ."\n";
       $new_gene->stable_id($gene->stable_id . "-v$cluster_count.$version-" .
 			   int($tran->{'_score'}) ."-" .
 			   int($tran->{'_depth'}) ."-" .  
@@ -931,7 +1029,7 @@ sub prune_UTR {
   }
   # otherwise trim the UTR according to the values set out in the config
   my %intron_hash;
-  print STDERR "Got " . scalar(@{$introns}) . " introns - hashing...";
+
   foreach my $intron ( @{$introns} ) {
     my $key = $intron->start  .":". $intron->end .":". $intron->strand;
 
