@@ -1,7 +1,7 @@
 setup_rnaseq_pipeline.pl
 ------------------------
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
-$Revision: 1.9 $
+$Revision: 1.10 $
 
 This document describes how to automate setting up of a BWA
 alignment and processing pipeline using a configuration file,
@@ -129,6 +129,15 @@ analysis_id     logic_name
 
 The above logic_names are added to the production database with an 
 analysis_description and appropriate web_data.
+
+It might be helpful to add a link to the BAM file location on the FTP
+site in the analysis description - see tilapia for an example:
+
+eg. tilapia_bwa_blood
+http://admin.ensembl.org/common/AnalysisDesc/Display?id=500
+
+Paired-end 101 bp RNAseq reads from O. niloticus heart tissue. Data were obtained from the <a href="http://www.broadinstitute.org/scientific-community/science/projects/mammals-models/vertebrates-invertebrates/tilapia/tilapia-genom">Broad Institute</A> and aligned to the Orenil1.0 assembly using BWA. Download this BAM file from the <a href="ftp://ftp.ensembl.org/pub/data_files/oreochromis_niloticus/Orenil1.0/rnaseq/">Ensembl FTP</A> (file:<a
+href="ftp://ftp.ensembl.org/pub/current_bam/oreochromis_niloticus/genebuild/heart_merged_sorted.bam">heart_merged_sorted.bam</A>).
 
 Data_file table:
 coord_system_id analysis_id     name    file_type
