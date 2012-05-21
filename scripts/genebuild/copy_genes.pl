@@ -83,7 +83,7 @@ use Getopt::Long;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 my $sourcehost      = '';
-my $sourceuser      = '';
+my $sourceuser      = 'ensro';
 my $sourcedbname    = '';
 my $sourceport      = 3306;
 
