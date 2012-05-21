@@ -235,7 +235,7 @@ sub Transcript_info{
   my ($transcript, $indent) = @_;
   $indent = '' if(!$indent);
   my $coord_string = seq_region_coord_string($transcript); 
-  my $id = id($transcript);
+  my $id = $transcript->display_id;
   return $indent."TRANSCRIPT: ".$id." ".$coord_string;
 }
 
@@ -342,7 +342,7 @@ sub are_strands_consistent{
   if($exons->[0]->strand != $transcript->strand){
     warn("Strands are inconsistent between the ".
             "first exon and the transcript for ".
-            id($transcript));
+            $transcript->display_id);
     return 0;
   }
   if(@$exons >= 2){
@@ -350,7 +350,7 @@ sub are_strands_consistent{
       if($exons->[$i]->strand != $exons->[$i-1]->strand){
         warn("Strands are inconsistent between ".
                 "exon $i exon and exon ".($i-1)." for ".
-                id($transcript));
+                $transcript->display_id);
         return 0;
       }
     }
@@ -383,7 +383,7 @@ sub exon_lengths_all_less_than_maximum{
   $transcript->sort;
   foreach my $exon(@{$transcript->get_all_Exons}){
     if(!exon_length_less_than_maximum($exon, $max_length)){
-      warn("Transcript ".id($transcript)." has ".
+      warn("Transcript ".$transcript->display_id." has ".
                   "exon longer than ".$max_length);
       return 0;
     }
@@ -573,7 +573,7 @@ sub is_not_folded{
     $exons->[$i]->stable_id('');
     if($exons->[$i]->strand == 1){
       if($exons->[$i]->start < $exons->[$i-1]->end){
-        warning(id($transcript)." is folded");
+        warning($transcript->display_id." is folded");
         warn($i." ".id($exons->[$i])." has a start which ".
                     "is less than ".($i-1)." ".id($exons->[$i-1]).
                     " end");
@@ -581,7 +581,7 @@ sub is_not_folded{
       }
     }else{
       if($exons->[$i]->end > $exons->[$i-1]->start){
-        warning(id($transcript)." is folded");
+        warning($transcript->display_id." is folded");
         warn($i." ".id($exons->[$i])." has a end which ".
                     "is greater than ".($i-1)." ".id($exons->[$i-1]).
                     " start");
@@ -624,13 +624,13 @@ sub low_complexity_less_than_maximum{
     );
   $seg->run;
   my $low_complexity = $seg->get_low_complexity_length;
-  logger_info(id($transcript)." ($hit_name) has ".$low_complexity.
+  logger_info($transcript->display_id." ($hit_name) has ".$low_complexity.
               " low complexity sequence");
   #print_peptide($transcript);
   #print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
   #  " ".$complexity_threshold."\n";
   if($low_complexity >= $complexity_threshold){
-    warn(id($transcript)."($hit_name)'s low ".
+    warn($transcript->display_id."($hit_name)'s low ".
             "complexity (".$low_complexity.") is above ".
             "the threshold ".$complexity_threshold.
             "\n");
@@ -665,7 +665,7 @@ sub has_no_unwanted_evidence{
   foreach my $evi(keys(%$evidence)){
     foreach my $unwanted (keys(%$ids)) {
       if($evi =~ /$unwanted/){
-        warn(id($transcript)." has ".$evi.
+        warn($transcript->display_id." has ".$evi.
                 " unwanted evidence");
         return 0;
       }
@@ -722,7 +722,7 @@ sub get_evidence_ids{
 sub is_spliced{
   my ($transcript, $intron_size) = @_;
   my $count = count_real_introns($transcript, $intron_size);
-  warning(id($transcript)." has no introns ".
+  warning($transcript->display_id." has no introns ".
           "longer than $intron_size bps") if(!$count);
   return 0 if(!$count);
   return 1;
@@ -748,13 +748,13 @@ sub count_real_introns{
   $intron_size = 9 if(!$intron_size);
   my $real_count = 0 ;
   my @introns = @{$transcript->get_all_Introns};
-  my $warn = id($transcript)." has no introns. count_real".
+  my $warn = $transcript->display_id." has no introns. count_real".
     "_introns makes no sense in those terms";
   logger_info($warn) if(@introns == 0);
   foreach my $intron(@introns){
     $real_count++ if($intron->length > $intron_size);
   }
-  logger_info(id($transcript)." has ".$real_count." introns ".
+  logger_info($transcript->display_id." has ".$real_count." introns ".
               "longer than ".$intron_size." out of ".
               @introns." introns");
   return $real_count;
@@ -781,7 +781,7 @@ sub are_splice_sites_canonical{
   my $non_canonical_count = 
     count_non_canonical_splice_sites($transcript);
   if($non_canonical_count){
-    warn(id($transcript)." contains ".
+    warn(Transcript_info($transcript)." contains ".
                 $non_canonical_count." non canonical ".
                 "splice sites out of ".@$introns.
                 " introns");
@@ -1088,7 +1088,7 @@ sub tidy_split_transcripts{
   foreach my $stran (@{$split_trans}) {
     if(@{$stran->get_all_Exons} == 1){
       my ($exon) = @{$stran->get_all_Exons};
-      my $warn = id($stran)." only has one exon\n".
+      my $warn = $stran->display_id." only has one exon\n".
           Exon_info($exon);
       warning($warn);
       next;
@@ -1483,7 +1483,7 @@ sub remove_initial_or_terminal_short_exons{
   $transcript->sort;
   $min_length = 3 unless($min_length);
   throw("TranscriptUtils::remove_initial_or_terminal_short_exons will not work ".
-        " if ".id($transcript)." has no translation") if(!$transcript->translation);
+        " if ".Transcript_info($transcript)." has no translation") if(!$transcript->translation);
   my %translateable = %{_identify_translateable_exons
                           ($transcript)};
 
@@ -1673,10 +1673,10 @@ sub dump_cDNA_file{
   my ($transcript, $filename, $format) = @_;
   $format = 'fasta' if(!$format);
   logger_info("You are going to dump the cdna of ".
-              id($transcript)." into ".$filename." format ".
+              $transcript->display_id." into ".$filename." format ".
               $format);
   my $seq = $transcript->seq;
-  $seq->display_id(id($transcript));
+  $seq->display_id($transcript->display_id);
   $filename = write_seqfile($seq, $filename, $format);
   return $filename;
 }
@@ -1698,7 +1698,7 @@ sub convert_to_genes {
   my @tr = (ref($tref)=~m/ARRAY/) ? @$tref : ($tref) ; 
 
   for my $t (@tr) {
-    throw("Problems with ".id($t)." undef coords") if(!$t->start || !$t->end);
+    throw("Problems with ".Transcript_info($t)." undef coords") if(!$t->start || !$t->end);
     fully_load_Transcript($t);
     $analysis = $t->analysis unless $analysis ;
     if($biotype){ $t->biotype($biotype); }
@@ -1716,7 +1716,7 @@ sub convert_to_genes {
     }
   }
   foreach my $gene(@genes){
-    throw("Problems with ".id($gene)." undef coords") if(!$gene->start || !$gene->end);
+    throw("Problems with ".Gene_info($gene)." undef coords") if(!$gene->start || !$gene->end);
   }
   return \@genes ;
 }
@@ -1739,7 +1739,7 @@ sub convert_to_genes {
 sub evidence_coverage{
   my ($transcript, $evidence) = @_;
 
-  throw("Can't work out evidence coverage for ".id($transcript).
+  throw("Can't work out evidence coverage for ".$transcript->display_id.
         " without any evidence") if(!$evidence);
   my $matches = 0;
   my $pstart  = 0;
@@ -1901,12 +1901,12 @@ sub all_exons_are_valid{
     throw(Transcript_info($transcript)." seems to contain an undefined exon") 
       if(!$exon); 
     if(!exon_length_less_than_maximum($exon, $max_length)){
-      warn("Transcript ".id($transcript)." has ".
+      warn("Transcript ".Transcript_info($transcript)." has ".
                   "exon longer than ".$max_length);
       return 0;
     }
     if(!validate_Exon_coords($exon, $allow_negative_start)){
-      warn("Transcript ".id($transcript)." has ".
+      warn("Transcript ".Transcript_info($transcript)." has ".
                   "invalid exon coords ".Exon_info($exon));
       return 0;
     }
