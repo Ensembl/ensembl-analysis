@@ -612,7 +612,7 @@ sub determine_strand {
 sub translate {
   my ($seq, $frame) = @_;
 
-  my $trans_seq = $seq->translate(-frame => $frame);
+  my $trans_seq = $seq->translate();
 
   if ($trans_seq->seq =~ /\*$/) {
     my $pep = $trans_seq->seq;
