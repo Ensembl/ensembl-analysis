@@ -28,8 +28,6 @@ my $source_port    = 3353;
 my $target_host    = 'ecs2';
 my $target_user    = 'ensro';
 my $target_pass    = undef;
-#my $target_user    = 'ensadmin';
-#my $target_pass    = 'ensembl';
 my $target_port    = 3361;
 my $target_dbname  = 'vivek_homo_sapiens_core_24_34';
 

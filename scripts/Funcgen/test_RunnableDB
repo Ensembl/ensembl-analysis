@@ -60,7 +60,7 @@ commandline
 =head1 EXAMPLES
 
 test_RunnableDB -dbhost=ens-genomics1 -dbport=3306 -dbname=sg_homo_sapiens_funcgen_44_36f 
-  -dbuser=ensadmin -dbpass=ensembl -input_id chromosome:NCBI36:X:1:5000:1 
+  -dbuser=ensadmin -dbpass=XXX -input_id chromosome:NCBI36:X:1:5000:1 
   -logic_name Chipotle -module Chipotle -verbose -write
 
 this commandline would run chipotle on chromosome:NCBI36:X:1:5000:1 

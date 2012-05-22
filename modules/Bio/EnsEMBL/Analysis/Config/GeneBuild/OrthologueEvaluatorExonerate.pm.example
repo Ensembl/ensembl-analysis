@@ -18,7 +18,7 @@ use vars qw(%Config);
                            -host   => '',
                            -port   => '3306',
                            -user   => 'ensadmin',
-                           -pass   => 'ensembl',
+                           -pass   => '****',
                          },
                 COVERAGE_BY_ALIGNED => 0,
                 OPTIONS => "--model protein2genome --forwardcoordinates FALSE ".
