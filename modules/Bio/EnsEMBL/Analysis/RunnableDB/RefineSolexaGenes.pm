@@ -204,14 +204,14 @@ sub refine_genes {
       my $highest_score = 0;
       print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
       my @exons =  @{$self->merge_exons($gene,$strand)};
-      foreach my $exon ( @exons ) {
-	print STDERR "EXTRAEXON: " . 
-	  $exon->seq_region_name ." " .
-	    ($exon->start +20) ." " .
-	      ($exon->end -20)." " .
-		( $exon->end - $exon->start -40)  ."\n"
-		  if $exon->{"_extra"} ;
-      }
+#      foreach my $exon ( @exons ) {
+#	print STDERR "EXTRAEXON: " . 
+#	  $exon->seq_region_name ." " .
+#	    ($exon->start +20) ." " .
+#	      ($exon->end -20)." " .
+#		( $exon->end - $exon->start -40)  ."\n"
+#		  if $exon->{"_extra"} ;
+#      }
 #      if ( $self->extra_exons ) {
 #	foreach my $exon ( @{$self->extra_exons} ) {
 #	  print STDERR "OTHEREXON: " . 
@@ -231,7 +231,7 @@ sub refine_genes {
 	my $right_introns = 0;
 	$exon->{'left_mask'} = 0;
 	$exon->{'right_mask'} = $exon->length;
-	print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
+	#print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
 	# make intron features by collapsing the dna_align_features
 	my @introns = @{$self->fetch_intron_features($exon->seq_region_start,$exon->seq_region_end)};
 	my @left_c_introns;
@@ -328,10 +328,10 @@ sub refine_genes {
 	}
 
 	if ( scalar(@left_c_introns)  == 0 && scalar(@left_nc_introns)  > 0) {
-	  print STDERR "using " . scalar(@left_nc_introns) . " NC left \n";
+	 # print STDERR "using " . scalar(@left_nc_introns) . " NC left \n";
 	} 
 	if ( scalar(@right_c_introns)  == 0 && scalar(@right_nc_introns)  > 0 ) {
-	  print STDERR "using " . scalar(@right_nc_introns) . " NC right \n";
+	 # print STDERR "using " . scalar(@right_nc_introns) . " NC right \n";
 	}
 	
 	# single exon models are a special case
@@ -349,7 +349,7 @@ sub refine_genes {
 	@retained_introns = sort { $b->start <=> $a->start } @retained_introns;
 	# push @filtered_introns, @retained_introns;
       INTRON:  foreach my $intron ( @filtered_introns ) {
-	  print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->hseqname . " " . $intron->score . "\n";
+	  #print STDERR "\t" . $intron->start . " " . $intron->end . " " . $intron->strand . " " . $intron->hseqname . " " . $intron->score . "\n";
 	  # becasue we make a new exons where we have a reatained intron to 
 	  # stop circular references we need to allow the final 
 	  # intron splicing out of the exon to be used more than once
@@ -368,7 +368,7 @@ sub refine_genes {
 	  }
 	}
 	if ( scalar( @retained_introns ) ) {
-	  print STDERR "Dealing with " . scalar( @retained_introns ) . " retained introns \n";
+	  #print STDERR "Dealing with " . scalar( @retained_introns ) . " retained introns \n";
 	  my @new_exons;
 	  push @new_exons,  $exon  ;
 	  # sort first by start then by end where start is the same
@@ -399,13 +399,13 @@ sub refine_genes {
 	    if (  $intron->start > $exon->start && $intron->end < $exon->end && $intron->length > $self->MIN_INTRON_SIZE ) {
 	      # we are going to make a new exon and chop it up
 	      # add intron penalty
-	      print STDERR "RETAINED INTRON PENALTY for " . $intron->display_id ." before " . $intron->score . " ";
+	      #print STDERR "RETAINED INTRON PENALTY for " . $intron->display_id ." before " . $intron->score . " ";
 	      $reject_score = $intron->score - $self->RETAINED_INTRON_PENALTY;
 	      # intron penalty is doubled for nc introns 
 	      if ( $intron->hseqname  =~ /non canonical/ ) {
 		$reject_score = $reject_score - $self->RETAINED_INTRON_PENALTY;
 	      }
-	      print STDERR " after " . $reject_score ."\n";
+	      #print STDERR " after " . $reject_score ."\n";
 	      if ( $reject_score < 1 ) {
 		# treat as single exon
 		if ( scalar(@exons) == 1 ) {
@@ -414,7 +414,7 @@ sub refine_genes {
 		}
 		next;
 	      }
-	      print STDERR  "Exon " . $exon->start ."\t". $exon->end . " has retained intron:\n     " . $intron->start ."\t" .  $intron->end ." "."\n";
+	      #print STDERR  "Exon " . $exon->start ."\t". $exon->end . " has retained intron:\n     " . $intron->start ."\t" .  $intron->end ." "."\n";
 	      # dont have circular references to exons or the paths
 	      # will be infinite so clone this exon instead
 	      # I guess we also want to keep the original exon too?
@@ -488,13 +488,19 @@ sub refine_genes {
     # recursively recluster the models to identify 'other' models 
     # with no overlap to the 'best' model
     my $model_count = 0;
-    while ( $model_count < scalar(@models) ){
-      $model_count =  scalar(@models);
-      @models = @{$self->recluster_models(\@models)};
+    my  ($clustered_models,$new_clusters) = $self->recluster_models(\@models);
+    my @clean_clusters;
+    if ( $new_clusters ) {
+      while (  scalar(@{$new_clusters}) ){
+	push @clean_clusters,@{$clustered_models};
+	($clustered_models,$new_clusters) = $self->recluster_models($new_clusters);
+#	print "Now have " .  scalar(@{$new_clusters}) ." new clusters after reclustering\n";
+      }
     }
+    push @clean_clusters,@{$clustered_models} if $clustered_models;
     
     # filter to identify 'best', 'other' and 'bad' models
-    $self->filter_models(\@models);
+     $self->filter_models(\@clean_clusters);
 
     # process single exon models
     # if it has no introns on either strand
@@ -563,58 +569,80 @@ sub refine_genes {
 sub recluster_models {
   my ( $self, $models )= @_;
   my @clusters = @{$models};
-  my @new_clusters = @clusters;
-  my $new_models = $models;
-  foreach my $cluster ( @clusters ) {
-    next unless $cluster->{'final_models'};
-    my @best;
-    my @genes;
-    my @other_genes;
-    foreach my $gene ( @{$cluster->{'final_models'}} ) {
-      if ($gene->biotype eq $self->BEST_SCORE ) {
-	push @best, $gene if $gene->biotype eq $self->BEST_SCORE;
-	push @genes, $gene;
+  my @new_clusters;
+  my @final_clusters;
+  for  ( my $strand =1 ; $strand >= -1 ; $strand -=2 ){
+   # print "Running on strand $strand\n";
+    
+    foreach my $cluster ( @clusters ) {
+      next unless $cluster->{'final_models'};
+      my @stranded_genes;
+      foreach my $gene ( @{$cluster->{'final_models'}} ) {
+	next unless $gene->strand == $strand;
+	#print "GENE STRAND " . $gene->strand ." vs $strand \n";
+	push @stranded_genes, $gene;
       }
-    }
-    # now recluster 
-    OTHER: foreach my $gene ( @{$cluster->{'final_models'}} ) {
-      next if  $gene->biotype eq $self->BEST_SCORE;
-      foreach my $best ( @best ) {
+      next unless scalar(@stranded_genes);
+      my $stranded_cluster = $self->recalculate_cluster(\@stranded_genes);
+      my $best;
+      my @genes;
+      my @other_genes;
+      foreach my $gene ( @{$stranded_cluster->{'final_models'}} ) {
+	next unless $gene->strand == $strand;
+	if ($gene->biotype eq $self->BEST_SCORE ) {
+	  $best =  $gene if $gene->biotype eq $self->BEST_SCORE;
+	  push @genes, $gene;
+	}
+      }
+      $self->throw("No best model found\n") unless $best;
+      # now recluster 
+    OTHERGENE: foreach my $gene ( @{$stranded_cluster->{'final_models'}} ) {
+	next if  $gene->biotype eq $self->BEST_SCORE;
+	my @best_exons =  sort { $a->start <=> $b->start } @{$best->get_all_Transcripts->[0]->get_all_Exons};
+	my @other_exons = sort { $a->start <=> $b->start } @{$gene->get_all_Transcripts->[0]->get_all_Exons};
 	# exon overlap with a best model
-	foreach my $be ( @{$best->get_all_Transcripts->[0]->get_all_Exons} ) {
-	  foreach my $oe ( @{$gene->get_all_Transcripts->[0]->get_all_Exons} ) {
+      BESTEXON: for ( my $i = 0 ; $i <= $#best_exons ; $i++ ) {
+	  my $be = $best_exons[$i];
+	OTHEREXON: for ( my $j = 0 ; $j <= $#other_exons ; $j++ ) {
+	    my $oe = $other_exons[$j];
+	    next OTHEREXON if $oe->end < $be->start;
+	    next BESTEXON if $oe->start > $be->end;
 	    # does it have exon overlap with the best model
-	    if (  $be->{'start'} <= $oe->{'end'} && 
-		  $be->{'end'}  >=  $oe->{'start'}) {
+	    if (  $be->start <= $oe->end && 
+		  $be->end  >=  $oe->start) {
 	      # yes - store it and move on 
 	      push @genes,$gene;
-	      next OTHER;
+	      
+	   #   print "Overlap " . $gene->start . " " , $gene->end . " " . $gene->strand ."\n";
+	      next OTHERGENE;
 	    }
 	  }
 	}
 	# other model has no exon overlap with best model it needs to be in a new cluster
 	push @other_genes, $gene;
+	#print "No overlap " . $gene->start . " " , $gene->end . " " . $gene->strand ."\n";
+      }
+      # now we need to fix the clusters
+      if ( scalar(@other_genes) > 0 ) {
+	push @final_clusters,$self->recalculate_cluster(\@genes);
+	push @new_clusters,$self->recalculate_cluster(\@other_genes);
+      } else {
+	# keep it as it was
+	push @final_clusters,$stranded_cluster;
       }
     }
-    # now we need to fix the clusters
-    if ( scalar(@other_genes) > 0 ) {
-      $self->recalculate_cluster($cluster,\@genes);
-      my $new_cluster;
-      $new_cluster = $self->recalculate_cluster($new_cluster,\@other_genes);
-      push @new_clusters, $new_cluster;
-      $new_models = \@clusters;
-    }
   }
-  return $new_models;
+  # print "CLUSTERS " . scalar(@final_clusters) ." " .  scalar(@new_clusters) ."\n";
+  return (\@final_clusters,\@new_clusters);
 }
 
 sub recalculate_cluster {
-  my ( $self, $cluster,$genes )= @_;
+  my ( $self,$genes )= @_;
+  my $cluster;
   my $start = $genes->[0]->start;
   my $end = $genes->[0]->end ;
   my $strand = $genes->[0]->strand ;
   my $score = 0 ;
-  $cluster->{'final_models'} = $genes;
   foreach my $g ( @$genes) {
     $start = $g->start if $g->start < $start;
     $end = $g->end if $g->end > $end;
@@ -627,10 +655,12 @@ sub recalculate_cluster {
   foreach my $g ( @$genes) {
     if ( $g->get_all_Transcripts->[0]->{'_score'} == $score ) {
       $g->biotype($self->BEST_SCORE);
+     # print "BEST SCORE " . $g->start ." " . $g->end . " " . $g->strand . "\n";
     } else {
       $g->biotype($self->OTHER_ISOFORMS);
     }
   }
+  $cluster->{'final_models'} = $genes;
   return $cluster;
 }
 
@@ -658,6 +688,7 @@ sub filter_models {
     push @rev, $cluster if $cluster->{'strand'} == -1;
     push @models, $cluster;
   }
+
   # overlaps
   foreach my $fc ( @fwd ) {
     foreach my $rc ( @rev ) {
@@ -671,12 +702,12 @@ sub filter_models {
 	# do they have coding overlap?
 	my @fg = @{$fc->{'final_models'}};
 	my @rg = @{$rc->{'final_models'}};
-	
+
 	# do they have coding overlap?
       FG: foreach my $fg ( @fg ) {
 	  my $ft = $fg->get_all_Transcripts->[0];
 	  next unless $ft->translateable_seq;
-	  if (  length($ft->translate->seq) <=  100 ) {
+	  if (  $ft->translation->length <=  100 ) {
 	    $fg->biotype('bad');
 	    next FG;
 	  }
@@ -684,7 +715,7 @@ sub filter_models {
 	  RG: foreach my $rg ( @rg ) {
 	      my $rt = $rg->get_all_Transcripts->[0];
 	      next unless $rt->translateable_seq;
-	      if (  length($rt->translate->seq) <=  100 ) {
+	      if (  $rt->translation->length <=  100 ) {
 		$rg->biotype('bad');
 		next RG;
 	      }
@@ -791,10 +822,15 @@ sub filter_models {
       } else {
 	unless ( $gene->biotype eq 'duplicate' ) {
 	  if ( $gene->biotype eq $self->BEST_SCORE ) {
+	    # trim the UTR
+	    $self->prune_UTR($gene);
 	    push @{$self->output} , $gene ;
 	  } else {
-	    push @{$self->output} , $gene if $count <= $self->OTHER_NUM 
-	      && $self->OTHER_ISOFORMS;
+	    if ( $count <= $self->OTHER_NUM  && $self->OTHER_ISOFORMS ) {
+	      # trim the UTR
+	      $self->prune_UTR($gene);
+	      push @{$self->output} , $gene;
+	    }
 	  }
 	}
       }
@@ -861,130 +897,129 @@ sub make_models {
     my $version = 0 ;
     my $strand = $cluster->{'strand'};
     # we want the array in the reverse order, highest scoring first
-    my @models_by_score = @{$cluster->{'models'}};
+    # the score is the last array element 
+    my @models_by_score =sort {$b->[-1] <=> $a->[-1]}  @{$cluster->{'models'}};
+    
     # all the models with a particualar score highest first
-  SCORES:   for ( my $s = $#models_by_score ; $s >=0; $s-- ) {
-      next unless $models_by_score[$s];
-      my $models = $models_by_score[$s];
-    MODEL: foreach my $model (  @$models ) {
-	# list of the rough exons used in the model
-	my $exon_use = pop(@{$model});
-	my @introns;
-	my $intron_count = 0;
-	my $intron_score = 0;
-	my $exon_score = 0;
-	my $non_con_introns = 0;
-	my @new_exons;
-	# make an array containing cloned exons
-	for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
-	  unless ( $model->[$i]->isa("Bio::EnsEMBL::DnaDnaAlignFeature") ) {	
-	    my $new_exon = clone_Exon($model->[$i]);
-	    # add in exon coverage scores from supporting features
-	    foreach my $daf ( @{$model->[$i]->get_all_supporting_features} ) {
-	      $exon_score += $daf->score;
-	    }
-	    $new_exon->strand($strand);
-	    push @new_exons,$new_exon;
-	  } else {
-	    push @new_exons, $model->[$i];
+  MODEL:   foreach my $model (@models_by_score) {
+      # the score is the last array element 
+      my $s = pop(@{$model});
+      # list of the rough exons used in the model
+      my $exon_use = pop(@{$model});
+      my @introns;
+      my $intron_count = 0;
+      my $intron_score = 0;
+      my $exon_score = 0;
+      my $non_con_introns = 0;
+      my @new_exons;
+      # make an array containing cloned exons
+      for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
+	unless ( $model->[$i]->isa("Bio::EnsEMBL::DnaDnaAlignFeature") ) {	
+	  my $new_exon = clone_Exon($model->[$i]);
+	  # add in exon coverage scores from supporting features
+	  foreach my $daf ( @{$model->[$i]->get_all_supporting_features} ) {
+	    $exon_score += $daf->score;
 	  }
+	  $new_exon->strand($strand);
+	  push @new_exons,$new_exon;
+	} else {
+	  push @new_exons, $model->[$i];
 	}
-	# trim the exons using the intron features to get the splice sites correct
-	for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
-	  if ( $model->[$i]->isa("Bio::EnsEMBL::DnaDnaAlignFeature") ) {
-	    my $intron = $model->[$i];
-	    next unless $intron->strand == $strand;
-	    next unless $new_exons[$i-1] && $new_exons[$i+1];
-	    push @introns,$intron;
-	    # its an intron trim the exons accordingly
-	    $new_exons[$i-1]->end( $intron->start );
-	    $new_exons[$i+1]->start( $intron->end );
-	    if ( $new_exons[$i-1]->start >=  $new_exons[$i-1]->end ) {
-	      next MODEL;
-	    }
-	    $intron_count++;
-	    $intron_score+= $intron->score;
-	    # keep tabs on how many fake introns we have
-	    $non_con_introns++ if $intron->hseqname =~ /non canonical/;
-	  }
-	}
-	next MODEL unless $intron_count;
-	
-	# trim padding from the start and end exons
-	$new_exons[0]->start($new_exons[0]->start + 20) ;
-	$new_exons[-1]->end ($new_exons[-1]->end  - 20) ;
-	# dont allow 1bp exons
-	foreach my $e ( @new_exons){
-	  if ( $e->end - $e->start <= 0 ) {
+      }
+      # trim the exons using the intron features to get the splice sites correct
+      for ( my $i = 0 ; $i < scalar(@$model) ; $i++ ) {
+	if ( $model->[$i]->isa("Bio::EnsEMBL::DnaDnaAlignFeature") ) {
+	  my $intron = $model->[$i];
+	  next unless $intron->strand == $strand;
+	  next unless $new_exons[$i-1] && $new_exons[$i+1];
+	  push @introns,$intron;
+	  # its an intron trim the exons accordingly
+	  $new_exons[$i-1]->end( $intron->start );
+	  $new_exons[$i+1]->start( $intron->end );
+	  if ( $new_exons[$i-1]->start >=  $new_exons[$i-1]->end ) {
 	    next MODEL;
 	  }
+	  $intron_count++;
+	  $intron_score+= $intron->score;
+	  # keep tabs on how many fake introns we have
+	  $non_con_introns++ if $intron->hseqname =~ /non canonical/;
 	}
-	# make it into a gene
-	my @modified_exons;
-	foreach my $exon ( @new_exons ) {
-	  next if $exon->isa("Bio::EnsEMBL::DnaDnaAlignFeature");
-	  push @modified_exons, clone_Exon($exon);
+      }
+      next MODEL unless $intron_count;
+      
+      # trim padding from the start and end exons
+      $new_exons[0]->start($new_exons[0]->start + 20) ;
+      $new_exons[-1]->end ($new_exons[-1]->end  - 20) ;
+      # dont allow 1bp exons
+      foreach my $e ( @new_exons){
+	if ( $e->end - $e->start <= 0 ) {
+	  next MODEL;
 	}
-	if ( $strand == 1 ) {
-	  @modified_exons = sort { $a->start <=> $b->start } @modified_exons;
-	} else {
-	  @modified_exons = sort { $b->start <=> $a->start } @modified_exons;
-	}
-	# make it into a gene
-	my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
-	# check for dna
-	my $s = $t->seq->seq ;
-	my $Ns =  $s =~  s/N//g;
-	if( length($t->seq->seq) == $Ns ){
-	  $self->throw("There does not appear to be ay DNA in the database, transcript seq is all N's\n");
-	}
-
-	# add a translation 
-	my $initial_tran = compute_translation(clone_Transcript($t));
-	# stop spam coming from the Exon module
-	$initial_tran->dbID(0) ;	
-	
-	# trim UTR
-	my $tran = $self->prune_UTR($initial_tran,\@introns);
-
-	# keep track of the scores for this transcript
-	$tran->analysis($self->analysis);
-	$tran->version(1);
-	# favor longer cds by adding doubling the score for coding exons
-	# only use exons that are completely coding otherwise you also 
-	# end up adding in score which is really UTR for long terminal exons
-	# that have a bit of coding in them
-	my $coding_bonus = 0;
-	my $coding_exons =0;
-	if ( $tran->translateable_seq ) {
-	  foreach my $ce ( @{$tran->get_all_Exons} ) {
-	    unless ( $ce->phase == -1 or $ce->end_phase == -1 ) {
-	      $coding_bonus += $ce->get_all_supporting_features->[0]->score;
-	      $coding_exons++;
-	    }
+      }
+      # make it into a gene
+      my @modified_exons;
+      foreach my $exon ( @new_exons ) {
+	next if $exon->isa("Bio::EnsEMBL::DnaDnaAlignFeature");
+	push @modified_exons, clone_Exon($exon);
+      }
+      if ( $strand == 1 ) {
+	@modified_exons = sort { $a->start <=> $b->start } @modified_exons;
+      } else {
+	@modified_exons = sort { $b->start <=> $a->start } @modified_exons;
+      }
+      # make it into a gene
+      my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
+      # check for dna
+      my $check = $t->seq->seq ;
+      my $Ns =  $check =~  s/N//g;
+      if( length($t->seq->seq) == $Ns ){
+	$self->throw("There does not appear to be ay DNA in the database, transcript seq is all N's\n");
+      }
+      
+      # add a translation 
+      my $tran = compute_translation(clone_Transcript($t));
+      # stop spam coming from the Exon module
+      $tran->dbID(0) ;	
+      # store the introns along with the transcript so we can use them later for UTR trimming 
+      $tran->{'_introns'} = \@introns;
+      # keep track of the scores for this transcript
+      $tran->analysis($self->analysis);
+      $tran->version(1);
+      # favor longer cds by adding doubling the score for coding exons
+      # only use exons that are completely coding otherwise you also 
+      # end up adding in score which is really UTR for long terminal exons
+      # that have a bit of coding in them
+      my $coding_bonus = 0;
+      my $coding_exons =0;
+      if ( $tran->translateable_seq ) {
+	foreach my $ce ( @{$tran->get_all_Exons} ) {
+	  unless ( $ce->phase == -1 or $ce->end_phase == -1 ) {
+	    $coding_bonus += $ce->get_all_supporting_features->[0]->score;
+	    $coding_exons++;
 	  }
 	}
-	
-	# remove any supporting features from the exons
-	foreach my $e ( @{$tran->get_all_Exons} ) {
-	  $e->flush_supporting_features;
-	}
-#	print "Coding Bonus of $coding_bonus from $coding_exons completely coding exons \n";
-	$tran->{'_score'} =  ( (int ( $intron_score + $exon_score ) / 10 ) + $coding_bonus  );
-#	print "Final score = $intron_score + int( $exon_score / 100 ) + $coding_bonus = " . $tran->{'_score'} ;
-	$tran->{'_depth'} =  ( $intron_score + $exon_score );
-#	print " for tran " .$tran->{'_depth'} . "\n";
-	$tran->{'_NC_introns'} =  $non_con_introns ;
-	$tran->{'_exon_use'} = $exon_use;
-	#print STDERR " EXON count $exon_count\n";
-	$tran->{'_intron_count'} = $intron_count;
-	push @trans, $tran;
       }
+      
+      # remove any supporting features from the exons
+      foreach my $e ( @{$tran->get_all_Exons} ) {
+	$e->flush_supporting_features;
+      }
+      #	print "Coding Bonus of $coding_bonus from $coding_exons completely coding exons \n";
+      $tran->{'_score'} =  ( (int ( $intron_score + $exon_score ) / 10 ) + $coding_bonus  );
+      #	print "Final score = $intron_score + int( $exon_score / 100 ) + $coding_bonus = " . $tran->{'_score'} ;
+      $tran->{'_depth'} =  ( $intron_score + $exon_score );
+      #	print " for tran " .$tran->{'_depth'} . "\n";
+      $tran->{'_NC_introns'} =  $non_con_introns ;
+      $tran->{'_exon_use'} = $exon_use;
+      #print STDERR " EXON count $exon_count\n";
+      $tran->{'_intron_count'} = $intron_count;
+      push @trans, $tran;
       # we want X number of models
       if ( $self->BEST_SCORE &&  $self->MAX_NUM  ) {
-	last SCORES if scalar(@trans)  >= ( $self->MAX_NUM +1 )  ;
+	last MODEL if scalar(@trans)  >= ( $self->MAX_NUM +1 )  ;
       }
     }
+
     # re-sort the transcripts to take account of the revised scores
     @trans = sort { $b->{'_score'} <=> $a->{'_score'} } @trans;
     my $best;
@@ -995,19 +1030,10 @@ sub make_models {
       if ( $version == 1 ) {
 	$new_gene->biotype($self->BEST_SCORE);
 	$best = $tran;
-      } else {
-	if ( $tran->translateable_seq && $best->translateable_seq && length($tran->translate->seq) > length($best->translate->seq) ) {
-	  # not just longer peptide but at least as long span
-	  if ( $tran->translateable_seq && $best->translateable_seq &&
-			$tran->translation->genomic_end >= $best->translation->genomic_end &&
-	       $tran->translation->genomic_start <= $best->translation->genomic_start ) {
-	    $new_gene->biotype($self->BEST_SCORE);
-	  }
-	}
       }
-      print "NEW GENE " . $new_gene->biotype ." " . 
-	$new_gene->start ." " . 
-	  $new_gene->end ."\n";
+    #  print "NEW GENE " . $new_gene->biotype ." " . 
+	#$new_gene->start ." " . 
+#	  $new_gene->end ."\n";
       $new_gene->stable_id($gene->stable_id . "-v$cluster_count.$version-" .
 			   int($tran->{'_score'}) ."-" .
 			   int($tran->{'_depth'}) ."-" .  
@@ -1020,33 +1046,36 @@ sub make_models {
 }
 
 sub prune_UTR {
-  my ($self,$transcript,$introns) = @_;
+  my ($self,$gene) = @_;
   unless ( $self->TRIM_UTR ) {
-    return $transcript;
+    return $gene;
   }
+  my $transcript = $gene->get_all_Transcripts->[0];
   unless ( $transcript->translateable_seq ) {
-    return $transcript;
+    return $gene;
   }
+ 
+  # fetch introns 
+  my $introns = $transcript->{'_introns'};
+
   # otherwise trim the UTR according to the values set out in the config
   my %intron_hash;
 
   foreach my $intron ( @{$introns} ) {
     my $key = $intron->start  .":". $intron->end .":". $intron->strand;
-
     $intron_hash{$key} = $intron;
   }
-
+  
   my @new_fivep;
   my @new_threep;
   my @new_exons;
   my @features;
   my @exons = sort {$a->start <=> $b->start }  @{$transcript->get_all_Exons};
-
+  
   # put everything into the features array
   push @features, @exons;
   for ( my $i =0 ; $i < $#exons  ; $i++ ) {
-    my $key = ($exons[$i]->end) .":". ($exons[$i+1]->start ) . ":" . $exons[$i]->strand;
-
+    my $key = ($exons[$i]->end) .":". ($exons[$i+1]->start ) . ":" . $exons[$i]->strand;    
     if ( my $intron = $intron_hash{$key}  ) {
       push @features, $intron;
     }
@@ -1069,7 +1098,11 @@ Transcript " .  $transcript->seq_region_name ." " .
   # leave single exon genes alone for now
   if ( scalar(@features) == 1 or scalar(@{$transcript->get_all_translateable_Exons}) == 1 )  {
     # lets strip the UTR
-    return  $self->modify_transcript($transcript,$transcript->get_all_translateable_Exons);
+    my $trimmed_tran =  $self->modify_transcript($transcript,$transcript->get_all_translateable_Exons);
+    # The naughty bit!
+    $gene->{_transcript_array} = [];
+    $gene->add_Transcript($trimmed_tran);
+    return   $gene;
   }
   # first calculate the average
   foreach my $f ( @features ) {
@@ -1271,7 +1304,11 @@ Transcript " .  $transcript->seq_region_name ." " .
   }
   @clones = sort { $a->start <=> $b->start } @clones;
   @clones =  reverse(@clones) if $transcript->strand == -1;
-  return $self->modify_transcript($transcript,\@clones);
+  my $trimmed_tran =  $self->modify_transcript($transcript,\@clones);
+  # The naughty bit!
+  $gene->{_transcript_array} = [];
+  $gene->add_Transcript($trimmed_tran);
+  return $gene;
 }
 
 
@@ -1326,9 +1363,21 @@ sub write_output{
   
   my $fails = 0;
   my $total = 0;
-  foreach my $gene (@output){
+  GENE: foreach my $gene (@output){
     $gene->analysis($self->analysis);
     $gene->source($self->analysis->logic_name);
+    # filter single exon genes that may have been made through UTR trimming
+    my @exons = @{$gene->get_all_Exons};
+    if ( scalar(@exons == 1 )) {
+      if ( $self->SINGLE_EXON_MODEL ) {
+	next GENE unless $exons[0]->length >= $self->MIN_SINGLE_EXON;
+	$gene->biotype($self->SINGLE_EXON_MODEL);
+      } else {
+	# dont store it
+	next GENE;
+      }
+    }
+    
     eval {
       $gene_adaptor->store($gene);
     };    
@@ -1540,33 +1589,30 @@ sub model_cluster {
   # sort them by the start of the fist exon ( the first array element )
   my @models = sort { $a->[0]->start <=> $b->[0]->start }  @$models ;
   # $model->[0] = 1st exon 
-  # $model->[-2] = last exon once the score has been popped off
-  # the clusters have an array of features where each feature 
-  # is stored at an index = score, makes it easy to pull out the 
-  # highest scoring models in each non overlapping cluster
+  # $model->[-3] = last exon 
+  # $model->[-2] = exon iuse
+  # $model->[-1] = score
   
   foreach my $model ( @models ) {
-    # get the score ( last array element ) 
-    my $score  = pop(@$model);
-     my $clustered = 0;
+    my $clustered = 0;
     foreach my $cluster ( @clusters ) {
       # do they overlap?
       if ( $model->[0]->start <= $cluster->{'end'} 
-	   &&  $model->[-2]->end >= $cluster->{'start'}) {
+	   &&  $model->[-3]->end >= $cluster->{'start'}) {
 	# Expand the cluster
 	$cluster->{'start'} = $model->[0]->start 
 	  if $model->[0]->start < $cluster->{'start'};
-	$cluster->{'end'} = $model->[-2]->end
-	  if $model->[-2]->end   > $cluster->{'end'}; 
-	push @{$cluster->{'models'}->[$score]}, $model;
+	$cluster->{'end'} = $model->[-3]->end
+	  if $model->[-3]->end   > $cluster->{'end'}; 
+	push @{$cluster->{'models'}}, $model;
 	$clustered = 1;
       }
     }
     unless ($clustered) {
       my $cluster;
-      push @{$cluster->{'models'}->[$score]}, $model;
+      push @{$cluster->{'models'}}, $model;
       $cluster->{'start'} = $model->[0]->start;
-      $cluster->{'end'}   = $model->[-2]->end;
+      $cluster->{'end'}   = $model->[-3]->end;
       $cluster->{'strand'} = $strand;
       push @clusters, $cluster;
     }
