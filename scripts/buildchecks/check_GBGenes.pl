@@ -247,7 +247,7 @@ my $sa = $db->get_SliceAdaptor();
 my $csa = $db->get_CoordSystemAdaptor();
 
 if (!defined($path)) {
-  $path = $csa->fetch_by_name($coordsystem);
+  $path = $csa->fetch_by_name($coordsystem)->version;
 }
 
 
