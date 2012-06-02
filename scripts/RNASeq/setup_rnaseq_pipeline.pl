@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -431,10 +431,12 @@ foreach my $row ( @rows ) {
   $pipeline_analysis->store($bwa);
   $pipeline_analysis->store($bwa2bam);
   $pipeline_analysis->store($refine) if  $RNASEQCONFIG->{SINGLE_TISSUE} &&  $stage eq 'configured';
-  $ra->store($bwa_rule);
-  $ra->store($bwa_wait_rule);
-  $ra->store($bwa2bam_rule);
-  $ra->store($refine_rule) if  $RNASEQCONFIG->{SINGLE_TISSUE} &&  $stage eq 'configured';
+  $ra->store($bwa_rule) if check_rule($bwa_rule);
+  $ra->store($bwa_wait_rule) if check_rule($bwa_wait_rule);
+  $ra->store($bwa2bam_rule) if check_rule($bwa2bam_rule);
+  if  ( $RNASEQCONFIG->{SINGLE_TISSUE} &&  $stage eq 'configured' ) {
+    $ra->store($refine_rule) if check_rule($refine_rule);
+  }
   # input_ids
   # dont store duplicate ids
   $sic->store_input_id_analysis($row->{FILE},$submit_bwa,"dummy") unless $stored_ids->{$row->{FILE}}->{$submit_bwa->logic_name};
@@ -589,14 +591,20 @@ $pipeline_analysis->store($sam2bam_wait) if $stage eq 'configured';
 $pipeline_analysis->store($refine_all) if $stage eq 'configured';
 $pipeline_analysis->store($rnaseq_blast) if $stage eq 'configured';
 
-$ra->store($bam2genes_rule) if $stage eq 'bwa_complete';
-$ra->store($bam2introns_rule) if $stage eq 'bam2genes complete';
-$ra->store($bam2introns_wait_rule) if $stage eq 'bam2genes complete';
-$ra->store($sam2bam_rule) if $stage eq 'configured';
-$ra->store($sam2bam_wait_rule) if $stage eq 'configured';
-$ra->store($refine_all_rule) if $stage eq 'configured';
-$ra->store($rnaseqblast_rule) if $stage eq 'configured';
-# need to add a dummy input id for submit_sam2bam
+if (  $stage eq 'bwa_complete' ) {
+  $ra->store($bam2genes_rule) if check_rule($bam2genes_rule);
+}
+if (  $stage eq 'bam2genes_complete' ) {
+  $ra->store($bam2introns_rule) if  check_rule($bam2introns_rule);
+  $ra->store($bam2introns_wait_rule) if  check_rule($bam2introns_wait_rule);
+}
+if ( $stage eq 'configured' ) {
+  $ra->store($sam2bam_rule) if  check_rule($sam2bam_rule);
+  $ra->store($sam2bam_wait_rule) if  check_rule($sam2bam_wait_rule);
+  $ra->store($refine_all_rule) if  check_rule($refine_all_rule);
+  $ra->store($rnaseqblast_rule) if  check_rule($rnaseqblast_rule);
+}
+  # need to add a dummy input id for submit_sam2bam
 if ( $stage eq 'configured' or  $stage eq 'bam2genes complete') {
   $sic->store_input_id_analysis('dummy',$submit_sam2bam,"dummy") unless $stored_ids->{'dummy'}->{'submit_sam2bam'};
 }
@@ -1475,4 +1483,15 @@ sub import {
 1;
 ';
   return $str;
+}
+
+sub check_rule {
+  my ($rule) = @_;
+  # see if you can fetch it first
+  my $check = $ra->fetch_by_goal($rule->goalAnalysis);
+#  print "CHECK $check \n";
+  unless ( $check ) {
+    return 1;
+  }
+  return;
 }
