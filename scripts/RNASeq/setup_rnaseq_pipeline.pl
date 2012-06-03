@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -594,7 +594,7 @@ $pipeline_analysis->store($rnaseq_blast) if $stage eq 'configured';
 if (  $stage eq 'bwa_complete' ) {
   $ra->store($bam2genes_rule) if check_rule($bam2genes_rule);
 }
-if (  $stage eq 'bam2genes_complete' ) {
+if (  $stage eq 'bam2genes complete' ) {
   $ra->store($bam2introns_rule) if  check_rule($bam2introns_rule);
   $ra->store($bam2introns_wait_rule) if  check_rule($bam2introns_wait_rule);
 }
