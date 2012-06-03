@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -141,7 +141,7 @@ foreach my $analysis (@{$pipeline_analysis->fetch_all}) {
       $bam2genes_count++;
     }
       if ($analysis->logic_name =~ /bam2introns/){
-	$bam2introns_count++;
+	$bam2introns_count++ unless $analysis->logic_name eq 'submit_bam2introns';
       }  
   }
 }
@@ -579,7 +579,7 @@ $rnaseqblast_rule->add_condition("refine_all");
 
 # store the analyses
 
-#  print "Storing\n";
+  print "Stage $stage\n";
 $pipeline_analysis->store($submit_chromosome);
 $pipeline_analysis->store($bam2genes) if $stage eq 'bwa_complete';
 $pipeline_analysis->store($submit_bam2introns);
