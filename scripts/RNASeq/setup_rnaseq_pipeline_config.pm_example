@@ -38,7 +38,10 @@ use vars qw(%Config);
 			UNIPROTINDEX => '/path/to/my/Uniprot/index',
     			# read length
 			READ_LENGTH => ,
-			# are all the lanes paired end?
+			# This is used by bwa2bam, setting it to 1 will cause it to assume all the reads are paired
+			# setting it to 0 means it will treat all the reads as unpaired and so make long rough models
+			# if you have sufficient paired reads running in paired mode is preferred as it makes for 
+			# more sensible length rough models
 			ALL_PAIRED => 1,
 			# If your reads are unpaired you may want to run on slices to avoid making overlong rough models
 			# if you want to do this specify a slice length here otherwise it will default to whole chromosomes
@@ -56,6 +59,8 @@ use vars qw(%Config);
 			
 			# Please assign some / all columns from the summary file to the some / all of the 
 			# following categories multiple values can be separted with commas - only ID,SM and FILE are required
+			# if you have paired reads you must include the paired category or BWA will not be able to pair the 
+			# reads correctly
 			
 			##################################################################################################
 			# this is just an example based on the file snippet shown below it will vary depending on how your 
@@ -82,7 +87,7 @@ use vars qw(%Config);
 			FILE   => "16",
 			# global read length can be overridden if it is different for different lanes
 			LENGTH => "",
-			# is the read pairing different for different lanes?
+			# is the read pairing different for different lanes * required for bwa to pair the reads correctly
 			PAIRED => "11",			
 		}
 	  );
