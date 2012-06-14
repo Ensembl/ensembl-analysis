@@ -1,7 +1,7 @@
 setup_rnaseq_pipeline.pl
 ------------------------
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 This document describes how to automate setting up of a BWA
 alignment and processing pipeline using a configuration file,
@@ -93,12 +93,12 @@ the setup script is run:
   File_R1_aa.fq    File_R2_aa.fq
   File_R1_ab.fq    File_R2_ab.fq
 
-One the BWA pipeline has been run, running the setup_rnaseq_pipeline.pl
+Once the BWA pipeline has been run, running the setup_rnaseq_pipeline.pl
 script again will print out the bsub commands needed to merge, sort
 and index the BAM files generated from the BWA stage.  It will also
 configure the pipeline ready to run the bam2genes step.  Running the
 rulemanager will start the second stage of the process once the merge
-steps are finished. When runnig bam2genes it is important to decide if
+steps are finished. When running bam2genes it is important to decide if
 you will run the models in paired or unpaired mode, this is set in the
 config file. If you have sufficient paired end reads running in paired
 mode is preferred as it produces rough models of a sensible length. If 
