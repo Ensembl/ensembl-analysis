@@ -41,7 +41,8 @@ use vars qw(%Config);
 			# This is used by bwa2bam, setting it to 1 will cause it to assume all the reads are paired
 			# setting it to 0 means it will treat all the reads as unpaired and so make long rough models
 			# if you have sufficient paired reads running in paired mode is preferred as it makes for 
-			# more sensible length rough models
+			# more sensible length rough models. Note that the PAIRED column value needs setting independantly
+      # of this parameter
 			ALL_PAIRED => 1,
 			# If your reads are unpaired you may want to run on slices to avoid making overlong rough models
 			# if you want to do this specify a slice length here otherwise it will default to whole chromosomes
@@ -87,7 +88,7 @@ use vars qw(%Config);
 			FILE   => "16",
 			# global read length can be overridden if it is different for different lanes
 			LENGTH => "",
-			# is the read pairing different for different lanes * required for bwa to pair the reads correctly
+			# the read pairing, 1 for paired, 0 for unpaired (independent of ALL_PAIRED parameter above) *required for bwa to pair reads correctly
 			PAIRED => "11",			
 		}
 	  );
