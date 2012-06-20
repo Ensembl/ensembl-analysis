@@ -1,13 +1,17 @@
 setup_rnaseq_pipeline.pl
 ------------------------
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
-$Revision: 1.12 $
+$Revision: 1.13 $
 
 This document describes how to automate setting up of a BWA
 alignment and processing pipeline using a configuration file,
 setup_rnaseq_pipeline_config.pm, and a tab-delimited text file that
 contains the file names of the fastq files to align and associated meta
 data to be parsed and stored in the final BAM files.
+
+When running the RNASeq pipeline use a separate config directory structure to
+that being used in the normal genebuild pipeline. Adjust your PERL5LIB
+environment variable path to match.
 
 In order for the pipeline to run you will need four databases to be
 entered into the Bio/EnsEMBL/Analysis/Config/Databases.pm config:
