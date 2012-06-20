@@ -803,12 +803,8 @@ sub set_probe_and_slice {
 	  foreach my $end(keys %gap_lengths){
 		
 		if($gap_lengths{$end}){
-		  
-
-
           #$gap_block here is actually mismatch & gap_block
-          #How/what do we need to calculate here
-
+          
 		  if($end == 5){
 			$gap_block = shift @stranded_cigar_line;
 		  }
@@ -816,19 +812,17 @@ sub set_probe_and_slice {
 			$gap_block = pop @stranded_cigar_line;
 		  }
 		  
-          warn "Gap->block_length is ".$gap_lengths{$end};
-          warn "cigar gap_block is $gap_block"; 
-
+          
 		  @tmp = split//, $gap_block;
 		  $align_type = pop @tmp;
 		  ($align_length = $gap_block) =~ s/$align_type//;
 
-          warn "cigar type $align_type and cigar length $align_length";
-
-          #Getting problem here with block_length is 1 but cigar is 2X
-          #This is because the 2X is spanning the last base of the alignment and then a 1bp overhang!
           
-          #what we need to do is split this into two cigar blocks to represent the mismatch and the overhang!
+          #Getting problem here with block_length is 1 but cigar is 2X
+          #X > 1 here can span the end of the UTR and then an overhang!
+          #dependant on how many mismatches are allowed
+
+          #split this into two cigar blocks to represent the mismatch and the overhang
           #and replace the mismatched align block for processing below.
           
 
@@ -848,8 +842,7 @@ sub set_probe_and_slice {
 		  
 		  #Now match against genomic sequence???
 		  #No way of doing this as we don't have the probe sequence!!!!
-		  #Change this to S?
-		  #Can we get the query seq from ExonerateProbe?
+          #Can we get the query seq from ExonerateProbe?
 		  $gap_block = $gap_lengths{$end}.'S';
 		  $align_length -= $gap_lengths{$end};
 
@@ -859,11 +852,9 @@ sub set_probe_and_slice {
             #Replace mismatch align block
 
 			if($end == 5 ){
-			  #$gap_block .= $align_length.$align_type;
               unshift @stranded_cigar_line, $align_length.$align_type;
 			}
             else{ # is 3
-			  #$gap_block  = $align_length.$align_type.$gap_block;
               push @stranded_cigar_line, $align_length.$align_type;
 			}
 		  }
