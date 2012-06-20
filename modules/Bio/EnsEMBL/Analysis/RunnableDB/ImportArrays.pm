@@ -1,30 +1,10 @@
-=head1 LICENSE
 
-  Copyright (c) 1999-2012 The European Bioinformatics Institute and
-  Genome Research Limited.  All rights reserved.
-
-  This software is distributed under a modified Apache license.
-  For license details, please see
-
-    http://www.ensembl.org/info/about/code_licence.html
-
-=head1 CONTACT
-
-  Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
-
-  Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
-
-=cut
-
-=head1 AUTHOR
-
-This module was written by Nathan Johnson, based on the CollapseAffy/Oligo code.
+=pod
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays - 
+Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
+
 
 =head1 SYNOPSIS
 
@@ -60,11 +40,17 @@ Note that probes are defined as redundant when they share the same
 - probeset 
 
 
-=head1 METHODS
+
+=head1 AUTHOR
+
+This module was written by Nathan Johnson, based on the CollapseAffy/Oligo code.
+
+=head1 CONTACT
+
+Post general queries to B<ensembl-dev@ebi.ac.uk>
+
 
 =cut
-
-
 
 # TO DO
 # Write run methods for other import formats e.g. CSV?
@@ -112,7 +98,7 @@ sub new {
 
   #array names hash so we can print out a list of the actual names
   #i.e. not the names in the filename which can be formated differently.
-  $self->{'_array_names'} = {};
+  $self->{'_array_names'} = {}; #ArrayChip values
 
   #Have to set Helper here as it doesn't use the same param names
   #This is for checking the import status of the arrays and rolling back if required
@@ -440,6 +426,7 @@ sub create_new_array_chip {
 
   if(! exists $self->{'_array_names'}->{$array_name}){
 	$self->{'_array_names'}->{$array->name} = $array_chip;
+	$self->{'_arrays'}->{$array->name} = $array;
   }
 
 
@@ -496,14 +483,22 @@ sub write_output {
   $outfile = $self->NAMES_FILE;
   open (OUTFILE, ">".$outfile) || throw("Failed to open ouput file:\t".$outfile);
 
-  #Should this be on the Array level?
+
+  print "Setting IMPORTED & DISPLAYABLE states for:\n";
+
+  #MART_DISPLAYABLE & DISPLAYABLE should be on Array level
+  #IMPORTED should be on ArrayChip
+  #This all looks good, but everything for AGILENT re-imported is on array_chip?!!
 
   foreach my $aname(keys %{$self->{'_array_names'}}){
+	print "\t".$aname."\n";
 	print OUTFILE $aname."\n";
 	$self->{'_array_names'}->{$aname}->add_status('IMPORTED');
-	$self->{'_array_names'}->{$aname}->add_status('DISPLAYABLE');
-	$self->{'_array_names'}->{$aname}->add_status('MART_DISPLAYABLE');
-	$self->{'_array_names'}->{$aname}->adaptor->store_states($self->{'_array_names'}->{$aname});
+	$self->{'_arrays'}->{$aname}->add_status('DISPLAYABLE');#This should be on Array?!
+	#$self->{'_arrays'}->{$aname}->add_status('MART_DISPLAYABLE');#Now done in probe2transcript
+
+	$self->{'_array_names'}->{$aname}->adaptor->store_states($self->{'_array_names'}->{$aname});	
+	$self->{'_arrays'}->{$aname}->adaptor->store_states($self->{'_arrays'}->{$aname});	
   }
 
 
