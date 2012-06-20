@@ -122,7 +122,7 @@ sub fetch_input {
   my $options =  "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
                  "--model est2genome --forwardcoordinates false ".
                  "--softmasktarget $mask --exhaustive false --percent 80 ".
-                 "--saturatethreshold 100 --dnahspthreshold 60 --minintron 20 --dnawordlen " .
+                 "--dnahspthreshold 60 --minintron 20 --dnawordlen " .
 		   $self->WORD_LENGTH ." -i -12 --bestn 1";
 
   # number of missmatches needed before using a read from the bam file
