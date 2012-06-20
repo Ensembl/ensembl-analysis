@@ -1,26 +1,12 @@
-=head1 LICENSE
 
-  Copyright (c) 1999-2012 The European Bioinformatics Institute and
-  Genome Research Limited.  All rights reserved.
-
-  This software is distributed under a modified Apache license.
-  For license details, please see
-
-    http://www.ensembl.org/info/about/code_licence.html
-
-=head1 CONTACT
-
-  Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
-
-  Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
-
-=cut
+=pod
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign - 
+Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
+
+
+
 
 =head1 SYNOPSIS
 
@@ -35,16 +21,16 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign -
   $affy->run();
   $affy->write_output(); #writes to DB
 
-=head1 DESCRIPTION
+=head1  DESCRIPTION
 
 This object maps probes to a genomic and transcript sequence, writing the results as 
 Bio::EnsEMBL::Funcgen::ProbeFeatures. UnmappedObjects are also written for those probes
 which either do not map at all or exceed the maximum mapping threshold defined by HIT_SATURATION_LEVEL.
 You must FIRST have created and imported all the necessary Arrays and Probe objects using the ImportArrays module.
 
-=head1 METHODS
+=head1 CONTACT
 
-=cut
+Post general queries to B<ensembl-dev@ebi.ac.uk>
 
 =head1 METHODS
 
@@ -231,10 +217,10 @@ sub fetch_input {
     }elsif (-s $target){
       print ("Target $target is a whole-genome file\n");
     }else{
-      throw("'$target' isn't a non-empty file or a directory?");
+      throw("'$target' isn't a non-empty file or a directory");
     }
   } else {
-    throw("'$target' could not be found");
+    throw("'$target' target seqs could not be found");
   }
 
   ##########################################
@@ -398,7 +384,7 @@ sub write_output {
 sub filter_features {
   my ($self, $features) = @_;
 
-  print 'Filtering '.scalar(@$features)." features\n";
+  print "Filtering features";
 
   my (%hits_by_probe, @kept_hits);
   my $analysis     = $self->analysis;
@@ -614,7 +600,7 @@ sub get_display_name_by_stable_id{
   }
   
   if(! exists $self->{'display_name_cache'}->{$stable_id}){
-	($self->{'display_name_cache'}->{$stable_id}) = $self->outdb->dnadb->dbc->db_handle->selectrow_array("SELECT x.display_label FROM ${type}_stable_id s, $type t, xref x where t.display_xref_id=x.xref_id and s.${type}_id=t.${type}_id and s.stable_id='${stable_id}'");
+	($self->{'display_name_cache'}->{$stable_id}) = $self->outdb->dnadb->dbc->db_handle->selectrow_array("SELECT x.display_label FROM $type t, xref x where t.display_xref_id=x.xref_id and t.stable_id='${stable_id}'");
   }
 
   return $self->{'display_name_cache'}->{$stable_id};
@@ -624,7 +610,7 @@ sub get_display_name_by_stable_id{
 sub set_probe_and_slice {
   my ( $self, $features ) = @_;
 
-  print 'Setting '.scalar(@$features)." probe and slice objects\n";
+  print "Setting probe and slice objects\n";
 
   my $db = $self->outdb;
   my $slice_adaptor = $db->get_SliceAdaptor;
@@ -702,7 +688,7 @@ sub set_probe_and_slice {
 	  @genomic_blocks = $trans_mapper->cdna2genomic($transcript_start, $transcript_end);
 	
 
-	  #Next feature is this is an ungapped alignment (1 block)
+	  #Next feature if this is an ungapped alignment (1 block)
 	  #or just representing a flank seq overhang
 	  #which will have been caught by the genomic mapping (2 blocks)
 
@@ -747,9 +733,12 @@ sub set_probe_and_slice {
 						 5 => undef,
 						 3 => undef,
 						);
+      warn "\n\n\ntrans($seq_id) start end strand $transcript_start $transcript_end $transcript_strand";
+      warn "probe if $probe_id with cigar line @stranded_cigar_line";
+      
 
 	  foreach my $block(@genomic_blocks){
-		#warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
+		warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
 		
 		if(! $genomic_start){
 		  
@@ -762,14 +751,14 @@ sub set_probe_and_slice {
 			   $genomic_start = $block->start;
 			 }
 		   }
-		  else{#Must be 5' Gap
+		  else{#Must be 5' Gap/overhang
 			$gap_lengths{5} = $block->length;
 		  }
 		}
 		elsif($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){
 		  $genomic_end = $block->end;
 		}
-		else{#Must be 3' Gap
+		else{#Must be 3' Gap/overhang
 		  $gap_lengths{3}  = $block->length;
 		  $genomic_end    += $gap_lengths{3};
 		}
@@ -816,6 +805,10 @@ sub set_probe_and_slice {
 		if($gap_lengths{$end}){
 		  
 
+
+          #$gap_block here is actually mismatch & gap_block
+          #How/what do we need to calculate here
+
 		  if($end == 5){
 			$gap_block = shift @stranded_cigar_line;
 		  }
@@ -823,36 +816,63 @@ sub set_probe_and_slice {
 			$gap_block = pop @stranded_cigar_line;
 		  }
 		  
+          warn "Gap->block_length is ".$gap_lengths{$end};
+          warn "cigar gap_block is $gap_block"; 
+
 		  @tmp = split//, $gap_block;
 		  $align_type = pop @tmp;
 		  ($align_length = $gap_block) =~ s/$align_type//;
 
-		  if($align_type ne 'X' ||
-			 $align_length > $gap_lengths{$end}){
-			throw("Found unexpected alignment block($gap_block) when handling ${end}' overhanging Gap");
+          warn "cigar type $align_type and cigar length $align_length";
+
+          #Getting problem here with block_length is 1 but cigar is 2X
+          #This is because the 2X is spanning the last base of the alignment and then a 1bp overhang!
+          
+          #what we need to do is split this into two cigar blocks to represent the mismatch and the overhang!
+          #and replace the mismatched align block for processing below.
+          
+
+		  if( $align_type ne 'X' ) {
+			throw("${end}' overhanging Gap has non-X/unexpected alignment type:\t$align_type");
 		  }
+          
+       
+          #if( $align_length > $gap_lengths{$end}){
+			#throw("${end}' overhanging Gap has mismatch between cigar length".
+            #      " ($align_length) and Gap->block_length".$gap_lengths{$end});
+          #we have a mismatch cigar block which spans an alignment and a 5/3' gap/overhang
+          #This was always handled below, but never got there because of this thrwo
+          #}
+
+
 		  
 		  #Now match against genomic sequence???
 		  #No way of doing this as we don't have the probe sequence!!!!
 		  #Change this to S?
 		  #Can we get the query seq from ExonerateProbe?
 		  $gap_block = $gap_lengths{$end}.'S';
-
-
 		  $align_length -= $gap_lengths{$end};
 
+      
 		  if($align_length){
-			
+            #We have a mismatch cigar block which spans an alignment and a 5/3' gap/overhang
+            #Replace mismatch align block
+
 			if($end == 5 ){
-			  $gap_block .= $align_length.$align_type;
-			}else{
-			  $gap_block  = $align_length.$align_type.$gap_block;
+			  #$gap_block .= $align_length.$align_type;
+              unshift @stranded_cigar_line, $align_length.$align_type;
+			}
+            else{ # is 3
+			  #$gap_block  = $align_length.$align_type.$gap_block;
+              push @stranded_cigar_line, $align_length.$align_type;
 			}
 		  }
 
+          #Add gap/overhang blocks
 		  if($end == 5){
 			unshift @stranded_cigar_line, $gap_block;
-		  }else{
+          }
+          else{
 			push @stranded_cigar_line, $gap_block;
 		  }
 		}
@@ -869,7 +889,7 @@ sub set_probe_and_slice {
 		  $match_count += $align_length;
 		  $score       += ($align_length * 5);
 		}
-		else{# 'X' or U  mismatch
+		else{# 'X' or S  mismatch (was U)
 		  $mismatch_count += $align_length;
 		  $score          -= ($align_length * 4);
 		}
@@ -1055,7 +1075,7 @@ sub set_probe_and_slice {
   }
 
 
-  print 'Finished set_probe_and_slice with '.scalar(@features)." features\n";
+  print "Finished set_probe_and_slice\n";
 
   return $self->features(\@features);
 }
@@ -1069,7 +1089,9 @@ sub outdb {
 
   #Do we need to alter this???????????????????????????????????????????????????????????????????????????????????????????????????
   #Look at ImportArrays
-  #There is method duplication here which we could move to a ProbeDB.pm?
+  #There is method duplication here which we could move to a FuncgenDB.pm?
+  #Do this when we move to hive
+
 
   if(! defined $self->{'efg_db'}){
 
