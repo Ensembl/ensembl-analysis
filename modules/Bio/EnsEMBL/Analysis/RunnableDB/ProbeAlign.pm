@@ -661,7 +661,10 @@ sub set_probe_and_slice {
 	  if ( not exists $slices{$slice_id} ) {
 		# assumes genome seqs were named in the Ensembl API Slice naming
 		# convention, i.e. coord_syst:version:seq_reg_id:start:end:strand
-		$slices{$slice_id} = $slice_adaptor->fetch_by_name($slice_id);
+        $slices{$slice_id} = $slice_adaptor->fetch_by_name($slice_id);
+        
+        #Temporary hack to get around incorrect header format issue from new sequence_dump
+        #$slices{$slice_id} = $slice_adaptor->fetch_by_region(undef, $slice_id);
 	  }
 	}
 
@@ -891,8 +894,6 @@ sub set_probe_and_slice {
 		$block_start = ($block_end + 1);
 		$block_end += $align_length;
 
-		#warn "block end and gap_start $block_end - $gap_start"; 
-
 		if($block_end >= $gap_start){
 
 		  #Could have multiple deletions
@@ -928,8 +929,6 @@ sub set_probe_and_slice {
 		$cigar_line .= $block;
 	  }
 
-
-	  #warn "$genomic_start $genomic_end $cigar_line";
 
 	  #We could assign the start end directly
 	  $feature->start($genomic_start);
@@ -988,7 +987,7 @@ sub set_probe_and_slice {
 		 -info_text => 'TRANSCRIPT',
 		 -linkage_annotation => "ProbeTranscriptAlign",#Add query_perc here when we have analysis
 		 #-info_text => , #? What is this for? Is used in unique key so we get duplicated if null!!!
-		 #-version => , #version of transcript sid?
+		 -version => $transcript_cache{$seq_id}->version, #version of transcript sid?
 
 		);
 	  #No strand here! Always +ve?!
