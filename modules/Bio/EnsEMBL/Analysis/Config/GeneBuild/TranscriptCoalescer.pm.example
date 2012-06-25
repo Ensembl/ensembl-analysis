@@ -3,7 +3,7 @@
 # Copyright (c) 2004 Ensembl
 #
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/TranscriptCoalescer.pm.example,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 #
 
 =head1 NAME
@@ -72,7 +72,7 @@ use vars qw(%Config);
   # The runnable includes a filtering proceudure which removes partial transcripts 
   # if they are overlapped by a longer transcript. These transcripts have a different 
   # biotype than the ones which passed the filter. Their biotype begins with "del_". 
-  # If you want to write these filtered genes as well you ave to set 
+  # If you want to write these filtered genes as well set 
   # WRITE_FILTERED_TRANSCRIPTS to true / 1 
   #
   WRITE_FILTERED_TRANSCRIPTS => '1'  , 
@@ -89,8 +89,8 @@ use vars qw(%Config);
 
   #
   # If you need to configure additional databases, add them to Databases.pm and use
-  # a differnt "database_class" (e.g. EXONERATE_2_DB). You have to add another entry
-  # in this file as well (Don't forget to use the same database_class-name !)  
+  # a different "database_class" (e.g. EXONERATE_2_DB). You have to add another entry
+  # in this file as well (Don't forget to use the same database_class-name!)  
   #
  
   
@@ -104,11 +104,11 @@ use vars qw(%Config);
                                  }, 
 
 
-                 # add the biotypes of your targetted / similarity-genees here. 
+                 # add the biotypes of your targetted / similarity-genes here. 
                  # These genes are fetched out of GENEWISE_DB specified in Databases.pm 
 
                  GENEWISE_DB => { 
-                                  BIOTYPES              => ['simimarity_genewise_biotype'],   
+                                  BIOTYPES              => ['similarity_genewise_biotype'],   
                                   AB_INITIO_LOGICNAMES  => [],  
                                  }, 
 
