@@ -2,7 +2,9 @@
 #
 # Copyright (c) 2004 Ensembl
 #
-
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/TranscriptCoalescer.pm.example,v $
+# $Revision: 1.9 $
+#
 
 =head1 NAME
 
@@ -29,7 +31,7 @@ biotype (for Bio::EnsEMBL::Gene-objects) and by it's logic_name
 logic_names are defiend in this configuration-file. Each biotype/
 logic_name has to belong to a different evidence_set. (see below).
 
-The parameters to connect to various databases are defiend in 
+The parameters to connect to various databases are defined in 
 
   - modules/Bio/EnsEMBL/Analysis/Config/Databases.pm 
   - modules/Bio/EnsEMBL/Analysis/Config/Exonerate2Genes.pm  
