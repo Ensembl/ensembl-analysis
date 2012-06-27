@@ -68,7 +68,7 @@ use vars qw(%Config);
            ANALYSIS_REPEAT_MASKING => ['repeatmask'],
  
            # Uniprot base directory, previously $BLASTDB
-           BLASTDB => '/data/blastdb/Ensembl/Uniprot',
+           BLASTDB => '/data/blastdb/Supported',
            CORE_VERBOSITY => 'WARNING',
            LOGGER_VERBOSITY => 'OFF', # allowed : OFF, INFO, INFO_STACK_TRACE for logger_info subroutine 
            
