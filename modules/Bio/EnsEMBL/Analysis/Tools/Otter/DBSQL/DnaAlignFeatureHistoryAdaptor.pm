@@ -17,7 +17,7 @@ fetches the DnaAlignFeatureHistory objects from an Otter database
 =head1 CONTACT
 
   Post questions/comments to the EnsEMBL development list:
-  ensembl-dev@ebi.ac.uk
+  dev@ensembl.org
 
 =head1 METHODS
 

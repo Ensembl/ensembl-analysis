@@ -31,7 +31,7 @@ Stefan Graf, Ensembl Functional Genomics - http://www.ensembl.org/
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+Post questions to the Ensembl development list: dev@ensembl.org
 
 =cut
 

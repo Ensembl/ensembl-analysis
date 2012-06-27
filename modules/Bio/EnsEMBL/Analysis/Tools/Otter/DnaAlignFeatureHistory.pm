@@ -32,7 +32,7 @@ Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeatureHistory.pm - Stores details
 
 =head1 CONTACT
 
-Post questions to the EnsEMBL dev mailing list: <ensembl-dev@ebi.ac.uk>
+Post questions to the EnsEMBL dev mailing list: <dev@ensembl.org>
 
 =head1 METHODS
 

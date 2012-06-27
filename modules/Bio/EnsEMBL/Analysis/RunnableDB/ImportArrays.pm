@@ -47,7 +47,7 @@ This module was written by Nathan Johnson, based on the CollapseAffy/Oligo code.
 
 =head1 CONTACT
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
+Post general queries to B<dev@ensembl.org>
 
 
 =cut

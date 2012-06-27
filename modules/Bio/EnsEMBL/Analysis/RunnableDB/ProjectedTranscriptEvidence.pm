@@ -26,7 +26,7 @@ as an extra piece of supporting evidence for the projected transcript.
 
 =head1 CONTACT
 
-ensembl-dev@ebi.ac.uk
+dev@ensembl.org
 
 =cut
 

@@ -22,7 +22,7 @@ other gene manupulation purposes.
 
 =head1 CONTACT
 
-please send any questions to ensembl-dev@ebi.ac.uk
+please send any questions to dev@ensembl.org
 
 =head1 METHODS
 

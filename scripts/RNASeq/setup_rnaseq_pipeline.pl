@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -866,7 +866,7 @@ sub batchqueue_header {
 =head1 CONTACT
 
     Please email comments or questions to the public Ensembl
-    developers list at <ensembl-dev@ebi.ac.uk>.
+    developers list at <dev@ensembl.org>.
 
     Questions may also be sent to the Ensembl help desk at
     <helpdesk@ensembl.org>.
@@ -1000,7 +1000,7 @@ sub blast2_header {
   use Bio::EnsEMBL::Analysis::Config::Blast qw(BLAST_CONTIG);
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+Post questions to the Ensembl development list: dev@ensembl.org
 
 =cut
 
@@ -1057,7 +1057,7 @@ sub batchqueue_tail {
 sub bwa_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::BWA
 # 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+# Cared for by EnsEMBL (dev@ensembl.org)
 #
 # Copyright GRL & EBI
 #
@@ -1131,7 +1131,7 @@ use vars qw( %Config );
 sub BAM2GENES_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes;
 # 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+# Cared for by EnsEMBL (dev@ensembl.org)
 #
 # Copyright GRL & EBI
 #
@@ -1191,7 +1191,7 @@ BAM2GENES_CONFIG_BY_LOGIC =>
 sub BAM2INTRONS_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns
 # 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+# Cared for by EnsEMBL (dev@ensembl.org)
 #
 # Copyright GRL & EBI
 #
@@ -1271,7 +1271,7 @@ use vars qw( %Config );
 sub SAM2BAM_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Sam2Bam
 # 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+# Cared for by EnsEMBL (dev@ensembl.org)
 #
 # Copyright GRL & EBI
 #
@@ -1313,7 +1313,7 @@ use vars qw( %Config );
 sub REFINE_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 # 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+# Cared for by EnsEMBL (dev@ensembl.org)
 #
 # Copyright GRL & EBI
 #
@@ -1414,7 +1414,7 @@ use vars qw( %Config );
 sub BLAST_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastRNASeqPep;
 # 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+# Cared for by EnsEMBL (dev@ensembl.org)
 #
 # Copyright GRL & EBI
 #

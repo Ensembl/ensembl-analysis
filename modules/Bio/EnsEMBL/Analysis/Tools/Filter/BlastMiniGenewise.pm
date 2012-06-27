@@ -1,6 +1,6 @@
 ##
 #
-# Cared for by Ensembl  <ensembl-dev@ebi.ac.uk>
+# Cared for by Ensembl  <dev@ensembl.org>
 #
 # Copyright GRL & EBI
 #
@@ -41,7 +41,7 @@ the second is the rejected set
 
 =head1 CONTACT
 
-ensembl-dev@ebi.ac.uk
+dev@ensembl.org
 
 =head1 APPENDIX
 

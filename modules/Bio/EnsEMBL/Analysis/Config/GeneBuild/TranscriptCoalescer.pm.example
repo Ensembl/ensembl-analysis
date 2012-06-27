@@ -3,7 +3,7 @@
 # Copyright (c) 2004 Ensembl
 #
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/TranscriptCoalescer.pm.example,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 #
 
 =head1 NAME
@@ -51,7 +51,7 @@ variables.
 
 =head1 CONTACT
 
-B<ensembl-dev@ebi.ac.uk>
+B<dev@ensembl.org>
 
 =cut
 

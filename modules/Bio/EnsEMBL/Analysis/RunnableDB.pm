@@ -70,7 +70,7 @@ returns the appropriate adaptor to be used in storage.
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+Post questions to the Ensembl development list: dev@ensembl.org
 
 =cut
 package Bio::EnsEMBL::Analysis::RunnableDB;

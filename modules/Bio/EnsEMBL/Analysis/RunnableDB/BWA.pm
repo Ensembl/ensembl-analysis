@@ -21,7 +21,7 @@ This module uses BWA to align fastq to a genomic sequence
 
 =head1 CONTACT
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
+Post general queries to B<dev@ensembl.org>
 
 =head1 APPENDIX
 

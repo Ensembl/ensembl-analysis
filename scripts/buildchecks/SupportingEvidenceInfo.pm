@@ -20,7 +20,7 @@ evidence which supports it
 
 =head1 CONTACT
 
-ensembl dev mailing list <ensembl-dev@ebi.ac.uk>
+ensembl dev mailing list <dev@ensembl.org>
 
 =head1 APPENDIX
 

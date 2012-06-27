@@ -31,7 +31,7 @@ as the key and all cut offs must be numeric
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: ensembl-dev@ebi.ac.uk
+Post questions to the Ensembl development list: dev@ensembl.org
 
 =cut
 

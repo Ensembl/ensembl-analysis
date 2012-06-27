@@ -64,7 +64,7 @@ Also by default these scripts consider protein evidence and gene ids
 
 =head1 CONTACT
 
-the ensembl-dev mailing list <ensembl-dev@ebi.ac.uk>
+the ensembl-dev mailing list <dev@ensembl.org>
 
 =cut
 

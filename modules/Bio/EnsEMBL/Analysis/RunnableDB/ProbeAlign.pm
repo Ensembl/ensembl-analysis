@@ -30,7 +30,7 @@ You must FIRST have created and imported all the necessary Arrays and Probe obje
 
 =head1 CONTACT
 
-Post general queries to B<ensembl-dev@ebi.ac.uk>
+Post general queries to B<dev@ensembl.org>
 
 =head1 METHODS
 

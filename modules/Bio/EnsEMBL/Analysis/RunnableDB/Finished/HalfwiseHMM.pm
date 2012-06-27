@@ -1,6 +1,6 @@
 #
 #
-# Cared for by EnsEMBL  <ensembl-dev@ebi.ac.uk>
+# Cared for by EnsEMBL  <dev@ensembl.org>
 # Copyright GRL & EBI
 #
 # You may distribute this module under the same terms as perl itself

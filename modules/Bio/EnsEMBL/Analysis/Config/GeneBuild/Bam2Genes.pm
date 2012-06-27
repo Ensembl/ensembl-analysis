@@ -1,6 +1,6 @@
 # Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes;
 # 
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
+# Cared for by EnsEMBL (dev@ensembl.org)
 #
 # Copyright GRL & EBI
 #

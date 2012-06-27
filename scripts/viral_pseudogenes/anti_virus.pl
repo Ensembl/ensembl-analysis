@@ -55,7 +55,7 @@
 
 =head1 CONTACT
 
-  ensembl-dev@ebi.ac.uk
+  dev@ensembl.org
 
 =cut
 

@@ -11,7 +11,7 @@ Bio::EnsEMBL::Analysis::PmatchFeature
 
 =head1 CONTACT
 
-ensembl-dev@ebi.ac.uk
+dev@ensembl.org
 
 =head1 APPENDIX
 

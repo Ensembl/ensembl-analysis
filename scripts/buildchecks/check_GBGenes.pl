@@ -3,7 +3,7 @@
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 
 
-# any questions please send to ensembl-dev@ebi.ac.uk
+# any questions please send to dev@ensembl.org
 
 =head1 NAME
 
