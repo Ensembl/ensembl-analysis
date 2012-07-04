@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -250,7 +250,7 @@ unless ( $update_analyses ) {
     $rough_batches = 1 unless $rough_batches;
     $rough_batches = 500 if $rough_batches > 500;
     print "Got $slice_count slices using a batch size of $slice_batches \n" if $stage eq 'bwa_complete';
-    print "Got $rough_count rough models using a batch size of $rough_batches \n";
+    print "Got $rough_count (batches of) rough models using a batch size of $rough_batches \n";
     
     if ($bam2introns_count > 0 ) {
       $stage = 'configured';
@@ -272,7 +272,7 @@ while (<FILE>){
   if ( $line == 0 ) {
     # header row
     print STDERR "Got these headers\n"  if ($stage eq "Initialization") || $check;
-    for (  my $i = 0 ; $i < $#cells ; $i++ ) {
+    for (  my $i = 0 ; $i <= $#cells ; $i++ ) {
       my $header =  $cells[$i];
       print STDERR $i+1 . ") $header\n"  if ($stage eq "Initialization") || $check;
     }
@@ -633,12 +633,12 @@ foreach my $row ( @rows ) {
 }
 
 print STDERR "Have these config files to modify:
-$analysisconfigdir/Genebuild/BWA.pm
-$analysisconfigdir/Genebuild/Bam2Genes.pm
-$analysisconfigdir/Genebuild/Bam2Introns.pm
-$analysisconfigdir/Genebuild/Sam2Bam.pm
-$analysisconfigdir/Genebuild/RefineSolexaGenes.pm
-$analysisconfigdir/Genebuild/BlastRNASeqPep.pm
+$analysisconfigdir/GeneBuild/BWA.pm
+$analysisconfigdir/GeneBuild/Bam2Genes.pm
+$analysisconfigdir/GeneBuild/Bam2Introns.pm
+$analysisconfigdir/GeneBuild/Sam2Bam.pm
+$analysisconfigdir/GeneBuild/RefineSolexaGenes.pm
+$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm
 $pipelineconfigdir/BatchQueue.pm
  - backing them up\n"  if ($stage eq "Initialization") || $check;
 
