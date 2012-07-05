@@ -271,7 +271,7 @@ sub write_output {
       $gene_a->store($gene) ;
     } ;
     if($@) {
-      warning("Failed to write gene ". $@) ;
+      $self->throw("Failed to write gene ". $@) ;
     }
   }  
   return ;
