@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -37,14 +37,24 @@ my $refine_load;
 my $ref_load;
 my $blast_load;
 my $update_analyses;
-
+my $force_stage;
 
 my $usage = "perl setup_rnaseq_pipeline.pl
 -verbose    $verbose,
 -check      $check, print out which columns are used for which RG tag
 -update_analyses $update_analyses, only write the analyses - do not alter the config,
-
 Need to fill in the config in the setup_rnaseq_pipeline_config.pm module.
+-stage      $force_stage, Force the pipeline to start from a particular stage - 
+            could be dangerous unless your pipeline has finished the previous stages but useful
+	    if you have run part of the pipeline and want to change config..
+	    The stages are:
+	    1	bwa_complete
+	    2	bam2genes complete
+	    3	bam2introns complete
+	    Enter 1,2 or 3 to force the pipeline to start from the stage of choice.
+            You must run the steps sequentially though so to go to stage 2 first run 
+            the script with no stage, then with -stage 1 and finally with -stage 2 to 
+            ensure all the analyses get written 
 ";
 
 $| = 1;
@@ -52,10 +62,19 @@ $| = 1;
 &GetOptions(
 	    'verbose!'     => \$verbose,
             'check!'       => \$check,
+	    'stage:s'      => \$force_stage,
 	    'update_analyses!' => \$update_analyses,
 	   );
 
 die($usage) unless ($dbname && $analysisconfigdir && $pipelineconfigdir && $delimiter && $summaryfile && $input_dir && $output_dir );
+if ( $force_stage ) {
+die($usage)  unless ( $force_stage == 1 || $force_stage == 2 || $force_stage == 3 ) ;
+$force_stage = 'bwa_complete' if $force_stage == 1;
+$force_stage = 'bam2genes complete' if $force_stage == 2;
+$force_stage = 'configured' if $force_stage == 3;
+print "Starting from stage $force_stage\n";
+}
+$stage = $force_stage if $force_stage;
 throw("Cannot find input directory $input_dir\n") unless -e $input_dir;
 throw("Cannot find output directory $output_dir\n") unless -e $output_dir;
 throw("Cannot find merge directory $merge_dir\n") unless -e $merge_dir;
@@ -146,7 +165,7 @@ foreach my $analysis (@{$pipeline_analysis->fetch_all}) {
   }
 }
 unless ( $update_analyses ) {
-  if ( $bwa2bam_count >= 1 && $bwa2bam_count == $submit_bwa2bam_count  ) {
+  if (( $bwa2bam_count >= 1 && $bwa2bam_count == $submit_bwa2bam_count  ) or ($force_stage eq "bwa_complete" )){
   $stage = "bwa_complete";
   unless ( $check ) {
     print "\n\nBWA finished successfully\n------------------------\n";
@@ -176,7 +195,7 @@ unless ( $update_analyses ) {
     if ($pipeline_analysis->fetch_by_logic_name("submit_bam2introns")){
       $rough_count =  scalar(@{$sic->list_input_ids_by_analysis($pipeline_analysis->fetch_by_logic_name("submit_bam2introns")->dbID)});
     }
-    if ( $submit_chromosome_count > 0 && $submit_chromosome_count == $bam2genes_count && $bam2introns_count == 0 ) {
+    if (( $submit_chromosome_count > 0 && $submit_chromosome_count == $bam2genes_count && $bam2introns_count == 0 ) or ($force_stage eq "bam2genes complete" ))  {
       $stage = 'bam2genes complete';
       my $analysis = $pipeline_analysis->fetch_by_logic_name("submit_bam2introns");
       unless ( $analysis ){
@@ -252,7 +271,7 @@ unless ( $update_analyses ) {
     print "Got $slice_count slices using a batch size of $slice_batches \n" if $stage eq 'bwa_complete';
     print "Got $rough_count (batches of) rough models using a batch size of $rough_batches \n";
     
-    if ($bam2introns_count > 0 ) {
+    if (($bam2introns_count > 0 ) or ($force_stage eq "configured" ))  {
       $stage = 'configured';
     }
   }
