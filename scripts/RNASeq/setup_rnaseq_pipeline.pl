@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -1263,6 +1263,11 @@ use vars qw( %Config );
 	     
 	     # Exonerate word length, smaller = more accurate takes longer
 	     WORD_LENGTH => "10",
+
+	     # Exonerate saturate threshold - smaller = quicker but you lose significant numbers
+	     # of alignments where there is high depth of reads, best to leave it undefined but
+	     # if jobs are taking forever try a value like 1000
+	     SATURATE_THRESHOLD => "10000", 
 	     
 	     # repeat masks the transcript sequences - quick but you might miss something
 	     MASK => "1",
@@ -1279,7 +1284,7 @@ use vars qw( %Config );
 	     MAX_TRANSCRIPT => 1000000,
 	     
 	     # number of reads to align in each batch
-	     BATCH_SIZE => 100000,
+	     BATCH_SIZE => 10000,
        	     },
         bam2introns => {},
           }
