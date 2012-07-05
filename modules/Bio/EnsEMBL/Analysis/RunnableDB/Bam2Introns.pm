@@ -124,7 +124,7 @@ sub fetch_input {
                  "--softmasktarget $mask --exhaustive false --percent 80 ".
                  "--dnahspthreshold 60 --minintron 20 --dnawordlen " .
 		   $self->WORD_LENGTH ." -i -12 --bestn 1";
-
+  $options .= " --saturatethreshold " .$self->SATURATE_THRESHOLD if $self->SATURATE_THRESHOLD ;
   # number of missmatches needed before using a read from the bam file
   # is calculated as the Exonerate word length - number of matches you 
   # might expect by chance ie 1 in 4 
@@ -649,6 +649,21 @@ sub WORD_LENGTH {
   
   if (exists($self->{'_CONFIG_WORD_LENGTH'})) {
     return $self->{'_CONFIG_WORD_LENGTH'};
+  } else {
+    return undef;
+  }
+}
+
+
+sub SATURATE_THRESHOLD {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_SATURATE_THRESHOLD'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_SATURATE_THRESHOLD'})) {
+    return $self->{'_CONFIG_SATURATE_THRESHOLD'};
   } else {
     return undef;
   }
