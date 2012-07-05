@@ -54,7 +54,12 @@ use vars qw( %Config );
 	     
 	     # Exonerate word length, smaller = more accurate takes longer
 	     WORD_LENGTH => '10 ',
-	     
+	      	     
+	     # Exonerate saturate threshold - smaller = quicker but you lose significant numbers
+	     # of alignments where there is high depth of reads, best to leave it undefined but
+	     # if jobs are taking forever try a value like 1000
+	     SATURATE_THRESHOLD => '0', 
+
 	     # repeat masks the transcript sequences - quick but you might miss something
 	     MASK => '0',
 
