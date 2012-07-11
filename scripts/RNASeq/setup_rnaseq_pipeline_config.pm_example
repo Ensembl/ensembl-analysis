@@ -1,5 +1,9 @@
 package setup_rnaseq_pipeline_config;
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
+# $Revision: 1.6 $
+
+
 use strict;
 use vars qw(%Config);
 
@@ -37,7 +41,7 @@ use vars qw(%Config);
 			# index for the blast database
 			UNIPROTINDEX => '/path/to/my/Uniprot/index',
     			# read length
-			READ_LENGTH => ,
+			READ_LENGTH => 0,
 			# This is used by bwa2bam, setting it to 1 will cause it to assume all the reads are paired
 			# setting it to 0 means it will treat all the reads as unpaired and so make long rough models
 			# if you have sufficient paired reads running in paired mode is preferred as it makes for 
