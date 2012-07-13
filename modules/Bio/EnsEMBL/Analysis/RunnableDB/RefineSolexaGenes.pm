@@ -161,7 +161,10 @@ sub fetch_input {
   } else {
     # pre fetch all the intron features
     $self->dna_2_intron_features($slice->start,$slice->end);
+    $self->intron_slice_adaptor->dbc->disconnect_when_inactive(1);
   }
+  $self->db->disconnect_when_inactive(1);
+  $self->gene_slice_adaptor->dbc->disconnect_when_inactive(1);
 }
 
 sub run {
@@ -1359,6 +1362,7 @@ sub write_output{
   my $outdb = $self->get_dbadaptor($self->OUTPUT_DB);
   my $gene_adaptor = $outdb->get_GeneAdaptor;
   my $intron_adaptor = $outdb->get_DnaAlignFeatureAdaptor;
+  $outdb->dbc->disconnect_when_inactive(0);
   my @output = @{$self->output};
   
   my $fails = 0;
@@ -1415,6 +1419,8 @@ sub write_output{
 	    "($fails fails out of $total)");
     }
   }
+  # Maybe not really useful
+#  $outdb->dbc->disconnect_when_inactive(1);
 }
 
 
