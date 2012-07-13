@@ -1,38 +1,51 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus
-#
-# Copyright (c) 2004 Ensembl
-#
+=head1 LICENSE
 
+  Copyright (c) 1999-2012 The European Bioinformatics Institute and
+  Genome Research Limited.  All rights reserved.
+
+  This software is distributed under a modified Apache license.
+  For license details, please see
+
+    http://www.ensembl.org/info/about/code_licence.html
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <dev@ensembl.org>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <helpdesk@ensembl.org>.
+
+=cut
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer
+Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus
 
 =head1 SYNOPSIS
 
-    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer ; 
-    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptCoalescer qw () ; 
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus ; 
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus qw () ; 
 
 =head1 DESCRIPTION
 
 
-TranscriptCoalescer-Configuration 
+TranscriptConsensus-Configuration 
 
-This is the main configuration file for TranscriptCoalescer, a perl 
-module which coalesces genes of different sources (EST-genes are 
+This is the main configuration file for TranscriptConsensus, a perl 
+module which generate consensus genes from different sources (EST-genes are 
 combined with other EST-genes and Similarity-Genewise-genes or 
 ab-initio-predictions (i.e. fgenesh, Genscan, GeneFinder ...) . 
 
-TranscriptCoalescer fetches genes and prediction_transcripts by it's 
+TranscriptConsensus fetches genes and prediction_transcripts by it's 
 biotype (for Bio::EnsEMBL::Gene-objects) and by it's logic_name 
 (for Bio::EnsEMBL::PredictionTranscript-objects). These biotypes/
 logic_names are defiend in this configuration-file. Each biotype/
 logic_name has to belong to a different evidence_set. (see below).
 
-The parameters to connect to various databases are defiend in 
+The parameters to connect to various databases are defined in 
 
   - modules/Bio/EnsEMBL/Analysis/Config/Databases.pm 
-  - modules/Bio/EnsEMBL/Analysis/Config/Exonerate2Genes.pm  
 
 The general function of this config file is to import  a number of 
 standard global variables into the calling package. Without arguments 
@@ -46,10 +59,6 @@ Edit C<%Config> to add or alter variables.
 
 All the variables are in capitals, so that they resemble environment
 variables.
-
-=head1 CONTACT
-
-B<dev@ensembl.org>
 
 =cut
 
@@ -105,19 +114,21 @@ use vars qw(%Config);
 
                       OUTPUT_DATABASE => "COALESCER_DB",
 
+                      # biotype to be fetched from the databases
                       INPUT_GENES => {
                            GENEWISE_DB => [''],
                            EXONERATE_DB => [''],
                       },
+                      # biotype to be linked to the different data sets
                       AB_INITIO_LOGICNAMES => [],
-                      EST_SETS      =>[''],
-                      SIMGW_SETS    =>[''],
+                      EST_SETS      =>[],
+                      SIMGW_SETS    =>[],
                       ABINITIO_SETS =>[],
 
                       # Use RNASeq introns from these dbs to help tidy the genes
                       # example:
                       # RNASEQ_INTRON_DB => ['INTRON_DB_1','INTRON_DB_2'],
-                      RNASEQ_INTRON_DB => [''],
+                      RNASEQ_INTRON_DB => [],
 
 		      # logic name(s) of the intron features to fetch
                       # example:
