@@ -39,7 +39,7 @@ and introns which are assigned scores according to the amount of supporting evid
 The similarity genes have UTR added using the est transcripts and the resulting models are assigned
 a score by summing the individual exon and intron scores.
 The transcripts are sorted by score and the highest scoring models are made into
-gene objets and written to the TranscriptCoalescer database.
+gene objets and written to the TranscriptConsensus database.
 
 =head1 METHODS
 
@@ -108,7 +108,7 @@ sub fetch_input {
 
   $self->query($slice);
   # fetch any RNASeq introns first
-  if ( $self->RNASEQ_INTRON_DB ) {
+  if ( @{$self->RNASEQ_INTRON_DB} ) {
     foreach my $intron_db ( @{$self->RNASEQ_INTRON_DB}) {
       my $rnaseq_db = $self->get_dbadaptor($intron_db);
       my $rna_slice = $self->fetch_sequence($self->input_id, $rnaseq_db );
@@ -294,7 +294,7 @@ sub _check_config {
   my ( $self ) = @_ ; 
   my $ev_sets = $self->{evidence_sets} ;
 
-  # check that every biotype / logic_name in TranscriptCoalescer.pm 
+  # check that every biotype / logic_name in TranscriptConsensus.pm 
   # belongs to an ev-set 
   my %database_definition ; 
   for my $db_class (keys %{$self->INPUT_GENES}) {
@@ -312,9 +312,9 @@ sub _check_config {
   # has a database where it's fetched from 
   
   for my $ln ( keys %ev_set_definitions ) { 
-    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptCoalescer.pm\n ". 
+    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptConsensus.pm\n ". 
            "\tType $ln has an evidence set but there's NO database for this type defined in Config". 
-             " TranscriptCoalescer.pm : $ln\n")
+             " TranscriptConsensus.pm : $ln\n")
             unless ( exists $database_definition{$ln} ) ; 
      
   } 
@@ -322,8 +322,8 @@ sub _check_config {
   # check if every ev-set has an entry in the db-section as well 
   
   for my $ln ( keys %database_definition) { 
-    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptCoalescer.pm\n". 
-           "\tType $ln has an entry in a database-section but there's NO evidence-set defined in Config TranscriptCoalescer.pm for this type : $ln \n" )
+    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptConsensus.pm\n". 
+           "\tType $ln has an entry in a database-section but there's NO evidence-set defined in Config TranscriptConsensus.pm for this type : $ln \n" )
             unless ( exists $ev_set_definitions{$ln} ) ; 
   } 
   return 1 ;
