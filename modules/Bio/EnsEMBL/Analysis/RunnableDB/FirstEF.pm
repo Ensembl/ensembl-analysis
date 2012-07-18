@@ -55,7 +55,10 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::FirstEF;
-use Bio::EnsEMBL::Analysis::Config::General qw(PARAMETERS_DIR PARSE_SCRIPT) ;
+use constant {
+    PARAMETERS_DIR => '/vol/software/linux-i386/farm/lib/firstef/parameters/',
+    PARSE_SCRIPT => '/vol/software/linux-i386/farm/lib/firstef/FirstEF_parser.pl',
+};
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
@@ -96,8 +99,8 @@ sub fetch_input{
      -query => $self->query,
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
-     -param_dir => $PARAMETERS_DIR,
-     -parse_script => $PARSE_SCRIPT,
+     -param_dir => PARAMETERS_DIR,
+     -parse_script => PARSE_SCRIPT,
      %parameters,
     );
   $self->runnable($runnable);
