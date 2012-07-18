@@ -58,17 +58,12 @@ use vars qw(%Config);
            DATA_DIR => '/usr/local/ensembl/data',
            LIB_DIR  => '/usr/local/ensembl/lib',
            
-           # Path where the parser and parameter files for FirstEF program are allocated
-           PARAMETERS_DIR => '/vol/software/linux-i386/farm/lib/firstef/parameters/',
-           PARSE_SCRIPT => '/vol/software/linux-i386/farm/lib/firstef/FirstEF_parser.pl',
            
            # The default directory the Runnable runs its analysis in
            ANALYSIS_WORK_DIR => '/tmp',
 
            ANALYSIS_REPEAT_MASKING => ['repeatmask'],
  
-           # Uniprot base directory, previously $BLASTDB
-           BLASTDB => '/data/blastdb/Supported',
            CORE_VERBOSITY => 'WARNING',
            LOGGER_VERBOSITY => 'OFF', # allowed : OFF, INFO, INFO_STACK_TRACE for logger_info subroutine 
            
