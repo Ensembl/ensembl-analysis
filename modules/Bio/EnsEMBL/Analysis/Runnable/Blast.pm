@@ -62,6 +62,7 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable;
+use Bio::EnsEMBL::Analysis::Config::Blast qw( BLASTDB );
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
@@ -149,11 +150,11 @@ sub databases{
 
     $dbname =~ s/\s//g;
 
-    # prepend the environment variable $BLASTDB if
-    # database name is not an absoloute path
+    # prepend the variable $BLASTDB from Config/Blast.pm
+    # if database name is not an absolute path
   
     unless ($dbname =~ m!^/!) {
-        $dbname = $Bio::EnsEMBL::Analysis::Runnable::BLASTDB . "/" . $dbname;
+        $dbname = $BLASTDB . "/" . $dbname;
     }
   
     # If the expanded database name exists put this in
