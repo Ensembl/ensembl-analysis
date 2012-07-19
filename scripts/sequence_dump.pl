@@ -1,7 +1,5 @@
 #!/usr/local/ensembl/bin/perl -w
-use Data::Dumper;
 
-#print Dumper(\@ARGV); die;
 =head1 NAME
 
 ensembl-analysis/scripts/sequence_dump.pl
@@ -57,7 +55,13 @@ normal uppercase Ns or with softmasking
     -human_female Creates a second output file that ommits chrY. Needs -onefile or -filename
 
     -format Deprecated. Following suggestion of the Ensembl core team, Bio::SeqIO has been replaced with
-                        Bio::EnsEMBL::Utils::IO::FASTASerializer. Therefore output is limited to FASTA.
+                        Bio::EnsEMBL::Utils::IO::FASTASerializer. Therefore the output is limited to FASTA.
+
+    -header [default | basic | funcgen]
+             default: chromosome:GRCh37:11:1:135006516:1 chromosome 11
+             basic:   chromosome:GRCh37:11:1:135006516:1
+             funcgen: 18 dna:chromosome chromosome:GRCh37:18:1:78077248:1
+
 
     -extension the file extention you want to give the dumped files, by
                default this is fa
@@ -102,24 +106,36 @@ Dust repeats into to separate files
 
 use strict;
 use Getopt::Long;
+use Data::Dumper;
+use File::Spec;
+use Cwd;
+
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::SeqIO;
 use Bio::EnsEMBL::PaddedSlice;
 use Bio::EnsEMBL::Utils::IO::FASTASerializer;
 
-my $serializer = 'Bio::EnsEMBL::Utils::IO::FASTASerializer';
 
 my $host   = '';
 my $port   = '';
 my $dbname = '';
 my $dbuser = '';
 my $dbpass = '';
-my ($species, $filename, $multi_species);
-my $species_id = 1;
+
+my $serializer = 'Bio::EnsEMBL::Utils::IO::FASTASerializer';
+my $species_id  = 1;
+my $header      = 'default';
+my $format      = 'fasta';
+my $softmask    = 0;
+my $extension   = 'fa';
+my $output_dir  = getcwd();
+
+my $species;
+my $filename;
+my $multi_species;
 my $coord_system_name;
 my $coord_system_version;
-my $output_dir;
 my $single_file;
 my $top_level;
 my $seq_level;
@@ -127,77 +143,71 @@ my $non_ref;
 my $padded_human_Chr_Y;
 my $human_female;
 my $include_duplicates;
-my $format = 'fasta';
 my @logic_names;
 my $mask;
-my $softmask = 0;
-my $extension = 'fa';
 my $help;
 
-&GetOptions(
-            'dbhost:s'                => \$host,
-            'dbport:n'                => \$port,
-            'dbname:s'                => \$dbname,
-            'dbuser:s'                => \$dbuser,
-            'dbpass:s'                => \$dbpass,
-            'species=s'               => \$species,
-            'multi_species'           => \$multi_species,
-            'species_id=i'            => \$species_id,
-            'coord_system_name:s'     => \$coord_system_name,
-            'coord_system_version:s'  => \$coord_system_version,
-            'output_dir:s'            => \$output_dir,
-            'extension:s'             => \$extension,
-            'toplevel!'               => \$top_level,
-            'seqlevel!'               => \$seq_level,
-            'nonref!'                 => \$non_ref,
-            'padded_human_Chr_Y!'     => \$padded_human_Chr_Y,
-            'human_female!'           => \$human_female,
-            'include_duplicates!'     => \$include_duplicates,
-            'format!'                 => \$format,
-            'mask!'                   => \$mask,
-            'mask_repeat:s@'          => \@logic_names,
-            'softmask!'               => \$softmask,
-            'onefile!'                => \$single_file,
-            'filename=s'              => \$filename,
-            'help!'                   => \$help,
-           ) or ($help = 1);
+GetOptions( 'dbhost:s'               => \$host,
+            'dbport:n'               => \$port,
+            'dbname:s'               => \$dbname,
+            'dbuser:s'               => \$dbuser,
+            'dbpass:s'               => \$dbpass,
+            'species=s'              => \$species,
+            'multi_species'          => \$multi_species,
+            'species_id=i'           => \$species_id,
+            'header:s'               => \$header,
+            'coord_system_name:s'    => \$coord_system_name,
+            'coord_system_version:s' => \$coord_system_version,
+            'output_dir:s'           => \$output_dir,
+            'extension:s'            => \$extension,
+            'toplevel!'              => \$top_level,
+            'seqlevel!'              => \$seq_level,
+            'nonref!'                => \$non_ref,
+            'padded_human_Chr_Y!'    => \$padded_human_Chr_Y,
+            'human_female!'          => \$human_female,
+            'include_duplicates!'    => \$include_duplicates,
+            'format!'                => \$format,
+            'mask!'                  => \$mask,
+            'mask_repeat:s@'         => \@logic_names,
+            'softmask!'              => \$softmask,
+            'onefile!'               => \$single_file,
+            'filename=s'             => \$filename,
+            'help!'                  => \$help,
+) or ( $help = 1 );
 
 
 if ($help) {
     exec('perldoc', $0);
 }
 
+
+
+############################# Sanity tests ################################
 if(!$host || !$dbname || !$dbuser){
-  throw("Need -dbhost $host -dbuser $dbuser and -dbname $dbname to run ".
-        " use -help for docs");
+  my $message =
+    "Need -dbhost '$host' -dbuser '$dbuser' and -dbname '$dbname' to run. ".
+    'Use -help for more detailed documentation.';
+  throw($message);
 }
-
-my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new
-  (
-   -dbname => $dbname,
-   -host   => $host,
-   -user   => $dbuser,
-   -port   => $port,
-   -pass   => $dbpass,
-   -species => $species,
-   -multispecies_db => $multi_species,
-   -species_id => $species_id
-);
-
-########################## Sanity tests ####################################
 if(!$coord_system_name && !$top_level && !$seq_level){
-  throw("Must specify at least one of -coord_system_name -toplevel or ".
-        "-seqlevel to run using -help for docs");
+  my $message =
+  'Must specify either -coord_system_name, -toplevel, or -seqlevel to run. '.
+  'Use -help for more detailed documentation.';
+  throw($message);
 }
 
 if($top_level && $seq_level){
-  throw("Can't specify both -toplevel and -seqlevel must be one or the ".
-        "other see -help for docs");
+  my $message =
+  'Cannot  specify both -toplevel and -seqlevel must be one or the other. '.
+  'Use -help for more detailed documentation.';
+  throw($message);
 }
 
 if(! $filename && (!$output_dir || ! -e $output_dir)){
-  throw("Can't dump sequence into ".$output_dir." it doesn't exist ".
-        "use -help for docs");
+  my $message =
+  "Cannot dump sequence into '$output_dir' it does not exist ".
+  'Use -help for more detailed documentation.';
+  throw($message);
 }
 
 if($include_duplicates && $padded_human_Chr_Y){
@@ -226,7 +236,7 @@ if($human_female && $species ne 'homo_sapiens' ){
   throw($message);
 }
 
-if($format !~ /fasta/i ){
+if($format !~ /^fasta$/i ){
   my $message =
     'Following advice from the core team, the output method has been changed '.
     'from Bio::SeqIO to Bio::EnsEMBL::Utils::IO::FASTASerializer. ' .
@@ -235,7 +245,7 @@ if($format !~ /fasta/i ){
     'allows changing the FASTA-header. ';
   throw($message);
 }
-
+############################# Global settings ###############################
 if($top_level){
   $coord_system_name = 'toplevel';
 }
@@ -243,27 +253,39 @@ if($seq_level){
   $coord_system_name = 'seqlevel';
 }
 
-###############################################################################
+my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new
+  (
+   -dbname          => $dbname,
+   -host            => $host,
+   -user            => $dbuser,
+   -port            => $port,
+   -pass            => $dbpass,
+   -species         => $species,
+   -multispecies_db => $multi_species,
+   -species_id      => $species_id
+);
+
+################################################################################
 # All sequences go into a single file
 # If a filename was passed, use that one, otherwise build it
-###############################################################################
+################################################################################
 my ($singleSerializer, $fh_singleFile) = (undef, undef);
 if($single_file || $filename){
-  $filename ||= $output_dir.'/'.$coord_system_name.'.'.$extension;
+  $filename ||= File::Spec->catfile($output_dir , "$coord_system_name.$extension");
   open($fh_singleFile, '>', $filename) or die
-    "Cant open stream to $filename: $!";
+    "Cannot open stream to $filename: $!";
   $singleSerializer = $serializer->new($fh_singleFile);
 }
-###############################################################################
+################################################################################
 
-###############################################################################
+################################################################################
 # If using a single file, removing chrY can be very memory intensive as the
 # resulting file can be 3GB+ (release 66). An option has been added that
 # simultaneously writtes a female FASTA file by simply ommiting chrY.
 # If the filename is given and contains male, it is replaced by female
 # homo_sapiens_male_GRCh37_66_37_unmasked.fasta ->
 # homo_sapiens_female_GRCh37_66_37_unmasked.fasta
-###############################################################################
+################################################################################
 my ($singleSerializer_female, $fh_singleFile_female) = (undef, undef);
 if($human_female) {
 
@@ -274,16 +296,16 @@ if($human_female) {
     else{$tmpName .= '.female'}
   }
   else{
-    $tmpName= $output_dir.'/'.$coord_system_name.'.female.'.$extension;
+    $tmpName = File::Spec->catfile($output_dir, "$coord_system_name.female.$extension");
   }
 
   open($fh_singleFile_female, '>', $tmpName) or die
     "Cant open stream to $tmpName: $!";
   $singleSerializer_female = $serializer->new($fh_singleFile_female);
 }
-###############################################################################
+################################################################################
 
-###############################################################################
+################################################################################
 # get slice adaptor
 # fetch slices where args are eg:
 # '('toplevel','GRCh37',1,undef,undef)
@@ -299,23 +321,68 @@ my $slices =
       $include_duplicates,
       undef
       );
-###############################################################################
+################################################################################
 
-###############################################################################
+################################################################################
+# Dispatch table
+# Used for creating project-specific headers
+# -default:
+#   chromosome:GRCh37:11:1:135006516:1 chromosome 11
+# -basic:
+#   chromosome:GRCh37:11:1:135006516:1
+# -funcgen
+#   18 dna:chromosome chromosome:GRCh37:18:1:78077248:1
+################################################################################
+my $dispatch = {
+  default => sub {
+    my ($slice) = @_;
+    return sprintf(
+        '%s %s %s',
+        $slice->name(),
+        $slice->coord_system_name(),
+        $slice->seq_region_name(),
+        );
+  },
+
+  basic   => sub {
+    my ($slice) = @_;
+    return $slice->seq_region_name();
+  },
+
+  funcgen => sub {
+    my ($slice) = @_;
+    return sprintf (
+      '%s %s %s',
+      $slice->seq_region_name(),
+      $slice->moltype().':'.$slice->coord_system_name(),
+      $slice->name(),
+      );
+  },
+};
+# Sanity check for header passed
+if(not exists $dispatch->{$header}){
+  my $message =
+    "'$header' not defined. Please adjust dispatch table.\nHeaders currently ".
+    "available: " . join (', ', keys (%{$dispatch}));
+  throw($message);
+}
+################################################################################
+
+################################################################################
 # Process slices
-###############################################################################
+################################################################################
 SLICE:
 foreach my $slice(@$slices){
-  # Remove after testing:
-#  next unless ( $slice->name() =~ /^chromosome:GRCh\d\d:Y/);
+  # Compliance with header format used in previous version of this script
+  $singleSerializer->header_function($dispatch->{$header}) if($filename);
 
-  # For FuncGen pipeline
+  # For FuncGen pipeline, print a PAR-padded chrY
   my ($y_header, $y_slice) = (undef, undef);
-
   if($padded_human_Chr_Y && $slice->name() =~ /^chromosome:GRCh\d\d:Y/ ){
     ($y_header, $y_slice) = _build_complete_PAR_padded_chrY($slice);
     next SLICE if (!$y_header);
   }
+
 
   if($mask){
     $slice = $slice->get_repeatmasked_seq(\@logic_names, $softmask);
@@ -338,20 +405,23 @@ foreach my $slice(@$slices){
   }
   # Write into seperate files
   else {
-    my $name = $output_dir.'/'.$slice->seq_region_name.'.'.$extension;
+    my $name = File::Spec->catfile($output_dir, $slice->seq_region_name.'.'.$extension);
+    print "Multi: $name\n";
     open(my $fh, '>', $name) or die "Cant open stream to $name: $!";
-      my $multiSerial = $serializer->new($fh);
+      my $multiSerializer = $serializer->new($fh);
       if($y_header && $y_slice){
-        _print_padded_y($multiSerial, $y_header, $y_slice);
+        _print_padded_y($multiSerializer, $y_header, $y_slice);
       }
       else{
-        $multiSerial->print_Seq($slice);
+        $multiSerializer->header_function($dispatch->{$header});
+        $multiSerializer->print_Seq($slice);
       }
     close($fh);
   }
 }
 close($fh_singleFile) if($fh_singleFile);
 print "Finished\n";
+
 
 =head2 _print_padded_y
 
