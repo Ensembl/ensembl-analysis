@@ -84,11 +84,15 @@ sub fetch_input {
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
   my $slice_adaptor =  $gene_db->get_SliceAdaptor;
   my $start = 0;
+  my $start_exon;
+  my $offset;
   my $stable_id = $self->input_id;
   # check for batch info in the input id
-  if ( $self->input_id =~ /(\S+):(\d+)/ ) {
+  if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
     $stable_id = $1;
-    $start = $2;
+    $start = $3;
+    $start_exon = $2;
+    $offset = $4;
   }
   my $rough = $gene_adaptor->fetch_by_stable_id($stable_id);
   $self->throw("Gene $stable_id not found \n") unless $rough;
@@ -122,8 +126,7 @@ sub fetch_input {
   my $options =  "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
                  "--model est2genome --forwardcoordinates false ".
                  "--softmasktarget $mask --exhaustive false --percent 80 ".
-                 "--dnahspthreshold 60 --minintron 20 --dnawordlen " .
-		   $self->WORD_LENGTH ." -i -12 --bestn 1";
+                 "--dnahspthreshold 70 --minintron 20 --dnawordlen 14 -i -12 --bestn 1";
   $options .= " --saturatethreshold " .$self->SATURATE_THRESHOLD if $self->SATURATE_THRESHOLD ;
   # number of missmatches needed before using a read from the bam file
   # is calculated as the Exonerate word length - number of matches you 
@@ -145,6 +148,8 @@ sub fetch_input {
      -fullseq      => $fullseq,
      -max_tran     => $self->MAX_TRANSCRIPT,
      -start        => $start,
+     -startexon    => $start_exon,     
+     -offset       => $offset,
      -batch_size   => $self->BATCH_SIZE,
     );
   $self->runnable($runnable);
@@ -246,9 +251,10 @@ sub write_output {
   # write to file
   my $iid = $self->input_id;
   # remove any batching info at the end
-  $iid =~ s/:\d+^//;  if ( $self->input_id =~ /(\S+):\d+/ ) {
+  if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
     $iid = $1;
-  }
+  } 
+
   my $path;
   # figure out a directory structure based on the stable ids
   if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
