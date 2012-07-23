@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.12 $
+# $Revision: 1.13 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -734,18 +734,18 @@ foreach my $row ( @rows ) {
              logic_name => 'bwa_" . $row->{ID} ."',
              output_dir => '".$output_dir ."/".$row->{ID}."_pipeline',
              memory    => [ '5GB', '10GB', '20GB','30GB' ],
-             resource  => 'select[myens_".$ref_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=10]',
+             resource  => 'select[myens_".$ref_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=25]',
        },
        {
              logic_name => 'bwa_" . $row->{ID} ."_wait',
              output_dir => '".$output_dir ."/".$row->{ID}."_pipeline',
-             resource  => 'select[myens_".$ref_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=10]',
+             resource  => 'select[myens_".$ref_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=25]',
        },
        {
              logic_name => 'bwa2bam_" . $row->{ID} ."',
              output_dir => '".$output_dir ."/".$row->{ID}."_pipeline',
              memory    => [ '2GB', '5GB', '10GB', '20GB', '30GB' ],
-             resource  => 'select[myens_".$ref_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=10]',
+             resource  => 'select[myens_".$ref_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=25]',
        },
 ";
 
@@ -756,7 +756,7 @@ foreach my $row ( @rows ) {
              batch_size => ".$slice_batches.",
              lsf_perl  => '/usr/local/bin/perl',
              memory    => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
-             resource  => 'select[myens_".$ref_load."tok>800] && select[myens_".$refine_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=10:myens_".$refine_load."tok=10]',
+             resource  => 'select[myens_".$ref_load."tok>800] && select[myens_".$refine_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=25:myens_".$refine_load."tok=25]',
        },
 " if  $RNASEQCONFIG->{SINGLE_TISSUE};
 
@@ -955,7 +955,7 @@ use vars qw(%Config);
              batch_size => '.$slice_batches.',
              lsf_perl  => "/usr/local/bin/perl",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$refine_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=10:myens_'.$refine_load.'tok=10]\',
+             resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$refine_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25:myens_'.$refine_load.'tok=25]\',
        },
        {
              logic_name => "bam2genes",
@@ -963,7 +963,7 @@ use vars qw(%Config);
              batch_size => '.$slice_batches.',
              lsf_perl  => "/usr/local/bin/perl",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$rough_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=10:myens_'.$rough_load.'tok=10]\',
+             resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$rough_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25:myens_'.$rough_load.'tok=25]\',
        },
        {
              logic_name => "bam2genes_wait",
@@ -975,7 +975,7 @@ use vars qw(%Config);
              batch_size => '.$rough_batches.',
              lsf_perl  => "/usr/local/bin/perl",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             resource  => \'select[myens_'.$ref_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=10]\',
+             resource  => \'select[myens_'.$ref_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25]\',
        },
        {
              logic_name => "bam2introns_wait",
@@ -985,7 +985,7 @@ use vars qw(%Config);
              logic_name => "sam2bam",
              output_dir => "'.$output_dir .'/sam2bam_pipeline",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             resource  => \'select[myens_'.$ref_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=10]\',
+             resource  => \'select[myens_'.$ref_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25]\',
        },
        {
              logic_name => "sam2bam_wait",
@@ -996,7 +996,7 @@ use vars qw(%Config);
              output_dir => "'.$output_dir .'/rnaseqblast_pipeline",
              batch_size => '.$slice_batches.',
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$blast_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=10:myens_'.$blast_load.'tok=10]\',
+             resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$blast_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25:myens_'.$blast_load.'tok=25]\',
        },
 ';
   return $str;
