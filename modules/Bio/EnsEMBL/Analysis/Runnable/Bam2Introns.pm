@@ -59,8 +59,8 @@ use Bio::DB::Sam;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ( $model,$missmatch,$mask,$sam_dir,$bam_file,$percent_id,$coverage,$fullseq,$max_tran,$start,$batch_size ) =
-    rearrange( [qw(MODEL MISSMATCH MASK SAM_DIR BAM_FILE  PERCENT_ID COVERAGE FULLSEQ MAX_TRAN START BATCH_SIZE)],@args );
+  my ( $model,$missmatch,$mask,$sam_dir,$bam_file,$percent_id,$coverage,$fullseq,$max_tran,$start,$start_exon, $offset, $batch_size ) =
+    rearrange( [qw(MODEL MISSMATCH MASK SAM_DIR BAM_FILE  PERCENT_ID COVERAGE FULLSEQ MAX_TRAN START STARTEXON OFFSET BATCH_SIZE)],@args );
   $self->model($model);
   $self->MASK($mask);
   $self->MISSMATCH($missmatch);
@@ -71,6 +71,8 @@ sub new {
   $self->FULLSEQ($fullseq);
   $self->MAX_TRANSCRIPT($max_tran);
   $self->start($start);
+  $self->start_exon($start_exon);
+  $self->offset($offset);
   $self->BATCH_SIZE($batch_size);
   return $self;
 }
@@ -115,17 +117,42 @@ sub run  {
   $self->write_seq_file($seqio,$genomic_seq);
   # get the reads
   my @reads;
-  my $bam = Bio::DB::Sam->new(   -bam => $self->BAM_FILE,
-				 -autoindex => 1,
-                             );
-  $self->throw("Bam file " . $self->BAM_FILE . "  not found \n") unless $bam; 
+  my $sam = Bio::DB::Sam->new(   -bam => $self->BAM_FILE,
+				 -autoindex => 1,);
+  
+  $self->throw("Bam file " . $self->BAM_FILE . "  not found \n") unless $sam; 
   my $count = 0;
   my $batch = 0;
+  my $exon = 0;
+  my @exons = sort { $a->start <=> $b->start } @{$rough->get_all_Exons};
+  my @iids;
 
- EXON: foreach my $exon ( @{$rough->get_all_Exons} ) {
-    my $segment = $bam->segment($rough->seq_region_name,$exon->start,$exon->end);
+ EXON: for ( my $i = $self->start_exon ; $i <= $#exons ; $i++ ){
+    my $exon = $exons[$i];
+    my $exon_start = $exon->start;
+    my $offset = 0 ;
+    my $last_start = 0;
+    $exon_start = $self->start if $self->start && $self->start_exon == $i;
+    #print "Exon $i " . $rough->seq_region_name . " " . $exon->start . " $exon_start " . $exon->end ."\n";
+    my $segment = $sam->segment($rough->seq_region_name,$exon_start,$exon->end);
     my $iterator = $segment->features(-iterator=>1);
+    my $read_count = 0;
+    # ignore the 1st offset reads 
   READ:  while (my $read = $iterator->next_seq) {
+      # get rid of any reads that might start before our start point
+      next if  $i == $self->start_exon && $read->start < $exon_start;
+      $read_count++;
+      # get rid of any reads overlapping out start point
+      if ( $i ==  $self->start_exon && $self->offset ) {
+	next if $read_count <= $self->offset;
+      }
+      # calculate the offset 
+      if ( $read->start == $last_start ) {
+	$offset++;
+      } else {
+	$offset = 0;
+      }
+      $last_start = $read->start;
       # dont want reads that align perfectly as they won't splice
       my $num_missmatches = $read->get_tag_values('NM') ;	
       my $rg = "*";
@@ -134,8 +161,8 @@ sub run  {
       }
       next READ  unless $num_missmatches >= $self->MISSMATCH;
       $batch++;
-      next unless $batch > $batch_size * $self->start ;
       $count++;
+
       if (  $count <= $batch_size ) {
 	my $suffix ="";
 	# is it the 1st or 2nd read?
@@ -156,24 +183,24 @@ sub run  {
       # want to store the read sequence for making it into a SAM file later
       $self->seq_hash($name,$bioseq);
       } else {
+	# if running a batch finish here
 	last EXON if $self->start;
+	if ($batch_size+1 == $batch ) {
+	  $batch = 1;
+	  my $string = $rough->stable_id .":$i:" . $read->start .":$offset";
+	  push @iids, $string;
+	}
+	# otherwise figure out the ids for the rest of the batches
       }
-      ###      print "BATCH $batch $count\n";
     }
-    #print "\n" . $exon->start . " " , $exon->end . " = $count reads \n";
+    
   }
   if (  scalar(@reads) == 0 ) {
     $self->delete_files();
     return 0;
   }
-  if ( $batch > $batch_size && !$self->start ) {
-    my $num = int($batch / $batch_size);
-    print "Making $num New input ids from $batch reads\n";
-    my @iids;
-    for ( my $i = 1 ; $i <= $num ; $i++ ) {
-      push @iids, $rough->stable_id .":$i";
-      print $rough->stable_id .":$i\n";
-    }
+  if ( scalar(@iids) > 0  && !$self->start ) {
+    print "Making " . scalar(@iids) . " New input ids from $count reads\n";
     $self->iids(\@iids);
   }
   $self->write_seq_file(\@reads,$query_seq);
@@ -203,6 +230,7 @@ sub process_features {
   $self->{'output'} = [];
   $self->output(\@new_features);
 }
+
 
 
 ###########################################################
@@ -377,6 +405,34 @@ sub start {
     return $self->{'_start'};
   } else {
     return undef;
+  }
+}
+
+sub start_exon {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_start_exon'} = $value;
+  }
+  
+  if (exists($self->{'_start_exon'})) {
+    return $self->{'_start_exon'};
+  } else {
+    return 0;
+  }
+}
+
+sub offset {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_offset'} = $value;
+  }
+  
+  if (exists($self->{'_offset'})) {
+    return $self->{'_offset'};
+  } else {
+    return 0;
   }
 }
 
