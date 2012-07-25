@@ -106,7 +106,8 @@ use vars qw( %GeneBuilder );
                                 'transcribed_unprocessed_pseudogene',
                                 'unitary_pseudogene',
                                 'unprocessed_pseudogene',
-                                'distrupted_domain'
+                                'distrupted_domain',
+                                'IG_pseudogene'
                                ],
 
 
@@ -141,7 +142,6 @@ use vars qw( %GeneBuilder );
                                    'retained_intron',
                                    'sense_intronic',
                                    'sense_overlapping',
-                                   'IG_pseudogene'
     ],
 
 
