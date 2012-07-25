@@ -78,8 +78,8 @@ use vars qw( %GeneBuilder );
   # coding and non-coding transcripts, whereas a "nonsense_mediated_decay"
   # transcript often has translation in the DB.
   #
-  # Note: Ig-related gene/transcript types are not included in any hashes
-  #       because they'll be dealt with separately after HavanaAdder is run.
+  # Remember to add the IG genes from both sources. The code should
+  # handle these genes correctly.
 
   ENSEMBL_INPUT_CODING_TYPE => ['protein_coding'],
 
@@ -87,7 +87,8 @@ use vars qw( %GeneBuilder );
                                 'polymorphic_pseudogene',
                                 'nonsense_mediated_decay',
                                 'polymorphic',
-                                'non_stop_decay'
+                                'non_stop_decay',
+                                'IG_gene'
                               ],
 
   # (II) ALL PSEUDOGENE-RELATED GENE AND TRANSCRIPT BIOTYPES
@@ -95,8 +96,6 @@ use vars qw( %GeneBuilder );
   # This category covers genes and transcripts which are pseudogenic.
   # As a rule-of-thumb, any biotype containing the string "pseudogene" or
   # "retrotransposed" falls into this category.
-  # Ig pseudogenes are excluded here, just like how we exclude Ig genes/
-  # transcripts in coding category (I).
 
   ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'retrotransposed' ],
 
@@ -106,7 +105,8 @@ use vars qw( %GeneBuilder );
                                 'transcribed_processed_pseudogene',
                                 'transcribed_unprocessed_pseudogene',
                                 'unitary_pseudogene',
-                                'unprocessed_pseudogene'
+                                'unprocessed_pseudogene',
+                                'distrupted_domain'
                                ],
 
 
@@ -140,7 +140,8 @@ use vars qw( %GeneBuilder );
                                    'non_coding',
                                    'retained_intron',
                                    'sense_intronic',
-                                   'sense_overlapping'
+                                   'sense_overlapping',
+                                   'IG_pseudogene'
     ],
 
 
