@@ -1,148 +1,184 @@
 package setup_rnaseq_pipeline_config;
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
-# $Revision: 1.6 $
-
+# $Revision: 1.7 $
 
 use strict;
 use vars qw(%Config);
 
-
 %Config = (
-	   RNASEQCONFIG => {
-		   	# delimited text file containing the summary data describing the RNASeq reads and tissues - assumes the first line is column headers
-                      	SUMMARY => "/path/to/my/tab/delimited/config/file",
-			# indexed genome file - (no ensembl style sequence headers)
-			GENOME => "/path/to/my/indexed/geneome/fasta/file",
-		      	# use this option to change the delimiter for your text file
-			DELIMITER =>"\t", 
-			# Hash key of your reference db from Databases.pm
-			DB => "REFERENCE_DB",    
-			# Hash key of the database used to store the rough models
-			ROUGHDB => "ROUGH_DB",
-			# Hash key of the database used to store the refined models
-			REFINEDDB => "REFINED_DB",
-			# Hash key of the database used to store the refined models with blast hits
-			BLASTDB => "UNIPROT_DB",
-			
-			# Path to the directory containing your Bio::Ensembl::Analysis::Config 
-			ANALYSISCONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Analysis/Config",
-			# Path to the directory containing your Bio::Ensembl::Pipeline::Config 
-			PIPELINECONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Pipeline/Config",
-			# path to base directory holding your fastq files
-			INPUT_DIR => "/path/to/my/fastq",
-			# path to base directory to write out your results	
-			OUTPUT_DIR => "/path/to/my/output/dir",
-			# path to base directory to merge the bam files - defaults to OUTPUT_DIR
-			# but you can specify a different dir if disk space is an issue	   
-			MERGE_DIR => "/path/to/my/merge/dir",
-			# blast database for comparing the final models too
-			UNIPROTDB => '/path/to/my/UniprotDB',
-			# index for the blast database
-			UNIPROTINDEX => '/path/to/my/Uniprot/index',
-    			# read length
-			READ_LENGTH => 0,
-			# This is used by bwa2bam, setting it to 1 will cause it to assume all the reads are paired
-			# setting it to 0 means it will treat all the reads as unpaired and so make long rough models
-			# if you have sufficient paired reads running in paired mode is preferred as it makes for 
-			# more sensible length rough models. Note that the PAIRED column value needs setting independantly
-      # of this parameter
-			ALL_PAIRED => 1,
-			# If your reads are unpaired you may want to run on slices to avoid making overlong rough models
-			# if you want to do this specify a slice length here otherwise it will default to whole chromosomes
-			SLICE_LENGTH => 10000000,
-			# regexp to allow fastq files to be correctly paired bie:
-			# file_1.fastq and file_2.fastq could be paired using regexp (\S+)_r(\d)\.(\S+)
-			# need to identify all 3 parts in brackets, the name the read number ( 1,2,a,b etc) and the extension
-			PAIRING_REGEX => '(\S+)_r(\d)\.(\S+)', 
-			# Do you want to make models for the each individual sample as well as for the pooled samples (1/0)?
-			SINGLE_TISSUE => 0,
-			
-			# samtools path
-			SAMTOOLS => "/path/to/samtools",
-			
-			
-			# Please assign some / all columns from the summary file to the some / all of the 
-			# following categories multiple values can be separted with commas - only ID,SM and FILE are required
-			# if you have paired reads you must include the paired category or BWA will not be able to pair the 
-			# reads correctly
-			
-			##################################################################################################
-			# this is just an example based on the file snippet shown below it will vary depending on how your 
-			# data looks 
-			##################################################################################################
-			
-			# Unique read group identifier ( needs to be unique used as the logic name for the analysis) *required
-			ID => "1",
-			# Sample - (use pool name where a pool is being sequenced) *required
-			SM => "3",
-			# Library
-			LB => "2",
-			# Description
-			DS => "4,5,6,7,8",
-			# Platform unit (e.g. lane for Illumina or slide for SOLiD); should be a full, unambiguous identifier
-			PU  => "",
-			# Name of sequencing center producing the read.
-			CN  => "9",
-			# Date the run was produced (ISO 8601 date or date/time).
-			ST   => "",
-			# Platform/technology used to produce the read
-			PL   => "",
-			# Path from INPUT_DIR to the filename of the RNAseq fastq file, comma separated values will be replaced with '/'
-			FILE   => "16",
-			# global read length can be overridden if it is different for different lanes
-			LENGTH => "",
-			# the read pairing, 1 for paired, 0 for unpaired (independent of ALL_PAIRED parameter above) *required for bwa to pair reads correctly
-			PAIRED => "11",			
-		}
-	  );
-# the example of allocating columns to tags above is based on this file:
-# Sample name	title	source name	organism	characteristics: gender	characteristics: age	characteristics: extraction	characteristics: RIN	characteristics: tissue source	molecule	description	processed data file 	processed data file build	processed data file type	processed file MD5 checksum	raw file	raw file type	raw file MD5 checksum
-# Dunja_br	ppy br F 1	Brain, prefrontal cortex	Orangutan	Female	56 years	RNeasy	8.8	Zoo Leipzig, Germany	polyA RNA	0	0	0	0	0	Dunja_br.txt	fastq	e66f82bcb853f8961e5483500d688ee2
+  RNASEQCONFIG => {
+    # Delimited text file containing the summary data describing the
+    # RNASeq reads and tissues - assumes the first line is column headers.
+    SUMMARY => "/path/to/my/tab/delimited/config/file",
+
+    # Indexed genome file - no Ensembl-style sequence headers.
+    GENOME => "/path/to/my/indexed/geneome/fasta/file",
+
+    # Use this option to change the delimiter for your summary data file.
+    DELIMITER => "\t",
+
+    # Hash key of your reference database from Databases.pm.
+    DB => "REFERENCE_DB",
+
+    # Hash key of the database used to store the rough models.
+    ROUGHDB => "ROUGH_DB",
+
+    # Hash key of the database used to store the refined models.
+    REFINEDDB => "REFINED_DB",
+
+    # Hash key of the database used to store the refined models with blast hits.
+    BLASTDB => "BLAST_DB",
+
+    # Path to the directory containing your Bio::Ensembl::Analysis::Config.
+    ANALYSISCONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Analysis/Config",
+
+    # Path to the directory containing your Bio::Ensembl::Pipeline::Config.
+    PIPELINECONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Pipeline/Config",
+
+    # Path to base directory holding your FastQ files.
+    INPUT_DIR => "/path/to/my/fastq",
+
+    # Path to base directory to write out your results.
+    OUTPUT_DIR => "/path/to/my/output/dir",
+
+    # Path to base directory to merge the BAM files - defaults to
+    # OUTPUT_DIR but you can specify a different dir if disk space is an
+    # issue.
+    MERGE_DIR => "/path/to/my/merge/dir",
+
+    # Blast database for comparing the final models to.
+    UNIPROTDB => '/path/to/my/UniprotDB',
+
+    # Index for the blast database.
+    UNIPROTINDEX => '/path/to/my/Uniprot/index',
+
+    # Read length.
+    READ_LENGTH => 0,
+
+    # This is used by bwa2bam.  Setting it to 1 will cause it to assume
+    # all the reads are paired.  Setting it to 0 means it will treat all
+    # the reads as unpaired and so make long rough models.  If you have
+    # sufficient paired reads running in paired mode is preferred as it
+    # makes for more sensible length rough models.  Note that the PAIRED
+    # column value needs setting independantly of this parameter.
+    ALL_PAIRED => 1,
+
+    # If your reads are unpaired you may want to run on slices to avoid
+    # making overlong rough models.  If you want to do this, specify a
+    # slice length here otherwise it will default to whole chromosomes.
+    SLICE_LENGTH => 10000000,
+
+    # Regular expression to allow FastQ files to be correctly paired,
+    # for example: file_1.fastq and file_2.fastq could be paired using
+    # the expression "(\S+)_r(\d)\.(\S+)".  Need to identify all 3 parts
+    # in brackets; the name the read number (1, 2, a, b etc.) and the
+    # extension.
+    PAIRING_REGEX => '(\S+)_r(\d)\.(\S+)',
+
+    # Do you want to make models for the each individual sample as well
+    # as for the pooled samples (1/0)?
+    SINGLE_TISSUE => 0,
+
+    # Samtools path.
+    SAMTOOLS => "/path/to/samtools",
+
+    # Please assign some or all columns from the summary file to the
+    # some or all of the following categories.  Multiple values can be
+    # separted with commas. only ID, SM and FILE are required.  If you
+    # have paired reads you must include the PAIRED category or BWA will
+    # not be able to pair the reads correctly.
+
+    ####################################################################
+    # This is just an example based on the file snippet shown below.  It
+    # will vary depending on how your data looks.
+    ####################################################################
+
+    # Unique read group identifier (needs to be unique used as the logic
+    # name for the analysis).  *required
+    ID => "1",
+
+    # Sample (use pool name where a pool is being sequenced).  *required
+    SM => "3",
+
+    # Library.
+    LB => "2",
+
+    # Description.
+    DS => "4,5,6,7,8",
+
+    # Platform unit (e.g. lane for Illumina or slide for SOLiD); should
+    # be a full, unambiguous identifier.
+    PU => "",
+
+    # Name of sequencing center producing the read.
+    CN => "9",
+
+    # Date the run was produced (ISO 8601 date or date/time).
+    ST => "",
+
+    # Platform/technology used to produce the read.
+    PL => "",
+
+    # Path from INPUT_DIR to the filename of the RNAseq FastQ file,
+    # comma separated values will be replaced with '/'.
+    FILE => "16",
+
+    # Global read length can be overridden if it is different for
+    # different lanes.
+    LENGTH => "",
+
+    # The read pairing, 1 for paired, 0 for unpaired (independent
+    # of ALL_PAIRED parameter above) *required for BWA to pair reads
+    # correctly.
+    PAIRED => "1",
+
+  } );
+
+# The example of allocating columns to tags above is based on this file:
+# Sample name   title   source name organism    characteristics: gender characteristics: age    characteristics: extraction characteristics: RIN    characteristics: tissue source  molecule    description processed data file     processed data file build   processed data file type    processed file MD5 checksum raw file    raw file type   raw file MD5 checksum
+# Dunja_br  ppy br F 1  Brain, prefrontal cortex    Orangutan   Female  56 years    RNeasy  8.8 Zoo Leipzig, Germany    polyA RNA   0   0   0   0   0   Dunja_br.txt    fastq   e66f82bcb853f8961e5483500d688ee2
 
 # which gives this output:
 
 # Sample data:
-# ID - Dunja_br 
-# CN - Zoo Leipzig, Germany 
+# ID - Dunja_br
+# CN - Zoo Leipzig, Germany
 # FILE - Dunja_br.txt
-# LB - Brain, prefrontal cortex 
+# LB - Brain, prefrontal cortex
 # PAIRED - 0
 # LENGTH - 0
-# SM - ppy br F 1 
-# DS - Orangutan Female 56 years RNeasy 8.8 
+# SM - ppy br F 1
+# DS - Orangutan Female 56 years RNeasy 8.8
 # Continue?(y/n)y
 
 # 0's will be ignored for LENGTH and PAIRED
 
-
-
 sub import {
-  my ($callpack) = caller(0); # Name of the calling package
-  my $pack = shift; # Need to move package off @_
+  my ($callpack) = caller(0);    # Name of the calling package
+  my $pack = shift;              # Need to move package off @_
 
-    # Get list of variables supplied, or else all
+  # Get list of variables supplied, or else all
   my @vars = @_ ? @_ : keys(%Config);
   return unless @vars;
 
-    # Predeclare global variables in calling package
-  eval "package $callpack; use vars qw("
-       . join(' ', map { '$'.$_ } @vars) . ")";
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw(" .
+    join( ' ', map { '$' . $_ } @vars ) . ")";
   die $@ if $@;
 
-
-    foreach (@vars) {
-    if (defined $Config{ $_ }) {
-              no strict 'refs';
-        # Exporter does a similar job to the following
-        # statement, but for function names, not
-        # scalar variables:
-        *{"${callpack}::$_"} = \$Config{ $_ };
-    } else {
-        die "Error: Config: $_ not known\n";
+  foreach (@vars) {
+    if ( defined $Config{$_} ) {
+      no strict 'refs';
+      # Exporter does a similar job to the following
+      # statement, but for function names, not
+      # scalar variables:
+      *{"${callpack}::$_"} = \$Config{$_};
+    }
+    else {
+      die "Error: Config: $_ not known\n";
     }
   }
-}
+} ## end sub import
 
 1;
-
