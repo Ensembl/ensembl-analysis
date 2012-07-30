@@ -39,7 +39,7 @@ analysis table parameters column. If you like to submit options to
 the blastp / blastall program, use the parameters-colum in the analysis-table. 
 Format of options submitted should be :
  
-    -hitdist => 40 , -score => 20 , -cpu => 40 
+    -hitdist => 40 -score => 20 -cpu => 40 
 
 
 If you are intending to use NCBI blast / blastall, the program to use is choosen by the 
