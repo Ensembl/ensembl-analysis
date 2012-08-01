@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.14 $
+# $Revision: 1.15 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -26,7 +26,12 @@ my $output_dir = $RNASEQCONFIG->{OUTPUT_DIR};
 my $all_paired = $RNASEQCONFIG->{ALL_PAIRED};
 my $regex = $RNASEQCONFIG->{PAIRING_REGEX};
 my $merge_dir = $RNASEQCONFIG->{MERGE_DIR};
-$merge_dir = $RNASEQCONFIG->{OUTPUT_DIR} unless $merge_dir;
+
+if ( !defined($merge_dir) ) {
+  $merge_dir = $RNASEQCONFIG->{OUTPUT_DIR};
+  $RNASEQCONFIG->{MERGE_DIR} = $merge_dir;
+}
+
 my $stage = "Initialization";
 my $bwa_analysis_written = 0;
 my $slice_batches = 1;
