@@ -1774,6 +1774,16 @@ sub bam_2_intron_features {
   }
   my $iterator = $segment->features(-iterator=>1);
  READ:  while (my $read = $iterator->next_seq) {
+    # ignore unspliced reads if the bam file is a mixture of spliced and 
+    # unspliced reads
+    if ( $self->MIXED_BAM ) {
+      my $spliced = $read->get_tag_values('XS');
+      #print ".";
+      next READ unless $spliced;
+      #print "SPLICED " . $read->cigar_str ."\n";
+    }
+    # filter by read group if needed
+    
     # need to recreate the ungapped features code as the
     # auto splitting code does not seem to work with > 2 features
     if ( $self->GROUPNAME  && scalar(@{$self->GROUPNAME} > 0 )) {
@@ -2426,6 +2436,21 @@ sub MODEL_DB {
     return undef;
   }
 }
+
+sub MIXED_BAM {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_MIXED_BAM'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_MIXED_BAM'})) {
+    return $self->{'_CONFIG_MIXED_BAM'};
+  } else {
+    return undef;
+  }
+}
+
 
 
 sub LOGICNAME {
