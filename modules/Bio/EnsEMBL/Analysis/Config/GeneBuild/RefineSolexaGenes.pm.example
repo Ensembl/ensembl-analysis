@@ -29,6 +29,9 @@ use vars qw( %Config );
 			# Using bam file to fetch intron features overrides the INTRON_DB
                 	INTRON_BAM_FILE => '/path/to/my/sorted/indexed/bam_file.bam',
 
+                        # does the bam file contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
+                        MIXED_BAM => 1,
+
 			# write the intron features into the OUTPUT_DB along with the models
 			WRITE_INTRONS => 1,
 			
