@@ -349,6 +349,9 @@ sub exon_cluster {
     if ( $regex && $name =~ /(\S+)($regex)$/ ) {
        $name = $1;
     }
+    # ignore spliced reads
+    my $spliced = $seq->get_tag_values('XS');
+    next READ if $spliced;
     # make exon clusters and store the names of the reads and associated cluster number
     my $clustered = 0;
     for (my $index = @exon_clusters; $index > 0; $index--) {
