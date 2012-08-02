@@ -1,7 +1,7 @@
 setup_rnaseq_pipeline.pl
 ------------------------
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
-$Revision: 1.14 $
+$Revision: 1.15 $
 
 This document describes how to automate setting up of a BWA
 alignment and processing pipeline using a configuration file,
@@ -18,7 +18,7 @@ entered into the Bio/EnsEMBL/Analysis/Config/Databases.pm config:
 
 REFERENCE_DB    - a pipeline database either with DNA sequence in it or
                   else you need to define DNADB in Databases.pm to point
-                  at a suitable database that doe contain DNA.
+                  at a suitable database that does contain DNA.
 ROUGH_DB        - a database to store the rough models.
 REFINED_DB      - a database to store the refined models.
 BLAST_DB        - a database to store the  blast filtered models
