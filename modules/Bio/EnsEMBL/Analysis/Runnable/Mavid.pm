@@ -50,7 +50,7 @@ use warnings;
 
 use Bio::EnsEMBL::Utils::Exception;
 use Bio::EnsEMBL::Utils::Argument;
-use Bio::EnsEMBL::Compara::DBSQL::ProteinTreeAdaptor;
+use Bio::EnsEMBL::Compara::Graph::NewickParser;
 use Bio::EnsEMBL::Compara::GenomicAlign;
 use Bio::EnsEMBL::Compara::GenomicAlignBlock;
 
@@ -293,7 +293,7 @@ sub binary_tree_file {
     }
   }
   close F;
-  my $tree = Bio::EnsEMBL::Compara::DBSQL::ProteinTreeAdaptor->parse_newick_into_tree($newick);
+  my $tree = Bio::EnsEMBL::Compara::Graph::NewickParser::parse_newick_into_tree($newick);
   $self->binary_tree($tree);
   my $binary_tree_file = $tree_file . ".bin";
   open F, ">$binary_tree_file";
