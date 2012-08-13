@@ -49,6 +49,8 @@ package Bio::EnsEMBL::Analysis::Runnable::RepeatMasker;
 use strict;
 use warnings;
 
+use Bio::PrimarySeq;
+
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -73,6 +75,20 @@ sub new {
   ######################
 
   return $self;
+}
+
+#
+# Override run method, because we want to change
+# the fasta header of query sequence to have a 
+# compact name
+#
+
+sub write_seq_file {
+  my ($self) = @_;
+
+  my $newseq = Bio::PrimarySeq->new(-id => 'QUERY_SEQ',
+                                    -seq => $self->query->seq);
+  $self->SUPER::write_seq_file($newseq);
 }
 
 =head2 run_analysis
