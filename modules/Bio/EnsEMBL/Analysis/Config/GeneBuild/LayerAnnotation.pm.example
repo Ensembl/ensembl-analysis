@@ -43,6 +43,12 @@ use vars qw( %Config );
                # higher layers. Genes in "Discard" layers are when assessing
                # interference, but are not written to the final database
      
+               # Filtering is using done at the exon-overlap level
+               # When no FILTER exists in this file, this is the default behaviour
+
+               # If you would like to filter in a different way, please specify filter
+               #FILTER => 'Bio::EnsEMBL::Analysis::Tools::GenomeOverlapFilter',
+ 
                LAYERS => [
                   { 
                     ID         => 'LAYER1',
