@@ -41,6 +41,8 @@ sub filter {
     for(my $i=0; $i < @$others && !$genomic_overlap; $i++) {
       my $o_obj = $others->[$i];
 
+      next if $o_obj->strand != $obj->strand;
+
       if ($o_obj->end < $obj->start) {
         next;
       } elsif ($o_obj->start > $obj->end) {
