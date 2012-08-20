@@ -131,7 +131,6 @@ sub parse_results {
 
     my $id;
     while (<CPGOUT>) {
-
       last if /^Internal pipeline statistics summary/;
 
       if(/^Query\:\s+(\S+)/) {
@@ -150,8 +149,8 @@ sub parse_results {
       #   1 !   82.8   6.0   1.1e-27   1.3e-23       1     138 [.      67     200 ..      67     201 .. 0.96
       #   2 !   75.8  10.1   1.6e-25   1.9e-21       1     138 [.     502     639 ..     502     640 .. 0.88
 
-	
-      if (/^\s*\d+\s+\!\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\.\.\s+\d+\s+\d+\s+\.\.\s+\S+/) {
+      
+      if (/^\s*\d+\s+\!\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S\S\s+\d+\s+\d+\s+\S\S\s+\S+/) {
 	$score    = $1;
 	$evalue   = $2;
 	$hstart   = $3;
