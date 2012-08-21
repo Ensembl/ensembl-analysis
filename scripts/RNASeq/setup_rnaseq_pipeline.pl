@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.18 $
+# $Revision: 1.19 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -954,7 +954,6 @@ print GSNAP tail();
 print BATCHQUEUE "     ]\n";
 print REFINE "     }\n";
 
-print BWA tail();
 print BATCHQUEUE tail();
 print REFINE tail();
 
