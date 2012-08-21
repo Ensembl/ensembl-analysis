@@ -129,10 +129,6 @@ sub write_output{
       }
     }
 
-    foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) {
-      $transcript->dbID(0);
-    }
-
     eval{
       $ga->store($gene);
     };
