@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.19 $
+# $Revision: 1.20 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -1382,7 +1382,7 @@ BAM2GENES_CONFIG_BY_LOGIC =>
           MAX_INTRON_LENGTH => 200000,
 
           # genes with a span < MIN_SPAN will also be considered single exon
-          IN_SINGLE_EXON_LENGTH => 1000,
+          MIN_SINGLE_EXON_LENGTH => 1000,
 
                   # "span" = genomic extent / cdna length
                   MIN_SPAN   =>   1.5,
