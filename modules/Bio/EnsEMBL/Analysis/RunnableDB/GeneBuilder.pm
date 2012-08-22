@@ -31,6 +31,9 @@ Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder -
 =head1 METHODS
 
 =cut
+
+# $ Source: $
+# $ Revision: $ 
 package Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder;
 
 use vars qw(@ISA);
@@ -127,6 +130,12 @@ sub write_output{
           last TRANSCRIPT;
         }
       }
+    }
+
+    foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) 
+    {
+      $transcript->load ;
+      $transcript->dbID(0);
     }
 
     eval{
