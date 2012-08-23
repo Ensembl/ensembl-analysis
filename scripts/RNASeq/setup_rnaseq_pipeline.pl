@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.20 $
+# $Revision: 1.21 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -1216,6 +1216,7 @@ use vars qw(%Config);
 
 
 %Config = (
+  BLASTDB => '/data/blastdb/Ensembl/Uniprot/', 
   BLAST_CONFIG => {
     DEFAULT => {
       BLAST_PARSER => "Bio::EnsEMBL::Analysis::Tools::BPliteWrapper",
