@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.21 $
+# $Revision: 1.22 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -27,7 +27,7 @@ my $all_paired = $RNASEQCONFIG->{ALL_PAIRED};
 my $regex = $RNASEQCONFIG->{PAIRING_REGEX};
 my $merge_dir = $RNASEQCONFIG->{MERGE_DIR};
 $merge_dir = $RNASEQCONFIG->{OUTPUT_DIR} unless $merge_dir;
-my $use_gnsap = $RNASEQCONFIG->{USE_GSNAP};
+my $use_gsnap = $RNASEQCONFIG->{USE_GSNAP};
 my $gsnap_path = $RNASEQCONFIG->{GSNAP_PATH};
 my $stage = "Initialization";
 my $bwa_analysis_written = 0;
@@ -74,7 +74,7 @@ if ($force_stage) {
   die($usage)
     unless ( $force_stage == 1 || $force_stage == 2 || $force_stage == 3 );
   $force_stage = 'bwa_complete'       if $force_stage == 1;
-  $force_stage = 'gsnap_complete'     if $force_stage == 1 && $use_gnsap;
+  $force_stage = 'gsnap_complete'     if $force_stage == 1 && $use_gsnap;
   $force_stage = 'bam2genes complete' if $force_stage == 2;
   $force_stage = 'configured'         if $force_stage == 3;
   print "Starting from stage $force_stage\n";
@@ -188,7 +188,7 @@ foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
 } ## end foreach my $analysis ( @{ $pipeline_analysis...
 
 unless ($update_analyses) {
-  unless ($use_gnsap) {
+  unless ($use_gsnap) {
     if (    ( $bwa2bam_count >= 1 && $bwa2bam_count == $submit_bwa2bam_count )
          or ( $force_stage eq "bwa_complete" ) )
     {
@@ -274,7 +274,7 @@ unless ($update_analyses) {
     {
       $stage = 'bam2genes complete';
       my $analysis;
-      unless ($use_gnsap) {
+      unless ($use_gsnap) {
         $analysis =
           $pipeline_analysis->fetch_by_logic_name("submit_bam2introns");
         unless ($analysis) {
@@ -293,7 +293,7 @@ unless ($update_analyses) {
       $sql = "select stable_id from gene";
       $sth = $rough_db->dbc->prepare($sql);
       $sth->execute();
-      unless ($use_gnsap) {
+      unless ($use_gsnap) {
         my @ids;
         while ( my @array = $sth->fetchrow_array ) {
           push @ids, $array[0];
@@ -364,7 +364,7 @@ unless ($update_analyses) {
 
     if (    ( $bam2introns_count > 0 )
          or ( $force_stage eq "configured" )
-         or ( $use_gnsap && $stage eq 'bam2genes complete' ) )
+         or ( $use_gsnap && $stage eq 'bam2genes complete' ) )
     {
       $stage = 'configured';
     }
@@ -488,7 +488,7 @@ foreach my $row (@rows) {
     # need to pair up the ids using the regexp
     if ( $row->{FILE} =~ /$regex/ ) {
       $pairs{ $1 . "-" . $3 }->{$2} = $row->{FILE};
-      unless ($use_gnsap) {
+      unless ($use_gsnap) {
         $pairs{ $1 . "-" . $3 }->{ANALYSIS} = $submit_bwa2bam;
       } else {
         $pairs{ $1 . "-" . $3 }->{ANALYSIS} = $submit_gsnap;
@@ -556,7 +556,7 @@ foreach my $row (@rows) {
   $refine_rule->add_condition("submit_chromosome");
   $refine_rule->add_condition("sam2bam_wait");
   # store the analyses
-  unless ($use_gnsap) {
+  unless ($use_gsnap) {
     $pipeline_analysis->store($submit_bwa);
     $pipeline_analysis->store($bwa_wait);
     $pipeline_analysis->store($submit_bwa2bam);
@@ -682,7 +682,7 @@ $sam2bam_wait_rule->add_condition("sam2bam");
 my $refine_all_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $refine_all );
 $refine_all_rule->add_condition("submit_chromosome");
-unless ($use_gnsap) {
+unless ($use_gsnap) {
   $refine_all_rule->add_condition("sam2bam_wait");
 } else {
   $refine_all_rule->add_condition("bam2genes");
@@ -700,7 +700,7 @@ print "Stage $stage\n";
 $pipeline_analysis->store($submit_chromosome);
 $pipeline_analysis->store($bam2genes) if $stage eq 'bwa_complete' or  $stage eq 'gsnap_complete';
 
-unless ($use_gnsap) {
+unless ($use_gsnap) {
   $pipeline_analysis->store($submit_bam2introns);
   $pipeline_analysis->store($bam2introns)       if $stage eq 'bam2genes complete';
   $pipeline_analysis->store($bam2introns_wait)  if $stage eq 'bam2genes complete';
@@ -715,21 +715,21 @@ $pipeline_analysis->store($rnaseq_blast) if $stage eq 'configured';
 if ( $stage eq 'bwa_complete' or $stage eq 'gsnap_complete' ) {
   $ra->store($bam2genes_rule) if check_rule($bam2genes_rule);
 }
-unless ($use_gnsap) {
+unless ($use_gsnap) {
   if ( $stage eq 'bam2genes complete' ) {
     $ra->store($bam2introns_rule)      if check_rule($bam2introns_rule);
     $ra->store($bam2introns_wait_rule) if check_rule($bam2introns_wait_rule);
   }
 }
 if ( $stage eq 'configured' ) {
-  unless ($use_gnsap) {
+  unless ($use_gsnap) {
     $ra->store($sam2bam_rule)      if check_rule($sam2bam_rule);
     $ra->store($sam2bam_wait_rule) if check_rule($sam2bam_wait_rule);
   }
   $ra->store($refine_all_rule)  if check_rule($refine_all_rule);
   $ra->store($rnaseqblast_rule) if check_rule($rnaseqblast_rule);
 }
-unless ($use_gnsap) {
+unless ($use_gsnap) {
   # need to add a dummy input id for submit_sam2bam
   if ( $stage eq 'configured' or $stage eq 'bam2genes complete' ) {
     $sic->store_input_id_analysis( 'dummy', $submit_sam2bam, "dummy" )
@@ -760,7 +760,7 @@ foreach my $row (@rows) {
 } ## end foreach my $row (@rows)
 
 if ($stage eq "Initialization" || $check) {
-  unless ( $use_gnsap ) {
+  unless ( $use_gsnap ) {
     print STDERR "Have these config files to modify:
 $analysisconfigdir/GeneBuild/BWA.pm
 $analysisconfigdir/GeneBuild/Bam2Genes.pm
@@ -827,7 +827,7 @@ open( BLAST, ">$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm" )
   or die( "Cannot open " . $analysisconfigdir . "/GeneBuild/BlastRNASeqPep.pm  for writing\n" );
 open( BLAST2, ">$analysisconfigdir/Blast.pm" )
   or die( "Cannot open " . $analysisconfigdir . "/Blast.pm  for writing\n" );
-unless ($use_gnsap) {
+unless ($use_gsnap) {
   open( BWA, ">$analysisconfigdir/GeneBuild/BWA.pm" )
     or die( "Cannot open " . $analysisconfigdir . "/GeneBuild/BWA.pm  for writing\n" );
   open( BAM2INTRONS, ">$analysisconfigdir/GeneBuild/Bam2Introns.pm" )
@@ -841,7 +841,7 @@ unless ($use_gnsap) {
 
 # write headers
 my $string;
-unless ( $use_gnsap ) {
+unless ( $use_gsnap ) {
   $string =  bwa_header();
   print BWA $string;
   $string =  BAM2INTRONS_header();
@@ -876,7 +876,7 @@ foreach my $row ( @rows ) {
   my $length = $RNASEQCONFIG->{READ_LENGTH};
   $length = $row->{LENGTH} if $row->{LENGTH};
   next if $seen{$row->{ID}};
-  unless ( $use_gnsap ) {
+  unless ( $use_gsnap ) {
     # bwa
     print BWA "           'bwa_" . $row->{ID} ."' => {
                         INDIR   => \"". $input_dir  ."\",
@@ -899,10 +899,40 @@ foreach my $row ( @rows ) {
     print GSNAP "                        PAIRED => 1,\n" if $row->{PAIRED};
     print GSNAP "                 },\n";
   }
-  # refine
+  # make the single tissue config for refine
+  my $str;
+  unless ( $use_gsnap ) {
+$str .= '  			INTRON_BAM_FILES => [
+				{
+		    		# location of the bam file
+				FILE => "'.$RNASEQCONFIG->{MERGE_DIR}.'/introns.bam",
+				# does the bam file(s) contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
+				MIXED_BAM => "0",
+				# only take introns above this depth
+				DEPTH => "0",
+				# return only reads from the specified read groups
+	               		GROUPNAME => ["' . $row->{ID} . '"],
+				},
+			],
+';
+} else {
+$str .= '  			INTRON_BAM_FILES => [
+				{
+		    		# location of the bam file
+				FILE => "'.$RNASEQCONFIG->{MERGE_DIR}.'/merged.bam",
+				# does the bam file(s) contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
+				MIXED_BAM => "1",
+				# only take introns above this depth
+				DEPTH => "0",
+				# return only reads from the specified read groups
+	               		GROUPNAME => ["' . $row->{ID} . '"],
+				},
+			], 
+';}
   print REFINE "             'refine_" . $row->{ID} ."' => {
-                        GROUPNAME => ['".$row->{ID}."'],
-                SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE};
+$str
+			SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE};  
+
   # batchqueue
   print BATCHQUEUE "       {
              logic_name => 'bwa_" . $row->{ID} ."',
@@ -944,7 +974,7 @@ foreach my $row ( @rows ) {
 
   $seen{$row->{ID}} = 1;
 }
-unless ( $use_gnsap ) {
+unless ( $use_gsnap ) {
 print BWA "     }\n";
 print BWA tail();
 } else {
@@ -1216,7 +1246,7 @@ use vars qw(%Config);
 
 
 %Config = (
-  BLASTDB => '/data/blastdb/Ensembl/Uniprot/', 
+  BLASTDB => "/data/blastdb/Ensembl/Uniprot/", 
   BLAST_CONFIG => {
     DEFAULT => {
       BLAST_PARSER => "Bio::EnsEMBL::Analysis::Tools::BPliteWrapper",
@@ -1619,15 +1649,34 @@ use vars qw( %Config );
 
             # Using bam file to fetch intron features overrides the INTRON_DB\n
 ';
-  unless ( $use_gnsap ) {
-$str .= '             INTRON_BAM_FILE => "'.$RNASEQCONFIG->{MERGE_DIR}.'/introns.bam",
-                        # does the bam file contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
-                        MIXED_BAM => ,
+
+  unless ( $use_gsnap ) {
+$str .= '  	    INTRON_BAM_FILES => [
+			{
+		    	# location of the bam file
+			FILE => "'.$RNASEQCONFIG->{MERGE_DIR}.'/introns.bam",
+			# does the bam file(s) contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
+			MIXED_BAM => "0",
+			# only take introns above this depth
+			DEPTH => "0",
+			# return only reads from the specified read groups
+	               	GROUPNAME => [],
+			},
+		],
 ';
 } else {
-$str .= '             INTRON_BAM_FILE => "'.$RNASEQCONFIG->{MERGE_DIR}.'/merged.bam",
-                        # does the bam file contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
-                        MIXED_BAM => 1,
+$str .= '  	    INTRON_BAM_FILES => [
+			{
+		    	# location of the bam file
+			FILE => "'.$RNASEQCONFIG->{MERGE_DIR}.'/merged.bam",
+			# does the bam file(s) contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
+			MIXED_BAM => "1",
+			# only take introns above this depth
+			DEPTH => "0",
+			# return only reads from the specified read groups
+	               	GROUPNAME => [],
+			},
+		  ], 
 ';
 }
 
@@ -1640,9 +1689,6 @@ $str .= '            # write the intron features into the OUTPUT_DB along with t
             # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
             # If left blank all features will be fetched
             LOGICNAME => [],
-
-            # if using bam files this will return only reads from the specified read groups
-                    GROUPNAME => [],
 
             # logic name of the gene models to fetch
             MODEL_LN  => "",
