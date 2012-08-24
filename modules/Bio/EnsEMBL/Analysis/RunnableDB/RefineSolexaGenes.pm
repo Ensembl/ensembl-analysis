@@ -980,6 +980,13 @@ sub make_models {
       $new_exons[0]->start($new_exons[0]->start + 20) ;
       $new_exons[-1]->end ($new_exons[-1]->end  - 20) ;
 
+      # get rid of impossibly small exons
+      foreach my $e ( @new_exons){
+	if ( $e->end - $e->start <= 0 ) {
+	  next MODEL;
+	}
+      }
+      
       # trim away strings of Ns from the 1st and last exons
       # use same regex for 1st and last exon and reverse the
       # sequence accordingly depending on the strand
@@ -994,7 +1001,7 @@ sub make_models {
 	$new_exons[-1]->end($new_exons[-1]->end - length($1));
       }
      
-
+      # get rid of impossibly small exons again after the N trimming
       foreach my $e ( @new_exons){
 	if ( $e->end - $e->start <= 0 ) {
 	  next MODEL;
