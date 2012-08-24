@@ -25,12 +25,22 @@ use vars qw( %Config );
 			# intron db is not needed if you are using BAM files
 			INTRON_DB => '',
 			MODEL_DB  => '',
-			
-			# Using bam file to fetch intron features overrides the INTRON_DB
-                	INTRON_BAM_FILE => '/path/to/my/sorted/indexed/bam_file.bam',
 
-                        # does the bam file contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
-                        MIXED_BAM => 1,
+                        # Using bam files to fetch intron features overrides the INTRON_DB
+			# An array of BAM files each with associated config
+  	                INTRON_BAM_FILES => [
+			  {
+		    	  # location of the bam file
+			  FILE => "/path/to/introns/bamfile",
+			  # does the bam file(s) contain a mixture of spliced and unspliced reads such as you might get using Gsnap?
+			  MIXED_BAM => "0",
+			  # only take introns above this depth
+			  DEPTH => "0",
+			  # return only reads from the specified read groups
+	               	  GROUPNAME => [],
+			  },
+			  # additional bam files can be specified if needed
+		        ],
 
 			# write the intron features into the OUTPUT_DB along with the models
 			WRITE_INTRONS => 1,
@@ -41,9 +51,6 @@ use vars qw( %Config );
 			# analysis logic_name for the dna_align_features to fetch from the INTRON_DB
 			# If left blank all features will be fetched
 			LOGICNAME => [],
-
-			# if using bam files this will return only reads from the specified read groups
-	                GROUPNAME => [],	
 					
 			# logic name of the gene models to fetch
 			MODEL_LN  => '',
