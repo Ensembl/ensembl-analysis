@@ -140,24 +140,40 @@ sub fetch_input {
   foreach my $gene ( @genes ) {
     # put them on the chromosome
     $gene = $gene->transfer($chr_slice);
+    # reject genes that are from a different slice that overlap our slice at the start or end
+    # say the models has to be > 10% on the slice
+    my $os = $slice->start;
+    $os = $gene->start if $gene->start > $slice->start;
+    my $oe = $slice->end;
+    $oe = $gene->end if $gene->end < $slice->end;
+    my $overlap = $oe - $os +1;
+    my $gc = int(($overlap / $gene->length) * 1000) / 10;
+    my $sc =  int(($overlap / $slice->length) * 1000) /10;
+    print "Gene has $gc % overlap with the slice\nSlice has $sc % overlap with the gene\n";
+    if ( $gc <= 10 && $sc <= 10) {
+      print "Rejecting\n";
+      next;
+    } 
     push @prelim_genes,$gene ;
   }
+  print STDERR "Got " . scalar(@prelim_genes) . "  genes after filtering boundary overlaps  \n"; 
   # deterine strandedness ( including splitting merged genes )
   $self->prelim_genes(\@prelim_genes);
 
-  if ( $self->INTRON_BAM_FILE ) {
-
-    my $sam = Bio::DB::Sam->new(   -bam => $self->INTRON_BAM_FILE,
-				   -autoindex => 1,
-				   -expand_flags => 1,
-			       );
-    $self->throw("Bam file " . $self->INTRON_BAM_FILE . "  not found \n") unless $sam; 
-    my $count = 0;
-    my $segment = $sam->segment($slice->seq_region_name,$slice->start,$slice->end);
-    $self->throw("Bam file segment not found for slice " .  $slice->name . "\n")
-      unless $segment;
-    # need to seamlessly merge here with the dna2simplefeatures code
-    $self->bam_2_intron_features($segment);
+  if ( $self->INTRON_BAM_FILES ) {
+    foreach my $intron_files ( @{$self->INTRON_BAM_FILES} ) {
+      my $sam = Bio::DB::Sam->new(   -bam => $intron_files->{FILE},
+				     -autoindex => 1,
+				     -expand_flags => 1,
+				 );
+      $self->throw("Bam file " . $intron_files->{FILE} . "  not found \n") unless $sam; 
+      my $count = 0;
+      my $segment = $sam->segment($slice->seq_region_name,$slice->start,$slice->end);
+      $self->throw("Bam file segment not found for slice " .  $slice->name . "\n")
+	unless $segment;
+      # need to seamlessly merge here with the dna2simplefeatures code
+      $self->bam_2_intron_features($segment,$intron_files);
+    }
   } else {
     # pre fetch all the intron features
     $self->dna_2_intron_features($slice->start,$slice->end);
@@ -195,8 +211,9 @@ sub refine_genes {
       if ( $self->recursive_limit > 10000 ) {
 	# mset recursion to 10000 in case it was raised for a tricky gene
 	$self->recursive_limit(10000);
-	warn("lowering recursive limit after complex gene\n");
-      }
+	warn("lowering recursive limit after complex gene\n"); 
+
+     }
       print STDERR "Running on strand $strand \n";
       my %intron_count;
       my @exon_intron;
@@ -206,27 +223,20 @@ sub refine_genes {
       my $most_real_introns = 0;
       my $highest_score = 0;
       print STDERR $gene->stable_id. " : " .  $gene->start . " " . $gene->end . ":\n";
-      my @exons =  @{$self->merge_exons($gene,$strand)};
+      my @exons = sort { $a->start <=> $b->start }  @{$self->merge_exons($gene,$strand)};
 #      foreach my $exon ( @exons ) {
-#	print STDERR "EXTRAEXON: " . 
+#	print  "EXTRAEXON: " . 
 #	  $exon->seq_region_name ." " .
 #	    ($exon->start +20) ." " .
 #	      ($exon->end -20)." " .
 #		( $exon->end - $exon->start -40)  ."\n"
 #		  if $exon->{"_extra"} ;
 #      }
-#      if ( $self->extra_exons ) {
-#	foreach my $exon ( @{$self->extra_exons} ) {
-#	  print STDERR "OTHEREXON: " . 
-#	    $exon->seq_region_name ." " .
-#	      ($exon->start +20) ." " .
-#		($exon->end -20)." " .
-#		  ( $exon->end - $exon->start -40)  ."\n";
-#	}
-#      }
+   
       my $exon_count = $#exons;
       my @fake_introns;
       my %known_exons; 
+      my $offset = 0;
     EXON:   for ( my $i = 0 ; $i <= $exon_count ; $i ++ ) {
 	my $exon = clone_Exon($exons[$i]);
 	my $retained_intron;
@@ -234,9 +244,10 @@ sub refine_genes {
 	my $right_introns = 0;
 	$exon->{'left_mask'} = 0;
 	$exon->{'right_mask'} = $exon->length;
-	#print STDERR "$i : " . $exon->start . " " . $exon->end . ":\n";
+	#print  "$i : " . $exon->start . " " . $exon->end . ":\n";
 	# make intron features by collapsing the dna_align_features
-	my @introns = @{$self->fetch_intron_features($exon->seq_region_start,$exon->seq_region_end)};
+	my $introns;
+	($introns,$offset) = $self->fetch_intron_features($exon->seq_region_start,$exon->seq_region_end,$offset);
 	my @left_c_introns;
 	my @right_c_introns;
 	my @left_nc_introns;
@@ -244,7 +255,7 @@ sub refine_genes {
 	my @filtered_introns;
 	my $intron_overlap;
 	my @retained_introns;
-      INTRON: foreach my $intron ( @introns ){
+      INTRON: foreach my $intron ( @$introns ){
 	  next unless $intron->strand == $strand;
 	  next unless $intron->length >  $self->MIN_INTRON_SIZE;
 	  next unless $intron->length <= $self->MAX_INTRON_SIZE;
@@ -277,7 +288,7 @@ sub refine_genes {
 	      }
 	    }
 	  }
-	}	
+	}
 	
 	# Restrict internal exons splice sites to most common
 	# that way our alt splices will all share the same boundaries
@@ -450,6 +461,8 @@ sub refine_genes {
 	    }
 	    print "ADDED " . scalar( @new_exons) . " new exons\n";
 	    $exon_count+= $#new_exons;
+	    # make sure they are all stil sorted
+	    @exons = sort { $a->start <=> $b->start }  @exons;
 	  }
 	}
       }
@@ -516,6 +529,19 @@ sub refine_genes {
       # trim padding 
       $exon->start($exon->start + 20);
       $exon->end  ($exon->end   - 20);
+      print "Woobah!\n";
+      # trim away strings of Ns from the start and  end
+      # check start
+      my $ex_seq = $exon->seq->seq;
+      if ( $ex_seq =~ /^(N+)(\S+)$/ ) {
+	$exon->start($exon->start + length($1));
+      }
+      # check end
+      $ex_seq = reverse $ex_seq;
+      if ( $ex_seq =~ /^(N+)(\S+)$/ ) {
+	$exon->end($exon->end - length($1));
+      }
+     
       # get the cds
       my $fwd_exon =  clone_Exon($exon);
       $fwd_exon->strand(1);
@@ -829,7 +855,7 @@ sub filter_models {
 	    $self->prune_UTR($gene);
 	    push @{$self->output} , $gene ;
 	  } else {
-	    if ( $count <= $self->OTHER_NUM  && $self->OTHER_ISOFORMS ) {
+	    if ( $self->OTHER_NUM  && $self->OTHER_ISOFORMS && $count <= $self->OTHER_NUM ) {
 	      # trim the UTR
 	      $self->prune_UTR($gene);
 	      push @{$self->output} , $gene;
@@ -953,7 +979,22 @@ sub make_models {
       # trim padding from the start and end exons
       $new_exons[0]->start($new_exons[0]->start + 20) ;
       $new_exons[-1]->end ($new_exons[-1]->end  - 20) ;
-      # dont allow 1bp exons
+
+      # trim away strings of Ns from the 1st and last exons
+      # use same regex for 1st and last exon and reverse the
+      # sequence accordingly depending on the strand
+      my $ex_seq = $new_exons[0]->seq->seq;
+      $ex_seq = reverse $ex_seq if $strand == - 1;
+      if ( $ex_seq =~ /^(N+)(\S+)$/ ) {
+	$new_exons[0]->start($new_exons[0]->start + length($1));
+      }
+      $ex_seq = $new_exons[-1]->seq->seq;
+      $ex_seq = reverse $ex_seq if $strand ==  1;
+      if ( $ex_seq =~ /^(N+)(\S+)$/ ) {
+	$new_exons[-1]->end($new_exons[-1]->end - length($1));
+      }
+     
+
       foreach my $e ( @new_exons){
 	if ( $e->end - $e->start <= 0 ) {
 	  next MODEL;
@@ -978,7 +1019,6 @@ sub make_models {
       if( length($t->seq->seq) == $Ns ){
 	$self->throw("There does not appear to be ay DNA in the database, transcript seq is all N's\n");
       }
-      
       # add a translation 
       my $tran = compute_translation(clone_Transcript($t));
       # stop spam coming from the Exon module
@@ -1370,6 +1410,9 @@ sub write_output{
   GENE: foreach my $gene (@output){
     $gene->analysis($self->analysis);
     $gene->source($self->analysis->logic_name);
+    foreach my $tran ( @{$gene->get_all_Transcripts} ) {
+      $tran->analysis($self->analysis);
+    }
     # filter single exon genes that may have been made through UTR trimming
     my @exons = @{$gene->get_all_Exons};
     if ( scalar(@exons == 1 )) {
@@ -1459,7 +1502,7 @@ sub ProcessTree {
    # $result->{$sofar} = 1;
   }
   if ( scalar(@node == 0) ) {
-   # print "$sofar\n";
+    #print "$sofar\n";
     $paths->{$sofar} = 1;
   }
   return $paths;
@@ -1657,7 +1700,7 @@ sub merge_exons {
     my @coords = split(/:/,$key);
     my $start_anchor = shift(@coords);
     my $end_anchor = pop(@coords);
- #   print "START AND END $start_anchor  $end_anchor \n";
+    #print "START AND END $start_anchor  $end_anchor \n";
     # do the anchors lie within the model?
     foreach my $exon ( @exons ) {
       if ( $start_anchor <= $exon->end && 
@@ -1710,16 +1753,17 @@ sub merge_exons {
   }
   
   
-
+  my $offset = 0 ;
   for ( my $i = 1 ; $i <= $#exons ; $i ++ ) {
     my $exon = $exons[$i];
     my $prev_exon = $exons[$i-1];
     my $intron_count = 0;
+    my $introns;
     # is the intron tiny?    
-    my @introns = @{$self->fetch_intron_features($prev_exon->end,$exon->start)};
+    ($introns,$offset) = $self->fetch_intron_features($prev_exon->end,$exon->start,$offset);
     
      # we know it lies across the boundary does it lie within the 2 exons?
-    foreach my $intron ( @introns ) {
+    foreach my $intron ( @$introns ) {
  #     print "INTRON " . $intron->start . " " . $intron->end . " " , $intron->strand ." " , $intron->score ."\n";
       # ignore non consensus introns at this point
       next if $intron->hseqname =~ /non canonical/ ;
@@ -1757,14 +1801,14 @@ sub merge_exons {
 =cut
 
 sub bam_2_intron_features {
-  my ($self,$segment) = @_;
+  my ($self,$segment,$intron_files) = @_;
   my $slice_adaptor = $self->gene_slice_adaptor;
   my @ifs;
-  my $extra_exons;
+  my $extra_exons = $self->extra_exons;
   my %id_list;
   my %read_groups;
-  if (  $self->GROUPNAME && scalar(@{$self->GROUPNAME} > 0 ) ) {
-    my @groups = @{$self->GROUPNAME};
+  if (  $intron_files->{GROUPNAME} && scalar(@{$intron_files->{GROUPNAME}} > 0 ) ) {
+    my @groups = @{$intron_files->{GROUPNAME}};
     print "Limiting to read groups ";
     foreach my $group ( @groups ) {
       print " $group";
@@ -1774,19 +1818,18 @@ sub bam_2_intron_features {
   }
   my $iterator = $segment->features(-iterator=>1);
  READ:  while (my $read = $iterator->next_seq) {
+    my $spliced;
     # ignore unspliced reads if the bam file is a mixture of spliced and 
     # unspliced reads
-    if ( $self->MIXED_BAM ) {
-      my $spliced = $read->get_tag_values('XS');
-      #print ".";
-      next READ unless $spliced;
-      #print "SPLICED " . $read->cigar_str ."\n";
+    if ( $intron_files->{MIXED_BAM} ) {
+      $spliced = $read->get_tag_values('XS');
+      next READ unless $spliced; 
     }
     # filter by read group if needed
     
     # need to recreate the ungapped features code as the
     # auto splitting code does not seem to work with > 2 features
-    if ( $self->GROUPNAME  && scalar(@{$self->GROUPNAME} > 0 )) {
+    if ( $intron_files->{GROUPNAME}  && scalar(@{$intron_files->{GROUPNAME}} > 0 )) {
       next unless ($read_groups{$read->get_tag_values('RG')}) ;
     }
     my @mates = sort { $a->[2] <=> $b->[2] } @{$self->ungapped_features($read)};
@@ -1807,10 +1850,14 @@ sub bam_2_intron_features {
       $extra_exons->{$string} ++;
     }
     my $strand = $read->target->strand;
-   # print "\nREAD " . $read->cigar_str;
+    if   ($intron_files->{MIXED_BAM} ) {
+      $strand = 1 if $spliced eq '+';
+      $strand = -1 if $spliced eq '-'; 
+    } 
+    # print "\nREAD " . $read->cigar_str;
     my $offset;
     for ( my $i = 0 ; $i <= $#mates  ; $i++ ) {
-   #   print "\n";
+      #   print "\n";
       # intron reads should be split according to the CIGAR line
       # the default split function seems to ad
       # we want the ungapped features to make our introns
@@ -1829,13 +1876,19 @@ sub bam_2_intron_features {
 	  $mates[$i+1]->[2] . ":" . 
 	    $strand ;
       $id_list{$unique_id} ++;
-   #   print "$unique_id";
+  #    print "$unique_id";
     }
-   # print "\n";
+ #   print "\n";
   }
-
   # collapse them down and make them into simple features
   foreach my $key ( keys %id_list ) {
+    # filter on score if appropriate
+    if ( $intron_files->{DEPTH} ) {
+      if ( $intron_files->{DEPTH} > $id_list{$key} ) {
+	#print "Rejecting on score " . $id_list{$key} ."\n";
+	next;
+      }
+    }
     my @data = split(/:/,$key) ;
     my $length =  $data[2] - $data[1] -1;
     next unless $length > 0 ;
@@ -1898,6 +1951,7 @@ sub bam_2_intron_features {
     } else {
       $if->hseqname($if->hseqname."non canonical");
     }
+    #print "INTRONS ".  $if->hseqname ."\n";
      push @ifs , $if;
   }
   # sort them
@@ -1905,20 +1959,20 @@ sub bam_2_intron_features {
   $self->intron_features(\@ifs);
   $self->extra_exons($extra_exons);
   print STDERR "Got " . scalar(@ifs)  . " unique introns  " ;
-  print STDERR " and " . scalar(keys %$extra_exons) . " potential novel exons from " . $self->INTRON_BAM_FILE . "\n";
+  print STDERR " and " . scalar(keys %$extra_exons) . " potential novel exons from " . $intron_files->{FILE} . "\n";
   return;
 }
 
 sub ungapped_features {
   my ($self,$read) = @_;
   my @ugfs;
-  
+  my @tmp_ugfs;
   my $string = $read->cigar_str;
   my $start = $read->start;
   my $end = $read->end;
- # print "THINGS $start $end $string\n";
+  #rint "THINGS $start $end $string\n";
   my @pieces = ( $string =~ /(\d*[MDN])/g );
-  foreach my $piece (@pieces) {
+  for my $piece ( @pieces ) {
     my ($length) = ( $piece =~ /^(\d*)/ );
     if( $length eq "" ) { $length = 1 }
     if( $piece =~ /M$/ ) {
@@ -1936,22 +1990,53 @@ sub ungapped_features {
       $ugf->[2] = $qstart;
       $ugf->[3] = $qend;
       $ugf->[4] = $length."M";
-      push @ugfs, $ugf;
-#      print "UNGAPPED " .$ugf->[2] .
-#	" " . $ugf->[3] . " " . $ugf->[4] ."\n";
+      push @tmp_ugfs, $ugf;
+      #print "UNGAPPED " .$ugf->[2] .
+	#" " . $ugf->[3] . " " . $ugf->[4] ."\n";
     } elsif( $piece =~ /N$/ ) {
       #
       # INSERT
       #
       $start += $length;
+      push @tmp_ugfs,"intron";
     } elsif( $piece =~ /D$/ ) {
       #
       # DELETION
       #
       $start += $length;
-      
+      push @tmp_ugfs,"deletion";
     } else {
       throw( "Illegal cigar line $string!" );
+    }
+  }
+  # only return the UGFS either side of splices
+  my %used_pieces;
+  foreach ( my $i = 0 ; $i < scalar(@pieces); $i++ )  {
+    my $piece = $pieces[$i];
+    if ( $piece =~ /\d*N/) {
+       # it's a splice push the Matches either side of it
+      for ( my $j = $i-1 ; $j >= 0 ; $j-- ) {
+	if ( $tmp_ugfs[$j] && $pieces[$j] =~ /\d*M/ )  {
+	  unless ( $used_pieces{$j} ) {
+	    my $ugf =  $tmp_ugfs[$j];
+	    $self->throw("Cannot find ugf $j\n") unless $ugf;
+	    push @ugfs, $ugf;
+	    $used_pieces{$j} =1;
+	    last ;
+	  }
+	}
+      }
+      for ( my $j = $i+1 ; $j < scalar(@pieces)  ; $j++ ) {
+	if ( $tmp_ugfs[$j] && $pieces[$j] =~ /\d*M/ )  {
+	  unless ( $used_pieces{$j} ) {
+	    my $ugf =  $tmp_ugfs[$j];
+	    $self->throw("Cannot find ugf $j\n") unless $ugf;
+	    push @ugfs, $ugf;
+	    $used_pieces{$j} =1;
+	    last ;
+	  }
+	}
+      }
     }
   }
   return \@ugfs;
@@ -2201,17 +2286,25 @@ sub dna_2_intron_features {
 =cut
 
 sub fetch_intron_features {
-  my ($self,$start,$end) = @_;
+  my ($self,$start,$end,$offset) = @_;
   my @chosen_sf;
   my @filtered_introns;
   my @sfs =  @{$self->intron_features};
+  my $intron_start = 0;
+  $intron_start = $offset if $offset;
+  my $index;
   # sfs is a sorted array
-  foreach my $intron ( @sfs ) {
-    next unless $intron->start <= $end && $intron->end >= $start;
+  foreach ( my $x = $intron_start ; $x < scalar(@sfs) ; $x++ ) {
+    my $intron = $sfs[$x];
     last if $intron->start > $end;
-    push @chosen_sf, $intron;
+    if ( $intron->start <= $end && $intron->end >= $start ) {
+      push @chosen_sf, $intron;
+      # remember the position of the 1st intron to overlap
+      # this exon - we will start counting from here next time
+      $index = $x unless $index;
+    }
   }
-  INTRON: foreach my $intron ( @chosen_sf) {
+ INTRON: foreach my $intron ( @chosen_sf) {
     if ($intron->hseqname =~ /non canonical/ ) {
       # check it has no overlap with any consensus introns
       # unless it out scores a consensus intron
@@ -2227,7 +2320,7 @@ sub fetch_intron_features {
       push @filtered_introns, $intron;
     }
   }
-  return \@filtered_introns;
+  return (\@filtered_introns,$index);
 }
 
 
@@ -2373,9 +2466,10 @@ sub intron_features {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_introns} = $val;
+    push @{$self->{_introns}}, @$val;
+    # make sure it is still sorted
+    @{$self->{_introns}} = sort { $a->start <=> $b->start } @{$self->{_introns}};
   }
-
   return $self->{_introns};
 }
 
@@ -2436,22 +2530,6 @@ sub MODEL_DB {
     return undef;
   }
 }
-
-sub MIXED_BAM {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_MIXED_BAM'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_MIXED_BAM'})) {
-    return $self->{'_CONFIG_MIXED_BAM'};
-  } else {
-    return undef;
-  }
-}
-
-
 
 sub LOGICNAME {
   my ($self,$value) = @_;
@@ -2569,20 +2647,6 @@ sub MODEL_LN {
   }
 }
 
-sub GROUPNAME {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_GROUPNAME'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_GROUPNAME'})) {
-    return $self->{'_CONFIG_GROUPNAME'};
-  } else {
-    return undef;
-  }
-}
-
 sub BAD_MODELS {
   my ($self,$value) = @_;
 
@@ -2695,7 +2759,7 @@ sub STRICT_INTERNAL_END_EXON_SPLICE_SITES {
   }
 }
 
-sub INTRON_BAM_FILE {
+sub INTRON_BAM_FILES {
   my ($self,$value) = @_;
 
   if (defined $value) {
