@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.22 $
+# $Revision: 1.23 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -29,6 +29,11 @@ my $merge_dir = $RNASEQCONFIG->{MERGE_DIR};
 $merge_dir = $RNASEQCONFIG->{OUTPUT_DIR} unless $merge_dir;
 my $use_gsnap = $RNASEQCONFIG->{USE_GSNAP};
 my $gsnap_path = $RNASEQCONFIG->{GSNAP_PATH};
+my $rgt = $RNASEQCONFIG->{READ_GROUP_TAG};
+$rgt = 'ID' unless $rgt;
+my %id_groups;
+my %ids_by_tissue;
+my %tissue_by_id;
 my $stage = "Initialization";
 my $bwa_analysis_written = 0;
 my $slice_batches = 1;
@@ -391,6 +396,7 @@ while (<FILE>) {
       print STDERR $i + 1 . ") $header\n"
         if ( $stage eq "Initialization" ) || $check;
     }
+    
     print STDERR "Please assign some / all columns to the some / all "
         . "of the following categories multiple values can be separted with commas:\n"
       if ( $stage eq "Initialization" ) || $check;
@@ -426,6 +432,11 @@ while (<FILE>) {
         }
         # no room for whitespace in the paired or length flag
         $data{$key} =~ s/\s+//g if $key eq 'PAIRED' or $key eq 'LENGTH';
+	print "$key  - " . $cells[ $col-1] ."\n";
+	# group together IDs by tissue if specified
+	if ( $key eq $rgt ) {
+	  $id_groups{$data{$rgt}}->{$data{'ID'}}++;
+	}
       }
     }
   }
@@ -451,6 +462,18 @@ if ( $stage eq "Initialization" ) {
   print STDERR "Creating analyses...\n";
 }
 
+# figure out the relationship between the tissues and the ids
+foreach my $key1 ( keys %id_groups ) {
+  foreach my $key2 (  keys %{$id_groups{$key1}} ) {
+    $key1 =~ s/ //g;
+    $key2 =~ s/ //g;
+    $tissue_by_id{$key2} = $key1;
+    $ids_by_tissue{$key1} .= $key2.'","';
+  }
+}
+
+
+
 my %pairs;
 # loop through the rows and create the analyses, rules and input_ids
  $line = 0;
@@ -459,7 +482,8 @@ foreach my $row (@rows) {
   #analyses
   $row->{ID} =~ s/ //g;
   my $ln = $row->{ID};
-
+  # trim off trailing commas
+  $ids_by_tissue{$tissue_by_id{$ln}} =~ s/"\,"$//;
   my $submit_bwa =
     new Bio::EnsEMBL::Pipeline::Analysis(
                                       -logic_name => "submit_" . $ln . "_bwa",
@@ -479,7 +503,7 @@ foreach my $row (@rows) {
                                   -logic_name => "submit_" . $ln . "_bwa2bam",
                                   -input_id_type => 'BWA2BAM' . $ln, );
   my $refine =
-    new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "refine_" . $ln,
+    new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "refine_" . $tissue_by_id{$ln},
                                           -input_id_type => 'CHROMOSOME',
                                           -module => 'RefineSolexaGenes', );
   my $skip = 0;
@@ -911,7 +935,7 @@ $str .= '  			INTRON_BAM_FILES => [
 				# only take introns above this depth
 				DEPTH => "0",
 				# return only reads from the specified read groups
-	               		GROUPNAME => ["' . $row->{ID} . '"],
+	               		GROUPNAME => ["' .$ids_by_tissue{$tissue_by_id{$row->{ID}}}  . '"],
 				},
 			],
 ';
@@ -925,13 +949,14 @@ $str .= '  			INTRON_BAM_FILES => [
 				# only take introns above this depth
 				DEPTH => "0",
 				# return only reads from the specified read groups
-	               		GROUPNAME => ["' . $row->{ID} . '"],
+	               		GROUPNAME => ["' .$ids_by_tissue{$tissue_by_id{$row->{ID}}} . '"],
 				},
 			], 
 ';}
-  print REFINE "             'refine_" . $row->{ID} ."' => {
+  print REFINE "             'refine_" . $tissue_by_id{$row->{ID}} ."' => {
 $str
-			SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE};  
+			SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE} &! $seen{$tissue_by_id{$row->{ID}}};  
+												
 
   # batchqueue
   print BATCHQUEUE "       {
@@ -962,15 +987,16 @@ $str
 
 
  print BATCHQUEUE "       {
-             logic_name => 'refine_" . $row->{ID} ."',
+             logic_name => 'refine_" . $tissue_by_id{$row->{ID}} ."',
              output_dir => '".$output_dir ."/refine_".$row->{ID}."_pipeline',
              batch_size => ".$slice_batches.",
              lsf_perl  => '/usr/local/bin/perl',
              memory    => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
              resource  => 'select[myens_".$ref_load."tok>800] && select[myens_".$refine_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=25:myens_".$refine_load."tok=25]',
        },
-" if  $RNASEQCONFIG->{SINGLE_TISSUE};
-
+" if  $RNASEQCONFIG->{SINGLE_TISSUE} &! $seen{$tissue_by_id{$row->{ID}}};  ;
+# only write each tissue once
+$seen{$tissue_by_id{$row->{ID}}} = 1;
 
   $seen{$row->{ID}} = 1;
 }
