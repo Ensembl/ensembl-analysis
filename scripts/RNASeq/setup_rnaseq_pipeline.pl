@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.23 $
+# $Revision: 1.24 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -432,7 +432,6 @@ while (<FILE>) {
         }
         # no room for whitespace in the paired or length flag
         $data{$key} =~ s/\s+//g if $key eq 'PAIRED' or $key eq 'LENGTH';
-	print "$key  - " . $cells[ $col-1] ."\n";
 	# group together IDs by tissue if specified
 	if ( $key eq $rgt ) {
 	  $id_groups{$data{$rgt}}->{$data{'ID'}}++;
