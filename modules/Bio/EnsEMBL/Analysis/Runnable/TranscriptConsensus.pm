@@ -661,28 +661,45 @@ sub make_genes{
 
   my $score_range = ($top_score - $bottom_score);
   print "SCORE RANGE $top_score - $bottom_score =  $score_range\n";
-  foreach my $gene (@genes){
-    foreach my $transcript ( @{$gene->get_all_Transcripts}){
-      # sort out exon phases - transfer them from the similarity gene
-      # coding region start / stop is independent of strand so I will swap them if the strand is -ve
-      my $biotype = $bad_biotype;
-      # how about if we include the top 5% of the gene scores
-      if ($good_percent){
-        my $top = ($transcript->score - $bottom_score );
-    if ($score_range && (($top/$score_range) * 100 >= 100 - $good_percent)){
-      $biotype = $good_biotype;
-    }
-      } else {
-    # we want the single top scoring model
-    if ($transcript->score == $top_score){
-      $biotype = $good_biotype;
-    }
+
+  foreach my $gene (@genes) {
+    foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) {
+      # Sort out exon phases - transfer them from the similarity gene.
+      # Coding region start/stop is independent of strand so I will swap
+      # them if the strand is -ve.
+
+      my $biotype;
+
+      if ( scalar(@genes) < $min_consensus ) {
+        $biotype = $small_biotype;
       }
-      $biotype = $small_biotype if (scalar(@genes) < $min_consensus);
+      else {
+        $biotype = $bad_biotype;
+
+        # how about if we include the top 5% ($good_percent) of the gene
+        # scores
+        if ($good_percent) {
+          my $top = ( $transcript->score() - $bottom_score );
+          if ( $score_range &&
+               ( ( $top/$score_range )*100 >= 100 - $good_percent ) )
+          {
+            $biotype = $good_biotype;
+          }
+        }
+        elsif ( $transcript->score() == $top_score ) {
+          # we want the single top scoring model
+          $biotype = $good_biotype;
+        }
+      }
+
       $gene->biotype($biotype);
-      push @final_genes, $gene if $biotype;
-    }
-  }
+
+      if ($biotype) {
+        push( @final_genes, $gene );
+      }
+    } ## end foreach my $transcript ( @{...})
+  } ## end foreach my $gene (@genes)
+
   foreach my $final(@final_genes){
     foreach my $transcript(@{$final->get_all_Transcripts}){
       throw(Transcript_info($transcript)." has inconsistent phases")
