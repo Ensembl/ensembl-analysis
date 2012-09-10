@@ -20,26 +20,28 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus - 
+Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus -
 
 =head1 SYNOPSIS
 
-  my $runnabledb = Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus->new
-     (
-     -query            => $query,
-     -analysis        => $analysis,
-     )
+  my $runnabledb =
+    Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus->new(
+                                                 -query    => $query,
+                                                 -analysis => $analysis,
+    )
 
 =head1 DESCRIPTION
 
-TranscriptConsensus is an extension of TranscriptCoalescer that combines protein coding and est
-transcripts to identify the best supported transcript models.
-The initial gene sets are clustered, then collapsed into a non-redundant set of exons
-and introns which are assigned scores according to the amount of supporting evidence they have.
-The similarity genes have UTR added using the est transcripts and the resulting models are assigned
-a score by summing the individual exon and intron scores.
-The transcripts are sorted by score and the highest scoring models are made into
-gene objets and written to the TranscriptConsensus database.
+TranscriptConsensus is an extension of TranscriptCoalescer that combines
+protein coding and EST transcripts to identify the best supported
+transcript models.  The initial gene sets are clustered, then collapsed
+into a non-redundant set of exons and introns which are assigned
+scores according to the amount of supporting evidence they have.
+The similarity genes have UTR added using the est transcripts and
+the resulting models are assigned a score by summing the individual
+exon and intron scores.  The transcripts are sorted by score and the
+highest scoring models are made into gene objets and written to the
+TranscriptConsensus database.
 
 =head1 METHODS
 
@@ -53,8 +55,10 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
 
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info stack_trace_dump );
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw ( merge_config_details get_evidence_set convert_prediction_transcripts_to_genes ) ;
+use Bio::EnsEMBL::Utils::Exception
+  qw(verbose throw warning info stack_trace_dump );
+use Bio::EnsEMBL::Analysis::Tools::Utilities
+  qw ( merge_config_details get_evidence_set convert_prediction_transcripts_to_genes );
 
 use vars qw(@ISA);
 
@@ -69,8 +73,8 @@ use vars qw(@ISA);
   Function  : instatiates a TranscriptConsensus object and reads and checks the config
   file
   Returntype: Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
@@ -92,7 +96,7 @@ sub new {
               in the TranscriptConsensus config.
   Returntype: 1
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
@@ -124,118 +128,118 @@ sub fetch_input {
     @$introns = sort {$a->start <=> $b->start} @$introns;
     print STDERR "Found " . scalar(@$introns) ." unique intron features from the RNASeq db\n";
   }
-  
+
   $self->{evidence_sets} = {
-			    'est'      => $self->EST_SETS,
-			    'simgw'    => $self->SIMGW_SETS,
-			    'abinitio' => $self->ABINITIO_SETS,
-			   };
-  
+                'est'      => $self->EST_SETS,
+                'simgw'    => $self->SIMGW_SETS,
+                'abinitio' => $self->ABINITIO_SETS,
+               };
+
   my %databases = %{$self->INPUT_GENES} ;
-  
+
   # check if every biotype/logic_name belongs to an EVIDENCE set
-  $self->_check_config() ; 
-  
-  # now looping through all keys of %databases defined in the config 
-  my %biotypes_to_genes ; 
+  $self->_check_config() ;
+
+  # now looping through all keys of %databases defined in the config
+  my %biotypes_to_genes ;
   for my $db (keys %databases) {
-    next unless (exists $databases{$db}) ;  
-    
+    next unless (exists $databases{$db}) ;
+
     my $dba = $self->get_dbadaptor($db) ;
-    $dba->dnadb($self->db) ; 
+    $dba->dnadb($self->db) ;
     my $slice = $self->fetch_sequence($self->input_id, $dba );
-    
-    # organise genes into "EVIDENCE_SETS" depending on their underlying source 
-    # these sets are specified in the config file TranscriptConsensus.pm 
-    
+
+    # organise genes into "EVIDENCE_SETS" depending on their underlying source
+    # these sets are specified in the config file TranscriptConsensus.pm
+
     for my $biotype ( @{$databases{$db} }) {
-      my $genes = $slice->get_all_Genes_by_type($biotype) ; 
-      # lazy load 
+      my $genes = $slice->get_all_Genes_by_type($biotype) ;
+      # lazy load
       foreach my $gene (@$genes){
-	foreach my $trans (@{$gene->get_all_Transcripts}){
-	  if ($trans->translateable_seq){
-	    $trans->translation->seq;
-	  }
-	  $trans->get_all_supporting_features;
-	}
-	foreach my $exon ( @{$gene->get_all_Exons} ){
-	  $exon->get_all_supporting_features;
-	}
+    foreach my $trans (@{$gene->get_all_Transcripts}){
+      if ($trans->translateable_seq){
+        $trans->translation->seq;
+      }
+      $trans->get_all_supporting_features;
+    }
+    foreach my $exon ( @{$gene->get_all_Exons} ){
+      $exon->get_all_supporting_features;
+    }
       }
       my ( $set ) = $self->get_evidence_set ( $biotype ) ;
-      
-      if (scalar( @{$genes} ) > 0 ) { 
-        # store genes of specific biotype in hash which holds them in an array 
-        # add specific information to exons / re-bless them 
-	
+
+      if (scalar( @{$genes} ) > 0 ) {
+        # store genes of specific biotype in hash which holds them in an array
+        # add specific information to exons / re-bless them
+
         my @multi_exon_genes ;
         for my $g (@$genes){
           my $single_exon_gene ;
-	  
+
           for my $t (@{$g->get_all_Transcripts}){
-            throw ("gene has more than one transcript - only processing 1-gene-1-transcript-genes") 
-	      if (@{$g->get_all_Transcripts}>1) ; 
-	    
-            bless $t, "Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended" ; 
-	    $t->ev_set($set);
+            throw ("gene has more than one transcript - only processing 1-gene-1-transcript-genes")
+          if (@{$g->get_all_Transcripts}>1) ;
+
+            bless $t, "Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended" ;
+        $t->ev_set($set);
             my @all_exons = @{ $t->get_all_Exons } ;
-	    
-            $single_exon_gene = 1 if (@all_exons == 1 ) ; 
-	    
-            map { bless $_,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended" } @all_exons ; 
-	    
+
+            $single_exon_gene = 1 if (@all_exons == 1 ) ;
+
+            map { bless $_,"Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended" } @all_exons ;
+
             for (my $int=0; $int < @all_exons ; $int++) {
-	      
+
               my $e = $all_exons[$int] ;
               $e->biotype($g->biotype) ;
               $e->ev_set($set) ;
-              $e->transcript($t) ; 
-              $e->analysis($g->analysis) ; 
-	      
+              $e->transcript($t) ;
+              $e->analysis($g->analysis) ;
+
               # setting pointer to previous exon
-              $e->next_exon($all_exons[$int+1]); 
-	      
-              # setting pointer to previous exon 
-              if ($int == 0 ) { 
-                $e->prev_exon(0); 
+              $e->next_exon($all_exons[$int+1]);
+
+              # setting pointer to previous exon
+              if ($int == 0 ) {
+                $e->prev_exon(0);
               } else {
-                $e->prev_exon($all_exons[$int-1]); 
+                $e->prev_exon($all_exons[$int-1]);
               }
             }
           }
-	  # allow single exon genes 
-	  push @multi_exon_genes, $g ; 
-	}  
-        push @{$biotypes_to_genes{$biotype} } , @multi_exon_genes ; 
+      # allow single exon genes
+      push @multi_exon_genes, $g ;
+    }
+        push @{$biotypes_to_genes{$biotype} } , @multi_exon_genes ;
       }
     }
-    
-    # PREDICTION TRANSCRIPT PROCESSING 
+
+    # PREDICTION TRANSCRIPT PROCESSING
     #
-    # get all PredictionTranscripts by their logic_name 
-    # these transcripts are converted to Genes with biotype eq logicname of analysis 
-    
-    for my $logic_name_becomes_biotype ( @{ $self->AB_INITIO_LOGICNAMES }) { 
-      
-      # get all PredictionTranscripts and convert them to Genes, set biotype to logic_name  
-      my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype ) ;  
-      
-      # get ev-set 
-      my $result_set_name  = $self->get_evidence_set( $logic_name_becomes_biotype ) ; 
-      my $ab_initio_genes = $self->convert_prediction_transcripts_to_genes( $pt,$logic_name_becomes_biotype,$result_set_name ) ; 
-      info ( scalar (@{$ab_initio_genes}) . "\t$logic_name_becomes_biotype-genes\n") ; 
-      if ( scalar(@$ab_initio_genes)>0){ 
-	push @{$biotypes_to_genes{$logic_name_becomes_biotype} } , @{$ab_initio_genes} ;
+    # get all PredictionTranscripts by their logic_name
+    # these transcripts are converted to Genes with biotype eq logicname of analysis
+
+    for my $logic_name_becomes_biotype ( @{ $self->AB_INITIO_LOGICNAMES }) {
+
+      # get all PredictionTranscripts and convert them to Genes, set biotype to logic_name
+      my $pt = $slice->get_all_PredictionTranscripts( $logic_name_becomes_biotype ) ;
+
+      # get ev-set
+      my $result_set_name  = $self->get_evidence_set( $logic_name_becomes_biotype ) ;
+      my $ab_initio_genes = $self->convert_prediction_transcripts_to_genes( $pt,$logic_name_becomes_biotype,$result_set_name ) ;
+      info ( scalar (@{$ab_initio_genes}) . "\t$logic_name_becomes_biotype-genes\n") ;
+      if ( scalar(@$ab_initio_genes)>0){
+    push @{$biotypes_to_genes{$logic_name_becomes_biotype} } , @{$ab_initio_genes} ;
       }
     }
-  } 
-  
+  }
+
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->new
     (
      -query                => $self->query,
      -analysis             => $self->analysis,
      -all_genes            => \%biotypes_to_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
-     -evidence_sets        => $self->{evidence_sets} , 
+     -evidence_sets        => $self->{evidence_sets} ,
      -verbose              => $self->VERBOSE,
      -filter_singletons    => $self->FILTER_SINGLETONS,
      -filter_non_consensus => $self->FILTER_NON_CONSENSUS,
@@ -254,7 +258,7 @@ sub fetch_input {
      -rnaseq_introns       => $introns,
     );
   $self->runnable($runnable);
-  
+
   return 1;
 }
 
@@ -262,8 +266,8 @@ sub fetch_input {
 sub write_output {
   my ($self) = @_;
   my $out_dba = $self->get_dbadaptor($self->OUTPUT_DATABASE) ;
-  my $gene_a = $out_dba->get_GeneAdaptor() ; 
-  info ("trying to write output") ;  
+  my $gene_a = $out_dba->get_GeneAdaptor() ;
+  info ("trying to write output") ;
 
   foreach my $gene (@{$self->output}) {
     info("STORED GENE $gene" ) ;
@@ -273,7 +277,7 @@ sub write_output {
     if($@) {
       $self->throw("Failed to write gene ". $@) ;
     }
-  }  
+  }
   return ;
 }
 
@@ -282,63 +286,63 @@ sub write_output {
 
 =head2  _check_config
 
-   Arg[0] : Hash-reference to $TRANSCRIPT_CONSENSUS_BY_LOGIC - Hash out of TranscriptConsensus.pm 
-   Arg[1] : href with evidence sets 
+   Arg[0] : Hash-reference to $TRANSCRIPT_CONSENSUS_BY_LOGIC - Hash out of TranscriptConsensus.pm
+   Arg[1] : href with evidence sets
    Func   : Checks if every logic_name / biotype of gene belongs to an
-         Evidence set 
+         Evidence set
    Return : 1 if all is ok
- 
-=cut  
 
-sub _check_config { 
-  my ( $self ) = @_ ; 
+=cut
+
+sub _check_config {
+  my ( $self ) = @_ ;
   my $ev_sets = $self->{evidence_sets} ;
 
-  # check that every biotype / logic_name in TranscriptConsensus.pm 
-  # belongs to an ev-set 
-  my %database_definition ; 
+  # check that every biotype / logic_name in TranscriptConsensus.pm
+  # belongs to an ev-set
+  my %database_definition ;
   for my $db_class (keys %{$self->INPUT_GENES}) {
     map $database_definition{$_}=(),@{${$self->INPUT_GENES}{$db_class}} ;
   }
-   
-  my %ev_set_definitions; 
 
-  for my $set_name (keys %{ $ev_sets } ) { 
-    map $ev_set_definitions{$_}=(), @{$$ev_sets{$set_name}} ; 
+  my %ev_set_definitions;
+
+  for my $set_name (keys %{ $ev_sets } ) {
+    map $ev_set_definitions{$_}=(), @{$$ev_sets{$set_name}} ;
   }
 
- 
-  # check that every biotype / logicname mentioned in the evidence_sets 
-  # has a database where it's fetched from 
-  
-  for my $ln ( keys %ev_set_definitions ) { 
-    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptConsensus.pm\n ". 
-           "\tType $ln has an evidence set but there's NO database for this type defined in Config". 
-             " TranscriptConsensus.pm : $ln\n")
-            unless ( exists $database_definition{$ln} ) ; 
-     
-  } 
 
-  # check if every ev-set has an entry in the db-section as well 
-  
-  for my $ln ( keys %database_definition) { 
-    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptConsensus.pm\n". 
+  # check that every biotype / logicname mentioned in the evidence_sets
+  # has a database where it's fetched from
+
+  for my $ln ( keys %ev_set_definitions ) {
+    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptConsensus.pm\n ".
+           "\tType $ln has an evidence set but there's NO database for this type defined in Config".
+             " TranscriptConsensus.pm : $ln\n")
+            unless ( exists $database_definition{$ln} ) ;
+
+  }
+
+  # check if every ev-set has an entry in the db-section as well
+
+  for my $ln ( keys %database_definition) {
+    throw ("\n\tError in config-file Analysis/Config/GeneBuild/TranscriptConsensus.pm\n".
            "\tType $ln has an entry in a database-section but there's NO evidence-set defined in Config TranscriptConsensus.pm for this type : $ln \n" )
-            unless ( exists $ev_set_definitions{$ln} ) ; 
-  } 
+            unless ( exists $ev_set_definitions{$ln} ) ;
+  }
   return 1 ;
 }
 
 
 
-=head2 INPUT_GENES 
+=head2 INPUT_GENES
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
   Function  : Getter/Setter for config variables
   Returntype:
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
