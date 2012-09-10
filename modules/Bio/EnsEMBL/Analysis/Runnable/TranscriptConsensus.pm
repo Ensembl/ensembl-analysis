@@ -20,29 +20,31 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus - 
+Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus -
 
 =head1 SYNOPSIS
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->new
-     (
-     -query            => $query,
-     -analysis        => $analysis,
-     -all_genes       => \%biotypes_to_genes , # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
-     -evidence_sets   => $evidence_sets ,
-     -dnadb           => $db ,
-     )
+  my $runnable =
+    Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus->new(
+    -query     => $query,
+    -analysis  => $analysis,
+    -all_genes => \%biotypes_to_genes,
+    # ref to $hash{biotype_of_gene} = @all_genes_of_this_biotype
+    -evidence_sets => $evidence_sets,
+    -dnadb         => $db, );
 
 =head1 DESCRIPTION
 
-TranscriptConsensus is an extension of TranscriptCoalescer that combines protein coding and est
-transcripts to identify the best supported transcript models.
-The initial gene sets are clustered, then collapsed into a non-redundant set of exons
-and introns which are assigned scores according to the amount of supporting evidence they have.
-The similarity genes have UTR added using the est transcripts and the resulting models are assigned
-a score by summing the individual exon and intron scores.
-The transcripts are sorted by score and the highest scoring models are made into
-gene objets and written to the TranscriptCoalescer database.
+TranscriptConsensus is an extension of TranscriptCoalescer that combines
+protein coding and EST transcripts to identify the best supported
+transcript models.  The initial gene sets are clustered, then collapsed
+into a non-redundant set of exons and introns which are assigned
+scores according to the amount of supporting evidence they have.
+The similarity genes have UTR added using the est transcripts and
+the resulting models are assigned a score by summing the individual
+exon and intron scores.  The transcripts are sorted by score and the
+highest scoring models are made into gene objets and written to the
+TranscriptCoalescer database.
 
 =head1 METHODS
 
@@ -52,7 +54,7 @@ gene objets and written to the TranscriptCoalescer database.
 package Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
 
 use strict;
-use warnings; 
+use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -75,8 +77,8 @@ use vars qw(@ISA);
 
 =head2 new
 
-  Function  : creates TranscriptConsensus-object 
-  Returnval : returns TranscripotConsensus-object 
+  Function  : creates TranscriptConsensus-object
+  Returnval : returns TranscripotConsensus-object
 
 =cut
 
@@ -87,33 +89,33 @@ sub new {
   my ($class,@args) = @_ ;
   my $self = $class->SUPER::new(@args) ;
 
-  my ( $all_genes, $evidence_sets, $filter_singletons, $filter_non_consensus, $filter_ests, 
-       $add_utr, $min_consensus, $utr_penalty, $end_exon_penalty, $est_overlap_penalty, 
-       $short_intron_penalty, $short_exon_penalty, $good_percent, $good_biotype, $small_biotype, 
+  my ( $all_genes, $evidence_sets, $filter_singletons, $filter_non_consensus, $filter_ests,
+       $add_utr, $min_consensus, $utr_penalty, $end_exon_penalty, $est_overlap_penalty,
+       $short_intron_penalty, $short_exon_penalty, $good_percent, $good_biotype, $small_biotype,
        $bad_biotype, $rnaseq_introns, $verbose) =
-	 rearrange([qw(
-		       ALL_GENES
-		       EVIDENCE_SETS
-		       FILTER_SINGLETONS
-		       FILTER_NON_CONSENSUS
-		       FILTER_ESTS
-		       ADD_UTR
-		       MIN_CONSENSUS
-		       UTR_PENALTY
-		       END_EXON_PENALTY
-		       EST_OVERLAP_PENALTY
-		       SHORT_INTRON_PENALTY
-		       SHORT_EXON_PENALTY
-		       GOOD_PERCENT
-		       GOOD_BIOTYPE
-		       SMALL_BIOTYPE
-		       BAD_BIOTYPE
-		       RNASEQ_INTRONS
-		       VERBOSE
-		      )], @args);
-  
+     rearrange([qw(
+               ALL_GENES
+               EVIDENCE_SETS
+               FILTER_SINGLETONS
+               FILTER_NON_CONSENSUS
+               FILTER_ESTS
+               ADD_UTR
+               MIN_CONSENSUS
+               UTR_PENALTY
+               END_EXON_PENALTY
+               EST_OVERLAP_PENALTY
+               SHORT_INTRON_PENALTY
+               SHORT_EXON_PENALTY
+               GOOD_PERCENT
+               GOOD_BIOTYPE
+               SMALL_BIOTYPE
+               BAD_BIOTYPE
+               RNASEQ_INTRONS
+               VERBOSE
+              )], @args);
+
   $self->{evidence_sets} = $evidence_sets ;
-  $self->{all_genes_href} = $all_genes ;  
+  $self->{all_genes_href} = $all_genes ;
   $self->{filter_singletons} = $filter_singletons ;
   $self->{filter_non_consensus} = $filter_non_consensus;
   $self->{filter_ests} = $filter_ests ;
@@ -129,7 +131,7 @@ sub new {
   $self->{small_biotype} = $small_biotype ;
   $self->{bad_biotype} = $bad_biotype ;
   $self->{rnaseq_introns} = $rnaseq_introns ;
-  $self->{verbose} = $verbose ; # verbose or not 
+  $self->{verbose} = $verbose ; # verbose or not
 
   return $self ;
 }
@@ -148,7 +150,7 @@ sub new {
 
 =cut
 
-sub run { 
+sub run {
   my ($self) = @_ ;
   my $filter_singletons = $self->{filter_singletons} ;
   my $filter_non_consensus = $self->{filter_non_consensus} ;
@@ -157,11 +159,11 @@ sub run {
   my $count = 1 ;
   my $genes_by_strand;
 
-  # first we want to cluster on protein coding genes only then cluster 
+  # first we want to cluster on protein coding genes only then cluster
   # them with ESTs afterwards
   my @coding = @{ $self->get_genes_by_evidence_set('simgw') } ;
   my @non_coding = sort { $a->start <=> $b->start } @{ $self->get_genes_by_evidence_set('est') } ;
-  
+
   # cluster the coding genes first
   my ($coding_clusters, $coding_non_clusters) = cluster_Genes(\@coding, $self->get_all_evidence_sets ) ;
   push @$coding_clusters,@$coding_non_clusters if (scalar(@$coding_non_clusters) > 0 ) ;
@@ -174,29 +176,29 @@ sub run {
       next if $ncgene->end < $coding_cluster->start;
       next unless  $ncgene->strand == $coding_cluster->strand;
       push @allgenes, $ncgene;
-      print "Adding EST " . 	$ncgene->start ." " .  $ncgene->end . " " . $ncgene->analysis->logic_name ."\n"if $verbose;
+      print "Adding EST " .     $ncgene->start ." " .  $ncgene->end . " " . $ncgene->analysis->logic_name ."\n"if $verbose;
       last if $ncgene->start > $coding_cluster->end;
     }
-    
+
     if ($filter_singletons or   $filter_non_consensus) {
       my @tmp;
       my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
       foreach my $cluster(@$clusters, @$non_clusters){
-	my $genes = $cluster->get_Genes;
-	$genes = @{$self->filter_genes(@$genes)};
-	push(@tmp, $genes);
+    my $genes = $cluster->get_Genes;
+    $genes = @{$self->filter_genes(@$genes)};
+    push(@tmp, $genes);
       }
       @allgenes = @tmp;
     }
-    
+
     my ($clusters, $non_clusters) = cluster_Genes(\@allgenes, $self->get_all_evidence_sets ) ;
-    
+
     # create a hash of genes by strand to use when looking for overlapping genes
     # useful to look at ALL genes not just those in the cluster to prevent cluster joining
     foreach my $gene (@allgenes){
       push @{$genes_by_strand->{$gene->strand}}, $gene;
     }
-    
+
     push @$clusters, @$non_clusters if (scalar(@$non_clusters) > 0 ) ;
     my $found;
     $count = 0;
@@ -204,18 +206,18 @@ sub run {
       my $simgw;
       # cluster has to contain at least one similarity gene to be worth continuing with
       my $genes = $cluster->get_Genes;
-      
+
       next unless @{ $cluster->get_Genes_by_Set('simgw') };
-      
+
       print "\nCluster $count\n" if $verbose;
       print $cluster->start." ".$cluster->end." ".$cluster->strand."\n" if $verbose;
       $count++;
       # collapse the cluster down to make a non redundat set of introns and exons with scores
       my $collapsed_cluster = $self->collapse_cluster($cluster,$genes_by_strand);
-      
+
       # add UTR to the similarity transcripts and make scores for the transcripts
       my $transcripts = $self->make_transcripts($cluster,$collapsed_cluster);
-      
+
       # sort the scored transcripts by score and make gene objects out of the best ones
       $self->make_genes($transcripts,$cluster,$collapsed_cluster);
     }
@@ -244,27 +246,27 @@ sub collapse_cluster{
     foreach my $trans (@{$gene->get_all_Transcripts}){
       my @exons = sort {$a->start <=> $b->start } @{$trans->get_all_Exons};
       for (my $i =0 ; $i < scalar(@exons) ; $i++){
-	my $exon_cluster;
-	my $exon = $exons[$i];
-	# figure out which exon cluster the exon belongs to
-	# but only once for each non redundant exon
-	unless ($collapsed_cluster->contains_exon($exon)){
-	EC: foreach my $ec (@exon_clusters){
-	    if ($ec->contains_exon($exon)){
-	      $exon_cluster = $ec;
-	      last EC;
-	    }
-	  }
-	}
-	# pass all the exons to the collapsed cluster object
-	$collapsed_cluster->add_exon($exon,$exon_cluster);
-	# cannot make an intron unless we have 2 exons to look at
-	next if $i == 0;
-	# make an intron object using exon extended so I can store the evidence sets
-	my $intron = $collapsed_cluster->make_intron_from_exons($exons[$i-1],$exons[$i]);
-	$intron->ev_set($exon->ev_set);
-	$intron->biotype('intron');
-	$collapsed_cluster->add_intron($intron);
+    my $exon_cluster;
+    my $exon = $exons[$i];
+    # figure out which exon cluster the exon belongs to
+    # but only once for each non redundant exon
+    unless ($collapsed_cluster->contains_exon($exon)){
+    EC: foreach my $ec (@exon_clusters){
+        if ($ec->contains_exon($exon)){
+          $exon_cluster = $ec;
+          last EC;
+        }
+      }
+    }
+    # pass all the exons to the collapsed cluster object
+    $collapsed_cluster->add_exon($exon,$exon_cluster);
+    # cannot make an intron unless we have 2 exons to look at
+    next if $i == 0;
+    # make an intron object using exon extended so I can store the evidence sets
+    my $intron = $collapsed_cluster->make_intron_from_exons($exons[$i-1],$exons[$i]);
+    $intron->ev_set($exon->ev_set);
+    $intron->biotype('intron');
+    $collapsed_cluster->add_intron($intron);
       }
     }
   }
@@ -279,7 +281,7 @@ sub collapse_cluster{
       $intron->ev_set('est');
       $intron->biotype('intron');
       $collapsed_cluster->add_intron($intron);
-      # add the extra weight 
+      # add the extra weight
       $collapsed_cluster->add_intron_weight($intron,$rnaseq_intron->score);
     }
   }
@@ -338,8 +340,8 @@ sub score {
   # this way we penalise anything with less than exons than the minumum number of overlapping exons
   my $overlap = $min_consensus;
   my $est_trans = $min_consensus;
-  
-  
+
+
   # the weighted score is:
   # 50% - proportion of exons in the stack that come from ests / number of overlapping est transcripts
   # 50% - the non est exons over the total number of overlapping transcripts of any type
@@ -349,18 +351,18 @@ sub score {
     foreach my $tran (@{$gene->get_all_Transcripts}){
       # if its an exon just add up how many genes of each type are in the cluster
       if ($type eq 'exon'){
-	$est_trans++ if $tran->ev_set eq 'est';
-	$overlap++;
+    $est_trans++ if $tran->ev_set eq 'est';
+    $overlap++;
       }
       next if scalar(@{$tran->get_all_Exons}) == 1;
       if ($type eq 'intron'){
-	# for introns; count the number of overlapping trans from the entire slice
-	# this creates a penatly for introns that span genes that
-	# are not in the cluster because they dont share exons
-	if ($feature->start < $tran->end() && $feature->end > $tran->start()){
-	  $est_trans++ if $tran->ev_set eq 'est';
-	  $overlap++;
-	}	
+    # for introns; count the number of overlapping trans from the entire slice
+    # this creates a penatly for introns that span genes that
+    # are not in the cluster because they dont share exons
+    if ($feature->start < $tran->end() && $feature->end > $tran->start()){
+      $est_trans++ if $tran->ev_set eq 'est';
+      $overlap++;
+    }
       }
     }
   }
@@ -402,7 +404,7 @@ sub score {
   }
   # favor long end exons
   if ($feature->is_terminal_exon && $type eq 'exon' && $feature->number_exons > 1){
-    # longest end exon 
+    # longest end exon
     my $longest_end_exon = $collapsed_cluster->get_end_exon($feature)->length;
     my $multiplyer = $feature->length / $longest_end_exon;
     print "End exon penalty ".$feature->length." / ". $longest_end_exon." -.5\t" if $verbose;
@@ -472,104 +474,104 @@ sub make_genes{
       print scalar(@{$transcript->get_all_Exons})." Exons\n" if $verbose;
       my $last_exon;
       foreach my $exon (@{$transcript->get_all_Exons}){
-	if ($last_exon){
-	  my $intron = $collapsed_cluster->make_intron_from_exons($last_exon,$exon);
-	}
-	$last_exon = $exon;
+    if ($last_exon){
+      my $intron = $collapsed_cluster->make_intron_from_exons($last_exon,$exon);
+    }
+    $last_exon = $exon;
       }
       if ($transcript->strand == -1){
-	my $invertedslice = $similarity_tran->slice->invert;
-	$strand = -1;
-	$similarity_tran = $similarity_tran->transfer($invertedslice);
-	$transcript = $transcript->transfer($invertedslice);
+    my $invertedslice = $similarity_tran->slice->invert;
+    $strand = -1;
+    $similarity_tran = $similarity_tran->transfer($invertedslice);
+    $transcript = $transcript->transfer($invertedslice);
       }
       my $cds_start = $similarity_tran->coding_region_start;
       my $cds_end = $similarity_tran->coding_region_end;
       my @exon_array = @{$transcript->get_all_Exons};
       my @similarity_exons = sort { $a->start <=> $b->start } @{$similarity_tran->get_all_Exons};
-      
-      
+
+
       my $number = scalar(@exon_array);
       # translation start and end is upside down when on the opposite strand
       for ( my $i = 0 ; $i < scalar(@exon_array) ; $i ++ ){
-	# check for overlaps 
-	my $exon = $exon_array[$i];	  
-	# set phases to non coding by default
-	$exon->phase( -1 );
-	$exon->end_phase( -1 );
-	foreach my $se (@similarity_exons){
-	  # set coding exons to have same phase as similarity exons
-	  if ($exon->start == $se->start){
-	    $exon->phase($se->phase);
-	}
-	  if ( $exon->end == $se->end ){
-	    $exon->end_phase($se->end_phase);
-	  }
-	}
-	if ($exon->start <= $cds_start && $exon->end >= $cds_start){
-	  # translation start is in this exon
-	  $translation->start_Exon($exon);
-	  $translation->start($cds_start - $exon->start+1);
-	  $exon->phase( -1 ) 	if $exon->start < $cds_start;
-	}
-	if ($exon->start <= $cds_end && $exon->end >= $cds_end){
-	  # translation stop is in this exon
-	  $translation->end_Exon($exon);
+    # check for overlaps
+    my $exon = $exon_array[$i];
+    # set phases to non coding by default
+    $exon->phase( -1 );
+    $exon->end_phase( -1 );
+    foreach my $se (@similarity_exons){
+      # set coding exons to have same phase as similarity exons
+      if ($exon->start == $se->start){
+        $exon->phase($se->phase);
+    }
+      if ( $exon->end == $se->end ){
+        $exon->end_phase($se->end_phase);
+      }
+    }
+    if ($exon->start <= $cds_start && $exon->end >= $cds_start){
+      # translation start is in this exon
+      $translation->start_Exon($exon);
+      $translation->start($cds_start - $exon->start+1);
+      $exon->phase( -1 )    if $exon->start < $cds_start;
+    }
+    if ($exon->start <= $cds_end && $exon->end >= $cds_end){
+      # translation stop is in this exon
+      $translation->end_Exon($exon);
 
-	  $translation->end($cds_end - $exon->start+1);
+      $translation->end($cds_end - $exon->start+1);
 
-	  if ( $exon->end_phase > 0) {
-	    $translation->end($translation->end - $exon->end_phase);
+      if ( $exon->end_phase > 0) {
+        $translation->end($translation->end - $exon->end_phase);
           }
 
-	  if ( $exon->end > $cds_end ||  $exon->end_phase > 0) {
-	    $exon->end_phase( -1 );
+      if ( $exon->end > $cds_end ||  $exon->end_phase > 0) {
+        $exon->end_phase( -1 );
           }
-	}
-	# find the utr exon that shares the internal boundary with the first simgw exon
-	if ($exon->end == $similarity_exons[0]->end){
-	  $cds_start_exon = $exon;
-	}
-	# find the utr exon that shares the internal boundary with the last simgw exon
-	if ($exon->start == $similarity_exons[-1]->start){
-	  $cds_end_exon = $exon;
-	}
+    }
+    # find the utr exon that shares the internal boundary with the first simgw exon
+    if ($exon->end == $similarity_exons[0]->end){
+      $cds_start_exon = $exon;
+    }
+    # find the utr exon that shares the internal boundary with the last simgw exon
+    if ($exon->start == $similarity_exons[-1]->start){
+      $cds_end_exon = $exon;
+    }
       }
       unless ( $translation->start_Exon && $translation->start_Exon eq $cds_start_exon ) {
-	# the start is not inside an exon
-	throw("Cannot find the coding sequence start exon\n") unless $cds_start_exon;
-	# trim back to the exon that matches the internal boundary
-	# stay in frame though
-	$translation->start_Exon($cds_start_exon);
-	my $trim = $cds_start_exon->start - $cds_start;
-	if ( $trim%3 == 0 ){
-	  $translation->start(1);
-	} else {	
-	  $translation->start(1+(3-$trim%3));
-	}
-	$cds_start_exon->phase( -1 ) 	if $cds_start_exon->start < $cds_start;
+    # the start is not inside an exon
+    throw("Cannot find the coding sequence start exon\n") unless $cds_start_exon;
+    # trim back to the exon that matches the internal boundary
+    # stay in frame though
+    $translation->start_Exon($cds_start_exon);
+    my $trim = $cds_start_exon->start - $cds_start;
+    if ( $trim%3 == 0 ){
+      $translation->start(1);
+    } else {
+      $translation->start(1+(3-$trim%3));
+    }
+    $cds_start_exon->phase( -1 )    if $cds_start_exon->start < $cds_start;
       }
       unless ($translation->end_Exon && $translation->end_Exon eq $cds_end_exon ){
-	# the start is not inside an exon
-	throw("Cannot find the coding sequence end exon\n") unless $cds_end_exon;
-	# trim back to the exon that matches the internal boundary
-	# stay in frame 
+    # the start is not inside an exon
+    throw("Cannot find the coding sequence end exon\n") unless $cds_end_exon;
+    # trim back to the exon that matches the internal boundary
+    # stay in frame
       $translation->end_Exon($cds_end_exon);
-	my $trim = $cds_end - $cds_end_exon->end;
-	if ( $trim%3 == 0 ){
-	  $translation->end($cds_end_exon->length);
-	} else {
-	  $translation->end($cds_end_exon->length-(3-$trim%3));
-	}
-	$cds_end_exon->end_phase( -1 ) 	if $cds_end_exon->end > $cds_end;
+    my $trim = $cds_end - $cds_end_exon->end;
+    if ( $trim%3 == 0 ){
+      $translation->end($cds_end_exon->length);
+    } else {
+      $translation->end($cds_end_exon->length-(3-$trim%3));
+    }
+    $cds_end_exon->end_phase( -1 )  if $cds_end_exon->end > $cds_end;
       }
       $transcript->translation($translation);
       if ($strand == -1){
-	# flip it back onto the - strand
-	my $slice = $transcript->slice->invert;
-	$transcript = $transcript->transfer($slice);
-	$similarity_tran = $similarity_tran->transfer($slice);
-      }	
+    # flip it back onto the - strand
+    my $slice = $transcript->slice->invert;
+    $transcript = $transcript->transfer($slice);
+    $similarity_tran = $similarity_tran->transfer($slice);
+      }
     } else {
       # dont need to mess with translations if I am not adding UTR...
       my $newtranslation = clone_Translation($similarity_tran,$transcript);
@@ -578,20 +580,20 @@ sub make_genes{
       my @exon_array = @{$transcript->get_all_Exons};
       my @similarity_exons = sort { $a->start <=> $b->start } @{$similarity_tran->get_all_Exons};
       for ( my $i = 0 ; $i < scalar(@exon_array) ; $i ++ ){
-	# check for overlaps 
-	my $exon = $exon_array[$i];
-	foreach my $se (@similarity_exons){
-	  # set coding exons to have same phase as similarity exons
-	  if ($exon->start == $se->start){
-	    $exon->phase($se->phase);
-	  }
-	  if ( $exon->end == $se->end ){
-	    $exon->end_phase($se->end_phase);
-	  }
-	}
+    # check for overlaps
+    my $exon = $exon_array[$i];
+    foreach my $se (@similarity_exons){
+      # set coding exons to have same phase as similarity exons
+      if ($exon->start == $se->start){
+        $exon->phase($se->phase);
+      }
+      if ( $exon->end == $se->end ){
+        $exon->end_phase($se->end_phase);
       }
     }
-	
+      }
+    }
+
     # penalise transcripts where a utr exon overlaps another exon that was previously coding
     $weighted_score = $self->compare_translation($transcript,$collapsed_cluster);
     print $transcript->score."\t" if $verbose;
@@ -607,7 +609,7 @@ sub make_genes{
   }
 
 
-  # add the models of the single exon genes 
+  # add the models of the single exon genes
   push @genes, @{$self->add_single_exon_genes($cluster,$collapsed_cluster)};
 
   # SMJS Test length scaling
@@ -629,14 +631,14 @@ sub make_genes{
       # how about if we include the top 5% of the gene scores
       if ($good_percent){
         my $top = ($transcript->score - $bottom_score );
-	if ($score_range && (($top/$score_range) * 100 >= 100 - $good_percent)){
-	  $biotype = $good_biotype;
-	}
+    if ($score_range && (($top/$score_range) * 100 >= 100 - $good_percent)){
+      $biotype = $good_biotype;
+    }
       } else {
-	# we want the single top scoring model
-	if ($transcript->score == $top_score){
-	  $biotype = $good_biotype;
-	}
+    # we want the single top scoring model
+    if ($transcript->score == $top_score){
+      $biotype = $good_biotype;
+    }
       }
       $biotype = $small_biotype if (scalar(@genes) < $min_consensus);
       $gene->biotype($biotype);
@@ -645,17 +647,17 @@ sub make_genes{
   }
   foreach my $final(@final_genes){
     foreach my $transcript(@{$final->get_all_Transcripts}){
-      throw(Transcript_info($transcript)." has inconsistent phases") 
+      throw(Transcript_info($transcript)." has inconsistent phases")
         unless(are_phases_consistent($transcript));
       #modify score to be independent of length i total / number of introns+exons
       #Should always be less than 1
-      my $final_score = $transcript->score / (scalar(@{$transcript->get_all_Exons})*2-1);    
+      my $final_score = $transcript->score / (scalar(@{$transcript->get_all_Exons})*2-1);
       # add score into trancript supporting feature score feild and move
       # coverage into the new covergae field
       foreach my $tsf ( @{$transcript->get_all_supporting_features}) {
-	$tsf->hcoverage($tsf->score);
-	$tsf->score(sprintf("%.4f", $final_score));
-      }	
+    $tsf->hcoverage($tsf->score);
+    $tsf->score(sprintf("%.4f", $final_score));
+      }
       print "Final score $final_score\n";
     }
   }
@@ -681,9 +683,9 @@ sub weight_scores_by_cdna_length {
 
   if (!$len_range) { return };
 
-  #if ($len_range/$maxlen < 0.7 ) { 
-  #  print "!!!!!!! Returning on range limit\n"; 
-  #  return; 
+  #if ($len_range/$maxlen < 0.7 ) {
+  #  print "!!!!!!! Returning on range limit\n";
+  #  return;
   #}
 
   my $scale_factor = $score_range/1;
@@ -727,7 +729,7 @@ sub add_single_exon_genes {
       unless defined($score);
     $trans->score($score);
     push @single_exon_genes, $self->clone_gene($gene);
-  } 
+  }
   return \@single_exon_genes;
 }
 
@@ -753,7 +755,7 @@ sub make_transcripts {
   my @similarity_genes;
   my $longest_similarity = 0;
   my @all_transcripts;
-  foreach my $gene (@$genes){ 
+  foreach my $gene (@$genes){
     push @est_genes, $gene if  $gene->get_all_Transcripts->[0]->ev_set eq 'est';
     push @similarity_genes, $gene if $gene->get_all_Transcripts->[0]->ev_set  eq 'simgw';
   }
@@ -778,60 +780,60 @@ sub make_transcripts {
       # start UTR
       $start_splice = $collapsed_cluster->make_intron_from_exons($transcript_exons[0],$transcript_exons[1]);
       $self->throw("Intron was not previously defined in the cluster\n")
-	unless $collapsed_cluster->contains_intron($start_splice);
+    unless $collapsed_cluster->contains_intron($start_splice);
       my @joining_exons = @{$collapsed_cluster->last_exons_by_intron($start_splice)};
       foreach my $exon (@joining_exons) {
-	# get all the transcripts belonging to the non redundant potential joining exons
-	my @transcripts = @{$collapsed_cluster->transcript_by_feature($exon)};
-	foreach my $trans (@transcripts) {
-	  # only want est transcripts
-	  next unless $trans->ev_set eq 'est' ;
-	  push @start_utr, $trans if $add_utr;
-	}
+    # get all the transcripts belonging to the non redundant potential joining exons
+    my @transcripts = @{$collapsed_cluster->transcript_by_feature($exon)};
+    foreach my $trans (@transcripts) {
+      # only want est transcripts
+      next unless $trans->ev_set eq 'est' ;
+      push @start_utr, $trans if $add_utr;
+    }
       }
       # end UTR
       $end_splice = $collapsed_cluster->make_intron_from_exons($transcript_exons[$exon_count-1],$transcript_exons[$exon_count]);
       $self->throw("Intron was not previously defined in the cluster\n")
-	unless $collapsed_cluster->contains_intron($end_splice);
+    unless $collapsed_cluster->contains_intron($end_splice);
       @joining_exons = @{$collapsed_cluster->next_exons_by_intron($end_splice)};
       foreach my $exon (@joining_exons) {
-	# get all the transcripts belonging to the non redundant potential joining exons
-	my @transcripts = @{$collapsed_cluster->transcript_by_feature($exon)};
-	foreach my $trans (@transcripts) {
-	  # only want est transcripts
-	  next unless $trans->ev_set eq 'est' ;
-	  push @end_utr, $trans if $add_utr;
-	}
+    # get all the transcripts belonging to the non redundant potential joining exons
+    my @transcripts = @{$collapsed_cluster->transcript_by_feature($exon)};
+    foreach my $trans (@transcripts) {
+      # only want est transcripts
+      next unless $trans->ev_set eq 'est' ;
+      push @end_utr, $trans if $add_utr;
+    }
       }
 
       # if we have start utr
       if ( scalar(@start_utr) > 0 ) {
-	# make and score transcripts that represent all the start UTRs that will fit this similarity gene
-	foreach my $est (@start_utr) {
-	  my @exon_array;
-	  # truncate the ests to the right length
-	  foreach my $exon (@{$est->get_all_Exons}){
-	    if ($exon->end <= $start_splice->start){
-	      push @exon_array, $exon;
-	    }
-	  }
-	  my $new_transcript = $self->transcript_from_exons(\@exon_array,undef,$collapsed_cluster)
-	    if scalar(@exon_array > 0);
-	  if ($new_transcript){
-	    # keep the transcript supporting features
-	    $new_transcript->add_supporting_features(@{$est->get_all_supporting_features});
-	    push @possible_start_utr, $new_transcript;
-	  }
-	}
-	# only add the highest scoring possible utr for this similarity gene
-	@possible_start_utr = sort { $a->score <=> $b->score } @possible_start_utr if @possible_start_utr;
-	push @partial_transcripts, $possible_start_utr[-1] if @possible_start_utr;
+    # make and score transcripts that represent all the start UTRs that will fit this similarity gene
+    foreach my $est (@start_utr) {
+      my @exon_array;
+      # truncate the ests to the right length
+      foreach my $exon (@{$est->get_all_Exons}){
+        if ($exon->end <= $start_splice->start){
+          push @exon_array, $exon;
+        }
+      }
+      my $new_transcript = $self->transcript_from_exons(\@exon_array,undef,$collapsed_cluster)
+        if scalar(@exon_array > 0);
+      if ($new_transcript){
+        # keep the transcript supporting features
+        $new_transcript->add_supporting_features(@{$est->get_all_supporting_features});
+        push @possible_start_utr, $new_transcript;
+      }
+    }
+    # only add the highest scoring possible utr for this similarity gene
+    @possible_start_utr = sort { $a->score <=> $b->score } @possible_start_utr if @possible_start_utr;
+    push @partial_transcripts, $possible_start_utr[-1] if @possible_start_utr;
       }
       # make a new transcript conatining just the first similarity exon
       my @exon_array = (  $transcript_exons[0]  );
       my $new_transcript = $self->transcript_from_exons(\@exon_array,undef,$collapsed_cluster);
       $self->throw("Unable to make transcript using first exon of similarity gene\n")
-	unless $new_transcript;
+    unless $new_transcript;
       push @partial_transcripts, $new_transcript if $new_transcript;
 
       # now we are in the similarity gene proper put together all the internal exons
@@ -840,41 +842,41 @@ sub make_transcripts {
       shift @similarity_exons;
 
       #  add the similarity exons to all the transcripts made so far
-      foreach my $transcript (@partial_transcripts) {	
-	my $score;
-	$almost_complete = $self->transcript_from_exons(\@similarity_exons,$transcript,$collapsed_cluster);
-	if ( scalar(@end_utr) > 0 ) {
-	  # add all the possible end utrs
-	  # also make one transcript without end utr
-	  foreach my $est (@end_utr) {
-	    my @exon_array;
-	    # make an exon array out of the est starting at the end_splice intron
-	    foreach my $exon (@{$est->get_all_Exons}){
-	      if ($exon->start >= $end_splice->end){
-		push @exon_array, $exon;
-	      }
-	    }
-	    # to all the possible transcripts made so far
-	    my $new_transcript = $self->transcript_from_exons(\@exon_array,$almost_complete,$collapsed_cluster)
-	      if scalar(@exon_array > 0);
-	    if ($new_transcript){
-	      # keep the supporting features
-	      $new_transcript->add_supporting_features(@{$est->get_all_supporting_features});
-	      $new_transcript->similarity($trans);
-	      push @possible_end_utr, $new_transcript;
-	    }
-	  }
-	  # only add the highest scoring possible utr for this similarity gene
-	   @possible_end_utr = sort { $a->score <=> $b->score } @possible_end_utr;
-	   push @possible_transcripts, $possible_end_utr[-1];
-	 }
-	 #  add the last exon of the similarity gene
-	 my @exon_array = (  $transcript_exons[-1]  );
-	 my $new_transcript = $self->transcript_from_exons(\@exon_array,$almost_complete,$collapsed_cluster);
-	 $new_transcript->similarity($trans);
-	 $self->throw("Unable to make transcript using last exon of similarity gene\n")
-	   unless $new_transcript;
-	 push @possible_transcripts, $new_transcript if $new_transcript;
+      foreach my $transcript (@partial_transcripts) {
+    my $score;
+    $almost_complete = $self->transcript_from_exons(\@similarity_exons,$transcript,$collapsed_cluster);
+    if ( scalar(@end_utr) > 0 ) {
+      # add all the possible end utrs
+      # also make one transcript without end utr
+      foreach my $est (@end_utr) {
+        my @exon_array;
+        # make an exon array out of the est starting at the end_splice intron
+        foreach my $exon (@{$est->get_all_Exons}){
+          if ($exon->start >= $end_splice->end){
+        push @exon_array, $exon;
+          }
+        }
+        # to all the possible transcripts made so far
+        my $new_transcript = $self->transcript_from_exons(\@exon_array,$almost_complete,$collapsed_cluster)
+          if scalar(@exon_array > 0);
+        if ($new_transcript){
+          # keep the supporting features
+          $new_transcript->add_supporting_features(@{$est->get_all_supporting_features});
+          $new_transcript->similarity($trans);
+          push @possible_end_utr, $new_transcript;
+        }
+      }
+      # only add the highest scoring possible utr for this similarity gene
+       @possible_end_utr = sort { $a->score <=> $b->score } @possible_end_utr;
+       push @possible_transcripts, $possible_end_utr[-1];
+     }
+     #  add the last exon of the similarity gene
+     my @exon_array = (  $transcript_exons[-1]  );
+     my $new_transcript = $self->transcript_from_exons(\@exon_array,$almost_complete,$collapsed_cluster);
+     $new_transcript->similarity($trans);
+     $self->throw("Unable to make transcript using last exon of similarity gene\n")
+       unless $new_transcript;
+     push @possible_transcripts, $new_transcript if $new_transcript;
        }
       # only store the highest scoring transcript for each similarity gene
       @possible_transcripts = sort { $a->score <=> $b->score } @possible_transcripts if @possible_transcripts;
@@ -927,14 +929,14 @@ sub transcript_from_exons {
 
     my $collapsed_exon = $collapsed_cluster->get_exon($exon);
       unless ( $exon ){
-	$collapsed_cluster->exon_info($collapsed_exon) if $verbose;
-	$self->throw("No score assigned to this exon\n");
+    $collapsed_cluster->exon_info($collapsed_exon) if $verbose;
+    $self->throw("No score assigned to this exon\n");
       }
     if ($prev_exon){
       my $intron = $collapsed_cluster->make_intron_from_exons($prev_exon,$exon);
       unless ( $intron ){
-	$collapsed_cluster->exon_info($intron) if $verbose;
-	$self->throw("No score assigned to this intron\n");
+    $collapsed_cluster->exon_info($intron) if $verbose;
+    $self->throw("No score assigned to this intron\n");
       }
       $score += $collapsed_cluster->intron_score($intron);
       # add a penalty to UTR exons
@@ -978,7 +980,7 @@ sub filter_genes {
   my $gene_count = 0;
 
   for ( my $g = 0 ; $g < scalar(@$genes) ; $g++ ){
-    # dont run on ests unless specifically asked to 
+    # dont run on ests unless specifically asked to
     unless ($filter_ests){
       next if ($genes->[$g]->get_all_Transcripts->[0]->ev_set eq 'est');
     }
@@ -989,15 +991,15 @@ sub filter_genes {
 
       my @exons = @{$trans->get_all_Exons};
       foreach (my $i =0 ; $i < scalar(@exons) ; $i++){
-	my $exon = $exons[$i];
-	# need to be able to backtrack, which gene exon comes from..
-	my $unique_key = $exon->start.":".$exon->end.":".$exon->strand;
-	push @{$exon_hash{$unique_key}} , $g;
+    my $exon = $exons[$i];
+    # need to be able to backtrack, which gene exon comes from..
+    my $unique_key = $exon->start.":".$exon->end.":".$exon->strand;
+    push @{$exon_hash{$unique_key}} , $g;
       }
     }
   }
   # dont run on very small clusters
-  if ($gene_count <= 2){ 
+  if ($gene_count <= 2){
     return $genes;
   }
   # once we have looked at all the exons in the cluster find the singletons
@@ -1016,15 +1018,15 @@ sub filter_genes {
   } else {
     for ( my $g = 0 ; $g < scalar(@$genes) ; $g++ ){
       if ( $filter_singletons && $singletons{$g} && $singletons{$g}>= $filter_singletons ){
-	print  "Filtering out ".$genes->[$g]->dbID." ".$genes->[$g]->biotype." ".$genes->[$g]->start.":".$genes->[$g]->end.":".$genes->[$g]->strand." " if $verbose;
-	print  $singletons{$g}." singleton exons\n" if $verbose;
-	next;
-	
+    print  "Filtering out ".$genes->[$g]->dbID." ".$genes->[$g]->biotype." ".$genes->[$g]->start.":".$genes->[$g]->end.":".$genes->[$g]->strand." " if $verbose;
+    print  $singletons{$g}." singleton exons\n" if $verbose;
+    next;
+
       }
       if ( $filter_non_consensus && $non_con{$g} && $non_con{$g} >= $filter_non_consensus ){
-	print  "Filtering out ".$genes->[$g]->dbID." ".$genes->[$g]->biotype." ".$genes->[$g]->start.":".$genes->[$g]->end.":".$genes->[$g]->strand." " if $verbose;
-	print  $non_con{$g}." non - consensus\n" if $verbose;	
-	next;
+    print  "Filtering out ".$genes->[$g]->dbID." ".$genes->[$g]->biotype." ".$genes->[$g]->start.":".$genes->[$g]->end.":".$genes->[$g]->strand." " if $verbose;
+    print  $non_con{$g}." non - consensus\n" if $verbose;
+    next;
       }
       push @filtered_genes , $genes->[$g];
     }
@@ -1052,7 +1054,7 @@ sub compare_translation {
  EXON: foreach my $exon (@{$transcript->get_all_Exons}){
     # ignore exon that contains the start or stop
     if ($exon->end > $transcript->coding_region_start &&
-	$exon->start < $transcript->coding_region_end ){
+    $exon->start < $transcript->coding_region_end ){
       next;
     }
     my $exon_cluster = $collapsed_cluster->get_exon_cluster($exon);
@@ -1145,8 +1147,8 @@ sub clone_exon_extended {
 
 Name : get_all_evidence_sets
 Arg[1] : none
-Function : Returns hash of evidence_set_names($key) and biotypes  
-Returnval : Hashref $hash{evidence_set_name} = @\biotypes 
+Function : Returns hash of evidence_set_names($key) and biotypes
+Returnval : Hashref $hash{evidence_set_name} = @\biotypes
 
 =cut
 
@@ -1162,10 +1164,10 @@ sub get_all_evidence_sets {
 =head2 get_genes_by_evidence_set
 
 Name : get_genes_by_evidence_set($evidence_set)
-Arg[1] : String 
-Function : Returns all genes of an evidence set 
-   (an evidence set contains genes of different biotypes ). 
-   If there were any PredictionTranscripts specified as evidence set, 
+Arg[1] : String
+Function : Returns all genes of an evidence set
+   (an evidence set contains genes of different biotypes ).
+   If there were any PredictionTranscripts specified as evidence set,
    they were converted to genes and returned, too.
 
 =cut
@@ -1190,9 +1192,9 @@ sub get_genes_by_evidence_set {
 
 =head2 get_genes_by_biotype
 
-Name : get_genes_by_biotype($arg)  
-Arg[1] : String 
-Function : Returns all genes of a specific biotype (like all simgw_100 or genscan genes) 
+Name : get_genes_by_biotype($arg)
+Arg[1] : String
+Function : Returns all genes of a specific biotype (like all simgw_100 or genscan genes)
 Returnval : Arrayref of Bio::EnsEMBL::Gene objects
 
 =cut
@@ -1205,10 +1207,10 @@ sub get_genes_by_biotype {
 
 =head2 get_biotypes_of_evidence_set
 
-Name : get_biotypes_of_evidence_set($arg)  
-Arg[1] : String 
-Function : Returns all biotypes specific evidence set (like simgw_100 , genscan ) 
-Returnval : Arrayref of Strings 
+Name : get_biotypes_of_evidence_set($arg)
+Arg[1] : String
+Function : Returns all biotypes specific evidence set (like simgw_100 , genscan )
+Returnval : Arrayref of Strings
 
 =cut
 
@@ -1228,8 +1230,8 @@ sub get_biotypes_of_evidence_set {
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
   Function  : Getter/Setter for config variables
   Returntype: again varies
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
