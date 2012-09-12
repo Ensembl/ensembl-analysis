@@ -90,7 +90,7 @@ foreach my $file (@files ) {
     $chunked_reads += count_reads($_) if $check;
     #write the new meta file
     for ( my $i =0 ; $i < scalar(@cells) ; $i++ ) {
-      if ( $i == $fc ) {
+      if ( $i == $fc -1  ) {
 	my @path = split("\/",$_);
 	my $file = pop(@path);
 	$new_meta .= "$file\t";
