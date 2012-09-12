@@ -115,7 +115,8 @@ sub run {
   my @tmp = split(/\//,$fastq);
   $filename = pop @tmp;
   print "Filename $filename\n";
-  ($outfile) = $filename =~ /^(.+)\.[^.]+$/;
+  $outfile = $filename;
+  #($outfile) = $filename =~ /^(.+)\.[^.]+$/;
   if ( $fastqpair ) {
     my @tmp = split(/\//,$fastqpair);
     $pairfilename = pop @tmp;
@@ -198,8 +199,8 @@ sub run {
 	$self->throw("EOF marker absent, something went wrong\n");
       }
       if ( $_ =~ /(\d+) \+ \d+ in total \(/ ) {
-	$self->throw("Got $1 reads rather than $total_reads in flagstat - something went wrong\n")
-	  unless $1 == $total_reads;
+	$self->throw("Got $1 reads in flagstat  rather than $total_reads in fastq - something went wrong\n")
+	  unless ( $total_reads - $1 ) <=1 ;
       }
     }
   }; if($@){
