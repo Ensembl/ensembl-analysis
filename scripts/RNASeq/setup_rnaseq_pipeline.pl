@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.24 $
+# $Revision: 1.25 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -166,8 +166,8 @@ foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
     }
     if ( $analysis->logic_name =~ /bwa2bam_.+/ ) {
       $bwa2bam_count++;
-      # remove the file extension
-      my @name = split( /\./, $id );
+      # split up paired end ids
+      my @name = split( /:/,$id);
       push @files, shift(@name);
     }
     if ( $analysis->logic_name =~ /submit_chromosome/ ) {
