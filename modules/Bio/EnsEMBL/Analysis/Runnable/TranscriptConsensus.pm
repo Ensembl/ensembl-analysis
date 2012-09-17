@@ -62,9 +62,13 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (count_non_canonical_splice_sites are_phases_consistent Transcript_info) ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw ( clone_Evidence );
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw( clone_Translation );
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
+  qw( count_non_canonical_splice_sites
+      are_phases_consistent Transcript_info);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils
+  qw( clone_Evidence );
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils
+  qw( clone_Translation );
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster;
 
@@ -157,8 +161,7 @@ sub run {
   my $filter_non_consensus = $self->{filter_non_consensus};
 
   my $verbose = $self->{verbose};
-  my $count   = 1;
-  my $genes_by_strand;
+  my $count;
 
   # first we want to cluster on protein coding genes only then cluster
   # them with ESTs afterwards
@@ -215,8 +218,9 @@ sub run {
       cluster_Genes( \@allgenes, $self->get_all_evidence_sets() );
 
     # Create a hash of genes by strand to use when looking for
-    # overlapping genes.  Useful to look at ALL genes not just those in
-    # the cluster to prevent cluster joining.
+    # overlapping genes.  Useful to look at ALL genes not just those
+    # in the cluster to prevent cluster joining.
+    my $genes_by_strand;
     foreach my $gene (@allgenes) {
       push( @{ $genes_by_strand->{ $gene->strand() } }, $gene );
     }
@@ -225,16 +229,13 @@ sub run {
       push( @$clusters, @$non_clusters );
     }
 
-    my $found;
     $count = 0;
 
-    foreach my $cluster (@$clusters) {
-      my $simgw;
+    my @leftover_genes;
 
+    foreach my $cluster (@$clusters) {
       # cluster has to contain at least one similarity gene to be worth
       # continuing with
-      my $genes = $cluster->get_Genes();
-
       if ( !@{ $cluster->get_Genes_by_Set('simgw') } ) { next }
 
       if ($verbose) {
@@ -258,8 +259,10 @@ sub run {
       # sort the scored transcripts by score and make gene objects out
       # of the best ones
       $self->make_genes( $transcripts, $cluster, $collapsed_cluster );
+
     } ## end foreach my $cluster (@$clusters)
   } ## end foreach my $coding_cluster ...
+
 } ## end sub run
 
 =head2 collapse_cluster
@@ -653,72 +656,188 @@ sub make_genes{
   # SMJS Test length scaling
   $self->weight_scores_by_cdna_length(\@genes);
 
-  @genes = sort { $b->get_all_Transcripts->[0]->score <=> $a->get_all_Transcripts->[0]->score } @genes;
-  my $top_score = $genes[0]->get_all_Transcripts->[0]->score;
-  my $bottom_score = $genes[-1]->get_all_Transcripts->[0]->score;
-  # prevent the whole division by zero thing
-  $bottom_score-= 0.0001 if $bottom_score == 0;
+  while (@genes) {
+    @genes = sort {
+      $b->get_all_Transcripts->[0]->score()
+        <=> $a->get_all_Transcripts->[0]->score()
+    } @genes;
 
-  my $score_range = ($top_score - $bottom_score);
-  print "SCORE RANGE $top_score - $bottom_score =  $score_range\n";
+    my $top_score    = $genes[0]->get_all_Transcripts->[0]->score();
+    my $bottom_score = $genes[-1]->get_all_Transcripts->[0]->score();
 
-  foreach my $gene (@genes) {
-    foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) {
-      # Sort out exon phases - transfer them from the similarity gene.
-      # Coding region start/stop is independent of strand so I will swap
-      # them if the strand is -ve.
+    # prevent the whole division by zero thing
+    if ( $bottom_score == 0 ) {
+      $bottom_score -= 0.0001;
+    }
 
-      my $biotype;
+    my $score_range = ( $top_score - $bottom_score );
+    print("SCORE RANGE $top_score - $bottom_score = $score_range\n");
 
-      if ( scalar(@genes) < $min_consensus ) {
-        $biotype = $small_biotype;
-      }
-      else {
-        $biotype = $bad_biotype;
+    foreach my $gene (@genes) {
+      foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) {
+        # Sort out exon phases - transfer them from the similarity gene.
+        # Coding region start/stop is independent of strand so I will
+        # swap them if the strand is -ve.
 
-        # how about if we include the top 5% ($good_percent) of the gene
-        # scores
-        if ($good_percent) {
-          my $top = ( $transcript->score() - $bottom_score );
-          if ( $score_range &&
-               ( ( $top/$score_range )*100 >= 100 - $good_percent ) )
-          {
+        my $biotype = $bad_biotype;
+
+        if ( scalar(@genes) < $min_consensus ) {
+          $biotype = $small_biotype;
+        }
+        else {
+          # how about if we include the top 5% ($good_percent) of the
+          # gene scores
+          if ($good_percent) {
+            my $top = ( $transcript->score() - $bottom_score );
+            if ( $score_range &&
+                 ( ( $top/$score_range )*100 >= 100 - $good_percent ) )
+            {
+              $biotype = $good_biotype;
+            }
+          }
+          elsif ( $transcript->score() == $top_score ) {
+            # we want the single top scoring model
             $biotype = $good_biotype;
           }
         }
-        elsif ( $transcript->score() == $top_score ) {
-          # we want the single top scoring model
-          $biotype = $good_biotype;
+
+        $gene->biotype($biotype);
+
+        if ($biotype) {
+          push( @final_genes, $gene );
+        }
+      } ## end foreach my $transcript ( @{...})
+    } ## end foreach my $gene (@genes)
+
+    my ( $genes_to_store, $genes_to_recluster ) =
+      $self->_find_genes_to_recluster( \@final_genes );
+
+    @final_genes = @{$genes_to_store};
+    @genes       = @{$genes_to_recluster};
+
+    foreach my $final (@final_genes) {
+      foreach my $transcript ( @{ $final->get_all_Transcripts() } ) {
+        if ( !are_phases_consistent($transcript) ) {
+          throw(
+            Transcript_info($transcript) . " has inconsistent phases" );
+        }
+
+        # Modify score to be independent of length i total / number of
+        # introns+exons.  Should always be less than 1.
+        my $final_score =
+          $transcript->score()/
+          ( scalar( @{ $transcript->get_all_Exons() } )*2 - 1 );
+
+        # Add score into trancript supporting feature score feild and
+        # move coverage into the new covergae field.
+        foreach
+          my $tsf ( @{ $transcript->get_all_supporting_features() } )
+        {
+          $tsf->hcoverage( $tsf->score() );
+          $tsf->score( sprintf( "%.4f", $final_score ) );
+        }
+
+        print("Final score $final_score\n");
+      }
+    } ## end foreach my $final (@final_genes)
+
+    $self->output( \@final_genes );
+
+  } ## end while (@genes)
+}
+
+sub _find_genes_to_recluster {
+  # This method finds the gene models that were tagged with the "bad"
+  # biotype by make_genes() but that does not have exon overlap
+  # with any of the gene models tagged as "good".  If there are any
+  # such gene models, it usually means that there are actually two
+  # (or more) clusters of models that are joined by one or a few
+  # connecting models.  These "bad" models may then be re-considered by
+  # make_genes() in one or several extra iterations.
+
+  # This method will issue a warning if the bad biotype is not
+  # configured by the user.
+
+  my ( $self, $genes ) = @_;
+
+  my $good_biotype = $self->{'good_biotype'};
+  my $bad_biotype  = $self->{'bad_biotype'};
+
+  if ( !defined($bad_biotype) ) {
+    warning("Can not find genes to re-cluster without 'bad' biotype\n");
+    return ( $genes, undef );
+  }
+
+  # Build hash of exon coordinates from the "good" models.
+
+  my %exon_coords;
+
+  foreach my $gene ( @{$genes} ) {
+    if ( $gene->biotype() eq $good_biotype ) {
+      foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) {
+        foreach my $exon ( @{ $transcript->get_all_Exons() } ) {
+          my $slice = $exon->feature_Slice();
+          my $key   = $slice->seq_region_name() . $slice->strand();
+          push( @{ $exon_coords{$key} },
+                [ $slice->start(), $slice->end() ] );
+        }
+      }
+    }
+  }
+
+  # Compare the "bad" models against the exon coordinates of the "good"
+  # ones.  If there is overlap, add them to @genes_to_store, otherwise
+  # to @genes_to_recluster.
+
+  my @genes_to_store;
+  my @genes_to_recluster;
+
+  foreach my $gene ( @{$genes} ) {
+    if ( $gene->biotype() eq $bad_biotype ) {
+      my $overlaps = 0;
+
+    TRANSCRIPT_LOOP:
+      foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) {
+        foreach my $exon ( @{ $transcript->get_all_Exons() } ) {
+          my $slice = $exon->feature_Slice();
+          my $key   = $slice->seq_region_name() . $slice->strand();
+
+          if ( exists( $exon_coords{$key} ) ) {
+            foreach my $range ( @{ $exon_coords{$key} } ) {
+              if ( ( $slice->start() <= $range->[0] &&
+                     $slice->end() >= $range->[0] ) ||
+                   ( $slice->start() <= $range->[1] &&
+                     $slice->end() >= $range->[1] ) ||
+                   ( $slice->start() >= $range->[0] &&
+                     $slice->end() <= $range->[1] ) )
+              {
+                $overlaps = 1;
+                last TRANSCRIPT_LOOP;
+              }
+            }
+          }
         }
       }
 
-      $gene->biotype($biotype);
-
-      if ($biotype) {
-        push( @final_genes, $gene );
+      if ($overlaps) {
+        # Store "bad" models that overlap with any "good" model.
+        push( @genes_to_store, $gene );
       }
-    } ## end foreach my $transcript ( @{...})
-  } ## end foreach my $gene (@genes)
-
-  foreach my $final(@final_genes){
-    foreach my $transcript(@{$final->get_all_Transcripts}){
-      throw(Transcript_info($transcript)." has inconsistent phases")
-        unless(are_phases_consistent($transcript));
-      #modify score to be independent of length i total / number of introns+exons
-      #Should always be less than 1
-      my $final_score = $transcript->score / (scalar(@{$transcript->get_all_Exons})*2-1);
-      # add score into trancript supporting feature score feild and move
-      # coverage into the new covergae field
-      foreach my $tsf ( @{$transcript->get_all_supporting_features}) {
-    $tsf->hcoverage($tsf->score);
-    $tsf->score(sprintf("%.4f", $final_score));
+      else {
+        # Reconsider the "bad" models that do not overlap any "good"
+        # models.
+        push( @genes_to_recluster, $gene );
       }
-      print "Final score $final_score\n";
+
+    } ## end if ( $gene->biotype() ...)
+    else {
+      # Store "good" and "small" models.
+      push( @genes_to_store, $gene );
     }
-  }
-  $self->output(\@final_genes);
-  return;
-}
+  } ## end foreach my $gene ( @{$genes...})
+
+  return ( \@genes_to_store, \@genes_to_recluster );
+} ## end sub _find_genes_to_recluster
 
 sub weight_scores_by_cdna_length {
   my ($self,$genes) = @_ ;
