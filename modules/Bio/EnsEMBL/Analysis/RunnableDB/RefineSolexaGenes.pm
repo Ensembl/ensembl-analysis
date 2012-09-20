@@ -65,6 +65,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
+use Bio::EnsEMBL::DBSQL::IntronSupportingEvidenceAdaptor;
+use Bio::EnsEMBL::IntronSupportingEvidence;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
@@ -888,6 +890,8 @@ sub make_models {
   my @clusters;
   my @models;
   my @genes;
+  my @ise;
+  my %ise_check;
 
   foreach my $path ( keys %$paths ) {
     my $exon_use;
@@ -970,8 +974,30 @@ sub make_models {
 	  }
 	  $intron_count++;
 	  $intron_score+= $intron->score;
-	  # keep tabs on how many fake introns we have
 	  $non_con_introns++ if $intron->hseqname =~ /non canonical/;
+	  # use the new intron feature code to store introns
+	  # provided we have not seen them before
+	  unless ( $ise_check{$intron->hseqname}  ) {
+	    $ise_check{$intron->hseqname} = 1;
+	    my $if;
+	    if ( $strand == 1 ){
+	      $if =  Bio::EnsEMBL::Intron->new( $new_exons[$i-1] , $new_exons[$i+1] );
+	    } else {
+	      $if =  Bio::EnsEMBL::Intron->new( $new_exons[$i+1] , $new_exons[$i-1] ); 
+	    }
+	    my $ise = Bio::EnsEMBL::IntronSupportingEvidence->new(
+								  -ANALYSIS => $intron->analysis,
+								  -INTRON   => $if, 
+								  -HIT_NAME => $intron->hseqname,
+								  -SCORE    => $intron->score,
+								  -SCORE_TYPE  => 'DEPTH',
+								 );
+	  print $intron->hseqname . " $ise \n";
+	  if ( $intron->hseqname =~ /non canonical/ ) {
+	      $ise->is_splice_canonical(0);
+	    }
+	    push @ise, $ise if $ise;
+	  }
 	}
       }
       next MODEL unless $intron_count;
@@ -1092,6 +1118,7 @@ sub make_models {
       push @{$cluster->{'final_models'}} , $new_gene;
     }
   }
+  $self->intron_supporting_evidence(\@ise);
   return \@model_clusters;
 }
 
@@ -1408,7 +1435,7 @@ sub write_output{
 
   my $outdb = $self->get_dbadaptor($self->OUTPUT_DB);
   my $gene_adaptor = $outdb->get_GeneAdaptor;
-  my $intron_adaptor = $outdb->get_DnaAlignFeatureAdaptor;
+  my $intron_adaptor = $outdb->get_IntronSupportingEvidenceAdaptor;
   $outdb->dbc->disconnect_when_inactive(0);
   my @output = @{$self->output};
   
@@ -1447,14 +1474,12 @@ sub write_output{
   }
   # store the intron features too
   if ( $self->WRITE_INTRONS ) {
-    my $introns = $self->intron_features;
+    # now storing intron supporting evidence rather than intron features
+    my $introns = $self->intron_supporting_evidence;
     my $fails = 0;
     my $total = 0;
     print "Writing " . scalar( @$introns ) ." introns\n";
     foreach my $intron ( @$introns ) {
-      # make the introns so they dont overlap the exons
-      $intron->start($intron->start+1);
-      $intron->end($intron->end-1);
       eval {
 	$intron_adaptor->store($intron);
       };    
@@ -1469,8 +1494,6 @@ sub write_output{
 	    "($fails fails out of $total)");
     }
   }
-  # Maybe not really useful
-#  $outdb->dbc->disconnect_when_inactive(1);
 }
 
 
@@ -2478,6 +2501,15 @@ sub intron_features {
     @{$self->{_introns}} = sort { $a->start <=> $b->start } @{$self->{_introns}};
   }
   return $self->{_introns};
+}
+
+sub intron_supporting_evidence {
+  my ($self, $val) = @_;
+  
+  if (defined $val) {
+    push @{$self->{_intron_supporting_evidence}}, @$val;
+    }
+  return $self->{_intron_supporting_evidence};
 }
 
 sub extra_exons {
