@@ -153,6 +153,15 @@ if ($all && $infile) {
 my $sourcedb;
 if ($in_config_name) {
   $sourcedb = get_db_adaptor_by_string($in_config_name);
+  if ( $dnadbname ) {
+    $dnadb =
+      new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
+                                          -user   => $dnauser,
+                                          -port   => $dnaport,
+                                          -dbname => $dnadbname );
+
+    $sourcedb->dnadb($dnadb);
+  }
 } else {
 
   $sourcedb =
@@ -160,29 +169,29 @@ if ($in_config_name) {
                                         -user   => $sourceuser,
                                         -port   => $sourceport,
                                         -dbname => $sourcedbname );
-}
+  my $dnadb;
+  if ( !$dnadbname ) {
+    my $dna_query = q(SELECT count(1) FROM dna);
+    my $dna_sth = $sourcedb->dbc->prepare($dna_query);
+    $dna_sth->execute();
+    my $dna_count = $dna_sth->fetchrow;
 
-my $dnadb;
-if ( !$dnadbname ) {
-  my $dna_query = q(SELECT count(1) FROM dna);
-  my $dna_sth = $sourcedb->dbc->prepare($dna_query);
-  $dna_sth->execute();
-  my $dna_count = $dna_sth->fetchrow;
+    if ( !$dna_count ) {
+      croak( "\nYour source database does not contain DNA. "
+           . "Please provide a database with genomic sequences.\n");
+    }
+  } else {
+    $dnadb =
+      new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
+                                          -user   => $dnauser,
+                                          -port   => $dnaport,
+                                          -dbname => $dnadbname );
 
-  if ( !$dna_count ) {
-    croak( "\nYour source database does not contain DNA. "
-         . "Please provide a database with genomic sequences.\n");
+    $sourcedb->dnadb($dnadb);
   }
-} else {
-  $dnadb =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
-                                        -user   => $dnauser,
-                                        -port   => $dnaport,
-                                        -dbname => $dnadbname );
-
-  $sourcedb->dnadb($dnadb);
-}
                           
+}
+
 my $outdb;
 if ($out_config_name) {
   $outdb = get_db_adaptor_by_string($out_config_name);
