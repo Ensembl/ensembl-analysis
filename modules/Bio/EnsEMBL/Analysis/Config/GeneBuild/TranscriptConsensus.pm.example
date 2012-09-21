@@ -112,7 +112,7 @@ use vars qw(%Config);
                       # biotype of the genes if the cluster is too small to use - leave blank and they will not be written
                       SMALL_BIOTYPE => 'small',
 
-                      OUTPUT_DATABASE => "COALESCER_DB",
+                      OUTPUT_DATABASE => "CONSENSUS_DB",
 
                       # biotype to be fetched from the databases
                       INPUT_GENES => {

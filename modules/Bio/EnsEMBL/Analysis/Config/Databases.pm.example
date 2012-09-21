@@ -164,6 +164,17 @@ use vars qw(%Config);
                    -pass   => '',
     },
 
+    # CONSENSUS_DB is the DB where TranscriptConsensus writes its
+    # results to
+
+    CONSENSUS_DB => { 
+                      -dbname => '',
+                      -host   => '',
+                      -port   => '',
+                      -user   => '',
+                      -pass   => '',
+    },
+
     # COALESCER_DB is the DB where TranscriptCoalescer writes its
     # results to
 

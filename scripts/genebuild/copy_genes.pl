@@ -51,7 +51,7 @@
 =head1 EXAMPLE
 
   perl copy_genes.pl \
-    --source_config_name=COALESCER_DB \
+    --source_config_name=CONSENSUS_DB \
     --target_config_name=UTR_DB \
     --file=gene_ids_to_copy
 
