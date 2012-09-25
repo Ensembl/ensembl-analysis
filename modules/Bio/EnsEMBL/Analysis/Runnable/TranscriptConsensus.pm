@@ -673,6 +673,8 @@ sub make_genes{
     my $score_range = ( $top_score - $bottom_score );
     print("SCORE RANGE $top_score - $bottom_score = $score_range\n");
 
+    my @genes_to_consider;
+
     foreach my $gene (@genes) {
       foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) {
         # Sort out exon phases - transfer them from the similarity gene.
@@ -704,46 +706,47 @@ sub make_genes{
         $gene->biotype($biotype);
 
         if ($biotype) {
-          push( @final_genes, $gene );
+          push( @genes_to_consider, $gene );
         }
       } ## end foreach my $transcript ( @{...})
     } ## end foreach my $gene (@genes)
 
     my ( $genes_to_store, $genes_to_recluster ) =
-      $self->_find_genes_to_recluster( \@final_genes );
+      $self->_find_genes_to_recluster( \@genes_to_consider );
 
-    @final_genes = @{$genes_to_store};
-    @genes       = @{$genes_to_recluster};
-
-    foreach my $final (@final_genes) {
-      foreach my $transcript ( @{ $final->get_all_Transcripts() } ) {
-        if ( !are_phases_consistent($transcript) ) {
-          throw(
-            Transcript_info($transcript) . " has inconsistent phases" );
-        }
-
-        # Modify score to be independent of length i total / number of
-        # introns+exons.  Should always be less than 1.
-        my $final_score =
-          $transcript->score()/
-          ( scalar( @{ $transcript->get_all_Exons() } )*2 - 1 );
-
-        # Add score into trancript supporting feature score feild and
-        # move coverage into the new covergae field.
-        foreach
-          my $tsf ( @{ $transcript->get_all_supporting_features() } )
-        {
-          $tsf->hcoverage( $tsf->score() );
-          $tsf->score( sprintf( "%.4f", $final_score ) );
-        }
-
-        print("Final score $final_score\n");
-      }
-    } ## end foreach my $final (@final_genes)
-
-    $self->output( \@final_genes );
-
+    if ( @{$genes_to_store} ) {
+      push( @final_genes, @{$genes_to_store} );
+    }
+    @genes = @{$genes_to_recluster};
   } ## end while (@genes)
+
+  foreach my $final (@final_genes) {
+    foreach my $transcript ( @{ $final->get_all_Transcripts() } ) {
+      if ( !are_phases_consistent($transcript) ) {
+        throw(
+            Transcript_info($transcript) . " has inconsistent phases" );
+      }
+
+      # Modify score to be independent of length i total / number of
+      # introns+exons.  Should always be less than 1.
+      my $final_score =
+        $transcript->score()/
+        ( scalar( @{ $transcript->get_all_Exons() } )*2 - 1 );
+
+      # Add score into trancript supporting feature score feild and
+      # move coverage into the new covergae field.
+      foreach
+        my $tsf ( @{ $transcript->get_all_supporting_features() } )
+      {
+        $tsf->hcoverage( $tsf->score() );
+        $tsf->score( sprintf( "%.4f", $final_score ) );
+      }
+
+      print("Final score $final_score\n");
+    }
+  } ## end foreach my $final (@final_genes)
+
+  $self->output( \@final_genes );
 }
 
 sub _find_genes_to_recluster {
