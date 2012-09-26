@@ -86,9 +86,9 @@ use vars qw( %GeneBuilder );
   HAVANA_INPUT_CODING_TYPE => [ 'protein_coding',
                                 'polymorphic_pseudogene',
                                 'nonsense_mediated_decay',
-                                'polymorphic',
                                 'non_stop_decay',
-                                'IG_gene'
+                                'IG_gene',
+                                'TR_gene'
                               ],
 
   # (II) ALL PSEUDOGENE-RELATED GENE AND TRANSCRIPT BIOTYPES
@@ -107,7 +107,8 @@ use vars qw( %GeneBuilder );
                                 'unitary_pseudogene',
                                 'unprocessed_pseudogene',
                                 'disrupted_domain',
-                                'IG_pseudogene'
+                                'IG_pseudogene',
+                                'TR_pseudogene'
                                ],
 
 
