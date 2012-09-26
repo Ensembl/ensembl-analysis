@@ -1449,8 +1449,7 @@ sub write_output{
   
   my $fails = 0;
   my $total = 0;
-  GENE: foreach my $g (@output){
-      my $gene = clone_Gene($g);
+  GENE: foreach my $gene (@output){
     $gene->analysis($self->analysis);
     $gene->source($self->analysis->logic_name);
     foreach my $tran ( @{$gene->get_all_Transcripts} ) {
