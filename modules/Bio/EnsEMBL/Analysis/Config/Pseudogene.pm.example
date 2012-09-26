@@ -86,7 +86,8 @@ use vars qw( %Config );
 	       RETROTRANSPOSED  => '',
 	       # if you dont wish to run further tests on retro transposed genes
 	       # What type would you like to give them?
-	       RETRO_TYPE       => 'retrotransposed',
+               # previously set to 'retrotransposed', we change to 'processed_pseudogene' from e70 onwards.
+	       RETRO_TYPE       => 'processed_pseudogene',
 
 	       SPLICED_ELSEWHERE_LOGIC_NAME => 'spliced_elsewhere',
 	       PSILC_LOGIC_NAME => 'Psilc',
