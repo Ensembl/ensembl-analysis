@@ -293,6 +293,11 @@ sub clone_Transcript{
     my $newsf = clone_Evidence($sf);
     $newtranscript->add_supporting_features($newsf);
   }
+  if ( $transcript->get_all_IntronSupportingEvidence) {
+    foreach my $ise(@{$transcript->get_all_IntronSupportingEvidence}){
+      $newtranscript->add_IntronSupportingEvidence($ise);
+    }
+  }
   my $newtranslation;
   if($transcript->translation){
     $newtranslation = clone_Translation($transcript, 
