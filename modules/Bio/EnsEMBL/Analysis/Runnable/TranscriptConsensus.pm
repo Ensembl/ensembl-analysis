@@ -656,6 +656,8 @@ sub make_genes{
   # SMJS Test length scaling
   $self->weight_scores_by_cdna_length(\@genes);
 
+  my $iteration = 0;
+
   while (@genes) {
     @genes = sort {
       $b->get_all_Transcripts->[0]->score()
@@ -713,6 +715,14 @@ sub make_genes{
 
     my ( $genes_to_store, $genes_to_recluster ) =
       $self->_find_genes_to_recluster( \@genes_to_consider );
+
+    printf( "Iteration %d: Cluster of %d models " .
+              "broken up into %d finished models " .
+              "and %d models to reconsider\n",
+            ++$iteration,
+            scalar(@genes_to_consider),
+            scalar( @{$genes_to_store} ),
+            scalar( @{$genes_to_recluster} ) );
 
     if ( @{$genes_to_store} ) {
       push( @final_genes, @{$genes_to_store} );
