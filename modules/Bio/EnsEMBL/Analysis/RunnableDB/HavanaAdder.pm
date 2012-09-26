@@ -178,12 +178,6 @@ sub fetch_input {
 
   $self->fetch_sequence();
 
-  # Database with a number of genes which where identified as wrong
-  # structures so if we build something similar we want to remove it
-  my $discarded_db = $self->get_dbadaptor("DISCARDED_DB");
-
-  print "DISCARDED GENE DB: ", $discarded_db->dbname, "\n";
-
   # database where the ensembl genebuild genes are located
   my $ensembl_db = $self->get_dbadaptor("PSEUDO_DB");
 
@@ -216,7 +210,6 @@ sub fetch_input {
                                                '-slice'    => $self->query,
                                                '-input_id' => $self->input_id,
     );
-  $genebuilder->discarded_db($discarded_db);
   $genebuilder->ensembl_db($ensembl_db);
   $genebuilder->havana_db($havana_db);
   $genebuilder->ccds_db($ccds_db);

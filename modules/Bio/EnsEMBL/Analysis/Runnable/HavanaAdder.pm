@@ -1571,15 +1571,9 @@ sub check_merge_transcript_status {
 
       $self->flush_xref($tran);
 
-      # Check if a transcript is in the discarded genes database
-      # before adding it to the merging list.
-      if ( $self->check_transcript_in_external_db('discarded', $tran) == 0 ) {
-        print "Transcript present in discarded DB: " . $tran->stable_id
-          . ". Parent gene: " . $gene->stable_id
-          . ". Transcript not used in merge!\n";
-      } elsif ( $self->check_transcript_in_external_db('discarded', $tran) != 0 ) {
-        push( @transcripts, $tran );
-      }
+      # add transcript to the merging list
+      push( @transcripts, $tran );
+
     } ## end foreach my $tran ( @{ $gene...
   } ## end foreach my $gene (@$genes)
   return \@transcripts;
@@ -1595,18 +1589,12 @@ sub check_transcript_in_external_db {
   #print "DEBUG: --->>> t_exons: " . scalar(@t_exons) . "\n";
 
   my $ext_slice;
-  if ( $dbname =~ /discarded/ ) {
-    $ext_slice =
-      $self->discarded_db->get_SliceAdaptor->fetch_by_region( 'toplevel',
-                           $trans->slice->seq_region_name,
-                           $trans->seq_region_start, $trans->seq_region_end );
-  } else {    # external_db = ccds_db
-    $ext_slice =
+
+  # external_db = ccds_db
+  $ext_slice =
       $self->ccds_db->get_SliceAdaptor->fetch_by_region( 'toplevel',
                      $trans->slice->seq_region_name,
                      $trans->seq_region_start, $trans->seq_region_end );
-
-  }
 
 EXT_GENE:
   foreach my $ext_gene ( @{ $ext_slice->get_all_Genes } ) {
@@ -1615,164 +1603,82 @@ EXT_GENE:
       my @ext_exons = @{ $ext_trans->get_all_Exons };
       my @ext_t_exons = @{ $ext_trans->get_all_translateable_Exons };
 
-      if ( $dbname =~ /discarded/ ) {
-        if ( scalar(@exons) == scalar(@ext_exons) ) {
-          #print "DEBUG: Number of exons: ",scalar(@exons),"\n";
-          for ( my $i = 0 ; $i < scalar(@exons) ; $i++ ) {
-            if (
-              $exons[$i]->seq_region_start != $ext_exons[$i]->seq_region_start
-              || $exons[$i]->strand != $ext_exons[$i]->strand
-              || $exons[$i]->seq_region_end != $ext_exons[$i]->seq_region_end )
-            {
-              # If you enter here means that these two transcripts have
-              # the same number of exons but the exon coordinates are not
-              # identical. The tested transcript can be kept.
+      #print "DEBUG: comparing ccds: " . $ext_trans->stable_id()
+      #    . " vs trans: " . $trans->dbID . " ("
+      #    . $trans->stable_id() . ")\n";
+      if (@t_exons) {
+        #print "DEBUG: --->>> ccds exons: " . scalar(@ext_exons) . "\n";
+        #print "DEBUG: --->>> trans t_exons: " . scalar(@t_exons) . "\n";
 
-              #print "DEBUG: Tested transcript " . $trans->stable_id
-              #  . " and discarded model (dbID " . $ext_gene->dbID
-              #  . ", biotype " . $ext_gene->biotype . ")"
-              #  . " have the same number of exons (incl. UTRs)"
-              #  . " but exon boundaries differed.\n";
+        if ( scalar(@t_exons) == scalar(@ext_exons) ) {
+          #print "DEBUG: " . $trans->dbID . " :: " . $trans->stable_id() . "\n";
+          for ( my $i = 0 ; $i < scalar(@t_exons) ; $i++ ) {
+
+            # Work out Ens coding exon start and end positions and convert
+            # them to genomic coords to compare to external (CCDS) transcript
+
+            my $exon_start_in_cds = $t_exons[$i]->coding_region_start($trans);
+            my $exon_end_in_cds = $t_exons[$i]->coding_region_end($trans);
+            my @genomic_coords = $trans->cdna2genomic( $exon_start_in_cds, $exon_end_in_cds );
+
+            #print "DEBUG: te_start in slice: " . $t_exons[$i]->coding_region_start($trans)
+            #  . " te_end in slice: " . $t_exons[$i]->coding_region_end($trans) . "\n";
+            #print "DEBUG te_start in seq_region: " . $genomic_coords[0]->start
+            #  . " te_end in seq_region: " . $genomic_coords[0]->end ."\n";
+            #print "DEBUG: ext exon start: " . $ext_exons[$i]->seq_region_start
+            #  . " ext exon end: " . $ext_exons[$i]->seq_region_end . "\n";
+
+            ### CAUTION!!! THE FOLLOWING COMPARISON ONLY WORKS IF HavanaAdder
+            ### IS RUN ON A WHOLE CHROMOSOME, OR ELSE "coding_region_start/end"
+            ### WILL NEVER BE THE SAME AS seq_region_start/end!
+
+            if ( $genomic_coords[0]->start != $ext_exons[$i]->seq_region_start
+                 || $t_exons[$i]->strand != $ext_exons[$i]->strand
+                 || $genomic_coords[0]->end != $ext_exons[$i]->seq_region_end )
+
+            {
+              #print "DEBUG: number of translateable exons matched "
+              #    . "but not all exon boundaries matched.  Check next CCDS model...\n";
+
+              # CCDS is one-gene-one-transcript. "next EXT_GENE" is equivalent to
+              # next EXT_GENE;
+              next EXT_GENE;
+            }
+          }
+          # print "DEBUG: \t--->>> transcript " . $trans->display_id
+          #     . " found in ccds db\n";
+          return 0;
+        } else {
+          # print "DEBUG: ccds db: number of (translatable) exons is "
+          #    . "different between " .  $ext_trans->stable_id()
+          #    . " and ". $trans->display_id . "\n";
+          next EXT_GENE;
+        }
+      } else {
+        if ( scalar(@exons) == scalar(@ext_exons) ) {
+          for ( my $i = 0 ; $i < scalar(@exons) ; $i++ ) {
+            #print "DEBUG: exon start: " . $exons[$i]->seq_region_start
+            #  . " vs ext_exon start: " . $ext_exons[$i]->seq_region_start . "\n";
+            if ( $exons[$i]->seq_region_start != $ext_exons[$i]->seq_region_start
+                 || $exons[$i]->strand != $ext_exons[$i]->strand
+                 || $exons[$i]->seq_region_end != $ext_exons[$i]->seq_region_end )
+            {
               next EXT_TRANS;
             }
           }
-        } else {
-          #print "DEBUG: Tested transcript " . $trans->stable_id
-          #  . " and discarded model (dbID " . $ext_gene->dbID
-          #  . ", biotype " . $ext_gene->biotype . ") "
-          #  . "have different number of exons (incl. UTRs).\n";
-          next EXT_TRANS;
-        }
+          # If you are here means that both transcripts are the same.
 
-        # If you enter here, it means all exon boundaries matched
-        # between the tested transcript and the "discarded" model
-        # (that's including UTRs).
-        #
-        # Now checking if their coding structures are the same. If
-        # yes, then the tested transcript is bad.
-
-        if ( scalar(@t_exons) == scalar(@ext_t_exons) ) {
-          for ( my $j = 0 ; $j < scalar(@t_exons) ; $j++ ) {
-            #print "DEBUG: Tested exon start: " . $t_exons[$j]->seq_region_start
-            #  . " Discarded exon start: " . $ext_t_exons[$j]->seq_region_start . "\n";
-            #print "DEBUG: Tested exon end: " . $t_exons[$j]->seq_region_end
-            #  . " Discarded exon end: " . $ext_t_exons[$j]->seq_region_end . "\n";
-
-            if ( $t_exons[$j]->seq_region_start != $ext_t_exons[$j]->seq_region_start
-                 || $t_exons[$j]->strand != $ext_t_exons[$j]->strand
-                 || $t_exons[$j]->seq_region_end != $ext_t_exons[$j]->seq_region_end ) 
-            {
-            # Overall exon-intron structure matched between tested
-            # and discarded model but the coding structures differed.
-            # Tested transcript can be kept.
-
-            #print "DEBUG: Tested transcript " . $trans->stable_id
-            #    . " matched a discarded model at all exon boundaries"
-            #    . " and they share the same number of coding exons, "
-            #    . " but coding exon coordinates differed. Tested transcript is spared.\n";
-            next EXT_TRANS;
-            }
-          }
-
-          # If you enter here, it means the tested model matched the
-          # discarded model both in overall exon-intron structure
-          # as well as in the coding structure (taking UTRs into
-          # account). The tested model is definitely bad and will not
-          # be allowed to participate in the merge.
-
-          #print "DEBUG: Tested transcript " . $trans->stable_id
-          #  . " matched model " . $ext_gene->dbID
-          #  . " (biotype " . $ext_gene->biotype . ")"
-          #  . " in discarded DB!!!\n";
+          #print "DEBUG: transcript found in ccds db\n";
           return 0;
         } else {
-          #print "DEBUG: Tested transcript " . $trans->stable_id
-          #  . " and discarded model (dbID " . $ext_gene->dbID
-          #  . ", biotype " . $ext_gene->biotype . ")"
-          #  . " matched at all exon boundaries but differed in the number of coding exons. "
-          #  . "Tested transcript is spared.\n";
-          next EXT_TRANS;
+
+          # If you enter here means that these two transcripts are not
+          # the same.
+
+          #print "DEBUG: ccds db: number of (non-coding) exons is different\n";
+          next EXT_GENE;
         }
-      } # End of if ($dbname =~/discarded/). The "else" clause below is for CCDS DB
-
-      else {
-        #print "DEBUG: comparing ccds: " . $ext_trans->stable_id()
-        #    . " vs trans: " . $trans->dbID . " ("
-        #    . $trans->stable_id() . ")\n";
-        if (@t_exons) {
-          #print "DEBUG: --->>> ccds exons: " . scalar(@ext_exons) . "\n";
-          #print "DEBUG: --->>> trans t_exons: " . scalar(@t_exons) . "\n";
-
-          if ( scalar(@t_exons) == scalar(@ext_exons) ) {
-            #print "DEBUG: " . $trans->dbID . " :: " . $trans->stable_id() . "\n";
-            for ( my $i = 0 ; $i < scalar(@t_exons) ; $i++ ) {
-
-              # Work out Ens coding exon start and end positions and convert
-              # them to genomic coords to compare to external (CCDS) transcript
-
-              my $exon_start_in_cds = $t_exons[$i]->coding_region_start($trans);
-              my $exon_end_in_cds = $t_exons[$i]->coding_region_end($trans);
-              my @genomic_coords = $trans->cdna2genomic( $exon_start_in_cds, $exon_end_in_cds );
-
-              #print "DEBUG: te_start in slice: " . $t_exons[$i]->coding_region_start($trans)
-              #  . " te_end in slice: " . $t_exons[$i]->coding_region_end($trans) . "\n";
-              #print "DEBUG te_start in seq_region: " . $genomic_coords[0]->start
-              #  . " te_end in seq_region: " . $genomic_coords[0]->end ."\n";
-              #print "DEBUG: ext exon start: " . $ext_exons[$i]->seq_region_start
-              #  . " ext exon end: " . $ext_exons[$i]->seq_region_end . "\n";
-
-              ### CAUTION!!! THE FOLLOWING COMPARISON ONLY WORKS IF HavanaAdder
-              ### IS RUN ON A WHOLE CHROMOSOME, OR ELSE "coding_region_start/end"
-              ### WILL NEVER BE THE SAME AS seq_region_start/end!
-
-              if ( $genomic_coords[0]->start != $ext_exons[$i]->seq_region_start
-                   || $t_exons[$i]->strand != $ext_exons[$i]->strand
-                   || $genomic_coords[0]->end != $ext_exons[$i]->seq_region_end )
-
-              {
-                #print "DEBUG: number of translateable exons matched "
-                #    . "but not all exon boundaries matched.  Check next CCDS model...\n";
-
-                # CCDS is one-gene-one-transcript. "next EXT_GENE" is equivalent to
-                # next EXT_GENE;
-                next EXT_GENE;
-              }
-            }
-            # print "DEBUG: \t--->>> transcript " . $trans->display_id
-            #     . " found in ccds db\n";
-            return 0;
-          } else {
-            # print "DEBUG: ccds db: number of (translatable) exons is "
-            #    . "different between " .  $ext_trans->stable_id()
-            #    . " and ". $trans->display_id . "\n";
-            next EXT_GENE;
-          }
-        } else {
-          if ( scalar(@exons) == scalar(@ext_exons) ) {
-            for ( my $i = 0 ; $i < scalar(@exons) ; $i++ ) {
-              #print "DEBUG: exon start: " . $exons[$i]->seq_region_start
-              #  . " vs ext_exon start: " . $ext_exons[$i]->seq_region_start . "\n";
-              if ( $exons[$i]->seq_region_start != $ext_exons[$i]->seq_region_start
-                   || $exons[$i]->strand != $ext_exons[$i]->strand
-                   || $exons[$i]->seq_region_end != $ext_exons[$i]->seq_region_end )
-              {
-                next EXT_TRANS;
-              }
-            }
-            # If you are here means that both transcripts are the same.
-
-            #print "DEBUG: transcript found in ccds db\n";
-            return 0;
-          } else {
-
-            # If you enter here means that these two transcripts are not
-            # the same.
-
-            #print "DEBUG: ccds db: number of (non-coding) exons is different\n";
-            next EXT_GENE;
-          }
-        } ## end else [ if (@t_exons)
-      } ## end else [ if ( $dbname =~ /discarded/)
+      } ## end else [ if (@t_exons)
     } ## end foreach my $ext_trans ( @{ ...
   } ## end foreach my $ext_gene ( @{ $ext_slice...
 
@@ -2602,7 +2508,7 @@ sub update_gene_biotypes {
 ############################################################
 
 # get/set method holding a reference to the db with genewise and combined genes,
-# havana genes and discarded genes
+# havana genes
 # this reference is set in Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder
 
 sub ensembl_db {
@@ -2622,17 +2528,6 @@ sub havana_db {
 
   return $self->{_havana_db};
 }
-
-sub discarded_db {
-  my ( $self, $discarded_db ) = @_;
-
-  if ($discarded_db) {
-    $self->{_discarded_db} = $discarded_db;
-  }
-
-  return $self->{_discarded_db};
-}
-
 
 sub ccds_db {
   my ($self, $ccds_db) = @_;
