@@ -61,11 +61,11 @@ use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
-use Bio::EnsEMBL::DBSQL::IntronSupportingEvidenceAdaptor;
 use Bio::EnsEMBL::IntronSupportingEvidence;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -780,7 +780,7 @@ sub filter_models {
     my $translation_end = 0;
     foreach my $gene ( @{$cluster->{'final_models'}} ) {
       my $transcript =  $gene->get_all_Transcripts->[0];
-      if ( $transcript->translateable_seq ) {
+     if ( $transcript->translateable_seq ) {
 	if (  $transcript->coding_region_start < $translation_start ) {
 	  $translation_start =  $transcript->coding_region_start;
 	}
@@ -890,7 +890,6 @@ sub make_models {
   my @clusters;
   my @models;
   my @genes;
-  my @ise;
   my %ise_check;
 
   foreach my $path ( keys %$paths ) {
@@ -935,6 +934,7 @@ sub make_models {
     
     # all the models with a particualar score highest first
   MODEL:   foreach my $model (@models_by_score) {
+      my @ises;
       # the score is the last array element 
       my $s = pop(@{$model});
       # list of the rough exons used in the model
@@ -992,11 +992,10 @@ sub make_models {
 								  -SCORE    => $intron->score,
 								  -SCORE_TYPE  => 'DEPTH',
 								 );
-	  print $intron->hseqname . " $ise \n";
 	  if ( $intron->hseqname =~ /non canonical/ ) {
 	      $ise->is_splice_canonical(0);
 	    }
-	    push @ise, $ise if $ise;
+	    push @ises, $ise if $ise;
 	  }
 	}
       }
@@ -1054,6 +1053,10 @@ sub make_models {
       }
       # add a translation 
       my $tran = compute_translation(clone_Transcript($t));
+      # add intron supporting evidence
+      foreach my $ise ( @ises ) {
+	$tran->add_IntronSupportingEvidence($ise);
+      }
       # stop spam coming from the Exon module
       $tran->dbID(0) ;	
       # store the introns along with the transcript so we can use them later for UTR trimming 
@@ -1118,7 +1121,6 @@ sub make_models {
       push @{$cluster->{'final_models'}} , $new_gene;
     }
   }
-  $self->intron_supporting_evidence(\@ise);
   return \@model_clusters;
 }
 
@@ -1398,6 +1400,13 @@ sub modify_transcript {
   print "CDS START END $cds_start  $cds_end \n";
   print "PHASE " . $tran->translation->start . " " . $tran->translation->end ."\n";
   my $t =  new Bio::EnsEMBL::Transcript(-EXONS => $exons);
+  # transfer the intron supporting evidence
+  my $ise = $tran->get_all_IntronSupportingEvidence;
+  if ( $ise ) {
+    foreach my $i ( @$ise ) {
+      $t->add_IntronSupportingEvidence($i);
+    }
+  }
   my $se;
   my $ee;
   foreach my $e ( @{$t->get_all_Exons} ) {
@@ -1435,13 +1444,13 @@ sub write_output{
 
   my $outdb = $self->get_dbadaptor($self->OUTPUT_DB);
   my $gene_adaptor = $outdb->get_GeneAdaptor;
-  my $intron_adaptor = $outdb->get_IntronSupportingEvidenceAdaptor;
   $outdb->dbc->disconnect_when_inactive(0);
   my @output = @{$self->output};
   
   my $fails = 0;
   my $total = 0;
-  GENE: foreach my $gene (@output){
+  GENE: foreach my $g (@output){
+      my $gene = clone_Gene($g);
     $gene->analysis($self->analysis);
     $gene->source($self->analysis->logic_name);
     foreach my $tran ( @{$gene->get_all_Transcripts} ) {
@@ -1471,28 +1480,6 @@ sub write_output{
   if ($fails > 0) {
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
-  }
-  # store the intron features too
-  if ( $self->WRITE_INTRONS ) {
-    # now storing intron supporting evidence rather than intron features
-    my $introns = $self->intron_supporting_evidence;
-    my $fails = 0;
-    my $total = 0;
-    print "Writing " . scalar( @$introns ) ." introns\n";
-    foreach my $intron ( @$introns ) {
-      eval {
-	$intron_adaptor->store($intron);
-      };    
-      if ($@){
-	warning("Unable to store intron!!\n$@");
-	$fails++;
-      }
-      $total++;
-    }
-    if ($fails > 0) {
-      throw("Not all introns could be written successfully " .
-	    "($fails fails out of $total)");
-    }
   }
 }
 
@@ -2503,14 +2490,6 @@ sub intron_features {
   return $self->{_introns};
 }
 
-sub intron_supporting_evidence {
-  my ($self, $val) = @_;
-  
-  if (defined $val) {
-    push @{$self->{_intron_supporting_evidence}}, @$val;
-    }
-  return $self->{_intron_supporting_evidence};
-}
 
 sub extra_exons {
   my ($self, $val) = @_;
