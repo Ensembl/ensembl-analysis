@@ -81,7 +81,12 @@ use vars qw( %GeneBuilder );
   # Remember to add the IG genes from both sources. The code should
   # handle these genes correctly.
 
-  ENSEMBL_INPUT_CODING_TYPE => ['protein_coding'],
+  ENSEMBL_INPUT_CODING_TYPE => ['protein_coding',
+                                'IG_C_gene',
+                                'IG_D_gene',
+                                'IG_J_gene',
+                                'IG_V_gene',
+                               ],
 
   HAVANA_INPUT_CODING_TYPE => [ 'protein_coding',
                                 'polymorphic_pseudogene',
