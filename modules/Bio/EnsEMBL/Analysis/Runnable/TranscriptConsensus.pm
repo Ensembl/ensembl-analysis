@@ -724,6 +724,11 @@ sub make_genes{
             scalar( @{$genes_to_store} ),
             scalar( @{$genes_to_recluster} ) );
 
+    if ( @{$genes_to_recluster} ) {
+      printf( "First model to reconsider is located here: %s\n",
+              $genes_to_recluster->[0]->feature_Slice()->name() );
+    }
+
     if ( @{$genes_to_store} ) {
       push( @final_genes, @{$genes_to_store} );
     }
