@@ -861,7 +861,7 @@ sub check_gene {
         $protein_acc = $2;
       } else {
         print "Couldn't find protein acc for cDNA $hit_name. Input ID ".$self->query->name()." skipped.\n";
-        throw("Entry has unusual header : ID '$entry_obj1' for hit_name '$hit_name. Check why ID is an empty string.");
+        throw("Entry has unusual header : ID '$entry_obj1' for hit_name '$hit_name'. Check why ID is an empty string.");
       }
       if ( length($protein_acc) > 50 ) {  
         warning("unusally long acc-number. are you sure this is an acc : $protein_acc ??? \n") ; 
