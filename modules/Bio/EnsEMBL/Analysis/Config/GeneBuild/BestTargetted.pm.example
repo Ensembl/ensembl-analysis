@@ -90,18 +90,19 @@ use vars qw(%Config);
       # You need an earlier version of BioPerl for this
       SEQFETCHER_OBJECT =>  'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
 
-      # add the logic names of your targetted genes here. 
+      # Add the biotypes of your targetted genes here. 
       # Note that you'll have to add to your protein index all protein_seqs for any 
       # transcripts made from cdna2genome  
 
-      # fetch genes of differnt biotypes from different databases. use the key out of 
-      # Databases.pm to define the databases you like to fetch data from. 
-      # if you don't fetch data from i.e. EST_CDNA_DB jsut delete the key and no 
+      # fetch genes of different biotypes from different databases. use the key out of 
+      # Databases.pm to define the databases you like to fetch data from. The values are biotypes. 
+      # if you don't fetch data from i.e. EST_CDNA_DB just delete the key and no 
       # connection to the db is made. 
       INPUT_DATA_FROM_DBS  => {
                          GENEWISE_DB => ['targetted'] ,
                          EST_CDNA_DB => ['cdna2genome'] ,
                      }  ,
+      # Now order all your biotypes by quality here
       BIOTYPES                        => ['targetted', 'cdna2genome'],
 
       # db that we write genes to
