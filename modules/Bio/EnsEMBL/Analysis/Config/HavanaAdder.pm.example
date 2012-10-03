@@ -101,8 +101,9 @@ use vars qw( %GeneBuilder );
   # This category covers genes and transcripts which are pseudogenic.
   # As a rule-of-thumb, any biotype containing the string "pseudogene" or
   # "retrotransposed" falls into this category.
+  # retrotransposed has been renamed to processed_pseudogene
 
-  ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'retrotransposed' ],
+  ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'processed_pseudogene' ],
 
   HAVANA_INPUT_PSEUDO_TYPE => [ 'pseudogene',
                                 'processed_pseudogene',
