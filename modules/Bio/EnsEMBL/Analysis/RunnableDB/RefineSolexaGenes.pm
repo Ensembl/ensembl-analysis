@@ -531,7 +531,6 @@ sub refine_genes {
       # trim padding 
       $exon->start($exon->start + 20);
       $exon->end  ($exon->end   - 20);
-      print "Woobah!\n";
       # trim away strings of Ns from the start and  end
       # check start
       my $ex_seq = $exon->seq->seq;
@@ -890,7 +889,6 @@ sub make_models {
   my @clusters;
   my @models;
   my @genes;
-  my %ise_check;
 
   foreach my $path ( keys %$paths ) {
     my $exon_use;
@@ -977,26 +975,23 @@ sub make_models {
 	  $non_con_introns++ if $intron->hseqname =~ /non canonical/;
 	  # use the new intron feature code to store introns
 	  # provided we have not seen them before
-	  unless ( $ise_check{$intron->hseqname}  ) {
-	    $ise_check{$intron->hseqname} = 1;
-	    my $if;
-	    if ( $strand == 1 ){
-	      $if =  Bio::EnsEMBL::Intron->new( $new_exons[$i-1] , $new_exons[$i+1] );
-	    } else {
-	      $if =  Bio::EnsEMBL::Intron->new( $new_exons[$i+1] , $new_exons[$i-1] ); 
-	    }
-	    my $ise = Bio::EnsEMBL::IntronSupportingEvidence->new(
-								  -ANALYSIS => $intron->analysis,
-								  -INTRON   => $if, 
-								  -HIT_NAME => $intron->hseqname,
-								  -SCORE    => $intron->score,
-								  -SCORE_TYPE  => 'DEPTH',
-								 );
-	  if ( $intron->hseqname =~ /non canonical/ ) {
-	      $ise->is_splice_canonical(0);
-	    }
-	    push @ises, $ise if $ise;
+	  my $if;
+	  if ( $strand == 1 ){
+	    $if =  Bio::EnsEMBL::Intron->new( $new_exons[$i-1] , $new_exons[$i+1] );
+	  } else {
+	    $if =  Bio::EnsEMBL::Intron->new( $new_exons[$i+1] , $new_exons[$i-1] ); 
 	  }
+	  my $ise = Bio::EnsEMBL::IntronSupportingEvidence->new(
+								  -ANALYSIS => $intron->analysis,
+								-INTRON   => $if, 
+								-HIT_NAME => $intron->hseqname,
+								-SCORE    => $intron->score,
+								-SCORE_TYPE  => 'DEPTH',
+							       );
+	  if ( $intron->hseqname =~ /non canonical/ ) {
+	    $ise->is_splice_canonical(0);
+	  }
+	  push @ises, $ise if $ise;
 	}
       }
       next MODEL unless $intron_count;
@@ -1045,7 +1040,9 @@ sub make_models {
       }
       # make it into a gene
       my $t =  new Bio::EnsEMBL::Transcript(-EXONS => \@modified_exons);
-      # check for dna
+      foreach my $ise ( @ises ) {
+	$t->add_IntronSupportingEvidence($ise);
+      }      # check for dna
       my $check = $t->seq->seq ;
       my $Ns =  $check =~  s/N//g;
       if( length($t->seq->seq) == $Ns ){
@@ -1053,10 +1050,6 @@ sub make_models {
       }
       # add a translation 
       my $tran = compute_translation(clone_Transcript($t));
-      # add intron supporting evidence
-      foreach my $ise ( @ises ) {
-	$tran->add_IntronSupportingEvidence($ise);
-      }
       # stop spam coming from the Exon module
       $tran->dbID(0) ;	
       # store the introns along with the transcript so we can use them later for UTR trimming 
@@ -1400,13 +1393,6 @@ sub modify_transcript {
   print "CDS START END $cds_start  $cds_end \n";
   print "PHASE " . $tran->translation->start . " " . $tran->translation->end ."\n";
   my $t =  new Bio::EnsEMBL::Transcript(-EXONS => $exons);
-  # transfer the intron supporting evidence
-  my $ise = $tran->get_all_IntronSupportingEvidence;
-  if ( $ise ) {
-    foreach my $i ( @$ise ) {
-      $t->add_IntronSupportingEvidence($i);
-    }
-  }
   my $se;
   my $ee;
   foreach my $e ( @{$t->get_all_Exons} ) {
@@ -1421,6 +1407,17 @@ sub modify_transcript {
   } else {
     $ts =   $cds_start - $se->start+ 1;
     $te =   $cds_end - $ee->start  + 1;
+  }
+  my $t =  new Bio::EnsEMBL::Transcript(-EXONS => $exons);
+  # transfer the intron supporting evidence
+  # except for where we have trimmed the intron
+  my $ise = $tran->get_all_IntronSupportingEvidence;
+  if ( $ise ) {
+    foreach my $i ( @$ise ) {
+      if ( $i->seq_region_start > $t->start &&  $i->seq_region_end < $t->end ) {
+	$t->add_IntronSupportingEvidence($i);
+      }
+    }
   }
   #  my $start_phase = $se->phase;
   my $translation =  new Bio::EnsEMBL::Translation->new( 
