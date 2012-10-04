@@ -54,6 +54,8 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::DB::Sam;
 
+$| = 1;
+
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature);
 
 sub new {
@@ -117,8 +119,8 @@ sub run  {
   $self->write_seq_file($seqio,$genomic_seq);
   # get the reads
   my @reads;
-  my $sam = Bio::DB::Sam->new(   -bam => $self->BAM_FILE,
-				 -autoindex => 1,);
+  my $sam = Bio::DB::Sam->new(   -bam => $self->BAM_FILE);
+	#			 -autoindex => 1,);
   
   $self->throw("Bam file " . $self->BAM_FILE . "  not found \n") unless $sam; 
   my $count = 0;
@@ -132,11 +134,13 @@ sub run  {
     my $exon_start = $exon->start;
     my $offset = 0 ;
     my $last_start = 0;
+    my %split_points;
     $exon_start = $self->start if $self->start && $self->start_exon == $i;
-    #print "Exon $i " . $rough->seq_region_name . " " . $exon->start . " $exon_start " . $exon->end ."\n";
     my $segment = $sam->segment($rough->seq_region_name,$exon_start,$exon->end);
-    my $iterator = $segment->features(-iterator=>1);
+    # check the coverage of the segment - may need to split it up if it is too great - pick split points
+    my $iterator = $segment->features(-iterator=>1, -filter => sub { my $missmatch  = shift->get_tag_values('NM') ; $missmatch &&  $missmatch >= $self->MISSMATCH  });
     my $read_count = 0;
+    
     # ignore the 1st offset reads 
   READ:  while (my $read = $iterator->next_seq) {
       # get rid of any reads that might start before our start point
@@ -153,13 +157,12 @@ sub run  {
 	$offset = 0;
       }
       $last_start = $read->start;
-      # dont want reads that align perfectly as they won't splice
-      my $num_missmatches = $read->get_tag_values('NM') ;	
+
       my $rg = "*";
       if ( $read->get_tag_values('RG') ) {
         $rg = $read->get_tag_values('RG') ;
       }
-      next READ  unless $num_missmatches >= $self->MISSMATCH;
+
       $batch++;
       $count++;
 
