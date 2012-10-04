@@ -61,6 +61,7 @@ normal uppercase Ns or with softmasking
              default: chromosome:GRCh37:11:1:135006516:1 chromosome 11
              basic:   chromosome:GRCh37:11:1:135006516:1
              funcgen: 18 dna:chromosome chromosome:GRCh37:18:1:78077248:1
+             rnaseq: 18
 
 
     -extension the file extention you want to give the dumped files, by
@@ -356,6 +357,13 @@ my $dispatch = {
       $slice->seq_region_name(),
       $slice->moltype().':'.$slice->coord_system_name(),
       $slice->name(),
+      );
+  },
+  rnaseq => sub {
+    my ($slice) = @_;
+    return sprintf (
+      '%s',
+      $slice->seq_region_name(),
       );
   },
 };
