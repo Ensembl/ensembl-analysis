@@ -491,6 +491,12 @@ sub make_genes{
   my $verbose = $self->{verbose} ;
   my @genes;
   my @final_genes;
+
+  my $store_bad = defined($bad_biotype);
+  if ( !$store_bad ) {
+    $bad_biotype = 'bad';
+  }
+
   $self->throw("No Transcripts to use\n") unless defined($transcripts);
  SCORE:  foreach my $t (sort {$b->score <=> $a->score } @$transcripts){
     my $transcript = $self->clone_transcript_extended($t);
@@ -707,9 +713,7 @@ sub make_genes{
 
         $gene->biotype($biotype);
 
-        if ($biotype) {
-          push( @genes_to_consider, $gene );
-        }
+        push( @genes_to_consider, $gene );
       } ## end foreach my $transcript ( @{...})
     } ## end foreach my $gene (@genes)
 
@@ -729,8 +733,12 @@ sub make_genes{
               $genes_to_recluster->[0]->feature_Slice()->name() );
     }
 
-    if ( @{$genes_to_store} ) {
-      push( @final_genes, @{$genes_to_store} );
+    foreach my $gene ( @{$genes_to_store} ) {
+      if ( ( $store_bad && $gene->biotype() eq $bad_biotype ) ||
+           ( $gene->biotype() eq $good_biotype ) )
+      {
+        push( @final_genes, $gene );
+      }
     }
     @genes = @{$genes_to_recluster};
   } ## end while (@genes)
@@ -773,17 +781,13 @@ sub _find_genes_to_recluster {
   # connecting models.  These "bad" models may then be re-considered by
   # make_genes() in one or several extra iterations.
 
-  # This method will issue a warning if the bad biotype is not
-  # configured by the user.
-
   my ( $self, $genes ) = @_;
 
   my $good_biotype = $self->{'good_biotype'};
   my $bad_biotype  = $self->{'bad_biotype'};
 
   if ( !defined($bad_biotype) ) {
-    warning("Can not find genes to re-cluster without 'bad' biotype\n");
-    return ( $genes, undef );
+    $bad_biotype = 'bad';
   }
 
   # Build hash of exon coordinates from the "good" models.
