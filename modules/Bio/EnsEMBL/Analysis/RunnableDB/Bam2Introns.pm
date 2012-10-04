@@ -126,7 +126,7 @@ sub fetch_input {
   my $options =  "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
                  "--model est2genome --forwardcoordinates false ".
                  "--softmasktarget $mask --exhaustive false --percent 80 ".
-                 "--dnahspthreshold 70 --minintron 20 --dnawordlen 14 -i -12 --bestn 1";
+                 "--dnahspthreshold 70 --minintron 20 --dnawordlen " . $self->WORD_LENGTH . " -i -12 --bestn 1";
   $options .= " --saturatethreshold " .$self->SATURATE_THRESHOLD if $self->SATURATE_THRESHOLD ;
   # number of missmatches needed before using a read from the bam file
   # is calculated as the Exonerate word length - number of matches you 
