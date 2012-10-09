@@ -2511,7 +2511,7 @@ sub is_Transcript_sane {
     $is_sane = 0;
   }
 
-  return $sane;
+  return $is_sane;
 } ## end sub is_Transcript_sane
 
 1;
