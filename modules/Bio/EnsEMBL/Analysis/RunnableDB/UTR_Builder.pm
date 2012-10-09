@@ -1700,74 +1700,80 @@ sub make_gene{
 
 =cut
 
-sub match_protein_to_cdna{
-  my ($self, $gw, $is_est) = @_;
+sub match_protein_to_cdna {
+  my ( $self, $gw, $is_est ) = @_;
 
   print STDERR "Looking at ESTs.\n" if $is_est;
-  my (%UTR_hash, %UTR_side_indicator_hash);
+  my ( %UTR_hash, %UTR_side_indicator_hash );
   my @other_genes;
 
   my @matching_e2g;
-  my @gw_tran = @{$gw->get_all_Transcripts};
+  my @gw_tran = @{ $gw->get_all_Transcripts };
 
-  my @gw_exons = @{$gw_tran[0]->get_all_Exons};
+  my @gw_exons = @{ $gw_tran[0]->get_all_Exons };
   my $strand   = $gw_exons[0]->strand;
-  if($gw_exons[$#gw_exons]->strand != $strand){
-    warn("first and last gw exons have different strands ".
-		"- eventually can't make a sensible combined gene (gw dbID ".$gw_tran[0]->dbId .")" );
-      return undef;
+  if ( $gw_exons[$#gw_exons]->strand != $strand ) {
+    warn( "first and last gw exons have different strands " .
+          "- eventually can't make a sensible combined gene (gw dbID " .
+          $gw_tran[0]->dbId . ")" );
+    return undef;
   }
-  if ( @gw_exons ){
-    if ($strand == 1 ){
+  if (@gw_exons) {
+    if ( $strand == 1 ) {
       @gw_exons = sort { $a->start <=> $b->start } @gw_exons;
     }
-    else{
+    else {
       @gw_exons = sort { $b->start <=> $a->start } @gw_exons;
     }
   }
-  else{
-    warn("gw gene without exons: ".$gw->dbID.", skipping it");
+  else {
+    warn( "gw gene without exons: " . $gw->dbID . ", skipping it" );
     return undef;
   }
 
   my $exon_slop = 20;
 
-  my $cds_length = length($gw_tran[0]->translateable_seq());
+  my $cds_length = length( $gw_tran[0]->translateable_seq() );
 
   my @genes;
-  if($is_est){
-    @genes = @{$self->ests};
+  if ($is_est) {
+    @genes = @{ $self->ests };
   }
-  else{
-    @genes = @{$self->cdna_genes};
+  else {
+    @genes = @{ $self->cdna_genes };
   }
 
- cDNA:
-  foreach my $e2g(@genes){
+cDNA:
+  foreach my $e2g (@genes) {
 
-    my @egtran  = @{$e2g->get_all_Transcripts};
+    my @egtran = @{ $e2g->get_all_Transcripts };
 
-   # if the cDNA or EST ($egtran[0]) is on the kill list, we skip it
-   
-    my $egtran_hitname = ${$egtran[0]->get_all_supporting_features}[0]->hseqname;
-    $egtran_hitname =~s/\.\d//;
+    # if the cDNA or EST ($egtran[0]) is on the kill list, we skip it
 
-    if(defined ($self->kill_list()->{$egtran_hitname})){
-      print STDERR "Skipping cDNA " . $egtran_hitname . " as it's present in kill list\n";
+    my $egtran_hitname =
+      ${ $egtran[0]->get_all_supporting_features }[0]->hseqname;
+
+    $egtran_hitname =~ s/\.\d//;
+
+    if ( defined( $self->kill_list()->{$egtran_hitname} ) ) {
+      print STDERR "Skipping cDNA " . $egtran_hitname .
+        " as it's present in kill list\n";
       next cDNA;
     }
- 
-    my @eg_exons = @{$egtran[0]->get_all_Exons};
 
-    $strand   = $eg_exons[0]->strand;
-    if($eg_exons[$#eg_exons]->strand != $strand){
-	warn( "first and last e2g exons have different strands - skipping e2g transcript (dbID " .$egtran[0]->dbID . ")" );
-	next cDNA;
+    my @eg_exons = @{ $egtran[0]->get_all_Exons };
+
+    $strand = $eg_exons[0]->strand;
+    if ( $eg_exons[$#eg_exons]->strand != $strand ) {
+      warn( "first and last e2g exons have different strands" .
+            " - skipping e2g transcript (dbID " . $egtran[0]->dbID .
+            ")" );
+      next cDNA;
     }
-    if ($strand == 1 ){
+    if ( $strand == 1 ) {
       @eg_exons = sort { $a->start <=> $b->start } @eg_exons;
     }
-    else{
+    else {
       @eg_exons = sort { $b->start <=> $a->start } @eg_exons;
     }
 
@@ -1779,122 +1785,150 @@ sub match_protein_to_cdna{
     my $right_diff = 0;
 
     # Lets deal with single exon genes first
-    if ($#gw_exons == 0) {
+    if ( $#gw_exons == 0 ) {
       foreach my $current_exon (@eg_exons) {
-	
-	if($current_exon->strand != $gw_exons[0]->strand){
-	  next cDNA;
-	}
-	
-	# don't yet deal with genewise leakage for single exon genes
-	if ($gw_exons[0]->end   <= $current_exon->end &&
-	    $gw_exons[0]->start >= $current_exon->start){
-	  $fiveprime_match  = 1;
-	  $threeprime_match = 1;
-	
-	  $left_exon   = $current_exon;
-	  $right_exon  = $current_exon; 
-	  $left_diff   = $gw_exons[0]->start - $current_exon->start;
-	  $right_diff  = $current_exon->end  - $gw_exons[0]->end;
-	}
+        if ( $current_exon->strand != $gw_exons[0]->strand ) {
+          next cDNA;
+        }
+
+        # don't yet deal with genewise leakage for single exon genes
+        if ( $gw_exons[0]->end <= $current_exon->end &&
+             $gw_exons[0]->start >= $current_exon->start )
+        {
+          $fiveprime_match  = 1;
+          $threeprime_match = 1;
+
+          $left_exon  = $current_exon;
+          $right_exon = $current_exon;
+          $left_diff  = $gw_exons[0]->start - $current_exon->start;
+          $right_diff = $current_exon->end - $gw_exons[0]->end;
+        }
       }
 
     }
-    else {  # Now the multi exon genewises
+    else {    # Now the multi exon genewises
 
     cDNA_EXONS:
       foreach my $current_exon (@eg_exons) {
-	
-	if($current_exon->strand != $gw_exons[0]->strand){
-	  next cDNA;
-	}
-	
-	if($gw_exons[0]->strand == 1){
-	
-	  #FORWARD:
+        if ( $current_exon->strand != $gw_exons[0]->strand ) {
+          next cDNA;
+        }
 
-	  # 5prime
-	  if ($gw_exons[0]->end == $current_exon->end &&
-	      # either e2g exon starts before genewise exon
-	      ($current_exon->start <= $gw_exons[0]->start ||
-	       # or e2g exon is a bit shorter but there are spliced UTR exons as well
-	       (abs($current_exon->start - $gw_exons[0]->start) <= $exon_slop && $current_exon != $eg_exons[0]))){
-	
-	    $fiveprime_match = 1;
-	    $left_exon = $current_exon;
-	    $left_diff = $gw_exons[0]->start - $current_exon->start;
-	  }
-	  # 3prime
-	  elsif($gw_exons[$#gw_exons]->start == $current_exon->start &&
-		# either e2g exon ends after genewise exon
-		($current_exon->end >= $gw_exons[$#gw_exons]->end ||
-		 # or there are UTR exons to be added
-		 (abs($current_exon->end - $gw_exons[$#gw_exons]->end) <= $exon_slop &&
-		  $current_exon != $eg_exons[$#eg_exons]))){
-	
-	    $threeprime_match = 1;
-	    $right_exon  = $current_exon;
-	    $right_diff  = $current_exon->end - $gw_exons[0]->end;
-	  }
-	}
-	elsif($gw_exons[0]->strand == -1){
-	
-	  #REVERSE:
+        if ( $gw_exons[0]->strand == 1 ) {
 
-	  # 5prime
-	  if ($gw_exons[0]->start == $current_exon->start &&
-	      # either e2g exon ends after gw exon
-	      ($current_exon->end >= $gw_exons[0]->end ||
-	       # or there are UTR exons to be added
-	       (abs($current_exon->end - $gw_exons[0]->end) <= $exon_slop &&
-		$current_exon != $eg_exons[0]))){
-	    #print STDERR "fiveprime reverse match\n";
-	
-	    $fiveprime_match = 1;
-	    $right_exon  = $current_exon;
-	    $right_diff  = $current_exon->end  - $gw_exons[0]->end;
-	  }
-	  #3prime
-	  elsif ($gw_exons[$#gw_exons]->end == $current_exon->end &&
-		 # either e2g exon starts before gw exon
-		 ($current_exon->start <= $gw_exons[$#gw_exons]->start ||
-		  # or there are UTR exons to be added
-		  (abs($current_exon->start - $gw_exons[$#gw_exons]->start) <= $exon_slop &&
-		   $current_exon != $eg_exons[$#eg_exons]))){
-	    #print STDERR "threeprime reverse match\n";
+          #FORWARD:
 
-	    $threeprime_match = 1;
-	    $left_exon = $current_exon;
-	    $left_diff = $gw_exons[0]->start - $current_exon->start;
-	  }
-	}
-      }
-    }
+          # 5prime
+          if (
+            $gw_exons[0]->end == $current_exon->end &&
+            # either e2g exon starts before genewise exon
+            ( $current_exon->start <= $gw_exons[0]->start ||
+              # or e2g exon is a bit shorter but there
+              # are spliced UTR exons as well
+              ( abs( $current_exon->start - $gw_exons[0]->start ) <=
+                $exon_slop && $current_exon != $eg_exons[0] ) ) )
+          {
+
+            $fiveprime_match = 1;
+            $left_exon       = $current_exon;
+            $left_diff = $gw_exons[0]->start - $current_exon->start;
+          }
+
+          # 3prime
+          elsif (
+            $gw_exons[$#gw_exons]->start == $current_exon->start &&
+            # either e2g exon ends after genewise exon
+            ( $current_exon->end >= $gw_exons[$#gw_exons]->end ||
+              # or there are UTR exons to be added
+              ( abs( $current_exon->end - $gw_exons[$#gw_exons]->end )
+                <= $exon_slop && $current_exon != $eg_exons[$#eg_exons]
+              ) ) )
+          {
+
+            $threeprime_match = 1;
+            $right_exon       = $current_exon;
+            $right_diff       = $current_exon->end - $gw_exons[0]->end;
+          }
+        } ## end if ( $gw_exons[0]->strand...)
+
+        elsif ( $gw_exons[0]->strand == -1 ) {
+
+          #REVERSE:
+
+          # 5prime
+          if (
+            $gw_exons[0]->start == $current_exon->start &&
+            # either e2g exon ends after gw exon
+            ( $current_exon->end >= $gw_exons[0]->end ||
+              # or there are UTR exons to be added
+              ( abs( $current_exon->end - $gw_exons[0]->end ) <=
+                $exon_slop && $current_exon != $eg_exons[0] ) ) )
+          {
+            #print STDERR "fiveprime reverse match\n";
+
+            $fiveprime_match = 1;
+            $right_exon      = $current_exon;
+            $right_diff      = $current_exon->end - $gw_exons[0]->end;
+          }
+
+          #3prime
+          elsif (
+            $gw_exons[$#gw_exons]->end == $current_exon->end &&
+            # either e2g exon starts before gw exon
+            ( $current_exon->start <= $gw_exons[$#gw_exons]->start ||
+              # or there are UTR exons to be added
+              ( abs( $current_exon->start - $gw_exons[$#gw_exons]->start
+                ) <= $exon_slop &&
+                $current_exon != $eg_exons[$#eg_exons] ) ) )
+          {
+            #print STDERR "threeprime reverse match\n";
+
+            $threeprime_match = 1;
+            $left_exon        = $current_exon;
+            $left_diff = $gw_exons[0]->start - $current_exon->start;
+          }
+        } ## end elsif ( $gw_exons[0]->strand...)
+      } ## end cDNA_EXONS: foreach my $current_exon (@eg_exons)
+    } ## end else [ if ( $#gw_exons == 0 )]
 
     # can match either end, or both
-    if($fiveprime_match || $threeprime_match){
-      my ($UTR_length, $left_UTR_length, $right_UTR_length) = 
-	 $self->_compute_UTRlength($egtran[0], $left_exon, $left_diff, $right_exon, $right_diff);
-      my $UTR_diff   = $egtran[0]->length;
+    if ( $fiveprime_match || $threeprime_match ) {
+      my ( $UTR_length, $left_UTR_length, $right_UTR_length ) =
+        $self->_compute_UTRlength( $egtran[0], $left_exon,
+                                   $left_diff, $right_exon,
+                                   $right_diff );
+
+      my $UTR_diff = $egtran[0]->length;
+
       #make sure CDS is not much smaller than UTR
-      if(($cds_length * 10) > $UTR_diff){
-	$UTR_hash{$e2g} = $UTR_length;
-	$UTR_side_indicator_hash{$e2g} = 1;
-	print STDERR "considering cDNA ".$e2g->seq_region_start."-".$e2g->seq_region_end."[cds_len*10 ".
-                     ($cds_length * 10)." vs UTR_diff ".$UTR_diff."]\n" if $self->VERBOSE;
-	push(@matching_e2g, $e2g);
-      }
-      else{
-	print STDERR "didnt pass UTR length check [cds_len*10".($cds_length * 10)." vs UTR_diff ".$UTR_diff."]: ".
-                     $e2g->seq_region_start."-".$e2g->seq_region_end."\n" if $self->VERBOSE;
-      }
-    }
+      if ( ( $cds_length*10 ) > $UTR_diff ) {
+        $UTR_hash{$e2g}                = $UTR_length;
+        $UTR_side_indicator_hash{$e2g} = 1;
 
-  }
+        if ( $self->VERBOSE ) {
+          print STDERR "considering cDNA " . $e2g->seq_region_start .
+            "-" . $e2g->seq_region_end . "[cds_len*10 " .
+            ( $cds_length*10 ) . " vs UTR_diff " . $UTR_diff . "]\n";
+        }
 
-  print STDERR "\nmatch_protein_to_cdna is returning ".(scalar @matching_e2g)." UTR evidence candidates.\n";
-  return (\@matching_e2g,\%UTR_hash, \%UTR_side_indicator_hash);
-}
+        push( @matching_e2g, $e2g );
+      }
+      else {
+        if ( $self->VERBOSE ) {
+          print STDERR "didnt pass UTR length check [cds_len*10" .
+            ( $cds_length*10 ) . " vs UTR_diff " . $UTR_diff . "]: " .
+            $e2g->seq_region_start . "-" . $e2g->seq_region_end . "\n";
+        }
+      }
+    } ## end if ( $fiveprime_match ...)
+
+  } ## end cDNA: foreach my $e2g (@genes)
+
+  print STDERR "\nmatch_protein_to_cdna is returning " .
+    ( scalar @matching_e2g ) . " UTR evidence candidates.\n";
+
+  return ( \@matching_e2g, \%UTR_hash, \%UTR_side_indicator_hash );
+} ## end sub match_protein_to_cdna
 
 
 =head2 _compute_UTRlength
