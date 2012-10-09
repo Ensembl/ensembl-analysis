@@ -1828,10 +1828,9 @@ cDNA:
               ( abs( $current_exon->start - $gw_exons[0]->start ) <=
                 $exon_slop && $current_exon != $eg_exons[0] ) ) )
           {
-
             $fiveprime_match = 1;
             $left_exon       = $current_exon;
-            $left_diff = $gw_exons[0]->start - $current_exon->start;
+            $left_diff       = $gw_exons[0]->start - $current_exon->start;
           }
 
           # 3prime
@@ -1844,7 +1843,6 @@ cDNA:
                 <= $exon_slop && $current_exon != $eg_exons[$#eg_exons]
               ) ) )
           {
-
             $threeprime_match = 1;
             $right_exon       = $current_exon;
             $right_diff       = $current_exon->end - $gw_exons[0]->end;
@@ -1864,8 +1862,6 @@ cDNA:
               ( abs( $current_exon->end - $gw_exons[0]->end ) <=
                 $exon_slop && $current_exon != $eg_exons[0] ) ) )
           {
-            #print STDERR "fiveprime reverse match\n";
-
             $fiveprime_match = 1;
             $right_exon      = $current_exon;
             $right_diff      = $current_exon->end - $gw_exons[0]->end;
@@ -1881,8 +1877,6 @@ cDNA:
                 ) <= $exon_slop &&
                 $current_exon != $eg_exons[$#eg_exons] ) ) )
           {
-            #print STDERR "threeprime reverse match\n";
-
             $threeprime_match = 1;
             $left_exon        = $current_exon;
             $left_diff = $gw_exons[0]->start - $current_exon->start;
