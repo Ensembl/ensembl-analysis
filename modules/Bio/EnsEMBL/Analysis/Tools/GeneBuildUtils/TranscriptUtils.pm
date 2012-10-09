@@ -2486,21 +2486,32 @@ sub set_stop_codon{
 =cut
 
 
-sub is_Transcript_sane{
+sub is_Transcript_sane {
   my ($transcript) = @_;
 
-  #exon coord sanity
-  my $sane = 1;
-  $transcript->sort;
-  foreach my $exon(@{$transcript->get_all_Exons}){
-    if($exon->start > $exon->end){
-      $sane = 0;
+  # Exon coord sanity.
+  my $is_sane = 1;
+
+  $transcript->sort();
+
+  foreach my $exon ( @{ $transcript->get_all_Exons() } ) {
+    if ( $exon->start() > $exon->end() ) {
+      $is_sane = 0;
+      last;
     }
   }
-  $sane = 0 unless(are_strands_consistent($transcript));
-  $sane = 0 unless(are_phases_consistent($transcript));
-  $sane = 0 unless(is_not_folded($transcript));
+
+  if ( $is_sane && !are_strands_consistent($transcript) ) {
+    $is_sane = 0;
+  }
+  if ( $is_sane && !are_phases_consistent($transcript) ) {
+    $is_sane = 0;
+  }
+  if ( $is_sane && !is_not_folded($transcript) ) {
+    $is_sane = 0;
+  }
+
   return $sane;
-}
+} ## end sub is_Transcript_sane
 
 1;
