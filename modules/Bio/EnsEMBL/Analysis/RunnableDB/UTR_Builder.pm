@@ -4496,10 +4496,11 @@ sub EXTEND_BIOTYPE_OF_UNCHANGED_GENES {
   my ($self,$value) = @_;
 
   if (defined $value) {
+	  $value = "_".$value  unless ( $value =~ m/^_/ );
     $self->{_extend_biotype_of_unchanged_genes} = $value;
   }
   return $self->{_extend_biotype_of_unchanged_genes};
-}
+}   
 
 sub KNOWN_UTR_GENETYPE {
   my ($self,$value) = @_;
