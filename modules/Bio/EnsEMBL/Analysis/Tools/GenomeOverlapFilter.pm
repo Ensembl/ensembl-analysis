@@ -60,3 +60,4 @@ sub filter {
   return \@filtered;
 }
 
+1;
