@@ -20,26 +20,21 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Blast - 
+Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 
 =head1 SYNOPSIS
 
-  my $blast = Bio::EnsEMBL::Analysis::RunnableDB::Blast->
-  new(
-      -analysis => $analysis,
-      -db => $db,
-      -input_id => 'contig::AL1347153.1.3517:1:3571:1'
+  my $bq_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
+      -modulename => 'Bio::EnsEMBL::Analysis::Config::Databases',
+      -is_example => 1,
      );
-  $blast->fetch_input;
-  $blast->run;
-  my @output =@{$blast->output};
+  $bq_cfg->key_by_parent('REFERENCE_DB', '-dbname', 'homo_sapiens_core_68_37');
+  $bq_cfg->write_config(1);
 
 =head1 DESCRIPTION
 
-  This module acts as an intermediate between the blast runnable and the
-  core database. It reads configuration and uses information from the analysis
-  object to setup the blast runnable and then write the results back to the 
-  database
+  This module update or create config files from a template (.example) or from
+  an existing config file.
 
 =head1 METHODS
 
@@ -63,6 +58,9 @@ use vars qw(@ISA) ;
   Arg [-IS_EXAMPLE] : Int, 1 or 0, use the example file like Bio/EnsEMBL/Analysis/Config/Databases.pm.example
   Arg [-MODULEDIR]  : String, path to the root of the library, ie '/path/ensembl-analysis/modules'.
                         Look in @INC by default
+  Arg [-BACKUPDIR]  : String, path to the directory which will store the backup. It's the module directory by
+                        default.
+                       NOTE: It will write the module like: /my/backup/path/Databases.pm.123333332
   Arg [-VERBOSE]    : Int
   Function          : Create the object and parse the config file
   Returntype        : Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
@@ -93,87 +91,12 @@ sub new {
   return $self;
 }
 
-=head2 create_path
-
-  Function  : Create the path to the module, uses $self->moduledir
-  Returntype: 
-  Exceptions: Throw if it can't create the path
-  Example   : $cfg->create_path;
-
-=cut
-
-sub create_path {
-    my $self = shift;
-
-    my ($path) = $self->get_module_path =~ '(.*)/';
-    eval {
-        mkpath($path);
-    };
-    throw('Could not create '.$path) if ($@);
-}
-
-=head2 write_config
-
-  Function  : Write the configuration file
-  Returntype: 
-  Exceptions: Throw if it can't write the file
-  Example   : $cfg->write_config;
-
-=cut
-
-sub write_config {
-    my ($self, $backup_if_exists) = @_;
-
-    local $Data::Dumper::Indent = 1;
-    local $Data::Dumper::Quotekeys = 0;
-    local $Data::Dumper::Sortkeys = \&_sort_keys;
-    warning("=======================================================================\n");
-    my $config_hash = Dumper($self->config);
-    $config_hash =~ s/^\$VAR1 = {(.*)};/%Config = ($1);/s;
-    $config_hash =~ s/'([^']+)' =>/$1 =>/gs;
-    $config_hash =~ s/'(\d+)'/$1/gs;
-    $config_hash =~ s/'undef'/undef/gs;
-    $config_hash =~ s/\\'//gs;
-    $config_hash =~ s/ '"([^"']*)"'/ '$1'/gs;
-    my $backup;
-    $backup = $self->backup if ($backup_if_exists and -e $self->get_module_path);
-    open(FW, '>'.$self->get_module_path) || throw('Could not open '.$self->get_module_path."\n");
-    print FW $self->header, $config_hash, $self->tail;
-    close(FW);
-    return $backup;
-}
-
-=head2 backup
-
-  Function  : Back up the configuration file by adding the Unix time as an extension
-  Returntype: String, path to back up file
-  Exceptions: Throw if it can't copy the file
-  Example   : $cfg->backup;
-
-=cut
-
-sub backup {
-    my ($self) = @_;
-
-    my $modulename = $self->get_module_path;
-    my $backup_name = $modulename;
-    if ($self->backupdir) {
-        $self->modulename =~ /([^\/]+)$/;
-        $backup_name = $self->backupdir.'/'.$1;
-    }
-    $backup_name .= '.'.time;
-    copy($modulename, $backup_name) || throw('Could not back up '.$modulename."\n");
-    return $backup_name;
-}
-
 =head2 parse
 
-  Arg[1]    : String, name of the module
-  Arg[2]    : Int, is_example
   Function  : Parse the config file
   Returntype: 
   Exceptions: Throw if it can't open the file
-  Example   : $cfg->parse($modulename, $is_example);
+  Example   : $cfg->parse();
 
 =cut
 
@@ -229,28 +152,76 @@ sub parse {
     $self->config(\%Config);
 }
 
-=head2 _key_exists
+=head2 write_config
 
-  Arg[1]    : Hashref, reference to hash
-  Arg[2]    : String, name of the hash key
-  Function  : Check if this key exists, return the first one found
-  Returntype: Boolean
-  Exceptions:
-  Example   : _key_exists($hash, 'DATABASES');
+  Function  : Write the configuration file
+  Returntype: 
+  Exceptions: Throw if it can't write the file
+  Example   : $cfg->write_config;
 
 =cut
 
-sub _key_exists {
-    my ($hash, $key) = @_;
+sub write_config {
+    my ($self, $backup_if_exists) = @_;
 
-    foreach my $hkey (keys %$hash) {
-        return \$hash->{$hkey} if ($key eq $hkey);
-        if (ref($hash->{$hkey}) eq 'HASH') {
-            my $res = _key_exists($hash->{$hkey}, $key);
-            return $res if ($res);
-        }
+    local $Data::Dumper::Indent = 1;
+    local $Data::Dumper::Quotekeys = 0;
+    local $Data::Dumper::Sortkeys = \&_sort_keys;
+    my $config_hash = Dumper($self->config);
+    $config_hash =~ s/^\$VAR1 = {(.*)};/%Config = ($1);/s;
+    $config_hash =~ s/'([^']+)' =>/$1 =>/gs;
+    $config_hash =~ s/'(\d+)'/$1/gs;
+    $config_hash =~ s/'undef'/undef/gs;
+    $config_hash =~ s/\\'//gs;
+    $config_hash =~ s/ '"([^"']*)"'/ '$1'/gs;
+    my $backup;
+    $backup = $self->backup if ($backup_if_exists and -e $self->get_module_path);
+    open(FW, '>'.$self->get_module_path) || throw('Could not open '.$self->get_module_path."\n");
+    print FW $self->header, $config_hash, $self->tail;
+    close(FW);
+    return $backup;
+}
+
+=head2 backup
+
+  Function  : Back up the configuration file by adding the Unix time as an extension
+  Returntype: String, path to back up file
+  Exceptions: Throw if it can't copy the file
+  Example   : $cfg->backup;
+
+=cut
+
+sub backup {
+    my ($self) = @_;
+
+    my $modulename = $self->get_module_path;
+    my $backup_name = $modulename;
+    if ($self->backupdir) {
+        $self->modulename =~ /([^\/]+)$/;
+        $backup_name = $self->backupdir.'/'.$1;
     }
-    return;
+    $backup_name .= '.'.time;
+    copy($modulename, $backup_name) || throw('Could not back up '.$modulename."\n");
+    return $backup_name;
+}
+
+=head2 create_path
+
+  Function  : Create the path to the module, uses $self->moduledir
+  Returntype: 
+  Exceptions: Throw if it can't create the path
+  Example   : $cfg->create_path;
+
+=cut
+
+sub create_path {
+    my $self = shift;
+
+    my ($path) = $self->get_module_path =~ '(.*)/';
+    eval {
+        mkpath($path);
+    };
+    throw('Could not create '.$path) if ($@);
 }
 
 =head2 key_by_parent
@@ -294,38 +265,38 @@ sub delete_key_by_parent {
     return delete $$father->{$key};
 }
 
-=head2 delete_databases
+=head2 root_value
 
-  Arg[1]    : (optional) Array, list of database names to keep
-  Function  : Delete from the database hash all the databases reference
-  Returntype: None
+  Arg[1]    : String, name of the hash key
+  Arg[2]    : (optional) Value, Whatever data you want to add, NO check is done
+  Function  : Add or retrieve a value to a key for an analysis. Runnable config file
+  Returntype: Whatever data is there, it will be a reference for an array or a hash
   Exceptions:
-  Example   : $cfg->delete_databases('REFERENCE_DB', 'EXONERATE_DB');
+  Example   : $cfg->root_value('DNA_DBNAME', 'REFERENCE_DB');
 
 =cut
 
-sub delete_databases {
-    my ($self, $arrayref) = @_;
-    my %to_keep = map { $_ => $_ } @$arrayref;
+sub root_value {
+    my ($self, $key, $value) = @_;
 
-    foreach my $key (keys %{$self->get_databases}) {
-        delete $self->get_databases->{$key} unless (exists $to_keep{$key});
-    }
+    $self->config->{$key} = $value if ($value);
+    return $self->config->{$key} if (exists $self->config->{$key});
 }
 
-=head2 get_databases
+=head2 delete_root_key
 
-  Function  : Get the DATABASES hash
-  Returntype: Hashref
+  Arg[1]    : String, name of the hash key
+  Function  : Delete the value for a root key.
+  Returntype: The deleted key
   Exceptions:
-  Example   : $cfg->get_databases;
+  Example   : $cfg->delete_root_key('DNA_DBNAME');
 
 =cut
 
-sub get_databases {
-    my $self = shift;
+sub delete_root_key {
+    my ($self, $key) = @_;
 
-    return $self->config->{DATABASES};
+    return delete $self->config->{$key};
 }
 
 =head2 value_by_logic_name
@@ -334,7 +305,7 @@ sub get_databases {
   Arg[2]    : String, key name
   Arg[3]    : (optional) Value, Whatever data you want to add, NO check is done
   Function  : Add or retrieve a value to a key for an analysis. Runnable config file
-  Returntype: None
+  Returntype: Whatever data is there, it will be a reference for an array or a hash
   Exceptions:
   Example   : $cfg->value_by_logic_name('cdna_update', 'OUTDB', 'EXONERATE_DB');
 
@@ -359,24 +330,34 @@ sub value_by_logic_name {
     return;
 }
 
+=head2 default_value
+
+  Arg[1]    : String, name of the hash key
+  Arg[2]    : (optional) Value, Whatever data you want to add, NO check is done
+  Function  : Add or retrieve a value to a key for an analysis. Runnable config file
+  Returntype: Whatever data is there, it will be a reference for an array or a hash
+  Exceptions:
+  Example   : $cfg->default_value('OUTDB', 'GENEBUILD_DB');
+
+=cut
+
 sub default_value {
     my ($self, $key, $value) = @_;
 
     return $self->value_by_logic_name('DEFAULT', $key, $value);
 }
 
-sub root_value {
-    my ($self, $key, $value) = @_;
+=head2 copy_analysis_from_config
 
-    $self->config->{$key} = $value if ($value);
-    return $self->config->{$key} if (exists $self->config->{$key});
-}
+  Arg[1]    : String, logic name from an existing analysis
+  Arg[2]    : String, logic name of the new analysis
+  Function  : Copy an analysis, useful when you want to add several (almost) identical
+                analysis.
+  Returntype: None
+  Exceptions: Throw if the "old" analysis does not exists or if the "new" one exists
+  Example   : $cfg->copy_analysis_from_config('cdna_update', 'cdna_update_2');
 
-sub delete_root_key {
-    my ($self, $key) = @_;
-
-    return delete $self->config->{$key};
-}
+=cut
 
 sub copy_analysis_from_config {
     my ($self, $logic_name, $new_analysis) = @_;
@@ -396,29 +377,16 @@ sub copy_analysis_from_config {
     }
 }
 
-sub _clone {
-    my $hashref = shift;
+=head2 add_analysis_to_config
 
-    my %hash;
-    foreach my $key (keys %$hashref) {
-        if (ref($hashref->{$key}) eq 'ARRAY') {
-            $hash{$key} = _clone_array($hashref->{$key});
-        }
-        elsif (ref($hashref->{$key}) eq 'HASH') {
-            $hash{$key} = _clone($hashref->{$key});
-        }
-        else {
-            $hash{$key} = $hashref->{$key};
-        }
-    }
-    return \%hash;
-}
+  Arg[1]    : String, logic name of the analysis to add
+  Arg[2]    : (optional) Value, Whatever data you want to add, NO check is done
+  Function  : Add an analysis to the config file for a RunnableDB module
+  Returntype: None
+  Exceptions: Throw if the analysis exists
+  Example   : my $new_hash = _clone(\%hash);
 
-sub _clone_array {
-    my $arrayref = shift;
-    
-    return \@$arrayref
-}
+=cut
 
 sub add_analysis_to_config {
     my ($self, $logic_name, $key) = @_;
@@ -441,6 +409,16 @@ sub add_analysis_to_config {
     }
 }
 
+=head2 delete_analysis
+
+  Arg[1]    : String, logic name of the analysis
+  Function  : Delete an analysis from a config file
+  Returntype: The deleted key
+  Exceptions:
+  Example   : $cfg->delete_analysis('cdna_update');
+
+=cut
+
 sub delete_analysis {
     my ($self, $logic_name) = @_;
 
@@ -450,14 +428,17 @@ sub delete_analysis {
     }
 }
 
-sub queue_config {
-    my ($self, $value) = @_;
+=head2 analysis_from_batchqueue
 
-    if ($value) {
-        $self->config->{QUEUE_CONFIG} = $value;
-    }
-    return $self->config->{QUEUE_CONFIG};
-}
+  Arg[1]    : String, logic name of the analysis
+  Arg[2]    : String, key to retrieve
+  Arg[3]    : (optional) Value, Whatever data you want to add, NO check is done
+  Function  : Add or retrieve a value to an analysis to/from the batch queue file
+  Returntype: None
+  Exceptions:
+  Example   : $self->analysis_from_batchqueue('cdna_update');
+
+=cut
 
 sub analysis_from_batchqueue {
     my ($self, $logic_name, $key, $value) = @_;
@@ -475,6 +456,18 @@ sub analysis_from_batchqueue {
     }
 }
 
+=head2 add_analysis_to_batchqueue
+
+  Arg[1]    : String, logic name of the analysis
+  Arg[2]    : HashRef, hash reference
+  Arg[3]    : (optional) Value, Whatever data you want to add, NO check is done
+  Function  : Add or retrieve a value to an analysis to/from the batch queue file
+  Returntype: None
+  Exceptions:
+  Example   : $self->analysis_from_batchqueue('cdna_update');
+
+=cut
+
 sub add_analysis_to_batchqueue {
     my ($self, $logic_name, $value) = @_;
 
@@ -487,9 +480,21 @@ sub add_analysis_to_batchqueue {
         push(@{$self->queue_config}, $value);
     }
     else {
-        push(@{$self->queue_config}, {logic_name => $$logic_name});
+        push(@{$self->queue_config}, {logic_name => $logic_name});
     }
 }
+
+=head2 copy_analysis_from_batchqueue
+
+  Arg[1]    : String, logic name from an existing analysis
+  Arg[2]    : String, logic name of the new analysis
+  Function  : Copy an analysis, useful when you want to add several (almost) identical
+                analysis.
+  Returntype: None
+  Exceptions: Throw if the "old" analysis does not exists or if the "new" one exists
+  Example   : $cfg->copy_analysis_from_batchqueue('cdna_update', 'cdna_update_2');
+
+=cut
 
 sub copy_analysis_from_batchqueue {
     my ($self, $logic_name, $new_logic_name) = @_;
@@ -503,6 +508,17 @@ sub copy_analysis_from_batchqueue {
     $self->add_analysis_to_batchqueue($new_logic_name,  _clone($analysis));
 }
 
+=head2 delete_analysis_key_from_batchqueue
+
+  Arg[1]    : String, name of the father
+  Arg[2]    : String, name of the hash key
+  Function  : Delete the value for a key knowing it's parent, to avoid ambiguity
+  Returntype: The deleted key
+  Exceptions:
+  Example   : $cfg->delete_analysis_key_from_batchqueue('cdna_update', 'OUTDB');
+
+=cut
+
 sub delete_analysis_key_from_batchqueue {
     my ($self, $logic_name, $key) = @_;
 
@@ -513,6 +529,17 @@ sub delete_analysis_key_from_batchqueue {
     throw("Could not find analysis with logic_name $logic_name") unless $analysis;
     return delete $analysis->{$key};
 }
+
+=head2 empty_queue_config
+
+  Arg[1]    : (optional) ArrayRef, list of analysis to keep
+  Function  : Delete all the analysis from the batch queue file except
+                the ones passed in argument
+  Returntype: None
+  Exceptions:
+  Example   : $cfg->empty_queue_config(['cdna_update', 'cdna_update_2']);
+
+=cut
 
 sub empty_queue_config {
     my ($self, $config_to_keep) = @_;
@@ -525,6 +552,63 @@ sub empty_queue_config {
     else {
         $self->queue_config([]);
     }
+}
+
+=head2 delete_databases
+
+  Arg[1]    : (optional) Array, list of database names to keep
+  Function  : Delete from the database hash all the databases reference
+  Returntype: None
+  Exceptions:
+  Example   : $cfg->delete_databases('REFERENCE_DB', 'EXONERATE_DB');
+
+=cut
+
+sub delete_databases {
+    my ($self, $arrayref) = @_;
+    my %to_keep = map { $_ => $_ } @$arrayref;
+
+    foreach my $key (keys %{$self->get_databases}) {
+        delete $self->get_databases->{$key} unless (exists $to_keep{$key});
+    }
+}
+
+
+###################
+# Getters/Setters #
+###################
+
+=head2 get_databases
+
+  Function  : Get the DATABASES hash
+  Returntype: Hashref
+  Exceptions:
+  Example   : $cfg->get_databases;
+
+=cut
+
+sub get_databases {
+    my $self = shift;
+
+    return $self->config->{DATABASES};
+}
+
+=head2 queue_config
+
+  Function  : Get the QUEUE_CONFIG hash
+  Returntype: Hashref
+  Exceptions:
+  Example   : $cfg->queue_config;
+
+=cut
+
+sub queue_config {
+    my ($self, $value) = @_;
+
+    if ($value) {
+        $self->config->{QUEUE_CONFIG} = $value;
+    }
+    return $self->config->{QUEUE_CONFIG};
 }
 
 sub get_module_path {
@@ -596,6 +680,63 @@ sub backupdir {
         $self->{'_config_backupdir'} = $arg;
     }
     return $self->{'_config_backupdir'};
+}
+
+
+###################
+# Private methods #
+###################
+
+=head2 _key_exists
+
+  Arg[1]    : Hashref, reference to hash
+  Arg[2]    : String, name of the hash key
+  Function  : Check if this key exists, return the first one found
+  Returntype: Boolean
+  Exceptions:
+  Example   : _key_exists($hash, 'DATABASES');
+
+=cut
+
+sub _key_exists {
+    my ($hash, $key) = @_;
+
+    foreach my $hkey (keys %$hash) {
+        return \$hash->{$hkey} if ($key eq $hkey);
+        if (ref($hash->{$hkey}) eq 'HASH') {
+            my $res = _key_exists($hash->{$hkey}, $key);
+            return $res if ($res);
+        }
+    }
+    return;
+}
+
+=head2 _clone
+
+  Arg[1]    : Reference, reference to a hash to be deep cloned
+  Function  : Deep cloning
+  Returntype: HashRef
+  Exceptions: 
+  Example   : my $new_hash = _clone(\%hash);
+
+=cut
+
+sub _clone {
+    my $hashref = shift;
+
+    my %hash;
+    foreach my $key (keys %$hashref) {
+        if (ref($hashref->{$key}) eq 'ARRAY') {
+            $hash{$key} = \@{$hashref->{$key}};
+        }
+        elsif (ref($hashref->{$key}) eq 'HASH') {
+            $hash{$key} = _clone($hashref->{$key});
+        }
+        else {
+            $hash{$key} = $hashref->{$key};
+        }
+    }
+    return \%hash;
 }
 
 sub _sort_keys {
