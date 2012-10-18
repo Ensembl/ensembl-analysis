@@ -333,9 +333,10 @@ sub run {
 	}
 
 	if ( !close(ESTGENOME) ) {
-		$self->_deletefiles( $genfile, $estfile );
-		throw("Problems running est_genome when closing pipe: $!\n");
-
+            my $err = ($!) ? "error $!" :
+              sprintf("%s %d", $? & 127 ? (signal => $? & 127), ('exit code', $? >> 8));
+            $self->_deletefiles( $genfile, $estfile );
+            throw("Problems running est_genome when closing pipe: $err\n");
 	}
 	$self->_deletefiles( $genfile, $estfile );
 
