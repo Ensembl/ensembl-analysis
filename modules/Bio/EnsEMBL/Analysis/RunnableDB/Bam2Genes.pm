@@ -111,17 +111,17 @@ sub fetch_input {
                              );
   $self->throw("Bam file " . $self->ALIGNMENT_BAM_FILE . "  not found \n") unless $sam; 
   my $count = 0;
-  my $segment = $sam->segment($slice->seq_region_name,$slice->start,$slice->end);
-  $self->throw("Bam file segment not found for slice " .  $slice->name . "\n")
-    unless $segment;
-  $self->bam($segment);
+#  my $segment = $sam->segment($slice->seq_region_name,$slice->start,$slice->end);
+#  $self->throw("Bam file segment not found for slice " .  $slice->name . "\n")
+#    unless $segment;
+#  $self->bam($segment);
+  $self->bam($sam);
 }
 
 
 sub run { 
-  my ($self) =@_;
+  my ($self) = @_;
   my @genes;
-  my %exon_clusters;
   my $exon_clusters  = $self->exon_cluster;
   my $transcripts = $self->process_exon_clusters($exon_clusters);
   if ( $transcripts ) {
@@ -324,76 +324,72 @@ sub process_exon_clusters {
 =cut
 
 sub exon_cluster {
-  my ($self,$gene_cluster ) = @_;
-  print STDERR "EXON CLUSTER \n";
-  # get an iterator across the alignments
+  my ($self) = @_;
+  print STDERR "CLUSTER EXON\n";
   my $slice = $self->chr_slice;
+  $self->input_id =~ /:[^:]+:([^:]+):(\d+):(\d+)/;
+  my $region = $1.':'.$2.'-'.$3;
   my $bam = $self->bam;
-  my $iterator     = $bam->features(-iterator=>1);
   my %exon_clusters;
   my @exon_clusters;
   my $cluster_data;
   my $cluster_count = 0;
   my $read_count = 0;
   my $regex = $self->PAIRING_REGEX;
- READ:  while (my $seq = $iterator->next_seq) {
-    $read_count++;
-    my $name = $seq->query->name;
-    my $start  = $seq->start;
-    my $end    = $seq->end;
-    my $hstart = $seq->query->start;
-    my $hend   = $seq->query->end;
-    my $fm = 0;
-    my $sm = 0;
-    my $paired = $seq->get_tag_values('MAP_PAIR');
+  # I can't give parameters to $bam->fetch() so it's easier to create the callback
+  # inside the method. Maybe with the low level method it's better.
+  my $_process_reads = sub {
+    my $read = shift;
+    ++$read_count;
+    # It seems we always get the unmmapped mate, so we need to remove it
+    return if ($read->get_tag_values('XS') or $read->get_tag_values('UNMAPPED'));
+    my $name = $read->query->name;
+    my $start  = $read->start;
+    my $end    = $read->end;
+    my $hstart = $read->query->start;
+    my $hend   = $read->query->end;
+    my $paired = $read->get_tag_values('MAP_PAIR');
     if ( $regex && $name =~ /(\S+)($regex)$/ ) {
        $name = $1;
     }
     # ignore spliced reads
-    my $spliced = $seq->get_tag_values('XS');
-    next READ if $spliced;
     # make exon clusters and store the names of the reads and associated cluster number
-    my $clustered = 0;
     for (my $index = @exon_clusters; $index > 0; $index--) {
       my $exon_cluster = $exon_clusters[$index-1];
       if ( $start <= $exon_cluster->end+1 &&  $end >= $exon_cluster->start-1 ) {
-	# Expand the exon_cluster
-	$exon_cluster->start($start) if $start < $exon_cluster->start;
-	$exon_cluster->end($end)     if $end   > $exon_cluster->end;
-	$exon_cluster->score($exon_cluster->score + 1);
-	$clustered = 1;
-	# only store the connection data if it is paired in mapping
-	$cluster_data->{$name}->{$exon_cluster->hseqname} = 1
-	  if $paired;
-	# only allow it to be a part of a single cluster
-	next READ;
+        # Expand the exon_cluster
+        $exon_cluster->start($start) if $start < $exon_cluster->start;
+        $exon_cluster->end($end)     if $end   > $exon_cluster->end;
+        $exon_cluster->score($exon_cluster->score + 1);
+        # only store the connection data if it is paired in mapping
+        $cluster_data->{$name}->{$exon_cluster->hseqname} = 1 if $paired;
+        # only allow it to be a part of a single cluster
+        return;
       }
     }
     # start a new cluster if there is no overlap
-    unless ( $clustered  ) {
       $cluster_count++;
       # make a feature representing the cluster
       my $feat = Bio::EnsEMBL::FeaturePair->new
-	(
-	 -start      => $start,
-	 -end        => $end,
-	 -strand     => -1,
-	 -slice      => $slice,
-	 -hstart     => $hstart,
-	 -hend       => $hend,
-	 -hstrand    => 1,
-	 -score      => 1,
-	 -percent_id => 100,
-	 -hseqname   => "Cluster ". $cluster_count,
-	 -analysis   => $self->analysis,
-	);
+    (
+     -start      => $start,
+     -end        => $end,
+     -strand     => -1,
+     -slice      => $slice,
+     -hstart     => $hstart,
+     -hend       => $hend,
+     -hstrand    => 1,
+     -score      => 1,
+     -percent_id => 100,
+     -hseqname   => "Cluster ". $cluster_count,
+     -analysis   => $self->analysis,
+    );
       # store the clusters in a hash with a unique identifier
       push(@exon_clusters, $feat);
       # store the key within the feature
-      $cluster_data->{$name}->{$feat->hseqname} = 1 
-	if $paired;
-    }
-  }
+      $cluster_data->{$name}->{$feat->hseqname} = 1 if $paired;
+  };
+  $bam->fetch($region, $_process_reads);
   # store the relationships between the clusters
   $self->cluster_data($cluster_data);
   print STDERR "Processed $read_count reads\n";
