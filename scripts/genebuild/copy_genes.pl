@@ -152,6 +152,7 @@ if ($all && $infile) {
 
 #print "Connecting to ".$sourcedbname." at ".$sourcehost." ".$sourceuser."\n";
 my $sourcedb;
+my $dnadb;
 if ($in_config_name) {
   $sourcedb = get_db_adaptor_by_string($in_config_name);
   if ( $dnadbname ) {
@@ -170,7 +171,6 @@ if ($in_config_name) {
                                         -user   => $sourceuser,
                                         -port   => $sourceport,
                                         -dbname => $sourcedbname );
-  my $dnadb;
   if ( !$dnadbname ) {
     my $dna_query = q(SELECT count(1) FROM dna);
     my $dna_sth = $sourcedb->dbc->prepare($dna_query);
