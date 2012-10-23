@@ -1,0 +1,415 @@
+package Bio::EnsEMBL::Analysis::Config::GeneBuild::ClassifyProteins; 
+
+=head1
+$Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/ClassifyProteins.pm.example,v $
+$Revision: 1.1 $
+
+How to choose phyla for protein classification.
+
+
+(1) Find UniProt's taxonomy lineage for your species.
+  Do this by going to http://www.uniprot.org/taxonomy/ and searching for the scientific name
+  eg. for Chinese softshell turtle we find this page:
+  http://www.uniprot.org/taxonomy/13735
+  
+  In the Lineage box, it's the blue link that can be used in our
+  protein classification system. The greyed-out names cannot be used as they are
+  not printed in the OC line in mfetch.
+
+(2) Check that the blue words in the taxonomy page's Lineage
+  section match the OC lines from mfetch.
+
+  Do this by finding a protein from your species in Uniprot.
+  For Chinese softshell turtle (Pelodiscus sinensis), the proteins are found here:
+  http://www.uniprot.org/uniprot/?query=pelodiscus+sinensis&sort=score
+
+  Now pick an Entry from the left-most column in the protein list
+  eg. for Chinese sofshell turtle we picked protein accession Q7LZQ1
+  http://www.uniprot.org/uniprot/Q7LZQ1
+
+  Now fetch this protein from Mole using the following command:
+   mfetch -f "Taxon acc org pe crd" -d uniprot -i "acc:Q7LZQ1"
+ 
+  Check the OC lines
+  OC   Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+  OC   Testudines; Cryptodira; Trionychoidea; Trionychidae; Pelodiscus.
+
+
+(3) Using the taxonomic lineage from (1) or the OC lines from (2) you can find
+  where your species lies on the phylogenetic tree.
+
+(5) Now, design concentric circles of classification around your species. Usually you're looking for about 4 circles:
+  one very close to your species, one that includes a wider group of less closely related species, 
+  one that includes all remaining non-vertebrates, and finally one that contains non-vertebrates. 
+
+  For Chinese softshell turtle, it might make sense to use:
+  Testudines - as the smallest circle
+  Euteleostomi (excl. Testudines) - as the next circle
+  Vertebrata (excl. Euteleostomi) - as the next middle circle
+  Everything else excl. Vertebrata - as the largest circle encompassing all the proteins that are too distant to use for the genebuild
+
+  For mouse it might make sense to use:
+  Glires - rodent and rabbits, as the smallest circle
+  Mammalia (excl. Glires) - as the next circle
+  Vertebrata (excl. Mammalia) - as the next middle circle
+  Everything else excl. Vertebrata - as the largest circle encompassing all the proteins that are too distant to use for the genebuild
+
+
+=> Primates
+eg. Human http://www.uniprot.org/taxonomy/9606
+Chordata
+  Craniata
+    Vertebrata
+      Euteleostomi
+        Mammalia
+          Eutheria
+            Euarchontoglires
+               Primates
+                  Haplorrhini
+                    Catarrhini
+                      Hominidae
+                        Homo
+
+=> Non-primate mammals
+eg. Cat http://www.uniprot.org/taxonomy/9685
+ Chordata
+  Craniata
+    Vertebrata
+      Euteleostomi
+        Mammalia
+          Eutheria
+            Laurasiatheria
+              Carnivora
+                Feliformia
+                  Felidae
+                    Felinae
+                      Felis
+
+=> Birds 
+eg. Chicken http://www.uniprot.org/taxonomy/9030
+Chordata
+  Craniata
+    Vertebrata
+      Euteleostomi
+        Archosauria
+          Dinosauria
+            Saurischia
+              Theropoda
+                Coelurosauria
+                  Aves
+
+=> Fish
+eg. Zebrafish http://www.uniprot.org/taxonomy/7955
+Chordata
+  Craniata
+    Vertebrata
+      Euteleostomi
+        Actinopterygii
+          Neopterygii
+            Teleostei
+              Ostariophysi
+                Cypriniformes
+                  Cyprinidae
+                    Danio
+=> Amphibians
+eg. Anole lizard http://www.uniprot.org/taxonomy/28377
+Chordata
+  Craniata
+    Vertebrata
+      Euteleostomi
+        Lepidosauria
+          Squamata
+            Iguania
+              Iguanidae
+                Polychrotinae
+                  Anolis
+
+
+=cut
+
+use strict;
+use vars qw( %Config );
+
+%Config = (  
+
+           PROTEIN_CLASSIFICATION => {  
+
+                # a config for human proteins from SwissProt with PE level 1 and 2 : 
+                  swissprot_human_pe1_2 => {
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 1,2 ] ,
+                         PHYLUM            => [],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => ["Homo sapiens"],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+                # a config for human proteins from SwissProt with PE level 3,4,5 : 
+                  swissprot_human_pe3_4_5 => {
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => [],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => ["Homo sapiens"],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+
+                # a config for non-human primate proteins from SwissProt with PE level 1 and 2 : 
+                  swissprot_primate_pe1_2 => {
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 1,2 ] ,
+                         PHYLUM            => ["Primates"],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => ["Homo sapiens"],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   
+                         MK_INPUT_ID_TYPE  => '1MSLICE',          
+               },                                               
+
+                # a config for non-human primate proteins from SwissProt with PE level 3,4,5 : 
+                  swissprot_primate_pe3_4_5 => {
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => ["Primates"],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => ["Homo sapiens"],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+                
+                # a config for non-primate mammalian proteins from SwissProt with PE level 1 and 2 : 
+                  swissprot_vert_mammal_pe1_2 => {
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 1,2 ] ,  
+                         PHYLUM            => ["Mammalia"],  
+                         EXCLUDED_PHYLUM   => ["Primates"], 
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],                     # the entries SIMGW_LOGIC_NAME and MK_INPUT_ID_TYPE are required by setup_simgw_pipeline.pl, the easy way
+                                                                      # to add the analysis required to run similarity genewise and MakeSimilarityInputIDS. it also sets up the 
+                                                                      #  rules forthis step.
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   # this entry is the simgw logic name for the next step
+                         MK_INPUT_ID_TYPE  => '1MSLICE',            # this should be set to the input_id_type_analysis you're using for the 
+               },                                                     # submission analysis for MakeSimilarityInputIDS ( ie Submit500kSlice, Submit300kSlice,...) 
+
+                # a config for non-primate mammalian proteins from SwissProt with PE level 3,4,5 : 
+                  swissprot_vert_mammal_pe3_4_5 => {
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => ["Mammalia"],
+                         EXCLUDED_PHYLUM   => ["Primates"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],                     
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   
+                         MK_INPUT_ID_TYPE  => '1MSLICE',            
+               },                                             
+
+                # a config for non-mammalian vertebrate proteins from SwissProt with PE level 1 and 2 : 
+                swissprot_vert_non_mammal_pe1_2    => { 
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 1,2 ] ,  
+                         PHYLUM            => ["Vertebrata"],  
+                         EXCLUDED_PHYLUM   => ["Mammalia"], 
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' , 
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               }, 
+
+                # a config for non-mammalian vertebrate proteins from SwissProt with PE level 3,4,5 : 
+                swissprot_vert_non_mammal_pe3_4_5    => { 
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 3,4,5 ] ,  
+                         PHYLUM            => ["Vertebrata"],  
+                         EXCLUDED_PHYLUM   => ["Mammalia"], 
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' , 
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+
+                # a config for non-vertebrate proteins from SwissProt with PE level 1 and 2 : 
+                # this will include proteins from plants, bacteria, fungi, etc
+                swissprot_non_vert_pe1_2=> {  
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 1,2 ] ,  
+                         PHYLUM            => [],  
+                         EXCLUDED_PHYLUM   => ["Vertebrata"], 
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [], 
+                         SIMGW_LOGIC_NAME  => undef, 
+                         MK_INPUT_ID_TYPE  => undef, 
+               }, 
+                # a config for non-vertebrate proteins from SwissProt with PE level 3,4,5 : 
+                # this will include proteins from plants, bacteria, fungi, etc
+                swissprot_non_vert_pe3_4_5=> {  
+                         UNIPROT_DBS       => ["Swiss-Prot"],
+                         PE_LEVELS         => [ 3,4,5 ] ,  
+                         PHYLUM            => [],
+                         EXCLUDED_PHYLUM   => ["Vertebrata"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => undef,
+                         MK_INPUT_ID_TYPE  => undef,
+               },
+               # a config for human proteins from trEMBL with PE level 1 and 2 : 
+                  trembl_human_pe1_2 => {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 1,2 ] ,
+                         PHYLUM            => [],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => ["Homo sapiens"],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+                # a config for human proteins from trEMBL with PE level 3,4,5 : 
+                  trembl_human_pe3_4_5 => {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => [],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => ["Homo sapiens"],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+
+                # a config for non-human primate proteins from trEMBL with PE level 1 and 2 : 
+                 trembl_primate_pe1_2 => {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 1,2 ] ,
+                         PHYLUM            => ["Primates"],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => ["Homo sapiens"],          
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
+                         MK_INPUT_ID_TYPE  => '1MSLICE',          
+               },                                                  
+                # a config for non-human primate proteins from trEMBL with PE level 3,4,5 : 
+                 trembl_primate_pe3_4_5 => {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => ["Primates"],
+                         EXCLUDED_PHYLUM   => [],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => ["Homo sapiens"],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+
+                # a config for non-primate mammalian proteins from trEMBL with PE level 1 and 2 : 
+                 trembl_vert_mammal_pe1_2 => {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 1,2 ] ,
+                         PHYLUM            => ["Mammalia"],
+                         EXCLUDED_PHYLUM   => ["Primates"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],                     
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
+                         MK_INPUT_ID_TYPE  => '1MSLICE',       
+               },                                             
+                # a config for non-primate mammalian proteins from trEMBL with PE level 3,4,5 : 
+                 trembl_vert_mammal_pe3_4_5 => { 
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => ["Mammalia"],
+                         EXCLUDED_PHYLUM   => ["Primates"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],                     
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
+                         MK_INPUT_ID_TYPE  => '1MSLICE',           
+               },
+
+                # a config for non-mammalian vertebrate proteins from trEMBL with PE level 1 and 2 : 
+                trembl_vert_non_mammal_pe1_2    => {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 1,2 ] ,
+                         PHYLUM            => ["Vertebrata"],
+                         EXCLUDED_PHYLUM   => ["Mammalia"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+                # a config for non-mammalian vertebrate proteins from trEMBL with PE level 3,4,5 : 
+                trembl_vert_non_mammal_pe3_4_5    => {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => ["Vertebrata"],
+                         EXCLUDED_PHYLUM   => ["Mammalia"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' ,
+                         MK_INPUT_ID_TYPE  => '1MSLICE',
+               },
+
+                # a config for non-vertebrate proteins from trEMBL with PE level 1 and 2 : 
+                # this will include proteins from plants, bacteria, fungi, etc
+                trembl_non_vert_pe1_2=> {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 1,2 ] ,
+                         PHYLUM            => [],
+                         EXCLUDED_PHYLUM   => ["Vertebrata"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => undef,
+                         MK_INPUT_ID_TYPE  => undef,
+               },
+                # a config for non-vertebrate proteins from trEMBL with PE level 3,4,5 : 
+                # this will include proteins from plants, bacteria, fungi, etc
+                trembl_non_vert_pe3_4_5=> {
+                         UNIPROT_DBS       => ["TrEMBL"],
+                         PE_LEVELS         => [ 3,4,5 ] ,
+                         PHYLUM            => [],
+                         EXCLUDED_PHYLUM   => ["Vertebrata"],
+                         ORGANISM          => [],
+                         EXCLUDED_ORGANISM => [],
+                         SIMGW_LOGIC_NAME  => undef,
+                         MK_INPUT_ID_TYPE  => undef,
+               },
+               # all tetraodon proteins 
+               tetraodon => {
+                         UNIPROT_DBS       => [],
+                         PE_LEVELS       => [1, 2, 3, 4, 5 ] ,
+                         ORGANISM        => ['Tetraodon nigroviridis'],
+                         PHYLUM          => [],
+                         EXCLUDED_PHYLUM => [],
+                         EXCLUDED_ORGANISM => [],
+               },
+
+
+           }
+        );
+
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+  
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
