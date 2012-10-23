@@ -111,6 +111,7 @@ my $remove_stable_ids;
 my $transform_to;
 my $stable_id;
 my $verbose; 
+
 GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'inuser|sourceuser:s'                  => \$sourceuser,
             'indbname|sourcedbname:s'              => \$sourcedbname,
@@ -130,11 +131,11 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'split!'                               => \$split,
             'all!'                                 => \$all,
             'remove_xrefs!'                        => \$remove_xrefs,
-            'remove_stable_ids!' => \$remove_stable_ids,
-            'transform_to:s'     => \$transform_to,
-            'verbose!'           => \$verbose,
-            'stable_id!'         => \$stable_id,
-            'file:s'             => \$infile );
+            'remove_stable_ids!'                   => \$remove_stable_ids,
+            'transform_to:s'                       => \$transform_to,
+            'verbose!'                             => \$verbose,
+            'stable_id!'                           => \$stable_id,
+            'file:s'                               => \$infile );
 
 my $transform_to_version;
 if($transform_to){ 
@@ -189,7 +190,6 @@ if ($in_config_name) {
 
     $sourcedb->dnadb($dnadb);
   }
-                          
 }
 
 my $outdb;
@@ -202,7 +202,7 @@ if ($out_config_name) {
                                         -pass   => $outpass,
                                         -port   => $outport,
                                         -dbname => $outdbname );
-}                  
+}
 
 
 my $ga = $sourcedb->get_GeneAdaptor;
@@ -224,7 +224,7 @@ if ($infile) {
 
   open(INFILE, "<$infile") or die ("Can't read $infile $! \n");
 
-  my $i = 0 ; 
+  my $i = 0 ;
   while(<INFILE>){
     chomp;
     $i++;
@@ -244,12 +244,12 @@ if ($infile) {
   }
   close(INFILE);
 } elsif ($all) {
-  my @genes = @{$ga->fetch_all()};   
-  my $i = 0 ; 
-  foreach my $gene (@genes ) {  
+  my @genes = @{$ga->fetch_all()};
+  my $i = 0 ;
+  foreach my $gene (@genes ) {
     $gene->load();
     $i++;
-    print "fetched $i / " . scalar(@genes) . " \n" if $verbose ; 
+    print "fetched $i / " . scalar(@genes) . " \n" if $verbose ;
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
     push( @copy_genes, $gene );
   }
@@ -265,7 +265,7 @@ if ($split) {
 } else {
   @genes = @copy_genes;
 }
-print STDERR "Fetched ".scalar(@genes)." genes\n" if $verbose ; 
+print STDERR "Fetched ".scalar(@genes)." genes\n" if $verbose ;
 
 my $outga = $outdb->get_GeneAdaptor;
 
@@ -286,24 +286,24 @@ if (defined $logic) {
 }
 
 my $si = 0 ; 
-foreach my $gene (@genes) { 
+foreach my $gene (@genes) {
   $si++; 
   my $old_stable_id = $gene->stable_id ; 
   $gene->load(); # fully_load_Gene($gene);
   if ($transform_to) {
-    print "transforming $old_stable_id\n" if $verbose ; 
+    print "transforming $old_stable_id\n" if $verbose ;
     my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
     # only check transform if transform is successful
     check_transform($gene, $transformed_gene, $transform_to_version) if defined $transformed_gene;
     $gene = $transformed_gene ;
-  } 
-  if ( $gene ) { 
+  }
+  if ( $gene ) {
     empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
-    $outga->store($gene);   
-    print "stored $si / " . scalar(@genes) . " \n" if $verbose ; 
-  } else { 
+    $outga->store($gene);
+    print "stored $si / " . scalar(@genes) . " \n" if $verbose ;
+  } else {
      print STDERR "gene $old_stable_id did not transform\n";
-  } 
+  }
 }
 
 sub check_transform {
@@ -333,7 +333,7 @@ sub check_transform {
         # we don't want to do have to deal with this if transforming between assembly _VERSIONS_.
         my $new_translation = $new_transc->translate->seq() ;
         my $old_translation = $old_transc->translate->seq();
-        
+
         if (!$new_transc->translation || $old_translation ne $new_translation) {
           print "TRANSFORM_CHECK: old translation does not match new translation\n".
                 ">old_".$old_transc->stable_id."\n".$old_translation."\n".
