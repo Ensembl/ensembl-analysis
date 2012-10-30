@@ -1,7 +1,7 @@
 package setup_rnaseq_pipeline_config;
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 
 use strict;
 use vars qw(%Config);
@@ -45,9 +45,7 @@ use vars qw(%Config);
     # Path to base directory to write out your results.
     OUTPUT_DIR => "/path/to/my/output/dir",
 
-    # Path to base directory to merge the BAM files - defaults to
-    # OUTPUT_DIR but you can specify a different dir if disk space is an
-    # issue.
+    # Path to base directory to merge the BAM files
     MERGE_DIR => "/path/to/my/merge/dir",
 
     # Blast database for comparing the final models to.
