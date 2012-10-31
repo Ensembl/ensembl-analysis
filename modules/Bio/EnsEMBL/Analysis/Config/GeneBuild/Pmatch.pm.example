@@ -6,7 +6,7 @@ use vars qw( %Config );
 # Hash containing config info
 %Config = (
 
-            #Under each the two keys "PMATCH_BY_LOGIC" and "BESTPMATCH_BY_LOGIC", 
+            #Under each the two keys "PMATCH_CONFIG_BY_LOGIC" and "BESTPMATCH_CONFIG_BY_LOGIC", 
             #the DEFAULT hash must be present and should contain default settings.
             #Non-standard settings should be provided in a second hash that follows
             #the DEFAULT one with the same structure, using the logic_name as the
@@ -24,7 +24,7 @@ use vars qw( %Config );
             #Missing out the DEFAULT and/or the second hash will result in the config
             #not being read properly and the analysis will fail right from the start.
 
-           PMATCH_BY_LOGIC =>
+           PMATCH_CONFIG_BY_LOGIC =>
            {
             DEFAULT =>{
                        PROTEIN_FILE => '/path/to/protein/file',
@@ -47,7 +47,7 @@ use vars qw( %Config );
                       },
            },
 
-           BESTPMATCH_BY_LOGIC => 
+           BESTPMATCH_CONFIG_BY_LOGIC => 
            {
             DEFAULT => { 
                         # PMATCH_LOGIC_NAME can be string or array 

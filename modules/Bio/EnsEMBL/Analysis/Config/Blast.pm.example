@@ -48,7 +48,7 @@ PARSER_PARAMS section. ( -query_type => 'pep' and -database_type =>'pep' will
 result in using blastp.
 
 
-BLAST_CONFIG is an hash of hashes which contains analysis specific
+BLAST_CONFIG_BY_LOGIC is an hash of hashes which contains analysis specific
 settings and is keyed on logic_name
 
 Important values are the key of the hash which should be the same as the
@@ -149,7 +149,7 @@ use vars qw(%Config);
 
 %Config = (
   BLASTDB => '/data/blastdb/Supported',
-  BLAST_CONFIG => {
+  BLAST_CONFIG_BY_LOGIC => {
     DEFAULT => {
       BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
       PARSER_PARAMS => {

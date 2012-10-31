@@ -60,7 +60,7 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch qw(PMATCH_BY_LOGIC);
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch qw(PMATCH_CONFIG_BY_LOGIC);
 use Bio::EnsEMBL::Analysis::Runnable::Pmatch;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
@@ -72,7 +72,7 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  $self->read_and_check_config($PMATCH_BY_LOGIC);
+  $self->read_and_check_config($PMATCH_CONFIG_BY_LOGIC);
 
   return $self;
 }
@@ -173,7 +173,7 @@ sub OPTIONS {
 sub read_and_check_config {
   my $self = shift;
 
-  $self->SUPER::read_and_check_config($PMATCH_BY_LOGIC);
+  $self->SUPER::read_and_check_config($PMATCH_CONFIG_BY_LOGIC);
   
   #######
   #CHECKS

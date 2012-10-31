@@ -37,7 +37,7 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch qw(BESTPMATCH_BY_LOGIC);
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::Pmatch qw(BESTPMATCH_CONFIG_BY_LOGIC);
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
@@ -52,7 +52,7 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   print "\nReading config : Bio/EnsEMBL/Analysis/Config/GeneBuild/Pmatch.pm\n\n" ; 
-  $self->read_and_check_config($BESTPMATCH_BY_LOGIC);
+  $self->read_and_check_config($BESTPMATCH_CONFIG_BY_LOGIC);
   return $self;
 }
 
@@ -164,7 +164,7 @@ sub MIN_COVERAGE{
 sub read_and_check_config {
   my $self = shift;
 
-  $self->SUPER::read_and_check_config($BESTPMATCH_BY_LOGIC);
+  $self->SUPER::read_and_check_config($BESTPMATCH_CONFIG_BY_LOGIC);
   
   #######
   #CHECKS

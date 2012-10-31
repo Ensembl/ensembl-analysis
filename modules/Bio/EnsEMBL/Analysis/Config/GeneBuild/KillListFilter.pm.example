@@ -50,7 +50,7 @@ use vars qw( %Config );
 
 # Hash containing config info
 %Config = (
-  KILL_LIST_CONFIG => {
+  KILL_LIST_CONFIG_BY_LOGIC => {
 
     DEFAULT => {  
 

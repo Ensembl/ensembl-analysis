@@ -64,7 +64,7 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  $self->read_and_check_config($BLAST_CONFIG);
+  $self->read_and_check_config($BLAST_CONFIG_BY_LOGIC);
 
   return $self;
 }
