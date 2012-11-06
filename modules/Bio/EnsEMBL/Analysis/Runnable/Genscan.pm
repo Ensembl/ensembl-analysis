@@ -146,6 +146,13 @@ sub parse_results{
                 "than a number setting p value to 0");
         $pvalue = 0;
       }
+
+      if($pvalue =~ /\+/)
+      {
+	  warning("Genscan has reported ".$pvalue." removing \+");
+	  $pvalue =~ s/\+//;
+      }
+
       my ($group, $exon_name) = split(/\./, $name);
       
       my $exon = $ff->create_prediction_exon($start, $end, $strand, 
