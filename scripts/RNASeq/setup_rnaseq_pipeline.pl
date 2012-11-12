@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.26 $
+# $Revision: 1.27 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -221,7 +221,7 @@ unless ($update_analyses) {
           . "/merged_unsorted.bam  $merge_dir" . "/merged \n\n";
         print "#INDEX\nbsub -o $output_dir" . "/index.out "
           . "-e $output_dir" . "/index.err "
-          . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
+          . "-R 'select[mem>1000] rusage[mem=1000]' -M1000000 ";
         print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
       } ## end unless ($check)
     } ## end if ( ( $bwa2bam_count ...
