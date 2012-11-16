@@ -77,28 +77,25 @@ sub parse_results {
 #2345    ps_scan|v1.4    PS50082 329     362     9.205   .       .       Name "WD_REPEATS_2" ; Level 0 ; RawScore 244 ; FeatureFrom 1 ; FeatureTo -9 ; Sequence "MKSYFGGLLCLAWSPDARYIVTGGEDDLITVYSV--------" ; KnownFalsePos 1
 #2345    ps_scan|v1.4    PS50294 285     385     12.947  .       .       Name "WD_REPEATS_REGION" ; Level 0 ; RawScore 389 ; FeatureFrom 1 ; FeatureTo -28 ; Sequence "WAVGSGTLHEFAFSPSddTKLLATVSQDGFLRIFNYHTMELLAYMKSYFGGLLCLAWSPDARYIVTGGEDDLITVYSVVEKRVVCRGQGHRSWISKVAFDP---------------------------" ; KnownFalsePos 0
 
-
-
-    my $id;
     while (<CPGOUT>) {
       chomp;
 
-      print "$_\n";
-      my $score = 0;
       my $hstart = 1;
-      my $hend = -1;
 
       # is the first column the sequence ID or the file name? - check this
-      my ($id, $hid, $start, $end, $evalue ) = /\s*(\S+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+([\d\.\-\e]+)\s+\S+\s+\S+/;
-
-#Calculate the length of the match using the values given for the sequence.
-      $hend = $end - $start + 1;
-
-      print "matched\n";
-#      my $evalue = 0.01;
-      my $percentIdentity = 0;
+      my ($id, $hid, $start, $end, $n_score ) = /\s*(\S+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+([\d\.\-\e]+)\s+\S+\s+\S+/;
+      my $hend = $end - $start + 1;
       
-      my $fp= $self->create_protein_feature($start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity);
+      my $fp = $self->create_protein_feature($start, 
+                                             $end, 
+                                             $n_score, 
+                                             $id, 
+                                             $hstart, 
+                                             $hend, 
+                                             $hid, 
+                                             $self->analysis, 
+                                             0, 
+                                             0);
       push @fps, $fp;
     }
     close (CPGOUT); 
