@@ -1,24 +1,26 @@
 package setup_rnaseq_pipeline_config;
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
-# $Revision: 1.12 $
+# $Revision: 1.13 $
 
 use strict;
 use vars qw(%Config);
 
 %Config = (
-  RNASEQCONFIG => {
+    RNASEQCONFIG => {
     # Delimited text file containing the summary data describing the
-    # RNASeq reads and tissues - assumes the first line is column headers.
+    # RNASeq reads and tissues - assumes the first line is column
+    # headers.
     SUMMARY => "/path/to/my/tab/delimited/config/file",
 
-    # directory containing genome file.
+    # Directory containing genome file.
     GENOME_DIR => "/path/to/my/genome/directory",
-    
+
     # Indexed genome file - no Ensembl-style sequence headers.   
     GENOME_FILE => "my_genome_file",
 
-    # Use this option to change the delimiter for your summary data file.
+    # Use this option to change the delimiter for your summary data
+    # file.
     DELIMITER => "\t",
 
     # Hash key of your reference database from Databases.pm.
@@ -30,13 +32,16 @@ use vars qw(%Config);
     # Hash key of the database used to store the refined models.
     REFINEDDB => "REFINED_DB",
 
-    # Hash key of the database used to store the refined models with blast hits.
+    # Hash key of the database used to store the refined models with
+    # blast hits.
     BLASTDB => "BLAST_DB",
 
-    # Path to the directory containing your Bio::Ensembl::Analysis::Config.
+    # Path to the directory containing your
+    # Bio::Ensembl::Analysis::Config.
     ANALYSISCONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Analysis/Config",
 
-    # Path to the directory containing your Bio::Ensembl::Pipeline::Config.
+    # Path to the directory containing your
+    # Bio::Ensembl::Pipeline::Config.
     PIPELINECONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Pipeline/Config",
 
     # Path to base directory holding your FastQ files.
@@ -80,16 +85,18 @@ use vars qw(%Config);
     # Do you want to make models for the each individual sample as well
     # as for the pooled samples (1/0)?
     SINGLE_TISSUE => 1,
-    # What Read group tag would you like to group your samples by? Default = ID
+
+    # What Read group tag would you like to group your samples
+    # by? Default = ID
     READ_GROUP_TAG => 'SM',
 
     # Samtools path.
     SAMTOOLS => "/path/to/samtools",
-    
-    # Configure the pipeline to use Gsnap rather than BWA and Exonerate
+
+    # Configure the pipeline to use Gsnap rather than BWA and Exonerate.
     USE_GSNAP => 1,
-    
-    # Path to Gsnap binary
+
+    # Path to Gsnap binary.
     GSNAP_PATH => "/path/to/gsnap",
 
     # Please assign some or all columns from the summary file to the
@@ -104,10 +111,10 @@ use vars qw(%Config);
     ####################################################################
 
     # Unique read group identifier (needs to be unique used as the logic
-    # name for the analysis).  *required
+    # name for the analysis). *required
     ID => "1",
 
-    # Sample (use pool name where a pool is being sequenced).  *required
+    # Sample (use pool name where a pool is being sequenced). *required
     SM => "3",
 
     # Library.
@@ -137,12 +144,12 @@ use vars qw(%Config);
     # different lanes.
     LENGTH => "",
 
-    # The read pairing, 1 for paired, 0 for unpaired (independent
-    # of ALL_PAIRED parameter above) *required for BWA to pair reads
+    # The read pairing, 1 for paired, 0 for unpaired (independent of
+    # ALL_PAIRED parameter above) *required for BWA to pair reads
     # correctly.
     PAIRED => "11",
 
-  } );
+    } );
 
 # The example of allocating columns to tags above is based on this file:
 # Sample name   title   source name organism    characteristics: gender characteristics: age    characteristics: extraction characteristics: RIN    characteristics: tissue source  molecule    description processed data file     processed data file build   processed data file type    processed file MD5 checksum raw file    raw file type   raw file MD5 checksum
@@ -165,13 +172,13 @@ use vars qw(%Config);
 
 sub import {
   my ($callpack) = caller(0);    # Name of the calling package
-  my $pack = shift;              # Need to move package off @_
+    my $pack = shift;              # Need to move package off @_
 
-  # Get list of variables supplied, or else all
-  my @vars = @_ ? @_ : keys(%Config);
+# Get list of variables supplied, or else all
+    my @vars = @_ ? @_ : keys(%Config);
   return unless @vars;
 
-  # Predeclare global variables in calling package
+# Predeclare global variables in calling package
   eval "package $callpack; use vars qw(" .
     join( ' ', map { '$' . $_ } @vars ) . ")";
   die $@ if $@;
@@ -179,9 +186,9 @@ sub import {
   foreach (@vars) {
     if ( defined $Config{$_} ) {
       no strict 'refs';
-      # Exporter does a similar job to the following
-      # statement, but for function names, not
-      # scalar variables:
+# Exporter does a similar job to the following
+# statement, but for function names, not
+# scalar variables:
       *{"${callpack}::$_"} = \$Config{$_};
     }
     else {
