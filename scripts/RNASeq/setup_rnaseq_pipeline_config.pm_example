@@ -1,7 +1,7 @@
 package setup_rnaseq_pipeline_config;
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 
 use strict;
 use vars qw(%Config);
@@ -79,7 +79,7 @@ use vars qw(%Config);
 
     # Do you want to make models for the each individual sample as well
     # as for the pooled samples (1/0)?
-    SINGLE_TISSUE => 0,
+    SINGLE_TISSUE => 1,
     # What Read group tag would you like to group your samples by? Default = ID
     READ_GROUP_TAG => 'SM',
 
