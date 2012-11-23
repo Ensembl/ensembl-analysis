@@ -1,7 +1,7 @@
 #!/usr/local/ensembl/bin/perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.27 $
+# $Revision: 1.28 $
 #
 
 use setup_rnaseq_pipeline_config;
@@ -531,7 +531,7 @@ foreach my $row (@rows) {
     new Bio::EnsEMBL::Pipeline::Analysis(
                                   -logic_name   => "bwa_" . $ln,
                                   -program      => "bwa",
-                                  -program_file => "/software/solexa/bin/bwa",
+                                  -program_file => $RNASEQCONFIG->{BWA_PATH},
                                   -module       => "BWA",
                                   -description  => $row->{DS},
                                   -display_label => $row->{ID},
@@ -542,7 +542,7 @@ foreach my $row (@rows) {
     new Bio::EnsEMBL::Pipeline::Analysis(
                                   -logic_name   => "bwa2bam_" . $ln,
                                   -program      => "bwa",
-                                  -program_file => "/software/solexa/bin/bwa",
+                                  -program_file => $RNASEQCONFIG->{BWA_PATH},
                                   -module       => "BWA2BAM",
                                   -description  => $row->{DS},
                                   -display_label => $row->{ID},
