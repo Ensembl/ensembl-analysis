@@ -58,6 +58,9 @@ use vars qw( %Config );
 			# penalty for removing a retined intron
 			RETAINED_INTRON_PENALTY => 2,
 			
+            #Remove introns that overlap X introns
+            FILTER_ON_OVERLAP => 0,
+
 			# minimum size for an intron
 			MIN_INTRON_SIZE  => 30,   
 			MAX_INTRON_SIZE  => 200000,  
