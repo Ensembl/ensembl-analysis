@@ -1408,7 +1408,7 @@ sub modify_transcript {
     $ts =   $cds_start - $se->start+ 1;
     $te =   $cds_end - $ee->start  + 1;
   }
-  my $t =  new Bio::EnsEMBL::Transcript(-EXONS => $exons);
+  $t =  new Bio::EnsEMBL::Transcript(-EXONS => $exons);
   # transfer the intron supporting evidence
   # except for where we have trimmed the intron
   my $ise = $tran->get_all_IntronSupportingEvidence;
@@ -1969,6 +1969,42 @@ sub bam_2_intron_features {
   }
   # sort them
   @ifs = sort {$a->start <=> $b->start} @ifs;
+  if ($self->FILTER_ON_OVERLAP) {
+      my @tmp_array;
+      my $threshold = $self->FILTER_ON_OVERLAP;
+      my $array_length = scalar(@ifs); 
+      if ($array_length > 1) {
+          for (my $j = 0; $j < $array_length-1; $j++) {
+              my $k = 0;
+              my $count = 1;
+              my $overlapped_support = 0;
+              while () {
+                  ++$k;
+                  if ($count > $threshold) {
+                      if ($overlapped_support < $ifs[$j]->score) {
+#                          print STDERR "\t",$ifs[$j+$k]->hseqname, ': ', $ifs[$j+$k]->start, ':', $ifs[$j+$k]->end, "\n";
+                          push (@tmp_array, $ifs[$j]);
+                      }
+                      else {
+#                          print STDERR 'THROWING: ', $ifs[$j]->hseqname, ': ', $ifs[$j]->start, ':', $ifs[$j]->end, "\n";
+                      }
+                      last;
+                  }
+                  $overlapped_support += $ifs[$j+$k]->score;
+                  if (($ifs[$j]->end < $ifs[$j+$k]->start) or (($j+$k) == $array_length-1)) {
+#                      print STDERR "\t",$ifs[$j+$k]->hseqname, ': ', $ifs[$j+$k]->start, ':', $ifs[$j+$k]->end, "\n";
+                      push (@tmp_array, $ifs[$j]);
+                      last;
+                  }
+#                      print STDERR $ifs[$j+$k]->hseqname, "\n";
+                  next unless ($ifs[$j]->strand == $ifs[$j+$k]->strand);
+                  ++$count;
+              }
+          }
+          @ifs = @tmp_array;
+      }
+  }
+#  print STDERR 'RES: ', scalar(@ifs), "\n";
   $self->intron_features(\@ifs);
   $self->extra_exons($extra_exons);
   print STDERR "Got " . scalar(@ifs)  . " unique introns  " ;
@@ -2861,6 +2897,20 @@ sub MAX_5PRIME_EXONS {
   }
 }
 
+
+sub FILTER_ON_OVERLAP {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_FILTER_ON_OVERLAP'} = $value;
+  }
+  
+  if (exists($self->{'_CONFIG_FILTER_ON_OVERLAP'})) {
+    return $self->{'_CONFIG_FILTER_ON_OVERLAP'};
+  } else {
+    return undef;
+  }
+}
 
 sub MAX_5PRIME_LENGTH {
   my ($self,$value) = @_;
