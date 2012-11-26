@@ -225,7 +225,7 @@ sub strand {
             $strand = $transcript->start_Exon->strand ;
             next ;
           }
-          if ( $transcript->start_Exon->strand != $strand ) {
+          if ( $transcript->start_Exon->strand != $strand && (!$self->{_ignore_strand} )) {
            throw("You have a cluster with genes on opposite strands") ;
           }
         }
@@ -233,7 +233,7 @@ sub strand {
         unless (defined($strand)) {
          $strand = $gene->start_Exon->strand ;
         }
-        if ( $gene->start_Exon->strand != $strand ) {
+        if ( $gene->start_Exon->strand != $strand && (!$self->{_ignore_strand}) ) {
            throw("You have a cluster with genes on opposite strands") ;
         }
       }
