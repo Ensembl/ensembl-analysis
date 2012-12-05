@@ -1477,6 +1477,26 @@ sub write_output{
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
+  my $intron_adaptor = $outdb->get_DnaAlignAdaptor;
+  $fails = 0;
+  $total = 0;
+  foreach my $intron (@{$self->intron_features}) {
+    $intron->start($intron->start+1);
+    $intron->end($intron->end-1);
+    eval {
+        $intron_adaptor->store($intron);
+    };
+    if ($@){
+      warning("Unable to store DnaAlignFeature!!\n$@");
+      $fails++;
+    }
+    $total++;
+  }
+  if ($fails > 0) {
+    throw("Not all introns could be written successfully " .
+          "($fails fails out of $total)");
+  }
+
 }
 
 
