@@ -418,7 +418,7 @@ sub get_swissprot_ids{
 }
 
 sub get_pfam_hmm {
-	my ($self, $uniprot_ids, $dir) = @_;
+    my ($self, $uniprot_ids, $dir) = @_;
     my $pfam_accs;
     my $pfam_lookup;
     my $db = $self->pfamDB();
@@ -426,19 +426,19 @@ sub get_pfam_hmm {
     $self->workdir('/tmp') unless($self->workdir($dir));
     $self->checkdir();
 
-	my $sql = "SELECT
-	    			DISTINCT(CONCAT(a.pfamA_acc,'.',a.version)),
-	    			a.pfamA_id,
-	    			a.description
-				FROM
-				    pfamA_reg_full_significant f,
-				    pfamseq p,
-				    pfamA a
-				WHERE
-				    f.auto_pfamseq = p.auto_pfamseq AND
-				    f.in_full = 1 AND
-				    a.auto_pfamA = f.auto_pfamA AND
-				    p.pfamseq_acc IN ";
+    my $sql = "SELECT
+                    DISTINCT(CONCAT(a.pfamA_acc,'.',a.version)),
+                    a.pfamA_id,
+                    a.description
+                FROM
+                    pfamA_reg_full_significant f,
+                    pfamseq p,
+                    pfamA a
+                WHERE
+                    f.auto_pfamseq = p.auto_pfamseq AND
+                    f.in_full = 1 AND
+                    a.auto_pfamA = f.auto_pfamA AND
+                    p.pfamseq_acc IN ";
 
     my @accessions = keys(%$uniprot_ids);
     map ( s/(\w*(-\d+)?)(\.\d+)?/'$1'/,@accessions);
@@ -448,21 +448,21 @@ sub get_pfam_hmm {
 
     $sql .= "(".join(',',@accessions).")";
 
-	#print STDOUT $sql."\n";
+    #print STDOUT $sql."\n";
 
-	my $sth = $db->prepare($sql);
+    my $sth = $db->prepare($sql);
     $sth->execute();
     my ($pfam_acc, $pfam_id, $description);
     $sth->bind_columns(\($pfam_acc, $pfam_id, $description));
 
     while(my $row = $sth->fetchrow_arrayref()){
-    	$pfam_lookup->{$pfam_id}	= [$pfam_acc, $description];
-    	$pfam_accs->{$pfam_acc}		= 1;
+        $pfam_lookup->{$pfam_id}    = [$pfam_acc, $description];
+        $pfam_accs->{$pfam_acc}     = 1;
     }
     $sth->finish();
 
-	$self->get_hmmdb($pfam_lookup);
-	$self->pfam_lookup($pfam_lookup);
+    $self->get_hmmdb($pfam_lookup);
+    $self->pfam_lookup($pfam_lookup);
 
     return $pfam_accs;
 }
@@ -596,13 +596,13 @@ sub get_GenewiseHMM{
 
   my $genewisehmm =
     Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm->new(
-    							'-query'    => $self->query(),
+                                '-query'    => $self->query(),
                                 '-memory'   => $memory,
                                 '-hmmfile'  => $self->hmm2filename(),
                                 '-reverse'  => $reverse,
                                 '-genewise' => $self->program(),
                                 '-options'  => $self->options(),
-								'-analysis' => $self->analysis(),
+                                '-analysis' => $self->analysis(),
     );
   return $genewisehmm;
 
@@ -677,7 +677,7 @@ sub get_hmmdb{
     }
     # convert the hmm file from HMMER3 to HMMER2 format for genewise
     my $command = $self->hmmconvert." -2 ".$self->hmm3filename." > ".$self->hmm2filename;
- 	print STDERR "$command\n";
+    print STDERR "$command\n";
     eval{
           system($command);
     };
