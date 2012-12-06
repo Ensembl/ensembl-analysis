@@ -142,11 +142,37 @@ sub analysis {
 
 sub pfamDB{
     my ($self, $dbobj) = @_;
-    $self->{'_pfamDB'} = $dbobj if $dbobj;
-    throw("Not a Bio::EnsEMBL::DBSQL::DBAdaptor")
-        unless $self->{'_pfamDB'}->isa("Bio::EnsEMBL::DBSQL::DBConnection");
-    return $self->{'_pfamDB'};
+    if ($dbobj) {
+        # set
+        $self->{'_pfamDB'} = $dbobj;
+        throw("Not a Bio::EnsEMBL::DBSQL::DBAdaptor")
+          unless $self->{'_pfamDB'}->isa("Bio::EnsEMBL::DBSQL::DBConnection");
+        return $dbobj;
+    } else {
+        # get - extra trouble to ensure it's connected - RT#301371
+        return __connect_with_retry($self->{'_pfamDB'});
+    }
 }
+
+sub __connect_with_retry {
+    my ($dbc) = @_;
+    my ($per, $lim) = (15, 15); # 15 tries ~ 30 min
+
+    # Try $lim times, taking a total of approx $per * $lim*($lim+2)/2
+    my ($try, $err);
+    for ($try=0; $try<$lim; $try++) {
+        my $h = eval { $dbc->db_handle };
+        $err = $@;
+        return $dbc if $h && $h->ping;
+        last unless $err =~ /\bToo many connections\b/;
+
+        my $wait = int((1 + $try + rand()) * $per);
+        print " sleep($wait) then retry\n";
+        sleep $wait;
+    }
+    die "\nconnect_with_retry failed after $try tries$err";
+}
+
 
 sub pfam_db_version{
     my ($self) = @_;
@@ -172,6 +198,7 @@ sub program{
     $self->{'_program'} = $program if $program;
     return $self->{'_program'};
 }
+
 =head2 query
 
   Arg      : Bio:Seq object
@@ -324,6 +351,7 @@ sub hmm2filename {
     return $self->{'_hmm2filename'};
 
 }
+
 =head2 dbm_file
 
     Arg      : dbm filename
@@ -421,7 +449,6 @@ sub get_pfam_hmm {
     my ($self, $uniprot_ids, $dir) = @_;
     my $pfam_accs;
     my $pfam_lookup;
-    my $db = $self->pfamDB();
 
     $self->workdir('/tmp') unless($self->workdir($dir));
     $self->checkdir();
@@ -450,7 +477,7 @@ sub get_pfam_hmm {
 
     #print STDOUT $sql."\n";
 
-    my $sth = $db->prepare($sql);
+    my $sth = $self->pfamDB()->prepare($sql);
     $sth->execute();
     my ($pfam_acc, $pfam_id, $description);
     $sth->bind_columns(\($pfam_acc, $pfam_id, $description));
@@ -563,6 +590,7 @@ sub create_genewisehmm_complete{
     Function  :
     Exception :
     Caller    : $self->create_genewisehmm_complete, $self->create_genewisehmm_individually
+
 =cut
 
 sub run_genewisehmm{
@@ -688,6 +716,7 @@ sub get_hmmdb{
 
 
 }
+
 =head2 add_output_features
 
     Arg      : array ref to array of output features

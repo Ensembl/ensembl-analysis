@@ -207,6 +207,9 @@ sub getPfamDB {
 		  || throw("please enter pfam_db key - value into meta table\n");
 		my $pfam_db_conn = $self->make_hash_from_meta_value( $value->[0] );
 
+                $pfam_db_conn->{-reconnect_when_connection_lost} = 1;
+                $pfam_db_conn->{-disconnect_when_inactive} = 1;
+
 		# Use the Blast tracking system to set the correct Pfam DB name
 		my $db_file_path    = $self->analysis->db_file;
 		my $db_file_version = $self->get_db_version($db_file_path);
@@ -218,6 +221,7 @@ sub getPfamDB {
 		}
 		$self->{'_pfam_db'} =
 		  Bio::EnsEMBL::DBSQL::DBConnection->new(%$pfam_db_conn);
+                # nb. there is not yet a db_handle (DBI connection)
 	}
 	return $self->{'_pfam_db'};
 }
