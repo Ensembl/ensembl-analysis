@@ -625,7 +625,7 @@ sub read_cm_library {
   my %cm;
   my $name;
   while(<$fh>) {
-    if( /^ACCESSION\s+(\S+)/ ) {
+    if( /^ACC\s+(\S+)/ ) {
       $name = $1;
       $cm{$name}->{-accession} = $1; #RF number
       $cm{$name}->{-offset} = $off;
@@ -633,7 +633,7 @@ sub read_cm_library {
     if( /^CLEN\s+(\d+)/ ) {
       $cm{$name}->{-length} = $1;
     }
-    if( /^ACCESSION\s+(\S+)/ ) {
+    if( /^ACC\s+(\S+)/ ) {
       $cm{$name}->{-accession} = $1; #RF number
     }
     if( /^SCOM\s+cmsearch\s+\-Z.*\s+(\-\-toponly.*)\s+CM/ ) {
