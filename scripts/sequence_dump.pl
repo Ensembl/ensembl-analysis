@@ -57,11 +57,11 @@ normal uppercase Ns or with softmasking
     -format Deprecated. Following suggestion of the Ensembl core team, Bio::SeqIO has been replaced with
                         Bio::EnsEMBL::Utils::IO::FASTASerializer. Therefore the output is limited to FASTA.
 
-    -header [default | basic | funcgen]
+    -header [default | basic | funcgen | rnaseq]
              default: chromosome:GRCh37:11:1:135006516:1 chromosome 11
              basic:   chromosome:GRCh37:11:1:135006516:1
              funcgen: 18 dna:chromosome chromosome:GRCh37:18:1:78077248:1
-             rnaseq: 18
+             rnaseq:  18
 
 
     -extension the file extention you want to give the dumped files, by
@@ -333,6 +333,8 @@ my $slices =
 #   chromosome:GRCh37:11:1:135006516:1
 # -funcgen
 #   18 dna:chromosome chromosome:GRCh37:18:1:78077248:1
+# -rnaseq
+#   18
 ################################################################################
 my $dispatch = {
   default => sub {
@@ -347,7 +349,7 @@ my $dispatch = {
 
   basic   => sub {
     my ($slice) = @_;
-    return $slice->seq_region_name();
+    return $slice->name();
   },
 
   funcgen => sub {
