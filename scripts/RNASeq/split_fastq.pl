@@ -30,14 +30,14 @@ my $usage = "perl split_fastq.pl
 $| = 1;
 
 &GetOptions(
-	    'dir:s'        => \$fastq_dir,
-	    'chunks_dir:s' => \$chunks,
-            'size:s'       => \$size,
-	    'meta:s'       => \$meta_file,
-	    'file_col:s'   => \$fc,
-	    'update!'      => \$update,
-	    'check!'       => \$check,
-	   );
+  'dir:s'        => \$fastq_dir,
+  'chunks_dir:s' => \$chunks,
+  'size:s'       => \$size,
+  'meta:s'       => \$meta_file,
+  'file_col:s'   => \$fc,
+  'update!'      => \$update,
+  'check!'       => \$check,
+);
 
 die($usage) unless ($fastq_dir && $size && $meta_file
 
@@ -65,7 +65,7 @@ unless ( $update ) {
   print "Please run the bsubs to split the files\n";
   foreach my $file (@files ) {
     throw("File $file not found\n")
-      unless -e $fastq_dir."/".$file;
+    unless -e $fastq_dir."/".$file;
     print "bsub -o chunk_$file.%J.out -e chunk_$file.%J.err \"split $fastq_dir/$file -l " . $size*4 ." $chunks/$file-\"\n";  
   }
   print "Once the bsubs have finished run the script again with the -update flag to check that the chunking has worked and to update the meta file with the new fastq files\n";
@@ -82,7 +82,7 @@ foreach my $file (@files ) {
   $total_reads = count_reads($fastq_dir."/" . $file) if $check;
   $command = "ls $chunks/$file-*";
   open  ( my $fh,"$command 2>&1 |" ) || 
-    throw("Error counting chunks");
+  throw("Error counting chunks");
   print "$file has the following chunks:\n";
   while (<$fh>){
     chomp;
@@ -91,10 +91,10 @@ foreach my $file (@files ) {
     #write the new meta file
     for ( my $i =0 ; $i < scalar(@cells) ; $i++ ) {
       if ( $i == $fc -1  ) {
-	my @path = split("\/",$_);
-	my $file = pop(@path);
-	$new_meta .= "$file\t";
-	next;
+        my @path = split("\/",$_);
+        my $file = pop(@path);
+        $new_meta .= "$file\t";
+        next;
       }
       $new_meta .= $cells[$i] ."\t";
     }
@@ -122,12 +122,12 @@ sub count_reads {
   my $command = "wc -l $file";
   eval  {
     open  ( my $fh,"$command 2>&1 |" ) || 
-      throw("Error counting reads");
+    throw("Error counting reads");
     while (<$fh>){
       chomp;
       if ( $_ =~ /(\d+) \S+/ ) {
-	$total_reads = $1 / 4;
-	print  " has $total_reads reads";
+        $total_reads = $1 / 4;
+        print  " has $total_reads reads";
       }
     }; if($@){
       throw("Error processing alignment \n$@\n");
