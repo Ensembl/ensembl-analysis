@@ -66,7 +66,7 @@ unless ( $update ) {
   foreach my $file (@files ) {
     throw("File $file not found\n")
       unless -e $fastq_dir."/".$file;
-    print "bsub -o chunk_$file.out -e chunk_$file.err \"split $fastq_dir/$file -l " . $size*4 ." $chunks/$file-\"\n";  
+    print "bsub -o chunk_$file.%J.out -e chunk_$file.%J.err \"split $fastq_dir/$file -l " . $size*4 ." $chunks/$file-\"\n";  
   }
   print "Once the bsubs have finished run the script again with the -update flag to check that the chunking has worked and to update the meta file with the new fastq files\n";
   exit;
