@@ -18,8 +18,11 @@
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Signalp.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Signalp;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

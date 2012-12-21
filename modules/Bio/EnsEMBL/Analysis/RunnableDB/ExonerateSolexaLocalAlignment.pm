@@ -45,8 +45,11 @@ reads to be realigned against a small piece of genomic with high sensitivity
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateSolexaLocalAlignment.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaLocalAlignment;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;

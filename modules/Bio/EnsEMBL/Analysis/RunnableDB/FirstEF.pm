@@ -48,6 +48,8 @@ in the simple_feature table
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/FirstEF.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::FirstEF;
 
 use strict;

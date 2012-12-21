@@ -1,5 +1,9 @@
 # holds the object that does the second round of filtering
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/Second_PMF.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Pipeline::Tools::Pmatch::Second_PMF;
+use warnings ;
+use strict ;
 use Bio::Root::Object;
 
 @ISA = qw(Bio::Root::Object);

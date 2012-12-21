@@ -39,8 +39,11 @@ different configs by logic name).
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ImportArrays.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
+use warnings ;
 use strict;
 use vars qw( %Config );
 

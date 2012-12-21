@@ -32,8 +32,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation -
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/LayerAnnotation.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

@@ -45,8 +45,11 @@ a small slice of DNA
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateSolexaLocalAlignment.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateSolexaLocalAlignment;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

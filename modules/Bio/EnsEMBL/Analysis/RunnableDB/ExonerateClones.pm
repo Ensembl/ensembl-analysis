@@ -35,8 +35,11 @@ Post general queries to B<dev@ensembl.org>
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateClones;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;

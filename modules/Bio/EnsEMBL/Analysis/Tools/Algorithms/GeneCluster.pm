@@ -22,8 +22,11 @@ eae@sanger.ac.uk
 
 # Let the code begin ...
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/GeneCluster.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

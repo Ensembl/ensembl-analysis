@@ -41,8 +41,11 @@ files into a single sorted indexed merged BAM file
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Sam2Bam.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

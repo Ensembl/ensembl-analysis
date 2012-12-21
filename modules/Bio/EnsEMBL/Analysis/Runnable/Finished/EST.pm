@@ -9,6 +9,8 @@ James Gilbert B<email> jgrg@sanger.ac.uk
 Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/EST.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::EST;
 
 use strict;

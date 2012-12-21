@@ -45,8 +45,11 @@ module is defined in Bio::EnsEMBL::Analysis::Config::GeneBuild::Solexa2Genes
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Solexa2GenesLiteNewCloud.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Solexa2GenesLiteNewCloud;
 
+use warnings ;
 use strict;
 
 #use Bio::EnsEMBL::Analysis::RunnableDB;

@@ -1,4 +1,3 @@
-#!/usr/local/ensembl/bin/perl -w
 
 =head1 NAME
 
@@ -20,8 +19,11 @@
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Default.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Default;
 
+use warnings ;
 use Exporter;
 use vars qw(@ISA @EXPORT);
 our @ISA    = ("Exporter");

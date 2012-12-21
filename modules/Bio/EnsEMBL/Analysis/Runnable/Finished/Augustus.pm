@@ -1,4 +1,6 @@
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/Augustus.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus;
 
 

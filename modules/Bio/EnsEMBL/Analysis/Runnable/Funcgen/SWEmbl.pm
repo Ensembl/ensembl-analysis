@@ -40,6 +40,8 @@ can be stored in the annotated_feature table in the eFG database
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Funcgen/SWEmbl.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Funcgen::SWEmbl;
 
 use strict;

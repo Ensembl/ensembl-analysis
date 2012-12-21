@@ -34,6 +34,8 @@ both fetching input data and writing data back to the databases.
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Funcgen.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Funcgen;
 
 use strict;

@@ -1,3 +1,5 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranslationUtils.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
 
 use strict;

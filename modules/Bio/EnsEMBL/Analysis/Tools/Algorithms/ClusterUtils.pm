@@ -1,3 +1,5 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/ClusterUtils.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
@@ -98,6 +100,7 @@ Some definitions :
 
 
 
+use warnings ;
 use Exporter;
 use vars qw(@ISA @EXPORT);
 use strict;

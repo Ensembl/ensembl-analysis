@@ -1,5 +1,8 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Superfamily.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

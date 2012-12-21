@@ -37,6 +37,7 @@ $orthologueanalysis->write_output();
 =head1 DESCRIPTION
 
 This object wraps Bio::EnsEMBL::Analysis::Runnable::OrthologueEvaluator and is 
+use warnings ;
 used to fetch the input from different databases as well as writing results 
 the results to the database.a
 
@@ -51,6 +52,8 @@ Internal methods are usually preceded with a '_'
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/MissingOrthologues.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::MissingOrthologues; 
 use strict;
 use Bio::SeqIO;

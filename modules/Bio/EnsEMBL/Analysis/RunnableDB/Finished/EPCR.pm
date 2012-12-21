@@ -25,6 +25,8 @@ anacode@sanger.ac.uk
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/EPCR.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::EPCR;
 
 use strict;

@@ -42,8 +42,11 @@ Internal methods are usually preceded with a _
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/TRF.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::TRF;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB::Finished;

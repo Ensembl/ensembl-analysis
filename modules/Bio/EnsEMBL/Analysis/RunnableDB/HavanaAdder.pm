@@ -37,8 +37,11 @@
 
 # Let the code begin...
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/HavanaAdder.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

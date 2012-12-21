@@ -69,6 +69,8 @@ Bio::EnsEMBL::Analysis::Config::Pseudogene
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Pseudogene_DB.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 
 use strict;

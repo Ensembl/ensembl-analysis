@@ -25,8 +25,11 @@ Bio::EnsEMBL::Analysis::Runnable::Protein::Hmmpfam
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Hmmpfam.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

@@ -38,8 +38,11 @@ Post questions to the EnsEMBL dev mailing list: <dev@ensembl.org>
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Otter/DnaAlignFeatureHistory.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeatureHistory;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

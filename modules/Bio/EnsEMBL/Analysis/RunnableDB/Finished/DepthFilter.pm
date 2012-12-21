@@ -1,7 +1,10 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::DepthFilter
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/DepthFilter.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;

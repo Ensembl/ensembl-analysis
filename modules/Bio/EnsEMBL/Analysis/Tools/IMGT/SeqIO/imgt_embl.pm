@@ -1,6 +1,9 @@
 
+use warnings ;
 use strict;
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/IMGT/SeqIO/imgt_embl.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::IMGT::SeqIO::imgt_embl;
 
 use base qw(Bio::SeqIO::embl);

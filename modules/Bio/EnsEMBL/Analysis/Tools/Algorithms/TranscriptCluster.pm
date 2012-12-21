@@ -24,8 +24,11 @@ is included into another cluster, etc...
 
 # Let the code begin ...
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/TranscriptCluster.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 
+use warnings ;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::IntronCluster;

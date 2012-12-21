@@ -21,8 +21,11 @@ dev@ensembl.org
 
 # Let the code begin...
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/PmatchFeature.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Pipeline::Tools::Pmatch::PmatchFeature;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);

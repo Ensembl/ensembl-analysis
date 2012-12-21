@@ -2,7 +2,11 @@
 # MergedHit knows which contig and protein it is pairing, strand, overall 
 # coverage and details of component CoordinatePairs
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/MergedHit.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
+use warnings ;
+use strict ;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 

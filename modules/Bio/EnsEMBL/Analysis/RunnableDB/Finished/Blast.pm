@@ -39,8 +39,11 @@ Internal methods are usually preceded with a _
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/Blast.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::Blast;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;

@@ -38,8 +38,11 @@ Internal methods are usually preceded with a _'
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastRNASeqPep.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastRNASeqPep;
 
+use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptPep;

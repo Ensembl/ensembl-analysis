@@ -19,8 +19,11 @@
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/Coil.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::Coil;
 
+use warnings ;
 use strict;
 use vars qw(@ISA);
 

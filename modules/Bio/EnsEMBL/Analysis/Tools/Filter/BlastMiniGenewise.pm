@@ -52,6 +52,8 @@ Internal methods are usually preceded with a _
 
 # Let the code begin...
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Filter/BlastMiniGenewise.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Filter::BlastMiniGenewise;
 
 use strict;

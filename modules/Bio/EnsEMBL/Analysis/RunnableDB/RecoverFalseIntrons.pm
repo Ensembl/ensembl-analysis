@@ -87,8 +87,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons -
 
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RecoverFalseIntrons.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons;  
 #package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateVSGenewise;  
+use warnings ;
 use strict; 
 use List::Util qw(max); 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info stack_trace_dump);

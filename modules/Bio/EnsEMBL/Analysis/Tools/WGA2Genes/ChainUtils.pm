@@ -7,8 +7,11 @@
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/WGA2Genes/ChainUtils.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::WGA2Genes::ChainUtils;
 
+use warnings ;
 use strict;
 use Exporter;
 

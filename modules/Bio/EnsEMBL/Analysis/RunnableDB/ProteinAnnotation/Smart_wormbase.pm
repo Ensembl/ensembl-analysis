@@ -43,8 +43,11 @@
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/Smart_wormbase.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::Smart_wormbase;
 
+use warnings ;
 use strict;
 use vars qw(@ISA);
 

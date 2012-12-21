@@ -1,4 +1,4 @@
-# $Id: Iteration.pm,v 1.3 2011-06-20 16:09:42 kt7 Exp $
+# $Id: Iteration.pm,v 1.4 2012-12-21 11:22:09 rn6 Exp $
 # Bioperl module Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration
 #	based closely on the Bio::EnsEMBL::Analysis::Tools::BPlite modules
 #	Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
@@ -61,8 +61,11 @@ This software is provided "as is" without warranty of any kind.
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BPlite/Iteration.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration;
 
+use warnings ;
 use strict;
 use vars qw(@ISA);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);

@@ -48,7 +48,10 @@ Smith-Waterman alignment program.
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/CrossMatch.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::CrossMatch;
+use warnings ;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(info verbose throw warning);

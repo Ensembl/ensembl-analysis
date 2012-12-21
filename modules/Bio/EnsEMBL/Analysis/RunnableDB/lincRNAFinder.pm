@@ -31,8 +31,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::lincRNAFinder -
 =head1 METHODS
 
 =cut
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/lincRNAFinder.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::lincRNAFinder;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

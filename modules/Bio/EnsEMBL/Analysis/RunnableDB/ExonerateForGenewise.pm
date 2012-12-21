@@ -38,7 +38,10 @@ This module replaces Bio::EnsEMBL::Pipeline::RunnableDB::TargettedExonerate
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateForGenewise.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateForGenewise;
+use warnings ;
 use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise;

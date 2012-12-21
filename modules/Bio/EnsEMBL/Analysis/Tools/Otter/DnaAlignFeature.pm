@@ -1,3 +1,5 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Otter/DnaAlignFeature.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeature;
 
 # EnsEMBL module for storing dna-dna pairwise alignments
@@ -24,6 +26,7 @@ package Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeature;
 =cut
 
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);

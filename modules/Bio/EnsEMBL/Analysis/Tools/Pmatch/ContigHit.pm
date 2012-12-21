@@ -1,7 +1,11 @@
 # holds a pmatch contig hit - simply the name(identifier) of the contig
 # and a list of start-end positions
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/ContigHit.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
+use warnings ;
+use strict ;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 @ISA = qw();

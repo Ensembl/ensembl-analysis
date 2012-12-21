@@ -40,8 +40,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::WGA2GenesDirect -
 =head1 METHODS
 
 =cut
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/WGA2GenesDirect.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::WGA2GenesDirect;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

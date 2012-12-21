@@ -30,6 +30,8 @@ dev@ensembl.org
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProjectedTranscriptEvidence.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProjectedTranscriptEvidence;
 
 use vars qw(@ISA);

@@ -65,7 +65,10 @@ Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons -
 
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/FindFalseIntrons.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons; 
+use warnings ;
 use strict;  
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 

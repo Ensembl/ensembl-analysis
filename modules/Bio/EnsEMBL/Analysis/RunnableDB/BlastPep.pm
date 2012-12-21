@@ -34,6 +34,8 @@ Post questions to the Ensembl development list: dev@ensembl.org
 use strict;
 use warnings;
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastPep.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastPep;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::Blast;

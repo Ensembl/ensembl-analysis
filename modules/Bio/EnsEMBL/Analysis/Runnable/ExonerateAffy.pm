@@ -52,8 +52,11 @@ affy features.
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateAffy.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

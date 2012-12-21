@@ -31,8 +31,11 @@ Abstract base class of AlignmentChains and AlignmentNets
 =head1 METHODS
 
 =cut
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/AlignmentFilter.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::AlignmentFilter;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

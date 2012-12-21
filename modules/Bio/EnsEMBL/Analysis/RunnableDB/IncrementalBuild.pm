@@ -31,8 +31,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::IncrementalBuild -
 =head1 METHODS
 
 =cut
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/IncrementalBuild.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::IncrementalBuild;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

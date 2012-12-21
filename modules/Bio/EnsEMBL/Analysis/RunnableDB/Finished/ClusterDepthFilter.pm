@@ -1,7 +1,10 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::ClusterDepthFilter
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/ClusterDepthFilter.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::ClusterDepthFilter;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::SimpleFeature;

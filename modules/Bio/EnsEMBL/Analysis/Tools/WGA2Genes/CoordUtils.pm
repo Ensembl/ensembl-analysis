@@ -8,8 +8,11 @@
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/WGA2Genes/CoordUtils.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::WGA2Genes::CoordUtils;
 
+use warnings ;
 use strict;
 use Exporter;
 

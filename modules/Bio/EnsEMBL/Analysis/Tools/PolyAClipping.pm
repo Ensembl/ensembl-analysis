@@ -1,4 +1,3 @@
-#!/usr/local/ensembl/bin/perl
 
 =pod
 
@@ -27,6 +26,8 @@ perl new_polyA_clipping.pl sequences.fasta polyat_clipped.out
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/PolyAClipping.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
 
 use strict;

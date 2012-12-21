@@ -40,8 +40,11 @@ Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ConfigWriter.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
+use warnings ;
 use strict;
 use Data::Dumper;
 use File::Copy;

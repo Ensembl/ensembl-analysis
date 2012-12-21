@@ -31,8 +31,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::FindSplitGenes -
 =head1 METHODS
 
 =cut
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/FindSplitGenes.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::FindSplitGenes;  
 
+use warnings ;
 use strict;
 use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);

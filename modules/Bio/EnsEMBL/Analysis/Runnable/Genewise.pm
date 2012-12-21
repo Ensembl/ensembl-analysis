@@ -47,8 +47,11 @@ The rest of the documentation details each of the object methods. Internal metho
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Genewise.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Genewise;
 
+use warnings ;
 use strict;  
 use vars   qw(@ISA);
 

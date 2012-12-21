@@ -1,7 +1,10 @@
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ReadBaseDataFromGff.pm,v $
+# $Version: $
 package ReadBaseDataFromGff; 
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Exon;

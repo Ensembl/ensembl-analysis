@@ -36,6 +36,7 @@ $runnableDB->write_output(); #writes to DB
 =head1 DESCRIPTION
 
 Extends Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature to allow
+use warnings ;
 use of compressed dna align features, useful when aligning millions of short 
 Solexa reads
 
@@ -46,6 +47,8 @@ Solexa reads
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateSolexaCloud.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaCloud;
 
 use strict;

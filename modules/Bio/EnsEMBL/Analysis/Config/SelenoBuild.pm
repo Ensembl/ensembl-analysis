@@ -48,8 +48,11 @@
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/SelenoBuild.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Config::SelenoBuild;
 
+use warnings ;
 use strict;
 use vars qw( %Config );
 

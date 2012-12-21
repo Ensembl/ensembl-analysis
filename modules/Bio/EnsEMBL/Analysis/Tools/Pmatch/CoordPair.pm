@@ -1,7 +1,11 @@
 # holds a Coordinate Pair; name of the protein and contig that are hit (as a cross check) and 
 # the start and end positions of the 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/CoordPair.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair;
+use warnings ;
+use strict ;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 

@@ -38,6 +38,7 @@ $orthologueanalysis->write_output();
 
 This object uses information from a Ensembl Compara database to find partial 
 gene predictions in an organism. It's  
+use warnings ;
 used to fetch the input from different databases as well as writing results 
 the results to the database.a
 
@@ -52,6 +53,8 @@ Internal methods are usually preceded with a '_'
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/FindPartialGenes.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::FindPartialGenes;  
 
 use strict;

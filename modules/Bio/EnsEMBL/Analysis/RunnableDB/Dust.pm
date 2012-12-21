@@ -48,6 +48,8 @@ in the repeat_feature and repeat_consensus tables
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Dust.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Dust;
 
 use strict;

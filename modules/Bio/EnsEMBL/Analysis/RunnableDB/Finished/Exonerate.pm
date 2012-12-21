@@ -1,7 +1,10 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::Finished::Exonerate
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/Exonerate.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::Exonerate;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Transcript;

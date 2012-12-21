@@ -50,6 +50,8 @@ runnable it instantiates
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BlastTranscriptDNA.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA;
 
 use strict;

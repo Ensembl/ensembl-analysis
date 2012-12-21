@@ -29,6 +29,8 @@ Post questions to : anacode@sanger.ac.uk
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/RepeatMasker.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::RepeatMasker;
 
 use strict;

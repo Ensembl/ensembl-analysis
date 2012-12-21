@@ -1,4 +1,8 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/First_PMF.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF;
+use warnings ;
+use strict ;
 use Bio::Root::Object;
 use Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
 use Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;

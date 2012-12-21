@@ -1,8 +1,11 @@
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/ExonCluster.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 
 
+use warnings ;
 use Bio::EnsEMBL::Transcript ; 
 use vars qw(@ISA);
 use Carp;

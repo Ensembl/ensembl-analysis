@@ -45,6 +45,7 @@ transcript attribute
 =cut
 
 
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Infernal;
 
 use strict;

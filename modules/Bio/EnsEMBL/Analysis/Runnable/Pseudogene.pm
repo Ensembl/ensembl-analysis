@@ -55,8 +55,11 @@ If the gene has 1 or more pseudo transcripts but has other transcritps that are 
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Pseudogene.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
 
+use warnings ;
 use strict;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;

@@ -32,7 +32,10 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation -
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation;
+use warnings ;
 use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;

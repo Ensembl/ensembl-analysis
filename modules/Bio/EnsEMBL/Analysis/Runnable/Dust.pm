@@ -40,6 +40,8 @@ to identify and mask simple repeats
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Dust.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Dust;
 
 use strict;

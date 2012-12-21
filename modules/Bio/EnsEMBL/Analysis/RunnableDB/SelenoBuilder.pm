@@ -55,8 +55,11 @@ Internal methods are usually preceded with a '_'
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/SelenoBuilder.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::SelenoBuilder;
 
+use warnings ;
 use strict;
 use Bio::SeqIO;
 use Bio::Seq;

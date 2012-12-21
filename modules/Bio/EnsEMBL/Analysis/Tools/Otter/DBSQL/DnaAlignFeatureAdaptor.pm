@@ -34,7 +34,10 @@ Post questions to the EnsEMBL development list <dev@ensembl.org>
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Otter/DBSQL/DnaAlignFeatureAdaptor.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Otter::DBSQL::DnaAlignFeatureAdaptor;
+use warnings ;
 use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::DBSQL::DnaAlignFeatureAdaptor;

@@ -49,6 +49,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer -
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/TranscriptCoalescer.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer;
 
 use strict;

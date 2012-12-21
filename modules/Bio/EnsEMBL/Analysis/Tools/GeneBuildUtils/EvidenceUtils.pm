@@ -1,3 +1,5 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/EvidenceUtils.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils;
 
 use strict;

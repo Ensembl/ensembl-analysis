@@ -46,6 +46,8 @@ implement much itself
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Snap.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Snap;
 
 use strict;

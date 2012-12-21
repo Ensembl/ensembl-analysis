@@ -42,6 +42,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::EPCR -
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/EPCR.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::EPCR;
 
 use strict;

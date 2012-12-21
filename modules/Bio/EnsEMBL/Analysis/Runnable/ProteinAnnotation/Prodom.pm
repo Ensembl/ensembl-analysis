@@ -41,8 +41,11 @@ Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prodom
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Prodom.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prodom;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

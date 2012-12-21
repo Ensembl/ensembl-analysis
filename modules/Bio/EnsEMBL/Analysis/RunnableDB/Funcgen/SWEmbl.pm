@@ -44,6 +44,8 @@ database and the Runnable SWEmbl which wraps the ChIP-Seq peak caller SWEmbl.
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Funcgen/SWEmbl.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Funcgen::SWEmbl;
 
 use strict;

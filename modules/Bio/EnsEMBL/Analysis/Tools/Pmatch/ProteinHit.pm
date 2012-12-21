@@ -1,7 +1,11 @@
 # holds a pmatch protein hit - simply the name(idenitifier) of the protein
 # and a list of ContigHit objects
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/ProteinHit.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;
+use warnings ;
+use strict ;
 use Bio::Root::Object;
 
 @ISA = qw(Bio::Root::Object);

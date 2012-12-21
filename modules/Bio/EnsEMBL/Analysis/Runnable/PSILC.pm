@@ -46,6 +46,8 @@ Runnable for PSILC
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/PSILC.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::PSILC;
 
 use strict;

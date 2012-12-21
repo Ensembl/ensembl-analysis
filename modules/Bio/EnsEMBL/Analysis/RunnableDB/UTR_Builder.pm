@@ -59,8 +59,11 @@ usually preceded with a '_'
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/UTR_Builder.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 use Bio::SeqIO;

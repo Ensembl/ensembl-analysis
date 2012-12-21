@@ -44,8 +44,11 @@ stages in the pipeline to work. It does nothing just
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Accumulator.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Accumulator;
 
+use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;

@@ -1,5 +1,8 @@
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/IMGT/Seq/RichSeqIMGT.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::IMGT::Seq::RichSeqIMGT;
+use warnings ;
 use strict;
 
 use base qw(Bio::Seq::RichSeq);

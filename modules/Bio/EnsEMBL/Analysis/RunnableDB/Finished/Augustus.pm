@@ -31,6 +31,8 @@ Post questions to : anacode-people@sanger.ac.uk
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/Augustus.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::Augustus;
 
 use strict;

@@ -44,8 +44,11 @@ Post general queries to B<dev@ensembl.org>
 #3 Report Unmapped object count in output
 #4 Re/move all unnecessary warns
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProbeAlign.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;

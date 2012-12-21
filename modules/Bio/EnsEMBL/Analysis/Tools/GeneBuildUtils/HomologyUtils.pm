@@ -34,6 +34,8 @@ class methods
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/HomologyUtils.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::HomologyUtils;
 
 use strict;

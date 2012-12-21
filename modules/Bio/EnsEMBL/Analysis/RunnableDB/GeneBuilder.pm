@@ -34,8 +34,10 @@ Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder -
 
 # $ Source: $
 # $ Revision: $ 
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

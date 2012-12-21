@@ -1,5 +1,8 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BlastDB.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::BlastDB;
 
+use warnings ;
 use strict;
 no warnings;
 

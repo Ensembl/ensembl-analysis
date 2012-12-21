@@ -36,8 +36,11 @@ should ideally inherit from this
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BaseGeneBuild.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
+use warnings ;
 use strict;
 use Data::Dumper;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose info);

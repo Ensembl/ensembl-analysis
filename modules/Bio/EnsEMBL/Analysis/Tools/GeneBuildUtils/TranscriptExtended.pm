@@ -42,8 +42,11 @@ Post questions to the Ensembl development list: dev@ensembl.org
 
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptExtended.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended; 
 
+use warnings ;
 use strict;
 use vars qw(@ISA);
 

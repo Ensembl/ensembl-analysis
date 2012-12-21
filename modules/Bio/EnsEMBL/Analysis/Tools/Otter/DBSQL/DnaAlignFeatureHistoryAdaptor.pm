@@ -24,8 +24,11 @@ fetches the DnaAlignFeatureHistory objects from an Otter database
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Otter/DBSQL/DnaAlignFeatureHistoryAdaptor.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Otter::DBSQL::DnaAlignFeatureHistoryAdaptor;
 
+use warnings ;
 use Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeatureHistory;
 use Bio::EnsEMBL::DBSQL::BaseAdaptor;
 use Bio::EnsEMBL::Utils::Exception;

@@ -61,9 +61,12 @@ identified by Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB.pm
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Spliced_elsewhere.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Spliced_elsewhere;
 
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene; 

@@ -57,8 +57,11 @@ The rest of the documentation details each of the object methods. Internal metho
 
 # Let the code begin...
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/PairAlign.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::PairAlign;
 
+use warnings ;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use vars qw(@ISA);
 use strict;

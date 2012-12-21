@@ -40,6 +40,8 @@ into prediction transcripts
 =head1 METHODS
 
 =cut
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Snap.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::Snap;
 
 use strict;

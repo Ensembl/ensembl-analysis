@@ -54,8 +54,11 @@ The rest of the documentation details each of the object methods. Internal metho
 
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Pmatch.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Pmatch;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

@@ -43,6 +43,8 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanPep -
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastGenscanPep.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanPep;
 
 use strict;

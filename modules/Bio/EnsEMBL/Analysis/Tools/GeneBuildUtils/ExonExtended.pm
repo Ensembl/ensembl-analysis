@@ -62,8 +62,11 @@ Post questions to the Ensembl development list: dev@ensembl.org
 
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/ExonExtended.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended; 
 
+use warnings ;
 use strict;
 use vars qw(@ISA);
 

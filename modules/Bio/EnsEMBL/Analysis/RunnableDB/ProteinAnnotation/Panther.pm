@@ -43,8 +43,11 @@
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/Panther.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::Panther;
 
+use warnings ;
 use strict;
 use vars qw(@ISA);
 

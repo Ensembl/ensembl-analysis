@@ -39,8 +39,11 @@ This module uses BWA to align fastq to a genomic sequence
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BWA.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::BWA;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

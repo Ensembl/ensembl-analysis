@@ -1,7 +1,10 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::Finished
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Dfetch;

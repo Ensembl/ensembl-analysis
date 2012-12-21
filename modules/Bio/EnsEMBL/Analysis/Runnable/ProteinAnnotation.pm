@@ -31,8 +31,11 @@ Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation -
 =head1 METHODS
 
 =cut
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

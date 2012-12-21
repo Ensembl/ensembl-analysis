@@ -20,8 +20,11 @@ ba1@sanger.ac.uk
 
 # Let the code begin ...
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/IntronCluster.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::IntronCluster;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

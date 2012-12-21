@@ -61,8 +61,11 @@ Internal methods are usually preceded with a _
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateArray.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateArray;
 
+use warnings ;
 use vars qw(@ISA);
 use strict;
 

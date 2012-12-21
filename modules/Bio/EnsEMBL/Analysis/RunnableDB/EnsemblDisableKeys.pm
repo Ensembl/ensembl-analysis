@@ -49,8 +49,11 @@ This module has 2 functions:
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/EnsemblDisableKeys.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::EnsemblDisableKeys;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 #use Bio::EnsEMBL::Analysis::RunnableDB;

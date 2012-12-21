@@ -40,6 +40,8 @@ stored in the simple_feature table in the core database
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/CPG.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Runnable::CPG;
 
 use strict;

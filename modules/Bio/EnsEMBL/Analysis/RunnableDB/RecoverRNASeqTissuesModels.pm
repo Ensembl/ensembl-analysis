@@ -37,8 +37,11 @@ It only change the biotype for the models
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RecoverRNASeqTissuesModels.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::RecoverRNASeqTissuesModels;
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);

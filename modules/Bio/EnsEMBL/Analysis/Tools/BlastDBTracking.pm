@@ -1,3 +1,5 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::BlastDBTracking;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Tools::BlastDBTracking
@@ -22,6 +24,8 @@ Michael Gray B<email> mg13@sanger.ac.uk
 
 =cut
 
+use warnings ;
+use strict ;
 use namespace::autoclean;
 use Moose;
 use MooseX::ClassAttribute;

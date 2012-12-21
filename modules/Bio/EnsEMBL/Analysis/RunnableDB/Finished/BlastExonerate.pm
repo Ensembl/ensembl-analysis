@@ -1,7 +1,10 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::Finished::BlastExonerate
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/BlastExonerate.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::BlastExonerate;
 
+use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;

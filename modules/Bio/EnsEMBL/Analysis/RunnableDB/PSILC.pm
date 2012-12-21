@@ -68,6 +68,8 @@ Bio::EnsEMBL::Analysis::Config::Pseudogene.pm
 
 =cut
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/PSILC.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::PSILC;
 
 use strict;

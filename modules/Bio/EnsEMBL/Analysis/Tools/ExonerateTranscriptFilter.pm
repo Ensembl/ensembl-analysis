@@ -26,6 +26,8 @@ This is the standard module used for filtering Exonerate transcripts
 =cut
 
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ExonerateTranscriptFilter.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter;
 
 use strict;

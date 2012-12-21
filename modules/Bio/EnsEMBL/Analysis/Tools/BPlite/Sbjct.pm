@@ -1,4 +1,4 @@
-# $Id: Sbjct.pm,v 1.4 2011-05-05 11:11:01 mg13 Exp $
+# $Id: Sbjct.pm,v 1.5 2012-12-21 11:22:09 rn6 Exp $
 ###############################################################################
 # Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct
 ###############################################################################
@@ -8,8 +8,11 @@
 #
 # You may distribute this module under the same terms as perl itself
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BPlite/Sbjct.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct;
 
+use warnings ;
 use strict;
 
 use Scalar::Util qw(looks_like_number);

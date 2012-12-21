@@ -1,7 +1,10 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::Finished::EST
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/EST.pm,v $
+# $Version: $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::EST;
 
+use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
