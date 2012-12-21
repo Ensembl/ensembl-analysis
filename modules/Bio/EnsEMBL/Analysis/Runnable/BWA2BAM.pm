@@ -54,7 +54,7 @@ sub new {
   my ($header,$method,$samtools) = rearrange([qw(HEADER METHOD SAMTOOLS)],@args);
   $self->throw("You must defne an alignment processing method not $method\n")  unless $method ;
   $self->method($method);
-  $self->throw("You must defne a path to samtools cannot find $samtools\n")  
+  $self->throw("You must define a path to samtools cannot find $samtools\n")  
     unless $samtools && -e $samtools;
   $self->samtools($samtools);
   $self->header($header);
