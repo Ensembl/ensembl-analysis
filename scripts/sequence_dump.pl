@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/sequence_dump.pl,v $
+# $Revision: 1.14 $
 
 =head1 NAME
 
@@ -105,6 +107,7 @@ Dust repeats into to separate files
 
 =cut
 
+use warnings ;
 use strict;
 use Getopt::Long;
 use Data::Dumper;

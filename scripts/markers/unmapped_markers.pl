@@ -1,4 +1,6 @@
-#! usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/unmapped_markers.pl,v $
+# $Revision: 1.6 $
 
 use strict;
 use warnings;

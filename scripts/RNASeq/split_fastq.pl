@@ -1,5 +1,8 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/split_fastq.pl,v $
+# $Revision: 1.6 $
 
+use warnings ;
 use vars qw(%Config);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use strict;

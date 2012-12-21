@@ -1,9 +1,11 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Revision: 1.29 $
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.28 $
+# $Revision: 1.29 $
 #
 
+use warnings ;
 use setup_rnaseq_pipeline_config;
 use vars qw(%Config);
 use Bio::EnsEMBL::Analysis::Config::Databases;

@@ -1,7 +1,10 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/marker_match.pl,v $
+# $Revision: 1.2 $
 
 # get a complete but non-redundant set of marker definitions
 
+use warnings ;
 use strict;
 
 my $infile1 = shift;

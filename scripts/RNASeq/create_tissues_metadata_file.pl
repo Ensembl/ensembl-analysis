@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/create_tissues_metadata_file.pl,v $
+# $Revision: 1.3 $
 
 # This is a script which will create the delimited text file containing
 # the summary data describing the RNASeq reads and tissues. This text file is 
@@ -21,6 +23,7 @@
 # perl $HOME/src/ensembl-analysis/scripts/RNASeq/create_tissues_metadata_file.pl $SCR/RNASeq/data/ "Canis Lupus familiaris" 101 1 $SCR/RNASeq/data/all_dog_tissues.txt
 
 
+use warnings ;
 use strict;
 
 my $bam_files_path = shift;

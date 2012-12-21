@@ -1,4 +1,5 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
+# $Revision: 1.3 $
 
 #
 # Source: schema 20+ ensembl db with a 'new' assembly (eg NCBI35)
@@ -13,6 +14,7 @@
 # -- in particular, it will assume your coordinate systems look 'human' - 
 # chromosome/clone/contig etc. I made on attempt to generalise this. 
 
+use warnings ;
 use strict;
 use Getopt::Long;
 

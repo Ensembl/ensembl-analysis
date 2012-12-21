@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/make_input_id_4_seleno.pl,v $
+# $Revision: 1.2 $
 
 use warnings;
 use strict;

@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w 
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/dump_markers.pl,v $
+# $Revision: 1.6 $
 
 # Dumps markers from the marker table into a file, in the format expected by
 # the EPCR Runnable
@@ -40,6 +42,7 @@ perl dump_markers -dbhost myhost -dbuser myuser -dbpass mypass -dbname
 
 =cut
 
+use warnings ;
 use strict;
 use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;

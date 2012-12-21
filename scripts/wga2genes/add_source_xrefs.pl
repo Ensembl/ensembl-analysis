@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/add_source_xrefs.pl,v $
+# $Revision: 1.9 $
 
 # add_source_xrefs.pl
 #
@@ -7,6 +9,7 @@
 # database
 
 
+use warnings ;
 use strict;
 use Getopt::Long;
 

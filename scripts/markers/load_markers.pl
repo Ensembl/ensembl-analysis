@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/load_markers.pl,v $
+# $Revision: 1.10 $
 
 =head1 NAME
 
@@ -48,6 +50,7 @@ perl load_markers.pl -dbhost myhost -dbuser myuser -dbpass
 
 =cut
 
+use warnings ;
 use strict;
 use Getopt::Long;
 

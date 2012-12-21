@@ -1,4 +1,5 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
+# $Revision: 1.2 $
 
 #
 # Source: schema 20+ ensembl db with both an 
@@ -19,6 +20,7 @@
 #   -- for instance, I wrote it to transfer ncrna's between assemblies, so
 #   I have a check in there to weed out all 'ensembl' and 'pseudogenes'.
 
+use warnings ;
 use strict;
 use Getopt::Long;
 

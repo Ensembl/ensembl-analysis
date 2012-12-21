@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/chunk_fasta_file.pl,v $
+# $Revision: 1.3 $
 
 #This is a script which will run through the fasta file you provide and
 #chunk into into fasta files each containing the number of entries you
@@ -6,6 +8,7 @@
 #the usage is
 # chunk_fasta_file.pl fasta_file output_dir chunk_size
 
+use warnings ;
 use strict;
 
 

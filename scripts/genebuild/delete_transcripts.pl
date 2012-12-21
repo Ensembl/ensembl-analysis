@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
+# $Revision: 1.5 $
 =head1 NAME
 
   delete_transcripts.pl
@@ -36,6 +38,7 @@
 
 =cut
 
+use warnings ;
 use strict;
 use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;

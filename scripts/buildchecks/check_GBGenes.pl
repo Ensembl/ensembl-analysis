@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/buildchecks/check_GBGenes.pl,v $
+# $Revision: 1.20 $
 
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 

@@ -1,5 +1,8 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/protein/chunk_protein_file.pl,v $
+# $Revision: 1.2 $
 
+use warnings ;
 use strict;
 use Getopt::Long;
 use Bio::SeqIO;

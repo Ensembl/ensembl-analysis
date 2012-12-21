@@ -1,3 +1,4 @@
+use warnings ;
 use strict;
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;

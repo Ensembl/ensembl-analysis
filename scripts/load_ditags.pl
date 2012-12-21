@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/load_ditags.pl,v $
+# $Revision: 1.11 $
 
 =pod
 
@@ -39,6 +41,7 @@ dev@ensembl.org
 
 =cut
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Map::Ditag;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;

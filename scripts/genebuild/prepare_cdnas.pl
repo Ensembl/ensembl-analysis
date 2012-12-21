@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/prepare_cdnas.pl,v $
+# $Revision: 1.15 $
 
 =head1 NAME
 

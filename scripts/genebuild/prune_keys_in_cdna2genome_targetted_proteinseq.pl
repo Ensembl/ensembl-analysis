@@ -14,6 +14,7 @@ accession numbers are standard ones from e.g. downloading a protein
 file from SwissProt or RefSeq. The duo accession numbers are often 
 the result of running the ensembl-analysis/scripts/get_protein_seq_from_cdnas2.pl
 script, which can be used to retrieve protein sequences for *cDNAs* 
+use warnings ;
 used in cdna2genome targetted genebuild step.
 
 Example duo accession number headers:
@@ -74,7 +75,9 @@ perl prune_keys_in_cdna2genome_targetted_proteinseq.pl -combined_infile All_targ
 
 
 
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/prune_keys_in_cdna2genome_targetted_proteinseq.pl,v $
+# $Revision: 1.2 $
 
 use strict;
 use Getopt::Long;

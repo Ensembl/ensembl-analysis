@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/load_marker_map_locations.pl,v $
+# $Revision: 1.8 $
 
 =head1 NAME
 
@@ -45,6 +47,7 @@ perl load_marker_map_locations.pl -dbhost myhost -dbuser myuser -dbpass
 
 =cut
 
+use warnings ;
 use strict;
 use Getopt::Long;
 

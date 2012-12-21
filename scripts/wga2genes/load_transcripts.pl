@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/load_transcripts.pl,v $
+# $Revision: 1.10 $
 
 use strict;
 use warnings;

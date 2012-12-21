@@ -89,7 +89,9 @@ Ig gene segments.
 =cut
 
 
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/ig/transfer_gene_segments.pl,v $
+# $Revision: 1.10 $
 
 use strict;
 use warnings;

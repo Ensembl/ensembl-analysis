@@ -1,5 +1,8 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/make_biotypes_attributes.pl,v $
+# $Revision: 1.4 $
 
+use warnings ;
 use strict;
 use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;

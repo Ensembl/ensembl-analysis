@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/viral_pseudogenes/anti_virus.pl,v $
+# $Revision: 1.8 $
 
 
 =pod
@@ -59,6 +61,7 @@
 
 =cut
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Registry;

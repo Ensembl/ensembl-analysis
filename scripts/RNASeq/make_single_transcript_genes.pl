@@ -1,5 +1,8 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/make_single_transcript_genes.pl,v $
+# $Revision: 1.2 $
 
+use warnings ;
 use vars qw(%Config);
 use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;

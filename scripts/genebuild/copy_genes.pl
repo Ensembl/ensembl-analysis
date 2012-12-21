@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/copy_genes.pl,v $
+# $Revision: 1.26 $
 
 =head1 NAME
 

@@ -1,6 +1,7 @@
 # script to calculate map_weights in a database that has markers
 # and marker_features. Recreates the marker_feature table with weights set
 
+use warnings ;
 use strict;
 use DBI;
 

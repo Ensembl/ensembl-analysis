@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/remove_messy_tags.pl,v $
+# $Revision: 1.2 $
 
 # Analyze the alignment of the ditag features
 # Identify & remove ditags from areas where they align in both directions
@@ -23,6 +25,7 @@
 #
 
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::Analysis::Tools::Default;
 use Getopt::Long;

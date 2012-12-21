@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/buildchecks/evidence_ids_from_feature_ids.pl,v $
+# $Revision: 1.8 $
 
 =head1 NAME
 
@@ -68,6 +70,7 @@ the ensembl-dev mailing list <dev@ensembl.org>
 
 =cut
 
+use warnings ;
 use strict;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;

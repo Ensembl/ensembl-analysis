@@ -1,4 +1,6 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/protein/dump_translations.pl,v $
+# $Revision: 1.5 $
 
 =head1 NAME
 
