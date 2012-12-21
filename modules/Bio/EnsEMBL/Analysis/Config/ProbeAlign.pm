@@ -45,7 +45,7 @@ hashes for each discrete format of array.
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ProbeAlign.pm,v $
-# $Version: $
+# $Revision: 1.12 $
 package Bio::EnsEMBL::Analysis::Config::ProbeAlign;
 
 use warnings ;

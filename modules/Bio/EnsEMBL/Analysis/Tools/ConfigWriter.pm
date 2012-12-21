@@ -41,7 +41,7 @@ Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ConfigWriter.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
 use warnings ;

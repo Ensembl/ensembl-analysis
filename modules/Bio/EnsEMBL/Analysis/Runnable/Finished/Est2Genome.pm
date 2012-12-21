@@ -42,7 +42,7 @@ Internal methods are usually preceded with a _
 # Let the code begin...
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/Est2Genome.pm,v $
-# $Version: $
+# $Revision: 1.14 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Est2Genome;
 
 use vars qw($verbose);

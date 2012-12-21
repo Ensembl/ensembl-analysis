@@ -35,7 +35,7 @@ class methods
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/HomologyUtils.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::HomologyUtils;
 
 use strict;

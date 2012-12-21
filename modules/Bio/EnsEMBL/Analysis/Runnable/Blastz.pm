@@ -68,7 +68,7 @@ Other options can be passed to the blast program using the -options method
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Blastz.pm,v $
-# $Version: $
+# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::Runnable::Blastz;
 
 

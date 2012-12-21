@@ -42,7 +42,7 @@ and returned as a Bio::EnsEMBL::Compara::GenomicAlignBlock object.
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Lagan.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Runnable::Lagan;
 
 use strict;

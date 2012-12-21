@@ -42,7 +42,7 @@ rough transcript. Writes output as SAM files.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Bam2Introns.pm,v $
-# $Version: $
+# $Revision: 1.12 $
 package Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 
 use warnings ;

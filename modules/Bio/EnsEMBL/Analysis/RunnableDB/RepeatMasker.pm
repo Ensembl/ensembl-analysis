@@ -48,7 +48,7 @@ in the repeat_feature and repeat_consensus tables
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RepeatMasker.pm,v $
-# $Version: $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::RunnableDB::RepeatMasker;
 
 use strict;

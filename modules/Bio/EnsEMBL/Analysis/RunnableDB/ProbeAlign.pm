@@ -45,7 +45,7 @@ Post general queries to B<dev@ensembl.org>
 #4 Re/move all unnecessary warns
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProbeAlign.pm,v $
-# $Version: $
+# $Revision: 1.42 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
 
 use warnings ;

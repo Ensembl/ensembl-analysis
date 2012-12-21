@@ -29,7 +29,7 @@
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/PIRSF.pm,v $
-# $Version: $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::PIRSF;
 
 use warnings ;

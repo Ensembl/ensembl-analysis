@@ -36,7 +36,7 @@ Post questions to the Ensembl development list: dev@ensembl.org
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BasicFilter.pm,v $
-# $Version: $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Tools::BasicFilter;
 
 use warnings ;

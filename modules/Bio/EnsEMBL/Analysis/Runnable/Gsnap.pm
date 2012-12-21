@@ -40,7 +40,7 @@ This module uses Gsnap to align fastq to a genomic sequence
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Gsnap.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::Runnable::Gsnap;
 
 use warnings ;

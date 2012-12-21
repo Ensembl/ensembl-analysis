@@ -43,7 +43,7 @@ class methods
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils.pm,v $
-# $Version: $
+# $Revision: 1.18 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
 
 use strict;

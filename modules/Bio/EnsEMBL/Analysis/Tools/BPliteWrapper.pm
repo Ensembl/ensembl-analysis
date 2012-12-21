@@ -33,7 +33,7 @@ Post questions to the Ensembl development list: dev@ensembl.org
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BPliteWrapper.pm,v $
-# $Version: $
+# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
 
 use strict;

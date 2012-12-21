@@ -1,7 +1,7 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::ClusterDepthFilter
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/ClusterDepthFilter.pm,v $
-# $Version: $
+# $Revision: 1.19 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::ClusterDepthFilter;
 
 use warnings ;

@@ -58,7 +58,7 @@ The rest of the documentation details each of the object methods. Internal metho
 # Let the code begin...
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/PairAlign.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::PairAlign;
 
 use warnings ;

@@ -37,7 +37,7 @@ should ideally inherit from this
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BaseGeneBuild.pm,v $
-# $Version: $
+# $Revision: 1.31 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
 use warnings ;

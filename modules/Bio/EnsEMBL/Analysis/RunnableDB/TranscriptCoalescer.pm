@@ -50,7 +50,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer -
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/TranscriptCoalescer.pm,v $
-# $Version: $
+# $Revision: 1.23 $
 package Bio::EnsEMBL::Analysis::RunnableDB::TranscriptCoalescer;
 
 use strict;

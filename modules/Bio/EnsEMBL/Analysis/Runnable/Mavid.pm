@@ -44,7 +44,7 @@ The output (multiple alignment) is parsed and return as a Bio::EnsEMBL::Compara:
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Mavid.pm,v $
-# $Version: $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Runnable::Mavid;
 
 use strict;

@@ -45,7 +45,7 @@ Filters the results and returns a hash ref of homologous transcript identifiers
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/PSILC_BlastP.pm,v $
-# $Version: $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP;
 use strict;
 use warnings;

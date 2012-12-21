@@ -48,7 +48,7 @@ in the simple_feature table
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/tRNAscan_SE.pm,v $
-# $Version: $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE;
 
 use strict;

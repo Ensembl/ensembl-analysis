@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Smart_wormbase.pm,v $
-# $Version: $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Smart_wormbase;
 
 use warnings ;

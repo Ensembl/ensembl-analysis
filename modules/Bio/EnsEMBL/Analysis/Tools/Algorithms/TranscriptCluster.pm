@@ -25,7 +25,7 @@ is included into another cluster, etc...
 # Let the code begin ...
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/TranscriptCluster.pm,v $
-# $Version: $
+# $Revision: 1.23 $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 
 use warnings ;

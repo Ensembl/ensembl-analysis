@@ -61,7 +61,7 @@ Post general queries to B<dev@ensembl.org>
 # Add mode to recreate nr_fasta if already imported?
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ImportArrays.pm,v $
-# $Version: $
+# $Revision: 1.21 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 use warnings ;

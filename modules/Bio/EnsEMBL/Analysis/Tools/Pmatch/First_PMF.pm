@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/First_PMF.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF;
 use warnings ;
 use strict ;

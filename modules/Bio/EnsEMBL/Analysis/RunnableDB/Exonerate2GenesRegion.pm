@@ -61,7 +61,7 @@ Internal methods are usually preceded with a '_'
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2GenesRegion.pm,v $
-# $Version: $
+# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Exonerate2GenesRegion;
 
 use strict;

@@ -66,7 +66,7 @@ Clone_ID,length_of_clone,standard_deviation_of_length,Clone_end_ID,Direction_of_
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/MapCloneEnds.pm,v $
-# $Version: $
+# $Revision: 1.15 $
 package Bio::EnsEMBL::Analysis::RunnableDB::MapCloneEnds;
 
 use warnings ;

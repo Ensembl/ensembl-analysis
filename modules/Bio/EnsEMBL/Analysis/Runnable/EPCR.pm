@@ -42,7 +42,7 @@ Wrapper to run EPCR and parse the results into marker features
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/EPCR.pm,v $
-# $Version: $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::EPCR;
 
 use strict;

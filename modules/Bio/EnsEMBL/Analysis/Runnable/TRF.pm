@@ -44,7 +44,7 @@ and repeat_consensus tables in the core database
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/TRF.pm,v $
-# $Version: $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Runnable::TRF;
 
 use strict;

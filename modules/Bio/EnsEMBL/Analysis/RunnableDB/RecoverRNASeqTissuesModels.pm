@@ -38,7 +38,7 @@ It only change the biotype for the models
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RecoverRNASeqTissuesModels.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::RecoverRNASeqTissuesModels;
 
 use warnings ;

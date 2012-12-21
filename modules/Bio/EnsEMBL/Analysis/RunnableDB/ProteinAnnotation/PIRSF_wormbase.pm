@@ -29,7 +29,7 @@
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/PIRSF_wormbase.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::PIRSF_wormbase;
 
 use warnings ;

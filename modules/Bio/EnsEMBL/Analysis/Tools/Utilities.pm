@@ -33,7 +33,7 @@ class methods
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Utilities.pm,v $
-# $Version: $
+# $Revision: 1.26 $
 package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;

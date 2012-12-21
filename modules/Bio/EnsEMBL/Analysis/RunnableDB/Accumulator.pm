@@ -45,7 +45,7 @@ stages in the pipeline to work. It does nothing just
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Accumulator.pm,v $
-# $Version: $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Accumulator;
 
 use warnings ;

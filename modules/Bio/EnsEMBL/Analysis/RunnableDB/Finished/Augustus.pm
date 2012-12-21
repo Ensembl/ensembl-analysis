@@ -32,7 +32,7 @@ Post questions to : anacode-people@sanger.ac.uk
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/Augustus.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::Augustus;
 
 use strict;

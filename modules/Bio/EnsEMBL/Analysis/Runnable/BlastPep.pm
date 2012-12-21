@@ -42,7 +42,7 @@ Post questions to the Ensembl development list: dev@ensembl.org
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BlastPep.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Runnable::BlastPep;
 
 use strict;

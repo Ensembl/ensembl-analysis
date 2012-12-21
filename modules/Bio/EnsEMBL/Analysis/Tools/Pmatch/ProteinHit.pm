@@ -2,7 +2,7 @@
 # and a list of ContigHit objects
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/ProteinHit.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;
 use warnings ;
 use strict ;

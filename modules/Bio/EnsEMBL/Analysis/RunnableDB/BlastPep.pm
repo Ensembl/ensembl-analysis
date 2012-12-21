@@ -35,7 +35,7 @@ use strict;
 use warnings;
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastPep.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastPep;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::Blast;

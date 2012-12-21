@@ -48,7 +48,7 @@ to longer predictions and adds translations to these predictions.
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/TranscriptCoalescer.pm,v $
-# $Version: $
+# $Revision: 1.28 $
 package Bio::EnsEMBL::Analysis::Runnable::TranscriptCoalescer;
 
 use strict;

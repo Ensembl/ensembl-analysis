@@ -21,7 +21,7 @@ Prints.pm - DESCRIPTION of Object
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/Prints.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::Prints;
 use warnings ;
 use vars qw(@ISA);

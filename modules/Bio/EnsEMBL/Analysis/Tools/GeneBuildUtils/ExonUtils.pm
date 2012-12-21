@@ -34,7 +34,7 @@ class methods
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/ExonUtils.pm,v $
-# $Version: $
+# $Revision: 1.25 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
 
 use strict;

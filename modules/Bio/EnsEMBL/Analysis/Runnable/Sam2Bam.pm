@@ -42,7 +42,7 @@ files into a single sorted indexed merged BAM file
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Sam2Bam.pm,v $
-# $Version: $
+# $Revision: 1.10 $
 package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
 use warnings ;

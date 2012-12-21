@@ -40,7 +40,7 @@ different configs by logic name).
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ImportArrays.pm,v $
-# $Version: $
+# $Revision: 1.30 $
 package Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
 use warnings ;

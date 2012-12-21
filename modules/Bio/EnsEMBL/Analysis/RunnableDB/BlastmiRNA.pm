@@ -46,7 +46,7 @@ Slice size seems best around 200k
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastmiRNA.pm,v $
-# $Version: $
+# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA;
 
 use strict;

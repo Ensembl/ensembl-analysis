@@ -49,7 +49,7 @@ B<dev@ensembl.org>
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Attic/ExamineGeneSets.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 
 use warnings ;

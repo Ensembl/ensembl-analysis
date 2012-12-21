@@ -3,7 +3,7 @@
 # coverage and details of component CoordinatePairs
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/MergedHit.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
 use warnings ;
 use strict ;

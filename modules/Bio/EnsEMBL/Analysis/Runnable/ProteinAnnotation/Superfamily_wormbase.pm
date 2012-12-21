@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Superfamily_wormbase.pm,v $
-# $Version: $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily_wormbase;
 
 use warnings ;

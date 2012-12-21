@@ -41,7 +41,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes -
 
 =cut
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/WGA2Genes.pm,v $
-# $Version: $
+# $Revision: 1.60 $
 package Bio::EnsEMBL::Analysis::RunnableDB::WGA2Genes;
 
 require Exporter;

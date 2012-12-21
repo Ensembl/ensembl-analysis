@@ -45,7 +45,7 @@ Post questions to the EnsEMBL developer list: <dev@ensembl.org>
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/CollapsedCluster.pm,v $
-# $Version: $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster;
 
 use warnings ;

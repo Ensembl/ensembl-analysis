@@ -7,7 +7,7 @@
 Mustapha Larbaoui B<email> ml6@sanger.ac.uk
 =cut
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/Exonerate.pm,v $
-# $Version: $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Exonerate;
 
 use warnings ;

@@ -30,7 +30,7 @@ Post questions to : anacode@sanger.ac.uk
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/RepeatMasker.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::RepeatMasker;
 
 use strict;

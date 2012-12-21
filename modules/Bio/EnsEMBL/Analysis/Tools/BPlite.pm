@@ -1,4 +1,4 @@
-# $Id: BPlite.pm,v 1.6 2012-12-21 11:22:09 rn6 Exp $
+# $Id: BPlite.pm,v 1.7 2012-12-21 15:33:48 rn6 Exp $
 ##############################################################################
 # Bioperl module Bio::Tools::BPlite
 ##############################################################################
@@ -178,7 +178,7 @@ This software is provided "as is" without warranty of any kind.
 
 #'
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BPlite.pm,v $
-# $Version: $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Tools::BPlite;
 
 use warnings ;

@@ -2,7 +2,7 @@
 # and a list of start-end positions
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/ContigHit.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
 use warnings ;
 use strict ;

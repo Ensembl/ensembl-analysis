@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/PIRSF.pm,v $
-# $Version: $
+# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::PIRSF;
 
 use warnings ;

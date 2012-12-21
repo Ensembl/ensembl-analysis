@@ -28,7 +28,7 @@ Post general queries to B<ensembl-dev@ebi.ac.uk>
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Gsnap.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Gsnap;
 
 use warnings ;

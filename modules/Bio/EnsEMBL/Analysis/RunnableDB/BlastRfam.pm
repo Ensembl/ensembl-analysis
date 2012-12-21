@@ -46,7 +46,7 @@ Slice size seems best around 200k
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastRfam.pm,v $
-# $Version: $
+# $Revision: 1.16 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastRfam;
 
 use strict;

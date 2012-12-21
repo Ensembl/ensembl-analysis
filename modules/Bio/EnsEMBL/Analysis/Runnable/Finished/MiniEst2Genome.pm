@@ -39,7 +39,7 @@ Modified by Sindhu K. Pillai B<email> sp1@sanger.ac.uk
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/MiniEst2Genome.pm,v $
-# $Version: $
+# $Revision: 1.14 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::MiniEst2Genome;
 
 use warnings ;

@@ -54,7 +54,7 @@ in a length encoded string form to take up less room in the db.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Infernal.pm,v $
-# $Version: $
+# $Revision: 1.21 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Infernal;
 
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;

@@ -1,7 +1,7 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::DepthFilter
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/DepthFilter.pm,v $
-# $Version: $
+# $Revision: 1.33 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::DepthFilter;
 
 use warnings ;

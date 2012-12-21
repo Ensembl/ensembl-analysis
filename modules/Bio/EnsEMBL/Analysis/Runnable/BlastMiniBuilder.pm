@@ -44,7 +44,7 @@ Internal methods are usually preceded with a _
 # Let the code begin...
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BlastMiniBuilder.pm,v $
-# $Version: $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::BlastMiniBuilder;
 
 use warnings ;

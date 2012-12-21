@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/ClusterUtils.pm,v $
-# $Version: $
+# $Revision: 1.28 $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 

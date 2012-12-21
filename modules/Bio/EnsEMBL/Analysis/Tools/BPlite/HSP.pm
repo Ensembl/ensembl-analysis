@@ -9,7 +9,7 @@
 # You may distribute this module under the same terms as perl itself
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BPlite/HSP.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::BPlite::HSP;
 
 use warnings ;

@@ -28,7 +28,7 @@ This is a module used for filtering Exonerate transcripts
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/CdnaUpdateTranscriptFilter.pm,v $
-# $Version: $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter;
 
 use strict;

@@ -27,7 +27,7 @@ may validly map to different top-level sequences in the target.
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/FragmentTranscriptFilter.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::Tools::FragmentTranscriptFilter;
 
 use strict;

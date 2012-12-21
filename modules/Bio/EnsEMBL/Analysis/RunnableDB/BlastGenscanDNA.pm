@@ -44,7 +44,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanDNA -
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastGenscanDNA.pm,v $
-# $Version: $
+# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanDNA;
 
 use strict;

@@ -51,7 +51,7 @@ objects using the CollapseAffyProbes module.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/AlignAffyProbes.pm,v $
-# $Version: $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::RunnableDB::AlignAffyProbes;
 
 use warnings ;

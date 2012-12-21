@@ -48,7 +48,7 @@ TranscriptConsensus database.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/TranscriptConsensus.pm,v $
-# $Version: $
+# $Revision: 1.16 $
 package Bio::EnsEMBL::Analysis::RunnableDB::TranscriptConsensus;
 
 use strict;

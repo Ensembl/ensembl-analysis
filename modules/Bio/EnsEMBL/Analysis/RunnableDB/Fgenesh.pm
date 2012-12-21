@@ -47,7 +47,7 @@ implement much itself
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Fgenesh.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Fgenesh;
 
 use strict;

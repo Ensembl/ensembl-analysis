@@ -32,7 +32,7 @@ Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator -
 
 =cut
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/lincRNAEvaluator.pm,v $
-# $Version: $
+# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator;
 
 use strict;  

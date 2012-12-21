@@ -1,6 +1,6 @@
 # holds the object that does the second round of filtering
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/Second_PMF.pm,v $
-# $Version: $
+# $Revision: 1.3 $
 package Bio::EnsEMBL::Pipeline::Tools::Pmatch::Second_PMF;
 use warnings ;
 use strict ;

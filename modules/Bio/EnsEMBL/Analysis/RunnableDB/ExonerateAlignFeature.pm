@@ -47,7 +47,7 @@ and writing the results as Features.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateAlignFeature.pm,v $
-# $Version: $
+# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateAlignFeature;
 
 use warnings ;

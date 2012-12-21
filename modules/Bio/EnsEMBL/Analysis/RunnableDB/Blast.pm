@@ -46,7 +46,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::Blast -
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Blast.pm,v $
-# $Version: $
+# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Blast;
 
 use strict;

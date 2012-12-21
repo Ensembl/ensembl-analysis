@@ -8,7 +8,7 @@
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/WGA2Genes/ChainUtils.pm,v $
-# $Version: $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::WGA2Genes::ChainUtils;
 
 use warnings ;

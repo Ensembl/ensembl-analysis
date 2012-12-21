@@ -44,7 +44,7 @@ Uses Bio::EnsEMBL::Analysis::Config::Pseudogene for config
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Spliced_elsewhere.pm,v $
-# $Version: $
+# $Revision: 1.14 $
 package Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 
 
