@@ -38,7 +38,7 @@ This module uses BWA to align fastq to a genomic sequence
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BWA2BAM.pm,v $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::Runnable::BWA2BAM;
 
 use warnings ;
@@ -192,7 +192,7 @@ sub run {
 
  # check the reads with flagstat
   $command = "$samtools  flagstat $outdir/$outfile"."_sorted.bam";
-  print STDERR "Got $total_reads to check/nCheck: $command\n";
+  print STDERR "Got $total_reads to check\nCheck: $command\n";
   eval {
     open  ( my $fh,"$command 2>&1 |" ) || 
       $self->throw("Error checking alignment $@\n");
