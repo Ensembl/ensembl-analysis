@@ -46,7 +46,7 @@ Internal methods are usually preceded with a _
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Bam2Introns.pm,v $
-# $Revision: 1.15 $
+# $Revision: 1.16 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Bam2Introns;
 
 use warnings ;
@@ -124,7 +124,7 @@ sub fetch_input {
   my $mask = "TRUE";
   $mask = "FALSE" unless $self->MASK;
   my $program = $self->analysis->program_file;
-  $program = "exonerate-0.9.0" unless $program;
+  $program = "/software/ensembl/genebuild/bin/exonerate64-0.9.0" unless $program;
 
   my $options =  "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" " .
                  "--model est2genome --forwardcoordinates false ".
