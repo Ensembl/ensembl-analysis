@@ -34,7 +34,7 @@ module is defined in Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Bam2Genes.pm,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Bam2Genes;
 
 use warnings ;
@@ -330,7 +330,7 @@ sub exon_cluster {
   my ($self) = @_;
   print STDERR "CLUSTER EXON\n";
   my $slice = $self->chr_slice;
-  $self->input_id =~ /:[^:]+:([^:]+):(\d+):(\d+)/;
+  $self->input_id =~ /^\w+:[^:]*:([^:]+):(\d+):(\d+)/;
   my $region = $1.':'.$2.'-'.$3;
   my $bam = $self->bam;
   my %exon_clusters;
