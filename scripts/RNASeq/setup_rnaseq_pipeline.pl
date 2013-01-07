@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.30 $
+# $Revision: 1.31 $
 #
 
 use warnings ;
@@ -208,6 +208,7 @@ unless ($update_analyses) {
         print "If you wish to remove any of the lanes from the analysis "
             . "at this point just delete them from the merge command.\n\n";
         print "#MERGE\nbsub -o $output_dir" . "/merge.out "
+            ."-h $output_dir" . "/all_headers.txt "
             . "-e $output_dir" . "/merge.err " ;
         print $RNASEQCONFIG->{SAMTOOLS}
             . " merge $merge_dir" . "/merged_unsorted.bam ";
