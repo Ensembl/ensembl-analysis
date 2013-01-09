@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/split_fastq.pl,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 
 use warnings ;
 use vars qw(%Config);
@@ -96,6 +96,7 @@ foreach my $file (@files ) {
       if ( $i == $fc -1  ) {
         my @path = split("\/",$_);
         my $file = pop(@path);
+        print STDERR "FILE: $file\n";
         $new_meta .= "$file\t";
         next;
       }

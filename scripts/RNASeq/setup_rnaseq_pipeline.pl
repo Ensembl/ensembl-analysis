@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.31 $
+# $Revision: 1.32 $
 #
 
 use warnings ;
@@ -211,10 +211,15 @@ unless ($update_analyses) {
             ."-h $output_dir" . "/all_headers.txt "
             . "-e $output_dir" . "/merge.err " ;
         print $RNASEQCONFIG->{SAMTOOLS}
-            . " merge $merge_dir" . "/merged_unsorted.bam ";
+            . " merge $merge_dir" . "/merged_unsorted.bam ";         
+        
+        my @sorted_bam_files = ();
         foreach my $file (@files) {
-          print "$output_dir/$file" . "_sorted.bam ";
+          my $location = "$output_dir/$file" . "_sorted.bam ";
+          print $location;
+          push (@sorted_bam_files, $location);
         }
+ 
         print "\n\n";
         print "#SORT\nbsub -o $output_dir" . "/sort.out "
           . "-e $output_dir" . "/sort.err "
@@ -225,6 +230,12 @@ unless ($update_analyses) {
           . "-e $output_dir" . "/index.err "
           . "-R 'select[mem>1000] rusage[mem=1000]' -M1000000 ";
         print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
+
+        print "Or...\n\n#MERGE, SORT and INDEX using picard\n";
+        my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $output_dir, $merge_dir ); 
+        print $picard_cmd; 
+
+
       } ## end unless ($check)
     } ## end if ( ( $bwa2bam_count ...
   } else {
@@ -244,9 +255,14 @@ unless ($update_analyses) {
           . "-e $output_dir" . "/merge.err "
           . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
         print $RNASEQCONFIG->{SAMTOOLS} . " merge $merge_dir" . "/merged_unsorted.bam ";
+        
+        my @sorted_bam_files = ();
         foreach my $file (@files) {
-          print "$output_dir/$file" . "_sorted.bam ";
+          my $location = "$output_dir/$file" . "_sorted.bam ";
+          print $location;
+          push (@sorted_bam_files, $location);
         }
+        
         print "\n\n";
         print "#SORT\nbsub -o $output_dir" . "/sort.out "
           . "-e $output_dir" . "/sort.err "
@@ -257,6 +273,11 @@ unless ($update_analyses) {
           . "-e $output_dir" . "/index.err "
           . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
         print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
+
+        print "Or...\n\n#MERGE, SORT and INDEX using picard\n";
+        my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $output_dir, $merge_dir ); 
+        print $picard_cmd; 
+
       } ## end unless ($check)
     } ## end if ( ( $gsnap_count >=...
   } ## end else
@@ -1031,6 +1052,26 @@ sub assign_categories {
     push @$chosen,$ans ;
   }
   return $chosen;
+}
+
+
+sub generate_picard_cmd {
+  my ( $files_ref, $out_dir, $merge_dir ) = @_; 
+  my $cmd = "bsub -qnormal -M2000000 -R'select[mem>2000] rusage[mem=2000]'"
+          . " -o $out_dir /picard_merge.out -e $out_dir /merge.err \\ \n"
+          . " /vol/software/linux-x86_64/jdk1.6.0_01/bin/java -Xmx2g "
+          . " -jar /software/solexa/bin/aligners/picard/picard-tools-1.47/MergeSamFiles.jar \\ \n";
+  foreach my $input ( @{ $files_ref } ) {
+    $cmd .= "INPUT=" . $input . " \\ \n";   
+  }
+  $cmd .= "OUTPUT=" . $merge_dir . "/picard_merge_sorted.bam \\ \n"
+  . "MAX_RECORDS_IN_RAM=20000000 \\ \n"
+  . "CREATE_INDEX=true \\ \n"
+  . "SORT_ORDER=coordinate \\ \n"
+  . "ASSUME_SORTED=true \\ \n"
+  . "VALIDATION_STRINGENCY=LENIENT \n\n";  
+
+  return $cmd;
 }
 
 
