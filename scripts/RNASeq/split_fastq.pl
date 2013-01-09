@@ -1,13 +1,12 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/split_fastq.pl,v $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 
 use warnings ;
 use vars qw(%Config);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use strict;
 use Getopt::Long;
-
 
 my $fastq_dir;
 my $size;
