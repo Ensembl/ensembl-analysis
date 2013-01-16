@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.32 $
+# $Revision: 1.33 $
 #
 
 use warnings ;
@@ -1058,8 +1058,8 @@ sub assign_categories {
 sub generate_picard_cmd {
   my ( $files_ref, $out_dir, $merge_dir ) = @_; 
   my $cmd = "bsub -qnormal -M2000000 -R'select[mem>2000] rusage[mem=2000]'"
-          . " -o $out_dir /picard_merge.out -e $out_dir /merge.err \\ \n"
-          . " /vol/software/linux-x86_64/jdk1.6.0_01/bin/java -Xmx2g "
+          . " -o ".$out_dir."/picard_merge.out -e ".$out_dir."/merge.err \\ \n"
+          . " /vol/software/linux-x86_64/jdk1.6.0_01/bin/java -Xmx2g"
           . " -jar /software/solexa/bin/aligners/picard/picard-tools-1.47/MergeSamFiles.jar \\ \n";
   foreach my $input ( @{ $files_ref } ) {
     $cmd .= "INPUT=" . $input . " \\ \n";   
@@ -1479,7 +1479,7 @@ BAM2GENES_CONFIG_BY_LOGIC =>
           # join clusters of reads into transcripts
           MAX_INTRON_LENGTH => 200000,
 
-          # genes with a span < MIN_SPAN will also be considered single exon
+          #Â genes with a span < MIN_SPAN will also be considered single exon
           MIN_SINGLE_EXON_LENGTH => 1000,
 
                   # "span" = genomic extent / cdna length
@@ -1757,7 +1757,7 @@ $str .= '            # write the intron features into the OUTPUT_DB along with t
             # If left blank all features will be fetched
             LOGICNAME => [],
 
-            # logic name of the gene models to fetch
+            #Â logic name of the gene models to fetch
             MODEL_LN  => "",
 
             # penalty for removing a retined intron
@@ -1787,7 +1787,7 @@ $str .= '            # write the intron features into the OUTPUT_DB along with t
             # biotypes to give gene models if left blank these models will not get written to the output database
             # best score - model with most supporting intron features
             BEST_SCORE => "best",
-            # all other possible models
+            #Â all other possible models
             OTHER_ISOFORMS => "",
                         # max number of other models to make - blank = all
             OTHER_NUM      => "10",
