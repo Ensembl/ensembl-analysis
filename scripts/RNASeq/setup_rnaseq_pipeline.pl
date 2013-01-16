@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.33 $
+# $Revision: 1.34 $
 #
 
 use warnings ;
@@ -1058,18 +1058,18 @@ sub assign_categories {
 sub generate_picard_cmd {
   my ( $files_ref, $out_dir, $merge_dir ) = @_; 
   my $cmd = "bsub -qnormal -M2000000 -R'select[mem>2000] rusage[mem=2000]'"
-          . " -o ".$out_dir."/picard_merge.out -e ".$out_dir."/merge.err \\ \n"
+          . " -o " . $out_dir . "/picard_merge.out -e " . $out_dir . "/merge.err \\\n"
           . " /vol/software/linux-x86_64/jdk1.6.0_01/bin/java -Xmx2g"
-          . " -jar /software/solexa/bin/aligners/picard/picard-tools-1.47/MergeSamFiles.jar \\ \n";
+          . " -jar /software/solexa/bin/aligners/picard/picard-tools-1.47/MergeSamFiles.jar \\\n";
   foreach my $input ( @{ $files_ref } ) {
-    $cmd .= "INPUT=" . $input . " \\ \n";   
+    $cmd .= "INPUT=" . $input . " \\\n";   
   }
-  $cmd .= "OUTPUT=" . $merge_dir . "/picard_merge_sorted.bam \\ \n"
-  . "MAX_RECORDS_IN_RAM=20000000 \\ \n"
-  . "CREATE_INDEX=true \\ \n"
-  . "SORT_ORDER=coordinate \\ \n"
-  . "ASSUME_SORTED=true \\ \n"
-  . "VALIDATION_STRINGENCY=LENIENT \n\n";  
+  $cmd .= "OUTPUT=" . $merge_dir . "/picard_merge_sorted.bam \\\n"
+  . "MAX_RECORDS_IN_RAM=20000000 \\\n"
+  . "CREATE_INDEX=true \\\n"
+  . "SORT_ORDER=coordinate \\\n"
+  . "ASSUME_SORTED=true \\\n"
+  . "VALIDATION_STRINGENCY=LENIENT\n\n";  
 
   return $cmd;
 }
