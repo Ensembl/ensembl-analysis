@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.36 $
+# $Revision: 1.37 $
 #
 
 use warnings ;
@@ -124,19 +124,19 @@ throw( "Db " . $RNASEQCONFIG->{BLASTDB} . " not found in Databases.pm\n" )
 
 # test that repeat_feature, repeat_consensus, meta_cord and dna are populated in the ref db
 my $repeatf_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM repeat_feature" );
-$repeatf_sth->execute; my $repeatf_rows = $repeatf_sth->rows;
+$repeatf_sth->execute; my $repeatf_rows = $repeatf_sth->fetchrow;
 throw("Db $dbname has unpopulated repeat_feature table\n") unless $repeatf_rows > 0; 
 
 my $repeatc_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM repeat_consensus" );
-$repeatc_sth->execute; my $repeatc_rows = $repeatc_sth->rows;
+$repeatc_sth->execute; my $repeatc_rows = $repeatc_sth->fetchrow;
 throw("Db $dbname has unpopulated repeat_consensus table\n") unless $repeatc_rows > 0; 
 
 my $dna_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM dna" );
-$dna_sth->execute; my $dna_rows = $dna_sth->rows;
-throw("Db $dbname has unpopulated repeat_feature table\n") unless $dna_rows > 0; 
+$dna_sth->execute; my $dna_rows = $dna_sth->fetchrow;
+throw("Db $dbname has unpopulated dna table\n") unless $dna_rows > 0; 
 
 my $mc_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM meta_coord" );
-$mc_sth->execute; my $mc_rows = $mc_sth->rows;
+$mc_sth->execute; my $mc_rows = $mc_sth->fetchrow;
 throw("Db $dbname has unpopulated meta_coord table\n") unless $mc_rows > 0; 
 
 
