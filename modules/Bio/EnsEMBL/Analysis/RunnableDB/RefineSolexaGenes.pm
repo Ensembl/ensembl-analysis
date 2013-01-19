@@ -53,7 +53,7 @@ Internal methods are usually preceded with a _
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RefineSolexaGenes.pm,v $
-# $Revision: 1.38 $
+# $Revision: 1.39 $
 package Bio::EnsEMBL::Analysis::RunnableDB::RefineSolexaGenes;
 
 use warnings ;
@@ -1480,7 +1480,7 @@ sub write_output{
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
-  my $intron_adaptor = $outdb->get_DnaAlignAdaptor;
+  my $intron_adaptor = $outdb->get_DnaAlignFeatureAdaptor;
   $fails = 0;
   $total = 0;
   foreach my $intron (@{$self->intron_features}) {
