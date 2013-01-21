@@ -3,10 +3,11 @@
 # coverage and details of component CoordinatePairs
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/MergedHit.pm,v $
-# $Revision: 1.3 $
+# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
 use warnings ;
 use strict ;
+use vars qw(@ISA);
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 

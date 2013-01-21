@@ -2,10 +2,11 @@
 # the start and end positions of the 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/CoordPair.pm,v $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair;
 use warnings ;
 use strict ;
+use vars qw(@ISA);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 

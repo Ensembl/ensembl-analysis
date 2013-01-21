@@ -2,10 +2,11 @@
 # and a list of ContigHit objects
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/ProteinHit.pm,v $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;
 use warnings ;
 use strict ;
+use vars qw(@ISA);
 use Bio::Root::Object;
 
 @ISA = qw(Bio::Root::Object);
