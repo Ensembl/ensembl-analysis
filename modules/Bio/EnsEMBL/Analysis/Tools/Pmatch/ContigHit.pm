@@ -2,10 +2,11 @@
 # and a list of start-end positions
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/ContigHit.pm,v $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
 use warnings ;
 use strict ;
+use vars qw(@ISA);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 @ISA = qw();
