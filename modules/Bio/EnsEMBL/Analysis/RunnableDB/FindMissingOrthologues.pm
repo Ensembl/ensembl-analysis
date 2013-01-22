@@ -53,7 +53,7 @@ Internal methods are usually preceded with a '_'
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/FindMissingOrthologues.pm,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 package Bio::EnsEMBL::Analysis::RunnableDB::FindMissingOrthologues; 
 use strict;
 use Bio::SeqIO;
@@ -236,12 +236,11 @@ sub filter_homologies {
   my @result ;
  
   HOMOLOGIES :for my $homology ( @$all_homologies ) { 
-     my @all_member_attributes = @{$homology->get_all_Member_Attribute} ;
+     my @all_members = @{$homology->get_all_Members} ;
      # first object is source itself so don't process this 
-     shift @all_member_attributes ;
+     shift @all_members ;
 
-     MA: foreach my $member_attribute (@all_member_attributes) { 
-       my ($new_member, $attribute) = @{$member_attribute};
+     MA: foreach my $new_member (@all_members) { 
        my $species_name_of_orthologue = $new_member->genome_db->name ;    
        if ( $species_name_of_orthologue =~m/$look_for_this_species/) {  
          push @result, $homology ; 
