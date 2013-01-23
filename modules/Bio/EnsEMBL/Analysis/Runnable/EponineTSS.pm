@@ -42,7 +42,7 @@ which can be stored in the simple_feature table in the core database
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/EponineTSS.pm,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 package Bio::EnsEMBL::Analysis::Runnable::EponineTSS;
 
 use strict;
@@ -205,6 +205,10 @@ sub parse_results{
       my @element = split;
       my ($name, $start, $end, $score, $temp_strand) =
         @element[0, 3, 4, 5, 6];
+      if ($self->query->seq_region_length < $start) {
+          warning("WRONG feature $start $end $score $temp_strand as length is ".$self->query->seq_region_length."\n");
+          next if ($start == $end);
+      }
       my $strand = 1;
       if($temp_strand eq '-'){
         $strand = -1;
