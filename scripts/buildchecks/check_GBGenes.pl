@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/buildchecks/check_GBGenes.pl,v $
-# $Revision: 1.20 $
+# $Revision: 1.21 $
 
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 
@@ -122,7 +122,7 @@ my $host;
 my $dbname;
 my $user;
 my $pass;
-my $port;
+my $port='3306';
 my $gene_database_name;
 my $path;
 
@@ -168,7 +168,7 @@ my $specend   = undef;
 
 my $dnadbname = "";
 my $dnahost   = "";
-my $dnaport   = "";
+my $dnaport   = '3306';
 
 my $exon_dup_check = 0;
 
