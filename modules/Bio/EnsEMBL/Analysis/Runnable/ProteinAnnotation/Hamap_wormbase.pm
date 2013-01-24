@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Hamap_wormbase.pm,v $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hamap_wormbase;
 
 use warnings ;
@@ -87,12 +87,12 @@ sub parse_results {
       chomp;
 
       print "$_\n";
-      my $score = 0;
+      my $evalue = 0;
       my $hstart = 1;
       my $hend = -1;
 
       # is the first column the sequence ID or the file name? - check this
-      my ($id, $hid, $start, $end, $evalue ) = /\s*(\S+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+([\d\.\-\e]+)\s+\S+\s+\S+/;
+      my ($id, $hid, $start, $end, $score ) = /\s*(\S+)\s+\S+\s+(\S+)\s+(\d+)\s+(\d+)\s+([\d\.\-\e]+)\s+\S+\s+\S+/;
 
 #Calculate the length of the match using the values given for the sequence.
       $hend = $end - $start + 1;
