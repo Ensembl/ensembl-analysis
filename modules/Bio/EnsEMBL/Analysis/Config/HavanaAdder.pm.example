@@ -103,7 +103,7 @@ use vars qw( %GeneBuilder );
   # "retrotransposed" falls into this category.
   # retrotransposed has been renamed to processed_pseudogene
 
-  ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'processed_pseudogene' ],
+  ENSEMBL_INPUT_PSEUDO_TYPE => [ 'pseudogene', 'retrotransposed' ],
 
   HAVANA_INPUT_PSEUDO_TYPE => [ 'pseudogene',
                                 'processed_pseudogene',
