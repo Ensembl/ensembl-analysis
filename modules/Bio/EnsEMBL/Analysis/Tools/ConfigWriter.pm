@@ -41,7 +41,7 @@ Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ConfigWriter.pm,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
 use warnings ;
@@ -79,7 +79,7 @@ sub new {
   my ($config_module, $is_example, $moddir, $backup_dir, $verbose) = rearrange (['MODULENAME', 'IS_EXAMPLE', 'MODULEDIR', 'BACKUPDIR', 'VERBOSE'], @args);
 
   throw("No module name provided...\n") unless $config_module;
-  verbose('OFF');
+  verbose('EXCEPTION');
   verbose($verbose) if $verbose;
   $self->modulename($config_module);
   $self->moduledir($moddir);
@@ -115,8 +115,6 @@ sub parse {
     else {
         foreach my $tmppath (@INC) {
             if (-e $tmppath.'/'.$config) {
-               $path = $tmppath.'/'.$config;
-               $self->backupdir($tmppath) unless ($self->backupdir);
                $self->moduledir($tmppath) unless $self->moduledir;
                last;
             }
@@ -169,6 +167,7 @@ sub write_config {
 
     local $Data::Dumper::Indent = 1;
     local $Data::Dumper::Quotekeys = 0;
+    local $Data::Dumper::Deepcopy = 1;
     local $Data::Dumper::Sortkeys = \&_sort_keys;
     my $config_hash = Dumper($self->config);
     $config_hash =~ s/^\$VAR1 = {(.*)};/%Config = ($1);/s;
@@ -633,7 +632,7 @@ sub config {
     my ($self, $h_arg) = @_;
 
     if ($h_arg) {
-        throw('Not a hash ref element!') unless (ref($h_arg) == 'HASH');
+        throw('Not a hash ref element!') unless (ref($h_arg) eq 'HASH');
         $self->{'_config_hash'} = $h_arg;
     }
     return $self->{'_config_hash'};
@@ -730,7 +729,8 @@ sub _clone {
     my %hash;
     foreach my $key (keys %$hashref) {
         if (ref($hashref->{$key}) eq 'ARRAY') {
-            $hash{$key} = \@{$hashref->{$key}};
+            my @tmp = @{$hashref->{$key}};
+            $hash{$key} = \@tmp;
         }
         elsif (ref($hashref->{$key}) eq 'HASH') {
             $hash{$key} = _clone($hashref->{$key});
