@@ -41,7 +41,7 @@ Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ConfigWriter.pm,v $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
 use warnings ;
@@ -116,6 +116,7 @@ sub parse {
         foreach my $tmppath (@INC) {
             if (-e $tmppath.'/'.$config) {
                $path = $tmppath.'/'.$config;
+               $self->backupdir($tmppath) unless ($self->backupdir);
                $self->moduledir($tmppath) unless $self->moduledir;
                last;
             }
@@ -150,7 +151,6 @@ sub parse {
     close(FH);
     $self->header($head);
     $self->tail($import);
-    my %Config;
     eval '%Config = ('.$config_hash.');';
     $self->config(\%Config);
 }
