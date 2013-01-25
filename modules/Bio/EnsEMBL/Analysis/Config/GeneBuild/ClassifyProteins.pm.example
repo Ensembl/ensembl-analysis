@@ -2,7 +2,7 @@ package Bio::EnsEMBL::Analysis::Config::GeneBuild::ClassifyProteins;
 
 =head1
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/ClassifyProteins.pm.example,v $
-$Revision: 1.1 $
+$Revision: 1.2 $
 
 How to choose phyla for protein classification.
 
@@ -143,7 +143,7 @@ use vars qw( %Config );
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 # a config for human proteins from SwissProt with PE level 3,4,5 : 
                   swissprot_human_pe3_4_5 => {
@@ -154,7 +154,7 @@ use vars qw( %Config );
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-human primate proteins from SwissProt with PE level 1 and 2 : 
@@ -166,7 +166,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   
-                         MK_INPUT_ID_TYPE  => '1MSLICE',          
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',          
                },                                               
 
                 # a config for non-human primate proteins from SwissProt with PE level 3,4,5 : 
@@ -178,7 +178,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 
                 # a config for non-primate mammalian proteins from SwissProt with PE level 1 and 2 : 
@@ -192,7 +192,7 @@ use vars qw( %Config );
                                                                       # to add the analysis required to run similarity genewise and MakeSimilarityInputIDS. it also sets up the 
                                                                       #  rules forthis step.
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   # this entry is the simgw logic name for the next step
-                         MK_INPUT_ID_TYPE  => '1MSLICE',            # this should be set to the input_id_type_analysis you're using for the 
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',            # this should be set to the input_id_type_analysis you're using for the 
                },                                                     # submission analysis for MakeSimilarityInputIDS ( ie Submit500kSlice, Submit300kSlice,...) 
 
                 # a config for non-primate mammalian proteins from SwissProt with PE level 3,4,5 : 
@@ -204,7 +204,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],                     
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   
-                         MK_INPUT_ID_TYPE  => '1MSLICE',            
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',            
                },                                             
 
                 # a config for non-mammalian vertebrate proteins from SwissProt with PE level 1 and 2 : 
@@ -216,7 +216,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' , 
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                }, 
 
                 # a config for non-mammalian vertebrate proteins from SwissProt with PE level 3,4,5 : 
@@ -228,7 +228,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' , 
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-vertebrate proteins from SwissProt with PE level 1 and 2 : 
@@ -264,7 +264,7 @@ use vars qw( %Config );
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 # a config for human proteins from trEMBL with PE level 3,4,5 : 
                   trembl_human_pe3_4_5 => {
@@ -275,7 +275,7 @@ use vars qw( %Config );
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-human primate proteins from trEMBL with PE level 1 and 2 : 
@@ -287,7 +287,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],          
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
-                         MK_INPUT_ID_TYPE  => '1MSLICE',          
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',          
                },                                                  
                 # a config for non-human primate proteins from trEMBL with PE level 3,4,5 : 
                  trembl_primate_pe3_4_5 => {
@@ -298,7 +298,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-primate mammalian proteins from trEMBL with PE level 1 and 2 : 
@@ -310,7 +310,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],                     
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
-                         MK_INPUT_ID_TYPE  => '1MSLICE',       
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',       
                },                                             
                 # a config for non-primate mammalian proteins from trEMBL with PE level 3,4,5 : 
                  trembl_vert_mammal_pe3_4_5 => { 
@@ -321,7 +321,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],                     
                          SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
-                         MK_INPUT_ID_TYPE  => '1MSLICE',           
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',           
                },
 
                 # a config for non-mammalian vertebrate proteins from trEMBL with PE level 1 and 2 : 
@@ -333,7 +333,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 # a config for non-mammalian vertebrate proteins from trEMBL with PE level 3,4,5 : 
                 trembl_vert_non_mammal_pe3_4_5    => {
@@ -344,7 +344,7 @@ use vars qw( %Config );
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
                          SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' ,
-                         MK_INPUT_ID_TYPE  => '1MSLICE',
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-vertebrate proteins from trEMBL with PE level 1 and 2 : 
