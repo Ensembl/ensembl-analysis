@@ -41,7 +41,7 @@ Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ConfigWriter.pm,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
 use warnings ;
@@ -106,15 +106,16 @@ sub new {
 sub parse {
     my $self = shift;
 
-    my $config = $self->modulename;
-    $config .= '.example' if ($self->is_example);
-    my $path;
-    if ($self->moduledir and -e $self->moduledir.'/'.$config) {
-        $path = $self->moduledir.'/'.$config;
+    my $path = $self->modulename;
+    $path .= '.example' if ($self->is_example);
+    if ($self->moduledir and -e $self->moduledir.'/'.$path) {
+        $path = $self->moduledir.'/'.$path;
+
     }
     else {
         foreach my $tmppath (@INC) {
-            if (-e $tmppath.'/'.$config) {
+            if (-e $tmppath.'/'.$path) {
+               $path = $tmppath.'/'.$path;
                $self->moduledir($tmppath) unless $self->moduledir;
                last;
             }
@@ -127,7 +128,7 @@ sub parse {
     my $hash = 0;
     my %Config;
     my $package;
-    open(FH, $path) || throw("Could not open $config\n");
+    open(FH, $path) || throw("Could not open $path\n");
     while(<FH>) {
         if (/%Config\s*=\s*\(/) {
             $header = 0;
@@ -197,8 +198,9 @@ sub backup {
     my ($self) = @_;
 
     my $modulename = $self->get_module_path;
+    print STDERR $modulename, "\n";
     my $backup_name = $modulename;
-    if ($self->backupdir) {
+    if ($self->backupdir and $self->backupdir ne $self->moduledir) {
         $self->modulename =~ /([^\/]+)$/;
         $backup_name = $self->backupdir.'/'.$1;
     }
