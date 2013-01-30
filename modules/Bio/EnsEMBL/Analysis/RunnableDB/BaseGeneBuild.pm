@@ -1,3 +1,6 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BaseGeneBuild.pm,v $
+# $Revision: 1.32 $
+
 =head1 LICENSE
 
   Copyright (c) 1999-2012 The European Bioinformatics Institute and
@@ -36,13 +39,13 @@ should ideally inherit from this
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BaseGeneBuild.pm,v $
-# $Revision: 1.31 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 
-use warnings ;
 use strict;
+use warnings;
+
 use Data::Dumper;
+
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -119,6 +122,7 @@ sub select_random_db {
               Bio::EnsEMBL::Analysis::Config::Databases
 
   Returntype: Bio::EnsEMBL:DBSQL::DBAdaptor or Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor
+              Returns undef if an entry for the database is found but is empty.
   Exceptions: throw if key can't be found in Databases.pm
 
 =cut
@@ -133,11 +137,20 @@ sub get_dbadaptor {
 
   $name = select_random_db($name);  
 
-
   if ( !$hash->{$name} ) {   # if we don't already have an entry for this ...
     if ( exists $DATABASES->{$name} ) { 
 
       my $constructor_args = $DATABASES->{$name};
+
+      if ( scalar( keys( %{$constructor_args} ) ) == 0 ) {
+        # The entry is empty.  Warn about this, but don't throw.
+        # Return undef.
+        warning(
+             sprintf( "Empty entry for database '%s' in Databases.pm\n",
+                      $name ) );
+        return undef;
+      }
+
       # check if we got all arguments
       foreach my $arg (qw ( -user -port -host -dbname)) {
         unless ( $$constructor_args{$arg} ) {
