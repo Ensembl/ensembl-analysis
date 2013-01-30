@@ -1,3 +1,6 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
+# $Revision: 1.53 $
+
 =head1 LICENSE
 
   Copyright (c) 1999-2012 The European Bioinformatics Institute and
@@ -53,8 +56,6 @@
 
 # Let the code begin...
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.52 $
 package Bio::EnsEMBL::Analysis::Runnable::HavanaAdder;
 
 use Bio::EnsEMBL::Transcript;
@@ -1593,10 +1594,18 @@ sub check_transcript_in_external_db {
   my $ext_slice;
 
   # external_db = ccds_db
-  $ext_slice =
-      $self->ccds_db->get_SliceAdaptor->fetch_by_region( 'toplevel',
-                     $trans->slice->seq_region_name,
-                     $trans->seq_region_start, $trans->seq_region_end );
+  my $ccds_db = $self->ccds_db();
+  if ( defined($ccds_db) ) {
+    $ext_slice =
+      $ccds_db->get_SliceAdaptor()->fetch_by_region( 'toplevel',
+                                     $trans->slice()->seq_region_name(),
+                                     $trans->seq_region_start(),
+                                     $trans->seq_region_end() );
+  }
+  else {
+    return 1;
+  }
+
 
 EXT_GENE:
   foreach my $ext_gene ( @{ $ext_slice->get_all_Genes } ) {

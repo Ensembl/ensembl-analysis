@@ -38,7 +38,7 @@
 # Let the code begin...
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/HavanaAdder.pm,v $
-# $Revision: 1.20 $
+# $Revision: 1.21 $
 package Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder;
 
 use warnings ;
@@ -194,7 +194,13 @@ sub fetch_input {
   # Database with the CCDS models
   my $ccds_db = $self->get_dbadaptor("CCDS_DB");
 
-  print "CCDS DB: " . $ccds_db->dbname . "\n";
+  print "CCDS DB: ";
+  if ( defined($ccds_db) ) {
+    printf( "%s\n", $ccds_db->dbname() );
+  }
+  else {
+    print("(not defined)\n");
+  }
 
   # Database that contains the DNA sequence
   my $ref_db = $self->get_dbadaptor("REFERENCE_DB");
