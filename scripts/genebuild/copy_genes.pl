@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/copy_genes.pl,v $
-# $Revision: 1.26 $
+# $Revision: 1.27 $
 
 =head1 NAME
 
@@ -290,7 +290,8 @@ if (defined $logic) {
 my $si = 0 ; 
 foreach my $gene (@genes) {
   $si++; 
-  my $old_stable_id = $gene->stable_id ; 
+  my $old_stable_id = $gene->stable_id ;
+  print "Loading gene $old_stable_id from source DB\n" if $verbose ;
   $gene->load(); # fully_load_Gene($gene);
   if ($transform_to) {
     print "transforming $old_stable_id\n" if $verbose ;
