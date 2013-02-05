@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.79 $
+# $Revision: 1.80 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -1693,7 +1693,7 @@ sub dump_cDNA_file{
 Arg[0]     : Arrayref of Bio::EnsEMBL::Transcript objects
 Arg[1]     : Bio::EnsEMBL::Analysis object (opt)
 Name       : convert_to_genes
-Function   : converts all transcripts to Genes (biotype of transcript becomes biotype of gene)
+Function   : converts all transcripts to an arrayref of single transcript genes (biotype of transcript becomes biotype of gene)
 Returntype : Arrayref of Bio::EnsEMBL::Gene objects
 
 =cut
