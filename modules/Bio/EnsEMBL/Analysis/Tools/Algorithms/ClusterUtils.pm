@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/ClusterUtils.pm,v $
-# $Revision: 1.28 $
+# $Revision: 1.29 $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
@@ -109,6 +109,7 @@ use Carp;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster ; 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster ; 
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster ; 
 
 use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ; 
 @ISA=qw(Exporter);
@@ -124,6 +125,7 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
   get_oneway_clustering_genes_of_set
   make_types_hash
   make_types_hash_with_genes
+  cluster_AlignFeatures
 );
 
 
@@ -747,6 +749,155 @@ sub get_coding_exons_for_gene {
   }
 
   return \@coding; 
+}
+
+sub cluster_AlignFeatures {
+  my ($features, $types_hash, $ignore_strand) = @_ ;
+
+  print "GOT " . scalar(@$features ) . " FEATURES to cluster \n" ; sleep(2) ; 
+  return ([],[]) if (!scalar(@$features));
+
+  # sorting of ALL features
+  my @sorted_features = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$features;
+
+  # now start working
+  my $count = 0;
+  my @active_clusters;
+  my @inactive_clusters;
+
+  FEATURE: foreach my $feature (@sorted_features) {
+    $count++;
+
+    # Every 50 features divide clusters into an active (ones which could be have this feature added to it) and inactive 
+    # (ones which can not be altered by any of the features to come)
+    if (!($count%50)) { 
+      #print ".";
+
+      my @still_active_clusters;
+      my $feature_start = $feature->start;
+      foreach my $cluster (@active_clusters) {
+        if ($cluster->end < $feature_start) {
+          push @inactive_clusters,$cluster;
+        } else {
+          push @still_active_clusters,$cluster;
+        }
+      }
+      @active_clusters = @still_active_clusters;
+    }
+
+    my @matching_clusters;
+
+    ## 
+    ## if there are Clusters (initialisation below) than check  
+    ## if feature lies in the boundaries of the cluster and has at least 
+    ## one exon which overlaps with an exon of a feature which already 
+    ## belongs to the cluster
+    ##
+
+    CLUSTER: foreach my $cluster (@active_clusters) {
+    # if feature lies in the boundaries of the cluster......
+      if ($feature->end  >= $cluster->start && $feature->start <= $cluster->end) {
+        # search for a feature in the cluster which overlaps the new feature, 
+        foreach my $cluster_feature (@{ $cluster->get_AlignFeatures} ){
+          # check if clustered feature overlaps 
+          if ($feature->end  >= $cluster_feature->start && $feature->start <= $cluster_feature->end) {
+
+            #                             CASE 1: 
+            #
+            #         START----------------$cluster_feature---------------END 
+            # START-------------$feature-----------------------END
+            #
+            #                             CASE 2 : 
+            #                              
+            #         START----------------$cluster_feature---------------END 
+            #               START-------------$feature-----------END
+            #
+            #                             CASE 3 : 
+            #
+            #
+            #         START----------------$cluster_feature----------END 
+            #                                              START------$feature-------END
+            #
+
+            if (!$ignore_strand) {
+              if ($feature->strand == $cluster_feature->strand) {
+                push (@matching_clusters, $cluster);
+                next CLUSTER;
+              }
+            } else {
+              push (@matching_clusters, $cluster);
+              next CLUSTER;
+            }
+          }
+        }
+      }
+    } # CLUSTER 
+
+    ##
+    ## Initialization of we have no matching cluster (above) 
+    ###############################################################
+
+    #
+    # if above was found NO matching cluster
+    # than make a new one 
+    #  
+    if (scalar(@matching_clusters) == 0) {
+      my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster->new($ignore_strand);
+      foreach my $set_name (keys %$types_hash) { 
+        $newcluster->feature_Types($set_name,$types_hash->{$set_name});
+      }  
+      $newcluster->put_AlignFeatures([$feature], $ignore_strand); # xx
+      push(@active_clusters,$newcluster);
+
+      #
+      # if above was found ONE matching cluster
+      #
+    } elsif (scalar(@matching_clusters) == 1) {
+      $matching_clusters[0]->put_AlignFeatures([$feature], $ignore_strand);
+
+    } else {
+      # Merge the matching clusters into a single cluster
+      my @new_clusters;
+      my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster->new($ignore_strand);
+
+      foreach my $set_name (keys %$types_hash) {
+        $merged_cluster->feature_Types($set_name,$types_hash->{$set_name});
+      }
+
+      my %match_cluster_hash;
+      foreach my $clust (@matching_clusters) {
+        $merged_cluster->put_AlignFeatures ($clust->get_AlignFeatures, $ignore_strand);
+        $match_cluster_hash{$clust} = $clust;
+      }
+      $merged_cluster->put_AlignFeatures([$feature], $ignore_strand);
+      push @new_clusters,$merged_cluster;
+
+      # Add back non matching clusters
+      foreach my $clust (@active_clusters) {
+        if (!exists($match_cluster_hash{$clust})) {
+          push @new_clusters,$clust;
+        }
+      }
+      @active_clusters =  @new_clusters;
+    }
+  }
+  # Seperate features which are UNclustered (only one feature in cluster ) and
+  # from clusteres which hold more than one feature 
+
+  print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
+  my @clusters = (@active_clusters,@inactive_clusters);
+
+  my (@new_clusters, @unclustered);
+  foreach my $cl (@clusters){
+    if ( $cl->get_AlignFeature_Count == 1 ){
+      push @unclustered, $cl;
+    } else{
+      push( @new_clusters, $cl );
+    }
+  }
+ # print STDERR "All AlignFeatures clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
+  
+  return (\@new_clusters, \@unclustered);
 }
 
 1;
