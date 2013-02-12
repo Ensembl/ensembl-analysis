@@ -210,6 +210,64 @@ use vars qw(%Config);
                         -prune => 1,
                        },
      },
+####
+# RNASeq pipeline
+    rnaseqblast =>
+    {
+     BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+     PARSER_PARAMS => {
+                       -regex => '^(\w+\W\d+)',
+                       -query_type => "pep",
+                       -database_type => "pep",
+                       -threshold_type => "PVALUE",
+                       -threshold => 0.01,
+                      },
+     BLAST_FILTER => "Bio::EnsEMBL::Analysis::Tools::FeatureFilter",
+     FILTER_PARAMS => {
+                       -min_score => 200,
+                       -prune => 1,
+                      },
+     },
+#
+####
+####
+# ncRNA pipeline
+     RfamBlast =>   
+     {	 
+      BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+      PARSER_PARAMS => 
+      {
+       -regex => '(\w+)\.\w+',
+       -query_type => undef,
+       -database_type => undef,
+      },
+      BLAST_FILTER => undef,
+          FILTER_PARAMS => {},
+      BLAST_PARAMS => 
+      {
+       -unknown_error_string => 'FAILED',
+       -type => 'ncbi',
+      }
+     },
+     BlastmiRNA => 
+     {
+      BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
+      PARSER_PARAMS => 
+      {
+       -regex => '\w+\s+(\w+)',
+       -query_type => 'dna',
+       -database_type => 'dna',
+      },
+      BLAST_FILTER => undef,
+      FILTER_PARAMS => {},
+      BLAST_PARAMS => 
+      {
+       -unknown_error_string => 'FAILED',
+       -type => 'wu',
+      }
+     },
+#
+####
 
   },
   BLAST_AB_INITIO_LOGICNAME => ['genscan'],
