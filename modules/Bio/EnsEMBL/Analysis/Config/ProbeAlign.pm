@@ -45,7 +45,7 @@ hashes for each discrete format of array.
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ProbeAlign.pm,v $
-# $Revision: 1.12 $
+# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::Config::ProbeAlign;
 
 use warnings ;
@@ -199,6 +199,10 @@ use vars qw( %Config );
 	 
 	 OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
 	 
+	 #Perfect matches only for Jing
+	 #MAX_MISMATCHES       => 0,
+	 #OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 25 --seedrepeat 1 --dnahspthreshold 125 --dnawordlimit 0',
+	 
 
 	 #OPTIONS              => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
 	 HIT_SATURATION_LEVEL => 100,
@@ -252,6 +256,18 @@ use vars qw( %Config );
 	},		  
 	
 
+	#ILLUMINA_INFINIUM are 50mers. These settings allow for at least 1bp mismatch
+	ILLUMINA_INFINIUM_PROBEALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.ILLUMINA_INFINIUM.fasta',
+	 #50mers
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 246 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,#This may need changing?
+	 MAX_MISMATCHES => 1, 
+	},		  
+
+
 
 	#CODELINK are 30mers
 	CODELINK_PROBEALIGN => 
@@ -299,11 +315,17 @@ use vars qw( %Config );
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AFFY_UTR.fasta',
 	 #25 mers 
 	 OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 12 --seedrepeat 2 --dnahspthreshold 118 --dnawordlimit 0',
+	 MAX_MISMATCHES       => 1,
+	 #Perfect matches only for Jing
+	 #MAX_MISMATCHES       => 0,
+	 #OPTIONS             => ' --bestn 101 --fsmmemory 256 --dnawordlen 25 --seedrepeat 1 --dnahspthreshold 125 --dnawordlimit 0',
+	 
+
 	 #OPTIONS => ' --bestn 101 --dnahspthreshold 116 --fsmmemory 256 --dnawordlen 14 --dnawordlimit 11 ',
 	 #HIT_SATURATION_LEVEL => 100,#I don't think we want this for the transcript mappings
 	 #Defaults to 100 anyway, but not used
 	 #FILTER_METHOD => 'filter_mismatches',#Would need to add another method to Runnable::Exonerate
-	 MAX_MISMATCHES => 1,
+	 #MAX_MISMATCHES => 1,
 	},
 
 
@@ -323,20 +345,21 @@ use vars qw( %Config );
 
 
 	#AGILENT 60 mers
+	#Min length 45bp
 	AGILENT_PROBEALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AGILENT.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 216 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1,
+	 #MAX_MISMATCHES => 1,
 
 	 #Danio Zv7 params
 	 #Do we need a way of setting these in env so we don't have to edit here?
 	 #Can we do a $ENV{'PARAM'} || ref self default?
 	 #These would have to be set before this hash by reading ini into hash?
-	 #OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 15 --seedrepeat 4 --dnawordlimit 0 ',
-	 #MAX_MISMATCHES => 3,
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 216 --fsmmemory 256 --dnawordlen 15 --seedrepeat 4 --dnawordlimit 0 ',
+	 MAX_MISMATCHES => 3,
 
 	},		  
 
@@ -344,16 +367,16 @@ use vars qw( %Config );
 	{
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.AGILENT.fasta',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
+	 #OPTIONS => ' --bestn 101 --dnahspthreshold 216 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', #ORIG
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES => 1,
+	 #MAX_MISMATCHES => 1,
 
 	 #Danio Zv7 params
 	 #Do we need a way of setting these in env so we don't have to edit here?
 	 #Can we do a $ENV{'PARAM'} || ref self default?
 	 #These would have to be set before this hash by reading ini into hash?
-	 #OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 15 --seedrepeat 4 --dnawordlimit 0 ',
-	 #MAX_MISMATCHES => 3,
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 216 --fsmmemory 256 --dnawordlen 15 --seedrepeat 4 --dnawordlimit 0 ',
+	 MAX_MISMATCHES => 3,
 	 
 
 	},	
@@ -406,14 +429,13 @@ use vars qw( %Config );
 
 	#LEIDEN 50 mers
 	#Actually some are 50 some are 60.
-	#dnahspthreshold should be 246 no?
 	#3 mismatches for Zv7 due to low quality assembly
 	LEIDEN_PROBEALIGN => 
 	{
 	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.LEIDEN.fasta',
 	 #OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 13 --seedrepeat 4 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 223 --fsmmemory 256 --dnawordlen 13 --seedrepeat 4 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
 	 MAX_MISMATCHES => 3, 
 	},		  
@@ -423,10 +445,57 @@ use vars qw( %Config );
 	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
 	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.LEIDEN.fasta',
 	 #OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 25 --seedrepeat 2 --dnawordlimit 0 ',
-	 OPTIONS => ' --bestn 101 --dnahspthreshold 241 --fsmmemory 256 --dnawordlen 13 --seedrepeat 4 --dnawordlimit 0 ',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 223 --fsmmemory 256 --dnawordlen 13 --seedrepeat 4 --dnawordlimit 0 ',
 	 HIT_SATURATION_LEVEL => 100,
-	 MAX_MISMATCHES =>31, 
-	},	
+	 MAX_MISMATCHES =>3, 
+	},
+
+	
+	#STEMPLE_LAB_SANGER 65 mers
+	#3 mismatches  due to low quality assembly
+	
+
+	STEMPLE_LAB_SANGER_PROBEALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'GENOMICSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.STEMPLE_LAB_SANGER.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 298 --fsmmemory 256 --dnawordlen 17 --seedrepeat 4 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES => 3, 
+	},		  
+
+	STEMPLE_LAB_SANGER_PROBETRANSCRIPTALIGN => 
+	{
+	 TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+	 QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.STEMPLE_LAB_SANGER.fasta',
+	 OPTIONS => ' --bestn 101 --dnahspthreshold 298 --fsmmemory 256 --dnawordlen 17 --seedrepeat 4 --dnawordlimit 0 ',
+	 HIT_SATURATION_LEVEL => 100,
+	 MAX_MISMATCHES =>3, 
+
+	},
+    
+
+    #WUSTL Custom arrays (only used for C.elegans AFAIK) 60 mers
+    WUSTL_PROBEALIGN => 
+    {
+     TARGETSEQS         => $ENV{'GENOMICSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.WUSTL.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', 
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,
+     
+    },                
+    
+    WUSTL_PROBETRANSCRIPTALIGN => 
+    {
+     TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.WUSTL.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ',
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,    
+     
+    },
+
 
    }
   );

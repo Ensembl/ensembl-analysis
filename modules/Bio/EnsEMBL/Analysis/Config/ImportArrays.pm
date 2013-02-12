@@ -40,7 +40,7 @@ different configs by logic name).
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ImportArrays.pm,v $
-# $Revision: 1.30 $
+# $Revision: 1.31 $
 package Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
 use warnings ;
@@ -366,7 +366,16 @@ use vars qw( %Config );
 
 
       #Human
-	
+      
+      'PrimeView' => {
+                      -name => 'PrimeView',
+                      -vendor => 'AFFY',
+                      -format  => 'EXPRESSION',
+                      -type    => 'OLIGO',
+                      #-description => '',
+                      -class   => 'AFFY_UTR',
+                     },
+
       'HC-G110' => {
                     -name => 'HC-G110',
                     -vendor => 'AFFY',
@@ -1123,18 +1132,51 @@ use vars qw( %Config );
                    },
 
       #Celegans
-      #This is mixed array and array_chip config
-      'OligoArray_012795' => {
-                              -name => 'OligoArray',
-                              -vendor => 'AGILENT',
-                              #-setsize => undef,
-                              -format  => 'EXPRESSION',
-                              -type    => 'OLIGO',
-                              #-description => '',
-                              -class   => 'AGILENT',
-                              -design_id => '012795', #array_chip maybe this shoudl just be integrated into the name?
-                             },
+     
+   '012795' => {
+           -name => '012795',
+           -vendor => 'AGILENT',
+           -format  => 'EXPRESSION',
+           -type    => 'OLIGO',
+           -class   => 'AGILENT',
+         },
+         '015061' => {
+           -name => '015061',
+           -vendor => 'AGILENT',
+           -format  => 'EXPRESSION',
+           -type => 'OLIGO',
+           -class => 'AGILENT',
+         },
+         '020186' => {
+           -name => '020186',
+           -vendor => 'AGILENT',
+           -format  => 'EXPRESSION',
+           -type => 'OLIGO',
+           -class => 'AGILENT',
+         },
+         'GPL13394' => {
+           -name => 'GPL13394',
+           -vendor => 'AGILENT',
+           -format  => 'EXPRESSION',
+           -type => 'OLIGO',
+           -class => 'AGILENT',
+         },
+         
+         'GPL14144' => {
+           -name => 'GPL14144',
+           -vendor => 'AGILENT',
+           -format  => 'EXPRESSION',
+           -type => 'OLIGO',
+           -class => 'AGILENT',
+         },
 
+'GPL8304' => {
+           -name => 'GPL8304',
+           -vendor => 'AGILENT',
+           -format  => 'EXPRESSION',
+           -type => 'OLIGO',
+           -class => 'AGILENT',
+         },
 
      },
 	 
@@ -1142,7 +1184,31 @@ use vars qw( %Config );
     },
 
 	
+  IMPORT_WUSTL_ARRAYS =>
+     {
+       IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
+       
+       IFIELDORDER => {
+         -name       => 1,
+         -array_chip => 0,
+         -array      => 0,
+       },
+       
+       ARRAY_PARAMS => {
+         
+         'WUSTL-C_elegans' => {
+           -name => 'WUSTL-C_elegans',
+           -vendor => 'WUSTL',
+           #-setsize => undef,
+           -format  => 'EXPRESSION',
+           -type    => 'OLIGO',
+           #-description => '',
+           -class   => 'WUSTL',
+         },
+       },
 
+       INPUT_FORMAT => 'FASTA',
+     },
 
 
 
