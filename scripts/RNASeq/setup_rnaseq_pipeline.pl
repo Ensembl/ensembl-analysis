@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.37 $
+# $Revision: 1.38 $
 #
 
 use warnings ;
@@ -1352,7 +1352,7 @@ use vars qw(%Config);
     {
      BLAST_PARSER => "Bio::EnsEMBL::Analysis::Tools::FilterBPlite",
      PARSER_PARAMS => {
-                       -regex => \'^(\w+\W\d+)\',
+                       -regex => \'^(\w+)\',
                        -query_type => "pep",
                        -database_type => "pep",
                        -threshold_type => "PVALUE",
