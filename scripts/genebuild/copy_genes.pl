@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/copy_genes.pl,v $
-# $Revision: 1.27 $
+# $Revision: 1.28 $
 
 =head1 NAME
 
@@ -140,24 +140,26 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'file:s'                               => \$infile );
 
 my $transform_to_version;
+my $do_not_attach_dna_db = 1;
 if($transform_to){ 
+    $do_not_attach_dna_db = 0;
   if ( $transform_to=~m/:/) { 
     ( $transform_to,  $transform_to_version ) = split /:/,$transform_to ; 
   }
 }
 
 if ($all && $infile) {
-  throw("Specify either -all or -infile");
+  throw("Specify either -all or -file");
 } elsif (!$all && !$infile) {
-  throw("Specify -all (to copy all genes from $sourcedbname) or -infile (to copy a list of gene_ids)");
+  throw("Specify -all (to copy all genes from $sourcedbname) or -file (to copy a list of gene_ids)");
 }
 
 #print "Connecting to ".$sourcedbname." at ".$sourcehost." ".$sourceuser."\n";
 my $sourcedb;
 my $dnadb;
 if ($in_config_name) {
-  $sourcedb = get_db_adaptor_by_string($in_config_name);
-  if ( $dnadbname ) {
+  $sourcedb = get_db_adaptor_by_string($in_config_name, 0, 0, {-do_not_attach_dna_db=>$do_not_attach_dna_db});
+  if ( !$do_not_attach_dna_db and $dnadbname ) {
     $dnadb =
       new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
                                           -user   => $dnauser,
@@ -173,30 +175,32 @@ if ($in_config_name) {
                                         -user   => $sourceuser,
                                         -port   => $sourceport,
                                         -dbname => $sourcedbname );
-  if ( !$dnadbname ) {
-    my $dna_query = q(SELECT count(1) FROM dna);
-    my $dna_sth = $sourcedb->dbc->prepare($dna_query);
-    $dna_sth->execute();
-    my $dna_count = $dna_sth->fetchrow;
+  if (!$do_not_attach_dna_db) {
+      if ( !$dnadbname) {
+        my $dna_query = q(SELECT count(1) FROM dna);
+        my $dna_sth = $sourcedb->dbc->prepare($dna_query);
+        $dna_sth->execute();
+        my $dna_count = $dna_sth->fetchrow;
 
-    if ( !$dna_count ) {
-      croak( "\nYour source database does not contain DNA. "
-           . "Please provide a database with genomic sequences.\n");
-    }
-  } else {
-    $dnadb =
-      new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
-                                          -user   => $dnauser,
-                                          -port   => $dnaport,
-                                          -dbname => $dnadbname );
+        if ( !$dna_count ) {
+          croak( "\nYour source database does not contain DNA. "
+               . "Please provide a database with genomic sequences.\n");
+        }
+      } else {
+        $dnadb =
+          new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
+                                              -user   => $dnauser,
+                                              -port   => $dnaport,
+                                              -dbname => $dnadbname );
 
-    $sourcedb->dnadb($dnadb);
+        $sourcedb->dnadb($dnadb);
+      }
   }
 }
 
 my $outdb;
 if ($out_config_name) {
-  $outdb = get_db_adaptor_by_string($out_config_name);
+  $outdb = get_db_adaptor_by_string($out_config_name, 0, 0, {-do_not_attach_dna_db=>$do_not_attach_dna_db});
 } else {
   $outdb =
     new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $outhost,
@@ -235,26 +239,15 @@ if ($infile) {
 
     if ($stable_id) {
       $gene = $ga->fetch_by_stable_id($gene_id);
-      $gene->load();
     } else {
       $gene = $ga->fetch_by_dbID($gene_id);
-      $gene->load();
     }
     print "fetched $i genes\n" if $verbose ;
-    empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
     push( @copy_genes, $gene );
   }
   close(INFILE);
 } elsif ($all) {
-  my @genes = @{$ga->fetch_all()};
-  my $i = 0 ;
-  foreach my $gene (@genes ) {
-    $gene->load();
-    $i++;
-    print "fetched $i / " . scalar(@genes) . " \n" if $verbose ;
-    empty_Gene($gene, $remove_stable_ids, $remove_xrefs);
-    push( @copy_genes, $gene );
-  }
+  @copy_genes = @{$ga->fetch_all()};
 }
 
 if ($split) {
@@ -271,19 +264,11 @@ print STDERR "Fetched ".scalar(@genes)." genes\n" if $verbose ;
 
 my $outga = $outdb->get_GeneAdaptor;
 
+my $analysis; 
 if (defined $logic) {
-  my $analysis; 
   $analysis = $outdb->get_AnalysisAdaptor->fetch_by_logic_name($logic);
   if ( !defined $analysis ) {
     $analysis = Bio::EnsEMBL::Analysis->new( -logic_name => $logic, );
-  }
-
-
-  foreach my $g (@genes) {
-    $g->analysis($analysis);
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      $t->analysis($analysis);
-    }
   }
 }
 
@@ -293,6 +278,12 @@ foreach my $gene (@genes) {
   my $old_stable_id = $gene->stable_id ;
   print "Loading gene $old_stable_id from source DB\n" if $verbose ;
   $gene->load(); # fully_load_Gene($gene);
+  if (defined $logic) {
+    $gene->analysis($analysis);
+    foreach my $t (@{$gene->get_all_Transcripts}) {
+      $t->analysis($analysis);
+    }
+  }
   if ($transform_to) {
     print "transforming $old_stable_id\n" if $verbose ;
     my $transformed_gene = $gene->transform( $transform_to , $transform_to_version );
