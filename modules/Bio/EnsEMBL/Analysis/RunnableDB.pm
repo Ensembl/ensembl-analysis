@@ -1,3 +1,8 @@
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB.pm,v $
+# $Revision: 1.43 $
+
+package Bio::EnsEMBL::Analysis::RunnableDB;
+
 # Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
 #
 # Copyright (c) 2004 Ensembl
@@ -73,10 +78,6 @@ returns the appropriate adaptor to be used in storage.
 Post questions to the Ensembl development list: dev@ensembl.org
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB.pm,v $
-# $Revision: 1.42 $
-package Bio::EnsEMBL::Analysis::RunnableDB;
-
 
 use strict;
 use warnings;
@@ -86,8 +87,8 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_config parse_config_mini);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info logger_verbosity);
-use Bio::EnsEMBL::Analysis::Config::General qw(CORE_VERBOSITY
-                                               LOGGER_VERBOSITY);
+use Bio::EnsEMBL::Analysis::Config::General qw(CORE_VERBOSITY LOGGER_VERBOSITY);
+
 use vars qw (@ISA);
 
 @ISA = qw();
@@ -460,26 +461,45 @@ sub run{
 =cut
 
 
-sub write_output{
+sub write_output {
   my ($self) = @_;
-  my $adaptor = $self->get_adaptor;
 
-  foreach my $feature(@{$self->output}){
-    $feature->analysis($self->analysis);
-    $feature->slice($self->query) if(!$feature->slice);
+  my $adaptor  = $self->get_adaptor();
+  my $analysis = $self->analysis();
+
+  # Keep track of the analysis_id we have here, because the store()
+  # method might change it if the analysis does not already exist in the
+  # output database, which will make running the next job difficult or
+  # impossible (because the analysis tables weren't in sync).
+  my $analysis_id = $analysis->dbID();
+
+  foreach my $feature ( @{ $self->output() } ) {
+    $feature->analysis($analysis);
+
+    if ( !defined( $feature->slice() ) ) {
+      $feature->slice( $self->query() );
+    }
+
     $self->feature_factory->validate($feature);
 
-    eval{
-      $adaptor->store($feature);
-    };
-    if($@){
-      throw("RunnableDB:store failed, failed to write ".$feature." to ".
-            "the database ".$adaptor->dbc->dbname." $@");
+    eval { $adaptor->store($feature); };
+    if ($@) {
+      throw( sprintf( "RunnableDB::write_output() failed: " .
+                        "failed to store '%s' into database '%s': %s",
+                      $feature, $adaptor->dbc()->dbname(), $@ ) );
     }
   }
-  return 1;
-}
 
+  # Restore analysis_id if needed.
+  if ( $analysis->dbID() != $analysis_id ) {
+    printf( STDERR "Restoring analysis_id to %d for analysis '%s' " .
+              "(had been set to %d)\n",
+            $analysis_id, $analysis->logic_name(), $analysis->dbID() );
+    $analysis->dbID($analysis_id);
+  }
+
+  return 1;
+} ## end sub write_output
 
 
 =head2 fetch_input
