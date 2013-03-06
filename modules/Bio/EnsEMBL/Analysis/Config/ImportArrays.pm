@@ -40,7 +40,7 @@ different configs by logic name).
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ImportArrays.pm,v $
-# $Revision: 1.31 $
+# $Revision: 1.32 $
 package Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
 use warnings ;
@@ -1132,52 +1132,111 @@ use vars qw( %Config );
                    },
 
       #Celegans
-     
-   '012795' => {
-           -name => '012795',
-           -vendor => 'AGILENT',
-           -format  => 'EXPRESSION',
-           -type    => 'OLIGO',
-           -class   => 'AGILENT',
-         },
-         '015061' => {
-           -name => '015061',
-           -vendor => 'AGILENT',
-           -format  => 'EXPRESSION',
-           -type => 'OLIGO',
-           -class => 'AGILENT',
-         },
-         '020186' => {
-           -name => '020186',
-           -vendor => 'AGILENT',
-           -format  => 'EXPRESSION',
-           -type => 'OLIGO',
-           -class => 'AGILENT',
-         },
-         'GPL13394' => {
-           -name => 'GPL13394',
-           -vendor => 'AGILENT',
-           -format  => 'EXPRESSION',
-           -type => 'OLIGO',
-           -class => 'AGILENT',
-         },
+      
+      '012795' => {
+        -name => '012795',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type    => 'OLIGO',
+        -class   => 'AGILENT',
+      },
+      '015061' => {
+        -name => '015061',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      '020186' => {
+        -name => '020186',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      'GPL13394' => {
+        -name => 'GPL13394',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
+      'GPL14144' => {
+        -name => 'GPL14144',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
+      'GPL8304' => {
+        -name => 'GPL8304',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+
+      
+      # C.briggsae
+
+      'GPL14143' => {
+        -name => 'GPL14143',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
+      'GPL8303' => {
+        -name => 'GPL8303',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
+      # C. brenneri
+
+      'GPL14142' => {
+        -name => 'GPL14142',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
+      # C. remanei
+
+      'GPL14146' => {
+        -name => 'GPL14146',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
+      # C. japonica
+
+      'GPL14145' => {
+        -name => 'GPL14145',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
          
-         'GPL14144' => {
-           -name => 'GPL14144',
-           -vendor => 'AGILENT',
-           -format  => 'EXPRESSION',
-           -type => 'OLIGO',
-           -class => 'AGILENT',
-         },
+      # P. pacificus
 
-'GPL8304' => {
-           -name => 'GPL8304',
-           -vendor => 'AGILENT',
-           -format  => 'EXPRESSION',
-           -type => 'OLIGO',
-           -class => 'AGILENT',
-         },
-
+      'GPL14372' => {
+        -name => 'GPL14372',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
      },
 	 
      INPUT_FORMAT => 'FASTA',
