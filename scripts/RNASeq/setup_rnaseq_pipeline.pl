@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.39 $
+# $Revision: 1.40 $
 #
 
 use warnings ;
@@ -808,12 +808,44 @@ exit if $update_analyses;
 open( ALL, ">$output_dir/all_headers.txt" )
   or die("Cannot open  $output_dir/all_headers.txt for writing\n");
 
+
 my %seen_it;
 foreach my $row (@rows) {
   next if $seen_it{ $row->{ID} };
   $seen_it{ $row->{ID} } = 1;
   open( HEAD, ">$output_dir/" . $row->{ID} . "_header.txt" )
     or die( "Cannot open  $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
+
+  unless(exists $row->{LB})
+  {
+      $row->{LB} = "";
+  }
+
+  unless(exists $row->{DS})
+  {
+      $row->{DS} = "";
+  }
+
+  unless(exists $row->{PU})
+  {
+      $row->{PU} = "";
+  }
+
+  unless(exists $row->{CN})
+  {
+      $row->{CN} = "";
+  }
+
+  unless(exists $row->{ST})
+  {
+      $row->{ST} = "";
+  }
+
+  unless(exists $row->{PL})
+  {
+      $row->{PL} = "";
+  }
+
 
   print HEAD "\@RG\tID:" . $row->{ID} . "\tPU:" . $row->{PU} . "\tSM:" . $row->{SM} . "\t";
   print HEAD "LB:"       . $row->{LB} . "\tDS:" . $row->{DS} . "\tCN:" . $row->{CN} . "\t";
