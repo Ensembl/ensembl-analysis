@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB.pm,v $
-# $Revision: 1.43 $
+# $Revision: 1.44 $
 
 package Bio::EnsEMBL::Analysis::RunnableDB;
 
@@ -468,9 +468,11 @@ sub write_output {
   my $analysis = $self->analysis();
 
   # Keep track of the analysis_id we have here, because the store()
-  # method might change it if the analysis does not already exist in the
-  # output database, which will make running the next job difficult or
-  # impossible (because the analysis tables weren't in sync).
+  # method might change it if the analysis does not already exist in
+  # the output database, which will make running the next job difficult
+  # or impossible (because the analysis tables weren't in sync).  If we
+  # find that the analysis ID changes, throw() so that the genebuilder
+  # realizes that she has to sync thhe analysis tables.
   my $analysis_id = $analysis->dbID();
 
   foreach my $feature ( @{ $self->output() } ) {
@@ -490,12 +492,12 @@ sub write_output {
     }
   }
 
-  # Restore analysis_id if needed.
+  # Determine if the analysis ID changed, and throw() if it did.
   if ( $analysis->dbID() != $analysis_id ) {
-    printf( STDERR "Restoring analysis_id to %d for analysis '%s' " .
-              "(had been set to %d)\n",
-            $analysis_id, $analysis->logic_name(), $analysis->dbID() );
-    $analysis->dbID($analysis_id);
+    throw( sprintf( "The analysis ID for '%s' changed from %d to %d. " .
+                      "Are the analysis tables in sync?\n",
+                    $analysis->logic_name(), $analysis_id,
+                    $analysis->dbID() ) );
   }
 
   return 1;
