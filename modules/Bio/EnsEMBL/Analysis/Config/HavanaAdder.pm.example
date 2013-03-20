@@ -110,6 +110,7 @@ use vars qw( %GeneBuilder );
                                 'transcribed_pseudogene',
                                 'transcribed_processed_pseudogene',
                                 'transcribed_unprocessed_pseudogene',
+                                'translated_processed_pseudogene',
                                 'unitary_pseudogene',
                                 'unprocessed_pseudogene',
                                 'disrupted_domain',
