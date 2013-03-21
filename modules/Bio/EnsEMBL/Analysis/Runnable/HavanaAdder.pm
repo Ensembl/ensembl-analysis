@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.54 $
+# $Revision: 1.55 $
 
 =head1 LICENSE
 
@@ -413,8 +413,6 @@ sub gene_has_assembly_error_attribute {
 
   my @attribs = @{$gene->get_all_Attributes('hidden_remark')};
   foreach my $attrib (@attribs) {
-    print "attrib_values\n";
-    print $attrib->value."\n";
     if ($attrib->value eq 'ASB_protein_coding') {
       return 1;
     }
@@ -1437,6 +1435,7 @@ sub get_Genes {
   foreach my $hbiotype ( @{$HAVANA_INPUT_CODING_TYPE} ) {
     foreach my $hgene ( @{ $havanaslice->get_all_Genes_by_type($hbiotype,undef,1) } ) {
       $hgene->load();
+
       # We change the biotype of the havana genes/transcripts as it
       # could happend to be the same as the ensembl ones
       #my $biotype = $hgene->biotype . "_hav";
@@ -1941,9 +1940,10 @@ CLUSTER:
 
                     # if the hav gene has ASB_protein_coding attrib, keep ens protein_coding biotype
                     if (gene_has_assembly_error_attribute($pseudo_gene)) {
-                      print "But I found ASB_protein_coding gene attrib in Hav gene ".$pseudo_gene->dbID." , ".$pseudo_gene->stable_id." . Ens transcript " . $c_transcript->dbID . " will be kept as protein_coding\n";
+                      print "But I found ASB_protein_coding gene attrib in Hav gene ".$pseudo_gene->stable_id." . Ens transcript " . $c_transcript->dbID . " will be kept as ".$c_transcript->biotype .  "_ens\n";
                       $c_transcript->biotype($c_transcript->biotype .  "_ens");
                     } else {
+                      #print "And I did not found any assembly error attribute\n";
                       $c_transcript->{translation} = undef;
                       $c_transcript->biotype($pseudo_gene->biotype .  "_ens");
                     }
@@ -2792,7 +2792,7 @@ sub cluster_into_Genes {
   my $num_trans = scalar( @{$transcripts_unsorted} );
   my %ottg_xref;
   my %ottg_type;
-  my %ncrna_hosts;
+  my %gene_attribs_to_keep;
 
   my @transcripts;
   if ($coding) {
@@ -2823,11 +2823,13 @@ sub cluster_into_Genes {
 
     my @hav_gene_attrib = @{ $hav_gene->get_all_Attributes() };
 
-    # Want to transfer the ncrna_host gene attributes from vega gene
+    # Want to transfer the ncrna_host and ASB_protein_coding gene attributes from vega gene
     # to merged gene.
     foreach my $gene_attrib (@hav_gene_attrib) {
-      if ( $gene_attrib->name() eq 'ncrna_host' ) {
-        $ncrna_hosts{$hav_stable_id} = $gene_attrib;
+      if ( ($gene_attrib->name() eq 'ncrna_host') or
+           ( ($gene_attrib->code() eq 'hidden_remark') and (($gene_attrib->value() eq 'ASB_protein_coding')) ) ) {
+        print "Found gene_attrib to keep: ". $gene_attrib->code() ." : ". $gene_attrib->value() ."\n";
+        $gene_attribs_to_keep{$hav_stable_id} = $gene_attrib;
       }
     }
     my ($ottg_key, $ottg_version);
@@ -3180,9 +3182,8 @@ sub cluster_into_Genes {
     }
 
     # Keeping the ncrna_host attributes intact
-    if ( exists($ncrna_hosts{$ottg_added} ) ) {
-      my $gene_attrib_to_keep = $ncrna_hosts{$ottg_added};
-      $gene->add_Attributes($gene_attrib_to_keep);
+    if ( exists($gene_attribs_to_keep{$ottg_added} ) ) {
+      $gene->add_Attributes($gene_attribs_to_keep{$ottg_added});
     }
 
     push( @genes, $gene );
