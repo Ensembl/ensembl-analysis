@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.53 $
+# $Revision: 1.54 $
 
 =head1 LICENSE
 
@@ -407,6 +407,20 @@ GENE:
   } ## end foreach my $gene (@$genes)
 } ## end sub _merge_redundant_transcripts
 
+sub gene_has_assembly_error_attribute {
+
+  my $gene = shift;
+
+  my @attribs = @{$gene->get_all_Attributes('hidden_remark')};
+  foreach my $attrib (@attribs) {
+    print "attrib_values\n";
+    print $attrib->value."\n";
+    if ($attrib->value eq 'ASB_protein_coding') {
+      return 1;
+    }
+  }
+  return 0;
+}
 
 sub are_matched_pair {
 
@@ -601,6 +615,19 @@ sub are_matched_pair {
       # Keep both if they don't have the same coding exon structure
       return 0 unless scalar(@hexons) == scalar(@eexons);
 
+      # CASE: GENOME ASSEMBLY ERROR
+      # Check if there is an havana gene attrib for the havana transcript that
+      # means we should keep the ensembl protein_coding model because havana annotation
+      # is based on a sequence with a genome assembly error.
+      # Don't make Ensembl to non-coding and keep both transcripts.
+
+      if (gene_has_assembly_error_attribute($havana)) {
+        print "ENS CODING vs HAV NON-CODING CASE 'GENOME ASSEMBLY ERROR' - "
+            . "keeping ensembl (and havana) regardless because\n";
+        print "the Havana model " . $ensembl->dbID
+            . " is based on a region where there is a genome assembly error.\n";
+        return 0;
+      }
       # Check that the ensembl transcript is not a CCDS model.
 
       # CASE 0: Ensembl transcript belongs to CCDS set, don't
@@ -1139,19 +1166,6 @@ sub set_transcript_relation {
 
     $t_pair[1]->add_Attributes($link_attrib);
 
-    my $xref_entry =
-      new Bio::EnsEMBL::DBEntry( -primary_id    => $t_pair[1]->dbID,
-                                 -display_id    => $t_pair[1]->dbID,
-                                 -priority      => 1,
-                                 -xref_priority => 0,
-                                 -version       => 1,
-                                 -release       => 1,
-                                 -dbname        => 'shares_CDS_with_ENST' );
-
-    $xref_entry->status("XREF");
-
-    $t_pair[0]->add_DBEntry($xref_entry);
-
     # print "DEBUG: OTTT TO ADD: ",$t_pair[0]->stable_id,"\n";
 
   } ## end if ( $delete_t == 1 ), where Ens and Hav trans share CDS but differ in UTR structure
@@ -1514,13 +1528,13 @@ sub get_Genes {
   # We processed the ensembl genes to remove any trace of previous
   # transcript merges in case you are running a merge update instead
   # of a fresh clean merge.
-  @transcripts = @{ $self->check_merge_transcript_status( \@genes ) };
+  @transcripts = @{ $self->flush_transcript_xrefs( \@genes ) };
 
   @processedtranscripts =
-    @{ $self->check_merge_transcript_status( \@processedgenes ) };
+    @{ $self->flush_transcript_xrefs( \@processedgenes ) };
 
   @pseudotranscripts =
-    @{ $self->check_merge_transcript_status( \@pseudogenes ) };
+    @{ $self->flush_transcript_xrefs( \@pseudogenes ) };
 
   # Join all the gene set together
   print STDERR "Finished fetching genes\n";
@@ -1529,7 +1543,7 @@ sub get_Genes {
   $self->combined_PseudoTranscripts( \@pseudotranscripts );
 } ## end sub get_Genes
 
-sub check_merge_transcript_status {
+sub flush_transcript_xrefs {
   my ( $self, $genes ) = @_;
 
   #print "DEBUG: Checking premerge gene status\n";
@@ -1538,39 +1552,6 @@ sub check_merge_transcript_status {
   foreach my $gene (@$genes) {
   TRANSCRIPT:
     foreach my $tran ( @{ $gene->get_all_Transcripts } ) {
-
-     #First we remove HAVANA only transcripts that are present in merged genes
-      if (    $gene->analysis->logic_name() eq $MERGED_GENE_LOGIC_NAME
-           && $tran->analysis->logic_name() eq $HAVANA_LOGIC_NAME )
-      {
-        next TRANSCRIPT;
-      } elsif (
-              $tran->analysis->logic_name() eq $MERGED_TRANSCRIPT_LOGIC_NAME )
-      { 
-        # In case of a merged transcript we want to distinguish the
-        # ones that came from HAVANA that have same CDS but different
-        # UTR structure as we want to remove them. This is important
-        # for a merge update to avoid them been wrongly identified as
-        # share CDS and UTR
-        my $share_enst        = 0;
-        my $share_cds_and_utr = 0;
-        my @dbentries         = @{ $tran->get_all_DBEntries };
-        foreach my $dbentry (@dbentries) {
-          if ( $dbentry->dbname eq "shares_CDS_with_ENST" ) {
-
-            #print "DEBUG: On transcript: ",$tran->dbID," This is a HAVANA shares ENST\n";
-            $share_enst = 1;
-          }
-          if ( $dbentry->dbname eq "shares_CDS_and_UTR_with_OTTT" ) {
-            $share_cds_and_utr = 1;
-
-            #print "DEBUG: On transcript: ",$tran->dbID," This is a HAVANA shares CDS and UTR\n";
-          }
-        }
-        if ( $share_enst == 1 && $share_cds_and_utr == 0 ) {
-          next TRANSCRIPT;
-        }
-      }
 
       $self->flush_xref($tran);
 
@@ -1708,7 +1689,6 @@ sub flush_xref {
   foreach my $tran_xref ( @{ $transcript->get_all_DBEntries } ) {
     if (    $tran_xref->dbname ne "shares_CDS_and_UTR_with_OTTT"
          && $tran_xref->dbname ne "shares_CDS_with_OTTT"
-         && $tran_xref->dbname ne "shares_CDS_with_ENST"
          && $tran_xref->dbname ne "OTTT"
          && $tran_xref->dbname ne "OTTP"
          && $tran_xref->dbname ne "OTTG"
@@ -1959,8 +1939,14 @@ CLUSTER:
                     #  . "and changing the biotype to: "
                     #  . $pseudo_gene->biotype . "_ens\n";
 
-                    $c_transcript->{translation} = undef;
-                    $c_transcript->biotype($pseudo_gene->biotype .  "_ens");
+                    # if the hav gene has ASB_protein_coding attrib, keep ens protein_coding biotype
+                    if (gene_has_assembly_error_attribute($pseudo_gene)) {
+                      print "But I found ASB_protein_coding gene attrib in Hav gene ".$pseudo_gene->dbID." , ".$pseudo_gene->stable_id." . Ens transcript " . $c_transcript->dbID . " will be kept as protein_coding\n";
+                      $c_transcript->biotype($c_transcript->biotype .  "_ens");
+                    } else {
+                      $c_transcript->{translation} = undef;
+                      $c_transcript->biotype($pseudo_gene->biotype .  "_ens");
+                    }
                     $pseudo_gene->add_Transcript($c_transcript);
                   }
                   $coding_gene = undef;
