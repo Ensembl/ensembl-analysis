@@ -40,7 +40,7 @@ This module uses BWA to align fastq to a genomic sequence
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BWA.pm,v $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Runnable::BWA;
 
 use warnings ;
@@ -97,12 +97,8 @@ sub run {
   my $command = "$program aln $options -f $outdir" ."/$filename.sai " . $self->genome 
     ." $fastq";
   print STDERR "Command: $command\n";
-  eval {
-    open  ( my $fh,"$command |" ) || 
-      $self->throw("Error aligning fastq file $@\n");
-    # write output
-  }; if($@){
-    $self->throw("Error aligning $filename \n$@\n");
+  if (system($command)) {
+      $self->throw("Error aligning $filename\nError code: $?\n");
   }
   
 }
