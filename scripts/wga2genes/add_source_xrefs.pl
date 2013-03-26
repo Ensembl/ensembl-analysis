@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/add_source_xrefs.pl,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 
 # add_source_xrefs.pl
 #
@@ -11,7 +11,7 @@
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -30,15 +30,16 @@ my (
     $verbose,
 );
 
+$dbport = 3306;
 $dbuser = 'ensro';
 $src_dbuser = 'ensro';
 
-&GetOptions(
-            'dbname=s' => \$dbname,
-            'dbuser=s' => \$dbuser,
-            'dbhost=s' => \$dbhost,
-            'dbport=s' => \$dbport,
-            'dbpass=s' => \$dbpass,
+GetOptions(
+            'dbname|db|D=s' => \$dbname,
+            'dbuser|user|u=s' => \$dbuser,
+            'dbhost|host|h=s' => \$dbhost,
+            'dbport|port|P=s' => \$dbport,
+            'dbpass|pass|p=s' => \$dbpass,
             'stableidmap=s' => \$stable_id_map_file,
             'srcdbname=s@' => \@src_dbname,
             'srcdbuser=s' => \$src_dbuser,

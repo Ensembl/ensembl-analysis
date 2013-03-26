@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/load_gene_scaffolds.pl,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::CoordSystem;
@@ -32,12 +32,14 @@ my (
     %comp_slices,
 );
 
-&GetOptions(
-            'dbname=s' => \$dbname,
-            'dbuser=s' => \$dbuser,
-            'dbhost=s' => \$dbhost,
-            'dbport=s' => \$dbport,
-            'dbpass=s' => \$dbpass,
+$dbport = 3306;
+
+GetOptions(
+            'dbname|db|D=s' => \$dbname,
+            'dbuser|user|u=s' => \$dbuser,
+            'dbhost|host|h=s' => \$dbhost,
+            'dbport|port|P=s' => \$dbport,
+            'dbpass|pass|p=s' => \$dbpass,
             'asm_coord_sys_name=s' => \$asm_coord_sys_name,
             'asm_coord_sys_version=s' => \$asm_coord_sys_version,
             'cmp_coord_sys_name=s' => \$cmp_coord_sys_name, 

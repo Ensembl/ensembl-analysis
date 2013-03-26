@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/merge_and_extend_gene_scaffolds.pl,v $
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Mapper;
@@ -22,16 +22,17 @@ my ($dbname,
     @agp_files,
     @gene_files);
 
-&GetOptions('agp=s@' => \@agp_files,
+$dbport = 3306;
+GetOptions('agp=s@' => \@agp_files,
             'genes=s@' => \@gene_files,
             'outagp=s' => \$agp_outfile,
             'outgenes=s' => \$gene_outfile,
             'outlog=s' => \$log_outfile,
             'verbose' => \$verbose,
-            'dbname=s' => \$dbname,
-            'dbhost=s' => \$dbhost,
-            'dbuser=s' => \$dbuser,
-            'dbport=s' => \$dbport);
+            'dbname|db|D=s' => \$dbname,
+            'dbhost|host|h=s' => \$dbhost,
+            'dbuser|user|u=s' => \$dbuser,
+            'dbport|port|P=s' => \$dbport);
 
 $| = 1;
 

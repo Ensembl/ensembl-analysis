@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/load_transcripts.pl,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 
 use strict;
 use warnings;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Exon;
@@ -29,15 +29,17 @@ my (
     @out_genes,
 );
 
+$dbport = 3306;
+
 # Load the attributes by default
 my $load_attributes = 1;
 
-&GetOptions(
-            'dbname=s'     => \$dbname,
-            'dbuser=s'     => \$dbuser,
-            'dbhost=s'     => \$dbhost,
-            'dbport=s'     => \$dbport,
-            'dbpass=s'     => \$dbpass,
+GetOptions(
+            'dbname|db|D=s'     => \$dbname,
+            'dbuser|user|u=s'     => \$dbuser,
+            'dbhost|host|h=s'     => \$dbhost,
+            'dbport|port|P=s'     => \$dbport,
+            'dbpass|pass|p=s'     => \$dbpass,
             'genelogic=s'  => \$gene_logic_name,
             'sflogic=s'    => \$sf_logic_name,
             'test'         => \$test,

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/identify_bad_source_transcripts.pl,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 
 # identify_bad_source_transcripts.pl
 # 
@@ -14,7 +14,7 @@
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -29,13 +29,14 @@ my (
 );
 
 $dbuser = 'ensro';
+$dbport = 3306;
 
-&GetOptions(
-	'dbname=s' => \$dbname,
-	'dbuser=s' => \$dbuser,
-	'dbhost=s' => \$dbhost,
-	'dbport=s' => \$dbport,
-	'dbpass=s' => \$dbpass,
+GetOptions(
+	'dbname|db|D=s' => \$dbname,
+	'dbuser|user|u=s' => \$dbuser,
+	'dbhost|host|h=s' => \$dbhost,
+	'dbport|port|P=s' => \$dbport,
+	'dbpass|pass|p=s' => \$dbpass,
         'dodgy'    => \$look_for_dodgy,
         'print_gsi' => \$print_gsi ,   # prints gene stable id of rejected genes
 );
