@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/viral_pseudogenes/anti_virus.pl,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 
 
 =pod
@@ -65,7 +65,7 @@ use warnings ;
 use strict;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Registry;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 my $compara = $ENV{'COMPARA'};
 my $regfile = $ENV{'REGISTRY'};
@@ -85,14 +85,13 @@ $| = 1;
 GetOptions(
 	   'regfile:s'   => \$regfile,
 	   'compara:s'   => \$compara,
-	   'dbname=s'    => \$dbname,
-	   'dbport=s'    => \$dbport,
-	   'dbhost=s'    => \$dbhost,
+	   'dbname|db|D=s'    => \$dbname,
+	   'dbport|port|P=s'    => \$dbport,
+	   'dbhost|host|h=s'    => \$dbhost,
 	   'kill_list:s' => \$file,
 	   'click_list!' => \$html,
 	   'dir:s'       => \$dir,
 	   'help!'       => \$help,
-	   'h!'          => \$help,
 	  );
 
 unless (($regfile && $compara && $file) or ($dbname && $dbhost && $dbport && $file)){

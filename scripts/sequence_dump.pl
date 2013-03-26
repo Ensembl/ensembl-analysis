@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/sequence_dump.pl,v $
-# $Revision: 1.14 $
+# $Revision: 1.15 $
 
 =head1 NAME
 
@@ -109,7 +109,7 @@ Dust repeats into to separate files
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Data::Dumper;
 use File::Spec;
 use Cwd;
@@ -122,7 +122,7 @@ use Bio::EnsEMBL::Utils::IO::FASTASerializer;
 
 
 my $host   = '';
-my $port   = '';
+my $port   = '3306';
 my $dbname = '';
 my $dbuser = '';
 my $dbpass = '';
@@ -151,17 +151,17 @@ my @logic_names;
 my $mask;
 my $help;
 
-GetOptions( 'dbhost:s'               => \$host,
-            'dbport:n'               => \$port,
-            'dbname:s'               => \$dbname,
-            'dbuser:s'               => \$dbuser,
-            'dbpass:s'               => \$dbpass,
+GetOptions( 'dbhost|host|h:s'               => \$host,
+            'dbport|port|P:n'               => \$port,
+            'dbname|db|D:s'               => \$dbname,
+            'dbuser|user|u:s'               => \$dbuser,
+            'dbpass|pass|p:s'               => \$dbpass,
             'species=s'              => \$species,
             'multi_species'          => \$multi_species,
             'species_id=i'           => \$species_id,
             'header:s'               => \$header,
-            'coord_system_name:s'    => \$coord_system_name,
-            'coord_system_version:s' => \$coord_system_version,
+            'coord_system_name|cs_name:s'    => \$coord_system_name,
+            'coord_system_version|cs_version:s' => \$coord_system_version,
             'output_dir:s'           => \$output_dir,
             'extension:s'            => \$extension,
             'toplevel!'              => \$top_level,

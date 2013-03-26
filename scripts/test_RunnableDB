@@ -71,7 +71,7 @@ in the specified database
 use strict;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 
@@ -99,12 +99,12 @@ my $logger_verbosity = 'OFF'; #how verbose do you want the
 #Bio::EnsEMBL::Utils::Exceptions module to be by default it is set to
 #WARNING as this gives warning and throws but not deprecates or infos
 my @command_args = @ARGV;
-&GetOptions( 
-            'dbhost=s'      => \$dbhost,
-            'dbname=s'      => \$dbname,
-            'dbuser=s'      => \$dbuser,
-            'dbpass=s'      => \$dbpass,
-            'dbport=s'      => \$dbport,
+GetOptions( 
+            'dbhost|host|h=s'      => \$dbhost,
+            'dbname|db|D=s'      => \$dbname,
+            'dbuser|user|u=s'      => \$dbuser,
+            'dbpass|pass|p=s'      => \$dbpass,
+            'dbport|port|P=s'      => \$dbport,
             'input_id:s'  => \$input_id,
             'logic_name|analysis:s'  => \$logic_name,
             'check'       => \$check,

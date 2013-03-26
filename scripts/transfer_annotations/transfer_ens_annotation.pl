@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 
 #
 # Source: schema 20+ ensembl db with both an 
@@ -22,7 +22,7 @@
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -54,11 +54,11 @@ my $c_path   = 'NCBI34';
 
 my $t_path   = 'NCBI35';
 
-&GetOptions( 'host:s'    => \$host,
-             'user:s'    => \$user,
-             'pass:s'    => \$pass,
-             'port:s'    => \$port,
-             'dbname:s'  => \$dbname,
+GetOptions( 'host|dbhost|h:s'    => \$host,
+             'user|dbuser|u:s'    => \$user,
+             'pass|dbpass|p:s'    => \$pass,
+             'port|dbport|P:s'    => \$port,
+             'dbname|db|D:s'  => \$dbname,
              'c_host:s'    => \$c_host,
              'c_user:s'    => \$c_user,
              'c_pass:s'    => \$c_pass,

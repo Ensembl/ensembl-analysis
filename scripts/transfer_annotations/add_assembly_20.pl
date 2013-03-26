@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# $Revision: 1.3 $
+# $Revision: 1.4 $
 
 #
 # Source: schema 20+ ensembl db with a 'new' assembly (eg NCBI35)
@@ -16,7 +16,7 @@
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
@@ -48,12 +48,12 @@ my $chrstart = undef;
 my $chrend   = undef;
 my $version     = 'NCBI35';
 
-&GetOptions( 
-  'source_host:s'    => \$source_host,
-  'source_user:s'    => \$source_user,
-  'source_pass:s'    => \$source_pass,
-  'source_port:s'    => \$source_port,
-  'source_dbname:s'  => \$source_dbname,
+GetOptions( 
+  'source_host|dbhost|host|h:s'    => \$source_host,
+  'source_user|dbuser|user|u:s'    => \$source_user,
+  'source_pass|dbpass|pass|p:s'    => \$source_pass,
+  'source_port|dbport|port|P:s'    => \$source_port,
+  'source_dbname|dbname|db|D:s'  => \$source_dbname,
   'target_host:s'=> \$target_host,
   'target_user:s'=> \$target_user,
   'target_pass:s'=> \$target_pass,
