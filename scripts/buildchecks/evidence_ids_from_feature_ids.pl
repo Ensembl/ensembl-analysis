@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/buildchecks/evidence_ids_from_feature_ids.pl,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 
 =head1 NAME
 
@@ -73,7 +73,7 @@ the ensembl-dev mailing list <dev@ensembl.org>
 use warnings ;
 use strict;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use SupportingEvidenceInfo;
 
@@ -93,12 +93,12 @@ my $verbose;
 my $pfetch = 1;
 my $help;
 my $only_primary;
-&GetOptions( 
-            'dbhost|host=s'      => \$dbhost,
-            'dbname=s'      => \$dbname,
-            'dbuser|user=s'      => \$dbuser,
-            'dbpass|pass=s'      => \$dbpass,
-            'dbport|port=s'      => \$dbport,
+GetOptions( 
+            'dbhost|host|h=s'      => \$dbhost,
+            'dbname|db|D=s'      => \$dbname,
+            'dbuser|user|u=s'      => \$dbuser,
+            'dbpass|pass|p=s'      => \$dbpass,
+            'dbport|port|P=s'      => \$dbport,
             'feature_id=s' => \$protein_id,
             'evidence_type=s' => \$table_name,
             'id_type=s' => \$id_type,

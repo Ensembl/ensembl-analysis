@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/buildchecks/check_GBGenes.pl,v $
-# $Revision: 1.21 $
+# $Revision: 1.22 $
 
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 
@@ -93,7 +93,7 @@ directory or alternatively put this directory in your PERL5LIB
 
 use strict;
 use warnings;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use TranscriptChecker;
@@ -179,11 +179,11 @@ my $help;
 my @genetypes;
 
 GetOptions(
-            'dbhost|host:s'    => \$host,
-            'dbuser|user:s'    => \$user,
-            'dbpass|pass:s'    => \$pass,
-            'dbport|port:n'    => \$port,
-            'dbname:s'         => \$dbname,
+            'dbhost|host|h:s'    => \$host,
+            'dbuser|user|u:s'    => \$user,
+            'dbpass|pass|p:s'    => \$pass,
+            'dbport|port|P:n'    => \$port,
+            'dbname|db|D:s'         => \$dbname,
             'dnahost:s'        => \$dnahost,
             'dnaport:n'        => \$dnaport,
             'dnadbname:s'      => \$dnadbname,
@@ -191,7 +191,7 @@ GetOptions(
             'path:s'           => \$path, 
             'ignorewarnings!'  => \$ignorewarnings,
             'chromosomes:s'    => \@chromosomes,
-            'coordsystem:s'    => \$coordsystem,
+            'coordsystem|cs_name:s'    => \$coordsystem,
             'chrstart:n'       => \$specstart,
             'chrend:n'         => \$specend,
             'schema:n'         => \$schema,
