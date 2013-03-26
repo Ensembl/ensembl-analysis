@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/prepare_cdnas.pl,v $
-# $Revision: 1.15 $
+# $Revision: 1.16 $
 
 =head1 NAME
 
@@ -64,7 +64,7 @@ use warnings;
 use Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
 use Bio::SeqIO;
 use Bio::EnsEMBL::KillList::KillList;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::ExternalData::Mole::DBXref;
 use Bio::EnsEMBL::ExternalData::Mole::Entry;
@@ -88,10 +88,10 @@ my $dbport      = 3306;
 my $min_length  = 0;
 
 GetOptions(
-        'dbnames=s'              => \@dbnames,
-        'dbuser=s'               => \$dbuser,
-        'dbhost=s'               => \$dbhost,
-        'dbport=s'               => \$dbport,
+        'dbnames|db|D=s'              => \@dbnames,
+        'dbuser|user|u=s'               => \$dbuser,
+        'dbhost|host|h=s'               => \$dbhost,
+        'dbport|port|P=s'               => \$dbport,
         'infile=s'               => \$infile,
         'outfile=s'              => \$outfile,
         'annotation=s'           => \$annotation_file,

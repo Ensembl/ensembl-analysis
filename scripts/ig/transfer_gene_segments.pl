@@ -91,11 +91,11 @@ Ig gene segments.
 
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/ig/transfer_gene_segments.pl,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 
 use strict;
 use warnings;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Digest::MD5 qw(md5_hex);
@@ -114,10 +114,10 @@ $dna_dbport = 3306 ;
 my $sub_biotypes = 0;
 my $verbose = 0;
 
-GetOptions( 'qydbname=s'   => \$dbname,
-            'qydbuser=s'   => \$dbuser,
-            'qydbhost=s'   => \$dbhost,
-            'qydbport=s'   => \$dbport,
+GetOptions( 'qydbname|dbname|db|D=s'   => \$dbname,
+            'qydbuser|dbuser|user|u=s'   => \$dbuser,
+            'qydbhost|dbhost|host|h=s'   => \$dbhost,
+            'qydbport|dbport|port|P=s'   => \$dbport,
             'tgdbname=s'   => \$tgdbname,
             'tgdbuser=s'   => \$tgdbuser,
             'tgdbhost=s'   => \$tgdbhost,

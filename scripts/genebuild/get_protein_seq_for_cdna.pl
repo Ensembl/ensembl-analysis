@@ -51,7 +51,7 @@ use strict;
 =cut
 
 use Bio::SeqIO;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::ExternalData::Mole::DBXref;
 use Bio::EnsEMBL::ExternalData::Mole::Entry;
@@ -67,14 +67,14 @@ my (
 );
 my $dbuser;
 my $dbhost;
-my $dbport;
+my $dbport=3306;
 
 
-&GetOptions(
-        'dbnames=s'              => \@dbnames,
-        'dbuser=s'               => \$dbuser,
-        'dbhost=s'               => \$dbhost,
-        'dbport=s'               => \$dbport,
+GetOptions(
+        'dbnames|db|D=s'              => \@dbnames,
+        'dbuser|user|u=s'               => \$dbuser,
+        'dbhost|host|h=s'               => \$dbhost,
+        'dbport|port|P=s'               => \$dbport,
         'infile=s'               => \$infile,
         'outfile=s'              => \$outfile,
         'bin_location=s'         => \$bin_location,

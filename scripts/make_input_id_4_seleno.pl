@@ -1,29 +1,29 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/make_input_id_4_seleno.pl,v $
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 
 use warnings;
 use strict;
 
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 
 my $host;
-my $port;
+my $port=3306;
 my $user;
 my $pass;
 my $dbname;
 my $input_id_type;
 my $analysis_id;
 
-&GetOptions(
-            'host=s'               => \$host,
-            'port=s'               => \$port,
-            'user=s'               => \$user,
-            'pass=s'               => \$pass,
-            'dbname=s'             => \$dbname, 
+GetOptions(
+            'host|dbhost|h=s'               => \$host,
+            'port|dbport|P=s'               => \$port,
+            'user|dbuser|u=s'               => \$user,
+            'pass|dbpass|p=s'               => \$pass,
+            'dbname|db|D=s'             => \$dbname, 
             'input_id_type=s'      => \$input_id_type,
             'analysis_id=s'        => \$analysis_id,
             );
