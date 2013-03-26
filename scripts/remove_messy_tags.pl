@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/remove_messy_tags.pl,v $
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 
 # Analyze the alignment of the ditag features
 # Identify & remove ditags from areas where they align in both directions
@@ -28,7 +28,7 @@
 use warnings ;
 use strict;
 use Bio::EnsEMBL::Analysis::Tools::Default;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 $| = 0;
 
@@ -50,8 +50,8 @@ my $slice;
 GetOptions(
 	   'chromosome:s'      => \$slicename,
 	   'verbose!'          => \$verbose,
-           'dbhost:s'          => \$dbhost,
-           'dbname:s'          => \$dbname,
+           'dbhost|host|h:s'          => \$dbhost,
+           'dbname|db|D:s'          => \$dbname,
            'ditag_analysis:s'  => \$ditag_analysis,
 	  );
 

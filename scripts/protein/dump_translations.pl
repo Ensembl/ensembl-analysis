@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/protein/dump_translations.pl,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 
 =head1 NAME
 
@@ -46,7 +46,7 @@ use warnings;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::SeqIO;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 my $dbname = '';
 my $dbhost = '';
@@ -67,11 +67,11 @@ my $slicename;
 my $verbose;
 
 GetOptions(
-    'dbhost=s'    => \$dbhost,
-    'dbname=s'    => \$dbname,
-    'dbuser=s'    => \$dbuser,
-    'dbpass=s'    => \$dbpass,
-    'dbport=s'    => \$dbport,
+    'dbhost|host|h=s'    => \$dbhost,
+    'dbname|db|D=s'    => \$dbname,
+    'dbuser|user|u=s'    => \$dbuser,
+    'dbpass|pass|p=s'    => \$dbpass,
+    'dbport|port|P=s'    => \$dbport,
     'dnadbhost=s' => \$dnadbhost,
     'dnadbname=s' => \$dnadbname,
     'dnadbuser=s' => \$dnadbuser,
