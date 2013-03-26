@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/dump_markers.pl,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 
 # Dumps markers from the marker table into a file, in the format expected by
 # the EPCR Runnable
@@ -44,7 +44,7 @@ perl dump_markers -dbhost myhost -dbuser myuser -dbpass mypass -dbname
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
@@ -52,19 +52,19 @@ my $host   = '';
 my $user   = 'ensro';
 my $pass   = undef;
 my $dbname = '';
-my $port;
+my $port = 3306;
 my $outfile;
 my $help;
 
 
 $| = 1;
 
-&GetOptions(
-            'dbhost:s'   => \$host,
-            'dbuser:s'   => \$user,
-            'dbname:s' => \$dbname,
-            'dbport:n'   => \$port,
-            'dbpass:s'   => \$pass,
+GetOptions(
+            'dbhost|host|h:s'   => \$host,
+            'dbuser|user|u:s'   => \$user,
+            'dbname|db|D:s' => \$dbname,
+            'dbport|port|P:n'   => \$port,
+            'dbpass|pass|p:s'   => \$pass,
             'outfile:s' => \$outfile,
             'help!' => \$help,
            ) or($help = 1);

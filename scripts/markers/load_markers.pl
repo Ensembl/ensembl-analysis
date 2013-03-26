@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/load_markers.pl,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 
 =head1 NAME
 
@@ -52,13 +52,13 @@ perl load_markers.pl -dbhost myhost -dbuser myuser -dbpass
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 my $host;
-my $port;
+my $port=3306;
 my $name;
 my $user;
 my $pass;
@@ -67,12 +67,12 @@ my $source;
 my $help;
 my $write = 1;
 
-&GetOptions(
-            'dbhost:s'      => \$host,
-            'dbport:n'      => \$port,
-            'dbname:s'      => \$name,
-            'dbuser:s'      => \$user,
-            'dbpass:s'      => \$pass,
+GetOptions(
+            'dbhost|host|h:s'      => \$host,
+            'dbport|port|P:n'      => \$port,
+            'dbname|db|D:s'      => \$name,
+            'dbuser|user|u:s'      => \$user,
+            'dbpass|pass|p:s'      => \$pass,
             'file:s'        => \$file,
             'source:s'      => \$source,
             'help!'         => \$help,

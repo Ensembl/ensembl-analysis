@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/load_marker_map_locations.pl,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 
 =head1 NAME
 
@@ -49,13 +49,13 @@ perl load_marker_map_locations.pl -dbhost myhost -dbuser myuser -dbpass
 
 use warnings ;
 use strict;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 my $host;
-my $port;
+my $port=3306;
 my $dbname;
 my $user;
 my $pass;
@@ -64,12 +64,12 @@ my $map_file;
 my $help;
 my $write;
 
-&GetOptions( 
-            'dbhost:s'      => \$host,
-            'dbport:n'      => \$port,
-            'dbname:s'      => \$dbname,
-            'dbuser:s'      => \$user,
-            'dbpass:s'      => \$pass,
+GetOptions( 
+            'dbhost|host|h:s'      => \$host,
+            'dbport|port|P:n'      => \$port,
+            'dbname|db|D:s'      => \$dbname,
+            'dbuser|user|u:s'      => \$user,
+            'dbpass|pass|p:s'      => \$pass,
             'map_name:s'    => \$map_name,
             'map_file:s'    => \$map_file,
             'write'         => \$write,

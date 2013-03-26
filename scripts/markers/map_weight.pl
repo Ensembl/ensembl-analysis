@@ -5,16 +5,17 @@ use warnings ;
 use strict;
 use DBI;
 
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 
 my ( $host, $user, $pass, $port, $dbname );
 my $verbose = 0;
+$port = 3306;
 
-GetOptions( "host=s", \$host,
-	    "user=s", \$user,
-	    "pass=s", \$pass,
-	    "port=i", \$port,
-	    "dbname=s", \$dbname,
+GetOptions( "host|dbhost|h=s", \$host,
+	    "user|dbuser|u=s", \$user,
+	    "pass|dbpass|p=s", \$pass,
+	    "port|dbport|P=i", \$port,
+	    "dbname|db|D=s", \$dbname,
 	    "verbose", \$verbose
 	  );
 

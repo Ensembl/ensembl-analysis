@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/unmapped_markers.pl,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 
 use strict;
 use warnings;
 $| = 1;
 
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::UnmappedObject;
 use Bio::EnsEMBL::DBSQL::UnmappedObjectAdaptor;
 use Bio::EnsEMBL::Map::DBSQL::MarkerAdaptor;
@@ -24,12 +24,12 @@ my $ln = 'Marker';
 my $dry_run = 0;
 
 GetOptions(
-	   'host|dbhost:s'      => \$host,
-	   'user|dbuser:s'      => \$user,
-	   'dbname:s'           => \$dbname,
-	   'port|dbport:n'      => \$port,
+	   'host|dbhost|h:s'      => \$host,
+	   'user|dbuser|u:s'      => \$user,
+	   'dbname|db|D:s'           => \$dbname,
+	   'port|dbport|P:n'      => \$port,
 	   'logic_name:s'       => \$ln,
-	   'pass|dbpass:s'      => \$pass,
+	   'pass|dbpass|p:s'      => \$pass,
 	   'max_duplicates:n'   => \$max_duplicates,
            'dry_run!'           => \$dry_run,
 	  );
