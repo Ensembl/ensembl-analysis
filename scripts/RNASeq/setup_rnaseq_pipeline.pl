@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.40 $
+# $Revision: 1.41 $
 #
 
 use warnings ;
@@ -1062,7 +1062,6 @@ $str
              logic_name => 'refine_" . $tissue_by_id{$row->{ID}} ."',
              output_dir => '".$output_dir ."/refine_".$row->{ID}."_pipeline',
              batch_size => ".$slice_batches.",
-             lsf_perl  => '/usr/local/bin/perl',
              memory    => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
              resource  => 'select[myens_".$ref_load."tok>800] && select[myens_".$refine_load."tok>800] ' .  'rusage[myens_".$ref_load."tok=25:myens_".$refine_load."tok=25]',
        },
@@ -1287,7 +1286,6 @@ use vars qw(%Config);
              logic_name => "refine_all",
              output_dir => "'.$output_dir .'/refine_all_pipeline",
              batch_size => '.$slice_batches.',
-             lsf_perl  => "/usr/local/bin/perl",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
              resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$refine_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25:myens_'.$refine_load.'tok=25]\',
        },
@@ -1295,7 +1293,6 @@ use vars qw(%Config);
              logic_name => "bam2genes",
              output_dir => "'.$output_dir .'/bam2genes_pipeline",
              batch_size => '.$slice_batches.',
-             lsf_perl  => "/usr/local/bin/perl",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
              resource  => \'select[myens_'.$ref_load.'tok>800] && select[myens_'.$rough_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25:myens_'.$rough_load.'tok=25]\',
        },
@@ -1307,7 +1304,6 @@ use vars qw(%Config);
              logic_name => "bam2introns",
              output_dir => "'.$output_dir .'/bam2introns_pipeline",
              batch_size => '.$rough_batches.',
-             lsf_perl  => "/usr/local/bin/perl",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
              resource  => \'select[myens_'.$ref_load.'tok>800] \' .  \'rusage[myens_'.$ref_load.'tok=25]\',
        },
