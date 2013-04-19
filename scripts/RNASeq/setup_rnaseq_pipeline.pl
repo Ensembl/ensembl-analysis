@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.41 $
+# $Revision: 1.42 $
 #
 
 use warnings ;
@@ -716,11 +716,12 @@ my $rnaseq_blast =
                                   -logic_name    => "rnaseqblast",
                                   -input_id_type => 'CHROMOSOME',
                                   -module        => 'BlastRNASeqPep',
-                                  -paramteres => '-cpus => 1, -hitdist => 40',
+                                  -parameters => '-cpus 1 -hitdist 40',
                                   -program_file => 'wublastp',
                                   -program      => 'wublastp',
                                   -db_file      => $RNASEQCONFIG->{UNIPROTDB},
   );
+
 
 my $bam2genes_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $bam2genes );
