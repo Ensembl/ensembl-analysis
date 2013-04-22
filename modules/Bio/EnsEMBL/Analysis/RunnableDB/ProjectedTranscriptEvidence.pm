@@ -31,7 +31,7 @@ dev@ensembl.org
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProjectedTranscriptEvidence.pm,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProjectedTranscriptEvidence;
 
 use vars qw(@ISA);
@@ -190,27 +190,17 @@ sub write_output {
   my ( $self ) = @_;
   my @output = @{$self->output};
   my @p_transcripts = @{$self->out_transcripts};
+  print "Got " .  scalar(@output) ." genomic features \n";
+  throw("Should only be one dna align feature per projected transcript.\n") unless  scalar(@output) == scalar(@p_transcripts);
 
-  #debug....
-  #foreach my $t (@p_transcripts){     
-  #  print STDERR "*** PROJECTED".$t->stable_id."   ".$t->dbID."\n";  
-  #}
+  my $out_count = 0;
 
-  # try to handle cases where there are no projected transcripts on the slice
-  print STDERR "Got " .  scalar(@output) ." genomic features \n";
-  print STDERR "Got " .  scalar(@p_transcripts) ." projected transcripts \n";
-  if (scalar(@output) != 0 ) {  
-    warn("Should only be one dna align feature per projected transcript.\n") unless scalar(@output) == scalar(@p_transcripts);
-
-    my $out_count = 0;
-
-    foreach my $transcript (@p_transcripts){
-      my $tsfa = $self->get_dbadaptor($self->OUTGENEDB)->get_TranscriptSupportingFeatureAdaptor;
-      my $t_id = $transcript->dbID;
-      my $gf = $output[$out_count];
-      $tsfa->store($t_id, [$gf]);
-      $out_count++;
-    }
+  foreach my $transcript (@p_transcripts){
+    my $tsfa = $self->get_dbadaptor($self->OUTGENEDB)->get_TranscriptSupportingFeatureAdaptor;
+    my $t_id = $transcript->dbID;
+    my $gf = $output[$out_count];
+    $tsfa->store($t_id, [$gf]);
+    $out_count++;
   }
 }
 
