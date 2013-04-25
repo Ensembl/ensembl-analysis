@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.55 $
+# $Revision: 1.56 $
 
 =head1 LICENSE
 
@@ -411,11 +411,9 @@ sub gene_has_assembly_error_attribute {
 
   my $gene = shift;
 
-  my @attribs = @{$gene->get_all_Attributes('hidden_remark')};
-  foreach my $attrib (@attribs) {
-    if ($attrib->value eq 'ASB_protein_coding') {
-      return 1;
-    }
+  my @attribs = @{$gene->get_all_Attributes('NoTransRefError')};
+  if (scalar(@attribs) > 0) {
+    return 1;
   }
   return 0;
 }
@@ -1938,9 +1936,9 @@ CLUSTER:
                     #  . "and changing the biotype to: "
                     #  . $pseudo_gene->biotype . "_ens\n";
 
-                    # if the hav gene has ASB_protein_coding attrib, keep ens protein_coding biotype
+                    # if the hav gene has NoTransRefError attrib, keep ens protein_coding biotype
                     if (gene_has_assembly_error_attribute($pseudo_gene)) {
-                      print "But I found ASB_protein_coding gene attrib in Hav gene ".$pseudo_gene->stable_id." . Ens transcript " . $c_transcript->dbID . " will be kept as ".$c_transcript->biotype .  "_ens\n";
+                      print "But I found NoTransRefError gene attrib in Hav gene ".$pseudo_gene->stable_id." . Ens transcript " . $c_transcript->dbID . " will be kept as ".$c_transcript->biotype .  "_ens\n";
                       $c_transcript->biotype($c_transcript->biotype .  "_ens");
                     } else {
                       #print "And I did not found any assembly error attribute\n";
@@ -2823,12 +2821,12 @@ sub cluster_into_Genes {
 
     my @hav_gene_attrib = @{ $hav_gene->get_all_Attributes() };
 
-    # Want to transfer the ncrna_host and ASB_protein_coding gene attributes from vega gene
+    # Want to transfer the ncrna_host and NoTransRefError gene attributes from vega gene
     # to merged gene.
     foreach my $gene_attrib (@hav_gene_attrib) {
       if ( ($gene_attrib->name() eq 'ncrna_host') or
-           ( ($gene_attrib->code() eq 'hidden_remark') and (($gene_attrib->value() eq 'ASB_protein_coding')) ) ) {
-        print "Found gene_attrib to keep: ". $gene_attrib->code() ." : ". $gene_attrib->value() ."\n";
+           ($gene_attrib->code() eq 'NoTransRefError') ) {
+        print "Found gene_attrib to keep: ". $gene_attrib->code() ."\n";
         $gene_attribs_to_keep{$hav_stable_id} = $gene_attrib;
       }
     }
