@@ -1,7 +1,7 @@
 ### Bio::EnsEMBL::Analysis::RunnableDB::Finished::EST
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/EST.pm,v $
-# $Revision: 1.14 $
+# $Revision: 1.15 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::EST;
 
 use warnings ;
@@ -27,7 +27,7 @@ sub new {
 	# dbobj, input_id, seqfetcher, and analysis objects are all set in
 	# in superclass constructor (RunnableDB.pm)
 	# Also set the BLAST PARAMETERS from the Blast Config file
-	$self->read_and_check_config($BLAST_CONFIG);
+	$self->read_and_check_config($BLAST_CONFIG_BY_LOGIC);
 	return $self;
 }
 
