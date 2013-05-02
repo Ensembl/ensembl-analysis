@@ -54,7 +54,7 @@ affy features???????
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateProbe.pm,v $
-# $Revision: 1.16 $
+# $Revision: 1.17 $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe;
 
 use warnings ;
@@ -106,7 +106,7 @@ sub new {
   #reset to the new default exonerate
   if (not $self->program) {
 	#This is an architecture specific build path
-    $self->program('/lustre/work1/ensembl/gs2/local/x86_64/bin/exonerate');
+    $self->program('/software/ensembl/compara/exonerate/exonerate');
   }
  
 
@@ -159,7 +159,8 @@ sub parse_results {
 
   my $max_mismatches = $self->max_mismatches;
   my $mapping_type   = $self->mapping_type;
-
+  $self->{counts}{total_probe_alignments} =0;
+  $self->{counts}{total_probe_mismatches} =0;
 
   while (<$fh>){
     #print STDERR $_ if $self->_verbose;
@@ -195,6 +196,10 @@ sub parse_results {
 	 $t_id, $t_start, $t_end, $t_strand, $score, 
 	 $perc_id, $q_length, $t_length, $mismatch_count, $scores) = split;
 	
+
+    #warn "(undef, $probe_id, $q_start, $q_end, $q_strand, $t_id, $t_start, $t_end, $t_strand, $score, $perc_id, $q_length, $t_length, $mismatch_count, $scores)";
+
+
 	#Let's validate output formats somehow?
 
 	
@@ -252,7 +257,6 @@ sub parse_results {
 	  }
 	}
 
-	$self->{counts}{total_probe_alignments} ||=0;
 	$self->{counts}{total_probe_alignments}++;
 	$self->{counts}{total_probes}{$probe_id} ||=0;
 	$self->{counts}{total_probes}{$probe_id}++;
@@ -422,7 +426,6 @@ sub parse_results {
       #print "Feature from probe :$probe_id does not match well enough\n";
 	  $self->{counts}{probe_mismatches}{$probe_id} ||=0;
 	  $self->{counts}{probe_mismatches}{$probe_id}++;
-	  $self->{counts}{total_probe_mismatches} ||=0;
 	  $self->{counts}{total_probe_mismatches}++;
 	}
 
