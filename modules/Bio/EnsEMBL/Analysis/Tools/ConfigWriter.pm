@@ -41,7 +41,7 @@ Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ConfigWriter.pm,v $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
 use warnings ;
@@ -464,11 +464,10 @@ sub analysis_from_batchqueue {
 
   Arg[1]    : String, logic name of the analysis
   Arg[2]    : HashRef, hash reference
-  Arg[3]    : (optional) Value, Whatever data you want to add, NO check is done
-  Function  : Add or retrieve a value to an analysis to/from the batch queue file
+  Function  : Add an analysis to the batch queue file
   Returntype: None
   Exceptions:
-  Example   : $self->analysis_from_batchqueue('cdna_update');
+  Example   : $self->add_analysis_to_batchqueue('cdna_update');
 
 =cut
 
@@ -481,6 +480,7 @@ sub add_analysis_to_batchqueue {
     }
     if ($value) {
         throw('You should pass a hash reference instead of a '.ref($value)) if (ref($value) ne 'HASH');
+        $value->{logic_name} = $logic_name;
         push(@{$self->queue_config}, $value);
     }
     else {
