@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.81 $
+# $Revision: 1.82 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -1879,6 +1879,9 @@ sub empty_Transcript{
   fully_load_Transcript($transcript);
   foreach my $sf(@{$transcript->get_all_supporting_features}){
     empty_Object($sf);
+  }
+  foreach my $ise(@{$transcript->get_all_IntronSupportingEvidence}){
+    empty_Object($ise);
   }
   empty_Object($transcript->translation, $remove_stable_id) 
     if($transcript->translation);;
