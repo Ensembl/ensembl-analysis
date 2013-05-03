@@ -44,7 +44,7 @@ Internal methods are usually preceded with a _
 # Let the code begin...
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/HalfwiseHMM.pm,v $
-# $Revision: 1.23 $
+# $Revision: 1.24 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::HalfwiseHMM;
 
 use warnings ;
@@ -488,7 +488,7 @@ sub _check_that_external_db_table_populated {
 
 	# insert the row
 	my $insert_sql =
-q`INSERT INTO external_db (external_db_id, db_name, db_release, status) VALUES(?, ?, ?, ?)`;
+q`INSERT INTO external_db (external_db_id, db_name, db_release, status, priority) VALUES(?, ?, ?, ?, 5)`;
 	$sth = $db->prepare($insert_sql);
 	$sth->execute( $max_db_id, $name, $release, $status );
 	$sth->finish();
