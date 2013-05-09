@@ -61,7 +61,7 @@ Post general queries to B<dev@ensembl.org>
 # Add mode to recreate nr_fasta if already imported?
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ImportArrays.pm,v $
-# $Revision: 1.21 $
+# $Revision: 1.22 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 use warnings ;
@@ -171,22 +171,22 @@ sub run_FASTA{
   #These get_CONFIGFIELD methods use the ARRAY_FORMAT to retrieve the correct config
   my $header_regex = $self->get_IIDREGEXP;
   my %valid_fields = 
-	(
-	 -probe_set   => undef,
-	 -name        => undef,
-	 -array       => undef,
-	 -array_chip  => undef,
-	 -description => undef,
-			   );
+    (
+     -probe_set   => undef,
+     -name        => undef,
+     -array       => undef,
+     -array_chip  => undef,
+     -description => undef,
+    );
   my %field_order = %{$self->get_IFIELDORDER};
 
   #Validate field
-  foreach my $config_field(keys(%field_order)){
+  foreach my $config_field (keys(%field_order)) {
 
-	if(! exists $valid_fields{$config_field}){
-	  throw("Found invalid field on ImportArrays.pm config:\t$config_field\n".
-			"IFIELDORDER must only contain keys:\t".join("\t", keys %valid_fields));
-	}
+    if (! exists $valid_fields{$config_field}) {
+      throw("Found invalid field on ImportArrays.pm config:\t$config_field\n".
+            "IFIELDORDER must only contain keys:\t".join("\t", keys %valid_fields));
+    }
   }
 
   #This is done so we can dynamically assign fields using their match order
@@ -194,153 +194,220 @@ sub run_FASTA{
   my @match_refs = (\$1, \$2, \$3, \$4, \$5);
   #or is there a special array to hold these?
 
-#  warn "We need to count and report the number of probes imported, else throw if none imported\n".
+  #  warn "We need to count and report the number of probes imported, else throw if none imported\n".
   #"or if it doesn't match half the wc of the input file";
   
   open( PROBES, "<".$self->query_file);
  
-  my $cnt    = 0;
-  my $nr_cnt = 0;
+  #todo count these in an array specific way
+  my $cnt     = 0;
+  my $nr_cnt  = 0;
+  my $skipped_reps = 0;
+  my $skipped_redundant_seq = 0;
 
-  while(<PROBES>){
+  while (<PROBES>) {
     chomp;
 	
-    if(/$header_regex$/){#This places header values into @match_refs
-	  $cnt++;
+    if (/$header_regex$/) {     #This places header values into @match_refs
+      $cnt++;
 
-      if($current_sequence){
+      if ($current_sequence) {
 		
-        if(! $current_array_chip){
+        if (! $current_array_chip) {
           throw ("Have sequence $current_sequence but no current array chip!\n");
         }
 
-		#You can only place the probe into the hash at this point, because
+        #You can only place the probe into the hash at this point, because
         #it's only at this point that you know you have the full sequence
-		#Set probeset here as we delete from hash when creating probe
-		$probe_set = (exists $probe_attrs{'-probe_set'}) ?  $probe_attrs{'-probe_set'} : undef;
+        #Set probeset here as we delete from hash when creating probe
+
+       #use Data::Dumper;
+       # if($probe_attrs{'-name'} eq 'CUST_75_PI427147524'){
+       #   warn Dumper(\%probe_attrs);
+       # }
+
+
+        $probe_set = (exists $probe_attrs{'-probe_set'}) ?  $probe_attrs{'-probe_set'} : undef;
         $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
-        if(! $existing_probe){
-		  $nr_cnt++;
+        if (! $existing_probe) {
+          warn "creating new probe"  if($probe_attrs{'-name'} eq 'CUST_75_PI427147524'); 
+
+          $nr_cnt++;
           $existing_probe = $self->create_new_probe(
-													$current_array_chip, 
-													\%probe_attrs,
-													length($current_sequence),
-												   );
+                                                    $current_array_chip, 
+                                                    \%probe_attrs,
+                                                    length($current_sequence),
+                                                   );
 
           $probes_by_sequence{$probe_set}{$current_sequence} = $existing_probe;
-        }
-		else{
+        } else {
+          #warn  "using existing probe ".Dumper($existing_probe)  if($probe_attrs{'-name'} eq 'CUST_75_PI427147524');
+
+
+
+
+
+          #Sanity check here that it is not a technical replicate
+          #as these will break the primary key of the probe table
+          #due to the fact we don't model spatial differences here (e.g. x/y coords)
+          #This is done implicitly for Affy arrays as they integrate the x/y coords into the probe names
+
+          my $existing_name = $existing_probe->get_probename($probe_attrs{'-array'});
+
+          if($existing_name){
+            #Must have found either a technical replicate with an identical name
+            #or a new probe name with identical seq to a previously seen probe
+            #Currently the model only allows one name per probeset per array
+            #Accomodating this would require a lot of API work
+            #would likely break the webcode too
+
+            if ($existing_name eq $probe_attrs{'-name'}) {
+              my $msg = "Skipping identical technical replicate probe:\t".$probe_attrs{'-name'}.
+                ' '.$current_sequence."\n";
         
-		  $self->add_array_chip_to_existing_probe
-			(
-			 $existing_probe, 
-			 $current_array_chip, 
-			 $probe_set,
-			 $probe_attrs{'-name'},
-			);
+              if (! $self->{skip_config}{$probe_attrs{'-array'}}{skip_reps}) {
+                throw($msg);
+              }
+        
+              warn $msg;
+              $skipped_reps ++;  
+            } else {
+              my $msg ="Found non-unique name for probe $existing_name replicate, skipping:\t".
+                $probe_attrs{'-name'};
+
+              if (! $self->{skip_config}{$probe_attrs{'-array'}}{skip_non_unique_names}) {
+                throw($msg);
+              }
+        
+              warn $msg;
+
+              $skipped_redundant_seq ++;
+            } 
+          }
+          else {
+            $existing_probe->add_array_chip_probename($current_array_chip->dbID, 
+                                                      $probe_attrs{'-name'}, 
+                                                      $current_array_chip->get_Array);
+
+            #$self->add_array_chip_to_existing_probe
+            #  (
+            #   $existing_probe, 
+            #   $current_array_chip, 
+            #   $probe_set,
+            #   $probe_attrs{'-name'},
+            #  );
+          }
         }
 
         $current_sequence = undef;
       }
 
 
-	  #Set probe attrs using field order config
-	  foreach my $field(keys %field_order){
+      #Set probe attrs using field order config
+      foreach my $field (keys %field_order) {
 
-		#Skip empty string as we prefer NULLs in the DB
-		$probe_attrs{$field} = ${$match_refs[$field_order{$field}]} if(${$match_refs[$field_order{$field}]} ne '');
-	  }
+        #Skip empty string as we prefer NULLs in the DB
+        if(${$match_refs[$field_order{$field}]} ne ''){
 
-	  #Set current array chip
+          $probe_attrs{$field} = ${$match_refs[$field_order{$field}]};
+        }
+      }
+
+      #Set current array chip
       $current_array_chip = $array_chips{$probe_attrs{-array_chip}};
 
-	  #Create new array chip
-      if(! $current_array_chip){		
+      #Create new array chip
+      if (! $current_array_chip) {		
         $current_array_chip = $self->create_new_array_chip($probe_attrs{-array}, $probe_attrs{-array_chip});
         $array_chips{$probe_attrs{-array_chip}} = $current_array_chip;
       }
 
-    }
-    elsif(/^[NSWRYKMBDHVATGCU]+$/i){#build sequence
-	$sequence_fragment = $_;
-
-      if($current_sequence){
+    } elsif (/^[NSWRYKMBDHVATGCU]+$/i) { #build sequence
+      $sequence_fragment = $_;
+  
+      if ($current_sequence) {
         $current_sequence = $current_sequence.$sequence_fragment;
-      }
-	  else{
+      } else {
         $current_sequence = $sequence_fragment;
       }
+    } else {
+      throw('Found header which does not match '.$self->INPUT_FORMAT." regex($header_regex):\n$_");
     }
-	else{
-	  throw('Found header which does not match '.$self->INPUT_FORMAT." regex($header_regex):\n$_");
-	}
   }
 
   #deal with last entry
   $array_chips{$probe_attrs{-array_chip}} = $current_array_chip;
-$probe_set = (exists $probe_attrs{'-probe_set'}) ? $probe_attrs{'-probe_set'} : undef;
+  $probe_set = (exists $probe_attrs{'-probe_set'}) ? $probe_attrs{'-probe_set'} : undef;
   $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
-  if(! $existing_probe){
-	$nr_cnt++;
+  if (! $existing_probe) {
+    $nr_cnt++;
     $existing_probe =  $self->create_new_probe(
-											   $current_array_chip, 
-											   \%probe_attrs,
-											   length($current_sequence),
-											  );
+                                               $current_array_chip, 
+                                               \%probe_attrs,
+                                               length($current_sequence),
+                                              );
 
     $probes_by_sequence{$probe_set}{$current_sequence} = $existing_probe;
-  }
-  else{
-    $self->add_array_chip_to_existing_probe
-	  (
-	   $existing_probe, 
-	   $current_array_chip, 
-	   $probe_set,
-	   $probe_attrs{'-name'},
-	  );
+  } else {
+
+    my $existing_name = $existing_probe->get_probename($probe_attrs{'-array'});
+
+    if($existing_name){
+      #Must have found either a technical replicate with an identical name
+      #or a new probe name with identical seq to a previously seen probe
+      #Currently the model only allows one name per probeset per array
+      #Accomodating this would require a lot of API work
+      #would likely break the webcode too
+      
+      if ($existing_name eq $probe_attrs{'-name'}) {
+        my $msg = "Skipping identical technical replicate probe:\t".$probe_attrs{'-name'}.
+          ' '.$current_sequence."\n";
+        
+        if(! $self->{skip_config}{$probe_attrs{'-array'}}{skip_reps}){
+          throw($msg);
+        }
+        
+        warn $msg;
+        $skipped_reps ++;  
+      }
+      else{
+        my $msg ="Found non-unique name for probe $existing_name replicate, skipping:\t".
+          $probe_attrs{'-name'};
+
+        if(! $self->{skip_config}{$probe_attrs{'-array'}}{skip_non_unique_names}){
+          throw($msg);
+        }
+        
+        warn $msg;
+
+        $skipped_redundant_seq ++;
+      }
+    } else {
+      
+      $existing_probe->add_array_chip_probename($current_array_chip->dbID, 
+                                                $probe_attrs{'-name'}, 
+                                                $current_array_chip->get_Array);
+    }
   }  
 
   print "Seen $cnt fasta records\n";
   print "Created $nr_cnt probes\n";
-
+  print "Skipped $skipped_reps identical replicates\n";
+  print "Skipped $skipped_redundant_seq replicates with non-unique names\n";
+  
 
   throw('No probes stored! Maybe you need to tweak your IIDREGEXP config for this format') if($nr_cnt == 0);
-
-
   $self->probes(\%probes_by_sequence);
-
   return;
 }
 
-sub add_array_chip_to_existing_probe{
-  my ($self, $probe, $array_chip, $probeset, $probename) = @_;
-
-  #We can have non-unique probes on a non-probe_set array with different IDs
-  #This should "never" happen, but it does. On plate duplicates or simply bas probe design
-
-  #We really want to test to see if we already have a name for this probe on this array
-  #my @all_probenames = @{$probe->get_all_probenames};
-
-  #Is this not all done by Probe::add_array_chip_probename?
-
-  #my $name = $probe->get_probename($array_chip->get_Array->name);
-
-  #if($name){
-
-#	if($name eq $probename){
-#	  throw("Found duplicate fasta records for:\y".$array_chip->get_Array->name.':'.$probeset.':'.$name);
-#	}
-#	else{
-  #	  throw('Found probeset('.$probeset.")  on Array(".$array_chip->get_Array->name.
-#			") with duplicate probe sequence for probes $probename and $name\n".
-#			'Need to alter Probe/Adaptor to allow probe duplicates or create separate probes in ImportArrays?');
-#	}
-#  }
-# #MSG: Found probeset(AF012129_at)  on Array(Mu11LsubA) with duplicate probe sequence for probes 251:249; and 241:249;
-  $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->get_Array);
-}
+#sub add_array_chip_to_existing_probe{
+#  my ($self, $probe, $array_chip, $probeset, $probename) = @_;
+#
+#  $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->get_Array);
+#}
 
 #can we replace these var with $_[n] for speed?
 sub create_new_probe {
@@ -362,7 +429,7 @@ sub create_new_array_chip {
   my($self, $array_name, $design_id) = @_;
 
   if(! ($array_name && $design_id)){
-	throw('Need to pass an Array name and an ArrayChip design ID');
+    throw('Need to pass an Array name and an ArrayChip design ID');
   }
 
   
@@ -388,6 +455,12 @@ sub create_new_array_chip {
   my $array_adaptor = $self->outdb->get_ArrayAdaptor;
   my $achip_adaptor = $self->outdb->get_ArrayChipAdaptor;
   my $array_params = $self->get_ARRAY_PARAMS_by_array_name($array_name);
+
+  if(exists $array_params->{skip_config}){
+    $self->{skip_config}{$array_name} = $array_params->{skip_config};
+    delete $array_params->{skip_config};
+  }
+
   my $array = $array_adaptor->fetch_by_name_vendor($array_name, $array_params->{'-vendor'});
   my $array_chip;
 
