@@ -1,7 +1,7 @@
 package setup_rnaseq_pipeline_config;
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
-# $Revision: 1.15 $
+# $Revision: 1.16 $
 
 use strict;
 use vars qw(%Config);
@@ -36,8 +36,13 @@ use vars qw(%Config);
     # blast hits.
     BLASTDB => "BLAST_DB",
 
-    # Path to the directory containing your Bio::Ensembl::Analysis::Config and Bio::Ensembl::Analysis::Config.
-    CONFIG_DIR => "/path/to/myconfig",
+    # Path to the directory containing your
+    # Bio::Ensembl::Analysis::Config.
+    ANALYSISCONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Analysis/Config",
+
+    # Path to the directory containing your
+    # Bio::Ensembl::Pipeline::Config.
+    PIPELINECONFIG_DIR => "/path/to/my/Bio/EnsEMBL/Pipeline/Config",
 
     # Path to base directory holding your FastQ files.
     INPUT_DIR => "/path/to/my/fastq",
