@@ -40,7 +40,7 @@ different configs by logic name).
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ImportArrays.pm,v $
-# $Revision: 1.33 $
+# $Revision: 1.34 $
 package Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
 use warnings ;
@@ -1110,26 +1110,30 @@ use vars qw( %Config );
       #                            -class   => 'AGILENT',	
       #                            },
 
-      'SurePrint_GPL16709_4x44k' => {
-                                   -name => 'SurePrint_GPL16709_4x44k',
-                                   -vendor => 'AGILENT',
-                                  #-setsize => undef,
-                                  -format  => 'EXPRESSION',
-                                  -type    => 'OLIGO',
-                                  #-description => '',
-                                  -class   => 'AGILENT',	
-                                  },
+      'SurePrint_GPL16709_4x44k' => 
+      {
+       -name => 'SurePrint_GPL16709_4x44k',
+       -vendor => 'AGILENT',
+       #-setsize => undef,
+       -format  => 'EXPRESSION',
+       -type    => 'OLIGO',
+       #-description => '',
+       -class   => 'AGILENT',	
+       skip_config => {skip_reps =>1, skip_non_unique_names=>1},
+      },
 
-      'SurePrint_GPL7083_4x44k' => {
-                                   -name => 'SurePrint_GPL7083_4x44k',
-                                   -vendor => 'AGILENT',
-                                  #-setsize => undef,
-                                  -format  => 'EXPRESSION',
-                                  -type    => 'OLIGO',
-                                  #-description => '',
-                                  -class   => 'AGILENT',	
-                                  },
-
+      'SurePrint_GPL7083_4x44k' => 
+      {
+       -name => 'SurePrint_GPL7083_4x44k',
+       -vendor => 'AGILENT',
+       #-setsize => undef,
+       -format  => 'EXPRESSION',
+       -type    => 'OLIGO',
+       #-description => '',
+       -class   => 'AGILENT',	
+       skip_config => {skip_reps =>1, skip_non_unique_names=>1},
+      },
+      
       #Rat only
       'WholeGenome_4x44k_v3' => {
                                  -name => 'WholeGenome_4x44k_v3',
