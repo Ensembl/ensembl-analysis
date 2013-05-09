@@ -40,7 +40,7 @@ different configs by logic name).
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ImportArrays.pm,v $
-# $Revision: 1.32 $
+# $Revision: 1.33 $
 package Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
 use warnings ;
@@ -1098,9 +1098,30 @@ use vars qw( %Config );
 					  
                     
       #Rabbit only
+      
+      #This naming was erronoes and non-species specific
+      #'SurePrint_G2519F_4x44k' => {
+      #                             -name => 'SurePrint_G2519F_4x44k',
+      #                             -vendor => 'AGILENT',
+      #                            #-setsize => undef,
+      #                            -format  => 'EXPRESSION',
+      #                            -type    => 'OLIGO',
+      #                            #-description => '',
+      #                            -class   => 'AGILENT',	
+      #                            },
 
-      'SurePrint_G2519F_4x44k' => {
-                                   -name => 'SurePrint_G2519F_4x44k',
+      'SurePrint_GPL16709_4x44k' => {
+                                   -name => 'SurePrint_GPL16709_4x44k',
+                                   -vendor => 'AGILENT',
+                                  #-setsize => undef,
+                                  -format  => 'EXPRESSION',
+                                  -type    => 'OLIGO',
+                                  #-description => '',
+                                  -class   => 'AGILENT',	
+                                  },
+
+      'SurePrint_GPL7083_4x44k' => {
+                                   -name => 'SurePrint_GPL7083_4x44k',
                                    -vendor => 'AGILENT',
                                   #-setsize => undef,
                                   -format  => 'EXPRESSION',
