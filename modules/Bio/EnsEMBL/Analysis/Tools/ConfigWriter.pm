@@ -41,7 +41,7 @@ Bio::EnsEMBL::Analysis::Tools::ConfigWriter
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ConfigWriter.pm,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
 use warnings ;
@@ -176,6 +176,7 @@ sub write_config {
     $config_hash =~ s/'(\d+)'/$1/gs;
     $config_hash =~ s/'undef'/undef/gs;
     $config_hash =~ s/\\'//gs;
+    $config_hash =~ s/\\\\([^\\])/\\$1/gs;
     $config_hash =~ s/ '"([^"']*)"'/ '$1'/gs;
     my $backup;
     $backup = $self->backup if ($backup_if_exists and -e $self->get_module_path);
