@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/prepare_proteome.pl,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 
 # call 
 #
@@ -28,11 +28,13 @@ my $skip_xs = 5;
 my $use_killlist = 1;
 my $skip_xps = 1;
 my $logger_verbosity = "NONE";
+my $min_length = 15;
 
 &GetOptions( "proteome_file|pmatch_output_file:s"    => \$output_file,
              "file_info:s@"       => \@file_info,
              "skip_xs:s"          => \$skip_xs,
              "use_killlist!"      => \$use_killlist,
+             "min_length:i"       => \$min_length,
              "logger_verbosity:s" => \$logger_verbosity, );
 
 logger_verbosity($logger_verbosity);
@@ -41,6 +43,7 @@ my %kill_list = %{$kill_list_object->get_kill_list()};
 
 my %files;
 my %refseq;
+my %uniprot;
 
 foreach my $file_info (@file_info) {
   #print "Have file info ".$file_info."\n";
@@ -51,6 +54,8 @@ foreach my $file_info (@file_info) {
   $files{$file} = $regex;
   if ( $other && $other =~ /^refseq$/i ) {
     $refseq{$file} = 1;
+  } elsif ( $other && $other =~ /^uniprot$/i ) {
+    $uniprot{$file} = 1;
   }
 }
 
@@ -78,6 +83,7 @@ my $output_io = Bio::SeqIO->new( -format => 'fasta',
 my %ids;
 foreach my $file(keys(%files)) {
   my $refseq = $refseq{$file};
+  my $uniprot = $uniprot{$file};
   my $regex = $files{$file};
   print "\nFile '" . $file . "' with regex: '" . $regex . "' was specified.\n\n";
   my $x_string;
@@ -110,9 +116,26 @@ foreach my $file(keys(%files)) {
         next SEQ;
       }
     }
+    if (length($seq->seq) < $min_length) {
+      logger_info($id." is shorter than $min_length");
+      next SEQ;
+    }
     if($refseq && !($id =~ /^NP/)){
       logger_info($id." isn't an NP so skipping");
       next SEQ;
+    }
+    if($uniprot && !($id =~ /^sp/ || $id =~ /^tr/)){
+      logger_info($id." isn't a sp or tr ");
+      throw("Don't know what to do with uniprot id $id");
+    } elsif ($uniprot && $regex eq '(\S+)') {
+      # need to fix the header because it will look like
+      #sp|Q9I9D5|RX1_ASTFA
+      #tr|O42292|O42292_ASTMX
+      $id =~ /^(sp|tr)\|(\w+)\|\w+$/;
+      $id = $2;
+      if ($id !~ /\w+/) {
+        throw("uniprot id looks wrong: $id");
+      }
     }
     if ($seq->seq =~/(B|Z|J)/) {
       warn("AMBIGUITY CODE FOUND!!! $id contains at least one residue of code $1. May interfere with Pmatch.");
