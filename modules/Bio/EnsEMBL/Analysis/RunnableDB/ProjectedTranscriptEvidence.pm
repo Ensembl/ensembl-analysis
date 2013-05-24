@@ -31,7 +31,7 @@ dev@ensembl.org
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProjectedTranscriptEvidence.pm,v $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProjectedTranscriptEvidence;
 
 use vars qw(@ISA);
@@ -93,62 +93,121 @@ sub fetch_input {
   my $outgene_db = $self->get_dbadaptor($self->OUTGENEDB);
 
   my $out_sa = $outgene_db->get_SliceAdaptor;
-  my $ga = $outgene_db->get_GeneAdaptor;
+  my $out_ga = $outgene_db->get_GeneAdaptor;
+  my $out_ta = $outgene_db->get_TranscriptAdaptor;
+  my $ga = $gene_db->get_GeneAdaptor;
   my $ta = $gene_db->get_TranscriptAdaptor;
-  my $outta = $outgene_db->get_TranscriptAdaptor;
-  $self->outta($outta);
+  $self->outta($out_ta);
 
   my $patch_slice = $out_sa->fetch_by_name($self->input_id);
-  my @out_genes = @{$ga->fetch_all_by_Slice($patch_slice)};
+  my @out_genes = @{$out_ga->fetch_all_by_Slice($patch_slice)};
   my @out_transcripts;
 
   #make sure get transcripts outside the patch
-  foreach my $gene(@out_genes){
-    my @trans = @{$gene->get_all_Transcripts};
-    foreach my $t (@trans){
-      push @out_transcripts, $t;
+  foreach my $out_gene (@out_genes) {
+    my @out_trans = @{$out_gene->get_all_Transcripts};
+    foreach my $out_t (@out_trans) {
+      if ($out_t->analysis->logic_name() =~ m/^proj/) {
+        push @out_transcripts, $out_t;
+      }
+    }
+  }
+
+  #get reference slice
+  my $ref_slice = get_ref_slice($patch_slice);
+  if (!$ref_slice) {
+    throw("Cannot find reference slice for patch slice ".$patch_slice->name());
+  }
+
+  #create reference transcripts hash
+  my @ref_genes = @{$ga->fetch_all_by_Slice($ref_slice)};
+  my @ref_transcripts;
+  my %ref_trans_hash = ();
+  foreach my $ref_gene (@ref_genes){ #make sure get transcripts outside the patch
+    my @ref_trans = @{$ref_gene->get_all_Transcripts};
+    foreach my $t (@ref_trans) {
+      $ref_trans_hash{get_transcript_exon_key($t)} = $t->stable_id;
+      push @ref_transcripts, $t;
     }
   }
 
   $self->out_transcripts(\@out_transcripts);
-  print "Fetched ".scalar(@out_transcripts)." transcripts\n";
-
-  #my @runnables = ();
+  print "Fetched ".scalar(@out_transcripts)." projected transcripts\n";
+  print "Fetched ".scalar(@ref_transcripts)." reference transcripts\n";
 
   foreach my $out_transcript (@out_transcripts){
     #get the transcripts (reference and output from projection)
-    my $ref_transcript = $ta->fetch_by_stable_id($out_transcript->stable_id);
 
-    my $ref_seq = $ref_transcript->seq;
-    my $out_seq = $out_transcript->seq;
+    my @parent_exon_key_attribs = @{$out_transcript->get_all_Attributes('parent_exon_key')};
+    my $parent_exon_key = "";
 
-    my $ref_seq_file = create_file_name( "refseq_", "fa", $self->ANALYSIS_WORK_DIR );
-    my $out_seq_file = create_file_name( "outseq_", "fa", $self->ANALYSIS_WORK_DIR );
-
-    write_seqfile($ref_seq, $ref_seq_file, 'fasta');
-    write_seqfile($out_seq, $out_seq_file, 'fasta');
-
-    my %parameters;
-
-    if (not exists( $parameters{-options} )
-        and defined $self->OPTIONS) {
-      $parameters{-options} = $self->OPTIONS;
+    if (scalar(@parent_exon_key_attribs) > 1) {
+      warning("Projected transcript ".$out_transcript->stable_id." has more than 1 parent_exon_key attribute.");
+    } elsif (scalar(@parent_exon_key_attribs) > 0) {
+      $parent_exon_key = $parent_exon_key_attribs[0]->value();
     }
-    #set up the runnable and add the files to delete
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature->new(
-      -analysis           => $self->analysis,
-      -program            => $self->PROGRAM,
-      -query_type         => 'dna',
-      -query_file         => $ref_seq_file,
-      -query_chunk_number => undef,
-      -query_chunk_total  => undef,
-      -target_file        => $out_seq_file,
-      %parameters,
-    );
 
-    $runnable->files_to_delete($ref_seq_file);
-    $runnable->files_to_delete($out_seq_file);
-    $self->runnable($runnable);
+    my @parent_sid_attribs = @{$out_transcript->get_all_Attributes('parent_sid')};
+    my $parent_sid = "";
+    if (scalar(@parent_sid_attribs) > 1) {
+      warning("Projected transcript ".$out_transcript->stable_id." has more than 1 parent_sid attribute.");
+    } elsif (scalar(@parent_sid_attribs) > 0) {
+      $parent_sid = $parent_sid_attribs[0]->value();
+    }
+
+    if ($parent_exon_key) {
+
+      if (exists($ref_trans_hash{$parent_exon_key})) {
+
+        my $ref_stable_id = $ref_trans_hash{$parent_exon_key};
+
+        # print comparison between previous way of getting the stable id and the current one
+        if (!($ref_stable_id eq $parent_sid)) {
+          print("Parent stable ID $ref_stable_id for projected transcript ".$out_transcript->stable_id." is different from the parent stable ID set in the old way $parent_sid. This is only for statistical purposes.\n");
+        }
+
+        my $ref_transcript = $ta->fetch_by_stable_id($ref_stable_id);
+
+        if ($ref_transcript) {
+          my $ref_seq = $ref_transcript->seq;
+          my $out_seq = $out_transcript->seq;
+
+          my $ref_seq_file = create_file_name( "refseq_", "fa", $self->ANALYSIS_WORK_DIR );
+          my $out_seq_file = create_file_name( "outseq_", "fa", $self->ANALYSIS_WORK_DIR );
+
+          write_seqfile($ref_seq, $ref_seq_file, 'fasta');
+          write_seqfile($out_seq, $out_seq_file, 'fasta');
+
+          my %parameters;
+
+          if (not exists( $parameters{-options} )
+              and defined $self->OPTIONS) {
+            $parameters{-options} = $self->OPTIONS;
+          }
+          #set up the runnable and add the files to delete
+          my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature->new(
+            -analysis           => $self->analysis,
+            -program            => $self->PROGRAM,
+            -query_type         => 'dna',
+            -query_file         => $ref_seq_file,
+            -query_chunk_number => undef,
+            -query_chunk_total  => undef,
+            -target_file        => $out_seq_file,
+            %parameters,
+          );
+
+          $runnable->files_to_delete($ref_seq_file);
+          $runnable->files_to_delete($out_seq_file);
+          $self->runnable($runnable);
+        } else {
+          warning("Parent transcript $ref_stable_id could not be fetched for projected transcript ".$out_transcript->stable_id);
+        }
+      } else {
+        warning("Projected transcript ".$out_transcript->stable_id." does not have a parent.");
+      }
+    } else {
+      throw("Projected transcript ".$out_transcript->stable_id." does not have a parent_exon_key attribute. It should have been added during the projection stage!");
+    }
   }
 }
 
@@ -191,7 +250,7 @@ sub write_output {
   my @output = @{$self->output};
   my @p_transcripts = @{$self->out_transcripts};
   print "Got " .  scalar(@output) ." genomic features \n";
-  throw("Should only be one dna align feature per projected transcript.\n") unless  scalar(@output) == scalar(@p_transcripts);
+  warning("Should only be one dna align feature per projected transcript.\n") unless  scalar(@output) == scalar(@p_transcripts);
 
   my $out_count = 0;
 
@@ -202,6 +261,7 @@ sub write_output {
     $tsfa->store($t_id, [$gf]);
     $out_count++;
   }
+  print "out_count is: ".$out_count."\n";
 }
 
 
@@ -405,6 +465,61 @@ sub OUTGENEDB {
   } else {
     return undef;
   }
+}
+
+sub get_transcript_exon_key {
+  my $transcript = shift;
+  my $string = $transcript->slice->seq_region_name.":".$transcript->biotype.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->seq_region_strand.":";
+
+  my $exons = sort_by_start_end_pos($transcript->get_all_Exons);
+  foreach my $exon (@{$exons}) {
+    $string .= ":".$exon->seq_region_start.":".$exon->seq_region_end;
+  } 
+
+  return $string;
+}
+
+sub sort_by_start_end_pos {
+  my ($unsorted) = @_;
+
+  my @sorted = sort { if ($a->seq_region_start < $b->seq_region_start) {
+        return -1;
+    } elsif ($a->seq_region_start == $b->seq_region_start) {
+      if ($a->seq_region_end < $b->seq_region_end) {
+        return-1;
+      } elsif ($a->seq_region_end == $b->seq_region_end) {
+        return 0;
+      } elsif ($a->seq_region_end > $b->seq_region_end) {
+        return 1;
+      }
+        return 0;
+    } elsif ($a->seq_region_start > $b->seq_region_start) {
+        return 1;
+    }
+  } @$unsorted;
+
+  return \@sorted;
+}
+
+sub get_ref_slice {
+  my $patch_slice = shift;
+  my $ref_slice;
+
+  print "patch slice is: ".$patch_slice->name."\n";
+
+  my @excs = $patch_slice->get_all_AssemblyExceptionFeatures();
+
+  if (@excs) {
+    foreach my $exc (@excs) {
+      if (@$exc[0]) {
+        if (@$exc[0]->type() !~ m/REF/) {
+            $ref_slice = @$exc[0]->alternate_slice();
+        }
+      }
+    }
+  }
+  print "reference slice is: ".$ref_slice->name."\n";
+  return $ref_slice;
 }
 
 1;
