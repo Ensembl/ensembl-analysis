@@ -39,7 +39,7 @@ Internal methods are usually preceded with a _'
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastRNASeqPep.pm,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastRNASeqPep;
 
 use warnings ;
@@ -317,6 +317,7 @@ sub write_output{
   my $total = 0;
   foreach my $gene (@output){
     #$gene->analysis($self->analysis);
+    empty_Gene($gene);
     eval {
       $gene_adaptor->store($gene);
     };    
