@@ -57,7 +57,7 @@ Bio::EnsEMBL::Analysis::Runnable::Blast -
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Blast.pm,v $
-# $Revision: 1.22 $
+# $Revision: 1.23 $
 package Bio::EnsEMBL::Analysis::Runnable::Blast;
 
 use strict;
@@ -165,7 +165,7 @@ sub databases{
     # If it doesn't exist then see if $database-1,$database-2 exist
     # and put them in the database array
     
-    if (-f $dbname || -f $dbname . ".fa") {
+    if (-f $dbname || -f $dbname . ".fa" || -f $dbname . '.xpd') {
       push(@dbs,$dbname);
     } else {
       my $count = 1;
