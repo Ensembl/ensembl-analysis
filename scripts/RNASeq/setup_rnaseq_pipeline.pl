@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.46 $
+# $Revision: 1.47 $
 #
 
 use warnings ;
@@ -218,91 +218,32 @@ unless ($update_analyses) {
          or ( $force_stage eq "bwa_complete" ) )
     {
       $stage = "bwa_complete";
-      unless ($check) {
+      unless ($check or $bam2genes_count > 0) {
+       
         print "\n\nBWA finished successfully\n------------------------\n";
-        # print out the merge command
-        print "Before running the next stage of the analysis "
-            . "you will need to merge the individual bam files, "
-            . "the following commands will do this.\n";
-        print "If you wish to remove any of the lanes from the analysis "
-            . "at this point just delete them from the merge command.\n\n";
-        print "#MERGE\nbsub -o $output_dir" . "/merge.out "
-            ."-h $output_dir" . "/all_headers.txt "
-            . "-e $output_dir" . "/merge.err " ;
-        print $RNASEQCONFIG->{SAMTOOLS}
-            . " merge $merge_dir" . "/merged_unsorted.bam ";         
-        
-        my @sorted_bam_files = ();
-        foreach my $file (@files) {
-          my $location = "$output_dir/$file" . "_sorted.bam ";
-          print $location;
-          push (@sorted_bam_files, $location);
-        }
- 
-        print "\n\n";
-        print "#SORT\nbsub -o $output_dir" . "/sort.out "
-          . "-e $output_dir" . "/sort.err "
-          . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
-        print $RNASEQCONFIG->{SAMTOOLS} . " sort $merge_dir"
-          . "/merged_unsorted.bam  $merge_dir" . "/merged \n\n";
-        print "#INDEX\nbsub -o $output_dir" . "/index.out "
-          . "-e $output_dir" . "/index.err "
-          . "-R 'select[mem>1000] rusage[mem=1000]' -M1000000 ";
-        print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
+        print_merge_cmd( \@files, $output_dir, $merge_dir ); 
 
-        print "Or...\n\n#MERGE, SORT and INDEX using picard\n";
-        my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $output_dir, $merge_dir ); 
-        print $picard_cmd; 
-
-
-      } ## end unless ($check)
+      } ## end unless ($check or ...
     } ## end if ( ( $bwa2bam_count ...
+
   } else {
     if (    ( $gsnap_count >= 1 && $gsnap_count == $submit_gsnap_count )
          or ( $force_stage eq "bwa_complete" ) )
     {
       $stage = "gsnap_complete";
-      unless ($check) {
+      unless ( $check or $bam2genes_count > 0 ) {
+       
         print "\n\nGSNAP finished successfully\n------------------------\n";
-        # print out the merge command
-        print "Before running the next stage of the analysis "
-            . "you will need to merge the individual bam files, "
-            . "the following commands will do this.\n";
-        print "If you wish to remove any of the lanes from the analysis "
-            . "at this point just delete them from the merge command.\n\n";
-        print "#MERGE\nbsub -o $output_dir" . "/merge.out "
-          . "-e $output_dir" . "/merge.err "
-          . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
-        print $RNASEQCONFIG->{SAMTOOLS} . " merge $merge_dir" . "/merged_unsorted.bam ";
-        
-        my @sorted_bam_files = ();
-        foreach my $file (@files) {
-          my $location = "$output_dir/$file" . "_sorted.bam ";
-          print $location;
-          push (@sorted_bam_files, $location);
-        }
-        
-        print "\n\n";
-        print "#SORT\nbsub -o $output_dir" . "/sort.out "
-          . "-e $output_dir" . "/sort.err "
-          . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
-        print $RNASEQCONFIG->{SAMTOOLS}
-          . " sort $merge_dir" . "/merged_unsorted.bam  $merge_dir" . "/merged \n\n";
-        print "#INDEX\nbsub -o $output_dir" . "/index.out "
-          . "-e $output_dir" . "/index.err "
-          . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
-        print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
+        print_merge_cmd( \@files, $output_dir, $merge_dir ); 
 
-        print "Or...\n\n#MERGE, SORT and INDEX using picard\n";
-        my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $output_dir, $merge_dir ); 
-        print $picard_cmd; 
-
-      } ## end unless ($check)
+      } ## end unless ($check or ...
     } ## end if ( ( $gsnap_count >=...
   } ## end else
+
   if ( $bam2genes_count > 0 ) {
     $stage = "bam2genes";
   }
+
   unless ( $stage eq "Initialization" ) {
     my $slice_count = 0;
     if ( $pipeline_analysis->fetch_by_logic_name("submit_chromosome") ) {
@@ -1106,6 +1047,48 @@ sub assign_categories {
 }
 
 
+
+sub print_merge_cmd {
+  # prints two options for merging - picard and samtools
+  my ( $files_ref, $out_dir, $merge_dir ) = @_;
+
+  print "Before running the next stage of the analysis "
+  . "you will need to merge the individual bam files, "
+  . "the following commands will do this.\n";
+  print "If you wish to remove any of the lanes from the analysis "
+  . "at this point just delete them from the merge command.\n\n";
+  print "#MERGE\nbsub -o $out_dir" . "/merge.out "
+  ."-h $out_dir" . "/all_headers.txt "
+  . "-e $out_dir" . "/merge.err " ;
+  print $RNASEQCONFIG->{SAMTOOLS}
+  . " merge $merge_dir" . "/merged_unsorted.bam ";         
+
+  my @sorted_bam_files = ();
+  foreach my $file ( @{ $files_ref } ) {
+    my $location = "$out_dir/$file" . "_sorted.bam ";
+    print $location;
+    push (@sorted_bam_files, $location);
+  }
+
+  print "\n\n";
+  print "#SORT\nbsub -o $out_dir" . "/sort.out "
+  . "-e $out_dir" . "/sort.err "
+  . "-R 'select[mem>5000] rusage[mem=5000]' -M5000000 ";
+  print $RNASEQCONFIG->{SAMTOOLS} . " sort $merge_dir"
+  . "/merged_unsorted.bam  $merge_dir" . "/merged \n\n";
+  print "#INDEX\nbsub -o $out_dir" . "/index.out "
+  . "-e $out_dir" . "/index.err "
+  . "-R 'select[mem>1000] rusage[mem=1000]' -M1000000 ";
+  print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
+
+  print "Or...\n\n#MERGE, SORT and INDEX using picard\n";
+  my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $out_dir, $merge_dir ); 
+  print $picard_cmd; 
+}
+ 
+
+
+
 sub generate_picard_cmd {
   my ( $files_ref, $out_dir, $merge_dir ) = @_; 
   my $cmd = "bsub -qnormal -M2000000 -R'select[mem>2000] rusage[mem=2000]'"
@@ -1125,6 +1108,7 @@ sub generate_picard_cmd {
   return $cmd;
 }
 
+                     
 
 sub batchqueue_header {
   my $str = '# EnsEMBL module for Bio::EnsEMBL::Pipeline::Config::BatchQueue;
