@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 package Merge::vega_check;
 
 use strict;
@@ -12,10 +12,10 @@ $| = 1;
 my %allowed_combos = (
      'ensembl' => { # allowed gene-transcript biotypes combination before the merge
        '3prime_overlapping_ncrna'           => ['3prime_overlapping_ncrna'],
-       'antisense'                          => ['antisense'],
+       'antisense'                          => ['antisense','retained_intron'],
        'IG_gene'                            => ['IG_gene'],
        'IG_pseudogene'                      => ['IG_pseudogene'],
-       'lincRNA'                            => ['lincRNA'],
+       'lincRNA'                            => ['lincRNA','retained_intron'],
        'non_coding'                         => ['non_coding'],
        'polymorphic_pseudogene'             => ['polymorphic_pseudogene',
                                                 'protein_coding',
@@ -43,7 +43,7 @@ my %allowed_combos = (
                                                 'pseudogene',
                                                 'retained_intron',
                                                 'TEC'],
-       'sense_intronic'                     => ['sense_intronic'],
+       'sense_intronic'                     => ['sense_intronic','retained_intron'],
        'sense_overlapping'                  => ['sense_overlapping'],
        'TR_gene'                            => ['TR_gene'],
        'TR_pseudogene'                      => ['TR_pseudogene'],
