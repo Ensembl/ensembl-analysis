@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/ClusterUtils.pm,v $
-# $Revision: 1.29 $
+# $Revision: 1.30 $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
@@ -21,14 +21,14 @@ package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
    We will refer to 2 types of clusters in this module :  
 
     'one_way clusters'    - a cluster of genes [= genes which have overlapping exons ]
-                            which contain only genees of one set 
+                            which contain only genes of one set 
                             use get_single_clusters method
 
     'two_way clusters'    - a cluster of genes [= genes which have overlapping exons ]
-                            which contains genes of boths sets, 
+                            which contains genes of both sets, 
                             use get_twoway_clusters method
 
-  May be the best would have been to call them one-set clussters and two-set clusters 
+  Maybe it would have been better to call them one-set clusters and two-set clusters?
 
 
 
@@ -243,7 +243,7 @@ sub simple_cluster_Genes {
    Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
 
    Function  : Filters out all clusters of the array which are twoway-clusters [ which contain set1 and set2 ] 
-               This means all clusters, which contain genes of set 1 and set 2 , are not returned. 
+               This means all clusters, which contain genes of set 1 and set 2, are not returned. 
                Only clusters are returned which contain only one type of set, either set1 or set2          
 
    Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1,
@@ -333,7 +333,7 @@ sub get_twoway_clustering_genes_of_set {
 
 =head2 get_oneway_clustering_genes_of_set 
 
-   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
+   Arg[1]    : Array reference to Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
 
    Function  : Out of the given array of Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster object, 
                clusters which are two-way-cluster ( they contain genes of set 1 AND set 2 ) are excluded. 
@@ -506,8 +506,6 @@ sub cluster_Genes {
     # Every 50 genes divide clusters into an active (ones which could be have this gene added to it) and inactive 
     # (ones which can not be altered by any of the genes to come)
     if (!($count%50)) { 
-      #print ".";
-
       my @still_active_clusters;
       my $gene_start = $gene->start;
       foreach my $cluster (@active_clusters) {
@@ -563,7 +561,7 @@ sub cluster_Genes {
             #                                              START------$gene-------END
             #
             # add gene target-gene to cluster if it has at least
-            # one gene wich overlaps with an exon of the clustered gene 
+            # one gene which overlaps with an exon of the clustered gene 
             # and add to cluster  
             #
 
@@ -635,8 +633,8 @@ sub cluster_Genes {
       @active_clusters =  @new_clusters;
     }
   }
-  # Seperate genes which are UNclustered (only one gene in cluster ) and
-  # from clusteres which hold more than one gene 
+  # Separate genes which are UNclustered (only one gene in cluster) and
+  # from clusters which hold more than one gene 
 
   # print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
   my @clusters = (@active_clusters,@inactive_clusters);
@@ -660,8 +658,8 @@ sub cluster_Genes {
 
 
   Title  :  _compare_Genes
-  Usage  :   this internal function compares the exons of two genes on overlap
-  Source :  Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison; 
+  Usage  :  this internal function compares the exons of two genes on overlap
+  Source :  Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison 
 
 
 =cut
@@ -771,8 +769,6 @@ sub cluster_AlignFeatures {
     # Every 50 features divide clusters into an active (ones which could be have this feature added to it) and inactive 
     # (ones which can not be altered by any of the features to come)
     if (!($count%50)) { 
-      #print ".";
-
       my @still_active_clusters;
       my $feature_start = $feature->start;
       foreach my $cluster (@active_clusters) {
@@ -788,7 +784,7 @@ sub cluster_AlignFeatures {
     my @matching_clusters;
 
     ## 
-    ## if there are Clusters (initialisation below) than check  
+    ## if there are Clusters (initialisation below) then check  
     ## if feature lies in the boundaries of the cluster and has at least 
     ## one exon which overlaps with an exon of a feature which already 
     ## belongs to the cluster
@@ -881,8 +877,8 @@ sub cluster_AlignFeatures {
       @active_clusters =  @new_clusters;
     }
   }
-  # Seperate features which are UNclustered (only one feature in cluster ) and
-  # from clusteres which hold more than one feature 
+  # Separate features which are UNclustered (only one feature in cluster) and
+  # from clusters which hold more than one feature 
 
   print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
   my @clusters = (@active_clusters,@inactive_clusters);
