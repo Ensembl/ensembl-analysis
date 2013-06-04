@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 
 =head1 NAME
 
@@ -87,28 +87,46 @@ else {
          "-config_dbname $config_dbname for the script to work" );
 }
 
-my $transcript_adaptor = $db->get_TranscriptAdaptor();
+my $ta = $db->get_TranscriptAdaptor();
+my $ga = $db->get_GeneAdaptor();
 
 while ( my $transcript_id = <> ) {
   chomp($transcript_id);
 
+  my $transcript;
+
+  if ( defined($use_stable_ids) ) {
+    $transcript = $ta->fetch_by_stable_id($transcript_id);
+  }
+  else {
+    $transcript = $ta->fetch_by_dbID($transcript_id);
+  }
+
+  if ( !defined($transcript) ) {
+    warn("Can't fetch transcript $transcript_id\n");
+    next;
+  }
+
   eval {
-    my $transcript;
-
-    if (defined($use_stable_ids)) {
-      $transcript =
-        $transcript_adaptor->fetch_by_stable_id($transcript_id);
-    }
-    else {
-      $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
-    }
-
-    $transcript_adaptor->remove($transcript);
-
+    $ta->remove($transcript);
     print("Deleted $transcript_id\n");
   };
 
   if ($@) {
-    print( STDERR "Couldn't remove transcript $transcript_id ($@)\n" );
+    warn("Couldn't remove transcript $transcript_id ($@)\n");
+    next;
   }
-}
+
+  # See if gene is now empty or split.
+
+  my $gene = $ga->fetch_by_transcript_id( $transcript->dbID() );
+
+  my @transcripts = @{ $gene->get_all_Transcripts() };
+
+  if ( !@transcripts ) {
+    warn( sprintf( "Gene %s (id = %d) is now empty, delete it!\n",
+                   $gene->stable_id(), $gene->dbID() ) );
+    next;
+  }
+
+} ## end while ( my $transcript_id...)
