@@ -148,7 +148,7 @@ use vars qw(%Config);
 
 
 %Config = (
-  BLASTDB => '/data/blastdb/Supported',
+  BLASTDB => '/data/blastdb/Ensembl',
   BLAST_CONFIG_BY_LOGIC => {
     DEFAULT => {
       BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
