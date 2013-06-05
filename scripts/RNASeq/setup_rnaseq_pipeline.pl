@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.47 $
+# $Revision: 1.48 $
 #
 
 use warnings ;
@@ -1345,7 +1345,7 @@ use vars qw(%Config);
 
 
 %Config = (
-  BLASTDB => "/data/blastdb/Ensembl/Uniprot/", 
+  BLASTDB => "/data/blastdb/Ensembl", 
   BLAST_CONFIG_BY_LOGIC => 
   {
     DEFAULT => 
