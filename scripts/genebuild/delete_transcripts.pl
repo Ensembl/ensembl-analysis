@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 
 =head1 NAME
 
@@ -8,14 +8,14 @@
 
 =head1 DESCRIPTION
 
-  Deletes transcripts from given database whose ids are passed in
-  through STDIN.
+Deletes transcripts from given database whose ids are passed in through
+standard input or in a file named on the command line.
 
 =head1 OPTIONS
 
 =head1 
 
-=head2 DB connection 
+=head2 Database connection options
 
   -dbhost   Host name for database.
   -dbport   What port to connect to.
@@ -23,7 +23,7 @@
   -dbuser   What username to connect as.
   -dbpass   What password to use.
 
-=head2 DB connection (alternative method)
+=head2 Database connection options (alternative method)
 
   --config_dbname   The alias for the database you
                     want to connect to, as defined in
@@ -35,7 +35,7 @@
 =head2 Other options
 
   --stable_id   A boolean flag to indicate that the IDs passed in are
-                stable IDs.
+                transcript stable IDs.
 
 =head1 EXAMPLES
 
@@ -67,14 +67,14 @@ GetOptions( 'dbhost|host|h:s' => \$host,
             'dbpass|pass|p:s' => \$pass,
             'stable_id!'      => \$use_stable_ids,
             'config_dbname:s' => \$config_dbname ) ||
-  die('Command option parsing error');
+  die('Command line parsing error');
 
 my $db;
 
-if (defined($config_dbname)) {
+if ( defined($config_dbname) ) {
   $db = get_db_adaptor_by_string($config_dbname);
 }
-elsif ( defined($dbname) && define($host) ) {
+elsif ( defined($dbname) && defined($host) ) {
   $db =
     new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
                                         -user   => $user,
@@ -83,8 +83,8 @@ elsif ( defined($dbname) && define($host) ) {
                                         -pass   => $pass, );
 }
 else {
-  throw( "Need to pass either -dbhost $host and -dbname $dbname or " .
-         "-config_dbname $config_dbname for the script to work" );
+  throw( "Need to pass either --dbhost, --dbuser, and --dbname, " .
+         "or -config_dbname" );
 }
 
 my $ta = $db->get_TranscriptAdaptor();
@@ -92,6 +92,10 @@ my $ga = $db->get_GeneAdaptor();
 
 while ( my $transcript_id = <> ) {
   chomp($transcript_id);
+
+  if ( !defined($transcript_id) || $transcript_id eq '' ) {
+    last;
+  }
 
   my $transcript;
 
@@ -109,17 +113,21 @@ while ( my $transcript_id = <> ) {
 
   eval {
     $ta->remove($transcript);
-    print("Deleted $transcript_id\n");
+    print( sprintf( "Deleted transcript %s (id = %d)\n",
+                    $transcript->stable_id(),
+                    $transcript->dbID() ) );
   };
 
   if ($@) {
-    warn("Couldn't remove transcript $transcript_id ($@)\n");
+    warn( sprintf( "Could not remove transcript %s (id = %d): %s\n",
+                   $transcript->stable_id(),
+                   $transcript->dbID(), $@ ) );
     next;
   }
 
-  # See if gene is now empty or split.
-
   my $gene = $ga->fetch_by_transcript_id( $transcript->dbID() );
+
+  # See if gene is now empty.
 
   my @transcripts = @{ $gene->get_all_Transcripts() };
 
@@ -128,5 +136,42 @@ while ( my $transcript_id = <> ) {
                    $gene->stable_id(), $gene->dbID() ) );
     next;
   }
+
+  # See if gene is now split.
+
+  my $max_end;
+  my @cluster;
+
+  foreach my $t ( sort { $a->start() <=> $b->start() } @transcripts ) {
+    if ( $t->dbID() == $transcript_id ) {
+      next;
+    }
+
+    if ( !defined($max_end) ) {
+      $max_end = $t->end();
+    }
+    elsif ( $t->start() > $max_end ) {
+      # There's a gap between the ending of the last transcript and the
+      # beginning of this, which means that the transcripts in @cluster
+      # should now be removed from $gene and put into a new gene object.
+
+      printf( "WARNING:\tFrom gene %s (id = %d),\n" .
+                "\t\ta new gene should be created\n" .
+                "\t\twith the following %d trancript(s):\n",
+              $gene->stable_id(), $gene->dbID(), scalar(@cluster) );
+      print(
+        map {
+          sprintf( "\t%s (id = %d)\n", $_->stable_id(), $_->dbID() )
+        } @cluster );
+
+      @cluster = ();
+    }
+
+    if ( $max_end < $t->end() ) {
+      $max_end = $t->end();
+    }
+
+    push( @cluster, $t );
+  } ## end foreach my $t ( sort { $a->start...})
 
 } ## end while ( my $transcript_id...)
