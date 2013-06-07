@@ -33,7 +33,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation -
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/LayerAnnotation.pm,v $
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 package Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation;
 
 use warnings ;
@@ -144,12 +144,37 @@ sub write_output {
   # up front is expensive in memory. Therefore, load, store and
   # discard one gene at a time
 
+  my $total = 0;
+  my $fails = 0;
   my $out = $self->output;
-  while(my $g = shift @$out) {
+  while(my $g = shift @$out) 
+  {
     fully_load_Gene($g);
-    $g_adap->store($g);
+     
+    # Putting this in to stop the wrong dbIDs being assigned
+    empty_Gene($g);
+    eval 
+    {
+      $g_adap->store($g);
+    };
+    
+    if ($@)
+    {
+      $self->warning("Unable to store gene!!\n");
+      print STDERR "$@\n";
+      $fails++;  
+    }
+
+    $total++;
+
   }
   
+  if ($fails > 0) 
+  {
+    throw("Not all genes could be written successfully " .
+          "($fails fails out of $total)");
+  }
+
   return 1;
 }
 
