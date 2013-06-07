@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/prepare_proteome.pl,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 
 # call 
 #
@@ -99,6 +99,12 @@ foreach my $file(keys(%files)) {
     my $parseable_string = $seq->id; 
     $parseable_string.=" ".$seq->desc if $seq->desc() ;  
 
+    # bit of a hack:
+    my $sequence_version;
+    if ($parseable_string =~ /SV=(\d+)$/) {
+      $sequence_version = $1;
+    }
+
     my ($id) = $parseable_string =~ /$regex/; 
 
     if($id =~ m/^1$/){
@@ -133,6 +139,9 @@ foreach my $file(keys(%files)) {
       #tr|O42292|O42292_ASTMX
       $id =~ /^(sp|tr)\|(\w+)\|\w+$/;
       $id = $2;
+      if ($id !~ /\.\d+/ && defined $sequence_version) {
+        $id .= ".".$sequence_version;
+      }
       if ($id !~ /\w+/) {
         throw("uniprot id looks wrong: $id");
       }
