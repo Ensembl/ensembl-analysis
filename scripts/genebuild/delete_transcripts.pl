@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 
 =head1 NAME
 
@@ -8,7 +8,7 @@
 
 =head1 DESCRIPTION
 
-Deletes transcripts from given database whose ids are passed in through
+Deletes transcripts from given database whose IDs are passed in through
 standard input or in a file named on the command line.
 
 =head1 OPTIONS
@@ -45,8 +45,9 @@ standard input or in a file named on the command line.
 
 =cut
 
-use warnings;
 use strict;
+use warnings;
+
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
@@ -93,7 +94,7 @@ else {
 my $ta = $db->get_TranscriptAdaptor();
 my $ga = $db->get_GeneAdaptor();
 
-my @gene_ids;
+my %gene_ids;
 
 while ( my $transcript_id = <> ) {
   chomp($transcript_id);
@@ -112,7 +113,7 @@ while ( my $transcript_id = <> ) {
   }
 
   if ( !defined($transcript) ) {
-    warn("Can't fetch transcript $transcript_id\n");
+    print("Can't fetch transcript $transcript_id\n");
     next;
   }
 
@@ -121,24 +122,23 @@ while ( my $transcript_id = <> ) {
 
   eval {
     $ta->remove($transcript);
-    print( sprintf( "Deleted transcript %s (id = %d)\n",
-                    $transcript->stable_id(),
-                    $transcript->dbID() ) );
+    printf( "Deleted transcript %s (id = %d)\n",
+            $transcript->stable_id(), $transcript->dbID() );
   };
 
   if ($@) {
-    warn( sprintf( "Could not remove transcript %s (id = %d): %s\n",
-                   $transcript->stable_id(),
-                   $transcript->dbID(), $@ ) );
+    printf( "Could not remove transcript %s (id = %d): %s\n",
+            $transcript->stable_id(),
+            $transcript->dbID(), $@ );
     next;
   }
 
-  push( @gene_ids, $gene_id );
+  $gene_ids{$gene_id} = 1;
 } ## end while ( my $transcript_id...)
 
 # Now get all those genes again and see if they are empty or split.
 
-foreach my $gene_id (@gene_ids) {
+foreach my $gene_id ( keys(%gene_ids) ) {
   my $gene = $ga->fetch_by_dbID($gene_id);
 
   # See if gene is now empty.
@@ -146,8 +146,8 @@ foreach my $gene_id (@gene_ids) {
   my @transcripts = @{ $gene->get_all_Transcripts() };
 
   if ( !@transcripts ) {
-    warn( sprintf( "Gene %s (id = %d) is now empty, delete it!\n",
-                   $gene->stable_id(), $gene->dbID() ) );
+    printf( "Gene %s (id = %d) is now empty, delete it!\n",
+            $gene->stable_id(), $gene->dbID() );
     next;
   }
 
@@ -184,4 +184,4 @@ foreach my $gene_id (@gene_ids) {
     push( @cluster, $t );
   } ## end foreach my $t ( sort { $a->start...})
 
-} ## end foreach my $gene_id (@gene_ids)
+} ## end foreach my $gene_id ( keys(...))
