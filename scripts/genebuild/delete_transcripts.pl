@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 
 =head1 NAME
 
@@ -52,6 +52,8 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Utils::Exception;
 
+$Bio::EnsEMBL::DBSQL::BaseFeatureAdaptor::SILENCE_CACHE_WARNINGS = 1;
+
 my $host;
 my $port = 3306;
 my $dbname;
@@ -76,11 +78,12 @@ if ( defined($config_dbname) ) {
 }
 elsif ( defined($dbname) && defined($host) ) {
   $db =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
-                                        -user   => $user,
-                                        -port   => $port,
-                                        -dbname => $dbname,
-                                        -pass   => $pass, );
+    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host     => $host,
+                                        -user     => $user,
+                                        -port     => $port,
+                                        -dbname   => $dbname,
+                                        -pass     => $pass,
+                                        -no_cache => 1 );
 }
 else {
   throw( "Need to pass either --dbhost, --dbuser, and --dbname, " .
@@ -89,6 +92,8 @@ else {
 
 my $ta = $db->get_TranscriptAdaptor();
 my $ga = $db->get_GeneAdaptor();
+
+my @gene_ids;
 
 while ( my $transcript_id = <> ) {
   chomp($transcript_id);
@@ -111,6 +116,9 @@ while ( my $transcript_id = <> ) {
     next;
   }
 
+  my $gene_id =
+    $ga->fetch_by_transcript_id( $transcript->dbID() )->dbID();
+
   eval {
     $ta->remove($transcript);
     print( sprintf( "Deleted transcript %s (id = %d)\n",
@@ -125,7 +133,13 @@ while ( my $transcript_id = <> ) {
     next;
   }
 
-  my $gene = $ga->fetch_by_transcript_id( $transcript->dbID() );
+  push( @gene_ids, $gene_id );
+} ## end while ( my $transcript_id...)
+
+# Now get all those genes again and see if they are empty or split.
+
+foreach my $gene_id (@gene_ids) {
+  my $gene = $ga->fetch_by_dbID($gene_id);
 
   # See if gene is now empty.
 
@@ -143,10 +157,6 @@ while ( my $transcript_id = <> ) {
   my @cluster;
 
   foreach my $t ( sort { $a->start() <=> $b->start() } @transcripts ) {
-    if ( $t->dbID() == $transcript_id ) {
-      next;
-    }
-
     if ( !defined($max_end) ) {
       $max_end = $t->end();
     }
@@ -174,4 +184,4 @@ while ( my $transcript_id = <> ) {
     push( @cluster, $t );
   } ## end foreach my $t ( sort { $a->start...})
 
-} ## end while ( my $transcript_id...)
+} ## end foreach my $gene_id (@gene_ids)
