@@ -38,7 +38,7 @@ This module uses BWA to align fastq to a genomic sequence
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BWA2BAM.pm,v $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::Runnable::BWA2BAM;
 
 use warnings ;
@@ -55,7 +55,7 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
   my ($header,$method,$samtools) = rearrange([qw(HEADER METHOD SAMTOOLS)],@args);
-  $self->throw("You must defne an alignment processing method not $method\n")  unless $method ;
+  $self->throw("You must define an alignment processing method not $method\n")  unless $method ;
   $self->method($method);
   $self->throw("You must define a path to samtools cannot find $samtools\n")  
     unless $samtools && -e $samtools;
@@ -92,7 +92,13 @@ sub run {
   my $pairfilename;
   my $total_reads = 0;
   # count how many reads we have in the fasta file to start with
-  my $command = "wc -l $fastq";
+  my $command;
+  if (-B $fastq) {
+    $command = "zcat $fastq | wc -l";
+  }
+  else {
+    $command = "wc -l $fastq";
+  }
   print STDERR "$command\n";
   eval  {
     open  ( my $fh,"$command 2>&1 |" ) || 
