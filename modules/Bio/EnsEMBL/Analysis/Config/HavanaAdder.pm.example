@@ -140,6 +140,15 @@ use vars qw( %GeneBuilder );
   # NOte: We don't use the TEC type at all so it shouldn't be added to
   #       the config even if there are genes with this biotype in the Vega
   #       database.
+  #
+  # The Ensembl non-coding biotypes for ncRNAs are also included. 
+
+  ENSEMBL_INPUT_NONCODING_TYPE => [ 'miRNA',
+                                    'misc_RNA',
+                                    'rRNA',
+                                    'snoRNA',
+                                    'snRNA',
+                                  ],
 
   HAVANA_INPUT_NONCODING_TYPE => [ '3prime_overlapping_ncrna',
                                    'ambiguous_orf',
