@@ -34,7 +34,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder -
 
 # $ Source: $
 # $ Revision: $ 
-# $Revision: 1.14 $
+# $Revision: 1.15 $
 package Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder;
 
 use warnings ;
@@ -48,7 +48,7 @@ use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(are_strands_consistent are_phases_consistent 
      is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum);
@@ -134,12 +134,14 @@ sub write_output{
       }
     }
 
+   
     foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) 
     {
       $transcript->load ;
       $transcript->dbID(0);
     }
 
+    empty_Gene($gene);
     eval{
       $ga->store($gene);
     };
