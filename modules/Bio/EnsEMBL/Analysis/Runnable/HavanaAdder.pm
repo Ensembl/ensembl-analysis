@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.56 $
+# $Revision: 1.57 $
 
 =head1 LICENSE
 
@@ -84,7 +84,9 @@ use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
   MERGED_GENE_OUTPUT_BIOTYPE
   ENSEMBL_GENE_OUTPUT_BIOTYPE
   HAVANA_INPUT_NONCODING_TYPE
+  ENSEMBL_INPUT_NONCODING_TYPE
 );
+  #ENSEMBL_INPUT_PROCESSED_TYPE no need to add this
 
 use vars qw(@ISA);
 use strict;
@@ -273,7 +275,7 @@ GENE:
 
         print "\n===> Looking at ensembl trans: " . $et->dbID . "\n";
 
-        my $delete_t = $self->are_matched_pair( $ht, $et );
+        my $delete_t = $self->are_matched_pair( $gene, $ht, $et );
 
         foreach my $ht_attrib (@{$ht->get_all_Attributes()}) {
           if ($ht_attrib->code eq 'gene_cluster') {
@@ -412,10 +414,7 @@ sub gene_has_assembly_error_attribute {
   my $gene = shift;
 
   my @attribs = @{$gene->get_all_Attributes('NoTransRefError')};
-  if (scalar(@attribs) > 0) {
-    return 1;
-  }
-  return 0;
+  return (scalar(@attribs) > 0);
 }
 
 sub are_matched_pair {
@@ -429,7 +428,7 @@ sub are_matched_pair {
   # return ($ensembl) means keep havana transcript and remove ensembl 
   # return ($havana) means keep ensembl transcript and remove hanana
 
-  my ( $self, $havana, $ensembl ) = @_;
+  my ( $self, $gene, $havana, $ensembl ) = @_;
 
   # Fetch all exons in each transcript
   my @hexons = @{ $havana->get_all_Exons };
@@ -617,7 +616,7 @@ sub are_matched_pair {
       # is based on a sequence with a genome assembly error.
       # Don't make Ensembl to non-coding and keep both transcripts.
 
-      if (gene_has_assembly_error_attribute($havana)) {
+      if (gene_has_assembly_error_attribute($gene)) {
         print "ENS CODING vs HAV NON-CODING CASE 'GENOME ASSEMBLY ERROR' - "
             . "keeping ensembl (and havana) regardless because\n";
         print "the Havana model " . $ensembl->dbID
@@ -1376,7 +1375,6 @@ sub get_Genes {
   my @hgenes;
   my @hprocessedgenes;
   my @hpseudogenes;
-  my @h_noncoding_genes;
 
   my $ensemblslice =
     $self->fetch_sequence( $self->input_id, $self->ensembl_db );
@@ -1418,6 +1416,23 @@ sub get_Genes {
     }
   }
 
+  print STDERR "Fetching ensembl 'non-coding' genes\n";
+  foreach my $e_noncoding_biotype ( @{$ENSEMBL_INPUT_NONCODING_TYPE} ) {
+    foreach my $e_noncoding_gene ( @{ $ensemblslice->get_all_Genes_by_type($e_noncoding_biotype,undef,1) } ) {
+      $e_noncoding_gene->load();
+      push( @processedgenes, $e_noncoding_gene);
+    }
+  }
+
+  # no need to add this yet since we don't have ensembl processed_transcript types
+  #print STDERR "Fetching ensembl 'processed transcript' genes\n";
+  #foreach my $eprocessedbiotype ( @{$ENSEMBL_INPUT_PROCESSED_TYPE} ) {
+  #  foreach my $eprocessedgene ( @{ $ensemblslice->get_all_Genes_by_type($eprocessedbiotype,undef,1) } ) {
+  #    $eprocessedgene->load();
+  #    push( @processedgenes, $eprocessedgene );
+  #  }
+  #}
+
   print STDERR "Retrieved "
     . scalar(@genes)
     . " genes of types: "
@@ -1427,6 +1442,14 @@ sub get_Genes {
     . scalar(@pseudogenes)
     . " pseudogenes of types: "
     . join( ", ", @{$ENSEMBL_INPUT_PSEUDO_TYPE} ) . "\n";
+
+  print STDERR "Retrieved "
+    . scalar(@processedgenes)
+    . " non-coding genes of types: "
+    . join( ", ", @{$ENSEMBL_INPUT_NONCODING_TYPE} ) . "\n";
+    #. " processed-transcript and non-coding genes of types: "
+    #. join( ", ", @{$ENSEMBL_INPUT_PROCESSED_TYPE}, @{$ENSEMBL_INPUT_NONCODING_TYPE} )
+    #. "\n";
 
   # Fetch Havana genes
   print STDERR "Fetching havana genes\n";
@@ -1904,20 +1927,35 @@ CLUSTER:
         #    . "coding gene smaller: " . $coding_gene->biotype . "\n";
         #print "DEBUG (combine_gene_clusters) "
         #    . "\$is_pseudo_havana = $is_pseudo_havana\n";
+        print "combine_gene_clusters\n";
+        print "coding_gene dbID: ".$coding_gene->dbID."\n";
+        print "coding_gene start: ".$coding_gene->start."\n";
+        print "coding_gene end: ".$coding_gene->end."\n";
+        print "pseudo_gene dbID: ".$pseudo_gene->dbID."\n";
+        print "pseudo_gene start: ".$pseudo_gene->start."\n";
+        print "pseudo_gene end: ".$pseudo_gene->end."\n";
 
         my $coding_length = $self->get_coding_length($coding_gene);
-
+        print "coding length: $coding_length\n";
         my $cg_exons = $self->get_coding_exons_for_gene($coding_gene);
+        print "coding gene exons (translateable): $cg_exons\n";
         my $pg_exons = $pseudo_gene->get_all_Exons();
+        print "pseudo gene exons: $pg_exons\n";
 
         foreach my $cg_exon ( @{$cg_exons} ) {
           foreach my $pg_exon ( @{$pg_exons} ) {
+
+            print "pseudo_gene exon start: ".$cg_exon->start."\n";
+            print "pseudo_gene exon end: ".$cg_exon->end."\n";
+            print "pseudo_gene exon start: ".$pg_exon->start."\n";
+            print "pseudo_gene exon end: ".$pg_exon->end."\n";
 
             if (    $cg_exon->overlaps($pg_exon)
                  && $cg_exon->strand == $pg_exon->strand )
             {
               # Check if the overlap covers at least 10 percent of the
               # coding region of the longest transcript in the gene.
+              print "cg_exon overlaps pg_exon\n";
 
               # NOTE!!! This check is a bit experimental.
               if ( $self->overlap_percent( $cg_exon, $pg_exon, $coding_length ) > 10 ) {
@@ -2360,7 +2398,7 @@ sub update_gene_biotypes {
 
   my %pseudobiotypes;
   my %processedbiotypes;
-  my %noncoding_biotypes;
+  #my %noncoding_biotypes;
   my %coding_biotypes;
 
   foreach my $epb ( @{$ENSEMBL_INPUT_PSEUDO_TYPE} ) {
@@ -2372,9 +2410,9 @@ sub update_gene_biotypes {
   foreach my $hpb ( @{$HAVANA_INPUT_PROCESSED_TYPE} ) {
     $processedbiotypes{ $hpb . "_hav" } = 1;
   }
-  foreach my $hpb ( @{$HAVANA_INPUT_NONCODING_TYPE} ) {
-    $noncoding_biotypes{ $hpb . "_hav" } = 1;
-  }
+  #foreach my $hpb ( @{$HAVANA_INPUT_NONCODING_TYPE} ) {
+  #  $noncoding_biotypes{ $hpb . "_hav" } = 1;
+  #}
   foreach my $ecb ( @{$ENSEMBL_INPUT_CODING_TYPE} ) {
     $coding_biotypes{$ecb} = 1;
   }
@@ -2387,7 +2425,7 @@ sub update_gene_biotypes {
 
     my $has_pseudos   = 0;
     my $has_processed = 0;
-    my $has_noncoding = 0;
+    #my $has_noncoding = 0;
     my $has_coding    = 0;
 
     # Keeping track of the Havana non-coding gene biotypes, we don't
@@ -2407,11 +2445,11 @@ sub update_gene_biotypes {
           $has_processed = 1;
         }
       }
-      foreach my $noncoding_biotype ( keys %noncoding_biotypes ) {
-        if ( $tran->biotype =~ /$noncoding_biotype/ ) {
-          $has_noncoding = 1;
-        }
-      }
+      #foreach my $noncoding_biotype ( keys %noncoding_biotypes ) {
+      #  if ( $tran->biotype =~ /$noncoding_biotype/ ) {
+      #    $has_noncoding = 1;
+      #  }
+      #}
       foreach my $coding_biotype ( keys %coding_biotypes ) {
         if ( $tran->biotype =~ /$coding_biotype/ ) {
           $has_coding = 1;
@@ -2433,7 +2471,7 @@ sub update_gene_biotypes {
       }
     }
 
-    # MANAGE OUTPUT BIOTYPES BEFORE WRITTING OUTPUT
+    # MANAGE OUTPUT BIOTYPES BEFORE WRITING OUTPUT
     my $newbiotype;
     my $biotype_status;
     my $has_havana  = 0;
@@ -2827,7 +2865,7 @@ sub cluster_into_Genes {
       if ( ($gene_attrib->name() eq 'ncrna_host') or
            ($gene_attrib->code() eq 'NoTransRefError') ) {
         print "Found gene_attrib to keep: ". $gene_attrib->code() ."\n";
-        $gene_attribs_to_keep{$hav_stable_id} = $gene_attrib;
+        push @{$gene_attribs_to_keep{$hav_stable_id}},$gene_attrib;
       }
     }
     my ($ottg_key, $ottg_version);
@@ -3128,14 +3166,13 @@ sub cluster_into_Genes {
   foreach my $cluster (@clusters) {
     my $count         = 0;
     my $ottg_added    = "";
-    my $biotype_added = 0;
     my $gene_biotype  = "";
     my $gene          = new Bio::EnsEMBL::Gene;
 
     foreach my $transcript (@$cluster) {
-      if ( $biotype_added == 0 && $transcript->biotype =~ /hav/ ) {
+      if ( $transcript->biotype =~ /hav/ ) {
         $gene_biotype = $transcript->biotype;
-      } elsif ( $biotype_added == 0 ) {
+      } else {
         $gene_biotype = $transcript->biotype;
       }
       #print "DEBUG: Transcript Stable ID: " . $transcript->stable_id
@@ -3179,9 +3216,11 @@ sub cluster_into_Genes {
       $gene->biotype($gene_biotype);
     }
 
-    # Keeping the ncrna_host attributes intact
+    # Keeping the ncrna_host and NoTransRefError attributes
     if ( exists($gene_attribs_to_keep{$ottg_added} ) ) {
-      $gene->add_Attributes($gene_attribs_to_keep{$ottg_added});
+      foreach my $attrib (@{$gene_attribs_to_keep{$ottg_added}}) {
+        $gene->add_Attributes($attrib);
+      }
     }
 
     push( @genes, $gene );
