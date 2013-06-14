@@ -38,7 +38,7 @@ This module uses BWA to align fastq to a genomic sequence
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BWA2BAM.pm,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 package Bio::EnsEMBL::Analysis::Runnable::BWA2BAM;
 
 use warnings ;
@@ -94,7 +94,7 @@ sub run {
   # count how many reads we have in the fasta file to start with
   my $command;
   if (-B $fastq) {
-    $command = "zcat $fastq | wc -l";
+    $command = "gunzip -c $fastq | wc -l";
   }
   else {
     $command = "wc -l $fastq";
@@ -105,7 +105,7 @@ sub run {
       $self->throw("Error counting reads");
     while (<$fh>){
       chomp;
-      if ( $_ =~ /(\d+) $fastq/ ) {
+      if ( $_ =~ /^\s*(\d+)/ ) {
       	if ( $fastqpair ) {
    	  $total_reads = $1 / 2;
 	} else {
