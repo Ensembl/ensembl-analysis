@@ -33,7 +33,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation -
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/LayerAnnotation.pm,v $
-# $Revision: 1.13 $
+# $Revision: 1.14 $
 package Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation;
 
 use warnings ;
@@ -117,7 +117,7 @@ sub run {
       if ($layer->filter_object) {
         @layer_genes = @{$layer->filter_object->filter(\@layer_genes, \@compare_genes)};
       } else {
-        @layer_genes = @{$self->generic_filter(\@layer_genes, \@compare_genes)};
+        throw("No filter object");
       }
       
       if (not $layer->discard) {
@@ -172,65 +172,6 @@ sub write_output {
   return 1;
 }
 
-#####################################
-sub generic_filter {
-  my ($self, $these, $others) = @_;
-
-  # interference is judged by overlap at exon level
-  # assumption is that @others is sorted by gene start
-
-  my @filtered;
-
-  my $cur_idx = 0;
-
-  foreach my $obj (@$these) {
-    my (@genomic_overlap, $left_bound);
-
-  
-    for(my $i=$cur_idx; $i < @$others; $i++) {
-      my $o_obj = $others->[$i];
-
-      if ($o_obj->end >= $obj->start and not defined $left_bound) {
-        $left_bound = $i;
-      }
-      
-      if ($o_obj->end < $obj->start) {
-        next;
-      } elsif ($o_obj->start > $obj->end) {
-        last;
-      } else {
-        push @genomic_overlap, $o_obj;
-      } 
-    }
-    
-    $cur_idx = $left_bound if defined $left_bound;
-
-    my $exon_overlap = 0;
-    if (@genomic_overlap) {
-      my @exons = @{$obj->get_all_Exons};
-      OG: foreach my $o_obj (@genomic_overlap) {
-        foreach my $oe (@{$o_obj->get_all_Exons}) {
-          foreach my $e (@exons) {
-            if ($oe->strand == $e->strand and 
-                $oe->end >= $e->start and
-                $oe->start <= $e->end) {  
-              $exon_overlap = 1;
-              last OG;
-            }
-          }
-        }
-      }
-    }      
-
-    if (not $exon_overlap) {
-      push @filtered, $obj;
-    }
-  }
-
-  return \@filtered;
-}
-
-
 ####################################
 sub layers {
   my ($self, $val) = @_;
@@ -253,7 +194,8 @@ sub read_and_check_config {
   # check that all relevant vars have been defined
   foreach my $i (qw(LAYERS
                     SOURCEDB_REFS
-                    TARGETDB_REF)) {
+                    TARGETDB_REF
+                    FILTER)) {
     throw("You must define $i in config")
         if not $self->$i;
   }
@@ -265,6 +207,14 @@ sub read_and_check_config {
       if ref($self->SOURCEDB_REFS) ne "ARRAY";
   throw("Config var TARGETDB_REF must be an scalar")
       if ref($self->TARGETDB_REF);
+  throw("Config var FILTER must be an scalar")
+      if ref($self->FILTER);
+
+  my $filter;
+  if ($self->FILTER) {
+    $self->require_module($self->FILTER);
+    $filter = $self->FILTER->new;
+  }     
 
   my (%biotypes, %layer_ids, @layers);
 
@@ -282,7 +232,7 @@ sub read_and_check_config {
     my $layer_id = $el->{ID};
     my @biotypes = @{$el->{BIOTYPES}};
     my $discard = 0;
-    my ($filter, @filter_against);
+    my (@filter_against);
 
     if (exists $el->{DISCARD} and $el->{DISCARD}) {
       $discard = 1;
@@ -305,11 +255,6 @@ sub read_and_check_config {
       }
     }      
     
-
-    if (exists $el->{FILTER}) {
-      $self->require_module($el->{FILTER});
-      $filter = $el->{FILTER}->new;
-    }     
 
     push @layers, Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation::Layer
         ->new(-id => $layer_id,
@@ -338,6 +283,16 @@ sub LAYERS {
   return $self->{_layers};
 }
 
+
+sub FILTER {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_filter_object_name} = $val;
+  }
+
+  return $self->{_filter_object_name};
+}
 
 
 sub SOURCEDB_REFS {
