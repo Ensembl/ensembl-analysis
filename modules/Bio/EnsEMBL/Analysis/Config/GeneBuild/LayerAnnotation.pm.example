@@ -49,7 +49,9 @@ use vars qw( %Config );
 
                # If you would like to filter in a different way, please specify filter
                #FILTER => 'Bio::EnsEMBL::Analysis::Tools::GenomeOverlapFilter',
-               #FILTER => 'Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter',
+               #FILTER => 'Bio::EnsEMBL::Analysis::Tools::AllExonOverlapFilter',
+
+               FILTER => 'Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter',
  
                LAYERS => [
                   { 
