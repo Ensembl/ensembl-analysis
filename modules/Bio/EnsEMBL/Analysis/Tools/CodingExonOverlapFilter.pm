@@ -5,7 +5,7 @@
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/CodingExonOverlapFilter.pm,v $
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 package Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter;
 
 use strict;
@@ -63,9 +63,9 @@ sub filter {
 
     my $exon_overlap = 0;
     if (@genomic_overlap) {
-      my @exons = @{$obj->get_all_translateable_Exons};
+      my @exons = @{$obj->get_all_Transcripts->[0]->get_all_translateable_Exons};
       OG: foreach my $o_obj (@genomic_overlap) {
-        foreach my $oe (@{$o_obj->get_all_translateable_Exons}) {
+        foreach my $oe (@{$o_obj->get_all_Transcripts->[0]->get_all_translateable_Exons}) {
           foreach my $e (@exons) {
             if ($oe->strand == $e->strand and
                 $oe->end >= $e->start and
