@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.3 $
+# $Revision: 1.4 $
 package Merge::vega_check;
 
 use strict;
@@ -46,16 +46,37 @@ my %allowed_combos = (
        'sense_overlapping'                  => ['sense_overlapping'],
        'TR_gene'                            => ['TR_gene'],
        'TR_pseudogene'                      => ['TR_pseudogene'],
-       'translated_processed_pseudogene'    => ['translated_processed_pseudogene']
+       'translated_processed_pseudogene'    => ['translated_processed_pseudogene'],
        'unitary_pseudogene'                 => ['processed_transcript',
                                                 'retained_intron',
                                                 'unitary_pseudogene'],
        'unprocessed_pseudogene'             => ['processed_transcript',
                                                 'retained_intron',
-                                                'transcribed_unprocessed_pseudogene'
+                                                'transcribed_unprocessed_pseudogene',
                                                 'unprocessed_pseudogene'] },
 
      'ensembl_extension' => { # additional allowed gene-transcript biotypes combination after the merge
+       'antisense'                          => ['miRNA',
+                                                'misc_RNA',
+                                                'snoRNA'],
+       'lincRNA'                            => ['miRNA',
+                                                'misc_RNA',
+                                                'rRNA',
+                                                'snoRNA',
+                                                'snRNA'],
+       'miRNA'                              => ['miRNA'],
+       'misc_RNA'                           => ['misc_RNA'],
+       'non_coding'                         => ['miRNA'],
+       'processed_transcript'               => ['miRNA',
+                                                'misc_RNA',
+                                                'snoRNA'],
+       'rRNA'                               => ['rRNA'],
+       'sense_intronic'                     => ['miRNA',
+                                                'snoRNA',
+                                                'snRNA'],
+       'sense_overlapping'                  => ['miRNA'],
+       'snoRNA'                             => ['snoRNA'],
+       'snRNA'                              => ['snRNA'],
        'protein_coding'                     => ['IG_C_gene',
                                                 'IG_V_gene'],
        'pseudogene'                         => ['transcribed_processed_pseudogene',
@@ -91,7 +112,7 @@ my %biotype_groups = (
                                                 'IG_C_gene',
                                                 'IG_V_gene',
                                                 'non_stop_decay',
-                                                'nonsense_mediated_decay'
+                                                'nonsense_mediated_decay',
                                                 'polymorphic_pseudogene',
                                                 'protein_coding',
                                                 'TR_gene'],
@@ -99,13 +120,18 @@ my %biotype_groups = (
                                                 'antisense',
                                                 'IG_pseudogene',
                                                 'lincRNA',
+                                                'miRNA',
+                                                'misc_RNA',
                                                 'non_coding',
                                                 'processed_pseudogene',
                                                 'processed_transcript',
                                                 'pseudogene',
+                                                'rRNA',
                                                 'sense_intronic',
                                                 'sense_overlapping',
-                                                'translated_processed_pseudogene'
+                                                'snoRNA',
+                                                'snRNA',
+                                                'translated_processed_pseudogene',
                                                 'TR_pseudogene',
                                                 'unitary_pseudogene',
                                                 'unprocessed_pseudogene'],
@@ -115,13 +141,18 @@ my %biotype_groups = (
                                                 'disrupted_domain',
                                                 'IG_pseudogene',
                                                 'lincRNA',
+                                                'miRNA',
+                                                'misc_RNA',
                                                 'non_coding',
                                                 'processed_transcript',
                                                 'processed_pseudogene',
                                                 'pseudogene',
+                                                'rRNA',
                                                 'retained_intron',
                                                 'sense_intronic',
                                                 'sense_overlapping',
+                                                'snoRNA',
+                                                'snRNA',
                                                 'transcribed_unprocessed_pseudogene',
                                                 'transcribed_processed_pseudogene',
                                                 'translated_processed_pseudogene',
