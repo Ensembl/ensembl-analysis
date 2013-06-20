@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.48 $
+# $Revision: 1.49 $
 #
 
 use warnings ;
@@ -757,45 +757,21 @@ foreach my $row (@rows) {
   $seen_it{ $row->{ID} } = 1;
   open( HEAD, ">$output_dir/" . $row->{ID} . "_header.txt" )
     or die( "Cannot open  $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
-
-  unless(exists $row->{LB})
-  {
-      $row->{LB} = "";
-  }
-
-  unless(exists $row->{DS})
-  {
-      $row->{DS} = "";
-  }
-
-  unless(exists $row->{PU})
-  {
-      $row->{PU} = "";
-  }
-
-  unless(exists $row->{CN})
-  {
-      $row->{CN} = "";
-  }
-
-  unless(exists $row->{ST})
-  {
-      $row->{ST} = "";
-  }
-
-  unless(exists $row->{PL})
-  {
-      $row->{PL} = "";
-  }
-
-
-  print HEAD "\@RG\tID:" . $row->{ID} . "\tPU:" . $row->{PU} . "\tSM:" . $row->{SM} . "\t";
-  print HEAD "LB:"       . $row->{LB} . "\tDS:" . $row->{DS} . "\tCN:" . $row->{CN} . "\t";
-  print HEAD "ST:"       . $row->{ST} . "\tPL:" . $row->{PL} . "\n";
-  print ALL "\@RG\tID:"  . $row->{ID} . "\tPU:" . $row->{PU} . "\tSM:" . $row->{SM} . "\t";
-  print ALL "LB:"        . $row->{LB} . "\tDS:" . $row->{DS} . "\tCN:" . $row->{CN} . "\t";
-  print ALL "ST:"        . $row->{ST} . "\tPL:" . $row->{PL} . "\n";
+  my $read_group = "\@RG\tID:" . $row->{ID};
+  $read_group .= "\tPU:" . $row->{PU} if (exists $row->{PU});
+  $read_group .= "\tSM:" . $row->{SM} if (exists $row->{SM});
+  $read_group .= "\tLB:" . $row->{LB} if (exists $row->{LB});
+  $read_group .= "\tDS:" . $row->{DS};
+  $read_group .= "\tCN:" . $row->{CN};
+  # Might need to change ST to DT but we will need to change the previous configs
+  $read_group .= "\tDT:" . $row->{ST} if (exists $row->{ST});
+  my ($field_pl) = $row->{PL} =~ /([^+])/;
+  $read_group .= "\tPL:" . $field_pl . "\n";
+  print HEAD $read_group;
+  print ALL $read_group;
+  close(HEAD) || die( "Cannot close $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
 } ## end foreach my $row (@rows)
+close(ALL) || die("Cannot close $output_dir/all_headers.txt for writing\n");
 
 if ($stage eq "Initialization" || $check) {
   unless ( $use_gsnap ) {
