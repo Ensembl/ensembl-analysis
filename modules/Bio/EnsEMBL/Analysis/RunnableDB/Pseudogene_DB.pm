@@ -70,11 +70,12 @@ Bio::EnsEMBL::Analysis::Config::Pseudogene
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Pseudogene_DB.pm,v $
-# $Revision: 1.29 $
+# $Revision: 1.30 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene_DB;
 
 use strict;
 use warnings;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
@@ -278,6 +279,9 @@ sub write_output {
   my $gene_adaptor = $db->get_GeneAdaptor;
   foreach my $gene ( @{$genes} ) {
     # store gene
+
+    fully_load_Gene($gene);
+    empty_Gene($gene);
     eval { $gene_adaptor->store( $self->lazy_load($gene) ); };
     if ($@) {
       warning("UNABLE TO WRITE GENE:\n$@");
