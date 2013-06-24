@@ -1,11 +1,18 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 package Merge::vega_check;
 
 use strict;
 use warnings;
+
+use Exporter;
+
+use vars qw(@ISA @EXPORT_OK);
+
+@ISA = qw(Exporter);
+@EXPORT_OK = qw(get_combos get_biotype_groups get_actions);
 
 $| = 1;
 
@@ -163,25 +170,40 @@ my %biotype_groups = (
      'havana' => { }
 );
 
-my %actions = (
-  'ensembl' => {
-    'gene' => {
-      'TEC' => {
-        sub {
-          die('die horribly if this biotype is seen');
-          }
-      } } }, {
-    'transcript' => {
-      'polymorphic_pseudogene' => {
-        sub {
-          print('change to protein coding if no stop codons');
-          }
-      } } },
-  'havana' => {
-    'gene' => {
-      'polymorphic' => sub {
-        print('ask again how loutre continues to contain these');
-        }
-    } } );
+# my %actions = (
+#   'ensembl' => {
+#     'gene' => {
+#       'TEC' => {
+#         sub {
+#           die('die horribly if this biotype is seen');
+#           }
+#       } } }, {
+#     'transcript' => {
+#       'polymorphic_pseudogene' => {
+#         sub {
+#           print('change to protein coding if no stop codons');
+#           }
+#       } } },
+#   'havana' => {
+#     'gene' => {
+#       'polymorphic' => sub {
+#         print('ask again how loutre continues to contain these');
+#         }
+#     } } );
+
+sub get_combos {
+  my $combos_key = shift;
+  return $allowed_combos{$combos_key};
+}
+
+sub get_biotype_groups {
+  my $biotype_groups = shift;
+  return $biotype_groups{$biotype_groups};
+}
+
+#sub get_actions {
+#  my $actions_key = shift;
+#  return $actions{$actions_key};
+#}
 
 1;
