@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 package Merge::vega_check;
 
 use strict;
@@ -105,9 +105,76 @@ my %allowed_combos = (
                                                 'sense_intronic',
                                                 'translated_processed_pseudogene'] },
 
-     'havana' => { # allowed gene-transcript biotypes combination before the merge
-       '' => [ '', '' ]
-     } );
+     'havana' => { 
+       protein_coding                       => ['protein_coding',
+                                                'nonsense_mediated_decay',
+                                                'non_stop_decay',
+                                                'processed_transcript',
+                                                'retained_intron',
+                                                'artifact',
+                                                'tec',
+                                                'translated_processed_pseudogene',
+                                                'translated_unprocessed_pseudogene'],
+       polymorphic_pseudogene               => ['protein_coding',
+                                                'nonsense_mediated_decay',
+                                                'non_stop_decay',
+                                                'processed_transcript',
+                                                'retained_intron',
+                                                'artifact',
+                                                'tec',
+                                                'polymorphic_pseudogene'],
+       processed_transcript                 => ['processed_transcript',
+                                                'retained_intron',
+                                                'antisense',
+                                                'artifact',
+                                                'lincrna',
+                                                'sense_intronic',
+                                                'sense_overlapping',
+                                                qq(3'_overlapping_ncrna),
+                                                'tec'],
+       processed_pseudogene                 => ['processed_pseudogene'],
+       unprocessed_pseudogene               => ['unprocessed_pseudogene'],
+       transcribed_processed_pseudogene     => ['transcribed_processed_pseudogene',
+                                                'processed_transcript',
+                                                'retained_intron',
+                                                'artifact',
+                                                'tec'],
+       transcribed_unprocessed_pseudogene   => ['transcribed_unprocessed_pseudogene',
+                                                'processed_transcript',
+                                                'retained_intron',
+                                                'artifact',
+                                                'tec'],
+       unitary_pseudogene                   => ['unitary_pseudogene',
+                                                'processed_transcript',
+                                                'retained_intron',
+                                                'artifact',
+                                                'tec'],
+       translated_processed_pseudogene      => ['translated_processed_pseudogene'],
+       translated_unprocessed_pseudogene    => ['translated_unprocessed_pseudogene'],
+       tec                                  => ['tec'],
+       ig_pseudogene                        => ['ig_pseudogene'],
+       novel_transcript                     => ['processed_transcript'],
+       ig_gene                              => ['ig_gene',
+                                                'artifact'],
+       tr_gene                              => ['tr_gene'],
+       tr_pseudogene                        => ['tr_pseudogene'],
+       lincRNA                              => ['retained_intron',
+                                                'lincrna',
+                                                'artifact'],
+       antisense                            => ['retained_intron',
+                                                'antisense',
+                                                'artifact'],
+       sense_intronic                       => ['retained_intron',
+                                                'sense_intronic',
+                                                'artifact'],
+       sense_overlapping                    => ['retained_intron',
+                                                'sense_overlapping',
+                                                'artifact'],
+       qq(3'_overlapping_ncRNA)             => ['retained_intron',
+                                                qq(3'_overlapping_ncrna),
+                                                'artifact'],
+     }
+   );
 
 my %biotype_groups = (
      'ensembl' => {
