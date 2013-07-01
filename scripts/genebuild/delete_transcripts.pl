@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
-# $Revision: 1.13 $
+# $Revision: 1.14 $
 
 =head1 NAME
 
@@ -122,15 +122,16 @@ while ( my $transcript_id = <> ) {
     $ga->fetch_by_transcript_id( $transcript->dbID() )->dbID();
 
   my $has_transcript_stable_id = defined( $transcript->stable_id() );
+  my $copy_of_dbID = $transcript->dbID();
 
   eval {
     $ta->remove($transcript);
     if ($has_transcript_stable_id) {
       printf( "Deleted transcript %s (id = %d)\n",
-              $transcript->stable_id(), $transcript->dbID() );
+              $transcript->stable_id(), $copy_of_dbID );
     }
     else {
-      printf( "Deleted transcript (id = %d)\n", $transcript->dbID() );
+      printf( "Deleted transcript (id = %d)\n", $copy_of_dbID );
     }
   };
 
@@ -147,7 +148,7 @@ while ( my $transcript_id = <> ) {
     next;
   }
 
-  $gene_ids{$gene_id}{ $transcript->dbID() } = 1;
+  $gene_ids{$gene_id}{ $copy_of_dbID } = 1;
 } ## end while ( my $transcript_id...)
 
 # Now get all those genes again and see if they are empty or split.
