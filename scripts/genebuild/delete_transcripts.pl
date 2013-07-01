@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
+
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 
 =head1 NAME
 
@@ -120,20 +121,33 @@ while ( my $transcript_id = <> ) {
   my $gene_id =
     $ga->fetch_by_transcript_id( $transcript->dbID() )->dbID();
 
+  my $has_stable_id = defined( $transcript->stable_id() );
+
   eval {
     $ta->remove($transcript);
-    printf( "Deleted transcript %s (id = %d)\n",
-            $transcript->stable_id(), $transcript->dbID() );
+    if ($has_stable_id) {
+      printf( "Deleted transcript %s (id = %d)\n",
+              $transcript->stable_id(), $transcript->dbID() );
+    }
+    else {
+      printf( "Deleted transcript (id = %d)\n", $transcript->dbID() );
+    }
   };
 
   if ($@) {
-    printf( "Could not remove transcript %s (id = %d): %s\n",
-            $transcript->stable_id(),
-            $transcript->dbID(), $@ );
+    if ($has_stable_id) {
+      printf( "Could not remove transcript %s (id = %d): %s\n",
+              $transcript->stable_id(),
+              $transcript->dbID(), $@ );
+    }
+    else {
+      printf( "Could not remove transcript (id = %d): %s\n",
+              $transcript->dbID(), $@ );
+    }
     next;
   }
 
-  $gene_ids{$gene_id} = 1;
+  $gene_ids{$gene_id}{ $transcript->dbID() } = 1;
 } ## end while ( my $transcript_id...)
 
 # Now get all those genes again and see if they are empty or split.
@@ -157,6 +171,10 @@ foreach my $gene_id ( keys(%gene_ids) ) {
   my @cluster;
 
   foreach my $t ( sort { $a->start() <=> $b->start() } @transcripts ) {
+    if ( exists( $gene_ids{$gene_id}{ $t->dbID() } ) ) {
+      next;
+    }
+
     if ( !defined($max_end) ) {
       $max_end = $t->end();
     }
