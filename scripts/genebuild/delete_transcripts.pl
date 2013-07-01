@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_transcripts.pl,v $
-# $Revision: 1.12 $
+# $Revision: 1.13 $
 
 =head1 NAME
 
@@ -121,11 +121,11 @@ while ( my $transcript_id = <> ) {
   my $gene_id =
     $ga->fetch_by_transcript_id( $transcript->dbID() )->dbID();
 
-  my $has_stable_id = defined( $transcript->stable_id() );
+  my $has_transcript_stable_id = defined( $transcript->stable_id() );
 
   eval {
     $ta->remove($transcript);
-    if ($has_stable_id) {
+    if ($has_transcript_stable_id) {
       printf( "Deleted transcript %s (id = %d)\n",
               $transcript->stable_id(), $transcript->dbID() );
     }
@@ -135,7 +135,7 @@ while ( my $transcript_id = <> ) {
   };
 
   if ($@) {
-    if ($has_stable_id) {
+    if ($has_transcript_stable_id) {
       printf( "Could not remove transcript %s (id = %d): %s\n",
               $transcript->stable_id(),
               $transcript->dbID(), $@ );
@@ -157,11 +157,19 @@ foreach my $gene_id ( keys(%gene_ids) ) {
 
   # See if gene is now empty.
 
+  my $has_gene_stable_id = defined( $gene->stable_id() );
+
   my @transcripts = @{ $gene->get_all_Transcripts() };
 
   if ( !@transcripts ) {
-    printf( "Gene %s (id = %d) is now empty, delete it!\n",
-            $gene->stable_id(), $gene->dbID() );
+    if ($has_gene_stable_id) {
+      printf( "Gene %s (id = %d) is now empty, delete it!\n",
+              $gene->stable_id(), $gene->dbID() );
+    }
+    else {
+      printf( "Gene (id = %d) is now empty, delete it!\n",
+              $gene->dbID() );
+    }
     next;
   }
 
@@ -183,17 +191,27 @@ foreach my $gene_id ( keys(%gene_ids) ) {
       # beginning of this, which means that the transcripts in @cluster
       # should now be removed from $gene and put into a new gene object.
 
-      printf( "WARNING:\tFrom gene %s (id = %d),\n" .
-                "\t\ta new gene should be created\n" .
-                "\t\twith the following %d trancript(s):\n",
-              $gene->stable_id(), $gene->dbID(), scalar(@cluster) );
-      print(
-        map {
-          sprintf( "\t%s (id = %d)\n", $_->stable_id(), $_->dbID() )
-        } @cluster );
+      if ($has_gene_stable_id) {
+        printf( "WARNING:\tFrom gene %s (id = %d),\n" .
+                  "\t\ta new gene should be created\n" .
+                  "\t\twith the following %d trancript(s):\n",
+                $gene->stable_id(), $gene->dbID(), scalar(@cluster) );
+        print(
+          map {
+            sprintf( "\t%s (id = %d)\n", $_->stable_id(), $_->dbID() )
+          } @cluster );
+      }
+      else {
+        printf( "WARNING:\tFrom gene (id = %d),\n" .
+                  "\t\ta new gene should be created\n" .
+                  "\t\twith the following %d trancript(s):\n",
+                $gene->dbID(), scalar(@cluster) );
+        print( map { sprintf( "\t(id = %d)\n", $_->dbID() ) }
+               @cluster );
 
+      }
       @cluster = ();
-    }
+    } ## end elsif ( $t->start() > $max_end) [ if ( !defined($max_end...))]
 
     if ( $max_end < $t->end() ) {
       $max_end = $t->end();
