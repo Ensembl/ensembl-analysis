@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.57 $
+# $Revision: 1.58 $
 
 =head1 LICENSE
 
@@ -532,19 +532,35 @@ sub are_matched_pair {
     return 0;
   }
 
+  my %e_input_noncoding_type;
+  foreach my $noncoding_type ( @{$ENSEMBL_INPUT_NONCODING_TYPE} ) {
+    # note only pure non_coding (not including pseudo)
+    $e_input_noncoding_type{$noncoding_type} = 1;
+  }
+
   if ( $non_coding_h == 1 && $non_coding_e == 1 ) {
     print "\n===>>> ensembl and havana are both non-coding <<<===\n";
+    # CASE 4:
+    # if both of them are single-exon transcripts
+    # and the Ensembl transcript is in ENSEMBL_INPUT_NONCODING_TYPE (ncRNAs)
+    # and their length is the same,
+    # we keep the Ensembl transcript (because we want to keep Ensembl ncRNA biotypes)
+    if ( (scalar(@hexons) == 1) # already checked that the number of exons is the same
+      && ($e_input_noncoding_type{$ensembl->biotype})
+      && ($ensembl->length == $havana->length) ) {
+      print "NON-CODING CASE 4 - single-exon transcripts, same length, Ensembl ncRNA (keep Ensembl)";
+      return $havana;
+
     # We check two non coding transcripts. If they have the same
     # structure we keep the one from havana but if the have same exon
     # structure but one is slightly longer we take the longest one of
     # the pair.
+    } elsif ( !$self->check_internal_exon_structure( \@eexons, \@hexons ) ) {
+        #print "DEBUG: value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
+        print "NON-CODING CASE 0 - BOTH selected\n";
 
-    if ( !$self->check_internal_exon_structure( \@eexons, \@hexons ) ) {
-      #print "DEBUG: value is: " . $self->check_internal_exon_structure( \@eexons, \@hexons ) . "\n";
-      print "NON-CODING CASE 0 - BOTH selected\n";
-
-      # CASE 0: the two transcripts have different internal exon structure
-      return 0;
+        # CASE 0: the two transcripts have different internal exon structure
+        return 0;
     }
     # CASE 1: Havana is longer or both are exactly the same
     print "NON-CODING CASE 1 - Havana longer or both are the same length\n";
