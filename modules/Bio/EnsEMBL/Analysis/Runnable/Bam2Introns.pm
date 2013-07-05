@@ -42,7 +42,7 @@ rough transcript. Writes output as SAM files.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Bam2Introns.pm,v $
-# $Revision: 1.12 $
+# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 
 use warnings ;
@@ -89,6 +89,215 @@ sub new {
 # of the type STABLEID00000001:2 for the second bacth 
 # of 100,000 reads etc.
 
+sub _increase_read_offset {
+    my $self = shift;
+
+    $self->{'_read_offset'}++;
+}
+
+sub _reset_read_offset {
+    my $self = shift;
+
+    $self->{'_read_offset'} = 0;
+}
+
+sub read_offset {
+    my $self = shift;
+
+    return $self->{'_read_offset'};
+}
+
+sub _last_start {
+    my ($self, $value) = @_;
+
+    $self->{'_last_start'} = $value if (defined $value);
+    return $self->{'_last_start'};
+}
+
+sub _increase_read_count {
+    my $self = shift;
+
+    $self->{'_read_count'}++;
+}
+
+sub _reset_read_count {
+    my $self = shift;
+
+    $self->{'_read_count'} = 0;
+}
+
+sub read_count {
+    my $self = shift;
+
+    return $self->{'_read_count'};
+}
+
+sub _increase_count {
+    my $self = shift;
+
+    $self->{'_count'}++;
+}
+
+sub _reset_count {
+    my $self = shift;
+
+    $self->{'_count'} = 0;
+}
+
+sub count {
+    my $self = shift;
+
+    return $self->{'_count'};
+}
+
+sub _reset_batch {
+    my $self = shift;
+
+    $self->{'_batch'} = 0;
+}
+
+sub _increase_batch {
+    my $self = shift;
+
+    $self->{'_batch'}++;
+}
+
+sub batch {
+    my $self = shift;
+
+    return $self->{'_batch'};
+}
+
+sub _process_reads {
+    my ($read, $callbackdata) = @_;
+
+    my ($self, $i, $exon_start, $stable_id, $reads, $iids) = @$callbackdata;
+    return if ($self->kill_loop);
+    my $missmatch  = $read->get_tag_values('NM');
+    return unless ($missmatch and $missmatch >= $self->MISSMATCH);
+#    unless ($missmatch and $missmatch >= $self->MISSMATCH) {
+#        print STDERR 'TIBO missmatch: ', $read->query->name, ' : ', $missmatch, ' @ ', $read->get_tag_values('FLAGS'), ' ? ', $read->get_tag_values('MD'), "\n";
+#        return;
+#    }
+    # get rid of any reads that might start before our start point
+    return if (!$read->start or ($i == $self->start_exon and $read->start < $exon_start));
+#    if (!$read->start or ($i == $self->start_exon and $read->start < $exon_start)) {
+#        print STDERR 'TIBO exon_start: ', $read->query->name, ' : ', $read->start, ' < ', $exon_start, ' @ ', $read->get_tag_values('FLAGS'), ' ? ', $read->get_tag_values('MD'), ' ! ', $read->query->start, ' + ', $read->target->start, ' $ ', $read->mate_start, "\n";
+#        return;
+#    }
+    $self->_increase_read_count;
+    # get rid of any reads overlapping out start point
+    return if ($self->offset and $self->read_count <= $self->offset);
+#    if ($self->offset and $self->read_count <= $self->offset) {
+#        print STDERR 'TIBO offset: ', $read->query->name, ' : ', $self->offset, ' @ ', $read->get_tag_values('FLAGS'), "\n";
+#        return;
+#    }
+    # calculate the offset 
+#    print STDERR 'TIBO GOOD: ', $read->query->name,
+#        ' start ', $read->start, ";\n",
+#        ' end ', $read->end, ";\n",
+#        ' length ', $read->length, ";\n",
+#        ' mate_start ', $read->mate_start, ";\n",
+#        ' mate_end ', $read->mate_end, ";\n",
+#        ' mate_len ', $read->mate_len, ";\n",
+#        ' strand ', $read->strand, ";\n",
+#        ' mstrand ', $read->mstrand, ";\n",
+#        ' query->name ', $read->query->name, ";\n",
+#        ' query->start ', $read->query->start, ";\n",
+#        ' query->end ', $read->query->end, ";\n",
+#        ' query->length ', $read->query->length, ";\n",
+#        ' target->name ', $read->target->name, ";\n",
+#        ' target->start ', $read->target->start, ";\n",
+#        ' target->end ', $read->target->end, ";\n",
+#        ' primary_id ', $read->primary_id, ";\n",
+#        ' get_all_tags ', $read->get_all_tags, ";\n",
+#        ' cigar_str ', $read->cigar_str, ";\n",
+#        ' aux ', $read->aux, ";\n",
+#        ' tid ', $read->tid, ";\n",
+#        ' qname ', $read->qname, ";\n",
+#        ' pos ', $read->pos, ";\n",
+#        ' flag ', $read->flag, ";\n",
+#        ' mtid ', $read->mtid, ";\n",
+#        ' mpos ', $read->mpos, ";\n",
+#        ' n_cigar ', $read->n_cigar, ";\n",
+#        ' aux_keys ', $read->aux_keys, ";\n",
+#        ' paired ', $read->paired, ";\n",
+#        ' proper_pair ', $read->proper_pair, ";\n",
+#        ' unmapped ', $read->unmapped, ";\n",
+#        ' munmapped ', $read->munmapped, ";\n",
+#        ' reversed ', $read->reversed, ";\n",
+#        ' mreversed ', $read->mreversed, ";\n",
+#        ' isize ', $read->isize, ";\n",
+#        ' < ', $exon_start, ";\n";
+#        foreach my $tag ($read->get_all_tags) {
+#            print STDERR "\t", $tag, ': ', $read->get_tag_values($tag);
+#        }
+#        print STDERR "\n";
+    if ( $read->start == $self->_last_start ) {
+        $self->_increase_read_offset;
+    } else {
+        $self->_reset_read_offset;
+        $self->_last_start($read->start);
+    }
+
+    my $rg = $read->get_tag_values('RG') || '*';
+
+    $self->_increase_batch;
+    $self->_increase_count;
+
+    if (  $self->count <= $self->BATCH_SIZE ) {
+        my $name = $read->query->name;
+        # is it the 1st or 2nd read?
+        if ( $read->get_tag_values('FIRST_MATE')) {
+            $name .= '/1';
+        }
+        elsif ( $read->get_tag_values('SECOND_MATE')) {
+            $name .= '/2';
+        }
+        # write the seq files - store the read group information in case it is needed later
+        my $bioseq = Bio::Seq->new( 
+                -seq        => $read->query->dna,
+                -display_id => $name,
+                -desc       => $rg
+                );
+        push(@$reads, $bioseq);
+        # want to store the read sequence for making it into a SAM file later
+        $self->seq_hash($name,$bioseq);
+    } else {
+        # if running a batch finish here
+#        print STDERR 'TIBO: entering iids generation ', $self->start, ' : ', $self->batch, "\n";
+        if ($self->start) {
+            $self->_kill_loop;
+            return;
+        }
+        if ($self->BATCH_SIZE+1 == $self->batch ) {
+#            print STDERR 'TIBO : creating iids', $self->batch, "\n";
+            $self->_reset_batch;
+            $self->_increase_batch;
+            push(@$iids, $stable_id .":$i:" . $read->start .':'.$self->read_offset);
+        }
+        # otherwise figure out the ids for the rest of the batches
+    }
+}
+
+sub _kill_loop {
+    my $self = shift;
+
+    $self->{'_kill_loop'} = 1;
+}
+
+sub kill_loop {
+ my $self = shift;
+
+ return $self->{'_kill_loop'};
+}
+
+sub _loop {
+    my $self = shift;
+
+    $self->{'_kill_loop'} = 0;
+}
+
 sub run  {
   my ( $self) = @_;
   my $batch_size = $self->BATCH_SIZE;
@@ -122,94 +331,41 @@ sub run  {
   $self->write_seq_file($seqio,$genomic_seq);
   # get the reads
   my @reads;
-  my $sam = Bio::DB::Sam->new(   -bam => $self->BAM_FILE);
-	#			 -autoindex => 1,);
-  
-  $self->throw("Bam file " . $self->BAM_FILE . "  not found \n") unless $sam; 
-  my $count = 0;
-  my $batch = 0;
+  my $bam = Bio::DB::Bam->open($self->BAM_FILE);
+  my $header = $bam->header();
+  my ($tid, $start, $end) = $header->parse_region($rough->seq_region_name);
+  my $bam_index = Bio::DB::Bam->index_open($self->BAM_FILE);
+  $self->throw("Bam file " . $self->BAM_FILE . "  not found \n") unless $bam_index; 
+  $self->_reset_count;
+  $self->_reset_batch;
   my $exon = 0;
   my @exons = sort { $a->start <=> $b->start } @{$rough->get_all_Exons};
   my @iids;
+  $self->_loop;
 
  EXON: for ( my $i = $self->start_exon ; $i <= $#exons ; $i++ ){
     my $exon = $exons[$i];
     my $exon_start = $exon->start;
-    my $offset = 0 ;
-    my $last_start = 0;
+    $self->_reset_read_offset;
+    $self->_last_start(0);
     my %split_points;
     $exon_start = $self->start if $self->start && $self->start_exon == $i;
-    my $segment = $sam->segment($rough->seq_region_name,$exon_start,$exon->end);
-    # check the coverage of the segment - may need to split it up if it is too great - pick split points
-    my $iterator = $segment->features(-iterator=>1, -filter => sub { my $missmatch  = shift->get_tag_values('NM') ; $missmatch &&  $missmatch >= $self->MISSMATCH  });
-    my $read_count = 0;
-    
-    # ignore the 1st offset reads 
-  READ:  while (my $read = $iterator->next_seq) {
-      # get rid of any reads that might start before our start point
-      next if  $i == $self->start_exon && $read->start < $exon_start;
-      $read_count++;
-      # get rid of any reads overlapping out start point
-      if ( $i ==  $self->start_exon && $self->offset ) {
-	next if $read_count <= $self->offset;
-      }
-      # calculate the offset 
-      if ( $read->start == $last_start ) {
-	$offset++;
-      } else {
-	$offset = 0;
-      }
-      $last_start = $read->start;
-
-      my $rg = "*";
-      if ( $read->get_tag_values('RG') ) {
-        $rg = $read->get_tag_values('RG') ;
-      }
-
-      $batch++;
-      $count++;
-
-      if (  $count <= $batch_size ) {
-	my $suffix ="";
-	# is it the 1st or 2nd read?
-	if ( $read->get_tag_values('FLAGS') =~ /FIRST_MATE/ ) {
-	  $suffix = "/1";
-	}
-	if ( $read->get_tag_values('FLAGS') =~ /SECOND_MATE/ ) {
-	  $suffix = "/2";
-	}
-	my $name = $read->name.$suffix;
-	# write the seq files - store the read group information in case it is needed later
-	my $bioseq = Bio::Seq->new( 
-				   -seq        => $read->query->dna,
-				   -display_id => $name,
-				   -desc       => $rg
-				  );
-	push @reads, $bioseq;
-      # want to store the read sequence for making it into a SAM file later
-      $self->seq_hash($name,$bioseq);
-      } else {
-	# if running a batch finish here
-	last EXON if $self->start;
-	if ($batch_size+1 == $batch ) {
-	  $batch = 1;
-	  my $string = $rough->stable_id .":$i:" . $read->start .":$offset";
-	  push @iids, $string;
-	}
-	# otherwise figure out the ids for the rest of the batches
-      }
-    }
-    
+    my @callback_data = ($self, $i, $exon_start, $rough->stable_id, \@reads, \@iids);
+    $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
   }
   if (  scalar(@reads) == 0 ) {
     $self->delete_files();
     return 0;
   }
   if ( scalar(@iids) > 0  && !$self->start ) {
-    print "Making " . scalar(@iids) . " New input ids from $count reads\n";
+    print 'Making ',  scalar(@iids), ' New input ids from ', $self->count, " reads\n";
     $self->iids(\@iids);
   }
   $self->write_seq_file(\@reads,$query_seq);
+  foreach my $val (@iids) {
+      print STDERR $val, "\n";
+  }
+  throw('file written');
   # now to run the runnable
   $self->SUPER::run();  # attach the read seq to the output features
   $self->process_features;
