@@ -42,7 +42,7 @@ rough transcript. Writes output as SAM files.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Bam2Introns.pm,v $
-# $Revision: 1.13 $
+# $Revision: 1.14 $
 package Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 
 use warnings ;
@@ -365,7 +365,6 @@ sub run  {
   foreach my $val (@iids) {
       print STDERR $val, "\n";
   }
-  throw('file written');
   # now to run the runnable
   $self->SUPER::run();  # attach the read seq to the output features
   $self->process_features;
