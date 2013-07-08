@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BaseGeneBuild.pm,v $
-# $Revision: 1.32 $
+# $Revision: 1.33 $
 
 =head1 LICENSE
 
@@ -238,7 +238,7 @@ sub get_dbadaptor {
 
           unless ( $core_db_species eq $dna_db_species ) {
             warning( "you try to add a DNA_DB with species $dna_db_species to "
-                . "a core database with speices: $core_db_species - this does not work\n"
+                . "a core database with species: '" .$core_db_species . "' - this does not work\n"
                 . "try to not use any DNA_DATABASE name in Analysis/Config/Databases.pm\n"
             );
             $dna_db_and_core_db_are_compatible = 0;
