@@ -1,7 +1,7 @@
 package setup_rnaseq_pipeline_config;
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
-# $Revision: 1.16 $
+# $Revision: 1.17 $
 
 use strict;
 use vars qw(%Config);
@@ -97,7 +97,7 @@ use vars qw(%Config);
     BWA_PATH => "/path/to/bwa",
 
     # Configure the pipeline to use Gsnap rather than BWA and Exonerate.
-    USE_GSNAP => 1,
+    USE_GSNAP => 0,
 
     # Path to Gsnap binary.
     GSNAP_PATH => "/path/to/gsnap",
