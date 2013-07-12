@@ -50,9 +50,8 @@ TranscriptCoalescer database.
 
 =cut
 
-
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/TranscriptConsensus.pm,v $
-# $Revision: 1.30 $
+# $Revision: 1.31 $
 package Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
 
 use strict;
@@ -185,7 +184,8 @@ sub run {
 
     # add overlapping non_coding genes
     if ($verbose) {
-      print( "CLUSTER " . $coding_cluster->start() . " " .
+      print( "\n***\n# add overlapping non_coding genes\n" .
+             "CLUSTER " . $coding_cluster->start() . " " .
              $coding_cluster->end() . "\n" );
     }
 
@@ -500,7 +500,7 @@ sub make_genes{
   }
 
   $self->throw("No Transcripts to use\n") unless defined($transcripts);
- SCORE:  foreach my $t (sort {$b->score <=> $a->score } @$transcripts){
+  SCORE:  foreach my $t (sort {$b->score <=> $a->score } @$transcripts){
     my $transcript = $self->clone_transcript_extended($t);
     my $cds_start_exon;
     my $cds_end_exon;
@@ -514,9 +514,9 @@ sub make_genes{
     if ($add_utr){
       # compute the translation and then check that the old translation 
       # is a subset of the new one     
-      print "Transcript ".$transcript->start .":".$transcript->end .":".$transcript->strand." ".$transcript->biotype." " if $verbose;
+      print "Add UTR: Transcript ".$transcript->start .":".$transcript->end .":".$transcript->strand." ".$transcript->biotype." " if $verbose;
       print scalar(@{$transcript->get_all_Exons})." Exons\n" if $verbose;
-      
+
       # dont compute the translation just set it
       # need the similarity gene that it was built from
       # so I can set the cds start and end on the transcript
@@ -526,103 +526,138 @@ sub make_genes{
       # print stuff
       my $last_exon;
       foreach my $exon (@{$transcript->get_all_Exons}){
-	if ($last_exon){
-	  my $intron = $collapsed_cluster->make_intron_from_exons($last_exon,$exon);
-	}
-	$last_exon = $exon;
+        if ($last_exon){
+          my $intron = $collapsed_cluster->make_intron_from_exons($last_exon,$exon);
+        }
+        $last_exon = $exon;
       }
       if ($transcript->strand == -1){
-	my $invertedslice = $similarity_tran->slice->invert;
-	$strand = -1;
-	$similarity_tran = $similarity_tran->transfer($invertedslice);
-	$transcript = $transcript->transfer($invertedslice);
+        my $invertedslice = $similarity_tran->slice->invert;
+        $strand = -1;
+        $similarity_tran = $similarity_tran->transfer($invertedslice);
+        $transcript = $transcript->transfer($invertedslice);
       }
       my $cds_start = $similarity_tran->coding_region_start;
       my $cds_end = $similarity_tran->coding_region_end;
       my @exon_array = @{$transcript->get_all_Exons};
       my @similarity_exons = sort { $a->start <=> $b->start } @{$similarity_tran->get_all_Exons};
-      
-      
+      my @coding_similarity_exons = sort { $a->start <=> $b->start } @{$similarity_tran->get_all_translateable_Exons};
+
+
       my $number = scalar(@exon_array);
       # translation start and end is upside down when on the opposite strand
       for ( my $i = 0 ; $i < scalar(@exon_array) ; $i ++ ){
-	# check for overlaps 
-	my $exon = $exon_array[$i];	  
-	# set phases to non coding by default
-	$exon->phase( -1 );
-	$exon->end_phase( -1 );
-	foreach my $se (@similarity_exons){
-	  # set coding exons to have same phase as similarity exons
-	  if ($exon->start == $se->start){
-	    $exon->phase($se->phase);
-	  }
-	  if ( $exon->end == $se->end ){
-	    $exon->end_phase($se->end_phase);
-	  }
-	}
-	if ($exon->start <= $cds_start && $exon->end >= $cds_start){
-	  # translation start is in this exon
-	  $translation->start_Exon($exon);
-	  $translation->start($cds_start - $exon->start+1);
-	  $exon->phase( -1 ) 	if $exon->start < $cds_start;
-	}
-	if ($exon->start <= $cds_end && $exon->end >= $cds_end){
-	  # translation stop is in this exon
-	  $translation->end_Exon($exon);
-	  
-	  $translation->end($cds_end - $exon->start+1);
-	  
-	  if ( $exon->end_phase > 0) {
-	    $translation->end($translation->end - $exon->end_phase);
-	  }
-	  
-	  if ( $exon->end > $cds_end ||  $exon->end_phase > 0) {
-	    $exon->end_phase( -1 );
-	  }
-	}
-	# find the utr exon that shares the internal boundary with the first simgw exon
-	if ($exon->end == $similarity_exons[0]->end){
-	  $cds_start_exon = $exon;
-	}
-	# find the utr exon that shares the internal boundary with the last simgw exon
-	if ($exon->start == $similarity_exons[-1]->start){
-	  $cds_end_exon = $exon;
-	}
+        # check for overlaps 
+        my $exon = $exon_array[$i];	  
+        # set phases to non coding by default
+        $exon->phase( -1 );
+        $exon->end_phase( -1 );
+        foreach my $se (@similarity_exons){
+          # set coding exons to have same phase as similarity exons
+          if ($exon->start == $se->start){
+            $exon->phase($se->phase);
+          }
+          if ( $exon->end == $se->end ){
+            $exon->end_phase($se->end_phase);
+          }
+        }
+        if ($exon->start <= $cds_start && $exon->end >= $cds_start){
+          # translation start is in this exon
+          $translation->start_Exon($exon);
+          $translation->start($cds_start - $exon->start+1);
+          $exon->phase( -1 ) 	if $exon->start < $cds_start;
+        }
+        if ($exon->start <= $cds_end && $exon->end >= $cds_end){
+          # translation stop is in this exon
+          $translation->end_Exon($exon);
+
+          $translation->end($cds_end - $exon->start+1);
+
+          if ( $exon->end_phase > 0) {
+            $translation->end($translation->end - $exon->end_phase);
+          }
+
+          if ( $exon->end > $cds_end ||  $exon->end_phase > 0) {
+            print "# Setting end phase -1\n";
+            $exon->end_phase( -1 );
+          }
+        }
+
+
+        ## find the utr exon that shares the internal boundary with the first simgw exon
+        # set the start and end coding exon, using the coding exon array as a pointer
+
+        my $coding_start_index;
+        my $coding_end_index;  
+
+        for ( my $i = 0 ; $i < scalar(@similarity_exons) ; $i ++ ) {
+
+          if ( $similarity_exons[$i]->start <= $coding_similarity_exons[0]->start &&
+               $similarity_exons[$i]->end >= $coding_similarity_exons[0]->end ) { 
+            $coding_start_index = $i;
+            print "Coding start exon index set: ". $coding_start_index  ."\n" if $verbose; 
+          }         
+          print $similarity_exons[$i]->start ." <= ". $coding_similarity_exons[-1]->start ." &&\n". 
+                $similarity_exons[$i]->end ." >= ". $coding_similarity_exons[-1]->end."\n";
+
+
+          if ( $similarity_exons[$i]->start <= $coding_similarity_exons[-1]->start &&
+                $similarity_exons[$i]->end >= $coding_similarity_exons[-1]->end ) { 
+            $coding_end_index = $i; 
+            print "Coding end exon index set: ". $coding_end_index  ."\n" if $verbose;
+          }
+        }
+        
+        # find the utr exon that shares the internal boundary with the first simgw exon
+        if ($exon->end == $similarity_exons[$coding_start_index]->end ){
+          $cds_start_exon = $exon;
+        }
+        # find the utr exon that shares the internal boundary with the last simgw exon
+        if ($exon->start == $similarity_exons[$coding_end_index]->start){
+          $cds_end_exon = $exon;
+        }
       }
+      print scalar(@{$transcript->get_all_Exons})." Exons\n" if $verbose;
+
+     
       unless ( $translation->start_Exon && $translation->start_Exon eq $cds_start_exon ) {
-	# the start is not inside an exon
-	throw("Cannot find the coding sequence start exon\n") unless $cds_start_exon;
-	# trim back to the exon that matches the internal boundary
-	# stay in frame though
-	$translation->start_Exon($cds_start_exon);
-	my $trim = $cds_start_exon->start - $cds_start;
-	if ( $trim%3 == 0 ){
-	  $translation->start(1);
-	} else {	
-	  $translation->start(1+(3-$trim%3));
-	}
-	$cds_start_exon->phase( -1 ) 	if $cds_start_exon->start < $cds_start;
+
+        # the start is not inside an exon
+        throw("Cannot find the coding sequence start exon\n") unless $cds_start_exon;
+        # trim back to the exon that matches the internal boundary
+        # stay in frame though
+        $translation->start_Exon($cds_start_exon);
+        my $trim = $cds_start_exon->start - $cds_start;
+        
+        if ( $trim%3 == 0 ){
+          $translation->start(1);
+        } else {	
+          $translation->start(1+(3-$trim%3));
+        }
+        $cds_start_exon->phase( -1 ) 	if $cds_start_exon->start < $cds_start;
       }
+
       unless ($translation->end_Exon && $translation->end_Exon eq $cds_end_exon ){
-	# the start is not inside an exon
-	throw("Cannot find the coding sequence end exon\n") unless $cds_end_exon;
-	# trim back to the exon that matches the internal boundary
-	# stay in frame 
-	$translation->end_Exon($cds_end_exon);
-	my $trim = $cds_end - $cds_end_exon->end;
-	if ( $trim%3 == 0 ){
-	  $translation->end($cds_end_exon->length);
-	} else {
-	  $translation->end($cds_end_exon->length-(3-$trim%3));
-	}
-	$cds_end_exon->end_phase( -1 ) 	if $cds_end_exon->end > $cds_end;
+        # the end is not inside an exon
+        throw("Cannot find the coding sequence end exon\n") unless $cds_end_exon;
+        # trim back to the exon that matches the internal boundary
+        # stay in frame 
+        $translation->end_Exon($cds_end_exon);
+        my $trim = $cds_end - $cds_end_exon->end;
+        if ( $trim%3 == 0 ){
+          $translation->end($cds_end_exon->length);
+        } else {
+          $translation->end($cds_end_exon->length-(3-$trim%3));
+        }
+        $cds_end_exon->end_phase( -1 ) 	if $cds_end_exon->end > $cds_end;
       }
+
       $transcript->translation($translation);
       if ($strand == -1){
-	# flip it back onto the - strand
-	my $slice = $transcript->slice->invert;
-	$transcript = $transcript->transfer($slice);
-	$similarity_tran = $similarity_tran->transfer($slice);
+        # flip it back onto the - strand
+        my $slice = $transcript->slice->invert;
+        $transcript = $transcript->transfer($slice);
+        $similarity_tran = $similarity_tran->transfer($slice);
       }	
       # set the CDS start end to be the same as the similarity
       # now is the new trimmed transcript compatible the longest possible orf?
@@ -634,35 +669,35 @@ sub make_genes{
       # check if the modified translation has worked properly
       my $fail = 0 ;
       if ( $check_seq =~ /\*/ ) {
-	print "Modified translation contains stops replacing it with computed translation\n";
-	$fail = 1;
+        print "Modified translation contains stops replacing it with computed translation\n";
+        $fail = 1;
       }
       unless ( are_phases_consistent($transcript) ) {
-	$fail = 1;
-	print "Modified translation is replaced by computed translation\n"; 
-       }
+        $fail = 1;
+        print "Modified translation is replaced by computed translation\n"; 
+      }
       if ( $fail ) {
-	$transcript = $new_tran;
+        $transcript = $new_tran;
       } else {
-	# check old translation is contained within the new one
-	my $new_seq = $new_tran->translation->seq;
-	#	 print "NEW $new_seq\nOLD $check_seq\n";
-	my $length_change = length($new_seq) - length($check_seq);
-	print "Length change $length_change\n";
-	my $extended = 0;
-	if ( $length_change > 0 ) {
-	  if ( $new_seq =~ /$check_seq/ ) {
-	    print "MATCH \n";
-	    # go with the new translation
-	    $transcript = $new_tran;
-	    print "Extending translation by $length_change residues\n";
-	  }
-	}
+        # check old translation is contained within the new one
+        my $new_seq = $new_tran->translation->seq;
+        #	 print "NEW $new_seq\nOLD $check_seq\n";
+        my $length_change = length($new_seq) - length($check_seq);
+        print "Length change $length_change\n";
+        my $extended = 0;
+        if ( $length_change > 0 ) {
+          if ( $new_seq =~ /$check_seq/ ) {
+            print "MATCH \n";
+            # go with the new translation
+            $transcript = $new_tran;
+            print "Extending translation by $length_change residues\n";
+          }
+        }
       }
       # check for the number of non coding exons 
       if (  scalar(@{$transcript->get_all_Exons}) - scalar(@{$transcript->get_all_translateable_Exons}) > 3 ){
-	# just stick with the similarity model
-	$transcript = $similarity_tran;
+        # just stick with the similarity model
+        $transcript = $similarity_tran;
       }
     } else {
       # dont  need to mess with translations if I am not adding UTR...
@@ -672,20 +707,20 @@ sub make_genes{
       my @exon_array = @{$transcript->get_all_Exons};
       my @similarity_exons = sort { $a->start <=> $b->start } @{$similarity_tran->get_all_Exons};
       for ( my $i = 0 ; $i < scalar(@exon_array) ; $i ++ ){
-	# check for overlaps 
-	my $exon = $exon_array[$i];
-	foreach my $se (@similarity_exons){
-	  # set coding exons to have same phase as similarity exons
-	  if ($exon->start == $se->start){
-	    $exon->phase($se->phase);
-	  }
-	   if ( $exon->end == $se->end ){
-	     $exon->end_phase($se->end_phase);
-	   }
-	}
+        # check for overlaps 
+        my $exon = $exon_array[$i];
+        foreach my $se (@similarity_exons){
+          # set coding exons to have same phase as similarity exons
+          if ($exon->start == $se->start){
+            $exon->phase($se->phase);
+          }
+          if ( $exon->end == $se->end ){
+            $exon->end_phase($se->end_phase);
+          }
+        }
       }
     }
-    
+
     # penalise transcripts where a utr exon overlaps another exon that was previously coding
     $weighted_score = $self->compare_translation($transcript,$collapsed_cluster);
     print $transcript->score."\t" if $verbose;
@@ -703,7 +738,7 @@ sub make_genes{
 
   # add the models of the single exon genes
   push @genes, @{$self->add_single_exon_genes($cluster,$collapsed_cluster)};
-  
+
   # SMJS Test length scaling
   $self->weight_scores_by_cdna_length(\@genes);
 
@@ -712,7 +747,7 @@ sub make_genes{
   while (@genes) {
     @genes = sort {
       $b->get_all_Transcripts->[0]->score()
-        <=> $a->get_all_Transcripts->[0]->score()
+      <=> $a->get_all_Transcripts->[0]->score()
     } @genes;
 
     my $top_score    = $genes[0]->get_all_Transcripts->[0]->score();
@@ -745,7 +780,7 @@ sub make_genes{
           if ($good_percent) {
             my $top = ( $transcript->score() - $bottom_score );
             if ( $score_range &&
-                 ( ( $top/$score_range )*100 >= 100 - $good_percent ) )
+              ( ( $top/$score_range )*100 >= 100 - $good_percent ) )
             {
               $biotype = $good_biotype;
             }
@@ -763,25 +798,25 @@ sub make_genes{
     } ## end foreach my $gene (@genes)
 
     my ( $genes_to_store, $genes_to_recluster ) =
-      $self->_find_genes_to_recluster( \@genes_to_consider );
+    $self->_find_genes_to_recluster( \@genes_to_consider );
 
     printf( "Iteration %d: Cluster of %d models " .
-              "broken up into %d finished models " .
-              "and %d models to reconsider\n",
-            ++$iteration,
-            scalar(@genes_to_consider),
-            scalar( @{$genes_to_store} ),
-            scalar( @{$genes_to_recluster} ) );
+      "broken up into %d finished models " .
+      "and %d models to reconsider\n",
+      ++$iteration,
+      scalar(@genes_to_consider),
+      scalar( @{$genes_to_store} ),
+      scalar( @{$genes_to_recluster} ) );
 
     if ( @{$genes_to_recluster} ) {
       printf( "First model to reconsider is located here: %s\n",
-              $genes_to_recluster->[0]->feature_Slice()->name() );
+        $genes_to_recluster->[0]->feature_Slice()->name() );
     }
 
     foreach my $gene ( @{$genes_to_store} ) {
       if ( ( $store_bad && $gene->biotype() eq $bad_biotype ) ||
-           ( $gene->biotype() eq $good_biotype )  ||
-           ( $gene->biotype() eq $small_biotype ))
+        ( $gene->biotype() eq $good_biotype )  ||
+        ( $gene->biotype() eq $small_biotype ))
       {
         push( @final_genes, $gene );
       }
@@ -793,19 +828,19 @@ sub make_genes{
     foreach my $transcript ( @{ $final->get_all_Transcripts() } ) {
       if ( !are_phases_consistent($transcript) ) {
         throw(
-            Transcript_info($transcript) . " has inconsistent phases" );
+          Transcript_info($transcript) . " has inconsistent phases" );
       }
 
       # Modify score to be independent of length i total / number of
       # introns+exons.  Should always be less than 1.
       my $final_score =
-        $transcript->score()/
-        ( scalar( @{ $transcript->get_all_Exons() } )*2 - 1 );
+      $transcript->score()/
+      ( scalar( @{ $transcript->get_all_Exons() } )*2 - 1 );
 
       # Add score into trancript supporting feature score feild and
       # move coverage into the new covergae field.
       foreach
-        my $tsf ( @{ $transcript->get_all_supporting_features() } )
+      my $tsf ( @{ $transcript->get_all_supporting_features() } )
       {
         $tsf->hcoverage( $tsf->score() );
         $tsf->score( sprintf( "%.4f", $final_score ) );
