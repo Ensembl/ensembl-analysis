@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/copy_genes.pl,v $
-# $Revision: 1.28 $
+# $Revision: 1.29 $
 
 =head1 NAME
 
@@ -77,7 +77,7 @@ use strict;
 use warnings;
 use Carp;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Utils::Exception qw ( throw warning ) ;
+use Bio::EnsEMBL::Utils::Exception qw( throw warning verbose) ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
@@ -114,6 +114,8 @@ my $transform_to;
 my $stable_id;
 my $verbose; 
 
+verbose('EXCEPTION');
+
 GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'inuser|sourceuser:s'                  => \$sourceuser,
             'indbname|sourcedbname:s'              => \$sourcedbname,
@@ -138,6 +140,8 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'verbose!'                             => \$verbose,
             'stable_id!'                           => \$stable_id,
             'file:s'                               => \$infile );
+
+verbose('WARNING') if ($verbose);
 
 my $transform_to_version;
 my $do_not_attach_dna_db = 1;
