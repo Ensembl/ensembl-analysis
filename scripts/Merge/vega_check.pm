@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 package Merge::vega_check;
 
 use strict;
@@ -48,6 +48,7 @@ my %allowed_combos = (
                                                 'processed_transcript',
                                                 'pseudogene',
                                                 'retained_intron'],
+       'rRNA'                               => ['rRNA'],
        'sense_intronic'                     => ['retained_intron',
                                                 'sense_intronic'],
        'sense_overlapping'                  => ['sense_overlapping'],
