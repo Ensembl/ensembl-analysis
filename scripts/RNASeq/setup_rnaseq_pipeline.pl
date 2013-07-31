@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.49 $
+# $Revision: 1.50 $
 #
 
 use warnings ;
@@ -48,11 +48,11 @@ my $update_analyses;
 my $force_stage;
 
 my $usage = "perl setup_rnaseq_pipeline.pl
--verbose    $verbose,
--check      $check, print out which columns are used for which RG tag
--update_analyses $update_analyses, only write the analyses - do not alter the config,
+-verbose    print more information
+-check      print out which columns are used for which RG tag
+-update_analyses only write the analyses - do not alter the config,
 Need to fill in the config in the setup_rnaseq_pipeline_config.pm module.
--stage      $force_stage, Force the pipeline to start from a particular stage - 
+-stage      Force the pipeline to start from a particular stage - 
             could be dangerous unless your pipeline has finished the previous stages but useful
         if you have run part of the pipeline and want to change config..
 	    The stages are:
@@ -1343,7 +1343,7 @@ use vars qw(%Config);
     {
      BLAST_PARSER => "Bio::EnsEMBL::Analysis::Tools::FilterBPlite",
      PARSER_PARAMS => {
-                       -regex => \'^(\w+)\',
+                       -regex => \'^(\w+\W\w+)\',
                        -query_type => "pep",
                        -database_type => "pep",
                        -threshold_type => "PVALUE",
