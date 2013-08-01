@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 package Merge::vega_check;
 
 use strict;
@@ -59,8 +59,12 @@ my %allowed_combos = (
                                                 'retained_intron',
                                                 'unitary_pseudogene'],
        'unprocessed_pseudogene'             => ['unprocessed_pseudogene'],
-       'transcribed_unprocessed_pseudogene' => ['transcribed_unprocessed_pseudogene'],
-       'transcribed_processed_pseudogene'   => ['transcribed_processed_pseudogene']
+       'transcribed_unprocessed_pseudogene' => ['transcribed_unprocessed_pseudogene',
+                                                'processed_transcript',
+                                                'retained_intron'],
+       'transcribed_processed_pseudogene'   => ['transcribed_processed_pseudogene',
+                                                'processed_transcript',
+                                                'retained_intron']
      },
 
      'ensembl_extension' => { # additional allowed gene-transcript biotypes combination after the merge
