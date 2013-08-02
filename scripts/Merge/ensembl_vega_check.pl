@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/ensembl_vega_check.pl,v $
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 
 # Usage examples:
 
@@ -296,8 +296,8 @@ foreach my $slice (@slices)
           update_gt("gene",$ga,$gene,$new_suggested_biotype,$write,$sql_output);
           $num_protein_coding_genes++;
         }
-      } elsif ($processed_transcript > 0) {
-        #if ($g_biotype !~ /.*processed_transcript.*/) {
+      } elsif ($processed_transcript > 0 and !gene_has_assembly_error_attribute($gene)) {
+        # note we want to skip the protein_coding gene biotypes set by Havana for genes with NoTransRefError attrib
         if ($g_biotype !~ /^($gene_prefixes_str)($gene_non_coding_biotypes_str)($gene_suffixes_str)$/) {
           my ($g_biotype_prefix,$g_biotype_suffix) = get_biotype_affix($g_biotype,$gene_biotypes_str,$gene_prefixes_str,$gene_suffixes_str);
           my $new_suggested_biotype = $g_biotype_prefix.'processed_transcript'.$g_biotype_suffix;
@@ -427,6 +427,14 @@ sub update_gt {
     }
     close(SQL_FILE);
   }
+}
+
+sub gene_has_assembly_error_attribute {
+
+  my $gene = shift;
+
+  my @attribs = @{$gene->get_all_Attributes('NoTransRefError')};
+  return (scalar(@attribs) > 0);
 }
 
 1;
