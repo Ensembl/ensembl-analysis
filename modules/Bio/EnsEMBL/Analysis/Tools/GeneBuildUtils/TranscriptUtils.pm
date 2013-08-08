@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.82 $
+# $Revision: 1.83 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -53,7 +53,6 @@ use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use Bio::EnsEMBL::Analysis;
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
 use Bio::SeqIO;
 
 use vars qw (@ISA @EXPORT);
@@ -620,6 +619,9 @@ sub low_complexity_less_than_maximum{
   my ($transcript, $complexity_threshold) = @_;
   my $peptide = $transcript->translate;
   my $hit_name = ${$transcript->get_all_supporting_features}[0]->hseqname;
+
+  require Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
+
   my $seg = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg->new
     (
      -query => $peptide,
