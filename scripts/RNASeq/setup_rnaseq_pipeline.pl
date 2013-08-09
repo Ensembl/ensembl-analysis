@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.50 $
+# $Revision: 1.51 $
 #
 
 use warnings ;
@@ -1210,14 +1210,14 @@ use vars qw(%Config);
   DEFAULT_CLEANUP     => "no",
   DEFAULT_VERBOSITY   => "WARNING",
 
-  # The two variables below are to overcome a bug in LSF. 
-  # We"re currently running the pre-exec with a different perl. lsf currently unsets the LD_LIBRARY_PATH 
-  # which we need for certain 64bit libraries in pre-exec commands. (more info see LSF_LD_SECURITY variable ) 
 
-  DEFAULT_LSF_PRE_EXEC_PERL =>"/usr/local/ensembl32/bin/perl", # ONLY use 32bit perl for lsf -pre-exec jobs
-  DEFAULT_LSF_PERL =>"/usr/local/ensembl32/bin/perl", # ONLY use ensembl64/bin/perl for memory jobs > 4 gb
-                                                     # SANGER farm : don"t forget to source source /software/intel_cce_80/bin/iccvars.csh for big mem jobs 
-                                                     #
+  # The two variables below are to overcome a bug in LSF.  We're
+  # currently running the pre-exec with a different perl.  LSF currently
+  # unsets the LD_LIBRARY_PATH which we need for certain 64bit libraries
+  # in pre-exec commands (more info see LSF_LD_SECURITY variable).
+  DEFAULT_LSF_PRE_EXEC_PERL => "/software/ensembl/central/bin/perl",
+  DEFAULT_LSF_PERL => "/software/ensembl/central/bin/perl",
+
   # At this number of jobs RuleManager will sleep for a certain period
   # of time if you effectively want this never to run set the value to
   # very high ie 100000 for a certain period of time this is important
