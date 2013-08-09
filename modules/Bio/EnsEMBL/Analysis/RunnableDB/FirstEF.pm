@@ -49,7 +49,7 @@ in the simple_feature table
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/FirstEF.pm,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 package Bio::EnsEMBL::Analysis::RunnableDB::FirstEF;
 
 use strict;
@@ -58,8 +58,8 @@ use warnings;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::FirstEF;
 use constant {
-    PARAMETERS_DIR => '/vol/software/linux-i386/farm/lib/firstef/parameters/',
-    PARSE_SCRIPT => '/vol/software/linux-i386/farm/lib/firstef/FirstEF_parser.pl',
+    PARAMETERS_DIR => '/software/ensembl/genebuild/usrlocalensembllib/firstef/parameters/',
+    PARSE_SCRIPT => '/software/ensembl/genebuild/usrlocalensembllib/firstef/FirstEF_parser.pl',
 };
 use vars qw(@ISA);
 
