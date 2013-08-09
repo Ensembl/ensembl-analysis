@@ -53,12 +53,17 @@ use vars qw(%Config);
 
 %Config = (
            
-           # binaries, libraries and data files
-           BIN_DIR  => '/usr/local/ensembl/bin',
-           DATA_DIR => '/usr/local/ensembl/data',
-           LIB_DIR  => '/usr/local/ensembl/lib',
+           # farm 2 binaries, libraries and data files
+           #BIN_DIR  => '/usr/local/ensembl/bin',
+           #DATA_DIR => '/usr/local/ensembl/data',
+           #LIB_DIR  => '/usr/local/ensembl/lib',
            
+           # for farm3, need this
+           BIN_DIR  => '/software/ensembl/genebuild/usrlocalensemblbin/',
+           DATA_DIR => '/software/ensembl/genebuild/usrlocalensembldata/',
+           LIB_DIR  => '/software/ensembl/genebuild/usrlocalensembllib/',
            
+
            # The default directory the Runnable runs its analysis in
            ANALYSIS_WORK_DIR => '/tmp',
 
