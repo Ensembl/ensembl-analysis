@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 package Merge::vega_check;
 
 use strict;
@@ -54,7 +54,8 @@ my %allowed_combos = (
        'TR_gene'                            => ['TR_gene'],
        'TR_pseudogene'                      => ['TR_pseudogene'],
        'translated_unprocessed_pseudogene'  => ['translated_unprocessed_pseudogene'],
-       'translated_processed_pseudogene'    => ['translated_processed_pseudogene'],
+       'translated_processed_pseudogene'    => ['translated_processed_pseudogene',
+                                                'protein_coding'],
        'unitary_pseudogene'                 => ['processed_transcript',
                                                 'retained_intron',
                                                 'unitary_pseudogene'],
