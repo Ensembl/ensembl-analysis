@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BlastDB.pm,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Tools::BlastDB;
 
 use warnings ;
@@ -169,9 +169,11 @@ sub discover_command{
   my ($self) = @_;
   if($self->blast_type eq "wublast"){
     if($self->molecule_type eq "DNA"){
-      $self->format_command('xdformat -n -I');
+      $self->format_command('/software/ensembl/genebuild/usrlocalensemblbin/xdformat -n -I');
+      #$self->format_command('xdformat -n -I');
     }elsif($self->molecule_type eq "PROTEIN"){
-      $self->format_command('xdformat -p -I');
+      $self->format_command('/software/ensembl/genebuild/usrlocalensemblbin/xdformat -p -I');
+      #$self->format_command('xdformat -p -I');
     }else{
       throw("Don't recognise mol type ".$self->molecule_type);
     }
