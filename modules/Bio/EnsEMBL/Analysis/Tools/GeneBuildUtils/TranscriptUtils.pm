@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.84 $
+# $Revision: 1.85 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -54,11 +54,6 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use Bio::EnsEMBL::Analysis;
 use Bio::SeqIO;
-
-
-
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
-
 
 use vars qw (@ISA @EXPORT);
 
