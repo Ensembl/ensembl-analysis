@@ -51,7 +51,7 @@ TranscriptCoalescer database.
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/TranscriptConsensus.pm,v $
-# $Revision: 1.31 $
+# $Revision: 1.32 $
 package Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
 
 use strict;
@@ -72,6 +72,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils
   qw( clone_Translation compute_translation);
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster;
+
+use Bio::EnsEMBL::Analysis::Runnable;
 
 use vars qw(@ISA);
 
