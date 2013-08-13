@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.83 $
+# $Revision: 1.84 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -54,6 +54,11 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use Bio::EnsEMBL::Analysis;
 use Bio::SeqIO;
+
+
+
+use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
+
 
 use vars qw (@ISA @EXPORT);
 
@@ -92,7 +97,6 @@ use vars qw (@ISA @EXPORT);
              is_Transcript_sane
              is_spliced
              list_evidence
-             low_complexity_less_than_maximum
              print_Transcript
              print_Transcript_and_Exons
              print_Transcript_evidence
@@ -597,58 +601,6 @@ sub is_not_folded{
   }
   return 1;
 }
-
-
-
-=head2 low_complexity_less_than_maximum
-
-  Arg [1]   : Bio::EnsEMBL::Transcript
-  Arg [2]   : int, maximum low complexity
-  Function  : calculate how much low complexity a
-  transcripts translation has and check if it is above
-  the specificed threshold
-  Returntype: boolean, 1 for pass 0 for fail
-  Exceptions: none
-  Example   : 
-
-=cut
-
-
-
-sub low_complexity_less_than_maximum{
-  my ($transcript, $complexity_threshold) = @_;
-  my $peptide = $transcript->translate;
-  my $hit_name = ${$transcript->get_all_supporting_features}[0]->hseqname;
-
-  require Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg;
-
-  my $seg = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Seg->new
-    (
-     -query => $peptide,
-     -analysis => Bio::EnsEMBL::Analysis->new
-     (
-      -logic_name => 'seg',
-      -program_file => 'seg',
-     )
-    );
-  $seg->run;
-  my $low_complexity = $seg->get_low_complexity_length;
-  logger_info($transcript->display_id." ($hit_name) has ".$low_complexity.
-              " low complexity sequence");
-  #print_peptide($transcript);
-  #print id($transcript)." has ".$low_complexity." low complexity sequence compared to".
-  #  " ".$complexity_threshold."\n";
-  if($low_complexity >= $complexity_threshold){
-    warn($transcript->display_id."($hit_name)'s low ".
-            "complexity (".$low_complexity.") is above ".
-            "the threshold ".$complexity_threshold.
-            "\n");
-    return 0;
-  }
-  return 1;
-}
-
-
 
 =head2 has_no_unwanted_evidence
 
