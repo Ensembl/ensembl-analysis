@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.51 $
+# $Revision: 1.52 $
 #
 
 use warnings ;
@@ -1211,7 +1211,7 @@ use vars qw(%Config);
   DEFAULT_VERBOSITY   => "WARNING",
 
 
-  # The two variables below are to overcome a bug in LSF.  We're
+  # The two variables below are to overcome a bug in LSF.  We\'re
   # currently running the pre-exec with a different perl.  LSF currently
   # unsets the LD_LIBRARY_PATH which we need for certain 64bit libraries
   # in pre-exec commands (more info see LSF_LD_SECURITY variable).
