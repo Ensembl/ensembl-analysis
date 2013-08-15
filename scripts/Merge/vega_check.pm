@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 package Merge::vega_check;
 
 use strict;
@@ -54,8 +54,7 @@ my %allowed_combos = (
        'TR_gene'                            => ['TR_gene'],
        'TR_pseudogene'                      => ['TR_pseudogene'],
        'translated_unprocessed_pseudogene'  => ['translated_unprocessed_pseudogene'],
-       'translated_processed_pseudogene'    => ['translated_processed_pseudogene',
-                                                'protein_coding'],
+       'translated_processed_pseudogene'    => ['translated_processed_pseudogene'],
        'unitary_pseudogene'                 => ['processed_transcript',
                                                 'retained_intron',
                                                 'unitary_pseudogene'],
@@ -91,7 +90,8 @@ my %allowed_combos = (
        'snoRNA'                             => ['snoRNA'],
        'snRNA'                              => ['snRNA'],
        'protein_coding'                     => ['IG_C_gene',
-                                                'IG_V_gene'],
+                                                'IG_V_gene',
+                                                'IG_LV_gene'],
        'pseudogene'                         => ['disrupted_domain',
                                                 'processed_pseudogene',
                                                 'processed_transcript',
@@ -99,6 +99,7 @@ my %allowed_combos = (
                                                 'retained_intron',
                                                 'transcribed_processed_pseudogene',
                                                 'transcribed_unprocessed_pseudogene',
+                                                'translated_unprocessed_pseudogene',
                                                 'translated_processed_pseudogene',
                                                 'unitary_pseudogene',
                                                 'unprocessed_pseudogene',
@@ -113,8 +114,7 @@ my %allowed_combos = (
                                                 'sense_overlapping'],
        'protein_coding'                     => ['antisense',
                                                 'lincRNA',
-                                                'sense_intronic',
-                                                'translated_processed_pseudogene'] },
+                                                'sense_intronic'] },
 
      'havana' => { 
        protein_coding                       => ['protein_coding',
@@ -161,8 +161,8 @@ my %allowed_combos = (
                                                 'retained_intron',
                                                 'artifact',
                                                 'tec'],
-       translated_processed_pseudogene      => ['translated_processed_pseudogene'],
-       translated_unprocessed_pseudogene    => ['translated_unprocessed_pseudogene'],
+       translated_processed_pseudogene      => ['translated_processed_pseudogene','protein_coding'],
+       translated_unprocessed_pseudogene    => ['translated_unprocessed_pseudogene','protein_coding'],
        tec                                  => ['tec'],
        ig_pseudogene                        => ['ig_pseudogene'],
        novel_transcript                     => ['processed_transcript'],
@@ -197,6 +197,7 @@ my %biotype_groups = (
        'transcript_coding'                  => ['IG_gene',
                                                 'IG_C_gene',
                                                 'IG_V_gene',
+                                                'IG_LV_gene',
                                                 'non_stop_decay',
                                                 'nonsense_mediated_decay',
                                                 'polymorphic_pseudogene',
