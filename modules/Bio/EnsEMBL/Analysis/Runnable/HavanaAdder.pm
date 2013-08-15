@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.58 $
+# $Revision: 1.59 $
 
 =head1 LICENSE
 
@@ -1944,10 +1944,10 @@ CLUSTER:
         #print "DEBUG (combine_gene_clusters) "
         #    . "\$is_pseudo_havana = $is_pseudo_havana\n";
         print "combine_gene_clusters\n";
-        print "coding_gene dbID: ".$coding_gene->dbID."\n";
+        print "coding_gene dbID: ".$coding_gene->dbID."\n" if ($coding_gene->dbID);
         print "coding_gene start: ".$coding_gene->start."\n";
         print "coding_gene end: ".$coding_gene->end."\n";
-        print "pseudo_gene dbID: ".$pseudo_gene->dbID."\n";
+        print "pseudo_gene dbID: ".$pseudo_gene->dbID."\n" if ($coding_gene->dbID);
         print "pseudo_gene start: ".$pseudo_gene->start."\n";
         print "pseudo_gene end: ".$pseudo_gene->end."\n";
 
