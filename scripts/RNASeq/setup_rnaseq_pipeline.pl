@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.52 $
+# $Revision: 1.53 $
 #
 
 use warnings ;
@@ -46,11 +46,13 @@ my $ref_load;
 my $blast_load;
 my $update_analyses;
 my $force_stage;
+my $jdi;
 
 my $usage = "perl setup_rnaseq_pipeline.pl
 -verbose    print more information
 -check      print out which columns are used for which RG tag
 -update_analyses only write the analyses - do not alter the config,
+-jdi        Just Do it, skip the continue(Y/n) prompt.
 Need to fill in the config in the setup_rnaseq_pipeline_config.pm module.
 -stage      Force the pipeline to start from a particular stage - 
             could be dangerous unless your pipeline has finished the previous stages but useful
@@ -70,6 +72,7 @@ $| = 1;
 GetOptions( 'verbose!'         => \$verbose,
             'check!'           => \$check,
             'stage:s'          => \$force_stage,
+            'jdi:!'            => \$jdi,
             'update_analyses!' => \$update_analyses, );
 
 die($usage) unless ($dbname && $analysisconfigdir &&
@@ -428,10 +431,12 @@ while (<FILE>) {
       foreach my $key ( keys %data ) {
         print STDERR "$key - " . $data{$key} . "\n";
       }
-      print STDERR "Continue?(y/n)";
-      my $reply = <>;
-      chomp $reply;
-      exit unless $reply eq "y" or $reply eq "Y";
+      if (!$jdi) {
+          print STDERR "Continue?(y/n)";
+          my $reply = <>;
+          chomp $reply;
+          exit unless $reply eq "y" or $reply eq "Y";
+      }
     }
   }
   push @rows, \%data;
