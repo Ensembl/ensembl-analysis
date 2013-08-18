@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.53 $
+# $Revision: 1.54 $
 #
 
 use warnings ;
@@ -72,7 +72,7 @@ $| = 1;
 GetOptions( 'verbose!'         => \$verbose,
             'check!'           => \$check,
             'stage:s'          => \$force_stage,
-            'jdi:!'            => \$jdi,
+            'jdi!'            => \$jdi,
             'update_analyses!' => \$update_analyses, );
 
 die($usage) unless ($dbname && $analysisconfigdir &&
