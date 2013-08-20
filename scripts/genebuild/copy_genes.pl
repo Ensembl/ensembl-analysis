@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/copy_genes.pl,v $
-# $Revision: 1.30 $
+# $Revision: 1.31 $
 
 =head1 NAME
 
@@ -159,11 +159,12 @@ if ($transform_to) {
 }
 
 if ( $all && defined($infile) ) {
-  throw("Specify either -all or -file");
+  throw("Specify either --all or --file, but not both");
 }
 elsif ( !$all && !defined($infile) ) {
-  throw( "Specify -all (to copy all genes from $sourcedbname) " .
-         "or -file (to copy a list of gene_ids)" );
+  throw( "Specify either --all " .
+         "(to copy all genes from $sourcedbname) " .
+         "or --file (to copy a list of gene_ids)" );
 }
 
 #print "Connecting to ".$sourcedbname." at ".$sourcehost." ".$sourceuser."\n";
@@ -171,7 +172,7 @@ elsif ( !$all && !defined($infile) ) {
 my $sourcedb;
 my $dnadb;
 
-if (defined($in_config_name)) {
+if ( defined($in_config_name) ) {
   $sourcedb =
     get_db_adaptor_by_string( $in_config_name,
                               0, 0,
@@ -217,7 +218,7 @@ else {
       $sourcedb->dnadb($dnadb);
     }
   }
-} ## end else [ if ($in_config_name) ]
+} ## end else [ if ( defined($in_config_name...))]
 
 my $outdb;
 if ($out_config_name) {
@@ -255,51 +256,24 @@ else {
     "(Adaptors and dbIDs removed.)\n";
 }
 
+my @gene_ids;
 if ( defined($infile) ) {
-  open( INFILE, "<$infile" ) or die("Can't read $infile $! \n");
+  open( IN, $infile ) or die("Can not open '$infile' for reading: $!");
 
-  my $i = 0;
-  while (<INFILE>) {
-    chomp;
-    $i++;
-    my $gene_id = $_;
-    my $gene;
-
-    if ($stable_id) {
-      $gene = $ga->fetch_by_stable_id($gene_id);
-    }
-    else {
-      $gene = $ga->fetch_by_dbID($gene_id);
-    }
-
-    if ($verbose) {
-      print "fetched $i genes\n";
-    }
-
-    push( @copy_genes, $gene );
+  while ( my $line = <IN> ) {
+    chomp($line);
+    push( @gene_ids, $line );
   }
-  close(INFILE);
-} ## end if ( defined($infile) )
-elsif ($all) {
-  @copy_genes = @{ $ga->fetch_all() };
-}
 
-if ($split) {
-  foreach my $gene (@copy_genes) {
-    push( @genes,
-          @{convert_to_genes( $gene->get_all_Transcripts(),
-                              $gene->analysis(),
-                              $gene->biotype() ) } );
-  }
+  close(IN);
 }
 else {
-  @genes = @copy_genes;
+  @gene_ids = @{ $ga->list_dbIDs() };
 }
 
-print STDERR "Fetched " . scalar(@genes) . " genes\n" if $verbose;
+printf( "Got %d gene IDs\n", scalar(@gene_ids) );
 
 my $outga = $outdb->get_GeneAdaptor();
-
 my $analysis;
 if ( defined($logic) ) {
   $analysis = $outdb->get_AnalysisAdaptor->fetch_by_logic_name($logic);
@@ -308,45 +282,94 @@ if ( defined($logic) ) {
   }
 }
 
-my $si = 0;
-foreach my $gene (@genes) {
-  $si++;
-  my $old_stable_id = $gene->stable_id();
+my $genes_processed = 0;
+my $genes_stored    = 0;
 
-  print "Loading gene $old_stable_id from source DB\n" if $verbose;
-
-  $gene->load();    # fully_load_Gene($gene);
-
-  if ( defined($logic) ) {
-    $gene->analysis($analysis);
-    foreach my $t ( @{ $gene->get_all_Transcripts() } ) {
-      $t->analysis($analysis);
+while (@gene_ids) {
+  my @gene_id_batch;
+  while ( @gene_ids && scalar(@gene_id_batch) < 100 ) {
+    my $gene_id = shift(@gene_ids);
+    if ( defined($gene_id) ) {
+      push( @gene_id_batch, $gene_id );
     }
   }
 
-  if ($transform_to) {
-    print "transforming $old_stable_id\n" if $verbose;
+  my @genes;
 
-    my $transformed_gene =
-      $gene->transform( $transform_to, $transform_to_version );
-
-    # only check transform if transform is successful
-    if ( defined($transformed_gene) ) {
-      check_transform( $gene, $transformed_gene,
-                       $transform_to_version );
+  {
+    my @gene_batch;
+    if ($stable_id) {
+      @gene_batch =
+        @{ $ga->fetch_all_by_stable_id_list( \@gene_id_batch ) };
     }
-    $gene = $transformed_gene;
+    else {
+      @gene_batch = @{ $ga->fetch_all_by_dbID_list( \@gene_id_batch ) };
+    }
+
+    if ($split) {
+      foreach my $gene (@gene_batch) {
+        push( @genes,
+              @{convert_to_genes( $gene->get_all_Transcripts(),
+                                  $gene->analysis(),
+                                  $gene->biotype() ) } );
+      }
+    }
+    else {
+      @genes = @gene_batch;
+    }
   }
 
-  if ( defined($gene) ) {
-    empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
-    $outga->store($gene);
-    print "stored $si / " . scalar(@genes) . " \n" if $verbose;
-  }
-  else {
-    print STDERR "gene $old_stable_id did not transform\n";
-  }
-} ## end foreach my $gene (@genes)
+  foreach my $gene (@genes) {
+    my $old_stable_id = $gene->stable_id();
+
+    $gene->load();    # fully_load_Gene($gene);
+
+    if ( defined($logic) ) {
+      $gene->analysis($analysis);
+      foreach my $t ( @{ $gene->get_all_Transcripts() } ) {
+        $t->analysis($analysis);
+      }
+    }
+
+    if ($transform_to) {
+      if ($verbose) {
+        printf( "Transforming '%s'\n", $old_stable_id );
+      }
+
+      my $transformed_gene =
+        $gene->transform( $transform_to, $transform_to_version );
+
+      # Only check transform if transform is successful.
+      if ( defined($transformed_gene) ) {
+        check_transform( $gene, $transformed_gene,
+                         $transform_to_version );
+      }
+      $gene = $transformed_gene;
+    }
+
+    if ( defined($gene) ) {
+      empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
+
+      $outga->store($gene);
+      ++$genes_stored;
+
+      if ($verbose) {
+        printf( "Stored gene '%s'.  Done %d, %d left to go.\n",
+                $old_stable_id, $genes_processed + 1,
+                scalar(@gene_ids) );
+      }
+    }
+    else {
+      printf( STDERR "Gene '%s' did not transform\n", $old_stable_id );
+    }
+
+    ++$genes_processed;
+
+  } ## end foreach my $gene (@genes)
+} ## end while (@gene_ids)
+
+printf( "All done.  Processed %d genes, stored %d genes.\n",
+        $genes_processed, $genes_stored );
 
 sub check_transform {
   my ( $old_gene, $new_gene, $new_assembly_version ) = @_;
