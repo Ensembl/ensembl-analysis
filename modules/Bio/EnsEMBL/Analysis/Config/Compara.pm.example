@@ -30,7 +30,7 @@ variables.
 
 =head1 CONTACT
 
-B<dev@ensembl.org>
+B<ensembl-dev@ebi.ac.uk>
 
 =cut
 
@@ -41,13 +41,16 @@ use vars qw(%Config);
 
 %Config = (
 
-    PYTHON  => 'python2.4',
+#    PYTHON  => 'python2.4',
+    PYTHON  => 'python',
     JAVA => '/software/farm/java/bin/java',
     EXONERATE => '/software/ensembl/compara/exonerate/exonerate',
-    SEMPHY => '/software/ensembl/compara/semphy-1.0.b1',
+    GERP => '/software/ensembl/compara/gerp/GERPv2.1',
+    SEMPHY => '/software/ensembl/compara/semphy_latest',
 #    SEMPHY => '/software/ensembl/compara/semphy',
     ORTHEUS => '/software/ensembl/compara/OrtheusC/Ortheus.py',
-    TREEBEST => '/software/ensembl/compara/bin/treebest',
+#    TREEBEST => '/software/ensembl/compara/bin/treebest',
+    TREEBEST => '/software/ensembl/compara/treebest.doubletracking',
 
 );
 
