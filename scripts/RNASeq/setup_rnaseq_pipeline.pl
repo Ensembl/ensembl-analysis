@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.54 $
+# $Revision: 1.55 $
 #
 
 use warnings ;
@@ -31,6 +31,10 @@ $merge_dir = $RNASEQCONFIG->{OUTPUT_DIR} unless $merge_dir;
 my $use_gsnap = $RNASEQCONFIG->{USE_GSNAP};
 my $gsnap_path = $RNASEQCONFIG->{GSNAP_PATH};
 my $rgt = $RNASEQCONFIG->{READ_GROUP_TAG};
+my $queue_manager = $RNASEQCONFIG->{BATCHQUEUE_MANAGER} || 'LSF';
+my $default_lsf_pre_exec_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PRE_EXEC_PERL} || '/software/ensembl/central/bin/perl';
+my $default_lsf_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PERL} || '/software/ensembl/central/bin/perl';
+
 $rgt = 'ID' unless $rgt;
 my %id_groups;
 my %ids_by_tissue;
@@ -1204,7 +1208,8 @@ use vars qw(%Config);
   #
   # For more info look into:
   # /ensembl-pipeline/modules/Bio/EnsEMBL/Pipeline/BatchSubmission
-  QUEUE_MANAGER => "LSF", # use "SGE_GridEngine_v6" for running in ensembl cloud evironment
+  QUEUE_MANAGER => "' . $queue_manager . '", # use "SGE_GridEngine_v6" for running in ensembl cloud evironment
+
 
   DEFAULT_BATCH_SIZE  => 1,
   DEFAULT_RETRIES     => 5,
@@ -1220,8 +1225,8 @@ use vars qw(%Config);
   # currently running the pre-exec with a different perl.  LSF currently
   # unsets the LD_LIBRARY_PATH which we need for certain 64bit libraries
   # in pre-exec commands (more info see LSF_LD_SECURITY variable).
-  DEFAULT_LSF_PRE_EXEC_PERL => "/software/ensembl/central/bin/perl",
-  DEFAULT_LSF_PERL => "/software/ensembl/central/bin/perl",
+  DEFAULT_LSF_PRE_EXEC_PERL => "'.$default_lsf_pre_exec_perl.'",
+  DEFAULT_LSF_PERL => "'.$default_lsf_perl.'",
 
   # At this number of jobs RuleManager will sleep for a certain period
   # of time if you effectively want this never to run set the value to
