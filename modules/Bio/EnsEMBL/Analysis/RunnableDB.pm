@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB.pm,v $
-# $Revision: 1.44 $
+# $Revision: 1.45 $
 
 package Bio::EnsEMBL::Analysis::RunnableDB;
 
@@ -85,7 +85,7 @@ use warnings;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_config parse_config_mini);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_config parse_config_mini parse_config_value);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info logger_verbosity);
 use Bio::EnsEMBL::Analysis::Config::General qw(CORE_VERBOSITY LOGGER_VERBOSITY);
 
@@ -551,6 +551,14 @@ sub read_and_check_config{
 }
 
 
+sub read_and_check_config_value{
+  my ($self, $var_hash, $label, $values_to_get ) = @_; 
+ 
+  if ( defined $label ) { 
+    print "READING CONFIG  : $label\n" ; 
+  } 
+  parse_config_value($self, $var_hash, $self->analysis->logic_name, $values_to_get);
+}
 
 sub read_and_check_config_mini{
   my ($self, $var_hash, $label ) = @_; 

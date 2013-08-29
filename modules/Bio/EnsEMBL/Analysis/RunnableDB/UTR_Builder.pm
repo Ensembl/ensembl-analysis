@@ -60,7 +60,7 @@ usually preceded with a '_'
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/UTR_Builder.pm,v $
-# $Revision: 1.29 $
+# $Revision: 1.30 $
 package Bio::EnsEMBL::Analysis::RunnableDB::UTR_Builder;
 
 use warnings ;
@@ -118,7 +118,7 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   $self->read_and_check_config($UTR_BUILDER_CONFIG_BY_LOGIC) ;
-  $self->read_and_check_config($TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC) ;
+  $self->read_and_check_config_value($TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC, ['MIN_CONSENSUS', 'END_EXON_PENALTY', 'EST_OVERLAP_PENALTY', 'SHORT_INTRON_PENALTY', 'SHORT_EXON_PENALTY', 'UTR_PENALTY', 'VERBOSE']) ;
 
   return $self;
 }

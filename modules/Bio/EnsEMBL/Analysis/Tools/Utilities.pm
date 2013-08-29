@@ -33,7 +33,7 @@ class methods
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Utilities.pm,v $
-# $Revision: 1.26 $
+# $Revision: 1.27 $
 package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;
@@ -50,6 +50,7 @@ use vars qw (@ISA  @EXPORT);
 @EXPORT = qw( shuffle
               parse_config
               parse_config_mini
+              parse_config_value
               create_file_name
               write_seqfile
               merge_config_details
@@ -346,6 +347,76 @@ sub parse_config{
     }else{
       throw("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".  $var_hash); 
     }
+  }
+}
+
+sub parse_config_value{
+  my ($obj, $var_hash, $label, $values_to_get) = @_; 
+
+  throw("Can't parse the ".$var_hash." hash for object ".$obj." if we are give no label") if(!$label); 
+
+  my $DEFAULT_ENTRY_KEY = 'DEFAULT';
+  if(!$var_hash || ref($var_hash) ne 'HASH'){
+    my $err = "Must pass read_and_check_config a hashref with the config ".
+      "in ";
+    $err .= " not a ".$var_hash if($var_hash);
+    $err .= " Utilities::read_and_and_check_config_value";
+    throw($err);
+  }
+
+  if (not exists($var_hash->{$DEFAULT_ENTRY_KEY})) {
+    throw("You must define a $DEFAULT_ENTRY_KEY entry in your config");
+  }
+
+  my %check;
+  foreach my $k (keys %$var_hash) {
+    my $uc_key = uc($k);
+    if (exists $check{$uc_key}) {
+      throw("You have two entries in your config with the same name (ignoring case)\n");
+    }
+    $check{$uc_key} = $k;
+  }
+  # replace entries in config has with lower case versions.
+  foreach my $k (keys %check) {
+    my $old_k = $check{$k};
+    my $entry = $var_hash->{$old_k};
+    delete $var_hash->{$old_k};
+
+    $var_hash->{$k} = $entry;
+  }
+
+  my $default_entry = $var_hash->{$DEFAULT_ENTRY_KEY};
+  # the following will fail if there are config variables that
+  # do not have a corresponding method here
+  foreach my $config_var (@$values_to_get) {
+    throw("$config_var does not exist in your config file for $label\n") unless (exists $default_entry->{$config_var});
+    if ($obj->can($config_var)) {
+      $obj->$config_var($default_entry->{$config_var});
+    } else {
+      throw("no method defined in Utilities for config variable '$config_var'");
+    }
+  }
+
+  #########################################################
+  # read values of config variables for this logic name into
+  # instance variable, set by method
+  #########################################################
+  my $uc_logic = uc($label);
+  if (exists $var_hash->{$uc_logic}) {
+    # entry contains more specific values for the variables
+    my $entry = $var_hash->{$uc_logic};
+
+    foreach my $config_var (keys %{$entry}) {
+
+      if ($obj->can($config_var)) {
+
+        $obj->$config_var($entry->{$config_var});
+      } else {
+        throw("no method defined in Utilities for config variable '$config_var'");
+      }
+    }
+  }else{ 
+      throw("Your logic_name ".$uc_logic." doesn't appear in your config file hash - using default settings\n".  $var_hash); 
   }
 }
 
