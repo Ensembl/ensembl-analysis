@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.85 $
+# $Revision: 1.86 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -1185,7 +1185,6 @@ sub trim_cds_to_whole_codons {
 sub replace_stops_with_introns{
   my ($transcript) = @_;
 
-  $transcript->sort;
   my $newtranscript = clone_Transcript($transcript);
 
   my @exons = @{$newtranscript->get_all_Exons};
@@ -1194,12 +1193,18 @@ sub replace_stops_with_introns{
   # gaps adjacent to internal stop codons - skip
   return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
 
+  my $num_stops = $pep =~ s/\*/\*/g;
+  if ($num_stops != 1) {
+    warning("Transcript does not have exactly one stop codon; it has $num_stops stops");
+  }
+
   while($pep =~ /\*/g) {
     my $position = pos($pep);
 
     my @coords = $newtranscript->pep2genomic($position, $position);
 
     foreach my $stop (@coords) {
+      #print "Found stop at position start ".$stop->start." end ".$stop->end." on strand ".$transcript->strand."\n";
       # locate the exon that this stop lies in
       my @new_exons;
       foreach my $exon (@exons) {
@@ -1334,22 +1339,6 @@ sub replace_stops_with_introns{
              }
            } 
 
-           sub add_dna_align_features_by_hitname_and_analysis {   
-              my ( $ug_ref, $exon ) = @_ ;  
-              my %group_features_by_hitname_and_analysis ; 
-              for my $ug ( @$ug_ref ) {  
-                 push @{$group_features_by_hitname_and_analysis{$ug->analysis->logic_name}{$ug->hseqname }} , $ug ; 
-              }  
-              for my $logic_name ( keys %group_features_by_hitname_and_analysis  ) {  
-                 for my $hseqname  ( keys  %{$group_features_by_hitname_and_analysis{$logic_name}}) {  
-                    my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}}; 
-                    my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features); 
-                    $exon->add_supporting_features($f);  
-                 } 
-              }  
-              return $exon ; 
-            }   
-
            $exon_left = add_dna_align_features_by_hitname_and_analysis(\@ug_left,$exon_left) ; 
            $exon_right =add_dna_align_features_by_hitname_and_analysis(\@ug_right,$exon_right) ;  
 
@@ -1396,13 +1385,19 @@ sub replace_stops_with_introns{
       
       @exons = @new_exons;
     }
-  }
+  } #end of while llop;  by this time, we hope there are not stop codons in the peptide
   
+
+
+  # this removes the old exons and replaces with new exon
+  # by first cloning the old transcript and then replacing the exon
+  # we should be keeping the info attached to the transcript eg. xrefs, sequence edits (atttribs)
   $newtranscript->flush_Exons; 
   foreach my $exon (@exons) {
     $newtranscript->add_Exon($exon);
   } 
 
+  # we can only do this if there is no UTR 
   my $translation = Bio::EnsEMBL::Translation->new();
   $translation->start_Exon($exons[0]);
   $translation->end_Exon($exons[-1]);
@@ -1410,14 +1405,44 @@ sub replace_stops_with_introns{
   $translation->end($exons[-1]->end - $exons[-1]->start + 1);
   $newtranscript->translation($translation); 
 
-  my $old_translation = $transcript->translation  ;  
+  if ($transcript->translation->length -1 != $newtranscript->translation->length) {
+    throw("Old tranlation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length);
+  }
 
+  # add xrefs from old translation to new translation
+  my $old_translation = $transcript->translation  ;  
   foreach my $DBEntry (@{$old_translation->get_all_DBEntries}){
      $translation->add_DBEntry($DBEntry);
   }
+
+  # ta dah!
   return $newtranscript;
 }
 
+
+=head2 add_dna_align_features_by_hitname_and_analysis
+
+  Arg [1]  : reference to an array of ungapped features
+  Arg [1]  : Bio::EnsEMBL::Exon
+  Function : to add supporting features to an exon 
+
+=cut
+
+sub add_dna_align_features_by_hitname_and_analysis {
+  my ( $ug_ref, $exon ) = @_ ;
+  my %group_features_by_hitname_and_analysis ;
+  for my $ug ( @$ug_ref ) {
+    push @{$group_features_by_hitname_and_analysis{$ug->analysis->logic_name}{$ug->hseqname }} , $ug ;
+  }
+  for my $logic_name ( keys %group_features_by_hitname_and_analysis  ) {
+    for my $hseqname  ( keys  %{$group_features_by_hitname_and_analysis{$logic_name}}) {
+      my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}};
+      my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features);
+      $exon->add_supporting_features($f);
+    }
+  }
+  return $exon ;
+}
 
 
 =head2 remove_initial_or_terminal_short_exons
