@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.87 $
+# $Revision: 1.88 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -1424,10 +1424,10 @@ sub replace_stops_with_introns{
   # the length changes by 1 amino acid for each stop codon removed
   # but remember that we might also trim the mini exons that are 3 bases long so this removes an additional amino acid
   if ($transcript->translation->length -2 <= $newtranscript->translation->length || $newtranscript->translation->length >= $transcript->translation->length) {
-    #print "DEBUG: Old tranlation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq."\n";
+    #print "DEBUG: Old translation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq."\n";
   } else {
     # this is a bit harsh but will hopefully stop big mistakes
-    throw("Old tranlation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq);
+    throw("Old translation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq);
   }
 
   # add xrefs from old translation to new translation
@@ -1453,46 +1453,68 @@ sub calculate_new_translation {
     #print "    Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
     # assume sorted 
     # start exon and start position
-    if ( $exon->start == $transcript->translation->start_Exon->start &&
-         $exon->length > $transcript->translation->start ) {
-      # forward strand: start is in the first of two new exons, or exon is unchanged
-      # reverse strand: start is in the scond (from 5prime) of two new exons
-      #print "DEBUG: This is the start exon 1\n";
-      $start_exon = $exon;
-      $translation_start_pos = $transcript->translation->start;
-    } elsif ( $exon->start == $transcript->translation->start_Exon->start ) {
-      #print "DEBUG: This is not the start exon 3\n";
-    } elsif ( $exon->end == $transcript->translation->start_Exon->end ) {
-      # forward strand: start is in the second of two new exons
-      # reverse strand: start is in the first of two new exons, or exon is unchanged 
-      #print "DEBUG: This is the start exon 2\n";
-      $start_exon = $exon;
-      $translation_start_pos = $exon->length + $transcript->translation->start - $transcript->translation->start_Exon->length;
-    } elsif ($exon->end < $transcript->translation->start_Exon->start || $exon->start > $transcript->translation->start_Exon->end) {
-      # start is not in this exon
-      #print "DEBUG: This is not the start exon 1\n";
-    } else {
-      #print "DEBUG: This is not the start exon 2\n";
+    if (!defined $start_exon && !defined $translation_start_pos) {
+      if ( $exon->start == $transcript->translation->start_Exon->start &&
+           $exon->length >= $transcript->translation->start ) {
+        # forward strand: start is in the first of two new exons, or exon is unchanged
+        # reverse strand: start is in the scond (from 5prime) of two new exons
+        #print "DEBUG: This is the start exon 1; assign start as ".($transcript->translation->start)."\n";
+        $start_exon = $exon;
+        #$translation_start_pos = $transcript->translation->start;
+        if ($transcript->strand == 1) {
+          $translation_start_pos = $transcript->translation->start;
+        } elsif ($transcript->strand == -1) {
+          $translation_start_pos = $exon->length + $transcript->translation->start - $transcript->translation->start_Exon->length;
+        }
+      } elsif ( $exon->start == $transcript->translation->start_Exon->start ) {
+        #print "DEBUG: This is not the start exon 3\n";
+      } elsif ( $exon->end == $transcript->translation->start_Exon->end  ) {
+        # forward strand: start is in the second of two new exons
+        # reverse strand: start is in the first of two new exons, or exon is unchanged 
+        #print "DEBUG: This is the start exon 2; assign start as ".($exon->length + $transcript->translation->start - $transcript->translation->start_Exon->length)."\n";
+        $start_exon = $exon;
+        if ($transcript->strand == 1) {
+          $translation_start_pos = $exon->length + $transcript->translation->start - $transcript->translation->start_Exon->length;
+        } elsif ($transcript->strand == -1) {
+          $translation_start_pos = $transcript->translation->start;
+        }
+      } elsif ($exon->end < $transcript->translation->start_Exon->start || $exon->start > $transcript->translation->start_Exon->end) {
+        # start is not in this exon
+        #print "DEBUG: This is not the start exon 1\n";
+      } else {
+        #print "DEBUG: This is not the start exon 2\n";
+      }
     }
     # end exon and end position
-    if ( $exon->start == $transcript->translation->end_Exon->start &&
-         $exon->length > $transcript->translation->end ) {
-      # forward strand: end  is in the first of two new exons, or exon is unchanged
-      #print "DEBUG: This is the end exon 1\n";
-      $end_exon = $exon;
-      $translation_end_pos = $transcript->translation->end;
-    } elsif ( $exon->start == $transcript->translation->end_Exon->start) {
-      #print "DEBUG: This is not the end exon 3\n";
-    } elsif ( $exon->end == $transcript->translation->end_Exon->end ) {
-      # forward strand: end is in the second of two new exons
-      #print "DEBUG: This is the end exon 2\n";
-      $end_exon = $exon;
-      $translation_end_pos = $exon->length + $transcript->translation->end - $transcript->translation->end_Exon->length;
-    } elsif ($exon->end < $transcript->translation->start_Exon->start || $exon->start > $transcript->translation->start_Exon->end) {
-      # end is not in this exon
-      #print "DEBUG: This is not the end exon 1\n";
-    } else {
-      #print "DEBUG: This is not the end exon 2\n";
+    if (!defined $end_exon && !defined $translation_end_pos) {
+      if ( $exon->start == $transcript->translation->end_Exon->start &&
+           $exon->length >= $transcript->translation->end ) {
+        # forward strand: end  is in the first of two new exons, or exon is unchanged
+        #print "DEBUG: This is the end exon 1; assign end as ".($transcript->translation->end)."\n";
+        $end_exon = $exon;
+        #$translation_end_pos = $transcript->translation->end;
+        if ($transcript->strand == 1) {
+          $translation_end_pos = $transcript->translation->end;
+        } elsif ($transcript->strand == -1) {
+          $translation_end_pos = $exon->length + $transcript->translation->end - $transcript->translation->end_Exon->length;
+        }
+      } elsif ( $exon->start == $transcript->translation->end_Exon->start) {
+        #print "DEBUG: This is not the end exon 3\n";
+      } elsif ( $exon->end == $transcript->translation->end_Exon->end ) {
+        # forward strand: end is in the second of two new exons
+        #print "DEBUG: This is the end exon 2; assign end as ".($exon->length + $transcript->translation->end - $transcript->translation->end_Exon->length)."\n";
+        $end_exon = $exon;
+        if ($transcript->strand == 1) {
+          $translation_end_pos = $exon->length + $transcript->translation->end - $transcript->translation->end_Exon->length;
+        } elsif ($transcript->strand == -1) {
+          $translation_end_pos = $transcript->translation->end;
+        }
+      } elsif ($exon->end < $transcript->translation->start_Exon->start || $exon->start > $transcript->translation->start_Exon->end) {
+        # end is not in this exon
+        #print "DEBUG: This is not the end exon 1\n";
+      } else {
+        #print "DEBUG: This is not the end exon 2\n";
+      }
     }
   }
 
@@ -1506,7 +1528,7 @@ sub calculate_new_translation {
   } elsif (! defined $translation_end_pos) {
     throw("Translation end position not defined");
   } else {
-    print "  DEBUG: New Translation start_exon ".$start_exon->start."-".$start_exon->end." start ".$translation_start_pos."\n  DEBUG: New Translation end_exon ".$end_exon->start."-".$end_exon->end." end ".$translation_end_pos."\n";
+    #print "  DEBUG: New Translation start_exon ".$start_exon->start."-".$start_exon->end." start ".$translation_start_pos."\n  DEBUG: New Translation end_exon ".$end_exon->start."-".$end_exon->end." end ".$translation_end_pos."\n";
   }
 
   return ($start_exon, $translation_start_pos, $end_exon, $translation_end_pos);
