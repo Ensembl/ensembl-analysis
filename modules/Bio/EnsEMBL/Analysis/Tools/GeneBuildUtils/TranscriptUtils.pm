@@ -33,7 +33,7 @@ class methods
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/TranscriptUtils.pm,v $
-# $Revision: 1.86 $
+# $Revision: 1.87 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
@@ -1185,26 +1185,33 @@ sub trim_cds_to_whole_codons {
 sub replace_stops_with_introns{
   my ($transcript) = @_;
 
-  my $newtranscript = clone_Transcript($transcript);
+  #foreach my $exon (@{$transcript->get_all_Exons}) {
+  #  print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
+  #}
 
+  my $newtranscript = clone_Transcript($transcript);
   my @exons = @{$newtranscript->get_all_Exons};
   my $pep = $newtranscript->translate->seq;
 
   # gaps adjacent to internal stop codons - skip
   return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
 
+  # it's a bit dangerous to replace 10 or 20 stop codons...
   my $num_stops = $pep =~ s/\*/\*/g;
   if ($num_stops != 1) {
     warning("Transcript does not have exactly one stop codon; it has $num_stops stops");
   }
 
+  # not really sure if it's a good idea to do a while loop.
+  # prefer to only really replace one or maybe two stop codons
   while($pep =~ /\*/g) {
+    # find the position of the stop codon within the peptide
     my $position = pos($pep);
-
+    # and find out the genomic start position of this stop codon
     my @coords = $newtranscript->pep2genomic($position, $position);
 
     foreach my $stop (@coords) {
-      #print "Found stop at position start ".$stop->start." end ".$stop->end." on strand ".$transcript->strand."\n";
+      #print "DEBUG: Found stop at position start ".$stop->start." end ".$stop->end." on strand ".$transcript->strand."\n";
       # locate the exon that this stop lies in
       my @new_exons;
       foreach my $exon (@exons) {
@@ -1385,7 +1392,7 @@ sub replace_stops_with_introns{
       
       @exons = @new_exons;
     }
-  } #end of while llop;  by this time, we hope there are not stop codons in the peptide
+  } #end of while loop;  by this time, we hope there are not stop codons in the peptide
   
 
 
@@ -1397,16 +1404,30 @@ sub replace_stops_with_introns{
     $newtranscript->add_Exon($exon);
   } 
 
-  # we can only do this if there is no UTR 
+  # this is easier if you have no UTR
+  # because then you can just set the start of translation to be the first base of the first exon
+  # and the end of translation to be the end of the last exon... not so if there is UTR though!
+  #print "  DEBUG: Old Translation start_exon ".$transcript->translation->start_Exon->start."-".$transcript->translation->start_Exon->end." start ".$transcript->translation->start."\n  DEBUG: Old Translation end_exon ".$transcript->translation->end_Exon->start."-".$transcript->translation->end_Exon->end." end ".$transcript->translation->end."\n";
+
+  my ($start_exon, $translation_start_pos, $end_exon, $translation_end_pos) = calculate_new_translation($newtranscript,$transcript);
+
+  # assign translation values
   my $translation = Bio::EnsEMBL::Translation->new();
-  $translation->start_Exon($exons[0]);
-  $translation->end_Exon($exons[-1]);
-  $translation->start(1);
-  $translation->end($exons[-1]->end - $exons[-1]->start + 1);
+  $translation->start_Exon($start_exon);
+  $translation->end_Exon($end_exon);
+  $translation->start($translation_start_pos);
+  $translation->end($translation_end_pos);
   $newtranscript->translation($translation); 
 
-  if ($transcript->translation->length -1 != $newtranscript->translation->length) {
-    throw("Old tranlation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length);
+  # if you've set the start or end of the translation very wrong, the length will change significantly
+  # for example, if you assume that you don't have UTR when you do, then you might make UTR exons into coding exons
+  # the length changes by 1 amino acid for each stop codon removed
+  # but remember that we might also trim the mini exons that are 3 bases long so this removes an additional amino acid
+  if ($transcript->translation->length -2 <= $newtranscript->translation->length || $newtranscript->translation->length >= $transcript->translation->length) {
+    #print "DEBUG: Old tranlation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq."\n";
+  } else {
+    # this is a bit harsh but will hopefully stop big mistakes
+    throw("Old tranlation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq);
   }
 
   # add xrefs from old translation to new translation
@@ -1419,6 +1440,77 @@ sub replace_stops_with_introns{
   return $newtranscript;
 }
 
+
+=head2 calculate_new_translation
+=cut
+
+sub calculate_new_translation {
+  my ($newtranscript, $transcript) = @_;
+
+  my ($start_exon, $translation_start_pos, $end_exon, $translation_end_pos);
+
+  foreach my $exon (@{$newtranscript->get_all_Exons}) {
+    #print "    Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
+    # assume sorted 
+    # start exon and start position
+    if ( $exon->start == $transcript->translation->start_Exon->start &&
+         $exon->length > $transcript->translation->start ) {
+      # forward strand: start is in the first of two new exons, or exon is unchanged
+      # reverse strand: start is in the scond (from 5prime) of two new exons
+      #print "DEBUG: This is the start exon 1\n";
+      $start_exon = $exon;
+      $translation_start_pos = $transcript->translation->start;
+    } elsif ( $exon->start == $transcript->translation->start_Exon->start ) {
+      #print "DEBUG: This is not the start exon 3\n";
+    } elsif ( $exon->end == $transcript->translation->start_Exon->end ) {
+      # forward strand: start is in the second of two new exons
+      # reverse strand: start is in the first of two new exons, or exon is unchanged 
+      #print "DEBUG: This is the start exon 2\n";
+      $start_exon = $exon;
+      $translation_start_pos = $exon->length + $transcript->translation->start - $transcript->translation->start_Exon->length;
+    } elsif ($exon->end < $transcript->translation->start_Exon->start || $exon->start > $transcript->translation->start_Exon->end) {
+      # start is not in this exon
+      #print "DEBUG: This is not the start exon 1\n";
+    } else {
+      #print "DEBUG: This is not the start exon 2\n";
+    }
+    # end exon and end position
+    if ( $exon->start == $transcript->translation->end_Exon->start &&
+         $exon->length > $transcript->translation->end ) {
+      # forward strand: end  is in the first of two new exons, or exon is unchanged
+      #print "DEBUG: This is the end exon 1\n";
+      $end_exon = $exon;
+      $translation_end_pos = $transcript->translation->end;
+    } elsif ( $exon->start == $transcript->translation->end_Exon->start) {
+      #print "DEBUG: This is not the end exon 3\n";
+    } elsif ( $exon->end == $transcript->translation->end_Exon->end ) {
+      # forward strand: end is in the second of two new exons
+      #print "DEBUG: This is the end exon 2\n";
+      $end_exon = $exon;
+      $translation_end_pos = $exon->length + $transcript->translation->end - $transcript->translation->end_Exon->length;
+    } elsif ($exon->end < $transcript->translation->start_Exon->start || $exon->start > $transcript->translation->start_Exon->end) {
+      # end is not in this exon
+      #print "DEBUG: This is not the end exon 1\n";
+    } else {
+      #print "DEBUG: This is not the end exon 2\n";
+    }
+  }
+
+  # check all four of the above are defined 
+  if (!defined $start_exon) {
+    throw("Translation start exon not defined");
+  } elsif (!defined $end_exon) {
+    throw("Translation end exon not defined");
+  } elsif (! defined $translation_start_pos) {
+    throw("Translation start position not defined");
+  } elsif (! defined $translation_end_pos) {
+    throw("Translation end position not defined");
+  } else {
+    print "  DEBUG: New Translation start_exon ".$start_exon->start."-".$start_exon->end." start ".$translation_start_pos."\n  DEBUG: New Translation end_exon ".$end_exon->start."-".$end_exon->end." end ".$translation_end_pos."\n";
+  }
+
+  return ($start_exon, $translation_start_pos, $end_exon, $translation_end_pos);
+}
 
 =head2 add_dna_align_features_by_hitname_and_analysis
 
