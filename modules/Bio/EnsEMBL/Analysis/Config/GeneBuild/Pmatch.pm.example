@@ -32,35 +32,41 @@ use vars qw( %Config );
                        BINARY_LOCATION => '/usr/local/ensembl/bin/pmatch',
                        REPEAT_MASKING => [],
                        MAX_INTRON_LENGTH => 50000,
-                       OUTPUT_DB => 'GENEWISE_DB',
+                       OUTPUT_DB => 'TARGETED_DB',
                        OPTIONS => '-T 20', # set threshold to 14 for more sensitive search 
                       },
-
-            PMATCH =>{
-                       PROTEIN_FILE => '/path/to/protein/file',
-                       MIN_COVERAGE => 25,
-                       BINARY_LOCATION => '/usr/local/ensembl/bin/pmatch',
-                       REPEAT_MASKING => [],
-                       MAX_INTRON_LENGTH => 50000,
-                       OUTPUT_DB => 'GENEWISE_DB',
-                       OPTIONS => '-T 20', # set threshold to 14 for more sensitive search 
-                      },
+            pmatch_14 =>{
+                      PROTEIN_FILE => '/path/to/SPECIES_proteome.cleaned.fa',
+                      MIN_COVERAGE => 25,
+                      BINARY_LOCATION => '/software/ensembl/genebuild/usrlocalensemblbin/pmatch',
+                      REPEAT_MASKING => [],
+                      MAX_INTRON_LENGTH => 50000,
+                      OUTPUT_DB => 'TARGETED_DB',
+                      OPTIONS => '-T 14', 
+                     },
            },
 
            BESTPMATCH_CONFIG_BY_LOGIC => 
            {
-            DEFAULT => { 
+              DEFAULT => 
+              { 
                         # PMATCH_LOGIC_NAME can be string or array 
                         # if you run multiple analysis to recover missed proteins you should hand over 
                         # the logic names of all recovery-analyses in array 
 
                         PMATCH_LOGIC_NAME => ['pmatch'],
                         MIN_COVERAGE => 25,
-                        INPUT_DB => 'GENEWISE_DB',
-                        OUTPUT_DB => 'GENEWISE_DB',
-                       },
-           BESTPMATCH => {  # This second hash must be provided even if it's blank
-                       },
+                        INPUT_DB => 'TARGETED_DB',
+                        OUTPUT_DB => 'TARGETED_DB',
+              },
+              BESTPMATCH => 
+              {  
+                # This second hash must be provided even if it's blank
+              },
+              bestpmatch_14 => 
+              {
+                PMATCH_LOGIC_NAME => ['pmatch_14','xrate_pmatch_recovery' ]
+              },
            },
  );
 

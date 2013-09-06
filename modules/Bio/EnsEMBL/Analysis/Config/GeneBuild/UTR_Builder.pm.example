@@ -36,15 +36,15 @@ use vars qw(%Config);
              DEFAULT => {
 	
                 #DATABASES
-                  INPUT_DBS   => ['GENEWISE_DB', 'EXONERATE_DB'],      # db with genes which have NO utr
+                  INPUT_DBS   => ['TARGETED_DB', 'ESTCDNA_DB'],      # db with genes which have NO utr
                   OUTPUT_DB  =>'UTR_DB',           # write processed genes to this DB
 
                   # From which databases should we get the additional data from?
                   # each key points to a hash-key in Analysis/Config/GeneBuild/Databases.pm
                   # set to '' if not applicaple
 
-                  CDNA_DB    => ['EXONERATE_DB'],    # dbs with cDNA's
-                  EST_DB     => 'EST_CDNA_DB',     # db with est's
+                  CDNA_DB    => ['ESTCDNA_DB'],    # dbs with cDNA's
+                  EST_DB     => 'ESTCDNA_DB',     # db with est's
                   DITAG_DB   => 'DITAG_DB',        # db where ditags are stored
                   BLESSED_DB => 'BLESSED_DB' ,     # db with blessed genes
 

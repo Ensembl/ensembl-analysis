@@ -99,14 +99,14 @@ use vars qw(%Config);
       # if you don't fetch data from i.e. EST_CDNA_DB just delete the key and no 
       # connection to the db is made. 
       INPUT_DATA_FROM_DBS  => {
-                         GENEWISE_DB => ['targetted'] ,
-                         EST_CDNA_DB => ['cdna2genome'] ,
+                         TARGETED_DB => ['targetted'] ,
+                         CDNA2GENOME_DB => ['cdna2genome'] ,
                      }  ,
       # Now order all your biotypes by quality here
       BIOTYPES                        => ['targetted', 'cdna2genome'],
 
       # db that we write genes to
-      OUT_DB_NAME                        => 'GENEWISE_DB',
+      OUT_DB_NAME                        => 'TARGETED_DB',
 
       # version of exonerate used
       EXONERATE_PROGRAM                  => '/usr/local/ensembl/bin/exonerate-0.9.0',

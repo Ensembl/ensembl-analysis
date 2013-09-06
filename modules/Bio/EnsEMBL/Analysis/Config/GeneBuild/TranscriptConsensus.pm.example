@@ -116,8 +116,8 @@ use vars qw(%Config);
 
                       # biotype to be fetched from the databases
                       INPUT_GENES => {
-                           GENEWISE_DB => [''],
-                           EXONERATE_DB => [''],
+                           TARGETED_DB => [''],
+                           ESTCDNA_DB => [''],
                       },
                       # biotype to be linked to the different data sets
                       AB_INITIO_LOGICNAMES => [],

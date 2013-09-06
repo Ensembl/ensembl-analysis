@@ -53,12 +53,13 @@ Internal methods are usually preceded with a _
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RefineSolexaGenes.pm,v $
-# $Revision: 1.39 $
+# $Revision: 1.40 $
 package Bio::EnsEMBL::Analysis::RunnableDB::RefineSolexaGenes;
 
 use warnings ;
 use vars qw(@ISA);
 use strict;
+use feature qw(say) ;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
@@ -264,7 +265,7 @@ sub refine_genes {
 	  next unless $intron->strand == $strand;
 	  next unless $intron->length >  $self->MIN_INTRON_SIZE;
 	  next unless $intron->length <= $self->MAX_INTRON_SIZE;
-	  # disguard introns that splice over our exon
+	  # discard introns that splice over our exon
 	  if ( $intron->start< $exon->start && $intron->end > $exon->end ) {
 	    $intron_overlap++;
 	    next;
@@ -2357,7 +2358,8 @@ sub dna_2_intron_features {
 
 =cut
 
-sub fetch_intron_features {
+sub fetch_intron_features 
+{
   my ($self,$start,$end,$offset) = @_;
   my @chosen_sf;
   my @filtered_introns;
@@ -2377,19 +2379,37 @@ sub fetch_intron_features {
     }
   }
  INTRON: foreach my $intron ( @chosen_sf) {
-    if ($intron->hseqname =~ /non canonical/ ) {
+    if ($intron->hseqname =~ /non canonical/ ) 
+    {
       # check it has no overlap with any consensus introns
       # unless it out scores a consensus intron
-      foreach my $i ( @chosen_sf) {
-	unless ($i->hseqname =~ /non canonical/ ) {
-	  if ($intron->end > $i->start && $intron->start < $i->end && $intron->strand == $i->strand ) {
-	    next INTRON if $intron->score <= $i->score;
-	  }
-	}
+      foreach my $i ( @chosen_sf) 
+      {
+          unless ($i->hseqname =~ /non canonical/ ) 
+          {
+              if ($intron->end > $i->start && $intron->start < $i->end && $intron->strand == $i->strand ) 
+              {
+                  next INTRON if $intron->score <= $i->score;
+              }
+          }
       }
-      push @filtered_introns, $intron;
-    } else {
-      push @filtered_introns, $intron;
+      #_filter using non-canonical score/length settings
+      if( $intron->score > 20 && $intron->end-$intron->start < 50000  )
+      {
+          push @filtered_introns, $intron;
+      }
+    } 
+    else 
+    {
+      #_filter using canonical score/length settings
+      if( $intron->score > 1 && $intron->end-$intron->start < 150000  )
+      {
+        push @filtered_introns, $intron;
+      }
+      else
+      {
+          say STDERR  "Discarding canonical INTRON with score".$intron->score." from ".$intron->start." to ".$intron->start." on ".$intron->seq_region_name ;
+      }
     }
   }
   return (\@filtered_introns,$index);

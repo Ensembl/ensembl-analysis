@@ -3,7 +3,7 @@
 # Copyright (c) 2004 Ensembl
 #
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/TranscriptCoalescer.pm.example,v $
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 #
 
 =head1 NAME
@@ -105,19 +105,19 @@ use vars qw(%Config);
 
 
                  # add the biotypes of your targetted / similarity-genes here. 
-                 # These genes are fetched out of GENEWISE_DB specified in Databases.pm 
+                 # These genes are fetched out of TARGETED_DB specified in Databases.pm 
 
-                 GENEWISE_DB => { 
+                 TARGETED_DB => { 
                                   BIOTYPES              => ['similarity_genewise_biotype'],   
                                   AB_INITIO_LOGICNAMES  => [],  
                                  }, 
 
 
                  # add the biotypes of your cdna/est-genes made by exonerate here 
-                 # These genes are fetched out of EXONERATE_DB specified in Databases.pm 
+                 # These genes are fetched out of ESTCDNA_DB specified in Databases.pm 
 
 
-                 EXONERATE_DB => { 
+                 ESTCDNA_DB => { 
                                   BIOTYPES              => ['est_all','dbest'],   
                                   AB_INITIO_LOGICNAMES            => [],  
                                  }, 

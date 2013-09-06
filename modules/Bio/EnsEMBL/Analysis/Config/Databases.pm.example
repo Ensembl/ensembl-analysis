@@ -85,8 +85,8 @@ use vars qw(%Config);
 
   DATABASES => {
 
-    # The REFERENCE_DB (formely known as GB_DB) holds sequence,
-    # repeats and features from raw computes (e.g. ab-inito
+    # The REFERENCE_DB holds sequence, repeats and 
+    # features from raw computes (e.g. ab-inito
     # predictions, dna- or protein alignments )
 
     REFERENCE_DB => { 
@@ -97,11 +97,10 @@ use vars qw(%Config);
                       -pass   => '',
     },
 
-    # The GENEWISE_DB holds genes made by FPC_TargettedGenewise or
-    # FPC_BlastMiniGenewise (TGE_gw or similarity_genewise - genes ) (
-    # formerly GB_GW_DB )
+    # The TARGETED_DB holds genes made by the
+    # Genebuild Targeted step
 
-    GENEWISE_DB => { 
+    TARGETED_DB => { 
                      -dbname => '',
                      -host   => '',
                      -port   => '',
@@ -109,8 +108,8 @@ use vars qw(%Config);
                      -pass   => '',
     },
 
-    # The EXONERATE_DB ( formerly GB_cDNA ) holds alignments to cDNA's
-    # or EST's gene-structtures made by exonerate (Exonerate2Genes.pm)
+    # The ESTCDNA_DB holds alignments to cDNA's
+    # or EST's gene-structures made by exonerate 
 
     EXONERATE_DB => {
                       -dbname => '',
@@ -120,7 +119,7 @@ use vars qw(%Config);
                       -pass   => '',
     },
 
-    # The BLESSED_DB (formerly GB_BLESSED) holds the 'blessed'
+    # The BLESSED_DB holds the 'blessed'
     # gene-set ( if there is one )
 
     BLESSED_DB => { 
@@ -131,8 +130,7 @@ use vars qw(%Config);
                     -pass   => '',
     },
 
-    # The UTR_DB (formerly GB_COMB) holds genes made by the
-    # UTR-addtion-run Combine_Genewises_and_E2Gs.pm writes to UTR_DB
+    # The UTR_DB  holds genes made by the UTR addition run
 
     UTR_DB => { 
                 -dbname => '',
@@ -142,8 +140,7 @@ use vars qw(%Config);
                 -pass   => '',
     },
 
-    # GENEBUILD_DB (formerly GB_FINALDB) is the Database where
-    # GeneBuilder.pm writes its results to this database and
+    # GENEBUILD_DB is where GeneBuilder.pm writes its results to
     # The Pseudogene-code READS from this database
 
     GENEBUILD_DB => { 
