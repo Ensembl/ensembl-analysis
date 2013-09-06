@@ -111,7 +111,7 @@ use vars qw(%Config);
     # The ESTCDNA_DB holds alignments to cDNA's
     # or EST's gene-structures made by exonerate 
 
-    EXONERATE_DB => {
+    ESTCDNA_DB => {
                       -dbname => '',
                       -host   => '',
                       -port   => '',
