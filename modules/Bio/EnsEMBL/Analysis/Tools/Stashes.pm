@@ -1,9 +1,11 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Stashes.pm,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Tools::Stashes;
 
 use warnings;
 use strict;
+no strict "refs";
+
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Exporter;
 use vars qw (@ISA @EXPORT %stash $alias @alias %alias);
