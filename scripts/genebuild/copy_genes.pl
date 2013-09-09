@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/copy_genes.pl,v $
-# $Revision: 1.32 $
+# $Revision: 1.33 $
 
 =head1 NAME
 
@@ -284,10 +284,12 @@ if ( defined($logic) ) {
 
 my $genes_processed = 0;
 my $genes_stored    = 0;
+my $batch_size      = 100;
+my $genes_to_go     = scalar(@gene_ids);
 
 while (@gene_ids) {
   my @gene_id_batch;
-  while ( @gene_ids && scalar(@gene_id_batch) < 100 ) {
+  while ( @gene_ids && scalar(@gene_id_batch) < $batch_size ) {
     my $gene_id = shift(@gene_ids);
     if ( defined($gene_id) ) {
       push( @gene_id_batch, $gene_id );
@@ -352,12 +354,11 @@ while (@gene_ids) {
 
       $outga->store($gene);
       ++$genes_stored;
+      --$genes_to_go;
 
       if ($verbose) {
-        printf( "Stored gene '%s'.  Done %d, %d left to go.\n",
-                $old_stable_id,
-                $genes_processed + 1,
-                scalar(@gene_ids) - ( $genes_processed + 1 ) );
+        printf( "Stored gene '%s'.  Done %d, %d left to go..\n",
+                $old_stable_id, $genes_processed + 1, $genes_to_go );
       }
     }
     else {
