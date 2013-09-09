@@ -109,7 +109,7 @@ use vars qw(%Config);
       OUT_DB_NAME                        => 'TARGETED_DB',
 
       # version of exonerate used
-      EXONERATE_PROGRAM                  => '/usr/local/ensembl/bin/exonerate-0.9.0',
+      EXONERATE_PROGRAM                  => '/software/ensembl/genebuild/usrlocalensemblbin/exonerate-0.9.0',
 
       # cluster using only translateable exons
       # set to '0' if you'd like to cluster using all exons (incl. UTR)
