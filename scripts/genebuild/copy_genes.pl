@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/copy_genes.pl,v $
-# $Revision: 1.31 $
+# $Revision: 1.32 $
 
 =head1 NAME
 
@@ -355,8 +355,9 @@ while (@gene_ids) {
 
       if ($verbose) {
         printf( "Stored gene '%s'.  Done %d, %d left to go.\n",
-                $old_stable_id, $genes_processed + 1,
-                scalar(@gene_ids) );
+                $old_stable_id,
+                $genes_processed + 1,
+                scalar(@gene_ids) - ( $genes_processed + 1 ) );
       }
     }
     else {
