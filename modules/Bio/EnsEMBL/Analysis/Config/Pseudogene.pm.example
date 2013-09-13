@@ -140,7 +140,7 @@ use vars qw( %Config );
                # Hashes for individual analyses must be present (even if left empty)
                # or else the code will throw
 
-               Pseudogene => {},
+               pseudogene => {},
                spliced_elsewhere => {} , 
 	
 	   }
