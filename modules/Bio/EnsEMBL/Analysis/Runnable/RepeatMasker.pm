@@ -45,7 +45,7 @@ and repeat_consensus tables in the core database
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/RepeatMasker.pm,v $
-# $Revision: 1.18 $
+# $Revision: 1.19 $
 package Bio::EnsEMBL::Analysis::Runnable::RepeatMasker;
 
 use strict;
@@ -263,6 +263,12 @@ sub parse_results{
           elsif ($repeatmunge2 =~ /(LINE\S+)/) 
           {
             $repeatmunge2 =~ /(LINE\S+)/;
+            $repeat_class = $1;
+            $repeat_name = $repeatmunge;
+          }
+          elsif ($repeatmunge2 =~ /(LTR\/ERV\S+)/)
+          {
+            $repeatmunge2 =~ /(LTR\/ERV\S+)/;
             $repeat_class = $1;
             $repeat_name = $repeatmunge;
           }
