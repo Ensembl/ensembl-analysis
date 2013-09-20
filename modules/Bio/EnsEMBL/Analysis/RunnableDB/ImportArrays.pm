@@ -61,7 +61,7 @@ Post general queries to B<dev@ensembl.org>
 # Add mode to recreate nr_fasta if already imported?
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ImportArrays.pm,v $
-# $Revision: 1.22 $
+# $Revision: 1.23 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 use warnings ;
@@ -203,7 +203,7 @@ sub run_FASTA{
   my $cnt     = 0;
   my $nr_cnt  = 0;
   my $skipped_reps = 0;
-  my $skipped_redundant_seq = 0;
+  my $redundant_seq = 0;
 
   while (<PROBES>) {
     chomp;
@@ -244,10 +244,6 @@ sub run_FASTA{
         } else {
           #warn  "using existing probe ".Dumper($existing_probe)  if($probe_attrs{'-name'} eq 'CUST_75_PI427147524');
 
-
-
-
-
           #Sanity check here that it is not a technical replicate
           #as these will break the primary key of the probe table
           #due to the fact we don't model spatial differences here (e.g. x/y coords)
@@ -255,48 +251,26 @@ sub run_FASTA{
 
           my $existing_name = $existing_probe->get_probename($probe_attrs{'-array'});
 
-          if($existing_name){
+                 if($existing_name && 
+             ($existing_name eq $probe_attrs{'-name'}) ){
+          
             #Must have found either a technical replicate with an identical name
-            #or a new probe name with identical seq to a previously seen probe
-            #Currently the model only allows one name per probeset per array
-            #Accomodating this would require a lot of API work
-            #would likely break the webcode too
-
-            if ($existing_name eq $probe_attrs{'-name'}) {
-              my $msg = "Skipping identical technical replicate probe:\t".$probe_attrs{'-name'}.
-                ' '.$current_sequence."\n";
-        
-              if (! $self->{skip_config}{$probe_attrs{'-array'}}{skip_reps}) {
-                throw($msg);
-              }
-        
-              warn $msg;
-              $skipped_reps ++;  
-            } else {
-              my $msg ="Found non-unique name for probe $existing_name replicate, skipping:\t".
-                $probe_attrs{'-name'};
-
-              if (! $self->{skip_config}{$probe_attrs{'-array'}}{skip_non_unique_names}) {
-                throw($msg);
-              }
-        
-              warn $msg;
-
-              $skipped_redundant_seq ++;
-            } 
+            #Currently the model only allows one unique name per probeset per array
+            warn "Skipping identical technical replicate probe:\t".
+              $probe_attrs{'-name'}.' '.$current_sequence."\n";
+            $skipped_reps ++;  
           }
           else {
+           
+            if($existing_name){
+              warn "Found replicate probe for ($existing_name) replicate:\t".
+                $probe_attrs{'-name'}."\n";
+              $redundant_seq ++;
+            }
+            
             $existing_probe->add_array_chip_probename($current_array_chip->dbID, 
                                                       $probe_attrs{'-name'}, 
                                                       $current_array_chip->get_Array);
-
-            #$self->add_array_chip_to_existing_probe
-            #  (
-            #   $existing_probe, 
-            #   $current_array_chip, 
-            #   $probe_set,
-            #   $probe_attrs{'-name'},
-            #  );
           }
         }
 
@@ -354,37 +328,20 @@ sub run_FASTA{
 
     my $existing_name = $existing_probe->get_probename($probe_attrs{'-array'});
 
-    if($existing_name){
-      #Must have found either a technical replicate with an identical name
-      #or a new probe name with identical seq to a previously seen probe
-      #Currently the model only allows one name per probeset per array
-      #Accomodating this would require a lot of API work
-      #would likely break the webcode too
+    if($existing_name && 
+       ($existing_name eq $probe_attrs{'-name'})){
       
-      if ($existing_name eq $probe_attrs{'-name'}) {
-        my $msg = "Skipping identical technical replicate probe:\t".$probe_attrs{'-name'}.
-          ' '.$current_sequence."\n";
-        
-        if(! $self->{skip_config}{$probe_attrs{'-array'}}{skip_reps}){
-          throw($msg);
-        }
-        
-        warn $msg;
-        $skipped_reps ++;  
-      }
-      else{
-        my $msg ="Found non-unique name for probe $existing_name replicate, skipping:\t".
-          $probe_attrs{'-name'};
+      warn "Skipping identical technical replicate probe:\t".
+        $probe_attrs{'-name'}.' '.$current_sequence."\n";
+      $skipped_reps ++;  
+    }
+    else{
 
-        if(! $self->{skip_config}{$probe_attrs{'-array'}}{skip_non_unique_names}){
-          throw($msg);
-        }
-        
-        warn $msg;
-
-        $skipped_redundant_seq ++;
+      if($existing_name){
+        warn "Found replicate probe for ($existing_name) replicate:\t".
+                $probe_attrs{'-name'}."\n";
+              $redundant_seq ++;
       }
-    } else {
       
       $existing_probe->add_array_chip_probename($current_array_chip->dbID, 
                                                 $probe_attrs{'-name'}, 
@@ -395,7 +352,7 @@ sub run_FASTA{
   print "Seen $cnt fasta records\n";
   print "Created $nr_cnt probes\n";
   print "Skipped $skipped_reps identical replicates\n";
-  print "Skipped $skipped_redundant_seq replicates with non-unique names\n";
+  print "Found $redundant_seq replicates with non-unique names\n";
   
 
   throw('No probes stored! Maybe you need to tweak your IIDREGEXP config for this format') if($nr_cnt == 0);
@@ -403,11 +360,7 @@ sub run_FASTA{
   return;
 }
 
-#sub add_array_chip_to_existing_probe{
-#  my ($self, $probe, $array_chip, $probeset, $probename) = @_;
-#
-#  $probe->add_array_chip_probename($array_chip->dbID, $probename, $array_chip->get_Array);
-#}
+
 
 #can we replace these var with $_[n] for speed?
 sub create_new_probe {
