@@ -24,33 +24,33 @@ Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus
 
 =head1 SYNOPSIS
 
-    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus ; 
-    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus qw () ; 
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus ;
+    Bio::EnsEMBL::Analysis::Config::GeneBuild::TranscriptConsensus qw () ;
 
 =head1 DESCRIPTION
 
 
-TranscriptConsensus-Configuration 
+TranscriptConsensus-Configuration
 
-This is the main configuration file for TranscriptConsensus, a perl 
-module which generate consensus genes from different sources (EST-genes are 
-combined with other EST-genes and Similarity-Genewise-genes or 
-ab-initio-predictions (i.e. fgenesh, Genscan, GeneFinder ...) . 
+This is the main configuration file for TranscriptConsensus, a perl
+module which generate consensus genes from different sources (EST-genes are
+combined with other EST-genes and Similarity-Genewise-genes or
+ab-initio-predictions (i.e. fgenesh, Genscan, GeneFinder ...) .
 
-TranscriptConsensus fetches genes and prediction_transcripts by it's 
-biotype (for Bio::EnsEMBL::Gene-objects) and by it's logic_name 
+TranscriptConsensus fetches genes and prediction_transcripts by it's
+biotype (for Bio::EnsEMBL::Gene-objects) and by it's logic_name
 (for Bio::EnsEMBL::PredictionTranscript-objects). These biotypes/
 logic_names are defiend in this configuration-file. Each biotype/
 logic_name has to belong to a different evidence_set. (see below).
 
-The parameters to connect to various databases are defined in 
+The parameters to connect to various databases are defined in
 
-  - modules/Bio/EnsEMBL/Analysis/Config/Databases.pm 
+  - modules/Bio/EnsEMBL/Analysis/Config/Databases.pm
 
-The general function of this config file is to import  a number of 
-standard global variables into the calling package. Without arguments 
-all the standard variables are set, and with a list, only those variables 
-whose names are provided are set.  The module will die if a variable 
+The general function of this config file is to import  a number of
+standard global variables into the calling package. Without arguments
+all the standard variables are set, and with a list, only those variables
+whose names are provided are set.  The module will die if a variable
 which doesn\'t appear in its C<%Config> hash is asked to be set.
 
 The variables can also be references to arrays or hashes.
@@ -67,61 +67,72 @@ package Bio::EnsEMBL::Analysis::Config::GeneBuild::RecoverRNASeqTissuesModels;
 use strict;
 use vars qw(%Config);
 
-%Config= 
- (
+%Config= (
 
-  RECOVER_RNASEQ_MODELS_CONFIG_BY_LOGIC => {
+    RECOVER_RNASEQ_MODELS_CONFIG_BY_LOGIC => {
 
-                DEFAULT => {
-                      # set the verbosity level
-                      VERBOSE => 0,
+        DEFAULT => {
+            # set the verbosity level
+            VERBOSE => 0,
 
-                      # Values between START and END shouldn't be changed
-                      # unless you know what you are doing
-                      ## START ##
-                      CODING_ONLY      => 0,
-                      IGNORE_STRAND    => 0,
-                      CHECK_FRAMESHIFT => 0,
-                      CHECK_STOP       => 0,
+            # Values between START and END shouldn't be changed
+            # unless you know what you are doing
+            ## START ##
+            CODING_ONLY      => 0,
+            IGNORE_STRAND    => 0,
+            CHECK_FRAMESHIFT => 0,
+            CHECK_STOP       => 0,
 
-                      CHECK_TWOWAY => 1,
-                      CHECK_SINGLE => 1,
-                      CHECK_ORPHAN => 1,
-                      ## END ##
+            CHECK_TWOWAY => 1,
+            CHECK_SINGLE => 1,
+            CHECK_ORPHAN => 1,
+            ## END ##
 
-                      # If the value of the biotype is '', it's not changed
-                      # Otherwise it is concatenated to the original one
-                      # biotype of good genes
-                      DELETE_BIOTYPE => 'deleted',
-                      SINGLE_BIOTYPE => 'single',
-                      ORPHAN_BIOTYPE => 'orphan',
+            # If the value of the biotype is '', it's not changed
+            # Otherwise it is concatenated to the original one
+            # biotype of good genes
+            DELETE_BIOTYPE => 'deleted',
+            SINGLE_BIOTYPE => 'single',
+            ORPHAN_BIOTYPE => 'orphan',
 
-                      # If GOOD_BIOTYPE is set, it will overwrite the biotypes
-                      # unless it is a "deleted model"
-                      GOOD_BIOTYPE => 'best',
+            # If GOOD_BIOTYPE is set, it will overwrite the biotypes
+            # unless it is a "deleted model"
+            GOOD_BIOTYPE => 'best',
 
-                      MERGED_SET_DATABASE => ['REFINE_MERGED_DB'],
-                      MERGED_UNIPROT_DATABASE => 'MERGED_UNIPROT_DB',
+            MERGED_SET_DATABASE => ['REFINE_MERGED_DB'],
+            MERGED_UNIPROT_DATABASE => 'MERGED_UNIPROT_DB',
 
-                      # list of biotypes to be fetched from the databases
-                      # If the arrayref is empty, fetch all
-                      MERGED_BIOTYPES => {
-                           REFINE_MERGED_DB => [],
-                      },
-                      TISSUES_SET_DATABASE => ['REFINE_TISSUES_DB'],
-                      TISSUES_UNIPROT_DATABASE => 'TISSUES_UNIPROT_DB',
+            # list of biotypes to be fetched from the databases
+            # If the arrayref is empty, fetch all
+            MERGED_BIOTYPES => {
+                REFINE_MERGED_DB => [],
+            },
+            TISSUES_SET_DATABASE => ['REFINE_TISSUES_DB'],
+            TISSUES_UNIPROT_DATABASE => 'TISSUES_UNIPROT_DB',
 
-                      # list of biotypes to be fetched from the databases
-                      # If the arrayref is empty, fetch all
-                      TISSUES_BIOTYPES => {
-                           REFINE_TISSUES_DB => [],
-                      },
-                      OUTPUT_DATABASE => 'RECOVER_RNASEQ_DB',
+            # list of biotypes to be fetched from the databases
+            # If the arrayref is empty, fetch all
+            TISSUES_BIOTYPES => {
+                REFINE_TISSUES_DB => [],
+            },
+            OUTPUT_DATABASE => 'RECOVER_RNASEQ_DB',
 
-                      INTRON_BAM_FILE => '/path/to/your/merged/intron/file.bam',
-                },
-       }
-  );
+            INTRON_BAM_FILE => '/path/to/your/merged/intron/file.bam',
+
+            # It is supposed to be the number of tissues you have for your species.
+            # If the recovered model has less than half of NUM_GROUPS of tissues to
+            # support it, the biotype will contain 'low'
+            NUM_GROUPS      => 50,
+            # Modifies the merge model score 
+            # Useful to remove merged models with the last/first intron poorly supported
+            # Set it higher to favor the merge model
+            INTRON_ALLOWANCE      => 23,
+            # When 2 tissue model have a deep 'coverage', use the longest translation if
+            # score_less_deep > score_deeper*ABUNDANCE_THRESHOLD
+            ABUNDANCE_THRESHOLD      => 0.65,
+        },
+    }
+);
 
 
 sub import {

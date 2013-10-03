@@ -37,15 +37,14 @@ It only change the biotype for the models
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RecoverRNASeqTissuesModels.pm,v $
-# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::RecoverRNASeqTissuesModels;
 
-use warnings ;
 use strict;
+use warnings;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning verbose info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(clone_Gene empty_Gene); 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::RecoverRNASeqTissuesModels;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::DB::Sam;
@@ -162,6 +161,8 @@ sub run {
 
             # get the gene with the longest translation and write it to the output db
             print STDOUT "\n";
+            my $bestgene = $self->get_longest_translation_gene($single_set_clust->get_Genes);
+            $self->output([$bestgene]);
           }
         }
         $self->output($single_set_clust->get_Genes);
@@ -178,6 +179,7 @@ sub run {
 
   if ($self->CHECK_ORPHAN) {
     my (@set1_orphan_genes, @set2_orphan_genes);
+#    my @set2_orphan_genes;
     foreach my $orphan_cluster(@$unclustered) {
       push ( @set1_orphan_genes, @{$orphan_cluster->get_Genes_by_Set($set1_name)} );
       push ( @set2_orphan_genes, @{$orphan_cluster->get_Genes_by_Set($set2_name)} );
@@ -219,7 +221,7 @@ sub run {
           -autoindex => 1,
       );
       my $cluster_counter = 0;
-      TWO_WAY_CLUSTER: foreach my $twoway_clust (@$twoway_clusters) {
+      foreach my $twoway_clust (@$twoway_clusters) {
         $twoway_cluster_nr ++;
         $cluster_counter ++;
         my $twoway_clust_sr_start = $curr_sr_start  + $twoway_clust->start;
@@ -253,23 +255,33 @@ sub run {
             $h_set2_boundaries{$gene->start}++;
             $h_set2_boundaries{$gene->end}++;
         }
-        my $is_set2_better = 0;
         if ($set1_start != $set2_start or $set1_end != $set2_end) {
-            if (scalar(keys %h_set2_boundaries) == 2) {
-                $is_set2_better += check_intron_support($bam, $set1_genes_overlapped_with_set2_genes[0], $set2_genes_overlapped_with_set1_genes[0]);
-            }
-            else {
-                foreach my $model (@set2_genes_overlapped_with_set1_genes) {
-                    $is_set2_better += check_intron_support($bam, $set1_genes_overlapped_with_set2_genes[0], $model);
+            my $is_set2_better = 0;
+            my $bestgene = $self->get_longest_translation_gene(\@set2_genes_overlapped_with_set1_genes);
+            my $use_recovered_gene = 0;
+            foreach my $set1_gene (@set1_genes_overlapped_with_set2_genes) {
+                $is_set2_better = check_intron_support($bam, $set1_gene, $bestgene, $self->INTRON_ALLOWANCE);
+                if ($is_set2_better > 0) {
+                    print STDERR 'You might want to delete this model: ', $set1_gene->display_id, 'Start: ',$set1_gene->seq_region_start ,' End: ', $set1_gene->seq_region_end,' Strand: ', $set1_gene->strand, "\n";
+                    if ( !($bestgene->seq_region_end < $set1_gene->seq_region_start or $set1_gene->seq_region_end  < $bestgene->seq_region_start )) {
+##                        print STDERR 'DEBUG DELETE ', $bestgene->seq_region_end, ' < ', $set1_gene->seq_region_start, ' OR ', $set1_gene->seq_region_end , ' < ', $bestgene->seq_region_start, "\n";
+                        $set1_gene->biotype($self->DELETE_BIOTYPE);
+                    }
+#                    print STDERR 'DEBUG DELETED ', $bestgene->seq_region_end, ' < ', $set1_gene->seq_region_start, ' OR ', $set1_gene->seq_region_end , ' < ', $bestgene->seq_region_start, "\n";
+                    $use_recovered_gene = 1;
+                }
+                elsif ($is_set2_better == 0) {
+                    if ($bestgene->get_all_Transcripts->[0]->translation->length > $set1_gene->get_all_Transcripts->[0]->translation->length) {
+                        print STDERR 'DEBUG: WARNING set2 translation is longer than set1', "\n";
+                        $set1_gene->biotype($self->DELETE_BIOTYPE);
+                        $use_recovered_gene = 1;
+                    }
                 }
             }
-            if ($is_set2_better) {
-                print STDERR 'You might want to delete this model: ', $set1_genes_overlapped_with_set2_genes[0]->display_id, 'Start: ',$set1_genes_overlapped_with_set2_genes[0]->start ,' End: ', $set1_genes_overlapped_with_set2_genes[0]->end,' Strand: ', $set1_genes_overlapped_with_set2_genes[0]->strand, "\n";
-                $self->_change_biotype(\@set1_genes_overlapped_with_set2_genes, $self->DELETE_BIOTYPE);
-                $self->output(\@set2_genes_overlapped_with_set1_genes);
-            }
+            $self->output([$bestgene]) if ($use_recovered_gene);
         }
         $self->output(\@set1_genes_overlapped_with_set2_genes);
+        $self->output(\@set2_genes_overlapped_with_set1_genes);
       }
     }
   }  # end if ($self->CHECK_TWOWAY)
@@ -310,27 +322,8 @@ sub write_output {
     my $gene_adaptor = $dbadaptor->get_GeneAdaptor;
     foreach my $gene (@{$self->output}) {
         $gene->load;
+        empty_Gene($gene);
         $gene_adaptor->store($gene);
-    }
-}
-
-
-=head2 _change_biotype
-
-  Arg [1]   : Listref of Bio::EnsEMBL::Gene
-  Arg [2]   : String, the new biotype
-  Function  : Change the biotype for a list of Bio::EnsEMBL::Gene
-  Returntype: void
-  Exceptions: none
-  Example   : 
-
-=cut
-
-sub _change_biotype {
-    my ($self, $genes, $biotype) = @_;
-
-    foreach my $gene (@$genes) {
-        $gene->biotype($biotype.'_'.$gene->biotype);
     }
 }
 
@@ -351,15 +344,11 @@ sub _change_biotype {
 sub fetch_all_genes {
     my ($self, $dbs, $biotypes) = @_;
 
-    my @db_adaptors;
     my @genes;
     my @biotypes;
     foreach my $dbname (@{$dbs}) {
-        my $dbadaptor;
-        if ($self->_get_db($dbname)) {
-            $dbadaptor = $_;
-        }
-        else {
+        my $dbadaptor = $self->_get_db($dbname);
+        if (!$dbadaptor) {
             $dbadaptor = $self->get_dbadaptor($dbname);
             $self->_cache_db($dbname, $dbadaptor);
         }
@@ -377,7 +366,7 @@ sub fetch_all_genes {
 }
 
 
-=head2 fetch_all_genes
+=head2 check_intron_support
 
   Arg [1]   : Listref of String
   Arg [2]   : Hashref, the key is the name of the database
@@ -391,24 +380,67 @@ sub fetch_all_genes {
 =cut
 
 sub check_intron_support {
-    my ($bam, $set1_gene, $set2_gene) = @_;
+    my ($bam, $set1_gene, $set2_gene, $intron_allowance) = @_;
     my @set1_exons = sort {$a->start <=> $b->start} @{$set1_gene->get_all_Exons()};
     my @set2_exons = sort {$a->start <=> $b->start} @{$set2_gene->get_all_Exons()};
     my $set1_count_support = 0;
     my $set2_count_support = 0;
+    my @count_support_set1;
+    my @count_support_set2;
     for (my $i = 0; $i < (scalar(@set1_exons)-1); $i++) {
-        $set1_count_support += count_suppport($bam, $set1_gene->seq_region_name, $set1_exons[$i]->end, $set1_exons[$i+1]->start);
+        my $count_support = count_support($bam, $set1_gene->seq_region_name, $set1_exons[$i]->seq_region_end, $set1_exons[$i+1]->seq_region_start);
+        push(@count_support_set1, $count_support);
+        $set1_count_support += $count_support;
     }
     for (my $i = 0; $i < (scalar(@set2_exons)-1); $i++) {
-        $set2_count_support += count_suppport($bam, $set2_gene->seq_region_name, $set2_exons[$i]->end, $set2_exons[$i+1]->start);
+        my $count_support = count_support($bam, $set2_gene->seq_region_name, $set2_exons[$i]->seq_region_end, $set2_exons[$i+1]->seq_region_start);
+        push(@count_support_set2, $count_support);
+        $set2_count_support += $count_support;
     }
-    warn( 'Set1: ', $set1_count_support, ' Set2: ', $set2_count_support, "\n") if ($set2_count_support > $set1_count_support);
+    my $is_modified = 0;
+    if (@count_support_set1 > 1) {
+        if ($count_support_set1[0] < $count_support_set1[1]/100) {
+            $set1_count_support -= $count_support_set1[0];
+            shift(@set1_exons);
+            $is_modified = 1;
+        }
+        if ($count_support_set1[$#count_support_set1] < $count_support_set1[$#count_support_set1-1]/100) {
+            $set1_count_support -= $count_support_set1[$#count_support_set1];
+            pop(@set1_exons);
+            $is_modified = 1;
+        }
+    }
+    if (@count_support_set2 > 1) {
+        if ($count_support_set2[0] < $count_support_set2[1]/100) {
+            $set2_count_support -= $count_support_set2[0];
+            shift(@set2_exons);
+        }
+        if ($count_support_set2[$#count_support_set2] < $count_support_set2[$#count_support_set2-1]/100) {
+            $set2_count_support -= $count_support_set2[$#count_support_set2];
+            pop(@set2_exons);
+        }
+    }
+    warning( 'Set1: ', $set1_count_support, ' Set2: ', $set2_count_support, "\n") if ($set2_count_support > $set1_count_support);
     return 1 if ($set2_count_support > $set1_count_support);
-    return 0;
+    if (scalar(@set1_exons) == scalar(@set2_exons)+1) {
+#        print STDERR 'DEBUG check_intron_support: set1 ',scalar(@set1_exons), ' == set2+1 ', scalar(@set2_exons), "\n";
+        if ($set2_count_support+($set2_count_support/$intron_allowance) > $set1_count_support) {
+#            print STDERR 'DEBUG check_intron_support: better model set1 ', $set1_count_support, ' == set2 ', $set2_count_support, "\n";
+            return 1;
+        }
+    }
+    if ($set1_count_support == $set2_count_support) {
+        if ($is_modified) {
+            print STDERR 'DEBUG check_intron_support: support count is equal but set1 has been modified, so set2 should be better', "\n";
+            return 1;
+        }
+        return 0;
+    }
+    return -1;
 }
 
 
-=head2 fetch_all_genes
+=head2 count_support
 
   Arg [1]   : Listref of String
   Arg [2]   : Hashref, the key is the name of the database
@@ -421,7 +453,7 @@ sub check_intron_support {
 
 =cut
 
-sub count_suppport {
+sub count_support {
     my ($bam, $seq_region_name, $exon1_end, $exon2_start) = @_;
     my $segment = $bam->segment($seq_region_name, $exon1_end, $exon2_start);
     throw("Bam file segment not found for slice " .  $seq_region_name . "\n") unless $segment;
@@ -434,6 +466,7 @@ sub count_suppport {
             ++$count;
         }
     }
+    print STDERR $count;
     return $count;
 }
 
@@ -586,6 +619,256 @@ sub max_coding_exon_count {
   return $max_coding_ex_cnt;
 }
 
+sub get_longest_translation_gene {
+  my ($self, $genes) = @_;
+
+  print STDOUT "\nLooking for gene with longest translation...\n";
+
+  my $num_groups = $self->NUM_GROUPS;
+  my $biotype = $self->GOOD_BIOTYPE;
+  my $max_exon_gene;
+  my $max_exon_length = 0;
+  my $max_exon_cnt = 0;
+  my $longest_translation_gene;
+  my $longest_exons_gene;
+  my $max_translation_length = 0;
+
+  my $num_genes = scalar(@$genes);
+  my %most_abundant;
+  my %introns_score;
+  foreach my $this_set_only_clust_gene (@$genes) {
+#  return ($id, $ex_cnt, $translation_length, $exons_length, $max_translation);
+    my ($id, $ex_cnt, $translation_length, $exons_length, $max_translation) = getting_max($this_set_only_clust_gene, \%introns_score);
+    if ($ex_cnt > $max_exon_cnt) {
+      $max_exon_cnt = $ex_cnt;
+      $max_exon_gene = $this_set_only_clust_gene;
+    }
+
+    if ($translation_length > $max_translation_length) {
+      $max_translation_length = $translation_length;
+      $longest_translation_gene = $this_set_only_clust_gene;
+    }
+
+    if ($exons_length > $max_exon_length) {
+      $max_exon_length = $exons_length;
+      $longest_exons_gene = $this_set_only_clust_gene;
+    }
+    $most_abundant{$id}{count}++;
+    push(@{$most_abundant{$id}{genes}}, $this_set_only_clust_gene);
+  }
+  my @ids = sort {$most_abundant{$b}{count} <=> $most_abundant{$a}{count}} keys %most_abundant;
+  my $longestID = $longest_translation_gene->dbID;
+  my $maxexonID = $max_exon_gene->dbID;
+  my $longexonID = $longest_exons_gene->dbID;
+  my $selected_gene;
+#  print STDERR 'DEBUG: ', $longest_translation_gene->display_id, '/', $longestID, '@', $max_translation_length , ' -- ', $max_exon_gene->display_id, '/', $maxexonID, '@', $max_exon_cnt , ' -- ', $longest_exons_gene->display_id, '/', $longexonID, '@', $max_exon_length, "\n";
+  if (@ids > 1) {
+      if (@ids > 3) {
+          $biotype = 'fragmented';
+          my $num_ids = @ids;
+#          print STDERR 'DEBUG: FRAG ', $num_ids, "\n";
+          if ($most_abundant{$ids[0]}{count} >= ($num_ids*0.66)) {
+              $biotype = 'hqfragmented';
+#              print STDERR 'DEBUG: hqfragmented: ', $most_abundant{$ids[0]}{genes}[0]->dbID, "\t", $most_abundant{$ids[0]}{count}, "\n";
+          }
+#          foreach my $id (@ids) {
+#              print STDERR '   ID: ', $id, ': ', $most_abundant{$id}{count}, "\n";
+#          }
+      }
+      else {
+          if ($num_genes < $num_groups/10) {
+              $biotype = 'verylow';
+#              print STDERR 'DEBUG: Very low ', $num_genes, ' but you have ', $num_groups, "\n";
+          }
+          elsif ($num_genes < $num_groups/2) {
+              $biotype = 'low';
+#              print STDERR 'DEBUG: Low ', $num_genes, ' but you have ', $num_groups, "\n";
+          }
+          elsif ($most_abundant{$ids[0]}{count} < ($num_genes/2)) {
+              $biotype = 'weak';
+#            print STDERR 'DEBUG: Weak ', $most_abundant{$ids[0]}{genes}[0]->dbID, ': ', $most_abundant{$ids[0]}{count}, "\n";
+          }
+          elsif ($most_abundant{$ids[0]}{count} == $most_abundant{$ids[1]}{count}) {
+              print STDERR 'INFO: ', $most_abundant{$ids[0]}{count}, ' => ', $most_abundant{$ids[0]}{genes}[0]->dbID, ' & ', $most_abundant{$ids[1]}{genes}[0]->dbID, "\n";
+          }
+      }
+  }
+  if ($longestID == $maxexonID and $longestID == $longexonID and (grep {$_->dbID == $longexonID} @{$most_abundant{$ids[0]}{genes}} or ($most_abundant{$ids[1]}{count} > $most_abundant{$ids[0]}{count}/2 and grep {$_->dbID == $longexonID} @{$most_abundant{$ids[1]}{genes}})) ) {
+#    print STDERR 'DEBUG: the longest model is significant', "\n";
+    $biotype = 'longest';
+  }
+  elsif (grep {$_->dbID == $longestID} @{$most_abundant{$ids[0]}{genes}}) {
+      if ($longestID != $longexonID) {
+          if (grep {$_->dbID == $longexonID} @{$most_abundant{$ids[0]}{genes}}) {
+              if (max_translation($longest_translation_gene) eq max_translation($longest_exons_gene)) {
+                  $selected_gene = $longest_exons_gene;
+              }
+          }
+          else {
+#        print STDOUT "WARNING: gene with longest translation $max_translation_length (gene id $longestID) is different from gene with maximum exon count $max_exon_cnt (gene id $maxexonID). Gene with longest translation is (always) chosen.";
+            $biotype .= "_warning";
+              foreach my $gene (@{$most_abundant{$ids[0]}{genes}}) {
+                  $selected_gene = $gene if ($gene->start < $longest_translation_gene->start and $gene->end >= $longest_translation_gene->end);
+              }
+#              print STDERR 'DEBUG: WARNING longest exon is not in the most abundant', "\n";
+          }
+      }
+      else {
+#        print STDOUT "GREAT! gene with longest translation $max_translation_length (gene id $longestID) is the same as gene with maximum exon count $max_exon_cnt (gene id $maxexonID).";
+        $biotype .= "_great";
+      }
+  }
+  else {
+#              print STDERR 'DEBUG: ', $longestID, ' <=> ', $longexonID, "\n";
+      if (grep {$_->dbID == $longexonID} @{$most_abundant{$ids[0]}{genes}}) {
+          $selected_gene = $longest_exons_gene;
+#          print STDERR 'DEBUG: using gene with maximum number of exons ', $selected_gene->dbID, ' => ', $longest_exons_gene->dbID, "\n";
+      }
+      else {
+#          print STDERR 'DEBUG: COUNT: ',$most_abundant{$ids[0]}{count} , ' <==> ',$most_abundant{$ids[1]}{count} , "\n";
+          if ($most_abundant{$ids[1]}{count} > $most_abundant{$ids[0]}{count}*$self->ABUNDANCE_THRESHOLD) {
+              $selected_gene = $longest_translation_gene;
+#              print STDERR 'DEBUG: using gene with longest translation ', $selected_gene->dbID, "\n";
+          }
+          elsif ($most_abundant{$ids[0]}{count} > $num_groups/10) {
+              if (grep {$_->dbID == $maxexonID} @{$most_abundant{$ids[0]}{genes}}) {
+                  $selected_gene = $max_exon_gene;
+#                  print STDERR 'DEBUG: using gene with max number of exons ', $selected_gene->dbID, "\n";
+              }
+              else {
+                  if ($longestID == $longexonID and $longestID == $maxexonID) {
+                      $selected_gene = $longest_translation_gene;
+#                      print STDERR 'DEBUG: using gene with longest translation as selected is significant', $selected_gene->dbID, "\n";
+                  }
+                  else {
+                  $selected_gene = $most_abundant{$ids[0]}{genes}[0];
+#                  print STDERR 'DEBUG: may have been using gene with longest translation ', $selected_gene->dbID, "\n";
+                  }
+              }
+          }
+          else {
+              $selected_gene = $most_abundant{$ids[0]}{genes}[0];
+#              print STDERR 'DEBUG: using gene with maximum number of copies ', $selected_gene->dbID, ' => ', $most_abundant{$ids[0]}{genes}[0]->dbID, "\n";
+          }
+      }
+  }
+  if ($num_genes < $num_groups/2) {
+    $biotype .= '_low';
+  }
+  $selected_gene = $longest_translation_gene unless ($selected_gene);
+  my $min_start = 100000000000;
+  my $max_start = 0;
+  my $min_score = 10000;
+  my $min_score_start = 0;
+  my $full_score = 0;
+  my $num_introns = 0;
+  foreach my $transcript (@{$selected_gene->get_all_Transcripts}) {
+      foreach my $ise (@{$transcript->get_all_IntronSupportingEvidence}) {
+          if (exists $introns_score{$ise->start.':'.$ise->end}) {
+              ++$num_introns;
+              my $start = $ise->start;
+#              print STDERR 'DEBUG SCORE ', $start, ' ^ ', $introns_score{$start.':'.$ise->end}, "\n";
+              $min_start = $start if ($min_start > $start);
+              $max_start = $start if ($max_start < $start);
+              if ($introns_score{$start.':'.$ise->end} < $min_score) {
+                  $min_score_start = $start;
+                  $min_score = $introns_score{$start.':'.$ise->end};
+              }
+              $full_score += $introns_score{$start.':'.$ise->end};
+          }
+      }
+  }
+  if ($min_score < $full_score/($num_introns*100) and $min_score_start > $min_start and $min_score_start < $max_start) {
+#      print STDERR 'DEBUG SPLITTING ', $min_score, ' < ', ($full_score/($num_introns*100)), "\n";
+      if ($selected_gene->dbID != $longestID and grep {$_->dbID == $longestID} @{$most_abundant{$ids[0]}{genes}}) {
+          $selected_gene = $longest_translation_gene;
+#          print STDERR 'DEBUG: SPLITTING using gene with longest translation ', $selected_gene->dbID, "\n";
+      }
+      elsif ($selected_gene->dbID != $longexonID and grep {$_->dbID == $longexonID} @{$most_abundant{$ids[0]}{genes}}){
+          $selected_gene = $longest_exons_gene;
+#          print STDERR 'DEBUG: SPLITTING using gene with longest exons ', $selected_gene->dbID, "\n";
+      }
+      elsif ($selected_gene->dbID != $maxexonID and grep {$_->dbID == $maxexonID} @{$most_abundant{$ids[0]}{genes}}) {
+          $selected_gene = $max_exon_gene;
+#          print STDERR 'DEBUG: SPLITTING using gene with max exons ', $selected_gene->dbID, "\n";
+      }
+      else {
+          $selected_gene = $most_abundant{$ids[0]}{genes}[0];
+#          print STDERR 'DEBUG: SPLITTING using most abundant gene ', $selected_gene->dbID, "\n";
+      }
+  }
+
+  my $bestgene = clone_Gene($selected_gene);
+  $bestgene->biotype($biotype);
+  $bestgene->analysis($self->analysis);
+  $bestgene->source($self->analysis->logic_name);
+# Updating the depth score to our new model
+  foreach my $transcript (@{$bestgene->get_all_Transcripts}) {
+      foreach my $ise (@{$transcript->get_all_IntronSupportingEvidence}) {
+          if (exists $introns_score{$ise->start.':'.$ise->end}) {
+              $ise->score($introns_score{$ise->start.':'.$ise->end});
+          }
+      }
+  }
+  print STDERR 'CHOSEN ', $bestgene->display_id, ' / ', $bestgene->dbID, ' @ ', $bestgene->seq_region_start, ' - ', $bestgene->seq_region_end, "\n";
+
+  return $bestgene;
+}
+
+sub max_translation {
+  my ($gene) = @_;
+  my $max_transl_len = 0;
+  my $max_translation;
+  foreach my $trans (@{$gene->get_all_Transcripts}) {
+    my $trans_len = $trans->translation->length;
+    if ($trans_len > $max_transl_len) {
+      $max_transl_len = $trans_len;
+      $max_translation = $trans->translation;
+    }
+  }
+  return $max_translation;
+}
+
+sub getting_max {
+  my ($gene, $href_introns_score) = @_;
+  my $id;
+  my $max_num_coding_exons = 0;
+  my $max_length_exons = 0;
+  my $max_length_translation = 0;
+  my $max_translation;
+  foreach my $trans (@{$gene->get_all_Transcripts}) {
+    my $num_coding_exons = 0;
+    foreach my $coding_exon (@{$trans->get_all_translateable_Exons}) {
+        $num_coding_exons++;
+        $id .= $coding_exon->start.':'.$coding_exon->end.':';
+    }
+    if ($num_coding_exons > $max_num_coding_exons) {
+      $max_num_coding_exons = $num_coding_exons;
+    }
+    my $length_exons = 0;
+    foreach my $exon (@{$trans->get_all_Exons}) {
+      $length_exons += $exon->length;
+    }
+    if ($length_exons > $max_length_exons) {
+        $max_length_exons = $length_exons;
+    }
+    my $trans_len = $trans->translation->length;
+    if ($trans_len > $max_length_translation) {
+      $max_length_translation = $trans_len;
+      $max_translation = $trans->translation;
+    }
+    foreach my $ise (@{$trans->get_all_IntronSupportingEvidence}) {
+        my $id = $ise->seq_region_start.':'.$ise->seq_region_end;
+        if (exists $href_introns_score->{$id}) {
+            $href_introns_score->{$id} += $ise->score;
+        }
+        else {
+            $href_introns_score->{$id} = $ise->score;
+        }
+    }
+  }
+  return ($id, $max_num_coding_exons, $max_length_translation, $max_length_exons, $max_translation);
+}
 
 =head2 fetch_all_genes
 
@@ -963,6 +1246,38 @@ sub INTRON_BAM_FILE {
     $self->{'_INTRON_BAM_FILE'} = $arg ;
   }
   return $self->{'_INTRON_BAM_FILE'} ;
+}
+
+sub NUM_GROUPS {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'_NUM_GROUPS'} = $arg ;
+  }
+  return $self->{'_NUM_GROUPS'} ;
+}
+
+sub GOOD_BIOTYPE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'_GOOD_BIOTYPE'} = $arg ;
+  }
+  return $self->{'_GOOD_BIOTYPE'} ;
+}
+
+sub INTRON_ALLOWANCE {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'_INTRON_ALLOWANCE'} = $arg ;
+  }
+  return $self->{'_INTRON_ALLOWANCE'} ;
+}
+
+sub ABUNDANCE_THRESHOLD {
+  my ($self, $arg) = @_ ;
+  if(defined $arg) {
+    $self->{'_ABUNDANCE_THRESHOLD'} = $arg ;
+  }
+  return $self->{'_ABUNDANCE_THRESHOLD'} ;
 }
 
 
