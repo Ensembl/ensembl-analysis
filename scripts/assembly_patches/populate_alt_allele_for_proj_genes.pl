@@ -196,7 +196,7 @@ foreach my $proj_gene (@projected_genes){
   my @parent_stable_ids = keys %unique_parent_gene;
   if (scalar( @parent_stable_ids ) != 1) {
     # we could swicth this to a warning and use the 'best guess' parent
-    throw("Expected only one parent. Got the following parents for projected gene ".$proj_gene->stable_id.":\n  @parent_stable_ids");
+    warning("Expected only one parent. Got the following parents for projected gene ".$proj_gene->stable_id.":\n  @parent_stable_ids");
     # try to choose the correct one - best guess parent
     my $has_most_projected = 0;
     foreach my $stable_id (keys %unique_parent_gene) {
@@ -278,7 +278,7 @@ foreach my $proj_gene (@projected_genes){
       }
     } else {
       # We are going to make a new alt_allele_group
-      # that contaisn two genes: prjected and it's parent on reference
+      # that contains two genes: projected and its parent on reference
       my %proj_gene_flags = ('AUTOMATICALLY_ASSIGNED' => '1');
       my %orig_gene_flags = ('AUTOMATICALLY_ASSIGNED' => '1', 'IS_REPRESENTATIVE' => '1');
       my $alt_allele_group = Bio::EnsEMBL::AltAlleleGroup->new(
@@ -293,6 +293,9 @@ foreach my $proj_gene (@projected_genes){
       print $fh "into a new alt_allele_group";
       my $alt_allele_group_id = $aaga->store($alt_allele_group);
       print $fh " with dbID ".$alt_allele_group_id."\n";
+
+      # add the new alt allele group to the hash
+      $ref_genes_to_allele_group_id{$orig_gene->dbID} = $alt_allele_group->dbID;
     }
   }
 }
