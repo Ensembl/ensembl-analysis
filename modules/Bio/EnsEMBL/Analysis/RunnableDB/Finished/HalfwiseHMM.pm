@@ -44,7 +44,7 @@ Internal methods are usually preceded with a _
 # Let the code begin...
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/HalfwiseHMM.pm,v $
-# $Revision: 1.24 $
+# $Revision: 1.25 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::HalfwiseHMM;
 
 use warnings ;
@@ -450,8 +450,12 @@ sub _make_genes {
 		$gene->biotype($genetype);
 		$gene->analysis($analysis_obj);
 		$gene->add_Transcript($transcript);
-		$gene->add_DBEntry($dbentry);
-		$gene->display_xref();
+        
+        # Add XRef to DBEntry list and as the display XREf to ensure
+        # compatibility with both old and new (GFF based) fetching for otterlace
+        $gene->add_DBEntry($dbentry);
+        $gene->display_xref($dbentry);
+
 		push( @genes, $gene );
 	}
 	return @genes;
