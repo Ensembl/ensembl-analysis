@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm,v $
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Tools::BlastDBTracking;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Tools::BlastDBTracking
@@ -56,7 +56,7 @@ Readonly my $DEFAULT_BLASTDB_NAME => 'blastdb';
 
   All arguments are optional and have sensible defaults.
 
-    system - system for which the blastdb is being queried (default: farm2)
+    system - system for which the blastdb is being queried (default: farm)
 
     db_host, db_user, db_pass, db_bame - blastdb connection parameters
 
