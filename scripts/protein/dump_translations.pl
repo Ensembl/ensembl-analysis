@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/protein/dump_translations.pl,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 
 =head1 NAME
 
@@ -181,6 +181,10 @@ while (my $gene = shift @$gene_list) {
             }
         }
         my $tseq = $trans->translate();
+        if ($tseq->length() < 3) { # signalp doesn't like sequences shorter than 3 amino acids, skip them
+          print STDERR "Translation of $identifier is shorter than 3 amino acids. Skipping! (in ", $trans->slice->name(), ")\n";
+          next;
+        }
         if ($tseq->seq =~ /\*/) {
             print STDERR "Translation of $identifier has stop codons ",
               "- Skipping! (in ", $trans->slice->name(), ")\n";
