@@ -38,7 +38,8 @@ my $syn_external_db_id = '50710'; # seq_region_synonym slice type - i.e. INSDC
 
 my $verbose        = 0; 
 
-my @patch_types = ('PATCH_FIX','PATCH_NOVEL');
+my @patch_types = ('PATCH_FIX','PATCH_NOVEL','HAP');
+my @ftpdir_types = ('ALT_REF_LOCI_','PATCHES'); # all ALT_REF_LOCI_* will be included
 my @dna_align_features = ();
 
 &GetOptions( 
@@ -73,54 +74,80 @@ $ftp->login('anonymous', '-anonymous@')
 
 chomp $patch_release;
 
-my $ncbi_wd =
-  "genbank/genomes/Eukaryotes/vertebrates_mammals/Homo_sapiens/".
-    $patch_release.
-      "/PATCHES/alt_scaffolds/";
+my $ncbi_patch_release_wd = "/genbank/genomes/Eukaryotes/vertebrates_mammals/Homo_sapiens/".$patch_release;
+my $ncbi_wd = $ncbi_patch_release_wd;
+$ftp->cwd($ncbi_wd);
 
-$ftp->cwd($ncbi_wd)
-  or die 'Cannot change working directory ', $ftp->message;
-  
-$ftp->get('alt_scaffold_placement.txt', $remote_file_handle)
-  or die "get failed ", $ftp->message;
-
-my @asp_lines = split /\n/, $content;
-
-foreach my $asp_line (@asp_lines) {
-  next if $asp_line =~ /^#/;
-  my @elem = split /\t/, $asp_line;
-  my $patch_name = $elem[2];
-  my $file_name = $elem[3]."_".$elem[6].".gff";
-  print "Filename:  $file_name\t\tPatchname:  $patch_name\n" if $verbose;
-  $ftp_filename{$patch_name} = $file_name;
+# get the list of ftp dirs which contain patches and haplotypes data
+my @patches_ftpdirs = ();
+my @ftpdirs = $ftp->ls();
+foreach my $ftpdir (@ftpdirs) {
+  foreach my $ftpdir_type (@ftpdir_types) {
+    if ($ftpdir =~ m/$ftpdir_type/) {
+      push(@patches_ftpdirs,$ftpdir);
+    }
+  }
 }
 
-# change directory to where the GRC alignments are kept:
+my %align_str = ();
+foreach my $patches_ftpdir (@patches_ftpdirs) {
 
-$ncbi_wd = "alignments"; 
-$ftp->cwd($ncbi_wd) or die 'Cannot change working directory ', $ftp->message;
+  %ftp_filename = ();
 
-# hash of arrays - there way be more than one alignment per file if they
-# have been manually annotated, However the GRC may change all to one
-# line in the near future, in the meantime, we need to deal with them.
+  print "---Processing directory $patches_ftpdir\n";
 
-my %align_str =(); 
+  my $ncbi_wd = $ncbi_patch_release_wd."/".$patches_ftpdir."/alt_scaffolds/";
 
-foreach my $patch (keys %ftp_filename) {
+  $ftp->cwd($ncbi_wd)
+    or die 'Cannot change working directory ', $ftp->message;
+
   close $remote_file_handle;
   open($remote_file_handle, '>', \$content);
-  $ftp->get($ftp_filename{$patch}, $remote_file_handle)
+  $ftp->get('alt_scaffold_placement.txt', $remote_file_handle)
     or die "get failed ", $ftp->message;
 
-  my @lines = split "\n", $content;
-  foreach my $line (@lines) {
-    next if $line =~ /^\#/;
-    # We'll parse the data later because we need most of it.
-    push @{$align_str{$patch}},$line; 
-  }
-  #sleep 1;
-}
+  my @asp_lines = split /\n/, $content;
 
+  foreach my $asp_line (@asp_lines) {
+    next if $asp_line =~ /^#/;
+    my @elem = split /\t/, $asp_line;
+    my $patch_name = $elem[2];
+    my $file_name = $elem[3]."_".$elem[6].".gff";
+    print "Filename:  $file_name\t\tPatchname:  $patch_name\n" if $verbose;
+    $ftp_filename{$patch_name} = $file_name;
+  }
+
+  # change directory to where the GRC alignments are kept:
+
+  $ncbi_wd = "alignments"; 
+  $ftp->cwd($ncbi_wd) or die 'Cannot change working directory ', $ftp->message;
+
+  # hash of arrays - there way be more than one alignment per file if they
+  # have been manually annotated, However the GRC may change all to one
+  # line in the near future, in the meantime, we need to deal with them.
+
+  foreach my $patch (keys %ftp_filename) {
+    close $remote_file_handle;
+    open($remote_file_handle, '>', \$content);
+    $ftp->get($ftp_filename{$patch}, $remote_file_handle)
+      or die "get failed ", $ftp->message;
+
+    my @lines = split "\n", $content;
+    foreach my $line (@lines) {
+      next if $line =~ /^\#/;
+      # We'll parse the data later because we need most of it.
+      push @{$align_str{$patch}},$line;
+
+      # In GRCh37, the HAP names were shortened like HSCHR17_1 instead of HSCHR17_1_CTG5
+      # so I'll add a 'duplicated' line associated to the shortened name too
+      # so that when the HAP names are fetched from our DB, there can be a match
+      if ($patches_ftpdir =~ /ALT_REF_LOCI/) {
+        my $shortened_hap_name = substr($patch,0,rindex($patch,"_CTG"));
+        push @{$align_str{$shortened_hap_name}},$line;
+      }
+    }
+  }
+} # endif patches_ftpdir
 
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dbhost,
