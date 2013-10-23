@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm,v $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Tools::BlastDBTracking;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Tools::BlastDBTracking
@@ -44,7 +44,7 @@ use Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::Entry;
 # Based on tjrc's BlastableVersion.pm, which at time of writing was
 # installed in /software/perl-5.8.8/lib/site_perl/
 
-Readonly my $DEFAULT_SYSTEM       => 'farm';
+Readonly my $DEFAULT_SYSTEM       => 'farm2';
 
 Readonly my $DEFAULT_BLASTDB_HOST => 'cbi5d';
 Readonly my $DEFAULT_BLASTDB_PORT => undef;
