@@ -22,6 +22,7 @@ my $toplevel_coord_system = 'chromosome';
             'dbname=s'       => \$dbname,
             'user=s'         => \$user,
             'port=n'         => \$port,
+            'central_cs=s'   => \$central_coord_system,
            );
 
 open(TYPE,"<".$patchtype_file)         || die "Could not open file $patchtype_file";
