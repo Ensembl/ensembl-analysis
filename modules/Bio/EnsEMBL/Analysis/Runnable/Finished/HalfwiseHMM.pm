@@ -33,7 +33,7 @@ Internal methods are usually preceded with a _
 =cut
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/HalfwiseHMM.pm,v $
-# $Revision: 1.19 $
+# $Revision: 1.20 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::HalfwiseHMM;
 
 
@@ -391,7 +391,7 @@ sub memory {
 	$self->{'_memory'} = $arg;
     }
 
-    return $self->{'_memory'} || 1000000;
+    return $self->{'_memory'} || 4000000; # temp bump from 1000000 - mg13
 }
 
 ##########
@@ -623,7 +623,7 @@ sub get_GenewiseHMM{
   print STDERR "creating genewisehmm strand $strand reverse $reverse\n"; ##########
   print STDERR "OPTIONS To Genewise: ".$self->options()."\n"; ##########
 #  $genewisehmm->set_environment("/usr/local/ensembl/data/wisecfg/");
-  $ENV{WISECONFIGDIR} = "/usr/local/ensembl/data/wisecfg/";
+  # $ENV{WISECONFIGDIR} = "/usr/local/ensembl/data/wisecfg/";   # farm3 - setting in environment instead
 
   my $genewisehmm =
     Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm->new(
