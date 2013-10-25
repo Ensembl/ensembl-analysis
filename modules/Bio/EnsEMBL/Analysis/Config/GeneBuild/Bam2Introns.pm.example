@@ -1,4 +1,3 @@
-1;
 # package Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns
 # 
 # Cared for by EnsEMBL (dev@ensembl.org)
@@ -46,22 +45,22 @@ use vars qw( %Config );
 	     # and 4 missmatches on a 75 bp read etc..
 	     MISSMATCH => 6,
 	     
-             # Database to fetch the trancripts from
-             TRANSDB => '',
+         # Database to fetch the trancripts from
+         TRANSDB => '',
 	     
 	     # Loaction of BAM file containg the genomic alignments
 	     BAM_FILE  => '/path/to/my/sorted/indexed/bam_file.bam',
 	     
 	     # Exonerate word length, smaller = more accurate takes longer
-	     WORD_LENGTH => '10 ',
+	     WORD_LENGTH => 10,
 	      	     
 	     # Exonerate saturate threshold - smaller = quicker but you lose significant numbers
 	     # of alignments where there is high depth of reads, best to leave it undefined but
 	     # if jobs are taking forever try a value like 1000
-	     SATURATE_THRESHOLD => '0', 
+	     SATURATE_THRESHOLD => 10000, 
 
 	     # repeat masks the transcript sequences - quick but you might miss something
-	     MASK => '0',
+	     MASK => 1,
 
 	     # Filter the alignments based on percent_id and coverage
 	     PERCENT_ID => 97,
@@ -75,7 +74,7 @@ use vars qw( %Config );
 	     MAX_TRANSCRIPT => 1000000,
 	     
 	     # number of reads to align in each batch
-	     BATCH_SIZE => 100000,
+	     BATCH_SIZE => 10000,
        	     },
      }
 );
