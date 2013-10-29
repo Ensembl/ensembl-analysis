@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/Blast.pm,v $
-# $Revision: 1.25 $
+# $Revision: 1.26 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Blast
@@ -240,6 +240,7 @@ sub databases {
             # We have a list of databases to pass to blast as a virtual db
             my @db_list = map { m{^/} ? $_ : "$ENV{BLASTDB}/$_" } split /\s+/, $val;
             $self->{'_databases'} = [qq{'@db_list'}];
+            $self->{'_db_version_searched'} = 'TEST';
         }
         else {
             $self->{'_databases'} = [];
