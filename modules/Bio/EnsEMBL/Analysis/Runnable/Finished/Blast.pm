@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/Blast.pm,v $
-# $Revision: 1.23 $
+# $Revision: 1.24 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Blast
@@ -115,6 +115,7 @@ sub run_analysis {
 
     my $db = $database;
     $db =~ s/.*\///;
+    $db =~ s/\W//g;
     #allow system call to adapt to using ncbi blastall.
     #defaults to WU blast
     my $command  = $self->program;
@@ -126,7 +127,7 @@ sub run_analysis {
     if ($self->type eq 'ncbi') {
       $command .= " -d $database -i $filename ";
     } else {
-      $command .= " $database $filename -gi ";
+      $command .= " $database $filename gi ";
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
 
@@ -219,7 +220,7 @@ sub parse_results {
 
 sub clean_databases {
     my ( $self) = @_;
-    $self->{databases} = [];
+    $self->{'_databases'} = [];
 }
 
 sub clean_results_files {
@@ -228,57 +229,61 @@ sub clean_results_files {
 }
 
 sub databases {
-    my ( $self, @vals ) = @_;
+    my ($self, $val) = @_;
 
-    if ( not exists $self->{databases} ) {
-        $self->{databases} = [];
-    }
+    if ($val) {
 
-    foreach my $val (@vals) {
-        my $db_names = $val;
-        my @databases;
-        $db_names =~ s/\s//g;
+        # Trim any leading and trailing space
+        $val =~ s/(^\s+|\s+$)//g;
+        if ($val =~ /\s/) {
+            # We have a list of databases to pass to blast as a virtual db
+            my @db_list = map { m{^/} ? $_ : "$ENV{BLASTDB}/$_" }, split /\s+/, $val;
+            $self->{'_databases'} = [ qq{'@db_list'} ];
+        }
+        else {
+            $self->{'_databases'} = [];
+            my @databases;
+            foreach my $dbname (split(/,/, $db_names)) {
 
-        foreach my $dbname ( split( ",", $db_names ) )
-        {    # allows the use of a comma separated list in $self->database
+                # allows the use of a comma separated list in $self->database
                 # prepend the environment variable $BLASTDB if
                 # database name is not an absoloute path
-            unless ( $dbname =~ m!^/! ) {
-                $dbname = $ENV{BLASTDB} . "/" . $dbname;
-            }
+                unless ($dbname =~ m!^/!) {
+                    $dbname = $ENV{BLASTDB} . "/" . $dbname;
+                }
 
-            # If the expanded database name exists put this in
-            # the database array.
-            #
-            # If it doesn't exist then see if $database-1,$database-2 exist
-            # and put them in the database array
-            if ( -f $dbname ) {
-                push( @databases, $dbname );
+                # If the expanded database name exists put this in
+                # the database array.
+                #
+                # If it doesn't exist then see if $database-1,$database-2 exist
+                # and put them in the database array
+                if (-f $dbname) {
+                    push(@databases, $dbname);
+                }
+                else {
+                    my $count = 1;
+                    my $db_filename;
+                    while (-f ($db_filename = "${dbname}-${count}")) {
+                        push(@databases, $db_filename);
+                        $count++;
+                    }
+                    $! = undef;    # to stop pollution as it will be "No such file or directory" after while loop above.
+                }
+            }
+            if (scalar(@databases) == 0) {
+                throw("No databases exist for " . $db_names);
             }
             else {
-                my $count = 1;
-                my $db_filename;
-                while ( -f ( $db_filename = "${dbname}-${count}" ) ) {
-                    push( @databases, $db_filename );
-                    $count++;
+                foreach my $db_name (@databases) {
+                    $self->get_db_version($db_name) if $db_name =~ /emnew_/;
                 }
-                $! = undef
-                  ; # to stop pollution as it will be "No such file or directory" after while loop above.
+                $self->get_db_version($databases[0]);
+                push @{ $self->{'_databases'} }, @databases;
             }
-        }
-        if ( scalar(@databases) == 0 ) {
-            throw( "No databases exist for " . $db_names );
-        } else {
-            foreach my $db_name (@databases){
-                $self->get_db_version($db_name) if $db_name =~ /emnew_/;
-            }
-            $self->get_db_version($databases[0]);
-            push @{$self->{databases}}, @databases;
         }
     }
 
-    return $self->{databases};
-
+    return $self->{'_databases'};
 }
 
 =head2 get_db_version
@@ -297,13 +302,10 @@ sub databases {
 =cut
 
 sub get_db_version {
-    my ( $self, $db ) = @_;
-        my $ver = Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::get_db_version_mixin(
-            $self, '_db_version_searched', $db,
-            );
+    my ($self, $db) = @_;
+    my $ver = Bio::EnsEMBL::Analysis::Tools::BlastDBTracking::get_db_version_mixin($self, '_db_version_searched', $db,);
 
-        printf STDERR "B:E:A:Runnable::Finished::Blast::get_db_version '%s' => '%s'\n",
-                      $db || '<read_only>', $ver;
+    printf STDERR "B:E:A:Runnable::Finished::Blast::get_db_version '%s' => '%s'\n", $db || '<read_only>', $ver;
 
     return $ver;
 }
