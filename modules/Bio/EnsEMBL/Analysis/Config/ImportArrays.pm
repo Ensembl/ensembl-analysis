@@ -40,7 +40,7 @@ different configs by logic name).
 
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/ImportArrays.pm,v $
-# $Revision: 1.34 $
+# $Revision: 1.35 $
 package Bio::EnsEMBL::Analysis::Config::ImportArrays;
 
 use warnings ;
@@ -758,6 +758,16 @@ use vars qw( %Config );
                                              -class   => 'AFFY_ST',
                                             },
 
+                      'HuGene-2_0-st-v1' => {
+                                             -name => 'HuGene-2_0-st-v1',
+                                             -vendor => 'AFFY',
+                                             #-setsize => undef,
+                                             -format  => 'EXPRESSION',
+                                             -type    => 'OLIGO',
+                                             #-description => '',
+                                             -class   => 'AFFY_ST',
+                                            },
+
 
                       'HuEx-1_0-st-v2' => {
                                            -name => 'HuEx-1_0-st-v2',
@@ -1094,9 +1104,21 @@ use vars qw( %Config );
                                   -type    => 'OLIGO',
                                   #-description => '',
                                   -class   => 'AGILENT',	
+
+
                                  },
 					  
-                    
+       'SurePrint_G3_GE_8x60k_v2' => {
+                                  -name => 'SurePrint_G3_GE_8x60k_v2',
+                                  -vendor => 'AGILENT',
+                                  #-setsize => undef,
+                                  -format  => 'EXPRESSION',
+                                  -type    => 'OLIGO',
+                                  #-description => '',
+                                  -class   => 'AGILENT',	
+
+
+                                 },             
       #Rabbit only
       
       #This naming was erronoes and non-species specific
