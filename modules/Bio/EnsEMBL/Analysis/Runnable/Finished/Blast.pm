@@ -1,5 +1,5 @@
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/Blast.pm,v $
-# $Revision: 1.24 $
+# $Revision: 1.25 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Blast
@@ -236,14 +236,15 @@ sub databases {
         # Trim any leading and trailing space
         $val =~ s/(^\s+|\s+$)//g;
         if ($val =~ /\s/) {
+
             # We have a list of databases to pass to blast as a virtual db
-            my @db_list = map { m{^/} ? $_ : "$ENV{BLASTDB}/$_" }, split /\s+/, $val;
-            $self->{'_databases'} = [ qq{'@db_list'} ];
+            my @db_list = map { m{^/} ? $_ : "$ENV{BLASTDB}/$_" } split /\s+/, $val;
+            $self->{'_databases'} = [qq{'@db_list'}];
         }
         else {
             $self->{'_databases'} = [];
             my @databases;
-            foreach my $dbname (split(/,/, $db_names)) {
+            foreach my $dbname (split(/,/, $val)) {
 
                 # allows the use of a comma separated list in $self->database
                 # prepend the environment variable $BLASTDB if
@@ -271,7 +272,7 @@ sub databases {
                 }
             }
             if (scalar(@databases) == 0) {
-                throw("No databases exist for " . $db_names);
+                throw("No databases exist for " . $val);
             }
             else {
                 foreach my $db_name (@databases) {
@@ -285,6 +286,7 @@ sub databases {
 
     return $self->{'_databases'};
 }
+
 
 =head2 get_db_version
 
