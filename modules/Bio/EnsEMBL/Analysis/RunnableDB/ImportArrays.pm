@@ -61,7 +61,7 @@ Post general queries to B<dev@ensembl.org>
 # Add mode to recreate nr_fasta if already imported?
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ImportArrays.pm,v $
-# $Revision: 1.24 $
+# $Revision: 1.25 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 use warnings ;
@@ -222,7 +222,7 @@ sub run_FASTA{
         #Set probeset here as we delete from hash when creating probe
 
 
-        $probe_set = (exists $probe_attrs{'-probe_set'}) ?  $probe_attrs{'-probe_set'} : undef;
+        $probe_set = (exists $probe_attrs{'-probe_set'}) ?  $probe_attrs{'-probe_set'} : 'NO_PROBESET';
         $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
         if (! $existing_probe) {
@@ -303,7 +303,7 @@ sub run_FASTA{
 
   #deal with last entry
   $array_chips{$probe_attrs{-array_chip}} = $current_array_chip;
-  $probe_set = (exists $probe_attrs{'-probe_set'}) ? $probe_attrs{'-probe_set'} : undef;
+  $probe_set = (exists $probe_attrs{'-probe_set'}) ? $probe_attrs{'-probe_set'} : 'NO_PROBESET';
   $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
   if (! $existing_probe) {
@@ -466,30 +466,29 @@ sub write_output {
   open (OUTFILE, ">".$outfile) || throw("Failed to open ouput file:\t".$outfile);
     
   #Store all probes
-  foreach my $probeset(keys %{$self->probes}){	
-	my %probes = %{$self->probes->{$probeset}};
+  foreach my $probeset (keys %{$self->probes}) {	
+    my %probes = %{$self->probes->{$probeset}};
 
-	if($probeset){
-	  $probeset = Bio::EnsEMBL::Funcgen::ProbeSet->new
-		(
-		 -name => $probeset,
-		 -size => scalar(values %probes),
-		 #-array_chip => #do we need to add array_chip_id to the probeset table?
-		 #-family => ?,
-		);
-	  ($probeset) = @{$probeset_adaptor->store($probeset)};
-	}
-
-
-	foreach my $sequence(keys %probes){
-
-	  my $probe = $probes{$sequence};
-	  $probe->probeset($probeset) if $probeset;
-	  
-	  ($probe) = @{$probe_adaptor->store($probe)};
-
-	  print OUTFILE ">".$probe->dbID."\n".$sequence."\n";
-	}
+    if ($probeset ne 'NO_PROBESET') {
+      $probeset = Bio::EnsEMBL::Funcgen::ProbeSet->new
+        (
+         -name => $probeset,
+         -size => scalar(values %probes),
+         #-array_chip => #do we need to add array_chip_id to the probeset table?
+         #-family => ?,
+        );
+      ($probeset) = @{$probeset_adaptor->store($probeset)};
+    }
+  
+    foreach my $sequence (keys %probes) {
+      
+      my $probe = $probes{$sequence};
+      $probe->probeset($probeset) if $probeset ne 'NO_PROBESET';
+      
+      ($probe) = @{$probe_adaptor->store($probe)};
+      
+      print OUTFILE ">".$probe->dbID."\n".$sequence."\n";
+    }
   }
 
   close(OUTFILE);
