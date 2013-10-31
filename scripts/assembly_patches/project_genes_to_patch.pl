@@ -123,7 +123,7 @@ for (my $i = 0;$i < $num_patches;$i++){
   #project the genes
   foreach my $ref_gene (@ref_genes){
     $ref_gene->load;
-    my $coord_system_name = $patch_slice->seq_region_name;
+    my $coord_system_name = $patch_slice->coord_system->name;
     my $alt_gene = $ref_gene->transform($coord_system_name, $coord_sys_ver);
     if($alt_gene){
       print "Transformed ".$ref_gene->stable_id."\n";
