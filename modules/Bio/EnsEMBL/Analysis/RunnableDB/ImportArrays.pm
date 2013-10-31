@@ -61,7 +61,7 @@ Post general queries to B<dev@ensembl.org>
 # Add mode to recreate nr_fasta if already imported?
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ImportArrays.pm,v $
-# $Revision: 1.23 $
+# $Revision: 1.24 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 use warnings ;
@@ -221,18 +221,11 @@ sub run_FASTA{
         #it's only at this point that you know you have the full sequence
         #Set probeset here as we delete from hash when creating probe
 
-       #use Data::Dumper;
-       # if($probe_attrs{'-name'} eq 'CUST_75_PI427147524'){
-       #   warn Dumper(\%probe_attrs);
-       # }
-
 
         $probe_set = (exists $probe_attrs{'-probe_set'}) ?  $probe_attrs{'-probe_set'} : undef;
         $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
 
         if (! $existing_probe) {
-          warn "creating new probe"  if($probe_attrs{'-name'} eq 'CUST_75_PI427147524'); 
-
           $nr_cnt++;
           $existing_probe = $self->create_new_probe(
                                                     $current_array_chip, 
@@ -242,8 +235,6 @@ sub run_FASTA{
 
           $probes_by_sequence{$probe_set}{$current_sequence} = $existing_probe;
         } else {
-          #warn  "using existing probe ".Dumper($existing_probe)  if($probe_attrs{'-name'} eq 'CUST_75_PI427147524');
-
           #Sanity check here that it is not a technical replicate
           #as these will break the primary key of the probe table
           #due to the fact we don't model spatial differences here (e.g. x/y coords)
@@ -251,7 +242,7 @@ sub run_FASTA{
 
           my $existing_name = $existing_probe->get_probename($probe_attrs{'-array'});
 
-                 if($existing_name && 
+          if($existing_name && 
              ($existing_name eq $probe_attrs{'-name'}) ){
           
             #Must have found either a technical replicate with an identical name
@@ -418,8 +409,8 @@ sub create_new_array_chip {
   my $array_chip;
 
   if(! defined $array){
-	$array = Bio::EnsEMBL::Funcgen::Array->new(%{$array_params});
-	($array) = @{$self->outdb->get_ArrayAdaptor->store($array)};
+    $array = Bio::EnsEMBL::Funcgen::Array->new(%{$array_params});
+    ($array) = @{$self->outdb->get_ArrayAdaptor->store($array)};
   }
   
   
@@ -489,7 +480,9 @@ sub write_output {
 	  ($probeset) = @{$probeset_adaptor->store($probeset)};
 	}
 
+
 	foreach my $sequence(keys %probes){
+
 	  my $probe = $probes{$sequence};
 	  $probe->probeset($probeset) if $probeset;
 	  
@@ -520,14 +513,14 @@ sub write_output {
   #This all looks good, but everything for AGILENT re-imported is on array_chip?!!
 
   foreach my $aname(keys %{$self->{'_array_names'}}){
-	print "\t".$aname."\n";
-	print OUTFILE $aname."\n";
-	$self->{'_array_names'}->{$aname}->add_status('IMPORTED');
-	$self->{'_arrays'}->{$aname}->add_status('DISPLAYABLE');#This should be on Array?!
-	#$self->{'_arrays'}->{$aname}->add_status('MART_DISPLAYABLE');#Now done in probe2transcript
+    print "\t".$aname."\n";
+    print OUTFILE $aname."\n";
+    $self->{'_array_names'}->{$aname}->add_status('IMPORTED');
+    $self->{'_arrays'}->{$aname}->add_status('DISPLAYABLE');#This should be on Array?!
+    #$self->{'_arrays'}->{$aname}->add_status('MART_DISPLAYABLE');#Now done in probe2transcript
 
-	$self->{'_array_names'}->{$aname}->adaptor->store_states($self->{'_array_names'}->{$aname});	
-	$self->{'_arrays'}->{$aname}->adaptor->store_states($self->{'_arrays'}->{$aname});	
+    $self->{'_array_names'}->{$aname}->adaptor->store_states($self->{'_array_names'}->{$aname});	
+    $self->{'_arrays'}->{$aname}->adaptor->store_states($self->{'_arrays'}->{$aname});	
   }
 
 
