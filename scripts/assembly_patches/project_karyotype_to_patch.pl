@@ -18,7 +18,7 @@ my $user         = '';
 my $port         = '';
 my $dbname       = '';
 my $coord_sys_ver = '';
-my @patch_types = ('PATCH_FIX','PATCH_NOVEL','HAP');
+my @patch_types = ('PATCH_FIX','PATCH_NOVEL');
 my $sql_file = '';
 
 &GetOptions( 'mapdbhost:s'       => \$host,
