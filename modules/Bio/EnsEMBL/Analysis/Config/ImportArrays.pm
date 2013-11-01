@@ -816,88 +816,120 @@ use vars qw( %Config );
                      #-probe_set   => 2,#This could be annotation
                     },
 	 	 
-     ARRAY_PARAMS => {
-					  
-                      'MouseWG_6_V1' => {
-                                         -name => 'MouseWG_6_V1',
-                                         -vendor => 'ILLUMINA',
-                                         #-setsize => undef,
-                                         -format  => 'EXPRESSION',
-                                         -type    => 'OLIGO',
-                                         #-description => '',
-                                         -class   => 'ILLUMINA_WG',
-                                        },
-					  
-					  
-                      'MouseWG_6_V2' => {
-                                         -name => 'MouseWG_6_V2',
-                                         -vendor => 'ILLUMINA',
-                                         #-setsize => undef,
-                                         -format  => 'EXPRESSION',
-                                         -type    => 'OLIGO',
-                                         #-description => '',
-                                         -class   => 'ILLUMINA_WG',
-                                        },
+     ARRAY_PARAMS => 
+     {
+      
+      'MouseWG_6_V1' => {
+                         -name => 'MouseWG_6_V1',
+                         -vendor => 'ILLUMINA',
+                         #-setsize => undef,
+                         -format  => 'EXPRESSION',
+                         -type    => 'OLIGO',
+                         #-description => '',
+                         -class   => 'ILLUMINA_WG',
+                        },
+      
+      
+      'MouseWG_6_V2' => {
+                         -name => 'MouseWG_6_V2',
+                         -vendor => 'ILLUMINA',
+                         #-setsize => undef,
+                         -format  => 'EXPRESSION',
+                         -type    => 'OLIGO',
+                         #-description => '',
+                         -class   => 'ILLUMINA_WG',
+                        },
+      
+      'MouseRef8_V2' => {
+                         -name => 'MouseRef-8_V2',
+                         -vendor => 'ILLUMINA',
+                         #-setsize => undef,
+                         -format  => 'EXPRESSION',
+                         -type    => 'OLIGO',
+                         #-description => '',
+                         -class   => 'ILLUMINA_WG',
+                        },
+      
+
+      
                       #V1 is no longer accesible via website?
                       #Only on ftp site
-                      'HumanWG_6_V1' => {
-                                         -name => 'HumanWG_6_V1',
-                                         -vendor => 'ILLUMINA',
-                                         #-setsize => undef,
-                                         -format  => 'EXPRESSION',
-                                         -type    => 'OLIGO',
-                                         #-description => '',
-                                         -class   => 'ILLUMINA_WG',
-                                        },
+      'HumanWG_6_V1' => {
+                         -name => 'HumanWG_6_V1',
+                         -vendor => 'ILLUMINA',
+                         #-setsize => undef,
+                         -format  => 'EXPRESSION',
+                         -type    => 'OLIGO',
+                         #-description => '',
+                         -class   => 'ILLUMINA_WG',
+                        },
+      
+      'HumanHT-12_V3' => {
+                       -name => 'HumanHT-12_V3',
+                       -vendor => 'ILLUMINA',
+                       #-setsize => undef,
+                       -format  => 'EXPRESSION',
+                       -type    => 'OLIGO',
+                       #-description => '',
+                       -class   => 'ILLUMINA_WG',
+                      },
+      
+       'HumanHT-12_V4' => {
+                       -name => 'HumanHT-12_V4',
+                       -vendor => 'ILLUMINA',
+                       #-setsize => undef,
+                       -format  => 'EXPRESSION',
+                       -type    => 'OLIGO',
+                       #-description => '',
+                       -class   => 'ILLUMINA_WG',
+                      },
 
-                      'HumanHT-12' => {
-                                       -name => 'HumanHT-12',
-                                       -vendor => 'ILLUMINA',
-                                       #-setsize => undef,
-                                       -format  => 'EXPRESSION',
-                                       -type    => 'OLIGO',
-                                       #-description => '',
-                                       -class   => 'ILLUMINA_WG',
-                                      },
+      'HumanRef-8_V3' => {
+                          -name => 'HumanRef-8_V3',
+                          -vendor => 'ILLUMINA',
+                          #-setsize => undef,
+                          -format  => 'EXPRESSION',
+                          -type    => 'OLIGO',
+                          #-description => '',
+                          -class   => 'ILLUMINA_WG',
+                         },
+      
+      
+      'HumanWG_6_V2' => {
+                         -name => 'HumanWG_6_V2',
+                         -vendor => 'ILLUMINA',
+                         #-setsize => undef,
+                         -format  => 'EXPRESSION',
+                         -type    => 'OLIGO',
+                         #-description => '',
+                         -class   => 'ILLUMINA_WG',
+                        },
+      
+      'HumanWG_6_V3' => {
+                         -name => 'HumanWG_6_V3',
+                         -vendor => 'ILLUMINA',
+                         #-setsize => undef,
+                         -format  => 'EXPRESSION',
+                         -type    => 'OLIGO',
+                         #-description => '',
+                         -class   => 'ILLUMINA_WG',
+                        },
 
-
-
-
-                      'HumanWG_6_V2' => {
-                                         -name => 'HumanWG_6_V2',
-                                         -vendor => 'ILLUMINA',
-                                         #-setsize => undef,
-                                         -format  => 'EXPRESSION',
-                                         -type    => 'OLIGO',
-                                         #-description => '',
-                                         -class   => 'ILLUMINA_WG',
-                                        },
-
-                      'HumanWG_6_V3' => {
-                                         -name => 'HumanWG_6_V3',
-                                         -vendor => 'ILLUMINA',
-                                         #-setsize => undef,
-                                         -format  => 'EXPRESSION',
-                                         -type    => 'OLIGO',
-                                         #-description => '',
-                                         -class   => 'ILLUMINA_WG',
-                                        },
-
-                      'RatRef-12' => {
-                                      -name => 'RatRef-12',
-                                      -vendor => 'ILLUMINA',
-                                      #-setsize => undef,
-                                      -format  => 'EXPRESSION',
-                                      -type    => 'OLIGO',
-                                      #-description => '',
-                                      -class   => 'ILLUMINA_WG',
-                                     },
-
-					  
-					  
-
+      'RatRef-12_V1' => {
+                      -name => 'RatRef-12_V1',
+                      -vendor => 'ILLUMINA',
+                      #-setsize => undef,
+                      -format  => 'EXPRESSION',
+                      -type    => 'OLIGO',
+                      #-description => '',
+                      -class   => 'ILLUMINA_WG',
                      },
-	 
+
+      
+					  
+      
+     },
+     
      INPUT_FORMAT => 'FASTA',
     },
 
