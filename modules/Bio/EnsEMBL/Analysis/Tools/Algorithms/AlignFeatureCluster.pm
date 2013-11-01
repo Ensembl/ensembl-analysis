@@ -22,8 +22,6 @@ eae@sanger.ac.uk
 
 # Let the code begin ...
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/AlignFeatureCluster.pm,v $
-# $Revision: 1.1 $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster;
 
 use warnings ;

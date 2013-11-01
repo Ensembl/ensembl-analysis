@@ -32,8 +32,6 @@ Internal methods are usually preceded with a _
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/HalfwiseHMM.pm,v $
-# $Revision: 1.20 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::HalfwiseHMM;
 
 

@@ -33,8 +33,6 @@ module is defined in Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Bam2Genes.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Bam2Genes;
 
 use warnings ;

@@ -50,8 +50,6 @@ Specidfic behaviour for Pseudogene identification in 2x gene-builds
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Pseudogene2x.pm,v $
-# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Pseudogene2x;
 
 use warnings ;

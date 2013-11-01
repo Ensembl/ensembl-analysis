@@ -54,8 +54,6 @@ The rest of the documentation details each of the object methods. Internal metho
 
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Pmatch.pm,v $
-# $Revision: 1.11 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Pmatch;
 
 use warnings ;

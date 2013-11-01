@@ -47,8 +47,6 @@ Bio::EnsEMBL::Analysis::Runnable::Genscan
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Fgenesh.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::Fgenesh;
 
 

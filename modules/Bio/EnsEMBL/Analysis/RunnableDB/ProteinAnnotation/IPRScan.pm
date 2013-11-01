@@ -28,8 +28,6 @@
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/IPRScan.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::IPRScan;
 
 use warnings ;

@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::Runnable::GeneBuilder -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/GeneBuilder.pm,v $
-# $Revision: 1.12 $
 package Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 
 use strict;  

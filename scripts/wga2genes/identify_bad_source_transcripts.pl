@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/identify_bad_source_transcripts.pl,v $
-# $Revision: 1.7 $
 
 # identify_bad_source_transcripts.pl
 # 

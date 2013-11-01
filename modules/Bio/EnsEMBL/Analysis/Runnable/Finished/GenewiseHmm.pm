@@ -30,8 +30,6 @@ The rest of the documentation details each of the object methods. Internal metho
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/GenewiseHmm.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::GenewiseHmm;
 use warnings ;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);

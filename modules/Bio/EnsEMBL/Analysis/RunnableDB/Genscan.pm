@@ -45,8 +45,6 @@ genscan runnable
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Genscan.pm,v $
-# $Revision: 1.12 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Genscan;
 
 use strict;

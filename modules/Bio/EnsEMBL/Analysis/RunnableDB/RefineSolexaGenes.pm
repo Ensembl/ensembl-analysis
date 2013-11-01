@@ -52,8 +52,6 @@ Internal methods are usually preceded with a _
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RefineSolexaGenes.pm,v $
-# $Revision: 1.41 $
 package Bio::EnsEMBL::Analysis::RunnableDB::RefineSolexaGenes;
 
 use warnings ;

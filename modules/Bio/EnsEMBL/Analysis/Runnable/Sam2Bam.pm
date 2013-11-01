@@ -41,8 +41,6 @@ files into a single sorted indexed merged BAM file
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Sam2Bam.pm,v $
-# $Revision: 1.10 $
 package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
 use warnings ;

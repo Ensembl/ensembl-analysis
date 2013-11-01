@@ -1,8 +1,6 @@
 # holds a pmatch contig hit - simply the name(identifier) of the contig
 # and a list of start-end positions
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/ContigHit.pm,v $
-# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
 use warnings ;
 use strict ;

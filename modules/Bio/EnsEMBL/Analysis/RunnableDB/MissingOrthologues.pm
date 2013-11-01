@@ -52,8 +52,6 @@ Internal methods are usually preceded with a '_'
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/MissingOrthologues.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::RunnableDB::MissingOrthologues; 
 use strict;
 use Bio::SeqIO;

@@ -21,8 +21,6 @@ removes overlaps in a "sensible" way.
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ProteinAnnotationFilter.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::ProteinAnnotationFilter;
 
 use warnings ;

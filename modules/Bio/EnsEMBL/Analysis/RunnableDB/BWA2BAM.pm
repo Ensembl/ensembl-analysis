@@ -27,8 +27,6 @@ Post general queries to B<dev@ensembl.org>
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BWA2BAM.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BWA2BAM;
 
 use warnings ;

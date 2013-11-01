@@ -45,8 +45,6 @@ module is defined in Bio::EnsEMBL::Analysis::Config::GeneBuild::Solexa2Genes
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Solexa2Genes.pm,v $
-# $Revision: 1.14 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Solexa2Genes;
 
 use warnings ;

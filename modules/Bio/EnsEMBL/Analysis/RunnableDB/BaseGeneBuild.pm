@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BaseGeneBuild.pm,v $
-# $Revision: 1.33 $
 
 =head1 LICENSE
 

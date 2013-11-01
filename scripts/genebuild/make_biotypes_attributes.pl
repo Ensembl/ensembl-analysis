@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/make_biotypes_attributes.pl,v $
-# $Revision: 1.5 $
 
 use warnings ;
 use strict;

@@ -44,8 +44,6 @@ to align clone sequences with genomic sequences.
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateCloneEnds.pm,v $
-# $Revision: 1.11 $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds;
 
 use warnings ;

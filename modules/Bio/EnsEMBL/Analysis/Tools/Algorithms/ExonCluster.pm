@@ -1,7 +1,5 @@
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Algorithms/ExonCluster.pm,v $
-# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
 
 

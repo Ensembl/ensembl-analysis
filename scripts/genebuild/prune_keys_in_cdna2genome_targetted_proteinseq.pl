@@ -76,8 +76,6 @@ perl prune_keys_in_cdna2genome_targetted_proteinseq.pl -combined_infile All_targ
 
 
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/prune_keys_in_cdna2genome_targetted_proteinseq.pl,v $
-# $Revision: 1.2 $
 
 use strict;
 use Getopt::Long;

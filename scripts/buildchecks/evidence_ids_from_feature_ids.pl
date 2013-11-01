@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/buildchecks/evidence_ids_from_feature_ids.pl,v $
-# $Revision: 1.9 $
 
 =head1 NAME
 

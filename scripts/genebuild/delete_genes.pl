@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/delete_genes.pl,v $
-# $Revision: 1.7 $
 
 =head1 NAME
 

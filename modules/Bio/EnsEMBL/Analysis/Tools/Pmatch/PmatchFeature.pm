@@ -21,8 +21,6 @@ dev@ensembl.org
 
 # Let the code begin...
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/PmatchFeature.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Pipeline::Tools::Pmatch::PmatchFeature;
 
 use warnings ;

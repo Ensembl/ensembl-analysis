@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/load_gene_scaffolds.pl,v $
-# $Revision: 1.11 $
 
 use warnings ;
 use strict;

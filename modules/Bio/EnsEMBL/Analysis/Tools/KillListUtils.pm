@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/KillListUtils.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::KillList::KillList;
 
 use strict;

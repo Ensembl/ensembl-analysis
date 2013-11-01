@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/sequence_dump.pl,v $
-# $Revision: 1.15 $
 
 =head1 NAME
 

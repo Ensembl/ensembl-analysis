@@ -43,8 +43,6 @@
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/Tigrfam_wormbase.pm,v $
-# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::Tigrfam_wormbase;
 
 use warnings ;

@@ -32,8 +32,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation -
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation.pm,v $
-# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation;
 use warnings ;
 use vars qw(@ISA);

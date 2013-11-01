@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::BestPmatch -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BestPmatch.pm,v $
-# $Revision: 1.10 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BestPmatch;
 
 use warnings ;

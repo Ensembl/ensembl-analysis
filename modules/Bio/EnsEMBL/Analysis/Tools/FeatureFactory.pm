@@ -30,8 +30,6 @@ Post questions to the Ensembl development list: dev@ensembl.org
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/FeatureFactory.pm,v $
-# $Revision: 1.18 $
 package Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 
 

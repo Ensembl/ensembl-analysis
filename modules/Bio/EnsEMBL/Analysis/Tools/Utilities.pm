@@ -32,8 +32,6 @@ class methods
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Utilities.pm,v $
-# $Revision: 1.27 $
 package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;

@@ -1,7 +1,5 @@
 #!/usr/bin/env perl
 # 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline.pl,v $
-# $Revision: 1.55 $
 #
 
 use warnings ;

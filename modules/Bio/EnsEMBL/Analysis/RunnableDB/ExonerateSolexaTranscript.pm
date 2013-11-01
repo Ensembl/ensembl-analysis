@@ -46,8 +46,6 @@ onto the genome
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateSolexaTranscript.pm,v $
-# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaTranscript;
 
 use warnings ;

@@ -53,8 +53,6 @@ affy features???????
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateProbe.pm,v $
-# $Revision: 1.17 $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateProbe;
 
 use warnings ;

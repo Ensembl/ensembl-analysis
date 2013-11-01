@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-# $Revision: 1.4 $
 
 #
 # Source: schema 20+ ensembl db with a 'new' assembly (eg NCBI35)

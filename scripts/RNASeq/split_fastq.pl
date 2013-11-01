@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/split_fastq.pl,v $
-# $Revision: 1.8 $
 
 use warnings ;
 use vars qw(%Config);

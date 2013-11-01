@@ -13,8 +13,6 @@ Describe the object here
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Prints.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prints;
 
 use warnings ;

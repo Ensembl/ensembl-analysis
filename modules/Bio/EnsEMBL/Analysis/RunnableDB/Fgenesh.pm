@@ -46,8 +46,6 @@ implement much itself
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Fgenesh.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Fgenesh;
 
 use strict;

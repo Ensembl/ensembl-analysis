@@ -48,8 +48,6 @@ and writing the results as Features.
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateRefineCloneEnds;
 
 use warnings ;

@@ -47,8 +47,6 @@ in the simple_feature table
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/CPG.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::RunnableDB::CPG;
 
 use strict;

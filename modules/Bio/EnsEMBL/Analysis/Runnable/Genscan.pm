@@ -42,8 +42,6 @@ into prediction transcripts
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Genscan.pm,v $
-# $Revision: 1.16 $
 package Bio::EnsEMBL::Analysis::Runnable::Genscan;
 
 use strict;

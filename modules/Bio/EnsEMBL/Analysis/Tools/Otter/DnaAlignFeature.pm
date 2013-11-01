@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Otter/DnaAlignFeature.pm,v $
-# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeature;
 
 # EnsEMBL module for storing dna-dna pairwise alignments

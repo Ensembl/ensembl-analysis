@@ -44,8 +44,6 @@ and repeat_consensus tables in the core database
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/RepeatMasker.pm,v $
-# $Revision: 1.19 $
 package Bio::EnsEMBL::Analysis::Runnable::RepeatMasker;
 
 use strict;

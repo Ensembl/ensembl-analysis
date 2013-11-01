@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/ig/xref_gene_segments.pl,v $
-# $Revision: 1.5 $
 
 use warnings ;
 use strict;

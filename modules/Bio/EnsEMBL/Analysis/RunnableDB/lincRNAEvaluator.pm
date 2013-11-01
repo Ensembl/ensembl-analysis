@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::lincRNAEvaluator -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/lincRNAEvaluator.pm,v $
-# $Revision: 1.15 $
 package Bio::EnsEMBL::Analysis::RunnableDB::lincRNAEvaluator;
 
 use warnings ;

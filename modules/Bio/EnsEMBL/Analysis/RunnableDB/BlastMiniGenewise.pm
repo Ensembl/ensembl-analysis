@@ -85,8 +85,6 @@ Internal methods are usually preceded with a _
 # Let the code begin...
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/BlastMiniGenewise.pm,v $
-# $Revision: 1.19 $
 package Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise;
 
 use warnings ;

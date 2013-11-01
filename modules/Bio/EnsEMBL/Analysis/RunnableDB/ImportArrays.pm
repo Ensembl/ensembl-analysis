@@ -60,8 +60,6 @@ Post general queries to B<dev@ensembl.org>
 # Write fasta file to db fasta cache?
 # Add mode to recreate nr_fasta if already imported?
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ImportArrays.pm,v $
-# $Revision: 1.25 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ImportArrays;
 
 use warnings ;

@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/add_source_xrefs.pl,v $
-# $Revision: 1.10 $
 
 # add_source_xrefs.pl
 #

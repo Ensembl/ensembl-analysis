@@ -45,8 +45,6 @@ This module (at least for now) relies heavily on Jim Kent\'s Axt tools.
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/AlignmentChains.pm,v $
-# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::RunnableDB::AlignmentChains;
 
 use warnings ;

@@ -20,8 +20,6 @@ Prints.pm - DESCRIPTION of Object
 # Let the code begin...
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/Prints_wormbase.pm,v $
-# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::Prints_wormbase;
 use warnings ;
 use vars qw(@ISA);

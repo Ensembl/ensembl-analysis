@@ -28,8 +28,6 @@ Post general queries to B<dev@ensembl.org>
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Sam2Bam.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Sam2Bam;
 
 use warnings ;

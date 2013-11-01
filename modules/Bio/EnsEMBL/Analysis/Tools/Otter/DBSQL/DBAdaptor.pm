@@ -9,8 +9,6 @@
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Otter/DBSQL/DBAdaptor.pm,v $
-# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::Tools::Otter::DBSQL::DBAdaptor;
 use warnings ;
 use Bio::EnsEMBL::Utils::Exception;

@@ -4,8 +4,6 @@
 #
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GenomeOverlapFilter.pm,v $
-# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::Tools::GenomeOverlapFilter;
 
 use strict;

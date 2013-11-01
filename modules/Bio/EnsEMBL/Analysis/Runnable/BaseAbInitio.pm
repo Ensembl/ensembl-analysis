@@ -32,8 +32,6 @@ Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio -
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/BaseAbInitio.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 
 use strict;

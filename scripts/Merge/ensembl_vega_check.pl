@@ -1,7 +1,5 @@
 #!/usr/bin/env perl
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/ensembl_vega_check.pl,v $
-# $Revision: 1.2 $
 
 # Usage examples:
 

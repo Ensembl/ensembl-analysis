@@ -32,8 +32,6 @@ class methods
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/IntronUtils.pm,v $
-# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils;
 
 use strict;

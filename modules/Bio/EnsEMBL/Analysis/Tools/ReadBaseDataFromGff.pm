@@ -1,7 +1,5 @@
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ReadBaseDataFromGff.pm,v $
-# $Revision: 1.3 $
 package ReadBaseDataFromGff; 
 
 use warnings ;

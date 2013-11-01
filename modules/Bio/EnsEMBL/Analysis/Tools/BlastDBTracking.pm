@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm,v $
-# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Tools::BlastDBTracking;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Tools::BlastDBTracking

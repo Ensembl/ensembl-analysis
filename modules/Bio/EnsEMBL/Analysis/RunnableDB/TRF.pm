@@ -47,8 +47,6 @@ in the repeat_feature and repeat_consensus tables
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/TRF.pm,v $
-# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::RunnableDB::TRF;
 
 use strict;

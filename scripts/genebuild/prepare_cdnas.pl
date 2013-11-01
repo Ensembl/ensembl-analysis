@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/prepare_cdnas.pl,v $
-# $Revision: 1.16 $
 
 =head1 NAME
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env perl
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/Merge/vega_check.pm,v $
-# $Revision: 1.12 $
 package Merge::vega_check;
 
 use strict;

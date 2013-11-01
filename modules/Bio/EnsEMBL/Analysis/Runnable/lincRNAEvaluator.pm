@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/lincRNAEvaluator.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator;
 
 use strict;  

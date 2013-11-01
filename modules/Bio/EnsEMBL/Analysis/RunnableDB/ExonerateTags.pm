@@ -42,8 +42,6 @@ after filtering the hits.
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateTags.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags;
 
 use warnings ;

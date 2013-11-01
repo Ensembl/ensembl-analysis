@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/HavanaAdder.pm,v $
-# $Revision: 1.59 $
 
 =head1 LICENSE
 

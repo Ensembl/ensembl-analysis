@@ -49,8 +49,6 @@ write the resulting alignments as DNA align Features.
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateCloneEnds.pm,v $
-# $Revision: 1.11 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds;
 
 use warnings ;

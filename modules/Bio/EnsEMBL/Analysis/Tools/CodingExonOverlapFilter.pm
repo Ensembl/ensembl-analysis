@@ -4,8 +4,6 @@
 #
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/CodingExonOverlapFilter.pm,v $
-# $Revision: 1.2 $
 package Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter;
 
 use strict;

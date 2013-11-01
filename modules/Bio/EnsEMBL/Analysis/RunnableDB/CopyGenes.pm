@@ -35,8 +35,6 @@ the database COPY_TARGET_DB
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/CopyGenes.pm,v $
-# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes;
 
 use warnings ;

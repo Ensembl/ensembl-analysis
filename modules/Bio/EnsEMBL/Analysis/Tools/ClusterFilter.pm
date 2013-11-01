@@ -27,8 +27,6 @@ It was originally used to avoid transcript from one gene to be allocated in diff
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/ClusterFilter.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 
 use strict;

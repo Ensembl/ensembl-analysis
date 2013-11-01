@@ -19,8 +19,6 @@
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Default.pm,v $
-# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::Tools::Default;
 
 use warnings ;

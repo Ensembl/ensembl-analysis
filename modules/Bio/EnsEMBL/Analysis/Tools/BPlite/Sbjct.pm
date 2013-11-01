@@ -1,4 +1,4 @@
-# $Id: Sbjct.pm,v 1.6 2012-12-21 15:33:48 rn6 Exp $
+# $Id: Sbjct.pm,v 1.7 2013-11-01 11:04:31 rn6 Exp $
 ###############################################################################
 # Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct
 ###############################################################################
@@ -8,8 +8,6 @@
 #
 # You may distribute this module under the same terms as perl itself
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/BPlite/Sbjct.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct;
 
 use warnings ;

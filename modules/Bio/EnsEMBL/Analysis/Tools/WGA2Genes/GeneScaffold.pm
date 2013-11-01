@@ -21,8 +21,6 @@ Assumptions:
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/WGA2Genes/GeneScaffold.pm,v $
-# $Revision: 1.29 $
 package Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 
 use warnings ;

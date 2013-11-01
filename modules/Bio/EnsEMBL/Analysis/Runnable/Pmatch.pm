@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::Runnable::Pmatch -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Pmatch.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::Pmatch;
 
 use strict;

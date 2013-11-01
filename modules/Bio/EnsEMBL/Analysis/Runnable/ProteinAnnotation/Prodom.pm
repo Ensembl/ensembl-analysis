@@ -41,8 +41,6 @@ Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prodom
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Prodom.pm,v $
-# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prodom;
 
 use warnings ;

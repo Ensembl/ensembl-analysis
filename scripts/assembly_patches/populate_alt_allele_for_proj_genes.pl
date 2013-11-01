@@ -1,7 +1,5 @@
 #!/usr/bin/env perl
 
-# $Source: 
-# $Revision: 
 
 
 =head2

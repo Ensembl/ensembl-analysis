@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/parse_UniSTS.pl,v $
-# $Revision: 1.3 $
 
 use warnings ;
 use strict;

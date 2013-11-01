@@ -42,8 +42,6 @@ can be stored in the simple_feature table in the core database
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/FirstEF.pm,v $
-# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Runnable::FirstEF;
 
 use strict;

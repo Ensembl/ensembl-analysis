@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/viral_pseudogenes/anti_virus.pl,v $
-# $Revision: 1.9 $
 
 
 =pod

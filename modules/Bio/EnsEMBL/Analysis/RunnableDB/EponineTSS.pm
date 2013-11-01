@@ -47,8 +47,6 @@ in the simple_feature table
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/EponineTSS.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::RunnableDB::EponineTSS;
 
 use strict;

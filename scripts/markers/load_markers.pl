@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/load_markers.pl,v $
-# $Revision: 1.11 $
 
 =head1 NAME
 

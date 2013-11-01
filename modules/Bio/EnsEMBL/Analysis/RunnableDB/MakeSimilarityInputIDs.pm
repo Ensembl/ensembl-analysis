@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::MakeSimilarityInputIDs -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/MakeSimilarityInputIDs.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::RunnableDB::MakeSimilarityInputIDs;
 
 use warnings ;

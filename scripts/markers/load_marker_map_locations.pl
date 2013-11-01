@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/markers/load_marker_map_locations.pl,v $
-# $Revision: 1.9 $
 
 =head1 NAME
 

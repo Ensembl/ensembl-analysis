@@ -23,8 +23,6 @@
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Tmhmm.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Tmhmm;
 
 use warnings ;

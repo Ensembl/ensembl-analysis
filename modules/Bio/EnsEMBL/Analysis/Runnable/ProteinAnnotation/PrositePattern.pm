@@ -9,8 +9,6 @@
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/PrositePattern.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::PrositePattern;
 use warnings ;
 use vars qw(@ISA);

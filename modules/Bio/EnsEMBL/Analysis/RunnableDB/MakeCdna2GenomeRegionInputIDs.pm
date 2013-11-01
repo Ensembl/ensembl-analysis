@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::MakeCdna2GenomeRegionInputIDs -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/MakeCdna2GenomeRegionInputIDs.pm,v $
-# $Revision: 1.11 $
 package Bio::EnsEMBL::Analysis::RunnableDB::MakeCdna2GenomeRegionInputIDs;
 use strict;
 use warnings;

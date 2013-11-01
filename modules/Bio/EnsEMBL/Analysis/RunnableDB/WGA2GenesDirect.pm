@@ -40,8 +40,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::WGA2GenesDirect -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/WGA2GenesDirect.pm,v $
-# $Revision: 1.13 $
 package Bio::EnsEMBL::Analysis::RunnableDB::WGA2GenesDirect;
 
 use warnings ;

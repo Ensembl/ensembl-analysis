@@ -50,8 +50,6 @@ Internal methods are usually preceded with a _
 
 # Let the code begin...
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/HaplotypeMapper.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::HaplotypeMapper;
 
 use warnings ;

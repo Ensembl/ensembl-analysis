@@ -43,8 +43,6 @@ Internal methods are usually preceded with a _
 
 # Let the code begin...
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/HalfwiseHMM.pm,v $
-# $Revision: 1.25 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::HalfwiseHMM;
 
 use warnings ;

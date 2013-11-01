@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Stashes.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Tools::Stashes;
 
 use warnings;

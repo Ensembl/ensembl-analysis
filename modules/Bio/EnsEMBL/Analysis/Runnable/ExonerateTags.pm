@@ -47,8 +47,6 @@ added to the tag_count of the remaining ditags.
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateTags.pm,v $
-# $Revision: 1.7 $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateTags;
 
 use warnings ;

@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/create_tissues_metadata_file.pl,v $
-# $Revision: 1.3 $
 
 # This is a script which will create the delimited text file containing
 # the summary data describing the RNASeq reads and tissues. This text file is 

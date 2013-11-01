@@ -26,8 +26,6 @@ perl new_polyA_clipping.pl sequences.fasta polyat_clipped.out
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/PolyAClipping.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
 
 use strict;

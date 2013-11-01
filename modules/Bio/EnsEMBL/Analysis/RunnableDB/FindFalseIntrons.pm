@@ -65,8 +65,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons -
 
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/FindFalseIntrons.pm,v $
-# $Revision: 1.11 $
 package Bio::EnsEMBL::Analysis::RunnableDB::FindFalseIntrons; 
 use warnings ;
 use strict;  

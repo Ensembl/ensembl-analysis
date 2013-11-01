@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/load_ditags.pl,v $
-# $Revision: 1.11 $
 
 =pod
 

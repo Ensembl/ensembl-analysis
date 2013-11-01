@@ -87,8 +87,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons -
 
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/RecoverFalseIntrons.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::RunnableDB::RecoverFalseIntrons;  
 #package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateVSGenewise;  
 use warnings ;

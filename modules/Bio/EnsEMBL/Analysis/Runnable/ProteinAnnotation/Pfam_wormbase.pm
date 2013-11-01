@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Pfam_wormbase.pm,v $
-# $Revision: 1.8 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam_wormbase;
 
 use warnings ;

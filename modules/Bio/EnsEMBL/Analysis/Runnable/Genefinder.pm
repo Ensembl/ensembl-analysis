@@ -41,8 +41,6 @@ into prediction transcripts
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Genefinder.pm,v $
-# $Revision: 1.10 $
 package Bio::EnsEMBL::Analysis::Runnable::Genefinder;
 
 use strict;

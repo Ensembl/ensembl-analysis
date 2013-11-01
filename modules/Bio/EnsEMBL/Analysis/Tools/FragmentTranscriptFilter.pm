@@ -26,8 +26,6 @@ may validly map to different top-level sequences in the target.
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/FragmentTranscriptFilter.pm,v $
-# $Revision: 1.3 $
 package Bio::EnsEMBL::Analysis::Tools::FragmentTranscriptFilter;
 
 use strict;

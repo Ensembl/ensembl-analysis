@@ -39,8 +39,6 @@ Internal methods are usually preceded with a _
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/Finished/Blast.pm,v $
-# $Revision: 1.9 $
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::Blast;
 
 use warnings ;

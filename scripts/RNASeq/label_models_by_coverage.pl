@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/label_models_by_coverage.pl,v $
-# $Revision: 1.2 $
 
 use warnings ;
 use vars qw(%Config);

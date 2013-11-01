@@ -35,8 +35,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::IgSegBuilder -
 
 # Let the code begin...
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/IgSegBuilder.pm,v $
-# $Revision: 1.18 $
 package Bio::EnsEMBL::Analysis::RunnableDB::IgSegBuilder;
 
 use warnings ;

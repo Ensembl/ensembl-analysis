@@ -47,8 +47,6 @@ Creates and runs the miRNA runnable.
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/miRNA.pm,v $
-# $Revision: 1.19 $
 package Bio::EnsEMBL::Analysis::RunnableDB::miRNA;
 
 use strict;

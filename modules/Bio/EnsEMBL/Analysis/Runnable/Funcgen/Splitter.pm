@@ -39,8 +39,6 @@ Post questions to the Ensembl development list: dev@ensembl.org
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Funcgen/Splitter.pm,v $
-# $Revision: 1.6 $
 package Bio::EnsEMBL::Analysis::Runnable::Funcgen::Splitter;
 
 use strict;

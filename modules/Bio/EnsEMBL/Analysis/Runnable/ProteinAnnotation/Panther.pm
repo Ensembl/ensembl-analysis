@@ -41,8 +41,6 @@ Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Panther
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ProteinAnnotation/Panther.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Panther;
 
 use warnings ;

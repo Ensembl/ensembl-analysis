@@ -56,8 +56,6 @@ Internal methods are usually preceded with a _
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/ExonerateTranscript.pm,v $
-# $Revision: 1.23 $
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 
 use warnings ;

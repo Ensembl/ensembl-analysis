@@ -47,8 +47,6 @@ Solexa reads
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateSolexaCloud.pm,v $
-# $Revision: 1.14 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateSolexaCloud;
 
 use strict;

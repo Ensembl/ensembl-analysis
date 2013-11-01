@@ -50,8 +50,6 @@ TranscriptCoalescer database.
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/TranscriptConsensus.pm,v $
-# $Revision: 1.32 $
 package Bio::EnsEMBL::Analysis::Runnable::TranscriptConsensus;
 
 use strict;

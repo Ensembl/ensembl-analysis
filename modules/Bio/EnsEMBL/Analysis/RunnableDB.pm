@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB.pm,v $
-# $Revision: 1.45 $
 
 package Bio::EnsEMBL::Analysis::RunnableDB;
 

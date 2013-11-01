@@ -31,8 +31,6 @@ Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder -
 =head1 METHODS
 
 =cut
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/lincRNAFinder.pm,v $
-# $Revision: 1.15 $
 package Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder;
 
 use strict;  

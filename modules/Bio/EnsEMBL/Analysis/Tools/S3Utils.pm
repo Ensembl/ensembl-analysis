@@ -29,8 +29,6 @@ the rest of the documention details the exported static class methods
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/S3Utils.pm,v $
-# $Revision: 1.12 $
 package Bio::EnsEMBL::Analysis::Tools::S3Utils; 
 
 use strict;

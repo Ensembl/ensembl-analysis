@@ -50,8 +50,6 @@ transcript attributes
 =cut
 
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/miRNA.pm,v $
-# $Revision: 1.19 $
 package Bio::EnsEMBL::Analysis::Runnable::miRNA;
 
 use strict;

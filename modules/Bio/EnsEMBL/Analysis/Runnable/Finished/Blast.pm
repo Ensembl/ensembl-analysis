@@ -1,5 +1,3 @@
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Runnable/Finished/Blast.pm,v $
-# $Revision: 1.26 $
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 
 =head1 NAME - Bio::EnsEMBL::Analysis::Runnable::Finished::Blast

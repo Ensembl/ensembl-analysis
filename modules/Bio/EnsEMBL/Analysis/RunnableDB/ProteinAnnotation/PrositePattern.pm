@@ -21,8 +21,6 @@
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProteinAnnotation/PrositePattern.pm,v $
-# $Revision: 1.5 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::PrositePattern;
 
 use warnings ;

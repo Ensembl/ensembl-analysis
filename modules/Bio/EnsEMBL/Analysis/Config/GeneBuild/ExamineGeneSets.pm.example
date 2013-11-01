@@ -48,8 +48,6 @@ B<dev@ensembl.org>
 
 =cut
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/ExamineGeneSets.pm.example,v $
-# $Revision: 1.1 $
 package Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 
 use warnings ;

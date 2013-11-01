@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/wga2genes/merge_and_extend_gene_scaffolds.pl,v $
-# $Revision: 1.12 $
 
 use warnings ;
 use strict;

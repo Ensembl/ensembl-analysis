@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/chunk_fasta_file.pl,v $
-# $Revision: 1.3 $
 
 #This is a script which will run through the fasta file you provide and
 #chunk into into fasta files each containing the number of entries you

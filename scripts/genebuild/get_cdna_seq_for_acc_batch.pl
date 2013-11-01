@@ -1,6 +1,4 @@
 #!/usr/bin/env perl
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/genebuild/get_cdna_seq_for_acc_batch.pl,v $
-# $Revision: 1.2 $
 
 use warnings ;
 use strict;

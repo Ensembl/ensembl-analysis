@@ -2,8 +2,6 @@
 # MergedHit knows which contig and protein it is pairing, strand, overall 
 # coverage and details of component CoordinatePairs
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Tools/Pmatch/MergedHit.pm,v $
-# $Revision: 1.4 $
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
 use warnings ;
 use strict ;

@@ -32,9 +32,6 @@ Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder -
 
 =cut
 
-# $ Source: $
-# $ Revision: $ 
-# $Revision: 1.15 $
 package Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder;
 
 use warnings ;
