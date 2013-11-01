@@ -840,7 +840,7 @@ use vars qw( %Config );
                          -class   => 'ILLUMINA_WG',
                         },
       
-      'MouseRef8_V2' => {
+      'MouseRef-8_V2' => {
                          -name => 'MouseRef-8_V2',
                          -vendor => 'ILLUMINA',
                          #-setsize => undef,
