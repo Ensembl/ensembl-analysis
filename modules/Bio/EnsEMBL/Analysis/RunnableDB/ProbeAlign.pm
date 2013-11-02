@@ -45,7 +45,7 @@ Post general queries to B<dev@ensembl.org>
 #4 Re/move all unnecessary warns
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProbeAlign.pm,v $
-# $Revision: 1.45 $
+# $Revision: 1.46 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
 
 use warnings ;
@@ -739,12 +739,12 @@ sub set_probe_and_slice {
 						 5 => undef,
 						 3 => undef,
 						);
-      warn "\n\n\ntrans($seq_id) start end strand $transcript_start $transcript_end $transcript_strand";
-      warn "probe if $probe_id with cigar line @stranded_cigar_line";
+    #warn "\n\n\ntrans($seq_id) start end strand $transcript_start $transcript_end $transcript_strand";
+    #warn "probe if $probe_id with cigar line @stranded_cigar_line";
       
 
 	  foreach my $block(@genomic_blocks){
-      #warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
+n      #warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
 		
 		if(! $genomic_start){
 		  
