@@ -44,6 +44,8 @@ Post general queries to B<dev@ensembl.org>
 #3 Report Unmapped object count in output
 #4 Re/move all unnecessary warns
 
+# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProbeAlign.pm,v $
+# $Revision: 1.45 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
 
 use warnings ;
@@ -742,7 +744,7 @@ sub set_probe_and_slice {
       
 
 	  foreach my $block(@genomic_blocks){
-		warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
+      #warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
 		
 		if(! $genomic_start){
 		  
