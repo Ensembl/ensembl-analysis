@@ -45,7 +45,7 @@ Post general queries to B<dev@ensembl.org>
 #4 Re/move all unnecessary warns
 
 # $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/RunnableDB/ProbeAlign.pm,v $
-# $Revision: 1.46 $
+# $Revision: 1.47 $
 package Bio::EnsEMBL::Analysis::RunnableDB::ProbeAlign;
 
 use warnings ;
@@ -744,15 +744,15 @@ sub set_probe_and_slice {
       
 
 	  foreach my $block(@genomic_blocks){
-n      #warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
+      #warn $block.' '.$block->start.' '.$block->end;#.' '.$block->strand;
 		
-		if(! $genomic_start){
-		  
-		  if($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){#Set genomic_start
-			
-			 if($gap_lengths{5}){#We have seen a gap
-			   $genomic_start = $block->start - $gap_lengths{5};
-			 }
+      if(! $genomic_start){
+        
+        if($block->isa('Bio::EnsEMBL::Mapper::Coordinate')){#Set genomic_start
+          
+          if($gap_lengths{5}){#We have seen a gap
+            $genomic_start = $block->start - $gap_lengths{5};
+          }
 			 else{#Just set to first start
 			   $genomic_start = $block->start;
 			 }
