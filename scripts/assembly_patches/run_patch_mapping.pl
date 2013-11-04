@@ -150,14 +150,14 @@ for (my $i = 0;$i < $num_patches;$i++){
   }
   elsif($align_non_ident){
     #run for each patch
-    $command = "bsub -R'select[mem>4000] rusage[mem=4000]' -M4000000 -o ".$out_dir.$patch_slice->seq_region_name."_nonident.out -e ".
+    $command = "bsub -R'select[mem>4000] rusage[mem=4000]' -M4000 -o ".$out_dir.$patch_slice->seq_region_name."_nonident.out -e ".
       $out_dir.$patch_slice->seq_region_name."_nonident.err ".
       $perl." ".$script." --dbhost ".$host." --dbport ".$port." --dbuser ".$user." --dbpass ".$pass." --dbname ".$dbname.
       " --assembly ".$assembly." --altdbname ".$dbname." --altassembly ".$assembly." --chromosomes ".$ref_slice->seq_region_name.
       " --altchromosomes ".$patch_slice->seq_region_name." --logpath ".$out_dir." --logfile ".$patch_slice->seq_region_name."_nonident.log --force-stage";
 
     if ( ($patch_slice->seq_region_name eq 'HG1472_PATCH') or ($patch_slice->seq_region_name eq 'HG858_PATCH') ) {
-      $command = "bsub -R'select[mem>10000] rusage[mem=10000]' -M10000000 -o ".$out_dir.$patch_slice->seq_region_name."_nonident.out -e ".
+      $command = "bsub -R'select[mem>10000] rusage[mem=10000]' -M10000 -o ".$out_dir.$patch_slice->seq_region_name."_nonident.out -e ".
         $out_dir.$patch_slice->seq_region_name."_nonident.err ".
         $perl." ".$script." --dbhost ".$host." --dbport ".$port." --dbuser ".$user." --dbpass ".$pass." --dbname ".$dbname.
         " --assembly ".$assembly." --altdbname ".$dbname." --altassembly ".$assembly." --chromosomes ".$ref_slice->seq_region_name.
@@ -176,7 +176,7 @@ if($align_by_component){
   my $ref_chromosomes = join ",", @ref_chroms;
   my $patch_chromosomes = join ",", @patch_chroms;
 
-  $command = "bsub -R\"select[mem>3800] rusage[mem=3800]\" -M3800000 -o ".$out_dir."component_ident.out -e ".$out_dir."component_ident.err ".
+  $command = "bsub -R\"select[mem>3800] rusage[mem=3800]\" -M3800 -o ".$out_dir."component_ident.out -e ".$out_dir."component_ident.err ".
     $perl." ".$script." --host ".$host." --port ".$port." --user ".$user." --pass ".$pass." --dbname ".$dbname." --altdbname ".$dbname.
     " --assembly ".$assembly." --altassembly ".$assembly." --chromosomes ".$ref_chromosomes.
     " --altchromosomes ".$patch_chromosomes." --logpath ".$out_dir." --logfile component_ident.log";
