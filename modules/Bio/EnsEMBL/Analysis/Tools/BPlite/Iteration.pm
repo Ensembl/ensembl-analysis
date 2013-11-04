@@ -1,4 +1,3 @@
-# $Id: Iteration.pm,v 1.6 2013-11-01 11:04:31 rn6 Exp $
 # Bioperl module Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration
 #	based closely on the Bio::EnsEMBL::Analysis::Tools::BPlite modules
 #	Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 

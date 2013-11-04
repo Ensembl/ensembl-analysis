@@ -1,8 +1,5 @@
 package setup_rnaseq_pipeline_config;
 
-# $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example,v $
-# $Revision: 1.17 $
-
 use strict;
 use vars qw(%Config);
 

@@ -1,7 +1,5 @@
 setup_rnaseq_pipeline.pl
 ------------------------
-$Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/scripts/RNASeq/README,v $
-$Revision: 1.15 $
 
 This document describes how to automate setting up of a BWA
 alignment and processing pipeline using a configuration file,
