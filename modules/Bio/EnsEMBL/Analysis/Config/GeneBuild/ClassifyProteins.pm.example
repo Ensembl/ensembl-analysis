@@ -2,7 +2,7 @@ package Bio::EnsEMBL::Analysis::Config::GeneBuild::ClassifyProteins;
 
 =head1
 $Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/ClassifyProteins.pm.example,v $
-$Revision: 1.2 $
+$Revision: 1.3 $
 
 How to choose phyla for protein classification.
 
@@ -135,54 +135,54 @@ use vars qw( %Config );
            PROTEIN_CLASSIFICATION => {  
 
                 # a config for human proteins from SwissProt with PE level 1 and 2 : 
-                  swissprot_human_pe1_2 => {
+                  sp12_human => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_human_sp12' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 # a config for human proteins from SwissProt with PE level 3,4,5 : 
-                  swissprot_human_pe3_4_5 => {
+                  sp345_human => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_human_sp345' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-human primate proteins from SwissProt with PE level 1 and 2 : 
-                  swissprot_primate_pe1_2 => {
+                  sp12_primate => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   
+                         SIMGW_LOGIC_NAME  => 'sgw_primate_sp12' ,   
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',          
                },                                               
 
                 # a config for non-human primate proteins from SwissProt with PE level 3,4,5 : 
-                  swissprot_primate_pe3_4_5 => {
+                  sp345_primate => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_primate_sp345' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 
                 # a config for non-primate mammalian proteins from SwissProt with PE level 1 and 2 : 
-                  swissprot_vert_mammal_pe1_2 => {
+                  sp12_vert_mammal => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,  
                          PHYLUM            => ["Mammalia"],  
@@ -191,184 +191,182 @@ use vars qw( %Config );
                          EXCLUDED_ORGANISM => [],                     # the entries SIMGW_LOGIC_NAME and MK_INPUT_ID_TYPE are required by setup_simgw_pipeline.pl, the easy way
                                                                       # to add the analysis required to run similarity genewise and MakeSimilarityInputIDS. it also sets up the 
                                                                       #  rules forthis step.
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   # this entry is the simgw logic name for the next step
-                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',            # this should be set to the input_id_type_analysis you're using for the 
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_mammal_sp12', # this entry is the simgw logic name for the next step
+                         MK_INPUT_ID_TYPE  => 'TOPLEVEL',             # this should be set to the input_id_type_analysis you're using for the 
                },                                                     # submission analysis for MakeSimilarityInputIDS ( ie Submit500kSlice, Submit300kSlice,...) 
 
                 # a config for non-primate mammalian proteins from SwissProt with PE level 3,4,5 : 
-                  swissprot_vert_mammal_pe3_4_5 => {
+                  sp345_vert_mammal => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => ["Mammalia"],
                          EXCLUDED_PHYLUM   => ["Primates"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],                     
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,   
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_mammal_sp345',
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',            
                },                                             
 
                 # a config for non-mammalian vertebrate proteins from SwissProt with PE level 1 and 2 : 
-                swissprot_vert_non_mammal_pe1_2    => { 
+                sp12_vert_non_mammal    => { 
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,  
                          PHYLUM            => ["Vertebrata"],  
                          EXCLUDED_PHYLUM   => ["Mammalia"], 
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' , 
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_non_mammal_sp12' , 
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                }, 
 
                 # a config for non-mammalian vertebrate proteins from SwissProt with PE level 3,4,5 : 
-                swissprot_vert_non_mammal_pe3_4_5    => { 
+                sp345_vert_non_mammal    => { 
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,  
                          PHYLUM            => ["Vertebrata"],  
                          EXCLUDED_PHYLUM   => ["Mammalia"], 
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' , 
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_non_mammal_sp345' , 
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-vertebrate proteins from SwissProt with PE level 1 and 2 : 
                 # this will include proteins from plants, bacteria, fungi, etc
-                swissprot_non_vert_pe1_2=> {  
+                sp12_non_vert => {  
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,  
                          PHYLUM            => [],  
                          EXCLUDED_PHYLUM   => ["Vertebrata"], 
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [], 
-                         SIMGW_LOGIC_NAME  => undef, 
+                         SIMGW_LOGIC_NAME  => 'sgw_non_vert_sp12', 
                          MK_INPUT_ID_TYPE  => undef, 
                }, 
                 # a config for non-vertebrate proteins from SwissProt with PE level 3,4,5 : 
                 # this will include proteins from plants, bacteria, fungi, etc
-                swissprot_non_vert_pe3_4_5=> {  
+                sp345_non_vert => {  
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,  
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => ["Vertebrata"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => undef,
+                         SIMGW_LOGIC_NAME  => 'sgw_non_vert_sp345',
                          MK_INPUT_ID_TYPE  => undef,
                },
                # a config for human proteins from trEMBL with PE level 1 and 2 : 
-                  trembl_human_pe1_2 => {
+                  tr12_human => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_human_tr12' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 # a config for human proteins from trEMBL with PE level 3,4,5 : 
-                  trembl_human_pe3_4_5 => {
+                  tr345_human => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_human_tr345' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
-
                 # a config for non-human primate proteins from trEMBL with PE level 1 and 2 : 
-                 trembl_primate_pe1_2 => {
+                 tr12_primate => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],          
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
+                         SIMGW_LOGIC_NAME  => 'sgw_primate_tr12' ,  
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',          
                },                                                  
                 # a config for non-human primate proteins from trEMBL with PE level 3,4,5 : 
-                 trembl_primate_pe3_4_5 => {
+                 tr345_primate => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => ["Homo sapiens"],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_primate_tr345' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-primate mammalian proteins from trEMBL with PE level 1 and 2 : 
-                 trembl_vert_mammal_pe1_2 => {
+                 tr12_vert_mammal => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
                          PHYLUM            => ["Mammalia"],
                          EXCLUDED_PHYLUM   => ["Primates"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],                     
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_mammal_tr12',
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',       
                },                                             
                 # a config for non-primate mammalian proteins from trEMBL with PE level 3,4,5 : 
-                 trembl_vert_mammal_pe3_4_5 => { 
+                 tr345_vert_mammal => { 
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => ["Mammalia"],
                          EXCLUDED_PHYLUM   => ["Primates"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],                     
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_mammal' ,  
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_mammal_tr345',
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',           
                },
-
                 # a config for non-mammalian vertebrate proteins from trEMBL with PE level 1 and 2 : 
-                trembl_vert_non_mammal_pe1_2    => {
+                tr12_vert_non_mammal    => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
                          PHYLUM            => ["Vertebrata"],
                          EXCLUDED_PHYLUM   => ["Mammalia"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_non_mammal_tr12' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
                 # a config for non-mammalian vertebrate proteins from trEMBL with PE level 3,4,5 : 
-                trembl_vert_non_mammal_pe3_4_5    => {
+                tr345_vert_non_mammal    => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => ["Vertebrata"],
                          EXCLUDED_PHYLUM   => ["Mammalia"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => 'simgw_vert_non_mammal' ,
+                         SIMGW_LOGIC_NAME  => 'sgw_vert_non_mammal_tr345' ,
                          MK_INPUT_ID_TYPE  => 'TOPLEVEL',
                },
 
                 # a config for non-vertebrate proteins from trEMBL with PE level 1 and 2 : 
                 # this will include proteins from plants, bacteria, fungi, etc
-                trembl_non_vert_pe1_2=> {
+                tr12_non_vert => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => ["Vertebrata"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => undef,
+                         SIMGW_LOGIC_NAME  => 'sgw_non_vert_tr12',
                          MK_INPUT_ID_TYPE  => undef,
                },
                 # a config for non-vertebrate proteins from trEMBL with PE level 3,4,5 : 
                 # this will include proteins from plants, bacteria, fungi, etc
-                trembl_non_vert_pe3_4_5=> {
+                tr345_non_vert => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => ["Vertebrata"],
                          ORGANISM          => [],
                          EXCLUDED_ORGANISM => [],
-                         SIMGW_LOGIC_NAME  => undef,
+                         SIMGW_LOGIC_NAME  => 'sgw_non_vert_tr345',
                          MK_INPUT_ID_TYPE  => undef,
                },
                # all tetraodon proteins 
