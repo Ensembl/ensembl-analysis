@@ -1,8 +1,6 @@
 package Bio::EnsEMBL::Analysis::Config::GeneBuild::ClassifyProteins; 
 
 =head1
-$Source: /tmp/ENSCOPY-ENSEMBL-ANALYSIS/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/ClassifyProteins.pm.example,v $
-$Revision: 1.3 $
 
 How to choose phyla for protein classification.
 
