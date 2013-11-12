@@ -372,7 +372,7 @@ my %map;
 while (<FILE>) {
   my %data;
   chomp;
-  next if $_ eq "" ;
+  next if( $_ eq "" ) ;
   my @cells = split( $delimiter, $_ );
   if ( $line == 0 ) {
     # header row
