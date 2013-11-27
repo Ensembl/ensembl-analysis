@@ -140,7 +140,7 @@ sub new {
   }
 
   if (not $self->program) {
-    $self->program('/usr/local/ensembl/bin/exonerate-0.8.3'); 
+    $self->program('/software/ensembl/genebuild/usrlocalensemblbin/exonerate-0.9.0'); 
   }
 
  
