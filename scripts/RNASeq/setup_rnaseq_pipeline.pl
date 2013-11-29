@@ -194,10 +194,10 @@ foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
       # split up paired end ids
       my @name = split( /:/,$id);
       push @files, shift(@name);
-    }
+    }    
     if ( $analysis->logic_name =~ /submit_chromosome/ ) {
       $submit_chromosome_count++;
-    }
+    }    
     if ( $analysis->logic_name =~ /bam2genes/ ) {
       $bam2genes_count++;
     }
@@ -444,6 +444,7 @@ while (<FILE>) {
   push @rows, \%data;
   $line++;
 } ## end while (<FILE>)
+
 if ( $stage eq "Initialization" ) {
   print STDERR "Processed $line lines of data \n";
   print STDERR "Using " . $dba->dbc->dbname . "@" . $dba->dbc->host . "  as pipeline db\n";
@@ -465,6 +466,7 @@ foreach my $key1 ( keys %id_groups ) {
 my %pairs;
 # loop through the rows and create the analyses, rules and input_ids
  $line = 0;
+print "number of rows::" . scalar(@rows) . "\n";  
 foreach my $row (@rows) {
   $line++;
   #analyses
@@ -595,7 +597,7 @@ foreach my $row (@rows) {
             || $stored_ids->{ $row->{FILE} }->{ $submit_gsnap->logic_name } );
   }
   $pipeline_analysis->store($refine)
-    if $RNASEQCONFIG->{SINGLE_TISSUE} && $stage eq 'configured';
+  if $RNASEQCONFIG->{SINGLE_TISSUE} && $stage eq 'configured';
   if ( $RNASEQCONFIG->{SINGLE_TISSUE} && $stage eq 'configured' ) {
     $ra->store($refine_rule) if check_rule($refine_rule);
   }
@@ -1256,14 +1258,14 @@ use vars qw(%Config);
              output_dir => "'.$output_dir .'/refine_all_pipeline",
              batch_size => '.$slice_batches.',
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             \'rusage[myens_'.$ref_load.'tok=25:myens_'.$refine_load.'tok=25]\',
+             resource  => \'rusage[myens_'.$ref_load.'tok=25:myens_'.$refine_load.'tok=25]\',
        },
        {
              logic_name => "bam2genes",
              output_dir => "'.$output_dir .'/bam2genes_pipeline",
              batch_size => '.$slice_batches.',
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             \'rusage[myens_'.$ref_load.'tok=25:myens_'.$rough_load.'tok=25]\',
+             resource  => \'rusage[myens_'.$ref_load.'tok=25:myens_'.$rough_load.'tok=25]\',
        },
        {
              logic_name => "bam2genes_wait",
@@ -1274,7 +1276,7 @@ use vars qw(%Config);
              output_dir => "'.$output_dir .'/bam2introns_pipeline",
              batch_size => '.$rough_batches.',
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             \'rusage[myens_'.$ref_load.'tok=25]\',
+             resource  => \'rusage[myens_'.$ref_load.'tok=25]\',
        },
        {
              logic_name => "bam2introns_wait",
@@ -1284,7 +1286,7 @@ use vars qw(%Config);
              logic_name => "sam2bam",
              output_dir => "'.$output_dir .'/sam2bam_pipeline",
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             \'rusage[myens_'.$ref_load.'tok=25]\',
+             resource  => \'rusage[myens_'.$ref_load.'tok=25]\',
        },
        {
              logic_name => "sam2bam_wait",
@@ -1295,7 +1297,7 @@ use vars qw(%Config);
              output_dir => "'.$output_dir .'/rnaseqblast_pipeline",
              batch_size => '.$slice_batches.',
              memory    => [ "2GB", "5GB", "10GB", "20GB","30GB" ],
-             \'rusage[myens_'.$ref_load.'tok=25:myens_'.$blast_load.'tok=25]\',
+             resource  => \'rusage[myens_'.$ref_load.'tok=25:myens_'.$blast_load.'tok=25]\',
        },
 ';
   return $str;
@@ -1907,9 +1909,9 @@ sub import {
 
 sub check_rule {
   my ($rule) = @_;
+  #  print "CHECK $check \n";
   # see if you can fetch it first
   my $check = $ra->fetch_by_goal($rule->goalAnalysis);
-#  print "CHECK $check \n";
   unless ( $check ) {
     return 1;
   }
