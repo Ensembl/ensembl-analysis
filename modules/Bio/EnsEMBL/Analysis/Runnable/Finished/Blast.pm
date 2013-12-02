@@ -238,7 +238,7 @@ sub databases {
             # We have a list of databases to pass to blast as a virtual db
             my @db_list = map { m{^/} ? $_ : "$ENV{BLASTDB}/$_" } split /\s+/, $val;
             $self->{'_databases'} = [qq{'@db_list'}];
-            $self->{'_db_version_searched'} = 'TEST';
+            $self->get_db_version($db_list[0]);     ### Should check that all dbs are at same version!
         }
         else {
             $self->{'_databases'} = [];
