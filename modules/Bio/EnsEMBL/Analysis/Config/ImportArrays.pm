@@ -1320,7 +1320,7 @@ use vars qw( %Config );
     },
 
 	
-  IMPORT_WUSTL_ARRAYS =>
+    IMPORT_WUSTL_ARRAYS =>
      {
        IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
        
@@ -1345,7 +1345,59 @@ use vars qw( %Config );
 
        INPUT_FORMAT => 'FASTA',
      },
+	
+    IMPORT_SLRI_ARRAYS =>
+     {
+       IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
+       
+       IFIELDORDER => {
+         -name       => 1,
+         -array_chip => 0,
+         -array      => 0,
+       },
+       
+       ARRAY_PARAMS => {
+         
+         'GPL3518' => {
+           -name => 'GPL3518',
+           -vendor => 'SLRI',
+           #-setsize => undef,
+           -format  => 'EXPRESSION',
+           -type    => 'OLIGO',
+           #-description => '',
+           -class   => 'SLRI',
+         },
+       },
 
+       INPUT_FORMAT => 'FASTA',
+     },
+
+	
+    IMPORT_UCSF_ARRAYS =>
+     {
+       IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
+       
+       IFIELDORDER => {
+         -name       => 1,
+         -array_chip => 0,
+         -array      => 0,
+       },
+       
+       ARRAY_PARAMS => {
+         
+         'GPL9450' => {
+           -name => 'GPL9450',
+           -vendor => 'UCSF',
+           #-setsize => undef,
+           -format  => 'EXPRESSION',
+           -type    => 'OLIGO',
+           #-description => '',
+           -class   => 'UCSF',
+         },
+       },
+
+       INPUT_FORMAT => 'FASTA',
+     },
 
 
     #PHALANX

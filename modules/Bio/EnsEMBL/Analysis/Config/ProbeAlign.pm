@@ -495,6 +495,47 @@ use vars qw( %Config );
     },
 
 
+    #UCSF Custom arrays (only used for C.elegans) 50-70 mers
+    UCSF_PROBEALIGN => 
+    {
+     TARGETSEQS         => $ENV{'GENOMICSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.UCSF.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', 
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,
+    },                
+    
+    UCSF_PROBETRANSCRIPTALIGN => 
+    {
+     TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.UCSF.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ',
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,    
+    },
+
+    #SLRi Custom arrays (only used for C.elegans) 50-70 mers
+    SLRI_PROBEALIGN => 
+    {
+     TARGETSEQS         => $ENV{'GENOMICSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.SLRI.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', 
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,
+    },                
+    
+    SLRI_PROBETRANSCRIPTALIGN => 
+    {
+     TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.SLRI.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ',
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,    
+    },   
+
+
+
+
    }
   );
 
