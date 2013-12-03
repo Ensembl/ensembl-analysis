@@ -232,7 +232,7 @@ sub depth_filter {
     }
 
 	# free up some memory ?
-    %grouped_byname = undef;
+    %grouped_byname = ();
 
     # recover discarded Swissprot variants that should be shown
     if( $hit_db eq 'Swissprot' ) {
