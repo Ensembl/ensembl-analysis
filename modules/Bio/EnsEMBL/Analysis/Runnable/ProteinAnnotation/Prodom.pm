@@ -1,11 +1,16 @@
-# Author: Gary Williams (gw3@sanger.ac.uk)
-# Copyright (c) Gary Williams (2005)
-# based on Michelle Clamp's Blast.pm
-# You may distribute this code under the same terms as perl itself
-#
-# You may distribute this module under the same terms as perl itself
-#
-# POD documentation - main docs before the code
+# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 =pod 
 
@@ -32,10 +37,6 @@ Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prodom
 
   Blast takes a Bio::Seq (or Bio::PrimarySeq) object and runs hmmpfam.
   The resulting output file is parsed to produce a set of Bio::EnsEMBL::FeaturePairs.
-
-=head1 CONTACT
-
-   Marc Sohrmann: ms2@sanger.ac.uk
 
 =head1 APPENDIX
 

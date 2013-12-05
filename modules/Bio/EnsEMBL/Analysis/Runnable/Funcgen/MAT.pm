@@ -1,8 +1,16 @@
-# Ensembl module for Bio::EnsEMBL::Analysis::Runnable::Funcgen::MAT
-#
-# Copyright (c) 2007 Ensembl
-#
-
+# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::Funcgen::MAT
@@ -24,10 +32,6 @@ MAT expects to run the program MAT (Model-based Analysis of Tiling-array, Johnso
 et al., PMID: 16895995) and predicts features which can be stored in the 
 annotated_feature table in the eFG database
 
-=head1 LICENCE
-
-This code is distributed under an Apache style licence. Please see
-http://www.ensembl.org/info/about/code_licence.html for details.
 
 =head1 AUTHOR
 

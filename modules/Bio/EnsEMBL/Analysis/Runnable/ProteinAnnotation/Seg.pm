@@ -32,7 +32,7 @@
 
 =head1 CONTACT
   
-  Marc Sohrmann: ms2@sanger.ac.uk
+  helpdesk@ensembl.org
 
 =head1 APPENDIX
 
