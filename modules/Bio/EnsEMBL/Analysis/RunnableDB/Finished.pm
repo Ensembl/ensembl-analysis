@@ -182,14 +182,24 @@ sub remove_all_features {
 }
 
 sub write_descriptions {
-    my( $self, $output ) = @_;
-    my $dbobj = $self->db;
-    my $type = $self->analysis->logic_name =~ /uniprot/i ? 'protein':'dna';
-    my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Dfetch->new(-type => $type, -analysis => $self->analysis);
-    my %single_ids = map { $_->hseqname => 1} @$output;
-    my @ids = keys(%single_ids);
-    $seqfetcher->write_descriptions( $dbobj, \@ids );
+    my ($self, $output) = @_;
 
+    my %single_ids = map { $_->hseqname => 1 } @$output;
+
+    my $gff_feature = $self->analysis->gff_feature;
+    my $type;
+    if ($gff_feature eq 'nucleotide_match') {
+        $type = 'dna';
+    }
+    elsif ($gff_feature eq 'protein_match') {
+        $type = 'protein';
+    }
+    else {
+        throw("Cannot determine type (protein or dna) from analysis gff_feature '$gff_feature'");
+    }
+    my $seqfetcher =
+      Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Dfetch->new(-type => $type, -analysis => $self->analysis);
+    $seqfetcher->write_descriptions($self->db, [ keys(%single_ids) ]);
 }
 
 sub get_feature_key {
