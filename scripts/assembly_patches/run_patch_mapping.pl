@@ -1,4 +1,4 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
 
 # Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
 # 

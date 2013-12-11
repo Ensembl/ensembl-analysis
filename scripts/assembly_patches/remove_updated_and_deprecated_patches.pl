@@ -1,4 +1,4 @@
-#!/usr/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
 
 # Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
 # 
@@ -19,6 +19,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Getopt::Long;
 
 use strict;
+use warnings ;
 
 my $pass;
 my $patchtype_file = "./data/patch_type";

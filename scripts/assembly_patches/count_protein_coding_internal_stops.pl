@@ -1,4 +1,4 @@
-#!/user/local/ensembl/bin/perl -w
+#!/usr/bin/env perl
 
 # Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
 # 
@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-use strict;
+use strict ;
+use warnings ;
+
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::SeqIO;
 use Getopt::Long;
