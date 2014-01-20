@@ -1057,7 +1057,7 @@ sub print_merge_cmd {
   print "#MERGE\nbsub -o $out_dir" . "/merge.out "  
   . "-e $out_dir" . "/merge.err " ;
   print $RNASEQCONFIG->{SAMTOOLS}
-  ."-h $out_dir" . "/all_headers.txt "
+  ." -h $out_dir" . "/all_headers.txt"
   . " merge $merge_dir" . "/merged_unsorted.bam ";         
 
   my @sorted_bam_files = ();
