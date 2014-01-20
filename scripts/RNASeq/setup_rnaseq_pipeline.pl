@@ -1054,10 +1054,10 @@ sub print_merge_cmd {
   . "the following commands will do this.\n";
   print "If you wish to remove any of the lanes from the analysis "
   . "at this point just delete them from the merge command.\n\n";
-  print "#MERGE\nbsub -o $out_dir" . "/merge.out "
-  ."-h $out_dir" . "/all_headers.txt "
+  print "#MERGE\nbsub -o $out_dir" . "/merge.out "  
   . "-e $out_dir" . "/merge.err " ;
   print $RNASEQCONFIG->{SAMTOOLS}
+  ."-h $out_dir" . "/all_headers.txt "
   . " merge $merge_dir" . "/merged_unsorted.bam ";         
 
   my @sorted_bam_files = ();
