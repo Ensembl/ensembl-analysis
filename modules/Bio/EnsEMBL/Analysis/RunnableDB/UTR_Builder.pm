@@ -123,7 +123,7 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
   $self->read_and_check_config($UTR_BUILDER_CONFIG_BY_LOGIC) ;
-  $self->read_and_check_config_value($TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC, ['MIN_CONSENSUS', 'END_EXON_PENALTY', 'EST_OVERLAP_PENALTY', 'SHORT_INTRON_PENALTY', 'SHORT_EXON_PENALTY', 'UTR_PENALTY', 'VERBOSE']) ;
+  $self->read_and_check_config_value($TRANSCRIPT_CONSENSUS_CONFIG_BY_LOGIC, undef,['MIN_CONSENSUS', 'END_EXON_PENALTY', 'EST_OVERLAP_PENALTY', 'SHORT_INTRON_PENALTY', 'SHORT_EXON_PENALTY', 'UTR_PENALTY', 'VERBOSE']) ;
 
   return $self;
 }
