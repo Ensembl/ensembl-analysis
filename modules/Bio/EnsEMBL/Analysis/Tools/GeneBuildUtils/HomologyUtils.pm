@@ -37,7 +37,7 @@ cloning
 
 =head1 CONTACT
 
-please send any questions to dev@ensembl.org
+please send any questions to http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 METHODS
 

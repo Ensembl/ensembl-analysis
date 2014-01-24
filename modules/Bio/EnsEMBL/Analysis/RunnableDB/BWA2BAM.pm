@@ -33,7 +33,7 @@ This module uses BWA to align fastq to a genomic sequence
 
 =head1 CONTACT
 
-Post general queries to B<dev@ensembl.org>
+Post general queries to B<http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 APPENDIX
 

@@ -40,7 +40,7 @@ Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Genes3d
 
 =head1 CONTACT
 
-   Marc Sohrmann: helpdesk@ensembl.org
+   Marc Sohrmann: http://www.ensembl.org/Help/Contact
 
 =head1 APPENDIX
 

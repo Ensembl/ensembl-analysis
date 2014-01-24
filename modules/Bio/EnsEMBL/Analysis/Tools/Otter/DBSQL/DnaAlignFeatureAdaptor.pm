@@ -37,7 +37,7 @@ and there is a new method, fetch_all_by_Slice_attach_daf_history.
 
 =head1 CONTACT
 
-Post questions to the EnsEMBL development list <dev@ensembl.org>
+Post questions to the EnsEMBL development list <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =cut
 

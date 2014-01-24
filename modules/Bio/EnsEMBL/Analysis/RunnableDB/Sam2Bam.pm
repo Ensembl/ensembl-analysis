@@ -35,7 +35,7 @@ files into a single sorted indexed merged BAM file
 
 =head1 CONTACT
 
-Post general queries to B<dev@ensembl.org>
+Post general queries to B<http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 APPENDIX
 

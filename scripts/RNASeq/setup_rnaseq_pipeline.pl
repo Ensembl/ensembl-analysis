@@ -1200,10 +1200,10 @@ sub batchqueue_header {
 =head1 CONTACT
 
     Please email comments or questions to the public Ensembl
-    developers list at <dev@ensembl.org>.
+    developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
     Questions may also be sent to the Ensembl help desk at
-    <helpdesk@ensembl.org>.
+    <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -1332,7 +1332,7 @@ sub blast2_header {
   use Bio::EnsEMBL::Analysis::Config::Blast qw(BLAST_CONTIG);
 =head1 CONTACT
 
-Post questions to the Ensembl development list: dev@ensembl.org
+Post questions to the Ensembl development list: http://lists.ensembl.org/mailman/listinfo/dev
 
 =cut
 
@@ -1392,7 +1392,7 @@ sub batchqueue_tail {
 sub bwa_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::BWA
 # 
-# Cared for by EnsEMBL (dev@ensembl.org)
+# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
 #
 # Copyright GRL & EBI
 #
@@ -1466,7 +1466,7 @@ use vars qw( %Config );
 sub BAM2GENES_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes;
 #
-# Cared for by EnsEMBL (dev@ensembl.org)
+# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
 #
 # Copyright GRL & EBI
 #
@@ -1526,7 +1526,7 @@ BAM2GENES_CONFIG_BY_LOGIC =>
 sub BAM2INTRONS_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns
 #
-# Cared for by EnsEMBL (dev@ensembl.org)
+# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
 #
 # Copyright GRL & EBI
 #
@@ -1678,7 +1678,7 @@ use vars qw( %Config );
 sub SAM2BAM_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Sam2Bam
 #
-# Cared for by EnsEMBL (dev@ensembl.org)
+# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
 #
 # Copyright GRL & EBI
 #
@@ -1721,7 +1721,7 @@ use vars qw( %Config );
 sub REFINE_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 #
-# Cared for by EnsEMBL (dev@ensembl.org)
+# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
 #
 # Copyright GRL & EBI
 #
@@ -1848,7 +1848,7 @@ $str .= '            # write the intron features into the OUTPUT_DB along with t
 sub BLAST_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastRNASeqPep;
 #
-# Cared for by EnsEMBL (dev@ensembl.org)
+# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
 #
 # Copyright GRL & EBI
 #

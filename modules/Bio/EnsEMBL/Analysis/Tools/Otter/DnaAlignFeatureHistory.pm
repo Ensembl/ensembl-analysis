@@ -45,7 +45,7 @@ Bio::EnsEMBL::Analysis::Tools::Otter::DnaAlignFeatureHistory.pm - Stores details
 
 =head1 CONTACT
 
-Post questions to the EnsEMBL dev mailing list: <dev@ensembl.org>
+Post questions to the EnsEMBL dev mailing list: <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 METHODS
 

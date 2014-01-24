@@ -52,7 +52,7 @@ assessing the cluster.
 
 =head1 CONTACT
 
-Post questions to the EnsEMBL developer list: <dev@ensembl.org>
+Post questions to the EnsEMBL developer list: <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =cut
 

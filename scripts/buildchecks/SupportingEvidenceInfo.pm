@@ -34,7 +34,7 @@ evidence which supports it
 
 =head1 CONTACT
 
-ensembl dev mailing list <dev@ensembl.org>
+ensembl dev mailing list <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 APPENDIX
 

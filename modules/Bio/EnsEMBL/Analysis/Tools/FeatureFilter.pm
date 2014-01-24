@@ -68,7 +68,7 @@ NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: dev@ensembl.org
+Post questions to the Ensembl development list: http://lists.ensembl.org/mailman/listinfo/dev
 
 =cut
 

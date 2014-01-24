@@ -17,7 +17,7 @@
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 
 
-# any questions please send to dev@ensembl.org
+# any questions please send to http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 NAME
 

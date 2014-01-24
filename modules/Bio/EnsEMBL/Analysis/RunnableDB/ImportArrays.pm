@@ -60,7 +60,7 @@ This module was written by Nathan Johnson, based on the CollapseAffy/Oligo code.
 
 =head1 CONTACT
 
-Post general queries to B<dev@ensembl.org>
+Post general queries to B<http://lists.ensembl.org/mailman/listinfo/dev>
 
 
 =cut

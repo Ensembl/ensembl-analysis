@@ -25,7 +25,7 @@ Bio::EnsEMBL::Analysis::PmatchFeature
 
 =head1 CONTACT
 
-dev@ensembl.org
+http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 APPENDIX
 

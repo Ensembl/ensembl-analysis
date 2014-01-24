@@ -32,7 +32,7 @@ config file which can be created with the s3cmd --configure option
 
 =head1 CONTACT
 
-please send any questions to dev@ensembl.org
+please send any questions to http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 METHODS 
 

@@ -43,7 +43,7 @@ You must FIRST have created and imported all the necessary Arrays and Probe obje
 
 =head1 CONTACT
 
-Post general queries to B<dev@ensembl.org>
+Post general queries to B<http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 METHODS
 
