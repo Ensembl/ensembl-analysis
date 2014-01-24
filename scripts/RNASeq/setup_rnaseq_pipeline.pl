@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1189,13 +1189,19 @@ sub batchqueue_header {
 
 =head1 LICENSE
 
-    Copyright (c) 1999-2009 The European Bioinformatics Institute and
-    Genome Research Limited.  All rights reserved.
-
-    This software is distributed under a modified Apache license.
-    For license details, please see
-
-      http://www.ensembl.org/info/about/code_licence.html
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 =head1 CONTACT
 
@@ -1318,8 +1324,19 @@ use vars qw(%Config);
 sub blast2_header {
   my $str = '# Ensembl module for Bio::EnsEMBL::Analysis::Config::Blast
 #
-# Copyright (c) 2004 Ensembl
-#
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 =head1 NAME
 
@@ -1392,11 +1409,19 @@ sub batchqueue_tail {
 sub bwa_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::BWA
 # 
-# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # POD documentation - main docs before the code
 
@@ -1466,11 +1491,19 @@ use vars qw( %Config );
 sub BAM2GENES_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes;
 #
-# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # POD documentation - main docs before the code
 
@@ -1526,11 +1559,19 @@ BAM2GENES_CONFIG_BY_LOGIC =>
 sub BAM2INTRONS_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns
 #
-# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # POD documentation - main docs before the code
 
@@ -1615,11 +1656,19 @@ use vars qw( %Config );
 sub GSNAP_header { 
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Gsnap
 #
-# Cared for by EnsEMBL (ensembl-dev@ebi.ac.uk)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # POD documentation - main docs before the code
 
@@ -1678,11 +1727,19 @@ use vars qw( %Config );
 sub SAM2BAM_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Sam2Bam
 #
-# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # POD documentation - main docs before the code
 
@@ -1721,11 +1778,19 @@ use vars qw( %Config );
 sub REFINE_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 #
-# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # POD documentation - main docs before the code
 
@@ -1848,11 +1913,19 @@ $str .= '            # write the intron features into the OUTPUT_DB along with t
 sub BLAST_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastRNASeqPep;
 #
-# Cared for by EnsEMBL (http://lists.ensembl.org/mailman/listinfo/dev)
-#
-# Copyright GRL & EBI
-#
-# You may distribute this module under the same terms as perl itself
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # POD documentation - main docs before the code
 
