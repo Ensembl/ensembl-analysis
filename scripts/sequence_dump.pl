@@ -63,6 +63,9 @@ normal uppercase Ns or with softmasking
     -include_duplicates Returns duplicate regions. In order to get non-PAR regions of
                         chrY padded with N's it needs to be turned off (default)
 
+    -padded_nonref Returns all non-reference sequences padded with N's to match the corresponding full length
+                   of the reference chromosome for the given non-reference sequence. Only works if -include_duplicates is disabled.
+
     -padded_human_Chr_Y Returns full length human chrY with non-PAR regions padded with N's.
                         Needed for the FuncGen pipeline. Only works if -include_duplicates is disabled
 
@@ -162,6 +165,7 @@ my $include_duplicates;
 my @logic_names;
 my $mask;
 my $help;
+my $padded_nonref;
 
 GetOptions( 'dbhost|host|h:s'               => \$host,
             'dbport|port|P:n'               => \$port,
@@ -179,6 +183,7 @@ GetOptions( 'dbhost|host|h:s'               => \$host,
             'toplevel!'              => \$top_level,
             'seqlevel!'              => \$seq_level,
             'nonref!'                => \$non_ref,
+            'padded_nonref!'         => \$padded_nonref,
             'padded_human_Chr_Y!'    => \$padded_human_Chr_Y,
             'human_female!'          => \$human_female,
             'include_duplicates!'    => \$include_duplicates,
@@ -231,12 +236,6 @@ if($include_duplicates && $padded_human_Chr_Y){
     'Retrieving padded human ChrY only works if duplicates are excluded. '.
     'Run again either not using -include_duplicates or not using '.
     '-padded_human_Chr_Y';
-  throw($message);
-}
-
-if( ($mask || scalar(@logic_names > 0) ) && $padded_human_Chr_Y){
-  my $message =
-    'Masked padded chrY not implemented yet.';
   throw($message);
 }
 
@@ -398,6 +397,7 @@ if(not exists $dispatch->{$header}){
 ################################################################################
 SLICE:
 foreach my $slice(@$slices){
+
   # Compliance with header format used in previous version of this script
   $singleSerializer->header_function($dispatch->{$header}) if($filename);
 
@@ -408,9 +408,12 @@ foreach my $slice(@$slices){
     next SLICE if (!$y_header);
   }
 
-
   if($mask){
     $slice = $slice->get_repeatmasked_seq(\@logic_names, $softmask);
+  }
+
+  if ($padded_nonref and (!($slice->is_reference()))) {
+    $slice = Bio::EnsEMBL::PaddedSlice->new($slice);
   }
 
   # printing output
@@ -428,7 +431,7 @@ foreach my $slice(@$slices){
       }
     }
   }
-  # Write into seperate files
+  # Write into separate files
   else {
     my $name = File::Spec->catfile($output_dir, $slice->seq_region_name.'.'.$extension);
     print "Multi: $name\n";
@@ -497,9 +500,12 @@ sub _build_complete_PAR_padded_chrY {
   # As this method is highly specific, test that we get what we expect
   # The 1st 10,000bp are an accepted guess for the telomeric region of chrY
   # The second slice contains non-PAR regions
-  if    ($slice->name() eq 'chromosome:GRCh37:Y:1:10000:1'){return 0}
-  elsif ($slice->name() eq 'chromosome:GRCh37:Y:2649521:59034049:1'){
+  if    ( ($slice->name() eq 'chromosome:GRCh38:Y:1:10000:1') or ($slice->name() eq 'chromosome:GRCh38:Y:57217416:57227415:1') ){return 0}
+  elsif ($slice->name() eq 'chromosome:GRCh38:Y:2781480:56887902:1'){
     print STDERR "Chromosome Y will have padded PAR regions\n";
+    if($mask){
+    $slice = $slice->get_repeatmasked_seq(\@logic_names, $softmask);
+    }
     my $y_slice = Bio::EnsEMBL::PaddedSlice->new($slice);
     my $y_header = sub {
       my ($slice) = @_;
@@ -516,7 +522,7 @@ sub _build_complete_PAR_padded_chrY {
   else {
     my $message =
       'This method has been specifically written for the Ensembl FuncGen '.
-      'pipeline. The slice it expect are specific for GRCh37. Compliance '.
+      'pipeline. The slice it expect are specific for GRCh38. Compliance '.
       'with any other assembly has not been tested. The header found is '.
       "not expected: '".$slice->name()."'";
     throw($message);
