@@ -303,7 +303,7 @@ sub binary_tree_file {
   $self->binary_tree($tree);
   my $binary_tree_file = $tree_file . ".bin";
   open F, ">$binary_tree_file";
-  print F $tree->newick_simple_format,"\n";
+  print F $tree->newick_format('simple'),"\n";
   close F;
   $tree->release;
   return $binary_tree_file;
