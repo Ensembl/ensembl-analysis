@@ -231,7 +231,8 @@ sub run_analysis{
   # my $command = $program." ".$self->queryfile." ".$self->options." -d";
 
   print "Running analysis ".$command."\n";
-  my $exit = system($command);
+  # We test 256 as it was what trf returns when it's successful
+  throw ("TRF died: $?") if (system($command)!= 256);
   foreach my $file(glob $self->queryfile."*"){
     $self->files_to_delete($file);
   }
