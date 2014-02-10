@@ -514,7 +514,8 @@ sub _build_complete_PAR_padded_chrY {
       $header[3] = 1;
       $header[4] = $slice->length();
       my $tmp = join(q{:}, @header);
-      my $newHeader = "Y dna:chromosome $tmp";
+      #my $newHeader = "Y dna:chromosome $tmp";
+      my $newHeader = "$tmp";
       return ($newHeader);
     };
     return($y_header, $y_slice);
