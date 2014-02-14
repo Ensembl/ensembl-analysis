@@ -114,6 +114,7 @@ sub new {
 sub parse_results {
   my ($self, $fh) = @_;
 
+  print STDERR "DEBUG: beginning parse_results:\n", `cat /proc/$$/statm`, "\n";
   my %strand_lookup = ('+' => 1, '-' => -1, '.' => 1);
 
   # Each alignment will be stored as a transcript with 
@@ -126,14 +127,18 @@ sub parse_results {
   # Each line represents a distinct match to one sequence
   # containing multiple 'exons'.
 
+ my $i = 0;
  TRANSCRIPT:
   while (<$fh>){
-    print STDERR $_ if $self->_verbose;
+#    print STDERR $_ if $self->_verbose;
+#    print STDERR $_;
 
     next unless /^RESULT:/;
 
     chomp;
 
+  $i++;
+  print STDERR "DEBUG: parse_results line $i:\n", `cat /proc/$$/statm`, "\n";
     my ($tag, $q_id, $q_start, $q_end, $q_strand, $t_id, $t_start, $t_end,
 	$t_strand, $score, $perc_id, $q_length, $t_length, $gene_orientation,
 	@align_components) = split;
@@ -292,8 +297,11 @@ sub parse_results {
     }
   }
 
+  print STDERR "DEBUG: before sort:\n", `cat /proc/$$/statm`, "\n";
   @transcripts = sort { $b->[0] <=> $a->[0] } @transcripts;
+  print STDERR "DEBUG: before map:\n", `cat /proc/$$/statm`, "\n";
   @transcripts = map { $_->[1] } @transcripts;
+  print STDERR "DEBUG: after map:\n", `cat /proc/$$/statm`, "\n";
 
   return \@transcripts;
 }
@@ -415,7 +423,9 @@ sub _parse_vulgar_block {
 
       # if we see a gap/intron immediately after an intron, the current exon is "empty"
         if ($exons[$exon_number]) {
-          $exon_number++;
+            if (exists $exons[$exon_number]->{sf}) {
+                $exon_number++;
+            }
         }
       } elsif ($type eq "I") {
           throw("Really odd case here, with lost intron !!\n") ;
