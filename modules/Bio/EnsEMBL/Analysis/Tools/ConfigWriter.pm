@@ -125,36 +125,74 @@ sub parse {
             }
         }
     }
+
     my $head;
     my $config_hash;
+    my $open_config = 0;
     my $import;
     my $header = 1;
     my $hash = 0;
     my %Config;
-    my $package;
+
     open(FH, $path) || throw("Could not open $path\n");
     while(<FH>) {
         if (/%Config\s*=\s*\(/) {
             $header = 0;
             $hash = 1;
         }
-        elsif (/\s*\);/ and $hash) {
+
+        elsif(/%Config\s*=/) {
+            $header = 0;
+            $open_config = 1;
+        }
+
+       # The following two conditionals are for cases when the first opening
+       # bracket is not on the same line as Config\s*=
+       elsif($open_config && $_ =~ /\s*\(/) {
+            $open_config = 0;  
+            $hash = 1;
+        }
+
+        elsif($open_config) {
+          # Discard these lines 
+        }
+
+        elsif (/\s*\)\s*;/ and $hash) {
             $hash = 0;
         }
+
         elsif ($header) {
             $head .= $_;
         }
+
         elsif ($hash) {
             $config_hash .= $_;
         }
+
         else {
             $import .= $_;
         }
     }
     close(FH);
+
+    unless($config_hash) {
+        throw("Could not parse config hash out of module correctly, check config structure!\n");
+    }
+
+    unless($import) {
+        throw("Could not parse import block out of module correctly, check config structure!\n");
+    }
+
+
     $self->header($head);
     $self->tail($import);
     eval '%Config = ('.$config_hash.');';
+
+    if($@) {
+        throw("Problem with eval of config hash, could be a problem with config structure!".
+              "\n\nError from eval: ".$@."\n");
+    }
+  
     $self->config(\%Config);
 }
 
@@ -374,6 +412,7 @@ sub copy_analysis_from_config {
     throw( "You need to provide a new logic_name!\n") unless ($new_analysis);
 
     foreach my $hkey (%{$self->config}) {
+ 
         next unless $hkey =~ /CONFIG_BY_LOGIC/;
         my $tmp = _key_exists($self->config->{$hkey}, $logic_name);
         if (!$tmp) {
