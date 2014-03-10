@@ -205,13 +205,17 @@ sub parse_results{
       my @element = split;
       my ($name, $start, $end, $score, $temp_strand) =
         @element[0, 3, 4, 5, 6];
+      my $strand = 1;
+      # Eponine is reporting coordinate with a one base offset when predicting on the reverse strand
+      if($temp_strand eq '-'){
+        $strand = -1;
+        $start--;
+        $end--;
+      }
+      # This should not happen anymore as we fix the offset but I will leave it here for some time
       if ($self->query->seq_region_length < $start) {
           warning("WRONG feature $start $end $score $temp_strand as length is ".$self->query->seq_region_length."\n");
           next if ($start == $end);
-      }
-      my $strand = 1;
-      if($temp_strand eq '-'){
-        $strand = -1;
       }
       $score = $self->trunc_float_3($score);
       my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
