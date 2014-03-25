@@ -6,7 +6,7 @@ use warnings;
 
 use Getopt::Long qw( :config no_ignore_case );
 use Pod::Usage;
-
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -207,19 +207,18 @@ else {
 @opt_havana_include  = split( /,/, join( ',', @opt_havana_include ) );
 @opt_havana_exclude  = split( /,/, join( ',', @opt_havana_exclude ) );
 
+if($opt_database_dna) {
+ print "Optional DNA database\thost:\t".$opt_host_dna."\n".
+                                   "\tport:\t".$opt_port_dna."\n".
+                                   "\tuser:\t".$opt_user_dna."\n".
+                                   "\tname:\t".$opt_database_dna."\n";
+}
+
 print <<DBINFO_END;
 ENSEMBL database\thost:\t$opt_host_ensembl
                 \tport:\t$opt_port_ensembl
                 \tuser:\t$opt_user_ensembl
                 \tname:\t$opt_database_ensembl
-
-Any missing DNA database connection settings (below) will be replaced by
-the corresponding connection settings for the Ensembl database (above).
-
-DNA database\thost:\t$opt_host_dna
-            \tport:\t$opt_port_dna
-            \tuser:\t$opt_user_dna
-            \tname:\t$opt_database_dna
 
 HAVANA database\thost:\t$opt_host_havana
                \tport:\t$opt_port_havana
@@ -1059,6 +1058,16 @@ sub add_havana_xref {
   }
   else {
     die("Can't add xref to unknown type of object");
+  }
+
+  unless($external_db_name && $db_display_name && $type) {
+    throw("Could not assign one or all of the following: external_db_name, db_display_name or type\n".
+        "If you are using the wrapper script, make sure the corresponding values are set in the\n".
+        "config file. Typical values are:\n".
+        "havana_gene_xref='OTTG,Havana gene,ALT_GENE'\n".
+        "havana_transcript_xref='OTTT,Havana transcript,ALT_TRANS'\n".
+        "havana_translation_xref='OTTP,Havana translation,MISC'\n"
+        );
   }
 
   my $xref =
