@@ -40,7 +40,7 @@ bsub -q normal \
   -eo "${output_dir}/merge-run-%I.err" \
   -M 1500 -R 'select[mem>1500]' -R 'rusage[mem=1500]' \
   -We 30 \
-  ${ensembl_analysis_base}/scripts/Merge/merge.pl \
+  perl ${ensembl_analysis_base}/scripts/Merge/merge.pl \
   --host_ensembl="${host_ensembl}" \
   --user_ensembl="${rouser}" \
   --password_ensembl="${ropassword}" \
@@ -106,7 +106,7 @@ for list in genes-copy-*; do
     -oo "merge-copy-\${i}.out" \
     -eo "merge-copy-\${i}.err" \
     -M 500 -R 'select[mem>500]' -R 'rusage[mem=500]' \
-  ${ensembl_analysis_base}/scripts/genebuild/copy_genes.pl \
+  perl ${ensembl_analysis_base}/scripts/genebuild/copy_genes.pl \
     --file="\${list}" \
     --sourcehost='${host_ensembl}' \
     --sourceuser='${rouser}' \
