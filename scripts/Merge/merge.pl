@@ -6,7 +6,7 @@ use warnings;
 
 use Getopt::Long qw( :config no_ignore_case );
 use Pod::Usage;
-use Bio::EnsEMBL::Utils::Exception qw(throw);
+use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -603,6 +603,13 @@ sub process_genes {
     $havana_gene->{__is_pseudogene} =            # HACK
       ( !$havana_gene->{__is_coding} &&
         $havana_gene->biotype() =~ /pseudogene/ );
+
+    # Check pseudogene has one transcript  
+    if ($havana_gene->{__is_pseudogene}) {
+      warning ($transcript_count." transcripts found for Havana pseudogene: ".$havana_gene->stable_id().
+        ". Havana pseudogenes should have a single transcript.")
+        unless $transcript_count == 1;
+    }
 
     $havana_gene->{__has_ref_error} = $has_assembly_error;    # HACK
     $havana_gene->{__is_single_transcript} =
