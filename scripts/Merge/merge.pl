@@ -1489,6 +1489,9 @@ sub copy {
       $source_transcript->translation(undef);
       $source_transcript->dbID(undef);       # HACK
       $source_transcript->adaptor(undef);    # HACK
+ 
+      print "Copy> Stripping exon phases for: ".$source_transcript->stable_id()."\n"; 
+      strip_phase(\$source_transcript);
 
       printf( "Copy> Updating transcript biotype from %s to %s\n",
               $source_transcript->biotype(), $target_gene->biotype() );
@@ -1518,6 +1521,18 @@ sub copy {
 
   return 0;
 } ## end sub copy
+
+# Strip the phases off all the exons in a transcript. Used on Ensembl
+# coding transcripts that get demoted to pseudogenes.
+sub strip_phase {
+  my ($transcript_to_strip) = @_;  
+  my $exon_refs = $$transcript_to_strip->get_all_Exons();
+  foreach my $exon (@{$exon_refs}) {
+    $exon->phase(-1);
+    $exon->end_phase(-1);
+  }
+    
+}
 
 sub tag_transcript_analysis {
   my ( $transcript, $suffix ) = @_;
