@@ -1026,6 +1026,11 @@ ENSEMBL_GENE:
   foreach my $havana_gene ( @{$havana_genes} ) {
     my $old_dbID = $havana_gene->dbID();
 
+    if($havana_gene->biotype() =~ /^(TEC|artifact)$/) {
+      check_for_ensembl_transcript($havana_gene);   
+      next;
+    }
+   
     $OUTPUT_GA->store($havana_gene);
     printf( "STORED\t%s\told id = %d, new id = %d\n",
             $havana_gene->stable_id(),
@@ -1034,6 +1039,32 @@ ENSEMBL_GENE:
 
 } ## end sub process_genes
 
+sub check_for_ensembl_transcript
+{
+  # This will go through a havana gene that has a bad biotype and check if
+  # there were any ensembl transcripts copied or merged in. If there were 
+  # it will print a warning that the corresponding ensembl gene will not be
+  # stored. We don't have the gene stable id at this point so the transcript
+  # stable id will have to do
+
+  my ($bad_havana_bio_gene) = @_;
+  print "WARNING: skipping store of havana gene ".$bad_havana_bio_gene->stable_id().
+        " due to bad biotype: ".$bad_havana_bio_gene->biotype()."\n";
+  
+  my $bad_transcripts = $bad_havana_bio_gene->get_all_Transcripts();
+  foreach my $bad_transcript (@{$bad_transcripts}) {
+
+      print "FM2 Dumper: ".ref($bad_transcript)."\n";
+    if ($bad_transcript->stable_id() =~ /^ENS.+/) {
+       print "WARNING: skipping store of Ensembl gene containing transcript ".$&.
+             " due to bad biotype for havana gene ".$bad_havana_bio_gene->stable_id().
+             " with biotype: ".$bad_havana_bio_gene->biotype()."\n";
+ 
+    }
+
+  }
+  
+}
 sub add_havana_xref {
   my ($feature) = @_;
 
