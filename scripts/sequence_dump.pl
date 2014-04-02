@@ -402,10 +402,10 @@ foreach my $slice(@$slices){
   $singleSerializer->header_function($dispatch->{$header}) if($filename);
 
   # For FuncGen pipeline, print a PAR-padded chrY
-  my ($y_header, $y_slice) = (undef, undef);
+  my ($padded_header, $padded_slice) = (undef, undef);
   if($padded_human_Chr_Y && $slice->name() =~ /^chromosome:GRCh\d\d:Y/ ){
-    ($y_header, $y_slice) = _build_complete_PAR_padded_chrY($slice);
-    next SLICE if (!$y_header);
+    ($padded_header, $padded_slice) = _build_complete_PAR_padded_chrY($slice);
+    next SLICE if (!$padded_header);
   }
 
   if($mask){
@@ -413,17 +413,26 @@ foreach my $slice(@$slices){
   }
 
   if ($padded_nonref and (!($slice->is_reference()))) {
-    $slice = Bio::EnsEMBL::PaddedSlice->new($slice);
+    $padded_slice = Bio::EnsEMBL::PaddedSlice->new($slice);
+    $padded_header = sub {
+      my ($padded_slice) = @_;
+      my $original = $padded_slice->name();
+      my @header = split(/:/, $original);
+      $header[3] = 1;
+      $header[4] = $padded_slice->length();
+      my $tmp = join(q{:}, @header);
+      my $newHeader = "$tmp";
+      return ($newHeader);
+    };
   }
 
   # printing output
   # An existing filename at this stage implies that output goes
   # into a single file
   if ($filename) {
-    if($y_header && $y_slice){
-      _print_padded_y($singleSerializer, $y_header, $y_slice);
-    }
-    else{
+    if ($padded_header && $padded_slice) {
+      _print_padded($singleSerializer,$padded_header,$padded_slice);
+    } else {
       $singleSerializer->print_Seq($slice);
       # Write female file, if demanded
       if( $human_female && $slice->name() !~ /^chromosome:GRCh\d\d:Y/){
@@ -437,10 +446,9 @@ foreach my $slice(@$slices){
     print "Multi: $name\n";
     open(my $fh, '>', $name) or die "Cant open stream to $name: $!";
       my $multiSerializer = $serializer->new($fh);
-      if($y_header && $y_slice){
-        _print_padded_y($multiSerializer, $y_header, $y_slice);
-      }
-      else{
+      if ($padded_header && $padded_slice) {
+        _print_padded($multiSerializer,$padded_header,$padded_slice);
+      } else {
         $multiSerializer->header_function($dispatch->{$header});
         $multiSerializer->print_Seq($slice);
       }
@@ -451,12 +459,12 @@ close($fh_singleFile) if($fh_singleFile);
 print "Finished\n";
 
 
-=head2 _print_padded_y
+=head2 _print_padded
 
   Arg [1]    : Bio::EnsEMBL::Utils::IO::FASTASerializer
   Arg [2]    : Modified header line
   Arg [3]    : Bio::EnsEMBL::Slice
-  Example    : _print_padded_y($singleSerializer, $y_header, $y_slice)
+  Example    : _print_padded($singleSerializer, $y_header, $y_slice)
   Description: Replaces the original FASTA-header from the slice with
                modified one. After writing the sequence, the original
                header is restored.
@@ -466,12 +474,12 @@ print "Finished\n";
   Status     : at risk
 
 =cut
-sub _print_padded_y {
-  my ($out, $y_header, $y_slice) = @_;
+sub _print_padded {
+  my ($out, $padded_header, $padded_slice) = @_;
 
   my $original_header_function = $out->header_function();
-  $out->header_function($y_header);
-  $out->print_Seq($y_slice);
+  $out->header_function($padded_header);
+  $out->print_Seq($padded_slice);
   $out->header_function($original_header_function);
 }
 
