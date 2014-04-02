@@ -615,6 +615,10 @@ sub process_genes {
     $havana_gene->{__is_single_transcript} =
       ( $transcript_count == 1 );                             # HACK
 
+    unless($havana_gene->{__is_gene_cluster}) {
+        $havana_gene->{__is_gene_cluster} = (
+            scalar(@{ $havana_transcript->get_all_Attributes('gene_cluster') }) > 0 );
+    }
     # Add "OTTG" xref to Havana gene.
     add_havana_xref($havana_gene);
 
@@ -675,7 +679,6 @@ sub process_genes {
 
       tag_transcript_analysis( $ensembl_transcript, $opt_ensembl_tag );
       $ensembl_transcript->source($opt_ensembl_tag);
-
       ++$transcript_count;
     } ## end foreach my $ensembl_transcript...
 
@@ -923,6 +926,14 @@ ENSEMBL_GENE:
                 $havana_gene->stable_id(),
                 $havana_gene->dbID() );
 
+        if($havana_gene->{__is_gene_cluster}) {
+
+          unless($havana_gene->{__is_from_copy}) {
+            $havana_gene->{__is_from_copy} = 1;   
+          } 
+
+        }
+  
         my $copy_code = copy( $havana_gene, $ensembl_transcript );
 
         $copied_ensembl_transcripts{$key} = 1;
@@ -997,6 +1008,14 @@ ENSEMBL_GENE:
                 $havana_gene->stable_id(),
                 $havana_gene->dbID() );
 
+          if($havana_gene->{__is_gene_cluster}) {
+
+          unless($havana_gene->{__is_from_copy}) {
+            $havana_gene->{__is_from_copy} = 1;   
+          } 
+
+        }
+
         $copy_code = copy( $havana_gene, $ensembl_transcript );
       }
 
@@ -1044,8 +1063,8 @@ sub check_for_ensembl_transcript
   # This will go through a havana gene that has a bad biotype and check if
   # there were any ensembl transcripts copied or merged in. If there were 
   # it will print a warning that the corresponding ensembl gene will not be
-  # stored. We don't have the gene stable id at this point so the transcript
-  # stable id will have to do
+  # stored. We don't have the original ensembl gene stable id at this point 
+  # so the transcript stable id will have to do
 
   my ($bad_havana_bio_gene) = @_;
   print "WARNING: skipping store of havana gene ".$bad_havana_bio_gene->stable_id().
@@ -1054,7 +1073,6 @@ sub check_for_ensembl_transcript
   my $bad_transcripts = $bad_havana_bio_gene->get_all_Transcripts();
   foreach my $bad_transcript (@{$bad_transcripts}) {
 
-      print "FM2 Dumper: ".ref($bad_transcript)."\n";
     if ($bad_transcript->stable_id() =~ /^ENS.+/) {
        print "WARNING: skipping store of Ensembl gene containing transcript ".$&.
              " due to bad biotype for havana gene ".$bad_havana_bio_gene->stable_id().
@@ -1497,6 +1515,13 @@ sub copy {
   elsif ( $target_gene->{__is_pseudogene} ) {
     print( "Copy> Target gene is pseudogene, " .
            "will not copy anything into it.\n" );
+    print("Copy> Deleting the Ensembl annotation.\n");
+    return 0;
+  }
+  elsif ( $target_gene->{__is_gene_cluster} && $target_gene->{__is_from_copy}) {
+    print( "Copy> Target gene is part of gene cluster, " .
+           "will not copy overlapping Ensembl transcripts ".
+           "into it.\n" );
     print("Copy> Deleting the Ensembl annotation.\n");
     return 0;
   }
