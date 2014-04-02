@@ -68,6 +68,8 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis;
 use Bio::SeqIO;
 
+use POSIX qw/ceil/;
+
 use vars qw (@ISA @EXPORT);
 
 @ISA = qw(Exporter);
@@ -1202,9 +1204,9 @@ sub replace_stops_with_introns{
   my $translation_end_shift = 0;   # in number of bases
   my $end_exon_shift = 0;          # in number of exons
 
-  #foreach my $exon (@{$transcript->get_all_Exons}) {
-  #  print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
-  #}
+foreach my $exon (@{$transcript->get_all_Exons}) {
+print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
+}
 
   my $newtranscript = clone_Transcript($transcript);
   my @exons = @{$newtranscript->get_all_Exons};
@@ -1309,20 +1311,23 @@ sub replace_stops_with_introns{
             foreach my $ug ($f->ungapped_features) {
               $ug->analysis($newtranscript->analysis);
               my $orignial_analysis = $ug->analysis;
-              if (($ug->start == $exon_left->start && $ug->end == $exon_left->end) ||
-                ($ug->start == $exon_right->start && $ug->end == $exon_right->end)) {
-                print STDERR "There's one base in it - cannot split due to out of phase error\n";
-                last;
-              } elsif (($ug->start + 2 > $exon_left->start) || ($ug->end < $exon_left->end -2)) {
-               print STDERR "There's two bases in it - cannot split due to out of phase error\n";
-               last;
-              } elsif ($ug->start >= $exon_left->start && 
-                  $ug->end <= $exon_left->end) {
+              #if (($ug->start == $exon_left->start && $ug->end == $exon_left->end) ||
+              #  ($ug->start == $exon_right->start && $ug->end == $exon_right->end)) {
+              #  print STDERR "There's one base in it - cannot split due to out of phase error\n";
+              #  last;
+              #} elsif (($ug->start + 2 > $exon_left->start) || ($ug->end < $exon_left->end -2)) {
+              # print STDERR "There's two bases in it - cannot split due to out of phase error\n";
+              # last;
+              #} elsif ($ug->start >= $exon_left->start && 
+              if ($ug->start >= $exon_left->start &&
+                  $ug->end <= $exon_left->end+3) {
                 # completely within the left-side of the split
+                # (including the stop length +3)
                 push @ug_left, $ug;
-              } elsif ($ug->start >= $exon_right->start && 
+              } elsif ($ug->start >= $exon_right->start-3 && 
                        $ug->end <= $exon_right->end) {
                 # completely within the right-side of the split
+                # (including the stop length -3)
                 push @ug_right, $ug;
               } else {
                 # this ug must span the split
@@ -1394,16 +1399,16 @@ sub replace_stops_with_introns{
                                 ($fp_right->length / 3) -
                                 1);
                }
-
                if ($fp_left->end >= $fp_left->start) {
                  push @ug_left, $fp_left;
                }
                if ($fp_right->end >= $fp_right->start) {
                  push @ug_right, $fp_right;
-                }
+                }                
               }
-          }
-        }
+          } # foreach my $ug ($f->ungapped_features) {
+        } # foreach my $f (@sfs) {
+
 
           $exon_left = add_dna_align_features_by_hitname_and_analysis(\@ug_left,$exon_left) ;
           $exon_right =add_dna_align_features_by_hitname_and_analysis(\@ug_right,$exon_right) ;
