@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -70,7 +70,7 @@ my $usage = "perl setup_rnaseq_pipeline.pl
 -update_analyses $update_analyses, only write the analyses - do not alter the config,
 -jdi        Just Do it, skip the continue(Y/n) prompt.
 Need to fill in the config in the setup_rnaseq_pipeline_config.pm module.
--stage      $force_stage, Force the pipeline to start from a particular stage - 
+-stage      $force_stage, Force the pipeline to start from a particular stage -
             could be dangerous unless your pipeline has finished the previous stages but useful
         if you have run part of the pipeline and want to change config..
 	    The stages are:
@@ -78,9 +78,9 @@ Need to fill in the config in the setup_rnaseq_pipeline_config.pm module.
 	    2	bam2genes complete
 	    3	bam2introns complete
 	    Enter 1,2 or 3 to force the pipeline to start from the stage of choice.
-            You must run the steps sequentially though so to go to stage 2 first run 
-            the script with no stage, then with -stage 1 and finally with -stage 2 to 
-            ensure all the analyses get written 
+            You must run the steps sequentially though so to go to stage 2 first run
+            the script with no stage, then with -stage 1 and finally with -stage 2 to
+            ensure all the analyses get written
 ";
 
 $| = 1;
@@ -96,68 +96,251 @@ die($usage) unless ($dbname && $analysisconfigdir &&
 $pipelineconfigdir && $delimiter && $summaryfile && $input_dir &&
 $output_dir );
 
-if ($force_stage) {
-  die($usage)
-    unless ( $force_stage == 1 || $force_stage == 2 || $force_stage == 3 );
-  $force_stage = 'bwa_complete'       if $force_stage == 1;
-  $force_stage = 'gsnap_complete'     if $force_stage == 1 && $use_gsnap;
-  $force_stage = 'bam2genes complete' if $force_stage == 2;
-  $force_stage = 'configured'         if $force_stage == 3;
-  print "Starting from stage $force_stage\n";
-}
-
-$stage = $force_stage if $force_stage;
-throw("Cannot find input directory $input_dir\n")   unless -e $input_dir;
-throw("Cannot find output directory $output_dir\n") unless -e $output_dir;
-throw("Cannot find merge directory $merge_dir\n")   unless -e $merge_dir;
-system( "mkdir -p " . $merge_dir . "/SAM" ) unless -e $merge_dir . "/SAM";
-
-# get database hash
 my %database_hash;
-my %databases = %{$DATABASES};
-for my $category ( keys %databases ) {
-  if ( !$databases{$category}{-host} || !$databases{$category}{-dbname} ) {
-    print STDERR "Skipping category "
-      . $category
-      . " no dbinfo "
-      . "defined\n";
-    next;
-  }
-  print STDERR "\n$category: $databases{$category}{-host} "
-      . "$databases{$category}{-dbname} :\n--------------------------------------\n";
+if ($update_config) {
+    my $rows = read_pipeline_config();
+    check_directories();
+    update_config($bwa_run);
+    update_config($introns_run);
+    update_config($refine_run);
+    update_config($blast_run);
+}
+elsif ($force_stage) {
+    my $rows = read_pipeline_config();
+    check_directories();
+    check_databases(\%database_hash);
 
-  my %constructor_args = %{ $databases{$category} };
-  my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %constructor_args, );
-  $database_hash{$category} = $dba;
 }
 
-# test that dbs all exist
-my $dba = $database_hash{$dbname};
-throw("Db $dbname not found in Databases.pm\n") unless $dba;
-throw( "Db " . $RNASEQCONFIG->{ROUGHDB} . " not found in Databases.pm\n" )
-  unless $database_hash{ $RNASEQCONFIG->{ROUGHDB} };
-throw( "Db " . $RNASEQCONFIG->{REFINEDDB} . " not found in Databases.pm\n" )
-  unless $database_hash{ $RNASEQCONFIG->{REFINEDDB} };
-throw( "Db " . $RNASEQCONFIG->{BLASTDB} . " not found in Databases.pm\n" )
-  unless $database_hash{ $RNASEQCONFIG->{BLASTDB} };
+
+sub check_directories {
+    my $throw_msg = '';
+    $throw_msg .= "Cannot find input directory $input_dir\n" unless (-e $input_dir);
+    $throw_msg .= "Cannot find output directory $output_dir\n" unless (-e $output_dir);
+    $throw_msg .= "Cannot find merge directory $merge_dir\n" unless (-e $merge_dir);
+    system( "mkdir -p " . $merge_dir . "/SAM" ) unless -e $merge_dir . "/SAM";
+    throw($throw_msg) if ($throw_msg);
+}
+
+sub check_databases {
+  my $databases = shift;
+  foreach my $config_dbname ('REFERENCE_DB', $RNASEQCONFIG->{ROUGHDB}, $RNASEQCONFIG->{REFINEDDB}, $RNASEQCONFIG->{BLASTDB}) {
+      if (exists $DATABASES->{$config_dbname}) {
+          my %constructor_args = %{ $DATABASES->{$config_dbname} };
+          $databases->{$config_dbname} = new Bio::EnsEMBL::DBSQL::DBAdaptor( %constructor_args, );
+      }
+      else {
+          throw("Database $config_dbname is not defined")
+      }
+  }
+
+  my $dba = $databases->{REFERENCE_DB};
+  # test that repeat_feature, repeat_consensus, meta_cord and dna are populated in the ref db
+  my $throw_msg = '';
+  my $dbname = $dba->dbname;
+  my $sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM ?" );
+  foreach my $table ('repeat_feature', 'repeat_consensus', 'dna', 'meta_coord') {
+      $sth->bind_param(1, $table);
+      $sth->execute;
+      $throw_msg .= "Db $dbname has unpopulated $table table\n") unless ($sth->fetchrow > 0);
+  }
+  throw($throw_msg) if ($throw_msg);
+}
+
+sub read_pipeline_config {
+
+    my $line = 0;
+    my @rows;
+    my %map;
+    open( FILE, $summaryfile ) or die("Cannot open summary file $summaryfile\n");
+    while (<FILE>) {
+        next if ($_ =~ /^#/) or ($_ eq '');
+        chomp;
+        my %data;
+        my @cells = split( $delimiter, $_ );
+        if ( $line == 0 ) {
+            # header row
+            print STDOUT "Got these headers\n";
+            for ( my $i = 0 ; $i <= $#cells ; $i++ ) {
+                my $header = $cells[$i];
+                print STDOUT $i + 1 . ") $header\n";
+            }
+
+            print STDOUT "Please assign some / all columns to the some / all ",
+                "of the following categories multiple values can be separated with commas:\n",
+                "Tag\tDescription\n";
+
+            push( @{ $map{"ID"} }, @{ assign_categories( \@cells, 1, $RNASEQCONFIG->{ID}, "ID" ) } );
+            push( @{ $map{"SM"} }, @{ assign_categories( \@cells, 1, $RNASEQCONFIG->{SM}, "SM" ) } );
+            push( @{ $map{"LB"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{LB}, "LB" ) } );
+            push( @{ $map{"DS"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{DS}, "DS" ) } );
+            push( @{ $map{"PU"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{PU}, "PU" ) } );
+            push( @{ $map{"CN"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{CN}, "CN" ) } );
+            push( @{ $map{"ST"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{ST}, "ST" ) } );
+            push( @{ $map{"PL"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{PL}, "PL" ) } );
+            push( @{ $map{"FILE"} },   @{assign_categories(  \@cells, 1, $RNASEQCONFIG->{FILE},   "FILE"  ) });
+            push( @{ $map{"LENGTH"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{LENGTH}, "LENGTH") } );
+            push( @{ $map{"PAIRED"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{PAIRED}, "PAIRED") } );
+
+            print STDOUT "Sample data:\n";
+            $line++;
+            next;
+
+        }
+        elsif ( $line == 1 ) {
+            foreach my $key ( keys %data ) {
+                print STDOUT "$key - " . $data{$key} . "\n";
+            }
+            if (!$jdi) {
+                print STDOUT "Continue?(y/n)";
+                my $reply = <>;
+                chomp $reply;
+                exit unless $reply eq "y" or $reply eq "Y";
+            }
+        }
+        else {
+            foreach my $key ( keys %map ) {
+                foreach my $col ( @{ $map{$key} } ) {
+                    if ( $key eq "FILE" ) {
+                        if ( exists $data{$key} ) {
+                            $data{$key} .= "/" . $cells[ $col - 1 ];
+                        } else {
+                            $data{$key} = $cells[ $col - 1 ];
+                        }
+                    }
+                    else {
+                        $data{$key} .= $cells[ $col - 1 ] . " ";
+                    }
+                    # no room for whitespace in the paired or length flag
+                    $data{$key} =~ s/\s+//g if $key eq 'PAIRED' or $key eq 'LENGTH';
+                    # group together IDs by tissue if specified
+                    if ( $key eq $rgt ) {
+                        $id_groups{$data{$rgt}}->{$data{'ID'}}++;
+                    }
+                }
+            }
+        }
+        push @rows, \%data;
+        $line++;
+    } ## end while (<FILE>)
+    close(FILE) or die("Cannot close summary file $summaryfile\n");
+
+    return \@rows;
+}
+
+sub check_pipeline_state {
+    my ($pipeline_analysis, $sic, $pipeline_state) = @_;
+
+    my $submit_bwa2bam_count     = 0;
+    my $bwa2bam_count            = 0;
+    my $submit_bam2genes_count   = 0;
+    my $bam2genes_count          = 0;
+    my $submit_chromosome_count  = 0;
+    my $submit_bam2introns_count = 0;
+    my $bam2introns_count        = 0;
+    my $gsnap_count              = 0;
+    my $submit_gsnap_count       = 0;
+    foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
+        if ( $analysis->logic_name =~ /submit_.+_bwa2bam/ ) {
+            $submit_bwa2bam_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+        elsif ( $analysis->logic_name =~ /bwa2bam_.+/ ) {
+            $bwa2bam_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+        elsif ( $analysis->logic_name =~ /submit_chromosome/ ) {
+            $submit_chromosome_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+        elsif ( $analysis->logic_name =~ /bam2genes/ ) {
+            $bam2genes_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+        elsif ( $analysis->logic_name =~ /submit_.*bam2introns/ ) {
+            $submit_bam2introns_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+        elsif ( $analysis->logic_name =~ /bam2introns/ ) {
+            $bam2introns_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+        elsif ( $analysis->logic_name =~ /submit_.+_gsnap/ ) {
+            $submit_gsnap_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+        elsif ( $analysis->logic_name =~ /gsnap_.+/ ) {
+            $gsnap_count += @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) };
+        }
+#        foreach my $id ( @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) } ) {
+#            $stored_ids->{$id}->{ $analysis->logic_name } = 1;
+#        }
+    }
+    $pipeline_state->{bwa2bam_complete} = 1 if ($submit_bwa2bam_count == $bwa2bam_count);
+    $pipeline_state->{bam2genes_complete} = 1 if ($submit_bam2genes_count == $bam2genes_count);
+    if ($use_gsnap) {
+        $pipeline_state->{introns_complete} = 1 if ($pipeline_state->{bwa2bam_complete} and $submit_gsnap_count == $gsnap_count);
+    }
+    else {
+        $pipeline_state->{introns_complete} = 1 if ($pipeline_state->{bwa2bam_complete} and $submit_bam2genes_count == $bam2genes_count and $submit_bam2introns_count == $bam2introns_count);
+    }
+#    $pipeline_state->{refine_complete} = 1 if ($pipeline_state->{introns_complete} and
+}
 
 
-# test that repeat_feature, repeat_consensus, meta_cord and dna are populated in the ref db
-my $repeatf_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM repeat_feature" );
-$repeatf_sth->execute; my $repeatf_rows = $repeatf_sth->fetchrow;
-throw("Db $dbname has unpopulated repeat_feature table\n") unless $repeatf_rows > 0; 
+sub make_bam2introns_input_ids {
+    my $analysis = shift;
 
-my $repeatc_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM repeat_consensus" );
-$repeatc_sth->execute; my $repeatc_rows = $repeatc_sth->fetchrow;
-throw("Db $dbname has unpopulated repeat_consensus table\n") unless $repeatc_rows > 0; 
+    # assign stable ids to the models and make input ids for the bam2introns run
+    print STDOUT 'Setting gene stable ids...';
+    my $rough_db = $database_hash{ $RNASEQCONFIG->{ROUGHDB} };
+    my $sql = "UPDATE gene SET stable_id = CONCAT('RNASEQG', LPAD(gene_id,11,'0'))";
+    my $sth = $rough_db->dbc->prepare($sql);
+    $sth->execute();
+    print STDOUT " Done\nSetting transcript stable ids...";
+    $sql = "UPDATE transcript SET stable_id = CONCAT('RNASEQT', LPAD(gene_id,11,'0'))";
+    $sth = $rough_db->dbc->prepare($sql);
+    $sth->execute();
+    print STDOUT " Done\nStoring the input ids...";
+    # get the input ids
+    $sql = "SELECT stable_id FROM gene";
+    $sth = $rough_db->dbc->prepare($sql);
+    $sth->execute();
+    my $ids_count = 0;
+    while ( my @array = $sth->fetchrow_array ) {
+        $sic->store_input_id_analysis( $array[0], $analysis, "dummy" );
+        ++$ids_count;
+    }
+    print "\nStored $ids_count submit_bam2introns ids\n";
+}
 
-my $dna_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM dna" );
-$dna_sth->execute; my $dna_rows = $dna_sth->fetchrow;
-throw("Db $dbname has unpopulated dna table\n") unless $dna_rows > 0; 
+sub make_bam2genes_input_ids {
 
-my $mc_sth = $dba->dbc->prepare( "SELECT COUNT(*) FROM meta_coord" );
-$mc_sth->execute; my $mc_rows = $mc_sth->fetchrow;
-throw("Db $dbname has unpopulated meta_coord table\n") unless $mc_rows > 0; 
+    # fetch dummy analysis
+    my $analysis = $pipeline_analysis->fetch_by_logic_name("submit_rnaseq_toplevel");
+    print "Writing input ids for bam2genes\n";
+    # add the submit chromosome input ids to start the next phase of the analysis
+    foreach my $slice ( @{ $sa->fetch_all('toplevel') } ) {
+        # we dont build on the mitochondrial sequences
+        next if ( $slice->seq_region_name eq 'MT' );
+        if ( $RNASEQCONFIG->{SLICE_LENGTH} ) {
+            # otherwise run on slices
+            my @iid_sections = split( /:/, $slice->name );
+            for ( my $i = 1; $i <= $slice->length; $i += $RNASEQCONFIG->{SLICE_LENGTH} ) {
+                my $end = $i + $RNASEQCONFIG->{SLICE_LENGTH} - 1;
+                $end = $slice->length
+                    if $i + $RNASEQCONFIG->{SLICE_LENGTH} - 1 > $slice->length;
+                my $id =
+                    $iid_sections[0] . ":"
+                    . $iid_sections[1] . ":"
+                    . $iid_sections[2] . ":"
+                    . "$i:$end:1";
+                # print "ID $id \n";
+                $sic->store_input_id_analysis( $id, $analysis, "dummy" )
+                    unless $stored_ids->{$id}->{"submit_chromosome"};
+        }
+        else {
+            # run on chromosomes if you have pairing to help separate out the models
+            $sic->store_input_id_analysis( $slice->name, $analysis, "dummy" )
+                unless $stored_ids->{ $slice->name }->{"submit_chromosome"};
+            }
+        }
+    }
+}
+
 
 
 my $sa = $dba->get_SliceAdaptor;
@@ -167,7 +350,7 @@ my $pipelinea =
   new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %constructor_args, );
 # parse the summary file
 # get the pipeline adaptor
-# need to delete this hash ref in order 
+# need to delete this hash ref in order
 # to call the pipeline version
 my $pipeline_analysis = $pipelinea->get_AnalysisAdaptor;
 my $ra                = $pipelinea->get_RuleAdaptor;
@@ -185,52 +368,6 @@ $ref_load =~ s/gene//;
 $blast_load =  $database_hash{$RNASEQCONFIG->{BLASTDB}}->dbc->host;
 $blast_load =~ s/gene//;
 
-my $submit_bwa2bam_count    = 0;
-my $bwa2bam_count           = 0;
-my $submit_bam2genes_count  = 0;
-my $bam2genes_count         = 0;
-my $submit_chromosome_count = 0;
-my $bam2introns_count       = 0;
-my $gsnap_count             = 0;
-my $submit_gsnap_count      = 0;
-my $rough_count             = 0;
-my @files;
-# determine the state of the db 
-foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
-  # print $analysis->logic_name ."\n";
-  foreach my $id ( @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) } )
-  {
-    $stored_ids->{$id}->{ $analysis->logic_name } = 1;
-    if ( $analysis->logic_name =~ /submit_.+_bwa2bam/ ) {
-      $submit_bwa2bam_count++;
-    }
-    if ( $analysis->logic_name =~ /bwa2bam_.+/ ) {
-      $bwa2bam_count++;
-      # split up paired end ids
-      my @name = split( /:/,$id);
-      push @files, shift(@name);
-    }
-    if ( $analysis->logic_name =~ /submit_chromosome/ ) {
-      $submit_chromosome_count++;
-    }
-    if ( $analysis->logic_name =~ /bam2genes/ ) {
-      $bam2genes_count++;
-    }
-    if ( $analysis->logic_name =~ /bam2introns/ ) {
-      $bam2introns_count++
-        unless $analysis->logic_name eq 'submit_bam2introns';
-    }
-    if ( $analysis->logic_name =~ /submit_.+_gsnap/ ) {
-      $submit_gsnap_count++;
-    }
-    if ( $analysis->logic_name =~ /gsnap_.+/ ) {
-      $gsnap_count++;
-      # remove the : from paired reads
-      my @name = split( /\:/, $id );
-      push @files, shift(@name);
-    }
-  } ## end foreach my $id ( @{ $sic->list_input_ids_by_analysis...
-} ## end foreach my $analysis ( @{ $pipeline_analysis...
 
 unless ($update_analyses) {
   unless ($use_gsnap) {
@@ -240,7 +377,7 @@ unless ($update_analyses) {
       $stage = "bwa_complete";
       unless ($check or $bam2genes_count > 0) {
         print "\n\nBWA finished successfully\n------------------------\n";
-        print_merge_cmd( \@files, $output_dir, $merge_dir ); 
+        print_merge_cmd( \@files, $output_dir, $merge_dir );
 
       } ## end unless ($check)
     } ## end if ( ( $bwa2bam_count ...
@@ -251,7 +388,7 @@ unless ($update_analyses) {
       $stage = "gsnap_complete";
       unless ( $check or $bam2genes_count > 0 ) {
         print "\n\nGSNAP finished successfully\n------------------------\n";
-        print_merge_cmd( \@files, $output_dir, $merge_dir ); 
+        print_merge_cmd( \@files, $output_dir, $merge_dir );
 
       } ## end unless ($check)
     } ## end if ( ( $gsnap_count >=...
@@ -285,68 +422,8 @@ unless ($update_analyses) {
           throw("submit_bam2introns analysis not found\n");
         }
       }
-  # assign stable ids to the models and make input ids for the bam2introns run
-      my $rough_db = $database_hash{ $RNASEQCONFIG->{ROUGHDB} };
-      my $sql = "update gene set stable_id =  concat( 'RNASEQG',lpad(gene_id,11,'0'))";
-      my $sth = $rough_db->dbc->prepare($sql);
-      $sth->execute();
-      $sql = "update transcript set stable_id =  concat( 'RNASEQT',lpad(gene_id,11,'0'))";
-      $sth = $rough_db->dbc->prepare($sql);
-      $sth->execute();
-      # get the input ids
-      $sql = "select stable_id from gene";
-      $sth = $rough_db->dbc->prepare($sql);
-      $sth->execute();
-      unless ($use_gsnap) {
-        my @ids;
-        while ( my @array = $sth->fetchrow_array ) {
-          push @ids, $array[0];
-        }
-        foreach my $id (@ids) {
-          $sic->store_input_id_analysis( $id, $analysis, "dummy" )
-            unless $stored_ids->{$id}->{"submit_bam2introns"};
-        }
-        print "Stored " . scalar(@ids) . " submit_bam2introns ids\n";
-        $rough_count = scalar(@ids);
-      }
     } else {
       if ( $stage eq 'bwa_complete' or $stage eq 'gsnap_complete' ) {
-        my $count = 0;
-        # fetch dummy analysis
-        my $analysis = $pipeline_analysis->fetch_by_logic_name("submit_chromosome");
-        if ($analysis) {
-          print "Writing input ids for bam2genes\n";
-          # add the submit chromosome input ids to start the next phase of the analysis
-          foreach my $slice ( @{ $sa->fetch_all('toplevel') } ) {
-            # we dont build on the mitochondrial sequences
-            next if ( $slice->seq_region_name eq 'MT' );
-            unless ( $RNASEQCONFIG->{SLICE_LENGTH} ) {
-              $count++;
-              # run on chromosomes if you have pairing to help separate out the models
-              $sic->store_input_id_analysis( $slice->name, $analysis, "dummy" )
-                unless $stored_ids->{ $slice->name }->{"submit_chromosome"};
-            } else {
-              # otherwise run on slices
-              my @iid_sections = split( /:/, $slice->name );
-              for ( my $i = 1 ;
-                    $i <= $slice->length ;
-                    $i += $RNASEQCONFIG->{SLICE_LENGTH} )
-              {
-                my $end = $i + $RNASEQCONFIG->{SLICE_LENGTH} - 1;
-                $end = $slice->length
-                  if $i + $RNASEQCONFIG->{SLICE_LENGTH} - 1 > $slice->length;
-                my $id =
-                    $iid_sections[0] . ":"
-                  . $iid_sections[1] . ":"
-                  . $iid_sections[2] . ":"
-                  . "$i:$end:1";
-                # print "ID $id \n";
-                $count++;
-                $sic->store_input_id_analysis( $id, $analysis, "dummy" )
-                  unless $stored_ids->{$id}->{"submit_chromosome"};
-              }
-            }
-          } ## end foreach my $slice ( @{ $sa->fetch_all...
         } else {
           print "Cannot find submit_chromosome analysis - "
               . "run the script with the -write option to refresh the analyses\n";
@@ -377,85 +454,6 @@ unless ($update_analyses) {
 
 print "Stage = $stage\n";
 
-open( FILE, $summaryfile ) or die("Cannot open summary file $summaryfile\n");
-my $line = 0;
-my @rows;
-my %map;
-while (<FILE>) {
-  my %data;
-  chomp;
-  next if ($_ =~ /^#/) or ($_ eq '');
-  my @cells = split( $delimiter, $_ );
-  if ( $line == 0 ) {
-    # header row
-    print STDERR "Got these headers\n"
-      if ( $stage eq "Initialization" ) || $check;
-    for ( my $i = 0 ; $i <= $#cells ; $i++ ) {
-      my $header = $cells[$i];
-      print STDERR $i + 1 . ") $header\n"
-        if ( $stage eq "Initialization" ) || $check;
-    }
-    
-    print STDERR "Please assign some / all columns to the some / all "
-        . "of the following categories multiple values can be separted with commas:\n"
-      if ( $stage eq "Initialization" ) || $check;
-    print STDERR "Tag\tDescription\n" if ( $stage eq "Initialization" ) || $check;
-
-    push( @{ $map{"ID"} }, @{ assign_categories( \@cells, 1, $RNASEQCONFIG->{ID}, "ID" ) } );
-    push( @{ $map{"SM"} }, @{ assign_categories( \@cells, 1, $RNASEQCONFIG->{SM}, "SM" ) } );
-    push( @{ $map{"LB"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{LB}, "LB" ) } );
-    push( @{ $map{"DS"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{DS}, "DS" ) } );
-    push( @{ $map{"PU"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{PU}, "PU" ) } );
-    push( @{ $map{"CN"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{CN}, "CN" ) } );
-    push( @{ $map{"ST"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{ST}, "ST" ) } );
-    push( @{ $map{"PL"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{PL}, "PL" ) } );
-    push( @{ $map{"FILE"} },   @{assign_categories(  \@cells, 1, $RNASEQCONFIG->{FILE},   "FILE"  ) });
-    push( @{ $map{"LENGTH"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{LENGTH}, "LENGTH") } );
-    push( @{ $map{"PAIRED"} }, @{ assign_categories( \@cells, 0, $RNASEQCONFIG->{PAIRED}, "PAIRED") } );
-
-    print STDERR "Sample data:\n" if ( $stage eq "Initialization" ) || $check;
-    $line++;
-    next;
-
-  } else {
-    foreach my $key ( keys %map ) {
-      foreach my $col ( @{ $map{$key} } ) {
-        unless ( $key eq "FILE" ) {
-          $data{$key} .= $cells[ $col - 1 ] . " ";
-        } else {
-          if ( $data{$key} ) {
-            $data{$key} .= "/" . $cells[ $col - 1 ];
-          } else {
-            $data{$key} = $cells[ $col - 1 ];
-          }
-        }
-        # no room for whitespace in the paired or length flag
-        $data{$key} =~ s/\s+//g if $key eq 'PAIRED' or $key eq 'LENGTH';
-	# group together IDs by tissue if specified
-	if ( $key eq $rgt ) {
-	  $id_groups{$data{$rgt}}->{$data{'ID'}}++;
-	}
-      }
-    }
-  }
-  # add the path to the file name
-  # $data{FILE} = $input_dir."/".$data{FILE};
-  if ( $stage eq "Initialization" ) {
-    if ( $line == 1 ) {
-      foreach my $key ( keys %data ) {
-        print STDERR "$key - " . $data{$key} . "\n";
-      }
-      if (!$jdi) {
-          print STDERR "Continue?(y/n)";
-          my $reply = <>;
-          chomp $reply;
-          exit unless $reply eq "y" or $reply eq "Y";
-      }
-    }
-  }
-  push @rows, \%data;
-  $line++;
-} ## end while (<FILE>)
 
 if ( $stage eq "Initialization" ) {
   print STDERR "Processed $line lines of data \n";
@@ -788,44 +786,7 @@ foreach my $row (@rows) {
 } ## end foreach my $row (@rows)
 close(ALL) or die( "Cannot close  $output_dir/all_header.txt for writing\n" );
 
-sub print_merge_cmd {
-  # prints two options for merging - picard and samtools
-  my ( $files_ref, $out_dir, $merge_dir ) = @_;
 
-  print "Before running the next stage of the analysis "
-  . "you will need to merge the individual bam files, "
-  . "the following commands will do this.\n";
-  print "If you wish to remove any of the lanes from the analysis "
-  . "at this point just delete them from the merge command.\n\n";
-  print "#MERGE\nbsub -o $out_dir" . "/merge.out "  
-  . "-e $out_dir" . "/merge.err " ;
-  print $RNASEQCONFIG->{SAMTOOLS}
-  ." -h $out_dir" . "/all_headers.txt"
-  . " merge $merge_dir" . "/merged_unsorted.bam ";         
-
-  my @sorted_bam_files = ();
-  foreach my $file ( @{ $files_ref } ) {
-    my $location = "$out_dir/$file" . "_sorted.bam ";
-    print $location;
-    push (@sorted_bam_files, $location);
-  }
-
-  print "\n\n";
-  print "#SORT\nbsub -o $out_dir" . "/sort.out "
-  . "-e $out_dir" . "/sort.err "
-  . "-R 'select[mem>5000] rusage[mem=5000]' -M5000 ";
-  print $RNASEQCONFIG->{SAMTOOLS} . " sort $merge_dir"
-  . "/merged_unsorted.bam  $merge_dir" . "/merged \n\n";
-  print "#INDEX\nbsub -o $out_dir" . "/index.out "
-  . "-e $out_dir" . "/index.err "
-  . "-R 'select[mem>1000] rusage[mem=1000]' -M1000 ";
-  print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
-
-  print "Or...\n\n#MERGE, SORT and INDEX using picard\n";
-  my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $out_dir, $merge_dir ); 
-  print $picard_cmd; 
-}
- 
 
 
 
@@ -1057,9 +1018,9 @@ sub assign_categories {
   my $chosen = [];
   print "Selections for category $category $answer:\n"  if ($stage eq "Initialization") || $check;
   foreach my $ans ( @answers ) {
-    throw("Selection $ans not recognised\n") 
+    throw("Selection $ans not recognised\n")
       unless $ans =~ /\d+/;
-    throw("Selection $ans out of range unless\n") 
+    throw("Selection $ans out of range unless\n")
       unless $array->[$ans-1];
     print "$ans " . $array->[$ans-1] ."\n"  if ($stage eq "Initialization") || $check;
     push @$chosen,$ans ;
@@ -1078,11 +1039,11 @@ sub print_merge_cmd {
   . "the following commands will do this.\n";
   print "If you wish to remove any of the lanes from the analysis "
   . "at this point just delete them from the merge command.\n\n";
-  print "#MERGE\nbsub -o $out_dir" . "/merge.out "  
+  print "#MERGE\nbsub -o $out_dir" . "/merge.out "
   . "-e $out_dir" . "/merge.err " ;
   print $RNASEQCONFIG->{SAMTOOLS}
   ." -h $out_dir" . "/all_headers.txt"
-  . " merge $merge_dir" . "/merged_unsorted.bam ";         
+  . " merge $merge_dir" . "/merged_unsorted.bam ";
 
   my @sorted_bam_files = ();
   foreach my $file ( @{ $files_ref } ) {
@@ -1103,28 +1064,28 @@ sub print_merge_cmd {
   print $RNASEQCONFIG->{SAMTOOLS} . " index $merge_dir" . "/merged.bam\n\n";
 
   print "Or...\n\n#MERGE, SORT and INDEX using picard\n";
-  my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $out_dir, $merge_dir ); 
-  print $picard_cmd; 
+  my $picard_cmd = generate_picard_cmd( \@sorted_bam_files, $out_dir, $merge_dir );
+  print $picard_cmd;
 }
- 
+
 
 
 
 sub generate_picard_cmd {
-  my ( $files_ref, $out_dir, $merge_dir ) = @_; 
+  my ( $files_ref, $out_dir, $merge_dir ) = @_;
   my $cmd = "bsub -qnormal -M2000 -R'select[mem>2000] rusage[mem=2000]'"
           . " -o " . $out_dir . "/picard_merge.out -e " . $out_dir . "/picard_merge.err \\\n"
           . " /vol/software/linux-x86_64/jdk1.6.0_01/bin/java -Xmx2g"
           . " -jar /software/solexa/bin/aligners/picard/picard-tools-1.47/MergeSamFiles.jar \\\n";
   foreach my $input ( @{ $files_ref } ) {
-    $cmd .= "INPUT=" . $input . " \\\n";   
+    $cmd .= "INPUT=" . $input . " \\\n";
   }
   $cmd .= "OUTPUT=" . $merge_dir . "/picard_merge_sorted.bam \\\n"
   . "MAX_RECORDS_IN_RAM=20000000 \\\n"
   . "CREATE_INDEX=true \\\n"
   . "SORT_ORDER=coordinate \\\n"
   . "ASSUME_SORTED=true \\\n"
-  . "VALIDATION_STRINGENCY=LENIENT\n\n";  
+  . "VALIDATION_STRINGENCY=LENIENT\n\n";
 
   return $cmd;
 }
