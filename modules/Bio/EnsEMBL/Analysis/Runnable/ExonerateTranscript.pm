@@ -128,7 +128,8 @@ sub parse_results {
 
  TRANSCRIPT:
   while (<$fh>){
-    print STDERR $_ if $self->_verbose;
+#    print STDERR $_ if $self->_verbose;
+#    print STDERR $_;
 
     next unless /^RESULT:/;
 
@@ -415,7 +416,9 @@ sub _parse_vulgar_block {
 
       # if we see a gap/intron immediately after an intron, the current exon is "empty"
         if ($exons[$exon_number]) {
-          $exon_number++;
+            if (exists $exons[$exon_number]->{sf}) {
+                $exon_number++;
+            }
         }
       } elsif ($type eq "I") {
           throw("Really odd case here, with lost intron !!\n") ;
