@@ -40,7 +40,7 @@ bsub -q normal \
   -eo "${output_dir}/merge-run-%I.err" \
   -M 1500 -R 'select[mem>1500]' -R 'rusage[mem=1500]' \
   -We 30 \
-./merge.pl \
+${ensembl_analysis_base}/scripts/Merge/merge.pl \
   --host_ensembl="${host_ensembl}" \
   --user_ensembl="${rouser}" \
   --password_ensembl="${ropassword}" \
