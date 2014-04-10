@@ -1531,7 +1531,7 @@ sub copy {
   {
     print( "Copy> Source transcript is pseodugene, " .
            "will not copy it into a coding gene.\n" );
-    print("Copy> Leaving Ensembl annotation as is.\n");
+    print( "Copy> Leaving Ensembl annotation as is.\n");
     return 1;
   }
   elsif ( $target_gene->{__is_pseudogene} ) {
@@ -1539,10 +1539,9 @@ sub copy {
     # If the source is not a ccds model then we just delete the
     # Ensembl annotation
     if ( !$source_transcript->{__is_ccds} ) {
-       print("Copy> Removing translation from source transcript\n");
        print( "Copy> Target gene is pseudogene, " .
-           "will not copy anything into it.\n" );
-       print("Copy> Deleting the Ensembl annotation.\n");
+              "will not copy anything into it.\n" );
+       print( "Copy> Deleting the Ensembl annotation.\n");
        return 0;
     }
 
@@ -1550,7 +1549,7 @@ sub copy {
     # would be an unusual scenario. Therefore it almost certainly happens
     else {
       printf( "Copy> Updating gene biotype from %s to %s " .
-                "(CCDS source transcript)\n",
+              "(CCDS source transcript)\n",
               $target_gene->biotype(), $source_transcript->biotype() );
 
       $target_gene->biotype( $source_transcript->biotype() );
@@ -1561,14 +1560,14 @@ sub copy {
 
   elsif ( $target_gene->{__is_gene_cluster} ) {
     print( "Copy> Target gene is part of gene cluster, " .
-          "will not copy overlapping Ensembl transcripts ".
-          "into it.\n" );
-    print("Copy> Deleting the Ensembl annotation.\n");
+           "will not copy overlapping Ensembl transcripts ".
+           "into it.\n" );
+    print( "Copy> Deleting the Ensembl annotation.\n");
     return 0;
   }
 
   elsif ( $target_gene->{__has_ref_error} ) {
-    print("Copy> Target gene has assembly error\n");
+    print( "Copy> Target gene has assembly error\n");
 
     if ( defined( $source_transcript->translation() ) &&
          $target_gene->biotype() ne $source_transcript->biotype() )
@@ -1582,7 +1581,7 @@ sub copy {
           defined( $source_transcript->translation() ) )
   {
     if ( !$source_transcript->{__is_ccds} ) {
-      print("Copy> Removing translation from source transcript\n");
+      print( "Copy> Removing translation from source transcript\n");
 
       $source_transcript->translation(undef);
       $source_transcript->dbID(undef);       # HACK
@@ -1598,7 +1597,7 @@ sub copy {
     }
     else {
       printf( "Copy> Updating gene biotype from %s to %s " .
-                "(CCDS source transcript)\n",
+              "(CCDS source transcript)\n",
               $target_gene->biotype(), $source_transcript->biotype() );
 
       $target_gene->biotype( $source_transcript->biotype() );
