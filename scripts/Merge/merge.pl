@@ -590,6 +590,12 @@ sub process_genes {
       # Add "OTTT" xref to Havana transcript.
       add_havana_xref($havana_transcript);
 
+      # If the transcript is part of a gene cluster then tag the gene
+      unless($havana_gene->{__is_gene_cluster}) {
+        $havana_gene->{__is_gene_cluster} = (
+        scalar(@{ $havana_transcript->get_all_Attributes('gene_cluster') }) > 0 );
+      }
+
       ++$transcript_count;
     }
 
@@ -619,13 +625,6 @@ sub process_genes {
     $havana_gene->{__has_ref_error} = $has_assembly_error;    # HACK
     $havana_gene->{__is_single_transcript} =
       ( $transcript_count == 1 );                             # HACK
-
-    unless($havana_gene->{__is_gene_cluster}) {
-
-      $havana_gene->{__is_gene_cluster} = (
-      scalar(@{ $havana_transcript->get_all_Attributes('gene_cluster') }) > 0 );
-
-    }
 
     # Add "OTTG" xref to Havana gene.
     add_havana_xref($havana_gene);
@@ -707,6 +706,10 @@ sub process_genes {
   my @transcripts_to_merge;
   my @transcripts_to_copy;
   my @transcripts_to_ignore;
+
+  # This will keep a record of the Ensembl gene stable id whenever stuff is
+  # merged or copied in
+  my %stable_id_tracker;
 
 ENSEMBL_GENE:
   foreach my $ensembl_gene ( @{$ensembl_genes} ) {
@@ -794,6 +797,9 @@ ENSEMBL_GENE:
     if ( $merge_code != 1 ) {
       printf( "PROCESSED\t%d\t%s\n",
               $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+
+      # Keep a record in memory of this Ensembl stable id
+      $stable_id_tracker{$havana_gene->stable_id} = $ensembl_gene->stable_id();
     }
   }
 
@@ -942,6 +948,9 @@ ENSEMBL_GENE:
         if ( $copy_code != 1 ) {
           printf( "PROCESSED\t%d\t%s\n",
                   $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+
+          # Keep a record in memory of this stable id
+          $stable_id_tracker{$havana_gene->stable_id} = $ensembl_gene->stable_id();
         }
       }
       else {
@@ -1015,6 +1024,9 @@ ENSEMBL_GENE:
       if ( $copy_code != 1 ) {
         printf( "PROCESSED\t%d\t%s\n",
                 $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+
+        # Keep a record in memory of this stable id
+        $stable_id_tracker{$havana_gene->stable_id()} = $ensembl_gene->stable_id();
       }
 
     } ## end if ( !exists( $merged_ensembl_transcripts...))
@@ -1036,15 +1048,60 @@ ENSEMBL_GENE:
   }
 
   foreach my $havana_gene ( @{$havana_genes} ) {
+
     my $old_dbID = $havana_gene->dbID();
+
+    # If the biotype is bad, skip the store
+    if(bad_biotype($havana_gene->biotype())) {
+
+        print "WARNING: skipping store of Havana gene ".$havana_gene->stable_id().
+              " due to bad biotype: ".$havana_gene->biotype()."\n";
+
+        # If there is an Ensembl gene that has been merged/copied to this Havana gene
+        # put in some additional warnings that the gene will be thrown out
+        if($stable_id_tracker{$havana_gene->stable_id()}) {         
+          my $ens_gene_stable_id = $stable_id_tracker{$havana_gene->stable_id()};
+          print "WARNING: skipping store of Ensembl gene ".$ens_gene_stable_id.
+                " due to merge/copy with Havana gene ".$havana_gene->stable_id().
+                " with bad biotype: ".$havana_gene->biotype()."\n";          
+        }
+
+       next;
+     }
 
     $OUTPUT_GA->store($havana_gene);
     printf( "STORED\t%s\told id = %d, new id = %d\n",
             $havana_gene->stable_id(),
             $old_dbID, $havana_gene->dbID() );
+
   }
 
 } ## end sub process_genes
+
+
+# This returns 1 if the biotype passed in is in a hash of bad biotypes
+sub bad_biotype
+{
+  my ($biotype) = @_;
+
+  # This would be more efficient to initialise at the top of the code,
+  # but as the list will never be huge I'm putting it here as it's 
+  # easier to read
+  my %bad_biotypes = (
+                       'TEC' => 1,   
+                       'artifact' => 1
+                     );
+
+  if($bad_biotypes{$biotype}) {
+    return 1; 
+  }
+
+  else {
+    return 0;
+  }
+  
+} # End sub bad_biotype
+
 
 sub add_havana_xref {
   my ($feature) = @_;
@@ -1478,10 +1535,28 @@ sub copy {
     return 1;
   }
   elsif ( $target_gene->{__is_pseudogene} ) {
-    print( "Copy> Target gene is pseudogene, " .
+  
+    # If the source is not a ccds model then we just delete the
+    # Ensembl annotation
+    if ( !$source_transcript->{__is_ccds} ) {
+       print("Copy> Removing translation from source transcript\n");
+       print( "Copy> Target gene is pseudogene, " .
            "will not copy anything into it.\n" );
-    print("Copy> Deleting the Ensembl annotation.\n");
-    return 0;
+       print("Copy> Deleting the Ensembl annotation.\n");
+       return 0;
+    }
+
+    # Else the source transcript is ccds, so it takes precedent. This
+    # would be an unusual scenario. Therefore it almost certainly happens
+    else {
+      printf( "Copy> Updating gene biotype from %s to %s " .
+                "(CCDS source transcript)\n",
+              $target_gene->biotype(), $source_transcript->biotype() );
+
+      $target_gene->biotype( $source_transcript->biotype() );
+      $target_gene->{__is_coding} = 1;
+    }   
+  
   }
 
   elsif ( $target_gene->{__is_gene_cluster} ) {
@@ -1547,7 +1622,9 @@ sub copy {
 
 
 # Strip the phases off all the exons in a transcript. Used on Ensembl
-# coding transcripts that get demoted to pseudogenes.
+# coding transcripts that get demoted to non-coding. This will only
+# be run on coding Ensembl transcripts that are copied to non-coding, 
+# non-pseudogene Havana genes. Yes that's confusing, just roll with it.
 sub strip_phase {
 
   my ($transcript_to_strip) = @_;  
