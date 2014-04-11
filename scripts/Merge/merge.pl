@@ -1591,7 +1591,7 @@ sub copy {
       return 0;
     }
 
-    elsif ($target_gene->biotype() ne $source_transcript->biotype())) {
+    elsif ($target_gene->biotype() ne $source_transcript->biotype()) {
       
       printf( "Copy> Updating gene biotype from %s to %s " .
               "(CCDS source transcript)\n",
