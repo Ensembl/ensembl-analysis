@@ -1264,7 +1264,7 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
           {
 
             # if the stop ends at the end of the translation
-            # the translation end if shifted and the exon is not divided
+            # the translation end is shifted and the exon is not divided
 
             $translation_end_shift -= 3;
 
@@ -1447,8 +1447,8 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
           $exon->start($exon->start + ($stop->end-$stop->start+1));
 
           if ($transcript->translation->end_Exon->start == $exon->start and
-                 $transcript->strand == -1) {
-            # this is the last translateable exon on the reverse strand
+                 $transcript->strand == 1) {
+            # this is the last translateable exon on the forward strand
             $translation_end_shift -= 3;
           }
           push @new_exons, $exon;
@@ -1461,8 +1461,8 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
           $exon->end($exon->end - ($stop->end-$stop->start+1));
 
           if ($transcript->translation->end_Exon->start == $exon->start and
-              $transcript->strand == 1) {
-            # this is the last translateable exon on the forward strand
+              $transcript->strand == -1) {
+            # this is the last translateable exon on the reverse strand
             $translation_end_shift -= 3;
           }
           push @new_exons, $exon;
