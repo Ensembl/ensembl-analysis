@@ -1437,6 +1437,7 @@ sub merge {
            "(not merging)\n" );
     return copy( $target_gene, $source_transcript );
   }
+
   elsif ( $source_transcript->{__is_ccds} ) {
     if ($source_transcript->biotype() ne $target_transcript->biotype() )
     {
@@ -1526,27 +1527,40 @@ sub copy {
   printf( "Copy> Biotypes: source transcript: %s, target gene: %s\n",
           $source_transcript->biotype(), $target_gene->biotype() );
 
+###############################################################################
+# Case 1 - Havana gene is coding, Ensembl transcript is a pseudogene
+# Do not copy the Ensembl transcript. The corresponding Ensembl gene
+# will not be listed as processed and therefore should be copied over
+# at the end of merge process (if it wasn't processed elsewhere)
+###############################################################################
   if ( $source_transcript->{__is_pseudogene} &&
        $target_gene->{__is_coding} )
   {
-    print( "Copy> Source transcript is pseodugene, " .
+    print( "Copy> Source transcript is pseudogene, " .
            "will not copy it into a coding gene.\n" );
     print( "Copy> Leaving Ensembl annotation as is.\n");
     return 1;
   }
+
+###############################################################################
+# Case 2 - The Havana gene is a pseudogene. In this case it the Ensembl
+# transcript won't be copied and the corresponding gene will be listed
+# as processed and will not be copied at the end. The only exception to
+# this is when the Ensembl transcript is CCDS, in which case the transcript
+# will be copied and the biotype will be updated to the Ensembl biotype.
+# The Ensembl gene will be listed as processed and will not be copied at
+# the end of merge process
+###############################################################################
   elsif ( $target_gene->{__is_pseudogene} ) {
   
-    # If the source is not a ccds model then we just delete the
-    # Ensembl annotation
-    if ( !$source_transcript->{__is_ccds} ) {
+
+    unless ( $source_transcript->{__is_ccds} ) {
        print( "Copy> Target gene is pseudogene, " .
               "will not copy anything into it.\n" );
        print( "Copy> Deleting the Ensembl annotation.\n");
        return 0;
     }
 
-    # Else the source transcript is ccds, so it takes precedent. This
-    # would be an unusual scenario. Therefore it almost certainly happens
     else {
       printf( "Copy> Updating gene biotype from %s to %s " .
               "(CCDS source transcript)\n",
@@ -1558,29 +1572,70 @@ sub copy {
   
   }
 
+###############################################################################
+# Case 3 - The Havana gene is labelled as belonging to a gene cluster. This
+# tag is read from the transcripts, so at least one transcript was labelled.
+# In this case the Ensembl transcript will not be copied over.
+# The exception to this is if the Ensembl transcript is CCDS, in this case
+# the Ensembl transcript will be copied and the Havana gene biotype will
+# updated if needed. Either way the corresponding the Ensembl gene will be
+# will be listed as processed and not copied at the end of the merge process.
+###############################################################################
   elsif ( $target_gene->{__is_gene_cluster} ) {
-    print( "Copy> Target gene is part of gene cluster, " .
+
+    unless ( $source_transcript->{__is_ccds} ) {
+      print( "Copy> Target gene is part of gene cluster, " .
            "will not copy overlapping Ensembl transcripts ".
            "into it.\n" );
-    print( "Copy> Deleting the Ensembl annotation.\n");
-    return 0;
+      print( "Copy> Deleting the Ensembl annotation.\n");
+      return 0;
+    }
+
+    elsif ($target_gene->biotype() ne $source_transcript->biotype())) {
+      
+      printf( "Copy> Updating gene biotype from %s to %s " .
+              "(CCDS source transcript)\n",
+              $target_gene->biotype(), $source_transcript->biotype() );
+
+      $target_gene->biotype( $source_transcript->biotype() );
+      $target_gene->{__is_coding} = 1;
+    }
+   
   }
 
+###############################################################################
+# Case 4 - The Havana gene has an assembly error, in this case the Ensembl
+# transcript will be copied in and if the Ensembl gene has a translation and
+# the Havana gene biotype doesn't match the biotype of the Ensembl transcript
+# the biotype of the Ensembl transcript overwrites the Havana gene biotype.
+# This may be in the wrong place logically. The corresponding Ensembl gene is
+# listed as processed and will not be copied at the end of the merge process
+###############################################################################
   elsif ( $target_gene->{__has_ref_error} ) {
     print( "Copy> Target gene has assembly error\n");
 
     if ( defined( $source_transcript->translation() ) &&
-         $target_gene->biotype() ne $source_transcript->biotype() )
-    {
+         $target_gene->biotype() ne $source_transcript->biotype() ) {
       printf( "Copy> Updating gene biotype from %s to %s\n",
               $target_gene->biotype(), $source_transcript->biotype() );
       $target_gene->biotype( $source_transcript->biotype() );
     }
+
   }
+
+###############################################################################
+# Case 5 - The Havana gene is non coding (but not a pseudogene) and the
+# Ensembl transcript has a translation. In this case the translation is
+# removed from the Ensembl transcript and the exon phases are all set to
+# -1, which means non-coding, before the transcript is copied. The only
+# exception to this is when the Ensembl transcript is CCDS, in this case
+# the biotype of the Havana gene is overwritten with the Ensembl transcript
+# biotype. The corresponding Ensembl gene is listed as processed and is
+# not copied over at the end of the merge process
+###############################################################################
   elsif ( !$target_gene->{__is_coding} &&
-          defined( $source_transcript->translation() ) )
-  {
-    if ( !$source_transcript->{__is_ccds} ) {
+          defined( $source_transcript->translation() ) ) {
+    unless ( $source_transcript->{__is_ccds} ) {
       print( "Copy> Removing translation from source transcript\n");
 
       $source_transcript->translation(undef);
@@ -1595,6 +1650,7 @@ sub copy {
 
       $source_transcript->biotype( $target_gene->biotype() );
     }
+
     else {
       printf( "Copy> Updating gene biotype from %s to %s " .
               "(CCDS source transcript)\n",
@@ -1603,6 +1659,7 @@ sub copy {
       $target_gene->biotype( $source_transcript->biotype() );
       $target_gene->{__is_coding} = 1;
     }
+
   }
 
   # Start by transferring the $source_transcript to the same slice as
