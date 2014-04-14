@@ -6,10 +6,10 @@ use warnings;
 
 use Getopt::Long qw( :config no_ignore_case );
 use Pod::Usage;
-
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 
 my ( $opt_host_ensembl, $opt_port_ensembl,
      $opt_user_ensembl, $opt_password_ensembl,
@@ -207,19 +207,21 @@ else {
 @opt_havana_include  = split( /,/, join( ',', @opt_havana_include ) );
 @opt_havana_exclude  = split( /,/, join( ',', @opt_havana_exclude ) );
 
+
+if($opt_database_dna) {
+
+  print "Optional DNA database\thost:\t".$opt_host_dna."\n".
+                                   "\tport:\t".$opt_port_dna."\n".
+                                   "\tuser:\t".$opt_user_dna."\n".
+                                   "\tname:\t".$opt_database_dna."\n";
+}
+
+
 print <<DBINFO_END;
 ENSEMBL database\thost:\t$opt_host_ensembl
                 \tport:\t$opt_port_ensembl
                 \tuser:\t$opt_user_ensembl
                 \tname:\t$opt_database_ensembl
-
-Any missing DNA database connection settings (below) will be replaced by
-the corresponding connection settings for the Ensembl database (above).
-
-DNA database\thost:\t$opt_host_dna
-            \tport:\t$opt_port_dna
-            \tuser:\t$opt_user_dna
-            \tname:\t$opt_database_dna
 
 HAVANA database\thost:\t$opt_host_havana
                \tport:\t$opt_port_havana
@@ -588,6 +590,12 @@ sub process_genes {
       # Add "OTTT" xref to Havana transcript.
       add_havana_xref($havana_transcript);
 
+      # If the transcript is part of a gene cluster then tag the gene
+      unless($havana_gene->{__is_gene_cluster}) {
+        $havana_gene->{__is_gene_cluster} = (
+        scalar(@{ $havana_transcript->get_all_Attributes('gene_cluster') }) > 0 );
+      }
+
       ++$transcript_count;
     }
 
@@ -604,6 +612,15 @@ sub process_genes {
     $havana_gene->{__is_pseudogene} =            # HACK
       ( !$havana_gene->{__is_coding} &&
         $havana_gene->biotype() =~ /pseudogene/ );
+
+    # Check pseudogene has one transcript  
+    if ($havana_gene->{__is_pseudogene}) {
+
+      warning ($transcript_count." transcripts found for Havana pseudogene: ".$havana_gene->stable_id().
+      ". Havana pseudogenes should have a single transcript.")
+      unless $transcript_count == 1;
+
+    }
 
     $havana_gene->{__has_ref_error} = $has_assembly_error;    # HACK
     $havana_gene->{__is_single_transcript} =
@@ -689,6 +706,10 @@ sub process_genes {
   my @transcripts_to_merge;
   my @transcripts_to_copy;
   my @transcripts_to_ignore;
+
+  # This will keep a record of the Ensembl gene stable id whenever stuff is
+  # merged or copied in
+  my %stable_id_tracker;
 
 ENSEMBL_GENE:
   foreach my $ensembl_gene ( @{$ensembl_genes} ) {
@@ -776,6 +797,9 @@ ENSEMBL_GENE:
     if ( $merge_code != 1 ) {
       printf( "PROCESSED\t%d\t%s\n",
               $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+
+      # Keep a record in memory of this Ensembl stable id
+      $stable_id_tracker{$havana_gene->stable_id} = $ensembl_gene->stable_id();
     }
   }
 
@@ -924,6 +948,9 @@ ENSEMBL_GENE:
         if ( $copy_code != 1 ) {
           printf( "PROCESSED\t%d\t%s\n",
                   $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+
+          # Keep a record in memory of this stable id
+          $stable_id_tracker{$havana_gene->stable_id} = $ensembl_gene->stable_id();
         }
       }
       else {
@@ -997,6 +1024,9 @@ ENSEMBL_GENE:
       if ( $copy_code != 1 ) {
         printf( "PROCESSED\t%d\t%s\n",
                 $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+
+        # Keep a record in memory of this stable id
+        $stable_id_tracker{$havana_gene->stable_id()} = $ensembl_gene->stable_id();
       }
 
     } ## end if ( !exists( $merged_ensembl_transcripts...))
@@ -1018,15 +1048,60 @@ ENSEMBL_GENE:
   }
 
   foreach my $havana_gene ( @{$havana_genes} ) {
+
     my $old_dbID = $havana_gene->dbID();
+
+    # If the biotype is bad, skip the store
+    if(bad_biotype($havana_gene->biotype())) {
+
+        print "WARNING: skipping store of Havana gene ".$havana_gene->stable_id().
+              " due to bad biotype: ".$havana_gene->biotype()."\n";
+
+        # If there is an Ensembl gene that has been merged/copied to this Havana gene
+        # put in some additional warnings that the gene will be thrown out
+        if($stable_id_tracker{$havana_gene->stable_id()}) {         
+          my $ens_gene_stable_id = $stable_id_tracker{$havana_gene->stable_id()};
+          print "WARNING: skipping store of Ensembl gene ".$ens_gene_stable_id.
+                " due to merge/copy with Havana gene ".$havana_gene->stable_id().
+                " with bad biotype: ".$havana_gene->biotype()."\n";          
+        }
+
+       next;
+     }
 
     $OUTPUT_GA->store($havana_gene);
     printf( "STORED\t%s\told id = %d, new id = %d\n",
             $havana_gene->stable_id(),
             $old_dbID, $havana_gene->dbID() );
+
   }
 
 } ## end sub process_genes
+
+
+# This returns 1 if the biotype passed in is in a hash of bad biotypes
+sub bad_biotype
+{
+  my ($biotype) = @_;
+
+  # This would be more efficient to initialise at the top of the code,
+  # but as the list will never be huge I'm putting it here as it's 
+  # easier to read
+  my %bad_biotypes = (
+                       'TEC' => 1,   
+                       'artifact' => 1
+                     );
+
+  if($bad_biotypes{$biotype}) {
+    return 1; 
+  }
+
+  else {
+    return 0;
+  }
+  
+} # End sub bad_biotype
+
 
 sub add_havana_xref {
   my ($feature) = @_;
@@ -1059,6 +1134,18 @@ sub add_havana_xref {
   }
   else {
     die("Can't add xref to unknown type of object");
+  }
+
+
+  unless($external_db_name && $db_display_name && $type) {
+
+    throw("Could not assign one or all of the following: external_db_name, db_display_name or type\n".
+          "If you are using the wrapper script, make sure the corresponding values are set in the\n".
+          "config file. Typical values are:\n".
+          "havana_gene_xref='OTTG,Havana gene,ALT_GENE'\n".
+          "havana_transcript_xref='OTTT,Havana transcript,ALT_TRANS'\n".
+          "havana_translation_xref='OTTP,Havana translation,MISC'\n"
+         );
   }
 
   my $xref =
@@ -1350,6 +1437,7 @@ sub merge {
            "(not merging)\n" );
     return copy( $target_gene, $source_transcript );
   }
+
   elsif ( $source_transcript->{__is_ccds} ) {
     if ($source_transcript->biotype() ne $target_transcript->biotype() )
     {
@@ -1439,54 +1527,139 @@ sub copy {
   printf( "Copy> Biotypes: source transcript: %s, target gene: %s\n",
           $source_transcript->biotype(), $target_gene->biotype() );
 
+###############################################################################
+# Case 1 - Havana gene is coding, Ensembl transcript is a pseudogene
+# Do not copy the Ensembl transcript. The corresponding Ensembl gene
+# will not be listed as processed and therefore should be copied over
+# at the end of merge process (if it wasn't processed elsewhere)
+###############################################################################
   if ( $source_transcript->{__is_pseudogene} &&
        $target_gene->{__is_coding} )
   {
-    print( "Copy> Source transcript is pseodugene, " .
+    print( "Copy> Source transcript is pseudogene, " .
            "will not copy it into a coding gene.\n" );
-    print("Copy> Leaving Ensembl annotation as is.\n");
+    print( "Copy> Leaving Ensembl annotation as is.\n");
     return 1;
   }
+
+###############################################################################
+# Case 2 - The Havana gene is a pseudogene. In this case it the Ensembl
+# transcript won't be copied and the corresponding gene will be listed
+# as processed and will not be copied at the end. The only exception to
+# this is when the Ensembl transcript is CCDS, in which case the transcript
+# will be copied and the biotype will be updated to the Ensembl biotype.
+# The Ensembl gene will be listed as processed and will not be copied at
+# the end of merge process
+###############################################################################
   elsif ( $target_gene->{__is_pseudogene} ) {
-    print( "Copy> Target gene is pseudogene, " .
-           "will not copy anything into it.\n" );
-    print("Copy> Deleting the Ensembl annotation.\n");
-    return 0;
+  
+
+    unless ( $source_transcript->{__is_ccds} ) {
+       print( "Copy> Target gene is pseudogene, " .
+              "will not copy anything into it.\n" );
+       print( "Copy> Deleting the Ensembl annotation.\n");
+       return 0;
+    }
+
+    else {
+      printf( "Copy> Updating gene biotype from %s to %s " .
+              "(CCDS source transcript)\n",
+              $target_gene->biotype(), $source_transcript->biotype() );
+
+      $target_gene->biotype( $source_transcript->biotype() );
+      $target_gene->{__is_coding} = 1;
+    }   
+  
   }
+
+###############################################################################
+# Case 3 - The Havana gene is labelled as belonging to a gene cluster. This
+# tag is read from the transcripts, so at least one transcript was labelled.
+# In this case the Ensembl transcript will not be copied over.
+# The exception to this is if the Ensembl transcript is CCDS, in this case
+# the Ensembl transcript will be copied and the Havana gene biotype will
+# updated if needed. Either way the corresponding the Ensembl gene will be
+# will be listed as processed and not copied at the end of the merge process.
+###############################################################################
+  elsif ( $target_gene->{__is_gene_cluster} ) {
+
+    unless ( $source_transcript->{__is_ccds} ) {
+      print( "Copy> Target gene is part of gene cluster, " .
+           "will not copy overlapping Ensembl transcripts ".
+           "into it.\n" );
+      print( "Copy> Deleting the Ensembl annotation.\n");
+      return 0;
+    }
+
+    elsif ($target_gene->biotype() ne $source_transcript->biotype()) {
+      
+      printf( "Copy> Updating gene biotype from %s to %s " .
+              "(CCDS source transcript)\n",
+              $target_gene->biotype(), $source_transcript->biotype() );
+
+      $target_gene->biotype( $source_transcript->biotype() );
+      $target_gene->{__is_coding} = 1;
+    }
+   
+  }
+
+###############################################################################
+# Case 4 - The Havana gene has an assembly error, in this case the Ensembl
+# transcript will be copied in and if the Ensembl gene has a translation and
+# the Havana gene biotype doesn't match the biotype of the Ensembl transcript
+# the biotype of the Ensembl transcript overwrites the Havana gene biotype.
+# This may be in the wrong place logically. The corresponding Ensembl gene is
+# listed as processed and will not be copied at the end of the merge process
+###############################################################################
   elsif ( $target_gene->{__has_ref_error} ) {
-    print("Copy> Target gene has assembly error\n");
+    print( "Copy> Target gene has assembly error\n");
 
     if ( defined( $source_transcript->translation() ) &&
-         $target_gene->biotype() ne $source_transcript->biotype() )
-    {
+         $target_gene->biotype() ne $source_transcript->biotype() ) {
       printf( "Copy> Updating gene biotype from %s to %s\n",
               $target_gene->biotype(), $source_transcript->biotype() );
       $target_gene->biotype( $source_transcript->biotype() );
     }
+
   }
+
+###############################################################################
+# Case 5 - The Havana gene is non coding (but not a pseudogene) and the
+# Ensembl transcript has a translation. In this case the translation is
+# removed from the Ensembl transcript and the exon phases are all set to
+# -1, which means non-coding, before the transcript is copied. The only
+# exception to this is when the Ensembl transcript is CCDS, in this case
+# the biotype of the Havana gene is overwritten with the Ensembl transcript
+# biotype. The corresponding Ensembl gene is listed as processed and is
+# not copied over at the end of the merge process
+###############################################################################
   elsif ( !$target_gene->{__is_coding} &&
-          defined( $source_transcript->translation() ) )
-  {
-    if ( !$source_transcript->{__is_ccds} ) {
-      print("Copy> Removing translation from source transcript\n");
+          defined( $source_transcript->translation() ) ) {
+    unless ( $source_transcript->{__is_ccds} ) {
+      print( "Copy> Removing translation from source transcript\n");
 
       $source_transcript->translation(undef);
       $source_transcript->dbID(undef);       # HACK
       $source_transcript->adaptor(undef);    # HACK
+
+      print "Copy> Stripping exon phases for: ".$source_transcript->stable_id()."\n"; 
+      strip_phase(\$source_transcript);
 
       printf( "Copy> Updating transcript biotype from %s to %s\n",
               $source_transcript->biotype(), $target_gene->biotype() );
 
       $source_transcript->biotype( $target_gene->biotype() );
     }
+
     else {
       printf( "Copy> Updating gene biotype from %s to %s " .
-                "(CCDS source transcript)\n",
+              "(CCDS source transcript)\n",
               $target_gene->biotype(), $source_transcript->biotype() );
 
       $target_gene->biotype( $source_transcript->biotype() );
       $target_gene->{__is_coding} = 1;
     }
+
   }
 
   # Start by transferring the $source_transcript to the same slice as
@@ -1502,6 +1675,23 @@ sub copy {
 
   return 0;
 } ## end sub copy
+
+
+# Strip the phases off all the exons in a transcript. Used on Ensembl
+# coding transcripts that get demoted to non-coding. This will only
+# be run on coding Ensembl transcripts that are copied to non-coding, 
+# non-pseudogene Havana genes. Yes that's confusing, just roll with it.
+sub strip_phase {
+
+  my ($transcript_to_strip) = @_;  
+  my $exon_refs = $$transcript_to_strip->get_all_Exons();
+  foreach my $exon (@{$exon_refs}) {
+    $exon->phase(-1);
+    $exon->end_phase(-1);
+  }
+
+}
+
 
 sub tag_transcript_analysis {
   my ( $transcript, $suffix ) = @_;
