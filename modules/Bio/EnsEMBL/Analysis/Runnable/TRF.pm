@@ -232,7 +232,10 @@ sub run_analysis{
 
   print "Running analysis ".$command."\n";
   # We test 256 as it was what trf returns when it's successful
-  throw ("TRF died: $?") if (system($command)!= 256);
+  my $exit_code = system($command);
+  if ($exit_code%256) {
+      throw ("TRF died: $?");
+  }
   foreach my $file(glob $self->queryfile."*"){
     $self->files_to_delete($file);
   }
