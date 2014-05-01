@@ -114,8 +114,8 @@ sub new {
 
 sub level{
   my $self = shift;
-  $self->{'min_length'} = shift if(@_);
-  return $self->{'min_length'};
+  $self->{'level'} = shift if(@_);
+  return $self->{'level'};
 }
 
 =head2 window_size
@@ -133,8 +133,8 @@ sub level{
 =cut
 sub window_size{
   my $self = shift;
-  $self->{'min_gc_content'} = shift if(@_);
-  return $self->{'min_gc_content'};
+  $self->{'window_size'} = shift if(@_);
+  return $self->{'window_size'};
 }
 
 =head2 word_size
@@ -152,8 +152,8 @@ sub window_size{
 =cut
 sub word_size{
   my $self = shift;
-  $self->{'min_oe'} = shift if(@_);
-  return $self->{'min_oe'};
+  $self->{'word_size'} = shift if(@_);
+  return $self->{'word_size'};
 }
 
 
