@@ -709,7 +709,7 @@ sub process_genes {
 
   # This will keep a record of the Ensembl gene stable id whenever stuff is
   # merged or copied in
-  my %stable_id_tracker;
+  my %processed_ens_id_tracker;
 
 ENSEMBL_GENE:
   foreach my $ensembl_gene ( @{$ensembl_genes} ) {
@@ -799,7 +799,7 @@ ENSEMBL_GENE:
               $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
 
       # Keep a record in memory of this Ensembl stable id
-      $stable_id_tracker{$havana_gene->stable_id} = $ensembl_gene->stable_id();
+      $processed_ens_id_tracker{$havana_gene->dbID()} = [$ensembl_gene->dbID(),$ensembl_gene->stable_id()];
     }
   }
 
@@ -950,7 +950,7 @@ ENSEMBL_GENE:
                   $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
 
           # Keep a record in memory of this stable id
-          $stable_id_tracker{$havana_gene->stable_id} = $ensembl_gene->stable_id();
+          $processed_ens_id_tracker{$havana_gene->dbID()} = [$ensembl_gene->dbID(),$ensembl_gene->stable_id()];
         }
       }
       else {
@@ -1026,7 +1026,7 @@ ENSEMBL_GENE:
                 $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
 
         # Keep a record in memory of this stable id
-        $stable_id_tracker{$havana_gene->stable_id()} = $ensembl_gene->stable_id();
+        $processed_ens_id_tracker{$havana_gene->dbID()} = [$ensembl_gene->dbID(),$ensembl_gene->stable_id()];
       }
 
     } ## end if ( !exists( $merged_ensembl_transcripts...))
@@ -1054,15 +1054,20 @@ ENSEMBL_GENE:
     # If the biotype is bad, skip the store
     if(bad_biotype($havana_gene->biotype())) {
 
-        print "WARNING: skipping store of Havana gene ".$havana_gene->stable_id().
-              " due to bad biotype: ".$havana_gene->biotype()."\n";
+        print "WARNING: skipping store of Havana gene ".$havana_gene->dbID()." ".
+              $havana_gene->stable_id()." due to bad biotype: ".$havana_gene->biotype()."\n";
 
         # If there is an Ensembl gene that has been merged/copied to this Havana gene
         # put in some additional warnings that the gene will be thrown out
-        if($stable_id_tracker{$havana_gene->stable_id()}) {         
-          my $ens_gene_stable_id = $stable_id_tracker{$havana_gene->stable_id()};
-          print "WARNING: skipping store of Ensembl gene ".$ens_gene_stable_id.
-                " due to merge/copy with Havana gene ".$havana_gene->stable_id().
+        if($processed_ens_id_tracker{$old_dbID}) {         
+          my $ens_gene_db_id = $processed_ens_id_tracker{$old_dbID}->[0];
+          my $ens_gene_stable_id = "";
+          if($processed_ens_id_tracker{$old_dbID}->[1]) {
+            $ens_gene_stable_id = $processed_ens_id_tracker{$old_dbID}->[1];
+          } 
+
+          print "WARNING: skipping store of Ensembl gene ".$ens_gene_db_id." ".$ens_gene_stable_id.
+                " due to merge/copy with Havana gene ".$havana_gene->dbID()." ".$havana_gene->stable_id().
                 " with bad biotype: ".$havana_gene->biotype()."\n";          
         }
 
