@@ -498,11 +498,11 @@ sub to_String {
       $id = $gene->dbID ;
     }
      
-    $data .= sprintf "Id: %-16s"             , $id ;
-    $data .= sprintf "Contig: %-20s"         , $exons[0]->contig->id ;
-    $data .= sprintf "Exons: %-3d"           , scalar(@exons) ;
-    $data .= sprintf "Start: %-9d"           , $self->_get_start($gene) ;
-    $data .= sprintf "End: %-9d"             , $self->_get_end  ($gene) ;
+    $data .= sprintf "Id: %-16s\n"             , $id ;
+    $data .= sprintf "Contig: %-20s\n"         , $exons[0]->contig->id ;
+    $data .= sprintf "Exons: %-3d\n"           , scalar(@exons) ;
+    $data .= sprintf "Start: %-9d\n"           , $self->_get_start($gene) ;
+    $data .= sprintf "End: %-9d\n"             , $self->_get_end  ($gene) ;
     $data .= sprintf "Strand: %-2d\n"        , $exons[0]->strand ;
     $data .= sprintf "Exon-density : %3.2f\n", $self->exon_Density($gene) ;
   }
