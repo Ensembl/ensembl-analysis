@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ corresponding to the next HSP-like alignment.
 
 =head1 CONTACT
 
-Ensembl development mailing list <dev@ensembl.org>
+Ensembl development mailing list <http://lists.ensembl.org/mailman/listinfo/dev>
 Abel Ureta-Vidal <abel@ebi.ac.uk>
 
 =head1 APPENDIX

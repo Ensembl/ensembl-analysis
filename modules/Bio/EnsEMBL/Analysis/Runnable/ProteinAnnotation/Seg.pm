@@ -32,7 +32,7 @@
 
 =head1 CONTACT
   
-  helpdesk@ensembl.org
+  http://www.ensembl.org/Help/Contact
 
 =head1 APPENDIX
 
