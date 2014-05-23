@@ -344,13 +344,13 @@ sub run{
       #print "MMG making subseq based on ".$self->cluster_start." ".$self->cluster_end." from ".$self->query->name."\n";
       my $string_seq = ('N' x ($self->cluster_start - 1)) .
         $self->query->subseq($self->cluster_start, $self->cluster_end) .
-          ('N' x ($self->query->length - ($self->cluster_end + 1)));
+          ('N' x ($self->query->length - ($self->cluster_end)));
       $slice = Bio::EnsEMBL::Slice->new 
         (
          -seq => $string_seq,
          -seq_region_name  => $self->query->seq_region_name,
-         -start => 1,
-         -end => length($string_seq),
+         -start => $self->query->start,
+         -end => $self->query->end,
          -coord_system => $self->query->coord_system,
         );
     }else{
