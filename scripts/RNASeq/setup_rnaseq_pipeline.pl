@@ -786,12 +786,15 @@ foreach my $row (@rows) {
   $read_group .= "\tPU:" . $row->{PU} if (exists $row->{PU});
   $read_group .= "\tSM:" . $row->{SM} if (exists $row->{SM});
   $read_group .= "\tLB:" . $row->{LB} if (exists $row->{LB});
-  $read_group .= "\tDS:" . $row->{DS};
-  $read_group .= "\tCN:" . $row->{CN};
+  $read_group .= "\tDS:" . $row->{DS} if (exists $row->{DS});
+  $read_group .= "\tCN:" . $row->{CN} if (exists $row->{CN});
   # Might need to change ST to DT but we will need to change the previous configs
   $read_group .= "\tDT:" . $row->{ST} if (exists $row->{ST});
-  my ($field_pl) = $row->{PL} =~ /([^+])/;
-  $read_group .= "\tPL:" . $field_pl . "\n";
+  if (exists $row->{PL}) 
+  {
+      my ($field_pl) = $row->{PL} =~ /([^+])/;
+      $read_group .= "\tPL:" . $field_pl . "\n";
+  }
   print HEAD $read_group;
   print ALL $read_group;
   close(HEAD) || die( "Cannot close $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
