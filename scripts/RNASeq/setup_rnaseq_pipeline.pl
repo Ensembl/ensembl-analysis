@@ -182,14 +182,14 @@ $ref_load =~ s/gene//;
 $blast_load =  $database_hash{$RNASEQCONFIG->{BLASTDB}}->dbc->host;
 $blast_load =~ s/gene//;
 
-my $submit_bwa2bam_count    = 0;
+my $submitcs11_bwa2bam_count    = 0;
 my $bwa2bam_count           = 0;
-my $submit_bam2genes_count  = 0;
+my $submitcs11_bam2genes_count  = 0;
 my $bam2genes_count         = 0;
-my $submit_chromosome_count = 0;
+my $submitcs11_chromosome_count = 0;
 my $bam2introns_count       = 0;
 my $gsnap_count             = 0;
-my $submit_gsnap_count      = 0;
+my $submitcs11_gsnap_count      = 0;
 my $rough_count             = 0;
 my @files;
 # determine the state of the db 
@@ -198,8 +198,8 @@ foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
   foreach my $id ( @{ $sic->list_input_ids_by_analysis( $analysis->dbID ) } )
   {
     $stored_ids->{$id}->{ $analysis->logic_name } = 1;
-    if ( $analysis->logic_name =~ /submit_.+_bwa2bam/ ) {
-      $submit_bwa2bam_count++;
+    if ( $analysis->logic_name =~ /submitcs11_.+_bwa2bam/ ) {
+      $submitcs11_bwa2bam_count++;
     }
     if ( $analysis->logic_name =~ /bwa2bam_.+/ ) {
       $bwa2bam_count++;
@@ -207,18 +207,18 @@ foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
       my @name = split( /:/,$id);
       push @files, shift(@name);
     }    
-    if ( $analysis->logic_name =~ /submit_chromosome/ ) {
-      $submit_chromosome_count++;
+    if ( $analysis->logic_name =~ /submitcs11_chromosome/ ) {
+      $submitcs11_chromosome_count++;
     }    
     if ( $analysis->logic_name =~ /bam2genes/ ) {
       $bam2genes_count++;
     }
     if ( $analysis->logic_name =~ /bam2introns/ ) {
       $bam2introns_count++
-        unless $analysis->logic_name eq 'submit_bam2introns';
+        unless $analysis->logic_name eq 'submitcs11_bam2introns';
     }
-    if ( $analysis->logic_name =~ /submit_.+_gsnap/ ) {
-      $submit_gsnap_count++;
+    if ( $analysis->logic_name =~ /submitcs11_.+_gsnap/ ) {
+      $submitcs11_gsnap_count++;
     }
     if ( $analysis->logic_name =~ /gsnap_.+/ ) {
       $gsnap_count++;
@@ -231,7 +231,7 @@ foreach my $analysis ( @{ $pipeline_analysis->fetch_all } ) {
 
 unless ($update_analyses) {
   unless ($use_gsnap) {
-    if (    ( $bwa2bam_count >= 1 && $bwa2bam_count == $submit_bwa2bam_count )
+    if (    ( $bwa2bam_count >= 1 && $bwa2bam_count == $submitcs11_bwa2bam_count )
          or ( $force_stage eq "bwa_complete" ) )
     {
       $stage = "bwa_complete";
@@ -244,7 +244,7 @@ unless ($update_analyses) {
     } ## end if ( ( $bwa2bam_count ...
 
   } else {
-    if (    ( $gsnap_count >= 1 && $gsnap_count == $submit_gsnap_count )
+    if (    ( $gsnap_count >= 1 && $gsnap_count == $submitcs11_gsnap_count )
          or ( $force_stage eq "bwa_complete" ) )
     {
       $stage = "gsnap_complete";
@@ -263,16 +263,16 @@ unless ($update_analyses) {
 
   unless ( $stage eq "Initialization" ) {
     my $slice_count = 0;
-    if ( $pipeline_analysis->fetch_by_logic_name("submit_chromosome") ) {
+    if ( $pipeline_analysis->fetch_by_logic_name("submitcs11_chromosome") ) {
       my $slice_count =
-        scalar(@{ $sic->list_input_ids_by_analysis($pipeline_analysis->fetch_by_logic_name("submit_chromosome")->dbID)});
+        scalar(@{ $sic->list_input_ids_by_analysis($pipeline_analysis->fetch_by_logic_name("submitcs11_chromosome")->dbID)});
     }
-    if ( $pipeline_analysis->fetch_by_logic_name("submit_bam2introns") ) {
+    if ( $pipeline_analysis->fetch_by_logic_name("submitcs11_bam2introns") ) {
       $rough_count =
-        scalar(@{ $sic->list_input_ids_by_analysis($pipeline_analysis->fetch_by_logic_name("submit_bam2introns")->dbID)});
+        scalar(@{ $sic->list_input_ids_by_analysis($pipeline_analysis->fetch_by_logic_name("submitcs11_bam2introns")->dbID)});
     }
-    if ( (    $submit_chromosome_count > 0
-           && $submit_chromosome_count == $bam2genes_count
+    if ( (    $submitcs11_chromosome_count > 0
+           && $submitcs11_chromosome_count == $bam2genes_count
            && $bam2introns_count == 0 )
          or ( $force_stage eq "bam2genes complete" ) )
     {
@@ -280,9 +280,9 @@ unless ($update_analyses) {
       my $analysis;
       unless ($use_gsnap) {
         $analysis =
-          $pipeline_analysis->fetch_by_logic_name("submit_bam2introns");
+          $pipeline_analysis->fetch_by_logic_name("submitcs11_bam2introns");
         unless ($analysis) {
-          throw("submit_bam2introns analysis not found\n");
+          throw("submitcs11_bam2introns analysis not found\n");
         }
       }
   # assign stable ids to the models and make input ids for the bam2introns run
@@ -304,28 +304,32 @@ unless ($update_analyses) {
         }
         foreach my $id (@ids) {
           $sic->store_input_id_analysis( $id, $analysis, "dummy" )
-            unless $stored_ids->{$id}->{"submit_bam2introns"};
+            unless $stored_ids->{$id}->{"submitcs11_bam2introns"};
         }
-        print "Stored " . scalar(@ids) . " submit_bam2introns ids\n";
+        print "Stored " . scalar(@ids) . " submitcs11_bam2introns ids\n";
         $rough_count = scalar(@ids);
       }
     } else {
       if ( $stage eq 'bwa_complete' or $stage eq 'gsnap_complete' ) {
         my $count = 0;
         # fetch dummy analysis
-        my $analysis = $pipeline_analysis->fetch_by_logic_name("submit_chromosome");
+        my $analysis = $pipeline_analysis->fetch_by_logic_name("submitcs11_chromosome");
         if ($analysis) {
           print "Writing input ids for bam2genes\n";
           # add the submit chromosome input ids to start the next phase of the analysis
-          foreach my $slice ( @{ $sa->fetch_all('toplevel') } ) {
+          foreach my $slice ( @{ $sa->fetch_all('toplevel') } ) 
+          {
             # we dont build on the mitochondrial sequences
             next if ( $slice->seq_region_name eq 'MT' );
-            unless ( $RNASEQCONFIG->{SLICE_LENGTH} ) {
+            unless ( $RNASEQCONFIG->{SLICE_LENGTH} ) 
+            {
               $count++;
               # run on chromosomes if you have pairing to help separate out the models
               $sic->store_input_id_analysis( $slice->name, $analysis, "dummy" )
-                unless $stored_ids->{ $slice->name }->{"submit_chromosome"};
-            } else {
+                unless $stored_ids->{ $slice->name }->{"submitcs11_chromosome"};
+            } 
+            else 
+            {
               # otherwise run on slices
               my @iid_sections = split( /:/, $slice->name );
               for ( my $i = 1 ;
@@ -343,17 +347,17 @@ unless ($update_analyses) {
                 # print "ID $id \n";
                 $count++;
                 $sic->store_input_id_analysis( $id, $analysis, "dummy" )
-                  unless $stored_ids->{$id}->{"submit_chromosome"};
+                  unless $stored_ids->{$id}->{"submitcs11_chromosome"};
               }
             }
           } ## end foreach my $slice ( @{ $sa->fetch_all...
         } else {
-          print "Cannot find submit_chromosome analysis - "
+          print "Cannot find submitcs11_chromosome analysis - "
               . "run the script with the -write option to refresh the analyses\n";
         }
         $slice_count = $count;
       } ## end if ( $stage eq 'bwa_complete'...
-    } ## end else [ if ( ( $submit_chromosome_count...
+    } ## end else [ if ( ( $submitcs11_chromosome_count...
 
     # calculate batch sizes for slice jobs
     $slice_batches = int( $slice_count/100 );
@@ -486,27 +490,27 @@ foreach my $row (@rows) {
   my $ln = $row->{ID};
   # trim off trailing commas
   $ids_by_tissue{$tissue_by_id{$ln}} =~ s/"\,"$//;
-  my $submit_bwa =
+  my $submitcs11_bwa =
     new Bio::EnsEMBL::Pipeline::Analysis(
-                                      -logic_name => "submit_" . $ln . "_bwa",
+                                      -logic_name => "submitcs11_" . $ln . "_bwa",
                                       -input_id_type => 'BWA' . $ln, );
   my $bwa_wait =
     new Bio::EnsEMBL::Pipeline::Analysis(
                                         -logic_name => "bwa_" . $ln . "_wait",
                                         -module     => "Accumulator",
                                         -input_id_type => 'ACCUMULATOR', );
-  my $submit_gsnap =
+  my $submitcs11_gsnap =
     new Bio::EnsEMBL::Pipeline::Analysis(
-                                    -logic_name => "submit_" . $ln . "_gsnap",
+                                    -logic_name => "submitcs11_" . $ln . "_gsnap",
                                     -input_id_type => 'GSNAP' . $ln, );
 
-  my $submit_bwa2bam =
+  my $submitcs11_bwa2bam =
     new Bio::EnsEMBL::Pipeline::Analysis(
-                                  -logic_name => "submit_" . $ln . "_bwa2bam",
+                                  -logic_name => "submitcs11_" . $ln . "_bwa2bam",
                                   -input_id_type => 'BWA2BAM' . $ln, );
   my $refine =
     new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "refine_" . $tissue_by_id{$ln},
-                                          -input_id_type => 'CHROMOSOME',
+                                          -input_id_type => 'CHR17_REMAP',
                                           -module => 'RefineSolexaGenes', );
   my $skip = 0;
   # catch paired analyses and store the file names
@@ -515,9 +519,9 @@ foreach my $row (@rows) {
     if ( $row->{FILE} =~ /$regex/ ) {
       $pairs{ $1 . "-" . $3 }->{$2} = $row->{FILE};
       unless ($use_gsnap) {
-        $pairs{ $1 . "-" . $3 }->{ANALYSIS} = $submit_bwa2bam;
+        $pairs{ $1 . "-" . $3 }->{ANALYSIS} = $submitcs11_bwa2bam;
       } else {
-        $pairs{ $1 . "-" . $3 }->{ANALYSIS} = $submit_gsnap;
+        $pairs{ $1 . "-" . $3 }->{ANALYSIS} = $submitcs11_gsnap;
       }
       $skip = 1;
       unless ( $1 && $2 && $3 ) {
@@ -563,7 +567,7 @@ foreach my $row (@rows) {
                                           -input_id_type => 'GSNAP' . $ln, );
 
   my $bwa_rule = Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $bwa );
-  $bwa_rule->add_condition( $submit_bwa->logic_name );
+  $bwa_rule->add_condition( $submitcs11_bwa->logic_name );
 
   my $bwa_wait_rule =
     Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $bwa_wait );
@@ -571,21 +575,21 @@ foreach my $row (@rows) {
 
   my $gsnap_rule =
     Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $gsnap );
-  $gsnap_rule->add_condition( $submit_gsnap->logic_name );
+  $gsnap_rule->add_condition( $submitcs11_gsnap->logic_name );
 
   my $bwa2bam_rule =
     Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $bwa2bam );
   $bwa2bam_rule->add_condition( $bwa_wait->logic_name );
-  $bwa2bam_rule->add_condition( $submit_bwa2bam->logic_name );
+  $bwa2bam_rule->add_condition( $submitcs11_bwa2bam->logic_name );
   my $refine_rule =
     Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $refine );
-  $refine_rule->add_condition("submit_chromosome");
+  $refine_rule->add_condition("submitcs11_chromosome");
   $refine_rule->add_condition("sam2bam_wait");
   # store the analyses
   unless ($use_gsnap) {
-    $pipeline_analysis->store($submit_bwa);
+    $pipeline_analysis->store($submitcs11_bwa);
     $pipeline_analysis->store($bwa_wait);
-    $pipeline_analysis->store($submit_bwa2bam);
+    $pipeline_analysis->store($submitcs11_bwa2bam);
     $pipeline_analysis->store($bwa);
     $pipeline_analysis->store($bwa2bam);
     $ra->store($bwa_rule)      if check_rule($bwa_rule);
@@ -593,20 +597,20 @@ foreach my $row (@rows) {
     $ra->store($bwa2bam_rule)  if check_rule($bwa2bam_rule);
     # input_ids
     # dont store duplicate ids
-    $sic->store_input_id_analysis( $row->{FILE}, $submit_bwa, "dummy" )
-      unless $stored_ids->{ $row->{FILE} }->{ $submit_bwa->logic_name };
-    $sic->store_input_id_analysis( $row->{FILE}, $submit_bwa2bam, "dummy" )
+    $sic->store_input_id_analysis( $row->{FILE}, $submitcs11_bwa, "dummy" )
+      unless $stored_ids->{ $row->{FILE} }->{ $submitcs11_bwa->logic_name };
+    $sic->store_input_id_analysis( $row->{FILE}, $submitcs11_bwa2bam, "dummy" )
       unless ( $skip
-          || $stored_ids->{ $row->{FILE} }->{ $submit_bwa2bam->logic_name } );
+          || $stored_ids->{ $row->{FILE} }->{ $submitcs11_bwa2bam->logic_name } );
   } else {
-    $pipeline_analysis->store($submit_gsnap);
+    $pipeline_analysis->store($submitcs11_gsnap);
     $pipeline_analysis->store($gsnap);
     $ra->store($gsnap_rule) if check_rule($gsnap_rule);
     # input_ids
     # dont store duplicate ids
-    $sic->store_input_id_analysis( $row->{FILE}, $submit_gsnap, "dummy" )
+    $sic->store_input_id_analysis( $row->{FILE}, $submitcs11_gsnap, "dummy" )
       unless ( $skip
-            || $stored_ids->{ $row->{FILE} }->{ $submit_gsnap->logic_name } );
+            || $stored_ids->{ $row->{FILE} }->{ $submitcs11_gsnap->logic_name } );
   }
   $pipeline_analysis->store($refine)
   if $RNASEQCONFIG->{SINGLE_TISSUE} && $stage eq 'configured';
@@ -634,16 +638,16 @@ foreach my $key ( keys %pairs ) {
 
 
 # RNASeq pipeline anaysis that are run on all lanes
-my $submit_chromosome =
-  new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "submit_chromosome",
-                                        -input_id_type => 'CHROMOSOME', );
+my $submitcs11_chromosome =
+  new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "submitcs11_chromosome",
+                                        -input_id_type => 'CHR17_REMAP', );
 my $bam2genes =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2genes",
-                                        -input_id_type => 'CHROMOSOME',
+                                        -input_id_type => 'CHR17_REMAP',
                                         -module        => "Bam2Genes", );
 
-my $submit_bam2introns =
-  new Bio::EnsEMBL::Pipeline::Analysis( -logic_name => "submit_bam2introns",
+my $submitcs11_bam2introns =
+  new Bio::EnsEMBL::Pipeline::Analysis( -logic_name => "submitcs11_bam2introns",
                                         -input_id_type => 'STABLEID', );
 my $bam2introns =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2introns",
@@ -654,8 +658,8 @@ my $bam2introns_wait =
                                         -module        => "Accumulator",
                                         -input_id_type => 'ACCUMULATOR', );
 
-my $submit_sam2bam =
-  new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "submit_sam2bam",
+my $submitcs11_sam2bam =
+  new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "submitcs11_sam2bam",
                                         -input_id_type => 'GENOME', );
 my $sam2bam =
   new Bio::EnsEMBL::Pipeline::Analysis(
@@ -670,13 +674,13 @@ my $sam2bam_wait =
 
 my $refine_all =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "refine_all",
-                                        -input_id_type => 'CHROMOSOME',
+                                        -input_id_type => 'CHR17_REMAP',
                                         -module        => 'RefineSolexaGenes',
   );
 my $rnaseq_blast =
   new Bio::EnsEMBL::Pipeline::Analysis(
                                   -logic_name    => "rnaseqblast",
-                                  -input_id_type => 'CHROMOSOME',
+                                  -input_id_type => 'CHR17_REMAP',
                                   -module        => 'BlastRNASeqPep',
                                   -parameters => '-cpus 1 -hitdist 40',
                                   -program_file => 'wublastp',
@@ -687,11 +691,11 @@ my $rnaseq_blast =
 
 my $bam2genes_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $bam2genes );
-$bam2genes_rule->add_condition("submit_chromosome");
+$bam2genes_rule->add_condition("submitcs11_chromosome");
 
 my $bam2introns_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $bam2introns );
-$bam2introns_rule->add_condition("submit_bam2introns");
+$bam2introns_rule->add_condition("submitcs11_bam2introns");
 
 my $bam2introns_wait_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $bam2introns_wait );
@@ -699,7 +703,7 @@ $bam2introns_wait_rule->add_condition("bam2introns");
 
 my $sam2bam_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $sam2bam );
-$sam2bam_rule->add_condition("submit_sam2bam");
+$sam2bam_rule->add_condition("submitcs11_sam2bam");
 $sam2bam_rule->add_condition("bam2introns_wait");
 
 my $sam2bam_wait_rule =
@@ -708,7 +712,7 @@ $sam2bam_wait_rule->add_condition("sam2bam");
 
 my $refine_all_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $refine_all );
-$refine_all_rule->add_condition("submit_chromosome");
+$refine_all_rule->add_condition("submitcs11_chromosome");
 unless ($use_gsnap) {
   $refine_all_rule->add_condition("sam2bam_wait");
 } else {
@@ -718,20 +722,20 @@ unless ($use_gsnap) {
 my $rnaseqblast_rule =
   Bio::EnsEMBL::Pipeline::Rule->new( -goalanalysis => $rnaseq_blast );
 
-$rnaseqblast_rule->add_condition("submit_chromosome");
+$rnaseqblast_rule->add_condition("submitcs11_chromosome");
 $rnaseqblast_rule->add_condition("refine_all");
 
 # store the analyses
 
 print "Stage $stage\n";
-$pipeline_analysis->store($submit_chromosome);
+$pipeline_analysis->store($submitcs11_chromosome);
 $pipeline_analysis->store($bam2genes) if $stage eq 'bwa_complete' or  $stage eq 'gsnap_complete';
 
 unless ($use_gsnap) {
-  $pipeline_analysis->store($submit_bam2introns);
+  $pipeline_analysis->store($submitcs11_bam2introns);
   $pipeline_analysis->store($bam2introns)       if $stage eq 'bam2genes complete';
   $pipeline_analysis->store($bam2introns_wait)  if $stage eq 'bam2genes complete';
-  $pipeline_analysis->store($submit_sam2bam)    if $stage eq 'configured' or $stage eq 'bam2genes complete';
+  $pipeline_analysis->store($submitcs11_sam2bam)    if $stage eq 'configured' or $stage eq 'bam2genes complete';
   $pipeline_analysis->store($sam2bam)           if $stage eq 'configured';
   $pipeline_analysis->store($sam2bam_wait)      if $stage eq 'configured';
 }
@@ -757,10 +761,10 @@ if ( $stage eq 'configured' ) {
   $ra->store($rnaseqblast_rule) if check_rule($rnaseqblast_rule);
 }
 unless ($use_gsnap) {
-  # need to add a dummy input id for submit_sam2bam
+  # need to add a dummy input id for submitcs11_sam2bam
   if ( $stage eq 'configured' or $stage eq 'bam2genes complete' ) {
-    $sic->store_input_id_analysis( 'dummy', $submit_sam2bam, "dummy" )
-      unless $stored_ids->{'dummy'}->{'submit_sam2bam'};
+    $sic->store_input_id_analysis( 'dummy', $submitcs11_sam2bam, "dummy" )
+      unless $stored_ids->{'dummy'}->{'submitcs11_sam2bam'};
   }
 }
 
