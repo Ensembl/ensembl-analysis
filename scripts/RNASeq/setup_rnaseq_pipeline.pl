@@ -103,7 +103,15 @@ if ($force_stage) {
   print "Starting from stage $force_stage\n";
 }
 
-$stage = $force_stage if $force_stage;
+if( $force_stage )
+{
+    $stage = $force_stage ;
+}
+else
+{
+    $force_stage = "no force stage set" ;
+}
+
 throw("Cannot find input directory $input_dir\n")   unless -e $input_dir;
 throw("Cannot find output directory $output_dir\n") unless -e $output_dir;
 throw("Cannot find merge directory $merge_dir\n")   unless -e $merge_dir;
