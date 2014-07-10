@@ -1552,8 +1552,8 @@ sub copy {
   {
     print( "Copy> Source transcript is pseudogene, " .
            "will not copy it into a coding gene.\n" );
-    print( "Copy> Leaving Ensembl annotation as is.\n");
-    return 1;
+    print( "Copy> Deleting the Ensembl annotation.\n");
+    return 0;
   }
 
 ###############################################################################
