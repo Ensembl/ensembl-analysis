@@ -1557,7 +1557,25 @@ sub copy {
   }
 
 ###############################################################################
-# Case 2 - The Havana gene is a pseudogene. In this case it the Ensembl
+# Case 2 - The Havana gene is a bad biotype (e.g. TEC or artifact) and the
+# Ensembl transcript is CCDS. In this case the Ensembl transcript will not
+# be copied into the Havana gene and will be copied over as an Ensembl only
+# gene. As the Havana gene is a bad biotype it will not be stored in the
+# output db. This could have been covered in case 6, but as it is independent
+# of everything else having it separate seems clearer.
+###############################################################################
+
+  elsif ( $source_transcript->{__is_ccds} &&
+          bad_biotype($target_gene->biotype()) ) {
+    print( "Copy> Source transcript is CCDS, " .
+           "will not copy it into a gene with a bad biotype (".$target_gene->biotype().
+           ").\n" );
+    print( "Copy> Leaving the Ensembl annotation as is.\n");
+    return 1;
+  }
+
+###############################################################################
+# Case 3 - The Havana gene is a pseudogene. In this case it the Ensembl
 # transcript won't be copied and the corresponding gene will be listed
 # as processed and will not be copied at the end. The only exception to
 # this is when the Ensembl transcript is CCDS, in which case the transcript
@@ -1587,7 +1605,7 @@ sub copy {
   }
 
 ###############################################################################
-# Case 3 - The Havana gene is labelled as belonging to a gene cluster. This
+# Case 4 - The Havana gene is labelled as belonging to a gene cluster. This
 # tag is read from the transcripts, so at least one transcript was labelled.
 # In this case the Ensembl transcript will not be copied over.
 # The exception to this is if the Ensembl transcript is CCDS, in this case
@@ -1618,7 +1636,7 @@ sub copy {
   }
 
 ###############################################################################
-# Case 4 - The Havana gene has an assembly error, in this case the Ensembl
+# Case 5 - The Havana gene has an assembly error, in this case the Ensembl
 # transcript will be copied in and if the Ensembl gene has a translation and
 # the Havana gene biotype doesn't match the biotype of the Ensembl transcript
 # the biotype of the Ensembl transcript overwrites the Havana gene biotype.
@@ -1638,7 +1656,7 @@ sub copy {
   }
 
 ###############################################################################
-# Case 5 - The Havana gene is non coding (but not a pseudogene) and the
+# Case 6 - The Havana gene is non coding (but not a pseudogene) and the
 # Ensembl transcript has a translation. In this case the translation is
 # removed from the Ensembl transcript and the exon phases are all set to
 # -1, which means non-coding, before the transcript is copied. The only
