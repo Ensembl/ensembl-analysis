@@ -373,6 +373,12 @@ sub parse_results{
         $new_transcript->biotype($self->RETRO_TYPE);
       }
 
+      # make sure all exon phases are set to -1 due to the non-coding status
+      foreach my $exon (@{$new_transcript->get_all_Exons()}) {
+        $exon->phase(-1);
+        $exon->end_phase(-1);
+      }
+
       $new_gene->add_Transcript($new_transcript);
       $self->retro_genes($new_gene);
       next RESULT;
