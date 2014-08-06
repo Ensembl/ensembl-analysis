@@ -1093,7 +1093,6 @@ sub bad_biotype
   # but as the list will never be huge I'm putting it here as it's 
   # easier to read
   my %bad_biotypes = (
-                       'TEC' => 1,   
                        'artifact' => 1
                      );
 
