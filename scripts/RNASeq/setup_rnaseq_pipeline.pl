@@ -1105,8 +1105,8 @@ sub generate_picard_cmd {
   my ( $files_ref, $out_dir, $merge_dir ) = @_; 
   my $cmd = "bsub -qnormal -M2000 -R'select[mem>2000] rusage[mem=2000]'"
           . " -o " . $out_dir . "/picard_merge.out -e " . $out_dir . "/picard_merge.err \\\n"
-          . " /vol/software/linux-x86_64/jdk1.6.0_01/bin/java -Xmx2g"
-          . " -jar /software/solexa/bin/aligners/picard/picard-tools-1.47/MergeSamFiles.jar \\\n";
+          . " /software/jdk1.6.0_14/bin/java -Xmx2g"
+          . " -jar  /software/solexa/pkg/picard/picard-tools-1.84/MergeSamFiles.jar \\\n";
   foreach my $input ( @{ $files_ref } ) {
     $cmd .= "INPUT=" . $input . " \\\n";   
   }

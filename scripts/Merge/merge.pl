@@ -1455,6 +1455,15 @@ sub merge {
              "(not merging)\n" );
       return copy( $target_gene, $source_transcript );
     }
+
+    elsif($source_transcript->translation()->seq() ne $target_transcript->translation()->seq()) {
+      printf( "Merge> Merge would alter coding sequence (CCDS source transcript)\n");
+
+      print( "Merge> Copying source transcript to target gene " .
+             "(not merging)\n" );
+       return copy( $target_gene, $source_transcript );
+    }
+
   }
 
   # Start by transferring the $source_transcript to the same slice as

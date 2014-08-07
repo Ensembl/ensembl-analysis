@@ -370,6 +370,7 @@ GENE: foreach my $gene (@genes) {
     #################################################################
     # gene is pseudogene, all transcripts are pseudo
     # set type to pseudogene chuck away all but the longest transcript
+    # and set all exon phases to -1 due to their non-coding status
 
     if ( $trans_type{'pseudo'} ) {
       unless (    $trans_type{'single_exon'}
@@ -410,6 +411,12 @@ GENE: foreach my $gene (@genes) {
                      . "\n" );
           } else {
             $only_transcript_to_keep->biotype( $self->PS_PSEUDO_TYPE );
+          }
+          
+          # set all exon phases to -1 due to their non-coding status
+          foreach my $exon (@{$only_transcript_to_keep->get_all_Exons()}) {
+            $exon->phase(-1);
+            $exon->end_phase(-1);
           }
         }
         $new_gene->add_Transcript($only_transcript_to_keep);

@@ -267,7 +267,7 @@ foreach my $slice (@slices)
             # regardless it was a polymorphic transcript before or after this check
             $polymorphic_transcript = 1;
           } else { # transcript has translation without stop codon
-            if (($t_biotype =~ /^($transcript_prefixes_str)($transcript_non_coding_biotypes_str)($transcript_suffixes_str)$/) or ($t_biotype =~ /.*polymorphic.*/)) { # but its biotype is non-coding or polymorphic
+            if (($t_biotype =~ /^($transcript_prefixes_str)($transcript_non_coding_biotypes_str)($transcript_suffixes_str)$/)) { # but its biotype is non-coding
               # transcript biotype should be protein_coding
               my ($t_biotype_prefix,$t_biotype_suffix) = get_biotype_affix($t_biotype,$transcript_biotypes_str,$transcript_prefixes_str,$transcript_suffixes_str);
               my $new_suggested_biotype = $t_biotype_prefix.'protein_coding'.$t_biotype_suffix;
@@ -278,7 +278,9 @@ foreach my $slice (@slices)
             }
             # we want to keep track of the presence of protein_coding transcripts to decide about the gene biotype later on
             # regardless it was a protein_coding transcript before or after this check
-            $protein_coding_transcript = 1;
+            if ($t_biotype !~ /.*polymorphic.*/) {
+              $protein_coding_transcript = 1;
+            }
           }
 
         } else { # transcript biotype unknown

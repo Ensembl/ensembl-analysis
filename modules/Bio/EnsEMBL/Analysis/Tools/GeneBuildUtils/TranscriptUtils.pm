@@ -1243,7 +1243,7 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
                 $transcript->strand == 1)
                or
                ($transcript->translation->start_Exon->start == $exon->start and
-                $transcript->translation->genomic_start() == $stop->end and
+                $transcript->translation->genomic_end() == $stop->end and
                 $transcript->strand == -1) ) {
             # if the stop starts at the start of the translation
             # the translation start is shifted and the exon is not divided
@@ -1259,15 +1259,14 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
                      $transcript->strand == 1)
                     or
                     ($transcript->translation->end_Exon->start == $exon->start and
-                     $transcript->translation->genomic_end() == $stop->start and
+                     $transcript->translation->genomic_start() == $stop->start and
                      $transcript->strand == -1) )
           {
 
             # if the stop ends at the end of the translation
             # the translation end is shifted and the exon is not divided
 
-            $translation_end_shift -= 3;
-
+            $translation_end_shift -= 3; # translation start and end are "stranded", no need to look      at strand
             print("The stop ends at the end of the translation within an exon, not boundary.\n");
 
             push @new_exons,$exon; # exon not changed but translation start will be shifted
