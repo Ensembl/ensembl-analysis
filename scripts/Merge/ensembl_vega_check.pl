@@ -280,6 +280,8 @@ foreach my $slice (@slices)
             # regardless it was a protein_coding transcript before or after this check
             if ($t_biotype !~ /.*polymorphic.*/) {
               $protein_coding_transcript = 1;
+            } else {
+              $polymorphic_transcript = 1;
             }
           }
 
