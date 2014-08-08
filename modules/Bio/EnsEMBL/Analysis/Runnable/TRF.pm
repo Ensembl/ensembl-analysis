@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -231,7 +231,11 @@ sub run_analysis{
   # my $command = $program." ".$self->queryfile." ".$self->options." -d";
 
   print "Running analysis ".$command."\n";
-  my $exit = system($command);
+  # We test 256 as it was what trf returns when it's successful
+  my $exit_code = system($command);
+  if ($exit_code%256) {
+      throw ("TRF died: $?");
+  }
   foreach my $file(glob $self->queryfile."*"){
     $self->files_to_delete($file);
   }

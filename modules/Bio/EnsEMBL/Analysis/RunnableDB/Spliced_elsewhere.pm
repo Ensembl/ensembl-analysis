@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -371,6 +371,12 @@ sub parse_results{
                 " instead of setting it to " . $self->RETRO_TYPE . "\n");
       } else {
         $new_transcript->biotype($self->RETRO_TYPE);
+      }
+
+      # make sure all exon phases are set to -1 due to the non-coding status
+      foreach my $exon (@{$new_transcript->get_all_Exons()}) {
+        $exon->phase(-1);
+        $exon->end_phase(-1);
       }
 
       $new_gene->add_Transcript($new_transcript);

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,6 +101,7 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities;
 my $sourcehost   = '';
 my $sourceuser   = 'ensro';
 my $sourcedbname = '';
+my $sourcepass   = undef;
 my $sourceport   = 3306;
 
 my $outhost   = '';
@@ -134,6 +135,7 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'inuser|sourceuser:s'                  => \$sourceuser,
             'indbname|sourcedbname:s'              => \$sourcedbname,
             'inport|sourceport:n'                  => \$sourceport,
+            'inpass|sourcepass:s'                  => \$sourcepass,
             'in_config_name|source_config_name:s'  => \$in_config_name,
             'out_config_name|target_config_name:s' => \$out_config_name,
             'outhost|targethost:s'                 => \$outhost,
@@ -205,6 +207,7 @@ else {
   $sourcedb =
     new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $sourcehost,
                                         -user   => $sourceuser,
+                                        -pass   => $sourcepass,
                                         -port   => $sourceport,
                                         -dbname => $sourcedbname );
   if ($attach_dna_db) {

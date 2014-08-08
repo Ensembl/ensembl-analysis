@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ Also by default these scripts consider protein evidence and gene ids
 
 =head1 CONTACT
 
-the ensembl-dev mailing list <dev@ensembl.org>
+the ensembl-dev mailing list <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =cut
 

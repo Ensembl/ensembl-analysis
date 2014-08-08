@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,6 +62,9 @@ normal uppercase Ns or with softmasking
 
     -include_duplicates Returns duplicate regions. In order to get non-PAR regions of
                         chrY padded with N's it needs to be turned off (default)
+
+    -padded_nonref Returns all non-reference sequences padded with N's to match the corresponding full length
+                   of the reference chromosome for the given non-reference sequence. Only works if -include_duplicates is disabled.
 
     -padded_human_Chr_Y Returns full length human chrY with non-PAR regions padded with N's.
                         Needed for the FuncGen pipeline. Only works if -include_duplicates is disabled
@@ -162,6 +165,7 @@ my $include_duplicates;
 my @logic_names;
 my $mask;
 my $help;
+my $padded_nonref;
 
 GetOptions( 'dbhost|host|h:s'               => \$host,
             'dbport|port|P:n'               => \$port,
@@ -179,6 +183,7 @@ GetOptions( 'dbhost|host|h:s'               => \$host,
             'toplevel!'              => \$top_level,
             'seqlevel!'              => \$seq_level,
             'nonref!'                => \$non_ref,
+            'padded_nonref!'         => \$padded_nonref,
             'padded_human_Chr_Y!'    => \$padded_human_Chr_Y,
             'human_female!'          => \$human_female,
             'include_duplicates!'    => \$include_duplicates,
@@ -231,12 +236,6 @@ if($include_duplicates && $padded_human_Chr_Y){
     'Retrieving padded human ChrY only works if duplicates are excluded. '.
     'Run again either not using -include_duplicates or not using '.
     '-padded_human_Chr_Y';
-  throw($message);
-}
-
-if( ($mask || scalar(@logic_names > 0) ) && $padded_human_Chr_Y){
-  my $message =
-    'Masked padded chrY not implemented yet.';
   throw($message);
 }
 
@@ -398,29 +397,42 @@ if(not exists $dispatch->{$header}){
 ################################################################################
 SLICE:
 foreach my $slice(@$slices){
+
   # Compliance with header format used in previous version of this script
   $singleSerializer->header_function($dispatch->{$header}) if($filename);
 
   # For FuncGen pipeline, print a PAR-padded chrY
-  my ($y_header, $y_slice) = (undef, undef);
+  my ($padded_header, $padded_slice) = (undef, undef);
   if($padded_human_Chr_Y && $slice->name() =~ /^chromosome:GRCh\d\d:Y/ ){
-    ($y_header, $y_slice) = _build_complete_PAR_padded_chrY($slice);
-    next SLICE if (!$y_header);
+    ($padded_header, $padded_slice) = _build_complete_PAR_padded_chrY($slice);
+    next SLICE if (!$padded_header);
   }
-
 
   if($mask){
     $slice = $slice->get_repeatmasked_seq(\@logic_names, $softmask);
+  }
+
+  if ($padded_nonref and (!($slice->is_reference()))) {
+    $padded_slice = Bio::EnsEMBL::PaddedSlice->new($slice);
+    $padded_header = sub {
+      my ($padded_slice) = @_;
+      my $original = $padded_slice->name();
+      my @header = split(/:/, $original);
+      $header[3] = 1;
+      $header[4] = $padded_slice->length();
+      my $tmp = join(q{:}, @header);
+      my $newHeader = "$tmp";
+      return ($newHeader);
+    };
   }
 
   # printing output
   # An existing filename at this stage implies that output goes
   # into a single file
   if ($filename) {
-    if($y_header && $y_slice){
-      _print_padded_y($singleSerializer, $y_header, $y_slice);
-    }
-    else{
+    if ($padded_header && $padded_slice) {
+      _print_padded($singleSerializer,$padded_header,$padded_slice);
+    } else {
       $singleSerializer->print_Seq($slice);
       # Write female file, if demanded
       if( $human_female && $slice->name() !~ /^chromosome:GRCh\d\d:Y/){
@@ -428,16 +440,15 @@ foreach my $slice(@$slices){
       }
     }
   }
-  # Write into seperate files
+  # Write into separate files
   else {
     my $name = File::Spec->catfile($output_dir, $slice->seq_region_name.'.'.$extension);
     print "Multi: $name\n";
     open(my $fh, '>', $name) or die "Cant open stream to $name: $!";
       my $multiSerializer = $serializer->new($fh);
-      if($y_header && $y_slice){
-        _print_padded_y($multiSerializer, $y_header, $y_slice);
-      }
-      else{
+      if ($padded_header && $padded_slice) {
+        _print_padded($multiSerializer,$padded_header,$padded_slice);
+      } else {
         $multiSerializer->header_function($dispatch->{$header});
         $multiSerializer->print_Seq($slice);
       }
@@ -448,12 +459,12 @@ close($fh_singleFile) if($fh_singleFile);
 print "Finished\n";
 
 
-=head2 _print_padded_y
+=head2 _print_padded
 
   Arg [1]    : Bio::EnsEMBL::Utils::IO::FASTASerializer
   Arg [2]    : Modified header line
   Arg [3]    : Bio::EnsEMBL::Slice
-  Example    : _print_padded_y($singleSerializer, $y_header, $y_slice)
+  Example    : _print_padded($singleSerializer, $y_header, $y_slice)
   Description: Replaces the original FASTA-header from the slice with
                modified one. After writing the sequence, the original
                header is restored.
@@ -463,12 +474,12 @@ print "Finished\n";
   Status     : at risk
 
 =cut
-sub _print_padded_y {
-  my ($out, $y_header, $y_slice) = @_;
+sub _print_padded {
+  my ($out, $padded_header, $padded_slice) = @_;
 
   my $original_header_function = $out->header_function();
-  $out->header_function($y_header);
-  $out->print_Seq($y_slice);
+  $out->header_function($padded_header);
+  $out->print_Seq($padded_slice);
   $out->header_function($original_header_function);
 }
 
@@ -497,9 +508,12 @@ sub _build_complete_PAR_padded_chrY {
   # As this method is highly specific, test that we get what we expect
   # The 1st 10,000bp are an accepted guess for the telomeric region of chrY
   # The second slice contains non-PAR regions
-  if    ($slice->name() eq 'chromosome:GRCh37:Y:1:10000:1'){return 0}
-  elsif ($slice->name() eq 'chromosome:GRCh37:Y:2649521:59034049:1'){
+  if    ( ($slice->name() eq 'chromosome:GRCh38:Y:1:10000:1') or ($slice->name() eq 'chromosome:GRCh38:Y:57217416:57227415:1') ){return 0}
+  elsif ($slice->name() eq 'chromosome:GRCh38:Y:2781480:56887902:1'){
     print STDERR "Chromosome Y will have padded PAR regions\n";
+    if($mask){
+    $slice = $slice->get_repeatmasked_seq(\@logic_names, $softmask);
+    }
     my $y_slice = Bio::EnsEMBL::PaddedSlice->new($slice);
     my $y_header = sub {
       my ($slice) = @_;
@@ -508,7 +522,8 @@ sub _build_complete_PAR_padded_chrY {
       $header[3] = 1;
       $header[4] = $slice->length();
       my $tmp = join(q{:}, @header);
-      my $newHeader = "Y dna:chromosome $tmp";
+      #my $newHeader = "Y dna:chromosome $tmp";
+      my $newHeader = "$tmp";
       return ($newHeader);
     };
     return($y_header, $y_slice);
@@ -516,7 +531,7 @@ sub _build_complete_PAR_padded_chrY {
   else {
     my $message =
       'This method has been specifically written for the Ensembl FuncGen '.
-      'pipeline. The slice it expect are specific for GRCh37. Compliance '.
+      'pipeline. The slice it expect are specific for GRCh38. Compliance '.
       'with any other assembly has not been tested. The header found is '.
       "not expected: '".$slice->name()."'";
     throw($message);
