@@ -247,8 +247,12 @@ sub create_output_db {
 
 
   if ( $self->OUTDB ) {
+     if (ref($self->OUTDB) eq 'HASH') {
      $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB });  
-     $outdb->disconnect_when_inactive(1);  # jhv removed 
+     }
+     else {
+         $outdb = $self->get_dbadaptor($self->OUTDB);
+     }
   } else {
     $outdb = $self->db;
   } 
