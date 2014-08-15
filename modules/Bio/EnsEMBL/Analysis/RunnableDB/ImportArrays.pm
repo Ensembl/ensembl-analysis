@@ -219,7 +219,7 @@ sub run_FASTA{
   while (<PROBES>) {
     chomp;
 	
-    if (/$header_regex$/) {     #This places header values into @match_refs
+    if (/$header_regex/) {     #This places header values into @match_refs
       $cnt++;
 
       if ($current_sequence) {
@@ -258,6 +258,8 @@ sub run_FASTA{
           
             #Must have found either a technical replicate with an identical name
             #Currently the model only allows one unique name per probeset per array
+
+            #Check seq matches here also?
             warn "Skipping identical technical replicate probe:\t".
               $probe_attrs{'-name'}.' '.$current_sequence."\n";
             $skipped_reps ++;  
