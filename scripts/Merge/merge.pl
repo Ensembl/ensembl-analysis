@@ -1420,6 +1420,10 @@ sub exon_overlap {
 }
 
 sub merge {
+# Returns 1 if $source_transcript should be copied over
+# at the end of the merge process (further processing is needed).
+# Otherwise, returns 0 (further processing is not needed).
+
   my ( $target_gene, $target_transcript, $source_transcript ) = @_;
 
   printf( "Merge> Biotypes: source transcript: %s, " .
@@ -1534,6 +1538,10 @@ sub merge {
 } ## end sub merge
 
 sub copy {
+# Returns 1 if $source_transcript should be copied over
+# at the end of the merge process (further processing is needed).
+# Otherwise, returns 0 (further processing is not needed).
+
   my ( $target_gene, $source_transcript ) = @_;
 
   printf( "Copy> Biotypes: source transcript: %s, target gene: %s\n",
