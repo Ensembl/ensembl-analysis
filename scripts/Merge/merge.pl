@@ -1457,7 +1457,6 @@ sub merge {
 
     elsif($source_transcript->translation()->seq() ne $target_transcript->translation()->seq()) {
       printf( "Merge> Merge would alter coding sequence (CCDS source transcript)\n");
-
       print( "Merge> Copying source transcript to target gene " .
              "(not merging)\n" );
        return copy( $target_gene, $source_transcript );
@@ -1675,17 +1674,19 @@ sub copy {
 
   }
 
-  # Start by transferring the $source_transcript to the same slice as
-  # the $target_gene.
-  my $new_source_transcript =
-    $source_transcript->transfer( $target_gene->slice() );
+  # Transfer the $source_transcript to the same slice as
+  # the $target_gene if it has not been transferred before.
+  if (is_transcript_in_gene($target_gene,$source_transcript)) {
+    print "Copy> Not copying because it has already been copied (or merged) or it will be merged later on ".$source_transcript->stable_id()."\n"; 
+  } else {
+    my $new_source_transcript = $source_transcript->transfer( $target_gene->slice() );
 
-  $target_gene->add_Transcript($new_source_transcript);
+    $target_gene->add_Transcript($new_source_transcript);
 
-  add_logic_name_suffix( $new_source_transcript, 'copied' );
-  add_logic_name_suffix( $target_gene,           'merged' );
-  $target_gene->source( $opt_ensembl_tag . '_' . $opt_havana_tag );
-
+    add_logic_name_suffix( $new_source_transcript, 'copied' );
+    add_logic_name_suffix( $target_gene,           'merged' );
+    $target_gene->source( $opt_ensembl_tag . '_' . $opt_havana_tag );
+  }
   return 0;
 } ## end sub copy
 
@@ -1761,6 +1762,56 @@ sub add_logic_name_suffix {
     }
   }
 }
+
+sub is_transcript_in_gene {
+# returns 1 if the transcript $source_transcript
+# can be found in the gene $target_gene
+  my ($target_gene,$source_transcript) = @_;
+  
+  my $transcript_key = get_transcript_exon_key($source_transcript);
+  
+  foreach my $transcript (@{$target_gene->get_all_Transcripts()}) {
+    if (get_transcript_exon_key($transcript) eq $transcript_key) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub get_transcript_exon_key {
+  my $transcript = shift;
+  my $string = $transcript->slice->seq_region_name.":".$transcript->biotype.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->seq_region_strand.":".@{$transcript->get_all_translateable_Exons()}.":";
+
+  my $exons = sort_by_start_end_pos($transcript->get_all_Exons());
+  foreach my $exon (@{$exons}) {
+    $string .= ":".$exon->seq_region_start.":".$exon->seq_region_end;
+  }
+
+  return $string;
+}
+
+sub sort_by_start_end_pos {
+  my ($unsorted) = @_;
+
+  my @sorted = sort { if ($a->seq_region_start < $b->seq_region_start) {
+        return -1;
+    } elsif ($a->seq_region_start == $b->seq_region_start) {
+      if ($a->seq_region_end < $b->seq_region_end) {
+        return-1;
+      } elsif ($a->seq_region_end == $b->seq_region_end) {
+        return 0;
+      } elsif ($a->seq_region_end > $b->seq_region_end) {
+        return 1;
+      }
+        return 0;
+    } elsif ($a->seq_region_start > $b->seq_region_start) {
+        return 1;
+    }
+  } @$unsorted;
+
+  return \@sorted;
+}
+
 
 __END__
 
