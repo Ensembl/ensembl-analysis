@@ -492,7 +492,17 @@ sub make_gene{
   $gene->biotype("misc_RNA");
   $gene->biotype("snRNA")  if($type =~ /^snRNA;/ );
   $gene->biotype("snoRNA") if($type =~ /^snRNA; snoRNA;/);
+  $gene->biotype("scaRNA") if($type =~ /^snRNA; snoRNA; scaRNA;/);
   $gene->biotype("rRNA")   if($type =~ /rRNA;/);
+  $gene->biotype("tRNA")   if($type =~ /tRNA;/);
+  $gene->biotype("sRNA")   if($type =~ /sRNA;/);
+  $gene->biotype("miRNA")  if($type =~ /miRNA;/);
+  $gene->biotype("CRISPR")      if($type =~ /CRISPR;/);
+  $gene->biotype("lncRNA")      if($type =~ /lncRNA;/);
+  $gene->biotype("antisense")   if($type =~ /antisense;/);
+  $gene->biotype("antitoxin")   if($type =~ /antitoxin;/);
+  $gene->biotype("ribozyme")    if($type =~ /ribozyme;/);
+
   $gene->confidence("NOVEL");
   $gene->description($description." [Source: RFAM;Acc:$domain]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
