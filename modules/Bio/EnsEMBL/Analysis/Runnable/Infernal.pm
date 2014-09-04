@@ -487,6 +487,7 @@ sub make_gene{
   $transcript->add_Exon($exon);
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
+  $transcript->source("ensembl");
   my $gene = Bio::EnsEMBL::Gene->new;
   #Biotypes
   $gene->biotype("misc_RNA");
@@ -509,6 +510,7 @@ sub make_gene{
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
   $transcript->biotype($gene->biotype);
+  $gene->source("ensembl");
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (

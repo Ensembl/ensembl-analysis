@@ -326,6 +326,7 @@ sub clone_Transcript{
   $newtranscript->dbID($transcript->dbID);
   $newtranscript->stable_id($transcript->stable_id);
   $newtranscript->version($transcript->version);
+  $newtranscript->source($transcript->source);
   $newtranscript->analysis($transcript->analysis);
   if ($clone_xrefs){
     foreach my $DBEntry (@{$transcript->get_all_DBEntries}){
