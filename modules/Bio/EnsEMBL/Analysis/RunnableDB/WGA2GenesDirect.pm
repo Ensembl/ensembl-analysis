@@ -106,7 +106,7 @@ sub fetch_input {
   print "YOUR INPUT ID:",$input_id,"\n";
 
 
-  my $q_dbh = $self->get_dbadaptor($self->QUERY_CORE_DB, '', 1);
+  my $q_dbh = $self->get_dbadaptor($self->QUERY_CORE_DB, undef, 1);
   my $t_dbh = $self->get_dbadaptor($self->TARGET_CORE_DB);
   my $compara_dbh = $self->get_dbadaptor($self->COMPARA_DB, 'compara');
   
