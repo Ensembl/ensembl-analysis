@@ -117,20 +117,20 @@ my $aa  = $db->get_AttributeAdaptor();
 # # # 
 # hard code the mapping
 # # # 
-my %label2code = (
-                'appris_principal'               => 'appris_pi',
-                'appris_candidate'               => 'appris_ci',
-                'appris_candidate_ccds'          => 'appris_ci3',
-                'appris_candidate_longest_ccds'  => 'appris_ci2',
-                'appris_candidate_longest_seq'   => 'appris_ci1',
-                );
+my $label2code = {
+                'appris_principal'               => [ 'appris_pi' , 'APPRIS principal isoform'],
+                'appris_candidate'               => [ 'appris_ci' , 'APPRIS candidate principal isoform'],
+                'appris_candidate_ccds'          => [ 'appris_ci3', 'APPRIS candidate principal isoform (CCDS)'],
+                'appris_candidate_longest_ccds'  => [ 'appris_ci2', 'APPRIS candidate principal isoform (longest CCDS)'],
+                'appris_candidate_longest_seq'   => [ 'appris_ci1', 'APPRIS candidate principal isoform (longest coding sequence)'],
+                };
 
 
 # delete old attribs
 if ( $write ) {
   print STDERR " Deleting old attributes...\n" if $verbose;
-  foreach my $code ( values %label2code ) {
-    delete_old_attrib($db, $code);
+  foreach my $code ( values %{$label2code} ) {
+    delete_old_attrib($db, $code->[0]);
   }
 }
 
@@ -149,14 +149,12 @@ while(my $line = <INFILE>){
  ## "appris_candidate_ccds", the `appris_candidate' transcript that has an unique CCDS.
  ## "appris_candidate_longest_ccds", the `appris_candidate' transcripts where there are several CCDS, in this case APPRIS labels the longest CCDS.
  ## "appris_candidate_longest_seq", where there is no 'appris_candidate_ccds' or ` appris_candidate_longest_ccds' variant, the longest protein of the 'appris_candidate' variants is selected as the primary variant.
-
-  my $code;
-  if (exists $label2code{$label}) {
-    $code = $label2code{$label};
+  if (exists $label2code->{$label}) {
+    $appris_results{$gene_id}{$transcript_id}{'attrib_type_code'} = $label2code->{$label}->[0];
+    $appris_results{$gene_id}{$transcript_id}{'attrib_value'} = $label2code->{$label}->[1];
   } else {
     throw("Label $label not recognised in label2code hash");
   }
-  $appris_results{$gene_id}{$transcript_id}{'attrib_type_code'} = $code;
 }
 close INFILE;
 print STDERR "Fetched ".(scalar(keys %appris_results))." genes and ".(scalar(keys %appris_transcripts))." transcripts\n";
@@ -192,7 +190,7 @@ foreach my $slice ( @slices ) {
         # oh good, found this stable ID
         $stable_id_in_file++;
         if ($write) {
-          store_attrib($aa, $transcript, $appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_type_code'}, $time);
+          store_attrib($aa, $transcript, $appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_type_code'},$appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_value'}." [".$time."]");
           print STDERR "  writing gene ".$gene->stable_id." transcript". $transcript->stable_id." APPRIS ".$appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_type_code'}."\n";
         }
       } else {
