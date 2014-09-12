@@ -192,7 +192,7 @@ sub get_dbadaptor {
         }
         else {
           throw( "No matching non-standard adaptor could be found. If you want ".
-                 "a standard adatpor you should pass in undef.");
+                 "a standard adaptor you should pass in undef.");
         }
 
       } else {
