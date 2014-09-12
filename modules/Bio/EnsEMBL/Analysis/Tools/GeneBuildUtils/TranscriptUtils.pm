@@ -1217,11 +1217,11 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
 
   my $num_stops = $pep =~ s/\*/\*/g;
-  if ($num_stops >= 1 && !$max_stops) {
+  if ($num_stops > 1 && !$max_stops) {
     throw("Transcript does not have exactly one stop codon; it has $num_stops stops. Multiple stops replacement has not been implemented yet.");
   }
 
-  if ($num_stops >= 1) {
+  if ($num_stops > 1) {
     warn("Transcript ".$transcript->dbID()." has ".$num_stops." internal stops\n");
   }
 
