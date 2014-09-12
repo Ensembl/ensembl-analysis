@@ -395,10 +395,14 @@ sub process_transcript {
     return 0;
   }
 
+  my $num_stops = $pep =~ s/\*/\*/g;
+
   ##################
   # number of stops is non-zero but acceptable. Need to 
   # operate on the transcript to jump over the stops
-  $tran = replace_stops_with_introns($tran);
+  if($num_stops) {
+    $tran = replace_stops_with_introns($tran,1);
+  }
 
   return $tran;
 }
