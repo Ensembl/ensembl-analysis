@@ -52,9 +52,10 @@ my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
     '-species' => "load"
     );
 
-my $get_all_synonyms_sth = $dba->dbc->prepare("select synonym from seq_region, seq_region_synonym, coord_system where seq_region.name in (select seq_region.name from seq_region, seq_region_attrib, attrib_type where
-attrib_type.code in ('patch_fix','patch_novel') and attrib_type.attrib_type_id = seq_region_attrib.attrib_type_id and seq_region_attrib.seq_region_id = seq_region.seq_region_id) and seq_region.coord_system_id=coord_system.coord_system_id and coord_system.name = '".$central_coord_system."' and seq_region.seq_region_id=seq_region_synonym.seq_region_id")
-|| die "Could not prepare to get synonyms";
+my $get_all_synonyms_sth = $dba->dbc->prepare('SELECT synonym from seq_region, seq_region_synonym, coord_system, external_db WHERE seq_region.name IN '.
+ '(SELECT seq_region.name from seq_region, seq_region_attrib, attrib_type WHERE attrib_type.code IN ("patch_fix","patch_novel") AND attrib_type.attrib_type_id = seq_region_attrib.attrib_type_id AND seq_region_attrib.seq_region_id = seq_region.seq_region_id)'.
+ ' AND seq_region.coord_system_id=coord_system.coord_system_id AND coord_system.name = "'.$central_coord_system.'" AND seq_region.seq_region_id=seq_region_synonym.seq_region_id AND seq_region_synonym.external_db_id = external_db.external_db_id AND external_db.db_name = "INSDC"')
+     || die "Could not prepare to get synonyms";
 
 if ($get_all_synonyms_sth == 0) {
   throw("Could not prepare to get synonyms");
