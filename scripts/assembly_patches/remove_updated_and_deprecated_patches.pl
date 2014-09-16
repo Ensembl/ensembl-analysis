@@ -189,8 +189,6 @@ sub remove_patch{
   print SQL "delete from seq_region where seq_region_id = ".$chrom_id.";\n";
   print SQL "delete from seq_region where seq_region_id = ".$scaf_id.";\n";
 
-  print SQL "delete from splicing_event where seq_region_id = ".$chrom_id.";\n";
-
   print SQL "delete from marker_feature where seq_region_id = ".$chrom_id.";\n";
 }
 
