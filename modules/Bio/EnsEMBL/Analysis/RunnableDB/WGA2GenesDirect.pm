@@ -401,7 +401,7 @@ sub process_transcript {
   # number of stops is non-zero but acceptable. Need to 
   # operate on the transcript to jump over the stops
   if($num_stops) {
-    $tran = replace_stops_with_introns($tran,1);
+    $tran = replace_stops_with_introns($tran);
   }
 
   return $tran;

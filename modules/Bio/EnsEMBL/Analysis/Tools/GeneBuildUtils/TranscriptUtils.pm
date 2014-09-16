@@ -1184,6 +1184,7 @@ sub trim_cds_to_whole_codons {
 =head2 replace_stops_with_introns
 
   Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : int, max stop count
   Function  : replace any inframe stops with
   introns
   Returntype: Bio::EnsEMBL::Transcript 
@@ -1217,12 +1218,9 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
 
   my $num_stops = $pep =~ s/\*/\*/g;
-  if ($num_stops > 1 && !$max_stops) {
-    throw("Transcript does not have exactly one stop codon; it has $num_stops stops. Multiple stops replacement has not been implemented yet.");
-  }
 
   if ($num_stops > 1) {
-    warn("Transcript ".$transcript->dbID()." has ".$num_stops." internal stops\n");
+    warn("Transcript has ".$num_stops." internal stops\n");
   }
 
   while($pep =~ /\*/g) {
@@ -1543,14 +1541,38 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   $translation->end($transcript->translation->end + $translation_end_shift);
   $newtranscript->translation($translation);
 
-  # if you've set the start or end of the translation very wrong, the length will change significantly
-  # for example, if you assume that you don't have UTR when you do, then you might make UTR exons into coding exons
-  # the length changes by 1 amino acid for each stop codon removed
-  if ($transcript->translation->length -2 <= $newtranscript->translation->length || $newtranscript->translation->length >= $transcript->translation->length) {
-    print "Old translation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq."\n";
-  } else {
-    # this is a bit harsh but will hopefully stop big mistakes
-    throw("Old translation has length ".$transcript->translation->length." but new translation has length ".$newtranscript->translation->length."\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq);
+  my $old_transl_len = $transcript->translation->length();
+  my $new_transl_len = $newtranscript->translation->length();
+
+  # The first case to test for is if the edited translation is longer than the original, this shouldn't happen
+  if($new_transl_len > $old_transl_len) {
+    throw("The edited transcript has a longer translation than the original, something has gone wrong.".
+          " Original translation has length ".$old_transl_len.", edited translation has length ".$new_transl_len.
+          "\n>original\n".$transcript->translation->seq."\n>edited\n".$newtranscript->translation->seq);
+  }
+
+  # As long as the new translation is less than or equal to the original length do a few more checks.
+  # If the max_stops parameter is active, make sure the edited translation has had a length of at
+  # least the original length minus the value of max_stops
+  elsif($max_stops && (($old_transl_len-$max_stops) > $new_transl_len)) {
+    throw("The edited transcript is shorter than allowed by the max_stops parameter. Currently max_stops is ".
+          "set as: ".$max_stops."\nThe original translation has length ".$old_transl_len.", edited translation has length ".
+          $new_transl_len."\n>original\n".$transcript->translation->seq."\n>edited\n".$newtranscript->translation->seq);
+  }
+
+  # The next issue is if max_stops is not present and the edited translation has had more than one stop removed.
+  # By default this should expect to only remove one.
+  elsif(!$max_stops && (($old_transl_len-1) > $new_transl_len)) {
+    throw("The edited transcript had more than one internal stop removed. The default is to allow one removal. If you ".
+          "want to remove more than one interal stop you can pass in the max_stops parameter. "."\nThe original translation has length ".
+          $old_transl_len.", edited translation has length ".$new_transl_len."\n>original\n".$transcript->translation->seq.
+          "\n>edited\n".$newtranscript->translation->seq);
+  }
+
+  # Hopefully at this point the removal of the stops is okay.
+  else {
+    print "Original translation has length ".$old_transl_len." but edited translation has length ".$new_transl_len.
+          "\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq."\n";
   }
 
   # add xrefs from old translation to new translation
