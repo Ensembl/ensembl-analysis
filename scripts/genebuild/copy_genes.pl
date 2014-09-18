@@ -181,12 +181,13 @@ elsif ( !$all && !defined($infile) ) {
          "or --file (to copy a list of gene_ids)" );
 }
 
-#print "Connecting to ".$sourcedbname." at ".$sourcehost." ".$sourceuser."\n";
+print "Connecting to ".$sourcedbname." at ".$sourcehost." ".$sourceuser."\n";
 
 my $sourcedb;
 my $dnadb;
 
-if ( defined($in_config_name) ) {
+if ( defined($in_config_name) ) 
+{
   $sourcedb =
     get_db_adaptor_by_string( $in_config_name,
                               0, 0,
@@ -203,27 +204,32 @@ if ( defined($in_config_name) ) {
     $sourcedb->dnadb($dnadb);
   }
 }
-else {
+else 
+{
   $sourcedb =
     new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $sourcehost,
                                         -user   => $sourceuser,
                                         -pass   => $sourcepass,
                                         -port   => $sourceport,
                                         -dbname => $sourcedbname );
-  if ($attach_dna_db) {
-    if ( !defined($dnadbname) ) {
+  if ($attach_dna_db) 
+  {
+    if ( !defined($dnadbname) ) 
+    {
       my $dna_query = q(SELECT count(1) FROM dna);
       my $dna_sth   = $sourcedb->dbc()->prepare($dna_query);
       $dna_sth->execute();
 
       my $dna_count = $dna_sth->fetchrow();
 
-      if ( !$dna_count ) {
+      if ( !$dna_count ) 
+      {
         croak( "\nYour source database does not contain DNA. " .
                "Please provide a database with genomic sequences.\n" );
       }
     }
-    else {
+    else 
+    {
       $dnadb =
         new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
                                             -user   => $dnauser,
@@ -234,6 +240,15 @@ else {
     }
   }
 } ## end else [ if ( defined($in_config_name...))]
+
+
+      $dnadb =
+        new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
+                                            -user   => $dnauser,
+                                            -port   => $dnaport,
+                                            -dbname => $dnadbname );
+
+      $sourcedb->dnadb($dnadb);
 
 my $outdb;
 if ($out_config_name) {
@@ -338,9 +353,9 @@ while (@gene_ids) {
 
   foreach my $gene (@genes) {
     my $old_stable_id = $gene->stable_id();
-
+    print "DEBUGrn6:LOADING ".$gene->id()."...." ;
     $gene->load();    # fully_load_Gene($gene);
-
+    print "...DEBUGrn6:LOADED\n" ;
     if ( defined($logic) ) {
       $gene->analysis($analysis);
       foreach my $t ( @{ $gene->get_all_Transcripts() } ) {
