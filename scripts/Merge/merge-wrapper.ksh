@@ -62,7 +62,7 @@ bsub -q normal \
   --password_output="${rwpassword}" \
   --database_output="${database_output}" \
   --ensembl_include="${ensembl_include}" \
-  --ensembl_exclude="${ensembl_include}" \
+  --ensembl_exclude="${ensembl_exclude}" \
   --havana_include="${havana_include}" \
   --havana_exclude="${havana_exclude}" \
   --ensembl_tag="${ensembl_tag}" \
@@ -86,17 +86,49 @@ cd "${output_dir}" || exit 1
 awk '\$1 == "PROCESSED" { print \$2 }' merge-run-*.out |
 sort -u -n -o genes-processed.txt
 
-mysql -BN -h '${host_ensembl}' -u ensro -D '${database_ensembl}' \
-  >genes-all.txt <<SQL_END
+if [ -n "${ensembl_include}" ];then
+    echo "INCLUDE"
+    SQLQUERY=`echo ${ensembl_include} | sed 's/,/","/g'`
+    mysql -BN -h '${host_ensembl}' -u ensro -D '${database_ensembl}' \
+      >genes-all.txt <<SQL_END
+SELECT gene_id
+FROM gene
+JOIN seq_region USING (seq_region_id)
+JOIN analysis USING (analysis_id)
+WHERE logic_name IN ("\$SQLQUERY")
+ORDER BY gene_id
+SQL_END
+else
+    echo "NO INCLUDE"
+    mysql -BN -h '${host_ensembl}' -u ensro -D '${database_ensembl}' \
+      >genes-all.txt <<SQL_END
 SELECT gene_id
 FROM gene
 JOIN seq_region USING (seq_region_id)
 ORDER BY gene_id
 SQL_END
+fi
 
 diff genes-all.txt genes-processed.txt |
 awk '\$1 == "<" { print \$2 }' |
 sort -R -o genes-copy.txt
+if [ -n "${ensembl_exclude}" ];then
+    echo "EXCLUDE"
+    SQLQUERY=`echo ${ensembl_exclude} | sed 's/,/","/g'`
+    mysql -BN -h '${host_ensembl}' -u ensro -D '${database_ensembl}' \
+      >genes-excluded <<SQL_END
+SELECT gene_id
+FROM gene
+JOIN seq_region USING (seq_region_id)
+JOIN analysis USING (analysis_id)
+WHERE logic_name IN ("\$SQLQUERY")
+ORDER BY gene_id
+SQL_END
+    sort -n genes-copy.txt > genes-copy.tmp
+    diff genes-copy.tmp genes-excluded |
+    awk '\$1 == "<" { print \$2 }' |
+    sort -R -o genes-copy.txt
+fi
 
 rm -f genes-copy-*
 split -n l/${concurrent} genes-copy.txt genes-copy-
