@@ -1219,8 +1219,8 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
 
   my $num_stops = $pep =~ s/\*/\*/g;
 
-  if ($num_stops > 1) {
-    warn("Transcript has ".$num_stops." internal stops\n");
+  if ($num_stops > 0) {
+    warning("Transcript has ".$num_stops." internal stops\n");
   }
 
   while($pep =~ /\*/g) {
@@ -1541,14 +1541,14 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   $translation->end($transcript->translation->end + $translation_end_shift);
   $newtranscript->translation($translation);
 
-  my $old_transl_len = $transcript->translation->length();
-  my $new_transl_len = $newtranscript->translation->length();
+  my $old_transl_len = $transcript->translate->length();
+  my $new_transl_len = $newtranscript->translate->length();
 
   # The first case to test for is if the edited translation is longer than the original, this shouldn't happen
   if($new_transl_len > $old_transl_len) {
     throw("The edited transcript has a longer translation than the original, something has gone wrong.".
           " Original translation has length ".$old_transl_len.", edited translation has length ".$new_transl_len.
-          "\n>original\n".$transcript->translation->seq."\n>edited\n".$newtranscript->translation->seq);
+          "\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq);
   }
 
   # As long as the new translation is less than or equal to the original length do a few more checks.
@@ -1557,7 +1557,7 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   elsif($max_stops && (($old_transl_len-$max_stops) > $new_transl_len)) {
     throw("The edited transcript is shorter than allowed by the max_stops parameter. Currently max_stops is ".
           "set as: ".$max_stops."\nThe original translation has length ".$old_transl_len.", edited translation has length ".
-          $new_transl_len."\n>original\n".$transcript->translation->seq."\n>edited\n".$newtranscript->translation->seq);
+          $new_transl_len."\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq);
   }
 
   # The next issue is if max_stops is not present and the edited translation has had more than one stop removed.
@@ -1565,14 +1565,14 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   elsif(!$max_stops && (($old_transl_len-1) > $new_transl_len)) {
     throw("The edited transcript had more than one internal stop removed. The default is to allow one removal. If you ".
           "want to remove more than one interal stop you can pass in the max_stops parameter. "."\nThe original translation has length ".
-          $old_transl_len.", edited translation has length ".$new_transl_len."\n>original\n".$transcript->translation->seq.
-          "\n>edited\n".$newtranscript->translation->seq);
+          $old_transl_len.", edited translation has length ".$new_transl_len."\n>original\n".$transcript->translate->seq.
+          "\n>edited\n".$newtranscript->translate->seq);
   }
 
   # Hopefully at this point the removal of the stops is okay.
   else {
     print "Original translation has length ".$old_transl_len." but edited translation has length ".$new_transl_len.
-          "\n>old\n".$transcript->translation->seq."\n>new\n".$newtranscript->translation->seq."\n";
+          "\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq."\n";
   }
 
   # add xrefs from old translation to new translation
