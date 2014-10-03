@@ -164,7 +164,7 @@ if ($verbose) {
 
 my $transform_to_version;
 
-my $attach_dna_db = 0;
+my $attach_dna_db = 1 ;
 if ($transform_to) {
   $attach_dna_db = 1;
   if ( $transform_to =~ m/:/ ) {
