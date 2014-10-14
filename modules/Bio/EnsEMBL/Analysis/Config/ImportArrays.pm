@@ -677,6 +677,14 @@ use vars qw( %Config );
                         -type=>'OLIGO',
                         -class=>'AFFY_UTR'
                        },
+
+      'Barley1' => {
+			    -name => 'Hordeum_vulgare',
+			    -vendor => 'AFFY',
+			    -format => 'EXPRESSION',
+			    -type => 'OLIGO',
+			    -class => 'AFFY_UTR'
+			    },
  
       'Rice' => {
                  -name => 'Rice',
@@ -1059,7 +1067,14 @@ use vars qw( %Config );
 
 
 
-			  
+      #plant - potato
+      'A-MEXP-2203' => {
+			-name => 'A-MEXP-2203',
+			-vendor => 'AGILENT'.
+			-format => 'EXPRESSION',
+			-type => 'OLIGO',
+			-class => 'AGILENT'
+		       }
 
 
       #plant - ara
