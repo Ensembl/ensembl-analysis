@@ -560,7 +560,9 @@ sub cluster_into_Genes {
     my $count = 0;
     my $gene = new Bio::EnsEMBL::Gene;
     $gene->biotype($self->output_biotype);
+    $gene->source("ensembl");
     foreach my $transcript (@$cluster){
+      $transcript->source("ensembl");
       $gene->add_Transcript($transcript);
     }
     push( @genes, $gene );

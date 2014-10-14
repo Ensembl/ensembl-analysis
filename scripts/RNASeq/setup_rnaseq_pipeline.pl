@@ -103,7 +103,15 @@ if ($force_stage) {
   print "Starting from stage $force_stage\n";
 }
 
-$stage = $force_stage if $force_stage;
+if( $force_stage )
+{
+    $stage = $force_stage ;
+}
+else
+{
+    $force_stage = "no force stage set" ;
+}
+
 throw("Cannot find input directory $input_dir\n")   unless -e $input_dir;
 throw("Cannot find output directory $output_dir\n") unless -e $output_dir;
 throw("Cannot find merge directory $merge_dir\n")   unless -e $merge_dir;
@@ -782,12 +790,15 @@ foreach my $row (@rows) {
   $read_group .= "\tPU:" . $row->{PU} if (exists $row->{PU});
   $read_group .= "\tSM:" . $row->{SM} if (exists $row->{SM});
   $read_group .= "\tLB:" . $row->{LB} if (exists $row->{LB});
-  $read_group .= "\tDS:" . $row->{DS};
-  $read_group .= "\tCN:" . $row->{CN};
+  $read_group .= "\tDS:" . $row->{DS} if (exists $row->{DS});
+  $read_group .= "\tCN:" . $row->{CN} if (exists $row->{CN});
   # Might need to change ST to DT but we will need to change the previous configs
   $read_group .= "\tDT:" . $row->{ST} if (exists $row->{ST});
-  my ($field_pl) = $row->{PL} =~ /([^+])/;
-  $read_group .= "\tPL:" . $field_pl . "\n";
+  if (exists $row->{PL}) 
+  {
+      my ($field_pl) = $row->{PL} =~ /([^+])/;
+      $read_group .= "\tPL:" . $field_pl . "\n";
+  }
   print HEAD $read_group;
   print ALL $read_group;
   close(HEAD) || die( "Cannot close $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
@@ -1090,8 +1101,8 @@ sub generate_picard_cmd {
   my ( $files_ref, $out_dir, $merge_dir ) = @_; 
   my $cmd = "bsub -qnormal -M2000 -R'select[mem>2000] rusage[mem=2000]'"
           . " -o " . $out_dir . "/picard_merge.out -e " . $out_dir . "/picard_merge.err \\\n"
-          . " /vol/software/linux-x86_64/jdk1.6.0_01/bin/java -Xmx2g"
-          . " -jar /software/solexa/bin/aligners/picard/picard-tools-1.47/MergeSamFiles.jar \\\n";
+          . " /software/jdk1.6.0_14/bin/java -Xmx2g"
+          . " -jar  /software/solexa/pkg/picard/picard-tools-1.84/MergeSamFiles.jar \\\n";
   foreach my $input ( @{ $files_ref } ) {
     $cmd .= "INPUT=" . $input . " \\\n";   
   }

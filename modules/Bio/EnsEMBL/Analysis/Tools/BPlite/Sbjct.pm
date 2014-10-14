@@ -159,13 +159,13 @@ sub nextHSP {
   
   for(my $i=0;$i<@hspline;$i+=3) {
     # warn $hspline[$i], $hspline[$i+2];
-    $hspline[$i]   =~ /^Query:\s+(\d+)\s*([\D\S]+)\s+(\d+)/;
+    $hspline[$i]   =~ /^Query:*\s+(\d+)\s*([\D\S]+)\s+(\d+)/;
     $ql = $2; $qb = $1 unless $qb; $qe = $3;
     
     my $offset = index($hspline[$i], $ql);
     $as = substr($hspline[$i+1], $offset, CORE::length($ql));
     
-    $hspline[$i+2] =~ /^Sbjct:\s+(\d+)\s*([\D\S]+)\s+(\d+)/;
+    $hspline[$i+2] =~ /^Sbjct:*\s+(\d+)\s*([\D\S]+)\s+(\d+)/;
     $sl = $2; $sb = $1 unless $sb; $se = $3;
     
     push @QL, $ql; push @SL, $sl; push @AS, $as;

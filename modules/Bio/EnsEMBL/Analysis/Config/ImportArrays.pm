@@ -722,8 +722,12 @@ use vars qw( %Config );
 
     IMPORT_AFFY_ST_ARRAYS => 
     {
-     IIDREGEXP => '^>probe:(\S+):(\S+);\S+:\S+;.*[TranscriptCluster|ProbeSet]ID=([0-9]+);.*$',
-	 
+     IIDREGEXP => '^>probe:(\S+?):([0-9]+).*[TranscriptCluster|ProbeSet]ID=(\S+)',
+
+     #Can't use ProbeID=([0-9]+) as control probes only have there ProbeID in the concat'd full name string
+     #Hence the match will fail. 
+    
+
      IFIELDORDER => {
                      -name       => 1,
                      -array_chip => 0,
@@ -786,6 +790,14 @@ use vars qw( %Config );
                                            -format  => 'EXPRESSION',
                                            -type    => 'OLIGO',
                                            #-description => '',
+                                           -class   => 'AFFY_ST',
+                                          }, 
+                      'HTA-2_0' => {
+                                           -name => 'HTA-2_0',
+                                           -vendor => 'AFFY',
+                                           -format  => 'EXPRESSION',
+                                           -type    => 'OLIGO',
+                                           -description => 'Human Transcriptome Array 2.0',
                                            -class   => 'AFFY_ST',
                                           }, 
 
