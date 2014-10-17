@@ -71,6 +71,7 @@ sub new {
       $extend_into_gaps,
       $add_gaps,
       $direct_target_slice,
+      $ignore_translation,
       ) = rearrange([qw(
                         NAME
                         GENOMIC_ALIGN_BLOCKS
@@ -81,9 +82,10 @@ sub new {
                         EXTEND_INTO_GAPS
                         ADD_GAPS
                         DIRECT_TARGET_COORDS
+                        IGNORE_TRANSLATION
                         )], %given_args);
 
-  my $coding_transcripts = _check_transcripts($transcripts);
+  my $coding_transcripts = _check_transcripts($transcripts,$ignore_translation);
 
   $name = "GeneScaffold" if not defined $name;
   $max_readthrough_dist = 15 if not defined $max_readthrough_dist;  
@@ -170,6 +172,10 @@ sub place_transcript {
   # is to catch those non-coding transcripts so they don't get placed in the projected genome.  Otherwise, the code
   # would die in the next few lines as we can't get translateable exons from non-coding transcripts.
 
+# FM2 disable this as the earlier call to _check_transcripts should handle this and have
+# considered the ignore_translation flag. Actually, everything is based on translations
+# after this point, will have to leave as is for the moment
+
   if(! $tran->translation){
     print "Transcript ".$tran->stable_id." doesn't have a translation. Not using it in projection.\n"; 
     return undef;             
@@ -183,7 +189,6 @@ sub place_transcript {
                                                $FROM_CS_NAME,
                                                $tran);
 
-  
   my $restricted_range;
   if (@$orig_exon_coords) {
 
@@ -897,7 +902,7 @@ sub project_down {
 #################################################
 
 sub _check_transcripts {
-  my ($trans) = @_;
+  my ($trans,$ignore_translation) = @_;
 
   my @coding_transcripts;
   my $transcript_is_good = 1;
@@ -907,15 +912,17 @@ sub _check_transcripts {
   }
 
   foreach my $t (@$trans) {
-    if (not $t->translation) {
-     # throw("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
-warn("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
+    unless($ignore_translation) {
+      if (not $t->translation) {
+        # throw("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
+        warn("Attempt to create GeneScaffold with non-coding Transcript (".$t->stable_id.")");
+        $transcript_is_good = 0;
+      }
+      if (length($t->translateable_seq) % 3 != 0) {
+       #  throw("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
+       warn("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
        $transcript_is_good = 0;
-    }
-    if (length($t->translateable_seq) % 3 != 0) {
-    #  throw("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
-warn("Attempt to create GeneScaffold with non-mod-3 coding length Transcript (".$t->stable_id.")");
-       $transcript_is_good = 0;
+      }
     }
     if($transcript_is_good == 1){
       push (@coding_transcripts, $t);
@@ -1583,7 +1590,6 @@ sub to_mapper {
   return $self->{_to_mapper};
 
 }
-
 
 
 1;

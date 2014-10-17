@@ -5,6 +5,7 @@ use strict;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 use parent ('Bio::EnsEMBL::Analysis::RunnableDB::HiveBaseRunnable');
 
@@ -33,6 +34,10 @@ sub write_output {
   foreach my $gene (@{$self->{'output_genes'}}) {
     empty_Gene($gene);
     $output_gene_adaptor->store($gene);
+
+    my $output_hash = {};
+    $output_hash->{'iid'} = $gene->stable_id();
+    $self->dataflow_output_id($output_hash,1);
   }
 
   return 1;
@@ -57,23 +62,29 @@ sub build_single_transcript_genes {
   $self->{'output_genes'} = [];
 
   foreach my $gene (@{$self->{'genes'}}) {
-
     foreach my $transcript (@{$gene->get_all_Transcripts()}) {
 
       unless(scalar(@{$transcript->get_all_Attributes('gencode_basic')})) {
         next;
       }
 
+      unless($gene->stable_id()) {
+        warning("Parent gene must have a stable id for the next step, skipping transcript");
+        next;
+      }
+
       my $new_gene = Bio::EnsEMBL::Gene->new(
-              -START  => $transcript->start(),
-              -END    => $transcript->end(),
-              -STRAND => $transcript->strand(),
-              -SLICE  => $transcript->slice(),
-              -ANALYSIS => $transcript->analysis(),
+              -STABLE_ID => $transcript->stable_id(),
+              -START     => $transcript->start(),
+              -END       => $transcript->end(),
+              -STRAND    => $transcript->strand(),
+              -SLICE     => $transcript->slice(),
+              -ANALYSIS  => $transcript->analysis(),
       );
 
       $new_gene->add_Transcript($transcript);
       push(@{$self->{'output_genes'}},$new_gene);
+
     }
   }
 }
