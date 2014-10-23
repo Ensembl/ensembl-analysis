@@ -52,6 +52,7 @@ use strict;
 use warnings;
 use Exporter;
 use Data::Dumper;
+use feature 'say';
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
@@ -1382,6 +1383,11 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
               $fp_right->hcoverage($ug->hcoverage);
               $fp_right->analysis($orignial_analysis) ;           
 
+
+              say "FM2 ug start: ".$ug->start;
+              say "FM2 ug end: ".$ug->end;
+              say "FM2 ug strand: ".$ug->strand;
+
                   # here's the state of play:
                   #
                   #                        fp_left          fp_right
@@ -1407,13 +1413,13 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
                                 ceil($fp_right->length / $feature_unit_length) +
                                 1);
                
-              if ($exon->strand < 0) {
+#              if ($exon->strand < 0) {
                 # if we are on the reverse strand
                 # we swap the right and the left
-                my $tmp_fp = $fp_left;
-                $fp_left = $fp_right;
-                $fp_right = $tmp_fp;
-              }
+#                my $tmp_fp = $fp_left;
+#                $fp_left = $fp_right;
+#                $fp_right = $tmp_fp;
+#              }
                
               if ($fp_left->end >= $fp_left->start) {
                 push @ug_left, $fp_left;
