@@ -632,7 +632,9 @@ sub place_transcript {
     }
   }
     
-  my $proj_tran = Bio::EnsEMBL::Transcript->new(-analysis => $tran->analysis);
+  my $proj_tran = Bio::EnsEMBL::Transcript->new(-analysis => $tran->analysis,
+                                                -stable_id => $tran->stable_id,
+                                               );
   
   map { $proj_tran->add_Exon($_) } @merged_exons;
   
