@@ -6,6 +6,8 @@ use strict;
 use feature 'say';
 use Data::Dumper;
 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::RunnableDB;
@@ -162,11 +164,6 @@ sub fetch_input {
 
 }
 
-sub run_2 {
-  my ($self) = @_;
-  say "FM2 in run";
-}
-
 sub run {
   my ($self) = @_;
 
@@ -176,9 +173,8 @@ sub run {
   my @final_tran;
   print scalar(@{$self->genomic_align_block_chains}),"\n";
   foreach my $chain (@{$self->genomic_align_block_chains}) {
-    
+
     my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
-#    my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffoldDirect->new(
                                                                                     -genomic_align_blocks => $chain,
                                                                                     -from_slice    => $self->gene->slice,
                                                                                     -to_slices     => $self->target_slices,
@@ -187,81 +183,67 @@ sub run {
                                                                                     -direct_target_coords => 1,
                                                                                     -ignore_translation => 1,
                                                                                     );
-    
     foreach my $tran (@{$self->good_transcripts}) {
-      
       $tran_stable_id = $tran->stable_id;
-      
-      my $proj_trans = 
-          
-          # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
-          #$gene_scaffold->place_transcript($tran,1);
-          $gene_scaffold->place_transcript($tran);
-      
+      my $proj_trans = $gene_scaffold->place_transcript($tran);
+
       if ($proj_trans) {
-        
         push @res_tran, $proj_trans;
       }
     }
   }
-  
+
   if ($self->TRANSCRIPT_FILTER){
     @res_tran = @{$self->filter->filter_results(\@res_tran)};
   }
-  
-  
+
   foreach my $res_tran (@res_tran){ 
     $res_tran = $self->process_transcript($res_tran,
                                           $tran_stable_id);
     push @final_tran, $res_tran;
   }
   # create new gene object for each transcript
-  
+
   print "At the end of RUN, we had ", scalar(@final_tran), " transcripts\n";
-  
   $self->output(\@final_tran);
-  
 }
 
-
-sub write_output_2 {
-  my ($self) = @_;
-  say "FM2 in write output";
-}
 
 sub write_output {
   my ($self) = @_;
 
   my $trans_count = 0;
 
-
   my $target_transcript_db = $self->db('target_transcript_db');
-  #get_dbadaptor($self->TARGET_CORE_DB, '', 1);
-
   my $t_gene_adaptor = $target_transcript_db->get_GeneAdaptor();
- 
+
  foreach my $t (@{$self->output}) {
-   $t->analysis($self->analysis);
-   
+    $t->analysis($self->analysis);
+
+#    unless(scalar(@{$self->output}) == 1) {
+#      throw("FM2 exception WGA write: gene contains more than one transcript!!!!!");
+#    }
+    print "FM2 transcript stable id: ".$t->stable_id()."\n";
     my $gene = Bio::EnsEMBL::Gene->new( -analysis => $self->analysis,
-                                        -biotype  => 'protein_coding',);
-    
+                                        -biotype  => 'protein_coding',
+                                        -stable_id => $t->stable_id(),
+                                      );
+
     foreach my $tsf ( @{ $t->get_all_supporting_features }){
       $tsf->analysis($self->analysis);
     }
 
     foreach my $exon (@{$t->get_all_Exons()}){
       $exon->analysis($self->analysis);
-      
+
       foreach my $esf (@{$exon->get_all_supporting_features()}){
         $esf->analysis($self->analysis);
       }
     }
 
     $gene->add_Transcript($t);
-
+    empty_Gene($gene);
     $t_gene_adaptor->store($gene);
-    
     $trans_count++;
 
     print "TRANSCRIPT:\n";
@@ -291,13 +273,12 @@ sub get_dba {
    my ($self,$connection_info, $non_standard_db_adaptor, $dna_db_name) = @_;
    my $dba;
 
-#   print "FM2 get_dba Dumper: ".Dumper($connection_info);
    if(defined $non_standard_db_adaptor) {
      if($non_standard_db_adaptor eq 'compara') {
        $dba = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
                                                             %$connection_info
                                                           );
-       print "FM2 Not attaching a dna db to: ".$dba->dbname."\n";
+       print "Not attaching a dna db to: ".$dba->dbname."\n";
      }
    }
 

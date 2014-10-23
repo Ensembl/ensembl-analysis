@@ -13,6 +13,7 @@ use parent ('Bio::EnsEMBL::Analysis::RunnableDB::HiveBaseRunnable');
 sub fetch_input {
   my $self = shift;
   $self->get_input_genes($self->param('iid'));
+  $self->{'allowed_biotypes'} = $self->param('allowed_biotypes');
 }
 
 
@@ -70,6 +71,10 @@ sub build_single_transcript_genes {
 
       unless($gene->stable_id()) {
         warning("Parent gene must have a stable id for the next step, skipping transcript");
+        next;
+      }
+
+      unless(exists ${$self->{'allowed_biotypes'}}{$transcript->biotype}) {
         next;
       }
 
