@@ -80,6 +80,11 @@ GetOptions(
   'dnadbname:s'            => \$dnadbname,
   'dnaport|dnadbport:n'    => \$dnaport,
 
+  'prodhost|proddbhost:s'    => \$production_host,
+  'produser|proddbuser:s'    => \$production_user,
+  'proddbname:s'            => \$production_dbname,
+  'prodport|proddbport:n'    => \$production_port,
+
   'path|cs_version:s'      => \$coord_system_version,
   'write'                  => \$write,
   'verbose'                => \$verbose,
@@ -305,7 +310,7 @@ sub store_attrib {
   my $attrib = Bio::EnsEMBL::Attribute->new(
     -NAME        => $name,
     -CODE        => $code,
-    -VALUE       => 1,
+    -VALUE       => 'GENCODE basic', # text preferred over boolean for BioMart
     -DESCRIPTION => $description
   );
   $aa->store_on_Transcript($transcript, [$attrib]);
