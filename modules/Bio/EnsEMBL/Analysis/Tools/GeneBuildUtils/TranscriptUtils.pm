@@ -1458,18 +1458,29 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
                   #                        fp_right         fp_left
                   #
 
-              $fp_left->hstart($ug->hstart);
-              $fp_left->hend($ug->hstart +
-                             ceil($fp_left->length / $feature_unit_length) -
-                             1);
-              $fp_right->hend ($ug->hend);
-              $fp_right->hstart($ug->hend -
-                                ceil($fp_right->length / $feature_unit_length) +
-                                1);
+              if ($exon->strand > 0) {
+                $fp_left->hstart($ug->hstart);
+                $fp_left->hend($ug->hstart +
+                               ceil($fp_left->length / $feature_unit_length) -
+                               1);
+                $fp_right->hend ($ug->hend);
+                $fp_right->hstart($ug->hend -
+                                  ceil($fp_right->length / $feature_unit_length) +
+                               1);
+              } else {
+                $fp_right->hstart($ug->hstart);
+                $fp_right->hend($ug->hstart +
+                               ceil($fp_right->length / $feature_unit_length) -
+                               1);
+                $fp_left->hend ($ug->hend);
+                $fp_left->hstart($ug->hend -
+                                  ceil($fp_left->length / $feature_unit_length) +
+                               1);
+              }
                
 #              if ($exon->strand < 0) {
-                # if we are on the reverse strand
-                # we swap the right and the left
+#                # if we are on the reverse strand
+#                # we swap the right and the left
 #                my $tmp_fp = $fp_left;
 #                $fp_left = $fp_right;
 #                $fp_right = $tmp_fp;
