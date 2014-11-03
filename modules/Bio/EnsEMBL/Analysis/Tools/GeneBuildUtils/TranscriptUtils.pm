@@ -1214,7 +1214,7 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   my $newtranscript = clone_Transcript($transcript);
   my @exons = @{$newtranscript->get_all_Exons};
   my $pep = $newtranscript->translate->seq;
-
+  my $removed_exon_count = 0;
   # gaps adjacent to internal stop codons - skip
   return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
 
@@ -1290,6 +1290,7 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
                 $translation_end_shift -= ($exon->end-$stop->start+1);
               }
             }
+            say "FM2 translation end shift: ".$translation_end_shift;
           }
 
           print("---I am NOT a boundary stop\n");
@@ -1311,47 +1312,80 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
 
           my @sfs = @{$exon->get_all_supporting_features}; 
           my (@ug_left, @ug_right);
-          
+
           my $feature_isa = undef;
           my $feature_unit_length = undef;
-          
+
           foreach my $f (@sfs) {
           	if ($f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
-          	  
+
           	  if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaDnaAlignFeature")) {
           	  	throw("All the supporting features must be of the same type.");
           	  }
-          	  
+
           	  $feature_unit_length = 1; # ie feature is a cDNA alignment
-          	  $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";          	  
-          	  
-          	} elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
-          		
-          	  if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
+          	  $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";
+
+                } elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
+
+         	  if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
                 throw("All the supporting features must be of the same type.");
               }
-          	            	  
-          	  $feature_unit_length = 3; # ie feature is a protein alignment
+
+         	  $feature_unit_length = 3; # ie feature is a protein alignment
           	  $feature_isa = "Bio::EnsEMBL::DnaPepAlignFeature";
-          	  
-          	} else {
+
+         	} else {
           	  throw("Feature ".$f->dbID()." is not Bio::EnsEMBL::DnaDnaAlignFeature nor Bio::EnsEMBL::DnaPepAlignFeature.");
           	}
 
             foreach my $ug ($f->ungapped_features) {
               $ug->analysis($newtranscript->analysis);
+
+              say "FM2 ug start: ".$ug->start;
+              say "FM2 ug end: ".$ug->end;
+              say "FM2 ug strand: ".$ug->strand;
+              say "FM2 exon start: ".$exon->start;
+              say "FM2 exon end: ".$exon->end;
+              say "FM2 exon strand: ".$exon->strand;
+              say "FM2 exon left start: ".$exon_left->start;
+              say "FM2 exon left end: ".$exon_left->end;
+              say "FM2 exon left strand: ".$exon_left->strand;
+              say "FM2 exon right start: ".$exon_right->start;
+              say "FM2 exon right end: ".$exon_right->end;
+              say "FM2 exon right strand: ".$exon_right->strand;
+
               my $orignial_analysis = $ug->analysis;
               if ($ug->start >= $exon_left->start &&
                   $ug->end <= $exon_left->end+3) {
                 # completely within the left-side of the split
                 # (including the stop length +3)
                 push @ug_left, $ug;
+                say "FM2 case 1";
+              } elsif($ug->end >= $exon_left->start &&
+                      $ug->end <= $exon_left->end+3) {
+                # This case might crop up if the feature went over the edge of the end of the
+                # left exon. Possibly because of a previous stop removal. I'm keeping this as
+                # a separate case to draw attention to the possibility
+                warning("Feature only partially overlaps with left exon. Will add anyway.");
+                push @ug_left, $ug;
+                say "FM2 case 2";
               } elsif ($ug->start >= $exon_right->start-3 && 
                        $ug->end <= $exon_right->end) {
                 # completely within the right-side of the split
                 # (including the stop length -3)
                 push @ug_right, $ug;
-              } else {
+                say "FM2 case 3";
+              } elsif($ug->start >= $exon_right->start-3 &&
+                      $ug->start <= $exon_right->end) {
+                # This case might crop up if the feature went over the edge of the end of the
+                # right exon. Possibly because of a previous stop removal. I'm keeping this as
+                # a separate case to draw attention to the possibility
+                warning("Feature only partially overlaps with right exon. Will add anyway.");
+                push @ug_right, $ug;
+                say "FM2 case 4";
+              } elsif ($ug->start >= ($exon_left->start-3) && $ug->end <= ($exon_right->end+3)) {
+                say "FM2 case 5";
                 # this ug must span the split
                 my $fp_left = Bio::EnsEMBL::FeaturePair->new();
                 if ($ug->slice) {
@@ -1384,9 +1418,29 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
               $fp_right->analysis($orignial_analysis) ;           
 
 
-              say "FM2 ug start: ".$ug->start;
-              say "FM2 ug end: ".$ug->end;
-              say "FM2 ug strand: ".$ug->strand;
+              say "FM2 C5 ug start: ".$ug->start;
+              say "FM2 C5 ug end: ".$ug->end;
+              say "FM2 C5 ug strand: ".$ug->strand;
+
+              say "FM2 C5 exon start: ".$exon->start;
+              say "FM2 C5 exon end: ".$exon->end;
+              say "FM2 C5 exon strand: ".$exon->strand;
+
+              say "FM2 C5 left_exon start: ".$exon_left->start;
+              say "FM2 C5 left_exon end: ".$exon_left->end;
+              say "FM2 C5 left_exon strand: ".$exon_left->strand;
+
+              say "FM2 C5 right_exon start: ".$exon_right->start;
+              say "FM2 C5 right_exon end: ".$exon_right->end;
+              say "FM2 C5 right_exon strand: ".$exon_right->strand;
+
+              say "FM2 C5 left_fp start: ".$fp_left->start;
+              say "FM2 C5 left_fp end: ".$fp_left->end;
+              say "FM2 C5 left_fp strand: ".$fp_left->strand;
+
+              say "FM2 C5 right_fp start: ".$fp_right->start;
+              say "FM2 C5 right_fp end: ".$fp_right->end;
+              say "FM2 C5 right_fp strand: ".$fp_right->strand;
 
                   # here's the state of play:
                   #
@@ -1428,6 +1482,17 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
                 push @ug_right, $fp_right;
               }
             }
+
+            elsif($ug->start < $exon_left->start && $ug->end < $exon_left->start ||
+                  $ug->start > $exon_right->end && $ug->end > $exon_right->end
+                 ) {
+              warning("Feature is present but lies fully outside the left and right exons, not adding");
+            }
+
+            else {
+              throw("Something about this feature has not been covered in the conditionals, edit code");
+            }
+
           } # foreach my $ug ($f->ungapped_features) {
         } # foreach my $f (@sfs) {
 
@@ -1449,6 +1514,20 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
               push @new_exons, $exon_right;
             }
           }
+        } elsif($stop->start == $exon->start && $stop->end == $exon->end) {
+
+          warning("Exon is a stop codon, removing the exon");
+#          say "FM2 translation start exon start: ".$transcript->translation->start_Exon->start;
+#          say "FM2 translation end exon start: ".$transcript->translation->end_Exon->start;
+#          say "FM2 stop - start: ".$stop->start;
+#          say "FM2 stop - end: ".$stop->end;
+#          say "FM2 exon - start: ".$exon->start;
+#          say "FM2 exon - end: ".$stop->end;
+#          say "FM2 transcript strand: ".$transcript->strand;
+          # This will later be added to the end_exon_index to account for the removed
+          # exon or exons. This works on the test case and seems sensible, but is
+          # difficult to thoroughly test.
+          $end_exon_shift -= 1;
         } elsif ($stop->start == $exon->start) {
           # stop lies at the start of the exon
           print("---stop lies at the start of the exon\n");
@@ -1461,7 +1540,13 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
             # this is the last translateable exon on the forward strand
             $translation_end_shift -= 3;
           }
-          push @new_exons, $exon;
+#          push @new_exons, $exon;
+
+          # I've commented out the push above and added in this code and subroutine as
+          # the current code was not recalculating the feature after shifting the start
+          # or the end of the exon.
+          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,0);
+          push @new_exons, $new_exon;
 
         } elsif ($stop->end == $exon->end ) {
           # stop lies at the end of the exon
@@ -1475,17 +1560,28 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
             # this is the last translateable exon on the reverse strand
             $translation_end_shift -= 3;
           }
-          push @new_exons, $exon;
+
+#          push @new_exons, $exon;
+
+          # I've commented out the push above and added in this code and subroutine as
+          # the current code was not recalculating the feature after shifting the start
+          # or the end of the exon.
+          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,1);
+          push @new_exons, $new_exon;
 
         } else {
           # this exon is unaffected by this stop
           print("---this exon is unaffected by this stop\n");
           push @new_exons, $exon;
         }
+
       }
+
       @exons = @new_exons;
     } # foreach
+
   } #end of while loop;  by this time, we hope there are not stop codons in the peptide
+
 
   # this removes the old exons and replaces with new exon
   # by first cloning the old transcript and then replacing the exon
@@ -1542,9 +1638,15 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
     }
   }
 
+#  my $translation_genomic_end  = $transcript->translation->genomic_end;
+#  my $translation_offset = $translation_genomic_end - $new_end_exon->start;
+#  say "FM2 translation_genomic_end: ".$translation_genomic_end;
+#  say "FM2 translation_offset: ".$translation_offset;
   $translation->end_Exon($new_end_exon);
   $translation->start($transcript->translation->start + $translation_start_shift);
+#  say "FM2 translation_offset old value: ".($transcript->translation->end + $translation_end_shift);
   $translation->end($transcript->translation->end + $translation_end_shift);
+#  $translation->end($translation_offset);
   $newtranscript->translation($translation);
 
   my $old_transl_len = $transcript->translate->length();
@@ -1590,6 +1692,98 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
   return $newtranscript;
 }
 
+
+=head2 truncate_exon_features
+
+  Arg [1]  : reference to an array of ungapped features
+  Arg [2]  : 0 (truncate from start) or 1 (truncate from end)
+  Function : this is called when the start or end of the exon is a stop codon
+             In this case we want to recalculate the supporting features
+
+=cut
+
+sub truncate_exon_features {
+
+          my ($exon,$analysis,$start_or_end) = @_;
+
+          my $new_exon   = Bio::EnsEMBL::Exon->
+          new(-slice     => $exon->slice,
+              -start     => $exon->start,
+               -end       => $exon->end,
+               -strand    => $exon->strand,
+               -phase     => $exon->phase,
+               -end_phase => $exon->end_phase );
+
+          # This is currently making the assumption that the feature spans over
+          # the length of the exon. If for some reason it didn't then perhaps a
+          # check could go here to make sure the processing is actually needed
+
+          my @sfs = @{$exon->get_all_supporting_features};
+          my (@ug);
+
+          my $feature_isa = undef;
+          my $feature_unit_length = undef;
+
+          foreach my $f (@sfs) {
+          	if ($f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+
+          	  if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaDnaAlignFeature")) {
+          	  	throw("All the supporting features must be of the same type.");
+          	  }
+
+          	  $feature_unit_length = 1; # ie feature is a cDNA alignment
+          	  $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";
+
+                } elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
+
+         	  if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
+                throw("All the supporting features must be of the same type.");
+              }
+
+         	  $feature_unit_length = 3; # ie feature is a protein alignment
+          	  $feature_isa = "Bio::EnsEMBL::DnaPepAlignFeature";
+
+         	} else {
+          	  throw("Feature ".$f->dbID()." is not Bio::EnsEMBL::DnaDnaAlignFeature nor Bio::EnsEMBL::DnaPepAlignFeature.");
+          	}
+
+            foreach my $ug ($f->ungapped_features) {
+              $ug->analysis($analysis);
+              my $orignial_analysis = $ug->analysis;
+          my $trunc_feature = Bio::EnsEMBL::FeaturePair->new();
+          if ($ug->slice) {
+                  $trunc_feature->slice($ug->slice);
+                }
+          $trunc_feature->seqname   ($ug->seqname);
+          $trunc_feature->strand    ($ug->strand);
+          $trunc_feature->hseqname  ($ug->hseqname);
+          $trunc_feature->score     ($ug->score);
+          $trunc_feature->percent_id($ug->percent_id);
+          if($start_or_end == 0) {
+            $trunc_feature->start     ($ug->start+3);
+            $trunc_feature->end       ($ug->end);
+          }
+          else {
+            $trunc_feature->start     ($ug->start);
+            $trunc_feature->end       ($ug->end-3);
+          }
+          $trunc_feature->external_db_id($ug->external_db_id);
+          $trunc_feature->hcoverage($ug->hcoverage);
+          $trunc_feature->analysis($orignial_analysis) ;
+
+          $trunc_feature->hend ($ug->hend);
+          $trunc_feature->hstart($ug->hend -
+                                ceil($trunc_feature->length / $feature_unit_length) +
+                                1);
+              if ($trunc_feature->end >= $trunc_feature->start) {
+                push @ug, $trunc_feature;
+              }
+            }}
+
+         $new_exon = add_dna_align_features_by_hitname_and_analysis(\@ug,$new_exon,$feature_isa) ;
+
+         return $new_exon;
+}
 
 =head2 add_dna_align_features_by_hitname_and_analysis
 
