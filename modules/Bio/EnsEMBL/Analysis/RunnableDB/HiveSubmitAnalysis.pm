@@ -17,6 +17,7 @@ use parent ('Bio::EnsEMBL::Analysis::RunnableDB::HiveBaseRunnable');
 sub fetch_input {
   my $self = shift;
   $self->db($self->get_dba($self->param('reference_db')));
+  return 1;
 }
 
 sub run {
@@ -67,7 +68,13 @@ sub write_output {
     warning("No input ids generated for this analysis!");
   }
 
+
   foreach my $id (@{$output_ids}) {
+
+#    unless($id =~ /chromosome\:GRCh38\:6\:14/) {
+#      next;
+#    }
+
     my $output_hash = {};
     $output_hash->{'iid'} = $id;
     $self->dataflow_output_id($output_hash,1);
@@ -91,11 +98,7 @@ sub get_dba {
    if (ref($connection_info)=~m/HASH/) {
 
        $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                                  -dbname => $$connection_info{'-dbname'},
-                                                  -user => $$connection_info{'-user'},
-                                                  -species => $$connection_info{'-species'},
-                                                  -host => $$connection_info{'-host'},
-                                                  -port => $$connection_info{'-port'},
+                                                  %$connection_info,
                                                 );
    }
 

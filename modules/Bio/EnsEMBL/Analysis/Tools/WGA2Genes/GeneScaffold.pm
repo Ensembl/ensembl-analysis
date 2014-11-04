@@ -39,6 +39,8 @@ use warnings ;
 use strict;
 use vars qw(@ISA);
 
+use Data::Dumper;
+
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Sequence qw(reverse_comp);
@@ -214,6 +216,8 @@ sub place_transcript {
   # be gaps that were filled for a different transcript. In that
   # case, discard these pieces
 
+  print "FM2 place 1\n";
+
   foreach my $orig_exon (@orig_exons) {
 
     #print "Single exon original coords:  START: ", $orig_exon->start," END: ", $orig_exon->end," length ",$orig_exon->end-$orig_exon->start+1,"\n";
@@ -297,12 +301,20 @@ sub place_transcript {
   }
   @all_coords = @kept_coords;
   
-
+  print "FM2 place 2\n";
   #
   # now massage the gaps to account for frameshifts
   #
+  my $loop_counter = 0;
   my $need_another_pass;
   do {
+
+    # loop_counter is just a hack for a stuff that is getting stuck
+    # 5000 is just some arbitrary number
+    if($loop_counter >= 5000) {
+      return undef;
+    }
+    $loop_counter++;
 
     $need_another_pass = 0;
 
@@ -310,14 +322,14 @@ sub place_transcript {
     # merge gaps
     foreach my $c (@all_coords) {
       if ($c->isa("Bio::EnsEMBL::Mapper::Gap")) {
-         #print "GAP PRESENT START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
+#         print "GAP PRESENT START: ",$c->start,"  END: ",$c->end," length ",$c->end-$c->start+1,"\n";
 
 
         if (@proc_coords and $proc_coords[-1]->isa("Bio::EnsEMBL::Mapper::Gap")) {
           $proc_coords[-1]->end( $proc_coords[-1]->end + $c->length );
-          #print "Extending existing GAP\n";
+#          print "Extending existing GAP\n";
         } else {
-          #print "ADDing new GAP with length ",$c->length ,"\n";
+#          print "ADDing new GAP with length ",$c->length ,"\n";
           push @proc_coords, Bio::EnsEMBL::Mapper::Gap->new(1, $c->length);
           push @gap_indices, scalar(@proc_coords) - 1;
         }
@@ -325,16 +337,18 @@ sub place_transcript {
         push @proc_coords, $c;
       }
     }
-    
+#    print "FM2 data dumper gap indices: ".Dumper(@gap_indices);
+#    print "FM2 data dumper proc coords: ".Dumper(@proc_coords);
     GAP: foreach my $idx (@gap_indices) {
-      #print "I have to handle a GAP\n";
+#      print "I have to handle a GAP\n";
+#      print "FM2 idx value: ".$idx."\n";
       my $gap = $proc_coords[$idx];
       my $frameshift = $gap->length % 3;
      
       if ($frameshift) {
-        #print "!!! Have a frameshift at " . $gap->start . "\n";
+#        print "!!! Have a frameshift at " . $gap->start . "\n";
         my $bases_to_remove = 3 - $frameshift;      
-        
+#        print "FM2 bases to remove: ".$bases_to_remove."\n";
         # calculate "surplus" bases on incomplete codons to left and right
         my ($left_surplus, $right_surplus) = (0,0);
         for(my $j=$idx-1; $j >= 0; $j--) {
@@ -346,7 +360,8 @@ sub place_transcript {
         
         $left_surplus  = $left_surplus % 3;
         $right_surplus = $right_surplus % 3;
-        
+ #       print "FM2 left surp: ".$left_surplus."\n";
+ #       print "FM2 right surp: ".$right_surplus."\n";
         if ($left_surplus) {
           # eat left
           $bases_to_remove = $left_surplus;
@@ -499,8 +514,13 @@ sub place_transcript {
             #print $p_substr, "\n AND: ",$gs_p_substr,"\n";
 
           if (length($p_substr) != length ($gs_p_substr)) {
-            #print "Length from source_pep = ", length($p_substr), "\n AND: from genomic translation ",length($gs_p_substr),"\n";
+            print "FM2 Length from source_pep = ", length($p_substr), "and from genomic translation ",length($gs_p_substr),"\n";
             warning("Pep segments differ; cannot calculate percentage identity");
+
+            # FM2, I'm putting this in as a hack to stop the exception with the feature pair
+            # later, my only worry is that this is not always linked to the exception, however as
+            # a small number of transcripts seem to be involved it hopefully is a good temp solution
+            return undef;
 
           } else {
             $exon_aligned_aas += length($p_substr);

@@ -161,19 +161,21 @@ sub fetch_input {
                    ];
   }
   $self->genomic_align_block_chains(\@chains);
-
+  return 1;
 }
 
 sub run {
   my ($self) = @_;
 
+  unless(scalar(@{$self->good_transcripts}) > 0) {
+    return;
+  }
 
   my @res_tran;
   my $tran_stable_id;
   my @final_tran;
   print scalar(@{$self->genomic_align_block_chains}),"\n";
   foreach my $chain (@{$self->genomic_align_block_chains}) {
-
     my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
                                                                                     -genomic_align_blocks => $chain,
                                                                                     -from_slice    => $self->gene->slice,
@@ -183,6 +185,7 @@ sub run {
                                                                                     -direct_target_coords => 1,
                                                                                     -ignore_translation => 1,
                                                                                     );
+
     foreach my $tran (@{$self->good_transcripts}) {
       $tran_stable_id = $tran->stable_id;
       my $proj_trans = $gene_scaffold->place_transcript($tran);
@@ -200,12 +203,17 @@ sub run {
   foreach my $res_tran (@res_tran){ 
     $res_tran = $self->process_transcript($res_tran,
                                           $tran_stable_id);
-    push @final_tran, $res_tran;
+
+    if($res_tran) {
+      push @final_tran, $res_tran;
+    }
   }
   # create new gene object for each transcript
 
   print "At the end of RUN, we had ", scalar(@final_tran), " transcripts\n";
-  $self->output(\@final_tran);
+#  $self->output(\@final_tran);
+  $self->{'output_transcripts'} = \@final_tran;
+  return 1;
 }
 
 
@@ -217,17 +225,22 @@ sub write_output {
   my $target_transcript_db = $self->db('target_transcript_db');
   my $t_gene_adaptor = $target_transcript_db->get_GeneAdaptor();
 
- foreach my $t (@{$self->output}) {
+# foreach my $t (@{$self->output}) {
+  foreach my $t (@{$self->{'output_transcripts'}}) {
+#    say "FM2 dumper".Dumper($t);
+    say "FM2 ref".ref($t);
     $t->analysis($self->analysis);
 
 #    unless(scalar(@{$self->output}) == 1) {
-#      throw("FM2 exception WGA write: gene contains more than one transcript!!!!!");
-#    }
-    print "FM2 transcript stable id: ".$t->stable_id()."\n";
+    unless(scalar(@{$self->{'output_transcripts'}}) == 1) {
+      throw("Exception WGA write: gene contains more than one transcript!!!!!");
+    }
+
     my $gene = Bio::EnsEMBL::Gene->new( -analysis => $self->analysis,
                                         -biotype  => 'protein_coding',
                                         -stable_id => $t->stable_id(),
                                       );
+
 
     foreach my $tsf ( @{ $t->get_all_supporting_features }){
       $tsf->analysis($self->analysis);
@@ -240,6 +253,7 @@ sub write_output {
         $esf->analysis($self->analysis);
       }
     }
+
 
     $gene->add_Transcript($t);
     empty_Gene($gene);
@@ -256,8 +270,10 @@ sub write_output {
   }
 
   print "For gene " . $self->input_id . " you stored ", $trans_count, " transcripts\n";
-  # to do: write gene back to core target database
+
+  return 1;
 }
+
 
 
 sub db {
@@ -362,7 +378,7 @@ sub _check_gene {
       warn ("Gene ", $gene->display_id(), " contains no valid transcripts");
       #push @good_transcripts, $t;
       #print "Done\n";
-      #exit(1);
+      #exit;
     }
   }
   
@@ -413,6 +429,10 @@ sub process_transcript {
   ##################
   # number of stops is non-zero but acceptable. Need to 
   # operate on the transcript to jump over the stops
+  if($num_stops > 10) {
+    return 0;
+  }
+
   if($num_stops) {
     $tran = replace_stops_with_introns($tran,10);
   }

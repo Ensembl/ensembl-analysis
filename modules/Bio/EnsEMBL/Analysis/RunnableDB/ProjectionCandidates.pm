@@ -12,15 +12,20 @@ use parent ('Bio::EnsEMBL::Analysis::RunnableDB::HiveBaseRunnable');
 
 sub fetch_input {
   my $self = shift;
+
   $self->get_input_genes($self->param('iid'));
   $self->{'allowed_biotypes'} = $self->param('allowed_biotypes');
+  return 1;
 }
 
 
 
 sub run {
   my $self = shift;
-  $self->build_single_transcript_genes();
+
+  if($self->{'genes'} && scalar(@{$self->{'genes'}}) > 0) {
+    $self->build_single_transcript_genes();
+  }
   return 1;
 }
 
@@ -29,16 +34,23 @@ sub run {
 sub write_output {
   my $self = shift;
 
+  # Only output for slices that have valid transcripts
+  $self->input_job->autoflow(0);
+
   $self->db('output_db',$self->get_dba($self->param('proj_candidate_db')));
   my $output_gene_adaptor = $self->db('output_db')->get_GeneAdaptor();
 
-  foreach my $gene (@{$self->{'output_genes'}}) {
-    empty_Gene($gene);
-    $output_gene_adaptor->store($gene);
+  if($self->{'output_genes'} && scalar(@{$self->{'output_genes'}}) > 0) {
+    foreach my $gene (@{$self->{'output_genes'}}) {
 
-    my $output_hash = {};
-    $output_hash->{'iid'} = $gene->stable_id();
-    $self->dataflow_output_id($output_hash,1);
+      empty_Gene($gene);
+      $output_gene_adaptor->store($gene);
+
+      my $output_hash = {};
+      $output_hash->{'iid'} = $gene->stable_id();
+      $self->dataflow_output_id($output_hash,1);
+    }
+
   }
 
   return 1;
@@ -69,8 +81,8 @@ sub build_single_transcript_genes {
         next;
       }
 
-      unless($gene->stable_id()) {
-        warning("Parent gene must have a stable id for the next step, skipping transcript");
+      unless($transcript->stable_id()) {
+        warning("Transcript must have a stable id for the next step, skipping transcript");
         next;
       }
 
@@ -113,13 +125,8 @@ sub get_dba {
 
    if (ref($connection_info)=~m/HASH/) {
       $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                                  -dbname => $$connection_info{'-dbname'},
-                                                  -user => $$connection_info{'-user'},
-                                                  -species => $$connection_info{'-species'},
-                                                  -host => $$connection_info{'-host'},
-                                                  -port => $$connection_info{'-port'},
-                                                  -pass => $$connection_info{'-pass'},
-                                                );
+                                                %$connection_info,
+                                               );
     }
 
   $dba->dbc->disconnect_when_inactive(1) ;
