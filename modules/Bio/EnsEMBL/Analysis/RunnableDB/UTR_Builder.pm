@@ -2067,6 +2067,9 @@ sub _merge_genes {
 	  }	
 	}
 	
+    # NEVER MERGE EXONS WITH FRAMESHIFT AS IT GENERATES SUPPORTING FEATURES BEYOND THE END OF THE EXON
+    $merge_it = 0;
+
 	if ( defined($previous_exon) && $merge_it == 1){
 	  # combine the two
 	
