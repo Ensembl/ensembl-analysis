@@ -8,6 +8,15 @@
 =head1 DESCRIPTION
 
   label_gencode_basic_transcripts dumps out a gtf annotation file for a given database
+
+  NOTE: for new biotypes they must be entered in TWO places below:
+  (i) in the %known_biotypes hash
+  (ii) in the decision tree ie in one of these methods: 
+  returnBasicCodingAnnotation
+  returnBasicNonCodingAnnotation
+  returnBasicPseudogeneAnnotation
+
+
   
 =head1 OPTIONS
 
@@ -79,6 +88,11 @@ GetOptions(
   'dnauser|dnadbuser:s'    => \$dnauser,
   'dnadbname:s'            => \$dnadbname,
   'dnaport|dnadbport:n'    => \$dnaport,
+
+  'prodhost|proddbhost:s'    => \$production_host,
+  'produser|proddbuser:s'    => \$production_user,
+  'proddbname:s'            => \$production_dbname,
+  'prodport|proddbport:n'    => \$production_port,
 
   'path|cs_version:s'      => \$coord_system_version,
   'write'                  => \$write,
@@ -174,6 +188,7 @@ my $known_biotypes = {
                      'translated_unprocessed_pseudogene'  => 'pseudogene',
                      'unitary_pseudogene'                 => 'pseudogene',
                      'IG_C_pseudogene'                    => 'pseudogene',
+                     'IG_D_pseudogene'                    => 'pseudogene',
                      'IG_J_pseudogene'                    => 'pseudogene',
                      'IG_pseudogene'                      => 'pseudogene',
                      'IG_V_pseudogene'                    => 'pseudogene',
@@ -305,7 +320,7 @@ sub store_attrib {
   my $attrib = Bio::EnsEMBL::Attribute->new(
     -NAME        => $name,
     -CODE        => $code,
-    -VALUE       => 1,
+    -VALUE       => 'GENCODE basic', # text preferred over boolean for BioMart
     -DESCRIPTION => $description
   );
   $aa->store_on_Transcript($transcript, [$attrib]);
@@ -640,7 +655,7 @@ sub returnBasicPseudogeneAnnotation{ # i call it with a gene object and it retur
       $transcribed_pseudogene = 1;
       last;
 
-    } elsif($transcript->biotype eq "pseudogene" or $transcript->biotype eq "processed_pseudogene" or $transcript->biotype eq "unprocessed_pseudogene" or $transcript->biotype eq "translated_processed_pseudogene" or $transcript->biotype eq "translated_unprocessed_pseudogene" or $transcript->biotype eq "unitary_pseudogene" or $transcript->biotype eq "IG_C_pseudogene" or $transcript->biotype eq "IG_J_pseudogene" or $transcript->biotype eq "IG_pseudogene" or $transcript->biotype eq "IG_V_pseudogene" or $transcript->biotype eq "TR_J_pseudogene" or $transcript->biotype eq "TR_V_pseudogene" or $transcript->biotype eq "Mt_rRNA_pseudogene" or $transcript->biotype eq "miRNA_pseudogene" or $transcript->biotype eq "misc_RNA_pseudogene" or $transcript->biotype eq "rRNA_pseudogene" or $transcript->biotype eq "scRNA_pseudogene" or $transcript->biotype eq "snRNA_pseudogene" or $transcript->biotype eq "snoRNA_pseudogene" or $transcript->biotype eq "tRNA_pseudogene") { # all sorts of pseudogenes but not short ncRNAs
+    } elsif($transcript->biotype eq "pseudogene" or $transcript->biotype eq "processed_pseudogene" or $transcript->biotype eq "unprocessed_pseudogene" or $transcript->biotype eq "translated_processed_pseudogene" or $transcript->biotype eq "translated_unprocessed_pseudogene" or $transcript->biotype eq "unitary_pseudogene" or $transcript->biotype eq "IG_C_pseudogene" or $transcript->biotype eq "IG_D_pseudogene" or $transcript->biotype eq "IG_J_pseudogene" or $transcript->biotype eq "IG_pseudogene" or $transcript->biotype eq "IG_V_pseudogene" or $transcript->biotype eq "TR_J_pseudogene" or $transcript->biotype eq "TR_V_pseudogene" or $transcript->biotype eq "Mt_rRNA_pseudogene" or $transcript->biotype eq "miRNA_pseudogene" or $transcript->biotype eq "misc_RNA_pseudogene" or $transcript->biotype eq "rRNA_pseudogene" or $transcript->biotype eq "scRNA_pseudogene" or $transcript->biotype eq "snRNA_pseudogene" or $transcript->biotype eq "snoRNA_pseudogene" or $transcript->biotype eq "tRNA_pseudogene") { # all sorts of pseudogenes but not short ncRNAs
 
       push (@basicPseudogeneAnnotation,$transcript);
 
