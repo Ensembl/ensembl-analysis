@@ -245,8 +245,12 @@ sub transfer_supporting_evidence{
     }
 
   foreach my $sf(values(%source_evidence)){
-    logger_info("Adding ".$sf->hseqname." to the target exon");
-    $target_exon->add_supporting_features($sf);
+  	if ($sf->overlaps($target_exon)) {
+      logger_info("Adding ".$sf->hseqname." to the target exon");
+      $target_exon->add_supporting_features($sf);
+  	} else {
+      logger_info("Not adding ".$sf->hseqname." to the target exon because there is no overlap");
+  	}
   }
   return $target_exon;
 }
