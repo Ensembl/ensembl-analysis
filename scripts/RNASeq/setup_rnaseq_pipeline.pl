@@ -828,39 +828,39 @@ $pipelineconfigdir/BatchQueue.pm
 }
 
 system("mv $pipelineconfigdir/BatchQueue.pm $pipelineconfigdir/BatchQueue.pm_bk")
-  if -e "$pipelineconfigdir/BatchQueue.pm" &
+  if -e "$pipelineconfigdir/BatchQueue.pm" &&
     !-e "$pipelineconfigdir/BatchQueue.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/BWA.pm $analysisconfigdir/GeneBuild/BWA.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/BWA.pm" &
+  if -e "$analysisconfigdir/GeneBuild/BWA.pm" &&
     !-e "$analysisconfigdir/BWA.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Bam2Genes.pm $analysisconfigdir/GeneBuild/Bam2Genes.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Bam2Genes.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Bam2Genes.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Bam2Genes.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Bam2Introns.pm $analysisconfigdir/GeneBuild/Bam2Introns.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Bam2Introns.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Bam2Introns.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Bam2Introns.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Sam2Bam.pm $analysisconfigdir/GeneBuild/Sam2Bam.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Sam2Bam.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Sam2Bam.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Sam2Bam.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/RefineSolexaGenes.pm $analysisconfigdir/GeneBuild/RefineSolexaGenes.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/RefineSolexaGenes.pm" &
+  if -e "$analysisconfigdir/GeneBuild/RefineSolexaGenes.pm" &&
     !-e "$analysisconfigdir/GeneBuild/RefineSolexaGenes.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/BlastRNASeqPep.pm $analysisconfigdir/GeneBuild/BlastRNASeqPep.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm" &
+  if -e "$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm" &&
     !-e "$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Gsnap.pm $analysisconfigdir/GeneBuild/Gsnap.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Gsnap.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Gsnap.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Gsnap.pm_bk";
 
 system("mv $analysisconfigdir/Blast.pm $analysisconfigdir/Blast.pm_bk")
-  if -e "$analysisconfigdir/Blast.pm" & !-e "$analysisconfigdir/Blast.pm_bk";
+  if -e "$analysisconfigdir/Blast.pm" && !-e "$analysisconfigdir/Blast.pm_bk";
 
 # write config
 open( BATCHQUEUE, ">$pipelineconfigdir/BatchQueue.pm" )
@@ -977,7 +977,7 @@ $str .= '  			INTRON_BAM_FILES => [
 ';}
   print REFINE "             'refine_" . $tissue_by_id{$row->{ID}} ."' => {
 $str
-			SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE} &! $seen{$tissue_by_id{$row->{ID}}};  
+			SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE} && ! $seen{$tissue_by_id{$row->{ID}}};  
 												
 
   # batchqueue
@@ -1015,7 +1015,7 @@ $str
              memory    => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
              resource  => 'rusage[myens_".$ref_load."tok=25:myens_".$refine_load."tok=25]',
        },
-" if  $RNASEQCONFIG->{SINGLE_TISSUE} &! $seen{$tissue_by_id{$row->{ID}}};  ;
+" if  $RNASEQCONFIG->{SINGLE_TISSUE} &&! $seen{$tissue_by_id{$row->{ID}}};  ;
 # only write each tissue once
 $seen{$tissue_by_id{$row->{ID}}} = 1;
 
