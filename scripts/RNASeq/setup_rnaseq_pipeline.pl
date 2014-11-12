@@ -44,6 +44,7 @@ my $rgt = $RNASEQCONFIG->{READ_GROUP_TAG};
 my $queue_manager = $RNASEQCONFIG->{BATCHQUEUE_MANAGER} || 'LSF';
 my $default_lsf_pre_exec_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PRE_EXEC_PERL} || '/software/ensembl/central/bin/perl';
 my $default_lsf_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PERL} || '/software/ensembl/central/bin/perl';
+my $splice_aligner = $RNASEQCONFIG->{SPLICING_ALIGNER} || '/software/ensembl/genebuild/usrlocalensemblbin/exonerate-0.9.0';
 
 $rgt = 'ID' unless $rgt;
 my %id_groups;
@@ -656,6 +657,7 @@ my $submit_bam2introns =
 my $bam2introns =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2introns",
                                         -input_id_type => 'STABLEID',
+                                        -program_file => $splice_aligner,
                                         -module        => 'Bam2Introns', );
 my $bam2introns_wait =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2introns_wait",
@@ -681,8 +683,20 @@ my $refine_all =
                                         -input_id_type => 'CHROMOSOME',
                                         -module        => 'RefineSolexaGenes',
   );
-my $rnaseq_blast =
-  new Bio::EnsEMBL::Pipeline::Analysis(
+my $rnaseq_blast;
+if ($RNASEQCONFIG->{BLASTP} eq 'ncbi') {
+  $rnaseq_blast = new Bio::EnsEMBL::Pipeline::Analysis(
+                                  -logic_name    => "rnaseqblast",
+                                  -input_id_type => 'CHROMOSOME',
+                                  -module        => 'BlastRNASeqPep',
+                                  -parameters => '-p blastp -a 1 -A 40 -F F',
+                                  -program_file => 'blastall',
+                                  -program      => 'blastall',
+                                  -db_file      => $RNASEQCONFIG->{UNIPROTDB},
+  );
+}
+elsif ($RNASEQCONFIG->{BLASTP} eq 'wu') {
+  $rnaseq_blast = new Bio::EnsEMBL::Pipeline::Analysis(
                                   -logic_name    => "rnaseqblast",
                                   -input_id_type => 'CHROMOSOME',
                                   -module        => 'BlastRNASeqPep',
@@ -691,6 +705,10 @@ my $rnaseq_blast =
                                   -program      => 'wublastp',
                                   -db_file      => $RNASEQCONFIG->{UNIPROTDB},
   );
+}
+else {
+  die("I don't know your blastp program".$RNASEQCONFIG->{BLASTP});
+}
 
 
 my $bam2genes_rule =
@@ -1386,7 +1404,7 @@ use vars qw(%Config);
       FILTER_PARAMS => {},
       BLAST_PARAMS => {
         -unknown_error_string => "FAILED",
-        -type => "wu",
+        -type => "'.$RNASEQCONFIG->{BLASTP}.'",
       }
     },
     rnaseqblast =>

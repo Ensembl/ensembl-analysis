@@ -70,7 +70,14 @@ use vars qw(%Config);
     # Index for the blast database.
     UNIPROTINDEX => '/path/to/my/Uniprot/index',
 
-    # Read length.
+    # blast used, it can be either ncbi or wu
+    BLASTP => 'ncbi',
+
+    BATCHQUEUE_MANAGER => 'LSF',
+    BATCHQUEUE_DEFAULT_LSF_PRE_EXEC_PERL => '/usr/bin/perl',
+    BATCHQUEUE_DEFAULT_LSF_PERL => '/path/to/perl',
+    SPLICING_ALIGNER => '/path/to/exonerate-0.9.0',
+    # Global read length.
     READ_LENGTH => 0,
 
     # This is used by bwa2bam.  Setting it to 1 will cause it to assume
