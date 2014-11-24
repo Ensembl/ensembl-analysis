@@ -722,7 +722,7 @@ use vars qw( %Config );
 
     IMPORT_AFFY_ST_ARRAYS => 
     {
-     IIDREGEXP => '^>probe:(\S+?):([0-9]+).*[TranscriptCluster|ProbeSet]ID=(\S+)',
+     IIDREGEXP => '^>probe:(\S+?):([0-9]+).*[TranscriptCluster|ProbeSet]ID=(\S+);',
 
      #Can't use ProbeID=([0-9]+) as control probes only have there ProbeID in the concat'd full name string
      #Hence the match will fail. 
