@@ -104,24 +104,21 @@ sub run {
     $command = "wc -l $fastq";
   }
   print STDERR "$command\n";
-  eval  {
-    open  ( my $fh,"$command 2>&1 |" ) || 
-      $self->throw("Error counting reads");
-    while (<$fh>){
-      chomp;
-      if ( $_ =~ /^\s*(\d+)/ ) {
-      	if ( $fastqpair ) {
-   	  $total_reads = $1 / 2;
-	} else {
-	  $total_reads = $1 / 4;
-	}
-	print STDERR "Starting with $total_reads reads\n";
-      }
-    }
-  }; if($@){
-    $self->throw("Error processing alignment \n$@\n");
+  open  ( my $fh,"$command 2>&1 |" ) ||
+    $self->throw("Error counting reads");
+  while (<$fh>){
+    chomp;
+    if ( $_ =~ /^\s*(\d+)/ ) {
+        if ( $fastqpair ) {
+        $total_reads = $1 / 2;
+  } else {
+    $total_reads = $1 / 4;
   }
-  
+  print STDERR "Starting with $total_reads reads\n";
+    }
+  }
+  close($fh) || $self->throw("Failed counting reads");
+
   unless ($total_reads) {
     $self->throw("unable to count the reads in the fastq file $fastq\n");
   }
@@ -159,52 +156,42 @@ sub run {
   }
   
   print STDERR "Command: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
-      $self->throw("Error processing alignment $@\n");
-      while (<$fh>){
-	chomp;
-	print STDERR "VIEW: $_\n";
-	if ( $_ =~ /truncated file/ ) {
-	  $self->throw("Error converting file\n");
-	}
-      }
-   }; if($@){
-    $self->throw("Error processing alignment \n$@\n");
+  open  ( my $fh,"$command 2>&1 |" ) ||
+    $self->throw("Error processing alignment $@\n");
+    while (<$fh>){
+  chomp;
+  print STDERR "VIEW: $_\n";
+  if ( $_ =~ /truncated file/ ) {
+    $self->throw("Error converting file\n");
   }
+    }
+  close($fh) || $self->throw("Failed processing alignment");
 
   # sort the bam
   $command = "$samtools  sort $outdir/$outfile.bam $outdir/$outfile"."_sorted";
   print STDERR "Sort: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
-      $self->throw("Error sorting bam $@\n");  
+    open  ( my $fh,"$command 2>&1 |" ) ||
+      $self->throw("Error sorting bam $@\n");
     while (<$fh>){
       chomp;
       print STDERR "SORT: $_\n";
     }
-  }; if($@){
-    $self->throw("Error sorting bam \n$@\n");
-  }  
+  close($fh) || $self->throw("Failed sorting bam");
   # index the bam
   $command = "$samtools  index $outdir/$outfile"."_sorted.bam";
   print STDERR "Index: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
+    open  ( my $fh,"$command 2>&1 |" ) ||
       $self->throw("Error indexing bam $@\n");
     while (<$fh>){
       chomp;
       print STDERR "INDEX: $_\n";
     }
-  }; if($@){
-    $self->throw("Error indexing bam \n$@\n");
-  } 
+  close($fh) || $self->throw("Failed indexing bam");
 
  # check the reads with flagstat
   $command = "$samtools  flagstat $outdir/$outfile"."_sorted.bam";
   print STDERR "Got $total_reads to check\nCheck: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
+    open  ( my $fh,"$command 2>&1 |" ) ||
       $self->throw("Error checking alignment $@\n");
     while (<$fh>){
       print STDERR "$_";
@@ -216,9 +203,7 @@ sub run {
 	  unless ( $total_reads - $1 ) <=1 ;
       }
     }
-  }; if($@){
-    $self->throw("Error checking alignment \n$@\n");
-  }
+  close($fh) || $self->throw("Failed checking alignment");
 }
 
 
