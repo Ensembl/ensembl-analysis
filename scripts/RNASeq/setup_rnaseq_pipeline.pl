@@ -44,6 +44,7 @@ my $rgt = $RNASEQCONFIG->{READ_GROUP_TAG};
 my $queue_manager = $RNASEQCONFIG->{BATCHQUEUE_MANAGER} || 'LSF';
 my $default_lsf_pre_exec_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PRE_EXEC_PERL} || '/software/ensembl/central/bin/perl';
 my $default_lsf_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PERL} || '/software/ensembl/central/bin/perl';
+my $splice_aligner = $RNASEQCONFIG->{SPLICING_ALIGNER} || '/software/ensembl/genebuild/usrlocalensemblbin/exonerate-0.9.0';
 
 $rgt = 'ID' unless $rgt;
 my %id_groups;
@@ -656,6 +657,7 @@ my $submit_bam2introns =
 my $bam2introns =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2introns",
                                         -input_id_type => 'STABLEID',
+                                        -program_file => $splice_aligner,
                                         -module        => 'Bam2Introns', );
 my $bam2introns_wait =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2introns_wait",
@@ -681,8 +683,20 @@ my $refine_all =
                                         -input_id_type => 'CHROMOSOME',
                                         -module        => 'RefineSolexaGenes',
   );
-my $rnaseq_blast =
-  new Bio::EnsEMBL::Pipeline::Analysis(
+my $rnaseq_blast;
+if ($RNASEQCONFIG->{BLASTP} eq 'ncbi') {
+  $rnaseq_blast = new Bio::EnsEMBL::Pipeline::Analysis(
+                                  -logic_name    => "rnaseqblast",
+                                  -input_id_type => 'CHROMOSOME',
+                                  -module        => 'BlastRNASeqPep',
+                                  -parameters => '-p blastp -a 1 -A 40 -F F',
+                                  -program_file => 'blastall',
+                                  -program      => 'blastall',
+                                  -db_file      => $RNASEQCONFIG->{UNIPROTDB},
+  );
+}
+elsif ($RNASEQCONFIG->{BLASTP} eq 'wu') {
+  $rnaseq_blast = new Bio::EnsEMBL::Pipeline::Analysis(
                                   -logic_name    => "rnaseqblast",
                                   -input_id_type => 'CHROMOSOME',
                                   -module        => 'BlastRNASeqPep',
@@ -691,6 +705,10 @@ my $rnaseq_blast =
                                   -program      => 'wublastp',
                                   -db_file      => $RNASEQCONFIG->{UNIPROTDB},
   );
+}
+else {
+  die("I don't know your blastp program".$RNASEQCONFIG->{BLASTP});
+}
 
 
 my $bam2genes_rule =
@@ -828,39 +846,39 @@ $pipelineconfigdir/BatchQueue.pm
 }
 
 system("mv $pipelineconfigdir/BatchQueue.pm $pipelineconfigdir/BatchQueue.pm_bk")
-  if -e "$pipelineconfigdir/BatchQueue.pm" &
+  if -e "$pipelineconfigdir/BatchQueue.pm" &&
     !-e "$pipelineconfigdir/BatchQueue.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/BWA.pm $analysisconfigdir/GeneBuild/BWA.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/BWA.pm" &
+  if -e "$analysisconfigdir/GeneBuild/BWA.pm" &&
     !-e "$analysisconfigdir/BWA.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Bam2Genes.pm $analysisconfigdir/GeneBuild/Bam2Genes.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Bam2Genes.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Bam2Genes.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Bam2Genes.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Bam2Introns.pm $analysisconfigdir/GeneBuild/Bam2Introns.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Bam2Introns.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Bam2Introns.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Bam2Introns.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Sam2Bam.pm $analysisconfigdir/GeneBuild/Sam2Bam.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Sam2Bam.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Sam2Bam.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Sam2Bam.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/RefineSolexaGenes.pm $analysisconfigdir/GeneBuild/RefineSolexaGenes.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/RefineSolexaGenes.pm" &
+  if -e "$analysisconfigdir/GeneBuild/RefineSolexaGenes.pm" &&
     !-e "$analysisconfigdir/GeneBuild/RefineSolexaGenes.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/BlastRNASeqPep.pm $analysisconfigdir/GeneBuild/BlastRNASeqPep.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm" &
+  if -e "$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm" &&
     !-e "$analysisconfigdir/GeneBuild/BlastRNASeqPep.pm_bk";
 
 system("mv $analysisconfigdir/GeneBuild/Gsnap.pm $analysisconfigdir/GeneBuild/Gsnap.pm_bk")
-  if -e "$analysisconfigdir/GeneBuild/Gsnap.pm" &
+  if -e "$analysisconfigdir/GeneBuild/Gsnap.pm" &&
     !-e "$analysisconfigdir/GeneBuild/Gsnap.pm_bk";
 
 system("mv $analysisconfigdir/Blast.pm $analysisconfigdir/Blast.pm_bk")
-  if -e "$analysisconfigdir/Blast.pm" & !-e "$analysisconfigdir/Blast.pm_bk";
+  if -e "$analysisconfigdir/Blast.pm" && !-e "$analysisconfigdir/Blast.pm_bk";
 
 # write config
 open( BATCHQUEUE, ">$pipelineconfigdir/BatchQueue.pm" )
@@ -977,7 +995,7 @@ $str .= '  			INTRON_BAM_FILES => [
 ';}
   print REFINE "             'refine_" . $tissue_by_id{$row->{ID}} ."' => {
 $str
-			SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE} &! $seen{$tissue_by_id{$row->{ID}}};  
+			SINGLE_EXON_MODEL => ''},\n" if  $RNASEQCONFIG->{SINGLE_TISSUE} && ! $seen{$tissue_by_id{$row->{ID}}};  
 												
 
   # batchqueue
@@ -1015,7 +1033,7 @@ $str
              memory    => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
              resource  => 'rusage[myens_".$ref_load."tok=25:myens_".$refine_load."tok=25]',
        },
-" if  $RNASEQCONFIG->{SINGLE_TISSUE} &! $seen{$tissue_by_id{$row->{ID}}};  ;
+" if  $RNASEQCONFIG->{SINGLE_TISSUE} &&! $seen{$tissue_by_id{$row->{ID}}};  ;
 # only write each tissue once
 $seen{$tissue_by_id{$row->{ID}}} = 1;
 
@@ -1386,7 +1404,7 @@ use vars qw(%Config);
       FILTER_PARAMS => {},
       BLAST_PARAMS => {
         -unknown_error_string => "FAILED",
-        -type => "wu",
+        -type => "'.$RNASEQCONFIG->{BLASTP}.'",
       }
     },
     rnaseqblast =>

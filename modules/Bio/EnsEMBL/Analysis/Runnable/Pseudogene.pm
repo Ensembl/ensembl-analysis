@@ -398,6 +398,7 @@ GENE: foreach my $gene (@genes) {
         my $new_gene = Bio::EnsEMBL::Gene->new();
         $new_gene->analysis( $self->analysis );
         $new_gene->biotype( $self->PS_PSEUDO_TYPE );
+        $new_gene->source("ensembl");
         if ( defined $only_transcript_to_keep ) {
           if ($self->BLESSED_BIOTYPES->{ $only_transcript_to_keep->biotype }) {
              $new_gene->biotype( $only_transcript_to_keep->biotype) ;
