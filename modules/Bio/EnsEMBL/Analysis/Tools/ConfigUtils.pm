@@ -338,7 +338,7 @@ sub config_module{
     #
     # we could use self->file here
     my $d = $c;
-    $c. = '.pm';
+    $c .= '.pm';
     $c .= '.example' if ($is_example);
     $c=~ s{::}{/}g;
     require $c;
