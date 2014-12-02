@@ -92,7 +92,7 @@ for my $id ( @species_entries ) {
    for my $org ( keys %uni_orgs ) {  
 
      if ( ($uni_orgs{$opt{species}}{len}=~m/\d/) 
-          && ($uni_orgs{$opt{species}}{name} !=~m/-/) ) {  
+          && ($uni_orgs{$opt{species}}{name} !~ m/-/) ) {  
           # entry is complete for $opt{species} - we don't need to do anything  
           print O "$unists{$id}{$opt{species}}{entry}\n" ;  
           next MARKER ;  
