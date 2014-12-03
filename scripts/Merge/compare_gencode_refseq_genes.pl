@@ -85,8 +85,8 @@ my $verbose;
 
 # assembly
 my $coord_system_version; #'GRCh37';
-my $coord_system_name # 'toplevel' or 'chromosome';
-my $refseq_logicname # 'refseq_import' or 'refseq_human_import';
+my $coord_system_name; # 'toplevel' or 'chromosome';
+my $refseq_logicname; # 'refseq_import' or 'refseq_human_import';
 
 # region
 my $chr_num;
@@ -118,6 +118,10 @@ $| = 1;
   'dnauser:s'              => \$dnauser,
   'dnadbname:s'            => \$dnadbname,
   'dnaport:s'              => \$dnaport,
+  'prodhost:s'              => \$productionhost,
+  'produser:s'              => \$productionuser,
+  'proddbname:s'            => \$productiondbname,
+  'prodport:s'              => \$productionport,
   'coord_system_version:s' => \$coord_system_version,
   'refseq_logicname:s'     => \$refseq_logicname,
   'outfile:s'              => \$outfile,
