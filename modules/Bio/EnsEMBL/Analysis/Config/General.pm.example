@@ -58,13 +58,7 @@ use strict;
 use vars qw(%Config);
 
 %Config = (
-           
-           # farm 2 binaries, libraries and data files
-           #BIN_DIR  => '/usr/local/ensembl/bin',
-           #DATA_DIR => '/usr/local/ensembl/data',
-           #LIB_DIR  => '/usr/local/ensembl/lib',
-           
-           # for farm3, need this
+           # for farm3 binaries, libraries and data files
            BIN_DIR  => '/software/ensembl/genebuild/usrlocalensemblbin/',
            DATA_DIR => '/software/ensembl/genebuild/usrlocalensembldata/',
            LIB_DIR  => '/software/ensembl/genebuild/usrlocalensembllib/',
