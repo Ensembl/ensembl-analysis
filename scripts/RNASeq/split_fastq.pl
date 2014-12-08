@@ -61,7 +61,7 @@ my $line = 0;
 while ( <META> ) {
   chomp;
   $line++;
-  if ( $line == 1_) {
+  if ( $line == 1 ) {
     $header = "$_";
     next;
   }

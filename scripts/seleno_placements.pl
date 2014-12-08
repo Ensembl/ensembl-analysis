@@ -16,7 +16,7 @@ use warnings ;
 use strict;
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Pipeline::Runnable::Genewise;
+use Bio::EnsEMBL::Analysis::Runnable::Genewise;
 use Bio::EnsEMBL::SeqEdit;
 use Text::Wrap;
 use Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;

@@ -159,7 +159,7 @@ print "\n\nHave " . scalar(@all_ids) . " ID's to fetch ...\n" ;
 
   print "\nNO description found by mfetch for " . scalar(@not_found) . " entries !!!! - we try with wildcards now ...  \n" ;    
      for ( @not_found ) {  
-       print I "$_ not_found\n" ; 
+       print "$_ not_found\n" ; 
      }  
   # print now try to  fetch with wildcards     - second round 
   my @not_found_2 ;  
