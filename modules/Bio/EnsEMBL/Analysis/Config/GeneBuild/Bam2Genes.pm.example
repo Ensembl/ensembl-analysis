@@ -53,6 +53,7 @@ BAM2GENES_CONFIG_BY_LOGIC =>
 		  
                   # 'span' = genomic extent / cdna length
                   MIN_SPAN   =>   1.5,
+          STRANDED => 0,
                   },
      }
 );

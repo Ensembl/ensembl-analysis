@@ -343,6 +343,7 @@ sub exon_cluster {
   my $cluster_count = 0;
   my $read_count = 0;
   my $regex = $self->PAIRING_REGEX;
+  my $stranded_reads = $self->STRANDED;
   # I can't give parameters to $bam->fetch() so it's easier to create the callback
   # inside the method. Maybe with the low level method it's better.
   my $_process_reads = sub {
@@ -356,6 +357,20 @@ sub exon_cluster {
     my $hstart = $read->query->start;
     my $hend   = $read->query->end;
     my $paired = $read->get_tag_values('MAP_PAIR');
+    # So the first mate is the one deciding of the reverse strand we are on
+    # so we need to keep track of the strand for the exon we are creating so
+    # if the first mate is on the reverse strand, the transcript will be on the forward strand
+    my $is_first_mate = 1;
+    my $hstrand = 1;
+    my $strand = 1;
+    if ($stranded_reads) {
+        $hstrand = $read->get_tag_values('REVERSE') ? -1 : 1;
+        $is_first_mate = $read->get_tag_values('FIRST_MATE');
+        $strand = $read->strand;
+    }
+    my $real_strand = -($hstrand*$strand);
+
+#    print STDERR "READ: ", $name, ' ', $start, ' ',  $end, ' ', $strand, ' ', $hstart, ' ', $hend, ' ', $paired, ' ', $hstrand, ' ', $is_first_mate, ' ', $read->qual, 'REAL: ', $real_strand, "\n";
     if ( $regex && $name =~ /(\S+)($regex)$/ ) {
        $name = $1;
     }
@@ -363,15 +378,22 @@ sub exon_cluster {
     # make exon clusters and store the names of the reads and associated cluster number
     for (my $index = @exon_clusters; $index > 0; $index--) {
       my $exon_cluster = $exon_clusters[$index-1];
-      if ( $start <= $exon_cluster->end+1 &&  $end >= $exon_cluster->start-1 ) {
-        # Expand the exon_cluster
-        $exon_cluster->start($start) if $start < $exon_cluster->start;
-        $exon_cluster->end($end)     if $end   > $exon_cluster->end;
-        $exon_cluster->score($exon_cluster->score + 1);
-        # only store the connection data if it is paired in mapping
-        $cluster_data->{$name}->{$exon_cluster->hseqname} = 1 if $paired;
-        # only allow it to be a part of a single cluster
-        return;
+# If we don't have stranded reads we check that the read overlaps the cluster
+# If we have stranded reads we can check the overlap if the read has the same strand than the cluster and if it's the first mate or if the read has not the same strand than the cluster it has to be the second mate
+      if (!$stranded_reads or
+          ($stranded_reads and (($exon_cluster->strand == $real_strand and $is_first_mate) or
+                                ($exon_cluster->strand == -$real_strand and !$is_first_mate))
+          )) {
+        if ( $start <= $exon_cluster->end+1 &&  $end >= $exon_cluster->start-1 ) {
+          # Expand the exon_cluster
+          $exon_cluster->start($start) if $start < $exon_cluster->start;
+          $exon_cluster->end($end)     if $end   > $exon_cluster->end;
+          $exon_cluster->score($exon_cluster->score + 1);
+          # only store the connection data if it is paired in mapping
+          $cluster_data->{$name}->{$exon_cluster->hseqname} = 1 if $paired;
+          # only allow it to be a part of a single cluster
+          return;
+        }
       }
     }
     # start a new cluster if there is no overlap
@@ -381,7 +403,7 @@ sub exon_cluster {
     (
      -start      => $start,
      -end        => $end,
-     -strand     => -1,
+     -strand     => $is_first_mate ? $real_strand : -$real_strand,
      -slice      => $slice,
      -hstart     => $hstart,
      -hend       => $hend,
@@ -427,7 +449,7 @@ sub pad_exons {
        $exon->end + 20 ,
        -1,
        -1,
-       -1,
+       $exon->strand,
        $exon->analysis,
        undef,
        undef,
@@ -442,7 +464,7 @@ sub pad_exons {
       (-slice    => $exon->slice,
        -start    => $padded_exon->start,
        -end      => $padded_exon->end,
-       -strand   => -1,
+       -strand   => $padded_exon->strand,
        -hseqname => $exon->display_id,
        -hstart   => 1,
        -hstrand  => 1,
@@ -677,6 +699,20 @@ sub  PAIRED{
   
   if (exists($self->{'_CONFIG_PAIRED'})) {
     return $self->{'_CONFIG_PAIRED'};
+  } else {
+    return 0;
+  }
+}
+
+sub STRANDED {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_STRANDED'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_STRANDED'})) {
+    return $self->{'_CONFIG_STRANDED'};
   } else {
     return 0;
   }
