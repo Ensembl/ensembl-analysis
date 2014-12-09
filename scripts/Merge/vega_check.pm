@@ -323,6 +323,7 @@ my %biotype_groups = (
                                                 'IG_V_pseudogene',
                                                 'known_ncrna',
                                                 'lincRNA',
+                                                'macro_lncrna'
                                                 'miRNA',
                                                 'misc_RNA',
                                                 'non_coding',
@@ -333,6 +334,7 @@ my %biotype_groups = (
                                                 'sense_intronic',
                                                 'sense_overlapping',
                                                 'snoRNA',
+                                                'snorna',
                                                 'snRNA',
                                                 'transcribed_unitary_pseudogene',
                                                 'transcribed_unprocessed_pseudogene',
@@ -344,7 +346,8 @@ my %biotype_groups = (
                                                 'unitary_pseudogene',
                                                 'unprocessed_pseudogene',
                                                 'TEC',
-                                                'artifact'],
+                                                'artifact',
+                                                'vaultrna'],
        'transcript_non_coding'              => ['3prime_overlapping_ncrna',
                                                 'antisense',
                                                 'disrupted_domain',
@@ -354,6 +357,7 @@ my %biotype_groups = (
                                                 'IG_D_gene',
                                                 'known_ncrna',
                                                 'lincRNA',
+                                                'macro_lncrna',
                                                 'miRNA',
                                                 'misc_RNA',
                                                 'non_coding',
@@ -365,6 +369,7 @@ my %biotype_groups = (
                                                 'sense_intronic',
                                                 'sense_overlapping',
                                                 'snoRNA',
+                                                'snorna'
                                                 'snRNA',
                                                 'transcribed_unitary_pseudogene',
                                                 'transcribed_unprocessed_pseudogene',
@@ -376,7 +381,8 @@ my %biotype_groups = (
                                                 'unitary_pseudogene',
                                                 'unprocessed_pseudogene',
                                                 'TEC',
-                                                'artifact'] },
+                                                'artifact',
+                                                'vaultrna'] },
 
      'havana' => { }
 );
