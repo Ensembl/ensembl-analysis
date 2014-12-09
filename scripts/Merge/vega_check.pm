@@ -38,7 +38,7 @@ my %allowed_combos = (
                                                 'retained_intron',
                                                 'TEC',
                                                 'artifact'],
-       'artifact'                           => ['artifact']
+       'artifact'                           => ['artifact'],
        'IG_gene'                            => ['IG_gene',
                                                 'TEC',
                                                 'artifact'],
