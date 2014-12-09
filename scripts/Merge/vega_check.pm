@@ -323,7 +323,7 @@ my %biotype_groups = (
                                                 'IG_V_pseudogene',
                                                 'known_ncrna',
                                                 'lincRNA',
-                                                'macro_lncrna'
+                                                'macro_lncrna',
                                                 'miRNA',
                                                 'misc_RNA',
                                                 'non_coding',
@@ -369,7 +369,7 @@ my %biotype_groups = (
                                                 'sense_intronic',
                                                 'sense_overlapping',
                                                 'snoRNA',
-                                                'snorna'
+                                                'snorna',
                                                 'snRNA',
                                                 'transcribed_unitary_pseudogene',
                                                 'transcribed_unprocessed_pseudogene',
