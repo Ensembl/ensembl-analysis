@@ -38,6 +38,7 @@ my %allowed_combos = (
                                                 'retained_intron',
                                                 'TEC',
                                                 'artifact'],
+       'artifact'                           => ['artifact']
        'IG_gene'                            => ['IG_gene',
                                                 'TEC',
                                                 'artifact'],
@@ -49,6 +50,7 @@ my %allowed_combos = (
                                                 'retained_intron',
                                                 'TEC',
                                                 'artifact'],
+       'macro_lncrna'                       => ['macro_lncrna'],
        'non_coding'                         => ['non_coding'],
        'polymorphic_pseudogene'             => ['nonsense_mediated_decay',
                                                 'non_stop_decay',
@@ -94,6 +96,7 @@ my %allowed_combos = (
                                                 'sense_overlapping',
                                                 'TEC',
                                                 'artifact'],
+       'snorna'                             => ['snorna'],
        'TR_gene'                            => ['TR_gene',
                                                 'TEC',
                                                 'artifact'],
@@ -107,12 +110,6 @@ my %allowed_combos = (
                                                 'TEC',
                                                 'artifact',
                                                 'processed_transcript'],
-       'unitary_pseudogene'                 => ['processed_transcript',
-                                                'retained_intron',
-                                                'unitary_pseudogene',
-                                                'TEC',
-                                                'artifact'],
-       'unprocessed_pseudogene'             => ['unprocessed_pseudogene'],
        'transcribed_unprocessed_pseudogene' => ['transcribed_unprocessed_pseudogene',
                                                 'processed_transcript',
                                                 'retained_intron',
@@ -124,7 +121,13 @@ my %allowed_combos = (
                                                 'TEC',
                                                 'artifact'],
        'TEC'                                => ['TEC'],
-       'artifact'                           => ['artifact'] 
+       'unitary_pseudogene'                 => ['processed_transcript',
+                                                'retained_intron',
+                                                'unitary_pseudogene',
+                                                'TEC',
+                                                'artifact'],
+       'unprocessed_pseudogene'             => ['unprocessed_pseudogene'],
+       'vaultrna'                           => ['vaultrna']
      },
 
      'ensembl_extension' => { # additional allowed gene-transcript biotypes combination after the merge
