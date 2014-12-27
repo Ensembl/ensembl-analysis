@@ -204,6 +204,17 @@ sub run {
       }
     }
   close($fh) || $self->throw("Failed checking alignment");
+
+  #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
+  $command = "rm $outdir/$outfile".".bam";
+  print STDERR "Delete: $command\n";
+  open  ( my $fh,"$command 2>&1 |" ) || $self->throw("Error deleting unsorted bam $@\n");
+  while (<$fh>)
+  {
+      chomp;
+      print STDERR "DELETE: $_\n";
+  }
+  close($fh) || $self->throw("Failed deleting bam");
 }
 
 
