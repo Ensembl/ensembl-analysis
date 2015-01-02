@@ -815,8 +815,9 @@ foreach my $row (@rows) {
   if (exists $row->{PL}) 
   {
       my ($field_pl) = $row->{PL} =~ /([^+])/;
-      $read_group .= "\tPL:" . $field_pl . "\n";
+      $read_group .= "\tPL:" . $field_pl ;
   }
+  $read_group .= "\n" ;
   print HEAD $read_group;
   print ALL $read_group;
   close(HEAD) || die( "Cannot close $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
