@@ -1085,9 +1085,7 @@ sub print_merge_cmd {
   . "at this point just delete them from the merge command.\n\n";
   print "#MERGE\nbsub -o $out_dir" . "/merge.out "  
   . "-e $out_dir" . "/merge.err " ;
-  print $RNASEQCONFIG->{SAMTOOLS}
-  ." -h $out_dir" . "/all_headers.txt"
-  . " merge $merge_dir" . "/merged_unsorted.bam ";         
+  print $RNASEQCONFIG->{SAMTOOLS}." merge -h $out_dir"."/all_headers.txt $merge_dir"."/merged_unsorted.bam ";         
 
   my @sorted_bam_files = ();
   foreach my $file ( @{ $files_ref } ) {
