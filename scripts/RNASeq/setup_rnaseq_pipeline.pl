@@ -806,7 +806,7 @@ foreach my $row (@rows) {
     or die( "Cannot open  $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
   my $read_group = "\@RG\tID:" . $row->{ID};
   $read_group .= "\tPU:" . $row->{PU} if (exists $row->{PU});
-  $read_group .= "\tSM:" . $row->{SM} if (exists $row->{SM});
+  $read_group .= "\tSM:" . lc($row->{SM}) if (exists $row->{SM});
   $read_group .= "\tLB:" . $row->{LB} if (exists $row->{LB});
   $read_group .= "\tDS:" . $row->{DS} if (exists $row->{DS});
   $read_group .= "\tCN:" . $row->{CN} if (exists $row->{CN});
