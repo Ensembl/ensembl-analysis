@@ -172,6 +172,11 @@ my $known_biotypes = {
                      'Mt_tRNA'                            => 'noncoding',
                      'Mt_rRNA'                            => 'noncoding',
                      'lincRNA'                            => 'noncoding',
+                     'macro_lncRNA'                       => 'noncoding',
+                     'ribozyme'                           => 'noncoding',
+                     'scaRNA'                             => 'noncoding',
+                     'sRNA'                               => 'noncoding',
+                     'vaultRNA'                           => 'noncoding',
                      'processed_transcript'               => 'noncoding_second_choice',
                      'misc_RNA'                           => 'noncoding_second_choice',
                      '3prime_overlapping_ncrna'           => 'noncoding_second_choice',
@@ -588,7 +593,7 @@ sub returnBasicNonCodingAnnotation{  # i call it with a gene object and it retur
     foreach my $transcript (@transcripts){
 
 
-      if($transcript->biotype eq "antisense" or $transcript->biotype eq "Mt_tRNA" or $transcript->biotype eq "Mt_rRNA" or $transcript->biotype eq "rRNA" or $transcript->biotype eq "snoRNA" or $transcript->biotype eq "snRNA" or $transcript->biotype eq "processed_transcript" or $transcript->biotype eq "lincRNA" or $transcript->biotype eq "3prime_overlapping_ncrna" or $transcript->biotype eq "non_coding" or $transcript->biotype eq "sense_intronic" or $transcript->biotype eq "sense_overlapping" or $transcript->biotype eq "miRNA" or $transcript->biotype eq "misc_RNA" or $transcript->biotype eq "known_ncrna") { # non-coding,well+poorly characterized minus the problem (TEC,retained_intron,ambiguous_orf,disrupted_domain)broad transcript category
+      if($transcript->biotype eq "antisense" or $transcript->biotype eq "Mt_tRNA" or $transcript->biotype eq "Mt_rRNA" or $transcript->biotype eq "rRNA" or $transcript->biotype eq "snoRNA" or $transcript->biotype eq "snRNA" or $transcript->biotype eq "processed_transcript" or $transcript->biotype eq "lincRNA" or $transcript->biotype eq "3prime_overlapping_ncrna" or $transcript->biotype eq "non_coding" or $transcript->biotype eq "sense_intronic" or $transcript->biotype eq "sense_overlapping" or $transcript->biotype eq "miRNA" or $transcript->biotype eq "misc_RNA" or $transcript->biotype eq "known_ncrna" or $transcript->biotype eq "macro_lncRNA" or $transcript->biotype eq "ribozyme" or $transcript->biotype eq "scaRNA" or $transcript->biotype eq "sRNA" or $transcript->biotype eq "vaultRNA") { # non-coding,well+poorly characterized minus the problem (TEC,retained_intron,ambiguous_orf,disrupted_domain)broad transcript category
 
        if(scalar @ncTrlengths ==0){
 
