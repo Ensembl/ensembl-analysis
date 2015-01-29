@@ -45,11 +45,8 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::LayerAnnotation;
-
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 
@@ -87,7 +84,7 @@ sub fetch_input {
         }
       }
     }
-    $dbh->dbc->disconnect_when_inactive(1) ;
+    $dbh->dbc->disconnect_when_inactive(0) ;
   }
 }
 
