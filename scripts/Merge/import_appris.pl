@@ -36,7 +36,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
 use DateTime;
 use Carp;
-
+use feature 'say';
 
 # this ewill help when debgugging:
 $| = 1;
@@ -50,12 +50,12 @@ my $pass   = '';
 my $port   = 3306;
 my $dbname = '';
 my $dnahost   = '';
-my $dnauser   = '';
+my $dnauser   = 'ensro';
 my $dnaport   = 3306;
 my $dnadbname;
 
 my $coord_system_name = 'toplevel';
-my $coord_system_version;
+my $coord_system_version = '';
 
 my $write; # boolean
 my $verbose; # boolean
@@ -118,12 +118,14 @@ my $aa  = $db->get_AttributeAdaptor();
 # hard code the mapping
 # # # 
 my $label2code = {
-                'appris_principal'               => [ 'appris_pi' , 'APPRIS principal isoform'],
-                'appris_candidate'               => [ 'appris_ci' , 'APPRIS candidate principal isoform'],
-                'appris_candidate_ccds'          => [ 'appris_ci3', 'APPRIS candidate principal isoform (CCDS)'],
-                'appris_candidate_longest_ccds'  => [ 'appris_ci2', 'APPRIS candidate principal isoform (longest CCDS)'],
-                'appris_candidate_longest_seq'   => [ 'appris_ci1', 'APPRIS candidate principal isoform (longest coding sequence)'],
-                };
+                   'PRINCIPAL:1'                 => [ 'appris_pi1', 'APPRIS principal isoform'],
+                   'PRINCIPAL:2'                 => [ 'appris_pi2', 'APPRIS candidate principal isoform (CCDS)'],
+                   'PRINCIPAL:3'                 => [ 'appris_pi3', 'APPRIS candidate principal isoform (earliest CCDS)' ],
+                   'PRINCIPAL:4'                 => [ 'appris_pi4', 'APPRIS candidate principal isoform (longest CCDS)' ],
+                   'PRINCIPAL:5'                 => [ 'appris_pi5', 'APPRIS candidate principal isoform (longest coding sequence)' ],
+                   'ALTERNATIVE:1'               => [ 'appris_alt1', 'APPRIS candidate principal isoform that is conserved in at least three tested non-primate species' ],
+                   'ALTERNATIVE:2'               => [ 'appris_alt2', 'APPRIS candidate principal isoform that appears to be conserved in fewer than three tested non-primate species' ],
+                 };
 
 
 # delete old attribs
@@ -141,7 +143,7 @@ my %appris_transcripts;# be lazy
 open(INFILE, "<$file") or die ("Can't read $file $! \n");
 while(my $line = <INFILE>){
   chomp $line;
-  my ($gene_id, $transcript_id, $label, $link) = split(/\t/, $line);
+  my ($gene_id, $transcript_id, $label) = split(/[ \t]+/, $line);
   $appris_transcripts{$transcript_id} = 1;
 
 # "appris_principal", transcript(s) expected to code for the main functional isoform based on a range of protein features (APPRIS pipeline, Nucleic Acids Res. 2013 Jan;41(Database issue):D110-7).
