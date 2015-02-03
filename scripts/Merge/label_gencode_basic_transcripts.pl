@@ -149,6 +149,7 @@ my $biotype2group = get_biotype_groups($production_db);
 # UGH - horrible to hard code this
 # but I want a more automated way of making sure that we get all the biotypes included in this script
 # so I want the script to die if the production db has a new biotype in it
+
 my $known_biotypes = {
                      'protein_coding'                     => 'coding',
                      'polymorphic_pseudogene'             => 'coding',
@@ -171,24 +172,24 @@ my $known_biotypes = {
                      'antisense'                          => 'noncoding',
                      'Mt_tRNA'                            => 'noncoding',
                      'Mt_rRNA'                            => 'noncoding',
-                     'lincRNA'                            => 'noncoding',
-                     'macro_lncRNA'                       => 'noncoding',
-                     'ribozyme'                           => 'noncoding',
-                     'scaRNA'                             => 'noncoding',
-                     'sRNA'                               => 'noncoding',
-                     'vaultRNA'                           => 'noncoding',
+                     'lincRNA'                            => 'noncoding_second_choice',
+                     'macro_lncRNA'                       => 'noncoding_second_choice',
+                     'ribozyme'                           => 'noncoding_second_choice',
+                     'scaRNA'                             => 'noncoding_second_choice',
+                     'sRNA'                               => 'noncoding_second_choice',
+                     'vaultRNA'                           => 'noncoding_second_choice',
                      'processed_transcript'               => 'noncoding_second_choice',
                      'misc_RNA'                           => 'noncoding_second_choice',
                      '3prime_overlapping_ncrna'           => 'noncoding_second_choice',
                      'non_coding'                         => 'noncoding_second_choice',
                      'sense_intronic'                     => 'noncoding_second_choice',
                      'sense_overlapping'                  => 'noncoding_second_choice',
+                     'transcribed_processed_pseudogene'   => 'pseudogene_transcribed',
+                     'transcribed_unitary_pseudogene'     => 'pseudogene_transcribed',
+                     'transcribed_unprocessed_pseudogene' => 'pseudogene_transcribed',
                      'pseudogene'                         => 'pseudogene',
                      'processed_pseudogene'               => 'pseudogene',
                      'unprocessed_pseudogene'             => 'pseudogene',
-                     'transcribed_processed_pseudogene'   => 'pseudogene',
-                     'transcribed_unitary_pseudogene'     => 'pseudogene',
-                     'transcribed_unprocessed_pseudogene' => 'pseudogene',
                      'translated_processed_pseudogene'    => 'pseudogene',
                      'translated_unprocessed_pseudogene'  => 'pseudogene',
                      'unitary_pseudogene'                 => 'pseudogene',
@@ -211,9 +212,9 @@ my $known_biotypes = {
                      'TEC'                                => 'problem',
                      'ambiguous_orf'                      => 'problem',
                      'disrupted_domain'                   => 'problem',
-                     'artifact'                           => 'problem',
                      'LRG_gene'                           => 'do_not_use',
                      };
+
 
 
 
@@ -369,7 +370,9 @@ sub giveMeBasicAnnotationTranscripts{  # as a parameter I give a gene object and
 
     foreach my $transcript (@transcripts){
 
-      if($transcript->biotype eq "retained_intron" or $transcript->biotype eq "TEC" or $transcript->biotype eq "ambiguous_orf" or $transcript->biotype eq "disrupted_domain"){
+      if($known_biotypes->{$transcript->biotype} eq 'problem') {
+#      if($transcript->biotype eq "retained_intron" or $transcript->biotype eq "TEC" or $transcript->biotype eq "ambiguous_orf" or 
+#         $transcript->biotype eq "disrupted_domain"){
 
         if(scalar @ncProblemlengths ==0){ 
 
@@ -440,11 +443,12 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
 
     $fullLengthTag=1;
 
-    if($transcript->biotype eq "IG_D_gene" or $transcript->biotype eq "IG_J_gene" or $transcript->biotype eq "IG_C_gene" or $transcript->biotype eq "IG_V_gene" or $transcript->biotype eq "IG_LV_gene" or  $transcript->biotype eq "protein_coding" or $transcript->biotype eq "TR_C_gene" or $transcript->biotype eq "TR_J_gene" or $transcript->biotype eq "TR_V_gene" or $transcript->biotype eq "TR_D_gene" or $transcript->biotype eq "polymorphic_pseudogene" ) { # pc broad transcript category
+    if($known_biotypes->{$transcript->biotype} eq 'coding') {
 
       my @attributes=@{$transcript->get_all_Attributes};
       foreach my $attribute (@attributes){
-        if(($attribute->code eq "cds_end_NF" and $attribute->value==1) or ($attribute->code eq "cds_start_NF" and $attribute->value==1) or ($attribute->code eq "mRNA_end_NF" and $attribute->value==1) or ($attribute->code eq "mRNA_start_NF" and $attribute->value==1)){ # all these attributes signify non full-length transcripts
+        if(($attribute->code eq "cds_end_NF" and $attribute->value==1) or ($attribute->code eq "cds_start_NF" and $attribute->value==1) or
+           ($attribute->code eq "mRNA_end_NF" and $attribute->value==1) or ($attribute->code eq "mRNA_start_NF" and $attribute->value==1)){ # all these attributes signify non full-length transcripts
 
           $fullLengthTag=0;
         } # end of attrib if-statement
@@ -465,8 +469,7 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
 
     foreach my $transcript (@transcripts){
 
-
-      if ($transcript->biotype eq "IG_D_gene" or $transcript->biotype eq "IG_J_gene" or $transcript->biotype eq "IG_C_gene" or $transcript->biotype eq "IG_V_gene" or $transcript->biotype eq "IG_LV_gene" or $transcript->biotype eq "protein_coding" or $transcript->biotype eq "TR_C_gene" or $transcript->biotype eq "TR_J_gene" or $transcript->biotype eq "TR_V_gene" or $transcript->biotype eq "TR_D_gene" or $transcript->biotype eq "non_stop_decay" or $transcript->biotype eq "nonsense_mediated_decay" or $transcript->biotype eq "polymorphic_pseudogene") { # pc broad transcript category
+      if($known_biotypes->{$transcript->biotype} eq 'coding' or $known_biotypes->{$transcript->biotype} eq 'coding_second_choice') {
 
         if(scalar @cdsLongest ==0){
 
@@ -487,7 +490,6 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
           }
 
         }
-
       }
     }
 
@@ -513,7 +515,6 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
         }
       }
 
-
       if(scalar (@longest) ==1){
 
         push(@basicCodingAnnotation,$longest[0]);
@@ -521,11 +522,11 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
       }elsif(scalar @longest >1){  # if we have more than one with the biggest length(exons+introns) we get the one with the longest genomic length (if there is more than one transcript with the longest genomic length we get the first one that we find!)
 
         foreach my $longestTr (@longest){
-  
+
           my $genLengthCurrentTr=getGenomicLengthOfTranscript($longestTr);
-   
+
           if($genLengthCurrentTr > $maxGenLength){
-  
+
             $maxGenLength=$genLengthCurrentTr;
             $maxGenLengthTr=$longestTr;
           }
@@ -541,7 +542,6 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
     }
 
   }
-
 
   return \@basicCodingAnnotation;
 
@@ -565,7 +565,7 @@ sub returnBasicNonCodingAnnotation{  # i call it with a gene object and it retur
 
     $fullLengthTag=1;
 
-    if($transcript->biotype eq "antisense" or $transcript->biotype eq "Mt_tRNA" or $transcript->biotype eq "Mt_rRNA" or $transcript->biotype eq "rRNA" or $transcript->biotype eq "snoRNA" or $transcript->biotype eq "snRNA" or $transcript->biotype eq "miRNA" or $transcript->biotype eq "known_ncrna") { # non-coding,well characterized broad transcript category
+    if($known_biotypes->{$transcript->biotype} eq 'noncoding') {
 
       my @attributes=@{$transcript->get_all_Attributes};
       foreach my $attribute (@attributes){
@@ -592,8 +592,7 @@ sub returnBasicNonCodingAnnotation{  # i call it with a gene object and it retur
 
     foreach my $transcript (@transcripts){
 
-
-      if($transcript->biotype eq "antisense" or $transcript->biotype eq "Mt_tRNA" or $transcript->biotype eq "Mt_rRNA" or $transcript->biotype eq "rRNA" or $transcript->biotype eq "snoRNA" or $transcript->biotype eq "snRNA" or $transcript->biotype eq "processed_transcript" or $transcript->biotype eq "lincRNA" or $transcript->biotype eq "3prime_overlapping_ncrna" or $transcript->biotype eq "non_coding" or $transcript->biotype eq "sense_intronic" or $transcript->biotype eq "sense_overlapping" or $transcript->biotype eq "miRNA" or $transcript->biotype eq "misc_RNA" or $transcript->biotype eq "known_ncrna" or $transcript->biotype eq "macro_lncRNA" or $transcript->biotype eq "ribozyme" or $transcript->biotype eq "scaRNA" or $transcript->biotype eq "sRNA" or $transcript->biotype eq "vaultRNA") { # non-coding,well+poorly characterized minus the problem (TEC,retained_intron,ambiguous_orf,disrupted_domain)broad transcript category
+      if($known_biotypes->{$transcript->biotype} eq 'noncoding' or $known_biotypes->{$transcript->biotype} eq 'noncoding_second_choice') {
 
        if(scalar @ncTrlengths ==0){
 
@@ -654,13 +653,13 @@ sub returnBasicPseudogeneAnnotation{ # i call it with a gene object and it retur
   my $transcribed_pseudogene = 0;
   foreach my $transcript (@transcripts){  # pushes all transcripts but expects only one per gene 
 
-    if($transcript->biotype eq "transcribed_processed_pseudogene" or $transcript->biotype eq "transcribed_unprocessed_pseudogene" or $transcript->biotype eq "transcribed_unitary_pseudogene") {
+    if($known_biotypes->{$transcript->biotype} eq 'pseudogene_transcribed') {
       # 07 August 2014
       # When a transcribed processed pseudogene, take all transcripts [requested by af2] 
       $transcribed_pseudogene = 1;
       last;
 
-    } elsif($transcript->biotype eq "pseudogene" or $transcript->biotype eq "processed_pseudogene" or $transcript->biotype eq "unprocessed_pseudogene" or $transcript->biotype eq "translated_processed_pseudogene" or $transcript->biotype eq "translated_unprocessed_pseudogene" or $transcript->biotype eq "unitary_pseudogene" or $transcript->biotype eq "IG_C_pseudogene" or $transcript->biotype eq "IG_D_pseudogene" or $transcript->biotype eq "IG_J_pseudogene" or $transcript->biotype eq "IG_pseudogene" or $transcript->biotype eq "IG_V_pseudogene" or $transcript->biotype eq "TR_J_pseudogene" or $transcript->biotype eq "TR_V_pseudogene" or $transcript->biotype eq "Mt_rRNA_pseudogene" or $transcript->biotype eq "miRNA_pseudogene" or $transcript->biotype eq "misc_RNA_pseudogene" or $transcript->biotype eq "rRNA_pseudogene" or $transcript->biotype eq "scRNA_pseudogene" or $transcript->biotype eq "snRNA_pseudogene" or $transcript->biotype eq "snoRNA_pseudogene" or $transcript->biotype eq "tRNA_pseudogene") { # all sorts of pseudogenes but not short ncRNAs
+    }  elsif($known_biotypes->{$transcript->biotype} eq 'pseudogene') {
 
       push (@basicPseudogeneAnnotation,$transcript);
 
@@ -669,7 +668,7 @@ sub returnBasicPseudogeneAnnotation{ # i call it with a gene object and it retur
 
 
   if ($transcribed_pseudogene == 1) {
-    @basicPseudogeneAnnotation = @{filter_transcribed_pseudogene($gene->get_all_Transcripts, ['transcribed_processed_pseudogene','transcribed_unprocessed_pseudogene','transcribed_unitary_pseudogene'])};
+     @basicPseudogeneAnnotation = @{filter_transcribed_pseudogene($gene->get_all_Transcripts, ['transcribed_processed_pseudogene','transcribed_unprocessed_pseudogene','transcribed_unitary_pseudogene'])};
   }
 
   if(scalar (@basicPseudogeneAnnotation) >1 && $transcribed_pseudogene != 1){   # if the transcripts are non-coding-well caracterized-full length I am finished!
@@ -717,7 +716,7 @@ sub filter_transcribed_pseudogene {
   foreach my $transcript (@$transcripts) {
     push @{$starts{$transcript->seq_region_start}}, $transcript;
     push @{$ends{$transcript->seq_region_end}}, $transcript;
-    
+
     # collect the biotypes we want
     foreach my $biotype (@$biotypes) {
       if ($transcript->biotype eq $biotype) {
