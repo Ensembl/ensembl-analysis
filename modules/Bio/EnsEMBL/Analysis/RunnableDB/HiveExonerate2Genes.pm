@@ -70,40 +70,20 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::KillList;
 use Bio::SeqIO;
-use Bio::EnsEMBL::Analysis::Config::Exonerate2Genes;
 
 use Data::Dumper;
 use feature 'say';
 use parent ('Bio::EnsEMBL::Analysis::RunnableDB::HiveBaseRunnable',
             'Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild');
 
-#use vars qw(@ISA);
-
-#@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
-
-
-############################################################
-sub new {
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
-
- my $analysis = new Bio::EnsEMBL::Analysis(
-                                            -logic_name => "HiveExonerateVert",
-                                            -module => "HiveExonerate2Genes",
-                                          );
-  $self->analysis($analysis);
-  my $logic = $self->analysis->logic_name;
-
-  $self->read_and_check_config($EXONERATE_CONFIG_BY_LOGIC);
-
-  return $self;
-}
-
 sub fetch_input {
-  my( $self) = @_;
+  my($self) = @_;
 
-
-  my $logic = $self->analysis->logic_name;
+  my $analysis = new Bio::EnsEMBL::Analysis(
+                                             -logic_name => $self->param('logic_name'),
+                                             -module => $self->param('module'),
+                                            );
+  $self->analysis($analysis);
 
   $self->db('dna_db',$self->get_dba($self->param('input_db')));
   $self->db('output_db',$self->get_dba($self->param('output_db'),undef,'dna_db'));
@@ -112,7 +92,8 @@ sub fetch_input {
   ##########################################
 
   my @db_files;
-  my @target_list = $self->GENOMICSEQS;
+  my @target_list = $self->param('GENOMICSEQS');
+
 
   foreach my $target (@target_list){ 
 
@@ -206,7 +187,7 @@ sub fetch_input {
 
   my ($query_file, $chunk_number, $chunk_total);
 
-  my $query = $self->QUERYSEQS;
+  my $query = $self->param('QUERYSEQS');
   say "QUERY: ".$query;
 
   if (-e $query and -d $query) {
@@ -223,15 +204,15 @@ sub fetch_input {
     if (not -e $query_file) {
       throw( "Query file '$query_file' does not exist'\n");
     }
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE, $self->input_id);
+    if ($self->param('USE_KILL_LIST')) {
+      $query_file = filter_killed_entries($query_file, $self->param('KILL_TYPE'), $self->input_id);
       $self->filtered_query_file($query_file);
     }
   }
   elsif (-e $query and -s $query) {
     # query seqs is a single file; input id will correspond to a chunk number
     $query_file = $query;
-    my $iid_regexp = $self->IIDREGEXP;
+    my $iid_regexp = $self->param('IIDREGEXP');
 
     throw("When your input ids are not filenames, you must define ".
           "IIDREGEXP in config to enable inference of chunk number and total")
@@ -242,8 +223,8 @@ sub fetch_input {
     ###
     ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
     ###
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE);
+    if ($self->param('USE_KILL_LIST')) {
+      $query_file = filter_killed_entries($query_file, $self->param('KILL_TYPE'));
     }
   } else {
     throw("'$query' refers to something that could not be made sense of\n");
@@ -260,16 +241,16 @@ sub fetch_input {
 
   my %parameters = %{$self->parameters_hash};
   if (not exists($parameters{-options}) and
-      defined $self->OPTIONS) {
-    $parameters{-options} = $self->OPTIONS
+      defined $self->param('OPTIONS')) {
+    $parameters{-options} = $self->param('OPTIONS');
   }
   if (not exists($parameters{-coverage_by_aligned}) and
-      defined $self->COVERAGE_BY_ALIGNED) {
-    $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
+      defined $self->param('COVERAGE_BY_ALIGNED')) {
+    $parameters{-coverage_by_aligned} = $self->param('COVERAGE_BY_ALIGNED');
   }
 
-  if (defined $self->PROGRAM && defined $self->analysis->program_file) {
-    if ($self->PROGRAM ne $self->analysis->program_file) {
+  if (defined $self->param('PROGRAM') && defined $self->analysis->program_file) {
+    if ($self->param('PROGRAM') ne $self->analysis->program_file) {
 # I'm just warning because for debugging it's easier to change just the PROGRAM parameters...
       warning("CONFLICT: You have defined -program in your config file and ".
             "-program_file in your analysis table.");
@@ -279,12 +260,12 @@ sub fetch_input {
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
         ->new(
-              -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
+              -program  => $self->param('PROGRAM') ? $self->param('PROGRAM') : $self->analysis->program_file,
               -analysis => $self->analysis,
               -target_file    => $database,
-              -query_type     => $self->QUERYTYPE,
+              -query_type     => $self->param('QUERYTYPE'),
               -query_file     => $query_file,
-              -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
+              -annotation_file => $self->param('QUERYANNOTATION') ? $self->param('QUERYANNOTATION') : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               %parameters,
@@ -296,10 +277,6 @@ sub fetch_input {
 
 ############################################################
 
-sub run_1 {
-  my ($self) = @_;
-  return 1;
-}
 sub run {
   my ($self) = @_;
   my @results;
@@ -310,11 +287,11 @@ sub run {
     $runnable->run;
     push ( @results, @{$runnable->output} );
   }
-  if ($self->USE_KILL_LIST) {
+  if ($self->param('USE_KILL_LIST')) {
     unlink $self->filtered_query_file;
     # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
-  if ($self->filter) {
+  if ($self->param('filter')) {
     my $filtered_transcripts = $self->filter->filter_results(\@results);
     @results = @$filtered_transcripts;
   }
@@ -339,7 +316,6 @@ sub write_output {
 
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
-  say Dumper($outdb);
   say Dumper(@{$self->{'output_genes'}});
 
   unless (@output){
@@ -349,6 +325,7 @@ sub write_output {
   my $fails = 0;
   my $total = 0;
   foreach my $gene (@output){
+    say "FM2 ATTEMPTING TO STORE GENE!!!!!!!!";
     empty_Gene($gene);
     eval {
       $gene_adaptor->store($gene);
@@ -505,7 +482,7 @@ sub get_chr_names{
   my $chr_adaptor = $self->db->get_SliceAdaptor;
   #also fetching non-reference regions like DR52 for human by default.
   #specify in Exonerate2Genes config-file.
-  if(defined($self->NONREF_REGIONS)){
+  if(defined($self->param('NONREF_REGIONS'))){
     @chromosomes = @{$chr_adaptor->fetch_all('toplevel', undef, 1)};
   }
   else{
@@ -610,282 +587,53 @@ sub filtered_query_file {
 # Declare and set up config variables
 #############################################################
 
-sub read_and_check_config {
-  my $self = shift;
+#sub read_and_check_config {
+#  my $self = shift;
 
-  $self->SUPER::read_and_check_config($EXONERATE_CONFIG_BY_LOGIC);
+#  $self->SUPER::read_and_check_config($EXONERATE_CONFIG_BY_LOGIC);
 
   ##########
   # CHECKS
   ##########
-  my $logic = $self->analysis->logic_name;
+#  my $logic = $self->analysis->logic_name;
 
   # check that compulsory options have values
-  foreach my $config_var (qw(QUERYSEQS 
-                             QUERYTYPE
-                             GENOMICSEQS)) {
+#  foreach my $config_var (qw(QUERYSEQS 
+#                             QUERYTYPE
+#                             GENOMICSEQS)) {
 
-   throw("You must define $config_var in config for logic '$logic'")
-        if not defined $self->$config_var;
-  }
+#   throw("You must define $config_var in config for logic '$logic'")
+#        if not defined $self->$config_var;
+#  }
   
-  throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
-      if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
+#  throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
+#      if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
 
   # filter does not have to be defined, but if it is, it should
   # give details of an object and its parameters
-  if ($self->FILTER) {
-    if (not ref($self->FILTER) eq "HASH" or
-        not exists($self->FILTER->{OBJECT}) or
-        not exists($self->FILTER->{PARAMETERS})) {
+#  if ($self->FILTER) {
+#    if (not ref($self->FILTER) eq "HASH" or
+#        not exists($self->FILTER->{OBJECT}) or
+#        not exists($self->FILTER->{PARAMETERS})) {
           
-      throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" . 
-            "  OBJECT : qualified name of the filter module;\n" .
-            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
-    } else {
-      my $module = $self->FILTER->{OBJECT};
-      my $pars   = $self->FILTER->{PARAMETERS};
+#      throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" . 
+#            "  OBJECT : qualified name of the filter module;\n" .
+#            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
+#    } else {
+#      my $module = $self->FILTER->{OBJECT};
+#      my $pars   = $self->FILTER->{PARAMETERS};
       
-      (my $class = $module) =~ s/::/\//g;
-      eval{
-        require "$class.pm";
-      };
-      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
-    
-      $self->filter($module->new(%{$pars}));
-    }
-  }
-}
+#      (my $class = $module) =~ s/::/\//g;
+#      eval{
+#        require "$class.pm";
+#      };
+#      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
+#    
+#      $self->filter($module->new(%{$pars}));
+#    }
+#  }
+#}
 
-sub QUERYSEQS {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_QUERYSEQS'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_QUERYSEQS'})) {
-    return $self->{'_CONFIG_QUERYSEQS'};
-  } else {
-    return undef;
-  }
-}
-
-sub QUERYTYPE {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_QUERYTYPE'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_QUERYTYPE'})) {
-    return $self->{'_CONFIG_QUERYTYPE'};
-  } else {
-    return undef;
-  }
-}
-
-
-sub QUERYANNOTATION {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_QUERYANNOTATION'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_QUERYANNOTATION'})) {
-    return $self->{'_CONFIG_QUERYANNOTATION'};
-  } else {
-    return undef;
-  }
-}
-
-
-
-sub GENOMICSEQS {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_GENOMICSEQS'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_GENOMICSEQS'})) {
-    return $self->{'_CONFIG_GENOMICSEQS'};
-  } else {
-    return undef;
-  }
-}
-
-
-sub IIDREGEXP {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_IIDREGEXP'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_IIDREGEXP'})) {
-    return $self->{'_CONFIG_IIDREGEXP'};
-  } else {
-    return undef;
-  }
-}
-
-sub OUTDB {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_OUTDB'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_OUTDB'})) {
-    return $self->{'_CONFIG_OUTDB'};
-
-  } else {
-    return undef;
-  }
-}
-
-sub COVERAGE_BY_ALIGNED {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_COVERAGE'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_COVERAGE'})) {
-    return $self->{'_CONFIG_COVERAGE'};
-  } else {
-    return undef;
-  }
-}
-
-
-sub FILTER {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_FILTER'} = $value;
-  }
-  
-  if (exists($self->{'_CONFIG_FILTER'})) {
-    return $self->{'_CONFIG_FILTER'};
-  } else {
-    return undef;
-  }
-}
-
-sub OPTIONS {
-  my ($self,$value) = @_;
-  
-  if (defined $value) {
-    $self->{'_CONFIG_OPTIONS'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_OPTIONS'})) {
-    return $self->{'_CONFIG_OPTIONS'};
-  } else {
-    return undef;
-  }
-}
-
-sub NONREF_REGIONS {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_NONREF_REGIONS'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_NONREF_REGIONS'})) {
-    return $self->{'_CONFIG_NONREF_REGIONS'};
-  } else {
-    return undef;
-  }
-}
-
-sub PROGRAM {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_PROGRAM'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_PROGRAM'})) {
-    return $self->{'_CONFIG_PROGRAM'};
-  } else {
-    return undef;
-  }
-}
-
-sub USE_KILL_LIST {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_USE_KILL_LIST'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_USE_KILL_LIST'})) {
-    return $self->{'_CONFIG_USE_KILL_LIST'};
-  } else {
-    return undef;
-  }
-}
-
-sub KILL_TYPE {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_KILL_TYPE'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_KILL_TYPE'})) {
-    return $self->{'_CONFIG_KILL_TYPE'};
-  } else {
-    return undef;
-  }
-}
-
-sub SOFT_MASKED_REPEATS {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_SOFT_MASKED_REPEATS'} = $value;
-  }
-
-  if (exists($self->{'_SOFT_MASKED_REPEATS'})) {
-    return $self->{'_SOFT_MASKED_REPEATS'};
-  } else {
-    return undef;
-  }
-}
-
-sub SEQFETCHER_PARAMS {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_SEQFETCHER_PARAMS'} = $value;
-  }
-
-  if (exists($self->{'_SEQFETCHER_PARAMS'})) {
-    return $self->{'_SEQFETCHER_PARAMS'};
-  } else {
-    return undef;
-  }
-}
-
-sub SEQFETCHER_OBJECT {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_SEQFETCHER_OBJECT'} = $value;
-  }
-
-  if (exists($self->{'_SEQFETCHER_OBJECT'})) { 
-    return $self->{'_SEQFETCHER_OBJECT'};
-  } else {
-    return undef;
-  }
-}
 
 
 ###############################################
