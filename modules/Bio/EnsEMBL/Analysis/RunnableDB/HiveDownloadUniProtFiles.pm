@@ -22,13 +22,14 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  foreach my $query_hash (keys($self->param('queries'))) {
-    $query_hash = ${$self->param('queries')}{$query_hash};
-    say Dumper($query_hash);
-    my $query_url = $self->build_query($query_hash);
+#    say Dumper($query_hash);
+    my $query_url = $self->build_query();
     say "Downloading:\n".$query_url."\n";
-    #`$query_url`;
-  }
+    `$query_url`;
+    if($query_url =~ /\.gz$/) {
+      my $file_path = $self->param('dest_dir')."/".$self->param('file_name');
+      `gunzip $file_path`;
+    }
 
   say "Finished downloading UniProt files";
   return 1;
@@ -36,11 +37,18 @@ sub run {
 
 sub write_output {
   my $self = shift;
+
+  my $file_path = $self->param('dest_dir')."/".$self->param('file_name');
+
+  my $output_hash = {};
+  $output_hash->{'iid'} = $file_path;
+  $self->dataflow_output_id($output_hash,1);
+
   return 1;
 }
 
 sub build_query {
-  my ($self,$query_hash) = @_;
+  my ($self) = @_;
   my $tax_group = 0;
   my $taxon_id;
   my $taxonomy;
@@ -62,15 +70,16 @@ sub build_query {
                   '5' => 'uncertain',
                 );
 
-  unless(${$query_hash}{'file_name'} && (${$query_hash}{'taxon_id'} || ${$query_hash}{'taxonomy'}) &&
-        (${$query_hash}{'dest_dir'} || $self->param('dest_dir')) && ${$query_hash}{'pe_level'}) {
-    die "Must provide the following keys:\nfile_name\ntaxon_id or taxonomy\ndest_dir\npe_level";
+  unless($self->param_is_defined('file_name') && ($self->param_is_defined('taxon_id') ||
+         $self->param_is_defined('taxonomy')) && $self->param_is_defined('dest_dir') &&
+         $self->param_is_defined('pe_level')) {
+    throw("Must define the following keys:\nfile_name\ntaxon_id or taxonomy\ndest_dir\npe_level");
   }
 
-  $file_name = ${$query_hash}{'file_name'};
-  $dest_dir = ${$query_hash}{'dest_dir'};
+  $file_name = $self->param('file_name');
+  $dest_dir = $self->param('dest_dir');
 
-  my @pe_array = split(',',${$query_hash}{'pe_level'});
+  my @pe_array = split(',',$self->param('pe_level'));
   unless(scalar(@pe_array)) {
     die "Not PE levels found in value of pe_levels key. Format should be: '1,2'";
   }
@@ -90,24 +99,24 @@ sub build_query {
 
   say "PE string: ".$pe_string;
 
-  if(${$query_hash}{'taxon_id'}) {
-    $taxon_id = ${$query_hash}{'taxon_id'};
+  if($self->param('taxon_id')) {
+    $taxon_id = $self->param('taxon_id');
     $taxonomy_string = '+AND+taxonomy%3A+'.$taxon_id;
-  } elsif(${$query_hash}{'taxonomy'}) {
-    $taxonomy = ${$query_hash}{'taxonomy'};
+  } elsif($self->param('taxonomy')) {
+    $taxonomy = $self->param('taxonomy');
     $taxonomy_string = '+AND+taxonomy%3A'.$taxonomy;
   }
 
-  if(exists(${$query_hash}{'compress'}) && (${$query_hash}{'compress'} eq '0' || ${$query_hash}{'compress'} eq 'no')) {
+  if($self->param_is_defined('compress') && ($self->param('compress') eq '0' || $self->param('compress') eq 'no')) {
     $compress = "no";
   }
-  if(exists(${$query_hash}{'fragment'}) && (${$query_hash}{'fragment'} eq '1' || ${$query_hash}{'fragment'} eq 'yes')) {
+  if($self->param_is_defined('fragment') && ($self->param('fragment') eq '1' || $self->param('fragment') eq 'yes')) {
     $fragment_string = "";
   }
-  if(exists(${$query_hash}{'format'}) && (${$query_hash}{'format'} ne 'fasta' && ${$query_hash}{'format'} ne '')) {
-    $format = ${$query_hash}{'format'};
+  if($self->param_is_defined('format') && ($self->param('format') ne 'fasta' && $self->param('format') ne '')) {
+    $format = $self->param('format');
   }
-  if(exists(${$query_hash}{'mito'}) && (${$query_hash}{'mito'} eq '1' || ${$query_hash}{'mito'} eq 'yes')) {
+  if($self->param_is_defined('mito') && ($self->param('mito') eq '1' || $self->param('mito') eq 'yes')) {
     $mito = "";
   }
 
