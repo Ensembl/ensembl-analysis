@@ -61,7 +61,22 @@ sub run {
     $input_id_factory->generate_input_ids;
     $self->{'input_id_factory'} = $input_id_factory;
   } else {
-    my $input_file = $self->param('input_file_path');
+
+    my $input_file;
+    if($self->param_is_defined('input_file_path')) {
+      $input_file = $self->param('input_file_path');
+    } else {
+         $input_file = $self->input_id;
+         unless($input_file =~ /" => "([^"]+)"}$/) {
+           throw("No input file parameter passed in, therefore used job input id. Could not parse value out of job input id:\n".$input_file);
+         }
+      $input_file = $1;
+    }
+
+    unless(-e $input_file) {
+      throw("Your input file '".$input_file."' does not exist!!!");
+    }
+
     my $chunk_dir = $self->param('chunk_output_dir');
     my $chunk_num = $self->param('num_chunk');
     if($chunk_num) {
@@ -85,7 +100,7 @@ sub create_chunk_ids {
   my ($self,$chunk_dir,$input_file) = @_;
   $input_file =~ /[^\/]+$/;
   $input_file = $&;
-  $input_file =~ s/\.^.+$//;
+  $input_file =~ s/\.[^\.]+$//;
 
   my @chunk_array = glob $chunk_dir."/".$input_file."_chunk_*";
   for(my $i=0; $i < scalar@chunk_array; $i++) {
@@ -111,7 +126,8 @@ sub write_output {
 
   foreach my $id (@{$output_ids}) {
 
-    if($self->param('skip_mito') && $id =~ /^.+\:.+\:MT\:/) {
+    if($self->param_is_defined('skip_mito') && ($self->param('skip_mito') == 1 || $self->param('skip_mito') eq 'yes') &&
+       $id =~ /^.+\:.+\:MT\:/) {
        next;
     }
 
