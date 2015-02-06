@@ -64,6 +64,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB::HiveExonerate2Genes;
 
 use warnings ;
 use strict;
+use feature 'say';
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
@@ -71,28 +72,22 @@ use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::KillList;
 use Bio::SeqIO;
 
-use Data::Dumper;
-use feature 'say';
-use parent ('Bio::EnsEMBL::Analysis::RunnableDB::HiveBaseRunnable',
-            'Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild');
+use parent ('Bio::EnsEMBL::Analysis::RunnableDB::HiveBaseRunnable');
+#            'Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild');
 
 sub fetch_input {
   my($self) = @_;
 
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                            );
-  $self->analysis($analysis);
+  # This call will set the config file parameters
+  $self->set_hive_config;
 
-  $self->db('dna_db',$self->get_dba($self->param('input_db')));
-  $self->db('output_db',$self->get_dba($self->param('output_db'),undef,'dna_db'));
+
   ##########################################
   # set up the target (genome)
   ##########################################
 
   my @db_files;
-  my @target_list = $self->param('GENOMICSEQS');
+  my @target_list = $self->GENOMICSEQS;
 
 
   foreach my $target (@target_list){ 
@@ -132,19 +127,18 @@ sub fetch_input {
       }else{
         foreach my $alt_target (@$target){
           if (-s $alt_target){
-             push @db_files, $alt_target; 
+             push @db_files, $alt_target;
           }
         }
       }
-    } # // end target is a directory 
-    else{
-      $target =~s/^\s+//;  
+    } # // end target is a directory
+    else {
+      $target =~s/^\s+//;
       if (-e $target and -d $target) {
         # genome is in a directory; the directory must contain the complete
-        # genome else we cannot do best-in-genome filtering. 
-        # 
+        # genome else we cannot do best-in-genome filtering.
         # We would like to use exonerate's ability to accept a directory as
-        # target (because bestn then works), but we must check that the directory 
+        # target (because bestn then works), but we must check that the directory
         # contains only toplevel sequence files
 
         my %dir_contents;
@@ -186,9 +180,7 @@ sub fetch_input {
   ##########################################
 
   my ($query_file, $chunk_number, $chunk_total);
-
-  my $query = $self->param('QUERYSEQS');
-  say "QUERY: ".$query;
+  my $query = $self->QUERYSEQS;
 
   if (-e $query and -d $query) {
     # query seqs is a directory; input id will be a file in that directory
@@ -204,15 +196,15 @@ sub fetch_input {
     if (not -e $query_file) {
       throw( "Query file '$query_file' does not exist'\n");
     }
-    if ($self->param('USE_KILL_LIST')) {
-      $query_file = filter_killed_entries($query_file, $self->param('KILL_TYPE'), $self->input_id);
+    if ($self->USE_KILL_LIST) {
+      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE, $self->input_id);
       $self->filtered_query_file($query_file);
     }
   }
   elsif (-e $query and -s $query) {
     # query seqs is a single file; input id will correspond to a chunk number
     $query_file = $query;
-    my $iid_regexp = $self->param('IIDREGEXP');
+    my $iid_regexp = $self->IIDREGEXP;
 
     throw("When your input ids are not filenames, you must define ".
           "IIDREGEXP in config to enable inference of chunk number and total")
@@ -223,8 +215,8 @@ sub fetch_input {
     ###
     ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
     ###
-    if ($self->param('USE_KILL_LIST')) {
-      $query_file = filter_killed_entries($query_file, $self->param('KILL_TYPE'));
+    if ($self->USE_KILL_LIST) {
+      $query_file = filter_killed_entries($query_file, $self->KILL_TYPE);
     }
   } else {
     throw("'$query' refers to something that could not be made sense of\n");
@@ -241,17 +233,18 @@ sub fetch_input {
 
   my %parameters = %{$self->parameters_hash};
   if (not exists($parameters{-options}) and
-      defined $self->param('OPTIONS')) {
-    $parameters{-options} = $self->param('OPTIONS');
+      defined $self->OPTIONS) {
+    $parameters{-options} = $self->OPTIONS;
   }
   if (not exists($parameters{-coverage_by_aligned}) and
-      defined $self->param('COVERAGE_BY_ALIGNED')) {
-    $parameters{-coverage_by_aligned} = $self->param('COVERAGE_BY_ALIGNED');
+      defined $self->COVERAGE_BY_ALIGNED) {
+    $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
   }
 
-  if (defined $self->param('PROGRAM') && defined $self->analysis->program_file) {
-    if ($self->param('PROGRAM') ne $self->analysis->program_file) {
-# I'm just warning because for debugging it's easier to change just the PROGRAM parameters...
+  # Old code, will leave here as I could activate it again
+  if (defined $self->PROGRAM && defined $self->analysis->program_file) {
+    if ($self->PROGRAM ne $self->analysis->program_file) {
+      # I'm just warning because for debugging it's easier to change just the PROGRAM parameters...
       warning("CONFLICT: You have defined -program in your config file and ".
             "-program_file in your analysis table.");
     }
@@ -260,12 +253,12 @@ sub fetch_input {
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
         ->new(
-              -program  => $self->param('PROGRAM') ? $self->param('PROGRAM') : $self->analysis->program_file,
+              -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
               -analysis => $self->analysis,
               -target_file    => $database,
-              -query_type     => $self->param('QUERYTYPE'),
+              -query_type     => $self->QUERYTYPE,
               -query_file     => $query_file,
-              -annotation_file => $self->param('QUERYANNOTATION') ? $self->param('QUERYANNOTATION') : undef,
+              -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               %parameters,
@@ -275,7 +268,6 @@ sub fetch_input {
 
 }
 
-############################################################
 
 sub run {
   my ($self) = @_;
@@ -287,11 +279,11 @@ sub run {
     $runnable->run;
     push ( @results, @{$runnable->output} );
   }
-  if ($self->param('USE_KILL_LIST')) {
+  if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
     # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
-  if ($self->param('filter')) {
+  if ($self->filter) {
     my $filtered_transcripts = $self->filter->filter_results(\@results);
     @results = @$filtered_transcripts;
   }
@@ -301,13 +293,6 @@ sub run {
 }
 
 
-############################################################
-
-#sub write_output_jobs {
-#  my ($self) = @_;
-#  return 1;
-#}
-
 sub write_output {
   my ($self,@output) = @_;
 
@@ -316,8 +301,6 @@ sub write_output {
 
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
-  say Dumper(@{$self->{'output_genes'}});
-
   unless (@output){
     @output = @{$self->{'output_genes'}};
   }
@@ -325,7 +308,6 @@ sub write_output {
   my $fails = 0;
   my $total = 0;
   foreach my $gene (@output){
-    say "FM2 ATTEMPTING TO STORE GENE!!!!!!!!";
     empty_Gene($gene);
     eval {
       $gene_adaptor->store($gene);
@@ -342,7 +324,50 @@ sub write_output {
   }
 }
 
-############################################################
+sub set_hive_config {
+  my $self = shift;
+
+  # Set db connections
+  $self->db('dna_db',$self->get_dba($self->param('input_db')));
+  $self->db('output_db',$self->get_dba($self->param('output_db'),undef,'dna_db'));
+
+  # Throw is these aren't present as they should both be defined
+  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
+    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
+          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
+          "write the genes to and this should also include the module name even if it isn't strictly necessary"
+         );
+  }
+
+  # Make an analysis object and set it, this will allow the module to write to the output db
+  my $analysis = new Bio::EnsEMBL::Analysis(
+                                             -logic_name => $self->param('logic_name'),
+                                             -module => $self->param('module'),
+                                           );
+  $self->analysis($analysis);
+
+  # Now loop through all the keys in the parameters hash and set anything that can be set
+  my $config_hash = $self->param('config_settings');
+  foreach my $config_key (keys(%{$config_hash})) {
+    if(defined &$config_key) {
+      $self->$config_key($config_hash->{$config_key});
+    } else {
+      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
+            "key:\n".$config_key
+           );
+    }
+  }
+
+  # Throw if any of the following are missing (this was the behaviour of the original code and seems sensible)
+  unless(defined($self->QUERYSEQS) && defined($self->QUERYTYPE) && defined($self->GENOMICSEQS)) {
+    throw("You are missing required keys in the config_settings hash (in the analysis hash in the pipeline config). The following ".
+          "keys (in addition to logic_name and module) must be present:\nQUERYSEQS\nQUERYTYPE\nGENOMICSEQS"
+         );
+  }
+
+}
 
 sub db {
   my ($self,$adaptor_name,$value) = @_;
@@ -368,7 +393,7 @@ sub get_dba {
 
    else {
      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                                     %$connection_info
+                                                %$connection_info
                                               );
 
      if($dna_db_name) {
@@ -388,10 +413,11 @@ sub get_dba {
             my $dna_db_and_core_db_are_compatible = 1;
 
             unless ( $core_db_species eq $dna_db_species ) {
-            warning( "You try to add a DNA_DB with species ".$dna_db_species." to "
-                . "a core database with species: '" .$core_db_species . "' - this does not work. \n"
-                . "Check that you are using the correct DNA_DB and that the species.common_name values in the meta tables match\n"
-            );
+            warning( "You try to add a DNA_DB with species ".$dna_db_species." to a core database with species: '".
+                     $core_db_species . "' - this does not work. \nCheck that you are using the correct DNA_DB and".
+                     "that the species.common_name values in the meta tables match\n"
+                   );
+
             $dna_db_and_core_db_are_compatible = 0;
 
           }
@@ -414,7 +440,6 @@ sub get_dba {
   return $dba;
 
  }
-
 
 
 sub make_genes{
@@ -459,11 +484,11 @@ sub make_genes{
           ($sf) = @{$tran->get_all_supporting_features};
         } else {
           my @exons = @{$tran->get_all_Exons};
-          ($sf) = @{$exons[0]->get_all_supporting_features};    
+          ($sf) = @{$exons[0]->get_all_supporting_features};
         }
         print $sf->hseqname."\t$slice_id\n";
     }
- 
+
     throw("Have no slice") if(!$slice);
     $tran->slice($slice);
     $gene->add_Transcript($tran);
@@ -482,7 +507,7 @@ sub get_chr_names{
   my $chr_adaptor = $self->db->get_SliceAdaptor;
   #also fetching non-reference regions like DR52 for human by default.
   #specify in Exonerate2Genes config-file.
-  if(defined($self->param('NONREF_REGIONS'))){
+  if(defined($self->NONREF_REGIONS)){
     @chromosomes = @{$chr_adaptor->fetch_all('toplevel', undef, 1)};
   }
   else{
@@ -496,37 +521,221 @@ sub get_chr_names{
   return @chr_names;
 }
 
-
-############################################################
-
-sub get_output_db {
-  my ($self) = @_;
-
-  my $outdb;
-
-  if ($self->OUTDB) {
-    if ( ref($self->OUTDB)=~m/HASH/) {
-
-      $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$self->OUTDB},
-                                                -dnadb => $self->db);
-    }else{
-      $outdb = $self->get_dbadaptor($self->OUTDB);
-    }
-  } else {
-    $outdb = $self->db;
-  }
-  $self->db->dbc->disconnect_when_inactive(1) ;
-  $outdb->dbc->disconnect_when_inactive(1) ;
-  return $outdb;
-}
-
-
 ############################################################
 #
 # get/set methods
 #
 ############################################################
 
+sub QUERYSEQS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_QUERYSEQS'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_QUERYSEQS'})) {
+    return $self->{'_CONFIG_QUERYSEQS'};
+  } else {
+    return undef;
+  }
+}
+
+sub QUERYTYPE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_QUERYTYPE'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_QUERYTYPE'})) {
+    return $self->{'_CONFIG_QUERYTYPE'};
+  } else {
+    return undef;
+  }
+}
+
+sub QUERYANNOTATION {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_QUERYANNOTATION'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_QUERYANNOTATION'})) {
+    return $self->{'_CONFIG_QUERYANNOTATION'};
+  } else {
+    return undef;
+  }
+}
+
+sub GENOMICSEQS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_GENOMICSEQS'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_GENOMICSEQS'})) {
+    return $self->{'_CONFIG_GENOMICSEQS'};
+  } else {
+    return undef;
+  }
+}
+
+sub IIDREGEXP {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_IIDREGEXP'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_IIDREGEXP'})) {
+    return $self->{'_CONFIG_IIDREGEXP'};
+  } else {
+    return undef;
+  }
+}
+
+sub COVERAGE_BY_ALIGNED {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_COVERAGE'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_COVERAGE'})) {
+    return $self->{'_CONFIG_COVERAGE'};
+  } else {
+    return undef;
+  }
+}
+
+sub FILTER {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_FILTER'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_FILTER'})) {
+    return $self->{'_CONFIG_FILTER'};
+  } else {
+    return undef;
+  }
+}
+
+sub OPTIONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_OPTIONS'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_OPTIONS'})) {
+    return $self->{'_CONFIG_OPTIONS'};
+  } else {
+    return undef;
+  }
+}
+
+sub NONREF_REGIONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_NONREF_REGIONS'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_NONREF_REGIONS'})) {
+    return $self->{'_CONFIG_NONREF_REGIONS'};
+  } else {
+    return undef;
+  }
+}
+
+sub PROGRAM {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_PROGRAM'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_PROGRAM'})) {
+    return $self->{'_CONFIG_PROGRAM'};
+  } else {
+    return undef;
+  }
+}
+
+sub USE_KILL_LIST {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_USE_KILL_LIST'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_USE_KILL_LIST'})) {
+    return $self->{'_CONFIG_USE_KILL_LIST'};
+  } else {
+    return undef;
+  }
+}
+
+sub KILL_TYPE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_KILL_TYPE'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_KILL_TYPE'})) {
+    return $self->{'_CONFIG_KILL_TYPE'};
+  } else {
+    return undef;
+  }
+}
+
+sub SOFT_MASKED_REPEATS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_SOFT_MASKED_REPEATS'} = $value;
+  }
+
+  if (exists($self->{'_SOFT_MASKED_REPEATS'})) {
+    return $self->{'_SOFT_MASKED_REPEATS'};
+  } else {
+    return undef;
+  }
+}
+
+sub SEQFETCHER_PARAMS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_SEQFETCHER_PARAMS'} = $value;
+  }
+
+  if (exists($self->{'_SEQFETCHER_PARAMS'})) {
+    return $self->{'_SEQFETCHER_PARAMS'};
+  } else {
+    return undef;
+  }
+}
+
+sub SEQFETCHER_OBJECT {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_SEQFETCHER_OBJECT'} = $value;
+  }
+
+  if (exists($self->{'_SEQFETCHER_OBJECT'})) { 
+    return $self->{'_SEQFETCHER_OBJECT'};
+  } else {
+    return undef;
+  }
+}
 
 sub query_seqs {
   my ($self, @seqs) = @_;
@@ -615,7 +824,7 @@ sub filtered_query_file {
 #    if (not ref($self->FILTER) eq "HASH" or
 #        not exists($self->FILTER->{OBJECT}) or
 #        not exists($self->FILTER->{PARAMETERS})) {
-          
+
 #      throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" . 
 #            "  OBJECT : qualified name of the filter module;\n" .
 #            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
@@ -663,7 +872,7 @@ sub filter_killed_entries {
     # Depending on the display ID's format, strip off the
     # version number because the kill_list hash keys are
     # without version numbers
-  
+
     if ($display_id =~/\w+\.\d/) {
       ($no_ver_id) = $display_id =~/(\w+)\.\d/;
     } elsif ($display_id =~/\w+\-\d/) {
@@ -678,6 +887,6 @@ sub filter_killed_entries {
     }
   }
   return $filtered_seqout_filename; 
-}    
+}
 
 1;
