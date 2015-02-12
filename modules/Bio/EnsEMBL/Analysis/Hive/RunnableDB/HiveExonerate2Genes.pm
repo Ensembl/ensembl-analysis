@@ -77,9 +77,9 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my($self) = @_;
 
-  # This call will set the config file parameters
+  # This call will set the config file parameters. Note this will set REFGB (which overrides the
+  # value in $self->db and OUTDB
   $self->set_hive_config;
-
 
   ##########################################
   # set up the target (genome)
@@ -291,9 +291,11 @@ sub run {
 sub write_output {
   my ($self,@output) = @_;
 
-  my $dna_db = $self->db('dna_db');
-  my $outdb = $self->db('output_db');
+ # my $dna_db = $self->db('dna_db');
+#  my $outdb = $self->db('output_db');
 
+  my $outdb = $self->get_output_db;
+  
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
   unless (@output){
@@ -323,8 +325,8 @@ sub set_hive_config {
   my $self = shift;
 
   # Set db connections
-  $self->db('dna_db',$self->get_dba($self->param('input_db')));
-  $self->db('output_db',$self->get_dba($self->param('output_db'),undef,'dna_db'));
+#  $self->db('dna_db',$self->get_dba($self->param('input_db')));
+#  $self->db('output_db',$self->get_dba($self->param('output_db'),undef,'dna_db'));
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
@@ -364,7 +366,7 @@ sub set_hive_config {
 
 }
 
-sub db {
+sub db_old {
   my ($self,$adaptor_name,$value) = @_;
 
   if($value){
@@ -373,7 +375,7 @@ sub db {
   return $self->{$adaptor_name};
 }
 
-sub get_dba {
+sub get_dba_old {
    my ($self,$connection_info, $non_standard_db_adaptor, $dna_db_name) = @_;
    my $dba;
 
@@ -442,7 +444,7 @@ sub make_genes{
 
   my (@genes);
 
-  my $slice_adaptor = $self->db('dna_db')->get_SliceAdaptor;
+  my $slice_adaptor = $self->db->get_SliceAdaptor;
   my %genome_slices;
 
   foreach my $tran ( @transcripts ){
@@ -515,6 +517,27 @@ sub get_chr_names{
   }
 
   return @chr_names;
+}
+
+sub get_output_db {
+  my ($self) = @_;
+
+  my $outdb;
+
+  if ($self->OUTDB) {
+    if ( ref($self->OUTDB)=~m/HASH/) {
+
+      $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$self->OUTDB},
+                                                -dnadb => $self->db);
+    }else{
+      $outdb = $self->get_dbadaptor($self->OUTDB);
+    }
+  } else {
+    $outdb = $self->db;
+  }
+  $self->db->dbc->disconnect_when_inactive(1) ;
+  $outdb->dbc->disconnect_when_inactive(1) ;
+  return $outdb;
 }
 
 sub input_id {
@@ -603,6 +626,41 @@ sub IIDREGEXP {
 
   if (exists($self->{'_CONFIG_IIDREGEXP'})) {
     return $self->{'_CONFIG_IIDREGEXP'};
+  } else {
+    return undef;
+  }
+}
+
+sub REFDB {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+                                                  %$value
+                                                );
+    $self->{'_CONFIG_REFDB'} = $dba;
+    # Set this to override the default dbc which is inherited from Process and is to the Hive db
+    $self->db($dba);
+  }
+
+  if (exists($self->{'_CONFIG_REFDB'})) {
+    return $self->{'_CONFIG_REFDB'};
+
+  } else {
+    return undef;
+  }
+}
+
+sub OUTDB {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_OUTDB'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_OUTDB'})) {
+    return $self->{'_CONFIG_OUTDB'};
+
   } else {
     return undef;
   }
