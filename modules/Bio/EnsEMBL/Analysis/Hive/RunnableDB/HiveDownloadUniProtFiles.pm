@@ -4,8 +4,6 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Data::Dumper;
-
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Pipeline::Analysis;
 use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
@@ -22,14 +20,24 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-#    say Dumper($query_hash);
-    my $query_url = $self->build_query();
-    say "Downloading:\n".$query_url."\n";
-    `$query_url`;
-    if($query_url =~ /\.gz$/) {
-      my $file_path = $self->param('dest_dir')."/".$self->param('file_name');
-      `gunzip $file_path`;
+  my $query_url = $self->build_query();
+  say "Downloading:\n".$query_url."\n";
+
+  my $query_exit_code;
+  $query_exit_code = system($query_url);
+  unless($query_exit_code == 0) {
+    throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
+  }
+
+  if($query_url =~ /\.gz$/) {
+    my $file_path = $self->param('dest_dir')."/".$self->param('file_name');
+    my $gunzip_command = "gunzip ".$file_path;
+    my $gunzip_exit_code;
+    $gunzip_exit_code = system($gunzip_command);
+    unless($gunzip_exit_code == 0) {
+      throw("gunzip on file ended in an non-zero exit code:\n".$gunzip_exit_code);
     }
+  }
 
   say "Finished downloading UniProt files";
   return 1;
@@ -70,8 +78,9 @@ sub build_query {
                   '5' => 'uncertain',
                 );
 
-  unless($self->param_is_defined('file_name') && ($self->param_is_defined('taxon_id') ||
-         $self->param_is_defined('taxonomy')) && $self->param_is_defined('dest_dir') &&
+  # Must have file_name, pe_level, dest_dir and either taxon_id or taxonomy
+  unless($self->param_is_defined('file_name') && $self->param_is_defined('dest_dir') &&
+        ($self->param_is_defined('taxon_id') || $self->param_is_defined('taxonomy')) &&
          $self->param_is_defined('pe_level')) {
     throw("Must define the following keys:\nfile_name\ntaxon_id or taxonomy\ndest_dir\npe_level");
   }
@@ -97,7 +106,6 @@ sub build_query {
 
   $pe_string =~ s/\+OR\+$/\)/;
 
-  say "PE string: ".$pe_string;
 
   if($self->param('taxon_id')) {
     $taxon_id = $self->param('taxon_id');
@@ -129,7 +137,7 @@ sub build_query {
   unless(-e $dest_dir) {
     `mkdir -p $dest_dir`;
   }
-  say "FULL QUERY: ".$full_query;
+
   return($full_query);
 }
 
