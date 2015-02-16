@@ -192,7 +192,7 @@ sub fetch_input {
       throw( "Query file '$query_file' does not exist'\n");
     }
     if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->param('input_db'),$self->param('killlist_db'),$self->KILL_LIST_FILTER,$self->input_id);
+      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER,$self->input_id);
       $self->filtered_query_file($query_file);
     }
   }
@@ -211,7 +211,7 @@ sub fetch_input {
     ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
     ###
     if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->param('input_db'),$self->param('killlist_db'),$self->KILL_LIST_FILTER);
+      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER);
     }
   } else {
     throw("'$query' refers to something that could not be made sense of\n");
@@ -291,11 +291,7 @@ sub run {
 sub write_output {
   my ($self,@output) = @_;
 
- # my $dna_db = $self->db('dna_db');
-#  my $outdb = $self->db('output_db');
-
   my $outdb = $self->get_output_db;
-  
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
   unless (@output){
@@ -323,10 +319,6 @@ sub write_output {
 
 sub set_hive_config {
   my $self = shift;
-
-  # Set db connections
-#  $self->db('dna_db',$self->get_dba($self->param('input_db')));
-#  $self->db('output_db',$self->get_dba($self->param('output_db'),undef,'dna_db'));
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
@@ -365,79 +357,6 @@ sub set_hive_config {
   }
 
 }
-
-sub db_old {
-  my ($self,$adaptor_name,$value) = @_;
-
-  if($value){
-    $self->{$adaptor_name} = $value;
-  }
-  return $self->{$adaptor_name};
-}
-
-sub get_dba_old {
-   my ($self,$connection_info, $non_standard_db_adaptor, $dna_db_name) = @_;
-   my $dba;
-
-   if(defined $non_standard_db_adaptor) {
-     if($non_standard_db_adaptor eq 'compara') {
-       $dba = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-                                                            %$connection_info
-                                                          );
-       print "Not attaching a dna db to: ".$dba->dbname."\n";
-     }
-   }
-
-   else {
-     $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                                %$connection_info
-                                              );
-
-     if($dna_db_name) {
-            my $dnadb = $self->db($dna_db_name);
-
-            # try to get default asm+ species name for OTHER db - does not work
-            # for comapra database
-            my $core_db_asm = $dba->get_MetaContainer->get_default_assembly();
-            my $core_db_species =
-            $dba->get_MetaContainer->get_common_name();
-
-            # get the same for dna-db
-            my $dna_db_asm = $dnadb->get_MetaContainer->get_default_assembly();
-            my $dna_db_species =
-            $dnadb->get_MetaContainer()->get_common_name();
-
-            my $dna_db_and_core_db_are_compatible = 1;
-
-            unless ( $core_db_species eq $dna_db_species ) {
-            warning( "You try to add a DNA_DB with species ".$dna_db_species." to a core database with species: '".
-                     $core_db_species . "' - this does not work. \nCheck that you are using the correct DNA_DB and".
-                     "that the species.common_name values in the meta tables match\n"
-                   );
-
-            $dna_db_and_core_db_are_compatible = 0;
-
-          }
-
-            if ($dna_db_and_core_db_are_compatible) {
-              $dba->dnadb($dnadb);
-              print "\nAttaching DNA_DB "
-              . $dnadb->dbname . " to "
-              . $dba->dbname . "\n";
-            }
-          }
-
-     else {
-            print "Not attaching a dna db to: ".$dba->dbname."\n";
-          }
-
-   }
-
-  $dba->dbc->disconnect_when_inactive(1) ;
-  return $dba;
-
- }
-
 
 sub make_genes{
   my ($self,@transcripts) = @_;
@@ -661,6 +580,20 @@ sub OUTDB {
   if (exists($self->{'_CONFIG_OUTDB'})) {
     return $self->{'_CONFIG_OUTDB'};
 
+  } else {
+    return undef;
+  }
+}
+
+sub KILLLISTDB {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_CONFIG_KILLLISTDB'} = $value;
+  }
+
+  if (exists($self->{'_CONFIG_KILLLISTDB'})) {
+    return $self->{'_CONFIG_KILLLISTDB'};
   } else {
     return undef;
   }
