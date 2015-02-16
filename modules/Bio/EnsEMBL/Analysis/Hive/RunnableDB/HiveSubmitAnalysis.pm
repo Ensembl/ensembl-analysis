@@ -60,48 +60,85 @@ sub run {
     $self->{'input_id_factory'} = $input_id_factory;
   } else {
 
-    my $input_file;
-    if($self->param_is_defined('input_file_path')) {
-      $input_file = $self->param('input_file_path');
-    } else {
-         $input_file = $self->input_id;
-         unless($input_file =~ /" => "([^"]+)"}$/) {
-           throw("No input file parameter passed in, therefore used job input id. Could not parse value out of job input id:\n".$input_file);
-         }
-      $input_file = $1;
+    if($self->param_is_defined('num_chunk') || $self->param_is_defined('seqs_per_chunk')) {
+      $self->make_chunk_files();
     }
-
-    unless(-e $input_file) {
-      throw("Your input file '".$input_file."' does not exist!!!");
-    }
-
-    my $chunk_dir = $self->param('chunk_output_dir');
-    my $chunk_num = $self->param('num_chunk');
-    if($chunk_num) {
-      make_chunk_files($input_file,$chunk_dir,$chunk_num);
-    }
-    $self->create_chunk_ids($chunk_dir,$input_file);
+    $self->create_chunk_ids();
   }
   return 1;
 }
 
 sub make_chunk_files {
-  my ($input_file,$chunk_dir,$chunk_num) = @_;
+  my $self = shift;
+
+  my $input_file;
+  my $chunk_dir = $self->param('chunk_output_dir');
+  my $chunk_num;
+
+  if($self->param_is_defined('input_file_path')) {
+      $input_file = $self->param('input_file_path');
+  } else {
+      $input_file = $self->parse_hive_input_id;
+  }
+
+  unless(-e $input_file) {
+      throw("Your input file '".$input_file."' does not exist!!!");
+  }
+
   unless(-e $chunk_dir) {
     `mkdir -p $chunk_dir`;
   }
 
-  `/software/ensembl/bin/fastasplit_random $input_file $chunk_num $chunk_dir`;
+  unless($self->param_is_defined('fastasplit_random_path')) {
+    throw("You haven't defined a path to fastasplit_random. Please define this using the fastasplit_random_path ".
+          " flag in your pipeline config");
+  }
+
+  my $fastasplit_random_path = $self->param('fastasplit_random_path');
+  unless(-e $fastasplit_random_path) {
+    throw("The path provided to the fastasplit_random exe does not exist. Please check the path in the config:\n".
+          $fastasplit_random_path);
+  }
+
+  if($self->param_is_defined('seqs_per_chunk')) {
+    my $num_seqs = `grep -c '>' $input_file`;
+    $chunk_num = int($num_seqs / $self->param('seqs_per_chunk'));
+  }
+
+  say "Chunking input file to ".$chunk_num." output files";
+  my $fastasplit_command = $fastasplit_random_path." ".$input_file." ".$chunk_num." ".$chunk_dir;
+  my $fastasplit_exit_code = system($fastasplit_command);
+  unless($fastasplit_exit_code == 0){
+    throw($fastasplit_random_path." returned an error code:\n".$fastasplit_exit_code);
+  }
+
 }
 
 sub create_chunk_ids {
-  my ($self,$chunk_dir,$input_file) = @_;
+  my $self = shift;
+
+  my $input_file;
+  my $chunk_dir = $self->param('chunk_output_dir');
+
+
+  if($self->param_is_defined('input_file_path')) {
+      $input_file = $self->param('input_file_path');
+    } else {
+      $input_file = $self->parse_hive_input_id;
+  }
+
+  # Get the name without the extension as fastasplit_random cuts off the extension
   $input_file =~ /[^\/]+$/;
   $input_file = $&;
   $input_file =~ s/\.[^\.]+$//;
 
   my @chunk_array = glob $chunk_dir."/".$input_file."_chunk_*";
-  for(my $i=0; $i < scalar@chunk_array; $i++) {
+
+#  unless(scalar(@chunk_array)) {
+#    throw("Found on files in chunk dir using glob. Chunk dir:\n".
+#          $chunk_dir."/"."\nChunk generic name:\n".$input_file."_chunk_*");
+#  }
+  for(my $i=0; $i < scalar(@chunk_array); $i++) {
     $chunk_array[$i] =~ /[^\/]+$/;
     $chunk_array[$i] = $&;
   }
@@ -129,7 +166,6 @@ sub write_output {
        next;
     }
 
-    say "Output id: ".$id;
     my $output_hash = {};
     $output_hash->{'iid'} = $id;
     $self->dataflow_output_id($output_hash,1);
