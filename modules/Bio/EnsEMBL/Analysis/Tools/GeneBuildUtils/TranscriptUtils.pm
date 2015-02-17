@@ -1220,6 +1220,10 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
 
   my $num_stops = $pep =~ s/\*/\*/g;
 
+  if ($num_stops > 1 && !$max_stops) {
+    throw("Transcript does not have exactly one stop codon; it has $num_stops stops. Multiple stops replacement has not been implemented yet.");
+  }
+
   if ($num_stops > 0) {
     warning("Transcript has ".$num_stops." internal stops\n");
   }
