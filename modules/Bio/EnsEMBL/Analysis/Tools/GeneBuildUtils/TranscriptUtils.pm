@@ -1220,10 +1220,28 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
 
   my $num_stops = $pep =~ s/\*/\*/g;
 
+  # The next few bits of code are to do some checks in terms of the allowed number of stops and to throw
+  # if there is an issue. There is at least one redundant check later in the code, however it is faster
+  # to have these here
+
+  # This is the default behaviour, throw if > 1 stop
   if ($num_stops > 1 && !$max_stops) {
-    throw("Transcript does not have exactly one stop codon; it has $num_stops stops. Multiple stops replacement has not been implemented yet.");
+    throw("Transcript does not have exactly one stop codon; it has $num_stops stops. Multiple stops replacement is ".
+          "experimental and requires a value to be passed to max_stops");
   }
 
+  # If max_stops is not a sensible value then throw
+  if(defined($max_stops) && $max_stops <= 0) {
+    throw("You have passed a value to max_stops but this value is <= 0. The value passed to max_stops should be ".
+          ">= 1");
+  }
+
+  # If max_stops is defined and there are more stops than the value then throw
+  if(defined($max_stops) && ($num_stops > $max_stops)) {
+    throw("You have set max_stops to ".$max_stops." however the number of stops in the translation is ".$num_stops);
+  }
+
+  # Warn that there are internal stops
   if ($num_stops > 0) {
     warning("Transcript has ".$num_stops." internal stops\n");
   }
