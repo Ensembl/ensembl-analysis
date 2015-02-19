@@ -1307,11 +1307,7 @@ sub replace_stops_with_introns{
             $end_exon_shift += 1;
             if ($transcript->translation->end_Exon->start == $exon->start) {
               # and this is the last translateable exon
-              if ($transcript->strand == 1) {
-                $translation_end_shift -= ($stop->end-$exon->start+1); # translation start and end are "stranded"
-              } else {
-                $translation_end_shift -= ($exon->end-$stop->start+1);
-              }
+              $translation_end_shift -= $stop->length;
             }
           }
 
@@ -1522,7 +1518,7 @@ sub replace_stops_with_introns{
           print("---stop lies at the start of the exon\n");
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
-          $exon->start($exon->start + ($stop->end-$stop->start+1));
+          $exon->start($exon->start + $stop->length);
 
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $transcript->strand == -1 ) {
@@ -1550,7 +1546,7 @@ sub replace_stops_with_introns{
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
           #print "DB8 e end: ". $exon->end. " s sta: ". $stop->start. " s end: " .$stop->end."\n"; 
-          $exon->end($exon->end - ($stop->end-$stop->start+1));
+          $exon->end($exon->end - $stop->length);
           
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $transcript->strand == -1 ) {
