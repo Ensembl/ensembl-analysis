@@ -1207,13 +1207,14 @@ sub replace_stops_with_introns{
   my $translation_end_shift = 0;   # in number of bases
   my $end_exon_shift = 0;          # in number of exons
 
-foreach my $exon (@{$transcript->get_all_Exons}) {
-print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
-}
+  #foreach my $exon (@{$transcript->get_all_Exons}) {
+  #  print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand.' ^ '.$exon->rank($transcript).' @ '.$exon->length.' sp '.$exon->phase. ' ep '.$exon->end_phase."\n";
+  #}
 
   my $newtranscript = clone_Transcript($transcript);
   my @exons = @{$newtranscript->get_all_Exons};
   my $pep = $newtranscript->translate->seq;
+  #print 'DEBUG: peptide: ', $pep, "\n";
   my $removed_exon_count = 0;
   # gaps adjacent to internal stop codons - skip
   return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
@@ -1259,6 +1260,7 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
       # locate the exon that this stop lies in
       my @new_exons;
       foreach my $exon (@exons) {
+        # print 'DEBUG: ', $exon->rank($newtranscript), ' $$ ', $exon->seq->seq, "\n";
         # NOTE that at this point the stop will always lie on a translateable exon
         if ($stop->start > $exon->start and $stop->end < $exon->end) {
           # This stop lies _completely_ within an exon and not on its
@@ -1303,7 +1305,6 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
           } else {
             # the stop end DOES NOT match the translation end
             $end_exon_shift += 1;
-
             if ($transcript->translation->end_Exon->start == $exon->start) {
               # and this is the last translateable exon
               if ($transcript->strand == 1) {
@@ -1523,6 +1524,13 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
           # fix the rare cases where stops lie on two consecutive exons
           $exon->start($exon->start + ($stop->end-$stop->start+1));
 
+          # Because the stop length may not now be 3 bases long now we need to fix the phase
+          if ( $transcript->strand == -1 ) {
+            $exon->end_phase(0);
+          } else {
+            $exon->phase(0);
+          }
+          
           if ($transcript->translation->end_Exon->start == $exon->start and
                  $transcript->strand == 1) {
             # this is the last translateable exon on the forward strand
@@ -1541,7 +1549,15 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
           print("---stop lies at the end of the exon\n");
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
+          #print "DB8 e end: ". $exon->end. " s sta: ". $stop->start. " s end: " .$stop->end."\n"; 
           $exon->end($exon->end - ($stop->end-$stop->start+1));
+          
+          # Because the stop length may not now be 3 bases long now we need to fix the phase
+          if ( $transcript->strand == -1 ) {
+            $exon->phase(0);
+          } else {
+            $exon->end_phase(0);
+          }
 
           if ($transcript->translation->end_Exon->start == $exon->start and
               $transcript->strand == -1) {
@@ -1568,6 +1584,11 @@ print "DEBUG: Exon ".$exon->start."-".$exon->end.":".$exon->strand."\n";
     } # foreach
 
   } #end of while loop;  by this time, we hope there are not stop codons in the peptide
+
+  # Useful for debugging: keep.
+  #foreach my $exon (@exons) {
+  #  print "DEBUG: NEW Exon ".$exon->start."-".$exon->end.":".$exon->strand.' ^ '.$exon->rank($transcript).' @ '.$exon->length.' sp '.$exon->phase. ' ep '.$exon->end_phase."\n";
+  #}
 
 
   # this removes the old exons and replaces with new exon
