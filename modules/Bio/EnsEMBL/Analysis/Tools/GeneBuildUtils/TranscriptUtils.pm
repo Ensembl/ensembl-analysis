@@ -1307,7 +1307,11 @@ sub replace_stops_with_introns{
             $end_exon_shift += 1;
             if ($transcript->translation->end_Exon->start == $exon->start) {
               # and this is the last translateable exon
-              $translation_end_shift -= $stop->length;
+              if ($transcript->strand == 1) {
+                $translation_end_shift -= ($stop->end-$exon->start+1); # translation start and end are "stranded"
+              } else {
+                $translation_end_shift -= ($exon->end-$stop->start+1);
+              }
             }
           }
 
