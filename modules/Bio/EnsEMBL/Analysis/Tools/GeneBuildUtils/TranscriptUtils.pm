@@ -1260,7 +1260,7 @@ sub replace_stops_with_introns{
       # locate the exon that this stop lies in
       my @new_exons;
       foreach my $exon (@exons) {
-        # print 'DEBUG: ', $exon->rank($newtranscript), ' $$ ', $exon->seq->seq, "\n";
+        #print 'DEBUG: ', $exon->rank($newtranscript), ' $$ ', $exon->seq->seq, "\n";
         # NOTE that at this point the stop will always lie on a translateable exon
         if ($stop->start > $exon->start and $stop->end < $exon->end) {
           # This stop lies _completely_ within an exon and not on its
@@ -1522,8 +1522,7 @@ sub replace_stops_with_introns{
           print("---stop lies at the start of the exon\n");
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
-          $exon->start($exon->start + $stop->length);
-
+          $exon->start($exon->start + ($stop->end-$stop->start+1));
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $transcript->strand == -1 ) {
             $exon->end_phase(0);
@@ -1535,9 +1534,10 @@ sub replace_stops_with_introns{
                  $transcript->strand == 1) {
             # this is the last translateable exon on the forward strand
             $translation_end_shift -= 3;
+            #$translation_end_shift -= $stop->length;
           }
 
-          #  push @new_exons, $exon;
+          #push @new_exons, $exon;
           # I've commented out the push above and added in this code and subroutine as
           # the current code was not recalculating the feature after shifting the start
           # or the end of the exon.
@@ -1549,8 +1549,8 @@ sub replace_stops_with_introns{
           print("---stop lies at the end of the exon\n");
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
-          #print "DB8 e end: ". $exon->end. " s sta: ". $stop->start. " s end: " .$stop->end."\n"; 
-          $exon->end($exon->end - $stop->length);
+          #print "DB8 e end: ". $exon->end. " s sta: ". $stop->start. " s end: " .$stop->end. " s len: " .$stop->length."\n"; 
+          $exon->end($exon->end - ($stop->end-$stop->start+1));  
           
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $transcript->strand == -1 ) {
@@ -1562,10 +1562,10 @@ sub replace_stops_with_introns{
           if ($transcript->translation->end_Exon->start == $exon->start and
               $transcript->strand == -1) {
             # this is the last translateable exon on the reverse strand
-            $translation_end_shift -= 3;
+            $translation_end_shift -= $stop->length;
           }
 
-          #  push @new_exons, $exon;
+          #push @new_exons, $exon;
           # I've commented out the push above and added in this code and subroutine as
           # the current code was not recalculating the feature after shifting the start
           # or the end of the exon.
@@ -1634,7 +1634,7 @@ sub replace_stops_with_introns{
 
   #print("DEBUG old end_exon_index is $end_exon_index\n");
   my $new_end_exon_index = $end_exon_index+$end_exon_shift; # I'll use 1-based exon count.
-  #print("DEBUG new end_exon_index is $new_end_exon_index\n");
+ #print("DEBUG new end_exon_index is $new_end_exon_index\n");
 
   my $new_end_exon;
   foreach my $exon (@{$newtranscript->get_all_Exons}) {
@@ -1645,13 +1645,6 @@ sub replace_stops_with_introns{
       last;
     }
   }
-
-#  my $translation_genomic_end  = $transcript->translation->genomic_end;
-#  my $translation_offset = $translation_genomic_end - $new_end_exon->start;
-#  say "FM2 translation_genomic_end: ".$translation_genomic_end;
-#  say "FM2 translation_offset: ".$translation_offset;
-#  say "FM2 translation_offset old value: ".($transcript->translation->end + $translation_end_shift);
-#  $translation->end($translation_offset);
 
   $translation->end_Exon($new_end_exon);
   $translation->start($transcript->translation->start + $translation_start_shift);
