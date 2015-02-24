@@ -1706,85 +1706,85 @@ sub replace_stops_with_introns{
 
 sub truncate_exon_features {
 
-          my ($exon,$analysis,$start_or_end) = @_;
+  my ($exon,$analysis,$start_or_end) = @_;
 
-          my $new_exon   = Bio::EnsEMBL::Exon->
-          new(-slice     => $exon->slice,
-              -start     => $exon->start,
-               -end       => $exon->end,
-               -strand    => $exon->strand,
-               -phase     => $exon->phase,
-               -end_phase => $exon->end_phase );
+  my $new_exon   = Bio::EnsEMBL::Exon->
+  new(-slice     => $exon->slice,
+    -start     => $exon->start,
+    -end       => $exon->end,
+    -strand    => $exon->strand,
+    -phase     => $exon->phase,
+    -end_phase => $exon->end_phase );
 
-          # This is currently making the assumption that the feature spans over
-          # the length of the exon. If for some reason it didn't then perhaps a
-          # check could go here to make sure the processing is actually needed
+  # This is currently making the assumption that the feature spans over
+  # the length of the exon. If for some reason it didn't then perhaps a
+  # check could go here to make sure the processing is actually needed
 
-          my @sfs = @{$exon->get_all_supporting_features};
-          my (@ug);
+  my @sfs = @{$exon->get_all_supporting_features};
+  my (@ug);
 
-          my $feature_isa = undef;
-          my $feature_unit_length = undef;
+  my $feature_isa = undef;
+  my $feature_unit_length = undef;
 
-          foreach my $f (@sfs) {
-          	if ($f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+  foreach my $f (@sfs) {
+    if ($f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
 
-          	  if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaDnaAlignFeature")) {
-          	  	throw("All the supporting features must be of the same type.");
-          	  }
+      if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaDnaAlignFeature")) {
+        throw("All the supporting features must be of the same type.");
+      }
 
-          	  $feature_unit_length = 1; # ie feature is a cDNA alignment
-          	  $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";
+      $feature_unit_length = 1; # ie feature is a cDNA alignment
+      $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";
 
-                } elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
+    } elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
 
-         	  if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
-                throw("All the supporting features must be of the same type.");
-              }
+      if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
+        throw("All the supporting features must be of the same type.");
+      }
 
-         	  $feature_unit_length = 3; # ie feature is a protein alignment
-          	  $feature_isa = "Bio::EnsEMBL::DnaPepAlignFeature";
+      $feature_unit_length = 3; # ie feature is a protein alignment
+      $feature_isa = "Bio::EnsEMBL::DnaPepAlignFeature";
 
-         	} else {
-          	  throw("Feature ".$f->dbID()." is not Bio::EnsEMBL::DnaDnaAlignFeature nor Bio::EnsEMBL::DnaPepAlignFeature.");
-          	}
+    } else {
+      throw("Feature ".$f->dbID()." is not Bio::EnsEMBL::DnaDnaAlignFeature nor Bio::EnsEMBL::DnaPepAlignFeature.");
+    }
 
-            foreach my $ug ($f->ungapped_features) {
-              $ug->analysis($analysis);
-              my $orignial_analysis = $ug->analysis;
-          my $trunc_feature = Bio::EnsEMBL::FeaturePair->new();
-          if ($ug->slice) {
-                  $trunc_feature->slice($ug->slice);
-                }
-          $trunc_feature->seqname   ($ug->seqname);
-          $trunc_feature->strand    ($ug->strand);
-          $trunc_feature->hseqname  ($ug->hseqname);
-          $trunc_feature->score     ($ug->score);
-          $trunc_feature->percent_id($ug->percent_id);
-          if($start_or_end == 0) {
-            $trunc_feature->start     ($ug->start+3);
-            $trunc_feature->end       ($ug->end);
-          }
-          else {
-            $trunc_feature->start     ($ug->start);
-            $trunc_feature->end       ($ug->end-3);
-          }
-          $trunc_feature->external_db_id($ug->external_db_id);
-          $trunc_feature->hcoverage($ug->hcoverage);
-          $trunc_feature->analysis($orignial_analysis) ;
+    foreach my $ug ($f->ungapped_features) {
+      $ug->analysis($analysis);
+      my $orignial_analysis = $ug->analysis;
+      my $trunc_feature = Bio::EnsEMBL::FeaturePair->new();
+      if ($ug->slice) {
+        $trunc_feature->slice($ug->slice);
+      }
+      $trunc_feature->seqname   ($ug->seqname);
+      $trunc_feature->strand    ($ug->strand);
+      $trunc_feature->hseqname  ($ug->hseqname);
+      $trunc_feature->score     ($ug->score);
+      $trunc_feature->percent_id($ug->percent_id);
+      if($start_or_end == 0) {
+        $trunc_feature->start     ($ug->start+3);
+        $trunc_feature->end       ($ug->end);
+      }
+      else {
+        $trunc_feature->start     ($ug->start);
+        $trunc_feature->end       ($ug->end-3);
+      }
+      $trunc_feature->external_db_id($ug->external_db_id);
+      $trunc_feature->hcoverage($ug->hcoverage);
+      $trunc_feature->analysis($orignial_analysis) ;
 
-          $trunc_feature->hend ($ug->hend);
-          $trunc_feature->hstart($ug->hend -
-                                ceil($trunc_feature->length / $feature_unit_length) +
-                                1);
-              if ($trunc_feature->end >= $trunc_feature->start) {
-                push @ug, $trunc_feature;
-              }
-            }}
+      $trunc_feature->hend ($ug->hend);
+      $trunc_feature->hstart($ug->hend -
+        ceil($trunc_feature->length / $feature_unit_length) +
+        1);
+      if ($trunc_feature->end >= $trunc_feature->start) {
+        push @ug, $trunc_feature;
+      }
+    }}
 
-         $new_exon = add_dna_align_features_by_hitname_and_analysis(\@ug,$new_exon,$feature_isa) ;
+  $new_exon = add_dna_align_features_by_hitname_and_analysis(\@ug,$new_exon,$feature_isa) ;
 
-         return $new_exon;
+return $new_exon;
 }
 
 =head2 add_dna_align_features_by_hitname_and_analysis
