@@ -1839,9 +1839,6 @@ sub add_ccds_transcript_attrib {
      throw("Unable to fetch attrib_type with code $code");
   }
 
-  # Remove the old attribute if it exists
-  $attribute_adaptor->remove_from_Transcript($transcript,$code);
-
   my $ccds_attribute = Bio::EnsEMBL::Attribute->new(
                                                      -NAME        => $name,
                                                      -CODE        => $code,
