@@ -1862,8 +1862,7 @@ sub add_ccds_transcript_attrib {
                                                      -VALUE       => $value,
                                                      -DESCRIPTION => $description
                                                    );
-
-  $attribute_adaptor->store_on_Transcript($transcript, [$ccds_attribute]);
+  $transcript->add_Attributes($ccds_attribute);
   return 1;
 }
 
