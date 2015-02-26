@@ -1478,8 +1478,17 @@ sub merge {
   #     supporting features
   #     intron supporting evidence
   {
-    my @supporting_features =
-      @{ $new_source_transcript->get_all_supporting_features() };
+    my @supporting_features = ();
+    
+    # only transfer the supporting features that overlap.
+    # as the merge is based on intron match, there can be cases where
+    # a longer Ensembl transcript evidence would have been transferred
+    # beyond the exon boundaries of the Havana target transcript
+    foreach my $sf (@{ $new_source_transcript->get_all_supporting_features() }) {
+      if (features_overlap($sf,$target_transcript)) {
+        push(@supporting_features,$sf);
+      }
+    }
 
     printf( "Merge> Transferred %d supporting feature(s)\n",
             scalar(@supporting_features) );
@@ -1504,10 +1513,18 @@ sub merge {
     my @supporting_features;
 
     foreach
-      my $source_exon ( @{ $new_source_transcript->get_all_Exons() } )
-    {
-      push( @supporting_features,
-            [ @{ $source_exon->get_all_supporting_features() } ] );
+      my $source_exon ( @{ $new_source_transcript->get_all_Exons() } ) {
+      my @exon_sf = ();
+      # only transfer the supporting features that overlap.
+      # as the merge is based on intron match, there can be cases where
+      # a longer Ensembl transcript evidence would have been transferred
+      # beyond the exon boundaries of the Havana target transcript
+      foreach my $sf (@{ $source_exon->get_all_supporting_features() }) {
+        if (features_overlap($sf,$target_transcript)) {
+          push(@exon_sf,$sf);
+        }
+      }
+      push(@supporting_features,[@exon_sf]);
     }
 
     my $exon_index    = 0;
