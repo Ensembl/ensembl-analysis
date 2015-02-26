@@ -279,8 +279,10 @@ sub run {
     # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
   if ($self->filter) {
+    say "In filter\nResults pre filt: ".scalar(@results);
     my $filtered_transcripts = $self->filter->filter_results(\@results);
     @results = @$filtered_transcripts;
+    say "In filter\nResults post filt: ".scalar(@results);
   }
 
   my @genes = $self->make_genes(@results);
@@ -356,6 +358,24 @@ sub set_hive_config {
          );
   }
 
+  if($self->FILTER) {
+    if(not ref($self->FILTER) eq "HASH" or not exists($self->FILTER->{OBJECT}) or not exists($self->FILTER->{PARAMETERS})) {
+       throw("FILTER in config of ".$analysis->logic_name."  must be a hash ref with elements:\n" .
+             "  OBJECT : qualified name of the filter module;\n" .
+             "  PARAMETERS : anonymous hash of parameters to pass to the filter");
+    } else {
+      my $module = $self->FILTER->{OBJECT};
+      my $pars   = $self->FILTER->{PARAMETERS};
+
+      (my $class = $module) =~ s/::/\//g;
+      eval {
+        require "$class.pm";
+      };
+      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
+
+      $self->filter($module->new(%{$pars}));
+    }
+  }
 }
 
 sub make_genes{
