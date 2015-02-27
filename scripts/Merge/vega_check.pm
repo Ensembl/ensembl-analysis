@@ -68,6 +68,7 @@ my %allowed_combos = (
                                                ],
        'processed_transcript'               => ['3prime_overlapping_ncrna',
                                                 'antisense',
+                                                'macro_lncrna',
                                                 'lincRNA',
                                                 'processed_transcript',
                                                 'retained_intron',
