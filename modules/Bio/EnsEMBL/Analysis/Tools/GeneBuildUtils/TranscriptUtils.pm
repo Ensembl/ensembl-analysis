@@ -1522,6 +1522,7 @@ sub replace_stops_with_introns{
           print("---stop lies at the start of the exon\n");
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
+          my $orig_exon_start = $exon->start;
           $exon->start($exon->start + ($stop->end-$stop->start+1));
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $transcript->strand == -1 ) {
@@ -1530,11 +1531,12 @@ sub replace_stops_with_introns{
             $exon->phase(0);
           }
           
-          if ($transcript->translation->end_Exon->start == $exon->start and
+          #print "ttees: " .$transcript->translation->end_Exon->start . "\n";
+          #print "exonstart: " . $exon->start . "\n";
+          if ($transcript->translation->end_Exon->start == $orig_exon_start and
                  $transcript->strand == 1) {
             # this is the last translateable exon on the forward strand
             $translation_end_shift -= 3;
-            #$translation_end_shift -= $stop->length;
           }
 
           #push @new_exons, $exon;
@@ -1562,7 +1564,7 @@ sub replace_stops_with_introns{
           if ($transcript->translation->end_Exon->start == $exon->start and
               $transcript->strand == -1) {
             # this is the last translateable exon on the reverse strand
-            $translation_end_shift -= $stop->length;
+            $translation_end_shift -= 3;
           }
 
           #push @new_exons, $exon;
