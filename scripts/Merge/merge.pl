@@ -569,6 +569,12 @@ sub process_genes {
   foreach my $havana_gene ( @{$havana_genes} ) {
     $havana_gene->load();
 
+    my @ccds_transcripts;
+    if ( defined($CCDS_TA) ) {
+      my $ccds_slice = get_feature_slice_from_db($havana_gene,$CCDS_TA->db());
+      @ccds_transcripts = @{$CCDS_TA->fetch_all_by_Slice($ccds_slice, 1)};
+    }
+
     my $is_coding = 0;
 
     my $transcript_count = 0;
@@ -579,6 +585,17 @@ sub process_genes {
 
       if ( defined($havana_translation) ) {
         $is_coding = 1;
+
+        # Add a ccds attribute if a matching ccds model is present
+        if ( scalar(@ccds_transcripts) > 0 ) {
+          my @translatable_exons = @{$havana_transcript->get_all_translateable_Exons()};
+          foreach my $ccds_transcript (@ccds_transcripts) {
+            if(features_are_same(\@translatable_exons,$ccds_transcript->get_all_translateable_Exons())){
+              add_ccds_transcript_attrib($havana_dba,$havana_transcript,'ccds_transcript',$ccds_transcript->stable_id());
+              last;
+            }
+          }
+        }
 
         # Add "OTTP" xref to Havana translation.
         add_havana_xref($havana_translation);
@@ -647,10 +664,8 @@ sub process_genes {
 
     my @ccds_transcripts;
     if ( defined($CCDS_TA) ) {
-      my $ccds_slice =
-        get_feature_slice_from_db( $ensembl_gene, $CCDS_TA->db() );
-      @ccds_transcripts =
-        @{ $CCDS_TA->fetch_all_by_Slice( $ccds_slice, 1 ) };
+      my $ccds_slice = get_feature_slice_from_db($ensembl_gene, $CCDS_TA->db());
+      @ccds_transcripts = @{$CCDS_TA->fetch_all_by_Slice( $ccds_slice, 1 )};
     }
 
     foreach my $ensembl_transcript (
@@ -663,25 +678,20 @@ sub process_genes {
 
       if ( defined($ensembl_translation) ) {
         if ( scalar(@ccds_transcripts) > 0 ) {
-          my @translatable_exons =
-            @{ $ensembl_transcript->get_all_translateable_Exons() };
-
+          my @translatable_exons = @{$ensembl_transcript->get_all_translateable_Exons()};
           foreach my $ccds_transcript (@ccds_transcripts) {
-            if ( features_are_same( \@translatable_exons,
-                                    $ccds_transcript
-                                      ->get_all_translateable_Exons( ) )
-              )
-            {
+            if(features_are_same(\@translatable_exons,$ccds_transcript->get_all_translateable_Exons())) {
               $ensembl_transcript->{__is_ccds} = 1;    # HACK
+              add_ccds_transcript_attrib($ensembl_dba,$ensembl_transcript,'ccds_transcript',$ccds_transcript->stable_id());
               last;
             }
           }
         }
-
         $is_coding = 1;
       }
+
       elsif ( $ensembl_transcript->biotype() =~ /pseudogene/ ) {
-        $ensembl_transcript->{__is_pseudogene} = 1;    # HACK
+          $ensembl_transcript->{__is_pseudogene} = 1;    # HACK
       }
 
       tag_transcript_analysis( $ensembl_transcript, $opt_ensembl_tag );
@@ -1478,8 +1488,17 @@ sub merge {
   #     supporting features
   #     intron supporting evidence
   {
-    my @supporting_features =
-      @{ $new_source_transcript->get_all_supporting_features() };
+    my @supporting_features = ();
+    
+    # only transfer the supporting features that overlap.
+    # as the merge is based on intron match, there can be cases where
+    # a longer Ensembl transcript evidence would have been transferred
+    # beyond the exon boundaries of the Havana target transcript
+    foreach my $sf (@{ $new_source_transcript->get_all_supporting_features() }) {
+      if (features_overlap($sf,$target_transcript)) {
+        push(@supporting_features,$sf);
+      }
+    }
 
     printf( "Merge> Transferred %d supporting feature(s)\n",
             scalar(@supporting_features) );
@@ -1504,10 +1523,18 @@ sub merge {
     my @supporting_features;
 
     foreach
-      my $source_exon ( @{ $new_source_transcript->get_all_Exons() } )
-    {
-      push( @supporting_features,
-            [ @{ $source_exon->get_all_supporting_features() } ] );
+      my $source_exon ( @{ $new_source_transcript->get_all_Exons() } ) {
+      my @exon_sf = ();
+      # only transfer the supporting features that overlap.
+      # as the merge is based on intron match, there can be cases where
+      # a longer Ensembl transcript evidence would have been transferred
+      # beyond the exon boundaries of the Havana target transcript
+      foreach my $sf (@{ $source_exon->get_all_supporting_features() }) {
+        if (features_overlap($sf,$target_transcript)) {
+          push(@exon_sf,$sf);
+        }
+      }
+      push(@supporting_features,[@exon_sf]);
     }
 
     my $exon_index    = 0;
@@ -1820,6 +1847,24 @@ sub sort_by_start_end_pos {
   return \@sorted;
 }
 
+sub add_ccds_transcript_attrib {
+  # Needs to delete out any existing attrib with the same code
+  my ($db_adaptor,$transcript,$code,$value) = @_;
+  my $attribute_adaptor = $db_adaptor->get_AttributeAdaptor();
+  my ($attrib_type_id,$newcode,$name,$description) = $attribute_adaptor->fetch_by_code($code);
+  if(!$attrib_type_id) {
+     throw("Unable to fetch attrib_type with code $code");
+  }
+
+  my $ccds_attribute = Bio::EnsEMBL::Attribute->new(
+                                                     -NAME        => $name,
+                                                     -CODE        => $code,
+                                                     -VALUE       => $value,
+                                                     -DESCRIPTION => $description
+                                                   );
+  $transcript->add_Attributes($ccds_attribute);
+  return 1;
+}
 
 __END__
 
