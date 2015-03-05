@@ -3,14 +3,35 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 use strict;
 use Carp;
 use Bio::EnsEMBL::Hive::Utils ('stringify');
+use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process','Bio::EnsEMBL::Analysis::RunnableDB');
 
-=head2 _slurp
+sub runnable {
+  my ($self, $runnable) = @_;
+  if(!$self->param('runnable')){
+    $self->param('runnable',[]);
+  }
+  if($runnable){
+    throw("Must pass RunnableDB:runnable a ".
+          "Bio::EnsEMBL::Analysis::Runnable not a ".$runnable)
+      unless($runnable->isa('Bio::EnsEMBL::Analysis::Runnable'));
+    push(@{$self->param('runnable')}, $runnable);
+  }
+  return $self->param('runnable');
+}
 
-Reads the whole content of a file and returns it as a string
-
-=cut
+sub analysis {
+  my $self = shift;
+  my $analysis = shift;
+  if($analysis){
+    throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis".
+          "not a ".$analysis) unless($analysis->isa
+                                     ('Bio::EnsEMBL::Analysis'));
+    $self->param('analysis',$analysis);
+  }
+  return $self->param('analysis');
+}
 
 sub parse_hive_input_id {
   my $self = shift;
@@ -35,5 +56,6 @@ sub _slurp {
   }
   return $slurped;
 }
+
 
 1;
