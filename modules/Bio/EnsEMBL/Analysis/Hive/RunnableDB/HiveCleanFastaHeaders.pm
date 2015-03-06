@@ -239,7 +239,7 @@ sub output_file_path {
   my ($self,$path) = @_;
 
   if(defined($path)) {
-    $self->param('_output_file_path') = $path;
+    $self->param('_output_file_path',$path);
   }
 
   return($self->param('_output_file_path'));
