@@ -57,7 +57,7 @@ sub clean_headers {
            );
     }
   } else {
-    $input_file = $self->parse_hive_input_id;
+    $input_file = $self->input_id;
     unless(-e $input_file) {
       throw("You have not specified an input_file_path variable in your hive config, so the input id was used instead. When the ".
             "input id was parsed the resulting file path does not exist.\nInput id (unparsed):\n".$self->input_id."\nParsed input id:\n".
@@ -239,10 +239,10 @@ sub output_file_path {
   my ($self,$path) = @_;
 
   if(defined($path)) {
-    $self->{'_output_file_path'} = $path;
+    $self->param('_output_file_path') = $path;
   }
 
-  return($self->{'_output_file_path'});
+  return($self->param('_output_file_path'));
 }
 
 1;
