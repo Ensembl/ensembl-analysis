@@ -4,11 +4,7 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Pipeline::Analysis;
-use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
-use Bio::EnsEMBL::Pipeline::DBSQL::StateInfoContainer;
+
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
