@@ -4,17 +4,22 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Pipeline::Analysis;
-use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
+#use Bio::EnsEMBL::Analysis::RunnableDB;
+#use Bio::EnsEMBL::Pipeline::Analysis;
+#use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
-use Bio::EnsEMBL::Pipeline::DBSQL::StateInfoContainer;
+#use Bio::EnsEMBL::Pipeline::DBSQL::StateInfoContainer;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
-  $self->db($self->get_dba($self->param('reference_db')));
+
+  if($self->param('slice')) {
+    my $dba = $self->hrdb_get_dba($self->param('reference_db'));
+    $self->hrdb_con($dba);
+  }
+
   return 1;
 }
 
@@ -35,7 +40,7 @@ sub run {
   unless($self->param('chunk')) {
     my $input_id_factory = new Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
     (
-     -db => $self->db(),
+     -db => $self->hrdb_con(),
      -slice => $self->param('slice'),
      -single => $self->param('single'),
      -file => $self->param('file'),
@@ -57,7 +62,7 @@ sub run {
     );
 
     $input_id_factory->generate_input_ids;
-    $self->{'input_id_factory'} = $input_id_factory;
+    $self->output_ids($input_id_factory->input_ids);
   } else {
 
     if($self->param_is_defined('num_chunk') || $self->param_is_defined('seqs_per_chunk')) {
@@ -67,6 +72,7 @@ sub run {
   }
   return 1;
 }
+
 
 sub make_chunk_files {
   my $self = shift;
@@ -84,7 +90,7 @@ sub make_chunk_files {
   }
 
   else {
-      $input_file = $self->parse_hive_input_id;
+      $input_file = $self->input_id;
   }
 
   unless(-e $input_file) {
@@ -120,6 +126,7 @@ sub make_chunk_files {
 
 }
 
+
 sub create_chunk_ids {
   my $self = shift;
 
@@ -140,85 +147,67 @@ sub create_chunk_ids {
 
   my @chunk_array = glob $chunk_dir."/".$input_file."_chunk_*";
 
-#  unless(scalar(@chunk_array)) {
-#    throw("Found on files in chunk dir using glob. Chunk dir:\n".
-#          $chunk_dir."/"."\nChunk generic name:\n".$input_file."_chunk_*");
-#  }
+  unless(scalar(@chunk_array)) {
+    throw("Found no files in chunk dir using glob. Chunk dir:\n".
+          $chunk_dir."/"."\nChunk generic name:\n".$input_file."_chunk_*");
+  }
+
   for(my $i=0; $i < scalar(@chunk_array); $i++) {
     $chunk_array[$i] =~ /[^\/]+$/;
     $chunk_array[$i] = $&;
   }
-  $self->{'chunk_ids'} = \@chunk_array;
+  $self->output_ids(\@chunk_array);
 }
+
 
 sub write_output {
   my $self = shift;
 
-  my $output_ids;
-  unless($self->param('chunk')) {
-    $output_ids = $self->{'input_id_factory'}->input_ids();
-  } else {
-    $output_ids = $self->{'chunk_ids'};
-  }
+  my $output_ids = $self->output_ids();
+
   unless(scalar(@{$output_ids})) {
     warning("No input ids generated for this analysis!");
   }
 
-
-  foreach my $id (@{$output_ids}) {
+  foreach my $output_id (@{$output_ids}) {
 
     if($self->param_is_defined('skip_mito') && ($self->param('skip_mito') == 1 || $self->param('skip_mito') eq 'yes') &&
-       $id =~ /^.+\:.+\:MT\:/) {
+       $self->param_is_defined('slice') && ($self->param('slice') == 1 || $self->param('slice') eq 'yes') &&
+       $output_id =~ /^.+\:.+\:MT\:/) {
        next;
     }
 
     my $output_hash = {};
-    $output_hash->{'iid'} = $id;
+    $output_hash->{'iid'} = $output_id;
     $self->dataflow_output_id($output_hash,1);
   }
 
   return 1;
 }
 
-sub db {
-  my ($self, $value) = @_;
-  if($value){
-    $self->{'dbadaptor'} = $value;
-  }
-  return $self->{'dbadaptor'};
-}
 
-sub get_dba {
-   my ($self,$connection_info) = @_;
-   my $dba;
-
-   if (ref($connection_info)=~m/HASH/) {
-
-       $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                                  %$connection_info,
-                                                );
-   }
-
-  $dba->dbc->disconnect_when_inactive(1) ;
-  return $dba;
-
-}
-
-sub input_ids {
+sub input_id_factory {
  my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'input_ids'} = $value;
+    unless($value->isa('Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory')) {
+      throw("To set an input id factory object it must be of type Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory, not a ".$value);
+    }
+    $self->param('_input_id_factory',$value);
   }
 
-  if (exists($self->{'input_ids'})) {
-    return $self->{'input_ids'};
+  return self->param('_input_id_factory');
+}
+
+
+sub output_ids {
+ my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->param('_output_ids',$value);
   }
 
-  else {
-    return undef;
-  }
-
+  return $self->param('_output_ids');
 }
 
 1;
