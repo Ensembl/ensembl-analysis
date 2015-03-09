@@ -130,8 +130,8 @@ sub hrdb_get_dba {
       $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
     };
 
-    if(@!) {
-      throw("Error while setting up database connection:\n".@!);
+    if($@) {
+      throw("Error while setting up database connection:\n".$@);
     }
   }
 
