@@ -85,7 +85,7 @@ sub make_chunk_files {
       $input_file = $self->param('input_file_path');
   } elsif($self->param_is_defined('rechunk_dir_path') && $self->param_is_defined('rechunk')) {
     if($self->param('rechunk')) {
-      $input_file = $self->param('rechunk_dir_path')."/".$self->parse_hive_input_id;
+      $input_file = $self->param('rechunk_dir_path')."/".$self->input_id;
     }
   }
 
@@ -137,7 +137,7 @@ sub create_chunk_ids {
   if($self->param_is_defined('input_file_path')) {
       $input_file = $self->param('input_file_path');
     } else {
-      $input_file = $self->parse_hive_input_id;
+      $input_file = $self->input_id;
   }
 
   # Get the name without the extension as fastasplit_random cuts off the extension
