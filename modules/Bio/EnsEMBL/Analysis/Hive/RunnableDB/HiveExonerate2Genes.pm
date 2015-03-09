@@ -258,7 +258,9 @@ sub fetch_input {
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               %parameters,
               );
-    $self->runnable($runnable);
+
+      $self->runnable($runnable);
+
   }
 
 }
@@ -271,8 +273,23 @@ sub run {
   throw("Can't run - no runnable objects") unless ($self->runnable);
 
   foreach my $runnable (@{$self->runnable}){
-    $runnable->run;
-    push ( @results, @{$runnable->output} );
+    # This is to catch the closing exonerate errors, which we currently have no actual solution for
+    # It seems to be more of a problem with the exonerate code itself
+    eval {
+      $runnable->run;
+    };
+
+    if($@) {
+      my $except = $@;
+
+      if($except =~ /Error closing exonerate command/) {
+        warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
+      } else {
+        throw($except);
+      }
+    } else {
+      push ( @results, @{$runnable->output} );
+    }
   }
   if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
