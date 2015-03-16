@@ -259,9 +259,17 @@ sub run  {
                     $callback_data[2] = $i;
                     $bam_index->fetch($bam, $tid, $i, $i+1, \&_process_reads, \@callback_data);
                     if ($result > 0) {
-                        $utr_start = $result;
-                        print STDOUT 'DEBUG: POLYA TAIL: ', $utr_start, "\n";
-                        last;
+                        if ($result < $real_coding_start) {
+                            $utr_start = $result;
+                            print STDOUT 'DEBUG: POLYA TAIL: ', $utr_start, "\n";
+                            last;
+                        }
+                        else {
+                            $result = 0;
+                            # I'm faking the read count as it is wrong for this iteration
+                            $read_count = $last_read_count;
+                            print STDOUT 'DEBUG: ARGH WRONG POLYA TAIL: ', "\n";
+                        }
                     }
                     if ($read_count < $threshold and $read_count > $last_read_count) {
                         last;
