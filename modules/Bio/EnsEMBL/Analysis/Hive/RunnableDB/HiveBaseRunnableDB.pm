@@ -9,7 +9,7 @@ use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
-sub run{
+sub run {
   my ($self) = @_;
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
@@ -18,18 +18,18 @@ sub run{
   return $self->param('output');
 }
 
-sub output{
+sub output {
   my ($self, $output) = @_;
-  if(!$self->param('output')){
-    $self->param('output') = [];
+  unless($self->param_is_defined('_output')){
+    $self->param('_output',[]);
   }
   if($output){
     if(ref($output) ne 'ARRAY'){
       throw('Must pass RunnableDB:output an array ref not a '.$output);
     }
-    push(@{$self->param('output')}, @$output);
+    push(@{$self->param('_output')}, @$output);
   }
-  return $self->param('output');
+  return $self->param('_output');
 }
 
 sub runnable {
@@ -47,17 +47,6 @@ sub runnable {
   return $self->param('runnable');
 }
 
-#sub db {
-#  my $self = shift;
-#  my $db = shift;
-#  if($db) {
-#    unless($db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-#      throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor not a ".$db);
-#    }
-#    $self->param('db',$db);
-#  }
-#  return $self->param('db');
-#}
 
 sub query {
   my $self = shift;
@@ -70,6 +59,7 @@ sub query {
   }
   return $self->param('slice');
 }
+
 
 sub analysis {
   my $self = shift;
@@ -103,23 +93,34 @@ sub input_id {
   return($input_id_string);
 }
 
-sub hrdb_con {
+
+sub hrdb_set_con {
   my ($self,$dba,$dba_con_name) = @_;
-  if($dba) {
-    if($dba_con_name){
-      $self->param('_'.$dba_con_name,$dba);
-    } else {
-      $self->param('_hrdbadaptor',$dba);
-    }
+
+  unless($dba->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
+    throw("Expected a DBAdaptor object as input. If you want to retrieve a DBAdaptor then ".
+          "use the getter sub instead (hrdb_get_con)");
   }
+
+  if($dba_con_name){
+      $self->param('_'.$dba_con_name,$dba);
+  } else {
+      $self->param('_hrdbadaptor',$dba);
+  }
+
+}
+
+
+sub hrdb_get_con {
+  my ($self,$dba_con_name) = @_;
 
   if($dba_con_name) {
     return $self->param('_'.$dba_con_name);
   } else {
     return $self->param('_hrdbadaptor');
   }
-
 }
+
 
 sub hrdb_get_dba {
   my ($self,$connection_info) = @_;
@@ -133,13 +134,16 @@ sub hrdb_get_dba {
     if($@) {
       throw("Error while setting up database connection:\n".$@);
     }
+  } else {
+    throw("DB connection info passed in was not a hash:\n".$connection_info);
   }
 
   $dba->dbc->disconnect_when_inactive(1);
   return $dba;
 }
 
-sub feature_factory{
+
+sub feature_factory {
   my ($self, $feature_factory) = @_;
   if($feature_factory) {
     $self->param('feature_factory',$feature_factory);
@@ -151,7 +155,7 @@ sub feature_factory{
 }
 
 
-sub fetch_sequence{
+sub fetch_sequence {
   my ($self, $name, $db, $repeat_masking, $soft_masking) = @_;
   if(!$db){
     $db = $self->db;
@@ -172,7 +176,7 @@ sub fetch_sequence{
   return $slice;
 }
 
-sub parameters_hash{
+sub parameters_hash {
   my ($self, $string) = @_;
 
   if(!$string){
@@ -202,7 +206,7 @@ sub parameters_hash{
   return \%parameters_hash;
 }
 
-sub require_module{
+sub require_module {
   my ($self, $module) = @_;
   my $class;
   ($class = $module) =~ s/::/\//g;
@@ -222,7 +226,7 @@ sub ignore_config_file {
   return $self->param('ignore_config');
 }
 
-sub no_config_exception{
+sub no_config_exception {
   my $self = shift;
   my $value = shift;
   if($value) {
@@ -231,7 +235,7 @@ sub no_config_exception{
   return $self->param('no_config_exception');
 }
 
-sub input_is_void{
+sub input_is_void {
   my $self = shift;
   my $value = shift;
   if($value) {
@@ -241,7 +245,7 @@ sub input_is_void{
 }
 
 
-sub failing_job_status{
+sub failing_job_status {
   my $self = shift;
   my $value = shift;
   if($value) {
