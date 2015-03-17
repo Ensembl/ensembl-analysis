@@ -17,7 +17,7 @@ sub fetch_input {
 
   if($self->param('slice')) {
     my $dba = $self->hrdb_get_dba($self->param('reference_db'));
-    $self->hrdb_con($dba);
+    $self->hrdb_set_con($dba);
   }
 
   return 1;
@@ -40,7 +40,7 @@ sub run {
   unless($self->param('chunk')) {
     my $input_id_factory = new Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
     (
-     -db => $self->hrdb_con(),
+     -db => $self->hrdb_get_con(),
      -slice => $self->param('slice'),
      -single => $self->param('single'),
      -file => $self->param('file'),
