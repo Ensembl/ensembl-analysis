@@ -79,7 +79,7 @@ sub fetch_input {
 
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
-  $self->set_hive_config;
+  $self->hive_set_config;
 
   ##########################################
   # set up the target (genome)
@@ -332,7 +332,7 @@ sub write_output {
   }
 }
 
-sub set_hive_config {
+sub hive_set_config {
   my $self = shift;
 
   # Throw is these aren't present as they should both be defined
