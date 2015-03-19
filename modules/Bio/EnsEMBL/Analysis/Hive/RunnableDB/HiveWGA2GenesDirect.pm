@@ -71,19 +71,7 @@ use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
     qw(replace_stops_with_introns);
 
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB','Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild');
-#use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB',
-#            'Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild');
-
-
-#sub new {
-#  my ($class,@args) = @_;
-#  my $self = $class->SUPER::new(@args);
-
-#  $self->read_and_check_config($WGA2GENES_CONFIG_BY_LOGIC);
-
-#  return $self;
-#}
+use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
 sub fetch_input {
@@ -395,11 +383,9 @@ sub hrdb_get_dba {
                                               );
 
      if($dna_db_name) {
-            say "DNA DB NAME: ".$dna_db_name;
 
             my $dnadb = $self->hrdb_get_con($dna_db_name);
 
-            say "DUMPER: ".$dnadb;
             # try to get default asm+ species name for OTHER db - does not work
             # for comapra database
             my $core_db_asm = $dba->get_MetaContainer->get_default_assembly();
