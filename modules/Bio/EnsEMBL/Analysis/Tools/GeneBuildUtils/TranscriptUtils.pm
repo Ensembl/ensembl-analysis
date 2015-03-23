@@ -1536,7 +1536,7 @@ sub replace_stops_with_introns{
           if ($transcript->translation->end_Exon->start == $orig_exon_start and
                  $transcript->strand == 1) {
             # this is the last translateable exon on the forward strand
-            $translation_end_shift -= 3;
+            $translation_end_shift -= $stop->end-$stop->start+1;
           }
 
           push @new_exons, $exon;
@@ -1565,7 +1565,7 @@ sub replace_stops_with_introns{
           if ($transcript->translation->end_Exon->start == $exon->start and
               $transcript->strand == -1) {
             # this is the last translateable exon on the reverse strand
-            $translation_end_shift -= 3;
+            $translation_end_shift -= $stop->end-$stop->start+1;
           }
 
           push @new_exons, $exon;
