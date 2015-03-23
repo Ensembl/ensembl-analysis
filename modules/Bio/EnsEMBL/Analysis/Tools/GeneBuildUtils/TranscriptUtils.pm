@@ -1539,12 +1539,13 @@ sub replace_stops_with_introns{
             $translation_end_shift -= 3;
           }
 
-          #push @new_exons, $exon;
-          # I've commented out the push above and added in this code and subroutine as
-          # the current code was not recalculating the feature after shifting the start
-          # or the end of the exon.
-          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,0);
-          push @new_exons, $new_exon;
+          push @new_exons, $exon;
+          # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
+          # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
+          # the above line of code, where no modification occurs to the supporting features. Might leave slight
+          # overhang, but this is no big deal
+#          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,0);
+#          push @new_exons, $new_exon;
 
         } elsif ($stop->end == $exon->end ) {
           # stop lies at the end of the exon
@@ -1567,12 +1568,13 @@ sub replace_stops_with_introns{
             $translation_end_shift -= 3;
           }
 
-          #push @new_exons, $exon;
-          # I've commented out the push above and added in this code and subroutine as
-          # the current code was not recalculating the feature after shifting the start
-          # or the end of the exon.
-          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,1);
-          push @new_exons, $new_exon;
+          push @new_exons, $exon;
+          # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
+          # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
+          # the above line of code, where no modification occurs to the supporting features. Might leave slight
+          # overhang, but this is no big deal
+#          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,1);
+#          push @new_exons, $new_exon;
 
         } else {
           # this exon is unaffected by this stop
