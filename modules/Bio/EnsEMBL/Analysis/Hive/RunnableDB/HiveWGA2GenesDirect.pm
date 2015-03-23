@@ -188,6 +188,10 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
+  unless(scalar(@{$self->good_transcripts}) > 0) {
+    warning("No transcripts in the good_transcripts list, so nothing to project");
+    return 1;
+  }
 
   my @res_tran;
   my $tran_stable_id;
