@@ -61,7 +61,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene empty_Gene);
 
 use Bio::DB::Sam;
 
@@ -357,18 +357,9 @@ sub run  {
                 print STDOUT '#### DONE  ####', "\n";
             }
         }
+        empty_Gene($gene);
         attach_Analysis_to_Gene($gene, $self->analysis);
         push(@new_genes, $gene);
-    }
-    foreach my $gene (@new_genes) {
-        print STDOUT $gene->display_id, ' @ ', $gene->start, '(',$gene->seq_region_start,') - ', $gene->end, '(', $gene->seq_region_end, ')', "\n";
-        foreach my $transcript (@{$gene->get_all_Transcripts}) {
-            print STDOUT '  ', $transcript->display_id, ' @ ', $transcript->start, '(',$transcript->seq_region_start,') - ', $transcript->end, '(', $transcript->seq_region_end, ') ', $transcript->coding_region_start, ' == ', $transcript->coding_region_end, "\n";
-            foreach my $exon (@{$transcript->get_all_Exons}) {
-                print STDOUT '    ', $exon->display_id, ' @ ', $exon->start, '(',$exon->seq_region_start,') - ', $exon->end, '(', $exon->seq_region_end, ')', "\n";
-
-            }
-        }
     }
     $self->output(\@new_genes);
 }
