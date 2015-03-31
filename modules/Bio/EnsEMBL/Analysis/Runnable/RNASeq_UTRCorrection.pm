@@ -387,7 +387,7 @@ sub _process_reads {
         my $read_name = $read->query->name;
         my $seq_len = int(length($seq)/10);
         return if ($read->aux_get('NM') < $seq_len);
-        my $count = 0;
+        my $count;
         my $position = 0;
         if ($strand == 1) {
             if ($read_strand == 1) {
@@ -398,7 +398,7 @@ sub _process_reads {
                 ($count) = $seq =~ /(T{$seq_len}T+).{0,3}$/;
                 $position = $-[0];
             }
-            if (defined $position and (length($count) > ($seq_len*2))) {
+            if (defined $count and defined $position and (length($count) > ($seq_len*2))) {
                 $$result = $read_start+$position-1;
                 print STDOUT 'DEBUG: SEQ: ', $read_name, ' @ ', $read_start, ' % ', $seq, ' ^ ', $read_strand, "\n";
             }
@@ -412,7 +412,7 @@ sub _process_reads {
                 ($count) = $seq =~ /^.{0,3}(T{$seq_len}T+)/;
                 $position = $+[0];
             }
-            if (defined $position and (length($count) > ($seq_len*2))) {
+            if (defined $count and defined $position and (length($count) > ($seq_len*2))) {
                 $$result = $read_start+$position;
                 print STDOUT 'DEBUG: SEQ: ', $read_name, ' @ ', $read_start, ' % ', $seq, ' ^ ', $read_strand, "\n";
             }
