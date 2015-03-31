@@ -249,22 +249,25 @@ print "There were ".@output." features found\n\n";
 sub print_gene {
   my $out = shift;
 
-  printf("%s\t$logic_name\tGene\t%d\t%d\t%s\n",
+  printf("%s\t$logic_name\t%-12s\t%d\t%d\t%s\n",
          $out->slice->seq_region_name,
+         'Gene',
          $out->start,
          $out->end,
          $out->strand);
   
   foreach my $tran (@{$out->get_all_Transcripts}) {
-    printf("%s\t$logic_name\tTranscript\t%d\t%d\t%s\n",
+    printf("%s\t$logic_name\t%-12s\t%d\t%d\t%s\n",
            $out->slice->seq_region_name,
+           'Transcript',
            $tran->start,
            $tran->end,
            $tran->strand);
     
     foreach my $exon (@{$tran->get_all_Exons}) {
-      printf("%s\t$logic_name\tExon\t%d\t%d\t%s\t%d\t%d\n",
+      printf("%s\t$logic_name\t%-12s\t%d\t%d\t%s\n",
              $out->slice->seq_region_name,
+             'Exon',
              $exon->start,
              $exon->end,
              $exon->strand,
