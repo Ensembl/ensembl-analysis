@@ -45,8 +45,7 @@ use Getopt::Long qw(:config no_ignore_case);
 use List::Util qw( min max );
 use Carp;
 
-
-# this ewill help when debgugging:
+# this ewill help when debugging:
 $| = 1;
 
 # # #
@@ -66,7 +65,7 @@ my $coord_system_version;
 my $write; # boolean
 my $verbose; # boolean
 my $code = 'gencode_basic';
-
+my $MAX_TRANSCRIPT_LENGTH = '100000'; # the longest transcript in human was less than 10000 base pair long in e79
 
 # use most recent
 my $production_dbname = 'ensembl_production';
@@ -582,11 +581,16 @@ sub returnBasicNonCodingAnnotation{  # i call it with a gene object and it retur
     }
   } # for every transcript
 
+  if (scalar(@basicNonCodingAnnotation) != 0) {   # if the transcripts are non-coding-well caracterized-full length I am almost finished!
+    # return a limited number of transcripts
+    @basicNonCodingAnnotation = getGivenCoverUntilExonsCovered($gene,80,@basicNonCodingAnnotation);
 
-  if(scalar (@basicNonCodingAnnotation) !=0 ){   # if the transcripts are non-coding-well caracterized-full length I am finished!
-
-    return \@basicNonCodingAnnotation;
-  }
+    if ($basicNonCodingAnnotation[0]) {
+      return \@basicNonCodingAnnotation;
+    } else {
+      print "No basicNonCodingAnnotation from first non-coding group found.\n";
+    }  
+  }  	
 
   if(scalar (@basicNonCodingAnnotation) ==0 ){ # if there are no nc-well caracterized-FULL LENGTH transcripts, I get the transcripts that are non-coding biggest length
 
@@ -680,6 +684,117 @@ sub returnBasicPseudogeneAnnotation{ # i call it with a gene object and it retur
 
 }
 
+sub getGivenCoverUntilExonsCovered { # I call it with a set of transcripts and it returns the longest transcripts covering the maximum number of exons until exon_coverage% of all exons (based on exonic length) are covered
+  my ($gene,$exon_coverage,@basicTranscripts) = @_;
+
+  my @uncoveredExons = @{$gene->get_all_Exons()};
+  my @sortedBasicTranscripts = sort {getScoreExonsCoverAndLength($b,@uncoveredExons) cmp getScoreExonsCoverAndLength($a,@uncoveredExons)} @basicTranscripts;
+  my @finalBasicTranscripts;
+  my $transcript;
+  while (scalar(@sortedBasicTranscripts) >= 1) {
+    $transcript = shift(@sortedBasicTranscripts);
+    if (getScoreExonsCoverAndLength($transcript,@uncoveredExons) > 0) {
+      push @finalBasicTranscripts,$transcript;
+    }
+    if (transcriptExonsCoverGenePercentage($gene,@finalBasicTranscripts) >= $exon_coverage) {
+      last;
+    }
+    @uncoveredExons = getUncoveredExons($gene,@finalBasicTranscripts);
+    @sortedBasicTranscripts = sort {getScoreExonsCoverAndLength($b,@uncoveredExons) cmp getScoreExonsCoverAndLength($a,@uncoveredExons)} @sortedBasicTranscripts;
+  }
+  return @finalBasicTranscripts;
+}
+
+sub getUncoveredExons() {
+  # returns an array of the exons in 'gene' which are not covered by any exon in 'transcripts'
+  my ($gene,@transcripts) = @_;
+  
+  my @uncoveredExons;
+
+  my @allTranscriptExons;
+  foreach my $transcript (@transcripts) {
+    push @allTranscriptExons,@{$transcript->get_all_Exons()};
+  }
+  
+  my @uniqueExons = @{$gene->get_all_Exons()};
+  
+  my $found = 0;
+  UNIQUE: foreach my $geneExon (@uniqueExons) {
+  	$found = 0;
+    foreach my $transcriptExon (@allTranscriptExons) {
+      if ($transcriptExon->start() == $geneExon->start() and
+          $transcriptExon->end() == $geneExon->end()) {
+        $found = 1;
+        last;      
+      }
+    }
+    if (!$found) {
+      push @uncoveredExons,$geneExon;
+    }
+  }
+  return @uncoveredExons;
+}
+
+sub getScoreExonsCoverAndLength {
+  # returns the number of exons covered in 'exons' by the exons in 'transcript'
+  my ($transcript,@exons) = @_;
+
+  my $numExonsCovered = 0;
+  UNIQUE: foreach my $exon (@exons) {
+    foreach my $transcriptExon (@{$transcript->get_all_Exons()}) {
+      if ($transcriptExon->start() == $exon->start() and
+          $transcriptExon->end() == $exon->end()) {
+        $numExonsCovered++;
+        next UNIQUE;      
+      }
+    }
+  }
+  
+  my $length_score_percentage = min(($MAX_TRANSCRIPT_LENGTH-1)/$MAX_TRANSCRIPT_LENGTH,$transcript->length()/$MAX_TRANSCRIPT_LENGTH);
+  my $score = $numExonsCovered+$length_score_percentage;
+
+  return $score;
+}
+
+sub transcriptExonsCoverGenePercentage() {
+  # returns the percentage of exonic length in 'gene' covered by the exons in 'transcripts'
+  my ($gene,@transcripts) = @_;
+
+  my @allTranscriptExons;
+  foreach my $transcript (@transcripts) {
+    push @allTranscriptExons,@{$transcript->get_all_Exons()};
+  }
+
+  my @uniqueExons = @{$gene->get_all_Exons()};
+  my $found = 0;
+  my $total_coverage = 0;
+  my $total_length = 0;
+  my $max_coverage = 0; # different exons can overlap a gene exon so we need to get the maximum coverage
+  UNIQUE: foreach my $geneExon (@uniqueExons) {
+    foreach my $transcriptExon (@allTranscriptExons) {
+    	
+      if ($transcriptExon->start() <= $geneExon->end() and
+          $transcriptExon->end() >= $geneExon->start()) {
+        
+        my $coverage_start = max($transcriptExon->start(),$geneExon->start());
+        my $coverage_end = min($transcriptExon->end(),$geneExon->end());
+        my $coverage_length = $coverage_end-$coverage_start+1;
+        if ($coverage_length > $max_coverage) {
+          $max_coverage = $coverage_length;	
+        }
+      } # end if transcriptExon
+      
+      if (($max_coverage == $geneExon->length()) or
+            ($transcriptExon == $allTranscriptExons[-1])) {
+        $total_coverage += $max_coverage;
+        $total_length += $geneExon->length();
+        $max_coverage = 0; # needs to be reset for the next unique exon within the gene
+        next UNIQUE;
+      } # end if max_coverage
+    } # end foreach
+  }
+  return (($total_coverage*100)/$total_length);
+}
 
 sub getGenomicLengthOfTranscript{ # i call it with a transcript object and it returns its genomic length
 
@@ -695,6 +810,7 @@ sub getGenomicLengthOfTranscript{ # i call it with a transcript object and it re
 }
 
 sub cdsLength{
+	
 
   my $transcript=shift;
   my $length;
@@ -808,7 +924,6 @@ sub get_distinct_gene_biotypes {
 
   return \@biotypes;
 }
-
 
 =head1
 
