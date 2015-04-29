@@ -23,7 +23,7 @@ For each Secondary gene:
           Swap Primary and Secondary transcripts.
           
           If the exons of the Secondary transcript are a subset of the
-          exons of the secondary transcript (start and end are allowed to differ):
+          exons of the Primary transcript (start and end are allowed to differ):
             Save the Secondary transcript as a candidate for merging into
             this particular Primary transcript.
           
