@@ -18,7 +18,28 @@ For each Secondary gene:
 
       For each Primary transcript:
 
-        If the Primary transcript is a single exon transcript:
+        If the Primary transcript has a genome patch truncated attribute:
+          # "REVERSE AND PARTIAL" MERGE
+          Swap Primary and Secondary transcripts.
+          
+          If the exons of the Secondary transcript are a subset of the
+          exons of the secondary transcript (start and end are allowed to differ):
+            Save the Secondary transcript as a candidate for merging into
+            this particular Primary transcript.
+          
+          Else (exon structure not same):
+            Examine the two sets of exons for any overlap.
+
+            If there is overlap:
+              Save the Secondary transcript as a candidate for copying into
+              this particular Primary gene.
+
+              Special case: If the Secondary gene is a single exon RNA gene
+              and the Primary gene is a multi exon coding gene, the Secondary
+              model will not be copied.
+
+        Elsif the Primary transcript is a single exon transcript:
+          # "NORMAL" MERGE
           Compare the single Primary exon with the set of exons from the
           Secondary transcript.
 

@@ -595,7 +595,13 @@ sub process_genes {
         $primary_gene->{__is_gene_cluster} = (
         scalar(@{ $primary_transcript->get_all_Attributes('gene_cluster') }) > 0 );
       }
-
+      
+      # If the transcript is labelled as "genome patch truncated" (attrib code='remark', value='genome patch truncated') then tag the transcript
+      foreach my $primary_transcript_attrib (@{$primary_transcript->get_all_Attributes('remark')}) {
+      	if ($primary_transcript_attrib->value() eq "genome patch truncated") {
+      	  $primary_transcript->{__is_genome_patch_truncated} = 1;
+      	}
+      }
       ++$transcript_count;
     }
 
@@ -739,32 +745,75 @@ SECONDARY_GENE:
 
       PRIMARY_TRANSCRIPT:
         foreach my $primary_transcript (@primary_transcripts) {
-          printf( "\t\t\tPrimary transcript %s (%d)\n",
+        	
+          # If the primary_transcript is tagged as "genome patch truncated",
+          # it should be treated as secondary and we'll try a partial merge
+          my $backup_secondary_transcript = $secondary_transcript;
+          my $backup_secondary_gene = $secondary_gene;
+          my $backup_primary_gene = $primary_gene;
+          
+          if ($primary_transcript->{__is_genome_patch_truncated}) {
+          	# GENOME PATCH TRUNCATED CASES
+          	printf("\t\t\tSwapping Primary and Secondary transcript and trying partial merge due to 'genome patch truncated' attribute in Primary transcript %s (%d)\n",
                   $primary_transcript->stable_id(),
                   $primary_transcript->dbID() );
+          	
+          	$secondary_transcript = $primary_transcript;
+          	$primary_transcript = $backup_secondary_transcript;
+          	$secondary_gene = $primary_gene;
+          	$primary_gene = $backup_secondary_gene;
+          	
+          	if (investigate_for_partial_merge($primary_transcript,$secondary_transcript)) {
+              print("\t\t\tTo be partially merged\n");
 
-          if ( investigate_for_merge(
-                                 $primary_transcript, $secondary_transcript
-               ) )
-          {
-            print("\t\t\tTo be merged\n");
-
-            push( @transcripts_to_merge,
-                  [ $primary_gene,  $primary_transcript,
-                    $secondary_gene, $secondary_transcript ] );
+              push( @transcripts_to_merge,
+                    [ $primary_gene,  $primary_transcript,
+                      $secondary_gene, $secondary_transcript ] );
+            } elsif ( investigate_for_copy(
+                                        $primary_gene,  $primary_transcript,
+                                        $secondary_gene, $secondary_transcript
+                    ) )
+            {
+              print( "\t\t\tSecondary transcript overlaps " .
+                     "and may be copied\n" );
+    
+              push( @transcripts_to_copy,
+                    [ $primary_gene,  $primary_transcript,
+                      $secondary_gene, $secondary_transcript ] );
+            }
+          } else {
+          	# ALL OTHER CASES
+	        printf( "\t\t\tPrimary transcript %s (%d)\n",
+	                $primary_transcript->stable_id(),
+	                $primary_transcript->dbID() );
+	
+	        if ( investigate_for_merge(
+	                               $primary_transcript, $secondary_transcript
+	             ) )
+	        {
+	          print("\t\t\tTo be merged\n");
+	
+              push( @transcripts_to_merge,
+	                [ $primary_gene,  $primary_transcript,
+	                  $secondary_gene, $secondary_transcript ] );
+	        }
+	        elsif ( investigate_for_copy(
+	                                    $primary_gene,  $primary_transcript,
+	                                    $secondary_gene, $secondary_transcript
+	                ) )
+	        {
+	          print( "\t\t\tSecondary transcript overlaps " .
+	                 "and may be copied\n" );
+	
+	          push( @transcripts_to_copy,
+	                [ $primary_gene,  $primary_transcript,
+	                  $secondary_gene, $secondary_transcript ] );
+	        }
           }
-          elsif ( investigate_for_copy(
-                                      $primary_gene,  $primary_transcript,
-                                      $secondary_gene, $secondary_transcript
-                  ) )
-          {
-            print( "\t\t\tSecondary transcript overlaps " .
-                   "and may be copied\n" );
-
-            push( @transcripts_to_copy,
-                  [ $primary_gene,  $primary_transcript,
-                    $secondary_gene, $secondary_transcript ] );
-          }
+          # restore secondary transcript and genes
+          $secondary_transcript = $backup_secondary_transcript;
+          $secondary_gene = $backup_secondary_gene;
+          $primary_gene = $backup_primary_gene;
 
         } ## end PRIMARY_TRANSCRIPT: foreach my $primary_transcript...
       } ## end PRIMARY_GENE: foreach my $primary_gene ( @...)
@@ -777,7 +826,7 @@ SECONDARY_GENE:
   my %ignored_secondary_transcripts;
 
   # Merge the transcripts that have been found to be mergable.  We allow
-  # merging an Secondary transcript into multiple Primary transcripts.
+  # merging a Secondary transcript into multiple Primary transcripts.
   foreach my $tuple (@transcripts_to_merge) {
     my ( $primary_gene,  $primary_transcript,
          $secondary_gene, $secondary_transcript
@@ -1226,6 +1275,17 @@ sub investigate_for_merge {
   return $do_merge;
 } ## end sub investigate_for_merge
 
+sub investigate_for_partial_merge {
+  # it returns true if a partial merge can be done
+  # a partial merge can be done if the secondary transcript exons
+  # are a subset of the primary transcript exons
+  my ($primary_transcript,$secondary_transcript) = @_;
+
+  return features_are_subset($primary_transcript->get_all_Exons(),
+                             $secondary_transcript->get_all_Exons());
+                                   
+} ## end sub investigate_for_partial_merge
+
 sub investigate_for_copy {
   my ( $primary_gene,  $primary_transcript,
        $secondary_gene, $secondary_transcript ) = @_;
@@ -1323,6 +1383,69 @@ sub features_are_same {
 
   return 1;
 } ## end sub features_are_same
+
+sub features_are_subset {
+# returns true if feature_set_b is a subset of feature_set_a
+# first feature start and last feature end are allowed to mismatch
+  my ( $feature_set_a, $feature_set_b ) = @_;
+
+  if (scalar(@{$feature_set_a}) == 0 ||
+     (scalar(@{$feature_set_a}) < scalar(@{$feature_set_b}))) {
+    return 0;
+  }
+
+  my $is_subset = 1;
+  my $feature_b_index = 0;
+  
+  for (my $feature_a_index = 0; $feature_a_index < scalar(@{$feature_set_a}); ++$feature_a_index) {
+    my $feature_a = $feature_set_a->[$feature_a_index];
+    my $feature_b = $feature_set_b->[$feature_b_index];
+    my $start_match = start_features_match($feature_a,$feature_b,$feature_b_index);
+    my $end_match = end_features_match($feature_a,$feature_b,$feature_b_index,scalar(@{$feature_set_b})-1);
+    my $room_for_feature_b = (scalar(@{$feature_set_b})-$feature_b_index-1 <= scalar(@{$feature_set_a})-$feature_a_index-1);
+
+    if ((!$start_match or !$end_match) and !$room_for_feature_b) {
+      # no more room for feature b
+      return 0;
+    } elsif ($start_match and $end_match) {
+      # match and still room
+      $feature_b_index++;
+      if ($feature_b_index > scalar(@{$feature_set_b})-1) {
+      # final match
+      	return 1;
+      }
+    }
+  }
+  # NO match
+  return 0;
+} ## end sub features_are_same
+
+sub start_features_match () {
+  # return true if feature b start lies within feature a for the first b feature
+  # or feature b start matches feature a start
+  
+  my ($feature_a,$feature_b,$index_b) = @_;
+  my $start_a = $feature_a->seq_region_start();
+  my $start_b = $feature_b->seq_region_start();
+  my $end_a = $feature_a->seq_region_end();
+
+  return ( ($start_a == $start_b and $index_b > 0) or
+           ($start_a <= $start_b and $start_b <= $end_a and $index_b == 0)
+         );
+}
+
+sub end_features_match () {
+  # return true if feature b end lies within feature a for the last b feature
+  # or feature b end matches feature a end
+  my ($feature_a,$feature_b,$index_b,$last_index_b) = @_;
+  my $end_a = $feature_a->seq_region_end();
+  my $end_b = $feature_b->seq_region_end();
+  my $start_a = $feature_a->seq_region_start();
+
+  return ( ($end_a == $end_b and $index_b < $last_index_b) or
+           ($start_a <= $end_b and $end_b <= $end_a and $index_b == $last_index_b)
+         );
+}
 
 sub has_complete_start_stop {
   my ($transcript) = @_;
