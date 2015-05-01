@@ -154,6 +154,7 @@ sub copy_db {
   dump_database($source_host,$source_port,$self->param('user_r'),$self->param('pass_r'),$source_dbname,$self->param('db_dump_file'));
   create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
+  remove_file($self->param('db_dump_file'));
 }
 
 sub convert_hash_to_db_string {
@@ -164,7 +165,7 @@ sub convert_hash_to_db_string {
           " both are required if a hash is being passed in");
   }
 
-  my $port = $connection_info->{'port'};
+  my $port = $connection_info->{'-port'};
 
   my $db_string;
   $db_string = $connection_info->{'-dbname'}.'@'.$connection_info->{'-host'};
@@ -193,11 +194,11 @@ sub dump_database {
   
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
-  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser $dbname > $db_file";
+  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser $dbname > $db_file";
   } else {
-  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass $dbname > $db_file";
+  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser -p$dbpass $dbname > $db_file";
   }
-  
+
   if (system($command)) {
     throw("The dump was not completed. Please, check that you have enough disk space in the output path $db_file as well as writing permission.");
   } else {
@@ -227,17 +228,15 @@ sub load_database {
   }
 }
 
-sub DESTROY {
-  my $self = shift;
-  
-  my $db_file = $self->param('db_dump_file');
-  
+sub remove_file {
+  my $db_file = shift;
+
   if (-e $db_file) {
-  	print "Deleting temporary file $db_file\n";
+  	print "Deleting file $db_file\n";
   	if (system("rm -f $db_file")) {
-  	  throw("Couldn't delete temporary file $db_file");
+  	  throw("Couldn't delete file $db_file");
   	} else {
-  	  print "Temporary file $db_file deleted\n";
+  	  print "File $db_file has been deleted.\n";
   	}
   }	
 }
