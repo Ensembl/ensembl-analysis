@@ -162,19 +162,6 @@ if( !$dir_enscode )
 }
 
 my $dir_assembly_scripts = $dir_enscode."/ensembl-analysis/scripts/assembly_loading/";
-#if( !$dir_ensgbscripts )
-#{
-#    $dir_ensgbscripts = $ENV{'ENSGBSCRIPTS'} ; 
-#    if( !$dir_ensgbscripts )
-#    {
-#        print "Please specify ENSCODE and ENSGBSCRIPTS directories\n" ;
-#        &usage;
-#        exit(1);
-#    }
-#    $dir_ensgbscripts =~ s'/$'' ;
-#}
-
-#my ($script_root) = $0 =~ '(.*/)ensembl-personal/genebuilders' ;
 
 #-------
 # BEGIN
