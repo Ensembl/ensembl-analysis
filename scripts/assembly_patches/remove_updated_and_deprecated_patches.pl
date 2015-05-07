@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-use Bio::EnsEMBL::Registry;
-use Bio::EnsEMBL::Utils::Exception qw(throw);
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Getopt::Long;
 
 use strict;
@@ -29,6 +29,7 @@ my $user;
 my $port = 3306;
 my $central_coord_system = 'supercontig';
 my $toplevel_coord_system = 'chromosome';
+my $sqlfile = 'delete_patch.sql';
 
 &GetOptions(
             'pass=s'         => \$pass,
@@ -38,10 +39,11 @@ my $toplevel_coord_system = 'chromosome';
             'user=s'         => \$user,
             'port=n'         => \$port,
             'central_cs=s'   => \$central_coord_system,
+            'sqlfile=s'   => \$sqlfile,
            );
 
 open(TYPE,"<".$patchtype_file)         || die "Could not open file $patchtype_file";
-open(SQL,">delete_patch.sql") || die "Could not open delete_patch.sql for writing\n";
+open(SQL,">$sqlfile") || die "Could not open $sqlfile for writing\n";
 #connect to the database
 
 my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
@@ -71,13 +73,6 @@ my $get_synonym_sth = $dba->dbc->prepare("select synonym from seq_region_synonym
 
 if ($get_synonym_sth == 0) {
   throw("Could not prepare to get synonym");
-}
-my $get_seq_region_id_sth = $dba->dbc->prepare("select seq_region_id from seq_region, coord_system where seq_region. name = ? and seq_region.coord_system_id=coord_system.coord_system_id and
-coord_system.name = ?")
-  || die "Could not prepare to get seq_region_id";
-
-if ($get_seq_region_id_sth == 0) {
-  throw("Could not prepare to get seq_region_id");
 }
 #get the full list of existing synonyms/accessions
 my $existing_synonym;
@@ -145,13 +140,22 @@ sub remove_patch{
   my $alt_scaf_name = shift;
   #get the patch seq_region_ids (chrom and scaffold)
   my($scaf_id, $chrom_id);
-  $get_seq_region_id_sth->execute($alt_scaf_name, $central_coord_system) || die "problem executing seq_region_id";
-  $get_seq_region_id_sth->bind_columns(\$scaf_id) || die "problem binding";
-  $get_seq_region_id_sth->fetch();
+  my $slice_adaptor = $dba->get_SliceAdaptor;
+  my $slice = $slice_adaptor->fetch_by_region($central_coord_system, $alt_scaf_name);
+  $scaf_id = $slice->get_seq_region_id;
 
-  $get_seq_region_id_sth->execute($alt_scaf_name, $toplevel_coord_system) || die "problem executing seq_region_id";
-  $get_seq_region_id_sth->bind_columns(\$chrom_id) || die "problem binding";
-  $get_seq_region_id_sth->fetch();
+  my $projection = $slice->project($toplevel_coord_system);
+  foreach my $segment (@$projection) {
+      my $projected_slice = $segment->to_Slice();
+      if ($projected_slice->assembly_exception_type !~ '^PATCH') {
+          warning("$alt_scaf_name which is on ".$projected_slice->seq_region_name.' is of type '.$projected_slice->assembly_exception_type."\n  You nay have a problem!");
+
+      }
+      else {
+          $chrom_id = $projected_slice->get_seq_region_id;
+      }
+  }
+  throw("Could not find the $toplevel_coord_system seq_region_id for $alt_scaf_name") unless ($chrom_id);
 
   #check for components only used in patch
   my $scaf_comp;
