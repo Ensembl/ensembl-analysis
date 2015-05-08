@@ -170,19 +170,17 @@ for (my $i = 0;$i < $num_patches;$i++){
       " --assembly ".$assembly." --altdbname ".$dbname." --altassembly ".$assembly." --chromosomes ".$ref_slice->seq_region_name.
       " --altchromosomes ".$patch_slice->seq_region_name." --logpath ".$out_dir." --logfile ".$patch_slice->seq_region_name."_nonident.log --force-stage";
 
-    if ( ($patch_slice->seq_region_name eq 'HG1472_PATCH') or ($patch_slice->seq_region_name eq 'HG858_PATCH') ) {
+    if ( ($patch_slice->seq_region_name eq 'HG1472_PATCH') or ($patch_slice->seq_region_name eq 'HG858_PATCH') or ($patch_slice->seq_region_name eq 'CHR_HG1342_HG2282_PATCH') ) {
       $command = "bsub -R'select[mem>10000] rusage[mem=10000]' -M10000 -o ".$out_dir.$patch_slice->seq_region_name."_nonident.out -e ".
         $out_dir.$patch_slice->seq_region_name."_nonident.err ".
         $perl." ".$script." --dbhost ".$host." --dbport ".$port." --dbuser ".$user." --dbpass ".$pass." --dbname ".$dbname.
         " --assembly ".$assembly." --altdbname ".$dbname." --altassembly ".$assembly." --chromosomes ".$ref_slice->seq_region_name.
         " --altchromosomes ".$patch_slice->seq_region_name." --logpath ".$out_dir." --logfile ".$patch_slice->seq_region_name."_nonident.log --force-stage";
     }
-
     print $command."\n";
     my $cmd_rtn = `$command`;
     print $cmd_rtn."\n";
   }
-
 }
 
 if($align_by_component){
