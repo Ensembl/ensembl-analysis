@@ -1,3 +1,19 @@
+#!/usr/bin/env perl
+
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase;
 
 use strict;
@@ -12,15 +28,15 @@ use Data::Dumper;
 
 sub param_defaults {
     return {
-    	
+
       # used by all create types
       create_type => '',
       source_db => '',
       target_db => '',
-      
+
       # used by create_type = 'clone'
       script_path => '~/enscode/ensembl-personal/genebuilders/scripts/clone_database.ksh',
-      
+
       # used by create_type = 'copy'
       db_dump_file => "/tmp/source_db_".time().".tmp",
       pass_r => '',
@@ -59,7 +75,9 @@ sub create_db {
   if($create_type eq 'clone') {
     $self->clone_db();
   } elsif ($create_type eq 'copy') {
-  	$self->copy_db();
+    $self->copy_db();
+  } elsif($create_type eq 'core_only') {
+    $self->core_only_db();
   } else {
     throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
   }
@@ -138,23 +156,87 @@ sub copy_db {
     $self->check_db_string($self->param('target_db'));
     $target_string = $self->param('target_db');
   }
-  
+
   my @source_string_at_split = split('@',$source_string);
   my $source_dbname = shift(@source_string_at_split);
   my @source_string_colon_split = split(':',shift(@source_string_at_split));
   my $source_host = shift(@source_string_colon_split);
   my $source_port = shift(@source_string_colon_split);
-  
+
   my @target_string_at_split = split('@',$target_string);
   my $target_dbname = shift(@target_string_at_split);
   my @target_string_colon_split = split(':',shift(@target_string_at_split));
   my $target_host = shift(@target_string_colon_split);
   my $target_port = shift(@target_string_colon_split);
-  
+
   dump_database($source_host,$source_port,$self->param('user_r'),$self->param('pass_r'),$source_dbname,$self->param('db_dump_file'));
   create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
   remove_file($self->param('db_dump_file'));
+}
+
+sub core_only_db {
+  my $self = shift;
+
+  unless ($self->param('target_db')) {
+    throw("You have specified a create type of core_only but you don't have a target_db specified in your config.");
+  }
+
+  unless($self->param('user_w') && $self->param('pass_w')) {
+    throw("You have specified a create type of core_only but you haven't specified the user_w and pass_w.\n");
+  }
+
+  unless($self->param('enscode_dir')) {
+    throw("You have specified a create type of core_only but you haven't specified the file path to the core tables.\n");
+  }
+
+  my $table_file = $self->param('enscode_dir')."/ensembl/sql/table.sql";
+  unless(-e $table_file) {
+    throw("You have specified a create type of core_only but the path from enscode_dir to the table file is incorrect:\n".
+          $self->param('enscode_dir')."/ensembl/sql/table.sql");
+  }
+
+  my $target_string;
+  if (ref($self->param('target_db')) eq 'HASH') {
+    $target_string = $self->convert_hash_to_db_string($self->param('target_db'));
+  } else {
+    $self->check_db_string($self->param('target_db'));
+    $target_string = $self->param('target_db');
+  }
+
+  my @target_string_at_split = split('@',$target_string);
+  my $target_dbname = shift(@target_string_at_split);
+  my @target_string_colon_split = split(':',shift(@target_string_at_split));
+  my $target_host = shift(@target_string_colon_split);
+  my $target_port = shift(@target_string_colon_split);
+  my $target_user = $self->param('user_w');
+  my $target_pass = $self->param('pass_w');
+
+  my $command;
+  # Create the empty db
+  if($target_port) {
+    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -e 'CREATE DATABASE ".$target_dbname."'";
+  } else {
+    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -e 'CREATE DATABASE ".$target_dbname."'";
+  }
+  say "COMMAND: ".$command;
+
+  my $exit_code = system($command);
+  if($exit_code) {
+    throw("The create database command exited with a non-zero exit code: ".$exit_code);
+  }
+
+  # Load core tables
+  if($target_port) {
+    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -D".$target_dbname." < ".$table_file;
+  } else {
+    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -D".$target_dbname." < ".$table_file;
+  }
+  $exit_code = system($command);
+  if($exit_code) {
+    throw("The load tables command exited with a non-zero exit code: ".$exit_code);
+  }
+
 }
 
 sub convert_hash_to_db_string {
@@ -191,7 +273,7 @@ sub dump_database {
   my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
 
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
-  
+
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
   	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser $dbname > $db_file";
