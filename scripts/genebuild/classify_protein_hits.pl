@@ -524,7 +524,9 @@ for my $lg ( @logic_names ) {
   my %paf_hit_log;
   foreach my $logic_name (keys %paf_hash) {
     foreach my $hit_name (keys %{$paf_hash{$logic_name}}) {
+      my ($hit_name_no_version,$version) = split(/\./,$hit_name);
       $paf_hit_log{$hit_name}{$logic_name} = 1;
+      $paf_hit_log{$hit_name_no_version}{$logic_name} = 1; # add hit name without version for no mfetch option
     }
   }
 
