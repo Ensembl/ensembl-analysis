@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use ScriptUtils;
+use buildchecks::ScriptUtils;
 use Getopt::Long;
 
 use Bio::Tools::CodonTable;
