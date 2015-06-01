@@ -136,7 +136,8 @@ while ( my $transcript_id = <> ) {
   my $copy_of_dbID = $transcript->dbID();
 
   eval {
-    $ta->remove($transcript);
+    # We want to update the gene in case the boundaries have changed
+    $ta->remove($transcript, 1);
     if ($has_transcript_stable_id) {
       printf( "Deleted transcript %s (id = %d)\n",
               $transcript->stable_id(), $copy_of_dbID );
