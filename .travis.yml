@@ -17,11 +17,14 @@ before_install:
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-funcgen.git
     - wget https://github.com/bioperl/bioperl-live/archive/bioperl-release-1-2-3.zip
     - unzip bioperl-release-1-2-3.zip
+    - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download 
+    - tar -jxvf download 
+    - cd samtools-0.1.19 && make && export SAMTOOLS=`pwd`
 
 
 install:
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
-    - cpanm -v --installdeps --with-recommends --notest Bio::DB::Sam
+    - cpanm -v --with-recommends --notest Bio::DB::Sam
  
 script: "./travisci/harness.sh"
 
