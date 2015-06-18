@@ -367,7 +367,7 @@ while (@gene_ids) {
     if ( defined($gene) ) {
       empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
 
-      $outga->store($gene);
+      $outga->store($gene,1,0,1);
       ++$genes_stored;
       --$genes_to_go;
 
