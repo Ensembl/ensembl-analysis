@@ -49,6 +49,7 @@ use Bio::EnsEMBL::Analysis::Config::GeneBuild::LayerAnnotation;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Data::Dumper;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
@@ -158,7 +159,7 @@ sub write_output {
     };
     
     if ($@) {
-      $self->warning("Unable to store gene!!\n");
+      $self->warning("Unable to store gene".$g->dbID()." ".$g->stable_id()."\n");
       print STDERR "$@\n";
       $fails++;  
     }
