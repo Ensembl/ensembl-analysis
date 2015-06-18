@@ -1,6 +1,8 @@
 #!/bin/bash
 export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules
 
+export WORK_DIR=$PWD
+
 echo "Running test suite"
 echo "Using $PERL5LIB"
 if [ "$COVERALLS" = 'true' ]; then

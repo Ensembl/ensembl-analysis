@@ -54,7 +54,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info get_multi_Exon_Genes get_single_Exon_Genes  ); 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
 use Bio::EnsEMBL::Analysis::Runnable::Blast; 
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam; 
+# It seems that Pfam module has been delete and replaced by Pfam_wormbase
+use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam_wormbase; 
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;   
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Registry; 
