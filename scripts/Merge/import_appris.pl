@@ -118,13 +118,13 @@ my $aa  = $db->get_AttributeAdaptor();
 # hard code the mapping
 # # # 
 my $label2code = {
-                   'PRINCIPAL:1'                 => [ 'appris_pi1', 'APPRIS principal isoform'],
-                   'PRINCIPAL:2'                 => [ 'appris_pi2', 'APPRIS candidate principal isoform (CCDS)'],
-                   'PRINCIPAL:3'                 => [ 'appris_pi3', 'APPRIS candidate principal isoform (earliest CCDS)' ],
-                   'PRINCIPAL:4'                 => [ 'appris_pi4', 'APPRIS candidate principal isoform (longest CCDS)' ],
-                   'PRINCIPAL:5'                 => [ 'appris_pi5', 'APPRIS candidate principal isoform (longest coding sequence)' ],
-                   'ALTERNATIVE:1'               => [ 'appris_alt1', 'APPRIS candidate principal isoform that is conserved in at least three tested non-primate species' ],
-                   'ALTERNATIVE:2'               => [ 'appris_alt2', 'APPRIS candidate principal isoform that appears to be conserved in fewer than three tested non-primate species' ],
+                   'PRINCIPAL:1'                 => [ 'appris', 'principal1' ],
+                   'PRINCIPAL:2'                 => [ 'appris', 'principal2' ],
+                   'PRINCIPAL:3'                 => [ 'appris', 'principal3' ],
+                   'PRINCIPAL:4'                 => [ 'appris', 'principal4' ],
+                   'PRINCIPAL:5'                 => [ 'appris', 'principal5' ],
+                   'ALTERNATIVE:1'               => [ 'appris', 'alternative1' ],
+                   'ALTERNATIVE:2'               => [ 'appris', 'alternative2' ],
                  };
 
 
@@ -192,7 +192,7 @@ foreach my $slice ( @slices ) {
         # oh good, found this stable ID
         $stable_id_in_file++;
         if ($write) {
-          store_attrib($aa, $transcript, $appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_type_code'},$appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_value'}." [".$time."]");
+          store_attrib($aa, $transcript, $appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_type_code'},$appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_value'});
           print STDERR "  writing gene ".$gene->stable_id." transcript". $transcript->stable_id." APPRIS ".$appris_results{$gene->stable_id}{$transcript->stable_id}{'attrib_type_code'}."\n";
         }
       } else {
