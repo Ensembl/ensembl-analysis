@@ -20,6 +20,7 @@ before_install:
     - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download 
     - tar -jxvf download 
     - cd samtools-0.1.19 && make
+    - cd ..
 
 
 install:
