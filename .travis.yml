@@ -21,7 +21,7 @@ before_install:
 
 install:
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
-    - cpanm -v --with-recommends --notest Bio::DB::Sam
+    - cpanm -v --installdeps --with-recommends --notest Bio::DB::Sam
  
 script: "./travisci/harness.sh"
 
