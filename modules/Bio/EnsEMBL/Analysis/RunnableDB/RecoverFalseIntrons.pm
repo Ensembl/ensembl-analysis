@@ -106,7 +106,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases; 
+use Bio::EnsEMBL::Analysis::Config::Databases;
 use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets; 
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Pfetch; 
 use Bio::EnsEMBL::Registry;  

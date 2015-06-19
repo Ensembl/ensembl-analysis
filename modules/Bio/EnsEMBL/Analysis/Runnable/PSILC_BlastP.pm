@@ -135,7 +135,7 @@ sub  run_blast{
   my $blast =  Bio::EnsEMBL::Analysis::Runnable::Blast->new 
     ('-query'     => $query,
      '-program'   => 'blastp',
-     '-database'  => "$PSILC_BLAST_DB/multi_species.fasta",
+     '-database'  => "$Bio::EnsEMBL::Analysis::Config::Pseudogene::PSILC_BLAST_DB/multi_species.fasta",
      '-threshold' => 1e-6,
      '-parser'    => $bplitewrapper,
      '-options'   => 'V=10 -cpus=1',

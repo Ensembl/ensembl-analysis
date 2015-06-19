@@ -13,6 +13,8 @@ else
 # We need to fake some configuration files
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/HaplotypeProjection.pm
   cp $PWD/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example $PWD/modules/setup_rnaseq_pipeline_config.pm
+  # We need to fake this module but it may be cleaned better later
+  sed 's/Solexa2Genes/Solexa2GenesLiteNew/' $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2Genes.pm.example > $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2GenesLiteNew.pm
   find $PWD/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
   find $PWD/scripts -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
   find $PWD/ensembl-pipeline/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
