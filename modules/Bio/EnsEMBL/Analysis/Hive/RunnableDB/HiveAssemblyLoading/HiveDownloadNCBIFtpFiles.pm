@@ -89,7 +89,7 @@ sub download_ftp_dir {
 }
 
 sub unzip {
-  my ($path,) = @_;
+  my ($path) = @_;
   say "Unzipping the compressed files...";
   throw("gunzip operation failed. Please check your error log file.") if (system("gunzip -r $path") == 1);
   say "Unzipping finished!";
