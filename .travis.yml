@@ -30,11 +30,12 @@ install:
     - export SAMTOOLS=$PWD/samtools-0.1.19
     - export PERL5LIB=$PWD/bioperl-live
     - cpanm -v --with-recommends --notest Bio::DB::Sam
-# We don't really need MooseX::ClassAttribute, just one module which is not used by us
-    - cpanm -v --notest MooseX::ClassAttribute
-    - cpanm -v --notest File::Spec::Link
     - unset SAMTOOLS
     - unset PERL5LIB
+# We don't really need the modules below this, just one module needs it (modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm) and it is not used by us
+    - cpanm -v --notest MooseX::ClassAttribute
+    - cpanm -v --notest File::Spec::Link
+    - cpanm -v --notest Readonly
  
 script: "./travisci/harness.sh"
 
