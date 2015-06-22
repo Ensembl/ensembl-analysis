@@ -273,7 +273,7 @@ sub output_dir{
   $output_dir = $self->id;
   if ($self->psilc_work_dir){
     system("mkdir $self->psilc_work_dir/$$input_id/$output_dir");
-    $self->workdir("$PSILC_WORK_DIR/$$input_id/$output_dir");
+    $self->workdir($self->psilc_work_dir."/$$input_id/$output_dir");
   }
   else{
     $self->throw("Cannot make output directory\n");
