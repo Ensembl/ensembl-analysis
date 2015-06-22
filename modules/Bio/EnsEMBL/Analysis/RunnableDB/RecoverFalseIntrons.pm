@@ -107,14 +107,14 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
 use Bio::EnsEMBL::Analysis::Config::Databases;
-use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets; 
+# Not sure if this module ever existed
+#use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets; 
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Pfetch; 
 use Bio::EnsEMBL::Registry;  
 use IO::String;
 use Bio::SeqIO; 
 use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Runnable::BestTargetted; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils; 
 use Bio::EnsEMBL::Analysis ; 
 
@@ -129,7 +129,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils
             get_transcript_with_longest_CDS
             get_one2one_orth_for_gene_in_other_species
            );
-use Bio::EnsEMBL::Pipeline::RunnableDB::FPC_BlastMiniGenewise;
+# If you really need this module you can get it from ensembl-pipeline, tag cvs/pre_runnable_delete or use Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
+#use Bio::EnsEMBL::Pipeline::RunnableDB::FPC_BlastMiniGenewise;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::HomologyUtils 
          qw( 
             get_gene_obj_out_of_compara_homology_object

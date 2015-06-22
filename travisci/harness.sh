@@ -10,8 +10,13 @@ if [ "$COVERALLS" = 'true' ]; then
   PERL5OPT='-MDevel::Cover=+ignore,bioperl,+ignore,ensembl-test' perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
 else
   # just test the basic syntax for all the scripts and modules - start by renaming example modules
-# We need to fake some configuration files
+  # We need to fake some configuration files
+  # Some of these config files should probably be remove from the module
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/HaplotypeProjection.pm
+  echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/FilterGenes.pm
+  echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/ExonerateRefinedCloneEnds.pm
+  # Funcgen config
+  echo '@RUNNABLE_CONFIG = ();$ANALYSIS_WORK_DIR = "";$ANALYSIS_INPUT_DIR = "";$ANALYSIS_TARGET_DIR = ""' >> $PWD/runnable_config.pm
   cp $PWD/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example $PWD/modules/setup_rnaseq_pipeline_config.pm
   # We need to fake this module but it may be cleaned better later
   sed 's/Solexa2Genes/Solexa2GenesLiteNew/' $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2Genes.pm.example > $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2GenesLiteNew.pm
