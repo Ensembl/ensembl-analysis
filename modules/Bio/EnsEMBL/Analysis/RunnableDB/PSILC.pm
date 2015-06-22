@@ -200,7 +200,7 @@ sub fetch_input{
       }
     }
     next GENE unless (scalar (@rep_transcripts > 0));
-    if (scalar(@rep_transcripts > 1) && $REP_TRANSCRIPT){
+    if (scalar(@rep_transcripts > 1) && $self->REP_TRANSCRIPT){
       # arrange transcripts by length so you can pick the longest as rep if needed
       @rep_transcripts = sort {$a->length <=> $b->length} @rep_transcripts;
       my @temp = pop @rep_transcripts;
@@ -317,7 +317,7 @@ sub fetch_trans{
   TRANS:   foreach my $trans_id (@{$blast_results->{$species}}){;
       next TRANS if ($already_seen{$trans_id});
       $transcript_count++;
-      next SPECIES unless ($transcript_count <= $PS_SPECIES_LIMIT);
+      next SPECIES unless ($transcript_count <= $self->PS_SPECIES_LIMIT);
       my $transcript = $ta->fetch_by_translation_stable_id($trans_id);
       $already_seen{$trans_id} = 1;
       unless ($transcript && $transcript->isa("Bio::EnsEMBL::Transcript")){
@@ -372,7 +372,7 @@ sub run_PSILC{
      '-analysis'  => $self->analysis,
      '-domain'    => \$domains{$pfam_transcript->dbID},
      '-input_id'  => \$self->input_id,
-     '-psilc_work_dir' => $Bio::EnsEMBL::Analysis::Config::Pseudogene::self->PSILC_WORK_DIR,
+     '-psilc_work_dir' => $self->PSILC_WORK_DIR,
     );
   eval{
     $PSILC->run;
@@ -400,23 +400,23 @@ sub species_db{
     unless ($db->isa("Bio::EnsEMBL::DBSQL::DBAdaptor")){
       $self->throw("$species object is not a Bio::EnsEMBL::DBSQL::DBAdaptor, it is a $db$@\n");
     }
-    if ($species eq $SUBJECT){
+    if ($species eq $self->SUBJECT){
       $self->{'_db_subject'} = $db;
     }
-    if ($species eq $ORTH1){
+    if ($species eq $self->ORTH1){
       $self->{'_db_orth1'} = $db;
     }
-    if ($species eq $ORTH2){
+    if ($species eq $self->ORTH2){
       $self->{'_db_orth2'} = $db;
     }
   }
-  if ($species eq $SUBJECT){
+  if ($species eq $self->SUBJECT){
     return $self->{'_db_subject'};
   }
-  if ($species eq $ORTH1){
+  if ($species eq $self->ORTH1){
     return $self->{'_db_orth1'};
   }
-  if ($species eq $ORTH2){
+  if ($species eq $self->ORTH2){
     return $self->{'_db_orth2'};
   }
   $self->throw("Species not recognised : $species\n");
