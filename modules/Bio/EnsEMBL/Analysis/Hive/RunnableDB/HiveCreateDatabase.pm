@@ -187,7 +187,7 @@ sub core_only_db {
   }
 
   unless($self->param('enscode_dir')) {
-    throw("You have specified a create type of core_only but you haven't specified the file path to the core tables.\n");
+    throw("You have specified a create type of core_only but you haven't specified the enscode_dir path\n");
   }
 
   my $table_file = $self->param('enscode_dir')."/ensembl/sql/table.sql";
