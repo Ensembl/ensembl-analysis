@@ -27,7 +27,8 @@ else
   find $PWD/ensembl-pipeline/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
   find $PWD/scripts -type f -name "*.pl" | xargs -i perl -c {}
 # We avoid the Finished directory at the moment
-  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" | xargs -i perl -c {}
+  printf "\e[31mWe will not test Annacode modules, %s\e[0m\n" "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm"
+  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" ! -name "Exonerate2Array.pm" | xargs -i perl -c {}
 fi
 rt=$?
 if [ $rt -eq 0 ]; then
