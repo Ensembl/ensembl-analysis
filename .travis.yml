@@ -15,6 +15,7 @@ before_install:
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-compara.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-funcgen.git
+    - git clone --branch release/56 --depth 1 https://github.com/Ensembl/ensembl.git ensembl-56
     - wget https://github.com/bioperl/bioperl-live/archive/bioperl-release-1-2-3.zip
     - unzip bioperl-release-1-2-3.zip
     - git clone --branch bioperl-release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-live.git

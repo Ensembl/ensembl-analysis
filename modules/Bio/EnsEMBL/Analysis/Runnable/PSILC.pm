@@ -85,11 +85,12 @@ sub new {
   $self->{'_homologs'} = ();	# array of holmologs to cluster with transcript;
   $self->{'_domains'} = ();	# array ref of protein feature ids;
 
-  my($trans,$domains,$homologs,$input_id) = $self->_rearrange([qw(
+  my($trans,$domains,$homologs,$input_id, $psilc_work_dir) = $self->_rearrange([qw(
 							TRANS
 							DOMAIN
 							HOMOLOGS
 							INPUT_ID
+                            PSILC_WORK_DIR
 						       )], @args);
   if ($trans) {
     $self->trans($trans);
@@ -270,8 +271,8 @@ sub output_dir{
   my ($self,$input_id) = @_;
   my $output_dir;
   $output_dir = $self->id;
-  if ($PSILC_WORK_DIR){
-    system("mkdir $PSILC_WORK_DIR/$$input_id/$output_dir");
+  if ($self->psilc_work_dir){
+    system("mkdir $self->psilc_work_dir/$$input_id/$output_dir");
     $self->workdir("$PSILC_WORK_DIR/$$input_id/$output_dir");
   }
   else{
@@ -438,6 +439,24 @@ sub output {
     $self->{'_output'} = $hash_ref;
   }
   return $self->{'_output'};
+}
+
+=head2 psilc_work_dir
+
+  Arg [1]    : String
+  Description: path to work dir
+  Returntype : string
+  Exceptions : none
+  Caller     : general
+
+=cut
+
+sub psilc_work_dir {
+  my ($self, $path) = @_;
+  if ($path) {
+    $self->{'_psilc_work_dir'} = $path;
+  }
+  return $self->{'_psilc_work_dir'};
 }
 
 1;

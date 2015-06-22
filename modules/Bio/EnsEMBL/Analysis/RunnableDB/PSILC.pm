@@ -116,32 +116,32 @@ sub fetch_input{
   my @genes; 
   my $subjectdb = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
-     '-host'   => $PSILC_SUBJECT_DBHOST,
+     '-host'   => $self->PSILC_SUBJECT_DBHOST,
      '-user'   => 'ensro',
-     '-dbname' => $PSILC_SUBJECT_DBNAME,
-     '-port'   => $PSILC_SUBJECT_DBPORT,
+     '-dbname' => $self->PSILC_SUBJECT_DBNAME,
+     '-port'   => $self->PSILC_SUBJECT_DBPORT,
     );
   my $orth1db = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
-     '-host'   => $PSILC_ORTH1_DBHOST,
+     '-host'   => $self->PSILC_ORTH1_DBHOST,
      '-user'   => 'ensro',
-     '-dbname' => $PSILC_ORTH1_DBNAME,
-     '-port'   => $PSILC_ORTH1_DBPORT,
+     '-dbname' => $self->PSILC_ORTH1_DBNAME,
+     '-port'   => $self->PSILC_ORTH1_DBPORT,
     );  
   my $orth2db = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
-     '-host'   => $PSILC_ORTH2_DBHOST,
+     '-host'   => $self->PSILC_ORTH2_DBHOST,
      '-user'   => 'ensro',
-     '-dbname' => $PSILC_ORTH2_DBNAME,
-     '-port'   => $PSILC_ORTH2_DBPORT,
+     '-dbname' => $self->PSILC_ORTH2_DBNAME,
+     '-port'   => $self->PSILC_ORTH2_DBPORT,
     ); 
 
-  $self->species_db($SUBJECT,$subjectdb);
-  $self->species_db($ORTH1,$orth1db);
-  $self->species_db($ORTH2,$orth2db); 
+  $self->species_db($self->SUBJECT,$subjectdb);
+  $self->species_db($self->ORTH1,$orth1db);
+  $self->species_db($self->ORTH2,$orth2db); 
 
   #store repeat db internally
-  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
+  my $dna_db = $self->get_dbadaptor($self->DNA_DBNAME) ;
   $self->rep_db($dna_db);
 
   #genes come from final genebuild database
@@ -151,7 +151,7 @@ sub fetch_input{
   my $ga = $genes_db->get_GeneAdaptor;
   my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
   my $ids = $fa->fetch_by_analysis($self->analysis);
-  $self->throw("No flags found for analysis $PSILC_LOGIC_NAME\n")  unless (scalar(@{$ids}>0));
+  $self->throw("No flags found for analysis $self->PSILC_LOGIC_NAME\n")  unless (scalar(@{$ids}>0));
   if ($self->input_id =~ /(\d+):(\d+)/) {
     $start = $1;
     $end = $2;
@@ -372,6 +372,7 @@ sub run_PSILC{
      '-analysis'  => $self->analysis,
      '-domain'    => \$domains{$pfam_transcript->dbID},
      '-input_id'  => \$self->input_id,
+     '-psilc_work_dir' => $Bio::EnsEMBL::Analysis::Config::Pseudogene::self->PSILC_WORK_DIR,
     );
   eval{
     $PSILC->run;
@@ -435,8 +436,8 @@ sub species_db{
 sub make_dir{
   my ($self) = @_;
   my $input_id = $self->input_id;  
-  if ($PSILC_WORK_DIR){
-    system("mkdir $PSILC_WORK_DIR/$input_id");
+  if ($self->PSILC_WORK_DIR){
+    system("mkdir $self->PSILC_WORK_DIR/$input_id");
   }
   else{
     $self->throw("Cannot make output directory\n");
