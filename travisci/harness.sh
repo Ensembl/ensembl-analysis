@@ -1,5 +1,5 @@
 #!/bin/bash
-export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/bioperl-live
+export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/bioperl-live:$PWD/bioperl-run
 
 export WORK_DIR=$PWD
 
@@ -16,7 +16,8 @@ else
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/FilterGenes.pm
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/ExonerateRefinedCloneEnds.pm
   # Funcgen config
-  echo '@RUNNABLE_CONFIG = ();$ANALYSIS_WORK_DIR = "";$ANALYSIS_INPUT_DIR = "";$ANALYSIS_TARGET_DIR = ""' >> $PWD/runnable_config.pm
+  printf "@RUNNABLE_CONFIG = ();\n\$ANALYSIS_WORK_DIR = '%s';\n\$ANALYSIS_INPUT_DIR = '%s';\n\$ANALYSIS_TARGET_DIR = '%s';\n1;\n" $PWD $PWD $PWD > $PWD/runnable_config.pm
+  perl -c $PWD/runnable_config.pm
   cp $PWD/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example $PWD/modules/setup_rnaseq_pipeline_config.pm
   # We need to fake this module but it may be cleaned better later
   sed 's/Solexa2Genes/Solexa2GenesLiteNew/' $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2Genes.pm.example > $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2GenesLiteNew.pm
