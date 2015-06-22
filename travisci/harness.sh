@@ -15,7 +15,7 @@ else
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/HaplotypeProjection.pm
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/FilterGenes.pm
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/ExonerateRefinedCloneEnds.pm
-  echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/FilterGenes.pm
+  echo '%Config = ( FILTER_CONFIG_BY_LOGIC => { DEFAULT => {}});1;' > modules/Bio/EnsEMBL/Analysis/Config/FilterGenes.pm
   # Funcgen config
   printf "@RUNNABLE_CONFIG = ();\n\$ANALYSIS_WORK_DIR = '%s';\n\$ANALYSIS_INPUT_DIR = '%s';\n\$ANALYSIS_TARGET_DIR = '%s';\n1;\n" $PWD $PWD $PWD > $PWD/runnable_config.pm
   perl -c $PWD/runnable_config.pm
