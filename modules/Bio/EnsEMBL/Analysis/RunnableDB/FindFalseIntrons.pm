@@ -81,7 +81,8 @@ use Bio::EnsEMBL::Analysis::Config::Databases;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets; 
+# Not sure if this module ever existed
+#use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets; 
 use Bio::EnsEMBL::Registry; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils 
          qw(

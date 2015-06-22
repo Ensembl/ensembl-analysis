@@ -72,9 +72,8 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils 
   qw(empty_Gene);
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::FilterGenes;
-#use Bio::EnsEMBL::Analysis::Config::GeneBuild::FilterGenes 
-#  qw(FILTER_CONFIG_BY_LOGIC);
+use Bio::EnsEMBL::Analysis::Config::GeneBuild::FilterGenes 
+  qw(FILTER_CONFIG_BY_LOGIC);
 
 use vars qw(@ISA);
 
@@ -343,9 +342,9 @@ sub filter_object{
 
 
 sub read_and_check_config {
-  my $self = shift;
+  my ($self, $config) = @_;
 
-  $self->SUPER::read_and_check_config($FILTER_CONFIG_BY_LOGIC);
+  $self->SUPER::read_and_check_config($config);
   my $logic = $self->analysis->logic_name;
   ##########
   # CHECKS
