@@ -1,5 +1,5 @@
 #!/bin/bash
-export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules
+export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules
 
 export WORK_DIR=$PWD
 
@@ -27,8 +27,17 @@ else
   find $PWD/ensembl-pipeline/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
   find $PWD/scripts -type f -name "*.pl" | xargs -i perl -c {}
 # We avoid the Finished directory at the moment
-  printf "\e[31mWe will not test Annacode modules, %s\e[0m\n" "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm"
-  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" ! -name "Exonerate2Array.pm" | xargs -i perl -c {}
+#  Exonerate2Array.pm as it is a FuncGen module
+#  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
+  M=( "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" "modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" )
+  ARRAY=`seq 0 $((${#M[@]}-1))`
+  printf "\e[31mWe will not test:\n - %s\n" "Annacode modules" 
+  for S in $ARRAY; do
+      printf " - %s\n" "${M[$S]}"
+      N[$S]=`basename ${M[$S]}`
+  done
+  printf "\e[0m\n"
+  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `for I in $ARRAY; do RES=${RES}" ! -name ${N[$I]}"; done; echo "$RES"` | xargs -i perl -c {}
 fi
 rt=$?
 if [ $rt -eq 0 ]; then
