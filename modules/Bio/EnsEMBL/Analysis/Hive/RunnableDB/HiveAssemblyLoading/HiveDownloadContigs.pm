@@ -40,12 +40,14 @@ sub run {
   my $self = shift;
 
   my $wgs_id = $self->param('wgs_id');
-  my $output_path = $self->param('output_path')."/contigs";
+  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name'),
+  my $output_path = $self->param('output_path');
   my $source = $self->param('source');
+  my $contig_path = $output_path."/".$primary_assembly_dir_name."/contigs";
 
-  download_ftp_contigs($source,$wgs_id,$output_path);
-  unzip($output_path);
-  fix_contig_headers($source,$output_path);
+  download_ftp_contigs($source,$wgs_id,$contig_path);
+  unzip($contig_path);
+  fix_contig_headers($source,$contig_path);
 
   say "Finished downloading contig files";
   return 1;
