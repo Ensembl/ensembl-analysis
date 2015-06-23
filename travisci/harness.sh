@@ -14,7 +14,6 @@ else
   # Some of these config files should probably be remove from the module
   PERL_IMPORT='sub import { my ($callpack) = caller(0); my $pack = shift; my @vars = @_ ? @_ : keys(%Config); return unless @vars; eval "package $callpack; use vars qw(" . join(" ", map { "\$".$_ } @vars) . ")"; die $@ if $@; foreach (@vars) { if (defined $Config{ $_ }) { no strict "refs"; *{"${callpack}::$_"} = \$Config{ $_ }; } else { die "Error: Config: $_ not known\n"; } } }'
   echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/HaplotypeProjection.pm
-  echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/ExonerateClones.pm
 #  echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/ExonerateRefinedCloneEnds.pm
   echo "%Config = ( FILTER_CONFIG_BY_LOGIC => { DEFAULT => {}});$PERL_IMPORT;1;" > modules/Bio/EnsEMBL/Analysis/Config/FilterGenes.pm
   # Funcgen config
@@ -31,14 +30,13 @@ else
 #  Exonerate2Array.pm as it is a FuncGen module
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
 #  M=( "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
-  M=( "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" )
+  M=( "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" "modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm")
   ARRAY=`seq 0 $((${#M[@]}-1))`
-  printf "\e[31mWe will not test:\n - %s\n" "Annacode modules" 
+  printf "\e[31mWe will not test:\n - %s\e[0m\n" "Annacode modules"
   for S in $ARRAY; do
-      printf " - %s\n" "${M[$S]}"
+      printf " \e[32m- %s\n\e[0m" "${M[$S]}"
       N[$S]=`basename ${M[$S]}`
   done
-  printf "\e[0m\n"
   find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `for I in $ARRAY; do RES=${RES}" ! -name ${N[$I]}"; done; echo "$RES"` | xargs -i perl -c {}
 fi
 rt=$?
