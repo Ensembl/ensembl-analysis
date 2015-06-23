@@ -18,7 +18,7 @@ else
 #  echo '1;' > modules/Bio/EnsEMBL/Analysis/Config/ExonerateRefinedCloneEnds.pm
   echo "%Config = ( FILTER_CONFIG_BY_LOGIC => { DEFAULT => {}});$PERL_IMPORT;1;" > modules/Bio/EnsEMBL/Analysis/Config/FilterGenes.pm
   # Funcgen config
-  printf "@RUNNABLE_CONFIG = ();\n\$ANALYSIS_WORK_DIR = '%s';\n\$ANALYSIS_INPUT_DIR = '%s';\n\$ANALYSIS_TARGET_DIR = '%s';%s\n1;\n" $PWD $PWD $PWD $PERL_IMPORT > $PWD/runnable_config.pm
+  printf "@RUNNABLE_CONFIG = ();\n\$ANALYSIS_WORK_DIR = '%s';\n\$ANALYSIS_INPUT_DIR = '%s';\n\$ANALYSIS_TARGET_DIR = '%s';%s\n1;\n" "$PWD" "$PWD" "$PWD" "$PERL_IMPORT" > $PWD/runnable_config.pm
   perl -c $PWD/runnable_config.pm
   cp $PWD/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example $PWD/modules/setup_rnaseq_pipeline_config.pm
   # We need to fake this module but it may be cleaned better later
