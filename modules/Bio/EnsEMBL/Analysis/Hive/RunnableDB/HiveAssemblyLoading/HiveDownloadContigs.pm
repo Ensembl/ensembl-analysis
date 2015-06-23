@@ -135,7 +135,7 @@ sub fix_contig_headers {
     open(OUT,">$contigs_fixed");
     while(<IN>) {
       my $line = $_;
-      if($line =~ /^>[^\|]+\|[^\|]+\|[^\|]+\|([^\|]+)\.\d+\|/) {
+      if($line =~ /^>[^\|]+\|[^\|]+\|[^\|]+\|([^\|]+\.\d+)\|/) {
         say OUT '>'.$1;
       } elsif($line =~ /^>/) {
         throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
