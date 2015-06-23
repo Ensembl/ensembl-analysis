@@ -35,8 +35,6 @@ install:
     - cpanm -v --with-recommends --notest Bio::DB::Sam
     - unset SAMTOOLS
     - unset PERL5LIB
-    - echo "Removing modules/Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm to avoid creating a fake config file"
-    - rm modules/Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm
 # We don't really need the modules below this, just one module needs it (modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm) and it is not used by us
     - echo "We need these modules for an unused module"
     - cpanm -v --notest MooseX::ClassAttribute
