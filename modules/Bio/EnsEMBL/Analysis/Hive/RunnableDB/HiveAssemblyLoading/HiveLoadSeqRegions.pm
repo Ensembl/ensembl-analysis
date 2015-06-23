@@ -26,13 +26,30 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
+
+  unless($self->param('core_db')) {
+    throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+          "into must be passed in with write access");
+  }
+
+  unless($self->param('primary_assembly_dir_name')) {
+    throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
+  }
+
+  unless($self->param('output_path')) {
+    throw("output_path flag not passed into parameters hash. This should be the path to the working directory ".
+            "that you downloaded the ftp files to earlier in the pipeline");
+  }
+
+  unless($self->param('enscode_dir')) {
+    throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+  }
+
+  unless($self->param('coord_system_version')) {
+    throw("coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38");
+  }
+
   return 1;
-#  unless($self->param('wgs_id') && $self->param('output_path') && $self->param('source')) {
-#    throw("Must pass in the following parameters:\n".
-#          "wgs_id e.g AAEX for Dog".
-#          "output_path e.g /path/to/work/dir\n".
-#          "source e.g. 'ENA' or 'NCBI'");
-#  }
 
 }
 
