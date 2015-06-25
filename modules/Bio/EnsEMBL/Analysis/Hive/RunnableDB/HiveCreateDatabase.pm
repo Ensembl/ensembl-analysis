@@ -60,6 +60,11 @@ sub run {
   }
 
   $self->create_db();
+
+  if($self->param('populate_production_tables')) {
+    $self->populate_production_db_tables();
+  }
+
   return 1;
 }
 
@@ -299,9 +304,9 @@ sub create_database {
 }
 
 sub load_database {
-	
+
   my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
-  
+
   print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
     throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
@@ -320,7 +325,92 @@ sub remove_file {
   	} else {
   	  print "File $db_file has been deleted.\n";
   	}
-  }	
+  }
+}
+
+sub populate_production_db_tables {
+  my ($self) = @_;
+
+  unless($self->param('enscode_dir')) {
+    throw("You have used the populate_production_tables flag but have not passed in the location of the enscode dir with ".
+          "the enscode_dir flag");
+  }
+
+  unless($self->param('output_path')) {
+    throw("You have used the populate_production_tables flag but have not passed in the location of the output dir with ".
+          "the output_path flag");
+  }
+
+  unless(-d $self->param('output_path')) {
+    `mkdir -p $self->param('output_path')`;
+  }
+
+  my $target_dbname;
+  my $target_host;
+  my $target_port;
+  my $target_user;
+  my $target_pass;
+
+  my $target_string;
+  if (ref($self->param('target_db')) eq 'HASH') {
+    my $db_hash = $self->param('target_db');
+    $target_dbname = $db_hash->{'-dbname'};
+    $target_host = $db_hash->{'-host'};
+    $target_port = $db_hash->{'-port'};
+    $target_user = $self->param('user_w');
+    $target_pass = $self->param('pass_w');
+  } else {
+    $self->check_db_string($self->param('target_db'));
+    $target_string = $self->param('target_db');
+    my @target_string_at_split = split('@',$target_string);
+    $target_dbname = shift(@target_string_at_split);
+    my @target_string_colon_split = split(':',shift(@target_string_at_split));
+    $target_host = shift(@target_string_colon_split);
+    $target_port = shift(@target_string_colon_split);
+    $target_user = $self->param('user_w');
+    $target_pass = $self->param('pass_w');
+  }
+
+  unless($target_dbname && $target_host && $target_user && $target_pass) {
+    throw("The connection info for the database could not be recovered from the parameters passed in. ".
+          "Make sure you pass in user_w, pass_w and either a db string or a hash to target_db");
+  }
+
+  my $production_db = $self->param('production_db');
+  unless($production_db) {
+    throw("You have used the populate_production_tables flag but have not passed in the production db connection hash with ".
+          "the production_db flag");
+  }
+
+  my $production_host = $production_db->{'-host'};
+  my $production_user = $production_db->{'-user'};
+  my $production_port = $production_db->{'-port'};
+  my $production_dbname = $production_db->{'-dbname'};
+
+  my $populate_script = $self->param('enscode_dir')."/ensembl-production/scripts/production_database/populate_production_db_tables.pl";
+  my $cmd = "perl ".$populate_script.
+            " -h ".$target_host.
+            " -u ".$target_user.
+            " -p ".$target_pass.
+            " -d ".$target_dbname.
+            " -mh ".$production_host.
+            " -md ".$production_dbname.
+            " -mu ".$production_user.
+            " -dp ".$self->param('output_path');
+
+  if($target_port) {
+    $cmd .= " -P ".$target_port;
+  }
+
+  if($production_port) {
+    $cmd .= " -mP ".$production_port;
+  }
+
+  my $return = system($cmd);
+  if($return) {
+    throw("The populate_production_db_tables script returned a non-zero exit value. Commandline used:\n".$cmd);
+  }
+
 }
 
 1;
