@@ -33,9 +33,9 @@ else
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   ARRAY=`seq 0 $((${#M[@]}-1))`
-  printf "\e[31mWe will not test:\n - %s\e[0m\n" "Annacode modules"
+  printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
   for S in $ARRAY; do
-      printf " \e[32m- %s\n\e[0m" "${M[$S]}"
+      printf " \e[33m- %s\n\e[0m" "${M[$S]}"
       N[$S]=`basename ${M[$S]}`
   done
   find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `for I in $ARRAY; do RES=${RES}" ! -name ${N[$I]}"; done; echo "$RES"` | xargs -i perl -c {}
