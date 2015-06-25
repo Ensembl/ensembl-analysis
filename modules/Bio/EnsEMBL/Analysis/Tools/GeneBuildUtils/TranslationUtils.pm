@@ -22,7 +22,6 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw(clone_Evidence);
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
