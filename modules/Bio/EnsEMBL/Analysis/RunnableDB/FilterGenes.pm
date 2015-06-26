@@ -342,9 +342,9 @@ sub filter_object{
 
 
 sub read_and_check_config {
-  my $self = shift;
+  my ($self, $config) = @_;
 
-  $self->SUPER::read_and_check_config($FILTER_CONFIG_BY_LOGIC);
+  $self->SUPER::read_and_check_config($config);
   my $logic = $self->analysis->logic_name;
   ##########
   # CHECKS

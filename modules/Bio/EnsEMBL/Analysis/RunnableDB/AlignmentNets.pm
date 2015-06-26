@@ -193,7 +193,7 @@ sub fetch_input {
          -cigar_string => $daf_cigar,
          -group_id => $block->group_id);
 
-    push @{$features_by_group{$group_id}}, $daf;
+    push @{$features_by_group{$block->group_id}}, $daf;
   }
 
   $self->chains($self->sort_chains_by_max_block_score([values %features_by_group]));
