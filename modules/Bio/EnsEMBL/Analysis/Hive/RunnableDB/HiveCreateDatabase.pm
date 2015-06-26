@@ -65,6 +65,9 @@ sub run {
     $self->populate_production_db_tables();
   }
 
+  if($self->param('load_taxonomy')) {
+    $self->load_taxonomy();
+  }
   return 1;
 }
 
@@ -409,6 +412,81 @@ sub populate_production_db_tables {
   my $return = system($cmd);
   if($return) {
     throw("The populate_production_db_tables script returned a non-zero exit value. Commandline used:\n".$cmd);
+  }
+
+}
+
+sub load_taxonomy {
+  my ($self) = @_;
+
+  unless($self->param('enscode_dir')) {
+    throw("You have used the populate_production_tables flag but have not passed in the location of the enscode dir with ".
+          "the enscode_dir flag");
+  }
+
+  unless($self->param('taxon_id')) {
+    throw("You have used the load_taxonomy parameter but have not passed in the taxon id using the taxon_id flag in the config");
+  }
+
+  my $taxon_id = $self->param('taxon_id');
+  my $target_dbname;
+  my $target_host;
+  my $target_port;
+  my $target_user;
+  my $target_pass;
+
+  my $target_string;
+  if (ref($self->param('target_db')) eq 'HASH') {
+    my $db_hash = $self->param('target_db');
+    $target_dbname = $db_hash->{'-dbname'};
+    $target_host = $db_hash->{'-host'};
+    $target_port = $db_hash->{'-port'};
+    $target_user = $self->param('user_w');
+    $target_pass = $self->param('pass_w');
+  } else {
+    $self->check_db_string($self->param('target_db'));
+    $target_string = $self->param('target_db');
+    my @target_string_at_split = split('@',$target_string);
+    $target_dbname = shift(@target_string_at_split);
+    my @target_string_colon_split = split(':',shift(@target_string_at_split));
+    $target_host = shift(@target_string_colon_split);
+    $target_port = shift(@target_string_colon_split);
+    $target_user = $self->param('user_w');
+    $target_pass = $self->param('pass_w');
+  }
+
+  unless($target_dbname && $target_host && $target_user && $target_pass) {
+    throw("The connection info for the database could not be recovered from the parameters passed in. ".
+          "Make sure you pass in user_w, pass_w and either a db string or a hash to target_db");
+  }
+
+  my $taxonomy_db = $self->param('taxonomy_db');
+  unless($taxonomy_db) {
+    throw("You have used the populate_production_tables flag but have not passed in the production db connection hash with ".
+          "the production_db flag");
+  }
+
+  my $taxonomy_host = $taxonomy_db->{'-host'};
+  my $taxonomy_user = $taxonomy_db->{'-user'};
+  my $taxonomy_port = $taxonomy_db->{'-port'};
+  my $taxonomy_dbname = $taxonomy_db->{'-dbname'};
+
+  my $taxonomy_script = $self->param('enscode_dir')."/ensembl-pipeline/scripts/load_taxonomy.pl";
+  my $cmd = "perl ".$taxonomy_script.
+            " -taxon_id ".$taxon_id.
+            " -lcdbhost ".$target_host.
+            " -lcdbuser ".$target_user.
+            " -lcdbpass ".$target_pass.
+            " -lcdbname ".$target_dbname.
+            " -lcdbport ".$target_port.
+            " -taxondbhost ".$taxonomy_host.
+            " -taxondbport ".$taxonomy_port.
+            " -taxondbname ".$taxonomy_dbname;
+            # Note script has no flag for -taxonuser, maybe it should be added. Hardcoded to ensro at the moment
+
+  my $return = system($cmd);
+  if($return) {
+    throw("The load_taxonomy script returned a non-zero exit value. Commandline used:\n".$cmd);
   }
 
 }
