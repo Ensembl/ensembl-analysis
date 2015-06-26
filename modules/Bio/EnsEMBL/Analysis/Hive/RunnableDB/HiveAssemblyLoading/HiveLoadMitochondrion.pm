@@ -45,7 +45,6 @@ sub run {
   my $core_db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->param('core_db')});
   my $enscode_dir = $self->param('enscode_dir');
   my $output_path = $self->param('output_path');
-  my $path_to_files = $output_path."/".$primary_assembly_dir_name;
 
 
   return 1;
