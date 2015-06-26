@@ -150,10 +150,6 @@ sub check_toplevel {
     say "The number of dumped top level sequences (".$num_toplevel_dumped.") matches the number of downloaded top level sequences (".$num_toplevel_downloaded."). Great!";
   }
 
-######################
-
-  # compare using fastanrdb
-  # combine files
   say "Combining dumped top level file and downloaded top level file into ".$check_dump_path."/combined_toplevel.fa...\n";
 
   $cmd = "cat ".$check_dump_path."/toplevel.fa ".$check_dump_path."/downloaded_toplevel.fa > ".$check_dump_path."/combined_toplevel.fa";
