@@ -10,6 +10,7 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 my ( $opt_host_secondary, $opt_port_secondary,
      $opt_user_secondary, $opt_password_secondary,
@@ -1123,6 +1124,7 @@ SECONDARY_GENE:
        next;
      }
 
+    empty_Gene($havana_gene);
     $OUTPUT_GA->store($primary_gene);
     printf( "STORED\t%s\told id = %d, new id = %d\n",
             $primary_gene->stable_id(),
