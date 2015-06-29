@@ -424,11 +424,13 @@ sub load_taxonomy {
           "the enscode_dir flag");
   }
 
-  unless($self->param('taxon_id')) {
-    throw("You have used the load_taxonomy parameter but have not passed in the taxon id using the taxon_id flag in the config");
+  unless($self->param('taxon_id') || $self->param('taxon_name')) {
+    throw("You have used the load_taxonomy parameter but have not passed in the taxon id or taxon name using the ".
+          "taxon_id or taxon_name flag in the config");
   }
 
   my $taxon_id = $self->param('taxon_id');
+  my $taxon_name = $self->param('taxon_name');
   my $target_dbname;
   my $target_host;
   my $target_port;
@@ -473,7 +475,6 @@ sub load_taxonomy {
 
   my $taxonomy_script = $self->param('enscode_dir')."/ensembl-pipeline/scripts/load_taxonomy.pl";
   my $cmd = "perl ".$taxonomy_script.
-            " -taxon_id ".$taxon_id.
             " -lcdbhost ".$target_host.
             " -lcdbuser ".$target_user.
             " -lcdbpass ".$target_pass.
@@ -483,6 +484,12 @@ sub load_taxonomy {
             " -taxondbport ".$taxonomy_port.
             " -taxondbname ".$taxonomy_dbname;
             # Note script has no flag for -taxonuser, maybe it should be added. Hardcoded to ensro at the moment
+
+  if($taxon_id) {
+    $cmd .= " -taxon_id ".$taxon_id;
+  } else {
+    $cmd .= " -name '".$taxon_name."'";
+  }
 
   my $return = system($cmd);
   if($return) {
