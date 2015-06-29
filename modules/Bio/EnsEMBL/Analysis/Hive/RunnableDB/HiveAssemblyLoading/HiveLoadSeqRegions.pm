@@ -20,33 +20,31 @@ use strict;
 use warnings;
 use feature 'say';
 
-
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
 
   unless($self->param('core_db')) {
-    throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
-          "into must be passed in with write access");
+    $self->throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+                 "into must be passed in with write access");
   }
 
   unless($self->param('primary_assembly_dir_name')) {
-    throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
+    $self->throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
   }
 
   unless($self->param('output_path')) {
-    throw("output_path flag not passed into parameters hash. This should be the path to the working directory ".
-            "that you downloaded the ftp files to earlier in the pipeline");
+    $self->throw("output_path flag not passed into parameters hash. This should be the path to the working directory ".
+                 "that you downloaded the ftp files to earlier in the pipeline");
   }
 
   unless($self->param('enscode_dir')) {
-    throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   unless($self->param('coord_system_version')) {
-    throw("coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38");
+    $self->throw("coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38");
   }
 
   return 1;
@@ -64,8 +62,8 @@ sub run {
   my $coord_system_version = $self->param('coord_system_version');
   my $path_to_files = $output_path."/".$primary_assembly_dir_name;
 
-  concat_files_for_loading($path_to_files);
-  load_seq_regions($core_db,$path_to_files,$enscode_dir,$coord_system_version);
+  $self->concat_files_for_loading($path_to_files);
+  $self->load_seq_regions($core_db,$path_to_files,$enscode_dir,$coord_system_version);
 
   say "Finished downloading contig files";
   return 1;
@@ -78,7 +76,7 @@ sub write_output {
 }
 
 sub concat_files_for_loading {
-  my ($path_to_files) = @_;
+  my ($self,$path_to_files) = @_;
 
   # remove possibly (previous executions) created agp files to avoid inappropriate concatenation
   `rm $path_to_files/AGP/*_all.agp`;
@@ -114,7 +112,7 @@ COMMAND
 }
 
 sub load_seq_regions {
-  my ($core_db,$path_to_files,$enscode_dir,$coord_system_version) = @_;
+  my ($self,$core_db,$path_to_files,$enscode_dir,$coord_system_version) = @_;
 
   my $dbhost = $core_db->{'-host'};
   my $dbport = $core_db->{'-port'};
@@ -123,7 +121,7 @@ sub load_seq_regions {
   my $dbname = $core_db->{'-dbname'};
 
   unless($dbhost && $dbport && $dbuser && $dbpass && $dbname) {
-    throw("Database connections info not fully present. Must pass in using the core_db flag");
+    $self->throw("Database connections info not fully present. Must pass in using the core_db flag");
   }
 
   # Check if chromosomes exist
@@ -148,7 +146,7 @@ sub load_seq_regions {
 
   my $contigs_file_path = $path_to_files."/contigs/contigs.fa";
   unless (-e $contigs_file_path) {
-    throw("Could not locate contigs file. Expected to find here:\n".$contigs_file_path);
+    $self->throw("Could not locate contigs file. Expected to find here:\n".$contigs_file_path);
   }
 
   # use the load seq_regions script to load the contigs
@@ -172,7 +170,7 @@ sub load_seq_regions {
 
   my $result = system($cmd);
   if($result) {
-    throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
+    $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
   }
 
   say "The output  was written to:\n".$path_to_files."/load_seq_region_contigs.out";
@@ -183,7 +181,7 @@ sub load_seq_regions {
   my $num_dna = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from dna'`);
 
   if ($num_contigs != $num_dna) {
-    throw("The number of 'seq_region' table loaded contigs ($num_contigs) differs from the number of 'dna' table rows ($num_dna)");
+    $self->throw("The number of 'seq_region' table loaded contigs ($num_contigs) differs from the number of 'dna' table rows ($num_dna)");
   } else {
     say "The number of 'seq_region' table loaded contigs (".$num_contigs.") is the same as the number of 'dna' table rows ($num_dna). Great!";
   }
@@ -210,7 +208,7 @@ sub load_seq_regions {
 
   $result = system($cmd);
   if($result) {
-    throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
+    $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
   }
 
   say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out\n";
@@ -237,7 +235,7 @@ sub load_seq_regions {
 
   $result = system($cmd);
   if($result) {
-    throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
+    $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
   }
 
   say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out";
@@ -257,7 +255,7 @@ sub load_seq_regions {
   if ($contig_version =~ /NULL/) {
     say "Column 'version' in 'coord_system' table set to NULL for contig level as required";
   } else {
-    throw("Column 'version' in 'coord_system' table could not be set to NULL for contig level");
+    $self->throw("Column 'version' in 'coord_system' table could not be set to NULL for contig level");
   }
 
 

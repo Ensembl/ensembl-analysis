@@ -20,19 +20,18 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
 
   unless($self->param('core_db')) {
-    throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
-          "into must be passed in with write access");
+    $self->throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+                 "into must be passed in with write access");
   }
 
   unless($self->param('enscode_dir')) {
-    throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;
@@ -51,15 +50,15 @@ sub run {
   my $chromo_present = $self->param('chromosomes_present');
 
   say "\nBacking up meta and seq_region tables...";
-  backup_tables($path_to_files,$self->param('core_db'));
+  $self->backup_tables($path_to_files,$self->param('core_db'));
   say "\nBackup of tables complete\n";
 
   say "Setting meta information in meta table...\n";
-  set_meta($core_db,$genebuilder_id,$path_to_files);
+  $self->set_meta($core_db,$genebuilder_id,$path_to_files);
   say "\nMeta table insertions complete\n";
 
   say "Setting seq region synonyms...\n";
-  set_seq_region_synonyms($core_db,$path_to_files,$chromo_present);
+  $self->set_seq_region_synonyms($core_db,$path_to_files,$chromo_present);
   say "\nSeq region synonyms inserted\n";
 
   say "\nFinished updating meta table and setting seq region synonyms";
@@ -74,7 +73,7 @@ sub write_output {
 
 
 sub backup_tables {
-  my ($path_to_files,$core_db_hash) = @_;
+  my ($self,$path_to_files,$core_db_hash) = @_;
 
   my $dbhost = $core_db_hash->{'-host'};
   my $dbport = $core_db_hash->{'-port'};
@@ -94,7 +93,7 @@ sub backup_tables {
               " > ".$backup_file;
     my $return = system($cmd);
     if($return) {
-      throw("mysqldump to backup ".$table." table failed. Commandline used:\n".$cmd);
+      $self->throw("mysqldump to backup ".$table." table failed. Commandline used:\n".$cmd);
     } else {
       say $table." table backed up in the following location:\n".$backup_file;
     }
@@ -102,7 +101,7 @@ sub backup_tables {
 }
 
 sub set_meta {
-  my ($core_db,$genebuilder_id,$path_to_files) = @_;
+  my ($self,$core_db,$genebuilder_id,$path_to_files) = @_;
 
   my $meta_adaptor = $core_db->get_MetaContainerAdaptor;
   $meta_adaptor->store_key_value('genebuild.id', $genebuilder_id);
@@ -113,7 +112,7 @@ sub set_meta {
   say "Inserted into meta:\nassembly.coverage_depth => high";
 
   unless(-e $path_to_files."/assembly_report.txt") {
-    throw("Could not find the assembly_report.txt file. Path checked:\n".$path_to_files."/assembly_report.txt");
+    $self->throw("Could not find the assembly_report.txt file. Path checked:\n".$path_to_files."/assembly_report.txt");
   }
 
   open(IN,$path_to_files."/assembly_report.txt");
@@ -153,11 +152,11 @@ sub set_meta {
 }
 
 sub set_seq_region_synonyms {
-  my ($core_db,$path_to_files,$chromo_present) = @_;
+  my ($self,$core_db,$path_to_files,$chromo_present) = @_;
 
   if($chromo_present) {
     unless(-e $path_to_files."/chr2acc") {
-      throw("Could not find chr2acc file. No chromosome synonyms loaded. Expected location:\n".$path_to_files."/chr2acc");
+      $self->throw("Could not find chr2acc file. No chromosome synonyms loaded. Expected location:\n".$path_to_files."/chr2acc");
     }
 
     open(IN,$path_to_files."/chr2acc");
@@ -189,7 +188,7 @@ sub set_seq_region_synonyms {
     close(IN);
 
     if($insert_count == 0) {
-      throw("The insert/update count after parsing chr2acc was 0, this is probably wrong. File used:\n".$path_to_files."/chr2acc");
+      $self->throw("The insert/update count after parsing chr2acc was 0, this is probably wrong. File used:\n".$path_to_files."/chr2acc");
     }
 
     say "\nInserted into seq_region_synonym and updated seq_region based on chr2acc. Total inserts/updates: ".$insert_count;
@@ -199,7 +198,7 @@ sub set_seq_region_synonyms {
 
   foreach my $file ('component_localID2acc', 'scaffold_localID2acc') {
     unless(-e $path_to_files."/".$file) {
-      throw("Could not find ".$file." file. No synonyms loaded. Expected location:\n".$path_to_files."/".$file);
+      $self->throw("Could not find ".$file." file. No synonyms loaded. Expected location:\n".$path_to_files."/".$file);
     }
 
     open(IN,$path_to_files."/".$file);
@@ -225,7 +224,7 @@ sub set_seq_region_synonyms {
     }
 
     if($insert_count == 0) {
-      throw("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$path_to_files."/".$file);
+      $self->throw("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$path_to_files."/".$file);
     }
 
     say "\nInserted into seq_region_synonym and updated seq_region based on ".$file.". Total inserts/updates: ".$insert_count;

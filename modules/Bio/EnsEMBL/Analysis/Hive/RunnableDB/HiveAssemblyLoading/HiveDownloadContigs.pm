@@ -21,14 +21,13 @@ use warnings;
 use feature 'say';
 
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
   return 1;
   unless($self->param('wgs_id') && $self->param('output_path') && $self->param('source')) {
-    throw("Must pass in the following parameters:\n".
+    $self->throw("Must pass in the following parameters:\n".
           "wgs_id e.g AAEX for Dog".
           "output_path e.g /path/to/work/dir\n".
           "source e.g. 'ENA' or 'NCBI'");
@@ -45,9 +44,9 @@ sub run {
   my $source = $self->param('source');
   my $contig_path = $output_path."/".$primary_assembly_dir_name."/contigs";
 
-  download_ftp_contigs($source,$wgs_id,$contig_path);
-  unzip($contig_path);
-  fix_contig_headers($source,$contig_path);
+  $self->download_ftp_contigs($source,$wgs_id,$contig_path);
+  $self->unzip($contig_path);
+  $self->fix_contig_headers($source,$contig_path);
 
   say "Finished downloading contig files";
   return 1;
@@ -61,7 +60,7 @@ sub write_output {
 
 
 sub download_ftp_contigs {
-  my ($source,$wgs_id,$output_path) = @_;
+  my ($self,$source,$wgs_id,$output_path) = @_;
 
   say "The contigs will be downloaded from the ".$source." ftp site";
 
@@ -73,7 +72,7 @@ sub download_ftp_contigs {
     if (-e "$output_path") {
       say "Output path $output_path not found.\n".$output_path." created successfully";
     } else {
-      throw("Cannot create output path for contigs ".$output_path);
+      $self->throw("Cannot create output path for contigs ".$output_path);
     }
   }
 
@@ -90,7 +89,7 @@ sub download_ftp_contigs {
       my $wget = "$base/$file\" -P $output_path";
       my $return = system($wget);
       if($return) {
-        throw("wget failed on the following command line:\n".$wget);
+        $self->throw("wget failed on the following command line:\n".$wget);
       }
     }
   } elsif($source eq 'ena') {
@@ -103,23 +102,23 @@ sub download_ftp_contigs {
       my $wget = "$base/$file\" -P $output_path";
       my $return = system($wget);
       if($return) {
-        throw("wget failed on the following command line:\n".$wget);
+        $self->throw("wget failed on the following command line:\n".$wget);
       }
     }
   } else {
-    throw("You have specified an unknown source! Source must be NCBI or ENA! Source specified:\n".$source);
+    $self->throw("You have specified an unknown source! Source must be NCBI or ENA! Source specified:\n".$source);
   }
 }
 
 sub unzip {
-  my ($output_path) = @_;
+  my ($self,$output_path) = @_;
   say "Unzipping the compressed files...";
-  throw("gunzip operation failed. Please check your error log file.") if (system("gunzip -r $output_path") == 1);
+  $self->throw("gunzip operation failed. Please check your error log file.") if (system("gunzip -r $output_path") == 1);
   say "Unzipping finished!";
 }
 
 sub fix_contig_headers {
-  my ($source,$output_path) = @_;
+  my ($self,$source,$output_path) = @_;
 
   $source = lc($source);
   if($source eq 'ncbi') {
@@ -129,7 +128,7 @@ sub fix_contig_headers {
     my $cat_files = 'cat '.$output_path.'/*.fsa_nt > '.$contigs_unfixed;
     my $return = system($cat_files);
     if($return) {
-      throw("Problem concatenating the contig files. Commandline used:\n".$cat_files);
+      $self->throw("Problem concatenating the contig files. Commandline used:\n".$cat_files);
     }
     open(IN,$contigs_unfixed);
     open(OUT,">$contigs_fixed");
@@ -138,18 +137,20 @@ sub fix_contig_headers {
       if($line =~ /^>[^\|]+\|[^\|]+\|[^\|]+\|([^\|]+\.\d+)\|/) {
         say OUT '>'.$1;
       } elsif($line =~ /^>/) {
-        throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
+        $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
       } else {
         print OUT $line; # print instead of say since the newline will be there already
       }
     }
     close OUT;
+    close IN;
+
     my $contig_count1 = int(`grep -c '>' $contigs_unfixed`);
     my $contig_count2 = int(`grep -c '>' $contigs_fixed`);
 
     unless($contig_count1 == $contig_count2) {
-      throw("The contig count in contigs_unfixed_header.fa (".$contig_count1.") did not match the count in contigs.fa (".
-            $contig_count2."). They should match");
+      $self->throw("The contig count in contigs_unfixed_header.fa (".$contig_count1.") did not match the count in contigs.fa (".
+                   $contig_count2."). They should match");
     }
 
   } elsif($source eq 'ena') {

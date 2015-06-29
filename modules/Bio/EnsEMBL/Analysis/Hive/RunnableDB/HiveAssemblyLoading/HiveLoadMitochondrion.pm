@@ -20,19 +20,18 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
 
   unless($self->param('core_db')) {
-    throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
-          "into must be passed in with write access");
+    $self->throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+                 "into must be passed in with write access");
   }
 
   unless($self->param('enscode_dir')) {
-    throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;

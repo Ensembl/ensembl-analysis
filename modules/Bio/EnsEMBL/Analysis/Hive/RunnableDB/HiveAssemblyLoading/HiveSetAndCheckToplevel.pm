@@ -20,19 +20,18 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
 
   unless($self->param('core_db')) {
-    throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
-          "into must be passed in with write access");
+    $self->throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+                 "into must be passed in with write access");
   }
 
   unless($self->param('enscode_dir')) {
-    throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;
@@ -49,8 +48,8 @@ sub run {
   my $path_to_files = $output_path."/".$primary_assembly_dir_name;
 
 
-  set_toplevel($core_db,$enscode_dir);
-  check_toplevel($core_db,$enscode_dir,$path_to_files);
+  $self->set_toplevel($core_db,$enscode_dir);
+  $self->check_toplevel($core_db,$enscode_dir,$path_to_files);
   say "Finished downloading contig files";
   return 1;
 }
@@ -62,7 +61,7 @@ sub write_output {
 }
 
 sub set_toplevel {
-  my ($core_db,$enscode_dir) = @_;
+  my ($self,$core_db,$enscode_dir) = @_;
 
   my $dbhost = $core_db->{'-host'};
   my $dbport = $core_db->{'-port'};
@@ -79,20 +78,20 @@ sub set_toplevel {
 
   my $return = system($cmd);
   if($return) {
-    throw("The set_toplevel script returned a non-zero exit code. Commandline used:\n".$cmd);
+    $self->throw("The set_toplevel script returned a non-zero exit code. Commandline used:\n".$cmd);
   }
 
   my $num_toplevel = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from seq_region_attrib where attrib_type_id = 6'`);
   if ($num_toplevel > 0) {
     say "Found ".$num_toplevel." toplevel (non-redundant) seq region attributes found in seq_region_attrib table (code 6)";
   } else {
-    throw("No toplevel (non-redundant) seq region attributes found in seq_region_attrib table (code 6). Commandline used:\n".$cmd);
+    $self->throw("No toplevel (non-redundant) seq region attributes found in seq_region_attrib table (code 6). Commandline used:\n".$cmd);
   }
 
 }
 
 sub check_toplevel {
-  my ($core_db,$enscode_dir,$path_to_files) = @_;
+  my ($self,$core_db,$enscode_dir,$path_to_files) = @_;
   my $check_dump_path = $path_to_files."/check_and_dump_toplevel";
 
   my $dbhost = $core_db->{'-host'};
@@ -110,13 +109,13 @@ sub check_toplevel {
   my $cmd = "ls ".$path_to_files."/FASTA/*.fna | grep -v '\\.placed.' | xargs cat >> ".$check_dump_path."/downloaded_toplevel.fa";
   my $return = system($cmd);
   if($return) {
-    throw("Concatenation of downloaded fna sequences filed. Commandline used:\n".$cmd);
+    $self->throw("Concatenation of downloaded fna sequences filed. Commandline used:\n".$cmd);
   }
 
   my $num_toplevel_downloaded = int(`grep -c ">" $check_dump_path/downloaded_toplevel.fa`);
   if($num_toplevel_downloaded == 0) {
-    throw("Found no headers in the concatenated downloaded files. Commandline used:\n".
-          "grep -c \">\" ".$check_dump_path."/downloaded_toplevel.fa");
+    $self->throw("Found no headers in the concatenated downloaded files. Commandline used:\n".
+                 "grep -c \">\" ".$check_dump_path."/downloaded_toplevel.fa");
   }
 
   say "\nDumping top level sequence...";
@@ -133,19 +132,19 @@ sub check_toplevel {
 
   $return = system($cmd);
   if($return) {
-    throw("Dump of toplevel sequences failed. Commandline used:\n".$cmd);
+    $self->throw("Dump of toplevel sequences failed. Commandline used:\n".$cmd);
   }
 
   say "Finished dumping toplevel sequences. Output written to:\n".$check_dump_path."/sequence_dump.out";
 
   my $num_toplevel_dumped = int(`grep -c ">" $check_dump_path/toplevel.fa`);
   if($num_toplevel_dumped == 0) {
-    throw("Found no headers in the dumped toplevel file. Commandline used:\n".
-          "grep -c \">\" ".$check_dump_path."/toplevel.fa");
+    $self->throw("Found no headers in the dumped toplevel file. Commandline used:\n".
+                 "grep -c \">\" ".$check_dump_path."/toplevel.fa");
   }
 
   if ($num_toplevel_dumped != $num_toplevel_downloaded) {
-    throw("The number of dumped top level sequences (".$num_toplevel_dumped.") does not match the number of downloaded top level sequences (".$num_toplevel_downloaded.")");
+    $self->throw("The number of dumped top level sequences (".$num_toplevel_dumped.") does not match the number of downloaded top level sequences (".$num_toplevel_downloaded.")");
   } else {
     say "The number of dumped top level sequences (".$num_toplevel_dumped.") matches the number of downloaded top level sequences (".$num_toplevel_downloaded."). Great!";
   }
@@ -155,14 +154,14 @@ sub check_toplevel {
   $cmd = "cat ".$check_dump_path."/toplevel.fa ".$check_dump_path."/downloaded_toplevel.fa > ".$check_dump_path."/combined_toplevel.fa";
   $return = system($cmd);
   if($return) {
-    throw("Concatenation of dumped and downloaded toplevel sequence files failed. Commandline used:\n".$cmd);
+    $self->throw("Concatenation of dumped and downloaded toplevel sequence files failed. Commandline used:\n".$cmd);
   }
 
   my $num_toplevel_combined = int(`grep -c ">" $check_dump_path/combined_toplevel.fa`);
 
   if ($num_toplevel_combined != ($num_toplevel_dumped + $num_toplevel_downloaded)) {
-    throw("The number of combined top level sequences (".$num_toplevel_combined.") does not match the sum of dumped top level ".
-          "and downloaded top level sequences (".($num_toplevel_dumped + $num_toplevel_downloaded).")");
+    $self->throw("The number of combined top level sequences (".$num_toplevel_combined.") does not match the sum of dumped top level ".
+                 "and downloaded top level sequences (".($num_toplevel_dumped + $num_toplevel_downloaded).")");
   } else {
     say "The number of combined top level sequences (".$num_toplevel_combined.") matched the sum of dumped top level ".
         "and downloaded top level sequences (".($num_toplevel_dumped + $num_toplevel_downloaded)."). Great!";
@@ -175,7 +174,7 @@ sub check_toplevel {
   $return = system($cmd);
 
   if($return) {
-    throw("fastanrdb died unexpectedly. Commandline used:\n".$cmd);
+    $self->throw("fastanrdb died unexpectedly. Commandline used:\n".$cmd);
   }
 
   say "The output file ".$check_dump_path."/fastanrdb.out was written";
@@ -183,8 +182,8 @@ sub check_toplevel {
   my $num_toplevel_fastanrdb = int(`grep -c ">" $check_dump_path/fastanrdb.out`);
 
   if ($num_toplevel_fastanrdb != $num_toplevel_dumped) {
-    throw("The number of sequences in file ".$check_dump_path."/fastanrdb.out is ".$num_toplevel_fastanrdb.", but it should be ".
-          $num_toplevel_dumped.". It means that we have duplicates.\n");
+    $self->throw("The number of sequences in file ".$check_dump_path."/fastanrdb.out is ".$num_toplevel_fastanrdb.", but it should be ".
+                 $num_toplevel_dumped.". It means that we have duplicates.\n");
 
     # maybe add more checks to inform about the sequences that does not match
     # cat $SCRA/fastanrdb.log | perl -ne 'next unless ($a,$b) = /^>(\w+\.\w+)\s*(\w+\.\w+)/; if ($a eq $b) {print "$a\n"}' | wc -l
@@ -200,8 +199,8 @@ sub check_toplevel {
   # check that the number of identifiers in headers matches the expected number of top level sequences*2
   my $num_ids = int(`grep '>' $check_dump_path/fastanrdb.out | wc -w`);
   if ($num_ids != $num_toplevel_dumped * 2) {
-    throw("The number of identifiers in headers in ".$check_dump_path."/fastanrdb.out (".$num_ids.
-          ") does not match the number of toplevel sequences * 2 (".($num_toplevel_dumped * 2).")");
+    $self->throw("The number of identifiers in headers in ".$check_dump_path."/fastanrdb.out (".$num_ids.
+                 ") does not match the number of toplevel sequences * 2 (".($num_toplevel_dumped * 2).")");
   } else {
     say "The number of identifiers in headers in ".$check_dump_path."/fastanrdb.out (".$num_ids.
         ") matched the number of toplevel sequences * 2 (".($num_toplevel_dumped * 2)."). Great!";
@@ -210,7 +209,7 @@ sub check_toplevel {
    # check that there is no header with one identifier only
   my $num_non_matching_seq = int(`grep '>' $check_dump_path/fastanrdb.out | grep -c -v '\\w*[ ]\\w*'`);
   if ($num_non_matching_seq > 0) {
-    throw("There are ".$num_non_matching_seq." sequences with one identifier only in ".$check_dump_path."/fastanrdb.out\nfastanrdb check FAILED!");
+    $self->throw("There are ".$num_non_matching_seq." sequences with one identifier only in ".$check_dump_path."/fastanrdb.out\nfastanrdb check FAILED!");
   } else {
     say "There is no one-identifier-only header in ".$check_dump_path."/fastanrdb.out\nThe dumped top level sequence and the downloaded top ".
         "level sequence are equivalent.\nfastanrdb check passed!";
