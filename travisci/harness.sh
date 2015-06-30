@@ -52,14 +52,13 @@ else
   "modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
-  ARRAY=`seq 0 $((${#M[@]}-1))`
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
-  for S in $ARRAY; do
+  for S in seq 0 $((${#M[@]}-1)); do
       printf " \e[33m- %s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
   done
   echo "$RES"
-  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" "$RES" | xargs -i perl -c {}
+  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `echo "$RES"` | xargs -i perl -c {}
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
