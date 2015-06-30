@@ -1124,7 +1124,7 @@ SECONDARY_GENE:
        next;
      }
 
-    empty_Gene($havana_gene);
+    empty_Gene($primary_gene);
     $OUTPUT_GA->store($primary_gene);
     printf( "STORED\t%s\told id = %d, new id = %d\n",
             $primary_gene->stable_id(),
