@@ -20,6 +20,7 @@ else
   if [ "$?" -ne 0 ]; then
       rt=$?
   fi
+  echo "$rt"
   cp $PWD/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example $PWD/modules/setup_rnaseq_pipeline_config.pm
   # We need to fake this module but it may be cleaned better later
   sed 's/Solexa2Genes/Solexa2GenesLiteNew/' $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2Genes.pm.example > $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2GenesLiteNew.pm
@@ -27,18 +28,22 @@ else
   if [ "$?" -ne 0 ]; then
       rt=$?
   fi
+  echo "$rt"
   find $PWD/scripts -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
   if [ "$?" -ne 0 ]; then
       rt=$?
   fi
+  echo "$rt"
   find $PWD/ensembl-pipeline/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
   if [ "$?" -ne 0 ]; then
       rt=$?
   fi
+  echo "$rt"
   find $PWD/scripts -type f -name "*.pl" | xargs -i perl -c {}
   if [ "$?" -ne 0 ]; then
       rt=$?
   fi
+  echo "$rt"
 # We avoid the Finished directory at the moment
 #  Exonerate2Array.pm as it is a FuncGen module
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
@@ -57,8 +62,9 @@ else
   if [ "$?" -ne 0 ]; then
       rt=$?
   fi
+  echo "$rt"
 fi
-rt=$?
+echo "$?"
 if [ $rt -eq 0 ]; then
   if [ "$COVERALLS" = 'true' ]; then
     echo "Running Devel::Cover coveralls report"
