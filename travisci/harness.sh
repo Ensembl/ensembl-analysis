@@ -49,11 +49,11 @@ else
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
 #  M=( "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   M=( "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" \
-  "modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
+  "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
-  for S in seq 0 $((${#M[@]}-1)); do
+  for S in `seq 0 $((${#M[@]}-1))`; do
       printf " \e[33m- %s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
   done
