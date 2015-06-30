@@ -17,33 +17,33 @@ else
   # Funcgen config
   printf "@RUNNABLE_CONFIG = ();\n\$ANALYSIS_WORK_DIR = '%s';\n\$ANALYSIS_INPUT_DIR = '%s';\n\$ANALYSIS_TARGET_DIR = '%s';%s\n1;\n" "$PWD" "$PWD" "$PWD" "$PERL_IMPORT" > $PWD/runnable_config.pm
   perl -c $PWD/runnable_config.pm
-  if [ "$?" -ne 0 ]; then
-      rt=$?
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
   fi
-  echo "$rt"
   cp $PWD/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example $PWD/modules/setup_rnaseq_pipeline_config.pm
   # We need to fake this module but it may be cleaned better later
   sed 's/Solexa2Genes/Solexa2GenesLiteNew/' $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2Genes.pm.example > $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2GenesLiteNew.pm
   find $PWD/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
-  if [ "$?" -ne 0 ]; then
-      rt=$?
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
   fi
-  echo "$rt"
   find $PWD/scripts -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
-  if [ "$?" -ne 0 ]; then
-      rt=$?
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
   fi
-  echo "$rt"
   find $PWD/ensembl-pipeline/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
-  if [ "$?" -ne 0 ]; then
-      rt=$?
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
   fi
-  echo "$rt"
   find $PWD/scripts -type f -name "*.pl" | xargs -i perl -c {}
-  if [ "$?" -ne 0 ]; then
-      rt=$?
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
   fi
-  echo "$rt"
 # We avoid the Finished directory at the moment
 #  Exonerate2Array.pm as it is a FuncGen module
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
@@ -56,15 +56,15 @@ else
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
   for S in $ARRAY; do
       printf " \e[33m- %s\n\e[0m" "${M[$S]}"
-      N[$S]=`basename ${M[$S]}`
+      RES=${RES}" ! -name `basename ${M[$S]}`"
   done
-  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `for I in $ARRAY; do RES=${RES}" ! -name ${N[$I]}"; done; echo "$RES"` | xargs -i perl -c {}
-  if [ "$?" -ne 0 ]; then
-      rt=$?
+  echo "$RES"
+  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" "$RES" | xargs -i perl -c {}
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
   fi
-  echo "$rt"
 fi
-echo "$?"
 if [ $rt -eq 0 ]; then
   if [ "$COVERALLS" = 'true' ]; then
     echo "Running Devel::Cover coveralls report"
