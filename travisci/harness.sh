@@ -5,6 +5,7 @@ export WORK_DIR=$PWD
 
 echo "Running test suite"
 echo "Using $PERL5LIB"
+rt=0
 if [ "$COVERALLS" = 'true' ]; then
   export PERL5LIB=$PERL5LIB:$PWD/ensembl-test/modules
   PERL5OPT='-MDevel::Cover=+ignore,bioperl,+ignore,ensembl-test' perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
@@ -54,10 +55,9 @@ else
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
   for S in `seq 0 $((${#M[@]}-1))`; do
-      printf " \e[33m- %s\n\e[0m" "${M[$S]}"
+      printf " - \e[33m%s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
   done
-  echo "$RES"
   find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `echo "$RES"` | xargs -i perl -c {}
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then
