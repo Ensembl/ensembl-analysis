@@ -225,12 +225,12 @@ sub get_dbadaptor {
 
           # try to get default asm+ species name for OTHER db - does not work
           # for comapra database
-          my $core_db_asm = $db->get_MetaContainer->get_default_assembly();
+          my $core_db_asm = $db->get_CoordSystemAdaptor->get_default_version();
           my $core_db_species =
             $db->get_MetaContainer->get_common_name();
 
           # get the same for dna-db
-          my $dna_db_asm = $dnadb->get_MetaContainer->get_default_assembly();
+          my $dna_db_asm = $dnadb->get_CoordSystemAdaptor->get_default_version();
           my $dna_db_species =
             $dnadb->get_MetaContainer()->get_common_name();
 
@@ -255,8 +255,8 @@ sub get_dbadaptor {
           if ($dna_db_and_core_db_are_compatible) {
             $db->dnadb($dnadb);
             print "\nAttaching DNA_DB "
-              . $dnadb->dbname . " to "
-              . $db->dbname . "\n";
+              . $dnadb->dbc->dbname . " to "
+              . $db->dbc->dbname . "\n";
           }
         } ## end else [ if ($not_use_dna_database)
       } else {
