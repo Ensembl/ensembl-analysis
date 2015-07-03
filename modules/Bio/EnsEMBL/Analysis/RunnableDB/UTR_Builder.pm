@@ -155,7 +155,7 @@ sub fetch_input{
     foreach my $input_genetype (@{ $self->INPUT_GENETYPES }) {
       my $input_genes = $slice->get_all_Genes_by_type($input_genetype);
       print STDERR "got " . scalar(@{$input_genes}) . " $input_genetype genes [ ".
-      $dba->dbname() . "@" . $dba->host . " ]\n";
+      $dba->dbc->dbname() . "@" . $dba->dbc->host . " ]\n";
       $self->gw_genes( $input_genes );
     }
   }

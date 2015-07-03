@@ -402,7 +402,6 @@ sub are_strands_consistent{
 sub exon_lengths_all_less_than_maximum{
   my ($transcript, $max_length) = @_;
 
-  $transcript->sort;
   foreach my $exon(@{$transcript->get_all_Exons}){
     if(!exon_length_less_than_maximum($exon, $max_length)){
       warn("Transcript ".$transcript->display_id." has ".
@@ -431,7 +430,6 @@ sub exon_lengths_all_less_than_maximum{
 sub intron_lengths_all_less_than_maximum{
   my ($transcript, $max_length) = @_;
 
-  #$transcript->sort;
   foreach my $intron(@{$transcript->get_all_Introns}){
     if(!intron_length_less_than_maximum($intron, 
                                         $max_length)){
@@ -525,7 +523,6 @@ sub are_phases_consistent{
 sub calculate_exon_phases {
   my ($transcript, $start_phase) = @_;
 
-  #$transcript->sort; Commented out as it has been deprecated. Transcript are now sorted by default.
   foreach my $e (@{$transcript->get_all_Exons}) {
     $e->phase(-1);
     $e->end_phase(-1);
@@ -582,7 +579,6 @@ sub calculate_exon_phases {
 sub is_not_folded{
   my ($transcript) = @_;
 
-  #$transcript->sort;
   my $exons = $transcript->get_all_Exons;
   if(@$exons == 1){
     my $warn = "is_not_folded ".
@@ -1839,7 +1835,6 @@ sub add_dna_align_features_by_hitname_and_analysis {
 sub remove_initial_or_terminal_short_exons{
   my ($transcript, $min_length) = @_;
 
-  $transcript->sort;
   $min_length = 3 unless($min_length);
   throw("TranscriptUtils::remove_initial_or_terminal_short_exons will not work ".
         " if ".Transcript_info($transcript)." has no translation") if(!$transcript->translation);
@@ -2259,7 +2254,6 @@ sub empty_Transcript{
 sub all_exons_are_valid{
   my ($transcript, $max_length, $allow_negative_start) = @_;
 
-  $transcript->sort;
   foreach my $exon(@{$transcript->get_all_Exons}){
     throw(Transcript_info($transcript)." seems to contain an undefined exon") 
       if(!$exon); 
@@ -2849,8 +2843,6 @@ sub is_Transcript_sane {
 
   # Exon coord sanity.
   my $is_sane = 1;
-
-  $transcript->sort();
 
   foreach my $exon ( @{ $transcript->get_all_Exons() } ) {
     if ( $exon->start() > $exon->end() ) {
