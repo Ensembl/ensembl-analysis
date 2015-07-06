@@ -25,13 +25,13 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
-  unless($self->param('core_db')) {
-    $self->throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+  unless($self->param('target_db')) {
+    $self->throw("target_db flag not passed into parameters hash. The core db to load the assembly info ".
                  "into must be passed in with write access");
   }
 
-  unless($self->param('enscode_dir')) {
-    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+  unless($self->param('enscode_root_dir')) {
+    $self->throw("enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;
@@ -41,15 +41,13 @@ sub run {
   my $self = shift;
 
   say "Loading seq regions into reference db";
-  my $core_db = $self->param('core_db');
-  my $enscode_dir = $self->param('enscode_dir');
+  my $target_db = $self->param('target_db');
+  my $enscode_dir = $self->param('enscode_root_dir');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $output_path = $self->param('output_path');
-  my $path_to_files = $output_path."/".$primary_assembly_dir_name;
+  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name;
 
-
-  $self->set_toplevel($core_db,$enscode_dir);
-  $self->check_toplevel($core_db,$enscode_dir,$path_to_files);
+  $self->set_toplevel($target_db,$enscode_dir);
+  $self->check_toplevel($target_db,$enscode_dir,$path_to_files);
   say "Finished downloading contig files";
   return 1;
 }
@@ -61,13 +59,13 @@ sub write_output {
 }
 
 sub set_toplevel {
-  my ($self,$core_db,$enscode_dir) = @_;
+  my ($self,$target_db,$enscode_dir) = @_;
 
-  my $dbhost = $core_db->{'-host'};
-  my $dbport = $core_db->{'-port'};
-  my $dbuser = $core_db->{'-user'};
-  my $dbpass = $core_db->{'-pass'};
-  my $dbname = $core_db->{'-dbname'};
+  my $dbhost = $target_db->{'-host'};
+  my $dbport = $target_db->{'-port'};
+  my $dbuser = $target_db->{'-user'};
+  my $dbpass = $target_db->{'-pass'};
+  my $dbname = $target_db->{'-dbname'};
 
   my $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/set_toplevel.pl ".
             " -dbhost ".$dbhost.
@@ -91,14 +89,14 @@ sub set_toplevel {
 }
 
 sub check_toplevel {
-  my ($self,$core_db,$enscode_dir,$path_to_files) = @_;
+  my ($self,$target_db,$enscode_dir,$path_to_files) = @_;
   my $check_dump_path = $path_to_files."/check_and_dump_toplevel";
 
-  my $dbhost = $core_db->{'-host'};
-  my $dbport = $core_db->{'-port'};
-  my $dbuser = $core_db->{'-user'};
-  my $dbpass = $core_db->{'-pass'};
-  my $dbname = $core_db->{'-dbname'};
+  my $dbhost = $target_db->{'-host'};
+  my $dbport = $target_db->{'-port'};
+  my $dbuser = $target_db->{'-user'};
+  my $dbpass = $target_db->{'-pass'};
+  my $dbname = $target_db->{'-dbname'};
 
   if(-d $check_dump_path) {
     `rm -r $check_dump_path`;

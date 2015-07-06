@@ -25,10 +25,10 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
   return 1;
-  unless($self->param('ftp_species_path') && $self->param('local_path') && $self->param('primary_assembly_dir_name')) {
-    $self->throw("Must pass in the following parameters:\nftp_species_path e.g /genomes/genbank/vertebrate_mammalian/Canis_lupus/".
+  unless($self->param('full_ftp_path') && $self->param('output_path') && $self->param('primary_assembly_dir_name')) {
+    $self->throw("Must pass in the following parameters:\nfull_ftp_path e.g /genomes/genbank/vertebrate_mammalian/Canis_lupus/".
                  "all_assembly_versions/GCA_000002285.2_CanFam3.1/GCA_000002285.2_CanFam3.1_assembly_structure/\n".
-                 "local_path e.g /path/to/work/dir\n".
+                 "output_path e.g /path/to/work/dir\n".
                  "primary_assembly_dir_name e.g. Primary_Assembly (usually this on NCBI ftp)");
   }
 
@@ -37,11 +37,10 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  my $ftp_species_path = $self->param('ftp_species_path');
-  my $local_path = $self->param('local_path');
-  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  $self->download_ftp_dir($ftp_species_path."/".$primary_assembly_dir_name,$local_path."/".$primary_assembly_dir_name);
-  $self->unzip($local_path."/".$primary_assembly_dir_name);
+  my $ftp_species_path = $self->param('full_ftp_path')."/".$self->param('primary_assembly_dir_name');
+  my $local_path = $self->param('output_path')."/". $self->param('species_name')."/".$self->param('primary_assembly_dir_name');
+  $self->download_ftp_dir($ftp_species_path,$local_path);
+  $self->unzip($local_path);
 
   say "Finished downloading NCBI ftp structure and files";
   return 1;
@@ -56,8 +55,10 @@ sub download_ftp_dir {
   my @cleaned_dirs = map {$_ ? $_ : ()} @dirs; # delete empty elements in the array
   my $numDirs = @cleaned_dirs; # count the number of dirs we need to skip to be able to put the files in the local path specified as parameter
 
-  if(system("wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz -P ".$local_dir." ".$ftp_path)) {
-    $self->throw("could not download the AGP, FASTA and info files\n");
+  my $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz -P ".$local_dir." ".$ftp_path;
+  my $return = system($cmd);
+  if($return) {
+    $self->throw("Could not download the AGP, FASTA and info files. Commandline used:\n".$cmd);
   }
 
   # check if no file was downloaded

@@ -25,13 +25,13 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
-  unless($self->param('core_db')) {
-    $self->throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+  unless($self->param('target_db')) {
+    $self->throw("target_db flag not passed into parameters hash. The target db to load the assembly info ".
                  "into must be passed in with write access");
   }
 
-  unless($self->param('enscode_dir')) {
-    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+  unless($self->param('enscode_root_dir')) {
+    $self->throw("enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;
@@ -41,24 +41,23 @@ sub run {
   my $self = shift;
 
   say "Loading meta information seq region synonyms into reference db\n";
-  my $core_db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$self->param('core_db')});
+  my $target_db = $self->param('target_db');
   my $genebuilder_id = $self->param('genebuilder_id');
-  my $enscode_dir = $self->param('enscode_dir');
+  my $enscode_dir = $self->param('enscode_root_dir');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $output_path = $self->param('output_path');
-  my $path_to_files = $output_path."/".$primary_assembly_dir_name;
+  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name;
   my $chromo_present = $self->param('chromosomes_present');
 
   say "\nBacking up meta and seq_region tables...";
-  $self->backup_tables($path_to_files,$self->param('core_db'));
+  $self->backup_tables($path_to_files,$target_db);
   say "\nBackup of tables complete\n";
 
   say "Setting meta information in meta table...\n";
-  $self->set_meta($core_db,$genebuilder_id,$path_to_files);
+  $self->set_meta($target_db,$genebuilder_id,$path_to_files);
   say "\nMeta table insertions complete\n";
 
   say "Setting seq region synonyms...\n";
-  $self->set_seq_region_synonyms($core_db,$path_to_files,$chromo_present);
+  $self->set_seq_region_synonyms($target_db,$path_to_files,$chromo_present);
   say "\nSeq region synonyms inserted\n";
 
   say "\nFinished updating meta table and setting seq region synonyms";
@@ -73,13 +72,13 @@ sub write_output {
 
 
 sub backup_tables {
-  my ($self,$path_to_files,$core_db_hash) = @_;
+  my ($self,$path_to_files,$target_db) = @_;
 
-  my $dbhost = $core_db_hash->{'-host'};
-  my $dbport = $core_db_hash->{'-port'};
-  my $dbuser = $core_db_hash->{'-user'};
-  my $dbpass = $core_db_hash->{'-pass'};
-  my $dbname = $core_db_hash->{'-dbname'};
+  my $dbhost = $target_db->{'-host'};
+  my $dbport = $target_db->{'-port'};
+  my $dbuser = $target_db->{'-user'};
+  my $dbpass = $target_db->{'-pass'};
+  my $dbname = $target_db->{'-dbname'};
 
   for my $table ('seq_region','meta') {
     my $backup_file = $path_to_files."/".$table.".".time().".sql";
@@ -101,9 +100,10 @@ sub backup_tables {
 }
 
 sub set_meta {
-  my ($self,$core_db,$genebuilder_id,$path_to_files) = @_;
+  my ($self,$target_db,$genebuilder_id,$path_to_files) = @_;
 
-  my $meta_adaptor = $core_db->get_MetaContainerAdaptor;
+  my $target_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$target_db});
+  my $meta_adaptor = $target_dba->get_MetaContainerAdaptor;
   $meta_adaptor->store_key_value('genebuild.id', $genebuilder_id);
   say "Inserted into meta:\ngenebuild.id => ".$genebuilder_id;
   $meta_adaptor->store_key_value('marker.priority', 1);
@@ -152,7 +152,9 @@ sub set_meta {
 }
 
 sub set_seq_region_synonyms {
-  my ($self,$core_db,$path_to_files,$chromo_present) = @_;
+  my ($self,$target_db,$path_to_files,$chromo_present) = @_;
+
+  my $target_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$target_db});
 
   if($chromo_present) {
     unless(-e $path_to_files."/chr2acc") {
@@ -160,13 +162,13 @@ sub set_seq_region_synonyms {
     }
 
     open(IN,$path_to_files."/chr2acc");
-    my $sth_select = $core_db->dbc->prepare('SELECT sr.seq_region_id FROM seq_region sr, coord_system cs WHERE cs.coord_system_id = sr.coord_system_id AND sr.name = ? AND cs.rank = 1');
-    my $sth_insdc = $core_db->dbc->prepare('SELECT external_db_id FROM external_db WHERE db_name = "INSDC"');
+    my $sth_select = $target_dba->dbc->prepare('SELECT sr.seq_region_id FROM seq_region sr, coord_system cs WHERE cs.coord_system_id = sr.coord_system_id AND sr.name = ? AND cs.rank = 1');
+    my $sth_insdc = $target_dba->dbc->prepare('SELECT external_db_id FROM external_db WHERE db_name = "INSDC"');
     $sth_insdc->execute();
     my ($insdc_db_id) = $sth_insdc->fetchrow_array;
 
-    my $sth_insert = $core_db->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym, external_db_id) VALUES(?, ?, ?)');
-    my $sth_update = $core_db->dbc->prepare('UPDATE seq_region set name = ? WHERE seq_region_id = ?');
+    my $sth_insert = $target_dba->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym, external_db_id) VALUES(?, ?, ?)');
+    my $sth_update = $target_dba->dbc->prepare('UPDATE seq_region set name = ? WHERE seq_region_id = ?');
     my $insert_count = 0;
     while(my $line = <IN>) {
       if($line =~ /^#/) {
@@ -202,8 +204,8 @@ sub set_seq_region_synonyms {
     }
 
     open(IN,$path_to_files."/".$file);
-    my $sth_select = $core_db->dbc->prepare('SELECT seq_region_id FROM seq_region WHERE name = ?');
-    my $sth_insert = $core_db->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym) VALUES(?, ?)');
+    my $sth_select = $target_dba->dbc->prepare('SELECT seq_region_id FROM seq_region WHERE name = ?');
+    my $sth_insert = $target_dba->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym) VALUES(?, ?)');
     my $insert_count = 0;
     while (my $line = <IN>) {
       if ($line =~ /^#/) {

@@ -194,14 +194,14 @@ sub core_only_db {
     throw("You have specified a create type of core_only but you haven't specified the user_w and pass_w.\n");
   }
 
-  unless($self->param('enscode_dir')) {
-    throw("You have specified a create type of core_only but you haven't specified the enscode_dir path\n");
+  unless($self->param('enscode_root_dir')) {
+    throw("You have specified a create type of core_only but you haven't specified the enscode_root_dir path\n");
   }
 
-  my $table_file = $self->param('enscode_dir')."/ensembl/sql/table.sql";
+  my $table_file = $self->param('enscode_root_dir')."/ensembl/sql/table.sql";
   unless(-e $table_file) {
-    throw("You have specified a create type of core_only but the path from enscode_dir to the table file is incorrect:\n".
-          $self->param('enscode_dir')."/ensembl/sql/table.sql");
+    throw("You have specified a create type of core_only but the path from enscode_root_dir to the table file is incorrect:\n".
+          $self->param('enscode_root_dir')."/ensembl/sql/table.sql");
   }
 
   my $target_string;
@@ -334,9 +334,9 @@ sub remove_file {
 sub populate_production_db_tables {
   my ($self) = @_;
 
-  unless($self->param('enscode_dir')) {
+  unless($self->param('enscode_root_dir')) {
     throw("You have used the populate_production_tables flag but have not passed in the location of the enscode dir with ".
-          "the enscode_dir flag");
+          "the enscode_root_dir flag");
   }
 
   unless($self->param('output_path')) {
@@ -390,7 +390,7 @@ sub populate_production_db_tables {
   my $production_port = $production_db->{'-port'};
   my $production_dbname = $production_db->{'-dbname'};
 
-  my $populate_script = $self->param('enscode_dir')."/ensembl-production/scripts/production_database/populate_production_db_tables.pl";
+  my $populate_script = $self->param('enscode_root_dir')."/ensembl-production/scripts/production_database/populate_production_db_tables.pl";
   my $cmd = "perl ".$populate_script.
             " -h ".$target_host.
             " -u ".$target_user.
@@ -419,9 +419,9 @@ sub populate_production_db_tables {
 sub load_taxonomy {
   my ($self) = @_;
 
-  unless($self->param('enscode_dir')) {
+  unless($self->param('enscode_root_dir')) {
     throw("You have used the populate_production_tables flag but have not passed in the location of the enscode dir with ".
-          "the enscode_dir flag");
+          "the enscode_root_dir flag");
   }
 
   unless($self->param('taxon_id') || $self->param('taxon_name')) {
@@ -473,7 +473,7 @@ sub load_taxonomy {
   my $taxonomy_port = $taxonomy_db->{'-port'};
   my $taxonomy_dbname = $taxonomy_db->{'-dbname'};
 
-  my $taxonomy_script = $self->param('enscode_dir')."/ensembl-pipeline/scripts/load_taxonomy.pl";
+  my $taxonomy_script = $self->param('enscode_root_dir')."/ensembl-pipeline/scripts/load_taxonomy.pl";
   my $cmd = "perl ".$taxonomy_script.
             " -lcdbhost ".$target_host.
             " -lcdbuser ".$target_user.
