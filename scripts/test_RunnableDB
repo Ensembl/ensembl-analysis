@@ -230,7 +230,9 @@ if($verbose){
     if ($out->isa("Bio::EnsEMBL::Gene")) {
       print_gene($out);
       print "\n";
-    } else {
+    } elsif (ref($out) eq "") {
+        print $out, "\n";
+    }else {
       #print $out->slice;
       my $name;
       if ($out->slice) {
