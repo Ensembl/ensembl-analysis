@@ -63,7 +63,7 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  $self->db->disconnect_when_inactive(1);
+  $self->db->dbc->disconnect_when_inactive(1);
 
   my( $program, $options, $genedb, $outgenedb) =
     rearrange(['PROGRAM','OPTIONS','GENEDB','OUTGENEDB'], @args);
