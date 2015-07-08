@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ my $dbname;
 my $host;
 my $user;
 my $port            = 3306;
-my $scaf_syn_ext_id = 50710; # INSDC = 50710
+my $scaf_syn_ext_id; # INSDC = 50710 but it's check by an SQL query
 my $central_coord_system;
 
 GetOptions(
@@ -84,6 +84,15 @@ my $max_seq_region_id;
 $sth->bind_columns(\$max_seq_region_id) || die "problem binding";
 $sth->fetch() || die "problem fetching";
 $sth->finish;
+
+if (! $scaf_syn_ext_id) {
+    $sth = $dba->dbc->prepare("SELECT external_db_id FROM external_db WHERE db_name = 'INSDC'")
+        || die "Could not get external_db_id for INSDC";
+    $sth->execute || die "problem executing INSDC query";
+    $sth->bind_columns(\$scaf_syn_ext_id) || die "problem binding INSDC query";
+    $sth->fetch() || die "problem fetching INSDC query";
+    $sth->finish;
+}
 
 $sth = $dba->dbc->prepare("select count(assembly_exception_id) from assembly_exception")
   || die "Could not get number of rows in assembly_exception";
@@ -192,8 +201,6 @@ my %seq_id_to_alt_scaf_stop;
 my %seq_id_to_stop;
 my %seq_id_to_strand;
 my %old_patch_names;
-
-my $time = time();
 
 while (<TYPE>) {
   chomp;
@@ -312,10 +319,10 @@ SCAF: while(<TXT>){
     my $hap_type;
     if (exists $name_to_type{$alt_name} && defined $name_to_type{$alt_name}) {
       if ($name_to_type{$alt_name} =~ /fix/i) {
-        print SQL "insert into seq_region_attrib (seq_region_id, attrib_type_id, value) values ($max_seq_region_id, $patch_fix, $time);\n";
+        print SQL "insert into seq_region_attrib (seq_region_id, attrib_type_id, value) values ($max_seq_region_id, $patch_fix, NOW());\n";
         $hap_type = "'PATCH_FIX'";
       } elsif ($name_to_type{$alt_name} =~ /novel/i) {
-        print SQL "insert into seq_region_attrib (seq_region_id, attrib_type_id, value) values ($max_seq_region_id, $patch_novel, $time);\n";
+        print SQL "insert into seq_region_attrib (seq_region_id, attrib_type_id, value) values ($max_seq_region_id, $patch_novel, NOW());\n";
         $hap_type = "'PATCH_NOVEL'";
       } elsif ($name_to_type{$alt_name} =~ /hap/i) {
 		# note there is no need to insert anything into the seq_region_attrib because the only attrib for haps has already been inserted above (non_ref)

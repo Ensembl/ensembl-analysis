@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -398,6 +398,7 @@ GENE: foreach my $gene (@genes) {
         my $new_gene = Bio::EnsEMBL::Gene->new();
         $new_gene->analysis( $self->analysis );
         $new_gene->biotype( $self->PS_PSEUDO_TYPE );
+        $new_gene->source("ensembl");
         if ( defined $only_transcript_to_keep ) {
           if ($self->BLESSED_BIOTYPES->{ $only_transcript_to_keep->biotype }) {
              $new_gene->biotype( $only_transcript_to_keep->biotype) ;

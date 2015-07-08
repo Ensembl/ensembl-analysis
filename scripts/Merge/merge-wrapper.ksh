@@ -41,14 +41,14 @@ bsub -q normal \
   -M 1500 -R 'select[mem>1500]' -R 'rusage[mem=1500]' \
   -We 30 \
   perl ${ensembl_analysis_base}/scripts/Merge/merge.pl \
-  --host_ensembl="${host_ensembl}" \
-  --user_ensembl="${rouser}" \
-  --password_ensembl="${ropassword}" \
-  --database_ensembl="${database_ensembl}" \
-  --host_havana="${host_havana}" \
-  --user_havana="${rouser}" \
-  --password_havana="${ropassword}" \
-  --database_havana="${database_havana}" \
+  --host_secondary="${host_secondary}" \
+  --user_secondary="${rouser}" \
+  --password_secondary="${ropassword}" \
+  --database_secondary="${database_secondary}" \
+  --host_primary="${host_primary}" \
+  --user_primary="${rouser}" \
+  --password_primary="${ropassword}" \
+  --database_primary="${database_primary}" \
   --host_dna="${host_dna}" \
   --port_dna="${port_dna}" \
   --user_dna="${user_dna}" \
@@ -61,15 +61,15 @@ bsub -q normal \
   --user_output="${rwuser}" \
   --password_output="${rwpassword}" \
   --database_output="${database_output}" \
-  --ensembl_include="${ensembl_include}" \
-  --ensembl_exclude="${ensembl_include}" \
-  --havana_include="${havana_include}" \
-  --havana_exclude="${havana_exclude}" \
-  --ensembl_tag="${ensembl_tag}" \
-  --havana_tag="${havana_tag}" \
-  --havana_gene_xref="${havana_gene_xref}" \
-  --havana_transcript_xref="${havana_transcript_xref}" \
-  --havana_translation_xref="${havana_translation_xref}" \
+  --secondary_include="${secondary_include}" \
+  --secondary_exclude="${secondary_exclude}" \
+  --primary_include="${primary_include}" \
+  --primary_exclude="${primary_exclude}" \
+  --secondary_tag="${secondary_tag}" \
+  --primary_tag="${primary_tag}" \
+  --primary_gene_xref="${primary_gene_xref}" \
+  --primary_transcript_xref="${primary_transcript_xref}" \
+  --primary_translation_xref="${primary_translation_xref}" \
   --njobs="${njobs}" --job="\$LSB_JOBINDEX" $*
 
 # Post-processing:  Copy all unprocessed Ensembl genes to the output
@@ -86,17 +86,49 @@ cd "${output_dir}" || exit 1
 awk '\$1 == "PROCESSED" { print \$2 }' merge-run-*.out |
 sort -u -n -o genes-processed.txt
 
-mysql -BN -h '${host_ensembl}' -u ensro -D '${database_ensembl}' \
-  >genes-all.txt <<SQL_END
+if [ -n "${secondary_include}" ];then
+    echo "INCLUDE"
+    SQLQUERY=`echo ${secondary_include} | sed 's/,/","/g'`
+    mysql -BN -h '${host_secondary}' -u ensro -D '${database_secondary}' \
+      >genes-all.txt <<SQL_END
+SELECT gene_id
+FROM gene
+JOIN seq_region USING (seq_region_id)
+JOIN analysis USING (analysis_id)
+WHERE logic_name IN ("\$SQLQUERY")
+ORDER BY gene_id
+SQL_END
+else
+    echo "NO INCLUDE"
+    mysql -BN -h '${host_secondary}' -u ensro -D '${database_secondary}' \
+      >genes-all.txt <<SQL_END
 SELECT gene_id
 FROM gene
 JOIN seq_region USING (seq_region_id)
 ORDER BY gene_id
 SQL_END
+fi
 
 diff genes-all.txt genes-processed.txt |
 awk '\$1 == "<" { print \$2 }' |
 sort -R -o genes-copy.txt
+if [ -n "${secondary_exclude}" ];then
+    echo "EXCLUDE"
+    SQLQUERY=`echo ${secondary_exclude} | sed 's/,/","/g'`
+    mysql -BN -h '${host_secondary}' -u ensro -D '${database_secondary}' \
+      >genes-excluded <<SQL_END
+SELECT gene_id
+FROM gene
+JOIN seq_region USING (seq_region_id)
+JOIN analysis USING (analysis_id)
+WHERE logic_name IN ("\$SQLQUERY")
+ORDER BY gene_id
+SQL_END
+    sort -n genes-copy.txt > genes-copy.tmp
+    diff genes-copy.tmp genes-excluded |
+    awk '\$1 == "<" { print \$2 }' |
+    sort -R -o genes-copy.txt
+fi
 
 rm -f genes-copy-*
 split -n l/${concurrent} genes-copy.txt genes-copy-
@@ -112,9 +144,9 @@ for list in genes-copy-*; do
     -M 500 -R 'select[mem>500]' -R 'rusage[mem=500]' \
     perl ${ensembl_analysis_base}/scripts/genebuild/copy_genes.pl \
     --file="\${list}" \
-    --sourcehost='${host_ensembl}' \
+    --sourcehost='${host_secondary}' \
     --sourceuser='${rouser}' \
-    --sourcedbname='${database_ensembl}' \
+    --sourcedbname='${database_secondary}' \
     --targethost='${host_output}' \
     --targetuser='${rwuser}' \
     --targetpass='${rwpassword}' \

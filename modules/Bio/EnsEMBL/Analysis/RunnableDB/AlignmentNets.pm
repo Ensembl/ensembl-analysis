@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -193,7 +193,7 @@ sub fetch_input {
          -cigar_string => $daf_cigar,
          -group_id => $block->group_id);
 
-    push @{$features_by_group{$group_id}}, $daf;
+    push @{$features_by_group{$block->group_id}}, $daf;
   }
 
   $self->chains($self->sort_chains_by_max_block_score([values %features_by_group]));

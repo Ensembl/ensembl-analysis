@@ -1,4 +1,4 @@
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 # Utilities for scripts for doing tasks such as defining/filtering input
 
-package ScriptUtils;
+package buildchecks::ScriptUtils;
 
 use Exporter;
 use vars qw(@ISA @EXPORT);
@@ -64,7 +64,7 @@ sub get_chrlengths_v20 {
   } else {
     my $sa = $db->get_SliceAdaptor;
 
-    my @slices = @{$sa->fetch_all('toplevel')};
+    my @slices = @{$sa->fetch_all('toplevel',undef,undef,1)};
 
     foreach my $slice (@slices) {
       #print $slice->seq_region_name . " " . $slice->length . " " . $slice->coord_system->version . "\n";

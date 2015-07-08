@@ -1,6 +1,6 @@
 #!/usr/local/ensembl/bin/perl -w 
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -230,7 +230,9 @@ if($verbose){
     if ($out->isa("Bio::EnsEMBL::Gene")) {
       print_gene($out);
       print "\n";
-    } else {
+    } elsif (ref($out) eq "") {
+        print $out, "\n";
+    }else {
       #print $out->slice;
       my $name;
       if ($out->slice) {

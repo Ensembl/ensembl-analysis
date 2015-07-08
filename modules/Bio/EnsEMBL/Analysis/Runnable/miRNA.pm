@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -333,6 +333,7 @@ sub make_gene{
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
   $transcript->biotype("miRNA");
+  $transcript->source("ensembl");
   # add the transcript attributes for the position of the mature miRNA as well as
   # the predicted structure
   foreach my $code(@$structure){
@@ -356,6 +357,7 @@ sub make_gene{
   # gene
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->biotype('miRNA');
+  $gene->source("ensembl");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
   $gene->status('NOVEL');

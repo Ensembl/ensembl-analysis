@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ sub  run_blast{
   my $blast =  Bio::EnsEMBL::Analysis::Runnable::Blast->new 
     ('-query'     => $query,
      '-program'   => 'blastp',
-     '-database'  => "$PSILC_BLAST_DB/multi_species.fasta",
+     '-database'  => "$Bio::EnsEMBL::Analysis::Config::Pseudogene::PSILC_BLAST_DB/multi_species.fasta",
      '-threshold' => 1e-6,
      '-parser'    => $bplitewrapper,
      '-options'   => 'V=10 -cpus=1',

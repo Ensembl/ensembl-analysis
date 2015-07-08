@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,13 +45,11 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::LayerAnnotation;
-
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Data::Dumper;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
@@ -87,7 +85,7 @@ sub fetch_input {
         }
       }
     }
-    $dbh->dbc->disconnect_when_inactive(1) ;
+    $dbh->dbc->disconnect_when_inactive(0) ;
   }
 }
 
@@ -161,7 +159,7 @@ sub write_output {
     };
     
     if ($@) {
-      $self->warning("Unable to store gene!!\n");
+      $self->warning("Unable to store gene".$g->dbID()." ".$g->stable_id()."\n");
       print STDERR "$@\n";
       $fails++;  
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,9 +36,10 @@
     -dbport       Database server port
     -dbuser       Database user
     -dbpass       User password
-    -stable_id    Outputs sequences identified with their stable IDs
+    -stable_id    Outputs sequences identified with their transcript stable IDs
     -db_id        Outputs sequences identified with their internal identifier.
                   The db_id and stable_id flags are mutually exclusive.
+    Note: Omit -stable_id and -db_id to output the translation stable ID
 
   Optional arguments:
 
@@ -104,13 +105,13 @@ die "need to specify to use either stable_id or dbId for the header line"
   if not defined $stable_id and not defined $db_id;
 
 if ($stable_id and $db_id) {
-    $verbose and print STDERR "Entry ids will be db_id.stable_id\n";
+    $verbose and print STDERR "Entry ids will be db_id.transcript_stable_id\n";
 }
 elsif ($stable_id) {
-    $verbose and print STDERR "Entry ids will be translation stable_ids\n";
+    $verbose and print STDERR "Entry ids will be transcript stable_id\n";
 }
 else {
-    $verbose and print STDERR "Entry ids will be translation dbIDs\n";
+    $verbose and print STDERR "Entry ids will be translation stable_id\n";
 }
 
 my $db;
@@ -179,19 +180,17 @@ while (my $gene = shift @$gene_list) {
 
     foreach my $trans (@{ $gene->get_all_Transcripts }) {
         next if (!$trans->translation);
+        my $identifier = '';
 
-        my $identifier;
         if ($db_id) {
             $identifier = $trans->translation->dbID;
         }
+
         if ($stable_id) {
-            if (!$db_id) {
-                $identifier = $trans->stable_id;
-            }
-            else {
-                $identifier .= "." . $trans->stable_id;
-            }
+            $identifier .= '.' if $db_id;
+            $identifier .= $trans->stable_id;
         }
+
         my $tseq = $trans->translate();
         if ($tseq->length() < 3) { # signalp doesn't like sequences shorter than 3 amino acids, skip them
           print STDERR "Translation of $identifier is shorter than 3 amino acids. Skipping! (in ", $trans->slice->name(), ")\n";
@@ -203,7 +202,7 @@ while (my $gene = shift @$gene_list) {
             next;
         }
 
-        $tseq->display_id($identifier);
+        $tseq->display_id($identifier) if $identifier;
         $tseq->desc("Translation id $identifier gene $gene_id");
         $seqio->write_seq($tseq);
     }

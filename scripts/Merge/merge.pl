@@ -10,12 +10,13 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
-my ( $opt_host_ensembl, $opt_port_ensembl,
-     $opt_user_ensembl, $opt_password_ensembl,
-     $opt_database_ensembl );
-my ( $opt_host_havana,     $opt_port_havana, $opt_user_havana,
-     $opt_password_havana, $opt_database_havana );
+my ( $opt_host_secondary, $opt_port_secondary,
+     $opt_user_secondary, $opt_password_secondary,
+     $opt_database_secondary );
+my ( $opt_host_primary,     $opt_port_primary, $opt_user_primary,
+     $opt_password_primary, $opt_database_primary );
 my ( $opt_host_dna,     $opt_port_dna, $opt_user_dna,
      $opt_password_dna, $opt_database_dna );
 my ( $opt_host_ccds,     $opt_port_ccds, $opt_user_ccds,
@@ -23,17 +24,17 @@ my ( $opt_host_ccds,     $opt_port_ccds, $opt_user_ccds,
 my ( $opt_host_output,     $opt_port_output, $opt_user_output,
      $opt_password_output, $opt_database_output );
 
-my ( @opt_havana_include,  @opt_havana_exclude );
-my ( @opt_ensembl_include, @opt_ensembl_exclude );
+my ( @opt_primary_include,  @opt_primary_exclude );
+my ( @opt_secondary_include, @opt_secondary_exclude );
 
-my $opt_havana_tag  = 'havana';
-my $opt_ensembl_tag = 'ensembl';
+my $opt_primary_tag  = 'primary';
+my $opt_secondary_tag = 'secondary';
 
-my $opt_havana_gene_xref        = 'OTTG,Havana gene,ALT_GENE';
-my $opt_havana_transcript_xref  = 'OTTT,Havana transcript,ALT_TRANS';
-my $opt_havana_translation_xref = 'OTTP,Havana translation,MISC';
+my $opt_primary_gene_xref        = 'OTTG,Havana gene,ALT_GENE';
+my $opt_primary_transcript_xref  = 'OTTT,Havana transcript,ALT_TRANS';
+my $opt_primary_translation_xref = 'OTTP,Havana translation,MISC';
 
-$opt_port_ensembl = $opt_port_havana = $opt_port_dna = $opt_port_ccds =
+$opt_port_secondary = $opt_port_primary = $opt_port_dna = $opt_port_ccds =
   $opt_port_output = 3306;
 
 my $opt_njobs = 1;    # Default number of jobs.
@@ -42,16 +43,16 @@ my $opt_job   = 1;    # This job.
 my $opt_help = 0;
 
 if ( !GetOptions(
-          'host_ensembl:s'                    => \$opt_host_ensembl,
-          'port_ensembl:i'                    => \$opt_port_ensembl,
-          'user_ensembl:s'                    => \$opt_user_ensembl,
-          'password_ensembl|pass_ensembl:s'   => \$opt_password_ensembl,
-          'database_ensembl|dbname_ensembl:s' => \$opt_database_ensembl,
-          'host_havana:s'                     => \$opt_host_havana,
-          'port_havana:i'                     => \$opt_port_havana,
-          'user_havana:s'                     => \$opt_user_havana,
-          'password_havana|pass_havana:s'     => \$opt_password_havana,
-          'database_havana|dbname_havana:s'   => \$opt_database_havana,
+          'host_secondary:s'                    => \$opt_host_secondary,
+          'port_secondary:i'                    => \$opt_port_secondary,
+          'user_secondary:s'                    => \$opt_user_secondary,
+          'password_secondary|pass_secondary:s'   => \$opt_password_secondary,
+          'database_secondary|dbname_secondary:s' => \$opt_database_secondary,
+          'host_primary:s'                     => \$opt_host_primary,
+          'port_primary:i'                     => \$opt_port_primary,
+          'user_primary:s'                     => \$opt_user_primary,
+          'password_primary|pass_primary:s'     => \$opt_password_primary,
+          'database_primary|dbname_primary:s'   => \$opt_database_primary,
           'host_dna:s'                        => \$opt_host_dna,
           'port_dna:i'                        => \$opt_port_dna,
           'user_dna:s'                        => \$opt_user_dna,
@@ -67,26 +68,26 @@ if ( !GetOptions(
           'user_output:s'                     => \$opt_user_output,
           'password_output|pass_output:s'     => \$opt_password_output,
           'database_output|dbname_output:s'   => \$opt_database_output,
-          'ensembl_include:s'                 => \@opt_ensembl_include,
-          'ensembl_exclude:s'                 => \@opt_ensembl_exclude,
-          'havana_include:s'                  => \@opt_havana_include,
-          'havana_exclude:s'                  => \@opt_havana_exclude,
-          'havana_tag:s'                      => \$opt_havana_tag,
-          'ensembl_tag:s'                     => \$opt_ensembl_tag,
-          'havana_gene_xref:s'                => \$opt_havana_gene_xref,
-          'havana_transcript_xref:s'  => \$opt_havana_transcript_xref,
-          'havana_translation_xref:s' => \$opt_havana_translation_xref,
+          'secondary_include:s'                 => \@opt_secondary_include,
+          'secondary_exclude:s'                 => \@opt_secondary_exclude,
+          'primary_include:s'                  => \@opt_primary_include,
+          'primary_exclude:s'                  => \@opt_primary_exclude,
+          'primary_tag:s'                      => \$opt_primary_tag,
+          'secondary_tag:s'                     => \$opt_secondary_tag,
+          'primary_gene_xref:s'                => \$opt_primary_gene_xref,
+          'primary_transcript_xref:s'  => \$opt_primary_transcript_xref,
+          'primary_translation_xref:s' => \$opt_primary_translation_xref,
           'njobs:i'                   => \$opt_njobs,
           'job:i'                     => \$opt_job,
           'help|h|?!'                 => \$opt_help, ) ||
      $opt_help ||
-     !( defined($opt_host_ensembl) &&
-        defined($opt_user_ensembl) &&
-        defined($opt_database_ensembl) )
+     !( defined($opt_host_secondary) &&
+        defined($opt_user_secondary) &&
+        defined($opt_database_secondary) )
      ||
-     !( defined($opt_host_havana) &&
-        defined($opt_user_havana) &&
-        defined($opt_database_havana) )
+     !( defined($opt_host_primary) &&
+        defined($opt_user_primary) &&
+        defined($opt_database_primary) )
      ||
      !( defined($opt_host_output) &&
         defined($opt_user_output) &&
@@ -100,19 +101,19 @@ if ( !GetOptions(
   else {
     pod2usage( -verbose => 0, -exitval => 'NOEXIT' );
 
-    if ( !( defined($opt_host_ensembl) &&
-            defined($opt_user_ensembl) &&
-            defined($opt_database_ensembl) ) )
+    if ( !( defined($opt_host_secondary) &&
+            defined($opt_user_secondary) &&
+            defined($opt_database_secondary) ) )
     {
-      die( 'Need connection parameters for Ensembl database ' .
-           '(host_ensembl, user_ensembl and database_ensembl)' );
+      die( 'Need connection parameters for Secondary database ' .
+           '(host_secondary, user_secondary and database_secondary)' );
     }
-    elsif ( !( defined($opt_host_havana) &&
-               defined($opt_user_havana) &&
-               defined($opt_database_havana) ) )
+    elsif ( !( defined($opt_host_primary) &&
+               defined($opt_user_primary) &&
+               defined($opt_database_primary) ) )
     {
-      die( 'Need connection parameters for Havana database ' .
-           '(host_havana, user_havana and database_havana)' );
+      die( 'Need connection parameters for Primary database ' .
+           '(host_primary, user_primary and database_primary)' );
     }
     elsif ( !( defined($opt_host_output) &&
                defined($opt_user_output) &&
@@ -128,8 +129,8 @@ if ( !GetOptions(
            'and the current job needs to be ' .
            'between 1 and the number of jobs' );
     }
-    elsif ( ( @opt_ensembl_include && @opt_ensembl_exclude ) ||
-            ( @opt_havana_include && @opt_havana_exclude ) )
+    elsif ( ( @opt_secondary_include && @opt_secondary_exclude ) ||
+            ( @opt_primary_include && @opt_primary_exclude ) )
     {
       die('You may only use X_include or X_exclude, but not both');
     }
@@ -138,39 +139,39 @@ if ( !GetOptions(
     }
   } ## end else [ if ($opt_help) ]
 
-} ## end if ( !GetOptions( 'host_ensembl:s'...))
+} ## end if ( !GetOptions( 'host_secondary:s'...))
 
 my $dna_dba =
   Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                 '-no_cache' => 1,
-                '-host'     => $opt_host_dna || $opt_host_ensembl,
-                '-port'     => $opt_port_dna || $opt_port_ensembl,
-                '-user'     => $opt_user_dna || $opt_user_ensembl,
-                '-pass' => $opt_password_dna || $opt_password_ensembl,
-                '-dbname' => $opt_database_dna || $opt_database_ensembl,
+                '-host'     => $opt_host_dna || $opt_host_secondary,
+                '-port'     => $opt_port_dna || $opt_port_secondary,
+                '-user'     => $opt_user_dna || $opt_user_secondary,
+                '-pass' => $opt_password_dna || $opt_password_secondary,
+                '-dbname' => $opt_database_dna || $opt_database_secondary,
   ) or
   die('Failed to connect to DNA database');
 
-my $ensembl_dba =
+my $secondary_dba =
   Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                      '-no_cache' => 1,
-                                     '-host'     => $opt_host_ensembl,
-                                     '-port'     => $opt_port_ensembl,
-                                     '-user'     => $opt_user_ensembl,
-                                     '-pass'   => $opt_password_ensembl,
-                                     '-dbname' => $opt_database_ensembl,
+                                     '-host'     => $opt_host_secondary,
+                                     '-port'     => $opt_port_secondary,
+                                     '-user'     => $opt_user_secondary,
+                                     '-pass'   => $opt_password_secondary,
+                                     '-dbname' => $opt_database_secondary,
                                      '-dnadb'  => $dna_dba, ) or
-  die('Failed to connect to Ensembl database');
+  die('Failed to connect to Secondary database');
 
-my $havana_dba =
+my $primary_dba =
   Bio::EnsEMBL::DBSQL::DBAdaptor->new('-no_cache' => 1,
-                                      '-host'     => $opt_host_havana,
-                                      '-port'     => $opt_port_havana,
-                                      '-user'     => $opt_user_havana,
-                                      '-pass'   => $opt_password_havana,
-                                      '-dbname' => $opt_database_havana,
+                                      '-host'     => $opt_host_primary,
+                                      '-port'     => $opt_port_primary,
+                                      '-user'     => $opt_user_primary,
+                                      '-pass'   => $opt_password_primary,
+                                      '-dbname' => $opt_database_primary,
                                       '-dnadb'  => $dna_dba, ) or
-  die('Failed to connect to Havana database');
+  die('Failed to connect to Primary database');
 
 my $output_dba =
   Bio::EnsEMBL::DBSQL::DBAdaptor->new('-no_cache' => 1,
@@ -202,10 +203,10 @@ else {
   print("Not attaching CCDS database\n");
 }
 
-@opt_ensembl_include = split( /,/, join( ',', @opt_ensembl_include ) );
-@opt_ensembl_exclude = split( /,/, join( ',', @opt_ensembl_exclude ) );
-@opt_havana_include  = split( /,/, join( ',', @opt_havana_include ) );
-@opt_havana_exclude  = split( /,/, join( ',', @opt_havana_exclude ) );
+@opt_secondary_include = split( /,/, join( ',', @opt_secondary_include ) );
+@opt_secondary_exclude = split( /,/, join( ',', @opt_secondary_exclude ) );
+@opt_primary_include  = split( /,/, join( ',', @opt_primary_include ) );
+@opt_primary_exclude  = split( /,/, join( ',', @opt_primary_exclude ) );
 
 
 if($opt_database_dna) {
@@ -218,15 +219,15 @@ if($opt_database_dna) {
 
 
 print <<DBINFO_END;
-ENSEMBL database\thost:\t$opt_host_ensembl
-                \tport:\t$opt_port_ensembl
-                \tuser:\t$opt_user_ensembl
-                \tname:\t$opt_database_ensembl
+SECONDARY database\thost:\t$opt_host_secondary
+                \tport:\t$opt_port_secondary
+                \tuser:\t$opt_user_secondary
+                \tname:\t$opt_database_secondary
 
-HAVANA database\thost:\t$opt_host_havana
-               \tport:\t$opt_port_havana
-               \tuser:\t$opt_user_havana
-               \tname:\t$opt_database_havana
+PRIMARY database\thost:\t$opt_host_primary
+               \tport:\t$opt_port_primary
+               \tuser:\t$opt_user_primary
+               \tname:\t$opt_database_primary
 
 CCDS database\thost:\t$opt_host_ccds
                \tport:\t$opt_port_ccds
@@ -238,24 +239,24 @@ OUTPUT database\thost:\t$opt_host_output
                \tuser:\t$opt_user_output
                \tname:\t$opt_database_output
 
-Ensembl logic name filter (include): @opt_ensembl_include
-Ensembl logic name filter (exclude): @opt_ensembl_exclude
+Secondary logic name filter (include): @opt_secondary_include
+Secondary logic name filter (exclude): @opt_secondary_exclude
 
-Havana logic name filter (include): @opt_havana_include
-Havana logic name filter (exclude): @opt_havana_exclude
+Primary logic name filter (include): @opt_primary_include
+Primary logic name filter (exclude): @opt_primary_exclude
 
-Ensembl tag:\t$opt_ensembl_tag
-Havana tag:\t$opt_havana_tag
+Secondary tag:\t$opt_secondary_tag
+Primary tag:\t$opt_primary_tag
 
-Havana gene xref:       \t$opt_havana_gene_xref
-Havana transcript xref: \t$opt_havana_transcript_xref
-Havana translation xref:\t$opt_havana_translation_xref
+Primary gene xref:       \t$opt_primary_gene_xref
+Primary transcript xref: \t$opt_primary_transcript_xref
+Primary translation xref:\t$opt_primary_translation_xref
 
 ------------------------------------------------------------------------
 DBINFO_END
 
-my $ENSEMBL_GA = $ensembl_dba->get_GeneAdaptor();    # Used globally.
-my $HAVANA_GA  = $havana_dba->get_GeneAdaptor();     # Used globally.
+my $SECONDARY_GA = $secondary_dba->get_GeneAdaptor();    # Used globally.
+my $PRIMARY_GA  = $primary_dba->get_GeneAdaptor();     # Used globally.
 my $OUTPUT_GA  = $output_dba->get_GeneAdaptor();     # This one too.
 my $CCDS_TA;
 if ( defined($ccds_dba) ) {
@@ -263,26 +264,26 @@ if ( defined($ccds_dba) ) {
 }
 
 # Create a chunk of work, i.e. a list of gene IDs.  We create uniformly
-# sized chunks whose size depend on the number of available Havana
+# sized chunks whose size depend on the number of available Primary
 # genes and the number of jobs that are being run.  We pick the chunk
 # associated with our job ID.
 
-my @all_havana_gene_ids =
-  sort { $a <=> $b } @{ $HAVANA_GA->list_dbIDs() };
+my @all_primary_gene_ids =
+  sort { $a <=> $b } @{ $PRIMARY_GA->list_dbIDs() };
 
-my $chunk_size  = int( scalar(@all_havana_gene_ids)/$opt_njobs );
+my $chunk_size  = int( scalar(@all_primary_gene_ids)/$opt_njobs );
 my $chunk_first = ( $opt_job - 1 )*$chunk_size;
 my $chunk_last  = $chunk_first + $chunk_size - 1;
 
 printf( "Got %d genes, with %d jobs this means %d genes per job",
-        scalar(@all_havana_gene_ids),
+        scalar(@all_primary_gene_ids),
         $opt_njobs, $chunk_size );
 
 # This ($chunk_spill) is just the number of jobs that will get one extra
 # piece of work to do, because $chunk_size multiplied by $opt_njobs
-# isn't quite equal to the number of Havana genes.
+# isn't quite equal to the number of Primary genes.
 
-my $chunk_spill = scalar(@all_havana_gene_ids) % $opt_njobs;
+my $chunk_spill = scalar(@all_primary_gene_ids) % $opt_njobs;
 
 if ( $chunk_spill > 0 ) {
   printf( " (the first %d jobs will get an extra gene).\n",
@@ -304,61 +305,61 @@ else {
 printf( "This is job %d. Will run genes indexed %d-%d.\n",
         $opt_job, $chunk_first, $chunk_last );
 
-my %havana_genes_done;
+my %primary_genes_done;
 
-# Process all the Havana genes in the current chunk.
-foreach my $havana_gene_id (
-                   @all_havana_gene_ids[ $chunk_first .. $chunk_last ] )
+# Process all the Primary genes in the current chunk.
+foreach my $primary_gene_id (
+                   @all_primary_gene_ids[ $chunk_first .. $chunk_last ] )
 {
-  if ( exists( $havana_genes_done{$havana_gene_id} ) ) {
+  if ( exists( $primary_genes_done{$primary_gene_id} ) ) {
     printf( "Skipping gene %d, already processed " .
               "(because of clustering).\n",
-            $havana_gene_id );
+            $primary_gene_id );
     next;
   }
 
-  # Given the gene with ID $havana_gene_id, pick out all the overlapping
-  # Havana and Ensembl genes (will return nothing if the gene cluster is
+  # Given the gene with ID $primary_gene_id, pick out all the overlapping
+  # Primary and Secondary genes (will return nothing if the gene cluster is
   # found to contain genes belonging to another LSF job).
 
-  my ( $havana_genes, $ensembl_genes ) =
+  my ( $primary_genes, $secondary_genes ) =
     @{
-    make_gene_cluster( $havana_gene_id,
-                       $all_havana_gene_ids[$chunk_first] ) };
+    make_gene_cluster( $primary_gene_id,
+                       $all_primary_gene_ids[$chunk_first] ) };
 
   # Filter the genes.
-  my @filtered_havana_genes;
-  my @filtered_ensembl_genes;
-  foreach my $havana_gene ( @{$havana_genes} ) {
-    if ( filter_gene( $havana_gene, \@opt_havana_include,
-                      \@opt_havana_exclude ) )
+  my @filtered_primary_genes;
+  my @filtered_secondary_genes;
+  foreach my $primary_gene ( @{$primary_genes} ) {
+    if ( filter_gene( $primary_gene, \@opt_primary_include,
+                      \@opt_primary_exclude ) )
     {
       next;
     }
-    push( @filtered_havana_genes, $havana_gene );
+    push( @filtered_primary_genes, $primary_gene );
   }
-  foreach my $ensembl_gene ( @{$ensembl_genes} ) {
-    if ( filter_gene( $ensembl_gene, \@opt_ensembl_include,
-                      \@opt_ensembl_exclude ) )
+  foreach my $secondary_gene ( @{$secondary_genes} ) {
+    if ( filter_gene( $secondary_gene, \@opt_secondary_include,
+                      \@opt_secondary_exclude ) )
     {
       next;
     }
-    push( @filtered_ensembl_genes, $ensembl_gene );
+    push( @filtered_secondary_genes, $secondary_gene );
   }
 
   # Process the filtered genes.
 
   # This loop needs to come before the call to process_genes() since
   # the dbIDs are changing when storing them.  It should loop over
-  # @{$havana_genes}, not @filtered_havana_genes.
-  foreach my $havana_gene ( @{$havana_genes} ) {
-    $havana_genes_done{ $havana_gene->dbID() } = 1;
+  # @{$primary_genes}, not @filtered_primary_genes.
+  foreach my $primary_gene ( @{$primary_genes} ) {
+    $primary_genes_done{ $primary_gene->dbID() } = 1;
   }
 
-  process_genes( \@filtered_havana_genes, \@filtered_ensembl_genes );
+  process_genes( \@filtered_primary_genes, \@filtered_secondary_genes );
 
   print("==\n");
-} ## end foreach my $havana_gene_id ...
+} ## end foreach my $primary_gene_id ...
 
 sub filter_gene {
   my ( $gene, $include_logic_names, $exclude_logic_names ) = @_;
@@ -412,123 +413,123 @@ sub make_gene_cluster {
 
   # See if the seed gene overlaps with any other gene.  If it does,
   # repeat until we have all overlapping genes in the cluster.  If
-  # the lowest Havana gene ID in the cluster is greater or equal to
+  # the lowest Primary gene ID in the cluster is greater or equal to
   # $lowest_allowed_gene_id, then process it, otherwise skip this
   # cluster as it belongs to another LSF job.
 
-  my $seed_gene = $HAVANA_GA->fetch_by_dbID($seed_gene_id);
+  my $seed_gene = $PRIMARY_GA->fetch_by_dbID($seed_gene_id);
 
-  printf( "Initiating gene cluster with Havana gene %s (%d), %s\n",
+  printf( "Initiating gene cluster with Primary gene %s (%d), %s\n",
           $seed_gene->stable_id(),
           $seed_gene_id, $seed_gene->feature_Slice()->name() );
 
   my @cluster_queue = ($seed_gene);
   my %used_slices;
 
-  my %havana_cluster;
-  my %ensembl_cluster;
+  my %primary_cluster;
+  my %secondary_cluster;
 
-  my $havana_sa  = $HAVANA_GA->db()->get_SliceAdaptor();
-  my $ensembl_sa = $ENSEMBL_GA->db()->get_SliceAdaptor();
+  my $primary_sa  = $PRIMARY_GA->db()->get_SliceAdaptor();
+  my $secondary_sa = $SECONDARY_GA->db()->get_SliceAdaptor();
 
   # The cluster queue is a collection of possibly unprocessed genes in
   # this cluster of overlapping genes.  We use each gene in turn to
-  # fetch overlapping gene from the Havana and the Ensembl databases.
+  # fetch overlapping gene from the Primary and the Secondary databases.
   # Any found gene, if it hasn't already been seen, is added to the
   # cluster queue.  When thu queue is empty, we are done.
 
   while ( my $gene = shift(@cluster_queue) ) {
-    my $havana_slice =
-      get_feature_slice_from_db( $gene, $HAVANA_GA->db() );
+    my $primary_slice =
+      get_feature_slice_from_db( $gene, $PRIMARY_GA->db() );
 
-    if ( exists( $used_slices{ 'havana:' . $havana_slice->name() } ) ) {
-      printf( "Skipping Havana slice %s, already seen.\n",
-              $havana_slice->name() );
+    if ( exists( $used_slices{ 'primary:' . $primary_slice->name() } ) ) {
+      printf( "Skipping Primary slice %s, already seen.\n",
+              $primary_slice->name() );
       next;
     }
 
-    $used_slices{ 'havana:' . $havana_slice->name() } = 1;
+    $used_slices{ 'primary:' . $primary_slice->name() } = 1;
 
-    # Fetch overlapping Havana genes.
+    # Fetch overlapping Primary genes.
 
-    foreach my $havana_gene (
-        @{ $HAVANA_GA->fetch_all_by_Slice( $havana_slice, undef, 1 ) } )
+    foreach my $primary_gene (
+        @{ $PRIMARY_GA->fetch_all_by_Slice( $primary_slice, undef, 1 ) } )
     {
       my $add_to_result  = 1;
-      my $havana_gene_id = $havana_gene->dbID();
+      my $primary_gene_id = $primary_gene->dbID();
 
-      if ( $havana_gene->length() > 100_000_000 ) {
-        printf( "Ignoring Havana gene %s (%d)," .
+      if ( $primary_gene->length() > 100_000_000 ) {
+        printf( "Ignoring Primary gene %s (%d)," .
                   " too long (%d > 100,000,000)\n",
-                $havana_gene->stable_id(),
-                $havana_gene_id, $havana_gene->length() );
+                $primary_gene->stable_id(),
+                $primary_gene_id, $primary_gene->length() );
         next;
       }
 
-      if ( !exists( $havana_cluster{$havana_gene_id} ) ) {
-        if ( $havana_gene_id < $lowest_allowed_gene_id ) {
+      if ( !exists( $primary_cluster{$primary_gene_id} ) ) {
+        if ( $primary_gene_id < $lowest_allowed_gene_id ) {
           print("Skipping gene cluster, does not belong to me.\n");
           return [ [], [] ];
         }
 
-        push( @cluster_queue, $havana_gene );
+        push( @cluster_queue, $primary_gene );
 
         if ($add_to_result) {
-          $havana_cluster{$havana_gene_id} = $havana_gene;
+          $primary_cluster{$primary_gene_id} = $primary_gene;
 
-          printf( "Also fetched Havana gene %s (%d), %s\n",
-                  $havana_gene->stable_id(),
-                  $havana_gene_id,
-                  $havana_gene->feature_Slice()->name() );
+          printf( "Also fetched Primary gene %s (%d), %s\n",
+                  $primary_gene->stable_id(),
+                  $primary_gene_id,
+                  $primary_gene->feature_Slice()->name() );
         }
       }
-    } ## end foreach my $havana_gene ( @...)
+    } ## end foreach my $primary_gene ( @...)
 
-    my $ensembl_slice =
-      get_feature_slice_from_db( $gene, $ENSEMBL_GA->db() );
+    my $secondary_slice =
+      get_feature_slice_from_db( $gene, $SECONDARY_GA->db() );
 
-    if ( exists( $used_slices{ 'ensembl:' . $ensembl_slice->name() } ) )
+    if ( exists( $used_slices{ 'secondary:' . $secondary_slice->name() } ) )
     {
-      printf( "Skipping Ensembl slice %s, already seen.\n",
-              $ensembl_slice->name() );
+      printf( "Skipping Secondary slice %s, already seen.\n",
+              $secondary_slice->name() );
       next;
     }
 
-    $used_slices{ 'ensembl:' . $ensembl_slice->name() } = 1;
+    $used_slices{ 'secondary:' . $secondary_slice->name() } = 1;
 
-    # Fetch overlapping Ensembl genes.
+    # Fetch overlapping Secondary genes.
 
-    foreach my $ensembl_gene (
-      @{ $ENSEMBL_GA->fetch_all_by_Slice( $ensembl_slice, undef, 1 ) } )
+    foreach my $secondary_gene (
+      @{ $SECONDARY_GA->fetch_all_by_Slice( $secondary_slice, undef, 1 ) } )
     {
       my $add_to_result   = 1;
-      my $ensembl_gene_id = $ensembl_gene->dbID();
+      my $secondary_gene_id = $secondary_gene->dbID();
 
-      if ( $ensembl_gene->length() > 100_000_000 ) {
-        printf( "Ignoring Ensembl gene %s (%d), " .
+      if ( $secondary_gene->length() > 100_000_000 ) {
+        printf( "Ignoring Secondary gene %s (%d), " .
                   " too long (%d > 100,000,000)\n",
-                $ensembl_gene->stable_id(),
-                $ensembl_gene_id, $ensembl_gene->length() );
+                $secondary_gene->stable_id(),
+                $secondary_gene_id, $secondary_gene->length() );
         next;
       }
 
-      if ( !exists( $ensembl_cluster{$ensembl_gene_id} ) ) {
-        push( @cluster_queue, $ensembl_gene );
+      if ( !exists( $secondary_cluster{$secondary_gene_id} ) ) {
+        push( @cluster_queue, $secondary_gene );
 
         if ($add_to_result) {
-          $ensembl_cluster{$ensembl_gene_id} = $ensembl_gene;
+          $secondary_cluster{$secondary_gene_id} = $secondary_gene;
 
-          printf( "Also fetched Ensembl gene %s (%d), %s\n",
-                  $ensembl_gene->stable_id(),
-                  $ensembl_gene_id,
-                  $ensembl_gene->feature_Slice()->name() );
+          printf( "Also fetched Secondary gene %s (%d), %s\n",
+                  $secondary_gene->stable_id(),
+                  $secondary_gene_id,
+                  $secondary_gene->feature_Slice()->name() );
         }
       }
-    } ## end foreach my $ensembl_gene ( ...)
+    } ## end foreach my $secondary_gene ( ...)
 
   } ## end while ( my $gene = shift(...))
 
-  return [ [ values(%havana_cluster) ], [ values(%ensembl_cluster) ] ];
+  return [ [ values(%primary_cluster) ], [ values(%secondary_cluster) ] ];
 } ## end sub make_gene_cluster
 
 sub get_feature_slice_from_db {
@@ -547,7 +548,7 @@ sub get_feature_slice_from_db {
          1 ) };
 
   if ( scalar(@slices) != 1 ) {
-    # This will hopefully only happen if the Havana and Ensembl
+    # This will hopefully only happen if the Primary and Secondary
     # databases contain different assemblies.
     die( "!! Problem with projection for feature slice %s\n",
          $slice->name() );
@@ -557,89 +558,95 @@ sub get_feature_slice_from_db {
 }
 
 sub process_genes {
-  my ( $havana_genes, $ensembl_genes ) = @_;
+  my ( $primary_genes, $secondary_genes ) = @_;
 
-  # Start by fully loading each Havana gene.  Also add OTTP, OTTT and
+  # Start by fully loading each Primary gene.  Also add OTTP, OTTT and
   # OTTG xrefs to the various parts of the gene.  We also figure out
   # (and keep track of) whether the translations are coding, if the
   # genes are pseudogenes, if a gene is a single transcript gene, and
   # whether a gene is located across a region with a known assembly
   # error.
 
-  foreach my $havana_gene ( @{$havana_genes} ) {
-    $havana_gene->load();
+  foreach my $primary_gene ( @{$primary_genes} ) {
+    $primary_gene->load();
 
     my $is_coding = 0;
 
     my $transcript_count = 0;
     foreach
-      my $havana_transcript ( @{ $havana_gene->get_all_Transcripts() } )
+      my $primary_transcript ( @{ $primary_gene->get_all_Transcripts() } )
     {
-      my $havana_translation = $havana_transcript->translation();
+      my $primary_translation = $primary_transcript->translation();
 
-      if ( defined($havana_translation) ) {
+      if ( defined($primary_translation) ) {
         $is_coding = 1;
 
-        # Add "OTTP" xref to Havana translation.
-        add_havana_xref($havana_translation);
+        # Add "OTTP" xref to Primary translation.
+        add_primary_xref($primary_translation);
       }
 
-      tag_transcript_analysis( $havana_transcript, $opt_havana_tag );
-      $havana_transcript->source($opt_havana_tag);
+      tag_transcript_analysis( $primary_transcript, $opt_primary_tag );
+      $primary_transcript->source($opt_primary_tag);
 
-      # Add "OTTT" xref to Havana transcript.
-      add_havana_xref($havana_transcript);
+      # Add "OTTT" xref to Primary transcript.
+      add_primary_xref($primary_transcript);
 
       # If the transcript is part of a gene cluster then tag the gene
-      unless($havana_gene->{__is_gene_cluster}) {
-        $havana_gene->{__is_gene_cluster} = (
-        scalar(@{ $havana_transcript->get_all_Attributes('gene_cluster') }) > 0 );
+      unless($primary_gene->{__is_gene_cluster}) {
+        $primary_gene->{__is_gene_cluster} = (
+        scalar(@{ $primary_transcript->get_all_Attributes('gene_cluster') }) > 0 );
       }
-
+      
+      # If the transcript is labelled as "genome patch truncated" (attrib code='remark', value='genome patch truncated') then tag the transcript
+      foreach my $primary_transcript_attrib (@{$primary_transcript->get_all_Attributes('remark')}) {
+      	if ($primary_transcript_attrib->value() eq "genome patch truncated") {
+      	  $primary_transcript->{__is_genome_patch_truncated} = 1;
+      	}
+      }
       ++$transcript_count;
     }
 
-    add_logic_name_suffix( $havana_gene, $opt_havana_tag );
-    $havana_gene->source($opt_havana_tag);
+    add_logic_name_suffix( $primary_gene, $opt_primary_tag );
+    $primary_gene->source($opt_primary_tag);
 
     my $has_assembly_error = (
               scalar(
-                @{ $havana_gene->get_all_Attributes('NoTransRefError') }
+                @{ $primary_gene->get_all_Attributes('NoTransRefError') }
               ) > 0 );
 
-    $havana_gene->{__is_coding} = $is_coding;    # HACK
+    $primary_gene->{__is_coding} = $is_coding;    # HACK
 
-    $havana_gene->{__is_pseudogene} =            # HACK
-      ( !$havana_gene->{__is_coding} &&
-        $havana_gene->biotype() =~ /pseudogene/ );
+    $primary_gene->{__is_pseudogene} =            # HACK
+      ( !$primary_gene->{__is_coding} &&
+        $primary_gene->biotype() =~ /pseudogene/ );
 
     # Check pseudogene has one transcript  
-    if ($havana_gene->{__is_pseudogene}) {
+    if ($primary_gene->{__is_pseudogene}) {
 
-      warning ($transcript_count." transcripts found for Havana pseudogene: ".$havana_gene->stable_id().
-      ". Havana pseudogenes should have a single transcript.")
+      warning ($transcript_count." transcripts found for Primary pseudogene: ".$primary_gene->stable_id().
+      ". Primary pseudogenes should have a single transcript.")
       unless $transcript_count == 1;
 
     }
 
-    $havana_gene->{__has_ref_error} = $has_assembly_error;    # HACK
-    $havana_gene->{__is_single_transcript} =
+    $primary_gene->{__has_ref_error} = $has_assembly_error;    # HACK
+    $primary_gene->{__is_single_transcript} =
       ( $transcript_count == 1 );                             # HACK
 
-    # Add "OTTG" xref to Havana gene.
-    add_havana_xref($havana_gene);
+    # Add "OTTG" xref to Primary gene.
+    add_primary_xref($primary_gene);
 
-  } ## end foreach my $havana_gene ( @...)
+  } ## end foreach my $primary_gene ( @...)
 
-  # For Ensembl genes, we don't add any xrefs, but we figure out if the
+  # For Secondary genes, we don't add any xrefs, but we figure out if the
   # transcripts are pseudogene transcripts or part of the CCDS dataset
   # (if made avalable).  We also see if a gene is a single transcript
   # gene, if it's coding and if it's an RNA gene or not.  All these
   # things are being used elsewhere to make decisions about merging and
   # copying.
 
-  foreach my $ensembl_gene ( @{$ensembl_genes} ) {
-    $ensembl_gene->load();
+  foreach my $secondary_gene ( @{$secondary_genes} ) {
+    $secondary_gene->load();
 
     my $is_coding        = 0;
     my $is_pseudogene    = 0;
@@ -648,23 +655,23 @@ sub process_genes {
     my @ccds_transcripts;
     if ( defined($CCDS_TA) ) {
       my $ccds_slice =
-        get_feature_slice_from_db( $ensembl_gene, $CCDS_TA->db() );
+        get_feature_slice_from_db( $secondary_gene, $CCDS_TA->db() );
       @ccds_transcripts =
         @{ $CCDS_TA->fetch_all_by_Slice( $ccds_slice, 1 ) };
     }
 
-    foreach my $ensembl_transcript (
-                             @{ $ensembl_gene->get_all_Transcripts() } )
+    foreach my $secondary_transcript (
+                             @{ $secondary_gene->get_all_Transcripts() } )
     {
-      $ensembl_transcript->{__is_ccds}       = 0;    # HACK
-      $ensembl_transcript->{__is_pseudogene} = 0;    # HACK
+      $secondary_transcript->{__is_ccds}       = 0;    # HACK
+      $secondary_transcript->{__is_pseudogene} = 0;    # HACK
 
-      my $ensembl_translation = $ensembl_transcript->translation();
+      my $secondary_translation = $secondary_transcript->translation();
 
-      if ( defined($ensembl_translation) ) {
+      if ( defined($secondary_translation) ) {
         if ( scalar(@ccds_transcripts) > 0 ) {
           my @translatable_exons =
-            @{ $ensembl_transcript->get_all_translateable_Exons() };
+            @{ $secondary_transcript->get_all_translateable_Exons() };
 
           foreach my $ccds_transcript (@ccds_transcripts) {
             if ( features_are_same( \@translatable_exons,
@@ -672,7 +679,7 @@ sub process_genes {
                                       ->get_all_translateable_Exons( ) )
               )
             {
-              $ensembl_transcript->{__is_ccds} = 1;    # HACK
+              $secondary_transcript->{__is_ccds} = 1;    # HACK
               last;
             }
           }
@@ -680,233 +687,276 @@ sub process_genes {
 
         $is_coding = 1;
       }
-      elsif ( $ensembl_transcript->biotype() =~ /pseudogene/ ) {
-        $ensembl_transcript->{__is_pseudogene} = 1;    # HACK
+      elsif ( $secondary_transcript->biotype() =~ /pseudogene/ ) {
+        $secondary_transcript->{__is_pseudogene} = 1;    # HACK
       }
 
-      tag_transcript_analysis( $ensembl_transcript, $opt_ensembl_tag );
-      $ensembl_transcript->source($opt_ensembl_tag);
+      tag_transcript_analysis( $secondary_transcript, $opt_secondary_tag );
+      $secondary_transcript->source($opt_secondary_tag);
 
       ++$transcript_count;
-    } ## end foreach my $ensembl_transcript...
+    } ## end foreach my $secondary_transcript...
 
-    add_logic_name_suffix( $ensembl_gene, $opt_ensembl_tag );
-    $ensembl_gene->source($opt_ensembl_tag);
+    add_logic_name_suffix( $secondary_gene, $opt_secondary_tag );
+    $secondary_gene->source($opt_secondary_tag);
 
     my $is_rna = (
-         index( lc( $ensembl_gene->analysis()->logic_name() ), 'ncrna' )
+         index( lc( $secondary_gene->analysis()->logic_name() ), 'ncrna' )
            >= 0 );
 
-    $ensembl_gene->{__is_coding} = $is_coding;    # HACK
-    $ensembl_gene->{__is_single_transcript} =
+    $secondary_gene->{__is_coding} = $is_coding;    # HACK
+    $secondary_gene->{__is_single_transcript} =
       ( $transcript_count == 1 );                 # HACK
-    $ensembl_gene->{__is_rna} = $is_rna;          # HACK
-  } ## end foreach my $ensembl_gene ( ...)
+    $secondary_gene->{__is_rna} = $is_rna;          # HACK
+  } ## end foreach my $secondary_gene ( ...)
 
   my @transcripts_to_merge;
   my @transcripts_to_copy;
   my @transcripts_to_ignore;
 
-  # This will keep a record of the Ensembl gene stable id whenever stuff is
+  # This will keep a record of the Secondary gene stable id whenever stuff is
   # merged or copied in
   my %processed_ens_id_tracker;
 
-ENSEMBL_GENE:
-  foreach my $ensembl_gene ( @{$ensembl_genes} ) {
-    printf( "Ensembl gene: %s (%d)\n",
-            $ensembl_gene->stable_id(), $ensembl_gene->dbID() );
+SECONDARY_GENE:
+  foreach my $secondary_gene ( @{$secondary_genes} ) {
+    printf( "Secondary gene: %s (%d)\n",
+            $secondary_gene->stable_id(), $secondary_gene->dbID() );
 
-    my @ensembl_transcripts = @{ $ensembl_gene->get_all_Transcripts() };
+    my @secondary_transcripts = @{ $secondary_gene->get_all_Transcripts() };
 
-  ENSEMBL_TRANSCRIPT:
-    foreach my $ensembl_transcript (@ensembl_transcripts) {
-      printf( "\tEnsembl transcript %s (%d)\n",
-              $ensembl_transcript->stable_id(),
-              $ensembl_transcript->dbID() );
+  SECONDARY_TRANSCRIPT:
+    foreach my $secondary_transcript (@secondary_transcripts) {
+      printf( "\tSecondary transcript %s (%d)\n",
+              $secondary_transcript->stable_id(),
+              $secondary_transcript->dbID() );
 
-    HAVANA_GENE:
-      foreach my $havana_gene ( @{$havana_genes} ) {
-        printf( "\t\tHavana gene: %s (%d)\n",
-                $havana_gene->stable_id(), $havana_gene->dbID() );
+    PRIMARY_GENE:
+      foreach my $primary_gene ( @{$primary_genes} ) {
+        printf( "\t\tPrimary gene: %s (%d)\n",
+                $primary_gene->stable_id(), $primary_gene->dbID() );
 
-        if ( $havana_gene->strand() != $ensembl_gene->strand() ) {
+        if ( $primary_gene->strand() != $secondary_gene->strand() ) {
           printf("\t\t\tNot on same strand\n");
-          next HAVANA_GENE;
+          next PRIMARY_GENE;
         }
 
-        my @havana_transcripts =
-          @{ $havana_gene->get_all_Transcripts() };
+        my @primary_transcripts =
+          @{ $primary_gene->get_all_Transcripts() };
 
-      HAVANA_TRANSCRIPT:
-        foreach my $havana_transcript (@havana_transcripts) {
-          printf( "\t\t\tHavana transcript %s (%d)\n",
-                  $havana_transcript->stable_id(),
-                  $havana_transcript->dbID() );
+      PRIMARY_TRANSCRIPT:
+        foreach my $primary_transcript (@primary_transcripts) {
+        	
+          # If the primary_transcript is tagged as "genome patch truncated",
+          # it should be treated as secondary and we'll try a partial merge
+          my $backup_secondary_transcript = $secondary_transcript;
+          my $backup_secondary_gene = $secondary_gene;
+          my $backup_primary_gene = $primary_gene;
+          
+          if ($primary_transcript->{__is_genome_patch_truncated}) {
+          	# GENOME PATCH TRUNCATED CASES
+          	printf("\t\t\tSwapping Primary and Secondary transcript and trying partial merge due to 'genome patch truncated' attribute in Primary transcript %s (%d)\n",
+                  $primary_transcript->stable_id(),
+                  $primary_transcript->dbID() );
+          	
+          	$secondary_transcript = $primary_transcript;
+          	$primary_transcript = $backup_secondary_transcript;
+          	$secondary_gene = $primary_gene;
+          	$primary_gene = $backup_secondary_gene;
+          	
+          	if (investigate_for_partial_merge($primary_transcript,$secondary_transcript)) {
+              print("\t\t\tTo be partially merged\n");
 
-          if ( investigate_for_merge(
-                                 $havana_transcript, $ensembl_transcript
-               ) )
-          {
-            print("\t\t\tTo be merged\n");
-
-            push( @transcripts_to_merge,
-                  [ $havana_gene,  $havana_transcript,
-                    $ensembl_gene, $ensembl_transcript ] );
+              push( @transcripts_to_merge,
+                    [ $primary_gene,  $primary_transcript,
+                      $secondary_gene, $secondary_transcript ] );
+            } elsif ( investigate_for_copy(
+                                        $primary_gene,  $primary_transcript,
+                                        $secondary_gene, $secondary_transcript
+                    ) )
+            {
+              print( "\t\t\tSecondary transcript overlaps " .
+                     "and may be copied\n" );
+    
+              push( @transcripts_to_copy,
+                    [ $primary_gene,  $primary_transcript,
+                      $secondary_gene, $secondary_transcript ] );
+            }
+          } else {
+          	# ALL OTHER CASES
+	        printf( "\t\t\tPrimary transcript %s (%d)\n",
+	                $primary_transcript->stable_id(),
+	                $primary_transcript->dbID() );
+	
+	        if ( investigate_for_merge(
+	                               $primary_transcript, $secondary_transcript
+	             ) )
+	        {
+	          print("\t\t\tTo be merged\n");
+	
+              push( @transcripts_to_merge,
+	                [ $primary_gene,  $primary_transcript,
+	                  $secondary_gene, $secondary_transcript ] );
+	        }
+	        elsif ( investigate_for_copy(
+	                                    $primary_gene,  $primary_transcript,
+	                                    $secondary_gene, $secondary_transcript
+	                ) )
+	        {
+	          print( "\t\t\tSecondary transcript overlaps " .
+	                 "and may be copied\n" );
+	
+	          push( @transcripts_to_copy,
+	                [ $primary_gene,  $primary_transcript,
+	                  $secondary_gene, $secondary_transcript ] );
+	        }
           }
-          elsif ( investigate_for_copy(
-                                      $havana_gene,  $havana_transcript,
-                                      $ensembl_gene, $ensembl_transcript
-                  ) )
-          {
-            print( "\t\t\tEnsembl transcript overlaps " .
-                   "and may be copied\n" );
+          # restore secondary transcript and genes
+          $secondary_transcript = $backup_secondary_transcript;
+          $secondary_gene = $backup_secondary_gene;
+          $primary_gene = $backup_primary_gene;
 
-            push( @transcripts_to_copy,
-                  [ $havana_gene,  $havana_transcript,
-                    $ensembl_gene, $ensembl_transcript ] );
-          }
+        } ## end PRIMARY_TRANSCRIPT: foreach my $primary_transcript...
+      } ## end PRIMARY_GENE: foreach my $primary_gene ( @...)
 
-        } ## end HAVANA_TRANSCRIPT: foreach my $havana_transcript...
-      } ## end HAVANA_GENE: foreach my $havana_gene ( @...)
+    } ## end SECONDARY_TRANSCRIPT: foreach my $secondary_transcript...
+  } ## end SECONDARY_GENE: foreach my $secondary_gene ( ...)
 
-    } ## end ENSEMBL_TRANSCRIPT: foreach my $ensembl_transcript...
-  } ## end ENSEMBL_GENE: foreach my $ensembl_gene ( ...)
-
-  my %merged_ensembl_transcripts;
-  my %copied_ensembl_transcripts;
-  my %ignored_ensembl_transcripts;
+  my %merged_secondary_transcripts;
+  my %copied_secondary_transcripts;
+  my %ignored_secondary_transcripts;
 
   # Merge the transcripts that have been found to be mergable.  We allow
-  # merging an Ensembl transcript into multiple Havana transcripts.
+  # merging a Secondary transcript into multiple Primary transcripts.
   foreach my $tuple (@transcripts_to_merge) {
-    my ( $havana_gene,  $havana_transcript,
-         $ensembl_gene, $ensembl_transcript
+    my ( $primary_gene,  $primary_transcript,
+         $secondary_gene, $secondary_transcript
     ) = ( $tuple->[0], $tuple->[1], $tuple->[2], $tuple->[3] );
 
     printf(
           "Merging %s (%d) into %s (%d) / %s (%d)\n",
-          $ensembl_transcript->stable_id(), $ensembl_transcript->dbID(),
-          $havana_transcript->stable_id(),  $havana_transcript->dbID(),
-          $havana_gene->stable_id(),        $havana_gene->dbID() );
+          $secondary_transcript->stable_id(), $secondary_transcript->dbID(),
+          $primary_transcript->stable_id(),  $primary_transcript->dbID(),
+          $primary_gene->stable_id(),        $primary_gene->dbID() );
 
     my $merge_code =
-      merge( $havana_gene, $havana_transcript, $ensembl_transcript );
+      merge( $primary_gene, $primary_transcript, $secondary_transcript );
 
-    $merged_ensembl_transcripts{ $ensembl_transcript->dbID() } = 1;
+    $merged_secondary_transcripts{ $secondary_transcript->dbID() } = 1;
 
     if ( $merge_code != 1 ) {
       printf( "PROCESSED\t%d\t%s\n",
-              $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+              $secondary_gene->dbID(), $secondary_gene->stable_id() );
 
-      # Keep a record in memory of this Ensembl stable id
-      $processed_ens_id_tracker{$havana_gene->dbID()} = [$ensembl_gene->dbID(),$ensembl_gene->stable_id()];
+      # Keep a record in memory of this Secondary stable id
+      $processed_ens_id_tracker{$primary_gene->dbID()} = [$secondary_gene->dbID(),$secondary_gene->stable_id()];
     }
   }
 
-  # Find all Ensembl transcripts that are "siblings" to any merged
-  # Ensembl transcript.  Tag these for possibly copying into the
-  # corresponding Havana gene.
+  # Find all Secondary transcripts that are "siblings" to any merged
+  # Secondary transcript.  Tag these for possibly copying into the
+  # corresponding Primary gene.
   foreach my $tuple (@transcripts_to_merge) {
-    my ( $havana_gene,  $havana_transcript,
-         $ensembl_gene, $ensembl_transcript
+    my ( $primary_gene,  $primary_transcript,
+         $secondary_gene, $secondary_transcript
     ) = ( $tuple->[0], $tuple->[1], $tuple->[2], $tuple->[3] );
 
-    foreach my $transcript ( @{ $ensembl_gene->get_all_Transcripts() } )
+    foreach my $transcript ( @{ $secondary_gene->get_all_Transcripts() } )
     {
       my $key = $transcript->dbID();
 
-      if ( !exists( $merged_ensembl_transcripts{$key} ) ) {
+      if ( !exists( $merged_secondary_transcripts{$key} ) ) {
         printf( "May also copy %s (%d) into %s (%d) " .
                   "due to merging of %s (%d)\n",
                 $transcript->stable_id(),
                 $transcript->dbID(),
-                $havana_gene->stable_id(),
-                $havana_gene->dbID(),
-                $ensembl_transcript->stable_id(),
-                $ensembl_transcript->dbID() );
+                $primary_gene->stable_id(),
+                $primary_gene->dbID(),
+                $secondary_transcript->stable_id(),
+                $secondary_transcript->dbID() );
 
         push( @transcripts_to_copy,
-              [ $havana_gene,  $havana_transcript,
-                $ensembl_gene, $transcript ] );
+              [ $primary_gene,  $primary_transcript,
+                $secondary_gene, $transcript ] );
       }
     }
   } ## end foreach my $tuple (@transcripts_to_merge)
 
-  # Take care of the cases where an Ensembl transcript has been selected
-  # to be copied into multiple Havana genes.
+  # Take care of the cases where an Secondary transcript has been selected
+  # to be copied into multiple Primary genes.
   my %distinct_transcripts_to_copy;
   foreach my $tuple (@transcripts_to_copy) {
-    my ( $havana_gene,  $havana_transcript,
-         $ensembl_gene, $ensembl_transcript
+    my ( $primary_gene,  $primary_transcript,
+         $secondary_gene, $secondary_transcript
     ) = ( $tuple->[0], $tuple->[1], $tuple->[2], $tuple->[3] );
 
-    my $key = $ensembl_transcript->dbID();
+    my $key = $secondary_transcript->dbID();
 
-    if ( exists( $merged_ensembl_transcripts{$key} ) ) {
+    if ( exists( $merged_secondary_transcripts{$key} ) ) {
       next;
     }
 
     if ( exists( $distinct_transcripts_to_copy{$key} ) ) {
       my $is_conflicting = 0;
 
-      if ( $havana_gene->dbID() !=
+      if ( $primary_gene->dbID() !=
            $distinct_transcripts_to_copy{$key}[0]->dbID() )
       {
         $is_conflicting = 1;
-        printf( "Ensembl transcript %s (%d) " .
+        printf( "Secondary transcript %s (%d) " .
                   "selected for copy into both " .
                   "%s (%d) and %s (%d)\n",
-                $ensembl_transcript->stable_id(),
-                $ensembl_transcript->dbID(),
-                $havana_gene->stable_id(),
-                $havana_gene->dbID(),
+                $secondary_transcript->stable_id(),
+                $secondary_transcript->dbID(),
+                $primary_gene->stable_id(),
+                $primary_gene->dbID(),
                 $distinct_transcripts_to_copy{$key}[0]->stable_id(),
                 $distinct_transcripts_to_copy{$key}[0]->dbID() );
       }
 
-      if ( $havana_transcript->dbID() !=
+      if ( $primary_transcript->dbID() !=
            $distinct_transcripts_to_copy{$key}[1]->dbID() )
       {
         my $total_overlap =
-          exon_overlap( $ensembl_transcript, $havana_transcript );
+          exon_overlap( $secondary_transcript, $primary_transcript );
 
         if ( $total_overlap > $distinct_transcripts_to_copy{$key}[4] ) {
           if ($is_conflicting) {
             printf( "Will choose to copy %s (%d) into %s (%d) " .
                       "due to larger exon overlap (%dbp > %dbp)\n",
-                    $ensembl_transcript->stable_id(),
-                    $ensembl_transcript->dbID(),
-                    $havana_gene->stable_id(),
-                    $havana_gene->dbID(),
+                    $secondary_transcript->stable_id(),
+                    $secondary_transcript->dbID(),
+                    $primary_gene->stable_id(),
+                    $primary_gene->dbID(),
                     $total_overlap,
                     $distinct_transcripts_to_copy{$key}[4] );
           }
 
           $distinct_transcripts_to_copy{$key} = [
-                                     $havana_gene,  $havana_transcript,
-                                     $ensembl_gene, $ensembl_transcript,
+                                     $primary_gene,  $primary_transcript,
+                                     $secondary_gene, $secondary_transcript,
                                      $total_overlap ];
         }
         elsif ($is_conflicting) {
           printf( "Will choose to copy %s (%d) into %s (%d) " .
                     "due to larger exon overlap (%dbp > %dbp)\n",
-                  $ensembl_transcript->stable_id(),
-                  $ensembl_transcript->dbID(),
+                  $secondary_transcript->stable_id(),
+                  $secondary_transcript->dbID(),
                   $distinct_transcripts_to_copy{$key}[0]->stable_id(),
                   $distinct_transcripts_to_copy{$key}[0]->dbID(),
                   $distinct_transcripts_to_copy{$key}[4],
                   $total_overlap );
         }
-      } ## end if ( $havana_transcript...)
+      } ## end if ( $primary_transcript...)
 
     } ## end if ( exists( $distinct_transcripts_to_copy...))
     else {
       $distinct_transcripts_to_copy{$key} = [
-                 $havana_gene,
-                 $havana_transcript,
-                 $ensembl_gene,
-                 $ensembl_transcript,
-                 exon_overlap( $ensembl_transcript, $havana_transcript )
+                 $primary_gene,
+                 $primary_transcript,
+                 $secondary_gene,
+                 $secondary_transcript,
+                 exon_overlap( $secondary_transcript, $primary_transcript )
       ];
     }
 
@@ -922,47 +972,47 @@ ENSEMBL_GENE:
   foreach my $tuple ( sort { $b->[3]{__is_ccds} <=> $a->[3]{__is_ccds} }
                       values(%distinct_transcripts_to_copy) )
   {
-    my ( $havana_gene,  $havana_transcript,
-         $ensembl_gene, $ensembl_transcript
+    my ( $primary_gene,  $primary_transcript,
+         $secondary_gene, $secondary_transcript
     ) = ( $tuple->[0], $tuple->[1], $tuple->[2], $tuple->[3] );
 
-    my $key = $ensembl_transcript->dbID();
+    my $key = $secondary_transcript->dbID();
 
-    if ( !exists( $merged_ensembl_transcripts{$key} ) &&
-         !exists( $copied_ensembl_transcripts{$key} ) )
+    if ( !exists( $merged_secondary_transcripts{$key} ) &&
+         !exists( $copied_secondary_transcripts{$key} ) )
     {
-      if ( !defined( $havana_transcript->translation() ) ||
-           !defined( $ensembl_transcript->translation() ) ||
-           has_complete_start_stop($ensembl_transcript) )
+      if ( !defined( $primary_transcript->translation() ) ||
+           !defined( $secondary_transcript->translation() ) ||
+           has_complete_start_stop($secondary_transcript) )
       {
         printf( "Copying %s (%d) into %s (%d)\n",
-                $ensembl_transcript->stable_id(),
-                $ensembl_transcript->dbID(),
-                $havana_gene->stable_id(),
-                $havana_gene->dbID() );
+                $secondary_transcript->stable_id(),
+                $secondary_transcript->dbID(),
+                $primary_gene->stable_id(),
+                $primary_gene->dbID() );
 
-        my $copy_code = copy( $havana_gene, $ensembl_transcript );
+        my $copy_code = copy( $primary_gene, $secondary_transcript );
 
-        $copied_ensembl_transcripts{$key} = 1;
+        $copied_secondary_transcripts{$key} = 1;
 
         if ( $copy_code != 1 ) {
           printf( "PROCESSED\t%d\t%s\n",
-                  $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+                  $secondary_gene->dbID(), $secondary_gene->stable_id() );
 
           # Keep a record in memory of this stable id
-          $processed_ens_id_tracker{$havana_gene->dbID()} = [$ensembl_gene->dbID(),$ensembl_gene->stable_id()];
+          $processed_ens_id_tracker{$primary_gene->dbID()} = [$secondary_gene->dbID(),$secondary_gene->stable_id()];
         }
       }
       else {
         printf( "May ignore %s (%d) due to incomplete start/stop\n",
-                $ensembl_transcript->stable_id(),
-                $ensembl_transcript->dbID() );
+                $secondary_transcript->stable_id(),
+                $secondary_transcript->dbID() );
 
         push( @transcripts_to_ignore,
-              [ $havana_gene,  $havana_transcript,
-                $ensembl_gene, $ensembl_transcript ] );
+              [ $primary_gene,  $primary_transcript,
+                $secondary_gene, $secondary_transcript ] );
       }
-    } ## end if ( !exists( $merged_ensembl_transcripts...))
+    } ## end if ( !exists( $merged_secondary_transcripts...))
   } ## end foreach my $tuple ( sort { ...})
 
   # Ignore transcripts that should be ignored (due to incomplete
@@ -974,27 +1024,27 @@ ENSEMBL_GENE:
   foreach my $tuple ( sort { $b->[3]{__is_ccds} <=> $a->[3]{__is_ccds} }
                       @transcripts_to_ignore )
   {
-    my ( $havana_gene,  $havana_transcript,
-         $ensembl_gene, $ensembl_transcript
+    my ( $primary_gene,  $primary_transcript,
+         $secondary_gene, $secondary_transcript
     ) = ( $tuple->[0], $tuple->[1], $tuple->[2], $tuple->[3] );
 
-    my $key = $ensembl_transcript->dbID();
+    my $key = $secondary_transcript->dbID();
 
-    if ( !exists( $merged_ensembl_transcripts{$key} ) &&
-         !exists( $copied_ensembl_transcripts{$key} ) &&
-         !exists( $ignored_ensembl_transcripts{$key} ) )
+    if ( !exists( $merged_secondary_transcripts{$key} ) &&
+         !exists( $copied_secondary_transcripts{$key} ) &&
+         !exists( $ignored_secondary_transcripts{$key} ) )
     {
       my $do_ignore = 0;
 
       foreach
-        my $transcript ( @{ $ensembl_gene->get_all_Transcripts() } )
+        my $transcript ( @{ $secondary_gene->get_all_Transcripts() } )
       {
 
         my $key2 = $transcript->dbID();
 
         if ( $key ne $key2 ) {
-          if ( exists( $copied_ensembl_transcripts{$key2} ) ||
-               exists( $merged_ensembl_transcripts{$key2} ) )
+          if ( exists( $copied_secondary_transcripts{$key2} ) ||
+               exists( $merged_secondary_transcripts{$key2} ) )
           {
             $do_ignore = 1;
             last;
@@ -1005,59 +1055,59 @@ ENSEMBL_GENE:
       my $copy_code = 0;
       if ($do_ignore) {
         printf( "Ignoring %s (%d) due to incomplete start/stop\n",
-                $ensembl_transcript->stable_id(),
-                $ensembl_transcript->dbID() );
+                $secondary_transcript->stable_id(),
+                $secondary_transcript->dbID() );
 
-        $ignored_ensembl_transcripts{$key} = 1;
+        $ignored_secondary_transcripts{$key} = 1;
       }
       else {
         printf( "Copying %s (%d) into %s (%d) " .
                   "even though it has incomplete start/stop\n",
-                $ensembl_transcript->stable_id(),
-                $ensembl_transcript->dbID(),
-                $havana_gene->stable_id(),
-                $havana_gene->dbID() );
+                $secondary_transcript->stable_id(),
+                $secondary_transcript->dbID(),
+                $primary_gene->stable_id(),
+                $primary_gene->dbID() );
 
-        $copy_code = copy( $havana_gene, $ensembl_transcript );
+        $copy_code = copy( $primary_gene, $secondary_transcript );
       }
 
       if ( $copy_code != 1 ) {
         printf( "PROCESSED\t%d\t%s\n",
-                $ensembl_gene->dbID(), $ensembl_gene->stable_id() );
+                $secondary_gene->dbID(), $secondary_gene->stable_id() );
 
         # Keep a record in memory of this stable id
-        $processed_ens_id_tracker{$havana_gene->dbID()} = [$ensembl_gene->dbID(),$ensembl_gene->stable_id()];
+        $processed_ens_id_tracker{$primary_gene->dbID()} = [$secondary_gene->dbID(),$secondary_gene->stable_id()];
       }
 
-    } ## end if ( !exists( $merged_ensembl_transcripts...))
+    } ## end if ( !exists( $merged_secondary_transcripts...))
   } ## end foreach my $tuple ( sort { ...})
 
   # Do a bit of houskeeping from the previous loop so that
-  # %copied_ensembl_transcripts correctly reflects the Ensembl
+  # %copied_secondary_transcripts correctly reflects the Secondary
   # transcripts actually copied.
   foreach my $tuple (@transcripts_to_ignore) {
-    my ( $havana_gene,  $havana_transcript,
-         $ensembl_gene, $ensembl_transcript
+    my ( $primary_gene,  $primary_transcript,
+         $secondary_gene, $secondary_transcript
     ) = ( $tuple->[0], $tuple->[1], $tuple->[2], $tuple->[3] );
 
-    my $key = $ensembl_transcript->dbID();
+    my $key = $secondary_transcript->dbID();
 
-    if ( !exists( $ignored_ensembl_transcripts{$key} ) ) {
-      $copied_ensembl_transcripts{$key} = 1;
+    if ( !exists( $ignored_secondary_transcripts{$key} ) ) {
+      $copied_secondary_transcripts{$key} = 1;
     }
   }
 
-  foreach my $havana_gene ( @{$havana_genes} ) {
+  foreach my $primary_gene ( @{$primary_genes} ) {
 
-    my $old_dbID = $havana_gene->dbID();
+    my $old_dbID = $primary_gene->dbID();
 
     # If the biotype is bad, skip the store
-    if(bad_biotype($havana_gene->biotype())) {
+    if(bad_biotype($primary_gene->biotype())) {
 
-        print "WARNING: skipping store of Havana gene ".$havana_gene->dbID()." ".
-              $havana_gene->stable_id()." due to bad biotype: ".$havana_gene->biotype()."\n";
+        print "WARNING: skipping store of Primary gene ".$primary_gene->dbID()." ".
+              $primary_gene->stable_id()." due to bad biotype: ".$primary_gene->biotype()."\n";
 
-        # If there is an Ensembl gene that has been merged/copied to this Havana gene
+        # If there is an Secondary gene that has been merged/copied to this Primary gene
         # put in some additional warnings that the gene will be thrown out
         if($processed_ens_id_tracker{$old_dbID}) {         
           my $ens_gene_db_id = $processed_ens_id_tracker{$old_dbID}->[0];
@@ -1066,18 +1116,19 @@ ENSEMBL_GENE:
             $ens_gene_stable_id = $processed_ens_id_tracker{$old_dbID}->[1];
           } 
 
-          print "WARNING: skipping store of Ensembl gene ".$ens_gene_db_id." ".$ens_gene_stable_id.
-                " due to merge/copy with Havana gene ".$havana_gene->dbID()." ".$havana_gene->stable_id().
-                " with bad biotype: ".$havana_gene->biotype()."\n";          
+          print "WARNING: skipping store of Secondary gene ".$ens_gene_db_id." ".$ens_gene_stable_id.
+                " due to merge/copy with Primary gene ".$primary_gene->dbID()." ".$primary_gene->stable_id().
+                " with bad biotype: ".$primary_gene->biotype()."\n";          
         }
 
        next;
      }
 
-    $OUTPUT_GA->store($havana_gene);
+    empty_Gene($primary_gene);
+    $OUTPUT_GA->store($primary_gene);
     printf( "STORED\t%s\told id = %d, new id = %d\n",
-            $havana_gene->stable_id(),
-            $old_dbID, $havana_gene->dbID() );
+            $primary_gene->stable_id(),
+            $old_dbID, $primary_gene->dbID() );
 
   }
 
@@ -1107,14 +1158,14 @@ sub bad_biotype
 } # End sub bad_biotype
 
 
-sub add_havana_xref {
+sub add_primary_xref {
   my ($feature) = @_;
 
   my ( $external_db_name, $db_display_name, $type );
 
   if ( $feature->isa('Bio::EnsEMBL::Gene') ) {
     ( $external_db_name, $db_display_name, $type ) =
-      split( /,/, $opt_havana_gene_xref );
+      split( /,/, $opt_primary_gene_xref );
 
     # $external_db_name = 'OTTG';
     # $db_display_name  = 'Havana gene';
@@ -1122,7 +1173,7 @@ sub add_havana_xref {
   }
   elsif ( $feature->isa('Bio::EnsEMBL::Transcript') ) {
     ( $external_db_name, $db_display_name, $type ) =
-      split( /,/, $opt_havana_transcript_xref );
+      split( /,/, $opt_primary_transcript_xref );
 
     # $external_db_name = 'OTTT';
     # $db_display_name  = 'Havana transcript';
@@ -1130,7 +1181,7 @@ sub add_havana_xref {
   }
   elsif ( $feature->isa('Bio::EnsEMBL::Translation') ) {
     ( $external_db_name, $db_display_name, $type ) =
-      split( /,/, $opt_havana_translation_xref );
+      split( /,/, $opt_primary_translation_xref );
 
     # $external_db_name = 'OTTP';
     # $db_display_name  = 'Havana translation';
@@ -1146,9 +1197,9 @@ sub add_havana_xref {
     throw("Could not assign one or all of the following: external_db_name, db_display_name or type\n".
           "If you are using the wrapper script, make sure the corresponding values are set in the\n".
           "config file. Typical values are:\n".
-          "havana_gene_xref='OTTG,Havana gene,ALT_GENE'\n".
-          "havana_transcript_xref='OTTT,Havana transcript,ALT_TRANS'\n".
-          "havana_translation_xref='OTTP,Havana translation,MISC'\n"
+          "primary_gene_xref='OTTG,Havana gene,ALT_GENE'\n".
+          "primary_transcript_xref='OTTT,Havana transcript,ALT_TRANS'\n".
+          "primary_translation_xref='OTTP,Havana translation,MISC'\n"
          );
   }
 
@@ -1161,33 +1212,33 @@ sub add_havana_xref {
     );
 
   $feature->add_DBEntry($xref);
-} ## end sub add_havana_xref
+} ## end sub add_primary_xref
 
 sub investigate_for_merge {
-  my ( $havana_transcript, $ensembl_transcript ) = @_;
+  my ( $primary_transcript, $secondary_transcript ) = @_;
 
-  my @havana_introns = @{ $havana_transcript->get_all_Introns() };
+  my @primary_introns = @{ $primary_transcript->get_all_Introns() };
 
   my $do_merge;
 
-  if ( scalar(@havana_introns) == 0 ) {
+  if ( scalar(@primary_introns) == 0 ) {
     # This is a single exon transcript, compare the exons instead of
     # the (non-existing) introns.
 
-    $do_merge = features_are_same( $havana_transcript->get_all_Exons(),
-                                   $ensembl_transcript->get_all_Exons()
+    $do_merge = features_are_same( $primary_transcript->get_all_Exons(),
+                                   $secondary_transcript->get_all_Exons()
     );
 
     if ( !$do_merge &&
-         ( defined( $havana_transcript->translation() ) &&
-           defined( $ensembl_transcript->translation() ) ) )
+         ( defined( $primary_transcript->translation() ) &&
+           defined( $secondary_transcript->translation() ) ) )
     {
       # This is a single exon coding transcript, compare the coding
       # exons instead of the (non-existing) introns.
 
       $do_merge = features_are_same(
-                   $havana_transcript->get_all_translateable_Exons(),
-                   $ensembl_transcript->get_all_translateable_Exons() );
+                   $primary_transcript->get_all_translateable_Exons(),
+                   $secondary_transcript->get_all_translateable_Exons() );
 
       if ($do_merge) {
         print( "\t\t\tSpecial case: Single exon coding transcripts, " .
@@ -1196,75 +1247,86 @@ sub investigate_for_merge {
     }
 
     if ( !$do_merge ) {
-      # A special case:  If the Havana exon is exactly one stop
+      # A special case:  If the Primary exon is exactly one stop
       # codon longer at the end, then treat them as identical.
-      $do_merge = is_a_stop_codon_longer( $havana_transcript,
-                                          $ensembl_transcript );
+      $do_merge = is_a_stop_codon_longer( $primary_transcript,
+                                          $secondary_transcript );
       if ($do_merge) {
         print( "\t\t\t\tSpecial case: Single exon transcripts, " .
-               "Ensembl exon is stop codon short\n" );
+               "Secondary exon is stop codon short\n" );
       }
     }
     if ( !$do_merge ) {
-      # A special case:  If the Ensembl exon is exactly one stop
+      # A special case:  If the Secondary exon is exactly one stop
       # codon longer at the end, then treat them as identical.
-      $do_merge = is_a_stop_codon_longer( $ensembl_transcript,
-                                          $havana_transcript );
+      $do_merge = is_a_stop_codon_longer( $secondary_transcript,
+                                          $primary_transcript );
       if ($do_merge) {
         print( "\t\t\t\tSpecial case: Single exon transcripts, " .
-               "Havana exon is stop codon short\n" );
+               "Primary exon is stop codon short\n" );
       }
     }
-  } ## end if ( scalar(@havana_introns...))
+  } ## end if ( scalar(@primary_introns...))
   else {
-    my @ensembl_introns = @{ $ensembl_transcript->get_all_Introns() };
+    my @secondary_introns = @{ $secondary_transcript->get_all_Introns() };
 
     $do_merge =
-      features_are_same( \@havana_introns, \@ensembl_introns );
+      features_are_same( \@primary_introns, \@secondary_introns );
   }
 
   return $do_merge;
 } ## end sub investigate_for_merge
 
-sub investigate_for_copy {
-  my ( $havana_gene,  $havana_transcript,
-       $ensembl_gene, $ensembl_transcript ) = @_;
+sub investigate_for_partial_merge {
+  # it returns true if a partial merge can be done
+  # a partial merge can be done if the secondary transcript exons
+  # are a subset of the primary transcript exons
+  my ($primary_transcript,$secondary_transcript) = @_;
 
-  my @ensembl_exons = @{ $ensembl_transcript->get_all_Exons() };
-  my @havana_exons  = @{ $havana_transcript->get_all_Exons() };
+  return features_are_subset($primary_transcript->get_all_Exons(),
+                             $secondary_transcript->get_all_Exons());
+                                   
+} ## end sub investigate_for_partial_merge
+
+sub investigate_for_copy {
+  my ( $primary_gene,  $primary_transcript,
+       $secondary_gene, $secondary_transcript ) = @_;
+
+  my @secondary_exons = @{ $secondary_transcript->get_all_Exons() };
+  my @primary_exons  = @{ $primary_transcript->get_all_Exons() };
 
   my $do_copy = 0;
 
-ENSEMBL_EXON:
-  foreach my $ensembl_exon (@ensembl_exons) {
-    foreach my $havana_exon (@havana_exons) {
-      if ( features_overlap( $ensembl_exon, $havana_exon ) ) {
+SECONDARY_EXON:
+  foreach my $secondary_exon (@secondary_exons) {
+    foreach my $primary_exon (@primary_exons) {
+      if ( features_overlap( $secondary_exon, $primary_exon ) ) {
         $do_copy = 1;
 
-        if ( scalar(@ensembl_exons) == 1 &&
-             $ensembl_gene->{__is_single_transcript} &&
-             scalar(@havana_exons) > 1 )
+        if ( scalar(@secondary_exons) == 1 &&
+             $secondary_gene->{__is_single_transcript} &&
+             scalar(@primary_exons) > 1 )
         {
-          # We have a single exon Ensembl gene that overlaps with bits
-          # of a multi exon (and possibly multi transcript) Havana gene.
+          # We have a single exon Secondary gene that overlaps with bits
+          # of a multi exon (and possibly multi transcript) Primary gene.
           #
           # The current rules are:
           #
-          # * Copy if the overlapping Havana exon is identical to the
-          #   Ensembl exon.
+          # * Copy if the overlapping Primary exon is identical to the
+          #   Secondary exon.
           #
-          # * Don't copy if the Ensembl gene is RNA and the Havana gene
+          # * Don't copy if the Secondary gene is RNA and the Primary gene
           #   has a different biotype.
           #
           # * Copy in any other case.
 
-          if ( features_are_same( [$ensembl_exon], [$havana_exon] ) ) {
+          if ( features_are_same( [$secondary_exon], [$primary_exon] ) ) {
             print( "\t\t\tSpecial case: Allowing copy of transcript " .
                    "from single exon gene into multi exon gene " .
                    "(perfect exon match)\n" );
           }
-          elsif ( $ensembl_gene->{__is_rna} &&
-                  $ensembl_gene->biotype() ne $havana_gene->biotype() )
+          elsif ( $secondary_gene->{__is_rna} &&
+                  $secondary_gene->biotype() ne $primary_gene->biotype() )
           {
             print( "\t\t\tSpecial case: Won't copy transcript " .
                    "from single exon RNA gene into " .
@@ -1275,9 +1337,9 @@ ENSEMBL_EXON:
             print( "\t\t\tSpecial case: Allowing copy of transcript " .
                    "from single exon gene into multi exon gene\n" );
           }
-        } ## end if ( scalar(@ensembl_exons...))
-        elsif ( $ensembl_gene->{__is_rna} &&
-                $ensembl_gene->biotype() ne $havana_gene->biotype() )
+        } ## end if ( scalar(@secondary_exons...))
+        elsif ( $secondary_gene->{__is_rna} &&
+                $secondary_gene->biotype() ne $primary_gene->biotype() )
         {
           # Don't allow copying of RNA gene transcripts if gene biotypes
           # do not match upi (regardless of exon counts).
@@ -1287,11 +1349,11 @@ ENSEMBL_EXON:
         }
 
         if ($do_copy) {
-          last ENSEMBL_EXON;
+          last SECONDARY_EXON;
         }
       } ## end if ( features_overlap(...))
-    } ## end foreach my $havana_exon (@havana_exons)
-  } ## end ENSEMBL_EXON: foreach my $ensembl_exon (@ensembl_exons)
+    } ## end foreach my $primary_exon (@primary_exons)
+  } ## end SECONDARY_EXON: foreach my $secondary_exon (@secondary_exons)
 
   return $do_copy;
 } ## end sub investigate_for_copy
@@ -1323,6 +1385,69 @@ sub features_are_same {
 
   return 1;
 } ## end sub features_are_same
+
+sub features_are_subset {
+# returns true if feature_set_b is a subset of feature_set_a
+# first feature start and last feature end are allowed to mismatch
+  my ( $feature_set_a, $feature_set_b ) = @_;
+
+  if (scalar(@{$feature_set_a}) == 0 ||
+     (scalar(@{$feature_set_a}) < scalar(@{$feature_set_b}))) {
+    return 0;
+  }
+
+  my $is_subset = 1;
+  my $feature_b_index = 0;
+  
+  for (my $feature_a_index = 0; $feature_a_index < scalar(@{$feature_set_a}); ++$feature_a_index) {
+    my $feature_a = $feature_set_a->[$feature_a_index];
+    my $feature_b = $feature_set_b->[$feature_b_index];
+    my $start_match = start_features_match($feature_a,$feature_b,$feature_b_index);
+    my $end_match = end_features_match($feature_a,$feature_b,$feature_b_index,scalar(@{$feature_set_b})-1);
+    my $room_for_feature_b = (scalar(@{$feature_set_b})-$feature_b_index-1 <= scalar(@{$feature_set_a})-$feature_a_index-1);
+
+    if ((!$start_match or !$end_match) and !$room_for_feature_b) {
+      # no more room for feature b
+      return 0;
+    } elsif ($start_match and $end_match) {
+      # match and still room
+      $feature_b_index++;
+      if ($feature_b_index > scalar(@{$feature_set_b})-1) {
+      # final match
+      	return 1;
+      }
+    }
+  }
+  # NO match
+  return 0;
+} ## end sub features_are_same
+
+sub start_features_match () {
+  # return true if feature b start lies within feature a for the first b feature
+  # or feature b start matches feature a start
+  
+  my ($feature_a,$feature_b,$index_b) = @_;
+  my $start_a = $feature_a->seq_region_start();
+  my $start_b = $feature_b->seq_region_start();
+  my $end_a = $feature_a->seq_region_end();
+
+  return ( ($start_a == $start_b and $index_b > 0) or
+           ($start_a <= $start_b and $start_b <= $end_a and $index_b == 0)
+         );
+}
+
+sub end_features_match () {
+  # return true if feature b end lies within feature a for the last b feature
+  # or feature b end matches feature a end
+  my ($feature_a,$feature_b,$index_b,$last_index_b) = @_;
+  my $end_a = $feature_a->seq_region_end();
+  my $end_b = $feature_b->seq_region_end();
+  my $start_a = $feature_a->seq_region_start();
+
+  return ( ($end_a == $end_b and $index_b < $last_index_b) or
+           ($start_a <= $end_b and $end_b <= $end_a and $index_b == $last_index_b)
+         );
+}
 
 sub has_complete_start_stop {
   my ($transcript) = @_;
@@ -1420,6 +1545,10 @@ sub exon_overlap {
 }
 
 sub merge {
+# Returns 1 if $source_transcript should be copied over
+# at the end of the merge process (further processing is needed).
+# Otherwise, returns 0 (further processing is not needed).
+
   my ( $target_gene, $target_transcript, $source_transcript ) = @_;
 
   printf( "Merge> Biotypes: source transcript: %s, " .
@@ -1457,7 +1586,6 @@ sub merge {
 
     elsif($source_transcript->translation()->seq() ne $target_transcript->translation()->seq()) {
       printf( "Merge> Merge would alter coding sequence (CCDS source transcript)\n");
-
       print( "Merge> Copying source transcript to target gene " .
              "(not merging)\n" );
        return copy( $target_gene, $source_transcript );
@@ -1475,8 +1603,17 @@ sub merge {
   #     supporting features
   #     intron supporting evidence
   {
-    my @supporting_features =
-      @{ $new_source_transcript->get_all_supporting_features() };
+    my @supporting_features = ();
+    
+    # only transfer the supporting features that overlap.
+    # as the merge is based on intron match, there can be cases where
+    # a longer Secondary transcript evidence would have been transferred
+    # beyond the exon boundaries of the Primary target transcript
+    foreach my $sf (@{ $new_source_transcript->get_all_supporting_features() }) {
+      if (features_overlap($sf,$target_transcript)) {
+        push(@supporting_features,$sf);
+      }
+    }
 
     printf( "Merge> Transferred %d supporting feature(s)\n",
             scalar(@supporting_features) );
@@ -1501,10 +1638,18 @@ sub merge {
     my @supporting_features;
 
     foreach
-      my $source_exon ( @{ $new_source_transcript->get_all_Exons() } )
-    {
-      push( @supporting_features,
-            [ @{ $source_exon->get_all_supporting_features() } ] );
+      my $source_exon ( @{ $new_source_transcript->get_all_Exons() } ) {
+      my @exon_sf = ();
+      # only transfer the supporting features that overlap.
+      # as the merge is based on intron match, there can be cases where
+      # a longer Secondary transcript evidence would have been transferred
+      # beyond the exon boundaries of the Primary target transcript
+      foreach my $sf (@{ $source_exon->get_all_supporting_features() }) {
+        if (features_overlap($sf,$target_transcript)) {
+          push(@exon_sf,$sf);
+        }
+      }
+      push(@supporting_features,[@exon_sf]);
     }
 
     my $exon_index    = 0;
@@ -1528,21 +1673,25 @@ sub merge {
 
   add_logic_name_suffix( $target_transcript, 'merged' );
   add_logic_name_suffix( $target_gene,       'merged' );
-  $target_gene->source( $opt_ensembl_tag . '_' . $opt_havana_tag );
-  $target_transcript->source($opt_ensembl_tag . '_' . $opt_havana_tag );
+  $target_gene->source( $opt_secondary_tag . '_' . $opt_primary_tag );
+  $target_transcript->source($opt_secondary_tag . '_' . $opt_primary_tag );
 
   return 0;
 } ## end sub merge
 
 sub copy {
+# Returns 1 if $source_transcript should be copied over
+# at the end of the merge process (further processing is needed).
+# Otherwise, returns 0 (further processing is not needed).
+
   my ( $target_gene, $source_transcript ) = @_;
 
   printf( "Copy> Biotypes: source transcript: %s, target gene: %s\n",
           $source_transcript->biotype(), $target_gene->biotype() );
 
 ###############################################################################
-# Case 1 - Havana gene is coding, Ensembl transcript is a pseudogene
-# Do not copy the Ensembl transcript. The corresponding Ensembl gene
+# Case 1 - Primary gene is coding, Secondary transcript is a pseudogene
+# Do not copy the Secondary transcript. The corresponding Secondary gene
 # will not be listed as processed and therefore should be copied over
 # at the end of merge process (if it wasn't processed elsewhere)
 ###############################################################################
@@ -1551,17 +1700,17 @@ sub copy {
   {
     print( "Copy> Source transcript is pseudogene, " .
            "will not copy it into a coding gene.\n" );
-    print( "Copy> Leaving Ensembl annotation as is.\n");
+    print( "Copy> Leaving Secondary annotation as is.\n");
     return 1;
   }
 
 ###############################################################################
-# Case 2 - The Havana gene is a pseudogene. In this case it the Ensembl
+# Case 2 - The Primary gene is a pseudogene. In this case it the Secondary
 # transcript won't be copied and the corresponding gene will be listed
 # as processed and will not be copied at the end. The only exception to
-# this is when the Ensembl transcript is CCDS, in which case the transcript
-# will be copied and the biotype will be updated to the Ensembl biotype.
-# The Ensembl gene will be listed as processed and will not be copied at
+# this is when the Secondary transcript is CCDS, in which case the transcript
+# will be copied and the biotype will be updated to the Secondary biotype.
+# The Secondary gene will be listed as processed and will not be copied at
 # the end of merge process
 ###############################################################################
   elsif ( $target_gene->{__is_pseudogene} ) {
@@ -1570,7 +1719,7 @@ sub copy {
     unless ( $source_transcript->{__is_ccds} ) {
        print( "Copy> Target gene is pseudogene, " .
               "will not copy anything into it.\n" );
-       print( "Copy> Deleting the Ensembl annotation.\n");
+       print( "Copy> Deleting the Secondary annotation.\n");
        return 0;
     }
 
@@ -1586,21 +1735,21 @@ sub copy {
   }
 
 ###############################################################################
-# Case 3 - The Havana gene is labelled as belonging to a gene cluster. This
+# Case 3 - The Primary gene is labelled as belonging to a gene cluster. This
 # tag is read from the transcripts, so at least one transcript was labelled.
-# In this case the Ensembl transcript will not be copied over.
-# The exception to this is if the Ensembl transcript is CCDS, in this case
-# the Ensembl transcript will be copied and the Havana gene biotype will
-# updated if needed. Either way the corresponding the Ensembl gene will be
+# In this case the Secondary transcript will not be copied over.
+# The exception to this is if the Secondary transcript is CCDS, in this case
+# the Secondary transcript will be copied and the Primary gene biotype will
+# updated if needed. Either way the corresponding the Secondary gene will be
 # will be listed as processed and not copied at the end of the merge process.
 ###############################################################################
   elsif ( $target_gene->{__is_gene_cluster} ) {
 
     unless ( $source_transcript->{__is_ccds} ) {
       print( "Copy> Target gene is part of gene cluster, " .
-           "will not copy overlapping Ensembl transcripts ".
+           "will not copy overlapping Secondary transcripts ".
            "into it.\n" );
-      print( "Copy> Deleting the Ensembl annotation.\n");
+      print( "Copy> Deleting the Secondary annotation.\n");
       return 0;
     }
 
@@ -1617,11 +1766,11 @@ sub copy {
   }
 
 ###############################################################################
-# Case 4 - The Havana gene has an assembly error, in this case the Ensembl
-# transcript will be copied in and if the Ensembl gene has a translation and
-# the Havana gene biotype doesn't match the biotype of the Ensembl transcript
-# the biotype of the Ensembl transcript overwrites the Havana gene biotype.
-# This may be in the wrong place logically. The corresponding Ensembl gene is
+# Case 4 - The Primary gene has an assembly error, in this case the Secondary
+# transcript will be copied in and if the Secondary gene has a translation and
+# the Primary gene biotype doesn't match the biotype of the Secondary transcript
+# the biotype of the Secondary transcript overwrites the Primary gene biotype.
+# This may be in the wrong place logically. The corresponding Secondary gene is
 # listed as processed and will not be copied at the end of the merge process
 ###############################################################################
   elsif ( $target_gene->{__has_ref_error} ) {
@@ -1637,13 +1786,13 @@ sub copy {
   }
 
 ###############################################################################
-# Case 5 - The Havana gene is non coding (but not a pseudogene) and the
-# Ensembl transcript has a translation. In this case the translation is
-# removed from the Ensembl transcript and the exon phases are all set to
+# Case 5 - The Primary gene is non coding (but not a pseudogene) and the
+# Secondary transcript has a translation. In this case the translation is
+# removed from the Secondary transcript and the exon phases are all set to
 # -1, which means non-coding, before the transcript is copied. The only
-# exception to this is when the Ensembl transcript is CCDS, in this case
-# the biotype of the Havana gene is overwritten with the Ensembl transcript
-# biotype. The corresponding Ensembl gene is listed as processed and is
+# exception to this is when the Secondary transcript is CCDS, in this case
+# the biotype of the Primary gene is overwritten with the Secondary transcript
+# biotype. The corresponding Secondary gene is listed as processed and is
 # not copied over at the end of the merge process
 ###############################################################################
   elsif ( !$target_gene->{__is_coding} &&
@@ -1675,25 +1824,27 @@ sub copy {
 
   }
 
-  # Start by transferring the $source_transcript to the same slice as
-  # the $target_gene.
-  my $new_source_transcript =
-    $source_transcript->transfer( $target_gene->slice() );
+  # Transfer the $source_transcript to the same slice as
+  # the $target_gene if it has not been transferred before.
+  if (is_transcript_in_gene($target_gene,$source_transcript)) {
+    print "Copy> Not copying because it has already been copied (or merged) or it will be merged later on ".$source_transcript->stable_id()."\n"; 
+  } else {
+    my $new_source_transcript = $source_transcript->transfer( $target_gene->slice() );
 
-  $target_gene->add_Transcript($new_source_transcript);
+    $target_gene->add_Transcript($new_source_transcript);
 
-  add_logic_name_suffix( $new_source_transcript, 'copied' );
-  add_logic_name_suffix( $target_gene,           'merged' );
-  $target_gene->source( $opt_ensembl_tag . '_' . $opt_havana_tag );
-
+    add_logic_name_suffix( $new_source_transcript, 'copied' );
+    add_logic_name_suffix( $target_gene,           'merged' );
+    $target_gene->source( $opt_secondary_tag . '_' . $opt_primary_tag );
+  }
   return 0;
 } ## end sub copy
 
 
-# Strip the phases off all the exons in a transcript. Used on Ensembl
+# Strip the phases off all the exons in a transcript. Used on Secondary
 # coding transcripts that get demoted to non-coding. This will only
-# be run on coding Ensembl transcripts that are copied to non-coding, 
-# non-pseudogene Havana genes. Yes that's confusing, just roll with it.
+# be run on coding Secondary transcripts that are copied to non-coding, 
+# non-pseudogene Primary genes. Yes that's confusing, just roll with it.
 sub strip_phase {
 
   my ($transcript_to_strip) = @_;  
@@ -1762,12 +1913,62 @@ sub add_logic_name_suffix {
   }
 }
 
+sub is_transcript_in_gene {
+# returns 1 if the transcript $source_transcript
+# can be found in the gene $target_gene
+  my ($target_gene,$source_transcript) = @_;
+  
+  my $transcript_key = get_transcript_exon_key($source_transcript);
+  
+  foreach my $transcript (@{$target_gene->get_all_Transcripts()}) {
+    if (get_transcript_exon_key($transcript) eq $transcript_key) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub get_transcript_exon_key {
+  my $transcript = shift;
+  my $string = $transcript->slice->seq_region_name.":".$transcript->biotype.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->seq_region_strand.":".@{$transcript->get_all_translateable_Exons()}.":";
+
+  my $exons = sort_by_start_end_pos($transcript->get_all_Exons());
+  foreach my $exon (@{$exons}) {
+    $string .= ":".$exon->seq_region_start.":".$exon->seq_region_end;
+  }
+
+  return $string;
+}
+
+sub sort_by_start_end_pos {
+  my ($unsorted) = @_;
+
+  my @sorted = sort { if ($a->seq_region_start < $b->seq_region_start) {
+        return -1;
+    } elsif ($a->seq_region_start == $b->seq_region_start) {
+      if ($a->seq_region_end < $b->seq_region_end) {
+        return-1;
+      } elsif ($a->seq_region_end == $b->seq_region_end) {
+        return 0;
+      } elsif ($a->seq_region_end > $b->seq_region_end) {
+        return 1;
+      }
+        return 0;
+    } elsif ($a->seq_region_start > $b->seq_region_start) {
+        return 1;
+    }
+  } @$unsorted;
+
+  return \@sorted;
+}
+
+
 __END__
 
 =head1 NAME
 
-merge.pl - A script that merges the manual annotations from Havana with
-the automatic annotations from Ensembl.
+merge.pl - A script that merges the manual annotations from Primary with
+the automatic annotations from Secondary.
 
 =head1 SYNOPSIS
 
@@ -1776,17 +1977,17 @@ merge.pl [options]
 merge --help
 
   Options:
-    --host_ensembl  (required)
-    --port_ensembl
-    --user_ensembl  (required)
-    --pass_ensembl      or --password_ensembl
-    --dbname_ensembl    or --database_ensembl   (required)
+    --host_secondary  (required)
+    --port_secondary
+    --user_secondary  (required)
+    --pass_secondary      or --password_secondary
+    --dbname_secondary    or --database_secondary   (required)
 
-    --host_havana   (required)
-    --port_havana
-    --user_havana   (required)
-    --pass_havana       or --password_havana
-    --dbname_havana     or --database_havana    (required)
+    --host_primary   (required)
+    --port_primary
+    --user_primary   (required)
+    --pass_primary       or --password_primary
+    --dbname_primary     or --database_primary    (required)
 
     --host_dna
     --port_dna
@@ -1800,15 +2001,15 @@ merge --help
     --pass_output       or --password_output
     --dbname_output     or --database_output    (required)
 
-    --ensembl_include   or --ensembl_exclude
-    --havana_include    or --havana_exclude
+    --secondary_include   or --secondary_exclude
+    --primary_include    or --primary_exclude
 
-    --havana_tag
-    --ensembl_tag
+    --primary_tag
+    --secondary_tag
 
-    --havana_gene_xref
-    --havana_transcript_xref
-    --havana_translation_xref
+    --primary_gene_xref
+    --primary_transcript_xref
+    --primary_translation_xref
 
     --jobs
     --chunk
@@ -1822,54 +2023,54 @@ merge --help
 
 =over
 
-=item B<--host_ensembl>
+=item B<--host_secondary>
 
-The server host name for the Ensembl database (required).
+The server host name for the Secondary database (required).
 
-=item B<--port_ensembl>
+=item B<--port_secondary>
 
 The port on the server to connect to (optional, default is 3306).
 
-=item B<--user_ensembl>
+=item B<--user_secondary>
 
 The username to connect as (required).
 
-=item B<--pass_ensembl> or B<--password_ensembl>
+=item B<--pass_secondary> or B<--password_secondary>
 
 The password to authenticate with (optional, default is an empty
 string).
 
-=item B<--dbname_ensembl> or B<--database_ensembl>
+=item B<--dbname_secondary> or B<--database_secondary>
 
-The name of the Ensembl database (required).
+The name of the Secondary database (required).
 
-=item B<--host_havana>
+=item B<--host_primary>
 
-The server host name for the Havana database (required).
+The server host name for the Primary database (required).
 
-=item B<--port_havana>
+=item B<--port_primary>
 
 The port on the server to connect to (optional, default is 3306).
 
-=item B<--user_havana>
+=item B<--user_primary>
 
 The username to connect as (required).
 
-=item B<--pass_havana> or B<--password_havana>
+=item B<--pass_primary> or B<--password_primary>
 
 The password to authenticate with (optional, default is an empty
 string).
 
-=item B<--dbname_havana> or B<--database_havana>
+=item B<--dbname_primary> or B<--database_primary>
 
-The name of the Havana database (required).
+The name of the Primary database (required).
 
 =back
 
 =head2 Connection options for using a separate DNA database
 
 These options are all optional and their default values are taken from
-the values specified for the connection options for the Ensembl input
+the values specified for the connection options for the Secondary input
 database.
 
 =over
@@ -1927,16 +2128,16 @@ The name of the output database (required).
 
 =over
 
-=item B<--ensembl_include> or B<--ensembl_exclude>
+=item B<--secondary_include> or B<--secondary_exclude>
 
 A comma-separated list of analysis logic names of genes that will be
-included or excluded from the Ensembl gene set.  You may use one of
+included or excluded from the Secondary gene set.  You may use one of
 these options, but not both.
 
-=item B<--havana_include> or B<--havana_exclude>
+=item B<--primary_include> or B<--primary_exclude>
 
 A comma-separated list of analysis logic names of genes that will be
-included or excluded from the Havana gene set.  You may use one of these
+included or excluded from the Primary gene set.  You may use one of these
 options, but not both.
 
 =back
@@ -1945,26 +2146,26 @@ options, but not both.
 
 =over
 
-=item B<--ensembl_tag>
+=item B<--secondary_tag>
 
-=item B<--havana_tag>
+=item B<--primary_tag>
 
 These options allows you to set the tags used for tagging analysis
-logic names for Havana and Ensembl genes, transcripts, exons and
+logic names for Primary and Secondary genes, transcripts, exons and
 translations, as well as the logic names assuciated with the various
 types of supporting featores.
 
 A lugic name will be suffixed by C<_> followed by the value of the tag,
 so that the original logic name C<otter>, for example, would be extended
-to C<otter_havana> (if ths was a lgic name that was attached to Havana
+to C<otter_primary> (if ths was a lgic name that was attached to Primary
 annotation).
 
 The tag values are also used to set the C<source> of the genes and
 transcrpts written to the output database.  Merged genes and transcripts
-gets a combined C<source> value, e.g. C<ensembl_havana>.
+gets a combined C<source> value, e.g. C<secondary_primary>.
 
 These options are optional.  The default values for these options are
-C<havana> for B<--havana_tag> and C<ensembl> for B<--ensembl_tag>.
+C<primary> for B<--primary_tag> and C<secondary> for B<--secondary_tag>.
 
 =back
 
@@ -1972,27 +2173,27 @@ C<havana> for B<--havana_tag> and C<ensembl> for B<--ensembl_tag>.
 
 =over
 
-=item B<--havana_gene_xref>
+=item B<--primary_gene_xref>
 
-=item B<--havana_transcript_xref>
+=item B<--primary_transcript_xref>
 
-=item B<--havana_translation_xref>
+=item B<--primary_translation_xref>
 
 The values corresponding to these options should be a comma-separated
 list of strings that makes up the C<external_db_name>,
 C<db_display_name>, and C<type> of the xref database table.  This
-information will be supplemented with the Havana stable IDs for genes,
+information will be supplemented with the Primary stable IDs for genes,
 transcripts and translations and added to the output gene set.
 
-For example, the standard xrefs for Havana are specified as
+For example, the standard xrefs for Primary are specified as
 
-  --havana_gene_xref='OTTG,Havana gene,ALT_GENE'
-  --havana_transcript_xref='OTTT,Havana transcript,ALT_TRANS'
-  --havana_translation_xref='OTTP,Havana translation,MISC'
+  --primary_gene_xref='OTTG,Havana gene,ALT_GENE'
+  --primary_transcript_xref='OTTT,Havana transcript,ALT_TRANS'
+  --primary_translation_xref='OTTP,Havana translation,MISC'
 
 These options are optional.  The default for these three options is the
-default Havana xref information (as above).  It only needs to be changed
-if you replace the Havana input data set with, for example, RefSeq.
+default Primary xref information (as above).  It only needs to be changed
+if you replace the Primary input data set with, for example, RefSeq.
 
 =back
 

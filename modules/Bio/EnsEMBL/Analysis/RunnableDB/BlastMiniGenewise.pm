@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -154,15 +154,15 @@ sub new {
 sub fetch_input{
   my ($self) = @_;
   $self->parse_input_id;
-  $self->query($self->gene_slice);
+  $self->query($self->fetch_sequence($self->input_id, $self->db, $self->REPEATMASKING, $self->SOFTMASKING));
   my %hit_list;
 
   my $killed_count = 0;
   my $feature_count = 0;
   my %protein_count;
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
-    #print "LOGIC NAME : ",$logic_name,"\n"; 
-     my $features = $self->paf_slice->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
+    #print "LOGIC NAME : ",$logic_name, ' $ ', $self->paf_slice->get_seq_region_id, "\n";
+    my $features = $self->query->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
     my %unique;
     foreach my $feature(@$features){ 
       $unique{$feature->hseqname} = 1;
@@ -170,9 +170,10 @@ sub fetch_input{
     #print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
     logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
     $feature_count += scalar(@$features);
-    my %ids_to_ignore = %{$self->generate_ids_to_ignore($features)};
+    my $ids_to_ignore = {};
+    $ids_to_ignore = %{$self->generate_ids_to_ignore($features)} if (@{$self->BIOTYPES_TO_MASK});
     #print "HAVE ".keys(%ids_to_ignore)." ids to ignore\n";
-    logger_info("HAVE ".keys(%ids_to_ignore)." ids to ignore"); 
+    logger_info("HAVE ".keys(%$ids_to_ignore)." ids to ignore");
 
      my %kill_list ;
      if ( scalar(@$features) > 0 ) {  
@@ -198,9 +199,9 @@ sub fetch_input{
                       $feature->score < $self->PAF_UPPER_SCORE_THRESHOLD);
       logger_info("SKIPPING ".$feature->hseqname." on the mask list")
         if($self->PRE_GENEWISE_MASK && 
-           $ids_to_ignore{$feature->hseqname}) ;
+           exists $ids_to_ignore->{$feature->hseqname}) ;
       next FEATURE if($self->PRE_GENEWISE_MASK && 
-                      $ids_to_ignore{$feature->hseqname});
+                      exists $ids_to_ignore->{$feature->hseqname});
       if($self->use_id){ 
         if($feature->hseqname eq $self->use_id){
           push(@{$hit_list{$feature->hseqname}}, $feature);
@@ -242,6 +243,8 @@ sub fetch_input{
     return;
   } 
   $self->create_bmg_runnables(\%hit_list);
+  $self->gene_source_db->dbc->disconnect_when_inactive(1) if (@{$self->BIOTYPES_TO_MASK});
+  $self->paf_source_db->dbc->disconnect_when_inactive(1);
   return 1;
 }
 
@@ -444,8 +447,7 @@ sub create_bmg_runnables{
                     $self->query->seq_region_name.":".
                     $start.":".$end.":".
                     $self->query->strand);
-        my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB); 
-        my $query = $self->fetch_sequence($name, $db, $self->REPEATMASKING, $self->SOFTMASKING);
+        my $query = $self->fetch_sequence($name, $self->db, $self->REPEATMASKING, $self->SOFTMASKING);
         logger_info("Creating BlastMiniGenewise Runnable over a limited range with ".$id." and ".$seqfetcher." to run on ".$query->name);
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise->
           new(
@@ -570,8 +572,6 @@ sub create_mask_list{
 sub run{
   my ($self) = @_;
   my @transcripts;
-  $self->gene_source_db->dbc->disconnect_when_inactive(1);
-  $self->paf_source_db->dbc->disconnect_when_inactive(1);
   #print "HAVE ".@{$self->runnable}." runnables to run\n";
   foreach my $runnable(@{$self->runnable}){
     my $output;
@@ -590,7 +590,6 @@ sub run{
   my $complete_transcripts = $self->process_transcripts(\@transcripts);
   my @genes = @{convert_to_genes($complete_transcripts, $self->analysis, 
                                  $self->OUTPUT_BIOTYPE)};
-  $self->gene_source_db->dbc->disconnect_when_inactive(0);
   #my $hash = $self->group_genes_by_id(\@genes);
   #foreach my $name(keys(%{$hash})){
   #  print "FILTER ".$name." has ".$hash->{$name}." genes before filter\n";
@@ -843,11 +842,13 @@ sub gene_source_db{
     $self->{gene_source_db} = $db;
   }
   if(!$self->{gene_source_db}){
-    my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);  
-    if ( $db->dnadb ) {  
-       $db->dnadb->disconnect_when_inactive(1); 
-    } 
-    $self->{gene_source_db} = $db;
+    if (@{$self->BIOTYPES_TO_MASK}) {
+      my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);
+      if ( $db->dnadb ) {
+         $db->dnadb->disconnect_when_inactive(1);
+      }
+      $self->{gene_source_db} = $db;
+    }
   }
   return $self->{gene_source_db};
 }

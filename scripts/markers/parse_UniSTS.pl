@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ for my $id ( @species_entries ) {
    for my $org ( keys %uni_orgs ) {  
 
      if ( ($uni_orgs{$opt{species}}{len}=~m/\d/) 
-          && ($uni_orgs{$opt{species}}{name} !=~m/-/) ) {  
+          && ($uni_orgs{$opt{species}}{name} !~ m/-/) ) {  
           # entry is complete for $opt{species} - we don't need to do anything  
           print O "$unists{$id}{$opt{species}}{entry}\n" ;  
           next MARKER ;  

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 use warnings ;
 use setup_rnaseq_pipeline_config;
 use vars qw(%Config);
-use Bio::EnsEMBL::Analysis::Config::Databases;
-use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Pipeline::Utils::InputIDFactory;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+#use Bio::EnsEMBL::Analysis::Config::Databases;
+#use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
+#use Bio::EnsEMBL::Pipeline::Utils::InputIDFactory;
+#use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use strict;
 use Getopt::Long;
 
@@ -45,6 +45,7 @@ my $rgt = $RNASEQCONFIG->{READ_GROUP_TAG};
 my $queue_manager = $RNASEQCONFIG->{BATCHQUEUE_MANAGER} || 'LSF';
 my $default_lsf_pre_exec_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PRE_EXEC_PERL} || '/software/ensembl/central/bin/perl';
 my $default_lsf_perl = $RNASEQCONFIG->{BATCHQUEUE_DEFAULT_LSF_PERL} || '/software/ensembl/central/bin/perl';
+my $splice_aligner = $RNASEQCONFIG->{SPLICING_ALIGNER} || '/software/ensembl/genebuild/usrlocalensemblbin/exonerate-0.9.0';
 
 $rgt = 'ID' unless $rgt;
 my %id_groups;
@@ -89,7 +90,7 @@ GetOptions( 'verbose!'         => \$verbose,
             'check!'           => \$check,
             'stage:s'          => \$force_stage,
             'jdi!'            => \$jdi,
-            'update_analyses!' => \$update_analyses, );
+            'update_analyses!' => \$update_analyses,
             'use_existing!'    => \$use_existing, );
 
 die($usage) unless ($dbname && $analysisconfigdir &&
@@ -647,6 +648,7 @@ my $submit_bam2introns =
 my $bam2introns =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2introns",
                                         -input_id_type => 'STABLEID',
+                                        -program_file => $splice_aligner,
                                         -module        => 'Bam2Introns', );
 my $bam2introns_wait =
   new Bio::EnsEMBL::Pipeline::Analysis( -logic_name    => "bam2introns_wait",
@@ -672,8 +674,20 @@ my $refine_all =
                                         -input_id_type => 'CHROMOSOME',
                                         -module        => 'RefineSolexaGenes',
   );
-my $rnaseq_blast =
-  new Bio::EnsEMBL::Pipeline::Analysis(
+my $rnaseq_blast;
+if ($RNASEQCONFIG->{BLASTP} eq 'ncbi') {
+  $rnaseq_blast = new Bio::EnsEMBL::Pipeline::Analysis(
+                                  -logic_name    => "rnaseqblast",
+                                  -input_id_type => 'CHROMOSOME',
+                                  -module        => 'BlastRNASeqPep',
+                                  -parameters => '-p blastp -a 1 -A 40 -F F',
+                                  -program_file => 'blastall',
+                                  -program      => 'blastall',
+                                  -db_file      => $RNASEQCONFIG->{UNIPROTDB},
+  );
+}
+elsif ($RNASEQCONFIG->{BLASTP} eq 'wu') {
+  $rnaseq_blast = new Bio::EnsEMBL::Pipeline::Analysis(
                                   -logic_name    => "rnaseqblast",
                                   -input_id_type => 'CHROMOSOME',
                                   -module        => 'BlastRNASeqPep',
@@ -682,6 +696,10 @@ my $rnaseq_blast =
                                   -program      => 'wublastp',
                                   -db_file      => $RNASEQCONFIG->{UNIPROTDB},
   );
+}
+else {
+  die("I don't know your blastp program".$RNASEQCONFIG->{BLASTP});
+}
 
 
 my $bam2genes_rule =
@@ -853,7 +871,7 @@ my $bq_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
     -modulename => 'Bio::EnsEMBL::Pipeline::Config::BatchQueue',
     -moduledir  => $configdir,
     -is_example => $use_existing ? 0 : 1);
-$bq_cfg->root_value('DEFAULT_LSF_PERL', '/usr/local/bin/perl');
+$bq_cfg->root_value('DEFAULT_LSF_PERL', $default_lsf_perl);
 my $blast_general_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
     -modulename => 'Bio::EnsEMBL::Analysis::Config::Blast',
     -moduledir  => $configdir,
@@ -886,7 +904,7 @@ $introns_bam_files->[0]->{GROUPNAME} = [];
 $introns_bam_files->[0]->{FILE} = $RNASEQCONFIG->{MERGE_DIR}.'/merged.bam';
 my $gsnap_cfg;
 my $bwa_cfg;
-my $bam2genes_cfg;
+my $bam2introns_cfg;
 my $sam2bam_cfg;
 if ($use_gsnap) {
     $introns_bam_files->[0]->{MIXED_BAM} = 1;
@@ -906,13 +924,13 @@ else {
         -is_example => $is_example);
     $bwa_cfg->default_value('GENOMEFILE', $RNASEQCONFIG->{GENOME_DIR}.'/'.$RNASEQCONFIG->{GENOME_FILE});
     $bwa_cfg->default_value('SAMTOOLS_PATH', $RNASEQCONFIG->{SAMTOOLS});
-    $bwa2introns_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
+    $bam2introns_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
         -modulename => 'Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns',
         -moduledir  => $configdir,
         -is_example => $is_example);
-    $bwa2introns_cfg->default_value('OUT_SAM_DIR', $RNASEQCONFIG->{MERGE_DIR}.'/SAM');
-    $bwa2introns_cfg->default_value('TRANSDB', $RNASEQCONFIG->{ROUGHDB});
-    $bwa2introns_cfg->default_value('BAM_FILE', $RNASEQCONFIG->{MERGE_DIR}.'/merged.bam');
+    $bam2introns_cfg->default_value('OUT_SAM_DIR', $RNASEQCONFIG->{MERGE_DIR}.'/SAM');
+    $bam2introns_cfg->default_value('TRANSDB', $RNASEQCONFIG->{ROUGHDB});
+    $bam2introns_cfg->default_value('BAM_FILE', $RNASEQCONFIG->{MERGE_DIR}.'/merged.bam');
     $sam2bam_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
         -modulename => 'Bio::EnsEMBL::Analysis::Config::GeneBuild::Sam2Bam',
         -moduledir  => $configdir,
@@ -977,7 +995,7 @@ foreach my $row ( @rows ) {
     my %gsnap_hash = (
                       INDIR  => $input_dir,
                       OUTDIR => $output_dir,
-                      HEADER => $output_dir'/'.$row->{ID}.'_header.txt',
+                      HEADER => $output_dir.'/'.$row->{ID}.'_header.txt',
                       PAIRED => defined $row->{PAIRED} ? 1 : 0,
                      );
     $gsnap_cfg->add_analysis_to_config('gsnap_'. $row->{ID}, \%gsnap_hash);
@@ -1042,7 +1060,7 @@ if ($use_gsnap) {
 }
 else {
     $bwa_cfg->write_config(1);
-    $bwa2introns_cfg->write_config(1);
+    $bam2introns_cfg->write_config(1);
     $sam2bam_cfg->write_config(1);
 }
 
@@ -1080,9 +1098,7 @@ sub print_merge_cmd {
   . "at this point just delete them from the merge command.\n\n";
   print "#MERGE\nbsub -o $out_dir" . "/merge.out "  
   . "-e $out_dir" . "/merge.err " ;
-  print $RNASEQCONFIG->{SAMTOOLS}
-  ." -h $out_dir" . "/all_headers.txt"
-  . " merge $merge_dir" . "/merged_unsorted.bam ";         
+  print $RNASEQCONFIG->{SAMTOOLS}." merge -h $out_dir"."/all_headers.txt $merge_dir"."/merged_unsorted.bam ";         
 
   my @sorted_bam_files = ();
   foreach my $file ( @{ $files_ref } ) {

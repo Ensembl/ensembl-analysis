@@ -1,7 +1,7 @@
 
 =head1 LICENSE
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -190,6 +190,11 @@ sub get_dbadaptor {
                    . "you need to provide a -speices flag.\n" );
           }
         }
+        else {
+          throw( "No matching non-standard adaptor could be found. If you want ".
+                 "a standard adaptor you should pass in undef.");
+        }
+
       } else {
         $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%$constructor_args);
         # it's a core db so try to attach dna_db
@@ -220,12 +225,12 @@ sub get_dbadaptor {
 
           # try to get default asm+ species name for OTHER db - does not work
           # for comapra database
-          my $core_db_asm = $db->get_MetaContainer->get_default_assembly();
+          my $core_db_asm = $db->get_CoordSystemAdaptor->get_default_version();
           my $core_db_species =
             $db->get_MetaContainer->get_common_name();
 
           # get the same for dna-db
-          my $dna_db_asm = $dnadb->get_MetaContainer->get_default_assembly();
+          my $dna_db_asm = $dnadb->get_CoordSystemAdaptor->get_default_version();
           my $dna_db_species =
             $dnadb->get_MetaContainer()->get_common_name();
 
@@ -250,8 +255,8 @@ sub get_dbadaptor {
           if ($dna_db_and_core_db_are_compatible) {
             $db->dnadb($dnadb);
             print "\nAttaching DNA_DB "
-              . $dnadb->dbname . " to "
-              . $db->dbname . "\n";
+              . $dnadb->dbc->dbname . " to "
+              . $db->dbc->dbname . "\n";
           }
         } ## end else [ if ($not_use_dna_database)
       } else {

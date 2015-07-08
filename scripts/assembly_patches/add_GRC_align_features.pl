@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -154,11 +154,13 @@ foreach my $patches_ftpdir (@patches_ftpdirs) {
       push @{$align_str{$patch}},$line;
 
       # In GRCh37, the HAP names were shortened like HSCHR17_1 instead of HSCHR17_1_CTG5
-      # so I'll add a 'duplicated' line associated to the shortened name too
+      # In GRCh38, the HAP names were extended like CHR_HSCHR17_1 instead of HSCHR17_1
+      # so I'll add a 'duplicated' line associated to the new name too
       # so that when the HAP names are fetched from our DB, there can be a match
       if ($patches_ftpdir =~ /ALT_REF_LOCI/) {
-        my $shortened_hap_name = substr($patch,0,rindex($patch,"_CTG"));
-        push @{$align_str{$shortened_hap_name}},$line;
+        #my $new_hap_name = substr($patch,0,rindex($patch,"_CTG"));
+        my $new_hap_name = "CHR_".$patch;
+        push @{$align_str{$new_hap_name}},$line;
       }
     }
   }
@@ -203,7 +205,6 @@ print "Have ".$num_patches." patches.\n";
 
 # for each patch
 for (my $i = 0; $i < $num_patches; $i++) {
-
   # get the two slices
   my $ref_slice;
   my $patch_slice;
@@ -226,7 +227,6 @@ for (my $i = 0; $i < $num_patches; $i++) {
 
   my @patch_vals = split /:/, $patch_slice->display_id; 
   my $patch_name = $patch_vals[2]; 
-
   foreach my $string ( @{ $align_str{$patch_name}}) {
     my @el = split /\t/, $string;
     
@@ -300,7 +300,7 @@ for (my $i = 0; $i < $num_patches; $i++) {
 if (scalar(@dna_align_features) > 0) {
   write_dna_align_features_to_db($db,\@dna_align_features,$store)
 }
-print "There are ".scalar (@dna_align_features)." dna_align_features.\n";
+print "There are ".scalar (@dna_align_features)." new dna_align_features.\n";
 
 
 sub write_dna_align_features_to_db {
