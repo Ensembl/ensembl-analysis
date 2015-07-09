@@ -58,13 +58,15 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($header,$method,$samtools) = rearrange([qw(HEADER METHOD SAMTOOLS)],@args);
+  my ($header,$method,$samtools, $min_mapped, $min_paired) = rearrange([qw(HEADER METHOD SAMTOOLS MIN_MAPPED MIN_PAIRED)],@args);
   $self->throw("You must define an alignment processing method not $method\n")  unless $method ;
   $self->method($method);
   $self->throw("You must define a path to samtools cannot find $samtools\n")  
     unless $samtools && -e $samtools;
   $self->samtools($samtools);
   $self->header($header);
+  $self->min_mapped($min_mapped);
+  $self->min_paired($min_paired);
 
   return $self;
 }
@@ -202,6 +204,12 @@ sub run {
 	$self->throw("Got $1 reads in flagstat  rather than $total_reads in fastq - something went wrong\n")
 	  unless ( $total_reads - $1 ) <=1 ;
       }
+      elsif (/^\s*(\d+).*mapped\s+\(/) {
+          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_mapped.": $1";
+      }
+      elsif (/\s*(\d+).*properly paired \(/) {
+          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_paired.": $1";
+      }
     }
   close($fh) || $self->throw("Failed checking alignment");
 
@@ -268,5 +276,32 @@ sub header {
   }
 }
 
+sub min_mapped {
+  my ($self,$value) = @_;
 
+  if (defined $value) {
+    $self->{'_min_mapped'} = $value;
+  }
 
+  if (exists($self->{'_min_mapped'})) {
+    return $self->{'_min_mapped'};
+  } else {
+    return undef;
+  }
+}
+
+sub min_paired {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_min_paired'} = $value;
+  }
+
+  if (exists($self->{'_min_paired'})) {
+    return $self->{'_min_paired'};
+  } else {
+    return undef;
+  }
+}
+
+1;

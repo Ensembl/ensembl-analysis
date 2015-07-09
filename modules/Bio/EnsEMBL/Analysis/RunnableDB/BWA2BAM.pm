@@ -86,16 +86,18 @@ sub fetch_input {
   }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA2BAM->new
     (
-     -analysis  => $self->analysis,
-     -program   => $program,
-     -fastq     => $filename,
-     -fastqpair => $fastqpair,
-     -options   => $self->OPTIONS,
-     -outdir    => $self->OUTDIR,
-     -genome    => $self->GENOMEFILE,
-     -method    => $method,
-     -samtools  => $self->SAMTOOLS_PATH,
-     -header    => $self->HEADER,
+     -analysis   => $self->analysis,
+     -program    => $program,
+     -fastq      => $filename,
+     -fastqpair  => $fastqpair,
+     -options    => $self->OPTIONS,
+     -outdir     => $self->OUTDIR,
+     -genome     => $self->GENOMEFILE,
+     -method     => $method,
+     -samtools   => $self->SAMTOOLS_PATH,
+     -header     => $self->HEADER,
+     -min_mapped => $self->MIN_MAPPED,
+     -min_paired => $self->MIN_PAIRED,
      %parameters,
     ); 
   $self->runnable($runnable);
