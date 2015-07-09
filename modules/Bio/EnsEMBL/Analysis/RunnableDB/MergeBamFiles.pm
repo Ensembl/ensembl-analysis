@@ -53,6 +53,7 @@ use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::MergeBamFiles qw (MERGE_BAM_FILES_BY_LOGIC);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw(@ISA);
 

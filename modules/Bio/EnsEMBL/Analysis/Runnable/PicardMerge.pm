@@ -61,6 +61,8 @@ use vars qw(@ISA);
 
 use File::Copy;
 use Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge);
 

@@ -62,6 +62,7 @@ use vars qw(@ISA);
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::Samtools;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 

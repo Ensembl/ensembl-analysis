@@ -51,6 +51,7 @@ use vars qw(@ISA);
 
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 
 @ISA = qw();
@@ -64,7 +65,7 @@ sub new {
 
   $program = 'samtools' unless ($program);
   throw($program.'samtools cannot be executed ') unless (-x $program);
-  $self->program($program)
+  $self->program($program);
   $self->use_threading($use_threading);
   logger_verbosity($verbose) if ($verbose);
 
@@ -161,6 +162,16 @@ sub program {
         $self->{_program} = $file;
     }
     return $self->{_program};
+}
+
+
+sub use_threading {
+    my ($self, $file) = @_;
+
+    if ($file) {
+        $self->{_use_threading} = $file;
+    }
+    return $self->{_use_threading};
 }
 
 
