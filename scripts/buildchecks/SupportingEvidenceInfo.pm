@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ evidence which supports it
 
 =head1 CONTACT
 
-ensembl dev mailing list <dev@ensembl.org>
+ensembl dev mailing list <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 APPENDIX
 

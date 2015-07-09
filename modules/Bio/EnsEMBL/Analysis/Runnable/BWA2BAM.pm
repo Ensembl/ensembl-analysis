@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -58,13 +58,15 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($header,$method,$samtools) = rearrange([qw(HEADER METHOD SAMTOOLS)],@args);
+  my ($header,$method,$samtools, $min_mapped, $min_paired) = rearrange([qw(HEADER METHOD SAMTOOLS MIN_MAPPED MIN_PAIRED)],@args);
   $self->throw("You must define an alignment processing method not $method\n")  unless $method ;
   $self->method($method);
   $self->throw("You must define a path to samtools cannot find $samtools\n")  
     unless $samtools && -e $samtools;
   $self->samtools($samtools);
   $self->header($header);
+  $self->min_mapped($min_mapped);
+  $self->min_paired($min_paired);
 
   return $self;
 }
@@ -104,24 +106,21 @@ sub run {
     $command = "wc -l $fastq";
   }
   print STDERR "$command\n";
-  eval  {
-    open  ( my $fh,"$command 2>&1 |" ) || 
-      $self->throw("Error counting reads");
-    while (<$fh>){
-      chomp;
-      if ( $_ =~ /^\s*(\d+)/ ) {
-      	if ( $fastqpair ) {
-   	  $total_reads = $1 / 2;
-	} else {
-	  $total_reads = $1 / 4;
-	}
-	print STDERR "Starting with $total_reads reads\n";
-      }
-    }
-  }; if($@){
-    $self->throw("Error processing alignment \n$@\n");
+  open  ( my $fh,"$command 2>&1 |" ) ||
+    $self->throw("Error counting reads");
+  while (<$fh>){
+    chomp;
+    if ( $_ =~ /^\s*(\d+)/ ) {
+        if ( $fastqpair ) {
+        $total_reads = $1 / 2;
+  } else {
+    $total_reads = $1 / 4;
   }
-  
+  print STDERR "Starting with $total_reads reads\n";
+    }
+  }
+  close($fh) || $self->throw("Failed counting reads");
+
   unless ($total_reads) {
     $self->throw("unable to count the reads in the fastq file $fastq\n");
   }
@@ -159,52 +158,42 @@ sub run {
   }
   
   print STDERR "Command: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
-      $self->throw("Error processing alignment $@\n");
-      while (<$fh>){
-	chomp;
-	print STDERR "VIEW: $_\n";
-	if ( $_ =~ /truncated file/ ) {
-	  $self->throw("Error converting file\n");
-	}
-      }
-   }; if($@){
-    $self->throw("Error processing alignment \n$@\n");
+  open  ( my $fh,"$command 2>&1 |" ) ||
+    $self->throw("Error processing alignment $@\n");
+    while (<$fh>){
+  chomp;
+  print STDERR "VIEW: $_\n";
+  if ( $_ =~ /truncated file/ ) {
+    $self->throw("Error converting file\n");
   }
+    }
+  close($fh) || $self->throw("Failed processing alignment");
 
   # sort the bam
   $command = "$samtools  sort $outdir/$outfile.bam $outdir/$outfile"."_sorted";
   print STDERR "Sort: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
-      $self->throw("Error sorting bam $@\n");  
+    open  ( my $fh,"$command 2>&1 |" ) ||
+      $self->throw("Error sorting bam $@\n");
     while (<$fh>){
       chomp;
       print STDERR "SORT: $_\n";
     }
-  }; if($@){
-    $self->throw("Error sorting bam \n$@\n");
-  }  
+  close($fh) || $self->throw("Failed sorting bam");
   # index the bam
   $command = "$samtools  index $outdir/$outfile"."_sorted.bam";
   print STDERR "Index: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
+    open  ( my $fh,"$command 2>&1 |" ) ||
       $self->throw("Error indexing bam $@\n");
     while (<$fh>){
       chomp;
       print STDERR "INDEX: $_\n";
     }
-  }; if($@){
-    $self->throw("Error indexing bam \n$@\n");
-  } 
+  close($fh) || $self->throw("Failed indexing bam");
 
  # check the reads with flagstat
   $command = "$samtools  flagstat $outdir/$outfile"."_sorted.bam";
   print STDERR "Got $total_reads to check\nCheck: $command\n";
-  eval {
-    open  ( my $fh,"$command 2>&1 |" ) || 
+    open  ( my $fh,"$command 2>&1 |" ) ||
       $self->throw("Error checking alignment $@\n");
     while (<$fh>){
       print STDERR "$_";
@@ -215,10 +204,25 @@ sub run {
 	$self->throw("Got $1 reads in flagstat  rather than $total_reads in fastq - something went wrong\n")
 	  unless ( $total_reads - $1 ) <=1 ;
       }
+      elsif (/^\s*(\d+).*mapped\s+\(/) {
+          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_mapped.": $1");
+      }
+      elsif (/\s*(\d+).*properly paired \(/) {
+          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_paired.": $1");
+      }
     }
-  }; if($@){
-    $self->throw("Error checking alignment \n$@\n");
+  close($fh) || $self->throw("Failed checking alignment");
+
+  #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
+  $command = "rm $outdir/$outfile".".bam";
+  print STDERR "Delete: $command\n";
+  open  ( my $fh,"$command 2>&1 |" ) || $self->throw("Error deleting unsorted bam $@\n");
+  while (<$fh>)
+  {
+      chomp;
+      print STDERR "DELETE: $_\n";
   }
+  close($fh) || $self->throw("Failed deleting bam");
 }
 
 
@@ -272,5 +276,32 @@ sub header {
   }
 }
 
+sub min_mapped {
+  my ($self,$value) = @_;
 
+  if (defined $value) {
+    $self->{'_min_mapped'} = $value;
+  }
 
+  if (exists($self->{'_min_mapped'})) {
+    return $self->{'_min_mapped'};
+  } else {
+    return undef;
+  }
+}
+
+sub min_paired {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_min_paired'} = $value;
+  }
+
+  if (exists($self->{'_min_paired'})) {
+    return $self->{'_min_paired'};
+  } else {
+    return undef;
+  }
+}
+
+1;

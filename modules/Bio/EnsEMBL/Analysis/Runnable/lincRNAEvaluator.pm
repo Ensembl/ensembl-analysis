@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -54,7 +54,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info get_multi_Exon_Genes get_single_Exon_Genes  ); 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
 use Bio::EnsEMBL::Analysis::Runnable::Blast; 
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam; 
+# It seems that Pfam module has been delete and replaced by Pfam_wormbase
+use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam_wormbase; 
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;   
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Registry; 

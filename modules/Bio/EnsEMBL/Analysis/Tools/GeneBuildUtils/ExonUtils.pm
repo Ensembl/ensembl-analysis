@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ transfering evidence
 
 =head1 CONTACT
 
-please send any questions to dev@ensembl.org
+please send any questions to http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 METHODS
 
@@ -245,8 +245,12 @@ sub transfer_supporting_evidence{
     }
 
   foreach my $sf(values(%source_evidence)){
-    logger_info("Adding ".$sf->hseqname." to the target exon");
-    $target_exon->add_supporting_features($sf);
+  	if ($sf->overlaps($target_exon)) {
+      logger_info("Adding ".$sf->hseqname." to the target exon");
+      $target_exon->add_supporting_features($sf);
+  	} else {
+      logger_info("Not adding ".$sf->hseqname." to the target exon because there is no overlap");
+  	}
   }
   return $target_exon;
 }

@@ -3,7 +3,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB;
 
 # Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
 
-# Copyright [1999-2013] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ returns the appropriate adaptor to be used in storage.
 
 =head1 CONTACT
 
-Post questions to the Ensembl development list: dev@ensembl.org
+Post questions to the Ensembl development list: http://lists.ensembl.org/mailman/listinfo/dev
 
 =cut
 

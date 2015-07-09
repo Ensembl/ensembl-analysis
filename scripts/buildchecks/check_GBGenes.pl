@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 # Script to check the integrity of some or all of the genes in an Ensembl 
 # database 
 
-# any questions please send to dev@ensembl.org
+# any questions please send to http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 NAME
 

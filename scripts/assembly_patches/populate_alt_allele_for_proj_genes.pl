@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@ my $num_genes = 0;
 #   the hash where key = gene dbid of gene on primary assembly 
 #   and value = alt_alle_group_id
 my %ref_genes_to_allele_group_id;
+my %alt_allele_gene_ids;
 
 foreach my $alt_allele_group ( @{$alt_allele_groups} ) {
   if ($alt_allele_group->dbID > $max_alt_allele_group_id) {
@@ -125,6 +126,7 @@ foreach my $alt_allele_group ( @{$alt_allele_groups} ) {
   }
   foreach my $member ( @{$alt_allele_group->get_all_members} ) {
     $num_genes++;
+    $alt_allele_gene_ids{$member->[0]} = 1;
     my $gene = $db->get_GeneAdaptor->fetch_by_dbID($member->[0]);
     print "Got gene ".$gene->stable_id." on slice ".$gene->slice->seq_region_name."\n" if $verbose;
     my $flag_list = join (',',keys %{$member->[1]});
@@ -254,11 +256,8 @@ foreach my $proj_gene (@projected_genes){
   if (get_gene_info($orig_gene) eq get_gene_info($proj_gene)) {
     #added orig and proj gene comparison to avoid duplicated gene_ids 
     warning("orig_gene same as proj_gene\n");
-  } else {
+  } elsif (!($alt_allele_gene_ids{$proj_gene->dbID})) {
     print $fh "ADDING ALT ALLELE... ";
-    # NOTE: a previous implementation of this script checked whether this projected gene was already stored
-    # however that was before the API for alt_alelles existed. The update method should prevent duplicates 
-    # from being stored.
     if (exists $ref_genes_to_allele_group_id{$orig_gene->dbID} ) {
       #is the ref (parent) gene in the alt_allele_group table? 
       # Yes it is, so we are adding a member (gene) to an exisitn alt_allele_group
@@ -277,10 +276,11 @@ foreach my $proj_gene (@projected_genes){
       }
       if ($member_found) {
         print $fh "oh no not necessary because it's already there in ".$alt_allele_group->dbID." so I'm not doing to update the group\n";
-      } else {
+      } elsif (!($alt_allele_gene_ids{$proj_gene->dbID})) {
         # add the projected gene as a new member
         my %proj_gene_flags = ('AUTOMATICALLY_ASSIGNED' => '1');
         $alt_allele_group->add_member($proj_gene->dbID , \%proj_gene_flags);
+        $alt_allele_gene_ids{$proj_gene->dbID} = 1;
         # store the changes by doing an update
         print $fh "to existing alt_allele_group";
         my $alt_allele_group_id = $aaga->update($alt_allele_group);
@@ -291,21 +291,27 @@ foreach my $proj_gene (@projected_genes){
       # that contains two genes: projected and its parent on reference
       my %proj_gene_flags = ('AUTOMATICALLY_ASSIGNED' => '1');
       my %orig_gene_flags = ('AUTOMATICALLY_ASSIGNED' => '1', 'IS_REPRESENTATIVE' => '1');
-      my $alt_allele_group = Bio::EnsEMBL::AltAlleleGroup->new(
-                             -MEMBERS => [ [$orig_gene->dbID,\%orig_gene_flags], [$proj_gene->dbID,\%proj_gene_flags] ],
-                             );
-      foreach my $allele (@{$alt_allele_group->get_all_members}) {
-        my ($gene_id,$type) = @$allele;
-        foreach my $flag ( keys %{$type} ) {
-          print "\nNew alt_allele_group includes gene $gene_id with type $flag\n" if $verbose;
-        }
-      }
-      print $fh "into a new alt_allele_group";
-      my $alt_allele_group_id = $aaga->store($alt_allele_group);
-      print $fh " with dbID ".$alt_allele_group_id."\n";
 
-      # add the new alt allele group to the hash
-      $ref_genes_to_allele_group_id{$orig_gene->dbID} = $alt_allele_group->dbID;
+      if (!($alt_allele_gene_ids{$proj_gene->dbID}) and !($alt_allele_gene_ids{$orig_gene->dbID})) {
+
+       my $alt_allele_group = Bio::EnsEMBL::AltAlleleGroup->new(
+                              -MEMBERS => [ [$orig_gene->dbID,\%orig_gene_flags], [$proj_gene->dbID,\%proj_gene_flags] ],
+                               );
+        $alt_allele_gene_ids{$proj_gene->dbID} = 1;
+        foreach my $allele (@{$alt_allele_group->get_all_members}) {
+          my ($gene_id,$type) = @$allele;
+          foreach my $flag ( keys %{$type} ) {
+            print "\nNew alt_allele_group includes gene $gene_id with type $flag\n" if $verbose;
+          }
+        }
+        print $fh "into a new alt_allele_group";
+        my $alt_allele_group_id = $aaga->store($alt_allele_group);
+        print $fh " with dbID ".$alt_allele_group_id."\n";
+
+        # add the new alt allele group to the hash
+        $ref_genes_to_allele_group_id{$orig_gene->dbID} = $alt_allele_group->dbID;
+
+      }
     }
   }
 }

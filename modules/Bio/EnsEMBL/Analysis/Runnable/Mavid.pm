@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -303,7 +303,7 @@ sub binary_tree_file {
   $self->binary_tree($tree);
   my $binary_tree_file = $tree_file . ".bin";
   open F, ">$binary_tree_file";
-  print F $tree->newick_simple_format,"\n";
+  print F $tree->newick_format('simple'),"\n";
   close F;
   $tree->release;
   return $binary_tree_file;

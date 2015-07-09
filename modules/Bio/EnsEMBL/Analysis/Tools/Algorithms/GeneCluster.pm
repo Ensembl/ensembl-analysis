@@ -267,28 +267,15 @@ sub put_Genes {
     throw("Only take array ref !\n") ; 
   }
 
-# Adjust cluster boundaries with new added genes
-
-  foreach my $gene (@$genes) {
-    if ( !defined ($self->{_cached_start}) || $gene->start < $self->start ) {
-      $self->start ( $gene->start ) ;
-    }
-    if ( !defined ($self->{_cached_end}) || $gene->end > $self->end ) {
-      $self->end ( $gene->end );
-    }
-  }
-
 # Check strand consistency
 
-  foreach my $gene (@$genes) {
-    if (!$ignore_strand) {
+  if (!$ignore_strand) {
+    foreach my $gene (@$genes) {
       if ( defined ($self->{_cached_strand} ) ) {
         if ( $self->strand != $gene->strand ) {
           warning( "You're trying to put $gene in a cluster of opposite strand");
         }
       }
-    } else {
-  # we can ignore the strand, and do nothing
     }
   }
  
@@ -296,9 +283,16 @@ sub put_Genes {
  GENE:
   foreach my $gene (@$genes) {
     throw("undef for gene. Cannot put_Genes") if (!$gene) ;
+# Adjust cluster boundaries with new added genes
+    if ( !defined ($self->{_cached_start}) || $gene->start < $self->start ) {
+      $self->start ( $gene->start ) ;
+    }
+    if ( !defined ($self->{_cached_end}) || $gene->end > $self->end ) {
+      $self->end ( $gene->end );
+    }
     my $gene_biotype = $gene->biotype ;
     foreach my $set_name ( keys %{$self->{'_types_sets'}}) { 
-      my $set = $self->{'_types_sets'}{$set_name} ; 
+      my $set = $self->{'_types_sets'}{$set_name};
       foreach my $type ( @{$set} ) {
         if ($gene_biotype eq $type) {
           push ( @{ $self->{'_gene_sets'}{$set_name} }, $gene ) ;
@@ -498,11 +492,11 @@ sub to_String {
       $id = $gene->dbID ;
     }
      
-    $data .= sprintf "Id: %-16s"             , $id ;
-    $data .= sprintf "Contig: %-20s"         , $exons[0]->contig->id ;
-    $data .= sprintf "Exons: %-3d"           , scalar(@exons) ;
-    $data .= sprintf "Start: %-9d"           , $self->_get_start($gene) ;
-    $data .= sprintf "End: %-9d"             , $self->_get_end  ($gene) ;
+    $data .= sprintf "Id: %-16s\n"             , $id ;
+    $data .= sprintf "Contig: %-20s\n"         , $exons[0]->contig->id ;
+    $data .= sprintf "Exons: %-3d\n"           , scalar(@exons) ;
+    $data .= sprintf "Start: %-9d\n"           , $self->_get_start($gene) ;
+    $data .= sprintf "End: %-9d\n"             , $self->_get_end  ($gene) ;
     $data .= sprintf "Strand: %-2d\n"        , $exons[0]->strand ;
     $data .= sprintf "Exon-density : %3.2f\n", $self->exon_Density($gene) ;
   }

@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -487,18 +487,30 @@ sub make_gene{
   $transcript->add_Exon($exon);
   $transcript->start_Exon($exon);
   $transcript->end_Exon($exon);
+  $transcript->source("ensembl");
   my $gene = Bio::EnsEMBL::Gene->new;
   #Biotypes
   $gene->biotype("misc_RNA");
   $gene->biotype("snRNA")  if($type =~ /^snRNA;/ );
   $gene->biotype("snoRNA") if($type =~ /^snRNA; snoRNA;/);
+  $gene->biotype("scaRNA") if($type =~ /^snRNA; snoRNA; scaRNA;/);
   $gene->biotype("rRNA")   if($type =~ /rRNA;/);
+  $gene->biotype("tRNA")   if($type =~ /tRNA;/);
+  $gene->biotype("sRNA")   if($type =~ /sRNA;/);
+  $gene->biotype("miRNA")  if($type =~ /miRNA;/);
+  $gene->biotype("CRISPR")      if($type =~ /CRISPR;/);
+  #$gene->biotype("lncRNA")      if($type =~ /lncRNA;/);
+  $gene->biotype("antisense")   if($type =~ /antisense;/);
+  $gene->biotype("antitoxin")   if($type =~ /antitoxin;/);
+  $gene->biotype("ribozyme")    if($type =~ /ribozyme;/);
+
   $gene->confidence("NOVEL");
   $gene->description($description." [Source: RFAM;Acc:$domain]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
   $transcript->biotype($gene->biotype);
+  $gene->source("ensembl");
   # XREFS
   my $xref = Bio::EnsEMBL::DBEntry->new
     (

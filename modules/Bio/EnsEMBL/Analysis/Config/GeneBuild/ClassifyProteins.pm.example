@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -150,6 +150,7 @@ use vars qw( %Config );
                   sp12_human => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
@@ -161,6 +162,7 @@ use vars qw( %Config );
                   sp345_human => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
@@ -173,6 +175,7 @@ use vars qw( %Config );
                   sp12_primate => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
@@ -185,6 +188,7 @@ use vars qw( %Config );
                   sp345_primate => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
@@ -197,6 +201,7 @@ use vars qw( %Config );
                   sp12_vert_mammal => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,  
+                         FRAGMENT          => [],
                          PHYLUM            => ["Mammalia"],  
                          EXCLUDED_PHYLUM   => ["Primates"], 
                          ORGANISM          => [],
@@ -211,6 +216,7 @@ use vars qw( %Config );
                   sp345_vert_mammal => {
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Mammalia"],
                          EXCLUDED_PHYLUM   => ["Primates"],
                          ORGANISM          => [],
@@ -223,6 +229,7 @@ use vars qw( %Config );
                 sp12_vert_non_mammal    => { 
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,  
+                         FRAGMENT          => [],
                          PHYLUM            => ["Vertebrata"],  
                          EXCLUDED_PHYLUM   => ["Mammalia"], 
                          ORGANISM          => [],
@@ -235,6 +242,7 @@ use vars qw( %Config );
                 sp345_vert_non_mammal    => { 
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,  
+                         FRAGMENT          => [],
                          PHYLUM            => ["Vertebrata"],  
                          EXCLUDED_PHYLUM   => ["Mammalia"], 
                          ORGANISM          => [],
@@ -248,6 +256,7 @@ use vars qw( %Config );
                 sp12_non_vert => {  
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 1,2 ] ,  
+                         FRAGMENT          => [],
                          PHYLUM            => [],  
                          EXCLUDED_PHYLUM   => ["Vertebrata"], 
                          ORGANISM          => [],
@@ -260,6 +269,7 @@ use vars qw( %Config );
                 sp345_non_vert => {  
                          UNIPROT_DBS       => ["Swiss-Prot"],
                          PE_LEVELS         => [ 3,4,5 ] ,  
+                         FRAGMENT          => [],
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => ["Vertebrata"],
                          ORGANISM          => [],
@@ -271,6 +281,7 @@ use vars qw( %Config );
                   tr12_human => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
@@ -282,6 +293,7 @@ use vars qw( %Config );
                   tr345_human => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => ["Homo sapiens"],
@@ -293,6 +305,7 @@ use vars qw( %Config );
                  tr12_primate => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
@@ -304,6 +317,7 @@ use vars qw( %Config );
                  tr345_primate => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Primates"],
                          EXCLUDED_PHYLUM   => [],
                          ORGANISM          => [],
@@ -316,6 +330,7 @@ use vars qw( %Config );
                  tr12_vert_mammal => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Mammalia"],
                          EXCLUDED_PHYLUM   => ["Primates"],
                          ORGANISM          => [],
@@ -327,6 +342,7 @@ use vars qw( %Config );
                  tr345_vert_mammal => { 
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Mammalia"],
                          EXCLUDED_PHYLUM   => ["Primates"],
                          ORGANISM          => [],
@@ -338,6 +354,7 @@ use vars qw( %Config );
                 tr12_vert_non_mammal    => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Vertebrata"],
                          EXCLUDED_PHYLUM   => ["Mammalia"],
                          ORGANISM          => [],
@@ -349,6 +366,7 @@ use vars qw( %Config );
                 tr345_vert_non_mammal    => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => ["Vertebrata"],
                          EXCLUDED_PHYLUM   => ["Mammalia"],
                          ORGANISM          => [],
@@ -362,6 +380,7 @@ use vars qw( %Config );
                 tr12_non_vert => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 1,2 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => ["Vertebrata"],
                          ORGANISM          => [],
@@ -374,6 +393,7 @@ use vars qw( %Config );
                 tr345_non_vert => {
                          UNIPROT_DBS       => ["TrEMBL"],
                          PE_LEVELS         => [ 3,4,5 ] ,
+                         FRAGMENT          => [],
                          PHYLUM            => [],
                          EXCLUDED_PHYLUM   => ["Vertebrata"],
                          ORGANISM          => [],
@@ -385,6 +405,7 @@ use vars qw( %Config );
                tetraodon => {
                          UNIPROT_DBS       => [],
                          PE_LEVELS       => [1, 2, 3, 4, 5 ] ,
+                         FRAGMENT          => [],
                          ORGANISM        => ['Tetraodon nigroviridis'],
                          PHYLUM          => [],
                          EXCLUDED_PHYLUM => [],

@@ -58,7 +58,7 @@
 
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,10 +75,10 @@
 =head1 CONTACT
 
     Please email comments or questions to the public Ensembl
-    developers list at <dev@ensembl.org>.
+    developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
     Questions may also be sent to the Ensembl help desk at
-    <helpdesk@ensembl.org>.
+    <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -252,7 +252,7 @@ use vars qw(%Config);
     },
 
     KILL_LIST_DB => { 
-                      -dbname => 'ba1_ensembl_kill_list',
+                      -dbname => 'gb_kill_list',
                       -host   => 'genebuild6',
                       -port   => '3306',
                       -user   => 'ensro',

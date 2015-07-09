@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -116,32 +116,32 @@ sub fetch_input{
   my @genes; 
   my $subjectdb = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
-     '-host'   => $PSILC_SUBJECT_DBHOST,
+     '-host'   => $self->PSILC_SUBJECT_DBHOST,
      '-user'   => 'ensro',
-     '-dbname' => $PSILC_SUBJECT_DBNAME,
-     '-port'   => $PSILC_SUBJECT_DBPORT,
+     '-dbname' => $self->PSILC_SUBJECT_DBNAME,
+     '-port'   => $self->PSILC_SUBJECT_DBPORT,
     );
   my $orth1db = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
-     '-host'   => $PSILC_ORTH1_DBHOST,
+     '-host'   => $self->PSILC_ORTH1_DBHOST,
      '-user'   => 'ensro',
-     '-dbname' => $PSILC_ORTH1_DBNAME,
-     '-port'   => $PSILC_ORTH1_DBPORT,
+     '-dbname' => $self->PSILC_ORTH1_DBNAME,
+     '-port'   => $self->PSILC_ORTH1_DBPORT,
     );  
   my $orth2db = new Bio::EnsEMBL::DBSQL::DBAdaptor
     (
-     '-host'   => $PSILC_ORTH2_DBHOST,
+     '-host'   => $self->PSILC_ORTH2_DBHOST,
      '-user'   => 'ensro',
-     '-dbname' => $PSILC_ORTH2_DBNAME,
-     '-port'   => $PSILC_ORTH2_DBPORT,
+     '-dbname' => $self->PSILC_ORTH2_DBNAME,
+     '-port'   => $self->PSILC_ORTH2_DBPORT,
     ); 
 
-  $self->species_db($SUBJECT,$subjectdb);
-  $self->species_db($ORTH1,$orth1db);
-  $self->species_db($ORTH2,$orth2db); 
+  $self->species_db($self->SUBJECT,$subjectdb);
+  $self->species_db($self->ORTH1,$orth1db);
+  $self->species_db($self->ORTH2,$orth2db);
 
   #store repeat db internally
-  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
+  my $dna_db = $self->get_dbadaptor($self->DNA_DBNAME) ;
   $self->rep_db($dna_db);
 
   #genes come from final genebuild database
@@ -151,7 +151,7 @@ sub fetch_input{
   my $ga = $genes_db->get_GeneAdaptor;
   my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
   my $ids = $fa->fetch_by_analysis($self->analysis);
-  $self->throw("No flags found for analysis $PSILC_LOGIC_NAME\n")  unless (scalar(@{$ids}>0));
+  $self->throw("No flags found for analysis $self->PSILC_LOGIC_NAME\n")  unless (scalar(@{$ids}>0));
   if ($self->input_id =~ /(\d+):(\d+)/) {
     $start = $1;
     $end = $2;
@@ -200,7 +200,7 @@ sub fetch_input{
       }
     }
     next GENE unless (scalar (@rep_transcripts > 0));
-    if (scalar(@rep_transcripts > 1) && $REP_TRANSCRIPT){
+    if (scalar(@rep_transcripts > 1) && $self->REP_TRANSCRIPT){
       # arrange transcripts by length so you can pick the longest as rep if needed
       @rep_transcripts = sort {$a->length <=> $b->length} @rep_transcripts;
       my @temp = pop @rep_transcripts;
@@ -317,7 +317,7 @@ sub fetch_trans{
   TRANS:   foreach my $trans_id (@{$blast_results->{$species}}){;
       next TRANS if ($already_seen{$trans_id});
       $transcript_count++;
-      next SPECIES unless ($transcript_count <= $PS_SPECIES_LIMIT);
+      next SPECIES unless ($transcript_count <= $self->PS_SPECIES_LIMIT);
       my $transcript = $ta->fetch_by_translation_stable_id($trans_id);
       $already_seen{$trans_id} = 1;
       unless ($transcript && $transcript->isa("Bio::EnsEMBL::Transcript")){
@@ -372,6 +372,7 @@ sub run_PSILC{
      '-analysis'  => $self->analysis,
      '-domain'    => \$domains{$pfam_transcript->dbID},
      '-input_id'  => \$self->input_id,
+     '-psilc_work_dir' => $self->PSILC_WORK_DIR,
     );
   eval{
     $PSILC->run;
@@ -399,23 +400,23 @@ sub species_db{
     unless ($db->isa("Bio::EnsEMBL::DBSQL::DBAdaptor")){
       $self->throw("$species object is not a Bio::EnsEMBL::DBSQL::DBAdaptor, it is a $db$@\n");
     }
-    if ($species eq $SUBJECT){
+    if ($species eq $self->SUBJECT){
       $self->{'_db_subject'} = $db;
     }
-    if ($species eq $ORTH1){
+    if ($species eq $self->ORTH1){
       $self->{'_db_orth1'} = $db;
     }
-    if ($species eq $ORTH2){
+    if ($species eq $self->ORTH2){
       $self->{'_db_orth2'} = $db;
     }
   }
-  if ($species eq $SUBJECT){
+  if ($species eq $self->SUBJECT){
     return $self->{'_db_subject'};
   }
-  if ($species eq $ORTH1){
+  if ($species eq $self->ORTH1){
     return $self->{'_db_orth1'};
   }
-  if ($species eq $ORTH2){
+  if ($species eq $self->ORTH2){
     return $self->{'_db_orth2'};
   }
   $self->throw("Species not recognised : $species\n");
@@ -435,8 +436,8 @@ sub species_db{
 sub make_dir{
   my ($self) = @_;
   my $input_id = $self->input_id;  
-  if ($PSILC_WORK_DIR){
-    system("mkdir $PSILC_WORK_DIR/$input_id");
+  if ($self->PSILC_WORK_DIR){
+    system("mkdir $self->PSILC_WORK_DIR/$input_id");
   }
   else{
     $self->throw("Cannot make output directory\n");

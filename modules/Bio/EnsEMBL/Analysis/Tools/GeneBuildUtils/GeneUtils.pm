@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ cloning
 
 =head1 CONTACT
 
-please send any questions to dev@ensembl.org
+please send any questions to http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 METHODS
 
@@ -195,6 +195,7 @@ sub clone_Gene{
   $newgene->analysis($gene->analysis);
   $newgene->stable_id($gene->stable_id);
   $newgene->version($gene->version);
+  $newgene->source($gene->source);
   if ($clone_xrefs){
     foreach my $DBEntry (@{$gene->get_all_DBEntries}){
       $newgene->add_DBEntry($DBEntry);

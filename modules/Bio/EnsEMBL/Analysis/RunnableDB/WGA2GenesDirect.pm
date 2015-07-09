@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -106,7 +106,7 @@ sub fetch_input {
   print "YOUR INPUT ID:",$input_id,"\n";
 
 
-  my $q_dbh = $self->get_dbadaptor($self->QUERY_CORE_DB, '', 1);
+  my $q_dbh = $self->get_dbadaptor($self->QUERY_CORE_DB, undef, 1);
   my $t_dbh = $self->get_dbadaptor($self->TARGET_CORE_DB);
   my $compara_dbh = $self->get_dbadaptor($self->COMPARA_DB, 'compara');
   
@@ -395,10 +395,14 @@ sub process_transcript {
     return 0;
   }
 
+  my $num_stops = $pep =~ s/\*/\*/g;
+
   ##################
   # number of stops is non-zero but acceptable. Need to 
   # operate on the transcript to jump over the stops
-  $tran = replace_stops_with_introns($tran);
+  if($num_stops) {
+    $tran = replace_stops_with_introns($tran,10);
+  }
 
   return $tran;
 }

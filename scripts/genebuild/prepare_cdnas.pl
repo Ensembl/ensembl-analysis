@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -164,41 +164,62 @@ my $AT_only_count        = 0;
 my $cdna_written         = 0;
 my $zero_length          = 0;
 
-my $kill_list_object =
-  Bio::EnsEMBL::KillList::KillList->new( -TYPE => "cDNA" );
-
+my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => "cDNA" );
 my %kill_list = %{ $kill_list_object->get_kill_list() };
-
-# Now work on cDNAs one by one
 
 if ($annotation_file) { open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n"; }
 
-SEQFETCH:
-while ( my $raw_cdna = $seqin->next_seq ) {
+# create hash containing all cdnas from the input file
+my %cdnas;
+while (my $raw_cdna = $seqin->next_seq) {
   $total_cDNAs++;
-
-  if ( !$raw_cdna->seq ) {
+  if (!$raw_cdna->seq) {
     print STDERR $raw_cdna->display_id . " has 0 length seq, skipping it.\n";
     $zero_length++;
-    next SEQFETCH;
+  } else {
+    my $display_id = prepare_seq($raw_cdna)->display_id;
+    if ($display_id =~ /XM_/ || $display_id =~ /XR_/) {
+      # if cDNA is XM_ or XR_ RefSeq (predicted), we don't even bother clipping.
+      print STDERR "Predicted RefSeq mRNA, skipped: $display_id.\n";
+      $X_count++;
+    } else {
+      $cdnas{$display_id} = $raw_cdna;
+    }
   }
-  my $cdna = prepare_seq($raw_cdna);
+}
 
-  my $display_id = $cdna->display_id;
+# create hash containing all relevant Mole DBs "simplified" entries
+my @cdna_ids = keys %cdnas;
+my @cdna_ids_no_version;
 
-  if (    $display_id =~ /XM_/
-       || $display_id =~ /XR_/ )
-  {
-    # if cDNA is XM_ or XR_ RefSeq (predicted), we don't even bother clipping.
-    print STDERR "Predicted RefSeq mRNA, skipped: $display_id.\n";
-    $X_count++;
-    next SEQFETCH;
+foreach (@cdna_ids) {
+  my $cdna_id = $_;
+  $cdna_id =~ s/\.\d//;
+  push @cdna_ids_no_version,$cdna_id;
+}
+
+my %mole_dbs_entries;
+foreach my $db (@dbs) {
+
+  foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_name(\@cdna_ids_no_version)}) {
+    my @cdna_array = ($entry->{"dbID"},$db);
+    @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
   }
 
-  my ( $clipped, $clip_end, $num_bases_removed ) =
-    clip_if_necessary( $cdna, $buffer, $window_size );
+  # if found by accession version, the entry found by name will be overwritten (if any)  
+  foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_accession_version(\@cdna_ids)}) {
+    my @cdna_array = ($entry->{"dbID"},$db);
+    @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
+  }
+}
 
-  if ( defined $clipped ) {
+# Now work on cDNAs one by one
+
+SEQFETCH:
+foreach my $cdna (values %cdnas) {
+  my ($clipped,$clip_end,$num_bases_removed) = clip_if_necessary($cdna,$buffer,$window_size);
+
+  if (defined $clipped) {
     # $clipped would have been returned undef if the entire cDNA seq
     # seems to be polyA/T tail/head
     my $id_w_version = $clipped->id;
@@ -208,10 +229,8 @@ while ( my $raw_cdna = $seqin->next_seq ) {
     my $id_no_version = $id_w_version;
     $id_no_version =~ s/\.\d//;
 
-    # next SEQFETCH unless in_mole;
-
     # Check if in kill_list
-    if ( exists $kill_list{$id_no_version} ) {
+    if (exists $kill_list{$id_no_version}) {
       print STDERR "$id_w_version is in kill list, discarded.\n";
       $killed_count++;
       next SEQFETCH;
@@ -219,8 +238,7 @@ while ( my $raw_cdna = $seqin->next_seq ) {
 
    if ($annotation_file) {
       # check whether in Mole
-      my ( $found, $string, $substr ) =
-        in_mole( $id_w_version, $clip_end, $num_bases_removed, $clipped->length );
+      my ($found,$string,$substr) = in_mole($id_w_version,$clip_end,$num_bases_removed,$clipped->length);
       if ($substr) {
         # the clipping cut off too much. We must get it back.
         if ( $clip_end eq "head" ) {
@@ -237,7 +255,7 @@ while ( my $raw_cdna = $seqin->next_seq ) {
           print ANNOTATION "$string\n";
 
         } else {
-          print STDERR "Clipped sequence for $display_id is shorter "
+          print STDERR "Clipped sequence for ".$clipped->display_id. " is shorter "
                      . "than $min_length bp and is excluded from output.\n";
           $too_short_after_clip++;
         }
@@ -294,34 +312,15 @@ printf "cDNAs written to output:                            %10d\n", $cdna_writt
 
 sub in_mole {
   my ( $display_id, $clip_end, $num_bases_removed, $length ) = @_;
-  my $entry;
   my $write_cdna = 0;
   my $do_substr;
 
-  my $in_db;
-  if ( $display_id =~ m/\.\d/ ) {
-    #accession has a version
-    foreach my $db (@dbs) {
-      $entry = $db->get_EntryAdaptor->fetch_by_accession_version($display_id);
-      $in_db = $db;
-      last if defined $entry;
-    }
-  }
-
-  my $id_no_version = $display_id;
-  if ( !defined $entry ) {
-    $id_no_version =~ s/\.\d//;
-    #accession has a version
-    foreach my $db (@dbs) {
-      $entry = $db->get_EntryAdaptor->fetch_by_name($id_no_version);
-      $in_db = $db;
-      last if defined $entry;
-    }
-  }
-
+  my $entry_dbID = @{$mole_dbs_entries{$display_id}}[0];
+  my $in_db = @{$mole_dbs_entries{$display_id}}[1];
+  
   my $string;
-  if ( defined $entry ) {
-    my ( $strand, $start, $end, $coords, $partial, $low_pe ) = fetch_coords( $entry, $in_db );
+  if (defined $entry_dbID) {
+    my ( $strand, $start, $end, $coords, $partial, $low_pe ) = fetch_coords( $entry_dbID,$display_id,$in_db);
 
     if ($low_pe) {#use elsif so numbers for exclusions add up, although could meet both conditions
       print STDERR "PE_low $display_id id in db " . $in_db->dbc->dbname . " \n";
@@ -383,16 +382,17 @@ sub in_mole {
 
 =head2 fetch_coords
 
-  Arg [1]   : Entry object from Mole database
-  Arg [2]   : Arrayref of Mole databases
+  Arg [1]   : Entry db ID from Mole database
+  Arg [2]   : Entry accession version
+  Arg [3]   : Arrayref of Mole databases
   Function  : Reads the coordinates out of tertiary_id
   Returntype: Array of strand, start, end, unprocessed tertiary_id
   Exceptions:
-  Example   : my ($strand, $start, $end, $coords) = fetch_coords($entry, \@dbs);
+  Example   : my ($strand, $start, $end, $coords) = fetch_coords($entry_dbID, $entry_acc, \@dbs);
 
 =cut
 sub fetch_coords {
-  my ( $entry, $db ) = @_;
+  my ($entry_dbID,$entry_accession_version,$db) = @_;
   my $strand;
   my $start;
   my $end;
@@ -402,7 +402,7 @@ sub fetch_coords {
 
   # Get necessary information...
   my @dbxref_objs =
-    @{ $db->get_DBXrefAdaptor->fetch_all_by_entry_id( $entry->dbID ) };
+    @{ $db->get_DBXrefAdaptor->fetch_all_by_entry_id($entry_dbID) };
 
   foreach my $dbxo (@dbxref_objs) {
     if ( defined $dbxo->database_id && defined $dbxo->tertiary_id ) {
@@ -431,18 +431,39 @@ sub fetch_coords {
           $mole_dbid = 'refseq';
         }
         my $protein_acc = $dbxo->primary_id;
-        print STDERR "Checking PE level for ".$dbxo->database_id." ".$protein_acc."\n";
+        my $is_candidate = is_PE_candidate($protein_acc);
+        
+        my ($entries,$not_found);
         my $mfetch_obj = Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch->new();
-        my @fields_to_fetch  = qw ( Taxon acc org pe crd ) ;
-        my ($entries, $not_found ) =  @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) } ;
-        if ( scalar(@$not_found) > 0 ) {
+        my @fields_to_fetch = qw( Taxon acc org pe crd );
+        if ($is_candidate) {
+          print STDERR "Checking PE level for primary_id ".$dbxo->database_id." ".$protein_acc."\n";
+
+          ($entries, $not_found) =  @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) } ;
+        } else {
+          print STDERR "Not checking PE level for primary_id ".$dbxo->database_id." ".$protein_acc."\n";
+        }
+
+        my $try_secondary = 0;
+        if (!($is_candidate)) {
+          $try_secondary = 1;
+        } elsif ($not_found) {
+          $try_secondary = (scalar(@$not_found) > 0);
+        }
+
+        if ($try_secondary) {
           $entries = undef;
           $not_found = undef;
-          $protein_acc = $dbxo->secondary_id;
-          ($entries, $not_found ) =  @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) } ;
+          $protein_acc = $dbxo->secondary_id;        
+          if (is_PE_candidate($protein_acc)) {
+            print STDERR "Checking PE level for secondary_id ".$dbxo->database_id." ".$protein_acc."\n";
+            ($entries, $not_found ) = @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) };
+          } else {
+            print STDERR "Not checking PE level for secondary_id ".$dbxo->database_id." ".$protein_acc."\n";
+          }
         }
-        # hopefully we have the protein now
-        # and we can check the PE level
+
+        # check the PE level we got (if any)
         my $pe = 0;
         foreach my $a (keys %$entries) {
           if ( exists $entries->{$a}->{'PE'}) {
@@ -453,15 +474,31 @@ sub fetch_coords {
           }
         }
         if ($pe && $pe > 2) {
-          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry->accession_version." because PE level is low = $pe\n";
+          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry_accession_version." because PE level is low = $pe\n";
           $low_pe = 1;          
         } elsif ($pe && $pe == 1 || $pe == 2 )  {
-          print STDERR "Using protein $protein_acc for cDNA ".$entry->accession_version." because PE level is good = $pe\n";
+          print STDERR "Using protein $protein_acc for cDNA ".$entry_accession_version." because PE level is good = $pe\n";
         } else {
-          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry->accession_version." because no PE level found\n";
+          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry_accession_version." because no PE level found\n";
         }
       }
     }
   }
   return ( $strand, $start, $end, $tertiary_id, $partial, $low_pe);
 } ## end sub fetch_coords
+
+=head2 is_PE_candidate
+
+  Arg [1]   : Accession (string)
+  Function  : Return true if 'accession' is defined and it is not '-' and it does not contain 'NP_' and it does not contain '.[0-9]+', which means it would be a candidate to get the PE level from UniProt DB via mfetch. Otherwise, return false. (PE = UniProt Protein Evidence level)
+  Returntype: boolean
+  Exceptions:
+  Example   : my $pe_candidate = is_PE_candidate("CAK54748.1");
+
+=cut
+sub is_PE_candidate {
+  my ($accession) = @_;
+  return ($accession and $accession ne "-" and # skip undefined proteins
+          $accession !~ /NP_/ and                # skip RefSeq proteins because they do not have PE levels
+          $accession !~ /\.[0-9]+/);             # cDNAs always have a version like .[0-9]+, skip cDNA queries against UniProt DB (they always return "no match")
+}

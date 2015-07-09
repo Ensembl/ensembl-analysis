@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -77,11 +77,12 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::ExamineGeneSets; 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::OrthologueEvaluator; 
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases;  
+use Bio::EnsEMBL::Analysis::Config::Databases;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets; 
+# Not sure if this module ever existed
+#use Bio::EnsEMBL::Analysis::RunnableDB::ExamineGeneSets;
 use Bio::EnsEMBL::Registry; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils 
          qw(

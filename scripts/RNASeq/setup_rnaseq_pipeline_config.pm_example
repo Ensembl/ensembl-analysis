@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,15 +70,19 @@ use vars qw(%Config);
     # Index for the blast database.
     UNIPROTINDEX => '/path/to/my/Uniprot/index',
 
-    # Read length.
+    # blast used, it can be either ncbi or wu
+    BLASTP => 'ncbi',
+
+    BATCHQUEUE_MANAGER => 'LSF',
+    BATCHQUEUE_DEFAULT_LSF_PRE_EXEC_PERL => '/usr/bin/perl',
+    BATCHQUEUE_DEFAULT_LSF_PERL => '/path/to/perl',
+    SPLICING_ALIGNER => '/path/to/exonerate-0.9.0',
+    # Global read length.
     READ_LENGTH => 0,
 
-    # This is used by bwa2bam.  Setting it to 1 will cause it to assume
-    # all the reads are paired.  Setting it to 0 means it will treat all
-    # the reads as unpaired and so make long rough models.  If you have
-    # sufficient paired reads running in paired mode is preferred as it
-    # makes for more sensible length rough models.  Note that the PAIRED
-    # column value needs setting independantly of this parameter.
+    # This is used by bwa2bam.  Set it to 1 if all the reads are paired.  
+    # Setting it to 0 means it will treat all reads as unpaired and so make long rough models.  
+    # Note that the PAIRED column value needs setting independantly of this parameter.
     ALL_PAIRED => 1,
 
     # If your reads are unpaired you may want to run on slices to avoid

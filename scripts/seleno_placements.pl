@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@ use warnings ;
 use strict;
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Pipeline::Runnable::Genewise;
+use Bio::EnsEMBL::Analysis::Runnable::Genewise;
 use Bio::EnsEMBL::SeqEdit;
 use Text::Wrap;
-use Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use Bio::EnsEMBL::Utils::Exception qw( deprecate throw warning );
 use Bio::EnsEMBL::Utils::Exception qw( warning throw );
 use Getopt::Long;
@@ -86,8 +86,6 @@ my %sec_location_hash;
 my %sequence_hash;
 my @sequence_array;
 my %alignment_hash;
-
-my $transcript_utils = new Bio::EnsEMBL::Pipeline::Tools::TranscriptUtils;
 
 print "Reading SwissProt file: $opt{sp_file} \n" if($verbose);
 # soak up the input protein ids to run with from the command line;
@@ -410,7 +408,7 @@ sub align_protein_subseqs_against_genomic_sequence{
           $total_length += abs(($e->start - $e->end));
         }
 
-        my $transcript = $transcript_utils->set_stop_codon($old_transcript);
+        my $transcript = set_stop_codon($old_transcript);
         $gene->add_Transcript($transcript);
 
         $transcript->stable_id($queryid."--test");

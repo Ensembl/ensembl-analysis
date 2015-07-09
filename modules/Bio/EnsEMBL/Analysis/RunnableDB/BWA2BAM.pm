@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ This module uses BWA to align fastq to a genomic sequence
 
 =head1 CONTACT
 
-Post general queries to B<dev@ensembl.org>
+Post general queries to B<http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 APPENDIX
 
@@ -86,16 +86,18 @@ sub fetch_input {
   }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA2BAM->new
     (
-     -analysis  => $self->analysis,
-     -program   => $program,
-     -fastq     => $filename,
-     -fastqpair => $fastqpair,
-     -options   => $self->OPTIONS,
-     -outdir    => $self->OUTDIR,
-     -genome    => $self->GENOMEFILE,
-     -method    => $method,
-     -samtools  => $self->SAMTOOLS_PATH,
-     -header    => $self->HEADER,
+     -analysis   => $self->analysis,
+     -program    => $program,
+     -fastq      => $filename,
+     -fastqpair  => $fastqpair,
+     -options    => $self->OPTIONS,
+     -outdir     => $self->OUTDIR,
+     -genome     => $self->GENOMEFILE,
+     -method     => $method,
+     -samtools   => $self->SAMTOOLS_PATH,
+     -header     => $self->HEADER,
+     -min_mapped => $self->MIN_MAPPED,
+     -min_paired => $self->MIN_PAIRED,
      %parameters,
     ); 
   $self->runnable($runnable);

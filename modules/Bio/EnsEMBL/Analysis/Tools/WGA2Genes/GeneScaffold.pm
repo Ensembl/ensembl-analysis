@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -297,9 +297,21 @@ sub place_transcript {
   # now massage the gaps to account for frameshifts
   #
   my $need_another_pass;
+  my $loop_counter = 0;
   do {
 
     $need_another_pass = 0;
+
+    # loop_counter is just a hack for a stuff that is getting stuck
+    # This is an optimisation issue that affects a very low number of transcripts, but it does cause the pipeline to
+    # before stuck. This is a poor solution but again time dictates that it will go in for the foreseeable future
+    # On the plus side it seems to work fine as a hacky solution
+    # 5000 is just some arbitrary number
+    if($loop_counter >= 5000) {
+      warning("Projection of transcript has become stuck, skipping");
+      return undef;
+    }
+    $loop_counter++;
 
     my (@proc_coords, @gap_indices);
     # merge gaps

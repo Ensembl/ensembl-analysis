@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -677,7 +677,15 @@ use vars qw( %Config );
                         -type=>'OLIGO',
                         -class=>'AFFY_UTR'
                        },
- 
+
+      'Barley1' => {
+			    -name => 'Hordeum_vulgare',
+			    -vendor => 'AFFY',
+			    -format => 'EXPRESSION',
+			    -type => 'OLIGO',
+			    -class => 'AFFY_UTR'
+			    },
+
       'Rice' => {
                  -name => 'Rice',
                  -vendor=>'AFFY',
@@ -714,8 +722,12 @@ use vars qw( %Config );
 
     IMPORT_AFFY_ST_ARRAYS => 
     {
-     IIDREGEXP => '^>probe:(\S+):(\S+);\S+:\S+;.*[TranscriptCluster|ProbeSet]ID=([0-9]+);.*$',
-	 
+     IIDREGEXP => '^>probe:(\S+?):([0-9]+).*[TranscriptCluster|ProbeSet]ID=(\S+);',
+
+     #Can't use ProbeID=([0-9]+) as control probes only have there ProbeID in the concat'd full name string
+     #Hence the match will fail. 
+    
+
      IFIELDORDER => {
                      -name       => 1,
                      -array_chip => 0,
@@ -723,89 +735,99 @@ use vars qw( %Config );
                      -probe_set   => 2,
                     },
 	 	 
-     ARRAY_PARAMS => {
-
-				
-
-                      #Rat
-                      'RaEx-1_0-st-v1' => {
-                                           -name => 'RaEx-1_0-st-v1',
-                                           -vendor => 'AFFY',
-                                           #-setsize => undef,
-                                           -format  => 'EXPRESSION',
-                                           -type    => 'OLIGO',
-                                           #-description => '',
-                                           -class   => 'AFFY_ST',
-                                          },
-
+     ARRAY_PARAMS => 
+      {#Rat
+       'RaEx-1_0-st-v1' => {
+                            -name => 'RaEx-1_0-st-v1',
+                            -vendor => 'AFFY',
+                            #-setsize => undef,
+                            -format  => 'EXPRESSION',
+                            -type    => 'OLIGO',
+                            #-description => '',
+                            -class   => 'AFFY_ST',
+                          },
 					  
-                      'RaGene-1_0-st-v1' => {
-                                             -name => 'RaGene-1_0-st-v1',
-                                             -vendor => 'AFFY',
-                                             #-setsize => undef,
-                                             -format  => 'EXPRESSION',
-                                             -type    => 'OLIGO',
-                                             #-description => '',
-                                             -class   => 'AFFY_ST',
-                                            },
+       'RaGene-1_0-st-v1' => {
+                              -name => 'RaGene-1_0-st-v1',
+                              -vendor => 'AFFY',
+                              #-setsize => undef,
+                              -format  => 'EXPRESSION',
+                              -type    => 'OLIGO',
+                              #-description => '',
+                              -class   => 'AFFY_ST',
+                             },
 
+       'RaGene-2_1-st-v1' => {
+                              -name => 'RaGene-2_1-st-v1',
+                              -vendor => 'AFFY',
+                              #-setsize => undef,
+                              -format  => 'EXPRESSION',
+                              -type    => 'OLIGO',
+                              #-description => '',
+                              -class   => 'AFFY_ST',
+                             },                             
 
-                      #Human
-                      'HuGene-1_0-st-v1' => {
-                                             -name => 'HuGene-1_0-st-v1',
-                                             -vendor => 'AFFY',
-                                             #-setsize => undef,
-                                             -format  => 'EXPRESSION',
-                                             -type    => 'OLIGO',
-                                             #-description => '',
-                                             -class   => 'AFFY_ST',
-                                            },
+       #Human
+       'HuGene-1_0-st-v1' => {-name => 'HuGene-1_0-st-v1',
+                              -vendor => 'AFFY',
+                              #-setsize => undef,
+                              -format  => 'EXPRESSION',
+                              -type    => 'OLIGO',
+                              #-description => '',
+                              -class   => 'AFFY_ST',
+                             },
 
-                      'HuGene-2_0-st-v1' => {
-                                             -name => 'HuGene-2_0-st-v1',
-                                             -vendor => 'AFFY',
-                                             #-setsize => undef,
-                                             -format  => 'EXPRESSION',
-                                             -type    => 'OLIGO',
-                                             #-description => '',
-                                             -class   => 'AFFY_ST',
-                                            },
+       'HuGene-2_0-st-v1' => {-name => 'HuGene-2_0-st-v1',
+                              -vendor => 'AFFY',
+                              #-setsize => undef,
+                              -format  => 'EXPRESSION',
+                              -type    => 'OLIGO',
+                              #-description => '',
+                              -class   => 'AFFY_ST',
+                             },
 
+       'HuEx-1_0-st-v2' => {-name => 'HuEx-1_0-st-v2',
+                            -vendor => 'AFFY',
+                            -format  => 'EXPRESSION',
+                            -type    => 'OLIGO',
+                            #-description => '',
+                            -class   => 'AFFY_ST',
+                           }, 
+       
+       'HTA-2_0' => {-name => 'HTA-2_0',
+                     -vendor => 'AFFY',
+                     -format  => 'EXPRESSION',
+                     -type    => 'OLIGO',
+                     -description => 'Human Transcriptome Array 2.0',
+                     -class   => 'AFFY_ST',
+                    }, 
 
-                      'HuEx-1_0-st-v2' => {
-                                           -name => 'HuEx-1_0-st-v2',
-                                           -vendor => 'AFFY',
-                                           -format  => 'EXPRESSION',
-                                           -type    => 'OLIGO',
-                                           #-description => '',
-                                           -class   => 'AFFY_ST',
-                                          }, 
+       #Mouse
+       'MoGene-1_0-st-v1' => {-name => 'MoGene-1_0-st-v1',
+                              -vendor => 'AFFY',
+                              #-setsize => undef,
+                              -format  => 'EXPRESSION',
+                              -type    => 'OLIGO',
+                              #-description => '',
+                              -class   => 'AFFY_ST',
+                             },
 
+       'MoEx-1_0-st-v1' => {-name => 'MoEx-1_0-st-v1',
+                            -vendor => 'AFFY',
+                            -format  => 'EXPRESSION',
+                            -type    => 'OLIGO',
+                            #-description => '',
+                            -class   => 'AFFY_ST',
+                           },
 
-                      #Mouse
-                      'MoGene-1_0-st-v1' => {
-                                             -name => 'MoGene-1_0-st-v1',
-                                             -vendor => 'AFFY',
-                                             #-setsize => undef,
-                                             -format  => 'EXPRESSION',
-                                             -type    => 'OLIGO',
-                                             #-description => '',
-                                             -class   => 'AFFY_ST',
-                                            },
-
-
-                      'MoEx-1_0-st-v1' => {
-                                           -name => 'MoEx-1_0-st-v1',
-                                           -vendor => 'AFFY',
-                                           -format  => 'EXPRESSION',
-                                           -type    => 'OLIGO',
-                                           #-description => '',
-                                           -class   => 'AFFY_ST',
-                                          },
-					  
-
-
-                     },
+       'MoGene-2_1-st-v1' => {-name => 'MoGene-2_1-st-v1',
+                              -vendor => 'AFFY',
+                              -format  => 'EXPRESSION',
+                              -type    => 'OLIGO',
+                              #-description => '',
+                              -class   => 'AFFY_ST',
+                             },
+     },
 	 
      INPUT_FORMAT => 'FASTA',
     },
@@ -955,10 +977,8 @@ use vars qw( %Config );
                      #-probe_set   => 2,#This could be annotation
                     },
 	 	 
-     ARRAY_PARAMS => {
-					  
-					  
-                      'HumanMethylation27' => {
+     ARRAY_PARAMS => 
+      {	              'HumanMethylation27' => {
                                                -name => 'HumanMethylation27',
                                                -vendor => 'ILLUMINA',
                                                -format  => 'METHYLATION',
@@ -1033,10 +1053,7 @@ use vars qw( %Config );
                     },
 	 	 
      ARRAY_PARAMS => 
-     {
-					  
-					  
-      #Danio
+     {#Danio
       'G2518A' => {
                    -name => 'G2518A',
                    -vendor => 'AGILENT',
@@ -1058,9 +1075,14 @@ use vars qw( %Config );
                   },
 
 
-
-			  
-
+      #plant - potato
+      'A-MEXP-2203' => {
+ 			-name => 'A-MEXP-2203',
+ 			-vendor => 'AGILENT',
+ 			-format => 'EXPRESSION',
+ 			-type => 'OLIGO',
+ 			-class => 'AGILENT',
+ 		       },
 
       #plant - ara
       'G2519F-015059' => {

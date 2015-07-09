@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ This module uses BWA to align fastq to a genomic sequence
 
 =head1 CONTACT
 
-Post general queries to B<dev@ensembl.org>
+Post general queries to B<http://lists.ensembl.org/mailman/listinfo/dev>
 
 =head1 APPENDIX
 
@@ -229,3 +229,33 @@ sub HEADER {
     return undef;
   }
 }
+
+sub MIN_MAPPED {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_MIN_MAPPED'} = $value;
+  }
+
+  if (exists($self->{'_MIN_MAPPED'})) {
+    return $self->{'_MIN_MAPPED'};
+  } else {
+    return undef;
+  }
+}
+
+sub MIN_PAIRED {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_MIN_PAIRED'} = $value;
+  }
+
+  if (exists($self->{'_MIN_PAIRED'})) {
+    return $self->{'_MIN_PAIRED'};
+  } else {
+    return undef;
+  }
+}
+
+1;

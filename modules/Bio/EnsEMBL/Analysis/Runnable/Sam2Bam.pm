@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -103,6 +103,7 @@ sub run {
       push @files,$_;
     }
   }
+  close($fh) || $self->throw("Failed finding sam files in $dir");
   print "Found " . scalar(@files) ." files \n";
   my $count = 0;
   my @fails;
@@ -120,10 +121,12 @@ sub run {
       print BAM "$_\n";
       $line_count++;
     }
+    close(SAM) || $self->throw("Failed opening $file");
     $count++;
     push @fails,$file  unless ( $line eq '@EOF' or $line_count == 0 );
     #last if $count >= 100;
   }
+  close(BAM) || $self->throw("Failed opening sam file for merging $bamfile.sam");
   print "Merged $count files\n";
   if ( scalar(@fails) > 0 ) {   
     print "The following sam files failed to complete, you need to run them again\n";
@@ -147,6 +150,7 @@ sub run {
       print STDERR "INDEX $_";
       $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ ) 
      }
+     close($fh) || $self->throw("Cannot close STDERR from fasta indexing");
      $self->files_to_delete("/tmp/sam2bam/index.err");
   }
   
@@ -159,6 +163,7 @@ sub run {
     print STDERR "IMPORT $_";
     $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ ) 
   }
+  close($fh) || $self->throw("Cannot close STDERR from samtools view");
   $self->files_to_delete("/tmp/sam2bam_view.err");
 
   # add readgroup info if there is any
@@ -190,6 +195,7 @@ sub run {
     print STDERR "SORT $_";
     $error = 1 if ($_ =~ /truncated/ or $_ =~ /invalid/ ) 
   }
+  close($fh) || $self->throw("Cannot close STDERR from sorting");
   $self->files_to_delete("/tmp/sam2bam_sort.err");
   
   $command = "$program index $bamfile.bam";
@@ -201,6 +207,7 @@ sub run {
     print STDERR "INDEXBAM $_";
     $error = 1 if ($_ =~ /invalid/ or $_ =~ /abort/ ) 
   }
+  close($fh) || $self->throw("Cannot close STDERR from bam indexing");
   $self->files_to_delete("/tmp/sam2bam_bamindex.err");
   $self->delete_files();
   $self->throw("Errors while running samtools \n")  if $error;

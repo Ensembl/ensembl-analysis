@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
-  developers list at <dev@ensembl.org>.
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
 
   Questions may also be sent to the Ensembl help desk at
-  <helpdesk@ensembl.org>.
+  <http://www.ensembl.org/Help/Contact>.
 
 =cut
 
@@ -344,13 +344,13 @@ sub run{
       #print "MMG making subseq based on ".$self->cluster_start." ".$self->cluster_end." from ".$self->query->name."\n";
       my $string_seq = ('N' x ($self->cluster_start - 1)) .
         $self->query->subseq($self->cluster_start, $self->cluster_end) .
-          ('N' x ($self->query->length - ($self->cluster_end + 1)));
+          ('N' x ($self->query->length - ($self->cluster_end)));
       $slice = Bio::EnsEMBL::Slice->new 
         (
          -seq => $string_seq,
          -seq_region_name  => $self->query->seq_region_name,
-         -start => 1,
-         -end => length($string_seq),
+         -start => $self->query->start,
+         -end => $self->query->end,
          -coord_system => $self->query->coord_system,
         );
     }else{

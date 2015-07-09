@@ -1,4 +1,4 @@
-# Copyright [1999-2013] Genome Research Ltd. and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ as an extra piece of supporting evidence for the projected transcript.
 
 =head1 CONTACT
 
-dev@ensembl.org
+http://lists.ensembl.org/mailman/listinfo/dev
 
 =cut
 
@@ -63,7 +63,7 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  $self->db->disconnect_when_inactive(1);
+  $self->db->dbc->disconnect_when_inactive(1);
 
   my( $program, $options, $genedb, $outgenedb) =
     rearrange(['PROGRAM','OPTIONS','GENEDB','OUTGENEDB'], @args);
