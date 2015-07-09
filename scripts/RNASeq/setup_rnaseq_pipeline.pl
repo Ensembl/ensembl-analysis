@@ -17,10 +17,10 @@
 use warnings ;
 use setup_rnaseq_pipeline_config;
 use vars qw(%Config);
-#use Bio::EnsEMBL::Analysis::Config::Databases;
-#use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
-#use Bio::EnsEMBL::Pipeline::Utils::InputIDFactory;
-#use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Analysis::Config::Databases;
+use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Pipeline::Utils::InputIDFactory;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use strict;
 use Getopt::Long;
 
