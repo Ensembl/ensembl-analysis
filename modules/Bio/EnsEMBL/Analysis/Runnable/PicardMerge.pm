@@ -62,7 +62,6 @@ use vars qw(@ISA);
 use File::Copy;
 use Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge);
 
@@ -72,8 +71,6 @@ sub new {
     my $self = $class->SUPER::new(@args);
 
     my ($samtools, $lib, $java_options) = rearrange( [ qw( SAMTOOLS LIB JAVA_OPTIONS) ], @args);
-
-    logger_verbosity($verbose) if $verbose;
 
     $self->samtools($samtools);
     $self->picard_lib($lib);
@@ -107,10 +104,10 @@ sub run {
     $index_file =~ s/bam$/bai/;
     # It's needed because Bio::DB::Sam is looking for *.bam.bai and picard create *.bai
     # Return 1 on success
-    throw("Failed to move index file $index_file to $outfile.bai") unless (move($index_file, $outfile.'.bai'));
+    throw("Failed to move index file $index_file to ".$self->outfile.'.bai') unless (move($index_file, $self->outfile.'.bai'));
     # It's needed because the index can be younger that the bam file but Bio::DB::Sam doesn't like it
     # Return 0 on success
-    throw("Failed to update the timestamp for $outfile.bai") if (system("touch $outfile.bai"));
+    throw('Failed to update the timestamp for '.$self->outfile.'.bai') if (system('touch '.$self->outfile.'.bai'));
     $self->check_output_file;
 
     return 1;
