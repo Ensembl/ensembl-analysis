@@ -23,9 +23,10 @@ use Bio::EnsEMBL::Pipeline::Utils::InputIDFactory;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use strict;
 use Getopt::Long;
+use Bio::EnsEMBL::Analysis::Tools::ConfigWriter;
 
 
-my $verbose;
+my $verbose = 0;
 my $file;
 my $dbname = $RNASEQCONFIG->{DB};
 my $configdir = $RNASEQCONFIG->{CONFIG_DIR};
@@ -60,8 +61,8 @@ my $rough_load;
 my $refine_load;
 my $ref_load;
 my $blast_load;
-my $update_analyses;
-my $force_stage;
+my $update_analyses = 0;
+my $force_stage = 0;
 my $jdi;
 my $use_existing;
 my $update_config = 0;
@@ -128,7 +129,7 @@ else {
 
 
 # also need the pipeline
-my $pipelinea = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new( -dbc => $database_hash{REFERENCE_DB}->dbc );
+my $pipelinea = Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor->new( -dbconn => $database_hash{REFERENCE_DB}->dbc );
 # parse the summary file
 # get the pipeline adaptor
 # need to delete this hash ref in order
@@ -438,44 +439,30 @@ $rnaseqblast_rule->add_condition("refine_all");
 
 print "Stage $stage\n";
 $pipeline_analysis->store($submit_chromosome);
-$pipeline_analysis->store($bam2genes) if $stage eq 'bwa_complete' or  $stage eq 'gsnap_complete';
+$pipeline_analysis->store($bam2genes);
 
 unless ($use_gsnap) {
   $pipeline_analysis->store($submit_bam2introns);
-  $pipeline_analysis->store($bam2introns)       if $stage eq 'bam2genes complete';
-  $pipeline_analysis->store($bam2introns_wait)  if $stage eq 'bam2genes complete';
-  $pipeline_analysis->store($submit_sam2bam)    if $stage eq 'configured' or $stage eq 'bam2genes complete';
-  $pipeline_analysis->store($sam2bam)           if $stage eq 'configured';
-  $pipeline_analysis->store($sam2bam_wait)      if $stage eq 'configured';
+  $pipeline_analysis->store($bam2introns);
+  $pipeline_analysis->store($bam2introns_wait);
+  $pipeline_analysis->store($submit_sam2bam);
+  $pipeline_analysis->store($sam2bam);
+  $pipeline_analysis->store($sam2bam_wait);
 }
 
-$pipeline_analysis->store($refine_all)   if $stage eq 'configured';
-$pipeline_analysis->store($rnaseq_blast) if $stage eq 'configured';
+$pipeline_analysis->store($refine_all);
+$pipeline_analysis->store($rnaseq_blast);
 
-if ( $stage eq 'bwa_complete' or $stage eq 'gsnap_complete' ) {
   $ra->store($bam2genes_rule) if check_rule($bam2genes_rule);
-}
-unless ($use_gsnap) {
-  if ( $stage eq 'bam2genes complete' ) {
     $ra->store($bam2introns_rule)      if check_rule($bam2introns_rule);
     $ra->store($bam2introns_wait_rule) if check_rule($bam2introns_wait_rule);
-  }
-}
-if ( $stage eq 'configured' ) {
-  unless ($use_gsnap) {
     $ra->store($sam2bam_rule)      if check_rule($sam2bam_rule);
     $ra->store($sam2bam_wait_rule) if check_rule($sam2bam_wait_rule);
-  }
   $ra->store($refine_all_rule)  if check_rule($refine_all_rule);
   $ra->store($rnaseqblast_rule) if check_rule($rnaseqblast_rule);
-}
-unless ($use_gsnap) {
   # need to add a dummy input id for submit_sam2bam
-  if ( $stage eq 'configured' or $stage eq 'bam2genes complete' ) {
     $sic->store_input_id_analysis( 'dummy', $submit_sam2bam, "dummy" )
       unless $stored_ids->{'dummy'}->{'submit_sam2bam'};
-  }
-}
 
 exit if $update_analyses;
 
@@ -832,17 +819,6 @@ sub read_pipeline_config {
             next;
 
         }
-        elsif ( $line == 1 ) {
-            foreach my $key ( keys %data ) {
-                print STDOUT "$key - " . $data{$key} . "\n";
-            }
-            if (!$jdi) {
-                print STDOUT "Continue?(y/n)";
-                my $reply = <>;
-                chomp $reply;
-                exit unless $reply eq "y" or $reply eq "Y";
-            }
-        }
         else {
             foreach my $key ( keys %map ) {
                 foreach my $col ( @{ $map{$key} } ) {
@@ -864,6 +840,18 @@ sub read_pipeline_config {
                     }
                 }
             }
+			if ( $line == 1 ) {
+				foreach my $key ( keys %data ) {
+					print STDOUT "$key - " . $data{$key} . "\n";
+				}
+				if (!$jdi) {
+					print STDOUT "Continue?(y/n)";
+					my $reply = <>;
+					chomp $reply;
+					exit unless $reply eq "y" or $reply eq "Y";
+				}
+				$line = 2;
+			}
         }
         push @rows, \%data;
     } ## end while (<FILE>)
