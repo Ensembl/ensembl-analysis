@@ -39,6 +39,7 @@ $opt_port_secondary = $opt_port_primary = $opt_port_dna = $opt_port_ccds =
 
 my $opt_njobs = 1;    # Default number of jobs.
 my $opt_job   = 1;    # This job.
+my $opt_genes_file;   # list of genes from the primary db to be merged
 
 my $opt_help = 0;
 
@@ -79,6 +80,7 @@ if ( !GetOptions(
           'primary_translation_xref:s' => \$opt_primary_translation_xref,
           'njobs:i'                   => \$opt_njobs,
           'job:i'                     => \$opt_job,
+          'genes_file:s'              => \$opt_genes_file,
           'help|h|?!'                 => \$opt_help, ) ||
      $opt_help ||
      !( defined($opt_host_secondary) &&
@@ -268,8 +270,19 @@ if ( defined($ccds_dba) ) {
 # genes and the number of jobs that are being run.  We pick the chunk
 # associated with our job ID.
 
-my @all_primary_gene_ids =
-  sort { $a <=> $b } @{ $PRIMARY_GA->list_dbIDs() };
+my @all_primary_gene_ids = ();
+if ($opt_genes_file) {
+  # fetch all primary genes from the list in the file 
+  open(GENEIDS,$opt_genes_file);
+  while (<GENEIDS>) {
+    chomp;
+    push(@all_primary_gene_ids,$_);
+  }
+  close(GENEIDS);
+} else {
+  # fetch all genes in the primary db
+  @all_primary_gene_ids = sort { $a <=> $b } @{ $PRIMARY_GA->list_dbIDs() };
+}
 
 my $chunk_size  = int( scalar(@all_primary_gene_ids)/$opt_njobs );
 my $chunk_first = ( $opt_job - 1 )*$chunk_size;
@@ -1124,7 +1137,7 @@ SECONDARY_GENE:
        next;
      }
 
-    empty_Gene($havana_gene);
+    empty_Gene($primary_gene);
     $OUTPUT_GA->store($primary_gene);
     printf( "STORED\t%s\told id = %d, new id = %d\n",
             $primary_gene->stable_id(),
