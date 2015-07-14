@@ -39,7 +39,7 @@ $opt_port_secondary = $opt_port_primary = $opt_port_dna = $opt_port_ccds =
 
 my $opt_njobs = 1;    # Default number of jobs.
 my $opt_job   = 1;    # This job.
-my $opt_genes_file;   # list of genes from the primary db to be merged
+my $opt_file;   # list of genes from the primary db to be merged
 
 my $opt_help = 0;
 
@@ -80,7 +80,7 @@ if ( !GetOptions(
           'primary_translation_xref:s' => \$opt_primary_translation_xref,
           'njobs:i'                   => \$opt_njobs,
           'job:i'                     => \$opt_job,
-          'genes_file:s'              => \$opt_genes_file,
+          'file:s'                    => \$opt_file,
           'help|h|?!'                 => \$opt_help, ) ||
      $opt_help ||
      !( defined($opt_host_secondary) &&
@@ -271,9 +271,9 @@ if ( defined($ccds_dba) ) {
 # associated with our job ID.
 
 my @all_primary_gene_ids = ();
-if ($opt_genes_file) {
+if ($opt_file) {
   # fetch all primary genes from the list in the file 
-  open(GENEIDS,$opt_genes_file);
+  open(GENEIDS,$opt_file);
   while (<GENEIDS>) {
     chomp;
     push(@all_primary_gene_ids,$_);
