@@ -44,7 +44,7 @@ sub fetch_input {
   # Add production db and tax db here once modules done
 
   unless(-e $ftp_link_file) {
-    throw("The ftp link file does not exist on the path provided. Path used:\n".$ftp_link_file);
+   $self->throw("The ftp link file does not exist on the path provided. Path used:\n".$ftp_link_file);
   }
 
   return 1;
@@ -151,8 +151,8 @@ sub parse_ftp_link_file {
     }
 
     unless($link =~ /\/genomes\/genbank\/[^\/]+\/([^\/]+)\/all_assembly_versions\/([^\/]+)\//) {
-      throw("Failed to parse the following line:\n".$link."\n\nExpected a link to the main dir for the species. For example:\n".
-            "ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/");
+      $self->throw("Failed to parse the following line:\n".$link."\n\nExpected a link to the main dir for the species. For example:\n".
+                   "ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/");
     }
 
     $species_name = $1;
@@ -160,7 +160,7 @@ sub parse_ftp_link_file {
 
     my $gca_and_assembly_version = $2;
     unless($gca_and_assembly_version =~ /^(GCA\_\d+\.\d+)\_(.+)/) {
-      throw("Couldn't parse the assembly version out of the ftp link. Tried to parse off end of:\n".$gca_and_assembly_version);
+      $self->throw("Couldn't parse the assembly version out of the ftp link. Tried to parse off end of:\n".$gca_and_assembly_version);
     }
 
     my $gca = $1;
@@ -203,11 +203,11 @@ sub parse_ftp_link_file {
 
       my @assembly_columns = split("\t",$assembly_line);
       my $accession = $assembly_columns[4];
-      unless($accession && $accession =~ /^[A-Z]{4}/) {
+      unless($accession && ($accession =~ /(^[A-Z]{4})/ || $accession =~ /^gb\|([A-Z]{4})/)) {
         next;
       }
 
-      my $code = $&;
+      my $code = $1;
       if(exists($wgs_code{$code})) {
         $wgs_code{$code}++;
       } else {
@@ -216,17 +216,17 @@ sub parse_ftp_link_file {
     }
 
     unless($taxon_id) {
-      throw("Failed to find and parse 'Taxid' line from report file. File used:\n".$gca_and_assembly_version."_assembly_report.txt");
+      $self->throw("Failed to find and parse 'Taxid' line from report file. File used:\n".$gca_and_assembly_version."_assembly_report.txt");
     }
     say REPORT_FILE "Taxon id: ".$taxon_id;
 
     unless($assembly_level) {
-      throw("Failed to find and parse 'Assembly level' line from report file. File used:\n".$gca_and_assembly_version."_assembly_report.txt");
+      $self->throw("Failed to find and parse 'Assembly level' line from report file. File used:\n".$gca_and_assembly_version."_assembly_report.txt");
     }
 
     $assembly_level = lc($assembly_level);
     unless($assembly_level eq 'scaffold' || $assembly_level eq 'chromosome') {
-      throw("Parsed assembly level from report file but it was not 'scaffold' or 'chromosome'. Level found:\n".$assembly_level);
+      $self->throw("Parsed assembly level from report file but it was not 'scaffold' or 'chromosome'. Level found:\n".$assembly_level);
     }
     say REPORT_FILE "Assembly level: ".$assembly_level;
 
@@ -237,11 +237,11 @@ sub parse_ftp_link_file {
     # This section deals with either getting 0, 1 or many potential wgs codes. Getting 1 is ideal
     my @code_types = keys(%wgs_code);
     if(scalar(@code_types == 0)) {
-      throw("Failed to parse any potential 4 letter wgs code from the accessions in ".$gca_and_assembly_version."_assembly_report.txt");
+      $self->throw("Failed to parse any potential 4 letter wgs code from the accessions in ".$gca_and_assembly_version."_assembly_report.txt");
     }
 
     if(scalar(@code_types > 1)) {
-      throw("Failed because of multiple potential 4 letter wgs code from the accessions in ".$gca_and_assembly_version."_assembly_report.txt, ".
+      $self->throw("Failed because of multiple potential 4 letter wgs code from the accessions in ".$gca_and_assembly_version."_assembly_report.txt, ".
             " codes parsed:\n".@code_types);
     }
 
