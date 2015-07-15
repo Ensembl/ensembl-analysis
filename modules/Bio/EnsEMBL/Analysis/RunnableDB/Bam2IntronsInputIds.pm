@@ -72,7 +72,7 @@ sub new{
   throw('You need to specify a input_id_type') unless (exists $hash->{input_id_type});
   $self->input_id_type($hash->{input_id_type});
   $self->pipeline_db($hash->{pipeline_db}) if (exists $hash->{pipeline_db});
-  $self->genes_logic_name($hash->{pipeline_db}) if (exists $hash->{pipeline_db});
+  $self->genes_logic_name($hash->{genes_logic_name}) if (exists $hash->{genes_logic_name});
   return $self;
 }
 
@@ -142,6 +142,20 @@ sub pipeline_db {
 
     if (exists($self->{'_pipeline_db'})) {
         return $self->{'_pipeline_db'};
+    } else {
+        return undef;
+    }
+}
+
+sub genes_logic_name {
+    my ($self,$value) = @_;
+
+    if (defined $value) {
+        $self->{'_genes_logic_name'} = $value;
+    }
+
+    if (exists($self->{'_genes_logic_name'})) {
+        return $self->{'_genes_logic_name'};
     } else {
         return undef;
     }
