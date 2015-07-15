@@ -53,9 +53,10 @@ package Bio::EnsEMBL::Analysis::RunnableDB::AddStableIds;
 
 use warnings ;
 use strict;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::AddStableIds qw (ADD_STABLEIDS_BY_LOGIC);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use vars qw(@ISA);
 
@@ -79,11 +80,10 @@ sub fetch_input {
     }
     else {
         my $meta_adptor = $self->db->get_MetaContainer;
-        $self->prefix($meta_adptor->single_value_by_key('ensembl.species_prefix'));
+        $self->prefix($meta_adptor->single_value_by_key('species.stable_id_prefix'));
     }
     throw("Could not get a prefix for the stable_id") unless (defined $self->prefix);
 
-    logger_info("Nothing is fetched and it's OK");
     return 1;
 }
 
@@ -103,12 +103,16 @@ sub write_output{
     my $analysis_id;
     $analysis_id = $outdb->get_AnalysisAdaptor->logic_name($self->LOGIC_NAME) if (defined $self->LOGIC_NAME);
 
-    foreach my $table ('gene', 'transcript', 'translation', 'exon') {
+    foreach my $table ('gene', 'transcript', 'exon') {
         my $sql_query = 'UPDATE '.$table.' SET stable_id = CONCAT("'.$self->prefix.'", "'.$self->one_letter($table).'", LPAD('.$table.'_id, 11, 0)) WHERE seq_region_id = '.$seq_region_id;
         $sql_query .= ' AND analysis_id = '.$analysis_id if (defined $analysis_id);
         my $sth = $outdb->dbc->prepare($sql_query);
-        $sth->do();
+        $sth->execute();
     }
+    my $sql_query = 'UPDATE translation tln, transcript t SET tln.stable_id = CONCAT("'.$self->prefix.'", "'.$self->one_letter('translation').'", LPAD(tln.translation_id, 11, 0)) WHERE t.transcript_id = tln.transcript_id AND t.seq_region_id = '.$seq_region_id;
+    $sql_query .= ' AND t.analysis_id = '.$analysis_id if (defined $analysis_id);
+    my $sth = $outdb->dbc->prepare($sql_query);
+    $sth->execute();
 }
 
 
