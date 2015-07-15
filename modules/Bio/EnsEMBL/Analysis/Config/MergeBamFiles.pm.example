@@ -48,7 +48,7 @@ use vars qw( %Config );
     MERGE_BAM_FILES_BY_LOGIC => {
         DEFAULT => {
 
-        PROGRAM       => 'java',
+        JAVA       => 'java',
         JAVA_OPTIONS  => '-Xmx2g',
         OUTPUT_FILE   => 'path/to/output.bam',
         # If 0, do not use multithreading, faster but can use more memory.
@@ -56,7 +56,7 @@ use vars qw( %Config );
         USE_THREADING => 2,
 
         # Path to MergeSamFiles.jar
-        PICARD_LIB    => 'MergeBamFiles.jar',
+        PICARD_LIB    => 'picard.jar',
         # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
         # You will need to change the options if you want to use samtools for merging
         OPTIONS       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',

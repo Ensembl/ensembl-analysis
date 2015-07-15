@@ -26,7 +26,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge -
+Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge -
 
 =head1 SYNOPSIS
 
@@ -53,7 +53,7 @@ Internal methods are usually preceded with a _
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge;
+package Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
 
 use warnings;
 use strict;
@@ -61,8 +61,9 @@ use vars qw(@ISA);
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::Samtools;
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
@@ -82,7 +83,7 @@ sub new {
       throw("You must supply an array reference with -input_files");
     }
     else {
-        foreach my $file (@{$self->INPUT_FILES}) {
+        foreach my $file (@$input_files) {
             if (! -e $file) {
                 warning($file.' is missing');
                 $missing++;

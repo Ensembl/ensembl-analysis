@@ -51,7 +51,7 @@ use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis::Config::MergeBamFiles qw (MERGE_BAM_FILES_BY_LOGIC);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
@@ -108,14 +108,16 @@ sub fetch_input {
 sub run {
     my ($self) = @_;
 
-    $self->runnable->run;
+    foreach my $runnable (@{$self->runnable}) {
+        $runnable->run;
+        $runnable->check_output_file;
+    }
     return 1;
 }
 
 sub write_output {
     my ($self) = @_;
 
-    my $outfile = $self->outfile;
     return 1;
 }
 
@@ -211,30 +213,45 @@ sub GENES_DB {
 }
 
 
-sub GENES_DB {
+sub JAVA_OPTIONS {
     my ($self,$value) = @_;
 
     if (defined $value) {
-        $self->{'_CONFIG_GENES_DB'} = $value;
+        $self->{'_CONFIG_JAVA_OPTIONS'} = $value;
     }
 
-    if (exists($self->{'_CONFIG_GENES_DB'})) {
-        return $self->{'_CONFIG_GENES_DB'};
+    if (exists($self->{'_CONFIG_JAVA_OPTIONS'})) {
+        return $self->{'_CONFIG_JAVA_OPTIONS'};
     } else {
         return undef;
     }
 }
 
 
-sub GENES_DB {
+sub USE_THREADING {
     my ($self,$value) = @_;
 
     if (defined $value) {
-        $self->{'_CONFIG_GENES_DB'} = $value;
+        $self->{'_CONFIG_USE_THREADING'} = $value;
     }
 
-    if (exists($self->{'_CONFIG_GENES_DB'})) {
-        return $self->{'_CONFIG_GENES_DB'};
+    if (exists($self->{'_CONFIG_USE_THREADING'})) {
+        return $self->{'_CONFIG_USE_THREADING'};
+    } else {
+        return undef;
+    }
+}
+
+
+sub JAVA {
+    my ($self,$value) = @_;
+
+    if (defined $value) {
+        $self->{'_CONFIG_JAVA'} = $value;
+    }
+
+    if (exists($self->{'_CONFIG_JAVA'})) {
+        return $self->{'_CONFIG_JAVA'};
     } else {
         return undef;
     }

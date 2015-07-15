@@ -62,6 +62,8 @@ use vars qw(@ISA);
 use File::Copy;
 use Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge);
 
@@ -97,18 +99,18 @@ Function:   Runs exonerate script and puts the results into the file $self->resu
 sub run {
     my ($self) = @_;
 
-    my $cmd = join(' ', $self->program, $self->java_options, '-jar', $self->picard_lib, $self->options, 'OUTPUT='.$self->output_file, join(' INPUT=', @{$self->input_files}));
+    my $cmd = join(' ', $self->program, $self->java_options, '-jar', $self->picard_lib, 'MergeSamFiles', $self->options, 'OUTPUT='.$self->output_file, 'INPUT='.join(' INPUT=', @{$self->input_files}));
     $cmd .= ' USE_THREADING=true' if ($self->use_threading);
-    throw('Could not execute picard command '.$cmd) unless (system($cmd));
+    logger_info($cmd);
+    throw('Could not execute picard command '.$cmd) if (system($cmd));
     my $index_file = $self->output_file;
     $index_file =~ s/bam$/bai/;
     # It's needed because Bio::DB::Sam is looking for *.bam.bai and picard create *.bai
     # Return 1 on success
-    throw("Failed to move index file $index_file to ".$self->outfile.'.bai') unless (move($index_file, $self->outfile.'.bai'));
+    throw("Failed to move index file $index_file to ".$self->output_file.'.bai') unless (move($index_file, $self->output_file.'.bai'));
     # It's needed because the index can be younger that the bam file but Bio::DB::Sam doesn't like it
     # Return 0 on success
-    throw('Failed to update the timestamp for '.$self->outfile.'.bai') if (system('touch '.$self->outfile.'.bai'));
-    $self->check_output_file;
+    throw('Failed to update the timestamp for '.$self->output_file.'.bai') if (system('touch '.$self->output_file.'.bai'));
 
     return 1;
 }
