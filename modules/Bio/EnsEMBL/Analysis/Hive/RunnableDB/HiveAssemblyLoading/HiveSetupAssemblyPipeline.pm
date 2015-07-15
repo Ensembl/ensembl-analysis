@@ -34,10 +34,15 @@ sub fetch_input {
   my $db_write_pass = $self->param('pass_w');
   my $reference_db_server = $self->param('reference_db_server');
   my $reference_db_port = $self->param('reference_db_port');
+  my $create_type = $self->param('create_type');
   my $pipe_db_server = $self->param('pipe_db_server');
+  my $production_db = $self->param('production_db');
+  my $taxonomy_db = $self->param('taxonomy_db');
   my $enscode_root_dir = $self->param('enscode_root_dir');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
   my $contigs_source = $self->param('contigs_source');
+  # Add production db and tax db here once modules done
+
   unless(-e $ftp_link_file) {
     throw("The ftp link file does not exist on the path provided. Path used:\n".$ftp_link_file);
   }
@@ -84,6 +89,9 @@ sub parse_ftp_link_file {
   my $db_write_pass = $self->param('pass_w');
   my $reference_db_server = $self->param('reference_db_server');
   my $reference_db_port = $self->param('reference_db_port');
+  my $create_type = $self->param('create_type');
+  my $production_db = $self->param('production_db');
+  my $taxonomy_db = $self->param('taxonomy_db');
   my $pipe_db_server = $self->param('pipe_db_server');
   my $enscode_root_dir = $self->param('enscode_root_dir');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
@@ -107,6 +115,7 @@ sub parse_ftp_link_file {
   say REPORT_FILE "DB write pass: ".$db_write_pass;
   say REPORT_FILE "Reference DB server: ".$reference_db_server;
   say REPORT_FILE "Reference DB port: ".$reference_db_port;
+  say REPORT_FILE "Creation type for reference DB: ".$create_type;
   say REPORT_FILE "Pipeline DB server: ".$pipe_db_server;
   say REPORT_FILE "ENSCODE root dir: ".$enscode_root_dir;
   say REPORT_FILE "Primary assembly dir name: ".$primary_assembly_dir_name;
@@ -127,6 +136,9 @@ sub parse_ftp_link_file {
                         'pass_w' => $db_write_pass,
                         'reference_db_server' => $reference_db_server,
                         'reference_db_port' => $reference_db_port,
+                        'create_type' => $create_type,
+                        'production_db' => $production_db,
+                        'taxonomy_db' => $taxonomy_db,
                         'pipe_db_server' => $pipe_db_server,
                         'enscode_root_dir' => $enscode_root_dir,
                         'primary_assembly_dir_name' => $primary_assembly_dir_name,
@@ -238,7 +250,7 @@ sub parse_ftp_link_file {
 
     my $full_ftp_path = $link."/".$gca_and_assembly_version."_assembly_structure";
 
-    my $reference_db_name = $farm_user_name."_al_".$species_name."_ref";
+    my $reference_db_name = $farm_user_name."_".$species_name."_ref";
     say REPORT_FILE "Reference DB name: ".$reference_db_name."\n";
     my $target_db = { -dbname => $reference_db_name,
                       -user => $db_write_user,
