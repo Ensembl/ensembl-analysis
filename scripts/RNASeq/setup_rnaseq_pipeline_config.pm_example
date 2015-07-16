@@ -105,6 +105,7 @@ use vars qw(%Config);
     # by? Default = ID
     READ_GROUP_TAG => 'SM',
 
+    USE_THREADS => 3,
     # Samtools path.
     SAMTOOLS => "/path/to/samtools",
 

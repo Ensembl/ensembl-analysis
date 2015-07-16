@@ -468,27 +468,34 @@ exit if $update_analyses;
 
 # check config directory
 # write the extra information header files
-open( ALL, ">$output_dir/all_headers.txt" )
-  or die("Cannot open  $output_dir/all_headers.txt for writing\n");
+open( ALL, ">$output_dir/all_headers.txt" ) or die("Cannot open  $output_dir/all_headers.txt for writing\n");
 
 
 my %seen_it;
 foreach my $row (@$rows) {
-  next if $seen_it{ $row->{ID} };
-  $seen_it{ $row->{ID} } = 1;
-  open( HEAD, ">$output_dir/" . $row->{ID} . "_header.txt" )
-    or die( "Cannot open  $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
-
-  print HEAD "\@RG\tID:" . $row->{ID} . "\tPU:" . $row->{PU} . "\tSM:" . $row->{SM} . "\t";
-  print HEAD "LB:"       . $row->{LB} . "\tDS:" . $row->{DS} . "\tCN:" . $row->{CN} . "\t";
-  print HEAD "DT:"       . $row->{ST} . "\tPL:" . $row->{PL} . "\n";
-  close(HEAD) or die( "Cannot close  $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
-  print ALL "\@RG\tID:"  . $row->{ID} . "\tPU:" . $row->{PU} . "\tSM:" . $row->{SM} . "\t";
-  print ALL "LB:"        . $row->{LB} . "\tDS:" . $row->{DS} . "\tCN:" . $row->{CN} . "\t";
-  print ALL "DT:"        . $row->{ST} . "\tPL:" . $row->{PL} . "\n";
+    next if $seen_it{ $row->{ID} };
+    $seen_it{ $row->{ID} } = 1;
+    open( HEAD, ">$output_dir/" . $row->{ID} . "_header.txt" )
+        or die( "Cannot open  $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
+    my $read_group = "\@RG\tID:" . $row->{ID};
+    $read_group .= "\tPU:" . $row->{PU} if (exists $row->{PU});
+    $read_group .= "\tSM:" . lc($row->{SM}) if (exists $row->{SM});
+    $read_group .= "\tLB:" . $row->{LB} if (exists $row->{LB});
+    $read_group .= "\tDS:" . $row->{DS} if (exists $row->{DS});
+    $read_group .= "\tCN:" . $row->{CN} if (exists $row->{CN});
+    # Might need to change ST to DT but we will need to change the previous configs
+    $read_group .= "\tDT:" . $row->{ST} if (exists $row->{ST});
+    if (exists $row->{PL})
+    {
+        my ($field_pl) = $row->{PL} =~ /([^+])/;
+        $read_group .= "\tPL:" . $field_pl ;
+    }
+    $read_group .= "\n" ;
+    print HEAD $read_group;
+    print ALL $read_group;
+    close(HEAD) || die( "Cannot close $output_dir/" . $row->{ID} . "_header.txt for writing\n" );
 } ## end foreach my $row (@rows)
-close(ALL) or die( "Cannot close  $output_dir/all_header.txt for writing\n" );
-
+close(ALL) || die("Cannot close $output_dir/all_headers.txt for writing\n");
 
 
 
@@ -518,6 +525,7 @@ my $bq_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
     -moduledir  => $configdir,
     -is_example => $use_existing ? 0 : 1);
 $bq_cfg->root_value('DEFAULT_LSF_PERL', $default_lsf_perl);
+$bq_cfg->root_value('DEFAULT_OUTPUT_DIR', $output_dir);
 my $blast_general_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
     -modulename => 'Bio::EnsEMBL::Analysis::Config::Blast',
     -moduledir  => $configdir,
@@ -536,13 +544,15 @@ my $bam2genes_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
     -modulename => 'Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes',
     -moduledir  => $configdir,
     -is_example => $is_example);
-$bam2genes_cfg->default_value('OUTPUT_DB', $RNASEQCONFIG->{ROUGHDB});
+$bam2genes_cfg->add_analysis_to_config('bam2genes',
+    {'OUTPUT_DB' => $RNASEQCONFIG->{ROUGHDB},
+    'ALIGNMENT_BAM_FILE' => $RNASEQCONFIG->{MERGE_DIR}.'/merged.bam'},
+    );
 $bam2genes_cfg->default_value('ALIGNMENT_BAM_FILE', $RNASEQCONFIG->{MERGE_DIR}.'/merged.bam');
 my $refine_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
     -modulename => 'Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes',
     -moduledir  => $configdir,
     -is_example => $is_example);
-$refine_cfg->default_value('OUTPUT_DB', $RNASEQCONFIG->{REFINEDDB});
 $refine_cfg->default_value('MODEL_DB', $RNASEQCONFIG->{ROUGHDB});
 my $introns_bam_files = $refine_cfg->default_value('INTRON_BAM_FILES');
 $introns_bam_files->[0]->{DEPTH} = 0;
@@ -562,8 +572,7 @@ if ($use_gsnap) {
     $gsnap_cfg->default_value('GENOMEDIR', $RNASEQCONFIG->{GENOME_DIR});
 }
 else {
-    $introns_bam_files->[0]->{MIXED_BAM} = 1;
-    $refine_cfg->default_value('INTRON_BAM_FILES', $introns_bam_files);
+    $introns_bam_files->[0]->{MIXED_BAM} = 0;
     $bwa_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
         -modulename => 'Bio::EnsEMBL::Analysis::Config::GeneBuild::BWA',
         -moduledir  => $configdir,
@@ -574,56 +583,71 @@ else {
         -modulename => 'Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns',
         -moduledir  => $configdir,
         -is_example => $is_example);
-    $bam2introns_cfg->default_value('OUT_SAM_DIR', $RNASEQCONFIG->{MERGE_DIR}.'/SAM');
     $bam2introns_cfg->default_value('TRANSDB', $RNASEQCONFIG->{ROUGHDB});
-    $bam2introns_cfg->default_value('BAM_FILE', $RNASEQCONFIG->{MERGE_DIR}.'/merged.bam');
+    $bam2introns_cfg->add_analysis_to_config('bam2introns', {
+        'OUT_SAM_DIR' => $RNASEQCONFIG->{MERGE_DIR}.'/SAM',
+        'BAM_FILE' => $RNASEQCONFIG->{MERGE_DIR}.'/merged.bam'}
+        );
     $sam2bam_cfg = Bio::EnsEMBL::Analysis::Tools::ConfigWriter->new(
         -modulename => 'Bio::EnsEMBL::Analysis::Config::GeneBuild::Sam2Bam',
         -moduledir  => $configdir,
         -is_example => $is_example);
-    $sam2bam_cfg->default_value('SAM_DIR', $RNASEQCONFIG->{MERGE_DIR}.'/SAM');
-    $sam2bam_cfg->default_value('BAMFILE', $RNASEQCONFIG->{MERGE_DIR}.'/introns.bam');
     $sam2bam_cfg->default_value('HEADERFILE', $RNASEQCONFIG->{OUTPUT_DIR}.'/all_headers.txt');
     $sam2bam_cfg->default_value('GENOMEFILE', $RNASEQCONFIG->{GENOME_DIR}.'/'.$RNASEQCONFIG->{GENOME_FILE});
+    $sam2bam_cfg->add_analysis_to_config('sam2bam', {
+        'SAM_DIR' => $RNASEQCONFIG->{MERGE_DIR}.'/SAM',
+        'BAMFILE' => $RNASEQCONFIG->{MERGE_DIR}.'/introns.bam'}
+    );
 }
-$refine_cfg->default_value('INTRON_BAM_FILES', $introns_bam_files);
+$refine_cfg->add_analysis_to_config('refine_all', {
+    'OUTPUT_DB' => $RNASEQCONFIG->{REFINEDDB},
+    'INTRON_BAM_FILES' => $introns_bam_files,}
+    );
 $bq_cfg->add_analysis_to_batchqueue('refine_all',
   { output_dir => $output_dir .'/refine_all_pipeline',
     batch_size => $slice_batches,
     memory     => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
-    resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$refine_load.'tok=25]',
+    resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$refine_load.'tok=25, myens_'.$refine_load.'tok=25]]',
+    retry_resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$refine_load.'tok=25, myens_'.$refine_load.'tok=25]]',
   });
 $bq_cfg->add_analysis_to_batchqueue('bam2genes',
   { output_dir => $output_dir .'/bam2genes_pipeline',
     batch_size => $slice_batches,
     memory     => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
     resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$rough_load.'tok=25]',
+    retry_resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$rough_load.'tok=25]',
   });
 $bq_cfg->add_analysis_to_batchqueue('bam2genes_wait',
   { output_dir => $output_dir .'/bam2genes_wait_pipeline',
+    batch_size => 1,
   });
 $bq_cfg->add_analysis_to_batchqueue('bam2introns',
   { output_dir => $output_dir .'/bam2introns_pipeline',
     batch_size => $rough_batches,
     memory     => [ '2GB', '5GB', '15GB', '20GB', '30GB' ],
     resource   => 'rusage[myens_'.$ref_load.'tok=25]',
+    retry_resource   => 'rusage[myens_'.$ref_load.'tok=25]',
   });
 $bq_cfg->add_analysis_to_batchqueue('bam2introns_wait',
   { output_dir => $output_dir .'/bam2introns_wait_pipeline',
   });
 $bq_cfg->add_analysis_to_batchqueue('sam2bam',
   { output_dir => $output_dir .'/sam2bam_pipeline',
+    batch_size => 1,
     memory     => [ '2GB', '5GB', '10GB', '20GB', '30GB' ],
     resource   => 'rusage[myens_'.$ref_load.'tok=25]',
+    retry_resource   => 'rusage[myens_'.$ref_load.'tok=25]',
   });
 $bq_cfg->add_analysis_to_batchqueue('sam2bam_wait',
   { output_dir => $output_dir .'/sam2bam_wait_pipeline',
+    batch_size => 1,
   });
 $bq_cfg->add_analysis_to_batchqueue('rnaseqblast',
   { output_dir => $output_dir .'/rnaseqblast_pipeline',
     batch_size => $slice_batches,
     memory     => [ '1GB', '1GB', '2GB' ],
-    resource   => 'rusage[myens_'.$ref_load.'tok=25:myens_'.$blast_load.'tok=25]',
+    resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$blast_load.'tok=25]',
+    retry_resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$blast_load.'tok=25]',
   });
 
 my %seen;
@@ -650,14 +674,16 @@ foreach my $row ( @$rows ) {
           memory     => [ '10GB', '20GB', '30GB' ],
           queue      => 'long',
           resource   => 'rusage[myens_'.$ref_load.'tok=25]',
+          retry_resource   => 'rusage[myens_'.$ref_load.'tok=25]',
         });
   }
   else {
     my %bwa_hash = (
                       INDIR  => $input_dir,
                       OUTDIR => $output_dir,
-                      OPTION => '-n ' . int($length / 2). ' -i ' . $length,
+                      OPTIONS => '-n ' . int($length / 2). ' -i ' . $length,
                      );
+    $bwa_hash{OPTIONS} .= ' -t '.$RNASEQCONFIG->{USE_THREADS} if ( $RNASEQCONFIG->{USE_THREADS});
     $bwa_cfg->add_analysis_to_config('bwa_'. $row->{ID}, \%bwa_hash);
     my %bwa2bam_hash = (
                       INDIR  => $input_dir,
@@ -665,21 +691,25 @@ foreach my $row ( @$rows ) {
                       HEADER => $output_dir.'/' . $row->{ID} .'_header.txt',
                       PAIRED => defined $row->{PAIRED} ? 1 : 0,
                      );
-    $bwa_cfg->add_analysis_to_config('bwa2bam_'. $row->{ID}, \%bwa_hash);
-    $bq_cfg->add_analysis_to_batchqueue('bwa_' . $row->{ID},
-        { output_dir => $output_dir .'/'.$row->{ID}.'_pipeline',
-          memory     => [ '5GB', '10GB', '20GB', '30GB' ],
-          resource   => 'rusage[myens_'.$ref_load.'tok=25]',
-        });
+    $bwa_cfg->add_analysis_to_config('bwa2bam_'. $row->{ID}, \%bwa2bam_hash);
+    my %bq_bwa_cfg = (
+        output_dir => $output_dir .'/'.$row->{ID}.'_pipeline',
+        memory     => [ '5GB', '10GB', '20GB', '30GB' ],
+        resource   => 'rusage[myens_'.$ref_load.'tok=25]',
+        retry_resource   => 'rusage[myens_'.$ref_load.'tok=25]',
+        );
+    if ($RNASEQCONFIG->{USE_THREADS}) {
+        $bq_bwa_cfg{resource} .= ' span[hosts=1]';
+        $bq_bwa_cfg{retry_resource} .= ' span[hosts=1]';
+        $bq_bwa_cfg{sub_args} .= ' -n '.$RNASEQCONFIG->{USE_THREADS};
+        $bq_bwa_cfg{retry_sub_args} .= ' -n '.$RNASEQCONFIG->{USE_THREADS};
+    }
+    $bq_cfg->add_analysis_to_batchqueue('bwa_' . $row->{ID}, \%bq_bwa_cfg);
     $bq_cfg->add_analysis_to_batchqueue('bwa_' . $row->{ID} . '_wait',
         { output_dir => $output_dir .'/'.$row->{ID}.'_pipeline',
           resource   => 'rusage[myens_'.$ref_load.'tok=25]',
         });
-    $bq_cfg->add_analysis_to_batchqueue('bwa2bam_' . $row->{ID},
-        { output_dir => $output_dir .'/'.$row->{ID}.'_pipeline',
-          memory     => [ '2GB', '5GB', '10GB', '20GB', '30GB' ],
-          resource   => 'rusage[myens_'.$ref_load.'tok=25]',
-        });
+    $bq_cfg->add_analysis_to_batchqueue('bwa2bam_' . $row->{ID}, \%bq_bwa_cfg);
   }
   $refine_cfg->value_by_logic_name('refine_'. $tissue_by_id{$row->{ID}}, 'SINGLE_EXON_MODEL', 'single_exon_'.$tissue_by_id{$row->{ID}});
   if ($RNASEQCONFIG->{SINGLE_TISSUE} && !$seen{$tissue_by_id{$row->{ID}}}) {
@@ -690,7 +720,8 @@ foreach my $row ( @$rows ) {
       $bq_cfg->add_analysis_to_batchqueue('refine_' . $tissue_by_id{$row->{ID}},
           { output_dir => $output_dir .'/refine_'.$tissue_by_id{$row->{ID}}.'_pipeline',
             memory     => [ '1GB', '2GB', '5GB', '15GB','30GB' ],
-            resource   => 'rusage[myens_'.$ref_load.'tok=25]',
+            resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$refine_load.'tok=25], myens_'.$rough_load.'tok=25]',
+            retry_resource   => 'rusage[myens_'.$ref_load.'tok=25, myens_'.$refine_load.'tok=25], myens_'.$rough_load.'tok=25]',
           });
   }
   $seen{$tissue_by_id{$row->{ID}}} = 1;
@@ -710,6 +741,7 @@ else {
     $sam2bam_cfg->write_config(1);
 }
 
+make_bam2genes_input_ids($sic, $pipeline_analysis, $sa);
 
 sub assign_categories {
   my ($array,$required,$answer,$category) = @_;
@@ -917,13 +949,18 @@ sub make_bam2genes_input_ids {
     my ($sic, $pipeline_analysis, $sa) = @_;
 
     # fetch dummy analysis
-    my $analysis = $pipeline_analysis->fetch_by_logic_name("submit_rnaseq_toplevel");
+    my $analysis = $pipeline_analysis->fetch_by_logic_name("submit_chromosome");
     print "Writing input ids for bam2genes\n";
     # add the submit chromosome input ids to start the next phase of the analysis
     foreach my $slice ( @{ $sa->fetch_all('toplevel') } ) {
         # we dont build on the mitochondrial sequences
         next if ( $slice->seq_region_name eq 'MT' );
-        if ( $RNASEQCONFIG->{SLICE_LENGTH} ) {
+        if ( $RNASEQCONFIG->{ALL_PAIRED} ) {
+            # run on chromosomes if you have pairing to help separate out the models
+            $sic->store_input_id_analysis( $slice->name, $analysis, "dummy" ) unless $stored_ids->{ $slice->name }->{"submit_chromosome"};
+            $stored_ids->{$slice->name}->{"submit_chromosome"} = 1;
+        }
+        else {
             # otherwise run on slices
             my @iid_sections = split( /:/, $slice->name );
             for ( my $i = 1; $i <= $slice->length; $i += $RNASEQCONFIG->{SLICE_LENGTH} ) {
@@ -934,11 +971,6 @@ sub make_bam2genes_input_ids {
                 $sic->store_input_id_analysis( $id, $analysis, "dummy" ) unless (exists $stored_ids->{$id}->{"submit_chromosome"});
                 $stored_ids->{$id}->{"submit_chromosome"} = 1;
             }
-        }
-        else {
-            # run on chromosomes if you have pairing to help separate out the models
-            $sic->store_input_id_analysis( $slice->name, $analysis, "dummy" ) unless $stored_ids->{ $slice->name }->{"submit_chromosome"};
-            $stored_ids->{$slice->name}->{"submit_chromosome"} = 1;
         }
     }
 }

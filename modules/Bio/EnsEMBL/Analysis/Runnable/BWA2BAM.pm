@@ -204,11 +204,11 @@ sub run {
 	$self->throw("Got $1 reads in flagstat  rather than $total_reads in fastq - something went wrong\n")
 	  unless ( $total_reads - $1 ) <=1 ;
       }
-      elsif (/^\s*(\d+).*mapped\s+\(/) {
-          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_mapped.": $1");
+      elsif (/^\s*\d+.*mapped\s+\(([0-9.]+)/) {
+          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_mapped.": $1") if ($self->min_mapped > $1);
       }
-      elsif (/\s*(\d+).*properly paired \(/) {
-          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_paired.": $1");
+      elsif (/\s*\d+.*properly paired \(([0-9.]+)/) {
+          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_paired.": $1") if ($self->min_paired > $1);
       }
     }
   close($fh) || $self->throw("Failed checking alignment");
