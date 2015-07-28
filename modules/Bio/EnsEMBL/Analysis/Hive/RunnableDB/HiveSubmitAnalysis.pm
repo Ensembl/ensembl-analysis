@@ -19,6 +19,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
+use Data::Dumper;
 
 #use Bio::EnsEMBL::Analysis::RunnableDB;
 #use Bio::EnsEMBL::Pipeline::Analysis;
@@ -32,7 +33,7 @@ sub fetch_input {
   my $self = shift;
 
   if($self->param('slice')) {
-    my $dba = $self->hrdb_get_dba($self->param('reference_db'));
+    my $dba = $self->hrdb_get_dba($self->param('target_db'));
     $self->hrdb_set_con($dba);
   }
 
@@ -78,6 +79,7 @@ sub run {
     );
 
     $input_id_factory->generate_input_ids;
+
     $self->output_ids($input_id_factory->input_ids);
   } else {
 
@@ -186,7 +188,6 @@ sub write_output {
   }
 
   foreach my $output_id (@{$output_ids}) {
-
     if($self->param_is_defined('skip_mito') && ($self->param('skip_mito') == 1 || $self->param('skip_mito') eq 'yes') &&
        $self->param_is_defined('slice') && ($self->param('slice') == 1 || $self->param('slice') eq 'yes') &&
        $output_id =~ /^.+\:.+\:MT\:/) {
@@ -195,6 +196,7 @@ sub write_output {
 
     my $output_hash = {};
     $output_hash->{'iid'} = $output_id;
+    $self->dataflow_output_id($output_hash,4);
     $self->dataflow_output_id($output_hash,1);
   }
 
