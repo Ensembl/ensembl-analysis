@@ -79,9 +79,6 @@ sub fetch_input{
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->hrdb_set_con($dba,'target_db');
 
-  my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
-  $self->query($slice);
 
   unless($self->param('blast_db_path')) {
     $self->throw("You did not pass in the blast_db_path parameter. This is required to locate the blast db");
@@ -101,17 +98,47 @@ sub fetch_input{
   $self->analysis($analysis);
   $self->hive_set_config;
 
-  my %blast = %{$self->BLAST_PARAMS};
   my $pta = $dba->get_PredictionTranscriptAdaptor;
-  my $logic_names = $self->param('prediction_transcript_logic_names');
-  if ( !ref($logic_names) || scalar(@$logic_names) == 0 ) {
-    $logic_names = ['genscan'];
-  }
+
+  my $input_id = $self->param('iid');
+  my $input_id_type = $self->param('iid_type');
   my @pts ;
-  foreach my $logic_name (@$logic_names) {
-    my $pt = $pta->fetch_all_by_Slice($self->query, $logic_name);
+  if($input_id_type eq 'slice') {
+    my $logic_names = $self->param('prediction_transcript_logic_names');
+    if ( !ref($logic_names) || scalar(@$logic_names) == 0 ) {
+      $logic_names = ['genscan'];
+    }
+
+    my $slice = $self->fetch_sequence($input_id,$dba);
+    $self->query($slice);
+
+    foreach my $logic_name (@$logic_names) {
+      my $pt = $pta->fetch_all_by_Slice($self->query, $logic_name);
+      push @pts, @$pt ;
+    }
+  } elsif($input_id_type eq 'feature_id') {
+    my $pt_feature = $pta->fetch_by_dbID($input_id);
+    my $pt = [$pt_feature];
     push @pts, @$pt ;
+
+    my $feature_slice = $pt_feature->feature_Slice();
+    my $cs = $feature_slice->coord_system;
+    my $cs_name = $cs->name;
+    my $cs_version = $cs->version;
+    my $slice_name = $pt_feature->seq_region_name;
+    my $slice_start = $pt_feature->seq_region_start;
+    my $slice_end = $pt_feature->seq_region_end;
+
+    my $slice_id = $cs_name.":".$cs_version.":".$slice_name.":".$slice_start.":".$slice_end.":1";
+
+    my $slice = $self->fetch_sequence($slice_id,$dba);
+    $self->query($slice);
+
+  } else {
+    $self->throw("The input_id type you have specified is not currently supported by this module\ninput_id_type: ".$input_id_type);
   }
+
+  my %blast = %{$self->BLAST_PARAMS};
   my $parser = $self->make_parser;
   my $filter;
   if($self->BLAST_FILTER){

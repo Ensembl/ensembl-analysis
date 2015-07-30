@@ -192,11 +192,18 @@ sub write_output{
   my $ff = $self->feature_factory;
   foreach my $feature (@{$self->output}){
     $feature->analysis($self->analysis);
+
     unless($feature->slice) {
       $feature->slice($self->query);
     }
 
     $ff->validate($feature);
+
+    # Put this in to stop any issues with the coordinates of the align feature. Was running into
+    # this for some reason with the prediction transcript that had dbIDs as their input id
+    my $slice = $feature->slice->seq_region_Slice;
+    $feature->slice($slice);
+
     if($feature->isa('Bio::EnsEMBL::DnaDnaAlignFeature')){
       eval{
         $dna_a->store($feature);
