@@ -32,9 +32,9 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
-  if($self->param('slice')) {
+  if($self->param('slice') || $self->param('slice_to_feature_ids')) {
     my $dba = $self->hrdb_get_dba($self->param('target_db'));
-    $self->hrdb_set_con($dba);
+    $self->hrdb_set_con($dba,'target_db');
   }
 
   return 1;
@@ -44,20 +44,21 @@ sub run {
   my $self = shift;
 
   if (!($self->param('slice')) && !($self->param('single')) && !($self->param('file')) &&
-      !($self->param('translation_id')) && !($self->param('hap_pair')) && !($self->param('chunk'))
+      !($self->param('translation_id')) && !($self->param('hap_pair')) && !($self->param('chunk')) &&
+      !($self->param('slice_to_feature_ids'))
      ) {
     throw("Must define input as either contig, slice, file, translation_id ".
-          "single, seq_level or top_level or hap_pair");
+          "single, seq_level, top_level, hap_pair, chunk or slice_to_feature_ids");
   }
 
   if($self->param('slice') && $self->param('chunk')) {
     throw("You have selected both the slice and the chunk file, select one or the other");
   }
 
-  unless($self->param('chunk')) {
+  if($self->param('slice')) {
     my $input_id_factory = new Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
     (
-     -db => $self->hrdb_get_con(),
+     -db => $self->hrdb_get_con('target_db'),
      -slice => $self->param('slice'),
      -single => $self->param('single'),
      -file => $self->param('file'),
@@ -81,12 +82,13 @@ sub run {
     $input_id_factory->generate_input_ids;
 
     $self->output_ids($input_id_factory->input_ids);
-  } else {
-
+  } elsif($self->param('chunk')) {
     if($self->param_is_defined('num_chunk') || $self->param_is_defined('seqs_per_chunk')) {
       $self->make_chunk_files();
     }
     $self->create_chunk_ids();
+  } elsif($self->param('slice_to_feature_ids')) {
+    $self->convert_slice_to_feature_ids();
   }
   return 1;
 }
@@ -203,13 +205,51 @@ sub write_output {
   return 1;
 }
 
+sub convert_slice_to_feature_ids {
+  my ($self) = @_;
+
+  unless($self->param('iid')) {
+    $self->throw("Failed to provide an input id. Expected to find a slice input id using \$self->param('iid')");
+  }
+
+  unless($self->param('feature_type')) {
+    $self->throw("You're trying to convert a slice to a set of feature ids but haven't provided a feature type. ".
+                 "Expected \$self->param('feature_type')");
+  }
+
+  my $output_id_array = [];
+
+  my $input_id = $self->param('iid');
+  my $slice = $self->fetch_sequence($input_id,$self->hrdb_get_con('target_db'));
+  $self->query($slice);
+
+  if($self->param('feature_type') eq 'prediction_transcript') {
+    my $pta = $self->hrdb_get_con('target_db')->get_PredictionTranscriptAdaptor;
+    my $logic_names = $self->param('prediction_transcript_logic_names');
+    if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
+      $logic_names = ['genscan'];
+    }
+    my @pts ;
+    foreach my $logic_name (@$logic_names) {
+      my $pt = $pta->fetch_all_by_Slice($self->query, $logic_name);
+      foreach my $pt_feature (@{$pt}) {
+        push(@{$output_id_array},$pt_feature->dbID());
+      }
+    }
+  } else {
+    $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: ".$self->param('feature_type'));
+  }
+
+  $self->output_ids($output_id_array);
+}
+
 
 sub input_id_factory {
  my ($self,$value) = @_;
 
   if (defined $value) {
     unless($value->isa('Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory')) {
-      throw("To set an input id factory object it must be of type Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory, not a ".$value);
+      $self->throw("To set an input id factory object it must be of type Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory, not a ".$value);
     }
     $self->param('_input_id_factory',$value);
   }
