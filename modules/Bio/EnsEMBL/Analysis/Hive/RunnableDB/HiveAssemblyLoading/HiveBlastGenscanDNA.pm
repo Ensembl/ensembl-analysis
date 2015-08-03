@@ -94,8 +94,8 @@ sub fetch_input{
                                              -program => $self->param('blast_program'),
                                              -program_file => $self->param('blast_exe_path'),
                                              -parameters => $self->param('commandline_params'),
-                                             -db_file => 'uniuni',
-                                             -db => 'uniuni',
+                                             -db_file => $self->param('blast_db_path'),
+                                             -db => $self->param('blast_db_name'),
                                            );
 
   $self->analysis($analysis);
