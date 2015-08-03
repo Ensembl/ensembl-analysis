@@ -18,6 +18,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
 use Carp;
+use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Hive::Utils ('stringify');
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
@@ -47,6 +48,32 @@ sub output {
   }
   return $self->param('_output');
 }
+
+
+sub write_output {
+  my ($self) = @_;
+
+  my $adaptor  = $self->get_adaptor();
+  my $analysis = $self->analysis();
+
+  foreach my $feature ( @{ $self->output() } ) {
+    $feature->analysis($analysis);
+
+    if ( !defined( $feature->slice() ) ) {
+      $feature->slice( $self->query() );
+    }
+
+    $self->feature_factory->validate($feature);
+
+    eval { $adaptor->store($feature); };
+    if ($@) {
+      $self->throw("RunnableDB::write_output() failed: failed to store '".$feature."' into database '".
+                   $self->hrdb_get_con('target_db')->dbname."': ".$@);
+    }
+  }
+
+  return 1;
+} ## end sub write_output
 
 sub runnable {
   my ($self, $runnable) = @_;
