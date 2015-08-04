@@ -19,14 +19,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 
-#use Bio::EnsEMBL::Analysis::RunnableDB;
-#use Bio::EnsEMBL::Pipeline::Analysis;
-#use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
-#use Bio::EnsEMBL::Pipeline::DBSQL::StateInfoContainer;
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -47,12 +41,12 @@ sub run {
       !($self->param('translation_id')) && !($self->param('hap_pair')) && !($self->param('chunk')) &&
       !($self->param('slice_to_feature_ids'))
      ) {
-    throw("Must define input as either contig, slice, file, translation_id ".
-          "single, seq_level, top_level, hap_pair, chunk or slice_to_feature_ids");
+    $self->throw("Must define input as either contig, slice, file, translation_id ".
+                 "single, seq_level, top_level, hap_pair, chunk or slice_to_feature_ids");
   }
 
   if($self->param('slice') && $self->param('chunk')) {
-    throw("You have selected both the slice and the chunk file, select one or the other");
+    $self->throw("You have selected both the slice and the chunk file, select one or the other");
   }
 
   if($self->param('slice')) {
@@ -114,7 +108,7 @@ sub make_chunk_files {
   }
 
   unless(-e $input_file) {
-      throw("Your input file '".$input_file."' does not exist!!!");
+      $self->throw("Your input file '".$input_file."' does not exist!!!");
   }
 
   unless(-e $chunk_dir) {
@@ -122,14 +116,14 @@ sub make_chunk_files {
   }
 
   unless($self->param_is_defined('fastasplit_random_path')) {
-    throw("You haven't defined a path to fastasplit_random. Please define this using the fastasplit_random_path ".
-          " flag in your pipeline config");
+    $self->throw("You haven't defined a path to fastasplit_random. Please define this using the fastasplit_random_path ".
+                 " flag in your pipeline config");
   }
 
   my $fastasplit_random_path = $self->param('fastasplit_random_path');
   unless(-e $fastasplit_random_path) {
-    throw("The path provided to the fastasplit_random exe does not exist. Please check the path in the config:\n".
-          $fastasplit_random_path);
+    $self->throw("The path provided to the fastasplit_random exe does not exist. Please check the path in the config:\n".
+                 $fastasplit_random_path);
   }
 
   if($self->param_is_defined('seqs_per_chunk')) {
@@ -141,7 +135,7 @@ sub make_chunk_files {
   my $fastasplit_command = $fastasplit_random_path." ".$input_file." ".$chunk_num." ".$chunk_dir;
   my $fastasplit_exit_code = system($fastasplit_command);
   unless($fastasplit_exit_code == 0){
-    throw($fastasplit_random_path." returned an error code:\n".$fastasplit_exit_code);
+    $self->throw($fastasplit_random_path." returned an error code:\n".$fastasplit_exit_code);
   }
 
 }
@@ -168,8 +162,8 @@ sub create_chunk_ids {
   my @chunk_array = glob $chunk_dir."/".$input_file."_chunk_*";
 
   unless(scalar(@chunk_array)) {
-    throw("Found no files in chunk dir using glob. Chunk dir:\n".
-          $chunk_dir."/"."\nChunk generic name:\n".$input_file."_chunk_*");
+    $self->throw("Found no files in chunk dir using glob. Chunk dir:\n".
+                 $chunk_dir."/"."\nChunk generic name:\n".$input_file."_chunk_*");
   }
 
   for(my $i=0; $i < scalar(@chunk_array); $i++) {
@@ -186,7 +180,7 @@ sub write_output {
   my $output_ids = $self->output_ids();
 
   unless(scalar(@{$output_ids})) {
-    warning("No input ids generated for this analysis!");
+    $self->warning("No input ids generated for this analysis!");
   }
 
   foreach my $output_id (@{$output_ids}) {
