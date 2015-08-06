@@ -242,7 +242,7 @@ sub run {
               }
               # we want to keep track of the presence of processed_transcript/non-coding transcripts to decide about the gene biotype later on
               $processed_transcript = 1;
-            } elsif ($trans->translate->seq =~ /\*/ and $t_biotype !~ /TR_.*_gene/ and $t_biotype !~ /IG_.*_gene/) { # transcript has translation with stop codon
+            } elsif ($trans->translate->seq =~ /\*/ and $t_biotype !~ /TR_.*gene/ and $t_biotype !~ /IG_.*gene/) { # transcript has translation with stop codon
               if ($t_biotype !~ /.*polymorphic.*/)  { # but its biotype is not polymorphic or polymorphic_pseudogene
                 # transcript biotype should be polymorphic_pseudogene
                 my ($t_biotype_prefix,$t_biotype_suffix) = get_biotype_affix($t_biotype,$transcript_biotypes_str,$transcript_prefixes_str,$transcript_suffixes_str);
