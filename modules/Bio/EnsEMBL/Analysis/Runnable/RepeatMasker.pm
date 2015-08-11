@@ -270,9 +270,9 @@ sub parse_results{
             $repeat_class = $1;
             $repeat_name = $repeatmunge;
           }
-          elsif ($repeatmunge2 =~ /(LTR\/ERV\S+)/)
+          elsif ($repeatmunge2 =~ /(LTR\S*)/)
           {
-            $repeatmunge2 =~ /(LTR\/ERV\S+)/;
+            $repeatmunge2 =~ /(LTR\S*)/;
             $repeat_class = $1;
             $repeat_name = $repeatmunge;
           }
