@@ -487,7 +487,7 @@ foreach my $row (@$rows) {
     $read_group .= "\tDT:" . $row->{ST} if (exists $row->{ST});
     if (exists $row->{PL})
     {
-        my ($field_pl) = $row->{PL} =~ /([^+])/;
+        my ($field_pl) = $row->{PL} =~ /([^+]+)/;
         $read_group .= "\tPL:" . $field_pl ;
     }
     $read_group .= "\n" ;
@@ -861,16 +861,22 @@ sub read_pipeline_config {
                             $data{$key} = $cells[ $col - 1 ];
                         }
                     }
+                    elsif ($key eq 'PAIRED' or $key eq 'LENGTH') {
+                        # no room for whitespace in the paired or length flag
+                        $data{$key} .= $cells[ $col - 1 ];
+                        $data{$key} =~ s/\s+//g;
+
+                    }
                     else {
                         $data{$key} .= $cells[ $col - 1 ] . " ";
                     }
-                    # no room for whitespace in the paired or length flag
-                    $data{$key} =~ s/\s+//g if $key eq 'PAIRED' or $key eq 'LENGTH';
                     # group together IDs by tissue if specified
                     if ( $key eq $rgt ) {
                         $id_groups{$data{$rgt}}->{$data{'ID'}}++;
                     }
                 }
+                $data{$key} =~ s/\s*$// if (exists $data{$key});
+
             }
 			if ( $line == 1 ) {
 				foreach my $key ( keys %data ) {
