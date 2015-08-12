@@ -43,12 +43,9 @@ package Bio::EnsEMBL::Analysis::Runnable::GenBlast;
 
 use strict;
 use warnings;
-use feature 'say';
-use Data::Dumper;
 
 use File::Basename;
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 use Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -175,12 +172,9 @@ sub run_analysis{
 
   $self->resultsfile($self->query. $outfile_suffix. ".gff");
 
-  my $return = system($command); # == 0 or throw("FAILED to run ".$command);
+  system($command) == 0 or throw("FAILED to run ".$command);
 
-  say "FM2 genblast return value: ".$return;
-  say "FM2 genblast command: ".$command;
   foreach my $file (glob("${outfile_glob_prefix}*")) {
-     say "FM2 files to delete: ".$file;
     $self->files_to_delete($file);
   }
 }
@@ -207,7 +201,8 @@ sub parse_results{
     $results = $self->resultsfile;
   }
 
-  open(OUT, "<".$results) or throw("FAILED to open ".$results."\nGenBlast:parse_results");
+  open(OUT, "<".$results) or throw("FAILED to open ".$results.
+                                   "GenBlast:parse_results");
   my (%transcripts, @transcripts);
 
   LINE:while(<OUT>){
@@ -240,50 +235,44 @@ sub parse_results{
         $transcripts{$group}->{hitname} = $hitname;
       } elsif ($type eq 'coding_exon') {
         my ($group) = ($other =~ /Parent=(\S+)/);
+
         if (not exists $self->genome_slices->{$chromosome}) {
           throw("No slice supplied to runnable with for $chromosome");
         }
+          
 
-        my $exon = Bio::EnsEMBL::Exon->new(-start => $start,
-                                           -end   => $end,
-                                           -strand => $strand eq '-' ? -1 : 1,
-                                           -analysis => $self->analysis,
-                                           -slice => $self->genome_slices->{$chromosome});
-        push @{$transcripts{$group}->{exons}}, $exon;
+        my $prediction_exon = Bio::EnsEMBL::PredictionExon->new(-start => $start,
+                                                                -end   => $end,
+                                                                -strand => $strand eq '-' ? -1 : 1,
+                                                                -analysis => $self->analysis,
+                                                                -score => $score,
+                                                                -slice => $self->genome_slices->{$chromosome});
+        push @{$transcripts{$group}->{exons}}, $prediction_exon;
       }
+      
     }
   }
   close(OUT) or throw("FAILED to close ".$results.
                       "GenBlast:parse_results");
-
+  
   foreach my $tid (keys %transcripts) {
     my @exons = sort { $a->start <=> $b->start } @{$transcripts{$tid}->{exons}};
-#    map { $_->score($transcripts{$tid}->{score}) } @exons;
-#    $self->set_phases(0, \@exons);
+    map { $_->score($transcripts{$tid}->{score}) } @exons;
+    $self->set_phases(0, \@exons);
 
-    my $tran = Bio::EnsEMBL::Transcript->new(-exons => \@exons,
-                                             -slice => $exons[0]->slice,
-                                             -analysis => $self->analysis,
-                                             -display_label => $transcripts{$tid}->{hitname});
+    my $tran = Bio::EnsEMBL::PredictionTranscript->new(-exons => \@exons,
+                                                       -slice => $exons[0]->slice,
+                                                       -analysis => $self->analysis,
+                                                       -display_label => $transcripts{$tid}->{hitname});
 
-    my $start_exon = $exons[0];
-    my $end_exon = $exons[scalar(@exons)-1];
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($start_exon);
-    $translation->start(1);
-    $translation->end_Exon($end_exon);
-    $translation->end($end_exon->length());
-
-    $tran->translation($translation);
-    calculate_exon_phases($tran, 0);
     push @transcripts, $tran;
 
-#    my $pep = $tran->translate->seq;
-#    if ($pep =~ /\*/) {
-#      printf STDERR "Bad translation for $tid : $pep\n";
-#    }
+    my $pep = $tran->translate->seq;
+    if ($pep =~ /\*/) {
+      printf STDERR "Bad translation for $tid : $pep\n";
+    }
   }
-
+  
   $self->clean_output;
   $self->output(\@transcripts);
 
