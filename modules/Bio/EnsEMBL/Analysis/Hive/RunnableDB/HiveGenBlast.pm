@@ -56,7 +56,7 @@ use warnings;
 use feature 'say';
 use Data::Dumper;
 
-use Bio::EnsEMBL::Analysis::Runnable::GenBlast;
+use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -66,7 +66,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
   Function  : fetch data out of database and create runnable
   Returntype: 1
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
@@ -94,55 +94,26 @@ sub fetch_input {
 
   my $genome_file = $self->analysis->db_file;
   my $genome_slices = $self->get_genome_slices;
-  my $time = time();
-  say "FM2 time before open: ".$time;
-#  open(my $fh, $genome_file) or $self->throw("Could not open $genome_file for reading");
-#  while(<$fh>) {
-#    /^\>(\S+)/ and do {
-#      my $seq_name = $1;
-#      say "FM2 DUMPER: ".Dumper($dba);
-#       my $slice = $dba->get_SliceAdaptor->fetch_by_name($seq_name);
-#        my $slice = $self->fetch_sequence($seq_name,$dba);
-#       $self->query($slice);
-#        $time = time();
-#       say "FM2 slice time ".$slice->name.": ".$time;
-#      my $slice = $dba->get_SliceAdaptor->fetch_by_region('toplevel', $seq_name);
-#      say "FM2 SLICE: ".Dumper($slice);
-#      if (not defined $slice) {
-#        $self->throw("Could not extract slice for $seq_name from database");
-#      }
-#      $genome_slices{$seq_name} = $slice;
-#    }
-#  }
-#  close $fh;
 
-  $time = time();
-  say "FM2 time after open: ".$time;
-  my $query_file = $self->input_id;
+  my $query_file = $self->param('iid');
   if($self->param('query_seq_dir')) {
     $query_file = $self->param('query_seq_dir')."/".$query_file;
   }
 
-  say "FM2 pre runnable: ";
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlast->new
+  my $genblast_program = $self->param('genblast_program');
+
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
      -query => $query_file,
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
      -database => $self->analysis->db_file,
      -refslices => $genome_slices,
+     -genblast_program => $genblast_program,
      %parameters,
     );
   $self->runnable($runnable);
 
-#  say "FM2 DUMP DB SLICES: ".Dumper($genome_slices);
-#  foreach my $slice_names (keys(%{$genome_slices})) {
-#    say "FM2 SLICE NAME: ".$slice_names;
-#  }
-#  exit;
-
-  $time = time();
-  say "FM2 leaving fetch: ".$time;
   return 1;
 }
 
@@ -153,8 +124,8 @@ sub fetch_input {
   Function  : writes the prediction transcripts back to the database
   after validation
   Returntype: none
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
@@ -162,7 +133,7 @@ sub fetch_input {
 
 sub write_output{
   my ($self) = @_;
-  say "FM2 entering WO: ";
+
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
   my @output = @{$self->output};
   my $ff = $self->feature_factory;
@@ -173,7 +144,7 @@ sub write_output{
     $gene->biotype($self->analysis->logic_name);
 
     $transcript->analysis($self->analysis);
-    $transcript->slice($self->query) if(!$transcript->slice);
+#    $transcript->slice($self->query) if(!$transcript->slice);
 #    if ($self->test_translates()) {
 #      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
 #      next;
@@ -181,7 +152,7 @@ sub write_output{
     $gene->add_Transcript($transcript);
     $adaptor->store($gene);
   }
-  say "FM2 leaving WO: ";
+
   return 1;
 }
 
@@ -191,6 +162,12 @@ sub get_genome_slices {
   my @slice_array;
   my $genomic_slices;
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
+  # This was taken from exonerate module as it is much faster for loading the slices
+  # when there are large numbers of slices involved
+
+#
+# NOTE: should re-implement the code I commented out below
+#
 
   #also fetching non-reference regions like DR52 for human by default.
   #specify in Exonerate2Genes config-file.
@@ -213,8 +190,8 @@ sub get_genome_slices {
   Arg [1]   : Bio::EnsEMBL::PredictionTranscript
   Function  : tests whether a transcript translates correctly
   Returntype: int 1 for failure, 0 for OK
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
@@ -229,7 +206,7 @@ sub test_translates {
     print "$tseq->seq\n" if $tseq;
     $result = 1;
   }
-  return $result; 
+  return $result;
 }
 
 
