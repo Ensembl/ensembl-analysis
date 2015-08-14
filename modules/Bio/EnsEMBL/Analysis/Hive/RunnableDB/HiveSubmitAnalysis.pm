@@ -230,6 +230,16 @@ sub convert_slice_to_feature_ids {
         push(@{$output_id_array},$pt_feature->dbID());
       }
     }
+  } elsif($self->param('feature_type') eq 'gene') {
+    my $ga = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
+    my $logic_names = $self->param('gene_logic_names');
+
+    foreach my $logic_name (@$logic_names) {
+      my $genes = $ga->fetch_all_by_Slice($self->query, $logic_name);
+      foreach my $gene_feature (@{$genes}) {
+        push(@{$output_id_array},[$gene_feature->dbID()]);
+      }
+    }
   } else {
     $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: ".$self->param('feature_type'));
   }
