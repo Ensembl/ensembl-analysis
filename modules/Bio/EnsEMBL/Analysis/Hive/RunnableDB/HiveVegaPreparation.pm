@@ -69,6 +69,7 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
+use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -272,28 +273,6 @@ END
   run_command("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e\"$check_sql\"",
               "",
               $num_att);
-}
-
-sub run_command {
-  my ($command,$name,$expected_result) = @_;
-
-  print($name) if ($name);
-  print("\nRunning command:\n$command\n");
-
-  my $result = `$command`;
-  if ($?) {
-    throw("Command FAILED: `$command`");
-  }
-
-  if (defined($expected_result)) {
-    if (int($result) != $expected_result) {
-      throw("Command: $command\nResult: $result\nExpected result: $expected_result\n");
-    }
-    else {
-      print ("\nResult and expected result match: $expected_result\n");
-    }
-  }
-  return $result;
 }
 
 1;
