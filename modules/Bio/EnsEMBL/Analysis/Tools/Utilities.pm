@@ -814,4 +814,61 @@ sub is_canonical_splice {
   return ($canonical, $donor, $acceptor);
 }
 
+=head2 run_command
+
+  Arg [0]   : string containing the command to run
+  Arg [1]   : optional description of the command to run that will be printed to the standard output if defined
+  Arg [2]   : optional expected command numeric return value. If it does not match the command numeric return value, a exception will be thrown.
+  Function  : It runs a command and returns its return value including an optional checking of the returned value.
+  Returntype: string
+  Examples  : run_command("wc -l stable_ids.txt","Counting stable IDs...",19831);
+
+=cut
+
+sub run_command {
+  my ($command,$name,$expected_result) = @_;
+
+  print($name) if ($name);
+  print("\nRunning command:\n$command\n");
+
+  my $result = `$command`;
+  if ($?) {
+    throw("Command FAILED: `$command`");
+  }
+
+  if (defined($expected_result)) {
+    if (int($result) != $expected_result) {
+      throw("Command: $command\nResult: $result\nExpected result: $expected_result\n");
+    }
+    else {
+      print ("\nResult and expected result match: $expected_result\n");
+    }
+  }
+  return $result;
+}
+
+=head2 send_email
+
+  Arg [0]   : email to
+  Arg [1]   : email from
+  Arg [2]   : email subject
+  Arg [3]   : email body
+  
+  Function  : It sends an email by using the 'sendmail' command.
+  Returntype: n/a
+  Examples  : send_email("pollo@granja.es","hen@farm.co.uk","Farm issues","My body is mine.");
+  
+=cut
+
+sub send_email {
+  my ($to,$from,$subject,$body) = @_;
+  
+  open(my $sendmail_fh, '|-', "sendmail '$to'");
+  print $sendmail_fh "Subject: $subject\n";
+  print $sendmail_fh "From: $from\n";
+  print $sendmail_fh "\n";
+  print $sendmail_fh "$body\n";
+  close $sendmail_fh;
+}
+
 1;
