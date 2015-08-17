@@ -45,6 +45,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
@@ -149,9 +150,10 @@ sub run {
   # send report
   if ($self->param('email')) {
   	
-  	my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash ","Preparing list of broken genes for email...");
+  	# 'cat' at the end prevents the command from failing as if there was an error due to grep not finding any pattern
+  	my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash | cat","Preparing list of broken genes for email...");
   	
-  	my $empty_genes = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name'),"Preparing list of empty genes for email...");
+  	my $empty_genes = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | cat","Preparing list of empty genes for email...");
   	
   	my $body = <<'END_BODY';
 Hi,
@@ -178,39 +180,6 @@ sub write_output {
   my $self = shift;
 
   return 1;
-}
-
-sub run_command {
-  my ($command,$name,$expected_result) = @_;
-
-  print($name) if ($name);
-  print("\nRunning command:\n$command\n");
-
-  my $result = `$command`;
-  if ($?) {
-    throw("Command FAILED: `$command`");
-  }
-
-  if (defined($expected_result)) {
-    if (int($result) != $expected_result) {
-      throw("Command: $command\nResult: $result\nExpected result: $expected_result\n");
-    }
-    else {
-      print ("\nResult and expected result match: $expected_result\n");
-    }
-  }
-  return $result;
-}
-
-sub send_email {
-  my ($to,$from,$subject,$body) = @_;
-  
-  open(my $sendmail_fh, '|-', "sendmail '$to'");
-  print $sendmail_fh "Subject: $subject\n";
-  print $sendmail_fh "From: $from\n";
-  print $sendmail_fh "\n";
-  print $sendmail_fh "$body\n";
-  close $sendmail_fh;
 }
 
 1;
