@@ -326,7 +326,7 @@ sub read_and_check_config {
       };
       throw("Couldn't require ".$class." ExonerateAlignFeature:require_module $@") if($@);
     
-      $self->filter($module->new(%{$pars}));
+      $self->filter($module->new(-METHODS => $pars));
     }
   }
 
