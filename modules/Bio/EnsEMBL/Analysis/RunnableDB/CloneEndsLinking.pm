@@ -206,6 +206,7 @@ sub make_misc_feature {
                         $is_problematic = 1;
                     }
                     else {
+                        my $multiple = 0;
                         if ($align_insert_size < $low_limit or $align_insert_size > $high_limit) {
                             warning("OUTOFLIMIT $align_insert_size is out of the allow limits: $low_limit < allowed < $high_limit for $clone_name");
                         }
@@ -233,6 +234,7 @@ sub make_misc_feature {
                                 next if (@{$other_seq_region{$clone->{feature}->hseqname}} == 1);
                                 push(@other_alignments, @{$other_seq_region{$clone->{feature}->hseqname}});
                             }
+                            $multiple = 1;
                         }
                         if ($multiple) {
                             my $value = 'Same region';
