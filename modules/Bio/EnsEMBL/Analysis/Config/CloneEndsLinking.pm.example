@@ -1,0 +1,86 @@
+# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# POD documentation - main docs before the code
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Config::CloneEndsLinking
+
+=head1 SYNOPSIS
+
+    use Bio::EnsEMBL::Pipeline::Config::CloneEndsLinking;
+
+=head1 DESCRIPTION
+
+This contains the configuration for the linking of aligned
+clone ends in order to produce a misc set and its associated
+misc features. It needs to be run after a ExonerateAlignFeature
+run with specifique parameters.
+
+The layout of the configuration is a set of hashes,
+each one keyed by logic name. There is also a DEFAULT hash,
+which is used as the default for all logic names
+
+=head1 CONTACT
+
+=cut
+
+
+package Bio::EnsEMBL::Analysis::Config::CloneEndsLinking;
+
+use strict;
+use vars qw( %Config );
+
+%Config = (
+  CLONE_END_LINKING_CONFIG_BY_LOGIC => {
+    DEFAULT => {
+      # must be a directory with files containing clone fasta sequences with extra information in the headerlike this:
+      # >918936606:CH243-100A1:F:CH243:184000:36800:1098268172037:1001
+      CLONE_ALIGNED_DB => '',
+      CLONE_LOGIC_NAME => '',
+      OUTDB       => '',
+      STORE_DNAALIGNFEATURES => 1,
+    },
+  }
+);
+
+sub import {
+  my ($callpack) = caller(0); # Name of the calling package
+  my $pack = shift; # Need to move package off @_
+
+  # Get list of variables supplied, or else everything
+  my @vars = @_ ? @_ : keys( %Config );
+  return unless @vars;
+
+  # Predeclare global variables in calling package
+  eval "package $callpack; use vars qw("
+    . join(' ', map { '$'.$_ } @vars) . ")";
+    die $@ if $@;
+
+
+    foreach (@vars) {
+	if ( defined $Config{$_} ) {
+            no strict 'refs';
+	    # Exporter does a similar job to the following
+	    # statement, but for function names, not
+	    # scalar variables:
+	    *{"${callpack}::$_"} = \$Config{ $_ };
+	} else {
+	    die "Error: Config: $_ not known\n";
+	}
+    }
+}
+
+1;
