@@ -71,15 +71,21 @@ sub build_query {
   my ($self) = @_;
   my $tax_group = 0;
   my $taxon_id;
-  my $taxonomy;
+  my $taxon_group;
+  my $exclude_id;
+  my $exclude_group;
   my $dest_dir;
   my $file_name;
   my $pe_string = "(";
   my $taxonomy_string = "";
+  my $exclude_string = "";
   my $compress = "yes";
   my $fragment_string = "+AND+fragment:no";
   my $mito = "+NOT+organelle%3Amitochondrion";
   my $format = "fasta";
+
+
+  # http://www.uniprot.org/uniprot/?query=existence%3A%22evidence+at+protein+level%22+OR+existence%3A%22evidence+at+transcript+level%22+AND+taxonomy%3A%22Mammalia+%5B40674%5D%22+NOT+taxonomy%3A%22Primates+%5B9443%5D%22&sort=score
 
   my $full_query = "wget -q -O - \"http://www.uniprot.org/uniprot/?query=";
   my %pe_code = (
@@ -92,7 +98,7 @@ sub build_query {
 
   # Must have file_name, pe_level, dest_dir and either taxon_id or taxonomy
   unless($self->param_is_defined('file_name') && $self->param_is_defined('dest_dir') &&
-        ($self->param_is_defined('taxon_id') || $self->param_is_defined('taxonomy')) &&
+        ($self->param_is_defined('taxon_id') || $self->param_is_defined('taxon_group')) &&
          $self->param_is_defined('pe_level')) {
     throw("Must define the following keys:\nfile_name\ntaxon_id or taxonomy\ndest_dir\npe_level");
   }
@@ -118,13 +124,22 @@ sub build_query {
 
   $pe_string =~ s/\+OR\+$/\)/;
 
-
+  # NOTE this bit of the code with taxonomy and exclude is shit and needs to be upgraded
   if($self->param('taxon_id')) {
     $taxon_id = $self->param('taxon_id');
     $taxonomy_string = '+AND+taxonomy%3A+'.$taxon_id;
-  } elsif($self->param('taxonomy')) {
-    $taxonomy = $self->param('taxonomy');
-    $taxonomy_string = '+AND+taxonomy%3A'.$taxonomy;
+  } elsif($self->param('taxon_group')) {
+    $taxon_group = $self->param('taxon_group');
+    $taxonomy_string = '+AND+taxonomy%3A'.$taxon_group;
+  }
+
+#+NOT+taxonomy%3A%22
+  if($self->param('exclude_id')) {
+    $exclude_id = $self->param('exclude_id');
+    $exclude_string = '+NOT+taxonomy%3A+'.$exclude_id;
+  } elsif($self->param('exclude_group')) {
+    $exclude_group = $self->param('exclude_group');
+    $exclude_string = '+NOT+taxonomy%3A'.$exclude_group;
   }
 
   if($self->param_is_defined('compress') && ($self->param('compress') eq '0' || $self->param('compress') eq 'no')) {
@@ -140,7 +155,7 @@ sub build_query {
     $mito = "";
   }
 
-  $full_query .= $pe_string.$taxonomy_string.$fragment_string.$mito."&compress=".$compress."&format=".$format.
+  $full_query .= $pe_string.$taxonomy_string.$exclude_string.$fragment_string.$mito."&compress=".$compress."&format=".$format.
                  "\" > ".$dest_dir."/".$file_name;
   if($compress eq 'yes') {
     $full_query .= ".gz";
