@@ -76,6 +76,10 @@ sub fetch_input {
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  if($dna_dba) {
+    $dba->dnadb($dna_dba);
+  }
   $self->hrdb_set_con($dba,'target_db');
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
