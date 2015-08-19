@@ -57,26 +57,16 @@ sub fetch_input {
   my $genewise_genes;
   my $projection_genes;
 
-  my $rnaseq_gene_dbs =  $self->param('rnaseq_gene_dbs');
-  my $genblast_gene_dbs = $self->param('genblast_gene_dbs');
-  my $exonerate_gene_dbs = $self->param('exonerate_gene_dbs');
-  my $genewise_gene_dbs = $self->param('genewise_gene_dbs');
-  my $projection_gene_dbs = $self->param('projection_gene_dbs');
+  my $input_gene_dbs =  $self->param('input_gene_dbs');
+  my $allowed_input_sets = $self->param('allowed_input_sets');
 
-  my $rnaseq_allowed_sets = $self->param('rnaseq_allowed_sets');
-  my $genblast_allowed_sets = $self->param('genblast_allowed_sets');
-  my $exonerate_allowed_sets = $self->param('exonerate_allowed_sets');
-  my $genewise_allowed_sets = $self->param('genewise_allowed_sets');
-  my $projection_allowed_sets = $self->param('projection_allowed_sets');
+  my $dba = $self->hrdb_get_dba($self->param('input_db'));
+  $self->hrdb_set_con($dba,'input_db');
 
-  my $rnaseq_genes_weight = 0;
-  my $genblast_genes_weight = 0;
-  my $exonerate_genes_weight = 0;
-  my $genewise_genes_weight = 0;
-  my $projection_genes_weight = 0;
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  $self->hrdb_set_con($dna_dba,'dna_db');
+  $dba->dnadb($dna_dba);
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  $self->hrdb_set_con($dba,'target_db');
   my $out_dba = $self->hrdb_get_dba($self->param('output_db'));
   $self->hrdb_set_con($out_dba,'output_db');
 
@@ -84,35 +74,15 @@ sub fetch_input {
   my $slice = $self->fetch_sequence($input_id,$dba);
   $self->query($slice);
 
-  if($rnaseq_gene_dbs) {
-    $rnaseq_genes = $self->fetch_source_genes($rnaseq_gene_dbs,$rnaseq_allowed_sets);
-    $master_genes_hash->{'rnaseq_genes'} = $rnaseq_genes;
-  }
-
-  if($genblast_gene_dbs) {
-    $genblast_genes = $self->fetch_source_genes($genblast_gene_dbs,$genblast_allowed_sets);
-    $master_genes_hash->{'genblast_genes'} = $genblast_genes;
-  }
-
-  if($exonerate_gene_dbs) {
-    $exonerate_genes = $self->fetch_source_genes($exonerate_gene_dbs,$exonerate_allowed_sets);
-    $master_genes_hash->{'exonerate_genes'} = $exonerate_genes;
-  }
-
-  if($genewise_allowed_sets) {
-    $genewise_genes = $self->fetch_source_genes($genewise_gene_dbs,$genewise_allowed_sets);
-    $master_genes_hash->{'genewise_genes'} = $genewise_genes;
-  }
-
-  if($projection_gene_dbs) {
-    $projection_genes = $self->fetch_source_genes($projection_gene_dbs,$projection_allowed_sets);
-    $master_genes_hash->{'projection_genes'} = $projection_genes;
+  if($input_gene_dbs) {
+    my $input_genes = $self->fetch_source_genes($input_gene_dbs,$allowed_input_sets);
+    $master_genes_hash->{'input_genes'} = $input_genes;
   }
 
   $self->master_genes_hash($master_genes_hash);
 
   # Now need to think how this would be represented in config
-  # rnaseq_gene_dbs => ['rnaseq_blast_db'],
+  # input_gene_dbs => ['rnaseq_blast_db','genblast_db','exonerate_db'],
   # rnaseq_allowed_sets => {'baboon_liver_models' => {'protein_coding_80_100' => 1},
   #                         'baboon_lung_models' => {'protein_coding_80_100' => 1,
   #                         'protein_coding_50_80' => 1}}
@@ -165,7 +135,6 @@ sub write_output {
   }
   say "...finished writing genes to output db";
 
-  
   return 1;
 }
 
@@ -190,7 +159,7 @@ sub fetch_source_genes {
             if($gene_allowed_sets->{$logic_name}->{$biotype}) {
               push(@{$filtered_genes},$gene);
             }
-          } else {
+          } elsif($gene_allowed_sets->{$logic_name}) {
             push(@{$filtered_genes},$gene);
           }
         }
