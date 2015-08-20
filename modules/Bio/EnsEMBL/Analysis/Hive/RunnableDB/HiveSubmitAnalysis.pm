@@ -39,7 +39,7 @@ sub run {
 
   if (!($self->param('slice')) && !($self->param('single')) && !($self->param('file')) &&
       !($self->param('translation_id')) && !($self->param('hap_pair')) && !($self->param('chunk')) &&
-      !($self->param('slice_to_feature_ids'))
+      !($self->param('slice_to_feature_ids')) && !($self->param('split_slice'))
      ) {
     $self->throw("Must define input as either contig, slice, file, translation_id ".
                  "single, seq_level, top_level, hap_pair, chunk or slice_to_feature_ids");
@@ -50,41 +50,84 @@ sub run {
   }
 
   if($self->param('slice')) {
-    my $input_id_factory = new Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
-    (
-     -db => $self->hrdb_get_con('target_db'),
-     -slice => $self->param('slice'),
-     -single => $self->param('single'),
-     -file => $self->param('file'),
-     -translation_id => $self->param('translation_id'),
-     -seq_level => $self->param('seq_level'),
-     -top_level => $self->param('top_level'),
-     -include_non_reference => $self->param('include_non_reference'),
-     -dir => $self->param('dir'),
-     -regex => $self->param('regex'),
-     -single_name => 'genome', # Don't know why this is set this way
-     -logic_name => $self->param('logic_name'),
-     -input_id_type => $self->param('input_id_type'),
-     -coord_system => $self->param('coord_system_name'),
-     -coord_system_version => $self->param('coord_system_version'),
-     -slice_size => $self->param('slice_size'),
-     -slice_overlaps => $self->param('slice_overlap'),
-     -seq_region_name => $self->param('seq_region_name'),
-     -hap_pair => $self->param('hap_pair'),
-    );
-
-    $input_id_factory->generate_input_ids;
-
-    $self->output_ids($input_id_factory->input_ids);
+    $self->create_slice_ids();
   } elsif($self->param('chunk')) {
-    if($self->param_is_defined('num_chunk') || $self->param_is_defined('seqs_per_chunk')) {
-      $self->make_chunk_files();
-    }
     $self->create_chunk_ids();
   } elsif($self->param('slice_to_feature_ids')) {
     $self->convert_slice_to_feature_ids();
+  } elsif($self->param('split_slice')) {
+    $self->split_slice();
+  } else {
+    $self->throw('You have not specified one of the recognised operation types');
   }
   return 1;
+}
+
+sub create_slice_ids {
+  my ($self) = @_;
+
+  my $input_id_factory = new Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
+     (
+       -db => $self->hrdb_get_con('target_db'),
+       -slice => $self->param('slice'),
+       -single => $self->param('single'),
+       -file => $self->param('file'),
+       -translation_id => $self->param('translation_id'),
+       -seq_level => $self->param('seq_level'),
+       -top_level => $self->param('top_level'),
+       -include_non_reference => $self->param('include_non_reference'),
+       -dir => $self->param('dir'),
+       -regex => $self->param('regex'),
+       -single_name => 'genome', # Don't know why this is set this way
+       -logic_name => $self->param('logic_name'),
+       -input_id_type => $self->param('input_id_type'),
+       -coord_system => $self->param('coord_system_name'),
+       -coord_system_version => $self->param('coord_system_version'),
+       -slice_size => $self->param('slice_size'),
+       -slice_overlaps => $self->param('slice_overlap'),
+       -seq_region_name => $self->param('seq_region_name'),
+       -hap_pair => $self->param('hap_pair'),
+     );
+
+  $input_id_factory->generate_input_ids;
+  $self->output_ids($input_id_factory->input_ids);
+}
+
+
+sub create_chunk_ids {
+  my $self = shift;
+
+  if($self->param_is_defined('num_chunk') || $self->param_is_defined('seqs_per_chunk')) {
+      $self->make_chunk_files();
+  }
+
+  my $input_file;
+  my $chunk_dir = $self->param('chunk_output_dir');
+
+
+  if($self->param_is_defined('input_file_path')) {
+      $input_file = $self->param('input_file_path');
+    } else {
+      $input_file = $self->input_id;
+  }
+
+  # Get the name without the extension as fastasplit_random cuts off the extension
+  $input_file =~ /[^\/]+$/;
+  $input_file = $&;
+  $input_file =~ s/\.[^\.]+$//;
+
+  my @chunk_array = glob $chunk_dir."/".$input_file."_chunk_*";
+
+  unless(scalar(@chunk_array)) {
+    $self->throw("Found no files in chunk dir using glob. Chunk dir:\n".
+                 $chunk_dir."/"."\nChunk generic name:\n".$input_file."_chunk_*");
+  }
+
+  for(my $i=0; $i < scalar(@chunk_array); $i++) {
+    $chunk_array[$i] =~ /[^\/]+$/;
+    $chunk_array[$i] = $&;
+  }
+  $self->output_ids(\@chunk_array);
 }
 
 
@@ -141,39 +184,6 @@ sub make_chunk_files {
 }
 
 
-sub create_chunk_ids {
-  my $self = shift;
-
-  my $input_file;
-  my $chunk_dir = $self->param('chunk_output_dir');
-
-
-  if($self->param_is_defined('input_file_path')) {
-      $input_file = $self->param('input_file_path');
-    } else {
-      $input_file = $self->input_id;
-  }
-
-  # Get the name without the extension as fastasplit_random cuts off the extension
-  $input_file =~ /[^\/]+$/;
-  $input_file = $&;
-  $input_file =~ s/\.[^\.]+$//;
-
-  my @chunk_array = glob $chunk_dir."/".$input_file."_chunk_*";
-
-  unless(scalar(@chunk_array)) {
-    $self->throw("Found no files in chunk dir using glob. Chunk dir:\n".
-                 $chunk_dir."/"."\nChunk generic name:\n".$input_file."_chunk_*");
-  }
-
-  for(my $i=0; $i < scalar(@chunk_array); $i++) {
-    $chunk_array[$i] =~ /[^\/]+$/;
-    $chunk_array[$i] = $&;
-  }
-  $self->output_ids(\@chunk_array);
-}
-
-
 sub write_output {
   my $self = shift;
 
@@ -190,6 +200,11 @@ sub write_output {
        next;
     }
 
+    if($self->param('check_slice_for_features')) {
+      unless($self->check_slice_for_features()) {
+        next;
+      }
+    }
     my $output_hash = {};
     $output_hash->{'iid'} = $output_id;
     $self->dataflow_output_id($output_hash,4);
@@ -245,6 +260,63 @@ sub convert_slice_to_feature_ids {
   }
 
   $self->output_ids($output_id_array);
+}
+
+sub split_slice {
+  my ($self) = @_;
+
+  unless($self->param('iid')) {
+    $self->throw("Failed to provide an input id. Expected to find a slice input id using \$self->param('iid')");
+  }
+
+  unless($self->param('slice_size')) {
+    $self->throw("You selected the split_slice option, but did not specific 'slice_size'. Need a size to split into");
+  }
+
+  my $output_id_array = [];
+
+  my $slice_name = $self->param('iid');
+  my $target_slice_size = $self->param('slice_size');
+
+  # 'scaffold:PapAnu2.0:JH684492.1:1:489941:1'
+
+  my @slice_array = split(':',$slice_name);
+  my $slice_length = $slice_array[4]-$slice_array[3] + 1;
+  if($slice_length <= $target_slice_size) {
+    push(@{$output_id_array},$slice_name);
+  } else {
+    my $remainder = $slice_length % $target_slice_size;
+    my $loop_count = int($slice_length / $target_slice_size);
+    my $slice_start = $slice_array[3];
+    my $slice_end = $slice_start + $target_slice_size - 1;
+    my $new_slice = $slice_array[0].':'.$slice_array[1].':'.$slice_array[2].':'.$slice_start.':'.$slice_end.':'.$slice_array[5];
+    say "FM2 HERE, new slice ".$new_slice;
+    push(@{$output_id_array},$new_slice);
+    my $i=0;
+    for($i=1; $i<$loop_count; $i++) {
+      $slice_start += $target_slice_size;
+      $slice_end += $target_slice_size;
+      $new_slice = $slice_array[0].':'.$slice_array[1].':'.$slice_array[2].':'.$slice_start.':'.$slice_end.':'.$slice_array[5];
+      push(@{$output_id_array},$new_slice);
+    }
+    if($remainder) {
+      $slice_start += $target_slice_size;
+      $slice_end += $remainder;
+      $new_slice = $slice_array[0].':'.$slice_array[1].':'.$slice_array[2].':'.$slice_start.':'.$slice_end.':'.$slice_array[5];
+      push(@{$output_id_array},$new_slice);
+    }
+  }
+
+  $self->output_ids($output_id_array);
+}
+
+sub check_slice_for_features {
+  my ($self) = @_;
+
+  my $features_present = 0;
+  my $feature_type = $self->param('feature_type');
+  return $features_present;
+
 }
 
 
