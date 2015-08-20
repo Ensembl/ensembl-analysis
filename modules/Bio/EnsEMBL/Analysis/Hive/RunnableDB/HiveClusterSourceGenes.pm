@@ -50,22 +50,11 @@ sub fetch_input {
 
   my $master_genes_hash = {};
 
-  # These are the major transcript groups so far
-  my $rnaseq_genes;
-  my $genblast_genes;
-  my $exonerate_genes;
-  my $genewise_genes;
-  my $projection_genes;
-
   my $input_gene_dbs =  $self->param('input_gene_dbs');
   my $allowed_input_sets = $self->param('allowed_input_sets');
 
-  my $dba = $self->hrdb_get_dba($self->param('input_db'));
-  $self->hrdb_set_con($dba,'input_db');
-
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dna_dba,'dna_db');
-  $dba->dnadb($dna_dba);
+  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
+  $self->hrdb_set_con($dba,'dna_db');
 
   my $out_dba = $self->hrdb_get_dba($self->param('output_db'));
   $self->hrdb_set_con($out_dba,'output_db');
