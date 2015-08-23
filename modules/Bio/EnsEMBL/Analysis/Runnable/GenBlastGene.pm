@@ -71,11 +71,17 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($database,$ref_slices,$genblast_program) = rearrange([qw(DATABASE REFSLICES GENBLAST_PROGRAM)], @args);
+  my ($database,$ref_slices,$genblast_program,$uniprot_index) = rearrange([qw(DATABASE
+                                                                              REFSLICES
+                                                                              GENBLAST_PROGRAM
+                                                                              UNIPROT_INDEX)], @args);
   $self->database($database) if defined $database;
   $self->genome_slices($ref_slices) if defined $ref_slices;
   # Allows the specification of exonerate or genewise instead of genblastg. Will default to genblastg if undef
   $self->genblast_program($genblast_program) if defined $genblast_program;
+  # Allow loading of an index file that has the following structure: P30378:sp:2:1:primates_pe12
+  # (accession:database:pe_level:sequence_version:group)
+  $self->uniprot_index($uniprot_index) if defined $uniprot_index;
 
   throw("You must supply a database") if not $self->database;
   throw("You must supply a query") if not $self->query;
@@ -185,7 +191,6 @@ sub run_analysis{
   }
 
   foreach my $file (glob("${outfile_glob_prefix}*")) {
-     say "FM2 files to delete: ".$file;
     $self->files_to_delete($file);
   }
 }
@@ -208,7 +213,7 @@ sub run_analysis{
 sub parse_results{
   my ($self, $results) = @_;
 
-  if(!$results){
+ if(!$results){
     $results = $self->resultsfile;
   }
 
@@ -274,10 +279,17 @@ sub parse_results{
 
     my @exons = sort { $a->start <=> $b->start } @{$transcripts{$tid}->{exons}};
 
+    my $biotype;
+    if($self->uniprot_index) {
+      $biotype = $self->build_biotype($self->uniprot_index,$transcripts{$tid}->{hitname});
+    }
+
     my $tran = Bio::EnsEMBL::Transcript->new(-exons => \@exons,
                                              -slice => $exons[0]->slice,
                                              -analysis => $self->analysis,
                                              -stable_id => $transcripts{$tid}->{hitname});
+
+    $tran->biotype($biotype);
 
     # Reverse the exons for negative strand to calc the translations
     my $strand = $exons[0]->strand;
@@ -311,8 +323,41 @@ sub parse_results{
 
 
 
+sub build_biotype {
+  my ($self,$index_path,$accession) = @_;
 
+  unless(-e $index_path) {
+    throw("You specified an index file that doesn't exist. Path:\n".$index_path);
+  }
 
+  my $cmd = "grep '^".$accession."\:' $index_path";
+  my $result = `$cmd`;
+  chomp $result;
+
+  unless($result) {
+    throw("You specified an index file to use but the accession wasn't found in it. Commandline used:\n".$cmd);
+  }
+
+  my @result_array = split(':',$result);
+  my $group = $result_array[4];
+  my $database = $result_array[1];
+  my $biotype = $group."_".$database;
+
+  if($biotype eq '_') {
+    throw("Found a malformaed biotype based on parsing index. The accession in question was:\n".$accession);
+  }
+
+  return($biotype);
+
+}
+
+sub uniprot_index {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->{_uniprot_index} = $val;
+  }
+  return($self->{_uniprot_index});
+}
 
 ############################################################
 #
@@ -333,21 +378,22 @@ sub parse_results{
 
 sub query {
   my ($self, $val) = @_;
-  
+
   if (defined $val) {
-    if (not ref($val)) {   
+    if (not ref($val)) {
       throw("[$val] : file does not exist\n") unless -e $val;
     } elsif (not $val->isa("Bio::PrimarySeqI")) {
       throw("[$val] is neither a Bio::Seq not a file");
     }
     $self->{_query} = $val;
   }
-  
+
   return $self->{_query}
 }
 
+
 =head2 database
-  
+
     Title   :   database
     Usage   :   $self->database($seq)
     Function:   Get/set method for database.  If set with a Bio::Seq object it
@@ -359,9 +405,9 @@ sub query {
 
 sub database {
   my ($self, $val) = @_;
-  
+
   if (defined $val) {
-    if (not ref($val)) {   
+    if (not ref($val)) {
       throw("[$val] : file does not exist\n") unless -e $val;
     } else {
       if (ref($val) eq 'ARRAY') {
@@ -376,14 +422,14 @@ sub database {
     }
     $self->{_database} = $val;
   }
-  
+
   return $self->{_database};
 }
 
 
 sub genome_slices {
   my ($self, $val) = @_;
-  
+
   if (defined $val) {
     $self->{_genome_slices} = $val;
   }
