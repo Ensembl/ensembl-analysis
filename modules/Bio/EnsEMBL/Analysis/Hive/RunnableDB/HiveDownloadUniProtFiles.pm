@@ -67,10 +67,12 @@ sub write_output {
   my $self = shift;
 
   if($self->param('multi_query_download')) {
-
+    my $file_hash = $self->output_hash;
+    my $output_hash = {};
+    $output_hash->{'iid'} = $file_hash;
+    $self->dataflow_output_id($output_hash,1);
   } else {
     my $file_path = $self->param('dest_dir')."/".$self->param('file_name');
-
     my $output_hash = {};
     $output_hash->{'iid'} = $file_path;
     $self->dataflow_output_id($output_hash,1);
@@ -78,9 +80,20 @@ sub write_output {
   return 1;
 }
 
+sub output_hash {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_output_hash',$val);
+  }
+
+  return($self->param('_output_hash'));
+
+}
+
 sub multi_query_download {
   my ($self) = @_;
 
+  my $output_hash = {};
   my $multi_query_hash = $self->param('multi_query_download');
   unless(ref($multi_query_hash) eq 'HASH') {
     $self->throw("You're trying to download multiple queries, but haven't passed in a hash ref. You ".
@@ -100,16 +113,22 @@ sub multi_query_download {
       throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
     }
 
+    my $file_path = $query_params->{'dest_dir'}."/".$query_params->{'file_name'};
+
     if($query_url =~ /\.gz$/) {
-      my $file_path = $query_params->{'dest_dir'}."/".$query_params->{'file_name'};
       my $gunzip_command = "gunzip ".$file_path;
       my $gunzip_exit_code;
       $gunzip_exit_code = system($gunzip_command);
       unless($gunzip_exit_code == 0) {
-        throw("gunzip on file ended in an non-zero exit code:\n".$gunzip_exit_code);
+        $self->throw("gunzip on file ended in an non-zero exit code:\n".$gunzip_exit_code);
       }
     }
+
+    $output_hash->{$query_key} = $file_path;
   }
+
+  $self->output_hash($output_hash);
+
 }
 
 
@@ -144,7 +163,7 @@ sub build_query {
 
   if(exists($query_params->{'fragment'})) {
     if($query_params->{'fragment'}) {
-      $fragment_string = "+AND+fragment:yes";
+      $fragment_string = undef;
     }
   }
 
