@@ -105,6 +105,7 @@ sub fetch_input {
   }
 
   my $genblast_program = $self->param('genblast_program');
+  my $uniprot_index = $self->param('uniprot_index');
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -114,6 +115,7 @@ sub fetch_input {
      -database => $self->analysis->db_file,
      -refslices => $genome_slices,
      -genblast_program => $genblast_program,
+     -uniprot_index => $uniprot_index,
      %parameters,
     );
   $self->runnable($runnable);
