@@ -85,6 +85,8 @@ sub default_options {
                                  'genblast_primates_345' => 6,
                                 },
 
+        'clone_db_script_path' => '',
+
 #############################################################
 #                                                           #
 # THINGS THAT MOSTLY DON'T CHANGE                           #
@@ -99,7 +101,7 @@ sub default_options {
             -dbname => $self->o('pipe_dbname'),
             -host   => $self->o('pipe_db_server'),
             -port   => $self->o('port'),
-            -user   => $self->o('user'),
+            -user   => $self->o('user_w'),
             -pass   => $self->o('password'),
             -driver => $self->o('driver'),
         },
@@ -194,6 +196,7 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('initial_cluster_db'),
                          create_type => $self->o('create_type'),
+                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],
@@ -206,6 +209,7 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('final_geneset_db'),
                          create_type => $self->o('create_type'),
+                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],
@@ -234,7 +238,7 @@ sub pipeline_analyses {
         -parameters => {
                          logic_name => 'cluster_input_genes',
                          dna_db => $self->o('dna_db'),
-                         output_db => $self->o('cluster_db'),
+                         output_db => $self->o('initial_cluster_db'),
                          input_gene_dbs => $self->o('input_gene_dbs'),
                        },
         -rc_name    => 'cluster_input_genes',
@@ -250,7 +254,7 @@ sub pipeline_analyses {
         -parameters => {
                          target_db => $self->o('dna_db'),
                          split_slice => 1,
-                         slice_size => 1000000,
+                         slice_size => 50000000,
                         },
 
         -rc_name    => 'default',
@@ -264,12 +268,13 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessGeneClusters',
         -parameters => {
                          logic_name => 'finalise_geneset',
-                         cluster_db => $self->o('cluster_db'),
-                         processed_cluster_db => $self->o('processed_cluster_db'),
+                         cluster_db => $self->o('initial_cluster_db'),
+                         processed_cluster_db => $self->o('final_geneset_db'),
                          dna_db => $self->o('reference_db'),
                          iid_type => 'slice',
+                         logic_name_weights => $self->o('logic_name_weights'),
                        },
-        -rc_name    => 'process_clusters',
+        -rc_name    => 'finalise_geneset',
       },
 
 
@@ -294,6 +299,8 @@ sub resource_classes {
     my $self = shift;
     return {
       'default' => { LSF => '-q normal -M1900 -R"select[mem>1900] rusage[mem=1900,myens_build2tok=10,myens_build3tok=10,myens_build13tok=10]"' },
+      'cluster_input_genes' => { LSF => '-q normal -M1900 -R"select[mem>1900] rusage[mem=1900,myens_build2tok=10,myens_build3tok=10,myens_build4tok=10]"' },
+      'finalise_geneset' => { LSF => '-q normal -M1900 -R"select[mem>1900] rusage[mem=1900,myens_build2tok=10,myens_build5tok=10,myens_build6tok=10]"' },
     }
 }
 
