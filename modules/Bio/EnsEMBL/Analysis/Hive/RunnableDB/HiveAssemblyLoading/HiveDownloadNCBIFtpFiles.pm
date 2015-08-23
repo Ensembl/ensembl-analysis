@@ -77,7 +77,6 @@ sub download_ftp_dir {
   $ass_report_dir = pop(@ftp_path_array);
 
   my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
-  say "FM2 ".$link;
 
   if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
     $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
