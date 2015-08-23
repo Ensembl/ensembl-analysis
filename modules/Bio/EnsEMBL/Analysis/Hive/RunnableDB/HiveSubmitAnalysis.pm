@@ -103,6 +103,11 @@ sub create_chunk_ids {
 
   my $input_file;
   my $chunk_dir = $self->param('chunk_output_dir');
+  # If this is passed in then the idea is that chunk_output_dir is a parent dir and this dir name
+  # is the specific one for the input id
+  if($self->param('chunk_dir_name')) {
+    $chunk_dir .= "/".$self->param('chunk_dir_name');
+  }
 
 
   if($self->param_is_defined('input_file_path')) {
@@ -126,6 +131,9 @@ sub create_chunk_ids {
   for(my $i=0; $i < scalar(@chunk_array); $i++) {
     $chunk_array[$i] =~ /[^\/]+$/;
     $chunk_array[$i] = $&;
+    if($self->param('chunk_dir_name')) {
+      $chunk_array[$i] = $self->param('chunk_dir_name')."/".$chunk_array[$i];
+    }
   }
   $self->output_ids(\@chunk_array);
 }
@@ -136,6 +144,11 @@ sub make_chunk_files {
 
   my $input_file;
   my $chunk_dir = $self->param('chunk_output_dir');
+  # If this is passed in then the idea is that chunk_output_dir is a parent dir and this dir name
+  # is the specific one for the input id
+  if($self->param('chunk_dir_name')) {
+    $chunk_dir .= "/".$self->param('chunk_dir_name');
+  }
   my $chunk_num;
 
   if($self->param_is_defined('input_file_path')) {
@@ -207,6 +220,7 @@ sub write_output {
     }
     my $output_hash = {};
     $output_hash->{'iid'} = $output_id;
+
     $self->dataflow_output_id($output_hash,4);
     $self->dataflow_output_id($output_hash,1);
   }
