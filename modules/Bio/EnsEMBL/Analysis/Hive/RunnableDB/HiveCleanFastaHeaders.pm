@@ -45,6 +45,13 @@ sub write_output {
 
   my $output_hash = {};
   $output_hash->{'iid'} = $file_path;
+
+  # If this param exists pass it along. This is for chunking analyses further down, if there
+  # are multiple input ids flowing into the chunking analysis then it needs the specific chunk
+  # dir name for each file from the indexing step
+  if($self->param('chunk_dir_name')) {
+    $output_hash->{'chunk_dir_name'} = $self->param('chunk_dir_name');
+  }
   $self->dataflow_output_id($output_hash,1);
 
   return 1;
