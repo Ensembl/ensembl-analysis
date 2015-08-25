@@ -70,7 +70,9 @@ use vars qw (@ISA  @EXPORT);
               get_db_adaptor_by_string read_config
               import_var
               is_canonical_splice
-              get_database_connection_parameters_by_string ) ;
+              get_database_connection_parameters_by_string
+              run_command
+              send_email ) ;
 
 
 

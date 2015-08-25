@@ -147,8 +147,8 @@ sub run {
                      ." -dnadbname ".$self->param('dnadbname')
                      ." -dnauser ".$self->param('dnauser')
                      ." -dnaport ".$self->param('dnaport')
-                     ." -file ".$self->param('file')
-                     ,"Copying genes...");
+                     ." -file ".$self->param('file'),
+                     "Copying genes...");
   
 #  foreach my $table_to_count (@tables_to_count) {
 #    my $sql_count = "select count(*) from $table_to_count";
