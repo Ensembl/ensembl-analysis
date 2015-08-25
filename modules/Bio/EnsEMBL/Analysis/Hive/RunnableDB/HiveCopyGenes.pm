@@ -44,14 +44,13 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Analysis::Tools::Utilities;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
@@ -62,7 +61,7 @@ sub param_defaults {
       copy_genes_script_name => 'copy_genes.pl',
 
       # copy_genes.pl script parameters
-      logic => '', # to set the genes and transcripts analysis (logic names)
+      logic => '', # to set the genes and transcripts analysis (logic names) (optional)
       sourcehost => '',
       sourceuser => '',
       sourceport => '3306',
@@ -132,23 +131,27 @@ sub run {
 #                                                                ,"Counting $table_to_count rows on the output database before copying the genes...");
 #  }
   
-  run_command("perl ".$self->param('copy_genes_path')
-                     .$self->param('copy_genes_script_name')
-                     ." -logic ".$self->param('logic')
-                     ." -sourcehost ".$self->param('sourcehost')
-                     ." -sourceport ".$self->param('sourceport')
-                     ." -sourcedbname ".$self->param('sourcedbname')
-                     ." -outuser ".$self->param('outuser')
-                     ." -outpass ".$self->param('outpass')
-                     ." -outdbname ".$self->param('outdbname')
-                     ." -outport ".$self->param('outport')
-                     ." -outhost ".$self->param('outhost')
-                     ." -dnahost ".$self->param('dnahost')
-                     ." -dnadbname ".$self->param('dnadbname')
-                     ." -dnauser ".$self->param('dnauser')
-                     ." -dnaport ".$self->param('dnaport')
-                     ." -file ".$self->param('file'),
-                     "Copying genes...");
+  my $command = "perl ".$self->param('copy_genes_path')
+                       .$self->param('copy_genes_script_name')
+                       ." -sourcehost ".$self->param('sourcehost')
+                       ." -sourceport ".$self->param('sourceport')
+                       ." -sourcedbname ".$self->param('sourcedbname')
+                       ." -outuser ".$self->param('outuser')
+                       ." -outpass ".$self->param('outpass')
+                       ." -outdbname ".$self->param('outdbname')
+                       ." -outport ".$self->param('outport')
+                       ." -outhost ".$self->param('outhost')
+                       ." -dnahost ".$self->param('dnahost')
+                       ." -dnadbname ".$self->param('dnadbname')
+                       ." -dnauser ".$self->param('dnauser')
+                       ." -dnaport ".$self->param('dnaport')
+                       ." -file ".$self->param('file');
+
+  if ($self->param('logic')) {
+  	$command .= " -logic ".$self->param('logic');
+  }
+  
+  run_command($command,"Copying genes...");
   
 #  foreach my $table_to_count (@tables_to_count) {
 #    my $sql_count = "select count(*) from $table_to_count";
