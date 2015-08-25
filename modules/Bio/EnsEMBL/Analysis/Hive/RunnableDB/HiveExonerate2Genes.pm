@@ -247,9 +247,9 @@ sub fetch_input {
     }
   }
 
+  my $uniprot_index = $self->param('uniprot_index');
   foreach my $database ( @db_files ){
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
-        ->new(
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
               -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
               -analysis => $self->analysis,
               -target_file    => $database,
@@ -258,11 +258,11 @@ sub fetch_input {
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
+              -uniprot_index => $uniprot_index,
               %parameters,
               );
 
       $self->runnable($runnable);
-
   }
 
 }

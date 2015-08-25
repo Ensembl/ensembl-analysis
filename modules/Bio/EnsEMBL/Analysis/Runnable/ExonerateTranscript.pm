@@ -86,10 +86,11 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-  
-  my ( $coverage_aligned ) = 
+
+  my ($coverage_aligned,$uniprot_index) =
       rearrange([qw(
                     COVERAGE_BY_ALIGNED
+                    UNIPROT_INDEX
                     )
                  ], @args);
 
@@ -98,7 +99,13 @@ sub new {
     $self->coverage_as_proportion_of_aligned_residues($coverage_aligned);
   } else {
     $self->coverage_as_proportion_of_aligned_residues(1);
-  }  
+  }
+
+  if(defined($uniprot_index)) {
+    # Allow loading of an index file that has the following structure: P30378:sp:2:1:primates_pe12
+    # (accession:database:pe_level:sequence_version:group)
+    $self->uniprot_index($uniprot_index)
+  }
 
   return $self;
 }
@@ -137,7 +144,7 @@ sub parse_results {
     my ($tag, $q_id, $q_start, $q_end, $q_strand, $t_id, $t_start, $t_end,
 	$t_strand, $score, $perc_id, $q_length, $t_length, $gene_orientation,
 	@align_components) = split;
-   
+
     $t_strand = $strand_lookup{$t_strand};
     $q_strand = $strand_lookup{$q_strand};
     $gene_orientation = $strand_lookup{$gene_orientation};
@@ -160,7 +167,7 @@ sub parse_results {
       $t_strand *= -1;
       $q_strand *= -1;
     }
-        
+
     my $covered_count = 0;
     if ($self->coverage_as_proportion_of_aligned_residues) {
       foreach my $exon (@$exons) {
@@ -179,7 +186,13 @@ sub parse_results {
     # attach this to our Exon.
     my $transcript = Bio::EnsEMBL::Transcript->new();
 
-    my (@tran_feature_pairs, 
+    # If using an index file build a biotype off this
+    if($self->uniprot_index) {
+      my $biotype = $self->build_biotype($self->uniprot_index,$q_id);
+      $transcript->biotype($biotype);
+    }
+
+    my (@tran_feature_pairs,
         $cds_start_exon, $cds_start,
         $cds_end_exon, $cds_end);
 
@@ -543,6 +556,42 @@ sub coverage_as_proportion_of_aligned_residues {
   return $self->{_coverage_aligned};
 }
 
+
+sub build_biotype {
+  my ($self,$index_path,$accession) = @_;
+
+  unless(-e $index_path) {
+    throw("You specified an index file that doesn't exist. Path:\n".$index_path);
+  }
+
+  my $cmd = "grep '^".$accession."\:' $index_path";
+  my $result = `$cmd`;
+  chomp $result;
+
+  unless($result) {
+    throw("You specified an index file to use but the accession wasn't found in it. Commandline used:\n".$cmd);
+  }
+
+  my @result_array = split(':',$result);
+  my $group = $result_array[4];
+  my $database = $result_array[1];
+  my $biotype = $group."_".$database;
+
+  if($biotype eq '_') {
+    throw("Found a malformaed biotype based on parsing index. The accession in question was:\n".$accession);
+  }
+
+  return($biotype);
+
+}
+
+sub uniprot_index {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->{_uniprot_index} = $val;
+  }
+  return($self->{_uniprot_index});
+}
 
 1;
 
