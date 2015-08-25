@@ -35,22 +35,32 @@ sub run {
 
   $self->index_fasta_files();
 
+  if($self->param('output_single_db_file')) {
+    $self->output_single_file();
+  }
+
   return 1;
 }
 
 sub write_output {
   my $self = shift;
 
-  my $input_files_hash = $self->param('iid');
-  foreach my $group_name (keys(%$input_files_hash)) {
-    my $file_path = $input_files_hash->{$group_name};
-    my $output_path = $self->param('dest_dir');
+  if($self->param('output_single_db_file')) {
+    my $file_path = $self->output_file_path();
     my $output_hash = {};
     $output_hash->{'iid'} = $file_path;
-    $output_hash->{'chunk_dir_name'} = $group_name."_chunks";
     $self->dataflow_output_id($output_hash,1);
+  } else {
+    my $input_files_hash = $self->param('iid');
+    foreach my $group_name (keys(%$input_files_hash)) {
+      my $file_path = $input_files_hash->{$group_name};
+      my $output_path = $self->param('dest_dir');
+      my $output_hash = {};
+      $output_hash->{'iid'} = $file_path;
+      $output_hash->{'chunk_dir_name'} = $group_name."_chunks";
+      $self->dataflow_output_id($output_hash,1);
+    }
   }
-
   return 1;
 }
 
@@ -89,6 +99,42 @@ sub index_fasta_files {
     close IN;
   }
   close OUT;
+}
+
+sub output_single_file {
+  my ($self) = @_;
+
+  my $output_file_name = 'uniprot_db';
+  if($self->param('output_file_name')) {
+    $output_file_name = $self->param('output_file_name');
+  } else {
+    $self->warning("You have selected to output a single db file, but have not provided name using 'output_file_name'. Will default to:\n".$output_file_name);
+  }
+
+  my $input_files_hash = $self->param('iid');
+  my $cat_string = " ";
+  foreach my $group_name (keys(%$input_files_hash)) {
+    my $file_path = $input_files_hash->{$group_name};
+    $cat_string .= $file_path." ";
+  }
+
+  my $output_file_path = $self->param('dest_dir').'/'.$output_file_name;
+  my $cmd = "cat".$cat_string." > ".$output_file_path;
+  my $result = system($cmd);
+  if($result) {
+    $self->throw("Concatenating the input files into a single file returned a non-zero exit value (".$result."). Commandline used:\n".$cmd);
+  }
+
+  $self->output_file_path($output_file_path);
+}
+
+sub output_file_path {
+  my ($self,$val) = @_;
+
+  if($val) {
+    $self->param('_output_file_path',$val);
+  }
+  return($self->param('_output_file_path'));
 }
 
 1;
