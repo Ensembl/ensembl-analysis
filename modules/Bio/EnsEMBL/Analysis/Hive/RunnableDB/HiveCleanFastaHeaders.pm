@@ -24,7 +24,6 @@ use Bio::Seq;
 use Bio::SeqIO;
 use Bio::EnsEMBL::KillList::HiveKillList;
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -74,18 +73,16 @@ sub clean_headers {
   if($self->param_is_defined('input_file_path')) {
     $input_file = $self->param('input_file_path');
     unless(-e $input_file) {
-      throw("You have specified a path to the protein file in the pipeline config, but this file does not exist. Note that ".
-            "specifying a path overwrites any input id that might be present, so remove the path from the config/analysis_base ".
-            "table if you want to use the input id as the path"
-           );
+      $self->throw("You have specified a path to the protein file in the pipeline config, but this file does not exist. Note that ".
+                   "specifying a path overwrites any input id that might be present, so remove the path from the config/analysis_base ".
+                   "table if you want to use the input id as the path");
     }
   } else {
     $input_file = $self->input_id;
     unless(-e $input_file) {
-      throw("You have not specified an input_file_path variable in your hive config, so the input id was used instead. When the ".
-            "input id was parsed the resulting file path does not exist.\nInput id (unparsed):\n".$self->input_id."\nParsed input id:\n".
-            $input_file
-           );
+      $self->throw("You have not specified an input_file_path variable in your hive config, so the input id was used instead. When the ".
+                   "input id was parsed the resulting file path does not exist.\nInput id (unparsed):\n".$self->input_id."\nParsed input id:\n".
+                   $input_file);
     }
   }
 
@@ -107,7 +104,7 @@ sub clean_headers {
 
   # Unless a source is defined throw
   unless($self->param_is_defined('header_source')) {
-    throw("You have not defined the header_source in your config file (e.g. header_source => 'uniprot')");
+    $self->throw("You have not defined the header_source in your config file (e.g. header_source => 'uniprot')");
   }
 
   # Set the flag, unless the string is 'no'. Note that if it's 0 it will get set through this but will
@@ -122,13 +119,13 @@ sub clean_headers {
      $self->param('use_killlist') eq "yes" || $self->param('use_killlist') eq "YES")) {
     say "Using the killlist";
     unless($self->param_is_defined('killlist_type')) {
-      throw("You have selected to use the killlist but haven't defined a killlist_type in your pipeline config, e.g ".
-            " 'killlist_type' => 'protein'");
+      $self->throw("You have selected to use the killlist but haven't defined a killlist_type in your pipeline config, e.g ".
+                   " 'killlist_type' => 'protein'");
     }
 
     unless($self->param_is_defined('killlist_db')) {
-      throw("You have selected to use the killlist but haven't defined a killlist_db in your pipeline config, e.g ".
-            "'killlist_db' => $self->o('killlist_db')");
+      $self->throw("You have selected to use the killlist but haven't defined a killlist_db in your pipeline config, e.g ".
+                   "'killlist_db' => $self->o('killlist_db')");
     }
 
     unless($self->param_is_defined('KILL_LIST_FILTER')) {
@@ -196,7 +193,7 @@ sub clean_headers {
         $skip_count++;
         next;
       } else {
-        throw("Could not match a uniprot accession in the header. Header:\n".$display_id);
+        $self->throw("Could not match a uniprot accession in the header. Header:\n".$display_id);
       }
     }
 
@@ -245,14 +242,19 @@ sub match_against_source {
   my $header_source = $self->param('header_source');
 
   if($header_source eq 'uniprot') {
-    if($display_id =~ /^(sp|tr)\|([^\|]+)\|/) {
-      $uniprot_accession = $2;
+    # if this is working on something that has come from the processing module, then the headers will already be fixed and versioned
+    if($self->param('header_pre_cleaned')) {
+      if($display_id =~ /^.+\.\d+/) {
+        $uniprot_accession = $&;
+      }
+    } elsif($display_id =~ /^(sp|tr)\|([^\|]+)\|.+ SV\=(\d+)/) {
+      $uniprot_accession = $2.'.'.$3;
     }
   }
 
   else {
-    throw("You have entered a source that is not supported. The code must be updated to ".
-          "deal with it. Source:\n".$header_source);
+    $self->throw("You have entered a source that is not supported. The code must be updated to ".
+                 "deal with it. Source:\n".$header_source);
   }
 
   return($uniprot_accession);
