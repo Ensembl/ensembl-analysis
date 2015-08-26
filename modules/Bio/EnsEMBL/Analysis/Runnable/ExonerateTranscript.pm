@@ -87,10 +87,10 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($coverage_aligned,$uniprot_index) =
+  my ($coverage_aligned,$transcript_biotype) =
       rearrange([qw(
                     COVERAGE_BY_ALIGNED
-                    UNIPROT_INDEX
+                    TRANSCRIPT_BIOTYPE
                     )
                  ], @args);
 
@@ -101,10 +101,8 @@ sub new {
     $self->coverage_as_proportion_of_aligned_residues(1);
   }
 
-  if(defined($uniprot_index)) {
-    # Allow loading of an index file that has the following structure: P30378:sp:2:1:primates_pe12
-    # (accession:database:pe_level:sequence_version:group)
-    $self->uniprot_index($uniprot_index)
+  if(defined($transcript_biotype)) {
+    $self->transcript_biotype($transcript_biotype)
   }
 
   return $self;
@@ -186,11 +184,8 @@ sub parse_results {
     # attach this to our Exon.
     my $transcript = Bio::EnsEMBL::Transcript->new();
 
-    # If using an index file build a biotype off this
-    if($self->uniprot_index) {
-      my $biotype = $self->build_biotype($self->uniprot_index,$q_id);
-      $transcript->biotype($biotype);
-    }
+    my $transcript_biotype = $self->transcript_biotype();
+    $transcript->biotype($transcript_biotype);
 
     my (@tran_feature_pairs,
         $cds_start_exon, $cds_start,
@@ -556,41 +551,12 @@ sub coverage_as_proportion_of_aligned_residues {
   return $self->{_coverage_aligned};
 }
 
-
-sub build_biotype {
-  my ($self,$index_path,$accession) = @_;
-
-  unless(-e $index_path) {
-    throw("You specified an index file that doesn't exist. Path:\n".$index_path);
-  }
-
-  my $cmd = "grep '^".$accession."\:' $index_path";
-  my $result = `$cmd`;
-  chomp $result;
-
-  unless($result) {
-    throw("You specified an index file to use but the accession wasn't found in it. Commandline used:\n".$cmd);
-  }
-
-  my @result_array = split(':',$result);
-  my $group = $result_array[4];
-  my $database = $result_array[1];
-  my $biotype = $group."_".$database;
-
-  if($biotype eq '_') {
-    throw("Found a malformaed biotype based on parsing index. The accession in question was:\n".$accession);
-  }
-
-  return($biotype);
-
-}
-
-sub uniprot_index {
+sub transcript_biotype {
   my ($self,$val) = @_;
   if($val) {
-    $self->{_uniprot_index} = $val;
+    $self->{_transcript_biotype} = $val;
   }
-  return($self->{_uniprot_index});
+  return($self->{_transcript_biotype});
 }
 
 1;

@@ -71,17 +71,17 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($database,$ref_slices,$genblast_program,$uniprot_index) = rearrange([qw(DATABASE
-                                                                              REFSLICES
-                                                                              GENBLAST_PROGRAM
-                                                                              UNIPROT_INDEX)], @args);
+  my ($database,$ref_slices,$genblast_program,$transcript_biotype) = rearrange([qw(DATABASE
+                                                                                   REFSLICES
+                                                                                   GENBLAST_PROGRAM
+                                                                                   TRANSCRIPT_BIOTYPE)], @args);
   $self->database($database) if defined $database;
   $self->genome_slices($ref_slices) if defined $ref_slices;
   # Allows the specification of exonerate or genewise instead of genblastg. Will default to genblastg if undef
   $self->genblast_program($genblast_program) if defined $genblast_program;
   # Allow loading of an index file that has the following structure: P30378:sp:2:1:primates_pe12
   # (accession:database:pe_level:sequence_version:group)
-  $self->uniprot_index($uniprot_index) if defined $uniprot_index;
+  $self->transcript_biotype($transcript_biotype) if defined $transcript_biotype;
 
   throw("You must supply a database") if not $self->database;
   throw("You must supply a query") if not $self->query;
@@ -279,17 +279,14 @@ sub parse_results{
 
     my @exons = sort { $a->start <=> $b->start } @{$transcripts{$tid}->{exons}};
 
-    my $biotype;
-    if($self->uniprot_index) {
-      $biotype = $self->build_biotype($self->uniprot_index,$transcripts{$tid}->{hitname});
-    }
+    my $transcript_biotype = $self->transcript_biotype();
 
     my $tran = Bio::EnsEMBL::Transcript->new(-exons => \@exons,
                                              -slice => $exons[0]->slice,
                                              -analysis => $self->analysis,
                                              -stable_id => $transcripts{$tid}->{hitname});
 
-    $tran->biotype($biotype);
+    $tran->biotype($transcript_biotype);
 
     # Reverse the exons for negative strand to calc the translations
     my $strand = $exons[0]->strand;
@@ -322,41 +319,12 @@ sub parse_results{
 }
 
 
-
-sub build_biotype {
-  my ($self,$index_path,$accession) = @_;
-
-  unless(-e $index_path) {
-    throw("You specified an index file that doesn't exist. Path:\n".$index_path);
-  }
-
-  my $cmd = "grep '^".$accession."\:' $index_path";
-  my $result = `$cmd`;
-  chomp $result;
-
-  unless($result) {
-    throw("You specified an index file to use but the accession wasn't found in it. Commandline used:\n".$cmd);
-  }
-
-  my @result_array = split(':',$result);
-  my $group = $result_array[4];
-  my $database = $result_array[1];
-  my $biotype = $group."_".$database;
-
-  if($biotype eq '_') {
-    throw("Found a malformaed biotype based on parsing index. The accession in question was:\n".$accession);
-  }
-
-  return($biotype);
-
-}
-
-sub uniprot_index {
+sub transcript_biotype {
   my ($self,$val) = @_;
   if($val) {
-    $self->{_uniprot_index} = $val;
+    $self->{_transcript_biotype} = $val;
   }
-  return($self->{_uniprot_index});
+  return($self->{_transcript_biotype});
 }
 
 ############################################################

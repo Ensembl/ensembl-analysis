@@ -179,46 +179,55 @@ sub fetch_input {
   ##########################################
   # set up the query (est/cDNA/protein)
   ##########################################
-
-  my ($query_file, $chunk_number, $chunk_total);
-  my $query = $self->QUERYSEQS;
-
-  if (-e $query and -d $query) {
-    # query seqs is a directory; input id will be a file in that directory
-    # As input_id returns a string, I've made it parse out the file name. I don't
-    # like this solution but it is the quickest for the moment
-    my $input_id = $self->input_id;
-
-    $query_file = "$query/" . $input_id;
-    if (not -e $query_file) {
-      throw( "Query file '$query_file' does not exist'\n");
-    }
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER,$self->input_id);
-      $self->filtered_query_file($query_file);
-    }
+  my $iid_type = $self->param('iid_type');
+  my ($query_file,$chunk_number,$chunk_total);
+  unless($iid_type) {
+    $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
   }
-  elsif (-e $query and -s $query) {
-    # query seqs is a single file; input id will correspond to a chunk number
-    $query_file = $query;
-    my $iid_regexp = $self->IIDREGEXP;
 
-    throw("When your input ids are not filenames, you must define ".
-          "IIDREGEXP in config to enable inference of chunk number and total")
-        if not defined $iid_regexp;
+  if($iid_type eq 'db_seq') {
+    $query_file = $self->output_query_file();
+  } elsif($iid_type eq 'chunk_file') {
+    my $query = $self->QUERYSEQS;
 
-    ($chunk_number, $chunk_total) = $self->input_id =~ /$iid_regexp/;
+    if(-e $query and -d $query) {
+      # query seqs is a directory; input id will be a file in that directory
+      # As input_id returns a string, I've made it parse out the file name. I don't
+      # like this solution but it is the quickest for the moment
+      my $input_id = $self->input_id;
 
-    ###
-    ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
-    ###
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER);
+      $query_file = "$query/" . $input_id;
+      if (not -e $query_file) {
+        throw( "Query file '$query_file' does not exist'\n");
+      }
+      if ($self->USE_KILL_LIST) {
+        $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER,$self->input_id);
+        $self->filtered_query_file($query_file);
+      }
+    }
+    elsif (-e $query and -s $query) {
+      # query seqs is a single file; input id will correspond to a chunk number
+      $query_file = $query;
+      my $iid_regexp = $self->IIDREGEXP;
+
+      $self->throw("When your input ids are not filenames, you must define ".
+                   "IIDREGEXP in config to enable inference of chunk number and total")
+      if not defined $iid_regexp;
+
+      ($chunk_number, $chunk_total) = $self->input_id =~ /$iid_regexp/;
+
+      ###
+      ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
+      ###
+      if ($self->USE_KILL_LIST) {
+        $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER);
+      }
+    } else {
+      throw("'$query' refers to something that could not be made sense of\n");
     }
   } else {
-    throw("'$query' refers to something that could not be made sense of\n");
+   $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
-
   ##########################################
   # Annotation file with CDS positions
   ##########################################
@@ -247,7 +256,7 @@ sub fetch_input {
     }
   }
 
-  my $uniprot_index = $self->param('uniprot_index');
+  my $transcript_biotype = $self->param('biotype');
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
               -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
@@ -258,7 +267,7 @@ sub fetch_input {
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
-              -uniprot_index => $uniprot_index,
+              -transcript_biotype => $transcript_biotype,
               %parameters,
               );
 
@@ -940,5 +949,49 @@ sub filter_killed_entries {
   }
   return $filtered_seqout_filename;
 }
+
+
+sub output_query_file {
+  my ($self) = @_;
+
+  my $seq = $self->param('seq');
+  my $accession = $self->param('accession');
+
+  unless($seq && $accession) {
+    $self->throw("Did not find both a seq and an accession in the params. If using 'iid_type' => 'db_seq' a ".
+                 "sequence and an accession must be passed in using 'seq' and 'accession'");
+  }
+
+  my $record = ">".$accession."\n".$seq;
+  my $output_dir = $self->param('query_seq_dir');
+  unless(-e $output_dir) {
+    `mkdir $output_dir`;
+  }
+
+  my $outfile_name = "exonerate_".$accession.".fasta";
+  my $outfile_path = $output_dir."/".$outfile_name;
+  if(-e $outfile_path) {
+    $self->warning("Found the query file in the query dir already. Overwriting. File path\n:".$outfile_path);
+  }
+  open(QUERY_OUT,">".$outfile_path);
+  say QUERY_OUT $record;
+  close QUERY_OUT;
+
+  $self->files_to_delete($outfile_path);
+
+  return($outfile_path);
+
+}
+
+sub files_to_delete {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_files_to_delete',$val);
+  }
+
+  return($self->param('_files_to_delete'));
+}
+
+
 
 1;

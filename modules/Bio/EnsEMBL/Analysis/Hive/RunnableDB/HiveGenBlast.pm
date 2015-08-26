@@ -98,14 +98,25 @@ sub fetch_input {
 
   my $genome_file = $self->analysis->db_file;
   my $genome_slices = $self->get_genome_slices;
+  my $query_file;
 
-  my $query_file = $self->param('iid');
-  if($self->param('query_seq_dir')) {
-    $query_file = $self->param('query_seq_dir')."/".$query_file;
+  my $iid_type = $self->param('iid_type');
+  unless($iid_type) {
+    $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
   }
 
+  if($iid_type eq 'db_seq') {
+    $query_file = $self->output_query_file();
+  } elsif($iid_type eq 'chunk_file') {
+    $query_file = $self->param('iid');
+    if($self->param('query_seq_dir')) {
+      $query_file = $self->param('query_seq_dir')."/".$query_file;
+    }
+  } else {
+    $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
+  }
   my $genblast_program = $self->param('genblast_program');
-  my $uniprot_index = $self->param('uniprot_index');
+  my $transcript_biotype = $self->param('biotype');
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -115,7 +126,7 @@ sub fetch_input {
      -database => $self->analysis->db_file,
      -refslices => $genome_slices,
      -genblast_program => $genblast_program,
-     -uniprot_index => $uniprot_index,
+     -transcript_biotype => $transcript_biotype,
      %parameters,
     );
   $self->runnable($runnable);
@@ -159,6 +170,12 @@ sub write_output{
     $adaptor->store($gene);
   }
 
+  if($self->files_to_delete()) {
+    my $files_to_delete = $self->files_to_delete();
+    `rm $files_to_delete`;
+    `rm ${files_to_delete}_*`;
+  }
+
   return 1;
 }
 
@@ -191,6 +208,40 @@ sub get_genome_slices {
   return $genomic_slices;
 }
 
+
+sub output_query_file {
+  my ($self) = @_;
+
+  my $seq = $self->param('seq');
+  my $accession = $self->param('accession');
+
+  unless($seq && $accession) {
+    $self->throw("Did not find both a seq and an accession in the params. If using 'iid_type' => 'db_seq' a ".
+                 "sequence and an accession must be passed in using 'seq' and 'accession'");
+  }
+
+  my $record = ">".$accession."\n".$seq;
+  my $output_dir = $self->param('query_seq_dir');
+  unless(-e $output_dir) {
+    `mkdir $output_dir`;
+  }
+
+  my $outfile_name = "genblast_".$accession.".fasta";
+  my $outfile_path = $output_dir."/".$outfile_name;
+  if(-e $outfile_path) {
+    $self->warning("Found the query file in the query dir already. Overwriting. File path\n:".$outfile_path);
+  }
+  open(QUERY_OUT,">".$outfile_path);
+  say QUERY_OUT $record;
+  close QUERY_OUT;
+
+  $self->files_to_delete($outfile_path);
+
+  return($outfile_path);
+
+}
+
+
 =head2 test_translates
 
   Arg [1]   : Bio::EnsEMBL::PredictionTranscript
@@ -215,5 +266,13 @@ sub test_translates {
   return $result;
 }
 
+sub files_to_delete {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_files_to_delete',$val);
+  }
+
+  return($self->param('_files_to_delete'));
+}
 
 1;
