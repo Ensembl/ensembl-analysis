@@ -116,7 +116,7 @@ sub multi_query_download {
     my $file_path = $query_params->{'dest_dir'}."/".$query_params->{'file_name'};
 
     if($query_url =~ /\.gz$/) {
-      my $gunzip_command = "gunzip ".$file_path;
+      my $gunzip_command = "gunzip ".$file_path.".gz";
       my $gunzip_exit_code;
       $gunzip_exit_code = system($gunzip_command);
       unless($gunzip_exit_code == 0) {
