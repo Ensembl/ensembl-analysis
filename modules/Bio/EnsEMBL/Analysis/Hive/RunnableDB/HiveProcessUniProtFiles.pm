@@ -19,13 +19,18 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles;
 use strict;
 use warnings;
 use feature 'say';
+use Bio::EnsEMBL::IO::Parser::Fasta;
+use Bio::EnsEMBL::KillList::HiveKillList;
 
-
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
+
+  # I want this to take a set of input files in fasta format, each with a group name,
+  # loop through each file, check seq against killlist, parse out the info from the header
+  # and group and output to an index. I would also like to output a set of ranges to the
+  # next analysis, basically for loading into the pipe db
 
   return 1;
 }
@@ -33,11 +38,7 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  $self->index_fasta_files();
-
-  if($self->param('output_single_db_file')) {
-    $self->output_single_file();
-  }
+  $self->process_fasta_files();
 
   return 1;
 }
@@ -45,96 +46,171 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  if($self->param('output_single_db_file')) {
-    my $file_path = $self->output_file_path();
+  my $output_ids = $self->output_ids();
+  foreach my $output_id (@{$output_ids}) {
     my $output_hash = {};
-    $output_hash->{'iid'} = $file_path;
+    $output_hash->{'uniprot_range'} = $output_id;
     $self->dataflow_output_id($output_hash,1);
-  } else {
-    my $input_files_hash = $self->param('iid');
-    foreach my $group_name (keys(%$input_files_hash)) {
-      my $file_path = $input_files_hash->{$group_name};
-      my $output_path = $self->param('dest_dir');
-      my $output_hash = {};
-      $output_hash->{'iid'} = $file_path;
-      $output_hash->{'chunk_dir_name'} = $group_name."_chunks";
-      $self->dataflow_output_id($output_hash,1);
-    }
   }
+
   return 1;
 }
 
-sub index_fasta_files {
+
+sub process_fasta_files {
   my ($self) = @_;
 
+  my $input_seq_count = 0;
+  my $output_seq_count = 0;
+  my $below_min_length_count = 0;
+  my $killed_count = 0;
+
+  my $output_batch_size = 200;
+  my $min_seq_length = 50;
+  my $index_file_name = 'uniprot_index';
+  my $db_file_name = 'uniprot_db';
+
   my $input_files_hash = $self->param('iid');
-  my $index_file_path = $self->param('dest_dir').'/'.$self->param('index_file_name');
+
+  my $kill_list_object;
+  my %kill_list;
+
+  $kill_list_object = Bio::EnsEMBL::KillList::HiveKillList->new(-TYPE => $self->param('killlist_type'),
+                                                                -KILL_LIST_DB => $self->param('killlist_db'),
+                                                                -FILTER_PARAMS => $self->param('KILL_LIST_FILTER'));
+  %kill_list = %{$kill_list_object->get_kill_list()};
+
+
+  unless($input_files_hash) {
+    $self->throw("No input id found, this module requires an input id to be passed in under 'iid'");
+  }
+
+  if($self->param('output_batch_size')) {
+    $output_batch_size = $self->param('output_batch_size');
+  } else {
+    $self->warning("You have not provided an output id batch size using 'output_batch_size'. Will default to:\n".$output_batch_size);
+  }
+
+  if($self->param('min_seq_length')) {
+    $min_seq_length = $self->param('min_seq_length');
+  } else {
+    $self->warning("You have not provided a minimum seq length using 'min_seq_length'. Will default to:\n".$min_seq_length);
+  }
+
+  if($self->param('db_file_name')) {
+    $db_file_name = $self->param('db_file_name');
+  } else {
+    $self->warning("You have not provided an output db name using 'db_file_name'. Will default to:\n".$db_file_name);
+  }
+
+  if($self->param('index_file_name')) {
+    $index_file_name = $self->param('index_file_name');
+  } else {
+    $self->warning("You have not provided an index file name using 'index_file_name'. Will default to:\n".$index_file_name);
+  }
+
+  my $index_file_path = $self->param('dest_dir').'/'.$index_file_name;
+  my $db_file_path = $self->param('dest_dir').'/'.$db_file_name;
+
   unless(-e $self->param('dest_dir')) {
    `mkdir -p $self->param('dest_dir')`;
   }
 
-  open(OUT, ">".$index_file_path);
+  open(OUT_DB,">".$db_file_path);
+  open(OUT_INDEX,">".$index_file_path);
   foreach my $group_name (keys(%$input_files_hash)) {
     my $file_path = $input_files_hash->{$group_name};
     unless(-e $file_path) {
-     $self->throw("One or more of the files in the input id don't exist. Offending path:\n".$file_path);
+      $self->throw("One or more of the files in the input id don't exist. Offending path:\n".$file_path);
     }
 
-    open(IN,$file_path);
-    while(<IN>) {
-      my $line = $_;
-      if($line =~ /^\>/) {
-        unless($line =~ /^\>([^\|]+)\|([^\|]+)\|.+ PE\=([1-5]) SV\=(\d+)/) {
-          $self->throw("Matched a header but couldn't parse it fully. Expect to find sp/tr, accession, ".
-                       "pe level and sequence version. Offending header:\n".$line);
-        }
+    my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($file_path);
+    my $header;
+    my $seq;
 
-        my $database = $1;
-        my $accession = $2;
-        my $pe_level = $3;
-        my $sequence_version = $4;
-        say OUT $accession.":".$database.":".$pe_level.":".$sequence_version.":".$group_name;
+    while($parser->next()) {
+      $input_seq_count++;
+      $header = $parser->getHeader();
+      $seq = $parser->getSequence();
+      my ($accession,$sequence_version,$source_db,$pe_level) = @{$self->parse_header_info($header)};
+      if(length($seq) < $min_seq_length) {
+        $below_min_length_count++;
+        next;
+      } elsif(exists($kill_list{$accession})) {
+        say "Removing ".$accession." as it is present in kill list";
+        $killed_count++;
+        next;
       }
+
+      my $versioned_accession = $accession.'.'.$sequence_version;
+      my $index_line = $versioned_accession.':'.$source_db.':'.$pe_level.':'.$group_name;
+      my $record = ">".$versioned_accession."\n".$seq;
+      say OUT_INDEX $index_line;
+      say OUT_DB $record;
+      $output_seq_count++;
     }
-    close IN;
   }
-  close OUT;
+  close OUT_DB;
+  close OUT_INDEX;
+
+  say "After cleaning:";
+  say "Input sequence count: ".$input_seq_count;
+  say "Output sequence count: ".$output_seq_count;
+  say "Short sequence count: ".$below_min_length_count;
+  say "Killed sequence count: ".$killed_count;
+
+  my $output_ids = $self->build_output_ranges($output_seq_count,$output_batch_size);
+  $self->output_ids($output_ids);
+
 }
 
-sub output_single_file {
-  my ($self) = @_;
+sub parse_header_info {
+  my ($self,$header) = @_;
 
-  my $output_file_name = 'uniprot_db';
-  if($self->param('output_file_name')) {
-    $output_file_name = $self->param('output_file_name');
-  } else {
-    $self->warning("You have selected to output a single db file, but have not provided name using 'output_file_name'. Will default to:\n".$output_file_name);
+  unless($header =~ /^([^\|]+)\|([^\|]+)\|.+ PE\=([1-5]) SV\=(\d+)/) {
+    $self->throw("Matched a header but couldn't parse it fully. Expect to find sp/tr, accession, ".
+                 "pe level and sequence version. Offending header:\n".$header);
   }
 
-  my $input_files_hash = $self->param('iid');
-  my $cat_string = " ";
-  foreach my $group_name (keys(%$input_files_hash)) {
-    my $file_path = $input_files_hash->{$group_name};
-    $cat_string .= $file_path." ";
-  }
+  my $source_db = $1;
+  my $accession = $2;
+  my $pe_level = $3;
+  my $sequence_version = $4;
 
-  my $output_file_path = $self->param('dest_dir').'/'.$output_file_name;
-  my $cmd = "cat".$cat_string." > ".$output_file_path;
-  my $result = system($cmd);
-  if($result) {
-    $self->throw("Concatenating the input files into a single file returned a non-zero exit value (".$result."). Commandline used:\n".$cmd);
-  }
-
-  $self->output_file_path($output_file_path);
+  return([$accession,$sequence_version,$source_db,$pe_level]);
 }
 
-sub output_file_path {
+
+sub build_output_ranges {
+  my ($self,$seq_count,$output_batch_size) = @_;
+
+  my $output_ids = [];
+  my $loop_count = int($seq_count / $output_batch_size);
+  my $remainder = $seq_count % $output_batch_size;
+  my $start_index = 0;
+  my $end_index = 0;
+  my $i=0;
+  for($i=0; $i<$loop_count; $i++) {
+    $start_index = $i * $output_batch_size;
+    $end_index = $start_index + $output_batch_size - 1;
+    push(@{$output_ids},[$start_index,$end_index]);
+  }
+
+  if($remainder) {
+    push(@{$output_ids},[($end_index + 1),($seq_count - 1)]);
+  }
+
+  return($output_ids);
+}
+
+sub output_ids {
   my ($self,$val) = @_;
 
   if($val) {
-    $self->param('_output_file_path',$val);
+    $self->param('_output_ids',$val);
   }
-  return($self->param('_output_file_path'));
+
+  return $self->param('_output_ids');
 }
 
 1;
