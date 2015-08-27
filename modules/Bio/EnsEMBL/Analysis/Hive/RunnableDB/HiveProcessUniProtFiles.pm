@@ -97,20 +97,24 @@ sub process_fasta_files {
     $self->warning("You have not provided a minimum seq length using 'min_seq_length'. Will default to:\n".$min_seq_length);
   }
 
-  if($self->param('db_file_name')) {
-    $db_file_name = $self->param('db_file_name');
+  if($self->param('uniprot_db_name')) {
+    $db_file_name = $self->param('uniprot_db_name');
   } else {
-    $self->warning("You have not provided an output db name using 'db_file_name'. Will default to:\n".$db_file_name);
+    $self->warning("You have not provided an output db name using 'uniprot_db_name'. Will default to:\n".$db_file_name);
   }
 
-  if($self->param('index_file_name')) {
-    $index_file_name = $self->param('index_file_name');
+  if($self->param('uniprot_index_name')) {
+    $index_file_name = $self->param('uniprot_index_name');
   } else {
-    $self->warning("You have not provided an index file name using 'index_file_name'. Will default to:\n".$index_file_name);
+    $self->warning("You have not provided an index file name using 'uniprot_index_name'. Will default to:\n".$index_file_name);
   }
 
-  my $index_file_path = $self->param('dest_dir').'/'.$index_file_name;
-  my $db_file_path = $self->param('dest_dir').'/'.$db_file_name;
+  unless($self->param('dest_dir')) {
+    $self->throw("You have not provided a destination dir for the uniprot db and index to be written to using 'dest_dir'");
+  }
+
+  my $index_file_path = $self->param('dest_dir')."/".$self->param('uniprot_index_name');
+  my $db_file_path = $self->param('dest_dir')."/".$self->param('uniprot_db_name');
 
   unless(-e $self->param('dest_dir')) {
    `mkdir -p $self->param('dest_dir')`;

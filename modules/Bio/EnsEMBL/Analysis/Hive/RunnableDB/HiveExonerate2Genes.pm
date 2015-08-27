@@ -328,7 +328,7 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
-  my $outdb = $self->get_output_db;
+  my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
   my @output = @{$self->param('output_genes')};
@@ -350,6 +350,13 @@ sub write_output {
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
+
+  if($self->files_to_delete()) {
+    my $files_to_delete = $self->files_to_delete();
+    `rm $files_to_delete`;
+    `rm ${files_to_delete}_*`;
+  }
+
 }
 
 sub hive_set_config {
@@ -384,12 +391,6 @@ sub hive_set_config {
     }
   }
 
-  # Throw if any of the following are missing (this was the behaviour of the original code and seems sensible)
-  unless(defined($self->QUERYSEQS) && defined($self->QUERYTYPE) && defined($self->GENOMICSEQS)) {
-    throw("You are missing required keys in the config_settings hash (in the analysis hash in the pipeline config). The following ".
-          "keys (in addition to logic_name and module) must be present:\nQUERYSEQS\nQUERYTYPE\nGENOMICSEQS"
-         );
-  }
 
   if($self->FILTER) {
     if(not ref($self->FILTER) eq "HASH" or not exists($self->FILTER->{OBJECT}) or not exists($self->FILTER->{PARAMETERS})) {

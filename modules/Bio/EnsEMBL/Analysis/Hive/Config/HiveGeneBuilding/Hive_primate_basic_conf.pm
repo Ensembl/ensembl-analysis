@@ -83,7 +83,7 @@ sub default_options {
 
         'uniprot_index_name'         => 'uniprot_index',
         'uniprot_db_name'            => 'uniprot_db',
-        'uniprot_chunk_dir_name'     => 'uniprot_chunks',
+        'uniprot_query_dir_name'     => 'uniprot_temp',
 
         'genblast_path'              => 'genblast',
         'genblast_eval'              => '1e-20',
@@ -179,8 +179,8 @@ sub resource_classes {
   my $default_mem = $self->default_options()->{'default_mem'};
   my $genblast_mem = $self->default_options()->{'genblast_mem'};
   my $genblast_retry_mem = $self->default_options()->{'genblast_retry_mem'};
-  my $genblast_mem = $self->default_options()->{'exonerate_mem'};
-  my $genblast_retry_mem = $self->default_options()->{'exonerate_retry_mem'};
+  my $exonerate_mem = $self->default_options()->{'exonerate_mem'};
+  my $exonerate_retry_mem = $self->default_options()->{'exonerate_retry_mem'};
 
   my $pipe_db_server_number;
   my $dna_db_server_number;
@@ -267,6 +267,15 @@ sub pipeline_create_commands {
     return [
     # inheriting database and hive tables' creation
       @{$self->SUPER::pipeline_create_commands},
+
+      $self->db_cmd('CREATE TABLE uniprot_sequences ('.
+                    'accession varchar(50) NOT NULL,'.
+                    'source_db varchar(50) NOT NULL,'.
+                    'pe_level varchar(50) NOT NULL,'.
+                    'biotype varchar(255) NOT NULL,'.
+                    'group_name varchar(255) NOT NULL,'.
+                    'seq text NOT NULL,'.
+                    'PRIMARY KEY (accession))'),
     ];
 }
 
@@ -362,56 +371,36 @@ sub pipeline_analyses {
         -logic_name => 'process_uniprot_files',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles',
         -parameters => {
-                         output_single_db_file => 1,
-                         output_file_name => $self->o('uniprot_db_name'),
-                         index_file_name => $self->o('uniprot_index_name'),
-                         dest_dir => $self->o('output_path'),
-                       },
-        -rc_name => 'default',
-        -flow_into => {
-                        1 => ['clean_uniprot_db'],
-                      },
-      },
-
-      {
-        -logic_name => 'clean_uniprot_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCleanFastaHeaders',
-        -parameters => {
-                         min_seq_length => '50',
-                         skip_broken_headers => 0,
-                         header_source => 'uniprot',
-                         use_killlist => 1,
+                         uniprot_db_name => $self->o('uniprot_db_name'),
+                         uniprot_index_name => $self->o('uniprot_index_name'),
+                         dest_dir   => $self->o('output_path'),
                          killlist_type => 'protein',
                          killlist_db => $self->o('killlist_db'),
-                       },
-
-        -flow_into => {
-                        1 => ['chunk_uniprot_db'],
                       },
-        -rc_name          => 'default',
+        -rc_name => 'default',
+        -flow_into => {
+                        1 => ['load_uniprot_seqs'],
+                      },
       },
 
       {
-        -logic_name => 'chunk_uniprot_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -logic_name => 'load_uniprot_seqs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadSeqsPipeDB',
         -parameters => {
-                         chunk_output_dir => $self->o('output_path').'/'.$self->o('uniprot_chunk_dir_name'),
-                         seqs_per_chunk => $self->o('seqs_per_chunk'),
-                         chunk => 1,
-                         fastasplit_random_path => $self->o('fastasplit_random_path'),
+                         uniprot_db_path => $self->o('output_path').'/'.$self->o('uniprot_db_name'),
+                         uniprot_index_path => $self->o('output_path').'/'.$self->o('uniprot_index_name'),
                        },
-
+        -rc_name          => 'default',
         -flow_into => {
                         1 => ['genblast','exonerate'],
                       },
-        -rc_name          => 'default',
-
       },
 
       {
         -logic_name => 'genblast',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast',
         -parameters => {
+                         iid_type => 'db_seq',
                          dna_db => $self->o('dna_db'),
                          target_db => $self->o('genblast_output_db'),
                          logic_name => 'genblast',
@@ -419,40 +408,21 @@ sub pipeline_analyses {
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
                          commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
-                         query_seq_dir => $self->o('output_path').'/'.$self->o('uniprot_chunk_dir_name'),
-                         uniprot_index => $self->o('output_path').'/'.$self->o('uniprot_index_name'),
+                         query_seq_dir => $self->o('output_path').'/'.$self->o('uniprot_query_dir_name'),
                        },
         -rc_name    => 'genblast',
         -wait_for => ['create_genblast_output_db'],
         -flow_into => {
-                        -1 => ['rechunk_genblast'],
-                        -2 => ['rechunk_genblast'],
+                        -1 => ['genblast_himem'],
                       },
-      },
-
-
-     {
-        -logic_name => 'rechunk_genblast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -can_be_empty  => 1,
-        -parameters => {
-                         rechunk => 1,
-                         rechunk_dir_path => $self->o('output_path').'/'.$self->o('uniprot_chunk_dir_name'),
-                         chunk_output_dir => $self->o('output_path').'/'.$self->o('genblast_rechunk_dir_name'),
-                         seqs_per_chunk => 1,
-                         chunk => 1,
-                         fastasplit_random_path => $self->o('fastasplit_random_path'),
-                       },
-        -rc_name          => 'default',
-        -flow_into => {
-                        1 => ['genblast_retry'],
-                      },
+        -failed_job_tolerance => 50,
       },
 
       {
-        -logic_name => 'genblast_retry',
+        -logic_name => 'genblast_himem',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast',
         -parameters => {
+                         iid_type => 'db_seq',
                          dna_db => $self->o('dna_db'),
                          target_db => $self->o('genblast_output_db'),
                          logic_name => 'genblast',
@@ -460,11 +430,11 @@ sub pipeline_analyses {
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
                          commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
-                         query_seq_dir => $self->o('output_path').'/'.$self->o('genblast_rechunk_dir_name'),
-                         uniprot_index => $self->o('output_path').'/'.$self->o('uniprot_index_name'),
+                         query_seq_dir => $self->o('output_path').'/'.$self->o('uniprot_query_dir_name'),
                        },
         -rc_name          => 'genblast_retry',
         -can_be_empty  => 1,
+        -failed_job_tolerance => 100,
       },
 
       {
@@ -473,48 +443,36 @@ sub pipeline_analyses {
         -rc_name          => 'exonerate',
         -wait_for => ['create_exonerate_output_db'],
         -parameters => {
+                         iid_type => 'db_seq',
+                         dna_db => $self->o('dna_db'),
+                         target_db => $self->o('exonerate_output_db'),
                          logic_name => 'exonerate',
                          module     => 'HiveExonerate2Genes',
-                         uniprot_index => $self->o('output_path').'/'.$self->o('uniprot_index_name'),
                          config_settings => $self->get_config_settings('exonerate_protein','exonerate'),
-                       },
-        -flow_into => {
-                        -1 => ['rechunk_exonerate'],
-                        -2 => ['rechunk_exonerate'],
+                         query_seq_dir => $self->o('output_path').'/'.$self->o('uniprot_query_dir_name'),
                       },
-
+        -flow_into => {
+                        -1 => ['exonerate_himem'],
+                      },
+        -failed_job_tolerance => 50,
       },
 
 
       {
-        -logic_name => 'rechunk_exonerate',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -can_be_empty  => 1,
-        -parameters => {
-                         rechunk => 1,
-                         rechunk_dir_path => $self->o('output_path').'/'.$self->o('uniprot_chunk_dir_name'),
-                         chunk_output_dir => $self->o('output_path').'/'.$self->o('exonerate_rechunk_dir_name'),
-                         seqs_per_chunk => 1,
-                         chunk => 1,
-                         fastasplit_random_path => $self->o('fastasplit_random_path'),
-                       },
-        -rc_name          => 'default',
-        -flow_into => {
-                        1 => ['exonerate_retry'],
-                      },
-      },
-
-      {
-        -logic_name => 'exonerate_retry',
+        -logic_name => 'exonerate_himem',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
         -parameters => {
+                         iid_type => 'db_seq',
+                         dna_db => $self->o('dna_db'),
+                         target_db => $self->o('exonerate_output_db'),
                          logic_name => 'exonerate',
                          module     => 'HiveExonerate2Genes',
-                         uniprot_index => $self->o('output_path').'/'.$self->o('uniprot_index_name'),
-                         config_settings => $self->get_config_settings('exonerate_protein','exonerate_retry','exonerate'),
+                         config_settings => $self->get_config_settings('exonerate_protein','exonerate'),
+                         query_seq_dir => $self->o('output_path').'/'.$self->o('uniprot_query_dir_name'),
                        },
         -rc_name          => 'exonerate_retry',
         -can_be_empty  => 1,
+        -failed_job_tolerance => 100,
       },
 
     ];
@@ -602,14 +560,11 @@ sub master_config_settings {
                  COVERAGE_BY_ALIGNED => 0,
                  QUERYTYPE           => 'protein',
                  GENOMICSEQS         => $self->o('genome_file'),
-                 OUTDB               => $self->o('exonerate_output_db'),
-                 REFDB               => $self->o('reference_db'),
                  PROGRAM             => $self->o('exonerate_path'),
                  SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
                },
 
     exonerate => {
-                   QUERYSEQS                     => $self->o('output_path').'/'.$self->o('uniprot_chunk_dir_name'),
                    FILTER                        => {
                      OBJECT                      => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                      PARAMETERS                  => {
@@ -620,10 +575,6 @@ sub master_config_settings {
                      },
                    },
                  },
-
-    exonerate_retry => {
-                         QUERYSEQS                     => $self->o('output_path').'/'.$self->o('exonerate_rechunk_dir_name'),
-                       },
 
     killlist_protein => {
                          KILLLISTDB          => $self->o('killlist_db'),

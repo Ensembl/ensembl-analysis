@@ -39,8 +39,8 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  my $db_path = $self->param('input_db_path');
-  my $index_path = $self->param('index_path');
+  my $db_path = $self->param('uniprot_db_path');
+  my $index_path = $self->param('uniprot_index_path');
 
   my ($start_index,$end_index) = @{$self->param('uniprot_range')};
 
