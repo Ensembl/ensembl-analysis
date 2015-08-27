@@ -48,6 +48,9 @@ sub write_output {
   my $header;
   my $seq;
 
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name('uniprot_sequences');
+
   my $index_count = 0;
   while($parser->next() && $index_count <= $end_index) {
 
@@ -60,8 +63,7 @@ sub write_output {
     $seq = $parser->getSequence();
 
     my $output_hash = {};
-    $output_hash->{'accession'} = $header;
-    $output_hash->{'seq'} = $seq;
+    $output_hash->{'iid'} = $header;
 
     if($index_path) {
       my $cmd = "grep '^".$header."\:' $index_path";
@@ -81,10 +83,14 @@ sub write_output {
         $self->throw("Found a malformaed biotype based on parsing index. The accession in question was:\n".$header);
       }
 
-      $output_hash->{'database'} = $database;
-      $output_hash->{'pe_level'} = $pe_level;
-      $output_hash->{'group'} = $group;
-      $output_hash->{'biotype'} = $biotype;
+      my $db_row = [{ 'accession'  => $header,
+                      'source_db'  => $database,
+                      'pe_level'   => $pe_level,
+                      'biotype'    => $biotype,
+                      'group_name' => $group,
+                      'seq'        => $seq,
+                   }];
+      $table_adaptor->store($db_row);
     }
 
     $self->dataflow_output_id($output_hash,1);

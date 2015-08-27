@@ -73,11 +73,20 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::HiveKillList;
 use Bio::SeqIO;
+use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my($self) = @_;
+
+
+  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  if($dna_dba) {
+    $dba->dnadb($dna_dba);
+  }
+  $self->hrdb_set_con($dba,'target_db');
 
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
@@ -256,7 +265,7 @@ sub fetch_input {
     }
   }
 
-  my $transcript_biotype = $self->param('biotype');
+  my $transcript_biotype = $self->transcript_biotype();
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
               -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
@@ -407,7 +416,7 @@ sub make_genes{
 
   my (@genes);
 
-  my $slice_adaptor = $self->db->get_SliceAdaptor;
+  my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my %genome_slices;
 
   foreach my $tran ( @transcripts ){
@@ -465,7 +474,7 @@ sub get_chr_names{
   my @chr_names;
   my @chromosomes;
 
-  my $chr_adaptor = $self->db->get_SliceAdaptor;
+  my $chr_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   #also fetching non-reference regions like DR52 for human by default.
   #specify in Exonerate2Genes config-file.
   if(defined($self->NONREF_REGIONS)){
@@ -491,14 +500,14 @@ sub get_output_db {
     if ( ref($self->OUTDB)=~m/HASH/) {
 
       $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$self->OUTDB},
-                                                -dnadb => $self->db);
+                                                -dnadb => $self->hrdb_get_con('target_db'));
     }else{
       $outdb = $self->get_dbadaptor($self->OUTDB);
     }
   } else {
-    $outdb = $self->db;
+    $outdb = $self->hrdb_get_con('target_db');
   }
-  $self->db->dbc->disconnect_when_inactive(1) ;
+  $self->hrdb_get_con('target_db')->dbc->disconnect_when_inactive(1) ;
   $outdb->dbc->disconnect_when_inactive(1) ;
   return $outdb;
 }
@@ -603,7 +612,7 @@ sub REFDB {
                                                 );
     $self->param('_CONFIG_REFDB',$dba);
     # Set this to override the default dbc which is inherited from Process and is to the Hive db
-    $self->db($dba);
+    #$self->db($dba);
   }
 
   if ($self->param_is_defined('_CONFIG_REFDB')) {
@@ -954,13 +963,19 @@ sub filter_killed_entries {
 sub output_query_file {
   my ($self) = @_;
 
-  my $seq = $self->param('seq');
-  my $accession = $self->param('accession');
+  my $accession = $self->param('iid');
 
-  unless($seq && $accession) {
-    $self->throw("Did not find both a seq and an accession in the params. If using 'iid_type' => 'db_seq' a ".
-                 "sequence and an accession must be passed in using 'seq' and 'accession'");
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+
+  $table_adaptor->table_name('uniprot_sequences');
+
+  my $db_row = $table_adaptor->fetch_by_dbID($accession);
+  unless($db_row) {
+    $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
   }
+
+  my $seq = $db_row->{'seq'};
+  my $transcript_biotype = $db_row->{'biotype'};
 
   my $record = ">".$accession."\n".$seq;
   my $output_dir = $self->param('query_seq_dir');
@@ -978,10 +993,21 @@ sub output_query_file {
   close QUERY_OUT;
 
   $self->files_to_delete($outfile_path);
+  $self->transcript_biotype($transcript_biotype);
 
   return($outfile_path);
 
 }
+
+sub transcript_biotype {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_transcript_biotype',$val);
+  }
+
+  return($self->param('_transcript_biotype'));
+}
+
 
 sub files_to_delete {
   my ($self,$val) = @_;

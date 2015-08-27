@@ -116,7 +116,7 @@ sub fetch_input {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
   my $genblast_program = $self->param('genblast_program');
-  my $transcript_biotype = $self->param('biotype');
+  my $transcript_biotype = $self->transcript_biotype();
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -212,13 +212,19 @@ sub get_genome_slices {
 sub output_query_file {
   my ($self) = @_;
 
-  my $seq = $self->param('seq');
-  my $accession = $self->param('accession');
+  my $accession = $self->param('iid');
 
-  unless($seq && $accession) {
-    $self->throw("Did not find both a seq and an accession in the params. If using 'iid_type' => 'db_seq' a ".
-                 "sequence and an accession must be passed in using 'seq' and 'accession'");
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+
+  $table_adaptor->table_name('uniprot_sequences');
+
+  my $db_row = $table_adaptor->fetch_by_dbID($accession);
+  unless($db_row) {
+    $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
   }
+
+  my $seq = $db_row->{'seq'};
+  my $transcript_biotype = $db_row->{'biotype'};
 
   my $record = ">".$accession."\n".$seq;
   my $output_dir = $self->param('query_seq_dir');
@@ -236,9 +242,9 @@ sub output_query_file {
   close QUERY_OUT;
 
   $self->files_to_delete($outfile_path);
+  $self->transcript_biotype($transcript_biotype);
 
   return($outfile_path);
-
 }
 
 
@@ -265,6 +271,17 @@ sub test_translates {
   }
   return $result;
 }
+
+
+sub transcript_biotype {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_transcript_biotype',$val);
+  }
+
+  return($self->param('_transcript_biotype'));
+}
+
 
 sub files_to_delete {
   my ($self,$val) = @_;
