@@ -50,6 +50,7 @@ sub param_defaults {
       dbhost => '',
       dnadbname => '',
       dnadbhost => '',
+      dnadbport => '3306',
       coord_system => '',
       path => '',
       sql_output => '',
@@ -61,6 +62,8 @@ sub param_defaults {
       write => '',
       affix => 0, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; without affixes by default
       biotypes_extension => 0, # use additional biotypes in 'gene_trans_type_combination_extension'; default=no
+      stdout_file => '', # full path to the file where the standard output will be printed
+      stderr_file => '' # full path to the file where the standard error will be printed
     }
 }
 
@@ -110,6 +113,9 @@ sub run {
   my $num_unknown_genes = 0;
   my $num_unknown_transcripts = 0;
   my $num_gt_comb_not_allowed = 0;
+
+  open STDOUT, '>', $self->param('stdout_file') if ($self->param('stdout_file'));
+  open STDERR, '>', $self->param('stderr_file') if ($self->param('stderr_file'));
 
   if (not $self->param('user') or not $self->param('dbhost') or not $self->param('dbname')) {
     throw("DB connection parameters missing. Can't connect.");
