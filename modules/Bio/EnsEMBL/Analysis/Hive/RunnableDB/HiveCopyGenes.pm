@@ -145,7 +145,8 @@ sub run {
                        ." -dnadbname ".$self->param('dnadbname')
                        ." -dnauser ".$self->param('dnauser')
                        ." -dnaport ".$self->param('dnaport')
-                       ." -file ".$self->param('file');
+                       ." -file ".$self->param('file')
+                       . " -verbose";
 
   if ($self->param('logic')) {
   	$command .= " -logic ".$self->param('logic');
