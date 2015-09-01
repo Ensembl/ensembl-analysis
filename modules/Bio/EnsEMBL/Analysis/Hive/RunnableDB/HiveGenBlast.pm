@@ -56,6 +56,7 @@ use warnings;
 use feature 'say';
 use Data::Dumper;
 
+use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -98,6 +99,8 @@ sub fetch_input {
 
   my $genome_file = $self->analysis->db_file;
   my $genome_slices = $self->get_genome_slices;
+  $self->genome_slices($genome_slices);
+
   my $query_file;
 
   my $iid_type = $self->param('iid_type');
@@ -116,7 +119,7 @@ sub fetch_input {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
   my $genblast_program = $self->param('genblast_program');
-  my $transcript_biotype = $self->transcript_biotype();
+  my $biotypes_hash = $self->get_biotype();
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -126,7 +129,7 @@ sub fetch_input {
      -database => $self->analysis->db_file,
      -refslices => $genome_slices,
      -genblast_program => $genblast_program,
-     -transcript_biotype => $transcript_biotype,
+     -biotypes => $biotypes_hash,
      %parameters,
     );
   $self->runnable($runnable);
@@ -161,6 +164,9 @@ sub write_output{
     $gene->biotype($self->analysis->logic_name);
 
     $transcript->analysis($self->analysis);
+    my $accession = $transcript->{'accession'};
+    my $transcript_biotype = $self->get_biotype->{$accession};
+    $transcript->biotype($transcript_biotype);
 #    $transcript->slice($self->query) if(!$transcript->slice);
 #    if ($self->test_translates()) {
 #      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
@@ -168,6 +174,10 @@ sub write_output{
 #    } # test to see if this transcript translates OK
     $gene->add_Transcript($transcript);
     $adaptor->store($gene);
+  }
+
+  if($self->param('store_blast_results')) {
+    $self->store_protein_align_features();
   }
 
   if($self->files_to_delete()) {
@@ -179,6 +189,100 @@ sub write_output{
   return 1;
 }
 
+
+sub store_protein_align_features {
+  my ($self) = @_;
+
+  # Need to build the path to theblast report file. It is the query seq path with the genome db appended
+  # on to it (with a .wublast.report extension)
+  my $query_file_path = $self->files_to_delete();
+  my $genome_db_path = $self->param('genblast_db_path');
+  unless($genome_db_path =~ /[^\/]+$/) {
+   $self->throw("Could not parse the genome db file name off the end of the path. Path used:\n".$genome_db_path);
+  }
+
+  my $genome_db_name = $&;
+  my $report_file_path = $query_file_path."_".$genome_db_name.".wublast.report";
+
+  unless(-e $report_file_path) {
+    $self->throw("Parsed the report file info, but the constructed path points to a non-existant file. Offending path:\n".$report_file_path);
+  }
+
+  my $dba = $self->hrdb_get_con('target_db');
+  my $protein_align_feature_adaptor = $dba->get_ProteinAlignFeatureAdaptor();
+  my $analysis = $self->analysis();
+  if($self->param('protein_align_feature_logic_name')) {
+    my $logic_name = $self->param('protein_align_feature_logic_name');
+    unless($self->analysis->logic_name eq $logic_name) {
+      $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name);
+    }
+  }
+
+  say "Parsing hits from:\n".$report_file_path;
+  open(BLAST_REPORT,$report_file_path);
+  my $remove_info_line = <BLAST_REPORT>;
+  my $current_hit_name;
+  while(<BLAST_REPORT>) {
+    my $line = $_;
+    if($line =~ /^\>(\S+)/) {
+      $current_hit_name = $1;
+    } else {
+      my @hit_array = split('\s',$line);
+      unless(scalar(@hit_array) == 14) {
+        $self->throw("Did not get the expected number of columns when parsing a hit for ".$current_hit_name.", offending line:\n".$line);
+      }
+
+      my $seq_region_start = $hit_array[7];
+      my $seq_region_end = $hit_array[8];
+      my $seq_region_strand = $hit_array[10];
+      my $hit_start = $hit_array[11];
+      my $hit_end = $hit_array[12];
+      my $hit_score = $hit_array[2];
+      my $percent_identity = $hit_array[5];
+      my $e_value = $hit_array[4];
+      my $cigar = $hit_array[13]."M";
+      my $slice = $self->genome_slices->{$hit_array[6]};
+      unless($slice) {
+        self->throw("Could not find a matching slice for:\n".$hit_array[6]);
+      }
+
+      my $hit = Bio::EnsEMBL::DnaPepAlignFeature->new(
+                                                      -start      => $seq_region_start,
+                                                      -end        => $seq_region_end,
+                                                      -strand     => $seq_region_strand,
+                                                      -hseqname   => $current_hit_name,
+                                                      -hstart     => $hit_start,
+                                                      -hend       => $hit_end,
+                                                      -score      => $hit_score,
+                                                      -percent_id => $percent_identity,
+                                                      -cigar_string => $cigar,
+                                                      -p_value    => $e_value,
+                                                      -slice      => $slice,
+                                                      -analysis   => $analysis);
+
+      $protein_align_feature_adaptor->store($hit);
+    }
+
+  }
+  close BLAST_REPORT;
+}
+
+
+sub get_biotype {
+  my ($self,$biotype_hash) = @_;
+  if($biotype_hash) {
+    $self->param('_biotype_hash',$biotype_hash);
+  }
+  return($self->param('_biotype_hash'));
+}
+
+sub genome_slices {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_genome_slices',$val);
+  }
+  return($self->param('_genome_slices'));
+}
 
 sub get_genome_slices {
   my ($self) = @_;
@@ -212,37 +316,44 @@ sub get_genome_slices {
 sub output_query_file {
   my ($self) = @_;
 
-  my $accession = $self->param('iid');
+  my $accession_array = $self->param('iid');
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-
   $table_adaptor->table_name('uniprot_sequences');
 
-  my $db_row = $table_adaptor->fetch_by_dbID($accession);
-  unless($db_row) {
-    $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
-  }
-
-  my $seq = $db_row->{'seq'};
-  my $transcript_biotype = $db_row->{'biotype'};
-
-  my $record = ">".$accession."\n".$seq;
   my $output_dir = $self->param('query_seq_dir');
+
+  # Note as each accession will occur in only one file, there should be no problem using the first one
+  my $outfile_name = "genblast_".${$accession_array}[0].".fasta";
+  my $outfile_path = $output_dir."/".$outfile_name;
+
+  my $biotypes_hash = {};
+
   unless(-e $output_dir) {
     `mkdir $output_dir`;
   }
 
-  my $outfile_name = "genblast_".$accession.".fasta";
-  my $outfile_path = $output_dir."/".$outfile_name;
   if(-e $outfile_path) {
     $self->warning("Found the query file in the query dir already. Overwriting. File path\n:".$outfile_path);
   }
+
   open(QUERY_OUT,">".$outfile_path);
-  say QUERY_OUT $record;
+  foreach my $accession (@{$accession_array}) {
+    my $db_row = $table_adaptor->fetch_by_dbID($accession);
+    unless($db_row) {
+      $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
+    }
+
+    my $seq = $db_row->{'seq'};
+    $biotypes_hash->{$accession} = $db_row->{'biotype'};
+
+    my $record = ">".$accession."\n".$seq;
+    say QUERY_OUT $record;
+  }
   close QUERY_OUT;
 
   $self->files_to_delete($outfile_path);
-  $self->transcript_biotype($transcript_biotype);
+  $self->get_biotype($biotypes_hash);
 
   return($outfile_path);
 }
@@ -270,16 +381,6 @@ sub test_translates {
     $result = 1;
   }
   return $result;
-}
-
-
-sub transcript_biotype {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_transcript_biotype',$val);
-  }
-
-  return($self->param('_transcript_biotype'));
 }
 
 
