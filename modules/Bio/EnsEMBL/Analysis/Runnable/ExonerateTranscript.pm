@@ -90,7 +90,6 @@ sub new {
   my ($coverage_aligned,$transcript_biotype) =
       rearrange([qw(
                     COVERAGE_BY_ALIGNED
-                    TRANSCRIPT_BIOTYPE
                     )
                  ], @args);
 
@@ -183,9 +182,7 @@ sub parse_results {
     # Exon.  Create a DnaDnaAlignFeature from these FeaturePairs and then
     # attach this to our Exon.
     my $transcript = Bio::EnsEMBL::Transcript->new();
-
-    my $transcript_biotype = $self->transcript_biotype();
-    $transcript->biotype($transcript_biotype);
+    $transcript->{'accession'} = $q_id;
 
     my (@tran_feature_pairs,
         $cds_start_exon, $cds_start,
