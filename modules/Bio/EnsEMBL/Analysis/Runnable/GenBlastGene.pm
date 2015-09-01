@@ -71,17 +71,14 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($database,$ref_slices,$genblast_program,$transcript_biotype) = rearrange([qw(DATABASE
-                                                                                   REFSLICES
-                                                                                   GENBLAST_PROGRAM
-                                                                                   TRANSCRIPT_BIOTYPE)], @args);
+  my ($database,$ref_slices,$genblast_program) = rearrange([qw(DATABASE
+                                                               REFSLICES
+                                                               GENBLAST_PROGRAM)], @args);
   $self->database($database) if defined $database;
   $self->genome_slices($ref_slices) if defined $ref_slices;
   # Allows the specification of exonerate or genewise instead of genblastg. Will default to genblastg if undef
   $self->genblast_program($genblast_program) if defined $genblast_program;
-  # Allow loading of an index file that has the following structure: P30378:sp:2:1:primates_pe12
-  # (accession:database:pe_level:sequence_version:group)
-  $self->transcript_biotype($transcript_biotype) if defined $transcript_biotype;
+
 
   throw("You must supply a database") if not $self->database;
   throw("You must supply a query") if not $self->query;
@@ -180,7 +177,7 @@ sub run_analysis{
   ' -q '.$self->query.
   ' -t '.$self->database.
   ' -o '.$self->query.
-  ' -cdna -pro   '.$self->options;
+  ' -pid '.$self->options;
 
   $self->resultsfile($self->query. $outfile_suffix. ".gff");
 
@@ -279,14 +276,13 @@ sub parse_results{
 
     my @exons = sort { $a->start <=> $b->start } @{$transcripts{$tid}->{exons}};
 
-    my $transcript_biotype = $self->transcript_biotype();
 
     my $tran = Bio::EnsEMBL::Transcript->new(-exons => \@exons,
                                              -slice => $exons[0]->slice,
                                              -analysis => $self->analysis,
                                              -stable_id => $transcripts{$tid}->{hitname});
 
-    $tran->biotype($transcript_biotype);
+    $tran->{'accession'} = $transcripts{$tid}->{hitname};
 
     # Reverse the exons for negative strand to calc the translations
     my $strand = $exons[0]->strand;
@@ -318,14 +314,6 @@ sub parse_results{
 
 }
 
-
-sub transcript_biotype {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->{_transcript_biotype} = $val;
-  }
-  return($self->{_transcript_biotype});
-}
 
 ############################################################
 #
