@@ -265,7 +265,8 @@ sub fetch_input {
     }
   }
 
-  my $transcript_biotype = $self->transcript_biotype();
+#  my $transcript_biotype = $self->transcript_biotype();
+  my $biotypes_hash = $self->get_biotype();
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
               -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
@@ -276,7 +277,7 @@ sub fetch_input {
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
-              -transcript_biotype => $transcript_biotype,
+              -biotypes => $biotypes_hash,
               %parameters,
               );
 
@@ -354,7 +355,6 @@ sub write_output {
   if($self->files_to_delete()) {
     my $files_to_delete = $self->files_to_delete();
     `rm $files_to_delete`;
-    `rm ${files_to_delete}_*`;
   }
 
 }
@@ -462,6 +462,9 @@ sub make_genes{
     throw("Have no slice") if(!$slice);
     $tran->slice($slice);
     $tran->analysis($self->analysis);
+    my $accession = $tran->{'accession'};
+    my $transcript_biotype = $self->get_biotype->{$accession};
+    $tran->biotype($transcript_biotype);
     $gene->add_Transcript($tran);
     push( @genes, $gene);
   }
@@ -960,53 +963,58 @@ sub filter_killed_entries {
   return $filtered_seqout_filename;
 }
 
-
 sub output_query_file {
   my ($self) = @_;
 
-  my $accession = $self->param('iid');
+  my $accession_array = $self->param('iid');
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-
   $table_adaptor->table_name('uniprot_sequences');
 
-  my $db_row = $table_adaptor->fetch_by_dbID($accession);
-  unless($db_row) {
-    $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
-  }
-
-  my $seq = $db_row->{'seq'};
-  my $transcript_biotype = $db_row->{'biotype'};
-
-  my $record = ">".$accession."\n".$seq;
   my $output_dir = $self->param('query_seq_dir');
+
+  # Note as each accession will occur in only one file, there should be no problem using the first one
+  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
+  my $outfile_path = $output_dir."/".$outfile_name;
+
+  my $biotypes_hash = {};
+
   unless(-e $output_dir) {
     `mkdir $output_dir`;
   }
 
-  my $outfile_name = "exonerate_".$accession.".fasta";
-  my $outfile_path = $output_dir."/".$outfile_name;
   if(-e $outfile_path) {
     $self->warning("Found the query file in the query dir already. Overwriting. File path\n:".$outfile_path);
   }
+
   open(QUERY_OUT,">".$outfile_path);
-  say QUERY_OUT $record;
+  foreach my $accession (@{$accession_array}) {
+    my $db_row = $table_adaptor->fetch_by_dbID($accession);
+    unless($db_row) {
+      $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
+    }
+
+    my $seq = $db_row->{'seq'};
+    $biotypes_hash->{$accession} = $db_row->{'biotype'};
+
+    my $record = ">".$accession."\n".$seq;
+    say QUERY_OUT $record;
+  }
   close QUERY_OUT;
 
   $self->files_to_delete($outfile_path);
-  $self->transcript_biotype($transcript_biotype);
+  $self->get_biotype($biotypes_hash);
 
   return($outfile_path);
-
 }
 
-sub transcript_biotype {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_transcript_biotype',$val);
-  }
 
-  return($self->param('_transcript_biotype'));
+sub get_biotype {
+  my ($self,$biotype_hash) = @_;
+  if($biotype_hash) {
+    $self->param('_biotype_hash',$biotype_hash);
+  }
+  return($self->param('_biotype_hash'));
 }
 
 
