@@ -19,6 +19,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
+use Data::Dumper;
 
 use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -39,7 +40,7 @@ sub run {
 
   if (!($self->param('slice')) && !($self->param('single')) && !($self->param('file')) &&
       !($self->param('translation_id')) && !($self->param('hap_pair')) && !($self->param('chunk')) &&
-      !($self->param('slice_to_feature_ids')) && !($self->param('split_slice'))
+      !($self->param('slice_to_feature_ids')) && !($self->param('split_slice')) && !($self->param('uniprot_accession'))
      ) {
     $self->throw("Must define input as either contig, slice, file, translation_id ".
                  "single, seq_level, top_level, hap_pair, chunk or slice_to_feature_ids");
@@ -57,6 +58,8 @@ sub run {
     $self->convert_slice_to_feature_ids();
   } elsif($self->param('split_slice')) {
     $self->split_slice();
+  } elsif($self->param('uniprot_accession')) {
+    $self->uniprot_accession();
   } else {
     $self->throw('You have not specified one of the recognised operation types');
   }
@@ -304,7 +307,6 @@ sub split_slice {
     my $slice_start = $slice_array[3];
     my $slice_end = $slice_start + $target_slice_size - 1;
     my $new_slice = $slice_array[0].':'.$slice_array[1].':'.$slice_array[2].':'.$slice_start.':'.$slice_end.':'.$slice_array[5];
-    say "FM2 HERE, new slice ".$new_slice;
     push(@{$output_id_array},$new_slice);
     my $i=0;
     for($i=1; $i<$loop_count; $i++) {
@@ -323,6 +325,46 @@ sub split_slice {
 
   $self->output_ids($output_id_array);
 }
+
+sub uniprot_accession {
+  my ($self) = @_;
+
+  my $output_id_array = [];
+
+  unless($self->param('uniprot_batch_size')) {
+    $self->throw("You've select to batch uniprot ids but haven't passed in a batch size using 'uniprot_batch_size'");
+  }
+
+  unless($self->param('uniprot_table_name')) {
+    $self->throw("You've select to batch uniprot ids but haven't passed the name of the uniprot table in ".
+                 "the pipeline database using 'uniprot_table_name'");
+  }
+
+  my $batch_size = $self->param('uniprot_batch_size');
+  my $table_name = $self->param('uniprot_table_name');
+
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name($table_name);
+
+  $table_adaptor->column_set();
+  my $accessions = $table_adaptor->fetch_all(undef,undef,undef,'accession');
+  my $accession_array = [];
+  foreach my $accession (@{$accessions}) {
+    my $size = scalar(@{$accession_array});
+    if($size == $batch_size) {
+      push(@{$output_id_array},$accession_array);
+      $accession_array = [];
+    }
+    push(@{$accession_array},$accession);
+  }
+
+  if(scalar(@{$accession_array})) {
+    push(@{$output_id_array},$accession_array);
+  }
+
+  $self->output_ids($output_id_array);
+}
+
 
 sub check_slice_for_features {
   my ($self) = @_;
