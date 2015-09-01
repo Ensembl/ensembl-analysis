@@ -548,13 +548,6 @@ sub coverage_as_proportion_of_aligned_residues {
   return $self->{_coverage_aligned};
 }
 
-sub transcript_biotype {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->{_transcript_biotype} = $val;
-  }
-  return($self->{_transcript_biotype});
-}
 
 1;
 
