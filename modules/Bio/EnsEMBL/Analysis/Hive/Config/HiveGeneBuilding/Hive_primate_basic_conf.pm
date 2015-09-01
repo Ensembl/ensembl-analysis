@@ -84,6 +84,8 @@ sub default_options {
         'uniprot_index_name'         => 'uniprot_index',
         'uniprot_db_name'            => 'uniprot_db',
         'uniprot_query_dir_name'     => 'uniprot_temp',
+        'uniprot_genblast_batch_size' => 10,
+        'uniprot_table_name'         => 'uniprot_sequences',
 
         'genblast_path'              => 'genblast',
         'genblast_eval'              => '1e-20',
@@ -165,102 +167,6 @@ sub default_options {
 }
 
 
-sub resource_classes {
-    my $self = shift;
-
-  # Note that this builds resource requests off some of the variables at the top. Works off the idea
-  # that the references all get put on one server and the pipe db is on another
-  my $pipe_db_server = $self->default_options()->{'pipe_db_server'};
-  my $dna_db_server = $self->default_options()->{'dna_db_server'};
-  my $genblast_output_db_server = $self->default_options()->{'genblast_output_db_server'};
-  my $exonerate_output_db_server = $self->default_options()->{'exonerate_output_db_server'};
-  my $killlist_db_server = $self->default_options()->{'killlist_db_server'};
-
-  my $default_mem = $self->default_options()->{'default_mem'};
-  my $genblast_mem = $self->default_options()->{'genblast_mem'};
-  my $genblast_retry_mem = $self->default_options()->{'genblast_retry_mem'};
-  my $exonerate_mem = $self->default_options()->{'exonerate_mem'};
-  my $exonerate_retry_mem = $self->default_options()->{'exonerate_retry_mem'};
-
-  my $pipe_db_server_number;
-  my $dna_db_server_number;
-  my $genblast_output_db_server_number;
-  my $exonerate_output_db_server_number;
-  my $killlist_db_server_number;
-
-
-  my $num_tokens = $self->default_options()->{'num_tokens'};
-
-  unless($pipe_db_server =~ /(\d+)$/) {
-    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-        "pipe_db_server: ".$pipe_db_server;
-  }
-
-  $pipe_db_server_number = $1;
-
-    unless($dna_db_server =~ /(\d+)$/) {
-    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-        "dna_db_server: ".$dna_db_server;
-  }
-
-  $dna_db_server_number = $1;
-
-  unless($genblast_output_db_server =~ /(\d+)$/) {
-    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-        "genblast_output_db_server: ".$genblast_output_db_server;
-  }
-
-  $genblast_output_db_server_number = $1;
-
-    unless($exonerate_output_db_server =~ /(\d+)$/) {
-    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-        "exonerate_output_db_server: ".$exonerate_output_db_server;
-  }
-
-  $exonerate_output_db_server_number = $1;
-
-    unless($killlist_db_server=~ /(\d+)$/) {
-    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-        "killlist_db_server: ".$killlist_db_server;
-  }
-
-  $killlist_db_server_number = $1;
-
-  unless($num_tokens) {
-    die "num_tokens is uninitialised or zero. num_tokens needs to be present in default_options and not zero\n".
-        "num_tokens: ".$num_tokens;
-  }
-
-    return {
-      'default' => { LSF => '-q normal -M'.$default_mem.' -R"select[mem>'.$default_mem.'] '.
-                            'rusage[mem='.$default_mem.','.
-                            'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
-
-      'genblast' => { LSF => '-q normal -M'.$genblast_mem.' -R"select[mem>'.$genblast_mem.'] '.
-                             'rusage[mem='.$genblast_mem.','.
-                             'myens_build'.$genblast_output_db_server_number.'tok='.$num_tokens.','.
-                             'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
-                             'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
-
-      'genblast_retry' => { LSF => '-q normal -M'.$genblast_retry_mem.' -R"select[mem>'.$genblast_retry_mem.'] '.
-                                   'rusage[mem='.$genblast_retry_mem.','.
-                                   'myens_build'.$genblast_output_db_server_number.'tok='.$num_tokens.','.
-                                   'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
-                                   'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
-
-      'exonerate' => { LSF => '-q normal -M'.$exonerate_mem.' -R"select[mem>'.$exonerate_mem.'] '.
-                              'rusage[mem='.$exonerate_mem.','.
-                              'myens_build'.$exonerate_output_db_server_number.'tok='.$num_tokens.','.
-                              'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
-                              'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
-
-      'exonerate_retry' => { LSF => '-q normal -M'.$exonerate_retry_mem.' -R"select[mem>'.$exonerate_retry_mem.'] '.
-                                    'rusage[mem='.$exonerate_retry_mem.','.
-                                    'myens_build'.$exonerate_output_db_server_number.'tok='.$num_tokens.','.
-                                    'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
-                                    'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
-    }
-}
 
 sub pipeline_create_commands {
     my ($self) = @_;
@@ -268,7 +174,7 @@ sub pipeline_create_commands {
     # inheriting database and hive tables' creation
       @{$self->SUPER::pipeline_create_commands},
 
-      $self->db_cmd('CREATE TABLE uniprot_sequences ('.
+      $self->db_cmd('CREATE TABLE '.$self->o('uniprot_table_name').' ('.
                     'accession varchar(50) NOT NULL,'.
                     'source_db varchar(50) NOT NULL,'.
                     'pe_level varchar(50) NOT NULL,'.
@@ -391,8 +297,26 @@ sub pipeline_analyses {
                          uniprot_index_path => $self->o('output_path').'/'.$self->o('uniprot_index_name'),
                        },
         -rc_name          => 'default',
+        -wait_for     => ['process_uniprot_files'],
         -flow_into => {
-                        1 => ['genblast','exonerate'],
+                        1 => ['exonerate'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'generate_genblast_jobs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         uniprot_accession => 1,
+                         uniprot_batch_size => $self->o('uniprot_genblast_batch_size'),
+                         uniprot_table_name => $self->o('uniprot_table_name'),
+                       },
+        -rc_name      => 'default',
+        -wait_for     => ['load_uniprot_seqs'],
+        -input_ids  => [ {} ],
+        -flow_into => {
+                        1 => ['genblast'],
                       },
       },
 
@@ -492,6 +416,102 @@ sub pipeline_wide_parameters {
 #    return "-reg_conf ".$self->o("registry");
 #}
 
+sub resource_classes {
+    my $self = shift;
+
+  # Note that this builds resource requests off some of the variables at the top. Works off the idea
+  # that the references all get put on one server and the pipe db is on another
+  my $pipe_db_server = $self->default_options()->{'pipe_db_server'};
+  my $dna_db_server = $self->default_options()->{'dna_db_server'};
+  my $genblast_output_db_server = $self->default_options()->{'genblast_output_db_server'};
+  my $exonerate_output_db_server = $self->default_options()->{'exonerate_output_db_server'};
+  my $killlist_db_server = $self->default_options()->{'killlist_db_server'};
+
+  my $default_mem = $self->default_options()->{'default_mem'};
+  my $genblast_mem = $self->default_options()->{'genblast_mem'};
+  my $genblast_retry_mem = $self->default_options()->{'genblast_retry_mem'};
+  my $exonerate_mem = $self->default_options()->{'exonerate_mem'};
+  my $exonerate_retry_mem = $self->default_options()->{'exonerate_retry_mem'};
+
+  my $pipe_db_server_number;
+  my $dna_db_server_number;
+  my $genblast_output_db_server_number;
+  my $exonerate_output_db_server_number;
+  my $killlist_db_server_number;
+
+
+  my $num_tokens = $self->default_options()->{'num_tokens'};
+
+  unless($pipe_db_server =~ /(\d+)$/) {
+    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
+        "pipe_db_server: ".$pipe_db_server;
+  }
+
+  $pipe_db_server_number = $1;
+
+    unless($dna_db_server =~ /(\d+)$/) {
+    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
+        "dna_db_server: ".$dna_db_server;
+  }
+
+  $dna_db_server_number = $1;
+
+  unless($genblast_output_db_server =~ /(\d+)$/) {
+    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
+        "genblast_output_db_server: ".$genblast_output_db_server;
+  }
+
+  $genblast_output_db_server_number = $1;
+
+    unless($exonerate_output_db_server =~ /(\d+)$/) {
+    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
+        "exonerate_output_db_server: ".$exonerate_output_db_server;
+  }
+
+  $exonerate_output_db_server_number = $1;
+
+    unless($killlist_db_server=~ /(\d+)$/) {
+    die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
+        "killlist_db_server: ".$killlist_db_server;
+  }
+
+  $killlist_db_server_number = $1;
+
+  unless($num_tokens) {
+    die "num_tokens is uninitialised or zero. num_tokens needs to be present in default_options and not zero\n".
+        "num_tokens: ".$num_tokens;
+  }
+
+    return {
+      'default' => { LSF => '-q normal -M'.$default_mem.' -R"select[mem>'.$default_mem.'] '.
+                            'rusage[mem='.$default_mem.','.
+                            'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
+      'genblast' => { LSF => '-q normal -M'.$genblast_mem.' -R"select[mem>'.$genblast_mem.'] '.
+                             'rusage[mem='.$genblast_mem.','.
+                             'myens_build'.$genblast_output_db_server_number.'tok='.$num_tokens.','.
+                             'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
+                             'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
+      'genblast_retry' => { LSF => '-q normal -M'.$genblast_retry_mem.' -R"select[mem>'.$genblast_retry_mem.'] '.
+                                   'rusage[mem='.$genblast_retry_mem.','.
+                                   'myens_build'.$genblast_output_db_server_number.'tok='.$num_tokens.','.
+                                   'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
+                                   'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
+      'exonerate' => { LSF => '-q normal -M'.$exonerate_mem.' -R"select[mem>'.$exonerate_mem.'] '.
+                              'rusage[mem='.$exonerate_mem.','.
+                              'myens_build'.$exonerate_output_db_server_number.'tok='.$num_tokens.','.
+                              'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
+                              'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
+      'exonerate_retry' => { LSF => '-q normal -M'.$exonerate_retry_mem.' -R"select[mem>'.$exonerate_retry_mem.'] '.
+                                    'rusage[mem='.$exonerate_retry_mem.','.
+                                    'myens_build'.$exonerate_output_db_server_number.'tok='.$num_tokens.','.
+                                    'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
+                                    'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+    }
+}
 
 sub get_config_settings {
 
