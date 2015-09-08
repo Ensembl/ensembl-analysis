@@ -24,9 +24,7 @@ sub param_defaults {
       
       # used by create_type = 'copy'
       db_dump_file => "/tmp/source_db_".time().".tmp",
-      pass_r => '',
       pass_w => '',
-      user_r => '',
       user_w => '',
       ignore_dna => 0, # if set to 1, the dna table won't be dumped
     }
@@ -116,8 +114,8 @@ sub copy_db {
     throw("You have specified a create type of copy but you don't have both a source_db and target_db specified in your config.");
   }
 
-  if (not $self->param('user_r') or not $self->param('user_w') or not $self->param('pass_w')) {
-    throw("You have specified a create type of copy but you haven't specified the user_r, user_w and pass_w.\n");
+  if (not $self->param('user_w') or not $self->param('pass_w')) {
+    throw("You have specified a create type of copy but you haven't specified the user_w and pass_w.\n");
   }
 
   if (not $self->param('db_dump_file')) {
@@ -158,7 +156,7 @@ sub copy_db {
   my $target_host = shift(@target_string_colon_split);
   my $target_port = shift(@target_string_colon_split);
   
-  dump_database($source_host,$source_port,$self->param('user_r'),$self->param('pass_r'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
+  dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
   create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
   remove_file($self->param('db_dump_file'));
