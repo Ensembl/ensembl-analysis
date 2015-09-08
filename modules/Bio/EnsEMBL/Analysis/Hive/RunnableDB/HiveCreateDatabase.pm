@@ -201,9 +201,9 @@ sub dump_database {
   
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
-  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser ";
+  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
   } else {
-  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser -p$dbpass";
+  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass";
   }
   if ($ignore_dna) {
   	$command .= " --ignore-table=".$dbname.".dna ";
