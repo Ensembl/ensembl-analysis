@@ -278,10 +278,11 @@ sub parse_results{
           }
           else 
           {
-            throw("Can't parse repeatmasker output for line = $_\n".
+            warning("Can't parse repeatmasker output for line = $_\n".
                      $repeatmunge."=repeatmunge\n".
                      $repeatmunge2."=repeatmunge2\n"
                 );
+            $repeat_name = $repeatmunge;
           }
           if(!$repeat_class)
           {
