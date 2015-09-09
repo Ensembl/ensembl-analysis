@@ -177,7 +177,7 @@ sub run_analysis{
   ' -q '.$self->query.
   ' -t '.$self->database.
   ' -o '.$self->query.
-  ' -pid '.$self->options;
+  ' -pid -r 1 '.$self->options;
 
   $self->resultsfile($self->query. $outfile_suffix. ".gff");
 
@@ -241,12 +241,12 @@ sub parse_results{
       my ($chromosome, $type, $start, $end, $score, $strand, $other) =  @elements[0, 2, 3, 4, 5, 6, 8];
 
       if ($type eq 'transcript') {
-        my ($group, $hitname) = ($other =~ /ID=(\S+?);Name=(\S+)/);
+        my ($group, $hitname) = ($other =~ /ID=(\S+?);Name=([^;]+)/);
         $group =~ /^$hitname\-R(\d+)\-/;
-        my $rank = $1;
+#        my $rank = $1;
         $transcripts{$group}->{score} = $score;
         $transcripts{$group}->{hitname} = $hitname;
-        $transcripts{$group}->{rank} = $rank;
+#        $transcripts{$group}->{rank} = $rank;
       } elsif ($type eq 'coding_exon') {
         my ($group) = ($other =~ /Parent=(\S+)/);
         if (not exists $self->genome_slices->{$chromosome}) {
@@ -268,11 +268,11 @@ sub parse_results{
   foreach my $tid (keys %transcripts) {
     # Hardcoding to select only to top ranked model for the moment. Like exonerate best in genome. Will allow for
     # the rank to be selected in future
-    unless($transcripts{$tid}->{rank} == 1) {
-      say "Skipping output of transcript '".$transcripts{$tid}->{hitname}."' due to rank (".
-           $transcripts{$tid}->{rank}.")";
-      next;
-    }
+#    unless($transcripts{$tid}->{rank} == 1) {
+#      say "Skipping output of transcript '".$transcripts{$tid}->{hitname}."' due to rank (".
+#           $transcripts{$tid}->{rank}.")";
+#      next;
+#    }
 
     my @exons = sort { $a->start <=> $b->start } @{$transcripts{$tid}->{exons}};
 
@@ -283,6 +283,7 @@ sub parse_results{
                                              -stable_id => $transcripts{$tid}->{hitname});
 
     $tran->{'accession'} = $transcripts{$tid}->{hitname};
+    $tran->{'genblast_id'} = $tid;
 
     # Reverse the exons for negative strand to calc the translations
     my $strand = $exons[0]->strand;
