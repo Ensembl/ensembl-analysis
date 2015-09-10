@@ -34,8 +34,10 @@ sub fetch_input {
 sub run {
   my ($self) = shift;
   $self->remove_kill_list_object('cdna_update');
-
   say "Finished removing kill-list objects";
+
+  $self->polyA_clipping('cdna_update.seqs');
+  say "Finished clipping polyA tails";
   return 1;
 }
 
@@ -96,6 +98,43 @@ sub remove_kill_list_object {
 
     return $newfile2;
 } 
+
+# Clipping the polyA tail
+sub polyA_clipping {
+    my ($self,$trim_file) = @_;
+
+    my $DATA_DIR = '/lustre/scratch109/ensembl/dm15/hive_cdna/';
+    my $POLYA_CLIPPING = '~/enscode/ensembl-pipeline/scripts/EST/new_polyA_clipping.pl';
+    # Clip ployA tails
+    print("\nPerforming polyA clipping...\n");
+    my $newfile3 = $DATA_DIR . "/" . $trim_file. ".clipped";
+    my $cmd = "perl " . $POLYA_CLIPPING . " " ;
+    $cmd.="-errfile $DATA_DIR/polyA.err ";
+    #if ( $MIN_LENGTH ) {
+    #   $cmd.="-min_length $MIN_LENGTH ";
+    #}
+      $cmd .=  $DATA_DIR . "/" . $trim_file . " " . $newfile3;
+
+    $cmd = 'bsub -I -q yesterday -M1000 -R"select[mem>1000] rusage[mem=1000]" "'.$cmd.'"';
+    print $cmd, "\n";
+
+    system($cmd);
+    #  die"Couldn't clip file.$@\n";
+    #}
+
+    # Split fasta files, store into CHUNKDIR
+#    print("Splitting fasta file.\n");
+#    $cmd = "$FASTA_SPLIT $newfile3 $CHUNK $chunkDIR";
+#    if ( system($cmd) ) {
+#        die "Couldn't split file.$@\n";
+#    }
+
+    # Isolate biggest sequences
+#    check_chunksizes();
+
+#    print "\nChopped up the file.\n";
+}
+
 
 1;
 
