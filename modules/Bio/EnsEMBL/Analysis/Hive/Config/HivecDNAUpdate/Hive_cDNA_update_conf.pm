@@ -114,40 +114,38 @@ sub pipeline_analyses {
     -logic_name => 'download_cdnas',
     -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadcDNAFiles',
     -parameters => {
-       #multi_query_download => {
-         embl_sequences => {
-#           taxon_id   => $self->o('human_taxon_id'),
-#           file_name  => 'embl_' . 'taxon_id' . '.fasta',
-           #output_path   => $self->o('/lustre/scratch109/ensembl/dm15/hive_cdna/'),
-           #species   => $self->o('human'),
-           output_path   => $self->o('output_path'),
-           species   => $self->o('species'),
-         },
-      #},
+       embl_sequences => {
+#         taxon_id   => $self->o('human_taxon_id'),
+#         file_name  => 'embl_' . 'taxon_id' . '.fasta',
+         #output_path   => $self->o('/lustre/scratch109/ensembl/dm15/hive_cdna/'),
+         #species   => $self->o('human'),
+         output_path   => $self->o('output_path'),
+         species   => $self->o('species'),
+       },
     },
     -rc_name   => 'default',
     -input_ids => [ {} ],
-#    -flow_into => {
-#      1 => ['prepare_cdnas'],
-#    },
+    -flow_into => {
+      1 => ['prepare_cdnas'],
+    },
   },
-#  {
-#    -logic_name => 'prepare_cdnas',
-#    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs',
-#    -wait_for => ['embl_sequences'],
-#    -parameters => {
-#      logic_name => 'prepare_cdnas',
+  {
+    -logic_name => 'prepare_cdnas',
+    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs',
+    -wait_for => ['download_cdnas'],
+    -parameters => {
+      logic_name => 'prepare_cdnas',
 #      module     => 'HivePreparecDNAs',
 #      dest_dir   => $self->o('output_path'),
 #      query_seq_dir => $self->o('output_path').'/'.$self->o('cdna_query_dir_name'),
 #      killlist_type => 'cdna',
-#      killlist_db => $self->o('killlist_db'),
-#    },
-#    -rc_name => 'default',
+      killlist_db => $self->o('killlist_db'),
+    },
+    -rc_name => 'default',
 #       -flow_into => {
 #                        1 => ['load_cDNA_seqs'],
 #                      },
-#  },
+  },
   ];
 }
 
