@@ -17,13 +17,13 @@
 # standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 [-chromosome 13] [-user *** -pass *** -write 1] [-sql_output $SCR9/vega_check.sql] [-affix 1] [-biotypes_extension 1] [-dbtype vega]"
 
 # Vega check before the merge:
-# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_fixed_before_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_before.sql"
+# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_fixed_before_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_before.sql -stdout_file REPORTS_DIR/vega_checks_before.out -stderr_file REPORTS_DIR/vega_checks_before.err"
 
 # Vega check after the merge:
-# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -affix 1 -biotypes_extension 1"
+# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -affix 1 -biotypes_extension 1 -stdout_file REPORTS_DIR/vega_checks_after.out -stderr_file REPORTS_DIR/vega_checks_after.err"
 
 # Vega check after the merge and after cleaning biotypes affixes:
-# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -biotypes_extension 1"
+# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -biotypes_extension 1 -stdout_file REPORTS_DIR/vega_checks_after.out -stderr_file REPORTS_DIR/vega_checks_after.err"
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks;
 
@@ -50,6 +50,7 @@ sub param_defaults {
       dbhost => '',
       dnadbname => '',
       dnadbhost => '',
+      dnadbport => '3306',
       coord_system => '',
       path => '',
       sql_output => '',
@@ -61,6 +62,8 @@ sub param_defaults {
       write => '',
       affix => 0, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; without affixes by default
       biotypes_extension => 0, # use additional biotypes in 'gene_trans_type_combination_extension'; default=no
+      stdout_file => '', # full path to the file where the standard output will be printed
+      stderr_file => '' # full path to the file where the standard error will be printed
     }
 }
 
@@ -110,6 +113,9 @@ sub run {
   my $num_unknown_genes = 0;
   my $num_unknown_transcripts = 0;
   my $num_gt_comb_not_allowed = 0;
+
+  open STDOUT, '>', $self->param('stdout_file') if ($self->param('stdout_file'));
+  open STDERR, '>', $self->param('stderr_file') if ($self->param('stderr_file'));
 
   if (not $self->param('user') or not $self->param('dbhost') or not $self->param('dbname')) {
     throw("DB connection parameters missing. Can't connect.");
@@ -242,7 +248,7 @@ sub run {
               }
               # we want to keep track of the presence of processed_transcript/non-coding transcripts to decide about the gene biotype later on
               $processed_transcript = 1;
-            } elsif ($trans->translate->seq =~ /\*/ and $t_biotype !~ /TR_gene/ and $t_biotype !~ /IG_gene/) { # transcript has translation with stop codon
+            } elsif ($trans->translate->seq =~ /\*/ and $t_biotype !~ /TR_.*gene/ and $t_biotype !~ /IG_.*gene/) { # transcript has translation with stop codon
               if ($t_biotype !~ /.*polymorphic.*/)  { # but its biotype is not polymorphic or polymorphic_pseudogene
                 # transcript biotype should be polymorphic_pseudogene
                 my ($t_biotype_prefix,$t_biotype_suffix) = get_biotype_affix($t_biotype,$transcript_biotypes_str,$transcript_prefixes_str,$transcript_suffixes_str);

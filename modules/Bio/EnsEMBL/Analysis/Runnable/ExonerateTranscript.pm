@@ -86,8 +86,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-  
-  my ( $coverage_aligned ) = 
+
+  my ($coverage_aligned,$transcript_biotype) =
       rearrange([qw(
                     COVERAGE_BY_ALIGNED
                     )
@@ -98,7 +98,11 @@ sub new {
     $self->coverage_as_proportion_of_aligned_residues($coverage_aligned);
   } else {
     $self->coverage_as_proportion_of_aligned_residues(1);
-  }  
+  }
+
+  if(defined($transcript_biotype)) {
+    $self->transcript_biotype($transcript_biotype)
+  }
 
   return $self;
 }
@@ -137,7 +141,7 @@ sub parse_results {
     my ($tag, $q_id, $q_start, $q_end, $q_strand, $t_id, $t_start, $t_end,
 	$t_strand, $score, $perc_id, $q_length, $t_length, $gene_orientation,
 	@align_components) = split;
-   
+
     $t_strand = $strand_lookup{$t_strand};
     $q_strand = $strand_lookup{$q_strand};
     $gene_orientation = $strand_lookup{$gene_orientation};
@@ -160,7 +164,7 @@ sub parse_results {
       $t_strand *= -1;
       $q_strand *= -1;
     }
-        
+
     my $covered_count = 0;
     if ($self->coverage_as_proportion_of_aligned_residues) {
       foreach my $exon (@$exons) {
@@ -178,8 +182,9 @@ sub parse_results {
     # Exon.  Create a DnaDnaAlignFeature from these FeaturePairs and then
     # attach this to our Exon.
     my $transcript = Bio::EnsEMBL::Transcript->new();
+    $transcript->{'accession'} = $q_id;
 
-    my (@tran_feature_pairs, 
+    my (@tran_feature_pairs,
         $cds_start_exon, $cds_start,
         $cds_end_exon, $cds_end);
 

@@ -39,6 +39,7 @@ $opt_port_secondary = $opt_port_primary = $opt_port_dna = $opt_port_ccds =
 
 my $opt_njobs = 1;    # Default number of jobs.
 my $opt_job   = 1;    # This job.
+my $opt_file;   # list of genes from the primary db to be merged
 
 my $opt_help = 0;
 
@@ -79,6 +80,7 @@ if ( !GetOptions(
           'primary_translation_xref:s' => \$opt_primary_translation_xref,
           'njobs:i'                   => \$opt_njobs,
           'job:i'                     => \$opt_job,
+          'file:s'                    => \$opt_file,
           'help|h|?!'                 => \$opt_help, ) ||
      $opt_help ||
      !( defined($opt_host_secondary) &&
@@ -268,8 +270,19 @@ if ( defined($ccds_dba) ) {
 # genes and the number of jobs that are being run.  We pick the chunk
 # associated with our job ID.
 
-my @all_primary_gene_ids =
-  sort { $a <=> $b } @{ $PRIMARY_GA->list_dbIDs() };
+my @all_primary_gene_ids = ();
+if ($opt_file) {
+  # fetch all primary genes from the list in the file 
+  open(GENEIDS,$opt_file);
+  while (<GENEIDS>) {
+    chomp;
+    push(@all_primary_gene_ids,$_);
+  }
+  close(GENEIDS);
+} else {
+  # fetch all genes in the primary db
+  @all_primary_gene_ids = sort { $a <=> $b } @{ $PRIMARY_GA->list_dbIDs() };
+}
 
 my $chunk_size  = int( scalar(@all_primary_gene_ids)/$opt_njobs );
 my $chunk_first = ( $opt_job - 1 )*$chunk_size;
@@ -1387,7 +1400,7 @@ sub features_are_same {
 } ## end sub features_are_same
 
 sub features_are_subset {
-# returns true if feature_set_b is a subset of feature_set_a
+# returns true if feature_set_b is a contiguous subset of feature_set_a
 # first feature start and last feature end are allowed to mismatch
   my ( $feature_set_a, $feature_set_b ) = @_;
 
@@ -1398,6 +1411,7 @@ sub features_are_subset {
 
   my $is_subset = 1;
   my $feature_b_index = 0;
+  my $contiguous_match = 0;
   
   for (my $feature_a_index = 0; $feature_a_index < scalar(@{$feature_set_a}); ++$feature_a_index) {
     my $feature_a = $feature_set_a->[$feature_a_index];
@@ -1406,21 +1420,30 @@ sub features_are_subset {
     my $end_match = end_features_match($feature_a,$feature_b,$feature_b_index,scalar(@{$feature_set_b})-1);
     my $room_for_feature_b = (scalar(@{$feature_set_b})-$feature_b_index-1 <= scalar(@{$feature_set_a})-$feature_a_index-1);
 
-    if ((!$start_match or !$end_match) and !$room_for_feature_b) {
-      # no more room for feature b
-      return 0;
+    if (!$start_match or !$end_match) {
+      if ($contiguous_match) {
+        # if all previous features match and we stop matching having some features left to match,
+        # return NO match as all the matches have to be contiguous
+        return 0;
+      }
+      
+      if (!$room_for_feature_b) {
+        # no more room for feature b
+        return 0;
+      }
     } elsif ($start_match and $end_match) {
       # match and still room
+      $contiguous_match = 1;
       $feature_b_index++;
       if ($feature_b_index > scalar(@{$feature_set_b})-1) {
       # final match
-      	return 1;
+        return 1;
       }
     }
   }
   # NO match
   return 0;
-} ## end sub features_are_same
+} ## end sub features_are_subset
 
 sub start_features_match () {
   # return true if feature b start lies within feature a for the first b feature
