@@ -52,8 +52,8 @@ use base ('Bio::EnsEMBL::Hive::Process');
 sub param_defaults {
     return {
             'is_html'    => 0,
-            'subject' => 'An automatic message from your pipeline',
-            'file' => '',    # full path to the textfile whose text will be attached to the text of your email
+            'subject' => undef,
+            'file' => undef,    # full path to the textfile whose text will be attached to the text of your email
             'command' => '', # optional command to apply to the textfile
             
     };
