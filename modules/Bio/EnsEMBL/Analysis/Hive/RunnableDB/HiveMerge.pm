@@ -18,7 +18,7 @@ HiveMerge.pm
 
 =head1 DESCRIPTION
 
-This module runs merge.pl on eHive.
+This module runs merge.pl on eHive. Please see merge.pl for further details about the parameters.
 
 =head1 OPTIONS
 
@@ -34,8 +34,46 @@ This module runs merge.pl on eHive.
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge -dbhost genebuildX -dbuser USER_W -dbpass PASS_W -dbname DBNAME -dbport DBPORT
-
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge
+                               -ensembl_analysis_base $ENSCODE/ensembl-analysis
+                               -host_secondary ENSEMBLHOST
+                               -user_secondary READ_ONLY_USER
+                               -password_secondary READ_ONLY_PASS
+                               -database_secondary ENSEMBLDBNAME
+                               -host_primary VEGADBHOST
+                               -user_primary READ_ONLY_USER
+                               -password_primary READ_ONLY_PASS
+                               -database_primary VEGADBNAME
+                               -host_ccds CCDSHOST
+                               -user_ccds READ_ONLY_USER
+                               -password_ccds READ_ONLY_PASS
+                               -database_ccds CCDSDBNAME
+                               -host_output MERGEDBHOST
+                               -user_output WRITE_USER
+                               -password_output WRITE_PASS
+                               -database_output MERGEDBNAME
+                               
+                               # Tagging:  Will be used as suffix for logic names ("_tag") and for
+                               # source.  With the default settings, merged genes and transcripts will
+                               # get the source "secondary_primary".
+                               
+                               -secondary_tag ensembl
+                               -primary_tag havana
+                               
+                               # Xrefs:  The format is a comma-separated list of
+                               # "db_name,db_display_name,type"
+                               
+                               -primary_gene_xref "OTTG,Havana gene,ALT_GENE"
+                               -primary_transcript_xref "OTTT,Havana transcript,ALT_TRANS"
+                               -primary_translation_xref "OTTP,Havana translation,MISC"
+                               
+                               # as the chunks (and a job per chunk) are created in the step before,
+                               # these parameters would define how many jobs per chunk we want, just 1 as we don't want chunks of chunks
+                               # and we cannot use the LSF job index on the ehive to create chunks of chunks here anyway
+                               -njobs => 1,
+                               -job => 1,
+                               
+                               -file => OUTPUT/vega_genes_for_merge.ids_chunk_2.txt, this parameter would normally come from 'chunk_genes_for_merge' output, see FileFactory.pm
 =cut
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge;
@@ -103,10 +141,6 @@ sub fetch_input {
 sub run {
 
   my $self = shift;
-  
-  if (not $self->param('host_secondary') or not $self->param('host_primary')) {
-    throw("Parameters missing");
-  }
 
   # add / at the end of the paths if it cannot be found to avoid possible errors
   #if (!($self->param('output_path') =~ /\/$/)) {
