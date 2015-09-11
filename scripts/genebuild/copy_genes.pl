@@ -121,6 +121,7 @@ my $out_config_name;
 
 my $logic;
 my $split = 0;
+my $skip_exon_sf = 1;
 my $infile;
 my $all;
 my $remove_xrefs;
@@ -150,6 +151,7 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'logic:s'                              => \$logic,
             'split!'                               => \$split,
             'all!'                                 => \$all,
+            'skip_exon_sf!'                        => \$skip_exon_sf,
             'remove_xrefs!'                        => \$remove_xrefs,
             'remove_stable_ids!' => \$remove_stable_ids,
             'transform_to:s'     => \$transform_to,
@@ -367,7 +369,7 @@ while (@gene_ids) {
     if ( defined($gene) ) {
       empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
 
-      $outga->store($gene,1,0,1);
+      $outga->store($gene,1,0,$skip_exon_sf);
       ++$genes_stored;
       --$genes_to_go;
 
