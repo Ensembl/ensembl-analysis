@@ -22,19 +22,25 @@ This module copies the genes whose identifiers are listed in a given file from a
 
 =head1 OPTIONS
 
--dbhost         database host name
-
--dbport         database port (default 3306)
-
--dbname         database name
-
--dbuser         database username to connect as
-
--dbpass         database password to use
+-sourcehost     source database host
+-sourceuser     source database read-only user name
+-sourceport     source database port
+-sourcepass     source database read-only user pass
+-sourcedbname   source database name
+-outhost        destination database host
+-outuser        destination database write user name
+-outpass        destination database write user pass
+-outdbname      destination database name
+-outport        destination database port
+-dnahost        dna database host (usually same as source)
+-dnadbname      dna database name ()
+-dnauser        dna database read-only user name
+-dnaport        dna database port
+-file           file containing the list of gene ids to be copied from the source to the destination database
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes -dbhost genebuildX -dbuser USER_W -dbpass PASS_W -dbname DBNAME -dbport DBPORT -biotype TRANSCRIPT_BIOTYPE_TO_DELETE -delete_transcripts_path PATH_TO_SCRIPT_TO_DELETE_TRANSCRIPTS -script_name DELETE_TRANSCRIPTS_SCRIPT_NAME -output_path OUTPUT_PATH -output_file_name DELETE_TRANSCRIPTS_SCRIPT_OUTPUT_FILE_NAME
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes -sourcehost HOST -sourceuser READONLY_USER -sourceport PORT -sourcepass READONLY_PASS -sourcedbname SOURCEDB -outhost TARGETHOST -outuser WRITE_USER -outpass WRITE_PASS -outdbname TARGETDB -outport TARGETPORT -dnahost DNAHOST -dnadbname DNADB -dnauser READONLY_USER -dnaport DNAPORT -file gene_ids_to_copy.txt
 
 =cut
 
@@ -62,21 +68,21 @@ sub param_defaults {
 
       # copy_genes.pl script parameters
       logic => '', # to set the genes and transcripts analysis (logic names) (optional)
-      sourcehost => '',
-      sourceuser => '',
+      sourcehost => undef,
+      sourceuser => undef,
       sourceport => '3306',
-      sourcepass => '',
-      sourcedbname => '',
-      outhost => '',
-      outuser => '',
-      outpass => '',
-      outdbname => '',
+      sourcepass => undef,
+      sourcedbname => undef,
+      outhost => undef,
+      outuser => undef,
+      outpass => undef,
+      outdbname => undef,
       outport => '3306',
-      dnahost => '',
-      dnadbname => '',
-      dnauser => '',
+      dnahost => undef,
+      dnadbname => undef,
+      dnauser => undef,
       dnaport => '3306',
-      file => '' #$SCR9/gene_ids_to_copy.txt
+      file => undef
     }
 }
 
@@ -90,47 +96,22 @@ sub run {
 
   my $self = shift;
   
-  if (not $self->param('sourcehost') or not $self->param('sourceuser') or not $self->param('sourcedbname') or not $self->param('outhost') or not $self->param('outuser')
-      or not $self->param('outdbname') ) {
-    throw("Parameters missing");
-  }
+  $self->param_required('sourcehost');
+  $self->param_required('sourceuser');
+  $self->param_required('sourceport');
+  $self->param_required('sourcepass');
+  $self->param_required('sourcedbname');
+  $self->param_required('outhost');
+  $self->param_required('outuser');
+  $self->param_required('outpass');
+  $self->param_required('outdbname');
+  $self->param_required('outport');
+  $self->param_required('dnahost');
+  $self->param_required('dnadbname');
+  $self->param_required('dnauser');
+  $self->param_required('dnaport');
+  $self->param_required('file'); 
 
-#  my $num_genes_to_copy = int(run_command("wc -l ".$self->param('file'),"Counting number of genes to copy..."));
-#  print "es $num_genes_to_copy\n";
-#  my $num_genes_source_db = int(run_command("mysql -NB -u".$self->param('sourceuser')
-#                                                                ." -h".$self->param('sourcehost')
-#                                                                #." -p".$self->param('sourcepass')
-#                                                                ." -D".$self->param('sourcedbname')
-#                                                                ." -P".$self->param('sourceport')
-#                                                                ." -e".'"'."select count(*) from gene".'"'
-#                                                                ,"Counting number of genes on the source database before copying the genes..."));
-#
-#  my @tables_to_count = ('gene','transcript','exon','translation');
-#  if ($num_genes_to_copy != $num_genes_source_db) {
-#  	# if not all the genes are copied, we will only check if the gene number is right. Otherwise we would need to full-fetch all genes to count their transcripts, etc. 
-#  	@tables_to_count = ('gene');
-#  }
-#
-#  my %source_table_counts_before = ();
-#  my %output_table_counts_before = ();
-#  foreach my $table_to_count (@tables_to_count) {
-#    my $sql_count = "select count(*) from $table_to_count";
-#    $source_table_counts_before{$table_to_count} = run_command("mysql -NB -u".$self->param('sourceuser')
-#                                                                ." -h".$self->param('sourcehost')
-#                                                                #." -p".$self->param('sourcepass')
-#                                                                ." -D".$self->param('sourcedbname')
-#                                                                ." -P".$self->param('sourceport')
-#                                                                ." -e".'"'.$sql_count.'"'
-#                                                                ,"Counting $table_to_count rows on the source database before copying the genes...");
-#    $output_table_counts_before{$table_to_count} = run_command("mysql -NB -u".$self->param('outuser')
-#                                                                ." -h".$self->param('outhost')
-#                                                                ." -p".$self->param('outpass')
-#                                                                ." -D".$self->param('outdbname')
-#                                                                ." -P".$self->param('outport')
-#                                                                ." -e".'"'.$sql_count.'"'
-#                                                                ,"Counting $table_to_count rows on the output database before copying the genes...");
-#  }
-  
   my $command = "perl ".$self->param('copy_genes_path')
                        .$self->param('copy_genes_script_name')
                        ." -sourcehost ".$self->param('sourcehost')
@@ -152,39 +133,8 @@ sub run {
   	$command .= " -logic ".$self->param('logic');
   }
   
-  run_command($command,"Copying genes...");
-  
-#  foreach my $table_to_count (@tables_to_count) {
-#    my $sql_count = "select count(*) from $table_to_count";
-#    run_command("mysql -NB -u".$self->param('sourceuser')
-#                        ." -h".$self->param('sourcehost')
-#                        #." -p".$self->param('sourcepass')
-#                        ." -D".$self->param('sourcedbname')
-#                        ." -P".$self->param('sourceport')
-#                        ." -e".'"'.$sql_count.'"'
-#                        ,"Counting $table_to_count rows on the source database after copying the genes..."
-#                        ,$source_table_counts_before{$table_to_count});
-#                        
-#    if ($num_genes_to_copy == $num_genes_source_db) {
-#      run_command("mysql -NB -u".$self->param('outuser')
-#                          ." -h".$self->param('outhost')
-#                          ." -p".$self->param('outpass')
-#                          ." -D".$self->param('outdbname')
-#                          ." -P".$self->param('outport')
-#                          ." -e".'"'.$sql_count.'"'
-#                          ,"Counting $table_to_count rows on the output database after copying the genes..."
-#                          ,$source_table_counts_before{$table_to_count}+$output_table_counts_before{$table_to_count});
-#    } else {
-#      run_command("mysql -NB -u".$self->param('outuser')
-#                          ." -h".$self->param('outhost')
-#                          ." -p".$self->param('outpass')
-#                          ." -D".$self->param('outdbname')
-#                          ." -P".$self->param('outport')
-#                          ." -e".'"'.$sql_count.'"'
-#                          ,"Counting $table_to_count rows on the output database after copying the genes..."
-#                          ,$output_table_counts_before{$table_to_count}+$num_genes_to_copy);
-#    }
-#  }
+  print run_command($command,"Copying genes...");
+
   return 1;
 }
 
