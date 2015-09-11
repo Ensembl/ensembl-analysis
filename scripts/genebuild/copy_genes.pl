@@ -38,6 +38,8 @@ file.
   --all                 This option will copy all genes from
                         $sourcedbname to the output database.
 
+  --skip_exon_sf        Prevent copying supporting features across exons increased speed for lost accuracy
+
   --split               This option will split multi-transcript genes
                         into single-transcript genes.
 
