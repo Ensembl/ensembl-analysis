@@ -17,13 +17,13 @@
 # standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 [-chromosome 13] [-user *** -pass *** -write 1] [-sql_output $SCR9/vega_check.sql] [-affix 1] [-biotypes_extension 1] [-dbtype vega]"
 
 # Vega check before the merge:
-# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_fixed_before_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_before.sql"
+# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_fixed_before_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_before.sql -stdout_file REPORTS_DIR/vega_checks_before.out -stderr_file REPORTS_DIR/vega_checks_before.err"
 
 # Vega check after the merge:
-# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -affix 1 -biotypes_extension 1"
+# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -affix 1 -biotypes_extension 1 -stdout_file REPORTS_DIR/vega_checks_after.out -stderr_file REPORTS_DIR/vega_checks_after.err"
 
 # Vega check after the merge and after cleaning biotypes affixes:
-# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -biotypes_extension 1"
+# standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks -dbname my_vega_after_merge -dbhost genebuild1 -dnadbname my_dna_db -dnadbhost genebuild1 -dnadbport 3306 -port 3306 -user ensro -coord_system toplevel -path Zv9 -sql_output $SCR9/vega_check_after.sql] -biotypes_extension 1 -stdout_file REPORTS_DIR/vega_checks_after.out -stderr_file REPORTS_DIR/vega_checks_after.err"
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks;
 
