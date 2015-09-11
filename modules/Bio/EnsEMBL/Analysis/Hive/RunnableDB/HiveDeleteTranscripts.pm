@@ -45,6 +45,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
@@ -57,19 +58,19 @@ use List::Util qw(sum);
 
 sub param_defaults {
     return {
-      dbhost => '',
-      dbname => '',
-      dbuser => '',
-      dbpass => '',
+      dbhost => undef,
+      dbname => undef,
+      dbuser => undef,
+      dbpass => undef,
       dbport => 3306,
-      biotype => '',
+      biotype => undef,
       delete_transcripts_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
       delete_genes_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
       delete_transcripts_script_name => 'delete_transcripts.pl',
       delete_genes_script_name => 'delete_genes.pl',
-      output_path => '/tmp/',
+      output_path => undef,
       output_file_name => 'delete_transcripts_'.time().'.out',
-      email => 'report_reader@ebi.ac.uk',
+      email => 'report_to@ebi.ac.uk',
       from => 'your_email@ebi.ac.uk'
     }
 }
@@ -84,10 +85,12 @@ sub run {
 
   my $self = shift;
   
-  if (not $self->param('biotype') or not $self->param('dbhost') or not $self->param('dbname') or not $self->param('dbuser') or not $self->param('dbpass')
-      or not $self->param('output_path') ) {
-    throw("Parameters missing");
-  }
+  $self->param_required('biotype');
+  $self->param_required('dbhost');
+  $self->param_required('dbname');
+  $self->param_required('dbuser');
+  $self->param_required('dbpass');
+  $self->param_required('output_path');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors
   if (!($self->param('output_path') =~ /\/$/)) {
@@ -104,6 +107,7 @@ sub run {
   my $sql_get_biotype = 'select transcript_id from transcript where biotype='."'".$self->param('biotype')."'";
   my $sql_count_biotype = 'select count(transcript_id) from transcript where biotype='."'".$self->param('biotype')."'";
 
+  # get the transcript identifiers for the given transcript biotype and write them into a file
   run_command("mysql -NB -u".$self->param('dbuser')
                       ." -h".$self->param('dbhost')
                       ." -p".$self->param('dbpass')
@@ -112,6 +116,7 @@ sub run {
                       ." -e".'"'.$sql_get_biotype.'"'
                       ." > ".$self->param('output_path').$transcript_ids_file);
 
+  # delete the transcripts
   run_command("perl ".$self->param('delete_transcripts_path')
                      .$self->param('delete_transcripts_script_name')
                      ." -dbhost ".$self->param('dbhost')
@@ -122,6 +127,7 @@ sub run {
                      ." ".$self->param('output_path').$transcript_ids_file
                      ." > ".$self->param('output_path').$self->param('output_file_name'));
   
+  # check that there is no transcript of the given biotype after the deletion
   run_command("mysql -NB -u".$self->param('dbuser')
                       ." -h".$self->param('dbhost')
                       ." -p".$self->param('dbpass')
@@ -131,8 +137,10 @@ sub run {
              ,"Checking deleted transcripts..."
              ,0); # expected transcript count
 
+  # parse the deletion output file to find the empty genes
   run_command("grep empty ".$self->param('output_path').$self->param('output_file_name').' | awk '."'".'{print $5}'."'"." | cut -d')' -f1 > ".$self->param('output_path').$gene_ids_file,"Generating file containing empty gene IDs...");
   
+  # delete the genes which are empty after the transcripts deletion
   run_command("perl ".$self->param('delete_genes_path')
                      .$self->param('delete_genes_script_name')
                      ." -dbhost ".$self->param('dbhost')
@@ -143,15 +151,17 @@ sub run {
                      ." -idfile ".$self->param('output_path').$gene_ids_file
                      ." 2>> ".$self->param('output_path').$self->param('output_file_name'));
   
+  # check that the right number of genes has been deleted
   my $num_genes_to_delete = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | wc -l","Counting number of empty genes to delete...");
   run_command("grep Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v transcript | wc -l","Checking that number of genes to delete and number of deleted genes match...",$num_genes_to_delete);
   
   # send report
   if ($self->param('email')) {
   	
-  	my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash ","Preparing list of broken genes for email...");
+  	# 'cat' at the end prevents the command from failing as if there was an error due to grep not finding any pattern
+  	my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash | cat","Preparing list of broken genes for email...");
   	
-  	my $empty_genes = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name'),"Preparing list of empty genes for email...");
+  	my $empty_genes = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | cat","Preparing list of empty genes for email...");
   	
   	my $body = <<'END_BODY';
 Hi,
@@ -178,39 +188,6 @@ sub write_output {
   my $self = shift;
 
   return 1;
-}
-
-sub run_command {
-  my ($command,$name,$expected_result) = @_;
-
-  print($name) if ($name);
-  print("\nRunning command:\n$command\n");
-
-  my $result = `$command`;
-  if ($?) {
-    throw("Command FAILED: `$command`");
-  }
-
-  if (defined($expected_result)) {
-    if (int($result) != $expected_result) {
-      throw("Command: $command\nResult: $result\nExpected result: $expected_result\n");
-    }
-    else {
-      print ("\nResult and expected result match: $expected_result\n");
-    }
-  }
-  return $result;
-}
-
-sub send_email {
-  my ($to,$from,$subject,$body) = @_;
-  
-  open(my $sendmail_fh, '|-', "sendmail '$to'");
-  print $sendmail_fh "Subject: $subject\n";
-  print $sendmail_fh "From: $from\n";
-  print $sendmail_fh "\n";
-  print $sendmail_fh "$body\n";
-  close $sendmail_fh;
 }
 
 1;

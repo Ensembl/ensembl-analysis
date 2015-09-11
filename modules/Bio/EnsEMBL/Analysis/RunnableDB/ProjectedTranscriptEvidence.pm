@@ -28,14 +28,13 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProjectedTranscriptEvidence
  my @results = $runnable->output;
  
 =head1 DESCRIPTION
-Designed to be used after genes have been projected to assembly patches. 
+Designed to be used after the genes have been projected to the assembly patches and once the final stable IDs are set. 
 
-Takes a transcript stable_ID as an input_ID (which immediately after projection 
-should be the same in the original reference gene and the copy on the patch).
-
-This aligns the two copies of the transcript (original and projected), creating a 
+This aligns the two transcripts (original and projected), creating a 
 dna_align_feature, which is then moved from transcript to genomic coords and added
 as an extra piece of supporting evidence for the projected transcript.
+
+The original transcripts are fetched via the parent_exon_key transcript attribute added at the time of projection.
 
 =head1 CONTACT
 
