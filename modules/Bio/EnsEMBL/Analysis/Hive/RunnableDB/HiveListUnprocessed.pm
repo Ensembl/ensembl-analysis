@@ -18,23 +18,23 @@ HiveListUnprocessed.pm
 
 =head1 DESCRIPTION
 
-This module creates a file which contains the list of genes which have not been processed during the merge. It requires merge.pl output file 'genes-processed.txt' in 'output_dir'.
+This module creates a file which contains the list of genes which have not been processed during the merge. It requires merge.pl output file in 'output_dir'.
 
 =head1 OPTIONS
 
--dbhost         database host name
-
--dbport         database port (default 3306)
-
--dbname         database name
-
--dbuser         database username to connect as
-
--dbpass         database password to use
+-processed_genes_filename   File name of the merge process output file containing the list of processed genes (usually 'havana_merge_list_processed_genes.ids'). 
+-output_file                File name of the file containing the list of gene identifiers which were not processed during the merge analysis.
+-output_dir                 Directory where 'output_file' will be written.
+-host_secondary             Secondary database host.
+-user_secondary             Secondary database user.
+-password_secondary         Secondary database password.
+-database_secondary         Secondary database username.
+-secondary_include          Secondary database list of gene logic names to include. 
+-secondary_exclude          Secondary database list of gene logic names to exclude (if 'secondary_include' is used, 'secondary_exclude' will not have any effect).
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveListUnprocessed 
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveListUnprocessed -processed_genes_filename -output_dir OUTPUT_DIR -output_file -host_secondary ENSEMBL_DB_HOST -user_secondary => READ_ONLY_USER -password_secondary READ_ONLY_PASS -database_secondary => ENSEMBL_DB_NAME
 
 =cut
 
@@ -58,13 +58,13 @@ use List::Util qw(sum);
 
 sub param_defaults {
     return {
-      processed_genes_filename => '',
+      processed_genes_filename => undef,
       output_file => 'genes_to_copy.ids',
-      output_dir => '',
-      host_secondary => '',
-      user_secondary => '',
-      password_secondary => '',
-      database_secondary => '',
+      output_dir => undef,
+      host_secondary => undef,
+      user_secondary => undef,
+      password_secondary => undef,
+      database_secondary => undef,
       secondary_include => '',
       secondary_exclude => '',
     }
@@ -80,9 +80,13 @@ sub run {
 
   my $self = shift;
   
-  if (not $self->param('output_file') or not $self->param('output_dir') or not $self->param('host_secondary') or not $self->param('user_secondary') or not $self->param('database_secondary') or not $self->param('database_secondary') ) {
-    throw("Parameters missing");
-  }
+  $self->param_required('processed_genes_filename');
+  $self->param_required('output_file');
+  $self->param_required('output_dir');
+  $self->param_required('host_secondary');
+  $self->param_required('user_secondary');
+  $self->param_required('password_secondary');
+  $self->param_required('database_secondary');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors
   if (!($self->param('output_dir') =~ /\/$/)) {
