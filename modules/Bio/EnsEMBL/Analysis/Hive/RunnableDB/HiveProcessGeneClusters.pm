@@ -65,11 +65,11 @@ sub fetch_input {
   # If the the input is a slice, then fetch everything on the slice, but remove any gene that crosses
   # the 3' boundary, as this will be picked up on another slice
   if($input_id_type eq 'slice') {
-     my $slice = $self->fetch_sequence($input_id,$dna_dba);
-     $self->query($slice);
-     my $gene_adaptor = $in_dba->get_GeneAdaptor();
-     my $unfiltered_genes = $gene_adaptor->fetch_all_by_Slice($slice);
-     $unprocessed_genes = $self->remove_3_prime_boundry_genes($unfiltered_genes);
+    my $slice = $self->fetch_sequence($input_id,$dna_dba);
+    $self->query($slice);
+    my $gene_adaptor = $in_dba->get_GeneAdaptor();
+    my $unfiltered_genes = $gene_adaptor->fetch_all_by_Slice($slice);
+    $unprocessed_genes = $self->remove_3_prime_boundry_genes($unfiltered_genes);
   }
 
   # If the input is an array of gene ids then loop through them and fetch them from the input db
@@ -84,11 +84,14 @@ sub fetch_input {
 
   $self->unprocessed_genes($unprocessed_genes);
 
-#  my $transcript_weight_threshold = $self->param('transcript_weight_threshold');
-#  $self->transcript_weight_threshold($transcript_weight_threshold);
-
   my $logic_name_weights = $self->param('logic_name_weights');
   $self->logic_name_weights($logic_name_weights);
+
+  my $single_exon_support_penalty = 1;
+  if($self->param('single_exon_support_penalty')) {
+    $single_exon_support_penalty = $self->param('single_exon_support_penalty');
+  }
+  $self->single_exon_support_penalty($single_exon_support_penalty);
 
   return 1;
 }
@@ -96,8 +99,9 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  my $output_genes = $self->process_rough_genes();
-  $self->output_genes($output_genes);
+  my $processed_genes = $self->process_rough_genes();
+  my $final_genes = $self->recluster_genes($processed_genes);
+  $self->output_genes($final_genes);
 
   return 1;
 }
@@ -132,10 +136,14 @@ sub process_rough_genes {
   #                   in terms of being a contiguous subset of exons.
   my $output_genes = [];
   my $unprocessed_genes = $self->unprocessed_genes();
+
   foreach my $unprocessed_gene (@{$unprocessed_genes}) {
+    my $input_transcript_count = scalar(@{$unprocessed_gene->get_all_Transcripts});
     my $exon_pairs = $self->generate_exon_pairs($unprocessed_gene);
     my $candidate_transcripts = $self->score_transcript_support($unprocessed_gene,$exon_pairs);
+    my $candidate_transcript_count = scalar(@{$candidate_transcripts});
     my $final_transcripts = $self->remove_redundant_transcripts($candidate_transcripts);
+    my $final_transcript_count = scalar(@{$final_transcripts});
     unless(scalar(@{$final_transcripts})) {
       $final_transcripts = $self->find_best_remaining_transcript($unprocessed_gene,$exon_pairs);
     }
@@ -144,10 +152,10 @@ sub process_rough_genes {
       next;
     }
 
-    # Need to put a call to a sub here that reclusters the transcript set. If we get multiple clusters
-    # then we need multiple genes. The problems is that they are all one gene and I would need to split
-    # into multiple genes to do to. Maybe a fast check for split genes and then a call to break and
-    # recluster if there is a break
+    say "Inital transcript count for gene (".$unprocessed_gene->dbID."): ".$input_transcript_count;
+    say "Candidate transcript count for gene (".$unprocessed_gene->dbID."): ".$candidate_transcript_count;
+    say "Final transcript count for gene (".$unprocessed_gene->dbID."): ".$final_transcript_count;
+
     my $output_gene = Bio::EnsEMBL::Gene->new();
     $output_gene->analysis($self->analysis);
     $output_gene->biotype($self->analysis->logic_name);
@@ -182,7 +190,13 @@ sub generate_exon_pairs {
   foreach my $transcript (@{$transcripts}) {
     my $exons = $transcript->get_all_translateable_Exons();
     if(scalar(@{$exons}) == 1) {
-      # single exon transcript
+      my $exon = shift(@{$exons});
+      my $exon_start = $exon->seq_region_start;
+      my $exon_end = $exon->seq_region_end;
+      # For a single exon model we will just build a pair with the exon coords repeated
+      # Later, in the scoring phase we can add a penalty to the cut off for these
+      my $coord_string = $exon_start.":".$exon_end.":".$exon_start.":".$exon_end;
+      $exon_pairs->{$coord_string}->{$transcript->dbID} = 1;
     } else {
       my $i=0;
       for($i=0; $i<(scalar(@{$exons})-1); $i++) {
@@ -199,6 +213,7 @@ sub generate_exon_pairs {
   }
   return($exon_pairs);
 }
+
 
 sub score_transcript_support {
   my ($self,$gene,$exon_pairs) = @_;
@@ -251,19 +266,20 @@ sub score_transcript_support {
   # the target species (we'll say baboon for that example). We trust the human protein set most, so it has a
   # modest cut-off of 2 with 'primates_pe345' being the opposite end of the spectrum, where models are only
   # chosen if all exon pairs are found 10 or more times across all the transcripts in this transcript cluster
-  # Note that no 'default_biotype_weight' was set in the example for 'genblast' as all the biotypes were full
+  # Note that no 'default_biotype_weight' was set in the example for 'genblast' as all the biotypes were fully
   # defined. This is okay, but in general it is safer to always define a default once you've defined a score
   # for any amount of biotypes for a particular logic name. The reason being that if you forget about a
   # particular biotype it will automatically get a cut-off of 1 (at present anyway) and thus get kept
 
   my $output_transcripts = [];
   my $logic_name_weights = $self->logic_name_weights();
-
   my $transcripts = $gene->get_all_Transcripts();
   foreach my $transcript (@{$transcripts}) {
     my $logic_name = $transcript->analysis->logic_name();
     my $biotype = $transcript->biotype();
     my $transcript_weight_threshold = 1;
+    my $single_exon_support_penalty = $self->single_exon_support_penalty();
+
     # Check if the logic_name points to a hashref
     if(ref($logic_name_weights->{$logic_name}) eq 'HASH') {
       # If we find a weight for the biotype of the transcript, then assign it
@@ -289,30 +305,38 @@ sub score_transcript_support {
 
     my $keep_transcript = 1;
     my $exons = $transcript->get_all_Exons();
-    if(scalar(@{$exons}) == 1) {
-      # single exon transcript
-    } else {
-      # Loop through all exon pairs in the exon pair hash for the gene
-      foreach my $exon_pair_key (keys(%$exon_pairs)) {
-        my $exon_pair = $exon_pairs->{$exon_pair_key};
-        # If this exon pair was present in the transcript then count the number to times it was observed in
-        # total by counting the keys for it (which is the set of transcript dbIDs it was found for)
-        if($exon_pair->{$transcript->dbID}) {
-          my $support_count = scalar(keys(%$exon_pair));
+
+    # Loop through all exon pairs in the exon pair hash for the gene
+    foreach my $exon_pair_key (keys(%$exon_pairs)) {
+      my $exon_pair = $exon_pairs->{$exon_pair_key};
+      # If this exon pair was present in the transcript then count the number to times it was observed in
+      # total by counting the keys for it (which is the set of transcript dbIDs it was found for)
+      if($exon_pair->{$transcript->dbID}) {
+        my $support_count = scalar(keys(%$exon_pair));
+        # If we have a single exon transcript we add a penalty for the support threshold
+        if(scalar(@{$exons}) == 1) {
+          unless($support_count >= ($transcript_weight_threshold + $single_exon_support_penalty)) {
+            $keep_transcript = 0;
+          }
+        }
+        else {
           # If the any exon pair fails to pass the threshold then drop the transcript
           unless($support_count >= $transcript_weight_threshold) {
             $keep_transcript = 0;
           }
         }
       }
-      if($keep_transcript) {
-        say "Keeping transcript: ".$transcript->stable_id();
-        push(@{$output_transcripts},$transcript);
-      }
-    } # end else
+    }
+
+    if($keep_transcript) {
+      say "Keeping transcript: ".$transcript->stable_id();
+      push(@{$output_transcripts},$transcript);
+    }
   }
   return($output_transcripts);
 }
+
+
 
 sub remove_redundant_transcripts {
   my ($self,$transcripts) = @_;
@@ -381,14 +405,12 @@ sub exon_subset {
 
   my $i=0;
   for($i=0; $i<scalar(@{$exons_a}); $i++) {
- #   say "i index: ".$i;
     if(${$exons_a}[$i]->seq_region_start == $start_exon_b->seq_region_start &&
        ${$exons_a}[$i]->seq_region_end == $start_exon_b->seq_region_end) {
       $exon_match_count++;
-#       say "In j, i index: ".$i;
+
       my $j=1;
       for($j=1; $j<scalar(@{$exons_b}) && ($i+$j)<scalar(@{$exons_a}); $j++) {
-#        say "j index: ".$j;
         if(${$exons_a}[$i+$j]->seq_region_start == ${$exons_b}[$j]->seq_region_start &&
           ${$exons_a}[$i+$j]->seq_region_end == ${$exons_b}[$j]->seq_region_end) {
           $exon_match_count++;
@@ -398,11 +420,102 @@ sub exon_subset {
   }
 
   if($exon_match_count == scalar(@{$exons_b})) {
-    say "Model ".$transcript_b->stable_id()." is redundant to model ".$transcript_a->stable_id();
+    say "Model ".$transcript_b->dbID()." is redundant to model ".$transcript_a->dbID();
     $is_subset = 1;
   }
   return $is_subset;
 }
+
+
+sub recluster_genes {
+  my ($self,$processed_genes) = @_;
+
+  my $single_transcript_genes = [];
+  my $output_genes = [];
+  foreach my $processed_gene (@{$processed_genes}) {
+    my $transcripts = $processed_gene->get_all_Transcripts();
+
+    # If the gene has a single transcript then there is no need to recluster
+    if(scalar(@{$transcripts}) == 1) {
+      push(@{$single_transcript_genes},$processed_gene);
+      next;
+    }
+
+    # If there is more than one transcript, then make a new gene for each
+    elsif(scalar(@{$transcripts}) > 1) {
+      foreach my $transcript (@{$transcripts}) {
+        my $single_transcript_gene = Bio::EnsEMBL::Gene->new();
+        $single_transcript_gene->add_Transcript($transcript);
+        push(@{$single_transcript_genes},$single_transcript_gene);
+      }
+    }
+
+    else {
+      $self->throw("Got a gene without any transcripts");
+    }
+  }
+
+
+  my $biotypes_hash = $self->get_all_biotypes($single_transcript_genes);
+  my $biotypes_array = [keys(%$biotypes_hash)];
+  my $types_hash;
+  $types_hash->{genes} = $biotypes_array;
+
+  say "Reclustering gene models based on final transcript set";
+  my ($clusters, $unclustered) = cluster_Genes($single_transcript_genes,$types_hash);
+  say "...finished reclustering genes models";
+  say "Found clustered sets: ".scalar(@{$clusters});
+  say "Found unclustered sets: ".scalar(@{$unclustered});
+
+  say "Processing gene clusters into single gene models...";
+  $output_genes = $self->process_clusters($clusters,$unclustered);
+  say "...finished processing gene clusters into single gene models";
+  say "Made output genes: ".scalar(@{$output_genes});
+
+  $self->output_genes($output_genes);
+
+}
+
+
+sub process_clusters {
+
+  my ($self,$clustered,$unclustered) = @_;
+
+  my $output_genes = [];
+  foreach my $single_cluster (@{$unclustered}) {
+    my $cluster_genes = $single_cluster->get_Genes();
+    foreach my $single_gene (@{$cluster_genes}) {
+      my $output_gene = Bio::EnsEMBL::Gene->new();
+      $output_gene->slice($self->query());
+      $output_gene->analysis($self->analysis);
+      $output_gene->biotype($self->analysis->logic_name);
+      my $transcripts = $single_gene->get_all_Transcripts();
+      my $single_transcript = shift(@{$transcripts});
+      $output_gene->add_Transcript($single_transcript);
+      push(@{$output_genes},$output_gene);
+    }
+  }
+
+  foreach my $single_cluster (@{$clustered}) {
+    my $combined_gene = Bio::EnsEMBL::Gene->new();
+    $combined_gene->slice($self->query());
+    $combined_gene->analysis($self->analysis);
+    $combined_gene->biotype($self->analysis->logic_name);
+
+    my $cluster_genes = $single_cluster->get_Genes();
+
+    foreach my $single_gene (@{$cluster_genes}) {
+      my $transcripts = $single_gene->get_all_Transcripts();
+      my $single_transcript = shift(@{$transcripts});
+      $combined_gene->add_Transcript($single_transcript);
+    }
+    push(@{$output_genes},$combined_gene);
+  }
+
+  return($output_genes);
+
+}
+
 
 sub remove_3_prime_boundry_genes {
   my ($self,$unfiltered_genes) = @_;
@@ -441,15 +554,6 @@ sub output_genes {
   return($self->param('_output_genes'));
 }
 
-#sub transcript_weight_threshold {
-#  my ($self,$val) = @_;
-#
-#  if($val) {
-#    $self->param('_transcript_weight_threshold',$val);
-#  }
-#
-#  return($self->param('_transcript_weight_threshold'));
-#}
 
 sub logic_name_weights {
   my ($self,$val) = @_;
@@ -460,6 +564,18 @@ sub logic_name_weights {
 
   return($self->param('_logic_name_weights'));
 }
+
+
+sub single_exon_support_penalty {
+  my ($self,$val) = @_;
+
+  if($val) {
+    $self->param('_single_exon_support_penalty',$val);
+  }
+
+  return($self->param('_single_exon_support_penalty'));
+}
+
 
 sub find_best_remaining_transcript {
   my ($self,$gene,$exon_pairs) = @_;
@@ -524,5 +640,20 @@ sub calculate_support_average {
 
   return($final_support);
 }
+
+
+sub get_all_biotypes {
+  my ($self,$master_genes_array) = @_;
+
+  my $master_biotypes_hash = {};
+
+  foreach my $gene (@{$master_genes_array}) {
+    unless($master_biotypes_hash->{$gene->biotype}) {
+      $master_biotypes_hash->{$gene->biotype} = 1;
+    }
+  }
+  return($master_biotypes_hash);
+}
+
 
 1;
