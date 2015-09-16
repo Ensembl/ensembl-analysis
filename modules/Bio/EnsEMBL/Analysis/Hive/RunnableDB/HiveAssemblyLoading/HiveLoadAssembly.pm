@@ -133,7 +133,7 @@ sub load_assembly {
     }
 
   } else {
-    $self->throw("No scaffold to contig agp file exists, expected the following file:\n".$path_to_files."/scaf_all.agp");
+    $self->warning("No scaffold to contig agp file exists, expected the following file:\n".$path_to_files."/scaf_all.agp");
   }
 
   # Need to rewrite the following at some point to just be a call to a single subroutine with the file name, assembled and component
@@ -240,6 +240,8 @@ sub load_assembly {
       $self->throw("Exception found in output file:\n".$path_to_files."/chr_all.agp");
     }
 
+  } else {
+    $self->warning("No chromosome to scaffold agp file exists, expected the following file:\n".$path_to_files."/scaf_all.agp");
   }
 
   # Have to ask about this scenario and whether it warrants a warning or a throw. It may not

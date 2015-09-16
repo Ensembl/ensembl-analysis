@@ -55,16 +55,14 @@ sub run {
   my $self = shift;
 
   say "Loading seq regions into reference db";
-  my $target_db = $self->param('target_db');
-  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$self->param('primary_assembly_dir_name');
-  my $enscode_dir = $self->param('enscode_root_dir');
-  my $coord_system_version = $self->param('coord_system_version');
 
-  $self->concat_files_for_loading($path_to_files);
-  $self->load_seq_regions($target_db,$path_to_files,$enscode_dir,$coord_system_version);
+  $self->concat_files_for_loading();
 
-  say "Finished downloading contig files";
+  my $assembly_loading_style = $self->determine_assembly_style();
+  $self->load_seq_regions($assembly_loading_style);
+
+  say "Finished loading seq regions and AGP info";
+
   return 1;
 }
 
@@ -75,7 +73,9 @@ sub write_output {
 }
 
 sub concat_files_for_loading {
-  my ($self,$path_to_files) = @_;
+  my ($self) = @_;
+
+  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$self->param('primary_assembly_dir_name');
 
   # remove possibly (previous executions) created agp files to avoid inappropriate concatenation
   `rm $path_to_files/AGP/*_all.agp`;
@@ -110,8 +110,66 @@ COMMAND
 
 }
 
+sub determine_assembly_style {
+  my ($self) = @_;
+
+  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$self->param('primary_assembly_dir_name');
+  my $coord_system_version = $self->param('coord_system_version');
+  my $assembly_level = $self->param('assembly_level');
+
+  my $assembly_loading_style;
+  my $chr_all_pres = 0;
+  my $comp_all_pres = 0;
+  my $scaf_all_pres = 0;
+
+  if(-e $path_to_files."/AGP/chr_all.agp") {
+    $chr_all_pres = 1;
+  }
+
+  if(-e $path_to_files."/AGP/scaf_all.agp") {
+    $scaf_all_pres = 1;
+  }
+
+  if(-e $path_to_files."/AGP/comp_all.agp") {
+    $comp_all_pres = 1;
+  }
+
+  # This one should represent things like salmon, where there are 'contigs' that are effectively scaffolds
+  # and only a mapping from chromosome to component
+  if(!$chr_all_pres && $comp_all_pres && $assembly_level eq 'chromosome') {
+    $assembly_loading_style = "pseudocontig";
+  }
+
+  # This if for the traditional chromosome, scaffold, contig model
+  elsif($chr_all_pres && $scaf_all_pres && $assembly_level eq 'chromosome') {
+    $assembly_loading_style = "traditional";
+  }
+
+  # This is for the traditional scaffold, contig model
+  elsif(!$chr_all_pres && $scaf_all_pres && $assembly_level eq 'scaffold') {
+    $assembly_loading_style = "traditional";
+  }
+
+  else {
+    $self->throw("The file structure of this assembly is not covered in the code".
+                 "\nCoordSystemVersion: ".$coord_system_version.
+                 "\nAssembly level: ".$assembly_level.
+                 "\nChomosome AGP present: ".$chr_all_pres.
+                 "\nScaffold AGP present: ".$scaf_all_pres.
+                 "\nComponent AGP present: ".$comp_all_pres);
+  }
+
+  return $assembly_loading_style;
+}
+
 sub load_seq_regions {
-  my ($self,$target_db,$path_to_files,$enscode_dir,$coord_system_version) = @_;
+  my ($self,$assembly_loading_style) = @_;
+
+  my $target_db = $self->param('target_db');
+  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$self->param('primary_assembly_dir_name');
+  my $enscode_dir = $self->param('enscode_root_dir');
+  my $coord_system_version = $self->param('coord_system_version');
+  my $assembly_level = $self->param('assembly_level');
 
   my $dbhost = $target_db->{'-host'};
   my $dbport = $target_db->{'-port'};
@@ -123,23 +181,30 @@ sub load_seq_regions {
     $self->throw("Database connections info not fully present. Must pass in using the target_db flag");
   }
 
-  # Check if chromosomes exist
-  my $chromo_present = 0;
-  if(-e $path_to_files."/AGP/chr_all.agp") {
-    $chromo_present = 1;
-  }
-
-  # decide which will be the rank 1
-  # the chromosome if available; otherwise, the scaffold
-  my $rank = 2;
-  if ($chromo_present) {
-    # the last string in the array will be the filename for the chromosomes if available.
-    # chromosomes agp file found, so rank 1 for chromosome level
-    $rank = 3;
-    say "Chromosome agp file found. Chromosome level will be of rank 1, scaffold level will be of rank 2 and contig level will be of rank 3";
-  } else {
-    # chromosome agp file not found, so rank 1 for scaffold level
-    say "Chromosome agp file not found. Scaffold level will be of rank 1 and contig level will be of rank 2";
+  my $contig_rank = 0;
+  my $scaffold_rank = 0;
+  my $chromosome_rank = 0;
+  my $chromosome_agp;
+  my $scaffold_agp;
+  if($assembly_loading_style eq 'pseudocontig' && $assembly_level eq 'chromosome') {
+    $contig_rank = 2;
+    $chromosome_rank = 1;
+    $chromosome_agp = $path_to_files."/AGP/comp_all.agp";
+    say "Pseudocontig chromosome level AGP structure found. Will load pseudocontigs as rank 2 and chromosomes as rank 1";
+  } elsif($assembly_loading_style eq 'traditional') {
+    if($assembly_level eq 'chromosome') {
+      $contig_rank = 3;
+      $scaffold_rank = 2;
+      $chromosome_rank = 1;
+      $scaffold_agp = $path_to_files."/AGP/scaf_all.agp";
+      $chromosome_agp = $path_to_files."/AGP/chr_all.agp";
+      say "Traditional chromosome level AGP structure found. Will load contigs as rank 3, scaffolds as rank 2 and chromosomes as rank 1";
+    } elsif($assembly_level eq 'scaffold') {
+      $contig_rank = 2;
+      $scaffold_rank = 1;
+      $scaffold_agp = $path_to_files."/AGP/scaf_all.agp";
+      say "Traditional scaffold level AGP structure found. Will load contigs as rank 2 and scaffolds as rank 1";
+    }
   }
 
 
@@ -160,7 +225,7 @@ sub load_seq_regions {
             " -dbname ".$dbname.
             " -coord_system_name contig".
             " -coord_system_version ".$coord_system_version.
-            " -rank ".$rank.
+            " -rank ".$contig_rank.
             " -default_version".
             " -fasta_file ".$contigs_file_path.
             " -sequence_level".
@@ -185,37 +250,36 @@ sub load_seq_regions {
     say "The number of 'seq_region' table loaded contigs (".$num_contigs.") is the same as the number of 'dna' table rows ($num_dna). Great!";
   }
 
-  $rank--;
 
   # use the load seq_regions script to load the scaffolds
   # for each existing scaffold agp file (unplaced, placed, unlocalized)
-  say "\nLoading the scaffolds...";
+  if($assembly_loading_style eq 'traditional') {
+    say "\nLoading the scaffolds...";
 
-  $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl".
-         " -dbhost ".$dbhost.
-         " -dbuser ".$dbuser.
-         " -dbpass ".$dbpass.
-         " -dbport ".$dbport.
-         " -dbname ".$dbname.
-         " -coord_system_name scaffold".
-         " -coord_system_version ".$coord_system_version.
-         " -rank ".$rank.
-         " -default_version".
-         " -agp_file ".$path_to_files."/AGP/scaf_all.agp".
-         " -noverbose".
-         " > ".$path_to_files."/load_seq_region_scaffolds.out";
+    $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl".
+           " -dbhost ".$dbhost.
+           " -dbuser ".$dbuser.
+           " -dbpass ".$dbpass.
+           " -dbport ".$dbport.
+           " -dbname ".$dbname.
+           " -coord_system_name scaffold".
+           " -coord_system_version ".$coord_system_version.
+           " -rank ".$scaffold_rank.
+           " -default_version".
+           " -agp_file ".$scaffold_agp.
+           " -noverbose".
+           " > ".$path_to_files."/load_seq_region_scaffolds.out";
 
-  $result = system($cmd);
-  if($result) {
-    $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
+    $result = system($cmd);
+    if($result) {
+      $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
+    }
+
+    say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out\n";
   }
 
-  say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out\n";
-
-  $rank--;
-
   # If we have chromosomes
-  if ($rank > 0) {
+  if ($assembly_level eq 'chromosome') {
     say "Loading the chromosomes...";
 
     $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl".
@@ -226,18 +290,18 @@ sub load_seq_regions {
            " -dbname ".$dbname.
            " -coord_system_name chromosome".
            " -coord_system_version ".$coord_system_version.
-           " -rank ".$rank.
+           " -rank ".$chromosome_rank.
            " -default_version".
-           " -agp_file ".$path_to_files."/AGP/chr_all.agp".
+           " -agp_file ".$chromosome_agp.
            " -noverbose".
            " > ".$path_to_files."/load_seq_region_chromosomes.out";
 
-  $result = system($cmd);
-  if($result) {
-    $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
-  }
+    $result = system($cmd);
+    if($result) {
+      $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
+    }
 
-  say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out";
+    say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out";
 
     # maybe check for exceptions in the output file here
 
@@ -256,7 +320,6 @@ sub load_seq_regions {
   } else {
     $self->throw("Column 'version' in 'coord_system' table could not be set to NULL for contig level");
   }
-
 
 }
 1;
