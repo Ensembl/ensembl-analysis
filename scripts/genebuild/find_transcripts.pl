@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-  copy_genes.pl
+  find_transcripts.pl
 
 =head1 DESCRIPTION
 
@@ -43,7 +43,8 @@ DNA, then provide details of a DNA database using the options --dnauser,
     --sourcedbname=core_db \
     --targethost=trghost --targetuser=user --targetpass=XXX \
     --targetdbname=ens_db \
-    --file=transcript_sids --stable_id
+    --file=transcript_sids \
+    [--nobiotype]
 
 =cut
 
