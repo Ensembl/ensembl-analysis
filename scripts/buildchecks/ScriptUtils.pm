@@ -13,7 +13,7 @@
 # limitations under the License.
 # Utilities for scripts for doing tasks such as defining/filtering input
 
-package ScriptUtils;
+package buildchecks::ScriptUtils;
 
 use Exporter;
 use vars qw(@ISA @EXPORT);

@@ -5,7 +5,6 @@ use warnings;
 use feature 'say';
 
 use File::Basename;
-use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
