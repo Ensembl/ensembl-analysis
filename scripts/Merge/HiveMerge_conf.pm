@@ -177,7 +177,8 @@ sub pipeline_analyses {
               -logic_name => 'create_reports_dir',
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               'cmd'   => 'mkdir -p '.$self->o('reports_dir')
+                               'cmd'   => 'mkdir -p '.$self->o('reports_dir').";".
+                                          'mkdir -p '.$self->o('output_dir')
                              },
               -flow_into => { 1 => ['create_vega_db'] },
               -rc_name => 'local',
