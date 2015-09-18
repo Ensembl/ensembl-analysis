@@ -260,6 +260,7 @@ DBINFO_END
 my $SECONDARY_GA = $secondary_dba->get_GeneAdaptor();    # Used globally.
 my $PRIMARY_GA  = $primary_dba->get_GeneAdaptor();     # Used globally.
 my $OUTPUT_GA  = $output_dba->get_GeneAdaptor();     # This one too.
+my $OUTPUT_AA  = $output_dba->get_AnalysisAdaptor();     # This one too.
 my $CCDS_TA;
 if ( defined($ccds_dba) ) {
   $CCDS_TA = $ccds_dba->get_TranscriptAdaptor();     # Ditto.
@@ -317,6 +318,30 @@ else {
 
 printf( "This is job %d. Will run genes indexed %d-%d.\n",
         $opt_job, $chunk_first, $chunk_last );
+
+# Create the analyses for the merged genes and transcripts
+my $merged_source = $opt_secondary_tag.'_'.$opt_primary_tag;
+my $merged_gene_logic_name = $merged_source.'_gene';
+my $merged_ig_gene_logic_name = $merged_source.'_ig_gene';
+my $merged_transcript_logic_name = $merged_source.'_transcript';
+my $primary_ig_gene_logic_name = $opt_primary_tag.'_ig_gene';
+my $secondary_ig_gene_logic_name = $opt_secondary_tag.'_ig_gene';
+my $secondary_lincrna_logic_name = $opt_secondary_tag.'_lincrna';
+my $merged_lincrna_logic_name = $merged_source.'_lincrna';
+
+my @logic_names = ($opt_secondary_tag,
+                   $opt_primary_tag,
+                   $merged_gene_logic_name,
+                   $merged_ig_gene_logic_name,
+                   $merged_transcript_logic_name,
+                   $primary_ig_gene_logic_name,
+                   $secondary_ig_gene_logic_name,
+                   $secondary_lincrna_logic_name,
+                   $merged_lincrna_logic_name);
+                
+foreach my $analysis_name (@logic_names) {
+  $OUTPUT_AA->store(new Bio::EnsEMBL::Analysis(-logic_name => $analysis_name));
+}
 
 my %primary_genes_done;
 
@@ -600,6 +625,7 @@ sub process_genes {
 
       tag_transcript_analysis( $primary_transcript, $opt_primary_tag );
       $primary_transcript->source($opt_primary_tag);
+      $primary_transcript->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($primary_transcript)));
 
       # Add "OTTT" xref to Primary transcript.
       add_primary_xref($primary_transcript);
@@ -619,8 +645,8 @@ sub process_genes {
       ++$transcript_count;
     }
 
-    add_logic_name_suffix( $primary_gene, $opt_primary_tag );
     $primary_gene->source($opt_primary_tag);
+    $primary_gene->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($primary_gene)));
 
     my $has_assembly_error = (
               scalar(
@@ -673,11 +699,18 @@ sub process_genes {
         @{ $CCDS_TA->fetch_all_by_Slice( $ccds_slice, 1 ) };
     }
 
+    my $is_rna = (
+         index( lc( $secondary_gene->analysis()->logic_name() ), 'ncrna' )
+           >= 0 );
+
     foreach my $secondary_transcript (
                              @{ $secondary_gene->get_all_Transcripts() } )
     {
       $secondary_transcript->{__is_ccds}       = 0;    # HACK
       $secondary_transcript->{__is_pseudogene} = 0;    # HACK
+      $secondary_transcript->{__is_rna} = (
+         index( lc( $secondary_transcript->analysis()->logic_name() ), 'ncrna' )
+           >= 0 );    # HACK
 
       my $secondary_translation = $secondary_transcript->translation();
 
@@ -707,15 +740,17 @@ sub process_genes {
       tag_transcript_analysis( $secondary_transcript, $opt_secondary_tag );
       $secondary_transcript->source($opt_secondary_tag);
 
+      $secondary_transcript->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($secondary_transcript)));
+
       ++$transcript_count;
     } ## end foreach my $secondary_transcript...
 
     add_logic_name_suffix( $secondary_gene, $opt_secondary_tag );
     $secondary_gene->source($opt_secondary_tag);
 
-    my $is_rna = (
-         index( lc( $secondary_gene->analysis()->logic_name() ), 'ncrna' )
-           >= 0 );
+    #my $is_rna = (
+    #     index( lc( $secondary_gene->analysis()->logic_name() ), 'ncrna' )
+    #       >= 0 );
 
     $secondary_gene->{__is_coding} = $is_coding;    # HACK
     $secondary_gene->{__is_single_transcript} =
@@ -1694,10 +1729,11 @@ sub merge {
 
   }
 
-  add_logic_name_suffix( $target_transcript, 'merged' );
-  add_logic_name_suffix( $target_gene,       'merged' );
-  $target_gene->source( $opt_secondary_tag . '_' . $opt_primary_tag );
-  $target_transcript->source($opt_secondary_tag . '_' . $opt_primary_tag );
+  $target_gene->source($merged_source);
+  $target_transcript->source($merged_source);
+
+  $target_gene->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($target_gene)));
+  $target_transcript->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($target_transcript)));
 
   return 0;
 } ## end sub merge
@@ -1852,13 +1888,14 @@ sub copy {
   if (is_transcript_in_gene($target_gene,$source_transcript)) {
     print "Copy> Not copying because it has already been copied (or merged) or it will be merged later on ".$source_transcript->stable_id()."\n"; 
   } else {
-    my $new_source_transcript = $source_transcript->transfer( $target_gene->slice() );
+  	my $new_source_transcript = $source_transcript->transfer( $target_gene->slice() );
 
+    $new_source_transcript->source($opt_secondary_tag);
+
+    $new_source_transcript->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($new_source_transcript)));
     $target_gene->add_Transcript($new_source_transcript);
-
-    add_logic_name_suffix( $new_source_transcript, 'copied' );
-    add_logic_name_suffix( $target_gene,           'merged' );
-    $target_gene->source( $opt_secondary_tag . '_' . $opt_primary_tag );
+    $target_gene->source($merged_source);
+    $target_gene->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($target_gene)));
   }
   return 0;
 } ## end sub copy
@@ -1985,6 +2022,91 @@ sub sort_by_start_end_pos {
   return \@sorted;
 }
 
+sub get_logic_name_from_biotype_source() {
+# $obj must be a gene or a transcript
+# $biotype must be any allowed biotype
+# $source must be $merged_source or $opt_secondary_tag or $opt_primary_tag
+# It returns the right logic_name for the given parameters above.
+  my ($obj) = @_;
+
+  my $biotype = $obj->biotype();
+  my $source = $obj->source();
+
+  if ($obj->isa("Bio::EnsEMBL::Gene")) {
+    if ($source eq $merged_source) {
+      
+      if (index(lc($biotype),lc('lincRNA')) != -1) {
+        return $merged_lincrna_logic_name;
+      } elsif (index(lc($biotype),lc('IG_')) != -1 or
+               index(lc($biotype),lc('TR_')) != -1) {
+        return $merged_ig_gene_logic_name;
+      } else {
+        return $merged_gene_logic_name;
+      }
+      
+    } elsif ($source eq $opt_primary_tag) {
+      
+      if (index(lc($biotype),lc('IG_')) != -1 or
+          index(lc($biotype),lc('TR_')) != -1) {
+        return $primary_ig_gene_logic_name; # yes, the gene logic name is re-used for transcript
+      } else {
+        return $opt_primary_tag; # yes, no lincrna logic name is used for transcript
+      }
+      
+    } elsif ($source eq $opt_secondary_tag) {
+      
+      if (index(lc($biotype),lc('lincRNA')) != -1) {
+        return $secondary_lincrna_logic_name;
+      } elsif (index(lc($biotype),lc('IG_')) != -1 or
+               index(lc($biotype),lc('TR_')) != -1) {
+        return $secondary_ig_gene_logic_name; # yes, the gene logic name is re-used for transcript
+      } elsif ($obj->{__is_rna}) {
+        return $obj->analysis()->logic_name(); # it should already be 'ncrna'
+      } else {
+        return $opt_primary_tag; # yes, no lincrna logic name is used for transcript
+      }
+      
+    }
+  }
+  elsif ($obj->isa("Bio::EnsEMBL::Transcript")) {
+    if ($source eq $merged_source) {
+        
+      if (index(lc($biotype),lc('IG_')) != -1 or
+          index(lc($biotype),lc('TR_')) != -1) {
+        return $merged_ig_gene_logic_name; # yes, the gene logic name is re-used for transcript
+      } else {
+        return $merged_transcript_logic_name; # yes, no merged lincrna logic name is used for transcript
+      }
+      
+    } elsif ($source eq $opt_primary_tag) {
+      
+      if (index(lc($biotype),lc('IG_')) != -1 or
+          index(lc($biotype),lc('TR_')) != -1) {
+        return $primary_ig_gene_logic_name; # yes, the gene logic name is re-used for transcript
+      } else {
+        return $opt_primary_tag; # yes, no lincrna logic name is used for transcript
+      }
+      
+    } elsif ($source eq $opt_secondary_tag) {
+      
+      if (index(lc($biotype),lc('lincRNA')) != -1) {
+        return $secondary_lincrna_logic_name;
+      } elsif (index(lc($biotype),lc('IG_')) != -1 or
+               index(lc($biotype),lc('TR_')) != -1) {
+        return $secondary_ig_gene_logic_name; # yes, the gene logic name is re-used for transcript
+      } elsif ($obj->{__is_rna}) {
+        return 'ncrna';#$obj->analysis()->logic_name(); # it should already be 'ncrna'
+      } else {
+        return $opt_secondary_tag; # yes, no lincrna logic name is used for transcript
+      }
+      
+    }
+  }
+  else {
+    throw("Invalid object type. Valid types are Bio::EnsEMBL::Gene and Bio::EnsEMBL::Transcript.");
+  }
+  
+}
 
 __END__
 
