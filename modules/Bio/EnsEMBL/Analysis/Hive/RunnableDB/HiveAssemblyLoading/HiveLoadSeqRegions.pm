@@ -25,8 +25,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
-  unless($self->param('core_db')) {
-    $self->throw("core_db flag not passed into parameters hash. The core db to load the assembly info ".
+  unless($self->param('target_db')) {
+    $self->throw("target_db flag not passed into parameters hash. The target db to load the assembly info ".
                  "into must be passed in with write access");
   }
 
@@ -39,7 +39,7 @@ sub fetch_input {
                  "that you downloaded the ftp files to earlier in the pipeline");
   }
 
-  unless($self->param('enscode_dir')) {
+  unless($self->param('enscode_root_dir')) {
     $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
@@ -55,15 +55,14 @@ sub run {
   my $self = shift;
 
   say "Loading seq regions into reference db";
-  my $core_db = $self->param('core_db');
+  my $target_db = $self->param('target_db');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $output_path = $self->param('output_path');
-  my $enscode_dir = $self->param('enscode_dir');
+  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$self->param('primary_assembly_dir_name');
+  my $enscode_dir = $self->param('enscode_root_dir');
   my $coord_system_version = $self->param('coord_system_version');
-  my $path_to_files = $output_path."/".$primary_assembly_dir_name;
 
   $self->concat_files_for_loading($path_to_files);
-  $self->load_seq_regions($core_db,$path_to_files,$enscode_dir,$coord_system_version);
+  $self->load_seq_regions($target_db,$path_to_files,$enscode_dir,$coord_system_version);
 
   say "Finished downloading contig files";
   return 1;
@@ -112,16 +111,16 @@ COMMAND
 }
 
 sub load_seq_regions {
-  my ($self,$core_db,$path_to_files,$enscode_dir,$coord_system_version) = @_;
+  my ($self,$target_db,$path_to_files,$enscode_dir,$coord_system_version) = @_;
 
-  my $dbhost = $core_db->{'-host'};
-  my $dbport = $core_db->{'-port'};
-  my $dbuser = $core_db->{'-user'};
-  my $dbpass = $core_db->{'-pass'};
-  my $dbname = $core_db->{'-dbname'};
+  my $dbhost = $target_db->{'-host'};
+  my $dbport = $target_db->{'-port'};
+  my $dbuser = $target_db->{'-user'};
+  my $dbpass = $target_db->{'-pass'};
+  my $dbname = $target_db->{'-dbname'};
 
-  unless($dbhost && $dbport && $dbuser && $dbpass && $dbname) {
-    $self->throw("Database connections info not fully present. Must pass in using the core_db flag");
+  unless($dbhost && $dbuser && $dbpass && $dbname) {
+    $self->throw("Database connections info not fully present. Must pass in using the target_db flag");
   }
 
   # Check if chromosomes exist

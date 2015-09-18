@@ -247,8 +247,12 @@ sub create_output_db {
 
 
   if ( $self->OUTDB ) {
+     if (ref($self->OUTDB) eq 'HASH') {
      $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB });  
-     $outdb->disconnect_when_inactive(1);  # jhv removed 
+     }
+     else {
+         $outdb = $self->get_dbadaptor($self->OUTDB);
+     }
   } else {
     $outdb = $self->db;
   } 
@@ -322,7 +326,7 @@ sub read_and_check_config {
       };
       throw("Couldn't require ".$class." ExonerateAlignFeature:require_module $@") if($@);
     
-      $self->filter($module->new(%{$pars}));
+      $self->filter($module->new(-METHODS => $pars));
     }
   }
 

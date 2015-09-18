@@ -270,18 +270,19 @@ sub parse_results{
             $repeat_class = $1;
             $repeat_name = $repeatmunge;
           }
-          elsif ($repeatmunge2 =~ /(LTR\/ERV\S+)/)
+          elsif ($repeatmunge2 =~ /(LTR\S*)/)
           {
-            $repeatmunge2 =~ /(LTR\/ERV\S+)/;
+            $repeatmunge2 =~ /(LTR\S*)/;
             $repeat_class = $1;
             $repeat_name = $repeatmunge;
           }
           else 
           {
-            throw("Can't parse repeatmasker output for line = $_\n".
+            warning("Can't parse repeatmasker output for line = $_\n".
                      $repeatmunge."=repeatmunge\n".
                      $repeatmunge2."=repeatmunge2\n"
                 );
+            $repeat_name = $repeatmunge;
           }
           if(!$repeat_class)
           {

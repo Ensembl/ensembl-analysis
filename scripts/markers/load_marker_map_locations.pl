@@ -47,6 +47,8 @@ with any other lines (header info) started by a #
 
     -map_name  Name of map
 
+    -create    Insert the marker set name in the map table
+ 
     -write     writes data into the marker_map_location table
  
     -help      prints out the perl docs
@@ -75,6 +77,7 @@ my $map_name;
 my $map_file;
 my $help;
 my $write;
+my $create = 0;
 
 GetOptions( 
             'dbhost|host|h:s'      => \$host,
@@ -85,6 +88,7 @@ GetOptions(
             'map_name:s'    => \$map_name,
             'map_file:s'    => \$map_file,
             'write'         => \$write,
+            'create!'         => \$create,
             'help!' => \$help,
 	     ) or ($help = 1);
 
@@ -109,6 +113,10 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 					    '-port'   => $port,
 					   );
 
+if ($create) {
+    my $create_map_cmd = 'INSERT INTO map (map_name) VALUES ("'.$map_name.'")';
+    $db->dbc->do($create_map_cmd);
+}
 my $map_id = &get_map_id($map_name);
 throw("could not get id for $map_name") if not $map_id;
 

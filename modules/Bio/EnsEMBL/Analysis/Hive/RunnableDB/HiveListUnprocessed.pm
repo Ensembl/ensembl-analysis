@@ -43,7 +43,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveListUnprocessed;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');

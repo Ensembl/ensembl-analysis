@@ -315,7 +315,7 @@ sub prune_Transcripts {
       my $e  = $es[0];
       foreach my $transcript (@transcripts){
         # make sure we keep it if it's blessed
-        if(exists $blessed_genetypes{$transcript->type}){
+        if(exists $blessed_genetypes{$transcript->biotype}){
           push(@newtran, $transcript);
         }
         else{
@@ -431,7 +431,7 @@ sub prune_Transcripts {
 
       # decide whether this is a new transcript or whether it has already been seen
       # if it's blessed, we keep it and there's nothing more to do
-      if(exists $blessed_genetypes{$tran->type}){
+      if(exists $blessed_genetypes{$tran->biotype}){
         push (@newtran, $tran);
       }
       elsif ($found == 0) {
@@ -720,7 +720,6 @@ sub prune_redundant_CDS {
     
     # Separate into ones with UTRs and ones without
     foreach my $trans (@{$gene->get_all_Transcripts}) {
-      $trans->sort;
       my @exons = @{$trans->get_all_Exons};
       if ($trans->translation) {
         if ($trans->translation->start_Exon == $exons[0] &&

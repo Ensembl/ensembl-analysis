@@ -161,11 +161,14 @@ sub id {
 
 
 sub empty_Object{
-  my ($object, $include_stable_id) = @_;
+  my ($object, $include_stable_id, $new_analysis) = @_;
   $object->adaptor(undef);
   $object->dbID(undef);
   $object->stable_id(undef) if($object->can("stable_id") && 
                                $include_stable_id);
+  if ($new_analysis and $object->can('analysis')) {
+      $object->analysis($new_analysis);
+  }
   return $object;
 }
 

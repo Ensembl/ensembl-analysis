@@ -1,10 +1,11 @@
 #!/bin/bash
-export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules
+export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules
 
 export WORK_DIR=$PWD
 
 echo "Running test suite"
 echo "Using $PERL5LIB"
+rt=0
 if [ "$COVERALLS" = 'true' ]; then
   export PERL5LIB=$PERL5LIB:$PWD/ensembl-test/modules
   PERL5OPT='-MDevel::Cover=+ignore,bioperl,+ignore,ensembl-test' perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
@@ -17,30 +18,52 @@ else
   # Funcgen config
   printf "@RUNNABLE_CONFIG = ();\n\$ANALYSIS_WORK_DIR = '%s';\n\$ANALYSIS_INPUT_DIR = '%s';\n\$ANALYSIS_TARGET_DIR = '%s';%s\n1;\n" "$PWD" "$PWD" "$PWD" "$PERL_IMPORT" > $PWD/runnable_config.pm
   perl -c $PWD/runnable_config.pm
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
+  fi
   cp $PWD/scripts/RNASeq/setup_rnaseq_pipeline_config.pm_example $PWD/modules/setup_rnaseq_pipeline_config.pm
   # We need to fake this module but it may be cleaned better later
   sed 's/Solexa2Genes/Solexa2GenesLiteNew/' $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2Genes.pm.example > $PWD/modules/Bio/EnsEMBL/Analysis/Config/GeneBuild/Solexa2GenesLiteNew.pm
   find $PWD/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
+  fi
   find $PWD/scripts -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
+  fi
   find $PWD/ensembl-pipeline/modules -type f -name '*.example' | while read f; do mv "$f" "${f%.example}"; done
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
+  fi
   find $PWD/scripts -type f -name "*.pl" | xargs -i perl -c {}
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
+  fi
 # We avoid the Finished directory at the moment
 #  Exonerate2Array.pm as it is a FuncGen module
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
 #  M=( "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   M=( "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" \
-  "modules/Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
+  "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
-  ARRAY=`seq 0 $((${#M[@]}-1))`
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
-  for S in $ARRAY; do
-      printf " \e[33m- %s\n\e[0m" "${M[$S]}"
-      N[$S]=`basename ${M[$S]}`
+  for S in `seq 0 $((${#M[@]}-1))`; do
+      printf " - \e[33m%s\n\e[0m" "${M[$S]}"
+      RES=${RES}" ! -name `basename ${M[$S]}`"
   done
-  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `for I in $ARRAY; do RES=${RES}" ! -name ${N[$I]}"; done; echo "$RES"` | xargs -i perl -c {}
+  find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `echo "$RES"` | xargs -i perl -c {}
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
+  fi
 fi
-rt=$?
 if [ $rt -eq 0 ]; then
   if [ "$COVERALLS" = 'true' ]; then
     echo "Running Devel::Cover coveralls report"

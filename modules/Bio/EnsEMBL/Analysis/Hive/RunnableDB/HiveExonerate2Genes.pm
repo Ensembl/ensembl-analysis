@@ -73,11 +73,20 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::HiveKillList;
 use Bio::SeqIO;
+use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my($self) = @_;
+
+
+  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  if($dna_dba) {
+    $dba->dnadb($dna_dba);
+  }
+  $self->hrdb_set_con($dba,'target_db');
 
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
@@ -179,46 +188,55 @@ sub fetch_input {
   ##########################################
   # set up the query (est/cDNA/protein)
   ##########################################
-
-  my ($query_file, $chunk_number, $chunk_total);
-  my $query = $self->QUERYSEQS;
-
-  if (-e $query and -d $query) {
-    # query seqs is a directory; input id will be a file in that directory
-    # As input_id returns a string, I've made it parse out the file name. I don't
-    # like this solution but it is the quickest for the moment
-    my $input_id = $self->input_id;
-
-    $query_file = "$query/" . $input_id;
-    if (not -e $query_file) {
-      throw( "Query file '$query_file' does not exist'\n");
-    }
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER,$self->input_id);
-      $self->filtered_query_file($query_file);
-    }
+  my $iid_type = $self->param('iid_type');
+  my ($query_file,$chunk_number,$chunk_total);
+  unless($iid_type) {
+    $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
   }
-  elsif (-e $query and -s $query) {
-    # query seqs is a single file; input id will correspond to a chunk number
-    $query_file = $query;
-    my $iid_regexp = $self->IIDREGEXP;
 
-    throw("When your input ids are not filenames, you must define ".
-          "IIDREGEXP in config to enable inference of chunk number and total")
-        if not defined $iid_regexp;
+  if($iid_type eq 'db_seq') {
+    $query_file = $self->output_query_file();
+  } elsif($iid_type eq 'chunk_file') {
+    my $query = $self->QUERYSEQS;
 
-    ($chunk_number, $chunk_total) = $self->input_id =~ /$iid_regexp/;
+    if(-e $query and -d $query) {
+      # query seqs is a directory; input id will be a file in that directory
+      # As input_id returns a string, I've made it parse out the file name. I don't
+      # like this solution but it is the quickest for the moment
+      my $input_id = $self->input_id;
 
-    ###
-    ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
-    ###
-    if ($self->USE_KILL_LIST) {
-      $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER);
+      $query_file = "$query/" . $input_id;
+      if (not -e $query_file) {
+        throw( "Query file '$query_file' does not exist'\n");
+      }
+      if ($self->USE_KILL_LIST) {
+        $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER,$self->input_id);
+        $self->filtered_query_file($query_file);
+      }
+    }
+    elsif (-e $query and -s $query) {
+      # query seqs is a single file; input id will correspond to a chunk number
+      $query_file = $query;
+      my $iid_regexp = $self->IIDREGEXP;
+
+      $self->throw("When your input ids are not filenames, you must define ".
+                   "IIDREGEXP in config to enable inference of chunk number and total")
+      if not defined $iid_regexp;
+
+      ($chunk_number, $chunk_total) = $self->input_id =~ /$iid_regexp/;
+
+      ###
+      ### DO THE KILL LIST FILTER FOR QUERY FILE. AGAIN THE FILE CAN CONTAIN MULTIPLE ENTIRES
+      ###
+      if ($self->USE_KILL_LIST) {
+        $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER);
+      }
+    } else {
+      throw("'$query' refers to something that could not be made sense of\n");
     }
   } else {
-    throw("'$query' refers to something that could not be made sense of\n");
+   $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
-
   ##########################################
   # Annotation file with CDS positions
   ##########################################
@@ -247,9 +265,10 @@ sub fetch_input {
     }
   }
 
+#  my $transcript_biotype = $self->transcript_biotype();
+  my $biotypes_hash = $self->get_biotype();
   foreach my $database ( @db_files ){
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
-        ->new(
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
               -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
               -analysis => $self->analysis,
               -target_file    => $database,
@@ -258,11 +277,11 @@ sub fetch_input {
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
+              -biotypes => $biotypes_hash,
               %parameters,
               );
 
       $self->runnable($runnable);
-
   }
 
 }
@@ -310,7 +329,7 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
-  my $outdb = $self->get_output_db;
+  my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
   my @output = @{$self->param('output_genes')};
@@ -332,6 +351,12 @@ sub write_output {
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
+
+  if($self->files_to_delete()) {
+    my $files_to_delete = $self->files_to_delete();
+    `rm $files_to_delete`;
+  }
+
 }
 
 sub hive_set_config {
@@ -366,12 +391,6 @@ sub hive_set_config {
     }
   }
 
-  # Throw if any of the following are missing (this was the behaviour of the original code and seems sensible)
-  unless(defined($self->QUERYSEQS) && defined($self->QUERYTYPE) && defined($self->GENOMICSEQS)) {
-    throw("You are missing required keys in the config_settings hash (in the analysis hash in the pipeline config). The following ".
-          "keys (in addition to logic_name and module) must be present:\nQUERYSEQS\nQUERYTYPE\nGENOMICSEQS"
-         );
-  }
 
   if($self->FILTER) {
     if(not ref($self->FILTER) eq "HASH" or not exists($self->FILTER->{OBJECT}) or not exists($self->FILTER->{PARAMETERS})) {
@@ -398,7 +417,7 @@ sub make_genes{
 
   my (@genes);
 
-  my $slice_adaptor = $self->db->get_SliceAdaptor;
+  my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my %genome_slices;
 
   foreach my $tran ( @transcripts ){
@@ -443,6 +462,9 @@ sub make_genes{
     throw("Have no slice") if(!$slice);
     $tran->slice($slice);
     $tran->analysis($self->analysis);
+    my $accession = $tran->{'accession'};
+    my $transcript_biotype = $self->get_biotype->{$accession};
+    $tran->biotype($transcript_biotype);
     $gene->add_Transcript($tran);
     push( @genes, $gene);
   }
@@ -456,7 +478,7 @@ sub get_chr_names{
   my @chr_names;
   my @chromosomes;
 
-  my $chr_adaptor = $self->db->get_SliceAdaptor;
+  my $chr_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   #also fetching non-reference regions like DR52 for human by default.
   #specify in Exonerate2Genes config-file.
   if(defined($self->NONREF_REGIONS)){
@@ -482,14 +504,14 @@ sub get_output_db {
     if ( ref($self->OUTDB)=~m/HASH/) {
 
       $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{$self->OUTDB},
-                                                -dnadb => $self->db);
+                                                -dnadb => $self->hrdb_get_con('target_db'));
     }else{
       $outdb = $self->get_dbadaptor($self->OUTDB);
     }
   } else {
-    $outdb = $self->db;
+    $outdb = $self->hrdb_get_con('target_db');
   }
-  $self->db->dbc->disconnect_when_inactive(1) ;
+  $self->hrdb_get_con('target_db')->dbc->disconnect_when_inactive(1) ;
   $outdb->dbc->disconnect_when_inactive(1) ;
   return $outdb;
 }
@@ -594,7 +616,7 @@ sub REFDB {
                                                 );
     $self->param('_CONFIG_REFDB',$dba);
     # Set this to override the default dbc which is inherited from Process and is to the Hive db
-    $self->db($dba);
+    #$self->db($dba);
   }
 
   if ($self->param_is_defined('_CONFIG_REFDB')) {
@@ -940,5 +962,71 @@ sub filter_killed_entries {
   }
   return $filtered_seqout_filename;
 }
+
+sub output_query_file {
+  my ($self) = @_;
+
+  my $accession_array = $self->param('iid');
+
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name('uniprot_sequences');
+
+  my $output_dir = $self->param('query_seq_dir');
+
+  # Note as each accession will occur in only one file, there should be no problem using the first one
+  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
+  my $outfile_path = $output_dir."/".$outfile_name;
+
+  my $biotypes_hash = {};
+
+  unless(-e $output_dir) {
+    `mkdir $output_dir`;
+  }
+
+  if(-e $outfile_path) {
+    $self->warning("Found the query file in the query dir already. Overwriting. File path\n:".$outfile_path);
+  }
+
+  open(QUERY_OUT,">".$outfile_path);
+  foreach my $accession (@{$accession_array}) {
+    my $db_row = $table_adaptor->fetch_by_dbID($accession);
+    unless($db_row) {
+      $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
+    }
+
+    my $seq = $db_row->{'seq'};
+    $biotypes_hash->{$accession} = $db_row->{'biotype'};
+
+    my $record = ">".$accession."\n".$seq;
+    say QUERY_OUT $record;
+  }
+  close QUERY_OUT;
+
+  $self->files_to_delete($outfile_path);
+  $self->get_biotype($biotypes_hash);
+
+  return($outfile_path);
+}
+
+
+sub get_biotype {
+  my ($self,$biotype_hash) = @_;
+  if($biotype_hash) {
+    $self->param('_biotype_hash',$biotype_hash);
+  }
+  return($self->param('_biotype_hash'));
+}
+
+
+sub files_to_delete {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_files_to_delete',$val);
+  }
+
+  return($self->param('_files_to_delete'));
+}
+
+
 
 1;

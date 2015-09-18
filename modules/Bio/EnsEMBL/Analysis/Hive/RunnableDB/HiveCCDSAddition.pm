@@ -59,7 +59,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCCDSAddition;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');

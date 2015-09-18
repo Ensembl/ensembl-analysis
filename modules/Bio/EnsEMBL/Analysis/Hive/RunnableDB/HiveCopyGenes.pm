@@ -49,7 +49,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');

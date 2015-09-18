@@ -26,11 +26,11 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
   return 1;
-  unless($self->param('wgs_id') && $self->param('output_path') && $self->param('source')) {
+  unless($self->param('wgs_id') && $self->param('output_path') && $self->param('contigs_source')) {
     $self->throw("Must pass in the following parameters:\n".
           "wgs_id e.g AAEX for Dog".
           "output_path e.g /path/to/work/dir\n".
-          "source e.g. 'ENA' or 'NCBI'");
+          "contigs_source e.g. 'ENA' or 'NCBI'");
   }
 
 }
@@ -39,14 +39,13 @@ sub run {
   my $self = shift;
 
   my $wgs_id = $self->param('wgs_id');
-  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name'),
-  my $output_path = $self->param('output_path');
-  my $source = $self->param('source');
-  my $contig_path = $output_path."/".$primary_assembly_dir_name."/contigs";
+  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
+  my $output_path = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name."/contigs";
+  my $source = $self->param('contigs_source');
 
-  $self->download_ftp_contigs($source,$wgs_id,$contig_path);
-  $self->unzip($contig_path);
-  $self->fix_contig_headers($source,$contig_path);
+  $self->download_ftp_contigs($source,$wgs_id,$output_path);
+  $self->unzip($output_path);
+  $self->fix_contig_headers($source,$output_path);
 
   say "Finished downloading contig files";
   return 1;
@@ -134,7 +133,7 @@ sub fix_contig_headers {
     open(OUT,">$contigs_fixed");
     while(<IN>) {
       my $line = $_;
-      if($line =~ /^>[^\|]+\|[^\|]+\|[^\|]+\|([^\|]+\.\d+)\|/) {
+      if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
         say OUT '>'.$1;
       } elsif($line =~ /^>/) {
         $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
