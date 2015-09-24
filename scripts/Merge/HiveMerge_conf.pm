@@ -18,6 +18,10 @@ sub default_options {
     # Name of the pipeline
     'pipeline_name' => 'merge',
 
+    # Set to 1 if you want to delete vega, merge and core databases.
+    # Only useful if you want to start the whole pipeline again
+    'drop_databases' => 0,
+
     # users and passwords for read-only and write access to the genebuild MySQL servers
     'pass_r' => '',
     'user_r' => '',
@@ -73,49 +77,42 @@ sub default_options {
     # assembly path without patch update extension required by some scripts
     'assembly_path' => 'GRCh38',
     
-    # Pipeline db, pipeline will create this automatically
-    'pipeline_db' => {
-                    -host      => "",
-                    -port      => "3306",
-                    -user      => $self->o('user_w'),
-                    -pass      => $self->o('pass_w'),
-                    -dbname    => "",
-                    -driver    => "mysql",
-    },
-     
+    'dbname_prefix' => $self->o('ENV', 'USER').'_species_XX',
+    'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
+
+    # Host name for the different DBs
+    'pipeline_server' => '',
+    'ensembl_server' => '',
+    'vega_server' => '',
+    'merge_server' => '',
+    'ccds_server' => '',
+    'prevcore_server' => '',
+    'core_server' => '',
     # vega database provided by the Vega team
     'original_vega_db' => {
                     -host      => "",
                     -port      => "",
                     -user      => $self->o('user_r'),
+                    -pass      => $self->o('pass_r'),
                     -dbname    => "",
     },
 
-    # vega database to be used for the merge
-    'vega_db' => {
+    # previous core database (available on ens-staging or ens-livemirror)
+    'prevcore_db' => {
                     -host      => "",
                     -port      => "3306",
-                    -user      => $self->o('user_w'),
-                    -pass      => $self->o('pass_w'),
+                    -user      => $self->o('user_r'),
+                    -pass      => $self->o('pass_r'),
                     -dbname    => "",
     },
 
     # ensembl database to be used for the merge
     'ensembl_db' => {
-                    -host      => "",
+                    -host      => $self->o('ensembl_server'),
                     -port      => "3306",
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
-                    -dbname    => ""
-    },
-    
-    # merge output database containing the merged gene set
-    'merge_db' => {
-                    -host      => "",
-                    -port      => "3306",
-                    -user      => $self->o('user_w'),
-                    -pass      => $self->o('pass_w'),
-                    -dbname    => ""
+                    -dbname    => $self->o('dbname_prefix').'_ensembl',
     },
     
     # ccds database containing the CCDS gene set
@@ -124,25 +121,47 @@ sub default_options {
                     -port      => "3306",
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
-                    -dbname    => ""
+                    -dbname    => "",
     },
-    
-    # previous core database (available on ens-staging or ens-livemirror)
-    'prevcore_db' => {
-                    -host      => "",
+
+    ##
+    # You shouldn't need to change anything below this line
+    ##
+    # Pipeline db, pipeline will create this automatically
+    'pipeline_db' => {
+                    -host      => $self->o('pipeline_server'),
                     -port      => "3306",
-                    -user      => $self->o('user_r'),
-                    -pass      => $self->o('pass_r'),
-                    -dbname    => ""
+                    -user      => $self->o('user_w'),
+                    -pass      => $self->o('pass_w'),
+                    -dbname    => $self->o('dbname_prefix').'_hive',
+                    -driver    => "mysql",
+    },
+
+    # vega database to be used for the merge
+    'vega_db' => {
+                    -host      => $self->o('vega_server'),
+                    -port      => "3306",
+                    -user      => $self->o('user_w'),
+                    -pass      => $self->o('pass_w'),
+                    -dbname    => $self->o('dbname_prefix').'_vega',
+    },
+
+    # merge output database containing the merged gene set
+    'merge_db' => {
+                    -host      => $self->o('merge_server'),
+                    -port      => "3306",
+                    -user      => $self->o('user_w'),
+                    -pass      => $self->o('pass_w'),
+                    -dbname    => $self->o('dbname_prefix').'_merge',
     },
     
     # core database
     'core_db' => {
-                    -host      => "",
+                    -host      => $self->o('core_server'),
                     -port      => "3306",
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
-                    -dbname    => ""
+                    -dbname    => $self->o('dbname_prefix').'_core',
     },
   };
 }
@@ -162,10 +181,14 @@ sub resource_classes {
 sub pipeline_create_commands {
     my ($self) = @_;
 
-      return [
-          # Inherit database and hive tables creation commands
-              @{$self->SUPER::pipeline_create_commands},
-                ];
+      my $create_commands = $self->SUPER::pipeline_create_commands;
+      if ($self->o('drop_databases')) {
+          foreach my $dbname ('vega_db', 'merge_db', 'core_db') {
+              my $db_url = $self->o('pipeline_db', '-driver').'://'.$self->o($dbname, '-user').':'.$self->o($dbname, '-pass').'@'.$self->o($dbname, '-host').':'.$self->o($dbname, '-port').'/'.$self->o($dbname, '-dbname');
+              push(@$create_commands, $self->db_cmd('DROP DATABASE IF EXISTS', $db_url));
+          }
+      }
+      return $create_commands;
 }
 
 
@@ -262,7 +285,7 @@ sub pipeline_analyses {
               -logic_name => 'delete_core_genes',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               cmd => "perl $ENSCODE/ensembl-analysis/scripts/genebuild/delete_genes.pl"
+                               cmd => 'perl '.$self->o('ensembl_analysis_base').'/scripts/genebuild/delete_genes.pl'
                                      ." -dbhost ".$self->o('core_db','-host')
                                      ." -dbuser ".$self->o('core_db','-user')
                                      ." -dbpass ".$self->o('core_db','-pass')
@@ -373,7 +396,7 @@ sub pipeline_analyses {
                                dnadbhost => $self->o('ensembl_db','-host'),
                                dnadbport => $self->o('ensembl_db','-port'),
                                dnadbname => $self->o('ensembl_db','-dbname'),
-                               check_vega_met_stop_dir => "$ENSCODE/ensembl-analysis/scripts/Merge",
+                               check_vega_met_stop_dir => $self->o('ensembl_analysis_base').'/scripts/Merge',
                                skip => 0,
                                only => 0,
                              },
@@ -413,7 +436,7 @@ sub pipeline_analyses {
               -logic_name => 'havana_merge',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge',
               -parameters => {
-                               ensembl_analysis_base => "$ENSCODE/ensembl-analysis",
+                               ensembl_analysis_base => $self->o('ensembl_analysis_base'),
                                host_secondary => $self->o('ensembl_db','-host'),
                                user_secondary => $self->o('user_r'),
                                password_secondary => $self->o('pass_r'),
@@ -512,7 +535,7 @@ sub pipeline_analyses {
               -logic_name => 'havana_merge_copy_unprocessed_genes',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
               -parameters => {
-                               copy_genes_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
+                               copy_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
                                copy_genes_script_name => 'copy_genes.pl',
 
                                # copy_genes.pl script parameters
@@ -711,8 +734,8 @@ sub pipeline_analyses {
                                dbuser => $self->o('user_w'),
                                dbpass => $self->o('pass_w'),
                                dbport => $self->o('merge_db','-port'),
-                               delete_transcripts_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
-                               delete_genes_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
+                               delete_transcripts_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
+                               delete_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
                                delete_transcripts_script_name => 'delete_transcripts.pl',
                                delete_genes_script_name => 'delete_genes.pl',
                                output_path => $self->o('output_dir').'delete_artifacts/',
@@ -818,7 +841,7 @@ sub pipeline_analyses {
               -logic_name => 'ccds_addition',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCCDSAddition',
               -parameters => {
-              	               copy_genes_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
+                               copy_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
                                copy_genes_script_name => 'copy_genes.pl',
                                add_ccds_path => '$ENSCODE/ensembl-personal/genebuilders/scripts/',
                                add_ccds_script_name => 'add_ccds_support.pl',
@@ -949,7 +972,7 @@ sub pipeline_analyses {
               -logic_name => 'copy_genes_to_core',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
               -parameters => {
-                               copy_genes_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
+                               copy_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
                                copy_genes_script_name => 'copy_genes.pl',
 
                                # copy_genes.pl script parameters
