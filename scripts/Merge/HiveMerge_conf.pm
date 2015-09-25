@@ -786,7 +786,7 @@ sub pipeline_analyses {
               -logic_name => 'alternative_atg_attributes',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               cmd => 'perl $ENSEMBL_PERSONAL/genebuilders/scripts/look_for_upstream_atg.pl'.
+                               cmd => 'perl '.$self->o('ensembl_analysis_base').'/scripts/Merge/look_for_upstream_atg.pl'.
                                       ' -dbuser '.$self->o('user_w').
                                       ' -dbpass '.$self->o('pass_w').
                                       ' -dbhost '.$self->o('merge_db','-host').
