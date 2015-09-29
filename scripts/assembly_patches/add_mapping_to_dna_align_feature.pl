@@ -58,17 +58,18 @@ if($patch_cmp_in_mapping and $ref_cmp_in_mapping){
 if(!$ref_cmp_in_mapping and !$patch_cmp_in_mapping){
   throw("Specify -patch_cmp_in_mapping or -ref_cmp_in_mapping to indicate if patch or ref is the cmp in the mapping between the two.\n");
 }
-if(!$mapping_analysis_id){
-  throw ("Need to specify analysis id mapping will be stored with using -mapping_analysis_id.\n");
-}
-
-open(SQL,">mapping.sql") || die "Could not open mapping.sql for writing\n";
-
 #database with mapping between coord systems
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dbhost,
                                              -user   => $dbuser,
                                              -port   => $dbport,
                                              -dbname => $dbname );
+
+if(!$mapping_analysis_id){
+  my $analysis_adaptor = $db->get_AnalysisAdaptor;
+  my $analysis = $analysis_adaptor->fetch_by_logic_name('alt_seq_mapping');
+  $mapping_analysis_id = $analysis->dbID;
+  throw ("Need to specify analysis id mapping will be stored with using -mapping_analysis_id.\n") unless ($mapping_analysis_id);
+}
 
 my $sa = $db->get_SliceAdaptor();
 
@@ -89,6 +90,9 @@ EXC: foreach my $exc (@exceptions){
 #entries for each patch and that those two entries are adjacent
 my $num_patches = scalar(@patches)/2;
 print "Have ".$num_patches." patches.\n";
+
+open(SQL,">mapping.sql") || die "Could not open mapping.sql for writing\n";
+
 #for each patch
 for (my $i = 0;$i < $num_patches;$i++){
 

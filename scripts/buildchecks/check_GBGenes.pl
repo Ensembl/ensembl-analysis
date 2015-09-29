@@ -111,7 +111,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use TranscriptChecker;
 use ContigGenesChecker;
 use GeneChecker;
-use ScriptUtils;
+use buildchecks::ScriptUtils;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::BuildChecks qw (
                                                                MAXSHORTINTRONLEN
                                                                MINSHORTINTRONLEN

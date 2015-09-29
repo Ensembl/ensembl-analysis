@@ -20,6 +20,7 @@ use warnings;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::DBSQL::ProteinAlignFeatureAdaptor;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch;
+use Bio::EnsEMBL::Pipeline::SeqFetcher::UniProtKB;
 
 use Bio::EnsEMBL::Pipeline::Analysis;
 use Bio::EnsEMBL::Utils::Exception qw ( throw warning ) ;
@@ -71,6 +72,7 @@ my $paf_logic_name = '';
             'run_multiple_jobs!',
             'no_mfetch_sprot_dat=s',   # filepath to sprot dat file, use when mfetch is not available
             'no_mfetch_trembl_dat=s',  # filepath to trembl dat file, use when mfetch is not available
+            'website!', # Use it only if you have few number of protein to check otherwise you will hammer UniProt
            ) ;
 
 if ( ($opt{no_mfetch_sprot_dat} and !$opt{no_mfetch_trembl_dat})
@@ -118,7 +120,6 @@ print " MEMORY - consider using  bsub -q normal -M6000 -R\"select[mem>6000] rusa
 print " FILE   - sql-statements will be written to $opt{outfile}\n" ;
 print " QUICK  - use -run_multiple_jobs flag to split the run into 10 jobs which you can run in bsub\n\n" ;
 print "REMEMBER : \nYou have to use the 64bit perl to run jobs which use over 3 gigs of memory\n";
-sleep(2);
 print "SQL-output will be written to $opt{outfile} \n" ;
 
 if (-e $opt{outfile} ) {
@@ -133,8 +134,7 @@ if (-e $opt{outfile} ) {
 
 
 if ( -e $opt{filename_acc_no_desc}) {
-      print "file $opt{filename_acc_no_desc} already exists - should i overwrite this file ??? (yes/no) ? \n" ;
-      if ( $opt{delete} || get_input_arg()) {
+      if ( $opt{delete}) {
         print "$opt{filename_acc_no_desc} will be over-written\n" ;
       }else {
         throw("file $opt{filename_acc_no_desc} exist - please use -filename_acc_no_desc <NEW_FILENAME> and supply new filename \n".
@@ -142,7 +142,6 @@ if ( -e $opt{filename_acc_no_desc}) {
       }
   }
 
- sleep 5 ;
 
 check_phylum() ;
 open SQL, (">$opt{outfile}") || die " can't write to file $opt{outfile}\n" ;
@@ -302,30 +301,32 @@ if ( $opt{rerun} ) {
 print "fetching *done*\n" ;
 print "Entries found in protein_align_feature table of $opt{dbname} @ $opt{dbhost} : \n" ;
 
-my @protein_analysis;
-my @all_ids;
+my @hit_ids_investigate;
 for my $lg( keys %paf_hash ) {
   print "Analysis : $lg   hits_found:  " . scalar(keys %{$paf_hash{$lg}}) . "\n";
-  push @all_ids, keys %{$paf_hash{$lg}};
-  push @protein_analysis, get_analysis($dba, $lg) ;
+  push @hit_ids_investigate, keys %{$paf_hash{$lg}};
 }
-sleep(3);
 
-my %hslice ;
-@hslice{@all_ids}=1 ;
-@all_ids = keys %hslice ;
-print "\n\nHave " . scalar(@all_ids) . " different ID's to fetch ...\n" ;
-sleep(3);
+print "\n\nHave " . scalar(@hit_ids_investigate) . " different ID's to fetch ...\n" ;
 
 
 # fetch analysis for input_id types
 
-  print "running mfetch to fetch description etc ..\n" ;
-  my @hit_ids_investigate = @all_ids ;
 
-  my $obj = Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch->new();
-  $obj->verbose(1) if $opt{verbose};
   my @fields_to_fetch  = qw ( Taxon acc org pe crd des ) ;
+  my $obj;
+  if ($opt{website}) {
+    print "looking on www.uniprot.org to fetch description etc ..\n" ;
+    $obj = Bio::EnsEMBL::Pipeline::SeqFetcher::UniProtKB->new();
+    $obj->use_website(1);
+  } elsif ($opt{no_mfetch_sprot_dat} or $opt{no_mfetch_trembl_dat}) {
+    $obj = Bio::EnsEMBL::Pipeline::SeqFetcher::UniProtKB->new();
+    $obj->uniprot_file([$opt{no_mfetch_sprot_dat}, $opt{no_mfetch_trembl_dat}]);
+  } else {
+    print "running mfetch to fetch description etc ..\n" ;
+    $obj = Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch->new();
+  }
+  $obj->verbose(1) if $opt{verbose};
 
   # mfetch -f "Taxon acc org pe crd des" -d uniprot -i "acc:F6M3M6"
      # AC   F6M3M6;
@@ -340,25 +341,18 @@ sleep(3);
      # OC   Lepisosteus.
      # PE   2: Evidence at transcript level;
 
-  my ($entries,$not_found);
-  if ($opt{no_mfetch_sprot_dat} and $opt{no_mfetch_trembl_dat}) {
-    ($entries, $not_found) =  @{$obj->get_Entry_Fields_no_mfetch($opt{no_mfetch_sprot_dat},$opt{no_mfetch_trembl_dat},\@hit_ids_investigate,\@fields_to_fetch) } ;
-  } else {
-    ($entries, $not_found) =  @{$obj->get_Entry_Fields(\@hit_ids_investigate,\@fields_to_fetch) } ;
-  }
+  my ($all_entries, $not_found) =  @{$obj->get_Entry_Fields(\@hit_ids_investigate,\@fields_to_fetch) } ;
   
-  my %all_entries = %$entries ;
-  my @not_found = @$not_found ;
-
-  print "\nNO description found by mfetch for " . 
-    scalar(@not_found) . " entries !!!! - we try with wildcards now ...  \n" ;
-     for ( @not_found ) {
-       print  "$_ not_found\n" ;
-     }
-
   # print now try to  fetch with wildcards     - second round
+  if (@$not_found) {
+    print "\nNO description found by mfetch for ".scalar(@$not_found)." entries !!!! - we try with wildcards now ...  \n" ;
+    for ( @$not_found ) {
+      print  "$_ not_found\n" ;
+    }
+  }
+
   my @not_found_2 ;
-  for my $acc ( @not_found ) {
+  for my $acc ( @$not_found ) {
      my $nacc = $acc ;
      $nacc=~s/\..*//g;
      $nacc=~s/\-.*//g;
@@ -366,19 +360,17 @@ sleep(3);
 
      my $search_acc = " -d uniprot -i \"acc:$nacc\%\"";
 
-     my $unfound_entry_fields = $obj->get_Entry_Fields($search_acc, \@fields_to_fetch)  ;
-     my ($entries, $not_found ) =  @{ $unfound_entry_fields } ;
+     my ($refetch_entries, $refetch_not_found ) = $obj->get_Entry_Fields($search_acc, \@fields_to_fetch);
 
-     if ( scalar(@$not_found) > 0 ) {
+     if ( scalar(@$refetch_not_found) > 0 ) {
         push @not_found_2, $acc ;
      }
 
      print "adding re-fetched values to entries{$acc}\n" if $opt{verbose} ;
-     my %e = %$entries ;
-     foreach my $k ( keys %e ) {
-         my %tmp = %{$e{$k}};
+     foreach my $k ( keys %$refetch_entries ) {
+         my %tmp = %{$refetch_entries->{$k}};
          for my $field ( keys %tmp  ) {
-            $all_entries{$acc}{$field}  = $tmp{$field} ;
+            $all_entries->{$acc}{$field}  = $tmp{$field} ;
          }
      }
   }
@@ -451,34 +443,34 @@ for my $lg ( @logic_names ) {
   if ( scalar(@pe_levels) > 0 && scalar(@uniprot_dbs) > 0 && scalar(@fragment) > 0 ) {
     print "PE-Levels wanted: " . join (" " , @pe_levels ) . "\n" ;
     print "UniProt dbs wanted: " . join (" " , @uniprot_dbs ) . "\n" ;
-    print "filtering " . scalar(keys %all_entries) . " by Fragment, PE LEVEL and UNIPROT_DB ......\n";
-    %filtered_hits = %{get_protein_hits_by_fragment_pe_level_and_uniprot_db(\%all_entries, \%filters )} ;
+    print "filtering " . scalar(keys %$all_entries) . " by Fragment, PE LEVEL and UNIPROT_DB ......\n";
+    %filtered_hits = %{get_protein_hits_by_fragment_pe_level_and_uniprot_db($all_entries, \%filters )} ;
     print "PE-filter and UNIPROT_DB-filter result: " . scalar(keys(%filtered_hits)) . " left\n" ;
     
   } elsif ( scalar(@pe_levels) > 0 && scalar(@uniprot_dbs) > 0 ) {
     print "PE-Levels wanted: " . join (" " , @pe_levels ) . "\n" ;
     print "UniProt dbs wanted: " . join (" " , @uniprot_dbs ) . "\n" ;
-    print "filtering " . scalar(keys %all_entries) . " by PE LEVEL and UNIPROT_DB ......\n";
-    %filtered_hits = %{get_protein_hits_by_pe_level_and_uniprot_db(\%all_entries, \%filters )} ;
+    print "filtering " . scalar(keys %$all_entries) . " by PE LEVEL and UNIPROT_DB ......\n";
+    %filtered_hits = %{get_protein_hits_by_pe_level_and_uniprot_db($all_entries, \%filters )} ;
     print "PE-filter and UNIPROT_DB-filter result: " . scalar(keys(%filtered_hits)) . " left\n" ;
 
   } elsif ( scalar(@pe_levels) > 0 ) {
     print "PE-Levels wanted: " . join (" " , @pe_levels ) . "\n" ;
-    print "filtering " . scalar(keys %all_entries) . " by PE LEVEL ......\n";
-    %filtered_hits = %{get_protein_hits_by_pe_level_and_uniprot_db(\%all_entries, \%filters )} ;
+    print "filtering " . scalar(keys %$all_entries) . " by PE LEVEL ......\n";
+    %filtered_hits = %{get_protein_hits_by_pe_level_and_uniprot_db($all_entries, \%filters )} ;
     print "PE-filter result: " . scalar(keys(%filtered_hits)) . " left\n" ;
     print "skipping .......: UNIPROT_DB-filter\n" ;
 
   } elsif ( scalar(@uniprot_dbs) > 0 ) {
     print "UniProt dbs wanted: " . join (" " , @uniprot_dbs ) . "\n" ;
-    print "filtering " . scalar(keys %all_entries) . " by UNIPROT_DB ......\n";
-    %filtered_hits = %{get_protein_hits_by_pe_level_and_uniprot_db(\%all_entries, \%filters )} ;
+    print "filtering " . scalar(keys %$all_entries) . " by UNIPROT_DB ......\n";
+    %filtered_hits = %{get_protein_hits_by_pe_level_and_uniprot_db($all_entries, \%filters )} ;
     print "UNIPROT_DB-filter result: " . scalar(keys(%filtered_hits)) . " left\n" ;
     print "skipping .......: PE-filter\n" ;
 
   } else {
     print "skipping .......: UNIPROT-filter and PE-filter\n" ;
-    %filtered_hits = %all_entries ;
+    %filtered_hits = %$all_entries ;
   }
 
 
@@ -594,7 +586,7 @@ sub get_and_exclude_protein_hits_by_field {
 
      if ( $expression_to_match ) {
        for my $string_match ( @$expr_to_match ) {
-         # print "testing : $string_match  - $attr_to_test " ;
+#        print "testing : $string_match  - $attr_to_test " ;
          if ($attr_to_test=~m/$string_match/ ) {
            print "MATCH  $attr_to_test $string_match $acc \n" if $opt{verbose} ;
             # we have a match
@@ -617,7 +609,7 @@ sub get_and_exclude_protein_hits_by_field {
          } else {
            if ( $opt{verbose} ) {
              print " sorry - no match. the ACC $acc does not match the ".
-             " $field-field \"$string_match\" criteria [ $attr_to_test=~m/$string_match/ :-( ] \n" ;
+             " $field-field \"$string_match\" criteria [ $attr_to_test =~ m/$string_match/ ] :-(\n" ;
            }
 
          }
