@@ -330,8 +330,8 @@ sub pipeline_analyses {
                                write => 1,
                                affix => 0, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; without affixes by default
                                biotypes_extension => 0,
-                               stdout_file => $self->o('reports_dir').'vega_checks_before_#chromosome#.out',
-                               stderr_file => $self->o('reports_dir').'vega_checks_before_#chromosome#.err',
+                               stdout_file => $self->o('reports_dir').'/vega_checks_before_#chromosome#.out',
+                               stderr_file => $self->o('reports_dir').'/vega_checks_before_#chromosome#.err',
                              },
               -hive_capacity    => 30,
               -analysis_capacity => 30,
@@ -340,8 +340,8 @@ sub pipeline_analyses {
               -logic_name => 'vega_checks_before_concat',
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               'cmd'   => 'cat '.$self->o('reports_dir').'vega_checks_before_*.out > '.
-                                                 $self->o('reports_dir').'vega_checks_before.out'
+                               'cmd'   => 'cat '.$self->o('reports_dir').'/vega_checks_before_*.out > '.
+                                                 $self->o('reports_dir').'/vega_checks_before.out'
                              },
               -flow_into => { 1 => ['vega_checks_before_report'] },
               -rc_name => 'local',
@@ -353,7 +353,7 @@ sub pipeline_analyses {
                                email => $self->o('vega_checks_reports_email'),
                                subject => 'AUTOMATED REPORT: vega biotype combinations',
                                text => 'Please find below the list of not allowed gene and transcript biotype combinations BEFORE the merge found in the vega database '.$self->o('vega_db','-dbname').'. Please note that any change applied to the list of allowed biotype combinations will take effect in a future release (not the next release).',
-                               file => $self->o('reports_dir').'vega_checks_before.out',
+                               file => $self->o('reports_dir').'/vega_checks_before.out',
                                command => "grep 'not allowed\\.' | awk '{print \$9,\$18}' | sort | uniq -c | sort -nr",
                              },
               -flow_into => { 1 => ['prepare_vega_db'] },
@@ -655,8 +655,8 @@ sub pipeline_analyses {
               -logic_name => 'vega_checks_after_concat',
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               'cmd'   => 'cat '.$self->o('reports_dir').'vega_checks_after_*.out > '.
-                                                 $self->o('reports_dir').'vega_checks_after.out'
+                               'cmd'   => 'cat '.$self->o('reports_dir').'/vega_checks_after_*.out > '.
+                                                 $self->o('reports_dir').'/vega_checks_after.out'
                              },
               -flow_into => { 1 => ['vega_checks_after_report'] },
               -rc_name => 'local',
@@ -681,8 +681,8 @@ sub pipeline_analyses {
                                write => 1,
                                affix => 1, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; with affixes by default
                                biotypes_extension => 1,
-                               stdout_file => $self->o('reports_dir').'vega_checks_after_#chromosome#.out',
-                               stderr_file => $self->o('reports_dir').'vega_checks_after_#chromosome#.err',
+                               stdout_file => $self->o('reports_dir').'/vega_checks_after_#chromosome#.out',
+                               stderr_file => $self->o('reports_dir').'/vega_checks_after_#chromosome#.err',
                              },
               -hive_capacity    => 30,
               -analysis_capacity => 30,
@@ -695,7 +695,7 @@ sub pipeline_analyses {
                                email => $self->o('vega_checks_reports_email'),
                                subject => 'AUTOMATED REPORT: merge biotype combinations',
                                text => 'Please find below the list of not allowed gene and transcript biotype combinations AFTER the merge found in the merge database '.$self->o('merge_db','-dbname').'. Any artifact transcript listed below will be deleted. Please note that any change applied to the list of allowed biotype combinations will take effect in a future release (not the next release).',
-                               file => $self->o('reports_dir').'vega_checks_after.out',
+                               file => $self->o('reports_dir').'/vega_checks_after.out',
                                command => "grep 'not allowed\\.' | awk '{print \$9,\$18}' | sort | uniq -c | sort -nr",
                              },
               -flow_into => { 1 => ['delete_artifacts'] },
