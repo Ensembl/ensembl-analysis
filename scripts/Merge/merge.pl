@@ -1826,21 +1826,20 @@ sub copy {
 
 ###############################################################################
 # Case 4 - The Primary gene has an assembly error, in this case the Secondary
-# transcript will be copied in and if the Secondary gene has a translation and
-# the Primary gene biotype doesn't match the biotype of the Secondary transcript
-# the biotype of the Secondary transcript overwrites the Primary gene biotype.
-# This may be in the wrong place logically. The corresponding Secondary gene is
-# listed as processed and will not be copied at the end of the merge process
+# transcript will be copied in. The biotype of the Secondary transcript will
+# overwrite the Primary gene biotype. This may be in the wrong place logically.
+# The corresponding Secondary gene is listed as processed and will not be
+# copied at the end of the merge process
 ###############################################################################
   elsif ( $target_gene->{__has_ref_error} ) {
     print( "Copy> Target gene has assembly error\n");
 
-    if ( defined( $source_transcript->translation() ) &&
-         $target_gene->biotype() ne $source_transcript->biotype() ) {
+# If there is an assembly error, we would almost all the time have a pseudogene
+# with only one transcript per gene, so we can update the biotype in any case.
+# If it's really wrong, vega_check will complain
       printf( "Copy> Updating gene biotype from %s to %s\n",
               $target_gene->biotype(), $source_transcript->biotype() );
       $target_gene->biotype( $source_transcript->biotype() );
-    }
 
   }
 
