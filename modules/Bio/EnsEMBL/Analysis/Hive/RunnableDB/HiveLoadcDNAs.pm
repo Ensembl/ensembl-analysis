@@ -41,6 +41,8 @@ sub write_output {
 
   my $db_path = $self->param('cdna_file');
 
+  my $start_index = 0;
+
   #my ($start_index,$end_index) = @{$self->param('uniprot_range')};
 
   my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($db_path);
@@ -50,16 +52,16 @@ sub write_output {
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name('cdna_sequences');
 
-  my $index_count = 0;
+  #my $index_count = 0;
 
   # add an index of 10 temporarily to test it
-  my $end_index = 10;
+  #my $end_index = 10;
 
-  while($parser->next()) {# && $index_count <= $end_index) {
-    #unless($index_count >= $start_index) {
-     # $index_count++;
-     # next;
-    #}
+  while($parser->next()) {#  && $index_count <= $end_index) {
+#    unless($index_count >= $start_index) {
+#      $index_count++;
+#      next;
+#    }
 
     $header = $parser->getHeader();
     $seq = $parser->getSequence();
@@ -94,7 +96,7 @@ sub write_output {
 
     $self->dataflow_output_id($output_hash,1);
 
-    $index_count++;
+#    $index_count++;
   }
   return 1;
 }

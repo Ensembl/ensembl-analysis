@@ -35,7 +35,7 @@ sub param_defaults {
       target_db => '',
 
       # used by create_type = 'clone'
-      script_path => '~/enscode/ensembl-personal/genebuilders/scripts/clone_database.ksh',
+      script_path => "/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/scripts/clone_database.ksh",
 
       # used by create_type = 'copy'
       db_dump_file => "/tmp/source_db_".time().".tmp",

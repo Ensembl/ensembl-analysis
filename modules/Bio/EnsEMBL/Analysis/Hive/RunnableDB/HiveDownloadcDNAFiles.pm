@@ -37,15 +37,21 @@ sub fetch_input {
 sub run {
   my ($self) = shift;
 
-  my $query_hash = $self->param('embl_sequences');
-  my $output_path = $query_hash->{'output_path'};
-  my $species = $query_hash->{'species'};
+  my $embl_hash = $self->param('embl_sequences');
+  my $output_path = $embl_hash->{'output_path'};
+  my $species = $embl_hash->{'species'};
+  my $taxon_id = $embl_hash->{'taxon_id'};
 
-  $self->download_seqs($species,$output_path);
+  $self->download_embl_seqs($species,$output_path);
   $self->unzip($output_path);
-  $self->convert_embl_to_fasta($output_path);
+  $self->convert_embl_to_fasta($output_path,$taxon_id);
 
-  say "Finished downloading cdna files";
+  my $refseq_hash = $self->param('refseq_sequences');
+  my $refseq_path = $refseq_hash->{'refseq_path'};
+  my $refseq_file = $refseq_hash->{'refseq_file'};
+
+  $self->download_refseq_seqs($refseq_file,$refseq_path,$output_path);
+
   return 1;
 }
 
@@ -54,7 +60,7 @@ sub write_output {
   return 1;
 }
 
-sub download_seqs {
+sub download_embl_seqs {
   my ($self,$species,$output_path) = @_;
 
   say "The cdnas will be downloaded from the ENA ftp site";
@@ -72,7 +78,8 @@ sub download_seqs {
   }
   my @ftp_dirs = ("new/", "release/std/");
   my $ftp = "ftp://ftp.ebi.ac.uk/pub/databases/embl/";
-  my @prefix = ("rel_htc_", "rel_pat_", "rel_std_", "cum_htc_", "cum_pat_", "cum_std_");
+  #my @prefix = ("rel_htc_", "rel_pat_", "rel_std_", "cum_htc_", "cum_pat_", "cum_std_");
+  my @prefix = ("cum_std_");
 
   my $abv;
 
@@ -86,6 +93,7 @@ sub download_seqs {
       system("wget -nv $ftp$dir$pre$abv*dat.gz -P $output_path");
     }
   }
+  say "Finished downloading cdna files";
 }
 
 sub unzip {
@@ -96,7 +104,7 @@ sub unzip {
 }
 
 sub convert_embl_to_fasta {
-  my ($self,$dir) = @_; 
+  my ($self,$dir,$taxon_id) = @_; 
   say "Converting EMBL files to Fasta...";
   opendir DIR, $dir or $self->throw("Could not open directory.");
   my @files= readdir DIR;
@@ -163,6 +171,20 @@ sub convert_embl_to_fasta {
       close IN;
     }
   }
+  system("cat $dir/*fasta > $dir/embl_$taxon_id.fa");
 }
+
+sub download_refseq_seqs {
+  my ($self,$refseq_file,$refseq_dir,$output_path) = @_;
+  my $cmd = 'scp -p '.$refseq_dir.'/'.$refseq_file.' '.$output_path.'/'. $refseq_file;
+  print "Copying RefSeq file containing cDNAs:\n", $cmd, "\n";
+
+  if (system($cmd) == 1) {
+    die "Failed to copy RefSeq file.\nExiting"; 
+  } else {
+    print "RefSeq file copied.\n";
+  }
+}
+
 1;
 

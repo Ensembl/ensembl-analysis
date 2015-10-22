@@ -43,6 +43,9 @@ sub default_options {
 
     'pipeline_name'              => 'human_cdna_hive',
 
+    'reference_dbname'           => 'homo_sapiens_core_82_38',
+    'reference_db_server'        => 'ens-livemirror',
+
     'species'                    => 'human',
     'user_r'                     => 'ensro',
     'user_w'                     => 'ensadmin',
@@ -50,10 +53,24 @@ sub default_options {
     'port'                       => '3306',
 
     'pipe_dbname'                => 'dm15_human_cdna_hive',
-
     'pipe_db_server'             => 'genebuild11',
+
     'killlist_db_server'         => 'genebuild6',
     'output_path'                => '/lustre/scratch109/ensembl/dm15/hive_cdna/',
+    'gss_file'                   => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/cDNA_update/gss_acc.txt',
+    'polyA_script'               => '~/enscode/ensembl-pipeline/scripts/EST/new_polyA_clipping.pl',
+
+    'refseq_path'                => '/data/blastdb/Ensembl/RefSeq_2015_06/',
+    'refseq_file'                => 'hs.fna',
+
+    'embl_file'                  => 'embl_9606.fa',
+
+    'output_dbname'              => 'dm15_human_cdnatest',
+    'output_db_server'           => 'genebuild13',
+
+    'clone_db_script_path'       => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/scripts/clone_database.ksh',
+
+    'genomic_seq'                => '/data/blastdb/Ensembl/human/GRCh38/genome/softmasked_dusted/toplevel.with_nonref_and_GRCh38_p3.no_duplicate.softmasked_dusted.fa',
 
 ##########################################################################
 #                                                                        #
@@ -65,12 +82,17 @@ sub default_options {
     'fastasplit_random_path'     => '/software/ensembl/bin/fastasplit_random',
     'killlist_dbname'            => 'gb_kill_list',
 
+    'cdna_file_name'             => 'cdna_update',
+
     'human_taxon_id'             => '9606',
     'mouse_taxon_id'             => '10090',
 
-    'cdna_query_dir_name'        => 'cdna_temp',
+    #'cdna_query_dir_name'        => 'cdna_temp',
 
-    'cdna_rechunk_dir_name'      => 'cdna_fail_chunks',
+    #'cdna_rechunk_dir_name'      => 'cdna_fail_chunks',
+
+    'cdna_table_name'            => 'cdna_sequences',
+    'cdna_batch_size'            => '10',
 
     'default_mem'                => '900',
 
@@ -79,9 +101,27 @@ sub default_options {
     'num_tokens' => 10,
     'user' => 'ensro',
 
+    'create_type' => 'clone',
+
     'pipeline_db' => {
       -dbname => $self->o('pipe_dbname'),
       -host   => $self->o('pipe_db_server'),
+      -port   => $self->o('port'),
+      -user   => $self->o('user_w'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('driver'),
+    },
+ 
+    'reference_db' => {
+      -dbname => $self->o('reference_dbname'),
+      -host   => $self->o('reference_db_server'),
+      -port   => $self->o('port'),
+      -user   => $self->o('user_r'),
+    },
+
+    'cdna_output_db' => {
+      -dbname => $self->o('output_dbname'),
+      -host   => $self->o('output_db_server'),
       -port   => $self->o('port'),
       -user   => $self->o('user_w'),
       -pass   => $self->o('password'),
@@ -102,6 +142,11 @@ sub pipeline_create_commands {
   return [
   # inheriting database and hive tables' creation
     @{$self->SUPER::pipeline_create_commands},
+
+    $self->db_cmd('CREATE TABLE '.$self->o('cdna_table_name').' ('.
+      'accession varchar(50) NOT NULL,'.
+      'seq text NOT NULL,'.
+      'PRIMARY KEY (accession))'),
   ];
 }
 
@@ -110,42 +155,123 @@ sub pipeline_analyses {
   my ($self) = @_;
 
   return [
-  {
-    -logic_name => 'download_cdnas',
-    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadcDNAFiles',
-    -parameters => {
-       embl_sequences => {
-#         taxon_id   => $self->o('human_taxon_id'),
-#         file_name  => 'embl_' . 'taxon_id' . '.fasta',
-         #output_path   => $self->o('/lustre/scratch109/ensembl/dm15/hive_cdna/'),
-         #species   => $self->o('human'),
-         output_path   => $self->o('output_path'),
-         species   => $self->o('species'),
-       },
+    {
+      -logic_name => 'create_output_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db => $self->o('reference_db'),
+        target_db => $self->o('cdna_output_db'),
+        create_type => $self->o('create_type'),
+        script_path => $self->o('clone_db_script_path'),
+      },
+      -rc_name    => 'default',
+      -input_ids => [{}],
     },
-    -rc_name   => 'default',
-    -input_ids => [ {} ],
-    -flow_into => {
-      1 => ['prepare_cdnas'],
+    {
+      -logic_name => 'download_cdnas',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadcDNAFiles',
+      -parameters => {
+        embl_sequences => {
+          output_path => $self->o('output_path'),
+          output_file => $self->o('cdna_file_name'),
+          species => $self->o('species'),
+          taxon_id => $self->o('human_taxon_id'),
+        },
+        refseq_sequences => {
+          refseq_path => $self->o('refseq_path'),
+          refseq_file => $self->o('refseq_file'),
+        },
+      },  
+      -rc_name   => 'default',
+      -input_ids => [ {} ],
+      -flow_into => {
+        1 => ['prepare_cdnas'],
+      },
     },
-  },
-  {
-    -logic_name => 'prepare_cdnas',
-    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs',
-    -wait_for => ['download_cdnas'],
-    -parameters => {
-      logic_name => 'prepare_cdnas',
-#      module     => 'HivePreparecDNAs',
-#      dest_dir   => $self->o('output_path'),
-#      query_seq_dir => $self->o('output_path').'/'.$self->o('cdna_query_dir_name'),
-#      killlist_type => 'cdna',
-      killlist_db => $self->o('killlist_db'),
+    {
+      -logic_name => 'prepare_cdnas',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs',
+      -parameters => {
+        prepare_seqs => {
+          dest_dir   => $self->o('output_path'),
+          embl_file => $self->o('embl_file'),
+          refseq_file => $self->o('refseq_file'),
+          gss_file => $self->o('gss_file'),
+          killlist_type => 'cdna_update',
+          killlist_db => $self->o('killlist_db'),
+          polyA_script => $self->o('polyA_script'),
+          cdna_file => $self->o('cdna_file_name'),
+          species => $self->o('species'),
+        },
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => ['load_cdnas'],
+      },
     },
-    -rc_name => 'default',
-#       -flow_into => {
-#                        1 => ['load_cDNA_seqs'],
-#                      },
-  },
+    {
+      -logic_name => 'load_cdnas',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs',
+      -parameters => {
+        cdna_file => $self->o('output_path').'/'.$self->o('cdna_file_name').'.clipped',
+        species => $self->o('species'),
+      },
+      -rc_name => 'default',
+      -wait_for => ['prepare_cdnas'],
+#      -flow_into => {
+#        1 => ['generate_jobs'],
+#      },
+    },
+    {
+      -logic_name => 'generate_jobs',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+      -parameters => {
+        cdna_accession => 1,
+        cdna_batch_size => $self->o('cdna_batch_size'),
+        cdna_table_name => $self->o('cdna_table_name'),
+      },
+      -rc_name => 'default',
+      -wait_for => ['load_cdnas'],
+      -input_ids => [ {} ],
+      -flow_into => {
+        1 => ['exonerate'],
+      },
+    },
+    {
+      -logic_name => 'exonerate',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+#      -rc_name          => 'exonerate',
+      -wait_for => ['create_output_db'],
+      -parameters => {
+        iid_type => 'db_seq',
+##      dna_db => $self->o('dna_db'),
+#        target_db => $self->o('output_db'),
+#        logic_name => 'exonerate',
+        module     => 'HiveExonerate2Genes',
+#        config_settings => $self->get_config_settings('exonerate_protein','exonerate'),
+#      query_seq_dir => $self->o('output_path').'/'.$self->o('uniprot_query_dir_name'),
+      },
+      -flow_into => {
+        -1 => ['exonerate_himem'],
+      },
+      -failed_job_tolerance => 50,
+    },
+    {
+      -logic_name => 'exonerate_himem',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+      -parameters => {
+        iid_type => 'db_seq',
+#      dna_db => $self->o('dna_db'),
+#        target_db => $self->o('output_db'),
+#        logic_name => 'exonerate',
+        module     => 'HiveExonerate2Genes',
+#        config_settings => $self->get_config_settings('exonerate_protein','exonerate'),
+#      query_seq_dir => $self->o('output_path').'/'.$self->o('uniprot_query_dir_name'),
+      },
+#      -rc_name          => 'exonerate_retry',
+      -can_be_empty  => 1,
+      -failed_job_tolerance => 100,
+    },
   ];
 }
 
