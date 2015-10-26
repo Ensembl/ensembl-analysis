@@ -23,7 +23,7 @@
 #
 # perl add_GRC_align_features.pl -dbhost genebuildn \
 #      -dbname homo_sapiens_core_nn_nn -dbuser user -dbpass pass \
-#      -patch_release GRCh37.p8 -verbose
+#      -gca_patch_release GCA_000001405.20_GRCh38.p5 -verbose
 
 use strict;
 use warnings;
@@ -46,7 +46,7 @@ my $dbhost         = '';
 my $dbuser         = 'ensro';
 my $dbpass         = '';
 my $dbport         = '3306';
-my $patch_release  = '';
+my $gca_patch_release  = '';
 my $store          = 0;
 my $external_db_id = '50692'; # GRC_alignment_import
 my $syn_external_db_id = '50710'; # seq_region_synonym slice type - i.e. INSDC
@@ -63,14 +63,14 @@ my @dna_align_features = ();
   'dbpass:s'                 => \$dbpass,
   'dbname:s'                 => \$dbname,
   'dbport:n'                 => \$dbport,
-  'patch_release:s'          => \$patch_release,
+  'gca_patch_release:s'      => \$gca_patch_release,
   'external_db_id:n'         => \$external_db_id,
   'write!'                   => \$store,
   'verbose!'                 => \$verbose,
 );
 
-if(!$patch_release){
-  throw ("Need to specify assembly version with -patch_release.\n");
+if(!$gca_patch_release){
+  throw ("Need to specify gca accession and assembly version with -gca_patch_release.\n");
 }
 
 # get alt_scaffold_placement.txt to generate filename that we will need
@@ -87,9 +87,9 @@ my $ftp = Net::FTP->new('ftp.ncbi.nlm.nih.gov', Debug => 0)
 $ftp->login('anonymous', '-anonymous@')
   or die 'Cannot login ', $ftp->message;
 
-chomp $patch_release;
+chomp $gca_patch_release;
 
-my $ncbi_patch_release_wd = "/genbank/genomes/Eukaryotes/vertebrates_mammals/Homo_sapiens/".$patch_release;
+my $ncbi_patch_release_wd = "/genomes/genbank/vertebrate_mammalian/Homo_sapiens/all_assembly_versions/".$gca_patch_release."/".$gca_patch_release."_assembly_structure";
 my $ncbi_wd = $ncbi_patch_release_wd;
 $ftp->cwd($ncbi_wd);
 
@@ -176,7 +176,7 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dbhost,
 my $sa = $db->get_SliceAdaptor();
 
 my $analysis = new Bio::EnsEMBL::Analysis( -logic_name => "grc_alignment_import",
-                                           -db_version => $patch_release);
+                                           -db_version => $gca_patch_release);
 
 
 
