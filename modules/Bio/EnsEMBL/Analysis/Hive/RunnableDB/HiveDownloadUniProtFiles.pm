@@ -215,9 +215,10 @@ sub build_query {
 
 #+NOT+taxonomy%3A%22
   if($exclude_id) {
-    $exclude_string = '+NOT+taxonomy%3A+'.$exclude_id;
-  } elsif($exclude_group) {
-    $exclude_string = '+NOT+taxonomy%3A'.$exclude_group;
+    my @exclusion_array = @{$exclude_id};
+    foreach my $id_to_exclude (@exclusion_array) {
+      $exclude_string .= '+NOT+taxonomy%3A+'.$id_to_exclude;
+    }
   }
 
   $full_query .= $pe_string.$taxonomy_string.$exclude_string.$fragment_string.$mito."&compress=".$compress."&format=".$format.
