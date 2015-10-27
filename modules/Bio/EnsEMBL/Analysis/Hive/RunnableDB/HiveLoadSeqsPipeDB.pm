@@ -63,7 +63,7 @@ sub write_output {
     $seq = $parser->getSequence();
 
     my $output_hash = {};
-    $output_hash->{'iid'} = $header;
+    $output_hash->{'iid'} = [$header];
 
     if($index_path) {
       my $cmd = "grep '^".$header."\:' $index_path";
@@ -80,7 +80,7 @@ sub write_output {
       my $group = $result_array[3];
       my $biotype = $group."_".$database;
       if($biotype eq '_') {
-        $self->throw("Found a malformaed biotype based on parsing index. The accession in question was:\n".$header);
+        $self->throw("Found a malformed biotype based on parsing index. The accession in question was:\n".$header);
       }
 
       my $db_row = [{ 'accession'  => $header,
