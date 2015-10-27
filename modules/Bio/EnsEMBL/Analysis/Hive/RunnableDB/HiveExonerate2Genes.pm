@@ -195,7 +195,13 @@ sub fetch_input {
   }
 
   if($iid_type eq 'db_seq') {
-    $query_file = $self->output_query_file();
+    my $accession_array = $self->param('iid');
+    $query_file = $self->output_query_file($accession_array);
+  } elsif($iid_type eq 'feature_region') {
+    my $feature_region_id = $self->param('iid');
+    my ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
+    $query_file = $self->output_query_file($accession_array);
+    @db_files = ($self->output_db_file($slice,$accession_array));
   } elsif($iid_type eq 'chunk_file') {
     my $query = $self->QUERYSEQS;
 
@@ -531,6 +537,25 @@ sub input_id {
   return($input_id_string);
 }
 
+sub parse_feature_region_id {
+  my ($self,$feature_region_id) = @_;
+
+  my $dba = $self->hrdb_get_con('target_db');
+  my $sa = $dba->get_SliceAdaptor();
+
+  unless($feature_region_id =~ s/\:([^\:]+)$//) {
+    $self->throw("Could not parse the accession from the feature region id. Expecting a normal slice id, with an extra colon ".
+                 "followed by the accession. Offending feature_region_id:\n".$feature_region_id);
+  }
+
+  my $slice_name = $feature_region_id;
+  my $accession = $1;
+
+  my $slice = $sa->fetch_by_name($slice_name);
+
+  return($slice,[$accession]);
+
+}
 ############################################################
 #
 # get/set methods
@@ -964,9 +989,7 @@ sub filter_killed_entries {
 }
 
 sub output_query_file {
-  my ($self) = @_;
-
-  my $accession_array = $self->param('iid');
+  my ($self,$accession_array) = @_;
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name('uniprot_sequences');
@@ -1008,6 +1031,24 @@ sub output_query_file {
   return($outfile_path);
 }
 
+sub output_db_file {
+  my ($self,$slice,$accession_array) = @_;
+
+  my $output_dir = $self->param('query_seq_dir');
+  # Note as each accession will occur in only one file, there should be no problem using the first one
+  my $outfile_name = "exonerate_db_".${$accession_array}[0].".fasta";
+  my $outfile_path = $output_dir."/".$outfile_name;
+
+  my $header = ">".$slice->name();
+  my $seq = $slice->seq;
+  open(DB_OUT,">".$outfile_path);
+  say DB_OUT $header;
+  say DB_OUT $seq;
+  close DB_OUT;
+
+  $self->files_to_delete($outfile_path);
+  return($outfile_path);
+}
 
 sub get_biotype {
   my ($self,$biotype_hash) = @_;
@@ -1016,7 +1057,6 @@ sub get_biotype {
   }
   return($self->param('_biotype_hash'));
 }
-
 
 sub files_to_delete {
   my ($self,$val) = @_;
