@@ -256,22 +256,30 @@ sub get_supporting_features {
   say "Transcript percent identity: ".$transcript_percent_id;
 
 
+  # Note this code is a bit dumb because of the fact that exons that don't contain a full codon can't have
+  # a paf because of rules in the core API. As a result the code below looks a bit odd. First it calls the
+  # get_exon_supporting_features sub, which returns a set of exons with the supporting features added. It
+  # then loops through these exons and adds each to the transcript. At the same time it adds the supporting
+  # features for each exon to $all_exon_supporting_features, which then is used to build a transcript
+  # supporting feature, which gets added to the transcript
   my $exon_supporting_features = $self->get_exon_supporting_features($transcript,$query_seq,$target_seq,$transcript_coverage,$transcript_percent_id);
+  my $all_exon_supporting_features = [];
+
   my $exons = $transcript->get_all_Exons;
   $transcript->flush_Exons;
 
   for(my $i=0; $i<scalar(@{$exons}); $i++) {
+    my $exon =  ${$exons}[$i];
     if(${$exon_supporting_features}[$i]) {
-      my $exon =  ${$exons}[$i];
-      my $exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [${$exon_supporting_features}[$i]]);
-      $exon->add_supporting_features($exon_supporting_features);
-      $transcript->add_Exon($exon);
+      my $current_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [${$exon_supporting_features}[$i]]);
+      $exon->add_supporting_features($current_exon_supporting_features);
+      push(@{$all_exon_supporting_features},$current_exon_supporting_features);
     }
+    $transcript->add_Exon($exon);
   }
 
-  my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_supporting_features);
+  my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features);
   $transcript->add_supporting_features($transcript_supporting_features);
-
 }
 
 sub get_exon_supporting_features {
@@ -281,7 +289,7 @@ sub get_exon_supporting_features {
   # The hit start and end do not refer to the corresponding positions in query sequence (the aligned protein) covered by
   # the alignment, instead they refer to the positions in the ungapped translation sequence of the transcript the query
   # was aligned to. This is odd for several reasons. But the main point is that there is a check in the API that expects
-  # the feature length (number of bases the feature spans on the exon) to be exactly three times the lenght of the hit
+  # the feature length (number of bases the feature spans on the exon) to be exactly three times the length of the hit
   # length (the number of residues in the translation of the transcript covered by the alignment). What this means is
   # that there is no way to repesent split codons (codons than span two exons), because they would throw this 3 to 1 ratio
   # off and the API will throw. The code below is written with this limitation in mind
@@ -324,7 +332,8 @@ sub get_exon_supporting_features {
   # Hit end       = 11 ---> 11 - 7 + 1 = 5
   # Ratio         = 15:5 = 3:1
 
-  my $exon_supporting_features;
+
+  my $exon_supporting_features = [];
   my $query_sub_align;
   my $target_sub_align;
 
@@ -333,7 +342,6 @@ sub get_exon_supporting_features {
   my $i=0;
   for($i=0; $i<scalar(@{$exons}); $i++) {
     my $exon = ${$exons}[$i];
-
     # If there is a split codon at the start of the exon we have to skip it as the API currently can't handle the idea of split
     # codons in protein align features, the feature length must be exactly three times the length of the hit itself
     # If an exon is phase 1 it means there are two bases in the split codon, if it is phase 2 then there is one base
@@ -377,7 +385,6 @@ sub get_exon_supporting_features {
     # Now need to calculate the offset that the feature covers in the ungapped translation seq. It is important to remember
     # that this is not identical to the equivalent column in the alignment, which can be gapped
     my $pep_offset = ($feature_end - $feature_start + 1) / 3;
-
 
     # These are all useful for debugging so I will keep them
     #say "PEP INDEX: ".$pep_index;
@@ -437,24 +444,41 @@ sub get_exon_supporting_features {
     #say "EXON COV: ".$exon_coverage;
     #say "EXON PID: ".$exon_percent_id;
 
-    # Build the feature
-    my $paf = Bio::EnsEMBL::FeaturePair->new(
-                                              -start      => $feature_start,
-                                              -end        => $feature_end,
-                                              -strand     => $exon->strand,
-                                              -hseqname   => $transcript->{'accession'},
-                                              -hstart     => $pep_index,
-                                              -hend       => ($pep_index + $pep_offset - 1),
-                                              -hcoverage  => $cov,
-                                              -percent_id => $pid,
-                                              -slice      => $exon->slice,
-                                              -analysis   => $transcript->analysis);
+    my $hstart = $pep_index;
+    my $hend = ($pep_index + $pep_offset - 1);
 
-    push(@{$exon_supporting_features},$paf);
+#    say "ACCESSION: ".$transcript->{'accession'};
+#    say "EXON LENGTH: ".$exon->length;
+#    say "EXON PHASE: ".$exon->phase;
+#    say "FSTART: ".$feature_start;
+#    say "FEND: ".$feature_end;
+#    say "FSTRAND: ".$exon->strand;
+#    say "HSTART: ".$hstart;
+#    say "HEND: ".$hend;
+
+    # Exons that are either smaller than a codon or contain only split codons will not have supporting features
+    # In this case push an empty element on the array
+    if($exon->length > 3 || ($exon->length == 3 && $exon->phase == 0)) {
+      # Build the feature
+      my $paf = Bio::EnsEMBL::FeaturePair->new(
+                                                -start      => $feature_start,
+                                                -end        => $feature_end,
+                                                -strand     => $exon->strand,
+                                                -hseqname   => $transcript->{'accession'},
+                                                -hstart     => $pep_index,
+                                                -hend       => ($pep_index + $pep_offset - 1),
+                                                -hcoverage  => $cov,
+                                                -percent_id => $pid,
+                                                -slice      => $exon->slice,
+                                                -analysis   => $transcript->analysis);
+      push(@{$exon_supporting_features},$paf);
+    } else {
+      push(@{$exon_supporting_features},undef);
+    }
     $pep_index = $pep_index + $pep_offset;
   }
 
-  return($exon_supporting_features);
+   return($exon_supporting_features);
 }
 
 sub calculate_percent_id {
