@@ -92,7 +92,9 @@ sub run {
   my $regex = $self->regex;
   my $bamfile = $self->bamfile;
   my $program = $self->program;
-  open  (my $fh,"find $dir  |" ) || 
+  my $find_cmd = 'find';
+  $find_cmd = 'lfs find' if (system('which lfs') ==0 and `df -T $dir | awk '{print $2}'` eq 'lustre');
+  open (my $fh,"$find_cmd $dir |" ) ||
     $self->throw("Error finding sam files in $dir\n");
   while (<$fh>){
     if ( $_ =~ m/($regex)/) {

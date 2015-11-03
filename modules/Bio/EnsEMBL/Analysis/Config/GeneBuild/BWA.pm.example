@@ -70,6 +70,8 @@ use vars qw( %Config );
 
               # optional header with additional information describing the sample
               HEADER => "/path/to/my/SAM/header/file.txt",
+              MIN_MAPPED => 50,
+              MIN_PAIRED => 50,
             },	
      }
 );
