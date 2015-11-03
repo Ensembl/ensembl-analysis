@@ -441,6 +441,7 @@ sub feature_region {
         foreach my $transcript (@{$transcripts}) {
           my $start = $transcript->seq_region_start;
           my $end = $transcript->seq_region_end;
+          my $strand = $transcript->strand;
           my $slice = $transcript->slice();
           my $slice_length = $slice->length();
           if($padding) {
@@ -459,6 +460,7 @@ sub feature_region {
           my @slice_array = split(':',$slice->name());
           $slice_array[3] = $start;
           $slice_array[4] = $end;
+          $slice_array[5] = $strand;
           my $new_slice_name = join(':',@slice_array);
 
           my @transcript_supporting_evidence = @{$transcript->get_all_supporting_features};
