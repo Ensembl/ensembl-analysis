@@ -143,19 +143,35 @@ sub fetch_input{
   my $iid_type = $self->param('iid_type');
 
   my $slice;
-  my $accession_array;
   my $accession;
   my $peptide_seq;
+  my $transcript_features;
 
-  if($iid_type eq 'feature_region') {
+ if($iid_type eq 'feature_region') {
     my $feature_region_id = $self->param('iid');
-    ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
-    $peptide_seq = $self->get_peptide_seq($accession_array);
+    $self->parse_feature_region_id($feature_region_id);
+    $peptide_seq = $self->get_peptide_seq($self->accession());
+ } elsif($iid_type eq 'feature_id') {
+    my $feature_type = $self->param('feature_type');
+    if($feature_type eq 'transcript') {
+      my $transcript_id = $self->param('iid');
+      my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
+      if($dna_dba) {
+        $transcript_dba->dnadb($dna_dba);
+      }
+      $self->hrdb_set_con($transcript_dba,'transcript_db');
+      $transcript_features = $self->get_transcript_features($transcript_id);
+      $peptide_seq = $self->get_peptide_seq($self->accession());
+    } else {
+      $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
+    }
+  } else {
+    $self->throw("The iid_type you passed in is not supported! Type:\n".$iid_type);
   }
 
-  $accession = ${$accession_array}[0];
-  $self->accession($accession);
-  $self->query($slice);
+
+  $accession = $self->accession();
+  $slice = $self->query();
 
   my $use_killlist = $self->param('use_killlist');
   my $kill_query = 0;
@@ -170,7 +186,7 @@ sub fetch_input{
     return;
   }
 
-  my $peptide_obj = Bio::Seq->new( -display_id => $accession,
+  my $peptide_obj = Bio::Seq->new( -display_id => $self->accession(),
                                    -seq => $peptide_seq);
 
   my %params;# = %{{                   ENDBIAS => 1,
@@ -180,18 +196,50 @@ sub fetch_input{
              #                        SPLICE_MODEL => 0
              #   }};
 
-#  my %params = %{$self->genewise_options} if($self->genewise_options);
-  my $runnable = new Bio::EnsEMBL::Analysis::Runnable::Genewise
-     (
-       -query   => $slice,
-       -protein  => $peptide_obj,
-       -reverse  => 0,
-       -analysis => $self->analysis,
-       %params
-     );
 
-  $self->runnable($runnable);
+  if($iid_type eq 'feature_region') {
+    #  my %params = %{$self->genewise_options} if($self->genewise_options);
+    my $runnable = new Bio::EnsEMBL::Analysis::Runnable::Genewise
+       (
+         -query   => $slice,
+         -protein  => $peptide_obj,
+         -reverse  => 0,
+         -analysis => $self->analysis,
+         %params
+     );
+    $self->runnable($runnable);
+  } elsif($iid_type eq 'feature_id') {
+    my $runnable  = Bio::EnsEMBL::Analysis::Runnable::MiniGenewise->new
+       (
+         -query            => $slice,
+         -protein          => $peptide_obj,
+         -features         => $transcript_features,
+#        -genewise_options => $self->genewise_options,
+         -analysis         => $self->analysis,
+         %params,
+       );
+    $self->runnable($runnable);
+  }
   return 1;
+}
+
+
+
+sub get_transcript_features {
+  my ($self,$transcript_id) = @_;
+
+  my $transcript_dba = $self->hrdb_get_con('transcript_db');
+  my $transcript = $transcript_dba->get_TranscriptAdaptor()->fetch_by_dbID($transcript_id);
+  my $tsf = $transcript->get_all_supporting_features();
+
+  my $slice = $transcript->slice();
+  $self->query($slice);
+
+  my $feature_pair = ${$tsf}[0];
+  my $accession = $feature_pair->hseqname();
+  $self->accession($accession);
+
+  return($tsf);
 }
 
 
@@ -313,9 +361,8 @@ sub parse_feature_region_id {
   my $accession = $1;
 
   my $slice = $sa->fetch_by_name($slice_name);
-
-  return($slice,[$accession]);
-
+  $self->query($slice);
+  $self->accession($accession);
 }
 
 
@@ -355,7 +402,7 @@ sub hive_set_config {
 }
 
 sub get_peptide_seq {
-  my ($self,$accession_array) = @_;
+  my ($self,$accession) = @_;
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name('uniprot_sequences');
@@ -364,7 +411,6 @@ sub get_peptide_seq {
 
   my $biotypes_hash = {};
 
-  my $accession = ${$accession_array}[0];
   my $db_row = $table_adaptor->fetch_by_dbID($accession);
   unless($db_row) {
     $self->throw("Did not find an entry in the uniprot_sequences table matching the accession. Accession:\n".$accession);
@@ -419,37 +465,7 @@ sub run{
     }
 
     my $transcript = ${$output}[0];
-    my $slice = $self->query();
-    $transcript->slice($slice);
-
-    my @exons = @{$transcript->get_all_Exons()};
-    my @transcript_supporting_features = @{$transcript->get_all_supporting_features()};
-    my @all_esf_with_slice;
-    $transcript->flush_Exons;
-    $transcript->flush_supporting_features();
-
-    my $i=0;
-    for($i=0; $i<scalar(@exons); $i++) {
-      $exons[$i]->slice($slice);
-      my $exon_supporting_features = $exons[$i]->get_all_supporting_features;
-      my @esf_with_slice;
-      $exons[$i]->flush_supporting_features();
-      say "FM2 exon number ".$i;
-      foreach my $esf (@{$exon_supporting_features}) {
-        say "FM2 esf REF: ".ref($esf);
-        $esf->slice($slice);
-        push(@esf_with_slice,$esf);
-        push(@all_esf_with_slice,$esf);
-      }
-      say " ";
-
-      $exons[$i]->add_supporting_features(@esf_with_slice);
-      $transcript->add_Exon($exons[$i]);
-    }
-
-    my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@all_esf_with_slice);
-    $transcript->add_supporting_features($transcript_supporting_features);
-
+    $transcript = $self->add_slice_to_features($transcript);
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
@@ -460,9 +476,6 @@ sub run{
     $transcript->analysis($self->analysis);
     $transcript->biotype($transcript_biotype);
     $gene->add_Transcript($transcript);
-    say "FM2 transcript start: ".$transcript->start();
-    say "FM2 transcript seq: ".$transcript->seq->seq;
-    say "FM2 transcript slice name: ".$slice->name();
     push(@genes,$gene);
   }
 
@@ -492,6 +505,42 @@ sub run{
 #  logger_info("HAVE ".@{$self->output}." genes to return");
 
   return 1;
+}
+
+
+sub add_slice_to_features {
+  my ($self,$transcript) = @_;
+
+    my $slice = $self->query();
+    $transcript->slice($slice);
+
+    my @exons = @{$transcript->get_all_Exons()};
+    my @transcript_supporting_features = @{$transcript->get_all_supporting_features()};
+
+    $transcript->flush_Exons;
+    $transcript->flush_supporting_features();
+
+    my $i=0;
+    for($i=0; $i<scalar @transcript_supporting_features; $i++) {
+      $transcript_supporting_features[$i]->slice($slice);
+      $transcript->add_supporting_features($transcript_supporting_features[$i]);
+    }
+
+    for($i=0; $i<scalar(@exons); $i++) {
+      $exons[$i]->slice($slice);
+      my $exon_supporting_features = $exons[$i]->get_all_supporting_features;
+      my @esf_with_slice;
+      $exons[$i]->flush_supporting_features();
+      foreach my $esf (@{$exon_supporting_features}) {
+        $esf->slice($slice);
+        push(@esf_with_slice,$esf);
+      }
+      $exons[$i]->add_supporting_features(@esf_with_slice);
+      $transcript->add_Exon($exons[$i]);
+    }
+
+  return($transcript);
+
 }
 
 
@@ -566,8 +615,6 @@ sub write_output{
   my $ga = $self->get_adaptor;
   my @output = @{$self->param('output_genes')};
   my $sucessful_count = 0;
-
-  say "FM2 have ".scalar(@output)." genes to write";
 
   foreach my $gene (@output) {
     eval {
