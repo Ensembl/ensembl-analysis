@@ -66,6 +66,8 @@ sub run {
     $self->rechunk_uniprot_accession();
   } elsif($self->param('feature_region')) {
     $self->feature_region();
+  } elsif($self->param('feature_id')) {
+    $self->feature_id();
   } else {
     $self->throw('You have not specified one of the recognised operation types');
   }
@@ -488,6 +490,39 @@ sub feature_region {
   $self->output_ids($output_id_array);
 }
 
+
+sub feature_id {
+  my ($self) = @_;
+
+  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+
+  my $output_id_array = [];
+  unless($self->param('feature_type')) {
+    $self->throw("You're trying to output a set of feature ids but haven't provided a feature type. ".
+                 "Expected \$self->param('feature_type')");
+  }
+
+  my $type = $self->param('feature_type');
+  if($type eq 'transcript') {
+    my $ta = $dba->get_TranscriptAdaptor;
+    my $logic_names = $self->param('transcript_logic_names');
+    unless($logic_names) {
+      $self->throw("You didn't pass in an arrayref of logic names for the transcripts. Pass this in using the 'gene_logic_names' param");
+    }
+    foreach my $logic_name (@$logic_names) {
+      my $transcripts = $ta->fetch_all_by_logic_name($logic_name);
+      foreach my $transcript (@{$transcripts}) {
+        my $db_id = $transcript->dbID();
+        push(@{$output_id_array},$db_id);
+      }
+    }
+  } else {
+    $self->throw("The feature type you requested is not supported in the code yet. Feature type:\n".$type);
+  }
+
+  $self->output_ids($output_id_array);
+
+}
 sub check_slice_for_features {
   my ($self) = @_;
 
