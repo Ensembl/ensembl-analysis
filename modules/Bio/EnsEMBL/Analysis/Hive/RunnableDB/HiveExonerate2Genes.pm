@@ -360,7 +360,9 @@ sub write_output {
 
   if($self->files_to_delete()) {
     my $files_to_delete = $self->files_to_delete();
-    `rm $files_to_delete`;
+    foreach my $file_to_delete (@{$files_to_delete}) {
+      `rm $file_to_delete`;
+    }
   }
 
 }
@@ -997,7 +999,7 @@ sub output_query_file {
   my $output_dir = $self->param('query_seq_dir');
 
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
+  my $outfile_name = "exonerate_".${$accession_array}[0].".".$$.".fasta";
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
@@ -1036,7 +1038,7 @@ sub output_db_file {
 
   my $output_dir = $self->param('query_seq_dir');
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "exonerate_db_".${$accession_array}[0].".fasta";
+  my $outfile_name = "exonerate_db_".${$accession_array}[0].".".$$.".fasta";
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $header = ">".$slice->name();
@@ -1060,8 +1062,13 @@ sub get_biotype {
 
 sub files_to_delete {
   my ($self,$val) = @_;
+
+  unless($self->param('_files_to_delete')) {
+    $self->param('_files_to_delete',[]);
+  }
+
   if($val) {
-    $self->param('_files_to_delete',$val);
+    push(@{$self->param('_files_to_delete')}, $val);
   }
 
   return($self->param('_files_to_delete'));
