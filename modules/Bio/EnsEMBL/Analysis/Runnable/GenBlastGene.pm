@@ -71,18 +71,34 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($database,$ref_slices,$genblast_program) = rearrange([qw(DATABASE
-                                                               REFSLICES
-                                                               GENBLAST_PROGRAM)], @args);
+  my ($database,$ref_slices,$genblast_program,$max_rank,$genblast_pid) = rearrange([qw(DATABASE
+                                                                                       REFSLICES
+                                                                                       GENBLAST_PROGRAM
+                                                                                       MAX_RANK
+                                                                                       GENBLAST_PID
+                                                                                  )], @args);
   $self->database($database) if defined $database;
   $self->genome_slices($ref_slices) if defined $ref_slices;
   # Allows the specification of exonerate or genewise instead of genblastg. Will default to genblastg if undef
   $self->genblast_program($genblast_program) if defined $genblast_program;
-
+  $self->max_rank($max_rank) if defined $max_rank;
+  $self->genblast_pid($genblast_pid) if defined $genblast_pid;
 
   throw("You must supply a database") if not $self->database;
   throw("You must supply a query") if not $self->query;
   throw("You must supply a hash of reference slices") if not $self->genome_slices;
+
+  # Default max rank
+  unless($self->max_rank()) {
+    $self->max_rank(5);
+    warning("No max_rank parameter provided so defaulting to: ".$self->max_rank());
+  }
+
+  # Default pid
+  unless($self->genblast_pid()) {
+    $self->genblast_pid(50);
+    warning("No genblast_pid parameter provided so defaulting to: ".$self->genblast_pid());
+  }
 
   return $self;
 }
@@ -172,12 +188,14 @@ sub run_analysis{
   unless($genblast_program) {
     $genblast_program = "genblastg";
   }
+
+  my $max_rank = $self->max_rank();
   my $command = $program .
   ' -p '.$genblast_program.
   ' -q '.$self->query.
   ' -t '.$self->database.
   ' -o '.$self->query.
-  ' -pid -r 1 '.$self->options;
+  ' -pid -r '.$max_rank.' '.$self->options;
 
   $self->resultsfile($self->query. $outfile_suffix. ".gff");
 
@@ -241,12 +259,15 @@ sub parse_results{
       my ($chromosome, $type, $start, $end, $score, $strand, $other) =  @elements[0, 2, 3, 4, 5, 6, 8];
 
       if ($type eq 'transcript') {
-        my ($group, $hitname) = ($other =~ /ID=(\S+?);Name=([^;]+)/);
+        #ID=Q502Q5.1-R1-1-A1;Name=Q502Q5.1;PID=67.05;Coverage=99.36;Note=PID:67.05-Cover:99.36
+        my ($group, $hitname, $pid, $cov) = ($other =~ /ID=(\S+?);Name=([^;]+);PID=([^;]+);Coverage=([^;]+);/);
         $group =~ /^$hitname\-R(\d+)\-/;
-#        my $rank = $1;
+        my $rank = $1;
         $transcripts{$group}->{score} = $score;
         $transcripts{$group}->{hitname} = $hitname;
-#        $transcripts{$group}->{rank} = $rank;
+        $transcripts{$group}->{pid} = $pid;
+        $transcripts{$group}->{cov} = $cov;
+        $transcripts{$group}->{rank} = $rank;
       } elsif ($type eq 'coding_exon') {
         my ($group) = ($other =~ /Parent=(\S+)/);
         if (not exists $self->genome_slices->{$chromosome}) {
@@ -266,13 +287,13 @@ sub parse_results{
                       "GenBlast:parse_results");
 
   foreach my $tid (keys %transcripts) {
-    # Hardcoding to select only to top ranked model for the moment. Like exonerate best in genome. Will allow for
-    # the rank to be selected in future
-#    unless($transcripts{$tid}->{rank} == 1) {
-#      say "Skipping output of transcript '".$transcripts{$tid}->{hitname}."' due to rank (".
-#           $transcripts{$tid}->{rank}.")";
-#      next;
-#    }
+
+    # Skip transcripts that fail the pid cut-off
+    unless($transcripts{$tid}->{pid} >= $self->genblast_pid()) {
+      warning("Skipping transcript because of percent identity cut-off:\n".
+              "Name: ".$tid."\nPercent identity: ".$transcripts{$tid}->{pid}."\nCut-off: ".$self->genblast_pid());
+      next;
+    }
 
     my @exons = sort { $a->start <=> $b->start } @{$transcripts{$tid}->{exons}};
 
@@ -283,6 +304,9 @@ sub parse_results{
                                              -stable_id => $transcripts{$tid}->{hitname});
 
     $tran->{'accession'} = $transcripts{$tid}->{hitname};
+    $tran->{'pid'} = $transcripts{$tid}->{pid};
+    $tran->{'cov'} = $transcripts{$tid}->{cov};
+    $tran->{'rank'} = $transcripts{$tid}->{rank};
     $tran->{'genblast_id'} = $tid;
 
     # Reverse the exons for negative strand to calc the translations
@@ -391,7 +415,7 @@ sub genome_slices {
     $self->{_genome_slices} = $val;
   }
 
-  return $self->{_genome_slices}
+  return $self->{_genome_slices};
 }
 
 sub genblast_program {
@@ -401,7 +425,27 @@ sub genblast_program {
     $self->{_genblast_program} = $val;
   }
 
-  return $self->{_genblast_program}
+  return $self->{_genblast_program};
+}
+
+sub max_rank {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_max_rank} = $val;
+  }
+
+  return $self->{_max_rank};
+}
+
+sub genblast_pid {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_genblast_pid} = $val;
+  }
+
+  return $self->{_genblast_pid};
 }
 
 1;
