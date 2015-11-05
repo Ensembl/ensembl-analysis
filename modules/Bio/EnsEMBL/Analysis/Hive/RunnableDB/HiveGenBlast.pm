@@ -118,8 +118,11 @@ sub fetch_input {
   } else {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
+
   my $genblast_program = $self->param('genblast_program');
   my $biotypes_hash = $self->get_biotype();
+  my $max_rank = $self->param('max_rank');
+  my $genblast_pid = $self->param('genblast_pid');
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -129,7 +132,8 @@ sub fetch_input {
      -database => $self->analysis->db_file,
      -refslices => $genome_slices,
      -genblast_program => $genblast_program,
-     -biotypes => $biotypes_hash,
+     -max_rank => $max_rank,
+     -genblast_pid => $genblast_pid,
      %parameters,
     );
   $self->runnable($runnable);
@@ -161,7 +165,6 @@ sub write_output{
   foreach my $transcript (@output){
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
-    $gene->biotype($self->analysis->logic_name);
 
     $transcript->analysis($self->analysis);
     my $accession = $transcript->{'accession'};
@@ -169,6 +172,14 @@ sub write_output{
     $transcript->biotype($transcript_biotype);
 
     $self->get_supporting_features($transcript);
+
+    if($transcript->{'rank'} > 1) {
+      my $not_best_in_genome_logic = $transcript->analysis->logic_name()."_not_best";
+      $transcript->analysis->logic_name($not_best_in_genome_logic);
+      $gene->analysis->logic_name($not_best_in_genome_logic);
+    }
+
+    $gene->biotype($self->analysis->logic_name);
 
 #    $transcript->slice($self->query) if(!$transcript->slice);
 #    if ($self->test_translates()) {
@@ -207,8 +218,9 @@ sub get_supporting_features {
   my $query_seq;
   my $target_seq;
   my $gene_info;
-  my $transcript_percent_id;
-  my $transcript_coverage;
+  my $transcript_percent_id = $transcript->{'pid'};
+  my $transcript_coverage = $transcript->{'cov'};
+  my $transcript_rank = $transcript->{'rank'};
 
   my $found = 0;
   open(GENBLAST_REPORT,$genblast_report_path);
@@ -229,7 +241,6 @@ sub get_supporting_features {
       $target_seq =~ s/^targt\://;
       $gene_info = $report_array[4];
       $gene_info =~ /\|PID\:([^\|]+)$/;
-      $transcript_percent_id = $1;
       last;
     }
   }
@@ -244,8 +255,6 @@ sub get_supporting_features {
     $self->throw("Issue with parsing the percent identity of the transcript. Transcript id in genblast file:\n".$genblast_id.
                  "\nFile path:\n".$genblast_report_path."\nOffending info line:\n".$gene_info);
   }
-
-  $transcript_coverage = $self->calculate_coverage($query_seq,$target_seq);
 
   unless($transcript_coverage >= 0) {
     $self->throw("Issue with parsing the query coverage of the transcript. Transcript id in genblast file:\n".$genblast_id.
@@ -262,7 +271,7 @@ sub get_supporting_features {
   # then loops through these exons and adds each to the transcript. At the same time it adds the supporting
   # features for each exon to $all_exon_supporting_features, which then is used to build a transcript
   # supporting feature, which gets added to the transcript
-  my $exon_supporting_features = $self->get_exon_supporting_features($transcript,$query_seq,$target_seq,$transcript_coverage,$transcript_percent_id);
+  my $exon_supporting_features = $self->get_exon_supporting_features($transcript,$query_seq,$target_seq);
   my $all_exon_supporting_features = [];
 
   my $exons = $transcript->get_all_Exons;
@@ -283,7 +292,7 @@ sub get_supporting_features {
 }
 
 sub get_exon_supporting_features {
-  my ($self,$transcript,$query_seq,$target_seq,$cov,$pid) = @_;
+  my ($self,$transcript,$query_seq,$target_seq) = @_;
 
   # The API/schema handles protein align features slightly differently than expected
   # The hit start and end do not refer to the corresponding positions in query sequence (the aligned protein) covered by
@@ -467,8 +476,8 @@ sub get_exon_supporting_features {
                                                 -hseqname   => $transcript->{'accession'},
                                                 -hstart     => $pep_index,
                                                 -hend       => ($pep_index + $pep_offset - 1),
-                                                -hcoverage  => $cov,
-                                                -percent_id => $pid,
+                                                -hcoverage  => $transcript->{'cov'},
+                                                -percent_id => $transcript->{'pid'},
                                                 -slice      => $exon->slice,
                                                 -analysis   => $transcript->analysis);
       push(@{$exon_supporting_features},$paf);
@@ -651,7 +660,7 @@ sub output_query_file {
   my $output_dir = $self->param('query_seq_dir');
 
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "genblast_".${$accession_array}[0].".fasta";
+  my $outfile_name = "genblast_".${$accession_array}[0].".".$$.".fasta";
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
