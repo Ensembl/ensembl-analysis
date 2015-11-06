@@ -58,9 +58,8 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($header,$method,$samtools, $min_mapped, $min_paired) = rearrange([qw(HEADER METHOD SAMTOOLS MIN_MAPPED MIN_PAIRED)],@args);
-  $self->throw("You must define an alignment processing method not $method\n")  unless $method ;
-  $self->method($method);
+  my ($header, $fastqpair, $samtools, $min_mapped, $min_paired) = rearrange([qw(HEADER FASTQPAIR SAMTOOLS MIN_MAPPED MIN_PAIRED)],@args);
+  $self->fastqpair($fastqpair);
   $self->throw("You must define a path to samtools cannot find $samtools\n")  
     unless $samtools && -e $samtools;
   $self->samtools($samtools);
@@ -86,10 +85,9 @@ sub run {
 
   my $fastq = $self->fastq;
   my $fastqpair = $self->fastqpair;
-  my $options = $self->options;
   my $outdir = $self->outdir;
   my $program = $self->program;
-  my $method = $self->method;
+  my $method = $self->options;
   my $samtools = $self->samtools;
   my $header = $self->header;
   my $readgroup;
@@ -146,10 +144,6 @@ sub run {
   }
 
   # run bwa
-  unless ( -e (  $self->genome.".ann" ) ) {
-    $self->throw("Genome file must be indexed \ntry " . $self->program . " index " . $self->genome ."\n"); 
-  }
-  
   $command = "$program $method $readgroup " . $self->genome .
     " $outdir/$filename.sai $fastq  \| $samtools  view - -b -S -o $outdir/$outfile.bam ";
   if ( $fastqpair ) {
@@ -247,20 +241,20 @@ sub samtools {
   }
 }
 
-
-sub method {
+sub fastqpair {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_method'} = $value;
+    $self->{'_fastqpair'} = $value;
   }
   
-  if (exists($self->{'_method'})) {
-    return $self->{'_method'};
+  if (exists($self->{'_fastqpair'})) {
+    return $self->{'_fastqpair'};
   } else {
     return undef;
   }
 }
+
 
 sub header {
   my ($self,$value) = @_;

@@ -60,16 +60,16 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($options, $fastq,$fastqpair,$outdir,$genome) = rearrange([qw (OPTIONS FASTQ FASTQPAIR OUTDIR GENOME)],@args);
-  $self->throw("You must defne a fastq file\n")  unless $fastq ;
+  my ($options, $fastq, $outdir, $genome) = rearrange([qw (OPTIONS FASTQ FASTQPAIR OUTDIR GENOME)],@args);
+  $self->throw("You must define a fastq file\n") unless ($fastq);
   $self->fastq($fastq);
-  $self->fastqpair($fastqpair);
-  $self->throw("You must defne alignment options\n")  unless $options;
+  $self->throw("You must define alignment options\n") unless ($options);
   $self->options($options);
-  $self->throw("You must defne an output dir\n")  unless $outdir;
+  $self->throw("You must define an output dir\n") unless ($outdir);
   $self->outdir($outdir);
-  $self->throw("You must defne a genome file\n")  unless $genome;
+  $self->throw("You must define a genome file\n") unless ($genome);
   $self->genome($genome);
+  $self->throw("Genome file must be indexed \ntry ".$self->program.' index '.$self->genome."\n") unless (-e $self->genome.'.ann');
   return $self;
 }
 
@@ -95,11 +95,7 @@ sub run {
   $filename = pop @tmp;
   print "Filename $filename\n";
   # run bwa
-  unless ( -e (  $self->genome.".ann" ) ) {
-    $self->throw("Genome file must be indexed \ntry " . $self->program . " index " . $self->genome ."\n"); 
-  }
-  my $command = "$program aln $options -f $outdir" ."/$filename.sai " . $self->genome 
-    ." $fastq";
+  my $command = "$program aln $options -f $outdir/$filename.sai ".$self->genome." $fastq";
   print STDERR "Command: $command\n";
   if (system($command)) {
       $self->throw("Error aligning $filename\nError code: $?\n");
@@ -122,20 +118,6 @@ sub fastq {
   
   if (exists($self->{'_fastq'})) {
     return $self->{'_fastq'};
-  } else {
-    return undef;
-  }
-}
-
-sub fastqpair {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_fastqpair'} = $value;
-  }
-  
-  if (exists($self->{'_fastqpair'})) {
-    return $self->{'_fastqpair'};
   } else {
     return undef;
   }
