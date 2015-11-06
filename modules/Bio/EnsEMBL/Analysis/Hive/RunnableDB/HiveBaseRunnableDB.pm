@@ -297,4 +297,25 @@ sub failing_job_status {
   return $self->param('failing_status');
 }
 
+sub create_analysis {
+    my ($self, $add_module) = @_;
+
+    my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param('logic_name'));
+    $analysis->module($self->param('module')) if (defined $add_module);
+
+    return $self->analysis($analysis);
+}
+
+sub get_database_by_name {
+    my ($self, $name) = @_;
+
+    return $self->hrdb_get_dba($self->param($name));
+}
+
+sub is_slice_name {
+    my ($self, $string) = @_;
+
+    return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
+}
+
 1;
