@@ -1300,7 +1300,7 @@ sub cluster_Genes {
 
       my %match_cluster_hash;
       foreach my $clust (@matching_clusters) {
-        $merged_cluster->put_Genes(@{$clust->get_Genes});
+        $merged_cluster->put_Genes($clust->get_Genes);
 
         $match_cluster_hash{$clust} = $clust;
       }
