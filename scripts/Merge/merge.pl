@@ -659,15 +659,6 @@ sub process_genes {
       ( !$primary_gene->{__is_coding} &&
         $primary_gene->biotype() =~ /pseudogene/ );
 
-    # Check pseudogene has one transcript  
-    if ($primary_gene->{__is_pseudogene}) {
-
-      warning ($transcript_count." transcripts found for Primary pseudogene: ".$primary_gene->stable_id().
-      ". Primary pseudogenes should have a single transcript.")
-      unless $transcript_count == 1;
-
-    }
-
     $primary_gene->{__has_ref_error} = $has_assembly_error;    # HACK
     $primary_gene->{__is_single_transcript} =
       ( $transcript_count == 1 );                             # HACK
@@ -756,6 +747,20 @@ sub process_genes {
     $secondary_gene->{__is_single_transcript} =
       ( $transcript_count == 1 );                 # HACK
     $secondary_gene->{__is_rna} = $is_rna;          # HACK
+    
+    $secondary_gene->{__is_pseudogene} =            # HACK
+      ( !$secondary_gene->{__is_coding} &&
+        $secondary_gene->biotype() =~ /pseudogene/ );
+        
+    # Check pseudogene has one transcript  
+    if ($secondary_gene->{__is_pseudogene}) {
+
+      warning ($transcript_count." transcripts found for Secondary pseudogene: ".$secondary_gene->stable_id().
+      ". Secondary pseudogenes should have a single transcript.")
+      unless $transcript_count == 1;
+
+    }
+    
   } ## end foreach my $secondary_gene ( ...)
 
   my @transcripts_to_merge;
