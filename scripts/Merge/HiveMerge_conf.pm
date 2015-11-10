@@ -193,7 +193,7 @@ sub pipeline_analyses {
                                 target_db => $self->o('vega_db'),
                                 pass_w => $self->o('pass_w'),
                                 user_w => $self->o('user_w'),
-                                db_dump_file => $self->o('output_dir').'/'.$self->o('vega_tmp_filename'),
+                                db_dump_file => $self->o('output_dir').$self->o('vega_tmp_filename'),
                                 #ignore_dna => 1, # the vega db does not have any dna
                              },
              -flow_into => { 1 => ['list_toplevel_for_vega_checks_before'] },
@@ -220,7 +220,7 @@ sub pipeline_analyses {
                                 target_db => $self->o('core_db'),
                                 pass_w => $self->o('pass_w'),
                                 user_w => $self->o('user_w'),
-                                db_dump_file => $self->o('output_dir').'/'.$self->o('prevcore_tmp_filename'),
+                                db_dump_file => $self->o('output_dir').$self->o('prevcore_tmp_filename'),
                              },
              -input_ids => [ {} ],
              -rc_name => 'normal_7900',
@@ -236,7 +236,7 @@ sub pipeline_analyses {
                                                ' -D'.$self->o('core_db','-dbname').
                                                ' -P'.$self->o('core_db','-port').
                                                ' -e"SELECT gene_id from gene g,seq_region sr where g.seq_region_id=sr.seq_region_id and name <> '."'".'MT'."'".
-                                               '" > '.$self->o('output_dir').'/'.$self->o('core_genes_for_deletion_filename')
+                                               '" > '.$self->o('output_dir').$self->o('core_genes_for_deletion_filename')
                              },
               -rc_name => 'local',
               -flow_into => { 1 => ['chunk_core_genes'] },
@@ -247,7 +247,7 @@ sub pipeline_analyses {
               -logic_name => 'chunk_core_genes',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::FileFactory',
               -parameters => {
-                               inputfile => $self->o('output_dir').'/'.$self->o('core_genes_for_deletion_filename'),
+                               inputfile => $self->o('output_dir').$self->o('core_genes_for_deletion_filename'),
                                output_dir => $self->o('output_dir'),
                                output_prefix => $self->o('core_genes_for_deletion_filename')."_chunk_",
                              },
@@ -321,7 +321,7 @@ sub pipeline_analyses {
                                dnadbhost => $self->o('ensembl_db','-host'),
                                coord_system => 'toplevel',
                                path => $self->o('assembly_path'),
-                               sql_output => $self->o('output_dir').'/vega_checks_before_#chromosome#.sql',
+                               sql_output => $self->o('output_dir').'vega_checks_before_#chromosome#.sql',
                                dbtype => '', # can be 'vega' or '' (empty string)
                                port => '3306',
                                user => $self->o('user_w'),
@@ -330,8 +330,8 @@ sub pipeline_analyses {
                                write => 1,
                                affix => 0, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; without affixes by default
                                biotypes_extension => 0,
-                               stdout_file => $self->o('reports_dir').'/vega_checks_before_#chromosome#.out',
-                               stderr_file => $self->o('reports_dir').'/vega_checks_before_#chromosome#.err',
+                               stdout_file => $self->o('reports_dir').'vega_checks_before_#chromosome#.out',
+                               stderr_file => $self->o('reports_dir').'vega_checks_before_#chromosome#.err',
                              },
               -hive_capacity    => 30,
               -analysis_capacity => 30,
@@ -340,8 +340,8 @@ sub pipeline_analyses {
               -logic_name => 'vega_checks_before_concat',
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               'cmd'   => 'cat '.$self->o('reports_dir').'/vega_checks_before_*.out > '.
-                                                 $self->o('reports_dir').'/vega_checks_before.out'
+                               'cmd'   => 'cat '.$self->o('reports_dir').'vega_checks_before_*.out > '.
+                                                 $self->o('reports_dir').'vega_checks_before.out'
                              },
               -flow_into => { 1 => ['vega_checks_before_report'] },
               -rc_name => 'local',
@@ -353,7 +353,7 @@ sub pipeline_analyses {
                                email => $self->o('vega_checks_reports_email'),
                                subject => 'AUTOMATED REPORT: vega biotype combinations',
                                text => 'Please find below the list of not allowed gene and transcript biotype combinations BEFORE the merge found in the vega database '.$self->o('vega_db','-dbname').'. Please note that any change applied to the list of allowed biotype combinations will take effect in a future release (not the next release).',
-                               file => $self->o('reports_dir').'/vega_checks_before.out',
+                               file => $self->o('reports_dir').'vega_checks_before.out',
                                command => "grep 'not allowed\\.' | awk '{print \$9,\$18}' | sort | uniq -c | sort -nr",
                              },
               -flow_into => { 1 => ['prepare_vega_db'] },
@@ -364,7 +364,7 @@ sub pipeline_analyses {
               -logic_name => 'prepare_vega_db',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaPreparation',
               -parameters => {
-                               output_path => $self->o('output_dir').'/vega_preparation/',
+                               output_path => $self->o('output_dir').'vega_preparation/',
                                dbhost => $self->o('vega_db','-host'),
                                dbname => $self->o('vega_db','-dbname'),
                                dbuser => $self->o('user_w'),
@@ -389,7 +389,7 @@ sub pipeline_analyses {
                                                ' -D'.$self->o('vega_db','-dbname').
                                                ' -P'.$self->o('vega_db','-port').
                                                ' -e"SELECT gene_id from gene;" > '.
-                                               $self->o('output_dir').'/'.$self->o('vega_genes_for_merge_filename')
+                                               $self->o('output_dir').$self->o('vega_genes_for_merge_filename')
                              },
               -flow_into => { 1 => ['chunk_vega_genes_for_merge'] },
               -rc_name => 'local',
@@ -399,7 +399,7 @@ sub pipeline_analyses {
               -logic_name => 'chunk_vega_genes_for_merge',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::FileFactory',
               -parameters => {
-                               inputfile => $self->o('output_dir').'/'.$self->o('vega_genes_for_merge_filename'),
+                               inputfile => $self->o('output_dir').$self->o('vega_genes_for_merge_filename'),
                                output_dir => $self->o('output_dir'),
                                output_prefix => $self->o('vega_genes_for_merge_filename')."_chunk_",
                              },
@@ -469,7 +469,7 @@ sub pipeline_analyses {
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
                                'cmd'   => "awk '\$1 == ".'"'."PROCESSED".'"'." {print \$2}' ".$self->o('output_dir')."/*merge-run*.out ".
-                               " | sort -u -n > ".$self->o('output_dir').'/'.$self->o('processed_genes_filename')
+                               " | sort -u -n > ".$self->o('output_dir').$self->o('processed_genes_filename')
                              },
               -rc_name => 'local',
               -flow_into => { 1 => ['havana_merge_list_unprocessed_genes'] },
@@ -498,7 +498,7 @@ sub pipeline_analyses {
               -logic_name => 'chunk_unprocessed_genes',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::FileFactory',
               -parameters => {
-                               inputfile => $self->o('output_dir').'/'.$self->o('unprocessed_genes_filename'),
+                               inputfile => $self->o('output_dir').$self->o('unprocessed_genes_filename'),
                                output_dir => $self->o('output_dir'),
                                output_prefix => $self->o('unprocessed_genes_filename')."_chunk_",
                              },
@@ -655,8 +655,8 @@ sub pipeline_analyses {
               -logic_name => 'vega_checks_after_concat',
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               'cmd'   => 'cat '.$self->o('reports_dir').'/vega_checks_after_*.out > '.
-                                                 $self->o('reports_dir').'/vega_checks_after.out'
+                               'cmd'   => 'cat '.$self->o('reports_dir').'vega_checks_after_*.out > '.
+                                                 $self->o('reports_dir').'vega_checks_after.out'
                              },
               -flow_into => { 1 => ['vega_checks_after_report'] },
               -rc_name => 'local',
@@ -672,7 +672,7 @@ sub pipeline_analyses {
                                dnadbhost => $self->o('ensembl_db','-host'),
                                coord_system => 'toplevel',
                                path => $self->o('assembly_path'),
-                               sql_output => $self->o('output_dir').'/vega_checks_after_#chromosome#.sql',
+                               sql_output => $self->o('output_dir').'vega_checks_after_#chromosome#.sql',
                                dbtype => '', # can be 'vega' or '' (empty string)
                                port => '3306',
                                user => $self->o('user_w'),
@@ -681,8 +681,8 @@ sub pipeline_analyses {
                                write => 1,
                                affix => 1, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; with affixes by default
                                biotypes_extension => 1,
-                               stdout_file => $self->o('reports_dir').'/vega_checks_after_#chromosome#.out',
-                               stderr_file => $self->o('reports_dir').'/vega_checks_after_#chromosome#.err',
+                               stdout_file => $self->o('reports_dir').'vega_checks_after_#chromosome#.out',
+                               stderr_file => $self->o('reports_dir').'vega_checks_after_#chromosome#.err',
                              },
               -hive_capacity    => 30,
               -analysis_capacity => 30,
@@ -695,7 +695,7 @@ sub pipeline_analyses {
                                email => $self->o('vega_checks_reports_email'),
                                subject => 'AUTOMATED REPORT: merge biotype combinations',
                                text => 'Please find below the list of not allowed gene and transcript biotype combinations AFTER the merge found in the merge database '.$self->o('merge_db','-dbname').'. Any artifact transcript listed below will be deleted. Please note that any change applied to the list of allowed biotype combinations will take effect in a future release (not the next release).',
-                               file => $self->o('reports_dir').'/vega_checks_after.out',
+                               file => $self->o('reports_dir').'vega_checks_after.out',
                                command => "grep 'not allowed\\.' | awk '{print \$9,\$18}' | sort | uniq -c | sort -nr",
                              },
               -flow_into => { 1 => ['delete_artifacts'] },
@@ -715,7 +715,7 @@ sub pipeline_analyses {
                                delete_genes_path => '$ENSCODE/ensembl-analysis/scripts/genebuild/',
                                delete_transcripts_script_name => 'delete_transcripts.pl',
                                delete_genes_script_name => 'delete_genes.pl',
-                               output_path => $self->o('output_dir').'/delete_artifacts/',
+                               output_path => $self->o('output_dir').'delete_artifacts/',
                                output_file_name => 'delete_artifacts.out',
                                email => $self->o('vega_checks_reports_email'),
                                from => 'ensembl-genebuild@ebi.ac.uk'
@@ -807,7 +807,7 @@ sub pipeline_analyses {
                                       ' -chromosomes #chr#'. 
                                       ' -set1_name CCDS'.
                                       ' -set2_name MERGE'.
-                                      ' -file '.$self->o('output_dir').'/'.$self->o('ccds_filename_prefix').'#chr#.out'
+                                      ' -file '.$self->o('output_dir').$self->o('ccds_filename_prefix').'#chr#.out'
                              },
                -analysis_capacity => 25,
                -hive_capacity => 25,
@@ -853,9 +853,10 @@ sub pipeline_analyses {
                                         'UPDATE transcript SET biotype="protein_coding" WHERE biotype="ccds_gene"',
                                         'INSERT IGNORE analysis(created,logic_name) VALUES(now(),"ccds")',
                                         'UPDATE dna_align_feature SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ccds")
-                                                                WHERE analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ccds_gene")',
+                                                                WHERE analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ccds_gene")
+                                                                      OR dna_align_feature.hit_name LIKE "ccds%"',
                                         'UPDATE gene SET source="ensembl" WHERE source="ccds"',
-                                        'DELETE FROM analysis WHERE logic_name="ccds_gene"'
+                                        'DELETE FROM analysis WHERE logic_name="ccds_gene"',
                                        ],
                              },
               -max_retry_count => 0,
@@ -922,7 +923,7 @@ sub pipeline_analyses {
                                                ' -D'.$self->o('merge_db','-dbname').
                                                ' -P'.$self->o('merge_db','-port').
                                                ' -e"SELECT gene_id from gene;" > '.
-                                               $self->o('output_dir').'/'.$self->o('merge_genes_for_copy_filename')
+                                               $self->o('output_dir').$self->o('merge_genes_for_copy_filename')
                              },
               -flow_into => { 1 => ['chunk_merge_genes'] },
               -rc_name => 'local',
@@ -933,7 +934,7 @@ sub pipeline_analyses {
               -logic_name => 'chunk_merge_genes',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::FileFactory',
               -parameters => {
-                               inputfile => $self->o('output_dir').'/'.$self->o('merge_genes_for_copy_filename'),
+                               inputfile => $self->o('output_dir').$self->o('merge_genes_for_copy_filename'),
                                output_dir => $self->o('output_dir'),
                                output_prefix => $self->o('merge_genes_for_copy_filename')."_chunk_",
                              },
