@@ -58,6 +58,7 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -134,6 +135,7 @@ sub fetch_input {
      -genblast_program => $genblast_program,
      -max_rank => $max_rank,
      -genblast_pid => $genblast_pid,
+     -work_dir => $self->param('query_seq_dir'),
      %parameters,
     );
   $self->runnable($runnable);
@@ -171,15 +173,16 @@ sub write_output{
     my $transcript_biotype = $self->get_biotype->{$accession};
     $transcript->biotype($transcript_biotype);
 
-    $self->get_supporting_features($transcript);
+#    $self->get_supporting_features($transcript);
 
     if($transcript->{'rank'} > 1) {
-      my $not_best_in_genome_logic = $transcript->analysis->logic_name()."_not_best";
-      $transcript->analysis->logic_name($not_best_in_genome_logic);
-      $gene->analysis->logic_name($not_best_in_genome_logic);
+      my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => $transcript->analysis->logic_name()."_not_best",
+                                                -module     => $transcript->analysis->module);
+      $transcript->analysis($analysis);
+      $gene->analysis($analysis);
     }
 
-    $gene->biotype($self->analysis->logic_name);
+    $gene->biotype($gene->analysis->logic_name);
 
 #    $transcript->slice($self->query) if(!$transcript->slice);
 #    if ($self->test_translates()) {
@@ -187,6 +190,7 @@ sub write_output{
 #      next;
 #    } # test to see if this transcript translates OK
     $gene->add_Transcript($transcript);
+    empty_Gene($gene);
     $adaptor->store($gene);
   }
 
@@ -490,6 +494,7 @@ sub get_exon_supporting_features {
    return($exon_supporting_features);
 }
 
+
 sub calculate_percent_id {
   my ($self,$query_seq,$target_seq) = @_;
 
@@ -661,6 +666,7 @@ sub output_query_file {
 
   # Note as each accession will occur in only one file, there should be no problem using the first one
   my $outfile_name = "genblast_".${$accession_array}[0].".".$$.".fasta";
+#  my $outfile_name = "genblast_".${$accession_array}[0].".fasta";
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
