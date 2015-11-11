@@ -99,6 +99,7 @@ use strict;
 use Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes Transcript_info set_start_codon set_stop_codon list_evidence attach_Slice_to_Transcript);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_Gene attach_Analysis_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
@@ -141,7 +142,7 @@ sub fetch_input{
   $self->analysis($analysis);
 
   my $iid_type = $self->param('iid_type');
-
+  my $calculate_coverage_and_pid = $self->param('calculate_coverage_and_pid');
   my $slice;
   my $accession;
   my $peptide_seq;
@@ -216,6 +217,8 @@ sub fetch_input{
          -features         => $transcript_features,
 #        -genewise_options => $self->genewise_options,
          -analysis         => $self->analysis,
+         -calculate_coverage_and_pid => $calculate_coverage_and_pid,
+         -best_in_genome   => $self->best_in_genome_transcript(),
          %params,
        );
     $self->runnable($runnable);
@@ -239,7 +242,29 @@ sub get_transcript_features {
   my $accession = $feature_pair->hseqname();
   $self->accession($accession);
 
+  if($self->param('use_genblast_best_in_genome')) {
+    my $logic_name = $transcript->analysis->logic_name();
+    if($logic_name =~ /_not_best$/) {
+      $self->best_in_genome_transcript(0);
+    } else {
+      $self->best_in_genome_transcript(1);
+    }
+  }
+
   return($tsf);
+}
+
+
+sub best_in_genome_transcript {
+   my ($self,$val) = @_;
+
+   if(defined($val) && $val==1) {
+     $self->param('_best_in_genome_transcript', 1);
+   } elsif(defined($val) && $val==0) {
+     $self->param('_best_in_genome_transcript', 0);
+   }
+
+   return($self->param('_best_in_genome_transcript'));
 }
 
 
@@ -286,62 +311,6 @@ sub generate_ids_to_ignore{
     }
   }
   return \%ids_to_ignore;
-}
-
-
-=head2 post_mask
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
-  Arg [2]   : Arrayref of Bio::EnsEMBL::Genes
-  Function  : This method filters the prediction genes on the basis of existing
-  predictions removing those which overlap either at the exon or the transcript
-  level depending on the configuration
-  Returntype: arrayref of Genes
-  Exceptions: 
-  Example   : 
-
-=cut
-
-
-
-sub post_mask{
-  my ($self, $genes) = @_;
-  my $exon_mask_list = $self->exon_mask_list;
-  my @masked_genes;
-  $exon_mask_list = $self->gene_mask_list if($self->GENE_BASED_MASKING);
-  my @exonmask_regions = @{$exon_mask_list};
-  
-  foreach my $gene(@$genes){
-    my $keep_gene = 1;
-    my $mask_reg_idx = 0;
-    my @test_regions;
-    my @exons = sort {$a->start <=> $b->start} ( @{$gene->get_all_Exons});
-    if($self->GENE_BASED_MASKING){
-      @test_regions = ({start => $exons[0]->start, end => $exons[-1]->end});
-    }else{
-      @test_regions = map { { start => $_->start, end => $_->end } } @exons;
-    }
-  FEAT:foreach my $f(@test_regions){
-      for( ; $mask_reg_idx < @exonmask_regions ;){
-        my $mask_reg = $exonmask_regions[$mask_reg_idx];
-        if ($mask_reg->{'start'} > $f->{'end'}) {
-          # no mask regions will overlap this feature
-          next FEAT;
-        }
-        elsif ( $mask_reg->{'end'} >= $f->{'start'}) {
-          # overlap			
-          $keep_gene = 0;
-          last FEAT;
-        }			
-        else {
-          $mask_reg_idx++;
-        }
-      }
-    }
-    push(@masked_genes, $gene) if($keep_gene);
-    logger_info("SKIPPING ".Gene_info($gene)." masked out") if(!$keep_gene);
-  }
-  return \@masked_genes;
 }
 
 
@@ -465,6 +434,16 @@ sub run{
     }
 
     my $transcript = ${$output}[0];
+
+    unless($self->check_coverage($transcript)) {
+      say "FM2 SKIPPING COV";
+      next;
+    }
+
+    unless($self->check_pid($transcript)) {
+      say "FM2 SKIPPING PID";
+      next;
+    }
     $transcript = $self->add_slice_to_features($transcript);
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
@@ -507,6 +486,35 @@ sub run{
   return 1;
 }
 
+sub check_coverage {
+  my ($self,$transcript) = @_;
+
+  my $transcript_supporting_features = $transcript->get_all_supporting_features();
+  my $transcript_supporting_feature = $$transcript_supporting_features[0];
+  my $coverage = $transcript_supporting_feature->hcoverage();
+  my $coverage_cutoff = $self->param('genewise_cov');
+  if(defined($coverage_cutoff) && $coverage < $coverage_cutoff) {
+    return 0;
+  } else {
+    return 1;
+  }
+
+}
+
+sub check_pid {
+  my ($self,$transcript) = @_;
+
+  my $transcript_supporting_features = $transcript->get_all_supporting_features();
+  my $transcript_supporting_feature = $$transcript_supporting_features[0];
+  my $pid = $transcript_supporting_feature->percent_id();
+  my $pid_cutoff = $self->param('genewise_pid');
+  if(defined($pid_cutoff) && $pid < $pid_cutoff) {
+    return 0;
+  } else {
+    return 1;
+  }
+
+}
 
 sub add_slice_to_features {
   my ($self,$transcript) = @_;
@@ -617,6 +625,7 @@ sub write_output{
   my $sucessful_count = 0;
 
   foreach my $gene (@output) {
+    empty_Gene($gene);
     eval {
       $ga->store($gene);
     };
