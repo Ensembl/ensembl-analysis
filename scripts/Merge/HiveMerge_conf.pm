@@ -609,12 +609,6 @@ sub pipeline_analyses {
                                                                            (g.biotype LIKE "IG\_%" OR
                                                                             g.biotype LIKE "TR\_%")
                                          ',
-                                         'UPDATE transcript t,gene g SET t.biotype=g.biotype
-                                                                     WHERE t.gene_id = g.gene_id
-                                                                           AND
-                                                                           (g.biotype LIKE "IG\_%" OR
-                                                                            g.biotype LIKE "TR\_%")
-                                         ',
                                          'UPDATE gene g SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ensembl_ig_gene")
                                                       WHERE (g.biotype LIKE "IG\_%" OR
                                                              g.biotype LIKE "TR\_%")
@@ -626,6 +620,66 @@ sub pipeline_analyses {
                                                                    biotype LIKE "TR\_%")
                                                                   AND
                                                                   analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ensembl")
+                                         ',
+                                         'UPDATE gene g SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="havana_ig_gene")
+                                                      WHERE (g.biotype LIKE "IG\_%" OR
+                                                             g.biotype LIKE "TR\_%")
+                                                            AND
+                                                            analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="havana")
+                                         ',
+                                         'UPDATE transcript SET analysis_id=(select analysis_id FROM analysis WHERE logic_name="havana_ig_gene")
+                                                            WHERE (biotype LIKE "IG\_%" OR
+                                                                   biotype LIKE "TR\_%")
+                                                                  AND
+                                                                  analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="havana")
+                                         ',
+                                         'UPDATE gene g SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ensembl_havana_ig_gene")
+                                                      WHERE (g.biotype LIKE "IG\_%" OR
+                                                             g.biotype LIKE "TR\_%")
+                                                            AND
+                                                            analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ensembl_havana")
+                                         ',
+                                         'UPDATE transcript SET analysis_id=(select analysis_id FROM analysis WHERE logic_name="ensembl_havana_ig_gene")
+                                                            WHERE (biotype LIKE "IG\_%" OR
+                                                                   biotype LIKE "TR\_%")
+                                                                  AND
+                                                                  analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ensembl_havana")
+                                         ',
+                                         'UPDATE gene g SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_ensembl_ig_gene")
+                                                      WHERE (g.biotype LIKE "IG\_%" OR
+                                                             g.biotype LIKE "TR\_%")
+                                                            AND
+                                                            analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_ensembl")
+                                         ',
+                                         'UPDATE transcript SET analysis_id=(select analysis_id FROM analysis WHERE logic_name="proj_ensembl_ig_gene")
+                                                            WHERE (biotype LIKE "IG\_%" OR
+                                                                   biotype LIKE "TR\_%")
+                                                                  AND
+                                                                  analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_ensembl")
+                                         ',
+                                         'UPDATE gene g SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_havana_ig_gene")
+                                                      WHERE (g.biotype LIKE "IG\_%" OR
+                                                             g.biotype LIKE "TR\_%")
+                                                            AND
+                                                            analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_havana")
+                                         ',
+                                         'UPDATE transcript SET analysis_id=(select analysis_id FROM analysis WHERE logic_name="proj_havana_ig_gene")
+                                                            WHERE (biotype LIKE "IG\_%" OR
+                                                                   biotype LIKE "TR\_%")
+                                                                  AND
+                                                                  analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_havana")
+                                         ',
+                                         'UPDATE gene g SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_ensembl_havana_ig_gene")
+                                                      WHERE (g.biotype LIKE "IG\_%" OR
+                                                             g.biotype LIKE "TR\_%")
+                                                            AND
+                                                            analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_ensembl_havana")
+                                         ',
+                                         'UPDATE transcript SET analysis_id=(select analysis_id FROM analysis WHERE logic_name="proj_ensembl_havana_ig_gene")
+                                                            WHERE (biotype LIKE "IG\_%" OR
+                                                                   biotype LIKE "TR\_%")
+                                                                  AND
+                                                                  analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="proj_ensembl_havana")
                                          '
                                        ],
                              },
