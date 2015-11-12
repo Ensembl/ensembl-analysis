@@ -43,6 +43,9 @@ my $opt_file;   # list of genes from the primary db to be merged
 
 my $opt_help = 0;
 
+# make stdout unbuffered to ensure "PROCESSED + identifier" is not truncated when printfed
+$| = 1;
+
 if ( !GetOptions(
           'host_secondary:s'                    => \$opt_host_secondary,
           'port_secondary:i'                    => \$opt_port_secondary,
