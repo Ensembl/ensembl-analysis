@@ -287,6 +287,7 @@ sub pipeline_analyses {
                                         'TRUNCATE dependent_xref',
                                         'TRUNCATE interpro',
                                         'TRUNCATE identity_xref',
+                                        'TRUNCATE ontology_xref',
                                         'DELETE FROM unmapped_object WHERE type LIKE "xref"'                                        
                                        ],
                              },
