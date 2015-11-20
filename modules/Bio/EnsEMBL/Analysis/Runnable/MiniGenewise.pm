@@ -766,15 +766,24 @@ sub realign_translation {
 
   # Work out precent identity
   my $match_count = 0;
+  my $aligned_positions = 0;
   for(my $j=0; $j<length($aligned_query_seq); $j++) {
     my $char_query = substr($aligned_query_seq,$j,1);
     my $char_target = substr($aligned_target_seq,$j,1);
+    if($char_query eq '-' || $char_target  eq '-') {
+      next;
+    }
     if($char_query eq $char_target) {
       $match_count++;
     }
+    $aligned_positions++;
   }
 
-  my $percent_id = ($match_count / length($query_seq)) * 100;
+  unless($aligned_positions) {
+    throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
+  }
+
+  my $percent_id = ($match_count / $aligned_positions) * 100;
 
   # Get all exons and transcript supporting features
   my $transcript_supporting_features = $transcript->get_all_supporting_features();
