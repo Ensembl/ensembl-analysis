@@ -503,26 +503,36 @@ sub feature_id {
   }
 
   my $type = $self->param('feature_type');
+  my $logic_names = $self->param('feature_logic_names');
+  my $feature_adaptor;
+
   if($type eq 'transcript') {
-    my $ta = $dba->get_TranscriptAdaptor;
-    my $logic_names = $self->param('transcript_logic_names');
-    unless($logic_names) {
-      $self->throw("You didn't pass in an arrayref of logic names for the transcripts. Pass this in using the 'gene_logic_names' param");
-    }
-    foreach my $logic_name (@$logic_names) {
-      my $transcripts = $ta->fetch_all_by_logic_name($logic_name);
-      foreach my $transcript (@{$transcripts}) {
-        my $db_id = $transcript->dbID();
-        push(@{$output_id_array},$db_id);
-      }
-    }
+    $feature_adaptor = $dba->get_TranscriptAdaptor;
   } else {
     $self->throw("The feature type you requested is not supported in the code yet. Feature type:\n".$type);
   }
 
-  $self->output_ids($output_id_array);
+  if($logic_names) {
+    foreach my $logic_name (@$logic_names) {
+      my $features = $feature_adaptor->fetch_all_by_logic_name($logic_name);
+      foreach my $feature (@{$features}) {
+        my $db_id = $feature->dbID();
+        push(@{$output_id_array},$db_id);
+      }
+    }
+  } else {
+    $self->warning("No logic names passed in using 'feature_logic_names' param, so will fetch all features");
+    my $features = $feature_adaptor->fetch_all();
+    foreach my $feature (@{$features}) {
+      my $db_id = $feature->dbID();
+      push(@{$output_id_array},$db_id);
+    }
+  }
 
+  $self->output_ids($output_id_array);
 }
+
+
 sub check_slice_for_features {
   my ($self) = @_;
 
