@@ -387,8 +387,8 @@ sub set_supporting_features {
   my $query_seq;
   my $target_seq;
   my $gene_info;
-  my $transcript_percent_id = $transcript->{'pid'};
-  my $transcript_coverage = $transcript->{'cov'};
+#  my $transcript_percent_id = $transcript->{'pid'};
+#  my $transcript_coverage = $transcript->{'cov'};
   my $transcript_rank = $transcript->{'rank'};
 
   my $found = 0;
@@ -413,7 +413,9 @@ sub set_supporting_features {
   }
   close(GENBLAST_REPORT);
 
-  ($query_seq,$target_seq) = $self->realign_translation($query_seq,$target_seq);
+  my $coverage;
+  my $percent_id;
+  ($query_seq,$target_seq,$coverage,$percent_id) = $self->realign_translation($query_seq,$target_seq);
 
   # Add a stop to the alignment seqs. Basically this will allow me to ignore the final codon (which is a stop)
   $query_seq .= '*';
@@ -525,8 +527,8 @@ sub set_supporting_features {
                                                         -hseqname   => $transcript->{'accession'},
                                                         -hstart     => $joined_feature->{'hstart'},
                                                         -hend       => $joined_feature->{'hend'},
-                                                        -hcoverage  => $transcript->{'cov'},
-                                                        -percent_id => $transcript->{'pid'},
+                                                        -hcoverage  => $coverage,
+                                                        -percent_id => $percent_id,
                                                         -slice      => $exon->slice,
                                                         -analysis   => $transcript->analysis);
      say "FM2 ADD SUPPORTING EVIDENCE START: ".$feature_pair->start;
@@ -721,7 +723,44 @@ sub realign_translation {
   $aligned_query_seq =~ s/\n//g;
   $aligned_target_seq =~ s/\n//g;
 
-  return($aligned_query_seq,$aligned_target_seq);
+  `rm $align_input_file`;
+  `rm $align_output_file`;
+
+  # Work out coverage
+  my $coverage;
+  my $temp = $aligned_target_seq;
+  my $target_gap_count = $temp =~ s/\-//g;
+  my $ungapped_query_seq = $aligned_query_seq;
+  $ungapped_query_seq  =~ s/\-//g;
+
+  if(length($ungapped_query_seq) == 0) {
+    $coverage = 0;
+  } else {
+    $coverage = 100 - (($target_gap_count/length($ungapped_query_seq)) * 100);
+  }
+
+  # Work out precent identity
+  my $match_count = 0;
+  my $aligned_positions = 0;
+  for(my $j=0; $j<length($aligned_query_seq); $j++) {
+    my $char_query = substr($aligned_query_seq,$j,1);
+    my $char_target = substr($aligned_target_seq,$j,1);
+    if($char_query eq '-' || $char_target  eq '-') {
+      next;
+    }
+    if($char_query eq $char_target) {
+      $match_count++;
+    }
+    $aligned_positions++;
+  }
+
+  unless($aligned_positions) {
+    throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
+  }
+
+  my $percent_id = ($match_count / $aligned_positions) * 100;
+
+  return($aligned_query_seq,$aligned_target_seq,$coverage,$percent_id);
 
 }
 ############################################################
