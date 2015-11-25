@@ -124,10 +124,10 @@ sub process_rough_genes {
   # This sub takes in a set of cluster genes (basically where each gene is set of transcripts that have been clustered
   # together based on exon overlap. Transcripts may have come from many input dbs/sources)
   # For each gene: 1) calculate the set of unique exon pairs (coordinates of consecutive exons pairs)
-  #                2) score the transcripts against these pairs, transcripts were all the exon pairs pass the support
+  #                2) score the transcripts against these pairs, transcripts where all the exon pairs pass the support
   #                   cut-off are inlcuded in the candidate transcript set
-  #                3) removed redundant transcripts from the candidate set. For all transcripts that pass the support
-  #                   cut-off values calculated when any transcripts are redundant and remove them. A transcript is
+  #                3) remove redundant transcripts from the candidate set. For all transcripts that pass the support
+  #                   cut-off values calculate when any transcripts are redundant and remove them. A transcript is
   #                   redundant if the structure is completely contained in another transcript. It must match exactly
   #                   in terms of being a contiguous subset of exons.
   my $output_genes = [];
