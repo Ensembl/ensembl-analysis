@@ -72,6 +72,7 @@ use vars qw (@ISA  @EXPORT);
               is_canonical_splice
               get_database_connection_parameters_by_string
               run_command
+              hrdb_get_dba
               send_email ) ;
 
 
@@ -871,6 +872,27 @@ sub send_email {
   print $sendmail_fh "\n";
   print $sendmail_fh "$body\n";
   close $sendmail_fh;
+}
+
+sub hrdb_get_dba {
+  my ($connection_info) = @_;
+  my $dba;
+
+# It should be OK to use eq instead of =~
+  if(ref($connection_info) eq 'HASH') {
+    eval {
+      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
+    };
+
+    if($@) {
+      throw("Error while setting up database connection:\n".$@);
+    }
+  } else {
+    throw("DB connection info passed in was not a hash:\n".$connection_info);
+  }
+
+  $dba->dbc->disconnect_when_inactive(1);
+  return $dba;
 }
 
 1;
