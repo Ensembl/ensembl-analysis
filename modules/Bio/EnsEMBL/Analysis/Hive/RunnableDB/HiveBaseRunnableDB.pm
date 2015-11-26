@@ -19,9 +19,9 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 use strict;
 use Carp;
 use Bio::EnsEMBL::Analysis;
-use Bio::EnsEMBL::Hive::Utils ('stringify');
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
+use Bio::EnsEMBL::Hive::Utils ('destringify');
 use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
@@ -309,7 +309,7 @@ sub create_analysis {
 sub get_database_by_name {
     my ($self, $name) = @_;
 
-    return $self->hrdb_get_dba($self->param($name));
+    return $self->hrdb_get_dba(destringify($self->param($name)));
 }
 
 sub is_slice_name {
