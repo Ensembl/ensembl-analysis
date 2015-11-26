@@ -50,9 +50,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles;
 use warnings ;
 use strict;
 
-use Bio::EnsEMBL::Utils::Exception qw(throw);
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -60,14 +57,28 @@ sub fetch_input {
     my ($self) = @_;
 
     $self->create_analysis;
-    if (scalar(@{$self->param('input_files')}) == 0) {
+    if (scalar(@{$self->param('filename')}) == 0) {
         $self->throw('You did not specify input files for '.$self->analysis->logic_name);
     }
-    elsif (scalar(@{$self->param('input_files')}) == 1 and $self->param('options') !~ /-b /) {
+    elsif (scalar(@{$self->param('filename')}) == 1 and $self->param('options') !~ /-b /) {
         # In samtools merge you can specify a file with a list of files using -b
-        $self->input_is_void(1);
+        # In other cases I just want to push the filename but I don't need to run the BAM merge
+        # First pushing the filename
+        my $abs_filename = $self->param('filename')->[0];
+        if (-e $self->param('wide_merge_dir').'/'.$abs_filename) {
+            $abs_filename = $self->param('wide_merge_dir').'/'.$abs_filename;
+        }
+        elsif (-e $self->param('wide_output_dir').'/'.$abs_filename) {
+            $abs_filename = $self->param('wide_output_dir').'/'.$abs_filename;
+        }
+        $self->throw($abs_filename.' is not an absolute path!') unless ($abs_filename =~ /^\//);
+        $self->dataflow_output_id({filename => $abs_filename}, 1);
+        # Finally tell Hive that we've finished processing
+        $self->complete_early(1);
     }
-    if (defined $self->param('picard_lib')) {
+    my $out_filename = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
+    $self->param('output_file', $self->param('wide_merge_dir').'/'.$out_filename.'.bam');
+    if ($self->param_is_defined('picard_lib')) {
         $self->require_module('Bio::EnsEMBL::Analysis::Runnable::PicardMerge');
         $self->runnable(Bio::EnsEMBL::Analysis::Runnable::PicardMerge->new(
             -program => $self->param('java') || 'java',
@@ -76,19 +87,19 @@ sub fetch_input {
             -options => $self->param('options'),
             -analysis => $self->analysis,
             -output_file => $self->param('output_file'),
-            -input_files => $self->param('input_files'),
+            -input_files => $self->param('filename'),
             -use_threading => $self->param('use_threading'),
-            -samtools => $self->param('samtools') || 'samtools',
+            -samtools => $self->param('wide_samtools') || 'samtools',
             ));
     }
     else {
         $self->require_module('Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge');
         $self->runnable(Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge->new(
-            -program => $self->param('samtools') || 'samtools',
+            -program => $self->param('wide_samtools') || 'samtools',
             -options => $self->param('options'),
             -analysis => $self->analysis,
             -output_file => $self->param('output_file'),
-            -input_files => $self->param('input_files'),
+            -input_files => $self->param('filename'),
             -use_threading => $self->param('use_threading'),
             ));
     }
@@ -101,13 +112,13 @@ sub run {
         $runnable->run;
         $runnable->check_output_file;
     }
-    return 1;
+    $self->output([$self->param('output_file')]);
 }
 
 sub write_output {
     my ($self) = @_;
 
-    return 1;
+    $self->dataflow_output_id({filename => $self->output->[0]}, 1);
 }
 
 1;

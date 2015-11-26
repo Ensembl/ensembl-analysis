@@ -50,33 +50,27 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my ($self) = @_;
-  my $filename =  $self->param('input_dir') ."/" .$self->input_id;
+  my $filename =  $self->param('wide_input_dir') ."/" .$self->param('filename');
   $self->throw("Fastq file  $filename not found\n") unless ( -e $filename );
-  my $program = $self->param('short_read_aligner');
+  my $program = $self->param('wide_short_read_aligner');
   $self->throw("BWA program not defined in analysis \n") unless (defined $program);
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA->new
     (
      -analysis => $self->create_analysis,
      -program  => $program,
      -options  => $self->param('short_read_aligner_options'),
-     -outdir   => $self->param('output_dir'),
-     -genome   => $self->param('genomefile'),
+     -outdir   => $self->param('wide_output_dir'),
+     -genome   => $self->param('wide_genome_file'),
      -fastq    => $filename,
     );
   $self->runnable($runnable);
 }
 
-
-sub run {
-  my ($self) = @_;
-  $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-  my ($runnable) = @{$self->runnable};
-  $runnable->run;
-}
-
 # override write output as we have nothing for the db
 sub write_output {
   my ($self) = @_;
+
+  $self->dataflow_output_id({filename => $self->param('filename')}, 1);
 }
 
 1;

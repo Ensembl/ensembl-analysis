@@ -49,33 +49,51 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my ($self) = @_;
-  my $program = $self->param('short_read_aligner');
+  my $program = $self->param('wide_short_read_aligner');
   $self->throw("BWA program not defined in analysis\n") unless (defined $program);
-  my $filename = $self->param('input_dir').'/'.$self->input_id;
-  $self->throw("Fastq file $filename not found\n") unless (-e $filename);
+  my $fastq;
   my $fastqpair;
 
   my $method;
-  if ( $self->param('paired') ) {
+  if ( $self->param('is_paired') ) {
+    foreach my $filename (@{$self->param('filename')}) {
+        my $abs_filename = $self->param('wide_input_dir').'/'.$filename;
+        $self->throw("Fastq file $abs_filename not found\n") unless (-e $abs_filename);
+        my $regex = $self->param('pairing_regex');
+        my ($pair) = $filename =~ /$regex/;
+        if ($pair == 1) {
+            $fastq = $abs_filename;
+        }
+        else {
+            $fastqpair = $abs_filename;
+        }
+    }
     $method = ' sampe '.$self->param('sampe_options');
-    $fastqpair = $self->param('input_dir') .'/'.$$self->param('fastq_pair');
-    $self->throw('You are missing the paired reads from '.$fastqpair."\n") unless (-e $fastqpair);
   } else {
+    $fastq = $self->param('wide_input_dir').'/'.$self->param('filename')->[0];
     $method = ' samse '.$self->param('samse_options');
   }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA2BAM->new
     (
      -analysis   => $self->create_analysis,
      -program    => $program,
-     -fastq      => $filename,
+     -fastq      => $fastq,
      -fastqpair  => $fastqpair,
      -options    => $method,
-     -outdir     => $self->param('output_dir'),
-     -genome     => $self->param('genomefile'),
-	 -samtools => $self->param('samtools_path'),
+     -outdir     => $self->param('wide_output_dir'),
+     -genome     => $self->param('wide_genome_file'),
+	 -samtools => $self->param('wide_samtools'),
      -header => $self->param('header_file'),
      -min_mapped => $self->param('min_mapped'),
      -min_paired => $self->param('min_paired'),
     );
   $self->runnable($runnable);
 }
+
+sub write_output {
+    my $self = shift;
+
+    $self->dataflow_output_id({filename => $self->output->[0]}, 1);
+}
+
+1;

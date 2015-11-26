@@ -73,7 +73,10 @@ sub new {
 =head2 run
 
   Args       : none
-  Description: Merges Sam files defined in the config using Samtools
+  Description: Create the BAM files using BWA to first join the pairs
+               If we have paired reads. Then sort using samtools.
+               It deletes the temporary files.
+               It stores the name of the resulting BAM file in $self->output
   Returntype : none
 
 =cut 
@@ -81,7 +84,6 @@ sub new {
 sub run {
   my ($self) = @_;
   # get a list of files to use
-  my @files;
 
   my $fastq = $self->fastq;
   my $fastqpair = $self->fastqpair;
@@ -141,6 +143,7 @@ sub run {
       $readgroup .= "\"$_\"";
     }
     print "using readgroup line $readgroup\n";
+    close(HEAD) || $self->throw("Could not close $header\n");
   }
 
   # run bwa
@@ -152,7 +155,7 @@ sub run {
   }
   
   print STDERR "Command: $command\n";
-  open  ( my $fh,"$command 2>&1 |" ) ||
+  open  ( $fh,"$command 2>&1 |" ) ||
     $self->throw("Error processing alignment $@\n");
     while (<$fh>){
   chomp;
@@ -163,10 +166,11 @@ sub run {
     }
   close($fh) || $self->throw("Failed processing alignment");
 
+  my $sorted_bam = $outdir.'/'.$outfile.'_sorted';
   # sort the bam
-  $command = "$samtools  sort $outdir/$outfile.bam $outdir/$outfile"."_sorted";
+  $command = "$samtools sort $outdir/$outfile.bam $sorted_bam";
   print STDERR "Sort: $command\n";
-    open  ( my $fh,"$command 2>&1 |" ) ||
+    open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error sorting bam $@\n");
     while (<$fh>){
       chomp;
@@ -174,9 +178,9 @@ sub run {
     }
   close($fh) || $self->throw("Failed sorting bam");
   # index the bam
-  $command = "$samtools  index $outdir/$outfile"."_sorted.bam";
+  $command = "$samtools  index $sorted_bam.bam";
   print STDERR "Index: $command\n";
-    open  ( my $fh,"$command 2>&1 |" ) ||
+    open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error indexing bam $@\n");
     while (<$fh>){
       chomp;
@@ -185,9 +189,9 @@ sub run {
   close($fh) || $self->throw("Failed indexing bam");
 
  # check the reads with flagstat
-  $command = "$samtools  flagstat $outdir/$outfile"."_sorted.bam";
+  $command = "$samtools  flagstat $sorted_bam.bam";
   print STDERR "Got $total_reads to check\nCheck: $command\n";
-    open  ( my $fh,"$command 2>&1 |" ) ||
+    open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error checking alignment $@\n");
     while (<$fh>){
       print STDERR "$_";
@@ -199,10 +203,10 @@ sub run {
 	  unless ( $total_reads - $1 ) <=1 ;
       }
       elsif (/^\s*\d+.*mapped\s+\(([0-9.]+)/) {
-          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_mapped.": $1") if ($self->min_mapped > $1);
+          warning("$sorted_bam.bam is below the threshold of ".$self->min_mapped.": $1") if ($self->min_mapped > $1);
       }
       elsif (/\s*\d+.*properly paired \(([0-9.]+)/) {
-          warning("$outdir/${outfile}_sorted.bam is below the threshold of ".$self->min_paired.": $1") if ($self->min_paired > $1);
+          warning("$sorted_bam.bam is below the threshold of ".$self->min_paired.": $1") if ($self->min_paired > $1);
       }
     }
   close($fh) || $self->throw("Failed checking alignment");
@@ -210,13 +214,14 @@ sub run {
   #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
   $command = "rm $outdir/$outfile".".bam";
   print STDERR "Delete: $command\n";
-  open  ( my $fh,"$command 2>&1 |" ) || $self->throw("Error deleting unsorted bam $@\n");
+  open  ( $fh,"$command 2>&1 |" ) || $self->throw("Error deleting unsorted bam $@\n");
   while (<$fh>)
   {
       chomp;
       print STDERR "DELETE: $_\n";
   }
   close($fh) || $self->throw("Failed deleting bam");
+  $self->output([$sorted_bam.'.bam']);
 }
 
 
