@@ -32,7 +32,7 @@ sub run {
     $runnable->run;
     $self->output($runnable->output);
   }
-  return $self->param('output');
+  return $self->output;
 }
 
 sub output {
@@ -77,7 +77,7 @@ sub write_output {
 
 sub runnable {
   my ($self, $runnable) = @_;
-  if(!$self->param('runnable')){
+  if(!$self->param_is_defined('runnable')){
     $self->param('runnable',[]);
   }
 
