@@ -85,8 +85,8 @@ sub fetch_input {
 
     my $input_id = $self->input_id;
     # I want to be able to use either slices or gene stable ids
-    my $genes_db = $self->get_database_by_name('rough_output_db');
-    my $reference_db = $self->get_database_by_name('reference_db');
+    my $genes_db = $self->get_database_by_name('input_db');
+    my $reference_db = $self->get_database_by_name('dna_db');
     my @rough_genes;
     my $real_slice_start;
     my $real_slice_end;
@@ -213,7 +213,7 @@ sub write_output {
 
     my $fails = 0;
     my $total = 0;
-    foreach my $gene (@{$self->output}){
+    foreach my $gene (@{$self->output}) {
         $gene->analysis($self->analysis);
         $gene->source($self->analysis->logic_name);
         foreach my $tran ( @{$gene->get_all_Transcripts} ) {
@@ -249,9 +249,11 @@ sub write_output {
         my $intron_adaptor = $outdb->get_DnaAlignFeatureAdaptor;
         $fails = 0;
         $total = 0;
+        my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param('introns_logic_name'));
         foreach my $intron (@{$self->intron_features}) {
             $intron->start($intron->start+1);
             $intron->end($intron->end-1);
+            $intron->analysis($analysis);
             eval {
                 $intron_adaptor->store($intron);
             };

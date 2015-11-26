@@ -49,7 +49,7 @@ Internal methods are usually preceded with a _'
 
 =cut
 
-package Bio::EnsEMBL::Analysis::RunnableDB::BlastRNASeqPep;
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep;
 
 use warnings ;
 use strict;
@@ -59,7 +59,7 @@ use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast.pm');
+use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
 =head2 fetch_input
 
@@ -77,7 +77,8 @@ sub fetch_input {
 
   $self->throw("No input id") unless defined($self->input_id);
 
-  my $slice = $self->fetch_sequence;
+  $self->create_analysis(1, (-db_file => $self->param('uniprot_index'), -program_file => $self->param('blast_program')));
+  my $slice = $self->fetch_sequence(undef, $self->get_database_by_name('dna_db'));
   $self->query($slice);
 
   my %blast = %{$self->BLAST_PARAMS};
@@ -90,8 +91,8 @@ sub fetch_input {
 
   my $ga = $self->get_database_by_name($self->MODEL_DB)->get_GeneAdaptor;
   my $genes;
-  my $logic_name = $self->LOGICNAME;
-  if ( $logicname) ) {
+  my $logicname = $self->LOGICNAME;
+  if ( $logicname) {
     $genes = $ga->fetch_all_by_Slice($self->query, $logicname, 1);
   } else {
     $genes =  $ga->fetch_all_by_Slice($self->query,undef,1);
@@ -290,7 +291,7 @@ sub add_supporting_features {
   $self->output(\@output);
 }
 
-sub write_output{
+sub write_output {
   my ($self) = @_;
 
   my $outdb = $self->get_database_by_name($self->OUTPUT_DB);
@@ -359,28 +360,28 @@ sub genes_by_tran_id {
 sub OUTPUT_DB {
     my ($self,$value) = @_;
 
-    return 'blast_output_db';
+    return 'output_db';
 }
 
 
 sub MODEL_DB {
     my ($self,$value) = @_;
 
-    return 'refine_output_db';
+    return 'input_db';
 }
 
 
 sub LOGICNAME {
     my ($self) = @_;
 
-    return $self->param('logicname');
+    return $self->param('logic_names');
 }
 
 
 sub INDEX {
     my ($self,$value) = @_;
 
-    return $self->param('index');
+    return $self->param('indicate_index');
 }
 
 1;

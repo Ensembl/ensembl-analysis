@@ -75,7 +75,7 @@ sub new {
         $single_exon_model, $min_single_exon, $single_exon_cds, $strict_internal_splice_sites,
         $strict_internal_end_exon_splice_sites, $best_score, $other_isoforms, $other_num,
         $max_num , $bad_models , $trim_utr, $max_3prime_exons, $max_3prime_length,
-        $max_5prime_exons, $max_5prime_length, $reject_intron_cutoff $max_recursions,
+        $max_5prime_exons, $max_5prime_length, $reject_intron_cutoff, $max_recursions,
         $chr_slice, $rough_genes, $intron_features, $extra_exons) =
     rearrange([qw(RETAINED_INTRON_PENALTY FILTER_ON_OVERLAP MIN_INTRON_SIZE MAX_INTRON_SIZE
         SINGLE_EXON_MODEL MIN_SINGLE_EXON SINGLE_EXON_CDS STRICT_INTERNAL_SPLICE_SITES
@@ -105,7 +105,7 @@ sub new {
     $self->reject_intron_cutoff($reject_intron_cutoff);
     # Hard limit to the number of possible paths to explore
     $self->max_recursions($max_recursions || 10000);
-    $self->recursive_limit($sefl->max_recursions);
+    $self->recursive_limit($self->max_recursions);
     $self->chr_slice($chr_slice);
     $self->rough_genes($rough_genes);
     $self->intron_features($intron_features);
