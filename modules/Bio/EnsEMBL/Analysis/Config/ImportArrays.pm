@@ -1282,6 +1282,22 @@ use vars qw( %Config );
         -class => 'AGILENT',
       },
 
+      'GPL13914' => {
+        -name => 'GPL13914',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+
+      'GPL19516' => {
+        -name => 'GPL19516',
+        -vendor => 'AGILENT',
+        -format  => 'EXPRESSION',
+        -type => 'OLIGO',
+        -class => 'AGILENT',
+      },
+      
       
       # C.briggsae
 
@@ -1349,7 +1365,7 @@ use vars qw( %Config );
 	
     IMPORT_WUSTL_ARRAYS =>
      {
-       IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
+       IIDREGEXP => '^>(\S+):(\S+)',
        
        IFIELDORDER => {
          -name       => 1,
@@ -1362,20 +1378,18 @@ use vars qw( %Config );
          'WUSTL-C_elegans' => {
            -name => 'WUSTL-C_elegans',
            -vendor => 'WUSTL',
-           #-setsize => undef,
            -format  => 'EXPRESSION',
            -type    => 'OLIGO',
-           #-description => '',
            -class   => 'WUSTL',
          },
        },
 
        INPUT_FORMAT => 'FASTA',
      },
-	
+    
     IMPORT_SLRI_ARRAYS =>
-     {
-       IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
+    {
+       IIDREGEXP => '^>(\S+):(\S+)',
        
        IFIELDORDER => {
          -name       => 1,
@@ -1395,47 +1409,73 @@ use vars qw( %Config );
            -class   => 'SLRI',
          },
        },
-
+       
        INPUT_FORMAT => 'FASTA',
-     },
-
-	
+    },
+    
+    
     IMPORT_UCSF_ARRAYS =>
-     {
-       IIDREGEXP => '^>(\S+):(\S+)',#Need to add desc field here
-       
-       IFIELDORDER => {
-         -name       => 1,
-         -array_chip => 0,
-         -array      => 0,
-       },
-       
-       ARRAY_PARAMS => {
-         
-         'GPL9450' => {
-           -name => 'GPL9450',
-           -vendor => 'UCSF',
-           #-setsize => undef,
-           -format  => 'EXPRESSION',
-           -type    => 'OLIGO',
-           #-description => '',
-           -class   => 'UCSF',
-         },
-       },
-
-       INPUT_FORMAT => 'FASTA',
-     },
-
-
-    #PHALANX
-    #Human
-    #ftp://ftp.phalanxbiotech.com/pub/probe_sequences/hoa
-    #Mouse
-    #ftp://ftp.phalanxbiotech.com/pub/probe_sequences/moa
-    IMPORT_PHALANX_ARRAYS => 
     {
+      IIDREGEXP => '^>(\S+):(\S+)',
+      
+      IFIELDORDER => {
+        -name       => 1,
+        -array_chip => 0,
+        -array      => 0,
+      },
+      
+      ARRAY_PARAMS => {
+        
+        'GPL9450' => {
+          -name => 'GPL9450',
+          -vendor => 'UCSF',
+          -format  => 'EXPRESSION',
+          -type    => 'OLIGO',
+          -class   => 'UCSF',
+        },
+      },
+      
+      INPUT_FORMAT => 'FASTA',
+    },
+    
+    
+    IMPORT_NIMBLEGEN_MODENCODE_ARRAYS => 
+    {	 
+      IIDREGEXP => '^>(\S+):(\S+)',
+      
+      IFIELDORDER => {
+        -name       => 1,
+        -array_chip => 0,
+        -array      => 0,
+      },
+      
+      ARRAY_PARAMS => {
+        
+        'GPL8673' => {
+          -name => 'GPL8673',
+          -vendor => 'NIMBLEGEN',
+          -format  => 'EXPRESSION',
+          -type    => 'OLIGO',
+          -class   => 'NIMBLEGEN',
+        },
+      },
+
+      INPUT_FORMAT => 'FASTA',
+    },
+    
+   },
+   
+
+   
+   #PHALANX
+   #Human
+   #ftp://ftp.phalanxbiotech.com/pub/probe_sequences/hoa
+   #Mouse
+   #ftp://ftp.phalanxbiotech.com/pub/probe_sequences/moa
+   IMPORT_PHALANX_ARRAYS => 
+   {
      IIDREGEXP => '^>(\S+):(\S+).*$',
-	 
+     
      IFIELDORDER => {
                      -name       => 1,
                      -array_chip => 0,
@@ -1624,7 +1664,6 @@ use vars qw( %Config );
      INPUT_FORMAT => 'FASTA',
     },
 
-   }
   );
 
 sub import {

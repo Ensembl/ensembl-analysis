@@ -540,6 +540,28 @@ use vars qw( %Config );
     },   
 
 
+    # NIMBLEGen modENCODE arrays (only used for C.elegans) 60 mers
+    NIMBLEGEN_MODENCODE_PROBEALIGN => 
+    {
+     TARGETSEQS         => $ENV{'GENOMICSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.NIMBLEGEN_MODENCODE.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', 
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,
+     
+    },                
+    
+    NIMBLEGEN_MODENCODE_PROBETRANSCRIPTALIGN => 
+    {
+     TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.NIMBLEGEN_MODENCODE.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ',
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,    
+     
+    },
+
+
 
 
    }
