@@ -21,6 +21,15 @@ use warnings;
 use feature 'say';
 use Data::Dumper;
 
+use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClusterSourceGenes qw(
+fetch_source_genes
+get_all_genes
+get_all_biotypes
+process_clusters
+master_genes_hash
+);
+
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -66,6 +75,10 @@ sub run {
     $self->rechunk_uniprot_accession();
   } elsif($self->param('feature_region')) {
     $self->feature_region();
+  } elsif($self->param('feature_id')) {
+    $self->feature_id();
+  } elsif($self->param('cluster_slice')) {
+    $self->cluster_slice();
   } else {
     $self->throw('You have not specified one of the recognised operation types');
   }
@@ -375,6 +388,89 @@ sub uniprot_accession {
   $self->output_ids($output_id_array);
 }
 
+sub cluster_slice {
+  my ($self) = @_;
+  my $output_id_array = [];
+  my $master_genes_hash = {};
+
+  unless($self->param('input_gene_dbs')) {
+    $self->throw("You have selected to build cluster slices but have not provided an input gene dbs arrayref using 'input_gene_dbs'");
+  }
+
+
+  my $input_gene_dbs =  $self->param('input_gene_dbs');
+  my $allowed_input_sets = $self->param('allowed_input_sets');
+  my $batch_size = $self->param('batch_size');
+
+  unless($batch_size) {
+    $batch_size = 1;
+  }
+
+  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
+  $self->hrdb_set_con($dba,'dna_db');
+
+  my $input_id = $self->param('iid');
+  my $slice = $self->fetch_sequence($input_id,$dba);
+  $self->query($slice);
+
+  if($input_gene_dbs) {
+    my $input_genes = $self->fetch_source_genes($input_gene_dbs,$allowed_input_sets);
+    $master_genes_hash->{'input_genes'} = $input_genes;
+  }
+
+  $self->master_genes_hash($master_genes_hash);
+
+  my $master_genes_array = $self->get_all_genes();
+
+  my $master_biotypes_hash = $self->get_all_biotypes($master_genes_array);
+  my $master_biotypes_array = [keys(%$master_biotypes_hash)];
+  my $types_hash;
+  $types_hash->{genes} = $master_biotypes_array;
+
+  say "Clustering genes from input_dbs...";
+  my ($clusters, $unclustered) = cluster_Genes($master_genes_array,$types_hash);
+  say "...finished clustering genes from input_dbs";
+  say "Found clustered sets: ".scalar(@{$clusters});
+  say "Found unclustered sets: ".scalar(@{$unclustered});
+
+  my $clusters_array = [@{$clusters},@{$unclustered}];
+
+  my $cluster_slice_array = [];
+  foreach my $cluster (@{$clusters_array}) {
+    my $start = $cluster->start;
+    my $end = $cluster->end;
+    my $strand = $cluster->strand;
+    my $slice_name = $slice->name;
+    my @slice_elements = split(':',$slice_name);
+    unless(scalar(@slice_elements) == 6) {
+      $self->throw("Issue with parsing the slice name. The resulting array had ".scalar(@slice_elements)." elements when 6 were ".
+                   "expected. Offending slice name:\n".$slice_name);
+    }
+
+    $slice_elements[3] = $start;
+    $slice_elements[4] = $end;
+    my $new_slice_name = join(":",@slice_elements);
+    say "Cluster slice created:\n".$new_slice_name."\nCluster strand: ".$strand;
+
+    $new_slice_name .= ":".$strand;
+
+#    my $size = scalar(@{$cluster_slice_array});
+#    if($size == $batch_size) {
+#      push(@{$output_id_array},$cluster_slice_array);
+#      $cluster_slice_array = [];
+#    }
+    push(@{$output_id_array},$new_slice_name);
+#    push(@{$cluster_slice_array},$new_slice_name);
+  }
+
+#  if(scalar(@{$cluster_slice_array})) {
+#    push(@{$output_id_array},$cluster_slice_array);
+#  }
+
+  $self->output_ids($output_id_array);
+
+}
+
 
 sub rechunk_uniprot_accession {
   my ($self) = @_;
@@ -441,6 +537,7 @@ sub feature_region {
         foreach my $transcript (@{$transcripts}) {
           my $start = $transcript->seq_region_start;
           my $end = $transcript->seq_region_end;
+          my $strand = $transcript->strand;
           my $slice = $transcript->slice();
           my $slice_length = $slice->length();
           if($padding) {
@@ -459,6 +556,7 @@ sub feature_region {
           my @slice_array = split(':',$slice->name());
           $slice_array[3] = $start;
           $slice_array[4] = $end;
+          $slice_array[5] = $strand;
           my $new_slice_name = join(':',@slice_array);
 
           my @transcript_supporting_evidence = @{$transcript->get_all_supporting_features};
@@ -485,6 +583,49 @@ sub feature_region {
 
   $self->output_ids($output_id_array);
 }
+
+
+sub feature_id {
+  my ($self) = @_;
+
+  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+
+  my $output_id_array = [];
+  unless($self->param('feature_type')) {
+    $self->throw("You're trying to output a set of feature ids but haven't provided a feature type. ".
+                 "Expected \$self->param('feature_type')");
+  }
+
+  my $type = $self->param('feature_type');
+  my $logic_names = $self->param('feature_logic_names');
+  my $feature_adaptor;
+
+  if($type eq 'transcript') {
+    $feature_adaptor = $dba->get_TranscriptAdaptor;
+  } else {
+    $self->throw("The feature type you requested is not supported in the code yet. Feature type:\n".$type);
+  }
+
+  if($logic_names) {
+    foreach my $logic_name (@$logic_names) {
+      my $features = $feature_adaptor->fetch_all_by_logic_name($logic_name);
+      foreach my $feature (@{$features}) {
+        my $db_id = $feature->dbID();
+        push(@{$output_id_array},$db_id);
+      }
+    }
+  } else {
+    $self->warning("No logic names passed in using 'feature_logic_names' param, so will fetch all features");
+    my $features = $feature_adaptor->fetch_all();
+    foreach my $feature (@{$features}) {
+      my $db_id = $feature->dbID();
+      push(@{$output_id_array},$db_id);
+    }
+  }
+
+  $self->output_ids($output_id_array);
+}
+
 
 sub check_slice_for_features {
   my ($self) = @_;

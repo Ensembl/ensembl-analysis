@@ -58,6 +58,7 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -118,8 +119,11 @@ sub fetch_input {
   } else {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
+
   my $genblast_program = $self->param('genblast_program');
   my $biotypes_hash = $self->get_biotype();
+  my $max_rank = $self->param('max_rank');
+  my $genblast_pid = $self->param('genblast_pid');
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -129,7 +133,9 @@ sub fetch_input {
      -database => $self->analysis->db_file,
      -refslices => $genome_slices,
      -genblast_program => $genblast_program,
-     -biotypes => $biotypes_hash,
+     -max_rank => $max_rank,
+     -genblast_pid => $genblast_pid,
+     -work_dir => $self->param('query_seq_dir'),
      %parameters,
     );
   $self->runnable($runnable);
@@ -161,14 +167,20 @@ sub write_output{
   foreach my $transcript (@output){
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
-    $gene->biotype($self->analysis->logic_name);
 
     $transcript->analysis($self->analysis);
     my $accession = $transcript->{'accession'};
     my $transcript_biotype = $self->get_biotype->{$accession};
     $transcript->biotype($transcript_biotype);
 
-    $self->get_supporting_features($transcript);
+    if($transcript->{'rank'} > 1) {
+      my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => $transcript->analysis->logic_name()."_not_best",
+                                                -module     => $transcript->analysis->module);
+      $transcript->analysis($analysis);
+      $gene->analysis($analysis);
+    }
+
+    $gene->biotype($gene->analysis->logic_name);
 
 #    $transcript->slice($self->query) if(!$transcript->slice);
 #    if ($self->test_translates()) {
@@ -176,6 +188,7 @@ sub write_output{
 #      next;
 #    } # test to see if this transcript translates OK
     $gene->add_Transcript($transcript);
+    empty_Gene($gene);
     $adaptor->store($gene);
   }
 
@@ -192,330 +205,6 @@ sub write_output{
   return 1;
 }
 
-sub get_supporting_features {
-  my ($self,$transcript) = @_;
-
-  my $accession = $transcript->{'accession'};
-  my $genblast_id = $transcript->{'genblast_id'};
-  my $seq_region_start = $transcript->seq_region_start;
-  my $seq_region_end = $transcript->seq_region_end;
-  my $strand = $transcript->seq_region_strand;
-  my $seq_region_name = $transcript->seq_region_name;
-  my $genblast_report_path = $self->files_to_delete()."_1.1c_2.3_s1_0_16_1";
-
-  my @report_array = ();
-  my $query_seq;
-  my $target_seq;
-  my $gene_info;
-  my $transcript_percent_id;
-  my $transcript_coverage;
-
-  my $found = 0;
-  open(GENBLAST_REPORT,$genblast_report_path);
-  while(<GENBLAST_REPORT>) {
-    my $line = $_;
-    chomp $line;
-
-    push(@report_array,$line);
-    if(scalar(@report_array) > 5) {
-      shift(@report_array);
-    }
-
-    if($line =~ /^Gene\:ID\=$genblast_id\|/) {
-      $found = 1;
-      $query_seq = $report_array[0];
-      $query_seq =~ s/^query\://;
-      $target_seq = $report_array[2];
-      $target_seq =~ s/^targt\://;
-      $gene_info = $report_array[4];
-      $gene_info =~ /\|PID\:([^\|]+)$/;
-      $transcript_percent_id = $1;
-      last;
-    }
-  }
-  close(GENBLAST_REPORT);
-
-  unless($found) {
-     $self->throw("Issue with parsing the genblast report, transcript id not found in report file. Transcript id:\n".$genblast_id.
-                  "\nFile path:\n".$genblast_report_path);
-  }
-
-  unless($transcript_percent_id >= 0) {
-    $self->throw("Issue with parsing the percent identity of the transcript. Transcript id in genblast file:\n".$genblast_id.
-                 "\nFile path:\n".$genblast_report_path."\nOffending info line:\n".$gene_info);
-  }
-
-  $transcript_coverage = $self->calculate_coverage($query_seq,$target_seq);
-
-  unless($transcript_coverage >= 0) {
-    $self->throw("Issue with parsing the query coverage of the transcript. Transcript id in genblast file:\n".$genblast_id.
-                 "\nFile path:\n".$genblast_report_path."\nOffending info line:\n".$gene_info);
-  }
-
-  say "Transcript coverage: ".$transcript_coverage;
-  say "Transcript percent identity: ".$transcript_percent_id;
-
-
-  # Note this code is a bit dumb because of the fact that exons that don't contain a full codon can't have
-  # a paf because of rules in the core API. As a result the code below looks a bit odd. First it calls the
-  # get_exon_supporting_features sub, which returns a set of exons with the supporting features added. It
-  # then loops through these exons and adds each to the transcript. At the same time it adds the supporting
-  # features for each exon to $all_exon_supporting_features, which then is used to build a transcript
-  # supporting feature, which gets added to the transcript
-  my $exon_supporting_features = $self->get_exon_supporting_features($transcript,$query_seq,$target_seq,$transcript_coverage,$transcript_percent_id);
-  my $all_exon_supporting_features = [];
-
-  my $exons = $transcript->get_all_Exons;
-  $transcript->flush_Exons;
-
-  for(my $i=0; $i<scalar(@{$exons}); $i++) {
-    my $exon =  ${$exons}[$i];
-    if(${$exon_supporting_features}[$i]) {
-      my $current_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [${$exon_supporting_features}[$i]]);
-      $exon->add_supporting_features($current_exon_supporting_features);
-      push(@{$all_exon_supporting_features},$current_exon_supporting_features);
-    }
-    $transcript->add_Exon($exon);
-  }
-
-  my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features);
-  $transcript->add_supporting_features($transcript_supporting_features);
-}
-
-sub get_exon_supporting_features {
-  my ($self,$transcript,$query_seq,$target_seq,$cov,$pid) = @_;
-
-  # The API/schema handles protein align features slightly differently than expected
-  # The hit start and end do not refer to the corresponding positions in query sequence (the aligned protein) covered by
-  # the alignment, instead they refer to the positions in the ungapped translation sequence of the transcript the query
-  # was aligned to. This is odd for several reasons. But the main point is that there is a check in the API that expects
-  # the feature length (number of bases the feature spans on the exon) to be exactly three times the length of the hit
-  # length (the number of residues in the translation of the transcript covered by the alignment). What this means is
-  # that there is no way to repesent split codons (codons than span two exons), because they would throw this 3 to 1 ratio
-  # off and the API will throw. The code below is written with this limitation in mind
-  # There is also the issue of coverage and percent id this throws up. For now the most reasonable was to present coverage
-  # and percent id is on the transcript level. I have put code below to allow for the calculation on the exon level, but it
-  # is currently disabled and the transcript values are used instead for every exon
-
-  # This is best explained by a diagram:
-
-  #  1   2   3   4   5   6   7   8   9   10  11  12  13    <- alignment col
-  # .M. .P. .Q. .R. .S. .M. .P. .P. .-. .-. .S. .R. .S.    <- protein seq
-  # .M. .-. .-. .R. .S. .M. .P. .P. .Q. .Q. .S. .R. .S.    <- transcript translation seq
-  #  1           2   3   4   5   6   7   8   9   10  11    <- translation ungapped index
-  # ATG         AGA AGT ATG CCT CCT CAA CAA AGT AGA AGT    <- codons
-  # ###         ### #\\ \\\ \\\ \\# ### ### ### ### ###    <- alternating exons defined by # and \
-  # 1                8            18                  33   <- genomic coordinates
-
-  # For PAF what are the start, end, hit start and hit end coords for the corresponding DnaPepAlignFeature?
-  # Exon 1:
-  # Codon 1 and 2 are complete, codon 3 is split so have to discard because of how the API and the protein_align_feature table work
-  # Feature start = 1
-  # Feature end   = 6  ---> 6 - 1 + 1 = 6
-  # Hit start     = 1
-  # Hit end       = 2  ---> 2 - 1 + 1 = 2
-  # Ratio         = 6:2 = 3:1
-  #
-  # Exon 2:
-  # Covers codons 3 to 6. Codons 3 and 6 are split codons, so the feature will cover 4 and 5
-  # Feature start = 10
-  # Feature end   = 15 ---> 15 -10 + 1 = 6
-  # Hit start     = 4
-  # Hit end       = 5  ---> 5 - 4 + 1 = 2
-  # Ratio         = 6:2 = 3:1
-  #
-  # Exon 3:
-  # Covers codons 6 to 11. Codon 6 is split, so feature will cover codon 7 to 11
-  # Feature start = 19
-  # Feature end   = 33 ---> 33 - 19 + 1 = 15
-  # Hit start     = 7
-  # Hit end       = 11 ---> 11 - 7 + 1 = 5
-  # Ratio         = 15:5 = 3:1
-
-
-  my $exon_supporting_features = [];
-  my $query_sub_align;
-  my $target_sub_align;
-
-  my $exons = $transcript->get_all_Exons();
-  my $pep_index = 0;
-  my $i=0;
-  for($i=0; $i<scalar(@{$exons}); $i++) {
-    my $exon = ${$exons}[$i];
-    # If there is a split codon at the start of the exon we have to skip it as the API currently can't handle the idea of split
-    # codons in protein align features, the feature length must be exactly three times the length of the hit itself
-    # If an exon is phase 1 it means there are two bases in the split codon, if it is phase 2 then there is one base
-    # Also worth remembering that the end phase of an exon is always the same as the phase of the new one
-    # If there is a split codon then the index of the translation residue needs to be incremented to skip the residue over the
-    # split codon
-    my $bases_to_skip = 0;
-    if($exon->phase) {
-      if($exon->phase == 1) {
-        $bases_to_skip = 2;
-      } else {
-        $bases_to_skip = 1;
-      }
-      $pep_index++;
-    }
-
-    # Make the feature start index of the first base of the first complete codon
-    my $feature_start = $exon->start() + $bases_to_skip;
-
-    # To calculate the feature end, use the end phase to work out if there is a split codon. The end phase is equal to the number of
-    # base pairs in the split codon at the end of the exon (if present)
-    my $feature_end;
-    my $bases_to_remove = $exon->end_phase;
-
-    # If it's the last exon and the end phase is 0 and the exon ends in a stop codon then remove this when building the feature coords
-    if($i == (scalar(@{$exons} - 1)) && $exon->end_phase == 0 && ($exon->seq->seq =~ /T[AG]A$/ || $exon->seq->seq =~ /TAG$/)) {
-      $bases_to_remove = 3;
-    }
-
-    # Remove any incomplete or stop codons from the feature end coords
-    $feature_end = $exon->end() - $bases_to_remove;
-
-    # This is a check to basically make sure that the feature start and end now cover only complete codons. The reason it is here is
-    # that the core API will throw later if this isn't true but the message is a bit cryptic
-    if(($feature_end - $feature_start + 1) % 3) {
-      $self->throw("\nThe feature coords after removal of split codons were not divisable by 3. They should represent complete codons.\n".
-                   "Feature start: ".$feature_start."\nFeature end: ".$feature_end."\nExon start: ".$exon->start."\nExon end: ".$exon->end.
-                   "\nExon phase: ".$exon->phase."\nExon end phase: ".$exon->end_phase."\n");
-    }
-
-    # Now need to calculate the offset that the feature covers in the ungapped translation seq. It is important to remember
-    # that this is not identical to the equivalent column in the alignment, which can be gapped
-    my $pep_offset = ($feature_end - $feature_start + 1) / 3;
-
-    # These are all useful for debugging so I will keep them
-    #say "PEP INDEX: ".$pep_index;
-    #say "PEP OFFSET: ".$pep_offset;
-    #say "EXON PHASE: ".$exon->phase;
-    #say "EXON END PHASE: ".$exon->end_phase;
-    #say "BASES TO SKIP: ".$bases_to_skip;
-    #say "BASES TO REMOVE: ".$bases_to_remove;
-    #say "EXON START: ".$exon->seq_region_start;
-    #say "EXON END: ".$exon->seq_region_end;
-    #say "EXON SEQ: ".$exon->seq->seq;
-    #say "FEATURE START: ".$feature_start;
-    #say "FEATURE END: ".$feature_end;
-
-
-    ###########################################################################################################
-    # - code that could be used to calculate coverage and pid averages from the alignment on a per exon basis
-    ###########################################################################################################
-    # char_count is a variable to map the index of a residue in the ungapped translation to the equivalent position in the alignmnet
-    #my $char_count = 0;
-
-    # align_start_index and align_end_index are the start and end columns in the alignment that the feature
-    # covers. As the feature is ungapped, the alignment columns may span a region of the alignment that is
-    # more than just the feature length / 3
-    #my $align_start_index;
-    #my $align_end_index;
-
-    # This loop finds the columns for the alignment start and end using the position in the ungapped translation sequence
-    # (held in pep_index) and the number of complete codons the exon spans (held in pep_offset)
-    #for(my $j=0; $j<length($target_seq); $j++) {
-    #  my $char = substr($target_seq,$j,1);
-
-    #  if($char_count == $pep_index) {
-    #    $align_start_index = $j;
-    #  }
-
-     # if($char_count == ($pep_index + $pep_offset) || ($j == length($target_seq) - 1)) {
-     #   $align_end_index = $j;
-     #   last;
-     # }
-
-      # As we're mapping via the ungapped translation, skip characters that are gaps
-      #unless($char eq '-') {
-      #  $char_count++;
-      #}
-    #}
-
-    #say "ASI: ".$align_start_index;
-    #say "ASE: ".$align_end_index;
-
-    # Pull out the sections of the alignment the feature covers and calculate the percent id and cov
-    #my $sub_align_length = $align_end_index - $align_start_index;
-    #$query_sub_align = substr($query_seq,$align_start_index,$sub_align_length);
-    #$target_sub_align = substr($target_seq,$align_start_index,$sub_align_length);
-    #my $exon_coverage = $self->calculate_coverage($query_sub_align,$target_sub_align);
-    #my $exon_percent_id = $self->calculate_percent_id($query_sub_align,$target_sub_align);
-    #say "EXON COV: ".$exon_coverage;
-    #say "EXON PID: ".$exon_percent_id;
-
-    my $hstart = $pep_index;
-    my $hend = ($pep_index + $pep_offset - 1);
-
-#    say "ACCESSION: ".$transcript->{'accession'};
-#    say "EXON LENGTH: ".$exon->length;
-#    say "EXON PHASE: ".$exon->phase;
-#    say "FSTART: ".$feature_start;
-#    say "FEND: ".$feature_end;
-#    say "FSTRAND: ".$exon->strand;
-#    say "HSTART: ".$hstart;
-#    say "HEND: ".$hend;
-
-    # Exons that are either smaller than a codon or contain only split codons will not have supporting features
-    # In this case push an empty element on the array
-    if($exon->length > 3 || ($exon->length == 3 && $exon->phase == 0)) {
-      # Build the feature
-      my $paf = Bio::EnsEMBL::FeaturePair->new(
-                                                -start      => $feature_start,
-                                                -end        => $feature_end,
-                                                -strand     => $exon->strand,
-                                                -hseqname   => $transcript->{'accession'},
-                                                -hstart     => $pep_index,
-                                                -hend       => ($pep_index + $pep_offset - 1),
-                                                -hcoverage  => $cov,
-                                                -percent_id => $pid,
-                                                -slice      => $exon->slice,
-                                                -analysis   => $transcript->analysis);
-      push(@{$exon_supporting_features},$paf);
-    } else {
-      push(@{$exon_supporting_features},undef);
-    }
-    $pep_index = $pep_index + $pep_offset;
-  }
-
-   return($exon_supporting_features);
-}
-
-sub calculate_percent_id {
-  my ($self,$query_seq,$target_seq) = @_;
-
-  my $match_count = 0;
-  for(my $j=0; $j<length($target_seq); $j++) {
-    my $char_query = substr($query_seq,$j,1);
-    my $char_target = substr($target_seq,$j,1);
-    if($char_query eq $char_target) {
-      $match_count++;
-    }
-  }
-
-  my $percent_id = ($match_count / length($target_seq)) * 100;
-
-  return($percent_id);
-
-}
-
-sub calculate_coverage {
-  my ($self,$query_seq,$target_seq) = @_;
-
-  my $coverage;
-  my $query_gap_count = $query_seq =~ s/\-//g;
-
-  my $ungapped_target_seq = $target_seq;
-  $ungapped_target_seq  =~ s/\-//g;
-
-  if(length($ungapped_target_seq) == 0) {
-    return 0;
-  }
-
-  $coverage = 100 - (($query_gap_count/length($ungapped_target_seq)) * 100);
-
-  return $coverage;
-}
 
 sub store_protein_align_features {
   my ($self) = @_;
@@ -651,7 +340,8 @@ sub output_query_file {
   my $output_dir = $self->param('query_seq_dir');
 
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "genblast_".${$accession_array}[0].".fasta";
+  my $outfile_name = "genblast_".${$accession_array}[0].".".$$.".fasta";
+#  my $outfile_name = "genblast_".${$accession_array}[0].".fasta";
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};

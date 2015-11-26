@@ -60,7 +60,7 @@ package Bio::EnsEMBL::Analysis::Runnable::MiniGenewise;
 use warnings ;
 use vars qw(@ISA);
 use strict;
-
+use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable::Genewise;
 use Bio::EnsEMBL::Analysis::Tools::MiniSeq;
@@ -81,11 +81,12 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-  my( $protein, $features, $minimum_intron, $terminal_padding, $exon_padding, 
-      $max_iterate_dist, $genewise_options)
+  my( $protein, $features, $minimum_intron, $terminal_padding, $exon_padding,
+      $max_iterate_dist, $genewise_options, $calculate_coverage_and_pid,$best_in_genome)
     = rearrange([qw(PROTEIN FEATURES MINIMUM_INTRON TERMINAL_PADDING EXON_PADDING
-                    MAX_SPLIT_ITERATE_DIST GENEWISE_OPTIONS)], @args);
-  
+                    MAX_SPLIT_ITERATE_DIST GENEWISE_OPTIONS CALCULATE_COVERAGE_AND_PID BEST_IN_GENOME
+               )], @args);
+
   ####SETTING_DEFAULTS###
   $self->minimum_intron(1000);
   $self->exon_padding(200);
@@ -99,13 +100,32 @@ sub new {
   $self->terminal_padding($terminal_padding);
   $self->max_split_iterate_distance($max_iterate_dist);
   $self->genewise_options($genewise_options);
-  
+  $self->calculate_coverage_and_pid($calculate_coverage_and_pid);
+  $self->best_in_genome_transcript($best_in_genome);
+
   throw("MiniGenewise needs a query sequence") unless($self->query);
   throw("MiniGenewise needs a peptide sequence") unless($self->protein_sequence);
-  throw("MiniGenewise needs an array of features") 
+  throw("MiniGenewise needs an array of features")
     unless($self->features && scalar(@{$self->features}));
+
+  print "Dumper: ".Dumper($self->analysis());
+
   return $self;
 }
+
+
+
+sub best_in_genome_transcript {
+   my ($self,$val) = @_;
+
+   if(defined($val) && $val==1) {
+     $self->{'_best_in_genome_transcript'} = 1;
+   } elsif(defined($val) && $val==0) {
+     $self->{'_best_in_genome_transcript'} = 0;
+   }
+
+   return($self->{'_best_in_genome_transcript'});
+ }
 
 #ACCESSOR METHODS
 
@@ -347,10 +367,23 @@ sub run{
     my $new_gene = $self->convert_to_genomic($gene);
     warning("Failed to convert ".$gene." to genomic coordinates, skipping") 
       unless($new_gene);
+
+    if($self->calculate_coverage_and_pid && $new_gene) {
+      $self->realign_translation($new_gene);
+    }
+
+    if(defined($self->best_in_genome_transcript()) && $self->best_in_genome_transcript() == 0 && $new_gene) {
+      my $analysis = $self->analysis();
+      $analysis->logic_name($analysis->logic_name()."_not_best");
+      $new_gene->analysis($analysis);
+    }
+
     push(@$output, $new_gene) if($new_gene);
   }
   $self->output($output);
 }
+
+
 
 sub run_Genewise{
   my ($self, $features) = @_;
@@ -659,6 +692,126 @@ sub is_reversed {
     }
   }
   return $self->{_reverse};
+}
+
+
+sub calculate_coverage_and_pid {
+  my ($self, $value) = @_;
+  if($value){
+    $self->{_calculate_coverage_and_pid} = $value;
+  }
+  return $self->{_calculate_coverage_and_pid};
+}
+
+
+sub realign_translation {
+  my ($self,$transcript) = @_;
+
+  my $query_seq = $self->protein_sequence->seq();
+#  my $transcripts = $gene->get_all_Transcripts();
+#  my $transcript = ${$transcripts}[0];
+  my $translation = $transcript->translate->seq();
+
+  my $align_input_file = "/tmp/genewise_align_".$$.".fa";
+  my $align_output_file = "/tmp/genewise_align_".$$.".aln";
+
+  open(INPUT,">".$align_input_file);
+  say INPUT ">query";
+  say INPUT $query_seq;
+  say INPUT ">target";
+  say INPUT $translation;
+  close INPUT;
+
+  my $align_program_path = 'muscle';
+
+  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+  my $result = system($cmd);
+
+  if($result) {
+    throw("Got a non-zero exit code from alignment. Commandline used:\n".$cmd);
+  }
+
+  my $file = "";
+  open(ALIGN,$align_output_file);
+  while(<ALIGN>) {
+    $file .= $_;
+  }
+  close ALIGN;
+
+  unless($file =~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
+    throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
+  }
+
+  my $aligned_query_seq = $1;
+  my $aligned_target_seq = $3;
+
+  $aligned_query_seq =~ s/\n//g;
+  $aligned_target_seq =~ s/\n//g;
+
+  `rm $align_input_file`;
+  `rm $align_output_file`;
+
+  # Work out coverage
+  my $coverage;
+  my $temp = $aligned_target_seq;
+  my $target_gap_count = $temp =~ s/\-//g;
+  my $ungapped_query_seq = $aligned_query_seq;
+  $ungapped_query_seq  =~ s/\-//g;
+
+  if(length($ungapped_query_seq) == 0) {
+    $coverage = 0;
+  } else {
+    $coverage = 100 - (($target_gap_count/length($ungapped_query_seq)) * 100);
+  }
+
+  # Work out precent identity
+  my $match_count = 0;
+  my $aligned_positions = 0;
+  for(my $j=0; $j<length($aligned_query_seq); $j++) {
+    my $char_query = substr($aligned_query_seq,$j,1);
+    my $char_target = substr($aligned_target_seq,$j,1);
+    if($char_query eq '-' || $char_target  eq '-') {
+      next;
+    }
+    if($char_query eq $char_target) {
+      $match_count++;
+    }
+    $aligned_positions++;
+  }
+
+  unless($aligned_positions) {
+    throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
+  }
+
+  my $percent_id = ($match_count / $aligned_positions) * 100;
+
+  # Get all exons and transcript supporting features
+  my $transcript_supporting_features = $transcript->get_all_supporting_features();
+  my $exons = $transcript->get_all_Exons();
+
+  # Now clean these out
+  $transcript->flush_Exons();
+  $transcript->flush_supporting_features();
+
+  # Loop through the TSFs and add the coverage and pid, then add back into transcript
+  foreach my $transcript_supporting_feature (@{$transcript_supporting_features}) {
+    $transcript_supporting_feature->hcoverage($coverage);
+    $transcript_supporting_feature->percent_id($percent_id);
+    $transcript->add_supporting_features($transcript_supporting_feature);
+  }
+
+  # Loop through exons, get supporting features for each, flush existing SF, add coverage and pid, add back to exon, add exon to transcript
+  foreach my $exon (@{$exons}) {
+    my $exon_supporting_features = $exon->get_all_supporting_features();
+    $exon->flush_supporting_features();
+    foreach my $exon_supporting_feature (@{$exon_supporting_features}) {
+      $exon_supporting_feature->hcoverage($coverage);
+      $exon_supporting_feature->percent_id($percent_id);
+      $exon->add_supporting_features($exon_supporting_feature);
+    }
+    $transcript->add_Exon($exon);
+  }
+
 }
 
 1;

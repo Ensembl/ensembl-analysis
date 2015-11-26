@@ -189,7 +189,7 @@ sub fetch_input {
   # set up the query (est/cDNA/protein)
   ##########################################
   my $iid_type = $self->param('iid_type');
-  my ($query_file,$chunk_number,$chunk_total);
+  my ($query_file,$query_seq,$chunk_number,$chunk_total);
   unless($iid_type) {
     $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
   }
@@ -202,6 +202,25 @@ sub fetch_input {
     my ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
     $query_file = $self->output_query_file($accession_array);
     @db_files = ($self->output_db_file($slice,$accession_array));
+  } elsif($iid_type eq 'feature_id') {
+    my $feature_type = $self->param('feature_type');
+    if($feature_type eq 'transcript') {
+      my $transcript_id = $self->param('iid');
+      my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
+      if($dna_dba) {
+        $transcript_dba->dnadb($dna_dba);
+      }
+      $self->hrdb_set_con($transcript_dba,'transcript_db');
+
+      my ($slice,$accession_array) = $self->get_transcript_region($transcript_id);
+      #$query_file = $self->output_query_file($accession_array);
+      $query_seq = $self->get_query_seq($accession_array);
+      $self->peptide_seq($query_seq->seq);
+      $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
+      @db_files = ($self->output_db_file($slice,$accession_array));
+    } else {
+      $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
+    }
   } elsif($iid_type eq 'chunk_file') {
     my $query = $self->QUERYSEQS;
 
@@ -280,10 +299,12 @@ sub fetch_input {
               -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
               -query_file     => $query_file,
+              -query_seqs => [$query_seq],
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               -biotypes => $biotypes_hash,
+              -calculate_coverage_and_pid => $self->param('calculate_coverage_and_pid'),
               %parameters,
               );
 
@@ -360,7 +381,9 @@ sub write_output {
 
   if($self->files_to_delete()) {
     my $files_to_delete = $self->files_to_delete();
-    `rm $files_to_delete`;
+    foreach my $file_to_delete (@{$files_to_delete}) {
+      `rm $file_to_delete`;
+    }
   }
 
 }
@@ -418,6 +441,76 @@ sub hive_set_config {
   }
 }
 
+sub get_transcript_region {
+  my ($self,$transcript_id) = @_;
+
+  my $transcript_dba = $self->hrdb_get_con('transcript_db');
+  my $transcript = $transcript_dba->get_TranscriptAdaptor()->fetch_by_dbID($transcript_id);
+  my $tsf = $transcript->get_all_supporting_features();
+
+
+  my $feature_pair = ${$tsf}[0];
+  my $accession = $feature_pair->hseqname();
+
+  if($self->param('use_genblast_best_in_genome')) {
+    my $logic_name = $transcript->analysis->logic_name();
+    if($logic_name =~ /_not_best$/) {
+      $self->best_in_genome_transcript(0);
+    } else {
+      $self->best_in_genome_transcript(1);
+    }
+  }
+
+  my $padding = $self->param('region_padding');
+  unless($self->param('region_padding')) {
+    $self->warning("You didn't pass in any value for padding. Defaulting to 10000");
+    $padding = 10000;
+  }
+
+  my $start = $transcript->seq_region_start;
+  my $end = $transcript->seq_region_end;
+  my $strand = $transcript->strand;
+  my $slice = $transcript->slice();
+  my $slice_length = $slice->length();
+  if($padding) {
+    $start = $start - $padding;
+    if($start < 1) {
+      $start = 1;
+    }
+    $end = $end + $padding;
+    my $slice = $transcript->slice();
+    my $slice_length = $slice->length();
+    if($end > $slice_length) {
+      $end = $slice_length;
+    }
+  }
+
+  my @slice_array = split(':',$slice->name());
+  $slice_array[3] = $start;
+  $slice_array[4] = $end;
+  $slice_array[5] = $strand;
+  my $new_slice_name = join(':',@slice_array);
+
+  my $sa = $transcript_dba->get_SliceAdaptor();
+  my $transcript_slice = $sa->fetch_by_name($new_slice_name);
+
+  return($transcript_slice,[$accession]);
+}
+
+
+sub best_in_genome_transcript {
+   my ($self,$val) = @_;
+
+   if(defined($val) && $val==1) {
+     $self->param('_best_in_genome_transcript', 1);
+   } elsif(defined($val) && $val==0) {
+     $self->param('_best_in_genome_transcript', 0);
+   }
+
+   return($self->param('_best_in_genome_transcript'));
+}
+
+
 sub make_genes{
   my ($self,@transcripts) = @_;
 
@@ -430,6 +523,16 @@ sub make_genes{
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
+    $tran->analysis($self->analysis);
+
+    if(defined($self->best_in_genome_transcript()) && $self->best_in_genome_transcript() == 0) {
+      my $analysis = $self->analysis;
+      my $logic_name = $analysis->logic_name."_not_best";
+      $analysis->logic_name($logic_name);
+      $gene->analysis($analysis);
+      $gene->biotype($logic_name);
+      $tran->analysis($analysis);
+    }
 
     ############################################################
     # put a slice on the transcript
@@ -467,10 +570,14 @@ sub make_genes{
 
     throw("Have no slice") if(!$slice);
     $tran->slice($slice);
-    $tran->analysis($self->analysis);
     my $accession = $tran->{'accession'};
     my $transcript_biotype = $self->get_biotype->{$accession};
     $tran->biotype($transcript_biotype);
+
+   if($self->calculate_coverage_and_pid) {
+      $self->realign_translation($tran);
+    }
+
     $gene->add_Transcript($tran);
     push( @genes, $gene);
   }
@@ -988,6 +1095,32 @@ sub filter_killed_entries {
   return $filtered_seqout_filename;
 }
 
+
+sub get_query_seq {
+  my ($self,$accession_array) = @_;
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name('uniprot_sequences');
+
+  my $accession = $$accession_array[0];
+
+  my $db_row = $table_adaptor->fetch_by_dbID($accession);
+  unless($db_row) {
+    $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
+  }
+
+  my $seq = $db_row->{'seq'};
+  my $biotypes_hash = {};
+  $biotypes_hash->{$accession} = $db_row->{'biotype'};
+  $self->get_biotype($biotypes_hash);
+
+
+  my $peptide_obj = Bio::Seq->new( -display_id => $accession,
+                                   -seq => $seq);
+
+  return($peptide_obj);
+}
+
+
 sub output_query_file {
   my ($self,$accession_array) = @_;
 
@@ -997,7 +1130,7 @@ sub output_query_file {
   my $output_dir = $self->param('query_seq_dir');
 
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
+  my $outfile_name = "exonerate_".${$accession_array}[0].".".$$.".fasta";
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
@@ -1036,7 +1169,7 @@ sub output_db_file {
 
   my $output_dir = $self->param('query_seq_dir');
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "exonerate_db_".${$accession_array}[0].".fasta";
+  my $outfile_name = "exonerate_db_".${$accession_array}[0].".".$$.".fasta";
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $header = ">".$slice->name();
@@ -1060,13 +1193,145 @@ sub get_biotype {
 
 sub files_to_delete {
   my ($self,$val) = @_;
+
+  unless($self->param('_files_to_delete')) {
+    $self->param('_files_to_delete',[]);
+  }
+
   if($val) {
-    $self->param('_files_to_delete',$val);
+    push(@{$self->param('_files_to_delete')}, $val);
   }
 
   return($self->param('_files_to_delete'));
 }
 
 
+sub peptide_seq {
+  my ($self, $value) = @_;
+  if($value){
+    $self->{_peptide_seq} = $value;
+  }
+  return $self->{_peptide_seq};
+}
+
+
+sub calculate_coverage_and_pid {
+  my ($self, $value) = @_;
+  if($value){
+    $self->{_calculate_coverage_and_pid} = $value;
+  }
+  return $self->{_calculate_coverage_and_pid};
+}
+
+
+sub realign_translation {
+  my ($self,$transcript) = @_;
+
+  my $query_seq = $self->peptide_seq;
+  my $translation = $transcript->translate->seq();
+
+  my $align_input_file = "/tmp/exonerate_align_".$$.".fa";
+  my $align_output_file = "/tmp/exonerate_align_".$$.".aln";
+
+  open(INPUT,">".$align_input_file);
+  say INPUT ">query";
+  say INPUT $query_seq;
+  say INPUT ">target";
+  say INPUT $translation;
+  close INPUT;
+
+  my $align_program_path = 'muscle';
+
+  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+  my $result = system($cmd);
+
+  if($result) {
+    throw("Got a non-zero exit code from alignment. Commandline used:\n".$cmd);
+  }
+
+  my $file = "";
+  open(ALIGN,$align_output_file);
+  while(<ALIGN>) {
+    $file .= $_;
+  }
+  close ALIGN;
+
+  unless($file =~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
+    throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
+  }
+
+  my $aligned_query_seq = $1;
+  my $aligned_target_seq = $3;
+
+  $aligned_query_seq =~ s/\n//g;
+  $aligned_target_seq =~ s/\n//g;
+
+  say "Aligned query:\n".$aligned_query_seq;
+  say "Aligned target:\n".$aligned_target_seq;
+
+  `rm $align_input_file`;
+  `rm $align_output_file`;
+
+  # Work out coverage
+  my $coverage;
+  my $temp = $aligned_target_seq;
+  my $target_gap_count = $temp =~ s/\-//g;
+  my $ungapped_query_seq = $aligned_query_seq;
+  $ungapped_query_seq  =~ s/\-//g;
+
+  if(length($ungapped_query_seq) == 0) {
+    $coverage = 0;
+  } else {
+    $coverage = 100 - (($target_gap_count/length($ungapped_query_seq)) * 100);
+  }
+
+  # Work out percent identity
+  my $match_count = 0;
+  my $aligned_positions = 0;
+  for(my $j=0; $j<length($aligned_query_seq); $j++) {
+    my $char_query = substr($aligned_query_seq,$j,1);
+    my $char_target = substr($aligned_target_seq,$j,1);
+    if($char_query eq '-' || $char_target  eq '-') {
+      next;
+    }
+    if($char_query eq $char_target) {
+      $match_count++;
+    }
+    $aligned_positions++;
+  }
+
+  unless($aligned_positions) {
+    throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
+  }
+
+  my $percent_id = ($match_count / $aligned_positions) * 100;
+
+  # Get all exons and transcript supporting features
+  my $transcript_supporting_features = $transcript->get_all_supporting_features();
+  my $exons = $transcript->get_all_Exons();
+
+  # Now clean these out
+  $transcript->flush_Exons();
+  $transcript->flush_supporting_features();
+
+  # Loop through the TSFs and add the coverage and pid, then add back into transcript
+  foreach my $transcript_supporting_feature (@{$transcript_supporting_features}) {
+    $transcript_supporting_feature->hcoverage($coverage);
+    $transcript_supporting_feature->percent_id($percent_id);
+    $transcript->add_supporting_features($transcript_supporting_feature);
+  }
+
+  # Loop through exons, get supporting features for each, flush existing SF, add coverage and pid, add back to exon, add exon to transcript
+  foreach my $exon (@{$exons}) {
+    my $exon_supporting_features = $exon->get_all_supporting_features();
+    $exon->flush_supporting_features();
+    foreach my $exon_supporting_feature (@{$exon_supporting_features}) {
+      $exon_supporting_feature->hcoverage($coverage);
+      $exon_supporting_feature->percent_id($percent_id);
+      $exon->add_supporting_features($exon_supporting_feature);
+    }
+    $transcript->add_Exon($exon);
+  }
+}
 
 1;
