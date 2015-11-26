@@ -44,8 +44,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes;
 use warnings ;
 use strict;
 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::DB::Sam;
+use Bio::EnsEMBL::Analysis::Runnable::Bam2Genes;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -61,11 +61,11 @@ Args         :   none
 sub fetch_input {
     my ($self) = @_;
 
-    my $reference_db = $self->get_database_by_name('reference_db');
+    my $reference_db = $self->get_database_by_name('dna_db');
     my $slice_adaptor = $reference_db->get_SliceAdaptor;
 
     my $id = $self->input_id;
-    $self->param('slice', $self->fetch_sequence($id));
+    $self->param('slice', $self->fetch_sequence($id, $reference_db));
     my $sam = Bio::DB::Sam->new(
             -bam => $self->param('alignment_bam_file'),
             -autoindex => 1,
@@ -76,6 +76,7 @@ sub fetch_input {
     $self->runnable(Bio::EnsEMBL::Analysis::Runnable::Bam2Genes->new(
                 -analysis => $self->create_analysis,
                 -query   => $self->param('slice'),
+                -bamfile => $sam,
                 -min_length => $self->param('min_length'),
                 -min_exons  =>  $self->param('min_exons'),
                 -paired => $self->param('paired'),
@@ -89,7 +90,7 @@ sub fetch_input {
 sub write_output{
     my ($self) = @_;
 
-    my $outdb = $self->get_dbadaptor($self->param('output_db'));
+    my $outdb = $self->get_database_by_name('output_db');
     my $gene_adaptor = $outdb->get_GeneAdaptor;
 
     my $fails = 0;
@@ -100,7 +101,7 @@ sub write_output{
             $gene_adaptor->store($gene);
         };
         if ($@){
-            warning("Unable to store gene!!\n$@");
+            $self->warning("Unable to store gene!!\n$@");
             print STDERR $gene->start ." " . $gene->end ."\n";
             $fails++;
         }
@@ -109,6 +110,5 @@ sub write_output{
     $self->throw("Not all genes could be written successfully ($fails fails out of $total)") if ($fails);
     print STDERR "$total genes written after filtering\n";
 }
-
 
 1;

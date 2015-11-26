@@ -66,6 +66,7 @@ sub new {
     my $self = $class->SUPER::new(@args);
     my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $pairing_regex) =
         rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN PAIRING_REGEX)],@args);
+    $self->bam($bamfile);
     $self->min_exons($min_exons);
     $self->min_length($min_length);
     $self->paired($paired);
@@ -93,7 +94,7 @@ sub run {
             # make the dna align feature
             my $padded_exons = $self->pad_exons($transcript);
             if ($padded_exons) {
-                my $gene = $self->make_gene($padded_exons)
+                my $gene = $self->make_gene($padded_exons);
                 my $tran = $gene->get_all_Transcripts->[0];
                 print "FILTERING " . $tran->start ." " , $tran->end ." ";
                 # Filter models before writing them
@@ -261,9 +262,8 @@ sub process_exon_clusters {
 sub exon_cluster {
     my ($self) = @_;
     print STDERR "CLUSTER EXON\n";
-    my $slice = $self->chr_slice;
-    $self->input_id =~ /^\w+:[^:]*:([^:]+):(\d+):(\d+)/;
-    my $region = $1.':'.$2.'-'.$3;
+    my $slice = $self->query;
+    my $region = $slice->seq_region_name.':'.$slice->start.'-'.$slice->end;
     my $bam = $self->bam;
     my %exon_clusters;
     my @exon_clusters;
@@ -359,12 +359,12 @@ sub pad_exons {
              $exon->analysis,
              undef,
              undef,
-             $self->chr_slice,
+             $self->query,
             );
         # dont let it fall of the slice because of padding
         $padded_exon->start(1) if $padded_exon->start <= 0;
-        $padded_exon->end($self->chr_slice->length - 1)
-            if $padded_exon->end >= $self->chr_slice->length;
+        $padded_exon->end($self->query->length - 1)
+            if $padded_exon->end >= $self->query->length;
 
         my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature
             (-slice    => $exon->slice,
@@ -412,7 +412,8 @@ sub make_gene {
     my @exons = sort { $b->start <=>  $a->start } @$exon_ref;
     my $tran =  new Bio::EnsEMBL::Transcript(-EXONS => \@exons);
     $tran->analysis($self->analysis);
-    return @{convert_to_genes(($tran),$self->analysis)};
+    my ($gene) = @{convert_to_genes(($tran),$self->analysis)};
+    return $gene;
 }
 
 ###########################################
@@ -424,16 +425,6 @@ sub read_count {
         $self->{'_read_count'} = $value;
     }
     return $self->{'_read_count'};
-}
-
-sub bam {
-    my ($self, $val) = @_;
-
-    if (defined $val) {
-        $self->{_bam} = $val;
-    }
-
-    return $self->{_bam};
 }
 
 sub cluster_data {
@@ -500,6 +491,15 @@ sub pairing_regex {
         $self->{'_pairing_regex'} = $value;
     }
     return $self->{'_pairing_regex'};
+}
+
+sub bam {
+    my ($self, $value) = @_;
+    if (defined $value ) {
+        $self->throw(ref($value).' is not a Bio::DB::Sam') unless (ref($value) eq 'Bio::DB::Sam');
+        $self->{'_bam'} = $value;
+    }
+    return $self->{'_bam'};
 }
 
 1;
