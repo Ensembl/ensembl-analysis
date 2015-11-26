@@ -226,7 +226,7 @@ sub run {
 
   if ($self->query_seqs) {
     # Write query sequences to file if necessary
-    my $query_file = $self->workdir . "/exonerate_q.$$";
+    my $query_file = $self->create_filename('exonerate_q', 'fa');
     my $seqout = 
       Bio::SeqIO->new(
         '-format' => 'fasta',
@@ -244,7 +244,7 @@ sub run {
 
   if ($self->target_seqs) {
     # Write query sequences to file if necessary
-    my $target_file = $self->workdir . "/exonerate_t.$$";
+    my $target_file = $self->create_filename('exonerate_t', 'fa');
     my $seqout = 
       Bio::SeqIO->new(
         '-format' => 'fasta',

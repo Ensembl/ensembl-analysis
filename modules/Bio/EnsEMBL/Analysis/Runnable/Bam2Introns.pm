@@ -56,7 +56,6 @@ use strict;
 use Bio::SeqFeature::Lite;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::DB::Sam;
@@ -71,21 +70,21 @@ sub new {
   my ($percent_id, $coverage, $missmatch) = rearrange( [qw(PERCENT_ID COVERAGE MISSMATCH)],@args );
   $self->PERCENT_ID($percent_id);
   $self->COVERAGE($coverage);
-  $self->missmatch($missmatch);
+  $self->MISSMATCH($missmatch);
   return $self;
 }
 
 sub run  {
   my ( $self) = @_;
   # set up the output files
-  my $query_seq = $self->create_filename("B2I_reads","fa");
-  my $genomic_seq = $self->create_filename("B2I_transcript","fa");
-  $self->files_to_delete($query_seq);
-  $self->files_to_delete($genomic_seq);
-  $self->query_file($query_seq);
-  $self->target_file($genomic_seq);
-  $self->write_seq_file($self->query, $genomic_seq);
-  $self->write_seq_file($self->query_seqs, $query_seq);
+#  my $query_seq = $self->create_filename("B2I_reads","fa");
+#  my $genomic_seq = $self->create_filename("B2I_transcript","fa");
+#  $self->files_to_delete($query_seq);
+#  $self->files_to_delete($genomic_seq);
+#  $self->query_file($query_seq);
+#  $self->target_file($genomic_seq);
+#  $self->write_seq_file($self->query, $genomic_seq);
+#  $self->write_seq_file($self->query_seqs, $query_seq);
   # now to run the runnable
   $self->SUPER::run();  # attach the read seq to the output features
   $self->process_features;
@@ -101,11 +100,11 @@ sub process_features {
     next unless $feat->hcoverage >= $self->COVERAGE;
     next unless $feat->{"_intron"};
     # check missmatches
-    if ( $self->missmatch ) {
+    if ( $self->MISSMATCH ) {
       my $aligned_length = abs($feat->hend - $feat->hstart) +1;
       my $matches = $aligned_length *  $feat->percent_id / 100;
       my $missmatches = ( $aligned_length - $matches) / $aligned_length * 100;
-      next if ($missmatches > $self->missmatch);
+      next if ($missmatches > $self->MISSMATCH);
     }
     push @new_features, $feat;
   }
@@ -127,35 +126,6 @@ sub MISSMATCH {
 
   if (exists($self->{'_CONFIG_MISSMATCH'})) {
     return $self->{'_CONFIG_MISSMATCH'};
-  } else {
-    return undef;
-  }
-}
-
-
-sub OUT_SAM_DIR {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_OUT_SAM_DIR'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_OUT_SAM_DIR'})) {
-    return $self->{'_CONFIG_OUT_SAM_DIR'};
-  } else {
-    return undef;
-  }
-}
-
-sub BAM_FILE {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_BAM_FILE'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_BAM_FILE'})) {
-    return $self->{'_CONFIG_BAM_FILE'};
   } else {
     return undef;
   }
@@ -184,91 +154,6 @@ sub COVERAGE {
 
   if (exists($self->{'_CONFIG_COVERAGE'})) {
     return $self->{'_CONFIG_COVERAGE'};
-  } else {
-    return undef;
-  }
-}
-
-sub MASK {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_MASK'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_MASK'})) {
-    return $self->{'_CONFIG_MASK'};
-  } else {
-    return undef;
-  }
-}
-
-
-sub MAX_TRANSCRIPT {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_MAX_TRANSCRIPT'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_MAX_TRANSCRIPT'})) {
-    return $self->{'_CONFIG_MAX_TRANSCRIPT'};
-  } else {
-    return undef;
-  }
-}
-
-sub start {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_start'} = $value;
-  }
-
-  if (exists($self->{'_start'})) {
-    return $self->{'_start'};
-  } else {
-    return undef;
-  }
-}
-
-sub start_exon {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_start_exon'} = $value;
-  }
-
-  if (exists($self->{'_start_exon'})) {
-    return $self->{'_start_exon'};
-  } else {
-    return 0;
-  }
-}
-
-sub offset {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_offset'} = $value;
-  }
-
-  if (exists($self->{'_offset'})) {
-    return $self->{'_offset'};
-  } else {
-    return 0;
-  }
-}
-
-sub BATCH_SIZE {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_CONFIG_BATCH_SIZE'} = $value;
-  }
-
-  if (exists($self->{'_CONFIG_BATCH_SIZE'})) {
-    return $self->{'_CONFIG_BATCH_SIZE'};
   } else {
     return undef;
   }

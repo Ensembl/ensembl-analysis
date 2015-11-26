@@ -52,6 +52,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my ($self) = @_;
+
   my $program = $self->param('samtools');
   $self->throw("Samtools program not defined in analysis \n") unless (defined $program);
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Sam2Bam->new
@@ -59,10 +60,9 @@ sub fetch_input {
      -analysis => $self->create_analysis,
      -header   => $self->param('headerfile'),
      -program  => $program,
-     -regex    => $self->param('regex'),
-     -samdir   => $self->param('sam_dir'),
-     -bamfile  => $self->param('bamfile'),
-     -genome   => $self->param('genomefile'),
+     -samfiles => $self->param('filename'),
+     -bamfile  => $self->param('wide_intron_bam_file'),
+     -genome   => $self->param('wide_genome_file'),
     );
   $self->runnable($runnable);
 }

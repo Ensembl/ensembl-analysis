@@ -55,9 +55,11 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 
 use warnings ;
 use strict;
+
+use Bio::EnsEMBL::DnaDnaAlignFeature;
+use Bio::EnsEMBL::FeaturePair;
+use Bio::Seq;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
-use Bio::EnsEMBL::Pipeline::Utils::InputIDFactory;
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::DB::Sam;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -72,9 +74,11 @@ sub fetch_input {
   my ($self) = @_;
   # do all the normal stuff
   # then get all the transcripts and exons
-  my $gene_db = $self->get_database_by_name('rough_output_db');
+  my $gene_db = $self->get_database_by_name('input_db');
+  my $dna_db = $self->get_database_by_name('dna_db');
+  $self->hrdb_set_con($dna_db, 'dna_db');
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
-  my $slice_adaptor =  $gene_db->get_SliceAdaptor;
+  my $slice_adaptor = $dna_db->get_SliceAdaptor;
   my $counters;
   $counters->{'start'} = 0;
   $counters->{'offset'} = 0;
@@ -95,6 +99,7 @@ sub fetch_input {
   # is calculated as the Exonerate word length - number of matches you
   # might expect by chance ie 1 in 4
   my $missmatch = $self->param('word_length') - int($self->param('word_length') / 4);
+  $self->param('min_missmatch', $missmatch);
   print "Ignoring reads with < $missmatch mismatches\n";
   my @reads;
   my $bam = Bio::DB::Bam->open($self->param('bam_file'));
@@ -110,6 +115,7 @@ sub fetch_input {
   my @iids;
   $counters->{'stop_loop'} = 0;
 
+  $self->param('seq_hash', {});
   for ( my $i = $counters->{'start_exon'} ; $i <= $#exons ; $i++ ){
     my $exon = $exons[$i];
     my $exon_start = $exon->start;
@@ -117,7 +123,7 @@ sub fetch_input {
     $counters->{'last_start'} = 0;
     my %split_points;
     $exon_start = $counters->{'start'} if ($counters->{'start'} && $counters->{'start_exon'} == $i);
-    my @callback_data = ($self, $i, $exon_start, $rough->stable_id, \@reads, \@iids $counters, $seq_hash);
+    my @callback_data = ($self, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
     $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
   }
   if (  scalar(@reads) == 0 ) {
@@ -125,6 +131,7 @@ sub fetch_input {
   }
   else {
   if ( scalar(@iids) > 0  && !$counters->{'start'} ) {
+    # We want the original input_id job to finish before submitting the new input ids otherwise we may have problems
     print 'Making ',  scalar(@iids), ' New input ids from ', $counters->{'count'}, " reads\n";
     $self->param('iids', \@iids);
   }
@@ -161,15 +168,10 @@ sub fetch_input {
   my $program = $self->param('program_file');
   $program = "/software/ensembl/genebuild/bin/exonerate64-0.9.0" unless $program;
 
-  my $options =  '--showsugar false --showvulgar false --showalignment false --ryo "RESULT: %S %pi %ql %tl %g %V\n" '.
-                 '--model est2genome --forwardcoordinates false '.
-                 '--softmasktarget '.$self->param('mask').' --exhaustive false --percent 80 '.
-                 '--dnahspthreshold 70 --minintron 20 --dnawordlen '.$self->param('word_length').' -i -12 --bestn 1';
-  $options .= ' --saturatethreshold '.$self->param('saturate_threshold') if $self->param('saturate_threshold') ;
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
      -analysis     => $self->create_analysis,
      -program      => $program,
-     -basic_options => $options,
+     -basic_options => $self->get_aligner_options,
      -target_seqs => [$seqio],
      -query_seqs => \@reads,
      -percent_id   => $self->param('percent_id'),
@@ -180,12 +182,25 @@ sub fetch_input {
   }
 }
 
+sub get_aligner_options {
+    my $self = shift;
+
+    my $options =  '--showsugar false --showvulgar false --showalignment false --ryo "RESULT: %S %pi %ql %tl %g %V\n" '.
+                '--model est2genome --forwardcoordinates false '.
+                '--softmasktarget '.($self->param('mask') ? 'true' : 'false').' --exhaustive false --percent 80 '.
+                '--dnahspthreshold 70 --minintron 20 --dnawordlen '.$self->param('word_length').' -i -12 --bestn 1';
+    $options .= ' --saturatethreshold '.$self->param('saturate_threshold') if ($self->param('saturate_threshold'));
+    return $options;
+}
+
 sub run {
   my ($self) = @_;
   $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
   my ($runnable) = @{$self->runnable};
   $runnable->run;
   my $features = $runnable->output;
+# It is not in the Runnable because it needs to do DB calls to get the sequence
+# Might be worth to get the sequence in fetch_input then do some Perl substr
   my $genomic_features = $self->process_features($features);
   $self->output($genomic_features);
 }
@@ -204,9 +219,9 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  my @output = @{$self->output};
-  print "Got " .  scalar(@output) ." genomic features \n";
-  return unless (scalar(@output));
+  my $output = $self->output;
+  print "Got " .  scalar(@$output) ." genomic features \n";
+  return unless (scalar(@$output));
   # write to file
   my $iid = $self->input_id;
   # remove any batching info at the end
@@ -215,11 +230,11 @@ sub write_output {
   }
 
   my $path;
+  my $filename;
   # figure out a directory structure based on the stable ids
   if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
     # make the directory structure
-    $path = $self->param('out_sam_dir'). '/' . "$1";
-    print "PATH $path\n";
+    $path = $self->param('wide_output_sam_dir'). '/' . "$1";
     mkdir($path) unless -d ($path);
     $path = $path . '/' . "$2";
     mkdir($path) unless -d ($path);
@@ -227,15 +242,22 @@ sub write_output {
     mkdir($path) unless -d ($path);
     $path = $path . '/' . "$4";
     mkdir($path) unless -d ($path);
+    $filename = $path.'/'.$self->input_id.'.sam';
+  }
+  elsif ($self->param_is_defined('iid')) {
+    $self->param->('iid') =~ /(([^\/]+)_\d+\.fa)$/;
+    $path = $self->param('wide_output_sam_dir').'/'.$2;
+    mkdir($path) unless -d ($path);
+    $filename = $path.'/'.$1.'.sam';
   }
   else {
     $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
   }
-  open ( SAM ,">".$path."/" . $self->input_id . ".sam" ) or
-    $self->throw("Cannot open file for writing " .$path."/" . $self->input_id . ". sam\n");
+  open ( SAM ,">$filename" ) or
+    $self->throw("Cannot open file for writing $filename\n");
   eval {
       my $seq_hash = $self->param('seq_hash');
-    foreach my $feature ( @output ) {
+    foreach my $feature ( @$output ) {
       my $line = $self->convert_to_sam($feature, $seq_hash);
       print SAM $line if $line;
     }
@@ -245,59 +267,10 @@ sub write_output {
   }; if ( $@ ) {
     print " What happened? \n$@\n";
   }
-  # verify file wrote correctly
-  open ( CHECK , $path."/" . $self->input_id . ".sam" ) or
-    $self->throw("Cannot open file for checking " .$path."/" . $self->input_id . ". sam\n");
-  my $line;
-  my $line_count;
-  while (<CHECK>) {
-    # 1st file copy the header all the others just copy the data
-    chomp;
-    $line = $_;
-    $line_count++;
+  if ($self->param_is_defined('iids')) {
+      $self->dataflow_output_id($self->param('iids'), 2);
   }
-  return if ( $line eq '@EOF' or $line_count == 0 );
-  # file must have been corrupted try and write it again but just once otherwise just fail
-  system("rm  " . $path."/" . $self->input_id . ".sam" );
-  print "Failed to verify file - deleting output and writing again\n";
-  $self->write_output(1);
-  my $iids =  $runnable->iids;
-  if ( $iids ) {
-    # we have to make some new iids as the number of reasds is > batch size
-    my $analysis = $self->analysis;
-    my  $hash = $self->database_hash;
-    # need to delete this hash ref in order
-    # to call the pipeline version
-    $hash->{REFERENCE_DB} = undef;
-    my $pipelinea = $self->get_dbadaptor('REFERENCE_DB','pipeline');
-    my $pipeline_analysis = $pipelinea->get_AnalysisAdaptor->fetch_by_logic_name
-      ($self->analysis->logic_name);
-    my $ra = $pipelinea->get_RuleAdaptor;
-    my $rule = $ra->fetch_by_goal($pipeline_analysis);
-    my $sic = $pipelinea->get_StateInfoContainer;
-    # check the ids have not already been stored
-    my $check ;
-    foreach my $id ( @$iids ) {
-      if ( my $analysis = $sic->fetch_analysis_by_input_id($id) ) {
-	$check++ if  scalar(@$analysis) > 0;
-      }
-    }
-    unless ( $check) {
-      foreach my $condition ( @{$rule->list_conditions} ) {
-        # want to store the input id
-        my $inputIDFactory = new Bio::EnsEMBL::Pipeline::Utils::InputIDFactory
-	  (
-	   -db => $pipelinea,
-	   -file => 1,
-	   -logic_name => $condition,
-	  );
-        $inputIDFactory->input_ids(\@$iids);
-        $inputIDFactory->store_input_ids;
-      }
-    } else {
-      print STDERR "Already stored these input ids\n";
-    }
-  }
+  $self->dataflow_output_id([{filename => $filename}], 1);
 }
 
 
@@ -421,79 +394,83 @@ sub check_cigar_length{
 =cut
 
 sub process_features {
-  my ( $self, $flist ) = @_;
+    my ( $self, $flist ) = @_;
 
-  # first do all the standard processing, adding a slice and analysis etc.
-  # unless we are projecting in which case we dont really nead a slice
+# first do all the standard processing, adding a slice and analysis etc.
+# unless we are projecting in which case we dont really nead a slice
 
-  my $slice_adaptor = $self->db->get_SliceAdaptor;
-  my @dafs;
-  my $count = 0;
-FEATURE:  foreach my $f (@$flist) {
-    $count++;
-    my $trans = $self->rough;
-    my @mapper_objs;
-    my @features;
-    my $start = 1;
-    my $end = $f->length;
-    my $out_slice = $slice_adaptor->fetch_by_name($trans->slice->name);
-    # get as ungapped features
-    foreach my $ugf ( $f->ungapped_features ) {
-      # Project onto the genome unless it was run with fullseq
-      unless ($self->param('fullseq') ) {
-	foreach my $obj ($trans->cdna2genomic($ugf->start, $ugf->end)){
-	  if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
-	    # make into feature pairs?
-	    my $qstrand = $f->strand  * $trans->strand;
-	    my $hstrand = $f->hstrand * $trans->strand;
-	    my $fp;
-	    $fp = Bio::EnsEMBL::FeaturePair->new
-	      (-start    => $obj->start,
-	       -end      => $obj->end,
-	       -strand   => $qstrand,
-	       -slice    => $trans->slice,
-	       -hstart   => 1,
-	       -hend     => $obj->length,
-	       -hstrand  => $hstrand,
-	       -percent_id => $f->percent_id,
-	       -score    => $f->score,
-	       -hseqname => $f->hseqname,
-	       -hcoverage => $f->hcoverage,
-	       -p_value   => $f->p_value,
-	      );
-	    push @features, $fp->transfer($out_slice);
-	  }
-	}
-      } else {
-	$ugf->hstrand($f->hstrand * $trans->strand);
+    my $slice_adaptor = $self->hrdb_get_con('dna_db')->get_SliceAdaptor;
+    my @dafs;
+    my $count = 0;
+    foreach my $f (@$flist) {
+        $count++;
+        my $trans = $self->rough;
+        my @mapper_objs;
+        my @features;
+        my $start = 1;
+        my $end = $f->length;
+        my $out_slice = $slice_adaptor->fetch_by_name($trans->slice->name);
+# get as ungapped features
+        foreach my $ugf ( $f->ungapped_features ) {
+            if ($self->param('fullseq') ) {
+                $ugf->hstrand($f->hstrand * $trans->strand);
 #	$ugf->strand($f->strand * $trans->strand);
-	$ugf->slice($self->fullslice);
-	push @features,$ugf->transfer($out_slice);
-      }
+                $ugf->slice($trans->slice);
+                push @features,$ugf->transfer($out_slice);
+            }
+            else {
+# Project onto the genome if it was not run with fullseq
+                foreach my $obj ($trans->cdna2genomic($ugf->start, $ugf->end)){
+                    if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
+# make into feature pairs?
+                        my $qstrand = $f->strand  * $trans->strand;
+                        my $hstrand = $f->hstrand * $trans->strand;
+                        my $fp;
+                        $fp = Bio::EnsEMBL::FeaturePair->new
+                            (-start    => $obj->start,
+                             -end      => $obj->end,
+                             -strand   => $qstrand,
+                             -slice    => $trans->slice,
+                             -hstart   => 1,
+                             -hend     => $obj->length,
+                             -hstrand  => $hstrand,
+                             -percent_id => $f->percent_id,
+                             -score    => $f->score,
+                             -hseqname => $f->hseqname,
+                             -hcoverage => $f->hcoverage,
+                             -p_value   => $f->p_value,
+                            );
+                        push @features, $fp->transfer($out_slice);
+                    }
+                }
+            }
+        }
+        push(@dafs, @{$self->build_dna_align_features($f, \@features)});
     }
-    @features = sort { $a->start <=> $b->start } @features;
+    return \@dafs;
+}
+
+sub build_dna_align_features {
+    my ($self, $f, $features) = @_;
+
+    my @dafs;
+    my @features = sort { $a->start <=> $b->start } @$features;
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
-    # corect for hstart end bug
+# corect for hstart end bug
     $feat->hstart($f->hstart);
     $feat->hend($f->hend);
     $feat->analysis($self->analysis);
-    # transfer the original sequence of the read
+# transfer the original sequence of the read
     $feat->{"_feature_seq"} = $f->{"_feature_seq"};
-    # dont store the same feature twice because it aligns to a different transcript in the same gene.
-    my $unique_id = $feat->seq_region_name .":" .
-      $feat->start .":" .
-	$feat->end .":" .
-	  $feat->strand .":" .
-	    $feat->hseqname;
+# dont store the same feature twice because it aligns to a different transcript in the same gene.
+    my $unique_id = join(':', $feat->seq_region_name, $feat->start, $feat->end, $feat->strand, $feat->hseqname);
     unless ($self->stored_features($unique_id)){
-      push @dafs,$feat;
-      # keep tabs on it so you don't store it again.
-      $self->stored_features($unique_id,1);
+        push @dafs,$feat;
+# keep tabs on it so you don't store it again.
+        $self->stored_features($unique_id,1);
     }
-  }
-  return \@dafs;
+    return \@dafs;
 }
-
 
 
 ###########################################################
@@ -504,11 +481,11 @@ sub rough {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_rough'} = $value;
+    $self->param('_rough', $value);
   }
 
-  if (exists($self->{'_rough'})) {
-    return $self->{'_rough'};
+  if ($self->param_is_defined('_rough')) {
+    return $self->param('_rough');
   } else {
     return undef;
   }
@@ -523,20 +500,6 @@ sub fullslice {
 
   if (exists($self->{'_fullslice'})) {
     return $self->{'_fullslice'};
-  } else {
-    return undef;
-  }
-}
-
-sub write_attempts {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_writeattempts'} += $value;
-  }
-
-  if (exists($self->{'_writeattempts'})) {
-    return $self->{'_writeattempts'};
   } else {
     return undef;
   }
@@ -564,85 +527,6 @@ sub stored_features {
 # how many reads there are and submits new input_ids
 # of the type STABLEID00000001:2 for the second bacth
 # of 100,000 reads etc.
-
-sub _increase_read_offset {
-    my $self = shift;
-
-    $self->{'_read_offset'}++;
-}
-
-sub _reset_read_offset {
-    my $self = shift;
-
-    $self->{'_read_offset'} = 0;
-}
-
-sub read_offset {
-    my $self = shift;
-
-    return $self->{'_read_offset'};
-}
-
-sub _last_start {
-    my ($self, $value) = @_;
-
-    $self->{'_last_start'} = $value if (defined $value);
-    return $self->{'_last_start'};
-}
-
-sub _increase_read_count {
-    my $self = shift;
-
-    $self->{'_read_count'}++;
-}
-
-sub _reset_read_count {
-    my $self = shift;
-
-    $self->{'_read_count'} = 0;
-}
-
-sub read_count {
-    my $self = shift;
-
-    return $self->{'_read_count'};
-}
-
-sub _increase_count {
-    my $self = shift;
-
-    $self->{'_count'}++;
-}
-
-sub _reset_count {
-    my $self = shift;
-
-    $self->{'_count'} = 0;
-}
-
-sub count {
-    my $self = shift;
-
-    return $self->{'_count'};
-}
-
-sub _reset_batch {
-    my $self = shift;
-
-    $self->{'_batch'} = 0;
-}
-
-sub _increase_batch {
-    my $self = shift;
-
-    $self->{'_batch'}++;
-}
-
-sub batch {
-    my $self = shift;
-
-    return $self->{'_batch'};
-}
 
 sub _process_reads {
     my ($read, $callbackdata) = @_;
@@ -696,7 +580,7 @@ sub _process_reads {
         }
         if ($counters->{'batch_size'}+1 == $counters->{'batch'} ) {
             $counters->{'batch'} = 1;
-            push(@$iids, $stable_id .":$i:" . $read->start .':'.$counters->{'read_offset'});
+            push(@$iids, { iid => $stable_id .":$i:" . $read->start .':'.$counters->{'read_offset'}});
         }
         # otherwise figure out the ids for the rest of the batches
     }

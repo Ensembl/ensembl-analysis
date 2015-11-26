@@ -62,12 +62,10 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($regex,$header, $samdir,$bamfile,$genome) = rearrange([qw(REGEX HEADER SAMDIR BAMFILE GENOME)],@args);
-  $self->throw("You must define a directory with sam files in\n")  unless $samdir ;
-  $self->samdir($samdir);
+  my ($header, $samfiles, $bamfile, $genome) = rearrange([qw(HEADER SAMFILES BAMFILE GENOME)],@args);
+  $self->throw("You must define a directory with sam files in\n")  unless $samfiles ;
+  $self->samfiles($samfiles);
   $self->headerfile($header);
-  $self->throw("You must define a regex\n")  unless $regex;
-  $self->regex($regex);
   $self->throw("You must define an output file\n")  unless $bamfile;
   $self->bamfile($bamfile);
   $self->throw("You must define a genome file\n")  unless $genome;
@@ -86,32 +84,13 @@ sub new {
 sub run {
   my ($self) = @_;
   # get a list of files to use
-  my @files;
-
-  my $dir = $self->samdir;
-  my $regex = $self->regex;
   my $bamfile = $self->bamfile;
   my $program = $self->program;
-  my $find_cmd = 'find';
-  $find_cmd = 'lfs find' if (system('which lfs') ==0 and `df -T $dir | awk '{print $2}'` eq 'lustre');
-  open (my $fh,"$find_cmd $dir |" ) ||
-    $self->throw("Error finding sam files in $dir\n");
-  while (<$fh>){
-    if ( $_ =~ m/($regex)/) {
-     if ( $_ =~ /$bamfile\..+/ ) {
-       print STDERR "Looks like output file is in the input directory I won't merge from this file $bamfile\n";
-       next;
-     }
-      push @files,$_;
-    }
-  }
-  close($fh) || $self->throw("Failed finding sam files in $dir");
-  print "Found " . scalar(@files) ." files \n";
   my $count = 0;
   my @fails;
   # next make all the sam files into one big sam flie
   open (BAM ,">$bamfile.sam" ) or $self->throw("Cannot open sam file for merging $bamfile.sam");
-  foreach my $file ( @files ) {
+  foreach my $file ( @{$self->samfiles} ) {
     my $line;
     open ( SAM ,"$file") or $self->throw("Cannot open file $file\n");
     my $line_count = 0;
@@ -137,6 +116,7 @@ sub run {
     }
     $self->throw();
   }
+  my $fh;
   # now call sam tools to do the conversion.
   # is the genome file indexed?
   # might want to check if it's already indexed first
@@ -238,29 +218,15 @@ sub headerfile {
 }
 
 
-sub samdir {
+sub samfiles {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_samdir'} = $value;
+    $self->{'_samfiles'} = $value;
   }
 
-  if (exists($self->{'_samdir'})) {
-    return $self->{'_samdir'};
-  } else {
-    return undef;
-  }
-}
-
-sub regex {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->{'_regex'} = $value;
-  }
-
-  if (exists($self->{'_regex'})) {
-    return $self->{'_regex'};
+  if (exists($self->{'_samfiles'})) {
+    return $self->{'_samfiles'};
   } else {
     return undef;
   }
