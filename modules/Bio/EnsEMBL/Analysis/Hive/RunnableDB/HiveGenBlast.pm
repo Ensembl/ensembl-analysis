@@ -13,35 +13,16 @@
 # limitations under the License.
 
 
-# Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::GenBlast
-#
-# Copyright (c) 2009 WormBase
-#
+# Ensembl module for Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::GenBlast
-
-=head1 SYNOPSIS
-
-  my $blat = Bio::EnsEMBL::Analysis::RunnableDB::GenBlast->
-  new(
-      -input_id => 'file_name',
-      -db => $db,
-      -analysis => $analysis,
-     );
-  $blat->fetch_input;
-  $blat->run;
-  $blat->write_output;
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast
 
 =head1 DESCRIPTION
 
 This module provides an interface between the ensembl database and
 the Runnable GenBlast which wraps the program GenBlast
-
-This module can fetch appropriate input from the database
-pass it to the runnable then write the results back to the database
-in the dna_align_feature  tables
 
 =head1 CONTACT
 
@@ -198,8 +179,8 @@ sub write_output{
 
   if($self->files_to_delete()) {
     my $files_to_delete = $self->files_to_delete();
-    `rm $files_to_delete`;
-    `rm ${files_to_delete}_*`;
+    `rm -r $files_to_delete/genblast_*`;
+    `rmdir $files_to_delete`;
   }
 
   return 1;
@@ -337,11 +318,10 @@ sub output_query_file {
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name('uniprot_sequences');
 
-  my $output_dir = $self->param('query_seq_dir');
 
   # Note as each accession will occur in only one file, there should be no problem using the first one
   my $outfile_name = "genblast_".${$accession_array}[0].".".$$.".fasta";
-#  my $outfile_name = "genblast_".${$accession_array}[0].".fasta";
+  my $output_dir = $self->param('query_seq_dir')."/genblast_".$$;
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
@@ -369,7 +349,7 @@ sub output_query_file {
   }
   close QUERY_OUT;
 
-  $self->files_to_delete($outfile_path);
+  $self->files_to_delete($output_dir);
   $self->get_biotype($biotypes_hash);
 
   return($outfile_path);
