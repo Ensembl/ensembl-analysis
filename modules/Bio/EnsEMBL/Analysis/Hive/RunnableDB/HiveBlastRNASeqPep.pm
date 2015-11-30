@@ -374,7 +374,7 @@ sub MODEL_DB {
 sub LOGICNAME {
     my ($self) = @_;
 
-    return $self->param('logic_names');
+    return $self->param('logic_name');
 }
 
 

@@ -87,6 +87,9 @@ sub fetch_input {
      -min_mapped => $self->param('min_mapped'),
      -min_paired => $self->param('min_paired'),
     );
+    if ($self->param_is_defined('bam_prefix')) {
+        $runnable->bam_prefix($self->param($self->param('bam_prefix')));
+    }
   $self->runnable($runnable);
 }
 

@@ -58,7 +58,7 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($header, $fastqpair, $samtools, $min_mapped, $min_paired) = rearrange([qw(HEADER FASTQPAIR SAMTOOLS MIN_MAPPED MIN_PAIRED)],@args);
+  my ($header, $fastqpair, $samtools, $min_mapped, $min_paired, $bam_prefix) = rearrange([qw(HEADER FASTQPAIR SAMTOOLS MIN_MAPPED MIN_PAIRED BAM_PREFIX)],@args);
   $self->fastqpair($fastqpair);
   $self->throw("You must define a path to samtools cannot find $samtools\n")  
     unless $samtools && -e $samtools;
@@ -66,6 +66,7 @@ sub new {
   $self->header($header);
   $self->min_mapped($min_mapped);
   $self->min_paired($min_paired);
+  $self->bam_prefix($bam_prefix);
 
   return $self;
 }
@@ -99,6 +100,7 @@ sub run {
   my $total_reads = 0;
   # count how many reads we have in the fasta file to start with
   my $command;
+  my $fh;
   if (-B $fastq) {
     $command = "gunzip -c $fastq | wc -l";
   }
@@ -106,7 +108,7 @@ sub run {
     $command = "wc -l $fastq";
   }
   print STDERR "$command\n";
-  open  ( my $fh,"$command 2>&1 |" ) ||
+  open  ( $fh,"$command 2>&1 |" ) ||
     $self->throw("Error counting reads");
   while (<$fh>){
     chomp;
@@ -126,9 +128,8 @@ sub run {
   }
   my @tmp = split(/\//,$fastq);
   $filename = pop @tmp;
-  print "Filename $filename\n";
-  $outfile = $filename;
-  #($outfile) = $filename =~ /^(.+)\.[^.]+$/;
+  $outfile = $self->bam_prefix || $filename if ($self->bam_prefix);
+  print "Filename $outfile\n";
   if ( $fastqpair ) {
     my @tmp = split(/\//,$fastqpair);
     $pairfilename = pop @tmp;
@@ -147,12 +148,10 @@ sub run {
   }
 
   # run bwa
-  $command = "$program $method $readgroup " . $self->genome .
-    " $outdir/$filename.sai $fastq  \| $samtools  view - -b -S -o $outdir/$outfile.bam ";
-  if ( $fastqpair ) {
-    $command = "$program $method $readgroup " . $self->genome .
-      " $outdir/$filename.sai $outdir/$pairfilename.sai $fastq $fastqpair \| $samtools  view - -b -S -o $outdir/$outfile.bam ";
-  }
+  my $sai_fastq_files = "$outdir/$filename.sai $fastq";
+  $sai_fastq_files = "$outdir/$filename.sai $outdir/$pairfilename.sai $fastq $fastqpair" if ($fastqpair);
+
+  $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools, 'view - -b -S -o', "$outdir/$outfile.bam");
   
   print STDERR "Command: $command\n";
   open  ( $fh,"$command 2>&1 |" ) ||
@@ -178,7 +177,7 @@ sub run {
     }
   close($fh) || $self->throw("Failed sorting bam");
   # index the bam
-  $command = "$samtools  index $sorted_bam.bam";
+  $command = "$samtools index $sorted_bam.bam";
   print STDERR "Index: $command\n";
     open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error indexing bam $@\n");
@@ -189,7 +188,7 @@ sub run {
   close($fh) || $self->throw("Failed indexing bam");
 
  # check the reads with flagstat
-  $command = "$samtools  flagstat $sorted_bam.bam";
+  $command = "$samtools flagstat $sorted_bam.bam";
   print STDERR "Got $total_reads to check\nCheck: $command\n";
     open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error checking alignment $@\n");
@@ -298,6 +297,20 @@ sub min_paired {
 
   if (exists($self->{'_min_paired'})) {
     return $self->{'_min_paired'};
+  } else {
+    return undef;
+  }
+}
+
+sub bam_prefix {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_bam_prefix'} = $value;
+  }
+
+  if (exists($self->{'_bam_prefix'})) {
+    return $self->{'_bam_prefix'};
   } else {
     return undef;
   }
