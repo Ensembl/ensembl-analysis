@@ -16,7 +16,7 @@ limitations under the License.
 
 =cut
 
-package Hive_primate_basic_conf;
+package HiveRNASeq_conf;
 
 use strict;
 use warnings;
@@ -193,9 +193,9 @@ sub default_options {
             -dbname => $self->o('pipe_dbname'),
             -host   => $self->o('pipe_db_server'),
             -port   => $self->o('port'),
-            -user   => $self->o('user_w'),
+            -user   => $self->o('user'),
             -pass   => $self->o('password'),
-            -driver => $self->o('driver'),
+            -driver => $self->o('hive_driver'),
         },
 
         'reference_db' => {
@@ -216,7 +216,7 @@ sub default_options {
                            -dbname => $self->o('blast_output_dbname'),
                            -host   => $self->o('blast_output_db_server'),
                            -port   => $self->o('port'),
-                           -user   => $self->o('user_w'),
+                           -user   => $self->o('user'),
                            -pass   => $self->o('password'),
                          },
 
@@ -224,7 +224,7 @@ sub default_options {
                            -dbname => $self->o('refine_output_dbname'),
                            -host   => $self->o('refine_output_db_server'),
                            -port   => $self->o('port'),
-                           -user   => $self->o('user_w'),
+                           -user   => $self->o('user'),
                            -pass   => $self->o('password'),
                         },
 
