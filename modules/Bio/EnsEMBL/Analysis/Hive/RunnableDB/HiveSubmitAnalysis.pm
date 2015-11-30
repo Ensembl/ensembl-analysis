@@ -21,76 +21,53 @@ use warnings;
 use feature 'say';
 use Data::Dumper;
 
-use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClusterSourceGenes qw(
-fetch_source_genes
-get_all_genes
-get_all_biotypes
-process_clusters
-master_genes_hash
-);
-
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
+use Bio::EnsEMBL::Hive::Utils qw(destringify);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
 use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
 sub fetch_input {
   my $self = shift;
 
-  if($self->param('slice') ||
-     $self->param('slice_to_feature_ids') ||
-     $self->param('feature_region')) {
-     my $dba = $self->hrdb_get_dba($self->param('target_db'));
-     $self->hrdb_set_con($dba,'target_db');
-  }
-
-  return 1;
-}
-
-sub run {
-  my $self = shift;
-
-#  if (!($self->param('slice')) && !($self->param('single')) && !($self->param('file')) &&
-#      !($self->param('translation_id')) && !($self->param('hap_pair')) && !($self->param('chunk')) &&
-#      !($self->param('slice_to_feature_ids')) && !($self->param('split_slice')) && !($self->param('uniprot_accession'))
-#     ) {
-#    $self->throw("Must define input as either contig, slice, file, translation_id ".
-#                 "single, seq_level, top_level, hap_pair, chunk or slice_to_feature_ids");
-#  }
-
-  if($self->param('slice') && $self->param('chunk')) {
-    $self->throw("You have selected both the slice and the chunk file, select one or the other");
-  }
-
-  if($self->param('slice')) {
-    $self->create_slice_ids();
-  } elsif($self->param('chunk')) {
+  if($self->param('iid_type') eq 'chunk') {
     $self->create_chunk_ids();
-  } elsif($self->param('slice_to_feature_ids')) {
-    $self->convert_slice_to_feature_ids();
-  } elsif($self->param('split_slice')) {
+  } elsif($self->param('iid_type') eq 'split_slice') {
+    # Maybe we could use the method in Core: Bio::EnsEMBL::Utils::Slice qw(split_Slices);
     $self->split_slice();
-  } elsif($self->param('uniprot_accession')) {
+  } elsif($self->param('iid_type') eq 'uniprot_accession') {
     $self->uniprot_accession();
-  } elsif($self->param('rechunk_uniprot_accession')) {
+  } elsif($self->param('iid_type') eq 'rechunk_uniprot_accession') {
     $self->rechunk_uniprot_accession();
-  } elsif($self->param('feature_region')) {
-    $self->feature_region();
-  } elsif($self->param('feature_id')) {
-    $self->feature_id();
-  } elsif($self->param('cluster_slice')) {
-    $self->cluster_slice();
   } else {
-    $self->throw('You have not specified one of the recognised operation types');
+      $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
+      my $dba = hrdb_get_dba($self->param('target_db'));
+      if($self->param('iid_type') eq 'slice') {
+        $self->param('slice', 1);
+        $self->create_slice_ids($dba);
+      } elsif($self->param('iid_type') eq 'slice_to_feature_ids') {
+        $self->convert_slice_to_feature_ids($dba);
+      } elsif($self->param('iid_type') eq 'feature_region') {
+        $self->feature_region($dba);
+      } elsif($self->param('iid_type') eq 'cluster_slice') {
+        my $dna_dba = hrdb_get_dba($self->param('dna_db'));
+        $self->cluster_slice($dna_dba);
+      } elsif($self->param('iid_type') eq 'feature_id') {
+        $self->feature_id($dba);
+      } else {
+        $self->throw('You have not specified one of the recognised operation types');
+      }
   }
+  $self->param('column_names', ['iid']);
   return 1;
 }
 
 sub create_slice_ids {
-  my ($self) = @_;
+  my ($self, $dba) = @_;
 
   my $input_id_factory = new Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
      (
-       -db => $self->hrdb_get_con('target_db'),
+       -db => $dba,
        -slice => $self->param('slice'),
        -single => $self->param('single'),
        -file => $self->param('file'),
@@ -100,7 +77,7 @@ sub create_slice_ids {
        -include_non_reference => $self->param('include_non_reference'),
        -dir => $self->param('dir'),
        -regex => $self->param('regex'),
-       -single_name => 'genome', # Don't know why this is set this way
+       -single_name => 'genome', # Don't know why this is set this way => Usually an analysis with only one input id was run on the genome
        -logic_name => $self->param('logic_name'),
        -input_id_type => $self->param('input_id_type'),
        -coord_system => $self->param('coord_system_name'),
@@ -109,10 +86,11 @@ sub create_slice_ids {
        -slice_overlaps => $self->param('slice_overlap'),
        -seq_region_name => $self->param('seq_region_name'),
        -hap_pair => $self->param('hap_pair'),
+       -mt => $self->param_is_defined('mitochondrion') ? $self->param('mitochondrion') : 0,
      );
 
   $input_id_factory->generate_input_ids;
-  $self->output_ids($input_id_factory->input_ids);
+  $self->param('inputlist', $input_id_factory->input_ids);
 }
 
 
@@ -157,7 +135,7 @@ sub create_chunk_ids {
       $chunk_array[$i] = $self->param('chunk_dir_name')."/".$chunk_array[$i];
     }
   }
-  $self->output_ids(\@chunk_array);
+  $self->param('inputlist', \@chunk_array);
 }
 
 
@@ -218,44 +196,8 @@ sub make_chunk_files {
 
 }
 
-
-sub write_output {
-  my $self = shift;
-
-  my $output_ids = $self->output_ids();
-
-  unless(scalar(@{$output_ids})) {
-    $self->warning("No input ids generated for this analysis!");
-  }
-
-  foreach my $output_id (@{$output_ids}) {
-
-    # Skip over mito slices, needs updating/refining
-    if($self->param_is_defined('skip_mito') && ($self->param('skip_mito') == 1 || $self->param('skip_mito') eq 'yes') &&
-       $self->param_is_defined('slice') && ($self->param('slice') == 1 || $self->param('slice') eq 'yes') &&
-       $output_id =~ /^.+\:.+\:MT\:/) {
-       next;
-    }
-
-    # Yet to implement this, will allow for slices that don't have any of the specified features to be skipped
-    if($self->param('check_slice_for_features')) {
-      unless($self->check_slice_for_features()) {
-        next;
-      }
-    }
-
-    my $output_hash = {};
-    $output_hash->{'iid'} = $output_id;
-
-    $self->dataflow_output_id($output_hash,4);
-    $self->dataflow_output_id($output_hash,1);
-  }
-
-  return 1;
-}
-
 sub convert_slice_to_feature_ids {
-  my ($self) = @_;
+  my ($self, $dba) = @_;
 
   unless($self->param('iid')) {
     $self->throw("Failed to provide an input id. Expected to find a slice input id using \$self->param('iid')");
@@ -269,37 +211,46 @@ sub convert_slice_to_feature_ids {
   my $output_id_array = [];
 
   my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$self->hrdb_get_con('target_db'));
-  $self->query($slice);
+  my $slice = $self->fetch_sequence($input_id,$dba);
 
   if($self->param('feature_type') eq 'prediction_transcript') {
-    my $pta = $self->hrdb_get_con('target_db')->get_PredictionTranscriptAdaptor;
-    my $logic_names = $self->param('prediction_transcript_logic_names');
+    if ($self->param_is_defined('create_stable_ids')) {
+        my $sqlquery = 'UPDATE prediction_transcript SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'X", LPAD(prediction_transcript_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+        my $sth = $dba->dbc->prepare($sqlquery);
+        $sth->execute();
+    }
+    my $pta = $dba->get_PredictionTranscriptAdaptor;
+    my $logic_names = $self->param('logic_name');
     if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
       $logic_names = ['genscan'];
     }
     my @pts ;
     foreach my $logic_name (@$logic_names) {
-      my $pt = $pta->fetch_all_by_Slice($self->query, $logic_name);
+      my $pt = $pta->fetch_all_by_Slice($slice, $logic_name);
       foreach my $pt_feature (@{$pt}) {
         push(@{$output_id_array},$pt_feature->dbID());
       }
     }
   } elsif($self->param('feature_type') eq 'gene') {
-    my $ga = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
-    my $logic_names = $self->param('gene_logic_names');
+    if ($self->param_is_defined('create_stable_ids')) {
+        my $sqlquery = 'UPDATE gene SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'G", LPAD(gene_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+        my $sth = $dba->dbc->prepare($sqlquery);
+        $sth->execute();
+    }
+    my $ga = $dba->get_GeneAdaptor;
+    my $logic_names = $self->param('logic_name');
 
     foreach my $logic_name (@$logic_names) {
-      my $genes = $ga->fetch_all_by_Slice($self->query, $logic_name);
+      my $genes = $ga->fetch_all_by_Slice($slice, $logic_name);
       foreach my $gene_feature (@{$genes}) {
-        push(@{$output_id_array},[$gene_feature->dbID()]);
+        push(@{$output_id_array}, ($self->param_is_defined('use_stable_ids') ? $gene_feature->stable_id : $gene_feature->dbID()));
       }
     }
   } else {
     $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: ".$self->param('feature_type'));
   }
 
-  $self->output_ids($output_id_array);
+  $self->param('inputlist', $output_id_array);
 }
 
 sub split_slice {
@@ -346,7 +297,7 @@ sub split_slice {
     }
   }
 
-  $self->output_ids($output_id_array);
+  $self->param('inputlist', $output_id_array);
 }
 
 sub uniprot_accession {
@@ -385,11 +336,11 @@ sub uniprot_accession {
     push(@{$output_id_array},$accession_array);
   }
 
-  $self->output_ids($output_id_array);
+  $self->param('inputlist', $output_id_array);
 }
 
 sub cluster_slice {
-  my ($self) = @_;
+  my ($self, $dba) = @_;
   my $output_id_array = [];
   my $master_genes_hash = {};
 
@@ -405,9 +356,6 @@ sub cluster_slice {
   unless($batch_size) {
     $batch_size = 1;
   }
-
-  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dba,'dna_db');
 
   my $input_id = $self->param('iid');
   my $slice = $self->fetch_sequence($input_id,$dba);
@@ -467,7 +415,7 @@ sub cluster_slice {
 #    push(@{$output_id_array},$cluster_slice_array);
 #  }
 
-  $self->output_ids($output_id_array);
+  $self->param('inputlist', $output_id_array);
 
 }
 
@@ -502,13 +450,13 @@ sub rechunk_uniprot_accession {
     push(@{$output_id_array},$output_accession_array);
   }
 
-  $self->output_ids($output_id_array);
+  $self->param('inputlist', $output_id_array);
 }
 
 
 
 sub feature_region {
-  my ($self) = @_;
+  my ($self, $dba) = @_;
 
   unless($self->param('feature_type')) {
     $self->throw("You're trying to convert a slice to a set of feature ids but haven't provided a feature type. ".
@@ -517,8 +465,8 @@ sub feature_region {
 
   my $output_id_array = [];
   if($self->param('feature_type') eq 'gene') {
-    my $ga = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
-    my $logic_names = $self->param('gene_logic_names');
+    my $ga = $dba->get_GeneAdaptor;
+    my $logic_names = $self->param('logic_name');
     my $padding = $self->param('region_padding');
 
     unless($self->param('region_padding')) {
@@ -527,7 +475,7 @@ sub feature_region {
     }
 
     unless($logic_names) {
-      $self->throw("You didn't pass in an arrayref of logic names for the genes. Pass this in using the 'gene_logic_names' param");
+      $self->throw("You didn't pass in an arrayref of logic names for the genes. Pass this in using the 'logic_name' param");
     }
 
     foreach my $logic_name (@$logic_names) {
@@ -581,14 +529,12 @@ sub feature_region {
     $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: ".$self->param('feature_type'));
   }
 
-  $self->output_ids($output_id_array);
+  $self->param('inputlist', $output_id_array);
 }
 
 
 sub feature_id {
-  my ($self) = @_;
-
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my ($self, $dba) = @_;
 
   my $output_id_array = [];
   unless($self->param('feature_type')) {
@@ -597,7 +543,7 @@ sub feature_id {
   }
 
   my $type = $self->param('feature_type');
-  my $logic_names = $self->param('feature_logic_names');
+  my $logic_names = $self->param('logic_name');
   my $feature_adaptor;
 
   if($type eq 'transcript') {
@@ -615,7 +561,7 @@ sub feature_id {
       }
     }
   } else {
-    $self->warning("No logic names passed in using 'feature_logic_names' param, so will fetch all features");
+    $self->warning("No logic names passed in using 'logic_name' param, so will fetch all features");
     my $features = $feature_adaptor->fetch_all();
     foreach my $feature (@{$features}) {
       my $db_id = $feature->dbID();
@@ -623,10 +569,12 @@ sub feature_id {
     }
   }
 
-  $self->output_ids($output_id_array);
+  $self->param('inputlist', $output_id_array);
 }
 
 
+    # Yet to implement this, will allow for slices that don't have any of the specified features to be skipped
+#TH3 removed this function call when removing the write_output method to use the JobFactory. It's probably better to not create empty input ids
 sub check_slice_for_features {
   my ($self) = @_;
 
@@ -647,18 +595,7 @@ sub input_id_factory {
     $self->param('_input_id_factory',$value);
   }
 
-  return self->param('_input_id_factory');
-}
-
-
-sub output_ids {
- my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->param('_output_ids',$value);
-  }
-
-  return $self->param('_output_ids');
+  return $self->param('_input_id_factory');
 }
 
 1;
