@@ -22,6 +22,7 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
 use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
@@ -165,27 +166,6 @@ sub hrdb_get_con {
 }
 
 
-sub hrdb_get_dba {
-  my ($self,$connection_info) = @_;
-  my $dba;
-
-  if(ref($connection_info)=~ m/HASH/) {
-    eval {
-      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
-    };
-
-    if($@) {
-      throw("Error while setting up database connection:\n".$@);
-    }
-  } else {
-    throw("DB connection info passed in was not a hash:\n".$connection_info);
-  }
-
-  $dba->dbc->disconnect_when_inactive(1);
-  return $dba;
-}
-
-
 sub feature_factory {
   my ($self, $feature_factory) = @_;
   if($feature_factory) {
@@ -297,6 +277,19 @@ sub failing_job_status {
   return $self->param('failing_status');
 }
 
+=head2 create_analysis
+
+ Arg [1]    : Boolean $add_module, if set to 1, it will add the module used by the analysis in the eHive pipeline
+ Arg [2]    : Hashref $extra_params, contains extra parameters like -program_file to use for populating the Bio::EnsEMBL::Analysis object
+ Example    : $self->create_analysis;
+ Description: Create an Bio::EnsEMBL::Analysis object. If your analysis has a logic_name parameter, it will be used. Otherwise
+              it will use the logic_name from Hive. It wil also store the analysis created in $self->analysis
+ Returntype : Bio::EnsEMBL::Analysis
+ Exceptions : None
+
+
+=cut
+
 sub create_analysis {
     my ($self, $add_module, $extra_params) = @_;
 
@@ -307,11 +300,37 @@ sub create_analysis {
     return $self->analysis($analysis);
 }
 
-sub get_database_by_name {
-    my ($self, $name) = @_;
+=head2 get_database_by_name
 
-    return $self->hrdb_get_dba(destringify($self->param($name)));
+ Arg [1]    : String $name, name of a database as it stored in parameters
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna
+ Example    : $self->get_database_by_name('target_db');
+ Description: It creates a object based on the information contained in $connection_info.
+              If the hasref contains -dna_db or if the second argument is populated, it will
+              try to attach the DNA database
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if it cannot connect to the database.
+              Throws if $connection_info is not a hashref
+              Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+
+=cut
+
+sub get_database_by_name {
+    my ($self, $name, $dna_db) = @_;
+
+    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db);
 }
+
+=head2 is_slice_name
+
+ Arg [1]    : String, string to check
+ Example    : $self->is_slice_name($input_id);;
+ Description: Return 1 if the string given is an Ensembl slice name
+ Returntype : Boolean
+ Exceptions : None
+
+
+=cut
 
 sub is_slice_name {
     my ($self, $string) = @_;

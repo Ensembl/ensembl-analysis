@@ -874,8 +874,24 @@ sub send_email {
   close $sendmail_fh;
 }
 
+=head2 hrdb_get_dba
+
+ Arg [1]    : Hashref $connection_info, containing the connection details for the database:
+              -host, -user, -dbname, -port [, -pass, -dna_db,...]
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna
+ Example    : hrdb_get_dba->($self->param('target_db'));
+ Description: It creates a object based on the information contained in $connection_info.
+              If the hasref contains -dna_db or if the second argument is populated, it will
+              try to attach the DNA database
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if it cannot connect to the database.
+              Throws if $connection_info is not a hashref
+              Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+
+=cut
+
 sub hrdb_get_dba {
-  my ($connection_info) = @_;
+  my ($connection_info, $dna_db) = @_;
   my $dba;
 
 # It should be OK to use eq instead of =~
@@ -891,6 +907,12 @@ sub hrdb_get_dba {
     throw("DB connection info passed in was not a hash:\n".$connection_info);
   }
 
+  if (defined $dna_db and $dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
+      $dba->dna_db($dna_db);
+  }
+  else {
+      throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
+  }
   $dba->dbc->disconnect_when_inactive(1);
   return $dba;
 }
