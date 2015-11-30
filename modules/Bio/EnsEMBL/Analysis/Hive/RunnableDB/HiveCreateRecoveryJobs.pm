@@ -27,7 +27,18 @@ sub fetch_input {
     my $self = shift;
 
     my @reads;
-    my $filename = $self->param('wide_output_dir').'/'.$self->param('read_id_tag').'_1.fastq.gz_sorted.bam';
+    my $filename;
+    if ($self->param_is_defined('iid')) {
+        if (-e $self->param('iid')) {
+            $filename = $self->param('iid');
+        }
+        else {
+            $self->throw('Input id '.$self->param('iid').' does not exists or is not a file');
+        }
+    }
+    else {
+        $filename = $self->param('wide_output_dir').'/'.$self->param('read_id_tag').'_sorted.bam';
+    }
     my $command = join(' ', $self->param('wide_samtools'), 'view', $self->param('bam_flags'), $filename, '| ');
     open (BH, $command) || die('Could not open bam file '.$filename);
     my $batch_size = $self->param('batch_size');
@@ -55,7 +66,8 @@ sub fetch_input {
                 );
         push(@reads, $bioseq);
         if (scalar(@reads) == $batch_size) {
-            my $file = $filename.'_'.$file_index.'.fa';
+            my ($name) = $filename =~ /([^\/]+)$/;
+            my $file = $self->param('wide_recovery_dir').'/'.$name.'_'.$file_index.'.fa';
             my $fh = Bio::SeqIO->new(-format => 'fasta', -file => ">$file");
             $file_index++;
             while(my $seq = pop(@reads)) {

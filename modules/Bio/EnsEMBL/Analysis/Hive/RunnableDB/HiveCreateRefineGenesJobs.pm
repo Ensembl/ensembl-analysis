@@ -37,7 +37,7 @@ sub fetch_input {
     }
     push(@output_ids, [$self->param('iid'), [file => $self->param('wide_intron_bam_file'), groupname => [], depth => 0, mixed_bam => 0], $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", '', '']);
     $self->param('inputlist', \@output_ids);
-    $self->param('column_names', ['iid', 'intron_bam_files', 'logic_names', 'introns_logic_name', 'best_score', 'single_exon_model', 'other_isoforms', 'bad_models']);
+    $self->param('column_names', ['iid', 'intron_bam_files', 'logic_name', 'introns_logic_name', 'best_score', 'single_exon_model', 'other_isoforms', 'bad_models']);
 }
 
 1;
