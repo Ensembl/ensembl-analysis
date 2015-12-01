@@ -64,8 +64,8 @@ use Bio::EnsEMBL::Transcript;
 sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
-    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $pairing_regex) =
-        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN PAIRING_REGEX)],@args);
+    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $pairing_regex, $bamfile) =
+        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN PAIRING_REGEX BAMFILE )],@args);
     $self->bam($bamfile);
     $self->min_exons($min_exons);
     $self->min_length($min_length);
