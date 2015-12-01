@@ -40,7 +40,8 @@ sub run {
 
   if (!($self->param('slice')) && !($self->param('single')) && !($self->param('file')) &&
       !($self->param('translation_id')) && !($self->param('hap_pair')) && !($self->param('chunk')) &&
-      !($self->param('slice_to_feature_ids')) && !($self->param('split_slice')) && !($self->param('uniprot_accession'))
+      !($self->param('slice_to_feature_ids')) && !($self->param('split_slice')) && !($self->param('uniprot_accession')) &&
+      !($self->param('cdna_accession'))
      ) {
     $self->throw("Must define input as either contig, slice, file, translation_id ".
                  "single, seq_level, top_level, hap_pair, chunk or slice_to_feature_ids");
@@ -60,6 +61,8 @@ sub run {
     $self->split_slice();
   } elsif($self->param('uniprot_accession')) {
     $self->uniprot_accession();
+  } elsif($self->param('cdna_accession')) {
+    $self->cdna_accession();
   } else {
     $self->throw('You have not specified one of the recognised operation types');
   }
@@ -210,17 +213,17 @@ sub write_output {
   }
 
   foreach my $output_id (@{$output_ids}) {
-    if($self->param_is_defined('skip_mito') && ($self->param('skip_mito') == 1 || $self->param('skip_mito') eq 'yes') &&
-       $self->param_is_defined('slice') && ($self->param('slice') == 1 || $self->param('slice') eq 'yes') &&
-       $output_id =~ /^.+\:.+\:MT\:/) {
-       next;
-    }
+#    if($self->param_is_defined('skip_mito') && ($self->param('skip_mito') == 1 || $self->param('skip_mito') eq 'yes') &&
+#       $self->param_is_defined('slice') && ($self->param('slice') == 1 || $self->param('slice') eq 'yes') &&
+#       $output_id =~ /^.+\:.+\:MT\:/) {
+#       next;
+#    }
 
-    if($self->param('check_slice_for_features')) {
-      unless($self->check_slice_for_features()) {
-        next;
-      }
-    }
+#    if($self->param('check_slice_for_features')) {
+#      unless($self->check_slice_for_features()) {
+#        next;
+#      }
+#    }
     my $output_hash = {};
     $output_hash->{'iid'} = $output_id;
 
@@ -365,6 +368,44 @@ sub uniprot_accession {
   $self->output_ids($output_id_array);
 }
 
+sub cdna_accession {
+  my ($self) = @_;
+
+  my $output_id_array = [];
+
+  unless($self->param('cdna_batch_size')) {
+    $self->throw("You've selected to batch cdna ids but haven't passed in a batch size using 'cdna_batch_size'");
+  }
+
+  unless($self->param('cdna_table_name')) {
+    $self->throw("You've selected to batch cdna ids but haven't passed the name of the cdna table in ".
+                 "the pipeline database using 'cdna_table_name'");
+  }
+
+  my $batch_size = $self->param('cdna_batch_size');
+  my $table_name = $self->param('cdna_table_name');
+
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name($table_name);
+
+  $table_adaptor->column_set();
+  my $accessions = $table_adaptor->fetch_all(undef,undef,undef,'accession');
+  my $accession_array = [];
+  foreach my $accession (@{$accessions}) {
+    my $size = scalar(@{$accession_array});
+    if($size == $batch_size) {
+      push(@{$output_id_array},$accession_array);
+      $accession_array = [];
+    }
+    push(@{$accession_array},$accession);
+  }
+
+  if(scalar(@{$accession_array})) {
+    push(@{$output_id_array},$accession_array);
+  }
+
+  $self->output_ids($output_id_array);
+}
 
 sub check_slice_for_features {
   my ($self) = @_;
