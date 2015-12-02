@@ -263,8 +263,9 @@ sub pipeline_wide_parameters {
 sub pipeline_create_commands {
     my ($self) = @_;
     my $tables;
+    # We need to store the values of the csv file to easily process it. It will be used at different stages
     foreach my $key (@{$self->default_options->{'file_columns'}}) {
-        if ($key eq 'paired' or $key eq 'read_length' or $key eq 'stranded') {
+        if ($key eq 'paired' or $key eq 'read_length' or $key eq 'stranded' or $key eq 'is_13plus') {
             $tables .= $key.' SMALLINT UNSIGNED NOT NULL,'
         }
         elsif ($key eq 'DS') {
@@ -608,7 +609,7 @@ sub pipeline_analyses {
                          logic_name => 'rough_transcripts',
                          output_db    => $self->o('rough_output_db'),
                          dna_db    => $self->o('reference_db'),
-                         alignment_bam_file => '#wide_output_dir#/merged.bam',
+                         alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
                          min_exons  =>   1,
                          max_intron_length => 200000,
@@ -632,7 +633,7 @@ sub pipeline_analyses {
                          logic_name => 'rough_transcripts',
                          output_db    => $self->o('rough_output_db'),
                          dna_db    => $self->o('reference_db'),
-                         alignment_bam_file => '#wide_output_dir#/merged.bam',
+                         alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
                          min_exons  =>   1,
                          max_intron_length => 200000,
