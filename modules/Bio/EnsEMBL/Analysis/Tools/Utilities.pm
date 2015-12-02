@@ -907,12 +907,15 @@ sub hrdb_get_dba {
     throw("DB connection info passed in was not a hash:\n".$connection_info);
   }
 
-  if (defined $dna_db and $dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-      $dba->dna_db($dna_db);
+  if (defined $dna_db) {
+      if ($dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
+          $dba->dna_db($dna_db);
+      }
+      else {
+          throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
+      }
   }
-  else {
-      throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
-  }
+
   $dba->dbc->disconnect_when_inactive(1);
   return $dba;
 }
