@@ -17,7 +17,6 @@
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
-use Carp;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
@@ -300,10 +299,29 @@ sub create_analysis {
     return $self->analysis($analysis);
 }
 
+=head2 hrdb_get_dba
+
+ Arg [1]    : String $name, name of a database as it stored in parameters
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
+ Example    : $self->hrdb_get_dba($self->param('target_db'));
+ Description: It's a wrapper for hrdb_get_dba from Bio::EnsEMBL::Analysis::Tools::Utilities
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if it cannot connect to the database.
+              Throws if $connection_info is not a hashref
+              Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+
+
+=cut
+
+sub  hrdb_get_dba {
+    my ($self, $connection_info, $dna_db) = @_;
+
+    return Bio::EnsEMBL::Analysis::Tools::Utilities::hrdb_get_dba($connection_info, $dna_db);
+}
 =head2 get_database_by_name
 
  Arg [1]    : String $name, name of a database as it stored in parameters
- Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
  Example    : $self->get_database_by_name('target_db');
  Description: It creates a object based on the information contained in $connection_info.
               If the hasref contains -dna_db or if the second argument is populated, it will
