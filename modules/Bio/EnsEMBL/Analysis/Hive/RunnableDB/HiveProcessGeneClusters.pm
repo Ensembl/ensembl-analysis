@@ -19,7 +19,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessGeneClusters;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -50,12 +49,9 @@ sub fetch_input {
 
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   $self->hrdb_set_con($dna_dba,'dna_db');
-  my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
-  $in_dba->dnadb($dna_dba);
-  $self->hrdb_set_con($in_dba,'cluster_db');
-  my $out_dba = $self->hrdb_get_dba($self->param('processed_cluster_db'));
+  my $out_dba = $self->hrdb_get_dba($self->param('cluster_output_db'));
   $out_dba->dnadb($dna_dba);
-  $self->hrdb_set_con($out_dba,'processed_cluster_db');
+  $self->hrdb_set_con($out_dba,'cluster_output_db');
 
   my $input_id = $self->param('iid');
   my $unprocessed_genes = [];
@@ -65,6 +61,9 @@ sub fetch_input {
   # If the the input is a slice, then fetch everything on the slice, but remove any gene that crosses
   # the 3' boundary, as this will be picked up on another slice
   if($input_id_type eq 'slice') {
+    my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
+    $in_dba->dnadb($dna_dba);
+    $self->hrdb_set_con($in_dba,'cluster_db');
     my $slice = $self->fetch_sequence($input_id,$dna_dba);
     $self->query($slice);
     my $gene_adaptor = $in_dba->get_GeneAdaptor();
@@ -74,12 +73,21 @@ sub fetch_input {
 
   # If the input is an array of gene ids then loop through them and fetch them from the input db
   elsif($input_id_type eq 'gene_id') {
+    my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
+    $in_dba->dnadb($dna_dba);
+    $self->hrdb_set_con($in_dba,'cluster_db');
     my $gene_adaptor = $in_dba->get_GeneAdaptor();
 
     for my $db_id (@{$input_id}) {
       my $unprocessed_gene = $gene_adaptor->fetch_by_dbID($db_id);
       push(@{$unprocessed_genes},$unprocessed_gene);
     }
+  }
+
+  # If the input is an array of gene ids then loop through them and fetch them from the input db
+  elsif($input_id_type eq 'cluster') {
+     my $unprocessed_gene = $self->load_cluster($input_id);
+     push(@{$unprocessed_genes},$unprocessed_gene);
   }
 
   $self->unprocessed_genes($unprocessed_genes);
@@ -109,7 +117,7 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  my $adaptor = $self->hrdb_get_con('processed_cluster_db')->get_GeneAdaptor;
+  my $adaptor = $self->hrdb_get_con('cluster_output_db')->get_GeneAdaptor;
   my @output = @{$self->output_genes};
 
   say "Writing genes to output db";
@@ -152,9 +160,9 @@ sub process_rough_genes {
       next;
     }
 
-    say "Inital transcript count for gene (".$unprocessed_gene->dbID."): ".$input_transcript_count;
-    say "Candidate transcript count for gene (".$unprocessed_gene->dbID."): ".$candidate_transcript_count;
-    say "Final transcript count for gene (".$unprocessed_gene->dbID."): ".$final_transcript_count;
+    say "Inital transcript count for gene: ".$input_transcript_count;
+    say "Candidate transcript count for gene: ".$candidate_transcript_count;
+    say "Final transcript count for gene: ".$final_transcript_count;
 
     my $output_gene = Bio::EnsEMBL::Gene->new();
     $output_gene->analysis($self->analysis);
@@ -329,7 +337,7 @@ sub score_transcript_support {
     }
 
     if($keep_transcript) {
-      say "Keeping transcript: ".$transcript->stable_id();
+      say "Keeping transcript";
       push(@{$output_transcripts},$transcript);
     }
   }
@@ -516,6 +524,36 @@ sub process_clusters {
 
 }
 
+sub load_cluster {
+  my ($self,$cluster) = @_;
+
+  my $gene = new Bio::EnsEMBL::Gene();
+  my $dna_dba = $self->hrdb_get_con('dna_db');
+  my $input_dbs = $self->param('input_gene_dbs');
+
+  foreach my $adaptor_name (keys(%{$cluster})) {
+    unless($input_dbs->{$adaptor_name}) {
+      $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash".
+                   "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
+    }
+    my $dba = $self->hrdb_get_dba($input_dbs->{$adaptor_name});
+    unless($dba) {
+      $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash".
+                   "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
+    }
+    $dba->dnadb($dna_dba);
+    $self->hrdb_set_con($dba,$adaptor_name);
+    my $transcript_adaptor = $dba->get_TranscriptAdaptor();
+    my $transcript_id_array = $cluster->{$adaptor_name};
+    foreach my $transcript_id (@{$transcript_id_array}) {
+      my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
+      $gene->add_Transcript($transcript);
+    }
+  }
+
+  say "Created a new gene, transcript count: ".scalar(@{$gene->get_all_Transcripts()});
+  return $gene;
+}
 
 sub remove_3_prime_boundry_genes {
   my ($self,$unfiltered_genes) = @_;
@@ -582,7 +620,10 @@ sub find_best_remaining_transcript {
 
   my $best_transcripts = [];
   my $max_support_score = 0;
-  my $min_allowed_score = 2;
+  my $min_allowed_score = $self->param('min_backup_score');
+  unless(defined($min_allowed_score)) {
+    $min_allowed_score = 10;
+  }
 
   # This will go through all the transcripts and pick the one with the highest level of support
   # I'm not sure how that would work. I want to avoid biasing it towards two exon genes, but
