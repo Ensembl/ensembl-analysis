@@ -78,6 +78,7 @@ package Bio::EnsEMBL::Analysis::Runnable;
 use strict;
 use warnings;
 
+use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Programs;
