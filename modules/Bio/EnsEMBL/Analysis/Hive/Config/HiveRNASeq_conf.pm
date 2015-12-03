@@ -525,7 +525,6 @@ sub pipeline_analyses {
                        },
         -flow_into => {
                         2 => ['rough_transcripts'],
-                        1 => ['create_introns_recovery_sample_jobs'],
                       },
       },
             {
@@ -611,51 +610,6 @@ sub pipeline_analyses {
         -rc_name    => '1GB_rough',
         -flow_into => {
                         2 => ['bam2introns'],
-                      },
-      },
-            {
-        -logic_name => 'create_introns_recovery_sample_jobs',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-        -parameters => {
-            inputquery => join(' ', 'SELECT', $self->o('read_id_tag'), 'FROM', $self->o('summary_csv_table'), 'GROUP BY', $self->o('read_id_tag')),
-            column_names => ['read_id_tag'],
-                       },
-        -meadow_type    => 'LOCAL',
-        -flow_into => {
-            2 => ['create_introns_recovery_jobs'],
-            },
-        },
-            {
-        -logic_name => 'create_introns_recovery_jobs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateRecoveryJobs',
-        -parameters => {
-            bam_flags => '-f 4 -F 8',
-            batch_size => 10000,
-                       },
-        -rc_name    => '5GB',
-        -flow_into => {
-            2 => ['introns_recovery'],
-            },
-        },
-            {
-        -logic_name => 'introns_recovery',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRecoveryIntrons',
-        -parameters => {
-                         program_file => $self->o('splicing_aligner'),
-                         missmatch => 6,
-                         word_length => 10,
-                         saturate_threshold => 10000,
-                         mask => 1,
-                         percent_id => 97,
-                         coverage => 90,
-                         max_transcript => 1000000,
-                         batch_size => 1000,
-                         quality_threshold => 0,
-                         genome_file => $self->o('ensembl_genome_file'),
-                       },
-        -rc_name    => '4GB',
-        -flow_into => {
-                        1 => [':////accu?filename=[]'],
                       },
       },
             {
