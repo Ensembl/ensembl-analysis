@@ -49,9 +49,6 @@ sub fetch_input {
         $self->convert_slice_to_feature_ids($dba);
       } elsif($self->param('iid_type') eq 'feature_region') {
         $self->feature_region($dba);
-      } elsif($self->param('iid_type') eq 'cluster_slice') {
-        my $dna_dba = hrdb_get_dba($self->param('dna_db'));
-        $self->cluster_slice($dna_dba);
       } elsif($self->param('iid_type') eq 'feature_id') {
         $self->feature_id($dba);
       } else {
@@ -211,7 +208,7 @@ sub convert_slice_to_feature_ids {
   my $output_id_array = [];
 
   my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
+  my $slice = $dba->get_SliceAdaptor->fetch_by_name($input_id);
 
   if($self->param('feature_type') eq 'prediction_transcript') {
     if ($self->param_is_defined('create_stable_ids')) {
@@ -338,87 +335,6 @@ sub uniprot_accession {
 
   $self->param('inputlist', $output_id_array);
 }
-
-sub cluster_slice {
-  my ($self, $dba) = @_;
-  my $output_id_array = [];
-  my $master_genes_hash = {};
-
-  unless($self->param('input_gene_dbs')) {
-    $self->throw("You have selected to build cluster slices but have not provided an input gene dbs arrayref using 'input_gene_dbs'");
-  }
-
-
-  my $input_gene_dbs =  $self->param('input_gene_dbs');
-  my $allowed_input_sets = $self->param('allowed_input_sets');
-  my $batch_size = $self->param('batch_size');
-
-  unless($batch_size) {
-    $batch_size = 1;
-  }
-
-  my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
-  $self->query($slice);
-
-  if($input_gene_dbs) {
-    my $input_genes = $self->fetch_source_genes($input_gene_dbs,$allowed_input_sets);
-    $master_genes_hash->{'input_genes'} = $input_genes;
-  }
-
-  $self->master_genes_hash($master_genes_hash);
-
-  my $master_genes_array = $self->get_all_genes();
-
-  my $master_biotypes_hash = $self->get_all_biotypes($master_genes_array);
-  my $master_biotypes_array = [keys(%$master_biotypes_hash)];
-  my $types_hash;
-  $types_hash->{genes} = $master_biotypes_array;
-
-  say "Clustering genes from input_dbs...";
-  my ($clusters, $unclustered) = cluster_Genes($master_genes_array,$types_hash);
-  say "...finished clustering genes from input_dbs";
-  say "Found clustered sets: ".scalar(@{$clusters});
-  say "Found unclustered sets: ".scalar(@{$unclustered});
-
-  my $clusters_array = [@{$clusters},@{$unclustered}];
-
-  my $cluster_slice_array = [];
-  foreach my $cluster (@{$clusters_array}) {
-    my $start = $cluster->start;
-    my $end = $cluster->end;
-    my $strand = $cluster->strand;
-    my $slice_name = $slice->name;
-    my @slice_elements = split(':',$slice_name);
-    unless(scalar(@slice_elements) == 6) {
-      $self->throw("Issue with parsing the slice name. The resulting array had ".scalar(@slice_elements)." elements when 6 were ".
-                   "expected. Offending slice name:\n".$slice_name);
-    }
-
-    $slice_elements[3] = $start;
-    $slice_elements[4] = $end;
-    my $new_slice_name = join(":",@slice_elements);
-    say "Cluster slice created:\n".$new_slice_name."\nCluster strand: ".$strand;
-
-    $new_slice_name .= ":".$strand;
-
-#    my $size = scalar(@{$cluster_slice_array});
-#    if($size == $batch_size) {
-#      push(@{$output_id_array},$cluster_slice_array);
-#      $cluster_slice_array = [];
-#    }
-    push(@{$output_id_array},$new_slice_name);
-#    push(@{$cluster_slice_array},$new_slice_name);
-  }
-
-#  if(scalar(@{$cluster_slice_array})) {
-#    push(@{$output_id_array},$cluster_slice_array);
-#  }
-
-  $self->param('inputlist', $output_id_array);
-
-}
-
 
 sub rechunk_uniprot_accession {
   my ($self) = @_;
