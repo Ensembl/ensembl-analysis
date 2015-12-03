@@ -127,7 +127,8 @@ sub fetch_input {
     $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
   }
   if (  scalar(@reads) == 0 ) {
-    $self->input_is_void(1);
+    $self->input_job->autoflow(0);
+    $self->complete_early('No read with more than '.$missmatch.' missmatches');
   }
   else {
   if ( scalar(@iids) > 0  && !$counters->{'start'} ) {
