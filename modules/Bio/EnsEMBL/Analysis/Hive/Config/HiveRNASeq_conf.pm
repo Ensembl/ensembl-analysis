@@ -40,16 +40,17 @@ sub default_options {
         'pipeline_name'              => '',
 
         'user_r'                     => '',
-        'user_w'                     => '',
+        'user'                     => '',
         'password'                   => '',
         'port'                       => '',
+        species    => '',
 
         'pipe_dbname'                => '',
-        'reference_dbname'           => '',
-        'dna_dbname'                 => '',
-        'blast_output_dbname'     => '',
-        'refine_output_dbname'     => '',
-        'rough_output_dbname'    => '',
+        'reference_dbname'           => $ENV{USER}.'',
+        'dna_dbname'                 => $ENV{USER}.'',
+        'blast_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_blast',
+        'refine_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_refine',
+        'rough_output_dbname'    => $ENV{USER}.'_hive_'.$self->o('species').'_rough',
 
         'pipe_db_server'             => '',
         'reference_db_server'        => '',
@@ -57,53 +58,43 @@ sub default_options {
         'blast_output_db_server'  => '',
         'refine_output_db_server'  => '',
         'rough_output_db_server' => '',
-        'killlist_db_server'         => '',
-        'output_path'                => '',
-        'genome_file'                => '',
+        'genome_file'                => 'genome/genome.fa',
+        'ensembl_genome_file' => '',
 
-        'clone_db_script_path'       => '',
-        'repeat_masking_logic_names' => [],
+        'clone_db_script_path'       => $ENV{ENSCODE}.'/ensembl-analysis/scripts/clone_database.ksh',
+        'create_type'       => 'clone',
+        'repeat_masking_logic_names' => ['dust', 'repeatmask'],
         'rnaseq_summary_file'         => '',
 
 
-# ALL
-        'samtools_path' => '/samtools',
-# BWA
-        'genomefile'    => '/path/to/genome.fa',
-        'short_read_aligner'    => '/path/to/bwa',
-        'input_dir'    => '/path/to/fastq',
-        'merge_dir' => "/path/to/my/merge/dir",
+        'samtools' => '',
+        'short_read_aligner'    => '',
+        'input_dir'    => '',
+         output_dir => '',
+        'merge_dir' => '',
+        'sam_dir' => '',
+        'sequence_dump_script' => $ENV{ENSCODE}.'/ensembl-analysis/scripts/sequence_dump.pl',
         # Use this option to change the delimiter for your summary data
         # file.
-        delimiter => "\t",
-
-        # Path to the directory containing your
-        # Bio::Ensembl::Analysis::Config.
-        analysisconfig_dir => "/path/to/my/Bio/EnsEMBL/Analysis/Config",
-
-        # Path to the directory containing your
-        # Bio::Ensembl::Pipeline::Config.
-        pipelineconfig_dir => "/path/to/my/Bio/EnsEMBL/Pipeline/Config",
-
-        # Path to base directory to merge the BAM files
+        summary_file_delimiter => '\t',
+        summary_csv_table => 'csv_data',
+        assembly_name => '',
 
         # Blast database for comparing the final models to.
-        uniprotdb => '/path/to/my/UniprotDB',
+        uniprotdb => '',
 
         # Index for the blast database.
-        uniprotindex => '/path/to/my/Uniprot/index',
+        uniprotindex => '',
 
         # blast used, it can be either ncbi or wu
         blastp => 'ncbi',
 
-        splicing_aligner => '/path/to/exonerate-0.9.0',
-        # Global read length.
-        read_length => 0,
+        splicing_aligner => '',
 
         # This is used by bwa2bam.  Set it to 1 if all the reads are paired.
         # Setting it to 0 means it will treat all reads as unpaired and so make long rough models.
         # Note that the PAIRED column value needs setting independantly of this parameter.
-        all_paired => 1,
+#        all_paired => 1,
 
         # If your reads are unpaired you may want to run on slices to avoid
         # making overlong rough models.  If you want to do this, specify a
@@ -112,10 +103,11 @@ sub default_options {
 
         # Regular expression to allow FastQ files to be correctly paired,
         # for example: file_1.fastq and file_2.fastq could be paired using
-        # the expression "(\S+)_r(\d)\.(\S+)".  Need to identify all 3 parts
-        # in brackets; the name the read number (1, 2, a, b etc.) and the
+        # the expression "\S+_(\d)\.\S+".  Need to identify the read number
+        # in brackets; the name the read number (1, 2) and the
         # extension.
-        pairing_regex => '(\S+)_r(\d)\.(\S+)',
+        pairing_regex => '\S+_(\d)\.\S+',
+        paired => 1,
 
         # Do you want to make models for the each individual sample as well
         # as for the pooled samples (1/0)?
@@ -124,64 +116,23 @@ sub default_options {
         # What Read group tag would you like to group your samples
         # by? Default = ID
         read_group_tag => 'SM',
+        read_id_tag => 'ID',
 
         use_threads => 3,
 
-        # Configure the pipeline to use Gsnap rather than BWA and Exonerate.
-        use_gsnap => 0,
-
-        # Path to Gsnap binary.
-        gsnap_path => "/path/to/gsnap",
-
         # Please assign some or all columns from the summary file to the
         # some or all of the following categories.  Multiple values can be
-        # separted with commas. only ID, SM and FILE are required.  If you
-        # have paired reads you must include the PAIRED category or BWA will
-        # not be able to pair the reads correctly.
+        # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus
+        # are required. You can use any other tag specified in the SAM specification:
+        # http://samtools.github.io/hts-specs/SAMv1.pdf
 
         ####################################################################
         # This is just an example based on the file snippet shown below.  It
         # will vary depending on how your data looks.
         ####################################################################
 
-        # Unique read group identifier (needs to be unique used as the logic
-        # name for the analysis). *required
-        ID => "1",
+        file_columns => ['DS', 'ID', 'CN', 'PL', 'is_paired', 'filename', 'read_length', 'is_13plus', 'SM'],
 
-        # Sample (use pool name where a pool is being sequenced). *required
-        SM => "3",
-
-        # Library.
-        LB => "2",
-
-        # Description.
-        DS => "4,5,6,7,8",
-
-        # Platform unit (e.g. lane for Illumina or slide for SOLiD); should
-        # be a full, unambiguous identifier.
-        PU => "",
-
-        # Name of sequencing center producing the read.
-        CN => "9",
-
-        # Date the run was produced (ISO 8601 date or date/time).
-        DT => "",
-
-        # Platform/technology used to produce the read.
-        PL => "",
-
-        # Path from INPUT_DIR to the filename of the RNAseq FastQ file,
-        # comma separated values will be replaced with '/'.
-        FILE => "16",
-
-        # Global read length can be overridden if it is different for
-        # different lanes.
-        LENGTH => "",
-
-        # The read pairing, 1 for paired, 0 for unpaired (independent of
-        # ALL_PAIRED parameter above) *required for BWA to pair reads
-        # correctly.
-        PAIRED => "11",
 
 ##########################################################################
 #                                                                        #
@@ -265,7 +216,7 @@ sub pipeline_create_commands {
     my $tables;
     # We need to store the values of the csv file to easily process it. It will be used at different stages
     foreach my $key (@{$self->default_options->{'file_columns'}}) {
-        if ($key eq 'paired' or $key eq 'read_length' or $key eq 'stranded' or $key eq 'is_13plus') {
+        if ($key eq 'paired' or $key eq 'read_length' or $key eq 'is_13plus') {
             $tables .= $key.' SMALLINT UNSIGNED NOT NULL,'
         }
         elsif ($key eq 'DS') {
@@ -590,7 +541,6 @@ sub pipeline_analyses {
                          max_intron_length => 200000,
                          min_single_exon_length => 1000,
                          min_span   =>   1.5,
-                         stranded => $self->o('stranded'),
                          paired => $self->o('paired'),
                          pairing_regex => $self->o('pairing_regex'),
                        },
@@ -615,7 +565,6 @@ sub pipeline_analyses {
                          max_intron_length => 200000,
                          min_single_exon_length => 1000,
                          min_span   =>   1.5,
-                         stranded => $self->o('stranded'),
                          paired => $self->o('paired'),
                          pairing_regex => $self->o('pairing_regex'),
                        },
@@ -639,7 +588,6 @@ sub pipeline_analyses {
                          max_intron_length => 200000,
                          min_single_exon_length => 1000,
                          min_span   =>   1.5,
-                         stranded => $self->o('stranded'),
                          paired => $self->o('paired'),
                          pairing_regex => $self->o('pairing_regex'),
                        },
