@@ -909,7 +909,7 @@ sub hrdb_get_dba {
 
   if (defined $dna_db) {
       if ($dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-          $dba->dna_db($dna_db);
+          $dba->dnadb($dna_db);
       }
       else {
           throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
