@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use feature 'say';
 
-use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
+use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
@@ -46,11 +46,11 @@ sub default_options {
         species    => '',
 
         'pipe_dbname'                => '',
-        'reference_dbname'           => $ENV{USER}.'',
-        'dna_dbname'                 => $ENV{USER}.'',
-        'blast_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_blast',
-        'refine_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_refine',
-        'rough_output_dbname'    => $ENV{USER}.'_hive_'.$self->o('species').'_rough',
+        'reference_dbname'           => $self->o('ENV', 'USER').'',
+        'dna_dbname'                 => $self->o('ENV', 'USER').'',
+        'blast_output_dbname'     => $self->o('ENV', 'USER').'_hive_'.$self->o('species').'_blast',
+        'refine_output_dbname'     => $self->o('ENV', 'USER').'_hive_'.$self->o('species').'_refine',
+        'rough_output_dbname'    => $self->o('ENV', 'USER').'_hive_'.$self->o('species').'_rough',
 
         'pipe_db_server'             => '',
         'reference_db_server'        => '',
@@ -61,7 +61,7 @@ sub default_options {
         'genome_file'                => 'genome/genome.fa',
         'ensembl_genome_file' => '',
 
-        'clone_db_script_path'       => $ENV{ENSCODE}.'/ensembl-analysis/scripts/clone_database.ksh',
+        'clone_db_script_path'       => $self->o('ENV', 'ENSCODE').'/ensembl-analysis/scripts/clone_database.ksh',
         'create_type'       => 'clone',
         'repeat_masking_logic_names' => ['dust', 'repeatmask'],
         'rnaseq_summary_file'         => '',
@@ -73,7 +73,7 @@ sub default_options {
          output_dir => '',
         'merge_dir' => '',
         'sam_dir' => '',
-        'sequence_dump_script' => $ENV{ENSCODE}.'/ensembl-analysis/scripts/sequence_dump.pl',
+        'sequence_dump_script' => $self->o('ENV', 'ENSCODE').'/ensembl-analysis/scripts/sequence_dump.pl',
         # Use this option to change the delimiter for your summary data
         # file.
         summary_file_delimiter => '\t',
@@ -139,29 +139,6 @@ sub default_options {
 # MOSTLY STAYS CONSTANT, MOSTLY                                          #
 #                                                                        #
 ##########################################################################
-
-        'pipeline_db' => {
-            -dbname => $self->o('pipe_dbname'),
-            -host   => $self->o('pipe_db_server'),
-            -port   => $self->o('port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('hive_driver'),
-        },
-
-        'reference_db' => {
-                            -dbname => $self->o('reference_dbname'),
-                            -host   => $self->o('reference_db_server'),
-                            -port   => $self->o('port'),
-                            -user   => $self->o('user_r'),
-                          },
-
-        'dna_db' => {
-                      -dbname => $self->o('dna_dbname'),
-                      -host   => $self->o('dna_db_server'),
-                      -port   => $self->o('port'),
-                      -user   => $self->o('user_r'),
-                    },
 
         'blast_output_db' => {
                            -dbname => $self->o('blast_output_dbname'),
@@ -806,67 +783,6 @@ sub pipeline_analyses {
         $analyses->{-max_retry_count} = 1 unless (exists $analyses->{-max_retry_count});
     }
     return \@analysis;
-}
-
-=head2 lsf_resource_builder
-
- Arg [1]    : String $queue, name of the queue to submit to, default is 'normal'
- Arg [2]    : Integer $mem, memory required in MB
- Arg [3]    : Arrayref String, list of server you will connect to during the analysis
- Arg [4]    : Arrayref Integer, list of tokens value for each server, default is 10
- Arg [5]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
- Arg [6]    : String $extra_requirements, any other parameters you want to give to LSF option -R
- Example    : '1GB' => { LSF => lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
-              '3GB_multithread' => { LSF => lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
- Description: It will return the LSF requirement parameters you require based on the queue, the memory, the database servers, the number
-              of CPUs. It uses options -q, -n, -M and -R. If you need any other other options you will need to add it to the returned string.
-              If you want multiple cores from multiple CPUs, you will have to edit the returned string.
-              If a server appears more than once, it will use the highest token value
-              The command below will create a resource string for a job in the long queue, asking for 3GB of memory and it will reserve 10 token
-              for server1, 20 for server2 and 10 for server3.
-              lsf_resource_builder('long', 3000, ['server1', 'server2', 'server3'], [, 20])
- Returntype : String
- Exceptions : None
-
-
-=cut
-
-sub lsf_resource_builder {
-    my ($queue, $memory, $servers, $tokens, $threads, $extra_requirements) = @_;
-
-    my $lsf_requirement = '-q '.($queue || 'normal');
-    my @lsf_rusage;
-    my @lsf_select;
-    $extra_requirements = '' unless (defined $extra_requirements);
-    if (defined $memory) {
-        $lsf_requirement .= ' -M '.$memory;
-        push(@lsf_rusage, 'mem='.$memory);
-        push(@lsf_select, 'mem>'.$memory);
-    }
-    if (defined $servers) {
-        my $i = 0;
-        my %seen;
-        foreach my $server (@$servers) {
-            if (! exists $seen{$server}) {
-                my ($server_id) = $server =~ /(\d+)$/;
-                push(@lsf_rusage, 'myens_build'.$server_id.'tok='.($tokens->[$i] || 10));
-                $seen{$server} = $i;
-            }
-            else {
-                my ($token) = $lsf_rusage[$seen{$server}] =~ /tok=(\d+)/;
-                if (($tokens->[$i] || 10) > $token) {
-                    $token = $tokens->[$i];
-                    $lsf_rusage[$seen{$server}] =~ s/tok=\d+/tok=$token/;
-                }
-            }
-            $i++;
-        }
-    }
-    if (defined $threads) {
-        $lsf_requirement .= ' -n '.$threads;
-        $extra_requirements .= ' span[hosts=1]';
-    }
-    return $lsf_requirement.' -R"select['.join(', ', @lsf_select).'] rusage['.join(', ', @lsf_rusage).'] '.$extra_requirements.'"';
 }
 
 sub resource_classes {
