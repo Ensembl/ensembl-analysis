@@ -23,9 +23,26 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
+# We will have to choose if we want to really use a InputIDFactory or if this will be the InputIdFactory
 use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
 
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+sub param_defaults {
+    my $self = shift;
+
+    return {
+        %{$self->SUPER::param_defaults},
+        seq_level => 0,
+        top_level => 1,
+        include_non_reference => 0,
+        hap_pair => 0,
+        mitochondrion => 0,
+        slice_size => 0,
+        slice_overlaps => 0,
+        coord_system_name => 'toplevel'
+    }
+}
 
 sub fetch_input {
   my $self = shift;
@@ -66,22 +83,14 @@ sub create_slice_ids {
      (
        -db => $dba,
        -slice => $self->param('slice'),
-       -single => $self->param('single'),
-       -file => $self->param('file'),
-       -translation_id => $self->param('translation_id'),
        -seq_level => $self->param('seq_level'),
        -top_level => $self->param('top_level'),
        -include_non_reference => $self->param('include_non_reference'),
-       -dir => $self->param('dir'),
-       -regex => $self->param('regex'),
-       -single_name => 'genome', # Don't know why this is set this way => Usually an analysis with only one input id was run on the genome
-       -logic_name => $self->param('logic_name'),
-       -input_id_type => $self->param('input_id_type'),
        -coord_system => $self->param('coord_system_name'),
-       -coord_system_version => $self->param('coord_system_version'),
+       -coord_system_version => $self->param_is_defined('coord_system_version') ? $self->param('coord_system_version') : undef,
        -slice_size => $self->param('slice_size'),
-       -slice_overlaps => $self->param('slice_overlap'),
-       -seq_region_name => $self->param('seq_region_name'),
+       -slice_overlaps => $self->param('slice_overlaps'),
+#       -seq_region_name => $self->param('seq_region_name'),
        -hap_pair => $self->param('hap_pair'),
        -mt => $self->param_is_defined('mitochondrion') ? $self->param('mitochondrion') : 0,
      );
