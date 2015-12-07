@@ -74,9 +74,9 @@ sub fetch_input {
   my ($self) = @_;
   # do all the normal stuff
   # then get all the transcripts and exons
-  my $gene_db = $self->get_database_by_name('input_db');
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($dna_db, 'dna_db');
+  my $gene_db = $self->get_database_by_name('input_db', $dna_db);
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
   my $slice_adaptor = $dna_db->get_SliceAdaptor;
   my $counters;
@@ -575,7 +575,7 @@ sub _process_reads {
     }
     else {
         # if running a batch finish here
-        if ($self->start) {
+        if ($counters->{'start'}) {
             $counters->{'stop_loop'} = 1;
             return;
         }
