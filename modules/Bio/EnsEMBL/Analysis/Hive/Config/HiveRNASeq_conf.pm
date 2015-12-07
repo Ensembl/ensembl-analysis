@@ -505,6 +505,19 @@ sub pipeline_analyses {
                       },
       },
             {
+        -logic_name => 'dispatch_toplevel',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '1GB',
+        -parameters => {
+                         cmd => 'EXIT_CODE=1; if [ "`echo #iid# | cut -d \':\' -f1`" = "chromosome" ]; then EXIT_CODE=2; else EXIT_CODE=0;fi; exit $EXIT_CODE',
+                         return_codes_2_branches => {'2' => 2},
+                       },
+        -flow_into => {
+                        1 => {'rough_transcripts' => {'iid' => '#iid#'}},
+                        2 => {'rough_transcripts_5GB' => {'iid' => '#iid#'}},
+                      },
+      },
+            {
         -logic_name => 'rough_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
         -parameters => {
