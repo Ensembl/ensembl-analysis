@@ -205,8 +205,9 @@ sub pipeline_analyses {
 
         {   -logic_name => 'concat_by_taxonomy',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -meadow_type => 'LOCAL',
             -parameters => {
-                'cmd'   => 'cat #uniprot_dir#/#input_file##fasta_suffix# > #uniprot_dir#/#uniprot_vert_file#',
+                'cmd'   => 'cat #uniprot_dir#/#input_file##fasta_suffix# >> #uniprot_dir#/#uniprot_vert_file#',
             },
             -analysis_capacity  => 1,
         },
@@ -233,9 +234,13 @@ sub pipeline_analyses {
                 xdb_name => 'uniprot_vertebrate_all_isoforms',
                 input_file => '#uniprot_vert_file# *.varsplic',
             },
+            {
+                xdb_name => 'uniprot_vertebrate',
+                input_file => '#uniprot_vert_file#',
+            },
             ],
             -wait_for => [ 'gunzip_taxonomy_file', 'embl2fasta', 'check_embl2fasta', 'process_isoforms', 'concat_by_taxonomy'],
-            -analysis_capacity  => 5,
+            -analysis_capacity  => 2,
             -flow_into => {
                 1 => ['check_xdformat_uniprot_and_isoforms'],
             },
@@ -246,7 +251,7 @@ sub pipeline_analyses {
             -parameters => {
                 'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; if [ "`grep -c \> #input_file# | cut -d \':\' -f2 | awk \'{SUM += $1} END {print SUM}\'`" -eq "`xdformat -p -i #uniprot_dir#/#xdb_name# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then EXIT_CODE=0;fi; exit $EXIT_CODE',
             },
-            -analysis_capacity  => 1,
+            -analysis_capacity  => 2,
         },
 
         {   -logic_name => 'download_isoforms',
@@ -326,7 +331,7 @@ sub pipeline_analyses {
         {   -logic_name => 'gunzip_fasta_file',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'         => 'gunzip -c #uniprot_dir#/#input_file##fasta_suffix#.gz | perl -ne \'if (/>/) { s/>...([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}).*PE=([0-9]).*SV=([0-9]).*/>\$1.\$4 \$3/} else {s/O/K/g} print;\' > #uniprot_dir#/#input_file##fasta_suffix#',
+                'cmd'         => 'gunzip -c #uniprot_dir#/#input_file##fasta_suffix#.gz | perl -ne \'if (/>/) { s/>...([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}).*PE=([0-9]).*SV=([0-9]).*/>$1.$4 $3/} else {s/O/K/g} print;\' > #uniprot_dir#/#input_file##fasta_suffix#',
             },
             -analysis_capacity  => 2,
             -flow_into => {
@@ -360,8 +365,9 @@ sub pipeline_analyses {
 
         {   -logic_name => 'entry_loc',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -meadow_type => 'LOCAL',
             -parameters => {
-                'cmd'         => 'grep \> #uniprot_dir#/#input_file##fasta_suffix# | awk "{print \$1, "STD"}" > #uniprot_dir#/entry_loc',
+                'cmd'         => 'grep \> #uniprot_dir#/#input_file##fasta_suffix# | sed \'s/>//\' | awk \'{print $1, "STD"}\' > #uniprot_dir#/entry_loc',
             },
             -analysis_capacity  => 1,
             -wait_for => ['download_fasta', 'gunzip_fasta_file', 'check_fasta_file'],
@@ -378,7 +384,7 @@ sub pipeline_analyses {
         {   -logic_name => 'check_concat_fasta',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'   => 'EXIT_CODE=1; if [ "`awk \'{SUM+=$2} END {print SUM}\' #uniprot_dir#/#uniprot_file#.a`" -eq "`grep -c \> #uniprot_dir#/#uniprot_file#`" ]; then ECOUNT=`grep -c \> #uniprot_dir#/entry_loc`; for C in `awk \'{print $2}\' #uniprot_dir#/#uniprot_file#.a`; do if [ "$ECOUNT" -eq "$C" ]; then awk \'{print $1}\' #uniprot_dir#/#uniprot_file#.a | xargs -I {} rm {}; rm #uniprot_dir#/#uniprot_file#.a; EXIT_CODE=0; fi; done; fi; exit $EXIT_CODE',
+                'cmd'   => 'EXIT_CODE=1; if [ "`awk \'{SUM+=$2} END {print SUM}\' #uniprot_dir#/#uniprot_file#.a`" -eq "`grep -c \> #uniprot_dir#/#uniprot_file#`" ]; then ECOUNT=`wc -l #uniprot_dir#/entry_loc | awk \'{print $1}\'`; for C in `awk \'{print $2}\' #uniprot_dir#/#uniprot_file#.a`; do if [ "$ECOUNT" -eq "$C" ]; then awk \'{print $1}\' #uniprot_dir#/#uniprot_file#.a | xargs -I {} rm {}; rm #uniprot_dir#/#uniprot_file#.a; EXIT_CODE=0; fi; done; fi; exit $EXIT_CODE',
             },
             -analysis_capacity  => 1,
             -wait_for => ['concat_fasta', 'entry_loc'],
@@ -488,7 +494,7 @@ sub pipeline_analyses {
         {   -logic_name => 'check_xdformat_pe_level',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; CFILE=`grep -c \> #input_file# | cut -d \':\' -f2 | awk \'{SUM += $1} END {print SUM}\'`;if [ "$CFILE" -eq "`xdformat -p -i #uniprot_dir#/#xdb_name# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then EXIT_CODE=0;fi; exit $EXIT_CODE',
+                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; CFILE=`grep -c \> #input_file# | cut -d \':\' -f2 | awk \'{SUM += $1} END {print SUM}\'`;if [ "$CFILE" -eq "`xdformat -p -i #uniprot_dir#/#xdb_name# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then for F in #input_file#; do rm "${F}_initial"; done; EXIT_CODE=0;fi; exit $EXIT_CODE',
             },
             -analysis_capacity  => 2,
         },
