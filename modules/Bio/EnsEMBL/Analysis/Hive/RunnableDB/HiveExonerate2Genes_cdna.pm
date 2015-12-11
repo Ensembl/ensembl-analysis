@@ -336,27 +336,33 @@ sub write_output {
   $self->param('output_genes',undef);
   my $fails = 0;
   my $total = 0;
-  foreach my $gene (@output){
-    empty_Gene($gene);
-    eval {
-      $gene_adaptor->store($gene);
-    };
-    if ($@){
-      warning("Unable to store gene!!\n$@");
-      $fails++;
+
+  if (scalar(@output) == 0){
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,2);
+  }
+  else {
+    foreach my $gene (@output){
+      empty_Gene($gene);
+      eval {
+        $gene_adaptor->store($gene);
+      };
+      if ($@){
+        warning("Unable to store gene!!\n$@");
+        $fails++;
+      }
+      $total++;
     }
-    $total++;
-  }
-  if ($fails > 0) {
-    throw("Not all genes could be written successfully " .
+    if ($fails > 0){
+      throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
+    }
+    if($self->files_to_delete()) {
+      my $files_to_delete = $self->files_to_delete();
+      `rm $files_to_delete`;
+    }
   }
-
-  if($self->files_to_delete()) {
-    my $files_to_delete = $self->files_to_delete();
-    `rm $files_to_delete`;
-  }
-
 }
 
 sub hive_set_config {
@@ -1029,7 +1035,6 @@ sub files_to_delete {
 
   return($self->param('_files_to_delete'));
 }
-
 
 
 1;

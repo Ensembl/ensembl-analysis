@@ -48,7 +48,7 @@ sub write_output {
   return 1;
 }
 
-sub find_many_hits {
+sub find_missing_cdnas {
   my ($self,$cdna_db,$output_dir,$clipped_file) = @_;
 
   # Mysql queries involving temporary tables

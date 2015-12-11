@@ -92,9 +92,9 @@ sub fix_headers {
     # Need this to include the first record when using $/='\n>'
     # we're not using 'predicted' XM entries for now
     $entry =~ s/^>//;
-    if ( $entry =~ m/^gi.+ref\|(NM_.+)\| Homo sapiens.*/ ) {
+    if ( $entry =~ m/^gi.+ref\|(NM_.+)\| Mus musculus.*/ ) {
       $header = $1;
-    } elsif ( $entry =~ m/^gi.+ref\|(NR_.+)\| Homo sapiens.*/ ) {
+    } elsif ( $entry =~ m/^gi.+ref\|(NR_.+)\| Mus musculus.*/ ) {
       $header = $1;
     } else {
       next;
@@ -160,7 +160,7 @@ sub polyA_clipping {
   # Clip ployA tails
   print("\nPerforming polyA clipping...\n");
   my $newfile3 = $output_path . "/" . $trim_file. ".clipped";
-  my $cmd = "perl " . $POLYA_CLIPPING . " " ;
+  my $cmd = "perl \$" . $POLYA_CLIPPING . " " ;
   $cmd.="-errfile $output_path/polyA.err ";
   #if ( $MIN_LENGTH ) {
   #   $cmd.="-min_length $MIN_LENGTH ";

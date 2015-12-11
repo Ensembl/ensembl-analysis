@@ -81,8 +81,8 @@ sub download_embl_seqs {
   }
   my @ftp_dirs = ("new/", "release/std/");
   my $ftp = "ftp://ftp.ebi.ac.uk/pub/databases/embl/";
-  #my @prefix = ("rel_htc_", "rel_std_", "cum_htc_", "cum_std_");
-  my @prefix = ("cum_std_");
+  my @prefix = ("rel_htc_", "rel_std_", "cum_htc_", "cum_std_");
+  #my @prefix = ("cum_std_");
 
   my $abv;
 
