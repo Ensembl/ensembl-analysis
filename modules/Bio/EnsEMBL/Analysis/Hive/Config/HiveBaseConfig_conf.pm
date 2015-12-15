@@ -88,15 +88,15 @@ sub default_options {
  Arg [4]    : Arrayref Integer, list of tokens value for each server, default is 10
  Arg [5]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
  Arg [6]    : String $extra_requirements, any other parameters you want to give to LSF option -R
- Example    : '1GB' => { LSF => lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
-              '3GB_multithread' => { LSF => lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
+ Example    : '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
+              '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
  Description: It will return the LSF requirement parameters you require based on the queue, the memory, the database servers, the number
               of CPUs. It uses options -q, -n, -M and -R. If you need any other other options you will need to add it to the returned string.
               If you want multiple cores from multiple CPUs, you will have to edit the returned string.
               If a server appears more than once, it will use the highest token value
               The command below will create a resource string for a job in the long queue, asking for 3GB of memory and it will reserve 10 token
               for server1, 20 for server2 and 10 for server3.
-              lsf_resource_builder('long', 3000, ['server1', 'server2', 'server3'], [, 20])
+              $self->lsf_resource_builder('long', 3000, ['server1', 'server2', 'server3'], [, 20])
  Returntype : String
  Exceptions : None
 
@@ -104,7 +104,7 @@ sub default_options {
 =cut
 
 sub lsf_resource_builder {
-    my ($queue, $memory, $servers, $tokens, $threads, $extra_requirements) = @_;
+    my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements) = @_;
 
     my $lsf_requirement = '-q '.($queue || 'normal');
     my @lsf_rusage;
