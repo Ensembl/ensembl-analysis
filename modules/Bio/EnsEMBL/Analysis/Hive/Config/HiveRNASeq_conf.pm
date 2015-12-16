@@ -501,7 +501,7 @@ sub pipeline_analyses {
                          target_db => $self->o('rough_output_db'),
                        },
         -flow_into => {
-                        2 => ['rough_transcripts'],
+                        2 => ['dispatch_toplevel'],
                       },
       },
             {

@@ -53,7 +53,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
-  my $program = $self->param('samtools');
+  my $program = $self->param('wide_samtools');
   $self->throw("Samtools program not defined in analysis \n") unless (defined $program);
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Sam2Bam->new
     (
