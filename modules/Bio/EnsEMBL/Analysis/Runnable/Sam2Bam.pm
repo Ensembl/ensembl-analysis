@@ -63,7 +63,7 @@ sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
   my ($header, $samfiles, $bamfile, $genome) = rearrange([qw(HEADER SAMFILES BAMFILE GENOME)],@args);
-  $self->throw("You must define a directory with sam files in\n")  unless $samfiles ;
+  $self->throw("You have no files to work on\n") unless (scalar(@$samfiles));
   $self->samfiles($samfiles);
   $self->headerfile($header);
   $self->throw("You must define an output file\n")  unless $bamfile;

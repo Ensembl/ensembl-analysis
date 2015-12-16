@@ -222,56 +222,55 @@ sub write_output {
 
   my $output = $self->output;
   print "Got " .  scalar(@$output) ." genomic features \n";
-  return unless (scalar(@$output));
-  # write to file
-  my $iid = $self->input_id;
-  # remove any batching info at the end
-  if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
-    $iid = $1;
-  }
+  if (scalar(@$output)) {
+      # write to file
+      my $iid = $self->input_id;
+      # remove any batching info at the end
+      if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
+        $iid = $1;
+      }
 
-  my $path;
-  my $filename;
-  # figure out a directory structure based on the stable ids
-  if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
-    # make the directory structure
-    $path = $self->param('wide_output_sam_dir'). '/' . "$1";
-    mkdir($path) unless -d ($path);
-    $path = $path . '/' . "$2";
-    mkdir($path) unless -d ($path);
-    $path = $path . '/' . "$3";
-    mkdir($path) unless -d ($path);
-    $path = $path . '/' . "$4";
-    mkdir($path) unless -d ($path);
-    $filename = $path.'/'.$self->input_id.'.sam';
-  }
-  elsif ($self->param_is_defined('iid')) {
-    $self->param->('iid') =~ /(([^\/]+)_\d+\.fa)$/;
-    $path = $self->param('wide_output_sam_dir').'/'.$2;
-    mkdir($path) unless -d ($path);
-    $filename = $path.'/'.$1.'.sam';
+      my $path;
+      my $filename;
+      # figure out a directory structure based on the stable ids
+      if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
+        # make the directory structure
+        $path = $self->param('wide_output_sam_dir'). '/' . "$1";
+        mkdir($path) unless -d ($path);
+        $path = $path . '/' . "$2";
+        mkdir($path) unless -d ($path);
+        $path = $path . '/' . "$3";
+        mkdir($path) unless -d ($path);
+        $path = $path . '/' . "$4";
+        mkdir($path) unless -d ($path);
+        $filename = $path.'/'.$self->input_id.'.sam';
+      }
+      elsif ($self->param_is_defined('iid')) {
+        $self->param->('iid') =~ /(([^\/]+)_\d+\.fa)$/;
+        $path = $self->param('wide_output_sam_dir').'/'.$2;
+        mkdir($path) unless -d ($path);
+        $filename = $path.'/'.$1.'.sam';
+      }
+      else {
+        $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
+      }
+      open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
+      my $seq_hash = $self->param('seq_hash');
+      foreach my $feature ( @$output ) {
+          my $line = $self->convert_to_sam($feature, $seq_hash);
+          print SAM $line if $line;
+      }
+      # write an end of file marker so we can test that the job didnt die when writing
+      print SAM '@EOF';
+      close SAM;
+      $self->dataflow_output_id([{filename => $filename}], 1);
   }
   else {
-    $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
-  }
-  open ( SAM ,">$filename" ) or
-    $self->throw("Cannot open file for writing $filename\n");
-  eval {
-      my $seq_hash = $self->param('seq_hash');
-    foreach my $feature ( @$output ) {
-      my $line = $self->convert_to_sam($feature, $seq_hash);
-      print SAM $line if $line;
-    }
-    # write an end of file marker so we can test that the job didnt die when writing
-    print SAM '@EOF';
-    close SAM;
-  }; if ( $@ ) {
-    print " What happened? \n$@\n";
+      $self->input_job->autoflow(0);
   }
   if ($self->param_is_defined('iids')) {
       $self->dataflow_output_id($self->param('iids'), 2);
   }
-  $self->dataflow_output_id([{filename => $filename}], 1);
 }
 
 
