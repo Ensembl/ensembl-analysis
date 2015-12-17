@@ -131,7 +131,9 @@ sub new {
     }
     $self->target_seqs($target_seqs);
   } elsif (defined $target_file) {
-    throw("The given database does not exist") if ! -e $target_file;
+    if ($target_file !~ /^[\w\-\.]+:\d+$/) {
+      throw("The given database ($target_file) does not exist") if ! -e $target_file;
+    }
     $self->target_file($target_file);
   }
 
