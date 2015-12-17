@@ -724,6 +724,8 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateRefineGenesJobs',
         -parameters => {
                          single_tissue => $self->o('single_tissue'),
+                         sample_column => $self->o('read_group_tag'),
+                         sample_id_column => $self->o('read_id_tag'),
                        },
         -rc_name    => '1GB',
         -flow_into => {

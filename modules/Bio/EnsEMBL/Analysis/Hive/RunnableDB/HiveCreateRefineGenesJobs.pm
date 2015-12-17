@@ -30,7 +30,7 @@ sub fetch_input {
     my %tissue_hash;
     my $results = $table_adaptor->fetch_all();
     foreach my $result (@$results) {
-        push(@{$tissue_hash{$result->{$self->param('tissue_name')}}}, $result->{$self->param('sample_id')});
+        push(@{$tissue_hash{$result->{$self->param('sample_column')}}}, $result->{$self->param('sample_id_column')});
     }
     foreach my $key (keys %tissue_hash) {
         push(@output_ids, [$self->param('iid'), [file => $self->param('wide_intron_bam_file'), groupname => $tissue_hash{$key}, depth => 0, mixed_bam => 0], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
