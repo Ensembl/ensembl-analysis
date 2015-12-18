@@ -369,7 +369,11 @@ sub exon_cluster {
         $exon_cluster->end($end)     if $end   > $exon_cluster->end;
         $exon_cluster->score($exon_cluster->score + 1);
         # only store the connection data if it is paired in mapping
-        $cluster_data->{$name}->{$exon_cluster->hseqname} = 1 if $paired;
+        if ($paired) {
+            my $suffix = $read->get_tag_values('FIRST_MATE') ? 1 : 2;
+            $cluster_data->{$name}->{$exon_cluster->hseqname} += $suffix;
+            delete $cluster_data->{$name} if ($cluster_data->{$name}->{$exon_cluster->hseqname} == 3);
+        }
         # only allow it to be a part of a single cluster
         return;
       }
@@ -394,7 +398,11 @@ sub exon_cluster {
       # store the clusters in a hash with a unique identifier
       push(@exon_clusters, $feat);
       # store the key within the feature
-      $cluster_data->{$name}->{$feat->hseqname} = 1 if $paired;
+      if ($paired) {
+          my $suffix = $read->get_tag_values('FIRST_MATE') ? 1 : 2;
+          $cluster_data->{$name}->{$feat->hseqname} += $suffix;
+          delete $cluster_data->{$name} if ($cluster_data->{$name}->{$feat->hseqname} == 3);
+      }
   };
   $bam->fetch($region, $_process_reads);
   # store the relationships between the clusters
