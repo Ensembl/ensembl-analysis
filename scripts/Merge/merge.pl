@@ -43,6 +43,8 @@ my $opt_file;   # list of genes from the primary db to be merged
 
 my $opt_help = 0;
 
+my %stored_genes; # to keep track of already stored genes and avoid duplicates
+
 # make stdout unbuffered to ensure "PROCESSED + identifier" is not truncated when printfed
 $| = 1;
 
@@ -473,101 +475,108 @@ sub make_gene_cluster {
   my $primary_sa  = $PRIMARY_GA->db()->get_SliceAdaptor();
   my $secondary_sa = $SECONDARY_GA->db()->get_SliceAdaptor();
 
+  my @strands = (-1,1);
+
   # The cluster queue is a collection of possibly unprocessed genes in
   # this cluster of overlapping genes.  We use each gene in turn to
   # fetch overlapping gene from the Primary and the Secondary databases.
   # Any found gene, if it hasn't already been seen, is added to the
   # cluster queue.  When thu queue is empty, we are done.
 
-  while ( my $gene = shift(@cluster_queue) ) {
-    my $primary_slice =
-      get_feature_slice_from_db( $gene, $PRIMARY_GA->db() );
-
-    if ( exists( $used_slices{ 'primary:' . $primary_slice->name() } ) ) {
-      printf( "Skipping Primary slice %s, already seen.\n",
-              $primary_slice->name() );
-      next;
-    }
-
-    $used_slices{ 'primary:' . $primary_slice->name() } = 1;
-
-    # Fetch overlapping Primary genes.
-
-    foreach my $primary_gene (
-        @{ $PRIMARY_GA->fetch_all_by_Slice( $primary_slice, undef, 1 ) } )
-    {
-      my $add_to_result  = 1;
-      my $primary_gene_id = $primary_gene->dbID();
-
-      if ( $primary_gene->length() > 100_000_000 ) {
-        printf( "Ignoring Primary gene %s (%d)," .
-                  " too long (%d > 100,000,000)\n",
-                $primary_gene->stable_id(),
-                $primary_gene_id, $primary_gene->length() );
+  while (my $gene = shift(@cluster_queue)) {
+  	
+  	foreach my $current_strand (@strands) {
+  	
+      my $primary_slice = get_feature_slice_from_db($gene,$PRIMARY_GA->db());
+      my $primary_slice_id = "primary:".$primary_slice->name()."_".$current_strand;
+      if (exists($used_slices{$primary_slice_id})) {
+        printf("Skipping Primary slice %s, already seen.\n",$primary_slice_id);
         next;
       }
 
-      if ( !exists( $primary_cluster{$primary_gene_id} ) ) {
-        if ( $primary_gene_id < $lowest_allowed_gene_id ) {
-          print("Skipping gene cluster, does not belong to me.\n");
-          return [ [], [] ];
-        }
+      $used_slices{$primary_slice_id} = 1;
 
-        push( @cluster_queue, $primary_gene );
+      # Fetch overlapping Primary genes.
 
-        if ($add_to_result) {
-          $primary_cluster{$primary_gene_id} = $primary_gene;
+      foreach my $primary_gene (
+          @{ $PRIMARY_GA->fetch_all_by_Slice( $primary_slice, undef, 1 ) } )
+      {
+      	# all genes on the slice are fetched and we only want to look at the genes on the same strand
+        if ($primary_gene->strand() == $current_strand) {
+          my $add_to_result  = 1;
+          my $primary_gene_id = $primary_gene->dbID();
 
-          printf( "Also fetched Primary gene %s (%d), %s\n",
-                  $primary_gene->stable_id(),
-                  $primary_gene_id,
-                  $primary_gene->feature_Slice()->name() );
-        }
-      }
-    } ## end foreach my $primary_gene ( @...)
+          if ( $primary_gene->length() > 100_000_000 ) {
+            printf( "Ignoring Primary gene %s (%d)," .
+                    " too long (%d > 100,000,000)\n",
+                    $primary_gene->stable_id(),
+                    $primary_gene_id, $primary_gene->length() );
+            next;
+          }
 
-    my $secondary_slice =
-      get_feature_slice_from_db( $gene, $SECONDARY_GA->db() );
+          if ( !exists( $primary_cluster{$primary_gene_id} ) ) {
+            if ( $primary_gene_id < $lowest_allowed_gene_id ) {
+              print("Skipping gene cluster, does not belong to me.\n");
+              return [ [], [] ];
+            }
 
-    if ( exists( $used_slices{ 'secondary:' . $secondary_slice->name() } ) )
-    {
-      printf( "Skipping Secondary slice %s, already seen.\n",
-              $secondary_slice->name() );
-      next;
-    }
+            push( @cluster_queue, $primary_gene );
 
-    $used_slices{ 'secondary:' . $secondary_slice->name() } = 1;
+            if ($add_to_result) {
+              $primary_cluster{$primary_gene_id} = $primary_gene;
 
-    # Fetch overlapping Secondary genes.
+              printf( "Also fetched Primary gene %s (%d), %s\n",
+                      $primary_gene->stable_id(),
+                      $primary_gene_id,
+                      $primary_gene->feature_Slice()->name() );
+            }
+          }
+        } # end if primary gene strand
+      } ## end foreach my $primary_gene ( @...)
 
-    foreach my $secondary_gene (
-      @{ $SECONDARY_GA->fetch_all_by_Slice( $secondary_slice, undef, 1 ) } )
-    {
-      my $add_to_result   = 1;
-      my $secondary_gene_id = $secondary_gene->dbID();
-
-      if ( $secondary_gene->length() > 100_000_000 ) {
-        printf( "Ignoring Secondary gene %s (%d), " .
-                  " too long (%d > 100,000,000)\n",
-                $secondary_gene->stable_id(),
-                $secondary_gene_id, $secondary_gene->length() );
+      my $secondary_slice = get_feature_slice_from_db($gene,$SECONDARY_GA->db());
+      my $secondary_slice_id = "secondary:".$secondary_slice->name()."_".$current_strand;
+      if (exists($used_slices{$secondary_slice_id})) {
+        printf("Skipping Secondary slice %s, already seen.\n",$secondary_slice_id);
         next;
       }
 
-      if ( !exists( $secondary_cluster{$secondary_gene_id} ) ) {
-        push( @cluster_queue, $secondary_gene );
+      $used_slices{$secondary_slice_id} = 1;
 
-        if ($add_to_result) {
-          $secondary_cluster{$secondary_gene_id} = $secondary_gene;
+      # Fetch overlapping Secondary genes.
 
-          printf( "Also fetched Secondary gene %s (%d), %s\n",
-                  $secondary_gene->stable_id(),
-                  $secondary_gene_id,
-                  $secondary_gene->feature_Slice()->name() );
-        }
-      }
-    } ## end foreach my $secondary_gene ( ...)
+      foreach my $secondary_gene (
+        @{ $SECONDARY_GA->fetch_all_by_Slice( $secondary_slice, undef, 1 ) } )
+      {
+      	# all genes on the slice are fetched and we only want to look at the genes on the same strand
+      	if ($secondary_gene->strand() == $current_strand) {
+      	
+          my $add_to_result   = 1;
+          my $secondary_gene_id = $secondary_gene->dbID();
 
+          if ( $secondary_gene->length() > 100_000_000 ) {
+            printf( "Ignoring Secondary gene %s (%d), " .
+                    " too long (%d > 100,000,000)\n",
+                    $secondary_gene->stable_id(),
+                    $secondary_gene_id, $secondary_gene->length() );
+            next;
+          }
+
+          if ( !exists( $secondary_cluster{$secondary_gene_id} ) ) {
+            push( @cluster_queue, $secondary_gene );
+
+            if ($add_to_result) {
+              $secondary_cluster{$secondary_gene_id} = $secondary_gene;
+
+              printf( "Also fetched Secondary gene %s (%d), %s\n",
+                      $secondary_gene->stable_id(),
+                      $secondary_gene_id,
+                      $secondary_gene->feature_Slice()->name() );
+            }
+          }
+      	} # end if secondary gene strand
+      } ## end foreach my $secondary_gene ( ...)
+  	} ## end foreach my $current_strand
   } ## end while ( my $gene = shift(...))
 
   return [ [ values(%primary_cluster) ], [ values(%secondary_cluster) ] ];
@@ -585,7 +594,7 @@ sub get_feature_slice_from_db {
     $db->get_SliceAdaptor()->fetch_by_region_unique(
          $slice->coord_system_name(), $slice->seq_region_name(),
          $slice->start(),             $slice->end(),
-         1,                           $slice->coord_system()->version(),
+         1,            $slice->coord_system()->version(),
          1 ) };
 
   if ( scalar(@slices) != 1 ) {
@@ -1180,11 +1189,16 @@ SECONDARY_GENE:
        next;
      }
 
-    empty_Gene($primary_gene);
-    $OUTPUT_GA->store($primary_gene);
-    printf( "STORED\t%s\told id = %d, new id = %d\n",
-            $primary_gene->stable_id(),
-            $old_dbID, $primary_gene->dbID() );
+    if (!(exists($stored_genes{$primary_gene->stable_id()}))) {
+      empty_Gene($primary_gene);
+      $OUTPUT_GA->store($primary_gene);
+      printf( "STORED\t%s\told id = %d, new id = %d\n",
+              $primary_gene->stable_id(),
+              $old_dbID, $primary_gene->dbID() );
+      $stored_genes{$primary_gene->stable_id()} = 1;
+    } else {
+      print("NOT STORED as it is already stored ".$primary_gene->stable_id()."\n");
+    }
 
   }
 
