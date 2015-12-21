@@ -480,7 +480,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -meadow_type => 'LOCAL',
         -parameters => {
-                         cmd => '#wide_samtools# view -H #filename# > #wide_output_dir#/merged_header.h',
+                         cmd => '#wide_samtools# view -H #filename# | grep -v @SQ | grep -v @HD > #wide_output_dir#/merged_header.h',
                        },
         -flow_into => {
 #            '2->A' => { 'create_top_level_input_ids' => {filename => '#filename#'}},
@@ -726,6 +726,7 @@ sub pipeline_analyses {
                          single_tissue => $self->o('single_tissue'),
                          sample_column => $self->o('read_group_tag'),
                          sample_id_column => $self->o('read_id_tag'),
+                         csvfile_table => $self->o('summary_csv_table'),
                        },
         -rc_name    => '1GB',
         -flow_into => {
