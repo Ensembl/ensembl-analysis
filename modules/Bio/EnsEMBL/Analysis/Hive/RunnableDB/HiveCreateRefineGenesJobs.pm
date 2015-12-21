@@ -30,12 +30,12 @@ sub fetch_input {
     my %tissue_hash;
     my $results = $table_adaptor->fetch_all();
     foreach my $result (@$results) {
-        push(@{$tissue_hash{$result->{$self->param('sample_column')}}}, $result->{$self->param('sample_id_column')});
+        $tissue_hash{$result->{$self->param('sample_column')}}->{$result->{$self->param('sample_id_column')}} = 1;
     }
     foreach my $key (keys %tissue_hash) {
-        push(@output_ids, [$self->param('iid'), [file => $self->param('wide_intron_bam_file'), groupname => $tissue_hash{$key}, depth => 0, mixed_bam => 0], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
+        push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [keys %{$tissue_hash{$key}}], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
     }
-    push(@output_ids, [$self->param('iid'), [file => $self->param('wide_intron_bam_file'), groupname => [], depth => 0, mixed_bam => 0], $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", '', '']);
+    push(@output_ids, [$self->param('iid'), {file => $self->param('wide_intron_bam_file').'.bam', groupname => [], depth => 0, mixed_bam => 0}, $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", '', '']);
     $self->param('inputlist', \@output_ids);
     $self->param('column_names', ['iid', 'intron_bam_files', 'logic_name', 'introns_logic_name', 'best_score', 'single_exon_model', 'other_isoforms', 'bad_models']);
 }

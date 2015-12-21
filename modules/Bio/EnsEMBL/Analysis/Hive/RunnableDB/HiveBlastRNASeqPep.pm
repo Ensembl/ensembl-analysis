@@ -77,7 +77,7 @@ sub fetch_input {
 
   $self->throw("No input id") unless defined($self->input_id);
 
-  $self->create_analysis(1, (-db_file => $self->param('uniprot_index'), -program_file => $self->param('blast_program')));
+  $self->create_analysis(1, {-db_file => $self->param('uniprot_index'), -program_file => $self->param('blast_program')});
   my $slice = $self->fetch_sequence(undef, $self->get_database_by_name('dna_db'));
   $self->query($slice);
 
@@ -144,7 +144,6 @@ sub run {
                 # won't find anything"
 
                 if ($code ne 'VOID') {
-                    $self->failing_job_status($1);
                     throw("Blast::run failed $@");
                 }
             }

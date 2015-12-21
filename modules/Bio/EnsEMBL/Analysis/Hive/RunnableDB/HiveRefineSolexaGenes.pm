@@ -92,13 +92,13 @@ sub fetch_input {
     my $real_slice_end;
     if ($self->is_slice_name($input_id)) {
         my @genes;
-        my $slice = $self->fetch_sequence($self->input_id, $genes_db);
+        my $slice = $self->fetch_sequence($input_id, $genes_db);
         $real_slice_start = $slice->start;
         $real_slice_end = $slice->end;
         my $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $slice->seq_region_name);
         $self->chr_slice($chr_slice);
 
-        $self->gene_slice_adaptor($genes_db->get_SliceAdaptor);
+        $self->gene_slice_adaptor($reference_db->get_SliceAdaptor);
         if ( $self->param('model_ln') ) {
             @genes = @{$slice->get_all_Genes_by_type( undef,$self->param('model_ln') )};
             print STDERR "Got " .  scalar(@genes) . " genes with logic name " . $self->param('model_ln') ."\n";
@@ -131,7 +131,7 @@ sub fetch_input {
         print STDERR "Got " . scalar(@rough_genes) . "  genes after filtering boundary overlaps  \n";
     }
     else {
-        my $gene = $genes_db->get_GeneAdaptor->fetch_by_stable_id($self->input_id);
+        my $gene = $genes_db->get_GeneAdaptor->fetch_by_stable_id($input_id);
         my $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $gene->slice->seq_region_name);
         $self->chr_slice($chr_slice);
         $real_slice_start = $gene->seq_region_start;
@@ -139,11 +139,11 @@ sub fetch_input {
         push(@rough_genes, $gene);
     }
     if (scalar(@rough_genes)) {
-
+        $self->create_analysis;
         if ( $self->param('intron_bam_files') ) {
-            foreach my $intron_files ( @{$self->param('intron_bam_files')} ) {
-                my $sam = Bio::DB::Sam->new(   -bam => $intron_files->{file},
-                        -autoindex => 1,
+            foreach my $intron_files ( $self->param('intron_bam_files') ) {
+                my $sam = Bio::DB::Sam->new(
+                        -bam => $intron_files->{file},
                         -expand_flags => 1,
                         );
                 $self->throw("Bam file " . $intron_files->{file} . "  not found \n") unless ($sam);
@@ -159,7 +159,7 @@ sub fetch_input {
             $self->dna_2_intron_features($real_slice_start, $real_slice_end);
         }
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes->new (
-                -analysis     => $self->create_analysis,
+                -analysis     => $self->analysis,
                 -retained_intron_penalty => $self->param('retained_intron_penalty'),
                 -filter_on_overlap => $self->param('filter_on_overlap'),
                 -min_intron_size => $self->param('min_intron_size'),
@@ -182,6 +182,7 @@ sub fetch_input {
                 -reject_intron_cutoff => $self->param('reject_intron_cutoff'),
                 -max_recursions => $self->param('max_recursions'),
                 -chr_slice => $self->chr_slice,
+                -query => $self->chr_slice,
                 -rough_models => \@rough_genes,
                 -intron_features => $self->intron_features,
                 -extra_exons => $self->extra_exons,
@@ -189,7 +190,8 @@ sub fetch_input {
         $self->runnable($runnable);
     }
     else {
-        $self->input_is_void(1);
+        $self->input_job->autoflow(0);
+        $self->complete_early('No genes to process');
     }
 }
 
@@ -200,6 +202,7 @@ sub run {
     $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
     my ($runnable) = @{$self->runnable};
     $runnable->run;
+    $self->output($runnable->output);
     return 1;
 }
 
@@ -208,7 +211,7 @@ sub run {
 sub write_output {
     my ($self) = @_;
 
-    my $outdb = $self->get_dbadaptor($self->param('output_db'));
+    my $outdb = $self->get_database_by_name('output_db');
     my $gene_adaptor = $outdb->get_GeneAdaptor;
 
     my $fails = 0;
@@ -247,8 +250,8 @@ sub write_output {
     }
     if ($self->param('write_introns')) {
         my $intron_adaptor = $outdb->get_DnaAlignFeatureAdaptor;
-        $fails = 0;
-        $total = 0;
+        my $intron_fails = 0;
+        my $intron_total = 0;
         my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param('introns_logic_name'));
         foreach my $intron (@{$self->intron_features}) {
             $intron->start($intron->start+1);
@@ -259,13 +262,16 @@ sub write_output {
             };
             if ($@){
                 $self->warning("Unable to store DnaAlignFeature!!\n$@");
-                $fails++;
+                $intron_fails++;
             }
-            $total++;
+            $intron_total++;
         }
-        if ($fails > 0) {
-            $self->throw("Not all introns could be written successfully ($fails fails out of $total)");
+        if ($intron_fails > 0) {
+            $self->throw("Not all introns could be written successfully ($intron_fails fails out of $intron_total)");
         }
+    }
+    if ($total == 0) {
+        $self->input_job->autoflow(0);
     }
 }
 
@@ -691,6 +697,9 @@ sub intron_features {
 sub extra_exons {
     my ($self, $val) = @_;
 
+    if (!$self->param_is_defined('extra_exons')) {
+        $self->param('extra_exons', {});
+    }
     if (defined $val) {
         $self->param('extra_exons', $val);
     }

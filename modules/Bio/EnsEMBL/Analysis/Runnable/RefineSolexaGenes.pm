@@ -47,7 +47,7 @@ files into a single sorted indexed merged BAM file
 =cut
 
 
-package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
+package Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes;
 
 use warnings ;
 use vars qw(@ISA);
@@ -76,13 +76,13 @@ sub new {
         $strict_internal_end_exon_splice_sites, $best_score, $other_isoforms, $other_num,
         $max_num , $bad_models , $trim_utr, $max_3prime_exons, $max_3prime_length,
         $max_5prime_exons, $max_5prime_length, $reject_intron_cutoff, $max_recursions,
-        $chr_slice, $rough_genes, $intron_features, $extra_exons) =
+        $chr_slice, $rough_models, $intron_features, $extra_exons) =
     rearrange([qw(RETAINED_INTRON_PENALTY FILTER_ON_OVERLAP MIN_INTRON_SIZE MAX_INTRON_SIZE
         SINGLE_EXON_MODEL MIN_SINGLE_EXON SINGLE_EXON_CDS STRICT_INTERNAL_SPLICE_SITES
         STRICT_INTERNAL_END_EXON_SPLICE_SITES BEST_SCORE OTHER_ISOFORMS OTHER_NUM
         MAX_NUM BAD_MODELS TRIM_UTR MAX_3PRIME_EXONS MAX_3PRIME_LENGTH
         MAX_5PRIME_EXONS MAX_5PRIME_LENGTH REJECT_INTRON_CUTOFF MAX_RECURSIONS
-        CHR_SLICE ROUGH_GENES INTRON_FEATURES EXTRA_EXONS)],@args);
+        CHR_SLICE ROUGH_MODELS INTRON_FEATURES EXTRA_EXONS)],@args);
     $self->retained_intron_penalty($retained_intron_penalty);
     $self->filter_on_overlap($filter_on_overlap);
     $self->min_intron_size($min_intron_size);
@@ -107,7 +107,7 @@ sub new {
     $self->max_recursions($max_recursions || 10000);
     $self->recursive_limit($self->max_recursions);
     $self->chr_slice($chr_slice);
-    $self->rough_genes($rough_genes);
+    $self->rough_models($rough_models);
     $self->intron_features($intron_features);
     $self->extra_exons($extra_exons);
     return $self;
@@ -125,9 +125,9 @@ sub new {
 
 =cut
 
-sub refine_genes {
+sub run {
     my ($self) = @_;
-GENE:  foreach my $gene ( @{$self->prelim_genes} ) {
+GENE:  foreach my $gene ( @{$self->rough_models} ) {
 # hack taking out weeny models
            next GENE if $gene->get_all_Transcripts->[0]->length < 300;
            my @models;
@@ -137,7 +137,7 @@ STRAND: for ( my $strand = -1 ; $strand <=1 ; $strand+= 2 ) {
             if ( $self->recursive_limit > 10000 ) {
 # mset recursion to 10000 in case it was raised for a tricky gene
                 $self->recursive_limit(10000);
-                warn("lowering recursive limit after complex gene\n");
+                warn("Lowering recursive limit after complex gene\n");
 
             }
             print STDERR "Running on strand $strand \n";
@@ -1804,16 +1804,6 @@ sub recursive_limit {
   return $self->{_recursive_limit};
 }
 
-sub prelim_genes {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_prelim_genes} = $val;
-  }
-
-  return $self->{_prelim_genes};
-}
-
 sub output_db {
   my ($self,$value) = @_;
 
@@ -2217,15 +2207,15 @@ sub chr_slice {
   }
 }
 
-sub rough_genes {
+sub rough_models {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_config_rough_genes'} = $value;
+    $self->{'_config_rough_models'} = $value;
   }
   
-  if (exists($self->{'_config_rough_genes'})) {
-    return $self->{'_config_rough_genes'};
+  if (exists($self->{'_config_rough_models'})) {
+    return $self->{'_config_rough_models'};
   } else {
     return undef;
   }
