@@ -121,7 +121,6 @@ sub run {
   # is the genome file indexed?
   # might want to check if it's already indexed first
   my $command = "$program faidx " . $self->genome ;
-  my $error = 0;
   unless ( -e (  $self->genome.".fai" ) ) {
     print "Indexing genome file\n";
     print STDERR "$command \n";
@@ -130,7 +129,7 @@ sub run {
     # write output
     while(<$fh>){
       print STDERR "INDEX $_";
-      $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ )
+      $self->throw('Samtools failed to index '.$self->genome) if ($_ =~ /fail/ or $_ =~ /abort/ )
      }
      close($fh) || $self->throw("Cannot close STDERR from fasta indexing");
      $self->files_to_delete("/tmp/sam2bam/index.err");
@@ -143,7 +142,7 @@ sub run {
   # write output
   while(<$fh>){
     print STDERR "IMPORT $_";
-    $error = 1 if ($_ =~ /fail/ or $_ =~ /abort/ )
+    $self->throw('Samtools failed to created an unsorted bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /fail/ or $_ =~ /abort/ )
   }
   close($fh) || $self->throw("Cannot close STDERR from samtools view");
   $self->files_to_delete("/tmp/sam2bam_view.err");
@@ -175,7 +174,7 @@ sub run {
   # write output
   while(<$fh>){
     print STDERR "SORT $_";
-    $error = 1 if ($_ =~ /truncated/ or $_ =~ /invalid/ )
+    $self->throw('Samtools failed to sort the bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /truncated/ or $_ =~ /invalid/ )
   }
   close($fh) || $self->throw("Cannot close STDERR from sorting");
   $self->files_to_delete("/tmp/sam2bam_sort.err");
@@ -187,12 +186,11 @@ sub run {
   # write output
   while(<$fh>){
     print STDERR "INDEXBAM $_";
-    $error = 1 if ($_ =~ /invalid/ or $_ =~ /abort/ )
+    $self->throw('Samtools failed to index the bam file '.$bamfile.'.bam') if ($_ =~ /invalid/ or $_ =~ /abort/ )
   }
   close($fh) || $self->throw("Cannot close STDERR from bam indexing");
   $self->files_to_delete("/tmp/sam2bam_bamindex.err");
   $self->delete_files();
-  $self->throw("Errors while running samtools \n")  if $error;
 }
 
 
