@@ -68,11 +68,9 @@ sub fetch_input {
     $self->param('slice', $self->fetch_sequence($id, $reference_db));
     my $sam = Bio::DB::Sam->new(
             -bam => $self->param('alignment_bam_file'),
-            -autoindex => 1,
             -expand_flags => 1,
             );
     $self->throw('Bam file ' . $self->param('alignment_bam_file') . "  not found \n") unless $sam;
-    $self->param('bam', $sam);
     $self->runnable(Bio::EnsEMBL::Analysis::Runnable::Bam2Genes->new(
                 -analysis => $self->create_analysis,
                 -query   => $self->param('slice'),
