@@ -26,6 +26,26 @@ use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
+=head2 param_defaults
+
+ Description: It allows the definition of default parameters for all inherting module.
+              These are the default values:
+               _input_id_name => 'iid',
+ Returntype : Hashref, containing all default parameters
+ Exceptions : None
+
+
+=cut
+
+sub param_defaults {
+    my $self = shift;
+
+    return {
+        %{$self->SUPER::param_defaults},
+        _input_id_name => 'iid',
+    }
+}
+
 sub run {
   my ($self) = @_;
   foreach my $runnable(@{$self->runnable}){
@@ -117,23 +137,29 @@ sub analysis {
 }
 
 
+=head2 input_id
+
+ Example    : my $input_id = $self->input_id;
+ Description: It returns the input_id for this analysis. By default it will look for the parameter 'iid'
+              You can change the name of the parameter by using a method param_defaults and specifying a
+              value for _input_id_name:
+              sub param_defaults {
+                  my $super_param_defaults = $self->param_defaults;
+                  $super_param_defaults->{_input_id_name} = 'filename';
+                  return $super_param_defaults;
+              }
+
+ Returntype : String
+ Exceptions : Throws if the input id is not set
+
+
+=cut
+
 sub input_id {
   my $self = shift;
-  my $value = shift;
 
-  # Note this sub is special. It overrides Hive::Process::input_id and parses the hive input_id into
-  # a normal genebuild style input_id. The issue here is that for the moment I'm going to make this
-  # a getter and not a setter as the two functions are somewhat different in this context. It would
-  # be wrong to have the get function look for and parse the hive input id but then allow the set
-  # function to set a new input id. Also a point to note is that overriding input_id in Process
-  # should be fine as it is not the input_id call that the hive itself uses
-  my $input_id_string = $self->Bio::EnsEMBL::Hive::Process::input_id;
-  unless($input_id_string =~ /.+\=\>.+\"(.+)\"/) {
-    throw("Could not parse the value from the input id. Input id string:\n".$input_id_string);
-  }
-
-  $input_id_string = $1;
-  return($input_id_string);
+  throw("Could not fetch your input id ".$self->param('_input_id_name')) unless ($self->param_is_defined($self->param('_input_id_name')));
+  return $self->param($self->param('_input_id_name'));
 }
 
 
