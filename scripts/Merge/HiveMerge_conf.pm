@@ -636,6 +636,15 @@ sub pipeline_analyses {
                                                                            (g.biotype LIKE "IG\_%" OR
                                                                             g.biotype LIKE "TR\_%")
                                          ',
+                                         'UPDATE transcript t,gene g SET t.biotype=g.biotype
+                                                                     WHERE t.gene_id=g.gene_id
+                                                                           AND
+                                                                           (g.biotype LIKE "IG\_%" OR
+                                                                            g.biotype LIKE "TR\_%")
+                                                                           AND
+                                                                           (t.biotype LIKE "IG\_%" OR
+                                                                            t.biotype LIKE "TR\_%")
+                                         ',
                                          'UPDATE gene g SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ensembl_ig_gene")
                                                       WHERE (g.biotype LIKE "IG\_%" OR
                                                              g.biotype LIKE "TR\_%")
