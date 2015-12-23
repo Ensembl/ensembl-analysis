@@ -77,10 +77,13 @@ sub fetch_input {
 
   $self->throw("No input id") unless defined($self->input_id);
 
-  $self->create_analysis(1, {-db_file => $self->param('uniprot_index'), -program_file => $self->param('blast_program')});
-  my $slice = $self->fetch_sequence(undef, $self->get_database_by_name('dna_db'));
+#  $self->create_analysis(1, {-db_file => join(',', @{$self->param('uniprot_index')}), -program_file => $self->param('blast_program')});
+  $self->create_analysis(1);
+  $self->hrdb_set_con($self->get_database_by_name('dna_db'), 'dna_db');
+  my $slice = $self->fetch_sequence($self->input_id, $self->hrdb_get_con('dna_db'));
   $self->query($slice);
 
+  $self->hive_set_config;
   my %blast = %{$self->BLAST_PARAMS};
   my $parser = $self->make_parser;
   my $filter;
@@ -107,11 +110,12 @@ sub fetch_input {
       foreach my $tran (@{$gene->get_all_Transcripts}) {
           $store_genes{$tran->dbID} = $gene;
           if ($tran->translation) {
-              foreach my $db (split ',', ($self->analysis->db_file)) {
+#              foreach my $db (split ',', ($self->analysis->db_file)) {
+              foreach my $db (@{$self->param('uniprot_index')}) {
                   $self->runnable(Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->new(
                               -transcript     => $tran,
                               -query          => $self->query,
-                              -program        => $self->analysis->program_file,
+                              -program        => $self->param('blast_program'),
                               -parser         => $parser,
                               -filter         => $filter,
                               -database       => $db,
@@ -293,7 +297,7 @@ sub add_supporting_features {
 sub write_output {
   my ($self) = @_;
 
-  my $outdb = $self->get_database_by_name($self->OUTPUT_DB);
+  my $outdb = $self->get_database_by_name($self->OUTPUT_DB, $self->hrdb_get_con('dna_db'));
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
   my $fails = 0;

@@ -800,11 +800,13 @@ sub pipeline_analyses {
 
             input_db => $self->o('refine_output_db'),
             output_db => $self->o('blast_output_db'),
+            dna_db => $self->o('reference_db'),
 
 			# path to index to fetch the sequence of the blast hit to calculate % coverage
 			indicate_index => $self->o('uniprotindex'),
 			uniprot_index => [$self->o('uniprotdb')],
             blast_program => $self->o('blastp'),
+            config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanPep'),
                       },
         -rc_name => '2GB_blast',
         -wait_for => ['create_blast_output_db'],
@@ -842,6 +844,142 @@ sub resource_classes {
       '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
       '10GB' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}])},
     };
+}
+
+sub master_config_settings {
+
+  my ($self,$config_group) = @_;
+  my $master_config_settings = {
+
+  HiveBlast => {
+    DEFAULT => {
+      BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
+      PARSER_PARAMS => {
+        -regex => '^(\w+)',
+        -query_type => undef,
+        -database_type => undef,
+      },
+      BLAST_FILTER => undef,
+      FILTER_PARAMS => {},
+      BLAST_PARAMS => {
+        -unknown_error_string => 'FAILED',
+        -type => 'wu',
+      }
+    },
+
+    HiveBlastGenscanPep => {
+      BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+      PARSER_PARAMS => {
+                         -regex => '^(\w+\W\d+)',
+                         -query_type => 'pep',
+                         -database_type => 'pep',
+                         -threshold_type => 'PVALUE',
+                         -threshold => 0.01,
+                       },
+      BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+      FILTER_PARAMS => {
+                         -min_score => 200,
+                         -prune => 1,
+                       },
+    },
+
+    HiveBlastGenscanVertRNA => {
+      BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+      PARSER_PARAMS => {
+                         -regex => '^(\w+\W\d+)',
+                         -query_type => 'pep',
+                         -database_type => 'dna',
+                         -threshold_type => 'PVALUE',
+                         -threshold => 0.001,
+                       },
+      BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+      FILTER_PARAMS => {
+                         -prune => 1,
+                       },
+    },
+
+    HiveBlastGenscanUnigene => {
+      BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+      PARSER_PARAMS => {
+                         -regex => '\/ug\=([\w\.]+)',
+                         -query_type => 'pep',
+                         -database_type => 'dna',
+                         -threshold_type => 'PVALUE',
+                         -threshold => 0.001,
+                       },
+      BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+      FILTER_PARAMS => {
+                         -prune => 1,
+                       },
+      },
+    },
+  };
+
+  return($master_config_settings->{$config_group});
+
+}
+
+sub get_config_settings {
+
+   # This is a helper sub created to access parameters that historically were held in separate configs in the
+   # old pipeline. These are now stored in the master_config_settings sub below this one. In the analyses hashes
+   # earlier in the config sets of these param can be requested and stored in the config_settings hash which
+   # is them passed in as a parameter to the analysis. The converted analysis modules have code to take the key
+   # value pairs from the config_settings hash and assign the values to the getter/setter sub associated with the
+   # key.
+
+   # Shift in the group name (a hash that has a collection of logic name hashes and a default hash)
+   # Shift in the logic name of the specific analysis
+   my $self = shift;
+   my $config_group = shift;
+   my $config_logic_name = shift;
+
+   # And additional hash keys will be stored in here
+   my @additional_configs = @_;
+
+   # Return a ref to the master hash for the group using the group name
+   my $config_group_hash = $self->master_config_settings($config_group);
+   unless(defined($config_group_hash)) {
+     die "You have asked for a group name in master_config_settings that doesn't exist. Group name:\n".$config_group;
+   }
+   # Final hash is the hash reference that gets returned. It is important to note that the keys added have
+   # priority based on the call to this subroutine, with priority from left to right. Keys assigned to
+   # $config_logic_name will have most priority, then keys in any additional hashes, then keys from the
+   # default hash. A default hash key will never override a $config_logic_name key
+   my $final_hash;
+
+   # Add keys from the logic name hash
+   my $config_logic_name_hash = $config_group_hash->{$config_logic_name};
+   unless(defined($config_logic_name_hash)) {
+     die "You have asked for a logic name hash that doesn't exist in the group you specified.\n".
+         "Group name:\n".$config_group."\nLogic name:\n".$config_logic_name;
+   }
+
+   $final_hash = $self->add_keys($config_logic_name_hash,$final_hash);
+
+   # Add keys from any additional hashes passed in, keys that are already present will not be overriden
+   foreach my $additional_hash (@additional_configs) {
+     my $config_additional_hash = $config_group_hash->{$additional_hash};
+     $final_hash = $self->add_keys($config_additional_hash,$final_hash);
+   }
+
+   # Default is always loaded and has the lowest key value priority
+   my $config_default_hash = $config_group_hash->{'Default'};
+   $final_hash = $self->add_keys($config_default_hash,$final_hash);
+
+   return($final_hash);
+}
+
+sub add_keys {
+  my ($self,$hash_to_add,$final_hash) = @_;
+
+  foreach my $key (keys(%$hash_to_add)) {
+    unless(exists($final_hash->{$key})) {
+      $final_hash->{$key} = $hash_to_add->{$key};
+    }
+  }
+
+  return($final_hash);
 }
 
 1;

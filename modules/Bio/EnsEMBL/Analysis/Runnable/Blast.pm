@@ -68,7 +68,6 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Analysis::Config::Blast qw( BLASTDB );
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
@@ -160,7 +159,7 @@ sub databases{
     # if database name is not an absolute path
   
     unless ($dbname =~ m!^/!) {
-        $dbname = $BLASTDB . "/" . $dbname;
+        warning('Specify an full path to the database, we are NOT using Bio::EnsEMBL::Analysis::Config::Blast anymore');
     }
   
     # If the expanded database name exists put this in
