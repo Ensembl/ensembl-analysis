@@ -778,7 +778,7 @@ sub filter_models {
 	    $self->prune_UTR($gene);
 	    push @{$self->output} , $gene ;
 	  } else {
-	    if ( $self->other_num  && $self->OTHER_ISOFORMS && $count <= $self->OTHER_NUM ) {
+	    if ( $self->other_num  && $self->other_isoforms && $count <= $self->other_num ) {
 	      # trim the UTR
 	      $self->prune_UTR($gene);
 	      push @{$self->output} , $gene;
@@ -1008,7 +1008,7 @@ sub make_models {
       $tran->{'_intron_count'} = $intron_count;
       push @trans, $tran;
       # we want X number of models
-      if ( $self->best_score &&  $self->MAX_NUM  ) {
+      if ( $self->best_score &&  $self->max_num  ) {
 	last MODEL if scalar(@trans)  >= ( $self->max_num +1 )  ;
       }
     }
@@ -1181,7 +1181,7 @@ Transcript " .  $transcript->seq_region_name ." " .
       $fiveplen = $cds_start - $f->start +1 if $transcript->strand == 1;
       $fiveplen = $f->end - $cds_start   +1 if $transcript->strand == -1;
       # is the coding exon too long
-      if ( $fiveplen > $self->max_5PRIME_LENGTH ) {
+      if ( $fiveplen > $self->max_5prime_length ) {
 	# replace it with the cds
 	@new_fivep = ($fivep_cds);
 	print " 5p too long $fiveplen \n";
@@ -1194,13 +1194,13 @@ Transcript " .  $transcript->seq_region_name ." " .
 	$fivepc++;
 	$fiveplen+= $f->end - $f->start +1;
 	# does it make the UTR too long?
-	if ( $fiveplen > $self->max_5PRIME_LENGTH ) {
+	if ( $fiveplen > $self->max_5prime_length ) {
 	  # dont add it
 	  print " 5p too long $fiveplen \n";
 	  last FIVEP;
 	}
 	# is it too many exons?
-	if ( $fivepc > $self->max_5PRIME_EXONS ) {
+	if ( $fivepc > $self->max_5prime_exons ) {
 	  # dont add it
 	  print " too many 5p  $fivepc cut them all as we are not sure \n";
 	  @new_fivep = ($fivep_cds);
@@ -1238,7 +1238,7 @@ Transcript " .  $transcript->seq_region_name ." " .
       $threeplen = $cds_end - $f->start +1 if $transcript->strand == -1;
       $threeplen = $f->end - $cds_end   +1 if $transcript->strand == 1;
       # is the coding exon too long
-      if ( $threeplen > $self->max_3PRIME_LENGTH ) {
+      if ( $threeplen > $self->max_3prime_length ) {
 	# replace it with the cds
 	@new_threep = ($threep_cds);
 	print " 3p too long $threeplen \n";
@@ -1258,13 +1258,13 @@ Transcript " .  $transcript->seq_region_name ." " .
 	$threepc++;
 	$threeplen+= $f->end - $f->start +1;
 	# does it make the UTR too long?
-	if ( $threeplen > $self->max_3PRIME_LENGTH ) {
+	if ( $threeplen > $self->max_3prime_length ) {
 	  # dont add it
 	  print " 3p too long $threeplen \n";
 	  last THREEP;
 	}
 	# is it too many exons?
-	if ( $threepc > $self->max_3PRIME_EXONS ) {
+	if ( $threepc > $self->max_3prime_exons ) {
 	  # dont add it
 	  print " too many 3p  $threepc cut them all as we are not sure \n";
 	  @new_threep = ($threep_cds);
