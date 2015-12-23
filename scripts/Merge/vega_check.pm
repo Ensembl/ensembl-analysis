@@ -24,9 +24,23 @@ use Exporter;
 use vars qw(@ISA @EXPORT_OK);
 
 @ISA = qw(Exporter);
-@EXPORT_OK = qw(get_combos get_biotype_groups get_actions);
+@EXPORT_OK = qw(get_combos get_biotype_groups get_actions get_loutre_misc);
 
 $| = 1;
+
+#misc data for loutre / Vega, for example a list of what we consider ncRNAs
+my %loutre_misc = (
+  'ncrnas' => [qw(snorna mirna vaultrna pirna rrna trna snrna sirna scrna)],
+  'disallowed_gene_trans_biotypes' => {
+    'gene'       => ['polymorphic',
+                     'pseudogene'],
+    'transcript' => ['ambiguous_orf',
+                     'disrupted_domain',
+                     'non_coding',
+                     'ncrna_host'],
+  },
+  'allowed_transcript_combos' => {},
+);
 
 my %allowed_combos = (
      'ensembl' => { # allowed gene-transcript biotypes combination before the merge
@@ -270,7 +284,7 @@ my %allowed_combos = (
                                                 ],
       },
 
-     'loutre' => { # biotpye combinations in loutre
+     'loutre' => { # biotype combinations in loutre
        protein_coding                       => ['protein_coding',
                                                 'nonsense_mediated_decay',
                                                 'non_stop_decay',
@@ -298,15 +312,10 @@ my %allowed_combos = (
                                                 qq(3'_overlapping_ncrna),
                                                 'tr_gene',
                                                 'lincrna',
-                                                'macro_lncRNA',
-                                                'snorna',
-                                                'mirna',
-                                                'vaultrna',
-                                                'pirna',
-                                                'rrna',
-                                                'trna',
-                                                'snrna',
-                                                'sirna',
+                                                'macro_lncrna',
+                                                'tec',
+                                                'bidirectional_promoter_lncrna',
+                                                @{$loutre_misc{'ncrnas'}},
                                                 'tec'],
        processed_pseudogene                 => ['processed_pseudogene'],
        unprocessed_pseudogene               => ['unprocessed_pseudogene'],
@@ -499,18 +508,6 @@ my %biotype_groups = (
         'artifact'                           => ['artifact'], }
    );
 
-my %loutre_other = (
-  'disallowed_gene_trans_biotypes' => {
-    'gene'       => ['polymorphic',
-                     'pseudogene'],
-    'transcript' => ['ambiguous_orf',
-                     'disrupted_domain',
-                     'non_coding',
-                     'ncrna_host'],
-  },
-  'allowed_transcript_combos' => {},
-);
-
 # my %actions = (
 #   'ensembl' => {
 #     'gene' => {
@@ -540,6 +537,11 @@ sub get_combos {
 sub get_biotype_groups {
   my $biotype_groups = shift;
   return $biotype_groups{$biotype_groups};
+}
+
+sub get_loutre_misc {
+  my $key = shift;
+  return $loutre_misc{$key};
 }
 
 #sub get_actions {
