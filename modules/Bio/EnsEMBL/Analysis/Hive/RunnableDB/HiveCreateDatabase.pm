@@ -74,7 +74,7 @@ sub clone_db {
 
   unless($self->param('script_path')) {
     throw("You have specified a create type of clone but you don't have the script_path set in your config, e.g.:\n".
-          "~/enscode/ensembl-personal/genebuilders/scripts/clone_database.ksh");
+          "~/enscode/ensembl-analysis/scripts/clone_database.ksh");
   }
 
   unless(-e $self->param('script_path')) {
@@ -97,7 +97,7 @@ sub clone_db {
     $target_string = $self->param('target_db');
   }
 
-  my $command = "ksh ".$self->param('script_path')." -s ".$source_string." -t ".$target_string;
+  my $command = "ksh ".$self->param('script_path')." -s ".$source_string.' -r '.$self->param('source_db')->{'-user'}." -t ".$target_string.' -w '.$self->param('target_db')->{'-user'}.' -P '.$self->param('target_db')->{'-pass'};
   say "COMMAND: ".$command;
 
   my $exit_code = system($command);
