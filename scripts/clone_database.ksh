@@ -62,6 +62,13 @@ The usernames and passwords are hard-coded into the script.
         it to a file.  The filename must be given as an argument to this
         flag.  In this mode, only the -s flag will be used.
 
+  -r    ("read-only") user name of the source database should be read-only
+        and without password (or change the script)
+
+  -w    ("read-write") user name of the target database
+
+  -P    ("password") password of the user of the target database
+
   -h    ("help") Help, displays this text and exists.
 
 Important tables:
@@ -81,7 +88,8 @@ Important tables:
 Example:
 
   ${self_base} -u -s ak4_chrysemys_picta_ref@genebuild1 \\
-    -t ak4_chrysemys_picta_exonerate@genebuild2
+    -t ak4_chrysemys_picta_exonerate@genebuild2 \\
+    -r ro_user -w rw_user -P pass
 
 USAGE_END
 }
@@ -90,13 +98,16 @@ opt_update=0
 opt_force=0
 opt_output=''
 
-while getopts 's:t:ufo:h' opt; do
+while getopts 's:t:ufo:r:w:P:h' opt; do
   case ${opt} in
     s)  eval $( parse_dbarg 'opt_source' ${OPTARG} )   ;;
     t)  eval $( parse_dbarg 'opt_target' ${OPTARG} )   ;;
     u)  opt_update=1    ;;
     f)  opt_force=1     ;;
     o)  opt_output=${OPTARG}    ;;
+    r)  opt_ro_user=${OPTARG}    ;;
+    w)  opt_rw_user=${OPTARG}    ;;
+    P)  opt_rw_pass=${OPTARG}    ;;
     h)  usage; exit 0   ;;
     *)  usage; exit 1   ;;
   esac
@@ -109,33 +120,45 @@ elif [[ -z ${opt_output} && ( -z ${opt_target.dbhost} || -z ${opt_target.dbname}
   print -u2 "ERROR: Incomplete target specification."
   usage; exit 1
 fi
+if [[ -z ${opt_ro_user} ]]; then
+  print -u2 "ERROR: Missing read-only user."
+  usage; exit 1
+fi
+if [[ -z ${opt_rw_user} ]]; then
+  print -u2 "ERROR: Missing read-write user."
+  usage; exit 1
+fi
+if [[ -z ${opt_rw_pass} ]]; then
+  print -u2 "ERROR: Missing read-write password."
+  usage; exit 1
+fi
 
 if [[ -z ${opt_output} ]]; then
   if (( !opt_update )); then
     # Create the new database:
     if (( opt_force )); then
       mysql --host=${opt_target.dbhost} --port=${opt_target.dbport} \
-        --user=ensadmin --password=ensembl \
+        --user=${opt_rw_user} --password=${opt_rw_pass} \
         --verbose --execute="DROP DATABASE IF EXISTS ${opt_target.dbname}"
     fi
 
     mysql --host=${opt_target.dbhost} --port=${opt_target.dbport} \
-      --user=ensadmin --password=ensembl \
+      --user=${opt_rw_user} --password=${opt_rw_pass} \
       --verbose --execute="CREATE DATABASE ${opt_target.dbname}" || exit 1
 
     # Dump table definitions from the source database and apply them to
     # the new target database.
     mysqldump --host=${opt_source.dbhost} --port=${opt_source.dbport} \
-      --user=ensro \
+      --user=${opt_ro_user} \
       --no-data  ${opt_source.dbname} |
     mysql --host=${opt_target.dbhost} --port=${opt_target.dbport} \
-      --user=ensadmin --password=ensembl \
+      --user=${opt_rw_user} --password=${opt_rw_pass} \
       --database=${opt_target.dbname}
   fi
 
   output_cmd="mysql --host=${opt_target.dbhost}
   --port=${opt_target.dbport}
-  --user=ensadmin --password=ensembl
+  --user=${opt_rw_user} --password=${opt_rw_pass}
   --database=${opt_target.dbname}"
 
   print "WRITING OUTPUT TO DATABASE ${opt_target.dbname}"
@@ -148,7 +171,7 @@ fi
 # Dump important tables from the source database and load them into the
 # target database:
 mysqldump --host=${opt_source.dbhost} --port=${opt_source.dbport} \
-  --user=ensro \
+  --user=${opt_ro_user} \
   --verbose ${opt_source.dbname} \
   analysis \
   analysis_description \
