@@ -141,7 +141,7 @@ sub fetch_input {
     if (scalar(@rough_genes)) {
         $self->create_analysis;
         if ( $self->param('intron_bam_files') ) {
-            foreach my $intron_files ( $self->param('intron_bam_files') ) {
+            foreach my $intron_files (@{ $self->param('intron_bam_files')} ) {
                 my $sam = Bio::DB::Sam->new(
                         -bam => $intron_files->{file},
                         -expand_flags => 1,
