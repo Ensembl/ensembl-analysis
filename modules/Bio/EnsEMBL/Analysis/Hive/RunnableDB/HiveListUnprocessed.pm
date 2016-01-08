@@ -151,10 +151,15 @@ sub get_unprocessed_genes() {
   }
   
   # only copy the genes which have not been processed by the merge code
-  open PROCCESED_GENES, $output_dir."/".$filename or die $!;
-  while (my $proccesed_gene_id = <PROCCESED_GENES>) {
-    chomp($proccesed_gene_id);
-    delete $genes_to_copy{$proccesed_gene_id};
+  if (-e "$output_dir/$filename") {
+      open PROCCESED_GENES, $output_dir."/".$filename or die $!;
+      while (my $proccesed_gene_id = <PROCCESED_GENES>) {
+        chomp($proccesed_gene_id);
+        delete $genes_to_copy{$proccesed_gene_id};
+      }
+  }
+  else {
+      warning("$output_dir/$filename does not exists, check that it's OK!\n");
   }
   
   return keys(%genes_to_copy);
