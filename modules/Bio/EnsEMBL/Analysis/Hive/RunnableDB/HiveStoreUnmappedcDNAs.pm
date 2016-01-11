@@ -179,7 +179,7 @@ sub find_reasons {
   #now run the findN.pl to see if have large strings of Ns:
   `perl $findN_prog $seq_file > $outdir/many_n.out`;
 
-  open IN, "many_n.out";
+  open IN, $outdir."/many_n.out";
   while (<IN>){
     chomp;
     my @tmp = split/\s+/, $_;

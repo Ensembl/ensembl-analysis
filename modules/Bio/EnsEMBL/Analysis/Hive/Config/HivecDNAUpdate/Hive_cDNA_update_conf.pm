@@ -401,7 +401,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'store_unmapped',
 #      -wait_for => ['filter_output'],
-      -wait_for => ['find_missing_cdnas'],
+      -wait_for => ['find_missing_cdnas','filter_output'],
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStoreUnmappedcDNAs',
       -parameters => {
         gss => $self->o('gss_file'),
