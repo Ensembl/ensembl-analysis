@@ -134,15 +134,11 @@ sub fetch_input{
   }
   $self->hrdb_set_con($dba,'target_db');
 
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                           );
-  $self->analysis($analysis);
+  $self->hive_set_config();
 
   my $iid_type = $self->param('iid_type');
   my $calculate_coverage_and_pid = $self->param('calculate_coverage_and_pid');
+
   my $slice;
   my $accession;
   my $peptide_seq;
@@ -199,7 +195,7 @@ sub fetch_input{
 
 
   if($iid_type eq 'feature_region') {
-    #  my %params = %{$self->genewise_options} if($self->genewise_options);
+    my %params = %{$self->genewise_options} if($self->genewise_options);
     my $runnable = new Bio::EnsEMBL::Analysis::Runnable::Genewise
        (
          -query   => $slice,
@@ -210,12 +206,13 @@ sub fetch_input{
      );
     $self->runnable($runnable);
   } elsif($iid_type eq 'feature_id') {
+    my %params = %{$self->MINIGENEWISE_PARAMETERS} if($self->MINIGENEWISE_PARAMETERS);
     my $runnable  = Bio::EnsEMBL::Analysis::Runnable::MiniGenewise->new
        (
          -query            => $slice,
          -protein          => $peptide_obj,
          -features         => $transcript_features,
-#        -genewise_options => $self->genewise_options,
+         -genewise_options => $self->GENEWISE_PARAMETERS,
          -analysis         => $self->analysis,
          -calculate_coverage_and_pid => $calculate_coverage_and_pid,
          -best_in_genome   => $self->best_in_genome_transcript(),
@@ -950,6 +947,41 @@ sub read_and_check_config{
 }
 
 
+sub hive_set_config {
+  my $self = shift;
+
+  # Throw is these aren't present as they should both be defined
+  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
+    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
+          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
+          "write the genes to and this should also include the module name even if it isn't strictly necessary"
+         );
+  }
+
+  # Make an analysis object and set it, this will allow the module to write to the output db
+  my $analysis = new Bio::EnsEMBL::Analysis(
+                                             -logic_name => $self->param('logic_name'),
+                                             -module => $self->param('module'),
+                                           );
+  $self->analysis($analysis);
+
+  # Now loop through all the keys in the parameters hash and set anything that can be set
+  my $config_hash = $self->param('config_settings');
+  foreach my $config_key (keys(%{$config_hash})) {
+    if(defined &$config_key) {
+      $self->$config_key($config_hash->{$config_key});
+    } else {
+      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
+            "key:\n".$config_key
+           );
+    }
+  }
+
+}
+
+
 =head2 PAF_LOGICNAMES
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
@@ -1032,17 +1064,17 @@ sub OUTPUT_BIOTYPE{
 sub GENEWISE_PARAMETERS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{GENEWISE_PARAMETERS} = $arg;
+    $self->param('_GENEWISE_PARAMETERS',$arg);
   }
-  return $self->{GENEWISE_PARAMETERS}
+  return $self->param('_GENEWISE_PARAMETERS');
 }
 
 sub MINIGENEWISE_PARAMETERS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{MINIGENEWISE_PARAMETERS} = $arg;
+    $self->param('_MINIGENEWISE_PARAMETERS',$arg);
   }
-  return $self->{MINIGENEWISE_PARAMETERS}
+  return $self->param('_MINIGENEWISE_PARAMETERS');
 }
 
 sub MULTIMINIGENEWISE_PARAMETERS{
@@ -1074,9 +1106,9 @@ sub EXONERATE_PARAMETERS{
 sub FILTER_PARAMS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{FILTER_PARAMETERS} = $arg;
+    $self->param('_FILTER_PARAMETERS',$arg);
   }
-  return $self->{FILTER_PARAMETERS}
+  return $self->param('_FILTER_PARAMETERS');
 }
 
 sub FILTER_OBJECT{
@@ -1163,18 +1195,18 @@ sub USE_KILL_LIST{
 sub LIMIT_TO_FEATURE_RANGE{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{LIMIT_TO_FEATURE_RANGE} = $arg;
+    $self->param('_LIMIT_TO_FEATURE_RANGE',$arg);
   }
-  return $self->{LIMIT_TO_FEATURE_RANGE}
+  return $self->param('_LIMIT_TO_FEATURE_RANGE');
 }
 
 
 sub FEATURE_RANGE_PADDING{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{FEATURE_RANGE_PADDING} = $arg;
+    $self->param('_FEATURE_RANGE_PADDING',$arg);
   }
-  return $self->{FEATURE_RANGE_PADDING}
+  return $self->param('_FEATURE_RANGE_PADDING');
 }
 
 sub WRITE_REJECTED{
