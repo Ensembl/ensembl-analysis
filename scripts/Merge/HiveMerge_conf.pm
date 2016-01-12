@@ -111,7 +111,7 @@ sub default_options {
                     -port      => "3306",
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
-                    -dbname    => $self->o('dbname_prefix').'_ensembl',
+                    -dbname    => "",
     },
     
     # ccds database containing the CCDS gene set
