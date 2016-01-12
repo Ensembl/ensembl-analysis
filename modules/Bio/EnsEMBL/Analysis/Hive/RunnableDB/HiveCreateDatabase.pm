@@ -58,8 +58,10 @@ sub create_db {
   if($create_type eq 'clone') {
     $self->clone_db();
   } elsif ($create_type eq 'copy') {
-  	$self->copy_db();
-  } else {
+    $self->copy_db();
+  } elsif($create_type eq 'core_only') {
+    $self->core_only_db();
+  }else {
     throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
   }
 
