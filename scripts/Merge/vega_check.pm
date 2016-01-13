@@ -28,9 +28,8 @@ use vars qw(@ISA @EXPORT_OK);
 
 $| = 1;
 
-#misc data for loutre / Vega, for example a list of what we consider ncRNAs
+#misc data for loutre QC
 my %loutre_misc = (
-  'ncrnas' => [qw(snorna mirna vaultrna pirna rrna trna snrna sirna scrna)],
   'disallowed_gene_trans_biotypes' => {
     'gene'       => ['polymorphic',
                      'pseudogene'],
@@ -476,13 +475,14 @@ my %biotype_groups = (
                                                 'vaultrna'] },
      'vega' => {
         'Protein_coding'                     => ['protein_coding'],
-        'lncRNAs'                            => ['3prime_overlapping_ncrna',
+        'lncRNAs'                            => ['3prime_overlapping_ncRNA',
                                                  'sense_intronic',
                                                  'sense_overlapping',
                                                  'antisense',
                                                  'non_coding',
                                                  'macro_lncRNA',
-                                                 'lincRNA',],
+                                                 'lincRNA',
+                                                 'bidirectional_promoter_lncRNA'],
         'ncRNAs'                             => ['miRNA',
                                                  'rRNA',
                                                  'snoRNA',
@@ -504,7 +504,7 @@ my %biotype_groups = (
                                                  'ig_pseudogene'],
         'TR'                                 => ['tr_gene',
                                                  'tr_pseudogene'],
-        'Other'                                => ['TEC'],
+        'Other'                              => ['TEC'],
         'artifact'                           => ['artifact'], }
    );
 
