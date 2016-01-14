@@ -1456,7 +1456,7 @@ use vars qw( %Config );
           -vendor => 'NIMBLEGEN',
           -format  => 'EXPRESSION',
           -type    => 'OLIGO',
-          -class   => 'NIMBLEGEN',
+          -class   => 'NIMBLEGEN_MODENCODE',
         },
       },
 
