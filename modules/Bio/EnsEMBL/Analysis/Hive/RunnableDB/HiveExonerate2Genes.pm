@@ -20,7 +20,7 @@
 
   Please email comments or questions to the public Ensembl
   developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
-
+sub
   Questions may also be sent to the Ensembl help desk at
   <http://www.ensembl.org/Help/Contact>.
 
@@ -1147,7 +1147,7 @@ sub output_query_file {
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
     unless($db_row) {
-      $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
+      $self->throw("Did not find an entry in the uniprot_sequences table matching the accession. Accession:\n".$accession);
     }
 
     my $seq = $db_row->{'seq'};
