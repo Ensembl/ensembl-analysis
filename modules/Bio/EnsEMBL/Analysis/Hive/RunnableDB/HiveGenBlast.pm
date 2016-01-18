@@ -1,3 +1,5 @@
+#!/usr/bin/env perl
+
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -100,6 +102,7 @@ sub fetch_input {
   } else {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
+
 
   my $genblast_program = $self->param('genblast_program');
   my $biotypes_hash = $self->get_biotype();
@@ -319,15 +322,17 @@ sub output_query_file {
   $table_adaptor->table_name('uniprot_sequences');
 
 
+  my $rand = int(rand(1000000));
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "genblast_".${$accession_array}[0].".".$$.".fasta";
-  my $output_dir = $self->param('query_seq_dir')."/genblast_".$$;
+  my $outfile_name = "genblast_".$$."_".$rand.".fasta";
+  my $output_dir = $self->param('query_seq_dir')."/genblast_".$$."_".$rand;
   my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
 
+
   unless(-e $output_dir) {
-    `mkdir $output_dir`;
+    `mkdir -p $output_dir`;
   }
 
   if(-e $outfile_path) {

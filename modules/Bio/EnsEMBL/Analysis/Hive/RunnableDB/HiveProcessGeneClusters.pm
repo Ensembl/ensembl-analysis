@@ -19,7 +19,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessGeneClusters;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -50,12 +49,9 @@ sub fetch_input {
 
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   $self->hrdb_set_con($dna_dba,'dna_db');
-  my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
-  $in_dba->dnadb($dna_dba);
-  $self->hrdb_set_con($in_dba,'cluster_db');
-  my $out_dba = $self->hrdb_get_dba($self->param('processed_cluster_db'));
+  my $out_dba = $self->hrdb_get_dba($self->param('cluster_output_db'));
   $out_dba->dnadb($dna_dba);
-  $self->hrdb_set_con($out_dba,'processed_cluster_db');
+  $self->hrdb_set_con($out_dba,'cluster_output_db');
 
   my $input_id = $self->param('iid');
   my $unprocessed_genes = [];
@@ -65,6 +61,9 @@ sub fetch_input {
   # If the the input is a slice, then fetch everything on the slice, but remove any gene that crosses
   # the 3' boundary, as this will be picked up on another slice
   if($input_id_type eq 'slice') {
+    my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
+    $in_dba->dnadb($dna_dba);
+    $self->hrdb_set_con($in_dba,'cluster_db');
     my $slice = $self->fetch_sequence($input_id,$dna_dba);
     $self->query($slice);
     my $gene_adaptor = $in_dba->get_GeneAdaptor();
@@ -74,12 +73,21 @@ sub fetch_input {
 
   # If the input is an array of gene ids then loop through them and fetch them from the input db
   elsif($input_id_type eq 'gene_id') {
+    my $in_dba = $self->hrdb_get_dba($self->param('cluster_db'));
+    $in_dba->dnadb($dna_dba);
+    $self->hrdb_set_con($in_dba,'cluster_db');
     my $gene_adaptor = $in_dba->get_GeneAdaptor();
 
     for my $db_id (@{$input_id}) {
       my $unprocessed_gene = $gene_adaptor->fetch_by_dbID($db_id);
       push(@{$unprocessed_genes},$unprocessed_gene);
     }
+  }
+
+  # If the input is an array of gene ids then loop through them and fetch them from the input db
+  elsif($input_id_type eq 'cluster') {
+     my $unprocessed_gene = $self->load_cluster($input_id);
+     push(@{$unprocessed_genes},$unprocessed_gene);
   }
 
   $self->unprocessed_genes($unprocessed_genes);
@@ -109,7 +117,7 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  my $adaptor = $self->hrdb_get_con('processed_cluster_db')->get_GeneAdaptor;
+  my $adaptor = $self->hrdb_get_con('cluster_output_db')->get_GeneAdaptor;
   my @output = @{$self->output_genes};
 
   say "Writing genes to output db";
@@ -142,8 +150,8 @@ sub process_rough_genes {
     my $exon_pairs = $self->generate_exon_pairs($unprocessed_gene);
     my $candidate_transcripts = $self->score_transcript_support($unprocessed_gene,$exon_pairs);
     my $candidate_transcript_count = scalar(@{$candidate_transcripts});
-    my $final_transcripts = $self->remove_redundant_transcripts($candidate_transcripts);
-    my $final_transcript_count = scalar(@{$final_transcripts});
+#    my $near_final_transcripts = $self->remove_redundant_transcripts($candidate_transcripts);
+    my $final_transcripts = $self->compare_transcripts($candidate_transcripts);     #$near_final_transcripts);
     unless(scalar(@{$final_transcripts})) {
       $final_transcripts = $self->find_best_remaining_transcript($unprocessed_gene,$exon_pairs);
     }
@@ -152,9 +160,10 @@ sub process_rough_genes {
       next;
     }
 
-    say "Inital transcript count for gene (".$unprocessed_gene->dbID."): ".$input_transcript_count;
-    say "Candidate transcript count for gene (".$unprocessed_gene->dbID."): ".$candidate_transcript_count;
-    say "Final transcript count for gene (".$unprocessed_gene->dbID."): ".$final_transcript_count;
+    my $final_transcript_count = scalar(@{$final_transcripts});
+    say "Inital transcript count for gene: ".$input_transcript_count;
+    say "Candidate transcript count for gene: ".$candidate_transcript_count;
+    say "Final transcript count for gene: ".$final_transcript_count;
 
     my $output_gene = Bio::EnsEMBL::Gene->new();
     $output_gene->analysis($self->analysis);
@@ -196,7 +205,7 @@ sub generate_exon_pairs {
       # For a single exon model we will just build a pair with the exon coords repeated
       # Later, in the scoring phase we can add a penalty to the cut off for these
       my $coord_string = $exon_start.":".$exon_end.":".$exon_start.":".$exon_end;
-      $exon_pairs->{$coord_string}->{$transcript->dbID} = 1;
+      $exon_pairs->{$coord_string}->{$transcript->{'internal_transcript_id'}} = 1;
     } else {
       my $i=0;
       for($i=0; $i<(scalar(@{$exons})-1); $i++) {
@@ -207,7 +216,7 @@ sub generate_exon_pairs {
         my $ers = $exon_right->seq_region_start;
         my $ere = $exon_right->seq_region_end;
         my $coord_string = $els.":".$ele.":".$ers.":".$ere;
-        $exon_pairs->{$coord_string}->{$transcript->dbID} = 1;
+        $exon_pairs->{$coord_string}->{$transcript->{'internal_transcript_id'}} = 1;
       }
     } # end else
   }
@@ -285,22 +294,26 @@ sub score_transcript_support {
       # If we find a weight for the biotype of the transcript, then assign it
       if(exists($logic_name_weights->{$logic_name}->{$biotype})) {
         $transcript_weight_threshold = $logic_name_weights->{$logic_name}->{$biotype};
+        $transcript->{'transcript_weight_threshold'} = $transcript_weight_threshold;
       }
       # Else if we don't find a weight for that biotype then look for a default weight key
       # If we don't find it then the biotype will just a default of 1
       elsif (exists($logic_name_weights->{$logic_name}->{'default_biotype_weight'})) {
         $transcript_weight_threshold = $logic_name_weights->{$logic_name}->{'default_biotype_weight'};
+        $transcript->{'transcript_weight_threshold'} = $transcript_weight_threshold;
       }
     }
     # Else the logic name (hopefully) points to a weight, so set the weight cut off to that
     elsif($logic_name_weights->{$logic_name}) {
       $transcript_weight_threshold = $logic_name_weights->{$logic_name};
+      $transcript->{'transcript_weight_threshold'} = $transcript_weight_threshold;
     }
 
     # Just in case someone sets something weird in the config, like pairing a biotype to undef in the hash...
     # This will cause the transcript to be included in the final set
     unless($transcript_weight_threshold) {
       $transcript_weight_threshold = 1;
+      $transcript->{'transcript_weight_threshold'} = $transcript_weight_threshold;
     }
 
     my $keep_transcript = 1;
@@ -311,7 +324,7 @@ sub score_transcript_support {
       my $exon_pair = $exon_pairs->{$exon_pair_key};
       # If this exon pair was present in the transcript then count the number to times it was observed in
       # total by counting the keys for it (which is the set of transcript dbIDs it was found for)
-      if($exon_pair->{$transcript->dbID}) {
+      if($exon_pair->{$transcript->{'internal_transcript_id'}}) {
         my $support_count = scalar(keys(%$exon_pair));
         # If we have a single exon transcript we add a penalty for the support threshold
         if(scalar(@{$exons}) == 1) {
@@ -329,7 +342,7 @@ sub score_transcript_support {
     }
 
     if($keep_transcript) {
-      say "Keeping transcript: ".$transcript->stable_id();
+      say "Keeping transcript";
       push(@{$output_transcripts},$transcript);
     }
   }
@@ -359,7 +372,7 @@ sub remove_redundant_transcripts {
       if(scalar(@{$t1_exons}) > scalar(@{$t2_exons})) {
         my $is_redundant = $self->exon_subset($t1,$t2,$t1_exons,$t2_exons);
         if($is_redundant) {
-          $transcript_redundancy->{$t2->dbID()} = 1;
+          $transcript_redundancy->{$t2->{'internal_transcript_id'}} = 1;
         }
       }
       elsif(scalar(@{$t1_exons}) == scalar(@{$t2_exons})) {
@@ -367,26 +380,26 @@ sub remove_redundant_transcripts {
         if($t1->length >= $t2->length) {
           $is_redundant = $self->exon_subset($t1,$t2,$t1_exons,$t2_exons);
           if($is_redundant) {
-            $transcript_redundancy->{$t2->dbID()} = 1;
+            $transcript_redundancy->{$t2->{'internal_transcript_id'}} = 1;
           }
         } else {
           $is_redundant = $self->exon_subset($t2,$t1,$t2_exons,$t1_exons);
           if($is_redundant) {
-            $transcript_redundancy->{$t1->dbID()} = 1;
+            $transcript_redundancy->{$t1->{'internal_transcript_id'}} = 1;
           }
         }
       }
       else {
          my $is_redundant = $self->exon_subset($t2,$t1,$t2_exons,$t1_exons);
          if($is_redundant) {
-          $transcript_redundancy->{$t1->dbID()} = 1;
+          $transcript_redundancy->{$t1->{'internal_transcript_id'}} = 1;
         }
       }
     }
   }
 
   foreach my $transcript (@{$transcripts}) {
-    unless($transcript_redundancy->{$transcript->dbID}) {
+    unless($transcript_redundancy->{$transcript->{'internal_transcript_id'}}) {
       push(@{$final_transcripts},$transcript)
     }
   }
@@ -394,14 +407,135 @@ sub remove_redundant_transcripts {
   return $final_transcripts;
 }
 
+
+
+sub compare_transcripts {
+  my ($self,$transcripts) = @_;
+
+  my $final_transcripts = [];
+  my $transcript_redundancy = {};
+  my $i=0;
+  for($i=0; $i<scalar@{$transcripts}; $i++) {
+    my $t1 = ${$transcripts}[$i];
+    my $j = $i+1;
+    for($j=$i+1; $j<scalar@{$transcripts}; $j++) {
+      my $t2 = ${$transcripts}[$j];
+
+      say "COMPARING: ".$t1->{'internal_transcript_id'}." TO ".$t2->{'internal_transcript_id'};
+      my $unique_exons_t1 = $self->find_unique_exons($t1,$t2);
+      my $unique_exons_t2 = $self->find_unique_exons($t2,$t1);
+
+      # In this case all exons overlap, so select one of the two and mark the other as redundant
+      unless($unique_exons_t1 || $unique_exons_t2) {
+        my $redundant_internal_transcript_id = $self->choose_best_transcript($t1,$t2);
+        $transcript_redundancy->{$redundant_internal_transcript_id} = 1;
+      }
+    }
+  }
+
+  foreach my $transcript (@{$transcripts}) {
+    unless($transcript_redundancy->{$transcript->{'internal_transcript_id'}}) {
+      push(@{$final_transcripts},$transcript)
+    }
+  }
+
+  return $final_transcripts;
+}
+
+
+sub choose_best_transcript {
+  my ($self,$transcript_a,$transcript_b) = @_;
+
+  my $redundant_internal_transcript_id;
+
+  my $transcript_a_cov = $transcript_a->{'cov'};
+  my $transcript_b_cov = $transcript_b->{'cov'};
+
+  my $transcript_a_pid = $transcript_a->{'pid'};
+  my $transcript_b_pid = $transcript_a->{'pid'};
+
+  my $transcript_a_support = $transcript_a_cov + $transcript_a_pid;
+  my $transcript_b_support = $transcript_b_cov + $transcript_b_pid;
+
+  my $transcript_a_weight_threshold = $transcript_a->{'transcript_weight_threshold'};
+  my $transcript_b_weight_threshold = $transcript_b->{'transcript_weight_threshold'};
+
+  # First pick the one with the lowest weight as this should correspond to the most reliable source
+  # Then if the weights are the same pick the one with the best combined coverage and pid score
+  if($transcript_a_weight_threshold < $transcript_b_weight_threshold) {
+    $redundant_internal_transcript_id = $transcript_b->{'internal_transcript_id'};
+    say "Removing transcript ".$transcript_b->{'internal_transcript_id'}."\nCov: ".$transcript_b_cov.
+    "\nPid: ".$transcript_b_pid."\n\n in favour of transcript ".$transcript_a->{'internal_transcript_id'}.
+    "\nCov: ".$transcript_a_cov."\nPid: ".$transcript_a_pid."\n";
+  } elsif($transcript_a_weight_threshold > $transcript_b_weight_threshold) {
+    $redundant_internal_transcript_id = $transcript_a->{'internal_transcript_id'};
+    say "Removing transcript ".$transcript_a->{'internal_transcript_id'}."\nCov: ".$transcript_a_cov.
+    "\nPid: ".$transcript_a_pid."\n\n in favour of transcript ".$transcript_b->{'internal_transcript_id'}.
+    "\nCov: ".$transcript_b_cov."\nPid: ".$transcript_b_pid."\n";
+  } elsif($transcript_a_weight_threshold == $transcript_b_weight_threshold) {
+    if($transcript_a_support >= $transcript_b_support) {
+      $redundant_internal_transcript_id = $transcript_b->{'internal_transcript_id'};
+      say "Removing transcript ".$transcript_b->{'internal_transcript_id'}."\nCov: ".$transcript_b_cov.
+          "\nPid: ".$transcript_b_pid."\n\n in favour of transcript ".$transcript_a->{'internal_transcript_id'}.
+          "\nCov: ".$transcript_a_cov."\nPid: ".$transcript_a_pid."\n";
+    } else {
+      $redundant_internal_transcript_id = $transcript_a->{'internal_transcript_id'};
+      say "Removing transcript ".$transcript_a->{'internal_transcript_id'}."\nCov: ".$transcript_a_cov.
+          "\nPid: ".$transcript_a_pid."\n\n in favour of transcript ".$transcript_b->{'internal_transcript_id'}.
+          "\nCov: ".$transcript_b_cov."\nPid: ".$transcript_b_pid."\n";
+    }
+  }
+
+  return($redundant_internal_transcript_id);
+}
+
+
+sub features_overlap {
+  my ($self,$feature_a,$feature_b) = @_;
+
+  if (($feature_a->seq_region_start() <= $feature_b->seq_region_end()) &&
+      ($feature_a->seq_region_end() >= $feature_b->seq_region_start())) {
+    return 1;
+  }
+
+  return 0;
+}
+
+sub find_unique_exons {
+  my ($self,$transcript_a,$transcript_b) = @_;
+
+  foreach my $exon_a (@{$transcript_a->get_all_translateable_Exons()}) {
+    my $overlap = 0;
+    say "E_A: ".$exon_a->start().", ".$exon_a->end();
+    foreach my $exon_b (@{$transcript_b->get_all_translateable_Exons()}) {
+      say "E_B: ".$exon_b->start().", ".$exon_b->end();
+      $overlap = $self->features_overlap($exon_a,$exon_b);
+      if($overlap) {
+        say "OVERLAP FOUND!!!!";
+        say "OVERLAP INNER: ".$overlap;
+        last;
+      }
+    }
+
+    say "OVERLAP OUTER: ".$overlap;
+    unless($overlap) {
+      say "NO OVERLAP FOUND, UNIQUE EXON PRESENT";
+      return(1);
+    }
+  }
+
+  return 0;
+}
+
+
 sub exon_subset {
   my ($self,$transcript_a,$transcript_b,$exons_a,$exons_b) = @_;
 
   my $is_subset = 0;
   my $start_exon_b = ${$exons_b}[0];
   my $exon_match_count = 0;
-  say "Transcript A: ".$transcript_a->analysis->logic_name().", ".$transcript_a->dbID();
-  say "Transcript B: ".$transcript_b->analysis->logic_name().", ".$transcript_b->dbID();
+  say "Transcript A: ".$transcript_a->analysis->logic_name().", ".$transcript_a->{'internal_transcript_id'};
+  say "Transcript B: ".$transcript_b->analysis->logic_name().", ".$transcript_b->{'internal_transcript_id'};
 
   my $i=0;
   for($i=0; $i<scalar(@{$exons_a}); $i++) {
@@ -420,7 +554,7 @@ sub exon_subset {
   }
 
   if($exon_match_count == scalar(@{$exons_b})) {
-    say "Model ".$transcript_b->dbID()." is redundant to model ".$transcript_a->dbID();
+    say "Model ".$transcript_b->{'internal_transcript_id'}." is redundant to model ".$transcript_a->{'internal_transcript_id'};
     $is_subset = 1;
   }
   return $is_subset;
@@ -516,6 +650,47 @@ sub process_clusters {
 
 }
 
+sub load_cluster {
+  my ($self,$cluster) = @_;
+
+  my $gene = new Bio::EnsEMBL::Gene();
+  my $dna_dba = $self->hrdb_get_con('dna_db');
+  my $input_dbs = $self->param('input_gene_dbs');
+
+  # Use the var below to give each transcript an internal id, since they are coming from multiple input dbs
+  my $internal_transcript_id = 0;
+  foreach my $adaptor_name (keys(%{$cluster})) {
+    unless($input_dbs->{$adaptor_name}) {
+      $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash".
+                   "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
+    }
+    my $dba = $self->hrdb_get_dba($input_dbs->{$adaptor_name});
+    unless($dba) {
+      $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash".
+                   "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
+    }
+    $dba->dnadb($dna_dba);
+    $self->hrdb_set_con($dba,$adaptor_name);
+    my $transcript_adaptor = $dba->get_TranscriptAdaptor();
+    my $transcript_id_array = $cluster->{$adaptor_name};
+    foreach my $transcript_id (@{$transcript_id_array}) {
+      my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
+      my $transcript_sf = $transcript->get_all_supporting_features();
+      my $transcript_cov = ${$transcript_sf}[0]->hcoverage();
+      my $transcript_pid = ${$transcript_sf}[0]->percent_id();
+
+      # These are some internal values that get used elsewhere for convenience. The internal id is needed to avoid id conflicts
+      $transcript->{'cov'} = $transcript_cov;
+      $transcript->{'pid'} = $transcript_pid;
+      $transcript->{'internal_transcript_id'} = $internal_transcript_id;
+      $internal_transcript_id++;
+      $gene->add_Transcript($transcript);
+    }
+  }
+
+  say "Created a new gene, transcript count: ".scalar(@{$gene->get_all_Transcripts()});
+  return $gene;
+}
 
 sub remove_3_prime_boundry_genes {
   my ($self,$unfiltered_genes) = @_;
@@ -528,7 +703,7 @@ sub remove_3_prime_boundry_genes {
     unless($gene->seq_region_end > $slice_3_prime_end) {
       push(@{$filtered_genes},$gene);
     } else {
-      say "Skipping gene with dbID ".$gene->dbID." as it will be picked up on the adjoining another slice";
+      say "Skipping gene as it will be picked up on the adjoining another slice";
     }
   }
   return($filtered_genes);
@@ -577,12 +752,15 @@ sub single_exon_support_penalty {
 }
 
 
-sub find_best_remaining_transcript {
+sub find_best_remaining_transcript_old {
   my ($self,$gene,$exon_pairs) = @_;
 
   my $best_transcripts = [];
   my $max_support_score = 0;
-  my $min_allowed_score = 2;
+  my $min_allowed_score = $self->param('min_backup_score');
+  unless(defined($min_allowed_score)) {
+    $min_allowed_score = 10;
+  }
 
   # This will go through all the transcripts and pick the one with the highest level of support
   # I'm not sure how that would work. I want to avoid biasing it towards two exon genes, but
@@ -613,6 +791,64 @@ sub find_best_remaining_transcript {
   return $best_transcripts;
 }
 
+
+sub find_best_remaining_transcript {
+  my ($self,$gene,$exon_pairs) = @_;
+
+  my $lowest_weight_transcripts = [];
+  my $max_support_score = 0;
+  my $lowest_weight_threshold = 999;
+  my $min_allowed_score = $self->param('min_backup_score');
+  my $max_allowed_weight = $self->param('max_backup_weight');
+  unless(defined($min_allowed_score)) {
+    $min_allowed_score = 10;
+  }
+  unless(defined($max_allowed_weight)) {
+    $max_allowed_weight = 10;
+  }
+
+  my $transcripts = $gene->get_all_Transcripts();
+  foreach my $transcript (@{$transcripts}) {
+    my $support_score = $self->calculate_support_average($transcript,$exon_pairs);
+    unless($support_score >= $min_allowed_score) {
+      next;
+    }
+
+    my $transcript_weight_threshold = $transcript->{'transcript_weight_threshold'};
+    if(($transcript_weight_threshold <= $lowest_weight_threshold) && ($transcript_weight_threshold <= $max_allowed_weight)) {
+      $lowest_weight_threshold = $transcript_weight_threshold;
+      push(@{$lowest_weight_transcripts},$transcript);
+    }
+  }
+
+  my $best_length = 0;
+  my $best_combined_cov_and_pid = 0;
+  my $final_transcript;
+  foreach my $transcript (@{$lowest_weight_transcripts}) {
+    my $cov = $transcript->{'cov'};
+    my $pid = $transcript->{'pid'};
+    my $combined_cov_and_pid = $cov + $pid;
+    if($combined_cov_and_pid > $best_combined_cov_and_pid) {
+      $best_combined_cov_and_pid = $combined_cov_and_pid;
+      $best_length = length($transcript->translate());
+      $final_transcript = $transcript;
+    } elsif($combined_cov_and_pid == $best_combined_cov_and_pid) {
+      if(length($transcript->translate() > $best_length)) {
+        $best_length = length($transcript->translate());
+        $final_transcript = $transcript;
+      }
+    }
+  }
+
+  if($final_transcript) {
+    $final_transcript->biotype($final_transcript->biotype."_br");
+    return [$final_transcript];
+  }
+
+  return [];
+}
+
+
 sub calculate_support_average {
   my ($self,$transcript,$exon_pairs) = @_;
 
@@ -628,7 +864,7 @@ sub calculate_support_average {
     # Loop through all exon pairs in the exon pair hash for the gene
     foreach my $exon_pair_key (keys(%$exon_pairs)) {
       my $exon_pair = $exon_pairs->{$exon_pair_key};
-      if($exon_pair->{$transcript->dbID}) {
+      if($exon_pair->{$transcript->{'internal_transcript_id'}}) {
         $total_exon_pairs++;
         $total_support_amount += scalar(keys(%$exon_pair));
       }
