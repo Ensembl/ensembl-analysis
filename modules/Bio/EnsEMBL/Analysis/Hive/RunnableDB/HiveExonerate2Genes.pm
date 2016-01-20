@@ -196,7 +196,10 @@ sub fetch_input {
 
   if($iid_type eq 'db_seq') {
     my $accession_array = $self->param('iid');
-    $query_file = $self->output_query_file($accession_array);
+    $query_seq = $self->get_query_seq($accession_array);
+    $self->peptide_seq($query_seq->seq);
+    $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
+    @db_files = ($self->GENOMICSEQS);
   } elsif($iid_type eq 'feature_region') {
     my $feature_region_id = $self->param('iid');
     my ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
@@ -290,6 +293,7 @@ sub fetch_input {
     }
   }
 
+
 #  my $transcript_biotype = $self->transcript_biotype();
   my $biotypes_hash = $self->get_biotype();
   foreach my $database ( @db_files ){
@@ -309,6 +313,7 @@ sub fetch_input {
               );
 
       $self->runnable($runnable);
+
   }
 
 }
@@ -363,6 +368,7 @@ sub write_output {
   $self->param('output_genes',undef);
   my $fails = 0;
   my $total = 0;
+
   foreach my $gene (@output){
     empty_Gene($gene);
     eval {
@@ -1098,17 +1104,21 @@ sub filter_killed_entries {
 
 sub get_query_seq {
   my ($self,$accession_array) = @_;
+
+  my $query_table_name = $self->param('query_table_name');
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name('uniprot_sequences');
+  $table_adaptor->table_name($query_table_name);
 
   my $accession = $$accession_array[0];
 
   my $db_row = $table_adaptor->fetch_by_dbID($accession);
   unless($db_row) {
-    $self->throw("Did not find an entry int eh uniprot_sequences table matching the accession. Accession:\n".$accession);
+    $self->throw("Did not find an entry in the ".$query_table_name." table matching the accession. Accession:\n".$accession);
   }
 
   my $seq = $db_row->{'seq'};
+
+  # If the table has a biotype col set the value
   my $biotypes_hash = {};
   $biotypes_hash->{$accession} = $db_row->{'biotype'};
   $self->get_biotype($biotypes_hash);
@@ -1124,8 +1134,9 @@ sub get_query_seq {
 sub output_query_file {
   my ($self,$accession_array) = @_;
 
+  my $query_table_name = $self->param('query_table_name');
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name('uniprot_sequences');
+  $table_adaptor->table_name($query_table_name);
 
   my $output_dir = $self->param('query_seq_dir');
 
