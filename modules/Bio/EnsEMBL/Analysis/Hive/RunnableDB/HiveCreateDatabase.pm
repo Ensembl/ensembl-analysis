@@ -17,10 +17,10 @@ sub param_defaults {
       create_type => '',
       source_db => '',
       target_db => '',
-      
+
       # used by create_type = 'clone'
-      script_path => '~/enscode/ensembl-personal/genebuilders/scripts/clone_database.ksh',
-      
+      script_path => '~/enscode/ensembl-analysis/scripts/clone_database.ksh',
+
       # used by create_type = 'copy'
       db_dump_file => "/tmp/source_db_".time().".tmp",
       pass_w => '',
@@ -97,7 +97,13 @@ sub clone_db {
     $target_string = $self->param('target_db');
   }
 
-  my $command = "ksh ".$self->param('script_path')." -s ".$source_string." -t ".$target_string;
+  my $command = "ksh ".$self->param('script_path').
+                       " -r ".$self->param('user_r').
+                       " -w ".$self->param('user_w').
+                       " -P ".$self->param('pass_w').
+                       " -s ".$source_string.
+                       " -t ".$target_string;
+
   say "COMMAND: ".$command;
 
   my $exit_code = system($command);
