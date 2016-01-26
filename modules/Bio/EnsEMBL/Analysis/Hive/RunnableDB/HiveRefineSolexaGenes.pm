@@ -86,12 +86,14 @@ sub fetch_input {
     my $input_id = $self->input_id;
     # I want to be able to use either slices or gene stable ids
     my $genes_db = $self->get_database_by_name('input_db');
+    $genes_db->dbc->disconnect_when_inactive(0);
     my $reference_db = $self->get_database_by_name('dna_db');
+    $reference_db->dbc->disconnect_when_inactive(0);
     my @rough_genes;
     my $real_slice_start;
     my $real_slice_end;
     if ($self->is_slice_name($input_id)) {
-        my @genes;
+        my $genes;
         my $slice = $self->fetch_sequence($input_id, $genes_db);
         $real_slice_start = $slice->start;
         $real_slice_end = $slice->end;
@@ -100,14 +102,14 @@ sub fetch_input {
 
         $self->gene_slice_adaptor($reference_db->get_SliceAdaptor);
         if ( $self->param('model_ln') ) {
-            @genes = @{$slice->get_all_Genes_by_type( undef,$self->param('model_ln') )};
-            print STDERR "Got " .  scalar(@genes) . " genes with logic name " . $self->param('model_ln') ."\n";
+            $genes = $slice->get_all_Genes_by_type( undef,$self->param('model_ln') );
+            print STDERR "Got " .  scalar(@$genes) . " genes with logic name " . $self->param('model_ln') ."\n";
         }
         else {
-            @genes = @{$slice->get_all_Genes};
-            print STDERR "Got " .  scalar(@genes) . "  genes  \n";
+            $genes = $slice->get_all_Genes(undef, undef, 1);
+            print STDERR "Got " .  scalar(@$genes) . "  genes  \n";
         }
-        foreach my $gene ( @genes ) {
+        foreach my $gene ( @$genes ) {
             # put them on the chromosome
             $gene = $gene->transfer($chr_slice);
             # reject genes that are from a different slice that overlap our slice at the start or end
@@ -158,6 +160,8 @@ sub fetch_input {
             # pre fetch all the intron features
             $self->dna_2_intron_features($real_slice_start, $real_slice_end);
         }
+        $genes_db->dbc->disconnect_when_inactive(1);
+        $reference_db->dbc->disconnect_when_inactive(1);
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes->new (
                 -analysis     => $self->analysis,
                 -retained_intron_penalty => $self->param('retained_intron_penalty'),
@@ -212,6 +216,7 @@ sub write_output {
     my ($self) = @_;
 
     my $outdb = $self->get_database_by_name('output_db');
+    $outdb->dbc->disconnect_when_inactive(0);
     my $gene_adaptor = $outdb->get_GeneAdaptor;
 
     my $fails = 0;
@@ -273,6 +278,7 @@ sub write_output {
     if ($total == 0) {
         $self->input_job->autoflow(0);
     }
+    $outdb->dbc->disconnect_when_inactive(1);
 }
 
 =head2 bam_2_intron_features
