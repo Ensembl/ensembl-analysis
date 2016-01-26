@@ -129,20 +129,20 @@ sub run {
     # write output
     while(<$fh>){
       print STDERR "INDEX $_";
-      $self->throw('Samtools failed to index '.$self->genome) if ($_ =~ /fail/ or $_ =~ /abort/ )
+      $self->throw('Samtools failed to index '.$self->genome) if ($_ =~ /fail/ or $_ =~ /abort/ or $_ =~ /truncated/ )
      }
      close($fh) || $self->throw("Cannot close STDERR from fasta indexing");
      $self->files_to_delete("/tmp/sam2bam/index.err");
   }
 
-  $command = "$program view  -b -h -S -T " . $self->genome ." $bamfile.sam >  $bamfile" . "_unsorted.bam ";
+  $command = "$program view -b -h -S -T " . $self->genome ." $bamfile.sam >  $bamfile" . "_unsorted.bam ";
   print STDERR "$command \n";
   system("$command 2> /tmp/sam2bam_view.err");
   open  ( $fh,"/tmp/sam2bam_view.err" ) or die ("Cannot find STDERR from samtools view\n");
   # write output
   while(<$fh>){
     print STDERR "IMPORT $_";
-    $self->throw('Samtools failed to created an unsorted bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /fail/ or $_ =~ /abort/ )
+    $self->throw('Samtools failed to created an unsorted bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /fail/ or $_ =~ /abort/ or $_ =~ /truncated/ )
   }
   close($fh) || $self->throw("Cannot close STDERR from samtools view");
   $self->files_to_delete("/tmp/sam2bam_view.err");
@@ -186,7 +186,7 @@ sub run {
   # write output
   while(<$fh>){
     print STDERR "INDEXBAM $_";
-    $self->throw('Samtools failed to index the bam file '.$bamfile.'.bam') if ($_ =~ /invalid/ or $_ =~ /abort/ )
+    $self->throw('Samtools failed to index the bam file '.$bamfile.'.bam') if ($_ =~ /invalid/ or $_ =~ /abort/ or $_ =~ /truncated/ )
   }
   close($fh) || $self->throw("Cannot close STDERR from bam indexing");
   $self->files_to_delete("/tmp/sam2bam_bamindex.err");

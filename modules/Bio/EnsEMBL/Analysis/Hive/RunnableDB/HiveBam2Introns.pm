@@ -256,14 +256,24 @@ sub write_output {
       }
       open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
       my $seq_hash = $self->param('seq_hash');
+      my $line_count = 0;
       foreach my $feature ( @$output ) {
           my $line = $self->convert_to_sam($feature, $seq_hash);
-          print SAM $line if $line;
+          if ($line) {
+              print SAM $line;
+              $line_count++;
+          }
       }
       # write an end of file marker so we can test that the job didnt die when writing
       print SAM '@EOF';
       close SAM;
-      $self->dataflow_output_id([{filename => $filename}], 1);
+      if ($line_count) {
+          $self->dataflow_output_id([{filename => $filename}], 1);
+      }
+      else {
+          $self->input_job->autoflow(0);
+          $self->warning("Could not remove empty SAM file $filename") unless (system("rm $filename") == 0);
+      }
   }
   else {
       $self->input_job->autoflow(0);
@@ -294,8 +304,10 @@ sub convert_to_sam {
   # reverses cigar line if feature is reversed
   $feature = $self->check_cigar($feature);
   my $cigar = $feature->cigar_string;
-  # N isued to represent splicing in sam format
-  $cigar =~ s/I/N/g;
+  # N is used to represent splicing in sam format
+#  $cigar =~ s/I/N/g;
+  # But SAM does not like D in the CIGAR line as it's not counted as part of the sequence. We need to change it to I
+  $cigar =~ tr/ID/NI/;
   # is the feature paired in the alignment
   $flag = 3;
   # strand wrt the reference
@@ -320,10 +332,7 @@ sub convert_to_sam {
     print STDERR "Losing " .  $feature->hseqname . "  I get cigar length $check rather than $length, $cigar\n";
     return ;
   }
-  if ( $feature->hstrand == 1 &&  $feature->strand == 1 ) {
-    # need the reverse compliment
-    $seq = $feature_seq->revcom->seq;
-  } elsif( $feature->strand == -1 &&  $feature->hstrand == -1 )   {
+  if ( ($feature->hstrand*$feature->strand) == 1 ) {
     # need the reverse compliment
     $seq = $feature_seq->revcom->seq;
   }else {
@@ -337,9 +346,8 @@ sub convert_to_sam {
   # strand of the mate = -1 so we add nothing
   $line .= $feature->hseqname ."\t";
   $line .= "$flag\t";
- # $line .= $feature->hstrand . "\t" . $feature->strand . "\t";
   $line .= $feature->seq_region_name ."\t";
-  $line .=  $feature->start ."\t";
+  $line .=  $feature->seq_region_start ."\t";
   $line .= "0\t";
   $line .=  "$cigar\t";
   if ( $paired ) {
@@ -399,24 +407,17 @@ sub process_features {
 # first do all the standard processing, adding a slice and analysis etc.
 # unless we are projecting in which case we dont really nead a slice
 
-    my $slice_adaptor = $self->hrdb_get_con('dna_db')->get_SliceAdaptor;
     my @dafs;
-    my $count = 0;
     foreach my $f (@$flist) {
-        $count++;
         my $trans = $self->rough;
-        my @mapper_objs;
         my @features;
-        my $start = 1;
-        my $end = $f->length;
-        my $out_slice = $slice_adaptor->fetch_by_name($trans->slice->name);
 # get as ungapped features
         foreach my $ugf ( $f->ungapped_features ) {
             if ($self->param('fullseq') ) {
                 $ugf->hstrand($f->hstrand * $trans->strand);
-#	$ugf->strand($f->strand * $trans->strand);
-                $ugf->slice($trans->slice);
-                push @features,$ugf->transfer($out_slice);
+                $ugf->strand($f->strand * $trans->strand);
+                $ugf->slice($self->param('query'));
+                push @features,$ugf;
             }
             else {
 # Project onto the genome if it was not run with fullseq
@@ -440,7 +441,7 @@ sub process_features {
                              -hcoverage => $f->hcoverage,
                              -p_value   => $f->p_value,
                             );
-                        push @features, $fp->transfer($out_slice);
+                        push @features, $fp;
                     }
                 }
             }
@@ -457,13 +458,14 @@ sub build_dna_align_features {
     my @features = sort { $a->start <=> $b->start } @$features;
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
 # corect for hstart end bug
-    $feat->hstart($f->hstart);
-    $feat->hend($f->hend);
+#    $feat->hstart($f->hstart);
+#    $feat->hend($f->hend);
     $feat->analysis($self->analysis);
 # transfer the original sequence of the read
     $feat->{"_feature_seq"} = $f->{"_feature_seq"};
 # dont store the same feature twice because it aligns to a different transcript in the same gene.
-    my $unique_id = join(':', $feat->seq_region_name, $feat->start, $feat->end, $feat->strand, $feat->hseqname);
+#    my $unique_id = join(':', $feat->seq_region_name, $feat->start, $feat->end, $feat->strand, $feat->hseqname);
+    my $unique_id = join(':', $feat->seq_region_name, $feat->seq_region_start, $feat->seq_region_end, $feat->strand, $feat->hseqname);
     unless ($self->stored_features($unique_id)){
         push @dafs,$feat;
 # keep tabs on it so you don't store it again.
