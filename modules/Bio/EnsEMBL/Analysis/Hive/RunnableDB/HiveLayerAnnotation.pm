@@ -43,18 +43,13 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation;
 use warnings ;
 use strict;
 
-
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::LayerAnnotation;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Data::Dumper;
+use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-
-
-
-
 
 
 ###################################
@@ -72,10 +67,16 @@ sub fetch_input {
   # value in $self->db and OUTDB
   $self->hive_set_config;
 
-  foreach my $dbname (@{$self->SOURCEDB_REFS}) {
-    my $dbh = $self->get_dbadaptor($dbname);
-    my $slice = $dbh->get_SliceAdaptor->fetch_by_name($self->input_id);
-    my $tlslice = $dbh->get_SliceAdaptor->fetch_by_region($slice->coord_system->name,
+  foreach my $input_db (@{$self->SOURCEDB_REFS}) {
+
+    my $dba = $self->hrdb_get_dba($input_db);
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+    if($dna_dba) {
+      $dba->dnadb($dna_dba);
+    }
+
+    my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
+    my $tlslice = $dba->get_SliceAdaptor->fetch_by_region($slice->coord_system->name,
                                                           $slice->seq_region_name);
 
     foreach my $layer (@{$self->layers}) {
@@ -86,7 +87,7 @@ sub fetch_input {
         }
       }
     }
-    $dbh->dbc->disconnect_when_inactive(0) ;
+    $dba->dbc->disconnect_when_inactive(0) ;
   }
 }
 
@@ -106,7 +107,7 @@ sub run {
       my @layer_genes = sort {$a->start <=> $b->start} @{$layer->genes};
 
       my @compare_genes;
-      
+
       my %filter_against = map { $_ => 1 } @{$layer->filter_against};
 
       for(my $j = $i-1; $j>=0; $j--) {
@@ -122,7 +123,7 @@ sub run {
       } else {
         throw("No filter object");
       }
-      
+
       if (not $layer->discard) {
         push @retained_genes, @layer_genes;
       }
@@ -130,7 +131,7 @@ sub run {
       $layer->genes(\@layer_genes);
     }
   }
-  
+
   $self->output(\@retained_genes);
 }
 
@@ -138,9 +139,14 @@ sub run {
 ##################################
 sub write_output {
   my($self) = @_;
-  
-  my $target_db = $self->get_dbadaptor($self->TARGETDB_REF);    
-  my $g_adap = $target_db->get_GeneAdaptor;
+
+  my $target_dba = $self->hrdb_get_dba($self->TARGETDB_REF);
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  if($dna_dba) {
+    $target_dba->dnadb($dna_dba);
+  }
+
+  my $g_adap = $target_dba->get_GeneAdaptor;
 
   # fully loading gene is required for the store to work
   # reliably. However, fully loading all genes to be stored
@@ -151,6 +157,7 @@ sub write_output {
   my $fails = 0;
   my $out = $self->output;
   while (my $g = shift @$out) {
+    say "FM2 GENE START: ".$g->start;
     fully_load_Gene($g);
 
     # Putting this in to stop the wrong dbIDs being assigned
@@ -186,91 +193,6 @@ sub layers {
   return $self->{_runnabledb_layers};
 }
 
-
-
-####################################
-sub read_and_check_config {
-  my ($self, $hash) = @_;
-
-  $self->SUPER::read_and_check_config($hash);
-
-  # check that all relevant vars have been defined
-  foreach my $i (qw(LAYERS
-                    SOURCEDB_REFS
-                    TARGETDB_REF
-                    FILTER)) {
-    throw("You must define $i in config")
-        if not $self->$i;
-  }
-
-  # check types
-  throw("Config var LAYERS must be an array reference")
-      if ref($self->LAYERS) ne "ARRAY";
-  throw("Config var SOURCEDB_REFS must be an array reference")
-      if ref($self->SOURCEDB_REFS) ne "ARRAY";
-  throw("Config var TARGETDB_REF must be an scalar")
-      if ref($self->TARGETDB_REF);
-  throw("Config var FILTER must be an scalar")
-      if ref($self->FILTER);
-
-  my $filter;
-  if ($self->FILTER) {
-    $self->require_module($self->FILTER);
-    $filter = $self->FILTER->new;
-  }     
-
-  my (%biotypes, %layer_ids, @layers);
-
-  # finally, check the integrity of the LAYERS
-  foreach my $el (@{$self->LAYERS}) {
-    throw("Elements of LAYERS must be hash references")
-        if ref($el) ne "HASH";
-    
-    throw("Each element of LAYERS must contain a layer ID")
-        if not exists $el->{ID};
-
-    throw("LAYER " . $el->{ID} . " should a list of BIOTYPES")
-        if not exists $el->{BIOTYPES} or ref($el->{BIOTYPES}) ne "ARRAY";
-
-    my $layer_id = $el->{ID};
-    my @biotypes = @{$el->{BIOTYPES}};
-    my $discard = 0;
-    my (@filter_against);
-
-    if (exists $el->{DISCARD} and $el->{DISCARD}) {
-      $discard = 1;
-    }
-    foreach my $tp (@biotypes) {
-      if (exists $biotypes{$tp}) {
-        throw("biotype $tp occurs more than once");
-      }
-      $biotypes{$tp} = 1;
-    }
-    if (exists $el->{FILTER_AGAINST}) {
-      throw("In layer $layer_id FILTER_AGAINST must contain a list of layer ids")
-          if ref($el->{FILTER_AGAINST}) ne "ARRAY";      
-      @filter_against = @{$el->{FILTER_AGAINST}};
-
-      foreach my $id (@filter_against) {
-        throw("In FILTER_AGAINST in layer $layer_id, '$id' is not the name ". 
-              "of a higher level layer")
-            if not exists $layer_ids{$id};
-      }
-    }      
-    
-
-    push @layers, Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation::Layer
-        ->new(-id => $layer_id,
-              -discard => $discard,
-              -biotypes =>  \@biotypes,
-              -filter_object  => $filter,
-              -filter_against => \@filter_against);
-
-    $layer_ids{$layer_id} = 1;
-  }
-
-  $self->layers(\@layers);
-}
 
 
 sub hive_set_config {
@@ -319,8 +241,8 @@ sub hive_set_config {
       if ref($self->LAYERS) ne "ARRAY";
   throw("Config var SOURCEDB_REFS must be an array reference")
       if ref($self->SOURCEDB_REFS) ne "ARRAY";
-  throw("Config var TARGETDB_REF must be an scalar")
-      if ref($self->TARGETDB_REF);
+  throw("Config var TARGETDB_REF must be a hash reference")
+      if ref($self->TARGETDB_REF) ne "HASH";
   throw("Config var FILTER must be an scalar")
       if ref($self->FILTER);
 
@@ -370,11 +292,11 @@ sub hive_set_config {
     }
 
 
-    push @layers, Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation::Layer->new(-id => $layer_id,
-                                                                                  -discard => $discard,
-                                                                                  -biotypes =>  \@biotypes,
-                                                                                  -filter_object  => $filter,
-                                                                                  -filter_against => \@filter_against);
+    push @layers, Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation::Layer->new(-id => $layer_id,
+                                                                                            -discard => $discard,
+                                                                                            -biotypes =>  \@biotypes,
+                                                                                            -filter_object  => $filter,
+                                                                                            -filter_against => \@filter_against);
 
     $layer_ids{$layer_id} = 1;
   }
@@ -390,10 +312,10 @@ sub LAYERS {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_layers} = $val;
+    $self->param('_layers',$val);
   }
 
-  return $self->{_layers};
+  return $self->param('_layers');
 }
 
 
@@ -401,10 +323,10 @@ sub FILTER {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_filter_object_name} = $val;
+    $self->param('_filter_object_name',$val);
   }
 
-  return $self->{_filter_object_name};
+  return $self->param('_filter_object_name');
 }
 
 
@@ -412,10 +334,10 @@ sub SOURCEDB_REFS {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_inputdb_names} = $val;
+    $self->param('_inputdb_names',$val);
   }
 
-  return $self->{_inputdb_names};
+  return $self->param('_inputdb_names');
 }
 
 
@@ -423,15 +345,15 @@ sub TARGETDB_REF {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_outputdb_name} = $val;
+    $self->param('_outputdb_name',$val);
   }
 
-  return $self->{_outputdb_name};
+  return $self->param('_outputdb_name');
 }
 
 ##############################################
 
-package Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation::Layer;
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation::Layer;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
@@ -468,7 +390,7 @@ sub new {
 
 sub id{
   my ($self,$value) = @_;
-  
+
   if (defined $value) {
     $self->{_layer_id} = $value;
   }
@@ -488,7 +410,7 @@ sub filter_against{
 
 sub filter_object{
   my ($self,$value) = @_;
-  
+
   if (defined $value) {
     $self->{_layer_filter} = $value;
   }
@@ -498,7 +420,7 @@ sub filter_object{
 
 sub discard{
   my ($self,$value) = @_;
-  
+
   if (defined $value) {
     $self->{_layer_discard} = $value;
     }
