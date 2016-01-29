@@ -163,10 +163,10 @@ sub copy_db {
   my $target_host = shift(@target_string_colon_split);
   my $target_port = shift(@target_string_colon_split);
   
-  dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
-  create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
-  load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
-  remove_file($self->param('db_dump_file'));
+  $self->dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
+  $self->create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
+  $self->load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
+  $self->remove_file($self->param('db_dump_file'));
 }
 
 sub core_only_db {
@@ -264,7 +264,7 @@ sub check_db_string {
 
 sub dump_database {
 
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna) = @_;
 
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
   
@@ -287,7 +287,7 @@ sub dump_database {
 }
 
 sub create_database {
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
   print "Creating database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e'CREATE DATABASE $dbname' ")) {
     $self->throw("Couldn't create database  $dbname"."@"."$dbhost:$dbport. Please, check that it does not exist and you have write access to be able to perform this operation.");
@@ -298,7 +298,7 @@ sub create_database {
 
 sub load_database {
 	
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
   
   print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
@@ -309,7 +309,7 @@ sub load_database {
 }
 
 sub remove_file {
-  my $db_file = shift;
+  my ($self, $db_file) = @_;
 
   if (-e $db_file) {
   	print "Deleting file $db_file\n";
