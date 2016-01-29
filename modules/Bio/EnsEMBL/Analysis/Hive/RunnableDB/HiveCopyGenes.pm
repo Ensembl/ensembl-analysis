@@ -50,7 +50,6 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 

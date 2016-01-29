@@ -5,7 +5,6 @@ use warnings;
 use feature 'say';
 
 use File::Basename;
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Data::Dumper;
@@ -38,7 +37,7 @@ sub run {
   my $self = shift;
 
   unless(defined($self->param('create_type'))) {
-    throw("You have not defined a create_type flag in you parameters hash! You must provide a create_type (e.g. 'clone')");
+    $self->throw("You have not defined a create_type flag in you parameters hash! You must provide a create_type (e.g. 'clone')");
   }
 
   $self->create_db();
@@ -62,7 +61,7 @@ sub create_db {
   } elsif($create_type eq 'core_only') {
     $self->core_only_db();
   }else {
-    throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
+    $self->throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
   }
 
 }
@@ -71,16 +70,16 @@ sub clone_db {
   my $self = shift;
 
   unless($self->param('source_db') && $self->param('target_db')) {
-    throw("You have specified a create type of clone but you don't have both a source_db and target_db specified in your config");
+    $self->throw("You have specified a create type of clone but you don't have both a source_db and target_db specified in your config");
   }
 
   unless($self->param('script_path')) {
-    throw("You have specified a create type of clone but you don't have the script_path set in your config, e.g.:\n".
+    $self->throw("You have specified a create type of clone but you don't have the script_path set in your config, e.g.:\n".
           "~/enscode/ensembl-personal/genebuilders/scripts/clone_database.ksh");
   }
 
   unless(-e $self->param('script_path')) {
-    throw("The path to the clone script you have specified does not exist. Path:\n".$self->param('script_path'));
+    $self->throw("The path to the clone script you have specified does not exist. Path:\n".$self->param('script_path'));
   }
 
   my $source_string;
@@ -110,7 +109,7 @@ sub clone_db {
 
   my $exit_code = system($command);
   if($exit_code) {
-    throw("The clone script exited with a non-zero exit code (did the target_db already exist?): ".$exit_code);
+    $self->throw("The clone script exited with a non-zero exit code (did the target_db already exist?): ".$exit_code);
   }
 
 }
@@ -119,20 +118,20 @@ sub copy_db {
   my $self = shift;
 
   if (not $self->param('source_db') or not $self->param('target_db')) {
-    throw("You have specified a create type of copy but you don't have both a source_db and target_db specified in your config.");
+    $self->throw("You have specified a create type of copy but you don't have both a source_db and target_db specified in your config.");
   }
 
   if (not $self->param('user_w') or not $self->param('pass_w')) {
-    throw("You have specified a create type of copy but you haven't specified the user_w and pass_w.\n");
+    $self->throw("You have specified a create type of copy but you haven't specified the user_w and pass_w.\n");
   }
 
   if (not $self->param('db_dump_file')) {
-    throw("You have specified a create type of copy but you haven't specified a db_dump_file which will be used as a temporary file.");
+    $self->throw("You have specified a create type of copy but you haven't specified a db_dump_file which will be used as a temporary file.");
   } else {
   	my $dump_dir = dirname($self->param('db_dump_file'));
   	`mkdir -p $dump_dir`;
   	if (!(-e $dump_dir)) {
-  	  throw("Couldn't create $dump_dir directory.");
+      $self->throw("Couldn't create $dump_dir directory.");
   	}
   }
 
@@ -174,20 +173,20 @@ sub core_only_db {
   my $self = shift;
 
   unless ($self->param('target_db')) {
-    throw("You have specified a create type of core_only but you don't have a target_db specified in your config.");
+    $self->throw("You have specified a create type of core_only but you don't have a target_db specified in your config.");
   }
 
   unless($self->param('user_w') && $self->param('pass_w')) {
-    throw("You have specified a create type of core_only but you haven't specified the user_w and pass_w.\n");
+    $self->throw("You have specified a create type of core_only but you haven't specified the user_w and pass_w.\n");
   }
 
   unless($self->param('enscode_root_dir')) {
-    throw("You have specified a create type of core_only but you haven't specified the enscode_root_dir path\n");
+    $self->throw("You have specified a create type of core_only but you haven't specified the enscode_root_dir path\n");
   }
 
   my $table_file = $self->param('enscode_root_dir')."/ensembl/sql/table.sql";
   unless(-e $table_file) {
-    throw("You have specified a create type of core_only but the path from enscode_root_dir to the table file is incorrect:\n".
+    $self->throw("You have specified a create type of core_only but the path from enscode_root_dir to the table file is incorrect:\n".
           $self->param('enscode_root_dir')."/ensembl/sql/table.sql");
   }
 
@@ -218,7 +217,7 @@ sub core_only_db {
 
   my $exit_code = system($command);
   if($exit_code) {
-    throw("The create database command exited with a non-zero exit code: ".$exit_code);
+    $self->throw("The create database command exited with a non-zero exit code: ".$exit_code);
   }
 
   # Load core tables
@@ -229,7 +228,7 @@ sub core_only_db {
   }
   $exit_code = system($command);
   if($exit_code) {
-    throw("The load tables command exited with a non-zero exit code: ".$exit_code);
+    $self->throw("The load tables command exited with a non-zero exit code: ".$exit_code);
   }
 
 }
@@ -238,7 +237,7 @@ sub convert_hash_to_db_string {
   my ($self,$connection_info) = @_;
 
   unless(defined($connection_info->{'-dbname'}) && defined($connection_info->{'-host'})) {
-    throw("You have passed in a hash as your db info however the hash is missing either the dbname or host key,".
+    $self->throw("You have passed in a hash as your db info however the hash is missing either the dbname or host key,".
           " both are required if a hash is being passed in");
   }
 
@@ -258,7 +257,7 @@ sub check_db_string {
   my ($self,$db_string) = @_;
 
   unless($db_string =~ /[^\@]+\@[^\:]+\:\d+/ || $db_string =~ /[^\@]+\@[^\:]+/) {
-    throw("Parsing check on the db string failed.\ndb string:\n".$db_string.
+    $self->throw("Parsing check on the db string failed.\ndb string:\n".$db_string.
           "\nExpected format:\nmy_db_name\@myserver:port or my_db_name\@myserver");
   }
 }
@@ -281,7 +280,7 @@ sub dump_database {
   $command .= " $dbname > $db_file";
 
   if (system($command)) {
-    throw("The dump was not completed. Please, check that you have enough disk space in the output path $db_file as well as writing permission.");
+    $self->throw("The dump was not completed. Please, check that you have enough disk space in the output path $db_file as well as writing permission.");
   } else {
     print("The database dump was completed successfully into file $db_file\n");
   }
@@ -291,7 +290,7 @@ sub create_database {
   my ($dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
   print "Creating database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e'CREATE DATABASE $dbname' ")) {
-    throw("Couldn't create database  $dbname"."@"."$dbhost:$dbport. Please, check that it does not exist and you have write access to be able to perform this operation.");
+    $self->throw("Couldn't create database  $dbname"."@"."$dbhost:$dbport. Please, check that it does not exist and you have write access to be able to perform this operation.");
   } else {
     print("Database $dbname"."@"."$dbhost:$dbport created successfully.\n");
   }
@@ -303,7 +302,7 @@ sub load_database {
   
   print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
-    throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
+    $self->throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
   } else {
     print("\nThe database loading process was completed successfully from file $db_file into $dbname.\n");
   }
@@ -315,7 +314,7 @@ sub remove_file {
   if (-e $db_file) {
   	print "Deleting file $db_file\n";
   	if (system("rm -f $db_file")) {
-  	  throw("Couldn't delete file $db_file");
+      $self->throw("Couldn't delete file $db_file");
   	} else {
   	  print "File $db_file has been deleted.\n";
   	}

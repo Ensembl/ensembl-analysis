@@ -97,7 +97,6 @@ use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastMiniGenewise;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes Transcript_info set_start_codon set_stop_codon list_evidence attach_Slice_to_Transcript);
@@ -338,7 +337,7 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
@@ -358,7 +357,7 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );
@@ -425,7 +424,7 @@ sub run{
     };
     if($@){
       # jhv - warning changed to throw() to prevent silent failing  
-      throw("Running ".$runnable." failed error:$@"); 
+      $self->throw("Running ".$runnable." failed error:$@");
     }else{
       $output =  $runnable->output;
     }
@@ -826,7 +825,7 @@ sub rejected_set{
 sub filter_object{
   my ($self, $arg) = @_;
   if($arg){
-    throw("RunnableDB::BlastMiniGenewise ".
+    $self->throw("RunnableDB::BlastMiniGenewise ".
           $arg." must have a method filter_genes") 
       unless($arg->can("filter_genes"));
     $self->{filter_object} = $arg;
@@ -848,7 +847,7 @@ sub seqfetcher{
   my ($self, $arg) = @_;
 
   if($arg){
-    throw("RunnableDB::BlastMiniGenewise ".
+    $self->throw("RunnableDB::BlastMiniGenewise ".
           $arg." must have a method get_Seq_by_acc") 
       unless($arg->can("get_Seq_by_acc"));
     $self->{seqfetcher} = $arg;
@@ -883,7 +882,7 @@ sub require_module{
   eval{
     require "$class.pm";
   };
-  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  $self->throw("Couldn't require ".$class." Blast:require_module $@") if($@);
   return $module;
 }
 
@@ -938,11 +937,11 @@ sub read_and_check_config{
                      GENE_SOURCE_DB
                      OUTPUT_DB
                      SEQFETCHER_OBJECT)){
-    throw("RunnableDB::BlastMiniGenewise $var config variable is not defined") 
+    $self->throw("RunnableDB::BlastMiniGenewise $var config variable is not defined")
       unless($self->$var);
   }
   $self->OUTPUT_BIOTYPE($self->analysis->logic_name) if(!$self->OUTPUT_BIOTYPE);
-  throw("PAF_LOGICNAMES must contain at least one logic name") 
+  $self->throw("PAF_LOGICNAMES must contain at least one logic name")
     if(@{$self->PAF_LOGICNAMES} == 0);
 }
 
@@ -952,7 +951,7 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
@@ -972,7 +971,7 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );
@@ -1261,7 +1260,7 @@ sub group_genes_by_id{
     my $transcripts = $gene->get_all_Transcripts;
     my $transcript = $transcripts->[0];
     my $sfs = $transcript->get_all_supporting_features;
-    throw(id($transcript)." appears to have no supporting features") if(!@$sfs);
+    $self->throw(id($transcript)." appears to have no supporting features") if(!@$sfs);
     my $id = $sfs->[0]->hseqname;
     if(!$hash{$id}){
       $hash{$id} = 1;

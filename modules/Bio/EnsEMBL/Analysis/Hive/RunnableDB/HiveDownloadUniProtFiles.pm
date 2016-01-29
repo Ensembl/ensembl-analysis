@@ -21,7 +21,6 @@ use warnings;
 use feature 'say';
 
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -46,7 +45,7 @@ sub run {
     my $query_exit_code;
     $query_exit_code = system($query_url);
     unless($query_exit_code == 0) {
-      throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
+      $self->throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
     }
 
     if($query_url =~ /\.gz$/) {
@@ -55,7 +54,7 @@ sub run {
       my $gunzip_exit_code;
       $gunzip_exit_code = system($gunzip_command);
       unless($gunzip_exit_code == 0) {
-        throw("gunzip on file ended in an non-zero exit code:\n".$gunzip_exit_code);
+        $self->throw("gunzip on file ended in an non-zero exit code:\n".$gunzip_exit_code);
       }
     }
   }
@@ -110,7 +109,7 @@ sub multi_query_download {
     my $query_exit_code;
     $query_exit_code = system($query_url);
     unless($query_exit_code == 0) {
-      throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
+      $self->throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
     }
 
     my $file_path = $query_params->{'dest_dir'}."/".$query_params->{'file_name'};

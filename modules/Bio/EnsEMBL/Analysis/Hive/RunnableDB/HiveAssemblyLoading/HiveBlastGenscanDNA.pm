@@ -57,7 +57,6 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA;
 #use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast;
-#use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 #use Bio::EnsEMBL::Analysis::Config::General;
 #use Bio::EnsEMBL::Analysis::Config::Blast;
 #use vars qw(@ISA);

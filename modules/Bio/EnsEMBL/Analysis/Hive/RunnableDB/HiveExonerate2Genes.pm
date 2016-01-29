@@ -67,7 +67,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes;
 use warnings ;
 use strict;
 use feature 'say';
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
@@ -130,7 +129,7 @@ sub fetch_input {
             }
           }
           if(!$found){
-	        warning( "Could not find fasta file for '$chr_name' in directories:\n".
+	        $self->warning( "Could not find fasta file for '$chr_name' in directories:\n".
             join("\n\t", @$target)."\n");
           }
         }
@@ -166,7 +165,7 @@ sub fetch_input {
             $dir_contents{$seq_fname}++;
             push @db_files, "$target/$seq_fname";
           } else {
-            warning( "Could not find fasta file for '$chr' in '$target'\n");
+            $self->warning( "Could not find fasta file for '$chr' in '$target'\n");
           }
         }
 
@@ -180,7 +179,7 @@ sub fetch_input {
         # genome sequence is in a single file
         @db_files = ($target);
       } else {
-        throw("'$target' refers to something that could not be made sense of");
+        $self->throw("'$target' refers to something that could not be made sense of");
       }
     }
   }
@@ -235,7 +234,7 @@ sub fetch_input {
 
       $query_file = "$query/" . $input_id;
       if (not -e $query_file) {
-        throw( "Query file '$query_file' does not exist'\n");
+        $self->throw( "Query file '$query_file' does not exist'\n");
       }
       if ($self->USE_KILL_LIST) {
         $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER,$self->input_id);
@@ -260,7 +259,7 @@ sub fetch_input {
         $query_file = filter_killed_entries($query_file,$self->KILL_TYPE,$self->REFDB,$self->KILLLISTDB,$self->KILL_LIST_FILTER);
       }
     } else {
-      throw("'$query' refers to something that could not be made sense of\n");
+      $self->throw("'$query' refers to something that could not be made sense of\n");
     }
   } else {
    $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
@@ -288,7 +287,7 @@ sub fetch_input {
   if (defined $self->PROGRAM && defined $self->analysis->program_file) {
     if ($self->PROGRAM ne $self->analysis->program_file) {
       # I'm just warning because for debugging it's easier to change just the PROGRAM parameters...
-      warning("CONFLICT: You have defined -program in your config file and ".
+      $self->warning("CONFLICT: You have defined -program in your config file and ".
             "-program_file in your analysis table.");
     }
   }
@@ -323,7 +322,7 @@ sub run {
   my ($self) = @_;
   my @results;
 
-  throw("Can't run - no runnable objects") unless ($self->runnable);
+  $self->throw("Can't run - no runnable objects") unless ($self->runnable);
 
   foreach my $runnable (@{$self->runnable}){
     # This is to catch the closing exonerate errors, which we currently have no actual solution for
@@ -338,7 +337,7 @@ sub run {
       if($except =~ /Error closing exonerate command/) {
         warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
       } else {
-        throw($except);
+        $self->throw($except);
       }
     } else {
       push ( @results, @{$runnable->output} );
@@ -375,13 +374,13 @@ sub write_output {
       $gene_adaptor->store($gene);
     };
     if ($@){
-      warning("Unable to store gene!!\n$@");
+      $self->warning("Unable to store gene!!\n$@");
       $fails++;
     }
     $total++;
   }
   if ($fails > 0) {
-    throw("Not all genes could be written successfully " .
+    $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
 
@@ -399,7 +398,7 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
@@ -419,7 +418,7 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );
@@ -429,7 +428,7 @@ sub hive_set_config {
 
   if($self->FILTER) {
     if(not ref($self->FILTER) eq "HASH" or not exists($self->FILTER->{OBJECT}) or not exists($self->FILTER->{PARAMETERS})) {
-       throw("FILTER in config of ".$analysis->logic_name."  must be a hash ref with elements:\n" .
+       $self->throw("FILTER in config of ".$analysis->logic_name."  must be a hash ref with elements:\n" .
              "  OBJECT : qualified name of the filter module;\n" .
              "  PARAMETERS : anonymous hash of parameters to pass to the filter");
     } else {
@@ -440,7 +439,7 @@ sub hive_set_config {
       eval {
         require "$class.pm";
       };
-      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
+      $self->throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
 
       $self->filter($module->new(%{$pars}));
     }
@@ -574,7 +573,7 @@ sub make_genes{
         print $sf->hseqname."\t$slice_id\n";
     }
 
-    throw("Have no slice") if(!$slice);
+    $self->throw("Have no slice") if(!$slice);
     $tran->slice($slice);
     my $accession = $tran->{'accession'};
     my $transcript_biotype = $self->get_biotype->{$accession};
@@ -643,7 +642,7 @@ sub input_id {
 
   my $input_id_string = $self->Bio::EnsEMBL::Hive::Process::input_id;
   unless($input_id_string =~ /.+\=\>.+\"(.+)\"/) {
-    throw("Could not find the chunk file in the input id. Input id:\n".$input_id_string);
+    $self->throw("Could not find the chunk file in the input id. Input id:\n".$input_id_string);
   }
 
   $input_id_string = $1;
@@ -952,7 +951,7 @@ sub query_seqs {
   my ($self, @seqs) = @_;
   if( @seqs ) {
     unless ($seqs[0]->isa("Bio::PrimarySeqI") || $seqs[0]->isa("Bio::SeqI")){
-      throw("query seq must be a Bio::SeqI or Bio::PrimarySeqI");
+      $self->throw("query seq must be a Bio::SeqI or Bio::PrimarySeqI");
     }
     push( @{$self->param('_query_seqs')}, @seqs);
   }
@@ -965,7 +964,7 @@ sub genomic {
   my ($self, $seq) = @_;
   if ($seq){
     unless ($seq->isa("Bio::PrimarySeqI") || $seq->isa("Bio::SeqI")){
-      throw("query seq must be a Bio::SeqI or Bio::PrimarySeqI");
+      $self->throw("query seq must be a Bio::SeqI or Bio::PrimarySeqI");
     }
     $self->param('_genomic',$seq);
   }
@@ -1022,11 +1021,11 @@ sub filtered_query_file {
 #                             QUERYTYPE
 #                             GENOMICSEQS)) {
 
-#   throw("You must define $config_var in config for logic '$logic'")
+#   $self->throw("You must define $config_var in config for logic '$logic'")
 #        if not defined $self->$config_var;
 #  }
   
-#  throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
+#  $self->throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
 #      if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
 
   # filter does not have to be defined, but if it is, it should
@@ -1036,7 +1035,7 @@ sub filtered_query_file {
 #        not exists($self->FILTER->{OBJECT}) or
 #        not exists($self->FILTER->{PARAMETERS})) {
 
-#      throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" . 
+#      $self->throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" .
 #            "  OBJECT : qualified name of the filter module;\n" .
 #            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
 #    } else {
@@ -1047,7 +1046,7 @@ sub filtered_query_file {
 #      eval{
 #        require "$class.pm";
 #      };
-#      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
+#      $self->throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
 #    
 #      $self->filter($module->new(%{$pars}));
 #    }
@@ -1257,7 +1256,7 @@ sub realign_translation {
   my $result = system($cmd);
 
   if($result) {
-    throw("Got a non-zero exit code from alignment. Commandline used:\n".$cmd);
+    $self->throw("Got a non-zero exit code from alignment. Commandline used:\n".$cmd);
   }
 
   my $file = "";
@@ -1268,7 +1267,7 @@ sub realign_translation {
   close ALIGN;
 
   unless($file =~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
-    throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
+    $self->throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
   }
 
   my $aligned_query_seq = $1;
@@ -1312,7 +1311,7 @@ sub realign_translation {
   }
 
   unless($aligned_positions) {
-    throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
+    $self->throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
   }
 
   my $percent_id = ($match_count / $aligned_positions) * 100;

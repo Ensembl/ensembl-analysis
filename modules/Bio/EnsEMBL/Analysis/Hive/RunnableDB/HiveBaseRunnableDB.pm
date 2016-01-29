@@ -20,7 +20,6 @@ use strict;
 use Carp;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Hive::Utils ('stringify');
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use feature 'say';
 
@@ -42,7 +41,7 @@ sub output {
   }
   if($output){
     if(ref($output) ne 'ARRAY'){
-      throw('Must pass RunnableDB:output an array ref not a '.$output);
+      $self->throw('Must pass RunnableDB:output an array ref not a '.$output);
     }
     push(@{$self->param('_output')}, @$output);
   }
@@ -83,7 +82,7 @@ sub runnable {
 
   if($runnable){
     unless($runnable->isa('Bio::EnsEMBL::Analysis::Runnable')) {
-      throw("Must pass RunnableDB:runnable a Bio::EnsEMBL::Analysis::Runnable not a ".$runnable);
+      $self->throw("Must pass RunnableDB:runnable a Bio::EnsEMBL::Analysis::Runnable not a ".$runnable);
     }
     push(@{$self->param('runnable')}, $runnable);
   }
@@ -96,7 +95,7 @@ sub query {
   my $slice = shift;
   if($slice) {
     unless($slice->isa('Bio::EnsEMBL::Slice')) {
-      throw("Must pass RunnableDB:query a Bio::EnsEMBL::Slice not a ".$slice);
+      $self->throw("Must pass RunnableDB:query a Bio::EnsEMBL::Slice not a ".$slice);
     }
     $self->param('slice',$slice);
   }
@@ -109,7 +108,7 @@ sub analysis {
   my $analysis = shift;
   if($analysis){
     unless($analysis->isa('Bio::EnsEMBL::Analysis')) {
-      throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis not a ".$analysis);
+      $self->throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis not a ".$analysis);
     }
     $self->param('analysis',$analysis);
   }
@@ -129,7 +128,7 @@ sub input_id {
   # should be fine as it is not the input_id call that the hive itself uses
   my $input_id_string = $self->Bio::EnsEMBL::Hive::Process::input_id;
   unless($input_id_string =~ /.+\=\>.+\"(.+)\"/) {
-    throw("Could not parse the value from the input id. Input id string:\n".$input_id_string);
+    $self->throw("Could not parse the value from the input id. Input id string:\n".$input_id_string);
   }
 
   $input_id_string = $1;
@@ -141,7 +140,7 @@ sub hrdb_set_con {
   my ($self,$dba,$dba_con_name) = @_;
 
   unless($dba->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-    throw("Expected a DBAdaptor object as input. If you want to retrieve a DBAdaptor then ".
+    $self->throw("Expected a DBAdaptor object as input. If you want to retrieve a DBAdaptor then ".
           "use the getter sub instead (hrdb_get_con)");
   }
 
@@ -175,10 +174,10 @@ sub hrdb_get_dba {
     };
 
     if($@) {
-      throw("Error while setting up database connection:\n".$@);
+      $self->throw("Error while setting up database connection:\n".$@);
     }
   } else {
-    throw("DB connection info passed in was not a hash:\n".$connection_info);
+    $self->throw("DB connection info passed in was not a hash:\n".$connection_info);
   }
 
   $dba->dbc->disconnect_when_inactive(1);
@@ -256,7 +255,7 @@ sub require_module {
   eval{
     require "$class.pm";
   };
-  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  $self->throw("Couldn't require ".$class." Blast:require_module $@") if($@);
   return $module;
 }
 
