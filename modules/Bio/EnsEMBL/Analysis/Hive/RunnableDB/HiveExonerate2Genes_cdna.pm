@@ -291,6 +291,8 @@ sub run {
   my ($self) = @_;
   my @results;
 
+  open STDOUT, '>>', $self->param('stdout_file') if ($self->param('stdout_file'));
+
   throw("Can't run - no runnable objects") unless ($self->runnable);
 
   foreach my $runnable (@{$self->runnable}){
@@ -1011,7 +1013,7 @@ sub output_query_file {
   }
   close QUERY_OUT;
 
-  $self->files_to_delete($outfile_path);
+  #$self->files_to_delete($outfile_path);
   $self->get_biotype($biotypes_hash);
 
   return($outfile_path);

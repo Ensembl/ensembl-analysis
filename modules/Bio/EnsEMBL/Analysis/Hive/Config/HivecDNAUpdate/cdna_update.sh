@@ -1,5 +1,5 @@
 # Generic config for eg protein anno pipeline
-WORK_DIR_FULL=/lustre/scratch109/ensembl/dm15/hive_cdna/
+WORK_DIR_FULL=/lustre/scratch109/ensembl/dm15/hive_humancdna_84/
 
 export ENSGBSCRIPTS=/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/scripts
 export ENSEMBL_REPO_ROOT=/nfs/users/nfs_d/dm15/enscode/
@@ -41,14 +41,14 @@ echo PATH is:
 echo
 
 # Give the pipeline a name, e.g. human_prot_anno_e80
-pipeline_name=mouse_cdna_hive_full_run
+pipeline_name=human_cdna_84
 
 # Full connection info for the hive pipeline db, needs write access
 HIVE_HOST=genebuild11
 HIVE_USER=ensadmin
 HIVE_PASS=ensembl
 HIVE_PORT=3306
-HIVE_DBNAME=dm15_mouse_cdna_hive_full_run
+HIVE_DBNAME=dm15_human_cdna_84
 
 registry=${WORK_DIR_FULL}/registry.pm
 echo Registry file for this run is: ${registry}

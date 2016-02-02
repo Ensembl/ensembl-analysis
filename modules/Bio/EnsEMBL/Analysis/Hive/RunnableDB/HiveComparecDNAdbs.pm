@@ -36,7 +36,9 @@ sub run {
   my $old_cdna_db = $self->param('old_cdna_db');
   my $new_cdna_db = $self->param('new_cdna_db');
 
-  $self->compare($old_cdna_db,$new_cdna_db);
+  my $outfile = $self->param('output_file');
+
+  $self->compare($old_cdna_db,$new_cdna_db,$outfile);
 
   return 1;
 }
@@ -49,7 +51,7 @@ sub write_output {
 # Compare results to previous data as a health-check
 # can also bsub a further function call for every chromosome
 sub compare {
-  my ($self,$old_cdna_db,$new_cdna_db) = @_;
+  my ($self,$old_cdna_db,$new_cdna_db,$outfile) = @_;
 
   my %chromosomes_old;
   my %chromosomes_new;
@@ -112,7 +114,9 @@ sub compare {
     $chromosomes_new{$name} = $seq_region_id;
   }
 
-  print "\nGetting hits per chromosome\n" . "\told\tnew\tdiff\n";
+  open (OUTFILE, ">$outfile");
+
+  print OUTFILE "\nGetting hits per chromosome\n" . "\told\tnew\tdiff\n";
 
 
   # Check hits per chromosome
@@ -134,14 +138,16 @@ sub compare {
     $hits_per_chrom_old{$chromosome} = $old_q4->fetchrow_array;
     $hits_per_chrom_new{$chromosome} = $new_q4->fetchrow_array;
     my $diff = $hits_per_chrom_new{$chromosome} - $hits_per_chrom_old{$chromosome};
-    print "\n$chromosome:" . "\t"
+    print OUTFILE "\n$chromosome:" . "\t"
           . $hits_per_chrom_old{$chromosome} . "\t"
           . $hits_per_chrom_new{$chromosome} . "\t"
           . $diff;
     $hit_count_old += $hits_per_chrom_old{$chromosome};
     $hit_count_new += $hits_per_chrom_new{$chromosome};
   }
-  print "\n\nsum:" . "\t" . $hit_count_old . "\t" . $hit_count_new . "\n\n";
+  print OUTFILE "\n\nsum:" . "\t" . $hit_count_old . "\t" . $hit_count_new . "\n\n";
+
+  close (OUTFILE);
 } ## end sub compare
 
 1;
