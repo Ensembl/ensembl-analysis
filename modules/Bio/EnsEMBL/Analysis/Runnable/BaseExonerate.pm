@@ -148,7 +148,7 @@ sub new {
   }
 
   if (not $self->program) {
-    $self->program('/software/ensembl/genebuild/usrlocalensemblbin/exonerate-0.9.0'); 
+    $self->program('exonerate-0.9.0');
   }
 
  
