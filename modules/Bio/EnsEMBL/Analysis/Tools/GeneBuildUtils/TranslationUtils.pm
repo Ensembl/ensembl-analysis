@@ -500,7 +500,7 @@ sub run_translate{
   $seq->display_id($trans_id);
 
   my $file = write_seqfile($seq);
-  my $command = "/software/ensembl/bin/translate";
+  my $command = "translate";
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
   logger_info($command);
