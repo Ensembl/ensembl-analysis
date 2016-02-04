@@ -89,7 +89,7 @@ $ftp->login('anonymous', '-anonymous@')
 
 chomp $gca_patch_release;
 
-my $ncbi_patch_release_wd = "/genomes/genbank/vertebrate_mammalian/Homo_sapiens/all_assembly_versions/".$gca_patch_release."/".$gca_patch_release."_assembly_structure";
+my $ncbi_patch_release_wd = "/genomes/genbank/vertebrate_mammalian/Mus_musculus/all_assembly_versions/".$gca_patch_release."/".$gca_patch_release."_assembly_structure";
 my $ncbi_wd = $ncbi_patch_release_wd;
 $ftp->cwd($ncbi_wd);
 
@@ -154,14 +154,11 @@ foreach my $patches_ftpdir (@patches_ftpdirs) {
       push @{$align_str{$patch}},$line;
 
       # In GRCh37, the HAP names were shortened like HSCHR17_1 instead of HSCHR17_1_CTG5
-      # In GRCh38, the HAP names were extended like CHR_HSCHR17_1 instead of HSCHR17_1
+      # In GRCh38 and GRCm38, the HAP and PATCHES names were extended like CHR_HSCHR17_1 instead of HSCHR17_1
       # so I'll add a 'duplicated' line associated to the new name too
-      # so that when the HAP names are fetched from our DB, there can be a match
-      if ($patches_ftpdir =~ /ALT_REF_LOCI/) {
-        #my $new_hap_name = substr($patch,0,rindex($patch,"_CTG"));
-        my $new_hap_name = "CHR_".$patch;
-        push @{$align_str{$new_hap_name}},$line;
-      }
+      # so that when the HAP and PATCHES names are fetched from our DB, there can be a match
+      my $new_hap_name = "CHR_".$patch;
+      push @{$align_str{$new_hap_name}},$line;
     }
   }
 } # endif patches_ftpdir
@@ -258,7 +255,7 @@ for (my $i = 0; $i < $num_patches; $i++) {
     } else {
       $cigar_line = $length."M";
     }
-
+print $cigar_line."\n";
                       
     # need the seq_region_id from seq_region_synonym
     my @synonyms = @{$ref_slice->get_all_synonyms()};
@@ -268,7 +265,9 @@ for (my $i = 0; $i < $num_patches; $i++) {
         $seq_region_id = $syn->seq_region_id();
         last();
       }
-    }   
+    }
+print "about to print seq_region_id\n";
+print "seq_region_id is $seq_region_id\n";
     # ...to obtain the slice:
 
     my $slice = $sa->fetch_by_seq_region_id($seq_region_id);
