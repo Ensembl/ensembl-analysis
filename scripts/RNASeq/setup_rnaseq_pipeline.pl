@@ -630,7 +630,7 @@ foreach my $key ( keys %pairs ) {
   my $iid;
   throw("Cannot parse file names using regex $regex for lanes $key\n")
     unless scalar( keys %{ $pairs{$key} } == 3 );
-  foreach my $key2 ( keys %{ $pairs{$key} } ) {
+  foreach my $key2 ( sort keys %{ $pairs{$key} } ) {
     next if $key2 eq 'ANALYSIS';
     $iid .= $pairs{$key}->{$key2} . ":";
     #print "KEy $key2 $key $iid\n";
