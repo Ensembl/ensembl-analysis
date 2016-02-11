@@ -126,7 +126,7 @@ sub lsf_resource_builder {
             }
             else {
                 my ($token) = $lsf_rusage[$seen{$server}] =~ /tok=(\d+)/;
-                if (($tokens->[$i] || 10) > $token) {
+                if (defined $token and ($tokens->[$i] || 10) > $token) {
                     $token = $tokens->[$i];
                     $lsf_rusage[$seen{$server}] =~ s/tok=\d+/tok=$token/;
                 }
