@@ -545,25 +545,25 @@ sub pipeline_analyses {
                              },
               -rc_name => 'local',
               #-hive_capacity    => 100,
-              -flow_into => { 1 => ['havana_merge_chunk_unprocessed_genes'] },
+              -flow_into => { 1 => ['chunk_unprocessed_genes'] },
             },
 
             {
-              -logic_name => 'havana_merge_chunk_unprocessed_genes',
+              -logic_name => 'chunk_unprocessed_genes',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::FileFactory',
               -parameters => {
                                inputfile => $self->o('output_dir').'/'.$self->o('unprocessed_genes_filename'),
                                output_dir => $self->o('output_dir'),
                                output_prefix => $self->o('unprocessed_genes_filename')."_chunk_",
                              },
-              -flow_into => { '2->A' => [ 'havana_merge_copy_unprocessed_genes' ],
+              -flow_into => { '2->A' => [ 'copy_unprocessed_genes' ],
                               'A->1' => [ 'set_ncrna' ],
                             },
               -rc_name => 'local',
             },
 
             {
-              -logic_name => 'havana_merge_copy_unprocessed_genes',
+              -logic_name => 'copy_unprocessed_genes',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
               -parameters => {
                                copy_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
