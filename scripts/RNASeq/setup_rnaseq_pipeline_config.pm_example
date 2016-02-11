@@ -92,10 +92,10 @@ use vars qw(%Config);
 
     # Regular expression to allow FastQ files to be correctly paired,
     # for example: file_1.fastq and file_2.fastq could be paired using
-    # the expression "(\S+)_r(\d)\.(\S+)".  Need to identify all 3 parts
+    # the expression "(\S+)_(\d)\.(\S+)".  Need to identify all 3 parts
     # in brackets; the name the read number (1, 2, a, b etc.) and the
     # extension.
-    PAIRING_REGEX => '(\S+)_r(\d)\.(\S+)',
+    PAIRING_REGEX => '(\S+)_(\d)\.(\S+)',
 
     # Do you want to make models for the each individual sample as well
     # as for the pooled samples (1/0)?
