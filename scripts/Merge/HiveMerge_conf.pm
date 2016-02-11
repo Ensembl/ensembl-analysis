@@ -18,8 +18,8 @@ sub default_options {
     # Name of the pipeline
     'pipeline_name' => 'merge',
 
-    # Set to 1 if you want to delete vega, merge and core databases.
-    # Only useful if you want to start the whole pipeline again
+    # Set to 1 if you want to delete the vega and core databases.
+    # Only useful if you want to start the whole pipeline again.
     'drop_databases' => 0,
 
     # If you are working on human and mouse you need the CCDS. If you are doing the merge
@@ -85,7 +85,7 @@ sub default_options {
     # assembly path without patch update extension required by some scripts
     'assembly_path' => 'GRCh38',
     
-    'dbname_prefix' => $self->o('ENV', 'USER').'_species_XX',
+    'dbname_prefix' => $self->o('ENV','USER').'_species_XX',
     'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
 
     # Host name for the different DBs
@@ -154,16 +154,6 @@ sub default_options {
                     -dbname    => $self->o('dbname_prefix').'_vega',
     },
 
-    # merge output database containing the merged gene set
-    'merge_db' => {
-                    -host      => $self->o('merge_server'),
-                    -port      => "3306",
-                    -user      => $self->o('user_w'),
-                    -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('dbname_prefix').'_merge',
-    },
-    'db_conn' => 'mysql://ensro@PREVCOREHOST/PREVCOREDBNAME',
-    
     # core database
     'core_db' => {
                     -host      => $self->o('core_server'),
@@ -172,6 +162,7 @@ sub default_options {
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('dbname_prefix').'_core',
     },
+    'db_conn' => 'mysql://ensro@PREVCOREHOST/PREVCOREDBNAME',
   };
 }
 
@@ -188,18 +179,17 @@ sub resource_classes {
 }
 
 sub pipeline_create_commands {
-    my ($self) = @_;
+  my ($self) = @_;
 
-      my $create_commands = $self->SUPER::pipeline_create_commands;
-      if ($self->o('drop_databases')) {
-          foreach my $dbname ('vega_db', 'merge_db', 'core_db') {
-              my $db_url = $self->o('pipeline_db', '-driver').'://'.$self->o($dbname, '-user').':'.$self->o($dbname, '-pass').'@'.$self->o($dbname, '-host').':'.$self->o($dbname, '-port').'/'.$self->o($dbname, '-dbname');
-              push(@$create_commands, $self->db_cmd('DROP DATABASE IF EXISTS', $db_url));
-          }
-      }
-      return $create_commands;
+  my $create_commands = $self->SUPER::pipeline_create_commands;
+  if ($self->o('drop_databases')) {
+    foreach my $dbname ('vega_db','core_db') {
+      my $db_url = $self->o('pipeline_db', '-driver').'://'.$self->o($dbname, '-user').':'.$self->o($dbname, '-pass').'@'.$self->o($dbname, '-host').':'.$self->o($dbname, '-port').'/'.$self->o($dbname, '-dbname');
+      push(@$create_commands,$self->db_cmd('DROP DATABASE IF EXISTS', $db_url));
+    }
+  }
+  return $create_commands;
 }
-
 
 sub pipeline_analyses {
   my ($self) = @_;
