@@ -85,83 +85,101 @@ sub default_options {
     # assembly path without patch update extension required by some scripts
     'assembly_path' => 'GRCh38',
     
-    'dbname_prefix' => $self->o('ENV','USER').'_species_XX',
+
     'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
 
-    # Host name for the different DBs
-    'pipeline_server' => '',
-    'ensembl_server' => '',
-    'vega_server' => '',
-    'ccds_server' => '',
-    'prevcore_server' => '',
-    'core_server' => '',
+    # database parameters
+    'default_port' => 3306, # default port to be used for all databases except the original vega db provided by the Vega team
+    
+    'original_vega_host' => '', # vega database provided by the Vega team
+    'original_vega_port' => '',
+    'original_vega_name' => '',
+    
+    'ensembl_host' => '', # ensembl database to be used for the merge
+    'ensembl_name' => '',
+    
+    'ccds_host' => '', # ccds database containing the CCDS gene set
+    'ccds_name' => '',
+    
+    'prevcore_host' => '', # previous core database (available on ens-staging or ens-livemirror)
+    'prevcore_name' => '',
+    
+    'pipeline_host' => '', # pipeline db, automatically created
+    'pipeline_name' => '',
+    
+    'vega_host' => '', # vega database to be used for the merge
+    'vega_name' => '',
+    
+    'core_host' => '', # core database which will contain the merged gene set at the end of the process
+    'core_name' => '',
+    
+    ##
+    # You shouldn't need to change anything below this line
+    ##
     
     # vega database provided by the Vega team
     'original_vega_db' => {
-                    -host      => "",
-                    -port      => "",
+                    -host      => $self->o('original_vega_host'),
+                    -port      => $self->o('original_vega_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
-                    -dbname    => "",
+                    -dbname    => $self->o('original_vega_name'),
     },
 
     # ensembl database to be used for the merge
     'ensembl_db' => {
-                    -host      => $self->o('ensembl_server'),
-                    -port      => "3306",
+                    -host      => $self->o('ensembl_host'),
+                    -port      => $self->o('default_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
-                    -dbname    => "",
+                    -dbname    => $self->o('ensembl_name'),
     },
     
     # ccds database containing the CCDS gene set
     'ccds_db' => {
-                    -host      => "",
-                    -port      => "3306",
+                    -host      => $self->o('ccds_host'),
+                    -port      => $self->o('default_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
-                    -dbname    => "",
+                    -dbname    => $self->o('ccds_name'),
     },
     
     # previous core database (available on ens-staging or ens-livemirror)
     'prevcore_db' => {
-                    -host      => "PREVCOREHOST",
-                    -port      => "3306",
+                    -host      => $self->o('prevcore_host'),
+                    -port      => $self->o('default_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
-                    -dbname    => "PREVCOREDBNAME"
+                    -dbname    => $self->o('prevcore_name'),
     },
-    'db_conn' => 'mysql://ensro@PREVCOREHOST/PREVCOREDBNAME',
+    'db_conn' => 'mysql://'.$self->o('user_r').'@'.$self->o('prevcore_host').'/'.$self->o('prevcore_name'),
 
-    ##
-    # You shouldn't need to change anything below this line
-    ##
-    # Pipeline db, pipeline will create this automatically
+    # pipeline db, pipeline will create this automatically
     'pipeline_db' => {
-                    -host      => $self->o('pipeline_server'),
-                    -port      => "3306",
+                    -host      => $self->o('pipeline_host'),
+                    -port      => $self->o('default_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('dbname_prefix').'_hive',
+                    -dbname    => $self->o('pipeline_name'),
                     -driver    => "mysql",
     },
 
     # vega database to be used for the merge
     'vega_db' => {
-                    -host      => $self->o('vega_server'),
-                    -port      => "3306",
+                    -host      => $self->o('vega_host'),
+                    -port      => $self->o('default_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('dbname_prefix').'_vega',
+                    -dbname    => $self->o('vega_name'),
     },
 
     # core database
     'core_db' => {
-                    -host      => $self->o('core_server'),
-                    -port      => "3306",
+                    -host      => $self->o('core_host'),
+                    -port      => $self->o('default_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('dbname_prefix').'_core',
+                    -dbname    => $self->o('core_name'),
     },
 
   };
