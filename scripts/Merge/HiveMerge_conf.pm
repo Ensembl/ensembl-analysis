@@ -92,10 +92,10 @@ sub default_options {
     'pipeline_server' => '',
     'ensembl_server' => '',
     'vega_server' => '',
-    'merge_server' => '',
     'ccds_server' => '',
     'prevcore_server' => '',
     'core_server' => '',
+    
     # vega database provided by the Vega team
     'original_vega_db' => {
                     -host      => "",
