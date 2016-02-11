@@ -131,6 +131,7 @@ sub default_options {
                     -pass      => $self->o('pass_r'),
                     -dbname    => "PREVCOREDBNAME"
     },
+    'db_conn' => 'mysql://ensro@PREVCOREHOST/PREVCOREDBNAME',
 
     ##
     # You shouldn't need to change anything below this line
@@ -162,7 +163,7 @@ sub default_options {
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('dbname_prefix').'_core',
     },
-    'db_conn' => 'mysql://ensro@PREVCOREHOST/PREVCOREDBNAME',
+
   };
 }
 
