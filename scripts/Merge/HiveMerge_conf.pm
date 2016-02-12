@@ -186,11 +186,11 @@ sub default_options {
 sub resource_classes {
       my $self = shift;
           return {
-            'default' => { 'LSF' => $self->lsf_resource_builder('normal',900,[$self->o('default_host')],10) },
-            'normal_1500' => { 'LSF' => $self->lsf_resource_builder('normal',1500,[$self->o('default_host')],10) },
-            'normal_4600' => { 'LSF' => $self->lsf_resource_builder('normal',4600,[$self->o('default_host')],10) },
-            'normal_7900' => { 'LSF' => $self->lsf_resource_builder('normal',7900,[$self->o('default_host')],10) },
-            'normal_12000' => { 'LSF' => $self->lsf_resource_builder('normal',12000,[$self->o('default_host')],10) },
+            'default' => { 'LSF' => $self->lsf_resource_builder('normal',900,[$self->o('default_host')]) },
+            'normal_1500' => { 'LSF' => $self->lsf_resource_builder('normal',1500,[$self->o('default_host')]) },
+            'normal_4600' => { 'LSF' => $self->lsf_resource_builder('normal',4600,[$self->o('default_host')]) },
+            'normal_7900' => { 'LSF' => $self->lsf_resource_builder('normal',7900,[$self->o('default_host')]) },
+            'normal_12000' => { 'LSF' => $self->lsf_resource_builder('normal',12000,[$self->o('default_host')]) },
             'local' => {'LOCAL' => ''},
                 }
 }
