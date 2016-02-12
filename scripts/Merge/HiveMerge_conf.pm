@@ -90,6 +90,7 @@ sub default_options {
 
     # database parameters
     'default_port' => 3306, # default port to be used for all databases except the original vega db provided by the Vega team
+    'default_host' => 'genebuildXX', # default host to be used for the pipeline, vega and core databases. Used to build the resource requirements.
     
     'original_vega_host' => '', # vega database provided by the Vega team
     'original_vega_port' => '',
@@ -104,14 +105,11 @@ sub default_options {
     'prevcore_host' => '', # previous core database (available on ens-staging or ens-livemirror)
     'prevcore_name' => '',
     
-    'pipeline_host' => '', # pipeline db, automatically created
-    'pipeline_name' => '',
+    'pipeline_name' => '', # pipeline db, automatically created
     
-    'vega_host' => '', # vega database to be used for the merge
-    'vega_name' => '',
+    'vega_name' => '', # vega database to be used for the merge
     
-    'core_host' => '', # core database which will contain the merged gene set at the end of the process
-    'core_name' => '',
+    'core_name' => '', # core database which will contain the merged gene set at the end of the process
     
     ##
     # You shouldn't need to change anything below this line
@@ -188,11 +186,11 @@ sub default_options {
 sub resource_classes {
       my $self = shift;
           return {
-            'default' => { 'LSF' => '-q normal -M900 -R"select[mem>900] rusage[mem=900,myens_build12tok=10]"' },
-            'normal_1500' => { 'LSF' => '-q normal -M 1500 -R "select[mem>1500]" -R "rusage[mem=1500,myens_build12tok=10]"'},
-            'normal_4600' => { 'LSF' => '-q normal -M 4600 -R "select[mem>4600]" -R "rusage[mem=4600,myens_build12tok=10]"'},
-            'normal_7900' => { 'LSF' => '-q normal -M 7900 -R "select[mem>7900]" -R "rusage[mem=7900,myens_build12tok=10]"'},
-            'normal_12000' => { 'LSF' => '-q normal -M 12000 -R "select[mem>12000]" -R "rusage[mem=12000,myens_build12tok=10]"'},
+            'default' => { 'LSF' => $self->lsf_resource_builder('normal',900,[$self->o('default_host')],10) },
+            'normal_1500' => { 'LSF' => $self->lsf_resource_builder('normal',1500,[$self->o('default_host')],10) },
+            'normal_4600' => { 'LSF' => $self->lsf_resource_builder('normal',4600,[$self->o('default_host')],10) },
+            'normal_7900' => { 'LSF' => $self->lsf_resource_builder('normal',7900,[$self->o('default_host')],10) },
+            'normal_12000' => { 'LSF' => $self->lsf_resource_builder('normal',12000,[$self->o('default_host')],10) },
             'local' => {'LOCAL' => ''},
                 }
 }
