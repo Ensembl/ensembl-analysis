@@ -48,7 +48,6 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder 
   qw(GENEBUILDER_CONFIG_BY_LOGIC);
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support empty_Gene);
@@ -148,14 +147,14 @@ sub write_output{
       $ga->store($gene);
     };
     if($@){
-      warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
+      $self->warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
     }else{
       $sucessful_count++;
       logger_info("STORED GENE ".$gene->dbID);
     }
   }
   if($sucessful_count != @{$self->output}){
-    throw("Failed to write some genes");
+    $self->throw("Failed to write some genes");
   }
 }
 
@@ -204,7 +203,7 @@ sub input_genes {
 
   if($arg){
     if(!ref($arg) || ref($arg) ne 'ARRAY') {
-      throw("Need to pass input genes an arrayref not ".$arg);
+      $self->throw("Need to pass input genes an arrayref not ".$arg);
     }
     push(@{$self->param('_input_genes')},@$arg);
   }
@@ -279,7 +278,7 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
@@ -299,7 +298,7 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );
@@ -308,13 +307,13 @@ sub hive_set_config {
 
   foreach my $var (qw(INPUT_GENES OUTPUT_DB)) {
     unless($self->$var) {
-      throw("Hive::RunnableDB::HiveGeneBuilder ".$var." config variable is not defined");
+      $self->throw("Hive::RunnableDB::HiveGeneBuilder ".$var." config variable is not defined");
     }
   }
 
   my @keys = keys(%{$self->INPUT_GENES});
   unless(@keys) {
-    throw("Hive::RunnableDB::GeneBuilder INPUT_GENES has needs to contain values");
+    $self->throw("Hive::RunnableDB::GeneBuilder INPUT_GENES has needs to contain values");
   }
 
   my %unique;
@@ -325,12 +324,12 @@ sub hive_set_config {
         $unique{$biotype} = $key;
       } else {
         if($self->BLESSED_BIOTYPES->{$biotype}){
-          throw($biotype." is defined for both ".$key." and ".$unique{$biotype}.
+          $self->throw($biotype." is defined for both ".$key." and ".$unique{$biotype}.
                 " and is found in the blessed biotype hash\n".
                 "This is likely to cause problems for the filtering done in ".
                 "the genebuilder code");
         } else {
-          warning($biotype." appears twice in your listing, make sure this ".
+          $self->warning($biotype." appears twice in your listing, make sure this ".
                   "isn't for the same database otherwise it will cause issue");
         }
       }
