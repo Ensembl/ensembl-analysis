@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,9 +165,10 @@ sub fetch_input{
   my @blessed_genes;
   my $blessed_type;
   if($self->BLESSED_DB and scalar(@{$self->BLESSED_GENETYPES})){
+	my $blessed_db = get_db_adaptor_by_string($self->BLESSED_DB,1);
     if ($self->BLESSED_DB){
       #fetch blessed genes from blessed db
-      $blessed_slice = $self->BLESSED_DB->get_SliceAdaptor->fetch_by_name($self->input_id);
+      $blessed_slice = $blessed_db->get_SliceAdaptor->fetch_by_name($self->input_id);
     }
     else{
       #fetch blessed genes from gw db
@@ -176,13 +177,14 @@ sub fetch_input{
     foreach my $bgt( @{$self->BLESSED_GENETYPES} ){
       my $blessed_genes = $blessed_slice->get_all_Genes_by_type($bgt);
       print STDERR "got " . scalar(@{$blessed_genes}) . " $bgt genes [ ".
-	$self->BLESSED_DB->dbname() . "@" . $self->BLESSED_DB->host ." ]\n";
+	$blessed_slice->db->dbname() . "@" . $blessed_slice->db->host ." ]\n";
 
       $self->blessed_genes( $blessed_slice, $blessed_genes );
       $blessed_type .= $bgt."";
     }
     # store all blessed type names for VIP treatment
     $self->{'blessed_type'} = ($blessed_type.$self->BLESSED_UTR_GENETYPE);
+  $self->BLESSED_DB->dbc->disconnect_when_inactive(1);
   }
 
   # are there any genes here at all?
@@ -234,14 +236,16 @@ sub fetch_input{
   my ($dfa, $ditag_slice);
   my @ditags;
   if((scalar @{$self->DITAG_TYPE_NAMES}) && $self->DITAG_DB){
-    $dfa         = $self->DITAG_DB->get_DitagFeatureAdaptor;
-    $ditag_slice = $self->DITAG_DB->get_SliceAdaptor->fetch_by_name($self->input_id);
+	my $ditag_db = get_db_adaptor_by_string($self->DITAG_DB,1);
+    $dfa         = $ditag_db->get_DitagFeatureAdaptor;
+    $ditag_slice = $ditag_db->get_SliceAdaptor->fetch_by_name($self->input_id);
 
     foreach my $ditag_type (@{$self->DITAG_TYPE_NAMES}) {
       my @type_ditags = @{$dfa->fetch_pairs_by_Slice($ditag_slice, $ditag_type)};
       print STDERR "got " . scalar(@type_ditags) . " ".$ditag_type." ditags.\n" if $self->VERBOSE;
       push(@ditags, @type_ditags);
     }
+    $self->DITAG_DB->dbc->disconnect_when_inactive(1);
   }
   if(scalar @ditags){
     @ditags = sort {($a->{'start'} <=> $b->{'start'}) or ($a->{'end'} <=> $b->{'end'})} @ditags;
@@ -266,10 +270,6 @@ sub fetch_input{
   }
   $self->EST_DB->dbc->disconnect_when_inactive(1)
     if($self->EST_DB);
-  $self->BLESSED_DB->dbc->disconnect_when_inactive(1)
-    if($self->BLESSED_DB);
-  $self->DITAG_DB->dbc->disconnect_when_inactive(1)
-    if($self->DITAG_DB);
 
   # set evidence sets for Coalescer code
   my (@est_biotypes, @cdna_logicnames);
@@ -1506,7 +1506,8 @@ sub write_output {
   my($self) = @_;
 
   # write genes in the output database
-  my $gene_adaptor = $self->OUTPUT_DB->get_GeneAdaptor;
+  my $output_db = get_db_adaptor_by_string($self->OUTPUT_DB,1);
+  my $gene_adaptor = $output_db->get_GeneAdaptor;
 
   print STDERR "Have ".scalar (@{$self->output})."(".$totalgenes.") genes to write\n";
 
@@ -4370,7 +4371,7 @@ sub DITAG_DB {
     my( $self, $ditag_db ) = @_;
 
     if ($ditag_db){
-      $self->{_ditag_db} = get_db_adaptor_by_string($ditag_db,1);
+      $self->{_ditag_db} = $ditag_db;
     }
 
     if((defined $self->{_ditag_db}) && (!$self->{_ditag_db}) && (scalar @{$self->DITAG_TYPE_NAMES})){
@@ -4392,7 +4393,7 @@ sub BLESSED_DB {
   my( $self, $blessed_db ) = @_;
 
   if ($blessed_db){
-    $self->{_blessed_db} = get_db_adaptor_by_string($blessed_db,1);
+    $self->{_blessed_db} = $blessed_db;
   }
 
   return $self->{_blessed_db};
@@ -4411,7 +4412,7 @@ sub OUTPUT_DB {
   my( $self, $output_db ) = @_;
 
   if ($output_db){
-    $self->{_output_db} = get_db_adaptor_by_string($output_db,1);
+    $self->{_output_db} = $output_db;
   }
   if(!$self->{_output_db}){
     throw("Please define database parameters for output db.\n");

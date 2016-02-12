@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -166,7 +166,7 @@ sub make_feature{
   } elsif ($q_strand eq '-') {
     $q_strand = -1;
   } else {
-    throw "unrecognised target strand symbol: $q_strand\n";
+    $q_strand = $q_start <= $q_end ? 1 : -1;
   }
  
   if($t_strand eq '+'){
@@ -174,7 +174,7 @@ sub make_feature{
   } elsif ($t_strand eq '-') {
     $t_strand = -1;
   } else {
-    throw "unrecognised target strand symbol: $t_strand\n";
+    $t_strand = $t_start <= $t_end ? 1 : -1;
   }
 
   if ($t_start > $t_end) {

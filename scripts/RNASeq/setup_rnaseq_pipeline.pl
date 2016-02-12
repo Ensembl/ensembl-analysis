@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -427,7 +427,7 @@ while (<FILE>) {
     next;
 
   } else {
-    foreach my $key ( keys %map ) {
+    foreach my $key ( sort {if ($a eq 'ID') {return -1} elsif ($b eq 'ID') {return 1} else {return $a cmp $b}} keys %map ) {
       foreach my $col ( @{ $map{$key} } ) {
         unless ( $key eq "FILE" ) {
           $data{$key} .= $cells[ $col - 1 ] . " ";
@@ -630,7 +630,7 @@ foreach my $key ( keys %pairs ) {
   my $iid;
   throw("Cannot parse file names using regex $regex for lanes $key\n")
     unless scalar( keys %{ $pairs{$key} } == 3 );
-  foreach my $key2 ( keys %{ $pairs{$key} } ) {
+  foreach my $key2 ( sort keys %{ $pairs{$key} } ) {
     next if $key2 eq 'ANALYSIS';
     $iid .= $pairs{$key}->{$key2} . ":";
     #print "KEy $key2 $key $iid\n";
@@ -1217,7 +1217,7 @@ sub batchqueue_header {
 
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1352,7 +1352,7 @@ use vars qw(%Config);
 sub blast2_header {
   my $str = '# Ensembl module for Bio::EnsEMBL::Analysis::Config::Blast
 #
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1437,7 +1437,7 @@ sub batchqueue_tail {
 sub bwa_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::BWA
 # 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1519,7 +1519,7 @@ use vars qw( %Config );
 sub BAM2GENES_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes;
 #
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1587,7 +1587,7 @@ BAM2GENES_CONFIG_BY_LOGIC =>
 sub BAM2INTRONS_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Introns
 #
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1684,7 +1684,7 @@ use vars qw( %Config );
 sub GSNAP_header { 
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Gsnap
 #
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1755,7 +1755,7 @@ use vars qw( %Config );
 sub SAM2BAM_header {
   my $str = '# package Bio::EnsEMBL::Analysis::Config::GeneBuild::Sam2Bam
 #
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1806,7 +1806,7 @@ use vars qw( %Config );
 sub REFINE_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 #
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1941,7 +1941,7 @@ $str .= '            # write the intron features into the OUTPUT_DB along with t
 sub BLAST_header {
   my $str = '# Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastRNASeqPep;
 #
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -210,57 +210,63 @@ sub run{
       }
 
       return () unless (scalar(@a_genes));
-      my %h_types;
-      $h_types{'good'} = ['protein_coding'];
-      # We cluster without taking the strand into account and without checking the exons
-      my ($ra_clustered, $ra_unclustered) = cluster_Genes(\@a_genes, \%h_types, 0, 1, 1);
-      my @a_sorted_genes = sort {$a->end <=> $b->end} (@$ra_clustered, @$ra_unclustered);
-      my $optimal_length = $self->optimal_length;
-      my $max_padding = $self->max_padding;
-      my $range_start = 1;
-      my @a_input_genes;
+      if (@a_genes > $self->protein_count) {
+          my %h_types;
+          $h_types{'good'} = ['protein_coding'];
+          # We cluster without taking the strand into account and without checking the exons
+          my ($ra_clustered, $ra_unclustered) = cluster_Genes(\@a_genes, \%h_types, 0, 1, 1);
+          my @a_sorted_genes = sort {$a->end <=> $b->end} (@$ra_clustered, @$ra_unclustered);
+          my $optimal_length = $self->optimal_length;
+          my $max_padding = $self->max_padding;
+          my $range_start = $self->query->start;
+          my @a_input_genes;
 
-      for (my $index = $optimal_length; ($index-$optimal_length) <= $self->query->length; $index += $optimal_length) {
-          while (my $gene = shift @a_sorted_genes) {
-              if ($gene->end <= $index) {
-                  push @a_input_genes, $gene;
-              }
-              else {
-                  my $range_end;
-                  if (scalar(@a_input_genes) == 0) {
-                      if ($gene->start < $index) {
-                          $range_end = $gene->end+$max_padding;
-                      }
-                      else {
-                          @a_input_genes = ($gene);
-                          $range_start = $gene->start-$max_padding+1;
-                          $range_start = 1 if ($range_start < 1);
-                          $num_seeds = 0;
-                          last;
-                      }
+          my $last_seq_region_start = $self->query->end-$optimal_length-1;
+          for (my $index = $optimal_length+$self->query->start; $index < $last_seq_region_start; $index += $optimal_length) {
+              while (my $gene = shift @a_sorted_genes) {
+                  if ($gene->seq_region_end <= $index) {
+                      push @a_input_genes, $gene;
                   }
                   else {
-                      $range_end = $a_input_genes[$#a_input_genes]->end+$max_padding;
-                      my ($query_name, $strand) = $self->query->name =~ /(.*):\d+:\d+:(.+)$/;
-                      $query_name .= ':'.$range_start.':'.$range_end.':'.$strand;
-                      push(@a_iids, @{$self->create_input_ids(\@a_input_genes, $num_seeds, $query_name)});
+                      my $range_end;
+                      if (scalar(@a_input_genes) == 0) {
+                          if ($gene->seq_region_start < $index) {
+                              $range_end = $gene->seq_region_end+$max_padding;
+                          }
+                          else {
+                              @a_input_genes = ($gene);
+                              $range_start = $gene->seq_region_start-$max_padding+1;
+                              $range_start = 1 if ($range_start < 1);
+                              $num_seeds = 0;
+                              last;
+                          }
+                      }
+                      else {
+                          $range_end = $a_input_genes[$#a_input_genes]->seq_region_end+$max_padding;
+                          my ($query_name, $strand) = $self->query->name =~ /(.*):\d+:\d+:(.+)$/;
+                          $query_name .= ':'.$range_start.':'.$range_end.':'.$strand;
+                          push(@a_iids, @{$self->create_input_ids(\@a_input_genes, $num_seeds, $query_name)});
+                      }
+                      @a_input_genes = ($gene);
+                      $range_start = $gene->seq_region_start-$max_padding+1;
+                      $range_start = 1 if ($range_start < 1);
+                      $num_seeds = 0;
+                      if ($gene->seq_region_start > $index) {
+                          $index = int($gene->seq_region_start/$optimal_length)*$optimal_length;
+                      }
+                      last;
                   }
-                  @a_input_genes = ($gene);
-                  $range_start = $gene->start-$max_padding+1;
-                  $range_start = 1 if ($range_start < 1);
-                  $num_seeds = 0;
-                  if ($gene->start > $index) {
-                      $index = int($gene->start/$optimal_length)*$optimal_length;
-                  }
-                  last;
               }
           }
+          my ($query_name, $range_end, $strand) = $self->query->name =~ /(.*):\d+:(\d+):(.+)$/;
+          my $array_index = $#a_input_genes > 0 ? $#a_input_genes : 0;
+          $range_end = $a_input_genes[$array_index]->seq_region_end+$max_padding if ($a_input_genes[$array_index] and $range_end > $a_input_genes[$array_index]->seq_region_end+$max_padding);
+          $query_name .= ':'.$range_start.':'.$range_end.':'.$strand;
+          push(@a_iids, @{$self->create_input_ids(\@a_sorted_genes, scalar(@a_sorted_genes), $query_name)});
       }
-print STDERR "empty\n" unless @a_input_genes;
-      my ($query_name, $range_end, $strand) = $self->query->name =~ /(.*):\d+:(\d+):(.+)$/;
-      $range_end = $a_input_genes[$#a_input_genes]->end+$max_padding unless ($range_end < $a_input_genes[$#a_input_genes]->end+$max_padding);
-      $query_name .= ':'.$range_start.':'.$range_end.':'.$strand;
-      push(@a_iids, @{$self->create_input_ids(\@a_input_genes, $num_seeds, $query_name)});
+      else {
+          @a_iids = @{$self->create_input_ids(undef, scalar(@a_genes), $self->query->name)};
+      }
   }
   $self->output(\@a_iids);
 }

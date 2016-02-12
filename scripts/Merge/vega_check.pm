@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,22 @@ use Exporter;
 use vars qw(@ISA @EXPORT_OK);
 
 @ISA = qw(Exporter);
-@EXPORT_OK = qw(get_combos get_biotype_groups get_actions);
+@EXPORT_OK = qw(get_combos get_biotype_groups get_actions get_loutre_misc);
 
 $| = 1;
+
+#misc data for loutre QC
+my %loutre_misc = (
+  'disallowed_gene_trans_biotypes' => {
+    'gene'       => ['polymorphic',
+                     'pseudogene'],
+    'transcript' => ['ambiguous_orf',
+                     'disrupted_domain',
+                     'non_coding',
+                     'ncrna_host'],
+  },
+  'allowed_transcript_combos' => {},
+);
 
 my %allowed_combos = (
      'ensembl' => { # allowed gene-transcript biotypes combination before the merge
@@ -270,16 +283,14 @@ my %allowed_combos = (
                                                 ],
       },
 
-     'loutre' => { # biotpye combinations in loutre
+     'loutre' => { # biotype combinations in loutre
        protein_coding                       => ['protein_coding',
                                                 'nonsense_mediated_decay',
                                                 'non_stop_decay',
                                                 'processed_transcript',
                                                 'retained_intron',
                                                 'artifact',
-                                                'tec',
-                                                'translated_processed_pseudogene',
-                                                'translated_unprocessed_pseudogene'],
+                                                'tec'],
        polymorphic_pseudogene               => ['protein_coding',
                                                 'nonsense_mediated_decay',
                                                 'non_stop_decay',
@@ -298,7 +309,9 @@ my %allowed_combos = (
                                                 qq(3'_overlapping_ncrna),
                                                 'tr_gene',
                                                 'lincrna',
-                                                'macro_lncRNA',
+                                                'macro_lncrna',
+                                                'tec',
+                                                'bidirectional_promoter_lncrna',
                                                 'snorna',
                                                 'mirna',
                                                 'vaultrna',
@@ -307,6 +320,7 @@ my %allowed_combos = (
                                                 'trna',
                                                 'snrna',
                                                 'sirna',
+                                                'scrna',
                                                 'tec'],
        processed_pseudogene                 => ['processed_pseudogene'],
        unprocessed_pseudogene               => ['unprocessed_pseudogene'],
@@ -326,19 +340,17 @@ my %allowed_combos = (
                                                  'artifact',
                                                  'tec' ],
        unitary_pseudogene                   => ['unitary_pseudogene',
-                                                'processed_transcript',
-                                                'retained_intron',
                                                 'artifact',
                                                 'tec'],
        translated_processed_pseudogene      => ['translated_processed_pseudogene',
-                                                'protein_coding',
-                                                'processed_transcript'],
+                                                'processed_transcript',
+                                                'retained_intron',
+                                                'artifact'],
        translated_unprocessed_pseudogene    => ['translated_unprocessed_pseudogene'],
        tec                                  => ['tec'],
        ig_pseudogene                        => ['ig_pseudogene'],
        novel_transcript                     => ['processed_transcript'],
-       ig_gene                              => ['ig_gene',
-                                                'artifact'],
+       ig_gene                              => ['ig_gene',],
        tr_gene                              => ['tr_gene'],
        tr_pseudogene                        => ['tr_pseudogene'],
        lincRNA                              => ['retained_intron',
@@ -467,17 +479,24 @@ my %biotype_groups = (
                                                 'vaultrna'] },
      'vega' => {
         'Protein_coding'                     => ['protein_coding'],
-        'lncRNAs'                            => ['3prime_overlapping_ncrna',
+        'lncRNAs'                            => ['3prime_overlapping_ncRNA',
                                                  'sense_intronic',
                                                  'sense_overlapping',
                                                  'antisense',
                                                  'non_coding',
                                                  'macro_lncRNA',
-                                                 'lincRNA',],
+                                                 'lincRNA',
+                                                 'bidirectional_promoter_lncRNA'],
         'ncRNAs'                             => ['miRNA',
                                                  'rRNA',
                                                  'snoRNA',
-                                                 'vaultRNA'],
+                                                 'vaultRNA',
+                                                 'piRNA',
+                                                 'rRNA',
+                                                 'tRNA',
+                                                 'snRNA',
+                                                 'siRNA',
+                                                 'scRNA'],
         'Unclassified_processed_transcripts' => ['processed_transcript'],
         'Pseudogenes'                        => ['polymorphic_pseudogene',
                                                  'processed_pseudogene',
@@ -489,27 +508,15 @@ my %biotype_groups = (
                                                  'unitary_pseudogene',
                                                  'translated_processed_pseudogene',
                                                  'translated_unprocessed_pseudogene',
-                                                 'ig_pseudogene',
-                                                 'tr_pseudogene'],
-        'IG'                                 => ['ig_gene',
-                                                 'ig_pseudogene'],
-        'TR'                                 => ['tr_gene',
-                                                 'tr_pseudogene'],
-        'Other'                                => ['TEC'],
+                                                 'IG_pseudogene',
+                                                 'TR_pseudogene'],
+        'IG'                                 => ['IG_gene',
+                                                 'IG_pseudogene'],
+        'TR'                                 => ['TR_gene',
+                                                 'TR_pseudogene'],
+        'Other'                              => ['TEC'],
         'artifact'                           => ['artifact'], }
    );
-
-my %loutre_other = (
-  'disallowed_gene_trans_biotypes' => {
-    'gene'       => ['polymorphic',
-                     'pseudogene'],
-    'transcript' => ['ambiguous_orf',
-                     'disrupted_domain',
-                     'non_coding',
-                     'ncrna_host'],
-  },
-  'allowed_transcript_combos' => {},
-);
 
 # my %actions = (
 #   'ensembl' => {
@@ -540,6 +547,11 @@ sub get_combos {
 sub get_biotype_groups {
   my $biotype_groups = shift;
   return $biotype_groups{$biotype_groups};
+}
+
+sub get_loutre_misc {
+  my $key = shift;
+  return $loutre_misc{$key};
 }
 
 #sub get_actions {

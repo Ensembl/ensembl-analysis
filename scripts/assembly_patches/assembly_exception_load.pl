@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,9 @@ my $host;
 my $user;
 my $port            = 3306;
 my $scaf_syn_ext_id; # INSDC = 50710 but it's check by an SQL query
+my $ensembl_syn_ext_id; # ensembl_internal_synonym = 50803 but it's check by an SQL query
 my $central_coord_system;
+my $chromosome_prefix = 'CHR_';
 
 GetOptions(
             'pass=s'            => \$pass,
@@ -46,6 +48,7 @@ GetOptions(
             'user=s'            => \$user,
             'port=n'            => \$port,
             'scaf_syn_ext_id=n' => \$scaf_syn_ext_id,
+            'ensembl_syn_ext_id=n' => \$ensembl_syn_ext_id,
             'assembly_name=s'   => \$assembly_name,
             'assembly_acc=s'    => \$assembly_acc,
             'coord_system=s'    => \$central_coord_system
@@ -94,6 +97,15 @@ if (! $scaf_syn_ext_id) {
     $sth->finish;
 }
 
+if (! $ensembl_syn_ext_id) {
+    $sth = $dba->dbc->prepare("SELECT external_db_id FROM external_db WHERE db_name = 'ensembl_internal_synonym'")
+        || die "Could not get external_db_id for INSDC";
+    $sth->execute || die "problem executing INSDC query";
+    $sth->bind_columns(\$ensembl_syn_ext_id) || die "problem binding INSDC query";
+    $sth->fetch() || die "problem fetching INSDC query";
+    $sth->finish;
+}
+
 $sth = $dba->dbc->prepare("select count(assembly_exception_id) from assembly_exception")
   || die "Could not get number of rows in assembly_exception";
 my $count_assembly_exception_id;
@@ -117,9 +129,10 @@ if (defined $count_assembly_exception_id && $count_assembly_exception_id > 0) {
 }
 
 print "starting new seq_region at seq_region_id of $max_seq_region_id\n";
-print "\nTo reset\ndelete from dna where seq_region_id > $max_seq_region_id\ndelete from seq_region where seq_region_id > $max_seq_region_id\n";
+print "\nTo reset\nDELETE FROM dna WHERE seq_region_id > $max_seq_region_id\nDELETE FROM seq_region WHERE seq_region_id > $max_seq_region_id\n";
+print "DELETE FROM srs USING seq_region_synonym srs LEFT JOIN seq_region sr ON srs.seq_region_id = sr.seq_region_id WHERE sr.seq_region_id IS NULL\nDELETE FROM sra USING seq_region_attrib sra LEFT JOIN seq_region sr ON sra.seq_region_id = sr.seq_region_id WHERE sr.seq_region_id IS NULL\nDELETE FROM a USING assembly a LEFT JOIN seq_region sr ON a.asm_seq_region_id = sr.seq_region_id WHERE sr.seq_region_id IS NULL\nDELETE FROM a USING assembly a LEFT JOIN seq_region sr ON a.cmp_seq_region_id = sr.seq_region_id WHERE sr.seq_region_id IS NULL\n";
 if (defined $count_assembly_exception_id && $count_assembly_exception_id > 0) {
-  print "delete from assembly_exception where assembly_exception_id > $max_assembly_exception_id\n\n";
+  print "DELETE FROM assembly_exception WHERE assembly_exception_id > $max_assembly_exception_id\n\n";
 }
 
 $max_seq_region_id++;
@@ -310,7 +323,10 @@ SCAF: while(<TXT>){
     $seq_id_to_stop{$max_seq_region_id} = $arr[$key_to_index{'parent_start'}] + $new_length -1;
 
     print SQL "insert into seq_region (seq_region_id, name, coord_system_id, length)\n";
-    print SQL "\tvalues ($max_seq_region_id, '$alt_name', $coord_sys, $length);\n\n";
+    print SQL "\tvalues ($max_seq_region_id, '$chromosome_prefix$alt_name', $coord_sys, $length);\n\n";
+
+    print SQL "insert into seq_region_synonym (seq_region_id, synonym, external_db_id)\n";
+    print SQL "\tvalues ($max_seq_region_id, '$alt_name', $ensembl_syn_ext_id);\n\n";
 
     print SQL "insert into seq_region_attrib (seq_region_id, attrib_type_id, value) values ($max_seq_region_id, $toplevel, 1);\n";
     print SQL "insert into seq_region_attrib (seq_region_id, attrib_type_id, value) values ($max_seq_region_id, $non_ref, 1);\n";
