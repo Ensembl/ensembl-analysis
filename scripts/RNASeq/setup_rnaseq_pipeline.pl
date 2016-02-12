@@ -427,7 +427,7 @@ while (<FILE>) {
     next;
 
   } else {
-    foreach my $key ( keys %map ) {
+    foreach my $key ( sort {if ($a eq 'ID') {return -1} elsif ($b eq 'ID') {return 1} else {return $a cmp $b}} keys %map ) {
       foreach my $col ( @{ $map{$key} } ) {
         unless ( $key eq "FILE" ) {
           $data{$key} .= $cells[ $col - 1 ] . " ";
