@@ -3,7 +3,7 @@ package HiveMerge_conf;
 use strict;
 use warnings;
 
-use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
+use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Env qw(ENSCODE);
@@ -188,11 +188,11 @@ sub default_options {
 sub resource_classes {
       my $self = shift;
           return {
-            'default' => { 'LSF' => '-q normal -M900 -R"select[mem>900] rusage[mem=900,myens_build12tok=10,myens_build12tok=10,myens_build12tok=10]"' },
-            'normal_1500' => { 'LSF' => '-q normal -M 1500 -R "select[mem>1500]" -R "rusage[mem=1500,myens_build12tok=10,myens_build12tok=10,myens_build12tok=10]"'},
-            'normal_4600' => { 'LSF' => '-q normal -M 4600 -R "select[mem>4600]" -R "rusage[mem=4600,myens_build12tok=10,myens_build12tok=10,myens_build12tok=10]"'},
-            'normal_7900' => { 'LSF' => '-q normal -M 7900 -R "select[mem>7900]" -R "rusage[mem=7900,myens_build12tok=10,myens_build12tok=10,myens_build12tok=10]"'},
-            'normal_12000' => { 'LSF' => '-q normal -M 12000 -R "select[mem>12000]" -R "rusage[mem=12000,myens_build12tok=10,myens_build12tok=10,myens_build12tok=10]"'},
+            'default' => { 'LSF' => '-q normal -M900 -R"select[mem>900] rusage[mem=900,myens_build12tok=10]"' },
+            'normal_1500' => { 'LSF' => '-q normal -M 1500 -R "select[mem>1500]" -R "rusage[mem=1500,myens_build12tok=10]"'},
+            'normal_4600' => { 'LSF' => '-q normal -M 4600 -R "select[mem>4600]" -R "rusage[mem=4600,myens_build12tok=10]"'},
+            'normal_7900' => { 'LSF' => '-q normal -M 7900 -R "select[mem>7900]" -R "rusage[mem=7900,myens_build12tok=10]"'},
+            'normal_12000' => { 'LSF' => '-q normal -M 12000 -R "select[mem>12000]" -R "rusage[mem=12000,myens_build12tok=10]"'},
             'local' => {'LOCAL' => ''},
                 }
 }
