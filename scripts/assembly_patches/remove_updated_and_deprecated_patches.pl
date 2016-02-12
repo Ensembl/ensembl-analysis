@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-use Bio::EnsEMBL::Registry;
-use Bio::EnsEMBL::Utils::Exception qw(throw);
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Getopt::Long;
 
 use strict;
@@ -29,6 +29,7 @@ my $user;
 my $port = 3306;
 my $central_coord_system = 'supercontig';
 my $toplevel_coord_system = 'chromosome';
+my $sqlfile = 'delete_patch.sql';
 
 &GetOptions(
             'pass=s'         => \$pass,
@@ -38,10 +39,11 @@ my $toplevel_coord_system = 'chromosome';
             'user=s'         => \$user,
             'port=n'         => \$port,
             'central_cs=s'   => \$central_coord_system,
+            'sqlfile=s'   => \$sqlfile,
            );
 
 open(TYPE,"<".$patchtype_file)         || die "Could not open file $patchtype_file";
-open(SQL,">delete_patch.sql") || die "Could not open delete_patch.sql for writing\n";
+open(SQL,">$sqlfile") || die "Could not open $sqlfile for writing\n";
 #connect to the database
 
 my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
@@ -52,42 +54,28 @@ my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
     '-species' => "load"
     );
 
-my $get_all_synonyms_sth = $dba->dbc->prepare('SELECT synonym from seq_region, seq_region_synonym, coord_system, external_db WHERE seq_region.name IN '.
- '(SELECT seq_region.name from seq_region, seq_region_attrib, attrib_type WHERE attrib_type.code IN ("patch_fix","patch_novel") AND attrib_type.attrib_type_id = seq_region_attrib.attrib_type_id AND seq_region_attrib.seq_region_id = seq_region.seq_region_id)'.
- ' AND seq_region.coord_system_id=coord_system.coord_system_id AND coord_system.name = "'.$central_coord_system.'" AND seq_region.seq_region_id=seq_region_synonym.seq_region_id AND seq_region_synonym.external_db_id = external_db.external_db_id AND external_db.db_name = "INSDC"')
-     || die "Could not prepare to get synonyms";
-
-if ($get_all_synonyms_sth == 0) {
-  throw("Could not prepare to get synonyms");
+#get the full list of existing synonyms/accessions
+# This should be more robust than SQL queries but I hate to have these "PATCH" regex
+my %existing_synonyms;
+my $ae_adaptor = $dba->get_AssemblyExceptionFeatureAdaptor;
+foreach my $assembly_exception (@{$ae_adaptor->fetch_all}) {
+    if ($assembly_exception->type =~ /^PATCH\w+$/) {
+        my $projection = $assembly_exception->slice->project($central_coord_system);
+        foreach my $segment (@$projection) {
+            my $slice = $segment->to_Slice;
+            if ($slice->seq_region_name !~ /\w{2}\d+\.\d+/) {
+                print 'Synonym ', $slice->get_all_synonyms('INSDC')->[0]->name, "\n";
+                $existing_synonyms{$slice->get_all_synonyms('INSDC')->[0]->name} = $slice->seq_region_name;
+            }
+        }
+    }
 }
-my $get_name_sth = $dba->dbc->prepare("select name from seq_region,seq_region_synonym where synonym = ? and seq_region_synonym.seq_region_id = seq_region.seq_region_id")
-|| die "Could not prepare to get name";
 
-if ($get_name_sth == 0) {
-  throw("Could not prepare to get name");
-}
 my $get_synonym_sth = $dba->dbc->prepare("select synonym from seq_region_synonym, seq_region, coord_system where seq_region. name = ? and seq_region.coord_system_id=coord_system.coord_system_id and coord_system.name = ? and seq_region.seq_region_id=seq_region_synonym.seq_region_id")
   || die "Could not prepare to get synonym";
 
 if ($get_synonym_sth == 0) {
   throw("Could not prepare to get synonym");
-}
-my $get_seq_region_id_sth = $dba->dbc->prepare("select seq_region_id from seq_region, coord_system where seq_region. name = ? and seq_region.coord_system_id=coord_system.coord_system_id and
-coord_system.name = ?")
-  || die "Could not prepare to get seq_region_id";
-
-if ($get_seq_region_id_sth == 0) {
-  throw("Could not prepare to get seq_region_id");
-}
-#get the full list of existing synonyms/accessions
-my $existing_synonym;
-my %existing_synonyms;
-
-$get_all_synonyms_sth->execute() || die "problem executing seq_region_id";
-$get_all_synonyms_sth->bind_columns(\$existing_synonym) || die "problem binding";
-while($get_all_synonyms_sth->fetch()){
-  print "Synonym ".$existing_synonym."\n";
-  $existing_synonyms{$existing_synonym} = 1;
 }
 
 
@@ -127,15 +115,10 @@ while (<TYPE>) {
 
 }
 #removed
-my @exist_accs = keys  %existing_synonyms;
-foreach my $acc (@exist_accs){
+foreach my $acc (keys %existing_synonyms){
   if($existing_synonyms{$acc}){
-    my $name;
-    $get_name_sth->execute($acc) || die "problem executing get name";
-    $get_name_sth->bind_columns(\$name) || die "problem binding";
-    $get_name_sth->fetch();
-    print $name." with acc ".$acc." has been removed from the new set\n";
-    remove_patch($name);
+    print $existing_synonyms{$acc}, " with acc $acc has been removed from the new set\n";
+    remove_patch($existing_synonyms{$acc});
   }
 }
 
@@ -145,13 +128,22 @@ sub remove_patch{
   my $alt_scaf_name = shift;
   #get the patch seq_region_ids (chrom and scaffold)
   my($scaf_id, $chrom_id);
-  $get_seq_region_id_sth->execute($alt_scaf_name, $central_coord_system) || die "problem executing seq_region_id";
-  $get_seq_region_id_sth->bind_columns(\$scaf_id) || die "problem binding";
-  $get_seq_region_id_sth->fetch();
+  my $slice_adaptor = $dba->get_SliceAdaptor;
+  my $slice = $slice_adaptor->fetch_by_region($central_coord_system, $alt_scaf_name);
+  $scaf_id = $slice->get_seq_region_id;
 
-  $get_seq_region_id_sth->execute($alt_scaf_name, $toplevel_coord_system) || die "problem executing seq_region_id";
-  $get_seq_region_id_sth->bind_columns(\$chrom_id) || die "problem binding";
-  $get_seq_region_id_sth->fetch();
+  my $projection = $slice->project($toplevel_coord_system);
+  foreach my $segment (@$projection) {
+      my $projected_slice = $segment->to_Slice();
+      if ($projected_slice->assembly_exception_type !~ '^PATCH') {
+          warning("$alt_scaf_name which is on ".$projected_slice->seq_region_name.' is of type '.$projected_slice->assembly_exception_type."\n  You nay have a problem!");
+
+      }
+      else {
+          $chrom_id = $projected_slice->get_seq_region_id;
+      }
+  }
+  throw("Could not find the $toplevel_coord_system seq_region_id for $alt_scaf_name") unless ($chrom_id);
 
   #check for components only used in patch
   my $scaf_comp;

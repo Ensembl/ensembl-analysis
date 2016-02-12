@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,7 +131,9 @@ sub new {
     }
     $self->target_seqs($target_seqs);
   } elsif (defined $target_file) {
-    throw("The given database does not exist") if ! -e $target_file;
+    if ($target_file !~ /^[\w\-\.]+:\d+$/) {
+      throw("The given database ($target_file) does not exist") if ! -e $target_file;
+    }
     $self->target_file($target_file);
   }
 
@@ -146,7 +148,7 @@ sub new {
   }
 
   if (not $self->program) {
-    $self->program('/software/ensembl/genebuild/usrlocalensemblbin/exonerate-0.9.0'); 
+    $self->program('exonerate-0.9.0');
   }
 
  

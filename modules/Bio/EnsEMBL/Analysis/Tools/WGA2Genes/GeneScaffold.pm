@@ -1,4 +1,4 @@
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -521,7 +521,42 @@ sub place_transcript {
             }
           }
 
-          my $fp = Bio::EnsEMBL::FeaturePair->
+          my $fp;
+          my $target_feature_length =  $cur_gs_end - $cur_gs_start + 1;
+          my $query_feature_length = $p_coord->end - $p_coord->start + 1;
+          # There is an issue that crops up for a some features, where the query end is off
+          # by 1 aa. I don't have time to fully check this now, for the moment I will just warn and correct the
+          # sf here
+          if($query_feature_length * 3 != $target_feature_length) {
+            warning("Something has gone wrong with the feature creation, feature will fail to store so throwing.\n".
+                    "Will shorted by 1 aa to try and compensate\n".
+                    "Genomic feature length: ".$target_feature_length."\n".
+                    "Query feature length: ".$query_feature_length."\n".
+                    "Expected length ratio: 3 1\n".
+                    "Query length time 3: ".($query_feature_length * 3)."\n".
+                    "Exon start: ".$exon->start."\n".
+                    "Exon end: ".$exon->end."\n".
+                    "Exon strand: ".$exon->strand."\n".
+                    "Gene segment start: ".$cur_gs_start."\n".
+                    "Gene segment end: ".$cur_gs_end."\n".
+                    "Hit start: ".$p_coord->start."\n".
+                    "Hit end: ".$p_coord->end
+                   );
+
+              $fp = Bio::EnsEMBL::FeaturePair->
+              new(-seqname  => $self->seq_region_name,
+                  -start    => $cur_gs_start,
+                  -end      => $cur_gs_end,
+                  -strand   => $exon->strand,
+                  -score    => 100.0,
+                  -hseqname => $tran->translation->stable_id,
+                  -hstart   => $p_coord->start,
+                  -external_db_id => $external_db_id,
+                  -hend     => ($p_coord->end - 1),
+                  -hstrand  => $p_coord->strand,
+                  -slice    => $sl);
+          } else {
+            $fp = Bio::EnsEMBL::FeaturePair->
               new(-seqname  => $self->seq_region_name,
                   -start    => $cur_gs_start,
                   -end      => $cur_gs_end,
@@ -533,6 +568,7 @@ sub place_transcript {
                   -hend     => $p_coord->end,
                   -hstrand  => $p_coord->strand,
                   -slice    => $sl);
+         }
           push @fps, $fp;
         }
         
@@ -541,7 +577,11 @@ sub place_transcript {
       
       if (@fps) {
         my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@fps);
-        $f->percent_id(100 * ($exon_identical_aas / $exon_aligned_aas));
+        if($exon_aligned_aas == 0) {
+          $f->percent_id(0);
+        } else {
+          $f->percent_id(100 * ($exon_identical_aas / $exon_aligned_aas));
+        }
         $exon->add_supporting_features($f);
       }
     } else {

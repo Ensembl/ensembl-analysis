@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,6 +84,8 @@ sub fetch_input{
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->hrdb_set_con($dba,'target_db');
 
+  $self->hive_set_config;
+
   my $input_id = $self->param('iid');
   my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
   $self->query($slice);
@@ -100,28 +102,14 @@ sub fetch_input{
     $self->throw("You did not pass in the blast_db_path parameter. This is required to locate the blast db");
   }
 
-  my $blast_db_path = $self->param('blast_db_path');
-  my $blast_exe_path = $self->param('blast_exe_path');
-
- # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                             -program_file => $blast_exe_path,
-                                             -db_file => $blast_db_path,
-                                             -parameters => $self->param('commandline_params'),
-                                           );
-  $self->analysis($analysis);
-  $self->hive_set_config;
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
     (
      -query => $self->query,
      -program => $self->analysis->program_file,
      -parser => $parser,
      -filter => $filter,
-     -database => $self->analysis->db_file,
-     -analysis => $self->analysis,
+     -database => $self->analysis()->db_file,
+     -analysis => $self->analysis(),
      %blast,
     );
   $self->runnable($runnable);
@@ -287,6 +275,16 @@ sub hive_set_config {
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
          );
   }
+
+  # Make an analysis object and set it, this will allow the module to write to the output db
+  my $analysis = new Bio::EnsEMBL::Analysis(
+                                             -logic_name => $self->param('logic_name'),
+                                             -module => $self->param('module'),
+                                             -program_file => $self->param('blast_exe_path'),
+                                             -db_file => $self->param('blast_db_path'),
+                                             -parameters => $self->param('commandline_params'),
+                                           );
+  $self->analysis($analysis);
 
   # Now loop through all the keys in the parameters hash and set anything that can be set
   my $config_hash = $self->param('config_settings');

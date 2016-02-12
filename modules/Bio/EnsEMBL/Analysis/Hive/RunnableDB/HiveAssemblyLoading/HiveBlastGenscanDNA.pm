@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,6 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA;
 #use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast;
-#use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 #use Bio::EnsEMBL::Analysis::Config::General;
 #use Bio::EnsEMBL::Analysis::Config::Blast;
 #use vars qw(@ISA);

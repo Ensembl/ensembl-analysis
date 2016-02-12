@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($coverage_aligned,$transcript_biotype) =
+  my ($coverage_aligned) =
       rearrange([qw(
                     COVERAGE_BY_ALIGNED
                     )
@@ -100,9 +100,6 @@ sub new {
     $self->coverage_as_proportion_of_aligned_residues(1);
   }
 
-  if(defined($transcript_biotype)) {
-    $self->transcript_biotype($transcript_biotype)
-  }
 
   return $self;
 }
@@ -114,6 +111,7 @@ sub new {
 # Analysis methods
 #
 ############################################################
+
 
 sub parse_results {
   my ($self, $fh) = @_;
@@ -293,6 +291,8 @@ sub parse_results {
       }
       
       calculate_exon_phases($transcript, 0);
+
+
       push @transcripts, [$score, $transcript];
     }
   }
@@ -531,6 +531,8 @@ sub _parse_vulgar_block {
 
   return \@exons, %flag ;
 }
+
+
 
 
 ############################################################

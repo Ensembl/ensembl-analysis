@@ -1,4 +1,4 @@
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use TranscriptChecker;
 use ContigGenesChecker;
 use GeneChecker;
-use ScriptUtils;
+use buildchecks::ScriptUtils;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::BuildChecks qw (
                                                                MAXSHORTINTRONLEN
                                                                MINSHORTINTRONLEN

@@ -2,7 +2,7 @@
 
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,8 +66,8 @@ use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 
-use Bio::EnsEMBL::Analysis::Config::General;
-use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
+#use Bio::EnsEMBL::Analysis::Config::General;
+#use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
@@ -80,10 +80,15 @@ sub fetch_input {
   my($self) = @_;
 
   $self->hive_set_config();
-  my $input_id = $self->input_id;
-  throw("No input id") unless defined($input_id);
 
-  say "Input ID: ".$input_id;
+  my $input_id = $self->param('iid');
+
+  my $max_internal_stops = $self->param('max_internal_stops');
+  unless(defined($max_internal_stops)) {
+    $self->warning("No max_internal_stops param found, defaulting to 1");
+    $max_internal_stops = 1;
+  }
+  $self->max_internal_stops($max_internal_stops);
 
   # Define the dna dbs
   my $source_dna_dba = $self->hrdb_get_dba($self->QUERY_CORE_DNA_DB);
@@ -106,17 +111,37 @@ sub fetch_input {
   $self->hrdb_set_con($compara_dba,'compara_db');
   my $compara_dbc = $self->hrdb_get_con('compara_db');
 
-  my $query_species = $source_transcript_dbc->get_MetaContainerAdaptor->get_Species->binomial;
-  my $target_species = $target_transcript_dbc->get_MetaContainerAdaptor->get_Species->binomial;
-
+  # Get the genome db adpator
   my $gdb_adap = $compara_dbc->get_GenomeDBAdaptor;
-  my $q_gdb = $gdb_adap->fetch_by_name_assembly($query_species);
-  my $t_gdb = $gdb_adap->fetch_by_name_assembly($target_species);
+
+  # Retrieve the production names for the query and target species
+  my $query_species = $source_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
+  my $target_species = $target_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
+
+# This is some code I've replaced with the two lines below, I'm only leaving it here in case any issues crop up with
+# using the db adaptors
+#  my ($highest_cs_query_species) = shift(@{$source_transcript_dbc->get_CoordSystemAdaptor->fetch_all()});
+#  my $assembly_version_query_species = $highest_cs_query_species->version();
+#  my ($highest_cs_target_species) = shift(@{$target_transcript_dbc->get_CoordSystemAdaptor->fetch_all()});
+#  my $assembly_version_target_species = $highest_cs_target_species->version();
+#  my $q_gdb = $gdb_adap->fetch_by_name_assembly($query_species,$assembly_version_query_species);
+#  my $t_gdb = $gdb_adap->fetch_by_name_assembly($target_species,$assembly_version_target_species);
+
+
+
+  my $q_gdb = $gdb_adap->fetch_by_core_DBAdaptor($source_transcript_dbc);
+  my $t_gdb = $gdb_adap->fetch_by_core_DBAdaptor($target_transcript_dbc);
+
 
   ########
   # check that the default assembly for the query and target agrees
   # with that for the method_link_species_set GenomeDBs
   ########
+
+  my $q_assembly = $q_gdb->assembly;
+  my $t_assembly = $t_gdb->assembly;
+
+
 
   my ($q_assembly_version, $t_assembly_version);
   eval {
@@ -132,13 +157,27 @@ sub fetch_input {
   # fetch the genes; need to work in the coordinate space of the
   # top-level slice to be consistent with compara
   ########
-  my $gene = $source_transcript_dbc->get_GeneAdaptor->fetch_by_stable_id($input_id);
+#  my $gene = $source_transcript_dbc->get_GeneAdaptor->fetch_by_stable_id($input_id);
+  my $gene = Bio::EnsEMBL::Gene->new();
+  $gene->analysis($self->analysis);
+  $gene->biotype($self->analysis);
+
+  my $transcript = $source_transcript_dbc->get_TranscriptAdaptor->fetch_by_dbID($input_id);
+  $transcript->analysis($self->analysis);
+  $transcript->biotype($self->analysis);
+
+  $gene->add_Transcript($transcript);
+  $gene->stable_id($transcript->stable_id);
+  $gene->start($transcript->start);
+  $gene->end($transcript->end);
+  $gene->strand($transcript->strand);
+  $gene->slice($transcript->slice);
+
   $self->_check_gene($gene);
   $self->gene($gene);
 
-
   #########
-  # get the compara data: MethodLinkSpeciesSet, reference DnaFrag, 
+  # get the compara data: MethodLinkSpeciesSet, reference DnaFrag,
   # and all GenomicAlignBlocks
   #########
   my $mlss = $compara_dbc->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->INPUT_METHOD_LINK_TYPE,
@@ -151,7 +190,9 @@ sub fetch_input {
 
   my $gaba = $compara_dbc->get_GenomicAlignBlockAdaptor;
 
+
   my $gen_al_blocks = $gaba->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dnafrag,$gene->start,$gene->end);
+
 
   my (%chains, @chains);
   foreach my $block (@$gen_al_blocks) {
@@ -184,6 +225,7 @@ sub fetch_input {
   }
   $self->genomic_align_block_chains(\@chains);
 
+
 }
 
 
@@ -212,7 +254,6 @@ sub run {
                                                                                    );
 
     foreach my $tran (@{$self->good_transcripts}) {
-
       $tran_stable_id = $tran->stable_id;
 
       # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
@@ -225,12 +266,20 @@ sub run {
     }
   }
 
+
   if ($self->TRANSCRIPT_FILTER){
     @res_tran = @{$self->filter->filter_results(\@res_tran)};
   }
 
   foreach my $res_tran (@res_tran){ 
     $res_tran = $self->process_transcript($res_tran,$tran_stable_id);
+
+    if($self->param('calculate_coverage_and_pid')) {
+      my $gene = $self->gene();
+      my $transcripts = $gene->get_all_Transcripts;
+      my $source_transcript = $$transcripts[0];
+      $self->realign_translation($source_transcript,$res_tran);
+    }
     push @final_tran, $res_tran;
   }
 
@@ -278,10 +327,131 @@ sub write_output {
     $seqio->write_seq($t->translate);
   }
 
-  print "For gene " . $self->input_id . " you stored ", $trans_count, " transcripts\n";
+  print "For gene " . $self->param('iid'). " you stored ", $trans_count, " transcripts\n";
   # to do: write gene back to core target database
 }
 
+
+sub calculate_coverage_and_pid {
+  my ($self, $value) = @_;
+  if($value){
+    $self->{_calculate_coverage_and_pid} = $value;
+  }
+  return $self->{_calculate_coverage_and_pid};
+}
+
+sub realign_translation {
+  my ($self,$source_transcript,$projected_transcript) = @_;
+
+  my $query_seq = $source_transcript->translate->seq();
+#  my $transcripts = $gene->get_all_Transcripts();
+#  my $transcript = ${$transcripts}[0];
+  my $projected_seq = $projected_transcript->translate->seq();
+
+  my $align_input_file = "/tmp/projected_align_".$$.".fa";
+  my $align_output_file = "/tmp/projected_align_".$$.".aln";
+
+  open(INPUT,">".$align_input_file);
+  say INPUT ">query";
+  say INPUT $query_seq;
+  say INPUT ">target";
+  say INPUT $projected_seq;
+  close INPUT;
+
+  my $align_program_path = 'muscle';
+
+  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+  my $result = system($cmd);
+
+  if($result) {
+    throw("Got a non-zero exit code from alignment. Commandline used:\n".$cmd);
+  }
+
+  my $file = "";
+  open(ALIGN,$align_output_file);
+  while(<ALIGN>) {
+    $file .= $_;
+  }
+  close ALIGN;
+
+  unless($file =~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
+    throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
+  }
+
+  my $aligned_query_seq = $1;
+  my $aligned_projected_seq = $3;
+
+  $aligned_query_seq =~ s/\n//g;
+  $aligned_projected_seq =~ s/\n//g;
+
+  `rm $align_input_file`;
+  `rm $align_output_file`;
+
+  # Work out coverage
+  my $coverage;
+  my $temp = $aligned_projected_seq;
+  my $projected_gap_count = $temp =~ s/\-//g;
+  my $ungapped_query_seq = $aligned_query_seq;
+  $ungapped_query_seq  =~ s/\-//g;
+
+  if(length($ungapped_query_seq) == 0) {
+    $coverage = 0;
+  } else {
+    $coverage = 100 - (($projected_gap_count/length($ungapped_query_seq)) * 100);
+  }
+
+  # Work out precent identity
+  my $match_count = 0;
+  my $aligned_positions = 0;
+  for(my $j=0; $j<length($aligned_query_seq); $j++) {
+    my $char_query = substr($aligned_query_seq,$j,1);
+    my $char_target = substr($aligned_projected_seq,$j,1);
+    if($char_query eq '-' || $char_target  eq '-') {
+      next;
+    }
+    if($char_query eq $char_target) {
+      $match_count++;
+    }
+    $aligned_positions++;
+  }
+
+  unless($aligned_positions) {
+    throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
+  }
+
+  my $percent_id = ($match_count / $aligned_positions) * 100;
+
+  # Get all exons and transcript supporting features
+  my $transcript_supporting_features = $projected_transcript->get_all_supporting_features();
+  my $exons = $projected_transcript->get_all_Exons();
+
+  # Now clean these out
+  $projected_transcript->flush_Exons();
+  $projected_transcript->flush_supporting_features();
+
+  # Loop through the TSFs and add the coverage and pid, then add back into transcript
+  foreach my $transcript_supporting_feature (@{$transcript_supporting_features}) {
+    $transcript_supporting_feature->hcoverage($coverage);
+    $transcript_supporting_feature->percent_id($percent_id);
+    $transcript_supporting_feature->hseqname($source_transcript->stable_id);
+    $projected_transcript->add_supporting_features($transcript_supporting_feature);
+  }
+
+
+  # Loop through exons, get supporting features for each, flush existing SF, add coverage and pid, add back to exon, add exon to transcript
+  foreach my $exon (@{$exons}) {
+    my $exon_supporting_features = $exon->get_all_supporting_features();
+    $exon->flush_supporting_features();
+    foreach my $exon_supporting_feature (@{$exon_supporting_features}) {
+      $exon_supporting_feature->hcoverage($coverage);
+      $exon_supporting_feature->percent_id($percent_id);
+      $exon_supporting_feature->hseqname($source_transcript->stable_id);
+      $exon->add_supporting_features($exon_supporting_feature);
+    }
+    $projected_transcript->add_Exon($exon);
+  }
+
+}
 
 sub hive_set_config {
   my $self = shift;
@@ -395,13 +565,11 @@ sub hrdb_get_dba {
             # try to get default asm+ species name for OTHER db - does not work
             # for comapra database
             my $core_db_asm = $dba->get_MetaContainer->get_default_assembly();
-            my $core_db_species =
-            $dba->get_MetaContainer->get_common_name();
+            my $core_db_species = $dba->get_MetaContainer->get_common_name();
 
             # get the same for dna-db
             my $dna_db_asm = $dnadb->get_MetaContainer->get_default_assembly();
-            my $dna_db_species =
-            $dnadb->get_MetaContainer()->get_common_name();
+            my $dna_db_species = $dnadb->get_MetaContainer()->get_common_name();
 
             my $dna_db_and_core_db_are_compatible = 1;
 
@@ -513,7 +681,7 @@ sub process_transcript {
   # number of stops is non-zero but acceptable. Need to 
   # operate on the transcript to jump over the stops
   if($num_stops) {
-    $tran = replace_stops_with_introns($tran,10);
+    $tran = replace_stops_with_introns($tran,$self->max_internal_stops());
   }
 
   return $tran;
@@ -570,7 +738,15 @@ sub target_slices {
   return $self->param('_target_slices');
 }
 
+sub max_internal_stops {
+  my ($self, $val) = @_;
 
+  if (defined $val) {
+    $self->param('_max_internal_stops',$val);
+  }
+
+  return $self->param('_max_internal_stops');
+}
 
 ####################################
 # config variable holders

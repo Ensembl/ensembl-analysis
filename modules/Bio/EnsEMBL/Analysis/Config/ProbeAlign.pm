@@ -25,7 +25,7 @@ hashes for each discrete format of array.
 
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -538,6 +538,28 @@ use vars qw( %Config );
      HIT_SATURATION_LEVEL => 100,
      MAX_MISMATCHES => 1,    
     },   
+
+
+    # NIMBLEGen modENCODE arrays (only used for C.elegans) 60 mers
+    NIMBLEGEN_MODENCODE_PROBEALIGN => 
+    {
+     TARGETSEQS         => $ENV{'GENOMICSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.NIMBLEGEN_MODENCODE.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ', 
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,
+     
+    },                
+    
+    NIMBLEGEN_MODENCODE_PROBETRANSCRIPTALIGN => 
+    {
+     TARGETSEQS         => $ENV{'TRANSCRIPTSEQS'},
+     QUERYSEQS          => $ENV{'WORK_DIR'}.'/arrays_nr.NIMBLEGEN_MODENCODE.fasta',
+     OPTIONS => ' --bestn 101 --dnahspthreshold 291 --fsmmemory 256 --dnawordlen 22 --seedrepeat 2 --dnawordlimit 0 ',
+     HIT_SATURATION_LEVEL => 100,
+     MAX_MISMATCHES => 1,    
+     
+    },
 
 
 

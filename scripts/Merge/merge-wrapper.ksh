@@ -38,7 +38,7 @@ bsub -q normal \
   -J "merge-run[1-${njobs}]%${concurrent}" \
   -oo "${output_dir}/merge-run-%I.out" \
   -eo "${output_dir}/merge-run-%I.err" \
-  -M 1500 -R 'select[mem>1500]' -R 'rusage[mem=1500]' \
+  -M 1500 -R"select[mem>1500] rusage[mem=1500]" \
   -We 30 \
   perl ${ensembl_analysis_base}/scripts/Merge/merge.pl \
   --host_secondary="${host_secondary}" \
@@ -80,6 +80,7 @@ bsub -q normal \
   -w 'done(merge-run)' \
   -oo "${output_dir}/merge-copy-submit.out" \
   -eo "${output_dir}/merge-copy-submit.err" \
+  -M 100 -R"select[mem>100] rusage[mem=100]" \
   <<MERGE_COPY_SUBMIT_END
 cd "${output_dir}" || exit 1
 
@@ -141,7 +142,7 @@ for list in genes-copy-*; do
     -J "merge-copy-\${i}" \
     -oo "merge-copy-\${i}.out" \
     -eo "merge-copy-\${i}.err" \
-    -M 500 -R 'select[mem>500]' -R 'rusage[mem=500]' \
+    -M 500 -R"select[mem>500] rusage[mem=500]" \
     perl ${ensembl_analysis_base}/scripts/genebuild/copy_genes.pl \
     --file="\${list}" \
     --sourcehost='${host_secondary}' \
@@ -160,7 +161,7 @@ bsub -q small \
   -w 'exit(merge-run) || ended(merge-copy-*)' \
   -oo "${output_dir}/merge-cleanup.out" \
   -eo "${output_dir}/merge-cleanup.err" \
-  -M 100 -R 'select[mem>100]' -R 'rusage[mem=100]' \
+  -M 100 -R"select[mem>100] rusage[mem=100]" \
   <<MERGE_CLEANUP_END
 bkill -J 'merge-copy-submit' || exit 0
 MERGE_CLEANUP_END

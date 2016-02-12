@@ -17,7 +17,12 @@
 =head2
   This script assigns alt allele relationships between the genes on the slices corresponding to
   the alt_seq_mapping dna align features and the genes on their corresponding hit slices.
-  There needs to be an exact match in terms of biotypes, exon structure and gene start coordinates. 
+  There needs to be an exact match in terms of biotypes, exon structure and gene start coordinates or
+  a protein coverage and percent identity of the canonical transcript protein on the primary assembly
+  against the one on the assembly exception above a given threshold and vice-versa AND the
+  starts of the gene alleles have to lie within a GENE_START_WINDOW bp window.
+  
+  It requires that canonical transcripts are set.
 =cut
 
 use strict;
@@ -28,9 +33,12 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Slice;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::SliceAdaptor;
+use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 $| = 1;
 
+my $min_cov = 95;
+my $min_pid = 95;
 my $core_host = '';
 my $core_user = '';
 my $core_pass = '';
@@ -40,12 +48,16 @@ my $core_dbname = '';
 my $output_file = '';
 my $verbose;
 
-&GetOptions(  'dbhost:s'   => \$core_host,
+my $GENE_START_WINDOW = 100; # the gene allele starts are allowed to lie within a window of up to 100 bp long either upstream or downstream
+
+&GetOptions(  'min_cov:n'  => \$min_cov,
+              'min_pid:n'  => \$min_pid,
+              'dbhost:s'   => \$core_host,
               'dbuser:s'   => \$core_user,
               'dbpass:s'   => \$core_pass,
               'dbport:n'   => \$core_port,
-              'dbname:s' => \$core_dbname,
-              'output_file:s'    => \$output_file,
+              'dbname:s'   => \$core_dbname,
+              'output_file:s' => \$output_file,
               'verbose!'    => \$verbose);
 # ouptut
 my $fh;
@@ -90,15 +102,36 @@ foreach my $alt_seq_mapping (@alt_seq_mappings) {
   	foreach my $pa_gene (@pa_genes) {
   	
   	  my $pa_gene_key = get_gene_key($pa_gene,$alt_seq_mapping->seq_region_start());
-  	
-  	  if ($ae_gene_key eq $pa_gene_key) {
-  	
+
+  	  my ($cov1,$pid1) = (0,0);
+  	  my ($cov2,$pid2) = (0,0);
+  	  my $pa_t_seq;
+  	  my $ae_t_seq;
+  	  my $pa_can_t = $pa_gene->canonical_transcript();
+  	  my $ae_can_t = $ae_gene->canonical_transcript();
+  	  
+  	  if ($pa_can_t->translation() and $ae_can_t->translation()) {
+  	    $pa_t_seq = $pa_can_t->translate()->seq();
+  	    $ae_t_seq = $ae_can_t->translate()->seq();
+  	  }
+
+  	  if ($pa_t_seq and $ae_t_seq) {
+  	  	($cov1,$pid1) = align_proteins($pa_t_seq,$ae_t_seq);
+  	  	($cov2,$pid2) = align_proteins($ae_t_seq,$pa_t_seq);
+  	  } else {
+  	  	print "Canonical transcripts not found for gene pair ".$pa_gene->dbID()." (".$pa_gene->stable_id()."), ".$ae_gene->dbID()." (".$ae_gene->stable_id().").\n";
+  	  }
+
+  	  if (($ae_gene_key eq $pa_gene_key) or
+  	      ($cov1 > $min_cov and $pid1 > $min_pid and $cov2 > $min_cov and $pid2 > $min_pid and
+  	       abs(($ae_gene->seq_region_start()-$alt_seq_mapping->hstart())-($pa_gene->seq_region_start()-$alt_seq_mapping->seq_region_start())) < $GENE_START_WINDOW)) {
+
   	  	my $pa_gene_group = $aaga->fetch_by_gene_id($pa_gene->dbID());
   	  	my $ae_gene_group = $aaga->fetch_by_gene_id($ae_gene->dbID());
   	
   	  	if ($pa_gene_group and $ae_gene_group) {
   	  	  if ($pa_gene_group->dbID() != $ae_gene_group->dbID()) {
-  	  	  	throw("FOUND alt allele relationship between gene IDs ".$pa_gene->dbID()." and ".$ae_gene->dbID()." but both of them are part of different alt allele groups so the creation of a new alt allele group is not allowed because a gene is only expected to be part of ONE alt allele group.");
+  	  	  	warning("FOUND alt allele relationship between gene IDs ".$pa_gene->dbID()." and ".$ae_gene->dbID()." but both of them are part of different alt allele groups so the creation of a new alt allele group is not allowed because a gene is only expected to be part of ONE alt allele group.");
   	  	  } else {
   	  	  	print "FOUND already existing alt_allele relationship for: ".$ae_gene->stable_id()." ".$ae_gene_key." and ".$pa_gene->stable_id()." ".$pa_gene_key."\n";
   	  	  }
