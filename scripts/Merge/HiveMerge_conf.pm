@@ -261,8 +261,8 @@ sub pipeline_analyses {
                                'inputquery' => 'SHOW TABLE STATUS',
                              },
               -rc_name => 'default',
-              -flow_into => { 2 => { 'parallel_dump_core_db' => { 'table_name' => '#Name#' }, },
-                              1 => ['list_core_genes'] },
+              -flow_into => { '2->A' => { 'parallel_dump_core_db' => { 'table_name' => '#Name#' }, },
+                              'A->1' => ['list_core_genes'] },
             },
                         
             {
@@ -301,7 +301,6 @@ sub pipeline_analyses {
                                output_file => $self->o('output_dir').'/'.$self->o('core_genes_for_deletion_filename'),
                              },
               -rc_name => 'default',
-              -wait_for => [ 'parallel_load_core_db' ],
               -flow_into => { 1 => ['chunk_core_genes'] },
             },
             
