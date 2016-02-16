@@ -222,7 +222,7 @@ sub pipeline_analyses {
                                           'mkdir -p '.$self->o('output_dir')
                              },
               -flow_into => { 1 => ['create_vega_db'] },
-              -rc_name => 'local',
+              -rc_name => 'default',
               -input_ids => [ {} ],
             },
             
@@ -252,7 +252,7 @@ sub pipeline_analyses {
                                                ' -e "CREATE DATABASE '.$self->o('core_db','-dbname').'"'
                              },
               -input_ids => [ {} ],
-              -rc_name => 'local',
+              -rc_name => 'default',
               -flow_into => { 1 => ['list_core_db_tables'] },
             },
 
@@ -262,7 +262,7 @@ sub pipeline_analyses {
               -parameters => {
                                'inputquery' => 'SHOW TABLE STATUS',
                              },
-              -rc_name => 'local',
+              -rc_name => 'default',
               -flow_into => { 2 => { 'parallel_dump_core_db' => { 'table_name' => '#Name#' }, },
                               1 => ['list_core_genes'] },
             },
@@ -308,7 +308,7 @@ sub pipeline_analyses {
                                                ' -e"SELECT gene_id from gene g,seq_region sr where g.seq_region_id=sr.seq_region_id and name <> '."'".'MT'."'".
                                                '" > '.$self->o('output_dir').'/'.$self->o('core_genes_for_deletion_filename')
                              },
-              -rc_name => 'local',
+              -rc_name => 'default',
               -wait_for => [ 'parallel_load_core_db' ],
               -flow_into => { 1 => ['chunk_core_genes'] },
             },
@@ -326,7 +326,7 @@ sub pipeline_analyses {
               -flow_into => { '2->A' => [ 'delete_core_genes' ],
                               'A->1' => [ 'core_sql_truncates' ],
                             },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -363,7 +363,7 @@ sub pipeline_analyses {
                                        ],
                              },
               -max_retry_count => 0,
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -380,7 +380,7 @@ sub pipeline_analyses {
               -flow_into => { '2->A' => [ 'vega_checks_before' ],
                               'A->1' => [ 'vega_checks_before_concat' ],
                             },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -416,7 +416,7 @@ sub pipeline_analyses {
                                                  $self->o('reports_dir').'/vega_checks_before.out'
                              },
               -flow_into => { 1 => ['vega_checks_before_report'] },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
             {
               -logic_name => 'vega_checks_before_report',
@@ -429,7 +429,7 @@ sub pipeline_analyses {
                                command => q{egrep '(Unknown)|(not allowed\.)' | awk '{print $9,$18}' | sort | uniq -c | sort -nr | sed s'/\. run/ (UNKNOWN gene biotype)/g'},
                              },
               -flow_into => { 1 => ['prepare_vega_db'] },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -464,7 +464,7 @@ sub pipeline_analyses {
                                                $self->o('output_dir').'/'.$self->o('vega_genes_for_merge_filename')
                              },
               -flow_into => { 1 => ['chunk_vega_genes_for_merge'] },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -478,7 +478,7 @@ sub pipeline_analyses {
               -flow_into => { '2->A' => ['havana_merge'],
                               'A->1' => ['havana_merge_list_processed_genes'],
                             },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -543,7 +543,7 @@ sub pipeline_analyses {
                                'cmd'   => "awk '\$1 == ".'"'."PROCESSED".'"'." {print \$2}' ".$self->o('output_dir')."/*merge-run*.out ".
                                " | sort -u -n > ".$self->o('output_dir').'/'.$self->o('processed_genes_filename')
                              },
-              -rc_name => 'local',
+              -rc_name => 'default',
               -flow_into => { 1 => ['havana_merge_list_unprocessed_genes'] },
             },
 
@@ -561,7 +561,7 @@ sub pipeline_analyses {
                                secondary_include => '',
                                secondary_exclude => '',
                              },
-              -rc_name => 'local',
+              -rc_name => 'default',
               #-hive_capacity    => 100,
               -flow_into => { 1 => ['chunk_unprocessed_genes'] },
             },
@@ -577,7 +577,7 @@ sub pipeline_analyses {
               -flow_into => { '2->A' => [ 'copy_unprocessed_genes' ],
                               'A->1' => [ 'set_ncrna' ],
                             },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -783,7 +783,7 @@ sub pipeline_analyses {
               -flow_into => { '2->A' => [ 'vega_checks_after' ],
                               'A->1' => [ 'vega_checks_after_concat' ],
                             },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -794,7 +794,7 @@ sub pipeline_analyses {
                                                  $self->o('reports_dir').'/vega_checks_after.out'
                              },
               -flow_into => { 1 => ['vega_checks_after_report'] },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
 
             {
@@ -834,7 +834,7 @@ sub pipeline_analyses {
                                command => q{egrep '(Unknown)|(not allowed\.)' | awk '{print $9,$18}' | sort | uniq -c | sort -nr | sed s'/\. run/ (UNKNOWN gene biotype)/g'},
                              },
               -flow_into => { 1 => ['delete_artifacts'] },
-              -rc_name => 'local',
+              -rc_name => 'default',
             },
             {
               -logic_name => 'delete_artifacts',
@@ -868,7 +868,7 @@ sub pipeline_analyses {
                                sql => [ "UPDATE transcript SET stable_id=CONCAT('TEMPSID',transcript_id) WHERE stable_id IS NULL" ],
                              },
                -max_retry_count => 3,
-               -rc_name => 'local',
+               -rc_name => 'default',
                -flow_into => { 1 => ['list_toplevel'] },
             },
             );
@@ -887,7 +887,7 @@ sub pipeline_analyses {
               -flow_into => { '2->A' => [ 'alternative_atg_attributes', 'ccds_comparison' ],
                               'A->1' => [ 'ccds_addition' ],
                             },
-              -rc_name => 'local',
+              -rc_name => 'default',
             );
             my %alternative_atg_attributes = (
               -logic_name => 'alternative_atg_attributes',
@@ -1007,7 +1007,7 @@ sub pipeline_analyses {
                                sql => [ "UPDATE gene SET biotype = 'new_lincRNA' WHERE biotype = 'lincRNA'" ],
                              },
                -max_retry_count => 3,
-               -rc_name => 'local',
+               -rc_name => 'default',
                -flow_into => { 1 => ['transfer_lincrnas'] },
             },
 
@@ -1046,7 +1046,7 @@ sub pipeline_analyses {
                                sql => [ "UPDATE gene SET biotype = 'lincRNA' WHERE biotype = 'new_lincRNA'" ],
                              },
                -max_retry_count => 3,
-               -rc_name => 'local',
+               -rc_name => 'default',
                -flow_into => { 1 => ['dummy'] },
             },
 
@@ -1064,7 +1064,7 @@ sub pipeline_analyses {
                                cmd => 'echo "I am dummy and I know it. TBC..."'
                              },
                -max_retry_count => 0,
-               -rc_name => 'local',
+               -rc_name => 'default',
             },
 
 
