@@ -63,13 +63,6 @@ sub default_options {
             -driver => $self->o('hive_driver'),
         },
 
-        'reference_db' => {
-            -dbname => $self->o('reference_dbname'),
-            -host   => $self->o('reference_db_server'),
-            -port   => $self->o('port'),
-            -user   => $self->o('user_r'),
-        },
-
         'dna_db' => {
             -dbname => $self->o('dna_dbname'),
             -host   => $self->o('dna_db_server'),
