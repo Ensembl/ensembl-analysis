@@ -20,6 +20,9 @@ sub default_options {
 
     # Set to 1 if you want to delete the vega and core databases.
     # Only useful if you want to start the whole pipeline again.
+    # You also need to specify the driver if you want the DROP to work,
+    # the easiest is to set the driver in your database hash like this:
+    # -driver => $self->o('pipeline_db', '-driver'),
     'drop_databases' => 0,
 
     # If you are working on human and mouse you need the CCDS. If you are doing the merge
@@ -167,6 +170,7 @@ sub default_options {
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('vega_name'),
+                    -driver    => $self->o('pipeline_db', '-driver'),
     },
 
     # core database
@@ -176,6 +180,7 @@ sub default_options {
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('core_name'),
+                    -driver    => $self->o('pipeline_db', '-driver'),
     },
 
   };
@@ -199,8 +204,7 @@ sub pipeline_create_commands {
   my $create_commands = $self->SUPER::pipeline_create_commands;
   if ($self->o('drop_databases')) {
     foreach my $dbname ('vega_db','core_db') {
-      my $db_url = $self->o('pipeline_db', '-driver').'://'.$self->o($dbname, '-user').':'.$self->o($dbname, '-pass').'@'.$self->o($dbname, '-host').':'.$self->o($dbname, '-port').'/'.$self->o($dbname, '-dbname');
-      push(@$create_commands,$self->db_cmd('DROP DATABASE IF EXISTS', $db_url));
+      push(@$create_commands,$self->db_cmd('DROP DATABASE IF EXISTS', $self->dbconn_2_url($dbname)));
     }
   }
   return $create_commands;
