@@ -1031,14 +1031,6 @@ sub pipeline_analyses {
                -rc_name => 'default',
                -flow_into => { 1 => ['dummy'] },
             },
-
-            ));
-  }
-  else {
-      $list_toplevel{'-flow_into'} = { 1 => ['alternative_atg_attributes'] };
-      push(@analyses, \%list_toplevel, \%alternative_atg_attributes);
-  }
-  push(@analyses, (
             {
               -logic_name => 'dummy',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1049,8 +1041,12 @@ sub pipeline_analyses {
                -rc_name => 'default',
             },
 
-
-  ));
+            ));
+  }
+  else {
+      $list_toplevel{'-flow_into'} = { 2 => ['alternative_atg_attributes'] };
+      push(@analyses, \%list_toplevel, \%alternative_atg_attributes);
+  }
   return \@analyses;
 }
 
