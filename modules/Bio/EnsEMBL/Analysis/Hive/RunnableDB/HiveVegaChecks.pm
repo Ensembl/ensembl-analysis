@@ -30,17 +30,12 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveVegaChecks;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-use Data::Dumper;
-
 use Getopt::Long;
-use Carp;
 use integer; # to get integers instead of floats
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Feature;
 use Merge::vega_check qw(get_combos get_biotype_groups get_actions);
 
 sub param_defaults {
@@ -117,7 +112,7 @@ sub run {
   open STDERR, '>', $self->param('stderr_file') if ($self->param('stderr_file'));
 
   if (not $self->param('user') or not $self->param('dbhost') or not $self->param('dbname')) {
-    throw("DB connection parameters missing. Can't connect.");
+    $self->throw("DB connection parameters missing. Can't connect.");
   }
 
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-dbname => $self->param('dbname'),
@@ -132,7 +127,7 @@ sub run {
   # The DNA is in the ref db
   if ($self->param('dnadbname')) {
     if (not $self->param('dnadbhost')) {
-      throw("Can't connect to DNA DB. Please specify the host the DNA DB is on.");
+      $self->throw("Can't connect to DNA DB. Please specify the host the DNA DB is on.");
     }
     my $dnadb = Bio::EnsEMBL::DBSQL::DBAdaptor->new(-dbname => $self->param('dnadbname'),
                                                     -host   => $self->param('dnadbhost'),
