@@ -31,6 +31,8 @@ sub default_options {
     'user_r' => '',
     'pass_w' => '',
     'user_w' => '',
+    'user' => $self->o('user_w'),
+    'password' => $self->o('pass_w'),
     
     # output directory. The merge will write log files here. The directory must not already exist.
     'output_dir' => '',
@@ -105,12 +107,17 @@ sub default_options {
     'prevcore_host' => '', # previous core database (available on ens-staging or ens-livemirror)
     'prevcore_name' => '',
     
-    'pipeline_name' => '', # pipeline db, automatically created
-    
-    'vega_name' => '', # vega database to be used for the merge
-    
-    'core_name' => '', # core database which will contain the merged gene set at the end of the process
-    
+    'pipe_dbname' => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive', # pipeline db, automatically created
+
+    'vega_name' => $ENV{USER}.'_'.$self->o('pipeline_name').'_vega', # vega database to be used for the merge
+
+    'core_name' => $ENV{USER}.'_'.$self->o('pipeline_name').'_core', # core database which will contain the merged gene set at the end of the process
+    'vega_host' => $self->o('default_host'),
+    'core_host' => $self->o('default_host'),
+    'pipe_db_server' => $self->o('default_host'),
+    'dna_dbname' => '',
+    'dna_db_server' => '',
+
     ##
     # You shouldn't need to change anything below this line
     ##
@@ -152,15 +159,6 @@ sub default_options {
     },
     'db_conn' => 'mysql://'.$self->o('user_r').'@'.$self->o('prevcore_host').'/'.$self->o('prevcore_name'),
 
-    # pipeline db, pipeline will create this automatically
-    'pipeline_db' => {
-                    -host      => $self->o('pipeline_host'),
-                    -port      => $self->o('default_port'),
-                    -user      => $self->o('user_w'),
-                    -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('pipeline_name'),
-                    -driver    => "mysql",
-    },
 
     # vega database to be used for the merge
     'vega_db' => {
