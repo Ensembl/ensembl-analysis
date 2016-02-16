@@ -160,8 +160,6 @@ sub default_options {
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('prevcore_name'),
     },
-    'db_conn' => 'mysql://'.$self->o('user_r').'@'.$self->o('prevcore_host').'/'.$self->o('prevcore_name'),
-
 
     # vega database to be used for the merge
     'vega_db' => {
@@ -284,14 +282,10 @@ sub pipeline_analyses {
             
             {
               -logic_name => 'parallel_load_core_db',
-              -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
               -parameters => {
-                               'cmd'   => 'mysql -NB -u'.$self->o('user_w').
-                                               ' -p'.$self->o('pass_w').
-                                               ' -h'.$self->o('core_db','-host').
-                                               ' -D'.$self->o('core_db','-dbname').
-                                               ' -P'.$self->o('core_db','-port').
-                                               ' < '.$self->o('output_dir').'/#table_name#.sql'
+                                 db_conn => $self->o('core_db'),
+                                 input_file => $self->o('output_dir').'/#table_name#.sql',
                              },
               -rc_name => 'normal_1500',
               #-flow_into => { 1 => ['list_core_genes'] },
@@ -299,14 +293,12 @@ sub pipeline_analyses {
 
             {
               -logic_name => 'list_core_genes',
-              -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
               -parameters => {
-                               'cmd'   => 'mysql -NB -u'.$self->o('user_r').
-                                               ' -h'.$self->o('core_db','-host').
-                                               ' -D'.$self->o('core_db','-dbname').
-                                               ' -P'.$self->o('core_db','-port').
-                                               ' -e"SELECT gene_id from gene g,seq_region sr where g.seq_region_id=sr.seq_region_id and name <> '."'".'MT'."'".
-                                               '" > '.$self->o('output_dir').'/'.$self->o('core_genes_for_deletion_filename')
+                               db_conn     => $self->o('core_db'),
+                               append      => ['-NB'],
+                               input_query => 'SELECT gene_id FROM gene g,seq_region sr WHERE g.seq_region_id=sr.seq_region_id AND name <> "MT"',
+                               output_file => $self->o('output_dir').'/'.$self->o('core_genes_for_deletion_filename'),
                              },
               -rc_name => 'default',
               -wait_for => [ 'parallel_load_core_db' ],
@@ -351,7 +343,7 @@ sub pipeline_analyses {
               -logic_name => 'core_sql_truncates',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                               db_conn => 'mysql://'.$self->o('core_db','-user').':'.$self->o('core_db','-pass').'@'.$self->o('core_db','-host').':'.$self->o('core_db','-port').'/'.$self->o('core_db','-dbname'),
+                               db_conn => $self->o('core_db'),
                                sql => [ 'TRUNCATE xref',
                                         'TRUNCATE object_xref',
                                         'TRUNCATE external_synonym',
@@ -370,11 +362,8 @@ sub pipeline_analyses {
               -logic_name => 'list_toplevel_for_vega_checks_before',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
               -parameters => {
-                               inputcmd => 'mysql -NB -u'.$self->o('user_r').
-                                           ' -h'.$self->o('vega_db','-host').
-                                           ' -D'.$self->o('vega_db','-dbname').
-                                           ' -P'.$self->o('vega_db','-port').
-                                           ' -e"select sr.name from seq_region sr, seq_region_attrib sra where sr.seq_region_id = sra.seq_region_id and sr.name not like \'LRG\_%\' and attrib_type_id = (select attrib_type_id from attrib_type where code=\'toplevel\');"',
+                               db_conn => $self->o('vega_db'),
+                               inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
                                column_names => ['chromosome'],
                              },
               -flow_into => { '2->A' => [ 'vega_checks_before' ],
@@ -614,7 +603,7 @@ sub pipeline_analyses {
               -logic_name => 'set_ncrna',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                               db_conn => 'mysql://'.$self->o('core_db','-user').':'.$self->o('core_db','-pass').'@'.$self->o('core_db','-host').':'.$self->o('core_db','-port').'/'.$self->o('core_db','-dbname'),
+                               db_conn => $self->o('core_db'),
                                sql => [ 'INSERT IGNORE analysis(logic_name) VALUES("ncrna")',
                                         'UPDATE gene g,analysis a SET g.analysis_id=(SELECT analysis_id FROM analysis where logic_name="ncrna")
                                                                   WHERE g.analysis_id=a.analysis_id
@@ -651,7 +640,7 @@ sub pipeline_analyses {
               -logic_name => 'set_igtr_analysis_biotypes',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                               db_conn => 'mysql://'.$self->o('core_db','-user').':'.$self->o('core_db','-pass').'@'.$self->o('core_db','-host').':'.$self->o('core_db','-port').'/'.$self->o('core_db','-dbname'),
+                               db_conn => $self->o('core_db'),
                                sql => [ 'UPDATE gene g SET g.biotype=REPLACE(g.biotype,"_","_V_")
                                                                      WHERE (g.description LIKE "%variable%" OR
                                                                             g.description LIKE "%variant%" OR
@@ -773,11 +762,8 @@ sub pipeline_analyses {
               -logic_name => 'list_toplevel_for_vega_checks_after',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
               -parameters => {
-                               inputcmd => 'mysql -NB -u'.$self->o('user_r').
-                                           ' -h'.$self->o('core_db','-host').
-                                           ' -D'.$self->o('core_db','-dbname').
-                                           ' -P'.$self->o('core_db','-port').
-                                           ' -e"select sr.name from seq_region sr, seq_region_attrib sra where sr.seq_region_id = sra.seq_region_id and sr.name not like \'LRG\_%\' and attrib_type_id = (select attrib_type_id from attrib_type where code=\'toplevel\');"',
+                               db_conn => $self->o('core_db'),
+                               inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
                                column_names => ['chromosome'],
                              },
               -flow_into => { '2->A' => [ 'vega_checks_after' ],
@@ -864,7 +850,7 @@ sub pipeline_analyses {
               -logic_name => 'set_temp_stable_ids',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                               db_conn => 'mysql://'.$self->o('core_db','-user').':'.$self->o('core_db','-pass').'@'.$self->o('core_db','-host').':'.$self->o('core_db','-port').'/'.$self->o('core_db','-dbname'),
+                               db_conn => $self->o('core_db'),
                                sql => [ "UPDATE transcript SET stable_id=CONCAT('TEMPSID',transcript_id) WHERE stable_id IS NULL" ],
                              },
                -max_retry_count => 3,
@@ -877,11 +863,8 @@ sub pipeline_analyses {
               -logic_name => 'list_toplevel',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
               -parameters => {
-                               inputcmd => 'mysql -NB -u'.$self->o('user_r').
-                                           ' -h'.$self->o('core_db','-host').
-                                           ' -D'.$self->o('core_db','-dbname').
-                                           ' -P'.$self->o('core_db','-port').
-                                           ' -e"select sr.name from seq_region sr, seq_region_attrib sra where sr.seq_region_id = sra.seq_region_id and sr.name not like \'LRG\_%\'and attrib_type_id = (select attrib_type_id from attrib_type where code=\'toplevel\');"',
+                               db_conn => $self->o('core_db'),
+                               inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
                                column_names => ['chr'],
                              },
               -flow_into => { '2->A' => [ 'alternative_atg_attributes', 'ccds_comparison' ],
@@ -984,7 +967,7 @@ sub pipeline_analyses {
               -logic_name => 'ccds_sql_updates',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                               db_conn => 'mysql://'.$self->o('core_db','-user').':'.$self->o('core_db','-pass').'@'.$self->o('core_db','-host').':'.$self->o('core_db','-port').'/'.$self->o('core_db','-dbname'),
+                               db_conn => $self->o('core_db'),
                                sql => [ 'UPDATE gene SET biotype="protein_coding" WHERE biotype="ccds_gene"',
                                         'UPDATE transcript SET biotype="protein_coding" WHERE biotype="ccds_gene"',
                                         'INSERT IGNORE analysis(created,logic_name) VALUES(now(),"ccds")',
@@ -1003,7 +986,7 @@ sub pipeline_analyses {
               -logic_name => 'prepare_lincrnas',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                               db_conn => 'mysql://'.$self->o('core_db','-user').':'.$self->o('core_db','-pass').'@'.$self->o('core_db','-host').':'.$self->o('core_db','-port').'/'.$self->o('core_db','-dbname'),
+                               db_conn => $self->o('core_db'),
                                sql => [ "UPDATE gene SET biotype = 'new_lincRNA' WHERE biotype = 'lincRNA'" ],
                              },
                -max_retry_count => 3,
@@ -1042,7 +1025,7 @@ sub pipeline_analyses {
               -logic_name => 'set_lincrna_biotypes',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                               db_conn => 'mysql://'.$self->o('core_db','-user').':'.$self->o('core_db','-pass').'@'.$self->o('core_db','-host').':'.$self->o('core_db','-port').'/'.$self->o('core_db','-dbname'),
+                               db_conn => $self->o('core_db'),
                                sql => [ "UPDATE gene SET biotype = 'lincRNA' WHERE biotype = 'new_lincRNA'" ],
                              },
                -max_retry_count => 3,
@@ -1070,16 +1053,6 @@ sub pipeline_analyses {
 
   ));
   return \@analyses;
-}
-
-sub pipeline_wide_parameters {
-    my ($self) = @_;
-
-      return {
-            # Inherit other stuff from the parent class
-                %{$self->SUPER::pipeline_wide_parameters()},
-                'db_conn' => $self->o('db_conn'),
-                  };
 }
 
 1;
