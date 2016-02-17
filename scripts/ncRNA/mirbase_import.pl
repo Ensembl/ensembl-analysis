@@ -80,11 +80,13 @@ while($gff_file->next) {
     $transcript->analysis($analysis);
     $transcript->biotype($biotype);
     $transcript->source($source);
+    $transcript->stable_id($gff_file->get_attribute_by_name('Name'));
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->add_Transcript($transcript);
     $gene->analysis($analysis);
     $gene->biotype($biotype);
     $gene->source($source);
+    $gene->stable_id($gff_file->get_attribute_by_name('ID'));
     push(@genes, $gene);
     $gene_count++;
     if (defined $batch_size and $gene_count == $batch_size) {
