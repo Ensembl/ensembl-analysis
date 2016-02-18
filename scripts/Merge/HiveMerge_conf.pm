@@ -997,7 +997,7 @@ sub pipeline_analyses {
               -logic_name => 'transfer_lincrnas',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
-                               cmd => 'perl $ENSEMBL_PERSONAL/genebuilders/scripts/transfer_lincRNAs_to_merged_gene_set.pl'.
+                               cmd => 'perl '.$self->o('ensembl_analysis_base').'/scripts/Merge/transfer_lincRNAs_to_merged_gene_set.pl'.
                                       ' -dbname '.$self->o('prevcore_db','-dbname').
                                       ' -dbhost '.$self->o('prevcore_db','-host').
                                       ' -dbport '.$self->o('prevcore_db','-port').
