@@ -3,6 +3,9 @@ package HiveMerge_conf;
 use strict;
 use warnings;
 
+use Bio::EnsEMBL::Hive::Version 2.4;
+use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;           # Allow this particular config to use conditional dataflow
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
@@ -211,7 +214,7 @@ sub pipeline_create_commands {
 sub pipeline_analyses {
   my ($self) = @_;
 
-  my @analyses = (
+  return [
             {
               -logic_name => 'create_reports_dir',
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -856,9 +859,8 @@ sub pipeline_analyses {
                -rc_name => 'default',
                -flow_into => { 1 => ['list_toplevel'] },
             },
-            );
 
-            my %list_toplevel = (
+            {
               -logic_name => 'list_toplevel',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
               -parameters => {
@@ -866,12 +868,15 @@ sub pipeline_analyses {
                                inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
                                column_names => ['chr'],
                              },
-              -flow_into => { '2->A' => [ 'alternative_atg_attributes', 'ccds_comparison' ],
-                              'A->1' => [ 'ccds_addition' ],
-                            },
+              -flow_into => { '2->A' => WHEN ('#process_ccds#' => ['alternative_atg_attributes','ccds_comparison'],
+              	                        ELSE ['alternative_atg_attributes']),
+                              'A->1' => WHEN ('#process_ccds#' => ['ccds_addition'],
+                                        ELSE ['dummy']),
+                            },   
               -rc_name => 'default',
-            );
-            my %alternative_atg_attributes = (
+            },
+
+            {
               -logic_name => 'alternative_atg_attributes',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
@@ -895,10 +900,8 @@ sub pipeline_analyses {
                -hive_capacity => 25,
                -max_retry_count => 2,
                -rc_name => 'normal_1500',
-            );
+            },
 
-  if ($self->o('process_ccds')) {
-      push(@analyses, \%list_toplevel, \%alternative_atg_attributes, (
             {
               -logic_name => 'ccds_comparison',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1031,6 +1034,7 @@ sub pipeline_analyses {
                -rc_name => 'default',
                -flow_into => { 1 => ['dummy'] },
             },
+
             {
               -logic_name => 'dummy',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1040,14 +1044,17 @@ sub pipeline_analyses {
                -max_retry_count => 0,
                -rc_name => 'default',
             },
+  ];
+}
 
-            ));
-  }
-  else {
-      $list_toplevel{'-flow_into'} = { 2 => ['alternative_atg_attributes'] };
-      push(@analyses, \%list_toplevel, \%alternative_atg_attributes);
-  }
-  return \@analyses;
+sub pipeline_wide_parameters {
+    my ($self) = @_;
+
+      return {
+            # Inherit other stuff from the parent class
+                %{$self->SUPER::pipeline_wide_parameters()},
+                'process_ccds' => $self->o('process_ccds'),
+      };
 }
 
 1;
