@@ -162,7 +162,7 @@ sub build_query {
 
   if(exists($query_params->{'fragment'})) {
     if($query_params->{'fragment'}) {
-      $fragment_string = undef;
+      $fragment_string = "+AND+fragment:yes";
     }
   }
 
