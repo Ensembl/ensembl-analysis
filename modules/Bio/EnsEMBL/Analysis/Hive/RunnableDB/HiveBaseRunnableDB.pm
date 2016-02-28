@@ -203,7 +203,7 @@ sub fetch_sequence {
     $dbcon = $self->hrdb_get_con($dbname);
   }
   if(!$name){
-    $name = $self->parse_hive_input_id;
+    $name = $self->param('iid');
   }
   my $sa = $dbcon->get_SliceAdaptor;
   my $slice = $sa->fetch_by_name($name);
