@@ -63,11 +63,13 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
+  $self->dbc->disconnect_if_idle(1);
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) {
     $dba->dnadb($dna_dba);
   }
+
   $self->hrdb_set_con($dba,'target_db');
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
@@ -302,10 +304,11 @@ sub get_genome_slices {
   #also fetching non-reference regions like DR52 for human by default.
   #specify in Exonerate2Genes config-file.
 #  if(defined($self->NONREF_REGIONS)){
-#    @slice_array = @{$slice_adaptor->fetch_all('toplevel', undef, 1)};
+    @slice_array = @{$slice_adaptor->fetch_all('toplevel', undef, 1)};
 #  }
 #  else{
-  @slice_array = @{$slice_adaptor->fetch_all('toplevel')};
+# Note I had made below the default behaviour
+#  @slice_array = @{$slice_adaptor->fetch_all('toplevel')};
 #  }
 
   foreach my $slice (@slice_array) {
