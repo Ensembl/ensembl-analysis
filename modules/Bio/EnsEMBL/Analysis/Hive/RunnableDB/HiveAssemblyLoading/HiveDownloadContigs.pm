@@ -40,8 +40,8 @@ sub run {
 
   my $wgs_id = $self->param('wgs_id');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $contig_accession_path = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name."/AGP/contigs.txt";
-  my $output_path = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name."/contigs";
+  my $contig_accession_path = $self->param('output_path')."/".$primary_assembly_dir_name."/AGP/contigs.txt";
+  my $output_path = $self->param('output_path')."/".$primary_assembly_dir_name."/contigs";
   my $source = $self->param('contigs_source');
 
   $self->download_ftp_contigs($source,$wgs_id,$output_path);

@@ -38,7 +38,7 @@ sub run {
   my $self = shift;
 
   my $ftp_species_path = $self->param('full_ftp_path')."/".$self->param('primary_assembly_dir_name');
-  my $local_path = $self->param('output_path')."/". $self->param('species_name')."/".$self->param('primary_assembly_dir_name');
+  my $local_path = $self->param('output_path')."/".$self->param('primary_assembly_dir_name');
   $self->download_ftp_dir($ftp_species_path,$local_path);
   $self->unzip($local_path);
 
@@ -69,17 +69,18 @@ sub download_ftp_dir {
     say "$num_files files were downloaded";
   }
 
-  # get the name of the directory where the assembly report file is
+  # get the name of the directory where the assembly report file is, replace any // with / (except for ftp://) in the path to stop issues with the pop
+  $ftp_path =~ s/([^\:])\/\//$1\//;
+
   my @ftp_path_array = split('/',$ftp_path);
-  my $ass_report_dir = pop(@ftp_path_array); # Primary assembly dir
-  $ass_report_dir = pop(@ftp_path_array);
+  my $ass_report_dir = pop(@ftp_path_array);
   $ass_report_dir = pop(@ftp_path_array);
   $ass_report_dir = pop(@ftp_path_array);
 
-  my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
-
-  if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
-    $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
+  $cmd = "wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt";
+  if (system($cmd)) {
+    $self->throw("Could not download *_assembly_report.txt file to ".$local_dir.". Please, check that both paths are valid.\n".
+                 "Commandline used:\n".$cmd);
   }
   else {
     say "Assembly report file was downloaded";

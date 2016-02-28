@@ -44,7 +44,7 @@ sub run {
   my $target_db = $self->param('target_db');
   my $enscode_dir = $self->param('enscode_root_dir');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name;
+  my $path_to_files = $self->param('output_path')."/".$primary_assembly_dir_name;
 
   $self->set_toplevel($target_db,$enscode_dir);
   $self->check_toplevel($target_db,$enscode_dir,$path_to_files);

@@ -55,7 +55,7 @@ sub run {
   my $target_db = $self->param('target_db');
   my $production_db = $self->param('production_db');
   my $enscode_dir = $self->param('enscode_root_dir');
-  my $dump_path = $self->param('output_path')."/".$self->param('species_name')."/populate_script_dump";
+  my $dump_path = $self->param('output_path')."/populate_script_dump";
 
   say "Running populate script on target db...\n";
   $self->populate_production_db_tables($target_db,$production_db,$enscode_dir,$dump_path);

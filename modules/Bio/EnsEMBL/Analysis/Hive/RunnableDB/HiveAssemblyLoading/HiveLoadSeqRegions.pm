@@ -57,7 +57,7 @@ sub run {
   say "Loading seq regions into reference db";
   my $target_db = $self->param('target_db');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$self->param('primary_assembly_dir_name');
+  my $path_to_files = $self->param('output_path')."/".$self->param('primary_assembly_dir_name');
   my $enscode_dir = $self->param('enscode_root_dir');
   my $coord_system_version = $self->param('coord_system_version');
 

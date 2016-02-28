@@ -41,11 +41,12 @@ sub run {
   my $self = shift;
 
   say "Loading meta information seq region synonyms into reference db\n";
+  my $taxon_id = $self->param('taxon_id');
   my $target_db = $self->param('target_db');
   my $genebuilder_id = $self->param('genebuilder_id');
   my $enscode_dir = $self->param('enscode_root_dir');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $path_to_files = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name;
+  my $path_to_files = $self->param('output_path')."/".$primary_assembly_dir_name;
   my $chromo_present = $self->param('chromosomes_present');
 
   say "\nBacking up meta and seq_region tables...";
@@ -118,6 +119,7 @@ sub set_meta {
   open(IN,$path_to_files."/assembly_report.txt");
   my $description_defined = 0;
   my $assembly_name;
+  my $taxon_id;
   while (my $line = <IN>) {
     if($line !~ /^#/) {
       next;
@@ -132,6 +134,10 @@ sub set_meta {
       $assembly_name = $1;
       $meta_adaptor->store_key_value('assembly.default', $assembly_name);
       say "Inserted into meta:\nassembly.default => ".$assembly_name;
+    } elsif($line =~ /^#\s*Taxid:\s*(\d+)/) {
+      $taxon_id = $1;
+      $meta_adaptor->store_key_value('species.taxonomy_id', $taxon_id);
+      say "Inserted into meta:\nspecies.taxonomy_id => ".$taxon_id;
     } elsif($line =~ /^#\s*GenBank Assembly ID:\s*(\S+)/) {
       $meta_adaptor->store_key_value('assembly.accession', $1);
       say "Inserted into meta:\nassembly.accession => ".$1;

@@ -39,7 +39,7 @@ sub run {
   my $self = shift;
 
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $agp_files_path = $self->param('output_path')."/".$self->param('species_name')."/".$primary_assembly_dir_name."/AGP";
+  my $agp_files_path = $self->param('output_path')."/".$primary_assembly_dir_name."/AGP";
   my $contig_accessions = $self->find_contig_accessions($agp_files_path);
 
   open(OUT,">".$agp_files_path."/contigs.txt");
