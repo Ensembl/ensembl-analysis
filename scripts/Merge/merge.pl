@@ -740,7 +740,6 @@ sub process_genes {
         $secondary_transcript->{__is_pseudogene} = 1;    # HACK
       }
 
-      tag_transcript_analysis( $secondary_transcript, $opt_secondary_tag );
       $secondary_transcript->source($opt_secondary_tag);
 
       $secondary_transcript->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($secondary_transcript)));
