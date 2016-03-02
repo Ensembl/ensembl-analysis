@@ -941,7 +941,7 @@ sub pipeline_analyses {
               -parameters => {
                                copy_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
                                copy_genes_script_name => 'copy_genes.pl',
-                               add_ccds_path => '$ENSCODE/ensembl-personal/genebuilders/scripts/',
+                               add_ccds_path => $self->o('ensembl_analysis_base').'/scripts/Merge/',
                                add_ccds_script_name => 'add_ccds_support.pl',
 
               	               ccds_comparison_output_dir => $self->o('output_dir'),
