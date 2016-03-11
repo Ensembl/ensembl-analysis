@@ -18,7 +18,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
 use Bio::EnsEMBL::Analysis;
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
@@ -62,9 +61,14 @@ sub output {
   }
   if($output){
     if(ref($output) ne 'ARRAY'){
-      throw('Must pass RunnableDB:output an array ref not a '.$output);
+      $self->throw('Must pass RunnableDB:output an array ref not a '.$output);
     }
-    push(@{$self->param('_output')}, @$output);
+    if (@{$self->param('_output')}) {
+        push(@{$self->param('_output')}, @$output);
+    }
+    else {
+        $self->param('_output',$output);
+    }
   }
   return $self->param('_output');
 }
@@ -103,7 +107,7 @@ sub runnable {
 
   if($runnable){
     unless($runnable->isa('Bio::EnsEMBL::Analysis::Runnable')) {
-      throw("Must pass RunnableDB:runnable a Bio::EnsEMBL::Analysis::Runnable not a ".$runnable);
+      $self->throw("Must pass RunnableDB:runnable a Bio::EnsEMBL::Analysis::Runnable not a ".$runnable);
     }
     push(@{$self->param('runnable')}, $runnable);
   }
@@ -116,7 +120,7 @@ sub query {
   my $slice = shift;
   if($slice) {
     unless($slice->isa('Bio::EnsEMBL::Slice')) {
-      throw("Must pass RunnableDB:query a Bio::EnsEMBL::Slice not a ".$slice);
+      $self->throw("Must pass RunnableDB:query a Bio::EnsEMBL::Slice not a ".$slice);
     }
     $self->param('slice',$slice);
   }
@@ -129,7 +133,7 @@ sub analysis {
   my $analysis = shift;
   if($analysis){
     unless($analysis->isa('Bio::EnsEMBL::Analysis')) {
-      throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis not a ".$analysis);
+      $self->throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis not a ".$analysis);
     }
     $self->param('analysis',$analysis);
   }
@@ -158,7 +162,7 @@ sub analysis {
 sub input_id {
   my $self = shift;
 
-  throw("Could not fetch your input id ".$self->param('_input_id_name')) unless ($self->param_is_defined($self->param('_input_id_name')));
+  $self->throw("Could not fetch your input id ".$self->param('_input_id_name')) unless ($self->param_is_defined($self->param('_input_id_name')));
   return $self->param($self->param('_input_id_name'));
 }
 
@@ -167,7 +171,7 @@ sub hrdb_set_con {
   my ($self,$dba,$dba_con_name) = @_;
 
   unless($dba->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-    throw("Expected a DBAdaptor object as input. If you want to retrieve a DBAdaptor then ".
+    $self->throw("Expected a DBAdaptor object as input. If you want to retrieve a DBAdaptor then ".
           "use the getter sub instead (hrdb_get_con)");
   }
 
@@ -261,7 +265,7 @@ sub require_module {
   eval{
     require "$class.pm";
   };
-  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  $self->throw("Couldn't require ".$class." Blast:require_module $@") if($@);
   return $module;
 }
 

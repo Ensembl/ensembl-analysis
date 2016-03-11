@@ -57,7 +57,6 @@ use strict;
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
@@ -148,11 +147,11 @@ sub run {
                 # won't find anything"
 
                 if ($code ne 'VOID') {
-                    throw("Blast::run failed $@");
+                    $self->throw("Blast::run failed $@");
                 }
             }
             elsif ($err) {
-                throw("Blast Runnable returned unrecognised error string: $err");
+                $self->throw("Blast Runnable returned unrecognised error string: $err");
             }
         }
         $self->add_supporting_features($runnable->transcript,$runnable->output);
@@ -316,7 +315,7 @@ sub write_output {
     $total++;
   }
   if ($fails > 0) {
-    throw("Not all genes could be written successfully " .
+    $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
 }
