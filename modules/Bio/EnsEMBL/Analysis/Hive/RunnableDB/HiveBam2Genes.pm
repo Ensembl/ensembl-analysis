@@ -64,8 +64,12 @@ sub fetch_input {
     my $reference_db = $self->get_database_by_name('dna_db');
     my $slice_adaptor = $reference_db->get_SliceAdaptor;
 
-    my $id = $self->input_id;
-    $self->param('slice', $self->fetch_sequence($id, $reference_db));
+    $self->param('slice', $self->fetch_sequence($self->input_id, $reference_db));
+    # BWA has been run on whole genome. If the slice is not starting at 1, the Core API
+    # will shift the coordinate of our clusters which is wrong
+    if ($self->param('slice')->start != 1) {
+        $self->param('slice', $self->param('slice')->seq_region_Slice);
+    }
     my $sam = Bio::DB::Sam->new(
             -bam => $self->param('alignment_bam_file'),
             -expand_flags => 1,

@@ -366,8 +366,8 @@ sub pad_exons {
             );
         # dont let it fall of the slice because of padding
         $padded_exon->start(1) if $padded_exon->start <= 0;
-        $padded_exon->end($self->query->length - 1)
-            if $padded_exon->end >= $self->query->length;
+        $padded_exon->end($self->query->end)
+            if ($padded_exon->end > $self->query->end);
 
         my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature
             (-slice    => $exon->slice,
