@@ -47,6 +47,7 @@ sub param_defaults {
 
 sub run {
   my ($self) = @_;
+  $self->dbc->disconnect_if_idle();
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
     $self->output($runnable->output);

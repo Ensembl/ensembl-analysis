@@ -206,6 +206,7 @@ sub run {
     my ($self) = @_;
 
     $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
+    $self->dbc->disconnect_if_idle();
     my ($runnable) = @{$self->runnable};
     $runnable->run;
     $self->output($runnable->output);
