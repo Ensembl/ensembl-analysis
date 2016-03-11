@@ -59,6 +59,7 @@ sub default_options {
         'refine_output_db_server'  => '',
         'rough_output_db_server' => '',
         'genome_file'                => 'genome/genome.fa',
+        'use_ucsc_naming' => 0,
         'ensembl_genome_file' => '',
 
         'clone_db_script_path'       => $self->o('ENV', 'ENSCODE').'/ensembl-analysis/scripts/clone_database.ksh',
@@ -182,6 +183,7 @@ sub pipeline_wide_parameters {
                          wide_samtools => $self->o('samtools'),
                          wide_output_sam_dir => $output_sam_dir,
                          wide_species => $self->o('species'),
+                         wide_use_ucsc_naming => $self->o('use_ucsc_naming'),
                          wide_intron_bam_file => $self->o('output_dir').'/introns',
                          wide_recovery_dir => $self->o('output_dir').'/intron_recovery',
     };

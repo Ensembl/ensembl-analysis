@@ -65,6 +65,7 @@ use warnings ;
 use strict;
 use feature qw(say) ;
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::DB::Sam;
 use Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes;
@@ -150,7 +151,8 @@ sub fetch_input {
                         );
                 $self->throw("Bam file " . $intron_files->{file} . "  not found \n") unless ($sam);
                 my $count = 0;
-                my $segment = $sam->segment($self->chr_slice->seq_region_name, $real_slice_start, $real_slice_end);
+                my $seq_region_name = $self->param('wide_use_ucsc_naming') ? convert_to_ucsc_name($self->chr_slice->seq_region_name, $self->chr_slice) : $self->chr_slice->seq_region_name;
+                my $segment = $sam->segment($seq_region_name, $real_slice_start, $real_slice_end);
                 $self->throw("Bam file segment not found for slice ".$self->chr_slice->seq_region_name."\n") unless ($segment);
                 # need to seamlessly merge here with the dna2simplefeatures code
                 $self->bam_2_intron_features($segment,$intron_files);

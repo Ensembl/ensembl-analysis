@@ -55,17 +55,18 @@ use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
+use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
-use Bio::EnsEMBL::Transcript;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
-    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $pairing_regex, $bamfile) =
-        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN PAIRING_REGEX BAMFILE )],@args);
+    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $pairing_regex, $bamfile, $use_ucsc_naming) =
+        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN PAIRING_REGEX BAMFILE USE_UCSC_NAMING)],@args);
     $self->bam($bamfile);
     $self->min_exons($min_exons);
     $self->min_length($min_length);
@@ -74,6 +75,7 @@ sub new {
     $self->min_single_exon_length($min_single_exon_length);
     $self->min_span($min_span);
     $self->pairing_regex($pairing_regex);
+    $self->use_ucsc_naming($use_ucsc_naming);
 
     return $self;
 }
@@ -263,7 +265,8 @@ sub exon_cluster {
     my ($self) = @_;
     print STDERR "CLUSTER EXON\n";
     my $slice = $self->query;
-    my $region = $slice->seq_region_name.':'.$slice->start.'-'.$slice->end;
+    my $seq_region_name = $self->use_ucsc_naming ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
+    my $region = $seq_region_name.':'.$slice->start.'-'.$slice->end;
     my $bam = $self->bam;
     my %exon_clusters;
     my @exon_clusters;
@@ -500,6 +503,14 @@ sub bam {
         $self->{'_bam'} = $value;
     }
     return $self->{'_bam'};
+}
+
+sub use_ucsc_naming {
+    my ($self, $value) = @_;
+    if (defined $value ) {
+        $self->{'_use_ucsc_naming'} = $value;
+    }
+    return $self->{'_use_ucsc_naming'};
 }
 
 1;

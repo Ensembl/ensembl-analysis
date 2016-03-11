@@ -82,6 +82,7 @@ sub fetch_input {
                 -max_intron_length => $self->param('max_intron_length'),
                 -min_single_exon_length => $self->param('min_single_exon_length'),
                 -min_span   => $self->param('min_span'),
+                -use_ucsc_naming   => $self->param('wide_use_ucsc_naming'),
                 ));
 }
 

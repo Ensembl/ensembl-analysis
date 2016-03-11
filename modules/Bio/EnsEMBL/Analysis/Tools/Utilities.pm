@@ -73,6 +73,7 @@ use vars qw (@ISA  @EXPORT);
               get_database_connection_parameters_by_string
               run_command
               hrdb_get_dba
+              convert_to_ucsc_name
               send_email ) ;
 
 
@@ -918,6 +919,33 @@ sub hrdb_get_dba {
 
   $dba->dbc->disconnect_when_inactive(1);
   return $dba;
+}
+
+=head2 convert_to_ucsc_name
+
+ Arg [1]    : String $ensembl_name, an Ensembl seq_region name
+ Arg [2]    : (optional) Bio::EnsEMBL::Slice Object slice, the slice you want to get the UCSC name from
+ Example    : convert_to_ucsc_name($slice->seq_region_name, $slice);
+ Description: It returns the UCSC name of the region by fetching the UCSC name from the seq_region_synonym table.
+              If a Bio::EnsEMBL::Slice object is not provided or if it cannot find the synonym, it returns the
+              Ensembl name prefixed with 'chr'.
+ Returntype : String
+ Exceptions : None
+
+
+=cut
+
+sub convert_to_ucsc_name {
+    my ($ensembl_name, $slice) = @_;
+
+    my $ucsc_name = 'chr'.$ensembl_name;
+    if ($slice) {
+        my $ucsc_synonyms = $slice->get_all_synonyms('UCSC');
+        if (scalar(@$ucsc_synonyms)) {
+            $ucsc_name = $ucsc_synonyms->[0]->name;
+        }
+    }
+    return $ucsc_name;
 }
 
 1;

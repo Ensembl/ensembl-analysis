@@ -60,6 +60,7 @@ use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::Seq;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 use Bio::DB::Sam;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -104,7 +105,11 @@ sub fetch_input {
   my @reads;
   my $bam = Bio::DB::Bam->open($self->param('bam_file'));
   my $header = $bam->header();
-  my ($tid, $start, $end) = $header->parse_region($rough->seq_region_name);
+  my $seq_region_name = $rough->seq_region_name;
+  if ($self->param('wide_use_ucsc_naming')) {
+      $seq_region_name = convert_to_ucsc_name($seq_region_name, $rough->slice);
+  }
+  my ($tid, $start, $end) = $header->parse_region($seq_region_name);
   my $bam_index = Bio::DB::Bam->index_open($self->param('bam_file'));
   $self->throw('Bam file ' . $self->param('bam_file') . "  not found \n") unless $bam_index;
   $counters->{'count'} = 0;
@@ -346,7 +351,9 @@ sub convert_to_sam {
   # strand of the mate = -1 so we add nothing
   $line .= $feature->hseqname ."\t";
   $line .= "$flag\t";
-  $line .= $feature->seq_region_name ."\t";
+  my $seq_region_name = $feature->seq_region_name;
+  $seq_region_name = convert_to_ucsc_name($seq_region_name, $self->param('query')) if ($self->param('wide_use_ucsc_naming'));
+  $line .= $seq_region_name ."\t";
   $line .=  $feature->seq_region_start ."\t";
   $line .= "0\t";
   $line .=  "$cigar\t";
