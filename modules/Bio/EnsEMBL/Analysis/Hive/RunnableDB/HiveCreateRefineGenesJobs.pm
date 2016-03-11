@@ -24,16 +24,18 @@ use base ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 sub fetch_input {
     my $self = shift;
 
-    my $table_adaptor = $self->db->get_NakedTableAdaptor;
-    $table_adaptor->table_name($self->param('csvfile_table'));
     my @output_ids;
-    my %tissue_hash;
-    my $results = $table_adaptor->fetch_all();
-    foreach my $result (@$results) {
-        $tissue_hash{$result->{$self->param('sample_column')}}->{$result->{$self->param('sample_id_column')}} = 1;
-    }
-    foreach my $key (keys %tissue_hash) {
-        push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [keys %{$tissue_hash{$key}}], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
+    if ($self->param('single_tissue')) {
+        my $table_adaptor = $self->db->get_NakedTableAdaptor;
+        $table_adaptor->table_name($self->param('csvfile_table'));
+        my %tissue_hash;
+        my $results = $table_adaptor->fetch_all();
+        foreach my $result (@$results) {
+            $tissue_hash{$result->{$self->param('sample_column')}}->{$result->{$self->param('sample_id_column')}} = 1;
+        }
+        foreach my $key (keys %tissue_hash) {
+            push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [keys %{$tissue_hash{$key}}], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
+        }
     }
     push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", '', '']);
     $self->param('inputlist', \@output_ids);
