@@ -353,7 +353,12 @@ sub BLAST_PARSER{
     $self->param('_CONFIG_BLAST_PARSER',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_PARSER');
+  if ($self->param_is_defined('_CONFIG_BLAST_PARSER')) {
+        return $self->param('_CONFIG_BLAST_PARSER');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -364,7 +369,12 @@ sub PARSER_PARAMS{
     $self->param('_CONFIG_PARSER_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_PARSER_PARAMS');
+  if ($self->param_is_defined('_CONFIG_PARSER_PARAMS')) {
+        return $self->param('_CONFIG_PARSER_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -376,7 +386,12 @@ sub BLAST_FILTER{
     $self->param('_CONFIG_BLAST_FILTER',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_FILTER');
+  if ($self->param_is_defined('_CONFIG_BLAST_FILTER')) {
+        return $self->param('_CONFIG_BLAST_FILTER');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -388,7 +403,12 @@ sub FILTER_PARAMS{
     $self->param('_CONFIG_FILTER_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_FILTER_PARAMS');
+  if ($self->param_is_defined('_CONFIG_FILTER_PARAMS')) {
+        return $self->param('_CONFIG_FILTER_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -399,7 +419,12 @@ sub BLAST_PARAMS {
     $self->param('_CONFIG_BLAST_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_PARAMS');
+  if ($self->param_is_defined('_CONFIG_BLAST_PARAMS')) {
+        return $self->param('_CONFIG_BLAST_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 1;
