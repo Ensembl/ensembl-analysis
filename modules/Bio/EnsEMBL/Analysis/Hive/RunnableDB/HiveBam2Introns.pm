@@ -330,6 +330,7 @@ sub convert_to_sam {
     $cigar = $cigar . ($feature->hstart - 1) ."S"	if  $feature->hstart > 1;
     $cigar = ( $length - $feature->hend ) ."S$cigar"	if  $feature->hend < $length;
   } else {
+    $cigar = join('', reverse ( $cigar =~ /(\d+[A-Z])/g ));
     $cigar = ( $feature->hstart -1 ) ."S$cigar"	if  $feature->hstart > 1;
     $cigar = $cigar . ( $length - $feature->hend ) ."S"	if  $feature->hend < $length;
   }
