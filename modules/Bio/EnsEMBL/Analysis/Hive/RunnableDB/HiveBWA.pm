@@ -70,7 +70,7 @@ sub fetch_input {
 sub write_output {
   my ($self) = @_;
 
-  $self->dataflow_output_id({filename => $self->param('filename')}, 1);
+  $self->dataflow_output_id({fastq => {filename => $self->param('filename'), is_mate_1 => $self->param('is_mate_1')}}, 1);
 }
 
 1;

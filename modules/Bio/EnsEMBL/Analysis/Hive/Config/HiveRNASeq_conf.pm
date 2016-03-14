@@ -117,7 +117,8 @@ sub default_options {
         # Please assign some or all columns from the summary file to the
         # some or all of the following categories.  Multiple values can be
         # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus
-        # are required. You can use any other tag specified in the SAM specification:
+        # are required. If pairing_regex can not work for you, is_mate_1 is required.
+        # You can use any other tag specified in the SAM specification:
         # http://samtools.github.io/hts-specs/SAMv1.pdf
 
         ####################################################################
@@ -125,7 +126,7 @@ sub default_options {
         # will vary depending on how your data looks.
         ####################################################################
 
-        file_columns => ['DS', 'ID', 'CN', 'PL', 'is_paired', 'filename', 'read_length', 'is_13plus', 'SM'],
+        file_columns => ['DS', 'ID', 'CN', 'PL', 'is_paired', 'filename', 'read_length', 'is_13plus', 'SM', 'is_mate_1'],
 
 
 ##########################################################################
@@ -185,9 +186,15 @@ sub pipeline_wide_parameters {
 sub pipeline_create_commands {
     my ($self) = @_;
     my $tables;
+    my %small_columns = (
+        paired => 1,
+        read_length => 1,
+        is_13plus => 1,
+        is_mate_1 => 1,
+        );
     # We need to store the values of the csv file to easily process it. It will be used at different stages
     foreach my $key (@{$self->default_options->{'file_columns'}}) {
-        if ($key eq 'paired' or $key eq 'read_length' or $key eq 'is_13plus') {
+        if (exists $small_columns{$key}) {
             $tables .= $key.' SMALLINT UNSIGNED NOT NULL,'
         }
         elsif ($key eq 'DS') {

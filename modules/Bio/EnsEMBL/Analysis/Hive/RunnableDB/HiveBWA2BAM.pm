@@ -54,24 +54,16 @@ sub fetch_input {
   my $fastq;
   my $fastqpair;
 
-  my $method;
-  if ( $self->param('is_paired') ) {
-    foreach my $filename (@{$self->param('filename')}) {
-        my $abs_filename = $self->param('wide_input_dir').'/'.$filename;
-        $self->throw("Fastq file $abs_filename not found\n") unless (-e $abs_filename);
-        my $regex = $self->param('pairing_regex');
-        my ($pair) = $filename =~ /$regex/;
-        if ($pair == 1) {
-            $fastq = $abs_filename;
-        }
-        else {
-            $fastqpair = $abs_filename;
-        }
-    }
-    $method = ' sampe '.$self->param('sampe_options');
-  } else {
-    $fastq = $self->param('wide_input_dir').'/'.$self->param('filename')->[0];
-    $method = ' samse '.$self->param('samse_options');
+  my $method = $self->param('is_paired') ? ' sampe '.$self->param('sampe_options') : ' samse '.$self->param('samse_options');
+  foreach my $filename (@{$self->param('fastq')}) {
+      my $abs_filename = $self->param('wide_input_dir').'/'.$fastq->{filename};
+      $self->throw("Fastq file $abs_filename not found\n") unless (-e $abs_filename);
+      if ($fastq->{is_mate_1} == 1) {
+          $fastq = $abs_filename;
+      }
+      else {
+          $fastqpair = $abs_filename;
+      }
   }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA2BAM->new
     (
