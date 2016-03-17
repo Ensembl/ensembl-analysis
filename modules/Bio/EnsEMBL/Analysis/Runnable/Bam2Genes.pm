@@ -300,7 +300,15 @@ sub exon_cluster {
                 $exon_cluster->end($end)     if $end   > $exon_cluster->end;
                 $exon_cluster->score($exon_cluster->score + 1);
                 # only store the connection data if it is paired in mapping
-                $cluster_data->{$name}->{$exon_cluster->hseqname} = 1 if $paired;
+                if ($paired) {
+                    if (exists $cluster_data->{$name}->{$exon_cluster->hseqname}) {
+                        $cluster_data->{$name}->{$exon_cluster->hseqname}++;
+                        delete $cluster_data->{$name} if ($cluster_data->{$name}->{$exon_cluster->hseqname} == 2);
+                    }
+                    else {
+                        $cluster_data->{$name}->{$exon_cluster->hseqname} = 1;
+                    }
+                }
                 # only allow it to be a part of a single cluster
                 return;
             }
@@ -319,13 +327,21 @@ sub exon_cluster {
              -hstrand    => 1,
              -score      => 1,
              -percent_id => 100,
-             -hseqname   => "Cluster ". $cluster_count,
+             -hseqname   => "C". $cluster_count,
              -analysis   => $self->analysis,
             );
         # store the clusters in a hash with a unique identifier
         push(@exon_clusters, $feat);
         # store the key within the feature
-        $cluster_data->{$name}->{$feat->hseqname} = 1 if $paired;
+        if ($paired) {
+            if (exists $cluster_data->{$name}->{$feat->hseqname}) {
+                $cluster_data->{$name}->{$feat->hseqname}++;
+                delete $cluster_data->{$name} if ($cluster_data->{$name}->{$feat->hseqname} == 2);
+            }
+            else {
+                $cluster_data->{$name}->{$feat->hseqname} = 1;
+            }
+        }
     };
     $bam->fetch($region, $_process_reads);
     # store the relationships between the clusters
