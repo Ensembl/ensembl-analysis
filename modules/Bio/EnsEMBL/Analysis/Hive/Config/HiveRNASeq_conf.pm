@@ -116,8 +116,8 @@ sub default_options {
 
         # Please assign some or all columns from the summary file to the
         # some or all of the following categories.  Multiple values can be
-        # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus
-        # are required. If pairing_regex can not work for you, is_mate_1 is required.
+        # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
+        # is_mate_1 are required. If pairing_regex can work for you, set is_mate_1 to -1.
         # You can use any other tag specified in the SAM specification:
         # http://samtools.github.io/hts-specs/SAMv1.pdf
 
@@ -126,7 +126,7 @@ sub default_options {
         # will vary depending on how your data looks.
         ####################################################################
 
-        file_columns => ['DS', 'ID', 'CN', 'PL', 'is_paired', 'filename', 'read_length', 'is_13plus', 'SM', 'is_mate_1'],
+        file_columns => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
 
 
 ##########################################################################
@@ -282,6 +282,7 @@ sub pipeline_analyses {
             inputfile => $self->o('rnaseq_summary_file'),
             delimiter => $self->o('summary_file_delimiter'),
             csvfile_table => $self->o('summary_csv_table'),
+            pairing_regex => $self->o('pairing_regex'),
         },
         -flow_into => {
             '2->A' => [ 'create_tissue_jobs'],
@@ -349,7 +350,6 @@ sub pipeline_analyses {
         -parameters => {
                          sampe_options => '-A -a 200000',
                          samse_options => '',
-                         pairing_regex => $self->o('pairing_regex'),
                          min_paired => 50,
                          min_mapped => 50,
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
@@ -368,7 +368,6 @@ sub pipeline_analyses {
         -parameters => {
                          sampe_options => '-A -a 200000',
                          samse_options => '',
-                         pairing_regex => $self->o('pairing_regex'),
                          min_paired => 50,
                          min_mapped => 50,
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',

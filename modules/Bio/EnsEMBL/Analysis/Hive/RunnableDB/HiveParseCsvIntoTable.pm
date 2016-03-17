@@ -28,7 +28,8 @@ sub write_output {
     my $table_adaptor = $self->db->get_NakedTableAdaptor;
     $table_adaptor->table_name($self->param('csvfile_table'));
     foreach my $input_id (@{$self->param('output_ids')}) {
-        if (!exists $input_id->{is_mate_1}) {
+        $input_id->{$self->param('sample_column')} =~ s/ /_/g;
+        if (!exists $input_id->{is_mate_1} or $input_id->{'is_mate_1'} == -1) {
             my $regex = $self->param('pairing_regex');
             my ($pair) = $input_id->{filename} =~ /$regex/;
             if (($pair == 1) or ($input_id->{is_paired} == 0)) {
