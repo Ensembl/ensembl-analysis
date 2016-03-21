@@ -245,7 +245,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -meadow_type => 'LOCAL',
         -parameters => {
-            cmd => 'EXIT_CODE = 0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE = 1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
+            cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
         },
         -input_ids => [{}],
         -flow_into => {
@@ -475,7 +475,6 @@ sub pipeline_analyses {
                          cmd => '#wide_samtools# view -H #filename# | grep -v @SQ | grep -v @HD > #wide_output_dir#/merged_header.h',
                        },
         -flow_into => {
-#            '2->A' => { 'create_top_level_input_ids' => {filename => '#filename#'}},
             '1->A' => [ 'create_top_level_input_ids'],
             'A->1' => ['sam2bam'],
             },
@@ -492,6 +491,7 @@ sub pipeline_analyses {
                          top_level => 1,
                          target_db => $self->o('rough_output_db'),
                        },
+        -wait_for => ['create_rough_output_db'],
         -flow_into => {
                         2 => {'dispatch_toplevel' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
                       },
@@ -506,8 +506,8 @@ sub pipeline_analyses {
                          return_codes_2_branches => {'2' => 2},
                        },
         -flow_into => {
-                        1 => {'rough_transcripts' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
-                        2 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
+                        1 => ['rough_transcripts'],
+                        2 => ['rough_transcripts_5GB'],
                       },
       },
             {
@@ -527,7 +527,6 @@ sub pipeline_analyses {
                          pairing_regex => $self->o('pairing_regex'),
                        },
         -rc_name    => '2GB_rough',
-        -wait_for => ['create_rough_output_db'],
         -flow_into => {
                         1 => ['create_bam2introns_input_ids'],
                         -1 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
