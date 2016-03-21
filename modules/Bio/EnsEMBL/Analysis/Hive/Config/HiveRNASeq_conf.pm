@@ -113,6 +113,8 @@ sub default_options {
         read_id_tag => 'ID',
 
         use_threads => 3,
+        read_min_paired => 50,
+        read_min_mapped => 50,
 
         # Please assign some or all columns from the summary file to the
         # some or all of the following categories.  Multiple values can be
@@ -350,8 +352,8 @@ sub pipeline_analyses {
         -parameters => {
                          sampe_options => '-A -a 200000',
                          samse_options => '',
-                         min_paired => 50,
-                         min_mapped => 50,
+                         min_paired => $self->o('read_min_paired'),
+                         min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
                        },
@@ -368,8 +370,8 @@ sub pipeline_analyses {
         -parameters => {
                          sampe_options => '-A -a 200000',
                          samse_options => '',
-                         min_paired => 50,
-                         min_mapped => 50,
+                         min_paired => $self->o('read_min_paired'),
+                         min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
                        },
