@@ -59,6 +59,8 @@ sub default_options {
         # inherit other stuff from the base class
         %{ $self->SUPER::default_options() },
 
+#        At the moment, we want to use tokens
+        use_tokens => 1,
         'pipeline_db' => {
             -dbname => $self->o('pipe_dbname'),
             -host   => $self->o('pipe_db_server'),
@@ -113,7 +115,7 @@ sub lsf_resource_builder {
         push(@lsf_rusage, 'mem='.$memory);
         push(@lsf_select, 'mem>'.$memory);
     }
-    if (defined $servers) {
+    if ($self->default_options->{use_tokens} and defined $servers) {
         my $i = 0;
         my %seen;
         foreach my $server (@$servers) {
