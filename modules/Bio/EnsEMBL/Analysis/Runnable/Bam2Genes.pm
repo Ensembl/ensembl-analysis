@@ -53,29 +53,25 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Transcript;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(create_Exon);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
-    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $pairing_regex, $bamfile, $use_ucsc_naming) =
-        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN PAIRING_REGEX BAMFILE USE_UCSC_NAMING)],@args);
-    $self->bam($bamfile);
+    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $exon_clusters) =
+        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN EXON_CLUSTERS)],@args);
+    $self->exon_cluster($exon_clusters);
     $self->min_exons($min_exons);
     $self->min_length($min_length);
     $self->paired($paired);
     $self->max_intron_length($max_intron_length);
     $self->min_single_exon_length($min_single_exon_length);
     $self->min_span($min_span);
-    $self->pairing_regex($pairing_regex);
-    $self->use_ucsc_naming($use_ucsc_naming);
 
     return $self;
 }
@@ -251,107 +247,6 @@ sub process_exon_clusters {
 }
 
 
-=head2 exon_cluster
-    Title       :   exon_cluster
-    Usage       :   $self->exon_cluster($ugfs)
-    Returns     :   Array ref Bio::EnsEMBL::Exon
-    Args        :   Array ref Bio::EnsEMBL::Exon
-    Description :   clusters individual reads into blocks representing exons
-                :   uses pair information to link blocks into transcripts
-                :   filters out poorly supported blocks
-=cut
-
-sub exon_cluster {
-    my ($self) = @_;
-    print STDERR "CLUSTER EXON\n";
-    my $slice = $self->query;
-    my $seq_region_name = $self->use_ucsc_naming ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
-    my $region = $seq_region_name.':'.$slice->start.'-'.$slice->end;
-    my $bam = $self->bam;
-    my %exon_clusters;
-    my @exon_clusters;
-    my $cluster_data;
-    my $cluster_count = 0;
-    my $read_count = 0;
-    my $regex = $self->pairing_regex;
-    # I can't give parameters to $bam->fetch() so it's easier to create the callback
-    # inside the method. Maybe with the low level method it's better.
-    my $_process_reads = sub {
-        my $read = shift;
-        ++$read_count;
-        # It seems we always get the unmmapped mate, so we need to remove it
-        return if ($read->get_tag_values('XS') or $read->get_tag_values('UNMAPPED'));
-        my $name = $read->query->name;
-        my $start  = $read->start;
-        my $end    = $read->end;
-        my $hstart = $read->query->start;
-        my $hend   = $read->query->end;
-        my $paired = $read->get_tag_values('MAP_PAIR');
-        if ( $regex && $name =~ /(\S+)($regex)$/ ) {
-            $name = $1;
-        }
-        # ignore spliced reads
-        # make exon clusters and store the names of the reads and associated cluster number
-        for (my $index = @exon_clusters; $index > 0; $index--) {
-            my $exon_cluster = $exon_clusters[$index-1];
-            if ( $start <= $exon_cluster->end+1 &&  $end >= $exon_cluster->start-1 ) {
-                # Expand the exon_cluster
-                $exon_cluster->start($start) if $start < $exon_cluster->start;
-                $exon_cluster->end($end)     if $end   > $exon_cluster->end;
-                $exon_cluster->score($exon_cluster->score + 1);
-                # only store the connection data if it is paired in mapping
-                if ($paired) {
-                    if (exists $cluster_data->{$name}->{$exon_cluster->hseqname}) {
-                        $cluster_data->{$name}->{$exon_cluster->hseqname}++;
-                        delete $cluster_data->{$name} if ($cluster_data->{$name}->{$exon_cluster->hseqname} == 2);
-                    }
-                    else {
-                        $cluster_data->{$name}->{$exon_cluster->hseqname} = 1;
-                    }
-                }
-                # only allow it to be a part of a single cluster
-                return;
-            }
-        }
-        # start a new cluster if there is no overlap
-        $cluster_count++;
-        # make a feature representing the cluster
-        my $feat = Bio::EnsEMBL::FeaturePair->new
-            (
-             -start      => $start,
-             -end        => $end,
-             -strand     => -1,
-             -slice      => $slice,
-             -hstart     => $hstart,
-             -hend       => $hend,
-             -hstrand    => 1,
-             -score      => 1,
-             -percent_id => 100,
-             -hseqname   => "C". $cluster_count,
-             -analysis   => $self->analysis,
-            );
-        # store the clusters in a hash with a unique identifier
-        push(@exon_clusters, $feat);
-        # store the key within the feature
-        if ($paired) {
-            if (exists $cluster_data->{$name}->{$feat->hseqname}) {
-                $cluster_data->{$name}->{$feat->hseqname}++;
-                delete $cluster_data->{$name} if ($cluster_data->{$name}->{$feat->hseqname} == 2);
-            }
-            else {
-                $cluster_data->{$name}->{$feat->hseqname} = 1;
-            }
-        }
-    };
-    $bam->fetch($region, $_process_reads);
-    # store the relationships between the clusters
-    $self->cluster_data($cluster_data);
-    print STDERR "Processed $read_count reads\n";
-    %exon_clusters = map {$_->hseqname => $_} @exon_clusters;
-    return  \%exon_clusters;
-}
-
-
 =head2 pad_exons
     Title       :   pad_exons
     Usage       :   $self->($exon_clusters)
@@ -456,6 +351,14 @@ sub cluster_data {
     return $self->{_cluster_data};
 }
 
+sub exon_cluster {
+    my ($self, $value) = @_;
+    if (defined $value ) {
+        $self->{'_exon_cluster'} = $value;
+    }
+    return $self->{'_exon_cluster'};
+}
+
 sub min_exons {
     my ($self, $value) = @_;
     if (defined $value ) {
@@ -502,31 +405,6 @@ sub min_span {
         $self->{'_min_span'} = $value;
     }
     return $self->{'_min_span'};
-}
-
-sub pairing_regex {
-    my ($self, $value) = @_;
-    if (defined $value ) {
-        $self->{'_pairing_regex'} = $value;
-    }
-    return $self->{'_pairing_regex'};
-}
-
-sub bam {
-    my ($self, $value) = @_;
-    if (defined $value ) {
-        $self->throw(ref($value).' is not a Bio::DB::Sam') unless (ref($value) eq 'Bio::DB::Sam');
-        $self->{'_bam'} = $value;
-    }
-    return $self->{'_bam'};
-}
-
-sub use_ucsc_naming {
-    my ($self, $value) = @_;
-    if (defined $value ) {
-        $self->{'_use_ucsc_naming'} = $value;
-    }
-    return $self->{'_use_ucsc_naming'};
 }
 
 1;
