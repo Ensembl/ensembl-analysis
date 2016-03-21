@@ -20,11 +20,11 @@ This base config should be used by all pipeline created for the ensembl-annotati
 
 =head1 METHODS
 
-default_options: returns the default options from HiveGeneric_conf and it adds pipeline_db,
-reference_db and dna_db. the inheriting class needs to specify; pipe_dbname, pipe_db_server,
-port, user, password, reference_dbname, reference_db_server, user_r, dna_dbname, dna_db_server
+  default_options: returns the default options from HiveGeneric_conf and it adds pipeline_db,
+    dna_db and use_tokens. The inheriting class needs to specify; pipe_dbname, pipe_db_server,
+    port, user, password, reference_dbname, reference_db_server, user_r, dna_dbname, dna_db_server
 
-lsf_resource_builder: returns the parameters string for LSF meadow_type
+  lsf_resource_builder: returns the parameters string for LSF meadow_type
 
   get_config_settings: Populate and return a hashref with the parameters for analyses like Blast
 
