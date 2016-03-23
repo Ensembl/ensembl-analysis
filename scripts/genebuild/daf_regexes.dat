@@ -1,0 +1,90 @@
+'^[A-Z][A-Z][0-9][0-9][0-9][0-9][0-9][0-9]$'	EMBL
+'^[A-Z][A-Z][0-9][0-9][0-9][0-9][0-9][0-9]\.[0-9]*$'	EMBL
+'^gi\|.*\|(gb|emb|dbj)\|.*\|'	EMBL
+'^[A-Z][0-9]{5}$'	EMBL
+'^[A-Z][0-9]{5}\.[0-9]*$'	EMBL
+'^GAPM[0-9]{8}\.[0-9]+'	EMBL	Rat TSA
+'^CCDS[1-9][0-9]*$'	CCDS
+'^CCDS[1-9][0-9]*\.[1-9][0-9]*$'	CCDS
+'^[0-9]{13}$'	Trace_archive	Sheep BAC end
+'^NM_[0-9]{6}$'	RefSeq_dna
+'^NM_[0-9]{7}$'	RefSeq_dna
+'^NM_[0-9]{6}\.[0-9]+$'	RefSeq_dna
+'^NM_[0-9]{9}$'	RefSeq_dna
+'^NM_[0-9]{9}\.[0-9]+$'	RefSeq_dna
+'^XM_[0-9]{6,9}\.[0-9]+$'	RefSeq_dna_predicted
+'^XM_[0-9]{6,9}$'	RefSeq_dna_predicted
+'^YM_[0-9]{6}$'	RefSeq_dna
+'^YM_[0-9]{6}\.[0-9]+$'	RefSeq_dna
+'^NR_[0-9]{6}$'	RefSeq_rna
+'^NR_[0-9]{6}\.[0-9]+$'	RefSeq_rna
+'^XR_[0-9]{6}$'	RefSeq_rna_predicted
+'^XR_[0-9]{6}\.[0-9]+$'	RefSeq_rna_predicted
+'^gi\|.*\|ref\|'	RefSeq_dna
+'^454cdna[0-9]*$'	OrnAna_454_cdna
+'^[A-Z][a-z]*\.[0-9]*$'	UniGene
+'^CDMT[0-9]{11}$'	TetNig_cdna
+'^EG3ST[0-9]{11}$'	TetNig_mouse_econtig
+'^EG3FT[0-9]{11}$'	TetNig_fugu_econtig
+'^EG3HT[0-9]{11}$'	TetNig_human_econtig
+'^EP3HT[0-9]{11}$'	TetNig_human_IPI_econtig
+'^EP3ST[0-9]{11}$'	TetNig_mouse_IPI_econtig
+'^CHORI(1073|73)_.*$'	Trace_archive	Zebrafish BAC ends
+'^z[A-Za-z]{1,2}[0-9]+[A-Z][0-9]+\.[a-z][a-z]$'	Trace_archive	Zebrafish BAC ends
+'^z[A-Z]*[0-9]*.*PIB[FR]$'	Trace_archive	Zebrafish BAC ends
+'^z(FD|K)[A-Z0-9]*$'	Trace_archive	Zebrafish BAC ends
+'^bZ[0-9]+[A-Z][0-9]+\.[a-z][a-z]$'	Trace_archive	Zebrafish BAC ends
+'^zC[0-9]+[A-Z][0-9]+\.[A-Z][a-z]$'	Trace_archive	Zebrafish BAC ends
+'^zH[0-9]+[A-Z][0-9]+(SP6|T7)'	Trace_archive	Zebrafish BAC ends
+'^zFD[0-9]+[a-z][0-9]+\.(p|q)1ka?(pIBF|pIBR|SP6|T7)'	Trace_archive	Zebrafish FOS ends
+'^ZfishFos[0-9]+[a-z]+[0-9]+\.(p|q)1kw?'	Trace_archive	Zebrafish FOS ends
+'^ZDB-GENE[P]{0,1}-[0-9]+-[0-9]+$'	ZFIN_xpat
+'^CEC[0-9]{1,2}-[A-Z0-9]{3}$'	GasAcu_cdna
+'^CNB[0-9]{1,3}-[A-Z0-9]{3}$'	GasAcu_cdna
+'^CFW[0-9]{1,3}-[A-Z0-9]{3}$'	GasAcu_cdna
+ 'CGX[0-9]{1,3}-[A-Z0-9]{3}$'	GasAcu_cdna
+'^FOE[0-9]*-[A-Z][0-9]*-.*$'	OryLat_est
+'^ci[a-z][a-z]{1,2}[0-9].{4,5}$'	CioInt_est
+'^rci[a-z][a-z]{1,2}[0-9].{4,5}$'	CioInt_est
+'^[0-9]{1,7}$'	CioInt_est
+'^ci[a-z][A-Z][0-9].{3,4}'	CioInt_est
+'^Fis_ci[a-z]{2,3}[0-9].{4}'	CioInt_cdna
+'^Fis_[A-Z].+'	CioInt_cdna
+'^KYOTOGRAIL'	Ciona intestinalis prediction TODO
+'^cs[a-z][a-z][0-9].{5}'	CioSav_est
+'^csEF[0-9c].{5}'	CioSav_est
+'^rcs[a-z][a-z][0-9].{5}'	CioSav_est
+'^rcsEF[0-9c].{5}'	CioSav_est
+'^yk[0-9]{1,4}[a-z][0-9]{1,2}\.[0-9]*$'	CaeEle_est
+'^CEES[A-Z]{0,1}[0-9]{1,3}[A-Z]{1,2}$'	CaeEle_est
+'^CEMS[A-Z]{0,1}[0-9]{1,3}[A-Z]{1,2}$'	CaeEle_est
+'^CESA[A-Z]{0,1}[0-9]{1,3}[A-Z]{1,2}$'	CaeEle_est
+'^cm[0-9]*[a-z]*[0-9]*\.[0-9]*$'	CaeEle_est
+'^(AM|BO|BS|UT|RT|RH|RE|SD|LP|LD|AT|FI|GH|GM|HL|IP)[0-9]{5}$'	Drosophila cDNA TODO
+'^XL'	XenLae_cdna
+'^TAll_[0-9]*_.*'	XenTro_Gurdon_EST
+'^TEgg[0-9].*\..*$'	XenTro_Gurdon_EST
+'^TGas[0-9].*\..*$'	XenTro_Gurdon_EST
+'^TNeu[0-9].*\..*$'	XenTro_Gurdon_EST
+'^TTpA[0-9].*\..*$'	XenTro_Gurdon_EST
+'^COMM_mRNA'	Anopheles community annotation TODO
+'^MANUAL_AGAM'	Anopheles manual annotation TODO
+'^GPR'	Anopheles cDNA TODO
+'^EFR[mnxyz][0-9]*[a-z]*[A-Z]*[0-9]*$'	TakRub_est
+'^Fe:e[A-Z]{2}[0-9]{6}$'	TakRub_cdna
+'^MI[0-9]{7}$'	miRBase
+'^RF[0-9]{5}-[A-Z].*'	RFAM
+'\.[0-9]*-[0-9]*$'	IMGT/LIGM_DB
+'^oa-OR.*$'	Platypus_olfactory_receptor
+'^Plat_OR[0-9]+$'	Platypus_olfactory_receptor
+'^XEL223509$'	XenLae_cdna
+'^STR000153$'	XenTro_cdna
+'^XTALPA$'	XenTro_cdna
+'^XTBETA$'	XenTro_cdna
+'^XTR[0-9]{6}$'	XenTro_cdna
+'^ENST[0-9]{11}$'	Ens_Hs_transcript
+'^ENSMUST[0-9]{11}$'	Ens_Mm_transcript
+'^ENSTTRT[0-9]{11}$'	Ens_Tt_transcript
+'^contig[0-9]{5}$'	RIKEN
+'^[1-22XY]{1}$'	GRC_primary_assembly
+'^Cluster'	Ensembl_Bam2Genes_intron
