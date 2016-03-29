@@ -73,7 +73,7 @@ sub fetch_input {
             );
     $self->throw('Bam file ' . $self->param('alignment_bam_file') . "  not found \n") unless $sam;
     $self->create_analysis;
-    my ($exon_clusters, $cluster_link, $full_slice) = $self->exon_cluster($slice, $bam);
+    my ($exon_clusters, $cluster_link, $full_slice) = $self->exon_cluster($slice, $sam);
     $self->runnable(Bio::EnsEMBL::Analysis::Runnable::Bam2Genes->new(
                 -analysis => $self->analysis,
                 -query   => $full_slice,
@@ -133,7 +133,7 @@ sub exon_cluster {
     my $region = $seq_region_name.':'.$slice->start.'-'.$slice->end;
     # BWA has been run on whole genome. If the slice is not starting at 1, the Core API
     # will shift the coordinate of our clusters which is wrong
-    my $full_slice = $slice->start == 1 ? $slice ? $slice->seq_region_Slice;
+    my $full_slice = $slice->start == 1 ? $slice : $slice->seq_region_Slice;
     my %exon_clusters;
     my @exon_clusters;
     my $cluster_data;
