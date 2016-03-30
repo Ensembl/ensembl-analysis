@@ -269,7 +269,7 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
@@ -292,7 +292,7 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );
@@ -351,7 +351,12 @@ sub BLAST_PARSER{
     $self->param('_CONFIG_BLAST_PARSER',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_PARSER');
+  if ($self->param_is_defined('_CONFIG_BLAST_PARSER')) {
+        return $self->param('_CONFIG_BLAST_PARSER');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -362,7 +367,12 @@ sub PARSER_PARAMS{
     $self->param('_CONFIG_PARSER_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_PARSER_PARAMS');
+  if ($self->param_is_defined('_CONFIG_PARSER_PARAMS')) {
+        return $self->param('_CONFIG_PARSER_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -374,7 +384,12 @@ sub BLAST_FILTER{
     $self->param('_CONFIG_BLAST_FILTER',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_FILTER');
+  if ($self->param_is_defined('_CONFIG_BLAST_FILTER')) {
+        return $self->param('_CONFIG_BLAST_FILTER');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -386,7 +401,12 @@ sub FILTER_PARAMS{
     $self->param('_CONFIG_FILTER_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_FILTER_PARAMS');
+  if ($self->param_is_defined('_CONFIG_FILTER_PARAMS')) {
+        return $self->param('_CONFIG_FILTER_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -397,7 +417,12 @@ sub BLAST_PARAMS {
     $self->param('_CONFIG_BLAST_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_PARAMS');
+  if ($self->param_is_defined('_CONFIG_BLAST_PARAMS')) {
+        return $self->param('_CONFIG_BLAST_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 1;

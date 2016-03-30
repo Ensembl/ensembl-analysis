@@ -98,13 +98,7 @@ sub clone_db {
     $target_string = $self->param('target_db');
   }
 
-  my $command = "ksh ".$self->param('script_path').
-                       " -r ".$self->param('user_r').
-                       " -w ".$self->param('user_w').
-                       " -P ".$self->param('pass_w').
-                       " -s ".$source_string.
-                       " -t ".$target_string;
-
+  my $command = "ksh ".$self->param('script_path')." -s ".$source_string.' -r '.$self->param('source_db')->{'-user'}." -t ".$target_string.' -w '.$self->param('target_db')->{'-user'}.' -P '.$self->param('target_db')->{'-pass'};
   say "COMMAND: ".$command;
 
   my $exit_code = system($command);

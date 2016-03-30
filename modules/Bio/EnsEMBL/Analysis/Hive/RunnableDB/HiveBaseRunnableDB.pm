@@ -17,21 +17,42 @@
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
-use Carp;
 use Bio::EnsEMBL::Analysis;
-use Bio::EnsEMBL::Hive::Utils ('stringify');
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
+use Bio::EnsEMBL::Hive::Utils ('destringify');
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
 use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
+=head2 param_defaults
+
+ Description: It allows the definition of default parameters for all inherting module.
+              These are the default values:
+               _input_id_name => 'iid',
+ Returntype : Hashref, containing all default parameters
+ Exceptions : None
+
+
+=cut
+
+sub param_defaults {
+    my $self = shift;
+
+    return {
+        %{$self->SUPER::param_defaults},
+        _input_id_name => 'iid',
+    }
+}
+
 sub run {
   my ($self) = @_;
+  $self->dbc->disconnect_if_idle();
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
     $self->output($runnable->output);
   }
-  return $self->param('output');
+  return $self->output;
 }
 
 sub output {
@@ -43,7 +64,12 @@ sub output {
     if(ref($output) ne 'ARRAY'){
       $self->throw('Must pass RunnableDB:output an array ref not a '.$output);
     }
-    push(@{$self->param('_output')}, @$output);
+    if (@{$self->param('_output')}) {
+        push(@{$self->param('_output')}, @$output);
+    }
+    else {
+        $self->param('_output',$output);
+    }
   }
   return $self->param('_output');
 }
@@ -76,7 +102,7 @@ sub write_output {
 
 sub runnable {
   my ($self, $runnable) = @_;
-  if(!$self->param('runnable')){
+  if(!$self->param_is_defined('runnable')){
     $self->param('runnable',[]);
   }
 
@@ -116,23 +142,29 @@ sub analysis {
 }
 
 
+=head2 input_id
+
+ Example    : my $input_id = $self->input_id;
+ Description: It returns the input_id for this analysis. By default it will look for the parameter 'iid'
+              You can change the name of the parameter by using a method param_defaults and specifying a
+              value for _input_id_name:
+              sub param_defaults {
+                  my $super_param_defaults = $self->param_defaults;
+                  $super_param_defaults->{_input_id_name} = 'filename';
+                  return $super_param_defaults;
+              }
+
+ Returntype : String
+ Exceptions : Throws if the input id is not set
+
+
+=cut
+
 sub input_id {
   my $self = shift;
-  my $value = shift;
 
-  # Note this sub is special. It overrides Hive::Process::input_id and parses the hive input_id into
-  # a normal genebuild style input_id. The issue here is that for the moment I'm going to make this
-  # a getter and not a setter as the two functions are somewhat different in this context. It would
-  # be wrong to have the get function look for and parse the hive input id but then allow the set
-  # function to set a new input id. Also a point to note is that overriding input_id in Process
-  # should be fine as it is not the input_id call that the hive itself uses
-  my $input_id_string = $self->Bio::EnsEMBL::Hive::Process::input_id;
-  unless($input_id_string =~ /.+\=\>.+\"(.+)\"/) {
-    $self->throw("Could not parse the value from the input id. Input id string:\n".$input_id_string);
-  }
-
-  $input_id_string = $1;
-  return($input_id_string);
+  $self->throw("Could not fetch your input id ".$self->param('_input_id_name')) unless ($self->param_is_defined($self->param('_input_id_name')));
+  return $self->param($self->param('_input_id_name'));
 }
 
 
@@ -161,27 +193,6 @@ sub hrdb_get_con {
   } else {
     return $self->param('_hrdbadaptor');
   }
-}
-
-
-sub hrdb_get_dba {
-  my ($self,$connection_info) = @_;
-  my $dba;
-
-  if(ref($connection_info)=~ m/HASH/) {
-    eval {
-      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
-    };
-
-    if($@) {
-      $self->throw("Error while setting up database connection:\n".$@);
-    }
-  } else {
-    $self->throw("DB connection info passed in was not a hash:\n".$connection_info);
-  }
-
-  $dba->dbc->disconnect_when_inactive(1);
-  return $dba;
 }
 
 
@@ -294,6 +305,91 @@ sub failing_job_status {
     $self->param('failing_status',$value);
   }
   return $self->param('failing_status');
+}
+
+=head2 create_analysis
+
+ Arg [1]    : Boolean $add_module, if set to 1, it will add the module used by the analysis in the eHive pipeline
+ Arg [2]    : Hashref $extra_params, contains extra parameters like -program_file to use for populating the Bio::EnsEMBL::Analysis object
+ Example    : $self->create_analysis;
+ Description: Create an Bio::EnsEMBL::Analysis object. If your analysis has a logic_name parameter, it will be used. Otherwise
+              it will use the logic_name from Hive. It wil also store the analysis created in $self->analysis
+ Returntype : Bio::EnsEMBL::Analysis
+ Exceptions : None
+
+
+=cut
+
+sub create_analysis {
+    my ($self, $add_module, $extra_params) = @_;
+
+    if (!$self->param_is_defined('logic_name')) {
+        $self->param('logic_name', $self->input_job->analysis->logic_name);
+    }
+    if (!$self->param_is_defined('module')) {
+        $self->param('module', $self->input_job->analysis->module);
+    }
+    my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param('logic_name'), %$extra_params);
+    $analysis->module($self->param('module')) if (defined $add_module);
+
+    return $self->analysis($analysis);
+}
+
+=head2 hrdb_get_dba
+
+ Arg [1]    : String $name, name of a database as it stored in parameters
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
+ Example    : $self->hrdb_get_dba($self->param('target_db'));
+ Description: It's a wrapper for hrdb_get_dba from Bio::EnsEMBL::Analysis::Tools::Utilities
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if it cannot connect to the database.
+              Throws if $connection_info is not a hashref
+              Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+
+
+=cut
+
+sub  hrdb_get_dba {
+    my ($self, $connection_info, $dna_db) = @_;
+
+    return Bio::EnsEMBL::Analysis::Tools::Utilities::hrdb_get_dba($connection_info, $dna_db);
+}
+=head2 get_database_by_name
+
+ Arg [1]    : String $name, name of a database as it stored in parameters
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
+ Example    : $self->get_database_by_name('target_db');
+ Description: It creates a object based on the information contained in $connection_info.
+              If the hasref contains -dna_db or if the second argument is populated, it will
+              try to attach the DNA database
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if it cannot connect to the database.
+              Throws if $connection_info is not a hashref
+              Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+
+=cut
+
+sub get_database_by_name {
+    my ($self, $name, $dna_db) = @_;
+
+    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db);
+}
+
+=head2 is_slice_name
+
+ Arg [1]    : String, string to check
+ Example    : $self->is_slice_name($input_id);;
+ Description: Return 1 if the string given is an Ensembl slice name
+ Returntype : Boolean
+ Exceptions : None
+
+
+=cut
+
+sub is_slice_name {
+    my ($self, $string) = @_;
+
+    return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
 }
 
 1;

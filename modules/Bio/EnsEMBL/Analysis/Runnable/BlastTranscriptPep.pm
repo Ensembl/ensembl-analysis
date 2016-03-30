@@ -111,33 +111,6 @@ sub transcript{
 }
 
 
-=head2 output
-
-  Function  : override the output method to allow its
-   resetting to empty
-
-=cut
-
-sub output {
-  my ($self, $arr_ref, $reset) = @_;
-
-  if(!$self->{'output'}){
-    $self->{'output'} = [];
-  }
-  if($arr_ref){
-    throw("Must pass Runnable:output an arrayref not a ".$arr_ref)
-      unless(ref($arr_ref) eq 'ARRAY');
-    if ($reset) {
-      $self->{'output'} = $arr_ref;
-    } else {
-      push(@{$self->{'output'}}, @$arr_ref);
-    }
-  }
-  return $self->{'output'};
-
-}
-
-
 =head2 run
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
@@ -166,8 +139,7 @@ sub run{
   $self->SUPER::run($dir);
   $self->query($query);
 
-  my $out = $self->output;
-  $self->output([], 1);
+  my $out = $self->clean_output;
   $self->align_hits_to_query($out);
 }
 
