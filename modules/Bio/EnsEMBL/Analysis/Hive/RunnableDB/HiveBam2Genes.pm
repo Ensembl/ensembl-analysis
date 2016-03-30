@@ -129,7 +129,7 @@ sub write_output{
 sub exon_cluster {
     my ($self, $slice, $bam) = @_;
     print STDERR "CLUSTER EXON\n";
-    my $seq_region_name = $self->param('use_ucsc_naming') ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
+    my $seq_region_name = $self->param('wide_use_ucsc_naming') ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
     my $region = $seq_region_name.':'.$slice->start.'-'.$slice->end;
     # BWA has been run on whole genome. If the slice is not starting at 1, the Core API
     # will shift the coordinate of our clusters which is wrong
