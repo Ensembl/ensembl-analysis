@@ -145,18 +145,23 @@ sub exon_cluster {
         my $read = shift;
         ++$read_count;
         # It seems we always get the unmmapped mate, so we need to remove it
-        return if ($read->get_tag_values('XS') or $read->get_tag_values('UNMAPPED'));
-        my $name = $read->query->name;
+        return if ($read->get_tag_values('UNMAPPED') or $read->get_tag_values('XS'));
+        my $query = $read->query;
+        my $name = $query->name;
         my $start  = $read->start;
         my $end    = $read->end;
-        my $hstart = $read->query->start;
-        my $hend   = $read->query->end;
+        my $hstart = $query->start;
+        my $hend   = $query->end;
         my $paired = $read->get_tag_values('MAP_PAIR');
         # ignore spliced reads
         # make exon clusters and store the names of the reads and associated cluster number
         for (my $index = @exon_clusters; $index > 0; $index--) {
             my $exon_cluster = $exon_clusters[$index-1];
-            if ( $start <= $exon_cluster->end+1 &&  $end >= $exon_cluster->start-1 ) {
+            my $cluster_end = $exon_cluster->end;
+            if ($start > $cluster_end+1) {
+                last;
+            }
+            elsif ( $start <= $cluster_end+1 &&  $end >= $exon_cluster->start-1 ) {
                 # Expand the exon_cluster
                 $exon_cluster->start($start) if $start < $exon_cluster->start;
                 $exon_cluster->end($end)     if $end   > $exon_cluster->end;
@@ -164,8 +169,7 @@ sub exon_cluster {
                 # only store the connection data if it is paired in mapping
                 if ($paired) {
                     if (exists $cluster_data->{$name}->{$exon_cluster->hseqname}) {
-                        $cluster_data->{$name}->{$exon_cluster->hseqname}++;
-                        delete $cluster_data->{$name} if ($cluster_data->{$name}->{$exon_cluster->hseqname} == 2);
+                        delete $cluster_data->{$name};
                     }
                     else {
                         $cluster_data->{$name}->{$exon_cluster->hseqname} = 1;
@@ -176,7 +180,7 @@ sub exon_cluster {
             }
         }
         # start a new cluster if there is no overlap
-        $cluster_count++;
+        ++$cluster_count;
         # make a feature representing the cluster
         my $feat = Bio::EnsEMBL::FeaturePair->new
             (
@@ -197,8 +201,7 @@ sub exon_cluster {
         # store the key within the feature
         if ($paired) {
             if (exists $cluster_data->{$name}->{$feat->hseqname}) {
-                $cluster_data->{$name}->{$feat->hseqname}++;
-                delete $cluster_data->{$name} if ($cluster_data->{$name}->{$feat->hseqname} == 2);
+                delete $cluster_data->{$name};
             }
             else {
                 $cluster_data->{$name}->{$feat->hseqname} = 1;

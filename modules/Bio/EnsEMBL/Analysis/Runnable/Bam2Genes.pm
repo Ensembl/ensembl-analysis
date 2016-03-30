@@ -94,19 +94,19 @@ sub run {
             if ($padded_exons) {
                 my $gene = $self->make_gene($padded_exons);
                 my $tran = $gene->get_all_Transcripts->[0];
-                print "FILTERING " . $tran->start ." " , $tran->end ." ";
+#                print "FILTERING " . $tran->start ." " , $tran->end ." ";
                 # Filter models before writing them
                 if ( scalar(@{$tran->get_all_Exons}) < $self->min_exons ) {
-                    print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
+#                    print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
                     next;
                 }
                 if (  $tran->length < $self->min_length ){
-                    print "Rejecting because of length " . $tran->length ."\n";
+#                    print "Rejecting because of length " . $tran->length ."\n";
                     next;
                 }
                 if ( scalar(@{$gene->get_all_Exons}) == 1){
                     if ( $tran->length <  $self->min_single_exon_length ){
-                        print "Rejecting single exon transcript because of length " . $tran->length ."\n";
+#                        print "Rejecting single exon transcript because of length " . $tran->length ."\n";
                         next;
                     }
                 }
@@ -114,7 +114,7 @@ sub run {
                     # filter span on multiexon genes
                     if( ( $tran->end - $tran->start +1 ) / $tran->length < ($self->min_span) ) {
                         if ( $tran->length <  $self->min_single_exon_length ){
-                            print "Rejecting because of span " . ( $tran->end - $tran->start +1 ) / $tran->length ."\n";
+#                            print "Rejecting because of span " . ( $tran->end - $tran->start +1 ) / $tran->length ."\n";
                             next;
                         }
                     }
@@ -237,7 +237,7 @@ sub process_exon_clusters {
            my @transcript;
 # get a non redundant set of exons
            foreach my $exon ( @$exon_cluster  ) {
-               print "Adding exon $exon \n";
+#               print "Adding exon $exon \n";
                push @transcript, $exon_clusters->{$exon};
            }
            @transcript =   sort { $a->start <=> $b->start} @transcript;
