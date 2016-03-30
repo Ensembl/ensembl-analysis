@@ -47,9 +47,9 @@ sub default_options {
 
         'pipe_dbname'                => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive',
         'dna_dbname'                 => '',
-        'blast_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_blast',
-        'refine_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_refine',
-        'rough_output_dbname'    => $ENV{USER}.'_hive_'.$self->o('species').'_rough',
+        'blast_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
+        'refine_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
+        'rough_output_dbname'    => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
 
         'pipe_db_server'             => '',
         'dna_db_server'              => '',
@@ -245,7 +245,7 @@ sub pipeline_analyses {
  {
       -logic_name => 'checking_file_path',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -meadow_type => 'LOCAL',
+        -rc_name => '1GB',
         -parameters => {
             cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
         },
@@ -277,7 +277,7 @@ sub pipeline_analyses {
  {
       -logic_name => 'parse_summary_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveParseCsvIntoTable',
-        -meadow_type => 'LOCAL',
+        -rc_name => '1GB',
         -parameters => {
             column_names => $self->o('file_columns'),
             sample_column => $self->o('read_group_tag'),
@@ -298,7 +298,7 @@ sub pipeline_analyses {
             inputquery => join(' ', 'SELECT', $self->o('read_group_tag'), ',', $self->o('read_id_tag'), ', is_paired', 'FROM', $self->o('summary_csv_table'), 'WHERE', $self->o('read_group_tag'), '= "#sample_name#"'),
             column_names => [$self->o('read_group_tag'), $self->o('read_id_tag'), 'is_paired'],
                        },
-        -meadow_type    => 'LOCAL',
+        -rc_name    => '1GB',
         -flow_into => {
             '2->A' => ['create_bwa_jobs'],
             'A->1' => ['merged_tissue_file'],
@@ -314,7 +314,7 @@ sub pipeline_analyses {
             column_names => $self->o('file_columns'),
             use_threading => $self->o('use_threads'),
                        },
-        -meadow_type    => 'LOCAL',
+        -rc_name    => '1GB',
         -flow_into => {
             '2->A' => ['bwa', 'create_header_files'],
             'A->1' => ['bwa2bam'],
@@ -472,7 +472,7 @@ sub pipeline_analyses {
             {
         -logic_name => 'create_header_intron',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -meadow_type => 'LOCAL',
+        -rc_name    => '1GB',
         -parameters => {
                          cmd => '#wide_samtools# view -H #filename# | grep -v @SQ | grep -v @HD > #wide_output_dir#/merged_header.h',
                        },
