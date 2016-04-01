@@ -94,7 +94,9 @@ use vars qw (@ISA @EXPORT);
              evidence_coverage
              evidence_coverage_greater_than_minimum
              exon_lengths_all_less_than_maximum
+             exon_overlap
              exonic_proportion
+             features_overlap
              fully_load_Transcript
              get_downstream_Intron_from_Exon
              get_downstream_splice_sites
@@ -108,6 +110,7 @@ use vars qw (@ISA @EXPORT);
              is_Transcript_sane
              is_spliced
              list_evidence
+             overlap_length
              print_Transcript
              print_Transcript_and_Exons
              print_Transcript_evidence
@@ -2863,5 +2866,53 @@ sub is_Transcript_sane {
 
   return $is_sane;
 } ## end sub is_Transcript_sane
+
+
+sub features_overlap {
+# return 1 if there featureA overlaps feature B
+# return 0 otherwise
+  my ($featureA,$featureB) = @_;
+
+  if (($featureA->seq_region_start() <= $featureB->seq_region_end()) and
+      ($featureA->seq_region_end() >= $featureB->seq_region_start())) {
+    return 1;
+  }
+  return 0;
+}
+
+sub overlap_length {
+# return the length of the overlap between featureA and featureB 
+  my ($featureA,$featureB) = @_;
+
+  if (!features_overlap($featureA,$featureB)) {
+    return 0;
+  }
+
+  my $min_end = $featureA->seq_region_end();
+  if ($featureB->seq_region_end() < $min_end) {
+    $min_end = $featureB->seq_region_end();
+  }
+
+  my $max_start = $featureA->seq_region_start();
+  if ($featureB->seq_region_start() > $max_start) {
+    $max_start = $featureB->seq_region_start();
+  }
+  return $min_end-$max_start+1;
+}
+
+sub exon_overlap {
+# return the length of the exonic overlap between
+# transcriptA and transcriptB
+  my ($trancriptA,$trancriptB) = @_;
+
+  my $overlap = 0;
+
+  foreach my $exonA (@{$trancriptA->get_all_Exons()}) {
+    foreach my $exonB (@{$trancriptB->get_all_Exons()}) {
+      $overlap += overlap_length($exonA,$exonB);
+    }
+  }
+  return $overlap;
+}
 
 1;
