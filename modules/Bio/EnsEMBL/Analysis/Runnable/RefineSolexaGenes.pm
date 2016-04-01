@@ -1735,7 +1735,7 @@ sub fetch_intron_features {
       }
       else
       {
-          say STDERR  "Discarding canonical INTRON with score".$intron->score." from ".$intron->start." to ".$intron->start." on ".$intron->seq_region_name ;
+          say STDERR  "Discarding canonical INTRON with score ".$intron->score." from ".$intron->start." to ".$intron->end." on ".$intron->seq_region_name ;
       }
     }
   }

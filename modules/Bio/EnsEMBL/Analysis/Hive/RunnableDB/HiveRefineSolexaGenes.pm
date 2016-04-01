@@ -90,6 +90,7 @@ sub fetch_input {
     $genes_db->dbc->disconnect_when_inactive(0);
     my $reference_db = $self->get_database_by_name('dna_db');
     $reference_db->dbc->disconnect_when_inactive(0);
+    $genes_db->dnadb($reference_db);
     my @rough_genes;
     my $real_slice_start;
     my $real_slice_end;
@@ -163,7 +164,6 @@ sub fetch_input {
             $self->dna_2_intron_features($real_slice_start, $real_slice_end);
         }
         $genes_db->dbc->disconnect_when_inactive(1);
-        $reference_db->dbc->disconnect_when_inactive(1);
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes->new (
                 -analysis     => $self->analysis,
                 -retained_intron_penalty => $self->param('retained_intron_penalty'),
