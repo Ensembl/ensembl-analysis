@@ -46,14 +46,11 @@ This module uses BWA to align fastq to a genomic sequence
 package Bio::EnsEMBL::Analysis::Runnable::BWA2BAM;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable::BWA;
+use parent ('Bio::EnsEMBL::Analysis::Runnable::BWA');
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-$| = 1;
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BWA);
 
 sub new {
   my ( $class, @args ) = @_;

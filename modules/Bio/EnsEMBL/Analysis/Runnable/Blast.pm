@@ -67,12 +67,10 @@ package Bio::EnsEMBL::Analysis::Runnable::Blast;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable;
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
 =head2 new

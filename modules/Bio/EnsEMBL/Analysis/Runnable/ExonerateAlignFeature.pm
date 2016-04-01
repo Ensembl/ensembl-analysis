@@ -53,11 +53,9 @@ to align clone sequences with genomic sequences.
 package Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
+use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseExonerate');
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Feature;
@@ -65,7 +63,6 @@ use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseExonerate);
 
 sub new {
   my ( $class, @args ) = @_;

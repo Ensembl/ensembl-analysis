@@ -50,19 +50,14 @@ rough transcript. Writes output as SAM files.
 package Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
 use Bio::SeqFeature::Lite;
-use Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature;
+use parent ('Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature');
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::DB::Sam;
 
-$| = 1;
-
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature);
 
 sub new {
   my ( $class, @args ) = @_;

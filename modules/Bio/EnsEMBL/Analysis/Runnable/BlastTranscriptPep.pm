@@ -63,10 +63,8 @@ use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Runnable::Blast;
-use vars qw(@ISA);
+use parent ('Bio::EnsEMBL::Analysis::Runnable::Blast');
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Blast);
 
 =head2 new
 

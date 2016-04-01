@@ -50,10 +50,9 @@ files into a single sorted indexed merged BAM file
 package Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::FeaturePair;
@@ -63,8 +62,6 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
 use Bio::EnsEMBL::IntronSupportingEvidence;
-$| = 1;
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 my $limit = 0;
 

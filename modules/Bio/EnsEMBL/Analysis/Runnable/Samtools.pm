@@ -47,14 +47,10 @@ package Bio::EnsEMBL::Analysis::Runnable::Samtools;
 
 use warnings;
 use strict;
-use vars qw(@ISA);
 
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
-
-@ISA = qw();
 
 
 sub new {
