@@ -11,6 +11,7 @@ use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(exon_overlap features_overlap overlap_length);
 
 my ( $opt_host_secondary, $opt_port_secondary,
      $opt_user_secondary, $opt_password_secondary,
@@ -1519,53 +1520,6 @@ sub is_a_stop_codon_longer {
 
   return 0;
 } ## end sub is_a_stop_codon_longer
-
-sub features_overlap {
-  my ( $featureA, $featureB ) = @_;
-
-  if (
-     ( $featureA->seq_region_start() <= $featureB->seq_region_end() ) &&
-     ( $featureA->seq_region_end() >= $featureB->seq_region_start() ) )
-  {
-    return 1;
-  }
-
-  return 0;
-}
-
-sub overlap_length {
-  my ( $featureA, $featureB ) = @_;
-
-  if ( !features_overlap( $featureA, $featureB ) ) {
-    return 0;
-  }
-
-  my $min_end = $featureA->seq_region_end();
-  if ( $featureB->seq_region_end() < $min_end ) {
-    $min_end = $featureB->seq_region_end();
-  }
-
-  my $max_start = $featureA->seq_region_start();
-  if ( $featureB->seq_region_start() > $max_start ) {
-    $max_start = $featureB->seq_region_start();
-  }
-
-  return $min_end - $max_start + 1;
-}
-
-sub exon_overlap {
-  my ( $trancriptA, $trancriptB ) = @_;
-
-  my $overlap = 0;
-
-  foreach my $exonA ( @{ $trancriptA->get_all_Exons() } ) {
-    foreach my $exonB ( @{ $trancriptB->get_all_Exons() } ) {
-      $overlap += overlap_length( $exonA, $exonB );
-    }
-  }
-
-  return $overlap;
-}
 
 sub merge {
 # Returns 1 if $source_transcript should be copied over
