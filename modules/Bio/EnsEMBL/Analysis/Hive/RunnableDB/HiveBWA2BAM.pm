@@ -51,15 +51,15 @@ sub fetch_input {
   my ($self) = @_;
   my $program = $self->param('wide_short_read_aligner');
   $self->throw("BWA program not defined in analysis\n") unless (defined $program);
-  my $fastq;
+  my $fastqfile;
   my $fastqpair;
 
   my $method = $self->param('is_paired') ? ' sampe '.$self->param('sampe_options') : ' samse '.$self->param('samse_options');
-  foreach my $filename (@{$self->param('fastq')}) {
+  foreach my $fastq (@{$self->param('fastq')}) {
       my $abs_filename = $self->param('wide_input_dir').'/'.$fastq->{filename};
       $self->throw("Fastq file $abs_filename not found\n") unless (-e $abs_filename);
       if ($fastq->{is_mate_1} == 1) {
-          $fastq = $abs_filename;
+          $fastqfile = $abs_filename;
       }
       else {
           $fastqpair = $abs_filename;
@@ -69,7 +69,7 @@ sub fetch_input {
     (
      -analysis   => $self->create_analysis,
      -program    => $program,
-     -fastq      => $fastq,
+     -fastq      => $fastqfile,
      -fastqpair  => $fastqpair,
      -options    => $method,
      -outdir     => $self->param('wide_output_dir'),

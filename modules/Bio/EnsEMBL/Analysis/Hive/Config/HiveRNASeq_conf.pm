@@ -332,7 +332,7 @@ sub pipeline_analyses {
         -logic_name => 'bwa',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
         -flow_into => {
-            1 => [ ':////accu?filename=[]' ],
+            1 => [ ':////accu?fastq=[]' ],
             -1 => [ 'bwa_failed' ],
             -2 => [ 'bwa_failed' ],
             },
@@ -342,7 +342,7 @@ sub pipeline_analyses {
         -logic_name => 'bwa_failed',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
         -flow_into => {
-            1 => [ ':////accu?filename=[]' ],
+            1 => [ ':////accu?fastq=[]' ],
             },
         -rc_name    => '10GB_multithread',
       },
@@ -359,8 +359,8 @@ sub pipeline_analyses {
                        },
         -flow_into => {
             1 => [ ':////accu?filename=[]' ],
-            -1 => {'bwa2bam_10GB' => { filename => '#filename#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#', $self->o('read_group_tag') => '#'.$self->o('read_group_tag').'#',}},
-            -2 => {'bwa2bam_10GB' => { filename => '#filename#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#', $self->o('read_group_tag') => '#'.$self->o('read_group_tag').'#',}},
+            -1 => {'bwa2bam_10GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
+            -2 => {'bwa2bam_10GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
             },
         -rc_name    => '5GB',
       },
