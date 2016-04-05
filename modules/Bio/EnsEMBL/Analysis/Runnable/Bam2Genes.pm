@@ -63,9 +63,10 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(create_Exon);
 sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
-    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $exon_clusters) =
-        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN EXON_CLUSTERS)],@args);
+    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $exon_clusters, $cluster_data) =
+        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN EXON_CLUSTERS CLUSTER_DATA)],@args);
     $self->exon_cluster($exon_clusters);
+    $self->cluster_data($cluster_data);
     $self->min_exons($min_exons);
     $self->min_length($min_length);
     $self->paired($paired);
