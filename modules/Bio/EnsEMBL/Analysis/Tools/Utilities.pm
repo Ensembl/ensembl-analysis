@@ -917,7 +917,6 @@ sub hrdb_get_dba {
       }
   }
 
-  $dba->dbc->disconnect_when_inactive(1);
   return $dba;
 }
 

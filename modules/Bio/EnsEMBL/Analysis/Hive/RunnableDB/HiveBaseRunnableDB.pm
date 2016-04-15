@@ -42,12 +42,13 @@ sub param_defaults {
     return {
         %{$self->SUPER::param_defaults},
         _input_id_name => 'iid',
+        disconnect_jobs => 0,
     }
 }
 
 sub run {
   my ($self) = @_;
-  $self->dbc->disconnect_if_idle();
+  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
     $self->output($runnable->output);

@@ -91,6 +91,8 @@ sub fetch_input {
     my $reference_db = $self->get_database_by_name('dna_db');
     $reference_db->dbc->disconnect_when_inactive(0);
     $genes_db->dnadb($reference_db);
+    $self->hrdb_set_con($self->get_database_by_name('output_db'), 'output_db');
+    $self->hrdb_get_con('output_db')->dbc->disconnect_if_idle if ($self->param('disconnect_jobs'));
     my @rough_genes;
     my $real_slice_start;
     my $real_slice_end;
@@ -206,7 +208,7 @@ sub run {
     my ($self) = @_;
 
     $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-    $self->dbc->disconnect_if_idle();
+    $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
     my ($runnable) = @{$self->runnable};
     $runnable->run;
     $self->output($runnable->output);
@@ -218,7 +220,7 @@ sub run {
 sub write_output {
     my ($self) = @_;
 
-    my $outdb = $self->get_database_by_name('output_db');
+    my $outdb = $self->hrdb_get_con('output_db');
     $outdb->dbc->disconnect_when_inactive(0);
     my $gene_adaptor = $outdb->get_GeneAdaptor;
 
