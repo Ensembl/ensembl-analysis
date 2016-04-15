@@ -59,14 +59,12 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCCDSAddition;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
@@ -127,12 +125,12 @@ sub run {
   $self->param_required('assembly_path');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors
-  if (!($self->param('output_path') =~ /\/$/)) {
-    $self->param('output_path',$self->param('output_path')."/");
+  if (!($self->param('ccds_comparison_output_dir') =~ /\/$/)) {
+    $self->param('ccds_comparison_output_dir',$self->param('ccds_comparison_output_dir')."/");
   }
 
-  # create output dir if it does not exist
-  if (not -e $self->param('output_path')) {
+  # throw exception if ccds_comparison_output_dir does not exist
+  if (not -e $self->param('ccds_comparison_output_dir')) {
     run_command("mkdir -p ".$self->param('output_path'),"Create output path.");
   }
 

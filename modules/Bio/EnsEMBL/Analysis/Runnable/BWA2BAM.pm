@@ -58,13 +58,15 @@ $| = 1;
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($header,$method,$samtools) = rearrange([qw(HEADER METHOD SAMTOOLS)],@args);
-  $self->throw("You must define an alignment processing method not $method\n")  unless $method ;
-  $self->method($method);
+  my ($header, $fastqpair, $samtools, $min_mapped, $min_paired, $bam_prefix) = rearrange([qw(HEADER FASTQPAIR SAMTOOLS MIN_MAPPED MIN_PAIRED BAM_PREFIX)],@args);
+  $self->fastqpair($fastqpair);
   $self->throw("You must define a path to samtools cannot find $samtools\n")  
     unless $samtools && -e $samtools;
   $self->samtools($samtools);
   $self->header($header);
+  $self->min_mapped($min_mapped);
+  $self->min_paired($min_paired);
+  $self->bam_prefix($bam_prefix);
 
   return $self;
 }
@@ -72,7 +74,10 @@ sub new {
 =head2 run
 
   Args       : none
-  Description: Merges Sam files defined in the config using Samtools
+  Description: Create the BAM files using BWA to first join the pairs
+               If we have paired reads. Then sort using samtools.
+               It deletes the temporary files.
+               It stores the name of the resulting BAM file in $self->output
   Returntype : none
 
 =cut 
@@ -80,14 +85,12 @@ sub new {
 sub run {
   my ($self) = @_;
   # get a list of files to use
-  my @files;
 
   my $fastq = $self->fastq;
   my $fastqpair = $self->fastqpair;
-  my $options = $self->options;
   my $outdir = $self->outdir;
   my $program = $self->program;
-  my $method = $self->method;
+  my $method = $self->options;
   my $samtools = $self->samtools;
   my $header = $self->header;
   my $readgroup;
@@ -97,6 +100,7 @@ sub run {
   my $total_reads = 0;
   # count how many reads we have in the fasta file to start with
   my $command;
+  my $fh;
   if (-B $fastq) {
     $command = "gunzip -c $fastq | wc -l";
   }
@@ -104,7 +108,7 @@ sub run {
     $command = "wc -l $fastq";
   }
   print STDERR "$command\n";
-  open  ( my $fh,"$command 2>&1 |" ) ||
+  open  ( $fh,"$command 2>&1 |" ) ||
     $self->throw("Error counting reads");
   while (<$fh>){
     chomp;
@@ -124,9 +128,8 @@ sub run {
   }
   my @tmp = split(/\//,$fastq);
   $filename = pop @tmp;
-  print "Filename $filename\n";
-  $outfile = $filename;
-  #($outfile) = $filename =~ /^(.+)\.[^.]+$/;
+  $outfile = $self->bam_prefix || $filename if ($self->bam_prefix);
+  print "Filename $outfile\n";
   if ( $fastqpair ) {
     my @tmp = split(/\//,$fastqpair);
     $pairfilename = pop @tmp;
@@ -141,22 +144,17 @@ sub run {
       $readgroup .= "\"$_\"";
     }
     print "using readgroup line $readgroup\n";
+    close(HEAD) || $self->throw("Could not close $header\n");
   }
 
   # run bwa
-  unless ( -e (  $self->genome.".ann" ) ) {
-    $self->throw("Genome file must be indexed \ntry " . $self->program . " index " . $self->genome ."\n"); 
-  }
-  
-  $command = "$program $method $readgroup " . $self->genome .
-    " $outdir/$filename.sai $fastq  \| $samtools  view - -b -S -o $outdir/$outfile.bam ";
-  if ( $fastqpair ) {
-    $command = "$program $method $readgroup " . $self->genome .
-      " $outdir/$filename.sai $outdir/$pairfilename.sai $fastq $fastqpair \| $samtools  view - -b -S -o $outdir/$outfile.bam ";
-  }
+  my $sai_fastq_files = "$outdir/$filename.sai $fastq";
+  $sai_fastq_files = "$outdir/$filename.sai $outdir/$pairfilename.sai $fastq $fastqpair" if ($fastqpair);
+
+  $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools, 'view - -b -S -o', "$outdir/$outfile.bam");
   
   print STDERR "Command: $command\n";
-  open  ( my $fh,"$command 2>&1 |" ) ||
+  open  ( $fh,"$command 2>&1 |" ) ||
     $self->throw("Error processing alignment $@\n");
     while (<$fh>){
   chomp;
@@ -167,10 +165,11 @@ sub run {
     }
   close($fh) || $self->throw("Failed processing alignment");
 
+  my $sorted_bam = $outdir.'/'.$outfile.'_sorted';
   # sort the bam
-  $command = "$samtools  sort $outdir/$outfile.bam $outdir/$outfile"."_sorted";
+  $command = "$samtools sort $outdir/$outfile.bam $sorted_bam";
   print STDERR "Sort: $command\n";
-    open  ( my $fh,"$command 2>&1 |" ) ||
+    open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error sorting bam $@\n");
     while (<$fh>){
       chomp;
@@ -178,9 +177,9 @@ sub run {
     }
   close($fh) || $self->throw("Failed sorting bam");
   # index the bam
-  $command = "$samtools  index $outdir/$outfile"."_sorted.bam";
+  $command = "$samtools index $sorted_bam.bam";
   print STDERR "Index: $command\n";
-    open  ( my $fh,"$command 2>&1 |" ) ||
+    open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error indexing bam $@\n");
     while (<$fh>){
       chomp;
@@ -189,9 +188,9 @@ sub run {
   close($fh) || $self->throw("Failed indexing bam");
 
  # check the reads with flagstat
-  $command = "$samtools  flagstat $outdir/$outfile"."_sorted.bam";
+  $command = "$samtools flagstat $sorted_bam.bam";
   print STDERR "Got $total_reads to check\nCheck: $command\n";
-    open  ( my $fh,"$command 2>&1 |" ) ||
+    open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error checking alignment $@\n");
     while (<$fh>){
       print STDERR "$_";
@@ -202,19 +201,26 @@ sub run {
 	$self->throw("Got $1 reads in flagstat  rather than $total_reads in fastq - something went wrong\n")
 	  unless ( $total_reads - $1 ) <=1 ;
       }
+      elsif (/^\s*\d+.*mapped\s+\(([0-9.]+)/) {
+          warning("$sorted_bam.bam is below the threshold of ".$self->min_mapped.": $1") if ($self->min_mapped > $1);
+      }
+      elsif (/\s*\d+.*properly paired \(([0-9.]+)/) {
+          warning("$sorted_bam.bam is below the threshold of ".$self->min_paired.": $1") if ($self->min_paired > $1);
+      }
     }
   close($fh) || $self->throw("Failed checking alignment");
 
   #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
   $command = "rm $outdir/$outfile".".bam";
   print STDERR "Delete: $command\n";
-  open  ( my $fh,"$command 2>&1 |" ) || $self->throw("Error deleting unsorted bam $@\n");
+  open  ( $fh,"$command 2>&1 |" ) || $self->throw("Error deleting unsorted bam $@\n");
   while (<$fh>)
   {
       chomp;
       print STDERR "DELETE: $_\n";
   }
   close($fh) || $self->throw("Failed deleting bam");
+  $self->output([$sorted_bam.'.bam']);
 }
 
 
@@ -239,20 +245,20 @@ sub samtools {
   }
 }
 
-
-sub method {
+sub fastqpair {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_method'} = $value;
+    $self->{'_fastqpair'} = $value;
   }
   
-  if (exists($self->{'_method'})) {
-    return $self->{'_method'};
+  if (exists($self->{'_fastqpair'})) {
+    return $self->{'_fastqpair'};
   } else {
     return undef;
   }
 }
+
 
 sub header {
   my ($self,$value) = @_;
@@ -268,5 +274,46 @@ sub header {
   }
 }
 
+sub min_mapped {
+  my ($self,$value) = @_;
 
+  if (defined $value) {
+    $self->{'_min_mapped'} = $value;
+  }
 
+  if (exists($self->{'_min_mapped'})) {
+    return $self->{'_min_mapped'};
+  } else {
+    return undef;
+  }
+}
+
+sub min_paired {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_min_paired'} = $value;
+  }
+
+  if (exists($self->{'_min_paired'})) {
+    return $self->{'_min_paired'};
+  } else {
+    return undef;
+  }
+}
+
+sub bam_prefix {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_bam_prefix'} = $value;
+  }
+
+  if (exists($self->{'_bam_prefix'})) {
+    return $self->{'_bam_prefix'};
+  } else {
+    return undef;
+  }
+}
+
+1;

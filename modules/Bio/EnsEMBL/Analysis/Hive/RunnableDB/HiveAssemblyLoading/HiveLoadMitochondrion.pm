@@ -39,7 +39,15 @@ sub fetch_input {
   }
 
   unless($self->param('output_path')) {
-    $self->throw("output not passed into parameters hash. You need to specify where the output dir will be");
+    $self->throw("output_path not passed into parameters hash. You need to specify where the output dir will be");
+  }
+
+  unless($self->param('mito_index_path')) {
+    $self->throw("mito_index_path not passed into parameters hash. You need to specify where the index of mito accession is");
+  }
+
+  unless($self->param_is_defined('chromosomes_present')) {
+    $self->throw("Need to pass in the chromosomes_present param to define the toplevel");
   }
 
   return 1;
@@ -50,28 +58,85 @@ sub run {
 
   my $species_name = $self->param('species_name');
   my $output_path = $self->param('output_path');
-  my $mito_file = $output_path.'/'.$species_name."_mito_query.txt";
+  my $mito_index = $self->param('mito_index_path');
+  my $enscode_dir = $self->param('enscode_dir');
 
-  my $cmd = 'wget http://www.ncbi.nlm.nih.gov/nuccore/?term='.$species_name.'%5BPORGN%5D+AND+biomol_genomic%5BPROP%5D+AND+'.
-            'gene_in_mitochondrion%5BPROP%5D+AND+srcdb_refseq%5BPROP%5D+AND+complete%5BPROP%5D -O '.$mito_file;
+  my $chromosomes_present = $self->param('chromosomes_present');
 
-  my $result = system($cmd);
-
-  unless($result == 0) {
-    $self->throw("Command to query the genbank nucleotide core for the species mito failed. Commandline used:\n".$cmd);
+  unless(-e $output_path) {
+    my $return = system("mkdir -p ".$output_path);
+    if($return) {
+      $self->throw("Output dir didn't exist and failed to create it");
+    }
   }
 
-  $cmd = "grep 'NCBI Reference Sequence:' ".$mito_file;
-  $result = "";
-  $result = `$cmd`;
-
-  unless($result =~ /NC\_\d+\.\d+/) {
-    $self->throw("Failed to parse the NC accession for the mito out of the mito output file. Commandline used\n".$cmd);
+  unless(-e $mito_index) {
+    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index);
   }
 
-  my $mito_accession = $&;
+  my $mt_accession;
+  open(IN,$mito_index);
+  while(<IN>) {
+    my ($accession,$index_species_name) = split('=',$_);
+    chomp $index_species_name;
+    if($index_species_name eq $species_name) {
+      say "Found mito accession for ".$species_name.": ".$accession;
+      $mt_accession = $accession;
+      last;
+    }
+  }
+  close IN;
 
-  say "Found mito accession for ".$species_name.": ".$mito_accession;
+  unless($mt_accession) {
+    $self->throw("Could not fine species accession in the index file");
+  }
+
+  my $toplevel;
+  my $chromosome_flag = "";
+  my $scaffold_flag = "";
+  my $contig_flag = " -contig ".$mt_accession;
+  if($chromosomes_present) {
+    $toplevel = "chromosome";
+    $chromosome_flag = " -chromosome  MT";
+    $scaffold_flag = " -scaffold ".$mt_accession;
+  } else {
+    $toplevel = "scaffold";
+    $scaffold_flag = " -scaffold MT";
+  }
+
+  my $target_db = $self->param('target_db');
+  my $user = $target_db->{'-user'};
+  my $pass = $target_db->{'-pass'};
+  my $host = $target_db->{'-host'};
+  my $port = $target_db->{'-port'};
+  my $dbname = $target_db->{'-dbname'};
+
+  my $cmd =  "perl ".$enscode_dir."/ensembl-pipeline/scripts/DataConversion/mitochondria/load_mitochondria.pl".
+             " -dbhost ".$host.
+             " -dbuser ".$user.
+             " -dbport ".$port.
+             " -dbpass ".$pass.
+             " -dbname ".$dbname.
+             $chromosome_flag.
+             " -name MT".
+             $scaffold_flag.
+             $contig_flag.
+             " -toplevel ".$toplevel.
+             " -gene_type protein_coding".
+             " -trna_type Mt_tRNA".
+             " -rrna_type Mt_rRNA".
+             " -codon_table 2".
+             " -logic_name mt_genbank_import".
+             " -source RefSeq".
+             " -accession ".$mt_accession.
+             " -genbank_file ".$output_path."/".$mt_accession.".gb".
+             " -non_interactive".
+             " -download";
+
+  my $return = system($cmd);
+  if($return) {
+    $self->throw("The load_mitochondria script returned a non-zero exit code. Commandline used:\n".$cmd);
+  }
 
   return 1;
 }

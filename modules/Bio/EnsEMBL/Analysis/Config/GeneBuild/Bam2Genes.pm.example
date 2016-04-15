@@ -46,7 +46,7 @@ BAM2GENES_CONFIG_BY_LOGIC =>
 		  
 		  # if we are using unpaired reads we use the max intron length to 
 		  # join clusters of reads into transcripts
-		  MAX_INTRON_LENGTH => 100000,
+		  MAX_INTRON_LENGTH => 200000,
 		  
 		  # genes with a span < MIN_SPAN will also be considered single exon
 		  MIN_SINGLE_EXON_LENGTH => 1000,

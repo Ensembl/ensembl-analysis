@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -67,6 +67,10 @@ sub default_options {
         'initial_cluster_db_server' => '',
         'final_geneset_db_server'   => '',
 
+        'clone_db_script_path' => '',
+
+        'single_exon_support_penalty' => 2,
+
         'input_gene_dbs' => [$self->o('genblast_db'),
                              $self->o('genewise_db'),
                              $self->o('exonerate_db'),
@@ -74,18 +78,29 @@ sub default_options {
                              $self->o('rnaseq_db'),
                             ],
 
+
+        'allowed_input_sets' => {'rnaseq_blast'          => {'rnaseq_80_100' => 1,
+                                                             'rnaseq_50_80'  => 1,
+                                                             'rnaseq_0_50'   => 1,
+                                                            },
+                                 'genblast_human'        => 1,
+                                 'genblast_primates'     => 1,
+                                 'genblast_mammals'      => 1,
+                                 'genblast_vert'         => 1,
+                                 'genblast_primates_345' => 1,
+                                },
+
         'logic_name_weights' => {'rnaseq_blast'          => {'rnaseq_80_100' => 1,
-                                                             'rnaseq_50_80'  => 2,
-                                                             'rnaseq_0_50'   => 6,
+                                                             'rnaseq_50_80'  => 5,
+                                                             'rnaseq_0_50'   => 7,
                                                             },
                                  'genblast_human'        => 2,
                                  'genblast_primates'     => 3,
                                  'genblast_mammals'      => 4,
                                  'genblast_vert'         => 5,
-                                 'genblast_primates_345' => 6,
+                                 'genblast_primates_345' => 8,
                                 },
 
-        'clone_db_script_path' => '',
 
 #############################################################
 #                                                           #
@@ -240,6 +255,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          output_db => $self->o('initial_cluster_db'),
                          input_gene_dbs => $self->o('input_gene_dbs'),
+                         allowed_input_sets => $self->o('allowed_input_sets'),
                        },
         -rc_name    => 'cluster_input_genes',
         -wait_for => ['create_initial_cluster_db','create_final_geneset_db'],
@@ -273,6 +289,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('reference_db'),
                          iid_type => 'slice',
                          logic_name_weights => $self->o('logic_name_weights'),
+                         single_exon_support_penalty => $self->o('single_exon_support_penalty'),
                        },
         -rc_name    => 'finalise_geneset',
       },

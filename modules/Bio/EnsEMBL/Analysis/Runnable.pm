@@ -79,19 +79,12 @@ use strict;
 use warnings;
 
 use Bio::SeqIO;
-
-#use Bio::EnsEMBL::Root;
-use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Programs;
-use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name write_seqfile);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
-use vars qw (@ISA);
-
-@ISA = qw();
 
 
 =head2 new
@@ -184,7 +177,7 @@ sub options{
 sub bindir{
   my $self = shift;
   $self->{'bindir'} = shift if(@_);
-  return $self->{'bindir'} || $BIN_DIR;
+  return $self->{'bindir'};
 }
 
 
@@ -203,13 +196,13 @@ sub bindir{
 sub libdir{
   my $self = shift;
   $self->{'libdir'} = shift if(@_);
-  return $self->{'libdir'} || $LIB_DIR;
+  return $self->{'libdir'};
 }
 
 sub datadir{
   my $self = shift;
   $self->{'datadir'} = shift if(@_);
-  return $self->{'datadir'} || $DATA_DIR;
+  return $self->{'datadir'};
 }
 
 
@@ -236,7 +229,7 @@ sub workdir{
     }
     $self->{'workdir'} = $workdir;
   }
-  return $self->{'workdir'} || $ANALYSIS_WORK_DIR || '/tmp';
+  return $self->{'workdir'} || '/tmp';
 }
 
 

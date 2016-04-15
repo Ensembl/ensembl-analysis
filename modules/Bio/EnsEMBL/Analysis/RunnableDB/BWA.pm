@@ -229,3 +229,33 @@ sub HEADER {
     return undef;
   }
 }
+
+sub MIN_MAPPED {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_MIN_MAPPED'} = $value;
+  }
+
+  if (exists($self->{'_MIN_MAPPED'})) {
+    return $self->{'_MIN_MAPPED'};
+  } else {
+    return undef;
+  }
+}
+
+sub MIN_PAIRED {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_MIN_PAIRED'} = $value;
+  }
+
+  if (exists($self->{'_MIN_PAIRED'})) {
+    return $self->{'_MIN_PAIRED'};
+  } else {
+    return undef;
+  }
+}
+
+1;

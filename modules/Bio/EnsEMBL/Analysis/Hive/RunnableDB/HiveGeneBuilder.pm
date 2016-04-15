@@ -38,17 +38,14 @@ Bio::EnsEMBL::Analysis::RunnableDB::GeneBuilder -
 
 =cut
 
-package Bio::EnsEMBL::Analysis::RunnableDB::HiveGeneBuilder;
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGeneBuilder;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Analysis::Config::GeneBuild::GeneBuilder 
-  qw(GENEBUILDER_CONFIG_BY_LOGIC);
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support empty_Gene);
@@ -61,7 +58,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 
 
-@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
+use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
 
@@ -78,23 +75,43 @@ use Bio::EnsEMBL::Analysis::Tools::Logger;
 
 
 
-sub new {
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
-  $self->read_and_check_config($GENEBUILDER_CONFIG_BY_LOGIC);
-  return $self;
-}
+#sub new {
+#  my ($class,@args) = @_;
+ # my $self = $class->SUPER::new(@args);
+ # $self->read_and_check_config($GENEBUILDER_CONFIG_BY_LOGIC);
+ # return $self;
+#}
 
 
 
 sub fetch_input{
   my ($self) = @_;
+
+  my $input_dba = $self->hrdb_get_dba($self->param('layering_output_db'));
+  my $output_dba = $self->hrdb_get_dba($self->param('genebuilder_output_db'));
+
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  if($dna_dba) {
+    $input_dba->dnadb($dna_dba);
+    $output_dba->dnadb($dna_dba);
+  }
+
+  $self->hrdb_set_con($input_dba,'input_db');
+  $self->hrdb_set_con($output_dba,'output_db');
+
+  $self->hive_set_config();
+
   #fetch sequence
-  $self->query($self->fetch_sequence); 
+  my $slice = $input_dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
+  $self->query($slice);
+#  $self->query($self->fetch_sequence);
+
   #fetch genes
   $self->get_Genes;
+
   #print "Have ".@{$self->input_genes}." genes to cluster\n";
   #filter genes
+
   my @filtered_genes = @{$self->filter_genes($self->input_genes)};
   #print "Have ".@filtered_genes." filtered genes\n";
   #create genebuilder runnable
@@ -110,19 +127,22 @@ sub fetch_input{
           -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
           -blessed_biotypes => $self->BLESSED_BIOTYPES,
           -coding_only => $self->CODING_ONLY,
-         );  
+         );
+
 
   $self->runnable($runnable);
-  
+
 };
 
 
 sub write_output{
   my ($self) = @_;
-  my $ga = $self->get_adaptor;
+
+  my $output_dba = $self->hrdb_get_con('output_db');
+  my $ga = $output_dba->get_GeneAdaptor();
   my $sucessful_count = 0;
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
-  foreach my $gene(@{$self->output}){
+  foreach my $gene (@{$self->output}){
     my $attach = 0;
     if(!$gene->analysis){
       my $attach = 1;
@@ -148,43 +168,38 @@ sub write_output{
       $ga->store($gene);
     };
     if($@){
-      warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
+      $self->warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
     }else{
       $sucessful_count++;
       logger_info("STORED GENE ".$gene->dbID);
     }
   }
   if($sucessful_count != @{$self->output}){
-    throw("Failed to write some genes");
+    $self->throw("Failed to write some genes");
   }
 }
 
-sub output_db{
-  my ($self, $db) = @_;
+#sub output_db{
+#  my ($self, $db) = @_;
 
-  if($db){
-    $self->param('_output_db',$db);
-  }
+#  if($db){
+#    $self->param('_output_db',$db);
+#  }
 
-  if(!$self->param('_output_db')){
-    my $db = $self->get_dbadaptor($self->OUTPUT_DB);
-    $self->param('_output_db',$db);
-  }
+#  if(!$self->param('_output_db')){
+#    my $db = $self->get_dbadaptor($self->OUTPUT_DB);
+#    $self->param('_output_db',$db);
+#  }
 
-  return $self->param('_output_db');
-}
-
-sub get_adaptor{
-  my ($self) = @_;
-  return $self->output_db->get_GeneAdaptor;
-}
+#  return $self->param('_output_db');
+#}
 
 sub get_Genes{
   my ($self) = @_;
   my @genes;
   foreach my $db_name(keys(%{$self->INPUT_GENES})){
-    my $gene_db = $self->get_dbadaptor($db_name);
-    my $slice = $self->fetch_sequence($self->input_id, $gene_db);
+    my $gene_db = $self->hrdb_get_con($db_name);
+    my $slice = $self->fetch_sequence($self->param('iid'), $gene_db);
     my $biotypes = $self->INPUT_GENES->{$db_name};
     foreach my $biotype(@$biotypes){
       my $genes = $slice->get_all_Genes_by_type($biotype);
@@ -204,7 +219,7 @@ sub input_genes {
 
   if($arg){
     if(!ref($arg) || ref($arg) ne 'ARRAY') {
-      throw("Need to pass input genes an arrayref not ".$arg);
+      $self->throw("Need to pass input genes an arrayref not ".$arg);
     }
     push(@{$self->param('_input_genes')},@$arg);
   }
@@ -279,7 +294,7 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
@@ -299,22 +314,22 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );
     }
   }
 
-  foreach my $var (qw(INPUT_GENES OUTPUT_DB)) {
+  foreach my $var (qw(INPUT_GENES)) {
     unless($self->$var) {
-      throw("Hive::RunnableDB::HiveGeneBuilder ".$var." config variable is not defined");
+      $self->throw("Hive::RunnableDB::HiveGeneBuilder ".$var." config variable is not defined");
     }
   }
 
   my @keys = keys(%{$self->INPUT_GENES});
   unless(@keys) {
-    throw("Hive::RunnableDB::GeneBuilder INPUT_GENES has needs to contain values");
+    $self->throw("Hive::RunnableDB::GeneBuilder INPUT_GENES has needs to contain values");
   }
 
   my %unique;
@@ -325,12 +340,12 @@ sub hive_set_config {
         $unique{$biotype} = $key;
       } else {
         if($self->BLESSED_BIOTYPES->{$biotype}){
-          throw($biotype." is defined for both ".$key." and ".$unique{$biotype}.
+          $self->throw($biotype." is defined for both ".$key." and ".$unique{$biotype}.
                 " and is found in the blessed biotype hash\n".
                 "This is likely to cause problems for the filtering done in ".
                 "the genebuilder code");
         } else {
-          warning($biotype." appears twice in your listing, make sure this ".
+          $self->warning($biotype." appears twice in your listing, make sure this ".
                   "isn't for the same database otherwise it will cause issue");
         }
       }
@@ -361,13 +376,13 @@ sub INPUT_GENES {
   return $self->param('_INPUT_GENES');
 }
 
-sub OUTPUT_DB {
-  my ($self, $arg) = @_;
-  if(defined $arg){
-    $self->param('_OUTPUT_DB',$arg);
-  }
-  return $self->param('_OUTPUT_DB');
-}
+#sub OUTPUT_DB {
+#  my ($self, $arg) = @_;
+#  if(defined $arg){
+#    $self->param('_OUTPUT_DB',$arg);
+#  }
+#  return $self->param('_OUTPUT_DB');
+#}
 
 sub OUTPUT_BIOTYPE {
   my ($self, $arg) = @_;

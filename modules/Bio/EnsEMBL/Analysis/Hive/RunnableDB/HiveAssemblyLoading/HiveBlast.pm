@@ -84,6 +84,8 @@ sub fetch_input{
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->hrdb_set_con($dba,'target_db');
 
+  $self->hive_set_config;
+
   my $input_id = $self->param('iid');
   my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
   $self->query($slice);
@@ -100,28 +102,14 @@ sub fetch_input{
     $self->throw("You did not pass in the blast_db_path parameter. This is required to locate the blast db");
   }
 
-  my $blast_db_path = $self->param('blast_db_path');
-  my $blast_exe_path = $self->param('blast_exe_path');
-
- # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                             -program_file => $blast_exe_path,
-                                             -db_file => $blast_db_path,
-                                             -parameters => $self->param('commandline_params'),
-                                           );
-  $self->analysis($analysis);
-  $self->hive_set_config;
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
     (
      -query => $self->query,
      -program => $self->analysis->program_file,
      -parser => $parser,
      -filter => $filter,
-     -database => $self->analysis->db_file,
-     -analysis => $self->analysis,
+     -database => $self->analysis()->db_file,
+     -analysis => $self->analysis(),
      %blast,
     );
   $self->runnable($runnable);
@@ -281,12 +269,22 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
          );
   }
+
+  # Make an analysis object and set it, this will allow the module to write to the output db
+  my $analysis = new Bio::EnsEMBL::Analysis(
+                                             -logic_name => $self->param('logic_name'),
+                                             -module => $self->param('module'),
+                                             -program_file => $self->param('blast_exe_path'),
+                                             -db_file => $self->param('blast_db_path'),
+                                             -parameters => $self->param('commandline_params'),
+                                           );
+  $self->analysis($analysis);
 
   # Now loop through all the keys in the parameters hash and set anything that can be set
   my $config_hash = $self->param('config_settings');
@@ -294,7 +292,7 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );
@@ -353,7 +351,12 @@ sub BLAST_PARSER{
     $self->param('_CONFIG_BLAST_PARSER',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_PARSER');
+  if ($self->param_is_defined('_CONFIG_BLAST_PARSER')) {
+        return $self->param('_CONFIG_BLAST_PARSER');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -364,7 +367,12 @@ sub PARSER_PARAMS{
     $self->param('_CONFIG_PARSER_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_PARSER_PARAMS');
+  if ($self->param_is_defined('_CONFIG_PARSER_PARAMS')) {
+        return $self->param('_CONFIG_PARSER_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -376,7 +384,12 @@ sub BLAST_FILTER{
     $self->param('_CONFIG_BLAST_FILTER',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_FILTER');
+  if ($self->param_is_defined('_CONFIG_BLAST_FILTER')) {
+        return $self->param('_CONFIG_BLAST_FILTER');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -388,7 +401,12 @@ sub FILTER_PARAMS{
     $self->param('_CONFIG_FILTER_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_FILTER_PARAMS');
+  if ($self->param_is_defined('_CONFIG_FILTER_PARAMS')) {
+        return $self->param('_CONFIG_FILTER_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 
@@ -399,7 +417,12 @@ sub BLAST_PARAMS {
     $self->param('_CONFIG_BLAST_PARAMS',$value);
   }
 
-  return $self->param('_CONFIG_BLAST_PARAMS');
+  if ($self->param_is_defined('_CONFIG_BLAST_PARAMS')) {
+        return $self->param('_CONFIG_BLAST_PARAMS');
+  }
+  else {
+      return;
+  }
 }
 
 1;

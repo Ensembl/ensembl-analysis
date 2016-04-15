@@ -73,6 +73,8 @@ use vars qw (@ISA  @EXPORT);
               get_database_connection_parameters_by_string
               run_command
               send_email
+              hrdb_get_dba
+              convert_to_ucsc_name
               align_proteins ) ;
 
 
@@ -962,6 +964,78 @@ sub align_proteins {
   my $percent_id = ($match_count/$aligned_positions)*100;
   
   return ($coverage,$percent_id);
+}
+
+=head2 hrdb_get_dba
+
+ Arg [1]    : Hashref $connection_info, containing the connection details for the database:
+              -host, -user, -dbname, -port [, -pass, -dna_db,...]
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna
+ Example    : hrdb_get_dba->($self->param('target_db'));
+ Description: It creates a object based on the information contained in $connection_info.
+              If the hasref contains -dna_db or if the second argument is populated, it will
+              try to attach the DNA database
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if it cannot connect to the database.
+              Throws if $connection_info is not a hashref
+              Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+
+=cut
+
+sub hrdb_get_dba {
+  my ($connection_info, $dna_db) = @_;
+  my $dba;
+
+# It should be OK to use eq instead of =~
+  if(ref($connection_info) eq 'HASH') {
+    eval {
+      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
+    };
+
+    if($@) {
+      throw("Error while setting up database connection:\n".$@);
+    }
+  } else {
+    throw("DB connection info passed in was not a hash:\n".$connection_info);
+  }
+
+  if (defined $dna_db) {
+      if ($dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
+          $dba->dnadb($dna_db);
+      }
+      else {
+          throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
+      }
+  }
+
+  return $dba;
+}
+
+=head2 convert_to_ucsc_name
+
+ Arg [1]    : String $ensembl_name, an Ensembl seq_region name
+ Arg [2]    : (optional) Bio::EnsEMBL::Slice Object slice, the slice you want to get the UCSC name from
+ Example    : convert_to_ucsc_name($slice->seq_region_name, $slice);
+ Description: It returns the UCSC name of the region by fetching the UCSC name from the seq_region_synonym table.
+              If a Bio::EnsEMBL::Slice object is not provided or if it cannot find the synonym, it returns the
+              Ensembl name prefixed with 'chr'.
+ Returntype : String
+ Exceptions : None
+
+
+=cut
+
+sub convert_to_ucsc_name {
+    my ($ensembl_name, $slice) = @_;
+
+    my $ucsc_name = 'chr'.$ensembl_name;
+    if ($slice) {
+        my $ucsc_synonyms = $slice->get_all_synonyms('UCSC');
+        if (scalar(@$ucsc_synonyms)) {
+            $ucsc_name = $ucsc_synonyms->[0]->name;
+        }
+    }
+    return $ucsc_name;
 }
 
 1;
