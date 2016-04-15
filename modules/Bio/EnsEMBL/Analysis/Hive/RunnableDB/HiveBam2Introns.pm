@@ -433,17 +433,15 @@ sub process_features {
                 foreach my $obj ($trans->cdna2genomic($ugf->start, $ugf->end)){
                     if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
 # make into feature pairs?
-                        my $qstrand = $f->strand  * $trans->strand;
-                        my $hstrand = $f->hstrand * $trans->strand;
                         my $fp;
                         $fp = Bio::EnsEMBL::FeaturePair->new
                             (-start    => $obj->start,
                              -end      => $obj->end,
-                             -strand   => $qstrand,
+                             -strand   => $obj->strand,
                              -slice    => $trans->slice,
-                             -hstart   => 1,
-                             -hend     => $obj->length,
-                             -hstrand  => $hstrand,
+                             -hstart   => $ugf->hstart,
+                             -hend     => $ugf->hend,
+                             -hstrand  => $ugf->hstrand,
                              -percent_id => $f->percent_id,
                              -score    => $f->score,
                              -hseqname => $f->hseqname,
