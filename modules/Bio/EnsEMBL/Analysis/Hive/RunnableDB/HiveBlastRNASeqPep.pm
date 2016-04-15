@@ -84,6 +84,7 @@ sub fetch_input {
 
   $self->hive_set_config;
   my %blast = %{$self->BLAST_PARAMS};
+  $blast{'-options'} = $self->param('blast_cmd_line_options') if ($self->param_is_defined('blast_cmd_line_options'));
   my $parser = $self->make_parser;
   my $filter;
   my %store_genes;
