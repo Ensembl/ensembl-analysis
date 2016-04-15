@@ -47,9 +47,9 @@ sub default_options {
 
         'pipe_dbname'                => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive',
         'dna_dbname'                 => '',
-        'blast_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_blast',
-        'refine_output_dbname'     => $ENV{USER}.'_hive_'.$self->o('species').'_refine',
-        'rough_output_dbname'    => $ENV{USER}.'_hive_'.$self->o('species').'_rough',
+        'blast_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
+        'refine_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
+        'rough_output_dbname'    => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
 
         'pipe_db_server'             => '',
         'dna_db_server'              => '',
@@ -889,7 +889,7 @@ sub pipeline_analyses {
         -rc_name          => '15GB_refine',
         -flow_into => {
                         1 => ['blast_rnaseq'],
-                        -1 => ['refine_genes_30GB_base'],
+                        -1 => ['refine_genes_30GB'],
                         -2 => ['refine_genes_30GB_base'],
                       },
       },
@@ -1114,7 +1114,7 @@ sub resource_classes {
       '2GB_refine' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
       '5GB_introns' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
       '10GB_introns' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
+      '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
       '5GB_multithread' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '10GB_multithread' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '20GB_multithread' => { LSF => $self->lsf_resource_builder('long', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
