@@ -93,6 +93,7 @@ sub fetch_input {
   }
 
   my $ga = $self->get_database_by_name($self->MODEL_DB)->get_GeneAdaptor;
+  $ga->db->dnadb($self->hrdb_get_con('dna_db'));
   my $genes;
   my $logicname = $self->LOGICNAME;
   if ( $logicname) {
@@ -110,6 +111,7 @@ sub fetch_input {
       foreach my $tran (@{$gene->get_all_Transcripts}) {
           $store_genes{$tran->dbID} = $gene;
           if ($tran->translation) {
+              $tran->translation->seq;
 #              foreach my $db (split ',', ($self->analysis->db_file)) {
               foreach my $db (@{$self->param('uniprot_index')}) {
                   $self->runnable(Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->new(
