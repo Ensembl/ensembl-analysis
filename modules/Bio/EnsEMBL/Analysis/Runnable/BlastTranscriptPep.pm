@@ -238,3 +238,5 @@ sub align_hits_to_query {
   }
   $self->output(\@output);
 }
+
+1;
