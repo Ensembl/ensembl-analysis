@@ -91,18 +91,20 @@ sub fetch_input {
     my $reference_db = $self->get_database_by_name('dna_db');
     $reference_db->dbc->disconnect_when_inactive(0);
     $genes_db->dnadb($reference_db);
+    $self->gene_slice_adaptor($reference_db->get_SliceAdaptor);
+    $self->hrdb_set_con($self->get_database_by_name('output_db'), 'output_db');
+    $self->hrdb_get_con('output_db')->dbc->disconnect_if_idle if ($self->param('disconnect_jobs'));
     my @rough_genes;
     my $real_slice_start;
     my $real_slice_end;
+    my $chr_slice;
     if ($self->is_slice_name($input_id)) {
         my $genes;
         my $slice = $self->fetch_sequence($input_id, $genes_db);
         $real_slice_start = $slice->start;
         $real_slice_end = $slice->end;
-        my $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $slice->seq_region_name);
-        $self->chr_slice($chr_slice);
+        $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $slice->seq_region_name);
 
-        $self->gene_slice_adaptor($reference_db->get_SliceAdaptor);
         if ( $self->param('model_ln') ) {
             $genes = $slice->get_all_Genes_by_type( undef,$self->param('model_ln') );
             print STDERR "Got " .  scalar(@$genes) . " genes with logic name " . $self->param('model_ln') ."\n";
@@ -123,9 +125,8 @@ sub fetch_input {
             my $overlap = $oe - $os +1;
             my $gc = int(($overlap / $gene->length) * 1000) / 10;
             my $sc =  int(($overlap / $slice->length) * 1000) /10;
-            print "Gene has $gc % overlap with the slice\nSlice has $sc % overlap with the gene\n";
             if ( $gc <= 10 && $sc <= 10) {
-                print "Rejecting\n";
+                print "Gene ", $gene->display_id, " has $gc% overlap with the slice\nSlice has $sc% overlap with the gene\n  Rejecting\n";
                 next;
             }
             $real_slice_start = $gene->seq_region_start < $real_slice_start ? $gene->seq_region_start : $real_slice_start;
@@ -136,12 +137,12 @@ sub fetch_input {
     }
     else {
         my $gene = $genes_db->get_GeneAdaptor->fetch_by_stable_id($input_id);
-        my $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $gene->slice->seq_region_name);
-        $self->chr_slice($chr_slice);
+        $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $gene->slice->seq_region_name);
         $real_slice_start = $gene->seq_region_start;
         $real_slice_end = $gene->seq_region_end;
         push(@rough_genes, $gene);
     }
+    $self->chr_slice($chr_slice);
     if (scalar(@rough_genes)) {
         $self->create_analysis;
         if ( $self->param('intron_bam_files') ) {
@@ -206,7 +207,7 @@ sub run {
     my ($self) = @_;
 
     $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-    $self->dbc->disconnect_if_idle();
+    $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
     my ($runnable) = @{$self->runnable};
     $runnable->run;
     $self->output($runnable->output);
@@ -218,7 +219,7 @@ sub run {
 sub write_output {
     my ($self) = @_;
 
-    my $outdb = $self->get_database_by_name('output_db');
+    my $outdb = $self->hrdb_get_con('output_db');
     $outdb->dbc->disconnect_when_inactive(0);
     my $gene_adaptor = $outdb->get_GeneAdaptor;
 

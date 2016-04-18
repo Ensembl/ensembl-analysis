@@ -42,12 +42,13 @@ sub param_defaults {
     return {
         %{$self->SUPER::param_defaults},
         _input_id_name => 'iid',
+        disconnect_jobs => 0,
     }
 }
 
 sub run {
   my ($self) = @_;
-  $self->dbc->disconnect_if_idle();
+  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
     $self->output($runnable->output);
@@ -93,13 +94,18 @@ sub write_output {
     eval { $adaptor->store($feature); };
     if ($@) {
       $self->throw("RunnableDB::write_output() failed: failed to store '".$feature."' into database '".
-                   $self->hrdb_get_con('target_db')->dbname."': ".$@);
+                   $adaptor->dbc->dbname."': ".$@);
     }
   }
 
   return 1;
 } ## end sub write_output
 
+sub get_adaptor {
+    my ($self) = @_;
+
+    return $self->hrdb_get_con('output_db');
+}
 sub runnable {
   my ($self, $runnable) = @_;
   if(!$self->param_is_defined('runnable')){

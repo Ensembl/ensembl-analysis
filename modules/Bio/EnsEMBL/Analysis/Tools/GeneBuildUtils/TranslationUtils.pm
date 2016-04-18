@@ -534,6 +534,7 @@ sub run_translate{
     my @prediction = ($orf_length,$orf_start,$orf_end);
     push( @orf_predictions, \@prediction );
   }
+  close(ORF) || throw("Error closing translate");
   my @sorted_predictions = 
     map { $_->[1] } sort { $b->[0] <=> $a->[0] } map { [$_->[0], $_] } @orf_predictions;
   unlink $file;
