@@ -159,3 +159,5 @@ sub genome {
     return undef;
   }
 }
+
+1;
