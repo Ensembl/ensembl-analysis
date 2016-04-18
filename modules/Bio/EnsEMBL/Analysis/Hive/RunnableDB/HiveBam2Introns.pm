@@ -417,46 +417,61 @@ sub process_features {
 # unless we are projecting in which case we dont really nead a slice
 
     my @dafs;
-    foreach my $f (@$flist) {
-        my $trans = $self->rough;
+    my $trans = $self->rough;
+    my $transcript_strand = $trans->strand;
+# I hate to do that but let's uses Perl's features...
+    my $splice_in_splice_limit = 10;
+    my $splice_in_splice_found = 0;
+    FEATURE: foreach my $f (@$flist) {
         my @features;
 # get as ungapped features
+#        print STDOUT 'DEBUG FEATURE ', ref($f), "\n";
         foreach my $ugf ( $f->ungapped_features ) {
+#            print STDOUT join(' ', 'DEBUG UGF', $ugf->start, $ugf->end, $ugf->strand, $ugf->hstart, $ugf->hend, $ugf->hstrand), "\n";
             if ($self->param('fullseq') ) {
-                $ugf->hstrand($f->hstrand * $trans->strand);
-                $ugf->strand($f->strand * $trans->strand);
+                $ugf->hstrand($f->hstrand * $transcript_strand);
+                $ugf->strand($f->strand * $transcript_strand);
                 $ugf->slice($self->param('query'));
                 push @features,$ugf;
             }
             else {
 # Project onto the genome if it was not run with fullseq
-                foreach my $obj ($trans->cdna2genomic($ugf->start, $ugf->end)){
-                    if( $obj->isa("Bio::EnsEMBL::Mapper::Coordinate")){
+# We only want the object. If there is more than one object per ungapped feature
+# we have a problem. That would mean that the splice sites we found are wrong.
+# In this case we don't want to write down the alignment
+            my @ugfs = grep { $_->isa('Bio::EnsEMBL::Mapper::Coordinate') } $trans->cdna2genomic($ugf->start, $ugf->end);
+            if (scalar(@ugfs) == 1) {
+              my $obj = $ugfs[0];
 # make into feature pairs?
-                        my $qstrand = $f->strand  * $trans->strand;
-                        my $hstrand = $f->hstrand * $trans->strand;
-                        my $fp;
-                        $fp = Bio::EnsEMBL::FeaturePair->new
-                            (-start    => $obj->start,
-                             -end      => $obj->end,
-                             -strand   => $qstrand,
-                             -slice    => $trans->slice,
-                             -hstart   => 1,
-                             -hend     => $obj->length,
-                             -hstrand  => $hstrand,
-                             -percent_id => $f->percent_id,
-                             -score    => $f->score,
-                             -hseqname => $f->hseqname,
-                             -hcoverage => $f->hcoverage,
-                             -p_value   => $f->p_value,
-                            );
-                        push @features, $fp;
-                    }
-                }
+              my $fp = Bio::EnsEMBL::FeaturePair->new(
+                -start    => $ugfs[0]->start,
+                -end      => $ugfs[0]->end,
+                -strand   => $ugfs[0]->strand,
+                -slice    => $trans->slice,
+                -hstart   => $ugf->hstart,
+                -hend     => $ugf->hend,
+                -hstrand  => $ugf->hstrand,
+                -percent_id => $f->percent_id,
+                -score    => $f->score,
+                -hseqname => $f->hseqname,
+                -hcoverage => $f->hcoverage,
+                -p_value   => $f->p_value,
+              );
+              push @features, $fp;
             }
+            else {
+              print STDOUT 'It seems that ', $f->hseqname, ' is mapping on a splice site.',
+              ' This is wrong as we add an extra padding. ',
+              join(' ', 'More info:', $ugf->start, $ugf->end, $f->start, $f->end, $f->strand, $f->hstart, $f->hend, $f->hstrand), "\n";
+              ++$splice_in_splice_found;
+              next FEATURE;
+            }
+          }
         }
         push(@dafs, @{$self->build_dna_align_features($f, \@features)});
     }
+    $self->throw('Too many reads have splice site in their exons, something in wrong as these exons should not be spliced')
+      if ($splice_in_splice_limit < $splice_in_splice_found);
     return \@dafs;
 }
 

@@ -56,10 +56,9 @@ Internal methods are usually preceded with a _
 package Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Exon;
@@ -69,8 +68,6 @@ use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
 sub new {

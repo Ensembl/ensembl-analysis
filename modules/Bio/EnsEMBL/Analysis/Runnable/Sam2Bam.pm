@@ -50,14 +50,11 @@ files into a single sorted indexed merged BAM file
 package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-$| = 1;
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
 sub new {
   my ( $class, @args ) = @_;

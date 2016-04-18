@@ -47,11 +47,8 @@ package Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge;
 
 use warnings;
 use strict;
-use vars qw(@ISA);
 
-use Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
-
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge);
+use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge');
 
 
 sub new {
