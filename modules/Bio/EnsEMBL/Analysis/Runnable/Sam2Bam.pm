@@ -89,7 +89,7 @@ sub run {
   open (BAM ,">$bamfile.sam" ) or $self->throw("Cannot open sam file for merging $bamfile.sam");
   foreach my $file ( @{$self->samfiles} ) {
     my $line;
-    open ( SAM ,"$file") or $self->throw("Cannot open file $file\n");
+    open ( SAM ,"$file") or $self->throw("Cannot open file '$file'\n");
     my $line_count = 0;
     while (<SAM>) {
       # 1st file copy the header all the others just copy the data
@@ -99,19 +99,15 @@ sub run {
       print BAM "$_\n";
       $line_count++;
     }
-    close(SAM) || $self->throw("Failed opening $file");
+    close(SAM) || $self->throw("Failed closing '$file'\n");
     $count++;
     push @fails,$file  unless ( $line eq '@EOF' or $line_count == 0 );
     #last if $count >= 100;
   }
-  close(BAM) || $self->throw("Failed opening sam file for merging $bamfile.sam");
+  close(BAM) || $self->throw("Failed closing sam file for merging $bamfile.sam");
   print "Merged $count files\n";
   if ( scalar(@fails) > 0 ) {
-    print "The following sam files failed to complete, you need to run them again\n";
-    foreach my $file (@fails) {
-      print "$file";
-    }
-    $self->throw();
+    $self->throw(join("\n", 'The following sam files failed to complete, you need to run them again', @fails));
   }
   my $fh;
   # now call sam tools to do the conversion.

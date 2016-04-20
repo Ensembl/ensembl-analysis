@@ -500,11 +500,11 @@ sub run_translate{
   $seq->display_id($trans_id);
 
   my $file = write_seqfile($seq);
-  my $command = "/software/ensembl/bin/translate";
+  my $command = "translate";
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
   logger_info($command);
-  open ( ORF, $command ) || throw( "Error running translate" );
+  open ( ORF, $command ) || throw( "Could not run command '$command': $!" );
   
   my @orf_predictions;
  ORF:
@@ -534,7 +534,7 @@ sub run_translate{
     my @prediction = ($orf_length,$orf_start,$orf_end);
     push( @orf_predictions, \@prediction );
   }
-  close(ORF) || throw("Error closing translate");
+  close(ORF) || throw("Error running '$command': $!");
   my @sorted_predictions = 
     map { $_->[1] } sort { $b->[0] <=> $a->[0] } map { [$_->[0], $_] } @orf_predictions;
   unlink $file;

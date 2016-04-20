@@ -420,7 +420,7 @@ sub process_features {
     my $trans = $self->rough;
     my $transcript_strand = $trans->strand;
 # I hate to do that but let's uses Perl's features...
-    my $splice_in_splice_limit = 10;
+    my $splice_in_splice_limit = scalar(@$flist);
     my $splice_in_splice_found = 0;
     FEATURE: foreach my $f (@$flist) {
         my @features;
@@ -446,7 +446,7 @@ sub process_features {
               my $fp = Bio::EnsEMBL::FeaturePair->new(
                 -start    => $ugfs[0]->start,
                 -end      => $ugfs[0]->end,
-                -strand   => $ugfs[0]->strand,
+                -strand   => $ugf->strand*$transcript_strand,
                 -slice    => $trans->slice,
                 -hstart   => $ugf->hstart,
                 -hend     => $ugf->hend,
@@ -470,8 +470,8 @@ sub process_features {
         }
         push(@dafs, @{$self->build_dna_align_features($f, \@features)});
     }
-    $self->throw('Too many reads have splice site in their exons, something in wrong as these exons should not be spliced')
-      if ($splice_in_splice_limit < $splice_in_splice_found);
+    $self->warning('Too many reads have splice site in their exons, something in wrong as these exons should not be spliced '.$splice_in_splice_found.'/'.$splice_in_splice_limit)
+      if ($splice_in_splice_limit/100 < $splice_in_splice_found);
     return \@dafs;
 }
 
