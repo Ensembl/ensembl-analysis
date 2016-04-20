@@ -84,9 +84,9 @@ sub default_options {
         # Index for the blast database.
         uniprotindex => '',
 
-        blastp => 'blastall',
+        blastp => 'blastp',
         # blast used, it can be either ncbi or wu, it is overriding the -type value from BLAST_PARAMS
-        blast_type => 'ncbi',
+        blast_type => 'wu',
 
         splicing_aligner => 'exonerate-0.9.0',
 
@@ -341,6 +341,7 @@ sub pipeline_analyses {
             {
         -logic_name => 'bwa_failed',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
+        -can_be_empty => 1,
         -flow_into => {
             1 => [ ':////accu?fastq=[]' ],
             },
@@ -367,6 +368,7 @@ sub pipeline_analyses {
             {
         -logic_name => 'bwa2bam_10GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA2BAM',
+        -can_be_empty => 1,
         -parameters => {
                          sampe_options => '-A -a 200000',
                          samse_options => '',
@@ -538,6 +540,7 @@ sub pipeline_analyses {
             {
         -logic_name => 'rough_transcripts_5GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
+        -can_be_empty => 1,
         -parameters => {
                          logic_name => 'rough_transcripts',
                          output_db    => $self->o('rough_output_db'),
@@ -561,6 +564,7 @@ sub pipeline_analyses {
             {
         -logic_name => 'rough_transcripts_15GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
+        -can_be_empty => 1,
         -parameters => {
                          logic_name => 'rough_transcripts',
                          output_db    => $self->o('rough_output_db'),
@@ -626,6 +630,7 @@ sub pipeline_analyses {
             {
         -logic_name => 'bam2introns_5GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
+        -can_be_empty => 1,
         -parameters => {
                          program_file => $self->o('splicing_aligner'),
                          input_db => $self->o('rough_output_db'),
@@ -652,6 +657,7 @@ sub pipeline_analyses {
             {
         -logic_name => 'bam2introns_10GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
+        -can_be_empty => 1,
         -parameters => {
                          program_file => $self->o('splicing_aligner'),
                          input_db => $self->o('rough_output_db'),
@@ -772,12 +778,13 @@ sub pipeline_analyses {
         -flow_into => {
                         1 => ['blast_rnaseq'],
                         -1 => ['refine_genes_5GB'],
-                        -2 => ['refine_genes_5GB'],
+                        -2 => {'create_10MB_slices'=> {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
                       },
       },
       {
         -logic_name => 'refine_genes_5GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
+        -can_be_empty => 1,
         -parameters => {
                input_db => $self->o('rough_output_db'),
                dna_db => $self->o('dna_db'),
@@ -830,13 +837,33 @@ sub pipeline_analyses {
         -rc_name          => '5GB_refine',
         -flow_into => {
                         1 => ['blast_rnaseq'],
-                        -1 => ['refine_genes_15GB'],
-                        -2 => ['refine_genes_15GB_base'],
+                        -1 => {'create_10MB_slices'=> {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
+                        -2 => {'create_10MB_slices'=> {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
                       },
       },
       {
-        -logic_name => 'refine_genes_15GB',
+        -logic_name => 'create_10MB_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -can_be_empty => 1,
+        -rc_name    => '1GB',
+        -parameters => {
+                         iid_type => 'split_slice',
+                         coord_system_name => 'toplevel',
+                         slice => 1,
+                         slice_size => 10000000,
+                         include_non_reference => 0,
+                         top_level => 1,
+                         target_db => $self->o('refine_output_db'),
+                       },
+
+        -flow_into => {
+                        2 => {'refine_slice' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
+                      },
+      },
+      {
+        -logic_name => 'refine_slice',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
+        -can_be_empty => 1,
         -parameters => {
                input_db => $self->o('rough_output_db'),
                dna_db => $self->o('dna_db'),
@@ -886,16 +913,17 @@ sub pipeline_analyses {
                reject_intron_cutoff => 5,
                        },
 
-        -rc_name          => '15GB_refine',
+        -rc_name          => '5GB_refine',
         -flow_into => {
                         1 => ['blast_rnaseq'],
-                        -1 => ['refine_genes_30GB'],
-                        -2 => ['refine_genes_30GB_base'],
+                        -1 => {'refine_genes_20GB' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
+                        -2 => {'refine_slice_low_recursion' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
                       },
       },
       {
-        -logic_name => 'refine_genes_15GB_base',
+        -logic_name => 'refine_slice_low_recursion',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
+        -can_be_empty => 1,
         -parameters => {
                input_db => $self->o('rough_output_db'),
                dna_db => $self->o('dna_db'),
@@ -903,7 +931,7 @@ sub pipeline_analyses {
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 100000,
+               max_recursions => 10000,
                # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
                # If left blank all features will be fetched
                logicname => [],
@@ -945,16 +973,16 @@ sub pipeline_analyses {
                reject_intron_cutoff => 5,
                        },
 
-        -rc_name          => '15GB_refine_base',
+        -rc_name          => '5GB_refine',
         -flow_into => {
                         1 => ['blast_rnaseq'],
-                        -1 => ['refine_genes_30GB_base'],
-                        -2 => ['refine_genes_30GB_base'],
+                        -1 => {'refine_slice_low_recursion_20GB' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
                       },
       },
       {
-        -logic_name => 'refine_genes_30GB',
+        -logic_name => 'refine_genes_20GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
+        -can_be_empty => 1,
         -parameters => {
                input_db => $self->o('rough_output_db'),
                dna_db => $self->o('dna_db'),
@@ -1004,15 +1032,15 @@ sub pipeline_analyses {
                reject_intron_cutoff => 5,
                        },
 
-        -rc_name          => '30GB_refine',
+        -rc_name          => '20GB_refine',
         -flow_into => {
                         1 => ['blast_rnaseq'],
-                        -2 => ['refine_genes_30GB_base'],
                       },
       },
       {
-        -logic_name => 'refine_genes_30GB_base',
+        -logic_name => 'refine_slice_low_recursion_20GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
+        -can_be_empty => 1,
         -parameters => {
                input_db => $self->o('rough_output_db'),
                dna_db => $self->o('dna_db'),
@@ -1020,7 +1048,7 @@ sub pipeline_analyses {
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 100000,
+               max_recursions => 10000,
                # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
                # If left blank all features will be fetched
                logicname => [],
@@ -1062,7 +1090,7 @@ sub pipeline_analyses {
                reject_intron_cutoff => 5,
                        },
 
-        -rc_name          => '30GB_refine_base',
+        -rc_name          => '20GB_refine',
         -flow_into => {
                         1 => ['blast_rnaseq'],
                       },
@@ -1090,7 +1118,6 @@ sub pipeline_analyses {
       },
     );
     foreach my $analyses (@analysis) {
-        $analyses->{-meadow_type} = 'LSF' unless (exists $analyses->{-meadow_type});
         $analyses->{-max_retry_count} = 1 unless (exists $analyses->{-max_retry_count});
     }
     return \@analysis;
@@ -1120,11 +1147,8 @@ sub resource_classes {
       '20GB_multithread' => { LSF => $self->lsf_resource_builder('long', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
       '10GB' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}])},
-      '5GB_refine' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '15GB_refine' => { LSF => $self->lsf_resource_builder('long', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '15GB_refine_base' => { LSF => $self->lsf_resource_builder('basement', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '30GB_refine' => { LSF => $self->lsf_resource_builder('long', 30000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '30GB_refine_base' => { LSF => $self->lsf_resource_builder('basement', 30000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
+      '5GB_refine' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
+      '20GB_refine' => { LSF => $self->lsf_resource_builder('normal', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
     };
 }
 
