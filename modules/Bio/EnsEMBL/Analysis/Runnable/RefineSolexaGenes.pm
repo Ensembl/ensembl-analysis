@@ -1386,7 +1386,7 @@ sub ProcessTree {
     }
    # $result->{$sofar} = 1;
   }
-  if ( scalar(@node == 0) ) {
+  if ( scalar(@node) == 0 ) {
     #print "$sofar\n";
     $paths->{$sofar} = 1;
   }
