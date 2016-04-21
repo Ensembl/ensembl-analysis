@@ -51,16 +51,15 @@ package Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes;
 
 use warnings ;
 use strict;
+no warnings 'recursion';
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::FeaturePair;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes clone_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(create_Exon clone_Exon);
 use Bio::EnsEMBL::Transcript;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::IntronSupportingEvidence;
 
 my $limit = 0;
