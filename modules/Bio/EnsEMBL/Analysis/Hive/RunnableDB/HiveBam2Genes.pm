@@ -16,26 +16,26 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Solexa2Genes
+Bio::EnsEMBL::Analysis::RunnableDB::Bam2Genes
 
 =head1 SYNOPSIS
 
-my $db      = Bio::EnsEMBL::DBAdaptor->new($locator);
-my $refine_genes = Bio::EnsEMBL::Analysis::RunnableDB::Solexa2Genes->new (
-        -db      => $db,
-        -input_id   => $input_id
-        -analysis   => $analysis );
-$refine_genes->fetch_input();
-$refine_genes->run();
-$refine_genes->write_output(); #writes to DB
-
+  my $db      = Bio::EnsEMBL::DBAdaptor->new($locator);
+  my $refine_genes = Bio::EnsEMBL::Analysis::RunnableDB::Bam2Genes->new (
+          -db      => $db,
+          -input_id   => $input_id
+          -analysis   => $analysis );
+  $refine_genes->fetch_input();
+  $refine_genes->run();
+  $refine_genes->write_output(); #writes to DB
 
 =head1 DESCRIPTION
 
-
-The databases containing the various features to combine is defined in
-Bio::EnsEMBL::Analysis::Config::Databases and the configuration for the
-module is defined in Bio::EnsEMBL::Analysis::Config::GeneBuild::Bam2Genes
+The module creates "proto-transcripts" based on the alignments of short reads.
+It will first create blocks from overlapping reads which represent possible exons and
+it will link these blocks by using pairing information if it is available or by
+using a predefined "proto-transcript" length when it uses single reads.
+The "proto-transcripts" will be stored in an Ensembl database.
 
 =cut
 
@@ -53,10 +53,14 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 =head2 fetch_input
 
-Title        :   fetch_input
-Usage        :   $self->fetch_input
-Returns      :   nothing
-Args         :   none
+  Title       : fetch_input
+  Usage       : $self->fetch_input
+  Returns     : nothing
+  Args        : none
+  Description : It will fetch the sequence based on the input_id, retrieve all alignments
+                overlapping the region and create the "exon" blocks. Because the alignment
+                is made on the whole genome, we need to provide the runnable with a full length
+                slice.
 
 =cut
 
