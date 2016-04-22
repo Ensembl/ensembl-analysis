@@ -128,23 +128,21 @@ sub default_options {
     'vega_host' => $self->o('default_host'),
     'core_host' => $self->o('default_host'),
     'pipe_db_server' => $self->o('default_host'),
-    'dna_dbname' => '',
-    'dna_db_server' => '',
 
     ##
     # You shouldn't need to change anything below this line
     ##
     
     ## Required by HiveBaseConfig_conf
-    #reference_db (not required in the merge process)
+    #reference_db (not required in the merge process, leave blank)
     'reference_dbname' => '', 
     'reference_db_server' => '', 
     'port' => '',
     #'user_r' => '',
-    #dna_db (not required in the merge process)
+    #dna_db (not required in the merge process, leave blank)
     'dna_dbname' => '', 
     'dna_db_server' => '', 
-    'port' => '',
+    #'port' => '',
     #'user_r' => '', 
     
     # vega database provided by the Vega team
@@ -289,6 +287,7 @@ sub pipeline_analyses {
               -logic_name => 'list_core_db_tables',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
               -parameters => {
+                               'db_conn'    => $self->o('prevcore_db'),
                                'inputquery' => 'SHOW TABLE STATUS',
                              },
               -rc_name => 'default',
@@ -300,6 +299,7 @@ sub pipeline_analyses {
               -logic_name => 'parallel_dump_core_db',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
               -parameters => {
+                               'db_conn'       => $self->o('prevcore_db'),
                                'output_file'   => $self->o('output_dir').'/#table_name#.sql',
                                'executable'    => 'mysqldump',
                                'append'        => ['#table_name#'],
@@ -896,10 +896,10 @@ sub pipeline_analyses {
                                inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
                                column_names => ['chr'],
                              },
-              -flow_into => { '2->A' => WHEN ('#process_ccds#' => ['alternative_atg_attributes','ccds_comparison'],
-              	                        ELSE ['alternative_atg_attributes']),
+               -flow_into => { '2->A' => ['alternative_atg_attributes'],
+
                               'A->1' => WHEN ('#process_ccds#' => ['ccds_addition'],
-                                        ELSE ['dummy']),
+                                        ELSE                      ['set_frameshift_transcript_attributes']),
                             },   
               -rc_name => 'default',
             },
