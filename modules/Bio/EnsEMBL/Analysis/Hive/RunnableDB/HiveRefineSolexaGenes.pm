@@ -225,9 +225,12 @@ sub write_output {
 
     my $fails = 0;
     my $total = 0;
+    my $analysis = $self->analysis;
+    my $source = $analysis->logic_name;
+    $source =~ s/_rnaseq$//;
     foreach my $gene (@{$self->output}) {
-        $gene->analysis($self->analysis);
-        $gene->source($self->analysis->logic_name);
+        $gene->analysis($analysis);
+        $gene->source($source);
         foreach my $tran ( @{$gene->get_all_Transcripts} ) {
             $tran->analysis($self->analysis);
         }
