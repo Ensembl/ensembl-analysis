@@ -69,6 +69,7 @@ use vars qw (@ISA @EXPORT);
              Exon_info
              exon_length_less_than_maximum
              transfer_supporting_evidence
+             merge_exons
              get_upstream_Intron
              get_downstream_Intron
              get_upstream_splice_sites
@@ -268,6 +269,52 @@ sub validate_Exon_coords{
     return 0;
   }
   return 1;
+}
+
+=head2 merge_exons
+
+  Arg [1]   : Bio::EnsEMBL::Exon
+  Arg [2]   : Bio::EnsEMBL::Exon
+  Function  : merges the two exons by creating a new one
+              setting the start to the first exon start and
+              the end to the second exon end, and copying all
+              supporting evidence to the new merged exon
+  Returntype: Bio::EnsEMBL::Exon
+  Exceptions: none
+  Example   : 
+
+=cut
+
+sub merge_exons{
+  my ($exon1,$exon2) = @_;
+
+  my @sfs;
+
+  foreach my $sf (@{$exon1->get_all_supporting_features()},@{$exon2->get_all_supporting_features()}){
+    my $newsf = clone_Evidence($sf);
+    push(@sfs,$newsf);
+  }
+
+  my $merged_start;
+  my $merged_end;
+  my $merged_phase;
+  my $merged_end_phase;
+  
+  if ($exon1->strand() == 1) {
+  	$merged_start = $exon1->start();
+  	$merged_end = $exon2->end();
+  	$merged_phase = $exon1->phase();
+  	$merged_end_phase = $exon2->end_phase();
+  } else {
+  	$merged_start = $exon2->start();
+    $merged_end = $exon1->end();
+    $merged_phase = $exon1->phase();
+    $merged_end_phase = $exon2->end_phase();
+  }
+
+  return create_Exon($merged_start,$merged_end,$merged_phase,$merged_end_phase,
+                     $exon1->strand(),$exon1->analysis(),\@sfs,$exon1->dbID(),
+                     $exon1->slice(),$exon1->stable_id(),$exon1->version());
 }
 
 =head2 Intron methods
