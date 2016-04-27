@@ -57,7 +57,7 @@ use feature 'say';
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(print_Translation clone_Translation print_peptide);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites validate_Exon_coords);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone_Exon Exon_info exon_length_less_than_maximum Exon_info merge_exons get_upstream_Intron get_downstream_Intron get_upstream_splice_sites get_downstream_splice_sites validate_Exon_coords);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(seq_region_coord_string id empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
@@ -116,6 +116,7 @@ use vars qw (@ISA @EXPORT);
              print_Transcript_and_Exons
              print_Transcript_evidence
              remove_initial_or_terminal_short_exons
+             remove_short_frameshift_introns
              replace_stops_with_introns
              set_start_codon
              set_stop_codon
@@ -2914,6 +2915,67 @@ sub exon_overlap {
     }
   }
   return $overlap;
+}
+
+sub remove_short_frameshift_introns {
+# return the transcript after removing the short
+# frameshift introns found ie merging the
+# exons separated by the short frameshift introns
+  my $transcript = shift;
+  my $transcript_no_frameshift = clone_Transcript($transcript);
+  
+  $transcript_no_frameshift->flush_Exons();
+    
+  my @frameshift_attributes = @{$transcript->get_all_Attributes('Frameshift')};
+  
+  # get all the short frameshift intron numbers
+  my @intron_numbers = ();
+  foreach my $frameshift_attribute (@frameshift_attributes) {
+  	push(@intron_numbers,$frameshift_attribute->value());
+  }
+  	
+  # make sure they are sorted
+  my @sorted_intron_numbers = sort {$a <=> $b} @intron_numbers;
+  	
+  my $removed_introns = 0;
+  my $current_exon;
+  my $next_exon;
+  my $current_exon_index = 1;
+  my $merged_exon;
+  my @exons = @{$transcript->get_all_Exons()};
+  
+  SHORT_INTRON: foreach my $intron_number (@sorted_intron_numbers) {
+
+    while ($current_exon = shift(@exons)) {
+    
+      if ($current_exon_index < $intron_number-$removed_introns) {
+      	
+      	$transcript_no_frameshift->add_Exon(clone_Exon($current_exon));
+      	$current_exon_index++;
+
+      } else {
+
+        $next_exon = shift(@exons);
+        $merged_exon = merge_exons($current_exon,$next_exon);	
+
+      	$removed_introns++;
+      	      	
+      	# the new merged exon has to be processed in case there are
+      	# consecutive short frameshift introns so the current_exon_index is not
+      	# changed and the new merged exon is added to the exons array 
+      	unshift(@exons,$merged_exon);
+      	
+      	next SHORT_INTRON;
+      	
+      } # else
+    } # while current exon 
+  } # foreach short intron
+  
+  # add the remaining exons
+  while ($current_exon = pop(@exons)) {
+  	$transcript_no_frameshift->add_Exon(clone_Exon($current_exon));
+  }
+  return $transcript_no_frameshift;
 }
 
 1;

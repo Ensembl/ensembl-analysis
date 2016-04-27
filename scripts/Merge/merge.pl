@@ -11,7 +11,7 @@ use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(exon_overlap features_overlap overlap_length);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(exon_overlap features_overlap overlap_length remove_short_frameshift_introns print_Transcript_and_Exons);
 
 my ( $opt_host_secondary, $opt_port_secondary,
      $opt_user_secondary, $opt_password_secondary,
@@ -1261,7 +1261,7 @@ sub investigate_for_merge {
     }
 
     if ( !$do_merge ) {
-      # A special case:  If the Primary exon is exactly one stop
+      # A special case:  If the primary exon is exactly one stop
       # codon longer at the end, then treat them as identical.
       $do_merge = is_a_stop_codon_longer( $primary_transcript,
                                           $secondary_transcript );
@@ -1271,7 +1271,7 @@ sub investigate_for_merge {
       }
     }
     if ( !$do_merge ) {
-      # A special case:  If the Secondary exon is exactly one stop
+      # A special case:  If the secondary exon is exactly one stop
       # codon longer at the end, then treat them as identical.
       $do_merge = is_a_stop_codon_longer( $secondary_transcript,
                                           $primary_transcript );
@@ -1280,12 +1280,34 @@ sub investigate_for_merge {
                "Primary exon is stop codon short\n" );
       }
     }
+
   } ## end if ( scalar(@primary_introns...))
   else {
     my @secondary_introns = @{ $secondary_transcript->get_all_Introns() };
 
-    $do_merge =
-      features_are_same( \@primary_introns, \@secondary_introns );
+    $do_merge = features_are_same(\@primary_introns,\@secondary_introns);
+
+    if ( !$do_merge ) {
+      # A special case: If the secondary transcript contains a short frameshift
+      # intron (1, 2, 4 or 5 bp as labelled by the script ensembl/misc-scripts/frameshift_transcript_attribs.pl),
+      # treat it as if there was no short frameshift intron
+
+      my @attribs = @{$secondary_transcript->get_all_Attributes('Frameshift')};
+      if (scalar(@attribs) > 0) {
+
+        my $secondary_transcript_no_frameshift = remove_short_frameshift_introns($secondary_transcript);
+        @secondary_introns = @{$secondary_transcript_no_frameshift->get_all_Introns()};
+      
+        $do_merge = features_are_same(\@primary_introns,
+                                      \@secondary_introns);
+        if ($do_merge) {
+          print("\t\t\t\tSpecial case: Secondary transcript ".$secondary_transcript_no_frameshift->stable_id()." containing short frameshift intron investigated for merge.\n");
+          print("Primary translation/Secondary translation:\n");
+          print($primary_transcript->translation()->seq()."\n\n");
+          print($secondary_transcript->translation()->seq()."\n\n");
+        }
+      } # if scalar
+    } # if !$do_merge
   }
 
   return $do_merge;
