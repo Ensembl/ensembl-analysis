@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -63,10 +64,8 @@ use Bio::EnsEMBL::Analysis::Runnable::FirstEF;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-use constant {
-    PARAMETERS_DIR => '/software/ensembl/genebuild/usrlocalensembllib/firstef/parameters/',
-    PARSE_SCRIPT => '/software/ensembl/genebuild/usrlocalensembllib/firstef/FirstEF_parser.pl',
-};
+use constant { PARAMETERS_DIR => '/software/ensembl/genebuild/usrlocalensembllib/firstef/parameters/',
+               PARSE_SCRIPT   => '/software/ensembl/genebuild/usrlocalensembllib/firstef/FirstEF_parser.pl', };
 
 =head2 fetch_input
 
@@ -78,49 +77,40 @@ use constant {
 
 =cut
 
-
-
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  $self->hrdb_set_con($dba,'target_db');
+  my $dba = $self->hrdb_get_dba( $self->param('target_db') );
+  $self->hrdb_set_con( $dba, 'target_db' );
 
   my $input_id = $self->param('iid');
 
   my $repeat_masking = $self->param('repeat_masking_logic_names');
 
-  my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
+  my $slice = $self->fetch_sequence( $input_id, $dba, $repeat_masking );
   $self->query($slice);
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
+  my $analysis = Bio::EnsEMBL::Analysis->new( -logic_name   => $self->param('logic_name'),
+                                              -module       => $self->param('module'),
                                               -program_file => $self->param('firstef_path'),
-                                              -parameters => $self->param('commandline_params'),
-                                            );
+                                              -parameters   => $self->param('commandline_params'), );
 
   $self->analysis($analysis);
 
-
   my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
+  if ( $self->parameters_hash ) {
+    %parameters = %{ $self->parameters_hash };
   }
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::FirstEF->new
-    (
-     -query => $self->query,
-     -program => $self->analysis->program_file,
-     -analysis => $self->analysis,
-     -param_dir => PARAMETERS_DIR,
-     -parse_script => PARSE_SCRIPT,
-     %parameters,
-    );
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::FirstEF->new( -query        => $self->query,
+                                                                 -program      => $self->analysis->program_file,
+                                                                 -analysis     => $self->analysis,
+                                                                 -param_dir    => PARAMETERS_DIR,
+                                                                 -parse_script => PARSE_SCRIPT,
+                                                                 %parameters, );
   $self->runnable($runnable);
   return 1;
-}
-
+} ## end sub fetch_input
 
 =head2 get_adaptor
 
@@ -132,8 +122,7 @@ sub fetch_input{
 
 =cut
 
-
-sub get_adaptor{
+sub get_adaptor {
   my ($self) = @_;
   return $self->hrdb_get_con('target_db')->get_SimpleFeatureAdaptor;
 }

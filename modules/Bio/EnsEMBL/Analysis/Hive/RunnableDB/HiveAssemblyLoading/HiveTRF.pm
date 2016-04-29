@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,7 +28,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::TRF - 
+Bio::EnsEMBL::Analysis::RunnableDB::TRF -
 
 =head1 SYNOPSIS
 
@@ -48,7 +49,7 @@ the Runnable TRF which wraps the program TRF
 
 This module can fetch appropriate input from the database
 pass it to the runnable then write the results back to the database
-in the repeat_feature and repeat_consensus tables 
+in the repeat_feature and repeat_consensus tables
 
 =head1 METHODS
 
@@ -64,7 +65,6 @@ use Bio::EnsEMBL::Analysis::Runnable::TRF;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::TRF
@@ -75,42 +75,34 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 =cut
 
-
-
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  $self->hrdb_set_con($dba,'target_db');
+  my $dba = $self->hrdb_get_dba( $self->param('target_db') );
+  $self->hrdb_set_con( $dba, 'target_db' );
 
   my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
+  my $slice = $self->fetch_sequence( $input_id, $dba );
   $self->query($slice);
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
+  my $analysis = Bio::EnsEMBL::Analysis->new( -logic_name   => $self->param('logic_name'),
+                                              -module       => $self->param('module'),
                                               -program_file => $self->param('trf_path'),
-                                              -parameters => $self->param('commandline_params'),
-                                            );
+                                              -parameters   => $self->param('commandline_params'), );
 
   $self->analysis($analysis);
 
   my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
+  if ( $self->parameters_hash ) {
+    %parameters = %{ $self->parameters_hash };
   }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::TRF->new
-    (
-     -query => $self->query,
-     -program => $self->analysis->program_file,
-     -analysis => $self->analysis,
-     %parameters,
-    );
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::TRF->new( -query    => $self->query,
+                                                             -program  => $self->analysis->program_file,
+                                                             -analysis => $self->analysis,
+                                                             %parameters, );
   $self->runnable($runnable);
   return 1;
-}
-
+} ## end sub fetch_input
 
 =head2 get_adaptor
 
@@ -122,11 +114,9 @@ sub fetch_input{
 
 =cut
 
-
-sub get_adaptor{
+sub get_adaptor {
   my ($self) = @_;
   return $self->hrdb_get_con('target_db')->get_RepeatFeatureAdaptor;
 }
-
 
 1;

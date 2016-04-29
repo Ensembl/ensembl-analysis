@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Dust - 
+Bio::EnsEMBL::Analysis::RunnableDB::Dust -
 
 =head1 SYNOPSIS
 
@@ -48,7 +49,7 @@ the Runnable Dust which wraps the program tcdust
 
 This module can fetch appropriate input from the database
 pass it to the runnable then write the results back to the database
-in the repeat_feature and repeat_consensus tables 
+in the repeat_feature and repeat_consensus tables
 
 =head1 METHODS
 
@@ -70,52 +71,44 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
   Function  : fetch data out of database and create runnable
   Returntype: 1
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  $self->hrdb_set_con($dba,'target_db');
+  my $dba = $self->hrdb_get_dba( $self->param('target_db') );
+  $self->hrdb_set_con( $dba, 'target_db' );
 
   my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
+  my $slice = $self->fetch_sequence( $input_id, $dba );
   $self->query($slice);
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
+  my $analysis = Bio::EnsEMBL::Analysis->new( -logic_name   => $self->param('logic_name'),
+                                              -module       => $self->param('module'),
                                               -program_file => $self->param('dust_path'),
-                                              -parameters => $self->param('commandline_params'),
-                                            );
+                                              -parameters   => $self->param('commandline_params'), );
 
   $self->analysis($analysis);
 
   my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
+  if ( $self->parameters_hash ) {
+    %parameters = %{ $self->parameters_hash };
   }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Dust->new
-       (
-         -query => $self->query,
-         -program => $self->analysis->program_file,
-         -analysis => $self->analysis,
-         %parameters,
-       );
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Dust->new( -query    => $self->query,
+                                                              -program  => $self->analysis->program_file,
+                                                              -analysis => $self->analysis,
+                                                              %parameters, );
 
   $self->runnable($runnable);
   return 1;
-}
-
+} ## end sub fetch_input
 
 =head2 write_output
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Function  : calculate which hits are mostly gap, and set analysis and 
+  Function  : calculate which hits are mostly gap, and set analysis and
   slice on each wanted feature and store it
   Returntype: 1
   Exceptions: none
@@ -123,96 +116,84 @@ sub fetch_input{
 
 =cut
 
-
 #NOTE: convert features is an important method see its docs for more info
 
-sub write_output{
-  my ($self) = @_;
+sub write_output {
+  my ($self)     = @_;
   my $rf_adaptor = $self->hrdb_get_con('target_db')->get_RepeatFeatureAdaptor;
-  my $analysis = $self->analysis();
+  my $analysis   = $self->analysis();
 
   my @transformed;
-  foreach my $feature (@{$self->output}) {
+  foreach my $feature ( @{ $self->output } ) {
     if ( $feature->length > 50000 ) {
       my $transformed_features = $self->convert_feature($feature);
-      push(@transformed, @$transformed_features) if($transformed_features);
-    }else{
-      push(@transformed, $feature);
+      push( @transformed, @$transformed_features ) if ($transformed_features);
+    }
+    else {
+      push( @transformed, $feature );
     }
   }
   foreach my $feature (@transformed) {
-    $feature->analysis($self->analysis);
-    $feature->slice($self->query) if(!$feature->slice);
+    $feature->analysis( $self->analysis );
+    $feature->slice( $self->query ) if ( !$feature->slice );
     $self->feature_factory->validate($feature);
-    eval{
-      $rf_adaptor->store($feature);
-    };
-    if ($@){
-      throw("RunnableDB:store failed, failed to write ".$feature." to ".
-            "the database $@");
+    eval { $rf_adaptor->store($feature); };
+    if ($@) {
+      throw( "RunnableDB:store failed, failed to write " . $feature . " to " . "the database $@" );
     }
   }
-}
-
+} ## end sub write_output
 
 =head2 convert_feature
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Dust
   Arg [2]   : Bio::EnsEMBL::RepeatFeature
-  Function  : This method takes a repeat feature projects it onto the 
+  Function  : This method takes a repeat feature projects it onto the
   sequence level coord_system calculates what percentage of gaps make up
-  the low complexity sequence. If the sequence is more than 25% low 
+  the low complexity sequence. If the sequence is more than 25% low
   complexity it is throw away. Only features which are more than 50k are
   checked for speed reasons. Once this has been calculated the features
   are converted by to the coordinate system they came from but they may now
-  be in more pieces. The main reason for doing this was because features 
+  be in more pieces. The main reason for doing this was because features
   which lied across long gaps were causing problems for the core api but
   it also means we dont store a lot of features which simply mask out Ns
   Returntype: Bio::EnsEMBL::RepeatFeature
   Exceptions: throws if it cant transform the feature
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub convert_feature{
-  my ($self, $rf) = @_;
-  print "Converting ".$rf->start." ".$rf->end." ".
-    $rf->slice->seq_region_name."\n";
-  my $ff = $self->feature_factory;
+sub convert_feature {
+  my ( $self, $rf ) = @_;
+  print "Converting " . $rf->start . " " . $rf->end . " " . $rf->slice->seq_region_name . "\n";
+  my $ff          = $self->feature_factory;
   my $projections = $rf->project('seqlevel');
   my @converted;
-  my $feature_length = $rf->length;
+  my $feature_length   = $rf->length;
   my $projected_length = 0;
- PROJECT:foreach my $projection(@$projections){
-    $projected_length += ($projection->from_end -
-                          $projection->from_start) +1;
+PROJECT: foreach my $projection (@$projections) {
+    $projected_length += ( $projection->from_end - $projection->from_start ) + 1;
   }
   my $percentage = 100;
-  if($projected_length != 0){
-    $percentage = ($projected_length / $feature_length)*100;
+  if ( $projected_length != 0 ) {
+    $percentage = ( $projected_length/$feature_length )*100;
   }
-  if($percentage <= 75){
+  if ( $percentage <= 75 ) {
     return;
   }
- REPEAT:foreach my $projection(@$projections){
-    my $start = 1;
-    my $end = $projection->to_Slice->length;
-    my $slice = $projection->to_Slice;
-    my $rc = $ff->create_repeat_consensus('dust', 'dust', 'simple', 'N');
-    my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
-                                        $end, $rc, $slice->name,
-                                        $slice);
-    my $transformed = $rf->transform($self->query->coord_system->name,
-                                     $self->query->coord_system->version);
-    if(!$transformed){
-      $self->throw("Failed to transform ".$rf." ".$rf->start." ".$rf->end."  ".$rf->seq_region_name." skipping \n");
+REPEAT: foreach my $projection (@$projections) {
+    my $start       = 1;
+    my $end         = $projection->to_Slice->length;
+    my $slice       = $projection->to_Slice;
+    my $rc          = $ff->create_repeat_consensus( 'dust', 'dust', 'simple', 'N' );
+    my $rf          = $ff->create_repeat_feature( $start, $end, 0, 0, $start, $end, $rc, $slice->name, $slice );
+    my $transformed = $rf->transform( $self->query->coord_system->name, $self->query->coord_system->version );
+    if ( !$transformed ) {
+      $self->throw( "Failed to transform " . $rf . " " . $rf->start . " " . $rf->end . "  " . $rf->seq_region_name . " skipping \n" );
     }
-    push(@converted, $transformed);
+    push( @converted, $transformed );
   }
   return \@converted;
-}
-
+} ## end sub convert_feature
 
 1;

@@ -1,12 +1,13 @@
+
 =head1 LICENSE
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,7 +26,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Genscan - 
+Bio::EnsEMBL::Analysis::RunnableDB::Genscan -
 
 =head1 SYNOPSIS
 
@@ -60,7 +61,6 @@ use Bio::EnsEMBL::Analysis::Runnable::Genscan;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Genscan
@@ -71,66 +71,57 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 =cut
 
-
-
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
 
   my $repeat_masking = $self->param('repeat_masking_logic_names');
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  $self->hrdb_set_con($dba,'target_db');
+  my $dba = $self->hrdb_get_dba( $self->param('target_db') );
+  $self->hrdb_set_con( $dba, 'target_db' );
 
   my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
+  my $slice = $self->fetch_sequence( $input_id, $dba, $repeat_masking );
   $self->query($slice);
 
-
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
+  my $analysis = Bio::EnsEMBL::Analysis->new( -logic_name   => $self->param('logic_name'),
+                                              -module       => $self->param('module'),
                                               -program_file => $self->param('genscan_path'),
-                                              -db => 'HumanIso.smat',
-                                              -db_file => 'HumanIso.smat',
-                                            );
+                                              -db           => 'HumanIso.smat',
+                                              -db_file      => 'HumanIso.smat', );
 
-  $self->param('analysis',$analysis);
+  $self->param( 'analysis', $analysis );
 
   my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
+  if ( $self->parameters_hash ) {
+    %parameters = %{ $self->parameters_hash };
   }
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new
-                 (
-                   -query => $self->query,
-                   -program => $analysis->program_file,
-                   -analysis => $self->param('analysis'),
-                   -matrix => $analysis->db_file,
-                   %parameters,
-                 );
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new( -query    => $self->query,
+                                                                 -program  => $analysis->program_file,
+                                                                 -analysis => $self->param('analysis'),
+                                                                 -matrix   => $analysis->db_file,
+                                                                 %parameters, );
 
   $self->runnable($runnable);
 
-
   my $seq = $self->query->seq;
-  if ($seq =~ /[CATG]{3}/) {
-     $self->input_is_void(0);
-  } else {
-     $self->input_is_void(1);
-     $self->warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
+  if ( $seq =~ /[CATG]{3}/ ) {
+    $self->input_is_void(0);
+  }
+  else {
+    $self->input_is_void(1);
+    $self->warning( "Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ..." );
   }
 
   return 1;
-}
-
+} ## end sub fetch_input
 
 sub run {
   my ($self) = @_;
 
-  foreach my $runnable(@{$self->runnable}){
+  foreach my $runnable ( @{ $self->runnable } ) {
     $runnable->run;
-    $self->output($runnable->output);
+    $self->output( $runnable->output );
   }
 
   return 1;
@@ -147,13 +138,11 @@ sub run {
 
 =cut
 
-
-
-sub write_output{
+sub write_output {
   my ($self) = @_;
 
   my $genscan_adaptor = $self->hrdb_get_con('target_db')->get_PredictionTranscriptAdaptor;
-  my $analysis = $self->param('analysis');
+  my $analysis        = $self->param('analysis');
 
   foreach my $feature ( @{ $self->output() } ) {
     $feature->analysis($analysis);
@@ -162,23 +151,23 @@ sub write_output{
       $feature->slice( $self->query() );
     }
 
-    $self->feature_factory->validate_prediction_transcript($feature, 1);
+    $self->feature_factory->validate_prediction_transcript( $feature, 1 );
 
     eval { $genscan_adaptor->store($feature); };
     if ($@) {
-      $self->throw("RunnableDB::write_output() failed:failed to store '".$feature."' into database '".$genscan_adaptor->dbc()->dbname()."': ".$@);
+      $self->throw( "RunnableDB::write_output() failed:failed to store '" .
+                    $feature . "' into database '" . $genscan_adaptor->dbc()->dbname() . "': " . $@ );
     }
   }
 
   my $output_hash = {};
   $output_hash->{'iid'} = $self->param('iid');
-  $self->dataflow_output_id($output_hash,4);
-  $self->dataflow_output_id($output_hash,1);
+  $self->dataflow_output_id( $output_hash, 4 );
+  $self->dataflow_output_id( $output_hash, 1 );
 
   return 1;
 
-}
-
+} ## end sub write_output
 
 #sub runnable_path{
 #  my ($self);
