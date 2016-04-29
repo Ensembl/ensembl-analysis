@@ -1,7 +1,13 @@
 language: "perl"
 
 perl:
+  - "5.22"
+  - "5.18"
   - "5.14"
+  - "5.10"
+
+services:
+  - mysql
 
 env:
 
@@ -14,6 +20,7 @@ addons:
 
 before_install:
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl.git
+    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-test.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-external.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-killlist.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
@@ -27,8 +34,8 @@ before_install:
     - unzip bioperl-release-1-2-3.zip
     - git clone --branch bioperl-release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-live.git
     - git clone --branch master --depth 1 https://github.com/bioperl/bioperl-run.git
-    - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download 
-    - tar -jxvf download 
+    - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download
+    - tar -jxvf download
     - cd samtools-0.1.19 && make CFLAGS="-g -O2 -fPIC"
     - cd ..
 
@@ -41,16 +48,19 @@ install:
     - cpanm -v --with-recommends --notest JSON
     - unset SAMTOOLS
     - unset PERL5LIB
+    # install the modules just used for testing
+    - cpanm --notest Perl::Tidy
+    - cpanm --notest Test::Code::TidyAll
+    - cpanm --notest Devel::Cover::Report::Coveralls
 # We don't really need the modules below this, just one module needs it (modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm) and it is not used by us
     - echo "We need these modules for an unused module"
     - cpanm -v --notest MooseX::ClassAttribute
     - cpanm -v --notest File::Spec::Link
     - cpanm -v --notest Readonly
- 
+
 script: "./travisci/harness.sh"
 
 notifications:
   email:
     on_success: always
     on_failure: always
-
