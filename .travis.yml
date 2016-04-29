@@ -10,6 +10,8 @@ services:
   - mysql
 
 env:
+  - COVERALLS=false DB=mysql
+  - COVERALLS=true  DB=mysql
 
 sudo: false
 
@@ -21,44 +23,37 @@ addons:
 before_install:
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-test.git
-    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-external.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-killlist.git
-    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-compara.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-funcgen.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-hive.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-io.git
-    - echo "We need release 56 for FuncGen modules"
-    - git clone --branch release/56 --depth 1 https://github.com/Ensembl/ensembl.git ensembl-56
-    - wget https://github.com/bioperl/bioperl-live/archive/bioperl-release-1-2-3.zip
-    - unzip bioperl-release-1-2-3.zip
-    - git clone --branch bioperl-release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-live.git
-    - git clone --branch master --depth 1 https://github.com/bioperl/bioperl-run.git
-    - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download
-    - tar -jxvf download
-    - cd samtools-0.1.19 && make CFLAGS="-g -O2 -fPIC"
-    - cd ..
+    - git clone -b bioperl-release-1-6-1 --depth 1 https://github.com/bioperl/bioperl-live.git
 
 
 install:
+    # install the modules that are part of standard ensembl
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
-    - export SAMTOOLS=$PWD/samtools-0.1.19
-    - export PERL5LIB=$PWD/bioperl-live
-    - cpanm -v --with-recommends --notest Bio::DB::Sam
-    - cpanm -v --with-recommends --notest JSON
-    - unset SAMTOOLS
-    - unset PERL5LIB
-    # install the modules just used for testing
+    # install the modules just used here - could put this into a cpanfile
     - cpanm --notest Perl::Tidy
     - cpanm --notest Test::Code::TidyAll
     - cpanm --notest Devel::Cover::Report::Coveralls
-# We don't really need the modules below this, just one module needs it (modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm) and it is not used by us
-    - echo "We need these modules for an unused module"
-    - cpanm -v --notest MooseX::ClassAttribute
-    - cpanm -v --notest File::Spec::Link
-    - cpanm -v --notest Readonly
+    - cp travisci/MultiTestDB.conf.travisci.mysql  t/MultiTestDB.conf
 
 script: "./travisci/harness.sh"
+
+# Get the matrix to only build coveralls support when on 5.10
+matrix:
+  exclude:
+    - perl: "5.10"
+      env: COVERALLS=false DB=mysql
+    - perl: "5.14"
+      env: COVERALLS=true  DB=mysql
+    - perl: "5.18"
+      env: COVERALLS=true  DB=mysql
+    - perl: "5.22"
+      env: COVERALLS=true  DB=mysql
+
 
 notifications:
   email:
