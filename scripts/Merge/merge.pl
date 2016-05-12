@@ -1358,10 +1358,20 @@ sub investigate_for_merge {
         $do_merge = features_are_same(\@primary_introns,
                                       \@secondary_introns);
         if ($do_merge) {
+          
           print("\t\t\t\tSpecial case: Secondary transcript ".$secondary_transcript_no_frameshift->stable_id()." containing short frameshift intron investigated for merge.\n");
+          
           print("Primary translation/Secondary translation:\n");
-          print($primary_transcript->translation()->seq()."\n\n");
-          print($secondary_transcript->translation()->seq()."\n\n");
+          if ($primary_transcript->translation()) {
+            print($primary_transcript->translation()->seq()."\n\n");
+          } else {
+          	print("Primary transcript has no translation\n\n");
+          }
+          if ($secondary_transcript->translation()) {
+            print($secondary_transcript->translation()->seq()."\n\n");
+          } else {
+          	print("Secondary transcript has no translation\n\n");
+          }
         }
       } # if scalar
     } # if !$do_merge
