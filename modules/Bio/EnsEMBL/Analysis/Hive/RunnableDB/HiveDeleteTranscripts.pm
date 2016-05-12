@@ -67,8 +67,9 @@ sub param_defaults {
       delete_genes_script_name => 'delete_genes.pl',
       output_path => undef,
       output_file_name => 'delete_transcripts_'.time().'.out',
-      email => 'report_to@ebi.ac.uk',
-      from => 'your_email@ebi.ac.uk'
+      email => undef, # email to send the report to
+      from => 'HiveDeleteTranscripts@ebi.ac.uk',
+      fix_broken_genes => 0
     }
 }
 
@@ -152,15 +153,29 @@ sub run {
   my $num_genes_to_delete = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | wc -l","Counting number of empty genes to delete...");
   run_command("grep Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v transcript | wc -l","Checking that number of genes to delete and number of deleted genes match...",$num_genes_to_delete);
   
-  # send report
-  if ($self->param('email')) {
+  # prepare report
+	
+  # 'cat' at the end prevents the command from failing as if there was an error due to grep not finding any pattern
+  my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash | cat","Preparing list of broken genes for email...");
   	
-  	# 'cat' at the end prevents the command from failing as if there was an error due to grep not finding any pattern
-  	my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash | cat","Preparing list of broken genes for email...");
+  my $empty_genes = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | cat","Preparing list of empty genes for email...");
   	
-  	my $empty_genes = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | cat","Preparing list of empty genes for email...");
-  	
-  	my $body = <<'END_BODY';
+  my $body;
+
+  if ($self->param('fix_broken_genes')) {
+    $body = <<'END_BODY';
+Hi,
+ 
+Please find below both the genes which were broken (and have been fixed) and the genes which have been deleted because they were empty after deleting the corresponding transcripts.
+
+Regards,
+The Ensembl Genebuild team's automatic pipeline powered by eHive
+
+----- broken and empty genes below -----
+
+END_BODY
+  } else {
+    $body = <<'END_BODY';
 Hi,
  
 Please find below both the genes which are broken and the genes which have been deleted because they were empty after deleting the corresponding transcripts.
@@ -171,10 +186,56 @@ The Ensembl Genebuild team's automatic pipeline powered by eHive
 ----- broken and empty genes below -----
 
 END_BODY
+  }
 
-    $body .= $broken_genes;
-    $body .= $empty_genes;
+  $body .= $broken_genes;
+  $body .= $empty_genes;
+  
+  # fix broken genes
+  if ($self->param('fix_broken_genes')) {
 
+    my $current_gene_id;
+    my $current_transcript_id;
+    my @lines = split /\n/,$broken_genes;
+    foreach my $line (@lines) {
+
+      if ($line =~ /^WARNING:(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)\),/) {
+        $current_gene_id = $12;
+
+        run_command("mysql -NB -u".$self->param('dbuser')
+                            ." -h".$self->param('dbhost')
+                            ." -p".$self->param('dbpass')
+                            ." -D".$self->param('dbname')
+                            ." -P".$self->param('dbport')
+                            ." -e".'"'."insert into gene (biotype,analysis_id,seq_region_id,seq_region_start,seq_region_end,seq_region_strand,display_xref_id,source,status,description,is_current,canonical_transcript_id,stable_id,version,created_date,modified_date) (select biotype,analysis_id,seq_region_id,seq_region_start,seq_region_end,seq_region_strand,display_xref_id,source,status,description,is_current,canonical_transcript_id,stable_id,version,created_date,modified_date from gene where gene_id=$current_gene_id);".'"',
+                            "Inserting copy of gene row with gene id $current_gene_id");
+      } elsif ($line =~ /(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)\)/) {
+        if ($4 eq '(id') {
+          $current_transcript_id = $8;
+
+          run_command("mysql -NB -u".$self->param('dbuser')
+                              ." -h".$self->param('dbhost')
+                              ." -p".$self->param('dbpass')
+                              ." -D".$self->param('dbname')
+                              ." -P".$self->param('dbport')
+                              ." -e".'"'."update transcript set gene_id=(select max(gene_id) from gene) where transcript_id in ($current_transcript_id);".'"',
+                              "Updating gene id for transcript $current_transcript_id");
+        }
+      }
+    }
+    
+    # set new gene coordinates
+    run_command("mysql -NB -u".$self->param('dbuser')
+                        ." -h".$self->param('dbhost')
+                        ." -p".$self->param('dbpass')
+                        ." -D".$self->param('dbname')
+                        ." -P".$self->param('dbport')
+                        ." -e".'"'."update gene g,(select t.gene_id,min(t.seq_region_start) as minim,max(t.seq_region_end) as maxim from transcript t,gene g where g.gene_id=t.gene_id group by t.gene_id) as c set g.seq_region_start=c.minim,g.seq_region_end=c.maxim where c.gene_id=g.gene_id;".'"',
+                              "Updating gene coordinates...");
+  }
+
+  # send report
+  if ($self->param('email')) {
     send_email($self->param('email'),$self->param('from'),$self->param('biotype')." transcripts deleted report",$body);
   }
   
