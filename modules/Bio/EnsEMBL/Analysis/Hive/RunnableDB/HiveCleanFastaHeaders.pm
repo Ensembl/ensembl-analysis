@@ -22,7 +22,7 @@ use feature 'say';
 
 use Bio::Seq;
 use Bio::SeqIO;
-use Bio::EnsEMBL::KillList::HiveKillList;
+use Bio::EnsEMBL::KillList::KillList;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -130,12 +130,12 @@ sub clean_headers {
 
     unless($self->param_is_defined('KILL_LIST_FILTER')) {
       say "You have selected to use the killlist but haven't defined a KILL_LIST_FILTER hash in your pipeline config, ".
-          "the HiveKillList module will look for a default hash for your molecule type";
+          "the KillList module will look for a default hash for your molecule type";
     }
 
     say "Killlist molecule type set to:\n".$self->param('killlist_type');
     $use_killlist = 1;
-    $kill_list_object = Bio::EnsEMBL::KillList::HiveKillList->new(-TYPE => $self->param('killlist_type'),
+    $kill_list_object = Bio::EnsEMBL::KillList::KillList->new(-TYPE => $self->param('killlist_type'),
                                                                   -KILL_LIST_DB => $self->param('killlist_db'),
                                                                   -FILTER_PARAMS => $self->param('KILL_LIST_FILTER'),
                                                                  );

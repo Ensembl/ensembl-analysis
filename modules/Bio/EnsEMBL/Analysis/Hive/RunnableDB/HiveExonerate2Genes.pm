@@ -71,7 +71,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
-use Bio::EnsEMBL::KillList::HiveKillList;
+use Bio::EnsEMBL::KillList::KillList;
 use Bio::SeqIO;
 use Data::Dumper;
 
@@ -1056,7 +1056,7 @@ sub filtered_query_file {
 
 sub filter_killed_entries {
   my ($orig_query_filename, $mol_type,$input_db,$killlist_db,$filter_params,$inputID) = @_;
-  my $kill_list_object = Bio::EnsEMBL::KillList::HiveKillList
+  my $kill_list_object = Bio::EnsEMBL::KillList::KillList
       ->new(-TYPE => $mol_type, -GB_REF_DB => $input_db, -KILL_LIST_DB => $killlist_db, -FILTER_PARAMS => $filter_params);
   my %kill_list = %{ $kill_list_object->get_kill_list() };
 
