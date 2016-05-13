@@ -648,7 +648,7 @@ CLUSTER: foreach my $cluster (@twoways) {
         }
       }
     } ## end foreach my $gene (@genes)
-    # Temporary to see if in CCDS
+        # Temporary to see if in CCDS
     my $in_ccds = 0;
     # Temporary to see if in CCDS
     ##foreach my $gene (@comp_genes) {

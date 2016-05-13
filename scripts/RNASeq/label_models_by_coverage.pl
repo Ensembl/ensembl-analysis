@@ -123,7 +123,7 @@ sub group_models {
     push @groups, $gene if $hit;
     $last_hit = $hit;
   } ## end foreach my $gene ( sort { $a...})
-  # end of chromosome - check for any left in the array
+      # end of chromosome - check for any left in the array
   if ( scalar(@groups) > 0 ) {
     label_singletons( $groups[0] ) if scalar(@groups) == 1;
     label_fragments( \@groups ) if scalar(@groups) > 1;
