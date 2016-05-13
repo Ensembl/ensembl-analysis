@@ -1,12 +1,13 @@
+
 =head1 LICENSE
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,7 +26,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Genefinder - 
+Bio::EnsEMBL::Analysis::RunnableDB::Genefinder -
 
 =head1 SYNOPSIS
 
@@ -62,14 +63,12 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Genscan);
 
-
-
 =head2 runnable_path
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Genefinder
   Function  : return the runnable path
   Returntype: string
-  Exceptions: 
+  Exceptions:
   Example   : my $runnable = $self->runnable_path->new
                                (
                                 -query    => $self->query,
@@ -80,38 +79,29 @@ use vars qw(@ISA);
 
 =cut
 
-
-sub runnable_path{
+sub runnable_path {
   my ($self) = @_;
   return "Bio::EnsEMBL::Analysis::Runnable::Genefinder";
 }
 
-
-
-
 =head2 standard_args
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Genefinder
-  Function  : to return a hash which contains the 
+  Function  : to return a hash which contains the
   standard constructor args for the genscan runnable
   Returntype: hashref
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-sub standard_args{
+sub standard_args {
   my ($self) = @_;
   my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
+  if ( $self->parameters_hash ) {
+    %parameters = %{ $self->parameters_hash };
   }
-  return {
-          -query => $self->query,
-          -program => $self->analysis->program_file,
-          -analysis => $self->analysis,
-          %parameters,
-         };
+  return { -query => $self->query, -program => $self->analysis->program_file, -analysis => $self->analysis, %parameters, };
 }
 
 1;

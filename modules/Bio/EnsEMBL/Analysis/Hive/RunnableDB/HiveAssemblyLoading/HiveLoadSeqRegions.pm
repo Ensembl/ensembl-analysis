@@ -31,7 +31,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('primary_assembly_dir_name') ) {
-    $self->throw( "primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly " );
+    $self->throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
   }
 
   unless ( $self->param('output_path') ) {
@@ -40,11 +40,11 @@ sub fetch_input {
   }
 
   unless ( $self->param('enscode_root_dir') ) {
-    $self->throw( "enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is" );
+    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   unless ( $self->param('coord_system_version') ) {
-    $self->throw( "coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38" );
+    $self->throw("coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38");
   }
 
   return 1;
@@ -175,7 +175,7 @@ sub load_seq_regions {
   my $dbname = $target_db->{'-dbname'};
 
   unless ( $dbhost && $dbuser && $dbpass && $dbname ) {
-    $self->throw( "Database connections info not fully present. Must pass in using the target_db flag" );
+    $self->throw("Database connections info not fully present. Must pass in using the target_db flag");
   }
 
   my $contig_rank     = 0;
@@ -229,12 +229,11 @@ sub load_seq_regions {
   say "The output  was written to:\n" . $path_to_files . "/load_seq_region_contigs.out";
 
   # check contigs
-  my $num_contigs = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from seq_region'` );
-  my $num_dna     = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from dna'` );
+  my $num_contigs = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from seq_region'`);
+  my $num_dna     = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from dna'`);
 
   if ( $num_contigs != $num_dna ) {
-    $self->throw(
-                "The number of 'seq_region' table loaded contigs ($num_contigs) differs from the number of 'dna' table rows ($num_dna)" );
+    $self->throw("The number of 'seq_region' table loaded contigs ($num_contigs) differs from the number of 'dna' table rows ($num_dna)");
   }
   else {
     say "The number of 'seq_region' table loaded contigs (" .
@@ -294,7 +293,7 @@ sub load_seq_regions {
     say "Column 'version' in 'coord_system' table set to NULL for contig level as required";
   }
   else {
-    $self->throw( "Column 'version' in 'coord_system' table could not be set to NULL for contig level" );
+    $self->throw("Column 'version' in 'coord_system' table could not be set to NULL for contig level");
   }
 
 } ## end sub load_seq_regions

@@ -1,12 +1,12 @@
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,7 +40,6 @@ Post questions to : anacode-people@sanger.ac.uk
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::Augustus;
 
 use strict;
@@ -53,8 +52,6 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Genscan);
-
-
 
 =head2 runnable_path
 
@@ -72,41 +69,36 @@ use vars qw(@ISA);
 
 =cut
 
-
-sub runnable_path{
+sub runnable_path {
   my ($self);
   return "Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus";
 }
 
-sub write_output{
-  my ($self) = @_;
+sub write_output {
+  my ($self)  = @_;
   my $adaptor = $self->db->get_PredictionTranscriptAdaptor;
-  my $dbh = $self->db->dbc->db_handle;
-  my @output = @{$self->output};
-  my $ff = $self->feature_factory;
+  my $dbh     = $self->db->dbc->db_handle;
+  my @output  = @{ $self->output };
+  my $ff      = $self->feature_factory;
 
   $dbh->begin_work;
 
   eval {
-	  foreach my $pt(@output){
-	    $pt->analysis($self->analysis);
-	    $pt->slice($self->query) if(!$pt->slice);
-	    print STDERR "Validate transcript ".$pt->seqname."\n";
-	    # dismiss transcript with invalid translation
-	    eval {
-	    	$ff->validate_prediction_transcript($pt, 1);
-	    };
-	    if($@){ warning($@); next; }
-	    $adaptor->store($pt);
-	  }
-	  $dbh->commit;
+    foreach my $pt (@output) {
+      $pt->analysis( $self->analysis );
+      $pt->slice( $self->query ) if ( !$pt->slice );
+      print STDERR "Validate transcript " . $pt->seqname . "\n";
+      # dismiss transcript with invalid translation
+      eval { $ff->validate_prediction_transcript( $pt, 1 ); };
+      if ($@) { warning($@); next; }
+      $adaptor->store($pt);
+    }
+    $dbh->commit;
   };
   if ($@) {
-      $dbh->rollback;
-	  throw("UNABLE TO WRITE PREDICTION TRANSCRIPTS IN DATABASE\n[$@]\n");
+    $dbh->rollback;
+    throw("UNABLE TO WRITE PREDICTION TRANSCRIPTS IN DATABASE\n[$@]\n");
   }
-}
-
-
+} ## end sub write_output
 
 1;

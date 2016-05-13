@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,75 +16,78 @@
 
 # get a complete but non-redundant set of marker definitions
 
-use warnings ;
+use warnings;
 use strict;
 
 my $infile1 = shift;
 my $infile2 = shift;
-my %marker = ();
+my %marker  = ();
 
 #store file 1
-open(IN,  "<$infile1") || die "cant open file $infile1\n" ; 
-while(<IN>){ 
+open( IN, "<$infile1" ) || die "cant open file $infile1\n";
+while (<IN>) {
   chomp;
-  my @line = split("\t", $_);
-  push @{$marker{$line[0]}}, $_ ;   
+  my @line = split( "\t", $_ );
+  push @{ $marker{ $line[0] } }, $_;
 }
 close(IN);
 
 #add file 2
-open(IN,  "<$infile2")|| die "cant open file $infile1\n" ; ;
-while(<IN>){
+open( IN, "<$infile2" ) || die "cant open file $infile1\n";
+while (<IN>) {
   chomp;
-  my @line = split("\t", $_);
-    push @{$marker{$line[0]}}, $_ ;  
+  my @line = split( "\t", $_ );
+  push @{ $marker{ $line[0] } }, $_;
 }
 close(IN);
 
-# combine them 
-foreach my $id (keys %marker){    
-   my ( %names, %accs ) ; 
-   my ($display_id, $lprim, $rprim, $dist, $name, $junk, $acc, $species) ;  
+# combine them
+foreach my $id ( keys %marker ) {
+  my ( %names, %accs );
+  my ( $display_id, $lprim, $rprim, $dist, $name, $junk, $acc, $species );
 
-   for my $l (@{$marker{$id}}){    
-     ($display_id, $lprim, $rprim, $dist, $name, $junk, $acc, $species) = split /\t/, $l;   
+  for my $l ( @{ $marker{$id} } ) {
+    ( $display_id, $lprim, $rprim, $dist, $name, $junk, $acc, $species ) = split /\t/, $l;
 
-     # getting name unique 
-     unless ($name=~m/-/){  
-       if ($name=~m/;/) { 
-         my @na = split/\;/,$name ;  
-         @names{@na}=(); 
-       } else { 
-         $names{$name}=() ; 
-       } 
-     } 
+    # getting name unique
+    unless ( $name =~ m/-/ ) {
+      if ( $name =~ m/;/ ) {
+        my @na = split /\;/, $name;
+        @names{@na} = ();
+      }
+      else {
+        $names{$name} = ();
+      }
+    }
 
-     # getting acc unique 
-     unless ($acc=~m/-/) {  
-       if ($acc=~m/;/) { 
-         my @ac = split/\;/,$acc ;  
-         @accs{@ac}=(); 
-       } else { 
-         $accs{$acc}=() ; 
-       } 
-     }
+    # getting acc unique
+    unless ( $acc =~ m/-/ ) {
+      if ( $acc =~ m/;/ ) {
+        my @ac = split /\;/, $acc;
+        @accs{@ac} = ();
+      }
+      else {
+        $accs{$acc} = ();
+      }
+    }
 
-   } 
-   print "$display_id\t$lprim\t$rprim\t$dist\t";   
-   unless (scalar(keys %names)==0) { 
-     print join (";",keys %names) ; 
-   } else { 
-     print "\t-\t" ; 
-   }
-   print "\t$junk\t" ;  
-   unless (scalar(keys %accs)==0) { 
-     print join (";",keys %accs) ; 
-   }else { 
-     print "\t-\t" ; 
-   }
-   print "\t$species\n" ; 
-}
-
+  } ## end for my $l ( @{ $marker{...}})
+  print "$display_id\t$lprim\t$rprim\t$dist\t";
+  unless ( scalar( keys %names ) == 0 ) {
+    print join( ";", keys %names );
+  }
+  else {
+    print "\t-\t";
+  }
+  print "\t$junk\t";
+  unless ( scalar( keys %accs ) == 0 ) {
+    print join( ";", keys %accs );
+  }
+  else {
+    print "\t-\t";
+  }
+  print "\t$species\n";
+} ## end foreach my $id ( keys %marker)
 
 __END__
 

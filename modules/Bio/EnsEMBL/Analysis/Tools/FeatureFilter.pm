@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -33,8 +33,8 @@
 This is the standard module used for filtering blast results
 It filters on 4 separate things, It will throw out features whose score
 is below a certain value or whose pvalue is above a certain value. Coverage
-keeps all hit ids where at least of its features base pairs is covered by 
-less than its value in features (10 as standard). Prune and hard prune 
+keeps all hit ids where at least of its features base pairs is covered by
+less than its value in features (10 as standard). Prune and hard prune
 function in the same manner but prune only considers sets of features with
 the same hit id but hard prune considers all of them. The feature set
 which is passed to prune_features is first split on the basis of strand
@@ -48,10 +48,10 @@ also set by coverage)
 here is an asci drawing which should hopefully explain. In this system
 there are no min scores and coverage is set to 5 but nothing is thrown
 away by the initial coverage filter as every feature has every feature has
-at least on base pair whose coverage is below 5. The features with bits 
+at least on base pair whose coverage is below 5. The features with bits
 scores of 50 and 100 though would be thrown away by prune as base 21 is
 covered by 7 features and these are the lowest scoring of those 7 features
-if normal prune was used these features would all need to share the same 
+if normal prune was used these features would all need to share the same
 hit id but if hard prune was used that would not be true
 
                                  bit score
@@ -72,7 +72,6 @@ Post questions to the Ensembl development list: http://lists.ensembl.org/mailman
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::Tools::FeatureFilter;
 
 use strict;
@@ -84,8 +83,6 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw (@ISA);
 
 @ISA = qw();
-
-
 
 =head2 new
 
@@ -99,20 +96,16 @@ use vars qw (@ISA);
   Function  : create a new FeatureFilter object
   Returntype: Bio::EnsEMBL::Analysis::Tools::FeatureFilter
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub new{
-  my ($class,@args) = @_;
-  my $self = bless {},$class;
+sub new {
+  my ( $class, @args ) = @_;
+  my $self = bless {}, $class;
   &verbose('WARNING');
-  my ($min_score, $max_pvalue, $coverage,
-      $prune, $hard_prune, $filter_on_coverage) = 
-        rearrange(['MIN_SCORE', 'MAX_PVALUE', 'COVERAGE',
-                   'PRUNE', 'HARD_PRUNE', 'FILTER_ON_COVERAGE'], @args);
+  my ( $min_score, $max_pvalue, $coverage, $prune, $hard_prune, $filter_on_coverage ) =
+    rearrange( [ 'MIN_SCORE', 'MAX_PVALUE', 'COVERAGE', 'PRUNE', 'HARD_PRUNE', 'FILTER_ON_COVERAGE' ], @args );
   ######################
   #SETTING THE DEFAULTS#
   ######################
@@ -123,75 +116,68 @@ sub new{
   $self->hard_prune(0);
   $self->filter_on_coverage(1);
   ######################
-  $self->min_score($min_score) if(defined $min_score);
-  $self->max_pvalue($max_pvalue) if(defined $max_pvalue);
-  $self->coverage($coverage) if(defined $coverage);
-  $self->prune($prune) if(defined $prune);
-  $self->hard_prune($hard_prune) if(defined $hard_prune);
-  $self->filter_on_coverage($filter_on_coverage) 
-    if(defined($filter_on_coverage));
+  $self->min_score($min_score)                   if ( defined $min_score );
+  $self->max_pvalue($max_pvalue)                 if ( defined $max_pvalue );
+  $self->coverage($coverage)                     if ( defined $coverage );
+  $self->prune($prune)                           if ( defined $prune );
+  $self->hard_prune($hard_prune)                 if ( defined $hard_prune );
+  $self->filter_on_coverage($filter_on_coverage) if ( defined($filter_on_coverage) );
   return $self;
 }
 
-
 #containers
 
-=head2 min_score 
+=head2 min_score
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::FeatureFilter
   Arg [2]   : variable, generally int or string
   Function  : This describes the 6 container methods below
-  min_score, max_pvalue, coverage, prune, hard_prune and 
+  min_score, max_pvalue, coverage, prune, hard_prune and
   filter on coverage. The all take, store and return their give
   variable
-  Returntype: int/string 
+  Returntype: int/string
   Exceptions: none
   Example   : none
 
 =cut
 
-
-sub min_score{
+sub min_score {
   my $self = shift;
-  $self->{'min_score'} = shift if(@_);
+  $self->{'min_score'} = shift if (@_);
   return $self->{'min_score'};
 }
 
-sub max_pvalue{
+sub max_pvalue {
   my $self = shift;
-  $self->{'max_pvalue'} = shift if(@_);
+  $self->{'max_pvalue'} = shift if (@_);
   return $self->{'max_pvalue'};
 }
 
-sub coverage{
+sub coverage {
   my $self = shift;
-  $self->{'coverage'} = shift if(@_);
+  $self->{'coverage'} = shift if (@_);
   return $self->{'coverage'};
 }
 
-sub prune{
+sub prune {
   my $self = shift;
-  $self->{'prune'} = shift if(@_);
+  $self->{'prune'} = shift if (@_);
   return $self->{'prune'};
 }
 
-sub hard_prune{
+sub hard_prune {
   my $self = shift;
-  $self->{'hard_prune'} = shift if(@_);
+  $self->{'hard_prune'} = shift if (@_);
   return $self->{'hard_prune'};
 }
 
-sub filter_on_coverage{
+sub filter_on_coverage {
   my $self = shift;
-  $self->{'filter_on_coverage'} = shift if(@_);
+  $self->{'filter_on_coverage'} = shift if (@_);
   return $self->{'filter_on_coverage'};
 }
 
-
-
 #filter methods
-
-
 
 =head2 filter_results
 
@@ -202,23 +188,20 @@ sub filter_on_coverage{
   Function  : filter the given features by score, pvalue coverage
   Returntype: arrayref
   Exceptions: throws if passed nothing or not an arrayref
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub filter_results{
-  my ($self, $features) = @_;
-  if(!$features || ref($features) ne 'ARRAY'){
-    throw("Must pass filter_results an arrayref not ".$features.
-          " FeatureFilter::filter_results");
+sub filter_results {
+  my ( $self, $features ) = @_;
+  if ( !$features || ref($features) ne 'ARRAY' ) {
+    throw( "Must pass filter_results an arrayref not " . $features . " FeatureFilter::filter_results" );
   }
   my %validhit;
   my %hitarray;
   my %totalscore;
   my $maxend = 0;
- 
+
   #filtering by score
   #sorting by score so we use the highest scoring feature first
   #The score filter basically takes all features belonging to
@@ -226,20 +209,19 @@ sub filter_results{
   #greater than the min score and a pvalue less than the max pvalue
   #print "Passed ".@$features." results\n";
   @$features = sort { $b->score <=> $a->score } @$features;
-  
-  foreach my $f(@$features){
-    if($f->score > $self->min_score){ 
-      if(!exists $validhit{$f->hseqname}){
-        $validhit{$f->hseqname} = 0;
-        $totalscore{$f->hseqname} = 0;
+
+  foreach my $f (@$features) {
+    if ( $f->score > $self->min_score ) {
+      if ( !exists $validhit{ $f->hseqname } ) {
+        $validhit{ $f->hseqname }   = 0;
+        $totalscore{ $f->hseqname } = 0;
       }
-      $totalscore{$f->hseqname} += $f->score;
-      if(!$f->can('p_value') || !defined $f->p_value 
-         || $f->p_value < $self->max_pvalue){
-        if($validhit{$f->hseqname} < $f->score){
-          $validhit{$f->hseqname} = $f->score;
+      $totalscore{ $f->hseqname } += $f->score;
+      if ( !$f->can('p_value') || !defined $f->p_value || $f->p_value < $self->max_pvalue ) {
+        if ( $validhit{ $f->hseqname } < $f->score ) {
+          $validhit{ $f->hseqname } = $f->score;
         }
-        if($f->end > $maxend){
+        if ( $f->end > $maxend ) {
           $maxend = $f->end;
         }
       }
@@ -247,24 +229,21 @@ sub filter_results{
     #if a hit doesn't pass the min score or max pvalue threshold
     #but the hit id has features which do this ensures all features
     #for that hit id are kept regardless of score and pvalue
-    if($validhit{$f->hseqname}){
-      if(!exists($hitarray{$f->hseqname})){
-        $hitarray{$f->hseqname} = [];
+    if ( $validhit{ $f->hseqname } ) {
+      if ( !exists( $hitarray{ $f->hseqname } ) ) {
+        $hitarray{ $f->hseqname } = [];
       }
-      push(@{$hitarray{$f->hseqname}}, $f);
+      push( @{ $hitarray{ $f->hseqname } }, $f );
     }
-  }
-  
+  } ## end foreach my $f (@$features)
+
   my $total_count = 0;
-  foreach my $id(keys(%hitarray)){
-    $total_count += @{$hitarray{$id}};
+  foreach my $id ( keys(%hitarray) ) {
+    $total_count += @{ $hitarray{$id} };
   }
 
-  my @hit_ids = sort {$validhit{$b} <=> $validhit{$a}
-                         or $totalscore{$b} <=> $totalscore{$a}
-                           or $a cmp $b
-                         } keys %validhit;
-  
+  my @hit_ids = sort { $validhit{$b} <=> $validhit{$a} or $totalscore{$b} <=> $totalscore{$a} or $a cmp $b } keys %validhit;
+
   #this sorts the hseqnames of the valid hits first by the max score
   #then by the highest total score
   #then on alphabetical order before feeding the names to the
@@ -273,31 +252,31 @@ sub filter_results{
   #This coverage filter works on principle if one hit
   #for a particular id is lower than the coverage it takes all the hits
   #It only considers hits who have scores and p values with in the limits
-  #First it generates an array which is the length of the max end of all 
-  #the features is. Then it considers each strand separately. 
-  #Then for each hit name it goes though each features if the feature is 
+  #First it generates an array which is the length of the max end of all
+  #the features is. Then it considers each strand separately.
+  #Then for each hit name it goes though each features if the feature is
   #on the appropriate strand it looks at the array index for each base pair
   #in that feature and checks if the coverage is too high. Provided one
   #basepair has less coverage than required the feature is kept
-  #otherwise that hit id is marked to be thrown away. 
-  
-  if($self->filter_on_coverage){
-    my @strands = (1, -1);
-    foreach my $strand(@strands){
+  #otherwise that hit id is marked to be thrown away.
+
+  if ( $self->filter_on_coverage ) {
+    my @strands = ( 1, -1 );
+    foreach my $strand (@strands) {
       my @list;
-      $list[$maxend] = 0; #perl will automatically extend this array
-    NAME:foreach my $name(@hit_ids){
+      $list[$maxend] = 0;    #perl will automatically extend this array
+    NAME: foreach my $name (@hit_ids) {
 
         my $hole = 0;
-      FEATURE:foreach my $f(@{$hitarray{$name}}){
+      FEATURE: foreach my $f ( @{ $hitarray{$name} } ) {
           next FEATURE if $f->strand != $strand;
-          if( (($f->score > $self->min_score) && ($f->can('p_value'))
-             && defined $f->p_value && $f->p_value < $self->max_pvalue) ){
-          INDEX:foreach my $i ( $f->start .. $f->end ) {
-              unless( $list[$i] ){
+          if ( ( ( $f->score > $self->min_score ) && ( $f->can('p_value') ) && defined $f->p_value && $f->p_value < $self->max_pvalue ) )
+          {
+          INDEX: foreach my $i ( $f->start .. $f->end ) {
+              unless ( $list[$i] ) {
                 $list[$i] = 0;
               }
-              if( $list[$i] < $self->coverage ) {
+              if ( $list[$i] < $self->coverage ) {
                 # accept!
                 $hole = 1;
                 last;
@@ -305,52 +284,52 @@ sub filter_results{
             }
           }
         }
-        if($hole == 0){
-          next ;
+        if ( $hole == 0 ) {
+          next;
         }
         $accepted_hit_ids{$name} = 1;
-        foreach my $f ( @{$hitarray{$name}} ) {
-          if ($f->strand == $strand) {
+        foreach my $f ( @{ $hitarray{$name} } ) {
+          if ( $f->strand == $strand ) {
             for my $i ( $f->start .. $f->end ) {
-              $list[$i]++; 
+              $list[$i]++;
             }
           }
         }
-      }
-    }
-  }else{
-    foreach my $name(keys(%hitarray)){
+      } ## end NAME: foreach my $name (@hit_ids)
+    } ## end foreach my $strand (@strands)
+  } ## end if ( $self->filter_on_coverage)
+  else {
+    foreach my $name ( keys(%hitarray) ) {
       $accepted_hit_ids{$name} = 1;
     }
   }
-  $total_count=0;
-  foreach my $id(keys(%accepted_hit_ids)){
-    $total_count += @{$hitarray{$id}};
+  $total_count = 0;
+  foreach my $id ( keys(%accepted_hit_ids) ) {
+    $total_count += @{ $hitarray{$id} };
   }
- 
+
   my @features;
- 
-  foreach my $name(keys(%accepted_hit_ids)){
-    my @tmp = @{$hitarray{$name}};
-   
+
+  foreach my $name ( keys(%accepted_hit_ids) ) {
+    my @tmp = @{ $hitarray{$name} };
+
     my $remaining;
-    if($self->prune){
-      $remaining = $self->prune_features(\@tmp);
-    }else{
+    if ( $self->prune ) {
+      $remaining = $self->prune_features( \@tmp );
+    }
+    else {
       $remaining = \@tmp;
     }
-    
-    push(@features, @$remaining);
+
+    push( @features, @$remaining );
   }
-  
-  if($self->hard_prune){ #this pruning is done across all features
-    @features = @{$self->prune_features(\@features)};
+
+  if ( $self->hard_prune ) {    #this pruning is done across all features
+    @features = @{ $self->prune_features( \@features ) };
   }
-  
+
   return \@features;
-}
-
-
+} ## end sub filter_results
 
 =head2 prune_features
 
@@ -359,24 +338,19 @@ sub filter_results{
   Function  : calls to prune_features_by_strand with each strand
   Returntype: arrayref of features
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub prune_features{
-  my ($self, $features) = @_;
+sub prune_features {
+  my ( $self, $features ) = @_;
   my @output;
-  my $forward = $self->prune_features_by_strand(1, $features);
-  push(@output, @$forward) if($forward);
-  my $reverse = $self->prune_features_by_strand(-1, $features);
-  push(@output, @$reverse) if($reverse);
+  my $forward = $self->prune_features_by_strand( 1, $features );
+  push( @output, @$forward ) if ($forward);
+  my $reverse = $self->prune_features_by_strand( -1, $features );
+  push( @output, @$reverse ) if ($reverse);
   return \@output;
 }
-
-
-
 
 =head2 prune_features_by_strand
 
@@ -388,10 +362,9 @@ sub prune_features{
   features are thrown out first
   Returntype: arrayref of features
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
-
 
 #How prune_features_by_strand  works
 
@@ -413,82 +386,77 @@ sub prune_features{
 #each time a feature covers this base pair it is thrown away and the
 #coverage of each base the rejected feature covers is decremented.
 
-#7. Each over covered base is considered untill the coverage is decreased 
-#to acceptable limits 
+#7. Each over covered base is considered untill the coverage is decreased
+#to acceptable limits
 
 #8. the remaining feature set is returned
 
-
-
-
-
 sub prune_features_by_strand {
-   my ($self, $strand, $in) = @_;
-   
-   my @input_for_strand;
-   foreach my $f (@$in) {
-     push @input_for_strand, $f if $f->strand eq $strand;
-   }
-   
-   return () if !@input_for_strand;
-  
-   my @sorted_fs = sort{ $a->start <=> $b->start } @input_for_strand;
-   my $first_base = $sorted_fs[0]->start;
-   @sorted_fs = sort{ $a->end <=> $b->end } @input_for_strand;
-   my $last_base = $sorted_fs[$#sorted_fs]->end;
+  my ( $self, $strand, $in ) = @_;
 
-   # fs_per_base: set element i to the number of features covering base i
-   my @fs_per_base;
-   foreach  my $base ($first_base..$last_base) {
-     $fs_per_base[$base] = 0;	# initialise
-   }
-   foreach my $f (@input_for_strand) {
-     foreach my $covered_base ($f->start..$f->end) {
-       $fs_per_base[$covered_base]++;
-     }
-   }
+  my @input_for_strand;
+  foreach my $f (@$in) {
+    push @input_for_strand, $f if $f->strand eq $strand;
+  }
 
-   # put the worst features first, so they get removed with priority
-   @sorted_fs = sort { $a->score <=> $b->score } @input_for_strand;
-   #note if you have two features with the same score you may not always
-   #throw away the same one the code below eliminates this problem but it
-   #isn't used as standard
-   #@sorted_fs = sort { $a->score <=> $b->score || 
-   #                      $a->start <=> $b->start } @input_for_strand;
- 
-   
-   @input_for_strand = ();	# free some memory?
+  return () if !@input_for_strand;
 
-   # over_covered_bases: list of base numbers where coverage must be
-   # reduced, listed worst-case-first
-   my $max_coverage = $self->coverage;
-   my @over_covered_bases;
-   #print "Order of features in prune\n";
-   foreach my $base ($first_base..$last_base) {
-     my $excess_fs = $fs_per_base[$base] - $max_coverage;
-     if ($excess_fs > 0) {
-       push @over_covered_bases, $base;
-     }
-   }
-   @over_covered_bases = sort { $fs_per_base[$b] <=> $fs_per_base[$a] }
-     @over_covered_bases;
+  my @sorted_fs = sort { $a->start <=> $b->start } @input_for_strand;
+  my $first_base = $sorted_fs[0]->start;
+  @sorted_fs = sort { $a->end <=> $b->end } @input_for_strand;
+  my $last_base = $sorted_fs[$#sorted_fs]->end;
 
-   foreach my $base (@over_covered_bases) {
-     my $f_no = 0;
-     while ($fs_per_base[$base] > $max_coverage) {
-       my $start = $sorted_fs[$f_no]->start;
-       my $end = $sorted_fs[$f_no]->end;
-       if ($start <= $base and $end >= $base) {	# cut this feature
-         splice @sorted_fs, $f_no, 1;	# same index will give next feature
-         foreach my $was_covered ($start..$end) {
-           $fs_per_base[$was_covered]--;
-         }
-       } else {	# didn't overlap this base, move on to next feature
-         $f_no++;
-       }
-     }
-   }
-   return \@sorted_fs;
-}
+  # fs_per_base: set element i to the number of features covering base i
+  my @fs_per_base;
+  foreach my $base ( $first_base .. $last_base ) {
+    $fs_per_base[$base] = 0;    # initialise
+  }
+  foreach my $f (@input_for_strand) {
+    foreach my $covered_base ( $f->start .. $f->end ) {
+      $fs_per_base[$covered_base]++;
+    }
+  }
+
+  # put the worst features first, so they get removed with priority
+  @sorted_fs = sort { $a->score <=> $b->score } @input_for_strand;
+  #note if you have two features with the same score you may not always
+  #throw away the same one the code below eliminates this problem but it
+  #isn't used as standard
+  #@sorted_fs = sort { $a->score <=> $b->score ||
+  #                      $a->start <=> $b->start } @input_for_strand;
+
+  @input_for_strand = ();    # free some memory?
+
+  # over_covered_bases: list of base numbers where coverage must be
+  # reduced, listed worst-case-first
+  my $max_coverage = $self->coverage;
+  my @over_covered_bases;
+  #print "Order of features in prune\n";
+  foreach my $base ( $first_base .. $last_base ) {
+    my $excess_fs = $fs_per_base[$base] - $max_coverage;
+    if ( $excess_fs > 0 ) {
+      push @over_covered_bases, $base;
+    }
+  }
+  @over_covered_bases = sort { $fs_per_base[$b] <=> $fs_per_base[$a] } @over_covered_bases;
+
+  foreach my $base (@over_covered_bases) {
+    my $f_no = 0;
+    while ( $fs_per_base[$base] > $max_coverage ) {
+      my $start = $sorted_fs[$f_no]->start;
+      my $end   = $sorted_fs[$f_no]->end;
+      if ( $start <= $base and $end >= $base ) {    # cut this feature
+        splice @sorted_fs, $f_no, 1;                # same index will give next feature
+        foreach my $was_covered ( $start .. $end ) {
+          $fs_per_base[$was_covered]--;
+        }
+      }
+      else {                                        # didn't overlap this base, move on to next feature
+        $f_no++;
+      }
+    }
+  }
+  return \@sorted_fs;
+} ## end sub prune_features_by_strand
 
 1;

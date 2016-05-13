@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,7 +30,7 @@
   Bio::EnsEMBL::Analysis::Runnable::RNAfold
 
 =head1 SYNOPSIS
- 
+
  my $runnable = Bio::EnsEMBL::Analysis::Runnable::RNAfold->new
     (
      -analysis  => $analysis,
@@ -49,7 +50,6 @@ The resulting structure string is run-length encoded.
 =head1 METHODS
 
 =cut
-
 
 package Bio::EnsEMBL::Analysis::Runnable::RNAFold;
 
@@ -84,9 +84,9 @@ my $verbose = "";
 =cut
 
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($sequence,$structure) = rearrange(['SEQUENCE','STRUCTURE'], @args);
+  my ( $sequence, $structure ) = rearrange( [ 'SEQUENCE', 'STRUCTURE' ], @args );
   $self->throw("RNAFold: Cannot work without a sequence object\n") unless $sequence;
   $self->sequence($sequence);
   $self->structure_constraint($structure) if $structure;
@@ -104,15 +104,15 @@ sub new {
 
 =cut
 
-sub run{
+sub run {
   my ($self) = @_;
   print STDERR "Run analysis\n" if $verbose;
-  my $filename = $self->write_seq($self->sequence);
-  $self->RNAfold($self->sequence,$filename);
+  my $filename = $self->write_seq( $self->sequence );
+  $self->RNAfold( $self->sequence, $filename );
   my $structure = $self->parse;
   $self->structure($structure);
-  $self->encoded_str($self->encode_str($structure));
-#  print STDERR "delete temp files\n"  if $verbose;
+  $self->encoded_str( $self->encode_str($structure) );
+  #  print STDERR "delete temp files\n"  if $verbose;
   $self->delete_files;
 }
 
@@ -128,32 +128,31 @@ sub run{
 
 =cut
 
-sub RNAfold{
-  my ($self,$seq,$filename)=@_;
-  my $command  = "RNAfold ";
+sub RNAfold {
+  my ( $self, $seq, $filename ) = @_;
+  my $command = "RNAfold ";
   my $options = "";
-  if ($self->structure_constraint){
+  if ( $self->structure_constraint ) {
     $options = " -C ";
   }
-  my $results_file = $self->create_filename("RNAfold","txt");
+  my $results_file = $self->create_filename( "RNAfold", "txt" );
   $self->files_to_delete($results_file);
   # delete the postcript file that RNAfold generates
-  $self->files_to_delete("/tmp/".$seq->display_id."_ss.ps");
+  $self->files_to_delete( "/tmp/" . $seq->display_id . "_ss.ps" );
   $self->resultsfile($results_file);
-  $command .= "$options < $filename  2>&1 > ".$results_file;
-  print STDERR "Running RNAfold ".$command."\n";
-  open(my $fh, "$command |") || 
-    $self->throw("Error opening RNAfold cmd <$command>");
+  $command .= "$options < $filename  2>&1 > " . $results_file;
+  print STDERR "Running RNAfold " . $command . "\n";
+  open( my $fh, "$command |" ) || $self->throw("Error opening RNAfold cmd <$command>");
   # this loop reads the STDERR from the blast command
-  while(<$fh>){
-    if(/FATAL:(.+)/){
+  while (<$fh>) {
+    if (/FATAL:(.+)/) {
       my $match = $1;
       $self->throw("miRNA: RNAfold failed to run: $match$@\n");
     }
   }
   close $fh;
   return 1;
-}
+} ## end sub RNAfold
 
 =head2 parse
 
@@ -166,26 +165,25 @@ sub RNAfold{
 
 =cut
 
-sub parse{
-  my ($self)=@_;  
+sub parse {
+  my ($self) = @_;
   my $results = $self->resultsfile;
   my $structure;
   my $score;
-  open(RNAFOLD, $results) or $self->throw("FAILED to open ".$results.
-					  " miRNA:parse_results\n$@\n");
- LINE: while(<RNAFOLD>){
+  open( RNAFOLD, $results ) or $self->throw( "FAILED to open " . $results . " miRNA:parse_results\n$@\n" );
+LINE: while (<RNAFOLD>) {
     chomp;
-    if ($_ =~ /([().]+)\s\(\s*(-*\d+.\d+)\)$/){
+    if ( $_ =~ /([().]+)\s\(\s*(-*\d+.\d+)\)$/ ) {
       $structure = $1;
-      $score = $2;
+      $score     = $2;
     }
   }
-  close(RNAFOLD) or $self->throw("FAILED to close ".$results.
-				 " miRNA:parse_results\n$@\n");
+  close(RNAFOLD) or $self->throw( "FAILED to close " . $results . " miRNA:parse_results\n$@\n" );
   $self->score($score);
-  if ($structure){
+  if ($structure) {
     return $structure;
-  } else {
+  }
+  else {
     return 0;
   }
 }
@@ -194,43 +192,41 @@ sub parse{
 
   Title      : write_seq
   Usage      : my $filename = $self->write_seq($daf);
-  Function   : Writes the dna sequence file 
+  Function   : Writes the dna sequence file
   Returns    : filename (String)
   Exceptions : Throws if it cannot write to the file
   Args       : Bio::PrimarySeq
 
 =cut
 
-sub write_seq{
-  my ($self,$seq)=@_;
-  my $filename = $self->create_filename("miRNA","seq");
-  # have to write file so the sequence is all on a single line 
+sub write_seq {
+  my ( $self, $seq ) = @_;
+  my $filename = $self->create_filename( "miRNA", "seq" );
+  # have to write file so the sequence is all on a single line
   # cos thats the way RNAfold likes it
   $self->files_to_delete("/tmp/$filename");
-  eval{
-    open (FILE,">$filename");
-    print FILE ">".$seq->display_id."\n";
-    print FILE $seq->seq."\n";
-    print FILE $self->structure_constraint if ($self->structure_constraint);
+  eval {
+    open( FILE, ">$filename" );
+    print FILE ">" . $seq->display_id . "\n";
+    print FILE $seq->seq . "\n";
+    print FILE $self->structure_constraint if ( $self->structure_constraint );
     close FILE;
   };
-  if ($@){
-    $self->throw
-      ("RNAFold: Error writing to seq file $@\n");
-  };
+  if ($@) {
+    $self->throw("RNAFold: Error writing to seq file $@\n");
+  }
   $self->files_to_delete($filename);
   return $filename;
 }
-
 
 =head2 encode_str
 
   Title      : encode_str
   Usage      : my $encoded_str = $runnable->encode_string($string)
   Function   : Does string length encoding to reduce size of structure string
-             : splits strings if they are longer then 200 characters so they 
+             : splits strings if they are longer then 200 characters so they
              : will fit in the transcript attribute table, gives a range value
-             : at the start of the string indicating the start and stop positions of the 
+             : at the start of the string indicating the start and stop positions of the
              : structure on the transcript
   Returns    : String
   Exceptions : None
@@ -238,48 +234,45 @@ sub write_seq{
 
 =cut
 
-sub encode_str{
-  my ($self,$string)= @_;
+sub encode_str {
+  my ( $self, $string ) = @_;
   my @codes;
   my $start = 1;
-  my $count=0;
+  my $count = 0;
   my $code;
-  my @elements = split //,$string;
+  my @elements = split //, $string;
   my $last_chr = "";
-  my @array =[];
-  foreach my $chr (@elements){
+  my @array    = [];
+  foreach my $chr (@elements) {
     $count++;
-    if ($chr eq $last_chr){
-	push @array,$chr;
-      }
+    if ( $chr eq $last_chr ) {
+      push @array, $chr;
+    }
     else {
-      if ($code && length($code) > 200 && scalar(@array) == 1){
-	push @codes,"$start:$count\t$code";
-	$code = undef;
-	$start = $count+1;
+      if ( $code && length($code) > 200 && scalar(@array) == 1 ) {
+        push @codes, "$start:$count\t$code";
+        $code  = undef;
+        $start = $count + 1;
       }
       # Character has changed print STDERR it and the associated array length
-      if (scalar(@array) > 1){
-	$code .= scalar(@array);
-	@array = [];
+      if ( scalar(@array) > 1 ) {
+        $code .= scalar(@array);
+        @array = [];
       }
       $code .= "$chr";
       $last_chr = $chr;
     }
   }
-# last element
-  if (scalar(@array) > 1){
+  # last element
+  if ( scalar(@array) > 1 ) {
     $code .= scalar(@array);
   }
-  push @codes,"$start:$count\t$code";
+  push @codes, "$start:$count\t$code";
   return \@codes;
-}
-
-
+} ## end sub encode_str
 
 ##################################################################################
 # Containers
-
 
 =head2 sequence
 
@@ -292,11 +285,10 @@ sub encode_str{
 
 =cut
 
-sub  sequence{
-  my ($self, $sequence) = @_;
-  if ($sequence){
-    $self->throw("RNAFold: Sequence needs to be a Bio::PrimarySeq object not a $sequence\n")
-		 unless ($sequence->isa("Bio::PrimarySeq"));
+sub sequence {
+  my ( $self, $sequence ) = @_;
+  if ($sequence) {
+    $self->throw("RNAFold: Sequence needs to be a Bio::PrimarySeq object not a $sequence\n") unless ( $sequence->isa("Bio::PrimarySeq") );
     $self->{'_sequence'} = $sequence;
   }
   return $self->{'_sequence'};
@@ -307,16 +299,16 @@ sub  sequence{
   Title      : structure_constraint
   Usage      : my $str = $runnable->structure_constraint
   Function   : Get/ set for the structure string used by RNAfold to constrain
-             : the folding prediction 
+             : the folding prediction
   Returns    : String
   Exceptions : None
   Args       : String
 
 =cut
 
-sub  structure_constraint{
-  my ($self, $structure_constraint) = @_;
-  if ($structure_constraint){
+sub structure_constraint {
+  my ( $self, $structure_constraint ) = @_;
+  if ($structure_constraint) {
     $self->{'_structure_constraint'} = $structure_constraint;
   }
   return $self->{'_structure_constraint'};
@@ -333,9 +325,9 @@ sub  structure_constraint{
 
 =cut
 
-sub  structure{
-  my ($self, $structure) = @_;
-  if ($structure){
+sub structure {
+  my ( $self, $structure ) = @_;
+  if ($structure) {
     $self->{'_structure'} = $structure;
   }
   return $self->{'_structure'};
@@ -352,9 +344,9 @@ sub  structure{
 
 =cut
 
-sub  encoded_str{
-  my ($self, $encoded_str) = @_;
-  if ($encoded_str){
+sub encoded_str {
+  my ( $self, $encoded_str ) = @_;
+  if ($encoded_str) {
     $self->{'_encoded_str'} = $encoded_str;
   }
   return $self->{'_encoded_str'};
@@ -371,9 +363,9 @@ sub  encoded_str{
 
 =cut
 
-sub  score{
-  my ($self, $score) = @_;
-  if ($score){
+sub score {
+  my ( $self, $score ) = @_;
+  if ($score) {
     $self->{'_score'} = $score;
   }
   return $self->{'_score'};

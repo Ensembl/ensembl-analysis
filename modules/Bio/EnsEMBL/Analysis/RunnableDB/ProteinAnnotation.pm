@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,7 +28,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation - 
+Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation -
 
 =head1 SYNOPSIS
 
@@ -40,7 +41,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation -
 =cut
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation;
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
@@ -51,150 +52,142 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 @ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
-
 ################################
 sub new {
-  my ($class, @args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  
-  throw("Analysis object required") unless ($self->analysis);
+
+  throw("Analysis object required") unless ( $self->analysis );
 
   $self->read_and_check_config;
 
   return $self;
 }
 
-
 ################################
 sub fetch_input {
-  my ($self) = @_;  
+  my ($self) = @_;
   my $input_id;
 
   my $db;
-  if ($self->GENEDB) {
-    $db = $self->get_dbadaptor($self->GENEDB);
-  } else {
+  if ( $self->GENEDB ) {
+    $db = $self->get_dbadaptor( $self->GENEDB );
+  }
+  else {
     $db = $self->db;
   }
-  if ( $self->DNA_DB ) {  
-     my $m_dna_db = $self->get_dbadaptor($self->DNA_DB); 
-     $m_dna_db->disconnect_when_inactive(1); 
-     $db->dnadb($m_dna_db);
-     $db->dnadb($m_dna_db);
-  } 
+  if ( $self->DNA_DB ) {
+    my $m_dna_db = $self->get_dbadaptor( $self->DNA_DB );
+    $m_dna_db->disconnect_when_inactive(1);
+    $db->dnadb($m_dna_db);
+    $db->dnadb($m_dna_db);
+  }
   my $error = "For logic " . $self->analysis->logic_name . ", Input id must be:\n";
   $error .= "(a) a valid translation dbID; or\n";
   $error .= "(b) the fully qualified directory/name of a fasta peptide file; or\n";
   $error .= "(c) the name only of a peptide fasta file (with BASE_DIR defined) in Config/ProteinAnnotation.pm\n";
   $error .= $self->input_id . " is none of these\n";
 
-  if ($self->input_id =~ /^(\d+)$/)  {
+  if ( $self->input_id =~ /^(\d+)$/ ) {
     my $prot;
-    eval {
-      $prot = $db->get_TranslationAdaptor->fetch_by_dbID($self->input_id);
-    };
-    if($@ or not defined $prot) {
+    eval { $prot = $db->get_TranslationAdaptor->fetch_by_dbID( $self->input_id ); };
+    if ( $@ or not defined $prot ) {
       throw($error);
     }
-    
-    $input_id  =  Bio::PrimarySeq->new(-seq         => $prot->seq,
-				       -id          => $self->input_id,
-				       -accession   => $self->input_id,
-				       -moltype     => 'protein');
-  } elsif ($self->input_id =~ /^\// and -e $self->input_id) {
+
+    $input_id = Bio::PrimarySeq->new( -seq => $prot->seq, -id => $self->input_id, -accession => $self->input_id, -moltype => 'protein' );
+  }
+  elsif ( $self->input_id =~ /^\// and -e $self->input_id ) {
     # assume fully-qualified file name
     $input_id = $self->input_id;
-  } elsif (defined $self->BASE_DIR and 
-           $self->BASE_DIR and
-           -e $self->BASE_DIR . "/" . $self->input_id) {    
+  }
+  elsif ( defined $self->BASE_DIR and $self->BASE_DIR and -e $self->BASE_DIR . "/" . $self->input_id ) {
     $input_id = $self->BASE_DIR . "/" . $self->input_id;
-  } else {
+  }
+  else {
     throw($error);
   }
-  
-  $self->query($input_id);
-}
 
+  $self->query($input_id);
+} ## end sub fetch_input
 
 ##################################
 sub write_output {
-  my($self) = @_;
-  
-  my @features = @{$self->output()};
-    
+  my ($self) = @_;
+
+  my @features = @{ $self->output() };
+
   my $db;
-  if ($self->GENEDB) {
-    $db = $self->get_dbadaptor($self->GENEDB);
-  } else {
-    $db =$self->db;
+  if ( $self->GENEDB ) {
+    $db = $self->get_dbadaptor( $self->GENEDB );
+  }
+  else {
+    $db = $self->db;
   }
 
   my $adap = $db->get_ProteinFeatureAdaptor;
-  
-  foreach my $feat(@features) {
-    $adap->store($feat, $feat->seqname);
+
+  foreach my $feat (@features) {
+    $adap->store( $feat, $feat->seqname );
   }
-  
+
   return 1;
 }
 
-
-
 ##################################
 sub run {
-  my ($self,$dir) = @_;
+  my ( $self, $dir ) = @_;
 
-  throw("Runnable module not set") unless ($self->runnable());
+  throw("Runnable module not set") unless ( $self->runnable() );
 
   my $db;
-  if ($self->GENEDB) {
-    $db = $self->get_dbadaptor($self->GENEDB);
-  } else {
-    $db =$self->db;
+  if ( $self->GENEDB ) {
+    $db = $self->get_dbadaptor( $self->GENEDB );
+  }
+  else {
+    $db = $self->db;
   }
 
   $db->dbc->disconnect_when_inactive(1);
-  my ($run) = @{$self->runnable};
+  my ($run) = @{ $self->runnable };
   $run->run($dir);
   $db->dbc->disconnect_when_inactive(0);
 
-  $self->output($run->output);
+  $self->output( $run->output );
 }
 
-
 ###################################
-sub query{
-  my ($self, $query) = @_;
+sub query {
+  my ( $self, $query ) = @_;
 
-  if(defined $query){
-    if (ref($query)) {      
-      if (not $query->isa('Bio::PrimarySeqI')) {
-        throw("Must pass RunnableDB:query a Bio::PrimarySeqI " 
-              . "not a ".$query);
-      } 
-    } elsif (not -e $query) {
-      throw("Must pass RunnableDB::query a filename that exists " . ref($query));
+  if ( defined $query ) {
+    if ( ref($query) ) {
+      if ( not $query->isa('Bio::PrimarySeqI') ) {
+        throw( "Must pass RunnableDB:query a Bio::PrimarySeqI " . "not a " . $query );
+      }
     }
-    $self->{_query} = $query;        
+    elsif ( not -e $query ) {
+      throw( "Must pass RunnableDB::query a filename that exists " . ref($query) );
+    }
+    $self->{_query} = $query;
   }
   return $self->{_query};
 }
 
 #####################################
 sub output {
-  my ($self, $output) = @_;
-  if(!$self->{'output'}){
+  my ( $self, $output ) = @_;
+  if ( !$self->{'output'} ) {
     $self->{'output'} = [];
   }
-  if($output){
-    if(ref($output) ne 'ARRAY'){
-      throw('Must pass RunnableDB:output an array ref not a '.$output);
+  if ($output) {
+    if ( ref($output) ne 'ARRAY' ) {
+      throw( 'Must pass RunnableDB:output an array ref not a ' . $output );
     }
     $self->{'output'} = $output;
   }
   return $self->{'output'};
 }
-
 
 ####################################
 #############################################################
@@ -213,61 +206,55 @@ sub read_and_check_config {
 
   # check that compulsory options have values
 
-  if (defined $self->BASE_DIR and 
-      $self->BASE_DIR and
-      not -d $self->BASE_DIR) {
-    throw("BASE_DIR " . $self->BASE_DIR . " could not be found")
+  if ( defined $self->BASE_DIR and $self->BASE_DIR and not -d $self->BASE_DIR ) {
+    throw( "BASE_DIR " . $self->BASE_DIR . " could not be found" );
   }
 }
 
-
 sub BASE_DIR {
-  my ($self, $val) = @_;
+  my ( $self, $val ) = @_;
 
-  if (defined $val) {
+  if ( defined $val ) {
     $self->{_base_dir} = $val;
   }
 
-  if (not exists $self->{_base_dir}) {
+  if ( not exists $self->{_base_dir} ) {
     return undef;
-  } else {
+  }
+  else {
     return $self->{_base_dir};
   }
 
 }
 
-
-
 sub GENEDB {
-  my ($self, $val) = @_;
+  my ( $self, $val ) = @_;
 
-
-  if (defined $val) {
+  if ( defined $val ) {
     $self->{_gene_db} = $val;
   }
 
-  if (not exists $self->{_gene_db}) {
+  if ( not exists $self->{_gene_db} ) {
     return undef;
-  } else {
+  }
+  else {
     return $self->{_gene_db};
-  }
-} 
-
-
-sub DNA_DB {
-  my ($self, $val) = @_;
-
-
-  if (defined $val) {
-    $self->{_dna_db} = $val;
-  }
-
-  if (not exists $self->{_dna_db}) {
-    return undef;
-  } else {
-    return $self->{_dna_db};
   }
 }
 
+sub DNA_DB {
+  my ( $self, $val ) = @_;
+
+  if ( defined $val ) {
+    $self->{_dna_db} = $val;
+  }
+
+  if ( not exists $self->{_dna_db} ) {
+    return undef;
+  }
+  else {
+    return $self->{_dna_db};
+  }
+}
 
 1;

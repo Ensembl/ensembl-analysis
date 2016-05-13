@@ -110,7 +110,7 @@ sub fetch_input {
   }
   else {
     $self->input_is_void(1);
-    $self->warning( "Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ..." );
+    $self->warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
   }
 
   return 1;

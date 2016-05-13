@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,7 +15,7 @@
 # script to calculate map_weights in a database that has markers
 # and marker_features. Recreates the marker_feature table with weights set
 
-use warnings ;
+use warnings;
 use strict;
 use DBI;
 
@@ -25,27 +25,19 @@ my ( $host, $user, $pass, $port, $dbname );
 my $verbose = 0;
 $port = 3306;
 
-GetOptions( "host|dbhost|h=s", \$host,
-	    "user|dbuser|u=s", \$user,
-	    "pass|dbpass|p=s", \$pass,
-	    "port|dbport|P=i", \$port,
-	    "dbname|db|D=s", \$dbname,
-	    "verbose", \$verbose
-	  );
+GetOptions( "host|dbhost|h=s", \$host, "user|dbuser|u=s", \$user,   "pass|dbpass|p=s", \$pass,
+            "port|dbport|P=i", \$port, "dbname|db|D=s",   \$dbname, "verbose",         \$verbose );
 
-if( !$host ) {
+if ( !$host ) {
   usage();
 }
 
-
-
 my $dsn = "DBI:mysql:host=$host;dbname=$dbname";
-if( $port ) {
+if ($port) {
   $dsn .= ";port=$port";
 }
 
 my $db = DBI->connect( $dsn, $user, $pass );
-
 
 $db->do( "
   CREATE TABLE tmp_m_weight
@@ -62,10 +54,10 @@ $db->do( "
   WHERE  mf.marker_id = tmw.marker_id
 " );
 
-$db->do( "delete from marker_feature" );
-$db->do( "insert into marker_feature select * from new_marker_feature" );
-$db->do( "drop table tmp_m_weight" );
-$db->do( "drop table new_marker_feature" );
+$db->do("delete from marker_feature");
+$db->do("insert into marker_feature select * from new_marker_feature");
+$db->do("drop table tmp_m_weight");
+$db->do("drop table new_marker_feature");
 
 sub usage {
   print <<EOF;

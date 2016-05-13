@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags - 
+Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags -
 
 =head1 SYNOPSIS
 
@@ -50,10 +51,10 @@ after filtering the hits.
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateTags;
 
-use warnings ;
+use warnings;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Utils::Argument  qw( rearrange );
+use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTags;
 use Bio::SeqIO;
@@ -63,7 +64,6 @@ use Bio::EnsEMBL::Analysis::Config::ExonerateTags;
 use vars qw(@ISA);
 
 @ISA = qw (Bio::EnsEMBL::Analysis::RunnableDB);
-
 
 =head2 new
 
@@ -83,7 +83,6 @@ sub new {
   return $self;
 }
 
-
 =head2 fetch_input
 
   Args      : none
@@ -93,16 +92,17 @@ sub new {
 
 =cut
 
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
 
   #define target
   my $target = $self->GENOMICSEQS;
-  if ( -e $target ){
-    if(!(-d $target)and !(-s $target)) {
+  if ( -e $target ) {
+    if ( !( -d $target ) and !( -s $target ) ) {
       throw("'$target' isn't a file or a directory?");
     }
-  } else {
+  }
+  else {
     throw("'$target' could not be found");
   }
 
@@ -110,51 +110,49 @@ sub fetch_input{
   my @fasta_entries = ();
   my $tmp_dir       = $self->TMPDIR;
   #expected format of input ids: ditag.<TYPE>.<NUMBER>
-  $self->input_id   =~ /ditag\.(\S+)\.([0-9]+)/;
-  my $tagtype       = $1;
-  my $input_index   = $2;
-  throw("Couldn t get index number from input-id ".$self->input_id)
-      unless($input_index);
-  throw("Couldn t get tag-type from input-id ".$self->input_id)
-      unless($tagtype);
+  $self->input_id =~ /ditag\.(\S+)\.([0-9]+)/;
+  my $tagtype     = $1;
+  my $input_index = $2;
+  throw( "Couldn t get index number from input-id " . $self->input_id ) unless ($input_index);
+  throw( "Couldn t get tag-type from input-id " . $self->input_id )     unless ($tagtype);
 
   #fetch all desired ditags
   my $batch_size = $self->BATCHSIZE();
   #my $tagtype    = $self->TAGTYPE();
-  my $ditags     = $self->db->get_ditagAdaptor->fetch_all_with_limit(
-                   $tagtype, $batch_size, ($batch_size * ($input_index - 1)) );
+  my $ditags = $self->db->get_ditagAdaptor->fetch_all_with_limit( $tagtype, $batch_size, ( $batch_size*( $input_index - 1 ) ) );
   my $chop_first = $self->CHOPFIRST();
 
-  my $chop_last  = $self->CHOPLAST();
+  my $chop_last = $self->CHOPLAST();
 
   foreach my $ditag (@$ditags) {
     #avoid polyA sequences
     $ditag = $self->_check_seq($ditag);
-    if($ditag) {
+    if ($ditag) {
 
       my $ditag_fasta_entry;
-      if($self->SPLITSEQS()) {
+      if ( $self->SPLITSEQS() ) {
         #split the seq and store as fasta line, remove specific bases if necessary
-        $ditag_fasta_entry = $self->_split_seq($ditag, $chop_first, $chop_last);
-      } else {
+        $ditag_fasta_entry = $self->_split_seq( $ditag, $chop_first, $chop_last );
+      }
+      else {
         my $tagseq = $ditag->sequence;
         #remove leading bases? (e.g. G from GIS tags)
-        if($chop_first){
-          $tagseq = $self->_chop_first($tagseq, $chop_first);
+        if ($chop_first) {
+          $tagseq = $self->_chop_first( $tagseq, $chop_first );
         }
         #remove trailing bases? (e.g. AA)
-        if($chop_last){
-          $tagseq = $self->_chop_last($tagseq, $chop_last);
+        if ($chop_last) {
+          $tagseq = $self->_chop_last( $tagseq, $chop_last );
         }
-        $ditag_fasta_entry = ">".$ditag->dbID."_F"."\n".$tagseq."\n";
+        $ditag_fasta_entry = ">" . $ditag->dbID . "_F" . "\n" . $tagseq . "\n";
       }
-      push(@fasta_entries, $ditag_fasta_entry);
+      push( @fasta_entries, $ditag_fasta_entry );
     }
-  }
+  } ## end foreach my $ditag (@$ditags)
 
   #write fasta lines to temp-file for exonerate
-  my $tmp_file = $tmp_dir."/".$input_index.".tmp";
-  open(OUTFILE, ">$tmp_file") or throw "couldnt create fasta chunk file $tmp_file";
+  my $tmp_file = $tmp_dir . "/" . $input_index . ".tmp";
+  open( OUTFILE, ">$tmp_file" ) or throw "couldnt create fasta chunk file $tmp_file";
   foreach my $ditag_fasta_entry (@fasta_entries) {
     print OUTFILE $ditag_fasta_entry;
   }
@@ -163,40 +161,32 @@ sub fetch_input{
   #define other parameters
   my %parameters = %{ $self->parameters_hash };
 
-  if (
-    not exists( $parameters{-options} )
-    and defined $self->OPTIONS
-  ){
+  if ( not exists( $parameters{-options} ) and defined $self->OPTIONS ) {
     $parameters{-options} = $self->OPTIONS;
   }
 
-  if($self->analysis->db_file){
-    $parameters{'-STS_FILE'} = $self->analysis->db_file 
-      unless($parameters{'-STS_FILE'});
+  if ( $self->analysis->db_file ) {
+    $parameters{'-STS_FILE'} = $self->analysis->db_file unless ( $parameters{'-STS_FILE'} );
   }
 
-  my $program = ($self->PROGRAM()) ? $self->PROGRAM() : $self->analysis->program_file;
-  if(!$program){ throw "Cant decide what program to use for analysis!\n" }
+  my $program = ( $self->PROGRAM() ) ? $self->PROGRAM() : $self->analysis->program_file;
+  if ( !$program ) { throw "Cant decide what program to use for analysis!\n" }
 
   #create runnable
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTags->new
-    (
-     -program         => $program,
-     -analysis        => $self->analysis,
-     -target_file     => $target,
-     -query_file      => $tmp_file,
-     -deletequeryfile => 0,
-     -maxmismatch     => $self->MAXMISMATCH(),
-     -specoptions     => $self->SPECOPTIONS(),
-     -splitseqs       => $self->SPLITSEQS(),
-     -maxdistance     => $self->MAXDISTANCE(),
-     -keeporder       => $self->KEEPORDER(),
-     %parameters
-    );
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTags->new( -program         => $program,
+                                                                       -analysis        => $self->analysis,
+                                                                       -target_file     => $target,
+                                                                       -query_file      => $tmp_file,
+                                                                       -deletequeryfile => 0,
+                                                                       -maxmismatch     => $self->MAXMISMATCH(),
+                                                                       -specoptions     => $self->SPECOPTIONS(),
+                                                                       -splitseqs       => $self->SPLITSEQS(),
+                                                                       -maxdistance     => $self->MAXDISTANCE(),
+                                                                       -keeporder       => $self->KEEPORDER(),
+                                                                       %parameters );
   $self->runnable($runnable);
 
-}
-
+} ## end sub fetch_input
 
 =head2 _chop_first
 
@@ -210,15 +200,14 @@ sub fetch_input{
 =cut
 
 sub _chop_first {
-  my ($self, $ditagseq, $chop_first) = @_;
+  my ( $self, $ditagseq, $chop_first ) = @_;
 
-  if($ditagseq =~ /^$chop_first.+$/){
-    $ditagseq =  substr($ditagseq, length($chop_first), length($ditagseq)-length($chop_first));
+  if ( $ditagseq =~ /^$chop_first.+$/ ) {
+    $ditagseq = substr( $ditagseq, length($chop_first), length($ditagseq) - length($chop_first) );
   }
 
   return $ditagseq;
 }
-
 
 =head2 _chop_last
 
@@ -232,15 +221,14 @@ sub _chop_first {
 =cut
 
 sub _chop_last {
-  my ($self, $ditagseq, $chop_last) = @_;
+  my ( $self, $ditagseq, $chop_last ) = @_;
 
-  if($ditagseq =~ /^$chop_last.+$/){
-    $ditagseq =  substr($ditagseq, 0, length($ditagseq)-length($chop_last));
+  if ( $ditagseq =~ /^$chop_last.+$/ ) {
+    $ditagseq = substr( $ditagseq, 0, length($ditagseq) - length($chop_last) );
   }
 
   return $ditagseq;
 }
-
 
 =head2 _check_seq
 
@@ -252,85 +240,86 @@ sub _chop_last {
 =cut
 
 sub _check_seq {
-  my ($self, $ditag) = @_;
+  my ( $self, $ditag ) = @_;
 
   my $repeat_number = $self->REPEATNUMBER();
   #remove repetetive sequences
-  if( ($ditag->sequence =~ /A{$repeat_number}/) or ($ditag->sequence =~ /T{$repeat_number}/) or
-      ($ditag->sequence =~ /C{$repeat_number}/) or ($ditag->sequence =~ /G{$repeat_number}/) ){
-#  if( $ditag->sequence =~ /A{$repeat_number} | T{$repeat_number} | C{$repeat_number} | G{$repeat_number}/ ){
-    print "removing repetitive ditag ".($ditag->dbID)." ".($ditag->tag_count)."\n";
+  if ( ( $ditag->sequence =~ /A{$repeat_number}/ ) or
+       ( $ditag->sequence =~ /T{$repeat_number}/ ) or
+       ( $ditag->sequence =~ /C{$repeat_number}/ ) or
+       ( $ditag->sequence =~ /G{$repeat_number}/ ) )
+  {
+    #  if( $ditag->sequence =~ /A{$repeat_number} | T{$repeat_number} | C{$repeat_number} | G{$repeat_number}/ ){
+    print "removing repetitive ditag " . ( $ditag->dbID ) . " " . ( $ditag->tag_count ) . "\n";
     $ditag = undef;
   }
   #remove too short or too long sequences
-  elsif(defined($self->MINSEQLENGTH) and (length($ditag->sequence) < $self->MINSEQLENGTH)){
-    print "removing short ditag ".($ditag->dbID)." ".($ditag->tag_count)."\n";
+  elsif ( defined( $self->MINSEQLENGTH ) and ( length( $ditag->sequence ) < $self->MINSEQLENGTH ) ) {
+    print "removing short ditag " . ( $ditag->dbID ) . " " . ( $ditag->tag_count ) . "\n";
     $ditag = undef;
   }
-  elsif(defined($self->MAXSEQLENGTH) and (length($ditag->sequence) > $self->MAXSEQLENGTH)){
-    print "removing long ditag ".($ditag->dbID)." ".($ditag->tag_count)."\n";
+  elsif ( defined( $self->MAXSEQLENGTH ) and ( length( $ditag->sequence ) > $self->MAXSEQLENGTH ) ) {
+    print "removing long ditag " . ( $ditag->dbID ) . " " . ( $ditag->tag_count ) . "\n";
     $ditag = undef;
   }
   #remove sequences with Ns
-  elsif($ditag->sequence =~ /N/){
-    print "removing ditag with 'N' ".($ditag->dbID)." ".($ditag->tag_count)."\n";
+  elsif ( $ditag->sequence =~ /N/ ) {
+    print "removing ditag with 'N' " . ( $ditag->dbID ) . " " . ( $ditag->tag_count ) . "\n";
     $ditag = undef;
   }
 
   return $ditag;
-}
-
+} ## end sub _check_seq
 
 =head2 _split_seq
 
   Arg [1]   : Bio::EnsEMBL::Map::Ditag
   Function  : split a ditag into two parts to save to file
               FOR NOW THESE ARE JUST 2 HALVES
-  Returntype: string with sequence header (_L & _R) and sequence 
+  Returntype: string with sequence header (_L & _R) and sequence
               for the parts (FASTA format)
   Caller    : private
 
 =cut
 
 sub _split_seq {
-  my ($self, $ditag, $chop_first, $chop_last) = @_;
+  my ( $self, $ditag, $chop_first, $chop_last ) = @_;
   my $addone = 0;
 
   my $motherseq = $ditag->sequence;
-  my $id = $ditag->dbID;
+  my $id        = $ditag->dbID;
 
   #remove leading bases? (e.g. G from GIS tags)
-  if($chop_first){
-    $motherseq = $self->_chop_first($motherseq, $chop_first);
+  if ($chop_first) {
+    $motherseq = $self->_chop_first( $motherseq, $chop_first );
   }
   #remove trailing bases? (e.g. AA)
-  if($chop_last){
-    $motherseq = $self->_chop_last($motherseq, $chop_last);
+  if ($chop_last) {
+    $motherseq = $self->_chop_last( $motherseq, $chop_last );
   }
 
   #split seq in two parts, TODO: adjust for other types
   #define border
-  my $cutoffpoint = (length($motherseq))/2;
-  if($cutoffpoint =~ /\./){
+  my $cutoffpoint = ( length($motherseq) )/2;
+  if ( $cutoffpoint =~ /\./ ) {
     $addone = 1;
   }
   $cutoffpoint = int($cutoffpoint);
 
   #first part of seq
-  my $start_A    = 0;
-  my $end_A      = $cutoffpoint;
-  if($addone){ $end_A++; }
-  my $seqpart_A  = ">".$id."_L_".$start_A."\n";
-  $seqpart_A    .= (substr($motherseq, 0, $end_A))."\n";
+  my $start_A = 0;
+  my $end_A   = $cutoffpoint;
+  if ($addone) { $end_A++; }
+  my $seqpart_A = ">" . $id . "_L_" . $start_A . "\n";
+  $seqpart_A .= ( substr( $motherseq, 0, $end_A ) ) . "\n";
 
   #second part of seq
-  my $start_B    = $cutoffpoint;
-  my $seqpart_B  = ">".$id."_R_".($start_B)."\n";
-  $seqpart_B    .= (substr($motherseq, $start_B))."\n";
+  my $start_B = $cutoffpoint;
+  my $seqpart_B = ">" . $id . "_R_" . ($start_B) . "\n";
+  $seqpart_B .= ( substr( $motherseq, $start_B ) ) . "\n";
 
-  return($seqpart_A.$seqpart_B);
-}
-
+  return ( $seqpart_A . $seqpart_B );
+} ## end sub _split_seq
 
 =head2 run
 
@@ -351,10 +340,9 @@ sub run {
 
   $runnable->run;
 
-  @out_features = @{$runnable->output};
-  $self->output(\@out_features);
+  @out_features = @{ $runnable->output };
+  $self->output( \@out_features );
 }
-
 
 =head2 write_output
 
@@ -370,18 +358,19 @@ sub write_output {
   my ( $self, $ditagfeatures ) = @_;
 
   my $ditagfeature_adaptor;
-  if($self->OUTDB) {
-    my $outdb             = $self->create_output_db;
+  if ( $self->OUTDB ) {
+    my $outdb = $self->create_output_db;
     $ditagfeature_adaptor = $outdb->get_DitagFeatureAdaptor;
-  } else {
+  }
+  else {
     $ditagfeature_adaptor = $self->db->get_DitagFeatureAdaptor;
   }
 
-  if(!$ditagfeatures or !(scalar @$ditagfeatures)){
+  if ( !$ditagfeatures or !( scalar @$ditagfeatures ) ) {
     $ditagfeatures = $self->output();
   }
-  print "\nhave ".(scalar @$ditagfeatures)." features to store.\n";
-  if(!$ditagfeatures or !(scalar @$ditagfeatures)){
+  print "\nhave " . ( scalar @$ditagfeatures ) . " features to store.\n";
+  if ( !$ditagfeatures or !( scalar @$ditagfeatures ) ) {
     warn "no features to store.";
   }
   else {
@@ -392,8 +381,7 @@ sub write_output {
       $self->throw("Unable to store ditagFeatures!\n $@");
     }
   }
-}
-
+} ## end sub write_output
 
 =head2 clean_features
 
@@ -413,7 +401,7 @@ sub clean_features {
   foreach my $ditagfeature (@$ditagfeatures) {
 
     #(re-)set analysis
-    $ditagfeature->analysis($self->analysis);
+    $ditagfeature->analysis( $self->analysis );
 
     #attach slice
     my $slice_id = $ditagfeature->slice;
@@ -423,13 +411,12 @@ sub clean_features {
     }
     my $slice = $genome_slices{$slice_id};
     $ditagfeature->slice($slice);
-    push(@cleanfeatures, $ditagfeature);
+    push( @cleanfeatures, $ditagfeature );
 
   }
 
   return \@cleanfeatures;
-}
-
+} ## end sub clean_features
 
 =head2 create_output_db
 
@@ -447,23 +434,21 @@ sub create_output_db {
   my $dnadb;
 
   print "\nCreating OUTDB.";
-  if ( $self->OUTDB && $self->DNADB) {
-    $dnadb =  new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
+  if ( $self->OUTDB && $self->DNADB ) {
+    $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB } );
 
-    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-              %{ $self->OUTDB }, 
-              -dnadb => $dnadb 
-             );
+    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB }, -dnadb => $dnadb );
 
-  } elsif( $self->OUTDB) {
-    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
-  } else {
+  }
+  elsif ( $self->OUTDB ) {
+    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB } );
+  }
+  else {
     $outdb = $self->db;
   }
 
   return $outdb;
 }
-
 
 =head2 runnable_path
 
@@ -474,11 +459,10 @@ sub create_output_db {
 
 =cut
 
-sub runnable_path{
+sub runnable_path {
   my ($self);
   return "Bio::EnsEMBL::Analysis::Runnable::DitagAlign";
 }
-
 
 =head2 GENOMICSEQS
 

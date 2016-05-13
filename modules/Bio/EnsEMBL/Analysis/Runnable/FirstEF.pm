@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::FirstEF - 
+Bio::EnsEMBL::Analysis::Runnable::FirstEF -
 
 =head1 SYNOPSIS
 
@@ -60,7 +61,6 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-
 =head2 new
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::FirstEF
@@ -68,37 +68,31 @@ use vars qw(@ISA);
   Arg [3]   : string, path to parse script
   Function  : create a Bio::EnsEMBL::Analysis::Runnable::FirstEF
   Returntype: Bio::EnsEMBL::Analysis::Runnable::FirstEF
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
-
 sub new {
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);    
+  my ( $class, @args ) = @_;
+  my $self = $class->SUPER::new(@args);
 
-  my($param_dir, $parse_script) = rearrange(["PARAM_DIR", "PARSE_SCRIPT"], @args);
+  my ( $param_dir, $parse_script ) = rearrange( [ "PARAM_DIR", "PARSE_SCRIPT" ], @args );
 
   ##################
   #SETTING DEFAULTS#
   ##################
-  $self->program('firstef') if(!$self->program);
- ##################
+  $self->program('firstef') if ( !$self->program );
+  ##################
 
-  $self->param_dir($param_dir) if($param_dir);
- 
-  $self->parse_script($parse_script) if($parse_script);
+  $self->param_dir($param_dir) if ($param_dir);
+
+  $self->parse_script($parse_script) if ($parse_script);
 
   return $self;
 }
 
-
 ##container methods
-
-
-
 
 =head2 parsed_output
 
@@ -107,26 +101,24 @@ sub new {
   Function  : container for filename, if none is passed in one is generated
   the first time it is requested
   Returntype: string
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
-sub parsed_output{
-  my ($self, $file) = @_;
-  if($file){
+sub parsed_output {
+  my ( $self, $file ) = @_;
+  if ($file) {
     $self->files_to_delete($file);
     $self->{'parsed_output'} = $file;
   }
-  if(!$self->{'parsed_output'}){
+  if ( !$self->{'parsed_output'} ) {
     my $file = $self->create_filename('first_parse');
     $self->files_to_delete($file);
     $self->{'parsed_output'} = $file;
   }
   return $self->{'parsed_output'};
 }
-
 
 =head2 listfile
 
@@ -136,26 +128,23 @@ sub parsed_output{
   If no filename is passed in or the file doesnt already exist the
   file is prepared
   Returntype: string, filename
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
-
-sub listfile{
-  my ($self, $listfile) = @_;
-  if($listfile){
+sub listfile {
+  my ( $self, $listfile ) = @_;
+  if ($listfile) {
     $self->{'listfile'} = $listfile;
     $self->files_to_delete($listfile);
   }
-  if(!$self->{'listfile'} || ! -e $self->{'listfile'}){
-    my $file = $self->prepare_listfile($self->{'listfile'});
+  if ( !$self->{'listfile'} || !-e $self->{'listfile'} ) {
+    my $file = $self->prepare_listfile( $self->{'listfile'} );
     $self->{'listfile'} = $file;
   }
   return $self->{'listfile'};
 }
-
 
 =head2 parse_script
 
@@ -164,21 +153,18 @@ sub listfile{
   Function  : container for path to script
   Returntype: string
   Exceptions: throws if script doesnt exist
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub parse_script{
-  my ($self, $script) = @_;
-  if($script){
-    throw($script." does not exist can't use FirstEF:parse_script")
-      unless(-e $script);
+sub parse_script {
+  my ( $self, $script ) = @_;
+  if ($script) {
+    throw( $script . " does not exist can't use FirstEF:parse_script" ) unless ( -e $script );
     $self->{'parse_script'} = $script;
   }
   return $self->{'parse_script'};
 }
-
 
 =head2 param_dir
 
@@ -188,10 +174,9 @@ sub parse_script{
   which should exist in it do
   Returntype: string
   Exceptions: throws if any of the specified files dont exist
-  Example   : 
+  Example   :
 
 =cut
-
 
 sub param_dir {
   my $self = shift;
@@ -201,49 +186,35 @@ sub param_dir {
 
     $self->{'param_dir'} .= '/' unless $self->{'param_dir'} =~ /\/$/;
 
-    if($self->{'param_dir'}){
-      my @known_param_files = ('donor.3mer_wts_GChighDown',
-                               'donor.3mer_wts_GClowDown',
-                               'donor.6mer_wts_GChighDown',
-                               'donor.6mer_wts_GChighUp',
-                               'donor.6mer_wts_GClowDown',
-                               'donor.6mer_wts_GClowUp',
-                               'donor.decisiontree',
-                               'donor.decisiontree.orig',
-                               'donor.qdamodel.GChigh',
-                               'donor.qdamodel.GClow',
-                               'exon.qdamodel.CpGpoor_GChigh',
-                               'exon.qdamodel.CpGpoor_GClow',
-                               'exon.qdamodel.CpGrich_GChigh',
-                               'exon.qdamodel.CpGrich_GClow',
-                               'promoter.5mer_wts_CpGpoor_430.510',
-                               'promoter.5mer_wts_CpGpoor_490.570',
-                               'promoter.5mer_wts_CpGrich_430.510',
-                               'promoter.5mer_wts_CpGrich_490.570',
-                               'promoter.6mer_wts_CpGpoor_1.250',
-                               'promoter.6mer_wts_CpGpoor_1.450',
-                               'promoter.6mer_wts_CpGpoor_200.450',
-                               'promoter.6mer_wts_CpGrich_1.250',
-                               'promoter.6mer_wts_CpGrich_1.450',
-                               'promoter.6mer_wts_CpGrich_200.450',
-                               'promoter.qdamodel.CpGpoor',
-                               'promoter.qdamodel.CpGrich');
+    if ( $self->{'param_dir'} ) {
+      my @known_param_files = ( 'donor.3mer_wts_GChighDown',         'donor.3mer_wts_GClowDown',
+                                'donor.6mer_wts_GChighDown',         'donor.6mer_wts_GChighUp',
+                                'donor.6mer_wts_GClowDown',          'donor.6mer_wts_GClowUp',
+                                'donor.decisiontree',                'donor.decisiontree.orig',
+                                'donor.qdamodel.GChigh',             'donor.qdamodel.GClow',
+                                'exon.qdamodel.CpGpoor_GChigh',      'exon.qdamodel.CpGpoor_GClow',
+                                'exon.qdamodel.CpGrich_GChigh',      'exon.qdamodel.CpGrich_GClow',
+                                'promoter.5mer_wts_CpGpoor_430.510', 'promoter.5mer_wts_CpGpoor_490.570',
+                                'promoter.5mer_wts_CpGrich_430.510', 'promoter.5mer_wts_CpGrich_490.570',
+                                'promoter.6mer_wts_CpGpoor_1.250',   'promoter.6mer_wts_CpGpoor_1.450',
+                                'promoter.6mer_wts_CpGpoor_200.450', 'promoter.6mer_wts_CpGrich_1.250',
+                                'promoter.6mer_wts_CpGrich_1.450',   'promoter.6mer_wts_CpGrich_200.450',
+                                'promoter.qdamodel.CpGpoor',         'promoter.qdamodel.CpGrich' );
       my @missing_files;
       foreach my $param_file (@known_param_files) {
-        unless (-e $self->{'param_dir'} . "/$param_file"){
-          push (@missing_files, $self->{'param_dir'}."/$param_file");
+        unless ( -e $self->{'param_dir'} . "/$param_file" ) {
+          push( @missing_files, $self->{'param_dir'} . "/$param_file" );
         }
       }
-      if(@missing_files > 0){
-        print STDERR join("\n", @missing_files);
+      if ( @missing_files > 0 ) {
+        print STDERR join( "\n", @missing_files );
         throw("The above parameter files are missing.");
       }
-    }
-  }
+    } ## end if ( $self->{'param_dir'...})
+  } ## end if (@_)
 
-  return $self->{'param_dir'}
-}
-
+  return $self->{'param_dir'};
+} ## end sub param_dir
 
 =head2 prepare_listfile
 
@@ -255,56 +226,48 @@ sub param_dir {
   to the files to delete list
   Returntype: string
   Exceptions: throws if fails to open or close file
-  Example   : 
+  Example   :
 
 =cut
 
+sub prepare_listfile {
+  my ( $self, $listfile ) = @_;
+  if ( !$listfile ) {
+    $listfile = $self->create_filename( 'firstef_listfile_', '', $self->workdir );
+    open( LISTFILE, ">$listfile" ) or throw( "FAILED to open $listfile " . "FirstEF:prepare_listfile" );
 
-sub prepare_listfile{
-  my ($self, $listfile) = @_;
-  if(!$listfile){
-    $listfile = $self->create_filename('firstef_listfile_', '', 
-                                       $self->workdir);
-    open(LISTFILE, ">$listfile") or throw("FAILED to open $listfile ".
-                                          "FirstEF:prepare_listfile");
+    print LISTFILE $self->queryfile . "  -1500\n";
 
-    print LISTFILE $self->queryfile."  -1500\n";
-
-    close(LISTFILE) or throw("FAILED to close $listfile ".
-                             "FirstEF:prepare_listfile");
+    close(LISTFILE) or throw( "FAILED to close $listfile " . "FirstEF:prepare_listfile" );
     $self->files_to_delete($listfile);
-    $self->files_to_delete($listfile."_domain");
-    $self->files_to_delete($listfile."_domain_comp");
-    $self->resultsfile($listfile."_out");
-    $self->files_to_delete($self->resultsfile);
+    $self->files_to_delete( $listfile . "_domain" );
+    $self->files_to_delete( $listfile . "_domain_comp" );
+    $self->resultsfile( $listfile . "_out" );
+    $self->files_to_delete( $self->resultsfile );
   }
   return $listfile;
 }
-
 
 =head2 run_analysis
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::FirstEF
   Arg [2]   : string, program name
   Function  : constructs commandline and runs commandline
-  Returntype: 
+  Returntype:
   Exceptions: throws if system doesnt return a 0
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub run_analysis{
-  my ($self, $program) = @_;
-  if(!$program){
+sub run_analysis {
+  my ( $self, $program ) = @_;
+  if ( !$program ) {
     $program = $self->program;
   }
-  my $command = $program." 1500 ".$self->listfile." ".$self->param_dir.
-    " 0 0.4 0.4 0.5";
-  print "Running analysis ".$command."\n";
-  system($command) == 0 or throw("FAILED to run ".$command);
+  my $command = $program . " 1500 " . $self->listfile . " " . $self->param_dir . " 0 0.4 0.4 0.5";
+  print "Running analysis " . $command . "\n";
+  system($command) == 0 or throw( "FAILED to run " . $command );
 }
-
 
 =head2 parse_results
 
@@ -315,37 +278,33 @@ sub run_analysis{
   simple features
   Returntype: none
   Exceptions: throws if fails to open or close first parses output file
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub parse_results{
-  my ($self, $results) = @_;
-  if(!$results){
+sub parse_results {
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
   my $ff = $self->feature_factory;
   my @output;
   my $output = $self->first_parse($results);
-  throw("FAILED to run ".$self->parse_script." ".$output." doesn't exist")
-    unless(-e $output);
-  open(FH, $output) or throw("FAILED to open ".$output);
+  throw( "FAILED to run " . $self->parse_script . " " . $output . " doesn't exist" ) unless ( -e $output );
+  open( FH, $output ) or throw( "FAILED to open " . $output );
   my $strand;
- LINE:while(<FH>){
+LINE: while (<FH>) {
     chomp;
-    $strand = 1 if (/direct strand/);
+    $strand = 1  if (/direct strand/);
     $strand = -1 if (/complementary strand/);
     if (/\d+\s+\S+\s+\S+([^\.]+)\.\.(\d+)\s+(\S+)\s+\S+\s+\S+\s+(\d+)/) {
-      my ($start, $end) = sort {$a <=> $b} ($1 * 1 , $2 * 1);
-      my $sf = $ff->create_simple_feature($start, $end, $strand, $3,
-                                          "rank = $4", '', $self->query);
-      push(@output, $sf);
+      my ( $start, $end ) = sort { $a <=> $b } ( $1*1, $2*1 );
+      my $sf = $ff->create_simple_feature( $start, $end, $strand, $3, "rank = $4", '', $self->query );
+      push( @output, $sf );
     }
   }
-  $self->output(\@output);
+  $self->output( \@output );
 }
-
 
 =head2 first_parse
 
@@ -354,22 +313,19 @@ sub parse_results{
   Function  : runs the parsing script across the initial firstef output
   Returntype: string, filename
   Exceptions: throws if script doesnt return 0
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub first_parse{
-  my ($self, $results) = @_;
-  if(!$results){
+sub first_parse {
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
-  my $command = $self->parse_script." ".$results." ".$self->parsed_output;
-  print "Running analysis ".$command."\n";
-  system($command) == 0 or throw("FAILED to run ".$command);
+  my $command = $self->parse_script . " " . $results . " " . $self->parsed_output;
+  print "Running analysis " . $command . "\n";
+  system($command) == 0 or throw( "FAILED to run " . $command );
   return $self->parsed_output;
 }
-
 
 1;

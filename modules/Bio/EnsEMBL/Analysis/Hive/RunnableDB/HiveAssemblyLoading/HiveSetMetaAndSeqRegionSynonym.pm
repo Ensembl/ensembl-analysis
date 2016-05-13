@@ -31,7 +31,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('enscode_root_dir') ) {
-    $self->throw( "enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is" );
+    $self->throw("enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;
@@ -168,9 +168,8 @@ sub set_seq_region_synonyms {
     $sth_insdc->execute();
     my ($insdc_db_id) = $sth_insdc->fetchrow_array;
 
-    my $sth_insert =
-      $target_dba->dbc->prepare( 'INSERT INTO seq_region_synonym (seq_region_id, synonym, external_db_id) VALUES(?, ?, ?)' );
-    my $sth_update   = $target_dba->dbc->prepare('UPDATE seq_region set name = ? WHERE seq_region_id = ?');
+    my $sth_insert = $target_dba->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym, external_db_id) VALUES(?, ?, ?)');
+    my $sth_update = $target_dba->dbc->prepare('UPDATE seq_region set name = ? WHERE seq_region_id = ?');
     my $insert_count = 0;
     while ( my $line = <IN> ) {
       if ( $line =~ /^#/ ) {
@@ -209,7 +208,7 @@ sub set_seq_region_synonyms {
 
     open( IN, $path_to_files . "/" . $file );
     my $sth_select   = $target_dba->dbc->prepare('SELECT seq_region_id FROM seq_region WHERE name = ?');
-    my $sth_insert   = $target_dba->dbc->prepare( 'INSERT INTO seq_region_synonym (seq_region_id, synonym) VALUES(?, ?)' );
+    my $sth_insert   = $target_dba->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym) VALUES(?, ?)');
     my $insert_count = 0;
     while ( my $line = <IN> ) {
       if ( $line =~ /^#/ ) {

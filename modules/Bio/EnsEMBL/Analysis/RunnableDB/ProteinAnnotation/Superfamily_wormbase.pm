@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,7 +14,8 @@
 #
 #
 #
-=pod 
+
+=pod
 
 =head1 NAME
 
@@ -35,7 +36,7 @@
 =head1 DESCRIPTION
 
   This object wraps Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily_wormbase
-  to add functionality to read and write to databases in 
+  to add functionality to read and write to databases in
 
 
 =head1 CONTACT
@@ -44,7 +45,7 @@
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::Superfamily_wormbase;
 
-use warnings ;
+use warnings;
 use strict;
 use vars qw(@ISA);
 
@@ -52,7 +53,6 @@ use Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation;
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily_wormbase;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation);
-
 
 #
 # overridden methods
@@ -62,14 +62,12 @@ sub fetch_input {
 
   $self->SUPER::fetch_input;
 
-  my $run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily_wormbase->
-      new(-query     => $self->query,
-          -analysis  => $self->analysis,
-          -database  => $self->analysis->db_file,
-          %{$self->parameters_hash}
-          );
-  $self->runnable($run);    
+  my $run =
+    Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Superfamily_wormbase->new( -query    => $self->query,
+                                                                                    -analysis => $self->analysis,
+                                                                                    -database => $self->analysis->db_file,
+                                                                                    %{ $self->parameters_hash } );
+  $self->runnable($run);
 }
-
 
 1;

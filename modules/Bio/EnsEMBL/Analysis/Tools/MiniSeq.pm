@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,7 +22,7 @@ MiniSeq - an artificially constructed cDNA on a genomic sequence
 =head1 SYNOPSIS
 
 This module is used when we only want to run an analysis over
-a part or multiple parts of a sequence. 
+a part or multiple parts of a sequence.
 
 =head1 DESCRIPTION
 
@@ -30,7 +30,7 @@ Contains details of coordinates of all exons that make
 up a gene transcript.
 
 Creation:
-   
+
      my $mini = new Bio::EnsEMBL::Analysis::Tools::MiniSeq(-id      => $id,
 						    -pairaln => $pairaln);
 
@@ -47,7 +47,7 @@ Manipulation:
 
 # We now do some analysis on the cdnaseq that puts sequence
 # features on it.  We don't want the coordsin the cDNA frame so
-# we now pass them back to the miniseq to convert them into 
+# we now pass them back to the miniseq to convert them into
 # genomic coordinates.
 
     my  @newfeatures = $mini->convert_FeaturePairs(@featurepairs);
@@ -63,11 +63,10 @@ The rest of the documentation details each of the object methods. Internal metho
 
 =cut
 
-
 # Let the code begin...
 
 package Bio::EnsEMBL::Analysis::Tools::MiniSeq;
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
 
@@ -80,21 +79,20 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 @ISA = qw();
 
 sub new {
-  my($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = {};
   bless $self, $class;
 
-  my ($id,$pairalign) = rearrange([qw(ID PAIRALIGN)],@args);
+  my ( $id, $pairalign ) = rearrange( [qw(ID PAIRALIGN)], @args );
   verbose('warning');
   #No defaults
 
   $self->id($id);
   $self->pairAlign($pairalign);
 
-  throw("No input id for MiniSeq")        unless($self->id);
-  throw("No input pairalign for MiniSeq") unless($self->pairAlign);
+  throw("No input id for MiniSeq")        unless ( $self->id );
+  throw("No input pairalign for MiniSeq") unless ( $self->pairAlign );
 
-  
   return $self;
 }
 
@@ -102,7 +100,7 @@ sub new {
 
  Title   : id
  Usage   : $obj->id($newval)
- Function: 
+ Function:
  Returns : value of id
  Args    : newvalue (optional)
 
@@ -110,9 +108,9 @@ sub new {
 =cut
 
 sub id {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
 
-  if(defined($arg)) {
+  if ( defined($arg) ) {
     $self->{'_id'} = $arg;
   }
 
@@ -126,22 +124,21 @@ sub id {
  Function: Get/set method for the pairalign object
            that stores the cDNA-genomic exon mapping
  Returns : Bio::EnsEMBL::Analysis::PairAlign
- Args    : 
+ Args    :
 
 
 =cut
 
 sub pairAlign {
-  my ($self,$pair) = @_;
+  my ( $self, $pair ) = @_;
 
   if ($pair) {
-    if( ! $pair->isa("Bio::EnsEMBL::Analysis::Tools::PairAlign") ) {
+    if ( !$pair->isa("Bio::EnsEMBL::Analysis::Tools::PairAlign") ) {
       throw("$pair is not a Bio::EnsEMBL::Analysis::Tools::PairAlign!");
     }
-    foreach my $p (@{$pair->eachFeaturePair}) {
-      if ($p->strand != 1) {
-        throw("Can't have a PairAlign object where the strand of the first ".
-              "object is reversed");
+    foreach my $p ( @{ $pair->eachFeaturePair } ) {
+      if ( $p->strand != 1 ) {
+        throw( "Can't have a PairAlign object where the strand of the first " . "object is reversed" );
       }
     }
     $self->{'_pair'} = $pair;
@@ -149,14 +146,13 @@ sub pairAlign {
   return $self->{'_pair'};
 }
 
-
 =head2 get_cDNA_sequence
 
  Title   : get_cDNA_sequence
  Usage   : my $seq = $self->get_cDNA_sequence
  Function: Returns the cdna sequence corresponding
            to the cDNA in the pairAlign object
- Example : 
+ Example :
  Returns : Bio::PrimarySeq
  Args    : none
 
@@ -168,14 +164,13 @@ sub get_cDNA_sequence {
 
   my $seqstr = "";
 
-  my @exons = @{$self->pairAlign->eachFeaturePair};
-  return unless (scalar @exons > 0);
+  my @exons = @{ $self->pairAlign->eachFeaturePair };
+  return unless ( scalar @exons > 0 );
 
   foreach my $exon (@exons) {
     $seqstr .= $exon->seq;
   }
-  return new Bio::PrimarySeq('-id' => "genomic" ,
-                             -seq => $seqstr);
+  return new Bio::PrimarySeq( '-id' => "genomic", -seq => $seqstr );
 
 }
 
@@ -185,7 +180,7 @@ sub get_cDNA_sequence {
  Usage   : my @newfeatures = $self->convert_FeaturePairs($feature)
  Function: Converts feature pair coordinates on the cDNA sequence
            into an array of feature pairs on the genomic sequence
- Example : 
+ Example :
  Returns : Bio::EnsEMBL::FeaturePair
  Args    : Array of Bio::EnsEMBL::FeaturePair
 
@@ -193,14 +188,14 @@ sub get_cDNA_sequence {
 =cut
 
 sub convert_FeaturePair {
-    my ($self,$feature) = @_;
+  my ( $self, $feature ) = @_;
 
-    my @newfeatures;
+  my @newfeatures;
 
-    my @tmp = @{$self->pairAlign->convert_FeaturePair($feature)};
-    push(@newfeatures,@tmp);
+  my @tmp = @{ $self->pairAlign->convert_FeaturePair($feature) };
+  push( @newfeatures, @tmp );
 
-    return \@newfeatures;
+  return \@newfeatures;
 }
 
 =head2 convert_SeqFeature
@@ -209,7 +204,7 @@ sub convert_FeaturePair {
  Usage   : my @newfeatures = $self->convert_FeaturePairs($feature)
  Function: Converts feature coordinates on the cDNA sequence
            into an array of features on the genomic sequence
- Example : 
+ Example :
  Returns : Bio::EnsEMBL::FeaturePair
  Args    : Array of Bio::EnsEMBL::FeaturePair
 
@@ -217,14 +212,14 @@ sub convert_FeaturePair {
 =cut
 
 sub convert_SeqFeature {
-    my ($self,$feature) = @_;
+  my ( $self, $feature ) = @_;
 
-    my @newfeatures;
+  my @newfeatures;
 
-    my @tmp = @{$self->pairAlign->convert_cDNA_feature($feature)};
-    push(@newfeatures,@tmp);
+  my @tmp = @{ $self->pairAlign->convert_cDNA_feature($feature) };
+  push( @newfeatures, @tmp );
 
-    return \@newfeatures;
+  return \@newfeatures;
 }
 
 =head2 convert_PepFeaturePair
@@ -234,7 +229,7 @@ sub convert_SeqFeature {
  Function: Converts feature pair coordinates on the cDNA sequence
            into an array of feature pairs on the genomic sequence
            Peptide coordinates are maintained.
- Example : 
+ Example :
  Returns : Array of Bio::EnsEMBL::FeaturePair
  Args    : Bio::EnsEMBL::FeaturePair
 
@@ -242,21 +237,21 @@ sub convert_SeqFeature {
 =cut
 
 sub convert_PepFeaturePair {
-    my ($self,$feature) = @_;
+  my ( $self, $feature ) = @_;
 
-    my @newfeatures;
+  my @newfeatures;
 
-    my @tmp = @{$self->pairAlign->convert_FeaturePair($feature)};
+  my @tmp = @{ $self->pairAlign->convert_FeaturePair($feature) };
 
-    # replace protein coordinates
-    $tmp[0]->hstart($feature->hstart);
-    $tmp[0]->hend($feature->hend);
-# SMJS strand of peptide should be positive?
-    $tmp[0]->hstrand(1);
+  # replace protein coordinates
+  $tmp[0]->hstart( $feature->hstart );
+  $tmp[0]->hend( $feature->hend );
+  # SMJS strand of peptide should be positive?
+  $tmp[0]->hstrand(1);
 
-    push(@newfeatures,@tmp);
+  push( @newfeatures, @tmp );
 
-    return \@newfeatures;
+  return \@newfeatures;
 }
 
 1;

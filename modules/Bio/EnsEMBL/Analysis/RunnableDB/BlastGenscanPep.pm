@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanPep - 
+Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanPep -
 
 =head1 SYNOPSIS
 
@@ -42,7 +43,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanPep -
 
 =head1 DESCRIPTION
 
- This module inherits from the Blast runnable and instantiates 
+ This module inherits from the Blast runnable and instantiates
  BlastTranscriptPep passing in prediction transcript
 
 =head1 METHODS
@@ -66,76 +67,72 @@ use vars qw(@ISA);
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastGenscanPep
-  Function  : fetch sequence and prediction transcripts of database, 
-  read config files instantiate the filter, parser and finally the blast 
+  Function  : fetch sequence and prediction transcripts of database,
+  read config files instantiate the filter, parser and finally the blast
   runnables
   Returntype: none
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
-  my $slice = $self->fetch_sequence($self->input_id, $self->db);
+  my $slice = $self->fetch_sequence( $self->input_id, $self->db );
   $self->query($slice);
-  my %blast = %{$self->BLAST_PARAMS};
-  my $pta = $self->db->get_PredictionTranscriptAdaptor;
-  my $logic_names = $BLAST_AB_INITIO_LOGICNAME ;
+  my %blast       = %{ $self->BLAST_PARAMS };
+  my $pta         = $self->db->get_PredictionTranscriptAdaptor;
+  my $logic_names = $BLAST_AB_INITIO_LOGICNAME;
   if ( !ref($logic_names) || scalar(@$logic_names) == 0 ) {
     $logic_names = ['Genscan'];
   }
-  my @pts ;
+  my @pts;
   foreach my $logic_name (@$logic_names) {
-    my $pt = $pta->fetch_all_by_Slice($self->query, $logic_name);
-    push @pts, @$pt ;
+    my $pt = $pta->fetch_all_by_Slice( $self->query, $logic_name );
+    push @pts, @$pt;
   }
   my $parser = $self->make_parser;
   my $filter;
-  if($self->BLAST_FILTER){
+  if ( $self->BLAST_FILTER ) {
     $filter = $self->make_filter;
-  }  
-
-  # submit blast module to use via analysis_parameters column of analysis table 
-  my $options_string ;  
-  my %options = %{$self->PARSER_PARAMS};  
-
-  if ( $blast{-type}=~m/ncbi/ ) { 
-    if ( $options{-query_type}=~m/pep/ ) {  
-      if ( $options{-database_type}=~m/pep/ ) { 
-           $options_string = '-p blastp' ;  
-      } elsif ( $options{-database_type}=~m/dna/ ) { 
-         $options_string = '-p tblastn' ; 
-      } 
-    }   
-  
-    if ( $options{-query_type}=~m/dna/ ) {  
-      if ( $options{-database_type}=~m/dna/ ) {  
-           $options_string = '-p blastn' ;  
-      }elsif ( $options{-database_type}=~m/pep/ ) {   
-           $options_string = '-p blastx' ;  
-      }
-    }   
   }
 
+  # submit blast module to use via analysis_parameters column of analysis table
+  my $options_string;
+  my %options = %{ $self->PARSER_PARAMS };
 
-  foreach my $t(@pts){
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->
-      new(
-          -transcript => $t,
-          -query => $self->query,
-          -program => $self->analysis->program_file,
-          -parser => $parser,
-          -filter => $filter,
-          -database => $self->analysis->db_file,
-          -analysis => $self->analysis,   
-          -options => $options_string, 
-          %blast,
-         );
+  if ( $blast{-type} =~ m/ncbi/ ) {
+    if ( $options{-query_type} =~ m/pep/ ) {
+      if ( $options{-database_type} =~ m/pep/ ) {
+        $options_string = '-p blastp';
+      }
+      elsif ( $options{-database_type} =~ m/dna/ ) {
+        $options_string = '-p tblastn';
+      }
+    }
+
+    if ( $options{-query_type} =~ m/dna/ ) {
+      if ( $options{-database_type} =~ m/dna/ ) {
+        $options_string = '-p blastn';
+      }
+      elsif ( $options{-database_type} =~ m/pep/ ) {
+        $options_string = '-p blastx';
+      }
+    }
+  }
+
+  foreach my $t (@pts) {
+    my $runnable =
+      Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->new( -transcript => $t,
+                                                                 -query      => $self->query,
+                                                                 -program    => $self->analysis->program_file,
+                                                                 -parser     => $parser,
+                                                                 -filter     => $filter,
+                                                                 -database   => $self->analysis->db_file,
+                                                                 -analysis   => $self->analysis,
+                                                                 -options    => $options_string,
+                                                                 %blast, );
     $self->runnable($runnable);
   }
-}
-
-
-
+} ## end sub fetch_input
 

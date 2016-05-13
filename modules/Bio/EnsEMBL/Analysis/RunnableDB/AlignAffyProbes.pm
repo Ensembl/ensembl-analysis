@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,11 +27,11 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::AlignAffyProbes - 
+Bio::EnsEMBL::Analysis::RunnableDB::AlignAffyProbes -
 
 =head1 SYNOPSIS
 
-my $affy = 
+my $affy =
   Bio::EnsEMBL::Analysis::RunnableDB::AlignAffyProbes->new(
     -db         => $refdb,
     -analysis   => $analysis_obj,
@@ -58,7 +59,7 @@ objects using the CollapseAffyProbes module.
 
 package Bio::EnsEMBL::Analysis::RunnableDB::AlignAffyProbes;
 
-use warnings ;
+use warnings;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;
@@ -74,15 +75,15 @@ use vars qw(@ISA);
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  
+
   #Because we dont know whether the sort of adapter (compara, hive, core)
   #we'll be passed, it's better to just remake the core dbadaptor and
   #keep it on ourselves as the dna db - this has to be the intent of the
   #dataadaptor input through the rulemanager / beekeeper / whatever
 
   $self->read_and_check_config($AFFY_CONFIG);
-  $self->affy_arrays({});
-  $self->affy_probes({});
+  $self->affy_arrays( {} );
+  $self->affy_probes( {} );
   return $self;
 }
 
@@ -97,15 +98,18 @@ sub fetch_input {
 
   my $target = $self->GENOMICSEQS;
 
-  if ( -e $target ){
-    if(-d $target ) {
-      warn ("Target $target is a directory of files\n");
-    }elsif (-s $target){
-      warn ("Target $target is a whole-genome file\n");
-    }else{
+  if ( -e $target ) {
+    if ( -d $target ) {
+      warn("Target $target is a directory of files\n");
+    }
+    elsif ( -s $target ) {
+      warn("Target $target is a whole-genome file\n");
+    }
+    else {
       throw("'$target' isn't a file or a directory?");
     }
-  } else {
+  }
+  else {
     throw("'$target' could not be found");
   }
 
@@ -113,7 +117,7 @@ sub fetch_input {
   # set up the query (est/cDNA/protein)
   ##########################################
 
-  my ($query_file, $chunk_number, $chunk_total);
+  my ( $query_file, $chunk_number, $chunk_total );
 
   my $query = $self->QUERYSEQS;
 
@@ -123,19 +127,20 @@ sub fetch_input {
     $query_file = $query;
     my $iid_regexp = $self->IIDREGEXP;
 
-    if (not defined $iid_regexp){
-      throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your single fasta file" )
+    if ( not defined $iid_regexp ) {
+      throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your single fasta file");
     }
 
     ( $chunk_number, $chunk_total ) = $self->input_id =~ /$iid_regexp/;
-    if(!$chunk_number || !$chunk_total){
+    if ( !$chunk_number || !$chunk_total ) {
       throw "I can't make sense of your input id  using the IIDREGEXP in the config!\n";
     }
 
     #store this for reference later
     $self->query_file($query_file);
 
-  } else {
+  }
+  else {
 
     throw("'$query'  must refer to a single fasta file with all probe sequences referenced by affy_probe_id\n");
 
@@ -146,33 +151,32 @@ sub fetch_input {
   ##########################################
 
   my %parameters = %{ $self->parameters_hash };
-  
+
   my $options = "";
 
-  if (not exists $parameters{-options}) {
-    if ($self->OPTIONS) {
+  if ( not exists $parameters{-options} ) {
+    if ( $self->OPTIONS ) {
       $parameters{-options} = $self->OPTIONS;
-    } else {
+    }
+    else {
       $parameters{-options} = "";
     }
   }
-  
-  print STDERR "PROGRAM FILE: ".$self->analysis->program_file."\n";
-  
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy->new(
-    -program            => $self->analysis->program_file,
-    -analysis           => $self->analysis,
-    -target_file        => $target,
-    -query_type         => $self->QUERYTYPE,
-    -query_file         => $query_file,
-    -query_chunk_number => $chunk_number,
-    -query_chunk_total  => $chunk_total,
-    %parameters,
-  );
-  
+
+  print STDERR "PROGRAM FILE: " . $self->analysis->program_file . "\n";
+
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateAffy->new( -program            => $self->analysis->program_file,
+                                                                       -analysis           => $self->analysis,
+                                                                       -target_file        => $target,
+                                                                       -query_type         => $self->QUERYTYPE,
+                                                                       -query_file         => $query_file,
+                                                                       -query_chunk_number => $chunk_number,
+                                                                       -query_chunk_total  => $chunk_total,
+                                                                       %parameters, );
+
   $self->runnable($runnable);
 
-}
+} ## end sub fetch_input
 
 ############################################################
 
@@ -182,10 +186,10 @@ sub run {
   throw("Can't run - no runnable objects") unless ( $self->runnable );
 
   my $runnable = @{ $self->runnable }[0];
-  
+
   $runnable->run;
 
-  my $features = $self->filter_affy_features($runnable->output);
+  my $features = $self->filter_affy_features( $runnable->output );
 
   $self->output($features);
   $self->affy_features($features);
@@ -196,17 +200,17 @@ sub run {
 sub write_output {
   my ( $self, @output ) = @_;
 
-  my $outdb        = $self->create_output_db;
-  my $affy_probe_adaptor = $outdb->get_AffyProbeAdaptor;
+  my $outdb                = $self->create_output_db;
+  my $affy_probe_adaptor   = $outdb->get_AffyProbeAdaptor;
   my $affy_feature_adaptor = $outdb->get_AffyFeatureAdaptor;
 
   #Add analysis, slices to affy_features, and make
   #sure they're pointing at the persistent array / probe instances
   #instead of the fake arrays & probes they were created with
-  $self->clean_affy_features(@{$self->affy_features});
-  
-  foreach my $affy_feature (@{$self->affy_features}){
-    eval{ $affy_feature_adaptor->store($affy_feature) };
+  $self->clean_affy_features( @{ $self->affy_features } );
+
+  foreach my $affy_feature ( @{ $self->affy_features } ) {
+    eval { $affy_feature_adaptor->store($affy_feature) };
     if ($@) {
       $self->throw("Unable to store affy feature!\n $@");
     }
@@ -217,42 +221,44 @@ sub write_output {
 ############################################################
 
 sub filter_affy_features {
-  my ($self, $features) = @_;
+  my ( $self, $features ) = @_;
 
   my %hits_by_probe;
 
   foreach my $hit (@$features) {
-    push @{$hits_by_probe{$hit->probe->dbID}}, $hit;
+    push @{ $hits_by_probe{ $hit->probe->dbID } }, $hit;
   }
 
   my @kept_hits;
 
-  foreach my $probe_id (keys %hits_by_probe) {
-    my @hits = @{$hits_by_probe{$probe_id}};
-   
-    if (scalar(@hits) >= $self->HIT_SATURATION_LEVEL) {
+  foreach my $probe_id ( keys %hits_by_probe ) {
+    my @hits = @{ $hits_by_probe{$probe_id} };
+
+    if ( scalar(@hits) >= $self->HIT_SATURATION_LEVEL ) {
       @hits = grep { $_->mismatchcount == 0 } @hits;
 
-      if (scalar(@hits) < $self->HIT_SATURATION_LEVEL) {
+      if ( scalar(@hits) < $self->HIT_SATURATION_LEVEL ) {
         warning("Keeping only perfect matches to $probe_id");
         push @kept_hits, @hits;
-      } else {
+      }
+      else {
         warning("Too many hits to $probe_id so rejecting all hits");
       }
-    } else {
+    }
+    else {
       push @kept_hits, @hits;
     }
   }
 
   return \@kept_hits;
-}
+} ## end sub filter_affy_features
 
 ############################################################
 
 sub clean_affy_features {
   my ( $self, @affy_features ) = @_;
 
-  my $db = $self->create_output_db;
+  my $db            = $self->create_output_db;
   my $slice_adaptor = $db->get_SliceAdaptor;
   my $probe_adaptor = $db->get_AffyProbeAdaptor;
 
@@ -273,25 +279,25 @@ sub clean_affy_features {
     my $slice = $genome_slices{$slice_id};
     $affy_feature->slice($slice);
 
-    my $probe_dbID = $affy_feature->probe->dbID; 
+    my $probe_dbID = $affy_feature->probe->dbID;
 
     # Recover the actual probe pointed at by the dbID inside the 'fake' probe attached
     # to this affy feature by the runnable. Try the cache first, go to the db if necc.
     # Once we've got it, cache it for later
     my $real_probe = $self->affy_probes->{$probe_dbID};
-    if(!$real_probe){
+    if ( !$real_probe ) {
       $real_probe = $probe_adaptor->fetch_by_dbID($probe_dbID);
-      if (!$real_probe){
+      if ( !$real_probe ) {
         throw "Trying to clean up affy feature for persistence: cant find affy probe with dbID $probe_dbID in database!\n";
       }
       $self->affy_probes->{$probe_dbID} = $real_probe;
     }
-    
+
     #print "setting real probe: ".$real_probe->get_all_AffyArrays->[0]->name.":".
     $affy_feature->probe($real_probe);
-  }
+  } ## end foreach my $affy_feature (@affy_features)
 
-}
+} ## end sub clean_affy_features
 
 sub create_output_db {
   my ($self) = @_;
@@ -299,18 +305,16 @@ sub create_output_db {
   my $outdb;
   my $dnadb;
 
-  if ( $self->OUTDB && $self->DNADB) {
-    $dnadb =  new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
+  if ( $self->OUTDB && $self->DNADB ) {
+    $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB } );
 
-    $outdb = 
-      new Bio::EnsEMBL::DBSQL::DBAdaptor(
-        %{ $self->OUTDB }, 
-        -dnadb => $dnadb 
-      );
-      
-  } elsif( $self->OUTDB) {
-    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
-  } else {
+    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB }, -dnadb => $dnadb );
+
+  }
+  elsif ( $self->OUTDB ) {
+    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB } );
+  }
+  else {
     $outdb = $self->db;
   }
 
@@ -326,7 +330,8 @@ sub query_file {
 
   if ( exists( $self->{'_query_file'} ) ) {
     return $self->{'_query_file'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -342,7 +347,8 @@ sub affy_arrays {
 
   if ( exists( $self->{'_affy_arrays'} ) ) {
     return $self->{'_affy_arrays'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -358,7 +364,8 @@ sub affy_probes {
 
   if ( exists( $self->{'_affy_probes'} ) ) {
     return $self->{'_affy_probes'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -374,7 +381,8 @@ sub affy_features {
 
   if ( exists( $self->{'_affy_features'} ) ) {
     return $self->{'_affy_features'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -394,27 +402,26 @@ sub read_and_check_config {
   my $logic = $self->analysis->logic_name;
 
   # check that compulsory options have values
-  foreach my $config_var (
-    qw(
-      QUERYSEQS
-      QUERYTYPE
-      GENOMICSEQS
-    )
-  ){
-    if ( not defined $self->$config_var ){
+  foreach my $config_var ( qw(
+                           QUERYSEQS
+                           QUERYTYPE
+                           GENOMICSEQS
+                           ) )
+  {
+    if ( not defined $self->$config_var ) {
       throw("You must define $config_var in config for logic '$logic'");
     }
   }
 
   # output db does not have to be defined, but if it is, it should be a hash
-  if ($self->OUTDB && ref( $self->OUTDB ) ne "HASH") {
+  if ( $self->OUTDB && ref( $self->OUTDB ) ne "HASH" ) {
     throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.");
   }
-  
+
   if ( $self->DNADB and ref( $self->DNADB ) ne "HASH" ) {
     throw("DNADB in config for '$logic' must be a hash ref of db connection pars.");
   }
-}
+} ## end sub read_and_check_config
 
 sub QUERYSEQS {
   my ( $self, $value ) = @_;
@@ -425,7 +432,8 @@ sub QUERYSEQS {
 
   if ( exists( $self->{'_CONFIG_QUERYSEQS'} ) ) {
     return $self->{'_CONFIG_QUERYSEQS'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -439,7 +447,8 @@ sub QUERYTYPE {
 
   if ( exists( $self->{'_CONFIG_QUERYTYPE'} ) ) {
     return $self->{'_CONFIG_QUERYTYPE'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -453,7 +462,8 @@ sub GENOMICSEQS {
 
   if ( exists( $self->{'_CONFIG_GENOMICSEQS'} ) ) {
     return $self->{'_CONFIG_GENOMICSEQS'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -467,7 +477,8 @@ sub IIDREGEXP {
 
   if ( exists( $self->{'_CONFIG_IIDREGEXP'} ) ) {
     return $self->{'_CONFIG_IIDREGEXP'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -481,7 +492,8 @@ sub OUTDB {
 
   if ( exists( $self->{'_CONFIG_OUTDB'} ) ) {
     return $self->{'_CONFIG_OUTDB'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -495,7 +507,8 @@ sub DNADB {
 
   if ( exists( $self->{'_CONFIG_DNADB'} ) ) {
     return $self->{'_CONFIG_DNADB'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -509,22 +522,23 @@ sub OPTIONS {
 
   if ( exists( $self->{'_CONFIG_OPTIONS'} ) ) {
     return $self->{'_CONFIG_OPTIONS'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
 
-
 sub HIT_SATURATION_LEVEL {
-  my ($self, $val) = @_;
+  my ( $self, $val ) = @_;
 
-  if (defined $val) {
+  if ( defined $val ) {
     $self->{'_CONFIG_MAXHITS'} = $val;
   }
 
-  if (exists $self->{'_CONFIG_MAXHITS'}) {
+  if ( exists $self->{'_CONFIG_MAXHITS'} ) {
     return $self->{'_CONFIG_MAXHITS'};
-  } else {
+  }
+  else {
     # default to 100
     return 100;
   }

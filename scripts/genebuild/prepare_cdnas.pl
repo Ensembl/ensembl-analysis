@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -83,14 +83,9 @@ use Bio::EnsEMBL::ExternalData::Mole::Entry;
 use Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch;
 
-$| = 1; # disable buffering
+$| = 1;    # disable buffering
 
-my (
-        @dbnames,
-        $infile,
-        $outfile,
-        $annotation_file,
-);
+my ( @dbnames, $infile, $outfile, $annotation_file, );
 
 my $buffer      = 10;
 my $window_size = 3;
@@ -99,56 +94,46 @@ my $dbhost      = 'cbi5d';
 my $dbport      = 3306;
 my $min_length  = 0;
 
-GetOptions(
-        'dbnames|db|D=s'              => \@dbnames,
-        'dbuser|user|u=s'               => \$dbuser,
-        'dbhost|host|h=s'               => \$dbhost,
-        'dbport|port|P=s'               => \$dbport,
-        'infile=s'               => \$infile,
-        'outfile=s'              => \$outfile,
-        'annotation=s'           => \$annotation_file,
-        'buffer=s'               => \$buffer,
-        'window=s'               => \$window_size,
-        'min_length:s'           => \$min_length,
-);
+GetOptions( 'dbnames|db|D=s'  => \@dbnames,
+            'dbuser|user|u=s' => \$dbuser,
+            'dbhost|host|h=s' => \$dbhost,
+            'dbport|port|P=s' => \$dbport,
+            'infile=s'        => \$infile,
+            'outfile=s'       => \$outfile,
+            'annotation=s'    => \$annotation_file,
+            'buffer=s'        => \$buffer,
+            'window=s'        => \$window_size,
+            'min_length:s'    => \$min_length, );
 
 # check commandline
 if ($annotation_file) {
-  if (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames)) {
-    throw ("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
+  if ( !defined($dbhost) || !defined($dbuser) || !scalar(@dbnames) ) {
+    throw("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
   }
 }
 
 if ( !defined($infile) || !defined($outfile) ) {
-  throw( "Please enter a file name to read (-infile), "
-       . "a file name to write to (-outfile) "
-       . "and a file name for annotation (-annotation). "
-       . "The infile must contain a list of accessions "
-       . "whose CDS coordinates you want to find" );
+  throw( "Please enter a file name to read (-infile), " .
+         "a file name to write to (-outfile) " . "and a file name for annotation (-annotation). " .
+         "The infile must contain a list of accessions " . "whose CDS coordinates you want to find" );
 }
 
-@dbnames = split(/,/,join(',',@dbnames));
+@dbnames = split( /,/, join( ',', @dbnames ) );
 
 # connect to databases
 my @dbs;
 foreach my $dbname (@dbnames) {
-  my $db = Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor->new(
-        '-dbname' => $dbname,
-        '-host'   => $dbhost,
-        '-user'   => $dbuser,
-        '-port'   => $dbport,
-  );
+  my $db = Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor->new( '-dbname' => $dbname,
+                                                                    '-host'   => $dbhost,
+                                                                    '-user'   => $dbuser,
+                                                                    '-port'   => $dbport, );
   push @dbs, $db;
 }
 
 # open the downloaded cdna file
-my $seqin  = new Bio::SeqIO( -file   => "<$infile",
-                             -format => "Fasta",
-                           );
+my $seqin = new Bio::SeqIO( -file => "<$infile", -format => "Fasta", );
 
-my $seqout = new Bio::SeqIO( -file   => ">$outfile",
-                             -format => "Fasta"
-                           );
+my $seqout = new Bio::SeqIO( -file => ">$outfile", -format => "Fasta" );
 
 # Various counter to keep track of cDNAs lost/discarded in the process:
 
@@ -171,18 +156,20 @@ if ($annotation_file) { open( ANNOTATION, ">>$annotation_file" ) or die "Cannot 
 
 # create hash containing all cdnas from the input file
 my %cdnas;
-while (my $raw_cdna = $seqin->next_seq) {
+while ( my $raw_cdna = $seqin->next_seq ) {
   $total_cDNAs++;
-  if (!$raw_cdna->seq) {
+  if ( !$raw_cdna->seq ) {
     print STDERR $raw_cdna->display_id . " has 0 length seq, skipping it.\n";
     $zero_length++;
-  } else {
+  }
+  else {
     my $display_id = prepare_seq($raw_cdna)->display_id;
-    if ($display_id =~ /XM_/ || $display_id =~ /XR_/) {
+    if ( $display_id =~ /XM_/ || $display_id =~ /XR_/ ) {
       # if cDNA is XM_ or XR_ RefSeq (predicted), we don't even bother clipping.
       print STDERR "Predicted RefSeq mRNA, skipped: $display_id.\n";
       $X_count++;
-    } else {
+    }
+    else {
       $cdnas{$display_id} = $raw_cdna;
     }
   }
@@ -195,31 +182,31 @@ my @cdna_ids_no_version;
 foreach (@cdna_ids) {
   my $cdna_id = $_;
   $cdna_id =~ s/\.\d//;
-  push @cdna_ids_no_version,$cdna_id;
+  push @cdna_ids_no_version, $cdna_id;
 }
 
 my %mole_dbs_entries;
 foreach my $db (@dbs) {
 
-  foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_name(\@cdna_ids_no_version)}) {
-    my @cdna_array = ($entry->{"dbID"},$db);
-    @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
+  foreach my $entry ( @{ $db->get_EntryAdaptor->fetch_all_dbIDs_by_name( \@cdna_ids_no_version ) } ) {
+    my @cdna_array = ( $entry->{"dbID"}, $db );
+    @{ $mole_dbs_entries{ $entry->{"accession_version"} } } = @cdna_array;
   }
 
-  # if found by accession version, the entry found by name will be overwritten (if any)  
-  foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_accession_version(\@cdna_ids)}) {
-    my @cdna_array = ($entry->{"dbID"},$db);
-    @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
+  # if found by accession version, the entry found by name will be overwritten (if any)
+  foreach my $entry ( @{ $db->get_EntryAdaptor->fetch_all_dbIDs_by_accession_version( \@cdna_ids ) } ) {
+    my @cdna_array = ( $entry->{"dbID"}, $db );
+    @{ $mole_dbs_entries{ $entry->{"accession_version"} } } = @cdna_array;
   }
 }
 
 # Now work on cDNAs one by one
 
 SEQFETCH:
-foreach my $cdna (values %cdnas) {
-  my ($clipped,$clip_end,$num_bases_removed) = clip_if_necessary($cdna,$buffer,$window_size);
+foreach my $cdna ( values %cdnas ) {
+  my ( $clipped, $clip_end, $num_bases_removed ) = clip_if_necessary( $cdna, $buffer, $window_size );
 
-  if (defined $clipped) {
+  if ( defined $clipped ) {
     # $clipped would have been returned undef if the entire cDNA seq
     # seems to be polyA/T tail/head
     my $id_w_version = $clipped->id;
@@ -230,20 +217,21 @@ foreach my $cdna (values %cdnas) {
     $id_no_version =~ s/\.\d//;
 
     # Check if in kill_list
-    if (exists $kill_list{$id_no_version}) {
+    if ( exists $kill_list{$id_no_version} ) {
       print STDERR "$id_w_version is in kill list, discarded.\n";
       $killed_count++;
       next SEQFETCH;
     }
 
-   if ($annotation_file) {
+    if ($annotation_file) {
       # check whether in Mole
-      my ($found,$string,$substr) = in_mole($id_w_version,$clip_end,$num_bases_removed,$clipped->length);
+      my ( $found, $string, $substr ) = in_mole( $id_w_version, $clip_end, $num_bases_removed, $clipped->length );
       if ($substr) {
         # the clipping cut off too much. We must get it back.
         if ( $clip_end eq "head" ) {
           $clipped->seq( substr( $cdna->seq, $substr ) );
-        } elsif ( $clip_end eq "tail" ) {
+        }
+        elsif ( $clip_end eq "tail" ) {
           $clipped->seq( substr( $cdna->seq, 0, $substr ) );
         }
       }
@@ -254,31 +242,40 @@ foreach my $cdna (values %cdnas) {
 
           print ANNOTATION "$string\n";
 
-        } else {
-          print STDERR "Clipped sequence for ".$clipped->display_id. " is shorter "
-                     . "than $min_length bp and is excluded from output.\n";
+        }
+        else {
+          print STDERR "Clipped sequence for " .
+            $clipped->display_id . " is shorter " . "than $min_length bp and is excluded from output.\n";
           $too_short_after_clip++;
         }
       }
-    } else {
-      $cdna_written++ ;
+    } ## end if ($annotation_file)
+    else {
+      $cdna_written++;
       $seqout->write_seq($clipped);
     }
-  } else {
+  } ## end if ( defined $clipped )
+  else {
     $AT_only_count++;
   }
-} ## end while ( my $cdna = $seqin...
+} ## end SEQFETCH: foreach my $cdna ( values %cdnas)
 
 close ANNOTATION;
 
 my $expected_output_nr =
-  $total_cDNAs - $X_count - $killed_count - $too_short_after_clip -
-  $AT_only_count - $parse_problem - $pe_low - $not_in_mole - $zero_length - $partial_cds;
+  $total_cDNAs -
+  $X_count -
+  $killed_count -
+  $too_short_after_clip -
+  $AT_only_count -
+  $parse_problem - $pe_low -
+  $not_in_mole -
+  $zero_length -
+  $partial_cds;
 
-if ($cdna_written != $expected_output_nr) {
-  print "BEWARE, NUMBERS DON'T ADD UP! "
-      . "EXPECTED TO HAVE $expected_output_nr ENTRIES IN OUTPUT FILE, "
-      . "BUT YOU ONLY HAVE $cdna_written.\n";
+if ( $cdna_written != $expected_output_nr ) {
+  print "BEWARE, NUMBERS DON'T ADD UP! " .
+    "EXPECTED TO HAVE $expected_output_nr ENTRIES IN OUTPUT FILE, " . "BUT YOU ONLY HAVE $cdna_written.\n";
 }
 
 print "\n";
@@ -293,7 +290,6 @@ printf "cDNAs with partial cds:                             %10d\n", $partial_cd
 printf "Can't find the accession in mole DB:                %10d\n", $not_in_mole;
 printf "Number of sequences with zero length:               %10d\n", $zero_length;
 printf "cDNAs written to output:                            %10d\n", $cdna_written;
-
 
 =head2 in_mole
 
@@ -315,65 +311,65 @@ sub in_mole {
   my $write_cdna = 0;
   my $do_substr;
 
-  my $entry_dbID = @{$mole_dbs_entries{$display_id}}[0];
-  my $in_db = @{$mole_dbs_entries{$display_id}}[1];
-  
-  my $string;
-  if (defined $entry_dbID) {
-    my ( $strand, $start, $end, $coords, $partial, $low_pe ) = fetch_coords( $entry_dbID,$display_id,$in_db);
+  my $entry_dbID = @{ $mole_dbs_entries{$display_id} }[0];
+  my $in_db      = @{ $mole_dbs_entries{$display_id} }[1];
 
-    if ($low_pe) {#use elsif so numbers for exclusions add up, although could meet both conditions
+  my $string;
+  if ( defined $entry_dbID ) {
+    my ( $strand, $start, $end, $coords, $partial, $low_pe ) = fetch_coords( $entry_dbID, $display_id, $in_db );
+
+    if ($low_pe) {    #use elsif so numbers for exclusions add up, although could meet both conditions
       print STDERR "PE_low $display_id id in db " . $in_db->dbc->dbname . " \n";
       $pe_low++;
       $write_cdna = 0;
     }
-    elsif($partial) {
+    elsif ($partial) {
       print STDERR "Partial cds $display_id id in db " . $in_db->dbc->dbname . " \n";
       $partial_cds++;
       $write_cdna = 0;
     }
-    elsif (    defined $strand
-         && defined $start
-         && defined $end
-         && defined $coords )
-    {
+    elsif ( defined $strand && defined $start && defined $end && defined $coords ) {
       my $cdslength = $end - $start + 1;
       #my $string    = "$id\t$strand\t$start\t$cdslength";
-      $string    = "$display_id\t$strand\t$start\t$cdslength";
+      $string = "$display_id\t$strand\t$start\t$cdslength";
 
       if ( defined $clip_end ) {
         if ( $clip_end eq "tail" ) {
           if ( $length < $end ) {
             print STDERR "Clipped off too many bases from the tail: $display_id\n";
             $do_substr = $end;
-            $string   .= "\t| $clip_end | $end | substr_tail";
-          } else {
-            $string   .= "\t| $clip_end | $num_bases_removed | do_nothing";
+            $string .= "\t| $clip_end | $end | substr_tail";
           }
-        } elsif ( $clip_end eq "head" ) {
+          else {
+            $string .= "\t| $clip_end | $num_bases_removed | do_nothing";
+          }
+        }
+        elsif ( $clip_end eq "head" ) {
           if ( $start - $num_bases_removed < 0 ) {
             print STDERR "Clipped off too many bases from the head: $display_id\n";
             $do_substr = $start - 1;
             $string    = "$display_id\t$strand\t1\t$cdslength";
-            $string   .= "\t| $clip_end | oldstart $start oldend $end | substr_head";
-          } else {
-            $string  = "$display_id\t$strand\t" . ( $start - $num_bases_removed ) . "\t$cdslength";
+            $string .= "\t| $clip_end | oldstart $start oldend $end | substr_head";
+          }
+          else {
+            $string = "$display_id\t$strand\t" . ( $start - $num_bases_removed ) . "\t$cdslength";
             $string .= "\t| $clip_end | $num_bases_removed | oldstart $start oldend $end";
             #eg. AF067164.1      +       1075    2946    | head | 12 | oldstart 1087 oldend 2958
           }
         }
       } ## end if ( defined $clip_end)
-      #open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n";
-      #print ANNOTATION "$string\n";
-      #close ANNOTATION;
+          #open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n";
+          #print ANNOTATION "$string\n";
+          #close ANNOTATION;
       $write_cdna = 1;
-    }
+    } ## end elsif ( defined $strand &&... [ if ($low_pe) ])
     else {
       print STDERR "Parse_problem $display_id id in db " . $in_db->dbc->dbname . " \n";
       $parse_problem++;
     }
 
-  } else {
+  } ## end if ( defined $entry_dbID)
+  else {
     print STDERR "Not_in_Mole $display_id.\n";
     $not_in_mole++;
   }
@@ -391,100 +387,107 @@ sub in_mole {
   Example   : my ($strand, $start, $end, $coords) = fetch_coords($entry_dbID, $entry_acc, \@dbs);
 
 =cut
+
 sub fetch_coords {
-  my ($entry_dbID,$entry_accession_version,$db) = @_;
+  my ( $entry_dbID, $entry_accession_version, $db ) = @_;
   my $strand;
   my $start;
   my $end;
   my $tertiary_id;
   my $partial = 0;
-  my $low_pe = 0;
+  my $low_pe  = 0;
 
   # Get necessary information...
-  my @dbxref_objs =
-    @{ $db->get_DBXrefAdaptor->fetch_all_by_entry_id($entry_dbID) };
+  my @dbxref_objs = @{ $db->get_DBXrefAdaptor->fetch_all_by_entry_id($entry_dbID) };
 
   foreach my $dbxo (@dbxref_objs) {
     if ( defined $dbxo->database_id && defined $dbxo->tertiary_id ) {
-      if (    $dbxo->database_id eq 'EMBL-CDS'
-           || $dbxo->database_id eq 'RefSeq-CDS' )
-      {
+      if ( $dbxo->database_id eq 'EMBL-CDS' || $dbxo->database_id eq 'RefSeq-CDS' ) {
         # The entry will look like this: 245..1273
         $tertiary_id = $dbxo->tertiary_id;
         if ( $dbxo->tertiary_id =~ m/^complement\((\d+)\.\.(\d+)\)/i ) {
           $strand = "-";
           $start  = $1;
           $end    = $2;
-        } elsif ( $dbxo->tertiary_id =~ m/^(\d+)\.\.(\d+)/ ) {
+        }
+        elsif ( $dbxo->tertiary_id =~ m/^(\d+)\.\.(\d+)/ ) {
           $strand = "+";
           $start  = $1;
           $end    = $2;
-        } elsif ( $dbxo->tertiary_id =~ m/<?(\d+)\.\.>?(\d+)/ ) {
-            $partial = 1;
+        }
+        elsif ( $dbxo->tertiary_id =~ m/<?(\d+)\.\.>?(\d+)/ ) {
+          $partial = 1;
         }
         # check that the protein sequence is PE 1-2
         my $mole_dbid;
-        if ($dbxo->database_id eq 'EMBL-CDS') {
+        if ( $dbxo->database_id eq 'EMBL-CDS' ) {
           $mole_dbid = 'uniprot';
           #$mole_dbid = 'embl';
-        } elsif ($dbxo->database_id eq 'RefSeq-CDS') {
+        }
+        elsif ( $dbxo->database_id eq 'RefSeq-CDS' ) {
           $mole_dbid = 'refseq';
         }
-        my $protein_acc = $dbxo->primary_id;
+        my $protein_acc  = $dbxo->primary_id;
         my $is_candidate = is_PE_candidate($protein_acc);
-        
-        my ($entries,$not_found);
-        my $mfetch_obj = Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch->new();
+
+        my ( $entries, $not_found );
+        my $mfetch_obj      = Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch->new();
         my @fields_to_fetch = qw( Taxon acc org pe crd );
         if ($is_candidate) {
-          print STDERR "Checking PE level for primary_id ".$dbxo->database_id." ".$protein_acc."\n";
+          print STDERR "Checking PE level for primary_id " . $dbxo->database_id . " " . $protein_acc . "\n";
 
-          ($entries, $not_found) =  @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) } ;
-        } else {
-          print STDERR "Not checking PE level for primary_id ".$dbxo->database_id." ".$protein_acc."\n";
+          ( $entries, $not_found ) = @{ $mfetch_obj->get_Entry_Fields( " -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch ) };
+        }
+        else {
+          print STDERR "Not checking PE level for primary_id " . $dbxo->database_id . " " . $protein_acc . "\n";
         }
 
         my $try_secondary = 0;
-        if (!($is_candidate)) {
+        if ( !($is_candidate) ) {
           $try_secondary = 1;
-        } elsif ($not_found) {
-          $try_secondary = (scalar(@$not_found) > 0);
+        }
+        elsif ($not_found) {
+          $try_secondary = ( scalar(@$not_found) > 0 );
         }
 
         if ($try_secondary) {
-          $entries = undef;
-          $not_found = undef;
-          $protein_acc = $dbxo->secondary_id;        
-          if (is_PE_candidate($protein_acc)) {
-            print STDERR "Checking PE level for secondary_id ".$dbxo->database_id." ".$protein_acc."\n";
-            ($entries, $not_found ) = @{$mfetch_obj->get_Entry_Fields(" -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch) };
-          } else {
-            print STDERR "Not checking PE level for secondary_id ".$dbxo->database_id." ".$protein_acc."\n";
+          $entries     = undef;
+          $not_found   = undef;
+          $protein_acc = $dbxo->secondary_id;
+          if ( is_PE_candidate($protein_acc) ) {
+            print STDERR "Checking PE level for secondary_id " . $dbxo->database_id . " " . $protein_acc . "\n";
+            ( $entries, $not_found ) =
+              @{ $mfetch_obj->get_Entry_Fields( " -d $mole_dbid -i \"acc:$protein_acc\%\"", \@fields_to_fetch ) };
+          }
+          else {
+            print STDERR "Not checking PE level for secondary_id " . $dbxo->database_id . " " . $protein_acc . "\n";
           }
         }
 
         # check the PE level we got (if any)
         my $pe = 0;
-        foreach my $a (keys %$entries) {
-          if ( exists $entries->{$a}->{'PE'}) {
+        foreach my $a ( keys %$entries ) {
+          if ( exists $entries->{$a}->{'PE'} ) {
             # extract PE level
-             $entries->{$a}->{'PE'} =~ m/(^\d{1}):/;
-             #print  "***".$entries->{$a}->{'PE'}."***\n";
-             $pe = $1;
+            $entries->{$a}->{'PE'} =~ m/(^\d{1}):/;
+            #print  "***".$entries->{$a}->{'PE'}."***\n";
+            $pe = $1;
           }
         }
-        if ($pe && $pe > 2) {
-          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry_accession_version." because PE level is low = $pe\n";
-          $low_pe = 1;          
-        } elsif ($pe && $pe == 1 || $pe == 2 )  {
-          print STDERR "Using protein $protein_acc for cDNA ".$entry_accession_version." because PE level is good = $pe\n";
-        } else {
-          print STDERR "Cannot use this protein $protein_acc for cDNA ".$entry_accession_version." because no PE level found\n";
+        if ( $pe && $pe > 2 ) {
+          print STDERR "Cannot use this protein $protein_acc for cDNA " . $entry_accession_version . " because PE level is low = $pe\n";
+          $low_pe = 1;
         }
-      }
-    }
-  }
-  return ( $strand, $start, $end, $tertiary_id, $partial, $low_pe);
+        elsif ( $pe && $pe == 1 || $pe == 2 ) {
+          print STDERR "Using protein $protein_acc for cDNA " . $entry_accession_version . " because PE level is good = $pe\n";
+        }
+        else {
+          print STDERR "Cannot use this protein $protein_acc for cDNA " . $entry_accession_version . " because no PE level found\n";
+        }
+      } ## end if ( $dbxo->database_id...)
+    } ## end if ( defined $dbxo->database_id...)
+  } ## end foreach my $dbxo (@dbxref_objs)
+  return ( $strand, $start, $end, $tertiary_id, $partial, $low_pe );
 } ## end sub fetch_coords
 
 =head2 is_PE_candidate
@@ -496,9 +499,12 @@ sub fetch_coords {
   Example   : my $pe_candidate = is_PE_candidate("CAK54748.1");
 
 =cut
+
 sub is_PE_candidate {
   my ($accession) = @_;
-  return ($accession and $accession ne "-" and # skip undefined proteins
-          $accession !~ /NP_/ and                # skip RefSeq proteins because they do not have PE levels
-          $accession !~ /\.[0-9]+/);             # cDNAs always have a version like .[0-9]+, skip cDNA queries against UniProt DB (they always return "no match")
+  return (
+    $accession and $accession ne "-" and    # skip undefined proteins
+      $accession !~ /NP_/ and               # skip RefSeq proteins because they do not have PE levels
+      $accession !~ /\.[0-9]+/
+  );    # cDNAs always have a version like .[0-9]+, skip cDNA queries against UniProt DB (they always return "no match")
 }

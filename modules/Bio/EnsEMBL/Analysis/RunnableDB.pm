@@ -4,13 +4,13 @@ package Bio::EnsEMBL::Analysis::RunnableDB;
 # Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,7 +35,7 @@ Bio::EnsEMBL::Analysis::RunnableDB
 
 =head1 DESCRIPTION
 
-This module acts as a base class for our RunnableDBs who act as an 
+This module acts as a base class for our RunnableDBs who act as an
 interface between the core database and our Runnables both fetching
 input data and writing data back to the databases
 
@@ -57,7 +57,7 @@ constructor argument and the value the variable. This is to allow
 some flexibility in the arguments expected by and the way we run
 Runnables.
 
-fetch_sequence fetched a sequence using the fetch_by_name method of 
+fetch_sequence fetched a sequence using the fetch_by_name method of
 the slice adaptor from the given database. The name, database and an
 array of logic_names to determine masking can be given. If no name
 or database is provided the method defaults to input_id and db
@@ -75,12 +75,12 @@ widely that it is impossible to write a generic method
 
 run, there is a run method implemented. To use this child runnabledbs
 need to have added the runnables they want run to the runnable method
-which holds an array of runnables which are each called and the output 
+which holds an array of runnables which are each called and the output
 stored in this method
 
 write_output, there is also a generic implementation of this. To use this
 method the child runnabledb must implement a get_adaptor method which
-returns the appropriate adaptor to be used in storage. 
+returns the appropriate adaptor to be used in storage.
 
 =head1 CONTACT
 
@@ -102,7 +102,6 @@ use vars qw (@ISA);
 
 @ISA = qw();
 
-
 =head2 new
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
@@ -118,41 +117,34 @@ use vars qw (@ISA);
 
 =cut
 
+sub new {
+  my ( $class, @args ) = @_;
+  my $self = bless {}, $class;
 
+  my ( $db, $input_id, $analysis, $ignore_config_file, $no_config_exception, $verbosity ) =
+    rearrange( [ 'DB', 'INPUT_ID', 'ANALYSIS', 'IGNORE_CONFIG_FILE', 'NO_CONFIG_EXCEPTION', 'VERBOSITY' ], @args );
 
-sub new{
-  my ($class,@args) = @_;
-  my $self = bless {},$class;  
-
-  my ($db, $input_id, $analysis,$ignore_config_file,$no_config_exception, $verbosity) = rearrange (['DB', 'INPUT_ID', 'ANALYSIS','IGNORE_CONFIG_FILE','NO_CONFIG_EXCEPTION', 'VERBOSITY'], @args);
-
-  if(!$db || !$analysis || !$input_id){
-    throw("Can't create a RunnableDB without a dbadaptor ".
-          $db." an analysis object ".$analysis.
-          " or an input_id ".$input_id);
+  if ( !$db || !$analysis || !$input_id ) {
+    throw( "Can't create a RunnableDB without a dbadaptor " . $db . " an analysis object " . $analysis . " or an input_id " . $input_id );
   }
- 
 
   #Clone analysis to prevent analysis reference problem when
   #using separate pipeline and output DBs
   #Do not use adaptor here as caching returns same reference
   my $cloned_analysis;
   %{$cloned_analysis} = %{$analysis};
-  $analysis =  bless $cloned_analysis, ref ($analysis);
-
+  $analysis = bless $cloned_analysis, ref($analysis);
 
   $self->db($db);
   $self->analysis($analysis);
-  $self->input_id($input_id); 
-  $self->ignore_config_file($ignore_config_file) ;
-  $self->no_config_exception($no_config_exception) ;
+  $self->input_id($input_id);
+  $self->ignore_config_file($ignore_config_file);
+  $self->no_config_exception($no_config_exception);
 
   verbose($CORE_VERBOSITY);
   logger_verbosity($LOGGER_VERBOSITY) unless ($verbosity);
   return $self;
-}
-
-
+} ## end sub new
 
 =head2 db
 
@@ -162,24 +154,20 @@ sub new{
   Returntype: Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor
   Exceptions: throws if not passed a Bio::EnsEMBL::DBSQL::DBConnection
   object
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub db{
+sub db {
   my $self = shift;
-  my $db = shift;
-  if($db){
-    throw("Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor ".
-          "not a ".$db) 
-      unless($db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
+  my $db   = shift;
+  if ($db) {
+    throw( "Must pass RunnableDB:db a Bio::EnsEMBL::DBSQL::DBAdaptor " . "not a " . $db )
+      unless ( $db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor') );
     $self->{'db'} = $db;
   }
   return $self->{'db'};
 }
-
-
 
 =head2 analysis
 
@@ -188,25 +176,20 @@ sub db{
   Function  : container for analysis object
   Returntype: Bio::EnsEMBL::Analysis
   Exceptions: throws passed incorrect object type
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub analysis{
-  my $self = shift;
+sub analysis {
+  my $self     = shift;
   my $analysis = shift;
-  if($analysis){
-    throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis".
-          "not a ".$analysis) unless($analysis->isa
-                                     ('Bio::EnsEMBL::Analysis'));
+  if ($analysis) {
+    throw( "Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis" . "not a " . $analysis )
+      unless ( $analysis->isa('Bio::EnsEMBL::Analysis') );
     $self->{'analysis'} = $analysis;
   }
   return $self->{'analysis'};
 }
-
-
 
 =head2 query
 
@@ -215,23 +198,19 @@ sub analysis{
   Function  : container for slice object
   Returntype: Bio::EnsEMBL::Slice
   Exceptions: throws if passed the incorrect object type
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub query{
-  my $self = shift;
+sub query {
+  my $self  = shift;
   my $slice = shift;
-  if($slice){
-    throw("Must pass RunnableDB:query a Bio::EnsEMBL::Slice".
-          "not a ".$slice) unless($slice->isa
-                                     ('Bio::EnsEMBL::Slice'));
+  if ($slice) {
+    throw( "Must pass RunnableDB:query a Bio::EnsEMBL::Slice" . "not a " . $slice ) unless ( $slice->isa('Bio::EnsEMBL::Slice') );
     $self->{'slice'} = $slice;
   }
   return $self->{'slice'};
 }
-
 
 =head2 runnable
 
@@ -240,28 +219,24 @@ sub query{
   Function  : container for an array of runnables
   Returntype: arrayref
   Exceptions: throws if passed the wrong object type
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub runnable{
-  my ($self, $runnable) = @_;
-  if(!$self->{'runnable'}){
+sub runnable {
+  my ( $self, $runnable ) = @_;
+  if ( !$self->{'runnable'} ) {
     $self->{'runnable'} = [];
   }
-  if($runnable){
-    throw("Must pass RunnableDB:runnable a ".
-          "Bio::EnsEMBL::Analysis::Runnable not a ".$runnable) 
-      unless($runnable->isa('Bio::EnsEMBL::Analysis::Runnable'));
-    push(@{$self->{'runnable'}}, $runnable);
+  if ($runnable) {
+    throw( "Must pass RunnableDB:runnable a " . "Bio::EnsEMBL::Analysis::Runnable not a " . $runnable )
+      unless ( $runnable->isa('Bio::EnsEMBL::Analysis::Runnable') );
+    push( @{ $self->{'runnable'} }, $runnable );
   }
   return $self->{'runnable'};
 }
 
-
-=head2 input_id 
+=head2 input_id
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
   Arg [2]   : string/int
@@ -271,28 +246,25 @@ sub runnable{
   value
   Returntype: string/int
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub input_id{
+sub input_id {
   my $self = shift;
-  $self->{'input_id'} = shift if(@_);
+  $self->{'input_id'} = shift if (@_);
   return $self->{'input_id'};
 }
 
-
-sub input_is_void{
+sub input_is_void {
   my $self = shift;
-  $self->{'input_is_void'} = shift if(@_);
+  $self->{'input_is_void'} = shift if (@_);
   return $self->{'input_is_void'};
 }
 
-
-sub failing_job_status{
+sub failing_job_status {
   my $self = shift;
-  $self->{'failing_status'} = shift if(@_);
+  $self->{'failing_status'} = shift if (@_);
   return $self->{'failing_status'};
 }
 
@@ -307,44 +279,39 @@ sub failing_job_status{
 
 =cut
 
-
-sub output{
-  my ($self, $output) = @_;
-  if(!$self->{'output'}){
+sub output {
+  my ( $self, $output ) = @_;
+  if ( !$self->{'output'} ) {
     $self->{'output'} = [];
   }
-  if($output){
-    if(ref($output) ne 'ARRAY'){
-      throw('Must pass RunnableDB:output an array ref not a '.$output);
+  if ($output) {
+    if ( ref($output) ne 'ARRAY' ) {
+      throw( 'Must pass RunnableDB:output an array ref not a ' . $output );
     }
-    push(@{$self->{'output'}}, @$output);
+    push( @{ $self->{'output'} }, @$output );
   }
   return $self->{'output'};
 }
-
 
 =head2 feature_factory
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
   Arg [2]   : Bio::EnsEMBL::Analysis::Tools::FeatureFactory
   Function  : container for a feature factory object. If none is defined
-  when one is requested a new one is created. 
+  when one is requested a new one is created.
   Returntype: Bio::EnsEMBL::Analysis::Tools::FeatureFactory
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub feature_factory{
-  my ($self, $feature_factory) = @_;
-  if($feature_factory){
+sub feature_factory {
+  my ( $self, $feature_factory ) = @_;
+  if ($feature_factory) {
     $self->{'feature_factory'} = $feature_factory;
   }
-  if(!$self->{'feature_factory'}){
-    $self->{'feature_factory'} = Bio::EnsEMBL::Analysis::Tools::FeatureFactory
-      ->new();
+  if ( !$self->{'feature_factory'} ) {
+    $self->{'feature_factory'} = Bio::EnsEMBL::Analysis::Tools::FeatureFactory->new();
   }
   return $self->{'feature_factory'};
 }
@@ -361,32 +328,30 @@ sub feature_factory{
   Function  : gets sequence from specifed database
   Returntype: Bio::EnsEMBL::Slice
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub fetch_sequence{
-  my ($self, $name, $db, $repeat_masking, $soft_masking) = @_;
-  if(!$db){
+sub fetch_sequence {
+  my ( $self, $name, $db, $repeat_masking, $soft_masking ) = @_;
+  if ( !$db ) {
     $db = $self->db;
   }
-  if(!$name){
+  if ( !$name ) {
     $name = $self->input_id;
   }
-  my $sa = $db->get_SliceAdaptor;
+  my $sa    = $db->get_SliceAdaptor;
   my $slice = $sa->fetch_by_name($name);
-  $repeat_masking = [] unless($repeat_masking);
-  if(!$slice){
-    throw("Failed to fetch slice ".$name);
+  $repeat_masking = [] unless ($repeat_masking);
+  if ( !$slice ) {
+    throw( "Failed to fetch slice " . $name );
   }
-  if(@$repeat_masking){
-    my $sequence = $slice->get_repeatmasked_seq($repeat_masking, $soft_masking);
-    $slice = $sequence
+  if (@$repeat_masking) {
+    my $sequence = $slice->get_repeatmasked_seq( $repeat_masking, $soft_masking );
+    $slice = $sequence;
   }
   return $slice;
 }
-
 
 =head2 parameters_hash
 
@@ -396,44 +361,42 @@ sub fetch_sequence{
   for the Runnables constructor. If neither of the delimiters
   are found in the string the string is given the key of options
   Returntype: hashref
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
+sub parameters_hash {
+  my ( $self, $string ) = @_;
 
-sub parameters_hash{
-  my ($self, $string) = @_;
-
-  if(!$string){
+  if ( !$string ) {
     $string = $self->analysis->parameters;
   }
   my %parameters_hash;
 
   if ($string) {
-    if($string =~  /,/ || $string =~ /=>/){
-      my @pairs = split (/,/, $string);
-      foreach my $pair(@pairs){
-        my ($key, $value) = split (/=>/, $pair);
-        if ($key && ($value || $value eq '0')) {
-          $key   =~ s/^\s+//g;
-          $key   =~ s/\s+$//g;
+    if ( $string =~ /,/ || $string =~ /=>/ ) {
+      my @pairs = split( /,/, $string );
+      foreach my $pair (@pairs) {
+        my ( $key, $value ) = split( /=>/, $pair );
+        if ( $key && ( $value || $value eq '0' ) ) {
+          $key =~ s/^\s+//g;
+          $key =~ s/\s+$//g;
           $value =~ s/^\s+//g;
           $value =~ s/\s+$//g;
           $parameters_hash{$key} = $value;
-        } else {
+        }
+        else {
           $parameters_hash{$key} = 1;
         }
       }
-    }else{
+    }
+    else {
       $parameters_hash{'-options'} = $string;
     }
   }
   return \%parameters_hash;
-}
-
-
-
+} ## end sub parameters_hash
 
 =head2 run
 
@@ -442,22 +405,18 @@ sub parameters_hash{
   their output into the RunnableDBs output array
   Returntype: array ref
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub run{
+sub run {
   my ($self) = @_;
-  foreach my $runnable(@{$self->runnable}){
+  foreach my $runnable ( @{ $self->runnable } ) {
     $runnable->run;
-    $self->output($runnable->output);
+    $self->output( $runnable->output );
   }
   return $self->{'output'};
 }
-
-
 
 =head2 write_output
 
@@ -465,10 +424,9 @@ sub run{
   Function  : set analysis and slice on each feature
   Returntype: 1
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
-
 
 sub write_output {
   my ($self) = @_;
@@ -495,23 +453,20 @@ sub write_output {
 
     eval { $adaptor->store($feature); };
     if ($@) {
-      throw( sprintf( "RunnableDB::write_output() failed: " .
-                        "failed to store '%s' into database '%s': %s",
+      throw( sprintf( "RunnableDB::write_output() failed: " . "failed to store '%s' into database '%s': %s",
                       $feature, $adaptor->dbc()->dbname(), $@ ) );
     }
   }
 
   # Determine if the analysis ID changed, and throw() if it did.
   if ( $analysis->dbID() != $analysis_id ) {
-    throw( sprintf( "The analysis ID for '%s' changed from %d to %d. " .
-                      "Are the analysis tables in sync?\n",
-                    $analysis->logic_name(), $analysis_id,
-                    $analysis->dbID() ) );
+    throw( sprintf( "The analysis ID for '%s' changed from %d to %d. " . "Are the analysis tables in sync?\n",
+                    $analysis->logic_name(),
+                    $analysis_id, $analysis->dbID() ) );
   }
 
   return 1;
 } ## end sub write_output
-
 
 =head2 fetch_input
 
@@ -519,63 +474,57 @@ sub write_output {
   Function  : throw as it means child hasnt implement an essential method
   Returntype: none
   Exceptions: see function
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
-  throw("Must implement fetch input in ".$self." RunnableDB will ".
-        "not provide this");
+  throw( "Must implement fetch input in " . $self . " RunnableDB will " . "not provide this" );
 }
-
 
 =head2 read_and_check_config
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Arg [2]   : hashref, should be the hashref from which ever config file you are reading 
+  Arg [2]   : hashref, should be the hashref from which ever config file you are reading
   Arg [3]   : label - the name of the config varible you're reading - useful for debugging
-  Arg [4]   : flag (1/0 ) to throw or not throw if logic_name is missing from config. 
-              ( useful for auto-setup in cloud ) 
+  Arg [4]   : flag (1/0 ) to throw or not throw if logic_name is missing from config.
+              ( useful for auto-setup in cloud )
 
   Function  : to on the basis of the entries of the hash in your specific
   config file set up instance variables first for the default values then for
   any values specific to you logic name
   Returntype: none
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
+sub read_and_check_config {
+  my ( $self, $var_hash, $label ) = @_;
 
-sub read_and_check_config{
-  my ($self, $var_hash, $label ) = @_; 
- 
-  if ( defined $label ) { 
-    print "READING CONFIG  : $label\n" ; 
-  } 
-  parse_config($self, $var_hash, $self->analysis->logic_name,$self->no_config_exception);
+  if ( defined $label ) {
+    print "READING CONFIG  : $label\n";
+  }
+  parse_config( $self, $var_hash, $self->analysis->logic_name, $self->no_config_exception );
 }
 
+sub read_and_check_config_value {
+  my ( $self, $var_hash, $label, $values_to_get ) = @_;
 
-sub read_and_check_config_value{
-  my ($self, $var_hash, $label, $values_to_get ) = @_; 
- 
-  if ( defined $label ) { 
-    print "READING CONFIG  : $label\n" ; 
-  } 
-  parse_config_value($self, $var_hash, $self->analysis->logic_name, $values_to_get);
+  if ( defined $label ) {
+    print "READING CONFIG  : $label\n";
+  }
+  parse_config_value( $self, $var_hash, $self->analysis->logic_name, $values_to_get );
 }
 
-sub read_and_check_config_mini{
-  my ($self, $var_hash, $label ) = @_; 
- 
-  if ( defined $label ) { 
-    print "READING CONFIG  : $label\n" ; 
-  } 
-  parse_config_mini($self, $var_hash); 
+sub read_and_check_config_mini {
+  my ( $self, $var_hash, $label ) = @_;
+
+  if ( defined $label ) {
+    print "READING CONFIG  : $label\n";
+  }
+  parse_config_mini( $self, $var_hash );
 }
 
 =head2 require_module
@@ -585,56 +534,50 @@ sub read_and_check_config_mini{
   Function  : uses perls require to use the past in module
   Returntype: returns module name with / replaced by ::
   Exceptions: throws if require fails
-  Example   : my $parser = 
+  Example   : my $parser =
   $self->require('Bio/EnsEMBL/Analysis/Tools/BPliteWrapper');
 
 =cut
 
-
-
-sub require_module{
-  my ($self, $module) = @_;
+sub require_module {
+  my ( $self, $module ) = @_;
   my $class;
-  ($class = $module) =~ s/::/\//g;
-  eval{
-    require "$class.pm";
-  };
-  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  ( $class = $module ) =~ s/::/\//g;
+  eval { require "$class.pm"; };
+  throw( "Couldn't require " . $class . " Blast:require_module $@" ) if ($@);
   return $module;
 }
 
-=head2 ignore_config_file   
+=head2 ignore_config_file
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Arg [2]   : string  ( 1 or 0 ) 
-  Function  : Getter/Setter for value if the configuration file for the module should 
+  Arg [2]   : string  ( 1 or 0 )
+  Function  : Getter/Setter for value if the configuration file for the module should
               be ignored or not. Default is to not ignore ( =read / use ) the config file.
-  Returntype: 1 or 0 
+  Returntype: 1 or 0
 
 =cut
 
 sub ignore_config_file {
   my $self = shift;
-  $self->{'ignore_config'} = shift if(@_);
+  $self->{'ignore_config'} = shift if (@_);
   return $self->{'ignore_config'};
-} 
+}
 
-=head2 no_config_exception 
+=head2 no_config_exception
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB
-  Arg [2]   : string  ( 1 or 0 ) 
-  Function  : 
-              
-  Returntype: 1 or 0 
+  Arg [2]   : string  ( 1 or 0 )
+  Function  :
+
+  Returntype: 1 or 0
 
 =cut
 
-sub no_config_exception{
+sub no_config_exception {
   my $self = shift;
-  $self->{'no_config_exception'} = shift if(@_);
+  $self->{'no_config_exception'} = shift if (@_);
   return $self->{'no_config_exception'};
 }
-
-
 
 1;

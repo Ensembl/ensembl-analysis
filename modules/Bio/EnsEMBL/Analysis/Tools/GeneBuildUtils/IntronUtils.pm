@@ -1,16 +1,17 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils - utilities for transcript objects
@@ -19,9 +20,9 @@ Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils - utilities for trans
 
   use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(get_splice_sites);
 
-  or 
+  or
 
-  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils 
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils
 
   to get all methods
 
@@ -30,7 +31,7 @@ Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils - utilities for trans
 All methods in this class should take a Bio::EnsEMBL::Intron
 object as their first argument.
 
-The methods provided should carry out some standard 
+The methods provided should carry out some standard
 functionality for said objects such as printing info or
 getting splice sites
 
@@ -52,19 +53,18 @@ use warnings;
 use Exporter;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
-                                      stack_trace_dump);
+  stack_trace_dump);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(seq_region_coord_string id);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 
 use vars qw (@ISA @EXPORT);
 
-@ISA = qw(Exporter);
+@ISA    = qw(Exporter);
 @EXPORT = qw(
-             print_Intron
-             Intron_info
-             get_splice_sites
-             intron_length_less_than_maximum);
-
+  print_Intron
+  Intron_info
+  get_splice_sites
+  intron_length_less_than_maximum);
 
 =head2 Intron_info
 
@@ -73,20 +73,18 @@ use vars qw (@ISA @EXPORT);
   Function  : return a string with coords or intron
   Returntype: string
   Exceptions: throw is not given an argument
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub Intron_info{
-  my ($intron, $indent) = @_;
-  throw("Must be passed an intron") if(!$intron);
-  $indent = '' if(!$indent);
+sub Intron_info {
+  my ( $intron, $indent ) = @_;
+  throw("Must be passed an intron") if ( !$intron );
+  $indent = '' if ( !$indent );
   my $coord_string = seq_region_coord_string($intron);
-  my $id = id($intron);
-  return $indent."INTRON: ".$coord_string;
+  my $id           = id($intron);
+  return $indent . "INTRON: " . $coord_string;
 }
-
 
 =head2 print_Intron
 
@@ -95,19 +93,14 @@ sub Intron_info{
   Function  : print out info about given Intron
   Returntype: none
   Exceptions: n/a
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub print_Intron{
-  my ($intron, $indent) = @_;
-  print Intron_info($intron, $indent)."\n";
+sub print_Intron {
+  my ( $intron, $indent ) = @_;
+  print Intron_info( $intron, $indent ) . "\n";
 }
-
-
-
 
 =head2 get_splice_sites
 
@@ -117,26 +110,25 @@ sub print_Intron{
   Returntype: array, (two strings in an array the donor and
                       acceptor splice sites)
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub get_splice_sites{
+sub get_splice_sites {
   my ($intron) = @_;
   my $intron_slice = $intron->feature_Slice;
-  if (defined $intron_slice) {
-    print STDERR "Intron slice defined for intron with next exon id ".$intron->next_Exon->dbID." and pre exon id ".$intron->prev_Exon->dbID."\n";
-  } else {
-    print STDERR "Intron slice NOT defined for intron with next exon id ".$intron->next_Exon->dbID." and pre exon id ".$intron->prev_Exon->dbID."\n";
+  if ( defined $intron_slice ) {
+    print STDERR "Intron slice defined for intron with next exon id " .
+      $intron->next_Exon->dbID . " and pre exon id " . $intron->prev_Exon->dbID . "\n";
   }
-  my $donor_seq    = uc($intron_slice->subseq(1,2));
-  my $acceptor_seq = uc($intron_slice->subseq($intron->length-1,$intron->length));
+  else {
+    print STDERR "Intron slice NOT defined for intron with next exon id " .
+      $intron->next_Exon->dbID . " and pre exon id " . $intron->prev_Exon->dbID . "\n";
+  }
+  my $donor_seq = uc( $intron_slice->subseq( 1, 2 ) );
+  my $acceptor_seq = uc( $intron_slice->subseq( $intron->length - 1, $intron->length ) );
   return $donor_seq, $acceptor_seq;
 }
-
-
 
 =head2 intron_length_less_than_maximum
 
@@ -145,16 +137,14 @@ sub get_splice_sites{
   Function  : check intron length against specificed maximum
   Returntype: boolean 0 for longer than max, 1 for less than
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub intron_length_less_than_maximum{
-  my ($intron, $max_length) = @_;
-  if($intron->length >= $max_length){
-    warning("This intron is longer than ".$max_length);
+sub intron_length_less_than_maximum {
+  my ( $intron, $max_length ) = @_;
+  if ( $intron->length >= $max_length ) {
+    warning( "This intron is longer than " . $max_length );
     return 0;
   }
   return 1;

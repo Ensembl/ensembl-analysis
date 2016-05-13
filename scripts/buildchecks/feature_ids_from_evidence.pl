@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +20,7 @@ evidence_ids_from_evidence_ids.pl
 
 =head1 SYNOPSIS
 
-perl feature_ids_from_evidence.pl  -host host -user ensro -port 3306 
+perl feature_ids_from_evidence.pl  -host host -user ensro -port 3306
 -dbname gwdb -evidence_id Q60D5
 
 This would return the gene ids supported by the protein id Q60D5
@@ -81,13 +81,12 @@ the ensembl-dev mailing list <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =cut
 
-use warnings ;
+use warnings;
 use strict;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use SupportingEvidenceInfo;
-
 
 my $dbhost;
 my $dbuser;
@@ -103,42 +102,31 @@ my $id_type = 'gene';
 my $verbose;
 my $help;
 my $only_primary;
-GetOptions( 
-            'dbhost|host|h=s'      => \$dbhost,
-            'dbname|db|D=s'      => \$dbname,
-            'dbuser|user|u=s'      => \$dbuser,
-            'dbpass|pass|p=s'      => \$dbpass,
-            'dbport|port|P=s'      => \$dbport,
-            'evidence_id=s' => \$protein_id,
-            'evidence_type=s' => \$table_name,
-            'id_type=s' => \$id_type,
-            'primary_evidence!' => \$only_primary, 
-            'gene_type=s' => \$gene_type,
-            'id_list_file=s' => \$protein_file,
-            'info!' => \$info,
-            'verbose!' => \$verbose,
-            'help!' => \$help,
-           ) or perldocs("Failed to get opts");
+GetOptions( 'dbhost|host|h=s'   => \$dbhost,
+            'dbname|db|D=s'     => \$dbname,
+            'dbuser|user|u=s'   => \$dbuser,
+            'dbpass|pass|p=s'   => \$dbpass,
+            'dbport|port|P=s'   => \$dbport,
+            'evidence_id=s'     => \$protein_id,
+            'evidence_type=s'   => \$table_name,
+            'id_type=s'         => \$id_type,
+            'primary_evidence!' => \$only_primary,
+            'gene_type=s'       => \$gene_type,
+            'id_list_file=s'    => \$protein_file,
+            'info!'             => \$info,
+            'verbose!'          => \$verbose,
+            'help!'             => \$help, ) or
+  perldocs("Failed to get opts");
 
-perldocs() if($help);
+perldocs() if ($help);
 
-if(!$dbhost || !$dbname || !$dbuser){
-  throw("Must pass in host, user and dbname with -host $dbhost -user $dbuser".
-        " -dbname $dbname ");
+if ( !$dbhost || !$dbname || !$dbuser ) {
+  throw( "Must pass in host, user and dbname with -host $dbhost -user $dbuser" . " -dbname $dbname " );
 
 }
 
-
-my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-  (
-   -host   => $dbhost,
-   -user   => $dbuser,
-   -dbname => $dbname,
-   -pass   => $dbpass,
-   -port   => $dbport,
-  );
-
-
+my $db =
+  new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $dbhost, -user => $dbuser, -dbname => $dbname, -pass => $dbpass, -port => $dbport, );
 
 my $evidence_info = SupportingEvidenceInfo->new();
 $evidence_info->db($db);
@@ -148,20 +136,20 @@ $evidence_info->id_type($id_type);
 $evidence_info->info($info);
 $evidence_info->primary_evidence($only_primary);
 my $ids = [];
-if($protein_file){
+if ($protein_file) {
   $ids = $evidence_info->read_id_file($protein_file);
-}else{
-  push(@$ids, $protein_id);
+}
+else {
+  push( @$ids, $protein_id );
 }
 
-foreach my $id(@$ids){
-  $evidence_info->feature_ids_from_evidence_id($id, $gene_type);
+foreach my $id (@$ids) {
+  $evidence_info->feature_ids_from_evidence_id( $id, $gene_type );
 }
 
-
-sub perldocs{
+sub perldocs {
   my ($msg) = @_;
-  print $msg."\n" if($msg);
-  exec('perldoc', $0);
+  print $msg. "\n" if ($msg);
+  exec( 'perldoc', $0 );
   exit(0);
 }

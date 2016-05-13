@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::MergBamFiles - 
+Bio::EnsEMBL::Analysis::RunnableDB::MergBamFiles -
 
 =head1 SYNOPSIS
 
@@ -52,7 +53,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::MergBamFiles -
 
 package Bio::EnsEMBL::Analysis::RunnableDB::MergeBamFiles;
 
-use warnings ;
+use warnings;
 use strict;
 
 use File::Copy;
@@ -68,9 +69,8 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
-
-sub new{
-  my ($class,@args) = @_;
+sub new {
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
   $self->read_and_check_config;
   return $self;
@@ -86,114 +86,116 @@ sub new{
 =cut
 
 sub read_and_check_config {
-    my ($self) = @_;
+  my ($self) = @_;
 
-    logging_info( "Checking directories...\n");
-    my @params = split('\s*,\s*', $self->analysis->params);
-    $self->_use_threads(0);
-    foreach my $param (@params) {
-        my ($key, $value) = $param =~ /(\w+)\s*=\s*(\S+)/;
-        if ($key eq 'use_threads') {
-            throw("Need an integer for $key") unless ($value =~ /\d/);
-            $self->_use_threads($value);
-        }
-        elsif ($key eq 'samtools') {
-            throw("$value is not executable") unless (-x $value);
-            $self->_samtools($value);
-        }
-        elsif($key eq 'outfile') {
-            my ($dir) = $value =~ /(.*)\/[^\/]+$/;
-            throw("$dir does exists") unless (-d $dir);
-            $self->outfile($value);
-        }
+  logging_info("Checking directories...\n");
+  my @params = split( '\s*,\s*', $self->analysis->params );
+  $self->_use_threads(0);
+  foreach my $param (@params) {
+    my ( $key, $value ) = $param =~ /(\w+)\s*=\s*(\S+)/;
+    if ( $key eq 'use_threads' ) {
+      throw("Need an integer for $key") unless ( $value =~ /\d/ );
+      $self->_use_threads($value);
     }
-    foreach my $dir (split('\s*,\s*', $self->analysis->db_file)) {
-        throw("$dir does not exists") unless (-d $dir);
-        $self->_bam_dir($dir);
+    elsif ( $key eq 'samtools' ) {
+      throw("$value is not executable") unless ( -x $value );
+      $self->_samtools($value);
     }
-}
+    elsif ( $key eq 'outfile' ) {
+      my ($dir) = $value =~ /(.*)\/[^\/]+$/;
+      throw("$dir does exists") unless ( -d $dir );
+      $self->outfile($value);
+    }
+  }
+  foreach my $dir ( split( '\s*,\s*', $self->analysis->db_file ) ) {
+    throw("$dir does not exists") unless ( -d $dir );
+    $self->_bam_dir($dir);
+  }
+} ## end sub read_and_check_config
 
 sub fetch_input {
-    my ($self) = @_;
+  my ($self) = @_;
 
-    foreach my $dir (@{$self->_bam_dir}) {
-        opendir(my $dh, $dir) || throw("Could not open $dir");
-        while (readdir $dh) {
-            $self->_bam_files("$dir/$_") if ($_ =~ /_sorted.bam$/ and -f "$dir/$_");
-        }
-        closedir($dh) || throw("Could not close directory $dir");
+  foreach my $dir ( @{ $self->_bam_dir } ) {
+    opendir( my $dh, $dir ) || throw("Could not open $dir");
+    while ( readdir $dh ) {
+      $self->_bam_files("$dir/$_") if ( $_ =~ /_sorted.bam$/ and -f "$dir/$_" );
     }
-    my $num_bam_files = scalar(@{$self->_bam_files});
-    throw("You're missing some bam files, you have $num_bam_files bam files instead of ".$self->analysis->db_version) unless ($self->analysis->db_version == $num_bam_files);
-    if ($num_bam_files == 1) {
-        warning("There is only one file, no need to merge...");
-        $self->input_is_void(1);
-    }
+    closedir($dh) || throw("Could not close directory $dir");
+  }
+  my $num_bam_files = scalar( @{ $self->_bam_files } );
+  throw( "You're missing some bam files, you have $num_bam_files bam files instead of " . $self->analysis->db_version )
+    unless ( $self->analysis->db_version == $num_bam_files );
+  if ( $num_bam_files == 1 ) {
+    warning("There is only one file, no need to merge...");
+    $self->input_is_void(1);
+  }
 }
 
 sub run {
-    my ($self) = @_;
+  my ($self) = @_;
 
-    my $picard_cmd_files = '';
-    my @stat_checks;
-    foreach my $bam_file (@{$self->_bam_files}) {
-        my $cmd = $self->_samtools.' flagstat '.$bam_file;
-        my $index = 0;
-        open(PR, "$cmd > 2&1 | ") || throw("Could not open: $cmd");
-        while(<PR>) {
-            throw("File $bam_file is truncated") if (/truncated/);
-            if (/mapped\s+\(([0-9.]+)/) {
-                if ($1 < $self->_min_mapped) {
-                    warning("Bam file $bam_file has less than ".$self->_min_mapped."% reads aligned");
-                }
-                $index = 0;
-
-            }
-            elsif (/properly paired \(([0-9.]+)/) {
-                if ($1 < $self->_min_paired) {
-                    warning("Bam file $bam_file has less than ".$self->_min_paired."% reads properly paired");
-                }
-            }
-            if (/^\s*(\d+)/) {
-                $stat_checks[$index++] += $1;
-            }
-        }
-        close(PR) || throw("Could not close: $cmd");
-        $picard_cmd_files .= ' INPUT='.$bam_file;
-    }
-    $self->_stat_check(\@stat_checks);
-    my $options = ' MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT';
-    $options .= ' USE_THREADING=true' if ($self->_use_threads);
-    my $picard_cmd = $self->analysis->program.' -Xmx2g -jar '.$self->analysis->program_file.$options.' OUTPUT='.$self->outfile.$picard_cmd_files;
-    throw("Picard cmd: $picard_cmd FAILED") unless (system($picard_cmd));
-}
-
-sub write_output {
-    my ($self) = @_;
-
-    my $outfile = $self->outfile;
-    my $cmd = $self->_samtools.' flagstat '.$outfile;
+  my $picard_cmd_files = '';
+  my @stat_checks;
+  foreach my $bam_file ( @{ $self->_bam_files } ) {
+    my $cmd   = $self->_samtools . ' flagstat ' . $bam_file;
     my $index = 0;
-    my @checks;
-    open(PR, "$cmd > 2&1 | ") || throw("Could not open: $cmd");
-    while(<PR>) {
-        throw("File ".$self->outfile." is truncated") if (/truncated/);
-        if (/^\s*(\d+)/) {
-            $checks[$index++] += $1;
+    open( PR, "$cmd > 2&1 | " ) || throw("Could not open: $cmd");
+    while (<PR>) {
+      throw("File $bam_file is truncated") if (/truncated/);
+      if (/mapped\s+\(([0-9.]+)/) {
+        if ( $1 < $self->_min_mapped ) {
+          warning( "Bam file $bam_file has less than " . $self->_min_mapped . "% reads aligned" );
         }
+        $index = 0;
+
+      }
+      elsif (/properly paired \(([0-9.]+)/) {
+        if ( $1 < $self->_min_paired ) {
+          warning( "Bam file $bam_file has less than " . $self->_min_paired . "% reads properly paired" );
+        }
+      }
+      if (/^\s*(\d+)/) {
+        $stat_checks[ $index++ ] += $1;
+      }
     }
     close(PR) || throw("Could not close: $cmd");
-    my $stat_check = $self->_stat_check;
-    for (my $i = 0; $i < $#checks; $i++) {
-        throw("Merge failed for $outfile: ".$checks[$i].' <=> '.$stat_check->[$i]) unless ($checks[$i] == $stat_check->[$i]);
+    $picard_cmd_files .= ' INPUT=' . $bam_file;
+  } ## end foreach my $bam_file ( @{ $self...})
+  $self->_stat_check( \@stat_checks );
+  my $options = ' MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT';
+  $options .= ' USE_THREADING=true' if ( $self->_use_threads );
+  my $picard_cmd = $self->analysis->program .
+    ' -Xmx2g -jar ' . $self->analysis->program_file . $options . ' OUTPUT=' . $self->outfile . $picard_cmd_files;
+  throw("Picard cmd: $picard_cmd FAILED") unless ( system($picard_cmd) );
+} ## end sub run
+
+sub write_output {
+  my ($self) = @_;
+
+  my $outfile = $self->outfile;
+  my $cmd     = $self->_samtools . ' flagstat ' . $outfile;
+  my $index   = 0;
+  my @checks;
+  open( PR, "$cmd > 2&1 | " ) || throw("Could not open: $cmd");
+  while (<PR>) {
+    throw( "File " . $self->outfile . " is truncated" ) if (/truncated/);
+    if (/^\s*(\d+)/) {
+      $checks[ $index++ ] += $1;
     }
-    my $index_file = $outfile;
-    $index_file =~ s/bam$/bai/;
-    # Return 1 on success
-    throw("Failed to move index file $index_file to $outfile.bai") unless (move($index_file, $outfile.'.bai'));
-    # Return 0 on success
-    throw("Failed to update the timestamp for $outfile.bai") if (system("touch $outfile.bai"));
-}
+  }
+  close(PR) || throw("Could not close: $cmd");
+  my $stat_check = $self->_stat_check;
+  for ( my $i = 0; $i < $#checks; $i++ ) {
+    throw( "Merge failed for $outfile: " . $checks[$i] . ' <=> ' . $stat_check->[$i] ) unless ( $checks[$i] == $stat_check->[$i] );
+  }
+  my $index_file = $outfile;
+  $index_file =~ s/bam$/bai/;
+  # Return 1 on success
+  throw("Failed to move index file $index_file to $outfile.bai") unless ( move( $index_file, $outfile . '.bai' ) );
+  # Return 0 on success
+  throw("Failed to update the timestamp for $outfile.bai") if ( system("touch $outfile.bai") );
+} ## end sub write_output
 
 ###
 # Containers
@@ -210,12 +212,12 @@ sub write_output {
 =cut
 
 sub _stat_check {
-    my ($self, $value) = shift;
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        $self->{'__stat_check'} = $value;
-    }
-    return $self->{'__stat_check'};
+  if ($value) {
+    $self->{'__stat_check'} = $value;
+  }
+  return $self->{'__stat_check'};
 }
 
 =head2 _use_threads
@@ -229,12 +231,12 @@ sub _stat_check {
 =cut
 
 sub _use_threads {
-    my ($self, $value) = shift;
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        $self->{'__use_threads'} = $value;
-    }
-    return $self->{'__use_threads'};
+  if ($value) {
+    $self->{'__use_threads'} = $value;
+  }
+  return $self->{'__use_threads'};
 }
 
 =head2 _samtools
@@ -248,12 +250,12 @@ sub _use_threads {
 =cut
 
 sub _samtools {
-    my ($self, $value) = shift;
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        $self->{'__samtools'} = $value;
-    }
-    return $self->{'__samtools'};
+  if ($value) {
+    $self->{'__samtools'} = $value;
+  }
+  return $self->{'__samtools'};
 }
 
 =head2 outfile
@@ -267,12 +269,12 @@ sub _samtools {
 =cut
 
 sub outfile {
-    my ($self, $value) = shift;
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        $self->{'_outfile'} = $value;
-    }
-    return $self->{'_outfile'};
+  if ($value) {
+    $self->{'_outfile'} = $value;
+  }
+  return $self->{'_outfile'};
 }
 
 =head2 _min_mapped
@@ -283,17 +285,17 @@ sub outfile {
               If you want to know which data align less of XX% of your reads
  Returntype : Int
  Exceptions : None
- 
- 
+
+
 =cut
 
-sub _min_mapped { 
-    my ($self, $value) = shift;
+sub _min_mapped {
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        $self->{'__min_mapped'} = $value;
-    }
-    return $self->{'__min_mapped'};
+  if ($value) {
+    $self->{'__min_mapped'} = $value;
+  }
+  return $self->{'__min_mapped'};
 }
 
 =head2 _min_paired
@@ -308,12 +310,12 @@ sub _min_mapped {
 =cut
 
 sub _min_paired {
-    my ($self, $value) = shift;
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        $self->{'__min_paired'} = $value;
-    }
-    return $self->{'__min_paired'};
+  if ($value) {
+    $self->{'__min_paired'} = $value;
+  }
+  return $self->{'__min_paired'};
 }
 
 =head2 _bam_dir
@@ -327,12 +329,12 @@ sub _min_paired {
 =cut
 
 sub _bam_dir {
-    my ($self, $value) = shift;
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        push(@{$self->{'__bam_dir'}}, $value);
-    }
-    return $self->{'__bam_dir'};
+  if ($value) {
+    push( @{ $self->{'__bam_dir'} }, $value );
+  }
+  return $self->{'__bam_dir'};
 }
 
 =head2 _bam_files
@@ -346,12 +348,12 @@ sub _bam_dir {
 =cut
 
 sub _bam_files {
-    my ($self, $value) = shift;
+  my ( $self, $value ) = shift;
 
-    if ($value) {
-        push(@{$self->{'__bam_files'}}, $value);
-    }
-    return $self->{'__bam_files'};
+  if ($value) {
+    push( @{ $self->{'__bam_files'} }, $value );
+  }
+  return $self->{'__bam_files'};
 }
 
 1;

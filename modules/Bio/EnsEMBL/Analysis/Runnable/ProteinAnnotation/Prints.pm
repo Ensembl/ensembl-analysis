@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,18 +14,14 @@
 
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prints;
 
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
-
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 
-
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
-
-
 
 ###################
 # analysis methods
@@ -37,7 +33,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
  Usage    : $self->program
  Function : makes the system call to program
  Example  :
- Returns  : 
+ Returns  :
  Args     :
  Throws   :
 
@@ -95,28 +91,21 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # The database may get updated out of synch of the scripts, so you may
 # need to set '-E #1 #2' explicitly in the parameters= line of the config file.
 
-
-
 sub run_analysis {
   my ($self) = @_;
 
-  print STDERR "running ".$self->program." against ".$self->database."\n";
-  print STDERR "FILENAME: ".$self->queryfile."\n";
+  print STDERR "running " . $self->program . " against " . $self->database . "\n";
+  print STDERR "FILENAME: " . $self->queryfile . "\n";
 
-  # because Prints reports matches off the end of the sequence, 
+  # because Prints reports matches off the end of the sequence,
   # we need the sequence lengths to be able to trim them back
-      
-  my $command =  $self->program ." " . 
-      $self->database . " " . 
-      $self->queryfile . " " .
-      $self->analysis->parameters . " " . 
-      "> " . $self->resultsfile;
+
+  my $command =
+    $self->program . " " . $self->database . " " . $self->queryfile . " " . $self->analysis->parameters . " " . "> " . $self->resultsfile;
 
   print STDERR "$command\n";
-  throw("Failed during prints run $!\n") unless 
-      system($command) == 0 ;
+  throw("Failed during prints run $!\n") unless system($command) == 0;
 }
-
 
 =head2 parse_results
 
@@ -124,138 +113,119 @@ sub run_analysis {
  Usage    :  $self->parse_results ($filename)
  Function :  parses program output to give a set of features
  Example  :
- Returns  : 
+ Returns  :
  Args     : filename (optional, can be filename, filehandle or pipe, not implemented)
  Throws   :
 
 =cut
 
-
 sub parse_results {
   my ($self) = @_;
 
   my %seqlengths;
-  my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                              -file   => $self->queryfile);
-  while (my $seq = $seqio->next_seq) {
-    $seqlengths{$seq->id} = $seq->length;
+  my $seqio = Bio::SeqIO->new( -format => 'fasta', -file => $self->queryfile );
+  while ( my $seq = $seqio->next_seq ) {
+    $seqlengths{ $seq->id } = $seq->length;
   }
   $seqio->close;
-    
+
   my ($fh);
 
   my $resfile = $self->resultsfile;
-  
-  if (-e $resfile) {    
-    if (-z $resfile) {  
+
+  if ( -e $resfile ) {
+    if ( -z $resfile ) {
       # No hits found
       print STDERR "Prints didn't find any hits\n";
-      return; 
-    }       
+      return;
+    }
     else {
-      open ($fh, "<$resfile") or $self->throw("Error opening ", $resfile, " \n");
+      open( $fh, "<$resfile" ) or $self->throw( "Error opening ", $resfile, " \n" );
     }
   }
 
-  my @fps ;
-  my %printsac ;
-  my $seq_id ;
+  my @fps;
+  my %printsac;
+  my $seq_id;
   my %evalue;
 
-  
   while (<$fh>) {
     my $line = $_;
     chomp $line;
     # Pattern match the Sn; field which should contain the SequenceId and Accession
-    
-    if ($line =~ s/^Sn;//) { # We have identified a Sn; line so there should be the following:	    
-      #ENSP00000003603 Gene:ENSG00000000003 Query:AL035608 Contig:AL035608.00001 Chr:chrX basepair:97227305
+
+    if ( $line =~ s/^Sn;// ) {    # We have identified a Sn; line so there should be the following:
+                                  #ENSP00000003603 Gene:ENSG00000000003 Query:AL035608 Contig:AL035608.00001 Chr:chrX basepair:97227305
       ($seq_id) = $line =~ /^\s*(\w+)/;
     }
-        
-    if ($line =~ s/^1TBH//) {
+
+    if ( $line =~ s/^1TBH// ) {
       my ($id) = $line =~ /^\s*(\w+)/;
       my ($ac) = $line =~ /(PR\w+)[;\.]*\s*$/;
-#      print STDERR "In 1TBH data, printsac{$id} =  $ac\n";
+      #      print STDERR "In 1TBH data, printsac{$id} =  $ac\n";
       $printsac{$id} = $ac;
     }
 
-    if ($line =~ /^2TBH/) {
+    if ( $line =~ /^2TBH/ ) {
       my @line = split /\s+/, $line;
-      $evalue{$line[1]} = $line[9];
-#      print STDERR "hash evalue of $line[1] = $line[9]\n";
+      $evalue{ $line[1] } = $line[9];
+      #      print STDERR "hash evalue of $line[1] = $line[9]\n";
     }
-    
-    if ($line =~ s/^3TB//) {
-      if ($line =~ s/^[HN]//) {
-        my ($num,$temp1,$tot1);
+
+    if ( $line =~ s/^3TB// ) {
+      if ( $line =~ s/^[HN]// ) {
+        my ( $num, $temp1, $tot1 );
         # Grab these lines
         #  1433ZETA        1  of  6  88.19   1328    1.00e-16  ELTVEERNLLSVAYKNVIGARRASWRIITS   30   35   36   48
 
-        $line =~ s/^\s+//;        
-        my @elements = split /\s+/, $line; 
-        
+        $line =~ s/^\s+//;
+        my @elements = split /\s+/, $line;
+
         # Name each of the elements in the array
-        my ($fingerprintName,
-            $motifNumber,
-            $temp,
-            $tot,
-            $percentageIdentity,
-            $profileScore,
-            $pvalue,
-            $subsequence,
-            $motifLength,
-            $lowestMotifPosition,
-            $matchPosition,
-            $highestMotifPosition) = @elements;
-        
+        my ( $fingerprintName,    $motifNumber,         $temp,          $tot,
+             $percentageIdentity, $profileScore,        $pvalue,        $subsequence,
+             $motifLength,        $lowestMotifPosition, $matchPosition, $highestMotifPosition ) = @elements;
+
         # If protein is 10,000+ residues (i.e. titin), then last two elements are merged, e.g.:
         # VEGFRECEPTOR    5  of  6  39.20   406     1.05e-05  LIVRNARKENAGKYTLVL                                      18   374  13564392
-        if (!defined $highestMotifPosition) {
+        if ( !defined $highestMotifPosition ) {
           # First five characters of $matchPosition is actual $matchPosition
           $highestMotifPosition = $matchPosition;
-          $matchPosition = substr($highestMotifPosition, 0, 5, '');
+          $matchPosition = substr( $highestMotifPosition, 0, 5, '' );
         }
-        
+
         my $start = $matchPosition;
-        my $end = $matchPosition + $motifLength - 1;
-        
+        my $end   = $matchPosition + $motifLength - 1;
+
         # Prints sometimes reports -1 for the motif position start;
         $lowestMotifPosition = 1 if $lowestMotifPosition == -1;
-        $highestMotifPosition = $lowestMotifPosition + $motifLength -1 
-            if $highestMotifPosition == -1;
+        $highestMotifPosition = $lowestMotifPosition + $motifLength - 1 if $highestMotifPosition == -1;
 
         # if we don't have a valid hit for this PRINTS ID, then ignore teh rest
-        if (! exists $printsac{$fingerprintName}) {next;}
+        if ( !exists $printsac{$fingerprintName} ) { next; }
         my $feat = "$printsac{$fingerprintName},$start,$end,$percentageIdentity,$profileScore,$evalue{$fingerprintName}";
-#        print STDERR "features= $feat\n" ;
+        #        print STDERR "features= $feat\n" ;
 
         # It's possible that near the ends of the sequence,
-        # fragment matches are found. These can result in a 
+        # fragment matches are found. These can result in a
         # start < 1 or end > seq_length. Make a policy decision
         # prune these back in the sequence, but not the hit
         $start = 1 if $start < 1;
         $end = $seqlengths{$seq_id} if $end > $seqlengths{$seq_id};
         my $evalue = $evalue{$fingerprintName};
-    
-        my $fp = $self->create_protein_feature($start, $end, 
-                                               $profileScore,
-                                               $seq_id, 
-                                               $lowestMotifPosition, 
-                                               $highestMotifPosition, 
-                                               $printsac{$fingerprintName},
-                                               $self->analysis, 
-                                               $evalue, 
-                                               $percentageIdentity);
+
+        my $fp = $self->create_protein_feature( $start,                      $end,                 $profileScore,
+                                                $seq_id,                     $lowestMotifPosition, $highestMotifPosition,
+                                                $printsac{$fingerprintName}, $self->analysis,      $evalue,
+                                                $percentageIdentity );
         push @fps, $fp;
-      }
-    }
-  }
+      } ## end if ( $line =~ s/^[HN]//)
+    } ## end if ( $line =~ s/^3TB//)
+  } ## end while (<$fh>)
   close($fh);
 
-  $self->output(\@fps);
-}
-
+  $self->output( \@fps );
+} ## end sub parse_results
 
 1;
 

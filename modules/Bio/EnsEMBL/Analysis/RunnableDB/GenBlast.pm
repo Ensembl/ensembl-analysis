@@ -1,17 +1,16 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 
 # Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB::GenBlast
 #
@@ -41,7 +40,7 @@ the Runnable GenBlast which wraps the program GenBlast
 
 This module can fetch appropriate input from the database
 pass it to the runnable then write the results back to the database
-in the dna_align_feature  tables 
+in the dna_align_feature  tables
 
 =head1 CONTACT
 
@@ -63,53 +62,46 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB);
 
-
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::GenBlast
   Function  : fetch data out of database and create runnable
   Returntype: 1
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
 sub fetch_input {
   my ($self) = @_;
-  my (%parameters, %genome_slices);
+  my ( %parameters, %genome_slices );
 
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
+  if ( $self->parameters_hash ) {
+    %parameters = %{ $self->parameters_hash };
   }
 
   my $genome_file = $self->analysis->db_file;
-  open(my $fh, $genome_file) or throw("Could not open $genome_file for reading");
-  while(<$fh>) {
+  open( my $fh, $genome_file ) or throw("Could not open $genome_file for reading");
+  while (<$fh>) {
     /^\>(\S+)/ and do {
       my $seq_name = $1;
-      my $slice = $self->db->get_SliceAdaptor->fetch_by_region('toplevel', $seq_name);
-      if (not defined $slice) {
+      my $slice = $self->db->get_SliceAdaptor->fetch_by_region( 'toplevel', $seq_name );
+      if ( not defined $slice ) {
         throw("Could not extract slice for $seq_name from database");
       }
       $genome_slices{$seq_name} = $slice;
-    }
+      }
   }
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlast->new
-    (
-     -query => $self->input_id,
-     -program => $self->analysis->program_file,
-     -analysis => $self->analysis,
-     -database => $self->analysis->db_file,
-     -refslices => \%genome_slices,
-     %parameters,
-    );
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlast->new( -query     => $self->input_id,
+                                                                  -program   => $self->analysis->program_file,
+                                                                  -analysis  => $self->analysis,
+                                                                  -database  => $self->analysis->db_file,
+                                                                  -refslices => \%genome_slices,
+                                                                  %parameters, );
   $self->runnable($runnable);
   return 1;
-}
-
+} ## end sub fetch_input
 
 =head2 write_output
 
@@ -117,25 +109,23 @@ sub fetch_input {
   Function  : writes the prediction transcripts back to the database
   after validation
   Returntype: none
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
-
-sub write_output{
-  my ($self) = @_;
+sub write_output {
+  my ($self)  = @_;
   my $adaptor = $self->db->get_PredictionTranscriptAdaptor;
-  my @output = @{$self->output};
-  my $ff = $self->feature_factory;
-  foreach my $pt(@output){
-    $pt->analysis($self->analysis);
-    $pt->slice($self->query) if(!$pt->slice);
-#    if ($self->test_translates()) {
-#      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
-#      next;
-#    } # test to see if this transcript translates OK
+  my @output  = @{ $self->output };
+  my $ff      = $self->feature_factory;
+  foreach my $pt (@output) {
+    $pt->analysis( $self->analysis );
+    $pt->slice( $self->query ) if ( !$pt->slice );
+    #    if ($self->test_translates()) {
+    #      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
+    #      next;
+    #    } # test to see if this transcript translates OK
     $adaptor->store($pt);
   }
 }
@@ -145,8 +135,8 @@ sub write_output{
   Arg [1]   : Bio::EnsEMBL::PredictionTranscript
   Function  : tests whether a transcript translates correctly
   Returntype: int 1 for failure, 0 for OK
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
@@ -154,15 +144,12 @@ sub test_translates {
   my ($pt) = @_;
   my $result = 0;
   my $tseq;
-  eval{
-    $tseq = $pt->translate;
-  };
-  if (!$tseq || $tseq->seq =~ /\*/) {
+  eval { $tseq = $pt->translate; };
+  if ( !$tseq || $tseq->seq =~ /\*/ ) {
     print "$tseq->seq\n" if $tseq;
     $result = 1;
   }
-  return $result; 
+  return $result;
 }
-
 
 1;

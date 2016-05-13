@@ -1,16 +1,17 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 =head1 NAME
 
   fsk::Default
@@ -33,7 +34,7 @@
 
 package Bio::EnsEMBL::Analysis::Tools::Default;
 
-use warnings ;
+use warnings;
 use Exporter;
 use vars qw(@ISA @EXPORT);
 our @ISA    = ("Exporter");
@@ -61,41 +62,37 @@ my $verbosity = 0;
 =cut
 
 sub dbconnect {
-  my ($dbhost, $dbport, $dbname, $dbuser, $dbpass, $species, $dnadbname, $dnadbhost, $dnadbport) = @_;
+  my ( $dbhost, $dbport, $dbname, $dbuser, $dbpass, $species, $dnadbname, $dnadbhost, $dnadbport ) = @_;
 
   my $db;
   #try to use env vars or default vals
-  if(!$dbhost)   { $dbhost=$ENV{"DBHOST"} }
-  if(!$dbport)   { $dbport=$ENV{"DBPORT"} || 3306    }
-  if(!$dbuser)   { $dbuser=$ENV{"DBUSER"} || "ensro" }
-  if(!$dbpass)   { $dbpass=$ENV{"DBPASS"} || ""      }
-  if(!$dbname)   { $dbpass=$ENV{"DBNAME"} || die "\nno db name given.\n" }
+  if ( !$dbhost ) { $dbhost = $ENV{"DBHOST"} }
+  if ( !$dbport ) { $dbport = $ENV{"DBPORT"} || 3306 }
+  if ( !$dbuser ) { $dbuser = $ENV{"DBUSER"} || "ensro" }
+  if ( !$dbpass ) { $dbpass = $ENV{"DBPASS"} || "" }
+  if ( !$dbname ) { $dbpass = $ENV{"DBNAME"} || die "\nno db name given.\n" }
 
   $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-					   -host    => $dbhost,
-					   -user    => $dbuser,
-					   -pass    => $dbpass,
-					   -port    => $dbport,
-					   -dbname  => $dbname,
-					   #-species => $species,
-					  ) or die("cant connect to $dbname");
-  if($dnadbname && $dnadbhost){
-    my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor (
-						    -host   => $dnadbhost,
-						    -dbname => $dnadbname,
-						    -port   => $dnadbport,
-						    -user   => $dbuser,
-						    -pass   => $dbpass,
-						   ) or die "can t connect to database $dnadbname.";
+    -host   => $dbhost,
+    -user   => $dbuser,
+    -pass   => $dbpass,
+    -port   => $dbport,
+    -dbname => $dbname,
+    #-species => $species,
+  ) or die("cant connect to $dbname");
+  if ( $dnadbname && $dnadbhost ) {
+    my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnadbhost,
+                                                    -dbname => $dnadbname,
+                                                    -port   => $dnadbport,
+                                                    -user   => $dbuser,
+                                                    -pass   => $dbpass, ) or
+      die "can t connect to database $dnadbname.";
     $db->dnadb($dnadb);
   }
-  print "connected to $dbname.\n" if($verbosity);
+  print "connected to $dbname.\n" if ($verbosity);
 
   return $db;
-}
-
-
-
+} ## end sub dbconnect
 
 =head2 get_all_slices
 
@@ -109,15 +106,15 @@ sub dbconnect {
 =cut
 
 sub get_all_slices {
-  my ($dbObj, $coordsys, $version, $remove_NTs) = @_;
+  my ( $dbObj, $coordsys, $version, $remove_NTs ) = @_;
 
-  my @slices = ();
+  my @slices        = ();
   my $slice_adaptor = $dbObj->get_SliceAdaptor;
 
-  foreach my $chr (@{$slice_adaptor->fetch_all($coordsys, $version, undef, 1)}){
-    if($remove_NTs and (($chr->seq_region_name =~ /_NT_/) or ($chr->seq_region_name =~/_RANDOM_/))){ next; }
+  foreach my $chr ( @{ $slice_adaptor->fetch_all( $coordsys, $version, undef, 1 ) } ) {
+    if ( $remove_NTs and ( ( $chr->seq_region_name =~ /_NT_/ ) or ( $chr->seq_region_name =~ /_RANDOM_/ ) ) ) { next; }
     #if($chr->seq_region_name =~ /MT/){ next; }
-    print $chr->seq_region_name.", ".$chr->start." - ".$chr->end."\n" if($verbosity);
+    print $chr->seq_region_name . ", " . $chr->start . " - " . $chr->end . "\n" if ($verbosity);
     push @slices, $chr;
   }
   @slices = sort sortbychrnum @slices;
@@ -125,14 +122,10 @@ sub get_all_slices {
   return \@slices;
 }
 
-
-
-
-
 sub sortbychrnum {
 
-  my @awords = split /_/,$a->seq_region_name;
-  my @bwords = split /_/,$b->seq_region_name;
+  my @awords = split /_/, $a->seq_region_name;
+  my @bwords = split /_/, $b->seq_region_name;
 
   my $anum = $awords[0];
   my $bnum = $bwords[0];
@@ -140,31 +133,33 @@ sub sortbychrnum {
   $anum =~ s/chr//;
   $bnum =~ s/chr//;
 
-  if ($anum !~ /^[0-9]*$/) {
-    if ($bnum !~ /^[0-9]*$/) {
+  if ( $anum !~ /^[0-9]*$/ ) {
+    if ( $bnum !~ /^[0-9]*$/ ) {
       return $anum cmp $bnum;
-    } else {
+    }
+    else {
       return 1;
     }
   }
-  if ($bnum !~ /^[0-9]*$/) {
+  if ( $bnum !~ /^[0-9]*$/ ) {
     return -1;
   }
 
-  if ($anum <=> $bnum) {
+  if ( $anum <=> $bnum ) {
     return $anum <=> $bnum;
-  } else {
-    if ($#awords == 0) {
-      return -1;
-    } elsif ($#bwords == 0) {
-      return 1;
-    } else {
-	return $awords[1] cmp $bwords[1];
-      }
   }
-}
-
-
+  else {
+    if ( $#awords == 0 ) {
+      return -1;
+    }
+    elsif ( $#bwords == 0 ) {
+      return 1;
+    }
+    else {
+      return $awords[1] cmp $bwords[1];
+    }
+  }
+} ## end sub sortbychrnum
 
 =head2 cluster_features
 
@@ -177,29 +172,29 @@ sub sortbychrnum {
 =cut
 
 sub cluster_features {
-  my ($features, $verbose, $use_strand) = @_;
+  my ( $features, $verbose, $use_strand ) = @_;
 
   my @clusters      = ();
   my @finalclusters = ();
 
- FEATURE:
+FEATURE:
   foreach my $feature (@$features) {
-    print $feature->seq_region_start."-".$feature->seq_region_end."\n" if $verbose;
+    print $feature->seq_region_start . "-" . $feature->seq_region_end . "\n" if $verbose;
   CLUSTER:
     foreach my $cluster (@clusters) {
-      next CLUSTER if($use_strand and ($feature->strand ne $cluster->{strand}));
-      if (($feature->seq_region_end > $cluster->{start}) and ($feature->seq_region_start < $cluster->{end})) {
-	#add to existing cluster
-	print "adding to ".$cluster->{start}." - ".$cluster->{end}."\n" if $verbose;
-	if($feature->seq_region_start < $cluster->{start}){
-	  $cluster->{start} = $feature->seq_region_start;
-	}
-	if($feature->seq_region_end > $cluster->{end}){
-	  $cluster->{end} = $feature->seq_region_end;
-	}
-	push (@{$cluster->{features}}, $feature);
-	$cluster->{count} += 1;
-	next FEATURE;
+      next CLUSTER if ( $use_strand and ( $feature->strand ne $cluster->{strand} ) );
+      if ( ( $feature->seq_region_end > $cluster->{start} ) and ( $feature->seq_region_start < $cluster->{end} ) ) {
+        #add to existing cluster
+        print "adding to " . $cluster->{start} . " - " . $cluster->{end} . "\n" if $verbose;
+        if ( $feature->seq_region_start < $cluster->{start} ) {
+          $cluster->{start} = $feature->seq_region_start;
+        }
+        if ( $feature->seq_region_end > $cluster->{end} ) {
+          $cluster->{end} = $feature->seq_region_end;
+        }
+        push( @{ $cluster->{features} }, $feature );
+        $cluster->{count} += 1;
+        next FEATURE;
       }
     }
     #create new cluster
@@ -209,37 +204,35 @@ sub cluster_features {
     $newcluster{end}      = $feature->seq_region_end;
     $newcluster{strand}   = $feature->strand;
     $newcluster{features} = [$feature];
-    $newcluster{count} = 1;
-    push(@clusters, \%newcluster);
-  }
-  print "Have ".(scalar @clusters)." clusters. Cluster 1: ".$clusters[0]->{start}."-".$clusters[0]->{end}."\n" if $verbose;
+    $newcluster{count}    = 1;
+    push( @clusters, \%newcluster );
+  } ## end FEATURE: foreach my $feature (@$features)
+  print "Have " . ( scalar @clusters ) . " clusters. Cluster 1: " . $clusters[0]->{start} . "-" . $clusters[0]->{end} . "\n" if $verbose;
 
-
-  return(\@clusters);
+  return ( \@clusters );
   #rest is not needed anymore!?
 
   #join overlapping clusters
-  @clusters = sort {$a->{start} <=> $b->{start}} @clusters;
+  @clusters = sort { $a->{start} <=> $b->{start} } @clusters;
 
-  for(my $i = 0; $i < (scalar @clusters); $i++) {
+  for ( my $i = 0; $i < ( scalar @clusters ); $i++ ) {
     #print $i.": ".$clusters[$i]->{start}."-".$clusters[$i]->{end}."\n";
-    if(exists($clusters[$i+1]) && ($clusters[$i]->{end} > $clusters[$i+1]->{start})){
-      $clusters[$i]->{end} = $clusters[$i+1]->{end};
-      push (@{$clusters[$i]->{features}}, @{$clusters[$i+1]->{features}});
-      $clusters[$i]->{count} += $clusters[$i+1]->{count};
-      push(@finalclusters, $clusters[$i]);
+    if ( exists( $clusters[ $i + 1 ] ) && ( $clusters[$i]->{end} > $clusters[ $i + 1 ]->{start} ) ) {
+      $clusters[$i]->{end} = $clusters[ $i + 1 ]->{end};
+      push( @{ $clusters[$i]->{features} }, @{ $clusters[ $i + 1 ]->{features} } );
+      $clusters[$i]->{count} += $clusters[ $i + 1 ]->{count};
+      push( @finalclusters, $clusters[$i] );
       $i++;
-      print "joining cluster with next: ".$clusters[$i]->{end}.">".$clusters[$i+1]->{start}."\n"; # if $verbose;
+      print "joining cluster with next: " . $clusters[$i]->{end} . ">" . $clusters[ $i + 1 ]->{start} . "\n";    # if $verbose;
       next;
     }
-    push(@finalclusters, $clusters[$i]);
+    push( @finalclusters, $clusters[$i] );
   }
 
   @clusters = ();
 
-  return(\@finalclusters);
-}
-
+  return ( \@finalclusters );
+} ## end sub cluster_features
 
 =head2 cluster_things
 
@@ -250,66 +243,64 @@ sub cluster_features {
 =cut
 
 sub cluster_things {
-  my ($features, $dont_save_features) = @_;
+  my ( $features, $dont_save_features ) = @_;
 
   my @clusters      = ();
   my @finalclusters = ();
 
- FEATURE:
-  foreach my $feature (sort  { $a->{start} == $b->{start} ?  ( $b->{end} <=> $a->{end} ) : ( $a->{start} <=> $b->{start} ) } @$features) {
+FEATURE:
+  foreach my $feature ( sort { $a->{start} == $b->{start} ? ( $b->{end} <=> $a->{end} ) : ( $a->{start} <=> $b->{start} ) } @$features ) {
     #print $feature->{start}."-".$feature->{end}."\n";
   CLUSTER:
     foreach my $cluster (@clusters) {
-      if (($feature->{end} > $cluster->{start} and $feature->{start} < $cluster->{end})) {
-	#add to existing cluster
-	#print "adding to ".$cluster->{start}." - ".$cluster->{end}."\n";
-	if($feature->{start} < $cluster->{start}){
-	  $cluster->{start} = $feature->{start};
-	}
-	if($feature->{end} > $cluster->{end}){
-	  $cluster->{end} = $feature->{end};
-	}
-	unless($dont_save_features){
-	  push (@{$cluster->{features}}, $feature);
-	}
-	next FEATURE;
+      if ( ( $feature->{end} > $cluster->{start} and $feature->{start} < $cluster->{end} ) ) {
+        #add to existing cluster
+        #print "adding to ".$cluster->{start}." - ".$cluster->{end}."\n";
+        if ( $feature->{start} < $cluster->{start} ) {
+          $cluster->{start} = $feature->{start};
+        }
+        if ( $feature->{end} > $cluster->{end} ) {
+          $cluster->{end} = $feature->{end};
+        }
+        unless ($dont_save_features) {
+          push( @{ $cluster->{features} }, $feature );
+        }
+        next FEATURE;
       }
     }
 
     #create new cluster
     #print "creating new cluster.\n";
     my %newcluster;
-    $newcluster{start}    = $feature->{start};
-    $newcluster{end}      = $feature->{end};
-    unless($dont_save_features){
+    $newcluster{start} = $feature->{start};
+    $newcluster{end}   = $feature->{end};
+    unless ($dont_save_features) {
       $newcluster{features} = [$feature];
     }
-    push(@clusters, \%newcluster);
-  }
+    push( @clusters, \%newcluster );
+  } ## end foreach my $feature ( sort ...)
   #print "Have ".(scalar @clusters)." clusters. Cluster 1: ".$clusters[0]->{start}."-".$clusters[0]->{end}."\n";
 
   #join overlapping clusters
-  @clusters = sort {$a->{start} <=> $b->{start}} @clusters;
+  @clusters = sort { $a->{start} <=> $b->{start} } @clusters;
 
-  for(my $i = 0; $i < (scalar @clusters); $i++) {
+  for ( my $i = 0; $i < ( scalar @clusters ); $i++ ) {
     #print $i.": ".$clusters[$i]->{start}."-".$clusters[$i]->{end}." (".
     #  ($clusters[$i]->{end} - $clusters[$i]->{start}).")\n";
-    if(exists($clusters[$i+1]) and ($clusters[$i]->{end} > $clusters[$i+1]->{start})){
-      $clusters[$i]->{end} = $clusters[$i+1]->{end};
-      unless($dont_save_features){
-	push (@{$clusters[$i]->{features}}, @{$clusters[$i+1]->{features}});
+    if ( exists( $clusters[ $i + 1 ] ) and ( $clusters[$i]->{end} > $clusters[ $i + 1 ]->{start} ) ) {
+      $clusters[$i]->{end} = $clusters[ $i + 1 ]->{end};
+      unless ($dont_save_features) {
+        push( @{ $clusters[$i]->{features} }, @{ $clusters[ $i + 1 ]->{features} } );
       }
-      push(@finalclusters, $clusters[$i]);
+      push( @finalclusters, $clusters[$i] );
       $i++;
       #print "joining with next: ".$clusters[$i]->{end}.">".$clusters[$i+1]->{start}."\n";
       next;
     }
-    push(@finalclusters, $clusters[$i]);
+    push( @finalclusters, $clusters[$i] );
   }
 
-  return(\@finalclusters);
-}
-
-
+  return ( \@finalclusters );
+} ## end sub cluster_things
 
 1;

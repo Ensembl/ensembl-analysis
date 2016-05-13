@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,7 +28,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::MakeCdna2GenomeRegionInputIDs - 
+Bio::EnsEMBL::Analysis::RunnableDB::MakeCdna2GenomeRegionInputIDs -
 
 =head1 SYNOPSIS
 
@@ -38,6 +39,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::MakeCdna2GenomeRegionInputIDs -
 =head1 METHODS
 
 =cut
+
 package Bio::EnsEMBL::Analysis::RunnableDB::MakeCdna2GenomeRegionInputIDs;
 use strict;
 use warnings;
@@ -48,7 +50,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (parse_config);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
-use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor; 
+use Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor;
 #Needed for subroutine &Bio::DB::Flat::OBDAIndex::FileHandle
 #called at bioperl-live/Bio/DB/Flat/OBDAIndex.pm
 use FileHandle;
@@ -57,38 +59,37 @@ use vars qw (@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ( $submit_logic_name, $gene_db, $pipe_db, $expansion, $annotation, $seqfetcher_object, 
-       $seqfetcher_params, $gene_biotypes, $gene_logic_names ) =
-    rearrange( [ 'SUBMIT_LOGIC_NAME', 'GENE_DB',
-                 'PIPE_DB',           'EXPANSION',
-                 'ANNOTATION',        'SEQFETCHER_OBJECT',
-                 'SEQFETCHER_PARAMS', 'GENE_BIOTYPES',
-                 'GENE_LOGIC_NAMES',
-               ], @args );
+  my ( $submit_logic_name, $gene_db,           $pipe_db,       $expansion, $annotation,
+       $seqfetcher_object, $seqfetcher_params, $gene_biotypes, $gene_logic_names )
+    = rearrange(
+                 [ 'SUBMIT_LOGIC_NAME', 'GENE_DB',           'PIPE_DB',           'EXPANSION',
+                   'ANNOTATION',        'SEQFETCHER_OBJECT', 'SEQFETCHER_PARAMS', 'GENE_BIOTYPES',
+                   'GENE_LOGIC_NAMES', ],
+                 @args );
 
   # read default config entries
   # actually will read default twice by giving default as logic_name
   # but also does some nice checking and I want the config precedence
   # to be default, param hash, constructor and finally logic_name
   # config over-riding others
-  parse_config($self, $CDNA2GENOME_REGION_CONFIG_BY_LOGIC, 'DEFAULT');
+  parse_config( $self, $CDNA2GENOME_REGION_CONFIG_BY_LOGIC, 'DEFAULT' );
 
   # Defaults are over-ridden by parameters given in analysis table...
   my $ph = $self->parameters_hash;
-  $self->SUBMIT_LOGIC_NAME($ph->{-submit_logic_name})   if $ph->{-submit_logic_name};
-  $self->GENE_DB($ph->{-gene_db})                       if $ph->{-gene_db};
-  $self->PIPE_DB($ph->{-pipe_db})                       if $ph->{-pipe_db};
-  $self->EXPANSION($ph->{-expansion})                   if $ph->{-expansion};
-  $self->ANNOTATION($ph->{-annotation})                 if $ph->{-annotation};
-  $self->SEQFETCHER_OBJECT($ph->{-seqfetcher_object})   if $ph->{-seqfetcher_object};
-  $self->SEQFETCHER_PARAMS($ph->{-seqfetcher_params})   if $ph->{-seqfetcher_params};
-  $self->GENE_BIOTYPES($ph->{-gene_biotypes})           if $ph->{-gene_biotypes};
-  $self->GENE_LOGIC_NAMES($ph->{-gene_logic_names})     if $ph->{-gene_logic_names};
+  $self->SUBMIT_LOGIC_NAME( $ph->{-submit_logic_name} ) if $ph->{-submit_logic_name};
+  $self->GENE_DB( $ph->{-gene_db} )                     if $ph->{-gene_db};
+  $self->PIPE_DB( $ph->{-pipe_db} )                     if $ph->{-pipe_db};
+  $self->EXPANSION( $ph->{-expansion} )                 if $ph->{-expansion};
+  $self->ANNOTATION( $ph->{-annotation} )               if $ph->{-annotation};
+  $self->SEQFETCHER_OBJECT( $ph->{-seqfetcher_object} ) if $ph->{-seqfetcher_object};
+  $self->SEQFETCHER_PARAMS( $ph->{-seqfetcher_params} ) if $ph->{-seqfetcher_params};
+  $self->GENE_BIOTYPES( $ph->{-gene_biotypes} )         if $ph->{-gene_biotypes};
+  $self->GENE_LOGIC_NAMES( $ph->{-gene_logic_names} )   if $ph->{-gene_logic_names};
 
-  #...which are over-ridden by constructor arguments. 
+  #...which are over-ridden by constructor arguments.
   $self->SUBMIT_LOGIC_NAME($submit_logic_name);
   $self->GENE_DB($gene_db);
   $self->PIPE_DB($pipe_db);
@@ -101,56 +102,47 @@ sub new {
 
   # Finally, analysis specific config
   # use uc as parse_config call above switches logic name to upper case
-  $self->SUBMIT_LOGIC_NAME(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{SUBMIT_LOGIC_NAME});
-  $self->GENE_DB(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{GENE_DB});
-  $self->PIPE_DB(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{PIPE_DB});
-  $self->EXPANSION(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{EXPANSION});
-  $self->ANNOTATION(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{ANNOTATION});
-  $self->SEQFETCHER_OBJECT(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{SEQFETCHER_OBJECT});
-  $self->SEQFETCHER_PARAMS(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{SEQFETCHER_PARAMS});
-  $self->GENE_BIOTYPES(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{GENE_BIOTYPES});
-  $self->GENE_LOGIC_NAMES(${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{uc($self->analysis->logic_name)}{GENE_LOGIC_NAMES});
+  $self->SUBMIT_LOGIC_NAME( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{SUBMIT_LOGIC_NAME} );
+  $self->GENE_DB( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{GENE_DB} );
+  $self->PIPE_DB( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{PIPE_DB} );
+  $self->EXPANSION( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{EXPANSION} );
+  $self->ANNOTATION( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{ANNOTATION} );
+  $self->SEQFETCHER_OBJECT( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{SEQFETCHER_OBJECT} );
+  $self->SEQFETCHER_PARAMS( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{SEQFETCHER_PARAMS} );
+  $self->GENE_BIOTYPES( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{GENE_BIOTYPES} );
+  $self->GENE_LOGIC_NAMES( ${$CDNA2GENOME_REGION_CONFIG_BY_LOGIC}{ uc( $self->analysis->logic_name ) }{GENE_LOGIC_NAMES} );
 
   #throw if something vital is missing
-  if ( (    !$self->SUBMIT_LOGIC_NAME
-         || !$self->GENE_DB
-         || !$self->PIPE_DB
-         || !$self->EXPANSION ) )
-  {
-    throw(   "Need to specify SUBMIT_LOGIC_NAME, GENE_DB, "
-           . "PIPE_DB and EXPANSION." );
+  if ( ( !$self->SUBMIT_LOGIC_NAME || !$self->GENE_DB || !$self->PIPE_DB || !$self->EXPANSION ) ) {
+    throw( "Need to specify SUBMIT_LOGIC_NAME, GENE_DB, " . "PIPE_DB and EXPANSION." );
   }
 
-  print "Annotation file is:".$self->ANNOTATION."\n";
+  print "Annotation file is:" . $self->ANNOTATION . "\n";
 
   if ( defined $self->ANNOTATION and not -e $self->ANNOTATION ) {
     throw( "Annotation file " . $self->ANNOTATION . " is not readable." );
   }
   #check that if these options have been defined they are arrays
-  if( defined $self->GENE_BIOTYPES and not (ref($self->GENE_BIOTYPES) eq "ARRAY")){
-    throw ("Gene biotypes are not in an array.\n");
+  if ( defined $self->GENE_BIOTYPES and not( ref( $self->GENE_BIOTYPES ) eq "ARRAY" ) ) {
+    throw("Gene biotypes are not in an array.\n");
   }
-  if( defined $self->GENE_LOGIC_NAMES and not (ref($self->GENE_LOGIC_NAMES) eq "ARRAY")){
-    throw ("Gene logic names are not in an array.\n");
+  if ( defined $self->GENE_LOGIC_NAMES and not( ref( $self->GENE_LOGIC_NAMES ) eq "ARRAY" ) ) {
+    throw("Gene logic names are not in an array.\n");
   }
-
 
   return $self;
-}
+} ## end sub new
 
 sub fetch_input {
   my ($self) = @_;
 
   # Check submit analysis exists in pipe db, where input ids of that
   # type will be written
-  my $dba_pip = $self->get_pipe_dba;
-  my $submit_analysis =
-    $dba_pip->get_AnalysisAdaptor->fetch_by_logic_name( $self->SUBMIT_LOGIC_NAME );
+  my $dba_pip         = $self->get_pipe_dba;
+  my $submit_analysis = $dba_pip->get_AnalysisAdaptor->fetch_by_logic_name( $self->SUBMIT_LOGIC_NAME );
 
   if ( !$submit_analysis ) {
-    throw(   "Failed to find an analysis with the logic_name "
-           . $self->SUBMIT_LOGIC_NAME
-           . " in the pipeline db. Cannot continue." );
+    throw( "Failed to find an analysis with the logic_name " . $self->SUBMIT_LOGIC_NAME . " in the pipeline db. Cannot continue." );
   }
 
   $self->submit_analysis($submit_analysis);
@@ -158,36 +150,36 @@ sub fetch_input {
   # get genes
   my $gene_dba = $self->get_gene_dba;
   my @genes;
-  my @logic_names = @{$self->GENE_LOGIC_NAMES};
-  my @biotypes = @{$self->GENE_BIOTYPES};
+  my @logic_names = @{ $self->GENE_LOGIC_NAMES };
+  my @biotypes    = @{ $self->GENE_BIOTYPES };
 
   #if gene logic names and biotypes have been specified
-  if($biotypes[0] and $logic_names[0]){
-    foreach my $logic_name(@logic_names){
-      foreach my $biotype(@biotypes){
-        push (@genes, @{ $gene_dba->get_SliceAdaptor->fetch_by_name( $self->input_id )->
-        get_all_Genes($logic_name, undef, undef, undef, $biotype) });
+  if ( $biotypes[0] and $logic_names[0] ) {
+    foreach my $logic_name (@logic_names) {
+      foreach my $biotype (@biotypes) {
+        push( @genes,
+              @{$gene_dba->get_SliceAdaptor->fetch_by_name( $self->input_id )->get_all_Genes( $logic_name, undef, undef, undef, $biotype )
+              } );
       }
     }
-  }#only biotype
-  elsif($biotypes[0]){
-    foreach my $biotype(@biotypes){
-      push (@genes, @{ $gene_dba->get_SliceAdaptor->fetch_by_name( $self->input_id )->
-      get_all_Genes(undef, undef, undef, undef, $biotype) });
+  }    #only biotype
+  elsif ( $biotypes[0] ) {
+    foreach my $biotype (@biotypes) {
+      push( @genes,
+            @{ $gene_dba->get_SliceAdaptor->fetch_by_name( $self->input_id )->get_all_Genes( undef, undef, undef, undef, $biotype ) } );
     }
-  }#only logic name
-  elsif($logic_names[0]){
-    foreach my $logic_name(@logic_names){
-      push (@genes, @{ $gene_dba->get_SliceAdaptor->fetch_by_name( $self->input_id )->
-      get_all_Genes($logic_name) });
+  }    #only logic name
+  elsif ( $logic_names[0] ) {
+    foreach my $logic_name (@logic_names) {
+      push( @genes, @{ $gene_dba->get_SliceAdaptor->fetch_by_name( $self->input_id )->get_all_Genes($logic_name) } );
     }
-  }#neither specified, so get all
-  else{
+  }    #neither specified, so get all
+  else {
     @genes = @{ $gene_dba->get_SliceAdaptor->fetch_by_name( $self->input_id )->get_all_Genes() };
   }
   print "There are " . scalar(@genes) . " genes.\n";
   $self->genes( \@genes );
-}
+} ## end sub fetch_input
 
 sub run {
   my ($self) = @_;
@@ -195,7 +187,7 @@ sub run {
   my $expansion = $self->EXPANSION;
   my @iids;
 
-  GENE: foreach my $gene ( @{ $self->genes } ) {
+GENE: foreach my $gene ( @{ $self->genes } ) {
     # Check that there is only one piece of supporting evidence per gene
     my @transcripts = @{ $gene->get_all_Transcripts };
     throw "Multi-transcript gene." if ( scalar(@transcripts) > 1 );
@@ -209,43 +201,52 @@ sub run {
 
     #if dir, index has been specified and will check that we have the query seq
     #otherwise index hasn't been specified so assume user doesn't want check at this stage
-    my %index_params = %{$self->SEQFETCHER_PARAMS};
-    if(-d $index_params{-db}->[0]){
+    my %index_params = %{ $self->SEQFETCHER_PARAMS };
+    if ( -d $index_params{-db}->[0] ) {
       my $seqfetcher = $self->seqfetcher;
       my $query_seq  = $seqfetcher->get_Seq_by_acc($hit_name);
-      if(!$query_seq){
-        print "WARNING: ".$hit_name."  had no entry in query sequence index.\n";
+      if ( !$query_seq ) {
+        print "WARNING: " . $hit_name . "  had no entry in query sequence index.\n";
         next GENE;
       }
     }
 
     if ( $self->ANNOTATION ) {
-      open(F, $self->ANNOTATION) or throw("Could not open supplied annotation file for reading");
+      open( F, $self->ANNOTATION ) or throw("Could not open supplied annotation file for reading");
       my $unmatched = 1;
-      LINE: while (<F>) {
+    LINE: while (<F>) {
         my @fields = split;
         $unmatched = 0 if $hit_name eq $fields[0];
         last LINE if !$unmatched;
       }
       close(F);
-      print "WARNING: ".$hit_name." had no entry in annotation file.\n" if $unmatched;
+      print "WARNING: " . $hit_name . " had no entry in annotation file.\n" if $unmatched;
       next GENE if $unmatched;
     }
     # genomic
-    my $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->
-    fetch_by_transcript_id($transcript->dbID, $expansion);
+    my $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_transcript_id( $transcript->dbID, $expansion );
 
     #check expansion hasn't extended slice beyond seq_region
-    if(($genomic_slice->start < 1) or ($genomic_slice->end > $genomic_slice->seq_region_length)){
+    if ( ( $genomic_slice->start < 1 ) or ( $genomic_slice->end > $genomic_slice->seq_region_length ) ) {
 
-      if(($genomic_slice->start < 1) and ($genomic_slice->end > $genomic_slice->seq_region_length)){
-        $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_region($genomic_slice->coord_system_name,$genomic_slice->seq_region_name, 1, $genomic_slice->seq_region_length, $genomic_slice->strand);
+      if ( ( $genomic_slice->start < 1 ) and ( $genomic_slice->end > $genomic_slice->seq_region_length ) ) {
+        $genomic_slice =
+          $self->get_gene_dba->get_SliceAdaptor->fetch_by_region( $genomic_slice->coord_system_name,
+                                                                  $genomic_slice->seq_region_name,
+                                                                  1, $genomic_slice->seq_region_length,
+                                                                  $genomic_slice->strand );
       }
-      elsif($genomic_slice->start < 1){
-        $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_region($genomic_slice->coord_system_name,$genomic_slice->seq_region_name, 1, $genomic_slice->end,$genomic_slice->strand);
+      elsif ( $genomic_slice->start < 1 ) {
+        $genomic_slice =
+          $self->get_gene_dba->get_SliceAdaptor->fetch_by_region( $genomic_slice->coord_system_name,
+                                                                  $genomic_slice->seq_region_name,
+                                                                  1, $genomic_slice->end, $genomic_slice->strand );
       }
-      else{
-        $genomic_slice = $self->get_gene_dba->get_SliceAdaptor->fetch_by_region($genomic_slice->coord_system_name,$genomic_slice->seq_region_name, $genomic_slice->start, $genomic_slice->seq_region_length,$genomic_slice->strand);
+      else {
+        $genomic_slice =
+          $self->get_gene_dba->get_SliceAdaptor->fetch_by_region( $genomic_slice->coord_system_name, $genomic_slice->seq_region_name,
+                                                                  $genomic_slice->start,             $genomic_slice->seq_region_length,
+                                                                  $genomic_slice->strand );
       }
 
     }
@@ -254,18 +255,18 @@ sub run {
     my $id = $genomic_slice->name . ':_:' . $hit_name;
 
     push @iids, $id;
-  }#end GENE loop
+  }    #end GENE loop
 
   #Get rid of any duplicate ids that may have been generated
   my $num_ids = scalar(@iids);
   my %unique_ids;
   @unique_ids{@iids} = ();
   @iids = keys %unique_ids;
-  if(scalar(@iids) < $num_ids){
-    print "WARNING: ".scalar(@iids)." unique ids from ".$num_ids." generated ids.\n"
+  if ( scalar(@iids) < $num_ids ) {
+    print "WARNING: " . scalar(@iids) . " unique ids from " . $num_ids . " generated ids.\n";
   }
   $self->output( \@iids );
-}
+} ## end sub run
 
 sub write_output {
   my ($self) = @_;
@@ -275,9 +276,7 @@ sub write_output {
 
   foreach my $iid ( @{ $self->output } ) {
     print "try to store input_id : $iid\n";
-    eval {
-      $sic->store_input_id_analysis( $iid, $self->submit_analysis, '' );
-    };
+    eval { $sic->store_input_id_analysis( $iid, $self->submit_analysis, '' ); };
     throw( "Failed to store " . $iid . " $@" ) if ($@);
     logger_info( "Stored " . $iid );
   }
@@ -289,9 +288,9 @@ sub get_gene_dba {
 
   if ( $self->GENE_DB ) {
     if ( ref( $self->GENE_DB ) =~ m/HASH/ ) {
-      $genedba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->GENE_DB },
-                                                    -dnadb => $self->DNA_DB );
-    } else {
+      $genedba = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->GENE_DB }, -dnadb => $self->DNA_DB );
+    }
+    else {
       $genedba = $self->get_dbadaptor( $self->GENE_DB );
     }
   }
@@ -304,10 +303,9 @@ sub get_pipe_dba {
 
   if ( $self->PIPE_DB ) {
     if ( ref( $self->PIPE_DB ) =~ m/HASH/ ) {
-      $pipedba =
-        new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ $self->PIPE_DB },
-                                                    -dnadb => $self->DNA_DB );
-    } else {
+      $pipedba = new Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor( %{ $self->PIPE_DB }, -dnadb => $self->DNA_DB );
+    }
+    else {
       $pipedba = $self->get_dbadaptor( $self->PIPE_DB, 'pipeline' );
     }
   }
@@ -315,16 +313,16 @@ sub get_pipe_dba {
 }
 
 sub GENE_BIOTYPES {
-  my ($self, $value) = @_;
-  if($value){
+  my ( $self, $value ) = @_;
+  if ($value) {
     $self->{'GENE_BIOTYPES'} = $value;
   }
   return $self->{'GENE_BIOTYPES'};
 }
 
 sub GENE_LOGIC_NAMES {
-  my ($self, $value) = @_;
-  if($value){
+  my ( $self, $value ) = @_;
+  if ($value) {
     $self->{'GENE_LOGIC_NAMES'} = $value;
   }
   return $self->{'GENE_LOGIC_NAMES'};
@@ -354,7 +352,6 @@ sub ANNOTATION {
   return $self->{'ANNOTATION'};
 }
 
-
 sub GENE_DB {
   my ( $self, $value ) = @_;
   if ($value) {
@@ -375,9 +372,7 @@ sub seqfetcher {
   my ( $self, $arg ) = @_;
 
   if ($arg) {
-    throw(   "RunnableDB::Exonerate2GenesRegion " . $arg
-           . " must have a method get_Seq_by_acc" )
-      unless ( $arg->can("get_Seq_by_acc") );
+    throw( "RunnableDB::Exonerate2GenesRegion " . $arg . " must have a method get_Seq_by_acc" ) unless ( $arg->can("get_Seq_by_acc") );
     $self->{seqfetcher} = $arg;
   }
   if ( !$self->{seqfetcher} ) {
@@ -391,9 +386,7 @@ sub seqfetcher {
 
 sub submit_analysis {
   my ( $self, $value ) = @_;
-  if (    $value
-       && $value->isa('Bio::EnsEMBL::Pipeline::Analysis') )
-  {
+  if ( $value && $value->isa('Bio::EnsEMBL::Pipeline::Analysis') ) {
     $self->{submit_analysis} = $value;
   }
   return $self->{'submit_analysis'};
@@ -409,9 +402,7 @@ sub genes {
 
 sub pipeline_adaptor {
   my ( $self, $value ) = @_;
-  if (    $value
-       && $value->isa('Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor') )
-  {
+  if ( $value && $value->isa('Bio::EnsEMBL::Pipeline::DBSQL::DBAdaptor') ) {
     $self->{pipeline_adaptor} = $value;
   }
   return $self->{'pipeline_adaptor'};
@@ -448,9 +439,7 @@ sub paf_slice {
     $self->{paf_slice} = $slice;
   }
   if ( !$self->{paf_slice} ) {
-    my $slice = $self->fetch_sequence( $self->input_id,
-                                       $self->paf_source_db,
-                                       $self->REPEATMASKING );
+    my $slice = $self->fetch_sequence( $self->input_id, $self->paf_source_db, $self->REPEATMASKING );
     $self->{paf_slice} = $slice;
   }
   return $self->{paf_slice};
@@ -463,9 +452,7 @@ sub gene_slice {
     $self->{gene_slice} = $slice;
   }
   if ( !$self->{gene_slice} ) {
-    my $slice = $self->fetch_sequence( $self->input_id,
-                                       $self->gene_source_db,
-                                       $self->REPEATMASKING );
+    my $slice = $self->fetch_sequence( $self->input_id, $self->gene_source_db, $self->REPEATMASKING );
     $self->{gene_slice} = $slice;
   }
   return $self->{gene_slice};
@@ -495,13 +482,12 @@ sub gene_source_db {
   return $self->{gene_source_db};
 }
 
-
-=head2 PAF_LOGICNAMES 
+=head2 PAF_LOGICNAMES
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise
   Arg [2]   : Varies, tends to be boolean, a string, a arrayref or a hashref
   Function  : Getter/Setter for config variables
-  Returntype: 
+  Returntype:
   Exceptions:
   Example   :
 
@@ -535,16 +521,16 @@ sub PAF_UPPER_SCORE_THRESHOLD {
 }
 
 sub SEQFETCHER_OBJECT {
-  my ($self, $value) = @_;
-  if($value){
+  my ( $self, $value ) = @_;
+  if ($value) {
     $self->{'SEQFETCHER_OBJECT'} = $value;
   }
   return $self->{'SEQFETCHER_OBJECT'};
 }
 
 sub SEQFETCHER_PARAMS {
-  my ($self, $value) = @_;
-  if($value){
+  my ( $self, $value ) = @_;
+  if ($value) {
     $self->{'SEQFETCHER_PARAMS'} = $value;
   }
   return $self->{'SEQFETCHER_PARAMS'};

@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,11 +27,11 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP - 
+Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP -
 
 =head1 SYNOPSIS
 
-  my $blast = Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP->new 
+  my $blast = Bio::EnsEMBL::Analysis::Runnable::PSILC_BlastP->new
     (
      '-trans'    => $transcript,
      '-analysis' => $analysis,
@@ -74,14 +75,15 @@ use vars qw(@ISA);
 =cut
 
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  $self->{'_trans'} = {};	#gene to test;  
+  $self->{'_trans'} = {};    #gene to test;
 
-  my( $trans) = $self->_rearrange([qw(
-				     TRANS
-				    )], @args);
+  my ($trans) = $self->_rearrange( [ qw(
+        TRANS
+        ) ],
+    @args );
   if ($trans) {
     $self->trans($trans);
   }
@@ -98,7 +100,7 @@ sub new {
 =cut
 
 sub run {
-  my ($self)=@_;
+  my ($self) = @_;
   my $trans = $self->trans;
   $self->run_blast($trans);
 }
@@ -113,65 +115,55 @@ target is non identical to query has at least 80% coverage and 50% sequence iden
 
 =cut
 
-sub  run_blast{
-  my ($self,$trans)=@_;
+sub run_blast {
+  my ( $self, $trans ) = @_;
   my %transcript_hash;
 
-  print STDERR "Blast search of ".$trans->dbID.".\n";
+  print STDERR "Blast search of " . $trans->dbID . ".\n";
   # might want to use minimal blast module
-  my $bplitewrapper = Bio::EnsEMBL::Analysis::Tools::BPliteWrapper-> new
-    (
-     #  -regex => '^\w+\s+(\w+)'
-     -query_type => 'dna',
-     -database_type => 'dna',
-    );
+  my $bplitewrapper = Bio::EnsEMBL::Analysis::Tools::BPliteWrapper->new(
+    #  -regex => '^\w+\s+(\w+)'
+    -query_type    => 'dna',
+    -database_type => 'dna', );
   # make a query object containing the cds
 
-  my $query = Bio::Seq->new(
-			    '-display_id' => $trans->dbID,
-			    '-seq'        => $trans->translate->seq,
-			    );
+  my $query = Bio::Seq->new( '-display_id' => $trans->dbID, '-seq' => $trans->translate->seq, );
 
-  my $blast =  Bio::EnsEMBL::Analysis::Runnable::Blast->new 
-    ('-query'     => $query,
-     '-program'   => 'blastp',
-     '-database'  => "$Bio::EnsEMBL::Analysis::Config::Pseudogene::PSILC_BLAST_DB/multi_species.fasta",
-     '-threshold' => 1e-6,
-     '-parser'    => $bplitewrapper,
-     '-options'   => 'V=10 -cpus=1',
-     '-analysis'  => $self->analysis,
-    );
+  my $blast = Bio::EnsEMBL::Analysis::Runnable::Blast->new(
+                                         '-query'    => $query,
+                                         '-program'  => 'blastp',
+                                         '-database' => "$Bio::EnsEMBL::Analysis::Config::Pseudogene::PSILC_BLAST_DB/multi_species.fasta",
+                                         '-threshold' => 1e-6,
+                                         '-parser'    => $bplitewrapper,
+                                         '-options'   => 'V=10 -cpus=1',
+                                         '-analysis'  => $self->analysis, );
 
   $blast->run();
-  my $results = $blast->output; 
+  my $results = $blast->output;
 
   # get dnadnaalignfeatures for each HSP
   # include in set if > 50% ID
   # dont include if > 99%id and 80% coverage
   # Coverage based on cds not cdna length
 
-  foreach my $daf (@{$results}) {
-    my $coverage = $daf->length/length($query->seq);
-    if ($daf->percent_id <= 99 && 
-	$coverage > 0.8  && 
-	$daf->percent_id > 50 ){    
+  foreach my $daf ( @{$results} ) {
+    my $coverage = $daf->length/length( $query->seq );
+    if ( $daf->percent_id <= 99 && $coverage > 0.8 && $daf->percent_id > 50 ) {
       # organise the transcripts in to a hash to avoid redundancy and
-      # group them by species 
-      if ($daf->hseqname =~ /(\w+)_(\w+)/) {
-	push @{$transcript_hash{$2}},$1;
-      } else {
-	$self->throw("Cannot recognise trans_id ".$daf->hseqname."  $@\n");
+      # group them by species
+      if ( $daf->hseqname =~ /(\w+)_(\w+)/ ) {
+        push @{ $transcript_hash{$2} }, $1;
+      }
+      else {
+        $self->throw( "Cannot recognise trans_id " . $daf->hseqname . "  $@\n" );
       }
     }
   }
-  $self->output(\%transcript_hash);
-}
-
-
+  $self->output( \%transcript_hash );
+} ## end sub run_blast
 
 #######################################
 # Containers
-
 
 =head2 trans
 
@@ -184,9 +176,9 @@ Arg [1]    : array ref
 =cut
 
 sub trans {
-  my ($self, $trans) = @_;
+  my ( $self, $trans ) = @_;
   if ($trans) {
-    unless  ($trans->isa("Bio::EnsEMBL::Transcript")){
+    unless ( $trans->isa("Bio::EnsEMBL::Transcript") ) {
       $self->throw("Input isn't a Bio::EnsEMBL::Transcript, it is a $trans\n$@");
     }
     $self->{'_trans'} = $trans;
@@ -204,14 +196,12 @@ sub trans {
 
 =cut
 
-sub output{
-  my ($self, $trans) = @_;
+sub output {
+  my ( $self, $trans ) = @_;
   if ($trans) {
     $self->{'_output'} = $trans;
   }
   return $self->{'_output'};
 }
-
-
 
 1;

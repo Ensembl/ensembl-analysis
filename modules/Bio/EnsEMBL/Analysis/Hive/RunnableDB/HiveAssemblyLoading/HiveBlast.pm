@@ -95,7 +95,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('blast_db_path') ) {
-    $self->throw( "You did not pass in the blast_db_path parameter. This is required to locate the blast db" );
+    $self->throw("You did not pass in the blast_db_path parameter. This is required to locate the blast db");
   }
 
   my $blast_db_path  = $self->param('blast_db_path');

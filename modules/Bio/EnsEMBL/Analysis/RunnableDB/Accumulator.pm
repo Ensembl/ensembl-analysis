@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Accumulator - 
+Bio::EnsEMBL::Analysis::RunnableDB::Accumulator -
 
 =head1 SYNOPSIS
 
@@ -49,10 +50,9 @@ stages in the pipeline to work. It does nothing just
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::RunnableDB::Accumulator;
 
-use warnings ;
+use warnings;
 use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB;
@@ -73,26 +73,26 @@ use vars qw(@ISA);
 =cut
 
 sub fetch_input {
-    my( $self) = @_;
-    
-    throw("No input id") unless defined($self->input_id);
+  my ($self) = @_;
 
-    return 1;
+  throw("No input id") unless defined( $self->input_id );
+
+  return 1;
 
 }
 
 sub run {
-    my ($self) = @_;
-    print "Dummy RunnableDB - no runnable to run\n";
+  my ($self) = @_;
+  print "Dummy RunnableDB - no runnable to run\n";
 
 }
 
 sub write_output {
-    my ($self) = @_;
+  my ($self) = @_;
 
-    print "Dummy RunnableDB - no output to write\n";
+  print "Dummy RunnableDB - no output to write\n";
 
-    return 1;
+  return 1;
 }
 
 1;

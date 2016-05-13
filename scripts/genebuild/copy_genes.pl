@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -151,11 +151,11 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'split!'                               => \$split,
             'all!'                                 => \$all,
             'remove_xrefs!'                        => \$remove_xrefs,
-            'remove_stable_ids!' => \$remove_stable_ids,
-            'transform_to:s'     => \$transform_to,
-            'verbose!'           => \$verbose,
-            'stable_id!'         => \$stable_id,
-            'file:s'             => \$infile ) ||
+            'remove_stable_ids!'                   => \$remove_stable_ids,
+            'transform_to:s'                       => \$transform_to,
+            'verbose!'                             => \$verbose,
+            'stable_id!'                           => \$stable_id,
+            'file:s'                               => \$infile ) ||
   throw("Error while parsing command line options");
 
 if ($verbose) {
@@ -164,7 +164,7 @@ if ($verbose) {
 
 my $transform_to_version;
 
-my $attach_dna_db = 1 ;
+my $attach_dna_db = 1;
 if ($transform_to) {
   $attach_dna_db = 1;
   if ( $transform_to =~ m/:/ ) {
@@ -176,9 +176,7 @@ if ( $all && defined($infile) ) {
   throw("Specify either --all or --file, but not both");
 }
 elsif ( !$all && !defined($infile) ) {
-  throw( "Specify either --all " .
-         "(to copy all genes from $sourcedbname) " .
-         "or --file (to copy a list of gene_ids)" );
+  throw( "Specify either --all " . "(to copy all genes from $sourcedbname) " . "or --file (to copy a list of gene_ids)" );
 }
 
 #print "Connecting to ".$sourcedbname." at ".$sourcehost." ".$sourceuser."\n";
@@ -187,29 +185,20 @@ my $sourcedb;
 my $dnadb;
 
 if ( defined($in_config_name) ) {
-  $sourcedb =
-    get_db_adaptor_by_string( $in_config_name,
-                              0, 0,
-                              { -do_not_attach_dna_db => !$attach_dna_db
-                              } );
+  $sourcedb = get_db_adaptor_by_string( $in_config_name, 0, 0, { -do_not_attach_dna_db => !$attach_dna_db } );
 
   if ( $attach_dna_db && $dnadbname ) {
-    $dnadb =
-      new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
-                                          -user   => $dnauser,
-                                          -port   => $dnaport,
-                                          -dbname => $dnadbname );
+    $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $dnahost, -user => $dnauser, -port => $dnaport, -dbname => $dnadbname );
 
     $sourcedb->dnadb($dnadb);
   }
 }
 else {
-  $sourcedb =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $sourcehost,
-                                        -user   => $sourceuser,
-                                        -pass   => $sourcepass,
-                                        -port   => $sourceport,
-                                        -dbname => $sourcedbname );
+  $sourcedb = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $sourcehost,
+                                                  -user   => $sourceuser,
+                                                  -pass   => $sourcepass,
+                                                  -port   => $sourceport,
+                                                  -dbname => $sourcedbname );
   if ($attach_dna_db) {
     if ( !defined($dnadbname) ) {
       my $dna_query = q(SELECT count(1) FROM dna);
@@ -219,16 +208,11 @@ else {
       my $dna_count = $dna_sth->fetchrow();
 
       if ( !$dna_count ) {
-        croak( "\nYour source database does not contain DNA. " .
-               "Please provide a database with genomic sequences.\n" );
+        croak( "\nYour source database does not contain DNA. " . "Please provide a database with genomic sequences.\n" );
       }
     }
     else {
-      $dnadb =
-        new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $dnahost,
-                                            -user   => $dnauser,
-                                            -port   => $dnaport,
-                                            -dbname => $dnadbname );
+      $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $dnahost, -user => $dnauser, -port => $dnaport, -dbname => $dnadbname );
 
       $sourcedb->dnadb($dnadb);
     }
@@ -237,16 +221,11 @@ else {
 
 my $outdb;
 if ($out_config_name) {
-  $outdb = get_db_adaptor_by_string( $out_config_name, 0, 0,
-                         { -do_not_attach_dna_db => !$attach_dna_db } );
+  $outdb = get_db_adaptor_by_string( $out_config_name, 0, 0, { -do_not_attach_dna_db => !$attach_dna_db } );
 }
 else {
-  $outdb =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $outhost,
-                                        -user   => $outuser,
-                                        -pass   => $outpass,
-                                        -port   => $outport,
-                                        -dbname => $outdbname );
+  $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $outhost, -user => $outuser, -pass => $outpass, -port => $outport,
+                                               -dbname => $outdbname );
 }
 
 my $ga = $sourcedb->get_GeneAdaptor();
@@ -255,20 +234,16 @@ my @genes;
 my @copy_genes;
 
 if ( $remove_xrefs && $remove_stable_ids ) {
-  print STDERR "Fetching genes, removing xrefs and stable ids. " .
-    "(Adaptors and dbIDs also removed.)\n";
+  print STDERR "Fetching genes, removing xrefs and stable ids. " . "(Adaptors and dbIDs also removed.)\n";
 }
 elsif ($remove_xrefs) {
-  print STDERR "Fetching genes, removing xrefs, keeping stable ids. " .
-    "(Adaptors and dbIDs also removed.)\n";
+  print STDERR "Fetching genes, removing xrefs, keeping stable ids. " . "(Adaptors and dbIDs also removed.)\n";
 }
 elsif ($remove_stable_ids) {
-  print STDERR "Fetching genes, removing stable ids, keeping xrefs. " .
-    "(Adaptors and dbIDs also removed.)\n";
+  print STDERR "Fetching genes, removing stable ids, keeping xrefs. " . "(Adaptors and dbIDs also removed.)\n";
 }
 else {
-  print STDERR "Fetching genes, keeping xrefs and stable IDs. " .
-    "(Adaptors and dbIDs removed.)\n";
+  print STDERR "Fetching genes, keeping xrefs and stable IDs. " . "(Adaptors and dbIDs removed.)\n";
 }
 
 my @gene_ids;
@@ -316,8 +291,7 @@ while (@gene_ids) {
   {
     my @gene_batch;
     if ($stable_id) {
-      @gene_batch =
-        @{ $ga->fetch_all_by_stable_id_list( \@gene_id_batch ) };
+      @gene_batch = @{ $ga->fetch_all_by_stable_id_list( \@gene_id_batch ) };
     }
     else {
       @gene_batch = @{ $ga->fetch_all_by_dbID_list( \@gene_id_batch ) };
@@ -325,10 +299,7 @@ while (@gene_ids) {
 
     if ($split) {
       foreach my $gene (@gene_batch) {
-        push( @genes,
-              @{convert_to_genes( $gene->get_all_Transcripts(),
-                                  $gene->analysis(),
-                                  $gene->biotype() ) } );
+        push( @genes, @{ convert_to_genes( $gene->get_all_Transcripts(), $gene->analysis(), $gene->biotype() ) } );
       }
     }
     else {
@@ -353,13 +324,11 @@ while (@gene_ids) {
         printf( "Transforming '%s'\n", $old_stable_id );
       }
 
-      my $transformed_gene =
-        $gene->transform( $transform_to, $transform_to_version );
+      my $transformed_gene = $gene->transform( $transform_to, $transform_to_version );
 
       # Only check transform if transform is successful.
       if ( defined($transformed_gene) ) {
-        check_transform( $gene, $transformed_gene,
-                         $transform_to_version );
+        check_transform( $gene, $transformed_gene, $transform_to_version );
       }
       $gene = $transformed_gene;
     }
@@ -372,8 +341,7 @@ while (@gene_ids) {
       --$genes_to_go;
 
       if ($verbose) {
-        printf( "Stored gene '%s'.  Done %d, %d left to go..\n",
-                $old_stable_id, $genes_processed + 1, $genes_to_go );
+        printf( "Stored gene '%s'.  Done %d, %d left to go..\n", $old_stable_id, $genes_processed + 1, $genes_to_go );
       }
     }
     else {
@@ -385,8 +353,7 @@ while (@gene_ids) {
   } ## end foreach my $gene (@genes)
 } ## end while (@gene_ids)
 
-printf( "All done.  Processed %d genes, stored %d genes.\n",
-        $genes_processed, $genes_stored );
+printf( "All done.  Processed %d genes, stored %d genes.\n", $genes_processed, $genes_stored );
 
 sub check_transform {
   my ( $old_gene, $new_gene, $new_assembly_version ) = @_;
@@ -396,8 +363,7 @@ sub check_transform {
 
   if ( scalar(@$old_transcripts) != scalar(@$new_transcripts) ) {
     print STDERR "TRANSFORM_CHECK: old gene " .
-      $old_gene->stable_id() . " has " .
-      ( scalar(@$old_transcripts) ) . " transcripts but new gene has " .
+      $old_gene->stable_id() . " has " . ( scalar(@$old_transcripts) ) . " transcripts but new gene has " .
       ( scalar(@$new_transcripts) ) . " transcripts\n";
   }
 
@@ -409,33 +375,22 @@ sub check_transform {
       }
 
       # check number of exons, not sure if this helps
-      if ( scalar( @{ $old_transc->get_all_Exons() } ) !=
-           scalar( @{ $new_transc->get_all_Exons() } ) )
-      {
+      if ( scalar( @{ $old_transc->get_all_Exons() } ) != scalar( @{ $new_transc->get_all_Exons() } ) ) {
         print STDERR "TRANSFORM_CHECK: old transcript " .
-          $old_transc->stable_id() .
-          " has " . ( scalar( @{ $old_transc->get_all_Exons() } ) ) .
-          " exons but new transcript has " .
+          $old_transc->stable_id() . " has " . ( scalar( @{ $old_transc->get_all_Exons() } ) ) . " exons but new transcript has " .
           ( scalar( @{ $new_transc->get_all_Exons() } ) ) . " exons\n";
       }
 
       # check translation
-      if ( defined( $old_transc->translation() ) &&
-           !defined($new_assembly_version) )
-      {
+      if ( defined( $old_transc->translation() ) && !defined($new_assembly_version) ) {
         # We don't want to do have to deal with this if transforming
         # between assembly _VERSIONS_.
         my $new_translation = $new_transc->translate->seq();
         my $old_translation = $old_transc->translate->seq();
 
-        if ( !defined( $new_transc->translation() ) ||
-             $old_translation ne $new_translation )
-        {
-          print "TRANSFORM_CHECK: " .
-            "old translation does not match new translation\n" .
-            ">old_" . $old_transc->stable_id() .
-            "\n" . $old_translation . "\n" . ">new_" .
-            $new_transc->stable_id() . "\n" . $new_translation . "\n";
+        if ( !defined( $new_transc->translation() ) || $old_translation ne $new_translation ) {
+          print "TRANSFORM_CHECK: " . "old translation does not match new translation\n" . ">old_" . $old_transc->stable_id() .
+            "\n" . $old_translation . "\n" . ">new_" . $new_transc->stable_id() . "\n" . $new_translation . "\n";
         }
       }
     } ## end foreach my $new_transc ( @{...})

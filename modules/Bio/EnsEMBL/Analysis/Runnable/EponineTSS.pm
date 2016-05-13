@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,7 +23,7 @@ Post questions to the Ensembl development list: http://lists.ensembl.org/mailman
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::EponineTSS - 
+Bio::EnsEMBL::Analysis::Runnable::EponineTSS -
 
 =head1 SYNOPSIS
 
@@ -55,8 +56,6 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-
-
 =head2 new
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::EponineTSS
@@ -69,31 +68,27 @@ use vars qw(@ISA);
 
 =cut
 
-
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($epojar, $threshold) = rearrange(['EPOJAR', 'THRESHOLD'], @args);
+  my ( $epojar, $threshold ) = rearrange( [ 'EPOJAR', 'THRESHOLD' ], @args );
 
   ##################
   #SETTING DEFAULTS#
   ##################
-  if(!$self->program){
+  if ( !$self->program ) {
     $self->program('java');
   }
   $self->epojar('eponine-scan.jar');
   $self->threshold(50);
   ##################
 
-  $self->epojar($epojar) if($epojar);
-  $self->threshold($threshold) if($threshold);
+  $self->epojar($epojar)       if ($epojar);
+  $self->threshold($threshold) if ($threshold);
 
   return $self;
 }
-
-
 
 =head2 epojar
 
@@ -106,12 +101,11 @@ sub new {
 
 =cut
 
-
-sub epojar{
-  my $self = shift;
+sub epojar {
+  my $self   = shift;
   my $epojar = shift;
-  if($epojar){
-    if(! -e $epojar){
+  if ($epojar) {
+    if ( !-e $epojar ) {
       my $temp = $self->find_file($epojar);
       $epojar = $temp;
     }
@@ -119,8 +113,6 @@ sub epojar{
   }
   return $self->{'epojar'};
 }
-
-
 
 =head2 threshold
 
@@ -133,14 +125,11 @@ sub epojar{
 
 =cut
 
-
-sub threshold{
+sub threshold {
   my $self = shift;
-  $self->{'threshold'} = shift if(@_);
+  $self->{'threshold'} = shift if (@_);
   return $self->{'threshold'};
 }
-
-
 
 =head2 run_analysis
 
@@ -154,21 +143,17 @@ sub threshold{
 
 =cut
 
-
-
-sub run_analysis{
-  my ($self, $program) = @_;
-  if(!$program){
+sub run_analysis {
+  my ( $self, $program ) = @_;
+  if ( !$program ) {
     $program = $self->program;
   }
-  throw($program." is not executable EponineTSS::run_analysis ")
-    unless($program && -x $program);
-  my $command = $program." ";
-  $command .= $self->options." " if($self->options);
-  $command .= "-jar ".$self->epojar." -seq ".$self->queryfile.
-    " -threshold ".$self->threshold." > ".$self->resultsfile;
-  print "Running analysis ".$command."\n";
-  system($command) == 0 or throw("FAILED to run ".$command);
+  throw( $program . " is not executable EponineTSS::run_analysis " ) unless ( $program && -x $program );
+  my $command = $program . " ";
+  $command .= $self->options . " " if ( $self->options );
+  $command .= "-jar " . $self->epojar . " -seq " . $self->queryfile . " -threshold " . $self->threshold . " > " . $self->resultsfile;
+  print "Running analysis " . $command . "\n";
+  system($command) == 0 or throw( "FAILED to run " . $command );
 }
 
 =head2 parse_results
@@ -183,52 +168,42 @@ sub run_analysis{
 
 =cut
 
-
-
-
-sub parse_results{
-  my ($self, $results) = @_;
-  if(!$results){
+sub parse_results {
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
   my $ff = $self->feature_factory;
-  if(!-e $results){
-    throw("Can't parse an no existance results file ".$results.
-          " EponineTSS:parse_results");
+  if ( !-e $results ) {
+    throw( "Can't parse an no existance results file " . $results . " EponineTSS:parse_results" );
   }
   my @output;
-  open(EponineTSS, $results) or throw("FAILED to open ".$results.
-                                      " EponineTSS:parse_results");
- LINE:while(<EponineTSS>){
-    if (! /^\#/){ #ignore introductory lines
+  open( EponineTSS, $results ) or throw( "FAILED to open " . $results . " EponineTSS:parse_results" );
+LINE: while (<EponineTSS>) {
+    if ( !/^\#/ ) {    #ignore introductory lines
       chomp;
       my @element = split;
-      my ($name, $start, $end, $score, $temp_strand) =
-        @element[0, 3, 4, 5, 6];
+      my ( $name, $start, $end, $score, $temp_strand ) = @element[ 0, 3, 4, 5, 6 ];
       my $strand = 1;
       # Eponine is reporting coordinate with a one base offset when predicting on the reverse strand
-      if($temp_strand eq '-'){
+      if ( $temp_strand eq '-' ) {
         $strand = -1;
         $start--;
         $end--;
       }
       # This should not happen anymore as we fix the offset but I will leave it here for some time
-      if ($self->query->seq_region_length < $start) {
-          warning("WRONG feature $start $end $score $temp_strand as length is ".$self->query->seq_region_length."\n");
-          next if ($start == $end);
+      if ( $self->query->seq_region_length < $start ) {
+        warning( "WRONG feature $start $end $score $temp_strand as length is " . $self->query->seq_region_length . "\n" );
+        next if ( $start == $end );
       }
       $score = $self->trunc_float_3($score);
-      my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
-                                          '', $name, $self->query);
-      push(@output, $sf);
+      my $sf = $ff->create_simple_feature( $start, $end, $strand, $score, '', $name, $self->query );
+      push( @output, $sf );
     }
   }
-  $self->output(\@output);
-  close(EponineTSS) or throw("FAILED to close ".$results.
-                             " EponineTSS:parse_results");
-}
-
-
+  $self->output( \@output );
+  close(EponineTSS) or throw( "FAILED to close " . $results . " EponineTSS:parse_results" );
+} ## end sub parse_results
 
 =head2 trunc_float_3
 
@@ -241,14 +216,12 @@ sub parse_results{
 
 =cut
 
-
-
 sub trunc_float_3 {
-    my ($self, $arg) = @_;
+  my ( $self, $arg ) = @_;
 
-    # deal only with valid numbers
-    # and only need cases of the form [+/-]xx.yyyyy
-    return $arg unless $arg =~ /^[+-]?\d*\.\d+$/;
+  # deal only with valid numbers
+  # and only need cases of the form [+/-]xx.yyyyy
+  return $arg unless $arg =~ /^[+-]?\d*\.\d+$/;
 
-    return 0.001 * int (1000 * $arg);
+  return 0.001*int( 1000*$arg );
 }

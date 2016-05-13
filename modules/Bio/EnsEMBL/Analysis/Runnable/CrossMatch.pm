@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::CrossMatch - 
+Bio::EnsEMBL::Analysis::Runnable::CrossMatch -
 
 =head1 DESCRIPTION
 
@@ -36,7 +37,7 @@ Smith-Waterman alignment program.
 =head1 SYNOPSIS
 
 	use CrossMatch;
-	
+
 	# Create a factory object
 	$matcher = CrossMatch::Factory->new( '/nfs/disk2001/this_dir',
 	                                     '/home/jgrg/that_dir' );
@@ -53,9 +54,8 @@ Smith-Waterman alignment program.
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::Runnable::CrossMatch;
-use warnings ;
+use warnings;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(info verbose throw warning);
@@ -67,87 +67,84 @@ use strict;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-# new() is written here 
+# new() is written here
 
 sub new {
 
-  my($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  bless $self,$class;
-  
-  $self->{'_fp_array'} =[];
-  
-  my ($seq1,
-      $seq2,
-      $program,
-      $workdir,
-      $minscore,
-      $minmatch,
-      $masklevel) = rearrange([qw(
-				  SEQ1 
-				  SEQ2 
-				  PROGRAM
-				  WORKDIR 
-				  MINSCORE
-				  MINMATCH 
-				  MASKLEVEL)],@args);
-  
-  if( !defined $seq1 || !defined $seq2 ) {
+  bless $self, $class;
+
+  $self->{'_fp_array'} = [];
+
+  my ( $seq1, $seq2, $program, $workdir, $minscore, $minmatch, $masklevel ) = rearrange( [ qw(
+        SEQ1
+        SEQ2
+        PROGRAM
+        WORKDIR
+        MINSCORE
+        MINMATCH
+        MASKLEVEL) ],
+    @args );
+
+  if ( !defined $seq1 || !defined $seq2 ) {
     $self->throw("Must pass in both seq1 and seq1 args");
   }
-  
-  my $queryfile = $self->queryfile();
-  my $targetfile = $queryfile."target";
-  
-  $self->write_seq_file($seq1,$queryfile);
-  $self->write_seq_file($seq2,$targetfile); print "$seq2 and $targetfile\n";
-  
-  if( $workdir) { 
-    $self->workdir($workdir); 
-  } else {
+
+  my $queryfile  = $self->queryfile();
+  my $targetfile = $queryfile . "target";
+
+  $self->write_seq_file( $seq1, $queryfile );
+  $self->write_seq_file( $seq2, $targetfile );
+  print "$seq2 and $targetfile\n";
+
+  if ($workdir) {
+    $self->workdir($workdir);
+  }
+  else {
     $self->workdir("/tmp");
   }
 
-  $minmatch = 30 unless (defined $minmatch); # $minmatch = $minscore compatatible with cvs version 1.7
-  $minscore = $minmatch unless (defined $minscore); 
-  $masklevel = 101 unless (defined $masklevel);
-  
-  if( defined $minmatch ) {
+  $minmatch  = 30        unless ( defined $minmatch );    # $minmatch = $minscore compatatible with cvs version 1.7
+  $minscore  = $minmatch unless ( defined $minscore );
+  $masklevel = 101       unless ( defined $masklevel );
+
+  if ( defined $minmatch ) {
     $self->minmatch($minmatch);
   }
-  if( defined $minscore ) {
+  if ( defined $minscore ) {
     $self->minmatch($minscore);
   }
-  if( defined $masklevel ) {
+  if ( defined $masklevel ) {
     $self->masklevel($masklevel);
   }
-  
+
   #my $path = $self->locate_executable("cross_match");
-  
+
   #$self->program($path);
 
   my $options = "-minmatch $minmatch -minscore $minscore -masklevel $masklevel -alignments $queryfile $targetfile ";
-  
-  if ($options){
+
+  if ($options) {
     $self->options($options);
   }
-    
+
   # set stuff in self from @args
   return $self;
-}
+} ## end sub new
 
 sub run {
-  my ($self, $dir) = @_;
+  my ( $self, $dir ) = @_;
 
-  if (!$dir) {
+  if ( !$dir ) {
     $dir = $self->workdir;
   }
   $self->checkdir($dir);
   my $filename = $self->write_seq_file();
   $self->files_to_delete($filename);
-  $self->files_to_delete($filename."target");
-  $self->files_to_delete($filename.".log");
-  $self->files_to_delete($self->resultsfile);
+  $self->files_to_delete( $filename . "target" );
+  $self->files_to_delete( $filename . ".log" );
+  $self->files_to_delete( $self->resultsfile );
   $self->run_analysis();
   $self->parse_results;
   $self->delete_files;
@@ -168,27 +165,24 @@ Function  : constructs a commandline and runs the program passed
 
 =cut
 
-
 sub run_analysis {
 
-  my ($self, $program) = @_;
-  
-  if(!$program){
+  my ( $self, $program ) = @_;
+
+  if ( !$program ) {
     $program = $self->program;
   }
-  throw($program." is not executable CrossMatch::run_analysis ")
-    unless($program && -x $program);
-  my $cmd = $self->program." ";
-  $cmd .= $self->options." " if($self->options);
-  $cmd .= ">".$self->resultsfile;
-  print "Running analysis ".$cmd."\n";
-  
-  system($cmd) == 0 or throw("FAILED to run ".$cmd." CrossMatch::run_analysis ");
+  throw( $program . " is not executable CrossMatch::run_analysis " ) unless ( $program && -x $program );
+  my $cmd = $self->program . " ";
+  $cmd .= $self->options . " " if ( $self->options );
+  $cmd .= ">" . $self->resultsfile;
+  print "Running analysis " . $cmd . "\n";
 
-  if(! -e $self->resultsfile){
-    throw("FAILED to run CrossMatch on ".$self->queryfile." ".
-          $self->resultsfile." has not been produced ".
-          "CrossMatch:run_analysis");
+  system($cmd) == 0 or throw( "FAILED to run " . $cmd . " CrossMatch::run_analysis " );
+
+  if ( !-e $self->resultsfile ) {
+    throw( "FAILED to run CrossMatch on " .
+           $self->queryfile . " " . $self->resultsfile . " has not been produced " . "CrossMatch:run_analysis" );
   }
 }
 
@@ -204,106 +198,106 @@ sub run_analysis {
 
 =cut
 
+sub parse_results {
 
-sub parse_results{
-
-  my ($self, $results) =  @_;
-  if(!$results){
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
 
-  my (@res,$ialign,@align);
+  my ( @res, $ialign, @align );
 
-  open( CROSS_MATCH, $results ) || throw("FAILED to open ".$results." CrossMatch::parse_results");
-  
-  while (<CROSS_MATCH>){
-    
-    info ($_) ;
-    
+  open( CROSS_MATCH, $results ) || throw( "FAILED to open " . $results . " CrossMatch::parse_results" );
+
+  while (<CROSS_MATCH>) {
+
+    info($_);
+
     # process alignment lines if requested
     # print STDERR "Processing....$_";
-    
-    if(/^(\w*)\s+(\S+)\s+(\d+)\s+(\S+)\s+(\d+)$/){  ###this is alignment line
-      if($2 eq $res[4] && $ialign==1){
-	$align[0].=$4;
-	$align[2]=$1;
-	$ialign=2; 
-      }elsif(($2 eq $res[8] || $2 eq $res[9]) && $ialign==2){
-	$align[1].=$4;
-	$align[3]=$1;
-	$ialign=1;
-      }else{
-	die "alignment parsing error in Crossmatch.pm\n  $_";
+
+    if (/^(\w*)\s+(\S+)\s+(\d+)\s+(\S+)\s+(\d+)$/) {    ###this is alignment line
+      if ( $2 eq $res[4] && $ialign == 1 ) {
+        $align[0] .= $4;
+        $align[2] = $1;
+        $ialign = 2;
+      }
+      elsif ( ( $2 eq $res[8] || $2 eq $res[9] ) && $ialign == 2 ) {
+        $align[1] .= $4;
+        $align[3] = $1;
+        $ialign = 1;
+      }
+      else {
+        die "alignment parsing error in Crossmatch.pm\n  $_";
       }
     }
-    
+
     # this is used to exclude all except alignment summary lines
     next unless /\(\d+\).*\(\d+\)/;
-    
+
     # Remove parentheses and asterisks
     tr/()\*//d;
-    
+
     # save previous hit, with alignments
-    &_save_hit($self,\@res,\@align);
-    
-    @res = split;
-    $ialign=1;
-  }
+    &_save_hit( $self, \@res, \@align );
+
+    @res    = split;
+    $ialign = 1;
+  } ## end while (<CROSS_MATCH>)
 
   #print STDERR "About to process...\n";
-  &_save_hit($self,\@res,\@align);
+  &_save_hit( $self, \@res, \@align );
   #print STDERR "saved hits \n";
-      
+
   undef @res;
   undef @align;
 
   # Check exit status of cross_match
-  unless (close CROSS_MATCH) {
-    my $error = $! ? "Error from cross_match: $!"
-      : "Error: cross_match exited status $?";
-    warning( "$error\nCommand: 'cross_command'");
+  unless ( close CROSS_MATCH ) {
+    my $error = $! ? "Error from cross_match: $!" : "Error: cross_match exited status $?";
+    warning("$error\nCommand: 'cross_command'");
   }
-  
-# Pre-rearranged fields
-# 0    1    2    3    4        5     6     7       8 9        10      11    12
 
-# 98   0.00 0.00 0.00 130N4    1     104   84065   W 92M18    68800   68903 0
-# 98   0.00 0.00 0.00 92M18    68800 68903 0       W 130N4    1       104   84065
-# 8251 0.00 0.00 0.00 130N4    1     84169 0       W 130N4    1       84169 0
-# 103  0.00 0.00 0.00 CFAT5    20771 20874 (0)     W A1280    1       104   (22149) | W Bs
-# 103  0.00 0.00 0.00 CFAT5    20771 20874 (0)     C A1280.RC (0)     22253 22150   | C Ar Br
-# 103  0.00 0.00 0.00 CFAT5.RC 1     104   (20770) C A1280    (22149) 104   1       | C As Bs
-# 26355  1.37 0.42 0.36  Em:AP000350    133977 162328 (0)  C Em:AP000352   (125738) 28369     1
+  # Pre-rearranged fields
+  # 0    1    2    3    4        5     6     7       8 9        10      11    12
 
-# 120 16.53 0.00 0.00  bK363A12    32474 32715 (50)  C cE129H9   (4343) 32827 32586  
-# 100  0.00 0.00 0.00  bK363A12    32666 32765 (0)    cE129H9        1   100 (37070) *
-#  * indicates that there is a higher-scoring match whose domain partly includes the domain of this match.
+  # 98   0.00 0.00 0.00 130N4    1     104   84065   W 92M18    68800   68903 0
+  # 98   0.00 0.00 0.00 92M18    68800 68903 0       W 130N4    1       104   84065
+  # 8251 0.00 0.00 0.00 130N4    1     84169 0       W 130N4    1       84169 0
+  # 103  0.00 0.00 0.00 CFAT5    20771 20874 (0)     W A1280    1       104   (22149) | W Bs
+  # 103  0.00 0.00 0.00 CFAT5    20771 20874 (0)     C A1280.RC (0)     22253 22150   | C Ar Br
+  # 103  0.00 0.00 0.00 CFAT5.RC 1     104   (20770) C A1280    (22149) 104   1       | C As Bs
+  # 26355  1.37 0.42 0.36  Em:AP000350    133977 162328 (0)  C Em:AP000352   (125738) 28369     1
 
+  # 120 16.53 0.00 0.00  bK363A12    32474 32715 (50)  C cE129H9   (4343) 32827 32586
+  # 100  0.00 0.00 0.00  bK363A12    32666 32765 (0)    cE129H9        1   100 (37070) *
+  #  * indicates that there is a higher-scoring match whose domain partly includes the domain of this match.
 
-#process alignments above score
-  foreach my $fp ( $self->fp($self->minmatch) ) {
-    my ($seq1,$seq2,$score,$start,$end,$hstart,$hend) = split(/:/,$fp);
-  
-    my ($strand,$hstrand,$swap);
+  #process alignments above score
+  foreach my $fp ( $self->fp( $self->minmatch ) ) {
+    my ( $seq1, $seq2, $score, $start, $end, $hstart, $hend ) = split( /:/, $fp );
+
+    my ( $strand, $hstrand, $swap );
 
     if ( $start > $end ) {
       $strand = -1;
-      $swap = $start;
-      $start = $end;
-      $end = $swap;
-    } else {
+      $swap   = $start;
+      $start  = $end;
+      $end    = $swap;
+    }
+    else {
       $strand = 1;
     }
 
     if ( $hstart > $hend ) {
       $hstrand = -1;
-      $swap = $hstart;
-      $hstart = $hend;
-      $hend = $swap;
-    } else {
+      $swap    = $hstart;
+      $hstart  = $hend;
+      $hend    = $swap;
+    }
+    else {
       $hstrand = 1;
     }
-
 
     $fp = Bio::EnsEMBL::FeaturePair->new();
     #print STDERR "Processing FP with $start-$end to $hstart-$hend\n";
@@ -317,10 +311,10 @@ sub parse_results{
     $fp->hstrand($hstrand);
     $fp->hseqname($seq2);
     $fp->score($score);
-       
+
     $self->add_fp($fp);
-  }
-}
+  } ## end foreach my $fp ( $self->fp(...))
+} ## end sub parse_results
 
 =head2 output
 
@@ -328,19 +322,17 @@ Title   : output
 Usage   :
 Function:
 Example :
-Returns : 
+Returns :
 Args    :
 
 
 =cut
 
-sub output{
-  my ($self,@args) = @_;
-  
-  return @{$self->{'_fp_array'}};
+sub output {
+  my ( $self, @args ) = @_;
+
+  return @{ $self->{'_fp_array'} };
 }
-
-
 
 =head2 add_fp
 
@@ -348,16 +340,16 @@ Title   : add_fp
 Usage   :
 Function:
 Example :
-Returns : 
+Returns :
 Args    :
 
 
 =cut
 
-sub add_fp{
-  my ($self,@args) = @_;
-  
-  push(@{$self->{'_fp_array'}},@args);
+sub add_fp {
+  my ( $self, @args ) = @_;
+
+  push( @{ $self->{'_fp_array'} }, @args );
 }
 
 =head2 minmatch
@@ -365,7 +357,7 @@ sub add_fp{
   Title   : minmatch
     Usage   : $obj->minmatch($newval)
   Function: could set and return the minmatch value
-    Example : 
+    Example :
     Returns : value of minmatch option used by crossmatch
     Args    : newvalue (optional)
 
@@ -373,8 +365,8 @@ sub add_fp{
 =cut
 
 sub minmatch {
-  my ($obj,$value) = @_;
-  if ( defined $value) {
+  my ( $obj, $value ) = @_;
+  if ( defined $value ) {
     $obj->{'minmatch'} = $value;
   }
   return $obj->{'minmatch'};
@@ -386,15 +378,16 @@ sub minmatch {
   Title   : score
     Usage   : $obj->score($newval)
   Function: could set and return the score value
-    Example : 
+    Example :
     Returns : value of minscore option used by crossmatch
     Args    : newvalue (optional)
 
 
 =cut
+
 sub minscore {
-  my ($obj,$value) = @_;
-  if ( defined $value) {
+  my ( $obj, $value ) = @_;
+  if ( defined $value ) {
     $obj->{'minscore'} = $value;
   }
   return $obj->{'minscore'};
@@ -406,7 +399,7 @@ sub minscore {
   Title   : masklevel
     Usage   : $obj->masklevel($newval)
   Function: could set and return the masklevel value
-    Example : 
+    Example :
     Returns : value of masklevel option used by crossmatch
     Args    : newvalue (optional)
 
@@ -414,253 +407,260 @@ sub minscore {
 =cut
 
 sub masklevel {
-  my ($obj,$value) = @_;
-  if ( defined $value) {
+  my ( $obj, $value ) = @_;
+  if ( defined $value ) {
     $obj->{'masklevel'} = $value;
   }
   return $obj->{'masklevel'};
 
 }
 
-sub _save_hit{
-  my($self,$rares,$raalign)=@_;
+sub _save_hit {
+  my ( $self, $rares, $raalign ) = @_;
 
   # only save if something to save
   if (@$rares) {
-    
+
     # parsing to deal different numbers of items
     # if 13 then second sequence is complement
     # if 12 then its not, so insert 'W'
     my @nres;
-    if (@$rares == 13) {
-      @nres=( @$rares[0..9, 12, 11, 10]       );
-    } elsif (@$rares == 12) {
-      @nres=( @$rares[0..7], 'W', @$rares[8..11] );
+    if ( @$rares == 13 ) {
+      @nres = ( @$rares[ 0 .. 9, 12, 11, 10 ] );
     }
-    
+    elsif ( @$rares == 12 ) {
+      @nres = ( @$rares[ 0 .. 7 ], 'W', @$rares[ 8 .. 11 ] );
+    }
+
     # alignment is stored in a directional fashion: x->y maps to a->b where y>x
     my $raw_align;
     if (@$raalign) {
       # reverse if required
-      my $st1=$nres[5];
-      my $en1=$nres[6];
+      my $st1 = $nres[5];
+      my $en1 = $nres[6];
       my $st2;
       my $en2;
       my $dirl;
-      if ($$raalign[2] eq 'C') {
-	$$raalign[3]='C';
-	$$raalign[0]=reverse($$raalign[0]);
-	$$raalign[1]=reverse($$raalign[1]);
-	$dirl='C';
-	$st2=$nres[11];
-	$en2=$nres[10];
-      } else {
-	$st2=$nres[10];
-	$en2=$nres[11];
+      if ( $$raalign[2] eq 'C' ) {
+        $$raalign[3] = 'C';
+        $$raalign[0] = reverse( $$raalign[0] );
+        $$raalign[1] = reverse( $$raalign[1] );
+        $dirl        = 'C';
+        $st2         = $nres[11];
+        $en2         = $nres[10];
+      }
+      else {
+        $st2 = $nres[10];
+        $en2 = $nres[11];
       }
 
       # check length
-      my $l1=length($$raalign[0]);
-      my $l2=length($$raalign[1]);
-      if ($l1!=$l2) {
-	print "Lengths of alignment are different [$l1,$l2]\n$$raalign[0]\n$$raalign[1]\n";
-	print join(',',@nres)."\n";
-	throw( "failed at CrossMatch :_save_hit");
+      my $l1 = length( $$raalign[0] );
+      my $l2 = length( $$raalign[1] );
+      if ( $l1 != $l2 ) {
+        print "Lengths of alignment are different [$l1,$l2]\n$$raalign[0]\n$$raalign[1]\n";
+        print join( ',', @nres ) . "\n";
+        throw("failed at CrossMatch :_save_hit");
       }
 
       # walk along sequence in blocks
-      $raw_align="$st1:$dirl$st2";
-      my $seq1=$$raalign[0];
-      my $seq2=$$raalign[1];
+      $raw_align = "$st1:$dirl$st2";
+      my $seq1 = $$raalign[0];
+      my $seq2 = $$raalign[1];
       {
-	my($s1a,$s1b,$s1c,$s2a,$s2b,$s2c);
-	if ($seq1=~/^([^\-]+)(\-+)(\S+)$/) {
-	  ($s1a,$s1b,$s1c)=($1,$2,$3);
-	} else {
-	  $s1a=$seq1;
-	  $s1b=$s1c='';
-	}
-	if ($seq2=~/^([^\-]+)(\-+)(\S+)$/) {
-	  ($s2a,$s2b,$s2c)=($1,$2,$3);
-	} else {
-	  $s2a=$seq2;
-	  $s2b=$s2c='';
-	}
-	#print STDERR "heads are ",substr($s1a,0,10),";",substr($s1b,0,10),":",substr($s2a,0,10),";",substr($s2b,0,10),"\n";
+        my ( $s1a, $s1b, $s1c, $s2a, $s2b, $s2c );
+        if ( $seq1 =~ /^([^\-]+)(\-+)(\S+)$/ ) {
+          ( $s1a, $s1b, $s1c ) = ( $1, $2, $3 );
+        }
+        else {
+          $s1a = $seq1;
+          $s1b = $s1c = '';
+        }
+        if ( $seq2 =~ /^([^\-]+)(\-+)(\S+)$/ ) {
+          ( $s2a, $s2b, $s2c ) = ( $1, $2, $3 );
+        }
+        else {
+          $s2a = $seq2;
+          $s2b = $s2c = '';
+        }
+        #print STDERR "heads are ",substr($s1a,0,10),";",substr($s1b,0,10),":",substr($s2a,0,10),";",substr($s2b,0,10),"\n";
 
-	# escape if no more gaps
-	next if(length($s1c)==0 && length($s2c)==0);
-	# do shortest first
-	my $lab;
-	if ( length($s1a.$s1b) == 0 ||
-	     length($s2a.$s2b) == 0 ) {
-	  print STDERR "Dodgy alignment processing catch! Bugging out\n";
-	  next;
-	}
-	if (length($s1a.$s1b)<length($s2a.$s2b)) {
-	  # update seq1
-	  $lab=length($s1a.$s1b);
-	  $st1+=length($s1a);
-	  #print STDERR "st1 is $st1 with $lab\n";
-	  $seq1=$s1c;
-	  #print STDERR "New head is ",substr($seq1,0,10),"\n";
-	  # update seq2
-	  $seq2=~s/^\S{$lab}//;
-	  #print STDERR "new $lab.. seq2 head is ",substr($seq2,0,10),"\n";
-	} else {
-	  # update seq2
-	  $lab=length($s2a);
-	  $seq2=$s2c;
-	  # update seq1
-	  my $l2ab=length($s2a.$s2b);
-	  $seq1=~s/^\S{$l2ab}//;
-	  $st1+=$l2ab;
-	}
-	if ($dirl eq 'C') {
-	  $st2-=$lab;
-	} else {
-	  $st2+=$lab;
-	}
-	$raw_align.=",$st1:$dirl$st2";
-	redo;
+        # escape if no more gaps
+        next if ( length($s1c) == 0 && length($s2c) == 0 );
+        # do shortest first
+        my $lab;
+        if ( length( $s1a . $s1b ) == 0 || length( $s2a . $s2b ) == 0 ) {
+          print STDERR "Dodgy alignment processing catch! Bugging out\n";
+          next;
+        }
+        if ( length( $s1a . $s1b ) < length( $s2a . $s2b ) ) {
+          # update seq1
+          $lab = length( $s1a . $s1b );
+          $st1 += length($s1a);
+          #print STDERR "st1 is $st1 with $lab\n";
+          $seq1 = $s1c;
+          #print STDERR "New head is ",substr($seq1,0,10),"\n";
+          # update seq2
+          $seq2 =~ s/^\S{$lab}//;
+          #print STDERR "new $lab.. seq2 head is ",substr($seq2,0,10),"\n";
+        }
+        else {
+          # update seq2
+          $lab  = length($s2a);
+          $seq2 = $s2c;
+          # update seq1
+          my $l2ab = length( $s2a . $s2b );
+          $seq1 =~ s/^\S{$l2ab}//;
+          $st1 += $l2ab;
+        }
+        if ( $dirl eq 'C' ) {
+          $st2 -= $lab;
+        }
+        else {
+          $st2 += $lab;
+        }
+        $raw_align .= ",$st1:$dirl$st2";
+        redo;
       }
-      $raw_align.=",$en1:$dirl$en2";
+      $raw_align .= ",$en1:$dirl$en2";
 
-    }
-    $self->hit(@nres,$raw_align);
+    } ## end if (@$raalign)
+    $self->hit( @nres, $raw_align );
 
     # clear data
-    @$rares=();
-    @$raalign=();
-  }
-}
-    
+    @$rares   = ();
+    @$raalign = ();
+  } ## end if (@$rares)
+} ## end sub _save_hit
+
 # Store data from a hit
 
 sub hit {
   my $self = shift;
-  
-  if (@_ == 14) {
-    push( @{$self->{'hit'}}, [@_]);
-    push( @{$self->{'active'}}, $#{$self->{'hit'}} );
-  } else {
-    warning( "Bad number of elements (", scalar @_, ") in '@_'");
+
+  if ( @_ == 14 ) {
+    push( @{ $self->{'hit'} }, [@_] );
+    push( @{ $self->{'active'} }, $#{ $self->{'hit'} } );
+  }
+  else {
+    warning( "Bad number of elements (", scalar @_, ") in '@_'" );
   }
 }
 
 # Create access methods to access the data from the matches
 
 BEGIN {
-    my( %fields );
-    {
-        my $i = 0;
-        %fields = map {$_, $i++} qw( score pSub pDel pIns
-                                     aName aStart aEnd aRemain
-                                     strand
-                                     bName bStart bEnd bRemain raw_align);
-    }
+  my (%fields);
+  {
+    my $i = 0;
+    %fields = map { $_, $i++ } qw( score pSub pDel pIns
+      aName aStart aEnd aRemain
+      strand
+      bName bStart bEnd bRemain raw_align);
+  }
 
-    foreach my $func (keys %fields) {
-        no strict 'refs';
+  foreach my $func ( keys %fields ) {
+    no strict 'refs';
 
-        my $i = $fields{ $func };
+    my $i = $fields{$func};
 
-        *$func = sub {
-            my( $match, @rows ) = @_;
+    *$func = sub {
+      my ( $match, @rows ) = @_;
 
-            if (wantarray) {
-                # Extract the requested values
-                unless (@rows) {
-                    # Get a list of all the row indices
-                    @rows = @{$match->{'active'}}; 
-                }
-
-               # Make a vertical slice through the hits
-                return map $match->{'hit'}[$_][$i], @rows;
-            } else {
-                # Return just one value in scalar context
-                if (defined $rows[0]) {
-                    # Get field from row requested
-                    return $match->{'hit'}[$rows[0]][$i];
-                } else {
-                    # Just get value from first row in active list
-                    my $row = $match->{'active'}[0]; 
-                    return $match->{'hit'}[$row][$i];
-                }
-            }
+      if (wantarray) {
+        # Extract the requested values
+        unless (@rows) {
+          # Get a list of all the row indices
+          @rows = @{ $match->{'active'} };
         }
-    }
-}
 
-
-
+        # Make a vertical slice through the hits
+        return map $match->{'hit'}[$_][$i], @rows;
+      }
+      else {
+        # Return just one value in scalar context
+        if ( defined $rows[0] ) {
+          # Get field from row requested
+          return $match->{'hit'}[ $rows[0] ][$i];
+        }
+        else {
+          # Just get value from first row in active list
+          my $row = $match->{'active'}[0];
+          return $match->{'hit'}[$row][$i];
+        }
+      }
+      }
+  } ## end foreach my $func ( keys %fields)
+} ## end BEGIN
 
 # output's full featurepair list
 sub fp {
-  my( $self, $minscore ) = @_;
+  my ( $self, $minscore ) = @_;
   # loop over all rows
-  my @hits; 
-  foreach my $row (@{$self->{'active'}}) {
-    
-    my $score=$self->score($row); 
-    next if($score<$minscore);
-    my $aname=$self->aName($row);
-    my $bname=$self->bName($row);
-    my @sted=&_trans_fp($self->raw_align($row));
+  my @hits;
+  foreach my $row ( @{ $self->{'active'} } ) {
+
+    my $score = $self->score($row);
+    next if ( $score < $minscore );
+    my $aname = $self->aName($row);
+    my $bname = $self->bName($row);
+    my @sted  = &_trans_fp( $self->raw_align($row) );
     foreach my $sted2 (@sted) {
-      push(@hits,join(":",$aname,$bname,$score,@$sted2));
+      push( @hits, join( ":", $aname, $bname, $score, @$sted2 ) );
     }
   }
   return @hits;
 }
 
-sub _trans_fp{
-  my($align)=@_;
-  my($st1p,$st2p);
-  $st1p=$st2p=0;
+sub _trans_fp {
+  my ($align) = @_;
+  my ( $st1p, $st2p );
+  $st1p = $st2p = 0;
   my @hits;
-  foreach my $pair (split(',',$align)) {
+  foreach my $pair ( split( ',', $align ) ) {
     my $dirl;
-    my($st1,$st2)=split(':',$pair);
-    if ($st2=~/C(\d+)/) {
-      $st2=$1;
-      $dirl='C';
+    my ( $st1, $st2 ) = split( ':', $pair );
+    if ( $st2 =~ /C(\d+)/ ) {
+      $st2  = $1;
+      $dirl = 'C';
     }
 
     # only output if previous saved
     if ($st1p) {
       # calculate ends
-      my $l1=$st1-$st1p;
+      my $l1 = $st1 - $st1p;
       my $l;
       if ($dirl) {
-	$l=$st2p-$st2;
-      } else {
-	$l=$st2-$st2p;
+        $l = $st2p - $st2;
+      }
+      else {
+        $l = $st2 - $st2p;
       }
       # if exact match, must be end, so need full length
-      if ($l1==$l) {
-	$l++;
-      } elsif ($l1<$l) {
-	$l=$l1;
+      if ( $l1 == $l ) {
+        $l++;
       }
-      $l1=$l-1;
-      my $ed1p=$st1p+$l1;
+      elsif ( $l1 < $l ) {
+        $l = $l1;
+      }
+      $l1 = $l - 1;
+      my $ed1p = $st1p + $l1;
       my $ed2p;
       if ($dirl) {
-	$ed2p=$st2p-$l1;
-      } else {
-	$ed2p=$st2p+$l1;
+        $ed2p = $st2p - $l1;
       }
-      push(@hits,[$st1p,$ed1p,$st2p,$ed2p]);
-    }
-    ($st1p,$st2p)=($st1,$st2);
-  }
+      else {
+        $ed2p = $st2p + $l1;
+      }
+      push( @hits, [ $st1p, $ed1p, $st2p, $ed2p ] );
+    } ## end if ($st1p)
+    ( $st1p, $st2p ) = ( $st1, $st2 );
+  } ## end foreach my $pair ( split( ','...))
   # if higher than end then no match
   return @hits;
-}
+} ## end sub _trans_fp
 
 1;
-
 
   __END__
 
@@ -674,7 +674,7 @@ Smith-Waterman alignment program.
 =head1 SYNOPSIS
 
 	use CrossMatch;
-	
+
 	# Create a factory object
 	$matcher = CrossMatch::Factory->new( '/nfs/disk2001/this_dir',
 	                                     '/home/jgrg/that_dir' );

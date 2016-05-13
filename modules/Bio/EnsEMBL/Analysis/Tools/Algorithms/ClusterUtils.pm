@@ -1,116 +1,112 @@
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
-
-
 =head1 NAME
 
   Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 
 
-  This package contains methods to make the GeneClusster easier to use.  
+  This package contains methods to make the GeneClusster easier to use.
 
 
-=head1 DESCRIPTION  
+=head1 DESCRIPTION
 
 
 
- Here's some ASCII art to understand this module better : 
- 
-   We will refer to 2 types of clusters in this module :  
+ Here's some ASCII art to understand this module better :
+
+   We will refer to 2 types of clusters in this module :
 
     'one_way clusters'    - a cluster of genes [= genes which have overlapping exons ]
-                            which contain only genes of one set 
+                            which contain only genes of one set
                             use get_single_clusters method
 
     'two_way clusters'    - a cluster of genes [= genes which have overlapping exons ]
-                            which contains genes of both sets, 
+                            which contains genes of both sets,
                             use get_twoway_clusters method
 
   Maybe it would have been better to call them one-set clusters and two-set clusters?
 
 
 
-  'unclustered'         - these clusters contain genes which don't overlap any other gene 
-                          in the same set, or in any other set. These genes are also known as 
-                          non-clustering genes 
+  'unclustered'         - these clusters contain genes which don't overlap any other gene
+                          in the same set, or in any other set. These genes are also known as
+                          non-clustering genes
 
 
 
-Example 1 :  
+Example 1 :
 
-  This is a two-way cluster ( two-set cluster ) 
-    - genes of 2 different sets overlap 
+  This is a two-way cluster ( two-set cluster )
+    - genes of 2 different sets overlap
 
-  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA       
-  SET 1        BBBBBBBB------------------------BBBB 
+  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA
+  SET 1        BBBBBBBB------------------------BBBB
   SET 2 :    ZZZZZZZZZZZ-----------------------------------------------ZZZZZZZZZZZZ
 
 
 
-Example 2: 
+Example 2:
 
   Below you see 2 one-way clustering clusters  (2-set-clusters)
     - both clusters are called 'one-way clustering clusters' - they only cluster 'one way'  - they are homogenous clusters...
-    - no cluster contains a gene which belongs to a different set 
+    - no cluster contains a gene which belongs to a different set
       method : #  get_oneway_clustering_genes_of_set($clustered,"transformed")
 
-  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA       
-  SET 1 :       BBBBBBBB------------------------BBBB 
+  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA
+  SET 1 :       BBBBBBBB------------------------BBBB
   SET 2 :                                                                  ZZZZZZZZZZZZZ----------------ZZZZZZZZZZZZZ
   SET 2 :                                                                      YYYYYYYYYYYY
 
 
-Example 3 : 
+Example 3 :
 
-  All the genes below form one two-way cluster because the exons overlap : 
+  All the genes below form one two-way cluster because the exons overlap :
 
-  SET 1 :          AAAAAA--------------------------------AAAAAAAAAAAA       
+  SET 1 :          AAAAAA--------------------------------AAAAAAAAAAAA
   SET 1 :       BBBBB                                                                                    BBBBBBBBBBBB-----------BBBBBBB
-  SET 2 :                                                   ZZZZZZZZZZZZZZZZ--------------ZZZZZZZZZZZZZZZZZZ 
+  SET 2 :                                                   ZZZZZZZZZZZZZZZZ--------------ZZZZZZZZZZZZZZZZZZ
 
 
 
-Example 4 : 
+Example 4 :
 
-  The genes below are one-way-clustering : ( one set cluster ) 
+  The genes below are one-way-clustering : ( one set cluster )
       method : #  get_oneway_clustering_genes_of_set($clustered,"transformed")
 
-  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA       
-  SET 1 :       BBBBBBBB------------------------BBBB 
+  SET 1 :          AAAAAAAAAAAA----------------AAAAAA-AAAAAAAAAAAA
+  SET 1 :       BBBBBBBB------------------------BBBB
 
 
 
 
-Some definitions : 
+Some definitions :
 
 
-    one-way clustering means : 
+    one-way clustering means :
         - genes only have exon overlap within the same set, they only cluster among each other ('homogenous clusters')
-          ( see Example 4 and Example 2 ) 
+          ( see Example 4 and Example 2 )
 
     two-way clustering means (=two set cluster )
-       - the cluster contains genes of set A and set B, and the genes have exon overlap 
-       -  example 1 and 3 
+       - the cluster contains genes of set A and set B, and the genes have exon overlap
+       -  example 1 and 3
 
 
 
 =cut
 
-
-
-use warnings ;
+use warnings;
 use Exporter;
 use vars qw(@ISA @EXPORT);
 use strict;
 use Carp;
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster;
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster ; 
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster ; 
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster ; 
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster;
 
-use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ; 
-@ISA=qw(Exporter);
+use Bio::EnsEMBL::Utils::Exception qw (warning throw );
+@ISA = qw(Exporter);
 
 @EXPORT = qw(
   simple_cluster_Genes
@@ -126,392 +122,350 @@ use Bio::EnsEMBL::Utils::Exception qw (warning throw ) ;
   cluster_AlignFeatures
 );
 
+=head2 make_types_hash
 
-
-=head2 make_types_hash 
-
-   Arg[1]    : Array ref. to gene set 1 
-   Arg[2]    : Array ref. to gene set 2 
-   Arg[3]    : Name of gene set 1 
-   Arg[4]    : Name of gene set 2 
+   Arg[1]    : Array ref. to gene set 1
+   Arg[2]    : Array ref. to gene set 2
+   Arg[3]    : Name of gene set 1
+   Arg[4]    : Name of gene set 2
 
    Function  : Creates a type hash to contain the names of the two sets
 
    Returnval : Hashreference of types to be used
- 
+
 
 =cut
 
-
 sub make_types_hash {
-    my ( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) = @_;
+  my ( $gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name ) = @_;
 
-    my (%types_hash,%types_1, %types_2 ) ;
+  my ( %types_hash, %types_1, %types_2 );
 
-    unless ( $gene_set1_name ) { 
-      $gene_set1_name = "gene_biotypes_set1" ;
+  unless ($gene_set1_name) {
+    $gene_set1_name = "gene_biotypes_set1";
+  }
+
+  unless ($gene_set2_name) {
+    $gene_set2_name = "gene_biotypes_set2";
+  }
+
+  @types_1{ map { $_->biotype } @{$gene_set1} } = 1;
+  $types_hash{$gene_set1_name} = [ keys %types_1 ];
+
+  @types_2{ map { $_->biotype } @{$gene_set2} } = 1;
+  $types_hash{$gene_set2_name} = [ keys %types_2 ];
+
+  #my @tmp  = map { $_->biotype } @{ $gene_set2 };
+  #for ( @tmp ) {
+  #  print join("\n", $_ ) ;
+  #}
+
+  my @intersection;
+  for ( keys %types_1 ) {
+    if ( exists $types_2{$_} ) {
+      push @intersection, $_;
     }
+  }
+  if ( @intersection > 0 ) {
+    throw(" there are biotypes you try to cluster wich are in both gene sets - this is unhealthy ....\n");
+  }
+  return \%types_hash;
+} ## end sub make_types_hash
 
-    unless ( $gene_set2_name ) {
-      $gene_set2_name = "gene_biotypes_set2" ;
-    }
+=head2 make_types_hash_with_genes
 
-    @types_1{ map { $_->biotype } @{ $gene_set1 } } = 1 ;
-    $types_hash{$gene_set1_name} = [ keys %types_1 ]  ;
-
-    @types_2{ map { $_->biotype } @{ $gene_set2 } } = 1 ;
-    $types_hash{$gene_set2_name} = [ keys %types_2 ]  ; 
-
-    #my @tmp  = map { $_->biotype } @{ $gene_set2 };  
-    #for ( @tmp ) { 
-    #  print join("\n", $_ ) ; 
-    #}
-
-    my @intersection ;
-    for ( keys %types_1 ) {
-       if ( exists $types_2{$_} ) {
-         push @intersection, $_ ;
-       }
-    }
-    if ( @intersection > 0 ) {
-      throw ( " there are biotypes you try to cluster wich are in both gene sets - this is unhealthy ....\n")  ;
-    }
-    return \%types_hash;
-} 
-
-
-
-
-=head2 make_types_hash_with_genes 
-
-   Arg[1]    : Array ref. to gene set 1 
-   Arg[2]    : Array ref. to gene set 2 
-   Arg[3]    : Name of gene set 1 
-   Arg[4]    : Name of gene set 2 
+   Arg[1]    : Array ref. to gene set 1
+   Arg[2]    : Array ref. to gene set 2
+   Arg[3]    : Name of gene set 1
+   Arg[4]    : Name of gene set 2
 
    Function  : Creates a type hash to contain the names of the two sets, along with an arrayreference of the genes
 
    Returnval : Hashreference of types used and Arrayreference of gene objects
- 
+
 
 =cut
 
+sub make_types_hash_with_genes {
+  my ( $gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name ) = @_;
 
-
-sub make_types_hash_with_genes { 
-    my ( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) = @_;
-  
-   my $types_ref_hash = make_types_hash( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) ; 
-   my @all_genes_combined = ( @$gene_set1, @$gene_set2);
-   return [ $types_ref_hash, \@all_genes_combined ]; 
+  my $types_ref_hash = make_types_hash( $gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name );
+  my @all_genes_combined = ( @$gene_set1, @$gene_set2 );
+  return [ $types_ref_hash, \@all_genes_combined ];
 }
 
+=head2 simple_cluster_Genes
 
-=head2 simple_cluster_Genes 
+   Arg[1]    : Array ref. to gene set 1
+   Arg[2]    : Name of gene set 1
+   Arg[3]    : Array ref. to gene set 2
+   Arg[4]    : Name of gene set 2
 
-   Arg[1]    : Array ref. to gene set 1 
-   Arg[2]    : Name of gene set 1 
-   Arg[3]    : Array ref. to gene set 2 
-   Arg[4]    : Name of gene set 2 
+   Function  : Simply clusters two sets of genes
 
-   Function  : Simply clusters two sets of genes 
-               
 
-   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2, 
-               or both. 
- 
+   Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1 , or set2,
+               or both.
+
 
 =cut
-
 
 sub simple_cluster_Genes {
   my ( $gene_set1, $gene_set1_name, $gene_set2, $gene_set2_name ) = @_;
 
-  my ($types_hash,$all_genes) = @{make_types_hash_with_genes($gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name)};
-  my ($clustered,$unclustered) = cluster_Genes($all_genes, $types_hash);
+  my ( $types_hash, $all_genes ) = @{ make_types_hash_with_genes( $gene_set1, $gene_set2, $gene_set1_name, $gene_set2_name ) };
+  my ( $clustered, $unclustered ) = cluster_Genes( $all_genes, $types_hash );
 
   return [ $clustered, $unclustered ];
 }
 
+=head2 get_single_clusters ( should be called get_oneway_clusters )
 
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects
 
-
-=head2 get_single_clusters ( should be called get_oneway_clusters ) 
-
-   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
-
-   Function  : Filters out all clusters of the array which are twoway-clusters [ which contain set1 and set2 ] 
-               This means all clusters, which contain genes of set 1 and set 2, are not returned. 
-               Only clusters are returned which contain only one type of set, either set1 or set2          
+   Function  : Filters out all clusters of the array which are twoway-clusters [ which contain set1 and set2 ]
+               This means all clusters, which contain genes of set 1 and set 2, are not returned.
+               Only clusters are returned which contain only one type of set, either set1 or set2
 
    Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which can contain genes of type set1,
-               or set2, or both. 
- 
+               or set2, or both.
+
 
 =cut
 
+sub get_single_clusters {
+  my ($cluster_ref) = @_;
 
+  my @single_type_cluster;
 
-sub get_single_clusters {  
-  my ( $cluster_ref ) = @_ ; 
- 
-  my @single_type_cluster;   
+  check_cluster_ref($cluster_ref);
 
-   check_cluster_ref($cluster_ref) ; 
+  for my $c (@$cluster_ref) {
+    unless ( $c->is_twoway_cluster ) {
+      push @single_type_cluster, $c;
+    }
+  }
+  return \@single_type_cluster;
+}
 
-   for my $c ( @$cluster_ref ) { 
-     unless ( $c->is_twoway_cluster ) {  
-        push @single_type_cluster , $c ; 
-     }    
-   } 
-   return \@single_type_cluster ; 
-} 
+=head2 get_twoway_clusters
 
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects
 
-
-=head2 get_twoway_clusters 
-
-   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
-
-   Function  : Out of a given array of GeneCluster objects, only those ones are returned which 
-               contain genes of type set1 AND set2. 
+   Function  : Out of a given array of GeneCluster objects, only those ones are returned which
+               contain genes of type set1 AND set2.
 
    Returnval : Arrayreference of  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster which are twoway
- 
+
 =cut
 
+sub get_twoway_clusters {
+  my ($cluster_ref) = @_;
 
-sub get_twoway_clusters {  
-   my ($cluster_ref ) = @_ ;   
+  check_cluster_ref($cluster_ref);
+  my @tw;
 
-   check_cluster_ref($cluster_ref) ; 
-   my @tw;  
-
-
-   for my $c ( @$cluster_ref ) { 
-     if ( $c->is_twoway_cluster ) {  
-        push @tw, $c ; 
-     }    
-   }
-   return \@tw; 
-}  
-
+  for my $c (@$cluster_ref) {
+    if ( $c->is_twoway_cluster ) {
+      push @tw, $c;
+    }
+  }
+  return \@tw;
+}
 
 =head2 get_twoway_clustering_genes_of_set
 
-   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects and a set name 
+   Arg[1]    : Array reference to  Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects and a set name
 
    Function  : Out of a given array of GeneCluster objects, clusters which are twoways are selected.
-               Then, only genes of the specified target_set_name are returned. 
+               Then, only genes of the specified target_set_name are returned.
 
    Returnval : Arrayreferenc of  Bio::EnsEMBL::Analysis::Gene objects which belong to target set name and are in twoway clusters
- 
+
 =cut
-
-
-
 
 sub get_twoway_clustering_genes_of_set {
-   my ($cluster_ref,$target_set_name ) = @_ ;
+  my ( $cluster_ref, $target_set_name ) = @_;
 
-   check_cluster_ref($cluster_ref) ;
-   my @twoway_clustering_genes ;
+  check_cluster_ref($cluster_ref);
+  my @twoway_clustering_genes;
 
-   for my $twoway_cluster (@{ get_twoway_clusters($cluster_ref)} ) {
-       push @twoway_clustering_genes, @{ $twoway_cluster->get_Genes_by_Set($target_set_name)};
-   }
-   if ( scalar(@twoway_clustering_genes) == 0 ) {
-     warning (" no gene of set-type \"$target_set_name\" found - i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
-   }
-   return \@twoway_clustering_genes;
+  for my $twoway_cluster ( @{ get_twoway_clusters($cluster_ref) } ) {
+    push @twoway_clustering_genes, @{ $twoway_cluster->get_Genes_by_Set($target_set_name) };
+  }
+  if ( scalar(@twoway_clustering_genes) == 0 ) {
+    warning(
+      " no gene of set-type \"$target_set_name\" found - i only know these sets : " . join( ",", @{ get_sets_included($cluster_ref) } ) );
+  }
+  return \@twoway_clustering_genes;
 }
 
+=head2 get_oneway_clustering_genes_of_set
 
+   Arg[1]    : Array reference to Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects
 
+   Function  : Out of the given array of Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster object,
+               clusters which are two-way-cluster ( they contain genes of set 1 AND set 2 ) are excluded.
+               Then, only genes of the specified target_set_name are returned.
 
-=head2 get_oneway_clustering_genes_of_set 
-
-   Arg[1]    : Array reference to Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster objects  
-
-   Function  : Out of the given array of Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster object, 
-               clusters which are two-way-cluster ( they contain genes of set 1 AND set 2 ) are excluded. 
-               Then, only genes of the specified target_set_name are returned. 
-
-   Returnval : Arrayreference of Bio::EnsEMBL::Gene objects which belong to set $target_set_name and are in oneway_clusters. 
+   Returnval : Arrayreference of Bio::EnsEMBL::Gene objects which belong to set $target_set_name and are in oneway_clusters.
 
 
 =cut
 
+sub get_oneway_clustering_genes_of_set {
+  my ( $cluster_ref, $target_set_name ) = @_;
 
-sub get_oneway_clustering_genes_of_set {  
-   my ($cluster_ref,$target_set_name ) = @_ ;    
+  check_cluster_ref($cluster_ref);
+  my @single_clustering_genes;
+  my $cnt = 0;
+  for my $single_type_cluster ( @{ get_single_clusters($cluster_ref) } ) {
+    push @single_clustering_genes, @{ $single_type_cluster->get_Genes_by_Set($target_set_name) };
+    $cnt++;
+  }
 
-   check_cluster_ref($cluster_ref) ;  
-   my @single_clustering_genes ; 
-   my $cnt=0;
-   for my $single_type_cluster (@{ get_single_clusters($cluster_ref)} ) {   
-       push @single_clustering_genes, @{ $single_type_cluster->get_Genes_by_Set($target_set_name) }; 
-      $cnt++; 
-   }  
- 
-   if ( scalar(@single_clustering_genes) == 0 ) {  
-     warning (" no gene of set-type \"$target_set_name\" found in $cnt out of " . @$cluster_ref . " clusters }- i only know these sets : " . join (",", @{ get_sets_included($cluster_ref)} )) ;
-    my %all_set; 
-    for my $cr ( @$cluster_ref ) {  
-       @all_set{@{ $cr->get_sets_included($cr)}}=1;
-    }  
-   }   
+  if ( scalar(@single_clustering_genes) == 0 ) {
+    warning(" no gene of set-type \"$target_set_name\" found in $cnt out of " . @$cluster_ref . " clusters }- i only know these sets : " .
+              join( ",", @{ get_sets_included($cluster_ref) } ) );
+    my %all_set;
+    for my $cr (@$cluster_ref) {
+      @all_set{ @{ $cr->get_sets_included($cr) } } = 1;
+    }
+  }
 
-   return \@single_clustering_genes; 
-} 
-
-
-sub get_sets_included {  
-   my ($cluster_ref)  = @_ ;     
-   my %tmp ; 
-   for my $c ( @$cluster_ref) {  
-      @tmp{ @{$c->get_sets_included} } = 1 ; 
-   }
-   return [ keys %tmp ] ; 
+  return \@single_clustering_genes;
 }
 
+sub get_sets_included {
+  my ($cluster_ref) = @_;
+  my %tmp;
+  for my $c (@$cluster_ref) {
+    @tmp{ @{ $c->get_sets_included } } = 1;
+  }
+  return [ keys %tmp ];
+}
 
-
-sub check_cluster_ref {   
-  my ( $cluster_ref ) = @_ ;  
-  unless ( ref($cluster_ref) =~m/ARRAY/ ) { 
-     throw "Need to hand over array-ref" ; 
-  }  
-} 
-
-
-
+sub check_cluster_ref {
+  my ($cluster_ref) = @_;
+  unless ( ref($cluster_ref) =~ m/ARRAY/ ) {
+    throw "Need to hand over array-ref";
+  }
+}
 
 =head2 cluster_Genes_by_coding_exon_overlap
 
-   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects 
+   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects
    Arg[2]    : ref to hash which builds up an Evidence-Set to biotype-relation :
 
-   Function  : clusters all genes in Arg[1] according to their coding exon extent and 
+   Function  : clusters all genes in Arg[1] according to their coding exon extent and
               sets the type according to their sets
               Uses the cluster_Genes method but clusters genes together only if there is coding exon overlap
 
-   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which 
-               have been clustered together, second ref holds an array of genes 
-               which were not clustered.   
+   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which
+               have been clustered together, second ref holds an array of genes
+               which were not clustered.
 
 =cut
 
-
-
-sub cluster_Genes_by_coding_exon_overlap {  
-  my ($genes, $types_hash ) = @_ ;
-  return cluster_Genes($genes,$types_hash,1); 
+sub cluster_Genes_by_coding_exon_overlap {
+  my ( $genes, $types_hash ) = @_;
+  return cluster_Genes( $genes, $types_hash, 1 );
 }
-
-
-
 
 =head2 cluster_Genes_without_strand
 
-   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects 
+   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects
    Arg[2]    : ref to hash which builds up an Evidence-Set to biotype-relation :
 
-   Function  : clusters all genes in Arg[1] according to their genomic extent and 
+   Function  : clusters all genes in Arg[1] according to their genomic extent and
               sets the type according to their sets
               Uses the cluster_Genes method but genes cluster together even if there are on different strands
 
-   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which 
-               have been clustered together, second ref holds an array of genes 
-               which were not clustered.   
+   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which
+               have been clustered together, second ref holds an array of genes
+               which were not clustered.
 
 =cut
 
-
-
-sub cluster_Genes_without_strand {  
-  my ($genes, $types_hash ) = @_; 
-  return cluster_Genes($genes,$types_hash,0,1); 
+sub cluster_Genes_without_strand {
+  my ( $genes, $types_hash ) = @_;
+  return cluster_Genes( $genes, $types_hash, 0, 1 );
 }
 
+=head2 cluster_Genes
 
-
-=head2 cluster_Genes 
-
-   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects 
+   Arg[1]    : Aref to Bio::EnsEMBL::Gene objects
    Arg[2]    : ref to hash which builds up an Evidence-Set to biotype-relation :
-               $hash{ cdna } = ['cdna_kyoto', 'cdna_other' ] 
-               $hash{ simg } = ['simgw_100','simgw_200'] 
+               $hash{ cdna } = ['cdna_kyoto', 'cdna_other' ]
+               $hash{ simg } = ['simgw_100','simgw_200']
    Arg[3]    : flag if you want to cluster by overlap of protein_coding exons only
-               ( 1 = clustering my overlap of protein_coding exons only )  
+               ( 1 = clustering my overlap of protein_coding exons only )
 
-   Arg[4]    : flag if you want to cluster without strand information 
-               ( if you ignore the strand, overlapping genes on diff strand will end up in same cluster )  
+   Arg[4]    : flag if you want to cluster without strand information
+               ( if you ignore the strand, overlapping genes on diff strand will end up in same cluster )
 
-   Arg[5]    : flag if you want to cluster without exon information 
-               ( if you ignore the exon, it only take the start and end of the gene)  
+   Arg[5]    : flag if you want to cluster without exon information
+               ( if you ignore the exon, it only take the start and end of the gene)
 
-   Function  : clusters all genes in Arg[1] according to their genomic extent and 
+   Function  : clusters all genes in Arg[1] according to their genomic extent and
               sets the type according to their sets
 
-   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which 
-               have been clustered together, second ref holds an array of genes 
-               which were not clustered.  
+   Returnval : Array of 2 Arrayrefs : First arrayref holds an array of all genes which
+               have been clustered together, second ref holds an array of genes
+               which were not clustered.
 
 =cut
 
-
-
 sub cluster_Genes {
-  my ($genes, $types_hash, $check_coding_overlap, $ignore_strand, $ignore_exon_overlap) = @_ ;
+  my ( $genes, $types_hash, $check_coding_overlap, $ignore_strand, $ignore_exon_overlap ) = @_;
 
-
-  #print "GOT " . scalar(@$genes ) . " GENES tocluster \n" ; sleep(2) ; 
+  #print "GOT " . scalar(@$genes ) . " GENES tocluster \n" ; sleep(2) ;
 
   #
-  # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton' 
-  # ( see get_twoay_cluster.pl) 
+  # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton'
+  # ( see get_twoay_cluster.pl)
   # he uses  two gene-sets : genes and compare_genes (each set may contain differnt biotypes)
-  #   
-  # he uses the sets to see if a cluster only consists of genes out of one set (ncbi) or hinxton 
-  # and retrieves all sets of a cluster with "get_sets_included" 
   #
-  # we do something 'nearly similar : we are clustering genes of diffrent sets (simgw, est, abinitio) 
-  # and have methods to access these sets 
+  # he uses the sets to see if a cluster only consists of genes out of one set (ncbi) or hinxton
+  # and retrieves all sets of a cluster with "get_sets_included"
+  #
+  # we do something 'nearly similar : we are clustering genes of diffrent sets (simgw, est, abinitio)
+  # and have methods to access these sets
   # --> GeneCluster has methods get_Genes_of_Type / get_Genes_by_Type / get_Genes_by_Set
-  # all genes on slice are handed over and a %types_hash which holds the setname and the  
+  # all genes on slice are handed over and a %types_hash which holds the setname and the
 
-  return ([],[]) if (!scalar(@$genes));
+  return ( [], [] ) if ( !scalar(@$genes) );
 
   # sorting of ALL genes
-  my @sorted_genes = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$genes;
+  my @sorted_genes = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @$genes;
 
-  #print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;  
+  #print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;
   # select count(*) , g.biotype from gene g left join transcript t on g.gene_id = t.gene_id where isnull(t.gene_id ) group by g.biotype  ;
-  for ( @sorted_genes ) {  
-     my $tr = scalar ( @{$_->get_all_Transcripts} ) ;   
+  for (@sorted_genes) {
+    my $tr = scalar( @{ $_->get_all_Transcripts } );
     if ( $tr == 0 ) {
-      throw("data error - gene with gene_id " . $_->dbID ." biotype " . $_->biotype .  " does not have any associated transcripts \n") ;  
+      throw( "data error - gene with gene_id " . $_->dbID . " biotype " . $_->biotype . " does not have any associated transcripts \n" );
     }
-  } 
+  }
   my $count = 0;
 
   my @active_clusters;
   my @inactive_clusters;
-  TRANSCRIPT: foreach my $gene (@sorted_genes) {
+TRANSCRIPT: foreach my $gene (@sorted_genes) {
     $count++;
 
-    # Every 50 genes divide clusters into an active (ones which could be have this gene added to it) and inactive 
+    # Every 50 genes divide clusters into an active (ones which could be have this gene added to it) and inactive
     # (ones which can not be altered by any of the genes to come)
-    if (!($count%50)) { 
+    if ( !( $count % 50 ) ) {
       my @still_active_clusters;
       my $gene_start = $gene->start;
       foreach my $cluster (@active_clusters) {
-        if ($cluster->end < $gene_start) {
-          push @inactive_clusters,$cluster;
+        if ( $cluster->end < $gene_start ) {
+          push @inactive_clusters, $cluster;
           #print "Cluster inactive\n";
-        } else {
-          push @still_active_clusters,$cluster;
+        }
+        else {
+          push @still_active_clusters, $cluster;
         }
       }
       @active_clusters = @still_active_clusters;
@@ -519,207 +473,209 @@ sub cluster_Genes {
 
     my @matching_clusters;
 
-    ## 
-    ## if there are Clusters (initialisation below) than check  
-    ## if gene lies in the boundaries of the cluster and has at least 
-    ## one exon which overlaps with an exon of a gene which already 
+    ##
+    ## if there are Clusters (initialisation below) than check
+    ## if gene lies in the boundaries of the cluster and has at least
+    ## one exon which overlaps with an exon of a gene which already
     ## belongs to the cluster
     ##
 
-    CLUSTER: foreach my $cluster (@active_clusters) {
+  CLUSTER: foreach my $cluster (@active_clusters) {
 
-    # 
-    # if gene lies in the boundaries of the cluster......
-    #
+      #
+      # if gene lies in the boundaries of the cluster......
+      #
 
-      if ($gene->end  >= $cluster->start && $gene->start <= $cluster->end) {
+      if ( $gene->end >= $cluster->start && $gene->start <= $cluster->end ) {
 
-        # search for a gene in the cluster which overlaps the new gene, 
+        # search for a gene in the cluster which overlaps the new gene,
 
-        foreach my $cluster_gene (@{ $cluster->get_Genes} ){
+        foreach my $cluster_gene ( @{ $cluster->get_Genes } ) {
 
-        # check if clustered gene overlaps 
+          # check if clustered gene overlaps
 
-          if ($gene->end  >= $cluster_gene->start && $gene->start <= $cluster_gene->end) {
+          if ( $gene->end >= $cluster_gene->start && $gene->start <= $cluster_gene->end ) {
 
-            #                             CASE 1: 
+            #                             CASE 1:
             #
-            #         START----------------$cluster_gene---------------END 
+            #         START----------------$cluster_gene---------------END
             # START-------------$gene-----------------------END
             #
-            #                             CASE 2 : 
-            #                              
-            #         START----------------$cluster_gene---------------END 
+            #                             CASE 2 :
+            #
+            #         START----------------$cluster_gene---------------END
             #               START-------------$gene-----------END
             #
-            #                             CASE 3 : 
+            #                             CASE 3 :
             #
             #
-            #         START----------------$cluster_gene----------END 
+            #         START----------------$cluster_gene----------END
             #                                              START------$gene-------END
             #
             # add gene target-gene to cluster if it has at least
-            # one gene which overlaps with an exon of the clustered gene 
-            # and add to cluster  
+            # one gene which overlaps with an exon of the clustered gene
+            # and add to cluster
             #
 
             if ($ignore_exon_overlap) {
-              if (!$ignore_strand) {
-                if ($gene->strand == $cluster_gene->strand) {
-                  push (@matching_clusters, $cluster);
+              if ( !$ignore_strand ) {
+                if ( $gene->strand == $cluster_gene->strand ) {
+                  push( @matching_clusters, $cluster );
                   next CLUSTER;
                 }
-              } else {
-                push (@matching_clusters, $cluster);
+              }
+              else {
+                push( @matching_clusters, $cluster );
                 next CLUSTER;
               }
             }
-            elsif (_compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand)) {
-              push (@matching_clusters, $cluster);
+            elsif ( _compare_Genes( $gene, $cluster_gene, $check_coding_overlap, $ignore_strand ) ) {
+              push( @matching_clusters, $cluster );
               next CLUSTER;
             }
-          }
-        }
-      }
-    } # CLUSTER 
+          } ## end if ( $gene->end >= $cluster_gene...)
+        } ## end foreach my $cluster_gene ( ...)
+      } ## end if ( $gene->end >= $cluster...)
+    }    # CLUSTER
 
     ##
-    ## Initialization of we have no matching cluster (above) 
+    ## Initialization of we have no matching cluster (above)
     ###############################################################
 
     #
     # if above was found NO matching cluster
-    # than make a new one 
-    #  
-    if (scalar(@matching_clusters) == 0) {
+    # than make a new one
+    #
+    if ( scalar(@matching_clusters) == 0 ) {
       my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new($ignore_strand);
-      foreach my $set_name (keys %$types_hash) { 
-        $newcluster->gene_Types($set_name,$types_hash->{$set_name});
-      }  
-      $newcluster->put_Genes([$gene], $ignore_strand); # xx
-      push(@active_clusters,$newcluster);
+      foreach my $set_name ( keys %$types_hash ) {
+        $newcluster->gene_Types( $set_name, $types_hash->{$set_name} );
+      }
+      $newcluster->put_Genes( [$gene], $ignore_strand );    # xx
+      push( @active_clusters, $newcluster );
 
       #
       # if above was found ONE matching cluster
       #
-    } elsif (scalar(@matching_clusters) == 1) {
-      $matching_clusters[0]->put_Genes([$gene], $ignore_strand);
+    }
+    elsif ( scalar(@matching_clusters) == 1 ) {
+      $matching_clusters[0]->put_Genes( [$gene], $ignore_strand );
 
-    } else {
+    }
+    else {
       # Merge the matching clusters into a single cluster
       my @new_clusters;
       my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new($ignore_strand);
 
-      foreach my $set_name (keys %$types_hash) {
-        $merged_cluster->gene_Types($set_name,$types_hash->{$set_name});
+      foreach my $set_name ( keys %$types_hash ) {
+        $merged_cluster->gene_Types( $set_name, $types_hash->{$set_name} );
       }
 
       my %match_cluster_hash;
       foreach my $clust (@matching_clusters) {
-        $merged_cluster->put_Genes ($clust->get_Genes, $ignore_strand);
+        $merged_cluster->put_Genes( $clust->get_Genes, $ignore_strand );
         $match_cluster_hash{$clust} = $clust;
       }
-      $merged_cluster->put_Genes([$gene], $ignore_strand);
-      push @new_clusters,$merged_cluster;
+      $merged_cluster->put_Genes( [$gene], $ignore_strand );
+      push @new_clusters, $merged_cluster;
 
       # Add back non matching clusters
       foreach my $clust (@active_clusters) {
-        if (!exists($match_cluster_hash{$clust})) {
-          push @new_clusters,$clust;
+        if ( !exists( $match_cluster_hash{$clust} ) ) {
+          push @new_clusters, $clust;
         }
       }
-      @active_clusters =  @new_clusters;
-    }
-  }
+      @active_clusters = @new_clusters;
+    } ## end else [ if ( scalar(@matching_clusters... [elsif ( scalar(@matching_clusters...))]))]
+  } ## end TRANSCRIPT: foreach my $gene (@sorted_genes)
   # Separate genes which are UNclustered (only one gene in cluster) and
-  # from clusters which hold more than one gene 
+  # from clusters which hold more than one gene
 
   # print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
-  my @clusters = (@active_clusters,@inactive_clusters);
+  my @clusters = ( @active_clusters, @inactive_clusters );
 
-  my (@new_clusters, @unclustered);
-  foreach my $cl (@clusters){
-    if ( $cl->get_Gene_Count == 1 ){
+  my ( @new_clusters, @unclustered );
+  foreach my $cl (@clusters) {
+    if ( $cl->get_Gene_Count == 1 ) {
       push @unclustered, $cl;
-    } else{
+    }
+    else {
       push( @new_clusters, $cl );
     }
   }
- # print STDERR "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
-  
-  return (\@new_clusters, \@unclustered);
-}
+  # print STDERR "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
 
-
+  return ( \@new_clusters, \@unclustered );
+} ## end sub cluster_Genes
 
 =head2  _compare_Genes
 
 
   Title  :  _compare_Genes
   Usage  :  this internal function compares the exons of two genes on overlap
-  Source :  Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison 
+  Source :  Bio::EnsEMBL::Pipeline::GeneComparison::GeneComparison
 
 
 =cut
 
-
-
 sub _compare_Genes {
-  my ($gene1,$gene2,$translate, $ignore_strand) = @_;
-  
-  if (!$ignore_strand) {
+  my ( $gene1, $gene2, $translate, $ignore_strand ) = @_;
+
+  if ( !$ignore_strand ) {
     $ignore_strand = 0;
   }
 
-  # quit if genes do not have genomic overlap 
+  # quit if genes do not have genomic overlap
   #
   # start-------gene1------end   start--------gene2----------end
-  #  
-  
-  if ($gene1->end < $gene2->start || $gene1->start > $gene2->end) {
+  #
+
+  if ( $gene1->end < $gene2->start || $gene1->start > $gene2->end ) {
     print "Gene 1  " . $gene1->start . " " . $gene1->end . " \n";
     print "Gene 2  " . $gene2->start . " " . $gene2->end . " \n";
     print "Failed extents check - returning 0\n";
     return 0;
   }
-  
-  
-  # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
+
+  # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );
 
   if ($translate) {
-    #print "clustering by overlap of coding exons only\n"; 
+    #print "clustering by overlap of coding exons only\n";
     # exon-overlap only on coding exons !
     my $exons1 = get_coding_exons_for_gene($gene1);
     my $exons2 = get_coding_exons_for_gene($gene2);
     foreach my $exon1 (@$exons1) {
       foreach my $exon2 (@$exons2) {
-        if ($ignore_strand==0) {
-          if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+        if ( $ignore_strand == 0 ) {
+          if ( ( $exon1->overlaps($exon2) ) && ( $exon1->strand == $exon2->strand ) ) {
             #print "Passed CDS overlap check - returning 1\n";
             return 1;
           }
-        } else {
+        }
+        else {
           # we ignore strand
-          if ($exon1->overlaps($exon2)){
+          if ( $exon1->overlaps($exon2) ) {
             return 1;
           }
         }
       }
     }
-  } else {
+  }
+  else {
     #
-    # overlap check based on all (noncoding + coding) Exons 
+    # overlap check based on all (noncoding + coding) Exons
     #
-    foreach my $exon1 (@{$gene1->get_all_Exons}){
-      foreach my $exon2 (@{$gene2->get_all_Exons}){
-        if ($ignore_strand==0) {
-          if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+    foreach my $exon1 ( @{ $gene1->get_all_Exons } ) {
+      foreach my $exon2 ( @{ $gene2->get_all_Exons } ) {
+        if ( $ignore_strand == 0 ) {
+          if ( ( $exon1->overlaps($exon2) ) && ( $exon1->strand == $exon2->strand ) ) {
             #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
           }
-        } else {
+        }
+        else {
           # we ignore strand
-          if ($exon1->overlaps($exon2)){
+          if ( $exon1->overlaps($exon2) ) {
             #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
           }
@@ -727,53 +683,54 @@ sub _compare_Genes {
       }
     }
   }
-   #print "Failed overlap check (translate = $translate) - returning 0\n";
+  #print "Failed overlap check (translate = $translate) - returning 0\n";
   return 0;
-}
-
+} ## end sub _compare_Genes
 
 sub get_coding_exons_for_gene {
   my ($gene) = @_;
 
   my @coding;
 
-  foreach my $trans (@{$gene->get_all_Transcripts}) {
-    next if (!$trans->translation);
-    foreach my $exon (@{$trans->get_all_translateable_Exons}) {
+  foreach my $trans ( @{ $gene->get_all_Transcripts } ) {
+    next if ( !$trans->translation );
+    foreach my $exon ( @{ $trans->get_all_translateable_Exons } ) {
       push @coding, $exon;
     }
   }
 
-  return \@coding; 
+  return \@coding;
 }
 
 sub cluster_AlignFeatures {
-  my ($features, $types_hash, $ignore_strand) = @_ ;
+  my ( $features, $types_hash, $ignore_strand ) = @_;
 
-  print "GOT " . scalar(@$features ) . " FEATURES to cluster \n" ; sleep(2) ; 
-  return ([],[]) if (!scalar(@$features));
+  print "GOT " . scalar(@$features) . " FEATURES to cluster \n";
+  sleep(2);
+  return ( [], [] ) if ( !scalar(@$features) );
 
   # sorting of ALL features
-  my @sorted_features = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$features;
+  my @sorted_features = sort { $a->start <=> $b->start ? $a->start <=> $b->start : $b->end <=> $a->end } @$features;
 
   # now start working
   my $count = 0;
   my @active_clusters;
   my @inactive_clusters;
 
-  FEATURE: foreach my $feature (@sorted_features) {
+FEATURE: foreach my $feature (@sorted_features) {
     $count++;
 
-    # Every 50 features divide clusters into an active (ones which could be have this feature added to it) and inactive 
+    # Every 50 features divide clusters into an active (ones which could be have this feature added to it) and inactive
     # (ones which can not be altered by any of the features to come)
-    if (!($count%50)) { 
+    if ( !( $count % 50 ) ) {
       my @still_active_clusters;
       my $feature_start = $feature->start;
       foreach my $cluster (@active_clusters) {
-        if ($cluster->end < $feature_start) {
-          push @inactive_clusters,$cluster;
-        } else {
-          push @still_active_clusters,$cluster;
+        if ( $cluster->end < $feature_start ) {
+          push @inactive_clusters, $cluster;
+        }
+        else {
+          push @still_active_clusters, $cluster;
         }
       }
       @active_clusters = @still_active_clusters;
@@ -781,117 +738,121 @@ sub cluster_AlignFeatures {
 
     my @matching_clusters;
 
-    ## 
-    ## if there are Clusters (initialisation below) then check  
-    ## if feature lies in the boundaries of the cluster and has at least 
-    ## one exon which overlaps with an exon of a feature which already 
+    ##
+    ## if there are Clusters (initialisation below) then check
+    ## if feature lies in the boundaries of the cluster and has at least
+    ## one exon which overlaps with an exon of a feature which already
     ## belongs to the cluster
     ##
 
-    CLUSTER: foreach my $cluster (@active_clusters) {
-    # if feature lies in the boundaries of the cluster......
-      if ($feature->end  >= $cluster->start && $feature->start <= $cluster->end) {
-        # search for a feature in the cluster which overlaps the new feature, 
-        foreach my $cluster_feature (@{ $cluster->get_AlignFeatures} ){
-          # check if clustered feature overlaps 
-          if ($feature->end  >= $cluster_feature->start && $feature->start <= $cluster_feature->end) {
+  CLUSTER: foreach my $cluster (@active_clusters) {
+      # if feature lies in the boundaries of the cluster......
+      if ( $feature->end >= $cluster->start && $feature->start <= $cluster->end ) {
+        # search for a feature in the cluster which overlaps the new feature,
+        foreach my $cluster_feature ( @{ $cluster->get_AlignFeatures } ) {
+          # check if clustered feature overlaps
+          if ( $feature->end >= $cluster_feature->start && $feature->start <= $cluster_feature->end ) {
 
-            #                             CASE 1: 
+            #                             CASE 1:
             #
-            #         START----------------$cluster_feature---------------END 
+            #         START----------------$cluster_feature---------------END
             # START-------------$feature-----------------------END
             #
-            #                             CASE 2 : 
-            #                              
-            #         START----------------$cluster_feature---------------END 
+            #                             CASE 2 :
+            #
+            #         START----------------$cluster_feature---------------END
             #               START-------------$feature-----------END
             #
-            #                             CASE 3 : 
+            #                             CASE 3 :
             #
             #
-            #         START----------------$cluster_feature----------END 
+            #         START----------------$cluster_feature----------END
             #                                              START------$feature-------END
             #
 
-            if (!$ignore_strand) {
-              if ($feature->strand == $cluster_feature->strand) {
-                push (@matching_clusters, $cluster);
+            if ( !$ignore_strand ) {
+              if ( $feature->strand == $cluster_feature->strand ) {
+                push( @matching_clusters, $cluster );
                 next CLUSTER;
               }
-            } else {
-              push (@matching_clusters, $cluster);
+            }
+            else {
+              push( @matching_clusters, $cluster );
               next CLUSTER;
             }
-          }
-        }
-      }
-    } # CLUSTER 
+          } ## end if ( $feature->end >= ...)
+        } ## end foreach my $cluster_feature...
+      } ## end if ( $feature->end >= ...)
+    }    # CLUSTER
 
     ##
-    ## Initialization of we have no matching cluster (above) 
+    ## Initialization of we have no matching cluster (above)
     ###############################################################
 
     #
     # if above was found NO matching cluster
-    # than make a new one 
-    #  
-    if (scalar(@matching_clusters) == 0) {
+    # than make a new one
+    #
+    if ( scalar(@matching_clusters) == 0 ) {
       my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster->new($ignore_strand);
-      foreach my $set_name (keys %$types_hash) { 
-        $newcluster->feature_Types($set_name,$types_hash->{$set_name});
-      }  
-      $newcluster->put_AlignFeatures([$feature], $ignore_strand); # xx
-      push(@active_clusters,$newcluster);
+      foreach my $set_name ( keys %$types_hash ) {
+        $newcluster->feature_Types( $set_name, $types_hash->{$set_name} );
+      }
+      $newcluster->put_AlignFeatures( [$feature], $ignore_strand );    # xx
+      push( @active_clusters, $newcluster );
 
       #
       # if above was found ONE matching cluster
       #
-    } elsif (scalar(@matching_clusters) == 1) {
-      $matching_clusters[0]->put_AlignFeatures([$feature], $ignore_strand);
+    }
+    elsif ( scalar(@matching_clusters) == 1 ) {
+      $matching_clusters[0]->put_AlignFeatures( [$feature], $ignore_strand );
 
-    } else {
+    }
+    else {
       # Merge the matching clusters into a single cluster
       my @new_clusters;
       my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster->new($ignore_strand);
 
-      foreach my $set_name (keys %$types_hash) {
-        $merged_cluster->feature_Types($set_name,$types_hash->{$set_name});
+      foreach my $set_name ( keys %$types_hash ) {
+        $merged_cluster->feature_Types( $set_name, $types_hash->{$set_name} );
       }
 
       my %match_cluster_hash;
       foreach my $clust (@matching_clusters) {
-        $merged_cluster->put_AlignFeatures ($clust->get_AlignFeatures, $ignore_strand);
+        $merged_cluster->put_AlignFeatures( $clust->get_AlignFeatures, $ignore_strand );
         $match_cluster_hash{$clust} = $clust;
       }
-      $merged_cluster->put_AlignFeatures([$feature], $ignore_strand);
-      push @new_clusters,$merged_cluster;
+      $merged_cluster->put_AlignFeatures( [$feature], $ignore_strand );
+      push @new_clusters, $merged_cluster;
 
       # Add back non matching clusters
       foreach my $clust (@active_clusters) {
-        if (!exists($match_cluster_hash{$clust})) {
-          push @new_clusters,$clust;
+        if ( !exists( $match_cluster_hash{$clust} ) ) {
+          push @new_clusters, $clust;
         }
       }
-      @active_clusters =  @new_clusters;
-    }
-  }
+      @active_clusters = @new_clusters;
+    } ## end else [ if ( scalar(@matching_clusters... [elsif ( scalar(@matching_clusters...))]))]
+  } ## end FEATURE: foreach my $feature (@sorted_features)
   # Separate features which are UNclustered (only one feature in cluster) and
-  # from clusters which hold more than one feature 
+  # from clusters which hold more than one feature
 
   print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
-  my @clusters = (@active_clusters,@inactive_clusters);
+  my @clusters = ( @active_clusters, @inactive_clusters );
 
-  my (@new_clusters, @unclustered);
-  foreach my $cl (@clusters){
-    if ( $cl->get_AlignFeature_Count == 1 ){
+  my ( @new_clusters, @unclustered );
+  foreach my $cl (@clusters) {
+    if ( $cl->get_AlignFeature_Count == 1 ) {
       push @unclustered, $cl;
-    } else{
+    }
+    else {
       push( @new_clusters, $cl );
     }
   }
- # print STDERR "All AlignFeatures clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
-  
-  return (\@new_clusters, \@unclustered);
-}
+  # print STDERR "All AlignFeatures clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
+
+  return ( \@new_clusters, \@unclustered );
+} ## end sub cluster_AlignFeatures
 
 1;

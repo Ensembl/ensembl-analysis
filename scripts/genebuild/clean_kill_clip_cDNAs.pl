@@ -1,23 +1,22 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 #!/usr/bin/env perl
 
 =pod
 
-=head1 NAME 
+=head1 NAME
 
 clean_kill_clip_cDNAs.pl
 
@@ -96,7 +95,6 @@ process (how many of them, which ones, and why).
 
 =cut
 
-
 use strict;
 use warnings;
 use Getopt::Long;
@@ -105,7 +103,7 @@ use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::PolyA;
 use Bio::EnsEMBL::KillList::KillList;
 
-$| = 1; # disable buffering
+$| = 1;    # disable buffering
 
 my $cdnafile;
 my $seqoutfile;
@@ -122,9 +120,9 @@ GetOptions( 'cdnafile=s'     => \$cdnafile,
             'use_kill_list!' => \$kill,
             'verbose!'       => \$verbose, );
 
-if (!$cdnafile || !$seqoutfile) {
-  die print "You must provide both the input cDNA file using -cdnafile flag and ".
-  "the output cDNA file using -outfile flag on the commandline.\n";
+if ( !$cdnafile || !$seqoutfile ) {
+  die print "You must provide both the input cDNA file using -cdnafile flag and " .
+    "the output cDNA file using -outfile flag on the commandline.\n";
 }
 
 print STDOUT "Using minimum_length $min_length.\n" if ($verbose);
@@ -136,29 +134,27 @@ if ($clip) {
   print STDOUT "Will clip polyA tails.\n" if ($verbose);
 }
 
-my $seqin = new Bio::SeqIO( -file   => "<$cdnafile",
-                            -format => "Fasta", );
+my $seqin = new Bio::SeqIO( -file => "<$cdnafile", -format => "Fasta", );
 
-my $seqout = new Bio::SeqIO( -file   => ">$seqoutfile",
-                             -format => "Fasta" );
+my $seqout = new Bio::SeqIO( -file => ">$seqoutfile", -format => "Fasta" );
 
-my $total_cDNA = 0;                 # counter for total cDNAs processed
+my $total_cDNA = 0;    # counter for total cDNAs processed
 
 # More counters to keep track of cDNAs removed for various reasons
 
-my $count_XM = 0;                   # predicted mDNAs
-my $count_XR = 0;                   # predicted non-coding RNAs
-my $count_too_short = 0;            # too short
-my $count_too_short_after_clip = 0; # too short after polyA clipping
-my $count_vanished_after_clip = 0;  # clipping causes the cDNA to disappear altogether
-my $count_killed = 0;               # present in ensembl kill_list
-my $written = 0;
+my $count_XM                   = 0;    # predicted mDNAs
+my $count_XR                   = 0;    # predicted non-coding RNAs
+my $count_too_short            = 0;    # too short
+my $count_too_short_after_clip = 0;    # too short after polyA clipping
+my $count_vanished_after_clip  = 0;    # clipping causes the cDNA to disappear altogether
+my $count_killed               = 0;    # present in ensembl kill_list
+my $written                    = 0;
 
 my $kill_list_object = undef;
 my %kill_list;
 
 if ($kill) {
-  $kill_list_object = Bio::EnsEMBL::KillList::KillList->new(-TYPE => "cDNA");
+  $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => "cDNA" );
   %kill_list = %{ $kill_list_object->get_kill_list() };
 }
 
@@ -182,42 +178,58 @@ while ( my $cdna = $seqin->next_seq ) {
   # boring old fasta header
   if ( $display_id =~ /^(\S+\.\d+)$/ ) {
     $display_id = $1;
-  # NCBI fasta headers
-  } elsif ( $display_id =~ /gi\|\S+\|gb\|(\S+\.\d+)\|/ ) {
+    # NCBI fasta headers
+  }
+  elsif ( $display_id =~ /gi\|\S+\|gb\|(\S+\.\d+)\|/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|emb\|(\S+\.\d+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|emb\|(\S+\.\d+)\|/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|dbj\|(\S+\.\d+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|dbj\|(\S+\.\d+)\|/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|sp\|(\S+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|sp\|(\S+)\|/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|sp\|\|(\S+)/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|sp\|\|(\S+)/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|ref\|(NM\S+\.\d+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|ref\|(NM\S+\.\d+)\|/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|ref\|(XM\S+\.\d+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|ref\|(XM\S+\.\d+)\|/ ) {
     $count_XM++;
     next SEQFETCH;
-  } elsif ( $display_id =~ /gi\|\S+\|ref\|(XR\S+\.\d+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|ref\|(XR\S+\.\d+)\|/ ) {
     $count_XR++;
     next SEQFETCH;
-  } elsif ( $display_id =~ /gi\|\S+\|tpe\|(\S+\.\d+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|tpe\|(\S+\.\d+)\|/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|tpg\|(\S+\.\d+)\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|tpg\|(\S+\.\d+)\|/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|prf\|\S*\|(\S+)/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|prf\|\S*\|(\S+)/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|pir\|\S*\|(\S+)/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|pir\|\S*\|(\S+)/ ) {
     $display_id = $1;
-  } elsif ( $display_id =~ /gi\|\S+\|pdb\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|pdb\|/ ) {
     next SEQFETCH;
-  } elsif ( $display_id =~ /gi\|\S+\|(\S+)\|\S+\|/ ) {
+  }
+  elsif ( $display_id =~ /gi\|\S+\|(\S+)\|\S+\|/ ) {
     print STDERR "Unhandled subtype $1 for $display_id\n";
     next SEQFETCH;
-  } elsif ($description) {
+  }
+  elsif ($description) {
     my @labels = split /\s+/, $description;
     $display_id = $labels[0];
-  } else {
+  }
+  else {
     # Leave current display id
   }
 
@@ -255,37 +267,35 @@ while ( my $cdna = $seqin->next_seq ) {
     $new_cdna = $polyA_clipper->clip($cdna);
     # where poly a clipping totally clips the entry the cdna is undef
     unless ( defined $new_cdna ) {
-         print STDOUT "Clipping made a cdna vanish...\n";
-         $count_vanished_after_clip++;
-         next SEQFETCH;
+      print STDOUT "Clipping made a cdna vanish...\n";
+      $count_vanished_after_clip++;
+      next SEQFETCH;
     }
     if ( $new_cdna->length < $min_length ) {
       if ($verbose) {
-        print STDOUT $new_cdna->display_id
-            . " is under $min_length bp after clipping, discarded.\n";
+        print STDOUT $new_cdna->display_id . " is under $min_length bp after clipping, discarded.\n";
       }
       $count_too_short_after_clip++;
       next SEQFETCH;
     }
-  } else {
+  }
+  else {
     $new_cdna = $cdna;
   }
 
   # write sequence
   $seqout->write_seq($new_cdna);
-  $written ++
-} ## end while ( my $cdna = $seqin...
-
+  $written++;
+} ## end SEQFETCH: while ( my $cdna = $seqin...)
 
 print "\n";
-printf STDOUT "Number of cDNAs processed: %50d\n", $total_cDNA;
-printf STDOUT "Number of cDNAs written in output: %42d\n", $written;
-printf STDOUT "Number of cDNAs shorter than $min_length bp: %41d\n", $count_too_short;
-printf STDOUT "Number of XM_ predicted removed from the cDNA set: %26d\n", $count_XM;
+printf STDOUT "Number of cDNAs processed: %50d\n",                                         $total_cDNA;
+printf STDOUT "Number of cDNAs written in output: %42d\n",                                 $written;
+printf STDOUT "Number of cDNAs shorter than $min_length bp: %41d\n",                       $count_too_short;
+printf STDOUT "Number of XM_ predicted removed from the cDNA set: %26d\n",                 $count_XM;
 printf STDOUT "Number of XR_ predicted non-coding RNAs removed from the cDNA set: %10d\n", $count_XR;
 if ($clip) {
-  printf STDOUT "Number of cDNAs shorter than $min_length bp "
-              . "after polyA clipping: %20d\n", $count_too_short_after_clip;
+  printf STDOUT "Number of cDNAs shorter than $min_length bp " . "after polyA clipping: %20d\n", $count_too_short_after_clip;
   printf STDOUT "Number of cDNAs that vanished after clipping: %31d\n", $count_vanished_after_clip;
 }
 

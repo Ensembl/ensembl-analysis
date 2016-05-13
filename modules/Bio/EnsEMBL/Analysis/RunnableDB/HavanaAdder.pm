@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -45,7 +46,7 @@
 
 package Bio::EnsEMBL::Analysis::RunnableDB::HavanaAdder;
 
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
 
@@ -62,7 +63,6 @@ use Bio::EnsEMBL::Analysis::Config::HavanaAdder qw (
   ENSEMBL_GENE_OUTPUT_BIOTYPE
   MERGED_TRANSCRIPT_OUTPUT_TYPE
 );
-
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
@@ -131,8 +131,7 @@ sub write_output {
   # sort out analysis
   my $analysis = $self->analysis;
   unless ($analysis) {
-    $self->throw(
-                "an analysis logic name must be defined in the command line");
+    $self->throw("an analysis logic name must be defined in the command line");
   }
 
   #  my %contighash;
@@ -144,7 +143,7 @@ sub write_output {
   foreach my $genesbuilt ( keys %$genebuilders ) {
     # my $vc = $genebuilders->{$contig}->query;
 
-    @genes = @{ $genebuilders->{$genesbuilt}->final_genes } ; 
+    @genes = @{ $genebuilders->{$genesbuilt}->final_genes };
     print "I have ", scalar(@genes), " genes\n";
 
     return unless ( $#genes >= 0 );
@@ -218,11 +217,7 @@ sub fetch_input {
   $self->query($slice);
 
   print "QUERY: ", $self->query->seq_region_name, "\n";
-  my $genebuilder =
-    new Bio::EnsEMBL::Analysis::Runnable::HavanaAdder(
-                                               '-slice'    => $self->query,
-                                               '-input_id' => $self->input_id,
-    );
+  my $genebuilder = new Bio::EnsEMBL::Analysis::Runnable::HavanaAdder( '-slice' => $self->query, '-input_id' => $self->input_id, );
   $genebuilder->ensembl_db($ensembl_db);
   $genebuilder->havana_db($havana_db);
   $genebuilder->ccds_db($ccds_db);
@@ -241,7 +236,8 @@ sub addgenebuilder {
 
   if ( defined($arg) && defined($contig) ) {
     $self->{_genebuilder}{ $contig->id } = $arg;
-  } else {
+  }
+  else {
     $self->throw("Wrong number of inputs [$arg,$contig]\n");
   }
 }
@@ -275,7 +271,7 @@ sub run {
     $genebuilders->{$region}->build_Genes;
 
     print "Genes build now getting the final set\n";
-    @genes = @{ $genebuilders->{$region}->final_genes } ; 
+    @genes = @{ $genebuilders->{$region}->final_genes };
   }
   print "OK now I have my genes, just need to write them\n";
   $self->output(@genes);
@@ -298,7 +294,5 @@ sub output {
 }
 
 ############################################################
-
-
 
 1;

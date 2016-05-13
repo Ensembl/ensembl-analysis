@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,7 +25,7 @@ standard input or in a file named on the command line.
 
 =head1 OPTIONS
 
-=head1 
+=head1
 
 =head2 Database connection options
 
@@ -90,17 +90,11 @@ if ( defined($config_dbname) ) {
   $db = get_db_adaptor_by_string($config_dbname);
 }
 elsif ( defined($dbname) && defined($host) ) {
-  $db =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host     => $host,
-                                        -user     => $user,
-                                        -port     => $port,
-                                        -dbname   => $dbname,
-                                        -pass     => $pass,
-                                        -no_cache => 1 );
+  $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $host, -user => $user, -port => $port, -dbname => $dbname, -pass => $pass,
+                                            -no_cache => 1 );
 }
 else {
-  throw( "Need to pass either --dbhost, --dbuser, and --dbname, " .
-         "or -config_dbname" );
+  throw( "Need to pass either --dbhost, --dbuser, and --dbname, " . "or -config_dbname" );
 }
 
 my $ta = $db->get_TranscriptAdaptor();
@@ -129,18 +123,16 @@ while ( my $transcript_id = <> ) {
     next;
   }
 
-  my $gene_id =
-    $ga->fetch_by_transcript_id( $transcript->dbID() )->dbID();
+  my $gene_id = $ga->fetch_by_transcript_id( $transcript->dbID() )->dbID();
 
   my $has_transcript_stable_id = defined( $transcript->stable_id() );
-  my $copy_of_dbID = $transcript->dbID();
+  my $copy_of_dbID             = $transcript->dbID();
 
   eval {
     # We want to update the gene in case the boundaries have changed
-    $ta->remove($transcript, 1);
+    $ta->remove( $transcript, 1 );
     if ($has_transcript_stable_id) {
-      printf( "Deleted transcript %s (id = %d)\n",
-              $transcript->stable_id(), $copy_of_dbID );
+      printf( "Deleted transcript %s (id = %d)\n", $transcript->stable_id(), $copy_of_dbID );
     }
     else {
       printf( "Deleted transcript (id = %d)\n", $copy_of_dbID );
@@ -149,18 +141,15 @@ while ( my $transcript_id = <> ) {
 
   if ($@) {
     if ($has_transcript_stable_id) {
-      printf( "Could not remove transcript %s (id = %d): %s\n",
-              $transcript->stable_id(),
-              $transcript->dbID(), $@ );
+      printf( "Could not remove transcript %s (id = %d): %s\n", $transcript->stable_id(), $transcript->dbID(), $@ );
     }
     else {
-      printf( "Could not remove transcript (id = %d): %s\n",
-              $transcript->dbID(), $@ );
+      printf( "Could not remove transcript (id = %d): %s\n", $transcript->dbID(), $@ );
     }
     next;
   }
 
-  $gene_ids{$gene_id}{ $copy_of_dbID } = 1;
+  $gene_ids{$gene_id}{$copy_of_dbID} = 1;
 } ## end while ( my $transcript_id...)
 
 # Now get all those genes again and see if they are empty or split.
@@ -176,12 +165,10 @@ foreach my $gene_id ( keys(%gene_ids) ) {
 
   if ( !@transcripts ) {
     if ($has_gene_stable_id) {
-      printf( "Gene %s (id = %d) is now empty, delete it!\n",
-              $gene->stable_id(), $gene->dbID() );
+      printf( "Gene %s (id = %d) is now empty, delete it!\n", $gene->stable_id(), $gene->dbID() );
     }
     else {
-      printf( "Gene (id = %d) is now empty, delete it!\n",
-              $gene->dbID() );
+      printf( "Gene (id = %d) is now empty, delete it!\n", $gene->dbID() );
     }
     next;
   }
@@ -206,31 +193,24 @@ foreach my $gene_id ( keys(%gene_ids) ) {
 
       if ($has_gene_stable_id) {
         printf( "WARNING:\tFrom gene %s (id = %d),\n" .
-                  "\t\ta new gene should be created\n" .
-                  "\t\twith the following %d trancript(s):\n",
+                  "\t\ta new gene should be created\n" . "\t\twith the following %d trancript(s):\n",
                 $gene->stable_id(), $gene->dbID(), scalar(@cluster) );
-        print(
-          map {
-            sprintf( "\t%s (id = %d)\n", $_->stable_id(), $_->dbID() )
-          } @cluster );
+        print( map { sprintf( "\t%s (id = %d)\n", $_->stable_id(), $_->dbID() ) } @cluster );
       }
       else {
-        printf( "WARNING:\tFrom gene (id = %d),\n" .
-                  "\t\ta new gene should be created\n" .
-                  "\t\twith the following %d trancript(s):\n",
+        printf( "WARNING:\tFrom gene (id = %d),\n" . "\t\ta new gene should be created\n" . "\t\twith the following %d trancript(s):\n",
                 $gene->dbID(), scalar(@cluster) );
-        print( map { sprintf( "\t(id = %d)\n", $_->dbID() ) }
-               @cluster );
+        print( map { sprintf( "\t(id = %d)\n", $_->dbID() ) } @cluster );
 
       }
       @cluster = ();
-    } ## end elsif ( $t->start() > $max_end) [ if ( !defined($max_end...))]
+    }
 
     if ( $max_end < $t->end() ) {
       $max_end = $t->end();
     }
 
     push( @cluster, $t );
-  } ## end foreach my $t ( sort { $a->start...})
+  } ## end foreach my $t ( sort { $a->...})
 
 } ## end foreach my $gene_id ( keys(...))

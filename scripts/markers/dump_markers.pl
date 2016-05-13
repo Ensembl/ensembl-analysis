@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -54,7 +54,7 @@ perl dump_markers -dbhost myhost -dbuser myuser -dbpass mypass -dbname
 
 =cut
 
-use warnings ;
+use warnings;
 use strict;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -64,90 +64,75 @@ my $host   = '';
 my $user   = 'ensro';
 my $pass   = undef;
 my $dbname = '';
-my $port = 3306;
+my $port   = 3306;
 my $outfile;
 my $help;
 
-
 $| = 1;
 
-GetOptions(
-            'dbhost|host|h:s'   => \$host,
-            'dbuser|user|u:s'   => \$user,
-            'dbname|db|D:s' => \$dbname,
-            'dbport|port|P:n'   => \$port,
-            'dbpass|pass|p:s'   => \$pass,
-            'outfile:s' => \$outfile,
-            'help!' => \$help,
-           ) or($help = 1);
+GetOptions( 'dbhost|host|h:s' => \$host,
+            'dbuser|user|u:s' => \$user,
+            'dbname|db|D:s'   => \$dbname,
+            'dbport|port|P:n' => \$port,
+            'dbpass|pass|p:s' => \$pass,
+            'outfile:s'       => \$outfile,
+            'help!'           => \$help, ) or
+  ( $help = 1 );
 
 if ($help) {
-    exec('perldoc', $0);
+  exec( 'perldoc', $0 );
 }
 
-if(!$host || !$dbname || !$user){
-  throw("Need -dbhost $host -dbuser $user and -dbname $dbname to run ".
-        " use -help for docs");
+if ( !$host || !$dbname || !$user ) {
+  throw( "Need -dbhost $host -dbuser $user and -dbname $dbname to run " . " use -help for docs" );
 }
-
-
 
 # Open database
-my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-  -host   => $host,
-  -user   => $user,
-  -pass   => $pass,
-  -port   => $port,
-  -dbname => $dbname,
-);
-
+my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $host, -user => $user, -pass => $pass, -port => $port, -dbname => $dbname, );
 
 my $sts = $db->get_MarkerAdaptor->fetch_all;
 die "No markers in database" unless @{$sts};
 #die scalar(@{$sts}) . " markers in database";
 
-
-dump_sts_file($outfile, $sts);
+dump_sts_file( $outfile, $sts );
 
 sub dump_sts_file {
-  my ($dest, $sts) = @_;
-  
+  my ( $dest, $sts ) = @_;
+
   open DEST, "> $dest";
-  foreach my $m (@{$sts}) {
-    unless (ref $m && $m->isa("Bio::EnsEMBL::Map::Marker")) {
+  foreach my $m ( @{$sts} ) {
+    unless ( ref $m && $m->isa("Bio::EnsEMBL::Map::Marker") ) {
       die "Object not a Bio::EnsEMBL::Map::Marker: [$m]";
     }
-    
-    next unless length($m->left_primer) > 0;
-    next unless length($m->right_primer) > 0;
-    
-    my ($min_dist, $max_dist);
-    if ($m->min_primer_dist == 0) {
+
+    next unless length( $m->left_primer ) > 0;
+    next unless length( $m->right_primer ) > 0;
+
+    my ( $min_dist, $max_dist );
+    if ( $m->min_primer_dist == 0 ) {
       $min_dist = 80;
-    } else {
+    }
+    else {
       $min_dist = $m->min_primer_dist;
     }
-    
-    if ($m->max_primer_dist == 0) {
+
+    if ( $m->max_primer_dist == 0 ) {
       $max_dist = 600;
-    } else {
+    }
+    else {
       $max_dist = $m->max_primer_dist;
     }
-    
-    my $dist; 
-    if ($min_dist == $max_dist) {
+
+    my $dist;
+    if ( $min_dist == $max_dist ) {
       $dist = $min_dist;
-    } else {
-      $dist = join("-", $min_dist, $max_dist);
     }
-    
-    print DEST join("\t",
-                    $m->dbID,
-                    $m->left_primer,
-                    $m->right_primer,
-                    $dist,
-                    ), "\n";
-  }
+    else {
+      $dist = join( "-", $min_dist, $max_dist );
+    }
+
+    print DEST join( "\t", $m->dbID, $m->left_primer, $m->right_primer, $dist, ), "\n";
+  } ## end foreach my $m ( @{$sts} )
   close DEST;
-}
+} ## end sub dump_sts_file
 

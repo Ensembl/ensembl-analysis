@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,7 +13,7 @@
 # limitations under the License.
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Prints_wormbase;
 
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
 
@@ -32,7 +32,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
  Usage    : $self->program
  Function : makes the system call to program
  Example  :
- Returns  : 
+ Returns  :
  Args     :
  Throws   :
 
@@ -90,27 +90,20 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 # The database may get updated out of synch of the scripts, so you may
 # need to set '-E #1 #2' explicitly in the parameters= line of the config file.
 
-
-
 sub run_analysis {
-    my ($self) = @_;
+  my ($self) = @_;
 
-    # run program
-    print STDERR "running ".$self->program." against ".$self->database."\n";
+  # run program
+  print STDERR "running " . $self->program . " against " . $self->database . "\n";
 
-    print STDERR "FILENAME: ".$self->queryfile."\n";
- 
-    my $cmd = $self->program .' '.
-		$self->database .' '.
-                $self->queryfile. ' '.
-	        $self->analysis->parameters .' '.
-		'> ' . $self->resultsfile;
-    print STDERR "$cmd\n";   
-    $self->throw ("Error running Prints_wormbase ".$self->program." on ".$self->filename) 
-	unless ((system ($cmd)) == 0);
+  print STDERR "FILENAME: " . $self->queryfile . "\n";
+
+  my $cmd =
+    $self->program . ' ' . $self->database . ' ' . $self->queryfile . ' ' . $self->analysis->parameters . ' ' . '> ' . $self->resultsfile;
+  print STDERR "$cmd\n";
+  $self->throw( "Error running Prints_wormbase " . $self->program . " on " . $self->filename ) unless ( ( system($cmd) ) == 0 );
 
 }
-
 
 =head2 parse_results
 
@@ -118,7 +111,7 @@ sub run_analysis {
  Usage    :  $self->parse_results ($filename)
  Function :  parses program output to give a set of features
  Example  :
- Returns  : 
+ Returns  :
  Args     : filename (optional, can be filename, filehandle or pipe, not implemented)
  Throws   :
 
@@ -130,21 +123,20 @@ sub parse_results {
   my $filehandle;
   my $resfile = $self->resultsfile();
   my @fps;
-		
 
-  if (-e $resfile) {
-    if (-z $resfile) {  
+  if ( -e $resfile ) {
+    if ( -z $resfile ) {
       print STDERR "Prints didn't find any hits\n";
-      return; 
-    } else {
-      open (CPGOUT, "<$resfile") or $self->throw("Error opening ", $resfile, " \n"); # 
+      return;
+    }
+    else {
+      open( CPGOUT, "<$resfile" ) or $self->throw( "Error opening ", $resfile, " \n" );    #
     }
   }
 
-
   my $id;
   my $line;
-  
+
   my $sequenceId;
   my @features;
   my %evalue;
@@ -156,80 +148,84 @@ sub parse_results {
     print STDERR "Next line: $line";
     chomp $line;
     # Pattern match the Sn; field which should contain the SequenceId and Accession
-    
-    if ($line =~ s/^Sn;//) { # We have identified a Sn; line so there should be the following:
+
+    if ( $line =~ s/^Sn;// ) {    # We have identified a Sn; line so there should be the following:
 
       #ENSP00000003603 Gene:ENSG00000000003 Query:AL035608 Contig:AL035608.00001 Chr:chrX basepair:97227305
       ($sequenceId) = $line =~ /^\s*(\w+)/;
     }
 
-
-    if ($line =~ s/^1TBH//) {
-      my  ($id) = $line =~ /^\s*(\w+)/;
+    if ( $line =~ s/^1TBH// ) {
+      my ($id) = $line =~ /^\s*(\w+)/;
       my ($ac) = $line =~ /(PR\w+)[;\.]*\s*$/;
       $printsac{$id} = $ac;
       print STDERR "1TBH line = $line\n";
       print STDERR "In 1TBH data, printsac{$id} =  $ac\n";
     }
 
-# get the evalues of each of the fingerprint names
-    if ($line =~ /^2TBH/) {
+    # get the evalues of each of the fingerprint names
+    if ( $line =~ /^2TBH/ ) {
       print STDERR "got a 2TBH line: $line\n";
       my @line = split /\s+/, $line;
-      $evalue{$line[1]} = $line[9];
+      $evalue{ $line[1] } = $line[9];
       print STDERR "hash evalue of $line[1] = $line[9]\n";
     }
 
-    if ($line =~ s/^3TB//) {
-      if ($line =~ s/^[HN]//) {
-	my ($num,$temp1,$tot1) = "";
-	# Grab these lines
-	#       1433ZETA        1  of  6  88.19   1328    1.00e-16  ELTVEERNLLSVAYKNVIGARRASWRIITS  30   35   36   48
-	# split line on space, hence strip off all leading spaces first.
-	$line =~ s/^\s+//;
-	print STDERR "line = $line\n";
-	# Place all elements of list into an array
-	my @elements = split /\s+/, $line;
+    if ( $line =~ s/^3TB// ) {
+      if ( $line =~ s/^[HN]// ) {
+        my ( $num, $temp1, $tot1 ) = "";
+        # Grab these lines
+        #       1433ZETA        1  of  6  88.19   1328    1.00e-16  ELTVEERNLLSVAYKNVIGARRASWRIITS  30   35   36   48
+        # split line on space, hence strip off all leading spaces first.
+        $line =~ s/^\s+//;
+        print STDERR "line = $line\n";
+        # Place all elements of list into an array
+        my @elements = split /\s+/, $line;
 
-	# Name each of the elements in the array
-	my ($fingerprintName,$motifNumber,$temp,$tot,$percentageIdentity,$profileScore,$pvalue,$subsequence,$motifLength,$lowestMotifPosition,$matchPosition,$highestMotifPosition) = @elements;
-	print STDERR "fingerprintName=$fingerprintName\n";
-	my $start = $matchPosition;
-	#
-	# If the match to the pattern lies at the end of the protein we might get padding of the subsequence with #'s, and the
-	# end position will be bigger than the actual end of the protein. So we'll strip the #'s off the end, adjust the
-	# motif length accordingly, and only then derive the match end.
-	my $hash_substring;
-	my $end;
-	
-	if($subsequence =~ /(\#+)$/){
-	  $hash_substring = $1;
-	  $end = $matchPosition + $motifLength - 1 - length($hash_substring);
-	} else {
-	  $end = $matchPosition + $motifLength - 1;
-	}
-	
-# if we don't have a valid hit for this PRINTS ID, then ignore teh rest
-	if (! exists $printsac{$fingerprintName}) {next;} 
+        # Name each of the elements in the array
+        my ( $fingerprintName,    $motifNumber,         $temp,          $tot,
+             $percentageIdentity, $profileScore,        $pvalue,        $subsequence,
+             $motifLength,        $lowestMotifPosition, $matchPosition, $highestMotifPosition ) = @elements;
+        print STDERR "fingerprintName=$fingerprintName\n";
+        my $start = $matchPosition;
+        #
+        # If the match to the pattern lies at the end of the protein we might get padding of the subsequence with #'s, and the
+        # end position will be bigger than the actual end of the protein. So we'll strip the #'s off the end, adjust the
+        # motif length accordingly, and only then derive the match end.
+        my $hash_substring;
+        my $end;
 
-	my $print =  $printsac{$fingerprintName};
-	my $feat = "$print,$start,$end,$percentageIdentity,$profileScore,$evalue{$fingerprintName}";
-	print STDERR "features= $feat\n";
-	
-	print "matched\n";
-	my $hstart = 0;
-	my $hend = 0;
-	my $evalue = $evalue{$fingerprintName};
+        if ( $subsequence =~ /(\#+)$/ ) {
+          $hash_substring = $1;
+          $end            = $matchPosition + $motifLength - 1 - length($hash_substring);
+        }
+        else {
+          $end = $matchPosition + $motifLength - 1;
+        }
 
-	print STDERR "writing to database\n";
-	my $fp= $self->create_protein_feature($start, $end, $profileScore, $sequenceId, $hstart, $hend, $print, $self->analysis, $evalue, $percentageIdentity);
-	push @fps, $fp;
-      }
-    }
-  }
+        # if we don't have a valid hit for this PRINTS ID, then ignore teh rest
+        if ( !exists $printsac{$fingerprintName} ) { next; }
 
-  close (CPGOUT); 
-  $self->output(\@fps);
-}
+        my $print = $printsac{$fingerprintName};
+        my $feat  = "$print,$start,$end,$percentageIdentity,$profileScore,$evalue{$fingerprintName}";
+        print STDERR "features= $feat\n";
+
+        print "matched\n";
+        my $hstart = 0;
+        my $hend   = 0;
+        my $evalue = $evalue{$fingerprintName};
+
+        print STDERR "writing to database\n";
+        my $fp = $self->create_protein_feature( $start,  $end,  $profileScore, $sequenceId,
+                                                $hstart, $hend, $print,        $self->analysis,
+                                                $evalue, $percentageIdentity );
+        push @fps, $fp;
+      } ## end if ( $line =~ s/^[HN]//)
+    } ## end if ( $line =~ s/^3TB//)
+  } ## end while (<CPGOUT>)
+
+  close(CPGOUT);
+  $self->output( \@fps );
+} ## end sub parse_results
 
 1;

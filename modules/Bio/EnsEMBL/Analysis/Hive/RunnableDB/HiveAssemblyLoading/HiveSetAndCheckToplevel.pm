@@ -31,7 +31,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('enscode_root_dir') ) {
-    $self->throw( "enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is" );
+    $self->throw("enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;
@@ -77,7 +77,7 @@ sub set_toplevel {
   }
 
   my $num_toplevel = int(
-      `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from seq_region_attrib where attrib_type_id = 6'` );
+       `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from seq_region_attrib where attrib_type_id = 6'`);
   if ( $num_toplevel > 0 ) {
     say "Found " . $num_toplevel . " toplevel (non-redundant) seq region attributes found in seq_region_attrib table (code 6)";
   }

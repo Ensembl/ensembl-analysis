@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Mlagan - 
+Bio::EnsEMBL::Analysis::Runnable::Mlagan -
 
 =head1 SYNOPSIS
 
@@ -47,7 +48,6 @@ The output (multiple alignment) is parsed and return as a Bio::EnsEMBL::Compara:
 =head1 METHODS
 
 =cut
-
 
 package Bio::EnsEMBL::Analysis::Runnable::Mlagan;
 
@@ -80,18 +80,18 @@ my $BIN_DIR = "/usr/local/ensembl/lagan-1.21/";
 
 =cut
 
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($workdir, $fasta_files, $tree_string, $parameters) = rearrange(['WORKDIR', 'FASTA_FILES', 'TREE_STRING','CONSTRAINTS_FILE'], @args);
+  my ( $workdir, $fasta_files, $tree_string, $parameters ) =
+    rearrange( [ 'WORKDIR', 'FASTA_FILES', 'TREE_STRING', 'CONSTRAINTS_FILE' ], @args );
 
-  unless (defined $self->program) {
+  unless ( defined $self->program ) {
     $self->program("$BIN_DIR/mlagan");
   }
   chdir $self->workdir;
-  $self->fasta_files($fasta_files) if (defined $fasta_files);
-  if (defined $tree_string) {
+  $self->fasta_files($fasta_files) if ( defined $fasta_files );
+  if ( defined $tree_string ) {
     $self->tree_string($tree_string);
   }
 
@@ -100,19 +100,19 @@ sub new {
 
 sub fasta_files {
   my $self = shift;
-  $self->{'_fasta_files'} = shift if(@_);
+  $self->{'_fasta_files'} = shift if (@_);
   return $self->{'_fasta_files'};
 }
 
 sub tree_string {
   my $self = shift;
-  $self->{'_tree_string'} = shift if(@_);
+  $self->{'_tree_string'} = shift if (@_);
   return $self->{'_tree_string'};
 }
 
 sub parameters {
   my $self = shift;
-  $self->{'_parameters'} = shift if(@_);
+  $self->{'_parameters'} = shift if (@_);
   return $self->{'_parameters'};
 }
 
@@ -124,12 +124,12 @@ sub parameters {
   Returntype: none
   Exceptions: throws if the program in not executable or if the results
   file doesnt exist
-  Example   : 
+  Example   :
 
 =cut
 
 sub run_analysis {
-  my ($self, $program) = @_;
+  my ( $self, $program ) = @_;
 
   $self->run_mlagan;
 
@@ -143,22 +143,21 @@ sub run_mlagan {
 
   chdir $self->workdir;
 
-  throw($self->program . " is not executable Mlagan::run_analysis ")
-    unless ($self->program && -x $self->program);
+  throw( $self->program . " is not executable Mlagan::run_analysis " ) unless ( $self->program && -x $self->program );
 
   my $command = $self->program;
-  foreach my $fasta_file (@{$self->fasta_files}) {
+  foreach my $fasta_file ( @{ $self->fasta_files } ) {
     $command .= " $fasta_file";
   }
-  if ($self->tree_string) {
+  if ( $self->tree_string ) {
     $command .= " -tree \"" . $self->tree_string . "\"";
   }
-  if ($self->parameters) {
+  if ( $self->parameters ) {
     $command .= " " . $self->parameters;
   }
   $command .= " -out mlagan.mfa 1>/dev/null 2>&1";
-#   print "Running mlagan " . $command . "\n";
-  unless (system($command) == 0) {
+  #   print "Running mlagan " . $command . "\n";
+  unless ( system($command) == 0 ) {
     throw("mlagan execution failed\n");
   }
 }
@@ -169,16 +168,15 @@ sub run_mlagan {
   Function  : parse the specifed file and produce RepeatFeatures
   Returntype: nine
   Exceptions: throws if fails to open or close the results file
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub parse_results{
-  my ($self, $run_number) = @_;
+sub parse_results {
+  my ( $self, $run_number ) = @_;
 
   my $alignment_file = $self->workdir . "/mlagan.mfa";
-  my $gab = new Bio::EnsEMBL::Compara::GenomicAlignBlock;
+  my $gab            = new Bio::EnsEMBL::Compara::GenomicAlignBlock;
 
   open F, $alignment_file || throw("Could not open $alignment_file");
   my $id;
@@ -191,16 +189,17 @@ sub parse_results{
     ## substring of the other (this confuses MLAGAN)
     if (/^>DnaFrag(\d+)\._aligned/) {
       my $new_id = $1;
-      if (defined $id && defined $seq) {
+      if ( defined $id && defined $seq ) {
         my $ga = new Bio::EnsEMBL::Compara::GenomicAlign;
         $ga->dnafrag_id($id);
         $ga->aligned_sequence($seq);
         $gab->add_GenomicAlign($ga);
-        $id = undef;
+        $id  = undef;
         $seq = "";
       }
       $id = $new_id;
-    } else {
+    }
+    else {
       $seq .= $_;
     }
   }
@@ -209,9 +208,8 @@ sub parse_results{
   $ga->dnafrag_id($id);
   $ga->aligned_sequence($seq);
   $gab->add_GenomicAlign($ga);
-  
-  $self->output([$gab]);
-}
 
+  $self->output( [$gab] );
+} ## end sub parse_results
 
 1;

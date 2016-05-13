@@ -1,17 +1,18 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-=pod 
+
+=pod
 
 =head1 NAME
 
@@ -23,7 +24,7 @@ Bio::EnsEMBL::Analysis::Runnable::Protein::Hmmpfam
   my $query = new Bio::Seq(-file   => $queryfile,
 			   -format => 'Fasta');
 
-  my $hmm =  Bio::EnsEMBL::Pipeline::Runnable::Protein::Hmmpfam->new 
+  my $hmm =  Bio::EnsEMBL::Pipeline::Runnable::Protein::Hmmpfam->new
     ('-query'          => $query,
      '-program'        => 'hmmpfam' or '/usr/local/pubseq/bin/hmmpfam',
      '-database'       => '/data/Pfam_ls');
@@ -39,35 +40,25 @@ Bio::EnsEMBL::Analysis::Runnable::Protein::Hmmpfam
 
 package Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Hmmpfam;
 
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
-
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation;
 
-
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation);
-
-
 
 sub run_analysis {
   my ($self) = @_;
-  
-  my $cmd = $self->program 
-      . ' ' . $self->analysis->parameters
-      . ' ' . $self->database 
-      . ' ' . $self->queryfile 
-      .' > '. $self->resultsfile;
+
+  my $cmd =
+    $self->program . ' ' . $self->analysis->parameters . ' ' . $self->database . ' ' . $self->queryfile . ' > ' . $self->resultsfile;
 
   print STDERR "Running:$cmd\n";
-  
-  throw ("Error running ".$self->program." on ".
-         $self->queryfile." against ".$self->database)unless 
-         ((system ($cmd)) == 0);
-}
 
+  throw( "Error running " . $self->program . " on " . $self->queryfile . " against " . $self->database ) unless ( ( system($cmd) ) == 0 );
+}
 
 =head2 parse_results
 
@@ -75,7 +66,7 @@ sub run_analysis {
  Usage    :  $self->parse_results ($filename)
  Function :  parses program output to give a set of features
  Example  :
- Returns  : 
+ Returns  :
  Args     : filename (optional, can be filename, filehandle or pipe, not implemented)
  Throws   :
 
@@ -87,12 +78,13 @@ sub parse_results {
   my $resfile = $self->resultsfile();
   my @hits;
 
-  if (-e $resfile) {
-    if (-z $resfile) {
+  if ( -e $resfile ) {
+    if ( -z $resfile ) {
       print STDERR "Tigrfam didn't find any hits\n";
       return;
-    } else {
-      open (CPGOUT, "<$resfile") or $self->throw("Error opening ", $resfile, " \n"); # 
+    }
+    else {
+      open( CPGOUT, "<$resfile" ) or $self->throw( "Error opening ", $resfile, " \n" );    #
     }
   }
 
@@ -100,81 +92,56 @@ sub parse_results {
   my $hid;
 
   while (<CPGOUT>) {
-      chomp;
+    chomp;
 
 ## Query line identifier with Hmmer3
-      if (/^Query:\s+(\S+)/) {
-        $id = $1;
-        next;
-      }
+    if (/^Query:\s+(\S+)/) {
+      $id = $1;
+      next;
+    }
 
 ## Query line identifier with Hmmer2
-      if (/^Query sequence:\s+(\S+)/) {
-        $id = $1;
-      }
+    if (/^Query sequence:\s+(\S+)/) {
+      $id = $1;
+    }
 
-
-# With Hmmer3, hit name is on a separate line
-      if (/^>> (\w+)/) {
-        $hid = $1 ;
-      }
+    # With Hmmer3, hit name is on a separate line
+    if (/^>> (\w+)/) {
+      $hid = $1;
+    }
 
 ## Result line with Hmmer2
-      if (my ($hid,
-              $start,
-              $end,
-              $hstart,
-              $hend,
-              $score,
-              $evalue) = /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/) {
+    if ( my ( $hid, $start, $end, $hstart, $hend, $score, $evalue ) =
+         /^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\S+)\s+(\S+)/ )
+    {
 
-        $evalue = sprintf ("%.3e", $evalue);
-        my $percentIdentity = 0;
+      $evalue = sprintf( "%.3e", $evalue );
+      my $percentIdentity = 0;
 
-        # Remove the version at the end of the Pfam accession number if any
-        # e.g. 'PF00001.13' => 'PF00001'
-        $hid =~ s/\.\d+$//;
+      # Remove the version at the end of the Pfam accession number if any
+      # e.g. 'PF00001.13' => 'PF00001'
+      $hid =~ s/\.\d+$//;
 
-        my $fp = $self->create_protein_feature($start,
-                                               $end,
-                                               $score,
-                                               $id,
-                                               $hstart,
-                                               $hend,
-                                               $hid,
-                                               $self->analysis,
-                                               $evalue,
-                                               $percentIdentity);
-        push @hits, $fp;
-      }
-
+      my $fp =
+        $self->create_protein_feature( $start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity );
+      push @hits, $fp;
+    }
 
 ## Result line with Hmmer3
-      if (my ($score,
-              $evalue,
-              $hstart,
-              $hend,
-              $start,
-              $end) = /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/) {
+    if ( my ( $score, $evalue, $hstart, $hend, $start, $end ) =
+         /^\s+\d+\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+\S+\s+(\d+)\s+(\d+)/ )
+    {
 
-        $evalue = sprintf ("%.3e", $evalue);
-        my $percentIdentity = 0;
+      $evalue = sprintf( "%.3e", $evalue );
+      my $percentIdentity = 0;
 
-        my $fp = $self->create_protein_feature($start, 
-                                               $end, 
-                                               $score, 
-                                               $id, 
-                                               $hstart, 
-                                               $hend, 
-                                               $hid,
-                                               $self->analysis, 
-                                               $evalue,
-                                               $percentIdentity);
-        push @hits, $fp;
-      }
-  }
-  close (CPGOUT);
-  $self->output(\@hits);
-}
+      my $fp =
+        $self->create_protein_feature( $start, $end, $score, $id, $hstart, $hend, $hid, $self->analysis, $evalue, $percentIdentity );
+      push @hits, $fp;
+    }
+  } ## end while (<CPGOUT>)
+  close(CPGOUT);
+  $self->output( \@hits );
+} ## end sub parse_results
 
 1;

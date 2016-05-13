@@ -22,7 +22,7 @@
 
 =head1 DESCRIPTION
 
- This module inherits from the Blast runnable and instantiates 
+ This module inherits from the Blast runnable and instantiates
  BlastPep
 
 =head1 CONTACT
@@ -48,60 +48,58 @@ use vars qw(@ISA);
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastPep
-  Function  : fetch sequence and prediction transcripts of database, 
-  read config files instantiate the filter, parser and finally the blast 
+  Function  : fetch sequence and prediction transcripts of database,
+  read config files instantiate the filter, parser and finally the blast
   runnables
   Returntype: none
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
 sub fetch_input {
   my ($self) = @_;
 
-  my $t=$self->fetch_translation();
-  my %blast = %{$self->BLAST_PARAMS};
+  my $t      = $self->fetch_translation();
+  my %blast  = %{ $self->BLAST_PARAMS };
   my $parser = $self->make_parser;
   my $filter;
-  if($self->BLAST_FILTER){
+  if ( $self->BLAST_FILTER ) {
     $filter = $self->make_filter;
   }
- 
-  my $bio_pep= Bio::PrimarySeq->new(-seq => $t->seq,-id => $t->dbID);
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastPep->new(
-          -transcript => $t,
-          -query => $bio_pep,
-          -program => $self->analysis->program_file,
-          -parser => $parser,
-          -filter => $filter,
-          -database => $self->analysis->db_file,
-          -analysis => $self->analysis,
-          %blast,
-         );
-   $self->runnable($runnable);
+  my $bio_pep = Bio::PrimarySeq->new( -seq => $t->seq, -id => $t->dbID );
+
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastPep->new( -transcript => $t,
+                                                                  -query      => $bio_pep,
+                                                                  -program    => $self->analysis->program_file,
+                                                                  -parser     => $parser,
+                                                                  -filter     => $filter,
+                                                                  -database   => $self->analysis->db_file,
+                                                                  -analysis   => $self->analysis,
+                                                                  %blast, );
+  $self->runnable($runnable);
 }
 
 =head2 fetch_translation
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastPep
   Function  : fetches translations from the database and puts them as query sequence
-  read config files instantiate the filter, parser and finally the blast 
+  read config files instantiate the filter, parser and finally the blast
   runnables
   Returntype: Bio::EnsEMBL::Translation
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
 sub fetch_translation {
-	my $self= shift;
-	my $id=$self->input_id;
-	my $db=$self->db;
-	my $ta=$db->get_TranslationAdaptor;
-	$self->{'query'}=$ta->fetch_by_dbID($id);
-	return $self->{'query'};
+  my $self = shift;
+  my $id   = $self->input_id;
+  my $db   = $self->db;
+  my $ta   = $db->get_TranslationAdaptor;
+  $self->{'query'} = $ta->fetch_by_dbID($id);
+  return $self->{'query'};
 }
 
 =head2 write_output
@@ -111,23 +109,22 @@ sub fetch_translation {
   after validating and attaching sequence and analysis objects
   Returntype: undef
   Exceptions: throws if the store fails / or segfaults
-  Example   : 
+  Example   :
 
 =cut
 
-
 sub write_output {
-        
+
   my ($self) = @_;
   my $protein_fa = $self->db->get_ProteinFeatureAdaptor;
-  foreach my $f(@{$self->output}){
-    $f->analysis($self->analysis);
-    if($f->isa('Bio::EnsEMBL::ProteinFeature')){
-            eval{ $protein_fa->store($f)};
-            throw("Blast:store failed failed to write ".$f." to the database $@") if($@);
+  foreach my $f ( @{ $self->output } ) {
+    $f->analysis( $self->analysis );
+    if ( $f->isa('Bio::EnsEMBL::ProteinFeature') ) {
+      eval { $protein_fa->store($f) };
+      throw( "Blast:store failed failed to write " . $f . " to the database $@" ) if ($@);
     }
   }
-  return ;
+  return;
 }
 
 1;

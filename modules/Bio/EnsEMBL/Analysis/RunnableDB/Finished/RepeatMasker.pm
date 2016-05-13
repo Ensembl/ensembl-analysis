@@ -1,17 +1,16 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 
 =head1 NAME
 
@@ -55,8 +54,6 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::RepeatMasker);
 
-
-
 =head2 fetch_input
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Finished::RepeatMasker
@@ -67,23 +64,19 @@ use vars qw(@ISA);
 
 =cut
 
-
-
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
   my $slice = $self->fetch_sequence;
   $self->query($slice);
   my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
+  if ( $self->parameters_hash ) {
+    %parameters = %{ $self->parameters_hash };
   }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::RepeatMasker->new
-    (
-     -query => $self->query,
-     -program => $self->analysis->program_file,
-     -analysis => $self->analysis,
-     %parameters,
-    );
+  my $runnable =
+    Bio::EnsEMBL::Analysis::Runnable::Finished::RepeatMasker->new( -query    => $self->query,
+                                                                   -program  => $self->analysis->program_file,
+                                                                   -analysis => $self->analysis,
+                                                                   %parameters, );
   $self->runnable($runnable);
   return 1;
 }

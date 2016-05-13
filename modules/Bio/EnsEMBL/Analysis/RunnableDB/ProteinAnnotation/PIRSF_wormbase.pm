@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,7 +14,8 @@
 #
 #
 #
-=pod 
+
+=pod
 
 =head1 NAME
 
@@ -34,7 +35,7 @@
 =head1 DESCRIPTION
 
   This object wraps Bio::EnsEMBL::Pipeline::Runnable::Hmmpfam
-  to add functionality to read and write to databases in 
+  to add functionality to read and write to databases in
   a Pfam-specific way.
 
 =head1 CONTACT
@@ -43,7 +44,7 @@
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation::PIRSF_wormbase;
 
-use warnings ;
+use warnings;
 use strict;
 use vars qw(@ISA);
 
@@ -52,39 +53,36 @@ use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::PIRSF_wormbase;
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::ProteinAnnotation);
 
-
 sub fetch_input {
   my ($self) = @_;
- 
+
   $self->SUPER::fetch_input;
- 
+
   # PIRSF_wormbase needs sequence lengths, so we must create one Runnable
   # for each input sequence, giving a Bio::PrimarySeq as input
 
   my @query_seqs;
-  if (ref($self->query) and $self->query->isa("Bio::PrimarySeq")) {
+  if ( ref( $self->query ) and $self->query->isa("Bio::PrimarySeq") ) {
     push @query_seqs, $self->query;
-  } elsif (-e $self->query) {
-    my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                -file   => $self->query);
-    while(my $seq = $seqio->next_seq) {
+  }
+  elsif ( -e $self->query ) {
+    my $seqio = Bio::SeqIO->new( -format => 'fasta', -file => $self->query );
+    while ( my $seq = $seqio->next_seq ) {
       push @query_seqs, $seq;
     }
     $seqio->close;
-  } else {
-    throw($self->query . " is neither an object ref nor a file name\n");
+  }
+  else {
+    throw( $self->query . " is neither an object ref nor a file name\n" );
   }
 
   foreach my $seq (@query_seqs) {
-    my $run = Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::PIRSF_wormbase->
-        new(-query     => $seq,
-            -analysis  => $self->analysis,
-            -database  => $self->analysis->db_file,
-            %{$self->parameters_hash}
-            );
+    my $run =
+      Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::PIRSF_wormbase->new( -query    => $seq,
+                                                                                -analysis => $self->analysis,
+                                                                                -database => $self->analysis->db_file,
+                                                                                %{ $self->parameters_hash } );
     $self->runnable($run);
   }
-}
-
-
+} ## end sub fetch_input
 

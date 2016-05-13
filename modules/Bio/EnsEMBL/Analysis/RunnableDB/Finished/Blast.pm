@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -51,105 +51,101 @@ Internal methods are usually preceded with a _
 
 package Bio::EnsEMBL::Analysis::RunnableDB::Finished::Blast;
 
-use warnings ;
+use warnings;
 use strict;
 use Bio::EnsEMBL::Analysis::Runnable::Finished::Blast;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::Finished_Pfetch;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
-use base (
-    'Bio::EnsEMBL::Analysis::RunnableDB::Blast',
-    'Bio::EnsEMBL::Analysis::RunnableDB::Finished'
-);
+use base ( 'Bio::EnsEMBL::Analysis::RunnableDB::Blast', 'Bio::EnsEMBL::Analysis::RunnableDB::Finished' );
 
 sub fetch_input {
 
-    my ($self) = @_;
-    my $slice =
-      $self->fetch_sequence( $self->input_id, $self->db,
-        $ANALYSIS_REPEAT_MASKING,
-        $self->analysis->parameters =~ /lcmask/,    # Set flag for soft masking if lcmask is set
-         );
-    $self->query($slice);
-    my %blast  = %{ $self->BLAST_PARAMS };
-    my $parser = $self->make_parser;
-    my $filter;
-    if ( $self->BLAST_FILTER ) {
-        $filter = $self->make_filter;
+  my ($self) = @_;
+  my $slice = $self->fetch_sequence(
+    $self->input_id, $self->db, $ANALYSIS_REPEAT_MASKING,
+    $self->analysis->parameters =~ /lcmask/,    # Set flag for soft masking if lcmask is set
+  );
+  $self->query($slice);
+  my %blast  = %{ $self->BLAST_PARAMS };
+  my $parser = $self->make_parser;
+  my $filter;
+  if ( $self->BLAST_FILTER ) {
+    $filter = $self->make_filter;
+  }
+
+  # Incremental updating of the embl blast db analysis
+  # The embl blast dbs are made up of release files embl_*
+  # and update files emnew_*. This block of code makes
+  # sure that the analysis is only run against new version of either
+  # of these files.
+
+  my @files = split( ",", $self->analysis->db_file );
+  my @patches;
+  if ( $files[-1] =~ /^embl_/ ) {
+    my $search_only_patch  = 0;
+    my $sic                = $self->db->get_StateInfoContainer;
+    my $db_version_saved   = $sic->fetch_db_version( $self->input_id, $self->analysis );
+    my $db_version_current = $self->analysis->db_version;
+    if ($db_version_saved) {
+      # split the embl blast db version "12-Mar-06 (85)" to
+      # patch version "12-Mar-06" and release version "85"
+      my ( $patch_sv, $release_sv ) = $db_version_saved =~ /^(\S+)\s+\((\d+)\)$/;
+      my ( $patch_cv, $release_cv ) = $db_version_current =~ /^(\S+)\s+\((\d+)\)$/;
+      if ( $release_sv eq $release_cv ) {
+        $search_only_patch = 1;
+        print STDOUT "blast db files [ @files ] version $release_sv already searched\n";
+        # Just to make sure that nothing is going wrong with the incremental updating...
+        throw(
+          "Problem with the embl blast db incremental updating, saved and current version identical !\n
+                   saved [$db_version_saved] = current [$db_version_current]\n" ) unless ( $patch_sv ne $patch_cv );
+      }
     }
-
-    # Incremental updating of the embl blast db analysis
-    # The embl blast dbs are made up of release files embl_*
-    # and update files emnew_*. This block of code makes
-    # sure that the analysis is only run against new version of either
-    # of these files.
-
-    my @files = split(",", $self->analysis->db_file);
-    my @patches;
-    if($files[-1] =~ /^embl_/){
-        my $search_only_patch = 0;
-        my $sic = $self->db->get_StateInfoContainer;
-        my $db_version_saved = $sic->fetch_db_version($self->input_id, $self->analysis);
-        my $db_version_current = $self->analysis->db_version;
-        if($db_version_saved) {
-            # split the embl blast db version "12-Mar-06 (85)" to
-            # patch version "12-Mar-06" and release version "85"
-            my ($patch_sv,$release_sv) = $db_version_saved =~ /^(\S+)\s+\((\d+)\)$/;
-            my ($patch_cv,$release_cv) = $db_version_current =~ /^(\S+)\s+\((\d+)\)$/;
-            if($release_sv eq $release_cv){
-                $search_only_patch = 1;
-                print STDOUT "blast db files [ @files ] version $release_sv already searched\n";
-                # Just to make sure that nothing is going wrong with the incremental updating...
-                throw("Problem with the embl blast db incremental updating, saved and current version identical !\n
-                   saved [$db_version_saved] = current [$db_version_current]\n") unless($patch_sv ne $patch_cv)
-            }
-        }
-        foreach my $file (@files) {
-            my $patch_file = $file;
-            $patch_file =~ s/^embl_/emnew_/g;
-            $search_only_patch ? $file = $patch_file : push @patches,$patch_file;
-        }
+    foreach my $file (@files) {
+      my $patch_file = $file;
+      $patch_file =~ s/^embl_/emnew_/g;
+      $search_only_patch ? $file = $patch_file : push @patches, $patch_file;
     }
-    $self->analysis->db_file(join(",",@files,@patches));
+  } ## end if ( $files[-1] =~ /^embl_/)
+  $self->analysis->db_file( join( ",", @files, @patches ) );
 
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new(
-        -query    => $self->query,
-        -program  => $self->analysis->program,
-        -parser   => $parser,
-        -filter   => $filter,
-        -database => $self->analysis->db_file,
-        -analysis => $self->analysis,
-        %blast,
-    );
-    my $s = $self->runnable($runnable);
-    return 1;
+  my $runnable =
+    Bio::EnsEMBL::Analysis::Runnable::Finished::Blast->new( -query    => $self->query,
+                                                            -program  => $self->analysis->program,
+                                                            -parser   => $parser,
+                                                            -filter   => $filter,
+                                                            -database => $self->analysis->db_file,
+                                                            -analysis => $self->analysis,
+                                                            %blast, );
+  my $s = $self->runnable($runnable);
+  return 1;
 
-}
+} ## end sub fetch_input
 
 sub _createfiles {
 
-    my ( $self, $dirname, $filenames ) = @_;
-    my $unique = {};
-    $unique = { map { $_, $unique->{$_}++ } @$filenames };
-    my @files = ();
-    $dirname ||= '/tmp';
-    $dirname =~ s!(\S+)/$!$1!;
-    foreach my $file (@$filenames) {
-        if ( $unique->{$file} ) {
+  my ( $self, $dirname, $filenames ) = @_;
+  my $unique = {};
+  $unique = { map { $_, $unique->{$_}++ } @$filenames };
+  my @files = ();
+  $dirname ||= '/tmp';
+  $dirname =~ s!(\S+)/$!$1!;
+  foreach my $file (@$filenames) {
+    if ( $unique->{$file} ) {
 
-            #name not unique add random
-            $file .= ".$$." . int( rand(200) );
-            push( @files, "$dirname/$file" );
-        }
-        else {
-
-            #name was unique just add it
-            push( @files, "$dirname/$file.$$" );
-        }
+      #name not unique add random
+      $file .= ".$$." . int( rand(200) );
+      push( @files, "$dirname/$file" );
     }
+    else {
 
-    return @files;
+      #name was unique just add it
+      push( @files, "$dirname/$file.$$" );
+    }
+  }
+
+  return @files;
 }
 
 =head2 run
@@ -163,9 +159,9 @@ sub _createfiles {
 =cut
 
 sub write_output {
-    my ($self) = @_;
-    $self->Bio::EnsEMBL::Analysis::RunnableDB::Finished::write_output();
-    return 1;
+  my ($self) = @_;
+  $self->Bio::EnsEMBL::Analysis::RunnableDB::Finished::write_output();
+  return 1;
 }
 
 =head2 db_version_searched
@@ -187,9 +183,9 @@ sub write_output {
 
 sub db_version_searched {
 
-    my ( $self, $arg ) = @_;
-    $self->{'_db_version_searched'} = $arg if $arg;
-    return $self->{'_db_version_searched'};
+  my ( $self, $arg ) = @_;
+  $self->{'_db_version_searched'} = $arg if $arg;
+  return $self->{'_db_version_searched'};
 
 }
 

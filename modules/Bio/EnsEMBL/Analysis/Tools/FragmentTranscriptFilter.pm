@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,11 +29,10 @@
 =head1 DESCRIPTION
 
 This is a best-in-genome filter is designed for mapping proteins/cDNAs/ESTs to
-a low-coverage, fragmented genome, where different parts a single transcribed sequence 
+a low-coverage, fragmented genome, where different parts a single transcribed sequence
 may validly map to different top-level sequences in the target.
 
 =cut
-
 
 package Bio::EnsEMBL::Analysis::Tools::FragmentTranscriptFilter;
 
@@ -44,50 +43,35 @@ use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-
 use vars qw (@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Root);
-
-
 
 =head2 new
 
   Returntype: Bio::EnsEMBL::Analysis::Tools::FragmentTranscriptFilter
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub new{
-  my ($class,@args) = @_;
+sub new {
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
   &verbose('WARNING');
-  my (
-      $min_percent,
-      $min_score,
-      ) = 
-        rearrange([
-                   'PERCENT_ID',
-                   'SCORE',
-                   ], @args); 
+  my ( $min_percent, $min_score, ) = rearrange( [ 'PERCENT_ID', 'SCORE', ], @args );
 
   ######################
   #SETTING THE DEFAULTS#
   ######################
 
   $self->min_percent($min_percent) if defined $min_percent;
-  $self->min_score($min_score) if defined $min_score;
+  $self->min_score($min_score)     if defined $min_score;
 
   return $self;
 }
 
-
 #filter methods
-
-
 
 =head2 filter_results
 
@@ -96,81 +80,73 @@ sub new{
   Function  : filter the given Transcruipts in the tried and trusted manner
   Returntype: arrayref
   Exceptions: throws if passed nothing or not an arrayref
-  Example   : 
+  Example   :
 
 =cut
 
-
-
-sub filter_results{
-  my ($self, $transcripts) = @_;
+sub filter_results {
+  my ( $self, $transcripts ) = @_;
 
   my %trans_by_hid;
 
   foreach my $tran (@$transcripts) {
     # transcript will only have one supporting feature for use cases of this filter
-    my ($sf) = @{$tran->get_all_supporting_features};
+    my ($sf) = @{ $tran->get_all_supporting_features };
 
-    next if defined($self->min_score) and $sf->score < $self->min_score;
-    next if defined($self->min_percent) and $sf->percent_id < $self->min_percent;
+    next if defined( $self->min_score )   and $sf->score < $self->min_score;
+    next if defined( $self->min_percent ) and $sf->percent_id < $self->min_percent;
 
-    push @{$trans_by_hid{$sf->hseqname}}, { 
-      tran => $tran,
-      score => $sf->score,
-    };
+    push @{ $trans_by_hid{ $sf->hseqname } }, { tran => $tran, score => $sf->score, };
   }
 
   my @good_transcripts;
 
-  foreach my $hid (keys %trans_by_hid) {
+  foreach my $hid ( keys %trans_by_hid ) {
     # sort transcripts by score
-    my @trans = map { $_->{tran} } sort { $b->{score} <=> $a->{score} } @{$trans_by_hid{$hid}};
-    
+    my @trans = map { $_->{tran} } sort { $b->{score} <=> $a->{score} } @{ $trans_by_hid{$hid} };
+
     my (@all_t_sfs);
 
-    TRANSCRIPT:
+  TRANSCRIPT:
     foreach my $tran (@trans) {
       my @t_sfs;
 
-      foreach my $exon (@{$tran->get_all_Exons}) {
-        my ($sf) = @{$exon->get_all_supporting_features};
+      foreach my $exon ( @{ $tran->get_all_Exons } ) {
+        my ($sf) = @{ $exon->get_all_supporting_features };
 
         # check that this does not overlap with any of the previous overlap features
         foreach my $f (@all_t_sfs) {
-          if ($sf->hstart <= $f->hend and $sf->hend >= $f->hstart) {            
+          if ( $sf->hstart <= $f->hend and $sf->hend >= $f->hstart ) {
             next TRANSCRIPT;
           }
         }
-       
+
         push @t_sfs, $sf;
       }
 
       # if we get here, the transcript has passed;
-      push @all_t_sfs, @t_sfs;
+      push @all_t_sfs,        @t_sfs;
       push @good_transcripts, $tran;
     }
-  }
+  } ## end foreach my $hid ( keys %trans_by_hid)
 
   return \@good_transcripts;
-}
+} ## end sub filter_results
 
 # containers
 
-
-sub min_percent{
+sub min_percent {
   my $self = shift;
-  $self->{'_min_percent'} = shift if(@_);
+  $self->{'_min_percent'} = shift if (@_);
 
-  return exists($self->{'_min_percent'}) ? $self->{'_min_percent'} : undef;
+  return exists( $self->{'_min_percent'} ) ? $self->{'_min_percent'} : undef;
 }
 
-sub min_score{
+sub min_score {
   my $self = shift;
-  $self->{'_min_score'} = shift if(@_);
+  $self->{'_min_score'} = shift if (@_);
 
-  return exists($self->{'_min_score'}) ? $self->{'_min_score'} : undef;
+  return exists( $self->{'_min_score'} ) ? $self->{'_min_score'} : undef;
 }
-
-
 
 1;

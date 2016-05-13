@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,7 +28,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Snap - 
+Bio::EnsEMBL::Analysis::RunnableDB::Snap -
 
 =head1 SYNOPSIS
 
@@ -52,7 +53,6 @@ implement much itself
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::RunnableDB::Snap;
 
 use strict;
@@ -65,14 +65,12 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Genscan);
 
-
-
 =head2 runnable_path
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Snap
   Function  : return the runnable path
   Returntype: string
-  Exceptions: 
+  Exceptions:
   Example   : my $runnable = $self->runnable_path->new
                                (
                                 -query    => $self->query,
@@ -83,8 +81,7 @@ use vars qw(@ISA);
 
 =cut
 
-
-sub runnable_path{
+sub runnable_path {
   my ($self);
   return "Bio::EnsEMBL::Analysis::Runnable::Snap";
 }

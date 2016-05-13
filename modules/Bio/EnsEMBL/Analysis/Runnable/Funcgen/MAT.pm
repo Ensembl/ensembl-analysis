@@ -1,16 +1,17 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Runnable::Funcgen::MAT
@@ -28,8 +29,8 @@ Bio::EnsEMBL::Analysis::Runnable::Funcgen::MAT
 
 =head1 DESCRIPTION
 
-MAT expects to run the program MAT (Model-based Analysis of Tiling-array, Johnson 
-et al., PMID: 16895995) and predicts features which can be stored in the 
+MAT expects to run the program MAT (Model-based Analysis of Tiling-array, Johnson
+et al., PMID: 16895995) and predicts features which can be stored in the
 annotated_feature table in the eFG database
 
 
@@ -65,64 +66,60 @@ use vars qw(@ISA);
   Function  : container for the chip number
   Returntype: interger
   Exceptions: throws if passed an object which isnt a slice
-  Example   : 
+  Example   :
 
 =cut
 
 sub query {
-    my ($self, $chip) = @_;
-    if ($chip){
-        throw("Must pass RunnableDB::Funcgen::MAT::query an integer ".
-              "specifying the chip to br processed not ".$chip) 
-            unless($chip =~ m/^\d+$/);
-        $self->{'chip'} = $chip;
-    }
-    return $self->{'chip'};
+  my ( $self, $chip ) = @_;
+  if ($chip) {
+    throw( "Must pass RunnableDB::Funcgen::MAT::query an integer " . "specifying the chip to br processed not " . $chip )
+      unless ( $chip =~ m/^\d+$/ );
+    $self->{'chip'} = $chip;
+  }
+  return $self->{'chip'};
 }
 
 =head2 write_infile
 
     Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::MAT
     Arg [2]     : filename
-    Description : 
-    Returntype  : 
-    Exceptions  : 
-    Example     : 
+    Description :
+    Returntype  :
+    Exceptions  :
+    Example     :
 
 =cut
 
 sub write_infile {
-	
-	my ($self, $filename) = @_;
 
-    my $chipno = sprintf("%02d", $self->query);
+  my ( $self, $filename ) = @_;
 
-    if (exists $ENV{INFILE_EXISTS} && $ENV{INFILE_EXISTS}) {
+  my $chipno = sprintf( "%02d", $self->query );
 
-        opendir(DIR, $self->workdir())
-            or throw("Can't open dir ".$self->workdir());
-        my @files = grep { /.$chipno.tag$/ } readdir DIR;
+  if ( exists $ENV{INFILE_EXISTS} && $ENV{INFILE_EXISTS} ) {
 
-        throw("More than one tag file fir chip $chipno in ".$self->workdir)
-            if (! @files);
-        $filename = $self->workdir.'/'.$files[0];
+    opendir( DIR, $self->workdir() ) or throw( "Can't open dir " . $self->workdir() );
+    my @files = grep { /.$chipno.tag$/ } readdir DIR;
 
-        closedir DIR;
+    throw( "More than one tag file fir chip $chipno in " . $self->workdir ) if ( !@files );
+    $filename = $self->workdir . '/' . $files[0];
 
-    }
+    closedir DIR;
 
-	if (! $filename) {
-		($filename = $self->infile()) =~ s/\.dat$/.$chipno.tag/;
-	}
+  }
 
-    (my $logfile = $filename) =~ s/\.tag$/.log/;
-    
-    $ENV{BPMAPFILE} =~ s/<CHIPNO>/$chipno/;
-    $ENV{CELFILES} =~ s/<CHIPNO>/$chipno/g;
+  if ( !$filename ) {
+    ( $filename = $self->infile() ) =~ s/\.dat$/.$chipno.tag/;
+  }
 
-    open(TAG, ">$filename")
-        or throw("Can't open .tag-file $filename.");
-    print TAG <<EOT;
+  ( my $logfile = $filename ) =~ s/\.tag$/.log/;
+
+  $ENV{BPMAPFILE} =~ s/<CHIPNO>/$chipno/;
+  $ENV{CELFILES} =~ s/<CHIPNO>/$chipno/g;
+
+  open( TAG, ">$filename" ) or throw("Can't open .tag-file $filename.");
+  print TAG <<EOT;
 
 [data]
 BpmapFolder = $ENV{BPMAPFOLDER}
@@ -153,53 +150,52 @@ Extend =
 Log = $logfile
 
 EOT
-    
-    close TAG;
 
-    $self->infile($filename);
+  close TAG;
 
-    (my $bedfile = $filename) =~ s/\.tag$/.bed/;
-    $self->resultsfile($bedfile);
+  $self->infile($filename);
 
-    # set columns (fields) for output
-    my @fields = (1..2,4); # bed
+  ( my $bedfile = $filename ) =~ s/\.tag$/.bed/;
+  $self->resultsfile($bedfile);
 
-    $self->output_fields(\@fields);
+  # set columns (fields) for output
+  my @fields = ( 1 .. 2, 4 );    # bed
 
-    return $filename;
+  $self->output_fields( \@fields );
 
-}
+  return $filename;
+
+} ## end sub write_infile
 
 =head2 run_analysis
 
   Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::MAT
   Arg [2]     : string, program name
-  Usage       : 
-  Description : 
-  Returns     : 
-  Exceptions  : 
+  Usage       :
+  Description :
+  Returns     :
+  Exceptions  :
 
 =cut
 
 sub run_analysis {
 
-    my ($self, $program) = @_;
-    
-    if(!$program){
-        $program = $self->program;
-    }
-    throw($program." is not executable") 
-        unless($program && -x $program);
+  my ( $self, $program ) = @_;
 
-    if (! $ENV{INFILE_EXISTS}) {
-        
-        my $command = $self->program . ' ' . $self->infile;
-        
-        warn("Running analysis " . $command . "\n");
-        
-        #eval { system($command) };
-        throw("FAILED to run $command: ", $@) if ($@);
-    }
+  if ( !$program ) {
+    $program = $self->program;
+  }
+  throw( $program . " is not executable" ) unless ( $program && -x $program );
+
+  if ( !$ENV{INFILE_EXISTS} ) {
+
+    my $command = $self->program . ' ' . $self->infile;
+
+    warn( "Running analysis " . $command . "\n" );
+
+    #eval { system($command) };
+    throw( "FAILED to run $command: ", $@ ) if ($@);
+  }
 }
 
 =head2 infile
@@ -210,29 +206,29 @@ sub run_analysis {
   defined it will use the create_filename method to create a filename
   Returntype  : string, filename
   Exceptions  : none
-  Example     : 
+  Example     :
 
 =cut
 
-sub infile{
+sub infile {
 
-    my ($self, $filename) = @_;
-    
-    if($filename){
-        $self->{'infile'} = $filename;
-    }
-    if(!$self->{'infile'}){
-        $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
-    }
-    
-    return $self->{'infile'};
-    
+  my ( $self, $filename ) = @_;
+
+  if ($filename) {
+    $self->{'infile'} = $filename;
+  }
+  if ( !$self->{'infile'} ) {
+    $self->{'infile'} = $self->create_filename( $self->analysis->logic_name, 'dat' );
+  }
+
+  return $self->{'infile'};
+
 }
 
 sub config_file {
-    my $self = shift;
-    $self->{'config_file'} = shift if(@_);
-    return $self->{'config_file'};
+  my $self = shift;
+  $self->{'config_file'} = shift if (@_);
+  return $self->{'config_file'};
 }
 
 1;

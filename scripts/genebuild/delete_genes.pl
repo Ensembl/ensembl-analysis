@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +20,7 @@
 
 =head1 DESCRIPTION
 
-  Given a list of gene_ids or stable_ids, deletes the genes from the 
+  Given a list of gene_ids or stable_ids, deletes the genes from the
   specified database. If config_dbname is provided, the script reads
   database details from the Bio::EnsEMBL::Analysis::Config::GeneBuild::Databases
   configuration.
@@ -52,7 +52,7 @@
 
 =cut
 
-use warnings ;
+use warnings;
 use strict;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -60,7 +60,7 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Utils::Exception;
 
 my $host;
-my $port=3306;
+my $port = 3306;
 my $dbname;
 my $user;
 my $pass;
@@ -68,46 +68,41 @@ my $idfile;
 my $stable_id = 0;
 my $config_dbname;
 
-
-GetOptions( 'dbhost|host|h:s'        => \$host,
-            'dbport|port|P:n'        => \$port,
-            'dbname|db|D:s'        => \$dbname,
-            'dbuser|user|u:s'        => \$user,
-            'dbpass|pass|p:s'        => \$pass,
+GetOptions( 'dbhost|host|h:s' => \$host,
+            'dbport|port|P:n' => \$port,
+            'dbname|db|D:s'   => \$dbname,
+            'dbuser|user|u:s' => \$user,
+            'dbpass|pass|p:s' => \$pass,
             'idfile:s'        => \$idfile,
             'stable_id!'      => \$stable_id,
             'config_dbname:s' => \$config_dbname, );
-
 
 my $db;
 
 if ($config_dbname) {
   $db = get_db_adaptor_by_string($config_dbname);
-} elsif ( $dbname && $host ) {
-  $db =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
-                                        -user   => $user,
-                                        -port   => $port,
-                                        -dbname => $dbname,
-                                        -pass   => $pass, );
-} else {
-  throw(   "Need to pass either -dbhost $host and -dbname $dbname or "
-         . "-config_dbname $config_dbname for the script to work" );
+}
+elsif ( $dbname && $host ) {
+  $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $host, -user => $user, -port => $port, -dbname => $dbname, -pass => $pass, );
+}
+else {
+  throw( "Need to pass either -dbhost $host and -dbname $dbname or " . "-config_dbname $config_dbname for the script to work" );
 }
 
 my $gene_adaptor = $db->get_GeneAdaptor;
 
-open(INFILE, "<$idfile") or die ("Can't read $idfile $! \n");
+open( INFILE, "<$idfile" ) or die("Can't read $idfile $! \n");
 
 while (<INFILE>) {
   chomp;
   my $gene_id = $_;
 
-  eval{
+  eval {
     my $gene;
     if ($stable_id) {
       $gene = $gene_adaptor->fetch_by_stable_id($gene_id);
-    } else {
+    }
+    else {
       $gene = $gene_adaptor->fetch_by_dbID($gene_id);
     }
 
@@ -117,7 +112,7 @@ while (<INFILE>) {
     $gene_adaptor->remove($gene);
     print STDERR "Deleted $gene_id\n";
   };
-  if($@){
+  if ($@) {
     print "Couldn't remove gene $gene_id ($@)\n";
   }
 }

@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA - 
+Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA -
 
 =head1 SYNOPSIS
 
@@ -43,7 +44,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastmiRNA -
 =head1 DESCRIPTION
 
 Modified blast runnable for specific use with miRNA
-Use for running BLASTN of genomic sequence vs miRNAs prior to 
+Use for running BLASTN of genomic sequence vs miRNAs prior to
 miRNA anaysis
 Slice size seems best around 200k
 
@@ -62,12 +63,11 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::General;
 use Bio::EnsEMBL::Analysis::Config::Blast;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME); 
+use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
 
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Blast  Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
-
 
 =head2 fetch_input
 
@@ -80,34 +80,30 @@ use vars qw(@ISA);
 
 =cut
 
-sub fetch_input{
-  my ($self) = @_;  
+sub fetch_input {
+  my ($self) = @_;
 
   #add dna_db
-  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ; 
-  $self->db->dnadb($dna_db); 
+  my $dna_db = $self->get_dbadaptor($DNA_DBNAME);
+  $self->db->dnadb($dna_db);
 
-  my $slice = $self->fetch_sequence($self->input_id, $self->db,'');
+  my $slice = $self->fetch_sequence( $self->input_id, $self->db, '' );
   $self->query($slice);
-  my %blast = %{$self->BLAST_PARAMS};
+  my %blast  = %{ $self->BLAST_PARAMS };
   my $parser = $self->make_parser;
   my $filter;
-  if($self->BLAST_FILTER){
+  if ( $self->BLAST_FILTER ) {
     $filter = $self->make_filter;
   }
   my $seq = $self->query;
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA->new
-    (
-     -query    => $seq,
-     -program  => $self->analysis->program_file,
-     -parser   => $parser,
-     -filter   => $filter,
-     -database => $self->analysis->db_file,
-     -analysis => $self->analysis,
-     -params   => \%blast,
-    );
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA->new( -query    => $seq,
+                                                                    -program  => $self->analysis->program_file,
+                                                                    -parser   => $parser,
+                                                                    -filter   => $filter,
+                                                                    -database => $self->analysis->db_file,
+                                                                    -analysis => $self->analysis,
+                                                                    -params   => \%blast, );
   $self->runnable($runnable);
   return 1;
-}
-
+} ## end sub fetch_input
 

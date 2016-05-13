@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere - 
+Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere -
 
 =head1 SYNOPSIS
 
@@ -51,8 +52,7 @@ Uses Bio::EnsEMBL::Analysis::Config::Pseudogene for config
 
 package Bio::EnsEMBL::Analysis::Runnable::Spliced_elsewhere;
 
-
-use warnings ;
+use warnings;
 use strict;
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
 use Bio::EnsEMBL::Analysis::Config::Pseudogene;
@@ -61,11 +61,9 @@ use Bio::EnsEMBL::Analysis::Tools::BPliteWrapper;
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Pseudogene);
-
 
 =head2 new
 
@@ -77,21 +75,22 @@ use vars qw(@ISA);
 =cut
 
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  $self->{'_genes'} = [];	#array of genescripts to test;  
+  $self->{'_genes'} = [];    #array of genescripts to test;
 
-  my($genes,$PS_MULTI_EXON_DIR) =
-    rearrange([qw( GENES
-		   PS_MULTI_EXON_DIR
- )], @args);
- 
+  my ( $genes, $PS_MULTI_EXON_DIR ) = rearrange(
+    [ qw( GENES
+        PS_MULTI_EXON_DIR
+        ) ],
+    @args );
+
   $self->genes($genes);
   $self->PS_MULTI_EXON_DIR($PS_MULTI_EXON_DIR);
 
   # Path to blast database
-  $self->db($self->PS_MULTI_EXON_DIR."/all_multi_exon_genes.fasta");
+  $self->db( $self->PS_MULTI_EXON_DIR . "/all_multi_exon_genes.fasta" );
   return $self;
 }
 
@@ -106,11 +105,11 @@ Arg [none] :
 =cut
 
 sub run {
-  my ($self)=@_;
-  my @genes = @{$self->genes};
- GENE: foreach my $gene(@genes){
+  my ($self) = @_;
+  my @genes = @{ $self->genes };
+GENE: foreach my $gene (@genes) {
     $self->run_blast($gene);
-    next GENE; # redundant much?
+    next GENE;    # redundant much?
   }
   return 1;
 }
@@ -126,69 +125,60 @@ also returns the gene object in the hash for refence
 
 =cut
 
-sub run_blast{
-  my ($self,$gene)=@_;
-  my $bplitewrapper = Bio::EnsEMBL::Analysis::Tools::BPliteWrapper-> new
-    (
-     -query_type => 'dna',
-     -database_type => 'dna',
-    );
+sub run_blast {
+  my ( $self, $gene ) = @_;
+  my $bplitewrapper = Bio::EnsEMBL::Analysis::Tools::BPliteWrapper->new( -query_type => 'dna', -database_type => 'dna', );
   my %output_hash;
-  foreach my $trans (@{$gene->get_all_Transcripts}){ 
-    next unless ($trans->translateable_seq);
-# Default expand is 1000
-# But if the transcript start is too close to the start of the region, need to reduce the expand
-# Also needs to be the same value on both sides
-    my $start_expand = 1000 ;
-    my $end_expand = 1000 ;
+  foreach my $trans ( @{ $gene->get_all_Transcripts } ) {
+    next unless ( $trans->translateable_seq );
+    # Default expand is 1000
+    # But if the transcript start is too close to the start of the region, need to reduce the expand
+    # Also needs to be the same value on both sides
+    my $start_expand = 1000;
+    my $end_expand   = 1000;
     if ( $trans->start < 1000 ) {
-      $start_expand = $trans->start - 1 ;
-      $end_expand = $start_expand ; 
+      $start_expand = $trans->start - 1;
+      $end_expand   = $start_expand;
     }
-    my $query = $trans->feature_Slice->expand($start_expand, $end_expand)->get_repeatmasked_seq;
+    my $query = $trans->feature_Slice->expand( $start_expand, $end_expand )->get_repeatmasked_seq;
     my $test = $trans->feature_Slice->get_repeatmasked_seq->seq;
-  #  print "BEFORE  Ns have gone " . length($test) . "\n"; 
+    #  print "BEFORE  Ns have gone " . length($test) . "\n";
     $test =~ s/N//g;
-#    print "AFTER Ns have gone " . length($test) . "\n";
+    #    print "AFTER Ns have gone " . length($test) . "\n";
     unless ( length($test) > 5 ) {
-      print STDOUT "ignoring " . $trans->display_id. " all Ns \n";
-      $output_hash{$trans->dbID}= 'REPEATS';
-      $self->output(\%output_hash);
-    return 1;
+      print STDOUT "ignoring " . $trans->display_id . " all Ns \n";
+      $output_hash{ $trans->dbID } = 'REPEATS';
+      $self->output( \%output_hash );
+      return 1;
     }
-    print  $trans->stable_id if ( $trans->stable_id ) ; 
+    print $trans->stable_id if ( $trans->stable_id );
     # need to mask out other coding sequences here
-    my $blast =  Bio::EnsEMBL::Analysis::Runnable::Blast->new 
-      ('-query'     => $query,
-       '-program'   => 'blastn',
-       '-database'  => $self->db,
-       '-threshold' => 1e-50,
-       '-parser'    => $bplitewrapper,
-       '-options'   => 'V=10',
-       '-analysis'  => $self->analysis,
-      );
-    eval {
-      $blast->run();
-    };
+    my $blast = Bio::EnsEMBL::Analysis::Runnable::Blast->new( '-query'     => $query,
+                                                              '-program'   => 'blastn',
+                                                              '-database'  => $self->db,
+                                                              '-threshold' => 1e-50,
+                                                              '-parser'    => $bplitewrapper,
+                                                              '-options'   => 'V=10',
+                                                              '-analysis'  => $self->analysis, );
+    eval { $blast->run(); };
     if ($@) {
       $self->throw("Problem with Blast $@ \n ");
-    } else {
+    }
+    else {
       if ( $blast->output ) {
-	$output_hash{$trans->dbID}= $blast->output;
-      } else {
-	$output_hash{$trans->dbID}= 'NONE';
+        $output_hash{ $trans->dbID } = $blast->output;
+      }
+      else {
+        $output_hash{ $trans->dbID } = 'NONE';
       }
     }
-  }
-  $self->output(\%output_hash);
+  } ## end foreach my $trans ( @{ $gene...})
+  $self->output( \%output_hash );
   return 1;
-}
-
-
+} ## end sub run_blast
 
 ########################################################
 # Containers
-
 
 =head2 db
 
@@ -201,7 +191,7 @@ sub run_blast{
 =cut
 
 sub db {
-  my ($self, $db) = @_;
+  my ( $self, $db ) = @_;
   if ($db) {
     $self->find_file($db);
     $self->{'_db'} = $db;
@@ -220,9 +210,9 @@ sub db {
 =cut
 
 sub output {
-  my ($self, $hash_ref) = @_;
+  my ( $self, $hash_ref ) = @_;
   if ($hash_ref) {
-    push @{$self->{'_output'}},$hash_ref;
+    push @{ $self->{'_output'} }, $hash_ref;
   }
   return $self->{'_output'};
 }

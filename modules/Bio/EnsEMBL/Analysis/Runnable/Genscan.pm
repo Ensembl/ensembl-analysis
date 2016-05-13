@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Genscan - 
+Bio::EnsEMBL::Analysis::Runnable::Genscan -
 
 =head1 SYNOPSIS
 
@@ -60,8 +61,6 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio);
 
-
-
 =head2 new
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Genscan
@@ -69,29 +68,23 @@ use vars qw(@ISA);
   Function  : create a Bio::EnsEMBL::Analysis::Runnable::Genscan runnable
   Returntype: Bio::EnsEMBL::Analysis::Runnable::Genscan
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->program('genscan') if(!$self->program);
-  $self->matrix('HumanIso.smat') if(!$self->matrix);
+  $self->program('genscan')      if ( !$self->program );
+  $self->matrix('HumanIso.smat') if ( !$self->matrix );
   ######################
 
   return $self;
 }
-
-
-
-
 
 =head2 parse_results
 
@@ -100,25 +93,23 @@ sub new {
   Function  : parse the results file into prediction exons then
   collate them into prediction transcripts and calculate their
   phases
-  Returntype: none 
+  Returntype: none
   Exceptions: throws if cant open or close results file or the parsing
   doesnt work
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub parse_results{
-  my ($self, $results) = @_;
-  if(!$results){
+sub parse_results {
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
-  open(OUT, "<".$results) or throw("FAILED to open ".$results.
-                                   "Genscan:parse_results");
+  open( OUT, "<" . $results ) or throw( "FAILED to open " . $results . "Genscan:parse_results" );
   my $ff = $self->feature_factory;
-  LINE:while(<OUT>){
+LINE: while (<OUT>) {
     chomp;
-    if(m|NO EXONS/GENES PREDICTED IN SEQUENCE|i){
+    if (m|NO EXONS/GENES PREDICTED IN SEQUENCE|i) {
       print "No genes predicted\n";
       last LINE;
     }
@@ -131,70 +122,65 @@ sub parse_results{
     # 3.06 Term +  44406  44596  191	 1  2  112   48	   99 0.422   4.93
     # 3.07 PlyA +  47675  47680    6                               1.05
     # 6.01 Sngl - 100426  99728  699	 1  0	76   36	  273 0.699  16.88
-    if(/init|intr|term|sngl/i){
+    if (/init|intr|term|sngl/i) {
       my @elements = split;
-      if(@elements != 13){
-        throw("Can't parse ".$_." splits into wrong number of elements ".
-              "Genscan:parse_results");
+      if ( @elements != 13 ) {
+        throw( "Can't parse " . $_ . " splits into wrong number of elements " . "Genscan:parse_results" );
       }
-      my ($name, $strand, $start, $end, $pvalue, $score)
-        = @elements[0, 2, 3, 4, 11, 12];
-      if($strand eq '+'){
+      my ( $name, $strand, $start, $end, $pvalue, $score ) = @elements[ 0, 2, 3, 4, 11, 12 ];
+      if ( $strand eq '+' ) {
         $strand = 1;
-      }else{
+      }
+      else {
         $strand = -1;
         my $temp_start = $end;
-        $end = $start;
+        $end   = $start;
         $start = $temp_start;
       }
-      if($pvalue !~ /\d+/){
-        warning("Genscan has reported ".$pvalue." rather ".
-                "than a number setting p value to 0");
+      if ( $pvalue !~ /\d+/ ) {
+        warning( "Genscan has reported " . $pvalue . " rather " . "than a number setting p value to 0" );
         $pvalue = 0;
       }
 
-      if($pvalue =~ /\+/)
-      {
-	  warning("Genscan has reported ".$pvalue." removing \+");
-	  $pvalue =~ s/\+//;
+      if ( $pvalue =~ /\+/ ) {
+        warning( "Genscan has reported " . $pvalue . " removing \+" );
+        $pvalue =~ s/\+//;
       }
 
-      my ($group, $exon_name) = split(/\./, $name);
-      
-      my $exon = $ff->create_prediction_exon($start, $end, $strand, 
-                                             $score, $pvalue, 0, 
-                                             $name, $self->query, 
-                                             $self->analysis);
-      
-      $self->exon_groups($group, $exon);
-    }elsif(/predicted peptide/i){
+      my ( $group, $exon_name ) = split( /\./, $name );
+
+      my $exon = $ff->create_prediction_exon( $start, $end, $strand, $score, $pvalue, 0, $name, $self->query, $self->analysis );
+
+      $self->exon_groups( $group, $exon );
+    } ## end if (/init|intr|term|sngl/i)
+    elsif (/predicted peptide/i) {
       last LINE;
-    }else{
+    }
+    else {
       next LINE;
     }
-  }
+  } ## end LINE: while (<OUT>)
 
   my $group;
   my $hash = {};
-  PEP:while(<OUT>){
+PEP: while (<OUT>) {
     chomp;
-    if(/predicted peptide/i){
+    if (/predicted peptide/i) {
       next;
     }
-    if(/^>/){
-      my @values = split(/\|/, $_);
-      ($group) = ($values[1] =~ /GENSCAN_predicted_peptide_(\d+)/); 
-    }elsif(/(\S+)/ and defined $group) {
+    if (/^>/) {
+      my @values = split( /\|/, $_ );
+      ($group) = ( $values[1] =~ /GENSCAN_predicted_peptide_(\d+)/ );
+    }
+    elsif ( /(\S+)/ and defined $group ) {
       $hash->{$group} .= $1;
     }
   }
 
   $self->peptides($hash);
-  close(OUT) or throw("FAILED to close ".$results.
-                      "Genscan:parse_results");
+  close(OUT) or throw( "FAILED to close " . $results . "Genscan:parse_results" );
   $self->create_transcripts;
   $self->calculate_phases;
-}
-
+} ## end sub parse_results
 
 1;

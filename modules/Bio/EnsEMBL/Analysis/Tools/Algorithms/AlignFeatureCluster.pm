@@ -1,3 +1,4 @@
+
 =head1 NAME
 
 AlignFeatureCluster
@@ -7,8 +8,8 @@ AlignFeatureCluster
 
 =head1 DESCRIPTION
 
-This object holds one or more features which has been clustered according to 
-comparison criteria external to this class (for instance, in the 
+This object holds one or more features which has been clustered according to
+comparison criteria external to this class (for instance, in the
 methods compare and _compare_AlignFeatures methods of the class AlignFeatureComparison).
 Each AlignFeatureCluster object holds the IDs of the features clustered and the beginning and end coordinates
 of each one (taken from the start and end coordinates of the first and last exon in the correspondig
@@ -24,7 +25,7 @@ eae@sanger.ac.uk
 
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::AlignFeatureCluster;
 
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
 
@@ -40,7 +41,6 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 #########################################################################
 
-
 =head2 new
 
 new() initializes the attributes:
@@ -51,28 +51,27 @@ $self->{'_prediction_features'}
 =cut
 
 sub new {
-  my ($class, $ignore_strand, $whatever) =@_ ;
+  my ( $class, $ignore_strand, $whatever ) = @_;
 
-  if (ref($class)){
+  if ( ref($class) ) {
     $class = ref($class);
   }
   my $self = {};
-  bless($self,$class);
+  bless( $self, $class );
 
   $self->{_ignore_strand} = $ignore_strand;
 
-  if ($whatever){
-    throw( "Can't pass an object to new() method. Use put_AlignFeatures() to include Bio::EnsEMBL::AlignFeature in cluster");
+  if ($whatever) {
+    throw("Can't pass an object to new() method. Use put_AlignFeatures() to include Bio::EnsEMBL::AlignFeature in cluster");
   }
 
   $self->{_cached_start}  = undef;
   $self->{_cached_end}    = undef;
   $self->{_cached_strand} = undef;
-  
-  $self->{v} = 0 ; # verbosity 
+
+  $self->{v} = 0;    # verbosity
   return $self;
 }
-
 
 =head1 Range-like methods
 
@@ -94,22 +93,22 @@ and geometrical methods for a range.
 # i.e. the start coordinate of the first exon ordered as { $a->start <=> $b->start }, regardless of the strand
 
 sub start {
-  my ($self, $start) = @_ ;
+  my ( $self, $start ) = @_;
 
   if ($start) {
-    throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
+    throw("$start is not an integer") unless $start =~ /^[-+]?\d+$/;
     $self->{_cached_start} = $start;
   }
 
-  if (!defined($self->{_cached_start})) {
+  if ( !defined( $self->{_cached_start} ) ) {
     my $start;
 
-    foreach my $feature (@{$self->get_AlignFeatures}) {
+    foreach my $feature ( @{ $self->get_AlignFeatures } ) {
       my $this_start = $feature->start;
-      unless ( $start ){
+      unless ($start) {
         $start = $this_start;
       }
-      if ( $this_start < $start ){
+      if ( $this_start < $start ) {
         $start = $this_start;
       }
     }
@@ -117,7 +116,6 @@ sub start {
   }
   return $self->{_cached_start};
 }
-
 
 ############################################################
 
@@ -132,27 +130,26 @@ sub start {
           : using $range->end($end
 =cut
 
-
 # method to get the end of the cluster, which we take to be the right_most exon_coordinate
 # this being the end coordinate of the first exon ordered as { $b->end <=> $a->end }, regardless of the strand
 
 sub end {
-  my ($self, $end) = @_ ;
+  my ( $self, $end ) = @_;
 
   if ($end) {
-    throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
+    throw("$end is not an integer") unless $end =~ /^[-+]?\d+$/;
     $self->{_cached_end} = $end;
   }
 
-  if (!defined($self->{_cached_end})) {
+  if ( !defined( $self->{_cached_end} ) ) {
     my $end;
 
-    foreach my $feature (@{$self->get_AlignFeatures}) {
+    foreach my $feature ( @{ $self->get_AlignFeatures } ) {
       my $this_end = $feature->end;
-      unless ( $end ){
+      unless ($end) {
         $end = $this_end;
       }
-      if ( $this_end > $end ){
+      if ( $this_end > $end ) {
         $end = $this_end;
       }
     }
@@ -160,7 +157,6 @@ sub end {
   }
   return $self->{_cached_end};
 }
-
 
 ############################################################
 
@@ -176,13 +172,12 @@ sub end {
 =cut
 
 sub length {
-  my $self = shift @_ ;
+  my $self = shift @_;
   if (@_) {
-    $self->confess( ref($self)."->length() is read-only") ;
+    $self->confess( ref($self) . "->length() is read-only" );
   }
-  return ( $self->{_cached_end} - $self->{_cached_start} + 1 ) ;
+  return ( $self->{_cached_end} - $self->{_cached_start} + 1 );
 }
-
 
 #########################################################################
 
@@ -199,9 +194,8 @@ sub length {
 
 =cut
 
-
 sub strand {
-  my ($self, $strand) = shift;
+  my ( $self, $strand ) = shift;
 
   if ($strand) {
     if ( $self->{_cached_strand} ) {
@@ -209,30 +203,27 @@ sub strand {
       return 0;
     }
 
-    $self->{_cached_strand} = $strand ;
+    $self->{_cached_strand} = $strand;
   }
 
-  if (!defined($self->{_cached_strand})) {
-    my @features = @{ $self->get_AlignFeatures } ;
+  if ( !defined( $self->{_cached_strand} ) ) {
+    my @features = @{ $self->get_AlignFeatures };
     unless (@features) {
       $self->warning("cannot retrieve the strand in a cluster with no features");
     }
     my $strand;
     foreach my $feature (@features) {
-      if (ref($feature) =~ m/AlignFeature/) {
+      if ( ref($feature) =~ m/AlignFeature/ ) {
         $feature->strand;
       }
     }
-    if (!defined $strand) {
+    if ( !defined $strand ) {
       throw("Strand not defined");
     }
-    $self->{_cached_strand} = $strand ;
+    $self->{_cached_strand} = $strand;
   }
   return $self->{_cached_strand};
-}
-
-
-
+} ## end sub strand
 
 #########################################################################
 
@@ -244,73 +235,70 @@ sub strand {
 =cut
 
 sub put_AlignFeatures {
-  my ($self, $features, $ignore_strand)= @_ ;
+  my ( $self, $features, $ignore_strand ) = @_;
 
-  if ( !defined( $self->{'_types_sets'} ) ){
-    throw( "Cluster lacks references to feature-types, unable to put the feature");
-  } 
-
-  unless ( ref($features) =~ m/ARRAY/ ) {   
-    throw("Only take array ref !\n") ; 
+  if ( !defined( $self->{'_types_sets'} ) ) {
+    throw("Cluster lacks references to feature-types, unable to put the feature");
   }
 
-# Adjust cluster boundaries with new added features
+  unless ( ref($features) =~ m/ARRAY/ ) {
+    throw("Only take array ref !\n");
+  }
+
+  # Adjust cluster boundaries with new added features
 
   foreach my $feature (@$features) {
-    if ( !defined ($self->{_cached_start}) || $feature->start < $self->start ) {
-      $self->start ( $feature->start ) ;
+    if ( !defined( $self->{_cached_start} ) || $feature->start < $self->start ) {
+      $self->start( $feature->start );
     }
-    if ( !defined ($self->{_cached_end}) || $feature->end > $self->end ) {
-      $self->end ( $feature->end );
+    if ( !defined( $self->{_cached_end} ) || $feature->end > $self->end ) {
+      $self->end( $feature->end );
     }
   }
 
-# Check strand consistency
+  # Check strand consistency
 
   foreach my $feature (@$features) {
-    if (!$ignore_strand) {
-      if ( defined ($self->{_cached_strand} ) ) {
+    if ( !$ignore_strand ) {
+      if ( defined( $self->{_cached_strand} ) ) {
         if ( $self->strand != $feature->strand ) {
-          warning( "You're trying to put $feature in a cluster of opposite strand");
+          warning("You're trying to put $feature in a cluster of opposite strand");
         }
       }
-    } else {
-  # we can ignore the strand, and do nothing
+    }
+    else {
+      # we can ignore the strand, and do nothing
     }
   }
- 
 
- FEATURE:
+FEATURE:
   foreach my $feature (@$features) {
-    throw("undef for feature. Cannot put_AlignFeatures") if (!$feature) ;
-    my $feature_logicname = $feature->analysis->logic_name ;
-    foreach my $set_name ( keys %{$self->{'_types_sets'}}) { 
-      my $set = $self->{'_types_sets'}{$set_name} ; 
+    throw("undef for feature. Cannot put_AlignFeatures") if ( !$feature );
+    my $feature_logicname = $feature->analysis->logic_name;
+    foreach my $set_name ( keys %{ $self->{'_types_sets'} } ) {
+      my $set = $self->{'_types_sets'}{$set_name};
       foreach my $type ( @{$set} ) {
-        if ($feature_logicname eq $type) {
-          push ( @{ $self->{'_feature_sets'}{$set_name} }, $feature ) ;
-          next FEATURE; 
+        if ( $feature_logicname eq $type ) {
+          push( @{ $self->{'_feature_sets'}{$set_name} }, $feature );
+          next FEATURE;
         }
       }
     }
-    throw("Failed putting feature of type " . $feature->analysis->logic_name . "\n");
+    throw( "Failed putting feature of type " . $feature->analysis->logic_name . "\n" );
   }
-}
-
-
+} ## end sub put_AlignFeatures
 
 sub get_sets_included {
   my $self = shift;
   my @included_sets;
 
-  foreach my $set_name ( keys %{$self->{'_types_sets'}}) {
-    if (defined( $self->{'_feature_sets'}{$set_name})) {
-      push @included_sets,$set_name;
+  foreach my $set_name ( keys %{ $self->{'_types_sets'} } ) {
+    if ( defined( $self->{'_feature_sets'}{$set_name} ) ) {
+      push @included_sets, $set_name;
     }
   }
   return \@included_sets;
 }
-
 
 #########################################################################
 
@@ -321,24 +309,22 @@ sub get_sets_included {
 =cut
 
 sub get_AlignFeatures {
-  my $self = shift @_ ;
+  my $self = shift @_;
 
-  my @features ;
-  if (!defined( $self->{'_feature_sets'} ) ) {
-    $self->warning("The feature array you try to retrieve is empty") ;
-    @features = () ;
+  my @features;
+  if ( !defined( $self->{'_feature_sets'} ) ) {
+    $self->warning("The feature array you try to retrieve is empty");
+    @features = ();
   }
 
-  foreach my $set_name (keys %{$self->{'_feature_sets'}}) {
-    push( @features, @{ $self->{'_feature_sets'}{$set_name} } ) ;
+  foreach my $set_name ( keys %{ $self->{'_feature_sets'} } ) {
+    push( @features, @{ $self->{'_feature_sets'}{$set_name} } );
   }
 
   return \@features;
 }
 
-
 #########################################################################
-
 
 =head2 get_AlignFeature_Count
 
@@ -349,15 +335,12 @@ sub get_AlignFeatures {
 sub get_AlignFeature_Count {
   my $self = shift @_;
 
-  my @dafs = @{$self->get_AlignFeatures} ;
+  my @dafs = @{ $self->get_AlignFeatures };
   return scalar(@dafs);
 }
 
-
-
-
 sub feature_Types {
-  my ($self, $set_name, $types) = @_;
+  my ( $self, $set_name, $types ) = @_;
   $self->{'_types_sets'}{$set_name} = $types;
   return $self->{'_types_sets'}{$set_name};
 }
@@ -365,23 +348,24 @@ sub feature_Types {
 #########################################################################
 
 sub get_AlignFeatures_by_Set() {
-  my ($self,$set) = @_;
+  my ( $self, $set ) = @_;
 
-  unless ($set){
-    throw( "must provide a set");
+  unless ($set) {
+    throw("must provide a set");
   }
 
   my @selected_features;
-  if ($self->{v}){ 
-    for (keys %{ $self->{_feature_sets} } ) { 
-      print " i know the following sets : $_\n" ; 
+  if ( $self->{v} ) {
+    for ( keys %{ $self->{_feature_sets} } ) {
+      print " i know the following sets : $_\n";
     }
-  } 
-  if (!defined($self->{'_feature_sets'}{$set})) {
+  }
+  if ( !defined( $self->{'_feature_sets'}{$set} ) ) {
     # throw("No features of set name $set");
     #warning("No features of set name $set in cluster");
-  }else{
-    push @selected_features, @{$self->{'_feature_sets'}{$set}};
+  }
+  else {
+    push @selected_features, @{ $self->{'_feature_sets'}{$set} };
   }
   return \@selected_features;
 }

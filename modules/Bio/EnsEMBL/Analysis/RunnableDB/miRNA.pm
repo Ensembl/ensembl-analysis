@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::miRNA - 
+Bio::EnsEMBL::Analysis::RunnableDB::miRNA -
 
 =head1 SYNOPSIS
 
@@ -43,7 +44,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::miRNA -
 
 RunnableDB to provide database access for miRNA detection.
 Runs as an accumulator job on miRNA blast hits found by Bio::EnsEMBL::RunnableDB::BlastmiRNA
-Takes an analysis logic name as an input id and uses it to fetch all dna align features associated with 
+Takes an analysis logic name as an input id and uses it to fetch all dna align features associated with
 that analysis.
 It then groups the dna align features by miRNA families and ignores families with > 50
 members as there is a high probability that these are hitting repetitive sequences.
@@ -60,7 +61,7 @@ use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Config::Databases;
-use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild ; 
+use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::miRNA;
 use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
@@ -68,69 +69,64 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
-
 =head2 fetch_input
 
   Title      : fetch_input
   Usage      : $miRNA->fetch_input();
   Function   : opens and stores connections to databases in Bio::EnsEMBL::Analysis::Config::Databases
-             : fetches all dna align features by analysis logic name specified in the 
-             : input id 
+             : fetches all dna align features by analysis logic name specified in the
+             : input id
   Returns    : Hash reference
   Exceptions : throws if the analysis object is not found or no dna align features are retrieved
   Args       : None
 
 =cut
 
-sub fetch_input{
+sub fetch_input {
   my ($self) = @_;
 
   # dna database
-  my $dna_db = $self->get_dbadaptor($DNA_DBNAME) ;
+  my $dna_db = $self->get_dbadaptor($DNA_DBNAME);
 
-  # if you want to write the final genes into the pipeline database need 
+  # if you want to write the final genes into the pipeline database need
   # to catch it first and store the $self->db as the genes->db otherwise the
-  # registry will cause problems 
+  # registry will cause problems
   if ( $$DATABASES{'GENEBUILD_DB'}{'-dbname'} eq $self->db->dbc->dbname &&
        $$DATABASES{'GENEBUILD_DB'}{'-port'} == $self->db->dbc->port &&
-       $$DATABASES{'GENEBUILD_DB'}{'-host'} eq $self->db->dbc->host){
-         $self->gene_db($self->db);
-  } else { 
+       $$DATABASES{'GENEBUILD_DB'}{'-host'} eq $self->db->dbc->host )
+  {
+    $self->gene_db( $self->db );
+  }
+  else {
     my $genes_db = $self->get_dbadaptor("GENEBUILD_DB");
     $self->gene_db($genes_db);
   }
   $self->db->dnadb($dna_db);
-  my $aa = $self->db->get_AnalysisAdaptor;
-  my $analysis = $aa->fetch_by_logic_name($self->input_id);
+  my $aa       = $self->db->get_AnalysisAdaptor;
+  my $analysis = $aa->fetch_by_logic_name( $self->input_id );
   $self->throw("Analysis BlastmiRNA not found $@\n") unless $analysis;
   my $dafa = $self->db->get_DnaAlignFeatureAdaptor;
   my @flags;
   my @dafs;
-  my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->db);
+  my $fa = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new( $self->db );
   print "Fetching features\n";
-  eval{
-    @flags = @{$fa->fetch_by_analysis($self->analysis)};
-  };
-  foreach my $flag (@flags){
-    if ($flag->goalAnalysis->logic_name eq $self->analysis->logic_name){
-      my $daf = $dafa->fetch_by_dbID($flag->ensembl_id);
+  eval { @flags = @{ $fa->fetch_by_analysis( $self->analysis ) }; };
+
+  foreach my $flag (@flags) {
+    if ( $flag->goalAnalysis->logic_name eq $self->analysis->logic_name ) {
+      my $daf = $dafa->fetch_by_dbID( $flag->ensembl_id );
       push @dafs, $daf;
     }
   }
-  $self->throw("No dna align features found ") unless (scalar(@dafs) >=1);
-  print scalar(@dafs)." dafs found\n";
-  my %families = %{$self->family(\@dafs)};
+  $self->throw("No dna align features found ") unless ( scalar(@dafs) >= 1 );
+  print scalar(@dafs) . " dafs found\n";
+  my %families = %{ $self->family( \@dafs ) };
   # empty the array
   @dafs = ();
-  
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::miRNA->new
-    (
-     -queries => \%families,
-     -analysis => $self->analysis,
-    );
-  $self->runnable($runnable);
-}
 
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::miRNA->new( -queries => \%families, -analysis => $self->analysis, );
+  $self->runnable($runnable);
+} ## end sub fetch_input
 
 =head2 family
 
@@ -143,23 +139,24 @@ sub fetch_input{
 
 =cut
 
-sub family{
-  my ($self,$dafs_ref) = @_;
+sub family {
+  my ( $self, $dafs_ref ) = @_;
   my %families;
-  foreach my $daf (@$dafs_ref){
-    push @{$families{$daf->hseqname}},$daf;
+  foreach my $daf (@$dafs_ref) {
+    push @{ $families{ $daf->hseqname } }, $daf;
   }
   my %filtered_fam;
-  foreach my $key (keys %families){
-  if (scalar @{$families{$key}} <= 50){
-    $filtered_fam{$key} = $families{$key};
-    } else {
+  foreach my $key ( keys %families ) {
+    if ( scalar @{ $families{$key} } <= 50 ) {
+      $filtered_fam{$key} = $families{$key};
+    }
+    else {
       # take top scoring 50 hits
-      my @array = sort {$a->p_value <=> $b->p_value} @{$families{$key}};
-      my @filtered_array =  splice(@array,0,50);
+      my @array = sort { $a->p_value <=> $b->p_value } @{ $families{$key} };
+      my @filtered_array = splice( @array, 0, 50 );
       $filtered_fam{$key} = \@filtered_array;
     }
- }
+  }
   return \%filtered_fam;
 }
 
@@ -173,46 +170,43 @@ sub family{
 
 =cut
 
-sub write_output{
-  my ($self) = @_;
+sub write_output {
+  my ($self)  = @_;
   my $adaptor = $self->gene_db->get_GeneAdaptor;
-  my $aa = $self->gene_db->get_AttributeAdaptor;
-  my @attributes; 
+  my $aa      = $self->gene_db->get_AttributeAdaptor;
+  my @attributes;
   my $xref;
-  foreach my $gene_hash (@{$self->output}){
+  foreach my $gene_hash ( @{ $self->output } ) {
     my $gene = $gene_hash->{'gene'};
-    @attributes = @{$gene_hash->{'attrib'}};
-    $gene->analysis($self->analysis);
+    @attributes = @{ $gene_hash->{'attrib'} };
+    $gene->analysis( $self->analysis );
     $gene->status('PREDICTED');
-    foreach my $trans (@{$gene->get_all_Transcripts}){
-      $trans->analysis($self->analysis);
+    foreach my $trans ( @{ $gene->get_all_Transcripts } ) {
+      $trans->analysis( $self->analysis );
       $trans->status('PREDICTED');
     }
-    $gene->slice($self->query) if(!$gene->slice);
+    $gene->slice( $self->query ) if ( !$gene->slice );
     $self->feature_factory->validate($gene);
-    eval{
+    eval {
       $adaptor->store($gene);
- 	print STDERR "Attemting to store in ".$adaptor->db->dbname."\n";
+      print STDERR "Attemting to store in " . $adaptor->db->dbname . "\n";
     };
-    if($@){
-      $self->throw("miRNA:store failed, failed to write ".$gene." to ".
-		   "the database $@");
+    if ($@) {
+      $self->throw( "miRNA:store failed, failed to write " . $gene . " to " . "the database $@" );
     }
-    foreach my $trans (@{$gene->get_all_Transcripts}){
-      eval{
-	$aa->store_on_Transcript($trans->dbID,\@attributes);
-	$self->gene_db->get_TranscriptAdaptor->update($trans);
-	$self->gene_db->get_GeneAdaptor->update($gene);	
+    foreach my $trans ( @{ $gene->get_all_Transcripts } ) {
+      eval {
+        $aa->store_on_Transcript( $trans->dbID, \@attributes );
+        $self->gene_db->get_TranscriptAdaptor->update($trans);
+        $self->gene_db->get_GeneAdaptor->update($gene);
       };
-      if($@){
-	$self->throw("miRNA:store failed, failed to write ".@attributes." on transcript ".
-		     $trans." in the database $@");
+      if ($@) {
+        $self->throw( "miRNA:store failed, failed to write " . @attributes . " on transcript " . $trans . " in the database $@" );
       }
     }
-  }
+  } ## end foreach my $gene_hash ( @{ ...})
   return 1;
-}
-
+} ## end sub write_output
 
 #########################################################
 # Containers
@@ -228,9 +222,9 @@ sub write_output{
 =cut
 
 sub gene_db {
-  my ($self, $gene_db) = @_;
-  if ($gene_db){
-    unless ($gene_db->isa("Bio::EnsEMBL::DBSQL::DBAdaptor")){
+  my ( $self, $gene_db ) = @_;
+  if ($gene_db) {
+    unless ( $gene_db->isa("Bio::EnsEMBL::DBSQL::DBAdaptor") ) {
       $self->throw("gene db is not a Bio::EnsEMBL::DBSQL::DBAdaptor, it is a $gene_db");
     }
     $self->{'_gene_db'} = $gene_db;

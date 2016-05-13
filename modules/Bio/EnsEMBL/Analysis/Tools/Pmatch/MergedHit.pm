@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,12 +13,12 @@
 # limitations under the License.
 
 # holds a MergedHit - produced by munging together CoordinatePairs
-# MergedHit knows which contig and protein it is pairing, strand, overall 
+# MergedHit knows which contig and protein it is pairing, strand, overall
 # coverage and details of component CoordinatePairs
 
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
-use warnings ;
-use strict ;
+use warnings;
+use strict;
 use vars qw(@ISA);
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -31,20 +31,17 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
  Usage   :
  Function: constructor
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub new {
-  my ($class, @args) = @_;
+  my ( $class, @args ) = @_;
   my $self = bless {}, $class;
 
-  my ($query, $target, $strand,$coverage) = rearrange(['QUERY',
-							       'TARGET',
-							       'STRAND',
-							       'COVERAGE'],@args);
+  my ( $query, $target, $strand, $coverage ) = rearrange( [ 'QUERY', 'TARGET', 'STRAND', 'COVERAGE' ], @args );
 
   $self->throw("No query") unless defined $query;
   $self->query($query);
@@ -70,14 +67,14 @@ sub new {
  Usage   :
  Function: get/set for query (fpccontig name)
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub query {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'query'} = $arg;
   }
@@ -90,14 +87,14 @@ sub query {
  Usage   :
  Function: get/set for target (protein name)
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub target {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'target'} = $arg;
   }
@@ -110,14 +107,14 @@ sub target {
  Usage   :
  Function: get/set for coverage (% of target covered by this hit
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub coverage {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     #if($arg < 0 || $arg > 100){
     #  throw("coverage is not between 0 and 100");
@@ -133,14 +130,14 @@ sub coverage {
  Usage   :
  Function: get/set for (query) strand
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub strand {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'strand'} = $arg;
   }
@@ -153,35 +150,34 @@ sub strand {
  Usage   :
  Function: adds a CoordPair to the supporting data for this MergedHit
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
-
 sub add_CoordPair {
-  my ($self,$pair) = @_;
+  my ( $self, $pair ) = @_;
   $self->throw('No coord pair') unless defined $pair;
-  $self->throw('$pair is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair') unless $pair->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair");
+  $self->throw('$pair is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair')
+    unless $pair->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair");
 
+  push( @{ $self->{_coord_pairs} }, $pair );
 
-  push(@{$self->{_coord_pairs}},$pair);
-  
   # need to do some sorting?
-  if ($self->strand == 1) {
-    @{$self->{_coord_pairs}} = sort {$a->qstart <=> $b->qstart} @{$self->{_coord_pairs}};
+  if ( $self->strand == 1 ) {
+    @{ $self->{_coord_pairs} } = sort { $a->qstart <=> $b->qstart } @{ $self->{_coord_pairs} };
   }
   else {
-    @{$self->{_coord_pairs}} = sort {$b->qstart <=> $a->qstart} @{$self->{_coord_pairs}};
+    @{ $self->{_coord_pairs} } = sort { $b->qstart <=> $a->qstart } @{ $self->{_coord_pairs} };
   }
-  
-  $self->tstart(@{$self->{_coord_pairs}}[0]->tstart);
-  $self->qstart(@{$self->{_coord_pairs}}[0]->qstart);
 
-  $self->tend(@{$self->{_coord_pairs}}[scalar(@{$self->{_coord_pairs}})-1]->tend);
-  $self->qend(@{$self->{_coord_pairs}}[scalar(@{$self->{_coord_pairs}})-1]->qend);
-  
+  $self->tstart( @{ $self->{_coord_pairs} }[0]->tstart );
+  $self->qstart( @{ $self->{_coord_pairs} }[0]->qstart );
+
+  $self->tend( @{ $self->{_coord_pairs} }[ scalar( @{ $self->{_coord_pairs} } ) - 1 ]->tend );
+  $self->qend( @{ $self->{_coord_pairs} }[ scalar( @{ $self->{_coord_pairs} } ) - 1 ]->qend );
+
 }
 
 =head2 subsume_MergedHit
@@ -190,32 +186,34 @@ sub add_CoordPair {
  Usage   :
  Function: Incorporate all the pairs from another MergedHit into this one
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
-sub subsume_MergedHit {
-  my ($self,$hit) = @_;
-  $self->throw('No hit') unless defined $hit;
-  $self->throw('$hit is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit') unless $hit->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit");
 
-  push(@{$self->{_coord_pairs}},$hit->each_CoordPair);
-  
+sub subsume_MergedHit {
+  my ( $self, $hit ) = @_;
+  $self->throw('No hit') unless defined $hit;
+  $self->throw('$hit is not a Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit')
+    unless $hit->isa("Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit");
+
+  push( @{ $self->{_coord_pairs} }, $hit->each_CoordPair );
+
   # need to do some sorting?
-  if ($self->strand == 1) {
-    @{$self->{_coord_pairs}} = sort {$a->qstart <=> $b->qstart} @{$self->{_coord_pairs}};
+  if ( $self->strand == 1 ) {
+    @{ $self->{_coord_pairs} } = sort { $a->qstart <=> $b->qstart } @{ $self->{_coord_pairs} };
   }
   else {
-    @{$self->{_coord_pairs}} = sort {$b->qstart <=> $a->qstart} @{$self->{_coord_pairs}};
+    @{ $self->{_coord_pairs} } = sort { $b->qstart <=> $a->qstart } @{ $self->{_coord_pairs} };
   }
-  
-  $self->tstart(@{$self->{_coord_pairs}}[0]->tstart);
-  $self->qstart(@{$self->{_coord_pairs}}[0]->qstart);
 
-  $self->tend(@{$self->{_coord_pairs}}[scalar(@{$self->{_coord_pairs}})-1]->tend);
-  $self->qend(@{$self->{_coord_pairs}}[scalar(@{$self->{_coord_pairs}})-1]->qend);
-  
+  $self->tstart( @{ $self->{_coord_pairs} }[0]->tstart );
+  $self->qstart( @{ $self->{_coord_pairs} }[0]->qstart );
+
+  $self->tend( @{ $self->{_coord_pairs} }[ scalar( @{ $self->{_coord_pairs} } ) - 1 ]->tend );
+  $self->qend( @{ $self->{_coord_pairs} }[ scalar( @{ $self->{_coord_pairs} } ) - 1 ]->qend );
+
 }
 
 =head2 each_CoordPair
@@ -224,8 +222,8 @@ sub subsume_MergedHit {
  Usage   :
  Function: returns the CoordPairs contibuting to this MergedHit
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
@@ -234,7 +232,7 @@ sub each_CoordPair {
   my ($self) = @_;
   # sorted by qstart, based on strand
 
-  return @{$self->{_coord_pairs}};
+  return @{ $self->{_coord_pairs} };
 }
 
 =head2 tstart
@@ -243,14 +241,14 @@ sub each_CoordPair {
  Usage   :
  Function: returns overall start of hit in protein coords
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub tstart {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'tstart'} = $arg;
   }
@@ -263,14 +261,14 @@ sub tstart {
  Usage   :
  Function: returns overall end of hit in protein coords
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub tend {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'tend'} = $arg;
   }
@@ -283,14 +281,14 @@ sub tend {
  Usage   :
  Function: returns overall start of hit in fpc contig coords
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub qstart {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'qstart'} = $arg;
   }
@@ -303,14 +301,14 @@ sub qstart {
  Usage   :
  Function: returns overall end of hit in fpc contig coords
  Example :
- Returns : 
- Args    : 
+ Returns :
+ Args    :
 
 
 =cut
 
 sub qend {
-  my ($self,$arg) = @_;
+  my ( $self, $arg ) = @_;
   if ($arg) {
     $self->{'qend'} = $arg;
   }

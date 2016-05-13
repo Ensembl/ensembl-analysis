@@ -1,13 +1,13 @@
 
 package Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus;
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -53,7 +53,6 @@ use Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio);
 
 =head2 new
@@ -61,45 +60,43 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
   Returntype : Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus
 =cut
 
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  
-  my ($species) = rearrange(['SPECIES'], @args);
+
+  my ($species) = rearrange( ['SPECIES'], @args );
   $self->species($species);
-  
+
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->program('/software/anacode/bin/augustus') if(!$self->program);
-  $self->species('human') if(!$self->species);
+  $self->program('/software/anacode/bin/augustus') if ( !$self->program );
+  $self->species('human')                          if ( !$self->species );
   ######################
 
   return $self;
 }
 
 sub species {
-  my ($self,$species) = @_;
-  if($species){
+  my ( $self, $species ) = @_;
+  if ($species) {
     $self->{'species'} = $species;
   }
   return $self->{'species'};
 }
 
-sub run_analysis{
-  my ($self, $program) = @_;
-  if(!$program){
+sub run_analysis {
+  my ( $self, $program ) = @_;
+  if ( !$program ) {
     $program = $self->program;
   }
-  throw($program." is not executable Augustus::run_analysis ")
-    unless($program && -x $program);
+  throw( $program . " is not executable Augustus::run_analysis " ) unless ( $program && -x $program );
 
-  my $command = $program." --species=".$self->species." ";
-  $command .= $self->options." " if($self->options);
-  $command .= $self->queryfile." > ".$self->resultsfile;
-  print "Running analysis ".$command."\n";
-  system($command) == 0 or throw("FAILED to run ".$command);
+  my $command = $program . " --species=" . $self->species . " ";
+  $command .= $self->options . " " if ( $self->options );
+  $command .= $self->queryfile . " > " . $self->resultsfile;
+  print "Running analysis " . $command . "\n";
+  system($command) == 0 or throw( "FAILED to run " . $command );
 }
 
 ## Predicted genes for sequence number 1 on both strands
@@ -121,7 +118,6 @@ sub run_analysis{
 ## MKKLQSPVILLYCTKEEATTIFEVAHSVGLTGYGYTWIVPSLVAGDTDNVPNVFPTGLISVSYDEWDYGLEARVRDAVAIIAMATSTMMLDRGPHTLL
 ## KSGCHGAPDKKGSKSGNPNEVLR]
 
-
 =head2 parse_results
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus
@@ -133,63 +129,64 @@ sub run_analysis{
 
 =cut
 
-sub parse_results{
-  my ($self, $results) = @_;
-  if(!$results){
+sub parse_results {
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
-  open(OUT, "<".$results) or throw("FAILED to open ".$results."Augustus:parse_results");
+  open( OUT, "<" . $results ) or throw( "FAILED to open " . $results . "Augustus:parse_results" );
 
   my $genes;
   my $verbose = 0;
   # parse output
   while (<OUT>) {
     chomp;
-    if(/^#/) { next; }
+    if (/^#/) { next; }
     my @element = split /\t/;
-    if($element[2] && $element[2] eq 'CDS')
-    {
-		my ($transcript_id,$gene_id) = $element[8] =~ /transcript_id "(.*)"; gene_id "(.*)";/;
-		my @exon = @element[3..7]; #($start,$end,$score,$strand,$phase)
-		$genes->{$gene_id}->{$transcript_id} ||= [];
-		push @{$genes->{$gene_id}->{$transcript_id}}, \@exon;
+    if ( $element[2] && $element[2] eq 'CDS' ) {
+      my ( $transcript_id, $gene_id ) = $element[8] =~ /transcript_id "(.*)"; gene_id "(.*)";/;
+      my @exon = @element[ 3 .. 7 ];    #($start,$end,$score,$strand,$phase)
+      $genes->{$gene_id}->{$transcript_id} ||= [];
+      push @{ $genes->{$gene_id}->{$transcript_id} }, \@exon;
     }
   }
 
   # create exon objects
-  foreach my $gene (keys %$genes) {
-  	print STDOUT "Gene $gene\n" if($verbose);
-    foreach my $transcript (keys %{$genes->{$gene}}) {
-    	print STDOUT "\tTranscript $transcript\n" if($verbose);
-    	my $exons = $genes->{$gene}->{$transcript};
-    	my $strand = $exons->[0]->[3];
-    	if($strand eq '+') {
-    		$strand = 1;
-    		@$exons = sort {$a->[0] <=> $b->[0]} @$exons;
-    	}else{
-    		$strand = -1;
-    		@$exons = reverse sort {$a->[0] <=> $b->[0]} @$exons;
-    	}
-    	my $exon_num=1;
-    	foreach my $exon (@$exons) {
-    		my $start	= $exon->[0];
-    		my $end		= $exon->[1];
-    		my $score	= $exon->[2];
-    		my $phase	= $exon->[4];
-    		my $e_name	= $transcript.".e".$exon_num; # g1.t1.e1
-    		my $e = $self->feature_factory->create_prediction_exon
-             ($start, $end, $strand, $score, '0', $phase, $e_name, $self->query, $self->analysis);
-             print "\t\t\t".join("\t",$e_name,$start, $end, $strand, $score, $phase,"\n" ) if($verbose);
-           	$self->exon_groups($transcript, $e);
-           	$exon_num++;
-    	}
-    }
-  }
+  foreach my $gene ( keys %$genes ) {
+    print STDOUT "Gene $gene\n" if ($verbose);
+    foreach my $transcript ( keys %{ $genes->{$gene} } ) {
+      print STDOUT "\tTranscript $transcript\n" if ($verbose);
+      my $exons  = $genes->{$gene}->{$transcript};
+      my $strand = $exons->[0]->[3];
+      if ( $strand eq '+' ) {
+        $strand = 1;
+        @$exons = sort { $a->[0] <=> $b->[0] } @$exons;
+      }
+      else {
+        $strand = -1;
+        @$exons = reverse sort { $a->[0] <=> $b->[0] } @$exons;
+      }
+      my $exon_num = 1;
+      foreach my $exon (@$exons) {
+        my $start  = $exon->[0];
+        my $end    = $exon->[1];
+        my $score  = $exon->[2];
+        my $phase  = $exon->[4];
+        my $e_name = $transcript . ".e" . $exon_num;    # g1.t1.e1
+        my $e = $self->feature_factory->create_prediction_exon( $start,  $end,         $strand,
+                                                                $score,  '0',          $phase,
+                                                                $e_name, $self->query, $self->analysis );
+        print "\t\t\t" . join( "\t", $e_name, $start, $end, $strand, $score, $phase, "\n" ) if ($verbose);
+        $self->exon_groups( $transcript, $e );
+        $exon_num++;
+      }
+    } ## end foreach my $transcript ( keys...)
+  } ## end foreach my $gene ( keys %$genes)
 
   # create transcript objects
   $self->create_transcripts();
-  close(OUT) or throw("FAILED to close ".$results."Augustus:parse_results");
+  close(OUT) or throw( "FAILED to close " . $results . "Augustus:parse_results" );
 
-}
+} ## end sub parse_results
 
 1;

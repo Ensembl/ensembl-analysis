@@ -1,16 +1,17 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 =head1 NAME
 
 TranscriptCluster
@@ -20,8 +21,8 @@ TranscriptCluster
 
 =head1 DESCRIPTION
 
-This object holds one or more transcripts which have been clustered according to 
-comparison criteria external to this class (for instance, in the 
+This object holds one or more transcripts which have been clustered according to
+comparison criteria external to this class (for instance, in the
 method _compare_Transcripts of the class GeneComparison).
 Each TranscriptCluster object holds the IDs of the transcripts clustered and the beginning and end coordinates
 of each one (taken from the start and end coordinates of the first and last exon in the correspondig
@@ -56,7 +57,6 @@ use Bio::RangeI;
 
 #########################################################################
 
-
 =head2 new()
 
 new() initializes the attributes:
@@ -68,16 +68,16 @@ _end
 =cut
 
 sub new {
-  my ($class,$whatever)=@_;
+  my ( $class, $whatever ) = @_;
 
-  if (ref($class)){
+  if ( ref($class) ) {
     $class = ref($class);
   }
   my $self = {};
-  bless($self,$class);
-  
-  if ($whatever){
-    $self->throw( "Can't pass an object to new() method. Use put_Genes() to include Bio::EnsEMBL::Gene in cluster");
+  bless( $self, $class );
+
+  if ($whatever) {
+    $self->throw("Can't pass an object to new() method. Use put_Genes() to include Bio::EnsEMBL::Gene in cluster");
   }
 
   return $self;
@@ -100,10 +100,10 @@ and geometrical methods for a range.
 
 =cut
 
-sub start{
-  my ($self,$start) = @_;
-  if ($start){
-    $self->throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
+sub start {
+  my ( $self, $start ) = @_;
+  if ($start) {
+    $self->throw("$start is not an integer") unless $start =~ /^[-+]?\d+$/;
     $self->{'_start'} = $start;
   }
   return $self->{'_start'};
@@ -122,10 +122,10 @@ sub start{
           : using $range->end($end
 =cut
 
-sub end{
-  my ($self,$end) = @_;
-  if ($end){
-    $self->throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
+sub end {
+  my ( $self, $end ) = @_;
+  if ($end) {
+    $self->throw("$end is not an integer") unless $end =~ /^[-+]?\d+$/;
     $self->{'_end'} = $end;
   }
   return $self->{'_end'};
@@ -144,10 +144,10 @@ sub end{
 
 =cut
 
-sub length{
+sub length {
   my $self = shift @_;
-  if (@_){
-    $self->confess( ref($self)."->length() is read-only");
+  if (@_) {
+    $self->confess( ref($self) . "->length() is read-only" );
   }
   return ( $self->{'_end'} - $self->{'_start'} + 1 );
 }
@@ -163,17 +163,16 @@ sub length{
             that method there is also a check for strand consistency everytime a new transcript is added
   Returns : the strandidness (-1, 0, +1)
   Args    : optionaly allows the strand to be set
-        
+
 =cut
 
-sub strand{
-  my ($self,$strand) = @_;
-  if ($strand){
+sub strand {
+  my ( $self, $strand ) = @_;
+  if ($strand) {
     $self->{'_strand'} = $strand;
   }
   return $self->{'_strand'};
 }
-
 
 ############################################################
 
@@ -191,7 +190,7 @@ not defined. They are implemented in Bio::RangeI.
   Function: tests if $cluster2 overlaps $cluster1 overlaps in the sense of genomic-range overlap,
             it does NOT test for exon overlap.
   Args    : arg #1 = a range to compare this one to (mandatory)
-            arg #2 = strand option ('strong', 'weak', 'ignore') 
+            arg #2 = strand option ('strong', 'weak', 'ignore')
   Returns : true if the clusters overlap, false otherwise
 
 =cut
@@ -200,7 +199,7 @@ not defined. They are implemented in Bio::RangeI.
 
   Title   : contains
   Usage   : if($cluster1->contains($cluster2) { do stuff }
-  Function: tests whether $cluster1 totally contains $cluster2 
+  Function: tests whether $cluster1 totally contains $cluster2
   Args    : arg #1 = a range to compare this one to (mandatory)
 	             alternatively, integer scalar to test
             arg #2 = strand option ('strong', 'weak', 'ignore') (optional)
@@ -212,7 +211,7 @@ not defined. They are implemented in Bio::RangeI.
 
   Title   : equals
   Usage   : if($cluster1->equals($cluster2))
-  Function: test whether the range covered by $cluster1 has the same start, end, length as the range 
+  Function: test whether the range covered by $cluster1 has the same start, end, length as the range
             covered by $cluster2
   Args    : a range to test for equality
   Returns : true if they are describing the same range
@@ -233,11 +232,11 @@ want them to return a new TranscriptCluster object.
  Function: Provides actual amount of overlap between two different
            ranges. Implemented already in RangeI
  Example :
- Returns : array of values for 
+ Returns : array of values for
            - the amount unique to a
            - the amount common to both
            - the amount unique to b
- Args    : 
+ Args    :
 
 =cut
 
@@ -255,45 +254,45 @@ want them to return a new TranscriptCluster object.
             any transcript
 =cut
 
-sub intersection{
-  my ($self, $cluster) = @_;
+sub intersection {
+  my ( $self, $cluster ) = @_;
 
   # if either is empty, return an empty cluster
-  if ( scalar( @{$self->get_Transcripts}) == 0 ){
-    $self->warn( "cluster $self is empty, returning an empty TranscriptCluster");
+  if ( scalar( @{ $self->get_Transcripts } ) == 0 ) {
+    $self->warn("cluster $self is empty, returning an empty TranscriptCluster");
     my $empty_cluster = Bio::EnsEMBL::Pipeline::GeneComparison::TranscriptCluster->new();
     return $empty_cluster;
   }
 
-  if ( scalar( @{$cluster->get_Transcripts} ) == 0 ){
-    $self->warn( "cluster $cluster is empty, returning an empty TranscriptCluster");
+  if ( scalar( @{ $cluster->get_Transcripts } ) == 0 ) {
+    $self->warn("cluster $cluster is empty, returning an empty TranscriptCluster");
     my $empty_cluster = Bio::EnsEMBL::Pipeline::GeneComparison::TranscriptCluster->new();
     return $empty_cluster;
   }
 
-  my @transcripts = @{$self->get_Transcripts};
-  push( @transcripts, @{$cluster->get_Transcripts});
+  my @transcripts = @{ $self->get_Transcripts };
+  push( @transcripts, @{ $cluster->get_Transcripts } );
 
   # make an unique list of transcripts, in case they are repeated
   my %list;
-  foreach my $transcript (@transcripts){
+  foreach my $transcript (@transcripts) {
     $list{$transcript} = $transcript;
   }
-  @transcripts = values( %list );
+  @transcripts = values(%list);
 
-  my ($inter_start,$inter_end);
-  my ($start1,$end1) = ($self->start   ,   $self->end);
-  my ($start2,$end2) = ($cluster->start,$cluster->end);
+  my ( $inter_start, $inter_end );
+  my ( $start1,      $end1 ) = ( $self->start, $self->end );
+  my ( $start2,      $end2 ) = ( $cluster->start, $cluster->end );
 
   my $strand = $cluster->strand;
 
   # if clusters overlap, calculate the intersection
-  if ( $self->overlaps( $cluster ) ){
-    $inter_start = ($start2 > $start1) ? $start2 : $start1;
-    $inter_end = ($end2 < $end1) ? $end2 : $end1;
+  if ( $self->overlaps($cluster) ) {
+    $inter_start = ( $start2 > $start1 ) ? $start2 : $start1;
+    $inter_end   = ( $end2 < $end1 )     ? $end2   : $end1;
   }
-  else{
-    $self->warn( "clusters $self and $cluster do not intersect range-wise, returning an empty TranscriptCluster");
+  else {
+    $self->warn("clusters $self and $cluster do not intersect range-wise, returning an empty TranscriptCluster");
     my $empty_cluster = Bio::EnsEMBL::Pipeline::GeneComparison::TranscriptCluster->new();
     return $empty_cluster;
   }
@@ -302,21 +301,21 @@ sub intersection{
   my @inter_transcripts;
 
   # see whether any transcript falls within this intersection
-  foreach my $transcript ( @transcripts ){
-    my ($start,$end) = $self->_get_start_end($transcript);
-    if ($start >= $inter_start && $end <= $inter_end ){
-       $inter_cluster->put_Transcripts( $transcript );
+  foreach my $transcript (@transcripts) {
+    my ( $start, $end ) = $self->_get_start_end($transcript);
+    if ( $start >= $inter_start && $end <= $inter_end ) {
+      $inter_cluster->put_Transcripts($transcript);
     }
   }
 
-  if ( scalar( @{$inter_cluster->get_Transcripts} ) == 0 ){
-     $self->warn( "cluster $inter_cluster is empty, returning an empty TranscriptCluster");
-     return $inter_cluster;
-  }
-  else{
+  if ( scalar( @{ $inter_cluster->get_Transcripts } ) == 0 ) {
+    $self->warn("cluster $inter_cluster is empty, returning an empty TranscriptCluster");
     return $inter_cluster;
   }
-}
+  else {
+    return $inter_cluster;
+  }
+} ## end sub intersection
 
 ############################################################
 
@@ -324,34 +323,33 @@ sub intersection{
 
   Title   : union
   Usage   : $union_cluster = $cluster1->union(@clusters);
-  Function: returns the union of clusters 
+  Function: returns the union of clusters
   Args    : a TranscriptCluster or list of TranscriptClusters to find the union of
   Returns : the TranscriptCluster object containing all of the ranges
 
 =cut
 
-sub union{
-my ($self,@clusters) = @_;
+sub union {
+  my ( $self, @clusters ) = @_;
 
-if ( ref($self) ){
- unshift @clusters, $self;
-}
+  if ( ref($self) ) {
+    unshift @clusters, $self;
+  }
 
-my $union_cluster = Bio::EnsEMBL::Pipeline::GeneComparison::TranscriptCluster->new();
-my $union_strand;
+  my $union_cluster = Bio::EnsEMBL::Pipeline::GeneComparison::TranscriptCluster->new();
+  my $union_strand;
 
-foreach my $cluster (@clusters){
- unless ($union_strand){
-  $union_strand = $cluster->strand;
- }
- unless ( $cluster->strand == $union_strand){
-  $self->warn("You're making the union of clusters in opposite strands");
- }
- $union_cluster->put_Transcripts(@{$cluster->get_Transcripts});
-}
+  foreach my $cluster (@clusters) {
+    unless ($union_strand) {
+      $union_strand = $cluster->strand;
+    }
+    unless ( $cluster->strand == $union_strand ) {
+      $self->warn("You're making the union of clusters in opposite strands");
+    }
+    $union_cluster->put_Transcripts( @{ $cluster->get_Transcripts } );
+  }
 
-return $union_cluster;
-
+  return $union_cluster;
 
 }
 
@@ -365,57 +363,57 @@ return $union_cluster;
 =cut
 
 sub put_Transcripts {
-  my ($self, @new_transcripts)= @_;
-  
-  if ( !$new_transcripts[0]->isa('Bio::EnsEMBL::Transcript') ){
-    $self->throw( "Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
+  my ( $self, @new_transcripts ) = @_;
+
+  if ( !$new_transcripts[0]->isa('Bio::EnsEMBL::Transcript') ) {
+    $self->throw("Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
   }
-  
+
   #Get bounds of new transcripts
   my $min_start = undef;
   my $max_end   = undef;
   foreach my $transcript (@new_transcripts) {
-    my ($start, $end) = $self->_get_start_end($transcript);
-    if (!defined($min_start) || $start < $min_start) {
+    my ( $start, $end ) = $self->_get_start_end($transcript);
+    if ( !defined($min_start) || $start < $min_start ) {
       $min_start = $start;
     }
-    if (!defined($max_end) || $end > $max_end) {
+    if ( !defined($max_end) || $end > $max_end ) {
       $max_end = $end;
     }
   }
 
   # check strand consistency among transcripts
-  foreach my $transcript (@new_transcripts){
-    my @exons = @{$transcript->get_all_Exons};
-    unless ( $self->strand ){
+  foreach my $transcript (@new_transcripts) {
+    my @exons = @{ $transcript->get_all_Exons };
+    unless ( $self->strand ) {
       $self->strand( $exons[0]->strand );
     }
-    if ( $self->strand != $exons[0]->strand ){
-      $self->warn( "You're trying to put $transcript in a cluster of opposite strand");
+    if ( $self->strand != $exons[0]->strand ) {
+      $self->warn("You're trying to put $transcript in a cluster of opposite strand");
     }
   }
 
   # if start is not defined, set it
-  unless ( $self->start ){
-    $self->start( $min_start );
+  unless ( $self->start ) {
+    $self->start($min_start);
   }
 
   # if end is not defined, set it
-  unless ( $self->end ){
-    $self->end( $max_end);
+  unless ( $self->end ) {
+    $self->end($max_end);
   }
-  
+
   # extend start and end if necessary as we include more transcripts
-  if ($min_start < $self->start ){
-    $self->start( $min_start );
+  if ( $min_start < $self->start ) {
+    $self->start($min_start);
   }
-  if ( $max_end > $self->end ){
-    $self->end( $max_end );
+  if ( $max_end > $self->end ) {
+    $self->end($max_end);
   }
 
-  push ( @{ $self->{'_transcript_array'} }, @new_transcripts );
+  push( @{ $self->{'_transcript_array'} }, @new_transcripts );
 
-}
+} ## end sub put_Transcripts
 
 #########################################################################
 
@@ -440,24 +438,24 @@ sub get_Transcripts {
 
 sub to_String {
   my $self = shift @_;
-  my $data='';
-  foreach my $tran ( @{ $self->{'_transcript_array'} } ){
-    my @exons = @{$tran->get_all_Exons};
+  my $data = '';
+  foreach my $tran ( @{ $self->{'_transcript_array'} } ) {
+    my @exons = @{ $tran->get_all_Exons };
     my $id;
-    if ( $tran->stable_id ){
+    if ( $tran->stable_id ) {
       $id = $tran->stable_id;
     }
-    else{
+    else {
       $id = $tran->dbID;
     }
- 
-    $data .= sprintf "Id: %-16s"             , $id;
-    $data .= sprintf "Contig: %-21s"         , $exons[0]->contig->id;
-    $data .= sprintf "Exons: %-3d"           , scalar(@exons);
-    my ($start, $end) = $self->_get_start_end($tran);
-    $data .= sprintf "Start: %-9d"           , $start;
-    $data .= sprintf "End: %-9d"             , $end;
-    $data .= sprintf "Strand: %-3d"          , $exons[0]->strand;
+
+    $data .= sprintf "Id: %-16s",     $id;
+    $data .= sprintf "Contig: %-21s", $exons[0]->contig->id;
+    $data .= sprintf "Exons: %-3d",   scalar(@exons);
+    my ( $start, $end ) = $self->_get_start_end($tran);
+    $data .= sprintf "Start: %-9d",           $start;
+    $data .= sprintf "End: %-9d",             $end;
+    $data .= sprintf "Strand: %-3d",          $exons[0]->strand;
     $data .= sprintf "Exon-density: %3.2f\n", $self->exon_Density($tran);
   }
   return $data;
@@ -465,14 +463,14 @@ sub to_String {
 
 #########################################################################
 
-sub exon_Density{
-  my ($self, $transcript) = @_;  
+sub exon_Density {
+  my ( $self, $transcript ) = @_;
   my $density;
   my $exon_span;
-  my @exons = @{$transcript->get_all_Exons};
+  my @exons = @{ $transcript->get_all_Exons };
   @exons = sort { $a->start <=> $b->start } @exons;
   my $transcript_length = $exons[$#exons]->end - $exons[0]->start;
-  foreach my $exon ( @exons ){
+  foreach my $exon (@exons) {
     $exon_span += $exon->length;
   }
   $density = $exon_span/$transcript_length;
@@ -487,10 +485,9 @@ sub exon_Density{
 =cut
 
 sub _get_start_end {
-  my ($self,$t) = @_;
-#  return ($t->start, $t->end, $t->strand);
-  return ($t->start, $t->end);
+  my ( $self, $t ) = @_;
+  #  return ($t->start, $t->end, $t->strand);
+  return ( $t->start, $t->end );
 }
-
 
 1;

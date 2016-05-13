@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes - 
+Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes -
 
 =head1 SYNOPSIS
 
@@ -43,7 +44,7 @@ the database COPY_TARGET_DB
 
 package Bio::EnsEMBL::Analysis::RunnableDB::CopyGenes;
 
-use warnings ;
+use warnings;
 use vars qw(@ISA);
 use strict;
 
@@ -55,11 +56,10 @@ use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
 
-sub new{
-  my ($class,@args) = @_;
+sub new {
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($given_source_db, $given_target_db, $given_biotype) = rearrange
-    (['SOURCE_DB', 'TARGET_DB', 'BIOTYPE'], @args);
+  my ( $given_source_db, $given_target_db, $given_biotype ) = rearrange( [ 'SOURCE_DB', 'TARGET_DB', 'BIOTYPE' ], @args );
 
   #### Default values...
   $self->source_db_name("COPY_SOURCE_DB");
@@ -68,40 +68,39 @@ sub new{
 
   ### ...are over-ridden by parameters given in analysis table...
   my $ph = $self->parameters_hash;
-  $self->source_db_name($ph->{-source_db}) if exists $ph->{-source_db};
-  $self->target_db_name($ph->{-target_db}) if exists $ph->{-target_db};
-  $self->biotype($ph->{-biotype}) if exists $ph->{-biotype};
-  
-  ### ...which are over-ridden by constructor arguments. 
+  $self->source_db_name( $ph->{-source_db} ) if exists $ph->{-source_db};
+  $self->target_db_name( $ph->{-target_db} ) if exists $ph->{-target_db};
+  $self->biotype( $ph->{-biotype} )          if exists $ph->{-biotype};
+
+  ### ...which are over-ridden by constructor arguments.
   $self->source_db_name($given_source_db) if defined $given_source_db;
   $self->target_db_name($given_target_db) if defined $given_target_db;
-  $self->biotype($given_biotype) if defined $given_biotype;
- 
+  $self->biotype($given_biotype)          if defined $given_biotype;
+
   return $self;
 }
 
-
 #getter/setters
 
-sub source_db_name{
-  my ($self, $arg) = @_;
-  if(defined $arg){
+sub source_db_name {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
     $self->{'source_db_name'} = $arg;
   }
   return $self->{'source_db_name'};
 }
 
-sub target_db_name{
-  my ($self, $arg) = @_;
-  if(defined $arg){
+sub target_db_name {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
     $self->{'target_db_name'} = $arg;
   }
   return $self->{'target_db_name'};
 }
 
-sub biotype{
-  my ($self, $arg) = @_;
-  if(defined $arg){
+sub biotype {
+  my ( $self, $arg ) = @_;
+  if ( defined $arg ) {
     $self->{'biotype'} = $arg;
   }
   return $self->{'biotype'};
@@ -109,30 +108,31 @@ sub biotype{
 
 ################################
 sub fetch_input {
-  my ($self) = @_;  
+  my ($self) = @_;
 
-  my $source_db = $self->get_dbadaptor($self->source_db_name);
-  my $slice = $source_db->get_SliceAdaptor->fetch_by_name($self->input_id);
+  my $source_db = $self->get_dbadaptor( $self->source_db_name );
+  my $slice     = $source_db->get_SliceAdaptor->fetch_by_name( $self->input_id );
 
   #
   # total paranoia: fetch everything up front
   #
   my (@genes);
   my @target_genes;
-  if($self->biotype){
-    @target_genes = @{$slice->get_all_Genes_by_type($self->biotype)};
-  }else{
-    @target_genes = @{$slice->get_all_Genes};
+  if ( $self->biotype ) {
+    @target_genes = @{ $slice->get_all_Genes_by_type( $self->biotype ) };
+  }
+  else {
+    @target_genes = @{ $slice->get_all_Genes };
   }
   foreach my $g (@target_genes) {
 
-    foreach my $t (@{$g->get_all_Transcripts}) {
-      foreach my $e (@{$t->get_all_Exons}) {
+    foreach my $t ( @{ $g->get_all_Transcripts } ) {
+      foreach my $e ( @{ $t->get_all_Exons } ) {
         $e->get_all_supporting_features;
         $e->stable_id;
       }
       my $tr = $t->translation;
-      if (defined $tr) {
+      if ( defined $tr ) {
         $tr->stable_id;
         $tr->get_all_Attributes;
         $tr->get_all_DBEntries;
@@ -148,28 +148,26 @@ sub fetch_input {
     $g->get_all_DBEntries;
     $g->display_xref;
     $g->get_all_Attributes;
-  
+
     push @genes, $g;
-  }
+  } ## end foreach my $g (@target_genes)
 
-  $self->output(\@genes);
-}
-
+  $self->output( \@genes );
+} ## end sub fetch_input
 
 ##################################
 sub write_output {
-  my($self) = @_;
-  
-  my $target_db = $self->get_dbadaptor($self->target_db_name);
-    
+  my ($self) = @_;
+
+  my $target_db = $self->get_dbadaptor( $self->target_db_name );
+
   my $g_adap = $target_db->get_GeneAdaptor;
 
-  foreach my $g (@{$self->output}) {
+  foreach my $g ( @{ $self->output } ) {
     $g_adap->store($g);
   }
-  
+
   return 1;
 }
-
 
 1;

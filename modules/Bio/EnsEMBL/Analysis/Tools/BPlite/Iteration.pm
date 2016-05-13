@@ -1,6 +1,6 @@
 # Bioperl module Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration
 #	based closely on the Bio::EnsEMBL::Analysis::Tools::BPlite modules
-#	Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
+#	Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf),
 #	Lorenz Pollak (lorenz@ist.org, bioperl port)
 #
 # Copyright Peter Schattner
@@ -47,12 +47,12 @@ Email: schattner@alum.mit.edu
 =head1 ACKNOWLEDGEMENTS
 
 Based on work of:
-Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf), 
+Ian Korf (ikorf@sapiens.wustl.edu, http://sapiens.wustl.edu/~ikorf),
 Lorenz Pollak (lorenz@ist.org, bioperl port)
 
 =head1 COPYRIGHT
 
-BPlite.pm is copyright (C) 1999 by Ian Korf. 
+BPlite.pm is copyright (C) 1999 by Ian Korf.
 
 =head1 DISCLAIMER
 
@@ -62,45 +62,43 @@ This software is provided "as is" without warranty of any kind.
 
 package Bio::EnsEMBL::Analysis::Tools::BPlite::Iteration;
 
-use warnings ;
+use warnings;
 use strict;
 use vars qw(@ISA);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::BPlite; #
+use Bio::EnsEMBL::Analysis::Tools::BPlite;    #
 use Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct;
 
 @ISA = qw();
 
 sub new {
-    my ($caller, @args) = @_;
-    # my $self = $class->SUPER::new(@args);
+  my ( $caller, @args ) = @_;
+  # my $self = $class->SUPER::new(@args);
 
-    my $class = ref($caller) || $caller;
-    my $self = bless({}, $class);
+  my $class = ref($caller) || $caller;
+  my $self = bless( {}, $class );
 
+  ( $self->{'FH'}, $self->{'PARENT'}, $self->{'ROUND'} ) = rearrange(
+    [ qw(FH
+        PARENT
+        ROUND
+        ) ],
+    @args );
 
-    ($self->{'FH'},$self->{'PARENT'},$self->{'ROUND'}) =
-           rearrange([qw(FH
-			      PARENT
-			      ROUND
-			      )],@args);
-    
-    if((! ref($self->{'FH'})) ||
-       ((ref($self->{'FH'}) ne 'GLOB') &&
-	(! $self->{'FH'}->isa('IO::Handle')))) {
-	throw("Expecting a GLOB reference, not $self->{'FH'} !");
-    }
-    
-    $self->{'LASTLINE'} = "";
-    $self->{'QUERY'} = $self->{'PARENT'}->{'QUERY'};
-    $self->{'LENGTH'} = $self->{'PARENT'}->{'LENGTH'};
+  if ( ( !ref( $self->{'FH'} ) ) || ( ( ref( $self->{'FH'} ) ne 'GLOB' ) && ( !$self->{'FH'}->isa('IO::Handle') ) ) ) {
+    throw("Expecting a GLOB reference, not $self->{'FH'} !");
+  }
 
-    if ($self->_parseHeader) {$self->{'REPORT_DONE'} = 0} # there are alignments
-    else                     {$self->{'REPORT_DONE'} = 1} # empty report
-  
-    return $self; # success - we hope!
-}
+  $self->{'LASTLINE'} = "";
+  $self->{'QUERY'}    = $self->{'PARENT'}->{'QUERY'};
+  $self->{'LENGTH'}   = $self->{'PARENT'}->{'LENGTH'};
+
+  if   ( $self->_parseHeader ) { $self->{'REPORT_DONE'} = 0 }    # there are alignments
+  else                         { $self->{'REPORT_DONE'} = 1 }    # empty report
+
+  return $self;                                                  # success - we hope!
+} ## end sub new
 
 =head2 query
 
@@ -113,7 +111,7 @@ sub new {
 
 =cut
 
-sub query    {shift->{'QUERY'}}
+sub query { shift->{'QUERY'} }
 
 =head2 qlength
 
@@ -124,41 +122,40 @@ sub query    {shift->{'QUERY'}}
 
 =cut
 
-sub qlength  {shift->{'LENGTH'}}
+sub qlength { shift->{'LENGTH'} }
 
 =head2 newhits
 
  Title    :  newhits
  Usage    : $newhits = $obj->newhits();
- Returns  : reference to an array listing all the hits 
-            from the current iteration which were not identified 
+ Returns  : reference to an array listing all the hits
+            from the current iteration which were not identified
             in the previous iteration
  Args     : none
 
 =cut
 
-sub newhits  {shift->{'NEWHITS'}}
+sub newhits { shift->{'NEWHITS'} }
 
 =head2 oldhits
 
  Title    :  oldhits
  Usage    : $oldhits = $obj->oldhits();
- Returns  : reference to an array listing all the hits from 
-            the current iteration which were identified and 
+ Returns  : reference to an array listing all the hits from
+            the current iteration which were identified and
             above threshold in the previous iteration
  Args     : none
 
 =cut
 
-sub oldhits  {shift->{'OLDHITS'}}
-
+sub oldhits { shift->{'OLDHITS'} }
 
 =head2 nextSbjct
 
  Title    : nextSbjct
  Usage    : $sbjct = $obj->nextSbjct();
  Function : Method of iterating through all the Sbjct retrieved
-            from parsing the report 
+            from parsing the report
  Example  : while ( my $sbjct = $obj->nextSbjct ) {}
  Returns  : next Sbjct object or undef if finished
  Args     :
@@ -173,12 +170,12 @@ sub nextSbjct {
   # get all sbjct lines #
   #######################
   my $def = $self->{'LASTLINE'};
-  my $FH = $self->{'FH'};
-  while(<$FH>) {
-    if    ($_ !~ /\w/)            {next}
-    elsif ($_ =~ /Strand HSP/)    {next} # WU-BLAST non-data
-    elsif ($_ =~ /^\s{0,2}Score/) {$self->{'LASTLINE'} = $_; last}
-    else                          {$def .= $_}
+  my $FH  = $self->{'FH'};
+  while (<$FH>) {
+    if    ( $_ !~ /\w/ )         { next }
+    elsif ( $_ =~ /Strand HSP/ ) { next }    # WU-BLAST non-data
+    elsif ( $_ =~ /^\s{0,2}Score/ ) { $self->{'LASTLINE'} = $_; last }
+    else                            { $def .= $_ }
   }
   $def =~ s/\s+/ /g;
   $def =~ s/\s+$//g;
@@ -190,51 +187,51 @@ sub nextSbjct {
   ####################
   # the Sbjct object #
   ####################
-  my $sbjct = new Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct('-name'=>$def,
-					    '-length'=>$length,
-                                            '-fh'=>$self->{'FH'}, 
-					    '-lastline'=>$self->{'LASTLINE'}, 
-					    '-parent'=>$self);
+  my $sbjct = new Bio::EnsEMBL::Analysis::Tools::BPlite::Sbjct( '-name'     => $def,
+                                                                '-length'   => $length,
+                                                                '-fh'       => $self->{'FH'},
+                                                                '-lastline' => $self->{'LASTLINE'},
+                                                                '-parent'   => $self );
   return $sbjct;
-}
+} ## end sub nextSbjct
 
 sub _parseHeader {
   my ($self) = @_;
-  my (@old_hits, @new_hits);
+  my ( @old_hits, @new_hits );
   my $FH = $self->{'FH'};
-  my $newhits_true = ($self->{'ROUND'} < 2) ? 1  : 0 ;
-  while(<$FH>) {
-    if ($_ =~ /(\w\w|.*|\w+.*)\s\s+(\d+)\s+([-\.e\d]+)$/)    {
-	my $id= $1;
-	my $score= $2;	#not used currently
-	my $evalue= $3; 	#not used currently
-    	if ($newhits_true) { push ( @new_hits, $id);}
-    	else { push (@old_hits, $id);}
+  my $newhits_true = ( $self->{'ROUND'} < 2 ) ? 1 : 0;
+  while (<$FH>) {
+    if ( $_ =~ /(\w\w|.*|\w+.*)\s\s+(\d+)\s+([-\.e\d]+)$/ ) {
+      my $id     = $1;
+      my $score  = $2;    #not used currently
+      my $evalue = $3;    #not used currently
+      if   ($newhits_true) { push( @new_hits, $id ); }
+      else                 { push( @old_hits, $id ); }
     }
-    elsif ($_ =~ /^Sequences not found previously/)  {$newhits_true = 1 ;}
-    elsif ($_ =~ /^>/)
-        {$self->{'LASTLINE'} = $_;
-	 $self->{'OLDHITS'} = \@old_hits;
-	 $self->{'NEWHITS'} = \@new_hits;
-	 $self->{'LASTLINE'} = $_;	
-	 return 1;
+    elsif ( $_ =~ /^Sequences not found previously/ ) { $newhits_true = 1; }
+    elsif ( $_ =~ /^>/ ) {
+      $self->{'LASTLINE'} = $_;
+      $self->{'OLDHITS'}  = \@old_hits;
+      $self->{'NEWHITS'}  = \@new_hits;
+      $self->{'LASTLINE'} = $_;
+      return 1;
     }
-    elsif ($_ =~ /^Parameters|^\s+Database:|^\s*Results from round\s+(d+)/) {
-      	$self->{'LASTLINE'} = $_;
-      	return 0; #  no sequences found in this iteration
+    elsif ( $_ =~ /^Parameters|^\s+Database:|^\s*Results from round\s+(d+)/ ) {
+      $self->{'LASTLINE'} = $_;
+      return 0;    #  no sequences found in this iteration
     }
   }
-  return 0; # no sequences found in this iteration
-}
+  return 0;        # no sequences found in this iteration
+} ## end sub _parseHeader
 
 sub _fastForward {
   my ($self) = @_;
-  return 0 if $self->{'REPORT_DONE'}; # empty report
+  return 0 if $self->{'REPORT_DONE'};        # empty report
   return 1 if $self->{'LASTLINE'} =~ /^>/;
 
   my $FH = $self->{'FH'};
-  while(<$FH>) {
-    if ($_ =~ /^>|^Parameters|^\s+Database:/) {
+  while (<$FH>) {
+    if ( $_ =~ /^>|^Parameters|^\s+Database:/ ) {
       $self->{'LASTLINE'} = $_;
       return 1;
     }

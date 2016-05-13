@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Blast - 
+Bio::EnsEMBL::Analysis::Runnable::Blast -
 
 =head1 SYNOPSIS
 
@@ -45,14 +46,14 @@ Bio::EnsEMBL::Analysis::Runnable::Blast -
 =head1 DESCRIPTION
 
   This module is a wrapper for running blast. It knows how to construct
-  the commandline and can call to other modules to run the parsing and 
+  the commandline and can call to other modules to run the parsing and
   filtering. By default is constructs wublast commandlines but it can be
   told to construct ncbi command lines. It needs to be passed a Bio::Seq
-  and a database name (this database should either have its full path 
-  given or it should live in the location specified by the $BLASTDB 
+  and a database name (this database should either have its full path
+  given or it should live in the location specified by the $BLASTDB
   environment variable). It should also be given a parser object which has
   the method parse_file which takes a filename and returns an arrayref of
-  results and optionally it can be given a filter object which has the 
+  results and optionally it can be given a filter object which has the
   method filter_results which takes an arrayref of results and returns the
   filtered set of results as an arrayref. For examples of both parser
   objects and a filter object look in Bio::EnsEMBL::Analysis::Tools for
@@ -60,7 +61,6 @@ Bio::EnsEMBL::Analysis::Runnable::Blast -
 
 
 =cut
-
 
 package Bio::EnsEMBL::Analysis::Runnable::Blast;
 
@@ -75,7 +75,6 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-
 =head2 new
 
   Arg [1]       : Bio::EnsEMBL::Analysis::Runnable::Blast
@@ -85,67 +84,57 @@ use vars qw(@ISA);
   Arg [Type]    : string, wu or ncbi to specify which type of input
   Arg [Unknown_error_string] : the string to throw if the blast runs fails
   with an unexpected error 4
-  Function  : create a Blast runnable 
+  Function  : create a Blast runnable
   Returntype: Bio::EnsEMBL::Analysis::Runnable::Blast
   Exceptions: throws if not given a database name or if not given
   a parser object
-  Example   : 
+  Example   :
 
 =cut
 
-
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($parser, $filter, $database, $type,
-      $unknown_error ) = rearrange(['PARSER', 'FILTER', 'DATABASE', 
-                                    'TYPE', 'UNKNOWN_ERROR_STRING',
-                                   ], @args);
-  $type = undef unless($type);
-  $unknown_error = undef unless($unknown_error);
+  my ( $parser, $filter, $database, $type, $unknown_error ) =
+    rearrange( [ 'PARSER', 'FILTER', 'DATABASE', 'TYPE', 'UNKNOWN_ERROR_STRING', ], @args );
+  $type          = undef unless ($type);
+  $unknown_error = undef unless ($unknown_error);
   ######################
   #SETTING THE DEFAULTS#
   ######################
   $self->type('wu');
   $self->unknown_error_string('FAILED');
-  $self->options('-cpus=1') if(!$self->options);
+  $self->options('-cpus=1') if ( !$self->options );
   ######################
   $self->databases($database);
   $self->parser($parser);
   $self->filter($filter);
-  $self->type($type) if($type);
-  $self->unknown_error_string($unknown_error) if($unknown_error);
+  $self->type($type)                          if ($type);
+  $self->unknown_error_string($unknown_error) if ($unknown_error);
 
-  throw("No valid databases to search")
-      unless(@{$self->databases});
+  throw("No valid databases to search") unless ( @{ $self->databases } );
 
-  throw("Must pass Bio::EnsEMBL::Analysis::Runnable::Blast ".
-        "a parser object ") 
-      unless($self->parser);
+  throw( "Must pass Bio::EnsEMBL::Analysis::Runnable::Blast " . "a parser object " ) unless ( $self->parser );
 
   return $self;
-}
-
-
+} ## end sub new
 
 =head2 databases
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
   Arg [2]   : string/int/object
   Function  : container for given value, this describes the 5 methods
   below, database, parser, filter, type and unknown_error_string
   Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
+sub databases {
+  my ( $self, @vals ) = @_;
 
-sub databases{
-  my ($self, @vals) = @_;
-
-  if (not exists $self->{databases}) {
+  if ( not exists $self->{databases} ) {
     $self->{databases} = [];
   }
 
@@ -158,107 +147,110 @@ sub databases{
 
     # prepend the variable $BLASTDB from Config/Blast.pm
     # if database name is not an absolute path
-  
-    unless ($dbname =~ m!^/!) {
-        $dbname = $BLASTDB . "/" . $dbname;
+
+    unless ( $dbname =~ m!^/! ) {
+      $dbname = $BLASTDB . "/" . $dbname;
     }
-  
+
     # If the expanded database name exists put this in
     # the database array.
     #
     # If it doesn't exist then see if $database-1,$database-2 exist
     # and put them in the database array
-    
-    if (-f $dbname || -f $dbname . ".fa" || -f $dbname . '.xpd') {
-      push(@dbs,$dbname);
-    } else {
+
+    if ( -f $dbname || -f $dbname . ".fa" || -f $dbname . '.xpd' ) {
+      push( @dbs, $dbname );
+    }
+    else {
       my $count = 1;
-      while (-f $dbname . "-$count") {
-        push(@dbs,$dbname . "-$count"); 	 
-        $count++; 	 
+      while ( -f $dbname . "-$count" ) {
+        push( @dbs, $dbname . "-$count" );
+        $count++;
       }
     }
 
-    if (not @dbs) {
+    if ( not @dbs ) {
       warning("Valid BLAST database could not be inferred from '$val'");
-    } else {
-      push @{$self->{databases}}, @dbs;
     }
-  }
+    else {
+      push @{ $self->{databases} }, @dbs;
+    }
+  } ## end foreach my $val (@vals)
 
   return $self->{databases};
-}
+} ## end sub databases
 
+=head2 parser
 
-=head2 parser 
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
   Arg [2]   : string/int/object
   Function  : container for given value, this describes the 5 methods
   below, database, parser, filter, type and unknown_error_string
   Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
-sub parser{
+
+sub parser {
   my $self = shift;
-  $self->{'parser'} = shift if(@_);
+  $self->{'parser'} = shift if (@_);
   return $self->{'parser'};
 }
 
-
 =head2 filter
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
   Arg [2]   : string/int/object
   Function  : container for given value, this describes the 5 methods
   below, database, parser, filter, type and unknown_error_string
   Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
-sub filter{
+
+sub filter {
   my $self = shift;
-  $self->{'filter'} = shift if(@_);
+  $self->{'filter'} = shift if (@_);
   return $self->{'filter'};
 }
 
 =head2 type
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
   Arg [2]   : string/int/object
   Function  : container for given value, this describes the 5 methods
   below, database, parser, filter, type and unknown_error_string
   Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
-sub type{
+
+sub type {
   my $self = shift;
-  $self->{'type'} = shift if(@_);
+  $self->{'type'} = shift if (@_);
   return $self->{'type'};
 }
 
 =head2 unknown_error_string
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
   Arg [2]   : string/int/object
   Function  : container for given value, this describes the 5 methods
   below, database, parser, filter, type and unknown_error_string
   Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
-sub unknown_error_string{
+
+sub unknown_error_string {
   my $self = shift;
-  $self->{'unknown_error_string'} = shift if(@_);
+  $self->{'unknown_error_string'} = shift if (@_);
   return $self->{'unknown_error_string'};
 }
-
 
 =head2 results_files
 
@@ -271,18 +263,16 @@ sub unknown_error_string{
 
 =cut
 
-
-sub results_files{
-  my ($self, $file) = @_;
-  if(!$self->{'results_files'}){
+sub results_files {
+  my ( $self, $file ) = @_;
+  if ( !$self->{'results_files'} ) {
     $self->{'results_files'} = [];
   }
-  if($file){
-    push(@{$self->{'results_files'}}, $file);
+  if ($file) {
+    push( @{ $self->{'results_files'} }, $file );
   }
   return $self->{'results_files'};
 }
-
 
 =head2 run_analysis
 
@@ -292,104 +282,106 @@ sub results_files{
   Returntype: none
   Exceptions: throws if there is a problem opening the commandline or
   if blast produces an error
-  Example   : 
+  Example   :
 
 =cut
 
-
-
 sub run_analysis {
   my ($self) = @_;
-  
-  foreach my $database (@{$self->databases}) {
+
+  foreach my $database ( @{ $self->databases } ) {
 
     my $db = $database;
     $db =~ s/.*\///;
-    #allow system call to adapt to using ncbi blastall. 
+    #allow system call to adapt to using ncbi blastall.
     #defaults to WU blast
-    my $command  = $self->program;
-    my $blastype = "";
-    my $filename = $self->queryfile;
-    my $results_file = $self->create_filename($db, 'blast.out');
+    my $command      = $self->program;
+    my $blastype     = "";
+    my $filename     = $self->queryfile;
+    my $results_file = $self->create_filename( $db, 'blast.out' );
     $self->files_to_delete($results_file);
     $self->results_files($results_file);
-    if ($self->type eq 'ncbi') {
+    if ( $self->type eq 'ncbi' ) {
       $command .= " -d $database -i $filename ";
-    } else {
+    }
+    else {
       $command .= " $database $filename -gi ";
     }
-    $command .= $self->options. ' 2>&1 > '.$results_file;
-    
-    print "Running blast ".$command."\n";
-    info("Running blast ".$command); 
+    $command .= $self->options . ' 2>&1 > ' . $results_file;
 
-    if ( ! -e $ENV{BLASTMAT} && ! -e $ENV{WUBLASTMAT}) {  
-      throw(" your environment variable \$BLASTMAT is not set !!! ". 
-            " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n") ;
-    } 
-    open(my $fh, "$command |") || 
-      throw("Error opening Blast cmd <$command>." .
-            " Returned error $? BLAST EXIT: '" . 
-            ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) . 
-            "', There was " . ($? & 128 ? 'a' : 'no') . 
-            " core dump");
+    print "Running blast " . $command . "\n";
+    info( "Running blast " . $command );
+
+    if ( !-e $ENV{BLASTMAT} && !-e $ENV{WUBLASTMAT} ) {
+      throw( " your environment variable \$BLASTMAT is not set !!! " .
+             " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n" );
+    }
+    open( my $fh, "$command |" ) ||
+      throw( "Error opening Blast cmd <$command>." .
+             " Returned error $? BLAST EXIT: '" . ( $? >> 8 ) . "'," . " SIGNAL '" . ( $? & 127 ) . "', There was " .
+             ( $? & 128 ? 'a' : 'no' ) . " core dump" );
     # this loop reads the STDERR from the blast command
     # checking for FATAL: messages (wublast) [what does ncbi blast say?]
     # N.B. using simple die() to make it easier for RunnableDB to parse.
-    while(<$fh>){
-      if(/FATAL:(.+)/){
+    while (<$fh>) {
+      if (/FATAL:(.+)/) {
         my $match = $1;
         print $match;
-	# clean up before dying
-	$self->delete_files;
-        if($match =~ /no valid contexts/){
-          die qq{"VOID"\n}; # hack instead
-        }elsif($match =~ /Bus Error signal received/){
-          die qq{"BUS_ERROR"\n}; # can we work out which host?
-        }elsif($match =~ /Segmentation Violation signal received./){
-          die qq{"SEGMENTATION_FAULT"\n}; # can we work out which host?
-        }elsif($match =~ /Out of memory;(.+)/){
-          # (.+) will be something like "1050704 bytes were last 
+        # clean up before dying
+        $self->delete_files;
+        if ( $match =~ /no valid contexts/ ) {
+          die qq{"VOID"\n};    # hack instead
+        }
+        elsif ( $match =~ /Bus Error signal received/ ) {
+          die qq{"BUS_ERROR"\n};    # can we work out which host?
+        }
+        elsif ( $match =~ /Segmentation Violation signal received./ ) {
+          die qq{"SEGMENTATION_FAULT"\n};    # can we work out which host?
+        }
+        elsif ( $match =~ /Out of memory;(.+)/ ) {
+          # (.+) will be something like "1050704 bytes were last
           #requested."
-          die qq{"OUT_OF_MEMORY"\n}; 
+          die qq{"OUT_OF_MEMORY"\n};
           # resenD to big mem machine by rulemanager
-        }elsif($match =~ /the query sequence is shorter than the word length/){
-          #no valid context 
-          die qq{"VOID"\n}; # hack instead
-        }elsif($match =~ /External filter/){
+        }
+        elsif ( $match =~ /the query sequence is shorter than the word length/ ) {
+          #no valid context
+          die qq{"VOID"\n};    # hack instead
+        }
+        elsif ( $match =~ /External filter/ ) {
           # Error while using an external filter
-          die qq{"EXTERNAL_FITLER_ERROR"\n}; 
-        }else{
-          warning("Something FATAL happened to BLAST we've not ".
-                  "seen before, please add it to Package: " 
-                  . __PACKAGE__ . ", File: " . __FILE__);
-          die ($self->unknown_error_string."\n"); 
-          # send appropriate string 
+          die qq{"EXTERNAL_FITLER_ERROR"\n};
+        }
+        else {
+          warning( "Something FATAL happened to BLAST we've not " .
+                   "seen before, please add it to Package: " . __PACKAGE__ . ", File: " . __FILE__ );
+          die( $self->unknown_error_string . "\n" );
+          # send appropriate string
           #as standard this will be failed so job can be retried
           #when in pipeline
         }
-      }elsif(/WARNING:(.+)/){
+      } ## end if (/FATAL:(.+)/)
+      elsif (/WARNING:(.+)/) {
         # ONLY a warning usually something like hspmax=xxxx was exceeded
         # skip ...
-      }elsif(/^\s{10}(.+)/){ # ten spaces
-        # Continuation of a WARNING: message
-        # Hope this doesn't catch more than these.
-        # skip ...
       }
-    }
-    unless(close $fh){
+      elsif (/^\s{10}(.+)/) {    # ten spaces
+                                 # Continuation of a WARNING: message
+                                 # Hope this doesn't catch more than these.
+                                 # skip ...
+      }
+    } ## end while (<$fh>)
+    unless ( close $fh ) {
       # checking for failures when closing.
-      # we should't get here but if we do then $? is translated 
+      # we should't get here but if we do then $? is translated
       #below see man perlvar
-      warning("Error running Blast cmd <$command>. Returned ".
-              "error $? BLAST EXIT: '" . ($? >> 8) . 
-              "', SIGNAL '" . ($? & 127) . "', There was " . 
-              ($? & 128 ? 'a' : 'no') . " core dump");
-      die ($self->unknown_error_string."\n"); 
+      warning( "Error running Blast cmd <$command>. Returned " .
+               "error $? BLAST EXIT: '" . ( $? >> 8 ) . "', SIGNAL '" . ( $? & 127 ) . "', There was " .
+               ( $? & 128 ? 'a' : 'no' ) . " core dump" );
+      die( $self->unknown_error_string . "\n" );
     }
-  }
-}
-
+  } ## end foreach my $database ( @{ $self...})
+} ## end sub run_analysis
 
 =head2 parse_results
 
@@ -398,24 +390,23 @@ sub run_analysis {
   and filter those results if there is a filter object
   Returntype: none
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub parse_results{
-  my ($self) = @_;
+sub parse_results {
+  my ($self)  = @_;
   my $results = $self->results_files;
-  my $output = $self->parser->parse_files($results);
+  my $output  = $self->parser->parse_files($results);
   my $filtered_output;
   #print "Have ".@$output." features to filter\n";
-  if($self->filter){
+  if ( $self->filter ) {
     $filtered_output = $self->filter->filter_results($output);
-  }else{
+  }
+  else {
     $filtered_output = $output;
   }
   $self->output($filtered_output);
 }
-
 
 1;

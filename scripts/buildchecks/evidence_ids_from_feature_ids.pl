@@ -1,14 +1,13 @@
 #!/usr/bin/env perl
 
-
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,8 +20,8 @@ evidence_ids_from_feature_ids.pl
 
 =head1 SYNOPSIS
 
-perl evidence_ids_from_feature_ids.pl  -host host -user ensro -port 3306 
--dbname gwdb -feature_id 4 
+perl evidence_ids_from_feature_ids.pl  -host host -user ensro -port 3306
+-dbname gwdb -feature_id 4
 
 This would return the protein based evidence ids for gene with dbID 4
 
@@ -61,7 +60,7 @@ This will find the protein evidence associated with the gene with the dbID
 perl evidence_ids_from_feature_ids.pl -host host -user ensro -port 3306 -dbname gw_db -feature_id 4 -info -feature_type transcript -evidence_type
 dna_align_feature
 
-This will find the dna evidence associated with the transcript with the 
+This will find the dna evidence associated with the transcript with the
 dbID 1 and print out the descriptions from pfetch
 
 =head1 NOTES
@@ -83,13 +82,12 @@ the ensembl-dev mailing list <http://lists.ensembl.org/mailman/listinfo/dev>
 
 =cut
 
-use warnings ;
+use warnings;
 use strict;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use SupportingEvidenceInfo;
-
 
 my $dbhost;
 my $dbuser;
@@ -106,42 +104,32 @@ my $verbose;
 my $pfetch = 1;
 my $help;
 my $only_primary;
-GetOptions( 
-            'dbhost|host|h=s'      => \$dbhost,
-            'dbname|db|D=s'      => \$dbname,
-            'dbuser|user|u=s'      => \$dbuser,
-            'dbpass|pass|p=s'      => \$dbpass,
-            'dbport|port|P=s'      => \$dbport,
-            'feature_id=s' => \$protein_id,
-            'evidence_type=s' => \$table_name,
-            'id_type=s' => \$id_type,
-            'gene_type=s' => \$gene_type,
-            'primary_evidence!' => \$only_primary, 
-            'id_list_file=s' => \$protein_file,
-            'info!' => \$info,
-            'verbose!' => \$verbose,
-            'pfetch!' => \$pfetch,
-            'help!' => \$help,
-           ) or perldocs("Failed to get opts");
+GetOptions( 'dbhost|host|h=s'   => \$dbhost,
+            'dbname|db|D=s'     => \$dbname,
+            'dbuser|user|u=s'   => \$dbuser,
+            'dbpass|pass|p=s'   => \$dbpass,
+            'dbport|port|P=s'   => \$dbport,
+            'feature_id=s'      => \$protein_id,
+            'evidence_type=s'   => \$table_name,
+            'id_type=s'         => \$id_type,
+            'gene_type=s'       => \$gene_type,
+            'primary_evidence!' => \$only_primary,
+            'id_list_file=s'    => \$protein_file,
+            'info!'             => \$info,
+            'verbose!'          => \$verbose,
+            'pfetch!'           => \$pfetch,
+            'help!'             => \$help, ) or
+  perldocs("Failed to get opts");
 
-perldocs() if($help);
+perldocs() if ($help);
 
-if(!$dbhost || !$dbname || !$dbuser){
-  throw("Must pass in host, user and dbname with -host $dbhost -user $dbuser".
-        " -dbname $dbname ");
+if ( !$dbhost || !$dbname || !$dbuser ) {
+  throw( "Must pass in host, user and dbname with -host $dbhost -user $dbuser" . " -dbname $dbname " );
 
 }
 
-my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor
-  (
-   -host   => $dbhost,
-   -user   => $dbuser,
-   -dbname => $dbname,
-   -pass   => $dbpass,
-   -port   => $dbport,
-  );
-
-
+my $db =
+  new Bio::EnsEMBL::DBSQL::DBAdaptor( -host => $dbhost, -user => $dbuser, -dbname => $dbname, -pass => $dbpass, -port => $dbport, );
 
 my $evidence_info = SupportingEvidenceInfo->new();
 $evidence_info->db($db);
@@ -152,24 +140,25 @@ $evidence_info->info($info);
 $evidence_info->have_pfetch($pfetch);
 $evidence_info->primary_evidence($only_primary);
 my $ids = [];
-if($protein_file){
+
+if ($protein_file) {
   $ids = $evidence_info->read_id_file($protein_file);
-}else{
-  push(@$ids, $protein_id);
+}
+else {
+  push( @$ids, $protein_id );
 }
 
-foreach my $id(@$ids){
-  if(!($id =~ /^\d+/)){
+foreach my $id (@$ids) {
+  if ( !( $id =~ /^\d+/ ) ) {
     my $temp = $id;
     $id = $evidence_info->dbID_from_stable_id($temp);
   }
   $evidence_info->evidence_ids_from_feature_id($id);
 }
 
-
-sub perldocs{
+sub perldocs {
   my ($msg) = @_;
-  print $msg."\n" if($msg);
-  exec('perldoc', $0);
+  print $msg. "\n" if ($msg);
+  exec( 'perldoc', $0 );
   exit(0);
 }

@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Dust - 
+Bio::EnsEMBL::Analysis::Runnable::Dust -
 
 =head1 SYNOPSIS
 
@@ -45,7 +46,6 @@ to identify and mask simple repeats
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::Runnable::Dust;
 
 use strict;
@@ -58,8 +58,6 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-
-
 =head2 new
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
@@ -68,30 +66,25 @@ use vars qw(@ISA);
   Arg [4]   : int, window size
   Function  : create a new  Bio::EnsEMBL::Analysis::Runnable::Dust
   Returntype: Bio::EnsEMBL::Analysis::Runnable::Dust
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($level, $word_size, $window_size) = rearrange(['MASKING_THRESHOLD',
-                                                     'WORD_SIZE', 
-                                                     'WINDOW_SIZE',
-                                                    ], @args);
+  my ( $level, $word_size, $window_size ) = rearrange( [ 'MASKING_THRESHOLD', 'WORD_SIZE', 'WINDOW_SIZE', ], @args );
   ##################
   #SETTING DEFAULTS#
   ##################
-  $self->program('tcdust') if(!$self->program);
+  $self->program('tcdust') if ( !$self->program );
   ##################
 
-  $self->level($level) if($level);
-  $self->word_size($word_size) if($word_size);
-  $self->window_size($window_size) if($window_size);
+  $self->level($level)             if ($level);
+  $self->word_size($word_size)     if ($word_size);
+  $self->window_size($window_size) if ($window_size);
   return $self;
 }
 
@@ -102,19 +95,18 @@ sub new {
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
   Arg [2]   : int for specified value (for more info see tcdust)
   Function  : container for specified variable. This pod refers to the
-  three methods below level, window size and word size. These are simple 
+  three methods below level, window size and word size. These are simple
   containers which dont do more than hold and return an given value
   nothing is defined
   Returntype: int
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
-sub level{
+sub level {
   my $self = shift;
-  $self->{'level'} = shift if(@_);
+  $self->{'level'} = shift if (@_);
   return $self->{'level'};
 }
 
@@ -123,17 +115,18 @@ sub level{
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
   Arg [2]   : int for specified value (for more info see tcdust)
   Function  : container for specified variable. This pod refers to the
-  three methods below level, window size and word size. These are simple 
+  three methods below level, window size and word size. These are simple
   containers which dont do more than hold and return an given value
   nothing is defined
   Returntype: int
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
-sub window_size{
+
+sub window_size {
   my $self = shift;
-  $self->{'window_size'} = shift if(@_);
+  $self->{'window_size'} = shift if (@_);
   return $self->{'window_size'};
 }
 
@@ -142,26 +135,22 @@ sub window_size{
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Dust
   Arg [2]   : int for specified value (for more info see tcdust)
   Function  : container for specified variable. This pod refers to the
-  three methods below level, window size and word size. These are simple 
+  three methods below level, window size and word size. These are simple
   containers which dont do more than hold and return an given value
   nothing is defined
   Returntype: int
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
-sub word_size{
+
+sub word_size {
   my $self = shift;
-  $self->{'word_size'} = shift if(@_);
+  $self->{'word_size'} = shift if (@_);
   return $self->{'word_size'};
 }
 
-
-
 #utility methods
-
-
-
 
 =head2 run_analysis
 
@@ -173,26 +162,24 @@ sub word_size{
   Returntype: none
   Exceptions: throws if run failed because system doesnt
   return 0
-  Example   : 
+  Example   :
 
 =cut
 
-sub run_analysis{
-  my ($self, $program) = @_;
-  if(!$program){
+sub run_analysis {
+  my ( $self, $program ) = @_;
+  if ( !$program ) {
     $program = $self->program;
   }
-  throw($program." is not executable Dust::run_analysis ") 
-    unless($program && -x $program);
+  throw( $program . " is not executable Dust::run_analysis " ) unless ( $program && -x $program );
   my $command = $self->program;
-  $command .= " -l ".$self->level if($self->level);
-  $command .= " -k ".$self->word_size if($self->word_size);
-  $command .= " -w ".$self->window_size if($self->window_size);
-  $command .= " -x ".$self->queryfile." > ".$self->resultsfile;
-  print "Running analysis ".$command."\n";
-  system($command) == 0 or throw("FAILED to run ".$command);
+  $command .= " -l " . $self->level       if ( $self->level );
+  $command .= " -k " . $self->word_size   if ( $self->word_size );
+  $command .= " -w " . $self->window_size if ( $self->window_size );
+  $command .= " -x " . $self->queryfile . " > " . $self->resultsfile;
+  print "Running analysis " . $command . "\n";
+  system($command) == 0 or throw( "FAILED to run " . $command );
 }
-
 
 =head2 parse_results
 
@@ -200,34 +187,32 @@ sub run_analysis{
   Arg [2]   : string, filename
   Function  : open and parse the results file into repeat
   features
-  Returntype: none 
+  Returntype: none
   Exceptions: throws on failure to open or close output file
-  Example   : 
+  Example   :
 
 =cut
 
-sub parse_results{
-  my ($self, $results) = @_;
-  if(!$results){
+sub parse_results {
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
   my $ff = $self->feature_factory;
   my @output;
-  open(DUST, $results) or throw("FAILED to open ".$results);
- LINE:while(<DUST>){
+  open( DUST, $results ) or throw( "FAILED to open " . $results );
+LINE: while (<DUST>) {
     chomp;
-    next LINE if(/^>/);
+    next LINE if (/^>/);
     if (/(\d+)\.\.(\d+)/) {
-      my ($start, $end) = ($1, $2);
+      my ( $start, $end ) = ( $1, $2 );
       $start++;
       $end++;
-      my $rc = $ff->create_repeat_consensus('dust', 'dust', 'simple', 'N');
-      my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
-                                          $end, $rc, $self->query->name,
-                                          $self->query);
-      push(@output, $rf);
+      my $rc = $ff->create_repeat_consensus( 'dust', 'dust', 'simple', 'N' );
+      my $rf = $ff->create_repeat_feature( $start, $end, 0, 0, $start, $end, $rc, $self->query->name, $self->query );
+      push( @output, $rf );
     }
   }
-  $self->output(\@output);
-  close(DUST) or throw("FAILED to close ".$results);
+  $self->output( \@output );
+  close(DUST) or throw( "FAILED to close " . $results );
 }

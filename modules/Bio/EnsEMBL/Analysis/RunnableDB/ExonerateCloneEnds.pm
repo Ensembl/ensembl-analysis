@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,13 +27,13 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds - 
+Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds -
 
 =head1 SYNOPSIS
 
 Should not be used directly. Might be called from MapCloneEnds.pm
 
-my $clone = 
+my $clone =
   Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds->new(
     -db         => $refdb,
     -analysis   => $analysis_obj,
@@ -45,8 +46,8 @@ $clone->write_output(); #writes to DB
 
 =head1 DESCRIPTION
 
-This object maps clone sequences to a genome,and 
-write the resulting alignments as DNA align Features. 
+This object maps clone sequences to a genome,and
+write the resulting alignments as DNA align Features.
 
 =head1 METHODS
 
@@ -57,7 +58,7 @@ write the resulting alignments as DNA align Features.
 
 package Bio::EnsEMBL::Analysis::RunnableDB::ExonerateCloneEnds;
 
-use warnings ;
+use warnings;
 use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;
@@ -76,97 +77,95 @@ use vars qw(@ISA);
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  
+
   $self->read_and_check_config($CLONE_CONFIG);
   return $self;
 }
 
 sub fetch_input {
-  my ($self, $chunkLine) = @_;
+  my ( $self, $chunkLine ) = @_;
 
   my $logic = $self->analysis->logic_name;
 
   my $seqFetchDB = $self->SEQFETCHDB;
 
-  my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
-                               -db      => [($seqFetchDB)],
-                               -format  => 'fasta', );
+  my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new( -db => [ ($seqFetchDB) ], -format => 'fasta', );
 
-  if ($self->input_id =~ /\w+:[\w\_\.]+:([\w\.]+):([-\w]+):([-\w]+):[-\w]+:(\w+)/){ 
-   
-    my $target_id= $1;
+  if ( $self->input_id =~ /\w+:[\w\_\.]+:([\w\.]+):([-\w]+):([-\w]+):[-\w]+:(\w+)/ ) {
+
+    my $target_id    = $1;
     my $target_start = $2;
-    my $target_end = $3;
-    my $clone_id = $4;
-    
-    my $db =  new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->DNADB });
+    my $target_end   = $3;
+    my $clone_id     = $4;
+
+    my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->DNADB } );
 
     my $slice_adaptor = $db->get_SliceAdaptor();
 
-    my $target_seq = $slice_adaptor->fetch_by_region('toplevel',$target_id, $target_start, $target_end);
-    
+    my $target_seq = $slice_adaptor->fetch_by_region( 'toplevel', $target_id, $target_start, $target_end );
+
     my $query_seq = $seqfetcher->get_Seq_by_acc($clone_id);
-    
+
     ##########################################
     # set up the target (genome)
     ##########################################
 
     my @target = ();
-    push (@target,$target_seq);
+    push( @target, $target_seq );
 
     ##########################################
     # set up the query (dna clone seq)
     ##########################################
 
     my @query = ();
-    push (@query,$query_seq);
+    push( @query, $query_seq );
 
     ##########################################
     # setup the runnable
     ##########################################
 
     my %parameters = %{ $self->parameters_hash };
-  
-    if ( 
-      not exists( $parameters{-options} )
-      and defined $self->OPTIONS
-    ){
+
+    if ( not exists( $parameters{-options} ) and defined $self->OPTIONS ) {
       $parameters{-options} = '';
     }
-    
+
     $parameters{-options} = $self->OPTIONS;
 
-    print STDERR "PROGRAM FILE: ".$self->analysis->program_file."\n";
-  
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
-      -program            => $self->analysis->program_file,
-      -analysis           => $self->analysis,
-      -target_seqs        => \@target,
-      -query_type         => $self->QUERYTYPE,
-      -query_seqs         => \@query,
+    print STDERR "PROGRAM FILE: " . $self->analysis->program_file . "\n";
 
-      %parameters,
-    );
-  
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
+      -program     => $self->analysis->program_file,
+      -analysis    => $self->analysis,
+      -target_seqs => \@target,
+      -query_type  => $self->QUERYTYPE,
+      -query_seqs  => \@query,
+
+      %parameters, );
+
     $self->runnable($runnable);
 
-  }else{
-  
+  } ## end if ( $self->input_id =~...)
+  else {
+
     ##########################################
     # set up the target (genome)
     ##########################################
 
     my $target = $self->GENOMICSEQS;
 
-    if ( -e $target ){
-      if(-d $target ) {
-        warn ("Target $target is a directory of files\n");
-      }elsif (-s $target){
-        warn ("Target $target is a whole-genome file\n");
-      }else{
+    if ( -e $target ) {
+      if ( -d $target ) {
+        warn("Target $target is a directory of files\n");
+      }
+      elsif ( -s $target ) {
+        warn("Target $target is a whole-genome file\n");
+      }
+      else {
         throw("'$target' isn't a file or a directory?");
       }
-    } else {
+    }
+    else {
       throw("'$target' could not be found");
     }
 
@@ -177,61 +176,56 @@ sub fetch_input {
     my @queryseqs = ();
 
     my $iid_regexp = $self->IIDREGEXP;
-   
+
     #print  $iid_regexp,"\n";
 
-     if (not defined $iid_regexp){
-      throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your chunklist file" )
+    if ( not defined $iid_regexp ) {
+      throw("You must define IIDREGEXP in config to enable inference of chunk number and total from your chunklist file");
     }
 
     my ( $chunk_number, $chunk_total ) = $self->input_id =~ /$iid_regexp/;
 
     # Read the line corresponding to chunk_number and parse the input ids from there
     my $seq_ids = @{$chunkLine}[$chunk_number];
-    
-    my @ids_list = split (/:/,$seq_ids);
 
-    foreach my $id(@ids_list){
+    my @ids_list = split( /:/, $seq_ids );
+
+    foreach my $id (@ids_list) {
 
       # Get the sequence object for each of the query sequences
       my $query_seq = $seqfetcher->get_Seq_by_acc($id);
 
       # Add each query sequence object to the array of sequences that will be passed to exonerate
-      push (@queryseqs, $query_seq);
+      push( @queryseqs, $query_seq );
 
     }
-
 
     ##########################################
     # setup the runnable
     ##########################################
 
     my %parameters = %{ $self->parameters_hash };
-    
-    if ( 
-      not exists( $parameters{-options} )
-      and defined $self->OPTIONS
-    ){
+
+    if ( not exists( $parameters{-options} ) and defined $self->OPTIONS ) {
       $parameters{-options} = '';
     }
-    
-    $parameters{-options} = $self->OPTIONS;
-    
-    print STDERR "PROGRAM FILE: ".$self->analysis->program_file."\n";
 
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new(
-      -program            => $self->analysis->program_file,
-      -analysis           => $self->analysis,
-      -target_file        => $target,
-      -query_type         => $self->QUERYTYPE,
-      -query_seqs         => \@queryseqs,
-      %parameters,
-    );
-  
+    $parameters{-options} = $self->OPTIONS;
+
+    print STDERR "PROGRAM FILE: " . $self->analysis->program_file . "\n";
+
+    my $runnable =
+      Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds->new( -program     => $self->analysis->program_file,
+                                                                 -analysis    => $self->analysis,
+                                                                 -target_file => $target,
+                                                                 -query_type  => $self->QUERYTYPE,
+                                                                 -query_seqs  => \@queryseqs,
+                                                                 %parameters, );
+
     $self->runnable($runnable);
 
-  }
-}
+  } ## end else [ if ( $self->input_id =~...)]
+} ## end sub fetch_input
 
 ############################################################
 
@@ -242,19 +236,19 @@ sub run {
   throw("Can't run - no runnable objects") unless ( $self->runnable );
 
   my $runnable = @{ $self->runnable }[0];
-  
+
   $runnable->run;
 
-  @clone_features = @{$runnable->output};
+  @clone_features = @{ $runnable->output };
 
   #
   #Replace the 'dummy' clone array and probe objects in the
   #CloneFeature objects with the 'real' instances found in
   #the populate... method
-  $self->output(\@clone_features);
-  $self->clone_features(\@clone_features);
-  $self->clean_clone_features(@{$self->clone_features});
- 
+  $self->output( \@clone_features );
+  $self->clone_features( \@clone_features );
+  $self->clean_clone_features( @{ $self->clone_features } );
+
 }
 
 ############################################################
@@ -262,17 +256,17 @@ sub run {
 sub write_output {
   my ( $self, @output ) = @_;
 
-  my $outdb = $self->create_output_db;
+  my $outdb                 = $self->create_output_db;
   my $clone_feature_adaptor = $outdb->get_DnaAlignFeatureAdaptor;
 
   #Add analysis, slices to DnaAlign_features, and make
   #sure they're pointing at the persistent array instances
   #instead of the fake arrays  they were created with
-  $self->clean_clone_features(@{$self->clone_features});
-  
-  foreach my $clone_feature (@{$self->clone_features}){
-  
-    eval{ $clone_feature_adaptor->store($clone_feature) };
+  $self->clean_clone_features( @{ $self->clone_features } );
+
+  foreach my $clone_feature ( @{ $self->clone_features } ) {
+
+    eval { $clone_feature_adaptor->store($clone_feature) };
     if ($@) {
       $self->throw("Unable to store clone feature!\n $@");
     }
@@ -285,7 +279,7 @@ sub write_output {
 sub clean_clone_features {
   my ( $self, @clone_features ) = @_;
 
-  my $db = $self->create_output_db;
+  my $db            = $self->create_output_db;
   my $slice_adaptor = $db->get_SliceAdaptor;
 
   my %genome_slices;
@@ -304,11 +298,11 @@ sub clean_clone_features {
     }
     my $slice = $genome_slices{$slice_id};
 
-    $clone_feature->slice($slice); 
- 
+    $clone_feature->slice($slice);
+
   }
-return @clone_features;
-}
+  return @clone_features;
+} ## end sub clean_clone_features
 
 sub query_file {
   my ( $self, $value ) = @_;
@@ -319,7 +313,8 @@ sub query_file {
 
   if ( exists( $self->{'_query_file'} ) ) {
     return $self->{'_query_file'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -330,22 +325,21 @@ sub create_output_db {
   my $outdb;
   my $dnadb;
 
-  if ( $self->OUTDB && $self->DNADB) {
-    $dnadb =  new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
+  if ( $self->OUTDB && $self->DNADB ) {
+    $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB } );
 
-    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }, 
-                                                  -dnadb => $dnadb 
-						);
-      
-  } elsif( $self->OUTDB) {
-    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(%{ $self->OUTDB }); 
-  } else {
+    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB }, -dnadb => $dnadb );
+
+  }
+  elsif ( $self->OUTDB ) {
+    $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor( %{ $self->OUTDB } );
+  }
+  else {
     $outdb = $self->db;
   }
 
   return $outdb;
 }
-
 
 #############################################################
 
@@ -358,7 +352,8 @@ sub clone_features {
 
   if ( exists( $self->{'_clone_features'} ) ) {
     return $self->{'_clone_features'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -378,29 +373,28 @@ sub read_and_check_config {
   my $logic = $self->analysis->logic_name;
 
   # check that compulsory options have values
-  foreach my $config_var (
-    qw(
-      QUERYSEQS
-      QUERYTYPE
-      GENOMICSEQS
-      CHUNKSLIST
-      SEQFETCHDB
-    )
-  ){
-    if ( not defined $self->$config_var ){
+  foreach my $config_var ( qw(
+                           QUERYSEQS
+                           QUERYTYPE
+                           GENOMICSEQS
+                           CHUNKSLIST
+                           SEQFETCHDB
+                           ) )
+  {
+    if ( not defined $self->$config_var ) {
       throw("You must define $config_var in config for logic '$logic'");
     }
   }
 
   # output db does not have to be defined, but if it is, it should be a hash
-  if ($self->OUTDB && ref( $self->OUTDB ) ne "HASH") {
+  if ( $self->OUTDB && ref( $self->OUTDB ) ne "HASH" ) {
     throw("OUTDB in config for '$logic' must be a hash ref of db connection pars.");
   }
-  
+
   if ( $self->DNADB and ref( $self->DNADB ) ne "HASH" ) {
     throw("DNADB in config for '$logic' must be a hash ref of db connection pars.");
   }
-}
+} ## end sub read_and_check_config
 
 sub QUERYSEQS {
   my ( $self, $value ) = @_;
@@ -411,7 +405,8 @@ sub QUERYSEQS {
 
   if ( exists( $self->{'_CONFIG_QUERYSEQS'} ) ) {
     return $self->{'_CONFIG_QUERYSEQS'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -425,7 +420,8 @@ sub QUERYTYPE {
 
   if ( exists( $self->{'_CONFIG_QUERYTYPE'} ) ) {
     return $self->{'_CONFIG_QUERYTYPE'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -439,7 +435,8 @@ sub GENOMICSEQS {
 
   if ( exists( $self->{'_CONFIG_GENOMICSEQS'} ) ) {
     return $self->{'_CONFIG_GENOMICSEQS'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -453,7 +450,8 @@ sub IIDREGEXP {
 
   if ( exists( $self->{'_CONFIG_IIDREGEXP'} ) ) {
     return $self->{'_CONFIG_IIDREGEXP'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -467,7 +465,8 @@ sub OUTDB {
 
   if ( exists( $self->{'_CONFIG_OUTDB'} ) ) {
     return $self->{'_CONFIG_OUTDB'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -481,7 +480,8 @@ sub DNADB {
 
   if ( exists( $self->{'_CONFIG_DNADB'} ) ) {
     return $self->{'_CONFIG_DNADB'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -495,7 +495,8 @@ sub OPTIONS {
 
   if ( exists( $self->{'_CONFIG_OPTIONS'} ) ) {
     return $self->{'_CONFIG_OPTIONS'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -509,7 +510,8 @@ sub CHUNKSLIST {
 
   if ( exists( $self->{'_CONFIG_CHUNKSLIST'} ) ) {
     return $self->{'_CONFIG_CHUNKSLIST'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
@@ -523,11 +525,11 @@ sub SEQFETCHDB {
 
   if ( exists( $self->{'_CONFIG_SEQFETCHDB'} ) ) {
     return $self->{'_CONFIG_SEQFETCHDB'};
-  } else {
+  }
+  else {
     return undef;
   }
 }
-
 
 ###############################################
 ###     end of config

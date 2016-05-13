@@ -65,7 +65,7 @@ sub write_output {
 
   my $output_array = $self->param('output_array');
   unless ( scalar( @{$output_array} ) ) {
-    $self->throw( 'The output array was empty, meaning no species were processed into output ids' );
+    $self->throw('The output array was empty, meaning no species were processed into output ids');
   }
 
   foreach my $output_hash ( @{$output_array} ) {

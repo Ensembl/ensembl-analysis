@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Fgenesh - 
+Bio::EnsEMBL::Analysis::Runnable::Fgenesh -
 
 =head1 SYNOPSIS
 
@@ -55,8 +56,6 @@ Bio::EnsEMBL::Analysis::Runnable::Genscan
 
 package Bio::EnsEMBL::Analysis::Runnable::Fgenesh;
 
-
-
 use vars qw(@ISA);
 use strict;
 use warnings;
@@ -64,7 +63,6 @@ use warnings;
 use Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio);
 
@@ -74,29 +72,25 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
   Function  : create a new Bio::EnsEMBL::Analysis::Runnable::Fgenesh object
   and setting up default values
   Returntype: Bio::EnsEMBL::Analysis::Runnable::Fgenesh
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
 sub new {
-  my ($class,@args) = @_;
-  
+  my ( $class, @args ) = @_;
+
   my $self = $class->SUPER::new(@args);
 
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->program('fgenesh') if(!$self->program);
-  $self->matrix('hum.dat') if(!$self->matrix);
+  $self->program('fgenesh') if ( !$self->program );
+  $self->matrix('hum.dat')  if ( !$self->matrix );
   ######################
 
   return $self;
 }
-
-
-
 
 #FGENESH-1.0 Prediction of potential genes in genomic DNA
 #Time:	Thu Sep	 2 10:57:44 2004.
@@ -121,7 +115,6 @@ sub new {
 #   2 +	 CDSl	15087 -	  15169	  -2.37	  15089 - 15169	81
 #   2 +	 PolA	15355		  -2.78
 
-
 =head2 parse_results
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Fgenesh
@@ -129,19 +122,18 @@ sub new {
   Function  : parse the output from Fgenesh into prediction transcripts
   Returntype: none
   Exceptions: throws if cannot open or close results file
-  Example   : 
+  Example   :
 
 =cut
 
-sub parse_results{
-  my ($self, $results) = @_;
-  if(!$results){
+sub parse_results {
+  my ( $self, $results ) = @_;
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
-  open(OUT, "<".$results) or throw("FAILED to open ".$results.
-                                   "Genscan:parse_results");
+  open( OUT, "<" . $results ) or throw( "FAILED to open " . $results . "Genscan:parse_results" );
 
-  if (<OUT> =~ m|no reliable predictions|i ){
+  if ( <OUT> =~ m|no reliable predictions|i ) {
     print STDERR "No genes predicted\n";
     return;
   }
@@ -149,57 +141,58 @@ sub parse_results{
     chomp;
     my $flag = 0;
     if (/^\s*-[-\s]+$/) {
-      GENES : while (<OUT>) {
+    GENES: while (<OUT>) {
         my @lines;
         until (/^$/) {
           if (/CDSl|CDSi|CDSf|CDSo/i) {
             my @element = split;
-            push @lines, \@element; 
-            throw("Unable to parse fgenesh ouput (".@element.
-                  ") Line: $_\n") unless (scalar(@element) == 11);
-          }elsif (/Predicted protein/i) {
+            push @lines, \@element;
+            throw( "Unable to parse fgenesh ouput (" . @element . ") Line: $_\n" ) unless ( scalar(@element) == 11 );
+          }
+          elsif (/Predicted protein/i) {
             $flag = 1;
-            last GENES ;
+            last GENES;
           }
           #print "Getting next line\n";
-          $_ = <OUT>; 
+          $_ = <OUT>;
         }
-        if ($lines[0]->[1] eq '+') {
-          @lines = sort {$a->[3] <=> $b->[3]} @lines;
-        } elsif ($lines[0]->[1] eq '-') {
-          @lines = reverse sort {$a->[3] <=> $b->[3]} @lines;
+        if ( $lines[0]->[1] eq '+' ) {
+          @lines = sort { $a->[3] <=> $b->[3] } @lines;
         }
-        my $exon_num=1;
-         foreach my $line (@lines) {
-           my ($start, $end, $strand, $score, $pvalue, $phase, $seqname);
-           $seqname = $line->[0]+($exon_num/100);
-           if ($line->[1] eq '+') {
-             $start = $line->[3];
-             $end = $line->[5];
-             $strand = 1;
-             $phase = (3-($line->[7]-$line->[3]))% 3;
-           } elsif ($line->[1] eq '-') {
-             $start = $line->[3];
-             $end = $line->[5];
-             $strand = -1;
-             $phase = (3-($line->[5]-$line->[9]))% 3;
-           }
-           $score = $line->[6];
-           my $exon = $self->feature_factory->create_prediction_exon
-             ($start, $end, $strand, $score, '0', $phase, $seqname, 
-              $self->query, $self->analysis);
-           $self->exon_groups($line->[0], $exon);
-           $exon_num++;
-         }
-        if ( $flag==1 ) {
+        elsif ( $lines[0]->[1] eq '-' ) {
+          @lines = reverse sort { $a->[3] <=> $b->[3] } @lines;
+        }
+        my $exon_num = 1;
+        foreach my $line (@lines) {
+          my ( $start, $end, $strand, $score, $pvalue, $phase, $seqname );
+          $seqname = $line->[0] + ( $exon_num/100 );
+          if ( $line->[1] eq '+' ) {
+            $start  = $line->[3];
+            $end    = $line->[5];
+            $strand = 1;
+            $phase  = ( 3 - ( $line->[7] - $line->[3] ) ) % 3;
+          }
+          elsif ( $line->[1] eq '-' ) {
+            $start  = $line->[3];
+            $end    = $line->[5];
+            $strand = -1;
+            $phase  = ( 3 - ( $line->[5] - $line->[9] ) ) % 3;
+          }
+          $score = $line->[6];
+          my $exon = $self->feature_factory->create_prediction_exon( $start,   $end,         $strand,
+                                                                     $score,   '0',          $phase,
+                                                                     $seqname, $self->query, $self->analysis );
+          $self->exon_groups( $line->[0], $exon );
+          $exon_num++;
+        }
+        if ( $flag == 1 ) {
           last;
         }
-      }
-    }
-  }
+      } ## end GENES: while (<OUT>)
+    } ## end if (/^\s*-[-\s]+$/)
+  } ## end while (<OUT>)
   $self->create_transcripts();
-  close(OUT) or throw("FAILED to close ".$results.
-                      "Fgenesh:parse_results");
-}
+  close(OUT) or throw( "FAILED to close " . $results . "Fgenesh:parse_results" );
+} ## end sub parse_results
 
 1;

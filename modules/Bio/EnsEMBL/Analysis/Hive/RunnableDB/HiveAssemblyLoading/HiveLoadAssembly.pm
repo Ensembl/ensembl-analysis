@@ -31,7 +31,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('primary_assembly_dir_name') ) {
-    $self->throw( "primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly " );
+    $self->throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
   }
 
   unless ( $self->param('output_path') ) {
@@ -40,7 +40,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('enscode_root_dir') ) {
-    $self->throw( "enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is" );
+    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   return 1;
@@ -90,7 +90,7 @@ sub load_assembly {
     $assembled = "scaffold";
     $component = "contig";
 
-    my $assembly_count_before = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'` );
+    my $assembly_count_before = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
 
     my $cmd =
       "perl " . $enscode_dir . "/ensembl-pipeline/scripts/load_agp.pl" . " -dbhost " . $dbhost . " -dbuser " . $dbuser .
@@ -105,9 +105,9 @@ sub load_assembly {
     say "Loading of scaffold to contig mappings completed. Output written to:\n" .
       $path_to_files . "/load_assembly_scaffold_contig.out\n";
 
-    my $assembly_count_after = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'` );
+    my $assembly_count_after = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
     my $assembly_count_diff  = $assembly_count_after - $assembly_count_before;
-    my $assembly_count_file  = int( `grep -v "#" $path_to_files/scaf_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"` );
+    my $assembly_count_file  = int(`grep -v "#" $path_to_files/scaf_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"`);
     unless ( $assembly_count_file == $assembly_count_diff ) {
       $self->throw( "Difference in count between scaff_all.agp and entries loaded into the database:\n" .
                     "scaff_all.agp: " . $assembly_count_file . "\ndatabase: " . $assembly_count_diff );
@@ -144,7 +144,7 @@ sub load_assembly {
     $component = "contig";
     $chromo_present++;
 
-    my $assembly_count_before = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'` );
+    my $assembly_count_before = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
 
     my $cmd =
       "perl " . $enscode_dir . "/ensembl-pipeline/scripts/load_agp.pl" . " -dbhost " . $dbhost . " -dbuser " . $dbuser .
@@ -159,9 +159,9 @@ sub load_assembly {
     say "Loading of chromosome to contig mappings completed. Output written to:\n" .
       $path_to_files . "/load_assembly_chromosome_contig.out\n";
 
-    my $assembly_count_after = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'` );
+    my $assembly_count_after = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
     my $assembly_count_diff  = $assembly_count_after - $assembly_count_before;
-    my $assembly_count_file  = int( `grep -v "#" $path_to_files/comp_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"` );
+    my $assembly_count_file  = int(`grep -v "#" $path_to_files/comp_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"`);
     unless ( $assembly_count_file == $assembly_count_diff ) {
       $self->throw( "Difference in count between comp_all.agp and entries loaded into the database:\n" .
                     "comp_all.agp: " . $assembly_count_file . "\ndatabase: " . $assembly_count_diff );
@@ -193,7 +193,7 @@ sub load_assembly {
     $component = "scaffold";
     $chromo_present++;
 
-    my $assembly_count_before = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'` );
+    my $assembly_count_before = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
 
     my $cmd =
       "perl " . $enscode_dir . "/ensembl-pipeline/scripts/load_agp.pl" . " -dbhost " . $dbhost . " -dbuser " . $dbuser .
@@ -208,9 +208,9 @@ sub load_assembly {
     say "Loading of chromosome to scaffold mappings completed. Output written to:\n" .
       $path_to_files . "/load_assembly_chromosome_scaffold.out\n";
 
-    my $assembly_count_after = int( `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'` );
+    my $assembly_count_after = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
     my $assembly_count_diff  = $assembly_count_after - $assembly_count_before;
-    my $assembly_count_file  = int( `grep -v "#" $path_to_files/chr_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"` );
+    my $assembly_count_file  = int(`grep -v "#" $path_to_files/chr_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"`);
     unless ( $assembly_count_file == $assembly_count_diff ) {
       $self->throw( "Difference in count between chr_all.agp and entries loaded into the database:\n" .
                     "chr_all.agp: " . $assembly_count_file . "\ndatabase: " . $assembly_count_diff );
@@ -243,13 +243,13 @@ sub load_assembly {
   # actually be needed. But if it is then I need to make it more useful
   if ($chromo_present) {
     unless ( $chromo_present == 2 ) {
-      $self->warning( "Chromosomes present, but you only have one mapping file instead of two" );
+      $self->warning("Chromosomes present, but you only have one mapping file instead of two");
     }
   }
 
   # check meta table new rows for assembly.mapping
-  my $num_meta_rows = int(
-        `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from meta where meta_key = "assembly.mapping"'` );
+  my $num_meta_rows =
+    int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from meta where meta_key = "assembly.mapping"'`);
   if ($chromo_present) {
     if ( $num_meta_rows == 3 ) {
       say "3 new rows found in 'meta' table for 'assembly.mapping' meta_key. Great!";

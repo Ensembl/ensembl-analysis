@@ -1,17 +1,18 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-=pod 
+
+=pod
 
 =head1 NAME Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster
 
@@ -58,13 +59,13 @@ Post questions to the EnsEMBL developer list: <http://lists.ensembl.org/mailman/
 
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::CollapsedCluster;
 
-use warnings ;
+use warnings;
 use strict;
 use vars qw(@ISA);
 
 use Bio::EnsEMBL::Root;
-use Bio::EnsEMBL::Feature ;
-use Bio::EnsEMBL::Exon ;
+use Bio::EnsEMBL::Feature;
+use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 @ISA = qw(Bio::EnsEMBL::Exon Bio::EnsEMBL::Feature);
@@ -78,26 +79,26 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 
 =cut
 
-sub new  {
-  my($class) = shift;
-  if( ref $class ) {
-      $class = ref $class;
+sub new {
+  my ($class) = shift;
+  if ( ref $class ) {
+    $class = ref $class;
   }
   my $self = $class->SUPER::new(@_);
 
-  $self->{_exonhash} = undef;
-  $self->{_endexonhash} = undef;
-  $self->{_intronhash} = undef;
-  $self->{_exonstarts} = undef;
-  $self->{_intronstarts} = undef;
-  $self->{_exoncluster} = undef;
-  $self->{_evidencecount} = undef;
-  $self->{_featurecount} = undef;
-  $self->{_score} = undef;
-  $self->{_endexon} = undef;
+  $self->{_exonhash}       = undef;
+  $self->{_endexonhash}    = undef;
+  $self->{_intronhash}     = undef;
+  $self->{_exonstarts}     = undef;
+  $self->{_intronstarts}   = undef;
+  $self->{_exoncluster}    = undef;
+  $self->{_evidencecount}  = undef;
+  $self->{_featurecount}   = undef;
+  $self->{_score}          = undef;
+  $self->{_endexon}        = undef;
   $self->{_exontranscript} = undef;
 
-  return $self ;
+  return $self;
 }
 
 =head2 add_intron
@@ -110,13 +111,12 @@ sub new  {
 
 =cut
 
-
-sub add_intron{
-  my ($self,$feature) = @_;
-  if (defined($feature)){
-    $self->throw("Intron must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_intron {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Intron must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    $self->_add_feature($feature,'intron');
+    $self->_add_feature( $feature, 'intron' );
   }
   return;
 }
@@ -131,15 +131,15 @@ sub add_intron{
 
 =cut
 
-sub add_exon{
-  my ($self,$feature,$cluster) = @_;
-  if (defined($feature)) {
-    $self->throw("exon must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_exon {
+  my ( $self, $feature, $cluster ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "exon must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    $self->_add_feature($feature,'exon');
+    $self->_add_feature( $feature, 'exon' );
   }
-  if (defined($cluster)){
-    $self->_add_exoncluster($feature,$cluster);
+  if ( defined($cluster) ) {
+    $self->_add_exoncluster( $feature, $cluster );
   }
   return;
 }
@@ -156,14 +156,14 @@ sub add_exon{
 
 =cut
 
-sub _add_exoncluster{
-  my ($self,$feature,$cluster) = @_;
-  if (defined($feature)) {
-    $self->throw("exon must be a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub _add_exoncluster {
+  my ( $self, $feature, $cluster ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "exon must be a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    if (defined $cluster){
-      $self->throw("Cluster must be a Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster not a ".ref($cluster)."\n")
-	unless $cluster->isa("Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster");
+    if ( defined $cluster ) {
+      $self->throw( "Cluster must be a Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster not a " . ref($cluster) . "\n" )
+        unless $cluster->isa("Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster");
     }
     my $key = $self->_get_key_from_feature($feature);
     $self->{_exoncluster}{$key} = $cluster;
@@ -186,60 +186,61 @@ sub _add_exoncluster{
 
 =cut
 
-sub _add_feature{
-  my ($self,$feature,$type) = @_;
-  unless ($type eq 'exon' or $type eq 'intron'){
+sub _add_feature {
+  my ( $self, $feature, $type ) = @_;
+  unless ( $type eq 'exon' or $type eq 'intron' ) {
     $self->throw("Feature must be defined as in intron or an exon");
   }
-  if (defined($feature)) {
+  if ( defined($feature) ) {
     my $key = $self->_get_key_from_feature($feature);
     # store associated features along with the feature
     $self->add_ev_by_feature($feature);
     # exons are more coplictated because of supporting features
     # and end exons
-    if ($type eq 'exon'){
+    if ( $type eq 'exon' ) {
       # single exons are terminal but not 3 or 5 prime
       $self->add_exon_count($feature);
-      if ($feature->is_terminal_exon && $feature->number_exons > 1 ){
-	my $terminal_key = $self->_get_key_from_terminal_feature($feature);
-	$self->{'_endexoncount'}{$terminal_key}++;
-	$self->add_ev_by_terminal_feature($feature);	
-	# only store the terminal exon if it is the longest
-	# otherwise just transfer the supporting features
-	if (my $existing_end_exon =  $self->get_end_exon($feature)){
-	  # push supporting features onto the feature if it exists
-	  if ($existing_end_exon->length < $feature->length){
-	    $self->{'_endexonhash'}{$terminal_key} = $feature;
-	  }
-	} else {
-	  # end exon hasnt been added before 
-	  $self->{'_endexonhash'}{$terminal_key} = $feature;
-	}
+      if ( $feature->is_terminal_exon && $feature->number_exons > 1 ) {
+        my $terminal_key = $self->_get_key_from_terminal_feature($feature);
+        $self->{'_endexoncount'}{$terminal_key}++;
+        $self->add_ev_by_terminal_feature($feature);
+        # only store the terminal exon if it is the longest
+        # otherwise just transfer the supporting features
+        if ( my $existing_end_exon = $self->get_end_exon($feature) ) {
+          # push supporting features onto the feature if it exists
+          if ( $existing_end_exon->length < $feature->length ) {
+            $self->{'_endexonhash'}{$terminal_key} = $feature;
+          }
+        }
+        else {
+          # end exon hasnt been added before
+          $self->{'_endexonhash'}{$terminal_key} = $feature;
+        }
       }
-      if (my $existing_exon =  $self->get_exon($feature)){
-	my @sfs = @{$existing_exon->get_all_supporting_features};
-	$feature->add_supporting_features(@sfs);
-	$self->{'_exonhash'}{$key} = $feature;
-      } else {
-	# its a new exon add it for the first time
-	$self->{'_exonhash'}{$key} = $feature;	
+      if ( my $existing_exon = $self->get_exon($feature) ) {
+        my @sfs = @{ $existing_exon->get_all_supporting_features };
+        $feature->add_supporting_features(@sfs);
+        $self->{'_exonhash'}{$key} = $feature;
+      }
+      else {
+        # its a new exon add it for the first time
+        $self->{'_exonhash'}{$key} = $feature;
       }
       # no point in adding get exon by start if its the first exon
       $self->add_exon_by_start($feature) unless $key =~ /start/;
-      $self->add_exon_by_end($feature) unless $key =~ /end/;
+      $self->add_exon_by_end($feature)   unless $key =~ /end/;
       # want to store *all* the transcripts that share this exon
       my $transcript = $feature->transcript;
-      $self->transcript_by_feature($feature,$transcript);
-    }
+      $self->transcript_by_feature( $feature, $transcript );
+    } ## end if ( $type eq 'exon' )
     # introns are nice and easy
-    if ($type eq 'intron'){
+    if ( $type eq 'intron' ) {
       $self->add_intron_count($feature);
       $self->{'_intronhash'}{$key} = $feature;
     }
-  }
-  return ;
-}
-
+  } ## end if ( defined($feature))
+  return;
+} ## end sub _add_feature
 
 =head2 _get_key_from_feature
 
@@ -252,13 +253,13 @@ sub _add_feature{
 
 =cut
 
-sub _get_key_from_feature{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub _get_key_from_feature {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    if ($feature->start && $feature->end && $feature->strand && $feature->seq_region_name){
-      my $key = $feature->seq_region_name.':'.$feature->start.':'.$feature->end.':'.$feature->strand;
+    if ( $feature->start && $feature->end && $feature->strand && $feature->seq_region_name ) {
+      my $key = $feature->seq_region_name . ':' . $feature->start . ':' . $feature->end . ':' . $feature->strand;
       $self->throw("Key not found for $feature\n") unless $key;
       return $key;
     }
@@ -272,25 +273,23 @@ sub _get_key_from_feature{
    Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
    Function   : Private method for creating the hash key from an end exons genomic cordinates
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-              : Throws unless ARG[1] 
+              : Throws unless ARG[1]
    Returnval  : string $key
 
 =cut
 
-sub _get_key_from_terminal_feature{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {    
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub _get_key_from_terminal_feature {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key;
     return 0 unless $feature->is_terminal_exon;
-    if (($feature->is_5prim_exon && $feature->strand == 1) or
-	($feature->is_3prim_exon && $feature->strand == -1) ){
-      $key =  $feature->seq_region_name.':start:'.$feature->end.':'.$feature->strand;
+    if ( ( $feature->is_5prim_exon && $feature->strand == 1 ) or ( $feature->is_3prim_exon && $feature->strand == -1 ) ) {
+      $key = $feature->seq_region_name . ':start:' . $feature->end . ':' . $feature->strand;
     }
-    if (($feature->is_3prim_exon && $feature->strand == 1) or
-	($feature->is_5prim_exon && $feature->strand == -1) ){
-      $key =  $feature->seq_region_name.':'.$feature->start.':end:'.$feature->strand;
+    if ( ( $feature->is_3prim_exon && $feature->strand == 1 ) or ( $feature->is_5prim_exon && $feature->strand == -1 ) ) {
+      $key = $feature->seq_region_name . ':' . $feature->start . ':end:' . $feature->strand;
     }
     return $key;
   }
@@ -303,17 +302,17 @@ sub _get_key_from_terminal_feature{
    Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
    Function   : Stores the number of est and similarity exons that were collapsed to make this end exon
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-              : Throws unless ARG[1] 
+              : Throws unless ARG[1]
    Returnval  : none
 
 =cut
 
-sub add_ev_by_terminal_feature{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_ev_by_terminal_feature {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    my $key = $self->_get_key_from_terminal_feature($feature);
+    my $key      = $self->_get_key_from_terminal_feature($feature);
     my $evidence = $feature->ev_set;
     $self->throw("No evidence set found for $feature\n") unless $evidence;
     $self->{_terminalevidencecount}{$key}{$evidence}++;
@@ -328,21 +327,22 @@ sub add_ev_by_terminal_feature{
    Arg[1]     : String name of evidence set 'est' or 'simgw'
    Function   : Returns the number of est and similarity exons that were collapsed to make this end exon
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-   Returnval  : Scalar 
+   Returnval  : Scalar
 
 =cut
 
-sub ev_count_by_terminal_feature{
-  my ($self,$feature,$ev_set) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub ev_count_by_terminal_feature {
+  my ( $self, $feature, $ev_set ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_terminal_feature($feature);
-    if (defined($ev_set)) {   
-      if ($self->{_terminalevidencecount}{$key}{$ev_set}){
-	return $self->{_terminalevidencecount}{$key}{$ev_set} ;
-      } else {
-	return 0;
+    if ( defined($ev_set) ) {
+      if ( $self->{_terminalevidencecount}{$key}{$ev_set} ) {
+        return $self->{_terminalevidencecount}{$key}{$ev_set};
+      }
+      else {
+        return 0;
       }
     }
   }
@@ -356,17 +356,17 @@ sub ev_count_by_terminal_feature{
    Arg[1]     : String name of evidence set 'est' or 'simgw'
    Function   : Stores the number of est and similarity exons that were collapsed to make this feature
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-              : Throws unless ARG[1] 
+              : Throws unless ARG[1]
    Returnval  : none
 
 =cut
 
-sub add_ev_by_feature{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_ev_by_feature {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    my $key = $self->_get_key_from_feature($feature);
+    my $key      = $self->_get_key_from_feature($feature);
     my $evidence = $feature->ev_set;
     $self->throw("No evidence set found for $feature\n") unless $evidence;
     $self->{_evidencecount}{$key}{$evidence}++;
@@ -381,22 +381,23 @@ sub add_ev_by_feature{
    Arg[1]     : String name of evidence set 'est' or 'simgw'
    Function   : Returns the number of est and similarity exons that were collapsed to make this feature
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-              : Throws unless ARG[1] 
+              : Throws unless ARG[1]
    Returnval  : scalar
 
 =cut
 
-sub ev_count_by_feature{
-  my ($self,$feature,$ev_set) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub ev_count_by_feature {
+  my ( $self, $feature, $ev_set ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-   my $key = $self->_get_key_from_feature($feature);
-    if (defined($ev_set)) {
-      if ($self->{_evidencecount}{$key}{$ev_set}){
-	return $self->{_evidencecount}{$key}{$ev_set};
-      } else {
-	return 0;
+    my $key = $self->_get_key_from_feature($feature);
+    if ( defined($ev_set) ) {
+      if ( $self->{_evidencecount}{$key}{$ev_set} ) {
+        return $self->{_evidencecount}{$key}{$ev_set};
+      }
+      else {
+        return 0;
       }
     }
   }
@@ -413,13 +414,13 @@ sub ev_count_by_feature{
 
 =cut
 
-sub add_exon_by_end{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_exon_by_end {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    my $key = $self->_get_key_from_feature($feature);
-    my $start = $feature->end.":".$feature->strand;
+    my $key   = $self->_get_key_from_feature($feature);
+    my $start = $feature->end . ":" . $feature->strand;
     $self->{_exonends}{$start}{$key} = $feature;
   }
   return;
@@ -429,20 +430,20 @@ sub add_exon_by_end{
 
    Name       : add_exon_by_start
    Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
-   Arg[1]     : (optional) 
+   Arg[1]     : (optional)
    Function   : Stores exons by start position
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
    Returnval  : none
 
 =cut
 
-sub add_exon_by_start{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_exon_by_start {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    my $key = $self->_get_key_from_feature($feature);
-    my $start = $feature->start.":".$feature->strand;
+    my $key   = $self->_get_key_from_feature($feature);
+    my $start = $feature->start . ":" . $feature->strand;
     $self->{_exonstarts}{$start}{$key} = $feature;
   }
   return;
@@ -454,17 +455,17 @@ sub add_exon_by_start{
    Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
    Function   : Given an intron object it returns an array ref of exons that join onto the start of the intron
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-   Returnval  : Array ref of Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended objects 
+   Returnval  : Array ref of Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended objects
 
 =cut
 
-sub last_exons_by_intron{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub last_exons_by_intron {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    my $start = $feature->start.":".$feature->strand;
-    my @exons = values %{$self->{_exonends}{$start}};
+    my $start = $feature->start . ":" . $feature->strand;
+    my @exons = values %{ $self->{_exonends}{$start} };
     return \@exons;
   }
   return;
@@ -476,17 +477,17 @@ sub last_exons_by_intron{
    Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
    Function   : Given an intron object it returns an array ref of exons that join onto the end of the intron
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-   Returnval  : Array ref of Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended objects 
+   Returnval  : Array ref of Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended objects
 
 =cut
 
-sub next_exons_by_intron{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub next_exons_by_intron {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    my $start = $feature->end.":".$feature->strand;
-    my @exons = values %{$self->{_exonstarts}{$start}};
+    my $start = $feature->end . ":" . $feature->strand;
+    my @exons = values %{ $self->{_exonstarts}{$start} };
     return \@exons;
   }
   return;
@@ -503,13 +504,13 @@ sub next_exons_by_intron{
 
 =cut
 
-sub exon_score{
-  my ($self,$feature,$score) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub exon_score {
+  my ( $self, $feature, $score ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
-    if  (defined($score)) {
+    if ( defined($score) ) {
       $self->{_exonscore}{$key} = $score;
     }
     return $self->{_exonscore}{$key};
@@ -528,13 +529,13 @@ sub exon_score{
 
 =cut
 
-sub intron_score{
-  my ($self,$feature,$score) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub intron_score {
+  my ( $self, $feature, $score ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
-    if  (defined($score)) {
+    if ( defined($score) ) {
       $self->{_intronscore}{$key} = $score;
     }
     return $self->{_intronscore}{$key};
@@ -552,17 +553,16 @@ sub intron_score{
 
 =cut
 
-sub add_intron_count{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {    
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_intron_count {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
     $self->{_introncount}{$key}++;
   }
   return;
 }
-
 
 =head2 add_intron_weight
 
@@ -574,15 +574,15 @@ sub add_intron_count{
 
 =cut
 
-sub add_intron_weight{
-  my ($self,$feature,$num) = @_;
+sub add_intron_weight {
+  my ( $self, $feature, $num ) = @_;
   # we will already have a weight of 1 for this feature
   $num--;
-  if (defined($feature)) {    
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
-    $self->{_introncount}{$key}+= $num;
+    $self->{_introncount}{$key} += $num;
   }
   return;
 }
@@ -597,10 +597,10 @@ sub add_intron_weight{
 
 =cut
 
-sub get_intron_count{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub get_intron_count {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
     return $self->{_introncount}{$key};
@@ -618,10 +618,10 @@ sub get_intron_count{
 
 =cut
 
-sub add_exon_count{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub add_exon_count {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
     $self->{_exoncount}{$key}++;
@@ -639,10 +639,10 @@ sub add_exon_count{
 
 =cut
 
-sub get_exon_count{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub get_exon_count {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
     return $self->{_exoncount}{$key};
@@ -656,14 +656,14 @@ sub get_exon_count{
    Arg[0]     : Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended
    Function   : Takes an exon object and returns the associated collapsed exon with all associated features
    Exceptions : Throws unless ARG[0] is a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended object
-   Returnval  : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended 
+   Returnval  : Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended
 
 =cut
 
-sub get_exon{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub get_exon {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
     return $self->{_exonhash}{$key};
@@ -683,24 +683,22 @@ sub get_exon{
 
 =cut
 
-sub make_intron_from_exons{
-  my ($self,$exon1,$exon2) = @_;
-  if (defined($exon1) && defined($exon2)) {
-    $self->throw("exon1 must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($exon1)."\n")
+sub make_intron_from_exons {
+  my ( $self, $exon1, $exon2 ) = @_;
+  if ( defined($exon1) && defined($exon2) ) {
+    $self->throw( "exon1 must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($exon1) . "\n" )
       unless $exon1->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
-    $self->throw("exon2 must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($exon2)."\n")
+    $self->throw( "exon2 must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($exon2) . "\n" )
       unless $exon2->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my @array = ( $exon1, $exon2 );
     # sort them my start
     @array = sort { $a->start <=> $b->start } @array;
-    my $intron = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended->new
-      (
-       -start   => $array[0]->end,
-       -end     => $array[1]->start,
-       -strand  => $exon1->strand,
-       -slice   => $exon1->slice,
-       -analysis=> $exon1->transcript->analysis,
-      );
+    my $intron =
+      Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended->new( -start    => $array[0]->end,
+                                                                        -end      => $array[1]->start,
+                                                                        -strand   => $exon1->strand,
+                                                                        -slice    => $exon1->slice,
+                                                                        -analysis => $exon1->transcript->analysis, );
     return $intron;
   }
   return;
@@ -718,19 +716,17 @@ sub make_intron_from_exons{
 
 =cut
 
-sub make_intron_from_rnaseq{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("feature must be a Bio::EnsEMBL::DnaDnaAlignFeature not a ".ref($feature)."\n")
+sub make_intron_from_rnaseq {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "feature must be a Bio::EnsEMBL::DnaDnaAlignFeature not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::DnaDnaAlignFeature");
-    my $intron = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended->new
-      (
-       -start   => $feature->start -1,
-       -end     => $feature->end +1,
-       -strand  => $feature->strand,
-       -slice   => $feature->slice,
-       -analysis=> $feature->analysis,
-      );
+    my $intron =
+      Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended->new( -start    => $feature->start - 1,
+                                                                        -end      => $feature->end + 1,
+                                                                        -strand   => $feature->strand,
+                                                                        -slice    => $feature->slice,
+                                                                        -analysis => $feature->analysis, );
     return $intron;
   }
   return;
@@ -747,10 +743,10 @@ sub make_intron_from_rnaseq{
 
 =cut
 
-sub get_end_exon{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub get_end_exon {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     return 0 unless $feature->is_terminal_exon;
     my $key = $self->_get_key_from_terminal_feature($feature);
@@ -770,10 +766,10 @@ sub get_end_exon{
 
 =cut
 
-sub count_end_exon{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub count_end_exon {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     return 0 unless $feature->is_terminal_exon;
     my $key = $self->_get_key_from_terminal_feature($feature);
@@ -790,10 +786,10 @@ sub count_end_exon{
 
 =cut
 
-sub get_all_exons{ 
+sub get_all_exons {
   my ($self) = @_;
-  my @exons = values %{$self->{'_exonhash'}};
-  @exons = sort {$a->start <=> $b->start} @exons;
+  my @exons = values %{ $self->{'_exonhash'} };
+  @exons = sort { $a->start <=> $b->start } @exons;
   return \@exons;
 }
 
@@ -805,10 +801,10 @@ sub get_all_exons{
 
 =cut
 
-sub get_all_introns{ 
+sub get_all_introns {
   my ($self) = @_;
-  my @introns =values %{$self->{_intronhash}};
-  @introns  = sort {$a->start <=> $b->start} @introns;
+  my @introns = values %{ $self->{_intronhash} };
+  @introns = sort { $a->start <=> $b->start } @introns;
   return \@introns;
 }
 
@@ -822,13 +818,13 @@ sub get_all_introns{
 
 =cut
 
-sub contains_exon{ 
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub contains_exon {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
-    if ( $self->{_exonhash}{$key} ){
+    if ( $self->{_exonhash}{$key} ) {
       return 1;
     }
     else {
@@ -848,13 +844,13 @@ sub contains_exon{
 
 =cut
 
-sub contains_intron{ 
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub contains_intron {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
-    if ( $self->{_intronhash}{$key} ){
+    if ( $self->{_intronhash}{$key} ) {
       return 1;
     }
     else {
@@ -876,16 +872,16 @@ sub contains_intron{
 
 =cut
 
-sub transcript_by_feature{
-  my ($self,$feature,$trans) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub transcript_by_feature {
+  my ( $self, $feature, $trans ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
-    if  (defined($trans)) {
-    $self->throw("Transcript must be a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended not a ".ref($trans)."\n")
-      unless $trans->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended");
-      push (@{$self->{_exontranscript}{$key}}, $trans);
+    if ( defined($trans) ) {
+      $self->throw( "Transcript must be a Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended not a " . ref($trans) . "\n" )
+        unless $trans->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptExtended");
+      push( @{ $self->{_exontranscript}{$key} }, $trans );
     }
     return $self->{_exontranscript}{$key};
   }
@@ -902,9 +898,9 @@ sub transcript_by_feature{
 =cut
 
 sub exon_info {
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
     print "$key";
@@ -921,17 +917,16 @@ sub exon_info {
 
 =cut
 
-sub get_exon_cluster{
-  my ($self,$feature) = @_;
-  if (defined($feature)) {
-    $self->throw("Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a ".ref($feature)."\n")
+sub get_exon_cluster {
+  my ( $self, $feature ) = @_;
+  if ( defined($feature) ) {
+    $self->throw( "Feature must be a Bio::EnsEMBL::Analysis:Tools::GeneBuildUtils::ExonExtended not a " . ref($feature) . "\n" )
       unless $feature->isa("Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonExtended");
     my $key = $self->_get_key_from_feature($feature);
     return $self->{_exoncluster}{$key};
   }
   return;
 }
-
 
 1;
 

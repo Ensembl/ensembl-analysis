@@ -36,7 +36,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('enscode_root_dir') ) {
-    $self->throw( "enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is" );
+    $self->throw("enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   unless ( $self->param('output_path') ) {
@@ -45,7 +45,7 @@ sub fetch_input {
   }
 
   unless ( $self->param('taxonomy_db') ) {
-    throw( "You have not passed in the taxonomy db connection hash with the taxonomy_db flag" );
+    throw("You have not passed in the taxonomy db connection hash with the taxonomy_db flag");
   }
 
   return 1;

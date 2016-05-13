@@ -31,15 +31,15 @@ sub fetch_input {
   }
 
   unless ( $self->param('enscode_dir') ) {
-    $self->throw( "enscode_dir not passed into parameters hash. You need to specify where your code checkout is" );
+    $self->throw("enscode_dir not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   unless ( $self->param('species_name') ) {
-    $self->throw( "species_name not passed into parameters hash. You need to specify what species you're working on" );
+    $self->throw("species_name not passed into parameters hash. You need to specify what species you're working on");
   }
 
   unless ( $self->param('output_path') ) {
-    $self->throw( "output not passed into parameters hash. You need to specify where the output dir will be" );
+    $self->throw("output not passed into parameters hash. You need to specify where the output dir will be");
   }
 
   return 1;

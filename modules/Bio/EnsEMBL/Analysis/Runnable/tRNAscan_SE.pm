@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE - 
+Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE -
 
 =head1 SYNOPSIS
 
@@ -40,14 +41,13 @@ Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE -
 
 =head1 DESCRIPTION
 
-tRNAscan_SE expects to run the program tRNAscan-SE and produces 
-SimpleFeature which can be stored in the simple_feature table in the 
+tRNAscan_SE expects to run the program tRNAscan-SE and produces
+SimpleFeature which can be stored in the simple_feature table in the
 core database
 
 =head1 METHODS
 
 =cut
-
 
 package Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE;
 
@@ -61,31 +61,28 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
-
-
 =head2 new
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE
   Function  : produce a tRNAscan_SE runnable and set the options
   and program if undefined
   Returntype: Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
 
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  if(!$self->options){
+  if ( !$self->options ) {
     $self->options('-q');
   }
-  if(!$self->program){
+  if ( !$self->program ) {
     $self->program('tRNAscan-SE');
   }
   ######################
@@ -100,46 +97,39 @@ sub new {
   Returntype: none
   Exceptions: throws on failure to open or close the results file
   or if the results file doesnt exist
-  Example   : 
+  Example   :
 
 =cut
 
-sub parse_results{
-  my ($self, $results) = @_;
+sub parse_results {
+  my ( $self, $results ) = @_;
 
-  if(!$results){
+  if ( !$results ) {
     $results = $self->resultsfile;
   }
-  if(!-e $results){
-    throw("Can't parse an no existance results file ".$results.
-          " tRNAscan_SE:parse_results");
+  if ( !-e $results ) {
+    throw( "Can't parse an no existance results file " . $results . " tRNAscan_SE:parse_results" );
   }
   my $ff = $self->feature_factory;
   my @output;
-  open(CPG, $results) or throw("FAILED to open ".$results.
-                               " tRNAscan_SE:parse_results");
- LINE:while(<CPG>){
-    next LINE if(/^Sequence/ ||/^Name/ || /^---/); 
+  open( CPG, $results ) or throw( "FAILED to open " . $results . " tRNAscan_SE:parse_results" );
+LINE: while (<CPG>) {
+    next LINE if ( /^Sequence/ || /^Name/ || /^---/ );
     #ignore introductory lines
-    my @element = split (/\s+/, $_); 
-    my ($name, $start, $end, $display_label, $score) 
-      = @element[0, 2, 3, 4, 8];
+    my @element = split( /\s+/, $_ );
+    my ( $name, $start, $end, $display_label, $score ) = @element[ 0, 2, 3, 4, 8 ];
     my $strand = 1;
-    if($start > $end){
+    if ( $start > $end ) {
       $strand = -1;
       my $temp_end = $start;
       $start = $end;
-      $end = $temp_end;
+      $end   = $temp_end;
     }
-    my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
-                                        $display_label, 
-                                        $name, $self->query);
-    push(@output, $sf)
+    my $sf = $ff->create_simple_feature( $start, $end, $strand, $score, $display_label, $name, $self->query );
+    push( @output, $sf );
   }
-  $self->output(\@output);
-  close(CPG) or throw("FAILED to close ".$results.
-                      " tRNAscan_SE:parse_results");
-}
-
+  $self->output( \@output );
+  close(CPG) or throw( "FAILED to close " . $results . " tRNAscan_SE:parse_results" );
+} ## end sub parse_results
 
 1;

@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,10 +34,10 @@
 
 This module acts as an intermediate between blast and transcripts. It
 is primarily used to blast the protein sequence of transcripts
-againsts a protein database. It instantiates a blast runnable passing it 
+againsts a protein database. It instantiates a blast runnable passing it
 the Bio::Seq of the transcript translation as the query sequence. This
-module expects all the same arguments as a standard blast with the 
-exception or a query sequence as these must be passed into the blast 
+module expects all the same arguments as a standard blast with the
+exception or a query sequence as these must be passed into the blast
 runnable it instantiates
 
 Based on BlastTranscriptPep and BlastGenescanPep.
@@ -47,7 +47,6 @@ Based on BlastTranscriptPep and BlastGenescanPep.
 Post questions to the Ensembl development list: http://lists.ensembl.org/mailman/listinfo/dev
 
 =cut
-
 
 package Bio::EnsEMBL::Analysis::Runnable::BlastPep;
 
@@ -74,9 +73,9 @@ use vars qw(@ISA);
 =cut
 
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = new Bio::EnsEMBL::Analysis::Runnable::Blast @args;
-  bless $self,$class;
+  bless $self, $class;
   return $self;
 }
 
@@ -88,20 +87,18 @@ sub new {
   blast hits back into ProteinFeatures
   Returntype: none
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
 sub run {
-  my ($self, $dir) = @_;
+  my ( $self, $dir ) = @_;
 
   $self->Bio::EnsEMBL::Analysis::Runnable::Blast::run($dir);
   my $out = $self->output;
-  $self->output([], 1);
+  $self->output( [], 1 );
   $self->align_hits_to_query($out);
 }
-
-
 
 =head2 align_hits_to_query
 
@@ -109,30 +106,29 @@ sub run {
   Arg [2]   : arrayref of Bio::EnsEMBL::BaseAlignFeatures
   Function  : convert the features to ProteinFeatures
   Returntype: arrayref of Bio::EnsEMBL::ProteinFeatures
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
 sub align_hits_to_query {
-  my ($self, $features)  = @_;
+  my ( $self, $features ) = @_;
 
   my @output;
-  for my $feature ( @$features ) {
+  for my $feature (@$features) {
 
-      my $_feature = Bio::EnsEMBL::ProteinFeature->new(
-	      				  -start      => $feature->start,
-					  -end        => $feature->end, 
-					  -hstart     => $feature->hstart,
-					  -hend       => $feature->hend,
-                                          -percent_id => $feature->percent_id, 
-                                          -score      => $feature->score, 
-                                          -p_value    => $feature->p_value,
-					  -hseqname   => $feature->hseqname, 
-                                          -seqname    => $self->query->id,
-                                          -analysis   => $feature->analysis);
-      push(@output, $_feature);
-    }
-  $self->output(\@output);
+    my $_feature = Bio::EnsEMBL::ProteinFeature->new( -start      => $feature->start,
+                                                      -end        => $feature->end,
+                                                      -hstart     => $feature->hstart,
+                                                      -hend       => $feature->hend,
+                                                      -percent_id => $feature->percent_id,
+                                                      -score      => $feature->score,
+                                                      -p_value    => $feature->p_value,
+                                                      -hseqname   => $feature->hseqname,
+                                                      -seqname    => $self->query->id,
+                                                      -analysis   => $feature->analysis );
+    push( @output, $_feature );
+  }
+  $self->output( \@output );
 }
 1;

@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,8 +29,8 @@ Bio::EnsEMBL::Analysis::Runnable::Funcgen::Splitter
 
 =head1 DESCRIPTION
 
-Splitter expects to run the command line version of the Splitter program 
-(http://zlab.bu.edu/splitter) and predicts features which can be stored in 
+Splitter expects to run the command line version of the Splitter program
+(http://zlab.bu.edu/splitter) and predicts features which can be stored in
 the annotated_feature table in the eFG database
 
 
@@ -59,73 +59,71 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use vars qw(@ISA);
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Funcgen);
 
-
 =head2 write_infile
 
     Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Splitter
     Arg [2]     : filename
-    Description : 
-    Returntype  : 
-    Exceptions  : 
-    Example     : 
+    Description :
+    Returntype  :
+    Exceptions  :
+    Example     :
 
 =cut
 
 sub write_infile {
-	
-	my ($self, $filename) = @_;
 
-	if (! $filename) {
-		$filename = $self->infile();
-	}
+  my ( $self, $filename ) = @_;
 
-	# everything needs to happen in a particular subdirectory of the workdir,
-	# filenames are set by the Splitter program
-	
-	(my $workdir = $filename) =~ s/\.dat$//;
-	eval { system("mkdir -p $workdir") };
-	throw ("Couldn't create directory $workdir: $@") if ($@);
-	$self->workdir($workdir);
+  if ( !$filename ) {
+    $filename = $self->infile();
+  }
 
-	$filename =~ s,.+/,,;
-	
-	# determine both number of result sets (replicates) and features
+  # everything needs to happen in a particular subdirectory of the workdir,
+  # filenames are set by the Splitter program
 
-	my $noa = scalar(keys %{$self->result_features});
-	warn('no. of result sets: ', $noa);
+  ( my $workdir = $filename ) =~ s/\.dat$//;
+  eval { system("mkdir -p $workdir") };
+  throw("Couldn't create directory $workdir: $@") if ($@);
+  $self->workdir($workdir);
 
-	my $nof = scalar(@{(values %{$self->result_features})[0]});
-	warn('no. of result fts: ', $nof);
+  $filename =~ s,.+/,,;
 
-	# dump features
-	open(F, "> $workdir/$filename")
-		or throw("Can't open file $workdir/$filename.");
+  # determine both number of result sets (replicates) and features
 
-	#print Dumper $self->result_features;
-	
-	for (my $i=0; $i<$nof; $i++) {
-		my $coord=0;
-		foreach my $rset (values %{$self->result_features}) {
-			printf F "chr%s\t%d\t%d\t", ${$rset}[$i][0], ${$rset}[$i][1], ${$rset}[$i][2] unless ($coord);
-			$coord=1;    
-			print F "\t".${$rset}[$i][3];
-		}
-		print F "\n";
-	}
-	close F;
+  my $noa = scalar( keys %{ $self->result_features } );
+  warn( 'no. of result sets: ', $noa );
 
-	$self->infile($workdir.'/'.$filename);
-	return "$workdir/$filename";
-}
+  my $nof = scalar( @{ ( values %{ $self->result_features } )[0] } );
+  warn( 'no. of result fts: ', $nof );
+
+  # dump features
+  open( F, "> $workdir/$filename" ) or throw("Can't open file $workdir/$filename.");
+
+  #print Dumper $self->result_features;
+
+  for ( my $i = 0; $i < $nof; $i++ ) {
+    my $coord = 0;
+    foreach my $rset ( values %{ $self->result_features } ) {
+      printf F "chr%s\t%d\t%d\t", ${$rset}[$i][0], ${$rset}[$i][1], ${$rset}[$i][2] unless ($coord);
+      $coord = 1;
+      print F "\t" . ${$rset}[$i][3];
+    }
+    print F "\n";
+  }
+  close F;
+
+  $self->infile( $workdir . '/' . $filename );
+  return "$workdir/$filename";
+} ## end sub write_infile
 
 =head2 run_analysis
 
   Arg [1]     : Bio::EnsEMBL::Analysis::Runnable::Splitter
   Arg [2]     : string, program name
-  Usage       : 
-  Description : 
-  Returns     : 
-  Exceptions  : 
+  Usage       :
+  Description :
+  Returns     :
+  Exceptions  :
 
 =cut
 
@@ -159,37 +157,33 @@ sub write_infile {
 #   'minrun=4'
 
 sub run_analysis {
-        
-    my ($self, $program) = @_;
-    
-    if(!$program){
-        $program = $self->program;
-    }
-    throw($program." is not executable Splitter::run_analysis ") 
-        unless($program && -x $program);
 
-	(my $id = $self->workdir) =~ s,^.+/,,;
+  my ( $self, $program ) = @_;
 
-    my $command = $self->program." \'id=$id\' \'submit=One shot\' \'signalfile=".$self->infile."\' " .
-		$self->analysis->parameters;
-    
-    warn("Running analysis " . $command . "\n");
-    
-    eval { system( $command ) };
-    throw("FAILED to run $command: ", $@) if ($@);
+  if ( !$program ) {
+    $program = $self->program;
+  }
+  throw( $program . " is not executable Splitter::run_analysis " ) unless ( $program && -x $program );
 
-	opendir(DIR, $self->workdir())
-		or throw("Can't open workdir ".$self->workdir());
-	my @resultfiles = grep { /\.scored\.txt$/ } readdir DIR;
-	closedir(DIR);
+  ( my $id = $self->workdir ) =~ s,^.+/,,;
 
-	throw("More than one resultfile in ".$self->workdir()) 
-		if (scalar(@resultfiles) > 1);
+  my $command = $self->program . " \'id=$id\' \'submit=One shot\' \'signalfile=" . $self->infile . "\' " . $self->analysis->parameters;
 
-	# set resultsfile
-	$self->resultsfile($self->workdir.'/'.$resultfiles[0]);
+  warn( "Running analysis " . $command . "\n" );
 
-}
+  eval { system($command ) };
+  throw( "FAILED to run $command: ", $@ ) if ($@);
+
+  opendir( DIR, $self->workdir() ) or throw( "Can't open workdir " . $self->workdir() );
+  my @resultfiles = grep { /\.scored\.txt$/ } readdir DIR;
+  closedir(DIR);
+
+  throw( "More than one resultfile in " . $self->workdir() ) if ( scalar(@resultfiles) > 1 );
+
+  # set resultsfile
+  $self->resultsfile( $self->workdir . '/' . $resultfiles[0] );
+
+} ## end sub run_analysis
 
 =head2 infile
 
@@ -199,20 +193,19 @@ sub run_analysis {
   defined it will use the create_filename method to create a filename
   Returntype  : string, filename
   Exceptions  : none
-  Example     : 
+  Example     :
 
 =cut
 
+sub infile {
 
-sub infile{
+  my ( $self, $filename ) = @_;
 
-  my ($self, $filename) = @_;
-
-  if($filename){
+  if ($filename) {
     $self->{'infile'} = $filename;
   }
-  if(!$self->{'infile'}){
-    $self->{'infile'} = $self->create_filename($self->analysis->logic_name, 'dat');
+  if ( !$self->{'infile'} ) {
+    $self->{'infile'} = $self->create_filename( $self->analysis->logic_name, 'dat' );
   }
 
   return $self->{'infile'};
@@ -225,49 +218,44 @@ sub infile{
   Arg [2]     : filename (string)
   Decription  : open and parse resultsfile
   Returntype  : none
-  Exceptions  : throws 
-  Example     : 
+  Exceptions  : throws
+  Example     :
 
 =cut
 
-sub parse_results{
-  my ($self, $resultsfile) = @_;
+sub parse_results {
+  my ( $self, $resultsfile ) = @_;
 
-  if (! defined $resultsfile) {
-      $resultsfile = $self->resultsfile;
+  if ( !defined $resultsfile ) {
+    $resultsfile = $self->resultsfile;
   }
-  throw ('No resultsfile defined in instance!')
-      if(! defined $resultsfile);
+  throw('No resultsfile defined in instance!') if ( !defined $resultsfile );
 
-  throw("parse_results: results file ".$resultsfile." does not exist.")
-      if (! -e $resultsfile);
-  
-  throw("parse_results: can't open file ".$resultsfile.": ". $!)
-      unless (open(F, $resultsfile));
+  throw( "parse_results: results file " . $resultsfile . " does not exist." ) if ( !-e $resultsfile );
+
+  throw( "parse_results: can't open file " . $resultsfile . ": " . $! ) unless ( open( F, $resultsfile ) );
 
   my @output = ();
 
   while (<F>) {
 
-	  next unless (s/^chr//);
-	  
-      chomp;
-      my @ft = split;
-	  my $coord = shift(@ft);
-	  my @coord = split(/[:-]/, $coord);
-      push(@output, [ @coord, $ft[0] ]);
+    next unless (s/^chr//);
+
+    chomp;
+    my @ft    = split;
+    my $coord = shift(@ft);
+    my @coord = split( /[:-]/, $coord );
+    push( @output, [ @coord, $ft[0] ] );
 
   }
 
-  throw("No features to annotate  on slice ".$self->query->seq_region_name."!") if (scalar(@output) == 0);
+  throw( "No features to annotate  on slice " . $self->query->seq_region_name . "!" ) if ( scalar(@output) == 0 );
 
-  $self->output(\@output);
+  $self->output( \@output );
   #print Dumper $self->output();
 
-  throw("parse_results: can't close file ".$resultsfile.".")
-      unless (close(F));
+  throw( "parse_results: can't close file " . $resultsfile . "." ) unless ( close(F) );
 
-}
-
+} ## end sub parse_results
 
 1;

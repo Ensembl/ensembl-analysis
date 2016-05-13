@@ -28,27 +28,26 @@ use parent ('Bio::EnsEMBL::Hive::Process');
 
 sub run {
   my ($self) = @_;
-  foreach my $runnable(@{$self->runnable}){
+  foreach my $runnable ( @{ $self->runnable } ) {
     $runnable->run;
-    $self->output($runnable->output);
+    $self->output( $runnable->output );
   }
   return $self->param('output');
 }
 
 sub output {
-  my ($self, $output) = @_;
-  unless($self->param_is_defined('_output')){
-    $self->param('_output',[]);
+  my ( $self, $output ) = @_;
+  unless ( $self->param_is_defined('_output') ) {
+    $self->param( '_output', [] );
   }
-  if($output){
-    if(ref($output) ne 'ARRAY'){
-      throw('Must pass RunnableDB:output an array ref not a '.$output);
+  if ($output) {
+    if ( ref($output) ne 'ARRAY' ) {
+      throw( 'Must pass RunnableDB:output an array ref not a ' . $output );
     }
-    push(@{$self->param('_output')}, @$output);
+    push( @{ $self->param('_output') }, @$output );
   }
   return $self->param('_output');
 }
-
 
 sub write_output {
   my ($self) = @_;
@@ -67,58 +66,55 @@ sub write_output {
 
     eval { $adaptor->store($feature); };
     if ($@) {
-      $self->throw("RunnableDB::write_output() failed: failed to store '".$feature."' into database '".
-                   $self->hrdb_get_con('target_db')->dbname."': ".$@);
+      $self->throw( "RunnableDB::write_output() failed: failed to store '" .
+                    $feature . "' into database '" . $self->hrdb_get_con('target_db')->dbname . "': " . $@ );
     }
   }
 
   return 1;
-} ## end sub write_output
+}
 
 sub runnable {
-  my ($self, $runnable) = @_;
-  if(!$self->param('runnable')){
-    $self->param('runnable',[]);
+  my ( $self, $runnable ) = @_;
+  if ( !$self->param('runnable') ) {
+    $self->param( 'runnable', [] );
   }
 
-  if($runnable){
-    unless($runnable->isa('Bio::EnsEMBL::Analysis::Runnable')) {
-      throw("Must pass RunnableDB:runnable a Bio::EnsEMBL::Analysis::Runnable not a ".$runnable);
+  if ($runnable) {
+    unless ( $runnable->isa('Bio::EnsEMBL::Analysis::Runnable') ) {
+      throw( "Must pass RunnableDB:runnable a Bio::EnsEMBL::Analysis::Runnable not a " . $runnable );
     }
-    push(@{$self->param('runnable')}, $runnable);
+    push( @{ $self->param('runnable') }, $runnable );
   }
   return $self->param('runnable');
 }
 
-
 sub query {
-  my $self = shift;
+  my $self  = shift;
   my $slice = shift;
-  if($slice) {
-    unless($slice->isa('Bio::EnsEMBL::Slice')) {
-      throw("Must pass RunnableDB:query a Bio::EnsEMBL::Slice not a ".$slice);
+  if ($slice) {
+    unless ( $slice->isa('Bio::EnsEMBL::Slice') ) {
+      throw( "Must pass RunnableDB:query a Bio::EnsEMBL::Slice not a " . $slice );
     }
-    $self->param('slice',$slice);
+    $self->param( 'slice', $slice );
   }
   return $self->param('slice');
 }
 
-
 sub analysis {
-  my $self = shift;
+  my $self     = shift;
   my $analysis = shift;
-  if($analysis){
-    unless($analysis->isa('Bio::EnsEMBL::Analysis')) {
-      throw("Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis not a ".$analysis);
+  if ($analysis) {
+    unless ( $analysis->isa('Bio::EnsEMBL::Analysis') ) {
+      throw( "Must pass RunnableDB:analysis a Bio::EnsEMBL::Analysis not a " . $analysis );
     }
-    $self->param('analysis',$analysis);
+    $self->param( 'analysis', $analysis );
   }
   return $self->param('analysis');
 }
 
-
 sub input_id {
-  my $self = shift;
+  my $self  = shift;
   my $value = shift;
 
   # Note this sub is special. It overrides Hive::Process::input_id and parses the hive input_id into
@@ -128,171 +124,166 @@ sub input_id {
   # function to set a new input id. Also a point to note is that overriding input_id in Process
   # should be fine as it is not the input_id call that the hive itself uses
   my $input_id_string = $self->Bio::EnsEMBL::Hive::Process::input_id;
-  unless($input_id_string =~ /.+\=\>.+\"(.+)\"/) {
-    throw("Could not parse the value from the input id. Input id string:\n".$input_id_string);
+  unless ( $input_id_string =~ /.+\=\>.+\"(.+)\"/ ) {
+    throw( "Could not parse the value from the input id. Input id string:\n" . $input_id_string );
   }
 
   $input_id_string = $1;
-  return($input_id_string);
+  return ($input_id_string);
 }
-
 
 sub hrdb_set_con {
-  my ($self,$dba,$dba_con_name) = @_;
+  my ( $self, $dba, $dba_con_name ) = @_;
 
-  unless($dba->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
-    throw("Expected a DBAdaptor object as input. If you want to retrieve a DBAdaptor then ".
-          "use the getter sub instead (hrdb_get_con)");
+  unless ( $dba->isa('Bio::EnsEMBL::DBSQL::DBAdaptor') ) {
+    throw(
+        "Expected a DBAdaptor object as input. If you want to retrieve a DBAdaptor then " . "use the getter sub instead (hrdb_get_con)" );
   }
 
-  if($dba_con_name){
-      $self->param('_'.$dba_con_name,$dba);
-  } else {
-      $self->param('_hrdbadaptor',$dba);
+  if ($dba_con_name) {
+    $self->param( '_' . $dba_con_name, $dba );
+  }
+  else {
+    $self->param( '_hrdbadaptor', $dba );
   }
 
 }
 
-
 sub hrdb_get_con {
-  my ($self,$dba_con_name) = @_;
+  my ( $self, $dba_con_name ) = @_;
 
-  if($dba_con_name) {
-    return $self->param('_'.$dba_con_name);
-  } else {
+  if ($dba_con_name) {
+    return $self->param( '_' . $dba_con_name );
+  }
+  else {
     return $self->param('_hrdbadaptor');
   }
 }
 
-
 sub hrdb_get_dba {
-  my ($self,$connection_info) = @_;
+  my ( $self, $connection_info ) = @_;
   my $dba;
 
-  if(ref($connection_info)=~ m/HASH/) {
-    eval {
-      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
-    };
+  if ( ref($connection_info) =~ m/HASH/ ) {
+    eval { $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info); };
 
-    if($@) {
-      throw("Error while setting up database connection:\n".$@);
+    if ($@) {
+      throw( "Error while setting up database connection:\n" . $@ );
     }
-  } else {
-    throw("DB connection info passed in was not a hash:\n".$connection_info);
+  }
+  else {
+    throw( "DB connection info passed in was not a hash:\n" . $connection_info );
   }
 
   $dba->dbc->disconnect_when_inactive(1);
   return $dba;
 }
 
-
 sub feature_factory {
-  my ($self, $feature_factory) = @_;
-  if($feature_factory) {
-    $self->param('feature_factory',$feature_factory);
+  my ( $self, $feature_factory ) = @_;
+  if ($feature_factory) {
+    $self->param( 'feature_factory', $feature_factory );
   }
-  if(!$self->param('feature_factory')) {
-    $self->param('feature_factory',Bio::EnsEMBL::Analysis::Tools::FeatureFactory->new());
+  if ( !$self->param('feature_factory') ) {
+    $self->param( 'feature_factory', Bio::EnsEMBL::Analysis::Tools::FeatureFactory->new() );
   }
   return $self->param('feature_factory');
 }
 
-
 sub fetch_sequence {
-  my ($self, $name, $dbcon, $repeat_masking, $soft_masking, $dbname) = @_;
-  if(!$dbcon){
+  my ( $self, $name, $dbcon, $repeat_masking, $soft_masking, $dbname ) = @_;
+  if ( !$dbcon ) {
     $dbcon = $self->hrdb_get_con($dbname);
   }
-  if(!$name){
+  if ( !$name ) {
     $name = $self->parse_hive_input_id;
   }
-  my $sa = $dbcon->get_SliceAdaptor;
+  my $sa    = $dbcon->get_SliceAdaptor;
   my $slice = $sa->fetch_by_name($name);
-  $repeat_masking = [] unless($repeat_masking);
-  if(!$slice){
-    $self->throw("Failed to fetch slice ".$name);
+  $repeat_masking = [] unless ($repeat_masking);
+  if ( !$slice ) {
+    $self->throw( "Failed to fetch slice " . $name );
   }
-  if(@$repeat_masking){
-    my $sequence = $slice->get_repeatmasked_seq($repeat_masking, $soft_masking);
+  if (@$repeat_masking) {
+    my $sequence = $slice->get_repeatmasked_seq( $repeat_masking, $soft_masking );
     $slice = $sequence;
   }
   return $slice;
 }
 
 sub parameters_hash {
-  my ($self, $string) = @_;
+  my ( $self, $string ) = @_;
 
-  if(!$string){
+  if ( !$string ) {
     $string = $self->analysis->parameters;
   }
   my %parameters_hash;
 
   if ($string) {
-    if($string =~  /,/ || $string =~ /=>/){
-      my @pairs = split (/,/, $string);
-      foreach my $pair(@pairs){
-        my ($key, $value) = split (/=>/, $pair);
-        if ($key && ($value || $value eq '0')) {
-          $key   =~ s/^\s+//g;
-          $key   =~ s/\s+$//g;
+    if ( $string =~ /,/ || $string =~ /=>/ ) {
+      my @pairs = split( /,/, $string );
+      foreach my $pair (@pairs) {
+        my ( $key, $value ) = split( /=>/, $pair );
+        if ( $key && ( $value || $value eq '0' ) ) {
+          $key =~ s/^\s+//g;
+          $key =~ s/\s+$//g;
           $value =~ s/^\s+//g;
           $value =~ s/\s+$//g;
           $parameters_hash{$key} = $value;
-        } else {
+        }
+        else {
           $parameters_hash{$key} = 1;
         }
       }
-    }else{
+    }
+    else {
       $parameters_hash{'-options'} = $string;
     }
   }
   return \%parameters_hash;
-}
+} ## end sub parameters_hash
 
 sub require_module {
-  my ($self, $module) = @_;
+  my ( $self, $module ) = @_;
   my $class;
-  ($class = $module) =~ s/::/\//g;
-  eval{
-    require "$class.pm";
-  };
-  throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  ( $class = $module ) =~ s/::/\//g;
+  eval { require "$class.pm"; };
+  throw( "Couldn't require " . $class . " Blast:require_module $@" ) if ($@);
   return $module;
 }
 
 sub ignore_config_file {
-  my $self = shift;
+  my $self  = shift;
   my $value = shift;
-  if($value) {
-    $self->param('ignore_config',$value) = shift if(@_);
+  if ($value) {
+    $self->param( 'ignore_config', $value ) = shift if (@_);
   }
   return $self->param('ignore_config');
 }
 
 sub no_config_exception {
-  my $self = shift;
+  my $self  = shift;
   my $value = shift;
-  if($value) {
-    $self->param('no_config_exception',$value);
+  if ($value) {
+    $self->param( 'no_config_exception', $value );
   }
   return $self->param('no_config_exception');
 }
 
 sub input_is_void {
-  my $self = shift;
+  my $self  = shift;
   my $value = shift;
-  if($value) {
-    $self->param('input_is_void',$value);
+  if ($value) {
+    $self->param( 'input_is_void', $value );
   }
   return $self->param('input_is_void');
 }
 
-
 sub failing_job_status {
-  my $self = shift;
+  my $self  = shift;
   my $value = shift;
-  if($value) {
-    $self->param('failing_status',$value);
+  if ($value) {
+    $self->param( 'failing_status', $value );
   }
   return $self->param('failing_status');
 }

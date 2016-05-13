@@ -1,11 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,13 +36,13 @@ Give standard usage here
 Contains list of sub alignments making up a dna-dna alignment
 
 Creation:
-   
+
     my $pair = new Bio::EnsEMBL::FeaturePair(-start  => $qstart,
                                              -end    => $qend,
-                                             -strand => $qstrand, 
+                                             -strand => $qstrand,
                                              -hstart => $hstart,
-                                             -hend   => $hend, 
-                                              -hend   => $hstrand,        
+                                             -hend   => $hend,
+                                              -hend   => $hstrand,
     );
 
     my $pairaln   = new Bio::EnsEMBL::Analysis::Tools::PairAlign;
@@ -53,7 +53,7 @@ Any number of pair alignments can be added to the PairAlign object
 
 Manipulation:
 
-To convert between coordinates : 
+To convert between coordinates :
 
     my $cdna_coord = $pair->genomic2cDNA($gen_coord);
     my $gen_coord  = $pair->cDNA2genomic($cdna_coord);
@@ -68,39 +68,36 @@ The rest of the documentation details each of the object methods. Internal metho
 
 =cut
 
-
 # Let the code begin...
 
 package Bio::EnsEMBL::Analysis::Tools::PairAlign;
 
-use warnings ;
+use warnings;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use vars qw(@ISA);
 use strict;
 
-
 @ISA = qw();
 
 sub new {
-  my($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = {};
   bless $self, $class;
 
-  return $self; # success - we hope!
+  return $self;    # success - we hope!
 }
 
 sub addFeaturePair {
-  my ($self,$pair) = @_;
-  push(@{$self->{'_pairs'}},$pair);
+  my ( $self, $pair ) = @_;
+  push( @{ $self->{'_pairs'} }, $pair );
 }
-
 
 =head2 eachFeaturePair
 
  Title   : eachFeaturePait
  Usage   : my @pairs = $pair->eachFeaturePair
- Function: 
- Example : 
+ Function:
+ Example :
  Returns : Array of Bio::SeqFeature::FeaturePair
  Args    : none
 
@@ -110,23 +107,20 @@ sub addFeaturePair {
 sub eachFeaturePair {
   my ($self) = @_;
 
-  if (defined($self->{'_pairs'})) {
+  if ( defined( $self->{'_pairs'} ) ) {
     return $self->{'_pairs'};
   }
 }
-
 
 =head2 get_hstrand
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Tools::PairAlign
   Function  : gets the hit strand of the first feature in the array
   Returntype: 1/-1
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
-
-
 
 sub get_hstrand {
   my ($self) = @_;
@@ -141,7 +135,7 @@ sub get_hstrand {
  Title   : genomic2cDNA
  Usage   : my $cdna_coord = $pair->genomic2cDNA($gen_coord)
  Function: Converts a genomic coordinate to a cdna coordinate
- Example : 
+ Example :
  Returns : int
  Args    : int
 
@@ -149,47 +143,51 @@ sub get_hstrand {
 =cut
 
 sub genomic2cDNA {
-  my ($self,$coord) = @_;
-  my @pairs = @{$self->eachFeaturePair};
+  my ( $self, $coord ) = @_;
+  my @pairs = @{ $self->eachFeaturePair };
 
-  @pairs = sort {$a->start <=> $b->start} @pairs;
+  @pairs = sort { $a->start <=> $b->start } @pairs;
 
   my $newcoord;
 
- HOMOL: while (my $sf1 = shift(@pairs)) {
-    next HOMOL unless ($coord >= $sf1->start && $coord <= $sf1->end);
+HOMOL: while ( my $sf1 = shift(@pairs) ) {
+    next HOMOL unless ( $coord >= $sf1->start && $coord <= $sf1->end );
 
-    if ($sf1->strand == 1 && $sf1->hstrand == 1) {
-      $newcoord = $sf1->hstart + ($coord - $sf1->start);
+    if ( $sf1->strand == 1 && $sf1->hstrand == 1 ) {
+      $newcoord = $sf1->hstart + ( $coord - $sf1->start );
       last HOMOL;
-    } elsif ($sf1->strand == 1 && $sf1->hstrand == -1) {
-      $newcoord = $sf1->hend   - ($coord - $sf1->start);
+    }
+    elsif ( $sf1->strand == 1 && $sf1->hstrand == -1 ) {
+      $newcoord = $sf1->hend - ( $coord - $sf1->start );
       last HOMOL;
-    } elsif ($sf1->strand == -1 && $sf1->hstrand == 1) {
-      $newcoord = $sf1->hstart + ($sf1->end - $coord);
+    }
+    elsif ( $sf1->strand == -1 && $sf1->hstrand == 1 ) {
+      $newcoord = $sf1->hstart + ( $sf1->end - $coord );
       last HOMOL;
-    } elsif ($sf1->strand == -1 && $sf1->hstrand == -1) {
-      $newcoord = $sf1->hend   - ($sf1->end - $coord);
+    }
+    elsif ( $sf1->strand == -1 && $sf1->hstrand == -1 ) {
+      $newcoord = $sf1->hend - ( $sf1->end - $coord );
       last HOMOL;
-    } else {
-      throw("ERROR: Wrong strand value in FeaturePair (" . $sf1->strand . 
-            "/" . $sf1->hstrand . "\n");
+    }
+    else {
+      throw( "ERROR: Wrong strand value in FeaturePair (" . $sf1->strand . "/" . $sf1->hstrand . "\n" );
     }
   }
 
-  if (defined($newcoord)) {
+  if ( defined($newcoord) ) {
     return $newcoord;
-  } else {
+  }
+  else {
     throw("Couldn't convert $coord");
   }
-}
+} ## end sub genomic2cDNA
 
 =head2 cDNA2genomic
 
  Title   : cDNA2genomic
  Usage   : my $gen_coord = $pair->genomic2cDNA($cdna_coord)
  Function: Converts a cdna coordinate to a genomic coordinate
- Example : 
+ Example :
  Returns : int
  Args    : int
 
@@ -197,45 +195,49 @@ sub genomic2cDNA {
 =cut
 
 sub cDNA2genomic {
-  my ($self,$coord) = @_;
+  my ( $self, $coord ) = @_;
 
-  my @pairs = @{$self->eachFeaturePair};
+  my @pairs = @{ $self->eachFeaturePair };
 
   my $newcoord;
 
- HOMOL: while (my $sf1 = shift(@pairs)) {
-    next HOMOL unless ($coord >= $sf1->hstart && $coord <= $sf1->hend);
+HOMOL: while ( my $sf1 = shift(@pairs) ) {
+    next HOMOL unless ( $coord >= $sf1->hstart && $coord <= $sf1->hend );
 
-    if ($sf1->strand == 1 && $sf1->hstrand == 1) {
-      $newcoord = $sf1->start + ($coord - $sf1->hstart);
+    if ( $sf1->strand == 1 && $sf1->hstrand == 1 ) {
+      $newcoord = $sf1->start + ( $coord - $sf1->hstart );
       last HOMOL;
-    } elsif ($sf1->strand == 1 && $sf1->hstrand == -1) {
-      $newcoord = $sf1->start  +($sf1->hend - $coord);
+    }
+    elsif ( $sf1->strand == 1 && $sf1->hstrand == -1 ) {
+      $newcoord = $sf1->start + ( $sf1->hend - $coord );
       last HOMOL;
-    } elsif ($sf1->strand == -1 && $sf1->hstrand == 1) {
-      $newcoord = $sf1->end   - ($coord - $sf1->hstart);
+    }
+    elsif ( $sf1->strand == -1 && $sf1->hstrand == 1 ) {
+      $newcoord = $sf1->end - ( $coord - $sf1->hstart );
       last HOMOL;
-    } elsif ($sf1->strand == -1 && $sf1->hstrand == -1) {
-      $newcoord = $sf1->end   - ($sf1->hend - $coord);
-      last HOMOL; 
-    } else {
-      throw("ERROR: Wrong strand value in homol (" . $sf1->strand . "/" . 
-            $sf1->hstrand . "\n");
+    }
+    elsif ( $sf1->strand == -1 && $sf1->hstrand == -1 ) {
+      $newcoord = $sf1->end - ( $sf1->hend - $coord );
+      last HOMOL;
+    }
+    else {
+      throw( "ERROR: Wrong strand value in homol (" . $sf1->strand . "/" . $sf1->hstrand . "\n" );
     }
   }
 
-  if (defined ($newcoord)) {
+  if ( defined($newcoord) ) {
     return $newcoord;
-  } else {
+  }
+  else {
     throw("Couldn't convert $coord\n");
   }
-}
+} ## end sub cDNA2genomic
 
 sub find_Pair {
-  my ($self,$coord) = @_;
+  my ( $self, $coord ) = @_;
 
-  foreach my $p (@{$self->eachFeaturePair}) {
-    if ($coord >= $p->hstart && $coord <= $p->hend) {
+  foreach my $p ( @{ $self->eachFeaturePair } ) {
+    if ( $coord >= $p->hstart && $coord <= $p->hend ) {
       return $p;
     }
   }
@@ -245,7 +247,7 @@ sub find_Pair {
 
  Title   : convert_cDNA_feature
  Usage   : my @newfeatures = $self->convert_cDNA_feature($f);
- Function: Converts a feature on the cDNA into an array of 
+ Function: Converts a feature on the cDNA into an array of
            features on the genomic (for features that span across introns);
  Example :
  Returns : @Bio::EnsEMBL::FeaturePair
@@ -254,161 +256,139 @@ sub find_Pair {
 =cut
 
 sub convert_cDNA_feature {
-  my ($self,$feature) = @_;
+  my ( $self, $feature ) = @_;
 
   my $foundstart = 0;
   my $foundend   = 0;
 
-  my @pairs = @{$self->eachFeaturePair};
+  my @pairs = @{ $self->eachFeaturePair };
   my @newfeatures;
 
- HOMOL:while (my $sf1 = shift(@pairs)) {
+HOMOL: while ( my $sf1 = shift(@pairs) ) {
     my $skip = 0;
 
-    $skip = 1 unless ($feature->start >= $sf1->hstart 
-                      && $feature->start <= $sf1->hend);
+    $skip = 1 unless ( $feature->start >= $sf1->hstart && $feature->start <= $sf1->hend );
 
-    if($skip){
+    if ($skip) {
       next HOMOL;
     }
-    if ($feature->end >= $sf1->hstart && $feature->end <= $sf1->hend) {
+    if ( $feature->end >= $sf1->hstart && $feature->end <= $sf1->hend ) {
       $foundend = 1;
     }
 
-    my $startcoord = $self->cDNA2genomic($feature->start);
+    my $startcoord = $self->cDNA2genomic( $feature->start );
     my $endcoord;
 
-    if ($sf1->hstrand == 1) {
-      $endcoord   = $sf1->end;
-    } else {
-      $endcoord   = $sf1->start;
+    if ( $sf1->hstrand == 1 ) {
+      $endcoord = $sf1->end;
+    }
+    else {
+      $endcoord = $sf1->start;
     }
 
     if ($foundend) {
-      $endcoord = $self->cDNA2genomic($feature->end);
+      $endcoord = $self->cDNA2genomic( $feature->end );
     }
 
-    my $tmpf = new Bio::EnsEMBL::Feature(-seqname => $feature->seqname,
-                                         -start   => $startcoord,
-                                         -end     => $endcoord,
-                                         -strand  => $feature->strand);
-    push(@newfeatures,$tmpf);
+    my $tmpf =
+      new Bio::EnsEMBL::Feature( -seqname => $feature->seqname, -start => $startcoord, -end => $endcoord, -strand => $feature->strand );
+    push( @newfeatures, $tmpf );
     last;
-  }
+  } ## end HOMOL: while ( my $sf1 = shift(@pairs...))
 
   # Now the rest of the pairs until we find the endcoord
 
-  while ((my $sf1 = shift(@pairs)) && ($foundend == 0)) {
+  while ( ( my $sf1 = shift(@pairs) ) && ( $foundend == 0 ) ) {
 
-    if ($feature->end >= $sf1->hstart && $feature->end <= $sf1->hend) {
+    if ( $feature->end >= $sf1->hstart && $feature->end <= $sf1->hend ) {
       $foundend = 1;
     }
 
     my $startcoord;
     my $endcoord;
 
-    if ($sf1->hstrand == 1) {
+    if ( $sf1->hstrand == 1 ) {
       $startcoord = $sf1->start;
       $endcoord   = $sf1->end;
-    } else {
+    }
+    else {
       $startcoord = $sf1->end;
       $endcoord   = $sf1->start;
     }
 
     if ($foundend) {
-      $endcoord = $self->cDNA2genomic($feature->end);
+      $endcoord = $self->cDNA2genomic( $feature->end );
     }
 
-    my $tmpf = new Bio::EnsEMBL::Feature(-seqname => $feature->seqname,
-                                         -start   => $startcoord,
-                                         -end     => $endcoord,
-                                         -strand  => $feature->strand);
-    push(@newfeatures,$tmpf);
-  }
+    my $tmpf =
+      new Bio::EnsEMBL::Feature( -seqname => $feature->seqname, -start => $startcoord, -end => $endcoord, -strand => $feature->strand );
+    push( @newfeatures, $tmpf );
+  } ## end while ( ( my $sf1 = shift...))
 
   return \@newfeatures;
-}
-
+} ## end sub convert_cDNA_feature
 
 sub convert_FeaturePair {
-  my ($self,$pair) = @_;
+  my ( $self, $pair ) = @_;
 
   my $hstrand = $self->get_hstrand;
 
-  my $feat = $self->create_Feature($pair->start, $pair->end, $pair->strand,
-                                   $pair->slice);
-  my @newfeatures = @{$self->convert_cDNA_feature($feat)};
+  my $feat = $self->create_Feature( $pair->start, $pair->end, $pair->strand, $pair->slice );
+  my @newfeatures = @{ $self->convert_cDNA_feature($feat) };
   my @newpairs;
 
-  my $hitpairaln  = new Bio::EnsEMBL::Analysis::Tools::PairAlign;
+  my $hitpairaln = new Bio::EnsEMBL::Analysis::Tools::PairAlign;
   $hitpairaln->addFeaturePair($pair);
 
   foreach my $new (@newfeatures) {
 
     # Now we want to convert these cDNA coords into hit coords
 
-    my $hstart1 = $self->genomic2cDNA($new->start);
-    my $hend1   = $self->genomic2cDNA($new->end);
+    my $hstart1 = $self->genomic2cDNA( $new->start );
+    my $hend1   = $self->genomic2cDNA( $new->end );
 
     my $hstart2 = $hitpairaln->genomic2cDNA($hstart1);
     my $hend2   = $hitpairaln->genomic2cDNA($hend1);
 
     # We can now put the final feature together
 
-    my $finalstrand = $hstrand * $pair->strand * $pair->hstrand;
+    my $finalstrand = $hstrand*$pair->strand*$pair->hstrand;
 
-    if ($hstart2 > $hend2) {
+    if ( $hstart2 > $hend2 ) {
       my $tmp = $hstart2;
       $hstart2 = $hend2;
       $hend2   = $tmp;
     }
 
-    my $finalpair = $self->create_FeaturePair($new->start, $new->end, 
-                                              $new->strand,
-                                              $hstart2, $hend2, 
-                                              $finalstrand, $pair->score);
+    my $finalpair = $self->create_FeaturePair( $new->start, $new->end, $new->strand, $hstart2, $hend2, $finalstrand, $pair->score );
 
-    push(@newpairs,$finalpair);
+    push( @newpairs, $finalpair );
 
-  }
+  } ## end foreach my $new (@newfeatures)
 
   return \@newpairs;
-}
+} ## end sub convert_FeaturePair
 
 sub create_FeaturePair {
-    my ($self, $start, $end, $strand, $hstart, $hend, 
-        $hstrand, $score) = @_;
-   
-    my $fp = Bio::EnsEMBL::FeaturePair->new(
-                                            -start    => $start,
-                                            -end      => $end,
-                                            -strand   => $strand,
-                                            -hstart   => $hstart,
-                                            -hend     => $hend,
-                                            -hstrand  => $hstrand,
-                                            -score    => $score,
-                                           );
+  my ( $self, $start, $end, $strand, $hstart, $hend, $hstrand, $score ) = @_;
 
-   
-    return $fp;
+  my $fp = Bio::EnsEMBL::FeaturePair->new( -start   => $start,
+                                           -end     => $end,
+                                           -strand  => $strand,
+                                           -hstart  => $hstart,
+                                           -hend    => $hend,
+                                           -hstrand => $hstrand,
+                                           -score   => $score, );
+
+  return $fp;
 }
 
-sub create_Feature{
-  my ($self, $start, $end, $strand,  $slice) = @_;
+sub create_Feature {
+  my ( $self, $start, $end, $strand, $slice ) = @_;
 
-  my $feat = new Bio::EnsEMBL::Feature(-start   => $start,
-                                       -end     => $end,
-                                       -strand  => $strand,
-                                       -slice   => $slice,
-                                      );
+  my $feat = new Bio::EnsEMBL::Feature( -start => $start, -end => $end, -strand => $strand, -slice => $slice, );
   return $feat;
 }
 
 1;
-
-
-
-
-
-
 

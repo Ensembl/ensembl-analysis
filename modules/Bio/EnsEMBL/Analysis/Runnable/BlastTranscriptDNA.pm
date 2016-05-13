@@ -1,13 +1,14 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA - 
+Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA -
 
 =head1 SYNOPSIS
 
@@ -46,11 +47,11 @@ Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA -
 
 This module acts as an intermediate between blast and transcripts. It
 is primarily used by the runnabledb BlastGenscanDNA to blast
-the protein sequence of a genscan or any other ab initio prediction 
+the protein sequence of a genscan or any other ab initio prediction
 againsts a dna database. It instantiates a blast runnable passing it the
 Bio::Seq of the transcript translation as the query sequence. This
-module expects all the same arguments as a standard blast with the 
-exception or a query sequence as these must be passed into the blast 
+module expects all the same arguments as a standard blast with the
+exception or a query sequence as these must be passed into the blast
 runnable it instantiates
 
 
@@ -68,29 +69,24 @@ use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Blast);
 
-
 =head2 new
 
   Arg [1]         : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA
   Arg [Transcript]: Bio::EnsEMBL::Transcript
-  Function        : create a BlastTranscriptDNA runnable 
+  Function        : create a BlastTranscriptDNA runnable
   Returntype      : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA
-  Exceptions      : none 
-  Example         : 
+  Exceptions      : none
+  Example         :
 
 =cut
 
-
-
 sub new {
-  my ($class,@args) = @_;
+  my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($pt) = rearrange(['TRANSCRIPT'], @args);
+  my ($pt) = rearrange( ['TRANSCRIPT'], @args );
   $self->transcript($pt);
   return $self;
 }
-
-
 
 =head2 transcript
 
@@ -99,22 +95,18 @@ sub new {
   Function  : container for transcript
   Returntype: Bio::EnsEMBL::Transcript
   Exceptions: throws if not passed a Bio::EnsEMBL::Transcript
-  Example   : 
+  Example   :
 
 =cut
 
-
-sub transcript{
-  my ($self, $pt) = @_;
-  if($pt){
-    throw("BlastGenscanDNA:transcript must be a ".
-          "Bio::EnsEMBL::Transcript ") 
-      unless($pt->isa("Bio::EnsEMBL::Transcript"));
+sub transcript {
+  my ( $self, $pt ) = @_;
+  if ($pt) {
+    throw( "BlastGenscanDNA:transcript must be a " . "Bio::EnsEMBL::Transcript " ) unless ( $pt->isa("Bio::EnsEMBL::Transcript") );
     $self->{'prediction_transcript'} = $pt;
   }
   return $self->{'prediction_transcript'};
 }
-
 
 =head2 output
 
@@ -124,23 +116,22 @@ sub transcript{
 =cut
 
 sub output {
-  my ($self, $arr_ref, $reset) = @_;
+  my ( $self, $arr_ref, $reset ) = @_;
 
-  if(!$self->{'output'}){
+  if ( !$self->{'output'} ) {
     $self->{'output'} = [];
   }
-  if($arr_ref){
-    throw("Must pass Runnable:output an arrayref not a ".$arr_ref)
-      unless(ref($arr_ref) eq 'ARRAY');
+  if ($arr_ref) {
+    throw( "Must pass Runnable:output an arrayref not a " . $arr_ref ) unless ( ref($arr_ref) eq 'ARRAY' );
     if ($reset) {
       $self->{'output'} = $arr_ref;
-    } else {
-      push(@{$self->{'output'}}, @$arr_ref);
+    }
+    else {
+      push( @{ $self->{'output'} }, @$arr_ref );
     }
   }
   return $self->{'output'};
 }
-
 
 =head2 run
 
@@ -150,34 +141,32 @@ sub output {
   blast hits back into genomic coords
   Returntype: none
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
-sub run{
-  my ($self, $dir) = @_;
+sub run {
+  my ( $self, $dir ) = @_;
 
-  $self->workdir($dir) if($dir);
+  $self->workdir($dir) if ($dir);
 
   my $pep = $self->transcript->translate;
-  $pep->id($self->transcript->dbID);
+  $pep->id( $self->transcript->dbID );
 
-  if($pep->length <= 3){
+  if ( $pep->length <= 3 ) {
     #transcripts this length cause problems for blast
     return;
   }
 
   my $query = $self->query;
-  $self->query($pep);  
+  $self->query($pep);
   $self->SUPER::run($dir);
   $self->query($query);
 
   my $out = $self->output;
-  $self->output([], 1);
+  $self->output( [], 1 );
   $self->align_hits_to_query($out);
 }
-
-
 
 =head2 align_hits_to_query
 
@@ -186,97 +175,96 @@ sub run{
   Function  : convert the features from blast from peptide coodinates
   to genomic coordinates
   Returntype: none
-  Exceptions: 
-  Example   : 
+  Exceptions:
+  Example   :
 
 =cut
 
-
 sub align_hits_to_query {
-  my ( $self, $features )  = @_;
-  
+  my ( $self, $features ) = @_;
+
   # for each feature
-  my @features = sort{ $a->start <=> $b->start} @$features;
-  for my $feature ( @features ) {
+  my @features = sort { $a->start <=> $b->start } @$features;
+  for my $feature (@features) {
     my %exon_hash = ();
     # for each ungapped piece in it
     my @ungapped = $feature->ungapped_features;
-    for my $ugFeature ( @ungapped ) {
-      my @split = $self->transcript->pep2genomic($ugFeature->start(),
-                                              $ugFeature->end());
-      
+    for my $ugFeature (@ungapped) {
+      my @split = $self->transcript->pep2genomic( $ugFeature->start(), $ugFeature->end() );
+
       my $cdna_total = 1;
-      foreach my $gcoord ( @split ) {
-        if($gcoord->isa('Bio::EnsEMBL::Mapper::Gap')) {
+      foreach my $gcoord (@split) {
+        if ( $gcoord->isa('Bio::EnsEMBL::Mapper::Gap') ) {
           $cdna_total += $gcoord->end - $gcoord->start + 1;
           next;
         }
-        
+
         my $cdna_start = $cdna_total;
-        my $gstart  = $gcoord->start;
-        my $gend    = $gcoord->end;
-        my $gstrand = $gcoord->strand;
-        my $cdna_end = $gend - $gstart + $cdna_start;
+        my $gstart     = $gcoord->start;
+        my $gend       = $gcoord->end;
+        my $gstrand    = $gcoord->strand;
+        my $cdna_end   = $gend - $gstart + $cdna_start;
         $cdna_total += $gend - $gstart + 1;
-        
+
         #determine which exon this genomic coordinate overlaps
         my $exon;
-        foreach my $e (@{$self->transcript->get_all_Exons}) {
-          if($gstart >= $e->start && $gend <= $e->end) {
+        foreach my $e ( @{ $self->transcript->get_all_Exons } ) {
+          if ( $gstart >= $e->start && $gend <= $e->end ) {
             $exon = $e;
             last;
           }
         }
 
-
         # first, eat away non complete codons from start
-        while(( $cdna_start - 1 ) % 3 != 0 ) {
+        while ( ( $cdna_start - 1 ) % 3 != 0 ) {
           $cdna_start++;
-          if( $gstrand == 1 ) {
+          if ( $gstrand == 1 ) {
             $gstart++;
-          } else {
+          }
+          else {
             $gend--;
           }
         }
-        
+
         # and from end
-        while( $cdna_end  % 3 != 0 ) {
+        while ( $cdna_end % 3 != 0 ) {
           $cdna_end--;
-          if( $gstrand == 1 ) {
+          if ( $gstrand == 1 ) {
             $gend--;
-          } else {
+          }
+          else {
             $gstart++;
           }
         }
-        
-        if( $cdna_end <= $cdna_start ) {
+
+        if ( $cdna_end <= $cdna_start ) {
           next;
         }
         #recalculate the hit coordinates.  They may be split up into
         # seperate features by introns
-        my ($hstrand, $hstart, $hend);
+        my ( $hstrand, $hstart, $hend );
         $hstrand = $feature->hstrand();
-        if($hstrand == 1) {
+        if ( $hstrand == 1 ) {
           $hstart = $cdna_start - 1 + $ugFeature->hstart();
-          $hend = $cdna_end - 1 + $ugFeature->hstart();
-        } else {
-          $hend = $ugFeature->hend() - $cdna_start + 1;
+          $hend   = $cdna_end - 1 + $ugFeature->hstart();
+        }
+        else {
+          $hend   = $ugFeature->hend() - $cdna_start + 1;
           $hstart = $ugFeature->hend() - $cdna_end + 1;
         }
-        my $fp = $self->feature_factory->create_feature_pair
-          ($gstart, $gend, $gstrand, $feature->score, $hstart,
-           $hend, $hstrand, $feature->hseqname, $feature->percent_id, 
-           $feature->p_value);
+        my $fp = $self->feature_factory->create_feature_pair( $gstart,         $gend,              $gstrand,
+                                                              $feature->score, $hstart,            $hend,
+                                                              $hstrand,        $feature->hseqname, $feature->percent_id,
+                                                              $feature->p_value );
         #store generated feature pairs, hashed on exons
-        push( @{$exon_hash{$exon}}, $fp );
-      }
-    }
+        push( @{ $exon_hash{$exon} }, $fp );
+      } ## end foreach my $gcoord (@split)
+    } ## end for my $ugFeature (@ungapped)
     # Take the pieces for each exon and make gapped feature
     foreach my $ex ( keys %exon_hash ) {
-      my $dna_align_feature = Bio::EnsEMBL::DnaDnaAlignFeature->new
-        (-features => $exon_hash{$ex});
-      $self->output([$dna_align_feature]);
+      my $dna_align_feature = Bio::EnsEMBL::DnaDnaAlignFeature->new( -features => $exon_hash{$ex} );
+      $self->output( [$dna_align_feature] );
     }
-  }
+  } ## end for my $feature (@features)
 
-}
+} ## end sub align_hits_to_query

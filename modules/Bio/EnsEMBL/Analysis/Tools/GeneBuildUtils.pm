@@ -1,17 +1,16 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 
 =head1 NAME
 
@@ -20,12 +19,12 @@ genebuild utility methods
 
 =head1 SYNOPSIS
 
-  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id 
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id
                                                        empty_Object);
 
-  or 
+  or
 
-  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils 
+  use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils
 
   to get all methods
 
@@ -37,7 +36,7 @@ direct outside of these classes but it can been if needed
 
 It provides some simple functionality that all of the utility
 modules need like id, to provide a sensible id string or
-coord string to provide a basic, start, end, strand, 
+coord string to provide a basic, start, end, strand,
 seq_region_name string for printing or removing databases connections
 from objects
 
@@ -55,19 +54,17 @@ class methods
 
 =cut
 
-
 package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
 
 use strict;
 use warnings;
 use Exporter;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
-                                      stack_trace_dump);
+  stack_trace_dump);
 use vars qw (@ISA  @EXPORT);
 
-@ISA = qw(Exporter);
+@ISA    = qw(Exporter);
 @EXPORT = qw(coord_string seq_region_coord_string id empty_Object lies_inside_of_slice);
-
 
 =head2 coord_string
 
@@ -82,16 +79,13 @@ use vars qw (@ISA  @EXPORT);
 
 =cut
 
-
-
-sub coord_string{
+sub coord_string {
   my $feature = shift;
-  my ($p, $f, $l) = caller;
-  throw("Must be passed a feature") if(!$feature);
-  my $string = $feature->start."\t".$feature->end."\t".$feature->strand."\t".$feature->slice->seq_region_name;
+  my ( $p, $f, $l ) = caller;
+  throw("Must be passed a feature") if ( !$feature );
+  my $string = $feature->start . "\t" . $feature->end . "\t" . $feature->strand . "\t" . $feature->slice->seq_region_name;
   return $string;
 }
-
 
 =head2 seq_region_coord_string
 
@@ -104,16 +98,14 @@ sub coord_string{
 
 =cut
 
-
-
-sub seq_region_coord_string{
+sub seq_region_coord_string {
   my $feature = shift;
-  my ($p, $f, $l) = caller;
-  throw("Must be passed a feature") if(!$feature);
-  my $string = $feature->seq_region_start."\t".$feature->seq_region_end."\t".$feature->strand."\t".$feature->slice->seq_region_name;
+  my ( $p, $f, $l ) = caller;
+  throw("Must be passed a feature") if ( !$feature );
+  my $string =
+    $feature->seq_region_start . "\t" . $feature->seq_region_end . "\t" . $feature->strand . "\t" . $feature->slice->seq_region_name;
   return $string;
 }
-
 
 =head2 id
 
@@ -122,30 +114,28 @@ sub seq_region_coord_string{
               for the feature
   Returntype: string
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
-
-
 
 sub id {
   my $feature = shift;
   my $id;
 
-  if($feature->can('stable_id') && $feature->stable_id){
+  if ( $feature->can('stable_id') && $feature->stable_id ) {
     $id = $feature->stable_id;
-  }elsif($feature->can('dbID') && $feature->dbID) {
+  }
+  elsif ( $feature->can('dbID') && $feature->dbID ) {
     $id = $feature->dbID;
-  }else{ 
+  }
+  else {
     $id = 'no-id';
   }
-  if($feature->can('biotype') && $feature->biotype){
-    $id .= "_".$feature->biotype;
+  if ( $feature->can('biotype') && $feature->biotype ) {
+    $id .= "_" . $feature->biotype;
   }
   return $id;
 }
-
-
 
 =head2 empty_Object
 
@@ -158,18 +148,13 @@ sub id {
 
 =cut
 
-
-
-sub empty_Object{
-  my ($object, $include_stable_id) = @_;
+sub empty_Object {
+  my ( $object, $include_stable_id ) = @_;
   $object->adaptor(undef);
   $object->dbID(undef);
-  $object->stable_id(undef) if($object->can("stable_id") && 
-                               $include_stable_id);
+  $object->stable_id(undef) if ( $object->can("stable_id") && $include_stable_id );
   return $object;
 }
-
-
 
 =head2 lies_inside_of_slice
 
@@ -184,22 +169,17 @@ sub empty_Object{
 
 =cut
 
-
-sub lies_inside_of_slice{
-  my ($feature, $slice) = @_;
-  if($feature->start > $slice->length || 
-     $feature->end < 1){
-    warning(id($feature)." lies off edge if slice ".
-            $slice->name);
+sub lies_inside_of_slice {
+  my ( $feature, $slice ) = @_;
+  if ( $feature->start > $slice->length || $feature->end < 1 ) {
+    warning( id($feature) . " lies off edge if slice " . $slice->name );
     return 0;
   }
-  if($feature->start < 1 && $feature->end > 1){
-    warning(id($feature)." lies over lower boundary".
-            " of slice ".$slice->name);
+  if ( $feature->start < 1 && $feature->end > 1 ) {
+    warning( id($feature) . " lies over lower boundary" . " of slice " . $slice->name );
     return 0;
   }
   return 1;
 }
-
 
 1;
