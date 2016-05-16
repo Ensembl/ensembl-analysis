@@ -90,7 +90,7 @@ sub concat_files_for_loading {
     for i in `ls $path_to_files/AGP/*.scaf.agp`; do
       cat \$i >> $path_to_files/AGP/scaf_all.agp
     done
-    for i in `ls $path_to_files/AGP/*.comp.agp`; do
+    for i in `ls $path_to_files/AGP/chr*.comp.agp`; do
       cat \$i >> $path_to_files/AGP/comp_all.agp
     done
 COMMAND
@@ -125,7 +125,7 @@ sub load_seq_regions {
 
   # Check if chromosomes exist
   my $chromo_present = 0;
-  if(-e $path_to_files."/AGP/chr_all.agp") {
+  if(-e $path_to_files."/AGP/chr_all.agp" || -e $path_to_files."/AGP/comp_all.agp") {
     $chromo_present = 1;
   }
 
@@ -217,6 +217,13 @@ sub load_seq_regions {
   # If we have chromosomes
   if ($rank > 0) {
     say "Loading the chromosomes...";
+    my $chromo_mapping_file;
+    if(-e $path_to_files."/AGP/chr_all.agp") {
+      $chromo_mapping_file = $path_to_files."/AGP/chr_all.agp";
+    } else {
+      say "A chr_all.agp file was not found in the AGP dir, so using comp_all.agp for chromosome mappings instead";
+      $chromo_mapping_file = $path_to_files."/AGP/comp_all.agp";
+    }
 
     $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl".
            " -dbhost ".$dbhost.
@@ -228,7 +235,7 @@ sub load_seq_regions {
            " -coord_system_version ".$coord_system_version.
            " -rank ".$rank.
            " -default_version".
-           " -agp_file ".$path_to_files."/AGP/chr_all.agp".
+           " -agp_file ".$chromo_mapping_file.
            " -noverbose".
            " > ".$path_to_files."/load_seq_region_chromosomes.out";
 
