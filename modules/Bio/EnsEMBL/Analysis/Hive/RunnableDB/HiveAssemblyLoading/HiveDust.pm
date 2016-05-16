@@ -152,6 +152,12 @@ sub write_output{
             "the database $@");
     }
   }
+
+  my $output_hash = {};
+  $output_hash->{'iid'} = $self->param('iid');
+  $self->dataflow_output_id($output_hash,4);
+  $self->dataflow_output_id($output_hash,1);
+
 }
 
 
