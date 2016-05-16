@@ -48,7 +48,7 @@ sub run {
   $self->unzip($output_path);
   $self->fix_contig_headers($source,$output_path);
   $self->find_missing_accessions($output_path,$contig_accession_path);
-
+  $self->compare_to_agp($output_path,$contig_accession_path);
   say "Finished downloading contig files";
   return 1;
 }
@@ -295,6 +295,117 @@ sub recover_missing_accessions {
 
 }
 
+
+sub compare_to_agp {
+  my ($self,$output_path,$contig_accession_path) = @_;
+
+  my $contig_headers_file = $output_path.'/contig_headers.txt';
+  my $agp_accessions = {};
+  my $extra_accessions = {};
+
+  open(IN,$contig_accession_path);
+  while(<IN>) {
+    my $agp_accession = $_;
+    chomp $agp_accession;
+    $agp_accessions->{$agp_accession} = 1;
+  }
+  close IN;
+
+  open(IN,$contig_headers_file);
+  while(<IN>) {
+    my $header = $_;
+    chomp $header;
+    $header =~ s/^\>//;
+
+    unless($agp_accessions->{$header}) {
+      $self->warning("Found a contig accession in the contig.fa file that is not in any AGP file. Will remove from the contig.fa file");
+      $extra_accessions->{$header} = 1;
+    }
+  }
+  close IN;
+
+
+  my @extra_accessions = keys(%$extra_accessions);
+  if(scalar(@extra_accessions)) {
+    my $non_nuclear_agp_path = $output_path."/../../non_nuclear_agp/concat_non_nuclear.agp";
+    say "FM2 non-nuc path: ".$non_nuclear_agp_path;
+    unless(-e $non_nuclear_agp_path) {
+      $self->throw("Could not find a non-nuclear AGP file, but there appears to be extra contigs present that aren't nuclear. Offending accessions:\n".@extra_accessions);
+    }
+
+    my $non_nuclear_accessions = {};
+    open(IN,$non_nuclear_agp_path);
+    while(<IN>) {
+      my $line = $_;
+      my @cols = split(/\t/,$line);
+      if($cols[5]) {
+        $non_nuclear_accessions->{$cols[5]} = 1;
+      }
+    }
+    close IN;
+
+    my $unknown_contig_count = 0;
+    foreach my $accession (@extra_accessions) {
+      unless($non_nuclear_accessions->{$accession}) {
+        $self->warning("An extra contig is present is present that is not present in the nuclear or non-nuclear AGP files. Offending accession: ".$accession);
+        $unknown_contig_count++;
+      }
+    }
+
+    if($unknown_contig_count) {
+      $self->throw("Found ".$unknown_contig_count." contigs that were not present in the nuclear or non-nuclear AGP files");
+    }
+
+    say "All extra contigs were found to be present in the non-nuclear AGP file. Will delete from contigs.fa";
+
+    my $cmd = 'cp '.$output_path.'/contigs.fa'.' '.$output_path.'/contigs_with_extra_accessions.fa';
+    my $return = system($cmd);
+    if($return) {
+      $self->throw("Problem backing up original contig file before inserting recovered sequences. Commandline used:\n".$cmd);
+    }
+
+    $cmd = 'rm '.$output_path.'/contigs.fa';
+    $return = system($cmd);
+    if($return) {
+      $self->throw("Problem deleting the contigs.fa file. Commandline used:\n".$cmd);
+    }
+
+    open(OUT,">".$output_path.'/contigs.fa');
+    open(IN,$output_path.'/contigs_with_extra_accessions.fa');
+    my $header = <IN>;
+    chomp $header;
+    $header =~ s/^\>//;
+    my $seq = "";
+    while(<IN>) {
+      my $line = $_;
+      if($line =~ /^\>/) {
+        unless($extra_accessions->{$header}) {
+          say OUT ">".$header;
+          print OUT $seq;
+        }
+        chomp $line;
+        $line =~ s/^\>//;
+        $header = $line;
+        $seq = "";
+      } else {
+        $seq .= $line;
+      }
+    }
+
+    unless($extra_accessions->{$header}) {
+      say OUT ">".$header;
+      print OUT $seq;
+    }
+    close IN;
+    close OUT;
+
+    $cmd = 'rm '.$output_path.'/contigs_with_extra_accessions.fa';
+    $return = system($cmd);
+    if($return) {
+      $self->throw("Problem deleting the contigs_with_extra_accessions.fa file. Commandline used:\n".$cmd);
+    }
+  }
+}
 #sub recover_missing_accessions_new {
 #  my ($self,$output_path,$missing_accessions) = @_;
 
