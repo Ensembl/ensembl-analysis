@@ -118,16 +118,6 @@ sub fetch_input {
   my $query_species = $source_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
   my $target_species = $target_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
 
-# This is some code I've replaced with the two lines below, I'm only leaving it here in case any issues crop up with
-# using the db adaptors
-#  my ($highest_cs_query_species) = shift(@{$source_transcript_dbc->get_CoordSystemAdaptor->fetch_all()});
-#  my $assembly_version_query_species = $highest_cs_query_species->version();
-#  my ($highest_cs_target_species) = shift(@{$target_transcript_dbc->get_CoordSystemAdaptor->fetch_all()});
-#  my $assembly_version_target_species = $highest_cs_target_species->version();
-#  my $q_gdb = $gdb_adap->fetch_by_name_assembly($query_species,$assembly_version_query_species);
-#  my $t_gdb = $gdb_adap->fetch_by_name_assembly($target_species,$assembly_version_target_species);
-
-
 
   my $q_gdb = $gdb_adap->fetch_by_core_DBAdaptor($source_transcript_dbc);
   my $t_gdb = $gdb_adap->fetch_by_core_DBAdaptor($target_transcript_dbc);
@@ -157,15 +147,16 @@ sub fetch_input {
   # fetch the genes; need to work in the coordinate space of the
   # top-level slice to be consistent with compara
   ########
-#  my $gene = $source_transcript_dbc->get_GeneAdaptor->fetch_by_stable_id($input_id);
-  my $gene = Bio::EnsEMBL::Gene->new();
-  $gene->analysis($self->analysis);
-  $gene->biotype($self->analysis);
-
   my $transcript = $source_transcript_dbc->get_TranscriptAdaptor->fetch_by_dbID($input_id);
   $transcript->analysis($self->analysis);
-  $transcript->biotype($self->analysis);
+  unless($transcript->biotype eq 'protein_coding') {
+    $self->input_job->autoflow(0);
+    $self->complete_early('Transcript does not have protein_coding biotype!');
+  }
 
+  my $gene = Bio::EnsEMBL::Gene->new();
+  $gene->analysis($self->analysis);
+  $gene->biotype('projection');
   $gene->add_Transcript($transcript);
   $gene->stable_id($transcript->stable_id);
   $gene->start($transcript->start);
@@ -238,7 +229,6 @@ sub run {
   }
 
   my @res_tran;
-  my $tran_stable_id;
   my @final_tran;
   print scalar(@{$self->genomic_align_block_chains}),"\n";
   foreach my $chain (@{$self->genomic_align_block_chains}) {
@@ -254,8 +244,6 @@ sub run {
                                                                                    );
 
     foreach my $tran (@{$self->good_transcripts}) {
-      $tran_stable_id = $tran->stable_id;
-
       # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
       #$gene_scaffold->place_transcript($tran,1);
       my $proj_trans = $gene_scaffold->place_transcript($tran);
@@ -272,9 +260,13 @@ sub run {
   }
 
   foreach my $res_tran (@res_tran){ 
-    $res_tran = $self->process_transcript($res_tran,$tran_stable_id);
+    $res_tran = $self->process_transcript($res_tran);
 
-    if($self->param('calculate_coverage_and_pid')) {
+    unless($res_tran) {
+      next;
+    }
+
+    if($self->param('calculate_coverage_and_pid') && $res_tran) {
       my $gene = $self->gene();
       my $transcripts = $gene->get_all_Transcripts;
       my $source_transcript = $$transcripts[0];
@@ -298,8 +290,9 @@ sub write_output {
 
   foreach my $t (@{$self->output}) {
     $t->analysis($self->analysis);
+    $t->biotype('projection');
 
-    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis,-biotype  => 'protein_coding');
+    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis,-biotype  => 'projection');
 
     foreach my $tsf ( @{ $t->get_all_supporting_features }){
       $tsf->analysis($self->analysis);
@@ -314,7 +307,6 @@ sub write_output {
 
     $gene->add_Transcript($t);
     empty_Gene($gene);
-#    say "DUMPER PRE STORE: ".Dumper($gene);
     $t_gene_adaptor->store($gene);
     $trans_count++;
 
@@ -659,7 +651,7 @@ sub _check_gene {
 #################################################################
 
 sub process_transcript {
-  my ($self,$tran,$source_id) = @_;
+  my ($self,$tran) = @_;
 
   return 0 if not $tran;
 
@@ -671,11 +663,16 @@ sub process_transcript {
 
 
   if (CORE::length($pep) == 0) {
-    logger_info("Rejecting proj of $source_id because was just a stop codon");
+    logger_info("Rejecting proj of ".$tran->dbID()." because was just a stop codon");
     return 0;
   }
 
   my $num_stops = $pep =~ s/\*/\*/g;
+
+  if($num_stops > $self->max_internal_stops()) {
+    $self->warning("The internal stop count (".$num_stops.") is greater than the allowed value: ".$self->max_internal_stops());
+    return 0;
+  }
 
   ##################
   # number of stops is non-zero but acceptable. Need to 
