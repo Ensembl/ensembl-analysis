@@ -40,6 +40,7 @@ sub run {
   my $ftp_species_path = $self->param('full_ftp_path')."/".$self->param('primary_assembly_dir_name');
   my $local_path = $self->param('output_path')."/".$self->param('primary_assembly_dir_name');
   $self->download_ftp_dir($ftp_species_path,$local_path);
+  $self->download_non_nuclear_ftp_dir($self->param('full_ftp_path'),$self->param('output_path'));
   $self->unzip($local_path);
 
   say "Finished downloading NCBI ftp structure and files";
@@ -87,12 +88,42 @@ sub download_ftp_dir {
   }
 }
 
+sub download_non_nuclear_ftp_dir {
+  my ($self,$ftp_path,$local_dir) = @_;
+  my $non_nuclear = "/non-nuclear/assembled_chromosomes/AGP/";
+  my $full_ftp_path = $ftp_path.$non_nuclear;
+  my $full_local_dir_path = $local_dir."/non_nuclear_agp/";
+
+  my $cmd = "wget -P ".$full_local_dir_path." ".$full_ftp_path."*.agp.gz";
+  if (system($cmd)) {
+    $self->warning("No non-nuclear AGP files found. Continuing anyway\n".
+                   "Commandline used:\n".$cmd);
+    return;
+  } else {
+    say "Downloaded non-nuclear AGP files (can be used to identify mito later in contigs.fa)";
+  }
+
+  $self->unzip($full_local_dir_path);
+  $self->concat_non_nuclear($full_local_dir_path);
+}
+
+
 sub unzip {
   my ($self,$path) = @_;
   say "Unzipping the compressed files...";
   $self->throw("gunzip operation failed. Please check your error log file.") if (system("gunzip -r $path") == 1);
   say "Unzipping finished!";
 }
+
+sub concat_non_nuclear {
+  my ($self,$path) = @_;
+  my $cmd = "cat ".$path."/*.agp > ".$path."/concat_non_nuclear.agp";
+  if (system($cmd)) {
+    $self->throw("Problem concatenation the non nuclear AGP files into concat_non_nuclear.agp\n".
+                 "Commandline used:\n".$cmd);
+  }
+}
+
 
 sub write_output {
   my $self = shift;
