@@ -1,5 +1,4 @@
 =head1 LICENSE
-
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -119,14 +118,14 @@ sub run{
   throw("Can't run ".$self." without a query sequence") 
     unless($self->query);
   $self->checkdir();
-  eval {
+
   my $filename = $self->write_seq_file();
   $self->files_to_delete($filename);
   $self->files_to_delete($self->resultsfile);
   $self->run_analysis;
   $self->parse_results($coverage);
   $self->delete_files;
-}; if ($@){ print "$@\n";}
+
   return 1;
 }
 
