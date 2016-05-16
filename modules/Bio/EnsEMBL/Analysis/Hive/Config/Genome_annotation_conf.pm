@@ -47,22 +47,35 @@ sub default_options {
 'taxon_id'             => '',
 'uniprot_set'          => '',
 
+'input_gene_dbs' => [
+                      $self->o('genewise_db'),
+                      $self->o('rnaseq_db'),
+                      $self->o('projection_db'),
+                    ],
+
 ########################
 # Pipe and ref db info
 ########################
-'pipeline_name'             => $self->o('farm_user_name').'_'.$self->o('species_name').'_pipe',
+'pipeline_name'                  => $self->o('farm_user_name').'_'.$self->o('species_name').'_pipe',
 
-'pipe_db_server'            => '', # NOTE! used to generate tokens in the resource_classes sub below
-'reference_db_server'       => '', # NOTE! used to generate tokens in the resource_classes sub below
-'dna_db_server'             => '',
-'genblast_db_server'        => '', # NOTE! used to generate tokens in the resource_classes sub below
-'genewise_db_server'        => '', # NOTE! used to generate tokens in the resource_classes sub below
-'refseq_db_server'          => '',
-'killlist_db_server'        => '',
-'user_r'                    => '',
-'user_w'                    => '',
-'password'                  => '',
-'port'                      => '',
+'pipe_db_server'                 => '', # NOTE! used to generate tokens in the resource_classes sub below
+'reference_db_server'            => '', # NOTE! used to generate tokens in the resource_classes sub below
+'dna_db_server'                  => '',
+'genblast_db_server'             => '', # NOTE! used to generate tokens in the resource_classes sub below
+'genewise_db_server'             => '', # NOTE! used to generate tokens in the resource_classes sub below
+'projection_db_server'           => '',
+'projection_source_db_name'      => '', # This is generally a pre-existing db, like the current human core for example
+'projection_source_db_server'    => '',
+'projection_lastz_db_server'     => '',
+'rnaseq_db_server'               => '',
+'layering_db_server'             => '',
+'genebuilder_db_server'          => '',
+'refseq_db_server'               => '',
+'killlist_db_server'             => '',
+'user_r'                         => '',
+'user_w'                         => '',
+'password'                       => '',
+'port'                           => '',
 
 
 'output_path'               => '',
@@ -86,13 +99,15 @@ sub default_options {
 'uniprot_blast_db_path'     => '',
 'vertrna_blast_db_path'     => '',
 'unigene_blast_db_path'     => '',
-
+'mito_index_path'           => '/data/blastdb/Ensembl/refseq_mitochondria_set/mito_index.txt',
 
 ######################################################
 #
 # Mostly constant settings
 #
 ######################################################
+
+'min_toplevel_slice_length'   => 0,
 
 'repeat_logic_names'          => ['repeatmasker_repbase_'.$self->o('repeatmasker_library'),'dust'],
 'homology_models_path'        => $self->o('output_path').'/homology_models',
@@ -105,7 +120,7 @@ sub default_options {
 ########################
 
 'driver' => 'mysql',
-'num_tokens' => 5,
+'num_tokens' => 10,
 
 ########################
 # Executable paths
@@ -135,6 +150,11 @@ sub default_options {
 'genblast_pid'               => '50',
 'genblast_max_rank'          => '5',
 
+# Max internal stops for projected transcripts
+'projection_pid'                        => '50',
+'projection_cov'                        => '50',
+'projection_max_internal_stops'         => '1',
+'projection_calculate_coverage_and_pid' => '1',
 
 ## Add in genewise path and put in matching code
 'genewise_pid'              => '50',
@@ -148,6 +168,9 @@ sub default_options {
 'genewise_mem'               => '3900',
 'genewise_retry_mem'         => '5900',
 'refseq_mem'                 => '9900',
+'projection_mem'             => '1900',
+'layer_annotation_mem'       => '3900',
+'genebuilder_mem'            => '1900',
 
 
 ########################
@@ -204,6 +227,52 @@ sub default_options {
   -pass   => $self->o('password'),
 },
 
+'projection_db' => {
+  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_proj',
+  -host   => $self->o('projection_db_server'),
+  -port   => $self->o('port'),
+  -user   => $self->o('user_w'),
+  -pass   => $self->o('password'),
+},
+
+'projection_source_db' => {
+  -dbname => $self->o('projection_source_db_name'),
+  -host   => $self->o('projection_source_db_server'),
+  -port   => $self->o('port'),
+  -user   => $self->o('user_r'),
+},
+
+'projection_lastz_db' => {
+  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_lastz',
+  -host   => $self->o('projection_lastz_db_server'),
+  -port   => $self->o('port'),
+  -user   => $self->o('user_r'),
+},
+
+'rnaseq_db' => {
+  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_rnaseq',
+  -host   => $self->o('rnaseq_db_server'),
+  -port   => $self->o('port'),
+  -user   => $self->o('user_w'),
+  -pass   => $self->o('password'),
+},
+
+'layering_db' => {
+  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_layer',
+  -host   => $self->o('layering_db_server'),
+  -port   => $self->o('port'),
+  -user   => $self->o('user_w'),
+  -pass   => $self->o('password'),
+},
+
+'genebuilder_db' => {
+  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_gbuild',
+  -host   => $self->o('genebuilder_db_server'),
+  -port   => $self->o('port'),
+  -user   => $self->o('user_w'),
+  -pass   => $self->o('password'),
+},
+
 'refseq_db' => {
   -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_refseq',
   -host   => $self->o('refseq_db_server'),
@@ -254,14 +323,6 @@ sub pipeline_create_commands {
     ];
 }
 
-#sub hive_meta_table {
-#    my ($self) = @_;
-#    return {
-#            %{$self->SUPER::hive_meta_table},       # here we inherit anything from the base class
-#
-#        'hive_use_param_stack'  => 1,           # switch on the new param_stack mechanism
-#    };
-#}
 
 ## See diagram for pipeline structure
 sub pipeline_analyses {
@@ -391,6 +452,7 @@ sub pipeline_analyses {
                        },
       },
 
+
       {
         # Set the toplevel
         -logic_name => 'set_toplevel',
@@ -403,9 +465,10 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['load_meta_info','load_taxonomy_info','load_refseq_synonyms','create_1mb_slice_ids'],
+                         1 => ['load_meta_info'],
                        },
       },
+
 
       {
         # Load some meta info and seq_region_synonyms
@@ -421,9 +484,9 @@ sub pipeline_analyses {
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
                        },
         -rc_name    => 'default',
- #       -flow_into  => {
- #                         1 => ['load_taxonomy_info'],
- #                      },
+        -flow_into  => {
+                          1 => ['load_taxonomy_info'],
+                       },
       },
 
       {
@@ -436,11 +499,29 @@ sub pipeline_analyses {
                          'enscode_root_dir' => $self->o('enscode_root_dir'),
                        },
         -rc_name    => 'default',
- #       -flow_into  => {
- #                        1 => ['create_1mb_slice_ids'],
- #                      },
+        -flow_into  => {
+                         1 => ['load_mitochondrion'],
+                       },
       },
 
+
+      {
+        # Load the AGP files
+        -logic_name => 'load_mitochondrion',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
+        -parameters => {
+                         'target_db'                 => $self->o('reference_db'),
+                         'output_path'               => $self->o('output_path'),
+                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
+                         'mito_index_path'           => $self->o('mito_index_path'),
+                         'species_name'              => $self->o('species_name'),
+                         'chromosomes_present'       => $self->o('chromosomes_present'),
+                      },
+        -rc_name    => 'default',
+        -flow_into  => {
+                         1 => ['create_1mb_slice_ids','load_refseq_synonyms'],
+                       },
+      },
 
       {
         -logic_name => 'load_refseq_synonyms',
@@ -523,10 +604,11 @@ sub pipeline_analyses {
                          slice_size => 1000000,
                          include_non_reference => 0,
                          top_level => 1,
+                         min_slice_length => $self->o('min_toplevel_slice_length'),
                        },
         -flow_into => {
                         # FirstEF is left out here as it runs on repeats. Repeatmasker analyses flow into it
-                        4 => ['run_repeatmasker','run_eponine','run_cpg','run_trnascan','run_dust','run_trf'],
+                        4 => ['run_repeatmasker'],
                       },
 
       },
@@ -550,10 +632,9 @@ sub pipeline_analyses {
         -rc_name    => 'repeatmasker',
         -flow_into => {
                         -1 => ['run_repeatmasker_himem'],
-                        -2 => ['run_repeatmasker_long'],
-                        4 => ['run_genscan','run_firstef'],
+                        4 => ['run_dust'],
                       },
-
+        -hive_capacity => 500,
       },
 
       {
@@ -568,29 +649,13 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'repeatmasker_himem',
         -flow_into => {
-                        -2 => ['run_repeatmasker_long'],
-                         4 => ['run_genscan','run_firstef'],
+                         4 => ['run_dust'],
                       },
 
         -can_be_empty  => 1,
+        -hive_capacity => 500,
       },
 
-      {
-        -logic_name => 'run_repeatmasker_long',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
-        -parameters => {
-                         target_db => $self->o('reference_db'),
-                         logic_name => 'repeatmasker_repbase_'.$self->o('repeatmasker_library'),
-                         module => 'HiveRepeatMasker',
-                         repeatmasker_path => $self->o('repeatmasker_path'),
-                         commandline_params => '-nolow -species "'.$self->o('repeatmasker_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
-                       },
-        -rc_name    => 'repeatmasker_long',
-        -flow_into => {
-                        4 => ['run_genscan','run_firstef'],
-                      },
-        -can_be_empty  => 1,
-      },
 
       {
         # Set the toplevel
@@ -605,8 +670,11 @@ sub pipeline_analyses {
                          'repeat_logic_names'   => $self->o('repeat_logic_names'),
                        },
         -input_ids => [{}],
-        -wait_for => ['run_repeatmasker','run_repeatmasker_himem','run_repeatmasker_long'],
+        -wait_for => ['run_dust'],
         -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['create_genewise_output_db'],
+                      },
       },
 
 ###############################################################################
@@ -626,6 +694,11 @@ sub pipeline_analyses {
                          dust_path => $self->o('dust_path'),
                        },
         -rc_name    => 'simple_features',
+        -flow_into => {
+                         4 => ['run_trf'],
+                      },
+        -batch_size => 100,
+        -hive_capacity => 500,
       },
 
       {
@@ -639,6 +712,11 @@ sub pipeline_analyses {
                          trf_path => $self->o('trf_path'),
                        },
         -rc_name    => 'simple_features',
+        -flow_into => {
+                         4 => ['run_eponine'],
+                      },
+        -batch_size => 100,
+        -hive_capacity => 500,
       },
 
       {
@@ -653,6 +731,11 @@ sub pipeline_analyses {
                          commandline_params => '-epojar=> /software/ensembl/genebuild/usrlocalensembllib/eponine-scan.jar, -threshold=> 0.999',
                        },
         -rc_name    => 'simple_features',
+        -flow_into => {
+                         4 => ['run_firstef'],
+                      },
+        -batch_size => 100,
+        -hive_capacity => 500,
       },
 
       {
@@ -669,6 +752,11 @@ sub pipeline_analyses {
                          commandline_params => '-repeatmasked',
                        },
         -rc_name    => 'simple_features',
+        -flow_into => {
+                         4 => ['run_cpg'],
+                      },
+        -batch_size => 100,
+        -hive_capacity => 500,
       },
 
       {
@@ -682,6 +770,11 @@ sub pipeline_analyses {
                          cpg_path => $self->o('cpg_path'),
                        },
         -rc_name    => 'simple_features',
+        -flow_into => {
+                        4 => ['run_trnascan'],
+                      },
+        -batch_size => 100,
+        -hive_capacity => 500,
       },
 
       {
@@ -695,6 +788,11 @@ sub pipeline_analyses {
                          trnascan_path => $self->o('trnascan_path'),
                        },
         -rc_name    => 'simple_features',
+        -flow_into => {
+                         4 => ['run_genscan'],
+                      },
+        -batch_size => 100,
+        -hive_capacity => 500,
       },
 
 
@@ -721,8 +819,9 @@ sub pipeline_analyses {
         -flow_into => {
                         4 => ['create_prediction_transcript_ids'],
                         -1 => ['run_genscan_himem'],
-                        -2 => ['run_genscan_long'],
                       },
+        -batch_size => 10,
+        -hive_capacity => 500,
       },
 
       {
@@ -738,27 +837,11 @@ sub pipeline_analyses {
         -rc_name    => 'genscan_himem',
         -flow_into => {
                         4 => ['create_prediction_transcript_ids'],
-                        -2 => ['run_genscan_long'],
                       },
         -can_be_empty  => 1,
+        -hive_capacity => 500,
       },
 
-      {
-        -logic_name => 'run_genscan_long',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveGenscan',
-        -parameters => {
-                         target_db => $self->o('reference_db'),
-                         logic_name => 'genscan',
-                         module => 'HiveGenscan',
-                         genscan_path => $self->o('genscan_path'),
-                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')],
-                       },
-        -rc_name    => 'genscan_long',
-        -flow_into => {
-                        4 => ['create_prediction_transcript_ids'],
-                      },
-        -can_be_empty  => 1,
-      },
 
 
       {
@@ -776,7 +859,7 @@ sub pipeline_analyses {
                          prediction_transcript_logic_names => ['genscan'],
                        },
         -flow_into => {
-                        4 => ['run_uniprot_blast','run_vertrna_blast','run_unigene_blast'],
+                        4 => ['run_uniprot_blast'],
                       },
         -rc_name    => 'default',
       },
@@ -806,12 +889,14 @@ sub pipeline_analyses {
                       },
         -flow_into => {
                         -1 => ['run_uniprot_blast_himem'],
-                        -2 => ['run_uniprot_blast_long'],
+                        4 => ['run_vertrna_blast'],
                       },
         -rc_name    => 'blast',
+        -batch_size => 10,
+        -hive_capacity => 500,
       },
 
-     {
+      {
         -logic_name => 'run_uniprot_blast_himem',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanPep',
         -parameters => {
@@ -826,30 +911,12 @@ sub pipeline_analyses {
                          module => 'HiveBlastGenscanPep',
                          config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanPep'),
                       },
-        -flow_into => {
-                        -2 => ['run_uniprot_blast_long'],
-                      },
         -rc_name    => 'blast_himem',
         -can_be_empty  => 1,
-      },
-
-      {
-        -logic_name => 'run_uniprot_blast_long',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanPep',
-        -parameters => {
-                         target_db => $self->o('reference_db'),
-                         blast_db_path => $self->o('uniprot_blast_db_path'),
-                         blast_exe_path => $self->o('uniprot_blast_exe_path'),
-                         commandline_params => '-cpus 3 -hitdist 40',
-                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')],
-                         prediction_transcript_logic_names => ['genscan'],
-                         iid_type => 'feature_id',
-                         logic_name => 'uniprot',
-                         module => 'HiveBlastGenscanPep',
-                         config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanPep'),
+        -flow_into => {
+                        4 => ['run_vertrna_blast'],
                       },
-        -rc_name    => 'blast_long',
-        -can_be_empty  => 1,
+        -hive_capacity => 500,
       },
 
       {
@@ -871,9 +938,11 @@ sub pipeline_analyses {
                       },
         -flow_into => {
                         -1 => ['run_vertrna_blast_himem'],
-                        -2 => ['run_vertrna_blast_long'],
+                        4 => ['run_unigene_blast'],
                       },
         -rc_name    => 'blast',
+        -batch_size => 10,
+        -hive_capacity => 500,
       },
 
       {
@@ -891,30 +960,12 @@ sub pipeline_analyses {
                          module => 'HiveBlastGenscanDNA',
                          config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanVertRNA'),
                       },
-        -flow_into => {
-                        -2 => ['run_vertrna_blast_long'],
-                      },
         -rc_name    => 'blast_himem',
         -can_be_empty  => 1,
-      },
-
-      {
-        -logic_name => 'run_vertrna_blast_long',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanDNA',
-        -parameters => {
-                         target_db => $self->o('reference_db'),
-                         blast_db_path => $self->o('vertrna_blast_db_path'),
-                         blast_exe_path => $self->o('vertrna_blast_exe_path'),
-                         commandline_params => '-cpus 3 -hitdist 40',
-                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')],
-                         prediction_transcript_logic_names => ['genscan'],
-                         iid_type => 'feature_id',
-                         logic_name => 'vertrna',
-                         module => 'HiveBlastGenscanDNA',
-                         config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanVertRNA'),
+        -flow_into => {
+                        4 => ['run_unigene_blast'],
                       },
-        -rc_name    => 'blast_long',
-        -can_be_empty  => 1,
+        -hive_capacity => 500,
       },
 
       {
@@ -936,9 +987,10 @@ sub pipeline_analyses {
                       },
         -flow_into => {
                         -1 => ['run_unigene_blast_himem'],
-                        -2 => ['run_unigene_blast_long'],
                       },
         -rc_name    => 'blast',
+        -batch_size => 10,
+        -hive_capacity => 500,
       },
 
       {
@@ -956,54 +1008,17 @@ sub pipeline_analyses {
                          module => 'HiveBlastGenscanDNA',
                          config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanUnigene'),
                       },
-        -flow_into => {
-                        -2 => ['run_unigene_blast_long'],
-                      },
         -rc_name    => 'blast_himem',
         -can_be_empty  => 1,
+        -hive_capacity => 500,
       },
 
-      {
-        -logic_name => 'run_unigene_blast_long',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanDNA',
-        -parameters => {
-                         target_db => $self->o('reference_db'),
-                         blast_db_path => $self->o('unigene_blast_db_path'),
-                         blast_exe_path => $self->o('unigene_blast_exe_path'),
-                         commandline_params => '-cpus 3 -hitdist 40',
-                         prediction_transcript_logic_names => ['genscan'],
-                         iid_type => 'feature_id',
-                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')],
-                         logic_name => 'unigene',
-                         module => 'HiveBlastGenscanDNA',
-                         config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanUnigene'),
-                      },
-        -rc_name    => 'blast_long',
-        -can_be_empty  => 1,
-      },
 
 ######################################################################################
 #
 # Protein models (genblast and genewise)
 #
 ######################################################################################
-      {
-        -logic_name => 'create_genblast_output_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('reference_db'),
-                         target_db => $self->o('genblast_db'),
-                         create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('password'),
-                       },
-        -rc_name    => 'default',
-        -wait_for   => ['dump_softmasked_toplevel'],
-        -input_ids => [{}],
-      },
-
 
       {
         -logic_name => 'create_genewise_output_db',
@@ -1018,9 +1033,28 @@ sub pipeline_analyses {
                          pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
-        -wait_for   => ['dump_softmasked_toplevel'],
-        -input_ids => [{}],
+        -flow_into => {
+                        1 => ['create_genblast_output_db'],
+                      },
+
       },
+
+
+      {
+        -logic_name => 'create_genblast_output_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('reference_db'),
+                         target_db => $self->o('genblast_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user_w'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+      },
+
 
       {
         -logic_name => 'download_uniprot_files',
@@ -1153,6 +1187,22 @@ sub pipeline_analyses {
 
 
       {
+        -logic_name => 'classify_genblast_models',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+                         classification_type => 'standard',
+                         update_gene_biotype => 1,
+                       },
+        -rc_name    => 'default',
+        -input_ids  => [{"iid" => $self->o('genblast_db')}],
+        -wait_for => ['genblast','genblast_retry'],
+        -flow_into => {
+                        1 => ['create_genewise_ids'],
+                      },
+      },
+
+
+      {
         -logic_name => 'create_genewise_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
@@ -1164,15 +1214,17 @@ sub pipeline_analyses {
         -flow_into => {
                         1 => ['genewise'],
                       },
-        -wait_for     => ['genblast','genblast_retry'],
-        -input_ids => [{}],
         -rc_name    => 'default_himem',
+        -flow_into => {
+                        1 => ['genewise'],
+                      },
       },
 
-            {
+
+
+      {
         -logic_name => 'genewise',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenewise',
-        -wait_for => ['create_genewise_output_db'],
         -parameters => {
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
@@ -1223,6 +1275,18 @@ sub pipeline_analyses {
       },
 
       {
+        -logic_name => 'classify_genewise_models',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+                         classification_type => 'standard',
+                         update_gene_biotype => 1,
+                       },
+        -rc_name    => 'default',
+        -input_ids  => [{"iid" => $self->o('genewise_db')}],
+        -wait_for => ['genewise','genewise_retry'],
+      },
+
+      {
         -logic_name => 'failed_genewise_proteins',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
         -parameters => {
@@ -1230,6 +1294,210 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
+      },
+
+########################################################################
+#
+# Projection analyses
+#
+########################################################################
+
+      {
+        -logic_name => 'wait_for_lastz_db',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name    => 'default',
+        -flow_into  => {
+                         1 => ['create_projection_output_db'],
+                       },
+      },
+
+      {
+        -logic_name => 'create_projection_output_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('reference_db'),
+                         target_db => $self->o('projection_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user_w'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['create_projection_input_ids'],
+                      },
+      },
+
+      {
+        -logic_name => 'create_projection_input_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('projection_source_db'),
+                         feature_id => 1,
+                         feature_type => 'transcript',
+                         feature_restriction => 'protein_coding',
+                       },
+
+        -flow_into => {
+                        1 => ['project_transcripts'],
+                      },
+
+         -rc_name    => 'default',
+      },
+
+      {
+        -logic_name => 'project_transcripts',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+        -parameters => {
+                         logic_name => 'project_transcripts',
+                         module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+                         config_settings => $self->get_config_settings('projection','project_transcripts'),
+                         iid_type => 'feature_id',
+                         feature_type => 'transcript',
+                         calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
+                         max_internal_stops => $self->o('projection_max_internal_stops'),
+                       },
+
+        -rc_name          => 'project_transcripts',
+        -batch_size => 100,
+        -failed_job_tolerance => 0.5,
+      },
+
+      {
+        -logic_name => 'classify_projection_models',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+                         classification_type => 'standard',
+                         update_gene_biotype => 1,
+                       },
+        -rc_name    => 'default',
+        -input_ids  => [{"iid" => $self->o('projection_db')}],
+        -wait_for => ['project_transcripts'],
+      },
+
+############################################################################
+#
+# RNA-seq analyses
+#
+############################################################################
+
+      {
+        -logic_name => 'wait_for_rnaseq_db',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name    => 'default',
+        # An input id will be inserted for this by running a script when both the RNA-seq and
+        # lastz db are ready. This is cos these things can't be directly linked into the pipeline yet
+      },
+
+      {
+        -logic_name => 'classify_rnaseq_models',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+                         update_gene_biotype => 1,
+                         classification_type => 'standard',
+                       },
+        -rc_name    => 'default',
+        -input_ids  => [{"iid" => $self->o('rnaseq_db')}],
+        -wait_for => ['wait_for_rnaseq_db'],
+      },
+
+############################################################################
+#
+# Finalisation analyses
+#
+############################################################################
+
+      {
+        -logic_name => 'create_layering_output_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('reference_db'),
+                         target_db => $self->o('layering_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user_w'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+        -wait_for => ['classify_genewise_models','classify_projection_models','classify_rnaseq_models'],
+        -input_ids => [{}],
+        -flow_into => {
+                        1 => ['create_genebuilder_output_db'],
+                      },
+      },
+
+      {
+        -logic_name => 'create_genebuilder_output_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('reference_db'),
+                         target_db => $self->o('genebuilder_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user_w'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['create_toplevel_slices'],
+                      },
+      },
+
+      {
+        # Create toplevel slices, each species flow into this independantly
+        -logic_name => 'create_toplevel_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('reference_db'),
+                         coord_system_name => 'toplevel',
+                         slice => 1,
+                         include_non_reference => 0,
+                         top_level => 1,
+                         min_slice_length => $self->o('min_toplevel_slice_length'),
+                         # These options will create only slices that have a gene on the slice in one of the feature dbs
+                         feature_constraint => 1,
+                         feature_type => 'gene',
+                         feature_dbs => [$self->o('genewise_db'),$self->o('projection_db'),$self->o('rnaseq_db')],
+                       },
+        -flow_into => {
+                        1 => ['layer_annotation'],
+                      },
+        -rc_name    => 'default',
+      },
+
+      {
+        -logic_name => 'layer_annotation',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation',
+        -parameters => {
+                         dna_db     => $self->o('dna_db'),
+                         logic_name => 'layer_annotation',
+                         module     => 'HiveLayerAnnotation',
+                         config_settings => $self->get_config_settings('layer_annotation','layers'),
+                       },
+        -rc_name    => 'layer_annotation',
+        -flow_into  => {  1 => ['genebuilder'],
+                       },
+      },
+
+      {
+        -logic_name => 'genebuilder',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGeneBuilder',
+        -parameters => {
+                         layering_output_db => $self->o('layering_db'),
+                         genebuilder_output_db => $self->o('genebuilder_db'),
+                         dna_db     => $self->o('dna_db'),
+                         logic_name => 'ensembl',
+                         module     => 'HiveGeneBuilder',
+                         config_settings => $self->get_config_settings('genebuilder','genebuilder_set'),
+                       },
+        -rc_name    => 'genebuilder',
       },
 
     ];
@@ -1263,6 +1531,8 @@ sub resource_classes {
   my $genblast_db_server = $self->default_options()->{'genblast_db_server'};
   my $genewise_db_server = $self->default_options()->{'genewise_db_server'};
   my $refseq_db_server = $self->default_options()->{'refseq_db_server'};
+  my $projection_db_server = $self->default_options()->{'projection_db_server'};
+  my $projection_lastz_db_server = $self->default_options()->{'projection_lastz_db_server'};
   my $killlist_db_server = $self->default_options()->{'killlist_db_server'};
 
   my $default_mem = $self->default_options()->{'default_mem'};
@@ -1270,13 +1540,18 @@ sub resource_classes {
   my $genblast_retry_mem = $self->default_options()->{'genblast_retry_mem'};
   my $genewise_mem = $self->default_options()->{'genewise_mem'};
   my $genewise_retry_mem = $self->default_options()->{'genewise_retry_mem'};
+  my $projection_mem = $self->default_options()->{'projection_mem'};
   my $refseq_mem = $self->default_options()->{'refseq_mem'};
+  my $layer_annotation_mem = $self->default_options()->{'layer_annotation_mem'};
+  my $genebuilder_mem = $self->default_options()->{'genebuilder_mem'};
 
   my $reference_db_server_number;
   my $pipe_db_server_number;
   my $dna_db_server_number;
   my $genblast_db_server_number;
   my $genewise_db_server_number;
+  my $projection_db_server_number;
+  my $projection_lastz_db_server_number;
   my $refseq_db_server_number;
   my $killlist_db_server_number;
 
@@ -1319,6 +1594,22 @@ sub resource_classes {
 
   $genewise_db_server_number = $1;
 
+
+  unless($projection_db_server =~ /(\d+)$/) {
+    die "Failed to parse the server number out of the genewise db server name. This is needed for setting tokens\n".
+        "exonerate_output_db_server: ".$projection_db_server;
+  }
+
+  $projection_db_server_number = $1;
+
+  unless($projection_lastz_db_server =~ /(\d+)$/) {
+    die "Failed to parse the server number out of the genewise db server name. This is needed for setting tokens\n".
+        "exonerate_output_db_server: ".$projection_lastz_db_server;
+  }
+
+  $projection_lastz_db_server_number = $1;
+
+
   unless($refseq_db_server =~ /(\d+)$/) {
     die "Failed to parse the server number out of the genewise db server name. This is needed for setting tokens\n".
         "refseq_db_server: ".$refseq_db_server;
@@ -1350,28 +1641,22 @@ sub resource_classes {
                                 $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
     'repeatmasker_himem' => { LSF => '-q normal -M5900 -R"select[mem>5900] rusage[mem=5900,myens_build'.
                                      $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
-    'repeatmasker_long' => { LSF => '-q long -M5900 -R"select[mem>5900] rusage[mem=5900,myens_build'.
-                                    $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
     'simple_features' => { LSF => '-q normal -M2900 -R"select[mem>2900] rusage[mem=2900,myens_build'.
                                   $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
     'genscan' => { LSF => '-q normal -M2900 -R"select[mem>2900] rusage[mem=2900,myens_build'.
                           $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
     'genscan_himem' => { LSF => '-q normal -M5900 -R"select[mem>5900] rusage[mem=5900,myens_build'.
                           $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
-    'genscan_long' => { LSF => '-q long -M5900 -R"select[mem>5900] rusage[mem=5900,myens_build'.
-                          $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
     'blast' => { LSF => '-q normal -M2900 -n 3 -R "select[mem>2900] rusage[mem=2900,myens_build'.
                         $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.'] span[hosts=1]"' },
     'blast_himem' => { LSF => '-q normal -M5900 -n 3 -R "select[mem>5900] rusage[mem=5900,myens_build'.
                         $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.'] span[hosts=1]"' },
-    'blast_long' => { LSF => '-q long -M5900 -n 3 -R "select[mem>5900] rusage[mem=5900,myens_build'.
-                        $reference_db_server_number.'tok='.$num_tokens.',myens_build'.$pipe_db_server_number.'tok='.$num_tokens.'] span[hosts=1]"' },
-
     'genblast' => { LSF => '-q normal -W 120 -M'.$genblast_mem.' -R"select[mem>'.$genblast_mem.'] '.
                              'rusage[mem='.$genblast_mem.','.
                              'myens_build'.$genblast_db_server_number.'tok='.$num_tokens.','.
                              'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
                              'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
 
     'genblast_retry' => { LSF => '-q normal -W 120 -M'.$genblast_retry_mem.' -R"select[mem>'.$genblast_retry_mem.'] '.
                                    'rusage[mem='.$genblast_retry_mem.','.
@@ -1391,11 +1676,31 @@ sub resource_classes {
                                     'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
                                     'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
 
+    'project_transcripts' => { LSF => '-q normal -W 120 -M'.$projection_mem.' -R"select[mem>'.$projection_mem.'] '.
+                              'rusage[mem='.$projection_mem.','.
+                              'myens_build'.$projection_db_server_number.'tok='.$num_tokens.','.
+                              'myens_build'.$projection_lastz_db_server_number.'tok='.$num_tokens.','.
+                              'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
+                              'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
     'refseq_import' => { LSF => '-q normal -M'.$refseq_mem.' -R"select[mem>'.$refseq_mem.'] '.
                                     'rusage[mem='.$refseq_mem.','.
                                     'myens_build'.$refseq_db_server_number.'tok='.$num_tokens.','.
                                     'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
                                     'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
+    'layer_annotation' => { LSF => '-q normal -W 200 -M'.$layer_annotation_mem.' -R"select[mem>'.$layer_annotation_mem.'] '.
+                             'rusage[mem='.$layer_annotation_mem.','.
+                             'myens_build'.$genblast_db_server_number.'tok='.$num_tokens.','.
+                             'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
+                             'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
+    'genebuilder' => { LSF => '-q normal -W 200 -M'.$genebuilder_mem.' -R"select[mem>'.$genebuilder_mem.'] '.
+                             'rusage[mem='.$genebuilder_mem.','.
+                             'myens_build'.$genblast_db_server_number.'tok='.$num_tokens.','.
+                             'myens_build'.$dna_db_server_number.'tok='.$num_tokens.','.
+                             'myens_build'.$pipe_db_server_number.'tok='.$num_tokens.']"' },
+
   }
 }
 
@@ -1564,6 +1869,76 @@ sub master_config_settings {
       },
     },
 
+  projection => {
+      Default => {},
+      project_transcripts => {
+        QUERY_CORE_DB => $self->default_options()->{'projection_source_db'},
+        QUERY_CORE_DNA_DB => $self->default_options()->{'projection_source_db'},
+        TARGET_CORE_DB => $self->o('projection_db'),
+        TARGET_CORE_DNA_DB => $self->o('dna_db'),
+        COMPARA_DB => $self->o('projection_lastz_db'),
+        INPUT_METHOD_LINK_TYPE => 'LASTZ_NET',
+        MAX_EXON_READTHROUGH_DIST => 15,
+
+        TRANSCRIPT_FILTER => {
+          OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ClusterFilter',
+          PARAMETERS => {
+            -coverage => $self->o('projection_cov'),
+            -percent_id => $self->o('projection_pid'),
+            -max_editable_stops => $self->o('projection_max_internal_stops'),
+            -best_in_genome => 1,
+          },
+        },
+      },
+    },
+
+    layer_annotation => {
+      Default => {
+        TARGETDB_REF => $self->o('layering_db'),
+        SOURCEDB_REFS => $self->o('input_gene_dbs'),
+        # ordered list of annotation layers. Genes from lower layers
+        # are only retained if they do not "interfere" with genes from
+        # higher layers. Genes in "Discard" layers are when assessing
+        # interference, but are not written to the final database
+
+        # Filtering is using done at the exon-overlap level
+        # When no FILTER exists in this file, this is the default behaviour
+
+        # If you would like to filter in a different way, please specify filter
+        #FILTER => 'Bio::EnsEMBL::Analysis::Tools::GenomeOverlapFilter',
+        #FILTER => 'Bio::EnsEMBL::Analysis::Tools::AllExonOverlapFilter',
+        FILTER => 'Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter',
+      },
+
+      layers => {
+        LAYERS => $self->layering_set(),
+      },
+    },
+
+    genebuilder => {
+      Default => {
+      },
+      genebuilder_set => {
+        INPUT_GENES => {
+          'input_db' => $self->genebuilder_set(),
+        },
+        OUTPUT_BIOTYPE => 'ensembl',
+        MAX_TRANSCRIPTS_PER_CLUSTER => 10,
+        MIN_SHORT_INTRON_LEN => 7, #introns shorter than this seem
+        #to be real frame shifts and shoudn't be ignored
+        MAX_SHORT_INTRON_LEN => 15,
+        BLESSED_BIOTYPES => {
+                             'ccds_gene' => 1,
+                             'Blessed_UTR_Genes' => 1,
+                            },
+        #the biotypes of the best genes always to be kept
+        MAX_EXON_LENGTH => 20000,
+        #if the coding_only flag is set to 1, the transcript clustering into genes is done over coding exons only
+        # the current standard way is to cluster only on coding exons
+        CODING_ONLY => 1,
+      },
+    },
+
   };
 
   return($master_config_settings->{$config_group});
@@ -1720,6 +2095,296 @@ sub uniprot_clade_download {
              });
   } else {
     die "Unknown clade selected for UniProt protein download: ".$clade;
+  }
+
+}
+
+sub layering_set {
+  my ($self) = @_;
+
+  my $clade = $self->default_options()->{'uniprot_set'};
+
+  if($clade eq 'primates_basic') {
+    return ([
+            {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                             'projection_95',
+                             'projection_80',
+                             'rnaseq_95',
+                             'rnaseq_80',
+                             'self_pe12_sp_95',
+                             'self_pe12_tr_95',
+                             'self_pe12_sp_80',
+                             'self_pe12_tr_80',
+                             'human_pe12_sp_95',
+                             'human_pe12_tr_95',
+                             'primates_pe12_sp_95',
+                             'primates_pe12_tr_95',
+                             'mammals_pe12_sp_95',
+                             'mammals_pe12_tr_95',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'human_pe12_sp_80',
+                             'human_pe12_tr_80',
+                             'primates_pe12_sp_80',
+                             'primates_pe12_tr_80',
+                             'mammals_pe12_sp_80',
+                             'mammals_pe12_tr_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'primates_pe3_sp_95',
+                             'vert_pe12_sp_95',
+                             'vert_pe12_tr_95',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER4',
+              BIOTYPES   => [
+                             'primates_pe3_sp_80',
+                             'vert_pe12_sp_80',
+                             'vert_pe12_tr_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER5',
+              BIOTYPES   => [
+                              'projection_50',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+              DISCARD    => 0,
+            },
+
+
+    ]);
+  } elsif($clade eq 'rodents_basic') {
+    return ([
+            {
+              ID         => 'LAYER1',
+              BIOTYPES   => ['projection_95','projection_80',
+                            'rnaseq_95','rnaseq_80',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [ 'self_pe12_sp_95','self_pe12_sp_80',
+                              'mouse_pe12_sp_95','mouse_pe12_sp_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER3',
+              BIOTYPES   => [ 'self_pe12_tr_95','self_pe12_tr_80',
+                              'mouse_pe12_tr_95','mouse_pe12_tr_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER4',
+              BIOTYPES   => ['rodents_pe12_sp_95','rodents_pe12_sp_80'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER5',
+              BIOTYPES   => ['rodents_pe12_tr_95','rodents_pe12_tr_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+              DISCARD    => 0,
+            },
+
+
+            {
+              ID         => 'LAYER6',
+              BIOTYPES   => ['human_pe12_sp_95','human_pe12_sp_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER7',
+              BIOTYPES   => ['human_pe12_tr_95','human_pe12_tr_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER8',
+              BIOTYPES   => [
+                              'mammals_pe12_sp_95','mammals_pe12_sp_80'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER9',
+              BIOTYPES   => [
+                              'rodents_pe3_sp_95','rodents_pe3_sp_80'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER8'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER10',
+              BIOTYPES   => [
+                              'mammals_pe12_tr_95','mammals_pe12_tr_80'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER8','LAYER9'],
+              DISCARD    => 0,
+            },
+
+
+            {
+              ID         => 'LAYER11',
+              BIOTYPES   => [
+                              'rodents_pe3_tr_95','rodents_pe3_tr_80'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER8','LAYER9','LAYER10'],
+              DISCARD    => 0,
+            },
+
+
+            {
+              ID         => 'LAYER12',
+              BIOTYPES   => [
+                              'vert_pe12_sp_95','vert_pe12_sp_80'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER8','LAYER9','LAYER10','LAYER11'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER13',
+              BIOTYPES   => [
+                              'vert_pe12_tr_95','vert_pe12_tr_80'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER8','LAYER9','LAYER10','LAYER11','LAYER12'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER14',
+              BIOTYPES   => [
+                              'projection_50'
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER8','LAYER9','LAYER10','LAYER11','LAYER12','LAYER13'],
+              DISCARD    => 0,
+            },
+            ]);
+  } else {
+    die "Unknown clade selected for layering: ".$clade;
+  }
+
+}
+
+sub genebuilder_set {
+  my ($self) = @_;
+
+  my $clade = $self->default_options()->{'uniprot_set'};
+
+  if($clade eq 'primates_baisc') {
+    return ([
+              'projection_80',
+              'projection_95',
+              'projection_50',
+              'self_pe12_sp_95',
+              'self_pe12_sp_80',
+              'self_pe12_tr_95',
+              'self_pe12_tr_80',
+              'rnaseq_95',
+              'rnaseq_80',
+              'vert_pe12_sp_95',
+              'vert_pe12_sp_80',
+              'vert_pe12_tr_80',
+              'vert_pe12_tr_95',
+              'primates_pe12_sp_80',
+              'primates_pe12_tr_80',
+              'primates_pe12_tr_95',
+              'primates_pe12_sp_95',
+              'human_pe12_sp_80',
+              'human_pe12_sp_95',
+              'human_pe12_tr_80',
+              'human_pe12_tr_95',
+              'primates_pe3_sp_95',
+              'primates_pe3_tr_80',
+              'primates_pe3_tr_95',
+              'primates_pe3_sp_80',
+              'mammals_pe12_sp_80',
+              'mammals_pe12_sp_95',
+              'mammals_pe12_tr_95',
+              'mammals_pe12_tr_80',
+    ]);
+  } elsif($clade eq 'rodents_basic') {
+    return ([
+              'projection_80',
+              'projection_95',
+              'projection_50',
+              'self_pe12_sp_95',
+              'self_pe12_sp_80',
+              'self_pe12_tr_95',
+              'self_pe12_tr_80',
+              'rnaseq_95',
+              'rnaseq_80',
+              'mouse_pe12_sp_95',
+              'mouse_pe12_sp_80',
+              'mouse_pe12_tr_95',
+              'mouse_pe12_tr_80',
+              'vert_pe12_sp_95',
+              'vert_pe12_sp_80',
+              'vert_pe12_tr_80',
+              'vert_pe12_tr_95',
+              'rodents_pe12_sp_80',
+              'rodents_pe12_tr_80',
+              'rodents_pe12_tr_95',
+              'rodents_pe12_sp_95',
+              'human_pe12_sp_80',
+              'human_pe12_sp_95',
+              'human_pe12_tr_80',
+              'human_pe12_tr_95',
+              'rodents_pe3_sp_95',
+              'rodents_pe3_tr_80',
+              'rodents_pe3_tr_95',
+              'rodents_pe3_sp_80',
+              'rodents_pe45_sp_95',
+              'rodents_pe45_tr_80',
+              'rodents_pe45_tr_95',
+              'rodents_pe45_sp_80',
+              'mammals_pe12_sp_80',
+              'mammals_pe12_sp_95',
+              'mammals_pe12_tr_95',
+              'mammals_pe12_tr_80',
+            ]);
+  } else {
+    die "Unknown clade selected for genebuilding: ".$clade;
   }
 
 }
