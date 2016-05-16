@@ -130,7 +130,7 @@ sub set_meta {
       $description_defined = 1;
       $meta_adaptor->store_key_value('assembly.name', $1);
       say "Inserted into meta:\nassembly.name => ".$1;
-   } elsif($line =~ /^#\s*Assembly Name:\s*(\S+)/) {
+   } elsif($line =~ /^#\s*Assembly [Nn]ame:\s*(\S+)/) {
       $assembly_name = $1;
       $meta_adaptor->store_key_value('assembly.default', $assembly_name);
       say "Inserted into meta:\nassembly.default => ".$assembly_name;
