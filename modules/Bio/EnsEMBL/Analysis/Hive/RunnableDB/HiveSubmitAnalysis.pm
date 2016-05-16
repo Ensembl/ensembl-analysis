@@ -54,8 +54,6 @@ sub fetch_input {
     $self->split_slice();
   } elsif($self->param('iid_type') eq 'uniprot_accession') {
     $self->uniprot_accession();
-  } elsif($self->param('iid_type') eq 'rechunk_uniprot_accession') {
-    $self->rechunk_uniprot_accession();
   } else {
       $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
       my $dba = hrdb_get_dba($self->param('target_db'));
@@ -93,10 +91,24 @@ sub create_slice_ids {
 #       -seq_region_name => $self->param('seq_region_name'),
        -hap_pair => $self->param('hap_pair'),
        -mt => $self->param_is_defined('mitochondrion') ? $self->param('mitochondrion') : 0,
+       -min_slice_length => $self->param('min_slice_length'),
      );
 
   $input_id_factory->generate_input_ids;
-  $self->param('inputlist', $input_id_factory->input_ids);
+  my $input_ids = $input_id_factory->input_ids;
+
+  if($self->param('feature_constraint')) {
+    my $filtered_ids = $self->filter_slice_on_features($input_ids);
+    $input_ids = $filtered_ids;
+  }
+
+  if($self->param('batch_slice_ids')) {
+    my $batched_ids = $self->batch_slice_ids($input_ids);
+    $input_ids = $batched_ids;
+  }
+
+  $self->param('inputlist', $input_ids);
+
 }
 
 
@@ -345,6 +357,7 @@ sub uniprot_accession {
   $self->param('inputlist', $output_id_array);
 }
 
+
 sub rechunk_uniprot_accession {
   my ($self) = @_;
 
@@ -377,7 +390,6 @@ sub rechunk_uniprot_accession {
 
   $self->param('inputlist', $output_id_array);
 }
-
 
 
 sub feature_region {
@@ -468,7 +480,12 @@ sub feature_id {
   }
 
   my $type = $self->param('feature_type');
-  my $logic_names = $self->param('logic_name');
+
+#  my $logic_names = $self->param('logic_name');
+  my $logic_names = $self->param('feature_logic_names');
+  # feature_restriction is a way to do specific restrictions that aren't easy to model. One example is 'protein_coding'
+  # which will check if the feature hash a translation
+  my $feature_restriction = $self->param('feature_restriction');
   my $feature_adaptor;
 
   if($type eq 'transcript') {
@@ -479,18 +496,18 @@ sub feature_id {
     $self->throw("The feature type you requested is not supported in the code yet. Feature type:\n".$type);
   }
 
+  my $features= [];
   if($logic_names) {
     foreach my $logic_name (@$logic_names) {
-      my $features = $feature_adaptor->fetch_all_by_logic_name($logic_name);
-      foreach my $feature (@{$features}) {
-        my $db_id = $feature->dbID();
-        push(@{$output_id_array},$db_id);
-      }
+      push(@{$features},@{$feature_adaptor->fetch_all_by_logic_name($logic_name)});
     }
   } else {
-    $self->warning("No logic names passed in using 'logic_name' param, so will fetch all features");
-    my $features = $feature_adaptor->fetch_all();
-    foreach my $feature (@{$features}) {
+    $self->warning("No logic names passed in using 'feature_logic_names' param, so will fetch all features");
+    push(@{$features},@{$feature_adaptor->fetch_all()});
+  }
+
+  foreach my $feature (@{$features}) {
+    unless($self->feature_restriction($feature,$type,$feature_restriction)) {
       my $db_id = $feature->dbID();
       push(@{$output_id_array},$db_id);
     }
@@ -500,15 +517,144 @@ sub feature_id {
 }
 
 
-    # Yet to implement this, will allow for slices that don't have any of the specified features to be skipped
-#TH3 removed this function call when removing the write_output method to use the JobFactory. It's probably better to not create empty input ids
-sub check_slice_for_features {
+sub feature_restriction {
+  my ($self,$feature,$type,$restriction) = @_;
+  my $feature_restricted = 0;
+
+  if($restriction) {
+    # Transcript restrictions go here
+    if($type eq 'transcript') {
+      if($restriction eq 'protein_coding') {
+        # Note initially this is based on translation and not biotype, but for projection I've switched to to biotype temporarily
+        unless($feature->biotype() eq 'protein_coding') {
+          $feature_restricted = 1;
+        }
+      } elsif($restriction eq 'biotype') {
+        # future code with a new param for a biotype array should go here
+      }
+    } # End if transcript
+  } # End if restriction
+
+  return($feature_restricted);
+
+}
+
+sub rechunk_uniprot_accession {
   my ($self) = @_;
 
-  my $features_present = 0;
-  my $feature_type = $self->param('feature_type');
-  return $features_present;
+  my $output_id_array = [];
 
+  unless($self->param('uniprot_batch_size')) {
+    $self->throw("You've select to batch uniprot ids but haven't passed in a batch size using 'uniprot_batch_size'");
+  }
+
+  unless($self->param('iid')) {
+    $self->throw("You've select to rechunk uniprot ids but haven't passed in an input_id using 'iid'");
+  }
+
+  my $batch_size = $self->param('uniprot_batch_size');
+
+  my $input_accession_array = $self->param('iid');
+  my $output_accession_array = [];
+  foreach my $accession (@{$input_accession_array}) {
+    my $size = scalar(@{$output_accession_array});
+    if($size == $batch_size) {
+      push(@{$output_id_array},$output_accession_array);
+      $output_accession_array = [];
+    }
+    push(@{$output_accession_array},$accession);
+  }
+
+  if(scalar(@{$output_accession_array})) {
+    push(@{$output_id_array},$output_accession_array);
+  }
+
+  $self->param('inputlist',$output_id_array);
+}
+
+
+sub filter_slice_on_features {
+  my ($self,$slice_names) = @_;
+
+  my $feature_dbs = [];
+  my @output_slices;
+  my $feature_slices = {};
+
+  unless($self->param('feature_type')) {
+    $self->throw("You have selected to use a feature_constraint, but haven't passed in the feature_type parameter");
+  }
+
+  unless($self->param('feature_dbs')) {
+    $self->warning("You have selected to use a feature_constraint, but haven't passed in a feature dbs array ref using ".
+                   "the feature_dbs param. Defaulting to the target db");
+   push(@{$feature_dbs},$self->hrdb_get_con('target_db'));
+  } else {
+    foreach my $feature_db (@{$self->param('feature_dbs')}) {
+      my $dba = $self->hrdb_get_dba($feature_db);
+      push(@{$feature_dbs},$dba);
+    }
+  }
+
+  my $feature_type = $self->param('feature_type');
+  if($feature_type eq 'gene') {
+    foreach my $dba (@{$feature_dbs}) {
+      say "Checking constraints for: ".$dba->dbc->dbname();
+      my $slice_adaptor= $dba->get_SliceAdaptor();
+      foreach my $slice_name (@{$slice_names}) {
+        if($feature_slices->{$slice_name}) {
+          next;
+        }
+        my $slice = $slice_adaptor->fetch_by_name($slice_name);
+        my $genes = $slice->get_all_Genes();
+        if(scalar(@{$genes})) {
+          $feature_slices->{$slice_name} = 1;
+        }
+      }
+    }
+    @output_slices = keys(%{$feature_slices});
+  } else {
+    $self->throw("The feature type you have selected to constrain the slices on is not currently implemented in the code. ".
+                 "Feature type selected: ".$feature_type);
+  }
+  return \@output_slices;
+}
+
+sub batch_slice_ids {
+  my ($self,$slice_names) = @_;
+  my $batch_target_size = 1000000;
+  if($self->param('batch_target_size')) {
+    $batch_target_size = $self->param('batch_target_size');
+  }
+
+  # "chromosome:Mmul_8.0.1:1:1:998163:1"
+  my %length_hash;
+  foreach my $slice_name (@{$slice_names}) {
+    $slice_name =~ /(\d+)\:(\d+)\:\d+$/;
+    my $start = $1;
+    my $end = $2;
+    my $length = $end - $start + 1;
+    $length_hash{$slice_name} = $length;
+  }
+
+  my $all_batches = [];
+  my $single_batch_array = [];
+  my $total_length = 0;
+  # Sort shortest first
+  foreach my $slice_name (sort { $length_hash{$a} <=> $length_hash{$b} } keys %length_hash) {
+    my $length = $length_hash{$slice_name};
+    if($length + $total_length > $batch_target_size) {
+      push(@{$all_batches},$single_batch_array);
+      $single_batch_array = [];
+      $total_length = 0;
+      push(@{$single_batch_array},$slice_name);
+      $total_length += $length;
+    } else {
+      push(@{$single_batch_array},$slice_name);
+      $total_length += $length;
+    }
+  }
+  push(@{$all_batches},$single_batch_array);
+  return($all_batches);
 }
 
 
