@@ -117,8 +117,10 @@ sub fetch_input{
   if ($seq =~ /[CATG]{3}/) {
      $self->input_is_void(0);
   } else {
-     $self->input_is_void(1);
-     $self->warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
+    $self->input_is_void(1);
+    $self->warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
+    $self->input_job->autoflow(0);
+    $self->complete_early('No input seq to process');
   }
 
   return 1;
