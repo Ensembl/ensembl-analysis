@@ -30,8 +30,8 @@ sub fetch_input {
                  "into must be passed in with write access");
   }
 
-  unless($self->param('enscode_dir')) {
-    $self->throw("enscode_dir not passed into parameters hash. You need to specify where your code checkout is");
+  unless($self->param('enscode_root_dir')) {
+    $self->throw("enscode_root_dir not passed into parameters hash. You need to specify where your code checkout is");
   }
 
   unless($self->param('species_name')) {
@@ -59,7 +59,7 @@ sub run {
   my $species_name = $self->param('species_name');
   my $output_path = $self->param('output_path');
   my $mito_index = $self->param('mito_index_path');
-  my $enscode_dir = $self->param('enscode_dir');
+  my $enscode_dir = $self->param('enscode_root_dir');
 
   my $chromosomes_present = $self->param('chromosomes_present');
 
