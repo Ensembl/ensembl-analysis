@@ -157,7 +157,7 @@ sub run_analysis{
   my $options = " --ga " . $cm->{$domain}->{-options};
   print "OPTIONS $options\n";
   $options =~ s/\-\-toponly//;
-  
+
   $self->files_to_delete($results_file);
   $self->resultsfile($results_file);
   $command .= "   $options $cmfile $filename > $results_file ";
@@ -504,7 +504,7 @@ sub make_gene{
   $gene->biotype("antitoxin")   if($type =~ /antitoxin;/);
   $gene->biotype("ribozyme")    if($type =~ /ribozyme;/);
 
-  $gene->confidence("NOVEL");
+  $gene->status("NOVEL");
   $gene->description($description." [Source: RFAM;Acc:$domain]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);
