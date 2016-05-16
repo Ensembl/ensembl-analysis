@@ -67,6 +67,16 @@ sub fetch_input {
   # value in $self->db and OUTDB
   $self->hive_set_config;
 
+  my $target_dba = $self->hrdb_get_dba($self->TARGETDB_REF);
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  if($dna_dba) {
+    $target_dba->dnadb($dna_dba);
+  }
+  $self->hrdb_set_con($target_dba,'target_db');
+
+  $self->dbc->disconnect_if_idle(1);
+
+  my $found_input_genes = 0;
   foreach my $input_db (@{$self->SOURCEDB_REFS}) {
 
     my $dba = $self->hrdb_get_dba($input_db);
@@ -82,12 +92,19 @@ sub fetch_input {
     foreach my $layer (@{$self->layers}) {
       foreach my $tp (@{$layer->biotypes}) {
         foreach my $g (@{$slice->get_all_Genes_by_type($tp, undef, 1)}) {
+          $found_input_genes = 1;
           $g = $g->transfer($tlslice);
           push @{$layer->genes}, $g;
         }
       }
     }
-    $dba->dbc->disconnect_when_inactive(0) ;
+    #$dba->dbc->disconnect_when_inactive(0) ;
+  }
+
+  # If there are no input genes then finish and don't flow
+  unless($found_input_genes) {
+    $self->input_job->autoflow(0);
+    $self->complete_early('No genes to process');
   }
 }
 
@@ -140,11 +157,14 @@ sub run {
 sub write_output {
   my($self) = @_;
 
-  my $target_dba = $self->hrdb_get_dba($self->TARGETDB_REF);
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $target_dba->dnadb($dna_dba);
-  }
+  my $target_dba = $self->hrdb_get_con('target_db');
+
+#$self->hrdb_get_dba($self->TARGETDB_REF);
+#  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+#  if($dna_dba) {
+#    $target_dba->dnadb($dna_dba);
+#  }
+
 
   my $g_adap = $target_dba->get_GeneAdaptor;
 
