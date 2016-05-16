@@ -39,7 +39,7 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Slice_to_Gene);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -58,7 +58,6 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
-  $self->dbc->disconnect_if_idle(1);
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) {
@@ -82,8 +81,6 @@ sub fetch_input {
   }
 
   my $genome_file = $self->analysis->db_file;
-  my $genome_slices = $self->get_genome_slices;
-  $self->genome_slices($genome_slices);
 
   my $query_file;
 
@@ -115,16 +112,43 @@ sub fetch_input {
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
      -database => $self->analysis->db_file,
-     -refslices => $genome_slices,
      -genblast_program => $genblast_program,
      -max_rank => $max_rank,
      -genblast_pid => $genblast_pid,
      -work_dir => $self->param('query_seq_dir'),
+     -database_adaptor => $dba,
      %parameters,
     );
   $self->runnable($runnable);
 
   return 1;
+}
+
+
+sub run {
+  my ($self) = @_;
+
+  eval {
+    $runnable->run;
+  };
+
+  if($@) {
+    my $except = $@;
+
+    if($except =~ /Error closing exonerate command/) {
+      warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
+    } else {
+      $self->throw($except);
+    }
+  } else {
+    $self->output($runnable->output);
+  }
+
+}
+
+
+  return 1;
+
 }
 
 
@@ -145,6 +169,8 @@ sub write_output{
   my ($self) = @_;
 
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
+  my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
+
   my @output = @{$self->output};
   my $ff = $self->feature_factory;
 
@@ -166,12 +192,12 @@ sub write_output{
 
     $gene->biotype($gene->analysis->logic_name);
 
-#    $transcript->slice($self->query) if(!$transcript->slice);
 #    if ($self->test_translates()) {
 #      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
 #      next;
 #    } # test to see if this transcript translates OK
     $gene->add_Transcript($transcript);
+    $gene->slice($transcript->slice);
     empty_Gene($gene);
     $adaptor->store($gene);
   }
@@ -276,42 +302,6 @@ sub get_biotype {
   return($self->param('_biotype_hash'));
 }
 
-sub genome_slices {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_genome_slices',$val);
-  }
-  return($self->param('_genome_slices'));
-}
-
-sub get_genome_slices {
-  my ($self) = @_;
-  my @slice_array;
-  my $genomic_slices;
-  my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
-  # This was taken from exonerate module as it is much faster for loading the slices
-  # when there are large numbers of slices involved
-
-#
-# NOTE: should re-implement the code I commented out below
-#
-
-  #also fetching non-reference regions like DR52 for human by default.
-  #specify in Exonerate2Genes config-file.
-#  if(defined($self->NONREF_REGIONS)){
-    @slice_array = @{$slice_adaptor->fetch_all('toplevel', undef, 1)};
-#  }
-#  else{
-# Note I had made below the default behaviour
-#  @slice_array = @{$slice_adaptor->fetch_all('toplevel')};
-#  }
-
-  foreach my $slice (@slice_array) {
-    $genomic_slices->{$slice->name} = $slice;
-  }
-
-  return $genomic_slices;
-}
 
 
 sub output_query_file {
