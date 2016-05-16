@@ -1239,7 +1239,8 @@ sub replace_stops_with_introns{
 
   # If max_stops is defined and there are more stops than the value then throw
   if(defined($max_stops) && ($num_stops > $max_stops)) {
-    throw("You have set max_stops to ".$max_stops." however the number of stops in the translation is ".$num_stops);
+    warning("You have set max_stops to ".$max_stops." however the number of stops in the translation is ".$num_stops);
+    return(0);
   }
 
   # Warn that there are internal stops
