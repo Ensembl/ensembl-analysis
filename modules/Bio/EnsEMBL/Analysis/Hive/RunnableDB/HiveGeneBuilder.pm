@@ -91,6 +91,8 @@ sub fetch_input{
   my $output_dba = $self->hrdb_get_dba($self->param('genebuilder_output_db'));
 
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+
+
   if($dna_dba) {
     $input_dba->dnadb($dna_dba);
     $output_dba->dnadb($dna_dba);
@@ -104,7 +106,7 @@ sub fetch_input{
   #fetch sequence
   my $slice = $input_dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
   $self->query($slice);
-#  $self->query($self->fetch_sequence);
+
 
   #fetch genes
   $self->get_Genes;
@@ -194,21 +196,26 @@ sub write_output{
 #  return $self->param('_output_db');
 #}
 
-sub get_Genes{
+sub get_Genes {
   my ($self) = @_;
   my @genes;
-  foreach my $db_name(keys(%{$self->INPUT_GENES})){
-    my $gene_db = $self->hrdb_get_con($db_name);
-    my $slice = $self->fetch_sequence($self->param('iid'), $gene_db);
-    my $biotypes = $self->INPUT_GENES->{$db_name};
-    foreach my $biotype(@$biotypes){
-      my $genes = $slice->get_all_Genes_by_type($biotype);
-      print "Retrieved ".@$genes." of type ".$biotype."\n";
-      push(@genes, @$genes);
-    }
-  }
-  $self->input_genes(\@genes);
+
+  my $slice = $self->query();
+  my $genes = $slice->get_all_Genes();
+
+  #foreach my $db_name(keys(%{$self->INPUT_GENES})){
+  #  my $biotypes = $self->INPUT_GENES->{$db_name};
+  #  foreach my $biotype(@$biotypes){
+  #    my $genes = $slice->get_all_Genes_by_type($biotype);
+  #    print "Retrieved ".@$genes." of type ".$biotype."\n";
+  #    push(@genes, @$genes);
+  #  }
+  #}
+  #$self->input_genes(\@genes);
+
+  $self->input_genes($genes);
 }
+
 
 sub input_genes {
   my ($self, $arg) = @_;
@@ -235,7 +242,8 @@ sub filter_genes{
     #throw("Genebuilder only works with one gene one transcript structures")
     #  if(@{$gene->get_all_Transcripts} >= 2);
     foreach my $transcript(@{$gene->get_all_Transcripts}) {
-      if($self->validate_Transcript($transcript)) {
+      my $exons = $transcript->get_all_Exons();
+      if($self->validate_Transcript($transcript,$exons)) {
         push(@filtered, $gene);
         next GENE;
       } else {
@@ -248,9 +256,8 @@ sub filter_genes{
 }
 
 sub validate_Transcript{
-  my ($self, $transcript) = @_;
-  my $slice = $self->query;
-  $slice = $transcript->slice if(!$slice);
+  my ($self, $transcript, $exons) = @_;
+
   my $is_valid = 0;
   #basic transcript validation
   unless(are_strands_consistent($transcript)) {
@@ -265,7 +272,7 @@ sub validate_Transcript{
     print "Transcript seems to be folded (with secondary structure). ";
     $is_valid++;
   }
- EXON:foreach my $exon(@{$transcript->get_all_Exons}){
+ EXON:foreach my $exon (@{$exons}){
     if(exon_length_less_than_maximum($exon, $self->MAX_EXON_LENGTH)) {
       next EXON;
     } else {
