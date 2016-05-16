@@ -60,7 +60,9 @@ sub create_db {
     $self->copy_db();
   } elsif($create_type eq 'core_only') {
     $self->core_only_db();
-  }else {
+  } elsif($create_type eq 'backup') {
+    $self->make_backup();
+  } else {
     $self->throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
   }
 
@@ -227,6 +229,62 @@ sub core_only_db {
 
 }
 
+sub make_backup {
+  my $self = shift;
+
+  unless ($self->param('source_db')) {
+    $self->throw("You have specified a create type of backup but you don't have a source_db specified in your config.");
+  }
+
+  unless ($self->param('user_w') && $self->param('pass_w')) {
+    $self->throw("You have specified a create type of backup but you haven't specified the user_w and pass_w, these are".
+                 " sometimes needed for dumping dbs with views");
+  }
+
+  unless ($self->param('output_path')) {
+    $self->throw("You have specified a create type of backup but you don't have an output_path param set");
+  }
+
+  unless ($self->param('backup_name')) {
+    $self->throw("You have specified a create type of backup but haven't specified a file name with the backup_name param");
+  }
+
+  unless (-e $self->param('output_path')) {
+    my $cmd = "mkdir -p ".$self->param('output_path');
+    my $return = system($cmd);
+    if($return) {
+      $self->throw("The output path specified did not exist and mkdir -p failed to create it. Commandline used:\n".$cmd);
+    }
+  }
+
+  my $source_db = $self->param('source_db');
+  my $user_w = $self->param('user_w');
+  my $pass_w = $self->param('pass_w');
+  my $ignore_dna = 0;
+  if($self->param('ignore_dna')) {
+     $ignore_dna = 1;
+   }
+
+  my $dump_file = $self->param('output_path')."/".$self->param('backup_name');
+  my $source_host = $source_db->{'-host'};
+  my $source_port = $source_db->{'-port'};
+  my $source_dbname = $source_db->{'-dbname'};
+
+  $self->dump_database($source_host,
+                       $source_port,
+                       $user_w,
+                       $pass_w,
+                       $source_dbname,
+                       $dump_file,
+                       $ignore_dna);
+
+  my $cmd = "gzip ".$dump_file;
+  my $return = system($cmd);
+  if($return) {
+      $self->warning("Failed to compress the backup file. The file itself should be okay. Commandline used:\n".$cmd);
+  }
+}
+
 sub convert_hash_to_db_string {
   my ($self,$connection_info) = @_;
 
@@ -261,7 +319,7 @@ sub dump_database {
   my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna) = @_;
 
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
-  
+
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
   	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
