@@ -540,39 +540,6 @@ sub feature_restriction {
 
 }
 
-sub rechunk_uniprot_accession {
-  my ($self) = @_;
-
-  my $output_id_array = [];
-
-  unless($self->param('uniprot_batch_size')) {
-    $self->throw("You've select to batch uniprot ids but haven't passed in a batch size using 'uniprot_batch_size'");
-  }
-
-  unless($self->param('iid')) {
-    $self->throw("You've select to rechunk uniprot ids but haven't passed in an input_id using 'iid'");
-  }
-
-  my $batch_size = $self->param('uniprot_batch_size');
-
-  my $input_accession_array = $self->param('iid');
-  my $output_accession_array = [];
-  foreach my $accession (@{$input_accession_array}) {
-    my $size = scalar(@{$output_accession_array});
-    if($size == $batch_size) {
-      push(@{$output_id_array},$output_accession_array);
-      $output_accession_array = [];
-    }
-    push(@{$output_accession_array},$accession);
-  }
-
-  if(scalar(@{$output_accession_array})) {
-    push(@{$output_id_array},$output_accession_array);
-  }
-
-  $self->param('inputlist',$output_id_array);
-}
-
 
 sub filter_slice_on_features {
   my ($self,$slice_names) = @_;
