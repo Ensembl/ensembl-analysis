@@ -128,27 +128,24 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-  eval {
-    $runnable->run;
-  };
+  foreach my $runnable (@{$self->runnable}) {
+    eval {
+      $runnable->run;
+    };
 
-  if($@) {
-    my $except = $@;
-
-    if($except =~ /Error closing exonerate command/) {
-      warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
+    if($@) {
+      my $except = $@;
+      if($except =~ /Error closing exonerate command/) {
+        warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
+      } else {
+        $self->throw($except);
+      }
     } else {
-      $self->throw($except);
+      $self->output($runnable->output);
     }
-  } else {
-    $self->output($runnable->output);
   }
 
-}
-
-
   return 1;
-
 }
 
 
