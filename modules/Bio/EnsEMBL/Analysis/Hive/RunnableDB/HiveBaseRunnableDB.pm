@@ -97,6 +97,11 @@ sub write_output {
     }
   }
 
+  my $output_hash = {};
+  $output_hash->{'iid'} = $self->param('iid');
+  $self->dataflow_output_id($output_hash,4);
+  $self->dataflow_output_id($output_hash,1);
+
   return 1;
 } ## end sub write_output
 
@@ -354,6 +359,8 @@ sub  hrdb_get_dba {
 
     return Bio::EnsEMBL::Analysis::Tools::Utilities::hrdb_get_dba($connection_info, $dna_db);
 }
+
+
 =head2 get_database_by_name
 
  Arg [1]    : String $name, name of a database as it stored in parameters
