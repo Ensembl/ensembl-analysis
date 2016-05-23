@@ -177,7 +177,6 @@ sub write_output {
   my $fails = 0;
   my $out = $self->output;
   while (my $g = shift @$out) {
-    say "FM2 GENE START: ".$g->start;
     fully_load_Gene($g);
 
     # Putting this in to stop the wrong dbIDs being assigned
@@ -185,15 +184,15 @@ sub write_output {
     eval {
       $g_adap->store($g);
     };
-    
+
     if ($@) {
       $self->warning("Unable to store gene".$g->dbID()." ".$g->stable_id()."\n");
       print STDERR "$@\n";
-      $fails++;  
+      $fails++;
     }
     $total++;
   }
-  
+
   if ($fails > 0) {
     throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
