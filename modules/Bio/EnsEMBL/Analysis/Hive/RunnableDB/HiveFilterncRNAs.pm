@@ -152,22 +152,19 @@ sub write_output{
   my $mirna_db_ids = $self->final_mirna_db_ids();
   my $rfam_db_ids = $self->final_rfam_db_ids();
 
-#  my $output_hash = {};
-#  $output_hash->{'iid'} = $mirna_db_ids;
-#  $self->dataflow_output_id($output_hash,3);
-
-#  $output_hash->{'iid'} = $rfam_db_ids;
-#  $self->dataflow_output_id($output_hash,4);
-
   my $mirna_batch = [];
   my $mirna_batch_size = 1000;
   my $batch_count = 0;
   my $output_hash = {};
+  my $mirna_branch_code = 2;
+  my $rfam_branch_code = 3;
+
+  # Should put these into a single sub that takes in the ids, the branch code and the batch size at some point
   foreach my $output_id (@{$mirna_db_ids}) {
     if($batch_count == $mirna_batch_size) {
       $output_hash = {};
       $output_hash->{'iid'} = $mirna_batch;
-      $self->dataflow_output_id($output_hash,3);
+      $self->dataflow_output_id($output_hash,$mirna_branch_code);
       $mirna_batch = [];
       push(@{$mirna_batch},$output_id);
       $batch_count = 1;
@@ -181,7 +178,7 @@ sub write_output{
   if(scalar(@{$mirna_batch})) {
     $output_hash = {};
     $output_hash->{'iid'} = $mirna_batch;
-    $self->dataflow_output_id($output_hash,3);
+    $self->dataflow_output_id($output_hash,$mirna_branch_code);
   }
 
   my $rfam_batch = [];
@@ -192,7 +189,7 @@ sub write_output{
     if($batch_count == $rfam_batch_size) {
       $output_hash = {};
       $output_hash->{'iid'} = $rfam_batch;
-      $self->dataflow_output_id($output_hash,4);
+      $self->dataflow_output_id($output_hash,$rfam_branch_code);
       $rfam_batch = [];
       push(@{$rfam_batch},$output_id);
       $batch_count = 1;
@@ -206,14 +203,8 @@ sub write_output{
   if(scalar(@{$rfam_batch})) {
     $output_hash = {};
     $output_hash->{'iid'} = $rfam_batch;
-    $self->dataflow_output_id($output_hash,4);
+    $self->dataflow_output_id($output_hash,$rfam_branch_code);
   }
-
-#  foreach my $output_id (@{$rfam_db_ids}) {
-#    my $output_hash = {};
-#    $output_hash->{'iid'} = [$output_id];
-#    $self->dataflow_output_id($output_hash,4);
-#  }
 
   return 1;
 }
