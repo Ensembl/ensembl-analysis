@@ -101,10 +101,10 @@ sub download_files {
   # create Rfam.seed file
   my $exit;
   say "Updating RFAM descriptions file ... using Sanger FTP site (consider using EBI mirror)";
-  system ("mkdir ".$output_path) unless -e $output_path;
+  system ("mkdir -p ".$output_path) unless -e $output_path;
   $exit =  system ("wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.cm.gz  -O ".$output_path."/Rfam.cm.gz");
   $self->throw("Error with obtaining Rfam covariance model file from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.cm.gz\n") if $exit > 0;
-  $exit =   system ("gzip -d  ".$output_path."/Rfam.cm.gz");
+  $exit =   system ("gunzip -f ".$output_path."/Rfam.cm.gz");
   $self->throw("Error decompressing Rfam.tar.gz\n") if $exit > 0;
   $exit =  system ("wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.seed.gz  -O ".$output_path."/Rfam.seed.gz");
   $self->throw("Error with obtaining Rfam.seed file from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.seed.gz\n") if $exit > 0;
@@ -113,17 +113,17 @@ sub download_files {
 #  $self->throw("Error with obtaining Rfam fasta files from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/fasta_files/RF*.fa.gz\n") if $exit > 0;
   $exit =   system ("wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0/Rfam.fasta.gz -O ".$output_path."/Rfam.fasta.gz");
   die ("Error with obtaining Rfam.fasta file from ftp://ftp.ebi.ac.uk/pub/databases/Rfam/11.0//Rfam.fasta.gz\n") if $exit > 0;
-  $exit =   system ("gzip -d ".$output_path."/Rfam.seed.gz");
+  $exit =   system ("gunzip -f ".$output_path."/Rfam.seed.gz");
   $self->throw("Error decompressing Rfam.seed.gz\n") if $exit > 0;
-  $exit =   system ("gzip -d ".$output_path."/Rfam.fasta.gz");
+  $exit =   system ("gunzip -f ".$output_path."/Rfam.fasta.gz");
   $self->throw("Error decompressing Rfam.fasta.gz\n") if $exit > 0;
-  $exit =   system ("gzip -d ".$output_path."/Rfam.thr.gz");
+  $exit =   system ("gunzip -f ".$output_path."/Rfam.thr.gz");
   say "done\nUpdating miRNA file...";
   $exit =   system ("wget ftp://mirbase.org/pub/mirbase/CURRENT/miRNA.dat.gz -O ".$output_path."/all_mirnas.embl.gz");
-  $exit =   system ("gzip -d ".$output_path."/all_mirnas.embl.gz");
+  $exit =   system ("gunzip -f ".$output_path."/all_mirnas.embl.gz");
   $self->throw("Error with obtaining miRNA.dat  file from ftp://mirbase.org/pub/mirbase/CURRENT/miRNA.dat\n") if $exit > 0;
   $exit =   system ("wget ftp://mirbase.org/pub/mirbase/CURRENT/hairpin.fa.gz  -O ".$output_path."/all_mirnas.fa.gz");
-  $exit =   system ("gzip -d  ".$output_path."/all_mirnas.fa.gz");
+  $exit =   system ("gunzip -f  ".$output_path."/all_mirnas.fa.gz");
   $self->throw("Error with obtaining hairpin.fa  file from ftp://mirbase.org/pub/mirbase/CURRENT/hairpin.fa\n") if $exit > 0;
   say "done";
 
