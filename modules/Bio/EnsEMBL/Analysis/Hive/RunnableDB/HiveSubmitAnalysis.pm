@@ -214,6 +214,7 @@ sub make_chunk_files {
 
 }
 
+
 sub convert_slice_to_feature_ids {
   my ($self, $dba) = @_;
 
