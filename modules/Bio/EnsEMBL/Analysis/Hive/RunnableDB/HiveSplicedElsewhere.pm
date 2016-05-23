@@ -106,24 +106,15 @@ sub fetch_input{
                                            );
   $self->analysis($analysis);
 
-  say "FM2 SE 0";
+
   my ($start, $end);
   my @genes;
-  my $count=0;
-#  my %parameters;
-#  if ($self->parameters_hash) {
-#    %parameters = %{$self->parameters_hash};
-#  }
 
-say "FM2 SE 1";
-
-say "FM2 SE 2";
   my $input_dba = $self->hrdb_get_dba($self->param('input_gene_db'));
   my $repeat_dba = $self->hrdb_get_dba($self->param('repeat_db'));
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
 
-say "FM2 SE 3";
   if($dna_dba) {
     $input_dba->dnadb($dna_dba);
     $repeat_dba->dnadb($dna_dba);
@@ -134,18 +125,12 @@ say "FM2 SE 3";
   $self->hrdb_set_con($repeat_dba,'repeat_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
-say "FM2 SE 4";
-
-#  #genes come from final genebuild database
-#  my $genes_db = $self->get_dbadaptor($self->PS_INPUT_DATABASE);
-#  $self->gene_db($genes_db); 
 
   my $ga = $input_dba->get_GeneAdaptor;
   my $gene_id = $self->param('iid');
   my $gene = $ga->fetch_by_dbID($gene_id);
   push @genes, $self->lazy_load($gene);
 
-  print "$count genes retrieved\n";
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere->new
     (
      '-genes'             => \@genes,
@@ -154,7 +139,7 @@ say "FM2 SE 4";
     );
 
   $self->runnable($runnable);
-say "FM2 SE 5";
+
   return 1;
 }
 
@@ -325,15 +310,16 @@ sub parse_results{
 	next DAF unless ($aligned_genomic > $self->param('config_settings')->{PS_ALIGNED_GENOMIC});
 
 	my $real_trans;
-	# Throw if transcript cannot be found
+	# Warn if transcript cannot be found, seems to happen is a very small number of cases so need
+        # to debug at some point. To be honest it's a little odd how this code works to begin with
 	eval{
 	  $real_trans =   $ta->fetch_by_stable_id($daf->hseqname);
-	  unless ( $real_trans ) { 
+	  unless ( $real_trans ) {
              $real_trans =   $ta->fetch_by_dbID($daf->hseqname);
-          } 
+          }
         };
-	if ($@) {
-	  $self->throw("Unable to find transcript $daf->hseqname \n$@\n");
+	unless($real_trans) {
+	  $self->warning("Unable to find transcript $daf->hseqname");
 	  next;
 	}
 
@@ -343,7 +329,6 @@ sub parse_results{
 	# 3 residues, this is so that if 1 residue is sitting on a new exon
 	# it wont include that in the span, needs to overlap by 3 residues 
 	# before it gets included
-	
 	my $real_span;
 	my @genomic_coords = $real_trans->cdna2genomic($daf->hstart+9,$daf->hend-9);
 	@genomic_coords = sort {$a->start <=> $b->start} @genomic_coords;
