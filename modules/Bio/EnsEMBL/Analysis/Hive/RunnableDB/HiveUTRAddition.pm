@@ -47,6 +47,8 @@ sub fetch_input {
   my $input_id = $self->param('iid');
   my $input_id_type = $self->param('iid_type');
 
+  my $utr_biotype_priorities = $self->param('utr_biotype_priorities');
+  $self->biotype_priorities($utr_biotype_priorities);
 
   if($test_case) {
     $self->donor_transcripts($self->donor_test_cases());
@@ -204,6 +206,13 @@ sub add_utr {
 
     foreach my $donor_transcript (@{$donor_transcripts}) {
 
+     my $priority = $self->biotype_priorities($donor_transcript->biotype);
+     unless($priority) {
+       $self->warning("Transcript biotype was not found in the biotype priorities hash or biotype was set to 0 priority. Skipping.".
+                      "Biotype: ".$donor_transcript->biotype);
+       next;
+     }
+
      ########################
      # Add in some code for checking if the donor transcript has a CDS or not
      # If it does the behaviour should be changed from get_all_Introns to get_all_CDS_Introns
@@ -247,24 +256,42 @@ sub add_utr {
 
      if($acceptor_transcript->{'5_prime_utr'}) {
        say "5' UTR has been attached to the acceptor transcript already";
+       # First check if the donor priority is worse (1=best), if it's worse then just skip
+       if($priority > $modified_acceptor_transcript_5prime->{'priority'}) {
+         say "No adding UTR as there is already 5' donor UTR from a biotype with a better priority";
+         next;
+       }
        my $new_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
        if($new_transcript_5prime && ($new_transcript_5prime->length() > $modified_acceptor_transcript_5prime->length())) {
-         say "A longer UTR donor has been found, selecting as current 5' UTR";
+         say "A longer or higher UTR donor has been found, selecting as current 5' UTR";
          $modified_acceptor_transcript_5prime = $new_transcript_5prime;
+         $modified_acceptor_transcript_5prime->{'priority'} = $priority;
        }
      } else {
        $modified_acceptor_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
+       if($modified_acceptor_transcript_5prime) {
+         $modified_acceptor_transcript_5prime->{'priority'} = $priority;
+       }
      }
 
      if($acceptor_transcript->{'3_prime_utr'}) {
        say "3' UTR has been attached to the acceptor transcript already";
+       # First check if the donor priority is worse (1=best), if it's worse then just skip
+       if($priority > $modified_acceptor_transcript_3prime->{'priority'}) {
+         say "No adding UTR as there is already 3' donor UTR from a biotype with a better priority";
+         next;
+       }
        my $new_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
        if($new_transcript_3prime && ($new_transcript_3prime->length > $modified_acceptor_transcript_3prime->length())) {
          say "A longer UTR donor has been found, selecting as current 3' UTR";
          $modified_acceptor_transcript_3prime = $new_transcript_3prime;
-       }
+         $modified_acceptor_transcript_3prime->{'priority'} = $priority;
+      }
      } else {
        $modified_acceptor_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
+       if($modified_acceptor_transcript_3prime) {
+         $modified_acceptor_transcript_3prime->{'priority'} = $priority;
+       }
      }
 
     } # End foreach my $donor_transcript
@@ -274,26 +301,24 @@ sub add_utr {
     if($modified_acceptor_transcript_5prime && $modified_acceptor_transcript_3prime) {
       say "Added both 5' and 3' UTR. Creating final joined transcript: ";
       my $joined_transcript = $self->join_transcripts($modified_acceptor_transcript_5prime,$modified_acceptor_transcript_3prime);
-      $joined_transcript->biotype($joined_transcript->biotype);
+      $joined_transcript->biotype($acceptor_transcript->biotype);
+      $self->add_transcript_supporting_features($joined_transcript,$acceptor_transcript);
       push(@{$final_transcripts},$joined_transcript);
     } elsif($modified_acceptor_transcript_5prime) {
       say "Added 5' UTR only";
-      $modified_acceptor_transcript_5prime->biotype($modified_acceptor_transcript_5prime->biotype);
+      $modified_acceptor_transcript_5prime->biotype($acceptor_transcript->biotype);
+      $self->add_transcript_supporting_features($modified_acceptor_transcript_5prime,$acceptor_transcript);
       push(@{$final_transcripts},$modified_acceptor_transcript_5prime);
     } elsif($modified_acceptor_transcript_3prime) {
       say "Added 3' UTR only";
-      $modified_acceptor_transcript_3prime->biotype($modified_acceptor_transcript_3prime->biotype);
+      $modified_acceptor_transcript_3prime->biotype($acceptor_transcript->biotype);
+      $self->add_transcript_supporting_features($modified_acceptor_transcript_3prime,$acceptor_transcript);
       push(@{$final_transcripts},$modified_acceptor_transcript_3prime);
     } else {
       say "No UTR added to transcript";
-      $acceptor_transcript->biotype($acceptor_transcript->biotype);
       push(@{$final_transcripts},$acceptor_transcript);
     }
   }
-
-#  foreach my $final_transcript (@{$final_transcripts}) {
-#    $output_gene->add_Transcript($final_transcript);
-#  }
 
   return($final_transcripts);
 }
@@ -374,8 +399,6 @@ sub add_five_prime_utr {
                                            -ANALYSIS  => $self->analysis,
                                            -PHASE     => -1,
                                            -END_PHASE => -1);
-#    my $supporting_features_b = $merge_exon_candidate_b->get_all_supporting_features();
-#    $out_exon->add_supporting_features(@{$supporting_features_b});
     push(@{$final_exons},$out_exon);
   }
 
@@ -438,8 +461,6 @@ sub add_five_prime_utr {
 
 
     my $new_translation_start;
-#    my $old_translation = $transcript_a->translation();
-
     if($strand == 1) {
       $new_translation_start = $transcript_a->translation->start + ($merge_exon_candidate_a->start - $merge_exon_candidate_b->start);
     } else {
@@ -460,12 +481,12 @@ sub add_five_prime_utr {
       push(@{$final_exons},$out_exon);
     }
 
-    # Add all the supporting features from the donor transcript
-    for(my $i=0; $i<scalar(@{$exons_a}); $i++) {
-      my $exon_b = ${$exons_b}[$i];
-      my $supporting_features_b = $merge_exon_candidate_b->get_all_supporting_features();
-      $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
-    }
+ #   # Add all the supporting features from the donor transcript
+ #   for(my $i=0; $i<scalar(@{$exons_a}); $i++) {
+ #     my $exon_b = ${$exons_b}[$i];
+ #     my $supporting_features_b = $merge_exon_candidate_b->get_all_supporting_features();
+ #     $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
+ #   }
 
     my $translation = Bio::EnsEMBL::Translation->new();
     $translation->start_Exon($merge_exon);
@@ -497,7 +518,7 @@ sub add_five_prime_utr {
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
 
   # This is a basic sanity check on the UTR itself. First we want to check if the transcript is now abnormally longer (> 100KB longer)
-  # If it is then calculate the average 3' intron length of the UTR. If this average is 3' intron length is > 25K then throw it out
+  # If it is then calculate the average 5' intron length of the UTR. If this average is 5' intron length is > 35K then throw it out
   my $utr_intron_count = scalar(@{$final_exons}) - scalar(@{$exons_a});
   my $big_utr_length = 50000;
   my $max_no_intron_extension = 5000;
@@ -654,9 +675,7 @@ sub add_three_prime_utr {
                                              -END_PHASE => -1);
 
     my $supporting_features_a = $merge_exon_candidate_a->get_all_supporting_features();
-    my $supporting_features_b = $merge_exon_candidate_b->get_all_supporting_features();
     $merge_exon->add_supporting_features(@{$supporting_features_a});
-    $merge_exon->add_supporting_features(@{$supporting_features_b});
 
     my $translation = Bio::EnsEMBL::Translation->new();
     $translation->start_Exon($$final_exons[0]);
@@ -698,20 +717,20 @@ sub add_three_prime_utr {
   }
 
   # Add all the supporting features from the donor transcript
-  for(my $i=0; $i<scalar(@{$exons_a}); $i++) {
-    my $exon_b = ${$exons_b}[$i];
-    my $supporting_features_b = $merge_exon_candidate_b->get_all_supporting_features();
-    $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
-  }
+#  for(my $i=0; $i<scalar(@{$exons_a}); $i++) {
+#    my $exon_b = ${$exons_b}[$i];
+#    my $supporting_features_b = $merge_exon_candidate_b->get_all_supporting_features();
+#    $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
+#  }
 
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
 
   # This is a basic sanity check on the UTR itself. First we want to check if the transcript is now abnormally longer (> 100KB longer)
   # If it is then calculate the average 3' intron length of the UTR. If this average is 3' intron length is > 25K then throw it out
   my $utr_intron_count = scalar(@{$final_exons}) - scalar(@{$exons_a});
-  my $big_utr_length = 500;
-  my $max_no_intron_extension = 50;
-  my $max_average_3_prime_intron_length = 250;
+  my $big_utr_length = 50000;
+  my $max_no_intron_extension = 5000;
+  my $max_average_3_prime_intron_length = 35000;
   my $added_length = $modified_transcript->length - $transcript_a->length;
 
   if($utr_intron_count == 0 && $added_length > $max_no_intron_extension) {
@@ -900,6 +919,28 @@ sub check_cds_introns {
 
 }
 
+
+sub add_transcript_supporting_features {
+  my ($self,$transcript_a,$transcript_b) = @_;
+
+  my @supporting_features = ();
+  # transcript a is the transcript to add to, transcript b is the one with the sfs
+  foreach my $sf (@{$transcript_b->get_all_supporting_features()}) {
+    if(features_overlap($sf,$transcript_a)) {
+        push(@supporting_features,$sf);
+    }
+  }
+
+  $transcript_a->add_supporting_features(@supporting_features);
+
+  my @intron_support = @{$transcript_b->get_all_IntronSupportingEvidence()};
+
+  foreach my $intron_support (@intron_support) {
+    $transcript_a->add_IntronSupportingEvidence($intron_support);
+  }
+
+}
+
 sub features_overlap {
   my ( $featureA, $featureB ) = @_;
 
@@ -1033,6 +1074,14 @@ sub output_transcripts {
   return($self->param('_output_transcripts'));
 }
 
+
+sub biotype_priorities {
+  my ($self,$biotype_priorities_hash) = @_;
+  if($biotype_priorities_hash) {
+    $self->param('_biotype_priorities',$biotype_priorities_hash);
+  }
+  return($self->param('_biotype_priorities'));
+}
 
 sub get_all_biotypes {
   my ($self,$master_genes_array) = @_;
