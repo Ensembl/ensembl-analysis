@@ -354,7 +354,7 @@ GENE: foreach my $gene (@genes) {
 
     if ( $self->SINGLE_EXON ) {
       if ( $trans_type{'single_exon'} ) {
-        if ( $gene->biotype eq $self->PS_BIOTYPE ) {
+#        if ( $gene->biotype eq $self->PS_BIOTYPE ) {
           unless (    $trans_type{'pseudo'}
                    or $trans_type{'indeterminate'}
                    or $trans_type{'real'}
@@ -363,7 +363,7 @@ GENE: foreach my $gene (@genes) {
             $self->single_exon_genes( $gene->dbID );
             next GENE;
           }
-        }
+#        }
       }
     }
 
