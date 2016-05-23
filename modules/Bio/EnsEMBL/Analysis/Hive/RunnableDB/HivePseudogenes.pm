@@ -245,7 +245,6 @@ sub get_all_repeat_blocks {
   my $curblock = undef;
 
 REPLOOP: foreach my $repeat (@repeats) {
-    say "FM2 REPEAT!!!!!!!!!!!!!!: ".$repeat->start.":".$repeat->end;
     my $rc  = $repeat->repeat_consensus;
     my $use = 0;
     foreach my $type ( @{ $self->PS_REPEAT_TYPES } ) {
@@ -304,6 +303,7 @@ sub write_output {
     foreach my $id (@{$spliced_elsewhere_ids}) {
       my $output_hash = {};
       $output_hash->{'iid'} = $id;
+      $self->dataflow_output_id($output_hash,2);
       $self->dataflow_output_id($output_hash,3);
     }
   }
@@ -350,24 +350,24 @@ Arg [none] :
 
 =cut
 
-sub store_ids {
-  my ($self, $id_list,$analysis_name) = @_;
+#sub store_ids {
+#  my ($self, $id_list,$analysis_name) = @_;
 
-  my $flag_adaptor = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->hrdb_get_con('output_db'));
-  my $analysis = $self->analysis();
+#  my $flag_adaptor = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->hrdb_get_con('output_db'));
+#  my $analysis = $self->analysis();
 
   # What do you do if the analysis thing isnt found?
-  return 0 unless (scalar(@{$id_list} >0));
-  foreach my $id(@{$id_list}){
-    my $flag = Bio::EnsEMBL::Pipeline::Flag->new(
-						 '-type'         => 'gene',
-						 '-ensembl_id'   => $id,
-						 '-goalAnalysis' => $analysis,
-						);
-    $flag_adaptor->store($flag);
-  }
-  return;
-}
+#  return 0 unless (scalar(@{$id_list} >0));
+#  foreach my $id(@{$id_list}){
+#    my $flag = Bio::EnsEMBL::Pipeline::Flag->new(
+#						 '-type'         => 'gene',
+#						 '-ensembl_id'   => $id,
+#						 '-goalAnalysis' => $analysis,
+#						);
+#    $flag_adaptor->store($flag);
+#  }
+#  return;
+#}
 
 =head2 lazy_load
 
@@ -556,10 +556,7 @@ sub spliced_elsewhere_ids {
   }
 
   if($spliced_elsewhere_genes) {
-    say "FM2 IN SPLICED ELSE IDS!!!!!!!!!!!!! ".$spliced_elsewhere_genes;
-    say "FM2 DUMPER: ".Dumper($spliced_elsewhere_genes);
     foreach my $dbID (@{$spliced_elsewhere_genes}) {
-       say "FM@ IN SPLICED ID LOOP: ".$dbID;
       push @{$self->param('_spliced_elsewhere_ids')},$dbID;
     }
   }
