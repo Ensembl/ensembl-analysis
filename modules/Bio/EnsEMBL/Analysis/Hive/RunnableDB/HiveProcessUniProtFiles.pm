@@ -20,7 +20,7 @@ use strict;
 use warnings;
 use feature 'say';
 use Bio::EnsEMBL::IO::Parser::Fasta;
-use Bio::EnsEMBL::KillList::HiveKillList;
+use Bio::EnsEMBL::KillList::KillList;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -75,7 +75,7 @@ sub process_fasta_files {
   my $kill_list_object;
   my %kill_list;
 
-  $kill_list_object = Bio::EnsEMBL::KillList::HiveKillList->new(-TYPE => $self->param('killlist_type'),
+  $kill_list_object = Bio::EnsEMBL::KillList::KillList->new(-TYPE => $self->param('killlist_type'),
                                                                 -KILL_LIST_DB => $self->param('killlist_db'),
                                                                 -FILTER_PARAMS => $self->param('KILL_LIST_FILTER'));
   %kill_list = %{$kill_list_object->get_kill_list()};

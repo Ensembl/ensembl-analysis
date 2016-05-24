@@ -104,7 +104,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info print_Gene attach_Analysis_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-use Bio::EnsEMBL::KillList::HiveKillList;
+use Bio::EnsEMBL::KillList::KillList;
 use Bio::Seq;
 use feature 'say';
 
