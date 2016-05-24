@@ -949,6 +949,41 @@ sub read_and_check_config{
 }
 
 
+sub hive_set_config {
+  my $self = shift;
+
+  # Throw is these aren't present as they should both be defined
+  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
+          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
+          "write the genes to and this should also include the module name even if it isn't strictly necessary"
+         );
+  }
+
+  # Make an analysis object and set it, this will allow the module to write to the output db
+  my $analysis = new Bio::EnsEMBL::Analysis(
+                                             -logic_name => $self->param('logic_name'),
+                                             -module => $self->param('module'),
+                                           );
+  $self->analysis($analysis);
+
+  # Now loop through all the keys in the parameters hash and set anything that can be set
+  my $config_hash = $self->param('config_settings');
+  foreach my $config_key (keys(%{$config_hash})) {
+    if(defined &$config_key) {
+      $self->$config_key($config_hash->{$config_key});
+    } else {
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
+            "key:\n".$config_key
+           );
+    }
+  }
+
+}
+
+
 =head2 PAF_LOGICNAMES
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::BlastMiniGenewise

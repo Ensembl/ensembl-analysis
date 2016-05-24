@@ -83,13 +83,14 @@ sub fetch_input{
   my ($self) = @_;
 
   # Fetch sequence/slice 
-
   $self->query($self->fetch_sequence); 
 
   # Get lincRNA candidate genes and break each of them down into single-transcript genes:
-
   my $lincrna_genes = $self->get_genes_of_biotypes_by_db_hash_ref($self->LINCRNA_DB);
-  
+  # foreach my $gene (@{$lincrna_genes}) {
+  	# print $gene->display_id, "\t", $gene->adaptor->dbc->dbname, , "\t", $gene->adaptor->dbc->host, "\n";
+  # }
+
   my @single_transcript_lincrna_genes = @{$self->create_single_transcript_genes($lincrna_genes)}; 
   print "Made ". scalar(@single_transcript_lincrna_genes) . " single_transcript genes, broken down from " . scalar(@$lincrna_genes) .
         " multi_transcript lincRNA candidates from lincRNAFinder stage.\n" ;  
@@ -127,7 +128,7 @@ sub run {
   # First genebuilder run with unclustered lincRNAs
   #
 
-  print "\nRunning GeneBuilder for " . scalar(@{$self->single_runnable->unclustered_ncrnas}). " unclustered lincRNAs...\n" ;  
+  print "\nRunning GeneBuilder for " . scalar(@{$self->single_runnable->unclustered_ncrnas}). " unclustered lincRNAs...\n";  
 
   my $gb = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
           -query => $self->query,
@@ -152,8 +153,7 @@ sub run {
   # 
 
   if ( $self->WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS == 1 ) { 
-     print "\nRunning GeneBuilder for " . scalar(@{$self->single_runnable->ncrna_clusters_with_processed_transcript}). 
-      " lincRNAs which cluster with processed transcript...\n" ; 
+     print "\nRunning GeneBuilder for " . scalar(@{$self->single_runnable->ncrna_clusters_with_processed_transcript}) . " lincRNAs which cluster with processed transcript...\n" ; 
 
      $gb = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
             -query => $self->query,
@@ -295,8 +295,7 @@ sub write_output{
     }
   } 
 
-  print $sucessful_count ." genes written to " . $self->output_db->dbname . " @ ".
-  $self->output_db->host . "\n"  ;   
+  print $sucessful_count ." genes written to FINAL OUTPUT DB \n"; # . $self->output_db->dbname . " @ ". $self->output_db->host . "\n"  ;   
 
   if($sucessful_count != @genes_to_write ) { 
     throw("Failed to write some genes");
@@ -366,7 +365,9 @@ sub create_single_transcript_genes{
   my @single_transcript_genes; 
 
  GENE:foreach my $gene(@$genes){ 
-    my @tr = @{$gene->get_all_Transcripts}; 
+ 	
+ 	my @tr = @{$gene->get_all_Transcripts};
+
     if ( @tr == 1 ) {  
       push @single_transcript_genes, $gene ; 
     } else { 

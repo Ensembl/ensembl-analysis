@@ -46,6 +46,7 @@ sub get_chrlengths_v20 {
     my $query = "select seq_region.name, seq_region.length as mce from seq_region,coord_system where" .
                 " seq_region.coord_system_id=coord_system.coord_system_id and" .
                 " coord_system.version = '" . $type . "' and coord_system.name='$coordsystem'";
+    print "------->> $query \n";
     if ($ignore_haplotypes) {    
       $query .= " and seq_region.seq_region_id not in (select seq_region_id from assembly_exception where exc_type in ('HAP','PATCH_NOVEL','PATCH_FIX'))";
     }
@@ -67,7 +68,7 @@ sub get_chrlengths_v20 {
     my @slices = @{$sa->fetch_all('toplevel',undef,undef,1)};
 
     foreach my $slice (@slices) {
-      #print $slice->seq_region_name . " " . $slice->length . " " . $slice->coord_system->version . "\n";
+      print $slice->seq_region_name . " " . $slice->length . " " . $slice->coord_system->version . " " . $type .  "\n";
       if ($slice->coord_system->version eq $type) {
         $chrhash{$slice->seq_region_name} = $slice->length;
       } else {
@@ -159,7 +160,9 @@ sub filter_to_chr_list {
   if (scalar(@$chromosomes)) {
     foreach my $chr (@$chromosomes) {
       my $found = 0;
+      print "----> for each $chr \n";
       foreach my $chr_from_hash (keys %$chrhash) {
+        print "----> for each $chr_from_hash \n";
         if ($chr_from_hash =~ /^${chr}$/) {
           $found = 1;
           last;

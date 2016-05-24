@@ -147,7 +147,6 @@ sub make_types_hash {
     my ( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) = @_;
 
     my (%types_hash,%types_1, %types_2 ) ;
-
     unless ( $gene_set1_name ) { 
       $gene_set1_name = "gene_biotypes_set1" ;
     }
@@ -162,10 +161,12 @@ sub make_types_hash {
     @types_2{ map { $_->biotype } @{ $gene_set2 } } = 1 ;
     $types_hash{$gene_set2_name} = [ keys %types_2 ]  ; 
 
-    #my @tmp  = map { $_->biotype } @{ $gene_set2 };  
-    #for ( @tmp ) { 
-    #  print join("\n", $_ ) ; 
-    #}
+
+    # BK_DEBUG:: print statement
+    # my @tmp  = map { $_->biotype } @{ $gene_set2 };  
+    # for ( @tmp ) { 
+    #    print join("\n", $_ ) ; 
+    # }
 
     my @intersection ;
     for ( keys %types_1 ) {
@@ -199,8 +200,7 @@ sub make_types_hash {
 
 
 sub make_types_hash_with_genes { 
-    my ( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) = @_;
-  
+   my ( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) = @_;
    my $types_ref_hash = make_types_hash( $gene_set1,$gene_set2,$gene_set1_name, $gene_set2_name  ) ; 
    my @all_genes_combined = ( @$gene_set1, @$gene_set2);
    return [ $types_ref_hash, \@all_genes_combined ]; 
@@ -346,11 +346,17 @@ sub get_twoway_clustering_genes_of_set {
 sub get_oneway_clustering_genes_of_set {  
    my ($cluster_ref,$target_set_name ) = @_ ;    
 
+   # print "BK_DEBUG::ClusterUtils:: function get_oneway_clustering_genes_of_set01  " . scalar(@$cluster_ref) . " number of genes for $target_set_name \n";
+   
    check_cluster_ref($cluster_ref) ;  
    my @single_clustering_genes ; 
    my $cnt=0;
-   for my $single_type_cluster (@{ get_single_clusters($cluster_ref)} ) {   
-       push @single_clustering_genes, @{ $single_type_cluster->get_Genes_by_Set($target_set_name) }; 
+   for my $single_type_cluster (@{ get_single_clusters($cluster_ref)} ) { 
+   	   # print "BK_DEBUG::ClusterUtils:: function get_oneway_clustering_genes_of_set02  " . @{ $single_type_cluster->get_Genes_by_Set($target_set_name) } . "\n";
+   	   # foreach my $tmp (@{ $single_type_cluster->get_Genes_by_Set($target_set_name) }) {
+   	   #   print "BK_DEBUG::ClusterUtils:: function get_oneway_clustering_genes_of_set02  " . $tmp->id() . "\n";
+   	   # }  
+      push @single_clustering_genes, @{ $single_type_cluster->get_Genes_by_Set($target_set_name) }; 
       $cnt++; 
    }  
  
@@ -465,18 +471,19 @@ sub cluster_Genes_without_strand {
 sub cluster_Genes {
   my ($genes, $types_hash, $check_coding_overlap, $ignore_strand, $ignore_exon_overlap) = @_ ;
 
+  # my ($step1_clusters, $step1_unclustered) = cluster_Genes( [@{$multi_exon_cdna_genes}, @{$self->set_2_prot_genes}] , \%types_hash , 0 , $self->ignore_strand ) ;  
 
-  #print "GOT " . scalar(@$genes ) . " GENES tocluster \n" ; sleep(2) ; 
+  print "GOT " . scalar(@$genes ) . " GENES to cluster \n" ; sleep(2) ; 
 
   #
   # steves old cluster-routine clusters genes of two types : 'ncbi' and 'hinxton' 
   # ( see get_twoay_cluster.pl) 
-  # he uses  two gene-sets : genes and compare_genes (each set may contain differnt biotypes)
+  # he uses  two gene-sets : genes and compare_genes (each set may contain different biotypes)
   #   
   # he uses the sets to see if a cluster only consists of genes out of one set (ncbi) or hinxton 
   # and retrieves all sets of a cluster with "get_sets_included" 
   #
-  # we do something 'nearly similar : we are clustering genes of diffrent sets (simgw, est, abinitio) 
+  # we do something 'nearly similar : we are clustering genes of different sets (simgw, est, abinitio) 
   # and have methods to access these sets 
   # --> GeneCluster has methods get_Genes_of_Type / get_Genes_by_Type / get_Genes_by_Set
   # all genes on slice are handed over and a %types_hash which holds the setname and the  
@@ -486,8 +493,9 @@ sub cluster_Genes {
   # sorting of ALL genes
   my @sorted_genes = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end }  @$genes;
 
-  #print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;  
+  print STDERR "Clustering ".scalar( @sorted_genes )." genes on slice\n" ;  
   # select count(*) , g.biotype from gene g left join transcript t on g.gene_id = t.gene_id where isnull(t.gene_id ) group by g.biotype  ;
+  # check if all genes have a transcript 
   for ( @sorted_genes ) {  
      my $tr = scalar ( @{$_->get_all_Transcripts} ) ;   
     if ( $tr == 0 ) {
@@ -495,21 +503,22 @@ sub cluster_Genes {
     }
   } 
   my $count = 0;
-
   my @active_clusters;
   my @inactive_clusters;
   TRANSCRIPT: foreach my $gene (@sorted_genes) {
     $count++;
-
+    # if (defined($gene->id)) {
+    #   print $gene->id . " gene id \n";
+    # } 
     # Every 50 genes divide clusters into an active (ones which could be have this gene added to it) and inactive 
     # (ones which can not be altered by any of the genes to come)
     if (!($count%50)) { 
       my @still_active_clusters;
       my $gene_start = $gene->start;
-      foreach my $cluster (@active_clusters) {
+      foreach my $cluster (@active_clusters) { 
         if ($cluster->end < $gene_start) {
           push @inactive_clusters,$cluster;
-          #print "Cluster inactive\n";
+          # print "BK_DEBUG::ClusterUtils:: Cluster inactive:gene start: " . $gene_start . " cluster end:" . $cluster->end . " biotype: " . $gene->biotype . "\n" ;
         } else {
           push @still_active_clusters,$cluster;
         }
@@ -634,7 +643,7 @@ sub cluster_Genes {
   # Separate genes which are UNclustered (only one gene in cluster) and
   # from clusters which hold more than one gene 
 
-  # print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
+  print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
   my @clusters = (@active_clusters,@inactive_clusters);
 
   my (@new_clusters, @unclustered);
@@ -645,7 +654,7 @@ sub cluster_Genes {
       push( @new_clusters, $cl );
     }
   }
- # print STDERR "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
+  print STDERR "All Genes clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
   
   return (\@new_clusters, \@unclustered);
 }
@@ -687,7 +696,7 @@ sub _compare_Genes {
   # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
 
   if ($translate) {
-    #print "clustering by overlap of coding exons only\n"; 
+    print "clustering by overlap of coding exons only\n"; 
     # exon-overlap only on coding exons !
     my $exons1 = get_coding_exons_for_gene($gene1);
     my $exons2 = get_coding_exons_for_gene($gene2);
@@ -695,7 +704,7 @@ sub _compare_Genes {
       foreach my $exon2 (@$exons2) {
         if ($ignore_strand==0) {
           if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
-            #print "Passed CDS overlap check - returning 1\n";
+            # print "Passed CDS overlap check - returning 1\n";
             return 1;
           }
         } else {
@@ -714,20 +723,20 @@ sub _compare_Genes {
       foreach my $exon2 (@{$gene2->get_all_Exons}){
         if ($ignore_strand==0) {
           if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
-            #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
+            # print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
           }
         } else {
           # we ignore strand
           if ($exon1->overlaps($exon2)){
-            #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
+            # print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
           }
         }
       }
     }
   }
-   #print "Failed overlap check (translate = $translate) - returning 0\n";
+  # print "Failed overlap check (translate = $translate) - returning 0\n";
   return 0;
 }
 
@@ -889,7 +898,7 @@ sub cluster_AlignFeatures {
       push( @new_clusters, $cl );
     }
   }
- # print STDERR "All AlignFeatures clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
+  print STDERR "All AlignFeatures clustered\nGot " . scalar(@new_clusters) . " new Clusters\n"  ;
   
   return (\@new_clusters, \@unclustered);
 }

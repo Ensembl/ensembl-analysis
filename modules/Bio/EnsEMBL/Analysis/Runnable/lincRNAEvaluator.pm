@@ -53,9 +53,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(compute_6frame_t
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info get_multi_Exon_Genes get_single_Exon_Genes  ); 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
-use Bio::EnsEMBL::Analysis::Runnable::Blast; 
-# It seems that Pfam module has been delete and replaced by Pfam_wormbase
-use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam_wormbase; 
+# use Bio::EnsEMBL::Analysis::Runnable::Blast; 
+# use Bio::EnsEMBL::Analysis::Runnable::ProteinAnnotation::Pfam; 
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;   
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Registry; 
@@ -74,6 +73,10 @@ sub new{
 
   $self->linc_rna_genes($linc_rna_genes); 
   $self->ensembl_genes($ensembl_genes); 
+  
+  print "BKDEBUG:Analysis:runnable::lincRNAEvaluator  Found linc_rna: " . scalar(@$linc_rna_genes) . " \n"; 
+  print "BKDEBUG:Analysis:runnable::lincRNAEvaluator  Found ensembl : " . scalar(@$ensembl_genes) . " \n";
+  
   return $self;
 } 
 
@@ -163,6 +166,8 @@ sub run{
     if ($exon_cnt == 2) {
       my $intron = ${$transcript->get_all_Introns()}[0];
       if ($intron->length < ($self->max_frameshift_intron_len) ) {
+      	# print "DEBUG::lincRNA eval:: check length " . $self->max_frameshift_intron_len . "\n";
+      	
         $artefactual_2ex_gene_cnt ++;
         next MULTI_EX_GENE;
       } else {
@@ -288,18 +293,15 @@ sub run{
 
   foreach my $pt_gene(@proc_tran_genes_to_update) {
     print "    INFO : This processed_transcript gene clusters with lincRNA: ".  $pt_gene->dbID . "\t" . $pt_gene->analysis->logic_name . " " . 
-          $pt_gene->seq_region_start . "\t" . $pt_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
+           $pt_gene->seq_region_start . "\t" . $pt_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
   }
   
   foreach my $ol_gene(@old_lincRNA_genes_to_update) {
-   print "    INFO : This existing lincRNA gene clusters with newly-identified lincRNA: ".  $ol_gene->dbID . "\t" . $ol_gene->analysis->logic_name . " " .
-          $ol_gene->seq_region_start . "\t" . $ol_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
+    print "    INFO : This existing lincRNA gene clusters with newly-identified lincRNA: ".  $ol_gene->dbID . "\t" . $ol_gene->analysis->logic_name . " " .
+           $ol_gene->seq_region_start . "\t" . $ol_gene->seq_region_end . "\n" ;  #  This will be printed out regardless of the config value of "PERFORM_UPDATES_ON_SOURCE_PROTEIN_CODING_DB"
   }
 
-  print "\n";
-
   # Rejected data
-  
   $self->ncrna_clusters_with_protein_domain(\@genes_with_prot_domain);  # rejected at stage 1 
   $self->ncrna_clusters_with_single_ens_biotype(\@ncrna_clusters_with_single_biotype);  # rejected at stage 3
   $self->ncrna_clusters_with_multiple_ens_biotypes(\@ncrna_clusters_with_multiple_biotypes);  # rejected at stage 3
@@ -320,9 +322,9 @@ sub run{
 
 
   
-  # I know want to identify the ensembl gene which clusters with this gene.  
+  # I now want to identify the ensembl gene which clusters with this gene.  
   # genes which have the same exons as ensembl will get biotype 'same as ensembl' 
-  #@use= @{ compare_lincrna_vs_ensembl(\@ncrna_clusters_with_processed_transcript, \@ensembl) } ; 
+  # @use= @{ compare_lincrna_vs_ensembl(\@ncrna_clusters_with_processed_transcript, \@ensembl) } ; 
   #
 
   #for ( @lincrna_unclustered ) {  
@@ -349,18 +351,21 @@ sub sort_linc_rna_genes {
   my ($self) = @_;  
 
   my @genes_to_sort = @{$self->linc_rna_genes } ;  
-  print "  Sorting " . @genes_to_sort . " genes by protein domains\n";  
-   my ( @genes_w_pf, @no_pf ) ;  
+  ### print "DEBUG::lincRNAEval :: sort_linc_rna_genes:: Sorting " . @genes_to_sort . " genes by protein domains\n";  
+  my ( @genes_w_pf, @no_pf ) ;  
 
-   for my $g ( @genes_to_sort ) {   
-     my @tr = @{$g->get_all_Transcripts}; 
-     if ( @tr > 1 ) { 
-       throw("Can only work on single-transcript genes\n") ; 
-     } else { 
+  for my $g ( @genes_to_sort ) {   
+    my @tr = @{$g->get_all_Transcripts}; 
+    if ( @tr > 1 ) { 
+      throw("Can only work on single-transcript genes\n") ; 
+    } else { 
+      my $t = ${$g->get_all_Transcripts}[0];    
+      my $translation = $t->translation;
+      ### print "DEBUG::lincRNAEval :: sort_linc_rna_genes:: tranlation_id of: " . $translation->display_id() . "has " . scalar(@{ $t->translation->get_all_ProteinFeatures }) . " Protein Features \n";
 
-       my $t = ${$g->get_all_Transcripts}[0];    
-       my @pf ; 
-       if ( $t->translation &&  scalar(@{ $t->translation->get_all_ProteinFeatures }) > 0 ) {   
+      my @pf ; 
+      if ( $t->translation &&  scalar(@{ $t->translation->get_all_ProteinFeatures }) > 0 ) {  
+      	### print "DEBUG::lincRNAEval :: sort_linc_rna_genes:: Sorting get all protein domains of the transcript and translation. They are: " . scalar(@{ $t->translation->get_all_ProteinFeatures })  . "\n" ;    
            $g->biotype("has_pf");
            push @genes_w_pf, $g ; 
        } else { 
@@ -369,6 +374,7 @@ sub sort_linc_rna_genes {
        } 
      }  
   }
+  ### print "DEBUG::lincRNAEval finish the sorting... \n "; 
   return ( \@genes_w_pf, \@no_pf ) ; 
 } 
 
@@ -382,9 +388,6 @@ sub get_biotypes_of_ensembl_genes {
       $h{$g->biotype}++; 
     }
   }   
-  # for my $k ( keys %h ) {  
-  #  print "DEBUG: biotype of ensembl gene: $k, count = $h{$k}\n";
-  # } 
   return [keys %h];
 } 
 
@@ -405,7 +408,7 @@ sub get_tr_hashkeys {
       push @{$tr_hash_keys{$hk}{gene}},$g;
       push @{$tr_hash_keys{$hk}{trans}},$t;  
       #if ( $t->stable_id) {  
-      #  print $t->stable_id . "\t$hk\n" ;  
+      #  #### print $t->stable_id . "\t$hk\n" ;  
       #} 
     }    
   }  
@@ -464,7 +467,7 @@ sub compare_lincrna_vs_ensembl {
 # 
 #   my @genes = sort { $a->seq_region_start <=> $b->seq_region_start } @$genes ; 
 #
-#   print scalar(@genes) . " genes found \n" ;
+#   #### print scalar(@genes) . " genes found \n" ;
 #
 #   my $cmp_core = $self->cmp_core_dba(); 
 #   my $cmp_cdna = $self->cmp_cdna_dba();
@@ -939,8 +942,12 @@ sub set_2_prot_genes{
   return $self->{'set_2_genes'};
 }  
 
+ 
 sub efg_simple_feature_genes{
   my ($self, $arg) = @_;
+  # don't think we need this fun now
+  print "BK::lincRNAEvaluator::efg_simple_feature_genes:: with arg: $arg \n";
+
   if($arg){
     $self->{'efg_simple_feature_genes'} = $arg;
   }
@@ -958,6 +965,7 @@ sub extend_efg_features{
 
 
 sub filter_cdna_genes_by_exon_count {   
+  # don't understand why this is here, since it is used in finder
   my ( $self ) = @_ ; 
 
   my (@single_exon, @multi_exon )  ;  

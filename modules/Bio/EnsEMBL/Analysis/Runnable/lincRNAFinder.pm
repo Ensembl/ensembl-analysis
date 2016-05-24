@@ -55,7 +55,13 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info);
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
 use Bio::EnsEMBL::Registry; 
 
+
+use Data::Dumper; 
+
+
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+
+
 
 
 
@@ -75,70 +81,62 @@ sub run{
    
   my %types_hash = %{ make_types_hash(\@{$multi_exon_cdna_genes},\@{$self->set_2_prot_genes}, 'SET_1_CDNA','SET_2_PROT')} ; 
 
-  # cluster_Genes returns 2 types of clusters / 4 types of data :
-  # 
-  #  1) a genomic region with more than one gene [ a set ] which can contain : 
-  #  - both sets of genes [ set1 + set 2 ] , a 'twoway-cluster' 
-  #  - only one set of genes from [ set1 ] OR [ set2 ], a 'oneway-cluster'  
-  # 
-  #  2) unclustered genes : a cluster with only one gene, which does not cluster with anything 
-  #    - not even with other genes of its own type. 
-  #     unclustered 'clusters' only contain ONE gene.   
-  
-  ### NOTE ###
 
-  ### There are four major stages in lincRNAFinder, the first three are all clustering steps.
-
-  ### The models to be considered as lincRNAs usually are cDNAs.  They can also be models built from Illumina RNASeq data.
-  ### For simplicity, we refer to the source models as "cDNAs".
-
-  ### The first two stages aim at reducing the search space of both the cDNAs and the H3 features.
-  ### The actual clustering of cDNAs and H3 features occurs in stage three.
-
-  # Stage 1 --- separate cDNAs into those which overlap with protein_coding genes and those which don't
-  # -------
-  # Cluster cDNAs with protein_coding genes. For those cDNAs which overlap with protein_coding genes, 
-  # they will be used in stage 2 to filter H3 features which are not relevant to the search of lincRNAs.  
-  # For those which do not overlap with protein_coding genes (denoted "good" cDNAs), they will be taken 
-  # to stage 3 where they will be clustered against filtered H3 features from stage 2.
- 
-  print "Stage 1a) cluster MULTI-exon cDNAs vs protein_coding genes at all exons ";
+  ### Stage 1 --- separate cDNAs into those which overlap with protein_coding genes and those which don't -------
+  print "\nStage 1a) cluster MULTI-exon cDNAs vs protein_coding genes at all exons ";
   print "on the same strand...\n" if (!$self->ignore_strand);
   print "on either strand (i.e. strandedness ignored!)...\n" if ($self->ignore_strand);
 
+  print "GOING TO COMPARE:: " . scalar(@{$multi_exon_cdna_genes}) . " (number of multi_exon_cdna)  VS.  " . scalar(@{$self->set_2_prot_genes}) ."  (number of proteins) \n";
+memory_i_am_using();
+
   my ($step1_clusters, $step1_unclustered) = cluster_Genes( [@{$multi_exon_cdna_genes}, @{$self->set_2_prot_genes}] , \%types_hash , 0 , $self->ignore_strand ) ;  
+memory_i_am_using();
+
+  # $step1_clusters has the clustered, means no lincRNA candidates. 
+  # $step1_unclustered has the lincRNA candidates 
 
   # I select for cDNAs which cluster with protein_coding genes - not because they are lincRNA candidates, but because
-  # they are useful for filtering H3 features in stage 2:
-  my @cdna_gene_clusters_with_pc =  @{ get_twoway_clustering_genes_of_set($step1_clusters,"SET_1_CDNA") } ;
+  # they are useful for filtering H3 features in stage 2: 
+  # my @cdna_gene_clusters_with_pc =  @{ get_twoway_clustering_genes_of_set($step1_clusters,"SET_1_CDNA") } ;
  
   my ($single_exon_clustered, $single_exon_unclustered);
-  if ($self->find_single_exon_candidates) {
+  if ($self->find_single_exon_candidates == 1) {
     print "Stage 1b) cluster SINGLE-exon cDNAs vs protein_coding genes (strandedness of models always IGNORED) ...\n"; 
     ($single_exon_clustered, $single_exon_unclustered) = cluster_Genes([@$single_exon_cdna, @{$self->set_2_prot_genes}], \%types_hash , 0 , 1 ) ;   # 4th arg = ignore_strand
-    push @cdna_gene_clusters_with_pc ,@{ get_twoway_clustering_genes_of_set($single_exon_clustered,"SET_1_CDNA") } ;
-  }
+    # push @cdna_gene_clusters_with_pc ,@{ get_twoway_clustering_genes_of_set($single_exon_clustered,"SET_1_CDNA") } ;
+  } 
 
-  $self->update_and_copy_cdna(\@cdna_gene_clusters_with_pc,"cdna_update_protein_coding" );   # cDNAA DEBUG
+  # $self->update_and_copy_cdna(\@cdna_gene_clusters_with_pc,"cdna_update_protein_coding" );   # cDNAA DEBUG
+memory_i_am_using();
+print "before clustering died!\n"; 
+  my @unclustered_cdna_genes = ( 
+                                 @{get_oneway_clustering_genes_of_set($step1_clusters,"SET_1_CDNA")},  
+                                 @{get_oneway_clustering_genes_of_set($step1_unclustered,"SET_1_CDNA")},
+                               );
 
+memory_i_am_using();
 
-  # Stage 2
-  # -------
+  ### Stage 2 # I need to change this step. -------
   # Cluster all H3 features against cDNAs in cdna_update_protein_coding clusters (from stage 1). The aim is to
   # remove H3 features which overlap with cDNAs and/or protein_coding genes, i.e. remove features which are irrelevant
   # to our search of lincRNAs, reducing the search space for stage 3.
 
-  print "\nStage 2) cluster all H3 features vs genes in cdna_update_protein_coding clusters to get H3 features which do NOT overlap with the cDNAs...\n"; 
-  
-  my @efg_sfg = @{ $self->efg_simple_feature_genes};   
-  my ($typref,$genes ) = @{make_types_hash_with_genes(\@cdna_gene_clusters_with_pc,\@efg_sfg,'cdna_update_protein_coding','efg')} ;  
+  # print "\nStage 2) cluster all H3 features vs genes in cdna_update_protein_coding clusters to get H3 features which do NOT overlap with the cDNAs...\n"; 
 
-  my ($step2_clusters, $step2_unclustered) = cluster_Genes($genes, $typref) ; 
+  # my @efg_sfg = @{ $self->efg_simple_feature_genes};
+  # my @efg_sfg = "";   
 
-  my @unclustered_efg_genes  = ( 
-                                @{get_oneway_clustering_genes_of_set($step2_clusters,"efg")},    # "stacks" of H3 features in a region without cdna_update_protein_coding clusters
-                                @{get_oneway_clustering_genes_of_set($step2_unclustered,"efg")}  # "standalone" H3 features in a region without cdna_update_protein_coding clusters
-                               );  
+  # print scalar(@efg_sfg) . "\n"; 
+
+  # my ($typref,$genes ) = @{make_types_hash_with_genes(\@cdna_gene_clusters_with_pc,\@efg_sfg,'cdna_update_protein_coding','efg')} ;  
+
+  # my ($step2_clusters, $step2_unclustered) = cluster_Genes($genes, $typref) ; 
+
+  # my @unclustered_efg_genes  = ( 
+  #                              @{get_oneway_clustering_genes_of_set($step2_clusters,"efg")},    # "stacks" of H3 features in a region without cdna_update_protein_coding clusters
+  #                              @{get_oneway_clustering_genes_of_set($step2_unclustered,"efg")}  # "standalone" H3 features in a region without cdna_update_protein_coding clusters
+  #                             );  
   
 
   # Stage 3
@@ -148,183 +146,221 @@ sub run{
   #
   # b) After the clustering, check with the cDNA overlaps with both H3K4me3 and H3K36me3 features.
 
-  print "\nStage 3) cluster 'good' cDNAs from stage 1 (which did not overlap with protein_coding genes) vs filtered H3 features (from stage 2)...\n\n";     
+  # print "\nStage 3) cluster 'good' cDNAs from stage 1 (which did not overlap with protein_coding genes) vs filtered H3 features (from stage 2)...\n\n";     
 
   # We first separate the H3 feature "genes" into 2 sets, according to their logic name ( H3K4 and H3K36 ), so 
   # we can cluster them separately.
   
-  my %logicname_2_efgfeat = %{ separate_efg_features_by_logic_name ( \@unclustered_efg_genes ) } ; 
+  # my %logicname_2_efgfeat = %{ separate_efg_features_by_logic_name ( \@unclustered_efg_genes ) } ; 
 
   # get multi-and single exon "good" cDNAs ( which did not cluster with protein_coding genes in stage 1) 
 
-  my @unclustered_cdna_genes = ( 
-                                 @{get_oneway_clustering_genes_of_set($step1_clusters,"SET_1_CDNA")},  
-                                 @{get_oneway_clustering_genes_of_set($step1_unclustered,"SET_1_CDNA")},
-                               );
+  # my @unclustered_cdna_genes = ( 
+  #                               @{get_oneway_clustering_genes_of_set($step1_clusters,"SET_1_CDNA")},  
+  #                               @{get_oneway_clustering_genes_of_set($step1_unclustered,"SET_1_CDNA")},
+  #                             );
 
-  if ($self->find_single_exon_candidates) {   
+  if ($self->find_single_exon_candidates == 1) {   
     push(@unclustered_cdna_genes, @{get_oneway_clustering_genes_of_set($single_exon_clustered,"SET_1_CDNA")} );
     push(@unclustered_cdna_genes, @{get_oneway_clustering_genes_of_set($single_exon_unclustered,"SET_1_CDNA")} );
   }
 
+  # print scalar(@unclustered_cdna_genes) . " genes including single exons genes\n";
+
+
   my @redun_cdnas_cluster_with_K4_and_or_K36;
   my %check_which_feature_cdna_clusters_with;
 
-  foreach my $lg ( keys %logicname_2_efgfeat ) {
+  # foreach my $lg ( keys %logicname_2_efgfeat ) {
   
-    print "Stage 3a) cluster 'good' cDNAs from stage 1 vs filtered $lg features from stage 2...\n" ;   
+  #  print "Stage 3a) cluster 'good' cDNAs from stage 1 vs filtered $lg features from stage 2...\n" ;   
       
-    my @unclustered_efg = @{ $logicname_2_efgfeat{$lg} } ;   
+  my @unclustered_efg = @{ [] } ;   
 
-    print "  Have " . @unclustered_efg . " filtered $lg features which don't cluster with genes in cdna_update_protein_coding clusters\n" ; 
-    print "  Have " . @unclustered_cdna_genes. " 'good' cDNAs which don't cluster with protein_coding genes \n" ;  
+  #  print "  Have " . @unclustered_efg . " filtered $lg features which don't cluster with genes in cdna_update_protein_coding clusters\n" ; 
+  #  print "  Have " . @unclustered_cdna_genes. " 'good' cDNAs which don't cluster with protein_coding genes \n" ;  
  
-    # In the types_hash below:
-    # "unclust" cdna_update refers to cDNAs "not in twoway cluster" in stage 1;
-    # "unclust" efg refers to features "not in twoway cluster" in stage 2;
+  # In the types_hash below:
+  # "unclust" cdna_update refers to cDNAs "not in twoway cluster" in stage 1;
+  # "unclust" efg refers to features "not in twoway cluster" in stage 2;
 
-    my ($typref_step3,$genes_step3 ) = 
-      @{make_types_hash_with_genes(\@unclustered_cdna_genes,\@unclustered_efg,'unclust_cdna_update','unclust_efg')}; 
+  # my ($typref_step3,$genes_step3 ) = 
+  #    @{make_types_hash_with_genes(\@unclustered_cdna_genes,\@unclustered_efg,'unclust_cdna_update','unclust_efg')}; 
   
-    my ($step3_clusters, $step3_unclustered) = cluster_Genes($genes_step3, $typref_step3 ) ;   
+  #  my ($step3_clusters, $step3_unclustered) = cluster_Genes($genes_step3, $typref_step3 ) ;   
 
-    # Before we identify the "good" cDNAs which overlap with H3 features (and hence will become the
-    # final set of potential lincRNAs), two debugging features have been built in here. (More to follow later!)
+  # Before we identify the "good" cDNAs which overlap with H3 features (and hence will become the
+  # final set of potential lincRNAs), two debugging features have been built in here. (More to follow later!)
  
-    # Debugging feature (1):
-    # For H3 feature "genes"  which don't cluster with any cDNAs and/or protein_coding genes, we count how many there are,
-    # assign them a new analysis logic name as defined by "DEBUG_LG_EFG_UNCLUSTERED" in the lincRNAFinder config file, and 
-    # write them to the debug database (as specified by the DEBUG_OUTPUT_DB option in the config).
+  # Debugging feature (1):
+  # For H3 feature "genes"  which don't cluster with any cDNAs and/or protein_coding genes, we count how many there are,
+  # assign them a new analysis logic name as defined by "DEBUG_LG_EFG_UNCLUSTERED" in the lincRNAFinder config file, and 
+  # write them to the debug database (as specified by the DEBUG_OUTPUT_DB option in the config).
 
-    my @unclust_efg = ( 
-                         @{get_oneway_clustering_genes_of_set($step3_clusters,"unclust_efg")},  
-                         @{get_oneway_clustering_genes_of_set($step3_unclustered,"unclust_efg")}
-                          );    
+  my @unclust_efg = ( 
+                         @unclustered_cdna_genes    
+                         # @{get_oneway_clustering_genes_of_set($step3_clusters,"unclust_efg")},  
+                         # @{get_oneway_clustering_genes_of_set($step3_unclustered,"unclust_efg")}
+                    ); 
+  @unclustered_cdna_genes = ();                       
+memory_i_am_using();
+  # print "  Got " . @unclust_efg . " $lg  features which don't cluster with any cDNAs or protein_coding genes, not even cluster with 'good' cDNAs from stage 1.\n" ;       
+  # print "  Got " . @unclust_efg . " features which don't cluster with any cDNAs or protein_coding genes \n" ;
+  
+  # $self->update_efg_feature_genes( \@unclust_efg, $self->unclustered_efg_analysis ) ;   # H3 FEAT DEBUG
 
-    print "  Got " . @unclust_efg . " $lg  features which don't cluster with any cDNAs or protein_coding genes, not even cluster with 'good' cDNAs from stage 1.\n" ;       
-  
-    $self->update_efg_feature_genes ( \@unclust_efg, $self->unclustered_efg_analysis ) ;   # H3 FEAT DEBUG
 
-    # Debugging feature (2):
-    # For H3 feature "genes" which do cluster with "good" cDNAs, we may also want to flag them with a new analysis logic_name
-    # as specified by "DEBUG_LG_EFG_CLUSTERING_WITH_CDNA" and write them to DEBUG_OUTPUT_DB.
+  # Debugging feature (2):
+  # For H3 feature "genes" which do cluster with "good" cDNAs, we may also want to flag them with a new analysis logic_name
+  # as specified by "DEBUG_LG_EFG_CLUSTERING_WITH_CDNA" and write them to DEBUG_OUTPUT_DB.
   
-    my $efg_clustering_with_cdna_but_not_prot_cod = get_twoway_clustering_genes_of_set($step3_clusters,"unclust_efg"); 
-    $self->update_efg_feature_genes ( $efg_clustering_with_cdna_but_not_prot_cod ,$self->efg_clustering_with_cdna_analysis ) ;   # H3 FEAT DEBUG
+  # my $efg_clustering_with_cdna_but_not_prot_cod = get_twoway_clustering_genes_of_set($step3_clusters,"unclust_efg"); 
+  # $self->update_efg_feature_genes ( $efg_clustering_with_cdna_but_not_prot_cod ,$self->efg_clustering_with_cdna_analysis ) ;   # H3 FEAT DEBUG
   
-    # Preliminary set of cDNAs which overlap with H3 features:
-    my @cdnas_clustering_with_efg_only = @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")};
-    push (@redun_cdnas_cluster_with_K4_and_or_K36,  @cdnas_clustering_with_efg_only);
+  # Preliminary set of cDNAs which overlap with H3 features:
+  # my @cdnas_clustering_with_efg_only = @{get_twoway_clustering_genes_of_set($step3_clusters,"unclust_cdna_update")};
+  # push (@redun_cdnas_cluster_with_K4_and_or_K36,  @cdnas_clustering_with_efg_only);
       
-    # Now keeping track of the cDNA which overlapped with a certain type of feature for filtering later if required:
-    foreach my $cdna(@cdnas_clustering_with_efg_only) { 
-      if ($lg =~ /H3K4/) {
-        $check_which_feature_cdna_clusters_with{"H3K4"}{$cdna->dbID} = 1;
-      } elsif ($lg =~ /H3K36/) {
-        $check_which_feature_cdna_clusters_with{"H3K36"}{$cdna->dbID} = 1;
-      }
-    }
+  # Now keeping track of the cDNA which overlapped with a certain type of feature for filtering later if required:
+  # foreach my $cdna(@cdnas_clustering_with_efg_only) { 
+  #  if ($lg =~ /H3K4/) {
+  #    $check_which_feature_cdna_clusters_with{"H3K4"}{$cdna->dbID} = 1;
+  #  } elsif ($lg =~ /H3K36/) {
+  #    $check_which_feature_cdna_clusters_with{"H3K36"}{$cdna->dbID} = 1;
+  #  }
+  # }
 
-    if ( ($lg =~ /H3K36/) &&  ($self->check_cdna_overlap_with_multiple_K36) ) {
-      my @twoway_clusters = @{get_twoway_clusters($step3_clusters)};
-      foreach my $twoway_cluster (@twoway_clusters) {
-        my @K36_genes = @{$twoway_cluster->get_Genes_by_Set('unclust_efg')};
-        my @cdna_genes = @{$twoway_cluster->get_Genes_by_Set('unclust_cdna_update')};
-        # if there are more than one H3K36me3 feature in the cluster, check (by running clustering) to find out whether 
-        # the features all pile up in one location or are distributed across a genomic region. We want "multi K36s" which
-        # are distributed.
-        if (scalar(@K36_genes) > 1) { 
-          print "\n  There are more than one K36 feature overlapping with cDNA(s).  Now checking if cDNA(s) overlap with multiple K36 features distributed across a genomic region...\n";
-          my (@passed_cdnas_dbIDs) = $self->score_cdna_overlap_with_multi_K36(\@K36_genes, \@cdna_genes);
-          foreach my $cdna_dbID(@passed_cdnas_dbIDs) {
-            $check_which_feature_cdna_clusters_with{"H3K36_multi"}{$cdna_dbID} ++;
-          }
-        }
-      }
-    } # end if $lg =~ /H3K36/ && $self->check_cdna_overlap_with_multiple_K36
-  }  # end foreach my $lg...
+  # if ( ($lg =~ /H3K36/) &&  ($self->check_cdna_overlap_with_multiple_K36) ) {
+  #  my @twoway_clusters = @{get_twoway_clusters($step3_clusters)};
+  #  foreach my $twoway_cluster (@twoway_clusters) {
+  #    my @K36_genes = @{$twoway_cluster->get_Genes_by_Set('unclust_efg')};
+  #    my @cdna_genes = @{$twoway_cluster->get_Genes_by_Set('unclust_cdna_update')};
+      # if there are more than one H3K36me3 feature in the cluster, check (by running clustering) to find out whether 
+      # the features all pile up in one location or are distributed across a genomic region. We want "multi K36s" which
+      # are distributed.
+  #    if (scalar(@K36_genes) > 1) { 
+  #      print "\n  There are more than one K36 feature overlapping with cDNA(s).  Now checking if cDNA(s) overlap with multiple K36 features distributed across a genomic region...\n";
+  #      my (@passed_cdnas_dbIDs) = $self->score_cdna_overlap_with_multi_K36(\@K36_genes, \@cdna_genes);
+  #      foreach my $cdna_dbID(@passed_cdnas_dbIDs) {
+  #        $check_which_feature_cdna_clusters_with{"H3K36_multi"}{$cdna_dbID} ++;
+  #      }
+  #    }
+  #  }
+  # } # end if $lg =~ /H3K36/ && $self->check_cdna_overlap_with_multiple_K36
+  # }  # end foreach my $lg...
   
-  print "\nStage 3b) count how many cDNAs overlap with only one type or with both types of H3 features...\n" ;
+  # print "\nStage 3b) count how many cDNAs overlap with only one type or with both types of H3 features...\n" ;
 
-  my @cdnas_overlapping_with_both_K4_and_K36;
-  my @cdnas_overlapping_with_only_K4;
-  my @cdnas_overlapping_with_only_K36;
-  my @cdnas_overlapping_with_multiple_K36;
+  # my @cdnas_overlapping_with_both_K4_and_K36;
+  # my @cdnas_overlapping_with_only_K4;
+  # my @cdnas_overlapping_with_only_K36;
+  # my @cdnas_overlapping_with_multiple_K36;
 
+  # my %non_redun_cdnas_clustering_with_efg_only;
+  # foreach my $cdna (@redun_cdnas_cluster_with_K4_and_or_K36) {
+  #   $non_redun_cdnas_clustering_with_efg_only{$cdna->dbID} = $cdna;
+  # }
 
-  my %non_redun_cdnas_clustering_with_efg_only;
-  foreach my $cdna (@redun_cdnas_cluster_with_K4_and_or_K36) {
-    $non_redun_cdnas_clustering_with_efg_only{$cdna->dbID} = $cdna;
-  }
+  # foreach my $cdna_dbID(keys%non_redun_cdnas_clustering_with_efg_only) {
+  #   my $cdna_to_check =  $non_redun_cdnas_clustering_with_efg_only{$cdna_dbID};
+  #   if ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) && 
+  #        ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
+  #    push(@cdnas_overlapping_with_both_K4_and_K36, $cdna_to_check);
+  #   } elsif ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
+  #        (!$check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
+  #     push(@cdnas_overlapping_with_only_K4, $cdna_to_check);
+  #   } elsif  ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
+  #       ($check_which_feature_cdna_clusters_with{"H3K36_multi"}{$cdna_to_check->dbID}) ) {
+  #     push(@cdnas_overlapping_with_multiple_K36, $cdna_to_check);
+  #   } elsif  ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
+  #        ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
+  #     push(@cdnas_overlapping_with_only_K36, $cdna_to_check);
+  #   } else {
+  #     throw("cDNA ". $cdna_to_check->dbID . " overlaps with neither H3K4 nor H3K36 features? Something is wrong!");
+  #   }
+  # }
 
-  foreach my $cdna_dbID(keys%non_redun_cdnas_clustering_with_efg_only) {
-    my $cdna_to_check =  $non_redun_cdnas_clustering_with_efg_only{$cdna_dbID};
-    if ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) && 
-         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
-      push(@cdnas_overlapping_with_both_K4_and_K36, $cdna_to_check);
-    } elsif ( ($check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
-         (!$check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
-      push(@cdnas_overlapping_with_only_K4, $cdna_to_check);
-    } elsif  ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
-        ($check_which_feature_cdna_clusters_with{"H3K36_multi"}{$cdna_to_check->dbID}) ) {
-      push(@cdnas_overlapping_with_multiple_K36, $cdna_to_check);
-    } elsif  ( (!$check_which_feature_cdna_clusters_with{"H3K4"}{$cdna_to_check->dbID}) &&
-         ($check_which_feature_cdna_clusters_with{"H3K36"}{$cdna_to_check->dbID}) ) {
-      push(@cdnas_overlapping_with_only_K36, $cdna_to_check);
-    } else {
-      throw("cDNA ". $cdna_to_check->dbID . " overlaps with neither H3K4 nor H3K36 features? Something is wrong!");
-    }
-  }
+  # print "\nThere are altogether ". scalar(keys%non_redun_cdnas_clustering_with_efg_only)." cDNAs clustering with H3K4me3 and/or H3K36me3.\n";
+  # print "  ".scalar(@cdnas_overlapping_with_only_K4)." cDNAs overlap with only H3K4me3 features.\n";
+  # print "  ".scalar(@cdnas_overlapping_with_only_K36)." cDNAs overlap with only H3K36me3 features.\n";
+  # print "  ".scalar(@cdnas_overlapping_with_multiple_K36)." cDNAs overlap with multiple H3K36me3 features but not H3K4me3 features.\n";
+  # print "  ".scalar(@cdnas_overlapping_with_both_K4_and_K36)." cDNAs overlap with both H3K4me3 and H3K36me3 features.\n";
 
-  print "\nThere are altogether ". scalar(keys%non_redun_cdnas_clustering_with_efg_only)." cDNAs clustering with H3K4me3 and/or H3K36me3.\n";
-  print "  ".scalar(@cdnas_overlapping_with_only_K4)." cDNAs overlap with only H3K4me3 features.\n";
-  print "  ".scalar(@cdnas_overlapping_with_only_K36)." cDNAs overlap with only H3K36me3 features.\n";
-  print "  ".scalar(@cdnas_overlapping_with_multiple_K36)." cDNAs overlap with multiple H3K36me3 features but not H3K4me3 features.\n";
-  print "  ".scalar(@cdnas_overlapping_with_both_K4_and_K36)." cDNAs overlap with both H3K4me3 and H3K36me3 features.\n";
-
-  if ($self->check_cdna_overlap_with_both_K4_K36) {
-    if ($self->check_cdna_overlap_with_multiple_K36) {
-      print "\ncDNAs overlapping with multiple H3K36me3 (but no H3K4me3) OR overlapping with H3K4me3 + H3K36me3 will be considered as lincRNA candidates.\n\n";
-      $self->update_and_copy_cdna(\@cdnas_overlapping_with_multiple_K36, 'cdna_multi_K36');  # cDNA DEBUG
-      $self->update_and_copy_cdna(\@cdnas_overlapping_with_both_K4_and_K36, 'cdna_both_K4_K36');  # cDNA DEBUG
-      my @tmp_result_set = (@cdnas_overlapping_with_multiple_K36, @cdnas_overlapping_with_both_K4_and_K36);
-      $self->result_set(\@tmp_result_set);
-    } else {
-      print "\nOnly cDNAs overlapping with both H3K4me3 and H3K36me3 features will be considered as lincRNA candidates.\n\n";
-      $self->update_and_copy_cdna(\@cdnas_overlapping_with_both_K4_and_K36, 'cdna_both_K4_K36');  # cDNA DEBUG
-      $self->result_set(\@cdnas_overlapping_with_both_K4_and_K36);
-    }
-  } else {
-    print "\ncDNAs overlapping with H3K4me3 and/or H3K36me3 features will be considered as lincRNA candidates.\n\n";
-    my @cdnas_overlapping_some_H3 = values %non_redun_cdnas_clustering_with_efg_only;
-    $self->update_and_copy_cdna(\@cdnas_overlapping_some_H3, 'cdna_overlap_H3_not_pc');  # cDNA DEBUG
-    $self->result_set(\@cdnas_overlapping_some_H3);
-  }                                                       
+  # if ($self->check_cdna_overlap_with_both_K4_K36) {
+  #   if ($self->check_cdna_overlap_with_multiple_K36) {
+  #     print "\ncDNAs overlapping with multiple H3K36me3 (but no H3K4me3) OR overlapping with H3K4me3 + H3K36me3 will be considered as lincRNA candidates.\n\n";
+  #     $self->update_and_copy_cdna(\@cdnas_overlapping_with_multiple_K36, 'cdna_multi_K36');  # cDNA DEBUG
+  #     $self->update_and_copy_cdna(\@cdnas_overlapping_with_both_K4_and_K36, 'cdna_both_K4_K36');  # cDNA DEBUG
+  #     my @tmp_result_set = (@cdnas_overlapping_with_multiple_K36, @cdnas_overlapping_with_both_K4_and_K36);
+  #     $self->result_set(\@tmp_result_set);
+  #  } else {
+  #     print "\nOnly cDNAs overlapping with both H3K4me3 and H3K36me3 features will be considered as lincRNA candidates.\n\n";
+  #     $self->update_and_copy_cdna(\@cdnas_overlapping_with_both_K4_and_K36, 'cdna_both_K4_K36');  # cDNA DEBUG
+  #     $self->result_set(\@cdnas_overlapping_with_both_K4_and_K36);
+  #   }
+  # } else {
+  #   print "\ncDNAs overlapping with H3K4me3 and/or H3K36me3 features will be considered as lincRNA candidates.\n\n";
+  #   my @cdnas_overlapping_some_H3 = values %non_redun_cdnas_clustering_with_efg_only;
+  #   $self->update_and_copy_cdna(\@cdnas_overlapping_some_H3, 'cdna_overlap_H3_not_pc');  # cDNA DEBUG
+  #   $self->result_set(\@cdnas_overlapping_some_H3);
+  # }                                                       
  
-  print "Stage 4) check for 6-frame translations in lincRNA candidates...\n";
+  print "\nStage 2) check for 6-frame translations in lincRNA candidates\n";
+
+  print "result_set" . scalar(@{$self->result_set}) . " and unclustered set: " . scalar(@unclust_efg) . " for 3 step \n";
+memory_i_am_using();
 
   my @genes_with_translations ;  
-  RG: for my $rg( @{$self->result_set}  ) {   
+  RG: for my $rg( @unclust_efg ) {
+  # RG: for my $rg( @{$self->result_set}  ) {   
+  	# location of the function: ./enscode/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/GeneUtils.pm:sub compute_6frame_translations{
     my $new_gene = compute_6frame_translations($rg);
+memory_i_am_using();
+
     if (!defined $new_gene->get_all_Transcripts) {
       print "  Could not compute translation for cDNA: gene dbID ". $rg->dbID . " " . $rg->seq_region_name . " " . 
              $rg->seq_region_start . " " . $rg->seq_region_end ."\n";
       next RG;
     }     
+memory_i_am_using();
+    print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for gene " . $rg->display_id . " seq_region: " . $rg->seq_region_name . " start: " . $rg->seq_region_start . " end: " . $rg->seq_region_end . " \n" ; 
+    # foreach my $t (@{$new_gene->get_all_Transcripts}) {
+    #	print STDERR 'DEBUG: ', $t->length, ' ', scalar(@{$t->get_all_Exons}), ' ', $t->translation->start, ' ', $t->translation->end, ' ', $t->translation->seq, "\n";
+    # }
     push @genes_with_translations, $new_gene ; 
-    # print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for gene \n";  
   }
   print "  ".scalar(@genes_with_translations) . " genes with 6-frame-translations found\n" ;     
   # cap the number of transcripts per gene according to config 
   my $capped_genes = $self->cap_number_of_translations_per_gene(\@genes_with_translations) ;  
+
+  print "  ".scalar(@$capped_genes) . " after genes with 6-frame-translations found\n" ;     
+ 
   my ($short, $long ) = $self->filter_genes_with_long_translations($capped_genes); 
-  
-  print "\n  ".scalar(@$long)." genes have long translations, discarded from lincRNA pipeline.\n";
+$capped_genes = ""; # WARNING: I am keeping too many @ and objects. This is a test!! 
+  print "  ".scalar(@$long)." genes have long translations, discarded from lincRNA pipeline.\n";
   print "  ".scalar(@$short)." genes with short translations found. They will be our lincRNAFinder final output.\n\n";
+memory_i_am_using();
+  # $self->update_and_copy_cdna($long, 'has_long_translation');   # cDNA DEBUG
+
+  my $func = "print";
+  if ($func) {
+  	print "\nStage 3)\n";
+  }
   
-  $self->update_and_copy_cdna($long, 'has_long_translation');   # cDNA DEBUG
-  $self->output($short) ; 
-}    
+
+  # my $capped_genes = $self->print_translations(\@genes_with_translations) ;   
+  # my $short_gens = $self->check_short_for_domain($short);
+  
+  $self->output($short); 
+}
+
+
+sub print_output {
+	my ( $self) = @_ ;   
+	# my @output = @{$runobj->output};
+	
+}
+
 
 
 sub cap_number_of_translations_per_gene { 
@@ -333,6 +369,9 @@ sub cap_number_of_translations_per_gene {
     my @capped_longest_genes;  
 
     GENES: for my $g ( @$genes_with_6f_translations ) {    
+
+      # print "BK_DEBUG::lincRNAFinder::cap_number_of_translations_per_gene this is " . $g->id() . $g->dbID() . $g->display_id() . "\n"; 
+
       my %longest_translations ; 
       for my $t ( @{$g->get_all_Transcripts } ) {  
         my $tl_length = $t->translate->length * 3 ; 
@@ -352,12 +391,16 @@ sub cap_number_of_translations_per_gene {
       } else { 
         $max_translations_stored_per_gene = scalar(@tl_length);   
       } 
+      print "DEBUG::runable::lincRNAFinder check this out:: $max_translations_stored_per_gene\n" ;
       @tl_length = splice @tl_length,  0, $max_translations_stored_per_gene ;  
       my $mgt = new Bio::EnsEMBL::Gene(); 
       $mgt->biotype($g->biotype);  
+      
+      my $count =0;
       for my $length  ( @tl_length ) { 
          for my $lt ( @{ $longest_translations{$length} } ) {  
-           $mgt->add_Transcript($lt);  
+           $mgt->add_Transcript($lt);
+           $count++;
          }
       }
      push @capped_longest_genes , $mgt ;   
@@ -394,10 +437,9 @@ sub filter_genes_with_long_translations {
        my $tl_length = $t->translate->length * 3 ; 
        my $tr_length = $t->length ;    
        my $ratio = sprintf('%.1f',$tl_length*100 /  $tr_length);
-
        if ( $ratio > $max_trans_length_ratio ) { 
          # The cDNA "genes" have no usable display IDs, hence not printing any in the next line:
-         print "  LONG_TRANSLATION: cDNA has translation-length to transcript-length ratio ($ratio) higher than max. value allowed in config ($max_trans_length_ratio).\n";
+         # print "BK_DEBUG::lincRNAFidner.pm  LONG_TRANSLATION: " .  $g   .  " cDNA has translation-length to transcript-length ratio ($ratio) higher than max. value allowed in config ($max_trans_length_ratio).\n";
          my $analysis =Bio::EnsEMBL::Analysis->new(
                                        -logic_name => 'long_translation_cDNA' ,
                                        );
@@ -405,8 +447,10 @@ sub filter_genes_with_long_translations {
          $g->biotype('long_translation_cDNA');
          push @long_genes, $g; 
          next GENES; 
-       }  
+       } 
     }     
+    # print "BK_DEBUG::lincRNAFidner.pm SHORT_TRANSLATION: " . $g .  " cDNA has translation-length to transcript-length ratio () lower than max. value allowed in config ($max_trans_length_ratio).\n";
+
     push @short_genes , $g ;
   }
   return ( \@short_genes, \@long_genes );  
@@ -568,6 +612,16 @@ sub score_cdna_overlap_with_multi_K36 {
   }
   return keys%scoring;
 }
+
+
+sub memory_i_am_using { 
+  print "DEBUG::MEMORY:: " ; 
+  require Carp ;
+  my $size = `ps -p $$ -o size`;
+  print "$size \n";
+}
+
+
 
 use vars '$AUTOLOAD';
 sub AUTOLOAD {

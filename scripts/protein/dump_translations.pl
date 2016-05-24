@@ -37,7 +37,7 @@
     -dbuser       Database user
     -dbpass       User password
     -stable_id    Outputs sequences identified with their transcript stable IDs
-    -db_id        Outputs sequences identified with their internal identifier.
+    -db_id        Outputs sequences identified with their internal identifier. 
                   The db_id and stable_id flags are mutually exclusive.
     Note: Omit -stable_id and -db_id to output the translation stable ID
 
@@ -101,8 +101,7 @@ die("need to pass database settings in on the commandline -dbhost -dbuser -dbnam
   if not $dbhost
       or not $dbname;
 
-die "need to specify to use either stable_id or dbId for the header line"
-  if not defined $stable_id and not defined $db_id;
+die "need to specify to use either stable_id or dbId for the header line!" if ( ($stable_id == "0" ) and ($db_id == "0" ) ) ;
 
 if ($stable_id and $db_id) {
     $verbose and print STDERR "Entry ids will be db_id.transcript_stable_id\n";
@@ -164,7 +163,10 @@ my $seqio = Bio::SeqIO->new('-format' => 'Fasta', -fh => $fh);
 my $gene_list;
 
 if (defined $slicename) {
-    my $slice = $db->get_SliceAdaptor->fetch_by_name($slicename);
+   #  my $slice = $db->get_SliceAdaptor->fetch_by_region('chromosome', 'chrX-17');
+print "$slicename \n";
+   my $slice = $db->get_SliceAdaptor->fetch_by_name($slicename);
+print "fetch:data:from this slice: " . $slice . " n";
     $gene_list = $slice->get_all_Genes;
 }
 else {

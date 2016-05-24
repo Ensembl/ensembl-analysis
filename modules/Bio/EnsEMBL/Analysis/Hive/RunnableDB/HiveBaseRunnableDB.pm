@@ -18,10 +18,13 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
 use Bio::EnsEMBL::Analysis;
+use Bio::EnsEMBL::Hive::Utils ('stringify');
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
 use feature 'say';
+
+use Data::Dumper; 
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
@@ -77,7 +80,7 @@ sub output {
 
 sub write_output {
   my ($self) = @_;
-
+  print "DEBUG::HiveBaseRunnable::write_output hey! \n";
   my $adaptor  = $self->get_adaptor();
   my $analysis = $self->analysis();
 
@@ -167,6 +170,18 @@ sub analysis {
 
 sub input_id {
   my $self = shift;
+  my $value = shift;
+
+  # Note this sub is special. It overrides Hive::Process::input_id and parses the hive input_id into
+  # a normal genebuild style input_id. The issue here is that for the moment I'm going to make this
+  # a getter and not a setter as the two functions are somewhat different in this context. It would
+  # be wrong to have the get function look for and parse the hive input id but then allow the set
+  # function to set a new input id. Also a point to note is that overriding input_id in Process
+  # should be fine as it is not the input_id call that the hive itself uses
+  my $input_id_string = $self->Bio::EnsEMBL::Hive::Process::input_id;
+  unless($input_id_string =~ /.+\=\>.+\"(.+)\"/) {
+    $self->throw("Could not parse the value from the input id. Input id string:\n".$input_id_string);
+  }
 
   $self->throw("Could not fetch your input id ".$self->param('_input_id_name')) unless ($self->param_is_defined($self->param('_input_id_name')));
   return $self->param($self->param('_input_id_name'));
@@ -215,12 +230,14 @@ sub feature_factory {
 
 sub fetch_sequence {
   my ($self, $name, $dbcon, $repeat_masking, $soft_masking, $dbname) = @_;
+  # print "DEBUG::HiveBase...::fetch_sequence looks nice input_id: $name database_connection: $dbcon database_name: $dbname \n";
   if(!$dbcon){
     $dbcon = $self->hrdb_get_con($dbname);
   }
   if(!$name){
     $name = $self->param('iid');
   }
+
   my $sa = $dbcon->get_SliceAdaptor;
   my $slice = $sa->fetch_by_name($name);
   $repeat_masking = [] unless($repeat_masking);

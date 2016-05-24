@@ -306,14 +306,13 @@ sub get_genes_of_biotypes_by_db_hash_ref {
   my %dbnames_2_biotypes = %$href ;  
 
   my @genes_to_fetch;  
-
   foreach my $db_hash_key ( keys %dbnames_2_biotypes )  {
 
     my @biotypes_to_fetch = @{$dbnames_2_biotypes{$db_hash_key}};  
 
-    my $set_db = $self->get_dbadaptor($db_hash_key); 
+    my $set_db = $self->get_dbadaptor($db_hash_key);
     my $slice = $self->fetch_sequence($self->input_id, $set_db)  ;
-    
+
     # implementation of fetch_all_biotypes ....  
     my $fetch_all_biotypes_flag ; 
     foreach my $biotype  ( @biotypes_to_fetch ) {   
@@ -340,7 +339,8 @@ sub get_genes_of_biotypes_by_db_hash_ref {
            warning("No genes of biotype $biotype found in $set_db\n");
          } 
          if ( $self->verbose ) { 
-           print "$db_hash_key [ " .$set_db->dbname  . " ] Retrieved ".@$genes." of type ".$biotype."\n";
+           # print "$db_hash_key [ " . $set_db->dbname  . " ] Retrieved ".@$genes." of type ".$biotype."\n";
+           print $db_hash_key . " Retrieved ".@$genes." of biotype ".$biotype."\n";
          }
          push @genes_to_fetch, @$genes;
       }  

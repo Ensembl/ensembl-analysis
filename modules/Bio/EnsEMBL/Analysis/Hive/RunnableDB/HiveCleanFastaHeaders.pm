@@ -130,7 +130,7 @@ sub clean_headers {
 
     unless($self->param_is_defined('KILL_LIST_FILTER')) {
       say "You have selected to use the killlist but haven't defined a KILL_LIST_FILTER hash in your pipeline config, ".
-          "the HiveKillList module will look for a default hash for your molecule type";
+          "the KillList module will look for a default hash for your molecule type";
     }
 
     say "Killlist molecule type set to:\n".$self->param('killlist_type');
