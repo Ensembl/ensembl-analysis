@@ -158,10 +158,10 @@ sub generate_config_file {
             RESTART_NONCONSLIM => "-1.0",
           },
           $analysis->[2] => {
-            SINGLE_EXON_MODEL => $analysis->[4],
-            BEST_SCORE => $analysis->[3],
-            OTHER_ISOFORMS => $analysis->[5],
-            BAD_MODELS     => $analysis->[6],
+            SINGLE_EXON_MODEL => $analysis->[5],
+            BEST_SCORE => $analysis->[4],
+            OTHER_ISOFORMS => $analysis->[6],
+            BAD_MODELS     => $analysis->[7],
           }
         }
     );
