@@ -387,7 +387,7 @@ sub filter_genes {
       my $test_transcript = $test_gene->get_all_Transcripts->[0];
 
       #would like to avoid slow sorting call - but the "get_all_Transcripts" does not do this job properly...
-      $test_transcript->sort;
+      #$test_transcript->sort;
 
       if($test_transcript->three_prime_utr or $test_transcript->five_prime_utr){
 	print STDERR "Gene has UTR already. Skipping.\n" if $self->VERBOSE;
@@ -736,7 +736,7 @@ sub run_matching{
 
 	$combined_transcript = $self->combine_genes($cds, $predef_match, $blessed);
         if (defined $combined_transcript) {
-          $combined_transcript->sort;
+          #$combined_transcript->sort;
 
           # just check combined transcript works before throwing away the original transcript
           if ($blessed) {
@@ -933,7 +933,7 @@ sub run_matching{
 	# Check combined transcript for sanity and non-cluster-joiners before throwing away the original transcript
 	
 	if ( defined($combined_transcript)){
-	  $combined_transcript->sort;
+	  #$combined_transcript->sort;
           if ($blessed) {
             if( is_Transcript_sane($combined_transcript) && has_no_unwanted_evidence($combined_transcript) ){
               # make sure combined transcript doesn't misjoin any genewise clusters
@@ -1022,7 +1022,7 @@ sub run_matching{
       if(!$blessed){
 	$combined_gene = $self->look_for_both($combined_genes->[0]);
 	my $combined_transcript2 = $combined_gene->get_all_Transcripts->[0];
-	$combined_transcript2->sort;
+	#$combined_transcript2->sort;
 
 	 if(! (is_Transcript_sane($combined_transcript2)
 	       && all_exons_are_valid($combined_transcript2, $self->MAX_EXON_LENGTH, 1)
@@ -1463,7 +1463,7 @@ sub _filter_cdnas{
 
   cDNA_TRANSCRIPT:
     foreach my $tran (@{$cdna->get_all_Transcripts}) {
-      $tran->sort;
+      #$tran->sort;
 
       if(!$ests){
 	#store cDNA gene evidence for later
@@ -1615,7 +1615,7 @@ sub convert_to_extended_genes {
       for (@pt_exons) {
 	$new_tr->add_Exon($_);
       }
-      $new_tr->sort;
+      #$new_tr->sort;
       $gene_from_pt->add_Transcript($new_tr);
       push @new_genes , $gene_from_pt;
     }
@@ -1652,7 +1652,7 @@ sub make_gene{
   my $count=0;
 
   foreach my $trans(@$transcripts){
-    $trans->sort;
+    #$trans->sort;
     if (!$blessed) {
       unless ( is_Transcript_sane($trans)
   	     && intron_lengths_all_less_than_maximum($trans, $self->MAX_INTRON_LENGTH)
@@ -2019,7 +2019,7 @@ sub _merge_genes {
 		   " has NO or more than one related transcript, where a 1-gene-to-1-transcript-relation is assumed.".
 		   " Check preceding analysis \n");
     }
-    $trans[0]->sort;
+    #$trans[0]->sort;
     # check the sanity of the transcript only if it's not blessed. (We don't care about long introns etc in blessed models.)
     if (!$blessed) {
       if( !is_Transcript_sane($trans[0])
@@ -2142,7 +2142,7 @@ sub _merge_genes {
 	$merged_transcript->add_Exon($pe);
     }
 
-    $merged_transcript->sort;
+    #$merged_transcript->sort;
     $merged_transcript->translation($cloned_translation);
 
     my @seqeds = @{$trans[0]->translation->get_all_SeqEdits};
@@ -2201,12 +2201,12 @@ sub combine_genes{
 
   # should be only 1 transcript
   my @gw_tran   = @{$gw->get_all_Transcripts};
-  $gw_tran[0]->sort;
+  #$gw_tran[0]->sort;
 
   my @gw_exons  = @{$gw_tran[0]->get_all_Exons}; # ordered array of exons
 
   my @egtran    = @{$e2g->get_all_Transcripts};
-  $egtran[0]->sort;
+  #$egtran[0]->sort;
   my @e2g_exons = @{$egtran[0]->get_all_Exons}; # ordered array of exons
 
   # clone transcript
@@ -2324,7 +2324,7 @@ sub combine_genes{
   # check the transcript and expand frameshifts in all but original 3' gw_exon
   # (the sub_SeqFeatures have been flushed for this exon)
   if (defined($newtranscript)){
-    $newtranscript->sort;
+    #$newtranscript->sort;
 
     foreach my $ex (@{$newtranscript->get_all_Exons}){
 
@@ -2341,7 +2341,7 @@ sub combine_genes{
 	# add back the remaining component exons
 	foreach my $s(@sf){
 	  $newtranscript->add_Exon($s);
-	  $newtranscript->sort;
+	  #$newtranscript->sort;
 	}
 	# flush the sub_SeqFeatures
 	$ex->flush_sub_SeqFeature;
@@ -2554,7 +2554,7 @@ sub transcript_from_single_exon_genewise {
         $transcript->add_Exon($s);
       }
       
-      $transcript->sort;
+      #$transcript->sort;
       # flush the sub_SeqFeatures
       $ex->flush_sub_SeqFeature;
 
@@ -2603,11 +2603,11 @@ sub transcript_from_multi_exon_genewise {
   # my $orig_tend = $translation->end;
 
   my @gwtran  = @{$gw_gene->get_all_Transcripts};
-  $gwtran[0]->sort;
+  #$gwtran[0]->sort;
   my @gwexons = @{$gwtran[0]->get_all_Exons};
 
   my @egtran  = @{$eg_gene->get_all_Transcripts};
-  $egtran[0]->sort;
+  #$egtran[0]->sort;
   my @egexons = @{$egtran[0]->get_all_Exons};
 
   # in order to match a starting genewise exon with an e2g exon, we need to have
@@ -2642,11 +2642,11 @@ sub transcript_from_multi_exon_genewise_forward {
   my $modified_peptide = 0;
 
   my @gwtran  = @{$gw_gene->get_all_Transcripts};
-  $gwtran[0]->sort;
+  #$gwtran[0]->sort;
   my @gwexons = @{$gwtran[0]->get_all_Exons};
 
   my @egtran  = @{$eg_gene->get_all_Transcripts};
-  $egtran[0]->sort;
+  #$egtran[0]->sort;
   my @egexons = @{$egtran[0]->get_all_Exons};
 
   # save out current translation->end - we'll need it if we have to expand 3prime exon later
@@ -2862,11 +2862,11 @@ sub transcript_from_multi_exon_genewise_reverse {
 
   my $modified_peptide = 0;
   my @gwtran  = @{$gw_gene->get_all_Transcripts};
-  $gwtran[0]->sort;
+  #$gwtran[0]->sort;
   my @gwexons = @{$gwtran[0]->get_all_Exons};
 
   my @egtran  = @{$eg_gene->get_all_Transcripts};
-  $egtran[0]->sort;
+  #$egtran[0]->sort;
   my @egexons = @{$egtran[0]->get_all_Exons};
 
   # save out current translation->end - we'll need it if we have to expand 3prime exon later
@@ -3131,7 +3131,7 @@ sub expand_3prime_exon{
     foreach my $s(@sf){
       #print STDERR "adding exon: ".$s->start."-".$s->end."\n";
       $transcript->add_Exon($s);
-      $transcript->sort;
+      #$transcript->sort;
     }
     # flush the sub_SeqFeatures so we don't try to re-expand later
     $exon->flush_sub_SeqFeature;
@@ -3389,7 +3389,7 @@ sub look_for_both {
       my $tln = $trans->translation;
       my $coding_start = $trans->cdna_coding_start;
       my $orig_coding_start = $coding_start;
-      $trans->sort;
+      #$trans->sort;
       my $cdna_seq = uc($trans->spliced_seq);
       my @pepgencoords = $trans->pep2genomic(1,1);
       if(scalar(@pepgencoords) > 2) {
@@ -3588,7 +3588,7 @@ sub look_for_both {
 	my $coding_end = $trans->cdna_coding_end;
 	my $orig_coding_end = $coding_end;
 	
-	$trans->sort;
+	#$trans->sort;
     
 	my $peplen = $trans->translate->length;
 	
@@ -3813,7 +3813,7 @@ sub look_for_both {
 
     my @exons= @{$trans->get_all_Exons};
     my $get = $trans->translation;
-    $trans->_translation_id(undef);
+    $trans->translation(undef);
 
     foreach my $exon (@exons) {
       $exon->stable_id;
