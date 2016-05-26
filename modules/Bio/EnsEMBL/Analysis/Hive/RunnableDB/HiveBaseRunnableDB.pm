@@ -135,38 +135,17 @@ sub write_output {
 =head2 get_adaptor
 
  Arg [1]    : None
- Description: Getter for the adaptor to use for storing objects, it uses the output_db database
-              by default
- Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor, default is a Bio::EnsEMBL::DBSQL::GeneAdaptor
- Exceptions : None
+ Description: Getter for the adaptor to use for storing objects. It has to be implemented in the inheriting
+              class
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if the method has not been implemented in the inheriting class
 
 =cut
 
 sub get_adaptor {
     my ($self) = @_;
 
-    if($self->param_is_defined('_store_adaptor')) {
-      return $self->param('_store_adaptor');
-    }
-    return $self->param('output_db')->get_GeneAdaptor;
-}
-
-
-=head2 set_adaptor
-
- Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
- Description: Setter for a DBAdaptor object which will be used to store object in your output database
- Returntype : None
- Exceptions : Throws if the object is not a Bio::EnsEMBL::DBSQL::DBAdaptor
-
-=cut
-
-sub set_adaptor {
-  my ($self, $adaptor) = @_;
-
-  $self->throw('You need to pass a Bio::EnsEMBL::DBSQL::DBAdaptor, not a '.ref($adaptor))
-    unless (ref($adaptor) eq 'Bio::EnsEMBL::DBSQL::DBAdaptor');
-  $self->param('_store_adaptor', $adaptor);
+    $self->throw('You should implement the method to return a Bio::EnsEMBL::DBSQL::DBAdaptor for your output database');
 }
 
 
