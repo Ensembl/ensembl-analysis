@@ -50,8 +50,22 @@ package Bio::EnsEMBL::Analysis::Runnable::BWA;
 use warnings ;
 use strict;
 
-use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
+
+=head2 new
+
+ Arg [OPTIONS]: String
+ Arg [FASTQ]  : String
+ Arg [OUTDIR] : String
+ Arg [GENOME] : String
+ Description  : Creates a new Bio::EnsEMBL::Analysis::Runnable::BWA object to align short reads on a genome using BWA
+ Returntype   : Bio::EnsEMBL::Analysis::Runnable::BWA
+ Exceptions   : Throws if FASTQ, OPTIONS, OUTDIR or GENOME are not set
+                Throws if GENOME has not been indexed
+
+=cut
 
 sub new {
   my ( $class, @args ) = @_;
@@ -103,6 +117,15 @@ sub run {
 #Containers
 #=================================================================
 
+=head2 fastq
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub fastq {
   my ($self,$value) = @_;
 
@@ -113,9 +136,19 @@ sub fastq {
   if (exists($self->{'_fastq'})) {
     return $self->{'_fastq'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 options
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub options {
   my ($self,$value) = @_;
@@ -127,9 +160,19 @@ sub options {
   if (exists($self->{'_options'})) {
     return $self->{'_options'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 outdir
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub outdir {
   my ($self,$value) = @_;
@@ -141,10 +184,19 @@ sub outdir {
   if (exists($self->{'_outdir'})) {
     return $self->{'_outdir'};
   } else {
-    return undef;
+    return;
   }
 }
 
+
+=head2 genome
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub genome {
   my ($self,$value) = @_;
@@ -156,7 +208,7 @@ sub genome {
   if (exists($self->{'_genome'})) {
     return $self->{'_genome'};
   } else {
-    return undef;
+    return;
   }
 }
 

@@ -30,11 +30,10 @@ Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge -
 
 =head1 SYNOPSIS
 
-  Do NOT instantiate this class directly: must be instantiated
-  from a subclass (see ExonerateTranscript, for instance).
 
 =head1 DESCRIPTION
 
+Merge BAM files using samtools
 
 =head1 APPENDIX
 
@@ -70,9 +69,11 @@ sub new {
 
 =head2 run
 
-Usage   :   $obj->run($workdir, $args)
-Function:   Runs exonerate script and puts the results into the file $self->results
-            It calls $self->parse_results, and results are stored in $self->output
+ Arg [1]    : None
+ Description: Merge the BAM files using samtools and create the index file
+ Returntype : Integer, 1
+ Exceptions : None
+
 =cut
 
 sub run {
@@ -86,6 +87,5 @@ sub run {
 
   return 1;
 }
-
 
 1;

@@ -35,16 +35,8 @@ Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge -
 
 =head1 DESCRIPTION
 
-This is an abstract superclass to handle the common functionality for
-Exonerate runnables: namely it provides
-- a consistent external interface to drive exonerate regardless of
-  what features youre finally producing, and
-- a common process to stop people duplicating function (eg how to
-  arrange command-line arguments, what ryo-string to use etc).
-
-It does NOT provide the parser to convert the exonerate output
-into Transcripts or AffyFeatures etc. That is the job of the
-subclasses, which MUST implement the parse_results method.
+This is an abstract superclass to merge BAM files using either
+samtools or picard
 
 =head1 APPENDIX
 
@@ -57,16 +49,27 @@ package Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
 
 use warnings;
 use strict;
-use vars qw(@ISA);
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::Samtools;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable);
 
+
+=head2 new
+
+ Arg [OUTPUT_FILE]  : String
+ Arg [INPUT_FILES]  : Arrayref String
+ Arg [USE_THREADING]: Integer
+ Arg [VERBOSE]      : Integer
+ Description        : Creates an object to merge BAM files
+ Returntype         : Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge
+ Exceptions         : Throws if INPUT_FILES is not defined or does not exists
+                      Throws if OUTPUT_FILE is not defined
+
+=cut
 
 sub new {
   my ($class,@args) = @_;
@@ -120,9 +123,11 @@ sub new {
 
 =head2 run
 
-Usage   :   $obj->run($workdir, $args)
-Function:   Runs exonerate script and puts the results into the file $self->results
-            It calls $self->parse_results, and results are stored in $self->output
+ Arg [1]    : None
+ Description: This method should be implemented by the inheriting module
+ Returntype : None
+ Exceptions : Throws if not implemented
+
 =cut
 
 sub run {
@@ -131,13 +136,15 @@ sub run {
   throw('Need to be implemented by the inheriting object');
 }
 
-=head2 parse_results
 
-  Arg [1]   :
-  Arg [2]   :
-  Function  :
-  Returntype:
-  Example   :
+=head2 check_output_file
+
+ Arg [1]    : None
+ Description: Check if the output file has been successfully created using
+              flagstat from Bio::EnsEMBL::Analysis::Runnable::Samtools
+              Store the values in $self->output
+ Returntype : None
+ Exceptions : None
 
 =cut
 
@@ -148,6 +155,14 @@ sub check_output_file {
 }
 
 
+=head2 input_files
+
+ Arg [1]    : Arrayref String files
+ Description: Getter/Setter for the input files
+ Returntype : Arrayref
+ Exceptions : None
+
+=cut
 
 sub input_files {
     my ($self, $files) = @_;
@@ -157,6 +172,15 @@ sub input_files {
     return $self->{_input_files};
 }
 
+
+=head2 output_file
+
+ Arg [1]    : String file
+ Description: Getter/Setter for the output files
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub output_file {
     my ($self, $file) = @_;
@@ -202,10 +226,13 @@ sub samtools {
     my ($self, $samtools, $verbose) = @_;
 
     if ($samtools) {
-        $self->{_samtools} = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(-program => $samtools, -verbose => $verbose, -use_threading => $self->use_threading);
+        $self->{_samtools} = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                              -program => $samtools,
+                              -verbose => $verbose,
+                              -use_threading => $self->use_threading
+                              );
     }
     return $self->{_samtools};
 }
-
 
 1;

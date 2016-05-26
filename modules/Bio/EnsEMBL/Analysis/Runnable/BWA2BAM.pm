@@ -48,10 +48,26 @@ package Bio::EnsEMBL::Analysis::Runnable::BWA2BAM;
 use warnings ;
 use strict;
 
-use parent ('Bio::EnsEMBL::Analysis::Runnable::BWA');
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use parent ('Bio::EnsEMBL::Analysis::Runnable::BWA');
+
+
+=head2 new
+
+ Arg [HEADER]    : String
+ Arg [FASTQPAIR] : String
+ Arg [SAMTOOLS]  : String
+ Arg [MIN_MAPPED]: Integer
+ Arg [MIN_PAIRED]: Integer
+ Arg [BAM_PREFIX]: String
+ Description     : Creates a new Bio::EnsEMBL::Analysis::Runnable::BWA2BAM object
+ Returntype      : Bio::EnsEMBL::Analysis::Runnable::BWA2BAM
+ Exceptions      : Throws if the path to samtools does not exist
+
+=cut
+  
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
@@ -228,6 +244,15 @@ sub run {
 #Containers
 #=================================================================
 
+=head2 samtools
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub samtools {
   my ($self,$value) = @_;
 
@@ -238,9 +263,19 @@ sub samtools {
   if (exists($self->{'_samtools'})) {
     return $self->{'_samtools'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 fastqpair
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub fastqpair {
   my ($self,$value) = @_;
@@ -252,10 +287,19 @@ sub fastqpair {
   if (exists($self->{'_fastqpair'})) {
     return $self->{'_fastqpair'};
   } else {
-    return undef;
+    return;
   }
 }
 
+
+=head2 header
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub header {
   my ($self,$value) = @_;
@@ -267,9 +311,19 @@ sub header {
   if (exists($self->{'_header'})) {
     return $self->{'_header'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 min_mapped
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub min_mapped {
   my ($self,$value) = @_;
@@ -281,9 +335,19 @@ sub min_mapped {
   if (exists($self->{'_min_mapped'})) {
     return $self->{'_min_mapped'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 min_paired
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub min_paired {
   my ($self,$value) = @_;
@@ -295,9 +359,19 @@ sub min_paired {
   if (exists($self->{'_min_paired'})) {
     return $self->{'_min_paired'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 bam_prefix
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub bam_prefix {
   my ($self,$value) = @_;
@@ -309,7 +383,7 @@ sub bam_prefix {
   if (exists($self->{'_bam_prefix'})) {
     return $self->{'_bam_prefix'};
   } else {
-    return undef;
+    return;
   }
 }
 

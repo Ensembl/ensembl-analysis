@@ -21,6 +21,18 @@ use warnings;
 
 use base ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Creates input id based on a custom table 'csvfile_table' in the hive database
+              It will generate the parameters for BWA based on the data for each file
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub fetch_input {
     my $self = shift;
 

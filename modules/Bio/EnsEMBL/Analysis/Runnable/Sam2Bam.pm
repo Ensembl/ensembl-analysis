@@ -52,9 +52,25 @@ package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 use warnings ;
 use strict;
 
-use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
+
+
+=head2 new
+
+ Arg [HEADER]  : String
+ Arg [SAMFILES]: String
+ Arg [BAMFILE] : String
+ Arg [GENOME]  : String
+ Description   : Creates a new Bio::EnsEMBL::Analysis::Runnable::Sam2Bam object to convert SAM files
+                 to a BAM file
+ Returntype    : Bio::EnsEMBL::Analysis::Runnable::Sam2Bam
+ Exceptions    : Throws if you have no files to work on
+                 Throws if BAMFILE or GENOME is not set
+              
+=cut
 
 sub new {
   my ( $class, @args ) = @_;
@@ -192,6 +208,16 @@ sub run {
 #Containers
 #=================================================================
 
+
+=head2 headerfile
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : Throws if file doesn't exist
+
+=cut
+
 sub headerfile {
   my ($self,$value) = @_;
 
@@ -209,6 +235,16 @@ sub headerfile {
 }
 
 
+
+=head2 samfiles
+
+ Arg [1]    : (optional) Arrayref of String
+ Description: Getter/setter
+ Returntype : Arrayref of String
+ Exceptions : None
+
+=cut
+
 sub samfiles {
   my ($self,$value) = @_;
 
@@ -222,6 +258,16 @@ sub samfiles {
     return undef;
   }
 }
+
+
+=head2 bamfile
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub bamfile {
   my ($self,$value) = @_;
@@ -238,10 +284,20 @@ sub bamfile {
 }
 
 
+=head2 genome
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : Throws if the file doesn't exists
+
+=cut
+
 sub genome {
   my ($self,$value) = @_;
 
   if (defined $value) {
+    $self->throw($value.' does not exist!') unless (-e $value);
     $self->{'_genome'} = $value;
   }
 

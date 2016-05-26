@@ -52,12 +52,20 @@ package Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 use warnings ;
 use strict;
 
-use Bio::SeqFeature::Lite;
-use parent ('Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature');
-use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::DB::Sam;
 
+use parent ('Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature');
+
+=head2 new
+
+ Arg [PERCENT_ID]: Integer
+ Arg [COVERAGE]  : Integer
+ Arg [MISSMATCH] : Integer
+ Description     : Create a new Bio::EnsEMBL::Analysis::Runnable::Bam2Introns object
+ Returntype      : Bio::EnsEMBL::Analysis::Runnable::Bam2Introns
+ Exceptions      : None
+
+=cut
 
 sub new {
   my ( $class, @args ) = @_;
@@ -68,6 +76,16 @@ sub new {
   $self->MISSMATCH($missmatch);
   return $self;
 }
+
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Align the reads to a region of the genome to find candidate introns
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub run  {
   my ( $self) = @_;
@@ -84,6 +102,16 @@ sub run  {
   $self->SUPER::run();  # attach the read seq to the output features
   $self->process_features;
 }
+
+
+=head2 process_features
+
+ Arg [1]    : None
+ Description: Filter the result from Exonerate based on coverage and percent of identity
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub process_features {
   my ($self) = @_;
@@ -112,6 +140,15 @@ sub process_features {
 ###########################################################
 # containers
 
+=head2 MISSMATCH
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub MISSMATCH {
   my ($self,$value) = @_;
 
@@ -122,9 +159,19 @@ sub MISSMATCH {
   if (exists($self->{'_CONFIG_MISSMATCH'})) {
     return $self->{'_CONFIG_MISSMATCH'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 PERCENT_ID
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub PERCENT_ID {
   my ($self,$value) = @_;
@@ -136,9 +183,19 @@ sub PERCENT_ID {
   if (exists($self->{'_CONFIG_PERCENT_ID'})) {
     return $self->{'_CONFIG_PERCENT_ID'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 COVERAGE
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub COVERAGE {
   my ($self,$value) = @_;
@@ -150,7 +207,7 @@ sub COVERAGE {
   if (exists($self->{'_CONFIG_COVERAGE'})) {
     return $self->{'_CONFIG_COVERAGE'};
   } else {
-    return undef;
+    return;
   }
 }
 

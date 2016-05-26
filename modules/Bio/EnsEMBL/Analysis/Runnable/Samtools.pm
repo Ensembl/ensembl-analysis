@@ -30,11 +30,10 @@ Bio::EnsEMBL::Analysis::Runnable::Samtools -
 
 =head1 SYNOPSIS
 
-  Do NOT instantiate this class directly: must be instantiated
-  from a subclass (see ExonerateTranscript, for instance).
 
 =head1 DESCRIPTION
 
+Run samtools in a Perl OO manner
 
 =head1 APPENDIX
 
@@ -52,6 +51,17 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+
+=head2 new
+
+ Arg [PROGRAM]      : String
+ Arg [USE_THREADING]: Integer
+ Arg [VERBOSE]      : Integer
+ Description: Creates a Bio::EnsEMBL::Analysis::Runnable::Samtools object to run samtools command
+ Returntype : Bio::EnsEMBL::Analysis::Runnable::Samtools
+ Exceptions : None
+
+=cut
 
 sub new {
   my ($class,@args) = @_;
@@ -78,10 +88,16 @@ sub new {
 
 =head2 run_command
 
-Usage   :   $obj->run_command($command, $options, $output_file, $input_file)
-Function:   BE VERY CAREFUL: this run any samtools command, if you specify an output and input files
-            it will run the command like this: samtools <command> <options> <outfile> <infile>
-            This works for most of the command but read the samtools man page first
+ Arg [1]    : String a samtools command like view, index,...
+ Arg [2]    : String samtools options
+ Arg [3]    : String output file
+ Arg [4]    : String input file
+ Example    : $samtools->run_command('view', '-b', $output_file, $input_file);
+ Description: Run a samtools command. If use_threading is defined it will ask
+              for the number of threads in use_threading
+ Returntype : None
+ Exceptions : Throws if samtools failed
+
 =cut
 
 sub run_command {
@@ -98,6 +114,20 @@ sub run_command {
   throw('Command '.$cmd.' failed') if (system($cmd));
 }
 
+
+=head2 merge
+
+ Arg [1]    : String options
+ Arg [2]    : String output file
+ Arg [3]    : Arrayref input files or the filename is -b is used
+ Example    : $samtools->merge(undef, $outfile, \@infiles;
+ Description: Merge the BAM files and index the output file
+ Returntype : None
+ Exceptions : Throws if you don't give an array unless you use -b
+              and an existing file
+              Throws if the merge fails
+
+=cut
 
 sub merge {
   my ($self, $options, $output_file, $input_files) = @_;
@@ -116,6 +146,17 @@ sub merge {
   $self->index($output_file);
 }
 
+
+=head2 index
+
+ Arg [1]    : String filename
+ Example    : $samtools->index($filename);
+ Description: Index a BAM file
+ Returntype : None
+ Exceptions : Throws if the command failed
+
+=cut
+
 sub index {
   my ($self, $file) = @_;
 
@@ -124,6 +165,21 @@ sub index {
   throw($file.' indexing failed') if (system($cmd));
 }
 
+
+=head2 flagstat
+
+ Arg [1]    : String filename
+ Arg [2]    : Boolean mapping_precentage
+ Example    : $samtools->flagstat($file, 1);
+ Description: Run flagstat. If you set Arg[2] to 1, it will only return the
+              total number of reads, the percentage of mapped reads and the
+              percentage of properly paired reads. Otherwise it will return
+              the full ouptput from flagstat.
+ Returntype : Arrayref
+ Exceptions : Throws if the BAM file is truncated
+              Throws if the command failed
+
+=cut
 
 sub flagstat {
   my ($self, $file, $stat) = @_;
@@ -151,6 +207,15 @@ sub flagstat {
 }
 
 
+=head2 program
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter for the binary
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub program {
     my ($self, $file) = @_;
 
@@ -160,6 +225,15 @@ sub program {
     return $self->{_program};
 }
 
+
+=head2 use_threading
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter for the number of threads to use
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub use_threading {
     my ($self, $file) = @_;

@@ -19,11 +19,11 @@ Bio::EnsEMBL::Analysis::RunnableDB::BlastRNASeqPep
 
 =head1 SYNOPSIS
 
-my $db          = Bio::EnsEMBL::DBAdaptor->new($locator);
-my $btpep     = Bio::EnsEMBL::Analysis::RunnableDB::BlastRNASeqPep->new (
-                                                    -dbobj      => $db,
-			                            -input_id   => $input_id
-                                                    -analysis   => $analysis );
+my $db    = Bio::EnsEMBL::DBAdaptor->new($locator);
+my $btpep = Bio::EnsEMBL::Analysis::RunnableDB::BlastRNASeqPep->new (
+              -dbobj      => $db,
+              -input_id   => $input_id
+              -analysis   => $analysis );
 
 $btpep->fetch_input();
 $btpep->run();
@@ -56,18 +56,17 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
 use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
+
 =head2 fetch_input
 
-  Args       : none
-  Example    : $runnable->fetch_input
-  Description: Fetches input data for BlastRNASeqPep and makes runnable
-  Returntype : none
-  Exceptions : $self->input_id is not defined
-  Caller     : run_RunnableDB, Bio::EnsEMBL::Pipeline::Job
+ Arg [1]    : None
+ Description: Fetches genes from the input database, either all of them or the one specified by a logic_name.
+ Returntype : None
+ Exceptions : Throw if input_id is not defined
 
 =cut
 
@@ -79,8 +78,12 @@ sub fetch_input {
 #  $self->create_analysis(1, {-db_file => join(',', @{$self->param('uniprot_index')}), -program_file => $self->param('blast_program')});
   $self->create_analysis(1);
   $self->hrdb_set_con($self->get_database_by_name('dna_db'), 'dna_db');
+  $self->hrdb_set_con($self->get_database_by_name($self->OUTPUT_DB, $self->hrdb_get_con('dna_db')), 'output_db');
   my $slice = $self->fetch_sequence($self->input_id, $self->hrdb_get_con('dna_db'));
   $self->query($slice);
+  my $sa = $self->hrdb_get_con('output_db')->get_SliceAdaptor;
+  my $chr_slice = $sa->fetch_by_region('toplevel',$slice->seq_region_name);
+  $self->param('toplevel_slice', $chr_slice);
 
   $self->hive_set_config;
   my %blast = %{$self->BLAST_PARAMS};
@@ -132,6 +135,16 @@ sub fetch_input {
   return 1;
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Run blast against UniProt to assess the coding potential of the transcripts
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
     my ($self) = @_;
     my @runnables = @{$self->runnable};
@@ -162,6 +175,17 @@ sub run {
     return 1;
 }
 
+
+=head2 add_supporting_features
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Arg [2]    : Hashref
+ Description: Add supporting evidence to a transcript
+ Returntype : None
+ Exceptions : Throws if it cannot find the associated gene
+
+=cut
+
 sub add_supporting_features {
   my ($self,$transcript,$features) = @_;
   my %gene_store = %{$self->genes_by_tran_id};
@@ -173,8 +197,7 @@ sub add_supporting_features {
    $self->throw("Gene not found using id " .$transcript->dbID ."\n")
     unless $gene;
   print "Got gene " . $gene->stable_id ."\n";
-  my $sa = $self->get_database_by_name($self->OUTPUT_DB)->get_SliceAdaptor;
-  my $chr_slice = $sa->fetch_by_region('toplevel',$gene->seq_region_name);
+  my $chr_slice = $self->param('toplevel_slice');
   foreach my $tran ( @{$gene->get_all_Transcripts} ) {
     $tran = $tran->transfer($chr_slice);
     # order them by name
@@ -296,10 +319,20 @@ sub add_supporting_features {
   $self->output(\@output);
 }
 
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Write the genes in the output database
+ Returntype : None
+ Exceptions : Throws if it fails to write at least one gene
+
+=cut
+
 sub write_output {
   my ($self) = @_;
 
-  my $outdb = $self->get_database_by_name($self->OUTPUT_DB, $self->hrdb_get_con('dna_db'));
+  my $outdb = $self->hrdb_get_con('output_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
   my $fails = 0;
@@ -322,6 +355,16 @@ sub write_output {
           "($fails fails out of $total)");
   }
 }
+
+
+=head2 check_order
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::FeaturePair
+ Description: Sort the hits by start and check that they don't overlap
+ Returntype : Boolean, 1 if order is wrong
+ Exceptions : None
+
+=cut
 
 sub check_order {
   my ( $self, $hsps ) = @_;
@@ -350,6 +393,15 @@ sub check_order {
 }
 
 
+=head2 genes_by_tran_id
+
+ Arg [1]    : (optional) Hashref of Bio::EnsEMBL::Gene, the key is the transcript dbID
+ Description: Getter/setter for a gene based on a transcript id
+ Returntype : Hashref of Bio::EnsEMBL::Gene
+ Exceptions : None
+
+=cut
+
 sub genes_by_tran_id {
     my ($self,$value) = @_;
 
@@ -361,20 +413,46 @@ sub genes_by_tran_id {
 }
 
 
+=head2 OUTPUT_DB
+
+ Arg [1]    : None
+ Description: Getter for the name of the output database, default is 'output_db'
+ Returntype : String 'output_db'
+ Exceptions : None
+
+=cut
 
 sub OUTPUT_DB {
-    my ($self,$value) = @_;
+    my ($self) = @_;
 
     return 'output_db';
 }
 
 
+=head2 MODEL_DB
+
+ Arg [1]    : None
+ Description: Getter for the name of the output database, default is 'input_db'
+ Returntype : String 'input_db'
+ Exceptions : None
+
+=cut
+
 sub MODEL_DB {
-    my ($self,$value) = @_;
+    my ($self) = @_;
 
     return 'input_db';
 }
 
+
+=head2 LOGICNAME
+
+ Arg [1]    : None
+ Description: Getter for the logic name of the genes to fetch using param 'logic_name'
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub LOGICNAME {
     my ($self) = @_;
@@ -382,6 +460,16 @@ sub LOGICNAME {
     return $self->param('logic_name');
 }
 
+
+=head2 INDEX
+
+ Arg [1]    : None
+ Description: Getter for the directory to the Indicate index used to fetch protein sequences
+              using param 'indicate_index'
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub INDEX {
     my ($self,$value) = @_;

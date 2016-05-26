@@ -64,16 +64,19 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 
-sub new {
-  my ( $class, @args ) = @_;
-  my $self = $class->SUPER::new(@args);
-
-  return $self;
-}
-
 #
 # Implementation of method in abstract superclass
 #
+
+=head2 parse_results
+
+ Arg [1]    : FileHandle
+ Description: Parse the result from the program executed
+ Returntype : None
+ Exceptions : Throws if failed to process the vulgar block
+
+=cut
+
 sub parse_results {
   my ( $self, $fh ) = @_;
   
@@ -152,6 +155,30 @@ sub parse_results {
 #
 # Create dna align feature objects: 
 #
+
+=head2 make_feature
+
+ Arg [1]    : String
+ Arg [2]    : Integer
+ Arg [3]    : Integer
+ Arg [4]    : Integer
+ Arg [5]    : Integer
+ Arg [6]    : String
+ Arg [7]    : Integer
+ Arg [8]    : Integer
+ Arg [9]    : Integer
+ Arg [10]   : Integer
+ Arg [11]   : Integer
+ Arg [12]   : Integer
+ Arg [13]   : String
+ Arg [14]   : Integer
+ Arg [15]   : Integer
+ Description: Create a (Dna|Pep)AlignFeature based on the result from exonerate
+ Returntype : Bio::EnsEMBL::DnaDnaAlignFeature or Bio::EnsEMBL::DnaPepAlignFeature
+ Exceptions : Throws if the strand is wrong
+
+=cut
+
 sub make_feature{
   my ($self,
       $q_id, $q_len, $q_start, $q_end, $q_strand,

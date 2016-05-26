@@ -30,21 +30,10 @@ Bio::EnsEMBL::Analysis::Runnable::PicardMerge -
 
 =head1 SYNOPSIS
 
-  Do NOT instantiate this class directly: must be instantiated
-  from a subclass (see ExonerateTranscript, for instance).
 
 =head1 DESCRIPTION
 
-This is an abstract superclass to handle the common functionality for
-Exonerate runnables: namely it provides
-- a consistent external interface to drive exonerate regardless of
-  what features youre finally producing, and
-- a common process to stop people duplicating function (eg how to
-  arrange command-line arguments, what ryo-string to use etc).
-
-It does NOT provide the parser to convert the exonerate output
-into Transcripts or AffyFeatures etc. That is the job of the
-subclasses, which MUST implement the parse_results method.
+Merge BAM files using Picard
 
 =head1 APPENDIX
 
@@ -57,16 +46,25 @@ package Bio::EnsEMBL::Analysis::Runnable::PicardMerge;
 
 use warnings;
 use strict;
-use vars qw(@ISA);
 
 use File::Copy;
-use Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge);
 
+
+=head2 new
+
+ Arg [SAMTOOLS]    : String
+ Arg [LIB]         : String
+ Arg [JAVA_OPTIONS]: String
+ Description: Create a Bio::EnsEMBL::Analysis::Runnable::PicardMerge object to merge BAM files using picard
+ Returntype : Bio::EnsEMBL::Analysis::Runnable::PicardMerge
+ Exceptions : None
+
+=cut
 
 sub new {
     my ($class,@args) = @_;
@@ -91,9 +89,14 @@ sub new {
 
 =head2 run
 
-Usage   :   $obj->run($workdir, $args)
-Function:   Runs exonerate script and puts the results into the file $self->results
-            It calls $self->parse_results, and results are stored in $self->output
+ Arg [1]    : None
+ Description: Merge the BAM files using Picard and rename the index file to be
+              useable by samtools
+ Returntype : Integer, 1
+ Exceptions : Throws if it cannot execute the command
+              Throws if it fails to rename the file
+              Throws if it fails to update the timestamp on the index file
+
 =cut
 
 sub run {
@@ -115,6 +118,16 @@ sub run {
     return 1;
 }
 
+
+=head2 java_options
+
+ Arg [1]    : (optional) String options
+ Description: Getter/setter for the java options like Xmx
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub java_options {
     my ($self, $files) = @_;
     if ($files){
@@ -124,6 +137,15 @@ sub java_options {
 }
 
 
+=head2 picard_lib
+
+ Arg [1]    : (optional) String path
+ Description: Getter/setter for the path to the picard library
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub picard_lib {
     my ($self, $files) = @_;
     if ($files){
@@ -131,6 +153,5 @@ sub picard_lib {
     }
     return $self->{_picard_lib};
 }
-
 
 1;

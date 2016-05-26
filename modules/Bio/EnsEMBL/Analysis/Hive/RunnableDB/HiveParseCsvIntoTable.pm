@@ -19,7 +19,22 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveParseCsvIntoTable;
 use strict;
 use warnings;
 
-use base ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Store the csv information in a custom table in the hive database
+              via 'csvfile_table' and flowing the information from 'sample_column'
+              into branch 'fan_branch_code', usually 2
+              If you specify -1 for the 'is_mate_1' column, it will use the value
+              in 'pairing_regex' to determine which mate correspond to the filename
+              processed
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
     my $self = shift;

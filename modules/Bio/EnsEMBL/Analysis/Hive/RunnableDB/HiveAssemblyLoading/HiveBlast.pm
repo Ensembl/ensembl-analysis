@@ -74,8 +74,6 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 =cut
 
-
-
 sub fetch_input{
   my ($self) = @_;
 
@@ -230,7 +228,7 @@ sub write_output{
   Arg [2]   : hashref, parameters for parser constructor
   Function  : create a parser object
   Returntype: a parser object
-  Exceptions:
+  Exceptions: None
   Example   :
 
 =cut
@@ -254,7 +252,7 @@ sub make_parser{
   Arg [2]   : hashref, parameters for filter constructor
   Function  : create a filter object
   Returntype: a filter object
-  Exceptions:
+  Exceptions: None
   Example   :
 
 =cut
@@ -275,6 +273,17 @@ sub make_filter{
 
 
 #config methods
+
+=head2 hive_set_config
+
+ Arg [1]    : None
+ Example    : $self->hive_set_config;
+ Description: Load the configuration fetched via 'config_settings'. It is using the same structure
+              as the old pipeline
+ Returntype : None
+ Exceptions : Throws if logic_name or module are not set or if the wrong parameter is given
+
+=cut
 
 sub hive_set_config {
   my $self = shift;
@@ -346,6 +355,15 @@ sub hive_set_config {
 }
 
 
+=head2 BLAST_PARSER
+
+ Arg [1]    : (optional) String mmodule name
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub BLAST_PARSER{
   my ($self, $value) = @_;
 
@@ -361,6 +379,15 @@ sub BLAST_PARSER{
   }
 }
 
+
+=head2 PARSER_PARAMS
+
+ Arg [1]    : (optional) Hashref
+ Description: Getter/setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub PARSER_PARAMS{
   my ($self, $value) = @_;
@@ -379,6 +406,15 @@ sub PARSER_PARAMS{
 
 
 
+=head2 BLAST_FILTER
+
+ Arg [1]    : (optional) String module name
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub BLAST_FILTER{
   my ($self, $value) = @_;
 
@@ -396,6 +432,15 @@ sub BLAST_FILTER{
 
 
 
+=head2 FILTER_PARAMS
+
+ Arg [1]    : (optional) Hashref
+ Description: Getter/setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
 sub FILTER_PARAMS{
   my ($self, $value) = @_;
 
@@ -411,6 +456,15 @@ sub FILTER_PARAMS{
   }
 }
 
+
+=head2 BLAST_PARAMS
+
+ Arg [1]    : (optional) Hashref
+ Description: Getter/setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub BLAST_PARAMS {
   my ($self, $value) = @_;

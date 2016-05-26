@@ -53,6 +53,19 @@ use strict;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: It will fetch all the BAM files. If there is only one file and the samtools option 
+              -b is not used it will flow the name of the file on branch 1 with 'filename'
+              If 'picard_lib' is defined it will use Picard to merge the files otherwise it will
+              use samtools
+ Returntype : None
+ Exceptions : Throws if 'filename' is empty
+              Throws if the filename is not an absolute path
+
+=cut
+
 sub fetch_input {
     my ($self) = @_;
 
@@ -74,7 +87,7 @@ sub fetch_input {
         $self->throw($abs_filename.' is not an absolute path!') unless ($abs_filename =~ /^\//);
         $self->dataflow_output_id({filename => $abs_filename}, 1);
         # Finally tell Hive that we've finished processing
-        $self->complete_early(1);
+        $self->complete_early('There is only one file to process');
     }
     my $out_filename = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
     $self->param('output_file', $self->param('wide_merge_dir').'/'.$out_filename.'.bam');
@@ -105,6 +118,16 @@ sub fetch_input {
     }
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Merge the files and check that the merge was successful
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
     my ($self) = @_;
 
@@ -114,6 +137,16 @@ sub run {
     }
     $self->output([$self->param('output_file')]);
 }
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Dataflow the name of the merged BAM file on branch 1 with 'filename'
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
     my ($self) = @_;

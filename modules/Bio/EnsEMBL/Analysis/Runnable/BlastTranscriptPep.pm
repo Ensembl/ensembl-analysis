@@ -63,17 +63,16 @@ use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+
 use parent ('Bio::EnsEMBL::Analysis::Runnable::Blast');
 
 
 =head2 new
 
-  Arg [1]         : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [Transcript]: Bio::EnsEMBL::Transcript
-  Function        : create a BlastTranscriptPep runnable 
-  Returntype      : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Exceptions      : none 
-  Example         : 
+ Arg [Transcript]: Bio::EnsEMBL::Transcript
+ Description     : create a BlastTranscriptPep runnable 
+ Returntype      : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
+ Exceptions      : None 
 
 =cut
 
@@ -88,12 +87,10 @@ sub new {
 
 =head2 transcript
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [2]   : Bio::EnsEMBL::Transcript
-  Function  : container for transcript
-  Returntype: Bio::EnsEMBL::Transcript
-  Exceptions: throws if not passed a Bio::EnsEMBL::Transcript
-  Example   : 
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Description: container for transcript
+ Returntype : Bio::EnsEMBL::Transcript
+ Exceptions : throws if not passed a Bio::EnsEMBL::Transcript
 
 =cut
 
@@ -111,13 +108,11 @@ sub transcript{
 
 =head2 run
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [2]   : string, working directory
-  Function  : instantiations Blast runnable and runs it then converts
-  blast hits back into genomic coords
-  Returntype: none
-  Exceptions: none
-  Example   : 
+  Arg [1]    : string, working directory
+  Description: instantiations Blast runnable and runs it then converts
+               blast hits back into genomic coords
+  Returntype : none
+  Exceptions : none
 
 =cut
 
@@ -142,16 +137,13 @@ sub run{
 }
 
 
-
 =head2 align_hits_to_query
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [2]   : arrayref of Bio::EnsEMBL::BaseAlignFeatures
-  Function  : convert the features from blast from peptide coodinates
-  to genomic coordinates
-  Returntype: none
-  Exceptions: 
-  Example   : 
+ Arg [1]    : Arrayref of Bio::EnsEMBL::BaseAlignFeatures
+ Description: convert the features from blast from peptide coodinates
+              to genomic coordinates
+ Returntype : None
+ Exceptions : None
 
 =cut
 

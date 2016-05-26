@@ -30,8 +30,8 @@ $runnableDB->run();
 
 =head1 DESCRIPTION
 
-This module uses samtools to convert a directory containing SAM
-files into a single sorted indexed merged BAM file
+This module uses samtools to convert SAM files from a directory into a
+single sorted indexed merged BAM file
 
 =head1 CONTACT
 
@@ -49,6 +49,15 @@ use Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: It will create a BAM file from the SAM files given as input via 'filename' using samtools
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
   my ($self) = @_;
@@ -68,6 +77,15 @@ sub fetch_input {
 }
 
 
+=head2 run
+
+  Arg [1]   : None
+  Function  : Overrides run as we want to disconnect from the database as the job will last at least 30 minutes
+  Returntype: None
+  Exceptions: None
+
+=cut
+
 sub run {
   my ($self) = @_;
   $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
@@ -75,6 +93,16 @@ sub run {
   my ($runnable) = @{$self->runnable};
   $runnable->run;
 }
+
+
+=head2 write_output
+
+  Arg [1]   : None
+  Function  : It does nothing as the BAM file is written and checked in the run method
+  Returntype: Integer, 1
+  Exceptions: None
+
+=cut
 
 # override write output as we have nothing for the db
 sub write_output {
