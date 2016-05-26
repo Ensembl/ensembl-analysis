@@ -131,7 +131,7 @@ sub fetch_input {
 sub run {
     my ($self) = @_;
 
-    $self->disconnect_if_idle() if ($self->param('disconnect_jobs');
+    $self->disconnect_if_idle() if ($self->param('disconnect_jobs'));
     foreach my $runnable (@{$self->runnable}) {
         $runnable->run;
         $runnable->check_output_file;
