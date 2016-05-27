@@ -77,6 +77,7 @@ sub fetch_input {
 
 #  $self->create_analysis(1, {-db_file => join(',', @{$self->param('uniprot_index')}), -program_file => $self->param('blast_program')});
   $self->create_analysis(1);
+  $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
   $self->hrdb_set_con($self->get_database_by_name('dna_db'), 'dna_db');
   $self->hrdb_set_con($self->get_database_by_name($self->OUTPUT_DB, $self->hrdb_get_con('dna_db')), 'output_db');
   my $slice = $self->fetch_sequence($self->input_id, $self->hrdb_get_con('dna_db'));
@@ -85,9 +86,6 @@ sub fetch_input {
   my $chr_slice = $sa->fetch_by_region('toplevel',$slice->seq_region_name);
   $self->param('toplevel_slice', $chr_slice);
 
-  $self->hive_set_config;
-  my %blast = %{$self->BLAST_PARAMS};
-  $blast{'-options'} = $self->param('blast_cmd_line_options') if ($self->param_is_defined('blast_cmd_line_options'));
   my $parser = $self->make_parser;
   my $filter;
   my %store_genes;
@@ -125,7 +123,7 @@ sub fetch_input {
                               -filter         => $filter,
                               -database       => $db,
                               -analysis       => $self->analysis,
-                              %blast,
+                              %{$self->BLAST_PARAMS},
                               ));
               }
           }

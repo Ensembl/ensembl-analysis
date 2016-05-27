@@ -86,8 +86,6 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
   $self->query($slice);
 
-  my %blast = %{$self->BLAST_PARAMS};
-
   my $parser = $self->make_parser;
   my $filter;
   if($self->BLAST_FILTER){
@@ -110,7 +108,6 @@ sub fetch_input{
                                              -parameters => $self->param('commandline_params'),
                                            );
   $self->analysis($analysis);
-  $self->hive_set_config;
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
     (
@@ -120,7 +117,7 @@ sub fetch_input{
      -filter => $filter,
      -database => $self->analysis->db_file,
      -analysis => $self->analysis,
-     %blast,
+     %{$self->BLAST_PARAMS},
     );
   $self->runnable($runnable);
   return 1;
@@ -224,15 +221,13 @@ sub write_output{
 
 =head2 make_parser
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Arg [2]   : hashref, parameters for parser constructor
-  Function  : create a parser object
-  Returntype: a parser object
-  Exceptions: None
-  Example   :
+ Arg [1]    : (optional) Hashref
+ Description: Load and create a parser object using the name in $self->BLAST_PARSER and using
+              parameters in $self->PARSER_PARAMS if not Arg[1] given
+ Returntype : Object
+ Exceptions : None
 
 =cut
-
 
 sub make_parser{
   my ($self, $hash) = @_;
@@ -240,20 +235,21 @@ sub make_parser{
     $hash = $self->PARSER_PARAMS;
   }
   my %parser = %$hash;
+  $self->require_module($self->BLAST_PARSER);
   my $parser = $self->BLAST_PARSER->new(
                                         %parser
                                        );
   return $parser;
 }
 
+
 =head2 make_filter
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Blast
-  Arg [2]   : hashref, parameters for filter constructor
-  Function  : create a filter object
-  Returntype: a filter object
-  Exceptions: None
-  Example   :
+ Arg [1]    : (optional) Hashref
+ Description: Load and create a parser object using the name in $self->BLAST_FILTER and using
+              parameters in $self->FILTER_PARAMS if not Arg[1] given
+ Returntype : Object
+ Exceptions : None
 
 =cut
 
@@ -263,6 +259,7 @@ sub make_filter{
     $hash = $self->FILTER_PARAMS;
   }
   my %filter = %$hash;
+  $self->require_module($self->BLAST_FILTER);
   my $filter = $self->BLAST_FILTER->new(
                                          %filter
                                         );
@@ -273,87 +270,6 @@ sub make_filter{
 
 
 #config methods
-
-=head2 hive_set_config
-
- Arg [1]    : None
- Example    : $self->hive_set_config;
- Description: Load the configuration fetched via 'config_settings'. It is using the same structure
-              as the old pipeline
- Returntype : None
- Exceptions : Throws if logic_name or module are not set or if the wrong parameter is given
-
-=cut
-
-sub hive_set_config {
-  my $self = shift;
-
-  # Throw is these aren't present as they should both be defined
-  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
-          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
-          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
-          "write the genes to and this should also include the module name even if it isn't strictly necessary"
-         );
-  }
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-  my $config_hash = $self->param('config_settings');
-  foreach my $config_key (keys(%{$config_hash})) {
-    if(defined &$config_key) {
-      $self->$config_key($config_hash->{$config_key});
-    } else {
-      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
-            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
-            "key:\n".$config_key
-           );
-    }
-  }
-
-  unless($self->BLAST_PARSER) {
-    #must have a parser object and to pass to blast
-    $self->throw("BLAST_PARSER must be defined either in the DEFAULT entry or in the hash keyed on ".
-                 $self->analysis->logic_name." Blast::read_and_check_config")
-  }
-
-  $self->require_module($self->BLAST_PARSER);
-
-  #load the filter module if defined
-  if($self->BLAST_FILTER){
-    $self->require_module($self->BLAST_FILTER);
-  }
-
-  #if any of the object params exist, all are optional they must be hash refs
-  if($self->PARSER_PARAMS && ref($self->PARSER_PARAMS) ne 'HASH') {
-    $self->throw("PARSER_PARAMS must be a hash ref not ".$self->PARSER_PARAMS." Blast::set_hive_config");
-  }
-
-  if($self->FILTER_PARAMS && ref($self->FILTER_PARAMS) ne 'HASH') {
-    $self->throw("FILTER_PARAMS must be a hash ref not ".$self->FILTER_PARAMS." Blast::set_hive_config");
-  }
-
-  if($self->BLAST_PARAMS && ref($self->BLAST_PARAMS) ne 'HASH') {
-    $self->throw("BLAST_PARAMS must be a hash ref not ".$self->BLAST_PARAMS." Blast::set_hive_config");
-  }
-
-  my $blast_params;
-  if($self->BLAST_PARAMS){
-    $blast_params = $self->BLAST_PARAMS;
-  }else{
-    $blast_params = {};
-  }
-
-  my %parameters;
-  if($self->parameters_hash){
-    %parameters = %{$self->parameters_hash};
-  }
-  foreach my $key(%parameters){
-    $blast_params->{$key} = $parameters{$key};
-  }
-  $self->BLAST_PARAMS($blast_params);
-
-}
-
 
 =head2 BLAST_PARSER
 
@@ -368,11 +284,11 @@ sub BLAST_PARSER{
   my ($self, $value) = @_;
 
   if(defined $value){
-    $self->param('_CONFIG_BLAST_PARSER',$value);
+    $self->param('BLAST_PARSER',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_BLAST_PARSER')) {
-        return $self->param('_CONFIG_BLAST_PARSER');
+  if ($self->param_is_defined('BLAST_PARSER')) {
+        return $self->param('BLAST_PARSER');
   }
   else {
       return;
@@ -385,7 +301,7 @@ sub BLAST_PARSER{
  Arg [1]    : (optional) Hashref
  Description: Getter/setter
  Returntype : Hashref
- Exceptions : None
+ Exceptions : Throws if the Arg[1] is not a hashref
 
 =cut
 
@@ -393,11 +309,13 @@ sub PARSER_PARAMS{
   my ($self, $value) = @_;
 
   if(defined $value){
-    $self->param('_CONFIG_PARSER_PARAMS',$value);
+    $self->throw("PARSER_PARAMS must be a hash ref not ".$self->PARSER_PARAMS." Blast::set_hive_config")
+      unless(ref($value) eq 'HASH');
+    $self->param('PARSER_PARAMS',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_PARSER_PARAMS')) {
-        return $self->param('_CONFIG_PARSER_PARAMS');
+  if ($self->param_is_defined('PARSER_PARAMS')) {
+        return $self->param('PARSER_PARAMS');
   }
   else {
       return;
@@ -419,11 +337,11 @@ sub BLAST_FILTER{
   my ($self, $value) = @_;
 
   if(defined $value){
-    $self->param('_CONFIG_BLAST_FILTER',$value);
+    $self->param('BLAST_FILTER',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_BLAST_FILTER')) {
-        return $self->param('_CONFIG_BLAST_FILTER');
+  if ($self->param_is_defined('BLAST_FILTER')) {
+        return $self->param('BLAST_FILTER');
   }
   else {
       return;
@@ -437,7 +355,7 @@ sub BLAST_FILTER{
  Arg [1]    : (optional) Hashref
  Description: Getter/setter
  Returntype : Hashref
- Exceptions : None
+ Exceptions : Throws if Arg[1] is not a hashref
 
 =cut
 
@@ -445,11 +363,13 @@ sub FILTER_PARAMS{
   my ($self, $value) = @_;
 
   if(defined $value){
-    $self->param('_CONFIG_FILTER_PARAMS',$value);
+    $self->throw("FILTER_PARAMS must be a hash ref not ".$self->FILTER_PARAMS." Blast::set_hive_config")
+      unless (ref($value) eq 'HASH');
+    $self->param('FILTER_PARAMS',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_FILTER_PARAMS')) {
-        return $self->param('_CONFIG_FILTER_PARAMS');
+  if ($self->param_is_defined('FILTER_PARAMS')) {
+        return $self->param('FILTER_PARAMS');
   }
   else {
       return;
@@ -460,9 +380,10 @@ sub FILTER_PARAMS{
 =head2 BLAST_PARAMS
 
  Arg [1]    : (optional) Hashref
- Description: Getter/setter
+ Description: Getter/setter, it always call $self->parameters_hash which get parameters
+              from $self->analysis->parameters if defined
  Returntype : Hashref
- Exceptions : None
+ Exceptions : Throws if Arg[1] is not a hashref
 
 =cut
 
@@ -470,11 +391,17 @@ sub BLAST_PARAMS {
   my ($self, $value) = @_;
 
   if(defined $value){
-    $self->param('_CONFIG_BLAST_PARAMS',$value);
+    $self->throw("BLAST_PARAMS must be a hash ref not ".$self->BLAST_PARAMS." Blast::set_hive_config")
+      unless (ref($value) eq 'HASH');
+    $self->param('BLAST_PARAMS',$value);
+  }
+  if($self->parameters_hash) {
+    my %parameters = (@{$self->param('BLAST_PARAMS')}, %{$self->parameters_hash});
+    $self->param('BLAST_PARAMS', \%parameters);
   }
 
-  if ($self->param_is_defined('_CONFIG_BLAST_PARAMS')) {
-        return $self->param('_CONFIG_BLAST_PARAMS');
+  if ($self->param_is_defined('BLAST_PARAMS')) {
+        return $self->param('BLAST_PARAMS');
   }
   else {
       return;

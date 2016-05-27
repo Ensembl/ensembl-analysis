@@ -70,6 +70,7 @@ use vars qw (@ISA  @EXPORT);
               get_db_adaptor_by_string read_config
               import_var
               is_canonical_splice
+              get_analysis_settings
               get_database_connection_parameters_by_string
               run_command
               hrdb_get_dba
@@ -945,6 +946,30 @@ sub convert_to_ucsc_name {
         }
     }
     return $ucsc_name;
+}
+
+
+=head2 get_analysis_settings
+
+ Arg [1]    : String $class which represents the class of the config file you want to use
+ Arg [2]    : String $key, the key value of the hash you want to retrieve
+ Arg [3]    : Hashref $additional_hash, additional values to add or to overwrite the default/original values
+ Example    : my $config_hash = get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep');
+ Description: Retrieve Blast, Exonerate,... configuration hash which are similar for most of the analyses like running raw computes
+ Returntype : Hashref, it will return an empty hashref if the Config file does not exists or is not in PERL5LIB
+ Exceptions : None
+
+=cut
+
+sub get_analysis_settings {
+    my ($class, $key, $additional_hash) = @_;
+
+    eval "use $class";
+    if ($@) {
+        return {};
+    }
+    my $config = $class->new();
+    return $config->get_config_settings($key, $additional_hash);
 }
 
 1;
