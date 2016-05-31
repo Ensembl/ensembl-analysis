@@ -392,7 +392,7 @@ sub pipeline_analyses {
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
-        -meadow => 'LOCAL',
+        -meadow_type => 'LOCAL',
         -input_ids => [{}],
       },
 
@@ -405,7 +405,7 @@ sub pipeline_analyses {
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
-        -meadow => 'LOCAL',
+        -meadow_type => 'LOCAL',
         -input_ids => [{}],
       },
 
@@ -418,7 +418,7 @@ sub pipeline_analyses {
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
-        -meadow => 'LOCAL',
+        -meadow_type => 'LOCAL',
         -input_ids => [{}],
       },
 
@@ -1110,7 +1110,7 @@ sub pipeline_analyses {
             indicate_index => $self->o('uniprotindex'),
             uniprot_index => [$self->o('uniprotdb')],
             blast_program => $self->o('blastp'),
-            %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','HiveBlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+            %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
             commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->default_options->{'use_threads'}.' -hitdist=40' : '-p blastp -W 40',
                       },
         -rc_name => '2GB_blast',
