@@ -83,8 +83,7 @@ sub fetch_input {
 sub run {
 
   my $self = shift;
-  
-  $self->param_required('biotype');
+
   $self->param_required('dbhost');
   $self->param_required('dbname');
   $self->param_required('dbuser');
@@ -101,72 +100,98 @@ sub run {
     run_command("mkdir -p ".$self->param('output_path'),"Create output path.");
   }
 
-  my $transcript_ids_file = $self->param('biotype')."_transcript_ids.txt";
-  my $gene_ids_file = $self->param('biotype')."_gene_ids.txt";
-  my $sql_get_biotype = 'select transcript_id from transcript where biotype='."'".$self->param('biotype')."'";
-  my $sql_count_biotype = 'select count(transcript_id) from transcript where biotype='."'".$self->param('biotype')."'";
+  my $gene_ids_file;
+  if($self->param('transcript_ids_file')) {
+    my $transcript_ids_file = $self->param('transcript_ids_file');
+    $gene_ids_file = 'gene_ids_to_check.txt';
+    # delete the transcripts
+    run_command("perl ".$self->param('delete_transcripts_path')
+                       .$self->param('delete_transcripts_script_name')
+                       ." -dbhost ".$self->param('dbhost')
+                       ." -dbuser ".$self->param('dbuser')
+                       ." -dbpass ".$self->param('dbpass')
+                       ." -dbname ".$self->param('dbname')
+                       ." -dbport ".$self->param('dbport')
+                       ." ".$transcript_ids_file
+                       ." > ".$self->param('output_path').$self->param('output_file_name'));
 
-  # get the transcript identifiers for the given transcript biotype and write them into a file
-  run_command("mysql -NB -u".$self->param('dbuser')
-                      ." -h".$self->param('dbhost')
-                      ." -p".$self->param('dbpass')
-                      ." -D".$self->param('dbname')
-                      ." -P".$self->param('dbport')
-                      ." -e".'"'.$sql_get_biotype.'"'
-                      ." > ".$self->param('output_path').$transcript_ids_file);
+  } else {
+    $self->param_required('biotype');
+    my $transcript_ids_file = $self->param('biotype')."_transcript_ids.txt";
+    $gene_ids_file = $self->param('biotype')."_gene_ids.txt";
+    my $sql_get_biotype = 'select transcript_id from transcript where biotype='."'".$self->param('biotype')."'";
+    my $sql_count_biotype = 'select count(transcript_id) from transcript where biotype='."'".$self->param('biotype')."'";
 
-  # delete the transcripts
-  run_command("perl ".$self->param('delete_transcripts_path')
-                     .$self->param('delete_transcripts_script_name')
-                     ." -dbhost ".$self->param('dbhost')
-                     ." -dbuser ".$self->param('dbuser')
-                     ." -dbpass ".$self->param('dbpass')
-                     ." -dbname ".$self->param('dbname')
-                     ." -dbport ".$self->param('dbport')
-                     ." ".$self->param('output_path').$transcript_ids_file
-                     ." > ".$self->param('output_path').$self->param('output_file_name'));
-  
-  # check that there is no transcript of the given biotype after the deletion
-  run_command("mysql -NB -u".$self->param('dbuser')
-                      ." -h".$self->param('dbhost')
-                      ." -p".$self->param('dbpass')
-                      ." -D".$self->param('dbname')
-                      ." -P".$self->param('dbport')
-                      ." -e".'"'.$sql_count_biotype.'"'
-             ,"Checking deleted transcripts..."
-             ,0); # expected transcript count
+    # get the transcript identifiers for the given transcript biotype and write them into a file
+    run_command("mysql -NB -u".$self->param('dbuser')
+                        ." -h".$self->param('dbhost')
+                        ." -p".$self->param('dbpass')
+                        ." -D".$self->param('dbname')
+                        ." -P".$self->param('dbport')
+                        ." -e".'"'.$sql_get_biotype.'"'
+                        ." > ".$self->param('output_path').$transcript_ids_file);
 
-  # parse the deletion output file to find the empty genes
-  run_command("grep empty ".$self->param('output_path').$self->param('output_file_name').' | awk '."'".'{print $5}'."'"." | cut -d')' -f1 > ".$self->param('output_path').$gene_ids_file,"Generating file containing empty gene IDs...");
-  
-  # delete the genes which are empty after the transcripts deletion
-  run_command("perl ".$self->param('delete_genes_path')
-                     .$self->param('delete_genes_script_name')
-                     ." -dbhost ".$self->param('dbhost')
-                     ." -dbuser ".$self->param('dbuser')
-                     ." -dbpass ".$self->param('dbpass')
-                     ." -dbname ".$self->param('dbname')
-                     ." -dbport ".$self->param('dbport')
-                     ." -idfile ".$self->param('output_path').$gene_ids_file
-                     ." 2>> ".$self->param('output_path').$self->param('output_file_name'));
-  
-  # check that the right number of genes has been deleted
-  my $num_genes_to_delete = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | wc -l","Counting number of empty genes to delete...");
-  run_command("grep Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v transcript | wc -l","Checking that number of genes to delete and number of deleted genes match...",$num_genes_to_delete);
-  
-  # prepare report
-	
-  # 'cat' at the end prevents the command from failing as if there was an error due to grep not finding any pattern
-  my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash | cat","Preparing list of broken genes for email...");
-  	
+    # delete the transcripts
+    run_command("perl ".$self->param('delete_transcripts_path')
+                       .$self->param('delete_transcripts_script_name')
+                       ." -dbhost ".$self->param('dbhost')
+                       ." -dbuser ".$self->param('dbuser')
+                       ." -dbpass ".$self->param('dbpass')
+                       ." -dbname ".$self->param('dbname')
+                       ." -dbport ".$self->param('dbport')
+                       ." ".$self->param('output_path').$transcript_ids_file
+                       ." > ".$self->param('output_path').$self->param('output_file_name'));
+
+      # check that there is no transcript of the given biotype after the deletion
+      run_command("mysql -NB -u".$self->param('dbuser')
+                          ." -h".$self->param('dbhost')
+                          ." -p".$self->param('dbpass')
+                          ." -D".$self->param('dbname')
+                          ." -P".$self->param('dbport')
+                          ." -e".'"'.$sql_count_biotype.'"'
+                 ,"Checking deleted transcripts..."
+                 ,0); # expected transcript count
+
+    } # End else
+
+    # parse the deletion output file to find the empty genes
+    my $cmd = "grep empty ".$self->param('output_path').$self->param('output_file_name');
+    my @empty_gene_id_list = `$cmd`;
+    open(OUT,">".$self->param('output_path')."/".$gene_ids_file);
+    foreach my $line (@empty_gene_id_list) {
+      $line =~ /Gene.+\(id = (\d+)\)/;
+      say OUT $1;
+    }
+    close OUT;
+
+    # delete the genes which are empty after the transcripts deletion
+    run_command("perl ".$self->param('delete_genes_path')
+                       .$self->param('delete_genes_script_name')
+                       ." -dbhost ".$self->param('dbhost')
+                       ." -dbuser ".$self->param('dbuser')
+                       ." -dbpass ".$self->param('dbpass')
+                       ." -dbname ".$self->param('dbname')
+                       ." -dbport ".$self->param('dbport')
+                       ." -idfile ".$self->param('output_path').$gene_ids_file
+                       ." 2>> ".$self->param('output_path').$self->param('output_file_name'));
+
+    # check that the right number of genes has been deleted
+    my $num_genes_to_delete = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | wc -l","Counting number of empty genes to delete...");
+    run_command("grep Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v transcript | wc -l","Checking that number of genes to delete and number of deleted genes match...",$num_genes_to_delete);
+
+    # prepare report
+
+    # 'cat' at the end prevents the command from failing as if there was an error due to grep not finding any pattern
+    my $broken_genes = run_command("grep -v Deleted ".$self->param('output_path').$self->param('output_file_name')." | grep -v Gene | grep -v crash | cat","Preparing list of broken genes for email...");
+
   my $empty_genes = run_command("grep empty ".$self->param('output_path').$self->param('output_file_name')." | cat","Preparing list of empty genes for email...");
-  	
+
   my $body;
 
   if ($self->param('fix_broken_genes')) {
     $body = <<'END_BODY';
 Hi,
- 
+
 Please find below both the genes which were broken (and have been fixed) and the genes which have been deleted because they were empty after deleting the corresponding transcripts.
 
 Regards,
@@ -191,7 +216,7 @@ END_BODY
 
   $body .= $broken_genes;
   $body .= $empty_genes;
-  
+
   # fix broken genes
   if ($self->param('fix_broken_genes')) {
 
