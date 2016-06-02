@@ -247,8 +247,14 @@ sub run {
     foreach my $tran (@{$self->good_transcripts}) {
       # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
       #$gene_scaffold->place_transcript($tran,1);
-      my $proj_trans = $gene_scaffold->place_transcript($tran);
+      my $proj_trans;
+      eval {
+        $proj_trans  = $gene_scaffold->place_transcript($tran);
+      };
 
+      if($@) {
+        $self->runnable_failed(1);
+      }
       if ($proj_trans) {
         push @res_tran, $proj_trans;
       }
@@ -271,7 +277,11 @@ sub run {
       my $gene = $self->gene();
       my $transcripts = $gene->get_all_Transcripts;
       my $source_transcript = $$transcripts[0];
-      $self->realign_translation($source_transcript,$res_tran);
+      if($res_tran->translation->length < 20000 && $source_transcript->translation->length < 20000) {
+        $self->realign_translation($source_transcript,$res_tran);
+      } else {
+        $self->warning('Not realigning translation as translation length >= 20000');
+      }
     }
     push @final_tran, $res_tran;
   }
@@ -288,40 +298,59 @@ sub write_output {
   my $trans_count = 0;
   my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
   my $t_gene_adaptor = $target_transcript_dbc->get_GeneAdaptor();
+  my $failure_branch_code = -3;
 
-  foreach my $t (@{$self->output}) {
-    $t->analysis($self->analysis);
-    $t->biotype('projection');
+  if($self->runnable_failed && scalar(@{$self->output}) == 0) {
+    $self->warning("Issue with projection, will dataflow input id on branch -3");
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+  } else {
+    foreach my $t (@{$self->output}) {
+      $t->analysis($self->analysis);
+      $t->biotype('projection');
 
-    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis,-biotype  => 'projection');
+      my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis,-biotype  => 'projection');
 
-    foreach my $tsf ( @{ $t->get_all_supporting_features }){
-      $tsf->analysis($self->analysis);
-    }
-
-    foreach my $exon (@{$t->get_all_Exons()}){
-      $exon->analysis($self->analysis);
-      foreach my $esf (@{$exon->get_all_supporting_features()}){
-        $esf->analysis($self->analysis);
+      foreach my $tsf ( @{ $t->get_all_supporting_features }){
+        $tsf->analysis($self->analysis);
       }
+
+      foreach my $exon (@{$t->get_all_Exons()}){
+        $exon->analysis($self->analysis);
+        foreach my $esf (@{$exon->get_all_supporting_features()}){
+          $esf->analysis($self->analysis);
+        }
+      }
+
+      $gene->add_Transcript($t);
+      empty_Gene($gene);
+      $t_gene_adaptor->store($gene);
+      $trans_count++;
+
+      print "TRANSCRIPT:\n";
+      foreach my $e (@{$t->get_all_Exons}) {
+        printf("%s\tEnsembl\tExon\t%d\t%d\t%d\t%d\t%d\n", $e->slice->seq_region_name, $e->start, $e->end, $e->strand, $e->phase, $e->end_phase);
+      }
+      my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                                  -fh => \*STDOUT);
+      $seqio->write_seq($t->translate);
     }
 
-    $gene->add_Transcript($t);
-    empty_Gene($gene);
-    $t_gene_adaptor->store($gene);
-    $trans_count++;
-
-    print "TRANSCRIPT:\n";
-    foreach my $e (@{$t->get_all_Exons}) {
-      printf("%s\tEnsembl\tExon\t%d\t%d\t%d\t%d\t%d\n", $e->slice->seq_region_name, $e->start, $e->end, $e->strand, $e->phase, $e->end_phase);
-    }
-    my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                -fh => \*STDOUT);
-    $seqio->write_seq($t->translate);
+    print "For gene " . $self->param('iid'). " you stored ", $trans_count, " transcripts\n";
+    # to do: write gene back to core target database
   }
 
-  print "For gene " . $self->param('iid'). " you stored ", $trans_count, " transcripts\n";
-  # to do: write gene back to core target database
+  return 1;
+}
+
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if($runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return($self->param('_runnable_failed'));
 }
 
 
