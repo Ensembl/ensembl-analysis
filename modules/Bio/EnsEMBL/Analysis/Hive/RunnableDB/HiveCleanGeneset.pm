@@ -44,20 +44,23 @@ sub fetch_input {
   $input_dba->dnadb($dna_dba);
 
 
-  my $input_id = $self->param('iid');
-  my $input_id_type = $self->param('iid_type');
+#  my $input_id = $self->param('iid');
+#  my $input_id_type = $self->param('iid_type');
 
   # If the input is an array of gene ids then loop through them and fetch them from the input db
-  if($input_id_type eq 'slice') {
-    $self->load_genes($input_id);
-  } else {
-    $self->throw("You have selected an input id type using iid_type that is not supported by the module. Offending type: ".$input_id_type);
-  }
+ # if($input_id_type eq 'slice') {
+  $self->load_genes();#($input_id);
+  #} else {
+  #  $self->throw("You have selected an input id type using iid_type that is not supported by the module. Offending type: ".$input_id_type);
+ # }
 
   my $output_path = $self->param('output_path');
   unless(-e $output_path) {
     system("mkdir -p ".$output_path);
   }
+
+  my $blessed_biotypes = $self->param('blessed_biotypes');
+  $self->blessed_biotypes($blessed_biotypes);
 
   return 1;
 }
@@ -76,7 +79,7 @@ sub write_output {
   my $self = shift;
 
   my $transcript_ids_to_remove = $self->transcript_ids_to_remove();
-  my $output_file = $self->param('output_path')."/ids_to_remove.".$$.".txt";
+  my $output_file = $self->param('output_path')."/transcript_ids_to_remove.txt";
   open(OUT,">".$output_file);
   foreach my $id (@{$transcript_ids_to_remove}) {
     say OUT $id;
@@ -87,11 +90,11 @@ sub write_output {
 }
 
 sub load_genes {
-  my ($self,$input_id) = @_;
+  my ($self) = @_;
 
   my $dba = $self->hrdb_get_con('input_db');
-  my $slice_adaptor = $dba->get_SliceAdaptor();
-  my $slice = $slice_adaptor->fetch_by_name($input_id);
+#  my $slice_adaptor = $dba->get_SliceAdaptor();
+#  my $slice = $slice_adaptor->fetch_by_name($input_id);
   my $gene_adaptor = $dba->get_GeneAdaptor();
   my $genes = $gene_adaptor->fetch_all();#_by_Slice($slice);
   $self->genes_to_qc($genes);
@@ -107,6 +110,17 @@ sub genes_to_qc {
   return($self->param('_genes_to_qc'));
 }
 
+
+sub blessed_biotypes {
+  my ($self,$blessed_biotypes) = @_;
+  if($blessed_biotypes) {
+    $self->param('_blessed_biotypes',$blessed_biotypes);
+  }
+
+  return($self->param('_blessed_biotypes'));
+}
+
+
 sub clean_genes {
   my ($self,$genes) = @_;
   my $transcript_ids_to_remove = [];
@@ -120,17 +134,57 @@ sub clean_genes {
     say "Normal transcript count: ".scalar(@{$normal_transcripts});
     say "Flagged transcript count: ".scalar(@{$flagged_transcripts});
 
-    if(scalar(@{$transcripts}) == scalar(@{$flagged_transcripts})) {
-      say "All transcripts are flagged so no cleaning will take place";
-      next;
-    } else {
-      my $db_ids_for_removal = $self->access_flagged_transcripts($gene,$normal_transcripts,$flagged_transcripts);
+    # If there are some normal transcripts then assess the flagged ones for removal
+    if(scalar(@{$normal_transcripts})) {
+      my $db_ids_for_removal = $self->assess_flagged_transcripts($gene,$normal_transcripts,$flagged_transcripts);
       foreach my $db_id (@{$db_ids_for_removal}) {
         push(@{$transcript_ids_to_remove},$db_id);
       }
     }
-  }
 
+# NOTE: I'm disabling this code because between genebuilder and the above sub, it shouldn't pick up anything, however
+# it could be quite useful in other scenarios, so we can revive it if needed
+    # Check the transcripts for redundancy in terms of the terminal exons. This is checked for all transcripts,
+    # not just the flagged ones
+#    if(scalar(@{$transcripts}) > 1) {
+#      my $db_ids_for_removal = $self->assess_transcripts_for_redundancy($transcripts);
+#      foreach my $db_id (@{$db_ids_for_removal}) {
+#        push(@{$transcript_ids_to_remove},$db_id);
+#      }
+#    }
+#  }
+
+    # This section is for transcripts that are single exon or only frameshift introns
+    if(scalar(@{$transcripts}) == 1) {
+      my $transcript = shift @{$transcripts};
+      if($self->blessed_biotypes()->{$transcript->biotype}) {
+        next;
+      }
+
+      if(scalar(@{$transcript->get_all_Exons}) == 1 || $transcript->{'_contains_only_frameshift_introns'}) {
+        # There are a few things we can consider to either keep or delete single exon genes. They are:
+        # 1) biotype, at this point we have the biotypes classified based on hit coverage and percent id, so only take the best ones
+        # 2) utr, if there is utr present then this gives some extra confidence in an model and could override the biotype decision
+        # 3) location, if the model is in the intron of a gene on the same strand then we will almost always want to delete it. The
+        #    only case we wouldn't would be if the intron of the other gene looked dodgy (but this can be tricky to assess)
+
+        if($self->single_exon_within_intron($transcript)) {
+          say "Found single exon or frameshift intron only gene within another gene, will remove: ".$transcript->dbID.", ".$transcript->biotype;
+          push(@{$transcript_ids_to_remove},$transcript->dbID);
+        } else {
+          unless($transcript->biotype =~ /.+\_95$/) {
+            # Unless there is UTR flag for deletion
+            unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
+              say "Found single exon or frameshift intron only gene for removal due to biotype and lack of UTR: ".$transcript->dbID.", ".$transcript->biotype;
+              push(@{$transcript_ids_to_remove},$transcript->dbID);
+            }
+          }
+        }
+      }
+    } # End if(scalar(@{$transcripts}) == 1)
+
+
+  } # End foreach my $gene (@{$genes})
   return($transcript_ids_to_remove);
 }
 
@@ -139,12 +193,21 @@ sub flag_transcripts {
   my $flagged_transcripts = [];
   my $normal_transcripts = [];
   foreach my $transcript (@{$transcripts}) {
+    if($self->blessed_biotypes()->{$transcript->biotype}) {
+      next;
+    }
+
     my $introns = $transcript->get_all_Introns();
+    my $translateable_seq = $transcript->translateable_seq();
+    my $start_codon  = uc( substr( $translateable_seq, 0, 3 ) );
+    my $end_codon  = uc( substr( $translateable_seq, -3 ) );
     my $found_frameshift_intron = 0;
     my $found_non_canonical_splice = 0;
+    my $frame_shift_intron_count = 0;
     foreach my $intron (@{$introns}) {
       if($intron->length < 10) {
         $found_frameshift_intron = 1;
+        $frame_shift_intron_count++;
       } elsif($intron->is_splice_canonical() == 0) {
         $found_non_canonical_splice = 1;
       }
@@ -154,9 +217,18 @@ sub flag_transcripts {
       $transcript->{'_is_frameshift'} = 1;
     }
 
+    if($frame_shift_intron_count && ($frame_shift_intron_count == scalar(@{$introns}))) {
+      $transcript->{'_contains_only_frameshift_introns'} = 1;
+    }
+
     if($found_non_canonical_splice) {
       $transcript->{'_is_non_canonical'} = 1;
     }
+
+    unless($start_codon eq "ATG" && ($end_codon eq 'TAG') || ($end_codon eq 'TAA') || ($end_codon eq 'TGA')) {
+      $transcript->{'_non_start_stop_complete'} = 1;
+    }
+
 
     if($found_frameshift_intron || $found_non_canonical_splice) {
       push(@{$flagged_transcripts},$transcript);
@@ -169,10 +241,10 @@ sub flag_transcripts {
 
 }
 
-sub access_flagged_transcripts {
+sub assess_flagged_transcripts {
   my ($self,$gene,$normal_transcripts,$flagged_transcripts) = @_;
 
-  my $redundancy_cutoff = $self->param('redundancy_coverage_threshold');
+  my $redundancy_cutoff = $self->param('flagged_redundancy_coverage_threshold');
   unless(defined($redundancy_cutoff)) {
     $redundancy_cutoff = 95;
   }
@@ -185,6 +257,7 @@ sub access_flagged_transcripts {
       my $redundant_ignoring_frameshifts = $self->check_frameshift_redundancy($flagged_transcript,$normal_transcripts);
       if($redundant_ignoring_frameshifts) {
         say "Found a flagged transcript whose CDS is redundant if you ignore the frameshift introns, dbID: ".$flagged_transcript->dbID;
+        $flagged_transcript->{'_marked_for_removal'} = 1;
         push(@{$db_ids_to_remove},$flagged_transcript->dbID);
         next;
       }
@@ -204,6 +277,7 @@ sub access_flagged_transcripts {
       if($coverage >= $redundancy_cutoff) {
         say "Found a flagged transcript (".$flagged_transcript->dbID.") that is covered by a normal transcript (".$normal_transcript->dbID.")";
         say "Coverage: ".$coverage." (coverage threshold: ".$redundancy_cutoff.")";
+        $flagged_transcript->{'_marked_for_removal'} = 1;
         push(@{$db_ids_to_remove},$flagged_transcript->dbID);
         last;
       }
@@ -212,6 +286,142 @@ sub access_flagged_transcripts {
   return($db_ids_to_remove);
 }
 
+
+sub assess_transcripts_for_redundancy {
+  my ($self,$transcripts) = @_;
+
+  my $db_ids_to_remove = [];
+  for(my $i=0; $i<scalar(@{$transcripts}) - 1; $i++) {
+    my $transcript_a = ${$transcripts}[$i];
+    # Skip if this is already marked for removal
+    if($transcript_a->{'_marked_for_removal'}) {
+      next;
+    }
+
+    my $introns_a = $transcript_a->get_all_Introns();
+    unless($introns_a) {
+      next;
+    }
+
+    # Check if the transcript has a cleaned intron string in for transcripts with frameshift introns
+    my $intron_string_a;
+    if($transcript_a->{'_cleaned_intron_string'}) {
+      $intron_string_a = $transcript_a->{'_cleaned_intron_string'};
+    } else {
+      $intron_string_a = $self->generate_intron_string($introns_a);
+    }
+
+    for(my $j=$i+1; $j<scalar(@{$transcripts}); $j++) {
+      my $transcript_b = ${$transcripts}[$j];
+      # Skip if this is already marked for removal
+      if($transcript_b->{'_marked_for_removal'}) {
+        next;
+      }
+
+      my $introns_b = $transcript_b->get_all_Introns();
+      unless($introns_b) {
+        next;
+      }
+
+      # Check if the transcript has a cleaned intron string in for transcripts with frameshift introns
+      my $intron_string_b;
+      if($transcript_b->{'_cleaned_intron_string'}) {
+        $intron_string_b = $transcript_b->{'_cleaned_intron_string'};
+      } else {
+        $intron_string_b = $self->generate_intron_string($introns_b);
+      }
+      if($intron_string_a eq $intron_string_b) {
+        my $db_id_to_remove = $self->assess_transcript_with_identical_introns($transcript_a,$transcript_b);
+        if($db_id_to_remove) {
+          push(@{$db_ids_to_remove},$db_id_to_remove);
+          if($db_id_to_remove == $transcript_a->dbID) {
+            last;
+          }
+        }
+      }
+    }
+  }
+
+  return($db_ids_to_remove);
+}
+
+
+sub assess_transcript_with_identical_introns {
+  my ($self,$transcript_a,$transcript_b) = @_;
+  my $selected_id_for_removal = 0;
+  my $redundancy_cutoff = $self->param('general_redundancy_coverage_threshold');
+  my $translation_a_length = $transcript_a->translation->length;
+  my $translation_b_length = $transcript_b->translation->length;
+
+  my $translation_coverage = 0;
+  if($translation_a_length > $translation_b_length) {
+    $translation_coverage = ($translation_b_length / $translation_a_length) * 100;
+  } else {
+    $translation_coverage = ($translation_a_length / $translation_b_length) * 100;
+  }
+
+  if($translation_coverage >= $redundancy_cutoff) {
+    my $transcript_a_length = $transcript_a->length;
+    my $transcript_b_length = $transcript_a->length;
+    my $transcript_coverage = 0;
+    my $initial_db_id;
+    if($transcript_a_length > $transcript_b_length) {
+      $transcript_coverage = ($transcript_b_length / $transcript_a_length) * 100;
+      $initial_db_id = $transcript_a->dbID;
+    } else {
+      $transcript_coverage = ($transcript_a_length / $transcript_b_length) * 100;
+      $initial_db_id = $transcript_b->dbID;
+    }
+
+    if($transcript_coverage >= $redundancy_cutoff) {
+      my $transcript_a_incomplete = $transcript_a->{'_non_start_stop_complete'};
+      my $transcript_b_incomplete = $transcript_b->{'_non_start_stop_complete'};
+
+      if($initial_db_id == $transcript_a->dbID) {
+        unless($transcript_a_incomplete && !$transcript_b_incomplete) {
+          $selected_id_for_removal = $initial_db_id;
+        } else {
+          $selected_id_for_removal = $transcript_b->dbID;
+        }
+      } else {
+        unless($transcript_b_incomplete && !$transcript_a_incomplete) {
+          $selected_id_for_removal = $initial_db_id;
+       } else {
+          $selected_id_for_removal = $transcript_a->dbID;
+        }
+      }
+    }
+  }
+
+  return($selected_id_for_removal);
+}
+
+
+sub single_exon_within_intron {
+  my ($self,$transcript) = @_;
+
+  my $slice = $transcript->feature_Slice();
+  my $genes = $slice->get_all_Genes();
+
+  my $overlap_on_same_strand_count = 0;
+  foreach my $gene (@{$genes}) {
+    # Note that as this is a feature slice, any genes with strand 1 are on the same strand as the transcript
+    if($gene->strand == 1) {
+      $overlap_on_same_strand_count++;
+    }
+  }
+
+  say "FM2 overlap_on_same_strand_count: ".$overlap_on_same_strand_count;
+
+  # If there is more than just the parent gene then this single exon model must lie in an intron of another gene
+  # Otherwise it would have been part of the overlapping gene
+  if($overlap_on_same_strand_count > 1) {
+    return(1);
+  } else {
+    return(0);
+  }
+
+}
 sub transcript_ids_to_remove {
   my ($self,$transcript_ids_to_remove) = @_;
 
@@ -221,6 +431,7 @@ sub transcript_ids_to_remove {
 
   return($self->param('_transcript_ids_to_remove'));
 }
+
 
 sub check_frameshift_redundancy {
   my ($self,$frameshift_transcript,$normal_transcripts) = @_;
@@ -235,6 +446,8 @@ sub check_frameshift_redundancy {
   }
 
   my $cleaned_intron_string = $self->generate_intron_string(\@cleaned_cds_introns);
+  # Store the string for the transcript redundancy comparisons later
+  $frameshift_transcript->{'_cleaned_intron_string'} = $cleaned_intron_string;
   foreach my $normal_transcript (@{$normal_transcripts}) {
     my $normal_cds_introns = $normal_transcript->get_all_CDS_Introns();
     my $normal_intron_string = $self->generate_intron_string($normal_cds_introns);
