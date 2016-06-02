@@ -419,31 +419,30 @@ sub get_biotype {
 sub run{
   my ($self) = @_;
   my @genes;
-  #print "HAVE ".@{$self->runnable}." runnables to run\n";
-  foreach my $runnable (@{$self->runnable}){
-    my $output;
-    eval{
-      $runnable->run;
-    };
-    if($@){
-      # jhv - warning changed to throw() to prevent silent failing  
-      $self->throw("Running ".$runnable." failed error:$@");
-    }else{
-      $output =  $runnable->output;
-    }
 
+  my $runnable = shift @{$self->runnable};
+  my $output;
+  eval{
+    $runnable->run;
+  };
+  if($@){
+    my $except = $@;
+    $self->runnable_failed(1);
+    $self->warning("Issue with running genewise, will dataflow input id on branch -3. Exception:\n".$except);
+  } else {
+    $output =  $runnable->output;
     my $transcript = ${$output}[0];
 
     unless($self->check_coverage($transcript)) {
-      say "FM2 SKIPPING COV";
       next;
     }
 
     unless($self->check_pid($transcript)) {
-      say "FM2 SKIPPING PID";
       next;
     }
+
     $transcript = $self->add_slice_to_features($transcript);
+    $transcript = $self->process_transcript($transcript);
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
@@ -455,9 +454,8 @@ sub run{
     $transcript->biotype($transcript_biotype);
     $gene->add_Transcript($transcript);
     push(@genes,$gene);
+    $self->param('output_genes',\@genes);
   }
-
-  $self->param('output_genes',\@genes);
 
 #  my $complete_transcripts = $self->process_transcripts(\@transcripts);
 #  my @genes = @{convert_to_genes($complete_transcripts, $self->analysis, 
@@ -474,7 +472,6 @@ sub run{
 #    @masked_genes = @genes;
 #  }
 #  logger_info("HAVE ".@masked_genes." genesafter masking") if($self->POST_GENEWISE_MASK);
-  
 #  $self->filter_genes(\@masked_genes);
   #$hash = $self->group_genes_by_id($self->output);
   #foreach my $name(keys(%{$hash})){
@@ -514,6 +511,16 @@ sub check_pid {
   }
 
 }
+
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if($runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return($self->param('_runnable_failed'));
+}
+
 
 sub add_slice_to_features {
   my ($self,$transcript) = @_;
@@ -588,18 +595,11 @@ sub filter_genes{
 
 
 
-sub process_transcripts{
-  my ($self, $transcripts) = @_;
-  my @complete_transcripts;
-  foreach my $transcript(@$transcripts){
-    my $unmasked_slice = $self->fetch_sequence($transcript->slice->name, 
-                                               $self->output_db);
-    attach_Slice_to_Transcript($transcript, $unmasked_slice);
-    my $start_t = set_start_codon($transcript);
-    my $end_t = set_stop_codon($start_t);
-    push(@complete_transcripts, $end_t);
-  }
-  return \@complete_transcripts
+sub process_transcript {
+  my ($self, $transcript) = @_;
+  my $start_t = set_start_codon($transcript);
+  my $end_t = set_stop_codon($start_t);
+  return $end_t;
 }
 
 
@@ -617,19 +617,24 @@ sub process_transcripts{
 
 
 sub write_output{
-
   my ($self) = @_;
-  my $ga = $self->get_adaptor;
-  my @output = @{$self->param('output_genes')};
-  my $sucessful_count = 0;
 
-  foreach my $gene (@output) {
-    empty_Gene($gene);
-    eval {
-      $ga->store($gene);
-    };
-    if($@){
-      $self->throw("Failed to write gene: ".$@);
+  my $failure_branch_code = -3;
+  if($self->runnable_failed == 1) {
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+  } else {
+    my $ga = $self->get_adaptor;
+    my @output = @{$self->param('output_genes')};
+    foreach my $gene (@output) {
+      empty_Gene($gene);
+      eval {
+        $ga->store($gene);
+      };
+      if($@){
+        $self->throw("Failed to write gene: ".$@);
+      }
     }
   }
 
