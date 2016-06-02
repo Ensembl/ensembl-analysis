@@ -25,7 +25,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
-  my $target_db = $self->param('iid');
+  my $target_db = $self->param('target_db');
 
   unless($target_db) {
     $self->throw("target_db not passed into param hash. Expected an input id of the format:\n".
