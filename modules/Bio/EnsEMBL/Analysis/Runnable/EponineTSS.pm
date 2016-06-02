@@ -77,18 +77,27 @@ sub new {
 
   my ($epojar, $threshold) = rearrange(['EPOJAR', 'THRESHOLD'], @args);
 
+
+
   ##################
   #SETTING DEFAULTS#
   ##################
   if(!$self->program){
     $self->program('java');
   }
-  $self->epojar('eponine-scan.jar');
-  $self->threshold(50);
-  ##################
 
-  $self->epojar($epojar) if($epojar);
-  $self->threshold($threshold) if($threshold);
+  unless($epojar) {
+    $self->epojar('eponine-scan.jar');
+  } else {
+    $self->epojar($epojar);
+  }
+
+  unless(defined($threshold)) {
+    $self->threshold(50);
+  } else {
+    $self->threshold($threshold);
+  }
+  ##################
 
   return $self;
 }

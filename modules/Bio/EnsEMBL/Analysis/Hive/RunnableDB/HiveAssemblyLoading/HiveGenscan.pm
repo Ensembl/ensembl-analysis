@@ -91,7 +91,7 @@ sub fetch_input{
                                               -module => $self->param('module'),
                                               -program_file => $self->param('genscan_path'),
                                               -db => 'HumanIso.smat',
-                                              -db_file => 'HumanIso.smat',
+                                              -db_file => $self->param('genscan_matrix_path'),
                                             );
 
   $self->param('analysis',$analysis);

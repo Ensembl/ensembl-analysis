@@ -100,6 +100,9 @@ sub fetch_input{
      -query => $self->query,
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
+     -epo_jar => $self->param('epo_jar'),
+     -threshold => $self->param('threshold'),
+
      %parameters,
     );
   $self->runnable($runnable);
