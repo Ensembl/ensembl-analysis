@@ -1,12 +1,12 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
-# 
+# Copyright [2016] EMBL-European Bioinformatics Institute
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,8 +21,8 @@ TranscriptCluster
 
 =head1 DESCRIPTION
 
-This object holds one or more transcripts which have been clustered according to 
-comparison criteria external to this class (for instance, in the 
+This object holds one or more transcripts which have been clustered according to
+comparison criteria external to this class (for instance, in the
 method _compare_Transcripts of the class GeneComparison).
 Each TranscriptCluster object holds the IDs of the transcripts clustered and the beginning and end coordinates
 of each one (taken from the start and end coordinates of the first and last exon in the correspondig
@@ -76,7 +76,7 @@ sub new {
   }
   my $self = {};
   bless($self,$class);
-  
+
   if ($whatever){
     $self->throw( "Can't pass an object to new() method. Use put_Genes() to include Bio::EnsEMBL::Gene in cluster");
   }
@@ -164,7 +164,7 @@ sub length{
             that method there is also a check for strand consistency everytime a new transcript is added
   Returns : the strandidness (-1, 0, +1)
   Args    : optionaly allows the strand to be set
-        
+
 =cut
 
 sub strand{
@@ -192,7 +192,7 @@ not defined. They are implemented in Bio::RangeI.
   Function: tests if $cluster2 overlaps $cluster1 overlaps in the sense of genomic-range overlap,
             it does NOT test for exon overlap.
   Args    : arg #1 = a range to compare this one to (mandatory)
-            arg #2 = strand option ('strong', 'weak', 'ignore') 
+            arg #2 = strand option ('strong', 'weak', 'ignore')
   Returns : true if the clusters overlap, false otherwise
 
 =cut
@@ -201,7 +201,7 @@ not defined. They are implemented in Bio::RangeI.
 
   Title   : contains
   Usage   : if($cluster1->contains($cluster2) { do stuff }
-  Function: tests whether $cluster1 totally contains $cluster2 
+  Function: tests whether $cluster1 totally contains $cluster2
   Args    : arg #1 = a range to compare this one to (mandatory)
 	             alternatively, integer scalar to test
             arg #2 = strand option ('strong', 'weak', 'ignore') (optional)
@@ -213,7 +213,7 @@ not defined. They are implemented in Bio::RangeI.
 
   Title   : equals
   Usage   : if($cluster1->equals($cluster2))
-  Function: test whether the range covered by $cluster1 has the same start, end, length as the range 
+  Function: test whether the range covered by $cluster1 has the same start, end, length as the range
             covered by $cluster2
   Args    : a range to test for equality
   Returns : true if they are describing the same range
@@ -234,11 +234,11 @@ want them to return a new TranscriptCluster object.
  Function: Provides actual amount of overlap between two different
            ranges. Implemented already in RangeI
  Example :
- Returns : array of values for 
+ Returns : array of values for
            - the amount unique to a
            - the amount common to both
            - the amount unique to b
- Args    : 
+ Args    :
 
 =cut
 
@@ -325,7 +325,7 @@ sub intersection{
 
   Title   : union
   Usage   : $union_cluster = $cluster1->union(@clusters);
-  Function: returns the union of clusters 
+  Function: returns the union of clusters
   Args    : a TranscriptCluster or list of TranscriptClusters to find the union of
   Returns : the TranscriptCluster object containing all of the ranges
 
@@ -367,11 +367,11 @@ return $union_cluster;
 
 sub put_Transcripts {
   my ($self, @new_transcripts)= @_;
-  
+
   if ( !$new_transcripts[0]->isa('Bio::EnsEMBL::Transcript') ){
     $self->throw( "Can't accept a [ $new_transcripts[0] ] instead of a Bio::EnsEMBL::Transcript");
   }
-  
+
   #Get bounds of new transcripts
   my $min_start = undef;
   my $max_end   = undef;
@@ -405,7 +405,7 @@ sub put_Transcripts {
   unless ( $self->end ){
     $self->end( $max_end);
   }
-  
+
   # extend start and end if necessary as we include more transcripts
   if ($min_start < $self->start ){
     $self->start( $min_start );
@@ -451,7 +451,7 @@ sub to_String {
     else{
       $id = $tran->dbID;
     }
- 
+
     $data .= sprintf "Id: %-16s"             , $id;
     $data .= sprintf "Contig: %-21s"         , $exons[0]->contig->id;
     $data .= sprintf "Exons: %-3d"           , scalar(@exons);
@@ -467,7 +467,7 @@ sub to_String {
 #########################################################################
 
 sub exon_Density{
-  my ($self, $transcript) = @_;  
+  my ($self, $transcript) = @_;
   my $density;
   my $exon_span;
   my @exons = @{$transcript->get_all_Exons};

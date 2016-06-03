@@ -1,12 +1,12 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
-# 
+# Copyright [2016] EMBL-European Bioinformatics Institute
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,7 +16,7 @@ Copyright [2016] EMBL-European Bioinformatics Institute
 package SupportingEvidenceInfo;
 
 
-=pod 
+=pod
 
 =head1 NAME
 
@@ -63,7 +63,7 @@ sub new{
   Arg [1]   : SupportingEvidenceInfo
   Arg [2]   : value of variable
   Function  : container for specified variable. This pod refers to the
-  seven methods below, db, verbose, info, evidence_type, id_type 
+  seven methods below, db, verbose, info, evidence_type, id_type
   have_pfetch and primary_evidence. These are simple containers which do no
   more than hold and return an given value
   Returntype: value of variable
@@ -195,7 +195,7 @@ sub evidence_ids_from_feature_id{
   Arg [2]   : string, evidence identifier
   Arg [3]   : string, gene type
   Arg [4]   : string, table name, gene or transcript
-  Arg [5]   : string, evidence type dna_align_feature or 
+  Arg [5]   : string, evidence type dna_align_feature or
               protein_align_feature
   Arg [6]   : Bio::EnsEMBL::DBSQL::DBAdaptor
   Function  : get the dbIDs of any genes or transcripts which have this
@@ -210,7 +210,7 @@ sub evidence_ids_from_feature_id{
 
 
 sub feature_ids_from_evidence_id{
-  my ($self, $evidence_id, $gene_type, $evidence_type, $id_type, 
+  my ($self, $evidence_id, $gene_type, $evidence_type, $id_type,
       $primary, $db) = @_;
   if(!$db){
     $db = $self->db;
@@ -281,7 +281,7 @@ sub dbID_from_stable_id{
 
 sub fetch_descriptions{
   my ($self, $protein_ids) = @_;
-  
+
  ID:foreach my $id(@$protein_ids){
     if($id =~ /(S+)-\1/){
       $id = 1;
@@ -338,9 +338,9 @@ sub print_feature_info{
   Arg [3]   : Bio::EnsEMBL::DBSQL::DBAdaptor
   Function  : get an appropriate buisness adaptor for the features
   wanted
-  Returntype: Bio::EnsEMBL::DBSQL::BaseFeatureAdaptor 
+  Returntype: Bio::EnsEMBL::DBSQL::BaseFeatureAdaptor
   Exceptions: throws if not passed a recognised type
-  Example   : 
+  Example   :
 
 =cut
 
@@ -400,7 +400,7 @@ sub read_id_file{
   exon
   Returntype: string
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
@@ -426,8 +426,8 @@ sub evidence_from_feature_id_sql{
              "from $evidence_type, supporting_feature, ".
              "exon_transcript, exon, transcript ".
              "where ".$evidence_type."_id = feature_id ".
-             "and feature_type = '$evidence_type'". 
-             "and supporting_feature.exon_id = exon_transcript.exon_id ". 
+             "and feature_type = '$evidence_type'".
+             "and supporting_feature.exon_id = exon_transcript.exon_id ".
              "and exon_transcript.transcript_id = ".
              "transcript.transcript_id ".
              "and transcript.".$id_type."_id = $feature_id");
