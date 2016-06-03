@@ -1,4 +1,4 @@
-=pod 
+=pod
 
 =head1 NAME
 
@@ -22,7 +22,8 @@
 
 =head1 LICENSE
 
-    Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+    Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+    Copyright [2016] EMBL-European Bioinformatics Institute
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -92,7 +93,7 @@ sub write_output {
   my $self = shift @_;
 
   my $fan_branch_code         = $self->param('fan_branch_code');
-  
+
   my $max_chunk_size    = $self->param('max_chunk_size');
   my $output_prefix       = $self->param('output_prefix');
   my $output_suffix       = $self->param('output_suffix');
@@ -100,15 +101,15 @@ sub write_output {
   my $chunk_number = 1;   # counts the chunks
   my $chunk_size   = 0;   # number of sequences in the current chunk
   my $chunk_filename   = $self->param('output_dir')."/".$output_prefix.$chunk_number.$output_suffix;
-   
+
   open(my $chunk_file,'>',$chunk_filename) or die "Could not open file '$chunk_filename' for writing $!";
-  
+
   open INPUTFILE, $self->param('inputfile') or die $!;
   while (my $output_id = <INPUTFILE>) {
     chomp($output_id);
     print $chunk_file $output_id."\n";
     $chunk_size++;
-    
+
     if ($chunk_size >= $max_chunk_size) {
       # dataflow the current chunk
       $self->dataflow_output_id( {
@@ -127,7 +128,7 @@ sub write_output {
       open($chunk_file,'>',$chunk_filename) or die "Could not open file '$chunk_filename' for writing $!";
     }
   }
-  
+
   if ($chunk_size) { # flush the last chunk
     $self->dataflow_output_id( {
                 'file' => $chunk_filename,
