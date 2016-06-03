@@ -1,4 +1,4 @@
-=pod 
+=pod
 
 =head1 NAME
 
@@ -24,7 +24,8 @@
 
 =head1 LICENSE
 
-    Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+    Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+    Copyright [2016] EMBL-European Bioinformatics Institute
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -55,7 +56,7 @@ sub param_defaults {
             'subject' => undef,
             'file' => undef,    # full path to the textfile whose text will be attached to the text of your email
             'command' => '', # optional command to apply to the textfile
-            
+
     };
 }
 
@@ -84,9 +85,9 @@ sub fetch_input {
     param('is_html'): Boolean. Whether the content of 'text' is in HTML
 
     param('*'):       Any other parameters can be freely used for parameter substitution.
-    
+
     param('file'):    Full path to the textfile whose text will be attached to the text of your email.
-    
+
     param('command'): Optional command to apply to the textfile.
 
 =cut
@@ -105,7 +106,7 @@ sub run {
     print $sendmail_fh "Content-Type: text/html;\n" if $self->param('is_html');
     print $sendmail_fh "\n";
     print $sendmail_fh "$text\n\n";
-    
+
     if ($command) {
       print $sendmail_fh `cat $file | $command`;
     } else {
