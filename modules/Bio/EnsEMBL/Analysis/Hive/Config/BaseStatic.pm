@@ -98,11 +98,49 @@ sub get_config_settings {
 
     # All values in the first hash will be overwritten by the values in the second hash.
     # Unshared key/values will be added
-    %$config = (%$config, %$config_group_hash);
+    _add_keys($config, $config_group_hash);
   }
-  %$config = (%$config, %$additional_hash) if ($additional_hash);
+  _add_keys($config, $additional_hash) if ($additional_hash);
 
   return $config;
+}
+
+
+=head2 _add_keys
+
+ Arg [1]    : Hashref the Hash to write to
+ Arg [2]    : Hashref the hash which data will overwrite data from Arg[1]
+ Description: Add key from Arg[2] to Arg[1] and overwrite if the key is present.
+              It does a deep copy when the value is a hashref
+              If you have hashref in an arrayref, the arrayref in Arg[1] will be
+              overwritten by the arrayref in Arg[2]. Maybe your config should not
+              be that complicated.
+ Returntype : None
+ Exceptions : Throws if the value for a same key has a different data type
+
+=cut
+
+sub _add_keys {
+  my ($hash1, $hash2) = @_;
+
+  foreach my $key (keys %$hash2) {
+    if (exists $hash1->{$key}) {
+      if (ref($hash2->{$key}) eq ref($hash2->{$key})) {
+        if (ref($hash2->{$key}) eq 'HASH') {
+          _add_keys($hash1->{$key}, $hash2->{$key});
+        }
+        else {
+          $hash1->{$key} = $hash2->{$key};
+        }
+      }
+      else {
+        throw("Discrepencies in type for $key");
+      }
+    }
+    else {
+      $hash1->{$key} = $hash2->{$key};
+    }
+  }
 }
 
 1;
