@@ -61,14 +61,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
-
-#use Bio::EnsEMBL::Analysis::Config::General;
-#use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
