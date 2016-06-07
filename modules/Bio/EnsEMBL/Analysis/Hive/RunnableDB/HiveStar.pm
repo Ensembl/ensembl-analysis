@@ -46,10 +46,22 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar;
 
 use warnings;
 use strict;
+
 use Bio::EnsEMBL::Analysis::Runnable::Star;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Fetch parameters for STAR
+ Returntype : None
+ Exceptions : Throws if 'filename' does not exist
+              Throws if 'fastqpair' does not exist
+              Throws if 'wide_short_read_aligner' is not defined
+
+=cut
 
 sub fetch_input {
   my ($self) = @_;
@@ -64,8 +76,8 @@ sub fetch_input {
      -analysis       => $self->create_analysis,
      -program        => $program,
      -options        => $self->param('short_read_aligner_options'),
-     -outdir         => $self->param('wide_output_dir'),
-     -tempdir        => $self->param('temp_dir'),
+     -outdir         => $self->param('output_dir'),
+     -workdir        => $self->param('temp_dir'),
      -genome         => $self->param('wide_genome_file'),
      -fastq          => $filename,
      -fastqpair      => $fastqpair,

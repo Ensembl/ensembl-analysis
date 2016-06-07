@@ -79,7 +79,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
               in the format: <stable_id>:<start_exon>:<batch_size>:<offset>
               If your genome use UCSC style names (chr1,...), set 'wide_use_ucsc_naming' to 1
  Returntype : None
- Exceptions : None
+ Exceptions : Throws if the BAM file 'bam_file' does not exist
 
 =cut
 
@@ -87,6 +87,7 @@ sub fetch_input {
   my ($self) = @_;
   # do all the normal stuff
   # then get all the transcripts and exons
+  $self->throw('Your bam file "'.$self->param('bam_file').'" does not exist!') unless (-e $self->param('bam_file'));
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($dna_db, 'dna_db');
   my $gene_db = $self->get_database_by_name('input_db', $dna_db);
@@ -646,6 +647,9 @@ sub stored_features {
 
   return unless defined ($key);
 
+  if (!$self->param_is_defined('_stored_features')) {
+    $self->param('_stored_features', {});
+  }
   if (defined $value) {
     $self->param('_stored_features')->{$key} = $value;
   }

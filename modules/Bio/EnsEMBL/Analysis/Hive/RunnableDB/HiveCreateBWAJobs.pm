@@ -64,10 +64,10 @@ sub fetch_input {
         $short_read_aligner_options .= ' -t '. $self->param('use_threading') if ($self->param('use_threading'));
         $short_read_aligner_options .= ' -I ' if ($result->{'is_13plus'});
         push(@row, $short_read_aligner_options);
-        push(@$column_hash, 'short_read_aligner_options');
-        $self->param('column_names', $column_hash);
         push(@output_ids, \@row);
     }
+    push(@$column_hash, 'short_read_aligner_options');
+    $self->param('column_names', $column_hash);
     $self->param('inputlist', \@output_ids);
 }
 

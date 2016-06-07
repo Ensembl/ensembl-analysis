@@ -78,7 +78,7 @@ sub new {
   my ($decompress, $sam_attributes) = rearrange([qw (DECOMPRESS RG_LINES)],@args);
   $self->throw('Your working directory '.$self->workdir." does not exist!\n") unless (-d $self->workdir);
   my (undef,$genome_dir,) = File::Spec->splitpath($self->genome);
-  $self->throw("Genome file must be indexed \n") unless (-e $genome_dir.'/SA');
+  $self->throw("Genome file must be indexed, '$genome_dir/SA' does not exist\n") unless (-e $genome_dir.'/SA');
   $self->genome($genome_dir);
   $self->sam_attributes($sam_attributes);
   $self->is_file_compressed($decompress || '');

@@ -718,10 +718,10 @@ sub dna_2_intron_features {
 
 =head2 gene_slice_adaptor
 
- Arg [1]    : (optional) Bio::EnsEMBL::DBSQL::DBAdaptor
+ Arg [1]    : (optional) Bio::EnsEMBL::DBSQL::SliceAdaptor
  Description: Getter/setter for a SliceAdaptor object on the input database
- Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
- Exceptions : None
+ Returntype : Bio::EnsEMBL::DBSQL::SliceAdaptor
+ Exceptions : Throws if Arg[1] is not a Bio::EnsEMBL::DBSQL::SliceAdaptor
 
 =cut
 
@@ -729,10 +729,12 @@ sub gene_slice_adaptor {
     my ($self, $val) = @_;
 
     if (defined $val) {
-        $self->hrdb_set_con('gene_slice_adaptor', $val);
+      $self->throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::SliceAdaptor!')
+        unless (ref($val) eq 'Bio::EnsEMBL::DBSQL::SliceAdaptor');
+      $self->param('gene_slice_adaptor', $val);
     }
 
-    return $self->hrdb_get_con('gene_slice_adaptor');
+    return $self->param('gene_slice_adaptor');
 }
 
 

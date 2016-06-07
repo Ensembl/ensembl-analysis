@@ -608,7 +608,7 @@ sub pipeline_analyses {
         -rc_name    => '1GB_rough',
         -batch_size => 100,
         -flow_into => {
-                        2 => ['bam2introns'],
+                        2 => {'bam2introns' => {iid => '#iid#', bam_file => '#alignment_bam_file#'}},
                       },
       },
             {
@@ -632,9 +632,9 @@ sub pipeline_analyses {
         -rc_name    => '2GB_introns',
         -flow_into => {
                         1 => [':////accu?filename=[]'],
-                        2 => ['bam2introns'],
-                        -1 => ['bam2introns_5GB'],
-                        -2 => ['bam2introns_5GB'],
+                        2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
+                        -1 => {'bam2introns_5GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
+                        -2 => {'bam2introns_5GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
                       },
       },
             {
@@ -659,9 +659,9 @@ sub pipeline_analyses {
         -rc_name    => '5GB_introns',
         -flow_into => {
                         1 => [':////accu?filename=[]'],
-                        2 => ['bam2introns'],
-                        -1 => ['bam2introns_10GB'],
-                        -2 => ['bam2introns_10GB'],
+                        2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
+                        -1 => {'bam2introns_10GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
+                        -2 => {'bam2introns_10GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
                       },
       },
             {
@@ -686,7 +686,7 @@ sub pipeline_analyses {
         -rc_name    => '10GB_introns',
         -flow_into => {
                         1 => [':////accu?filename=[]'],
-                        2 => ['bam2introns'],
+                        2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
                       },
       },
             {
@@ -1120,7 +1120,7 @@ sub pipeline_analyses {
             uniprot_index => [$self->o('uniprotdb')],
             blast_program => $self->o('blastp'),
             %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
-            commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->default_options->{'use_threads'}.' -hitdist=40' : '-p blastp -W 40',
+            commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->default_options->{'use_threads'}.' -hitdist=40' : '-p blastp -A 40',
                       },
         -rc_name => '2GB_blast',
         -wait_for => ['create_blast_output_db'],

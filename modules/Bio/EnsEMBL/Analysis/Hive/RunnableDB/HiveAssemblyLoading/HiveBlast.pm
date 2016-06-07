@@ -396,7 +396,7 @@ sub BLAST_PARAMS {
     $self->param('BLAST_PARAMS',$value);
   }
   if($self->parameters_hash) {
-    my %parameters = (@{$self->param('BLAST_PARAMS')}, %{$self->parameters_hash});
+    my %parameters = (%{$self->param('BLAST_PARAMS')}, %{$self->parameters_hash});
     $self->param('BLAST_PARAMS', \%parameters);
   }
 
