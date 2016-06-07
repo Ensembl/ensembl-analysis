@@ -44,7 +44,6 @@ use warnings ;
 use strict;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
