@@ -47,7 +47,7 @@ sub fetch_input {
     push(@command, '--genomeFastaFiles', $file);
     push(@command, '--sjdbGTFfile', $self->param('annotation_gtf'))
       if ($self->param_is_defined('annotation_gtf'));
-    push(@command, '--sjdbOverhang', $self->param('read_length')-1);
+    push(@command, '--sjdbOverhang', $self->param('read_length')-1)
       if ($self->param_is_defined('read_length') and $self->param('read_length') > 1);
     push(@command, $self->param('extra_options'))
       if ($self->param_is_defined('extra_options'));

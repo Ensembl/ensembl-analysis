@@ -31,7 +31,7 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::Tools::Utilities;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw (get_analysis_settings);
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
