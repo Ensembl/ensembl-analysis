@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,14 +51,27 @@ files into a single sorted indexed merged BAM file
 package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-$| = 1;
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
+
+
+=head2 new
+
+ Arg [HEADER]  : String
+ Arg [SAMFILES]: String
+ Arg [BAMFILE] : String
+ Arg [GENOME]  : String
+ Description   : Creates a new Bio::EnsEMBL::Analysis::Runnable::Sam2Bam object to convert SAM files
+                 to a BAM file
+ Returntype    : Bio::EnsEMBL::Analysis::Runnable::Sam2Bam
+ Exceptions    : Throws if you have no files to work on
+                 Throws if BAMFILE or GENOME is not set
+              
+=cut
 
 sub new {
   my ( $class, @args ) = @_;
@@ -92,7 +106,7 @@ sub run {
   open (BAM ,">$bamfile.sam" ) or $self->throw("Cannot open sam file for merging $bamfile.sam");
   foreach my $file ( @{$self->samfiles} ) {
     my $line;
-    open ( SAM ,"$file") or $self->throw("Cannot open file $file\n");
+    open ( SAM ,"$file") or $self->throw("Cannot open file '$file'\n");
     my $line_count = 0;
     while (<SAM>) {
       # 1st file copy the header all the others just copy the data
@@ -102,19 +116,15 @@ sub run {
       print BAM "$_\n";
       $line_count++;
     }
-    close(SAM) || $self->throw("Failed opening $file");
+    close(SAM) || $self->throw("Failed closing '$file'\n");
     $count++;
     push @fails,$file  unless ( $line eq '@EOF' or $line_count == 0 );
     #last if $count >= 100;
   }
-  close(BAM) || $self->throw("Failed opening sam file for merging $bamfile.sam");
+  close(BAM) || $self->throw("Failed closing sam file for merging $bamfile.sam");
   print "Merged $count files\n";
   if ( scalar(@fails) > 0 ) {
-    print "The following sam files failed to complete, you need to run them again\n";
-    foreach my $file (@fails) {
-      print "$file";
-    }
-    $self->throw();
+    $self->throw(join("\n", 'The following sam files failed to complete, you need to run them again', @fails));
   }
   my $fh;
   # now call sam tools to do the conversion.
@@ -199,6 +209,16 @@ sub run {
 #Containers
 #=================================================================
 
+
+=head2 headerfile
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : Throws if file doesn't exist
+
+=cut
+
 sub headerfile {
   my ($self,$value) = @_;
 
@@ -216,6 +236,16 @@ sub headerfile {
 }
 
 
+
+=head2 samfiles
+
+ Arg [1]    : (optional) Arrayref of String
+ Description: Getter/setter
+ Returntype : Arrayref of String
+ Exceptions : None
+
+=cut
+
 sub samfiles {
   my ($self,$value) = @_;
 
@@ -229,6 +259,16 @@ sub samfiles {
     return undef;
   }
 }
+
+
+=head2 bamfile
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub bamfile {
   my ($self,$value) = @_;
@@ -245,10 +285,20 @@ sub bamfile {
 }
 
 
+=head2 genome
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : Throws if the file doesn't exists
+
+=cut
+
 sub genome {
   my ($self,$value) = @_;
 
   if (defined $value) {
+    $self->throw($value.' does not exist!') unless (-e $value);
     $self->{'_genome'} = $value;
   }
 

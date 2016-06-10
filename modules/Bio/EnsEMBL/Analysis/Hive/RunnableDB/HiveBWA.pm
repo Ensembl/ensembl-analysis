@@ -1,4 +1,5 @@
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +30,8 @@ $runnableDB->run();
 
 =head1 DESCRIPTION
 
-This module uses BWA to align fastq to a genomic sequence
+This module uses BWA to align fastq to a genomic sequence, the fastq file can be compress
+with gzip
 
 =head1 CONTACT
 
@@ -48,6 +50,16 @@ use Bio::EnsEMBL::Analysis::Runnable::BWA;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Create a Bio::EnsEMBL::Analysis::Runnable::BWA using 'filename' as input for BWA ('wide_short_read_aligner')
+              to run of the genome specified in 'wide_genome_file'
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub fetch_input {
   my ($self) = @_;
   my $filename =  $self->param('wide_input_dir') ."/" .$self->param('filename');
@@ -65,6 +77,17 @@ sub fetch_input {
     );
   $self->runnable($runnable);
 }
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Dataflow the name of the input file (filename) and if it's the first mate of paired-end reads (is_mate_1),
+              accessible via $self->param('fastq') on branch 1. If the reads are single-end, is_mate_1 will always be 1.
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 # override write output as we have nothing for the db
 sub write_output {

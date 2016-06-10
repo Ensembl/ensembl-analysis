@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +20,22 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveParseCsvIntoTable;
 use strict;
 use warnings;
 
-use base ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Store the csv information in a custom table in the hive database
+              via 'csvfile_table' and flowing the information from 'sample_column'
+              into branch 'fan_branch_code', usually 2
+              If you specify -1 for the 'is_mate_1' column, it will use the value
+              in 'pairing_regex' to determine which mate correspond to the filename
+              processed
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
     my $self = shift;

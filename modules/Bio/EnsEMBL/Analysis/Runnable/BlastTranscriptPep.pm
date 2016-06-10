@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,19 +64,16 @@ use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Runnable::Blast;
-use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::Blast);
+use parent ('Bio::EnsEMBL::Analysis::Runnable::Blast');
+
 
 =head2 new
 
-  Arg [1]         : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [Transcript]: Bio::EnsEMBL::Transcript
-  Function        : create a BlastTranscriptPep runnable 
-  Returntype      : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Exceptions      : none 
-  Example         : 
+ Arg [Transcript]: Bio::EnsEMBL::Transcript
+ Description     : create a BlastTranscriptPep runnable 
+ Returntype      : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
+ Exceptions      : None 
 
 =cut
 
@@ -90,12 +88,10 @@ sub new {
 
 =head2 transcript
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [2]   : Bio::EnsEMBL::Transcript
-  Function  : container for transcript
-  Returntype: Bio::EnsEMBL::Transcript
-  Exceptions: throws if not passed a Bio::EnsEMBL::Transcript
-  Example   : 
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Description: container for transcript
+ Returntype : Bio::EnsEMBL::Transcript
+ Exceptions : throws if not passed a Bio::EnsEMBL::Transcript
 
 =cut
 
@@ -113,13 +109,11 @@ sub transcript{
 
 =head2 run
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [2]   : string, working directory
-  Function  : instantiations Blast runnable and runs it then converts
-  blast hits back into genomic coords
-  Returntype: none
-  Exceptions: none
-  Example   : 
+  Arg [1]    : string, working directory
+  Description: instantiations Blast runnable and runs it then converts
+               blast hits back into genomic coords
+  Returntype : none
+  Exceptions : none
 
 =cut
 
@@ -144,16 +138,13 @@ sub run{
 }
 
 
-
 =head2 align_hits_to_query
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep
-  Arg [2]   : arrayref of Bio::EnsEMBL::BaseAlignFeatures
-  Function  : convert the features from blast from peptide coodinates
-  to genomic coordinates
-  Returntype: none
-  Exceptions: 
-  Example   : 
+ Arg [1]    : Arrayref of Bio::EnsEMBL::BaseAlignFeatures
+ Description: convert the features from blast from peptide coodinates
+              to genomic coordinates
+ Returntype : None
+ Exceptions : None
 
 =cut
 
@@ -240,3 +231,5 @@ sub align_hits_to_query {
   }
   $self->output(\@output);
 }
+
+1;

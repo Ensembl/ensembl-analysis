@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,19 +66,23 @@ use warnings ;
 use strict;
 use feature qw(say) ;
 
+use Bio::DB::Sam;
+
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 use Bio::EnsEMBL::DnaDnaAlignFeature;
-use Bio::DB::Sam;
 use Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
 =head2 fetch_input
 
-    Title        :   fetch_input
-    Usage        :   $self->fetch_input
-    Returns      :   nothing
-    Args         :   none
+ Arg [1]    : None
+ Description: It will fetch all the proto transcript from the region specified in 'iid' and fetch all the
+              reads representing the introns. Multiple intron files can be given and they can contain non spliced
+              reads if MIXED is higher than 0.
+ Returntype : None
+ Exceptions : None
 
 =cut
 
@@ -90,18 +95,21 @@ sub fetch_input {
     $genes_db->dbc->disconnect_when_inactive(0);
     my $reference_db = $self->get_database_by_name('dna_db');
     $reference_db->dbc->disconnect_when_inactive(0);
+    $genes_db->dnadb($reference_db);
+    $self->gene_slice_adaptor($reference_db->get_SliceAdaptor);
+    $self->hrdb_set_con($self->get_database_by_name('output_db'), 'output_db');
+    $self->hrdb_get_con('output_db')->dbc->disconnect_if_idle if ($self->param('disconnect_jobs'));
     my @rough_genes;
     my $real_slice_start;
     my $real_slice_end;
+    my $chr_slice;
     if ($self->is_slice_name($input_id)) {
         my $genes;
         my $slice = $self->fetch_sequence($input_id, $genes_db);
         $real_slice_start = $slice->start;
         $real_slice_end = $slice->end;
-        my $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $slice->seq_region_name);
-        $self->chr_slice($chr_slice);
+        $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $slice->seq_region_name);
 
-        $self->gene_slice_adaptor($reference_db->get_SliceAdaptor);
         if ( $self->param('model_ln') ) {
             $genes = $slice->get_all_Genes_by_type( undef,$self->param('model_ln') );
             print STDERR "Got " .  scalar(@$genes) . " genes with logic name " . $self->param('model_ln') ."\n";
@@ -122,9 +130,8 @@ sub fetch_input {
             my $overlap = $oe - $os +1;
             my $gc = int(($overlap / $gene->length) * 1000) / 10;
             my $sc =  int(($overlap / $slice->length) * 1000) /10;
-            print "Gene has $gc % overlap with the slice\nSlice has $sc % overlap with the gene\n";
             if ( $gc <= 10 && $sc <= 10) {
-                print "Rejecting\n";
+                print "Gene ", $gene->display_id, " has $gc% overlap with the slice\nSlice has $sc% overlap with the gene\n  Rejecting\n";
                 next;
             }
             $real_slice_start = $gene->seq_region_start < $real_slice_start ? $gene->seq_region_start : $real_slice_start;
@@ -135,12 +142,12 @@ sub fetch_input {
     }
     else {
         my $gene = $genes_db->get_GeneAdaptor->fetch_by_stable_id($input_id);
-        my $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $gene->slice->seq_region_name);
-        $self->chr_slice($chr_slice);
+        $chr_slice = $reference_db->get_SliceAdaptor->fetch_by_region( 'toplevel', $gene->slice->seq_region_name);
         $real_slice_start = $gene->seq_region_start;
         $real_slice_end = $gene->seq_region_end;
         push(@rough_genes, $gene);
     }
+    $self->chr_slice($chr_slice);
     if (scalar(@rough_genes)) {
         $self->create_analysis;
         if ( $self->param('intron_bam_files') ) {
@@ -163,7 +170,6 @@ sub fetch_input {
             $self->dna_2_intron_features($real_slice_start, $real_slice_end);
         }
         $genes_db->dbc->disconnect_when_inactive(1);
-        $reference_db->dbc->disconnect_when_inactive(1);
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes->new (
                 -analysis     => $self->analysis,
                 -retained_intron_penalty => $self->param('retained_intron_penalty'),
@@ -202,11 +208,21 @@ sub fetch_input {
 }
 
 
+=head2 run
+
+  Arg [1]   : None
+  Function  : Overrides run as we want to be able to disconnect from the database if 'disconnect_jobs'
+              is set to 1.
+  Returntype: None
+  Exceptions: None
+
+=cut
+
 sub run {
     my ($self) = @_;
 
     $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-    $self->dbc->disconnect_if_idle();
+    $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
     my ($runnable) = @{$self->runnable};
     $runnable->run;
     $self->output($runnable->output);
@@ -214,19 +230,31 @@ sub run {
 }
 
 
+=head2 write_output
+
+  Arg [1]   : None
+  Function  : It writes the genes in the database specified by 'output_db' and it write the
+              clustered introns in the dna_align_feature table if 'write_introns' is 1.
+  Returntype: None
+  Exceptions: Throws if genes or introns are not all stored
+
+=cut
 
 sub write_output {
     my ($self) = @_;
 
-    my $outdb = $self->get_database_by_name('output_db');
+    my $outdb = $self->hrdb_get_con('output_db');
     $outdb->dbc->disconnect_when_inactive(0);
     my $gene_adaptor = $outdb->get_GeneAdaptor;
 
     my $fails = 0;
     my $total = 0;
+    my $analysis = $self->analysis;
+    my $source = $analysis->logic_name;
+    $source =~ s/_rnaseq$//;
     foreach my $gene (@{$self->output}) {
-        $gene->analysis($self->analysis);
-        $gene->source($self->analysis->logic_name);
+        $gene->analysis($analysis);
+        $gene->source($source);
         foreach my $tran ( @{$gene->get_all_Transcripts} ) {
             $tran->analysis($self->analysis);
         }
@@ -284,18 +312,20 @@ sub write_output {
     $outdb->dbc->disconnect_when_inactive(1);
 }
 
+
 =head2 bam_2_intron_features
-    Title        :   bam_2_intron_features
-    Usage        :   $self->bam_2_intron_features($segment)
-    Returns      :   None
-    Args         :   Bam file segement
-    Description  :   Fetches all alignments from the bam file segment, collapses them down into a
-                 :   non redundant set and builds a Bio::EnsEMBL::DnaDnaAlignFeature to
-                 :   represent it, then stores it in $self->intron_features
-                 :   analyses splice sites for consensus and non consensus splices as this data is
-                 :   not stored in the BAM.
-                 :   Also checks for small exons defined by a single read splicing at least twice
-                 :   stores any additional exons found this way in $self->extra_exons
+
+  Arg [1]    : Bio::DB::Sam::segment
+  Arg [2]    : Arrayref of hashref containing the information about the introns
+  Description: Fetches all alignments from the bam file segment, collapses them down into a
+               non redundant set and builds a Bio::EnsEMBL::DnaDnaAlignFeature to
+               represent it, then stores it in $self->intron_features
+               analyses splice sites for consensus and non consensus splices as this data is
+               not stored in the BAM.
+               Also checks for small exons defined by a single read splicing at least twice
+               stores any additional exons found this way in $self->extra_exons
+  Returntype : Integer, 1
+  Exceptions : None
 
 =cut
 
@@ -495,6 +525,21 @@ sub bam_2_intron_features {
     return;
 }
 
+
+=head2 ungapped_features
+
+ Arg [1]    : Bio::DB::Sam::Alignment
+ Description: Create introns based on the cigar line of the read
+ Returntype : Arrayref of array
+              0 -> read name
+              1 -> sequence id
+              2 -> start
+              3 -> end
+              4 -> length of the match
+ Exceptions : Throws if it cannot parse the rad cigar line
+
+=cut
+
 sub ungapped_features {
     my ($self,$read) = @_;
     my @ugfs;
@@ -575,18 +620,19 @@ sub ungapped_features {
     return \@ugfs;
 }
 
+
 =head2 dna_2_intron_features
-    Title        :   dna_2_intron_features
-    Usage        :   $self->dna_2_intron_features($start,$end)
-    Returns      :   None
-    Args         :   Int start
-                 :   Int end
-    Description  :   Fetches all dna_align_features from the intron db that lie within
-                 :   the range determined by start and end, collapses them down into a
-                 :   non redundant set and builds a Bio::EnsEMBL::DnaAlignFeature to
-                 :   represent it, then stores it in $self->intron_features
-                 :   also checks for small exons defined by a single read splicing at least twice
-                 :   stores any additional exons found this way in $self->extra_exons
+
+ Arg [1]    : Integer start
+ Arg [2]    : Integer end
+ Description: Fetches all dna_align_features from the intron db that lie within
+              the range determined by start and end, collapses them down into a
+              non redundant set and builds a Bio::EnsEMBL::DnaAlignFeature to
+              represent it, then stores it in $self->intron_features
+              also checks for small exons defined by a single read splicing at least twice
+              stores any additional exons found this way in $self->extra_exons
+ Returntype : None
+ Exceptions : None
 
 =cut
 
@@ -671,15 +717,36 @@ sub dna_2_intron_features {
 ##################################################################
 # Containers
 
+=head2 gene_slice_adaptor
+
+ Arg [1]    : (optional) Bio::EnsEMBL::DBSQL::SliceAdaptor
+ Description: Getter/setter for a SliceAdaptor object on the input database
+ Returntype : Bio::EnsEMBL::DBSQL::SliceAdaptor
+ Exceptions : Throws if Arg[1] is not a Bio::EnsEMBL::DBSQL::SliceAdaptor
+
+=cut
+
 sub gene_slice_adaptor {
     my ($self, $val) = @_;
 
     if (defined $val) {
-        $self->param('_gene_slice_adaptor', $val);
+      $self->throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::SliceAdaptor!')
+        unless (ref($val) eq 'Bio::EnsEMBL::DBSQL::SliceAdaptor');
+      $self->param('gene_slice_adaptor', $val);
     }
 
-    return $self->param('_gene_slice_adaptor');
+    return $self->param('gene_slice_adaptor');
 }
+
+
+=head2 chr_slice
+
+ Arg [1]    : (optional) Bio::EnsEMBL::Slice representing the whole sequence
+ Description: Getter/setter for the whole sequence given as input_id
+ Returntype : Bio::EnsEMBL::Slice
+ Exceptions : None
+
+=cut
 
 sub chr_slice {
     my ($self, $val) = @_;
@@ -691,17 +758,39 @@ sub chr_slice {
     return $self->param('_chr_slice');
 }
 
+
+=head2 intron_features
+
+ Arg [1]    : (optional) Arrayref of Bio::EnsEMBL::DnaDnaAlignFeature representing the introns
+ Description: Getter/setter for the introns. It make sure they are sorted based on the start
+ Returntype : Arrayref of Bio::EnsEMBL::DnaDnaAlignFeature
+ Exceptions : None
+
+=cut
+
 sub intron_features {
     my ($self, $val) = @_;
 
-    if (defined $val) {
-        push @{$self->{_introns}}, @$val;
-#       make sure it is still sorted
-        @{$self->{_introns}} = sort { $a->start <=> $b->start } @{$self->{_introns}};
+    if (!$self->param_is_defined('_introns')) {
+        $self->param('_introns', []);
     }
-    return $self->{_introns};
+    if (defined $val) {
+#       make sure it is still sorted
+        my @introns = sort { $a->start <=> $b->start } @{$self->param('_introns')}, @$val;
+        $self->param('_introns', \@introns);
+    }
+    return $self->param('_introns');
 }
 
+
+=head2 extra_exons
+
+ Arg [1]    : (optional) Hashref of String representing extra exons
+ Description: Getter/setter for the extra exons.
+ Returntype : Arrayref of String
+ Exceptions : None
+
+=cut
 
 sub extra_exons {
     my ($self, $val) = @_;

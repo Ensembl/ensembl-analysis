@@ -1,4 +1,5 @@
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -504,7 +505,7 @@ sub run_translate{
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
   logger_info($command);
-  open ( ORF, $command ) || throw( "Error running translate" );
+  open ( ORF, $command ) || throw( "Could not run command '$command': $!" );
   
   my @orf_predictions;
  ORF:
@@ -534,6 +535,7 @@ sub run_translate{
     my @prediction = ($orf_length,$orf_start,$orf_end);
     push( @orf_predictions, \@prediction );
   }
+  close(ORF) || throw("Error running '$command': $!");
   my @sorted_predictions = 
     map { $_->[1] } sort { $b->[0] <=> $a->[0] } map { [$_->[0], $_] } @orf_predictions;
   unlink $file;

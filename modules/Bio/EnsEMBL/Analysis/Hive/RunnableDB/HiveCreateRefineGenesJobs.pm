@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +21,20 @@ use strict;
 use warnings;
 
 use base ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Creates input id based on a custom table 'csvfile_table' in the hive database
+              It will generate the parameters for creating the models with the RefineSolexaGenes
+              module. If you specify 'single_tissue' to 1 it will generate input ids for the merged
+              set AND for each samples in 'sample_column'
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
     my $self = shift;

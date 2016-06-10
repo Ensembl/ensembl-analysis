@@ -1,6 +1,7 @@
 # Ensembl module for Bio::EnsEMBL::Analysis::Runnable
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -172,6 +173,7 @@ sub options{
   Returntype: string
   Exceptions: none
   Example   : my $options = $self->binddir;
+
 =cut
 
 sub bindir{
@@ -184,13 +186,14 @@ sub bindir{
 =head2 libdir
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
-  Arg [2]   : string
+  Arg [2]   : String
   Function  : container for specified variable. This pod refers to the
   four methods below options, bindir, libdir and datadir. These are simple 
   containers which dont do more than hold and return an given value
   Returntype: string
   Exceptions: none
   Example   : my $options = $self->libdir;
+
 =cut
 
 sub libdir{
@@ -198,6 +201,20 @@ sub libdir{
   $self->{'libdir'} = shift if(@_);
   return $self->{'libdir'};
 }
+
+
+=head2 datadir
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Arg [2]   : String
+  Function  : container for specified variable. This pod refers to the
+  four methods below options, bindir, libdir and datadir. These are simple 
+  containers which dont do more than hold and return an given value
+  Returntype: string
+  Exceptions: none
+  Example   : my $options = $self->datadir;
+
+=cut
 
 sub datadir{
   my $self = shift;
@@ -365,7 +382,7 @@ sub analysis{
 }
 
 
-=head2 files_to_delete/protect
+=head2 files_to_delete
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : string, file name
@@ -388,6 +405,18 @@ sub files_to_delete{
   }
   return $self->{'del_list'};
 }
+
+
+=head2 files_to_protect
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
+  Arg [2]   : string, file name
+  Function  : both these methods create a hash keyed on file name the
+  first a list of files to delete, the second a list of files to protect
+  Returntype: hashref
+  Exceptions: none
+
+=cut
 
 sub files_to_protect{
   my ($self, $file) = @_;

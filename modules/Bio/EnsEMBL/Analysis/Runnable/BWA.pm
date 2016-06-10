@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,28 +49,29 @@ This module uses BWA to align fastq to a genomic sequence
 package Bio::EnsEMBL::Analysis::Runnable::BWA;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseShortReadAligner');
+
+=head2 new
+
+ Arg [OPTIONS]: String
+ Arg [FASTQ]  : String
+ Arg [OUTDIR] : String
+ Arg [GENOME] : String
+ Description  : Creates a new Bio::EnsEMBL::Analysis::Runnable::BWA object to align short reads on a genome using BWA
+ Returntype   : Bio::EnsEMBL::Analysis::Runnable::BWA
+ Exceptions   : Throws if FASTQ, OPTIONS, OUTDIR or GENOME are not set
+                Throws if GENOME has not been indexed
+
+=cut
 
 sub new {
   my ( $class, @args ) = @_;
+
   my $self = $class->SUPER::new(@args);
-  my ($options, $fastq, $outdir, $genome) = rearrange([qw (OPTIONS FASTQ OUTDIR GENOME)],@args);
-  $self->throw("You must define a fastq file\n") unless ($fastq);
-  $self->throw("Your fastq file $fastq does not exists!\n") unless (-e $fastq);
-  $self->fastq($fastq);
-  $self->throw("You must define alignment options\n") unless ($options);
-  $self->options($options);
-  $self->throw("You must define an output dir\n") unless ($outdir);
-  $self->throw("Your output directory $outdir does not exists!\n") unless (-e $outdir);
-  $self->outdir($outdir);
-  $self->throw("You must define a genome file\n") unless ($genome);
-  $self->genome($genome);
   $self->throw("Genome file must be indexed \ntry ".$self->program.' index '.$self->genome."\n") unless (-e $self->genome.'.ann');
   return $self;
 }
@@ -106,6 +108,15 @@ sub run {
 #Containers
 #=================================================================
 
+=head2 fastq
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub fastq {
   my ($self,$value) = @_;
 
@@ -116,9 +127,19 @@ sub fastq {
   if (exists($self->{'_fastq'})) {
     return $self->{'_fastq'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 options
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub options {
   my ($self,$value) = @_;
@@ -130,9 +151,19 @@ sub options {
   if (exists($self->{'_options'})) {
     return $self->{'_options'};
   } else {
-    return undef;
+    return;
   }
 }
+
+
+=head2 outdir
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub outdir {
   my ($self,$value) = @_;
@@ -144,10 +175,19 @@ sub outdir {
   if (exists($self->{'_outdir'})) {
     return $self->{'_outdir'};
   } else {
-    return undef;
+    return;
   }
 }
 
+
+=head2 genome
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub genome {
   my ($self,$value) = @_;
@@ -159,6 +199,8 @@ sub genome {
   if (exists($self->{'_genome'})) {
     return $self->{'_genome'};
   } else {
-    return undef;
+    return;
   }
 }
+
+1;

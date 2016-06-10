@@ -1,4 +1,5 @@
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +20,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
@@ -27,6 +27,24 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
 use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
 
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+
+=head2 param_defaults
+
+ Description: It allows the definition of default parameters for all inherting module.
+              These are the default values:
+               seq_level => 0,
+               top_level => 1,
+               include_non_reference => 0,
+               hap_pair => 0,
+               mitochondrion => 0,
+               slice_size => 0,
+               slice_overlaps => 0,
+               coord_system_name => 'toplevel'
+ Returntype : Hashref, containing all default parameters
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
     my $self = shift;
@@ -43,6 +61,17 @@ sub param_defaults {
         coord_system_name => 'toplevel'
     }
 }
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: It will create input ids for the next analysis using 'iid_type' and
+              other parameters
+ Returntype : Integer, 1
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
   my $self = shift;
@@ -73,6 +102,17 @@ sub fetch_input {
   $self->param('column_names', ['iid']);
   return 1;
 }
+
+
+=head2 create_slice_ids
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: Create input ids based on slices using a Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub create_slice_ids {
   my ($self, $dba) = @_;
@@ -112,6 +152,16 @@ sub create_slice_ids {
 }
 
 
+=head2 create_chunk_ids
+
+ Arg [1]    : None
+ Description: Creates input ids using 'input_file_path' as input and writes in 'chunk_output_dir'
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub create_chunk_ids {
   my $self = shift;
 
@@ -131,7 +181,7 @@ sub create_chunk_ids {
   if($self->param_is_defined('input_file_path')) {
       $input_file = $self->param('input_file_path');
     } else {
-      $input_file = $self->input_id;
+      $input_file = $self->param('iid');
   }
 
   # Get the name without the extension as fastasplit_random cuts off the extension
@@ -157,6 +207,17 @@ sub create_chunk_ids {
 }
 
 
+=head2 make_chunk_files
+
+ Arg [1]    : None
+ Description: Create the files when using create_chunk_ids
+ Returntype : None
+ Exceptions : Throws if 'fastasplit_random_path' is not defined
+              Throws if it cannot find 'fastasplit_random_path'
+              Throws if 'fastasplit_random_path' failed
+
+=cut
+
 sub make_chunk_files {
   my $self = shift;
 
@@ -173,12 +234,12 @@ sub make_chunk_files {
       $input_file = $self->param('input_file_path');
   } elsif($self->param_is_defined('rechunk_dir_path') && $self->param_is_defined('rechunk')) {
     if($self->param('rechunk')) {
-      $input_file = $self->param('rechunk_dir_path')."/".$self->input_id;
+      $input_file = $self->param('rechunk_dir_path')."/".$self->param('iid');
     }
   }
 
   else {
-      $input_file = $self->input_id;
+      $input_file = $self->param('iid');
   }
 
   unless(-e $input_file) {
@@ -214,6 +275,18 @@ sub make_chunk_files {
 
 }
 
+
+=head2 convert_slice_to_feature_ids
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: Create input ids using the dbID of feature on the slice provided in 'iid'
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : Throws if 'iid' is not defined
+              Throws if 'feature_type' is not defined
+              Throws if 'feature_type' is not supported
+
+=cut
 
 sub convert_slice_to_feature_ids {
   my ($self, $dba) = @_;
@@ -272,6 +345,18 @@ sub convert_slice_to_feature_ids {
   $self->param('inputlist', $output_id_array);
 }
 
+
+=head2 split_slice
+
+ Arg [1]    : None
+ Description: Split the slice given in 'iid' in smaller chunks given by 'slice_size'
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : Throws if 'iid' is not defined
+              Throws if 'slice_size' is not defined
+
+=cut
+
 sub split_slice {
   my ($self) = @_;
 
@@ -319,6 +404,19 @@ sub split_slice {
   $self->param('inputlist', $output_id_array);
 }
 
+
+=head2 uniprot_accession
+
+ Arg [1]    : None
+ Description: Create input ids based on the custom table in the hive pipeline database specified
+              by 'uniprot_table_name'. You need to specify a batch size with 'uniprot_batch_size'
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : Throws if 'uniprot_batch_size' is not defined
+              Throws if 'uniprot_table_name' is not defined
+
+=cut
+
 sub uniprot_accession {
   my ($self) = @_;
 
@@ -359,6 +457,17 @@ sub uniprot_accession {
 }
 
 
+=head2 rechunk_uniprot_accession
+
+ Arg [1]    : None
+ Description: Create smaller chunks of uniprot accession using 'uniprot_batch_size'
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : Throws if 'uniprot_batch_size' is not defined
+              Throws if 'iid' is not defined
+
+=cut
+
 sub rechunk_uniprot_accession {
   my ($self) = @_;
 
@@ -392,6 +501,18 @@ sub rechunk_uniprot_accession {
   $self->param('inputlist', $output_id_array);
 }
 
+
+=head2 feature_region
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: Creates input ids based on the presence of feature 'feature_type' in a region
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : Throws if 'feature_type' is not defined
+              Throws if 'logic_name' is not defined
+              Throws if the name of the supporting evidence contains ':'
+
+=cut
 
 sub feature_region {
   my ($self, $dba) = @_;
@@ -470,6 +591,17 @@ sub feature_region {
   $self->param('inputlist', $output_id_array);
 }
 
+
+=head2 feature_id
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: Creates input ids based on features 'feature_type'
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : Throws if 'feature_type' is not defined
+              Throws if 'feature_type' is not supported
+
+=cut
 
 sub feature_id {
   my ($self, $dba) = @_;

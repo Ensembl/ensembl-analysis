@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,11 +31,10 @@ Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge -
 
 =head1 SYNOPSIS
 
-  Do NOT instantiate this class directly: must be instantiated
-  from a subclass (see ExonerateTranscript, for instance).
 
 =head1 DESCRIPTION
 
+Merge BAM files using samtools
 
 =head1 APPENDIX
 
@@ -47,11 +47,8 @@ package Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge;
 
 use warnings;
 use strict;
-use vars qw(@ISA);
 
-use Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge;
-
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge);
+use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseBamMerge');
 
 
 sub new {
@@ -73,9 +70,11 @@ sub new {
 
 =head2 run
 
-Usage   :   $obj->run($workdir, $args)
-Function:   Runs exonerate script and puts the results into the file $self->results
-            It calls $self->parse_results, and results are stored in $self->output
+ Arg [1]    : None
+ Description: Merge the BAM files using samtools and create the index file
+ Returntype : Integer, 1
+ Exceptions : None
+
 =cut
 
 sub run {
@@ -89,6 +88,5 @@ sub run {
 
   return 1;
 }
-
 
 1;

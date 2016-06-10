@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,32 +68,25 @@ package Bio::EnsEMBL::Analysis::Runnable::Blast;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 
 =head2 new
 
-  Arg [1]       : Bio::EnsEMBL::Analysis::Runnable::Blast
-  Arg [Parser]  : A blast parser object must meet specified interface
-  Arg [Filter]  : A Filter object must meet specified interface
-  Arg [Database]: string, database name/path
-  Arg [Type]    : string, wu or ncbi to specify which type of input
-  Arg [Unknown_error_string] : the string to throw if the blast runs fails
-  with an unexpected error 4
-  Function  : create a Blast runnable 
-  Returntype: Bio::EnsEMBL::Analysis::Runnable::Blast
-  Exceptions: throws if not given a database name or if not given
-  a parser object
-  Example   : 
+ Arg [Parser]               : Object A blast parser object must meet specified interface
+ Arg [Filter]               : Object A Filter object must meet specified interface
+ Arg [Database]             : String, database name/path
+ Arg [Type]                 : String, wu or ncbi to specify which type of input
+ Arg [Unknown_error_string] : String to throw if the blast runs fails
+                              with an unexpected error 4
+ Description                : create a Blast runnable 
+ Returntype                 : Bio::EnsEMBL::Analysis::Runnable::Blast
+ Exceptions                 : throws if not given a database name or if not given a parser object
 
 =cut
-
-
 
 sub new {
   my ($class,@args) = @_;
@@ -130,16 +124,12 @@ sub new {
 
 =head2 databases
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
-  Arg [2]   : string/int/object
-  Function  : container for given value, this describes the 5 methods
-  below, database, parser, filter, type and unknown_error_string
-  Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
 
 =cut
-
 
 sub databases{
   my ($self, @vals) = @_;
@@ -191,13 +181,10 @@ sub databases{
 
 =head2 parser 
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
-  Arg [2]   : string/int/object
-  Function  : container for given value, this describes the 5 methods
-  below, database, parser, filter, type and unknown_error_string
-  Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+  Arg [1]    : Object
+  Description: Getter/setter
+  Returntype : Object
+  Exceptions : None
 
 =cut
 sub parser{
@@ -209,13 +196,10 @@ sub parser{
 
 =head2 filter
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
-  Arg [2]   : string/int/object
-  Function  : container for given value, this describes the 5 methods
-  below, database, parser, filter, type and unknown_error_string
-  Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+ Arg [1]    : Object
+ Description: Getter/setter
+ Returntype : Object
+ Exceptions : None
 
 =cut
 sub filter{
@@ -224,32 +208,29 @@ sub filter{
   return $self->{'filter'};
 }
 
+
 =head2 type
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
-  Arg [2]   : string/int/object
-  Function  : container for given value, this describes the 5 methods
-  below, database, parser, filter, type and unknown_error_string
-  Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+ Arg [1]    : String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
 
 =cut
+
 sub type{
   my $self = shift;
   $self->{'type'} = shift if(@_);
   return $self->{'type'};
 }
 
+
 =head2 unknown_error_string
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast 
-  Arg [2]   : string/int/object
-  Function  : container for given value, this describes the 5 methods
-  below, database, parser, filter, type and unknown_error_string
-  Returntype: string/int/object
-  Exceptions: 
-  Example   : 
+ Arg [1]    : String
+ Description: container for given value, this describes the 5 methods
+ Returntype : String
+ Exceptions : None
 
 =cut
 sub unknown_error_string{
@@ -261,15 +242,12 @@ sub unknown_error_string{
 
 =head2 results_files
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
-  Arg [2]   : string, filename
-  Function  : holds a list of all the output files from the blast runs
-  Returntype: arrayref
-  Exceptions:
-  Example   :
+ Arg [1]    : String, filename
+ Description: holds a list of all the output files from the blast runs
+ Returntype : Arrayref
+ Exceptions : None
 
 =cut
-
 
 sub results_files{
   my ($self, $file) = @_;
@@ -285,17 +263,14 @@ sub results_files{
 
 =head2 run_analysis
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
-  Function  : gets a list of databases to run against and constructs
-  commandlines against each one and runs them
-  Returntype: none
-  Exceptions: throws if there is a problem opening the commandline or
-  if blast produces an error
-  Example   : 
+ Arg [1]    : None
+ Description: Gets a list of databases to run against and constructs
+              commandlines against each one and runs them
+ Returntype : None
+ Exceptions : Throws if there is a problem opening the commandline or
+              if blast produces an error
 
 =cut
-
-
 
 sub run_analysis {
   my ($self) = @_;
@@ -392,15 +367,13 @@ sub run_analysis {
 
 =head2 parse_results
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable::Blast
-  Function  : call to parser to get results from output file
-  and filter those results if there is a filter object
-  Returntype: none
-  Exceptions: none
-  Example   : 
+ Arg [1]    : None
+ Description: call to parser to get results from output file
+              and filter those results if there is a filter object
+ Returntype : None
+ Exceptions : None
 
 =cut
-
 
 sub parse_results{
   my ($self) = @_;

@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -130,7 +131,7 @@ sub clean_headers {
 
     unless($self->param_is_defined('KILL_LIST_FILTER')) {
       say "You have selected to use the killlist but haven't defined a KILL_LIST_FILTER hash in your pipeline config, ".
-          "the HiveKillList module will look for a default hash for your molecule type";
+          "the KillList module will look for a default hash for your molecule type";
     }
 
     say "Killlist molecule type set to:\n".$self->param('killlist_type');

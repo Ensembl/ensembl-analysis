@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,23 +51,54 @@ files into a single sorted indexed merged BAM file
 package Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
+no warnings 'recursion';
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::FeaturePair;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes clone_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(create_Exon clone_Exon);
 use Bio::EnsEMBL::Transcript;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::IntronSupportingEvidence;
-$| = 1;
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 my $limit = 0;
+
+
+=head2 new
+
+ Arg [RETAINED_INTRON_PENALTY]: Integer
+ Arg [FILTER_ON_OVERLAP]: Integer
+ Arg [MIN_INTRON_SIZE]: Integer
+ Arg [MAX_INTRON_SIZE]: Integer
+ Arg [SINGLE_EXON_MODEL]: Integer
+ Arg [MIN_SINGLE_EXON]: Integer
+ Arg [SINGLE_EXON_CDS]: Integer
+ Arg [STRICT_INTERNAL_SPLICE_SITES]: Integer
+ Arg [STRICT_INTERNAL_END_EXON_SPLICE_SITES]: Integer
+ Arg [BEST_SCORE]: Integer
+ Arg [OTHER_ISOFORMS]: String
+ Arg [OTHER_NUM]: Integer
+ Arg [MAX_NUM]: Integer
+ Arg [BAD_MODELS]: String
+ Arg [TRIM_UTR]: Integer
+ Arg [MAX_3PRIME_EXONS]: Integer
+ Arg [MAX_3PRIME_LENGTH]: Integer
+ Arg [MAX_5PRIME_EXONS]: Integer
+ Arg [MAX_5PRIME_LENGTH]: Integer
+ Arg [REJECT_INTRON_CUTOFF]: Integer
+ Arg [MAX_RECURSIONS]: Integer
+ Arg [CHR_SLICE]: Bio::EnsEMBL::Slice
+ Arg [ROUGH_MODELS]: Arrayref of Bio::EnsEMBL::Gene
+ Arg [INTRON_FEATURES]: Hashref
+ Arg [EXTRA_EXONS]: Hashref
+ Description: Creates a new Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes object
+ Returntype : Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes
+ Exceptions : None
+
+=cut
 
 sub new {
     my ( $class, @args ) = @_;
@@ -114,14 +146,13 @@ sub new {
 
 }
 
-=head2 refine_genes
 
-    Title        :   refine_genes
-    Usage        :   $self->refine_genes
-    Returns      :   nothing
-    Args         :   none
-    Description  :   Combines exons with introns in all possible combinations to
-                 :   Make a series of transcript models
+=head2 run
+
+ Description: Combines exons with introns in all possible combinations to
+              Make a series of transcript models
+ Returntype : None
+ Exceptions : None
 
 =cut
 
@@ -512,11 +543,10 @@ RETAINED: foreach my $intron ( @retained_introns ) {
 
 =head2 recluster_models
 
-    Title        :   recluster_models
-    Usage        :   $self->recluster_models(\@models);
-    Returns      :   nothing
-    Args         :   Array ref of array references of Bio::EnsEMBL::Transcript
-    Description  :   reclusters 'other' models that have no overlap with 'best' models
+ Arg [1]     : Arrayref of array references of Bio::EnsEMBL::Transcript
+ Description: reclusters 'other' models that have no overlap with 'best' models
+ Returntype : Array of arrayref
+ Exceptions : None
 
 =cut
 
@@ -590,6 +620,16 @@ OTHEREXON: for ( my $j = 0 ; $j <= $#other_exons ; $j++ ) {
     return (\@final_clusters,\@new_clusters);
 }
 
+
+=head2 recalculate_cluster
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Gene
+ Description: Set the biotype best for the gene with the highest score of the cluster
+ Returntype : Arrayref of Bio::EnsEMBL::Gene
+ Exceptions : None
+
+=cut
+
 sub recalculate_cluster {
     my ( $self,$genes )= @_;
     my $cluster;
@@ -617,14 +657,14 @@ sub recalculate_cluster {
     return $cluster;
 }
 
+
 =head2 filter_models
 
-    Title        :   filter_models
-    Usage        :   $self->filter_models(\@models);
-    Returns      :   nothing
-    Args         :   Array ref of array references of Bio::EnsEMBL::Transcript
-    Description  :   Labels or removes models overlapping better scoring models on the
-                     opposite strand
+ Arg [1]    : Arrayref of array references of Bio::EnsEMBL::Transcript
+ Description: Labels or removes models overlapping better scoring models on the
+              opposite strand
+ Returntype : None
+ Exceptions : None
 
 =cut
 
@@ -792,14 +832,19 @@ sub filter_models {
   }
 }
 
+
 =head2 make_models
 
-    Title        :
-    Usage        :   $self->make_models($paths, $strand ,$exons,$gene, $intron_hash);
-    Returns      :   Array ref of array references of Bio::EnsEMBL::Transcript
-    Description  :   Turns abstract paths into Bio::EnsEMBL::Gene models. Paths are
-                     clustered and sorted by score - only the top X models for
-                     each cluster of paths get built ( X is defined in config )
+ Arg [1]    : String
+ Arg [2]    : Integer
+ Arg [3]    : Arrayref of Bio::EnsEMBL::Exon
+ Arg [4]    : Bio::EnsEMBL::Gene
+ Arg [5]    : Hashref of introns
+ Description: Turns abstract paths into Bio::EnsEMBL::Gene models. Paths are
+              clustered and sorted by score - only the top X models for
+              each cluster of paths get built ( X is defined in config )
+ Returntype : Arrayref of array references of Bio::EnsEMBL::Transcript
+ Exceptions : None
 
 =cut
 
@@ -1037,6 +1082,16 @@ sub make_models {
   }
   return \@model_clusters;
 }
+
+
+=head2 prune_UTR
+
+ Arg [1]    : Bio::EnsEMBL::Gene
+ Description: Trim the gene to hash hopefully biologically viable UTRs
+ Returntype : Bio::EnsEMBL::Gene
+ Exceptions : None
+
+=cut
 
 sub prune_UTR {
   my ($self,$gene) = @_;
@@ -1304,6 +1359,18 @@ Transcript " .  $transcript->seq_region_name ." " .
   return $gene;
 }
 
+
+=head2 modify_transcript
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Arg [2]    : Arrayref of Bio::EnsEMBL::Exon
+ Description: Modify the transcript with the given exon objects and check the translation
+              and add intron supporting evidence
+ Returntype : Bio::EnsEMBL::Transcript
+ Exceptions : Throws if the translation is changed as only non coding exons have been changed
+
+=cut
+
 sub modify_transcript {
   my ($self,$tran,$exons) = @_;
   my $cds_start = $tran->coding_region_start;
@@ -1356,19 +1423,19 @@ sub modify_transcript {
   return $t;
 }
 
+
 =head2 ProcessTree
 
-    Title        :   ProcessTree
-    Usage        :   $self->ProcessTree
-    Returns      :   String containing paths through the gene
-    Args         :   A hash reference contianing the possible intron exons
-                 :   Integer key for the hashref
-                 :   String containing keys used up to this point
-                 :   String containing the paths under construction
-    Description  :   Recursive method that creates paths that explore all possible
-                 :   routes through a hashref, uses a configurable recursion limit
-                 :   to prevent it running out of memory if the paths cannot be solved
-                 :   or are too large to be practical
+ Arg [1]    : A hash reference contianing the possible intron exons
+ Arg [2]    : Integer key for the hashref
+ Arg [3]    : String containing keys used up to this point
+ Arg [4]    : String containing the paths under construction
+ Description: Recursive method that creates paths that explore all possible
+              routes through a hashref, uses a configurable recursion limit
+              to prevent it running out of memory if the paths cannot be solved
+              or are too large to be practical
+ Returntype : String containing paths through the gene
+ Exceptions : None
 
 =cut
 
@@ -1390,29 +1457,29 @@ sub ProcessTree {
     }
    # $result->{$sofar} = 1;
   }
-  if ( scalar(@node == 0) ) {
+  if ( scalar(@node) == 0 ) {
     #print "$sofar\n";
     $paths->{$sofar} = 1;
   }
   return $paths;
 }
 
-=head2 ProcessTree
 
-    Title        :   ProcessTree
-    Usage        :   $self->process_paths
-    Returns      :   String containing paths through the gene
-    Args         :   A hash reference contianing the possible intron exons
-                 :   Integer key for the hashref
-                 :   String containing keys used up to this point
-                 :   Integer flag indicating filtering should take place
-    Description  :   Filters paths to remove the lowest scoring intron
-                 :   for a given pair of exons where more than one intron
-                 :   is possible. Filters progressivley if the paths cannot be
-                 :   made for the model until the paths can be created or the
-                 :   model cannot be filtered any more, in this case the number
-                 :   of recursions can be raised and the process repeated
-                 :   untill the max_recursions limit is reached
+=head2 process_paths
+
+ Arg [1]    : Hashref contianing the possible intron exons
+ Arg [2]    : Integer key for the hashref
+ Arg [3]    : String containing keys used up to this point
+ Arg [4]    : Integer flag indicating filtering should take place
+ Description: Filters paths to remove the lowest scoring intron
+              for a given pair of exons where more than one intron
+              is possible. Filters progressivley if the paths cannot be
+              made for the model until the paths can be created or the
+              model cannot be filtered any more, in this case the number
+              of recursions can be raised and the process repeated
+              untill the max_recursions limit is reached
+ Returntype : String containing paths through the gene
+ Exceptions : None
 
 =cut
 
@@ -1509,15 +1576,15 @@ sub process_paths{
   return $result;
 }
 
+
 =head2 model_cluster
 
-    Title        :   model_cluster
-    Usage        :   $self->model_cluster($models,$strand);
-    Returns      :   2D array ref of exons and intron features
-    Args         :   Array ref of  exons and intron features
-                 :   Integer indicating strand
-    Description  :   Clusters the initial models by start end
-                 :   orders the models in each cluster by score
+ Arg [1]    : Arrayref of  exons and intron features
+ Arg [2]    : Integer indicating strand
+ Description: Clusters the initial models by start end
+              orders the models in each cluster by score
+ Returntype : Arrayref of clusters
+ Exceptions : None
 
 =cut
 
@@ -1561,15 +1628,13 @@ sub model_cluster {
 
 =head2 merge_exons
 
-    Title        :   merge_exons
-    Usage        :   $self->merge_exons($gene)
-    Returns      :   Array ref of Bio::EnsEMBL::Exon
-    Args         :   Bio::EnsEMBL::Gene
-    Description  :   Merges adjacent exons where the intron is covered by repeats or
-                 :   is very small
+ Arg [1]    : Bio::EnsEMBL::Gene
+ Description: Merges adjacent exons where the intron is covered by repeats or
+              is very small
+ Returntype : Arrayref of Bio::EnsEMBL::Exon
+ Exceptions : None
 
 =cut
-
 
 # lets us merge exons with tiny  introns between them  unless they contain an intron
 sub merge_exons {
@@ -1674,15 +1739,16 @@ sub merge_exons {
   return \@exons;
 }
 
+
 =head2 fetch_intron_features
 
-    Title        :   fetch_intron_features
-    Usage        :   $self->fetch_intron_features($start,$end)
-    Returns      :   Array ref of Bio::EnsEMBL::DnaAlignFeature
-    Args         :   Int start
-                 :   Int end
-    Description  :   Accesses the pre computed simple features representing introns
-                 :   Filters out non consensus models that overlap consensus models
+ Arg [1]    : Integer start
+ Arg [2]    : Integer end
+ Arg [3]    : Integer offset
+ Description: Accesses the pre computed simple features representing introns
+              Filters out non consensus models that overlap consensus models
+ Returntype : Array of Arrayref of Bio::EnsEMBL::DnaAlignFeature and Integer index
+ Exceptions : None
 
 =cut
 
@@ -1735,20 +1801,22 @@ sub fetch_intron_features {
       }
       else
       {
-          say STDERR  "Discarding canonical INTRON with score".$intron->score." from ".$intron->start." to ".$intron->start." on ".$intron->seq_region_name ;
+          say STDERR  "Discarding canonical INTRON with score ".$intron->score." from ".$intron->start." to ".$intron->end." on ".$intron->seq_region_name ;
       }
     }
   }
   return (\@filtered_introns,$index);
 }
 
+
 =head2 make_exon
-    Title        :   pad_exons
-    Usage        :   $self->($ungapped_feature)
-    Returns      :   Bio::EnsEMBL::Exon
-    Args         :   Bio::EnsEMBL::FeaturePair
-    Description  :   Takes an ungapped feature, pads it and builds a
-                 :   Exon from it
+
+ Arg [1]    : Bio::EnsEMBL::FeaturePair
+ Description: Takes an ungapped feature, pads it and builds a
+              Exon from it
+ Returntype : Bio::EnsEMBL::Exon
+ Exceptions : None
+
 =cut
 
 sub make_exon {
@@ -1794,6 +1862,16 @@ sub make_exon {
   return $padded_exon;
 }
 
+
+=head2 recursive_limit
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub recursive_limit {
   my ($self, $val) = @_;
 
@@ -1803,6 +1881,16 @@ sub recursive_limit {
 
   return $self->{_recursive_limit};
 }
+
+
+=head2 output_db
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub output_db {
   my ($self,$value) = @_;
@@ -1819,6 +1907,15 @@ sub output_db {
 }
 
 
+=head2 model_db
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub model_db {
   my ($self,$value) = @_;
 
@@ -1833,6 +1930,16 @@ sub model_db {
   }
 }
 
+
+=head2 logicname
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub logicname {
   my ($self,$value) = @_;
 
@@ -1846,6 +1953,16 @@ sub logicname {
     return undef;
   }
 }
+
+
+=head2 retained_intron_penalty
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub retained_intron_penalty {
   my ($self,$value) = @_;
@@ -1862,6 +1979,15 @@ sub retained_intron_penalty {
 }
 
 
+=head2 min_intron_size
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub min_intron_size {
   my ($self,$value) = @_;
 
@@ -1876,6 +2002,15 @@ sub min_intron_size {
   }
 }
 
+
+=head2 max_intron_size
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub max_intron_size {
   my ($self,$value) = @_;
@@ -1892,6 +2027,15 @@ sub max_intron_size {
 }
 
 
+=head2 best_score
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub best_score {
   my ($self,$value) = @_;
 
@@ -1907,6 +2051,15 @@ sub best_score {
 }
 
 
+=head2 other_num
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub other_num {
   my ($self,$value) = @_;
 
@@ -1920,6 +2073,16 @@ sub other_num {
     return undef;
   }
 }
+
+
+=head2 other_isoforms
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub other_isoforms {
   my ($self,$value) = @_;
@@ -1935,6 +2098,16 @@ sub other_isoforms {
   }
 }
 
+
+=head2 model_ln
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub model_ln {
   my ($self,$value) = @_;
 
@@ -1948,6 +2121,16 @@ sub model_ln {
     return undef;
   }
 }
+
+
+=head2 bad_models
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub bad_models {
   my ($self,$value) = @_;
@@ -1963,6 +2146,16 @@ sub bad_models {
   }
 }
 
+
+=head2 max_num
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub max_num {
   my ($self,$value) = @_;
 
@@ -1976,6 +2169,16 @@ sub max_num {
     return undef;
   }
 }
+
+
+=head2 max_recursions
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub max_recursions {
   my ($self,$value) = @_;
@@ -1991,6 +2194,16 @@ sub max_recursions {
   }
 }
 
+
+=head2 min_single_exon
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub min_single_exon {
   my ($self,$value) = @_;
 
@@ -2004,6 +2217,16 @@ sub min_single_exon {
     return undef;
   }
 }
+
+
+=head2 single_exon_cds
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub single_exon_cds {
   my ($self,$value) = @_;
@@ -2019,6 +2242,16 @@ sub single_exon_cds {
   }
 }
 
+
+=head2 single_exon_model
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub single_exon_model {
   my ($self,$value) = @_;
 
@@ -2032,6 +2265,16 @@ sub single_exon_model {
     return undef;
   }
 }
+
+
+=head2 strict_internal_splice_sites
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub strict_internal_splice_sites{
   my ($self,$value) = @_;
@@ -2047,6 +2290,16 @@ sub strict_internal_splice_sites{
   }
 }
 
+
+=head2 strict_internal_end_exon_splice_sites
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub strict_internal_end_exon_splice_sites {
   my ($self,$value) = @_;
 
@@ -2060,6 +2313,16 @@ sub strict_internal_end_exon_splice_sites {
     return undef;
   }
 }
+
+
+=head2 intron_bam_files
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub intron_bam_files {
   my ($self,$value) = @_;
@@ -2076,6 +2339,15 @@ sub intron_bam_files {
 }
 
 
+=head2 write_introns
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub write_introns {
   my ($self,$value) = @_;
 
@@ -2089,6 +2361,16 @@ sub write_introns {
     return undef;
   }
 }
+
+
+=head2 trim_utr
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub trim_utr {
   my ($self,$value) = @_;
@@ -2105,6 +2387,15 @@ sub trim_utr {
 }
 
 
+=head2 max_3prime_exons
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub max_3prime_exons {
   my ($self,$value) = @_;
 
@@ -2119,6 +2410,15 @@ sub max_3prime_exons {
   }
 }
 
+
+=head2 max_3prime_length
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub max_3prime_length {
   my ($self,$value) = @_;
@@ -2135,6 +2435,15 @@ sub max_3prime_length {
 }
 
 
+=head2 max_5prime_exons
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub max_5prime_exons {
   my ($self,$value) = @_;
 
@@ -2150,6 +2459,15 @@ sub max_5prime_exons {
 }
 
 
+=head2 filter_on_overlap
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub filter_on_overlap {
   my ($self,$value) = @_;
 
@@ -2163,6 +2481,16 @@ sub filter_on_overlap {
     return undef;
   }
 }
+
+
+=head2 max_5prime_length
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub max_5prime_length {
   my ($self,$value) = @_;
@@ -2179,6 +2507,15 @@ sub max_5prime_length {
 }
 
 
+=head2 reject_intron_cutoff
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub reject_intron_cutoff {
   my ($self,$value) = @_;
 
@@ -2192,6 +2529,16 @@ sub reject_intron_cutoff {
     return undef;
   }
 }
+
+
+=head2 chr_slice
+
+ Arg [1]    : (optional) Bio::EnsEMBL::Slice
+ Description: Getter/setter
+ Returntype : Bio::EnsEMBL::Slice
+ Exceptions : None
+
+=cut
 
 sub chr_slice {
   my ($self,$value) = @_;
@@ -2207,6 +2554,16 @@ sub chr_slice {
   }
 }
 
+
+=head2 rough_models
+
+ Arg [1]    : (optional) Arrayref
+ Description: Getter/setter
+ Returntype : Arrayref
+ Exceptions : None
+
+=cut
+
 sub rough_models {
   my ($self,$value) = @_;
 
@@ -2221,6 +2578,16 @@ sub rough_models {
   }
 }
 
+
+=head2 intron_features
+
+ Arg [1]    : (optional) Hashref
+ Description: Getter/setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
 sub intron_features {
   my ($self,$value) = @_;
 
@@ -2234,6 +2601,16 @@ sub intron_features {
     return undef;
   }
 }
+
+=head2 extra_exons
+
+ Arg [1]    : (optional) Hashref
+ Description: Getter/setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
 
 sub extra_exons {
   my ($self,$value) = @_;

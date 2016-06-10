@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,10 +57,8 @@ Internal methods are usually preceded with a _
 package Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Exon;
@@ -69,9 +68,31 @@ use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
+=head2 new
+
+ Arg [QUERY_TYPE]: String
+ Arg [QUERY_SEQS]: Arrayref of Bio::Seq
+ Arg [QUERY_FILE]: String
+ Arg [QUERY_CHUNK_NUMBER]: Integer
+ Arg [QUERY_CHUNK_TOTAL]: Integer
+ Arg [TARGET_SEQS]: Arrayref of Bio::Seq
+ Arg [TARGET_FILE]: String
+ Arg [TARGET_CHUNK_NUMBER]: Integer
+ Arg [TARGET_CHUNK_TOTAL]: Integer
+ Arg [ANNOTATION_FEATURES]: Hashref
+ Arg [ANNOTATION_FILE]: String
+ Arg [VERBOSE]: Integer
+ Arg [BASIC_OPTIONS]: String
+ Description: Creates a new Bio::EnsEMBL::Analysis::Runnable::BaseExonerate object
+ Returntype : Bio::EnsEMBL::Analysis::Runnable::BaseExonerate
+ Exceptions : Throws if QUERY_SEQS or TARGET_SEQS is defined and not an arrayref
+              Throws if ANNOTATION_FILE, QUERY_FILE or TARGET_FILE is defined and does not exists
+              Throws if ANNOTATION_FEATURES is not a hashref
+
+=cut
 
 sub new {
   my ($class,@args) = @_;
@@ -323,6 +344,16 @@ sub parse_results {
 #
 ############################################################
 
+
+=head2 annotation_features
+
+ Arg [1]    : (optional) Hashref of Bio::EnsEMBL::Feature
+ Description: Getter/setter for annotation features
+ Returntype : Hashref of Bio::EnsEMBL::Feature
+ Exceptions : Throws if any of the feature is not a Bio::EnsEMBL::Feature
+
+=cut
+
 sub annotation_features {
   my ($self, $feats) = @_;
   
@@ -341,6 +372,15 @@ sub annotation_features {
 
 ############################################################
 
+=head2 annotation_file
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub annotation_file {
   my ($self, $file) = @_;
 
@@ -351,6 +391,15 @@ sub annotation_file {
 }
 
 ############################################################
+
+=head2 query_type
+
+ Arg [1]    : (optional) String 'dna' or 'protein'
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : Throws if Arg[1] is not 'dna' or 'protein'
+
+=cut
 
 sub query_type {
   my ($self, $mytype) = @_;
@@ -366,6 +415,15 @@ sub query_type {
 
 ############################################################
 
+=head2 query_seqs
+
+ Arg [1]    : (optional) Bio::seq
+ Description: getter/setter
+ Returntype : Bio::Seq
+ Exceptions : Throws if Arg[1] is not a Bio::PrimarySeqI or a Bio::SeqI
+
+=cut
+
 sub query_seqs {
   my ($self, $seqs) = @_;
   if ($seqs){
@@ -380,6 +438,15 @@ sub query_seqs {
 
 ############################################################
 
+=head2 queryfile
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub query_file {
   my ($self, $file) = @_;
   
@@ -391,6 +458,15 @@ sub query_file {
 
 ############################################################
 
+=head2 query_type
+
+ Arg [1]    : None
+ Description: Getter
+ Returntype : String, 'dna'
+ Exceptions : None
+
+=cut
+
 sub target_type {
   my ($self) = @_;
 
@@ -400,6 +476,15 @@ sub target_type {
 }
 
 ############################################################
+
+=head2 target_seqs
+
+ Arg [1]    : (optional) Bio::seq
+ Description: getter/setter
+ Returntype : Bio::Seq
+ Exceptions : Throws if Arg[1] is not a Bio::PrimarySeqI or a Bio::SeqI
+
+=cut
 
 sub target_seqs {
   my ($self, $seqs) = @_;
@@ -415,6 +500,15 @@ sub target_seqs {
 
 ############################################################
 
+=head2 target_file
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
+
 sub target_file {
   my ($self, $file) = @_;
   
@@ -425,6 +519,15 @@ sub target_file {
 }
 
 ############################################################
+
+=head2 _verbose
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter
+ Returntype : String
+ Exceptions : None
+
+=cut
 
 sub _verbose {
   my ($self, $val) = @_;

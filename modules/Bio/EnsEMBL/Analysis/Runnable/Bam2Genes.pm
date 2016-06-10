@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +39,8 @@ my @results = $runnable->output;
 
 =head1 DESCRIPTION
 
-This module uses BWA to align fastq to a genomic sequence
+This module uses a BAM file containing short read alignment to generate proto-transcript
+based on cluster of reads
 
 =head1 METHODS
 
@@ -48,24 +50,40 @@ This module uses BWA to align fastq to a genomic sequence
 package Bio::EnsEMBL::Analysis::Runnable::Bam2Genes;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(convert_to_genes);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(create_Exon);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
+
+
+=head2 new
+
+ Arg [MIN_LENGTH]            : Integer
+ Arg [MIN_EXONS]             : Integer
+ Arg [PAIRED]                : Boolean
+ Arg [MAX_INTRON_LENGTH]     : Integer
+ Arg [MIN_SINGLE_EXON_LENGTH]: Integer
+ Arg [MIN_SPAN]              : Integer
+ Arg [EXON_CLUSTERS]         : Hashref
+ Arg [CLUSTER_DATA]          : Hashref
+ Description                 : Creates a new Bio::EnsEMBL::Analysis::Runnable::Bam2Genes object
+ Returntype                  : Bio::EnsEMBL::Analysis::Runnable::Bam2Genes
+ Exceptions                  : None
+
+=cut
 
 sub new {
     my ( $class, @args ) = @_;
     my $self = $class->SUPER::new(@args);
-    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $exon_clusters) =
-        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN EXON_CLUSTERS)],@args);
+    my ($min_length, $min_exons, $paired, $max_intron_length, $min_single_exon_length, $min_span, $exon_clusters, $cluster_data) =
+        rearrange([qw (MIN_LENGTH MIN_EXONS PAIRED MAX_INTRON_LENGTH MIN_SINGLE_EXON_LENGTH MIN_SPAN EXON_CLUSTERS CLUSTER_DATA)],@args);
     $self->exon_cluster($exon_clusters);
+    $self->cluster_data($cluster_data);
     $self->min_exons($min_exons);
     $self->min_length($min_length);
     $self->paired($paired);
@@ -75,6 +93,15 @@ sub new {
 
     return $self;
 }
+
+
+=head2 run
+
+  Args       : none
+  Description: Create proto transcripts
+  Returntype : none
+
+=cut
 
 sub run {
     my $self = shift;
@@ -94,19 +121,19 @@ sub run {
             if ($padded_exons) {
                 my $gene = $self->make_gene($padded_exons);
                 my $tran = $gene->get_all_Transcripts->[0];
-                print "FILTERING " . $tran->start ." " , $tran->end ." ";
+#                print "FILTERING " . $tran->start ." " , $tran->end ." ";
                 # Filter models before writing them
                 if ( scalar(@{$tran->get_all_Exons}) < $self->min_exons ) {
-                    print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
+#                    print "Rejecting because of exon count " .  scalar(@{$tran->get_all_Exons}) ."\n";
                     next;
                 }
                 if (  $tran->length < $self->min_length ){
-                    print "Rejecting because of length " . $tran->length ."\n";
+#                    print "Rejecting because of length " . $tran->length ."\n";
                     next;
                 }
                 if ( scalar(@{$gene->get_all_Exons}) == 1){
                     if ( $tran->length <  $self->min_single_exon_length ){
-                        print "Rejecting single exon transcript because of length " . $tran->length ."\n";
+#                        print "Rejecting single exon transcript because of length " . $tran->length ."\n";
                         next;
                     }
                 }
@@ -114,7 +141,7 @@ sub run {
                     # filter span on multiexon genes
                     if( ( $tran->end - $tran->start +1 ) / $tran->length < ($self->min_span) ) {
                         if ( $tran->length <  $self->min_single_exon_length ){
-                            print "Rejecting because of span " . ( $tran->end - $tran->start +1 ) / $tran->length ."\n";
+#                            print "Rejecting because of span " . ( $tran->end - $tran->start +1 ) / $tran->length ."\n";
                             next;
                         }
                     }
@@ -132,6 +159,17 @@ sub run {
 
     $self->output(\@genes);
 }
+
+
+=head2 process_exon_clusters
+
+ Arg [1]    : Hasref
+ Description: Process the exon cluster and create transcript based on paired end
+              information when available
+ Returntype : Arrayref of Bio::EnsEMBL::Transcript
+ Exceptions : None
+
+=cut
 
 sub process_exon_clusters {
     my ( $self, $exon_clusters ) = @_;
@@ -237,7 +275,7 @@ sub process_exon_clusters {
            my @transcript;
 # get a non redundant set of exons
            foreach my $exon ( @$exon_cluster  ) {
-               print "Adding exon $exon \n";
+#               print "Adding exon $exon \n";
                push @transcript, $exon_clusters->{$exon};
            }
            @transcript =   sort { $a->start <=> $b->start} @transcript;
@@ -333,6 +371,15 @@ sub make_gene {
 ###########################################
 # Containers
 
+=head2 read_count
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub read_count {
     my ($self, $value) = @_;
     if (defined $value ) {
@@ -340,6 +387,16 @@ sub read_count {
     }
     return $self->{'_read_count'};
 }
+
+
+=head2 cluster_data
+
+ Arg [1]    : (optional) Hashref
+ Description: Getter/setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub cluster_data {
     my ($self, $val) = @_;
@@ -351,6 +408,16 @@ sub cluster_data {
     return $self->{_cluster_data};
 }
 
+
+=head2 exon_cluster
+
+ Arg [1]    : (optional) Hashref
+ Description: Getter/setter
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
 sub exon_cluster {
     my ($self, $value) = @_;
     if (defined $value ) {
@@ -358,6 +425,16 @@ sub exon_cluster {
     }
     return $self->{'_exon_cluster'};
 }
+
+
+=head2 min_exons
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub min_exons {
     my ($self, $value) = @_;
@@ -367,6 +444,16 @@ sub min_exons {
     return $self->{'_min_exons'};
 }
 
+
+=head2 min_length
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub min_length {
     my ($self, $value) = @_;
     if (defined $value ) {
@@ -374,6 +461,16 @@ sub min_length {
     }
     return $self->{'_min_length'};
 }
+
+
+=head2 paired
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub paired {
     my ($self, $value) = @_;
@@ -383,6 +480,16 @@ sub paired {
     return $self->{'_paired'};
 }
 
+
+=head2 max_intron_length
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub max_intron_length {
     my ($self, $value) = @_;
     if (defined $value ) {
@@ -391,6 +498,16 @@ sub max_intron_length {
     return $self->{'_max_intron_length'};
 }
 
+
+=head2 min_single_exon_length
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
 sub min_single_exon_length {
     my ($self, $value) = @_;
     if (defined $value ) {
@@ -398,6 +515,16 @@ sub min_single_exon_length {
     }
     return $self->{'_min_single_exon_length'};
 }
+
+
+=head2 min_span
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter
+ Returntype : Integer
+ Exceptions : None
+
+=cut
 
 sub min_span {
     my ($self, $value) = @_;
