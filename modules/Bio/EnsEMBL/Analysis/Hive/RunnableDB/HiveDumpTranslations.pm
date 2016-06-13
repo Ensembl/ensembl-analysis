@@ -27,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::lincRNAFinder - 
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpTranslations
 
 =head1 SYNOPSIS
 
@@ -109,9 +109,6 @@ sub fetch_input {
 sub run {
 
   my $self = shift;
-  # lincRNA_output_db genebuild12
-  # kb15_papio_anubis_core_77_2_linc genebuild11
-
   my $command = "perl ".$self->param('dump_translations_path')
                        .$self->param('dump_translations_name')
                        ." -dbhost ".$self->param('sourcehost')
@@ -138,7 +135,6 @@ sub run {
   
   print run_command($command,"Dumping translations...");
   $self->output([$file]);
-# die; 
   return 1;
 }
 
@@ -146,7 +142,7 @@ sub write_output {
   my $self = shift;
 
   foreach my $file (@{$self->output}) {
-    $self->dataflow_output_id({fasta_file => $file}, 1);
+    $self->dataflow_output_id({fasta_file => $file}, 2);
   }
   return 1;
 }

@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,13 +27,18 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::lincRNAFinder - 
+Bio::EnsEMBL::Analysis::RunnableDB::HiveRemoveDuplicateGenes - 
 
 =head1 SYNOPSIS
 
+Get lincRNA candidate genes and break them down into single-transcript genes.
 
 =head1 DESCRIPTION
 
+This module collects many genes of a region, checks overlaps, collapse overlapping models (with genebuilder) 
+and write back the genebuilder "unique" results. This module is usefull for lincRNA pipeline, it collapses
+all RNAseq models of the different tissues. This is memory efficient and avoids doing the same calculations 
+many times. 
 
 =head1 METHODS
 
@@ -44,52 +49,25 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicateGenes;
 use warnings ;
 use vars qw(@ISA);
 use strict;
-use Data::Dumper;
 
-use Bio::EnsEMBL::Hive::Utils ('destringify');
-use Bio::EnsEMBL::Analysis; 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+# use Bio::EnsEMBL::Analysis; 
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
+
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-# @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild Bio::EnsEMBL::Analysis::RunnableDB);
-
-
-
-=head2 new
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::HiveRemoveDuplicateGenes
-  Function  : instatiates a lincRNAFinder object and reads and checks the config
-  file
-  Returntype: Bio::EnsEMBL::Analysis::RunnableDB::HiveRemoveDuplicateGenes 
-  Exceptions: 
-  Example   : 
-
-=cut
 
 
 sub fetch_input{
   my ($self) = @_;
 
   # set up config
-  $self->hive_set_config;
-  
-print "DEBUG::fetch_input!!\n"; 
-  # Get lincRNA candidate genes and break each of them down into single-transcript genes:
-print  "DEBUG:: fetch_input:: dump the object START_FROM" .  "\n"; 
+  $self->hive_set_config; 
   # get all candidates lincRNA 
   my $lincrna_genes = $self->get_genes_of_biotypes_by_db_hash_ref($self->RNA_DB);
-  ### ### foreach my $gene (@{$lincrna_genes}) {
-  ### ###   print  $gene->display_id, "\t", $gene->adaptor->dbc->dbname, , "\t", $gene->adaptor->dbc->host, "\n";
-  ### ### }
-
   print  "We have ". scalar(@$lincrna_genes) . " multi_transcript lincRNA candidates from RNAseq stage.\n" ;  
-  print  "analysis : " . $self->analysis . "\n";
   $self->param_required('biotype_output'); 
-  my $output_biotype = $self->param('biotype_output');   #"human_rnaseq"; # hard coded now. need to change... 
-  
+  my $output_biotype = $self->param('biotype_output');    
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
           -query => $self->query,
           -analysis => $self->analysis,
@@ -101,7 +79,6 @@ print  "DEBUG:: fetch_input:: dump the object START_FROM" .  "\n";
           -blessed_biotypes => {} , 
          );
   $self->runnable($runnable);
-  # $self->param('linc_rna_genes') = @$lincrna_genes; 
 }
 
 
@@ -109,42 +86,22 @@ sub run {
   my $self = shift; 
  
   print  "\nCOLLAPSING RNAseq models (removing duplications) BY GENEBUILDER. \n Afterwards feed lincRNA pipeline.\n";
-
   my $tmp = $self->runnable->[0]; 
-  # print "number of elements: " . scalar(@tmp) . "\n";
-
   print  "\n 1. Running GeneBuilder for " . scalar( @{$tmp->input_genes} ). " unclustered lincRNAs...\n";  
-
   foreach my $runnable (@{$self->runnable}) {
     $runnable->run;
     $self->output($runnable->output);
-    print "DEBUG::" . scalar(@{$self->output}) . "\n"; 
+    print "Number of collapsed models: " . scalar(@{$self->output}) . "\n"; 
   }
-  
-  #
-  # First genebuilder run with unclustered lincRNAs
-  #
-  # print "DEBUG::HIVElincRNaEvaluator::dumper:: self:: " . Dumper($self) . "\n"; 
-  # print "DEBUG::HIVElincRNaEvaluator::dumper:: gb:: " . Dumper($gb) . "\n"; 
-
-  
-   # my @output_clustered; 
-   
-# print "DEBUG::HIVElincRNaEvaluator::dumper::" . Dumper($gb) . "\n"; 
-   # push @output_clustered, @{$gb->output()} ;  
-   # $self->output( \@output_clustered );  #  This is just to store the lincRNA genes so test_RunnableDB script can find them.
-
 }
 
 sub write_output{
   my ($self) = @_; 
 
   print  "\nWRITING RESULTS IN OUTPUT DB... " . "\n";
-
   my $dba = $self->hrdb_get_dba($self->param('lincRNA_output_db'));
   $self->hrdb_set_con($dba,'lincRNA_output_db');
   my $lincrna_ga  = $self->hrdb_get_con('lincRNA_output_db')->get_GeneAdaptor;
-
   my @genes_to_write = @{$self->output}; 
   print  "***HAVE ". scalar(@genes_to_write) ." GENE(S) TO WRITE IN TOTAL (INCLUDING VALID AND REJECTED lincRNAs).\n";  
 
@@ -153,12 +110,8 @@ sub write_output{
     for ( @{$gene->get_all_Transcripts} ) {    
      #  print  "DEBUG::write $_ : ".$_->seq_region_start . " " . $_->biotype . " " . $_->translation()->seq() . " " . $_->translation()->start() . " gene: " . $gene->dbID . " " . $gene->biotype . " " . $_->strand . " " . $gene->strand ."\n"; 
       my $end_exon = $_->end_Exon;
-      print  "DEBUG::write::end_exon:: $end_exon  \n";  
     } 
     my $logic_name_to_be = "lincRNA_set_test_3"; 
-    # my @t = @{ $gene->get_all_Transcripts}; 
-    # my $strand_to_use  =  $gene->strand;    
-    # my $biotype_to_use = "empty_something_is_wrong"; 
 
     ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
     # Make an analysis object (used later for storing stuff in the db)
@@ -175,14 +128,15 @@ sub write_output{
       warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
     }else{
       $sucessful_count++;
-      print  "STORED LINCRNA GENE ".$gene->dbID. " "  . $gene->biotype  . " " .  $gene->strand . "\n";
+      # print  "STORED LINCRNA GENE ".$gene->dbID. " "  . $gene->biotype  . " " .  $gene->strand . "\n";
     }
   } 
   
-  # this check was added because I had problems with few genes. 
+  # this check was added because I had problems with few genes that didn't stored and the job didn't died! mysql kind of thing! 
   eval{
     my $check = $self->check_if_all_stored_correctly($self->RNA_DB); 
     print "check result: " . $check . " -- " . $sucessful_count ." genes written to FINAL OUTPUT DB " . $dba->dbc->dbname . "\n" ; # . $self->output_db->dbname . " @ ". $self->output_db->host . "\n"  ;   
+    
     if($sucessful_count != @genes_to_write ) { 
       $self->throw("Failed to write some genes");
     }
@@ -197,7 +151,7 @@ sub write_output{
   }
 }
 
-
+# post_cleanup will clean your entries if your full job didn't finish fine. Usefull! 
 sub post_cleanup {
   my $self = shift;
   
@@ -216,35 +170,25 @@ sub post_cleanup {
   return 1;
 }
 
-
-
-
-####### START KB15 ADD METHOD
+# need to put this method in one place
 sub get_genes_of_biotypes_by_db_hash_ref { 
   my ($self, $href) = @_;
 
   my %dbnames_2_biotypes = %$href ; 
 
   ### ### print  "DEBUG::get_genes_of_biotypes_by_db_hash_ref::Get genes " . scalar(keys %dbnames_2_biotypes) . "\n dumper:" . Dumper(%$href) . "\n"; 
-
   my @genes_to_fetch;  
   foreach my $db_hash_key ( keys %dbnames_2_biotypes )  {
-    print  "DEBUG::get_genes_of_biotypes_by_db_hash_ref::1 $db_hash_key\n";  # <--- name of the database to use
-
     my @biotypes_to_fetch = @{$dbnames_2_biotypes{$db_hash_key}};  
-   
-    # my $set_db = $self->hrdb_get_dba($self->param($db_hash_key));
     my $set_db = $self->hrdb_get_dba($self->param('source_cdna_db'));
     my $dna_dba = $self->hrdb_get_dba($self->param('reference_db'));
     if($dna_dba) {
       $set_db->dnadb($dna_dba);
     }
 
-    print  "DEBUG::get_genes_of_biotypes_by_db_hash_ref::2 $db_hash_key\n";
-    my $test_id = $self->param('iid');
-    # my $test_id = "chromosome:GRCh38:13:1:89625480:1"; 
-    my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, $db_hash_key)  ;
-print "-----> $test_id -- $set_db " .  $set_db->dbc->dbname  . " \n";
+    my $test_id = $self->param('iid'); 
+    my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, $db_hash_key); 
+    print "slice: $test_id -- db: " .  $set_db->dbc->dbname  . " \n";
     # implementation of fetch_all_biotypes ....  
     my $fetch_all_biotypes_flag ; 
     foreach my $biotype  ( @biotypes_to_fetch ) {   
@@ -266,14 +210,12 @@ print "-----> $test_id -- $set_db " .  $set_db->dbc->dbname  . " \n";
          print  scalar(@genes_to_fetch) . " genes fetched in total\n" ; 
     } else { 
       foreach my $biotype  ( @biotypes_to_fetch ) { 
-      	# $biotype = "best"; 
          my $genes = $slice->get_all_Genes_by_type($biotype,undef,1);
          if ( @$genes == 0 ) {
            warning("No genes of biotype $biotype found in $set_db\n");
          } 
          # if ( $self->verbose ) { 
          print  "$db_hash_key [ " . $set_db->dbc->dbname  . " ] Retrieved ".@$genes." of type ".$biotype."\n";
-         print  "DEBUG::HiveLincRNA::get_genes_of_biotypes_by_db_hash_ref: " . $db_hash_key . " Retrieved ".@$genes." of biotype ".$biotype."\n";
          # }
          push @genes_to_fetch, @$genes;
       }  
@@ -282,7 +224,7 @@ print "-----> $test_id -- $set_db " .  $set_db->dbc->dbname  . " \n";
 
   return \@genes_to_fetch;
 }
-####### END KB15 ADD METHOD
+
 
 sub check_if_all_stored_correctly {
   my ($self, $href) = @_;
@@ -294,14 +236,11 @@ sub check_if_all_stored_correctly {
   }
   
   my $test_id = $self->param('iid'); 
-  # print "-----> $test_id  \n";
   my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'lincRNA_output_db')  ;
-  # implementation of fetch_all_biotypes ....  
   print  "check if all genes are fine!! \n" ; 
   my $genes = $slice->get_all_Genes(undef,undef,1) ; 
 	return "yes";
 }
-
 
 
 # HIVE check
@@ -310,7 +249,7 @@ sub hive_set_config {
 
   # Throw is these aren't present as they should both be defined
   unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
+    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
           "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
           "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
           "write the genes to and this should also include the module name even if it isn't strictly necessary"
@@ -330,7 +269,7 @@ sub hive_set_config {
     if(defined &$config_key) {
       $self->$config_key($config_hash->{$config_key});
     } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
+      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
             "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
             "key:\n".$config_key
            );

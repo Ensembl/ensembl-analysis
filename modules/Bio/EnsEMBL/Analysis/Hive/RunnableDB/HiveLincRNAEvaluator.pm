@@ -1,5 +1,5 @@
 =head1 LICENSE
-# Copyright [1999-2014] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,12 +46,9 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils ('destringify');
 use Bio::EnsEMBL::Analysis; 
-# use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-# use Bio::EnsEMBL::Analysis::Config::GeneBuild::lincRNAEvaluator; 
 use Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator; 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange); 
-# use Bio::EnsEMBL::Analysis::RunnableDB; 
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
@@ -79,14 +76,8 @@ sub fetch_input{
   # set up config
   $self->hive_set_config;
   
-  # Get lincRNA candidate genes and break each of them down into single-transcript genes:
-  print  "DEBUG:: fetch_input:: dump the object START_FROM" .  "\n"; 
-  # get all candidates lincRNA 
+  # Get lincRNA candidate genes and break each of them down into single-transcript genes: 
   my $lincrna_genes = $self->get_genes_of_biotypes_by_db_hash_ref($self->LINCRNA_DB);
-  ### ### foreach my $gene (@{$lincrna_genes}) {
-  ### ###   print  $gene->display_id, "\t", $gene->adaptor->dbc->dbname, , "\t", $gene->adaptor->dbc->host, "\n";
-  ### ### }
-
   my @single_transcript_lincrna_genes = @{$self->create_single_transcript_genes($lincrna_genes)}; 
   print  "We have ". scalar(@single_transcript_lincrna_genes) . " single_transcript genes (1 gene.. 1 transcript), broken down from " . scalar(@$lincrna_genes) . " multi_transcript lincRNA candidates from lincRNAFinder stage.\n" ;  
 
@@ -189,10 +180,8 @@ sub run {
      push @output_clustered, @{$gb->output()} ;
    }
 
-   print  "\n 7GENEBUILDER RETURNED " .@output_clustered . " lincRNA GENES FOR WRITING (THIS DOES NOT INCLUDE REJECTED lincRNAs). THE TYPES OF lincRNA GENES WRITTEN DEPEND ON THE lincRNAEvaluator CONFIG SETTINGS.\n" ;  
-   
-   print  "DEBUG::HIVElincRNA::run XXXXXXXXXXXX\n";
-   # genes_to_write(); 
+   print  "\n GENEBUILDER RETURNED " .@output_clustered . " lincRNA GENES FOR WRITING (THIS DOES NOT INCLUDE REJECTED lincRNAs). THE TYPES OF lincRNA GENES WRITTEN DEPEND ON THE lincRNAEvaluator CONFIG SETTINGS.\n" ;  
+      # genes_to_write(); 
    # $self->genes_to_write( \@output_clustered );  # The write_output method takes lincRNA genes from $self->genes_to_write
    # $self->throw("don't let it finish and store!!");    
    $self->output( \@output_clustered );  #  This is just to store the lincRNA genes so test_RunnableDB script can find them.
@@ -206,25 +195,11 @@ sub get_genes_of_biotypes_by_db_hash_ref {
 
   my %dbnames_2_biotypes = %$href ; 
 
-
-  ### ### print  "DEBUG::get_genes_of_biotypes_by_db_hash_ref::Get genes " . scalar(keys %dbnames_2_biotypes) . "\n dumper:" . Dumper(%$href) . "\n"; 
-
-
   my @genes_to_fetch;  
   foreach my $db_hash_key ( keys %dbnames_2_biotypes )  {
     # print  "DEBUG::get_genes_of_biotypes_by_db_hash_ref::1 $db_hash_key\n";  # <--- name of the database to use
-
     my @biotypes_to_fetch = @{$dbnames_2_biotypes{$db_hash_key}};  
-    
-    # print  "----> " . Dumper(@biotypes_to_fetch) . "<---- \n";
-    # foreach my $biotype  ( @biotypes_to_fetch ) { 
-    #   print    "----------> $biotype  \n";              # <--- name of the biotype to use
-    # } 
-    
-    
     my $set_db = $self->hrdb_get_dba($self->param($db_hash_key));
-   # my $set_db = $self->hrdb_get_dba($self->param('source_protein_coding_db'));
-
 
     my $dna_dba = $self->hrdb_get_dba($self->param('reference_db'));
     if($dna_dba) {
@@ -282,11 +257,8 @@ sub write_output{
 
   print  "\nWRITING RESULTS IN OUTPUT DB and/or VALIDATION DB... " . "\n";
 
-
-
   # update genes in the source db which cluster with processed_transcripts or lincRNAs
   # (if requested in the config file)
-
   if ( $self->param('MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB') == 0  ) { 
 
     my @proc_tran_genes_to_update = @{ $self->single_runnable->proc_tran_genes_to_update} ;    
