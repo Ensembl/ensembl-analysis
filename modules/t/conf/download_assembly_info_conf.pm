@@ -190,14 +190,11 @@ sub pipeline_analyses {
         -logic_name => 'download_assembly_info',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadNCBIFtpFiles',
         -parameters => {
-                         'full_ftp_path'             => $self->o('full_ftp_path'),
-                         'output_path'               => $self->o('output_path'),
-                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+                         'full_ftp_path'             => "ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Mus_musculus/all_assembly_versions/GCA_001624185.1_129S1_SvImJ_v1/",
+                         'output_path'               => "/home/rishi/tmp",
+                         'primary_assembly_dir_name' => "Primary_Assembly",
                        },
         -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['find_contig_accessions'],
-                       },
         -input_ids  => [{}],
       },
     ];
