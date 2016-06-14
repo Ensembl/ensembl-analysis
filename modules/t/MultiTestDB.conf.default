@@ -1,0 +1,7 @@
+{
+  'databases' => {
+    'hive' => {
+      'hive' => 'Bio::EnsEMBL::Hive::DBSQL::DBAdaptor',
+    }
+  }
+}

@@ -1,0 +1,105 @@
+#############################################################
+# GENERAL SETTINGS                                          #
+#############################################################
+Master output path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade
+FTP link file: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/ftp_link_file.txt
+Genebuilder id: 42
+Farm user name: fm2
+DB write user: ensadmin
+DB write pass: ensembl
+Reference DB server: genebuild13
+Reference DB port: 3306
+Creation type for reference DB: core_only
+Pipeline DB server: genebuild12
+ENSCODE root dir: /nfs/users/nfs_f/fm2/enscode/
+Primary assembly dir name: Primary_Assembly
+Contigs source: ncbi
+
+-------------------------------------------------------------
+- MACACA_NEMESTRINA SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/macaca_nemestrina
+Assembly name (coord_system_version): Mnem_1.0
+GCA accession: GCA_000956065.1
+Taxon id: 9545
+Assembly level: scaffold
+wgs id: JZLF
+Reference DB name: fm2_macaca_nemestrina_ref
+
+-------------------------------------------------------------
+- CERCOCEBUS_ATYS SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/cercocebus_atys
+Assembly name (coord_system_version): Caty_1.0
+GCA accession: GCA_000955945.1
+Taxon id: 9531
+Assembly level: scaffold
+wgs id: JZLG
+Reference DB name: fm2_cercocebus_atys_ref
+
+-------------------------------------------------------------
+- MANDRILLUS_LEUCOPHAEUS SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/mandrillus_leucophaeus
+Assembly name (coord_system_version): Mleu.le_1.0
+GCA accession: GCA_000951045.1
+Taxon id: 9568
+Assembly level: scaffold
+wgs id: JYKQ
+Reference DB name: fm2_mandrillus_leucophaeus_ref
+
+-------------------------------------------------------------
+- COLOBUS_ANGOLENSIS SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/colobus_angolensis
+Assembly name (coord_system_version): Cang.pa_1.0
+GCA accession: GCA_000951035.1
+Taxon id: 336983
+Assembly level: scaffold
+wgs id: JYKR
+Reference DB name: fm2_colobus_angolensis_ref
+
+-------------------------------------------------------------
+- AOTUS_NANCYMAAE SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/aotus_nancymaae
+Assembly name (coord_system_version): Anan_1.0
+GCA accession: GCA_000952055.1
+Taxon id: 37293
+Assembly level: scaffold
+wgs id: JYKP
+Reference DB name: fm2_aotus_nancymaae_ref
+
+-------------------------------------------------------------
+- MICROCEBUS_MURINUS SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/microcebus_murinus
+Assembly name (coord_system_version): Mmur_2.0
+GCA accession: GCA_000165445.2
+Taxon id: 30608
+Assembly level: scaffold
+wgs id: ABDC
+Reference DB name: fm2_microcebus_murinus_ref
+
+-------------------------------------------------------------
+- PROPITHECUS_COQUERELI SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/propithecus_coquereli
+Assembly name (coord_system_version): Pcoq_1.0
+GCA accession: GCA_000956105.1
+Taxon id: 379532
+Assembly level: scaffold
+wgs id: JZKE
+Reference DB name: fm2_propithecus_coquereli_ref
+
+-------------------------------------------------------------
+- MACACA_FASCICULARIS SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading_clade/macaca_fascicularis
+Assembly name (coord_system_version): Macaca_fascicularis_5.0
+GCA accession: GCA_000364345.1
+Taxon id: 9541
+Assembly level: chromosome
+wgs id: AQIA
+Reference DB name: fm2_macaca_fascicularis_ref
+
