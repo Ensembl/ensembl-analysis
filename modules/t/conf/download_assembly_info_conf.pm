@@ -137,7 +137,7 @@ sub default_options {
 
 # NOTE! the dbname for each species is generated in the pipeline itself by setup_assembly_loading_pipeline
 'reference_db' => {
-  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_'.$self->o('strain').'_core',
+  -dbname => 'eat_test_species_core',
   -host   => $self->o('reference_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),
