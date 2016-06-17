@@ -234,21 +234,21 @@ sub pipeline_analyses {
                        },
       },
 
-      {
+#      {
         # Creates a reference db for each species
-        -logic_name => 'create_core_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         'target_db'        => $self->o('reference_db'),
-                         'user_w'           => $self->o('user_w'),
-                         'pass_w'           => $self->o('password'),
-                         'enscode_root_dir' => $self->o('enscode_root_dir'),
-                         'create_type'      => 'core_only',
-                       },
-        -rc_name    => 'default',
-        -input_ids => [{}],
-
-      },
+#        -logic_name => 'create_core_db',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+#        -parameters => {
+#                         'target_db'        => $self->o('reference_db'),
+#                         'user_w'           => $self->o('user_w'),
+#                         'pass_w'           => $self->o('password'),
+#                         'enscode_root_dir' => $self->o('enscode_root_dir'),
+#                         'create_type'      => 'core_only',
+#                       },
+#        -rc_name    => 'default',
+#        -input_ids => [{}],
+#
+#      },
 
       {
         # Load production tables into each reference

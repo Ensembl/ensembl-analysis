@@ -31,6 +31,10 @@ else {
 
 ok( 1, 'Startup test' );
 
+my $human = Bio::EnsEMBL::Test::MultiTestDB->new('mus_musculus');
+my $human_dba = $human->get_DBAdaptor('empty');
+ok( 2, 'Emptyness is available') or BAIL_OUT 'Cannot setup Empty core DB. Do not continue.';
+
 my $multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('hive');
 my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB. Do not continue';
 
