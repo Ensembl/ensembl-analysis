@@ -2,6 +2,9 @@
   'databases' => {
     'hive' => {
       'hive' => 'Bio::EnsEMBL::Hive::DBSQL::DBAdaptor',
+    },
+    'mus_musculus' => {
+      'core' => 'Bio::EnsEMBL::DBSQL::DBAdaptor',
     }
   }
 }

@@ -59,7 +59,7 @@ sub default_options {
 
 'user_r'                         => 'travis',
 'user_w'                         => 'travis',
-'password'                       => 'blake',
+'password'                       => '',
 'port'                           => '3306',
 
 
