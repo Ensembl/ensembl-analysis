@@ -230,7 +230,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['populate_production_tables'],
+                         1 => ['load_contigs'],
                        },
       },
 
@@ -250,22 +250,22 @@ sub pipeline_analyses {
 #
 #      },
 
-      {
+#      {
         # Load production tables into each reference
-        -logic_name => 'populate_production_tables',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
-        -parameters => {
-                         'target_db'        => $self->o('reference_db'),
-                         'output_path'      => $self->o('output_path'),
-                         'enscode_root_dir' => $self->o('enscode_root_dir'),
-                         'production_db'    => $self->o('production_db'),
-                       },
-        -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['load_contigs'],
-                       },
-         -wait_for => ['create_core_db'],
-      },
+#        -logic_name => 'populate_production_tables',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
+#        -parameters => {
+#                         'target_db'        => $self->o('reference_db'),
+#                         'output_path'      => $self->o('output_path'),
+#                         'enscode_root_dir' => $self->o('enscode_root_dir'),
+#                         'production_db'    => $self->o('production_db'),
+#                       },
+#        -rc_name    => 'default',
+#        -flow_into  => {
+#                         1 => ['load_contigs'],
+#                       },
+#         -wait_for => ['create_core_db'],
+#      },
 
       {
         # Load the contigs into each reference db
