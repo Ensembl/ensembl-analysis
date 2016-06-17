@@ -46,7 +46,7 @@ pipeline_name=human_cdna_84_rerun_2
 # Full connection info for the hive pipeline db, needs write access
 HIVE_HOST=genebuild11
 HIVE_USER=ensadmin
-HIVE_PASS=ensembl
+HIVE_PASS=
 HIVE_PORT=3306
 HIVE_DBNAME=dm15_human_cdna_84_rerun_2
 
@@ -76,5 +76,5 @@ hive_url=mysql://${HIVE_USER}:${HIVE_PASS}@${HIVE_HOST}:${HIVE_PORT}/${HIVE_DBNA
 echo Hive url: ${hive_url}
 
 # for data big files of the project
-export ENSADMIN_PSW='ensembl'
+export ENSADMIN_PSW=''
 

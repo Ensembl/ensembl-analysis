@@ -103,7 +103,7 @@ sub default_options {
 
     'user_r'                     => 'ensro',
     'user_w'                     => 'ensadmin',
-    'password'                   => 'ensembl',
+    'password'                   => '',
     'port'                       => '3306',
 
     'cdna_query_dir_name'        => 'cdna_temp',

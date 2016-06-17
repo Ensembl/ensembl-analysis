@@ -47,7 +47,7 @@ sub default_options {
 #                                                                        #
 ##########################################################################
     
-    'recipient_email'              => 'dmurphy@ebi.ac.uk', # email address where reports will be sent
+    'recipient_email'              => '', # email address where reports will be sent
 
     'farm_username'	           => 'dm15',    
 
@@ -139,7 +139,7 @@ sub default_options {
 
     'user_r'                       => 'ensro',
     'user_w'                       => 'ensadmin',
-    'password'                     => 'ensembl',
+    'password'                     => '',
     'port'                         => '3306',
 
     'default_mem'                  => '900',

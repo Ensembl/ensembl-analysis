@@ -51,39 +51,39 @@ sub default_options {
 #                                                                        #
 ##########################################################################
     
-    'recipient_email'            => 'dmurphy@ebi.ac.uk', # email address where reports will be sent
+    'recipient_email'            => '', # email address where reports will be sent
 
     'species'                    => 'human',
 
-    'pipeline_name'              => 'human_cdna_84',
-    'pipe_db_name'               => 'dm15_human_cdna_84',
-    'pipe_db_server'             => 'genebuild11',
+    'pipeline_name'              => '',
+    'pipe_db_name'               => '',
+    'pipe_db_server'             => '',
 
-    'dna_db_name'                => 'dm15_human_83_copy',
-    'dna_db_server'              => 'genebuild12',
+    'dna_db_name'                => '',
+    'dna_db_server'              => '',
 
-    'killlist_db_server'         => 'genebuild6',
+    'killlist_db_server'         => '',
 
-    'exonerate_output_db_name'   => 'dm15_human_cdna_exonerate_84',
-    'exonerate_output_db_server' => 'genebuild13',
+    'exonerate_output_db_name'   => '',
+    'exonerate_output_db_server' => '',
 
-    'old_cdna_db_name'           => 'homo_sapiens_cdna_83_38',
-    'old_cdna_db_server'         => 'ens-livemirror',
+    'old_cdna_db_name'           => '',
+    'old_cdna_db_server'         => '',
 
-    'output_path'                => '/lustre/scratch109/ensembl/dm15/hive_humancdna_84/',
+    'output_path'                => '',
 
-    'refseq_path'                => '/data/blastdb/Ensembl/RefSeq_2016_01/',
+    'refseq_path'                => '',
     'refseq_file'                => 'hs.fna',
 
     'exonerate_batch_size'       => '50',
 
-    'clone_db_script_path'       => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/scripts/clone_database.ksh',
+    'clone_db_script_path'       => 'ensembl-personal/genebuilders/scripts/clone_database.ksh',
 
     'genome_file'                => '/data/blastdb/Ensembl/human/GRCh38/genome/softmasked_dusted/toplevel.with_nonref_and_GRCh38_p5.no_duplicate.softmasked_dusted.fa',
 
     'repeat_masking_logic_names' => ['repeatmask_repbase_human'],
 
-    'gss_file'                   => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/cDNA_update/gss_acc.txt',
+    'gss_file'                   => 'ensembl-personal/genebuilders/cDNA_update/gss_acc.txt',
 
 
 ##########################################################################
@@ -102,7 +102,7 @@ sub default_options {
 
     'user_r'                     => 'ensro',
     'user_w'                     => 'ensadmin',
-    'password'                   => 'ensembl',
+    'password'                   => '',
     'port'                       => '3306',
 
     'cdna_query_dir_name'        => 'cdna_temp',

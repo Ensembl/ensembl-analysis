@@ -47,7 +47,7 @@ sub default_options {
 #                                                                        #
 ##########################################################################
     
-    'recipient_email'            => 'dmurphy@ebi.ac.uk', # email address where reports will be sent
+    'recipient_email'            => '', # email address where reports will be sent
 
     'species'                    => 'human',
 
@@ -98,7 +98,7 @@ sub default_options {
 
     'user_r'                     => 'ensro',
     'user_w'                     => 'ensadmin',
-    'password'                   => 'ensembl',
+    'password'                   => '',
     'port'                       => '3306',
 
     'cdna_query_dir_name'        => 'cdna_temp',
