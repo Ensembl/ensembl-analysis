@@ -42,9 +42,7 @@ my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB.
   my $module = 'download_assembly_init_conf' ;
   my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
-
-  #TODO - check for the files from the download - bail out if not present
-
+  #TODO file existance content checks
 
   my $module = 'download_assembly_continue_conf' ;
   my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
