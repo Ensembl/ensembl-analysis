@@ -54,8 +54,8 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-'pipe_db_server'                 => 'localhost', # NOTE! used to generate tokens in the resource_classes sub below
-'reference_db_server'            => 'localhost', # NOTE! used to generate tokens in the resource_classes sub below
+'pipe_db_server'                 => 'localhost',
+'reference_db_server'            => 'localhost',
 
 'user_r'                         => 'travis',
 'user_w'                         => 'travis',
@@ -184,8 +184,6 @@ sub pipeline_analyses {
 # ASSEMBLY LOADING ANALYSES
 #
 ###############################################################################
-
-
       {
         # Load the contigs into each reference db
         -logic_name => 'load_contigs',
@@ -307,6 +305,8 @@ sub pipeline_analyses {
                        },
 
       },
+
+
 
     ];
 }
