@@ -65,10 +65,10 @@ sub default_options {
 
 'output_path'               => '/home/rishi/eat_files',
 'primary_assembly_dir_name' => 'Primary_Assembly',
-'wgs_id'                    => 'LVXH',
-'assembly_name'             => '129S1_SvImJ_v1',
-'assembly_accession'        => 'GCA_001624185.1',
-'full_ftp_path'             => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Mus_musculus/all_assembly_versions/GCA_001624185.1_129S1_SvImJ_v1//GCA_001624185.1_129S1_SvImJ_v1_assembly_structure',
+'wgs_id'                    => 'AABR',
+'assembly_name'             => 'TEST_RNOR6_20',
+'assembly_accession'        => 'EAT_001.1',
+'full_ftp_path'             => 'ftp://ngs.sanger.ac.uk/scratch/project/rn6/eat',
 'chromosomes_present'       => '1',
 
 
@@ -214,25 +214,25 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['download_contigs'],
-                       },
-      },
-
-      {
-        # Download contig from NCBI
-        -logic_name => 'download_contigs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadContigs',
-        -parameters => {
-                         'contigs_source'            => $self->o('contigs_source'),
-                         'wgs_id'                    => $self->o('wgs_id'),
-                         'output_path'               => $self->o('output_path'),
-                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-                       },
-        -rc_name    => 'default',
-        -flow_into  => {
                          1 => ['load_contigs'],
                        },
       },
+
+#      {
+        # Download contig from NCBI
+#        -logic_name => 'download_contigs',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadContigs',
+#        -parameters => {
+#                         'contigs_source'            => $self->o('contigs_source'),
+#                         'wgs_id'                    => $self->o('wgs_id'),
+#                         'output_path'               => $self->o('output_path'),
+#                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+#                       },
+#        -rc_name    => 'default',
+#        -flow_into  => {
+#                         1 => ['load_contigs'],
+#                       },
+#      },
 
 #      {
         # Creates a reference db for each species
@@ -347,14 +347,10 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        # FirstEF is left out here as it runs on repeats. Repeatmasker analyses flow into it
-                        '1->A' => ['create_1mb_slice_ids'],
-                        'A->1' => ['backup_core_db'],
+                        1 => ['create_1mb_slice_ids'],
                       },
 
-#        -flow_into  => {
-#                          1 => ['create_1mb_slice_ids'],
-#                       },
+
       },
 
 
