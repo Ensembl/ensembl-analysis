@@ -16,7 +16,7 @@ limitations under the License.
 
 =cut
 
-package download_assembly_info_conf ;
+package download_assembly_init_conf ;
 
 use strict;
 use warnings;
@@ -68,7 +68,7 @@ sub default_options {
 'wgs_id'                    => 'AABR',
 'assembly_name'             => 'TEST_RNOR6_20',
 'assembly_accession'        => 'EAT_001.1',
-'full_ftp_path'             => 'ftp://ngs.sanger.ac.uk/scratch/project/rn6/eat',
+'full_ftp_path'             => 'ftp://ngs.sanger.ac.uk/scratch/project/rn6/eat/assembly_structure',
 'chromosomes_present'       => '1',
 
 
@@ -213,181 +213,8 @@ sub pipeline_analyses {
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
                        },
         -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['load_contigs'],
-                       },
       },
 
-#      {
-        # Download contig from NCBI
-#        -logic_name => 'download_contigs',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadContigs',
-#        -parameters => {
-#                         'contigs_source'            => $self->o('contigs_source'),
-#                         'wgs_id'                    => $self->o('wgs_id'),
-#                         'output_path'               => $self->o('output_path'),
-#                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-#                       },
-#        -rc_name    => 'default',
-#        -flow_into  => {
-#                         1 => ['load_contigs'],
-#                       },
-#      },
-
-#      {
-        # Creates a reference db for each species
-#        -logic_name => 'create_core_db',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-#        -parameters => {
-#                         'target_db'        => $self->o('reference_db'),
-#                         'user_w'           => $self->o('user_w'),
-#                         'pass_w'           => $self->o('password'),
-#                         'enscode_root_dir' => $self->o('enscode_root_dir'),
-#                         'create_type'      => 'core_only',
-#                       },
-#        -rc_name    => 'default',
-#        -input_ids => [{}],
-#
-#      },
-
-#      {
-        # Load production tables into each reference
-#        -logic_name => 'populate_production_tables',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
-#        -parameters => {
-#                         'target_db'        => $self->o('reference_db'),
-#                         'output_path'      => $self->o('output_path'),
-#                         'enscode_root_dir' => $self->o('enscode_root_dir'),
-#                         'production_db'    => $self->o('production_db'),
-#                       },
-#        -rc_name    => 'default',
-#        -flow_into  => {
-#                         1 => ['load_contigs'],
-#                       },
-#         -wait_for => ['create_core_db'],
-#      },
-
-      {
-        # Load the contigs into each reference db
-        -logic_name => 'load_contigs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadSeqRegions',
-        -parameters => {
-                         'coord_system_version'      => $self->o('assembly_name'),
-                         'target_db'                 => $self->o('reference_db'),
-                         'output_path'               => $self->o('output_path'),
-                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
-                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-                       },
-        -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['load_assembly_info'],
-                       },
-      },
-
-      {
-        # Load the AGP files
-        -logic_name => 'load_assembly_info',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadAssembly',
-        -parameters => {
-                         'target_db'                 => $self->o('reference_db'),
-                         'output_path'               => $self->o('output_path'),
-                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
-                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-                       },
-
-        -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['set_toplevel'],
-                       },
-      },
-
-
-      {
-        # Set the toplevel
-        -logic_name => 'set_toplevel',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetAndCheckToplevel',
-        -parameters => {
-                         'target_db'            => $self->o('reference_db'),
-                         'output_path'          => $self->o('output_path'),
-                         'enscode_root_dir'     => $self->o('enscode_root_dir'),
-                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-                       },
-        -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['load_meta_info'],
-                       },
-      },
-
-
-      {
-        # Load some meta info and seq_region_synonyms
-        -logic_name => 'load_meta_info',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetMetaAndSeqRegionSynonym',
-        -parameters => {
-                         'taxon_id'                  => $self->o('taxon_id'),
-                         'chromosomes_present'       => $self->o('chromosomes_present'),
-                         'genebuilder_id'            => $self->o('genebuilder_id'),
-                         'target_db'                 => $self->o('reference_db'),
-                         'output_path'               => $self->o('output_path'),
-                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
-                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
-                       },
-        -rc_name    => 'default',
-        -flow_into  => {
-                          1 => ['load_taxonomy_info'],
-                       },
-      },
-
-      {
-        -logic_name => 'load_taxonomy_info',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadTaxonomyInfo',
-        -parameters => {
-                         'target_db'        => $self->o('reference_db'),
-                         'enscode_root_dir' => $self->o('enscode_root_dir'),
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['create_1mb_slice_ids'],
-                      },
-
-
-      },
-
-
-#      {
-#        # Load the AGP files
-#        -logic_name => 'load_mitochondrion',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
-#        -parameters => {
-#                         'target_db'                 => $self->o('reference_db'),
-#                         'output_path'               => $self->o('output_path'),
-#                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
-#                         'mito_index_path'           => $self->o('mito_index_path'),
-#                         'species_name'              => $self->o('species_name'),
-#                         'chromosomes_present'       => $self->o('chromosomes_present'),
-#                      },
-#        -rc_name    => 'default',
-#        -flow_into  => {
-#                         1 => ['create_1mb_slice_ids'],
-#                       },
-#      },
-
-
-      {
-        # Create 1mb toplevel slices, each species flow into this independantly
-        -logic_name => 'create_1mb_slice_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db        => $self->o('reference_db'),
-                         coord_system_name => 'toplevel',
-                         slice => 1,
-                         slice_size => 1000000,
-                         include_non_reference => 0,
-                         top_level => 1,
-                         min_slice_length => $self->o('min_toplevel_slice_length'),
-                       },
-
-      },
 
     ];
 }

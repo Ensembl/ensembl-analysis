@@ -39,12 +39,16 @@ my $multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('hive');
 my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB. Do not continue';
 
 {
-  my $module = 'download_assembly_info_conf' ;
+  my $module = 'download_assembly_init_conf' ;
   my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
 
-  #TODO -check for the files
+  #TODO - check for the files from the download - bail out if not present
 
+
+  my $module = 'download_assembly_continue_conf' ;
+  my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
+  $pipeline->run();
 
 }
 
