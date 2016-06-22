@@ -56,7 +56,7 @@ sub default_options {
 
 'pipe_db_server'                 => 'localhost',
 'reference_db_server'            => 'localhost',
-
+'user'                           => 'travis',
 'user_r'                         => 'travis',
 'user_w'                         => 'travis',
 'password'                       => '',
@@ -131,13 +131,12 @@ sub default_options {
 ########################
 # db info
 ########################
-'user' => 'ensro',
 
 
 
 # NOTE! the dbname for each species is generated in the pipeline itself by setup_assembly_loading_pipeline
 'reference_db' => {
-  -dbname => 'eat_test_species_core',
+  -dbname => '',
   -host   => $self->o('reference_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),

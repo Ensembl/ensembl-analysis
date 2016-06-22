@@ -29,6 +29,9 @@ else {
   $options = '-run_all 1';
 }
 
+#corresponds to 'output_path' in the pipeline config files
+my $pipe_output_path = "/home/rishi/eat_files" ;
+
 ok( 1, 'Startup test' );
 
 my $multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('hive');
@@ -42,13 +45,18 @@ my $rat_empty_dba = $rat_multi_db->get_DBAdaptor('empty') or BAIL_OUT 'Cannot se
   my $module = 'download_assembly_init_conf' ;
   my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
-  #TODO file existance content checks
+  my $dir = $pipe_output_path.'/Primary_Assembly' ;
+  ok(-d $dir, "Primary Assembly directory exists") or done_testing, exit;
+  ok(-e $dir."/assembly_report.txt", "Assembly report exists") ;
+  ok(-e $dir."/chr20.agp", "chr20.agp exists") or done_testing, exit ;
+  ok(-e $dir."/contigs.fa", "contigs.fa exists") or done_testing, exit ;
 
-  my $module = 'download_assembly_continue_conf' ;
-  my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
+  $module = 'download_assembly_continue_conf' ;
+  $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
   #TODO database value existance checks
 }
+
 
 
 done_testing();
