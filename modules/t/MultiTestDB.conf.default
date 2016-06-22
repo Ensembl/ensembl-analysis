@@ -3,7 +3,7 @@
     'hive' => {
       'hive' => 'Bio::EnsEMBL::Hive::DBSQL::DBAdaptor',
     },
-    'eat_rat' => {
+    'rattus_norvegicus' => {
       'core' => 'Bio::EnsEMBL::DBSQL::DBAdaptor',
       'empty' => 'Bio::EnsEMBL::DBSQL::DBAdaptor',
     }

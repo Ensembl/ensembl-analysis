@@ -31,12 +31,12 @@ else {
 
 ok( 1, 'Startup test' );
 
-my $rat_test_multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('rat_test');
-my $rat_empty_dba = $rat_test_multi_db->get_DBAdaptor('empty');
-ok( 2, 'Emptyness is available') or BAIL_OUT 'Cannot setup Empty core DB. Do not continue.';
-
 my $multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('hive');
-my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB. Do not continue';
+my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB. Stopping.';
+
+my $rat_multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('rattus_norvegicus');
+my $rat_empty_dba = $rat_multi_db->get_DBAdaptor('empty') or BAIL_OUT 'Cannot setup Empty core DB. Stopping.';
+
 
 {
   my $module = 'download_assembly_init_conf' ;
@@ -47,7 +47,7 @@ my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB.
   my $module = 'download_assembly_continue_conf' ;
   my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
-
+  #TODO database value existance checks
 }
 
 
