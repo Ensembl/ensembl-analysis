@@ -95,7 +95,17 @@ sub download_ftp_contigs {
         $self->throw("wget failed on the following command line:\n".$wget);
       }
     }
-  } #elsif($source eq 'ena') {
+  }
+  elsif($source eq 'eat_test')
+  {
+    my $wget = 'wget -nv "ftp://ngs.sanger.ac.uk/scratch/project/rn6/eat/contigs/wgs.AABR.1.fsa_nt.gz"  -P $output_path';
+    my $return = system($wget);
+    if($return)
+    {
+      $self->throw("wget failed on the following command line:\n".$wget);
+    }
+  }
+ #elsif($source eq 'ena') {
     #$wgs_id =~ /^(..)/;
     #my $prefix = $1;
 
