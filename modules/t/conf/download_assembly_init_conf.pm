@@ -125,7 +125,7 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-'contigs_source' => 'ncbi',
+'contigs_source' => 'eat',
 'primary_assembly_dir_name' => 'Primary_Assembly',
 
 ########################
@@ -213,8 +213,24 @@ sub pipeline_analyses {
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
                        },
         -rc_name    => 'default',
+        -flow_into  => {
+                         1 => ['download_contigs'],
+                       },
       },
 
+      {
+        # Download contig from NCBI
+        -logic_name => 'download_contigs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadContigs',
+        -parameters => {
+                         'contigs_source'            => $self->o('contigs_source'),
+                         'wgs_id'                    => $self->o('wgs_id'),
+                         'output_path'               => $self->o('output_path'),
+                         'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+                       },
+        -rc_name    => 'default',
+
+      },
 
     ];
 }

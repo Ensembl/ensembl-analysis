@@ -15,6 +15,8 @@
 use strict;
 use warnings;
 
+use File::Copy;
+
 use Test::More;
 use Bio::EnsEMBL::Test::MultiTestDB;
 use Bio::EnsEMBL::Test::RunPipeline;
@@ -37,9 +39,12 @@ ok( 1, 'Startup test' );
 my $multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('hive');
 my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB. Stopping.';
 
-my $rat_multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('rattus_norvegicus');
-my $rat_empty_dba = $rat_multi_db->get_DBAdaptor('empty') or BAIL_OUT 'Cannot setup Empty core DB. Stopping.';
-
+#TO DO - read these values out from the config file directly (or perhaps via versa)
+my $db_name = 'eat_rat_core_db' ;
+my $db_server = 'localhost' ;
+my $db_user   = 'eat_tester' ;
+my $db_password = 'apwd1234' ;
+my $db_port = '3306' ;
 
 {
   my $module = 'download_assembly_init_conf' ;
@@ -51,12 +56,17 @@ my $rat_empty_dba = $rat_multi_db->get_DBAdaptor('empty') or BAIL_OUT 'Cannot se
   ok(-e $dir."/chr20.agp", "chr20.agp exists") or done_testing, exit ;
   ok(-e $dir."/contigs.fa", "contigs.fa exists") or done_testing, exit ;
 
+  #Put contigs in their place
+  mkdir( $dir."/contigs" ) ;
+  move( $dir."/contigs.fa" , $dir."/contigs/contigs.fa" );
+  ok(-e $dir."/contigs/contigs.fa", "contigs.fa moved successfully") or done_testing, exit ;
+
   $module = 'download_assembly_continue_conf' ;
   $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
   #TODO database value existance checks
+
+
 }
-
-
 
 done_testing();

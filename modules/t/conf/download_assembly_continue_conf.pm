@@ -56,12 +56,14 @@ sub default_options {
 
 'pipe_db_server'                 => 'localhost',
 'reference_db_server'            => 'localhost',
-'user'                           => 'travis',
+
+'user'                           => 'eat_tester',
 'user_r'                         => 'travis',
-'user_w'                         => 'travis',
-'password'                       => '',
+'user_w'                         => 'eat_tester',
+'password'                       => 'apwd1234',
 'port'                           => '3306',
 
+'reference_db_name'              => 'eat_rat_core_db',
 
 'output_path'               => '/home/rishi/eat_files',
 'primary_assembly_dir_name' => 'Primary_Assembly',
@@ -134,9 +136,8 @@ sub default_options {
 
 
 
-# NOTE! the dbname for each species is generated in the pipeline itself by setup_assembly_loading_pipeline
 'reference_db' => {
-  -dbname => '',
+  -dbname => $self->o('reference_db_name'),
   -host   => $self->o('reference_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),
@@ -183,6 +184,24 @@ sub pipeline_analyses {
 # ASSEMBLY LOADING ANALYSES
 #
 ###############################################################################
+      {
+        # Creates a reference db for each species
+        -logic_name => 'create_core_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         'target_db'        => $self->o('reference_db'),
+                         'user_w'           => $self->o('user_w'),
+                         'pass_w'           => $self->o('password'),
+                         'enscode_root_dir' => $self->o('enscode_root_dir'),
+                         'create_type'      => 'core_only',
+                       },
+        -rc_name    => 'default',
+        -input_ids => [{}],
+        -flow_into  => {
+                         1 => ['load_contigs'],
+                       },
+      },
+
       {
         # Load the contigs into each reference db
         -logic_name => 'load_contigs',
