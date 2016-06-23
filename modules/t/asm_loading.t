@@ -54,11 +54,6 @@ my $db_port = '3306' ;
   ok(-d $dir, "Primary Assembly directory exists") or done_testing, exit;
   ok(-e $dir."/assembly_report.txt", "Assembly report exists") ;
   ok(-e $dir."/chr20.agp", "chr20.agp exists") or done_testing, exit ;
-  ok(-e $dir."/contigs.fa", "contigs.fa exists") or done_testing, exit ;
-
-  #Put contigs in their place
-  mkdir( $dir."/contigs" ) ;
-  move( $dir."/contigs.fa" , $dir."/contigs/contigs.fa" );
   ok(-e $dir."/contigs/contigs.fa", "contigs.fa moved successfully") or done_testing, exit ;
 
   $module = 'download_assembly_continue_conf' ;
