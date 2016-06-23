@@ -135,7 +135,7 @@ sub fix_contig_headers {
   my ($self,$source,$output_path) = @_;
 
   $source = lc($source);
-  if($source eq 'ncbi') {
+  if($source eq 'ncbi' || $source eq 'eat') {
     my $contigs_unfixed = $output_path.'/contigs_unfixed_header.fa';
     my $contigs_fixed = $output_path.'/contigs.fa';
 
