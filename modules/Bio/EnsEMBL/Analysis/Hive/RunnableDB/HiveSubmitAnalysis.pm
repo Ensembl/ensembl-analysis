@@ -83,6 +83,8 @@ sub fetch_input {
     $self->split_slice();
   } elsif($self->param('iid_type') eq 'uniprot_accession') {
     $self->uniprot_accession();
+  } elsif($self->param('cdna_accession')) {
+    $self->cdna_accession();
   } else {
       $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
       my $dba = hrdb_get_dba($self->param('target_db'));
@@ -456,6 +458,55 @@ sub uniprot_accession {
   $self->param('inputlist', $output_id_array);
 }
 
+
+=head2 cdna_accession
+
+ Arg [1]    : None
+ Description: Create input_ids based on the sequence accessions stored in Hive
+ Returntype : None
+ Exceptions : Throws if 'cdna_batch_size' is defined but not set
+              Throws if 'cdna_table_name' is defined but not set
+
+=cut
+
+sub cdna_accession {
+  my ($self) = @_;
+
+  my $output_id_array = [];
+
+  unless($self->param('cdna_batch_size')) {
+    $self->throw("You've selected to batch cdna ids but haven't passed in a batch size using 'cdna_batch_size'");
+  }
+
+  unless($self->param('cdna_table_name')) {
+    $self->throw("You've selected to batch cdna ids but haven't passed the name of the cdna table in ".
+                 "the pipeline database using 'cdna_table_name'");
+  }
+
+  my $batch_size = $self->param('cdna_batch_size');
+  my $table_name = $self->param('cdna_table_name');
+
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name($table_name);
+
+  $table_adaptor->column_set();
+  my $accessions = $table_adaptor->fetch_all(undef,undef,undef,'accession');
+  my $accession_array = [];
+  foreach my $accession (@{$accessions}) {
+    my $size = scalar(@{$accession_array});
+    if($size == $batch_size) {
+      push(@{$output_id_array},$accession_array);
+      $accession_array = [];
+    }
+    push(@{$accession_array},$accession);
+  }
+
+  if(scalar(@{$accession_array})) {
+    push(@{$output_id_array},$accession_array);
+  }
+
+  $self->param('inputlist', $output_id_array);
+}
 
 =head2 rechunk_uniprot_accession
 
