@@ -65,20 +65,20 @@ sub default_options {
 
 'output_path'               => '/home/rishi/eat_files_mouse',
 
-'primary_assembly_dir_name' => 'Primary_Assembly',
-'wgs_id'                    => 'LVXH',
-'assembly_name'             => '129S1_SvImJ_v1',
-'assembly_accession'        => 'GCA_001624185.1',
-'full_ftp_path'             => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Mus_musculus/all_assembly_versions/GCA_001624185.1_129S1_SvImJ_v1//GCA_001624185.1_129S1_SvImJ_v1_assembly_structure',
-'chromosomes_present'       => '1',
-
-
 #'primary_assembly_dir_name' => 'Primary_Assembly',
-#'wgs_id'                    => 'AABR',
-#'assembly_name'             => 'TEST_RNOR6_20',
-#'assembly_accession'        => 'EAT_001.1',
-#'full_ftp_path'             => 'ftp://ngs.sanger.ac.uk/scratch/project/rn6/eat/assembly_structure',
+#'wgs_id'                    => 'LVXH',
+#'assembly_name'             => '129S1_SvImJ_v1',
+#'assembly_accession'        => 'GCA_001624185.1',
+#'full_ftp_path'             => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Mus_musculus/all_assembly_versions/GCA_001624185.1_129S1_SvImJ_v1//GCA_001624185.1_129S1_SvImJ_v1_assembly_structure',
 #'chromosomes_present'       => '1',
+
+
+'primary_assembly_dir_name' => 'Primary_Assembly',
+'wgs_id'                    => 'AABR',
+'assembly_name'             => 'TEST_RNOR6_20',
+'assembly_accession'        => 'EAT_001.1',
+'full_ftp_path'             => 'ftp://ngs.sanger.ac.uk/scratch/project/rn6/eat/assembly_structure',
+'chromosomes_present'       => '1',
 
 
 ########################

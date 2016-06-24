@@ -51,8 +51,8 @@ my $db_port = '3306' ;
   ok(-e $dir."/contigs/contigs.fa", "contigs.fa exists") or done_testing, exit ;
 
   #$module = 'download_assembly_continue_conf' ;
-  #$pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
-  #$pipeline->run();
+  $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
+  $pipeline->run();
   #TODO database value existance checks
 
 
