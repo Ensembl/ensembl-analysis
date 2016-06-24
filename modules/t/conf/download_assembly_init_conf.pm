@@ -63,7 +63,7 @@ sub default_options {
 'port'                           => '3306',
 
 
-'output_path'               => '/home/rishi/eat_files_mouse',
+'output_path'               => '/home/rishi/eat_files',
 
 #'primary_assembly_dir_name' => 'Primary_Assembly',
 #'wgs_id'                    => 'LVXH',

@@ -26,7 +26,7 @@ use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadC
 my $options = "" ;
 
 #corresponds to 'output_path' in the pipeline config files
-my $pipe_output_path = "/home/rishi/eat_files_mouse" ;
+my $pipe_output_path = "/home/rishi/eat_files" ;
 
 ok( 1, 'Startup test' );
 
@@ -50,10 +50,11 @@ my $db_port = '3306' ;
   ok(-e $dir."/AGP/chr20.agp", "chr20.agp exists") or done_testing, exit ;
   ok(-e $dir."/contigs/contigs.fa", "contigs.fa exists") or done_testing, exit ;
 
-  #$module = 'download_assembly_continue_conf' ;
+  $module = 'download_assembly_continue_conf' ;
   $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
-  #TODO database value existance checks
+  #open database adaptor, do checks and close
+
 
 
 }
