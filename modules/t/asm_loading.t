@@ -23,16 +23,10 @@ use Bio::EnsEMBL::Test::RunPipeline;
 
 use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadContigs;
 
-my $options;
-if (@ARGV) {
-  $options = join( q{ }, @ARGV );
-}
-else {
-  $options = '-run_all 1';
-}
+my $options = "" ;
 
 #corresponds to 'output_path' in the pipeline config files
-my $pipe_output_path = "/home/rishi/eat_files" ;
+my $pipe_output_path = "/home/rishi/eat_files_mouse" ;
 
 ok( 1, 'Startup test' );
 
@@ -53,12 +47,12 @@ my $db_port = '3306' ;
   my $dir = $pipe_output_path.'/Primary_Assembly' ;
   ok(-d $dir, "Primary Assembly directory exists") or done_testing, exit;
   ok(-e $dir."/assembly_report.txt", "Assembly report exists") ;
-  ok(-e $dir."/chr20.agp", "chr20.agp exists") or done_testing, exit ;
-  ok(-e $dir."/contigs/contigs.fa", "contigs.fa moved successfully") or done_testing, exit ;
+  ok(-e $dir."/AGP/chr20.agp", "chr20.agp exists") or done_testing, exit ;
+  ok(-e $dir."/contigs/contigs.fa", "contigs.fa exists") or done_testing, exit ;
 
-  $module = 'download_assembly_continue_conf' ;
-  $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
-  $pipeline->run();
+  #$module = 'download_assembly_continue_conf' ;
+  #$pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
+  #$pipeline->run();
   #TODO database value existance checks
 
 

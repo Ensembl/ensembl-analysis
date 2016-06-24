@@ -53,10 +53,12 @@ sub download_ftp_dir {
 
   my $wget_verbose = "-nv";
 
+  # get the name of the directory where the assembly report file is, replace any // with / (except for ftp://) in the path to
+  # stop issues with the pop and cut_dirs
+  $ftp_path =~ s/([^\:])\/\//$1\//;
   my @dirs = split(/\//,$ftp_path); # get array of names of subdirectories
   my @cleaned_dirs = map {$_ ? $_ : ()} @dirs; # delete empty elements in the array
-  my $numDirs = @cleaned_dirs; # count the number of dirs we need to skip to be able to put the files in the local path specified as parameter
-
+  my $numDirs = @cleaned_dirs - 1; # count the number of dirs we need to skip to be able to put the files in the local path specified as parameter
   my $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz -P ".$local_dir." ".$ftp_path;
   my $return = system($cmd);
   if($return) {
@@ -71,8 +73,6 @@ sub download_ftp_dir {
     say "$num_files files were downloaded";
   }
 
-  # get the name of the directory where the assembly report file is, replace any // with / (except for ftp://) in the path to stop issues with the pop
-  $ftp_path =~ s/([^\:])\/\//$1\//;
 
   my @ftp_path_array = split('/',$ftp_path);
   my $ass_report_dir = pop(@ftp_path_array);
