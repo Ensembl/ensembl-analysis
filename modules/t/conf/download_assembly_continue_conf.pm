@@ -146,10 +146,10 @@ sub default_options {
 
 
 'production_db' => {
-  -host   => 'ens-staging1',
+  -host   => 'localhost',
   -port   => 3306,
-  -user   => 'ensro',
-  -dbname => 'ensembl_production',
+  -user   => 'travis',
+  -dbname => 'eat_production_db',
 },
 
 'taxonomy_db' => {
@@ -198,8 +198,25 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -input_ids => [{}],
         -flow_into  => {
+                         1 => ['populate_production_tables'],
+                       },
+      },
+
+      {
+        # Load production tables into each reference
+        -logic_name => 'populate_production_tables',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
+        -parameters => {
+                         'target_db'        => $self->o('reference_db'),
+                         'output_path'      => $self->o('output_path'),
+                         'enscode_root_dir' => $self->o('enscode_root_dir'),
+                         'production_db'    => $self->o('production_db'),
+                       },
+        -rc_name    => 'default',
+        -flow_into  => {
                          1 => ['load_contigs'],
                        },
+         -wait_for => ['create_core_db'],
       },
 
       {
