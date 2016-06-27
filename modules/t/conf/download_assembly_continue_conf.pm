@@ -45,7 +45,7 @@ sub default_options {
 'enscode_root_dir'     => '/home/rishi/coding/eat', # git repo checkouts TODO set in conjuction with travis
 'repeatmasker_library' => 'mouse', # repbase library to use
 'species_name'         => 'mus_musculus',
-'taxon_id'             => '10090',
+'taxon_id'             => '10116',
 'repeatmasker_engine'  => 'crossmatch',
 'email_address'        => 'rishi@ebi.ac.uk',
 
@@ -286,7 +286,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                          1 => ['load_mitochondrion'],
+                          1 => ['create_1mb_slice_ids'],
                        },
       },
 
@@ -304,23 +304,23 @@ sub pipeline_analyses {
 #      },
 
 
-      {
-        # Load the AGP files
-        -logic_name => 'load_mitochondrion',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
-        -parameters => {
-                         'target_db'                 => $self->o('reference_db'),
-                         'output_path'               => $self->o('output_path'),
-                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
-                         'mito_index_path'           => $self->o('mito_index_path'),
-                         'species_name'              => $self->o('species_name'),
-                         'chromosomes_present'       => $self->o('chromosomes_present'),
-                      },
-        -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['create_1mb_slice_ids'],
-                       },
-      },
+#      {
+#        # Load the AGP files
+#        -logic_name => 'load_mitochondrion',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
+#        -parameters => {
+#                         'target_db'                 => $self->o('reference_db'),
+#                         'output_path'               => $self->o('output_path'),
+#                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
+#                         'mito_index_path'           => $self->o('mito_index_path'),
+#                         'species_name'              => $self->o('species_name'),
+#                         'chromosomes_present'       => $self->o('chromosomes_present'),
+#                      },
+#        -rc_name    => 'default',
+#        -flow_into  => {
+#                         1 => ['create_1mb_slice_ids'],
+#                       },
+#      },
 
 
       {
