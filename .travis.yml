@@ -49,7 +49,7 @@ install:
     - cpanm -v --notest File::Spec::Link
     - cpanm -v --notest Readonly
 # setup the databases required for the test
-    -
+    - ./scripts/t/setup_test_db_users.sh
     - ./scripts/t/setup_test_dbs.sh
 
 script: "./travisci/harness.sh"
