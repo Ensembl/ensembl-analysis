@@ -78,6 +78,22 @@ my $db_port = '3306' ;
   my ($checkval) = $sth_select->fetchrow_array;
   is($checkval, 3125, "assembly info loaded") ;
 
+  #production tables loaded
+  my $sth_select = $dba->dbc->prepare('SELECT COUNT(*) FROM external_db');
+  $sth_select->execute();
+  my ($checkval) = $sth_select->fetchrow_array;
+  is($checkval, 419, "external DB data loaded") ;
+
+  #top level checks
+  my $sth_select = $dba->dbc->prepare('SELECT COUNT(*) FROM seq_region_attrib WHERE attrib_type_id=6');
+  $sth_select->execute();
+  my ($checkval) = $sth_select->fetchrow_array;
+  is($checkval, 11, "number of toplevels set") ;
+  ok(-e $dir."/check_and_dump_toplevel/toplevel.fa", "toplevel.fa exists") or done_testing, exit ;
+
+
+
+
 }
 
 done_testing();
