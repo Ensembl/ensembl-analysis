@@ -266,8 +266,8 @@ sub run {
     $self->program . " " .$self->options .
     " --querytype "  . $self->query_type .
     " --targettype " . $self->target_type .
-    " --query "  . $self->query_file .
-    " --target " . $self->target_file;
+    ' --query "'  . $self->query_file .
+    '" --target "' . $self->target_file.'"';
   $command .= " --annotation " . $self->annotation_file if $self->annotation_features;
   
   # Execute command and parse results

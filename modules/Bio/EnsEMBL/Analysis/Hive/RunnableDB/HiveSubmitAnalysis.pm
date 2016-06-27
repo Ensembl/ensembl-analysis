@@ -394,14 +394,14 @@ sub cdna_accession {
   foreach my $accession (@{$accessions}) {
     my $size = scalar(@{$accession_array});
     if($size == $batch_size) {
-      push(@{$output_id_array},$accession_array);
+      push(@{$output_id_array},[$accession_array]);
       $accession_array = [];
     }
     push(@{$accession_array},$accession);
   }
 
   if(scalar(@{$accession_array})) {
-    push(@{$output_id_array},$accession_array);
+    push(@{$output_id_array},[$accession_array]);
   }
 
   $self->output_ids($output_id_array);
