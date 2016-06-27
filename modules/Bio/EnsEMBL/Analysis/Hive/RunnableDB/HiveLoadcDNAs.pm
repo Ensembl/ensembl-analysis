@@ -41,8 +41,6 @@ sub write_output {
 
   my $db_path = $self->param('cdna_file');
 
-  my $start_index = 0;
-
   my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($db_path);
   my $header;
   my $seq;
@@ -54,6 +52,7 @@ sub write_output {
   while($parser->next()) {
     $header = $parser->getHeader();
     $seq = $parser->getSequence();
+    $header =~ s/(\S+).*/$1/;
 
     my $output_hash = {};
     $output_hash->{'iid'} = $header;
@@ -65,7 +64,7 @@ sub write_output {
     }];
     $table_adaptor->store($db_row);
     
-    $self->dataflow_output_id($output_hash,1);
+    $self->dataflow_output_id($output_hash,2);
   }
   return 1;
 }
