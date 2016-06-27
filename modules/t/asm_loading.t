@@ -54,8 +54,29 @@ my $db_port = '3306' ;
   $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
   #open database adaptor, do checks and close
+  my $dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+    -user   => $db_user,
+    -pass   => $db_password,
+    -dbname => $db_name,
+    -host   => $db_server,
+    -driver => 'mysql'
+  );
 
+  #load contig value checks
+  my $sth_select = $dba->dbc->prepare('SELECT COUNT(*) FROM dna');
+  $sth_select->execute();
+  my ($checkval) = $sth_select->fetchrow_array;
+  is($checkval, 1570, "num dna sequences loaded") ;
+  $sth_select = $dba->dbc->prepare('SELECT COUNT(*) FROM seq_region');
+  $sth_select->execute();
+  my ($checkval) = $sth_select->fetchrow_array;
+  is($checkval, 1594, "num seq regions loaded") ;
 
+  #load_assembly_info
+  my $sth_select = $dba->dbc->prepare('SELECT COUNT(*) FROM assembly');
+  $sth_select->execute();
+  my ($checkval) = $sth_select->fetchrow_array;
+  is($checkval, 3125, "assembly info loaded") ;
 
 }
 
