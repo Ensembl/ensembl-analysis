@@ -335,6 +335,7 @@ sub pipeline_analyses {
                          include_non_reference => 0,
                          top_level => 1,
                          min_slice_length => $self->o('min_toplevel_slice_length'),
+                         iid_type => 'slice',
                        },
 
       },
