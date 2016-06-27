@@ -972,7 +972,8 @@ sub align_proteins {
 
  Arg [1]    : Hashref $connection_info, containing the connection details for the database:
               -host, -user, -dbname, -port [, -pass, -dna_db,...]
- Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object (optional), the database will have the dna
+ Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
  Example    : hrdb_get_dba->($self->param('target_db'));
  Description: It creates a object based on the information contained in $connection_info.
               If the hasref contains -dna_db or if the second argument is populated, it will
@@ -985,13 +986,20 @@ sub align_proteins {
 =cut
 
 sub hrdb_get_dba {
-  my ($connection_info, $dna_db) = @_;
-  my $dba;
+  my ($connection_info, $dna_db, $alternative_class) = @_;
 
-# It should be OK to use eq instead of =~
+  my $dba;
   if(ref($connection_info) eq 'HASH') {
+    my $module_name = 'Bio::EnsEMBL::DBSQL::DBAdaptor';
+    if ($alternative_class) {
+      $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
+      eval "use $module_name";
+      if ($@) {
+        throw("Cannot find module $module_name");
+      }
+    }
     eval {
-      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
+      $dba = $module_name->new(%$connection_info);
     };
 
     if($@) {
