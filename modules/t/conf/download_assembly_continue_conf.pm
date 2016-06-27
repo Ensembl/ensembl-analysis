@@ -81,7 +81,7 @@ sub default_options {
 'uniprot_index'             => '/data/blastdb/Ensembl/uniprot_2016_04/entry_loc',
 'vertrna_blast_db_path'     => '/data/blastdb/Ensembl/vertrna_xdformat_2016_04/embl_vertrna-1',
 'unigene_blast_db_path'     => '/data/blastdb/Ensembl/unigene/unigene',
-#'mito_index_path'           => '/data/blastdb/Ensembl/refseq_mitochondria_set/mito_index.txt',
+'mito_index_path'           => '/home/rishi/coding/eat/ensembl-analysis/modules/t/mito_index.txt',
 
 # Annotation loading
 'gtf_parsing_script'        => '/nfs/users/nfs_f/fm2/enscode/ensembl-personal/fm2/scripts/load_gtf_ensembl.pl',
@@ -286,43 +286,41 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                          1 => ['load_taxonomy_info'],
+                          1 => ['load_mitochondrion'],
                        },
       },
-
-      {
-        -logic_name => 'load_taxonomy_info',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadTaxonomyInfo',
-        -parameters => {
-                         'target_db'        => $self->o('reference_db'),
-                         'enscode_root_dir' => $self->o('enscode_root_dir'),
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['create_1mb_slice_ids'],
-                      },
-
-
-      },
-
 
 #      {
-#        # Load the AGP files
-#        -logic_name => 'load_mitochondrion',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
+#        -logic_name => 'load_taxonomy_info',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadTaxonomyInfo',
 #        -parameters => {
-#                         'target_db'                 => $self->o('reference_db'),
-#                         'output_path'               => $self->o('output_path'),
-#                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
-#                         'mito_index_path'           => $self->o('mito_index_path'),
-#                         'species_name'              => $self->o('species_name'),
-#                         'chromosomes_present'       => $self->o('chromosomes_present'),
-#                      },
-#        -rc_name    => 'default',
-#        -flow_into  => {
-#                         1 => ['create_1mb_slice_ids'],
+#                         'target_db'        => $self->o('reference_db'),
+#                         'enscode_root_dir' => $self->o('enscode_root_dir'),
 #                       },
+#        -rc_name    => 'default',
+#        -flow_into => {
+#                        1 => ['load_mitochondrion'],
+#                      },
 #      },
+
+
+      {
+        # Load the AGP files
+        -logic_name => 'load_mitochondrion',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
+        -parameters => {
+                         'target_db'                 => $self->o('reference_db'),
+                         'output_path'               => $self->o('output_path'),
+                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
+                         'mito_index_path'           => $self->o('mito_index_path'),
+                         'species_name'              => $self->o('species_name'),
+                         'chromosomes_present'       => $self->o('chromosomes_present'),
+                      },
+        -rc_name    => 'default',
+        -flow_into  => {
+                         1 => ['create_1mb_slice_ids'],
+                       },
+      },
 
 
       {

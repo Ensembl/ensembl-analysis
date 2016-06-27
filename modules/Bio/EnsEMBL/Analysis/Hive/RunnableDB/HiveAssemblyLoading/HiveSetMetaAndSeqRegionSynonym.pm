@@ -59,7 +59,8 @@ sub run {
   say "\nMeta table insertions complete\n";
 
   say "Setting seq region synonyms...\n";
-  $self->set_seq_region_synonyms($target_db,$path_to_files,$chromo_present);
+  say "rn6DEBUG: Commented this out\n";
+  #$self->set_seq_region_synonyms($target_db,$path_to_files,$chromo_present);
   say "\nSeq region synonyms inserted\n";
 
   say "\nFinished updating meta table and setting seq region synonyms";
@@ -177,21 +178,26 @@ sub set_seq_region_synonyms {
     my $sth_insert = $target_dba->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym, external_db_id) VALUES(?, ?, ?)');
     my $sth_update = $target_dba->dbc->prepare('UPDATE seq_region set name = ? WHERE seq_region_id = ?');
     my $insert_count = 0;
-    while(my $line = <IN>) {
-      if($line =~ /^#/) {
+    while(my $line = <IN>)
+    {
+      if($line =~ /^#/)
+      {
         next;
       }
+      print("rn6DEBUG SRS:Processing line:$line\n") ;
       my ($synonym, $seq_region_name) = $line =~ /(\w+)\s+(\S+)/;
+      print("rn6DEBUG SRS:synonym=$synonym, seq_region_name=$seq_region_name\n") ;
       $sth_select->bind_param(1, $seq_region_name);
       $sth_select->execute();
       my ($seq_region_id) = $sth_select->fetchrow_array();
+      print("rn6DEBUG SRS:synonym=$synonym, seq_region_name=$seq_region_name, seq_region_id=$seq_region_id\n") ;
+      $sth_update->bind_param(1, $synonym);
+      $sth_update->bind_param(2, $seq_region_id);
+      $sth_update->execute();
       $sth_insert->bind_param(1, $seq_region_id);
       $sth_insert->bind_param(2, $seq_region_name);
       $sth_insert->bind_param(3, $insdc_db_id);
       $sth_insert->execute();
-      $sth_update->bind_param(1, $synonym);
-      $sth_update->bind_param(2, $seq_region_id);
-      $sth_update->execute();
       $insert_count++;
     }
     close(IN);

@@ -126,6 +126,7 @@ sub load_taxonomy {
 
   my $return = system($cmd);
   if($return) {
+    print("rn6DEBUG:load taxonomy cmd line used:$cmd\n") ;
     throw("The load_taxonomy script returned a non-zero exit value. Commandline used:\n".$cmd);
   }
 
