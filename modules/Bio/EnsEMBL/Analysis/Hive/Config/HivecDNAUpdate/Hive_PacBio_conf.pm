@@ -49,7 +49,7 @@ sub default_options {
     'pipe_dbname'               => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive',
     'pipe_db_server'             => 'genebuild11',
 
-    'dna_dbname'                => $ENV{USER}'_human_83_copy',
+    'dna_dbname'                => $ENV{USER}.'_human_83_copy',
     'dna_db_server'              => 'genebuild12',
 
     'killlist_db_server'         => 'genebuild6',
